@@ -186,7 +186,7 @@ async function renderSiteFinance(siteId){
     dbSelect('job_finance', 'site_id=eq.'+siteId),
     dbSelect('client_pos', 'site_id=eq.'+siteId+'&order=is_primary.desc,created_at.asc'),
     dbSelect('fin_invoices', 'site_id=eq.'+siteId+'&order=created_at.desc'),
-    dbSelect('fin_contract_items', 'site_id=eq.'+siteId+'&select=id,value'),
+    dbSelect('fin_contract_items', 'site_id=eq.'+siteId+'&select=id,value,kind'),
     dbSelect('fin_applications', 'site_id=eq.'+siteId+'&order=number.desc&select=id,number,status,valuation_date,gross,net_due,cert_net,cert_retention,invoice_id'),
     dbSelect('purchase_orders', 'site_id=eq.'+siteId+'&order=seq.desc'),
     dbSelect('purchase_invoices', 'site_id=eq.'+siteId+'&order=created_at.desc'),

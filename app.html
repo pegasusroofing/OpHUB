@@ -46776,7 +46776,7 @@ async function renderSiteFinance(siteId){
     dbSelect('job_finance', 'site_id=eq.'+siteId),
     dbSelect('client_pos', 'site_id=eq.'+siteId+'&order=is_primary.desc,created_at.asc'),
     dbSelect('fin_invoices', 'site_id=eq.'+siteId+'&order=created_at.desc'),
-    dbSelect('fin_contract_items', 'site_id=eq.'+siteId+'&select=id,value'),
+    dbSelect('fin_contract_items', 'site_id=eq.'+siteId+'&select=id,value,kind'),
     dbSelect('fin_applications', 'site_id=eq.'+siteId+'&order=number.desc&select=id,number,status,valuation_date,gross,net_due,cert_net,cert_retention,invoice_id'),
     dbSelect('purchase_orders', 'site_id=eq.'+siteId+'&order=seq.desc'),
     dbSelect('purchase_invoices', 'site_id=eq.'+siteId+'&order=created_at.desc'),
@@ -56121,7 +56121,7 @@ function finJobOverviewHtml(d){
     <div class="pmstat" onclick="finProjTabGo('${siteId}','sales')"><b${overdue?' class="hot"':''}>${finMoney(overdue, 0)}</b><span>Overdue</span></div>
     <div class="pmstat" onclick="finProjTabGo('${siteId}','sales')"><b>${finMoney(retHeld, 0)}</b><span>Retention held by client</span></div>
   </div>`;
-  const start = finStartCardHtml(siteId, bt, {items:items.length, pos:pos.length, invs:invs.length, apps:apps.length});
+  const start = finStartCardHtml(siteId, bt, {items:items.filter(finIsItem).length, pos:pos.length, invs:invs.length, apps:apps.length});
   if(start) return tiles + start;
   const todo = [], T = (tone, t, s, n, js)=>todo.push({tone, t, s, n, js});
   const tab = k=>`finProjTabGo('${siteId}','${k}')`;
@@ -56313,6 +56313,212 @@ window.finCrowMenu = function(ev, i){
 .fincrow-foot:empty{display:none;}
 .fincrow.section .fincrow-foot,.fincrow.subsection .fincrow-foot{justify-content:flex-end;margin-top:4px;}`;
   document.head.appendChild(st);
+})();
+
+/* ---- 12. Bill of Quantities lines in the Coreloops style (Andy, 22 Oct) ----
+   Title row: tick, ref, description, ⋮. Under it one row of small boxes:
+   Quantity · Unit · Cost rate · Cost price · Sell rate · Sell price · Margin.
+   Cost rate × quantity = cost price (the line's budget cost); sell rate × quantity
+   = sell price. With no quantity, the prices are lump sums. */
+function finCr2(v){ return v==null || isNaN(v) ? '' : Number(v).toFixed(2); }
+function finCrNum(x){ const n = finNum(x); return (n===null || isNaN(n)) ? null : n; }
+function finCrQty(r){ const q = finCrNum(r.qty); return q!=null && q>0 ? q : null; }
+function finCrCostRate(r){ if(r.cost==null || isNaN(r.cost)) return null; const q = finCrQty(r); return q ? finRound(Number(r.cost)/q) : Number(r.cost); }
+function finCrMarginHtml(r){
+  const v = Number(finItemValue(r)), c = r.cost;
+  if(c==null || isNaN(c) || !finItemValue(r)) return '<b>—</b>';
+  const m = finRound(v - Number(c)), p = v ? (v - Number(c))/v*100 : null;
+  return `<b class="${m<0?'neg':''}">${finMoney(m)}</b><em>${p!=null?finPctTxt(finRound(p)):''}</em>`;
+}
+function finCrRefresh(i, skip){
+  const r = finContractRows[i]; if(!r) return;
+  const set = (id, v)=>{ const el = document.getElementById(id); if(el && el.id!==skip && document.activeElement!==el) el.value = v==null ? '' : String(v); };
+  set('finCCR-'+i, finCr2(finCrCostRate(r))); set('finCCost-'+i, finCr2(r.cost));
+  const auto = finCrNum(r.qty)!==null && finCrNum(r.rate)!==null;
+  const vEl = document.getElementById('finCVal-'+i); if(vEl){ vEl.disabled = auto; if(vEl.id!==skip && document.activeElement!==vEl) vEl.value = finCr2(finItemValue(r)); }
+  const mg = document.getElementById('finCMg-'+i); if(mg) mg.innerHTML = finCrMarginHtml(r);
+  finContractPaintTotal();
+}
+window.finCrSetCostRate = function(i, v){
+  const r = finContractRows[i]; const n = finCrNum(v); const q = finCrQty(r);
+  r.cost = n==null ? null : (q ? finRound(n*q) : n); r.cost_basis = ''; r.cost_pct = null;
+  finCrRefresh(i, 'finCCR-'+i);
+};
+window.finCrSetCostPrice = function(i, v){
+  const r = finContractRows[i]; const n = finCrNum(v);
+  r.cost = n; r.cost_basis = ''; r.cost_pct = null;
+  finCrRefresh(i, 'finCCost-'+i);
+};
+// Quantity / sell rate / sell price: keep the cost rate the same when the quantity changes.
+window.finCrSetNum = function(i, key, v){
+  const r = finContractRows[i]; const cr = finCrCostRate(r);
+  finContractSetNum(i, key, v);
+  if(key==='qty' && cr!=null && !r.cost_basis){ const q = finCrQty(r); r.cost = q ? finRound(cr*q) : cr; }
+  finCrRefresh(i, key==='qty' ? null : (key==='rate' ? null : 'finCVal-'+i));
+};
+function finContractPaint(){
+  const el = document.getElementById('finContractList'); if(!el) return;
+  const tot = finGroupTotals(finContractRows, r=>finItemValue(r));
+  const subs = FIN_SUBJOBS[finContractSite] || [];
+  const plotSel = i=>subs.length ? `<select class="fincrow-plot" aria-label="${escapeHtml(finSubNoun(finContractSite))}" onchange="finContractRows[${i}].sub=this.value"><option value="">${finContractRows[i].kind==='item' ? 'Plot: as header' : 'Plot: none'}</option>${subs.map(a=>`<option value="${a.id}" ${finContractRows[i].sub===a.id?'selected':''}>${escapeHtml(a.short)}</option>`).join('')}</select>` : '';
+  const menu = i=>`<button type="button" class="fincrow-menu" title="Move, change or remove" aria-label="Line options" onclick="finCrowMenu(event, ${i})">⋮</button>`;
+  const money = v=>v==null || isNaN(v) ? '' : escapeHtml(String(v));
+  el.innerHTML = finContractRows.length ? finContractRows.map((r,i)=>{
+    if(r.kind==='section' || r.kind==='subsection') return `<div class="fincrow ${r.kind}">
+        <div class="fincrow-head"><input type="checkbox" class="fincsel" aria-label="Tick everything under this" ${finContractGroupTicked(i)?'checked':''} onchange="finContractTickGroup(${i}, this.checked)"><input type="text" class="fincline-ref" placeholder="Ref" value="${escapeHtml(r.ref||'')}" oninput="finContractRows[${i}].ref=this.value">
+          <input type="text" class="fincrow-title" placeholder="${r.kind==='section'?'Header, e.g. Main roof':'Sub-header, e.g. Slating'}" value="${escapeHtml(r.description||'')}" oninput="finContractRows[${i}].description=this.value">${menu(i)}</div>
+        <div class="fincrow-foot">${plotSel(i)}<b id="finCTot-${i}">${finMoney((tot[i]||{}).value)}</b></div>
+      </div>`;
+    const v = finItemValue(r);
+    const auto = finCrNum(r.qty)!==null && finCrNum(r.rate)!==null;
+    return `<div class="fincrow item ${r._sel?'sel':''}">
+      <div class="fincrow-head"><input type="checkbox" class="fincsel" aria-label="Tick this line" ${r._sel?'checked':''} onchange="finContractTick(${i}, this.checked)"><input type="text" class="fincline-ref" placeholder="Ref" value="${escapeHtml(r.ref||'')}" oninput="finContractRows[${i}].ref=this.value">
+        <textarea rows="1" placeholder="Description" oninput="finContractRows[${i}].description=this.value">${escapeHtml(r.description||'')}</textarea>${menu(i)}</div>
+      <div class="fincpills">
+        <label class="fincpill"><span>Quantity</span><input type="text" inputmode="decimal" class="w-q" value="${money(r.qty)}" oninput="finCrSetNum(${i},'qty',this.value)"></label>
+        <label class="fincpill"><span>Unit</span><input type="text" class="w-u" list="finUnitList" autocomplete="off" placeholder="—" value="${escapeHtml(r.unit||'')}" oninput="finContractRows[${i}].unit=this.value"></label>
+        <label class="fincpill cost"><span>Cost rate £</span><input type="text" inputmode="decimal" id="finCCR-${i}" placeholder="0.00" value="${finCr2(finCrCostRate(r))}" oninput="finCrSetCostRate(${i}, this.value)"></label>
+        <label class="fincpill cost"><span>Cost price £</span><input type="text" inputmode="decimal" id="finCCost-${i}" placeholder="0.00" value="${finCr2(r.cost)}" oninput="finCrSetCostPrice(${i}, this.value)"></label>
+        <label class="fincpill sell"><span>Sell rate £</span><input type="text" inputmode="decimal" value="${finCr2(finCrNum(r.rate))}" placeholder="0.00" oninput="finCrSetNum(${i},'rate',this.value)"></label>
+        <label class="fincpill sell"><span>Sell price £</span><input type="text" inputmode="decimal" id="finCVal-${i}" placeholder="0.00" value="${finCr2(v)}" ${auto?'disabled title="Quantity × sell rate"':''} oninput="finCrSetNum(${i},'value',this.value)"></label>
+        <span class="fincpill mg"><span>Margin</span><span id="finCMg-${i}" class="fincpill-mg">${finCrMarginHtml(r)}</span></span>
+        ${plotSel(i)}
+      </div>
+    </div>`;
+  }).join('') : `<div class="empty" style="margin:0;">No lines yet. Upload a file or add a header and items.</div>`;
+  el.insertAdjacentHTML('beforeend', `<datalist id="finUnitList">${finUnitOptions().map(u=>`<option value="${escapeHtml(u)}">`).join('')}</datalist>`);
+  finContractPaintTotal();
+  finContractBulkPaint();
+}
+
+/* ---- 13. Auto-save the Bill of Quantities when lines are added, moved, changed
+   or removed — never while typing (that used to redraw the screen). Saves quietly
+   in the background, keeps you where you are, and never deletes a line that's
+   still on screen. ---- */
+let finCtAuto = {busy:false, again:false, at:null, err:''};
+async function finContractAutoSave(){
+  const siteId = finContractSite; if(!siteId || !finContractRows) return;
+  if(finCtAuto.busy){ finCtAuto.again = true; return; }
+  finCtAuto.busy = true; finCtAutoPaint('Saving…');
+  try{
+    const rowsNow = finContractRows;
+    const onScreen = new Set(rowsNow.filter(r=>r.id).map(r=>r.id));
+    const rows = rowsNow.map((r,_i)=>({_i, r, kind:r.kind||'item', description:String(r.description||'').trim()})).filter(x=>x.description);
+    const existing = await dbSelect('fin_contract_items', 'site_id=eq.'+siteId+'&select=id');
+    let failed = 0;
+    for(const e of existing) if(!onScreen.has(e.id)){ if(!(await dbDelete('fin_contract_items', e.id))) failed++; }
+    for(let p=0;p<rows.length;p++){
+      const {r, kind, description} = rows[p]; const item = kind==='item';
+      const data = {kind, ref:String(r.ref||'').trim()||null, description, qty:item?finCrNum(r.qty):null, unit:item?(String(r.unit||'').trim()||null):null, rate:item?finCrNum(r.rate):null,
+        value:item ? finItemValue(r) : 0, position:p, sub_job_id:r.sub||null, cost:item && r.cost!=null && !isNaN(r.cost) ? finRound(Number(r.cost)) : null,
+        cost_basis:item ? (r.cost_basis||null) : null, cost_pct:item && r.cost_pct!=null ? Number(r.cost_pct) : null};
+      if(r.id && existing.some(e=>e.id===r.id)){ if(!(await dbUpdate('fin_contract_items', r.id, data))) failed++; }
+      else { const ins = await dbInsert('fin_contract_items', Object.assign({org_id:ME.org_id, site_id:siteId}, data)); if(ins && ins[0]) r.id = ins[0].id; else failed++; }
+    }
+    const total = finRound(rows.filter(x=>x.kind==='item').reduce((t,x)=>t+(Number(finItemValue(x.r))||0), 0));
+    await sbFetch('/rest/v1/job_finance', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify({site_id:siteId, org_id:ME.org_id, contract_value:total, billing_type:'application', updated_at:new Date().toISOString(), updated_by:ME.id})});
+    if(finContractRows===rowsNow && !failed) finContractSnap = finContractSnapOf(finContractRows);
+    finCtAuto.at = new Date(); finCtAuto.err = failed ? failed+' line'+(failed===1?'':'s')+' didn’t save' : '';
+  }catch(e){ console.error(e); finCtAuto.err = 'Not saved — check your connection'; }
+  finCtAuto.busy = false;
+  finCtAutoPaint();
+  if(finCtAuto.again){ finCtAuto.again = false; finContractAutoSave(); }
+}
+function finCtAutoPaint(msg){
+  let el = document.getElementById('finCtAuto');
+  if(!el){ const t = document.getElementById('finContractTotal'); if(!t) return; el = document.createElement('span'); el.id = 'finCtAuto'; el.className = 'finctauto'; t.closest('.fincontot').prepend(el); }
+  el.classList.toggle('bad', !!finCtAuto.err && !msg);
+  el.textContent = msg || (finCtAuto.err ? finCtAuto.err : finCtAuto.at ? 'Saved ✓ '+finCtAuto.at.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}) : '');
+}
+(function(){
+  const add = window.finContractAdd;
+  window.finContractAdd = function(){ const r = add.apply(this, arguments); finContractAutoSave(); setTimeout(()=>{ const rows = document.querySelectorAll('#finContractList .fincrow'); const last = rows[rows.length-1]; const f = last && last.querySelector('textarea, .fincrow-title'); if(f) f.focus(); }, 30); return r; };
+  const mv = window.finContractMove;
+  window.finContractMove = function(){ const r = mv.apply(this, arguments); finContractAutoSave(); return r; };
+  const ap = window.finContractApplyPct;
+  if(ap) window.finContractApplyPct = function(){ const r = ap.apply(this, arguments); Promise.resolve(r).then(()=>finContractAutoSave()); return r; };
+  // also when you click away from a line you've been typing in
+  document.addEventListener('focusout', e=>{
+    const row = e.target && e.target.closest ? e.target.closest('#finContractList .fincrow') : null; if(!row) return;
+    setTimeout(()=>{ const a = document.activeElement; if(!(a && a.closest && a.closest('.fincrow')===row) && finContractIsDirty()) finContractAutoSave(); }, 50);
+  });
+})();
+// The ⋮ menu changes (kind / remove) save too.
+(function(){
+  const base = window.finCrowMenu;
+  window.finCrowMenu = function(ev, i){
+    base(ev, i);
+    const pop = document.getElementById('finCrowPop'); if(pop) pop.addEventListener('click', ()=>setTimeout(finContractAutoSave, 0));
+  };
+})();
+
+/* ---- 14. Variations under the Bill of Quantities ---- */
+async function finCtVariationsFill(siteId){
+  const box = document.getElementById('finCtVars'); if(!box) return;
+  const vs = await dbSelect('fin_variations', 'site_id=eq.'+siteId+'&order=seq.asc').catch(()=>[]);
+  if(!document.getElementById('finCtVars')) return;
+  const val = v=>v.agreed_value!=null ? Number(v.agreed_value) : (v.quoted!=null ? Number(v.quoted) : null);
+  const agreed = vs.filter(v=>v.status==='agreed').reduce((t,v)=>t+(Number(v.agreed_value)||0), 0);
+  const pending = vs.filter(v=>!['agreed','rejected'].includes(v.status)).reduce((t,v)=>t+(val(v)||0), 0);
+  box.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+      <p class="sectiontitle" style="margin:0;">Variations</p>
+      <button type="button" class="ghostbtn" style="width:auto;padding:6px 12px;margin:0;" onclick="openFinVariation('${siteId}')">+ Add variation</button>
+    </div>
+    <p class="stub" style="margin:4px 0 10px;font-style:normal;">Agreed <b>${finMoney(agreed)}</b>${pending ? ` · waiting to be agreed ${finMoney(pending)}` : ''}. Agreed variations are added to the contract and can be valued on applications.</p>
+    ${vs.length ? `<div class="finreptbl-wrap"><table class="fincosttbl fininvtbl"><thead><tr><th>No.</th><th>Title</th><th>Status</th><th class="num">Quoted</th><th class="num">Agreed</th><th class="num">Budget cost</th></tr></thead><tbody>
+      ${vs.map(v=>`<tr class="click" onclick="openFinVariation('${siteId}','${v.id}')"><td data-l="No."><b>${escapeHtml(v.number||'')}</b></td><td data-l="Title">${escapeHtml(v.title||'')}</td><td data-l="Status"><span class="finpill ${v.status==='agreed'?'ok':v.status==='rejected'?'bad':'grey'}">${escapeHtml(FIN_VAR_STATUS[v.status]||v.status||'')}</span></td><td data-l="Quoted" class="num">${v.quoted!=null?finMoney(v.quoted):'—'}</td><td data-l="Agreed" class="num">${v.agreed_value!=null?finMoney(v.agreed_value):'—'}</td><td data-l="Budget cost" class="num">${v.cost_estimate!=null?finMoney(v.cost_estimate):'—'}</td></tr>`).join('')}
+    </tbody></table></div>` : '<div class="empty" style="margin:0;">No variations yet.</div>'}`;
+}
+(function(){
+  const base = renderFinContract;
+  renderFinContract = async function(siteId){
+    const r = await base.apply(this, arguments);
+    const save = document.getElementById('finContractSave');
+    if(save && !document.getElementById('finCtVars')){
+      const card = document.createElement('div'); card.className = 'card'; card.id = 'finCtVars'; card.innerHTML = '<p class="stub">Loading variations…</p>';
+      const after = save.nextElementSibling && save.nextElementSibling.matches('p.stub') ? save.nextElementSibling : save;
+      after.insertAdjacentElement('afterend', card); card.style.marginTop = '16px';
+      finCtVariationsFill(siteId);
+    }
+    finCtAutoPaint();
+    return r;
+  };
+})();
+
+(function(){
+  const st = document.createElement('style');
+  st.textContent = `.fincpills{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;}
+.fincpill{display:inline-flex;align-items:center;gap:4px;height:32px;box-sizing:border-box;padding:0 2px 0 8px;border:1px solid #E1E4EA;border-radius:8px;background:#fff;font-size:12.5px;color:var(--slate);font-weight:600;white-space:nowrap;}
+.fincpill > span:first-child{white-space:nowrap;}
+.fincpill input{all:unset;box-sizing:border-box;width:68px;height:28px;padding:0 6px;border-radius:6px;font-size:13.5px;font-weight:700;color:var(--ink);text-align:right;}
+.fincpill input.w-q{width:56px;} .fincpill input.w-u{width:64px;text-align:left;}
+.fincpill input[id^=finCCost],.fincpill input[id^=finCVal]{width:96px;}
+.fincpill input:focus{background:#F2F4F7;}
+.fincpill input:disabled{color:var(--ink);opacity:1;}
+.fincpill.cost{background:#FFFBF2;border-color:#F1E3C4;} .fincpill.sell{background:#F4F8FF;border-color:#D9E5F7;}
+.fincpill.mg{padding-right:10px;} .fincpill-mg{display:inline-flex;gap:6px;align-items:baseline;} .fincpill-mg b{color:#1E6B45;font-size:13.5px;} .fincpill-mg b.neg{color:var(--red);} .fincpill-mg em{font-style:normal;font-size:12px;color:var(--slate);}
+.fincpills .fincrow-plot{height:32px;font-size:12.5px;}
+.finctauto{display:block;font-size:11.5px;color:#1E6B45;font-weight:600;text-align:right;} .finctauto.bad{color:var(--red);}
+@media (max-width:600px){ .fincpill input{width:70px;} }`;
+  document.head.appendChild(st);
+})();
+
+/* ---- 15. Bill of Quantities: count sections and items separately (Andy, 22 Oct) ---- */
+(function(){
+  const base = window.finContractPaintTotal;
+  window.finContractPaintTotal = function(){
+    const r = base.apply(this, arguments);
+    const rows = finContractRows || [];
+    const secs = rows.filter(x=>x.kind==='section').length, subs = rows.filter(x=>x.kind==='subsection').length, items = rows.filter(finIsItem).length;
+    const t = Array.from(document.querySelectorAll('.card .sectiontitle')).find(p=>p.textContent.trim().startsWith('Lines'));
+    if(t){
+      let c = document.getElementById('finCtCount');
+      if(!c){ c = document.createElement('span'); c.id = 'finCtCount'; c.className = 'finctcount'; t.appendChild(c); }
+      c.textContent = [secs ? secs+' section'+(secs===1?'':'s') : '', subs ? subs+' sub-section'+(subs===1?'':'s') : '', items+' item'+(items===1?'':'s')].filter(Boolean).join(' · ');
+    }
+    return r;
+  };
+  const st = document.createElement('style'); st.textContent = '.finctcount{font-size:12.5px;font-weight:600;color:var(--slate);margin-left:10px;}'; document.head.appendChild(st);
 })();
 
 /* ============================================================
