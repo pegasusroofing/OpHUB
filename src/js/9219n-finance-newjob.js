@@ -544,22 +544,59 @@ function finCtAutoPaint(msg){
 })();
 
 /* ---- 14. Variations under the Bill of Quantities ---- */
+// Variations raised on the Projects side come into the register on their own, and any
+// variation can be sent to the operatives' Schedule of Works (Andy, 22 Oct).
+let finCtVarBusy = false;
 async function finCtVariationsFill(siteId){
   const box = document.getElementById('finCtVars'); if(!box) return;
-  const vs = await dbSelect('fin_variations', 'site_id=eq.'+siteId+'&order=seq.asc').catch(()=>[]);
+  const fo = typeof isFinanceOnly==='function' && isFinanceOnly();
+  let [vs, siteVars] = await Promise.all([
+    dbSelect('fin_variations', 'site_id=eq.'+siteId+'&order=seq.asc').catch(()=>[]),
+    fo ? Promise.resolve([]) : dbSelect('variations', 'site_id=eq.'+siteId+'&order=created_at.asc').catch(()=>[]),
+  ]);
+  const linked = new Set(vs.map(v=>v.variation_id).filter(Boolean));
+  const fresh = siteVars.filter(v=>!linked.has(v.id) && v.approval_status!=='declined');
+  if(fresh.length && !finCtVarBusy){
+    finCtVarBusy = true;
+    try{
+      for(const v of fresh){
+        const amt = finNum(v.cost_impact), ok = amt!==null && !isNaN(amt);
+        await finVarInsert(siteId, {title:String(v.description||'Variation').slice(0,200), description:v.description||null, variation_id:v.id, instructed_on:String(v.created_at||'').slice(0,10)||null,
+          status: v.approval_status==='approved' ? 'agreed' : 'instructed', quoted: ok ? amt : null, agreed_value: v.approval_status==='approved' && ok ? amt : null, notes:'Raised on site'});
+      }
+    } finally { finCtVarBusy = false; }
+    vs = await dbSelect('fin_variations', 'site_id=eq.'+siteId+'&order=seq.asc').catch(()=>vs);
+  }
   if(!document.getElementById('finCtVars')) return;
+  const siteBy = {}; siteVars.forEach(v=>siteBy[v.id] = v);
+  const inSow = v=>v.schedule_section_id || (v.variation_id && siteBy[v.variation_id] && siteBy[v.variation_id].schedule_section_id);
   const val = v=>v.agreed_value!=null ? Number(v.agreed_value) : (v.quoted!=null ? Number(v.quoted) : null);
   const agreed = vs.filter(v=>v.status==='agreed').reduce((t,v)=>t+(Number(v.agreed_value)||0), 0);
   const pending = vs.filter(v=>!['agreed','rejected'].includes(v.status)).reduce((t,v)=>t+(val(v)||0), 0);
+  const sowCell = v=>fo ? '' : `<td data-l="Schedule of Works" onclick="event.stopPropagation()">${inSow(v) ? '<span class="finpill ok">✓ On the schedule</span>' : v.status==='rejected' ? '<span class="stub" style="margin:0;">—</span>' : `<button type="button" class="ghostbtn" style="width:auto;padding:4px 10px;margin:0;font-size:12px;" onclick="finVarToSow('${siteId}','${v.id}')">+ Schedule of Works</button>`}</td>`;
   box.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
       <p class="sectiontitle" style="margin:0;">Variations</p>
       <button type="button" class="ghostbtn" style="width:auto;padding:6px 12px;margin:0;" onclick="openFinVariation('${siteId}')">+ Add variation</button>
     </div>
-    <p class="stub" style="margin:4px 0 10px;font-style:normal;">Agreed <b>${finMoney(agreed)}</b>${pending ? ` · waiting to be agreed ${finMoney(pending)}` : ''}. Agreed variations are added to the contract and can be valued on applications.</p>
-    ${vs.length ? `<div class="finreptbl-wrap"><table class="fincosttbl fininvtbl"><thead><tr><th>No.</th><th>Title</th><th>Status</th><th class="num">Quoted</th><th class="num">Agreed</th><th class="num">Budget cost</th></tr></thead><tbody>
-      ${vs.map(v=>`<tr class="click" onclick="openFinVariation('${siteId}','${v.id}')"><td data-l="No."><b>${escapeHtml(v.number||'')}</b></td><td data-l="Title">${escapeHtml(v.title||'')}</td><td data-l="Status"><span class="finpill ${v.status==='agreed'?'ok':v.status==='rejected'?'bad':'grey'}">${escapeHtml(FIN_VAR_STATUS[v.status]||v.status||'')}</span></td><td data-l="Quoted" class="num">${v.quoted!=null?finMoney(v.quoted):'—'}</td><td data-l="Agreed" class="num">${v.agreed_value!=null?finMoney(v.agreed_value):'—'}</td><td data-l="Budget cost" class="num">${v.cost_estimate!=null?finMoney(v.cost_estimate):'—'}</td></tr>`).join('')}
+    <p class="stub" style="margin:4px 0 10px;font-style:normal;">Agreed <b>${finMoney(agreed)}</b>${pending ? ` · waiting to be agreed ${finMoney(pending)}` : ''}.${fo ? '' : ' Variations raised on site (Projects › Variations) come in here on their own.'} Agreed variations are added to the contract and can be valued on applications.</p>
+    ${vs.length ? `<div class="finreptbl-wrap"><table class="fincosttbl fininvtbl"><thead><tr><th>No.</th><th>Title</th><th>Status</th><th class="num">Quoted</th><th class="num">Agreed</th><th class="num">Budget cost</th>${fo?'':'<th>Schedule of Works</th>'}</tr></thead><tbody>
+      ${vs.map(v=>`<tr class="click" onclick="openFinVariation('${siteId}','${v.id}')"><td data-l="No."><b>${escapeHtml(v.number||'')}</b></td><td data-l="Title">${escapeHtml(v.title||'')}${v.variation_id?' <span class="finpill grey" title="Raised on the Projects side">Site</span>':''}</td><td data-l="Status"><span class="finpill ${v.status==='agreed'?'ok':v.status==='rejected'?'bad':'grey'}">${escapeHtml(FIN_VAR_STATUS[v.status]||v.status||'')}</span></td><td data-l="Quoted" class="num">${v.quoted!=null?finMoney(v.quoted):'—'}</td><td data-l="Agreed" class="num">${v.agreed_value!=null?finMoney(v.agreed_value):'—'}</td><td data-l="Budget cost" class="num">${v.cost_estimate!=null?finMoney(v.cost_estimate):'—'}</td>${sowCell(v)}</tr>`).join('')}
     </tbody></table></div>` : '<div class="empty" style="margin:0;">No variations yet.</div>'}`;
 }
+window.finVarToSow = async function(siteId, finVarId){
+  if(typeof FIN_TRIAL!=='undefined' && FIN_TRIAL && !(typeof finIsSandbox==='function' && finIsSandbox())){ toast('Finance trial — switched off while testing (nothing is added to the Schedule of Works yet).'); return; }
+  const v = (await dbSelect('fin_variations', 'id=eq.'+finVarId))[0]; if(!v) return;
+  if(v.schedule_section_id){ toast('Already on the Schedule of Works.'); return; }
+  const sv = v.variation_id ? (await dbSelect('variations', 'id=eq.'+v.variation_id))[0] : null;
+  if(sv && sv.schedule_section_id){ await dbUpdate('fin_variations', v.id, {schedule_section_id:sv.schedule_section_id}); toast('Already on the Schedule of Works.'); finCtVariationsFill(siteId); return; }
+  if(!await customConfirm(`Add “${v.title}” to the operatives’ Schedule of Works? It goes in as its own section (no prices).`)) return;
+  const sec = await addVariationSection(siteId, (v.number ? v.number+' ' : '')+(v.title||'Variation work'));
+  if(!sec){ toast('Could not add to the schedule — try again.'); return; }
+  await dbUpdate('fin_variations', v.id, {schedule_section_id:sec.id});
+  if(sv) await dbUpdate('variations', sv.id, {schedule_section_id:sec.id});
+  toast(`Added to the Schedule of Works as “${sec.name}”`);
+  finCtVariationsFill(siteId);
+};
 (function(){
   const base = renderFinContract;
   renderFinContract = async function(siteId){

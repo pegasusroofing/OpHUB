@@ -43,9 +43,6 @@ function finShellPrefix(opts){
   return `<div class="finprojbar">
     <button type="button" class="finprojbar-home" onclick="finProjHome('${id}')" title="Project overview" aria-label="Project overview">${typeof ophIcon==='function' ? ophIcon('home', 17) : '⌂'}<span>Overview</span></button>
     <button type="button" class="finprojbar-p" onclick="finProjHome('${id}')" title="Project overview"><b>${escapeHtml(s.job_number||'')}</b> ${escapeHtml(s.name||'')}</button>
-    <select class="finprojbar-s" aria-label="Go to" onchange="finDocGo('${id}', this.value)">
-      ${FIN_DOC_TYPES.filter(t=>!t.when || t.when(id)).map(t=>`<option value="${t.k}" ${t.k===cur?'selected':''}>${typeof t.l==='function' ? t.l(id) : t.l}</option>`).join('')}
-    </select>
     <select class="finprojbar-n" aria-label="New" onchange="finDocNew('${id}', this.value);this.value=''">
       <option value="">+ New</option>${FIN_NEW_TYPES.map((t,i)=>`<option value="${i}">${t.l}</option>`).join('')}
     </select>
