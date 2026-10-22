@@ -56603,50 +56603,162 @@ window.finAppAddLineOpen = function(siteId, kind){
   ov.style.display = 'flex';
   setTimeout(()=>{ const d = document.getElementById('falDesc'); if(d) d.focus(); }, 50);
 };
+// Core: put one new header / line into the Bill of Quantities and this application.
+// e = {kind:'item'|'section', under:headerItemId|''|'__new', newHead, ref, desc, qty, unit, rate, value, cost, pct}
+async function finAppAddLineCore(siteId, e){
+  const item = e.kind==='item';
+  const boq = await dbSelect('fin_contract_items', 'site_id=eq.'+siteId+'&order=position.asc');
+  const groupEnd = (arr, idx, key)=>{ const lvl = arr[idx].kind; let k = idx+1; while(k<arr.length){ const kk = arr[k].kind; if(kk==='section' || (lvl==='subsection' && kk==='subsection')) break; k++; } return k; };
+  let at = boq.length;
+  if(item && e.under && e.under!=='__new'){ const hi = boq.findIndex(b=>b.id===e.under); if(hi>=0) at = groupEnd(boq, hi); }
+  const newRows = [];
+  if(!item || e.newHead) newRows.push({kind:'section', ref:item ? null : (e.ref||null), description:item ? e.newHead : e.desc, value:0});
+  if(item) newRows.push({kind:'item', ref:e.ref||null, description:e.desc, qty:e.qty, unit:e.unit||null, rate:e.rate, value:e.value, cost:e.cost});
+  const made = [];
+  for(const nr of newRows){ const ins = await dbInsert('fin_contract_items', Object.assign({org_id:ME.org_id, site_id:siteId, position:0}, nr)); if(!(ins && ins[0])) throw new Error('insert'); made.push(ins[0]); }
+  const order = boq.slice(0, at).concat(made, boq.slice(at));
+  for(let p=0;p<order.length;p++) if(order[p].position!==p) await dbUpdate('fin_contract_items', order[p].id, {position:p});
+  const total = finRound(order.filter(finIsItem).reduce((t,b)=>t+Number(b.value||0), 0));
+  await sbFetch('/rest/v1/job_finance', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify({site_id:siteId, org_id:ME.org_id, contract_value:total, updated_at:new Date().toISOString(), updated_by:ME.id})});
+  if(finAppCtx && finAppCtx.jf) finAppCtx.jf.contract_value = total;
+  const appLines = finApp.lines || (finApp.lines = []);
+  const toLine = b=>finIsItem(b) ? {kind:'item', item_id:b.id, ref:b.ref||'', description:b.description, qty:b.qty!=null?Number(b.qty):null, unit:b.unit||'', rate:b.rate!=null?Number(b.rate):null, value:Number(b.value||0), pct:finPct(e.pct||0)} : {kind:b.kind, item_id:b.id, ref:b.ref||'', description:b.description};
+  let li = appLines.length;
+  if(item && e.under && e.under!=='__new'){ const hi = appLines.findIndex(l=>l.item_id===e.under); if(hi>=0) li = groupEnd(appLines, hi); }
+  appLines.splice(li, 0, ...made.map(toLine));
+  if(typeof finContractRows!=='undefined' && finContractSite===siteId) finContractRows = null;
+  return made;
+}
 window.finAppAddLineSave = async function(siteId, kind){
   const item = kind==='item';
   const desc = finVal('falDesc'); if(!desc){ toast(item ? 'Add a description.' : 'Give the header a name.'); return; }
   const qty = finCrNum(finVal('falQty')), rate = finCrNum(finVal('falRate')), lump = finCrNum(finVal('falValue')), crate = finCrNum(finVal('falCost'));
   const value = item ? (qty!=null && rate!=null ? finRound(qty*rate) : lump) : 0;
   if(item && value==null){ toast('Enter a quantity and sell rate, or a lump sum.'); return; }
-  let under = item ? finVal('falUnder') : '';
+  const under = item ? finVal('falUnder') : '';
   const newHead = item && under==='__new' ? finVal('falNewHead') : '';
   if(item && under==='__new' && !newHead){ toast('Name the new header.'); return; }
   const btn = document.getElementById('falSave'); if(btn){ btn.disabled = true; btn.textContent = 'Adding…'; }
   try{
-    // Fresh copy of the Bill of Quantities, then work out where the new rows go.
-    const boq = await dbSelect('fin_contract_items', 'site_id=eq.'+siteId+'&order=position.asc');
-    let at = boq.length;
-    if(item && under && under!=='__new'){
-      const hi = boq.findIndex(b=>b.id===under);
-      if(hi>=0){ const lvl = boq[hi].kind; at = hi+1; while(at<boq.length){ const k = boq[at].kind; if(k==='section' || (lvl==='subsection' && k==='subsection')) break; at++; } }
-    }
-    const newRows = [];
-    if(!item || newHead) newRows.push({kind:'section', ref:item ? null : (finVal('falRef')||null), description:item ? newHead : desc, value:0});
-    if(item) newRows.push({kind:'item', ref:finVal('falRef')||null, description:desc, qty, unit:finVal('falUnit')||null, rate, value, cost: crate!=null ? (qty ? finRound(crate*qty) : crate) : null});
-    const made = [];
-    for(const nr of newRows){ const ins = await dbInsert('fin_contract_items', Object.assign({org_id:ME.org_id, site_id:siteId, position:0}, nr)); if(!(ins && ins[0])) throw new Error('insert'); made.push(ins[0]); }
-    const order = boq.slice(0, at).concat(made, boq.slice(at));
-    for(let p=0;p<order.length;p++) if(order[p].position!==p) await dbUpdate('fin_contract_items', order[p].id, {position:p});
-    const total = finRound(order.filter(finIsItem).reduce((t,b)=>t+Number(b.value||0), 0));
-    await sbFetch('/rest/v1/job_finance', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify({site_id:siteId, org_id:ME.org_id, contract_value:total, updated_at:new Date().toISOString(), updated_by:ME.id})});
-    if(finAppCtx && finAppCtx.jf) finAppCtx.jf.contract_value = total;
-    // Into this application, in the same place.
-    const appLines = finApp.lines || (finApp.lines = []);
-    const toLine = b=>finIsItem(b) ? {kind:'item', item_id:b.id, ref:b.ref||'', description:b.description, qty:b.qty!=null?Number(b.qty):null, unit:b.unit||'', rate:b.rate!=null?Number(b.rate):null, value:Number(b.value||0), pct:0} : {kind:b.kind, item_id:b.id, ref:b.ref||'', description:b.description};
-    let li = appLines.length;
-    if(item && under && under!=='__new'){
-      const hi = appLines.findIndex(l=>l.item_id===under);
-      if(hi>=0){ const lvl = appLines[hi].kind; li = hi+1; while(li<appLines.length){ const k = appLines[li].kind; if(k==='section' || (lvl==='subsection' && k==='subsection')) break; li++; } }
-    }
-    appLines.splice(li, 0, ...made.map(toLine));
-    if(typeof finContractRows!=='undefined' && finContractSite===siteId) finContractRows = null; // BoQ page re-reads next time
+    await finAppAddLineCore(siteId, {kind, under, newHead, ref:finVal('falRef')||null, desc, qty, unit:finVal('falUnit')||null, rate, value, cost: crate!=null ? (qty ? finRound(crate*qty) : crate) : null, pct:0});
     document.getElementById('finAppLineOv').style.display = 'none';
     await finAppSaveSoft();
     toast(item ? 'Line added — and to the Bill of Quantities' : 'Header added');
     render();
-  }catch(e){ console.error(e); toast('Could not add the line — try again.'); if(btn){ btn.disabled = false; btn.textContent = item?'Add line':'Add header'; } }
+  }catch(err){ console.error(err); toast('Could not add the line — try again.'); if(btn){ btn.disabled = false; btn.textContent = item?'Add line':'Add header'; } }
 };
+
+/* ---- 18. Excel round trip (Andy, 22 Oct: "exports as an excel and then allows changes
+   to be uploaded … also for when we certify").
+   • Application: the downloaded Excel already comes back in (yellow % cells, variations,
+     dayworks). Now a NEW row typed under CONTRACT WORKS (no ID, a description and a
+     qty × rate or contract value) becomes a new Bill of Quantities line under the header
+     above it, at the % typed.
+   • Certificate: upload the client's marked-up copy of the same Excel. Their % complete
+     per line is read, the certified total, retention and net are worked out and filled
+     into the certificate, and each line's certified % is kept with the certificate. ---- */
+async function finXlRows(file){
+  if(!(await loadLib('XLSX'))){ toast('Could not load the Excel reader — check your connection.'); return null; }
+  try{ const wb = XLSX.read(new Uint8Array(await file.arrayBuffer()), {type:'array'}); return XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1, raw:true, defval:''}); }
+  catch(e){ toast('Could not read that file.'); return null; }
+}
+function finXlCols(rows){
+  const hi = rows.findIndex(r=>r.some(c=>/^description$/i.test(String(c).trim())));
+  const H = (hi>=0 ? rows[hi] : []).map(c=>String(c).trim().toLowerCase());
+  const col = (re, d)=>{ const i = H.findIndex(h=>re.test(h)); return i>=0 ? i : d; };
+  return {hi, ref:col(/^ref/,1), desc:col(/^description$/,2), qty:col(/^(qty|quantity)$/,3), unit:col(/^unit$/,4), rate:col(/^rate$/,5), value:col(/^contract value$/,6), pct:col(/^% ?complete/,7), gross:col(/^value to date$/,8)};
+}
+const finXlNum = v=>{ if(typeof v==='number') return v; const n = Number(String(v||'').replace(/[£,%\s]/g,'')); return (String(v||'').trim()==='' || isNaN(n)) ? null : n; };
+(function(){
+  const base = window.uploadFinAppExcel;
+  window.uploadFinAppExcel = async function(file){
+    if(!file || !finApp) return;
+    const rows = await finXlRows(file); if(!rows) return;
+    const C = finXlCols(rows);
+    let inContract = false, head = '', added = 0;
+    const adds = [];
+    rows.forEach((r, ri)=>{
+      if(ri<=C.hi) return;
+      const id = String(r[0]||'').trim(), desc = String(r[C.desc]||'').trim();
+      if(/^CONTRACT WORKS$/i.test(desc)){ inContract = true; return; }
+      if(/^(VARIATIONS|DAYWORKS)$/i.test(desc) || /^Gross valuation/i.test(desc)){ inContract = false; return; }
+      if(!inContract) return;
+      const m = /^H:(.+)$/.exec(id); if(m){ head = m[1]; return; }
+      if(id || !desc) return;
+      const qty = finXlNum(r[C.qty]), rate = finXlNum(r[C.rate]), val = finXlNum(r[C.value]);
+      const value = qty!=null && rate!=null ? finRound(qty*rate) : val;
+      if(value==null) return;
+      adds.push({kind:'item', under:(finApp.lines||[]).some(l=>l.item_id===head) ? head : '', ref:String(r[C.ref]||'').trim()||null, desc, qty, unit:String(r[C.unit]||'').trim()||null, rate, value, cost:null, pct:finXlNum(r[C.pct])||0});
+    });
+    if(adds.length){
+      try{ for(const e of adds){ await finAppAddLineCore(finApp.site_id, e); added++; } }
+      catch(e){ console.error(e); toast('Some new lines from the Excel could not be added.'); }
+    }
+    const res = await base.call(this, file);
+    if(added) toast(`${added} new line${added===1?'':'s'} added from the Excel (and to the Bill of Quantities)`);
+    return res;
+  };
+})();
+
+let finCertLines = null; // [{item_id, description, value, pct, gross}] from the client's Excel
+window.finCertFromExcel = async function(file, appId){
+  if(!file) return;
+  const a = (await dbSelect('fin_applications', 'id=eq.'+appId))[0]; if(!a) return;
+  const rows = await finXlRows(file); if(!rows) return;
+  const C = finXlCols(rows);
+  const byId = {}; rows.forEach((r,ri)=>{ if(ri>C.hi){ const id = String(r[0]||'').trim(); if(id) byId[id] = r; } });
+  const lines = [], diffs = [];
+  let gross = 0, found = 0;
+  (a.lines||[]).filter(finIsItem).forEach(l=>{
+    const r = byId['L:'+l.item_id]; const pct = r ? finXlNum(r[C.pct]) : null;
+    const p = pct!=null ? finPct(pct) : finPct(l.pct); if(r) found++;
+    const g = finRound(Number(l.value||0)*p/100); gross += g;
+    lines.push({item_id:l.item_id, description:l.description, value:Number(l.value||0), applied_pct:finPct(l.pct), pct:p, gross:g});
+    if(p!==finPct(l.pct)) diffs.push(l.description+': '+finPct(l.pct)+'% → '+p+'%');
+  });
+  (a.variations||[]).forEach((v,i)=>{ const r = byId['V:'+(v.variation_id||('x'+i))]; const p = r && finXlNum(r[C.pct])!=null ? finPct(finXlNum(r[C.pct])) : finPct(v.pct); const val = r && finXlNum(r[C.value])!=null ? finXlNum(r[C.value]) : Number(v.value||0); if(r) found++; gross += finRound(val*p/100); if(p!==finPct(v.pct) || val!==Number(v.value||0)) diffs.push((v.description||'Variation')+' changed'); });
+  (a.dayworks||[]).forEach((d,i)=>{ const r = byId['D:'+i]; const val = r && finXlNum(r[C.value])!=null ? finXlNum(r[C.value]) : Number(d.value||0); if(r) found++; gross += finRound(val); if(val!==Number(d.value||0)) diffs.push((d.description||'Daywork')+' changed'); });
+  if(!found){ toast('That doesn’t look like this application’s Excel — download it from OpHUB, send it to the client and upload their copy.'); return; }
+  gross = finRound(gross);
+  const jf = (await dbSelect('job_finance', 'site_id=eq.'+a.site_id))[0] || {};
+  let ret = finRound(gross*finPct(a.retention_pct)/100);
+  if(jf.retention_limit_pct && jf.contract_value) ret = Math.min(ret, finRound(jf.contract_value*jf.retention_limit_pct/100));
+  const set = (id, v)=>{ const el = document.getElementById(id); if(el) el.value = String(finRound(v)); };
+  set('finCertGross', gross); set('finCertRet', ret);
+  if(typeof finCertCalc==='function') finCertCalc();
+  finCertLines = lines;
+  const box = document.getElementById('finCertXlNote');
+  if(box) box.innerHTML = `<b>Read from the client’s Excel:</b> certified to date ${finMoney(gross)}. ${diffs.length ? diffs.length+(diffs.length===1?' line differs':' lines differ')+' from what you applied for:<br>'+diffs.slice(0,8).map(escapeHtml).join('<br>')+(diffs.length>8?'<br>…and '+(diffs.length-8)+' more':'') : 'Every line matches what you applied for.'} Check the figures, then save.`;
+  toast('Certificate filled in from the Excel');
+};
+(function(){
+  const slot = finCertSlotRender;
+  finCertSlotRender = function(a){
+    slot.apply(this, arguments);
+    const save = document.getElementById('finCertSave');
+    if(save && !document.getElementById('finCertXl')){
+      finCertLines = null;
+      save.closest('.card').querySelector('.sectiontitle').insertAdjacentHTML('afterend', `<div id="finCertXl" class="finnote" style="margin:0 0 12px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;"><span>Client sent back the Excel with their figures? Upload it and the certificate fills itself in.</span>
+        <label class="ghostbtn" style="width:auto;margin:0;padding:6px 12px;cursor:pointer;">Upload client’s Excel<input type="file" accept=".xlsx,.xls" style="display:none;" onchange="finCertFromExcel(this.files[0],'${a.id}')"></label></div>
+        <div id="finCertXlNote" class="stub" style="margin:6px 0 0;font-style:normal;"></div></div>`);
+    }
+    // Certified lines kept with the certificate.
+    if(a.cert_net!=null && Array.isArray(a.cert_lines) && a.cert_lines.length){
+      const el = document.getElementById('finCertSlot'); const card = el && el.querySelector('.card');
+      const diff = a.cert_lines.filter(l=>finPct(l.pct)!==finPct(l.applied_pct));
+      if(card && !card.querySelector('.fincertlines')) card.insertAdjacentHTML('beforeend', `<details class="fincertlines" style="margin-top:10px;"><summary class="linkbtn" style="cursor:pointer;">Certified line by line${diff.length?` · ${diff.length} differ${diff.length===1?'s':''} from applied`:''}</summary>
+        <table class="fincosttbl" style="margin-top:6px;"><thead><tr><th>Line</th><th class="num">Applied %</th><th class="num">Certified %</th><th class="num">Certified £</th></tr></thead><tbody>
+        ${a.cert_lines.map(l=>`<tr><td>${escapeHtml(l.description||'')}</td><td class="num">${finPct(l.applied_pct)}%</td><td class="num" style="${finPct(l.pct)<finPct(l.applied_pct)?'color:var(--red);font-weight:700;':''}">${finPct(l.pct)}%</td><td class="num">${finMoney(l.gross)}</td></tr>`).join('')}
+        </tbody></table></details>`);
+    }
+  };
+  const save = window.saveFinCertificate;
+  window.saveFinCertificate = async function(siteId, appId){
+    await dbUpdate('fin_applications', appId, {cert_lines:finCertLines||null}); finCertLines = null;
+    return save.apply(this, arguments);
+  };
+})();
 
 /* ---- 17. Application lines compact: description on the left, % / qty done on the same row (Andy, 22 Oct) ---- */
 (function(){
