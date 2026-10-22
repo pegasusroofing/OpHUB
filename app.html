@@ -47930,7 +47930,6 @@ async function renderFinApplication(siteId, appId){
       <div><div class="finhead-l">Client PO</div><div class="finhead-v">${escapeHtml(a.client_po||'—')}</div></div>
       <div><div class="finhead-l">Due this time</div><div class="finhead-v" id="finAppDueHead">—</div></div>
     </div>
-    ${typeof finAppStepsHtml==='function' ? finAppStepsHtml(a) : ''}
     ${locked ? (a.status==='submitted' && a.cert_net==null ? `<div class="finbanner finsubmitted" style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;"><span>📤 Submitted${a.submitted_at?' on '+finDate(String(a.submitted_at).slice(0,10)):''}${a.sent_to?' to '+escapeHtml(a.sent_to):''} — locked. Next: enter the client’s certificate below.</span><span style="display:flex;gap:8px;"><button class="ghostbtn" onclick="openFinAppEmail('${siteId}','${a.id}')">Email again</button><button class="ghostbtn" onclick="finAppToDraft('${a.id}')">Return to draft</button></span></div>` : `<div class="finbanner" style="background:var(--warn-bg);color:var(--warn);border-color:#F2D9B8;">This application has been ${a.status==='void'?'voided':'certified'}, so it can’t be changed.</div>`) : `
     <details class="card finappdates">
       <summary><span>📅 Dates &amp; retention</span><em>Valuation ${finDate(a.valuation_date)} · Due ${finDate(a.due_date)} · Final ${finDate(a.final_date)} · Retention ${finPct(a.retention_pct)}%</em><b>▾</b></summary>
@@ -56948,12 +56947,11 @@ function finAppNextBtn(a){
 function finAppStepsHtml(a){
   const st = finAppStageKey(a); if(st==='void') return '';
   const opts = [['draft','Draft'],['applied','Applied'],['certified','Certified'],['invoiced','Invoiced']];
-  const tip = {draft:'Fill in the % done, then press Apply. That locks it — you can still email it to the client.', applied:'When the client’s certificate comes back, press Certify and enter their figures (or upload their Excel).', certified:'Press Invoice to make the invoice: certified total, less retention, less previously certified, with VAT on the total.', invoiced:'Done — the invoice is raised.'}[st] || '';
+  const tip = {draft:'Fill in the % done, then press Apply. That locks it — you can still email it to the client.', applied:'When the client’s certificate comes back, put their Certified % on each line (or upload their Excel), then press Certify.', certified:'Press Invoice to make the invoice: certified total, less retention, less previously certified, with VAT on the total.', invoiced:'Done — the invoice is raised.'}[st] || '';
   const at = opts.findIndex(o=>o[0]===st);
   return `<div class="card finappflow">
     <label class="finappflow-st">Status<select onchange="finAppSetStage('${a.id}', this.value, this)">${opts.map(([k,l])=>`<option value="${k}" ${k===st?'selected':''}>${l}</option>`).join('')}</select></label>
     <div class="finappflow-steps">${opts.map(([k,l],i)=>`<span class="${i<at?'done':i===at?'on':''}">${i<at?'✓ ':''}${l}</span>`).join('<i>›</i>')}</div>
-    <div class="finappflow-next">${finAppNextBtn(a)}</div>
     <p class="stub" style="margin:0;font-style:normal;flex-basis:100%;">${tip}</p>
   </div>`;
 }
@@ -57018,7 +57016,7 @@ window.finAppToDraft = async function(appId){
   const st = document.createElement('style');
   st.textContent = `.finappflow{display:flex;align-items:center;gap:10px 14px;flex-wrap:wrap;padding:12px 16px !important;}
 .finappflow-st{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;color:var(--slate);}
-.finappflow-st select{height:34px;min-height:34px;padding:0 28px 0 10px;font-size:13.5px;font-weight:700;border-radius:8px;margin:0;width:auto;}
+.finappflow-st select{height:32px !important;min-height:32px !important;padding:0 28px 0 10px !important;line-height:30px !important;font-size:13px !important;font-weight:700;border-radius:8px !important;margin:0 !important;width:auto !important;}
 .finappflow-steps{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:13px;color:var(--slate);}
 .finappflow-steps span{padding:4px 10px;border-radius:20px;background:#F2F4F7;font-weight:600;}
 .finappflow-steps span.done{background:#EAF6EE;color:#1E6B45;} .finappflow-steps span.on{background:var(--brand1);color:#fff;}
@@ -57399,6 +57397,138 @@ window.finAppMoreMenu = function(ev, siteId, appId, locked){
   pop.style.top = (up ? rc.top + window.scrollY - pop.offsetHeight - 4 : rc.bottom + window.scrollY + 4)+'px'; pop.style.left = (rc.left + window.scrollX)+'px';
   setTimeout(()=>document.addEventListener('click', function close(){ pop.remove(); document.removeEventListener('click', close); }), 0);
 };
+
+/* ---------- Certify line by line (Andy, 22 Oct: "the certified needs to be per item … put
+   the certify in the box where you normally apply … this all gets calculated from the rows").
+   While an application is Applied, every line shows what was applied and has a Certified %
+   box (variations too; dayworks a certified £). The certificate below adds them up:
+   certified to date, less discount, less retention, less previously certified = net due. ---- */
+let finCertWork = null; // {appId, lines:{item_id:pct}, vars:{i:pct}, days:{i:value}}
+function finCertMode(){ return !!(finApp && finApp.status==='submitted' && finApp.cert_net==null); }
+function finCertShowMode(){ return !!(finApp && finApp.cert_net!=null && Array.isArray(finApp.cert_lines)); }
+function finCertWorkInit(){
+  if(finCertWork && finCertWork.appId===finApp.id) return finCertWork;
+  const cl = {}; (finApp.cert_lines||[]).forEach(l=>{ if(l.item_id) cl[l.item_id] = l.pct; });
+  const W = {appId:finApp.id, lines:{}, vars:{}, days:{}};
+  (finApp.lines||[]).forEach(l=>{ if(finIsItem(l)) W.lines[l.item_id] = cl[l.item_id]!=null ? cl[l.item_id] : finPct(l.pct); });
+  (finApp.variations||[]).forEach((v,i)=>{ W.vars[i] = finPct(v.pct); });
+  (finApp.dayworks||[]).forEach((d,i)=>{ W.days[i] = Number(d.value||0); });
+  return (finCertWork = W);
+}
+function finCertTotals(){
+  const W = finCertWorkInit();
+  let gross = 0; const lines = [];
+  (finApp.lines||[]).forEach(l=>{ if(!finIsItem(l)) return; const p = finPct(W.lines[l.item_id]); const g = finRound(Number(l.value||0)*p/100); gross += g; lines.push({item_id:l.item_id, description:l.description, value:Number(l.value||0), applied_pct:finPct(l.pct), pct:p, gross:g}); });
+  (finApp.variations||[]).forEach((v,i)=>{ const p = finPct(W.vars[i]); const g = finRound(Number(v.value||0)*p/100); gross += g; lines.push({var_index:i, description:v.description, value:Number(v.value||0), applied_pct:finPct(v.pct), pct:p, gross:g}); });
+  (finApp.dayworks||[]).forEach((d,i)=>{ const g = finRound(Number(W.days[i]||0)); gross += g; lines.push({day_index:i, description:d.description, value:Number(d.value||0), applied_pct:100, pct:Number(d.value||0) ? finRound(g/Number(d.value)*100) : 0, gross:g}); });
+  gross = finRound(gross);
+  const disc = finRound(gross*finPct(finApp.discount_pct||0)/100);
+  let ret = finRound((gross-disc)*finPct(finApp.retention_pct)/100);
+  const jf = (finAppCtx && finAppCtx.jf) || {};
+  if(jf.retention_limit_pct && jf.contract_value) ret = Math.min(ret, finRound(jf.contract_value*jf.retention_limit_pct/100));
+  return {gross, disc, ret, lines};
+}
+// Fill the certificate from the lines (it can't be typed over — it comes from the rows).
+function finCertRecalc(){
+  if(!finCertMode()) return;
+  const t = finCertTotals();
+  const set = (id, v)=>{ const el = document.getElementById(id); if(el){ el.value = String(finRound(v)); el.readOnly = true; el.classList.add('fincalc'); } };
+  set('finCertGross', t.gross); set('finCertRet', t.ret); set('finCertDisc', t.disc);
+  if(typeof finCertCalc==='function') finCertCalc();
+  finCertLines = t.lines;
+  const sumEl = document.getElementById('finCertSum'); if(sumEl) sumEl.textContent = finMoney(t.gross);
+}
+function finCertDecorate(){
+  if(!finApp) return;
+  const mode = finCertMode(), show = finCertShowMode();
+  if(!mode && !show) return;
+  const W = mode ? finCertWorkInit() : null;
+  const cl = {}; if(show) (finApp.cert_lines||[]).forEach(l=>{ if(l.item_id) cl['L'+l.item_id] = l; else if(l.var_index!=null) cl['V'+l.var_index] = l; else if(l.day_index!=null) cl['D'+l.day_index] = l; });
+  const box = (kind, i, val, gross)=>mode
+    ? `<label class="fincertin">Certified ${kind==='D'?'£':'%'}<input type="text" inputmode="decimal" value="${val}" oninput="finCertSet('${kind}','${i}',this.value)"></label><b class="fincertg" id="finCertG-${kind}-${i}">${finMoney(gross)}</b>`
+    : `<span class="fincertro">Certified ${val}${kind==='D'?'':'%'}</span><b class="fincertg">${finMoney(gross)}</b>`;
+  (finApp.lines||[]).forEach((l,i)=>{
+    if(!finIsItem(l)) return;
+    const b = document.getElementById('finAppG-lines-'+i); if(!b || b.dataset.cert) return;
+    const p = mode ? finPct(W.lines[l.item_id]) : finPct((cl['L'+l.item_id]||{}).pct ?? l.pct);
+    b.dataset.cert = '1'; b.classList.add('finappliedg');
+    b.insertAdjacentHTML('afterend', box('L', l.item_id, p, finRound(Number(l.value||0)*p/100)));
+  });
+  (finApp.variations||[]).forEach((v,i)=>{
+    const b = document.getElementById('finAppG-variations-'+i); if(!b || b.dataset.cert) return;
+    const p = mode ? finPct(W.vars[i]) : finPct((cl['V'+i]||{}).pct ?? v.pct);
+    b.dataset.cert = '1'; b.classList.add('finappliedg');
+    b.insertAdjacentHTML('afterend', box('V', i, p, finRound(Number(v.value||0)*p/100)));
+  });
+  (finApp.dayworks||[]).forEach((d,i)=>{
+    const b = document.getElementById('finAppG-dayworks-'+i); if(!b || b.dataset.cert) return;
+    const val = mode ? Number(W.days[i]||0) : Number(((cl['D'+i]||{}).gross) ?? d.value ?? 0);
+    b.dataset.cert = '1'; b.classList.add('finappliedg');
+    b.insertAdjacentHTML('afterend', box('D', i, finRound(val), val));
+  });
+  document.querySelectorAll('#finAppLines .finitem-sum').forEach(el=>{ if(!el.dataset.cert){ el.dataset.cert = '1'; el.textContent = 'Applied '+el.textContent; } });
+  const card = document.querySelector('.finappcard'); if(card) card.classList.add(mode ? 'fincertmode' : 'fincertshow');
+}
+window.finCertSet = function(kind, i, v){
+  const W = finCertWorkInit(); const n = finNum(v);
+  if(kind==='L'){ W.lines[i] = n===null||isNaN(n) ? 0 : Math.max(0, Math.min(100, n)); const l = (finApp.lines||[]).find(x=>x.item_id===i); const el = document.getElementById('finCertG-L-'+i); if(el && l) el.textContent = finMoney(finRound(Number(l.value||0)*W.lines[i]/100)); }
+  if(kind==='V'){ W.vars[i] = n===null||isNaN(n) ? 0 : Math.max(0, Math.min(100, n)); const x = finApp.variations[i]; const el = document.getElementById('finCertG-V-'+i); if(el && x) el.textContent = finMoney(finRound(Number(x.value||0)*W.vars[i]/100)); }
+  if(kind==='D'){ W.days[i] = n===null||isNaN(n) ? 0 : n; const el = document.getElementById('finCertG-D-'+i); if(el) el.textContent = finMoney(W.days[i]); }
+  finCertRecalc();
+};
+(function(){
+  const lp = finAppPaintLines;
+  finAppPaintLines = function(){ const r = lp.apply(this, arguments); finCertDecorate(); return r; };
+  const ap = window.finAppPaint;
+  window.finAppPaint = function(){ const r = ap.apply(this, arguments); return r; };
+  const slot = finCertSlotRender;
+  finCertSlotRender = function(a){
+    if(finCertWork && finCertWork.appId!==a.id) finCertWork = null;
+    slot.apply(this, arguments);
+    finCertDecorate();
+    if(finCertMode()){
+      const el = document.getElementById('finCertSlot');
+      const intro = el && Array.from(el.querySelectorAll('p.stub')).find(p=>/comes back, enter its figures/.test(p.textContent));
+      if(intro) intro.innerHTML = 'Enter the client’s <b>Certified %</b> against each line above (it starts as what you applied for). The figures below add themselves up from those lines.';
+      finCertRecalc();
+    }
+  };
+  // The client's Excel fills the line boxes.
+  const xl = window.finCertFromExcel;
+  window.finCertFromExcel = async function(file, appId){
+    await xl.apply(this, arguments);
+    if(!finCertMode() || !Array.isArray(finCertLines)) return;
+    const W = finCertWorkInit();
+    finCertLines.forEach(l=>{ if(l.item_id) W.lines[l.item_id] = l.pct; });
+    document.querySelectorAll('.fincertin, .fincertg, .fincertro').forEach(e=>e.remove());
+    document.querySelectorAll('[data-cert]').forEach(e=>{ delete e.dataset.cert; });
+    finAppPaintLines(); finAppPaint(); finCertDecorate(); finCertRecalc();
+  };
+})();
+(function(){
+  const st = document.createElement('style');
+  st.textContent = `.fincertin{display:inline-flex !important;flex-direction:row !important;align-items:center;gap:5px !important;font-size:11.5px;font-weight:700;color:#1E6B45;white-space:nowrap;width:auto !important;}
+.fincertin input{width:64px !important;height:30px !important;min-height:30px !important;padding:0 8px !important;text-align:right;border:1.5px solid #2E9E5B !important;border-radius:7px !important;background:#F3FBF6 !important;font-size:13.5px !important;margin:0 !important;}
+.fincertro{font-size:12px;font-weight:700;color:#1E6B45;white-space:nowrap;}
+.fincertg{min-width:92px;text-align:right;color:#1E6B45;font-size:14px;}
+.finappliedg{color:var(--slate) !important;font-weight:600 !important;font-size:12.5px !important;min-width:80px !important;}
+.fincertmode .finitem-sum, .fincertshow .finitem-sum{font-size:12px;color:var(--slate);}
+input.fincalc{background:#F6F7F9 !important;color:var(--ink) !important;}`;
+  document.head.appendChild(st);
+})();
+
+/* ---------- the status row goes at the very bottom (Andy, 22 Oct) ---------- */
+(function(){
+  const base = renderFinApplication;
+  renderFinApplication = async function(siteId, appId){
+    const r = await base.apply(this, arguments);
+    if(finApp && !document.querySelector('.finappflow')){
+      const anchor = document.getElementById('finCertSlot') || document.querySelector('.finappbtns');
+      if(anchor) anchor.insertAdjacentHTML('afterend', finAppStepsHtml(finApp));
+    }
+    return r;
+  };
+})();
 
 /* ============================================================
    OpHUB Finance — no double taps (deep dive, 20 Oct).
