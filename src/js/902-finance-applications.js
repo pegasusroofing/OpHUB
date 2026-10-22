@@ -33,10 +33,13 @@ function finAppCalc(app, contractValue, retLimitPct, previous){
   const variations = (app.variations||[]).map(v=>Object.assign({}, v, {gross: finRound(Number(v.value||0)*finPct(v.pct)/100)}));
   const dayworks = (app.dayworks||[]).map(d=>Object.assign({}, d, {gross: finRound(Number(d.value||0))}));
   const gross = finRound([...lines, ...variations, ...dayworks].reduce((t,x)=>t+x.gross, 0));
-  let retention = finRound(gross*Number(app.retention_pct||0)/100);
+  // Discount (e.g. main contractor's discount) comes off the gross before retention (Andy, 22 Oct).
+  const discount = finRound(gross*Number(app.discount_pct||0)/100);
+  const afterDisc = finRound(gross - discount);
+  let retention = finRound(afterDisc*Number(app.retention_pct||0)/100);
   if(retLimitPct && contractValue){ retention = Math.min(retention, finRound(Number(contractValue)*Number(retLimitPct)/100)); }
   const prev = finRound(previous||0);
-  return {lines, variations, dayworks, gross, retention, previous:prev, net_due:finRound(gross - retention - prev)};
+  return {lines, variations, dayworks, gross, discount, afterDisc, retention, previous:prev, net_due:finRound(afterDisc - retention - prev)};
 }
 // What was certified (or, until the certificate is in, applied for) on earlier applications.
 function finPreviousCertified(apps, number){
@@ -468,7 +471,7 @@ async function renderFinApplication(siteId, appId){
   if(!finApp || finApp.id!==a.id){ finAppCollapsed = {}; finAppValued = false; }
   if(!finApp || finApp.id!==a.id || finApp.__loaded !== a.updated_at){ finApp = JSON.parse(JSON.stringify(a)); finApp.__loaded = a.updated_at; }
   const jf = jfRows[0] || {};
-  finAppCtx = {site, jf, previous: finPreviousCertified(apps, a.number), locked: ['certified','invoiced','void'].includes(a.status), siteProgress};
+  finAppCtx = {site, jf, previous: finPreviousCertified(apps, a.number), locked: ['submitted','certified','invoiced','void'].includes(a.status), siteProgress};
   const spAhead = (finApp.lines||[]).filter(l=>finIsItem(l) && siteProgress[l.item_id]!=null && siteProgress[l.item_id] > finPct(l.pct)).length;
   const locked = finAppCtx.locked;
   document.getElementById('app').innerHTML = shell(`
@@ -478,15 +481,17 @@ async function renderFinApplication(siteId, appId){
       <div><div class="finhead-l">Client PO</div><div class="finhead-v">${escapeHtml(a.client_po||'—')}</div></div>
       <div><div class="finhead-l">Due this time</div><div class="finhead-v" id="finAppDueHead">—</div></div>
     </div>
-    ${locked ? `<div class="finbanner" style="background:var(--warn-bg);color:var(--warn);border-color:#F2D9B8;">This application has been certified, so it can’t be changed.</div>` : `
-    <div class="card">
-      <div class="fingrid2">
+    ${typeof finAppStepsHtml==='function' ? finAppStepsHtml(a) : ''}
+    ${locked ? (a.status==='submitted' && a.cert_net==null ? `<div class="finbanner finsubmitted" style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;"><span>📤 Submitted${a.submitted_at?' on '+finDate(String(a.submitted_at).slice(0,10)):''}${a.sent_to?' to '+escapeHtml(a.sent_to):''} — locked. Next: enter the client’s certificate below.</span><span style="display:flex;gap:8px;"><button class="ghostbtn" onclick="openFinAppEmail('${siteId}','${a.id}')">Email again</button><button class="ghostbtn" onclick="finAppToDraft('${a.id}')">Return to draft</button></span></div>` : `<div class="finbanner" style="background:var(--warn-bg);color:var(--warn);border-color:#F2D9B8;">This application has been ${a.status==='void'?'voided':'certified'}, so it can’t be changed.</div>`) : `
+    <details class="card finappdates">
+      <summary><span>📅 Dates &amp; retention</span><em>Valuation ${finDate(a.valuation_date)} · Due ${finDate(a.due_date)} · Final ${finDate(a.final_date)} · Retention ${finPct(a.retention_pct)}%</em><b>▾</b></summary>
+      <div class="finappdates-g">
         <div class="formfield"><label class="field-label">Valuation date</label><input type="date" value="${a.valuation_date||''}" onchange="finApp.valuation_date=this.value"></div>
         <div class="formfield"><label class="field-label">Due date</label><input type="date" value="${a.due_date||''}" onchange="finApp.due_date=this.value"></div>
         <div class="formfield"><label class="field-label">Final date for payment</label><input type="date" value="${a.final_date||''}" onchange="finApp.final_date=this.value"></div>
         <div class="formfield"><label class="field-label">Retention %</label><input type="text" inputmode="decimal" value="${finPct(a.retention_pct)}" oninput="finApp.retention_pct=finPct(this.value);finAppPaint()"></div>
       </div>
-    </div>`}
+    </details>`}
     <div class="card finappcard">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
         <p class="sectiontitle" style="margin:0;">Contract works</p>
@@ -516,16 +521,16 @@ async function renderFinApplication(siteId, appId){
       ${locked ? '' : `<button class="ghostbtn" style="width:100%;margin-top:6px;" onclick="finApp.dayworks.push({description:'',value:null});finAppSaveSoft().then(render)">+ Add daywork</button>`}
     </div>
     <div class="card" id="finAppSummary"></div>
-    ${locked ? '' : `<div class="row-gap" style="flex-wrap:wrap;">
-      <button class="darkbtn" style="flex:1;min-width:140px;" id="finAppSave" onclick="saveFinApplication(true)">Save</button>
-      <button class="darkbtn" style="flex:1;min-width:140px;" onclick="openFinAppEmail('${siteId}','${a.id}')">Email</button>
-    </div>`}
-    <div class="row-gap" style="flex-wrap:wrap;margin-top:10px;">
-      <button class="ghostbtn" style="flex:1;min-width:140px;" onclick="downloadFinAppExcel('${a.id}')">Excel</button>
-      ${locked ? '' : `<label class="ghostbtn" style="flex:1;min-width:140px;text-align:center;cursor:pointer;">Upload edited Excel<input type="file" accept=".xlsx,.xls" style="display:none;" onchange="uploadFinAppExcel(this.files[0])"></label>`}
+    <div class="row-gap finappbtns" style="flex-wrap:wrap;">
+      ${locked ? '' : `<button class="darkbtn" id="finAppSave" onclick="saveFinApplication(true)">Save</button>
+      <button class="darkbtn" onclick="finAppSubmit('${a.id}')">Apply ›</button>`}
+      <button class="ghostbtn" onclick="openFinAppEmail('${siteId}','${a.id}')">Email to client</button>
+      <button class="ghostbtn" onclick="downloadFinAppExcel('${a.id}')">Excel</button>
+      <button class="ghostbtn" onclick="downloadFinAppPdf('${a.id}')">PDF</button>
+      ${locked ? '' : `<label class="ghostbtn" style="text-align:center;cursor:pointer;">Upload edited Excel<input type="file" accept=".xlsx,.xls" style="display:none;" onchange="uploadFinAppExcel(this.files[0])"></label>`}
+      ${a.status==='draft' ? `<button class="ghostbtn" style="color:var(--red);margin-left:auto;" onclick="deleteFinApplication('${siteId}','${a.id}')">Delete draft</button>` : ''}
     </div>
     ${['submitted','certified','invoiced'].includes(a.status) ? `<div id="finCertSlot"></div>` : ''}
-    ${a.status==='draft' ? `<button class="ghostbtn" style="width:100%;margin-top:14px;color:var(--red);" onclick="deleteFinApplication('${siteId}','${a.id}')">Delete draft</button>` : ''}
   `, {title:'Application '+a.number, subtitle:site.name, back:`#/site/${siteId}/finance`, siteId, tabs:false});
   finAppPaintLines();
   finAppPaint();
@@ -618,6 +623,9 @@ window.finAppSet = function(path, i, key, v){
   finAppPaint();
 };
 window.finAppAddVar = function(){ finApp.variations.push({variation_id:null, description:'', value:null, pct:100}); finAppSaveSoft().then(render); };
+// Repaint after typing in the summary without losing the box you're in.
+let finAppPaintT = null;
+window.finAppPaintSoon = function(){ clearTimeout(finAppPaintT); finAppPaintT = setTimeout(()=>{ const a = document.activeElement; const sel = a && a.closest && a.closest('#finAppSummary') ? [a.selectionStart] : null; finAppPaint(); if(sel){ const i = document.querySelector('#finAppSummary .finpctin input'); if(i){ i.focus(); try{ i.setSelectionRange(sel[0], sel[0]); }catch(e){} } } }, 350); };
 window.finAppPaint = function(){
   if(!finApp || !finAppCtx) return;
   const c = finAppCalc(finApp, finAppCtx.jf.contract_value, finAppCtx.jf.retention_limit_pct, finAppCtx.previous);
@@ -630,6 +638,8 @@ window.finAppPaint = function(){
     ${c.variations.length?`<div class="finkv"><span>Variations</span><b>${finMoney(c.variations.reduce((t,x)=>t+x.gross,0))}</b></div>`:''}
     ${c.dayworks.length?`<div class="finkv"><span>Dayworks</span><b>${finMoney(c.dayworks.reduce((t,x)=>t+x.gross,0))}</b></div>`:''}
     <div class="finkv"><span><b>Gross valuation to date</b></span><b>${finMoney(c.gross)}</b></div>
+    <div class="finkv"><span>Less discount ${finAppCtx.locked ? '@ '+finPct(finApp.discount_pct||0)+'%' : `<label class="finpctin" style="display:inline-flex;width:84px;height:28px;margin-left:6px;vertical-align:middle;"><input type="text" inputmode="decimal" value="${finPct(finApp.discount_pct||0)}" oninput="finApp.discount_pct=finPct(this.value);finAppPaintSoon()" style="padding:2px 0;font-size:13px;"><span>%</span></label>`}</span><b>−${finMoney(c.discount)}</b></div>
+    ${c.discount ? `<div class="finkv"><span>Valuation after discount</span><b>${finMoney(c.afterDisc)}</b></div>` : ''}
     <div class="finkv"><span>Less retention @ ${finPct(finApp.retention_pct)}%${finAppCtx.jf.retention_limit_pct?' (limit '+finAppCtx.jf.retention_limit_pct+'%)':''}</span><b>−${finMoney(c.retention)}</b></div>
     <div class="finkv"><span>Less previously certified</span><b>−${finMoney(c.previous)}</b></div>
     <div class="finkv big"><span>Amount due this application</span><b>${finMoney(c.net_due)}</b></div>
@@ -642,7 +652,7 @@ function finAppRowForSave(){
   const c = finAppCalc(finApp, finAppCtx.jf.contract_value, finAppCtx.jf.retention_limit_pct, finAppCtx.previous);
   return {valuation_date:finApp.valuation_date||null, due_date:finApp.due_date||null, final_date:finApp.final_date||null,
     lines:c.lines, variations:c.variations.map(v=>Object.assign(v, {description:String(v.description||'').trim()})), dayworks:c.dayworks,
-    gross:c.gross, retention_pct:finPct(finApp.retention_pct), retention:c.retention, previous:c.previous, net_due:c.net_due, updated_at:new Date().toISOString()};
+    gross:c.gross, discount_pct:finPct(finApp.discount_pct||0), discount:c.discount, retention_pct:finPct(finApp.retention_pct), retention:c.retention, previous:c.previous, net_due:c.net_due, updated_at:new Date().toISOString()};
 }
 window.finAppSaveSoft = async function(){ const r = await dbUpdate('fin_applications', finApp.id, finAppRowForSave()); if(r){ finApp = null; } return r; };
 window.saveFinApplication = async function(showToast){
@@ -811,7 +821,7 @@ window.sendFinAppEmail = async function(siteId, appId){
   }catch(e){ toast('Could not reach the server — check your connection.'); reset(); return; }
   const d = await res.json().catch(()=>({}));
   if(!res.ok || d.error){ toast('Email failed — '+String(d.error||res.status).slice(0,140)); reset(); return; }
-  await dbUpdate('fin_applications', appId, {excel_path:stored, submitted_at:new Date().toISOString(), sent_to:to.join(', '), status: a.status==='draft' ? 'submitted' : a.status});
+  await dbUpdate('fin_applications', appId, {excel_path:stored, submitted_at:new Date().toISOString(), sent_to:to.join(', '), status: a.status});
   document.getElementById('finMailOverlay').style.display = 'none';
   finApp = null; toast('Application emailed'); render();
 };

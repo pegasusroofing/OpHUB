@@ -96,9 +96,11 @@ window.raiseInvoiceFromCert = async function(siteId, appId, issueNow){
   const [st, jfRows] = await Promise.all([finLoadSettings(), dbSelect('job_finance', 'site_id=eq.'+siteId)]);
   const jf = jfRows[0] || {};
   const lines = [{description:`Application ${a.number} — total certified to date${a.cert_date?' ('+finDate(a.cert_date)+')':''}`, amount:finRound(a.cert_gross)},
-    {description:'Less retention', amount:-finRound(a.cert_retention)}];
-  if(Number(a.cert_previous||0)) lines.push({description:'Less previously certified', amount:-finRound(a.cert_previous)});
+  ];
+  // Order (Andy, 22 Oct): certified total, less discount, less retention, less previously certified / paid. VAT goes on the total, not as a line.
   if(Number(a.cert_discount||0)) lines.push({description:'Less discount', amount:-finRound(a.cert_discount)});
+  lines.push({description:'Less retention', amount:-finRound(a.cert_retention)});
+  if(Number(a.cert_previous||0)) lines.push({description:'Less previously certified (paid)', amount:-finRound(a.cert_previous)});
   const today = finToday();
   lines.forEach(l=>{ l.vat = finInvVatFromTreatment(jf.vat_treatment||st.default_vat||'standard', 20); });
   const t = finInvTotals(lines, jf.vat_treatment||st.default_vat||'standard', 20);

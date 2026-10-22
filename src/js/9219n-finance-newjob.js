@@ -657,12 +657,14 @@ window.finVarToSow = async function(siteId, finVarId){
   renderFinApplication = async function(siteId, appId){
     const r = await base.apply(this, arguments);
     const lines = document.getElementById('finAppLines');
-    if(lines && finAppCtx && !finAppCtx.locked && !document.getElementById('finAppAddLineBtn')){
-      lines.insertAdjacentHTML('afterend', `<div class="row-gap" style="margin-top:10px;flex-wrap:wrap;" id="finAppAddLineBtn">
-        <button type="button" class="ghostbtn" style="flex:1;min-width:150px;margin:0;" onclick="finAppAddLineOpen('${siteId}','item')">+ Add a line</button>
-        <button type="button" class="ghostbtn" style="flex:1;min-width:150px;margin:0;" onclick="finAppAddLineOpen('${siteId}','section')">+ Add a header</button>
+    if(lines && finAppCtx && finApp && !document.getElementById('finAppAddLineBtn')){
+      const nextBtn = typeof finAppNextBtn==='function' ? finAppNextBtn(finApp) : '';
+      lines.insertAdjacentHTML('afterend', `<div class="row-gap" style="margin-top:10px;flex-wrap:wrap;align-items:center;" id="finAppAddLineBtn">
+        ${finAppCtx.locked ? '' : `<button type="button" class="ghostbtn" onclick="finAppAddLineOpen('${siteId}','item')">+ Add a line</button>
+        <button type="button" class="ghostbtn" onclick="finAppAddLineOpen('${siteId}','section')">+ Add a header</button>`}
+        <span style="margin-left:auto;display:flex;gap:8px;">${nextBtn}</span>
       </div>
-      <p class="stub" style="margin:6px 0 0;font-style:normal;font-size:12px;">New lines are added to the project’s Bill of Quantities too, so they carry on to the next application.</p>`);
+      ${finAppCtx.locked ? '' : `<p class="stub" style="margin:6px 0 0;font-style:normal;font-size:12px;">New lines are added to the project’s Bill of Quantities too, so they carry on to the next application.</p>`}`);
     }
     return r;
   };
