@@ -138,7 +138,7 @@ async function renderFinContract(siteId){
     </div>
     <div class="card fincosttool fincosttool-sm">
       <div class="fincosttool-row">
-        <span class="fincosttool-t" title="Type a cost against each line, or work them out from the sale price with a %. Tick lines to change just those.">Cost price (your budget)</span>
+        <span class="fincosttool-t" title="Type a cost against each line, or work them out from the sale price with a %. Tick lines to change just those.">Budget cost</span>
         <select id="finCtBasis" aria-label="Margin or mark-up"><option value="margin">Margin on the sale price</option><option value="markup">Mark-up on cost</option></select>
         <label class="finpctin"><input type="text" inputmode="decimal" id="finCtPct" placeholder="20"><span>%</span></label>
         <button class="ghostbtn" id="finCtSelBtn" onclick="finContractApplyPct(true)" disabled>Apply to ticked</button>
@@ -156,29 +156,31 @@ function finContractPaint(){
   const tot = finGroupTotals(finContractRows, r=>finItemValue(r));
   const subs = FIN_SUBJOBS[finContractSite] || [];
   const plotSel = i=>subs.length ? `<select class="fincrow-plot" aria-label="${escapeHtml(finSubNoun(finContractSite))}" onchange="finContractRows[${i}].sub=this.value"><option value="">${finContractRows[i].kind==='item' ? 'Plot: as header' : 'Plot: none'}</option>${subs.map(a=>`<option value="${a.id}" ${finContractRows[i].sub===a.id?'selected':''}>${escapeHtml(a.short)}</option>`).join('')}</select>` : '';
-  const ctl = i=>plotSel(i)+`<span class="fincrow-ctl"><button class="linkbtn" title="Move up" onclick="finContractMove(${i},-1)">↑</button><button class="linkbtn" title="Move down" onclick="finContractMove(${i},1)">↓</button><select onchange="finContractRows[${i}].kind=this.value;finContractPaint()">${Object.keys(FIN_KIND_LABEL).map(k=>`<option value="${k}" ${finContractRows[i].kind===k?'selected':''}>${FIN_KIND_LABEL[k]}</option>`).join('')}</select><button class="linkbtn" title="Remove" onclick="finContractRows.splice(${i},1);finContractPaint()">✕</button></span>`;
+  const menu = i=>`<button type="button" class="fincrow-menu" title="Move, change or remove" aria-label="Line options" onclick="finCrowMenu(event, ${i})">⋮</button>`;
+  const ctl = i=>plotSel(i)+`<span class="fincrow-ctl" hidden><button class="linkbtn" title="Move up" onclick="finContractMove(${i},-1)">↑</button><button class="linkbtn" title="Move down" onclick="finContractMove(${i},1)">↓</button><select onchange="finContractRows[${i}].kind=this.value;finContractPaint()">${Object.keys(FIN_KIND_LABEL).map(k=>`<option value="${k}" ${finContractRows[i].kind===k?'selected':''}>${FIN_KIND_LABEL[k]}</option>`).join('')}</select><button class="linkbtn" title="Remove" onclick="finContractRows.splice(${i},1);finContractPaint()">✕</button></span>`;
   el.innerHTML = finContractRows.length ? finContractRows.map((r,i)=>{
     if(r.kind==='section' || r.kind==='subsection') return `<div class="fincrow ${r.kind}">
         <div class="fincrow-head"><input type="checkbox" class="fincsel" aria-label="Tick everything under this" ${finContractGroupTicked(i)?'checked':''} onchange="finContractTickGroup(${i}, this.checked)"><input type="text" class="fincline-ref" placeholder="Ref" value="${escapeHtml(r.ref||'')}" oninput="finContractRows[${i}].ref=this.value">
-          <input type="text" class="fincrow-title" placeholder="${r.kind==='section'?'Header, e.g. Main roof':'Sub-header, e.g. Slating'}" value="${escapeHtml(r.description||'')}" oninput="finContractRows[${i}].description=this.value"></div>
-        <div class="fincrow-foot">${ctl(i)}<b id="finCTot-${i}">${finMoney((tot[i]||{}).value)}</b></div>
+          <input type="text" class="fincrow-title" placeholder="${r.kind==='section'?'Header, e.g. Main roof':'Sub-header, e.g. Slating'}" value="${escapeHtml(r.description||'')}" oninput="finContractRows[${i}].description=this.value">${menu(i)}</div>
+        <div class="fincrow-foot">${plotSel(i)}<b id="finCTot-${i}">${finMoney((tot[i]||{}).value)}</b></div>
       </div>`;
     const v = finItemValue(r);
     const auto = finNum(r.qty)!==null && finNum(r.rate)!==null;
     return `<div class="fincrow item ${r._sel?'sel':''}">
       <div class="fincrow-head"><input type="checkbox" class="fincsel" aria-label="Tick this line" ${r._sel?'checked':''} onchange="finContractTick(${i}, this.checked)"><input type="text" class="fincline-ref" placeholder="Ref" value="${escapeHtml(r.ref||'')}" oninput="finContractRows[${i}].ref=this.value">
-        <textarea rows="1" placeholder="Description" oninput="finContractRows[${i}].description=this.value">${escapeHtml(r.description||'')}</textarea></div>
+        <textarea rows="1" placeholder="Description" oninput="finContractRows[${i}].description=this.value">${escapeHtml(r.description||'')}</textarea>${menu(i)}</div>
       <div class="fincrow-nums">
         <label>Qty<input type="text" inputmode="decimal" value="${r.qty!=null&&!isNaN(r.qty)?escapeHtml(String(r.qty)):''}" oninput="finContractSetNum(${i},'qty',this.value)"></label>
-        <label>Unit<input type="text" value="${escapeHtml(r.unit||'')}" placeholder="m², nr" oninput="finContractRows[${i}].unit=this.value"></label>
+        <label>Unit<input type="text" list="finUnitList" autocomplete="off" value="${escapeHtml(r.unit||'')}" placeholder="m², nr" oninput="finContractRows[${i}].unit=this.value"></label>
         <label>Rate £<input type="text" inputmode="decimal" data-money value="${r.rate!=null&&!isNaN(r.rate)?escapeHtml(String(r.rate)):''}" oninput="finContractSetNum(${i},'rate',this.value)"></label>
         <label>Value £<input type="text" inputmode="decimal" data-money id="finCVal-${i}" value="${v!=null?escapeHtml(String(v)):''}" ${auto?'disabled':''} oninput="finContractSetNum(${i},'value',this.value)"></label>
-        <label>Cost £<input type="text" inputmode="decimal" data-money id="finCCost-${i}" value="${r.cost!=null?escapeHtml(String(r.cost)):''}" placeholder="—" oninput="finContractSetCost(${i}, this.value)"></label>
+        <label>Budget cost £<input type="text" inputmode="decimal" data-money id="finCCost-${i}" value="${r.cost!=null?escapeHtml(String(r.cost)):''}" placeholder="—" oninput="finContractSetCost(${i}, this.value)"></label>
       </div>
       <div class="fincrow-mg" id="finCMg-${i}">${finContractMgTxt(r)}</div>
-      <div class="fincrow-foot">${ctl(i)}</div>
+      ${subs.length ? `<div class="fincrow-foot">${plotSel(i)}</div>` : ''}
     </div>`;
   }).join('') : `<div class="empty" style="margin:0;">No lines yet. Upload a file or add a header and items.</div>`;
+  el.insertAdjacentHTML('beforeend', `<datalist id="finUnitList">${finUnitOptions().map(u=>`<option value="${escapeHtml(u)}">`).join('')}</datalist>`);
   finContractPaintTotal();
   finContractBulkPaint();
 }

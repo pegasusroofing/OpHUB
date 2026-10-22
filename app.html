@@ -47587,7 +47587,7 @@ async function renderFinContract(siteId){
     </div>
     <div class="card fincosttool fincosttool-sm">
       <div class="fincosttool-row">
-        <span class="fincosttool-t" title="Type a cost against each line, or work them out from the sale price with a %. Tick lines to change just those.">Cost price (your budget)</span>
+        <span class="fincosttool-t" title="Type a cost against each line, or work them out from the sale price with a %. Tick lines to change just those.">Budget cost</span>
         <select id="finCtBasis" aria-label="Margin or mark-up"><option value="margin">Margin on the sale price</option><option value="markup">Mark-up on cost</option></select>
         <label class="finpctin"><input type="text" inputmode="decimal" id="finCtPct" placeholder="20"><span>%</span></label>
         <button class="ghostbtn" id="finCtSelBtn" onclick="finContractApplyPct(true)" disabled>Apply to ticked</button>
@@ -47605,29 +47605,31 @@ function finContractPaint(){
   const tot = finGroupTotals(finContractRows, r=>finItemValue(r));
   const subs = FIN_SUBJOBS[finContractSite] || [];
   const plotSel = i=>subs.length ? `<select class="fincrow-plot" aria-label="${escapeHtml(finSubNoun(finContractSite))}" onchange="finContractRows[${i}].sub=this.value"><option value="">${finContractRows[i].kind==='item' ? 'Plot: as header' : 'Plot: none'}</option>${subs.map(a=>`<option value="${a.id}" ${finContractRows[i].sub===a.id?'selected':''}>${escapeHtml(a.short)}</option>`).join('')}</select>` : '';
-  const ctl = i=>plotSel(i)+`<span class="fincrow-ctl"><button class="linkbtn" title="Move up" onclick="finContractMove(${i},-1)">↑</button><button class="linkbtn" title="Move down" onclick="finContractMove(${i},1)">↓</button><select onchange="finContractRows[${i}].kind=this.value;finContractPaint()">${Object.keys(FIN_KIND_LABEL).map(k=>`<option value="${k}" ${finContractRows[i].kind===k?'selected':''}>${FIN_KIND_LABEL[k]}</option>`).join('')}</select><button class="linkbtn" title="Remove" onclick="finContractRows.splice(${i},1);finContractPaint()">✕</button></span>`;
+  const menu = i=>`<button type="button" class="fincrow-menu" title="Move, change or remove" aria-label="Line options" onclick="finCrowMenu(event, ${i})">⋮</button>`;
+  const ctl = i=>plotSel(i)+`<span class="fincrow-ctl" hidden><button class="linkbtn" title="Move up" onclick="finContractMove(${i},-1)">↑</button><button class="linkbtn" title="Move down" onclick="finContractMove(${i},1)">↓</button><select onchange="finContractRows[${i}].kind=this.value;finContractPaint()">${Object.keys(FIN_KIND_LABEL).map(k=>`<option value="${k}" ${finContractRows[i].kind===k?'selected':''}>${FIN_KIND_LABEL[k]}</option>`).join('')}</select><button class="linkbtn" title="Remove" onclick="finContractRows.splice(${i},1);finContractPaint()">✕</button></span>`;
   el.innerHTML = finContractRows.length ? finContractRows.map((r,i)=>{
     if(r.kind==='section' || r.kind==='subsection') return `<div class="fincrow ${r.kind}">
         <div class="fincrow-head"><input type="checkbox" class="fincsel" aria-label="Tick everything under this" ${finContractGroupTicked(i)?'checked':''} onchange="finContractTickGroup(${i}, this.checked)"><input type="text" class="fincline-ref" placeholder="Ref" value="${escapeHtml(r.ref||'')}" oninput="finContractRows[${i}].ref=this.value">
-          <input type="text" class="fincrow-title" placeholder="${r.kind==='section'?'Header, e.g. Main roof':'Sub-header, e.g. Slating'}" value="${escapeHtml(r.description||'')}" oninput="finContractRows[${i}].description=this.value"></div>
-        <div class="fincrow-foot">${ctl(i)}<b id="finCTot-${i}">${finMoney((tot[i]||{}).value)}</b></div>
+          <input type="text" class="fincrow-title" placeholder="${r.kind==='section'?'Header, e.g. Main roof':'Sub-header, e.g. Slating'}" value="${escapeHtml(r.description||'')}" oninput="finContractRows[${i}].description=this.value">${menu(i)}</div>
+        <div class="fincrow-foot">${plotSel(i)}<b id="finCTot-${i}">${finMoney((tot[i]||{}).value)}</b></div>
       </div>`;
     const v = finItemValue(r);
     const auto = finNum(r.qty)!==null && finNum(r.rate)!==null;
     return `<div class="fincrow item ${r._sel?'sel':''}">
       <div class="fincrow-head"><input type="checkbox" class="fincsel" aria-label="Tick this line" ${r._sel?'checked':''} onchange="finContractTick(${i}, this.checked)"><input type="text" class="fincline-ref" placeholder="Ref" value="${escapeHtml(r.ref||'')}" oninput="finContractRows[${i}].ref=this.value">
-        <textarea rows="1" placeholder="Description" oninput="finContractRows[${i}].description=this.value">${escapeHtml(r.description||'')}</textarea></div>
+        <textarea rows="1" placeholder="Description" oninput="finContractRows[${i}].description=this.value">${escapeHtml(r.description||'')}</textarea>${menu(i)}</div>
       <div class="fincrow-nums">
         <label>Qty<input type="text" inputmode="decimal" value="${r.qty!=null&&!isNaN(r.qty)?escapeHtml(String(r.qty)):''}" oninput="finContractSetNum(${i},'qty',this.value)"></label>
-        <label>Unit<input type="text" value="${escapeHtml(r.unit||'')}" placeholder="m², nr" oninput="finContractRows[${i}].unit=this.value"></label>
+        <label>Unit<input type="text" list="finUnitList" autocomplete="off" value="${escapeHtml(r.unit||'')}" placeholder="m², nr" oninput="finContractRows[${i}].unit=this.value"></label>
         <label>Rate £<input type="text" inputmode="decimal" data-money value="${r.rate!=null&&!isNaN(r.rate)?escapeHtml(String(r.rate)):''}" oninput="finContractSetNum(${i},'rate',this.value)"></label>
         <label>Value £<input type="text" inputmode="decimal" data-money id="finCVal-${i}" value="${v!=null?escapeHtml(String(v)):''}" ${auto?'disabled':''} oninput="finContractSetNum(${i},'value',this.value)"></label>
-        <label>Cost £<input type="text" inputmode="decimal" data-money id="finCCost-${i}" value="${r.cost!=null?escapeHtml(String(r.cost)):''}" placeholder="—" oninput="finContractSetCost(${i}, this.value)"></label>
+        <label>Budget cost £<input type="text" inputmode="decimal" data-money id="finCCost-${i}" value="${r.cost!=null?escapeHtml(String(r.cost)):''}" placeholder="—" oninput="finContractSetCost(${i}, this.value)"></label>
       </div>
       <div class="fincrow-mg" id="finCMg-${i}">${finContractMgTxt(r)}</div>
-      <div class="fincrow-foot">${ctl(i)}</div>
+      ${subs.length ? `<div class="fincrow-foot">${plotSel(i)}</div>` : ''}
     </div>`;
   }).join('') : `<div class="empty" style="margin:0;">No lines yet. Upload a file or add a header and items.</div>`;
+  el.insertAdjacentHTML('beforeend', `<datalist id="finUnitList">${finUnitOptions().map(u=>`<option value="${escapeHtml(u)}">`).join('')}</datalist>`);
   finContractPaintTotal();
   finContractBulkPaint();
 }
@@ -56265,6 +56267,51 @@ html .finjobfilt > label:not(.fin-searchlbl):not(.fincli-lbl){display:none !impo
 .fincosttool-sm .finpctin input{height:30px !important;border:0 !important;min-height:32px !important;width:56px !important;font-size:13px !important;padding:0 6px !important;}
 .fincosttool-sm .ghostbtn,.fincosttool-sm .darkbtn{height:32px;padding:0 12px !important;font-size:12.5px !important;border-radius:8px !important;}
 html.finmode .finptab.finset-dd[style*="none"], html.desk.finmode .finptab.finset-dd[style*="none"]{display:none !important;}`;
+  document.head.appendChild(st);
+})();
+
+/* ---- 11. Bill of Quantities lines (Andy, 22 Oct) ----
+   Units: a list that narrows as you type (plus any unit already used on the job).
+   Move up / down, Header / Sub-header / Item and Remove sit in a ⋮ menu at the end
+   of each line's text row instead of a row of controls underneath. */
+const FIN_UNITS = ['m²','m','lm','m³','nr','item','sum','prov sum','PC sum','hr','day','week','kg','t','roll','sheet','pack','bag','box','set','pair','lot','%'];
+function finUnitOptions(){
+  const used = (typeof finContractRows!=='undefined' && finContractRows ? finContractRows : []).map(r=>String(r.unit||'').trim()).filter(Boolean);
+  return Array.from(new Set(FIN_UNITS.concat(used)));
+}
+window.finCrowMenu = function(ev, i){
+  ev.stopPropagation();
+  const old = document.getElementById('finCrowPop'); if(old){ const same = old.dataset.i===String(i); old.remove(); if(same) return; }
+  const r = finContractRows[i]; if(!r) return;
+  const pop = document.createElement('div'); pop.id = 'finCrowPop'; pop.className = 'fincrow-pop'; pop.dataset.i = String(i);
+  const kinds = Object.keys(FIN_KIND_LABEL).filter(k=>k!==r.kind);
+  pop.innerHTML = `${i>0?`<button type="button" data-a="up">↑ Move up</button>`:''}${i<finContractRows.length-1?`<button type="button" data-a="down">↓ Move down</button>`:''}
+    ${kinds.map(k=>`<button type="button" data-a="kind" data-k="${k}">Make it ${escapeHtml(FIN_KIND_LABEL[k].toLowerCase())}</button>`).join('')}
+    <button type="button" data-a="del" class="danger">✕ Remove line</button>`;
+  pop.addEventListener('click', e=>{
+    const b = e.target.closest('button'); if(!b) return; e.stopPropagation(); pop.remove();
+    const a = b.dataset.a;
+    if(a==='up') finContractMove(i, -1); else if(a==='down') finContractMove(i, 1);
+    else if(a==='kind'){ finContractRows[i].kind = b.dataset.k; finContractPaint(); }
+    else if(a==='del'){ finContractRows.splice(i, 1); finContractPaint(); }
+  });
+  document.body.appendChild(pop);
+  const rc = ev.currentTarget.getBoundingClientRect();
+  pop.style.top = (rc.bottom + window.scrollY + 4)+'px';
+  pop.style.left = Math.max(8, rc.right + window.scrollX - pop.offsetWidth)+'px';
+  setTimeout(()=>document.addEventListener('click', function close(){ pop.remove(); document.removeEventListener('click', close); }), 0);
+};
+(function(){
+  const st = document.createElement('style');
+  st.textContent = `.fincrow-head{align-items:center;grid-template-columns:22px 64px minmax(0,1fr) 34px !important;}
+.fincrow-menu{all:unset;box-sizing:border-box;cursor:pointer;flex:none;width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;color:var(--slate);}
+.fincrow-menu:hover{background:rgba(0,0,0,.06);color:var(--ink);}
+.fincrow-pop{position:absolute;z-index:10060;background:#fff;border:1px solid #E1E4EA;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.14);padding:4px;min-width:170px;}
+.fincrow-pop button{all:unset;box-sizing:border-box;display:block;width:100%;cursor:pointer;padding:8px 12px;border-radius:7px;font-size:13.5px;}
+.fincrow-pop button:hover{background:#F2F4F7;}
+.fincrow-pop button.danger{color:#C0392B;border-top:1px solid #F0F1F4;margin-top:2px;}
+.fincrow-foot:empty{display:none;}
+.fincrow.section .fincrow-foot,.fincrow.subsection .fincrow-foot{justify-content:flex-end;margin-top:4px;}`;
   document.head.appendChild(st);
 })();
 

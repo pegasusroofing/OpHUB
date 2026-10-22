@@ -360,3 +360,48 @@ html .finjobfilt > label:not(.fin-searchlbl):not(.fincli-lbl){display:none !impo
 html.finmode .finptab.finset-dd[style*="none"], html.desk.finmode .finptab.finset-dd[style*="none"]{display:none !important;}`;
   document.head.appendChild(st);
 })();
+
+/* ---- 11. Bill of Quantities lines (Andy, 22 Oct) ----
+   Units: a list that narrows as you type (plus any unit already used on the job).
+   Move up / down, Header / Sub-header / Item and Remove sit in a ⋮ menu at the end
+   of each line's text row instead of a row of controls underneath. */
+const FIN_UNITS = ['m²','m','lm','m³','nr','item','sum','prov sum','PC sum','hr','day','week','kg','t','roll','sheet','pack','bag','box','set','pair','lot','%'];
+function finUnitOptions(){
+  const used = (typeof finContractRows!=='undefined' && finContractRows ? finContractRows : []).map(r=>String(r.unit||'').trim()).filter(Boolean);
+  return Array.from(new Set(FIN_UNITS.concat(used)));
+}
+window.finCrowMenu = function(ev, i){
+  ev.stopPropagation();
+  const old = document.getElementById('finCrowPop'); if(old){ const same = old.dataset.i===String(i); old.remove(); if(same) return; }
+  const r = finContractRows[i]; if(!r) return;
+  const pop = document.createElement('div'); pop.id = 'finCrowPop'; pop.className = 'fincrow-pop'; pop.dataset.i = String(i);
+  const kinds = Object.keys(FIN_KIND_LABEL).filter(k=>k!==r.kind);
+  pop.innerHTML = `${i>0?`<button type="button" data-a="up">↑ Move up</button>`:''}${i<finContractRows.length-1?`<button type="button" data-a="down">↓ Move down</button>`:''}
+    ${kinds.map(k=>`<button type="button" data-a="kind" data-k="${k}">Make it ${escapeHtml(FIN_KIND_LABEL[k].toLowerCase())}</button>`).join('')}
+    <button type="button" data-a="del" class="danger">✕ Remove line</button>`;
+  pop.addEventListener('click', e=>{
+    const b = e.target.closest('button'); if(!b) return; e.stopPropagation(); pop.remove();
+    const a = b.dataset.a;
+    if(a==='up') finContractMove(i, -1); else if(a==='down') finContractMove(i, 1);
+    else if(a==='kind'){ finContractRows[i].kind = b.dataset.k; finContractPaint(); }
+    else if(a==='del'){ finContractRows.splice(i, 1); finContractPaint(); }
+  });
+  document.body.appendChild(pop);
+  const rc = ev.currentTarget.getBoundingClientRect();
+  pop.style.top = (rc.bottom + window.scrollY + 4)+'px';
+  pop.style.left = Math.max(8, rc.right + window.scrollX - pop.offsetWidth)+'px';
+  setTimeout(()=>document.addEventListener('click', function close(){ pop.remove(); document.removeEventListener('click', close); }), 0);
+};
+(function(){
+  const st = document.createElement('style');
+  st.textContent = `.fincrow-head{align-items:center;grid-template-columns:22px 64px minmax(0,1fr) 34px !important;}
+.fincrow-menu{all:unset;box-sizing:border-box;cursor:pointer;flex:none;width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;color:var(--slate);}
+.fincrow-menu:hover{background:rgba(0,0,0,.06);color:var(--ink);}
+.fincrow-pop{position:absolute;z-index:10060;background:#fff;border:1px solid #E1E4EA;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.14);padding:4px;min-width:170px;}
+.fincrow-pop button{all:unset;box-sizing:border-box;display:block;width:100%;cursor:pointer;padding:8px 12px;border-radius:7px;font-size:13.5px;}
+.fincrow-pop button:hover{background:#F2F4F7;}
+.fincrow-pop button.danger{color:#C0392B;border-top:1px solid #F0F1F4;margin-top:2px;}
+.fincrow-foot:empty{display:none;}
+.fincrow.section .fincrow-foot,.fincrow.subsection .fincrow-foot{justify-content:flex-end;margin-top:4px;}`;
+  document.head.appendChild(st);
+})();
