@@ -648,3 +648,96 @@ window.finVarToSow = async function(siteId, finVarId){
   };
   const st = document.createElement('style'); st.textContent = '.finctcount{font-size:12.5px;font-weight:600;color:var(--slate);margin-left:10px;}'; document.head.appendChild(st);
 })();
+
+/* ---- 16. Add a line from inside an application (Andy, 22 Oct: "if we forget something
+   or want to add something"). The line goes into the Bill of Quantities (under a header
+   you pick, or a new one) and straight into this application at 0% done. ---- */
+(function(){
+  const base = renderFinApplication;
+  renderFinApplication = async function(siteId, appId){
+    const r = await base.apply(this, arguments);
+    const lines = document.getElementById('finAppLines');
+    if(lines && finAppCtx && !finAppCtx.locked && !document.getElementById('finAppAddLineBtn')){
+      lines.insertAdjacentHTML('afterend', `<div class="row-gap" style="margin-top:10px;flex-wrap:wrap;" id="finAppAddLineBtn">
+        <button type="button" class="ghostbtn" style="flex:1;min-width:150px;margin:0;" onclick="finAppAddLineOpen('${siteId}','item')">+ Add a line</button>
+        <button type="button" class="ghostbtn" style="flex:1;min-width:150px;margin:0;" onclick="finAppAddLineOpen('${siteId}','section')">+ Add a header</button>
+      </div>
+      <p class="stub" style="margin:6px 0 0;font-style:normal;font-size:12px;">New lines are added to the project’s Bill of Quantities too, so they carry on to the next application.</p>`);
+    }
+    return r;
+  };
+})();
+window.finAppAddLineOpen = function(siteId, kind){
+  const heads = (finApp.lines||[]).filter(l=>l.kind==='section' || l.kind==='subsection');
+  let ov = document.getElementById('finAppLineOv');
+  if(!ov){ ov = document.createElement('div'); ov.id = 'finAppLineOv'; ov.className = 'geo-modal-overlay'; document.body.appendChild(ov); }
+  ov.onclick = e=>{ if(e.target===ov) ov.style.display = 'none'; };
+  const item = kind==='item';
+  ov.innerHTML = `<div class="geo-modal-card">
+    <h3>${item ? 'Add a line' : 'Add a header'}</h3>
+    ${item ? `<div class="formfield"><label class="field-label">Goes under</label><select id="falUnder" onchange="document.getElementById('falNewHeadWrap').hidden=this.value!=='__new'">
+      ${heads.map(h=>`<option value="${h.item_id}">${h.kind==='subsection'?'— ':''}${escapeHtml((h.ref?h.ref+' ':'')+(h.description||'Header'))}</option>`).join('')}
+      <option value="__new">New header…</option><option value="">No header (at the end)</option></select></div>
+    <div class="formfield" id="falNewHeadWrap" hidden><label class="field-label">New header</label><input type="text" id="falNewHead" placeholder="e.g. Extras"></div>` : ''}
+    <div style="display:grid;grid-template-columns:90px minmax(0,1fr);gap:8px;">
+      <div class="formfield"><label class="field-label">Ref</label><input type="text" id="falRef"></div>
+      <div class="formfield"><label class="field-label">${item?'Description *':'Header *'}</label><input type="text" id="falDesc" placeholder="${item?'e.g. Extra roof outlet':'e.g. Extras'}"></div>
+    </div>
+    ${item ? `<div class="fincpills" style="margin:4px 0 12px;">
+      <label class="fincpill"><span>Quantity</span><input type="text" inputmode="decimal" class="w-q" id="falQty"></label>
+      <label class="fincpill"><span>Unit</span><input type="text" class="w-u" id="falUnit" list="falUnits" autocomplete="off" placeholder="—"></label>
+      <label class="fincpill sell"><span>Sell rate £</span><input type="text" inputmode="decimal" id="falRate" placeholder="0.00"></label>
+      <label class="fincpill sell"><span>or lump sum £</span><input type="text" inputmode="decimal" id="falValue" placeholder="0.00"></label>
+      <label class="fincpill cost"><span>Cost rate £</span><input type="text" inputmode="decimal" id="falCost" placeholder="0.00"></label>
+      <datalist id="falUnits">${FIN_UNITS.map(u=>`<option value="${escapeHtml(u)}">`).join('')}</datalist>
+    </div>` : ''}
+    <button class="darkbtn" style="width:100%;" id="falSave" onclick="finAppAddLineSave('${siteId}','${kind}')">${item?'Add line':'Add header'}</button>
+    <button class="geo-modal-cancel" onclick="document.getElementById('finAppLineOv').style.display='none'">Cancel</button>
+  </div>`;
+  ov.style.display = 'flex';
+  setTimeout(()=>{ const d = document.getElementById('falDesc'); if(d) d.focus(); }, 50);
+};
+window.finAppAddLineSave = async function(siteId, kind){
+  const item = kind==='item';
+  const desc = finVal('falDesc'); if(!desc){ toast(item ? 'Add a description.' : 'Give the header a name.'); return; }
+  const qty = finCrNum(finVal('falQty')), rate = finCrNum(finVal('falRate')), lump = finCrNum(finVal('falValue')), crate = finCrNum(finVal('falCost'));
+  const value = item ? (qty!=null && rate!=null ? finRound(qty*rate) : lump) : 0;
+  if(item && value==null){ toast('Enter a quantity and sell rate, or a lump sum.'); return; }
+  let under = item ? finVal('falUnder') : '';
+  const newHead = item && under==='__new' ? finVal('falNewHead') : '';
+  if(item && under==='__new' && !newHead){ toast('Name the new header.'); return; }
+  const btn = document.getElementById('falSave'); if(btn){ btn.disabled = true; btn.textContent = 'Adding…'; }
+  try{
+    // Fresh copy of the Bill of Quantities, then work out where the new rows go.
+    const boq = await dbSelect('fin_contract_items', 'site_id=eq.'+siteId+'&order=position.asc');
+    let at = boq.length;
+    if(item && under && under!=='__new'){
+      const hi = boq.findIndex(b=>b.id===under);
+      if(hi>=0){ const lvl = boq[hi].kind; at = hi+1; while(at<boq.length){ const k = boq[at].kind; if(k==='section' || (lvl==='subsection' && k==='subsection')) break; at++; } }
+    }
+    const newRows = [];
+    if(!item || newHead) newRows.push({kind:'section', ref:item ? null : (finVal('falRef')||null), description:item ? newHead : desc, value:0});
+    if(item) newRows.push({kind:'item', ref:finVal('falRef')||null, description:desc, qty, unit:finVal('falUnit')||null, rate, value, cost: crate!=null ? (qty ? finRound(crate*qty) : crate) : null});
+    const made = [];
+    for(const nr of newRows){ const ins = await dbInsert('fin_contract_items', Object.assign({org_id:ME.org_id, site_id:siteId, position:0}, nr)); if(!(ins && ins[0])) throw new Error('insert'); made.push(ins[0]); }
+    const order = boq.slice(0, at).concat(made, boq.slice(at));
+    for(let p=0;p<order.length;p++) if(order[p].position!==p) await dbUpdate('fin_contract_items', order[p].id, {position:p});
+    const total = finRound(order.filter(finIsItem).reduce((t,b)=>t+Number(b.value||0), 0));
+    await sbFetch('/rest/v1/job_finance', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify({site_id:siteId, org_id:ME.org_id, contract_value:total, updated_at:new Date().toISOString(), updated_by:ME.id})});
+    if(finAppCtx && finAppCtx.jf) finAppCtx.jf.contract_value = total;
+    // Into this application, in the same place.
+    const appLines = finApp.lines || (finApp.lines = []);
+    const toLine = b=>finIsItem(b) ? {kind:'item', item_id:b.id, ref:b.ref||'', description:b.description, qty:b.qty!=null?Number(b.qty):null, unit:b.unit||'', rate:b.rate!=null?Number(b.rate):null, value:Number(b.value||0), pct:0} : {kind:b.kind, item_id:b.id, ref:b.ref||'', description:b.description};
+    let li = appLines.length;
+    if(item && under && under!=='__new'){
+      const hi = appLines.findIndex(l=>l.item_id===under);
+      if(hi>=0){ const lvl = appLines[hi].kind; li = hi+1; while(li<appLines.length){ const k = appLines[li].kind; if(k==='section' || (lvl==='subsection' && k==='subsection')) break; li++; } }
+    }
+    appLines.splice(li, 0, ...made.map(toLine));
+    if(typeof finContractRows!=='undefined' && finContractSite===siteId) finContractRows = null; // BoQ page re-reads next time
+    document.getElementById('finAppLineOv').style.display = 'none';
+    await finAppSaveSoft();
+    toast(item ? 'Line added — and to the Bill of Quantities' : 'Header added');
+    render();
+  }catch(e){ console.error(e); toast('Could not add the line — try again.'); if(btn){ btn.disabled = false; btn.textContent = item?'Add line':'Add header'; } }
+};
