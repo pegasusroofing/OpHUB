@@ -622,6 +622,17 @@ window.finAppSet = function(path, i, key, v){
 window.finAppAddVar = function(){ finApp.variations.push({variation_id:null, description:'', value:null, pct:100}); finAppSaveSoft().then(render); };
 // Repaint after typing in the summary without losing the box you're in.
 let finAppPaintT = null;
+// Discount can still be changed once applied (before certifying) — saved straight away.
+let finAppDiscT = null;
+window.finAppDiscSave = function(){
+  clearTimeout(finAppDiscT);
+  finAppDiscT = setTimeout(async ()=>{
+    if(!finApp || !finAppCtx) return;
+    if(finAppCtx.locked && (finApp.status!=='submitted' || finApp.cert_net!=null)) return;
+    const r = await dbUpdate('fin_applications', finApp.id, finAppRowForSave()); if(r){ finApp.__loaded = r.updated_at; }
+    if(typeof finCertRecalc==='function') finCertRecalc();
+  }, 600);
+};
 window.finAppPaintSoon = function(){ clearTimeout(finAppPaintT); finAppPaintT = setTimeout(()=>{ const a = document.activeElement; const sel = a && a.closest && a.closest('#finAppSummary') ? [a.selectionStart] : null; finAppPaint(); if(sel){ const i = document.querySelector('#finAppSummary .finpctin input'); if(i){ i.focus(); try{ i.setSelectionRange(sel[0], sel[0]); }catch(e){} } } }, 350); };
 window.finAppPaint = function(){
   if(!finApp || !finAppCtx) return;
@@ -635,7 +646,7 @@ window.finAppPaint = function(){
     ${c.variations.length?`<div class="finkv"><span>Variations</span><b>${finMoney(c.variations.reduce((t,x)=>t+x.gross,0))}</b></div>`:''}
     ${c.dayworks.length?`<div class="finkv"><span>Dayworks</span><b>${finMoney(c.dayworks.reduce((t,x)=>t+x.gross,0))}</b></div>`:''}
     <div class="finkv"><span><b>Gross valuation to date</b></span><b>${finMoney(c.gross)}</b></div>
-    <div class="finkv"><span>Less discount ${finAppCtx.locked ? '@ '+finPct(finApp.discount_pct||0)+'%' : `<label class="finpctin" style="display:inline-flex;width:84px;height:28px;margin-left:6px;vertical-align:middle;"><input type="text" inputmode="decimal" value="${finPct(finApp.discount_pct||0)}" oninput="finApp.discount_pct=finPct(this.value);finAppPaintSoon()" style="padding:2px 0;font-size:13px;"><span>%</span></label>`}</span><b>−${finMoney(c.discount)}</b></div>
+    <div class="finkv"><span>Less discount ${finAppCtx.locked && !(finApp.status==='submitted' && finApp.cert_net==null) ? '@ '+finPct(finApp.discount_pct||0)+'%' : `<label class="finpctin" style="display:inline-flex;width:84px;height:28px;margin-left:6px;vertical-align:middle;"><input type="text" inputmode="decimal" value="${finPct(finApp.discount_pct||0)}" oninput="finApp.discount_pct=finPct(this.value);finAppPaintSoon();finAppDiscSave()" style="padding:2px 0;font-size:13px;"><span>%</span></label>`}</span><b>−${finMoney(c.discount)}</b></div>
     ${c.discount ? `<div class="finkv"><span>Valuation after discount</span><b>${finMoney(c.afterDisc)}</b></div>` : ''}
     <div class="finkv"><span>Less retention @ ${finPct(finApp.retention_pct)}%${finAppCtx.jf.retention_limit_pct?' (limit '+finAppCtx.jf.retention_limit_pct+'%)':''}</span><b>−${finMoney(c.retention)}</b></div>
     <div class="finkv"><span>Less previously certified</span><b>−${finMoney(c.previous)}</b></div>
