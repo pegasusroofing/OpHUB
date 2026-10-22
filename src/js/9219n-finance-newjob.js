@@ -872,3 +872,16 @@ window.finCertFromExcel = async function(file, appId){
 @media (max-width:700px){ #finAppLines .finitem{flex-wrap:wrap;} #finAppLines .finitem-in{width:100%;justify-content:flex-end;} }`;
   document.head.appendChild(st);
 })();
+
+/* ---- 19. Smaller buttons across Finance pages (Andy, 22 Oct). Pop-ups keep their
+   full-width buttons; on the page itself buttons size to their words. ---- */
+(function(){
+  const st = document.createElement('style');
+  st.textContent = `html.finmode .scrollarea .darkbtn, html.finmode .scrollarea .ghostbtn, html.finmode .scrollarea .primarybtn{
+  width:auto !important;flex:0 0 auto !important;min-width:0 !important;min-height:32px !important;height:auto !important;
+  padding:6px 14px !important;font-size:13px !important;border-radius:8px !important;margin-top:0;line-height:1.3;}
+html.finmode .scrollarea .row-gap{justify-content:flex-start;gap:8px !important;}
+html.finmode .finprojbar .finprojbar-n{height:34px !important;min-height:34px !important;padding:0 30px 0 14px !important;font-size:13px !important;width:auto !important;flex:0 0 auto !important;border-radius:8px !important;}
+@media (max-width:600px){ html.finmode .scrollarea .row-gap .darkbtn, html.finmode .scrollarea .row-gap .ghostbtn{flex:1 1 auto !important;} }`;
+  document.head.appendChild(st);
+})();
