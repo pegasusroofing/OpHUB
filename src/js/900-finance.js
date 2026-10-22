@@ -187,7 +187,7 @@ async function renderSiteFinance(siteId){
     dbSelect('client_pos', 'site_id=eq.'+siteId+'&order=is_primary.desc,created_at.asc'),
     dbSelect('fin_invoices', 'site_id=eq.'+siteId+'&order=created_at.desc'),
     dbSelect('fin_contract_items', 'site_id=eq.'+siteId+'&select=id,value,kind'),
-    dbSelect('fin_applications', 'site_id=eq.'+siteId+'&order=number.desc&select=id,site_id,number,status,valuation_date,gross,net_due,cert_net,cert_retention,invoice_id'),
+    dbSelect('fin_applications', 'site_id=eq.'+siteId+'&order=number.desc&select=id,site_id,number,status,valuation_date,gross,net_due,cert_gross,cert_net,cert_retention,invoice_id'),
     dbSelect('purchase_orders', 'site_id=eq.'+siteId+'&order=seq.desc'),
     dbSelect('purchase_invoices', 'site_id=eq.'+siteId+'&order=created_at.desc'),
     finJobLabour(siteId),
@@ -213,9 +213,11 @@ async function renderSiteFinance(siteId){
     </div>
     <div class="finptab" data-t="sales">
     ${typeof finSalesToDateHtml==='function' ? finSalesToDateHtml(apps, invs) : ''}
-    <div id="fin-a-apps"></div>${bt==='application' || apps.length ? finApplicationsCardHtml(siteId, apps, finAppDueThisMonth(apps, finAppDateFor(jf, st, finToday().slice(0,7))) && finSiteStatus(site)==='live', invs) : ''}
-    <div id="fin-a-invoices"></div>${finInvoicesCardHtml(siteId, invs)}
-    ${finRetentionCardHtml(siteId, jf, st, apps)}
+    ${typeof finSalesSubTabsHtml==='function' ? finSalesSubTabsHtml(siteId, bt, apps.length) : ''}
+    <div class="finsalesub" data-s="apps"><div id="fin-a-apps"></div>${bt==='application' || apps.length ? finApplicationsCardHtml(siteId, apps, finAppDueThisMonth(apps, finAppDateFor(jf, st, finToday().slice(0,7))) && finSiteStatus(site)==='live', invs) : ''}
+    </div>
+    <div class="finsalesub" data-s="invoices"><div id="fin-a-invoices"></div>${finInvoicesCardHtml(siteId, invs)}</div>
+    <div class="finsalesub" data-s="retention">${finRetentionCardHtml(siteId, jf, st, apps)}</div>
     </div>
     <div class="finptab" data-t="purchases">
     <div id="finJcSlot">${finJobCostCardHtml(finJobCost(jf, invs, pords, pinvs, lab.cost, hires.reduce((t,h)=>t+finPlantCost(h).cost,0), xcosts.reduce((t,x)=>t+Number(x.net||0),0)), siteId)}</div>

@@ -46777,7 +46777,7 @@ async function renderSiteFinance(siteId){
     dbSelect('client_pos', 'site_id=eq.'+siteId+'&order=is_primary.desc,created_at.asc'),
     dbSelect('fin_invoices', 'site_id=eq.'+siteId+'&order=created_at.desc'),
     dbSelect('fin_contract_items', 'site_id=eq.'+siteId+'&select=id,value,kind'),
-    dbSelect('fin_applications', 'site_id=eq.'+siteId+'&order=number.desc&select=id,site_id,number,status,valuation_date,gross,net_due,cert_net,cert_retention,invoice_id'),
+    dbSelect('fin_applications', 'site_id=eq.'+siteId+'&order=number.desc&select=id,site_id,number,status,valuation_date,gross,net_due,cert_gross,cert_net,cert_retention,invoice_id'),
     dbSelect('purchase_orders', 'site_id=eq.'+siteId+'&order=seq.desc'),
     dbSelect('purchase_invoices', 'site_id=eq.'+siteId+'&order=created_at.desc'),
     finJobLabour(siteId),
@@ -46803,9 +46803,11 @@ async function renderSiteFinance(siteId){
     </div>
     <div class="finptab" data-t="sales">
     ${typeof finSalesToDateHtml==='function' ? finSalesToDateHtml(apps, invs) : ''}
-    <div id="fin-a-apps"></div>${bt==='application' || apps.length ? finApplicationsCardHtml(siteId, apps, finAppDueThisMonth(apps, finAppDateFor(jf, st, finToday().slice(0,7))) && finSiteStatus(site)==='live', invs) : ''}
-    <div id="fin-a-invoices"></div>${finInvoicesCardHtml(siteId, invs)}
-    ${finRetentionCardHtml(siteId, jf, st, apps)}
+    ${typeof finSalesSubTabsHtml==='function' ? finSalesSubTabsHtml(siteId, bt, apps.length) : ''}
+    <div class="finsalesub" data-s="apps"><div id="fin-a-apps"></div>${bt==='application' || apps.length ? finApplicationsCardHtml(siteId, apps, finAppDueThisMonth(apps, finAppDateFor(jf, st, finToday().slice(0,7))) && finSiteStatus(site)==='live', invs) : ''}
+    </div>
+    <div class="finsalesub" data-s="invoices"><div id="fin-a-invoices"></div>${finInvoicesCardHtml(siteId, invs)}</div>
+    <div class="finsalesub" data-s="retention">${finRetentionCardHtml(siteId, jf, st, apps)}</div>
     </div>
     <div class="finptab" data-t="purchases">
     <div id="finJcSlot">${finJobCostCardHtml(finJobCost(jf, invs, pords, pinvs, lab.cost, hires.reduce((t,h)=>t+finPlantCost(h).cost,0), xcosts.reduce((t,x)=>t+Number(x.net||0),0)), siteId)}</div>
@@ -57687,6 +57689,37 @@ function finInvPanelPaint(){
   st.textContent = `html.desk.fininvsplit .scrollarea > *:not(#finInvPanel){margin-right:calc((100vw - 248px) * .5) !important;}
 html.desk #finInvPanel{width:calc((100vw - 248px) * .5 - 24px);}`;
   document.head.appendChild(st);
+})();
+
+/* ---------- Job Sales tab split into three (Andy, 22 Oct): Applications & Certificates ·
+   Invoices · Retention — one at a time. Invoice-billed jobs start on Invoices. ---- */
+let finSalesSub = {}; // siteId -> 'apps'|'invoices'|'retention'
+function finSalesSubTabsHtml(siteId, bt, nApps){
+  const def = (bt==='application' || nApps) ? 'apps' : 'invoices';
+  const cur = finSalesSub[siteId] || def;
+  const tabs = [['apps','Applications & Certificates'],['invoices','Invoices'],['retention','Retention']].filter(t=>t[0]!=='apps' || bt==='application' || nApps);
+  return `<div class="finsubtabs finsalestabs">${tabs.map(([k,l])=>`<button type="button" data-s="${k}" class="${k===cur?'on':''}" onclick="finSalesSubGo('${siteId}','${k}')">${l}</button>`).join('')}</div>`;
+}
+window.finSalesSubGo = function(siteId, k){
+  finSalesSub[siteId] = k;
+  document.querySelectorAll('.finsalesub').forEach(el=>el.style.display = el.dataset.s===k ? '' : 'none');
+  document.querySelectorAll('.finsalestabs button').forEach(b=>b.classList.toggle('on', b.dataset.s===k));
+};
+function finSalesSubApply(){
+  const on = document.querySelector('.finsalestabs button.on');
+  if(on) document.querySelectorAll('.finsalesub').forEach(el=>el.style.display = el.dataset.s===on.dataset.s ? '' : 'none');
+}
+(function(){
+  const base = window.finAfterProjectRender || (typeof finAfterProjectRender==='function' ? finAfterProjectRender : null);
+  finAfterProjectRender = function(){ finSalesSubApply(); if(base) return base.apply(this, arguments); };
+  // Go-to links (apps / invoices) open the right sub-tab first.
+  const sc = finScrollToAnchor;
+  finScrollToAnchor = function(id){
+    const k = id==='fin-a-apps' ? 'apps' : id==='fin-a-invoices' ? 'invoices' : null;
+    const sid = (location.hash.match(/#\/site\/([^/?]+)/)||[])[1];
+    if(k && sid){ finSalesSub[sid] = k; finSalesSubGo(sid, k); }
+    return sc.apply(this, arguments);
+  };
 })();
 
 /* ============================================================

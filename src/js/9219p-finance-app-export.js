@@ -763,3 +763,34 @@ function finInvPanelPaint(){
 html.desk #finInvPanel{width:calc((100vw - 248px) * .5 - 24px);}`;
   document.head.appendChild(st);
 })();
+
+/* ---------- Job Sales tab split into three (Andy, 22 Oct): Applications & Certificates ·
+   Invoices · Retention — one at a time. Invoice-billed jobs start on Invoices. ---- */
+let finSalesSub = {}; // siteId -> 'apps'|'invoices'|'retention'
+function finSalesSubTabsHtml(siteId, bt, nApps){
+  const def = (bt==='application' || nApps) ? 'apps' : 'invoices';
+  const cur = finSalesSub[siteId] || def;
+  const tabs = [['apps','Applications & Certificates'],['invoices','Invoices'],['retention','Retention']].filter(t=>t[0]!=='apps' || bt==='application' || nApps);
+  return `<div class="finsubtabs finsalestabs">${tabs.map(([k,l])=>`<button type="button" data-s="${k}" class="${k===cur?'on':''}" onclick="finSalesSubGo('${siteId}','${k}')">${l}</button>`).join('')}</div>`;
+}
+window.finSalesSubGo = function(siteId, k){
+  finSalesSub[siteId] = k;
+  document.querySelectorAll('.finsalesub').forEach(el=>el.style.display = el.dataset.s===k ? '' : 'none');
+  document.querySelectorAll('.finsalestabs button').forEach(b=>b.classList.toggle('on', b.dataset.s===k));
+};
+function finSalesSubApply(){
+  const on = document.querySelector('.finsalestabs button.on');
+  if(on) document.querySelectorAll('.finsalesub').forEach(el=>el.style.display = el.dataset.s===on.dataset.s ? '' : 'none');
+}
+(function(){
+  const base = window.finAfterProjectRender || (typeof finAfterProjectRender==='function' ? finAfterProjectRender : null);
+  finAfterProjectRender = function(){ finSalesSubApply(); if(base) return base.apply(this, arguments); };
+  // Go-to links (apps / invoices) open the right sub-tab first.
+  const sc = finScrollToAnchor;
+  finScrollToAnchor = function(id){
+    const k = id==='fin-a-apps' ? 'apps' : id==='fin-a-invoices' ? 'invoices' : null;
+    const sid = (location.hash.match(/#\/site\/([^/?]+)/)||[])[1];
+    if(k && sid){ finSalesSub[sid] = k; finSalesSubGo(sid, k); }
+    return sc.apply(this, arguments);
+  };
+})();
