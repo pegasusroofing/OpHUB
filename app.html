@@ -58281,8 +58281,8 @@ function finGridCertPct(l){
 function finGridCols(){ return finCertMode() || finCertShowMode() || (finApp && finApp.cert_net!=null); }
 function finGridHeadHtml(cert){
   return `<div class="fing-row fing-head${cert?' c':''}"><span class="fing-item">Item</span><span>Measure</span><span>Unit</span><span>Rate</span><span>Total</span>
-    <span class="fing-a" title="% complete to date">Applied %</span><span class="fing-a" title="This application (to date less last certificate)">Applied £</span><span class="fing-a" title="Applied to date">Applied Total</span>
-    ${cert ? `<span class="fing-c" title="% certified to date">Cert %</span><span class="fing-c" title="This certificate (to date less last certificate)">Cert £</span><span class="fing-c" title="Certified to date">Cert Total</span>` : ''}</div>`;
+    <span class="fing-a" title="% complete to date">Applied %</span><span class="fing-a" title="Applied to date">Applied<br>Cumulative</span><span class="fing-a" title="Certified on the last certificate">Applied<br>Previous</span><span class="fing-a" title="This application: cumulative less previous">Applied<br>Current</span>
+    ${cert ? `<span class="fing-c" title="% certified to date">Cert %</span><span class="fing-c" title="Certified to date">Cert<br>Cumulative</span><span class="fing-c" title="Certified on the last certificate">Cert<br>Previous</span><span class="fing-c" title="This certificate: cumulative less previous">Cert<br>Current</span>` : ''}</div>`;
 }
 finAppPaintLines = function(){
   const el = document.getElementById('finAppLines'); if(!el || !finApp) return;
@@ -58322,8 +58322,9 @@ finAppPaintLines = function(){
     if(cert){
       const cp = finGridCertPct(l), ct = finRound(Number(l.value||0)*cp/100);
       cCells = `<span class="fing-c" data-l="Cert %">${cmode ? `<input type="text" inputmode="decimal" class="fing-in cert" value="${cp}" oninput="finCertSet('L','${l.item_id}',this.value);finGridRow(${i})">` : cp+'%'}</span>
-        <span class="fing-c" data-l="Cert £" id="fingCP-${i}">${P ? finMoney(finRound(ct - finGridPrevTot(l, P))) : '…'}</span>
-        <span class="fing-c tot" data-l="Cert Total" id="finCertG-L-${l.item_id}">${finMoney(ct)}</span>`;
+        <span class="fing-c tot" data-l="Cert Cumulative" id="finCertG-L-${l.item_id}">${finMoney(ct)}</span>
+        <span class="fing-c prev" data-l="Cert Previous">${P ? finMoney(finGridPrevTot(l, P)) : '…'}</span>
+        <span class="fing-c" data-l="Cert Current" id="fingCP-${i}">${P ? finMoney(finRound(ct - finGridPrevTot(l, P))) : '…'}</span>`;
     }
     html += `<div class="fing-row${cert?' c':''}">
       <span class="fing-item">${escapeHtml(l.ref?l.ref+' · ':'')}${escapeHtml(l.description)} ${sp}${hasQty ? `<em class="fing-m">${finQtyFmt(l.qty)} ${escapeHtml(l.unit||'')} × ${finRateFmt(l.rate)}</em>` : ''}</span>
@@ -58332,8 +58333,9 @@ finAppPaintLines = function(){
       <span class="num" data-l="Rate">${hasQty ? finRateFmt(l.rate) : '—'}</span>
       <span class="num" data-l="Total">${finMoney(l.value)}</span>
       <span class="fing-a" data-l="Applied %">${aPct}</span>
-      <span class="fing-a" data-l="Applied £" id="fingAP-${i}">${P ? finMoney(finRound(at - finGridPrevTot(l, P))) : '…'}</span>
-      <span class="fing-a tot" data-l="Applied Total">${aTot}</span>
+      <span class="fing-a tot" data-l="Applied Cumulative">${aTot}</span>
+      <span class="fing-a prev" data-l="Applied Previous">${P ? finMoney(finGridPrevTot(l, P)) : '…'}</span>
+      <span class="fing-a" data-l="Applied Current" id="fingAP-${i}">${P ? finMoney(finRound(at - finGridPrevTot(l, P))) : '…'}</span>
       ${cCells}
     </div>`;
   });
@@ -58399,8 +58401,10 @@ function finFoldTotals(){
 (function(){
   const st = document.createElement('style');
   st.textContent = `.fing{overflow-x:auto;margin-top:8px;}
-.fing-row{display:grid;grid-template-columns:minmax(120px,1fr) 58px 44px 72px 92px 66px 86px 94px;gap:6px;align-items:center;padding:6px 8px;border-top:1px solid var(--line,#EEF0F3);font-size:13px;min-width:700px;}
-.fing-row.c{grid-template-columns:minmax(110px,1fr) 56px 40px 70px 88px 62px 84px 92px 62px 84px 92px;min-width:930px;}
+.fing-row{display:grid;grid-template-columns:minmax(120px,1fr) 56px 42px 70px 88px 64px 92px 86px 86px;gap:6px;align-items:center;padding:6px 8px;border-top:1px solid var(--line,#EEF0F3);font-size:13px;min-width:780px;}
+.fing-row.c{grid-template-columns:minmax(110px,1fr) 52px 40px 66px 84px 60px 88px 80px 80px 60px 88px 80px 80px;min-width:1100px;}
+.fing-row .prev{color:var(--slate) !important;font-weight:500 !important;}
+.fing-head .prev, .fing-head span{line-height:1.25;}
 .fing-row > span{min-width:0;font-variant-numeric:tabular-nums;}
 .fing-row > span:not(.fing-item){text-align:right;}
 .fing-row > span:nth-child(3){text-align:left;}
@@ -58414,8 +58418,8 @@ function finFoldTotals(){
 .fing-in{width:100% !important;max-width:72px;height:30px !important;min-height:30px !important;padding:0 8px !important;text-align:right;font-size:13.5px !important;border-radius:7px !important;margin:0 !important;box-sizing:border-box;}
 .fing-in.w{max-width:100px;}
 .fing-in.cert{border:1.5px solid #2E9E5B !important;background:#F3FBF6 !important;}
-.fing .finapphead{min-width:700px;}
-.fing-row.c ~ .finapphead, .fing-head.c ~ .finapphead{min-width:930px;}
+.fing .finapphead{min-width:780px;}
+.fing-row.c ~ .finapphead, .fing-head.c ~ .finapphead{min-width:1100px;}
 #finAppLines .fing .finapphead.sec{background:var(--brand1) !important;background:color-mix(in srgb, var(--brand1) 80%, #000) !important;color:var(--brand1-text,#fff) !important;border-radius:0 !important;margin-top:0 !important;padding:8px 10px !important;}
 #finAppLines .fing .finapphead.sub{background:#EEF1F5 !important;background:color-mix(in srgb, var(--brand1) 12%, #fff) !important;color:var(--ink) !important;border-radius:0 !important;margin-top:0 !important;padding:7px 10px !important;}
 #finAppLines .fing .finappfill{padding:4px 8px !important;margin:0 !important;}
