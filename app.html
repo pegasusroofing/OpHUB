@@ -59888,6 +59888,38 @@ window.finPpAddMenu = function(btn, siteId){
   window.yardQuickIssue = async function(stockId, siteId){ const r = await q.apply(this, arguments); if(document.getElementById('finPpBody')) setTimeout(()=>finPpFill(siteId), 600); return r; };
 })();
 
+/* Project bar: on a project's Overview the first button says "Home" (to the Finance overview);
+   anywhere else in the project it says "Back" — from another tab it goes to the project
+   Overview, from a page (application, invoice…) up one level (Andy, 23 Oct). */
+function finBackSync(){
+  const b = document.querySelector('.finprojbar-back'); if(!b) return;
+  const p = parseRoute(); const siteId = p[1];
+  const onRoot = p[0]==='site' && p[2]==='finance' && !p[3];
+  const onBtn = document.querySelector('.finptabs button.on');
+  const tab = onRoot ? (finProjTab[siteId] || (onBtn && onBtn.dataset.t) || 'overview') : null;
+  const ov = Array.from(document.querySelectorAll('.finprojbar-home')).find(x=>!x.classList.contains('finprojbar-back'));
+  if(ov) ov.style.display = onRoot && tab==='overview' ? 'none' : '';
+  if(onRoot && tab==='overview'){
+    b.innerHTML = `${typeof ophIcon==='function' ? ophIcon('home', 15) : '⌂'}<span>Home</span>`; b.title = 'Finance overview';
+    b.onclick = e=>{ e.stopPropagation(); go('#/finance'); };
+  } else if(onRoot){
+    b.innerHTML = '←<span>Back</span>'; b.title = 'Back to the project overview';
+    b.onclick = e=>{ e.stopPropagation(); finProjTabGo(siteId, 'overview'); };
+  } else {
+    b.innerHTML = '←<span>Back</span>'; b.title = 'Back one level';
+    b.onclick = e=>{ e.stopPropagation(); finGoUp(); };
+  }
+}
+(function(){
+  const a = finAfterProjectRender;
+  finAfterProjectRender = function(){ const r = a.apply(this, arguments); finBackSync(); return r; };
+  const t = window.finProjTabGo;
+  window.finProjTabGo = function(){ const r = t.apply(this, arguments); setTimeout(finBackSync, 0); return r; };
+  let tm = null;
+  const start = ()=>{ const app = document.getElementById('app'); if(!app) return setTimeout(start, 400); new MutationObserver(()=>{ clearTimeout(tm); tm = setTimeout(finBackSync, 40); }).observe(app, {childList:true}); };
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', start); else start();
+})();
+
 /* ============================================================
    OpHUB Finance — no double taps (deep dive, 20 Oct).
    Every Finance action that saves, sends or creates something ignores a
