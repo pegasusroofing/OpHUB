@@ -24,7 +24,8 @@ function finItemValue(r){
 function finAppVatTreat(jf){ return (jf && jf.vat_treatment) || finSettings().default_vat || 'standard'; }
 function finAppVatHtml(net, jf){
   const t = finAppVatTreat(jf), v = finRound(Number(net||0)*0.2);
-  if(t==='reverse_charge') return `<div class="finrc"><div class="finkv"><span>Reverse charge VAT @ 20% <em class="stub" style="font-style:normal;">client pays HMRC</em></span><b>${finMoney(v)}</b></div><p class="stub" style="margin:2px 0 0;font-style:normal;">Domestic reverse charge — not added to the amount due. Shown on the application and the invoice.</p></div>`;
+  if(t==='reverse_charge') return ''; // shown on the invoice only (Andy, 23 Oct)
+  if(false) return `<div class="finrc"><div class="finkv"><span>Reverse charge VAT @ 20% <em class="stub" style="font-style:normal;">client pays HMRC</em></span><b>${finMoney(v)}</b></div><p class="stub" style="margin:2px 0 0;font-style:normal;">Domestic reverse charge — not added to the amount due. Shown on the application and the invoice.</p></div>`;
   if(t==='standard') return `<div class="finkv"><span>VAT @ 20%</span><b>${finMoney(v)}</b></div><div class="finkv"><span>Total incl. VAT</span><b>${finMoney(finRound(Number(net||0)+v))}</b></div>`;
   return '';
 }
@@ -589,7 +590,7 @@ function finAppToolsPaint(){
   const secs = (finApp.lines||[]).map((l,i)=>l.kind==='section'||l.kind==='subsection' ? i : -1).filter(i=>i>-1);
   const allShut = secs.length && secs.every(i=>finAppCollapsed[i]);
   el.innerHTML = `${finAppCtx.locked ? '' : `<div class="finseg" role="tablist" title="Enter by"><button type="button" class="${finAppMode==='pct'?'on':''}" onclick="finAppSetMode('pct')">%</button><button type="button" class="${finAppMode==='gbp'?'on':''}" onclick="finAppSetMode('gbp')">£</button><button type="button" class="${finAppMode==='qty'?'on':''}" onclick="finAppSetMode('qty')">Qty</button></div>`}
-    <label class="finswitch" style="margin:0;"><input type="checkbox" ${finAppValued?'checked':''} onchange="finAppValued=this.checked;finAppPaintLines();finAppPaint()"> Valued only</label>
+    <label class="finswitch" style="margin:0;"><input type="checkbox" ${finAppValued?'checked':''} onchange="finAppValued=this.checked;finAppPaintLines();finAppPaint()"> Hide 0% lines</label>
     ${secs.length ? `<button type="button" class="linkbtn" onclick="finAppCollapseAll(${allShut?'false':'true'})">${allShut?'Expand all':'Collapse all'}</button>` : ''}`;
 }
 window.finAppSetMode = function(m){ finAppMode = m; finAppPaintLines(); finAppPaint(); };

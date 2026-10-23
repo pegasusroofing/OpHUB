@@ -646,7 +646,7 @@ function finCertSummaryHtml(){
     + row('Less previously certified', neg(prev), neg(prev))
     + row('Amount due this application', finMoney(c.net_due), finMoney(cNet), 'big');
   if(vt==='standard') h += row('VAT @ 20%', finMoney(finRound(c.net_due*.2)), finMoney(finRound(cNet*.2))) + row('Total incl. VAT', finMoney(finRound(c.net_due*1.2)), finMoney(finRound(cNet*1.2)), 'bold');
-  else if(vt==='reverse_charge') h += row('Reverse charge VAT @ 20% <em class="stub" style="font-style:normal;">client pays HMRC</em>', finMoney(finRound(c.net_due*.2)), finMoney(finRound(cNet*.2)));
+  else if(false && vt==='reverse_charge') h += row('Reverse charge VAT @ 20% <em class="stub" style="font-style:normal;">client pays HMRC</em>', finMoney(finRound(c.net_due*.2)), finMoney(finRound(cNet*.2)));
   const diff = finRound(cNet - c.net_due);
   if(diff) h += `<p class="stub" style="margin:8px 0 0;font-style:normal;color:${diff<0?'var(--red)':'var(--ok)'};"><b>${diff<0?'Short by':'Over by'} ${finMoney(Math.abs(diff))}</b> against what you applied for.</p>`;
   return h;
