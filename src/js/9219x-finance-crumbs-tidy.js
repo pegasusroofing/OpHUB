@@ -61,7 +61,7 @@ function finTcNode(el){
 function finTcSweep(){
   if(!document.documentElement.classList.contains('finmode')) return;
   const app = document.getElementById('app'); if(!app) return;
-  app.querySelectorAll('.sectiontitle, .pmstat > span, .pmchip, .finsubtabs button, .finsecnav button, .finboqsub button, .fintodo-t > b, .fincoll-s > span:first-child, .finfold-t, .finsec-h, .finsechead h3, .finsechead .sectiontitle, .fincs-r > span, .finds-kv > span').forEach(el=>{
+  app.querySelectorAll('.sectiontitle, .pmstat > span, .pmchip, .finsubtabs button, .finsecnav button, .finboqsub button, .fintodo-t > b, .fincoll-s > span:first-child, .finfold-t, .finsec-h, .finsechead h3, .finsechead .sectiontitle, .fincs-r > span, .fincs-r > span > b, .finds-kv > span, .finhead-l, .finkv > span, .fincertify .field-label, .fincertdone .field-label, .finappdates .field-label, .fincertmore > summary').forEach(el=>{
     if(el.closest('input, textarea, select, [contenteditable]')) return;
     finTcNode(el);
   });

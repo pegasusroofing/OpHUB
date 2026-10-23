@@ -483,7 +483,7 @@ async function renderFinApplication(siteId, appId){
       <div><div class="finhead-l">Application</div><div class="finhead-v">No. ${a.number} ${finAppPill(a)}</div></div>
       <div><div class="finhead-l">Valuation date</div><div class="finhead-v">${finDate(a.valuation_date)}</div></div>
       <div><div class="finhead-l">Client PO</div><div class="finhead-v">${escapeHtml(a.client_po||'—')}</div></div>
-      <div><div class="finhead-l">Due this time</div><div class="finhead-v" id="finAppDueHead">—</div></div>
+      <div><div class="finhead-l">Due this application</div><div class="finhead-v" id="finAppDueHead">—</div></div>
     </div>
     ${locked ? (a.status==='submitted' && a.cert_net==null ? `<div class="finbanner finsubmitted" style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;"><span>📤 Submitted${a.submitted_at?' on '+finDate(String(a.submitted_at).slice(0,10)):''}${a.sent_to?' to '+escapeHtml(a.sent_to):''} — locked. Next: enter the client’s certificate below.</span><span style="display:flex;gap:8px;"><button class="ghostbtn" onclick="openFinAppEmail('${siteId}','${a.id}')">Email again</button><button class="ghostbtn" onclick="finAppToDraft('${a.id}')">Return to draft</button></span></div>` : `<div class="finbanner" style="background:var(--warn-bg);color:var(--warn);border-color:#F2D9B8;">This application has been ${a.status==='void'?'voided':'certified'}, so it can’t be changed.</div>`) : `
     <details class="card finappdates">

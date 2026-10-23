@@ -110,6 +110,8 @@ function finFoldTotals(){
     if(list.length && finGridCols() && typeof finCertTotals==='function'){ const t = finCertTotals().lines.filter(x=>k==='variations' ? x.var_index!=null : x.day_index!=null); txt = 'Applied '+txt+' · Cert '+finMoney(t.reduce((s,x)=>s+x.gross,0)); }
     el.textContent = txt; };
   set('variations', c.variations); set('dayworks', c.dayworks);
+  const all = document.getElementById('finFoldT-all');
+  if(all){ const l = c.variations.concat(c.dayworks); all.textContent = l.length ? finMoney(l.reduce((t,x)=>t+x.gross,0)) : ''; }
 }
 (function(){
   const ap = window.finAppPaint;
@@ -121,25 +123,43 @@ function finFoldTotals(){
   const base = renderFinApplication;
   renderFinApplication = async function(siteId, appId){
     const r = await base.apply(this, arguments);
+    const cards = [];
     document.querySelectorAll('.card > p.sectiontitle').forEach(t=>{
-      const k = t.textContent.trim(); if(k!=='Variations' && k!=='Dayworks') return;
-      const card = t.parentNode; if(card.tagName==='DETAILS') return;
-      const key = k.toLowerCase(), n = (finApp && finApp[key] || []).length;
-      const d = document.createElement('details'); d.className = 'card finfold';
-      d.innerHTML = `<summary><span class="finfold-t">${k}${n ? ` <em>${n}</em>` : ''}</span><b id="finFoldT-${key}"></b><span class="finfold-a">▾</span></summary><div class="finfold-b"></div>`;
-      const body = d.querySelector('.finfold-b');
-      t.remove(); while(card.firstChild) body.appendChild(card.firstChild);
-      card.replaceWith(d);
+      const k = t.textContent.trim(); if(!/^(Variations|Day ?works)$/i.test(k)) return;
+      const card = t.parentNode; if(card.tagName==='DETAILS' || card.closest('details.finfold')) return;
+      cards.push({t, card, key:/^var/i.test(k) ? 'variations' : 'dayworks'});
     });
+    if(cards.length){
+      const d = document.createElement('details'); d.className = 'card finfold';
+      const nAll = cards.reduce((s,c)=>s+((finApp && finApp[c.key] || []).length),0);
+      d.innerHTML = `<summary><span class="finfold-t">Variations &amp; Day Works${nAll ? ` <em>${nAll}</em>` : ''}</span><b id="finFoldT-all"></b><span class="finfold-a">▾</span></summary><div class="finfold-b"></div>`;
+      const body = d.querySelector('.finfold-b');
+      cards.sort((a,b)=>a.key==='variations' ? -1 : 1);
+      cards[0].card.before(d);
+      cards.forEach(c=>{
+        const n = (finApp && finApp[c.key] || []).length;
+        const sec = document.createElement('div'); sec.className = 'finfold-s';
+        sec.innerHTML = `<div class="finfold-sh"><span>${c.key==='variations' ? 'Variations' : 'Day Works'}${n ? ` <em>${n}</em>` : ''}</span><b id="finFoldT-${c.key}"></b></div>`;
+        c.t.remove(); while(c.card.firstChild) sec.appendChild(c.card.firstChild);
+        c.card.remove(); body.appendChild(sec);
+      });
+    }
     finFoldTotals(); finSumTitleEnsure();
     return r;
   };
 })();
 (function(){
   const st = document.createElement('style');
-  st.textContent = `.fing{overflow-x:auto;margin-top:8px;}
-.fing-row{display:grid;grid-template-columns:minmax(120px,1fr) 56px 42px 70px 88px 64px 92px 86px 86px;gap:6px;align-items:center;padding:6px 8px;border-top:1px solid var(--line,#EEF0F3);font-size:13px;min-width:780px;}
-.fing-row.c{grid-template-columns:minmax(110px,1fr) 52px 40px 66px 84px 60px 88px 80px 80px 60px 88px 80px 80px;min-width:1100px;}
+  st.textContent = `.fing{margin-top:8px;}
+.fing-row{display:grid;grid-template-columns:minmax(0,2.6fr) minmax(0,.8fr) minmax(0,.6fr) minmax(0,.9fr) repeat(5,minmax(0,1.1fr));gap:6px;align-items:center;padding:6px 8px;border-top:1px solid var(--line,#EEF0F3);font-size:12.5px;}
+.fing-row.c{grid-template-columns:minmax(0,2fr) repeat(9,minmax(0,1fr));gap:5px;padding:6px 8px;font-size:12.5px;}
+.fing-row.c > span:nth-child(2), .fing-row.c > span:nth-child(3), .fing-row.c > span:nth-child(4){display:none;}
+.fing-row.c .fing-m{display:block !important;}
+.fing-row > span:not(.fing-item){white-space:nowrap;overflow-wrap:normal;}
+.fing-head.c{text-transform:none;font-size:10.5px;letter-spacing:0;}
+.fing-head > span{overflow:hidden;white-space:normal !important;overflow-wrap:normal !important;word-break:normal;hyphens:none;}
+.fing-row > span{overflow-wrap:anywhere;}
+.fing-item{white-space:normal;}
 .fing-row .prev{color:var(--slate) !important;font-weight:500 !important;}
 .fing-head .prev, .fing-head span{line-height:1.25;}
 .fing-row > span{min-width:0;font-variant-numeric:tabular-nums;}
@@ -150,13 +170,12 @@ function finFoldTotals(){
 .fing-row .tot b{font-weight:700;}
 .fing-m{display:none !important;}
 .fing-row .fing-c{color:#1E6B45;font-weight:600;} .fing-row .fing-c.tot{font-weight:800;}
-.fing-head{background:var(--brand1);color:var(--brand1-text,#fff);border-radius:9px 9px 0 0;border-top:0;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.02em;padding:9px 8px;line-height:1.2;}
+.fing-head{background:var(--brand1);color:var(--brand1-text,#fff);border-radius:9px 9px 0 0;border-top:0;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0;padding:9px 8px;line-height:1.2;}
 .fing-head .fing-c{color:var(--brand1-text,#fff);}
-.fing-in{width:100% !important;max-width:72px;height:30px !important;min-height:30px !important;padding:0 8px !important;text-align:right;font-size:13.5px !important;border-radius:7px !important;margin:0 !important;box-sizing:border-box;}
+.fing-in{width:100% !important;max-width:72px;min-width:0 !important;height:30px !important;min-height:30px !important;padding:0 6px !important;text-align:right;font-size:13px !important;border-radius:7px !important;margin:0 !important;box-sizing:border-box;}
 .fing-in.w{max-width:100px;}
 .fing-in.cert{border:1.5px solid #2E9E5B !important;background:#F3FBF6 !important;}
-.fing .finapphead{min-width:780px;}
-.fing-row.c ~ .finapphead, .fing-head.c ~ .finapphead{min-width:1100px;}
+.fing .finapphead{min-width:0;flex-wrap:wrap;}
 #finAppLines .fing .finapphead.sec{background:var(--brand1) !important;background:color-mix(in srgb, var(--brand1) 80%, #000) !important;color:var(--brand1-text,#fff) !important;border-radius:0 !important;margin-top:0 !important;padding:8px 10px !important;}
 #finAppLines .fing .finapphead.sub{background:#EEF1F5 !important;background:color-mix(in srgb, var(--brand1) 12%, #fff) !important;color:var(--ink) !important;border-radius:0 !important;margin-top:0 !important;padding:7px 10px !important;}
 #finAppLines .fing .finappfill{padding:4px 8px !important;margin:0 !important;}
@@ -164,11 +183,30 @@ function finFoldTotals(){
 .finsumtitle{margin:0 0 6px !important;}
 details.finfold{padding:0 !important;}
 details.finfold > summary{list-style:none;display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer;}
+html.desk.finmode details.finfold > summary{padding:16px 24px;} html.desk.finmode details.finfold .finfold-b{padding:0 24px 20px;}
 details.finfold > summary::-webkit-details-marker{display:none;}
 .finfold-t{font-weight:800;font-size:15px;flex:1;} .finfold-t em{font-style:normal;font-size:11.5px;font-weight:800;background:#EEF1F5;border-radius:10px;padding:1px 8px;margin-left:4px;}
 details.finfold > summary b{font-variant-numeric:tabular-nums;font-size:13.5px;}
 .finfold-a{color:var(--slate);transition:transform .15s;} details.finfold[open] .finfold-a{transform:rotate(180deg);}
 .finfold-b{padding:0 16px 14px;}
+#finAppSummary.fincs .fincs-r{padding:5px 0;font-size:13.5px;}
+#finAppSummary.fincs .fincs-r.head{padding:0 0 2px;font-size:10.5px;}
+#finAppSummary.fincs .fincs-r.big{font-size:15px;padding:7px 0;}
+#finAppSummary.fincs .finsumtitle{margin-bottom:4px !important;}
+#finAppSummary.fincs .fincs-r .finpctin, #finAppSummary.fincs .fincs-r input{height:28px !important;min-height:28px !important;}
+html.desk.finmode #finAppSummary.fincs, html.desk.finmode .fincertdone{padding:16px 24px;}
+.fincertdone{margin-top:0 !important;}
+.fincertdone .finkv{padding:5px 0 !important;font-size:13.5px;}
+.fincertdone .finkv.big{font-size:15px;padding:7px 0 !important;}
+.fincertdone .row-gap{margin-top:8px !important;}
+.fincertdone .row-gap button{flex:0 0 auto !important;min-width:0 !important;width:auto !important;padding:7px 14px !important;margin:0 !important;}
+.fincertdone .fincertlines{margin-top:6px !important;}
+.finfold-s + .finfold-s{margin-top:14px;padding-top:12px;border-top:1px solid var(--line,#EEF0F3);}
+.finfold-sh{display:flex;align-items:center;gap:10px;margin:2px 0 8px;}
+.finfold-sh > span{flex:1;font-weight:800;font-size:13px;text-transform:uppercase;letter-spacing:.03em;color:var(--slate);}
+.finfold-sh em{font-style:normal;font-size:11px;background:#EEF1F5;border-radius:10px;padding:1px 7px;margin-left:4px;}
+.finfold-sh b{font-variant-numeric:tabular-nums;font-size:13px;}
+html.finmode details.finfold{display:block;width:auto;box-sizing:border-box;}
 @media (max-width:700px){
   .fing{overflow:visible;}
   .fing-head{display:none;}

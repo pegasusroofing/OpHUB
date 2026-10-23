@@ -38,7 +38,7 @@ function finCertSlotRender(a){
   const diff = finRound(Number(a.cert_net) - Number(a.net_due));
   const rows = [['Total certified to date', finMoney(a.cert_gross)], ['Less retention', '−'+finMoney(a.cert_retention)], ['Less previously certified', '−'+finMoney(a.cert_previous)]];
   if(Number(a.cert_discount||0)) rows.push(['Less discount', '−'+finMoney(a.cert_discount)]);
-  el.innerHTML = `<div class="card" style="margin-top:14px;">
+  el.innerHTML = `<div class="card fincertdone" style="margin-top:14px;">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
       <p class="sectiontitle" style="margin:0;">${a.cert_is_payless?'Pay-less notice':'Payment certificate'}</p>
       <span class="stub" style="margin:0;font-style:normal;">${finDate(a.cert_date)}</span>
