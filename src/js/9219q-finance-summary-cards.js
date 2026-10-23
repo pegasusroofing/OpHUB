@@ -209,6 +209,7 @@ window.finRowMenu = function(btn, kind, id){
   if(kind==='app'){
     const s = finAppStage(x).k;
     items.push(['Open', `go('#/site/${x.site_id}/finance/application/${x.id}')`]);
+    items.push(['Export Excel', `downloadFinAppExcel('${x.id}')`]);
     items.push(['Download PDF', `downloadFinAppPdf('${x.id}')`]);
     if(s==='submitted') items.push(['Return To Draft', `finAppToDraft('${x.id}')`]);
     if(x.invoice_id) items.push(['View Invoice', `openFinInvoicePdf('${x.invoice_id}')`]);
