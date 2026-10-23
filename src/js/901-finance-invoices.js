@@ -425,7 +425,7 @@ async function finBuildInvoicePdf(inv, site, st){
       y -= 4;
       const rcNet = vks.filter(k=>FIN_INV_VAT[k].rc).reduce((a,k)=>a+t.by[k].net,0);
       tot('Reverse charge VAT', finMoney(t.vatDue));
-      finWrap('Reverse charge: customer to account to HMRC for the VAT. VAT on '+finMoney(rcNet)+' of this supply: '+finMoney(t.vatDue)+'. (Domestic reverse charge for building and construction services.)', reg, 9, W-2*M).forEach(l=>{ txt(l, M, y, {size:9, color:SLATE}); y -= 12; });
+      finWrap('Reverse charge: customer to account to HMRC for the VAT. VAT on '+finMoney(rcNet)+' of this invoice: '+finMoney(t.vatDue)+'. (Domestic reverse charge for building and construction services.)', reg, 9, W-2*M).forEach(l=>{ txt(l, M, y, {size:9, color:SLATE}); y -= 12; });
     }
     if(inv.notes){ y -= 6; finWrap(inv.notes, reg, 10, W-2*M).forEach(l=>{ txt(l, M, y); y -= 13; }); }
     // Footer: payment details
