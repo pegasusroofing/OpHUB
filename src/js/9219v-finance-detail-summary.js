@@ -112,9 +112,28 @@ async function renderFinDetail(siteId){
   `, {title:'Detailed Summary', subtitle:(site.job_number?site.job_number+' · ':'')+site.name, back:`#/site/${siteId}/finance`, siteId, tabs:false});
 }
 window.renderFinDetail = renderFinDetail;
+// Run Reports for one project (Andy, 23 Oct): pick any report that can be run per project;
+// it opens with this project already chosen.
+function renderFinJobReports(siteId){
+  if(!finGuard()) return;
+  const site = SITES.find(s=>s.id===siteId); if(!site){ go('#/finance'); return; }
+  const reps = FIN_REPORTS.filter(r=>(r.filters||[]).includes('job'));
+  const card = (t, d, js)=>`<button type="button" class="finrepcard" onclick="${js}"><b>${escapeHtml(t)}</b><span>${escapeHtml(d)}</span></button>`;
+  const keep = finProjTab[siteId]; finProjTab[siteId] = '__none';
+  const tabs = typeof finProjTabsHtml==='function' ? finProjTabsHtml(siteId, 'application') : '';
+  finProjTab[siteId] = keep;
+  document.getElementById('app').innerHTML = shell(`
+    ${tabs}
+    <p class="stub" style="margin:0 0 14px;">Reports for <b>${escapeHtml((site.job_number?site.job_number+' · ':'')+site.name)}</b>. Pick one — it opens for this project; set the dates, then download it as Excel or PDF.</p>
+    <p class="sectiontitle">This project</p>
+    <div class="finrepgrid">${card('Detailed Summary', 'Sales against cost, with labour, plant, invoices and purchases.', `finDsTab='summary';go('#/site/${siteId}/finance/summary')`)}${card('Monthly Report', 'This month\'s value, cost and margin for the project.', `go('#/site/${siteId}/finance/monthly')`)}</div>
+    ${Object.keys(FIN_REPORT_GROUPS).map(g=>{ const rs = reps.filter(r=>r.group===g); return rs.length ? `<p class="sectiontitle">${FIN_REPORT_GROUPS[g]}</p><div class="finrepgrid">${rs.map(r=>card(r.title, r.desc, `finRep={id:'${r.id}', f:{job:'${siteId}', from:'', to:'', status:'all', opening:'', varstatus:'', postatus:''}, sort:null, dir:1};go('#/finance/reports/${r.id}')`)).join('')}</div>` : ''; }).join('')}
+  `, {title:'Run Reports', subtitle:(site.job_number?site.job_number+' · ':'')+site.name, back:`#/site/${siteId}/finance`, siteId, tabs:false});
+}
+window.renderFinJobReports = renderFinJobReports;
 (function(){
   const rsf = renderSiteFinance;
-  renderSiteFinance = function(siteId){ const p = parseRoute(); if(p[3]==='summary') return renderFinDetail(siteId); return rsf.apply(this, arguments); };
+  renderSiteFinance = function(siteId){ const p = parseRoute(); if(p[3]==='summary') return renderFinDetail(siteId); if(p[3]==='reports') return renderFinJobReports(siteId); return rsf.apply(this, arguments); };
   const st = document.createElement('style');
   st.textContent = `.finds-hg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) minmax(0,1.6fr);gap:10px 18px;align-items:end;}
 .finds-hg > div > span{display:block;font-size:11.5px;font-weight:700;color:var(--slate);margin-bottom:3px;}

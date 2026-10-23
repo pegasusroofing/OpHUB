@@ -137,16 +137,15 @@ finForecastCardHtml = function(siteId, fc){
   return `<div class="card">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
       <p class="sectiontitle" style="margin:0;">Project Summary</p>
-      <span style="display:flex;align-items:center;gap:8px;"><button type="button" class="ghostbtn" style="width:auto;margin:0;padding:6px 12px;" onclick="finDsTab='summary';go('#/site/${siteId}/finance/summary')">Detailed Summary ›</button>
-      <span class="finmb finpick"><button type="button" class="finmb-b" aria-label="Reports and budget" onclick="event.stopPropagation();const o=this.parentNode.classList.contains('open');document.querySelectorAll('.finmb.open').forEach(x=>x.classList.remove('open'));if(!o)this.parentNode.classList.add('open')">⋯</button>
-        <span class="finmb-m" onclick="event.stopPropagation()">
-          <button type="button" onclick="go('#/site/${siteId}/finance/monthly')">Run Monthly Report</button>
-          <button type="button" onclick="go('#/site/${siteId}/finance/budget')">Change Budget</button>
-        </span></span></span>
+
     </div>
     <div class="fintiles">${vT}${cT}${pT}${ppT}</div>
     <div class="finkv" style="margin-top:10px;"><span>Contract ${finMoney(fc.contract, 0)} · Agreed Variations ${finMoney(fc.vAgreed, 0)}${fc.vPending?' · Awaiting Agreement '+finMoney(fc.vPending, 0):''}</span><b>Forecasted Final Cost ${finMoney(fc.forecastCost, 0)}</b></div>
     ${finAutoOriginal(siteId, fc)}
+    <div class="finsumbtns">
+      <button type="button" class="ghostbtn" onclick="finDsTab='summary';go('#/site/${siteId}/finance/summary')">Full Summary</button>
+      <span><button type="button" class="ghostbtn" onclick="go('#/site/${siteId}/finance/reports')">Run Reports</button><button type="button" class="ghostbtn" onclick="go('#/site/${siteId}/finance/budget')">Change Budget</button></span>
+    </div>
     ${fc.budgetSource==='schedule' && fc.schedCostedN < fc.schedItemsN ? `<div class="finnote warn">${fc.schedItemsN - fc.schedCostedN} Bill of Quantities line${fc.schedItemsN - fc.schedCostedN===1?' has':'s have'} no cost price yet, so the budget is low. <a href="#/site/${siteId}/finance/contract">Add costs</a></div>` : ''}
   </div>`;
 };
@@ -177,7 +176,10 @@ window.finSumSet = function(slot, k){
 .fintop > .finpick .finmb-b{background:rgba(255,255,255,.7);}
 .fintop-n{font-style:normal;opacity:.7;font-weight:600;}
 .fintile-l{display:flex;align-items:center;justify-content:space-between;gap:6px;}
-.finpick .finmb-m{max-height:340px;overflow:auto;}`;
+.finpick .finmb-m{max-height:340px;overflow:auto;}
+.finsumbtns{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid var(--line);}
+.finsumbtns > span{display:flex;gap:8px;flex-wrap:wrap;}
+.finsumbtns .ghostbtn{width:auto !important;margin:0 !important;padding:7px 14px !important;}`;
   document.head.appendChild(st);
 })();
 
