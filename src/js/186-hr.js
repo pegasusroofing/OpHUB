@@ -286,7 +286,7 @@ async function renderHrHolidays(){
         <div class="calm-head">
           <button type="button" class="calm-nav" aria-label="Previous month" onclick="hrMonthShift(-1)">‹</button>
           <div class="calm-title">${first.toLocaleDateString('en-GB',{month:'long', year:'numeric'})}</div>
-          <button type="button" class="calm-today" onclick="hrMonth=null;hrSel=null;render()">Today</button>
+          <button type="button" class="calm-today hrcal-today" onclick="hrMonth=null;hrSel=null;render()">Today</button>
           <button type="button" class="calm-nav" aria-label="Next month" onclick="hrMonthShift(1)">›</button>
         </div>
         <div class="calm-wk">${['M','T','W','T','F','S','S'].map(x=>`<span>${x}</span>`).join('')}</div>

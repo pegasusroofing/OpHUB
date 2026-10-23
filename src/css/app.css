@@ -2301,3 +2301,7 @@ html.finmode .finjobfilt + .formfield{margin:0 0 10px !important;max-width:420px
 html.finmode .finjobfilt + .formfield input{height:34px !important;min-height:34px !important;padding:5px 12px !important;font-size:13px !important;border-radius:9px !important;}
 .fggrid .fgfilters th{padding:4px 6px !important;}
 .fggrid .fgfilters input{height:26px !important;min-height:26px !important;padding:2px 8px !important;font-size:11.5px !important;border-radius:7px !important;}
+
+/* HR calendar: Today in the middle of the month row (Andy, 23 Oct) */
+.calm-head:has(.hrcal-today){position:relative;}
+.calm-head .hrcal-today{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);}
