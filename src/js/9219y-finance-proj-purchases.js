@@ -22,22 +22,24 @@ async function finPpFill(siteId){
   if(!document.getElementById('finPpBody')) return;
   const live = pinvs.filter(i=>i.status!=='rejected');
   const poBy = {}; pos.forEach(p=>poBy[p.id] = p);
-  const k = finPpSub[siteId] || 'orders';
+  const k = finPpSub[siteId] || 'invoices';
   const btn = (l, js, dark)=>`<button type="button" class="${dark?'darkbtn':'ghostbtn'}" onclick="${js}">${l}</button>`;
-  const cnt = {orders:pos.length, invoices:live.length, plant:hires.length, all:live.length+hires.filter(h=>h.cost_from!=='invoices').length+xc.length};
-  const tabs = `<div class="finsubtabs finpurtabs">${[['orders','Purchase Orders'],['invoices','Purchase Invoices'],['plant','Plant'],['all','All']].map(([kk,l])=>`<button type="button" class="${kk===k?'on':''}" onclick="finPpSub['${siteId}']='${kk}';finPpFill('${siteId}')">${l}${cnt[kk]?` <em>${cnt[kk]}</em>`:''}</button>`).join('')}</div>`;
+  const cnt = {quotes:0, orders:pos.length, invoices:live.length, plant:hires.length, all:live.length+hires.filter(h=>h.cost_from!=='invoices').length+xc.length};
+  const tabs = `<div class="finsubtabs finpurtabs">${[['invoices','Purchase Invoices'],['orders','Purchase Orders'],['quotes','Purchase Quotes'],['plant','Plant'],['all','All']].map(([kk,l])=>`<button type="button" class="${kk===k?'on':''}" onclick="finPpSub['${siteId}']='${kk}';finPpFill('${siteId}')">${l}${cnt[kk]?` <em>${cnt[kk]}</em>`:''}</button>`).join('')}</div>`;
   let body = '';
-  if(k==='orders'){
-    body = finPpHead('Purchase Orders', btn('Shopping List', `go('#/site/${siteId}/finance/shopping')`)+btn('+ New PO', `openFinNewPo('${siteId}')`, 1))
+  if(k==='quotes'){
+    body = await finPqPaneHtml(siteId);
+  } else if(k==='orders'){
+    body = finPpHead('Purchase Orders', btn('+ New PO', `openFinNewPo('${siteId}')`, 1))
       + finPpTable([['PO'],['Supplier'],['Date'],['Value',1],['Invoiced',1],['Left To Invoice',1],['Status']], pos.map(p=>{
         const inv = finPoInvoiced(p, live), left = p.value!=null && p.status==='open' ? Math.max(0, finRound(Number(p.value)-inv)) : null;
         return `<tr class="click" onclick="go('#/site/${siteId}/finance/po/${p.id}')"><td data-l="PO" class="d"><b>${escapeHtml(p.number||'')}</b></td><td data-l="Supplier">${escapeHtml(p.supplier_name||'—')}</td><td data-l="Date">${finDate(String(p.issue_date||p.created_at||'').slice(0,10))}</td><td data-l="Value" class="num">${p.value!=null?finMoney(p.value):'—'}</td><td data-l="Invoiced" class="num">${finMoney(inv)}</td><td data-l="Left To Invoice" class="num">${left!=null?finMoney(left):'—'}</td><td data-l="Status">${finPoPill(p)}</td></tr>`;
       }), 'No purchase orders on this project yet.');
   } else if(k==='invoices'){
-    body = finPpHead('Purchase Invoices', btn('+ Receipt', `openPurchaseInvoiceForm('${siteId}',null,true)`)+btn('+ Add Invoice', `openPurchaseInvoiceForm('${siteId}')`, 1))
+    body = finPpHead('Purchase Invoices', btn('+ ▾', `finPpAddMenu(this,'${siteId}')`)+btn('+ Add Invoice', `openPurchaseInvoiceForm('${siteId}')`, 1))
       + finPpTable([['Supplier'],['Invoice No.'],['Date'],['PO'],['Net',1],['VAT',1],['Gross',1],['Status']], live.map(i=>{ const po = poBy[i.po_id];
         return `<tr class="click" onclick="openPurchaseInvoiceView('${siteId}','${i.id}')"><td data-l="Supplier" class="d"><b>${escapeHtml(i.supplier_name||'—')}</b></td><td data-l="Invoice No.">${escapeHtml(i.invoice_no||'—')}</td><td data-l="Date">${finDate(i.invoice_date)}</td><td data-l="PO">${po?escapeHtml(po.number):'<span class="stub" style="margin:0;">No PO</span>'}</td><td data-l="Net" class="num">${finMoney(i.net)}</td><td data-l="VAT" class="num">${finMoney(i.vat)}</td><td data-l="Gross" class="num"><b>${finMoney(i.total)}</b></td><td data-l="Status">${finPiStatusPill(i)}</td></tr>`;
-      }), 'No purchase invoices on this project yet.');
+      }).concat(xc.filter(x=>x.ref==='YARD' || /^(yard stock|returned to yard)/i.test(String(x.description||''))).map(x=>`<tr class="click" onclick="${typeof openFinJobCost==='function' ? `openFinJobCost('${siteId}','${x.id}')` : ''}"><td data-l="Supplier" class="d"><b>Yard Stock</b></td><td data-l="Invoice No.">—</td><td data-l="Date">${finDate(x.cost_date)}</td><td data-l="PO">${escapeHtml(String(x.description||'').replace(/^yard stock:\s*/i,''))}</td><td data-l="Net" class="num">${finMoney(x.net)}</td><td data-l="VAT" class="num">—</td><td data-l="Gross" class="num"><b>${finMoney(x.net)}</b></td><td data-l="Status"><span class="finpill grey">From Yard</span></td></tr>`)), 'No purchase invoices on this project yet.');
   } else if(k==='plant'){
     body = finPpHead('Plant', btn('+ Add Plant', `openFinPlantForm('${siteId}')`, 1))
       + finPpTable([['Item'],['Supplier'],['Hire Ref'],['On Hire'],['Off Hire'],['Weeks'],['Cost',1],['Status']], hires.map(h=>{ const c = finPlantCost(h);
