@@ -137,11 +137,11 @@ finForecastCardHtml = function(siteId, fc){
   return `<div class="card">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
       <p class="sectiontitle" style="margin:0;">Project Summary</p>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;">
-        <button ${btn} onclick="go('#/site/${siteId}/finance/monthly')">Monthly Report</button>
-        <button ${btn} onclick="go('#/site/${siteId}/finance/variations')">Variations</button>
-        <button ${btn} onclick="go('#/site/${siteId}/finance/budget')">Budget ›</button>
-      </div>
+      <span class="finmb finpick"><button type="button" class="finmb-b" aria-label="Reports and budget" onclick="event.stopPropagation();const o=this.parentNode.classList.contains('open');document.querySelectorAll('.finmb.open').forEach(x=>x.classList.remove('open'));if(!o)this.parentNode.classList.add('open')">⋯</button>
+        <span class="finmb-m" onclick="event.stopPropagation()">
+          <button type="button" onclick="go('#/site/${siteId}/finance/monthly')">Run Monthly Report</button>
+          <button type="button" onclick="go('#/site/${siteId}/finance/budget')">Change Budget</button>
+        </span></span>
     </div>
     <div class="fintiles">${vT}${cT}${pT}${ppT}</div>
     <div class="finkv" style="margin-top:10px;"><span>Contract ${finMoney(fc.contract, 0)} · Agreed Variations ${finMoney(fc.vAgreed, 0)}${fc.vPending?' · Awaiting Agreement '+finMoney(fc.vPending, 0):''}</span><b>Forecasted Final Cost ${finMoney(fc.forecastCost, 0)}</b></div>

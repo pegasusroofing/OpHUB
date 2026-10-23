@@ -145,11 +145,14 @@ async function renderFinSales(sub){
   document.getElementById('app').innerHTML = shell(`
     ${finSectionNav('sales')}
     <div class="pmstats finstats">
-      ${(()=>{ const pO = finStatPeriod('s_owed','all'), pR = finStatPeriod('s_recv','month'), pD = finStatPeriod('s_over','all'), pC = finStatPeriod('s_cert','all');
-        return finStatCardHtml({key:'s_owed', def:'all', label:'Owed to you', onclick:"finInvFilter='outstanding';go('#/finance/sales/invoices')", value:finMoney(live.filter(i=>finInPeriod(i.issue_date, pO)).reduce((t,i)=>t+finInvOutstanding(i),0), 0)})
-          + finStatCardHtml({key:'s_recv', def:'month', label:'Received', onclick:"finInvFilter='paid';go('#/finance/sales/invoices')", value:finMoney(pays.filter(p=>finInPeriod(p.paid_on, pR)).reduce((t,p)=>t+Number(p.amount||0),0), 0)})
+      ${(()=>{ const pA = finStatPeriod('s_appv','month'), pI = finStatPeriod('s_invv','month'), pD = finStatPeriod('s_over','all'), pN = finStatPeriod('s_anc','all');
+        // 23 Oct (Andy): Applied Value · Invoiced Value · Overdue · Applied, not certified or invoiced
+        const applied = apps.filter(a=>!['draft','void'].includes(a.status) && finInPeriod(a.valuation_date, pA));
+        const waiting = apps.filter(a=>stage(a)==='submitted' && finInPeriod(a.valuation_date, pN));
+        return finStatCardHtml({key:'s_appv', def:'month', label:'Applied Value', onclick:"finSalesAppF='all';finSalesPicked=true;go('#/finance/sales/apps')", value:finMoney(applied.reduce((t,a)=>t+Number(a.net_due||0),0), 0)})
+          + finStatCardHtml({key:'s_invv', def:'month', label:'Invoiced Value', onclick:"finInvFilter='all';go('#/finance/sales/invoices')", value:finMoney(live.filter(i=>i.status!=='draft' && finInPeriod(i.issue_date, pI)).reduce((t,i)=>t+Number(i.net||0),0), 0)})
           + finStatCardHtml({key:'s_over', def:'all', label:'Overdue', onclick:"finInvFilter='overdue';go('#/finance/sales/invoices')", value:finMoney(live.filter(finInvOverdue).filter(i=>finInPeriod(i.due_date, pD)).reduce((t,i)=>t+finInvOutstanding(i),0), 0)})
-          + finStatCardHtml({key:'s_cert', def:'all', label:'Certified, not invoiced', onclick:"finSalesAppF='certified';go('#/finance/sales/apps')", value:String(toInvoice.filter(a=>finInPeriod(a.cert_date, pC)).length)}); })()}
+          + finStatCardHtml({key:'s_anc', def:'all', label:'Applied, Not Certified Or Invoiced', onclick:"finSalesAppF='open';finSalesPicked=true;go('#/finance/sales/apps')", value:finMoney(waiting.reduce((t,a)=>t+Number(a.net_due||0),0), 0)}); })()}
     </div>
     ${finSubTabs('sales', sub, {apps:toInvoice.length})}
     ${body}
