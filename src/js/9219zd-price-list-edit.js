@@ -105,3 +105,60 @@ window.finPlDuplicate = async function(qid){
 @media (max-width:640px){ .finpl-g{grid-template-columns:1fr;} .finpl-th, .finpl-row{grid-template-columns:1fr 70px 60px 24px;} .finpl-row input:nth-child(2), .finpl-th span:nth-child(2){display:none;} }`;
   document.head.appendChild(st);
 })();
+
+/* Yard stock costs on a job can be edited (Andy, 23 Oct): issued from the home page, Material
+   Requests or by a driver, they go straight onto the job as approved; tap one to change the
+   qty, rate, date or job. Changing the qty puts the difference back in (or takes it out of)
+   the yard count (yard_cost_edit). */
+(function(){
+  const base = window.openFinJobCost;
+  window.openFinJobCost = async function(siteId, id){
+    const x = id ? (await dbSelect('fin_job_costs', 'id=eq.'+id).catch(()=>[]))[0] : null;
+    if(!x || !(x.supplier==='Yard' && x.ref==='YARD')) return base.apply(this, arguments);
+    const mv = (await dbSelect('yard_moves', 'job_cost_id=eq.'+id).catch(()=>[]))[0] || null;
+    const st = mv ? (await dbSelect('yard_stock', 'id=eq.'+mv.stock_id+'&select=id,item,unit,qty').catch(()=>[]))[0] : null;
+    const qty = mv ? Math.abs(Number(mv.qty||0)) : null;
+    const rate = qty ? finRound4(Math.abs(Number(x.net||0))/qty) : null;
+    window.__yardEdit = {x, mv, st, qty, rate, ret: Number(x.net||0) < 0};
+    let ov = document.getElementById('yardCostOverlay');
+    if(!ov){ ov = document.createElement('div'); ov.id = 'yardCostOverlay'; ov.className = 'geo-modal-overlay'; document.body.appendChild(ov); }
+    ov.onclick = e=>{ if(e.target===ov) ov.style.display='none'; };
+    const live = SITES.filter(s=>typeof finSiteStatus!=='function' || finSiteStatus(s)!=='closed' || s.id===x.site_id).slice().sort((a,b)=>String(b.job_number||'').localeCompare(String(a.job_number||''), undefined, {numeric:true}));
+    ov.innerHTML = `<div class="geo-modal-card">
+      <h3 style="margin:0 0 4px;">Yard Stock On This Job</h3>
+      <p class="stub" style="margin:0 0 10px;font-style:normal;"><span class="finpill blue">Approved</span> ${escapeHtml(st ? st.item : x.description||'')}${st ? ' · '+yardQty(st.qty)+' '+escapeHtml(st.unit||'')+' left in the yard' : ''}</p>
+      <div class="fingrid2">
+        <div class="formfield"><label class="field-label">Qty${st&&st.unit?' ('+escapeHtml(st.unit)+')':''}</label><input type="text" inputmode="decimal" id="ycQty" value="${qty!=null?qty:''}" ${mv?'':'disabled'} oninput="yardCostCalc()"></div>
+        <div class="formfield"><label class="field-label">Rate £</label><input type="text" inputmode="decimal" id="ycRate" value="${rate!=null?rate:''}" oninput="yardCostCalc()"></div>
+        <div class="formfield"><label class="field-label">Date</label><input type="date" id="ycDate" value="${x.cost_date||''}"></div>
+        <div class="formfield"><label class="field-label">Job</label><select id="ycSite">${live.map(s=>`<option value="${s.id}" ${s.id===x.site_id?'selected':''}>${escapeHtml(finJobTag(s.id))}</option>`).join('')}</select></div>
+      </div>
+      <div class="finkv big"><span>Net</span><b id="ycNet">${finMoney(x.net)}</b></div>
+      ${mv ? '<p class="stub" style="margin:4px 0 0;font-style:normal;font-size:12px;">Changing the qty puts the difference back in the yard (or takes it out).</p>' : ''}
+      <div style="display:flex;gap:8px;margin-top:12px;"><button class="ghostbtn" style="margin:0;" onclick="document.getElementById('yardCostOverlay').style.display='none'">Cancel</button><button class="darkbtn" id="ycSave" style="margin:0;" onclick="yardCostSave()">Save</button></div>
+    </div>`;
+    ov.style.display = 'flex';
+  };
+  window.yardCostCalc = function(){
+    const E = window.__yardEdit; if(!E) return;
+    const q = finNum(finVal('ycQty')), r = finNum(finVal('ycRate'));
+    const net = (q!=null && !isNaN(q) ? q : (E.qty||1)) * (r!=null && !isNaN(r) ? r : 0) * (E.ret ? -1 : 1);
+    const el = document.getElementById('ycNet'); if(el) el.textContent = finMoney(finRound(net));
+    return finRound(net);
+  };
+  window.yardCostSave = async function(){
+    const E = window.__yardEdit; if(!E) return;
+    const q = E.mv ? finNum(finVal('ycQty')) : null;
+    if(E.mv && (q==null || isNaN(q) || q<=0)){ toast('Enter the qty.'); return; }
+    const net = yardCostCalc();
+    const desc = E.st ? `${E.ret ? 'Returned to yard: ' : 'Yard stock: '}${E.st.item} × ${q!=null?q:E.qty}${E.st.unit?' '+E.st.unit:''}` : null;
+    const btn = document.getElementById('ycSave'); if(btn){ btn.disabled = true; btn.textContent = 'Saving…'; }
+    const res = await sbFetch('/rest/v1/rpc/yard_cost_edit', {method:'POST', body:JSON.stringify({p_cost:E.x.id, p_qty:q, p_net:net, p_site:finVal('ycSite')||null, p_date:finVal('ycDate')||null, p_desc:desc})});
+    if(btn){ btn.disabled = false; btn.textContent = 'Save'; }
+    if(!res.ok){ toast('Could not save — '+(await safeErr(res))); return; }
+    document.getElementById('yardCostOverlay').style.display = 'none';
+    if(typeof yardCache!=='undefined') yardCache = null;
+    toast('Saved'); const sid = (parseRoute()||[])[1];
+    if(document.getElementById('finPpBody') && sid) finPpFill(sid); else render();
+  };
+})();

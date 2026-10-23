@@ -39,7 +39,7 @@ async function finPpFill(siteId){
     body = finPpHead('Purchase Invoices', btn('+ ▾', `finPpAddMenu(this,'${siteId}')`)+btn('+ Add Invoice', `openPurchaseInvoiceForm('${siteId}')`, 1))
       + finPpTable([['Supplier'],['Invoice No.'],['Date'],['PO'],['Net',1],['VAT',1],['Gross',1],['Status']], live.map(i=>{ const po = poBy[i.po_id];
         return `<tr class="click" onclick="openPurchaseInvoiceView('${siteId}','${i.id}')"><td data-l="Supplier" class="d"><b>${escapeHtml(i.supplier_name||'—')}</b></td><td data-l="Invoice No.">${escapeHtml(i.invoice_no||'—')}</td><td data-l="Date">${finDate(i.invoice_date)}</td><td data-l="PO">${po?escapeHtml(po.number):'<span class="stub" style="margin:0;">No PO</span>'}</td><td data-l="Net" class="num">${finMoney(i.net)}</td><td data-l="VAT" class="num">${finMoney(i.vat)}</td><td data-l="Gross" class="num"><b>${finMoney(i.total)}</b></td><td data-l="Status">${finPiStatusPill(i)}</td></tr>`;
-      }).concat(xc.filter(x=>x.ref==='YARD' || /^(yard stock|returned to yard)/i.test(String(x.description||''))).map(x=>`<tr class="click" onclick="${typeof openFinJobCost==='function' ? `openFinJobCost('${siteId}','${x.id}')` : ''}"><td data-l="Supplier" class="d"><b>Yard Stock</b></td><td data-l="Invoice No.">—</td><td data-l="Date">${finDate(x.cost_date)}</td><td data-l="PO">${escapeHtml(String(x.description||'').replace(/^yard stock:\s*/i,''))}</td><td data-l="Net" class="num">${finMoney(x.net)}</td><td data-l="VAT" class="num">—</td><td data-l="Gross" class="num"><b>${finMoney(x.net)}</b></td><td data-l="Status"><span class="finpill grey">From Yard</span></td></tr>`)), 'No purchase invoices on this project yet.');
+      }).concat(xc.filter(x=>x.ref==='YARD' || /^(yard stock|returned to yard)/i.test(String(x.description||''))).map(x=>`<tr class="click" onclick="${typeof openFinJobCost==='function' ? `openFinJobCost('${siteId}','${x.id}')` : ''}"><td data-l="Supplier" class="d"><b>Yard Stock</b></td><td data-l="Invoice No.">—</td><td data-l="Date">${finDate(x.cost_date)}</td><td data-l="PO">${escapeHtml(String(x.description||'').replace(/^yard stock:\s*/i,''))}</td><td data-l="Net" class="num">${finMoney(x.net)}</td><td data-l="VAT" class="num">—</td><td data-l="Gross" class="num"><b>${finMoney(x.net)}</b></td><td data-l="Status"><span class="finpill blue">Approved</span> <span class="finpill grey">Yard</span></td></tr>`)), 'No purchase invoices on this project yet.');
   } else if(k==='plant'){
     body = finPpHead('Plant', btn('+ Add Plant', `openFinPlantForm('${siteId}')`, 1))
       + finPpTable([['Item'],['Supplier'],['Hire Ref'],['On Hire'],['Off Hire'],['Weeks'],['Cost',1],['Status']], hires.map(h=>{ const c = finPlantCost(h);
@@ -61,7 +61,14 @@ async function finPpFill(siteId){
   const other = finRound(xc.reduce((t,x)=>t+Number(x.net||0),0));
   const onHire = hires.filter(h=>!h.off_hire).length;
   const cell = (kk, l, v, sub)=>`<div class="click" onclick="finPpSub['${siteId}']='${kk}';finPpFill('${siteId}')"><span>${l}</span><b>${v}</b><em>${sub}</em></div>`;
-  const tiles = `<div class="fintodate finpp-tiles">${cell('orders','Purchase Orders', finMoney(poVal, 0), pos.length+' order'+(pos.length===1?'':'s')+(poLeft?' · '+finMoney(poLeft, 0)+' left to invoice':''))}${cell('invoices','Purchase Invoices', finMoney(piNet, 0), live.length+' invoice'+(live.length===1?'':'s')+', net')}${cell('plant','Plant', finMoney(plantCost, 0), onHire+' on hire')}${cell('all','Total Spend', finMoney(finRound(piNet+plantCost+other), 0), 'excl. VAT')}</div>`;
+  // Hybrid tile (Andy, 23 Oct): Material From Yard, Plant, or both together — whatever the job has.
+  const yardRows = xc.filter(x=>x.ref==='YARD' || /^(yard stock|returned to yard)/i.test(String(x.description||'')));
+  const yardTot = finRound(yardRows.reduce((t,x)=>t+Number(x.net||0),0));
+  const yardPlantCell = yardRows.length && (plantCost || hires.length)
+    ? cell('invoices','Yard Materials & Plant', finMoney(finRound(yardTot+plantCost), 0), finMoney(yardTot, 0)+' yard · '+finMoney(plantCost, 0)+' plant')
+    : yardRows.length ? cell('invoices','Material From Yard', finMoney(yardTot, 0), yardRows.length+' issue'+(yardRows.length===1?'':'s')+' from the yard')
+    : cell('plant','Plant', finMoney(plantCost, 0), onHire+' on hire');
+  const tiles = `<div class="fintodate finpp-tiles">${cell('orders','Purchase Orders', finMoney(poVal, 0), pos.length+' order'+(pos.length===1?'':'s')+(poLeft?' · '+finMoney(poLeft, 0)+' left to invoice':''))}${cell('invoices','Purchase Invoices', finMoney(piNet, 0), live.length+' invoice'+(live.length===1?'':'s')+', net')}${yardPlantCell}${cell('all','Total Spend', finMoney(finRound(piNet+plantCost+other), 0), 'excl. VAT')}</div>`;
   el.innerHTML = tiles + tabs + `<div class="card finpp-card">${body}</div>`;
 }
 window.finPpFill = finPpFill;
