@@ -425,8 +425,10 @@ window.newFinApplication = async function(siteId){
     dbSelect('fin_contract_items', 'site_id=eq.'+siteId+'&order=position.asc'),
     dbSelect('fin_applications', 'site_id=eq.'+siteId+'&order=number.desc'),
     dbSelect('variations', 'site_id=eq.'+siteId+'&approval_status=eq.approved&order=created_at.asc'),
-    dbSelect('fin_variations', 'site_id=eq.'+siteId+'&status=in.(priced,submitted,agreed)&order=seq.asc'),
+    dbSelect('fin_variations', 'site_id=eq.'+siteId+'&status=eq.agreed&order=seq.asc'),
   ]);
+  // Day works register: only approved ones go onto the application (Andy, 23 Oct).
+  const fdays = await dbSelect('fin_dayworks', 'site_id=eq.'+siteId+'&status=eq.approved&order=seq.asc').catch(()=>[]);
   if(!items.filter(finIsItem).length){ toast('Set up the Bill of Quantities first.'); go(`#/site/${siteId}/finance/contract`); return; }
   const jf = jfRows[0] || {};
   const last = apps.find(a=>a.status!=='void');
@@ -436,9 +438,9 @@ window.newFinApplication = async function(siteId){
   const val = finAppDateFor(jf, st, today.slice(0,7)) || today;
   const dueDays = jf.due_days!=null ? jf.due_days : st.default_due_days, finalDays = jf.final_days!=null ? jf.final_days : st.default_final_days;
   const due = finAddDays(val, dueDays);
-  // Variations register (911) first: agreed at the agreed value, priced/submitted at the quoted value.
+  // Variations register (911): approved (agreed) ones only, at the approved value (Andy, 23 Oct).
   const linkedSite = new Set(fvars.map(v=>v.variation_id).filter(Boolean));
-  const varRows = fvars.map(v=>{ const prev = lastFinVar[v.id]; const val = v.status==='agreed' && v.agreed_value!=null ? Number(v.agreed_value) : Number(v.quoted||0); return {fin_variation_id:v.id, variation_id:v.variation_id||null, description:v.number+' '+v.title+(v.status==='agreed'?'':' (not yet agreed)'), value:val, pct: prev ? prev.pct : 100}; });
+  const varRows = fvars.map(v=>{ const prev = lastFinVar[v.id]; const val = v.status==='agreed' && v.agreed_value!=null ? Number(v.agreed_value) : Number(v.quoted||0); return {fin_variation_id:v.id, variation_id:v.variation_id||null, description:v.number+' '+v.title, value:val, pct: prev ? prev.pct : 100}; });
   vars.filter(v=>!linkedSite.has(v.id)).map(v=>{ const prev = lastVar[v.id]; const amt = finNum(v.cost_impact); return {variation_id:v.id, description:v.description||'Variation', value: prev ? prev.value : ((amt===null||isNaN(amt))?0:amt), pct: prev ? prev.pct : 100}; }).forEach(r=>varRows.push(r));
   ((last&&last.variations)||[]).filter(v=>!v.variation_id && !v.fin_variation_id).forEach(v=>varRows.push(Object.assign({}, v)));
   const row = {
@@ -447,7 +449,9 @@ window.newFinApplication = async function(siteId){
     lines: items.map(i=>finIsItem(i)
       ? {kind:'item', item_id:i.id, ref:i.ref||'', description:i.description, qty:i.qty!=null?Number(i.qty):null, unit:i.unit||'', rate:i.rate!=null?Number(i.rate):null, value:Number(i.value), pct: lastPct[i.id]!=null ? lastPct[i.id] : 0}
       : {kind:i.kind, item_id:i.id, ref:i.ref||'', description:i.description}),
-    variations: varRows, dayworks: [],
+    variations: varRows,
+    dayworks: fdays.map(d=>({fin_daywork_id:d.id, description:(d.number?d.number+' ':'')+d.title, value:Number(d.value||0)}))
+      .concat(((last&&last.dayworks)||[]).filter(d=>!d.fin_daywork_id).map(d=>Object.assign({}, d))),
     retention_pct: jf.retention_pct!=null ? jf.retention_pct : st.default_retention_pct, created_by:ME.id,
   };
   const ins = await dbInsert('fin_applications', row);
