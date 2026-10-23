@@ -137,19 +137,34 @@ finForecastCardHtml = function(siteId, fc){
   return `<div class="card">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
       <p class="sectiontitle" style="margin:0;">Project Summary</p>
+      <span style="display:flex;align-items:center;gap:8px;"><button type="button" class="ghostbtn" style="width:auto;margin:0;padding:6px 12px;" onclick="finDsTab='summary';go('#/site/${siteId}/finance/summary')">Detailed Summary ›</button>
       <span class="finmb finpick"><button type="button" class="finmb-b" aria-label="Reports and budget" onclick="event.stopPropagation();const o=this.parentNode.classList.contains('open');document.querySelectorAll('.finmb.open').forEach(x=>x.classList.remove('open'));if(!o)this.parentNode.classList.add('open')">⋯</button>
         <span class="finmb-m" onclick="event.stopPropagation()">
           <button type="button" onclick="go('#/site/${siteId}/finance/monthly')">Run Monthly Report</button>
           <button type="button" onclick="go('#/site/${siteId}/finance/budget')">Change Budget</button>
-        </span></span>
+        </span></span></span>
     </div>
     <div class="fintiles">${vT}${cT}${pT}${ppT}</div>
     <div class="finkv" style="margin-top:10px;"><span>Contract ${finMoney(fc.contract, 0)} · Agreed Variations ${finMoney(fc.vAgreed, 0)}${fc.vPending?' · Awaiting Agreement '+finMoney(fc.vPending, 0):''}</span><b>Forecasted Final Cost ${finMoney(fc.forecastCost, 0)}</b></div>
-    ${noOrig ? `<div class="finkv"><span>Save today’s value and budget as the starting point, so you can see how the job moves.</span><b><button class="linkbtn" onclick="finSetOriginal('${siteId}')">Save Starting Point</button></b></div>`
-      : `<div class="finkv"><span class="stub" style="margin:0;font-style:normal;">Starting Point Saved ${fc.jf.original_at ? finDate(String(fc.jf.original_at).slice(0,10)) : ''}</span><b><button class="linkbtn" onclick="finSetOriginal('${siteId}')">Update To Today’s Figures</button></b></div>`}
+    ${finAutoOriginal(siteId, fc)}
     ${fc.budgetSource==='schedule' && fc.schedCostedN < fc.schedItemsN ? `<div class="finnote warn">${fc.schedItemsN - fc.schedCostedN} Bill of Quantities line${fc.schedItemsN - fc.schedCostedN===1?' has':'s have'} no cost price yet, so the budget is low. <a href="#/site/${siteId}/finance/contract">Add costs</a></div>` : ''}
   </div>`;
 };
+// The starting point is fixed automatically: the value and budget the job was set up with,
+// dated the day the job was created (Andy, 23 Oct — no "save starting point" row).
+let finAutoOrigDone = {};
+function finAutoOriginal(siteId, fc){
+  const jf = fc.jf || {}, patch = {};
+  if(jf.original_value==null && fc.contract > 0) patch.original_value = fc.contract;
+  if(jf.original_cost==null && fc.budgetTotal!=null && fc.budgetTotal > 0) patch.original_cost = fc.budgetTotal;
+  if(!Object.keys(patch).length || finAutoOrigDone[siteId]) return '';
+  finAutoOrigDone[siteId] = 1;
+  const site = SITES.find(s=>s.id===siteId) || {};
+  if(!jf.original_at) patch.original_at = site.created_at || new Date().toISOString();
+  if(patch.original_value!=null){ fc.origValue = patch.original_value; } if(patch.original_cost!=null){ fc.origCost = patch.original_cost; }
+  sbFetch('/rest/v1/job_finance', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify(Object.assign({site_id:siteId, org_id:ME.org_id}, patch))}).catch(()=>{});
+  return '';
+}
 window.finSumSet = function(slot, k){
   const cur = finLsGet(FIN_SUM_LS, FIN_SUM_DEF); cur[slot] = k; finLsSet(FIN_SUM_LS, cur);
   const d = window.__finFcLast, el = document.getElementById('finFcSlot');
