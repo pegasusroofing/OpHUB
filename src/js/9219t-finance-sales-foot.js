@@ -100,3 +100,76 @@ function finJobFootAlign(){
 @media (max-width:700px){ #finJobGridFoot{padding-left:12px !important;padding-right:12px !important;} }`;
   document.head.appendChild(st);
 })();
+
+/* Projects list filters on Start (dates) and Value (type e.g. 50k, >100k, <25k, 25k-100k,
+   or pick a range) — Andy, 23 Oct. Status drop-down text centred. */
+let finJobDV = {d:'', from:'', to:'', v:''};
+function finJobDateRange(k){
+  const t = finToday(), y = Number(t.slice(0,4)), m = Number(t.slice(5,7)), pad = n=>String(n).padStart(2,'0');
+  const last = (yy,mm)=>new Date(Date.UTC(yy, mm, 0)).getUTCDate();
+  if(k==='month') return [`${y}-${pad(m)}-01`, `${y}-${pad(m)}-${pad(last(y,m))}`];
+  if(k==='last'){ const yy = m===1?y-1:y, mm = m===1?12:m-1; return [`${yy}-${pad(mm)}-01`, `${yy}-${pad(mm)}-${pad(last(yy,mm))}`]; }
+  if(k==='next'){ const yy = m===12?y+1:y, mm = m===12?1:m+1; return [`${yy}-${pad(mm)}-01`, `${yy}-${pad(mm)}-${pad(last(yy,mm))}`]; }
+  if(k==='quarter'){ const q = Math.floor((m-1)/3)*3+1; return [`${y}-${pad(q)}-01`, `${y}-${pad(q+2)}-${pad(last(y,q+2))}`]; }
+  if(k==='year') return [`${y}-01-01`, `${y}-12-31`];
+  if(k==='12m'){ const d = new Date(t+'T12:00:00Z'); d.setUTCFullYear(d.getUTCFullYear()-1); return [d.toISOString().slice(0,10), t]; }
+  if(k==='custom') return [finJobDV.from||'0000-01-01', finJobDV.to||'9999-12-31'];
+  return null;
+}
+function finJobValTest(q){
+  q = String(q||'').toLowerCase().replace(/[£,\s]/g,''); if(!q) return null;
+  const n = x=>{ const mm = /^(\d+(?:\.\d+)?)(k|m)?$/.exec(x); if(!mm) return NaN; return Number(mm[1])*(mm[2]==='k'?1e3:mm[2]==='m'?1e6:1); };
+  let r;
+  if((r = /^(.+)-(.+)$/.exec(q))) { const a = n(r[1]), b = n(r[2]); if(!isNaN(a) && !isNaN(b)) return v=>v>=a && v<=b; }
+  if(q[0]==='>'){ const a = n(q.replace(/^>=?/,'')); if(!isNaN(a)) return v=>v>=a; }
+  if(q[0]==='<'){ const a = n(q.replace(/^<=?/,'')); if(!isNaN(a)) return v=>v<=a; }
+  const a = n(q); if(!isNaN(a)) return v=>String(Math.round(v)).includes(String(Math.round(a))) || Math.abs(v-a)<0.5;
+  return null;
+}
+function finJobDVSetup(){
+  const g = document.getElementById('finJobGrid'); if(!g) return;
+  const fr = g.querySelector('tr.fgfilters'); if(!fr || fr.dataset.dv) return; fr.dataset.dv = '1';
+  const cols = finJobColsOn(); const iS = cols.findIndex(c=>c.k==='start'), iV = cols.findIndex(c=>c.k==='value');
+  if(iS>=0 && fr.children[iS]){ fr.children[iS].className = 'fgf'; fr.children[iS].innerHTML = `<select class="fgdv" aria-label="Start dates" onclick="event.stopPropagation()" onchange="finJobDVDate(this.value)">${[['','Any date'],['month','This month'],['next','Next month'],['last','Last month'],['quarter','This quarter'],['year','This year'],['12m','Last 12 months'],['custom', finJobDV.d==='custom' && finJobDV.from ? finDate(finJobDV.from)+' – '+finDate(finJobDV.to) : 'Pick dates…']].map(([k,l])=>`<option value="${k}" ${finJobDV.d===k?'selected':''}>${l}</option>`).join('')}</select>`; }
+  if(iV>=0 && fr.children[iV]){ fr.children[iV].className = 'fgf'; fr.children[iV].innerHTML = `<input type="text" class="fgdv" list="finJobValList" placeholder="Value" value="${escapeHtml(finJobDV.v)}" title="Type e.g. 50k, >100k, <25k or 25k-100k" onclick="event.stopPropagation()" oninput="finJobDV.v=this.value;finGridFilter('finJobGrid')"><datalist id="finJobValList">${['<25k','25k-100k','100k-250k','250k-500k','>500k'].map(x=>`<option value="${x}">`).join('')}</datalist>`; }
+}
+window.finJobDVDate = async function(k){
+  if(k==='custom'){
+    const from = await customPrompt('Start date from (YYYY-MM-DD)', finJobDV.from || finToday().slice(0,8)+'01'); if(from==null){ render(); return; }
+    const to = await customPrompt('Start date to (YYYY-MM-DD)', finJobDV.to || finToday()); if(to==null){ render(); return; }
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(from.trim()) || !/^\d{4}-\d{2}-\d{2}$/.test(to.trim())){ toast('Use dates like '+finToday()); render(); return; }
+    finJobDV.from = from.trim(); finJobDV.to = to.trim();
+  }
+  finJobDV.d = k; render();
+};
+(function(){
+  window.finGridFilter = function(id){
+    { const tb = document.getElementById(id); if(!tb) return;
+      const fs = Array.from(tb.querySelectorAll('.fgfilters input[data-col]')).map(i=>({c:Number(i.dataset.col), q:i.value.trim().toLowerCase()})).filter(f=>f.q);
+      let n = 0;
+      tb.querySelectorAll('tbody tr').forEach(tr=>{ const ok = fs.every(f=>{ const td = tr.children[f.c]; return td && td.textContent.toLowerCase().includes(f.q); }); tr.classList.toggle('fg-hide', !ok); if(ok && tr.style.display!=='none') n++; });
+      const foot = document.getElementById(id+'Foot');
+      if(foot){ let note = foot.querySelector('.fgfoot-n'); if(!note){ note = document.createElement('em'); note.className = 'fgfoot-n'; const cb = foot.querySelector('.fgcolbtn'); if(cb) foot.insertBefore(note, cb); else foot.appendChild(note); } note.textContent = fs.length ? n+' shown with filters' : ''; } }
+    if(id!=='finJobGrid') return;
+    const g = document.getElementById(id); if(!g) return;
+    const rng = finJobDV.d ? finJobDateRange(finJobDV.d) : null, vt = finJobValTest(finJobDV.v);
+    if(!rng && !vt) return;
+    let n = 0;
+    g.querySelectorAll('tbody tr').forEach(tr=>{
+      if(tr.classList.contains('fg-hide')) return;
+      const d = tr.querySelector('td[data-d]'), v = tr.querySelector('td[data-v]');
+      let ok = true;
+      if(rng) ok = !!(d && d.dataset.d && d.dataset.d>=rng[0] && d.dataset.d<=rng[1]);
+      if(ok && vt) ok = !!(v && vt(Number(v.dataset.v||0)));
+      tr.classList.toggle('fg-hide', !ok); if(ok && tr.style.display!=='none') n++;
+    });
+    const foot = document.getElementById(id+'Foot'); const note = foot && foot.querySelector('.fgfoot-n'); if(note) note.textContent = n+' shown with filters';
+  };
+  const base = finJobGridHtml;
+  finJobGridHtml = function(){ const h = base.apply(this, arguments); setTimeout(()=>{ finJobDVSetup(); if(finJobDV.d || finJobDV.v) finGridFilter('finJobGrid'); }, 0); return h; };
+  const st = document.createElement('style');
+  st.textContent = `.fggrid .fgfilters .fgdv{width:100%;box-sizing:border-box;margin:0 !important;height:26px !important;min-height:26px !important;padding:0 6px !important;font-size:11.5px !important;border:1px solid var(--line) !important;border-radius:7px !important;background-color:#fff !important;text-align:center;box-shadow:none !important;}
+.fggrid .fgfilters select.fgdv{padding-right:18px !important;text-align-last:center;}
+.fggrid .fgfilters select.fgstat{text-align:center !important;text-align-last:center !important;min-width:120px !important;padding:0 22px !important;}`;
+  document.head.appendChild(st);
+})();
