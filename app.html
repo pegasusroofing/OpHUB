@@ -59783,7 +59783,7 @@ window.finPqRaisePo = async function(siteId){
   await openFinNewPo(siteId);
   if(typeof finNewPo==='undefined' || !finNewPo) return;
   const vat = finNewPo.vat;
-  finNewPo.lines = items.map(i=>({description:(i.code ? i.code+' – ' : '')+i.description, qty:1, unit:i.unit||'', rate:null, amount:0, cost_code:'materials', vat}));
+  finNewPo.lines = items.map(i=>({description:(i.code ? i.code+' – ' : '')+i.description, qty:1, unit:i.unit||'', rate:i.rate!=null ? Number(i.rate) : null, amount:i.rate!=null ? finRound(Number(i.rate)) : 0, cost_code:'materials', vat}));
   if(typeof finNpoPaint==='function') finNpoPaint();
   const supName = String(items[0].supplier_name||'').trim().toLowerCase();
   const s = document.getElementById('finNpoSup');
