@@ -173,3 +173,11 @@ window.finJobDVDate = async function(k){
 .fggrid .fgfilters select.fgstat{text-align:center !important;text-align-last:center !important;min-width:120px !important;padding:0 22px !important;}`;
   document.head.appendChild(st);
 })();
+
+/* Projects list: no "All PMs" in the bar — the PM column has its own filter (Andy, 23 Oct). */
+(function(){
+  try{ if(typeof finJobFilt!=='undefined' && finJobFilt) finJobFilt.pm = ''; }catch(e){}
+  const st = document.createElement('style');
+  st.textContent = `#finJobGridFoot .fgfoot-ctl select[aria-label="PM"]{display:none !important;}`;
+  document.head.appendChild(st);
+})();

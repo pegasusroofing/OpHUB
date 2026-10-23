@@ -58983,6 +58983,14 @@ window.finJobDVDate = async function(k){
   document.head.appendChild(st);
 })();
 
+/* Projects list: no "All PMs" in the bar — the PM column has its own filter (Andy, 23 Oct). */
+(function(){
+  try{ if(typeof finJobFilt!=='undefined' && finJobFilt) finJobFilt.pm = ''; }catch(e){}
+  const st = document.createElement('style');
+  st.textContent = `#finJobGridFoot .fgfoot-ctl select[aria-label="PM"]{display:none !important;}`;
+  document.head.appendChild(st);
+})();
+
 /* ============================================================
    OpHUB Finance — Project Admin laid out like Construction Manager (23 Oct 2026, Andy):
    one "Project Details" section — Job No, Customer, Start Date, Contract Value,
