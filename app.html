@@ -58379,6 +58379,47 @@ details.finfold > summary b{font-variant-numeric:tabular-nums;font-size:13.5px;}
   document.head.appendChild(st);
 })();
 
+/* 23 Oct (Andy): one "Upload client's certificate" (the box at the top) — the copy upload in
+   the Certify box goes — and the Certify box is one compact row: date, more, Certify. */
+(function(){
+  const slot = finCertSlotRender;
+  finCertSlotRender = function(a){
+    slot.apply(this, arguments);
+    if(!finCertMode()) return;
+    const card = document.querySelector('#finCertSlot .fincertify'); if(!card || card.dataset.compact) return;
+    card.dataset.compact = '1'; card.classList.add('fincertc');
+    const f = card.querySelector('input[type=file]'); const ff = f && f.closest('.formfield'); if(ff) ff.remove();
+    const sm = card.querySelector('.fincertmore > summary'); if(sm) sm.textContent = 'Pay-less notice / notes';
+    const intro = Array.from(card.querySelectorAll('p.stub')).find(p=>/Certified %/.test(p.textContent));
+    const net = finNum(finVal('finCertNet'));
+    if(intro) intro.innerHTML = `Net due <b>${finMoney(net||0)}</b> excl. VAT — from the Cert % above.`;
+    const date = document.getElementById('finCertDate'), save = document.getElementById('finCertSave'), more = card.querySelector('.fincertmore');
+    const row = document.createElement('div'); row.className = 'fincertc-row';
+    const dField = date && date.closest('.formfield'); if(dField) row.appendChild(dField);
+    if(more) row.appendChild(more);
+    if(save){ save.style.width = 'auto'; row.appendChild(save); }
+    card.appendChild(row);
+  };
+  // keep the net-due line current while typing Cert %
+  const rc = finCertRecalc;
+  finCertRecalc = function(){ const r = rc.apply(this, arguments);
+    const card = document.querySelector('#finCertSlot .fincertc'); const p = card && card.querySelector('p.stub');
+    if(p) p.innerHTML = `Net due <b>${finMoney(finNum(finVal('finCertNet'))||0)}</b> excl. VAT — from the Cert % above.`;
+    return r; };
+  const st = document.createElement('style');
+  st.textContent = `.fincertc{padding:12px 16px !important;}
+.fincertc .sectiontitle{margin:0 0 2px !important;font-size:15px;}
+.fincertc > p.stub{margin:0 0 8px !important;font-size:13px;}
+.fincertc .fingrid2:empty, .fincertc .fingrid2{margin:0 !important;}
+.fincertc-row{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;}
+.fincertc-row .formfield{margin:0 !important;}
+.fincertc-row .field-label{font-size:11px;margin-bottom:3px;}
+.fincertc-row .fincertmore{margin:0 0 6px !important;flex:1 1 180px;}
+.fincertc-row .fincertmore[open]{flex-basis:100%;order:3;}
+.fincertc-row #finCertSave{margin:0 0 0 auto !important;height:36px;padding:0 22px !important;}`;
+  document.head.appendChild(st);
+})();
+
 /* ============================================================
    OpHUB Finance — no double taps (deep dive, 20 Oct).
    Every Finance action that saves, sends or creates something ignores a
