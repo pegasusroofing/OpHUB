@@ -904,3 +904,23 @@ window.finCertFromPdf = async function(file, appId){
     if(finApp && finApp.id===a.id){ const s = document.getElementById('finAppSummary'); if(s){ s.innerHTML = finCertSummaryHtml(); s.classList.add('fincs'); } }
   };
 })();
+
+/* 23 Oct (Andy): the "Upload client's certificate" box sits at the top, above the contract
+   works, so it isn't missed; the certificate date box is small. */
+(function(){
+  const slot = finCertSlotRender;
+  finCertSlotRender = function(a){
+    slot.apply(this, arguments);
+    const box = document.getElementById('finCertXl'), works = document.querySelector('.finappcard');
+    if(box && works && finCertMode() && box.parentNode!==works.parentNode){
+      box.classList.add('card', 'fincertup'); box.style.margin = '';
+      works.parentNode.insertBefore(box, works);
+    }
+  };
+  const st = document.createElement('style');
+  st.textContent = `.fincertup{border:2px solid #2E9E5B !important;background:#F3FBF6 !important;}
+.fincertup > div:first-child{flex-wrap:wrap;}
+#finCertDate{height:32px !important;min-height:32px !important;max-width:170px !important;padding:0 10px !important;font-size:13.5px !important;border-radius:8px !important;}
+.fincertlite .fingrid2{margin-bottom:6px;}`;
+  document.head.appendChild(st);
+})();

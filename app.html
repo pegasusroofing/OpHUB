@@ -47976,7 +47976,7 @@ async function renderFinApplication(siteId, appId){
     <div class="row-gap finappbtns" style="flex-wrap:wrap;align-items:center;">
       ${locked ? '' : `<button class="ghostbtn" id="finAppSave" onclick="saveFinApplication(true)">Save</button>`}
       ${typeof finAppNextBtn==='function' ? finAppNextBtn(a) : ''}
-      ${['certified','invoiced'].includes(a.status) ? '' : `<button class="ghostbtn" onclick="finAppMoreMenu(event, '${siteId}', '${a.id}', ${locked?'true':'false'})">Send &amp; export ▾</button>`}
+      ${['submitted','certified','invoiced'].includes(a.status) ? '' : `<button class="ghostbtn" onclick="finAppMoreMenu(event, '${siteId}', '${a.id}', ${locked?'true':'false'})">Send &amp; export ▾</button>`}
       <input type="file" id="finAppXlUp" accept=".xlsx,.xls" style="display:none;" onchange="uploadFinAppExcel(this.files[0])">
       ${a.status==='draft' ? `<button class="ghostbtn" style="color:var(--red);margin-left:auto;" onclick="deleteFinApplication('${siteId}','${a.id}')">Delete draft</button>` : ''}
     </div>
@@ -57931,6 +57931,26 @@ window.finCertFromPdf = async function(file, appId){
     card.querySelectorAll('.finkv:not(.big)').forEach(el=>el.style.display = 'none');
     if(finApp && finApp.id===a.id){ const s = document.getElementById('finAppSummary'); if(s){ s.innerHTML = finCertSummaryHtml(); s.classList.add('fincs'); } }
   };
+})();
+
+/* 23 Oct (Andy): the "Upload client's certificate" box sits at the top, above the contract
+   works, so it isn't missed; the certificate date box is small. */
+(function(){
+  const slot = finCertSlotRender;
+  finCertSlotRender = function(a){
+    slot.apply(this, arguments);
+    const box = document.getElementById('finCertXl'), works = document.querySelector('.finappcard');
+    if(box && works && finCertMode() && box.parentNode!==works.parentNode){
+      box.classList.add('card', 'fincertup'); box.style.margin = '';
+      works.parentNode.insertBefore(box, works);
+    }
+  };
+  const st = document.createElement('style');
+  st.textContent = `.fincertup{border:2px solid #2E9E5B !important;background:#F3FBF6 !important;}
+.fincertup > div:first-child{flex-wrap:wrap;}
+#finCertDate{height:32px !important;min-height:32px !important;max-width:170px !important;padding:0 10px !important;font-size:13.5px !important;border-radius:8px !important;}
+.fincertlite .fingrid2{margin-bottom:6px;}`;
+  document.head.appendChild(st);
 })();
 
 /* ============================================================

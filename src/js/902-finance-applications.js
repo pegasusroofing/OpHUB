@@ -523,7 +523,7 @@ async function renderFinApplication(siteId, appId){
     <div class="row-gap finappbtns" style="flex-wrap:wrap;align-items:center;">
       ${locked ? '' : `<button class="ghostbtn" id="finAppSave" onclick="saveFinApplication(true)">Save</button>`}
       ${typeof finAppNextBtn==='function' ? finAppNextBtn(a) : ''}
-      ${['certified','invoiced'].includes(a.status) ? '' : `<button class="ghostbtn" onclick="finAppMoreMenu(event, '${siteId}', '${a.id}', ${locked?'true':'false'})">Send &amp; export ▾</button>`}
+      ${['submitted','certified','invoiced'].includes(a.status) ? '' : `<button class="ghostbtn" onclick="finAppMoreMenu(event, '${siteId}', '${a.id}', ${locked?'true':'false'})">Send &amp; export ▾</button>`}
       <input type="file" id="finAppXlUp" accept=".xlsx,.xls" style="display:none;" onchange="uploadFinAppExcel(this.files[0])">
       ${a.status==='draft' ? `<button class="ghostbtn" style="color:var(--red);margin-left:auto;" onclick="deleteFinApplication('${siteId}','${a.id}')">Delete draft</button>` : ''}
     </div>
