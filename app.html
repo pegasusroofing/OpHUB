@@ -58213,7 +58213,7 @@ window.finRowMenu = function(btn, kind, id){
     items.push(['Open', `go('#/site/${x.site_id}/finance/application/${x.id}')`]);
     items.push(['Download PDF', `downloadFinAppPdf('${x.id}')`]);
     if(s==='submitted') items.push(['Return To Draft', `finAppToDraft('${x.id}')`]);
-    if(x.invoice_id) items.push(['View Invoice', `go('#/site/${x.site_id}/finance/invoice/${x.invoice_id}')`]);
+    if(x.invoice_id) items.push(['View Invoice', `openFinInvoicePdf('${x.invoice_id}')`]);
     items.push(['Delete Application', `finRowDelApp('${x.id}')`, 1]);
   } else {
     const out = finInvOutstanding(x);
