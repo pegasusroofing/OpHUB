@@ -59702,12 +59702,14 @@ window.finPpFill = finPpFill;
    Tables: fin_quotes (purpose 'pquote', site_id null = all projects) + fin_quote_items.
    ============================================================ */
 let finPqSel = {}, finPqFilter = {}, finPqScope = {}, finPqBusy = false;
+let finPqCache = {};
 async function finPqLoad(siteId){
+  const c = finPqCache[siteId]; if(c && Date.now()-c.at < 60000) return c;
   const [quotes, items] = await Promise.all([
     dbSelect('fin_quotes', 'org_id=eq.'+ME.org_id+'&purpose=eq.pquote&or=(site_id.eq.'+siteId+',site_id.is.null)&order=created_at.desc').catch(()=>[]),
     dbSelect('fin_quote_items', 'org_id=eq.'+ME.org_id+'&or=(site_id.eq.'+siteId+',site_id.is.null)&active=eq.true&order=position.asc&limit=10000').catch(()=>[]),
   ]);
-  return {quotes, items};
+  return (finPqCache[siteId] = {quotes, items, at:Date.now()});
 }
 async function finPqPaneHtml(siteId){
   const {quotes, items} = await finPqLoad(siteId);
@@ -59718,16 +59720,15 @@ async function finPqPaneHtml(siteId){
   const shown = items.filter(i=>!f || i.quote_id===f).sort((a,b)=>(qOrder[a.quote_id]-qOrder[b.quote_id]) || (a.position-b.position));
   const qLabel = q=>[q.supplier_name, q.quote_no].filter(Boolean).join(' · ') || (q.file_name || 'Quote');
   const nSel = Array.from(sel).filter(id=>items.some(i=>i.id===id)).length;
-  return `<div class="finpp-h"><p class="sectiontitle" style="margin:0;">Purchase Quotes</p><span>
-      <button type="button" class="darkbtn" ${nSel?'':'disabled'} onclick="finPqRaisePo('${siteId}')">Raise PO From Ticked${nSel?' ('+nSel+')':''}</button></span></div>
+  return `<div class="finpp-h"><p class="sectiontitle" style="margin:0;">Purchase Quotes</p><span></span></div>
     <div class="finpq-up">
       <label class="finpq-scope">Supplier<input type="text" id="finPqSup" placeholder="Read from the quote" style="width:180px;"></label>
       <label class="darkbtn finpq-file">+ Upload Project Quotes<input type="file" multiple accept=".pdf,image/*,.xlsx,.xls,.csv" style="display:none;" onchange="finPqScope['${siteId}']='project';finPqUpload('${siteId}', this.files)"></label>
       <span class="stub" id="finPqMsg" style="margin:0;font-style:normal;">Quotes for this project only. Yearly price lists (e.g. Alltype) are uploaded once under <a href="#/finance/purchases/pricebook">Finance › Purchases › Price List</a> and show here on every project. The quoted rates show here for reference.</span>
     </div>
     ${quotes.length ? `<div class="finquotes">
-      <button type="button" class="finquote ${!f?'on':''}" onclick="finPqFilter['${siteId}']='';finPpFill('${siteId}')"><b>All Quotes</b><em>${items.length} item${items.length===1?'':'s'}</em></button>
-      ${quotes.slice().sort((a,b)=>(a.site_id?0:1)-(b.site_id?0:1)).map(q=>{ const n = items.filter(i=>i.quote_id===q.id).length; return `<button type="button" class="finquote ${f===q.id?'on':''}" onclick="finPqFilter['${siteId}']='${q.id}';finPpFill('${siteId}')"><b>${escapeHtml(qLabel(q))}</b><em>${q.site_id ? 'Project quote' : 'Annual price list'} · ${n} item${n===1?'':'s'}</em></button>`; }).join('')}
+      <button type="button" class="finquote ${!f?'on':''}" onclick="finPqFilter['${siteId}']='';finPqRepaint('${siteId}')"><b>All Quotes</b><em>${items.length} item${items.length===1?'':'s'}</em></button>
+      ${quotes.slice().sort((a,b)=>(a.site_id?0:1)-(b.site_id?0:1)).map(q=>{ const n = items.filter(i=>i.quote_id===q.id).length; return `<button type="button" class="finquote ${f===q.id?'on':''}" onclick="finPqFilter['${siteId}']='${q.id}';finPqRepaint('${siteId}')"><b>${escapeHtml(qLabel(q))}</b><em>${q.site_id ? 'Project quote' : 'Annual price list'} · ${n} item${n===1?'':'s'}</em></button>`; }).join('')}
     </div>` : ''}
     ${f && qBy[f] ? `<div class="finkv" style="margin:0 0 6px;"><span>${escapeHtml(qLabel(qBy[f]))}${qBy[f].file_name?' · '+escapeHtml(qBy[f].file_name):''} · ${qBy[f].site_id?'this project only':'all projects'}</span><b>${qBy[f].file_path?`<button class="linkbtn" onclick="openFinDoc('${jsAttr(qBy[f].file_path)}','${jsAttr(qBy[f].file_name||'')}')">View</button> `:''}<button class="linkbtn" style="color:var(--red);" onclick="finPqDelete('${siteId}','${f}')">Remove</button></b></div>` : ''}
     ${shown.length ? `${finSearchHtml('Search items or codes', 'finPqList')}<div id="finPqList"><div class="finreptbl-wrap"><table class="fincosttbl fininvtbl finpqtbl"><thead><tr><th class="finpq-cb"><input type="checkbox" ${shown.every(i=>sel.has(i.id))?'checked':''} onclick="finPqTickAll('${siteId}', this.checked)"></th><th>Item</th><th>Code</th><th>Unit</th><th>Rate</th><th>Supplier</th><th>Quote</th></tr></thead><tbody>
@@ -59735,11 +59736,28 @@ async function finPqPaneHtml(siteId){
     </tbody></table></div></div>` : `<div class="empty" style="margin:6px 0 0;">No quotes yet. Upload a supplier's quote or price list and its items will appear here to tick.</div>`}`;
 }
 window.finPqPaneHtml = finPqPaneHtml;
-window.finPqTick = function(siteId, id){ const s = finPqSel[siteId] = finPqSel[siteId] || new Set(); if(s.has(id)) s.delete(id); else s.add(id); finPpFill(siteId); };
+// Ticking just ticks — no reload of the page (Andy, 23 Oct).
+function finPqSyncTicks(siteId){
+  const s = finPqSel[siteId] || new Set();
+  document.querySelectorAll('#finPqList tbody tr').forEach(tr=>{ const m = /finPqTick\('[^']*','([^']+)'\)/.exec(tr.getAttribute('onclick')||''); const cb = tr.querySelector('input[type=checkbox]'); if(m && cb) cb.checked = s.has(m[1]); });
+  const all = document.querySelector('#finPqList thead input[type=checkbox]'); if(all){ const boxes = Array.from(document.querySelectorAll('#finPqList tbody tr')).filter(tr=>tr.style.display!=='none').map(tr=>tr.querySelector('input[type=checkbox]')); all.checked = boxes.length>0 && boxes.every(b=>b && b.checked); }
+  // The button lives in the bar under the list, next to "8 shown" (Andy, 23 Oct).
+  const foot = document.querySelector('#finPqList .finautofoot');
+  let btn = foot && foot.querySelector('.finpq-raise');
+  if(foot && !btn){ btn = document.createElement('button'); btn.type = 'button'; btn.className = 'finpq-raise'; btn.onclick = e=>{ e.stopPropagation(); finPqRaisePo(siteId); }; foot.appendChild(btn); }
+  if(btn){ btn.disabled = !s.size; btn.textContent = 'Raise PO From Ticked'+(s.size?' ('+s.size+')':''); }
+}
+async function finPqRepaint(siteId){
+  const card = document.querySelector('.finpp-card'); if(!card){ finPpFill(siteId); return; }
+  const sa = document.querySelector('.scrollarea'), top = sa ? sa.scrollTop : 0;
+  card.innerHTML = await finPqPaneHtml(siteId);
+  if(sa) sa.scrollTop = top;
+}
+window.finPqTick = function(siteId, id){ const s = finPqSel[siteId] = finPqSel[siteId] || new Set(); if(s.has(id)) s.delete(id); else s.add(id); finPqSyncTicks(siteId); };
 window.finPqTickAll = function(siteId, on){
   const s = finPqSel[siteId] = finPqSel[siteId] || new Set();
   document.querySelectorAll('#finPqList tbody tr').forEach(tr=>{ if(tr.style.display==='none') return; const m = /finPqTick\('[^']*','([^']+)'\)/.exec(tr.getAttribute('onclick')||''); if(m){ if(on) s.add(m[1]); else s.delete(m[1]); } });
-  finPpFill(siteId);
+  finPqSyncTicks(siteId);
 };
 window.finPqUpload = async function(siteId, files){
   files = Array.from(files||[]); if(!files.length || finPqBusy) return;
@@ -59766,13 +59784,13 @@ window.finPqUpload = async function(siteId, files){
     }
   } finally { finPqBusy = false; }
   toast(added ? `${added} quote${added===1?'':'s'} read${scope==='all'?' — on every project':''}${failed?` · ${failed} couldn't be read`:''}` : 'Couldn’t read those files — try a PDF or Excel copy');
-  finPqFilter[siteId] = '';
+  finPqFilter[siteId] = ''; finPqCache = {};
   if(siteId==='__all') render(); else finPpFill(siteId);
 };
 window.finPqDelete = async function(siteId, qid){
   const q = (await dbSelect('fin_quotes', 'id=eq.'+qid))[0]; if(!q) return;
   if(!await customConfirm(`Remove this quote${q.site_id ? '' : ' from every project'}? Its items come off the list. POs already raised aren't changed.`, {confirmLabel:'Remove'})) return;
-  if(await dbDelete('fin_quotes', qid)){ finPqFilter[siteId] = ''; toast('Removed'); if(siteId==='__all') render(); else finPpFill(siteId); }
+  if(await dbDelete('fin_quotes', qid)){ finPqFilter[siteId] = ''; finPqCache = {}; toast('Removed'); if(siteId==='__all') render(); else finPpFill(siteId); }
 };
 window.finPqRaisePo = async function(siteId){
   const sel = finPqSel[siteId]; if(!sel || !sel.size) return;
@@ -59829,8 +59847,14 @@ window.renderFinPriceLists = renderFinPriceLists;
 })();
 
 (function(){
+  const af = finAutoFoot;
+  finAutoFoot = function(){ const r = af.apply(this, arguments); const l = document.getElementById('finPqList'); if(l){ const sid = (parseRoute()||[])[1]; if(sid) finPqSyncTicks(sid); } return r; };
+})();
+(function(){
   const st = document.createElement('style');
-  st.textContent = `.finpq-up{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 12px;padding:10px 12px;border:1px dashed var(--line);border-radius:10px;background:#FAFBFC;}
+  st.textContent = `.finpq-raise{margin-left:auto;height:26px;padding:0 12px;border-radius:8px;border:1px solid rgba(255,255,255,.6);background:#fff;color:var(--brand1);font-weight:800;font-size:12px;cursor:pointer;}
+.finpq-raise:disabled{opacity:.55;cursor:default;background:rgba(255,255,255,.18);color:var(--brand1-text,#fff);}
+.finpq-up{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 12px;padding:10px 12px;border:1px dashed var(--line);border-radius:10px;background:#FAFBFC;}
 .finpq-scope{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--slate);}
 .finpq-scope select{height:32px !important;min-height:32px !important;padding:0 26px 0 10px !important;font-size:13px !important;border-radius:8px !important;margin:0 !important;width:auto !important;}
 .finpq-scope input{height:32px !important;min-height:32px !important;padding:0 10px !important;font-size:13px !important;border-radius:8px !important;margin:0 !important;}
