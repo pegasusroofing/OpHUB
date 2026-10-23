@@ -18,6 +18,13 @@ try{
   }
 }catch(e){}
 
+function deskNavOpenSet(){ try{ return new Set(JSON.parse(localStorage.getItem('ophub.navOpen')||'[]')); }catch(e){ return new Set(); } }
+window.deskNavToggle = function(k, btn){
+  const s = deskNavOpenSet(); const g = btn.closest('.desknav-g'); const open = !g.classList.contains('open');
+  g.classList.toggle('open', open); btn.setAttribute('aria-expanded', open);
+  if(open) s.add(k); else s.delete(k);
+  try{ localStorage.setItem('ophub.navOpen', JSON.stringify(Array.from(s))); }catch(e){}
+};
 // The left-hand menu. Global items for the person's role, plus a "This
 // project" section whenever the page belongs to a project.
 function deskSidebar(opts){
@@ -41,15 +48,21 @@ function deskSidebar(opts){
   } else if(isManager(ME)){
     items = [
       ...(usesPmHome(ME) ? [{k:'home', ic:'home', lbl:'Home', go:'#/home'}] : []),
-      {k:'sites', ic:'projects', lbl:'Projects', go:'#/sites'},
-      {k:'onsite', ic:'users', lbl:'On site now', go:'#/onsite', show: usesPmHome(ME)},
+      // 23 Oct (Andy): tidier menu — Title Case, with drop-downs (click the name to open
+      // the page, click the arrow to show the sub-pages).
+      {k:'sites', ic:'projects', lbl:'Projects', go:'#/sites', kids:[
+        {k:'onsite', ic:'users', lbl:'On Site Now', go:'#/onsite', show: usesPmHome(ME)},
+        {k:'sitemap', ic:'pin', lbl:'Sites Map', go:'#/sitemap'},
+        {k:'reports', ic:'reports', lbl:'Reports & Surveys', go:'#/reports', show: usesPmHome(ME)},
+      ]},
       {k:'delivery', ic:'truck', lbl:'Deliveries', go:'#/delivery', pre:"deliveryScheduleBackHash='#/home';", badge:dlvN},
       {k:'calendar', ic:'calendar', lbl:'Calendar', go:'#/calendar'},
-      {k:'hub', ic:'bell', lbl:'HUB', go:'#/hub', badge:hubN},
-      {k:'sitemap', ic:'pin', lbl:'Sites map', go:'#/sitemap'},
-      {k:'dashboard', ic:'chart', lbl:'Dashboard', go:'#/dashboard'},
-      {k:'reports', ic:'reports', lbl:'Reports & surveys', go:'#/reports', show: usesPmHome(ME)},
+      {k:'hub', ic:'bell', lbl:'Hub', go:'#/hub', badge:hubN},
       {k:'operatives', ic:'admin', lbl:'Operatives', go:'#/operatives'},
+      {k:'dashboard', ic:'chart', lbl:'Dashboard', go:'#/dashboard', kids:[
+        {k:'dashboard', ic:'chart', lbl:'Company', go:'#/dashboard'},
+        {k:'operative-dashboard', ic:'users', lbl:'Operatives', go:'#/operative-dashboard'},
+      ]},
       {k:'hr', ic:'users', lbl:'HR', go:'#/hr'},
       {k:'finance', ic:'pound', lbl:'OpHUB Finance', go:'#/finance', show: typeof isFinanceUser==='function' && isFinanceUser()},
       {k:'team', ic:'gear', lbl:'Admin', go:'#/team'},
@@ -67,18 +80,29 @@ function deskSidebar(opts){
   let activeTop = inSite ? (parts[2]==='finance' && typeof isFinanceUser==='function' && isFinanceUser() ? 'finance' : 'sites') : (top || (usesPmHome(ME) ? 'home' : 'sites'));
   if(finOnly){ activeTop = inSite ? 'finance' : (top==='finance' && parts[1]==='inbox') ? 'finance/purchases' : (top==='finance' && ['jobs','sales','purchases','subs','labour','settings','reports','directory'].includes(parts[1]) ? 'finance/'+parts[1] : (top||'finance')); if(activeTop==='finance/labour') activeTop = 'finance/subs'; }
   const row = (i, active)=>`<button type="button" class="desknav-i ${active?'on':''}" onclick="${i.pre||''}go('${i.go}')">${ophIcon(i.ic, 18)}<span>${escapeHtml(i.lbl)}</span>${i.badge?`<b class="desknav-badge">${i.badge}</b>`:''}</button>`;
+  const navOpen = deskNavOpenSet();
+  const group = i=>{
+    const kids = (i.kids||[]).filter(c=>c.show!==false);
+    if(!kids.length) return row(i, activeTop===i.k);
+    const kidOn = kids.some(c=>c.k===activeTop && c.go!==i.go);
+    const open = navOpen.has(i.k) || kidOn;
+    return `<div class="desknav-g ${open?'open':''}" data-k="${i.k}">
+      <div class="desknav-gh">${row(i, activeTop===i.k && !kidOn)}<button type="button" class="desknav-tog" aria-label="Show ${escapeHtml(i.lbl)} pages" aria-expanded="${open}" onclick="event.stopPropagation();deskNavToggle('${i.k}', this)">${ophIcon('chevron', 14)}</button></div>
+      <div class="desknav-kids">${kids.map(c=>row(c, activeTop===c.k)).join('')}</div>
+    </div>`;
+  };
   let siteHtml = '';
   if(siteId && !finOnly){
     const s = SITES.find(x=>x.id===siteId);
     const sitems = [
-      {k:'home', ic:'home', lbl:'Project home', go:`#/site/${siteId}/home`},
+      {k:'home', ic:'home', lbl:'Project Home', go:`#/site/${siteId}/home`},
       {k:'schedule', ic:'clipboard', lbl:'Schedule of Works', go:`#/site/${siteId}/schedule`},
       {k:'hs', ic:'shield', lbl:'Health & Safety', go:`#/site/${siteId}/hs`},
       {k:'checkin', ic:'pin', lbl:'Check In', go:`#/site/${siteId}/checkin`},
       {k:'messages', ic:'chat', lbl:'Inbox', go:`#/site/${siteId}/messages`, badge:(typeof currentUnreadMsgs!=='undefined' && currentUnreadMsgs)||0},
       s && s.price_enabled && isManager(ME) ? {k:'price', ic:'pound', lbl:'Price', go:`#/site/${siteId}/price`} : null,
       typeof isFinanceUser==='function' && isFinanceUser() ? {k:'finance', ic:'chart', lbl:'Finance', go:`#/site/${siteId}/finance`} : null,
-      isManager(ME) ? {k:'team', ic:'gear', lbl:'Project settings', go:`#/site/${siteId}/team`} : null,
+      isManager(ME) ? {k:'team', ic:'gear', lbl:'Project Settings', go:`#/site/${siteId}/team`} : null,
     ].filter(Boolean);
     siteHtml = `<div class="desknav-sec">This project</div>
       <div class="desknav-site" title="${escapeHtml(s?s.name:'')}">${escapeHtml(s ? s.name : 'Project')}</div>
@@ -91,7 +115,7 @@ function deskSidebar(opts){
       </div>
       ${finOnly ? (isFullManager(ME) && isFinanceUser() ? `<button type="button" class="desknav-add" onclick="openFinNewJob()">${ophIcon('plus', 18, 2.4)}<span>New job</span></button>` : '') : (isManager(ME) ? `<button type="button" class="desknav-add" onclick="openHomeAddProject()">${ophIcon('plus', 18, 2.4)}<span>New project</span></button>` : '')}
       ${typeof qsSideBtnHtml==='function' ? qsSideBtnHtml() : ''}
-      <nav>${items.map(i=>row(i, activeTop===i.k)).join('')}</nav>
+      <nav>${items.map(group).join('')}</nav>
       ${siteHtml}
       <div class="desknav-foot">
         <div class="desknav-me">${escapeHtml(ME.name||'')}<span>${escapeHtml(personRoleLabel(ME))}</span></div>
