@@ -60127,6 +60127,220 @@ window.saveFinNewPo = async function(){
 })();
 
 /* ============================================================
+   OpHUB — Projects suppliers ↔ Finance Directory suppliers (23 Oct 2026, Andy: "link the
+   suppliers in the projects with the supplier in the directory, without either one
+   affecting either").
+   Two separate records, joined by fin_suppliers.supplier_id → suppliers.id:
+   - Projects (Admin › Suppliers): name, order email, account no., branches — for ordering.
+   - Finance Directory: accounts email, VAT, terms, cost code, Xero — for paying.
+   Linking only joins them (so POs, VAT defaults and spend line up); nothing is copied
+   across and editing one never changes the other.
+   ============================================================ */
+let finLinkMat = null, finLinkFin = null;
+async function finLinkLoad(){
+  const [mat, fin] = await Promise.all([
+    dbSelect('suppliers', 'org_id=eq.'+ME.org_id+'&select=id,name,email&order=name.asc').catch(()=>[]),
+    typeof isFinanceUser==='function' && isFinanceUser() ? dbSelect('fin_suppliers', 'org_id=eq.'+ME.org_id+'&select=id,name,supplier_id&order=name.asc&limit=5000').catch(()=>[]) : Promise.resolve([]),
+  ]);
+  finLinkMat = mat; finLinkFin = fin;
+}
+
+/* ---- Directory supplier form: "Projects Supplier" link ---- */
+(function(){
+  const base = finDirPaint;
+  finDirPaint = function(){
+    const r = base.apply(this, arguments);
+    const D = finDir; if(!D || D.kind!=='supplier') return r;
+    const lab = Array.from(document.querySelectorAll('#finDirOverlay .field-label')).find(l=>/Material Requests/.test(l.textContent));
+    const ff = lab && lab.closest('.formfield'); if(!ff) return r;
+    const paint = ()=>{
+      const mats = finLinkMat || [];
+      const used = {}; (finLinkFin||[]).forEach(f=>{ if(f.supplier_id && f.id!==D.rec.id) used[f.supplier_id] = f.name; });
+      const cur = D.unlink ? '' : D.toMat ? '__new' : (D.mat ? D.mat.id : '');
+      ff.innerHTML = `<label class="field-label">Projects Supplier (ordering)</label>
+        <select onchange="finDirLinkPick(this.value)"><option value="" ${!cur?'selected':''}>Not linked</option>${mats.map(m=>`<option value="${m.id}" ${cur===m.id?'selected':''}>${escapeHtml(m.name)}${used[m.id]?' (linked to '+escapeHtml(used[m.id])+')':''}</option>`).join('')}<option value="__new" ${cur==='__new'?'selected':''}>+ Add to the Projects supplier list</option></select>
+        <p class="stub" style="margin:4px 0 0;font-style:normal;font-size:12px;">Links this Directory record to the supplier you order from on projects. They stay separate — changing one never changes the other.</p>`;
+    };
+    if(!finLinkMat) finLinkLoad().then(paint); else paint();
+    return r;
+  };
+  window.finDirLinkPick = function(v){
+    const D = finDir; if(!D) return;
+    D.toMat = v==='__new'; D.unlink = !v && !!(D.rec.id && D.rec.supplier_id);
+    D.mat = v && v!=='__new' ? ((finLinkMat||[]).find(m=>m.id===v) || null) : null;
+  };
+  const save = window.saveFinDir;
+  window.saveFinDir = async function(){
+    const D = finDir; const unlinkId = D && D.kind==='supplier' && D.unlink && D.rec.id ? D.rec.id : null;
+    const r = await save.apply(this, arguments);
+    if(unlinkId) await dbUpdate('fin_suppliers', unlinkId, {supplier_id:null});
+    finLinkMat = null;
+    return r;
+  };
+  const open = window.openFinDirEdit;
+  window.openFinDirEdit = async function(){ await finLinkLoad(); return open.apply(this, arguments); };
+})();
+
+/* ---- Projects › Admin › Suppliers: show / set the Finance Directory link ---- */
+(function(){
+  const base = renderSuppliersAdmin;
+  renderSuppliersAdmin = async function(){
+    const r = await base.apply(this, arguments);
+    if(!(typeof isFinanceUser==='function' && isFinanceUser())) return r;
+    const id = typeof suppliersAdminOpen!=='undefined' ? suppliersAdminOpen : null; if(!id) return r;
+    await finLinkLoad();
+    const nameIn = document.querySelector(`input[onblur*="saveSupplierField(this,'${id}','name')"]`); const ff = nameIn && nameIn.closest('.formfield'); if(!ff) return r;
+    const linked = (finLinkFin||[]).find(f=>f.supplier_id===id);
+    ff.insertAdjacentHTML('afterend', `<div class="formfield"><label class="field-label">Finance Directory (accounts)</label>
+      <select onchange="finMatLinkPick('${id}', this.value)"><option value="" ${!linked?'selected':''}>Not linked</option>${(finLinkFin||[]).map(f=>`<option value="${f.id}" ${linked && linked.id===f.id?'selected':''}>${escapeHtml(f.name)}${f.supplier_id && f.supplier_id!==id ? ' (linked to another)' : ''}</option>`).join('')}<option value="__new">+ Add to the Finance Directory</option></select>
+      <p class="stub" style="margin:4px 0 0;font-style:normal;font-size:12px;">Links this supplier to its accounts record (VAT, terms, Xero). They stay separate — changing one never changes the other.</p></div>`);
+    return r;
+  };
+  window.finMatLinkPick = async function(matId, v){
+    const prev = (finLinkFin||[]).filter(f=>f.supplier_id===matId);
+    if(v==='__new'){
+      const m = (finLinkMat||[]).find(x=>x.id===matId) || {};
+      for(const p of prev) await dbUpdate('fin_suppliers', p.id, {supplier_id:null});
+      const ins = await dbInsert('fin_suppliers', {org_id:ME.org_id, created_by:ME.id, name:m.name, supplier_id:matId});
+      toast(ins ? 'Added to the Finance Directory and linked' : 'Could not add it'); render(); return;
+    }
+    for(const p of prev) if(p.id!==v) await dbUpdate('fin_suppliers', p.id, {supplier_id:null});
+    if(v){
+      const f = (finLinkFin||[]).find(x=>x.id===v);
+      if(f && f.supplier_id && f.supplier_id!==matId && !(await customConfirm(`${f.name} is linked to another Projects supplier. Link it to this one instead?`))){ render(); return; }
+      await dbUpdate('fin_suppliers', v, {supplier_id:matId});
+    }
+    toast(v ? 'Linked to the Finance Directory' : 'Unlinked'); render();
+  };
+})();
+
+/* A supplier added on a PO (Projects list) links itself to a Directory record of the same name, if there's one not already linked. */
+(function(){
+  const save = window.saveFinNewPo; if(!save) return;
+  window.saveFinNewPo = async function(){
+    const wasNew = (document.getElementById('finNpoSup')||{}).value==='__new';
+    const name = wasNew ? finVal('finNpoSupName') : '';
+    const r = await save.apply(this, arguments);
+    if(wasNew && name){
+      const [m, f] = await Promise.all([
+        dbSelect('suppliers', 'org_id=eq.'+ME.org_id+'&name=ilike.'+encodeURIComponent(name.replace(/[*%,()]/g,''))+'&select=id').catch(()=>[]),
+        dbSelect('fin_suppliers', 'org_id=eq.'+ME.org_id+'&name=ilike.'+encodeURIComponent(name.replace(/[*%,()]/g,''))+'&supplier_id=is.null&select=id').catch(()=>[]),
+      ]);
+      if(m.length===1 && f.length===1) await dbUpdate('fin_suppliers', f[0].id, {supplier_id:m[0].id});
+    }
+    return r;
+  };
+})();
+
+/* ============================================================
+   OpHUB Finance — edit or duplicate a price list / quote (23 Oct 2026, Andy: "when we
+   upload a yearly price list I need to be able to edit it and/or duplicate it — the
+   supplier didn't pull through").
+   Edit: supplier (pick from your suppliers or type), ref, date, and every line (wording,
+   code, unit, rate) — add or remove lines. Duplicate: a copy to update for next year.
+   ============================================================ */
+let finPlEdit = null;
+window.openFinPlEdit = async function(qid){
+  const [q, items, mats] = await Promise.all([
+    dbSelect('fin_quotes', 'id=eq.'+qid).then(r=>r[0]).catch(()=>null),
+    dbSelect('fin_quote_items', 'quote_id=eq.'+qid+'&order=position.asc&limit=10000').catch(()=>[]),
+    dbSelect('suppliers', 'org_id=eq.'+ME.org_id+'&select=id,name&order=name.asc').catch(()=>[]),
+  ]);
+  if(!q){ toast('That price list has gone.'); return; }
+  finPlEdit = {q:Object.assign({}, q), items:items.map(i=>Object.assign({}, i)), removed:[], mats};
+  finPlPaint();
+};
+function finPlPaint(){
+  const E = finPlEdit; if(!E) return;
+  let ov = document.getElementById('finPlOverlay');
+  if(!ov){ ov = document.createElement('div'); ov.id = 'finPlOverlay'; ov.className = 'geo-modal-overlay'; document.body.appendChild(ov); }
+  ov.onclick = e=>{ if(e.target===ov) ov.style.display='none'; };
+  const q = E.q, v = x=>escapeHtml(x==null?'':String(x));
+  ov.innerHTML = `<div class="geo-modal-card finpl-card">
+    <h3 style="margin:0 0 4px;">${q.site_id ? 'Edit Project Quote' : 'Edit Price List'}</h3>
+    <p class="stub" style="margin:0 0 10px;font-style:normal;">${escapeHtml(q.file_name||'')}${q.site_id ? ' · this project only' : ' · applies to every project'}</p>
+    <div class="finpl-g">
+      <div class="formfield"><label class="field-label">Supplier</label><input type="text" list="finPlSupList" value="${v(q.supplier_name)}" placeholder="Choose or type" oninput="finPlEdit.q.supplier_name=this.value"><datalist id="finPlSupList">${E.mats.map(m=>`<option value="${escapeHtml(m.name)}">`).join('')}</datalist></div>
+      <div class="formfield"><label class="field-label">Ref / Year</label><input type="text" value="${v(q.quote_no)}" placeholder="e.g. 2026 price list" oninput="finPlEdit.q.quote_no=this.value"></div>
+      <div class="formfield"><label class="field-label">Date</label><input type="date" value="${v(q.quote_date)}" onchange="finPlEdit.q.quote_date=this.value"></div>
+    </div>
+    <div class="finpl-th"><span>Item</span><span>Code</span><span>Unit</span><span>Rate</span><span></span></div>
+    <div class="finpl-lines">${E.items.map((it,i)=>`<div class="finpl-row">
+      <input type="text" value="${v(it.description)}" oninput="finPlEdit.items[${i}].description=this.value">
+      <input type="text" value="${v(it.code)}" oninput="finPlEdit.items[${i}].code=this.value">
+      <input type="text" value="${v(it.unit)}" oninput="finPlEdit.items[${i}].unit=this.value">
+      <input type="text" inputmode="decimal" value="${it.rate!=null?it.rate:''}" placeholder="£" oninput="finPlEdit.items[${i}].rate=this.value">
+      <button type="button" class="linkbtn" style="color:var(--red);" aria-label="Remove line" onclick="finPlDel(${i})">✕</button></div>`).join('') || '<div class="empty" style="margin:0;">No lines.</div>'}</div>
+    <button type="button" class="ghostbtn" style="width:auto;margin:8px 0 0;" onclick="finPlEdit.items.push({description:'',code:'',unit:'',rate:null,active:true});finPlPaint()">+ Add line</button>
+    <div style="display:flex;gap:8px;margin-top:14px;"><button class="ghostbtn" style="margin:0;" onclick="document.getElementById('finPlOverlay').style.display='none'">Cancel</button><button class="darkbtn" id="finPlSave" style="margin:0;" onclick="finPlSave()">Save</button></div>
+  </div>`;
+  ov.style.display = 'flex';
+}
+window.finPlDel = function(i){ const it = finPlEdit.items.splice(i,1)[0]; if(it && it.id) finPlEdit.removed.push(it.id); finPlPaint(); };
+window.finPlSave = async function(){
+  const E = finPlEdit; if(!E) return;
+  const btn = document.getElementById('finPlSave'); if(btn){ btn.disabled = true; btn.textContent = 'Saving…'; }
+  const q = E.q, sup = String(q.supplier_name||'').trim() || null;
+  const ok = await dbUpdate('fin_quotes', q.id, {supplier_name:sup, quote_no:String(q.quote_no||'').trim()||null, quote_date:q.quote_date||null});
+  if(!ok){ if(btn){ btn.disabled = false; btn.textContent = 'Save'; } return; }
+  for(const id of E.removed) await dbDelete('fin_quote_items', id);
+  const num = x=>{ const n = finNum(x); return n===null || isNaN(n) ? null : finRound4(n); };
+  const newRows = [];
+  for(let i=0;i<E.items.length;i++){
+    const it = E.items[i], desc = String(it.description||'').trim(); if(!desc){ if(it.id) await dbDelete('fin_quote_items', it.id); continue; }
+    const row = {description:desc.slice(0,300), code:String(it.code||'').trim()||null, unit:String(it.unit||'').trim()||null, rate:num(it.rate), supplier_name:sup, position:i};
+    if(it.id) await dbUpdate('fin_quote_items', it.id, row);
+    else newRows.push(Object.assign({org_id:ME.org_id, quote_id:q.id, site_id:q.site_id||null, active:true, created_by:ME.id}, row));
+  }
+  if(newRows.length) await sbFetch('/rest/v1/fin_quote_items', {method:'POST', body:JSON.stringify(newRows)});
+  document.getElementById('finPlOverlay').style.display = 'none';
+  if(typeof finPqCache!=='undefined') finPqCache = {};
+  toast('Saved'); finPlEdit = null;
+  const sid = (parseRoute()||[])[1]; if(document.getElementById('finPpBody') && sid) finPpFill(sid); else render();
+};
+window.finPlDuplicate = async function(qid){
+  const [q, items] = await Promise.all([dbSelect('fin_quotes', 'id=eq.'+qid).then(r=>r[0]).catch(()=>null), dbSelect('fin_quote_items', 'quote_id=eq.'+qid+'&order=position.asc&limit=10000').catch(()=>[])]);
+  if(!q) return;
+  const ref = await customPrompt('Name for the copy (e.g. 2027 price list)', (q.quote_no ? q.quote_no+' (copy)' : 'Copy')); if(ref==null) return;
+  const ins = await dbInsert('fin_quotes', {org_id:ME.org_id, site_id:q.site_id||null, purpose:'pquote', supplier_name:q.supplier_name, quote_no:String(ref).trim()||null, quote_date:finToday(), file_path:q.file_path, file_name:q.file_name, lines:[], read_by:'copy', created_by:ME.id});
+  const nid = ins && ins[0] && ins[0].id; if(!nid){ toast('Could not copy it.'); return; }
+  if(items.length) await sbFetch('/rest/v1/fin_quote_items', {method:'POST', body:JSON.stringify(items.map(i=>({org_id:ME.org_id, quote_id:nid, site_id:i.site_id, supplier_name:i.supplier_name, code:i.code, description:i.description, unit:i.unit, rate:i.rate, position:i.position, active:i.active!==false, created_by:ME.id})))});
+  if(typeof finPqCache!=='undefined') finPqCache = {};
+  toast('Copied — opening it so you can update it'); render(); openFinPlEdit(nid);
+};
+// Price List page rows and the project quote strip get Edit / Duplicate.
+(function(){
+  const rp = renderFinPriceLists;
+  renderFinPriceLists = async function(){
+    const r = await rp.apply(this, arguments);
+    document.querySelectorAll('#app button[onclick^="finPqDelete(\'__all\'"]').forEach(b=>{
+      const m = /finPqDelete\('__all','([^']+)'\)/.exec(b.getAttribute('onclick')||''); if(!m) return;
+      b.insertAdjacentHTML('beforebegin', `<button class="linkbtn" onclick="openFinPlEdit('${m[1]}')">Edit</button> <button class="linkbtn" onclick="finPlDuplicate('${m[1]}')">Duplicate</button> `);
+    });
+    document.querySelectorAll('#app .finreptbl-wrap tbody tr').forEach(tr=>{ const b = tr.querySelector('button[onclick^="openFinPlEdit"]'); const sup = tr.querySelector('td[data-l="Supplier"] b'); if(b && sup && sup.textContent.trim()==='—'){ sup.innerHTML = `<button class="linkbtn" style="color:var(--warn);" onclick="${b.getAttribute('onclick')}">No supplier — set it</button>`; } });
+    return r;
+  };
+  const pane = finPqPaneHtml;
+  finPqPaneHtml = async function(siteId){
+    let h = await pane.apply(this, arguments);
+    return h.replace(/<button class="linkbtn" style="color:var\(--red\);" onclick="finPqDelete\('([^']+)','([^']+)'\)">Remove<\/button>/, (m, s, q)=>`<button class="linkbtn" onclick="openFinPlEdit('${q}')">Edit</button> <button class="linkbtn" onclick="finPlDuplicate('${q}')">Duplicate</button> `+m);
+  };
+  window.finPqPaneHtml = finPqPaneHtml;
+  const st = document.createElement('style');
+  st.textContent = `.finpl-card{max-width:860px !important;width:min(860px,96vw);max-height:92vh;overflow:auto;}
+.finpl-g{display:grid;grid-template-columns:2fr 1.4fr 1fr;gap:10px;}
+.finpl-g .formfield{margin:0;}
+.finpl-th, .finpl-row{display:grid;grid-template-columns:minmax(0,1fr) 110px 70px 90px 24px;gap:6px;align-items:center;}
+.finpl-th{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--slate);margin:12px 0 4px;}
+.finpl-th span:nth-child(n+2){text-align:center;}
+.finpl-row{padding:3px 0;border-bottom:1px solid #F0F2F5;}
+.finpl-row input{height:30px !important;min-height:30px !important;padding:0 8px !important;font-size:13px !important;border-radius:7px !important;margin:0 !important;box-sizing:border-box;width:100%;}
+.finpl-row input:nth-child(n+2){text-align:center;}
+@media (max-width:640px){ .finpl-g{grid-template-columns:1fr;} .finpl-th, .finpl-row{grid-template-columns:1fr 70px 60px 24px;} .finpl-row input:nth-child(2), .finpl-th span:nth-child(2){display:none;} }`;
+  document.head.appendChild(st);
+})();
+
+/* ============================================================
    OpHUB Finance — no double taps (deep dive, 20 Oct).
    Every Finance action that saves, sends or creates something ignores a
    second tap while the first is still running, so a slow connection can't
