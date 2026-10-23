@@ -49,7 +49,7 @@ function finCertSlotRender(a){
     ${a.cert_notes ? `<p class="stub" style="margin:6px 0 0;font-style:normal;">${escapeHtml(a.cert_notes)}</p>` : ''}
     <div class="row-gap" style="flex-wrap:wrap;margin-top:10px;">
       ${a.cert_file_path ? `<button class="ghostbtn" style="flex:1;min-width:140px;" onclick="openFinDoc('${jsAttr(a.cert_file_path)}','${jsAttr(a.cert_file_name||'')}')">Certificate</button>` : ''}
-      ${a.invoice_id ? `<button class="darkbtn" style="flex:1;min-width:140px;" onclick="go('#/site/${a.site_id}/finance/invoice/${a.invoice_id}')">🧾 Open invoice</button>`
+      ${a.invoice_id ? `<button class="darkbtn" style="flex:1;min-width:140px;" onclick="go('#/site/${a.site_id}/finance/invoice/${a.invoice_id}')">🧾 Open invoice</button><button class="ghostbtn" style="flex:1;min-width:140px;" onclick="openFinEmail('${a.site_id}','${a.invoice_id}')">✉️ Email invoice</button>`
         : `<button class="darkbtn" style="flex:1;min-width:140px;" onclick="raiseInvoiceFromCert('${a.site_id}','${a.id}')">🧾 Raise invoice</button>`}
     </div>
     ${!a.invoice_id ? `<button class="linkbtn" style="margin-top:10px;color:var(--slate);" onclick="clearFinCertificate('${a.id}')">Change the certificate figures</button>` : ''}

@@ -163,8 +163,8 @@ function finFoldTotals(){
 .fing-row .prev{color:var(--slate) !important;font-weight:500 !important;}
 .fing-head .prev, .fing-head span{line-height:1.25;}
 .fing-row > span{min-width:0;font-variant-numeric:tabular-nums;}
-.fing-row > span:not(.fing-item){text-align:right;}
-.fing-row > span:nth-child(3){text-align:left;}
+.fing-row > span:not(.fing-item){text-align:center;}
+.fing-row > span:nth-child(3){text-align:center;}
 .fing-item{font-weight:600;overflow-wrap:anywhere;}
 .fing-row em{display:block;font-style:normal;font-size:11px;color:var(--slate);}
 .fing-row .tot b{font-weight:700;}
@@ -172,7 +172,7 @@ function finFoldTotals(){
 .fing-row .fing-c{color:#1E6B45;font-weight:600;} .fing-row .fing-c.tot{font-weight:800;}
 .fing-head{background:var(--brand1);color:var(--brand1-text,#fff);border-radius:9px 9px 0 0;border-top:0;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0;padding:9px 8px;line-height:1.2;}
 .fing-head .fing-c{color:var(--brand1-text,#fff);}
-.fing-in{width:100% !important;max-width:72px;min-width:0 !important;height:30px !important;min-height:30px !important;padding:0 6px !important;text-align:right;font-size:13px !important;border-radius:7px !important;margin:0 !important;box-sizing:border-box;}
+.fing-in{width:100% !important;max-width:72px;min-width:0 !important;height:30px !important;min-height:30px !important;padding:0 6px !important;text-align:center;font-size:13px !important;margin:0 auto !important;border-radius:7px !important;box-sizing:border-box;display:block;}
 .fing-in.w{max-width:100px;}
 .fing-in.cert{border:1.5px solid #2E9E5B !important;background:#F3FBF6 !important;}
 .fing .finapphead{min-width:0;flex-wrap:wrap;}
@@ -189,6 +189,7 @@ details.finfold > summary::-webkit-details-marker{display:none;}
 details.finfold > summary b{font-variant-numeric:tabular-nums;font-size:13.5px;}
 .finfold-a{color:var(--slate);transition:transform .15s;} details.finfold[open] .finfold-a{transform:rotate(180deg);}
 .finfold-b{padding:0 16px 14px;}
+#finAppLines [id^="finAppH-"] em{display:none !important;}
 #finAppSummary.fincs .fincs-r{padding:5px 0;font-size:13.5px;}
 #finAppSummary.fincs .fincs-r.head{padding:0 0 2px;font-size:10.5px;}
 #finAppSummary.fincs .fincs-r.big{font-size:15px;padding:7px 0;}
