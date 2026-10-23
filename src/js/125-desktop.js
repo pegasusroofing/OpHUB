@@ -58,10 +58,9 @@ function deskSidebar(opts){
       {k:'delivery', ic:'truck', lbl:'Deliveries', go:'#/delivery', pre:"deliveryScheduleBackHash='#/home';", badge:dlvN},
       {k:'calendar', ic:'calendar', lbl:'Calendar', go:'#/calendar'},
       {k:'hub', ic:'bell', lbl:'Hub', go:'#/hub', badge:hubN},
-      {k:'operatives', ic:'admin', lbl:'Operatives', go:'#/operatives'},
       {k:'dashboard', ic:'chart', lbl:'Dashboard', go:'#/dashboard', kids:[
         {k:'dashboard', ic:'chart', lbl:'Company', go:'#/dashboard'},
-        {k:'operative-dashboard', ic:'users', lbl:'Operatives', go:'#/operative-dashboard'},
+        {k:'operatives', ic:'admin', lbl:'Operatives', go:'#/operatives'},
       ]},
       {k:'hr', ic:'users', lbl:'HR', go:'#/hr'},
       {k:'finance', ic:'pound', lbl:'OpHUB Finance', go:'#/finance', show: typeof isFinanceUser==='function' && isFinanceUser()},
@@ -113,7 +112,7 @@ function deskSidebar(opts){
         <img src="${orgLogoUrl(ORG)}" alt="" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'">
         <div><div class="desknav-org">${escapeHtml((ORG && ORG.name) || 'OpHUB')}</div><div class="desknav-app">OpHUB</div></div>
       </div>
-      ${finOnly ? (isFullManager(ME) && isFinanceUser() ? `<button type="button" class="desknav-add" onclick="openFinNewJob()">${ophIcon('plus', 18, 2.4)}<span>New job</span></button>` : '') : (isManager(ME) ? `<button type="button" class="desknav-add" onclick="openHomeAddProject()">${ophIcon('plus', 18, 2.4)}<span>New project</span></button>` : '')}
+      ${finOnly ? (isFullManager(ME) && isFinanceUser() ? `<button type="button" class="desknav-add" onclick="openFinNewJob()">${ophIcon('plus', 18, 2.4)}<span>New job</span></button>` : '') : ('' /* 23 Oct (Andy): no New project button in the side menu */)}
       ${typeof qsSideBtnHtml==='function' ? qsSideBtnHtml() : ''}
       <nav>${items.map(group).join('')}</nav>
       ${siteHtml}
