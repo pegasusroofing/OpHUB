@@ -47018,6 +47018,8 @@ function finDate(iso){ return iso ? new Date(iso+(String(iso).length===10?'T12:0
 function finRound(n){ return Math.round((Number(n)||0)*100)/100; }
 function finInvOverdue(inv){ return ['issued','sent','part_paid'].includes(inv.status) && inv.due_date && inv.due_date < finToday(); }
 function finInvOutstanding(inv){ return ['issued','sent','part_paid'].includes(inv.status) ? finRound(Number(inv.total||0) - Number(inv.paid||0)) : 0; }
+// Owed excluding VAT (Andy, 23 Oct: "overdue and owed to me need to be ex VAT") — the unpaid share of the net.
+function finInvOutstandingNet(inv){ const o = finInvOutstanding(inv), t = Number(inv.total||0), n = Number(inv.net||0); return o && t ? finRound(o*n/t) : 0; }
 function finInvPill(inv){
   if(finInvOverdue(inv)) return `<span class="finpill bad">Overdue</span>`;
   const cls = {draft:'grey', issued:'blue', sent:'blue', part_paid:'warn', paid:'ok', void:'grey'}[inv.status] || 'grey';
@@ -50398,7 +50400,7 @@ function finJobForecast(b, siteId){
   const certified = lastApp && lastApp.cert_gross!=null ? Number(lastApp.cert_gross) : 0;
   const invs = finBy(b.invs, siteId).filter(i=>i.status!=='void');
   const invoiced = finRound(invs.reduce((t,i)=>t+Number(i.net||0),0));
-  const owed = finRound(invs.reduce((t,i)=>t+finInvOutstanding(i),0));
+  const owed = finRound(invs.reduce((t,i)=>t+finInvOutstandingNet(i),0));
   const costToDate = sum(actual), committedTotal = sum(committed);
   let forecastCost = sum(forecast);
   // Budget: the category budgets if any are set, otherwise the priced schedule's cost prices
@@ -51122,7 +51124,7 @@ const FIN_REPORTS = [
   }},
   {id:'debtors', group:'money', title:'Aged debtors', desc:'Who owes you money and how overdue it is.', filters:['job'], run:async f=>{
     const b = await finRepBookLoad(); const today = finToday(); const ids = new Set(finRepSites(Object.assign({}, f, {status:'all'})).map(s=>s.id));
-    const rows = (b.invs||[]).filter(i=>ids.has(i.site_id) && finInvOutstanding(i)>0).map(i=>{ const s = SITES.find(x=>x.id===i.site_id)||{}; const o = finInvOutstanding(i); const late = i.due_date ? finDaysBetween(i.due_date, today) : 0; const r = {client:i.bill_name||s.client_name||'', job:finRepJob(s), inv:i.number, date:i.issue_date, due:i.due_date, cur:0, d30:0, d60:0, d90:0, d90p:0, total:o, _go:`#/site/${i.site_id}/finance/invoice/${i.id}`}; if(late<=0) r.cur=o; else if(late<=30) r.d30=o; else if(late<=60) r.d60=o; else if(late<=90) r.d90=o; else r.d90p=o; return r; }).sort((x,y)=>String(x.client).localeCompare(String(y.client)));
+    const rows = (b.invs||[]).filter(i=>ids.has(i.site_id) && finInvOutstandingNet(i)>0).map(i=>{ const s = SITES.find(x=>x.id===i.site_id)||{}; const o = finInvOutstandingNet(i); const late = i.due_date ? finDaysBetween(i.due_date, today) : 0; const r = {client:i.bill_name||s.client_name||'', job:finRepJob(s), inv:i.number, date:i.issue_date, due:i.due_date, cur:0, d30:0, d60:0, d90:0, d90p:0, total:o, _go:`#/site/${i.site_id}/finance/invoice/${i.id}`}; if(late<=0) r.cur=o; else if(late<=30) r.d30=o; else if(late<=60) r.d60=o; else if(late<=90) r.d90=o; else r.d90p=o; return r; }).sort((x,y)=>String(x.client).localeCompare(String(y.client)));
     return {cols:[{k:'client',l:'Client',w:110},{k:'job',l:'Project',w:120},{k:'inv',l:'Invoice',w:60},{k:'due',l:'Due',date:1},{k:'cur',l:'Not due',money:1},{k:'d30',l:'1–30 days',money:1},{k:'d60',l:'31–60',money:1},{k:'d90',l:'61–90',money:1},{k:'d90p',l:'90+',money:1},{k:'total',l:'Total owed',money:1}], rows, totals:true, note:'Including VAT. Days overdue are counted from the invoice due date.'};
   }},
   {id:'creditors', group:'money', title:'Aged creditors', desc:'Purchase invoices and subcontractor payments you still have to pay.', filters:['job'], run:async f=>{
@@ -51137,7 +51139,7 @@ const FIN_REPORTS = [
     const b = await finRepBookLoad(); const mon = finMonday(finToday()); const weeks = [];
     for(let i=0;i<12;i++) weeks.push({wk:finAddDays(mon, i*7), inv:0, apps:0, sup:0, subs:0});
     const put = (date, k, amt)=>{ let i = date ? Math.floor(finDaysBetween(mon, date)/7) : 0; if(i<0) i = 0; if(i>11) return; weeks[i][k] += amt; };
-    (b.invs||[]).filter(i=>finInvOutstanding(i)>0).forEach(i=>put(i.due_date, 'inv', finInvOutstanding(i)));
+    (b.invs||[]).filter(i=>finInvOutstandingNet(i)>0).forEach(i=>put(i.due_date, 'inv', finInvOutstandingNet(i)));
     (b.apps||[]).filter(a=>!a.invoice_id && ['submitted','certified'].includes(a.status)).forEach(a=>{ const jf = finBy(b.jf, a.site_id)[0] || {}; const vt = jf.vat_treatment || 'standard'; put(a.final_date||a.due_date, 'apps', Number(a.cert_net!=null?a.cert_net:a.net_due||0)*(vt==='standard'?1.2:1)); });
     (b.pinvs||[]).filter(i=>(!b.siteId || i.site_id===b.siteId) && i.status==='approved' && !i.paid_on).forEach(i=>put(i.due_date||finAddDays(i.invoice_date,30), 'sup', Number(i.total||0)));
     (b.sapps||[]).filter(a=>a.status==='certified').forEach(a=>put(a.final_date||finAddDays(a.app_date,30), 'subs', Number(a.pay_amount||0)));
@@ -51386,8 +51388,8 @@ async function renderFinanceHome(){
   const liveSites = SITES.filter(s=>finSiteStatus(s)==='live');
   const liveValue = liveSites.reduce((t,s)=>t + Number((jfBy[s.id]||{}).contract_value||0), 0);
   const noPo = liveSites.filter(s=>!hasPo.has(s.id)), noValue = liveSites.filter(s=>!(jfBy[s.id]||{}).contract_value);
-  const owed = invs.reduce((t,i)=>t+finInvOutstanding(i), 0);
-  const overdueInv = invs.filter(finInvOverdue), overdue = overdueInv.reduce((t,i)=>t+finInvOutstanding(i), 0);
+  const owed = invs.reduce((t,i)=>t+finInvOutstandingNet(i), 0);
+  const overdueInv = invs.filter(finInvOverdue), overdue = overdueInv.reduce((t,i)=>t+finInvOutstandingNet(i), 0);
   const retHeld = SITES.reduce((t,s)=>t+finRetentionHeld(appsBy[s.id]||[]), 0);
   const retDue = SITES.map(s=>({s, a:finRetentionAlerts(jfBy[s.id], st, finRetentionHeld(appsBy[s.id]||[]))})).filter(x=>x.a.length);
   const appsDue = liveSites.filter(s=>finAppDueThisMonth(appsBy[s.id]||[], finAppDateFor(jfBy[s.id], st, finToday().slice(0,7))));
@@ -53078,7 +53080,7 @@ function finAppTableHtml(apps, invBy, opts){
 function finInvoicesCardHtml(siteId, invs){
   const live = invs.filter(i=>i.status!=='void');
   const invoiced = live.filter(i=>i.status!=='draft').reduce((t,i)=>t+Number(i.net||0), 0);
-  const owed = live.reduce((t,i)=>t+finInvOutstanding(i), 0);
+  const owed = live.reduce((t,i)=>t+finInvOutstandingNet(i), 0);
   return `<div class="card">
     <div class="fincard-head"><p class="sectiontitle" style="margin:0;">Invoices</p><button class="ghostbtn finsmall" onclick="newFinInvoice('${siteId}')">+ New invoice</button></div>
     ${invs.length ? `<p class="stub" style="margin:4px 0 8px;font-style:normal;">Invoiced <b>${finMoney(invoiced)}</b> excl. VAT · Owed <b style="${owed?'color:var(--warn);':''}">${finMoney(owed)}</b></p>` : ''}
@@ -53122,7 +53124,7 @@ async function renderFinSales(sub){
   const invs = finCleanEmptyDrafts(invs0);
   if(!sub) sub = apps.some(a=>['draft','submitted','certified'].includes(finAppStage(a).k)) ? 'apps' : 'invoices';
   const live = invs.filter(i=>i.status!=='void');
-  const owed = live.reduce((t,i)=>t+finInvOutstanding(i),0), overdue = live.filter(finInvOverdue).reduce((t,i)=>t+finInvOutstanding(i),0);
+  const owed = live.reduce((t,i)=>t+finInvOutstandingNet(i),0), overdue = live.filter(finInvOverdue).reduce((t,i)=>t+finInvOutstandingNet(i),0);
   const received = finRound(pays.reduce((t,p)=>t+Number(p.amount||0),0));
   const invBy = {}; invs.forEach(i=>invBy[i.id]=i);
   const stage = a=>finAppStage(a).k;
@@ -53169,7 +53171,7 @@ async function renderFinSales(sub){
         const waiting = apps.filter(a=>stage(a)==='submitted' && finInPeriod(a.valuation_date, pN));
         return finStatCardHtml({key:'s_appv', def:'month', label:'Applied Value', onclick:"finSalesAppF='all';finSalesPicked=true;go('#/finance/sales/apps')", value:finMoney(applied.reduce((t,a)=>t+Number(a.net_due||0),0), 0)})
           + finStatCardHtml({key:'s_invv', def:'month', label:'Invoiced Value', onclick:"finInvFilter='all';go('#/finance/sales/invoices')", value:finMoney(live.filter(i=>i.status!=='draft' && finInPeriod(i.issue_date, pI)).reduce((t,i)=>t+Number(i.net||0),0), 0)})
-          + finStatCardHtml({key:'s_over', def:'all', label:'Overdue', onclick:"finInvFilter='overdue';go('#/finance/sales/invoices')", value:finMoney(live.filter(finInvOverdue).filter(i=>finInPeriod(i.due_date, pD)).reduce((t,i)=>t+finInvOutstanding(i),0), 0)})
+          + finStatCardHtml({key:'s_over', def:'all', label:'Overdue', onclick:"finInvFilter='overdue';go('#/finance/sales/invoices')", value:finMoney(live.filter(finInvOverdue).filter(i=>finInPeriod(i.due_date, pD)).reduce((t,i)=>t+finInvOutstandingNet(i),0), 0)})
           + finStatCardHtml({key:'s_anc', def:'all', label:'Applied, Not Certified Or Invoiced', onclick:"finSalesAppF='open';finSalesPicked=true;go('#/finance/sales/apps')", value:finMoney(waiting.reduce((t,a)=>t+Number(a.net_due||0),0), 0)}); })()}
     </div>
     ${finSubTabs('sales', sub, {apps:toInvoice.length})}
@@ -54151,7 +54153,7 @@ function finJobColsOn(){
 function finJobGridHtml(sites, o){
   const invBy = {};
   (o.invs||[]).forEach(i=>{ const r = invBy[i.site_id] = invBy[i.site_id] || {inv:0, owed:0, overdue:0};
-    if(i.status!=='draft'){ r.inv += Number(i.total||0); const out = finInvOutstanding(i); r.owed += out; if(finInvOverdue(i)) r.overdue += out; } });
+    if(i.status!=='draft'){ r.inv += Number(i.total||0); const out = finInvOutstandingNet(i); r.owed += out; if(finInvOverdue(i)) r.overdue += out; } });
   const pmName = s=>s.responsible_pm_id ? ((PROFILES[s.responsible_pm_id]||{}).name||'PM') : '';
   const cols = finJobColsOn();
   const rows = sites.map(s=>{
@@ -54519,7 +54521,7 @@ async function finClientsHtml(jfBy, invs){
     const c = by[key(name)] = by[key(name)] || {name, rec:null, email:(jfBy[s.id]||{}).billing_email||s.client_email||'', jobs:[], live:0, owed:0, overdue:0};
     c.jobs.push(s); if(finSiteStatus(s)==='live') c.live++; if(!c.email) c.email = (jfBy[s.id]||{}).billing_email||s.client_email||''; });
   (invs||[]).forEach(i=>{ const s = SITES.find(x=>x.id===i.site_id); if(!s || i.status==='void') return; const name = (jfBy[s.id]||{}).billing_name || s.client_name || ''; const c = by[key(name)]; if(!c) return;
-    c.owed += finInvOutstanding(i); if(finInvOverdue(i)) c.overdue += finInvOutstanding(i); });
+    c.owed += finInvOutstandingNet(i); if(finInvOverdue(i)) c.overdue += finInvOutstandingNet(i); });
   const noClient = SITES.filter(s=>!((jfBy[s.id]||{}).billing_name || s.client_name));
   const list = Object.values(by).sort((a,b)=>a.name.localeCompare(b.name));
   const inXero = list.filter(c=>c.rec && c.rec.xero_contact_id).length;
@@ -56144,8 +56146,8 @@ function finProjTabsHtml(siteId, bt){
 function finJobOverviewHtml(d){
   const {siteId, site, jf, st, bt, invs, apps, items, pos, pinvs, hires} = d;
   const live = invs.filter(i=>i.status!=='void');
-  const owed = live.reduce((t,i)=>t+finInvOutstanding(i), 0);
-  const od = live.filter(finInvOverdue), overdue = od.reduce((t,i)=>t+finInvOutstanding(i), 0);
+  const owed = live.reduce((t,i)=>t+finInvOutstandingNet(i), 0);
+  const od = live.filter(finInvOverdue), overdue = od.reduce((t,i)=>t+finInvOutstandingNet(i), 0);
   const retHeld = typeof finRetentionHeld==='function' ? finRetentionHeld(apps) : 0;
   const tiles = `<div class="pmstats finstats">
     <div class="pmstat" onclick="finProjTabGo('${siteId}','setup')"><b>${finMoney(jf.contract_value||0, 0)}</b><span>Contract value</span></div>
@@ -57994,11 +57996,11 @@ function finTopVal(k, d, fc){
   const s = d.siteId, sg = sub=>`finSalesGo('${s}','${sub}')`, tg = t=>`finProjTabGo('${s}','${t}')`;
   const wait = {v:null, go:''};
   if(k==='contract') return {v:Number(d.jf.contract_value||0), go:tg('setup')};
-  if(k==='owed') return {v:live.reduce((t,i)=>t+finInvOutstanding(i),0), go:sg('invoices'), note:'Incl. VAT'};
-  if(k==='overdue'){ const v = live.filter(finInvOverdue).reduce((t,i)=>t+finInvOutstanding(i),0); return {v, go:sg('invoices'), hot:v>0, note:'Incl. VAT'}; }
+  if(k==='owed') return {v:live.reduce((t,i)=>t+finInvOutstandingNet(i),0), go:sg('invoices'), note:'Excl. VAT'};
+  if(k==='overdue'){ const v = live.filter(finInvOverdue).reduce((t,i)=>t+finInvOutstandingNet(i),0); return {v, go:sg('invoices'), hot:v>0, note:'Excl. VAT'}; }
   if(k==='retention') return {v:typeof finRetentionHeld==='function' ? finRetentionHeld(d.apps) : 0, go:sg('retention')};
   if(k==='invoiced') return {v:finRound(live.filter(i=>i.status!=='draft').reduce((t,i)=>t+Number(i.net||0),0)), go:sg('invoices'), note:'Excl. VAT'};
-  if(k==='received') return {v:finRound(live.reduce((t,i)=>t+Number(i.paid||0),0)), go:sg('invoices'), note:'Incl. VAT'};
+  if(k==='received') return {v:finRound(live.reduce((t,i)=>t+Number(i.paid||0),0)), go:sg('invoices'), note:'Excl. VAT'};
   if(!fc) return wait;
   if(k==='ffa') return {v:fc.ffa, go:`go('#/site/${s}/finance/budget')`};
   if(k==='valued') return {v:fc.sales, go:sg('apps')};
@@ -58777,7 +58779,7 @@ function finSalesFootHtml(kind, rows, monthOf){
   };
   finInvTableHtml = function(invs){
     const h = bi.apply(this, arguments); if(!invs.length) return h;
-    const out = finRowData(h, invs, i=>`data-m="${finMonthOf(i.issue_date||i.created_at)}" data-void="${i.status==='void'?1:0}" data-n="${Number(i.net||0)}" data-v="${Number(i.vat||0)}" data-g="${Number(i.total||0)}" data-o="${finInvOutstanding(i)}"`);
+    const out = finRowData(h, invs, i=>`data-m="${finMonthOf(i.issue_date||i.created_at)}" data-void="${i.status==='void'?1:0}" data-n="${Number(i.net||0)}" data-v="${Number(i.vat||0)}" data-g="${Number(i.total||0)}" data-o="${finInvOutstandingNet(i)}"`);
     setTimeout(finSalesFootPaintAll, 0);
     return out.replace(/<\/table><\/div>\s*$/, '</table></div>'+finSalesFootHtml('inv', invs, i=>finMonthOf(i.issue_date||i.created_at)));
   };

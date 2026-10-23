@@ -69,7 +69,7 @@ const FIN_REPORTS = [
   }},
   {id:'debtors', group:'money', title:'Aged debtors', desc:'Who owes you money and how overdue it is.', filters:['job'], run:async f=>{
     const b = await finRepBookLoad(); const today = finToday(); const ids = new Set(finRepSites(Object.assign({}, f, {status:'all'})).map(s=>s.id));
-    const rows = (b.invs||[]).filter(i=>ids.has(i.site_id) && finInvOutstanding(i)>0).map(i=>{ const s = SITES.find(x=>x.id===i.site_id)||{}; const o = finInvOutstanding(i); const late = i.due_date ? finDaysBetween(i.due_date, today) : 0; const r = {client:i.bill_name||s.client_name||'', job:finRepJob(s), inv:i.number, date:i.issue_date, due:i.due_date, cur:0, d30:0, d60:0, d90:0, d90p:0, total:o, _go:`#/site/${i.site_id}/finance/invoice/${i.id}`}; if(late<=0) r.cur=o; else if(late<=30) r.d30=o; else if(late<=60) r.d60=o; else if(late<=90) r.d90=o; else r.d90p=o; return r; }).sort((x,y)=>String(x.client).localeCompare(String(y.client)));
+    const rows = (b.invs||[]).filter(i=>ids.has(i.site_id) && finInvOutstandingNet(i)>0).map(i=>{ const s = SITES.find(x=>x.id===i.site_id)||{}; const o = finInvOutstandingNet(i); const late = i.due_date ? finDaysBetween(i.due_date, today) : 0; const r = {client:i.bill_name||s.client_name||'', job:finRepJob(s), inv:i.number, date:i.issue_date, due:i.due_date, cur:0, d30:0, d60:0, d90:0, d90p:0, total:o, _go:`#/site/${i.site_id}/finance/invoice/${i.id}`}; if(late<=0) r.cur=o; else if(late<=30) r.d30=o; else if(late<=60) r.d60=o; else if(late<=90) r.d90=o; else r.d90p=o; return r; }).sort((x,y)=>String(x.client).localeCompare(String(y.client)));
     return {cols:[{k:'client',l:'Client',w:110},{k:'job',l:'Project',w:120},{k:'inv',l:'Invoice',w:60},{k:'due',l:'Due',date:1},{k:'cur',l:'Not due',money:1},{k:'d30',l:'1–30 days',money:1},{k:'d60',l:'31–60',money:1},{k:'d90',l:'61–90',money:1},{k:'d90p',l:'90+',money:1},{k:'total',l:'Total owed',money:1}], rows, totals:true, note:'Including VAT. Days overdue are counted from the invoice due date.'};
   }},
   {id:'creditors', group:'money', title:'Aged creditors', desc:'Purchase invoices and subcontractor payments you still have to pay.', filters:['job'], run:async f=>{
@@ -84,7 +84,7 @@ const FIN_REPORTS = [
     const b = await finRepBookLoad(); const mon = finMonday(finToday()); const weeks = [];
     for(let i=0;i<12;i++) weeks.push({wk:finAddDays(mon, i*7), inv:0, apps:0, sup:0, subs:0});
     const put = (date, k, amt)=>{ let i = date ? Math.floor(finDaysBetween(mon, date)/7) : 0; if(i<0) i = 0; if(i>11) return; weeks[i][k] += amt; };
-    (b.invs||[]).filter(i=>finInvOutstanding(i)>0).forEach(i=>put(i.due_date, 'inv', finInvOutstanding(i)));
+    (b.invs||[]).filter(i=>finInvOutstandingNet(i)>0).forEach(i=>put(i.due_date, 'inv', finInvOutstandingNet(i)));
     (b.apps||[]).filter(a=>!a.invoice_id && ['submitted','certified'].includes(a.status)).forEach(a=>{ const jf = finBy(b.jf, a.site_id)[0] || {}; const vt = jf.vat_treatment || 'standard'; put(a.final_date||a.due_date, 'apps', Number(a.cert_net!=null?a.cert_net:a.net_due||0)*(vt==='standard'?1.2:1)); });
     (b.pinvs||[]).filter(i=>(!b.siteId || i.site_id===b.siteId) && i.status==='approved' && !i.paid_on).forEach(i=>put(i.due_date||finAddDays(i.invoice_date,30), 'sup', Number(i.total||0)));
     (b.sapps||[]).filter(a=>a.status==='certified').forEach(a=>put(a.final_date||finAddDays(a.app_date,30), 'subs', Number(a.pay_amount||0)));

@@ -134,7 +134,7 @@ function finJobForecast(b, siteId){
   const certified = lastApp && lastApp.cert_gross!=null ? Number(lastApp.cert_gross) : 0;
   const invs = finBy(b.invs, siteId).filter(i=>i.status!=='void');
   const invoiced = finRound(invs.reduce((t,i)=>t+Number(i.net||0),0));
-  const owed = finRound(invs.reduce((t,i)=>t+finInvOutstanding(i),0));
+  const owed = finRound(invs.reduce((t,i)=>t+finInvOutstandingNet(i),0));
   const costToDate = sum(actual), committedTotal = sum(committed);
   let forecastCost = sum(forecast);
   // Budget: the category budgets if any are set, otherwise the priced schedule's cost prices

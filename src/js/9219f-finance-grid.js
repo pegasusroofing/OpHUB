@@ -30,7 +30,7 @@ function finJobColsOn(){
 function finJobGridHtml(sites, o){
   const invBy = {};
   (o.invs||[]).forEach(i=>{ const r = invBy[i.site_id] = invBy[i.site_id] || {inv:0, owed:0, overdue:0};
-    if(i.status!=='draft'){ r.inv += Number(i.total||0); const out = finInvOutstanding(i); r.owed += out; if(finInvOverdue(i)) r.overdue += out; } });
+    if(i.status!=='draft'){ r.inv += Number(i.total||0); const out = finInvOutstandingNet(i); r.owed += out; if(finInvOverdue(i)) r.overdue += out; } });
   const pmName = s=>s.responsible_pm_id ? ((PROFILES[s.responsible_pm_id]||{}).name||'PM') : '';
   const cols = finJobColsOn();
   const rows = sites.map(s=>{

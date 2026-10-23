@@ -84,8 +84,8 @@ async function renderFinanceHome(){
   const liveSites = SITES.filter(s=>finSiteStatus(s)==='live');
   const liveValue = liveSites.reduce((t,s)=>t + Number((jfBy[s.id]||{}).contract_value||0), 0);
   const noPo = liveSites.filter(s=>!hasPo.has(s.id)), noValue = liveSites.filter(s=>!(jfBy[s.id]||{}).contract_value);
-  const owed = invs.reduce((t,i)=>t+finInvOutstanding(i), 0);
-  const overdueInv = invs.filter(finInvOverdue), overdue = overdueInv.reduce((t,i)=>t+finInvOutstanding(i), 0);
+  const owed = invs.reduce((t,i)=>t+finInvOutstandingNet(i), 0);
+  const overdueInv = invs.filter(finInvOverdue), overdue = overdueInv.reduce((t,i)=>t+finInvOutstandingNet(i), 0);
   const retHeld = SITES.reduce((t,s)=>t+finRetentionHeld(appsBy[s.id]||[]), 0);
   const retDue = SITES.map(s=>({s, a:finRetentionAlerts(jfBy[s.id], st, finRetentionHeld(appsBy[s.id]||[]))})).filter(x=>x.a.length);
   const appsDue = liveSites.filter(s=>finAppDueThisMonth(appsBy[s.id]||[], finAppDateFor(jfBy[s.id], st, finToday().slice(0,7))));

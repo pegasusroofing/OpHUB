@@ -203,8 +203,8 @@ function finProjTabsHtml(siteId, bt){
 function finJobOverviewHtml(d){
   const {siteId, site, jf, st, bt, invs, apps, items, pos, pinvs, hires} = d;
   const live = invs.filter(i=>i.status!=='void');
-  const owed = live.reduce((t,i)=>t+finInvOutstanding(i), 0);
-  const od = live.filter(finInvOverdue), overdue = od.reduce((t,i)=>t+finInvOutstanding(i), 0);
+  const owed = live.reduce((t,i)=>t+finInvOutstandingNet(i), 0);
+  const od = live.filter(finInvOverdue), overdue = od.reduce((t,i)=>t+finInvOutstandingNet(i), 0);
   const retHeld = typeof finRetentionHeld==='function' ? finRetentionHeld(apps) : 0;
   const tiles = `<div class="pmstats finstats">
     <div class="pmstat" onclick="finProjTabGo('${siteId}','setup')"><b>${finMoney(jf.contract_value||0, 0)}</b><span>Contract value</span></div>

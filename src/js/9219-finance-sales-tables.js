@@ -60,7 +60,7 @@ function finAppTableHtml(apps, invBy, opts){
 function finInvoicesCardHtml(siteId, invs){
   const live = invs.filter(i=>i.status!=='void');
   const invoiced = live.filter(i=>i.status!=='draft').reduce((t,i)=>t+Number(i.net||0), 0);
-  const owed = live.reduce((t,i)=>t+finInvOutstanding(i), 0);
+  const owed = live.reduce((t,i)=>t+finInvOutstandingNet(i), 0);
   return `<div class="card">
     <div class="fincard-head"><p class="sectiontitle" style="margin:0;">Invoices</p><button class="ghostbtn finsmall" onclick="newFinInvoice('${siteId}')">+ New invoice</button></div>
     ${invs.length ? `<p class="stub" style="margin:4px 0 8px;font-style:normal;">Invoiced <b>${finMoney(invoiced)}</b> excl. VAT · Owed <b style="${owed?'color:var(--warn);':''}">${finMoney(owed)}</b></p>` : ''}
@@ -104,7 +104,7 @@ async function renderFinSales(sub){
   const invs = finCleanEmptyDrafts(invs0);
   if(!sub) sub = apps.some(a=>['draft','submitted','certified'].includes(finAppStage(a).k)) ? 'apps' : 'invoices';
   const live = invs.filter(i=>i.status!=='void');
-  const owed = live.reduce((t,i)=>t+finInvOutstanding(i),0), overdue = live.filter(finInvOverdue).reduce((t,i)=>t+finInvOutstanding(i),0);
+  const owed = live.reduce((t,i)=>t+finInvOutstandingNet(i),0), overdue = live.filter(finInvOverdue).reduce((t,i)=>t+finInvOutstandingNet(i),0);
   const received = finRound(pays.reduce((t,p)=>t+Number(p.amount||0),0));
   const invBy = {}; invs.forEach(i=>invBy[i.id]=i);
   const stage = a=>finAppStage(a).k;
@@ -151,7 +151,7 @@ async function renderFinSales(sub){
         const waiting = apps.filter(a=>stage(a)==='submitted' && finInPeriod(a.valuation_date, pN));
         return finStatCardHtml({key:'s_appv', def:'month', label:'Applied Value', onclick:"finSalesAppF='all';finSalesPicked=true;go('#/finance/sales/apps')", value:finMoney(applied.reduce((t,a)=>t+Number(a.net_due||0),0), 0)})
           + finStatCardHtml({key:'s_invv', def:'month', label:'Invoiced Value', onclick:"finInvFilter='all';go('#/finance/sales/invoices')", value:finMoney(live.filter(i=>i.status!=='draft' && finInPeriod(i.issue_date, pI)).reduce((t,i)=>t+Number(i.net||0),0), 0)})
-          + finStatCardHtml({key:'s_over', def:'all', label:'Overdue', onclick:"finInvFilter='overdue';go('#/finance/sales/invoices')", value:finMoney(live.filter(finInvOverdue).filter(i=>finInPeriod(i.due_date, pD)).reduce((t,i)=>t+finInvOutstanding(i),0), 0)})
+          + finStatCardHtml({key:'s_over', def:'all', label:'Overdue', onclick:"finInvFilter='overdue';go('#/finance/sales/invoices')", value:finMoney(live.filter(finInvOverdue).filter(i=>finInPeriod(i.due_date, pD)).reduce((t,i)=>t+finInvOutstandingNet(i),0), 0)})
           + finStatCardHtml({key:'s_anc', def:'all', label:'Applied, Not Certified Or Invoiced', onclick:"finSalesAppF='open';finSalesPicked=true;go('#/finance/sales/apps')", value:finMoney(waiting.reduce((t,a)=>t+Number(a.net_due||0),0), 0)}); })()}
     </div>
     ${finSubTabs('sales', sub, {apps:toInvoice.length})}

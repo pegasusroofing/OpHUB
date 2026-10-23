@@ -9,6 +9,8 @@ function finDate(iso){ return iso ? new Date(iso+(String(iso).length===10?'T12:0
 function finRound(n){ return Math.round((Number(n)||0)*100)/100; }
 function finInvOverdue(inv){ return ['issued','sent','part_paid'].includes(inv.status) && inv.due_date && inv.due_date < finToday(); }
 function finInvOutstanding(inv){ return ['issued','sent','part_paid'].includes(inv.status) ? finRound(Number(inv.total||0) - Number(inv.paid||0)) : 0; }
+// Owed excluding VAT (Andy, 23 Oct: "overdue and owed to me need to be ex VAT") — the unpaid share of the net.
+function finInvOutstandingNet(inv){ const o = finInvOutstanding(inv), t = Number(inv.total||0), n = Number(inv.net||0); return o && t ? finRound(o*n/t) : 0; }
 function finInvPill(inv){
   if(finInvOverdue(inv)) return `<span class="finpill bad">Overdue</span>`;
   const cls = {draft:'grey', issued:'blue', sent:'blue', part_paid:'warn', paid:'ok', void:'grey'}[inv.status] || 'grey';

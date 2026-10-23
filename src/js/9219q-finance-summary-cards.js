@@ -32,11 +32,11 @@ function finTopVal(k, d, fc){
   const s = d.siteId, sg = sub=>`finSalesGo('${s}','${sub}')`, tg = t=>`finProjTabGo('${s}','${t}')`;
   const wait = {v:null, go:''};
   if(k==='contract') return {v:Number(d.jf.contract_value||0), go:tg('setup')};
-  if(k==='owed') return {v:live.reduce((t,i)=>t+finInvOutstanding(i),0), go:sg('invoices'), note:'Incl. VAT'};
-  if(k==='overdue'){ const v = live.filter(finInvOverdue).reduce((t,i)=>t+finInvOutstanding(i),0); return {v, go:sg('invoices'), hot:v>0, note:'Incl. VAT'}; }
+  if(k==='owed') return {v:live.reduce((t,i)=>t+finInvOutstandingNet(i),0), go:sg('invoices'), note:'Excl. VAT'};
+  if(k==='overdue'){ const v = live.filter(finInvOverdue).reduce((t,i)=>t+finInvOutstandingNet(i),0); return {v, go:sg('invoices'), hot:v>0, note:'Excl. VAT'}; }
   if(k==='retention') return {v:typeof finRetentionHeld==='function' ? finRetentionHeld(d.apps) : 0, go:sg('retention')};
   if(k==='invoiced') return {v:finRound(live.filter(i=>i.status!=='draft').reduce((t,i)=>t+Number(i.net||0),0)), go:sg('invoices'), note:'Excl. VAT'};
-  if(k==='received') return {v:finRound(live.reduce((t,i)=>t+Number(i.paid||0),0)), go:sg('invoices'), note:'Incl. VAT'};
+  if(k==='received') return {v:finRound(live.reduce((t,i)=>t+Number(i.paid||0),0)), go:sg('invoices'), note:'Excl. VAT'};
   if(!fc) return wait;
   if(k==='ffa') return {v:fc.ffa, go:`go('#/site/${s}/finance/budget')`};
   if(k==='valued') return {v:fc.sales, go:sg('apps')};

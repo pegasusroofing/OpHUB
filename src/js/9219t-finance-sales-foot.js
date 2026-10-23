@@ -31,7 +31,7 @@ function finSalesFootHtml(kind, rows, monthOf){
   };
   finInvTableHtml = function(invs){
     const h = bi.apply(this, arguments); if(!invs.length) return h;
-    const out = finRowData(h, invs, i=>`data-m="${finMonthOf(i.issue_date||i.created_at)}" data-void="${i.status==='void'?1:0}" data-n="${Number(i.net||0)}" data-v="${Number(i.vat||0)}" data-g="${Number(i.total||0)}" data-o="${finInvOutstanding(i)}"`);
+    const out = finRowData(h, invs, i=>`data-m="${finMonthOf(i.issue_date||i.created_at)}" data-void="${i.status==='void'?1:0}" data-n="${Number(i.net||0)}" data-v="${Number(i.vat||0)}" data-g="${Number(i.total||0)}" data-o="${finInvOutstandingNet(i)}"`);
     setTimeout(finSalesFootPaintAll, 0);
     return out.replace(/<\/table><\/div>\s*$/, '</table></div>'+finSalesFootHtml('inv', invs, i=>finMonthOf(i.issue_date||i.created_at)));
   };

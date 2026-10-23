@@ -16,7 +16,7 @@ async function finClientsHtml(jfBy, invs){
     const c = by[key(name)] = by[key(name)] || {name, rec:null, email:(jfBy[s.id]||{}).billing_email||s.client_email||'', jobs:[], live:0, owed:0, overdue:0};
     c.jobs.push(s); if(finSiteStatus(s)==='live') c.live++; if(!c.email) c.email = (jfBy[s.id]||{}).billing_email||s.client_email||''; });
   (invs||[]).forEach(i=>{ const s = SITES.find(x=>x.id===i.site_id); if(!s || i.status==='void') return; const name = (jfBy[s.id]||{}).billing_name || s.client_name || ''; const c = by[key(name)]; if(!c) return;
-    c.owed += finInvOutstanding(i); if(finInvOverdue(i)) c.overdue += finInvOutstanding(i); });
+    c.owed += finInvOutstandingNet(i); if(finInvOverdue(i)) c.overdue += finInvOutstandingNet(i); });
   const noClient = SITES.filter(s=>!((jfBy[s.id]||{}).billing_name || s.client_name));
   const list = Object.values(by).sort((a,b)=>a.name.localeCompare(b.name));
   const inXero = list.filter(c=>c.rec && c.rec.xero_contact_id).length;
