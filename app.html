@@ -57816,7 +57816,7 @@ function finInvPanelPaint(){
   // Raise invoice from the application → stay on the application and show the invoice beside it.
   const base = window.raiseInvoiceFromCert;
   window.raiseInvoiceFromCert = async function(siteId, appId, issueNow){
-    if(issueNow || !(typeof isDeskMode==='function' && isDeskMode()) || !/\/finance\/application\//.test(location.hash)) return base.apply(this, arguments);
+    return base.apply(this, arguments); // 23 Oct (Andy): Raise invoice goes to the invoice screen, preview on the right (9219zf)
     const realGo = window.go; let target = null;
     window.go = h=>{ target = h; };
     try{ await base.call(this, siteId, appId, false); } finally { window.go = realGo; }
@@ -60563,64 +60563,91 @@ html.desk.finmode .finappbtns{padding:0 24px;}`;
 })();
 
 /* ============================================================
-   OpHUB Finance — Raise invoice from a certificate in one step (23 Oct 2026, Andy: "when I
-   click raise invoice it should automatically approve, with a pop-up to say post to Xero —
-   on by default, tick to unselect — then Raise invoice. I don't like the Check & issue").
-   The pop-up issues the invoice straight away (numbered, approved, PDF saved). Untick
-   "Post to Xero" to leave it out for now; it can be posted later from the invoice.
+   OpHUB Finance — Raise invoice → the invoice screen, with the invoice shown on the right
+   (23 Oct 2026, Andy: "click raise invoice and it takes me into the invoice screen with the
+   pop up, but clearer. I don't need the summary on the left if the pop-up is on the right").
+   On a computer a draft invoice shows its details on the left and the invoice itself on the
+   right, with Post to Xero (ticked — untick to post later from the invoice) and one clear
+   "Approve & Issue Invoice" button. Phones keep the normal invoice page.
    ============================================================ */
+let finIdTimer = null, finIdUrl = null;
+function finIdOn(){ return typeof isDeskMode==='function' && isDeskMode(); }
+function finIdClear(){
+  document.documentElement.classList.remove('finidsplit');
+  const p = document.getElementById('finIdPanel'); if(p) p.remove();
+  if(finIdUrl){ try{ URL.revokeObjectURL(finIdUrl); }catch(e){} finIdUrl = null; }
+}
+window.addEventListener('hashchange', ()=>{ if(!/\/finance\/invoice\//.test(location.hash)) finIdClear(); });
+async function finIdPreview(site){
+  const fr = document.getElementById('finIdFrame'); if(!fr || !finInvDraft) return;
+  try{
+    const inv = Object.assign({}, finInvDraft, finInvDraftRow(), {number:'DRAFT', status:'draft'});
+    const bytes = await finBuildInvoicePdf(inv, site, await finLoadSettings()); if(!bytes) return;
+    const url = URL.createObjectURL(new Blob([bytes], {type:'application/pdf'}));
+    if(finIdUrl) try{ URL.revokeObjectURL(finIdUrl); }catch(e){}
+    finIdUrl = url; const f2 = document.getElementById('finIdFrame'); if(f2) f2.src = url+'#view=FitH';
+  }catch(e){ console.warn('invoice preview', e); }
+}
 (function(){
-  const prev = window.raiseInvoiceFromCert;
-  async function finRaiseRun(siteId, appId, post){
-    const realIns = dbInsert, realGo = window.go;
-    const onApp = typeof isDeskMode==='function' && isDeskMode() && /\/finance\/application\//.test(location.hash);
-    let target = null;
-    dbInsert = function(t, row){ if(t==='fin_invoices' && row && !Array.isArray(row)) row = Object.assign({}, row, {xero_post:!!post}); return realIns.apply(this, [t, row].concat(Array.prototype.slice.call(arguments, 2))); };
-    window.go = h=>{ target = h; };
-    try{ await prev.call(this, siteId, appId, true); }
-    finally{ dbInsert = realIns; window.go = realGo; }
-    const m = target && /\/invoice\/([^/?#]+)/.exec(target);
-    if(!m){ if(target) go(target); return; }
-    const inv = (await dbSelect('fin_invoices', 'id=eq.'+m[1]+'&select=id,status,xero_id').catch(()=>[]))[0];
-    if(!inv || inv.status==='draft'){ go(target); return; }   // e.g. nobody to bill yet — finish it on the invoice page
-    if(post && typeof finXeroConnected==='function' && finXeroConnected() && !(FIN_SETTINGS && FIN_SETTINGS.xero_auto) && !inv.xero_id){
-      finXeroPush('invoice', inv.id, true).then(ok=>{ if(ok) toast('Also posted to Xero'); });
-    }
-    if(onApp && typeof finAppShowInvoice==='function'){ finApp = null; render(); setTimeout(()=>finAppShowInvoice(inv.id, appId), 400); }
-    else go(target);
-  }
-  window.finRaiseInvPop = async function(siteId, appId){
-    const a = (await dbSelect('fin_applications', 'id=eq.'+appId).catch(()=>[]))[0]; if(!a) return;
-    if(a.invoice_id){ go(`#/site/${siteId}/finance/invoice/${a.invoice_id}`); return; }
-    let ov = document.getElementById('finRaiseOv');
-    if(!ov){ ov = document.createElement('div'); ov.id = 'finRaiseOv'; ov.className = 'geo-modal-overlay'; document.body.appendChild(ov); }
-    ov.onclick = e=>{ if(e.target===ov) ov.style.display = 'none'; };
+  // Every "Raise invoice" makes the draft and opens it (no more panel on the application).
+  window.finRaiseCertInvoice = function(siteId, appId){ return raiseInvoiceFromCert(siteId, appId); };
+
+  const rfi = renderFinInvoice;
+  renderFinInvoice = async function(){ finIdClear(); return rfi.apply(this, arguments); };
+
+  const base = renderFinInvoiceDraft;
+  renderFinInvoiceDraft = function(site, inv, pos){
+    const r = base.apply(this, arguments);
+    if(!finIdOn() || !finInvDraft) return r;
+    const wrap = document.querySelector('.scrollarea'); if(!wrap) return r;
     const xc = typeof finXeroConnected==='function' && finXeroConnected();
-    ov.innerHTML = `<div class="geo-modal-card finraise-card">
-      <h3 style="margin:0 0 6px;">Raise Invoice</h3>
-      <p class="stub" style="margin:0 0 14px;font-style:normal;">Application ${escapeHtml(String(a.number||''))} · <b>${finMoney(a.cert_net)}</b> net as certified. It gets the next invoice number, is approved and saved as a PDF ready to email.</p>
-      <label class="finswitch" style="margin:0 0 16px;"><input type="checkbox" id="finRaiseXero" checked> <span><b>Post to Xero</b><br><span class="stub" style="font-style:normal;">${xc ? 'Untick to leave it out of Xero for now — you can post it later from the invoice.' : 'Xero isn’t connected yet — it’ll be ready to post once it is.'}</span></span></label>
-      <div style="display:flex;gap:8px;"><button type="button" class="ghostbtn" style="margin:0;" onclick="document.getElementById('finRaiseOv').style.display='none'">Cancel</button>
-      <button type="button" class="darkbtn" style="margin:0;" id="finRaiseGo" onclick="finRaiseGo('${siteId}','${appId}')">🧾 Raise Invoice</button></div>
-    </div>`;
-    ov.style.display = 'flex';
-    if(typeof modalAddX==='function') modalAddX();
+    document.documentElement.classList.add('finidsplit');
+    wrap.insertAdjacentHTML('beforeend', `<div class="dwpanel finidp" id="finIdPanel">
+      <div class="dwpanel-bar"><b>🧾 Invoice Preview</b><span class="finpill grey">Draft</span></div>
+      <iframe class="dwpanel-frame" id="finIdFrame" title="Invoice preview"></iframe>
+      <div class="finidp-foot">
+        <label class="finswitch" style="margin:0;"><input type="checkbox" id="finIdXero" ${finInvDraft.xero_post!==false?'checked':''} onchange="finInvDraft.xero_post=this.checked"> <span><b>Post to Xero</b><br><span class="stub" style="font-style:normal;">${xc ? 'Untick to leave it out for now — you can post it later from the invoice.' : 'Xero isn’t connected yet — it’ll be ready to post once it is.'}</span></span></label>
+        <div class="finidp-btns">
+          <button type="button" class="ghostbtn" onclick="saveFinInvoiceDraft(true)">Save Draft</button>
+          <button type="button" class="darkbtn" id="finIdIssue" onclick="finIdIssue('${site.id}')">✓ Approve &amp; Issue Invoice</button>
+        </div>
+        <p class="stub" style="margin:0;font-style:normal;font-size:12px;">Change anything on the left and the preview updates. Issuing gives it the next invoice number and saves the PDF — it can’t be changed afterwards.</p>
+      </div>
+    </div>`);
+    finIdPreview(site);
+    finIdSite = site;
+    return r;
   };
-  window.finRaiseGo = async function(siteId, appId){
-    const btn = document.getElementById('finRaiseGo'); if(btn){ if(btn.disabled) return; btn.disabled = true; btn.textContent = 'Raising…'; }
-    const post = !!(document.getElementById('finRaiseXero')||{}).checked;
-    try{ await finRaiseRun(siteId, appId, post); }
-    finally{ const ov = document.getElementById('finRaiseOv'); if(ov) ov.style.display = 'none'; }
+  let finIdSite = null;
+  const queue = ()=>{ if(!document.getElementById('finIdPanel')) return; clearTimeout(finIdTimer); finIdTimer = setTimeout(()=>finIdSite && finIdPreview(finIdSite), 1200); };
+  ['input','change'].forEach(ev=>document.addEventListener(ev, e=>{ if(e.target && e.target.closest && e.target.closest('#app') && !e.target.closest('#finIdPanel')) queue(); }, true));
+  document.addEventListener('click', e=>{ if(e.target && e.target.closest && e.target.closest('#app .linkbtn, #app .ghostbtn') && !e.target.closest('#finIdPanel')) setTimeout(queue, 50); }, true);
+
+  window.finIdIssue = async function(siteId){
+    const btn = document.getElementById('finIdIssue'); if(btn && btn.disabled) return;
+    const post = !!(document.getElementById('finIdXero')||{}).checked;
+    finInvDraft.xero_post = post;
+    const id = finInvDraft.id;
+    if(btn){ btn.disabled = true; btn.textContent = 'Issuing…'; }
+    const realConfirm = window.customConfirm;
+    window.customConfirm = async()=>true;   // the panel is the confirmation
+    try{ await issueFinInvoice(siteId); }
+    finally{ window.customConfirm = realConfirm; const b = document.getElementById('finIdIssue'); if(b){ b.disabled = false; b.textContent = '✓ Approve & Issue Invoice'; } }
+    const inv = (await dbSelect('fin_invoices', 'id=eq.'+id+'&select=id,status,xero_id').catch(()=>[]))[0];
+    if(inv && inv.status!=='draft' && post && typeof finXeroConnected==='function' && finXeroConnected() && !(FIN_SETTINGS && FIN_SETTINGS.xero_auto) && !inv.xero_id){
+      finXeroPush('invoice', inv.id, true).then(ok=>{ if(ok){ toast('Also posted to Xero'); render(); } });
+    }
   };
-  // Raise invoice buttons (certificate box, Sales lists) open the pop-up. Certify with
-  // "raise and issue now" ticked still goes straight through.
-  window.raiseInvoiceFromCert = function(siteId, appId, issueNow){
-    if(issueNow) return prev.apply(this, arguments);
-    return finRaiseInvPop(siteId, appId);
-  };
-  window.finRaiseCertInvoice = function(siteId, appId){ return finRaiseInvPop(siteId, appId); };
+
   const st = document.createElement('style');
-  st.textContent = `.finraise-card{max-width:440px !important;width:min(440px,94vw);}`;
+  st.textContent = `html.desk.finidsplit .scrollarea > *:not(#finIdPanel){margin-right:calc((100vw - 248px) * .5) !important;}
+html.desk #finIdPanel{width:calc((100vw - 248px) * .5 - 24px);}
+html.finidsplit .finxpost, html.finidsplit #finInvIssue, html.finidsplit .fininv-actions{display:none !important;}
+html.finidsplit .finline textarea{min-height:44px !important;height:auto;field-sizing:content;}
+.finidp-foot{border-top:1px solid #ECEEF2;padding:12px 14px;display:flex;flex-direction:column;gap:10px;background:#fff;}
+.finidp-btns{display:flex;gap:8px;}
+.finidp-btns button{margin:0 !important;width:auto !important;}
+.finidp-btns .darkbtn{flex:1;font-size:15px !important;padding:11px 16px !important;}`;
   document.head.appendChild(st);
 })();
 

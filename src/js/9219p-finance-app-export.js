@@ -737,7 +737,7 @@ function finInvPanelPaint(){
   // Raise invoice from the application → stay on the application and show the invoice beside it.
   const base = window.raiseInvoiceFromCert;
   window.raiseInvoiceFromCert = async function(siteId, appId, issueNow){
-    if(issueNow || !(typeof isDeskMode==='function' && isDeskMode()) || !/\/finance\/application\//.test(location.hash)) return base.apply(this, arguments);
+    return base.apply(this, arguments); // 23 Oct (Andy): Raise invoice goes to the invoice screen, preview on the right (9219zf)
     const realGo = window.go; let target = null;
     window.go = h=>{ target = h; };
     try{ await base.call(this, siteId, appId, false); } finally { window.go = realGo; }
