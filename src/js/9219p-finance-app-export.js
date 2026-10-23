@@ -801,3 +801,106 @@ function finSalesSubApply(){
     return sc.apply(this, arguments);
   };
 })();
+
+/* ===== Certificate fixes, 23 Oct 2026 ===== */
+/* fix 11 (23 Oct) */
+/* Certified % starts from the previous certificate (Andy, 22 Oct). */
+let finCertPrev = null; // {appId, lines:{item_id:pct}, vars:{key:pct}}
+async function finCertPrevLoad(){
+  if(!finApp) return;
+  const rows = await dbSelect('fin_applications', 'site_id=eq.'+finApp.site_id+'&number=lt.'+finApp.number+'&status=in.(certified,invoiced)&order=number.desc&limit=1').catch(()=>[]);
+  const p = rows[0], P = {appId:finApp.id, lines:{}, vars:{}};
+  if(p){
+    const cl = {}, cv = {}; (p.cert_lines||[]).forEach(l=>{ if(l.item_id) cl[l.item_id] = l.pct; else if(l.var_index!=null) cv[l.var_index] = l.pct; });
+    (p.lines||[]).forEach(l=>{ if(finIsItem(l)) P.lines[l.item_id] = cl[l.item_id]!=null ? cl[l.item_id] : finPct(l.pct); });
+    (p.variations||[]).forEach((v,i)=>{ const k = v.fin_variation_id || v.variation_id; if(k) P.vars[k] = cv[i]!=null ? cv[i] : finPct(v.pct); });
+  }
+  finCertPrev = P;
+}
+function finCertWorkInit(){
+  if(finCertWork && finCertWork.appId===finApp.id) return finCertWork;
+  const own = {}; (finApp.cert_lines||[]).forEach(l=>{ if(l.item_id) own[l.item_id] = l.pct; });
+  const P = (finCertPrev && finCertPrev.appId===finApp.id) ? finCertPrev : {lines:{}, vars:{}};
+  const W = {appId:finApp.id, lines:{}, vars:{}, days:{}};
+  (finApp.lines||[]).forEach(l=>{ if(finIsItem(l)) W.lines[l.item_id] = own[l.item_id]!=null ? own[l.item_id] : (P.lines[l.item_id]!=null ? P.lines[l.item_id] : 0); });
+  (finApp.variations||[]).forEach((v,i)=>{ const k = v.fin_variation_id || v.variation_id; W.vars[i] = k && P.vars[k]!=null ? P.vars[k] : 0; });
+  (finApp.dayworks||[]).forEach((d,i)=>{ W.days[i] = Number(d.value||0); });
+  return (finCertWork = W);
+}
+(function(){
+  const slot = finCertSlotRender;
+  finCertSlotRender = function(a){
+    slot.apply(this, arguments);
+    if(finCertMode() && !(finCertPrev && finCertPrev.appId===a.id)){
+      finCertPrevLoad().then(()=>{
+        if(!finApp || finApp.id!==a.id) return;
+        finCertWork = null;
+        document.querySelectorAll('.fincertin, .fincertg, .fincertro').forEach(e=>e.remove());
+        document.querySelectorAll('[data-cert]').forEach(e=>{ delete e.dataset.cert; });
+        finAppPaintLines(); finAppPaint(); finCertDecorate(); finCertRecalc();
+      });
+    }
+  };
+})();
+
+/* fix 14 (23 Oct) */
+/* Client's certificate as a PDF (Andy, 22 Oct): read each line's certified % from the PDF text. */
+window.finCertFromPdf = async function(file, appId){
+  const a = (await dbSelect('fin_applications', 'id=eq.'+appId))[0]; if(!a) return;
+  const url = URL.createObjectURL(file);
+  let text = ''; try{ text = await finPdfText(url); } finally { URL.revokeObjectURL(url); }
+  if(!text.trim()){ toast('Couldn’t read any text in that PDF — is it a scan? Enter the Certified % on each line instead.'); return; }
+  const rows = text.split('\n').map(s=>s.replace(/\s+/g,' ').trim()).filter(Boolean);
+  const norm = s=>String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+  const W = finCertWorkInit(); let found = 0;
+  (a.lines||[]).filter(finIsItem).forEach(l=>{
+    const d = norm(l.description); if(!d) return;
+    const r = rows.find(x=>norm(x).includes(d.slice(0, 40)));
+    if(!r) return;
+    const pcts = (r.match(/(\d{1,3}(?:\.\d+)?)\s?%/g)||[]).map(x=>Number(x.replace(/[^\d.]/g,''))).filter(n=>n<=100);
+    if(pcts.length){ W.lines[l.item_id] = finPct(pcts[pcts.length-1]); found++; }   // last % on the row = certified
+  });
+  finCertFile = file; // keep the PDF as the certificate copy
+  if(!found){ toast('Read the PDF but couldn’t match any lines — enter the Certified % on each line. The PDF is saved with the certificate.'); return; }
+  document.querySelectorAll('.fincertin, .fincertg, .fincertro').forEach(e=>e.remove());
+  document.querySelectorAll('[data-cert]').forEach(e=>{ delete e.dataset.cert; });
+  finAppPaintLines(); finAppPaint(); finCertDecorate(); finCertRecalc();
+  toast(`Read ${found} line${found===1?'':'s'} from the PDF — check them, then Certify`);
+};
+(function(){
+  const xl = window.finCertFromExcel;
+  window.finCertFromExcel = function(file, appId){
+    if(file && (/\.pdf$/i.test(file.name) || file.type==='application/pdf')) return finCertFromPdf(file, appId);
+    return xl.apply(this, arguments);
+  };
+  const slot = finCertSlotRender;
+  finCertSlotRender = function(a){
+    slot.apply(this, arguments);
+    const box = document.getElementById('finCertXl'); if(!box || box.dataset.pdf) return;
+    box.dataset.pdf = '1';
+    const inp = box.querySelector('input[type=file]'); if(inp) inp.setAttribute('accept', '.xlsx,.xls,.pdf,application/pdf');
+    const lbl = inp && inp.closest('label'); if(lbl && lbl.firstChild) lbl.firstChild.textContent = 'Upload client’s certificate';
+    const sp = box.querySelector('span'); if(sp) sp.textContent = 'Client sent back their certificate (Excel or PDF)? Upload it and the Certified % fill in.';
+  };
+})();
+
+/* fix 15 (23 Oct) */
+(function(){
+  const ap = window.finAppPaint;
+  window.finAppPaint = function(){
+    const r = ap.apply(this, arguments);
+    if(finApp && finApp.cert_net!=null && !finCertMode()){
+      const s = document.getElementById('finAppSummary');
+      if(s){ s.innerHTML = finCertSummaryHtml(); s.classList.add('fincs'); }
+    }
+    return r;
+  };
+  const slot = finCertSlotRender;
+  finCertSlotRender = function(a){
+    slot.apply(this, arguments);
+    if(a.cert_net==null) return;
+    const card = document.querySelector('#finCertSlot .card'); if(!card) return;
+    card.querySelectorAll('.finkv:not(.big)').forEach(el=>el.style.display = 'none');
+    if(finApp && finApp.id===a.id){ const s = document.getElementById('finAppSummary'); if(s){ s.innerHTML = finCertSummaryHtml(); s.classList.add('fincs'); } }
+  };
+})();

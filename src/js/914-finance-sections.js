@@ -114,7 +114,7 @@ async function renderFinanceHome(){
     ${todo.length ? `<div class="card fintodo">
       <p class="sectiontitle" style="margin-top:0;">Needs attention</p>
       ${todo.map(x=>`<button type="button" class="fintodo-i" onclick="${x.pre||''}go('${x.go}')"><span class="fintodo-n t-${x.tone}">${x.n}</span><span class="fintodo-t"><b>${escapeHtml(x.t)}</b><em>${escapeHtml(x.s)}</em></span><span class="fintodo-c">›</span></button>`).join('')}
-    </div>` : `<div class="card"><p class="stub" style="margin:0;">Nothing needs your attention right now.</p></div>`}
+    </div>` : ''}
     ${typeof finXeroReadyHtml==='function' ? finXeroReadyHtml(xeroReady) : ''}
   `, {title:'OpHUB Finance', subtitle:fo ? ((ORG&&ORG.name)||'Overview') : 'Overview', back:finSecBack(), tabs:false});
 }

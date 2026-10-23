@@ -47550,7 +47550,7 @@ function finContractCardHtml(siteId, items, jf){
 let finContractRows = null, finContractSite = null, finContractFile = null, finContractSnap = '';
 function finContractSnapOf(rows){ return JSON.stringify(rows.map(r=>[r.kind,r.ref,r.description,r.qty,r.unit,r.rate,r.value,r.sub||'',r.cost==null?null:r.cost,r.cost_basis||'',r.cost_pct==null?null:r.cost_pct])); }
 function finContractIsDirty(){ return !!finContractRows && finContractSnapOf(finContractRows) !== finContractSnap; }
-const FIN_KIND_LABEL = {section:'Header', subsection:'Sub-header', item:'Item'};
+const FIN_KIND_LABEL = {section:'Section', subsection:'Sub-section', item:'Item'};
 async function renderFinContract(siteId){
   if(!finGuard()) return;
   const __gen = RENDER_GEN;
@@ -47574,7 +47574,7 @@ async function renderFinContract(siteId){
     ${finSowCardHtml(siteId, sowSt)}
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">Upload a Bill of Quantities</p>
-      <p class="stub" style="margin:0 0 10px;font-style:normal;">An Excel or PDF of the priced contract (tender, contract sum analysis or bill of quantities). The app reads headers, sub-headers and each priced line with its quantity, unit and rate; you check them before they’re saved.</p>
+      <p class="stub" style="margin:0 0 10px;font-style:normal;">An Excel or PDF of the priced contract (tender, contract sum analysis or bill of quantities). The app reads sections, sub-sections and each priced line with its quantity, unit and rate; you check them before they’re saved.</p>
       <input type="file" id="finContractUpload" accept=".xlsx,.xls,.csv,application/pdf" onchange="finContractUploadPicked(this.files[0])">
       ${jf.contract_file_name ? `<p class="stub" style="margin:8px 0 0;font-style:normal;">Last uploaded: ${escapeHtml(jf.contract_file_name)} <button class="linkbtn" style="color:var(--blue);" onclick="openFinDoc('${jsAttr(jf.contract_file_path||'')}','${jsAttr(jf.contract_file_name||'')}')">view</button></p>` : ''}
     </div>
@@ -47587,8 +47587,8 @@ async function renderFinContract(siteId){
       <div id="finCtBulk" class="finbulkbar" style="display:none;"></div>
       <div id="finContractList" style="margin-top:8px;"></div>
       <div class="row-gap" style="flex-wrap:wrap;margin-top:8px;">
-        <button class="ghostbtn" style="flex:1;min-width:110px;" onclick="finContractAdd('section')">+ Header</button>
-        <button class="ghostbtn" style="flex:1;min-width:110px;" onclick="finContractAdd('subsection')">+ Sub-header</button>
+        <button class="ghostbtn" style="flex:1;min-width:110px;" onclick="finContractAdd('section')">+ Section</button>
+        <button class="ghostbtn" style="flex:1;min-width:110px;" onclick="finContractAdd('subsection')">+ Sub-section</button>
         <button class="ghostbtn" style="flex:1;min-width:110px;" onclick="finContractAdd('item')">+ Item</button>
       </div>
     </div>
@@ -47611,13 +47611,13 @@ function finContractPaint(){
   const el = document.getElementById('finContractList'); if(!el) return;
   const tot = finGroupTotals(finContractRows, r=>finItemValue(r));
   const subs = FIN_SUBJOBS[finContractSite] || [];
-  const plotSel = i=>subs.length ? `<select class="fincrow-plot" aria-label="${escapeHtml(finSubNoun(finContractSite))}" onchange="finContractRows[${i}].sub=this.value"><option value="">${finContractRows[i].kind==='item' ? 'Plot: as header' : 'Plot: none'}</option>${subs.map(a=>`<option value="${a.id}" ${finContractRows[i].sub===a.id?'selected':''}>${escapeHtml(a.short)}</option>`).join('')}</select>` : '';
+  const plotSel = i=>subs.length ? `<select class="fincrow-plot" aria-label="${escapeHtml(finSubNoun(finContractSite))}" onchange="finContractRows[${i}].sub=this.value"><option value="">${finContractRows[i].kind==='item' ? 'Plot: as section' : 'Plot: none'}</option>${subs.map(a=>`<option value="${a.id}" ${finContractRows[i].sub===a.id?'selected':''}>${escapeHtml(a.short)}</option>`).join('')}</select>` : '';
   const menu = i=>`<button type="button" class="fincrow-menu" title="Move, change or remove" aria-label="Line options" onclick="finCrowMenu(event, ${i})">⋮</button>`;
   const ctl = i=>plotSel(i)+`<span class="fincrow-ctl" hidden><button class="linkbtn" title="Move up" onclick="finContractMove(${i},-1)">↑</button><button class="linkbtn" title="Move down" onclick="finContractMove(${i},1)">↓</button><select onchange="finContractRows[${i}].kind=this.value;finContractPaint()">${Object.keys(FIN_KIND_LABEL).map(k=>`<option value="${k}" ${finContractRows[i].kind===k?'selected':''}>${FIN_KIND_LABEL[k]}</option>`).join('')}</select><button class="linkbtn" title="Remove" onclick="finContractRows.splice(${i},1);finContractPaint()">✕</button></span>`;
   el.innerHTML = finContractRows.length ? finContractRows.map((r,i)=>{
     if(r.kind==='section' || r.kind==='subsection') return `<div class="fincrow ${r.kind}">
         <div class="fincrow-head"><input type="checkbox" class="fincsel" aria-label="Tick everything under this" ${finContractGroupTicked(i)?'checked':''} onchange="finContractTickGroup(${i}, this.checked)"><input type="text" class="fincline-ref" placeholder="Ref" value="${escapeHtml(r.ref||'')}" oninput="finContractRows[${i}].ref=this.value">
-          <input type="text" class="fincrow-title" placeholder="${r.kind==='section'?'Header, e.g. Main roof':'Sub-header, e.g. Slating'}" value="${escapeHtml(r.description||'')}" oninput="finContractRows[${i}].description=this.value">${menu(i)}</div>
+          <input type="text" class="fincrow-title" placeholder="${r.kind==='section'?'Section, e.g. Main roof':'Sub-section, e.g. Slating'}" value="${escapeHtml(r.description||'')}" oninput="finContractRows[${i}].description=this.value">${menu(i)}</div>
         <div class="fincrow-foot">${plotSel(i)}<b id="finCTot-${i}">${finMoney((tot[i]||{}).value)}</b></div>
       </div>`;
     const v = finItemValue(r);
@@ -47635,7 +47635,7 @@ function finContractPaint(){
       <div class="fincrow-mg" id="finCMg-${i}">${finContractMgTxt(r)}</div>
       ${subs.length ? `<div class="fincrow-foot">${plotSel(i)}</div>` : ''}
     </div>`;
-  }).join('') : `<div class="empty" style="margin:0;">No lines yet. Upload a file or add a header and items.</div>`;
+  }).join('') : `<div class="empty" style="margin:0;">No lines yet. Upload a file or add a section and items.</div>`;
   el.insertAdjacentHTML('beforeend', `<datalist id="finUnitList">${finUnitOptions().map(u=>`<option value="${escapeHtml(u)}">`).join('')}</datalist>`);
   finContractPaintTotal();
   finContractBulkPaint();
@@ -47830,7 +47830,7 @@ function finImportShow(){
   const width = finImport.kind==='sheet' ? Math.max(1, ...sheetRows.slice(0,200).map(r=>r.length)) : 0;
   const hdr = finImport.kind==='sheet' ? (sheetRows[finImport.header]||[]) : [];
   const colSel = (key, label)=>`<div class="formfield"><label class="field-label">${label}</label><select onchange="finImportSetCol('${key}', +this.value)"><option value="-1">None</option>${Array.from({length:width}, (_,i)=>`<option value="${i}" ${finImport.cols[key]===i?'selected':''}>${colName(i)}${hdr[i]?' — '+escapeHtml(String(hdr[i]).slice(0,20)):''}</option>`).join('')}</select></div>`;
-  const kinds = {section:'Header', subsection:'Sub-header', item:'Item', skip:'Skip'};
+  const kinds = {section:'Section', subsection:'Sub-section', item:'Item', skip:'Skip'};
   ov.innerHTML = `<div class="geo-modal-card" style="max-width:720px;">
     <h3>Check the breakdown</h3>
     ${finImport.kind==='sheet' ? `
@@ -47976,7 +47976,7 @@ async function renderFinApplication(siteId, appId){
     <div class="row-gap finappbtns" style="flex-wrap:wrap;align-items:center;">
       ${locked ? '' : `<button class="ghostbtn" id="finAppSave" onclick="saveFinApplication(true)">Save</button>`}
       ${typeof finAppNextBtn==='function' ? finAppNextBtn(a) : ''}
-      <button class="ghostbtn" onclick="finAppMoreMenu(event, '${siteId}', '${a.id}', ${locked?'true':'false'})">Send &amp; export ▾</button>
+      ${['certified','invoiced'].includes(a.status) ? '' : `<button class="ghostbtn" onclick="finAppMoreMenu(event, '${siteId}', '${a.id}', ${locked?'true':'false'})">Send &amp; export ▾</button>`}
       <input type="file" id="finAppXlUp" accept=".xlsx,.xls" style="display:none;" onchange="uploadFinAppExcel(this.files[0])">
       ${a.status==='draft' ? `<button class="ghostbtn" style="color:var(--red);margin-left:auto;" onclick="deleteFinApplication('${siteId}','${a.id}')">Delete draft</button>` : ''}
     </div>
@@ -48347,7 +48347,7 @@ function finContractBulkPaint(){
     <button class="linkbtn" onclick="finContractBulk('clear')">Clear costs</button>
     <button class="linkbtn" style="color:var(--red);" onclick="finContractBulk('remove')">Remove</button>
     <button class="linkbtn" onclick="finContractTickAll(false)">Untick all</button>`
-    : (items ? `<button class="linkbtn" onclick="finContractTickAll(true)">Tick all ${items} lines</button><span class="stub" style="margin:0;font-style:normal;">Tick lines (or a header) to change them together.</span>` : '');
+    : (items ? `<button class="linkbtn" onclick="finContractTickAll(true)">Tick all ${items} lines</button><span class="stub" style="margin:0;font-style:normal;">Tick lines (or a section) to change them together.</span>` : '');
 }
 
 /* ================= OpHUB FINANCE — A3 Payment certificates + A4 Retention =================
@@ -50471,12 +50471,12 @@ function finForecastCardHtml(siteId, fc){
       ${fc.budgetTotal==null ? tile('Expected profit', '—', 'Needs a budget') + tile('Expected profit %', '—', 'Needs a budget')
         : tile('Expected profit', finMoney(fc.forecastMargin, 0), fc.origMargin!=null?ff('Original', finMoney(fc.origMargin, 0)):'&nbsp;', diff(fc.forecastMargin, fc.origMargin), pctCol(fc.forecastMargin))
           + tile('Expected profit %', finPctTxt(fc.forecastMarginPct), fc.origMarginPct!=null?ff('Original', finPctTxt(fc.origMarginPct)):'&nbsp;', '', pctCol(fc.forecastMarginPct))}
-      ${tile(fc.sales===fc.invoiced && fc.sales!==fc.valuation ? 'Invoiced so far' : 'Work valued so far', finMoney(fc.sales, 0), ff('Progress', finPctTxt(salesP))+bar(salesP, false, 'blue'))}
-      ${tile('Cost so far', finMoney(fc.costToDate, 0), (fc.budgetTotal ? ff('Of budget', finPctTxt(costP)) : ff('Budget', 'not set'))+bar(costP, costP!=null && salesP!=null && costP > salesP + 5, 'tan'), fc.committedTotal ? `<span class="fintile-x">+ ${finMoney(fc.committedTotal, 0)} ordered, not invoiced</span>` : '')}
+      ${tile(fc.sales===fc.invoiced && fc.sales!==fc.valuation ? 'Invoiced to date' : 'Work valued to date', finMoney(fc.sales, 0), ff('Progress', finPctTxt(salesP))+bar(salesP, false, 'blue'))}
+      ${tile('Cost to date', finMoney(fc.costToDate, 0), (fc.budgetTotal ? ff('Of budget', finPctTxt(costP)) : ff('Budget', 'not set'))+bar(costP, costP!=null && salesP!=null && costP > salesP + 5, 'tan'), fc.committedTotal ? `<span class="fintile-x">+ ${finMoney(fc.committedTotal, 0)} ordered, not invoiced</span>` : '')}
       ${(()=>{ const on = typeof finMarginOn==='function' ? finMarginOn(fc) : {value:fc.sales, label:'value'}; const mg = finRound(on.value - fc.costToDate), mp = on.value ? finRound(mg/on.value*100) : null;
         const expP = fc.budgetTotal!=null && fc.forecastMargin ? finRound(mg/fc.forecastMargin*100) : null;
-        return tile('Profit so far'+(typeof finMarginMenuHtml==='function' ? ' '+finMarginMenuHtml() : ''), finMoney(mg, 0), (expP!=null ? ff('Of expected', finPctTxt(expP)) : ff('On '+on.label, finMoney(on.value, 0)))+bar(expP, mg<0, 'green'), '', pctCol(mg))
-          + tile('Profit so far %', finPctTxt(mp), ff('On', on.label), '', pctCol(mp)); })()}
+        return tile('Profit to date'+(typeof finMarginMenuHtml==='function' ? ' '+finMarginMenuHtml() : ''), finMoney(mg, 0), (expP!=null ? ff('Of expected', finPctTxt(expP)) : ff('On '+on.label, finMoney(on.value, 0)))+bar(expP, mg<0, 'green'), '', pctCol(mg))
+          + tile('Profit to date %', finPctTxt(mp), ff('On', on.label), '', pctCol(mp)); })()}
     </div>
     <div class="finkv" style="margin-top:10px;"><span>Contract ${finMoney(fc.contract, 0)} · agreed variations ${finMoney(fc.vAgreed, 0)}${fc.vPending?' · waiting for agreement '+finMoney(fc.vPending, 0):''}</span><b>Expected final cost ${finMoney(fc.forecastCost, 0)}</b></div>
     ${noOrig ? `<div class="finkv"><span>Save today’s value and budget as the starting point, so you can see how the job moves.</span><b><button class="linkbtn" onclick="finSetOriginal('${siteId}')">Save starting point</button></b></div>`
@@ -51412,7 +51412,7 @@ async function renderFinanceHome(){
     ${todo.length ? `<div class="card fintodo">
       <p class="sectiontitle" style="margin-top:0;">Needs attention</p>
       ${todo.map(x=>`<button type="button" class="fintodo-i" onclick="${x.pre||''}go('${x.go}')"><span class="fintodo-n t-${x.tone}">${x.n}</span><span class="fintodo-t"><b>${escapeHtml(x.t)}</b><em>${escapeHtml(x.s)}</em></span><span class="fintodo-c">›</span></button>`).join('')}
-    </div>` : `<div class="card"><p class="stub" style="margin:0;">Nothing needs your attention right now.</p></div>`}
+    </div>` : ''}
     ${typeof finXeroReadyHtml==='function' ? finXeroReadyHtml(xeroReady) : ''}
   `, {title:'OpHUB Finance', subtitle:fo ? ((ORG&&ORG.name)||'Overview') : 'Overview', back:finSecBack(), tabs:false});
 }
@@ -53377,8 +53377,8 @@ async function renderFinPurchases(sub){
   } else if(sub==='plant'){
     const list = sortBy(hires.filter(fOK), 'on_hire', 'rate');
     body = finSecHead('Plant hire', '+ Plant hire', "finPickJob('Add plant hire','openFinPlantForm')") + filtBar()
-      + `<div id="finPurList">${list.length ? `<div class="finreptbl-wrap"><table class="fincosttbl fininvtbl"><thead><tr><th>Item</th><th>Supplier</th><th>Project</th><th>On hire</th><th>Off hire</th><th class="num">Cost so far</th><th>Status</th></tr></thead>
-        <tbody>${list.map(h=>{ const c = finPlantCost(h); const long = !h.off_hire && c.days>28; return `<tr class="click" onclick="openFinPlantForm('${h.site_id}','${h.id}')"><td data-l="Item" class="d"><b>${escapeHtml(h.item)}</b></td><td data-l="Supplier">${escapeHtml(h.supplier_name||'—')}</td><td data-l="Project">${escapeHtml(finJobTag(h.site_id))}</td><td data-l="On hire">${finDate(h.on_hire)}</td><td data-l="Off hire">${h.off_hire?finDate(h.off_hire):'—'}</td><td data-l="Cost so far" class="num">${finMoney(c.cost)}</td><td data-l="Status">${h.off_hire?'<span class="finpill grey">Off hire</span>':`<span class="finpill ${long?'bad':'ok'}">On hire ${c.weeks} wk</span>`}</td></tr>`; }).join('')}</tbody></table></div>` : '<div class="empty">No plant hire.</div>'}</div>`
+      + `<div id="finPurList">${list.length ? `<div class="finreptbl-wrap"><table class="fincosttbl fininvtbl"><thead><tr><th>Item</th><th>Supplier</th><th>Project</th><th>On hire</th><th>Off hire</th><th class="num">Cost to date</th><th>Status</th></tr></thead>
+        <tbody>${list.map(h=>{ const c = finPlantCost(h); const long = !h.off_hire && c.days>28; return `<tr class="click" onclick="openFinPlantForm('${h.site_id}','${h.id}')"><td data-l="Item" class="d"><b>${escapeHtml(h.item)}</b></td><td data-l="Supplier">${escapeHtml(h.supplier_name||'—')}</td><td data-l="Project">${escapeHtml(finJobTag(h.site_id))}</td><td data-l="On hire">${finDate(h.on_hire)}</td><td data-l="Off hire">${h.off_hire?finDate(h.off_hire):'—'}</td><td data-l="Cost to date" class="num">${finMoney(c.cost)}</td><td data-l="Status">${h.off_hire?'<span class="finpill grey">Off hire</span>':`<span class="finpill ${long?'bad':'ok'}">On hire ${c.weeks} wk</span>`}</td></tr>`; }).join('')}</tbody></table></div>` : '<div class="empty">No plant hire.</div>'}</div>`
       + `<p class="stub" style="margin:8px 0 0;font-style:normal;">${onHire.length} on hire · ${finMoney(onHire.reduce((t,h)=>t+finPlantCost(h).cost,0), 0)} so far. Tap one to off-hire it.</p>`;
   } else {
     const by = {}; suppliers.forEach(s=>{ by[s.name] = {name:s.name, email:s.email||'', spend:0, owed:0, n:0}; });
@@ -54058,7 +54058,7 @@ const FIN_HELP = {
   contra:'Charges taken off a subcontractor’s payment, e.g. for damage, clearing up or materials you supplied.',
   committed:'Ordered on a purchase order but not invoiced by the supplier yet.',
   reverse:'Domestic reverse charge (construction): on CIS work between VAT-registered businesses the customer pays the VAT straight to HMRC, so it isn’t added to the invoice total.',
-  valuation:'The value of the work done so far, used for the application.',
+  valuation:'The value of the work done to date, used for the application.',
   finaldate:'The last day a payment can be made under the contract. A pay-less notice must be sent before it.',
 };
 function finHelp(k){ const t = FIN_HELP[k]; if(!t) return ''; return `<button type="button" class="finhelp" title="${escapeHtml(t)}" onclick="event.preventDefault();event.stopPropagation();customAlert(this.title)">?</button>`; }
@@ -56168,7 +56168,7 @@ function finJobOverviewHtml(d){
   const list = todo.length ? `<div class="card fintodo">
       <p class="sectiontitle" style="margin-top:0;">Needs attention</p>
       ${todo.map(x=>`<button type="button" class="fintodo-i" onclick="${escapeHtml(x.js)}"><span class="fintodo-n t-${x.tone}">${x.n}</span><span class="fintodo-t"><b>${escapeHtml(x.t)}</b><em>${escapeHtml(x.s)}</em></span><span class="fintodo-c">›</span></button>`).join('')}
-    </div>` : `<div class="card"><p class="stub" style="margin:0;font-style:normal;">Nothing needs your attention on this job right now.</p></div>`;
+    </div>` : '';
   return tiles + list;
 }
 
@@ -56223,10 +56223,12 @@ function finJobStatusSelHtml(){
     const f = finJobFilt;
     const pms = Array.from(new Set(SITES.map(x=>x.responsible_pm_id).filter(Boolean))).map(id=>({id, name:(PROFILES[id]||{}).name||'PM'})).sort((a,b)=>a.name.localeCompare(b.name));
     const ctl = `<span class="fgfoot-ctl">
+      <select class="fgstat-m" aria-label="Status" onchange="finHomeTab=this.value;render()">${[['live','Live'],['upcoming','Upcoming'],['closed','Closed'],['all','All']].map(([k,l])=>`<option value="${k}" ${finHomeTab===k?'selected':''}>${l}</option>`).join('')}</select>
       <select aria-label="PM" onchange="finJobFilt.pm=this.value;render()"><option value="">All PMs</option>${pms.map(p=>`<option value="${p.id}" ${f.pm===p.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}<option value="none" ${f.pm==='none'?'selected':''}>No PM</option></select>
       <select aria-label="Sort" onchange="finJobFilt.sort=this.value;render()">${[['noza','Newest project no.'],['noaz','Project no. A–Z'],['az','Name A–Z'],['za','Name Z–A'],['start','Start date (newest)']].map(([k,l])=>`<option value="${k}" ${f.sort===k?'selected':''}>Sort: ${l}</option>`).join('')}</select>
     </span>`;
     h = h.replace('<button type="button" class="fgcolbtn"', ctl+'<button type="button" class="fgcolbtn"');
+    h = h.replace('⚙ Columns</button>', '⚙<span class="fgcol-t"> Columns</span></button>');
     return h;
   };
 })();
@@ -56311,7 +56313,7 @@ window.finCrowMenu = function(ev, i){
   const pop = document.createElement('div'); pop.id = 'finCrowPop'; pop.className = 'fincrow-pop'; pop.dataset.i = String(i);
   const kinds = Object.keys(FIN_KIND_LABEL).filter(k=>k!==r.kind);
   pop.innerHTML = `${i>0?`<button type="button" data-a="up">↑ Move up</button>`:''}${i<finContractRows.length-1?`<button type="button" data-a="down">↓ Move down</button>`:''}
-    ${kinds.map(k=>`<button type="button" data-a="kind" data-k="${k}">Make it ${escapeHtml(FIN_KIND_LABEL[k].toLowerCase())}</button>`).join('')}
+    ${kinds.map(k=>`<button type="button" data-a="kind" data-k="${k}">Change to ${escapeHtml(FIN_KIND_LABEL[k].toLowerCase())}</button>`).join('')}
     <button type="button" data-a="del" class="danger">✕ Remove line</button>`;
   pop.addEventListener('click', e=>{
     const b = e.target.closest('button'); if(!b) return; e.stopPropagation(); pop.remove();
@@ -56386,13 +56388,13 @@ function finContractPaint(){
   const el = document.getElementById('finContractList'); if(!el) return;
   const tot = finGroupTotals(finContractRows, r=>finItemValue(r));
   const subs = FIN_SUBJOBS[finContractSite] || [];
-  const plotSel = i=>subs.length ? `<select class="fincrow-plot" aria-label="${escapeHtml(finSubNoun(finContractSite))}" onchange="finContractRows[${i}].sub=this.value"><option value="">${finContractRows[i].kind==='item' ? 'Plot: as header' : 'Plot: none'}</option>${subs.map(a=>`<option value="${a.id}" ${finContractRows[i].sub===a.id?'selected':''}>${escapeHtml(a.short)}</option>`).join('')}</select>` : '';
+  const plotSel = i=>subs.length ? `<select class="fincrow-plot" aria-label="${escapeHtml(finSubNoun(finContractSite))}" onchange="finContractRows[${i}].sub=this.value"><option value="">${finContractRows[i].kind==='item' ? 'Plot: as section' : 'Plot: none'}</option>${subs.map(a=>`<option value="${a.id}" ${finContractRows[i].sub===a.id?'selected':''}>${escapeHtml(a.short)}</option>`).join('')}</select>` : '';
   const menu = i=>`<button type="button" class="fincrow-menu" title="Move, change or remove" aria-label="Line options" onclick="finCrowMenu(event, ${i})">⋮</button>`;
   const money = v=>v==null || isNaN(v) ? '' : escapeHtml(String(v));
   el.innerHTML = finContractRows.length ? finContractRows.map((r,i)=>{
     if(r.kind==='section' || r.kind==='subsection') return `<div class="fincrow ${r.kind}">
         <div class="fincrow-head"><input type="checkbox" class="fincsel" aria-label="Tick everything under this" ${finContractGroupTicked(i)?'checked':''} onchange="finContractTickGroup(${i}, this.checked)"><input type="text" class="fincline-ref" placeholder="Ref" value="${escapeHtml(r.ref||'')}" oninput="finContractRows[${i}].ref=this.value">
-          <input type="text" class="fincrow-title" placeholder="${r.kind==='section'?'Header, e.g. Main roof':'Sub-header, e.g. Slating'}" value="${escapeHtml(r.description||'')}" oninput="finContractRows[${i}].description=this.value">${menu(i)}</div>
+          <input type="text" class="fincrow-title" placeholder="${r.kind==='section'?'Section, e.g. Main roof':'Sub-section, e.g. Slating'}" value="${escapeHtml(r.description||'')}" oninput="finContractRows[${i}].description=this.value">${menu(i)}</div>
         <div class="fincrow-foot">${plotSel(i)}<b id="finCTot-${i}">${finMoney((tot[i]||{}).value)}</b></div>
       </div>`;
     const v = finItemValue(r);
@@ -56411,7 +56413,7 @@ function finContractPaint(){
         ${plotSel(i)}
       </div>
     </div>`;
-  }).join('') : `<div class="empty" style="margin:0;">No lines yet. Upload a file or add a header and items.</div>`;
+  }).join('') : `<div class="empty" style="margin:0;">No lines yet. Upload a file or add a section and items.</div>`;
   el.insertAdjacentHTML('beforeend', `<datalist id="finUnitList">${finUnitOptions().map(u=>`<option value="${escapeHtml(u)}">`).join('')}</datalist>`);
   finContractPaintTotal();
   finContractBulkPaint();
@@ -56595,7 +56597,7 @@ window.finVarToSow = async function(siteId, finVarId){
     if(lines && finAppCtx && finApp && !finAppCtx.locked && !document.getElementById('finAppAddLineBtn')){
       lines.insertAdjacentHTML('afterend', `<div class="row-gap" style="margin-top:10px;flex-wrap:wrap;align-items:center;" id="finAppAddLineBtn">
         ${finAppCtx.locked ? '' : `<button type="button" class="ghostbtn" onclick="finAppAddLineOpen('${siteId}','item')">+ Add a line</button>
-        <button type="button" class="ghostbtn" onclick="finAppAddLineOpen('${siteId}','section')">+ Add a header</button>`}
+        <button type="button" class="ghostbtn" onclick="finAppAddLineOpen('${siteId}','section')">+ Add a section</button>`}
       </div>
       ${finAppCtx.locked ? '' : `<p class="stub" style="margin:6px 0 0;font-style:normal;font-size:12px;">New lines are added to the project’s Bill of Quantities too, so they carry on to the next application.</p>`}`);
     }
@@ -56609,14 +56611,14 @@ window.finAppAddLineOpen = function(siteId, kind){
   ov.onclick = e=>{ if(e.target===ov) ov.style.display = 'none'; };
   const item = kind==='item';
   ov.innerHTML = `<div class="geo-modal-card">
-    <h3>${item ? 'Add a line' : 'Add a header'}</h3>
+    <h3>${item ? 'Add a line' : 'Add a section'}</h3>
     ${item ? `<div class="formfield"><label class="field-label">Goes under</label><select id="falUnder" onchange="document.getElementById('falNewHeadWrap').hidden=this.value!=='__new'">
-      ${heads.map(h=>`<option value="${h.item_id}">${h.kind==='subsection'?'— ':''}${escapeHtml((h.ref?h.ref+' ':'')+(h.description||'Header'))}</option>`).join('')}
-      <option value="__new">New header…</option><option value="">No header (at the end)</option></select></div>
-    <div class="formfield" id="falNewHeadWrap" hidden><label class="field-label">New header</label><input type="text" id="falNewHead" placeholder="e.g. Extras"></div>` : ''}
+      ${heads.map(h=>`<option value="${h.item_id}">${h.kind==='subsection'?'— ':''}${escapeHtml((h.ref?h.ref+' ':'')+(h.description||'Section'))}</option>`).join('')}
+      <option value="__new">New section…</option><option value="">No section (at the end)</option></select></div>
+    <div class="formfield" id="falNewHeadWrap" hidden><label class="field-label">New section</label><input type="text" id="falNewHead" placeholder="e.g. Extras"></div>` : ''}
     <div style="display:grid;grid-template-columns:90px minmax(0,1fr);gap:8px;">
       <div class="formfield"><label class="field-label">Ref</label><input type="text" id="falRef"></div>
-      <div class="formfield"><label class="field-label">${item?'Description *':'Header *'}</label><input type="text" id="falDesc" placeholder="${item?'e.g. Extra roof outlet':'e.g. Extras'}"></div>
+      <div class="formfield"><label class="field-label">${item?'Description *':'Section *'}</label><input type="text" id="falDesc" placeholder="${item?'e.g. Extra roof outlet':'e.g. Extras'}"></div>
     </div>
     ${item ? `<div class="fincpills" style="margin:4px 0 12px;">
       <label class="fincpill"><span>Quantity</span><input type="text" inputmode="decimal" class="w-q" id="falQty"></label>
@@ -56626,7 +56628,7 @@ window.finAppAddLineOpen = function(siteId, kind){
       <label class="fincpill cost"><span>Cost rate £</span><input type="text" inputmode="decimal" id="falCost" placeholder="0.00"></label>
       <datalist id="falUnits">${FIN_UNITS.map(u=>`<option value="${escapeHtml(u)}">`).join('')}</datalist>
     </div>` : ''}
-    <button class="darkbtn" style="width:100%;" id="falSave" onclick="finAppAddLineSave('${siteId}','${kind}')">${item?'Add line':'Add header'}</button>
+    <button class="darkbtn" style="width:100%;" id="falSave" onclick="finAppAddLineSave('${siteId}','${kind}')">${item?'Add line':'Add section'}</button>
     <button class="geo-modal-cancel" onclick="document.getElementById('finAppLineOv').style.display='none'">Cancel</button>
   </div>`;
   ov.style.display = 'flex';
@@ -56660,21 +56662,21 @@ async function finAppAddLineCore(siteId, e){
 }
 window.finAppAddLineSave = async function(siteId, kind){
   const item = kind==='item';
-  const desc = finVal('falDesc'); if(!desc){ toast(item ? 'Add a description.' : 'Give the header a name.'); return; }
+  const desc = finVal('falDesc'); if(!desc){ toast(item ? 'Add a description.' : 'Give the section a name.'); return; }
   const qty = finCrNum(finVal('falQty')), rate = finCrNum(finVal('falRate')), lump = finCrNum(finVal('falValue')), crate = finCrNum(finVal('falCost'));
   const value = item ? (qty!=null && rate!=null ? finRound(qty*rate) : lump) : 0;
   if(item && value==null){ toast('Enter a quantity and sell rate, or a lump sum.'); return; }
   const under = item ? finVal('falUnder') : '';
   const newHead = item && under==='__new' ? finVal('falNewHead') : '';
-  if(item && under==='__new' && !newHead){ toast('Name the new header.'); return; }
+  if(item && under==='__new' && !newHead){ toast('Name the new section.'); return; }
   const btn = document.getElementById('falSave'); if(btn){ btn.disabled = true; btn.textContent = 'Adding…'; }
   try{
     await finAppAddLineCore(siteId, {kind, under, newHead, ref:finVal('falRef')||null, desc, qty, unit:finVal('falUnit')||null, rate, value, cost: crate!=null ? (qty ? finRound(crate*qty) : crate) : null, pct:0});
     document.getElementById('finAppLineOv').style.display = 'none';
     await finAppSaveSoft();
-    toast(item ? 'Line added — and to the Bill of Quantities' : 'Header added');
+    toast(item ? 'Line added — and to the Bill of Quantities' : 'Section added');
     render();
-  }catch(err){ console.error(err); toast('Could not add the line — try again.'); if(btn){ btn.disabled = false; btn.textContent = item?'Add line':'Add header'; } }
+  }catch(err){ console.error(err); toast('Could not add the line — try again.'); if(btn){ btn.disabled = false; btn.textContent = item?'Add line':'Add section'; } }
 };
 
 /* ---- 18. Excel round trip (Andy, 22 Oct: "exports as an excel and then allows changes
@@ -56851,6 +56853,69 @@ window.finSalesGo = function(siteId, sub){
   const rfi = renderFinInvoice;
   renderFinInvoice = async function(){ if(typeof finClientsLoad==='function') await finClientsLoad(); return rfi.apply(this, arguments); };
 })();
+
+/* ===== Phone fixes, 23 Oct 2026 (Andy testing on his phone) ===== */
+/* phone fix 1 (23 Oct) */
+(function(){ const st = document.createElement('style'); st.textContent = `@media (max-width:700px){
+  .fgfoot{flex-wrap:wrap;gap:6px 10px;}
+  .fgfoot-ctl{order:5;flex:1 1 calc(100% - 96px);min-width:0;margin-left:0 !important;gap:6px;}
+  .fgfoot-ctl select{flex:1 1 0;min-width:0;width:0 !important;padding:0 18px 0 6px !important;font-size:11.5px !important;}
+  .fgfoot .fgcolbtn{order:6;flex:none;margin-left:0 !important;padding:5px 8px;}
+}`; document.head.appendChild(st); })();
+
+/* phone fix 2 (23 Oct) */
+(function(){ const st = document.createElement('style'); st.textContent = `@media (max-width:700px){
+  .fggrid tbody tr{display:flex !important;flex-wrap:wrap;align-items:center;column-gap:10px;padding:8px 12px !important;}
+  .fggrid tbody td{flex:1 1 100%;width:auto !important;max-width:none !important;min-width:0 !important;padding:2px 0 !important;font-size:13px !important;justify-content:space-between !important;text-align:right !important;}
+  .fggrid tbody td::before{font-size:12px !important;}
+  .fggrid td[data-l="Job"]{flex:0 0 auto !important;order:-3;padding:0 0 6px !important;margin:0 !important;}
+  .fggrid td[data-l="Project"]{flex:1 1 0 !important;order:-2;justify-content:flex-start !important;text-align:left !important;padding:0 0 6px !important;font-size:14px !important;}
+  .fggrid td[data-l="Project"]::before{content:none !important;}
+  .fggrid td[data-l="Job"], .fggrid td[data-l="Project"]{border-bottom:1px solid #eef0f3 !important;}
+  .fggrid td[data-l="Status"]{padding-top:2px !important;}
+  .fggrid .fgjob{padding:4px 9px !important;font-size:11px !important;border-radius:7px !important;}
+}`; document.head.appendChild(st); })();
+
+/* phone fix 3 (23 Oct) */
+(function(){ const st = document.createElement('style'); st.textContent = `html.finmode .finsecnav, html.finmode .finsubtabs{overflow-y:hidden !important;overscroll-behavior-x:contain;}
+html.finmode .finsecnav button, html.finmode .finsubtabs button{line-height:1.2 !important;}`; document.head.appendChild(st); })();
+
+/* phone fix 5 (23 Oct) */
+(function(){ const st = document.createElement('style'); st.textContent = `@media (max-width:600px){
+  .finprojbar{flex-wrap:nowrap !important;align-items:center;}
+  .finprojbar .finprojbar-p{display:none !important;}
+  html.finmode .finprojbar .finprojbar-n{flex:0 0 auto !important;margin-left:auto !important;width:auto !important;min-width:110px;max-width:140px;}
+}`; document.head.appendChild(st); })();
+
+/* phone fix 8 (23 Oct) */
+(function(){ const st = document.createElement('style'); st.textContent = `@media (max-width:700px){
+  #finAppLines .finitem-in{width:100%;justify-content:flex-start !important;flex-wrap:wrap;gap:6px 8px !important;}
+  #finAppLines .finitem-in label{font-size:11px !important;}
+  #finAppLines .finitem-in input, .fincertin input{width:54px !important;padding:0 6px !important;}
+  #finAppLines .finitem-in .finitem-sum{display:none;}
+  #finAppLines .finitem-in b{margin-left:auto;min-width:0 !important;}
+  .fincertg, .finappliedg{min-width:0 !important;}
+  .fincertmode #finAppLines .finitem-in .finitem-sum, .fincertshow #finAppLines .finitem-in .finitem-sum{display:block;flex-basis:100%;}
+}`; document.head.appendChild(st); })();
+
+/* phone fix 10 (23 Oct) */
+(function(){ const st = document.createElement('style'); st.textContent = `.finappflow{margin-top:16px !important;}
+#finCertSlot + .finappflow{margin-top:16px !important;}
+.finappbtns{margin-bottom:4px;}`; document.head.appendChild(st); })();
+
+/* phone fix 12 (23 Oct) */
+(function(){ const st = document.createElement('style'); st.textContent = `@media (max-width:700px){
+  .fincs-r{grid-template-columns:minmax(0,1fr) 84px 84px !important;gap:6px !important;font-size:12.5px !important;}
+  .fincs-r.big{font-size:14px !important;}
+  .fincs-r > b{font-size:12.5px;overflow-wrap:anywhere;}
+  .fincs-r .finpctin{width:64px !important;}
+  .fincertin{font-size:10.5px !important;}
+  #finAppLines .finitem{flex-wrap:wrap;}
+  #finAppLines .finitem-d{flex-basis:100% !important;}
+}`; document.head.appendChild(st); })();
+
+/* phone fix 4 (23 Oct): Live / Upcoming / Closed / All on phones (column filters are hidden there) */
+(function(){ const st = document.createElement('style'); st.textContent = `.fgstat-m{display:none;} @media (max-width:700px){ .fgstat-m{display:block;} .fgcol-t{display:none;} }`; document.head.appendChild(st); })();
 
 /* ============================================================
    OpHUB Finance — VAT rates in Settings (22 Oct 2026, Andy: "a VAT section,
@@ -57762,6 +57827,109 @@ function finSalesSubApply(){
     const sid = (location.hash.match(/#\/site\/([^/?]+)/)||[])[1];
     if(k && sid){ finSalesSub[sid] = k; finSalesSubGo(sid, k); }
     return sc.apply(this, arguments);
+  };
+})();
+
+/* ===== Certificate fixes, 23 Oct 2026 ===== */
+/* fix 11 (23 Oct) */
+/* Certified % starts from the previous certificate (Andy, 22 Oct). */
+let finCertPrev = null; // {appId, lines:{item_id:pct}, vars:{key:pct}}
+async function finCertPrevLoad(){
+  if(!finApp) return;
+  const rows = await dbSelect('fin_applications', 'site_id=eq.'+finApp.site_id+'&number=lt.'+finApp.number+'&status=in.(certified,invoiced)&order=number.desc&limit=1').catch(()=>[]);
+  const p = rows[0], P = {appId:finApp.id, lines:{}, vars:{}};
+  if(p){
+    const cl = {}, cv = {}; (p.cert_lines||[]).forEach(l=>{ if(l.item_id) cl[l.item_id] = l.pct; else if(l.var_index!=null) cv[l.var_index] = l.pct; });
+    (p.lines||[]).forEach(l=>{ if(finIsItem(l)) P.lines[l.item_id] = cl[l.item_id]!=null ? cl[l.item_id] : finPct(l.pct); });
+    (p.variations||[]).forEach((v,i)=>{ const k = v.fin_variation_id || v.variation_id; if(k) P.vars[k] = cv[i]!=null ? cv[i] : finPct(v.pct); });
+  }
+  finCertPrev = P;
+}
+function finCertWorkInit(){
+  if(finCertWork && finCertWork.appId===finApp.id) return finCertWork;
+  const own = {}; (finApp.cert_lines||[]).forEach(l=>{ if(l.item_id) own[l.item_id] = l.pct; });
+  const P = (finCertPrev && finCertPrev.appId===finApp.id) ? finCertPrev : {lines:{}, vars:{}};
+  const W = {appId:finApp.id, lines:{}, vars:{}, days:{}};
+  (finApp.lines||[]).forEach(l=>{ if(finIsItem(l)) W.lines[l.item_id] = own[l.item_id]!=null ? own[l.item_id] : (P.lines[l.item_id]!=null ? P.lines[l.item_id] : 0); });
+  (finApp.variations||[]).forEach((v,i)=>{ const k = v.fin_variation_id || v.variation_id; W.vars[i] = k && P.vars[k]!=null ? P.vars[k] : 0; });
+  (finApp.dayworks||[]).forEach((d,i)=>{ W.days[i] = Number(d.value||0); });
+  return (finCertWork = W);
+}
+(function(){
+  const slot = finCertSlotRender;
+  finCertSlotRender = function(a){
+    slot.apply(this, arguments);
+    if(finCertMode() && !(finCertPrev && finCertPrev.appId===a.id)){
+      finCertPrevLoad().then(()=>{
+        if(!finApp || finApp.id!==a.id) return;
+        finCertWork = null;
+        document.querySelectorAll('.fincertin, .fincertg, .fincertro').forEach(e=>e.remove());
+        document.querySelectorAll('[data-cert]').forEach(e=>{ delete e.dataset.cert; });
+        finAppPaintLines(); finAppPaint(); finCertDecorate(); finCertRecalc();
+      });
+    }
+  };
+})();
+
+/* fix 14 (23 Oct) */
+/* Client's certificate as a PDF (Andy, 22 Oct): read each line's certified % from the PDF text. */
+window.finCertFromPdf = async function(file, appId){
+  const a = (await dbSelect('fin_applications', 'id=eq.'+appId))[0]; if(!a) return;
+  const url = URL.createObjectURL(file);
+  let text = ''; try{ text = await finPdfText(url); } finally { URL.revokeObjectURL(url); }
+  if(!text.trim()){ toast('Couldn’t read any text in that PDF — is it a scan? Enter the Certified % on each line instead.'); return; }
+  const rows = text.split('\n').map(s=>s.replace(/\s+/g,' ').trim()).filter(Boolean);
+  const norm = s=>String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+  const W = finCertWorkInit(); let found = 0;
+  (a.lines||[]).filter(finIsItem).forEach(l=>{
+    const d = norm(l.description); if(!d) return;
+    const r = rows.find(x=>norm(x).includes(d.slice(0, 40)));
+    if(!r) return;
+    const pcts = (r.match(/(\d{1,3}(?:\.\d+)?)\s?%/g)||[]).map(x=>Number(x.replace(/[^\d.]/g,''))).filter(n=>n<=100);
+    if(pcts.length){ W.lines[l.item_id] = finPct(pcts[pcts.length-1]); found++; }   // last % on the row = certified
+  });
+  finCertFile = file; // keep the PDF as the certificate copy
+  if(!found){ toast('Read the PDF but couldn’t match any lines — enter the Certified % on each line. The PDF is saved with the certificate.'); return; }
+  document.querySelectorAll('.fincertin, .fincertg, .fincertro').forEach(e=>e.remove());
+  document.querySelectorAll('[data-cert]').forEach(e=>{ delete e.dataset.cert; });
+  finAppPaintLines(); finAppPaint(); finCertDecorate(); finCertRecalc();
+  toast(`Read ${found} line${found===1?'':'s'} from the PDF — check them, then Certify`);
+};
+(function(){
+  const xl = window.finCertFromExcel;
+  window.finCertFromExcel = function(file, appId){
+    if(file && (/\.pdf$/i.test(file.name) || file.type==='application/pdf')) return finCertFromPdf(file, appId);
+    return xl.apply(this, arguments);
+  };
+  const slot = finCertSlotRender;
+  finCertSlotRender = function(a){
+    slot.apply(this, arguments);
+    const box = document.getElementById('finCertXl'); if(!box || box.dataset.pdf) return;
+    box.dataset.pdf = '1';
+    const inp = box.querySelector('input[type=file]'); if(inp) inp.setAttribute('accept', '.xlsx,.xls,.pdf,application/pdf');
+    const lbl = inp && inp.closest('label'); if(lbl && lbl.firstChild) lbl.firstChild.textContent = 'Upload client’s certificate';
+    const sp = box.querySelector('span'); if(sp) sp.textContent = 'Client sent back their certificate (Excel or PDF)? Upload it and the Certified % fill in.';
+  };
+})();
+
+/* fix 15 (23 Oct) */
+(function(){
+  const ap = window.finAppPaint;
+  window.finAppPaint = function(){
+    const r = ap.apply(this, arguments);
+    if(finApp && finApp.cert_net!=null && !finCertMode()){
+      const s = document.getElementById('finAppSummary');
+      if(s){ s.innerHTML = finCertSummaryHtml(); s.classList.add('fincs'); }
+    }
+    return r;
+  };
+  const slot = finCertSlotRender;
+  finCertSlotRender = function(a){
+    slot.apply(this, arguments);
+    if(a.cert_net==null) return;
+    const card = document.querySelector('#finCertSlot .card'); if(!card) return;
+    card.querySelectorAll('.finkv:not(.big)').forEach(el=>el.style.display = 'none');
+    if(finApp && finApp.id===a.id){ const s = document.getElementById('finAppSummary'); if(s){ s.innerHTML = finCertSummaryHtml(); s.classList.add('fincs'); } }
   };
 })();
 

@@ -234,7 +234,7 @@ function finJobOverviewHtml(d){
   const list = todo.length ? `<div class="card fintodo">
       <p class="sectiontitle" style="margin-top:0;">Needs attention</p>
       ${todo.map(x=>`<button type="button" class="fintodo-i" onclick="${escapeHtml(x.js)}"><span class="fintodo-n t-${x.tone}">${x.n}</span><span class="fintodo-t"><b>${escapeHtml(x.t)}</b><em>${escapeHtml(x.s)}</em></span><span class="fintodo-c">›</span></button>`).join('')}
-    </div>` : `<div class="card"><p class="stub" style="margin:0;font-style:normal;">Nothing needs your attention on this job right now.</p></div>`;
+    </div>` : '';
   return tiles + list;
 }
 
@@ -289,10 +289,12 @@ function finJobStatusSelHtml(){
     const f = finJobFilt;
     const pms = Array.from(new Set(SITES.map(x=>x.responsible_pm_id).filter(Boolean))).map(id=>({id, name:(PROFILES[id]||{}).name||'PM'})).sort((a,b)=>a.name.localeCompare(b.name));
     const ctl = `<span class="fgfoot-ctl">
+      <select class="fgstat-m" aria-label="Status" onchange="finHomeTab=this.value;render()">${[['live','Live'],['upcoming','Upcoming'],['closed','Closed'],['all','All']].map(([k,l])=>`<option value="${k}" ${finHomeTab===k?'selected':''}>${l}</option>`).join('')}</select>
       <select aria-label="PM" onchange="finJobFilt.pm=this.value;render()"><option value="">All PMs</option>${pms.map(p=>`<option value="${p.id}" ${f.pm===p.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}<option value="none" ${f.pm==='none'?'selected':''}>No PM</option></select>
       <select aria-label="Sort" onchange="finJobFilt.sort=this.value;render()">${[['noza','Newest project no.'],['noaz','Project no. A–Z'],['az','Name A–Z'],['za','Name Z–A'],['start','Start date (newest)']].map(([k,l])=>`<option value="${k}" ${f.sort===k?'selected':''}>Sort: ${l}</option>`).join('')}</select>
     </span>`;
     h = h.replace('<button type="button" class="fgcolbtn"', ctl+'<button type="button" class="fgcolbtn"');
+    h = h.replace('⚙ Columns</button>', '⚙<span class="fgcol-t"> Columns</span></button>');
     return h;
   };
 })();
@@ -377,7 +379,7 @@ window.finCrowMenu = function(ev, i){
   const pop = document.createElement('div'); pop.id = 'finCrowPop'; pop.className = 'fincrow-pop'; pop.dataset.i = String(i);
   const kinds = Object.keys(FIN_KIND_LABEL).filter(k=>k!==r.kind);
   pop.innerHTML = `${i>0?`<button type="button" data-a="up">↑ Move up</button>`:''}${i<finContractRows.length-1?`<button type="button" data-a="down">↓ Move down</button>`:''}
-    ${kinds.map(k=>`<button type="button" data-a="kind" data-k="${k}">Make it ${escapeHtml(FIN_KIND_LABEL[k].toLowerCase())}</button>`).join('')}
+    ${kinds.map(k=>`<button type="button" data-a="kind" data-k="${k}">Change to ${escapeHtml(FIN_KIND_LABEL[k].toLowerCase())}</button>`).join('')}
     <button type="button" data-a="del" class="danger">✕ Remove line</button>`;
   pop.addEventListener('click', e=>{
     const b = e.target.closest('button'); if(!b) return; e.stopPropagation(); pop.remove();
@@ -452,13 +454,13 @@ function finContractPaint(){
   const el = document.getElementById('finContractList'); if(!el) return;
   const tot = finGroupTotals(finContractRows, r=>finItemValue(r));
   const subs = FIN_SUBJOBS[finContractSite] || [];
-  const plotSel = i=>subs.length ? `<select class="fincrow-plot" aria-label="${escapeHtml(finSubNoun(finContractSite))}" onchange="finContractRows[${i}].sub=this.value"><option value="">${finContractRows[i].kind==='item' ? 'Plot: as header' : 'Plot: none'}</option>${subs.map(a=>`<option value="${a.id}" ${finContractRows[i].sub===a.id?'selected':''}>${escapeHtml(a.short)}</option>`).join('')}</select>` : '';
+  const plotSel = i=>subs.length ? `<select class="fincrow-plot" aria-label="${escapeHtml(finSubNoun(finContractSite))}" onchange="finContractRows[${i}].sub=this.value"><option value="">${finContractRows[i].kind==='item' ? 'Plot: as section' : 'Plot: none'}</option>${subs.map(a=>`<option value="${a.id}" ${finContractRows[i].sub===a.id?'selected':''}>${escapeHtml(a.short)}</option>`).join('')}</select>` : '';
   const menu = i=>`<button type="button" class="fincrow-menu" title="Move, change or remove" aria-label="Line options" onclick="finCrowMenu(event, ${i})">⋮</button>`;
   const money = v=>v==null || isNaN(v) ? '' : escapeHtml(String(v));
   el.innerHTML = finContractRows.length ? finContractRows.map((r,i)=>{
     if(r.kind==='section' || r.kind==='subsection') return `<div class="fincrow ${r.kind}">
         <div class="fincrow-head"><input type="checkbox" class="fincsel" aria-label="Tick everything under this" ${finContractGroupTicked(i)?'checked':''} onchange="finContractTickGroup(${i}, this.checked)"><input type="text" class="fincline-ref" placeholder="Ref" value="${escapeHtml(r.ref||'')}" oninput="finContractRows[${i}].ref=this.value">
-          <input type="text" class="fincrow-title" placeholder="${r.kind==='section'?'Header, e.g. Main roof':'Sub-header, e.g. Slating'}" value="${escapeHtml(r.description||'')}" oninput="finContractRows[${i}].description=this.value">${menu(i)}</div>
+          <input type="text" class="fincrow-title" placeholder="${r.kind==='section'?'Section, e.g. Main roof':'Sub-section, e.g. Slating'}" value="${escapeHtml(r.description||'')}" oninput="finContractRows[${i}].description=this.value">${menu(i)}</div>
         <div class="fincrow-foot">${plotSel(i)}<b id="finCTot-${i}">${finMoney((tot[i]||{}).value)}</b></div>
       </div>`;
     const v = finItemValue(r);
@@ -477,7 +479,7 @@ function finContractPaint(){
         ${plotSel(i)}
       </div>
     </div>`;
-  }).join('') : `<div class="empty" style="margin:0;">No lines yet. Upload a file or add a header and items.</div>`;
+  }).join('') : `<div class="empty" style="margin:0;">No lines yet. Upload a file or add a section and items.</div>`;
   el.insertAdjacentHTML('beforeend', `<datalist id="finUnitList">${finUnitOptions().map(u=>`<option value="${escapeHtml(u)}">`).join('')}</datalist>`);
   finContractPaintTotal();
   finContractBulkPaint();
@@ -661,7 +663,7 @@ window.finVarToSow = async function(siteId, finVarId){
     if(lines && finAppCtx && finApp && !finAppCtx.locked && !document.getElementById('finAppAddLineBtn')){
       lines.insertAdjacentHTML('afterend', `<div class="row-gap" style="margin-top:10px;flex-wrap:wrap;align-items:center;" id="finAppAddLineBtn">
         ${finAppCtx.locked ? '' : `<button type="button" class="ghostbtn" onclick="finAppAddLineOpen('${siteId}','item')">+ Add a line</button>
-        <button type="button" class="ghostbtn" onclick="finAppAddLineOpen('${siteId}','section')">+ Add a header</button>`}
+        <button type="button" class="ghostbtn" onclick="finAppAddLineOpen('${siteId}','section')">+ Add a section</button>`}
       </div>
       ${finAppCtx.locked ? '' : `<p class="stub" style="margin:6px 0 0;font-style:normal;font-size:12px;">New lines are added to the project’s Bill of Quantities too, so they carry on to the next application.</p>`}`);
     }
@@ -675,14 +677,14 @@ window.finAppAddLineOpen = function(siteId, kind){
   ov.onclick = e=>{ if(e.target===ov) ov.style.display = 'none'; };
   const item = kind==='item';
   ov.innerHTML = `<div class="geo-modal-card">
-    <h3>${item ? 'Add a line' : 'Add a header'}</h3>
+    <h3>${item ? 'Add a line' : 'Add a section'}</h3>
     ${item ? `<div class="formfield"><label class="field-label">Goes under</label><select id="falUnder" onchange="document.getElementById('falNewHeadWrap').hidden=this.value!=='__new'">
-      ${heads.map(h=>`<option value="${h.item_id}">${h.kind==='subsection'?'— ':''}${escapeHtml((h.ref?h.ref+' ':'')+(h.description||'Header'))}</option>`).join('')}
-      <option value="__new">New header…</option><option value="">No header (at the end)</option></select></div>
-    <div class="formfield" id="falNewHeadWrap" hidden><label class="field-label">New header</label><input type="text" id="falNewHead" placeholder="e.g. Extras"></div>` : ''}
+      ${heads.map(h=>`<option value="${h.item_id}">${h.kind==='subsection'?'— ':''}${escapeHtml((h.ref?h.ref+' ':'')+(h.description||'Section'))}</option>`).join('')}
+      <option value="__new">New section…</option><option value="">No section (at the end)</option></select></div>
+    <div class="formfield" id="falNewHeadWrap" hidden><label class="field-label">New section</label><input type="text" id="falNewHead" placeholder="e.g. Extras"></div>` : ''}
     <div style="display:grid;grid-template-columns:90px minmax(0,1fr);gap:8px;">
       <div class="formfield"><label class="field-label">Ref</label><input type="text" id="falRef"></div>
-      <div class="formfield"><label class="field-label">${item?'Description *':'Header *'}</label><input type="text" id="falDesc" placeholder="${item?'e.g. Extra roof outlet':'e.g. Extras'}"></div>
+      <div class="formfield"><label class="field-label">${item?'Description *':'Section *'}</label><input type="text" id="falDesc" placeholder="${item?'e.g. Extra roof outlet':'e.g. Extras'}"></div>
     </div>
     ${item ? `<div class="fincpills" style="margin:4px 0 12px;">
       <label class="fincpill"><span>Quantity</span><input type="text" inputmode="decimal" class="w-q" id="falQty"></label>
@@ -692,7 +694,7 @@ window.finAppAddLineOpen = function(siteId, kind){
       <label class="fincpill cost"><span>Cost rate £</span><input type="text" inputmode="decimal" id="falCost" placeholder="0.00"></label>
       <datalist id="falUnits">${FIN_UNITS.map(u=>`<option value="${escapeHtml(u)}">`).join('')}</datalist>
     </div>` : ''}
-    <button class="darkbtn" style="width:100%;" id="falSave" onclick="finAppAddLineSave('${siteId}','${kind}')">${item?'Add line':'Add header'}</button>
+    <button class="darkbtn" style="width:100%;" id="falSave" onclick="finAppAddLineSave('${siteId}','${kind}')">${item?'Add line':'Add section'}</button>
     <button class="geo-modal-cancel" onclick="document.getElementById('finAppLineOv').style.display='none'">Cancel</button>
   </div>`;
   ov.style.display = 'flex';
@@ -726,21 +728,21 @@ async function finAppAddLineCore(siteId, e){
 }
 window.finAppAddLineSave = async function(siteId, kind){
   const item = kind==='item';
-  const desc = finVal('falDesc'); if(!desc){ toast(item ? 'Add a description.' : 'Give the header a name.'); return; }
+  const desc = finVal('falDesc'); if(!desc){ toast(item ? 'Add a description.' : 'Give the section a name.'); return; }
   const qty = finCrNum(finVal('falQty')), rate = finCrNum(finVal('falRate')), lump = finCrNum(finVal('falValue')), crate = finCrNum(finVal('falCost'));
   const value = item ? (qty!=null && rate!=null ? finRound(qty*rate) : lump) : 0;
   if(item && value==null){ toast('Enter a quantity and sell rate, or a lump sum.'); return; }
   const under = item ? finVal('falUnder') : '';
   const newHead = item && under==='__new' ? finVal('falNewHead') : '';
-  if(item && under==='__new' && !newHead){ toast('Name the new header.'); return; }
+  if(item && under==='__new' && !newHead){ toast('Name the new section.'); return; }
   const btn = document.getElementById('falSave'); if(btn){ btn.disabled = true; btn.textContent = 'Adding…'; }
   try{
     await finAppAddLineCore(siteId, {kind, under, newHead, ref:finVal('falRef')||null, desc, qty, unit:finVal('falUnit')||null, rate, value, cost: crate!=null ? (qty ? finRound(crate*qty) : crate) : null, pct:0});
     document.getElementById('finAppLineOv').style.display = 'none';
     await finAppSaveSoft();
-    toast(item ? 'Line added — and to the Bill of Quantities' : 'Header added');
+    toast(item ? 'Line added — and to the Bill of Quantities' : 'Section added');
     render();
-  }catch(err){ console.error(err); toast('Could not add the line — try again.'); if(btn){ btn.disabled = false; btn.textContent = item?'Add line':'Add header'; } }
+  }catch(err){ console.error(err); toast('Could not add the line — try again.'); if(btn){ btn.disabled = false; btn.textContent = item?'Add line':'Add section'; } }
 };
 
 /* ---- 18. Excel round trip (Andy, 22 Oct: "exports as an excel and then allows changes
@@ -917,3 +919,66 @@ window.finSalesGo = function(siteId, sub){
   const rfi = renderFinInvoice;
   renderFinInvoice = async function(){ if(typeof finClientsLoad==='function') await finClientsLoad(); return rfi.apply(this, arguments); };
 })();
+
+/* ===== Phone fixes, 23 Oct 2026 (Andy testing on his phone) ===== */
+/* phone fix 1 (23 Oct) */
+(function(){ const st = document.createElement('style'); st.textContent = `@media (max-width:700px){
+  .fgfoot{flex-wrap:wrap;gap:6px 10px;}
+  .fgfoot-ctl{order:5;flex:1 1 calc(100% - 96px);min-width:0;margin-left:0 !important;gap:6px;}
+  .fgfoot-ctl select{flex:1 1 0;min-width:0;width:0 !important;padding:0 18px 0 6px !important;font-size:11.5px !important;}
+  .fgfoot .fgcolbtn{order:6;flex:none;margin-left:0 !important;padding:5px 8px;}
+}`; document.head.appendChild(st); })();
+
+/* phone fix 2 (23 Oct) */
+(function(){ const st = document.createElement('style'); st.textContent = `@media (max-width:700px){
+  .fggrid tbody tr{display:flex !important;flex-wrap:wrap;align-items:center;column-gap:10px;padding:8px 12px !important;}
+  .fggrid tbody td{flex:1 1 100%;width:auto !important;max-width:none !important;min-width:0 !important;padding:2px 0 !important;font-size:13px !important;justify-content:space-between !important;text-align:right !important;}
+  .fggrid tbody td::before{font-size:12px !important;}
+  .fggrid td[data-l="Job"]{flex:0 0 auto !important;order:-3;padding:0 0 6px !important;margin:0 !important;}
+  .fggrid td[data-l="Project"]{flex:1 1 0 !important;order:-2;justify-content:flex-start !important;text-align:left !important;padding:0 0 6px !important;font-size:14px !important;}
+  .fggrid td[data-l="Project"]::before{content:none !important;}
+  .fggrid td[data-l="Job"], .fggrid td[data-l="Project"]{border-bottom:1px solid #eef0f3 !important;}
+  .fggrid td[data-l="Status"]{padding-top:2px !important;}
+  .fggrid .fgjob{padding:4px 9px !important;font-size:11px !important;border-radius:7px !important;}
+}`; document.head.appendChild(st); })();
+
+/* phone fix 3 (23 Oct) */
+(function(){ const st = document.createElement('style'); st.textContent = `html.finmode .finsecnav, html.finmode .finsubtabs{overflow-y:hidden !important;overscroll-behavior-x:contain;}
+html.finmode .finsecnav button, html.finmode .finsubtabs button{line-height:1.2 !important;}`; document.head.appendChild(st); })();
+
+/* phone fix 5 (23 Oct) */
+(function(){ const st = document.createElement('style'); st.textContent = `@media (max-width:600px){
+  .finprojbar{flex-wrap:nowrap !important;align-items:center;}
+  .finprojbar .finprojbar-p{display:none !important;}
+  html.finmode .finprojbar .finprojbar-n{flex:0 0 auto !important;margin-left:auto !important;width:auto !important;min-width:110px;max-width:140px;}
+}`; document.head.appendChild(st); })();
+
+/* phone fix 8 (23 Oct) */
+(function(){ const st = document.createElement('style'); st.textContent = `@media (max-width:700px){
+  #finAppLines .finitem-in{width:100%;justify-content:flex-start !important;flex-wrap:wrap;gap:6px 8px !important;}
+  #finAppLines .finitem-in label{font-size:11px !important;}
+  #finAppLines .finitem-in input, .fincertin input{width:54px !important;padding:0 6px !important;}
+  #finAppLines .finitem-in .finitem-sum{display:none;}
+  #finAppLines .finitem-in b{margin-left:auto;min-width:0 !important;}
+  .fincertg, .finappliedg{min-width:0 !important;}
+  .fincertmode #finAppLines .finitem-in .finitem-sum, .fincertshow #finAppLines .finitem-in .finitem-sum{display:block;flex-basis:100%;}
+}`; document.head.appendChild(st); })();
+
+/* phone fix 10 (23 Oct) */
+(function(){ const st = document.createElement('style'); st.textContent = `.finappflow{margin-top:16px !important;}
+#finCertSlot + .finappflow{margin-top:16px !important;}
+.finappbtns{margin-bottom:4px;}`; document.head.appendChild(st); })();
+
+/* phone fix 12 (23 Oct) */
+(function(){ const st = document.createElement('style'); st.textContent = `@media (max-width:700px){
+  .fincs-r{grid-template-columns:minmax(0,1fr) 84px 84px !important;gap:6px !important;font-size:12.5px !important;}
+  .fincs-r.big{font-size:14px !important;}
+  .fincs-r > b{font-size:12.5px;overflow-wrap:anywhere;}
+  .fincs-r .finpctin{width:64px !important;}
+  .fincertin{font-size:10.5px !important;}
+  #finAppLines .finitem{flex-wrap:wrap;}
+  #finAppLines .finitem-d{flex-basis:100% !important;}
+}`; document.head.appendChild(st); })();
+
+/* phone fix 4 (23 Oct): Live / Upcoming / Closed / All on phones (column filters are hidden there) */
+(function(){ const st = document.createElement('style'); st.textContent = `.fgstat-m{display:none;} @media (max-width:700px){ .fgstat-m{display:block;} .fgcol-t{display:none;} }`; document.head.appendChild(st); })();

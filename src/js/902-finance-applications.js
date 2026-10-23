@@ -97,7 +97,7 @@ function finContractCardHtml(siteId, items, jf){
 let finContractRows = null, finContractSite = null, finContractFile = null, finContractSnap = '';
 function finContractSnapOf(rows){ return JSON.stringify(rows.map(r=>[r.kind,r.ref,r.description,r.qty,r.unit,r.rate,r.value,r.sub||'',r.cost==null?null:r.cost,r.cost_basis||'',r.cost_pct==null?null:r.cost_pct])); }
 function finContractIsDirty(){ return !!finContractRows && finContractSnapOf(finContractRows) !== finContractSnap; }
-const FIN_KIND_LABEL = {section:'Header', subsection:'Sub-header', item:'Item'};
+const FIN_KIND_LABEL = {section:'Section', subsection:'Sub-section', item:'Item'};
 async function renderFinContract(siteId){
   if(!finGuard()) return;
   const __gen = RENDER_GEN;
@@ -121,7 +121,7 @@ async function renderFinContract(siteId){
     ${finSowCardHtml(siteId, sowSt)}
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">Upload a Bill of Quantities</p>
-      <p class="stub" style="margin:0 0 10px;font-style:normal;">An Excel or PDF of the priced contract (tender, contract sum analysis or bill of quantities). The app reads headers, sub-headers and each priced line with its quantity, unit and rate; you check them before they’re saved.</p>
+      <p class="stub" style="margin:0 0 10px;font-style:normal;">An Excel or PDF of the priced contract (tender, contract sum analysis or bill of quantities). The app reads sections, sub-sections and each priced line with its quantity, unit and rate; you check them before they’re saved.</p>
       <input type="file" id="finContractUpload" accept=".xlsx,.xls,.csv,application/pdf" onchange="finContractUploadPicked(this.files[0])">
       ${jf.contract_file_name ? `<p class="stub" style="margin:8px 0 0;font-style:normal;">Last uploaded: ${escapeHtml(jf.contract_file_name)} <button class="linkbtn" style="color:var(--blue);" onclick="openFinDoc('${jsAttr(jf.contract_file_path||'')}','${jsAttr(jf.contract_file_name||'')}')">view</button></p>` : ''}
     </div>
@@ -134,8 +134,8 @@ async function renderFinContract(siteId){
       <div id="finCtBulk" class="finbulkbar" style="display:none;"></div>
       <div id="finContractList" style="margin-top:8px;"></div>
       <div class="row-gap" style="flex-wrap:wrap;margin-top:8px;">
-        <button class="ghostbtn" style="flex:1;min-width:110px;" onclick="finContractAdd('section')">+ Header</button>
-        <button class="ghostbtn" style="flex:1;min-width:110px;" onclick="finContractAdd('subsection')">+ Sub-header</button>
+        <button class="ghostbtn" style="flex:1;min-width:110px;" onclick="finContractAdd('section')">+ Section</button>
+        <button class="ghostbtn" style="flex:1;min-width:110px;" onclick="finContractAdd('subsection')">+ Sub-section</button>
         <button class="ghostbtn" style="flex:1;min-width:110px;" onclick="finContractAdd('item')">+ Item</button>
       </div>
     </div>
@@ -158,13 +158,13 @@ function finContractPaint(){
   const el = document.getElementById('finContractList'); if(!el) return;
   const tot = finGroupTotals(finContractRows, r=>finItemValue(r));
   const subs = FIN_SUBJOBS[finContractSite] || [];
-  const plotSel = i=>subs.length ? `<select class="fincrow-plot" aria-label="${escapeHtml(finSubNoun(finContractSite))}" onchange="finContractRows[${i}].sub=this.value"><option value="">${finContractRows[i].kind==='item' ? 'Plot: as header' : 'Plot: none'}</option>${subs.map(a=>`<option value="${a.id}" ${finContractRows[i].sub===a.id?'selected':''}>${escapeHtml(a.short)}</option>`).join('')}</select>` : '';
+  const plotSel = i=>subs.length ? `<select class="fincrow-plot" aria-label="${escapeHtml(finSubNoun(finContractSite))}" onchange="finContractRows[${i}].sub=this.value"><option value="">${finContractRows[i].kind==='item' ? 'Plot: as section' : 'Plot: none'}</option>${subs.map(a=>`<option value="${a.id}" ${finContractRows[i].sub===a.id?'selected':''}>${escapeHtml(a.short)}</option>`).join('')}</select>` : '';
   const menu = i=>`<button type="button" class="fincrow-menu" title="Move, change or remove" aria-label="Line options" onclick="finCrowMenu(event, ${i})">⋮</button>`;
   const ctl = i=>plotSel(i)+`<span class="fincrow-ctl" hidden><button class="linkbtn" title="Move up" onclick="finContractMove(${i},-1)">↑</button><button class="linkbtn" title="Move down" onclick="finContractMove(${i},1)">↓</button><select onchange="finContractRows[${i}].kind=this.value;finContractPaint()">${Object.keys(FIN_KIND_LABEL).map(k=>`<option value="${k}" ${finContractRows[i].kind===k?'selected':''}>${FIN_KIND_LABEL[k]}</option>`).join('')}</select><button class="linkbtn" title="Remove" onclick="finContractRows.splice(${i},1);finContractPaint()">✕</button></span>`;
   el.innerHTML = finContractRows.length ? finContractRows.map((r,i)=>{
     if(r.kind==='section' || r.kind==='subsection') return `<div class="fincrow ${r.kind}">
         <div class="fincrow-head"><input type="checkbox" class="fincsel" aria-label="Tick everything under this" ${finContractGroupTicked(i)?'checked':''} onchange="finContractTickGroup(${i}, this.checked)"><input type="text" class="fincline-ref" placeholder="Ref" value="${escapeHtml(r.ref||'')}" oninput="finContractRows[${i}].ref=this.value">
-          <input type="text" class="fincrow-title" placeholder="${r.kind==='section'?'Header, e.g. Main roof':'Sub-header, e.g. Slating'}" value="${escapeHtml(r.description||'')}" oninput="finContractRows[${i}].description=this.value">${menu(i)}</div>
+          <input type="text" class="fincrow-title" placeholder="${r.kind==='section'?'Section, e.g. Main roof':'Sub-section, e.g. Slating'}" value="${escapeHtml(r.description||'')}" oninput="finContractRows[${i}].description=this.value">${menu(i)}</div>
         <div class="fincrow-foot">${plotSel(i)}<b id="finCTot-${i}">${finMoney((tot[i]||{}).value)}</b></div>
       </div>`;
     const v = finItemValue(r);
@@ -182,7 +182,7 @@ function finContractPaint(){
       <div class="fincrow-mg" id="finCMg-${i}">${finContractMgTxt(r)}</div>
       ${subs.length ? `<div class="fincrow-foot">${plotSel(i)}</div>` : ''}
     </div>`;
-  }).join('') : `<div class="empty" style="margin:0;">No lines yet. Upload a file or add a header and items.</div>`;
+  }).join('') : `<div class="empty" style="margin:0;">No lines yet. Upload a file or add a section and items.</div>`;
   el.insertAdjacentHTML('beforeend', `<datalist id="finUnitList">${finUnitOptions().map(u=>`<option value="${escapeHtml(u)}">`).join('')}</datalist>`);
   finContractPaintTotal();
   finContractBulkPaint();
@@ -377,7 +377,7 @@ function finImportShow(){
   const width = finImport.kind==='sheet' ? Math.max(1, ...sheetRows.slice(0,200).map(r=>r.length)) : 0;
   const hdr = finImport.kind==='sheet' ? (sheetRows[finImport.header]||[]) : [];
   const colSel = (key, label)=>`<div class="formfield"><label class="field-label">${label}</label><select onchange="finImportSetCol('${key}', +this.value)"><option value="-1">None</option>${Array.from({length:width}, (_,i)=>`<option value="${i}" ${finImport.cols[key]===i?'selected':''}>${colName(i)}${hdr[i]?' — '+escapeHtml(String(hdr[i]).slice(0,20)):''}</option>`).join('')}</select></div>`;
-  const kinds = {section:'Header', subsection:'Sub-header', item:'Item', skip:'Skip'};
+  const kinds = {section:'Section', subsection:'Sub-section', item:'Item', skip:'Skip'};
   ov.innerHTML = `<div class="geo-modal-card" style="max-width:720px;">
     <h3>Check the breakdown</h3>
     ${finImport.kind==='sheet' ? `
@@ -523,7 +523,7 @@ async function renderFinApplication(siteId, appId){
     <div class="row-gap finappbtns" style="flex-wrap:wrap;align-items:center;">
       ${locked ? '' : `<button class="ghostbtn" id="finAppSave" onclick="saveFinApplication(true)">Save</button>`}
       ${typeof finAppNextBtn==='function' ? finAppNextBtn(a) : ''}
-      <button class="ghostbtn" onclick="finAppMoreMenu(event, '${siteId}', '${a.id}', ${locked?'true':'false'})">Send &amp; export ▾</button>
+      ${['certified','invoiced'].includes(a.status) ? '' : `<button class="ghostbtn" onclick="finAppMoreMenu(event, '${siteId}', '${a.id}', ${locked?'true':'false'})">Send &amp; export ▾</button>`}
       <input type="file" id="finAppXlUp" accept=".xlsx,.xls" style="display:none;" onchange="uploadFinAppExcel(this.files[0])">
       ${a.status==='draft' ? `<button class="ghostbtn" style="color:var(--red);margin-left:auto;" onclick="deleteFinApplication('${siteId}','${a.id}')">Delete draft</button>` : ''}
     </div>
@@ -894,5 +894,5 @@ function finContractBulkPaint(){
     <button class="linkbtn" onclick="finContractBulk('clear')">Clear costs</button>
     <button class="linkbtn" style="color:var(--red);" onclick="finContractBulk('remove')">Remove</button>
     <button class="linkbtn" onclick="finContractTickAll(false)">Untick all</button>`
-    : (items ? `<button class="linkbtn" onclick="finContractTickAll(true)">Tick all ${items} lines</button><span class="stub" style="margin:0;font-style:normal;">Tick lines (or a header) to change them together.</span>` : '');
+    : (items ? `<button class="linkbtn" onclick="finContractTickAll(true)">Tick all ${items} lines</button><span class="stub" style="margin:0;font-style:normal;">Tick lines (or a section) to change them together.</span>` : '');
 }

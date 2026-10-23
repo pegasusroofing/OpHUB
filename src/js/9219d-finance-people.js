@@ -116,7 +116,7 @@ const FIN_HELP = {
   contra:'Charges taken off a subcontractor’s payment, e.g. for damage, clearing up or materials you supplied.',
   committed:'Ordered on a purchase order but not invoiced by the supplier yet.',
   reverse:'Domestic reverse charge (construction): on CIS work between VAT-registered businesses the customer pays the VAT straight to HMRC, so it isn’t added to the invoice total.',
-  valuation:'The value of the work done so far, used for the application.',
+  valuation:'The value of the work done to date, used for the application.',
   finaldate:'The last day a payment can be made under the contract. A pay-less notice must be sent before it.',
 };
 function finHelp(k){ const t = FIN_HELP[k]; if(!t) return ''; return `<button type="button" class="finhelp" title="${escapeHtml(t)}" onclick="event.preventDefault();event.stopPropagation();customAlert(this.title)">?</button>`; }
