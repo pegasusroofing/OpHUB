@@ -714,6 +714,10 @@ window.finAppShowInvoice = async function(invId, appId){
   finInvPanel = {appId: appId || (finApp && finApp.id), invId, siteId:inv.site_id, url:URL.createObjectURL(new Blob([bytes], {type:'application/pdf'})), name:finInvFilename(inv, site), draft:inv.status==='draft'};
   finInvPanelPaint();
 };
+// Leaving the application always takes the split view down (Andy, 23 Oct: the page froze half-width).
+function finInvPanelClear(){ if(finInvPanel && finInvPanel.url) try{ URL.revokeObjectURL(finInvPanel.url); }catch(e){} finInvPanel = null; document.documentElement.classList.remove('fininvsplit'); const o = document.getElementById('finInvPanel'); if(o) o.remove(); }
+window.finInvPanelGo = function(h){ finInvPanelClear(); go(h); };
+window.addEventListener('hashchange', ()=>{ if(!/\/finance\/application\//.test(location.hash)) finInvPanelClear(); });
 window.finInvPanelClose = function(){ if(finInvPanel && finInvPanel.url) try{ URL.revokeObjectURL(finInvPanel.url); }catch(e){} finInvPanel = null; finInvPanelPaint(); };
 function finInvPanelPaint(){
   const old = document.getElementById('finInvPanel'); if(old) old.remove();
@@ -723,7 +727,7 @@ function finInvPanelPaint(){
   const p = finInvPanel;
   wrap.insertAdjacentHTML('beforeend', `<div class="dwpanel" id="finInvPanel">
     <div class="dwpanel-bar"><b title="${escapeHtml(p.name)}">🧾 ${escapeHtml(p.name)}${p.draft?' <span class="finpill grey">Draft</span>':''}</b>
-      <button type="button" class="darkbtn dwpanel-btn" onclick="go('#/site/${p.siteId}/finance/invoice/${p.invId}')">${p.draft?'Check & issue ›':'Open invoice'}</button>
+      <button type="button" class="darkbtn dwpanel-btn" onclick="finInvPanelGo('#/site/${p.siteId}/finance/invoice/${p.invId}')">${p.draft?'Check & issue ›':'Open invoice'}</button>
       <a class="ghostbtn dwpanel-btn" href="${p.url}" download="${escapeHtml(p.name)}">⬇ Download</a>
       <button type="button" class="ghostbtn dwpanel-btn" title="Close" onclick="finInvPanelClose()">✕</button></div>
     <iframe class="dwpanel-frame" src="${p.url}#view=FitH" title="${escapeHtml(p.name)}"></iframe>
