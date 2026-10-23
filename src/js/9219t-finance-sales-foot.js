@@ -45,7 +45,7 @@ function finSalesFootPaintAll(){
     const sel = foot.querySelector('.finsfoot-m'); if(sel && sel.value!==finSalesMonth) sel.value = finSalesMonth;
     const rows = Array.from(tb.querySelectorAll('tr[data-m]'));
     rows.forEach(r=>r.classList.toggle('fmhide', !!finSalesMonth && r.dataset.m!==finSalesMonth));
-    const vis = rows.filter(r=>r.style.display!=='none' && !r.classList.contains('fmhide'));
+    const vis = rows.filter(r=>r.style.display!=='none' && !r.classList.contains('fmhide') && !r.classList.contains('fcf-hide'));
     const sum = k=>finRound(vis.reduce((t,r)=>t+(r.dataset[k]==='' || r.dataset.void==='1' ? 0 : Number(r.dataset[k]||0)),0));
     const t = foot.querySelector('.finsfoot-t'); if(!t) return;
     const when = finSalesMonth ? ' · '+finMonthLabel(finSalesMonth) : '';

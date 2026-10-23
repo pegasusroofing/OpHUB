@@ -58853,7 +58853,7 @@ function finSalesFootPaintAll(){
     const sel = foot.querySelector('.finsfoot-m'); if(sel && sel.value!==finSalesMonth) sel.value = finSalesMonth;
     const rows = Array.from(tb.querySelectorAll('tr[data-m]'));
     rows.forEach(r=>r.classList.toggle('fmhide', !!finSalesMonth && r.dataset.m!==finSalesMonth));
-    const vis = rows.filter(r=>r.style.display!=='none' && !r.classList.contains('fmhide'));
+    const vis = rows.filter(r=>r.style.display!=='none' && !r.classList.contains('fmhide') && !r.classList.contains('fcf-hide'));
     const sum = k=>finRound(vis.reduce((t,r)=>t+(r.dataset[k]==='' || r.dataset.void==='1' ? 0 : Number(r.dataset[k]||0)),0));
     const t = foot.querySelector('.finsfoot-t'); if(!t) return;
     const when = finSalesMonth ? ' · '+finMonthLabel(finSalesMonth) : '';
@@ -59509,7 +59509,7 @@ function finAutoFootPaint(){
     const m = finAutoMonth[foot.dataset.key] || '';
     const rows = Array.from(tbl.querySelectorAll('tbody tr'));
     rows.forEach(tr=>tr.classList.toggle('fmhide', !!m && finParseUkDate((tr.children[foot._cols.date]||{}).textContent)!==m));
-    const vis = rows.filter(tr=>tr.style.display!=='none' && !tr.classList.contains('fmhide') && !tr.classList.contains('void') && !tr.classList.contains('fg-hide'));
+    const vis = rows.filter(tr=>tr.style.display!=='none' && !tr.classList.contains('fmhide') && !tr.classList.contains('void') && !tr.classList.contains('fg-hide') && !tr.classList.contains('fcf-hide'));
     const t = foot.querySelector('.finsfoot-t');
     const sums = foot._cols.money.map(([i, l])=>{ let s = 0, any = false; vis.forEach(tr=>{ const v = finParseMoney((tr.children[i]||{}).textContent); if(v!=null){ s += v; any = true; } }); return any ? `<span>${escapeHtml(finTitleCase(l.toLowerCase()))} ${finMoney(finRound(s))}</span>` : ''; }).join('');
     t.innerHTML = `<b>${vis.length} shown${m ? ' · '+finMonthLabel(m) : ''}</b>${sums}`;
@@ -59517,7 +59517,7 @@ function finAutoFootPaint(){
 }
 (function(){
   let tmr = null;
-  const run = ()=>{ clearTimeout(tmr); tmr = setTimeout(()=>{ try{ finAutoFoot(); finTcSweep(); }catch(e){ console.error(e); } }, 60); };
+  const run = ()=>{ clearTimeout(tmr); tmr = setTimeout(()=>{ try{ finAutoFoot(); finTcSweep(); if(typeof finColFilters==='function') finColFilters(); }catch(e){ console.error(e); } }, 60); };
   const start = ()=>{ const app = document.getElementById('app'); if(!app) return setTimeout(start, 400); new MutationObserver(muts=>{ if(muts.some(m=>Array.from(m.addedNodes).some(n=>n.nodeType===1 && !(n.classList && (n.classList.contains('finautofoot') || n.classList.contains('finsfoot-t')))))) run(); }).observe(app, {childList:true, subtree:true}); run(); };
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', start); else start();
   const lf = liveFilter;
@@ -59600,6 +59600,43 @@ finJobCostCardFromForecast = function(siteId, fc){
     </div>
   </div>`;
 };
+
+
+/* Filter boxes under the column titles on Finance lists, like the Projects list (Andy, 23 Oct).
+   Type in any box to narrow the rows; the totals bar adds up what's left. */
+let finColF = {};
+function finColFilters(){
+  if(!document.documentElement.classList.contains('finmode')) return;
+  document.querySelectorAll('#app .finreptbl-wrap > table.fininvtbl').forEach(tbl=>{
+    if(tbl.classList.contains('fggrid') || tbl.querySelector('tr.fcf-row')) return;
+    const wrap = tbl.parentNode, nx = wrap.nextElementSibling;
+    if(!nx || !(nx.classList.contains('finsfoot') || nx.classList.contains('finautofoot') || nx.classList.contains('findsfoot'))) return;
+    const head = tbl.querySelector('thead tr'); if(!head) return;
+    const ths = Array.from(head.children);
+    const key = (location.hash||'').split('?')[0]+'|'+ths.map(t=>t.textContent.trim()).join(',');
+    const saved = finColF[key] || {};
+    const row = document.createElement('tr'); row.className = 'fcf-row';
+    row.innerHTML = ths.map((th,i)=>{ const t = th.textContent.trim(); if(!t || th.querySelector('input')) return '<th></th>';
+      return `<th><input type="text" class="fcf-in" data-col="${i}" placeholder="${escapeHtml(finTitleCase(t))}" value="${escapeHtml(saved[i]||'')}"></th>`; }).join('');
+    head.after(row);
+    row.querySelectorAll('input').forEach(inp=>{ inp.addEventListener('click', e=>e.stopPropagation()); inp.addEventListener('input', ()=>{ (finColF[key] = finColF[key] || {})[inp.dataset.col] = inp.value; finColApply(tbl); }); });
+    if(Object.values(saved).some(Boolean)) finColApply(tbl);
+  });
+}
+function finColApply(tbl){
+  const fs = Array.from(tbl.querySelectorAll('tr.fcf-row input')).map(i=>({c:Number(i.dataset.col), q:i.value.trim().toLowerCase()})).filter(f=>f.q);
+  tbl.querySelectorAll('tbody tr').forEach(tr=>{ const ok = fs.every(f=>{ const td = tr.children[f.c]; return td && td.textContent.toLowerCase().includes(f.q); }); tr.classList.toggle('fcf-hide', !ok); });
+  if(typeof finSalesFootPaintAll==='function') finSalesFootPaintAll();
+  if(typeof finAutoFootPaint==='function') finAutoFootPaint();
+}
+(function(){
+  const st = document.createElement('style');
+  st.textContent = `.fininvtbl tr.fcf-hide{display:none !important;}
+.fininvtbl tr.fcf-row th{padding:4px 6px !important;background:#fff;border-bottom:1px solid var(--line);}
+.fininvtbl .fcf-in{width:100%;box-sizing:border-box;height:26px !important;min-height:26px !important;padding:0 6px !important;margin:0 !important;font-size:11.5px !important;font-weight:500;text-transform:none;letter-spacing:0;border:1px solid var(--line) !important;border-radius:7px !important;text-align:center;background:#fff;box-shadow:none !important;}
+@media (max-width:700px){ .fininvtbl tr.fcf-row{display:none;} }`;
+  document.head.appendChild(st);
+})();
 
 /* ============================================================
    OpHUB Finance — a project's Purchases tab laid out like Sales (23 Oct 2026, Andy):
