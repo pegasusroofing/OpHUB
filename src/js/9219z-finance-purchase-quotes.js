@@ -30,15 +30,15 @@ async function finPqPaneHtml(siteId){
     <div class="finpq-up">
       <label class="finpq-scope">Supplier<input type="text" id="finPqSup" placeholder="Read from the quote" style="width:180px;"></label>
       <label class="darkbtn finpq-file">+ Upload Project Quotes<input type="file" multiple accept=".pdf,image/*,.xlsx,.xls,.csv" style="display:none;" onchange="finPqScope['${siteId}']='project';finPqUpload('${siteId}', this.files)"></label>
-      <span class="stub" id="finPqMsg" style="margin:0;font-style:normal;">Quotes for this project only. Yearly price lists (e.g. Alltype) are uploaded once under <a href="#/finance/purchases/pricebook">Finance › Purchases › Price Book</a> and show here on every project. Prices aren't kept, just the items.</span>
+      <span class="stub" id="finPqMsg" style="margin:0;font-style:normal;">Quotes for this project only. Yearly price lists (e.g. Alltype) are uploaded once under <a href="#/finance/purchases/pricebook">Finance › Purchases › Price List</a> and show here on every project. The quoted rates show here for reference.</span>
     </div>
     ${quotes.length ? `<div class="finquotes">
       <button type="button" class="finquote ${!f?'on':''}" onclick="finPqFilter['${siteId}']='';finPpFill('${siteId}')"><b>All Quotes</b><em>${items.length} item${items.length===1?'':'s'}</em></button>
       ${quotes.slice().sort((a,b)=>(a.site_id?0:1)-(b.site_id?0:1)).map(q=>{ const n = items.filter(i=>i.quote_id===q.id).length; return `<button type="button" class="finquote ${f===q.id?'on':''}" onclick="finPqFilter['${siteId}']='${q.id}';finPpFill('${siteId}')"><b>${escapeHtml(qLabel(q))}</b><em>${q.site_id ? 'Project quote' : 'Annual price list'} · ${n} item${n===1?'':'s'}</em></button>`; }).join('')}
     </div>` : ''}
     ${f && qBy[f] ? `<div class="finkv" style="margin:0 0 6px;"><span>${escapeHtml(qLabel(qBy[f]))}${qBy[f].file_name?' · '+escapeHtml(qBy[f].file_name):''} · ${qBy[f].site_id?'this project only':'all projects'}</span><b>${qBy[f].file_path?`<button class="linkbtn" onclick="openFinDoc('${jsAttr(qBy[f].file_path)}','${jsAttr(qBy[f].file_name||'')}')">View</button> `:''}<button class="linkbtn" style="color:var(--red);" onclick="finPqDelete('${siteId}','${f}')">Remove</button></b></div>` : ''}
-    ${shown.length ? `${finSearchHtml('Search items or codes', 'finPqList')}<div id="finPqList"><div class="finreptbl-wrap"><table class="fincosttbl fininvtbl finpqtbl"><thead><tr><th class="finpq-cb"><input type="checkbox" ${shown.every(i=>sel.has(i.id))?'checked':''} onclick="finPqTickAll('${siteId}', this.checked)"></th><th>Item</th><th>Code</th><th>Unit</th><th>Supplier</th><th>Quote</th></tr></thead><tbody>
-      ${shown.map(i=>{ const q = qBy[i.quote_id]; return `<tr class="click" data-lf="${lfText([i.description, i.code, i.supplier_name].join(' '))}" onclick="finPqTick('${siteId}','${i.id}')"><td class="finpq-cb" data-l=""><input type="checkbox" ${sel.has(i.id)?'checked':''} onclick="event.stopPropagation();finPqTick('${siteId}','${i.id}')"></td><td data-l="Item" class="d"><b>${escapeHtml(i.description)}</b></td><td data-l="Code">${escapeHtml(i.code||'—')}</td><td data-l="Unit">${escapeHtml(i.unit||'—')}</td><td data-l="Supplier">${escapeHtml(i.supplier_name||'—')}</td><td data-l="Quote">${q ? escapeHtml(q.quote_no||'')+(q.site_id?'':' <span class="finpill grey">Price list</span>') : '—'}</td></tr>`; }).join('')}
+    ${shown.length ? `${finSearchHtml('Search items or codes', 'finPqList')}<div id="finPqList"><div class="finreptbl-wrap"><table class="fincosttbl fininvtbl finpqtbl"><thead><tr><th class="finpq-cb"><input type="checkbox" ${shown.every(i=>sel.has(i.id))?'checked':''} onclick="finPqTickAll('${siteId}', this.checked)"></th><th>Item</th><th>Code</th><th>Unit</th><th>Rate</th><th>Supplier</th><th>Quote</th></tr></thead><tbody>
+      ${shown.map(i=>{ const q = qBy[i.quote_id]; return `<tr class="click" data-lf="${lfText([i.description, i.code, i.supplier_name].join(' '))}" onclick="finPqTick('${siteId}','${i.id}')"><td class="finpq-cb" data-l=""><input type="checkbox" ${sel.has(i.id)?'checked':''} onclick="event.stopPropagation();finPqTick('${siteId}','${i.id}')"></td><td data-l="Item" class="d"><b>${escapeHtml(i.description)}</b></td><td data-l="Code">${escapeHtml(i.code||'—')}</td><td data-l="Unit">${escapeHtml(i.unit||'—')}</td><td data-l="Rate">${i.rate!=null ? finMoney(i.rate) : '—'}</td><td data-l="Supplier">${escapeHtml(i.supplier_name||'—')}</td><td data-l="Quote">${q ? escapeHtml(q.quote_no||'')+(q.site_id?'':' <span class="finpill grey">Price list</span>') : '—'}</td></tr>`; }).join('')}
     </tbody></table></div></div>` : `<div class="empty" style="margin:6px 0 0;">No quotes yet. Upload a supplier's quote or price list and its items will appear here to tick.</div>`}`;
 }
 window.finPqPaneHtml = finPqPaneHtml;
@@ -65,8 +65,8 @@ window.finPqUpload = async function(siteId, files){
       if(!lines.length){ failed++; continue; }
       const q = await dbInsert('fin_quotes', {org_id:ME.org_id, site_id: scope==='all' || siteId==='__all' ? null : siteId, purpose:'pquote', supplier_name:d.supplier||null, quote_no:d.doc_number||null, quote_date:d.doc_date||null, file_path:r.path||null, file_name:file.name, lines:[], read_by:r.via||null, created_by:ME.id});
       const qid = q && q[0] && q[0].id; if(!qid){ failed++; continue; }
-      // Only the wording, code and unit are kept — no prices or quantities (Andy, 23 Oct).
-      const rows = lines.map((l,i)=>({org_id:ME.org_id, quote_id:qid, site_id: scope==='all' || siteId==='__all' ? null : siteId, supplier_name:d.supplier||null, code:l.code ? String(l.code).slice(0,80) : null, description:String(l.description).trim().slice(0,300), unit:l.unit ? String(l.unit).slice(0,30) : null, position:i, active:true, created_by:ME.id}));
+      // Wording, code, unit and the quoted rate (shown on the quote list only).
+      const rows = lines.map((l,i)=>({org_id:ME.org_id, quote_id:qid, site_id: scope==='all' || siteId==='__all' ? null : siteId, supplier_name:d.supplier||null, code:l.code ? String(l.code).slice(0,80) : null, description:String(l.description).trim().slice(0,300), unit:l.unit ? String(l.unit).slice(0,30) : null, rate:Number.isFinite(Number(l.unit_price)) && l.unit_price!=null && l.unit_price!=='' ? finRound4(Number(l.unit_price)) : null, position:i, active:true, created_by:ME.id}));
       const res = await sbFetch('/rest/v1/fin_quote_items', {method:'POST', body:JSON.stringify(rows)});
       if(!res.ok){ failed++; continue; }
       added++;
@@ -103,7 +103,7 @@ if(typeof FIN_SUBS!=='undefined' && FIN_SUBS.purchases){
   const inv = FIN_SUBS.purchases.find(t=>t[0]==='invoices'), ord = FIN_SUBS.purchases.find(t=>t[0]==='orders');
   if(inv && ord){ FIN_SUBS.purchases = [inv, ord].concat(FIN_SUBS.purchases.filter(t=>t!==inv && t!==ord)); }
   // The Price Book tab is now where the yearly supplier price lists live (Andy, 23 Oct).
-  FIN_SUBS.purchases.forEach(t=>{ if(t[0]==='pricebook'){ t[1] = 'Price Book'; t[2] = '#/finance/purchases/pricebook'; } });
+  FIN_SUBS.purchases.forEach(t=>{ if(t[0]==='pricebook'){ t[1] = 'Price List'; t[2] = '#/finance/purchases/pricebook'; } });
 }
 async function renderFinPriceLists(){
   if(!finGuard()) return;
@@ -116,8 +116,8 @@ async function renderFinPriceLists(){
   document.getElementById('app').innerHTML = shell(`
     ${finSectionNav('purchases')}${finSubTabs('purchases','pricebook')}
     <div class="card">
-      <div class="finpp-h"><p class="sectiontitle" style="margin:0;">Price Book — Yearly Supplier Price Lists</p><span></span></div>
-      <p class="stub" style="margin:0 0 10px;font-style:normal;">Your main suppliers' yearly price lists (e.g. Alltype). They apply to <b>every project</b> — their items show under each project's Purchases › Purchase Quotes, ready to tick and order. Project-specific quotes (e.g. a Bauder quote for one job) are uploaded on that project instead. No prices are kept or put on any document.</p>
+      <div class="finpp-h"><p class="sectiontitle" style="margin:0;">Price List — Yearly Supplier Price Lists</p><span></span></div>
+      <p class="stub" style="margin:0 0 10px;font-style:normal;">Your main suppliers' yearly price lists (e.g. Alltype). They apply to <b>every project</b> — their items show under each project's Purchases › Purchase Quotes, ready to tick and order. Project-specific quotes (e.g. a Bauder quote for one job) are uploaded on that project instead. Each item's quoted rate shows alongside it for reference.</p>
       <div class="finpq-up">
         <label class="finpq-scope">Supplier<input type="text" id="finPqSup" placeholder="Read from the list" style="width:200px;"></label>
         <label class="darkbtn finpq-file">+ Upload Price Lists<input type="file" multiple accept=".pdf,image/*,.xlsx,.xls,.csv" style="display:none;" onchange="finPqScope['__all']='all';finPqUpload('__all', this.files)"></label>
@@ -127,7 +127,7 @@ async function renderFinPriceLists(){
         ${quotes.map(q=>`<tr><td data-l="Supplier" class="d"><b>${escapeHtml(q.supplier_name||'—')}</b></td><td data-l="Ref">${escapeHtml(q.quote_no||'—')}</td><td data-l="Date">${finDate(q.quote_date || String(q.created_at).slice(0,10))}</td><td data-l="File">${q.file_path?`<button class="linkbtn" onclick="openFinDoc('${jsAttr(q.file_path)}','${jsAttr(q.file_name||'')}')">${escapeHtml(q.file_name||'View')}</button>`:escapeHtml(q.file_name||'—')}</td><td data-l="Items">${items.filter(i=>i.quote_id===q.id).length}</td><td data-l=""><button class="linkbtn" style="color:var(--red);" onclick="finPqDelete('__all','${q.id}')">Remove</button></td></tr>`).join('')}
       </tbody></table></div>` : '<div class="empty" style="margin:0;">No price lists yet.</div>'}
     </div>
-  `, {title:'Price Book', subtitle:'OpHUB Finance · purchases', back:finSecBack(), tabs:false});
+  `, {title:'Price List', subtitle:'OpHUB Finance · purchases', back:finSecBack(), tabs:false});
 }
 window.renderFinPriceLists = renderFinPriceLists;
 (function(){
