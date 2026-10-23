@@ -57,16 +57,24 @@ function finSalesFootPaintAll(){
 window.finSalesFootPaintAll = finSalesFootPaintAll;
 (function(){
   const st = document.createElement('style');
-  st.textContent = `.finsfoot{margin-top:0;border-radius:0 0 12px 12px;}
+  st.textContent = `.finsfoot{margin-top:8px !important;border-radius:10px !important;padding:5px 12px !important;font-size:12.5px;min-height:0;}
+.finsfoot .finsfoot-m{height:24px !important;min-height:24px !important;font-size:11.5px !important;}
+@media (min-width:701px){
+  .finreptbl-wrap:has(+ .finsfoot) .fininvtbl th, .finreptbl-wrap:has(+ .finsfoot) .fininvtbl td{text-align:center !important;}
+  .finreptbl-wrap:has(+ .finsfoot) .fininvtbl th:first-child, .finreptbl-wrap:has(+ .finsfoot) .fininvtbl td:first-child{text-align:left !important;}
+  .finreptbl-wrap:has(+ .finsfoot) .fininvtbl .finrowdots{text-align:right !important;}
+}
 .finsfoot .finsfoot-t{display:flex;gap:6px 18px;flex-wrap:wrap;align-items:center;}
 .finsfoot .finsfoot-m{margin-left:auto !important;height:28px !important;min-height:28px !important;padding:0 24px 0 10px !important;font-size:12px !important;font-weight:600 !important;width:auto !important;border-radius:8px !important;background-color:rgba(255,255,255,.16) !important;border:1px solid rgba(255,255,255,.35) !important;color:var(--brand1-text,#fff) !important;}
 .finsfoot .finsfoot-m option{color:#111;background:#fff;}
 .finreptbl-wrap:has(+ .finsfoot) tfoot{display:none;}
-.finreptbl-wrap:has(+ .finsfoot){border-bottom-left-radius:0;border-bottom-right-radius:0;}
 tr.fmhide{display:none !important;}
+#finPcDate, #finDefects{height:32px !important;min-height:32px !important;padding:0 10px !important;font-size:13.5px !important;border-radius:8px !important;margin:0 !important;box-sizing:border-box;}
+#finPcDate{max-width:160px;} #finDefects{max-width:80px;}
+label:has(> #finPcDate), label:has(> #finDefects){font-size:11.5px !important;gap:3px !important;}
 .finstatp:has(.finstatp-menu){z-index:80;}
 .finstatp-menu{z-index:1000 !important;}
 .pmstats.finstats{position:relative;z-index:5;}
-@media (max-width:700px){ .finsfoot{border-radius:12px;margin-top:6px;} }`;
+`;
   document.head.appendChild(st);
 })();
