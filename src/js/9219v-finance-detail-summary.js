@@ -154,3 +154,44 @@ window.renderFinJobReports = renderFinJobReports;
 @media (max-width:900px){ .finds-sum{grid-template-columns:1fr;} .finds-hg{grid-template-columns:1fr 1fr;} }`;
   document.head.appendChild(st);
 })();
+
+/* Top-left back arrow goes up one level (Andy, 23 Oct): Finance → project page → Finance
+   Projects → Finance → Home; Projects → project page → Projects → Home. The bold page title
+   in Finance goes to the Finance overview. */
+function navUpTarget(){
+  const p = parseRoute(); const [a, b, c, d] = p;
+  if(a==='site' && b && c==='finance'){
+    const t = typeof finUpTarget==='function' ? finUpTarget() : null;
+    if(t && t.tab && typeof finProjTab!=='undefined') finProjTab[t.id||b] = t.tab;
+    return t ? t.hash : '#/site/'+b+'/finance';
+  }
+  if(a==='finance'){
+    if(!b) return 'HOME';
+    if(c) return '#/finance/'+b;
+    return '#/finance';
+  }
+  if(a==='site' && b){
+    if(!c || c==='home') return '#/sites';
+    if(!d) return '#/site/'+b+'/home';
+    return null; // deeper project pages keep their own back
+  }
+  if(a==='sites') return 'HOME';
+  return null;
+}
+(function(){
+  const gb = goBack;
+  goBack = function(target){
+    const up = navUpTarget();
+    if(!up) return gb.apply(this, arguments);
+    if(up==='HOME'){ NAV_GOING_BACK = true; if(typeof usesPmHome==='function' && usesPmHome(ME)) go('#/home'); else goHome(); setTimeout(()=>{ NAV_GOING_BACK = false; }, 1500); return; }
+    return gb.call(this, up);
+  };
+  window.goBack = goBack;
+  const sh = shell;
+  shell = function(inner, opts){
+    let h = sh.apply(this, arguments);
+    const p = parseRoute();
+    if(p[0]==='finance' || (p[0]==='site' && p[2]==='finance')) h = h.replace(/(<h2 style="cursor:pointer;[^"]*" onclick=")goHome\(\)(")/, '$1go(\'#/finance\')$2');
+    return h;
+  };
+})();
