@@ -59574,21 +59574,31 @@ function finFootAlign(){
 /* Project Purchases tab card: purchases only (Andy, 23 Oct) — no contract value, invoiced to
    client or "invoiced less costs"; labour and subcontractors live on their own tab. */
 finJobCostCardFromForecast = function(siteId, fc){
-  const box = (l, v, em)=>`<div><span>${l}</span><b>${finMoney(v, 0)}</b>${em?`<em>${em}</em>`:''}</div>`;
-  const waiting = finRound(fc.lines.filter(l=>l.waiting && l.cat!=='labour').reduce((t,l)=>t+l.net,0));
-  const cats = ['materials','plant','overheads','other'].filter(k=>fc.actual[k] || k==='materials' || k==='plant');
-  const committed = finRound(['materials','plant','overheads','other'].reduce((t,k)=>t+Number(fc.committed[k]||0),0));
-  const total = finRound(cats.reduce((t,k)=>t+Number(fc.actual[k]||0),0));
+  // Purchases & plant only (Andy, 23 Oct): Purchase Orders · Purchase Invoices · Plant · Total Spend.
+  const inPi = l=>l.cat!=='committed' && !['labour','subcontract','plant'].includes(l.cat) && /^(pi|jc):/.test(l.key||'');
+  const pinv = finRound(fc.lines.filter(inPi).reduce((t,l)=>t+Number(l.net||0),0));
+  const plant = finRound(fc.lines.filter(l=>l.cat==='plant').reduce((t,l)=>t+Number(l.net||0),0));
+  const waiting = finRound(fc.lines.filter(l=>l.waiting && inPi(l)).reduce((t,l)=>t+Number(l.net||0),0));
+  const box = (l, v, em, id)=>`<div><span>${l}</span><b ${id?`id="${id}"`:''}>${v}</b>${em!=null?`<em ${id?`id="${id}E"`:''}>${em}</em>`:''}</div>`;
+  setTimeout(async ()=>{
+    const [pos, pis] = await Promise.all([dbSelect('purchase_orders', 'site_id=eq.'+siteId+'&status=neq.cancelled&select=id,value,status').catch(()=>[]), dbSelect('purchase_invoices', 'site_id=eq.'+siteId+'&status=neq.rejected&select=po_id,net').catch(()=>[])]);
+    const el = document.getElementById('finPurPoV'); if(!el) return;
+    const val = finRound(pos.reduce((t,p)=>t+Number(p.value||0),0));
+    const left = finRound(pos.filter(p=>p.status==='open' && p.value!=null).reduce((t,p)=>t+Math.max(0, Number(p.value) - pis.filter(i=>i.po_id===p.id).reduce((a,i)=>a+Number(i.net||0),0)),0));
+    el.textContent = finMoney(val, 0);
+    const em = document.getElementById('finPurPoVE'); if(em) em.textContent = pos.length+' order'+(pos.length===1?'':'s')+(left ? ' · '+finMoney(left, 0)+' left to invoice' : '');
+  }, 0);
   return `<div class="card">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;">
-      <p class="sectiontitle" style="margin:0;">Purchase Costs To Date <span class="stub" style="font-style:normal;text-transform:none;letter-spacing:0;">excl. VAT</span></p>
+      <p class="sectiontitle" style="margin:0;">Purchases &amp; Plant <span class="stub" style="font-style:normal;text-transform:none;letter-spacing:0;">excl. VAT</span></p>
       <span style="display:flex;gap:6px;flex:none;">${finSubKind(siteId) ? `<button class="ghostbtn" style="padding:6px 12px;width:auto;flex:none;margin:0;" onclick="go('#/site/${siteId}/finance/parts')">By ${finSubKind(siteId)==='repair'?'Repair Job':'Plot'} ›</button>` : ''}<button class="ghostbtn" style="padding:6px 12px;width:auto;flex:none;margin:0;" onclick="finCosts=null;go('#/site/${siteId}/finance/costs')">All Costs ›</button></span>
     </div>
     <div class="fincost">
-      ${cats.map(k=>box(finTitleCase(FIN_COST_CATS[k]), fc.actual[k], k==='materials' && waiting ? '+ '+finMoney(waiting, 0)+' waiting approval' : '')).join('')}
-      ${box('Committed', committed, 'ordered, not invoiced')}
+      ${box('Purchase Orders', '…', '', 'finPurPoV')}
+      ${box('Purchase Invoices', finMoney(pinv, 0), waiting ? '+ '+finMoney(waiting, 0)+' waiting approval' : null)}
+      ${box('Plant', finMoney(plant, 0), null)}
+      ${box('Total Spend', finMoney(finRound(pinv+plant), 0), 'purchase invoices + plant')}
     </div>
-    <div class="finkv big" style="margin-top:8px;"><span>Purchases To Date</span><b>${finMoney(total, 0)}</b></div>
   </div>`;
 };
 
