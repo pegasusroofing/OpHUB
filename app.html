@@ -59534,6 +59534,64 @@ function finAutoFootPaint(){
   document.head.appendChild(st);
 })();
 
+/* Totals bars: each total sits under its own column (Andy, 23 Oct: "move the applied total
+   and certified total in line with the actual column"). The column title says what it is,
+   so the bar shows just the amount there. Phones keep the plain row. */
+function finFootAlign(){
+  const wide = window.innerWidth > 700;
+  document.querySelectorAll('#app .finsfoot, #app .findsfoot').forEach(foot=>{
+    const wrap = foot.previousElementSibling; const tbl = wrap && wrap.querySelector('table'); if(!tbl) return;
+    const ths = Array.from(tbl.querySelectorAll('thead tr:first-child th'));
+    const box = foot.querySelector('.finsfoot-t') || foot;
+    const spans = Array.from(box.querySelectorAll(':scope > span'));
+    foot.classList.toggle('finfa', wide);
+    const fr = foot.getBoundingClientRect();
+    spans.forEach(sp=>{
+      if(!sp.dataset.lbl){ const m = /^(.*?)\s*(-?−?£[\d,.\-]+)\s*$/.exec(sp.textContent.trim()); if(!m) return; sp.dataset.lbl = m[1]; sp.dataset.amt = m[2]; }
+      const lbl = sp.dataset.lbl.toLowerCase();
+      const th = ths.find(t=>{ const x = t.textContent.trim().toLowerCase(); return x===lbl || x.startsWith(lbl+' ') || x.startsWith(lbl+'(') || x.replace(/\s*\(.*\)$/,'')===lbl; });
+      if(!wide || !th){ sp.classList.remove('finfa-col'); sp.style.left = ''; sp.textContent = sp.dataset.lbl+' '+sp.dataset.amt; return; }
+      const r = th.getBoundingClientRect();
+      sp.classList.add('finfa-col'); sp.title = sp.dataset.lbl; sp.textContent = sp.dataset.amt;
+      sp.style.left = Math.round(r.left + r.width/2 - fr.left)+'px';
+    });
+  });
+}
+(function(){
+  const a = finSalesFootPaintAll;
+  finSalesFootPaintAll = function(){ const r = a.apply(this, arguments); finFootAlign(); return r; };
+  window.finSalesFootPaintAll = finSalesFootPaintAll;
+  const b = finAutoFootPaint;
+  finAutoFootPaint = function(){ const r = b.apply(this, arguments); finFootAlign(); return r; };
+  window.addEventListener('resize', ()=>finFootAlign());
+  setInterval(()=>{ if(document.querySelector('#app .findsfoot:not(.finfa-done)')){ document.querySelectorAll('#app .findsfoot').forEach(f=>f.classList.add('finfa-done')); finFootAlign(); } }, 800);
+  const st = document.createElement('style');
+  st.textContent = `.finsfoot.finfa, .findsfoot.finfa{position:relative;}
+.finfa .finfa-col{position:absolute;top:50%;transform:translate(-50%,-50%);font-weight:800;white-space:nowrap;}`;
+  document.head.appendChild(st);
+})();
+
+/* Project Purchases tab card: purchases only (Andy, 23 Oct) — no contract value, invoiced to
+   client or "invoiced less costs"; labour and subcontractors live on their own tab. */
+finJobCostCardFromForecast = function(siteId, fc){
+  const box = (l, v, em)=>`<div><span>${l}</span><b>${finMoney(v, 0)}</b>${em?`<em>${em}</em>`:''}</div>`;
+  const waiting = finRound(fc.lines.filter(l=>l.waiting && l.cat!=='labour').reduce((t,l)=>t+l.net,0));
+  const cats = ['materials','plant','overheads','other'].filter(k=>fc.actual[k] || k==='materials' || k==='plant');
+  const committed = finRound(['materials','plant','overheads','other'].reduce((t,k)=>t+Number(fc.committed[k]||0),0));
+  const total = finRound(cats.reduce((t,k)=>t+Number(fc.actual[k]||0),0));
+  return `<div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;">
+      <p class="sectiontitle" style="margin:0;">Purchase Costs To Date <span class="stub" style="font-style:normal;text-transform:none;letter-spacing:0;">excl. VAT</span></p>
+      <span style="display:flex;gap:6px;flex:none;">${finSubKind(siteId) ? `<button class="ghostbtn" style="padding:6px 12px;width:auto;flex:none;margin:0;" onclick="go('#/site/${siteId}/finance/parts')">By ${finSubKind(siteId)==='repair'?'Repair Job':'Plot'} ›</button>` : ''}<button class="ghostbtn" style="padding:6px 12px;width:auto;flex:none;margin:0;" onclick="finCosts=null;go('#/site/${siteId}/finance/costs')">All Costs ›</button></span>
+    </div>
+    <div class="fincost">
+      ${cats.map(k=>box(finTitleCase(FIN_COST_CATS[k]), fc.actual[k], k==='materials' && waiting ? '+ '+finMoney(waiting, 0)+' waiting approval' : '')).join('')}
+      ${box('Committed', committed, 'ordered, not invoiced')}
+    </div>
+    <div class="finkv big" style="margin-top:8px;"><span>Purchases To Date</span><b>${finMoney(total, 0)}</b></div>
+  </div>`;
+};
+
 /* ============================================================
    OpHUB Finance — no double taps (deep dive, 20 Oct).
    Every Finance action that saves, sends or creates something ignores a
