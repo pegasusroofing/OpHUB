@@ -181,3 +181,12 @@ window.finJobDVDate = async function(k){
   st.textContent = `#finJobGridFoot .fgfoot-ctl select[aria-label="PM"]{display:none !important;}`;
   document.head.appendChild(st);
 })();
+/* Projects list bar: same slim style as the Sales totals bar (Andy, 23 Oct). */
+(function(){
+  const st = document.createElement('style');
+  st.textContent = `#finJobGridFoot{padding-top:5px !important;padding-bottom:5px !important;margin-top:8px !important;border-radius:10px !important;font-size:12.5px !important;min-height:0 !important;}
+#finJobGridFoot .fgfoot-ctl select, #finJobGridFoot .fgcolbtn{height:24px !important;min-height:24px !important;font-size:11.5px !important;padding-top:0 !important;padding-bottom:0 !important;line-height:22px !important;box-sizing:border-box;}
+#finJobGridFoot .fgcolbtn{padding:0 10px !important;display:inline-flex;align-items:center;}
+.finreptbl-wrap:has(> #finJobGrid){border-bottom-left-radius:12px;border-bottom-right-radius:12px;}`;
+  document.head.appendChild(st);
+})();
