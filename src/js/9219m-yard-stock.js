@@ -105,7 +105,7 @@ window.yardItemOpen = async function(id){
     <button class="darkbtn" onclick="yardItemSave('${id||''}')">${id?'Save':'Add item'}</button>
     ${moves.length ? `<p class="sectiontitle" style="margin:14px 0 6px;">History</p><div class="yard-hist">${moves.map(m=>`<div><span>${finDate(String(m.created_at).slice(0,10))}</span><b>${YARD_KIND[m.kind]||m.kind} ${m.kind==='adjust'&&Number(m.qty)>0?'+':''}${yardQty(m.qty)}</b><span>${escapeHtml(job(m.site_id) || m.note || '')}</span><em>${escapeHtml((PROFILES[m.created_by]||{}).name||'')}</em></div>`).join('')}</div>` : ''}
   </div>`;
-  ov.style.display = 'flex';
+  document.body.appendChild(ov); ov.style.display = 'flex';
 };
 let yardItemBusy = false;
 window.yardItemSave = async function(id){
@@ -167,7 +167,7 @@ window.yardMoveOpen = async function(kind, stockId, siteId, materialId){
     <button class="darkbtn" id="ymGo" onclick="yardMoveSave()">${{in:'Book in', issue:'Issue to job', return:'Return to yard', adjust:'Save count'}[kind]}</button>
     <button class="geo-modal-cancel" onclick="document.getElementById('yardMoveOverlay').style.display='none'">Cancel</button>
   </div>`;
-  ov.style.display = 'flex'; yardMovePaintQty();
+  document.body.appendChild(ov); ov.style.display = 'flex'; yardMovePaintQty();
 };
 window.yardMovePaintQty = function(){
   const el = document.getElementById('ymInfo'); if(!el || !yardCache) return;
@@ -231,7 +231,7 @@ window.yardPmOpen = async function(siteId){
       <input type="text" inputmode="decimal" class="yard-qin" id="yq-${s.id}" placeholder="Qty" onkeydown="if(event.key==='Enter')yardQuickIssue('${s.id}','${siteId}')">
       <button type="button" class="yard-sbtn dark" onclick="yardQuickIssue('${s.id}','${siteId}')">Issue</button></div>`).join('') : '<div class="empty">Nothing in the yard list yet.</div>'}<div class="empty lf-empty" style="display:none;">Nothing matches.</div></div>
   </div>`;
-  ov.style.display = 'flex';
+  document.body.appendChild(ov); ov.style.display = 'flex';
 };
 
 let yardQuickBusy = false;

@@ -298,7 +298,8 @@ function mediaRequiredFor(it, answers){
   return it.mediaRequiredWhen.includes(val);
 }
 function orgLogoUrl(org){
-  return org && org.logo_path ? publicUrl('org-logos', org.logo_path) : OPHUB_LOGO;
+  // Path segments are URL-encoded so a crafted logo_path can't break out of src="…" (audit 24 Oct).
+  return org && org.logo_path ? publicUrl('org-logos', String(org.logo_path).split('/').map(encodeURIComponent).join('/')) : OPHUB_LOGO;
 }
 // 'admin' is a superset of 'pm' capabilities everywhere in this app, and
 // 'site_manager' is a day-to-day-operational subset of 'pm' — mirrors the

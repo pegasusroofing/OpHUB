@@ -35,7 +35,9 @@ function finStmtDate(v){
   return null;
 }
 const FIN_DATE_RX = /(?:^|[^\d])(\d{4}[\/.\-]\d{1,2}[\/.\-]\d{1,2}|\d{1,2}[\/.\-]\d{1,2}[\/.\-](?:\d{4}|\d{2})|\d{1,2}(?:st|nd|rd|th)?[\s\-]+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?[\s\-,]+(?:\d{4}|\d{2}))(?![\d])/i;
-const FIN_AMT_RX = /(?<![\d.,\/])(?:-\s?)?£?\s?\(?-?(?:\d{1,3}(?:,\d{3})+|\d+)\.\d{2}\)?(?:\s?(?:CR|DR))?(?![\d\/])/gi;
+// Built at run time: a lookbehind written as a literal stops the whole app parsing on older iPhones (iOS < 16.4) — audit FB-05.
+const FIN_AMT_RX = (()=>{ const body = '(?:-\\s?)?£?\\s?\\(?-?(?:\\d{1,3}(?:,\\d{3})+|\\d+)\\.\\d{2}\\)?(?:\\s?(?:CR|DR))?(?![\\d\\/])';
+  try{ return new RegExp('(?<![\\d.,\\/])'+body, 'gi'); }catch(e){ return new RegExp(body, 'gi'); } })();
 function finAmt(s){
   let t = String(s==null?'':s).trim(); if(!t) return null;
   if(typeof s==='number') return s;

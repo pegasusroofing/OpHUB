@@ -30,11 +30,13 @@ async function finAsSave(){
   let ok = false;
   try{
     const row = Object.assign(JSON.parse(snap), {updated_at:new Date().toISOString()});
-    const res = await sbFetch('/rest/v1/fin_applications?id=eq.'+id, {method:'PATCH', headers:{'Prefer':'return=minimal'}, body:JSON.stringify(row)});
+    const res = await sbFetch('/rest/v1/fin_applications?id=eq.'+id, {method:'PATCH', headers:{'Prefer':'return=representation'}, body:JSON.stringify(row)});
     ok = !!(res && res.ok);
+    // Remember what the server now holds, so the next redraw keeps the in-memory copy (bug FB-02).
+    if(ok){ try{ const d = await res.json(); const u = (Array.isArray(d) ? d[0] : d || {}).updated_at; if(u && finApp && finApp.id===id) finApp.__loaded = u; }catch(e){} }
   }catch(e){ ok = false; }
   finAsBusy = false;
-  if(ok){ finAsLast[id] = snap; finAsLocal(id, null); finAsShow('saved'); }
+  if(ok){ finAsLast[id] = snap; finAsLocal(id, null); finAsShow('saved'); try{ if(finAsOn() && finApp.id===id && finAsSnap()!==snap) finAsQueue(); }catch(e){} }
   else { finAsShow('offline'); clearTimeout(finAsTimer); finAsTimer = setTimeout(finAsSave, 15000); }
 }
 window.addEventListener('online', ()=>{ if(finAsOn()) finAsSave(); });
@@ -69,4 +71,11 @@ document.addEventListener('click', e=>{ if(e.target && e.target.closest && e.tar
 .finappbtns{padding:0 14px;box-sizing:border-box;}
 html.desk.finmode .finappbtns{padding:0 24px;}`;
   document.head.appendChild(st);
+})();
+// Changes made by buttons that redraw the page (e.g. "Use site progress") are saved too.
+(function(){
+  ['finAppUseSiteProgress','finSpUseLine'].forEach(n=>{
+    const f = window[n]; if(typeof f!=='function') return;
+    window[n] = async function(){ const r = await f.apply(this, arguments); if(typeof finAsQueue==='function') finAsQueue(); return r; };
+  });
 })();

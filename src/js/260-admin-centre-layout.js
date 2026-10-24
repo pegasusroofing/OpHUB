@@ -109,7 +109,7 @@ async function renderTeam(adminPage, adminItemKey){
     pendingInvites = pendingInviteRows;
     permanentInvite = permanentInviteRows[0] || null;
   } })());
-  let odConn = null; __tp.push((async()=>{ if(iAmAdmin && teamSectionOpen.integrations) odConn = (await dbSelect('onedrive_connections', 'org_id=eq.'+ME.org_id))[0] || null; })());
+  let odConn = null; __tp.push((async()=>{ if(iAmAdmin && teamSectionOpen.integrations) odConn = (await dbSelect('onedrive_connections', 'org_id=eq.'+ME.org_id+'&select=org_id,account_email,folder_path,connected_at'))[0] || null; /* never pull the tokens into the browser (audit 24 Oct) */ })());
   let tbtTemplates = []; __tp.push((async()=>{ if(iAmAdmin && teamSectionOpen.tbt) tbtTemplates = await dbSelect('tbt_templates', 'org_id=eq.'+ME.org_id+'&order=created_at.desc'); })());
   let reportTemplates = []; __tp.push((async()=>{ if(isManager(ME) && teamSectionOpen.reporttemplates) reportTemplates = await dbSelect('report_templates', 'org_id=eq.'+ME.org_id+'&archived=eq.false&order=name.asc'); })());
   let deviceLocks = []; __tp.push((async()=>{ if(isFullManager(ME) && teamSectionOpen.devicelocks) deviceLocks = await dbSelect('device_locks', 'org_id=eq.'+ME.org_id+'&order=last_seen_at.desc'); })());
@@ -283,7 +283,7 @@ async function renderTeam(adminPage, adminItemKey){
     <div class="adm-od">
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">OneDrive — progress report photos</p>
-      ${odConn && odConn.access_token ? `
+      ${odConn ? `
         <p class="stub" style="margin:0 0 8px;color:var(--ok);">Connected — syncing to ${escapeHtml(odConn.account_email||'your OneDrive')} · folder "${escapeHtml(odConn.folder_path)}"</p>
         <button class="ghostbtn" onclick="disconnectOneDrive()">Disconnect</button>
       ` : `
@@ -907,8 +907,8 @@ async function renderTeam(adminPage, adminItemKey){
         <div class="sitecard" style="padding:8px 10px;border-color:var(--warn);background:var(--warn-bg);">
           <div class="info"><div class="name">${escapeHtml(d.user_name||'Unknown')}</div><div class="addr">Requested ${new Date(d.requested_at||d.locked_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})} — new device</div></div>
           <div style="display:flex;gap:6px;">
-            <button class="darkbtn" style="width:auto;padding:6px 10px;" onclick="approvePendingDevice('${d.device_id}')">Approve</button>
-            <button class="ghostbtn" style="width:auto;padding:6px 10px;color:var(--red);border-color:var(--red);" onclick="unlockDevice('${d.device_id}')">Deny</button>
+            <button class="darkbtn" style="width:auto;padding:6px 10px;" onclick="approvePendingDevice('${jsAttr(d.device_id)}')">Approve</button>
+            <button class="ghostbtn" style="width:auto;padding:6px 10px;color:var(--red);border-color:var(--red);" onclick="unlockDevice('${jsAttr(d.device_id)}')">Deny</button>
           </div>
         </div>
       `).join('')}
@@ -917,7 +917,7 @@ async function renderTeam(adminPage, adminItemKey){
       ${deviceLocks.filter(d=>d.status!=='pending').length ? deviceLocks.filter(d=>d.status!=='pending').map(d=>`
         <div class="sitecard" style="padding:8px 10px;">
           <div class="info"><div class="name">${escapeHtml(d.user_name||'Unknown')}</div><div class="addr">Last used ${new Date(d.last_seen_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div></div>
-          <button class="ghostbtn" style="width:auto;padding:6px 10px;" onclick="unlockDevice('${d.device_id}')">Unlock</button>
+          <button class="ghostbtn" style="width:auto;padding:6px 10px;" onclick="unlockDevice('${jsAttr(d.device_id)}')">Unlock</button>
         </div>
       `).join('') : `<div class="empty" style="padding:10px;">No devices locked yet.</div>`}
     </div>

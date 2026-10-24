@@ -15,10 +15,12 @@
     if(typeof fn!=='function' || fn.__once || skip.has(name)) return;
     if(fn.constructor && fn.constructor.name!=='AsyncFunction') return;
     const w = async function(...args){
-      if(running.has(name)) return; // already working on it — ignore the second tap
-      running.add(name); document.documentElement.classList.add('finbusy');
+      // Xero posts are guarded per record, so posting several bills at once isn't dropped (audit FB-06).
+      const key = name==='finXeroPush' ? name+':'+args[0]+':'+args[1] : name;
+      if(running.has(key)) return; // already working on it — ignore the second tap
+      running.add(key); document.documentElement.classList.add('finbusy');
       try{ return await fn.apply(this, args); }
-      finally{ running.delete(name); if(!running.size) document.documentElement.classList.remove('finbusy'); }
+      finally{ running.delete(key); if(!running.size) document.documentElement.classList.remove('finbusy'); }
     };
     w.__once = true; window[name] = w;
   };

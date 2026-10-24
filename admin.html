@@ -417,7 +417,7 @@ function renderCompanies(){
   tbody.innerHTML = ORGS.map(o=>{
     const sub = subFor(o.id);
     const people = peopleFor(o.id);
-    const logo = o.logo_path ? (SUPABASE_URL+'/storage/v1/object/public/org-logos/'+o.logo_path) : OPHUB_LOGO_INLINE;
+    const logo = o.logo_path ? (SUPABASE_URL+'/storage/v1/object/public/org-logos/'+String(o.logo_path).split('/').map(encodeURIComponent).join('/')) : OPHUB_LOGO_INLINE;
     return `
     <tr>
       <td><div class="companyname"><img src="${logo}" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'">${escapeHtml(o.name)}</div></td>
@@ -482,7 +482,7 @@ window.openMembersModal = function(orgId){
       <div class="info"><div class="name">${escapeHtml(p.name)}</div><div class="addr">${escapeHtml(p.email)} · ${ROLE_LABEL[p.role]||p.role}</div></div>
       <div class="acts">
         ${ROLES.filter(r=>r!==p.role).map(r=>`<button class="btn btn-ghost btn-sm" onclick="setUserRole('${p.id}','${r}')">Make ${ROLE_LABEL[r]}</button>`).join('')}
-        <button class="btn btn-ghost btn-sm" onclick="resetPassword('${escapeHtml(p.email)}')">Reset Password</button>
+        <button class="btn btn-ghost btn-sm" onclick="resetPassword('${jsAttr(p.email)}')">Reset Password</button>
         <button class="btn btn-ghost btn-sm" style="color:#B23A3A;" onclick="deleteUserFromModal('${p.id}','${jsAttr(p.name)}')">Delete User</button>
       </div>
     </div>

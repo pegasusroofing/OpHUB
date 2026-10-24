@@ -111,7 +111,9 @@ function finAutoFootPaint(){
 (function(){
   let tmr = null;
   const run = ()=>{ clearTimeout(tmr); tmr = setTimeout(()=>{ try{ finAutoFoot(); finTcSweep(); if(typeof finColFilters==='function') finColFilters(); }catch(e){ console.error(e); } }, 60); };
-  const start = ()=>{ const app = document.getElementById('app'); if(!app) return setTimeout(start, 400); new MutationObserver(muts=>{ if(muts.some(m=>Array.from(m.addedNodes).some(n=>n.nodeType===1 && !(n.classList && (n.classList.contains('finautofoot') || n.classList.contains('finsfoot-t')))))) run(); }).observe(app, {childList:true, subtree:true}); run(); };
+  const skipNode = n=>n.nodeType!==1 || (n.classList && (n.classList.contains('finautofoot') || n.classList.contains('finsfoot-t') || n.classList.contains('fcf-row') || n.classList.contains('navcrumbs')));
+  const inOwn = t=>!!(t && t.closest && t.closest('.finautofoot, .finsfoot, .fcf-row, .navcrumbs'));
+  const start = ()=>{ const app = document.getElementById('app'); if(!app) return setTimeout(start, 400); new MutationObserver(muts=>{ if(muts.some(m=>!inOwn(m.target) && Array.from(m.addedNodes).some(n=>!skipNode(n)))) run(); }).observe(app, {childList:true, subtree:true}); run(); };
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', start); else start();
   const lf = liveFilter;
   liveFilter = function(){ const r = lf.apply(this, arguments); finAutoFootPaint(); return r; };

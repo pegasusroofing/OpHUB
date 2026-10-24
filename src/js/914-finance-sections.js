@@ -155,7 +155,7 @@ async function renderFinJobs(sub){
     if(cmp) shown = shown.slice().sort(cmp);
     const pms = Array.from(new Set(sites.map(s=>s.responsible_pm_id).filter(Boolean))).map(id=>({id, name:(PROFILES[id]||{}).name||'PM'})).sort((a,b)=>a.name.localeCompare(b.name));
     const clients = Array.from(new Set(sites.map(cliOf).filter(Boolean))).sort((a,b)=>a.localeCompare(b));
-    const filtHtml = `<div class="finjobfilt">
+    const filtHtml = `<div class="finjobfilt finprojfilt">
       <label>PM<select onchange="finJobFilt.pm=this.value;render()"><option value="">All PMs</option>${pms.map(p=>`<option value="${p.id}" ${f.pm===p.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}<option value="none" ${f.pm==='none'?'selected':''}>No PM</option></select></label>
       <label class="fincli-lbl">Client<input type="search" placeholder="Client name" list="finJobCliList" value="${escapeHtml(f.client||'')}" oninput="finJobCli(this.value)"><datalist id="finJobCliList">${clients.map(c=>`<option value="${escapeHtml(c)}">`).join('')}</datalist></label>
       <label>Sort<select onchange="finJobFilt.sort=this.value;render()">${[['noza','Project no. (newest first)'],['noaz','Project no. (A–Z)'],['az','Name A–Z'],['za','Name Z–A'],['start','Start date (newest)']].map(([k,l])=>`<option value="${k}" ${f.sort===k?'selected':''}>${l}</option>`).join('')}</select></label>

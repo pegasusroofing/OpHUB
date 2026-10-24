@@ -138,7 +138,7 @@ function shell(innerHtml, opts){
           </div>
         ` : `
         <div class="row" style="align-items:center;">
-          ${opts.back ? `<span class="backarrow" onclick="goBack('${opts.back}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 5 8 12 15 19"></polyline></svg></span>` : `<img class="brandmark" src="${orgLogoUrl(ORG)}" alt="OpHUB" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'" style="cursor:pointer;" onclick="goHome()">`}
+          ${opts.back ? `<span class="backarrow" onclick="goBack('${jsAttr(opts.back)}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 5 8 12 15 19"></polyline></svg></span>` : `<img class="brandmark" src="${orgLogoUrl(ORG)}" alt="OpHUB" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'" style="cursor:pointer;" onclick="goHome()">`}
           <div style="flex:1;min-width:0;min-height:59.4px;display:flex;flex-direction:column;justify-content:center;text-align:center;padding-top:4px;">
             ${!opts.back ? `<div class="brandline" style="cursor:pointer;" onclick="goHome()">OpHUB${ORG && ORG.name ? ` <span style="color:var(--brand1);">- ${escapeHtml(ORG.name)}</span>` : ''}</div>` : ''}
             <h2 style="cursor:pointer;${opts.titleTwoLine ? 'white-space:normal;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.2;' : ''}" onclick="goHome()">${escapeHtml(opts.title||'')}</h2>

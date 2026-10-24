@@ -9,7 +9,7 @@ async function renderAssignTeam(siteId){
   const __pActivity = Promise.resolve([]); // the Activity History now has its own screen (renderSiteActivity)
   const __pMain = Promise.all([
     dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id'),
-    dbSelect('onedrive_connections', 'org_id=eq.'+ME.org_id+'&select=access_token'),
+    dbSelect('onedrive_connections', 'org_id=eq.'+ME.org_id+'&select=org_id'),
     dbSelect('site_sub_addresses', 'site_id=eq.'+siteId+'&order=name.asc'),
   ]);
   await loadAllProfiles();
@@ -18,7 +18,7 @@ async function renderAssignTeam(siteId){
   const siteManagerPeople = Object.values(PROFILES).filter(p=>p.role==='site_manager').sort((a,b)=>a.name.localeCompare(b.name));
   const [assigned, odConnRows, subAddresses] = await __pMain;
   const assignedIds = new Set(assigned.map(a=>a.user_id));
-  const odCompanyConnected = odConnRows.length>0 && !!odConnRows[0].access_token;
+  const odCompanyConnected = odConnRows.length>0;
   // Quick multi-tick "Assign Operatives to X" per subcontractor, right here
   // on Settings & Admin, so a PM doesn't have to go via Subcontractors > the
   // company > Operatives (one-at-a-time) just to build a crew list. Only

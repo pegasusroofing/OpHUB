@@ -140,7 +140,7 @@ async function checkHsPolicyGate(){
   try{
     const {doc, sigs} = await fetchHsPolicyData();
     if(!doc){ hsPolicyGatePending = false; return false; }
-    const mySig = sigs.find(s=>s.user_id===ME.id);
+    const mySig = sigs.filter(s=>s.user_id===ME.id).pop();   // newest — sigs come oldest first (audit 24 Oct)
     hsPolicyGatePending = !hsPolicySigStillValid(doc, mySig);
   }catch(e){ hsPolicyGatePending = false; }
   return hsPolicyGatePending;

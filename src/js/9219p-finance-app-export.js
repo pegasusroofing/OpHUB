@@ -928,3 +928,44 @@ window.finCertFromPdf = async function(file, appId){
 .fincertlite .fingrid2{margin-bottom:6px;}`;
   document.head.appendChild(st);
 })();
+
+/* fix 16 (24 Oct, overnight audit FB-04): once certified, the Certified column shows what was
+   actually certified — the saved certificate figures and its own line-by-line %, not the
+   previous certificate's. Older certificates (no line detail) show the totals only. */
+(function(){
+  const baseSum = finCertSummaryHtml;
+  finCertSummaryHtml = function(){
+    if(!finApp || finApp.cert_net==null || finCertMode()) return baseSum.apply(this, arguments);
+    const a = finApp, c = finAppCalc(a, finAppCtx.jf.contract_value, finAppCtx.jf.retention_limit_pct, finAppCtx.previous);
+    const cl = Array.isArray(a.cert_lines) && a.cert_lines.length ? a.cert_lines : null;
+    const sumBy = f=>cl ? finRound(cl.filter(f).reduce((s,l)=>s+Number(l.gross||0),0)) : null;
+    const cLines = sumBy(l=>l.item_id), cVars = sumBy(l=>l.var_index!=null), cDays = sumBy(l=>l.day_index!=null);
+    const m = v=>v==null ? '—' : finMoney(v), neg = v=>'−'+finMoney(v||0);
+    const row = (label, x, y, cls)=>`<div class="fincs-r ${cls||''}"><span>${label}</span><b>${x}</b><b class="c">${y}</b></div>`;
+    const contractTotal = (a.lines||[]).filter(finIsItem).reduce((s,l)=>s+Number(l.value||0),0);
+    const prevApplied = finRound(finAppCtx.previous||0);
+    const vt = finAppVatTreat(finAppCtx.jf), cNet = finRound(Number(a.cert_net||0));
+    let h = `<div class="fincs-r head"><span></span><b>Applied</b><b class="c">Certified</b></div>`
+      + row(`Contract works to date${contractTotal?' (of '+finMoney(contractTotal)+')':''}`, finMoney(c.lines.reduce((s,l)=>s+l.gross,0)), m(cLines))
+      + (c.variations.length ? row('Variations', finMoney(c.variations.reduce((s,x)=>s+x.gross,0)), m(cVars)) : '')
+      + (c.dayworks.length ? row('Dayworks', finMoney(c.dayworks.reduce((s,x)=>s+x.gross,0)), m(cDays)) : '')
+      + row('<b>Gross valuation to date</b>', finMoney(c.gross), finMoney(a.cert_gross), 'bold')
+      + row('Less discount', neg(c.discount), neg(a.cert_discount))
+      + row(`Less retention @ ${finPct(a.retention_pct)}%`, neg(c.retention), neg(a.cert_retention))
+      + row('Less previously certified', neg(prevApplied), neg(a.cert_previous))
+      + row('Amount due this application', finMoney(c.net_due), finMoney(cNet), 'big');
+    if(vt==='standard') h += row('VAT @ 20%', finMoney(finRound(c.net_due*.2)), finMoney(finRound(cNet*.2))) + row('Total incl. VAT', finMoney(finRound(c.net_due*1.2)), finMoney(finRound(cNet*1.2)), 'bold');
+    const diff = finRound(cNet - Number(a.net_due||c.net_due));
+    if(diff) h += `<p class="stub" style="margin:8px 0 0;font-style:normal;color:${diff<0?'var(--red)':'var(--ok)'};"><b>${diff<0?'Short by':'Over by'} ${finMoney(Math.abs(diff))}</b> against what you applied for.</p>`;
+    return h;
+  };
+  const baseW = finCertWorkInit;
+  finCertWorkInit = function(){
+    const W = baseW.apply(this, arguments);
+    if(finApp && finApp.cert_net!=null && Array.isArray(finApp.cert_lines) && finApp.cert_lines.length && !W.__own){
+      finApp.cert_lines.forEach(l=>{ if(l.var_index!=null) W.vars[l.var_index] = l.pct; else if(l.day_index!=null) W.days[l.day_index] = Number(l.gross||0); });
+      W.__own = true;
+    }
+    return W;
+  };
+})();

@@ -261,11 +261,13 @@ let finRegSynced = {};
     if(!finApp || finApp.id!==appId || finApp.status!=='draft' || finRegSynced[appId]===finApp.__loaded) return r;
     finRegSynced[appId] = finApp.__loaded;
     const [fv, fd] = await Promise.all([
-      dbSelect('fin_variations', 'site_id=eq.'+siteId+'&select=id,number,title,status,agreed_value,quoted').catch(()=>null),
+      dbSelect('fin_variations', 'site_id=eq.'+siteId+'&select=id,number,title,status,agreed_value,quoted,variation_id').catch(()=>null),
       dbSelect('fin_dayworks', 'site_id=eq.'+siteId+'&select=id,number,title,status,value').catch(()=>null)]);
     if(!fv || !fd || !finApp || finApp.id!==appId) return r;
     let changed = false;
     const vBy = {}; fv.forEach(v=>vBy[v.id] = v);
+    // A site variation already on the draft (variation_id only) is the same one as its register copy — link them, don't add it twice (bug FB-03).
+    (finApp.variations||[]).forEach(v=>{ if(!v.fin_variation_id && v.variation_id){ const x = fv.find(f=>f.variation_id===v.variation_id); if(x){ v.fin_variation_id = x.id; changed = true; } } });
     const vars = (finApp.variations||[]).filter(v=>{ if(!v.fin_variation_id) return true; const x = vBy[v.fin_variation_id]; if(x && x.status==='agreed') return true; changed = true; return false; });
     vars.forEach(v=>{ const x = v.fin_variation_id && vBy[v.fin_variation_id]; if(x && x.agreed_value!=null && Number(v.value)!==Number(x.agreed_value)){ v.value = Number(x.agreed_value); changed = true; } });
     fv.filter(v=>v.status==='agreed' && !vars.some(x=>x.fin_variation_id===v.id)).forEach(v=>{ vars.push({fin_variation_id:v.id, variation_id:null, description:v.number+' '+v.title, value:Number(v.agreed_value!=null?v.agreed_value:v.quoted||0), pct:100}); changed = true; });
@@ -311,7 +313,9 @@ finJobStatusSelHtml = function(){
 .fgfoot{background:var(--brand1) !important;color:var(--brand1-text,#fff) !important;}
 .fgfoot .fgcolbtn, .fgfoot-ctl select{background-color:rgba(255,255,255,.16) !important;border:1px solid rgba(255,255,255,.35) !important;color:var(--brand1-text,#fff) !important;}
 .fgfoot .fgfoot-bad{color:inherit !important;background:rgba(0,0,0,.2);padding:1px 7px;border-radius:6px;}
-.finjobfilt .fin-searchlbl{display:none !important;}
-.finjobfilt:not(:has(.fincli-lbl)){display:none !important;}`;
+.finprojfilt .fin-searchlbl{display:none !important;}
+.finprojfilt:not(:has(.fincli-lbl)){display:none !important;}
+/* audit FB-12: other lists keep their filter bar on phones, where the column filters are hidden */
+@media (min-width:701px){ .finjobfilt:not(.finprojfilt){display:none !important;} }`;
   document.head.appendChild(st);
 })();

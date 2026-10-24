@@ -213,7 +213,7 @@ window.deleteFinInvoiceDraft = async function(siteId){
   if(btn && btn.dataset.sure!=='1'){ btn.dataset.sure='1'; btn.textContent='Tap again to delete'; return; }
   if(await dbDelete('fin_invoices', finInvDraft.id)){ finInvDraft = null; toast('Draft deleted'); go(`#/site/${siteId}/finance`); }
 };
-window.issueFinInvoice = async function(siteId){
+window.issueFinInvoice = async function(siteId, skipConfirm){
   const row = finInvDraftRow();
   if(!row.lines.length){ toast('Add at least one line.'); return; }
   if(row.lines.some(l=>l.amount===null)){ toast('Every line needs an amount.'); return; }
@@ -221,7 +221,7 @@ window.issueFinInvoice = async function(siteId){
   if(!row.bill_name){ toast('Add who the invoice is to.'); return; }
   if(!row.issue_date || !row.due_date){ toast('Add the invoice date and due date.'); return; }
   if(row.bill_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(row.bill_email)){ toast('Enter a valid accounts email.'); return; }
-  if(!await customConfirm(`Issue this invoice for ${finMoney(row.total)}${row.vat?' (incl. VAT)':''}?\n\nIt gets the next invoice number and can’t be changed afterwards.`, {confirmLabel:'Issue invoice'})) return;
+  if(!skipConfirm && !await customConfirm(`Issue this invoice for ${finMoney(row.total)}${row.vat?' (incl. VAT)':''}?\n\nIt gets the next invoice number and can’t be changed afterwards.`, {confirmLabel:'Issue invoice'})) return;
   const btn = document.getElementById('finInvIssue'); const reset = ()=>{ if(btn){ btn.disabled=false; btn.textContent='Issue invoice…'; } };
   if(btn){ btn.disabled = true; btn.textContent = 'Issuing…'; }
   const saved = await dbUpdate('fin_invoices', finInvDraft.id, row);

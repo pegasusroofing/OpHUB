@@ -155,9 +155,12 @@ window.saveFinanceSettings = async function(){
   if(ret===null || isNaN(ret) || ret < 0 || ret > 100){ toast('Retention must be between 0 and 100%.'); return; }
   if(appDay!==null && (isNaN(appDay) || appDay < 1 || appDay > 31)){ toast('Application date must be a day of the month, 1 to 31.'); return; }
   const btn = document.getElementById('finSettingsSave'); if(btn){ btn.disabled = true; btn.textContent = 'Saving…'; }
-  const orgRow = await dbUpdate('organizations', ORG.id, {auto_job_numbers:auto, job_number_prefix:prefix, next_job_number:nextJob||null});
+  // Only write the counters back if the box was actually changed — a form left open must not wind them back (audit FA-01).
+  const changed = id=>{ const el = document.getElementById(id); return !!(el && el.value!==el.defaultValue); };
+  const orgPatch = {auto_job_numbers:auto, job_number_prefix:prefix}; if(changed('finJobNext') || !ORG.next_job_number) orgPatch.next_job_number = nextJob||null;
+  const orgRow = await dbUpdate('organizations', ORG.id, orgPatch);
   if(orgRow) ORG = Object.assign(ORG, orgRow);
-  const res = await sbFetch('/rest/v1/fin_settings', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates,return=representation'}, body:JSON.stringify({
+  const finBody = {
     org_id:ME.org_id, invoice_prefix:finVal('finInvPrefix'), next_invoice_number:invNext, default_retention_pct:ret,
     default_due_days:(due===null||isNaN(due))?30:due, default_final_days:(fin===null||isNaN(fin))?14:fin,
     default_vat:finVal('finDefVat')||'standard', app_reminder_day:appDay, updated_at:new Date().toISOString(), updated_by:ME.id,
@@ -166,7 +169,9 @@ window.saveFinanceSettings = async function(){
     company_address:finVal('finCoAddr')||null, company_vat_no:finVal('finCoVat')||null, company_reg_no:finVal('finCoReg')||null,
     bank_name:finVal('finBank')||null, bank_account_name:finVal('finBankName')||null, bank_sort_code:finVal('finBankSort')||null,
     bank_account_no:finVal('finBankAcc')||null, invoice_footer:finVal('finFooter')||null,
-  })});
+  };
+  if(!changed('finInvNext') && FIN_SETTINGS && FIN_SETTINGS.org_id) delete finBody.next_invoice_number;
+  const res = await sbFetch('/rest/v1/fin_settings', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates,return=representation'}, body:JSON.stringify(finBody)});
   if(btn){ btn.disabled = false; btn.textContent = 'Save settings'; }
   if(!res.ok){ toast('Save failed — '+(await safeErr(res))); return; }
   FIN_SETTINGS = (await res.json())[0] || FIN_SETTINGS;

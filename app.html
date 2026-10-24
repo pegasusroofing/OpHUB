@@ -4822,7 +4822,8 @@ function mediaRequiredFor(it, answers){
   return it.mediaRequiredWhen.includes(val);
 }
 function orgLogoUrl(org){
-  return org && org.logo_path ? publicUrl('org-logos', org.logo_path) : OPHUB_LOGO;
+  // Path segments are URL-encoded so a crafted logo_path can't break out of src="…" (audit 24 Oct).
+  return org && org.logo_path ? publicUrl('org-logos', String(org.logo_path).split('/').map(encodeURIComponent).join('/')) : OPHUB_LOGO;
 }
 // 'admin' is a superset of 'pm' capabilities everywhere in this app, and
 // 'site_manager' is a day-to-day-operational subset of 'pm' — mirrors the
@@ -6109,7 +6110,7 @@ function shell(innerHtml, opts){
           </div>
         ` : `
         <div class="row" style="align-items:center;">
-          ${opts.back ? `<span class="backarrow" onclick="goBack('${opts.back}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 5 8 12 15 19"></polyline></svg></span>` : `<img class="brandmark" src="${orgLogoUrl(ORG)}" alt="OpHUB" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'" style="cursor:pointer;" onclick="goHome()">`}
+          ${opts.back ? `<span class="backarrow" onclick="goBack('${jsAttr(opts.back)}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 5 8 12 15 19"></polyline></svg></span>` : `<img class="brandmark" src="${orgLogoUrl(ORG)}" alt="OpHUB" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'" style="cursor:pointer;" onclick="goHome()">`}
           <div style="flex:1;min-width:0;min-height:59.4px;display:flex;flex-direction:column;justify-content:center;text-align:center;padding-top:4px;">
             ${!opts.back ? `<div class="brandline" style="cursor:pointer;" onclick="goHome()">OpHUB${ORG && ORG.name ? ` <span style="color:var(--brand1);">- ${escapeHtml(ORG.name)}</span>` : ''}</div>` : ''}
             <h2 style="cursor:pointer;${opts.titleTwoLine ? 'white-space:normal;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.2;' : ''}" onclick="goHome()">${escapeHtml(opts.title||'')}</h2>
@@ -9810,7 +9811,7 @@ async function renderTeam(adminPage, adminItemKey){
     pendingInvites = pendingInviteRows;
     permanentInvite = permanentInviteRows[0] || null;
   } })());
-  let odConn = null; __tp.push((async()=>{ if(iAmAdmin && teamSectionOpen.integrations) odConn = (await dbSelect('onedrive_connections', 'org_id=eq.'+ME.org_id))[0] || null; })());
+  let odConn = null; __tp.push((async()=>{ if(iAmAdmin && teamSectionOpen.integrations) odConn = (await dbSelect('onedrive_connections', 'org_id=eq.'+ME.org_id+'&select=org_id,account_email,folder_path,connected_at'))[0] || null; /* never pull the tokens into the browser (audit 24 Oct) */ })());
   let tbtTemplates = []; __tp.push((async()=>{ if(iAmAdmin && teamSectionOpen.tbt) tbtTemplates = await dbSelect('tbt_templates', 'org_id=eq.'+ME.org_id+'&order=created_at.desc'); })());
   let reportTemplates = []; __tp.push((async()=>{ if(isManager(ME) && teamSectionOpen.reporttemplates) reportTemplates = await dbSelect('report_templates', 'org_id=eq.'+ME.org_id+'&archived=eq.false&order=name.asc'); })());
   let deviceLocks = []; __tp.push((async()=>{ if(isFullManager(ME) && teamSectionOpen.devicelocks) deviceLocks = await dbSelect('device_locks', 'org_id=eq.'+ME.org_id+'&order=last_seen_at.desc'); })());
@@ -9984,7 +9985,7 @@ async function renderTeam(adminPage, adminItemKey){
     <div class="adm-od">
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">OneDrive — progress report photos</p>
-      ${odConn && odConn.access_token ? `
+      ${odConn ? `
         <p class="stub" style="margin:0 0 8px;color:var(--ok);">Connected — syncing to ${escapeHtml(odConn.account_email||'your OneDrive')} · folder "${escapeHtml(odConn.folder_path)}"</p>
         <button class="ghostbtn" onclick="disconnectOneDrive()">Disconnect</button>
       ` : `
@@ -10608,8 +10609,8 @@ async function renderTeam(adminPage, adminItemKey){
         <div class="sitecard" style="padding:8px 10px;border-color:var(--warn);background:var(--warn-bg);">
           <div class="info"><div class="name">${escapeHtml(d.user_name||'Unknown')}</div><div class="addr">Requested ${new Date(d.requested_at||d.locked_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})} — new device</div></div>
           <div style="display:flex;gap:6px;">
-            <button class="darkbtn" style="width:auto;padding:6px 10px;" onclick="approvePendingDevice('${d.device_id}')">Approve</button>
-            <button class="ghostbtn" style="width:auto;padding:6px 10px;color:var(--red);border-color:var(--red);" onclick="unlockDevice('${d.device_id}')">Deny</button>
+            <button class="darkbtn" style="width:auto;padding:6px 10px;" onclick="approvePendingDevice('${jsAttr(d.device_id)}')">Approve</button>
+            <button class="ghostbtn" style="width:auto;padding:6px 10px;color:var(--red);border-color:var(--red);" onclick="unlockDevice('${jsAttr(d.device_id)}')">Deny</button>
           </div>
         </div>
       `).join('')}
@@ -10618,7 +10619,7 @@ async function renderTeam(adminPage, adminItemKey){
       ${deviceLocks.filter(d=>d.status!=='pending').length ? deviceLocks.filter(d=>d.status!=='pending').map(d=>`
         <div class="sitecard" style="padding:8px 10px;">
           <div class="info"><div class="name">${escapeHtml(d.user_name||'Unknown')}</div><div class="addr">Last used ${new Date(d.last_seen_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div></div>
-          <button class="ghostbtn" style="width:auto;padding:6px 10px;" onclick="unlockDevice('${d.device_id}')">Unlock</button>
+          <button class="ghostbtn" style="width:auto;padding:6px 10px;" onclick="unlockDevice('${jsAttr(d.device_id)}')">Unlock</button>
         </div>
       `).join('') : `<div class="empty" style="padding:10px;">No devices locked yet.</div>`}
     </div>
@@ -15857,7 +15858,7 @@ async function renderAssignTeam(siteId){
   const __pActivity = Promise.resolve([]); // the Activity History now has its own screen (renderSiteActivity)
   const __pMain = Promise.all([
     dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id'),
-    dbSelect('onedrive_connections', 'org_id=eq.'+ME.org_id+'&select=access_token'),
+    dbSelect('onedrive_connections', 'org_id=eq.'+ME.org_id+'&select=org_id'),
     dbSelect('site_sub_addresses', 'site_id=eq.'+siteId+'&order=name.asc'),
   ]);
   await loadAllProfiles();
@@ -15866,7 +15867,7 @@ async function renderAssignTeam(siteId){
   const siteManagerPeople = Object.values(PROFILES).filter(p=>p.role==='site_manager').sort((a,b)=>a.name.localeCompare(b.name));
   const [assigned, odConnRows, subAddresses] = await __pMain;
   const assignedIds = new Set(assigned.map(a=>a.user_id));
-  const odCompanyConnected = odConnRows.length>0 && !!odConnRows[0].access_token;
+  const odCompanyConnected = odConnRows.length>0;
   // Quick multi-tick "Assign Operatives to X" per subcontractor, right here
   // on Settings & Admin, so a PM doesn't have to go via Subcontractors > the
   // company > Operatives (one-at-a-time) just to build a crew list. Only
@@ -33135,7 +33136,7 @@ async function checkHsPolicyGate(){
   try{
     const {doc, sigs} = await fetchHsPolicyData();
     if(!doc){ hsPolicyGatePending = false; return false; }
-    const mySig = sigs.find(s=>s.user_id===ME.id);
+    const mySig = sigs.filter(s=>s.user_id===ME.id).pop();   // newest — sigs come oldest first (audit 24 Oct)
     hsPolicyGatePending = !hsPolicySigStillValid(doc, mySig);
   }catch(e){ hsPolicyGatePending = false; }
   return hsPolicyGatePending;
@@ -46786,9 +46787,12 @@ window.saveFinanceSettings = async function(){
   if(ret===null || isNaN(ret) || ret < 0 || ret > 100){ toast('Retention must be between 0 and 100%.'); return; }
   if(appDay!==null && (isNaN(appDay) || appDay < 1 || appDay > 31)){ toast('Application date must be a day of the month, 1 to 31.'); return; }
   const btn = document.getElementById('finSettingsSave'); if(btn){ btn.disabled = true; btn.textContent = 'Saving…'; }
-  const orgRow = await dbUpdate('organizations', ORG.id, {auto_job_numbers:auto, job_number_prefix:prefix, next_job_number:nextJob||null});
+  // Only write the counters back if the box was actually changed — a form left open must not wind them back (audit FA-01).
+  const changed = id=>{ const el = document.getElementById(id); return !!(el && el.value!==el.defaultValue); };
+  const orgPatch = {auto_job_numbers:auto, job_number_prefix:prefix}; if(changed('finJobNext') || !ORG.next_job_number) orgPatch.next_job_number = nextJob||null;
+  const orgRow = await dbUpdate('organizations', ORG.id, orgPatch);
   if(orgRow) ORG = Object.assign(ORG, orgRow);
-  const res = await sbFetch('/rest/v1/fin_settings', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates,return=representation'}, body:JSON.stringify({
+  const finBody = {
     org_id:ME.org_id, invoice_prefix:finVal('finInvPrefix'), next_invoice_number:invNext, default_retention_pct:ret,
     default_due_days:(due===null||isNaN(due))?30:due, default_final_days:(fin===null||isNaN(fin))?14:fin,
     default_vat:finVal('finDefVat')||'standard', app_reminder_day:appDay, updated_at:new Date().toISOString(), updated_by:ME.id,
@@ -46797,7 +46801,9 @@ window.saveFinanceSettings = async function(){
     company_address:finVal('finCoAddr')||null, company_vat_no:finVal('finCoVat')||null, company_reg_no:finVal('finCoReg')||null,
     bank_name:finVal('finBank')||null, bank_account_name:finVal('finBankName')||null, bank_sort_code:finVal('finBankSort')||null,
     bank_account_no:finVal('finBankAcc')||null, invoice_footer:finVal('finFooter')||null,
-  })});
+  };
+  if(!changed('finInvNext') && FIN_SETTINGS && FIN_SETTINGS.org_id) delete finBody.next_invoice_number;
+  const res = await sbFetch('/rest/v1/fin_settings', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates,return=representation'}, body:JSON.stringify(finBody)});
   if(btn){ btn.disabled = false; btn.textContent = 'Save settings'; }
   if(!res.ok){ toast('Save failed — '+(await safeErr(res))); return; }
   FIN_SETTINGS = (await res.json())[0] || FIN_SETTINGS;
@@ -47263,7 +47269,7 @@ window.deleteFinInvoiceDraft = async function(siteId){
   if(btn && btn.dataset.sure!=='1'){ btn.dataset.sure='1'; btn.textContent='Tap again to delete'; return; }
   if(await dbDelete('fin_invoices', finInvDraft.id)){ finInvDraft = null; toast('Draft deleted'); go(`#/site/${siteId}/finance`); }
 };
-window.issueFinInvoice = async function(siteId){
+window.issueFinInvoice = async function(siteId, skipConfirm){
   const row = finInvDraftRow();
   if(!row.lines.length){ toast('Add at least one line.'); return; }
   if(row.lines.some(l=>l.amount===null)){ toast('Every line needs an amount.'); return; }
@@ -47271,7 +47277,7 @@ window.issueFinInvoice = async function(siteId){
   if(!row.bill_name){ toast('Add who the invoice is to.'); return; }
   if(!row.issue_date || !row.due_date){ toast('Add the invoice date and due date.'); return; }
   if(row.bill_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(row.bill_email)){ toast('Enter a valid accounts email.'); return; }
-  if(!await customConfirm(`Issue this invoice for ${finMoney(row.total)}${row.vat?' (incl. VAT)':''}?\n\nIt gets the next invoice number and can’t be changed afterwards.`, {confirmLabel:'Issue invoice'})) return;
+  if(!skipConfirm && !await customConfirm(`Issue this invoice for ${finMoney(row.total)}${row.vat?' (incl. VAT)':''}?\n\nIt gets the next invoice number and can’t be changed afterwards.`, {confirmLabel:'Issue invoice'})) return;
   const btn = document.getElementById('finInvIssue'); const reset = ()=>{ if(btn){ btn.disabled=false; btn.textContent='Issue invoice…'; } };
   if(btn){ btn.disabled = true; btn.textContent = 'Issuing…'; }
   const saved = await dbUpdate('fin_invoices', finInvDraft.id, row);
@@ -51167,7 +51173,7 @@ const FIN_REPORTS = [
   {id:'debtors', group:'money', title:'Aged debtors', desc:'Who owes you money and how overdue it is.', filters:['job'], run:async f=>{
     const b = await finRepBookLoad(); const today = finToday(); const ids = new Set(finRepSites(Object.assign({}, f, {status:'all'})).map(s=>s.id));
     const rows = (b.invs||[]).filter(i=>ids.has(i.site_id) && finInvOutstandingNet(i)>0).map(i=>{ const s = SITES.find(x=>x.id===i.site_id)||{}; const o = finInvOutstandingNet(i); const late = i.due_date ? finDaysBetween(i.due_date, today) : 0; const r = {client:i.bill_name||s.client_name||'', job:finRepJob(s), inv:i.number, date:i.issue_date, due:i.due_date, cur:0, d30:0, d60:0, d90:0, d90p:0, total:o, _go:`#/site/${i.site_id}/finance/invoice/${i.id}`}; if(late<=0) r.cur=o; else if(late<=30) r.d30=o; else if(late<=60) r.d60=o; else if(late<=90) r.d90=o; else r.d90p=o; return r; }).sort((x,y)=>String(x.client).localeCompare(String(y.client)));
-    return {cols:[{k:'client',l:'Client',w:110},{k:'job',l:'Project',w:120},{k:'inv',l:'Invoice',w:60},{k:'due',l:'Due',date:1},{k:'cur',l:'Not due',money:1},{k:'d30',l:'1–30 days',money:1},{k:'d60',l:'31–60',money:1},{k:'d90',l:'61–90',money:1},{k:'d90p',l:'90+',money:1},{k:'total',l:'Total owed',money:1}], rows, totals:true, note:'Including VAT. Days overdue are counted from the invoice due date.'};
+    return {cols:[{k:'client',l:'Client',w:110},{k:'job',l:'Project',w:120},{k:'inv',l:'Invoice',w:60},{k:'due',l:'Due',date:1},{k:'cur',l:'Not due',money:1},{k:'d30',l:'1–30 days',money:1},{k:'d60',l:'31–60',money:1},{k:'d90',l:'61–90',money:1},{k:'d90p',l:'90+',money:1},{k:'total',l:'Total owed',money:1}], rows, totals:true, note:'Excluding VAT (as everywhere in Finance). Days overdue are counted from the invoice due date.'};
   }},
   {id:'creditors', group:'money', title:'Aged creditors', desc:'Purchase invoices and subcontractor payments you still have to pay.', filters:['job'], run:async f=>{
     const b = await finRepBookLoad(); const today = finToday(); const ids = new Set(finRepSites(Object.assign({}, f, {status:'all'})).map(s=>s.id)); const rows = [];
@@ -51181,7 +51187,7 @@ const FIN_REPORTS = [
     const b = await finRepBookLoad(); const mon = finMonday(finToday()); const weeks = [];
     for(let i=0;i<12;i++) weeks.push({wk:finAddDays(mon, i*7), inv:0, apps:0, sup:0, subs:0});
     const put = (date, k, amt)=>{ let i = date ? Math.floor(finDaysBetween(mon, date)/7) : 0; if(i<0) i = 0; if(i>11) return; weeks[i][k] += amt; };
-    (b.invs||[]).filter(i=>finInvOutstandingNet(i)>0).forEach(i=>put(i.due_date, 'inv', finInvOutstandingNet(i)));
+    (b.invs||[]).filter(i=>finInvOutstanding(i)>0).forEach(i=>put(i.due_date, 'inv', finInvOutstanding(i)));   // cash in includes VAT, like cash out (audit FA-04)
     (b.apps||[]).filter(a=>!a.invoice_id && ['submitted','certified'].includes(a.status)).forEach(a=>{ const jf = finBy(b.jf, a.site_id)[0] || {}; const vt = jf.vat_treatment || 'standard'; put(a.final_date||a.due_date, 'apps', Number(a.cert_net!=null?a.cert_net:a.net_due||0)*(vt==='standard'?1.2:1)); });
     (b.pinvs||[]).filter(i=>(!b.siteId || i.site_id===b.siteId) && i.status==='approved' && !i.paid_on).forEach(i=>put(i.due_date||finAddDays(i.invoice_date,30), 'sup', Number(i.total||0)));
     (b.sapps||[]).filter(a=>a.status==='certified').forEach(a=>put(a.final_date||finAddDays(a.app_date,30), 'subs', Number(a.pay_amount||0)));
@@ -51501,7 +51507,7 @@ async function renderFinJobs(sub){
     if(cmp) shown = shown.slice().sort(cmp);
     const pms = Array.from(new Set(sites.map(s=>s.responsible_pm_id).filter(Boolean))).map(id=>({id, name:(PROFILES[id]||{}).name||'PM'})).sort((a,b)=>a.name.localeCompare(b.name));
     const clients = Array.from(new Set(sites.map(cliOf).filter(Boolean))).sort((a,b)=>a.localeCompare(b));
-    const filtHtml = `<div class="finjobfilt">
+    const filtHtml = `<div class="finjobfilt finprojfilt">
       <label>PM<select onchange="finJobFilt.pm=this.value;render()"><option value="">All PMs</option>${pms.map(p=>`<option value="${p.id}" ${f.pm===p.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}<option value="none" ${f.pm==='none'?'selected':''}>No PM</option></select></label>
       <label class="fincli-lbl">Client<input type="search" placeholder="Client name" list="finJobCliList" value="${escapeHtml(f.client||'')}" oninput="finJobCli(this.value)"><datalist id="finJobCliList">${clients.map(c=>`<option value="${escapeHtml(c)}">`).join('')}</datalist></label>
       <label>Sort<select onchange="finJobFilt.sort=this.value;render()">${[['noza','Project no. (newest first)'],['noaz','Project no. (A–Z)'],['az','Name A–Z'],['za','Name Z–A'],['start','Start date (newest)']].map(([k,l])=>`<option value="${k}" ${f.sort===k?'selected':''}>${l}</option>`).join('')}</select></label>
@@ -55377,7 +55383,9 @@ function finStmtDate(v){
   return null;
 }
 const FIN_DATE_RX = /(?:^|[^\d])(\d{4}[\/.\-]\d{1,2}[\/.\-]\d{1,2}|\d{1,2}[\/.\-]\d{1,2}[\/.\-](?:\d{4}|\d{2})|\d{1,2}(?:st|nd|rd|th)?[\s\-]+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?[\s\-,]+(?:\d{4}|\d{2}))(?![\d])/i;
-const FIN_AMT_RX = /(?<![\d.,\/])(?:-\s?)?£?\s?\(?-?(?:\d{1,3}(?:,\d{3})+|\d+)\.\d{2}\)?(?:\s?(?:CR|DR))?(?![\d\/])/gi;
+// Built at run time: a lookbehind written as a literal stops the whole app parsing on older iPhones (iOS < 16.4) — audit FB-05.
+const FIN_AMT_RX = (()=>{ const body = '(?:-\\s?)?£?\\s?\\(?-?(?:\\d{1,3}(?:,\\d{3})+|\\d+)\\.\\d{2}\\)?(?:\\s?(?:CR|DR))?(?![\\d\\/])';
+  try{ return new RegExp('(?<![\\d.,\\/])'+body, 'gi'); }catch(e){ return new RegExp(body, 'gi'); } })();
 function finAmt(s){
   let t = String(s==null?'':s).trim(); if(!t) return null;
   if(typeof s==='number') return s;
@@ -55806,7 +55814,7 @@ window.yardItemOpen = async function(id){
     <button class="darkbtn" onclick="yardItemSave('${id||''}')">${id?'Save':'Add item'}</button>
     ${moves.length ? `<p class="sectiontitle" style="margin:14px 0 6px;">History</p><div class="yard-hist">${moves.map(m=>`<div><span>${finDate(String(m.created_at).slice(0,10))}</span><b>${YARD_KIND[m.kind]||m.kind} ${m.kind==='adjust'&&Number(m.qty)>0?'+':''}${yardQty(m.qty)}</b><span>${escapeHtml(job(m.site_id) || m.note || '')}</span><em>${escapeHtml((PROFILES[m.created_by]||{}).name||'')}</em></div>`).join('')}</div>` : ''}
   </div>`;
-  ov.style.display = 'flex';
+  document.body.appendChild(ov); ov.style.display = 'flex';
 };
 let yardItemBusy = false;
 window.yardItemSave = async function(id){
@@ -55868,7 +55876,7 @@ window.yardMoveOpen = async function(kind, stockId, siteId, materialId){
     <button class="darkbtn" id="ymGo" onclick="yardMoveSave()">${{in:'Book in', issue:'Issue to job', return:'Return to yard', adjust:'Save count'}[kind]}</button>
     <button class="geo-modal-cancel" onclick="document.getElementById('yardMoveOverlay').style.display='none'">Cancel</button>
   </div>`;
-  ov.style.display = 'flex'; yardMovePaintQty();
+  document.body.appendChild(ov); ov.style.display = 'flex'; yardMovePaintQty();
 };
 window.yardMovePaintQty = function(){
   const el = document.getElementById('ymInfo'); if(!el || !yardCache) return;
@@ -55932,7 +55940,7 @@ window.yardPmOpen = async function(siteId){
       <input type="text" inputmode="decimal" class="yard-qin" id="yq-${s.id}" placeholder="Qty" onkeydown="if(event.key==='Enter')yardQuickIssue('${s.id}','${siteId}')">
       <button type="button" class="yard-sbtn dark" onclick="yardQuickIssue('${s.id}','${siteId}')">Issue</button></div>`).join('') : '<div class="empty">Nothing in the yard list yet.</div>'}<div class="empty lf-empty" style="display:none;">Nothing matches.</div></div>
   </div>`;
-  ov.style.display = 'flex';
+  document.body.appendChild(ov); ov.style.display = 'flex';
 };
 
 let yardQuickBusy = false;
@@ -56214,7 +56222,7 @@ function finJobOverviewHtml(d){
   if(!pos.length && isLive) T('grey', 'No client PO', 'It goes on every invoice and application', 1, `openClientPoForm('${siteId}')`);
   if(!Number(jf.contract_value) && isLive) T('grey', 'No contract value', bt==='application' ? 'Set up the Bill of Quantities' : 'Add it in Project Admin', 1, bt==='application' ? tab('boq') : tab('setup'));
   const c = finClientByName(site.client_name);
-  if(site.client_name && !c) T('grey', 'Client not in the Directory', site.client_name, 1, `openFinDirEdit('client', null, '${jsAttr(site.client_name)}')`);
+  if(site.client_name && !c) T('grey', 'Client not in the Directory', site.client_name, 1, `openFinDirEdit('client', null, '${_jsEsc(site.client_name)}')`);
   else if(c && !c.email) T('grey', 'No accounts email for the client', c.name+' — invoices need somewhere to go', 1, `openFinDirEdit('client', '${c.id}')`);
   const list = todo.length ? `<div class="card fintodo">
       <p class="sectiontitle" style="margin-top:0;">Needs attention</p>
@@ -56288,7 +56296,7 @@ function finJobStatusSelHtml(){
   if(document.getElementById('finNjCss2')) return;
   const st = document.createElement('style'); st.id = 'finNjCss2';
   st.textContent = `.finjobchips{display:none !important;}
-html .finjobfilt > label:not(.fin-searchlbl):not(.fincli-lbl){display:none !important;}
+html .finprojfilt > label:not(.fin-searchlbl):not(.fincli-lbl){display:none !important;}
 .fgfoot-ctl{display:flex;gap:6px;margin-left:auto;}
 .fgfoot-ctl ~ .fgcolbtn{margin-left:0 !important;}
 .fgfoot-ctl ~ .fgfoot-n{margin-left:4px !important;}
@@ -56837,7 +56845,8 @@ window.finCertFromExcel = async function(file, appId){
   };
   const save = window.saveFinCertificate;
   window.saveFinCertificate = async function(siteId, appId){
-    await dbUpdate('fin_applications', appId, {cert_lines:finCertLines||null}); finCertLines = null;
+    // Keep the line detail for a retry, and never wipe it with null (audit FB-08).
+    if(finCertLines) await dbUpdate('fin_applications', appId, {cert_lines:finCertLines});
     return save.apply(this, arguments);
   };
 })();
@@ -56895,7 +56904,9 @@ window.finSalesGo = function(siteId, sub){
         finInvDraft = JSON.parse(JSON.stringify(inv));
         if(!Array.isArray(finInvDraft.lines) || !finInvDraft.lines.length) finInvDraft.lines = [{description:'', amount:null}];
         const dflt = finInvVatFromTreatment(finInvDraft.vat_treatment, finInvDraft.vat_rate);
-        finInvDraft.lines.forEach(l=>{ if(!l.vat || l.vat===dflt) l.vat = code; });
+        // Only on a draft nobody has saved yet — reopening a saved draft keeps the VAT chosen (audit FB-11).
+        const untouched = !inv.updated_at || inv.updated_at===inv.created_at;
+        finInvDraft.lines.forEach(l=>{ if(!l.vat || (untouched && l.vat===dflt)) l.vat = code; });
       }
     }
     return base.apply(this, arguments);
@@ -58008,6 +58019,47 @@ window.finCertFromPdf = async function(file, appId){
   document.head.appendChild(st);
 })();
 
+/* fix 16 (24 Oct, overnight audit FB-04): once certified, the Certified column shows what was
+   actually certified — the saved certificate figures and its own line-by-line %, not the
+   previous certificate's. Older certificates (no line detail) show the totals only. */
+(function(){
+  const baseSum = finCertSummaryHtml;
+  finCertSummaryHtml = function(){
+    if(!finApp || finApp.cert_net==null || finCertMode()) return baseSum.apply(this, arguments);
+    const a = finApp, c = finAppCalc(a, finAppCtx.jf.contract_value, finAppCtx.jf.retention_limit_pct, finAppCtx.previous);
+    const cl = Array.isArray(a.cert_lines) && a.cert_lines.length ? a.cert_lines : null;
+    const sumBy = f=>cl ? finRound(cl.filter(f).reduce((s,l)=>s+Number(l.gross||0),0)) : null;
+    const cLines = sumBy(l=>l.item_id), cVars = sumBy(l=>l.var_index!=null), cDays = sumBy(l=>l.day_index!=null);
+    const m = v=>v==null ? '—' : finMoney(v), neg = v=>'−'+finMoney(v||0);
+    const row = (label, x, y, cls)=>`<div class="fincs-r ${cls||''}"><span>${label}</span><b>${x}</b><b class="c">${y}</b></div>`;
+    const contractTotal = (a.lines||[]).filter(finIsItem).reduce((s,l)=>s+Number(l.value||0),0);
+    const prevApplied = finRound(finAppCtx.previous||0);
+    const vt = finAppVatTreat(finAppCtx.jf), cNet = finRound(Number(a.cert_net||0));
+    let h = `<div class="fincs-r head"><span></span><b>Applied</b><b class="c">Certified</b></div>`
+      + row(`Contract works to date${contractTotal?' (of '+finMoney(contractTotal)+')':''}`, finMoney(c.lines.reduce((s,l)=>s+l.gross,0)), m(cLines))
+      + (c.variations.length ? row('Variations', finMoney(c.variations.reduce((s,x)=>s+x.gross,0)), m(cVars)) : '')
+      + (c.dayworks.length ? row('Dayworks', finMoney(c.dayworks.reduce((s,x)=>s+x.gross,0)), m(cDays)) : '')
+      + row('<b>Gross valuation to date</b>', finMoney(c.gross), finMoney(a.cert_gross), 'bold')
+      + row('Less discount', neg(c.discount), neg(a.cert_discount))
+      + row(`Less retention @ ${finPct(a.retention_pct)}%`, neg(c.retention), neg(a.cert_retention))
+      + row('Less previously certified', neg(prevApplied), neg(a.cert_previous))
+      + row('Amount due this application', finMoney(c.net_due), finMoney(cNet), 'big');
+    if(vt==='standard') h += row('VAT @ 20%', finMoney(finRound(c.net_due*.2)), finMoney(finRound(cNet*.2))) + row('Total incl. VAT', finMoney(finRound(c.net_due*1.2)), finMoney(finRound(cNet*1.2)), 'bold');
+    const diff = finRound(cNet - Number(a.net_due||c.net_due));
+    if(diff) h += `<p class="stub" style="margin:8px 0 0;font-style:normal;color:${diff<0?'var(--red)':'var(--ok)'};"><b>${diff<0?'Short by':'Over by'} ${finMoney(Math.abs(diff))}</b> against what you applied for.</p>`;
+    return h;
+  };
+  const baseW = finCertWorkInit;
+  finCertWorkInit = function(){
+    const W = baseW.apply(this, arguments);
+    if(finApp && finApp.cert_net!=null && Array.isArray(finApp.cert_lines) && finApp.cert_lines.length && !W.__own){
+      finApp.cert_lines.forEach(l=>{ if(l.var_index!=null) W.vars[l.var_index] = l.pct; else if(l.day_index!=null) W.days[l.day_index] = Number(l.gross||0); });
+      W.__own = true;
+    }
+    return W;
+  };
+})();
+
 /* ============================================================
    OpHUB Finance — a project's Overview figures you can change
    (23 Oct 2026, Andy: "can we have these tabs be selectable or changeable",
@@ -58799,11 +58851,13 @@ let finRegSynced = {};
     if(!finApp || finApp.id!==appId || finApp.status!=='draft' || finRegSynced[appId]===finApp.__loaded) return r;
     finRegSynced[appId] = finApp.__loaded;
     const [fv, fd] = await Promise.all([
-      dbSelect('fin_variations', 'site_id=eq.'+siteId+'&select=id,number,title,status,agreed_value,quoted').catch(()=>null),
+      dbSelect('fin_variations', 'site_id=eq.'+siteId+'&select=id,number,title,status,agreed_value,quoted,variation_id').catch(()=>null),
       dbSelect('fin_dayworks', 'site_id=eq.'+siteId+'&select=id,number,title,status,value').catch(()=>null)]);
     if(!fv || !fd || !finApp || finApp.id!==appId) return r;
     let changed = false;
     const vBy = {}; fv.forEach(v=>vBy[v.id] = v);
+    // A site variation already on the draft (variation_id only) is the same one as its register copy — link them, don't add it twice (bug FB-03).
+    (finApp.variations||[]).forEach(v=>{ if(!v.fin_variation_id && v.variation_id){ const x = fv.find(f=>f.variation_id===v.variation_id); if(x){ v.fin_variation_id = x.id; changed = true; } } });
     const vars = (finApp.variations||[]).filter(v=>{ if(!v.fin_variation_id) return true; const x = vBy[v.fin_variation_id]; if(x && x.status==='agreed') return true; changed = true; return false; });
     vars.forEach(v=>{ const x = v.fin_variation_id && vBy[v.fin_variation_id]; if(x && x.agreed_value!=null && Number(v.value)!==Number(x.agreed_value)){ v.value = Number(x.agreed_value); changed = true; } });
     fv.filter(v=>v.status==='agreed' && !vars.some(x=>x.fin_variation_id===v.id)).forEach(v=>{ vars.push({fin_variation_id:v.id, variation_id:null, description:v.number+' '+v.title, value:Number(v.agreed_value!=null?v.agreed_value:v.quoted||0), pct:100}); changed = true; });
@@ -58849,8 +58903,10 @@ finJobStatusSelHtml = function(){
 .fgfoot{background:var(--brand1) !important;color:var(--brand1-text,#fff) !important;}
 .fgfoot .fgcolbtn, .fgfoot-ctl select{background-color:rgba(255,255,255,.16) !important;border:1px solid rgba(255,255,255,.35) !important;color:var(--brand1-text,#fff) !important;}
 .fgfoot .fgfoot-bad{color:inherit !important;background:rgba(0,0,0,.2);padding:1px 7px;border-radius:6px;}
-.finjobfilt .fin-searchlbl{display:none !important;}
-.finjobfilt:not(:has(.fincli-lbl)){display:none !important;}`;
+.finprojfilt .fin-searchlbl{display:none !important;}
+.finprojfilt:not(:has(.fincli-lbl)){display:none !important;}
+/* audit FB-12: other lists keep their filter bar on phones, where the column filters are hidden */
+@media (min-width:701px){ .finjobfilt:not(.finprojfilt){display:none !important;} }`;
   document.head.appendChild(st);
 })();
 
@@ -59566,7 +59622,9 @@ function finAutoFootPaint(){
 (function(){
   let tmr = null;
   const run = ()=>{ clearTimeout(tmr); tmr = setTimeout(()=>{ try{ finAutoFoot(); finTcSweep(); if(typeof finColFilters==='function') finColFilters(); }catch(e){ console.error(e); } }, 60); };
-  const start = ()=>{ const app = document.getElementById('app'); if(!app) return setTimeout(start, 400); new MutationObserver(muts=>{ if(muts.some(m=>Array.from(m.addedNodes).some(n=>n.nodeType===1 && !(n.classList && (n.classList.contains('finautofoot') || n.classList.contains('finsfoot-t')))))) run(); }).observe(app, {childList:true, subtree:true}); run(); };
+  const skipNode = n=>n.nodeType!==1 || (n.classList && (n.classList.contains('finautofoot') || n.classList.contains('finsfoot-t') || n.classList.contains('fcf-row') || n.classList.contains('navcrumbs')));
+  const inOwn = t=>!!(t && t.closest && t.closest('.finautofoot, .finsfoot, .fcf-row, .navcrumbs'));
+  const start = ()=>{ const app = document.getElementById('app'); if(!app) return setTimeout(start, 400); new MutationObserver(muts=>{ if(muts.some(m=>!inOwn(m.target) && Array.from(m.addedNodes).some(n=>!skipNode(n)))) run(); }).observe(app, {childList:true, subtree:true}); run(); };
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', start); else start();
   const lf = liveFilter;
   liveFilter = function(){ const r = lf.apply(this, arguments); finAutoFootPaint(); return r; };
@@ -60521,11 +60579,13 @@ async function finAsSave(){
   let ok = false;
   try{
     const row = Object.assign(JSON.parse(snap), {updated_at:new Date().toISOString()});
-    const res = await sbFetch('/rest/v1/fin_applications?id=eq.'+id, {method:'PATCH', headers:{'Prefer':'return=minimal'}, body:JSON.stringify(row)});
+    const res = await sbFetch('/rest/v1/fin_applications?id=eq.'+id, {method:'PATCH', headers:{'Prefer':'return=representation'}, body:JSON.stringify(row)});
     ok = !!(res && res.ok);
+    // Remember what the server now holds, so the next redraw keeps the in-memory copy (bug FB-02).
+    if(ok){ try{ const d = await res.json(); const u = (Array.isArray(d) ? d[0] : d || {}).updated_at; if(u && finApp && finApp.id===id) finApp.__loaded = u; }catch(e){} }
   }catch(e){ ok = false; }
   finAsBusy = false;
-  if(ok){ finAsLast[id] = snap; finAsLocal(id, null); finAsShow('saved'); }
+  if(ok){ finAsLast[id] = snap; finAsLocal(id, null); finAsShow('saved'); try{ if(finAsOn() && finApp.id===id && finAsSnap()!==snap) finAsQueue(); }catch(e){} }
   else { finAsShow('offline'); clearTimeout(finAsTimer); finAsTimer = setTimeout(finAsSave, 15000); }
 }
 window.addEventListener('online', ()=>{ if(finAsOn()) finAsSave(); });
@@ -60561,6 +60621,13 @@ document.addEventListener('click', e=>{ if(e.target && e.target.closest && e.tar
 html.desk.finmode .finappbtns{padding:0 24px;}`;
   document.head.appendChild(st);
 })();
+// Changes made by buttons that redraw the page (e.g. "Use site progress") are saved too.
+(function(){
+  ['finAppUseSiteProgress','finSpUseLine'].forEach(n=>{
+    const f = window[n]; if(typeof f!=='function') return;
+    window[n] = async function(){ const r = await f.apply(this, arguments); if(typeof finAsQueue==='function') finAsQueue(); return r; };
+  });
+})();
 
 /* ============================================================
    OpHUB Finance — Raise invoice → the invoice screen, with the invoice shown on the right
@@ -60573,7 +60640,7 @@ html.desk.finmode .finappbtns{padding:0 24px;}`;
 let finIdTimer = null, finIdUrl = null;
 function finIdOn(){ return typeof isDeskMode==='function' && isDeskMode(); }
 function finIdClear(){
-  document.documentElement.classList.remove('finidsplit');
+  document.documentElement.classList.remove('finidsplit','finidpage');
   const p = document.getElementById('finIdPanel'); if(p) p.remove();
   if(finIdUrl){ try{ URL.revokeObjectURL(finIdUrl); }catch(e){} finIdUrl = null; }
 }
@@ -60598,21 +60665,25 @@ async function finIdPreview(site){
   const base = renderFinInvoiceDraft;
   renderFinInvoiceDraft = function(site, inv, pos){
     const r = base.apply(this, arguments);
-    if(!finIdOn() || !finInvDraft) return r;
-    const wrap = document.querySelector('.scrollarea'); if(!wrap) return r;
+    if(!finInvDraft) return r;
     const xc = typeof finXeroConnected==='function' && finXeroConnected();
-    document.documentElement.classList.add('finidsplit');
-    wrap.insertAdjacentHTML('beforeend', `<div class="dwpanel finidp" id="finIdPanel">
-      <div class="dwpanel-bar"><b>🧾 Invoice Preview</b><span class="finpill grey">Draft</span></div>
-      <iframe class="dwpanel-frame" id="finIdFrame" title="Invoice preview"></iframe>
-      <div class="finidp-foot">
-        <label class="finswitch" style="margin:0;"><input type="checkbox" id="finIdXero" ${finInvDraft.xero_post!==false?'checked':''} onchange="finInvDraft.xero_post=this.checked"> <span><b>Post to Xero</b><br><span class="stub" style="font-style:normal;">${xc ? 'Untick to leave it out for now — you can post it later from the invoice.' : 'Xero isn’t connected yet — it’ll be ready to post once it is.'}</span></span></label>
+    document.documentElement.classList.add('finidpage');
+    // 23 Oct (Andy): Post to Xero + Approve & Issue sit at the top of the left side.
+    const first = Array.from(document.querySelectorAll('#app .card')).find(c=>/Draft invoice/i.test((c.querySelector('.sectiontitle')||{}).textContent||''));
+    if(first && !document.getElementById('finIdBox')) first.insertAdjacentHTML('beforebegin', `<div class="card finidbox" id="finIdBox">
+        <label class="finswitch" style="margin:0;"><input type="checkbox" id="finIdXero" ${finInvDraft.xero_post!==false?'checked':''} onchange="finInvDraft.xero_post=this.checked"> <span><b>Post to Xero</b> <span class="stub" style="font-style:normal;">${xc ? '· untick to post it later from the invoice' : '· Xero isn’t connected yet — it’ll be ready to post once it is'}</span></span></label>
         <div class="finidp-btns">
           <button type="button" class="ghostbtn" onclick="saveFinInvoiceDraft(true)">Save Draft</button>
           <button type="button" class="darkbtn" id="finIdIssue" onclick="finIdIssue('${site.id}')">✓ Approve &amp; Issue Invoice</button>
         </div>
-        <p class="stub" style="margin:0;font-style:normal;font-size:12px;">Change anything on the left and the preview updates. Issuing gives it the next invoice number and saves the PDF — it can’t be changed afterwards.</p>
-      </div>
+        <p class="stub" style="margin:0;font-style:normal;font-size:11.5px;">Issuing gives it the next invoice number and saves the PDF — it can’t be changed afterwards.</p>
+      </div>`);
+    if(!finIdOn()){ finIdSite = site; return r; }
+    const wrap = document.querySelector('.scrollarea'); if(!wrap) return r;
+    document.documentElement.classList.add('finidsplit');
+    wrap.insertAdjacentHTML('beforeend', `<div class="dwpanel finidp" id="finIdPanel">
+      <div class="dwpanel-bar"><b>🧾 Invoice Preview</b><span class="finpill grey">Draft</span></div>
+      <iframe class="dwpanel-frame" id="finIdFrame" title="Invoice preview"></iframe>
     </div>`);
     finIdPreview(site);
     finIdSite = site;
@@ -60629,10 +60700,8 @@ async function finIdPreview(site){
     finInvDraft.xero_post = post;
     const id = finInvDraft.id;
     if(btn){ btn.disabled = true; btn.textContent = 'Issuing…'; }
-    const realConfirm = window.customConfirm;
-    window.customConfirm = async()=>true;   // the panel is the confirmation
-    try{ await issueFinInvoice(siteId); }
-    finally{ window.customConfirm = realConfirm; const b = document.getElementById('finIdIssue'); if(b){ b.disabled = false; b.textContent = '✓ Approve & Issue Invoice'; } }
+    try{ await issueFinInvoice(siteId, true); }   // the box is the confirmation
+    finally{ const b = document.getElementById('finIdIssue'); if(b){ b.disabled = false; b.textContent = '✓ Approve & Issue Invoice'; } }
     const inv = (await dbSelect('fin_invoices', 'id=eq.'+id+'&select=id,status,xero_id').catch(()=>[]))[0];
     if(inv && inv.status!=='draft' && post && typeof finXeroConnected==='function' && finXeroConnected() && !(FIN_SETTINGS && FIN_SETTINGS.xero_auto) && !inv.xero_id){
       finXeroPush('invoice', inv.id, true).then(ok=>{ if(ok){ toast('Also posted to Xero'); render(); } });
@@ -60642,12 +60711,29 @@ async function finIdPreview(site){
   const st = document.createElement('style');
   st.textContent = `html.desk.finidsplit .scrollarea > *:not(#finIdPanel){margin-right:calc((100vw - 248px) * .5) !important;}
 html.desk #finIdPanel{width:calc((100vw - 248px) * .5 - 24px);}
-html.finidsplit .finxpost, html.finidsplit #finInvIssue, html.finidsplit .fininv-actions{display:none !important;}
-html.finidsplit .finline textarea{min-height:44px !important;height:auto;field-sizing:content;}
-.finidp-foot{border-top:1px solid #ECEEF2;padding:12px 14px;display:flex;flex-direction:column;gap:10px;background:#fff;}
+html.finidpage .finxpost, html.finidpage #finInvIssue, html.finidpage .fininv-actions{display:none !important;}
+.finidbox{display:flex;flex-direction:column;gap:10px;border:1.5px solid var(--brand1,#e3262b) !important;}
+/* compact invoice form (Andy, 23 Oct: "it all seems too big") */
+html.finidpage #app .card{padding:14px 16px !important;margin-bottom:10px !important;}
+html.finidpage #app .card .sectiontitle{font-size:15px !important;margin-bottom:6px !important;}
+html.finidpage #app .formfield{margin-bottom:8px !important;}
+html.finidpage #app .field-label{font-size:11.5px !important;margin-bottom:3px !important;}
+html.finidpage #app .card input:not([type=checkbox]), html.finidpage #app .card select{height:34px !important;min-height:34px !important;padding:0 10px !important;font-size:13.5px !important;border-radius:8px !important;}
+html.finidpage #app .card textarea{min-height:34px !important;padding:7px 10px !important;font-size:13.5px !important;border-radius:8px !important;height:auto;field-sizing:content;}
+html.finidpage #finInvBillAddr{min-height:34px !important;}
+html.finidpage #finInvTotals .finkv{padding:4px 0 !important;font-size:13.5px !important;}
+html.finidpage #finInvTotals .finkv.big{font-size:15px !important;padding:6px 0 !important;}
+html.finidpage #finInvTotals .finrc{padding:8px 10px !important;margin-top:6px !important;}
+html.finidpage .finline{grid-template-columns:minmax(0,1fr) 120px 110px 22px !important;align-items:start;padding:6px 0 !important;gap:6px !important;}
+html.finidpage .finline-r{display:contents !important;}
+html.finidpage .finline-vat{margin-top:0 !important;min-width:0 !important;width:100% !important;}
+html.finidpage .finline .linkbtn{font-size:0 !important;padding:8px 0 0 !important;margin:0 !important;}
+html.finidpage .finline .linkbtn::after{content:'✕';font-size:14px;color:var(--red);}
+html.finidpage #app .card > .ghostbtn{padding:7px 12px !important;font-size:13px !important;}
+@media (max-width:600px){ html.finidpage .finline{grid-template-columns:minmax(0,1fr) 100px 22px !important;} html.finidpage .finline > textarea{grid-column:1/-1;} }
 .finidp-btns{display:flex;gap:8px;}
 .finidp-btns button{margin:0 !important;width:auto !important;}
-.finidp-btns .darkbtn{flex:1;font-size:15px !important;padding:11px 16px !important;}`;
+.finidp-btns .darkbtn{flex:1;font-size:14.5px !important;padding:9px 16px !important;}`;
   document.head.appendChild(st);
 })();
 
@@ -60668,10 +60754,12 @@ html.finidsplit .finline textarea{min-height:44px !important;height:auto;field-s
     if(typeof fn!=='function' || fn.__once || skip.has(name)) return;
     if(fn.constructor && fn.constructor.name!=='AsyncFunction') return;
     const w = async function(...args){
-      if(running.has(name)) return; // already working on it — ignore the second tap
-      running.add(name); document.documentElement.classList.add('finbusy');
+      // Xero posts are guarded per record, so posting several bills at once isn't dropped (audit FB-06).
+      const key = name==='finXeroPush' ? name+':'+args[0]+':'+args[1] : name;
+      if(running.has(key)) return; // already working on it — ignore the second tap
+      running.add(key); document.documentElement.classList.add('finbusy');
       try{ return await fn.apply(this, args); }
-      finally{ running.delete(name); if(!running.size) document.documentElement.classList.remove('finbusy'); }
+      finally{ running.delete(key); if(!running.size) document.documentElement.classList.remove('finbusy'); }
     };
     w.__once = true; window[name] = w;
   };

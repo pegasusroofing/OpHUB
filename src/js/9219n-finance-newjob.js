@@ -229,7 +229,7 @@ function finJobOverviewHtml(d){
   if(!pos.length && isLive) T('grey', 'No client PO', 'It goes on every invoice and application', 1, `openClientPoForm('${siteId}')`);
   if(!Number(jf.contract_value) && isLive) T('grey', 'No contract value', bt==='application' ? 'Set up the Bill of Quantities' : 'Add it in Project Admin', 1, bt==='application' ? tab('boq') : tab('setup'));
   const c = finClientByName(site.client_name);
-  if(site.client_name && !c) T('grey', 'Client not in the Directory', site.client_name, 1, `openFinDirEdit('client', null, '${jsAttr(site.client_name)}')`);
+  if(site.client_name && !c) T('grey', 'Client not in the Directory', site.client_name, 1, `openFinDirEdit('client', null, '${_jsEsc(site.client_name)}')`);
   else if(c && !c.email) T('grey', 'No accounts email for the client', c.name+' — invoices need somewhere to go', 1, `openFinDirEdit('client', '${c.id}')`);
   const list = todo.length ? `<div class="card fintodo">
       <p class="sectiontitle" style="margin-top:0;">Needs attention</p>
@@ -303,7 +303,7 @@ function finJobStatusSelHtml(){
   if(document.getElementById('finNjCss2')) return;
   const st = document.createElement('style'); st.id = 'finNjCss2';
   st.textContent = `.finjobchips{display:none !important;}
-html .finjobfilt > label:not(.fin-searchlbl):not(.fincli-lbl){display:none !important;}
+html .finprojfilt > label:not(.fin-searchlbl):not(.fincli-lbl){display:none !important;}
 .fgfoot-ctl{display:flex;gap:6px;margin-left:auto;}
 .fgfoot-ctl ~ .fgcolbtn{margin-left:0 !important;}
 .fgfoot-ctl ~ .fgfoot-n{margin-left:4px !important;}
@@ -852,7 +852,8 @@ window.finCertFromExcel = async function(file, appId){
   };
   const save = window.saveFinCertificate;
   window.saveFinCertificate = async function(siteId, appId){
-    await dbUpdate('fin_applications', appId, {cert_lines:finCertLines||null}); finCertLines = null;
+    // Keep the line detail for a retry, and never wipe it with null (audit FB-08).
+    if(finCertLines) await dbUpdate('fin_applications', appId, {cert_lines:finCertLines});
     return save.apply(this, arguments);
   };
 })();
@@ -910,7 +911,9 @@ window.finSalesGo = function(siteId, sub){
         finInvDraft = JSON.parse(JSON.stringify(inv));
         if(!Array.isArray(finInvDraft.lines) || !finInvDraft.lines.length) finInvDraft.lines = [{description:'', amount:null}];
         const dflt = finInvVatFromTreatment(finInvDraft.vat_treatment, finInvDraft.vat_rate);
-        finInvDraft.lines.forEach(l=>{ if(!l.vat || l.vat===dflt) l.vat = code; });
+        // Only on a draft nobody has saved yet — reopening a saved draft keeps the VAT chosen (audit FB-11).
+        const untouched = !inv.updated_at || inv.updated_at===inv.created_at;
+        finInvDraft.lines.forEach(l=>{ if(!l.vat || (untouched && l.vat===dflt)) l.vat = code; });
       }
     }
     return base.apply(this, arguments);
