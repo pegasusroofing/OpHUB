@@ -37,7 +37,7 @@ const SITE_STATUS_LABEL = {live:'Active', upcoming:'Upcoming', closed:'Closed'};
 // .status.upcoming CSS) — currently Active='✓' tick, Upcoming='🕐' clock.
 // Closed keeps its text label. Swap these two values here if the mapping
 // ever needs reversing.
-const SITE_STATUS_ICON = {live:'✓', upcoming:'🕐'};
+const SITE_STATUS_ICON = {live:'', upcoming:'🕐'};   // 24 Oct (Andy): live is just the green dot, no tick
 // Some sites in the database ended up with status='live' literally instead
 // of 'active' (an old naming inconsistency) — both mean the same thing
 // ("currently live/active project") and must be treated identically
@@ -122,7 +122,7 @@ function siteCardHtml(s, canAdd, pmOptions){
           style="margin-left:4px;width:24px;height:16.8px;flex:0 0 24px;font-size:7.96px;font-weight:400;letter-spacing:normal;text-align:center;justify-content:center;${pmLocked?'background:var(--brand1);color:#fff;':'background:var(--line);color:var(--slate);'}${canSetPm?'cursor:pointer;':''}"
           onclick="event.stopPropagation();${canSetPm?`openPmPicker('${s.id}')`:''}">${pmInitials}</span>
       ` : (pmLocked ? `<span class="rolechip" style="margin-left:4px;width:24px;height:16.8px;flex:0 0 24px;font-size:7.96px;font-weight:400;letter-spacing:normal;text-align:center;justify-content:center;background:var(--brand1);color:#fff;" title="Responsible PM: ${escapeHtml(nameOf(s.responsible_pm_id))}">${pmInitials}</span>` : '')}
-      <span class="status ${statusKey}" title="${SITE_STATUS_LABEL[statusKey]}" ${canAdd?`style="cursor:pointer;" onclick="event.stopPropagation();toggleSiteStatusMenu('${s.id}')"`:''}>${SITE_STATUS_ICON[statusKey] || SITE_STATUS_LABEL[statusKey]}${canAdd?' ▾':''}</span>
+      <span class="status ${statusKey}" title="${SITE_STATUS_LABEL[statusKey]}" ${canAdd?`style="cursor:pointer;" onclick="event.stopPropagation();toggleSiteStatusMenu('${s.id}')"`:''}>${statusKey in SITE_STATUS_ICON ? SITE_STATUS_ICON[statusKey] : SITE_STATUS_LABEL[statusKey]}${canAdd?' ▾':''}</span>
       ${canAdd && siteStatusMenuOpenId===s.id ? `
         <div class="statusmenu" onclick="event.stopPropagation()">
           ${statusKey!=='live' ? `<div class="statusmenu-item" onclick="setSiteStatus('${s.id}','live')">Set Active</div>` : ''}

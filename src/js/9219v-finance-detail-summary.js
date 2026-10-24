@@ -181,6 +181,14 @@ function navUpTarget(){
 (function(){
   const gb = goBack;
   goBack = function(target){
+    // Finance (24 Oct, Andy): back goes to the page you came from (e.g. Sales › Invoices → an
+    // invoice → back to Sales › Invoices). With no trail, it goes up one level as before.
+    const p = parseRoute(), cur = String(location.hash||'');
+    const inFin = p[0]==='finance' || (p[0]==='site' && p[2]==='finance');
+    if(inFin && NAV_STACK.length >= 2 && NAV_STACK[NAV_STACK.length-1] === cur){
+      const prev = NAV_STACK[NAV_STACK.length-2];
+      if(prev && prev!==cur && prev.split('?')[0]!==cur.split('?')[0]) return gb.call(this, prev);
+    }
     const up = navUpTarget();
     if(!up) return gb.apply(this, arguments);
     if(up==='HOME'){ NAV_GOING_BACK = true; if(typeof usesPmHome==='function' && usesPmHome(ME)) go('#/home'); else goHome(); setTimeout(()=>{ NAV_GOING_BACK = false; }, 1500); return; }

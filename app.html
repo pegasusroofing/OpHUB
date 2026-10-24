@@ -7206,7 +7206,7 @@ const SITE_STATUS_LABEL = {live:'Active', upcoming:'Upcoming', closed:'Closed'};
 // .status.upcoming CSS) — currently Active='✓' tick, Upcoming='🕐' clock.
 // Closed keeps its text label. Swap these two values here if the mapping
 // ever needs reversing.
-const SITE_STATUS_ICON = {live:'✓', upcoming:'🕐'};
+const SITE_STATUS_ICON = {live:'', upcoming:'🕐'};   // 24 Oct (Andy): live is just the green dot, no tick
 // Some sites in the database ended up with status='live' literally instead
 // of 'active' (an old naming inconsistency) — both mean the same thing
 // ("currently live/active project") and must be treated identically
@@ -7291,7 +7291,7 @@ function siteCardHtml(s, canAdd, pmOptions){
           style="margin-left:4px;width:24px;height:16.8px;flex:0 0 24px;font-size:7.96px;font-weight:400;letter-spacing:normal;text-align:center;justify-content:center;${pmLocked?'background:var(--brand1);color:#fff;':'background:var(--line);color:var(--slate);'}${canSetPm?'cursor:pointer;':''}"
           onclick="event.stopPropagation();${canSetPm?`openPmPicker('${s.id}')`:''}">${pmInitials}</span>
       ` : (pmLocked ? `<span class="rolechip" style="margin-left:4px;width:24px;height:16.8px;flex:0 0 24px;font-size:7.96px;font-weight:400;letter-spacing:normal;text-align:center;justify-content:center;background:var(--brand1);color:#fff;" title="Responsible PM: ${escapeHtml(nameOf(s.responsible_pm_id))}">${pmInitials}</span>` : '')}
-      <span class="status ${statusKey}" title="${SITE_STATUS_LABEL[statusKey]}" ${canAdd?`style="cursor:pointer;" onclick="event.stopPropagation();toggleSiteStatusMenu('${s.id}')"`:''}>${SITE_STATUS_ICON[statusKey] || SITE_STATUS_LABEL[statusKey]}${canAdd?' ▾':''}</span>
+      <span class="status ${statusKey}" title="${SITE_STATUS_LABEL[statusKey]}" ${canAdd?`style="cursor:pointer;" onclick="event.stopPropagation();toggleSiteStatusMenu('${s.id}')"`:''}>${statusKey in SITE_STATUS_ICON ? SITE_STATUS_ICON[statusKey] : SITE_STATUS_LABEL[statusKey]}${canAdd?' ▾':''}</span>
       ${canAdd && siteStatusMenuOpenId===s.id ? `
         <div class="statusmenu" onclick="event.stopPropagation()">
           ${statusKey!=='live' ? `<div class="statusmenu-item" onclick="setSiteStatus('${s.id}','live')">Set Active</div>` : ''}
@@ -53113,10 +53113,10 @@ function finAppTableHtml(apps, invBy, opts){
   if(!apps.length) return `<div class="empty" style="margin:8px 0 0;">${opts.empty||'No applications yet.'}</div>`;
   const job = !!opts.showJob;
   return `<div class="finreptbl-wrap"><table class="fincosttbl fininvtbl">
-    <thead><tr><th>Application</th>${job?'<th>Project</th>':''}<th>Date</th><th class="num">Applied (net)</th><th class="num">Certified (net)</th><th>Stage</th><th>Invoice</th></tr></thead>
-    <tbody>${apps.map(a=>{ const s = finAppStage(a); const inv = invBy[a.invoice_id]; const short = a.cert_net!=null ? finRound(Number(a.cert_net)-Number(a.net_due||0)) : 0; return `<tr class="click" data-lf="${lfText(finJobTag(a.site_id)+' application '+a.number)}" onclick="go('#/site/${a.site_id}/finance/application/${a.id}')">
-      <td data-l="Application" class="d"><b>No. ${a.number}</b></td>
-      ${job?`<td data-l="Project">${escapeHtml(finJobTag(a.site_id))}</td>`:''}
+    <thead><tr>${job?'<th>Project</th>':''}<th>Application</th><th>Date</th><th class="num">Applied (net)</th><th class="num">Certified (net)</th><th>Stage</th><th>Invoice</th></tr></thead>
+    <tbody>${apps.map(a=>{ const s = finAppStage(a); const inv = invBy[a.invoice_id]; const short = a.cert_net!=null ? finRound(Number(a.cert_net)-Number(a.net_due||0)) : 0; return `<tr class="click" data-lf="${lfText(finJobTag(a.site_id)+' application certificate '+a.number)}" onclick="go('#/site/${a.site_id}/finance/application/${a.id}')">
+      ${job?`<td data-l="Project" class="d"><b>${escapeHtml(finJobTag(a.site_id))}</b></td>`:''}
+      <td data-l="Application" ${job?'':'class="d"'}>${job?'':'<b>'}${a.cert_net!=null || a.invoice_id ? 'Certificate' : 'Application'} ${a.number}${job?'':'</b>'}</td>
       <td data-l="Date">${finDate(a.valuation_date)}</td>
       <td data-l="Applied" class="num">${finMoney(a.net_due)}</td>
       <td data-l="Certified" class="num">${a.cert_net!=null ? finMoney(a.cert_net)+(short<-0.009?`<div class="fininv-rc finbad">${finMoney(-short)} short</div>`:'') : '—'}</td>
@@ -53186,7 +53186,7 @@ async function renderFinSales(sub){
     body = finSecHead('Applications & Certificates', '+ New application', "finPickJob('New application','newFinApplication')")
       + `<p class="stub" style="margin:-4px 0 10px;">Apply → the client certifies it (enter their figures on the application) → the invoice is raised for you. A certificate is just a certified application.</p>`
       + `<div class="pmchips">${[['open','In progress'],['certified','Certified — to invoice'],['invoiced','Invoiced'],['all','All']].map(([k,l])=>finChip(finSalesAppF===k, l, apps.filter(F[k]).length, `finSalesAppF='${k}';finSalesPicked=true;render()`)).join('')}</div>`
-      + finSearchHtml('Search project', 'finSalesList')
+      + finSearchHtml('Search application no., project or client', 'finSalesList')
       + `<div id="finSalesList">${finAppTableHtml(list, invBy, {showJob:true, empty:'Nothing here.'})}</div>`;
   } else if(sub==='invoices'){
     const F = {outstanding:i=>finInvOutstanding(i)>0, overdue:finInvOverdue, draft:i=>i.status==='draft', paid:i=>i.status==='paid', all:()=>true};
@@ -53202,12 +53202,12 @@ async function renderFinSales(sub){
     const appsBy = {}; apps.forEach(a=>{ (appsBy[a.site_id] = appsBy[a.site_id]||[]).push(a); });
     const rows = SITES.map(s=>({s, held:finRetentionHeld(appsBy[s.id]||[]), jf:jfBy[s.id]||{}})).filter(x=>x.held);
     const total = rows.reduce((t,x)=>t+x.held,0);
-    body = finSecHead('Retention') + `<p class="stub" style="margin:-4px 0 12px;">Money your clients are holding back until the work is signed off: ${finMoney(total)} across ${rows.length} job${rows.length===1?'':'s'}. Half usually comes back at practical completion and half at the end of the defects period — set those dates on the project to get reminders.</p>`
+    body = finSecHead('Retention') + `<p class="stub" style="margin:-4px 0 12px;">Money your clients are holding back until the work is signed off: ${finMoney(total)} across ${rows.length} job${rows.length===1?'':'s'}. Half usually comes back at practical completion and half at the end of the defects period — set the dates here (they save to the project) to get reminders.</p>`
       + finSearchHtml('Search project, client', 'finSalesList')
       + `<div id="finSalesList">${rows.length ? `<div class="finreptbl-wrap"><table class="fincosttbl fininvtbl">
-        <thead><tr><th>Project</th><th>Client</th><th>1st half due</th><th>2nd half due</th><th class="num">Held</th></tr></thead>
-        <tbody>${rows.map(x=>{ const d = finRetentionDates(x.jf, st); const when = (dt, inv)=>dt ? finDate(dt)+(inv?' <span class="finpill ok">Claimed</span>':'') : '<span class="stub" style="margin:0;font-style:normal;">Set PC date</span>';
-          return `<tr class="click" data-lf="${lfText([finRepJobOr(x.s), x.s.client_name].join(' '))}" onclick="go('#/site/${x.s.id}/finance')"><td data-l="Project"><b>${escapeHtml(finRepJobOr(x.s))}</b></td><td data-l="Client">${escapeHtml(x.s.client_name||'—')}</td><td data-l="1st half">${when(d.first, x.jf.ret1_invoice_id)}</td><td data-l="2nd half">${when(d.second, x.jf.ret2_invoice_id)}</td><td data-l="Held" class="num"><b>${finMoney(x.held)}</b></td></tr>`; }).join('')}</tbody>
+        <thead><tr><th>Project</th><th>Client</th><th>1st Retention Release</th><th>Final Retention Release</th><th class="num">Held</th></tr></thead>
+        <tbody>${rows.map(x=>{ const d = finRetentionDates(x.jf, st); const when = (dt, inv, n)=>inv ? finDate(dt)+' <span class="finpill ok">Claimed</span>' : `<input type="date" class="finretd" value="${dt||''}" title="${n===1?'Practical completion — first half of the retention is due':'End of the defects period — the rest of the retention is due'}" onclick="event.stopPropagation()" onchange="finRetSetDate('${x.s.id}',${n},this.value)">`;
+          return `<tr class="click" data-lf="${lfText([finRepJobOr(x.s), x.s.client_name].join(' '))}" onclick="go('#/site/${x.s.id}/finance')"><td data-l="Project"><b>${escapeHtml(finRepJobOr(x.s))}</b></td><td data-l="Client">${escapeHtml(x.s.client_name||'—')}</td><td data-l="1st Retention Release">${when(d.first, x.jf.ret1_invoice_id, 1)}</td><td data-l="Final Retention Release">${when(d.second, x.jf.ret2_invoice_id, 2)}</td><td data-l="Held" class="num"><b>${finMoney(x.held)}</b></td></tr>`; }).join('')}</tbody>
         <tfoot><tr><td colspan="4"><b>${rows.length} job${rows.length===1?'':'s'}</b></td><td class="num"><b>${finMoney(total)}</b></td></tr></tfoot></table></div>` : '<div class="empty">No retention held.</div>'}</div>`;
   }
   document.getElementById('app').innerHTML = shell(`
@@ -53215,8 +53215,9 @@ async function renderFinSales(sub){
     <div class="pmstats finstats">
       ${(()=>{ const pA = finStatPeriod('s_appv','month'), pI = finStatPeriod('s_invv','month'), pD = finStatPeriod('s_over','all'), pN = finStatPeriod('s_anc','all');
         // 23 Oct (Andy): Applied Value · Invoiced Value · Overdue · Applied, not certified or invoiced
-        const applied = apps.filter(a=>!['draft','void'].includes(a.status) && finInPeriod(a.valuation_date, pA));
-        const waiting = apps.filter(a=>stage(a)==='submitted' && finInPeriod(a.valuation_date, pN));
+        const aDate = a=>a.valuation_date || String(a.submitted_at||a.created_at||'').slice(0,10);   // no valuation date → when it was made (24 Oct)
+        const applied = apps.filter(a=>!['draft','void'].includes(a.status) && finInPeriod(aDate(a), pA));
+        const waiting = apps.filter(a=>stage(a)==='submitted' && finInPeriod(aDate(a), pN));
         return finStatCardHtml({key:'s_appv', def:'month', label:'Applied Value', onclick:"finSalesAppF='all';finSalesPicked=true;go('#/finance/sales/apps')", value:finMoney(applied.reduce((t,a)=>t+Number(a.net_due||0),0), 0)})
           + finStatCardHtml({key:'s_invv', def:'month', label:'Invoiced Value', onclick:"finInvFilter='all';go('#/finance/sales/invoices')", value:finMoney(live.filter(i=>i.status!=='draft' && finInPeriod(i.issue_date, pI)).reduce((t,i)=>t+Number(i.net||0),0), 0)})
           + finStatCardHtml({key:'s_over', def:'all', label:'Overdue', onclick:"finInvFilter='overdue';go('#/finance/sales/invoices')", value:finMoney(live.filter(finInvOverdue).filter(i=>finInPeriod(i.due_date, pD)).reduce((t,i)=>t+finInvOutstandingNet(i),0), 0)})
@@ -54509,10 +54510,10 @@ function finStatPeriod(key, def){
   const t = finToday(), y = Number(t.slice(0,4)), m = Number(t.slice(5,7));
   const pad = n=>String(n).padStart(2,'0');
   const last = (yy,mm)=>new Date(Date.UTC(yy, mm, 0)).getUTCDate();
-  if(p.k==='month') return {k:p.k, from:`${y}-${pad(m)}-01`, to:t, label:'this month'};
+  if(p.k==='month') return {k:p.k, from:`${y}-${pad(m)}-01`, to:`${y}-${pad(m)}-${pad(last(y,m))}`, label:'this month'};   // whole month, so month-end valuation dates count (24 Oct)
   if(p.k==='lastmonth'){ const yy = m===1?y-1:y, mm = m===1?12:m-1; return {k:p.k, from:`${yy}-${pad(mm)}-01`, to:`${yy}-${pad(mm)}-${pad(last(yy,mm))}`, label:'last month'}; }
-  if(p.k==='quarter'){ const qm = Math.floor((m-1)/3)*3+1; return {k:p.k, from:`${y}-${pad(qm)}-01`, to:t, label:'this quarter'}; }
-  if(p.k==='year') return {k:p.k, from:`${y}-01-01`, to:t, label:'this year'};
+  if(p.k==='quarter'){ const qm = Math.floor((m-1)/3)*3+1; return {k:p.k, from:`${y}-${pad(qm)}-01`, to:`${y}-${pad(qm+2)}-${pad(last(y,qm+2))}`, label:'this quarter'}; }
+  if(p.k==='year') return {k:p.k, from:`${y}-01-01`, to:`${y}-12-31`, label:'this year'};
   if(p.k==='custom' && p.from && p.to) return {k:p.k, from:p.from, to:p.to, label:finDate(p.from)+' – '+finDate(p.to)};
   return {k:'all', from:null, to:null, label:'all time'};
 }
@@ -59382,6 +59383,14 @@ function navUpTarget(){
 (function(){
   const gb = goBack;
   goBack = function(target){
+    // Finance (24 Oct, Andy): back goes to the page you came from (e.g. Sales › Invoices → an
+    // invoice → back to Sales › Invoices). With no trail, it goes up one level as before.
+    const p = parseRoute(), cur = String(location.hash||'');
+    const inFin = p[0]==='finance' || (p[0]==='site' && p[2]==='finance');
+    if(inFin && NAV_STACK.length >= 2 && NAV_STACK[NAV_STACK.length-1] === cur){
+      const prev = NAV_STACK[NAV_STACK.length-2];
+      if(prev && prev!==cur && prev.split('?')[0]!==cur.split('?')[0]) return gb.call(this, prev);
+    }
     const up = navUpTarget();
     if(!up) return gb.apply(this, arguments);
     if(up==='HOME'){ NAV_GOING_BACK = true; if(typeof usesPmHome==='function' && usesPmHome(ME)) go('#/home'); else goHome(); setTimeout(()=>{ NAV_GOING_BACK = false; }, 1500); return; }
@@ -59560,7 +59569,8 @@ function navCrumbs(opts){
 /* ---------- 1a. Title Case on Finance labels ---------- */
 const FIN_TC_KEEP = new Set(['VAT','CIS','PO','POs','BoQ','CVR','PAYE','UTR','HMRC','OpHUB','PDF','PM','PMs','QS','DRC','RC','ID','AFP','No.','Xero','Excel']);
 function finTitleCase(s){
-  return String(s||'').replace(/[A-Za-z][A-Za-z'’.]*/g, w=>{
+  return String(s||'').replace(/[A-Za-z][A-Za-z'’.]*/g, (w, off, str)=>{
+    if(off>0 && /\d/.test(str[off-1])) return w;   // 1st, 2nd, 50k stay as they are
     if(FIN_TC_KEEP.has(w) || /[A-Z].*[A-Z]/.test(w)) return w;
     if(/^(excl|incl)\.?$/i.test(w)) return w.charAt(0).toUpperCase()+w.slice(1);
     return w.charAt(0).toUpperCase()+w.slice(1);
@@ -60734,6 +60744,152 @@ html.finidpage #app .card > .ghostbtn{padding:7px 12px !important;font-size:13px
 .finidp-btns{display:flex;gap:8px;}
 .finidp-btns button{margin:0 !important;width:auto !important;}
 .finidp-btns .darkbtn{flex:1;font-size:14.5px !important;padding:9px 16px !important;}`;
+  document.head.appendChild(st);
+})();
+
+/* ============================================================
+   OpHUB Finance — Projects list on the phone (24 Oct 2026, Andy):
+   - compact project tiles (job + name on top, then Client · PM · Status / Start · Value · PO in two short rows);
+   - the bottom bar's sort is a small "Sort ▾" button that opens the choices;
+   - a Project search (job no., name, client, PM, postcode) on the same row as "+ New project",
+     replacing the Client box.
+   ============================================================ */
+let finJobQ = '';
+function finJobSearchApply(){
+  const g = document.getElementById('finJobGrid'); if(!g) return;
+  const q = finJobQ.trim().toLowerCase();
+  let n = 0, all = 0;
+  g.querySelectorAll('tbody tr').forEach(tr=>{
+    const ok = !q || String(tr.dataset.lf||tr.textContent).toLowerCase().includes(q);
+    tr.classList.toggle('fjq-hide', !ok);
+    if(tr.style.display==='none') return;
+    all++; if(ok && !tr.classList.contains('fg-hide')) n++;
+  });
+  const foot = document.getElementById('finJobGridFoot');
+  if(foot){ let note = foot.querySelector('.fjq-n'); if(q){ if(!note){ note = document.createElement('em'); note.className = 'fjq-n'; const b = foot.querySelector('b'); if(b) b.after(note); else foot.prepend(note); } note.textContent = n+' match'; } else if(note) note.remove(); }
+}
+window.finJobSearch = function(v){ finJobQ = v||''; finJobSearchApply(); };
+function finJobPhoneTidy(){
+  const g = document.getElementById('finJobGrid'); if(!g) return;
+  // Search row (shown on phones; the column filters do this job on a computer)
+  if(!document.getElementById('finJobQRow')){
+    const newBtn = Array.from(document.querySelectorAll('#app button')).find(b=>/New project/i.test(b.textContent||''));
+    const row = document.createElement('div'); row.id = 'finJobQRow'; row.className = 'fjq-row';
+    row.innerHTML = `<input type="search" id="finJobQ" placeholder="Search projects" value="${escapeHtml(finJobQ)}" oninput="finJobSearch(this.value)" autocomplete="off">`
+      + (newBtn ? `<button type="button" class="darkbtn fjq-new" onclick="${escapeHtml(newBtn.getAttribute('onclick')||'')}">+ New project</button>` : '');
+    if(newBtn) newBtn.classList.add('fjq-oldnew');
+    const anchor = document.querySelector('#app .finprojfilt') || g.closest('.finreptbl-wrap') || g;
+    anchor.parentNode.insertBefore(row, anchor);
+  }
+  // Sort: a small "Sort ▾" button over the real drop-down
+  const foot = document.getElementById('finJobGridFoot');
+  const sel = foot && foot.querySelector('select[aria-label="Sort"]');
+  if(sel && !sel.closest('.fjq-sort')){
+    const lab = document.createElement('label'); lab.className = 'fjq-sort'; lab.title = 'Sort by';
+    sel.parentNode.insertBefore(lab, sel); lab.appendChild(document.createTextNode('Sort ▾')); lab.appendChild(sel);
+  }
+  finJobSearchApply();
+}
+(function(){
+  const base = render;
+  render = async function(){
+    const r = await base.apply(this, arguments);
+    try{ if(document.getElementById('finJobGrid')) finJobPhoneTidy(); }catch(e){ console.warn(e); }
+    return r;
+  };
+  window.render = render;
+  const gf = window.finGridFilter;
+  if(gf) window.finGridFilter = function(id){ const r = gf.apply(this, arguments); if(id==='finJobGrid') finJobSearchApply(); return r; };
+  const st = document.createElement('style');
+  st.textContent = `.fjq-row{display:none;}
+#finJobGrid tbody tr.fjq-hide{display:none !important;}
+.fjq-n{font-style:normal;font-size:12px;opacity:.85;margin-left:6px;}
+.fjq-sort{position:relative;display:inline-flex;align-items:center;justify-content:center;height:28px;padding:0 12px;border-radius:8px;font-size:12px;font-weight:700;white-space:nowrap;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);color:inherit;cursor:pointer;flex:none !important;}
+.fjq-sort select{position:absolute !important;inset:0 !important;width:100% !important;height:100% !important;opacity:0 !important;cursor:pointer;margin:0 !important;}
+@media (max-width:700px){
+  .fjq-row{display:flex;gap:8px;align-items:center;margin:0 0 10px;}
+  .fjq-row input{flex:1;min-width:0;height:38px !important;min-height:38px !important;margin:0 !important;padding:0 12px !important;font-size:14px !important;border-radius:10px !important;}
+  .fjq-row .fjq-new{flex:none;width:auto !important;margin:0 !important;padding:9px 12px !important;font-size:13.5px !important;white-space:nowrap;}
+  .fjq-oldnew{display:none !important;}
+  #app .finprojfilt{display:none !important;}
+  #finJobGrid tbody tr{padding:8px 10px !important;column-gap:8px !important;row-gap:4px !important;}
+  #finJobGrid td[data-l="Job"], #finJobGrid td[data-l="Project"]{padding:0 0 5px !important;}
+  #finJobGrid td[data-l="Project"]{font-size:13.5px !important;flex:1 1 calc(100% - 90px) !important;text-align:left !important;}
+  #finJobGrid tbody td{background:transparent !important;}
+  #finJobGrid td[data-l="Client"]{order:1;} #finJobGrid td[data-l="PM"]{order:2;} #finJobGrid td[data-l="Status"]{order:3;}
+  #finJobGrid td[data-l="Start"]{order:4;} #finJobGrid td[data-l="Value"]{order:5;} #finJobGrid td[data-l="Client PO"]{order:6;}
+  #finJobGrid tbody td:not([data-l="Job"]):not([data-l="Project"]){flex:0 0 calc((100% - 16px) / 3) !important;display:block !important;text-align:left !important;font-size:12.5px !important;line-height:1.25;padding:2px 0 !important;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  #finJobGrid tbody td:not([data-l="Job"]):not([data-l="Project"])::before{display:block !important;font-size:9.5px !important;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--slate);margin:0 0 1px !important;}
+  #finJobGrid td[data-l="Value"]{font-weight:700;}
+  #finJobGrid td[data-l="Status"] .finpill{font-size:10.5px;padding:1px 7px;}
+  #finJobGridFoot .fgfoot-ctl select{font-size:11.5px !important;}
+  #finJobGridFoot .fjq-sort{height:28px;padding:0 10px;font-size:11.5px;}
+}`;
+  document.head.appendChild(st);
+})();
+
+/* ============================================================
+   OpHUB Finance — Sales tidy (24 Oct 2026, Andy, on the phone):
+   - Retention: "1st Retention Release" / "Final Retention Release" dates can be typed straight
+     into the list; they save to the project (job_finance.pc_date, and final_release_date).
+   - Invoices and applications: compact rows on the phone.
+   ============================================================ */
+// The final release date can be set on its own; otherwise it's PC date + defects period.
+(function(){
+  const base = finRetentionDates;
+  finRetentionDates = function(jf, st){
+    const r = base.apply(this, arguments);
+    if(jf && jf.final_release_date) return Object.assign({}, r, {second:jf.final_release_date});
+    return r;
+  };
+})();
+window.finRetSetDate = async function(siteId, n, v){
+  const patch = n===1 ? {pc_date:v||null} : {final_release_date:v||null};
+  // Keep the project's defects period in step, so Project Admin shows the same final date.
+  if(n===2 && v){ const jf = (await dbSelect('job_finance', 'site_id=eq.'+siteId+'&select=pc_date').catch(()=>[]))[0]; if(jf && jf.pc_date){ const a = new Date(jf.pc_date+'T12:00:00'), b = new Date(v+'T12:00:00'); const m = Math.round((b-a)/(1000*3600*24*30.44)); if(m>=0 && m<=120) patch.defects_months = m; } }
+  const res = await sbFetch('/rest/v1/job_finance?on_conflict=site_id', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify(Object.assign({site_id:siteId, org_id:ME.org_id, updated_at:new Date().toISOString(), updated_by:ME.id}, patch))});
+  if(!res.ok){ toast('Not saved — '+(await safeErr(res))); return; }
+  toast((n===1 ? 'Practical completion' : 'Final retention release')+' date saved to the project');
+  render();
+};
+(function(){
+  const st = document.createElement('style');
+  st.textContent = `.finretd{height:32px !important;min-height:32px !important;padding:0 8px !important;font-size:13px !important;border-radius:8px !important;margin:0 !important;max-width:160px;}
+@media (max-width:700px){
+  #finSalesList tbody tr{display:flex !important;flex-wrap:wrap;column-gap:8px !important;row-gap:4px !important;padding:8px 10px !important;position:relative;}
+  #finSalesList tbody td{flex:0 0 calc((100% - 16px) / 3) !important;display:block !important;text-align:left !important;font-size:12.5px !important;line-height:1.25;padding:2px 0 !important;min-width:0 !important;overflow:hidden;text-overflow:ellipsis;}
+  #finSalesList tbody td::before{display:block !important;font-size:9.5px !important;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--slate);margin:0 0 1px !important;content:attr(data-l);}
+  #finSalesList tbody td.d{flex:1 1 calc(100% - 40px) !important;font-size:14px !important;padding:0 0 4px !important;border-bottom:1px solid #eef0f3;}
+  #finSalesList tbody td.d::before{content:none !important;}
+  #finSalesList tbody td.finrowdots{position:absolute !important;top:6px;right:8px;flex:none !important;width:auto !important;padding:0 !important;}
+  #finSalesList tbody td.finrowdots::before{content:none !important;}
+  #finSalesList tbody td[data-l="Client"], #finSalesList tbody td[data-l="Project"]{flex-basis:calc((100% - 8px) / 2) !important;white-space:nowrap;}
+  #finSalesList tbody td.num{font-weight:600;}
+  #finSalesList tbody td, #finSalesList tbody td *{text-align:left !important;justify-content:flex-start !important;}
+  #finSalesList tbody td[data-l*="Retention"]{flex-basis:calc((100% - 8px) / 2) !important;}
+  #finSalesList tbody td.d[data-l="Project"]{flex-basis:calc(100% - 40px) !important;white-space:normal;}
+  #finSalesList tbody td[data-l="Application"]:not(.d){font-weight:700;}
+  #finSalesList tbody td[data-l="Gross"], #finSalesList tbody td[data-l="Applied"]{font-weight:800;}
+  #finSalesList tbody td .finpill{font-size:10.5px;padding:1px 7px;}
+  #finSalesList tbody td .ghostbtn, #finSalesList tbody td .linkbtn{padding:4px 8px !important;font-size:12px !important;margin:0 !important;width:auto !important;}
+  #finSalesList tbody td .finretd{max-width:none;width:100%;}
+  /* Purchase orders (Finance › Purchases and a project's Purchases tab): compact tiles, no Invoiced / Left to invoice, status beside the PO number */
+  #finPurList tbody tr, #finPpBody tbody tr{display:flex !important;flex-wrap:wrap;align-items:center;column-gap:8px !important;row-gap:4px !important;padding:8px 10px !important;}
+  #finPurList tbody td, #finPpBody tbody td{flex:0 0 calc((100% - 16px) / 3) !important;display:block !important;text-align:left !important;font-size:12.5px !important;line-height:1.25;padding:2px 0 !important;min-width:0 !important;overflow:hidden;text-overflow:ellipsis;}
+  #finPurList tbody td *, #finPpBody tbody td *{text-align:left !important;justify-content:flex-start !important;}
+  #finPurList tbody td::before, #finPpBody tbody td::before{display:block !important;font-size:9.5px !important;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--slate);margin:0 0 1px !important;content:attr(data-l);}
+  #finPurList tbody td.d, #finPpBody tbody td.d{order:-2;flex:1 1 calc(100% - 100px) !important;width:auto !important;font-size:14px !important;padding:0 0 4px !important;}
+  #finPurList tbody td.d::before, #finPpBody tbody td.d::before{content:none !important;}
+  #finPurList tbody td[data-l="Status"], #finPpBody tbody td[data-l="Status"]{order:-1;flex:none !important;margin-left:auto !important;width:auto !important;max-width:none !important;padding:0 0 4px !important;}
+  #finPurList tbody td[data-l="Status"]::before, #finPpBody tbody td[data-l="Status"]::before{content:none !important;}
+  #finPurList tbody td[data-l="Status"] .finpill, #finPpBody tbody td[data-l="Status"] .finpill{font-size:10.5px !important;padding:1px 7px !important;}
+  #finPurList tbody td[data-l="Supplier"], #finPurList tbody td[data-l="Project"]{flex-basis:calc((100% - 8px) / 2) !important;white-space:nowrap;}
+  #finPurList tbody td.num, #finPpBody tbody td.num{font-weight:600;}
+  #finPurList tbody td[data-l="Invoiced"], #finPurList tbody td[data-l="Left to invoice"], #finPurList tbody td[data-l="Left To Invoice"],
+  #finPpBody tbody td[data-l="Invoiced"], #finPpBody tbody td[data-l="Left To Invoice"], #finPpBody tbody td[data-l="Left to invoice"]{display:none !important;}
+  #finPurList tbody td.finrowdots, #finPpBody tbody td.finrowdots{flex:none !important;width:auto !important;order:-1;padding:0 0 4px !important;}
+  #finPurList tbody td.finrowdots::before, #finPpBody tbody td.finrowdots::before{content:none !important;}
+}`;
   document.head.appendChild(st);
 })();
 

@@ -12,10 +12,10 @@ function finStatPeriod(key, def){
   const t = finToday(), y = Number(t.slice(0,4)), m = Number(t.slice(5,7));
   const pad = n=>String(n).padStart(2,'0');
   const last = (yy,mm)=>new Date(Date.UTC(yy, mm, 0)).getUTCDate();
-  if(p.k==='month') return {k:p.k, from:`${y}-${pad(m)}-01`, to:t, label:'this month'};
+  if(p.k==='month') return {k:p.k, from:`${y}-${pad(m)}-01`, to:`${y}-${pad(m)}-${pad(last(y,m))}`, label:'this month'};   // whole month, so month-end valuation dates count (24 Oct)
   if(p.k==='lastmonth'){ const yy = m===1?y-1:y, mm = m===1?12:m-1; return {k:p.k, from:`${yy}-${pad(mm)}-01`, to:`${yy}-${pad(mm)}-${pad(last(yy,mm))}`, label:'last month'}; }
-  if(p.k==='quarter'){ const qm = Math.floor((m-1)/3)*3+1; return {k:p.k, from:`${y}-${pad(qm)}-01`, to:t, label:'this quarter'}; }
-  if(p.k==='year') return {k:p.k, from:`${y}-01-01`, to:t, label:'this year'};
+  if(p.k==='quarter'){ const qm = Math.floor((m-1)/3)*3+1; return {k:p.k, from:`${y}-${pad(qm)}-01`, to:`${y}-${pad(qm+2)}-${pad(last(y,qm+2))}`, label:'this quarter'}; }
+  if(p.k==='year') return {k:p.k, from:`${y}-01-01`, to:`${y}-12-31`, label:'this year'};
   if(p.k==='custom' && p.from && p.to) return {k:p.k, from:p.from, to:p.to, label:finDate(p.from)+' – '+finDate(p.to)};
   return {k:'all', from:null, to:null, label:'all time'};
 }

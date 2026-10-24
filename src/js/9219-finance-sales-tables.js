@@ -45,10 +45,10 @@ function finAppTableHtml(apps, invBy, opts){
   if(!apps.length) return `<div class="empty" style="margin:8px 0 0;">${opts.empty||'No applications yet.'}</div>`;
   const job = !!opts.showJob;
   return `<div class="finreptbl-wrap"><table class="fincosttbl fininvtbl">
-    <thead><tr><th>Application</th>${job?'<th>Project</th>':''}<th>Date</th><th class="num">Applied (net)</th><th class="num">Certified (net)</th><th>Stage</th><th>Invoice</th></tr></thead>
-    <tbody>${apps.map(a=>{ const s = finAppStage(a); const inv = invBy[a.invoice_id]; const short = a.cert_net!=null ? finRound(Number(a.cert_net)-Number(a.net_due||0)) : 0; return `<tr class="click" data-lf="${lfText(finJobTag(a.site_id)+' application '+a.number)}" onclick="go('#/site/${a.site_id}/finance/application/${a.id}')">
-      <td data-l="Application" class="d"><b>No. ${a.number}</b></td>
-      ${job?`<td data-l="Project">${escapeHtml(finJobTag(a.site_id))}</td>`:''}
+    <thead><tr>${job?'<th>Project</th>':''}<th>Application</th><th>Date</th><th class="num">Applied (net)</th><th class="num">Certified (net)</th><th>Stage</th><th>Invoice</th></tr></thead>
+    <tbody>${apps.map(a=>{ const s = finAppStage(a); const inv = invBy[a.invoice_id]; const short = a.cert_net!=null ? finRound(Number(a.cert_net)-Number(a.net_due||0)) : 0; return `<tr class="click" data-lf="${lfText(finJobTag(a.site_id)+' application certificate '+a.number)}" onclick="go('#/site/${a.site_id}/finance/application/${a.id}')">
+      ${job?`<td data-l="Project" class="d"><b>${escapeHtml(finJobTag(a.site_id))}</b></td>`:''}
+      <td data-l="Application" ${job?'':'class="d"'}>${job?'':'<b>'}${a.cert_net!=null || a.invoice_id ? 'Certificate' : 'Application'} ${a.number}${job?'':'</b>'}</td>
       <td data-l="Date">${finDate(a.valuation_date)}</td>
       <td data-l="Applied" class="num">${finMoney(a.net_due)}</td>
       <td data-l="Certified" class="num">${a.cert_net!=null ? finMoney(a.cert_net)+(short<-0.009?`<div class="fininv-rc finbad">${finMoney(-short)} short</div>`:'') : '—'}</td>
@@ -118,7 +118,7 @@ async function renderFinSales(sub){
     body = finSecHead('Applications & Certificates', '+ New application', "finPickJob('New application','newFinApplication')")
       + `<p class="stub" style="margin:-4px 0 10px;">Apply → the client certifies it (enter their figures on the application) → the invoice is raised for you. A certificate is just a certified application.</p>`
       + `<div class="pmchips">${[['open','In progress'],['certified','Certified — to invoice'],['invoiced','Invoiced'],['all','All']].map(([k,l])=>finChip(finSalesAppF===k, l, apps.filter(F[k]).length, `finSalesAppF='${k}';finSalesPicked=true;render()`)).join('')}</div>`
-      + finSearchHtml('Search project', 'finSalesList')
+      + finSearchHtml('Search application no., project or client', 'finSalesList')
       + `<div id="finSalesList">${finAppTableHtml(list, invBy, {showJob:true, empty:'Nothing here.'})}</div>`;
   } else if(sub==='invoices'){
     const F = {outstanding:i=>finInvOutstanding(i)>0, overdue:finInvOverdue, draft:i=>i.status==='draft', paid:i=>i.status==='paid', all:()=>true};
@@ -134,12 +134,12 @@ async function renderFinSales(sub){
     const appsBy = {}; apps.forEach(a=>{ (appsBy[a.site_id] = appsBy[a.site_id]||[]).push(a); });
     const rows = SITES.map(s=>({s, held:finRetentionHeld(appsBy[s.id]||[]), jf:jfBy[s.id]||{}})).filter(x=>x.held);
     const total = rows.reduce((t,x)=>t+x.held,0);
-    body = finSecHead('Retention') + `<p class="stub" style="margin:-4px 0 12px;">Money your clients are holding back until the work is signed off: ${finMoney(total)} across ${rows.length} job${rows.length===1?'':'s'}. Half usually comes back at practical completion and half at the end of the defects period — set those dates on the project to get reminders.</p>`
+    body = finSecHead('Retention') + `<p class="stub" style="margin:-4px 0 12px;">Money your clients are holding back until the work is signed off: ${finMoney(total)} across ${rows.length} job${rows.length===1?'':'s'}. Half usually comes back at practical completion and half at the end of the defects period — set the dates here (they save to the project) to get reminders.</p>`
       + finSearchHtml('Search project, client', 'finSalesList')
       + `<div id="finSalesList">${rows.length ? `<div class="finreptbl-wrap"><table class="fincosttbl fininvtbl">
-        <thead><tr><th>Project</th><th>Client</th><th>1st half due</th><th>2nd half due</th><th class="num">Held</th></tr></thead>
-        <tbody>${rows.map(x=>{ const d = finRetentionDates(x.jf, st); const when = (dt, inv)=>dt ? finDate(dt)+(inv?' <span class="finpill ok">Claimed</span>':'') : '<span class="stub" style="margin:0;font-style:normal;">Set PC date</span>';
-          return `<tr class="click" data-lf="${lfText([finRepJobOr(x.s), x.s.client_name].join(' '))}" onclick="go('#/site/${x.s.id}/finance')"><td data-l="Project"><b>${escapeHtml(finRepJobOr(x.s))}</b></td><td data-l="Client">${escapeHtml(x.s.client_name||'—')}</td><td data-l="1st half">${when(d.first, x.jf.ret1_invoice_id)}</td><td data-l="2nd half">${when(d.second, x.jf.ret2_invoice_id)}</td><td data-l="Held" class="num"><b>${finMoney(x.held)}</b></td></tr>`; }).join('')}</tbody>
+        <thead><tr><th>Project</th><th>Client</th><th>1st Retention Release</th><th>Final Retention Release</th><th class="num">Held</th></tr></thead>
+        <tbody>${rows.map(x=>{ const d = finRetentionDates(x.jf, st); const when = (dt, inv, n)=>inv ? finDate(dt)+' <span class="finpill ok">Claimed</span>' : `<input type="date" class="finretd" value="${dt||''}" title="${n===1?'Practical completion — first half of the retention is due':'End of the defects period — the rest of the retention is due'}" onclick="event.stopPropagation()" onchange="finRetSetDate('${x.s.id}',${n},this.value)">`;
+          return `<tr class="click" data-lf="${lfText([finRepJobOr(x.s), x.s.client_name].join(' '))}" onclick="go('#/site/${x.s.id}/finance')"><td data-l="Project"><b>${escapeHtml(finRepJobOr(x.s))}</b></td><td data-l="Client">${escapeHtml(x.s.client_name||'—')}</td><td data-l="1st Retention Release">${when(d.first, x.jf.ret1_invoice_id, 1)}</td><td data-l="Final Retention Release">${when(d.second, x.jf.ret2_invoice_id, 2)}</td><td data-l="Held" class="num"><b>${finMoney(x.held)}</b></td></tr>`; }).join('')}</tbody>
         <tfoot><tr><td colspan="4"><b>${rows.length} job${rows.length===1?'':'s'}</b></td><td class="num"><b>${finMoney(total)}</b></td></tr></tfoot></table></div>` : '<div class="empty">No retention held.</div>'}</div>`;
   }
   document.getElementById('app').innerHTML = shell(`
@@ -147,8 +147,9 @@ async function renderFinSales(sub){
     <div class="pmstats finstats">
       ${(()=>{ const pA = finStatPeriod('s_appv','month'), pI = finStatPeriod('s_invv','month'), pD = finStatPeriod('s_over','all'), pN = finStatPeriod('s_anc','all');
         // 23 Oct (Andy): Applied Value · Invoiced Value · Overdue · Applied, not certified or invoiced
-        const applied = apps.filter(a=>!['draft','void'].includes(a.status) && finInPeriod(a.valuation_date, pA));
-        const waiting = apps.filter(a=>stage(a)==='submitted' && finInPeriod(a.valuation_date, pN));
+        const aDate = a=>a.valuation_date || String(a.submitted_at||a.created_at||'').slice(0,10);   // no valuation date → when it was made (24 Oct)
+        const applied = apps.filter(a=>!['draft','void'].includes(a.status) && finInPeriod(aDate(a), pA));
+        const waiting = apps.filter(a=>stage(a)==='submitted' && finInPeriod(aDate(a), pN));
         return finStatCardHtml({key:'s_appv', def:'month', label:'Applied Value', onclick:"finSalesAppF='all';finSalesPicked=true;go('#/finance/sales/apps')", value:finMoney(applied.reduce((t,a)=>t+Number(a.net_due||0),0), 0)})
           + finStatCardHtml({key:'s_invv', def:'month', label:'Invoiced Value', onclick:"finInvFilter='all';go('#/finance/sales/invoices')", value:finMoney(live.filter(i=>i.status!=='draft' && finInPeriod(i.issue_date, pI)).reduce((t,i)=>t+Number(i.net||0),0), 0)})
           + finStatCardHtml({key:'s_over', def:'all', label:'Overdue', onclick:"finInvFilter='overdue';go('#/finance/sales/invoices')", value:finMoney(live.filter(finInvOverdue).filter(i=>finInPeriod(i.due_date, pD)).reduce((t,i)=>t+finInvOutstandingNet(i),0), 0)})

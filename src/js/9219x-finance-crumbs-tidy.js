@@ -49,7 +49,8 @@ function navCrumbs(opts){
 /* ---------- 1a. Title Case on Finance labels ---------- */
 const FIN_TC_KEEP = new Set(['VAT','CIS','PO','POs','BoQ','CVR','PAYE','UTR','HMRC','OpHUB','PDF','PM','PMs','QS','DRC','RC','ID','AFP','No.','Xero','Excel']);
 function finTitleCase(s){
-  return String(s||'').replace(/[A-Za-z][A-Za-z'’.]*/g, w=>{
+  return String(s||'').replace(/[A-Za-z][A-Za-z'’.]*/g, (w, off, str)=>{
+    if(off>0 && /\d/.test(str[off-1])) return w;   // 1st, 2nd, 50k stay as they are
     if(FIN_TC_KEEP.has(w) || /[A-Z].*[A-Z]/.test(w)) return w;
     if(/^(excl|incl)\.?$/i.test(w)) return w.charAt(0).toUpperCase()+w.slice(1);
     return w.charAt(0).toUpperCase()+w.slice(1);
