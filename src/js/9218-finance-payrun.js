@@ -20,8 +20,10 @@ function finBankOk(r){ return !!(r && String(r.bank_sort_code||'').replace(/\D/g
 // Lines for one person's week (sign-in days at their rate + timesheet lines), as on a payment.
 async function finPayLinesFor(key, from, to, rates){
   const isW = String(key).startsWith('w:'), userId = isW ? null : key, wid = isW ? key.slice(2) : null;
+  // UK local midnight to midnight (BST in summer), sent to the database in UTC (audit FA-26).
+  const tsFrom = new Date(from+'T00:00:00').toISOString(), tsTo = new Date(finAddDays(to, 1)+'T00:00:00').toISOString();
   const [cks, man] = await Promise.all([
-    userId ? dbSelect('checkins', 'user_id=eq.'+userId+'&type=eq.in&ts=gte.'+from+'T00:00:00&ts=lte.'+to+'T23:59:59&select=user_id,site_id,ts,type') : Promise.resolve([]),
+    userId ? dbSelect('checkins', 'user_id=eq.'+userId+'&type=eq.in&ts=gte.'+tsFrom+'&ts=lt.'+tsTo+'&select=user_id,site_id,ts,type') : Promise.resolve([]),
     dbSelect('fin_labour_manual', (userId ? 'user_id=eq.'+userId : 'worker_id=eq.'+wid)+'&work_date=gte.'+from+'&work_date=lte.'+to),
   ]);
   const r = rates[key] || {};

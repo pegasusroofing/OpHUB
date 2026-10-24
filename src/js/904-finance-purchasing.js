@@ -225,10 +225,14 @@ window.savePurchaseInvoice = async function(siteId, receipt){
   const warnEl = document.getElementById('finPiWarn');
   const btn = document.getElementById('finPiSave');
   // Duplicate: same supplier + invoice number anywhere in the company.
-  if(no && !(btn && btn.dataset.dupOk==='1')){
+  // FA-29: "Save again to add it anyway" only counts for the supplier + number that was warned about.
+  // Change either and the check runs again.
+  const dupKey = supplier.trim().toLowerCase()+'|'+String(no||'').trim().toLowerCase();
+  if(no && !(btn && btn.dataset.dupOk===dupKey)){
     const dup = await dbSelect('purchase_invoices', 'invoice_no=eq.'+encodeURIComponent(no)+'&select=id,supplier_name,site_id,invoice_date');
     const same = dup.filter(d=>String(d.supplier_name||'').trim().toLowerCase()===supplier.toLowerCase());
-    if(same.length){ const s = SITES.find(x=>x.id===same[0].site_id); if(warnEl) warnEl.innerHTML = `<p class="stub" style="margin:0 0 8px;font-style:normal;color:var(--red);"><b>Possible duplicate:</b> ${escapeHtml(supplier)} invoice ${escapeHtml(no)} is already on ${escapeHtml(s?s.name:'another project')}. Tap Save again to add it anyway.</p>`; if(btn) btn.dataset.dupOk='1'; return; }
+    if(same.length){ const s = SITES.find(x=>x.id===same[0].site_id); if(warnEl) warnEl.innerHTML = `<p class="stub" style="margin:0 0 8px;font-style:normal;color:var(--red);"><b>Possible duplicate:</b> ${escapeHtml(supplier)} invoice ${escapeHtml(no)} is already on ${escapeHtml(s?s.name:'another project')}. Tap Save again to add it anyway.</p>`; if(btn) btn.dataset.dupOk=dupKey; return; }
+    if(warnEl) warnEl.innerHTML = ''; // the corrected number isn't a duplicate — clear the old warning
   }
   const flags = [];
   let po = null;
@@ -302,7 +306,17 @@ window.setFinPiPaid = async function(id, date){
   document.getElementById('finPiOverlay').style.display = 'none';
   toast(date ? 'Marked paid' : 'Paid date removed'); render();
 };
+// FA-11: records already posted to Xero. Changing them in OpHUB doesn't change Xero (and Xero
+// won't take the same record twice), so ask first and say what to do in Xero.
+// Returns true to go ahead. Used here, by cost coding (910 / 9219g) and operative invoices (9219g).
+async function finXeroPostedConfirm(table, id, question, inXero){
+  let row = null;
+  try{ row = (await dbSelect(table, 'id=eq.'+id+'&select=xero_id'))[0]; }catch(e){}
+  if(!row || !row.xero_id) return true;
+  return !!(await customConfirm(question+'\n\nThis is already in Xero. Changing it here won’t change Xero, so '+(inXero||'make the same change in Xero yourself')+', or the two won’t match.', {confirmLabel:'Go ahead'}));
+}
 window.setPurchaseInvoiceStatus = async function(id, status){
+  if(status==='rejected' && !(await finXeroPostedConfirm('purchase_invoices', id, 'Reject this purchase invoice?', 'void the bill in Xero as well'))) return;
   const patch = {status};
   if(status==='approved'){ patch.approved_by = ME.id; patch.approved_at = new Date().toISOString(); }
   const r = await dbUpdate('purchase_invoices', id, patch);

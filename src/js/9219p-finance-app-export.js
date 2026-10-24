@@ -151,7 +151,8 @@ async function finAppExportData(a){
   const site = SITES.find(s=>s.id===a.site_id) || {};
   const [jfRows, apps] = await Promise.all([dbSelect('job_finance', 'site_id=eq.'+a.site_id), dbSelect('fin_applications', 'site_id=eq.'+a.site_id+'&order=number.asc')]);
   const jf = jfRows[0] || {};
-  const prev = apps.filter(x=>x.number < a.number && ['certified','invoiced'].includes(x.status)).pop() || apps.filter(x=>x.number < a.number && x.status==='submitted').pop() || null;
+  // "Prev Certified" only ever comes from a certified (or invoiced) application, as on screen (audit FB-23).
+  const prev = apps.filter(x=>x.number < a.number && ['certified','invoiced'].includes(x.status)).pop() || null;
   const prevPct = {}, prevVar = {};
   if(prev){
     const cl = {}; (prev.cert_lines||[]).forEach(l=>{ cl[l.item_id] = l.pct; });
@@ -314,7 +315,7 @@ function finXlParse(book){
     const book = await finXlBook(file); if(!book) return;
     const P = finXlParse(book);
     if(P.format!=='sheets') return older.call(this, file);
-    let changed = 0, added = 0;
+    let changed = 0, added = 0, skipped = 0;
     const lineBy = {}; (finApp.lines||[]).forEach(l=>{ if(finIsItem(l)) lineBy[l.item_id] = l; });
     for(const it of P.items){
       let m;
@@ -329,6 +330,10 @@ function finXlParse(book){
       }
       if((m = /^D:(\d+)$/.exec(it.key))){ const d = (finApp.dayworks||[])[+m[1]]; if(d){ if(it.amount!=null && it.amount!==Number(d.value)){ d.value = it.amount; changed++; } if(it.desc && it.desc!==d.description){ d.description = it.desc; changed++; } } continue; }
       if(it.key || !it.desc) continue;
+      // A new row (no OpHUB key) that's already on the application came from uploading the same file twice (audit FB-14).
+      { const val = it.qty!=null && it.rate!=null ? finRound(it.qty*it.rate) : it.amount;
+        const list = /^variations$/i.test(it.sheet) ? finApp.variations : /^dayworks$/i.test(it.sheet) ? finApp.dayworks : (finApp.lines||[]).filter(finIsItem);
+        if(val!=null && finXlSameLine(list, it.desc, val)){ skipped++; continue; } }
       if(/^variations$/i.test(it.sheet)){ const val = it.qty!=null && it.rate!=null ? finRound(it.qty*it.rate) : it.amount; if(val!=null){ (finApp.variations = finApp.variations||[]).push({variation_id:null, description:it.desc, value:val, pct:it.applied==null?100:it.applied}); added++; } continue; }
       if(/^dayworks$/i.test(it.sheet)){ if(it.amount!=null){ (finApp.dayworks = finApp.dayworks||[]).push({description:it.desc, value:it.amount}); added++; } continue; }
       const value = it.qty!=null && it.rate!=null ? finRound(it.qty*it.rate) : it.amount;
@@ -339,7 +344,7 @@ function finXlParse(book){
     const r = await dbUpdate('fin_applications', finApp.id, finAppRowForSave());
     if(!r) return;
     finApp = null;
-    toast(changed||added ? `Updated from Excel: ${changed} change${changed===1?'':'s'}${added?', '+added+' new line'+(added===1?'':'s'):''}` : 'No changes found in that file');
+    toast((changed||added ? `Updated from Excel: ${changed} change${changed===1?'':'s'}${added?', '+added+' new line'+(added===1?'':'s'):''}` : 'No changes found in that file')+(skipped ? ` (${skipped} new line${skipped===1?' was':'s were'} already there, so not added again)` : ''));
     render();
   };
 })();
@@ -359,8 +364,10 @@ window.finCertFromExcel = async function(file, appId){
     lines.push({item_id:l.item_id, description:l.description, value:Number(l.value||0), applied_pct:finPct(l.pct), pct:p, gross:g});
     if(p!==finPct(l.pct)) diffs.push(l.description+': '+finPct(l.pct)+'% → '+p+'%');
   });
-  (a.variations||[]).forEach((v,i)=>{ const it = byKey['V:'+(v.variation_id||('x'+i))]; const p = it && it.certified!=null ? it.certified : finPct(v.pct); const val = it && it.amount!=null ? it.amount : Number(v.value||0); if(it) found++; gross += finRound(val*p/100); if(p!==finPct(v.pct) || val!==Number(v.value||0)) diffs.push((v.description||'Variation')+' changed'); });
-  (a.dayworks||[]).forEach((d,i)=>{ const it = byKey['D:'+i]; const p = it && it.certified!=null ? it.certified : 100; const val = it && it.amount!=null ? it.amount : Number(d.value||0); if(it) found++; gross += finRound(val*p/100); if(p!==100 || val!==Number(d.value||0)) diffs.push((d.description||'Daywork')+' changed'); });
+  // Variations and day works come back as lines too, so the line-by-line certificate keeps the
+  // client's figures (audit FB-09). A variation's certified £ is kept as a % of our value.
+  (a.variations||[]).forEach((v,i)=>{ const it = byKey['V:'+(v.variation_id||('x'+i))]; const p = it && it.certified!=null ? it.certified : finPct(v.pct); const val = it && it.amount!=null ? it.amount : Number(v.value||0); if(it) found++; const g = finRound(val*p/100); gross += g; const ov = Number(v.value||0); lines.push({var_index:i, description:v.description, value:ov, applied_pct:finPct(v.pct), pct: ov ? Math.round(g/ov*10000)/100 : p, gross:g}); if(p!==finPct(v.pct) || val!==Number(v.value||0)) diffs.push((v.description||'Variation')+' changed'); });
+  (a.dayworks||[]).forEach((d,i)=>{ const it = byKey['D:'+i]; const p = it && it.certified!=null ? it.certified : 100; const val = it && it.amount!=null ? it.amount : Number(d.value||0); if(it) found++; const g = finRound(val*p/100); gross += g; lines.push({day_index:i, description:d.description, value:Number(d.value||0), applied_pct:100, pct:Number(d.value||0) ? finRound(g/Number(d.value)*100) : 0, gross:g}); if(p!==100 || val!==Number(d.value||0)) diffs.push((d.description||'Daywork')+' changed'); });
   if(!found){ toast('That doesn’t look like this application’s Excel — download it from OpHUB, send it to the client and upload their copy.'); return; }
   gross = finRound(gross);
   const jf = (await dbSelect('job_finance', 'site_id=eq.'+a.site_id))[0] || {};
@@ -584,7 +591,7 @@ window.finCertSet = function(kind, i, v){
     await xl.apply(this, arguments);
     if(!finCertMode() || !Array.isArray(finCertLines)) return;
     const W = finCertWorkInit();
-    finCertLines.forEach(l=>{ if(l.item_id) W.lines[l.item_id] = l.pct; });
+    finCertLines.forEach(l=>{ if(l.item_id) W.lines[l.item_id] = l.pct; else if(l.var_index!=null) W.vars[l.var_index] = l.pct; else if(l.day_index!=null) W.days[l.day_index] = Number(l.gross||0); });
     document.querySelectorAll('.fincertin, .fincertg, .fincertro').forEach(e=>e.remove());
     document.querySelectorAll('[data-cert]').forEach(e=>{ delete e.dataset.cert; });
     finAppPaintLines(); finAppPaint(); finCertDecorate(); finCertRecalc();
@@ -627,8 +634,10 @@ function finCertSummaryHtml(){
   (finApp.lines||[]).forEach(l=>{ if(finIsItem(l)) cLines += finRound(Number(l.value||0)*finPct(W.lines[l.item_id])/100); });
   (finApp.variations||[]).forEach((v,i)=>{ cVars += finRound(Number(v.value||0)*finPct(W.vars[i])/100); });
   (finApp.dayworks||[]).forEach((d,i)=>{ cDays += Number(W.days[i]||0); });
-  const prev = finRound(finAppCtx.previous||0);
-  const cNet = finRound(t.gross - t.disc - t.ret - prev);
+  // Applied column: the previously certified the application was sent with. Certified column: what
+  // earlier certificates actually add up to now (audit FA-09).
+  const prev = finRound(finAppCtx.previous||0), prevC = finRound(finAppCtx.previousLive!=null ? finAppCtx.previousLive : prev);
+  const cNet = finRound(t.gross - t.disc - t.ret - prevC);
   const vt = finAppVatTreat(finAppCtx.jf);
   const row = (label, a, b, cls)=>`<div class="fincs-r ${cls||''}"><span>${label}</span><b>${a}</b><b class="c">${b}</b></div>`;
   const neg = v=>'−'+finMoney(v);
@@ -643,7 +652,7 @@ function finCertSummaryHtml(){
     + row('<b>Gross valuation to date</b>', finMoney(c.gross), finMoney(t.gross), 'bold')
     + row('Less discount '+disc, neg(c.discount), neg(t.disc))
     + row(`Less retention @ ${finPct(finApp.retention_pct)}%`, neg(c.retention), neg(t.ret))
-    + row('Less previously certified', neg(prev), neg(prev))
+    + row('Less previously certified', neg(prev), neg(prevC))
     + row('Amount due this application', finMoney(c.net_due), finMoney(cNet), 'big');
   if(vt==='standard') h += row('VAT @ 20%', finMoney(finRound(c.net_due*.2)), finMoney(finRound(cNet*.2))) + row('Total incl. VAT', finMoney(finRound(c.net_due*1.2)), finMoney(finRound(cNet*1.2)), 'bold');
   else if(false && vt==='reverse_charge') h += row('Reverse charge VAT @ 20% <em class="stub" style="font-style:normal;">client pays HMRC</em>', finMoney(finRound(c.net_due*.2)), finMoney(finRound(cNet*.2)));

@@ -59,7 +59,8 @@ window.finCliPull = async function(){
       if(x.terms_type){ patch.terms_type = x.terms_type; patch.terms_days = x.terms_days; }
       const ex = byX[x.id] || byN[String(x.name).trim().toLowerCase()];
       if(ex){ await dbUpdate('fin_clients', ex.id, patch); linked++; }
-      else { const ins = await dbInsert('fin_clients', Object.assign({org_id:ME.org_id, created_by:ME.id}, patch)); if(ins) added++; }
+      // FB-28: remember the new row, so the same name (or the same contact on a later Xero page) updates it instead of adding it twice.
+      else { const ins = await dbInsert('fin_clients', Object.assign({org_id:ME.org_id, created_by:ME.id}, patch)); if(ins){ added++; const row = ins[0] || Object.assign({}, patch); byX[x.id] = row; byN[String(x.name).trim().toLowerCase()] = row; } }
     }
     toast(`From Xero: ${list.length} customer${list.length===1?'':'s'} — ${added} new, ${linked} updated`);
   } finally { finCliBusy = ''; render(); }

@@ -38,7 +38,7 @@ finNpoPaint = function(){
     <label><span>Rate</span><input type="text" inputmode="decimal" data-money value="${l.rate!=null?l.rate:''}" placeholder="£" oninput="finNpoSet(${i},'rate',this.value)"></label>
     <label><span>Disc %</span><input type="text" inputmode="decimal" value="${Number(l.disc||0) ? l.disc : ''}" placeholder="0" oninput="finNpoSet(${i},'disc',this.value)"></label>
     <label><span>Cost code</span><select onchange="finNpoSet(${i},'cost_code',this.value)">${finNpoCodeOpts(l)}</select></label>
-    <label><span>VAT</span><select onchange="finNpoSet(${i},'vat',this.value)">${Object.keys(FIN_VAT_RATES).map(k=>`<option value="${k}" ${(l.vat||'20')===k?'selected':''}>${FIN_VAT_RATES[k].s}</option>`).join('')}</select></label>
+    <label><span>VAT</span><select onchange="finNpoSet(${i},'vat',this.value)">${(typeof finVatKeysWith==='function' ? finVatKeysWith(FIN_VAT_RATES, l.vat||'20') : Object.keys(FIN_VAT_RATES)).map(k=>`<option value="${k}" ${(l.vat||'20')===k?'selected':''}>${FIN_VAT_RATES[k].s}</option>`).join('')}</select></label>
     <b class="finb-net" id="finNpoL-${i}">${finMoney(l.amount)}</b>
     ${finNewPo.lines.length>1 ? `<button class="linkbtn finb-del" aria-label="Remove line" onclick="finNpoDel(${i})">✕</button>` : '<span></span>'}
   </div>`).join('');
@@ -143,7 +143,9 @@ window.saveFinNewPo = async function(){
   if(btn){ btn.disabled = false; btn.textContent = 'Raise PO'; }
   if(!res.ok){ toast('Could not raise the PO — '+(await safeErr(res))); return; }
   const d = await res.json();
-  const sub = finVal('finNpoSub');
+  // FB-17: the plot picker lists the plots of the job the builder was opened from. If the PO has
+  // ended up on another job (line 1's job was changed), that plot doesn't belong to it — drop it.
+  const sub = poSite===n.siteId ? finVal('finNpoSub') : '';
   const vatTot = finRound(items.reduce((t,x)=>t+Number(x.vat||0),0)), netTot = finRound(items.reduce((t,x)=>t+Number(x.amount||0),0));
   // lines for other jobs: their cost goes to those jobs (split by value)
   const bySite = {}; items.forEach(x=>{ bySite[x.site_id] = (bySite[x.site_id]||0) + Number(x.amount||0); });

@@ -75,6 +75,8 @@ label:has(> #finPcDate), label:has(> #finDefects){font-size:11.5px !important;ga
 .finstatp:has(.finstatp-menu){z-index:80;}
 .finstatp-menu{z-index:1000 !important;}
 .pmstats.finstats{position:relative;z-index:5;}
+/* Audit FB-18: the 44px gap for the ⋯ button is only for rows that have one. */
+@media (max-width:700px){ .fininvtbl tbody tr:not(:has(> td.finrowdots)){padding-right:12px !important;} }
 `;
   document.head.appendChild(st);
 })();
@@ -189,4 +191,21 @@ window.finJobDVDate = async function(k){
 #finJobGridFoot .fgcolbtn{padding:0 10px !important;display:inline-flex;align-items:center;}
 .finreptbl-wrap:has(> #finJobGrid){border-bottom-left-radius:12px;border-bottom-right-radius:12px;}`;
   document.head.appendChild(st);
+})();
+
+/* Audit FB-19: keep the "Send & export" menu inside the screen on a phone
+   (9219p places it at the button's left edge and never checks the right). */
+(function(){
+  const base = window.finAppMoreMenu;
+  if(typeof base!=='function') return;
+  window.finAppMoreMenu = function(){
+    const r = base.apply(this, arguments);
+    const pop = document.getElementById('finAppMorePop');
+    if(pop){
+      const left = parseFloat(pop.style.left) || 0;
+      const maxLeft = window.scrollX + document.documentElement.clientWidth - pop.offsetWidth - 8;
+      pop.style.left = Math.max(window.scrollX + 8, Math.min(left, maxLeft))+'px';
+    }
+    return r;
+  };
 })();

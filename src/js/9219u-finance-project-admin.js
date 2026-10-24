@@ -93,3 +93,34 @@ function finPaRestructure(){
 @media (max-width:560px){ .finpd-g{grid-template-columns:1fr;} }`;
   document.head.appendChild(st);
 })();
+
+/* Delete a job from Finance — safer check (audit FB-29; replaces the 9219n
+   version). A lookup that fails counts as "can't tell", so nothing is
+   deleted; and the newer Finance tables are checked too. */
+window.finDeleteJob = async function(siteId){
+  const site = SITES.find(s=>s.id===siteId); if(!site) return;
+  const q = (t, qs)=>dbSelectChecked(t, (qs || 'site_id=eq.'+siteId)+'&select=id&limit=1');
+  const tabs = [['fin_invoices','invoices'], ['fin_applications','applications'], ['purchase_orders','purchase orders'], ['purchase_invoices','purchase invoices'],
+    ['fin_job_costs','costs'], ['fin_subcontracts','subcontracts'], ['fin_sub_apps','subcontract applications'], ['fin_sub_values','subcontract values'],
+    ['fin_variations','variations'], ['fin_dayworks','day works'], ['fin_plant_hires','plant hire'], ['fin_job_budgets','budgets'],
+    ['fin_contract_items','a bill of quantities'], ['fin_quotes','quotes'], ['fin_quote_items','quote items'], ['fin_labour_manual','timesheets'],
+    ['fin_inbox','emailed invoices'], ['yard_moves','yard stock moves'], ['wage_pushes','wages'],
+    ['fin_sub_payments','operative invoices', 'org_id=eq.'+ME.org_id+'&lines=cs.'+encodeURIComponent(JSON.stringify([{site_id:siteId}]))]];
+  const got = await Promise.all(tabs.map(t=>q(t[0], t[2])));
+  if(got.some(g=>!g.ok)){
+    toast('Couldn’t check what’s booked to this project, so it hasn’t been deleted. Check your signal and try again.');
+    return;
+  }
+  const used = tabs.filter((t,i)=>got[i].data.length).map(t=>t[1]);
+  if(used.length){
+    if(await customConfirm(`“${site.name}” already has ${used.join(', ')} booked to it, so it can’t be deleted — that would wipe financial records. Close it instead? (It moves to Closed and drops off the live lists.)`)){
+      const row = await dbUpdate('sites', siteId, {status:'closed', closed_at:new Date().toISOString(), closed_by:ME.id});
+      if(row){ Object.assign(site, row); toast('Project closed'); go('#/finance/jobs'); }
+    }
+    return;
+  }
+  // Nothing financial on it — hand over to the normal delete (it asks to confirm, and
+  // PMs can only close a job that has Projects data in it).
+  await deleteSite(siteId, site.name);
+  if(!SITES.find(s=>s.id===siteId)) go('#/finance/jobs');
+};

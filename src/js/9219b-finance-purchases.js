@@ -54,13 +54,14 @@ async function finInboxAutoProcess(){
       const figs = ex.net!=null || ex.total!=null;
       const patch = {extracted:ex, site_id:ex.site_id||null, po_id:ex.po_id||null};
       if(job.site_id && figs && ex.supplier){
-        await dbUpdate('fin_inbox', it.id, patch);
+        // FA-03: only touch it while it's still new — another phone / PC may have filed it already.
+        if(!(await dbUpdate('fin_inbox', it.id+'&status=eq.new', patch))) continue;
         const r = await finInboxFileCore(Object.assign({}, it, patch), {site_id:ex.site_id, po_id:ex.po_id||'', supplier:ex.supplier, invoice_no:ex.invoice_no||'', date:ex.date||'', net:ex.net, vat:ex.vat, total:ex.total}, true);
         if(r) await dbUpdate('fin_inbox', it.id, {auto_filed:true, stage:'auto', comments:[{name:'OpHUB', at:new Date().toISOString(), text:'Read and filed to the job automatically ('+job.how+').'}]});
       } else {
         patch.stage = 'query';
         patch.query_reason = job.site_id ? (!figs ? 'Couldn’t read the amounts' : 'Couldn’t tell the supplier') : job.why;
-        await dbUpdate('fin_inbox', it.id, patch);
+        await dbUpdate('fin_inbox', it.id+'&status=eq.new', patch); // FA-03: not if it's been filed meanwhile
       }
       changed = true;
     }
@@ -89,10 +90,15 @@ async function finInboxFileCore(it, f, quiet){
       if(po.value!=null && sofar > Number(po.value)+0.005) flags.push(finMoney(sofar-Number(po.value))+' over the PO value of '+finMoney(po.value));
     }
   }
+  // FA-03: claim the inbox item before filing it. The change only goes through while it's still
+  // "new", so when two phones / PCs file the same emailed invoice at once only one of them gets
+  // a row back — the other stops here instead of filing a second copy.
+  const claim = await dbUpdate('fin_inbox', it.id+'&status=eq.new', {status:'filed'});
+  if(!claim){ if(!quiet) toast('This one has just been filed by someone else.'); return null; }
   const pi = await dbInsert('purchase_invoices', {org_id:ME.org_id, site_id:f.site_id, po_id:f.po_id||null, no_po:!f.po_id, kind:'invoice', supplier_id:po?po.supplier_id:null, supplier_name:f.supplier||'Supplier',
     invoice_no:f.invoice_no||null, invoice_date:f.date||finToday(), net:finRound(net), vat:finRound(vat), total:finRound(total), status: flags.length ? 'query' : 'to_approve', query_note: flags.length ? flags.join('; ') : null,
     file_path:it.file_path, file_name:it.file_name, created_by:ME.id});
-  if(!pi || !pi[0]) return null;
+  if(!pi || !pi[0]){ await dbUpdate('fin_inbox', it.id, {status:'new'}); return null; } // didn't save — put it back in the inbox
   await dbUpdate('fin_inbox', it.id, {status:'filed', site_id:f.site_id, po_id:f.po_id||null, purchase_invoice_id:pi[0].id});
   if(typeof finCheckInvoiceLines==='function') finCheckInvoiceLines(pi[0].id).catch(()=>null);
   return pi[0];

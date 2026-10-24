@@ -13,7 +13,9 @@ function finCertSlotRender(a){
   if(finCertSlotRender._for !== a.id){ finCertFile = null; finCertSlotRender._for = a.id; }
   const el = document.getElementById('finCertSlot'); if(!el) return;
   if(a.cert_net==null){
-    const appliedPrev = Number(a.previous||0);
+    // Previously certified as it stands now (audit FA-09): if an earlier certificate came in
+    // different, the certificate uses the real figure, not the one stored when this was applied for.
+    const appliedPrev = (typeof finAppCtx!=='undefined' && finAppCtx && finAppCtx.appId===a.id && finAppCtx.previousLive!=null) ? finAppCtx.previousLive : Number(a.previous||0);
     el.innerHTML = `<div class="card" style="margin-top:14px;">
       <p class="sectiontitle" style="margin-top:0;">Client’s certificate ${finHelp('certified')}</p>
       <p class="stub" style="margin:0 0 10px;font-style:normal;">When the client’s certificate (or pay-less notice) comes back, enter its figures. They start as what you applied for.</p>
@@ -133,6 +135,25 @@ function finRetentionHeld(apps){
 function finAddMonths(iso, m){ const d = new Date(iso+'T12:00:00'); const day = d.getDate(); d.setDate(1); d.setMonth(d.getMonth()+(Number(m)||0)); const last = new Date(d.getFullYear(), d.getMonth()+1, 0).getDate(); d.setDate(Math.min(day, last)); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 // Retention halves: the second half takes the odd penny so the two add up to what's held.
 function finRetHalf(held, n){ const a = finRound(held/2); return n===1 ? a : finRound(held - a); }
+// Net of a linked retention release invoice (null if none, or it's void / not in the list).
+function finRetInvNet(invs, id){ const i = id && (invs||[]).find(x=>x.id===id); return i && i.status!=='void' ? finRound(Number(i.net||0)) : null; }
+// What each half is (audit FA-19): a half already invoiced is what that invoice says; the second
+// half is what's held now less the first-half invoice, so the two always add up to what's held.
+function finRetHalfAmt(held, n, jf, invs){
+  const r1 = finRetInvNet(invs, jf && jf.ret1_invoice_id);
+  if(n===1) return r1!=null ? r1 : finRetHalf(held, 1);
+  const r2 = finRetInvNet(invs, jf && jf.ret2_invoice_id);
+  if(r2!=null) return r2;
+  return r1!=null ? finRound(Math.max(0, held - r1)) : finRetHalf(held, 2);
+}
+// Retention the client is still holding (audit FA-08): held to date, less the release invoices
+// already issued (drafts and void ones don't count).
+function finRetentionReleased(jf, invs){
+  let t = 0;
+  [jf && jf.ret1_invoice_id, jf && jf.ret2_invoice_id].forEach(id=>{ const i = id && (invs||[]).find(x=>x.id===id); if(i && !['void','draft'].includes(i.status)) t += Number(i.net||0); });
+  return finRound(t);
+}
+function finRetentionStillHeld(apps, jf, invs){ return finRound(Math.max(0, finRetentionHeld(apps) - finRetentionReleased(jf, invs))); }
 function finRetentionDates(jf, st){
   if(!jf || !jf.pc_date) return {first:null, second:null};
   const months = jf.defects_months!=null ? jf.defects_months : ((st&&st.default_defects_months)!=null ? st.default_defects_months : 12);
@@ -177,8 +198,11 @@ window.raiseRetentionInvoice = async function(siteId, n){
   const jf = jfRows[0] || {};
   const already = n===1 ? jf.ret1_invoice_id : jf.ret2_invoice_id;
   if(already){ go(`#/site/${siteId}/finance/invoice/${already}`); return; }
-  const amt = finRetHalf(finRetentionHeld(apps), n);
-  if(!amt){ toast('No retention held on this project yet.'); return; }
+  // Second half = held now less what the first-half invoice released (audit FA-19).
+  let r1inv = null;
+  if(n===2 && jf.ret1_invoice_id) r1inv = (await dbSelect('fin_invoices', 'id=eq.'+jf.ret1_invoice_id+'&select=id,status,net'))[0] || null;
+  const amt = finRetHalfAmt(finRetentionHeld(apps), n, jf, r1inv ? [r1inv] : []);
+  if(!(amt>0)){ toast(n===2 && r1inv ? 'Nothing left to release — the first-half invoice already covers all the retention held.' : 'No retention held on this project yet.'); return; }
   const lines = [{description:`Release of retention — ${n===1?'first half (practical completion'+(jf.pc_date?' '+finDate(jf.pc_date):'')+')':'second half (end of defects period)'}`, amount:amt}];
   if(typeof finClientsLoad==='function'){ await finClientsLoad(); const c = finClientByName(jf.billing_name||site.client_name); const m = {'20':'20','5':'5','rc20':'rc20','rc5':'rc5','0':'0','ex':'ex','none':'ex'}; if(c && m[c.sales_vat] && FIN_INV_VAT[m[c.sales_vat]]) lines.forEach(l=>{ if(!l.vat) l.vat = m[c.sales_vat]; }); }
   const t = finInvTotals(lines, jf.vat_treatment||st.default_vat||'standard', 20);

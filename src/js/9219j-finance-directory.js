@@ -192,7 +192,7 @@ function finDirPaint(){
   const v = x=>escapeHtml(x==null?'':String(x));
   const tog = (k, label, sub)=>`<label class="findir-tog ${r[k]?'on':''}"><span><b>${label}</b>${sub?`<small>${sub}</small>`:''}</span><input type="checkbox" ${r[k]?'checked':''} onchange="finDirSet('${k}',this.checked);finDirPaint()"></label>`;
   const inp = (k, label, ph, type)=>`<div class="formfield"><label class="field-label">${label}</label><input type="${type||'text'}" value="${v(r[k])}" placeholder="${escapeHtml(ph||'')}" oninput="finDirSet('${k}',this.value)"></div>`;
-  const vatSel = (k, label)=>`<div class="formfield"><label class="field-label">${label}</label><select onchange="finDirSet('${k}',this.value)"><option value="">Not set</option>${Object.keys(FIN_DIR_VAT).map(x=>`<option value="${x}" ${r[k]===x?'selected':''}>${FIN_DIR_VAT[x]}</option>`).join('')}</select></div>`;
+  const vatSel = (k, label)=>`<div class="formfield"><label class="field-label">${label}</label><select onchange="finDirSet('${k}',this.value)"><option value="">Not set</option>${(typeof finVatKeysWith==='function' ? finVatKeysWith(FIN_DIR_VAT, r[k]) : Object.keys(FIN_DIR_VAT)).map(x=>`<option value="${x}" ${r[k]===x?'selected':''}>${FIN_DIR_VAT[x]}</option>`).join('')}</select></div>`;
   const codes = FIN_CODES||[];
   const tabs = [['general','General'], ['terms','Payment terms'], ['tax','Tax'], ['cis','CIS']];
   let body = '';

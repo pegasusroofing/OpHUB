@@ -77,8 +77,12 @@ window.openFinNewJob = async function(){
       <div class="formfield"><label class="field-label">Project number *</label><input type="text" id="finNjNo" ${auto?`disabled placeholder="Automatic (${escapeHtml(finNextJobNumberLabel())})"`:`value="${escapeHtml(finNextJobNoGuess())}"`}></div>
       <div class="formfield"><label class="field-label">Status</label><select id="finNjStatus">${Object.keys(FIN_JOB_STATUS).map(k=>`<option value="${k}" ${k==='live'?'selected':''}>${FIN_JOB_STATUS[k]}</option>`).join('')}</select></div>
     </div>
-    <div class="formfield"><label class="field-label">How do you get paid? *</label><select id="finNjBt" onchange="document.getElementById('finNjCvWrap').hidden=this.value!=='invoice'"><option value="">Choose…</option><option value="invoice">Invoices — I type the contract value</option><option value="application">Applications — against a Bill of Quantities</option></select></div>
-    <div class="formfield" id="finNjCvWrap" hidden><label class="field-label">Contract value £ (excl. VAT)</label><input type="text" inputmode="decimal" data-money id="finNjCv" placeholder="Leave blank if not known yet"></div>
+    <div class="formfield"><label class="field-label">Payment Procedure *</label><select id="finNjBt"><option value="">Choose…</option><option value="invoice">Invoices</option><option value="application">Applications for payment (Bill of Quantities)</option></select></div>
+    <div class="formfield" id="finNjCvWrap"><label class="field-label">Contract value £ (excl. VAT)</label><input type="text" inputmode="decimal" data-money id="finNjCv" placeholder="Leave blank if not known yet"></div>
+    <div class="fingrid2">
+      <div class="formfield"><label class="field-label">Client PO number</label><input type="text" id="finNjPo" placeholder="Optional"></div>
+      <div class="formfield"><label class="field-label">Client PO copy (any files)</label><input type="file" id="finNjPoFiles" multiple></div>
+    </div>
     ${isFinanceOnly() ? '' : `<div class="fingrid2">
       <div class="formfield"><label class="field-label">Project manager</label><select id="finNjPm"><option value="">Choose later</option>${Object.values(PROFILES||{}).filter(p=>isFullManager(p) && p.org_id===ME.org_id).sort((a,b)=>String(a.name).localeCompare(String(b.name))).map(p=>`<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('')}</select></div>
       <div class="formfield"><label class="field-label">Type of job</label><select id="finNjKind"><option value="">Single site</option><option value="multi">Multi-site (plots)</option><option value="repair">Repairs contract</option></select></div>
@@ -102,6 +106,10 @@ window.saveFinNewJob = async function(){
   if(!(ORG && ORG.auto_job_numbers) && !no){ toast('Enter a project number.'); return; }
   const bt = finVal('finNjBt');
   if(!bt){ toast('Choose how you get paid on this project.'); return; }
+  const cvRaw = finNum(finVal('finNjCv')); const cvIn = (cvRaw!==null && !isNaN(cvRaw) && cvRaw>0) ? finRound(cvRaw) : null;
+  const poNo = finVal('finNjPo'); const poFiles = Array.from((document.getElementById('finNjPoFiles')||{}).files||[]);
+  if(poFiles.length && !poNo){ toast('Add the client PO number for the PO copy.'); return; }
+  if(poFiles.some(f=>f.size > 20*1024*1024)){ toast('One of the PO files is over 20 MB.'); return; }
   const btn = document.getElementById('finNjSave'); if(btn){ btn.disabled = true; btn.textContent = 'Creating…'; }
   // Client comes from the Directory (a new name is added to it).
   const cli = typeof finClientEnsure==='function' ? await finClientEnsure(finVal('finNjClient')) : null;
@@ -120,7 +128,18 @@ window.saveFinNewJob = async function(){
   const made = SITES.find(x=>x.id===newId) || row;
   // Set up in Finance = set up in Projects too: same folders and toolbox talks as a project made there.
   if(!isFinanceOnly() && SITES.find(x=>x.id===newId)){ try{ await Promise.all([typeof preloadTbtBankForSite==='function' ? preloadTbtBankForSite(made) : null, typeof preloadDrawingFoldersForSite==='function' ? preloadDrawingFoldersForSite(made) : null]); }catch(e){} }
-  await sbFetch('/rest/v1/job_finance', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify({site_id:newId, org_id:ME.org_id, billing_type:bt, billing_name:row.client_name||null, billing_email:email||null, billing_address:(cli && typeof finClientAddr==='function' && finClientAddr(cli))||null, vat_treatment:(typeof finClientVatTreatment==='function' && finClientVatTreatment(cli))||null, contract_value:(bt==='invoice' && finNum(finVal('finNjCv'))) ? finRound(finNum(finVal('finNjCv'))) : null, original_value:(bt==='invoice' && finNum(finVal('finNjCv'))) ? finRound(finNum(finVal('finNjCv'))) : null, updated_at:new Date().toISOString(), updated_by:ME.id})});
+  await sbFetch('/rest/v1/job_finance', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify({site_id:newId, org_id:ME.org_id, billing_type:bt, billing_name:row.client_name||null, billing_email:email||null, billing_address:(cli && typeof finClientAddr==='function' && finClientAddr(cli))||null, vat_treatment:(typeof finClientVatTreatment==='function' && finClientVatTreatment(cli))||null, contract_value:cvIn, original_value:cvIn, contract_value_manual:cvIn, contract_value_source:cvIn!=null ? 'manual' : null, updated_at:new Date().toISOString(), updated_by:ME.id})});
+  // Client PO (24 Oct, Andy): number + any number of files, saved as the project's main PO.
+  if(poNo){
+    const files = [];
+    for(const f of poFiles){
+      const safe = f.name.replace(/[^a-z0-9.\-]+/gi,'_').slice(-80);
+      const stored = await uploadToStorage('finance-docs', ME.org_id+'/'+newId+'/client-po/'+uid()+'-'+safe, f, f.type||'application/octet-stream');
+      if(stored) files.push({path:stored, name:f.name});
+    }
+    await dbInsert('client_pos', {org_id:ME.org_id, site_id:newId, created_by:ME.id, po_number:poNo, is_primary:true, file_path:files[0]?files[0].path:null, file_name:files[0]?files[0].name:null, files});
+    if(files.length < poFiles.length) toast('Some PO files didn’t upload — add them from Project Admin.');
+  }
   if(ORG && ORG.auto_job_numbers) ORG.next_job_number = (ORG.next_job_number||0)+1;
   document.getElementById('finJobOverlay').style.display = 'none';
   toast('Project '+(made.job_number||'')+' created');
@@ -197,12 +216,22 @@ function finTeamRole(p){ return p.role==='admin' ? 'Admin' : (p.role==='pm' ? 'M
 window.finTeamToggle = async function(userId){
   const p = PROFILES[userId]; if(!p) return;
   // Finance users need the manager role to create jobs, suppliers and POs.
+  let wasRole = null;
   if(!p.finance_enabled && !['pm','admin'].includes(p.role)){
+    if(!await customConfirm('Give '+p.name+' Finance? This also makes them a manager, so they can see every job on the Projects side too.')) return;
+    wasRole = p.role;
     const r = await dbUpdate('profiles', userId, {role:'pm'});
-    if(!r){ toast('Could not update their role.'); return; }
+    if(!r || r.role!=='pm'){ toast('Could not update their role.'); return; }
     p.role = 'pm';
   }
   await toggleFinanceAccess(userId);
+  // If Finance didn't switch on after all, put their old role back (audit FA-15).
+  if(wasRole && !p.finance_enabled){
+    const back = await dbUpdate('profiles', userId, {role:wasRole});
+    if(back && back.role===wasRole) p.role = wasRole;
+    else toast(p.name+' was made a manager but Finance didn’t switch on. Change their role back in Admin Centre › Users.');
+    render();
+  }
 };
 window.finTeamMakeAdmin = async function(userId){
   const p = PROFILES[userId]; if(!p) return;

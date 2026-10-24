@@ -245,13 +245,17 @@ window.finStmtCreate = async function(){
 /* ---------- one statement ---------- */
 async function renderFinStatement(id){
   const __gen = RENDER_GEN;
-  const rec = /^[A-Za-z0-9_-]{6,64}$/.test(id) ? (await dbSelect('fin_statements', 'id=eq.'+encodeURIComponent(id)))[0] : null;
+  // Straight after a line change we already hold the saved statement, the
+  // invoices and the PDF link, so just repaint (audit FB-22).
+  const reuse = finStmt && finStmt.quick && finStmt.rec && finStmt.rec.id===id ? finStmt : null;
+  if(reuse) reuse.quick = false;
+  const rec = reuse ? reuse.rec : (/^[A-Za-z0-9_-]{6,64}$/.test(id) ? (await dbSelect('fin_statements', 'id=eq.'+encodeURIComponent(id)))[0] : null);
   if(!rec){ go('#/finance/purchases/statements'); return; }
-  const cands = await finStmtCands(rec.supplier_name);
-  let fileUrl = '';
-  if(rec.file_path && /\.pdf$/i.test(rec.file_name||'')){ try{ fileUrl = await resolveStorageUrl(publicUrl('finance-docs', rec.file_path)); }catch(e){} }
+  const cands = reuse ? reuse.cands : await finStmtCands(rec.supplier_name);
+  let fileUrl = reuse ? (reuse.fileUrl||'') : '';
+  if(!reuse && rec.file_path && /\.pdf$/i.test(rec.file_name||'')){ try{ fileUrl = await resolveStorageUrl(publicUrl('finance-docs', rec.file_path)); }catch(e){} }
   if(__gen !== RENDER_GEN) return;
-  finStmt = {rec, cands};
+  finStmt = {rec, cands, fileUrl};
   const lines = rec.lines || [];
   const st = lines.map(l=>({l, s:finStmtLineState(l, cands)}));
   const cnt = k=>st.filter(x=>x.s.k===k).length;
@@ -301,7 +305,7 @@ function finStmtSave(patch){
     if(!finStmt) return;
     const r = finStmt.rec;
     const row = await dbUpdate('fin_statements', r.id, Object.assign({lines:r.lines, updated_at:new Date().toISOString()}, patch||{}));
-    if(row && finStmt && finStmt.rec.id===row.id){ finStmt.rec = row; render(); }
+    if(row && finStmt && finStmt.rec.id===row.id){ finStmt.rec = row; if(location.hash.indexOf('/statements/'+row.id) >= 0){ finStmt.quick = true; await render(); } }
   }).catch(()=>{});
   return finStmtSaving;
 }

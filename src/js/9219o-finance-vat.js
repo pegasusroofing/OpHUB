@@ -40,6 +40,13 @@ function finVatApply(){
   }
 }
 finVatApply();
+// FB-27: keys for a VAT drop-down. A switched-off rate (kept hidden above) that this record still
+// uses is put back in its own list, so the drop-down shows the real rate instead of the first one.
+function finVatKeysWith(obj, cur){
+  const keys = Object.keys(obj||{});
+  if(cur!=null && cur!=='' && !keys.includes(String(cur)) && Object.prototype.hasOwnProperty.call(obj, String(cur))) keys.push(String(cur));
+  return keys;
+}
 (function(){
   const base = finLoadSettings;
   finLoadSettings = async function(){ const r = await base.apply(this, arguments); finVatApply(); return r; };

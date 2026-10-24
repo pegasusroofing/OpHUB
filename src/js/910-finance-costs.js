@@ -225,3 +225,22 @@ window.finCostExportPdf = async function(){
   const pages = pdf.getPages(); pages.forEach((p,i)=>p.drawText((i+1)+' of '+pages.length, {x:W-M-30, y:16, size:8, font:reg, color:SLATE}));
   viewPdfInApp(await pdf.save(), finCostExportName('pdf'));
 };
+
+/* ---------- FA-20 (24 Oct 2026): plant card total ----------
+   A hire set to "cost comes from the hire company's invoices" is already counted through those
+   invoices, so it mustn't be added again at rate × time in the card's "Plant to date" total
+   (911's job costs and 9219y's Purchases tab already leave it out). The hire is still listed. */
+(function(){
+  if(typeof finPlantCardHtml!=='function') return;
+  const base = finPlantCardHtml;
+  finPlantCardHtml = function(siteId, hires){
+    const html = base.apply(this, arguments);
+    const list = hires || [];
+    if(!list.some(h=>h.cost_from==='invoices')) return html;
+    const all = finMoney(list.reduce((t,h)=>t+finPlantCost(h).cost, 0));
+    const fixed = finMoney(list.filter(h=>h.cost_from!=='invoices').reduce((t,h)=>t+finPlantCost(h).cost, 0));
+    const at = html.indexOf('<div class="finkv big"><span>Plant to date'); if(at < 0) return html;
+    const tail = html.slice(at).replace('<b>'+all+'</b></div>', '<b>'+fixed+'</b></div><p class="stub" style="margin:4px 0 0;font-style:normal;">Hires costed from the hire company’s invoices are counted with the purchase invoices, not in this total.</p>');
+    return html.slice(0, at) + tail;
+  };
+})();

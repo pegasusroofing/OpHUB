@@ -188,10 +188,28 @@ function modalAddX(){
 (function(){
   let t = null;
   new MutationObserver(()=>{ clearTimeout(t); t = setTimeout(modalAddX, 30); }).observe(document.body, {childList:true, subtree:true});
+  // Esc closes the pop-up on top (audit FB-20). A yes/no confirm always sits
+  // on top; otherwise the highest z-index wins, then the last one in the page.
+  // Esc used to close something smaller first (the client suggestion list, a
+  // menu) is left alone.
+  let sugEsc = false;
+  window.addEventListener('keydown', e=>{
+    if(e.key!=='Escape') return;
+    const t = e.target;
+    sugEsc = !!(t && t.hasAttribute && t.hasAttribute('data-finclient') && document.querySelector('.finsug'));
+  }, true);
   document.addEventListener('keydown', e=>{
     if(e.key!=='Escape') return;
+    if(e.defaultPrevented || sugEsc){ sugEsc = false; return; }
     const open = Array.from(document.querySelectorAll('.geo-modal-overlay')).filter(o=>getComputedStyle(o).display!=='none');
-    const top = open[open.length-1]; const card = top && top.querySelector('.geo-modal-card'); if(card) modalClose(card);
+    if(!open.length) return;
+    const conf = open.find(o=>o.id==='confirmModalOverlay');
+    let top = conf || null;
+    if(!top){
+      let best = -Infinity;
+      open.forEach(o=>{ const z = parseInt(getComputedStyle(o).zIndex, 10); const zz = isNaN(z) ? 0 : z; if(zz >= best){ best = zz; top = o; } });
+    }
+    const card = top && top.querySelector('.geo-modal-card'); if(card){ e.preventDefault(); modalClose(card); }
   });
   const st = document.createElement('style');
   st.textContent = `.geo-modal-card > .modal-x{position:sticky;top:0;float:right;z-index:3;margin:-8px -8px 0 8px;width:34px;height:34px;border:0;border-radius:10px;background:#F1F3F6;color:var(--ink);font-size:16px;font-weight:700;cursor:pointer;line-height:1;}

@@ -113,7 +113,7 @@ const FIN_HELP = {
   retention:'Money the client holds back (often 3–5%) until the work is signed off. Half usually comes back at practical completion, half at the end of the defects period.',
   certified:'The amount the client (or their QS) agrees you’re owed — the payment certificate. It can be less than you applied for.',
   payless:'A notice saying you (or the client) will pay less than the amount applied for, and why. It must be sent before the final date for payment.',
-  contra:'Charges taken off a subcontractor’s payment, e.g. for damage, clearing up or materials you supplied.',
+  contra:'Charges taken off a subcontractor’s payment for things you supplied them, e.g. plant, clearing up or materials. HMRC counts these as paid to them, so CIS is still worked out on the amount before contra charges. If you’re holding money back for poor or unfinished work, put in a lower certified amount instead — that does reduce the CIS.',
   committed:'Ordered on a purchase order but not invoiced by the supplier yet.',
   reverse:'Domestic reverse charge (construction): on CIS work between VAT-registered businesses the customer pays the VAT straight to HMRC, so it isn’t added to the invoice total.',
   valuation:'The value of the work done to date, used for the application.',

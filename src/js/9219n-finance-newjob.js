@@ -200,19 +200,21 @@ function finProjTabsHtml(siteId, bt){
   if(cur==='boq' && bt!=='application') finProjTab[siteId] = 'overview';
   return `<nav class="finsecnav finptabs" role="tablist">${tabs.map(t=>`<button type="button" role="tab" data-t="${t.k}" class="${t.k===(finProjTab[siteId]||cur)?'on':''}" onclick="finProjTabGo('${siteId}','${t.k}')">${t.l}</button>`).join('')}</nav>`;
 }
+let finRetInvsFor = null; // {siteId, invs}: this project's invoices, for the Retention card drawn just after (audit FA-08)
 function finJobOverviewHtml(d){
   const {siteId, site, jf, st, bt, invs, apps, items, pos, pinvs, hires} = d;
+  finRetInvsFor = {siteId, invs};
   const live = invs.filter(i=>i.status!=='void');
   const owed = live.reduce((t,i)=>t+finInvOutstandingNet(i), 0);
   const od = live.filter(finInvOverdue), overdue = od.reduce((t,i)=>t+finInvOutstandingNet(i), 0);
-  const retHeld = typeof finRetentionHeld==='function' ? finRetentionHeld(apps) : 0;
+  const retHeld = typeof finRetentionStillHeld==='function' ? finRetentionStillHeld(apps, jf, invs) : 0;
   const tiles = `<div class="pmstats finstats">
     <div class="pmstat" onclick="finProjTabGo('${siteId}','setup')"><b>${finMoney(jf.contract_value||0, 0)}</b><span>Contract value</span></div>
     <div class="pmstat" onclick="finSalesGo('${siteId}','invoices')"><b>${finMoney(owed, 0)}</b><span>Owed to you</span></div>
     <div class="pmstat" onclick="finSalesGo('${siteId}','invoices')"><b${overdue?' class="hot"':''}>${finMoney(overdue, 0)}</b><span>Overdue</span></div>
     <div class="pmstat" onclick="finSalesGo('${siteId}','retention')"><b>${finMoney(retHeld, 0)}</b><span>Retention held by client</span></div>
   </div>`;
-  const start = finStartCardHtml(siteId, bt, {items:items.filter(finIsItem).length, pos:pos.length, invs:invs.length, apps:apps.length});
+  const start = finStartCardHtml(siteId, bt, {jf, items:items.filter(finIsItem).length, pos:pos.length, invs:invs.length, apps:apps.length});
   if(start) return tiles + start;
   const todo = [], T = (tone, t, s, n, js)=>todo.push({tone, t, s, n, js});
   const tab = k=>`finProjTabGo('${siteId}','${k}')`;
@@ -256,15 +258,19 @@ function finRetentionCardHtml(siteId, jf, st, apps){
   const held = finRetentionHeld(apps);
   const d = finRetentionDates(jf, st);
   const alerts = finRetentionAlerts(jf, st, held);
+  // Released so far and still held, and each half from its invoice once raised (audit FA-08 / FA-19).
+  const invs = finRetInvsFor && finRetInvsFor.siteId===siteId ? finRetInvsFor.invs : [];
+  const released = finRetentionReleased(jf, invs), still = finRound(Math.max(0, held - released));
+  const half = n=>finRetHalfAmt(held, n, jf, invs);
   const act = (n, date, invId)=> invId ? `<button class="linkbtn" onclick="go('#/site/${siteId}/finance/invoice/${invId}')">View invoice</button>`
     : (held && date ? `<button class="linkbtn" onclick="raiseRetentionInvoice('${siteId}',${n})">Raise invoice</button>` : '<span class="stub" style="margin:0;">—</span>');
   const due = (n, date)=>date ? finDate(date) : '<span class="stub" style="margin:0;font-style:normal;">Set PC date</span>';
   return `<div class="card finret">
-    <div class="finret-h"><p class="sectiontitle" style="margin:0;">Retention</p><span>Held to date <b>${finMoney(held)}</b></span></div>
+    <div class="finret-h"><p class="sectiontitle" style="margin:0;">Retention</p><span>Held to date <b>${finMoney(held)}</b>${released ? ` · Released <b>${finMoney(released)}</b> · Still held <b>${finMoney(still)}</b>` : ''}</span></div>
     ${alerts.length ? `<div class="finchecks" style="margin:6px 0 0;">${alerts.map(x=>`<span>${x.half===1?'First':'Second'} half due ${finDate(x.date)}</span>`).join('')}</div>` : ''}
     <table class="finret-t"><thead><tr><th>Release</th><th>Due</th><th class="num">Amount</th><th></th></tr></thead><tbody>
-      <tr><td>1st half · practical completion</td><td>${due(1, d.first)}</td><td class="num">${finMoney(finRetHalf(held, 1))}</td><td class="r">${act(1, d.first, jf.ret1_invoice_id)}</td></tr>
-      <tr><td>2nd half · end of defects</td><td>${due(2, d.second)}</td><td class="num">${finMoney(finRetHalf(held, 2))}</td><td class="r">${act(2, d.second, jf.ret2_invoice_id)}</td></tr>
+      <tr><td>1st half · practical completion</td><td>${due(1, d.first)}</td><td class="num">${finMoney(half(1))}</td><td class="r">${act(1, d.first, jf.ret1_invoice_id)}</td></tr>
+      <tr><td>2nd half · end of defects</td><td>${due(2, d.second)}</td><td class="num">${finMoney(half(2))}</td><td class="r">${act(2, d.second, jf.ret2_invoice_id)}</td></tr>
     </tbody></table>
     <div class="finret-f">
       <label>Practical completion<input type="date" id="finPcDate" value="${jf.pc_date||''}"></label>
@@ -498,7 +504,10 @@ async function finContractAutoSave(){
     const rowsNow = finContractRows;
     const onScreen = new Set(rowsNow.filter(r=>r.id).map(r=>r.id));
     const rows = rowsNow.map((r,_i)=>({_i, r, kind:r.kind||'item', description:String(r.description||'').trim()})).filter(x=>x.description);
-    const existing = await dbSelect('fin_contract_items', 'site_id=eq.'+siteId+'&select=id');
+    // A failed read must stop the save, or every line is added a second time (audit FB-07).
+    const exR = await dbSelectChecked('fin_contract_items', 'site_id=eq.'+siteId+'&select=id');
+    if(!exR.ok) throw new Error('Could not read the saved lines');
+    const existing = exR.data;
     let failed = 0;
     for(const e of existing) if(!onScreen.has(e.id)){ if(!(await dbDelete('fin_contract_items', e.id))) failed++; }
     for(let p=0;p<rows.length;p++){
@@ -510,7 +519,7 @@ async function finContractAutoSave(){
       else { const ins = await dbInsert('fin_contract_items', Object.assign({org_id:ME.org_id, site_id:siteId}, data)); if(ins && ins[0]) r.id = ins[0].id; else failed++; }
     }
     const total = finRound(rows.filter(x=>x.kind==='item').reduce((t,x)=>t+(Number(finItemValue(x.r))||0), 0));
-    await sbFetch('/rest/v1/job_finance', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify({site_id:siteId, org_id:ME.org_id, contract_value:total, billing_type:'application', updated_at:new Date().toISOString(), updated_by:ME.id})});
+    await sbFetch('/rest/v1/job_finance', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify({site_id:siteId, org_id:ME.org_id, ...(await finCvPatch(siteId, total)), billing_type:'application', updated_at:new Date().toISOString(), updated_by:ME.id})});
     if(finContractRows===rowsNow && !failed) finContractSnap = finContractSnapOf(finContractRows);
     finCtAuto.at = new Date(); finCtAuto.err = failed ? failed+' line'+(failed===1?'':'s')+' didn’t save' : '';
   }catch(e){ console.error(e); finCtAuto.err = 'Not saved — check your connection'; }
@@ -518,6 +527,17 @@ async function finContractAutoSave(){
   finCtAutoPaint();
   if(finCtAuto.again){ finCtAuto.again = false; finContractAutoSave(); }
 }
+// The Save button waits for an autosave that's still running (and autosave waits for Save), so the
+// two never add the same new lines at once (audit FB-07).
+(function(){
+  const base = window.saveFinContract;
+  window.saveFinContract = async function(){
+    for(let i = 0; finCtAuto.busy && i < 200; i++) await new Promise(r=>setTimeout(r, 150));
+    finCtAuto.busy = true;
+    try{ return await base.apply(this, arguments); }
+    finally{ finCtAuto.busy = false; finCtAuto.again = false; }
+  };
+})();
 function finCtAutoPaint(msg){
   let el = document.getElementById('finCtAuto');
   if(!el){ const t = document.getElementById('finContractTotal'); if(!t) return; el = document.createElement('span'); el.id = 'finCtAuto'; el.className = 'finctauto'; t.closest('.fincontot').prepend(el); }
@@ -716,7 +736,7 @@ async function finAppAddLineCore(siteId, e){
   const order = boq.slice(0, at).concat(made, boq.slice(at));
   for(let p=0;p<order.length;p++) if(order[p].position!==p) await dbUpdate('fin_contract_items', order[p].id, {position:p});
   const total = finRound(order.filter(finIsItem).reduce((t,b)=>t+Number(b.value||0), 0));
-  await sbFetch('/rest/v1/job_finance', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify({site_id:siteId, org_id:ME.org_id, contract_value:total, updated_at:new Date().toISOString(), updated_by:ME.id})});
+  await sbFetch('/rest/v1/job_finance', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify({site_id:siteId, org_id:ME.org_id, ...(await finCvPatch(siteId, total)), updated_at:new Date().toISOString(), updated_by:ME.id})});
   if(finAppCtx && finAppCtx.jf) finAppCtx.jf.contract_value = total;
   const appLines = finApp.lines || (finApp.lines = []);
   const toLine = b=>finIsItem(b) ? {kind:'item', item_id:b.id, ref:b.ref||'', description:b.description, qty:b.qty!=null?Number(b.qty):null, unit:b.unit||'', rate:b.rate!=null?Number(b.rate):null, value:Number(b.value||0), pct:finPct(e.pct||0)} : {kind:b.kind, item_id:b.id, ref:b.ref||'', description:b.description};
@@ -765,6 +785,8 @@ function finXlCols(rows){
   const col = (re, d)=>{ const i = H.findIndex(h=>re.test(h)); return i>=0 ? i : d; };
   return {hi, ref:col(/^ref/,1), desc:col(/^description$/,2), qty:col(/^(qty|quantity)$/,3), unit:col(/^unit$/,4), rate:col(/^rate$/,5), value:col(/^contract value$/,6), pct:col(/^% ?complete/,7), gross:col(/^value to date$/,8)};
 }
+// An Excel row with no OpHUB key matches a line that's already there (same description and value)?
+function finXlSameLine(list, desc, value){ const d = String(desc||'').trim().toLowerCase(); return (list||[]).some(l=>String(l.description||'').trim().toLowerCase()===d && Math.abs(Number(l.value||0)-Number(value||0)) < 0.005); }
 const finXlNum = v=>{ if(typeof v==='number') return v; const n = Number(String(v||'').replace(/[£,%\s]/g,'')); return (String(v||'').trim()==='' || isNaN(n)) ? null : n; };
 (function(){
   const base = window.uploadFinAppExcel;
@@ -772,7 +794,7 @@ const finXlNum = v=>{ if(typeof v==='number') return v; const n = Number(String(
     if(!file || !finApp) return;
     const rows = await finXlRows(file); if(!rows) return;
     const C = finXlCols(rows);
-    let inContract = false, head = '', added = 0;
+    let inContract = false, head = '', added = 0, skipped = 0;
     const adds = [];
     rows.forEach((r, ri)=>{
       if(ri<=C.hi) return;
@@ -785,6 +807,7 @@ const finXlNum = v=>{ if(typeof v==='number') return v; const n = Number(String(
       const qty = finXlNum(r[C.qty]), rate = finXlNum(r[C.rate]), val = finXlNum(r[C.value]);
       const value = qty!=null && rate!=null ? finRound(qty*rate) : val;
       if(value==null) return;
+      if(finXlSameLine((finApp.lines||[]).filter(finIsItem), desc, value)){ skipped++; return; } // same file uploaded twice (audit FB-14)
       adds.push({kind:'item', under:(finApp.lines||[]).some(l=>l.item_id===head) ? head : '', ref:String(r[C.ref]||'').trim()||null, desc, qty, unit:String(r[C.unit]||'').trim()||null, rate, value, cost:null, pct:finXlNum(r[C.pct])||0});
     });
     if(adds.length){
@@ -792,7 +815,7 @@ const finXlNum = v=>{ if(typeof v==='number') return v; const n = Number(String(
       catch(e){ console.error(e); toast('Some new lines from the Excel could not be added.'); }
     }
     const res = await base.call(this, file);
-    if(added) toast(`${added} new line${added===1?'':'s'} added from the Excel (and to the Bill of Quantities)`);
+    if(added || skipped) toast((added ? `${added} new line${added===1?'':'s'} added from the Excel (and to the Bill of Quantities)` : 'No new lines added')+(skipped ? ` — ${skipped} already there, so not added again` : ''));
     return res;
   };
 })();

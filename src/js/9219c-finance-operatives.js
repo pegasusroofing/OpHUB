@@ -227,7 +227,7 @@ async function finOpPushToPm(p, key){
       await dbUpdate('wage_pushes', ex.id, {amount, description:row.description, status:ex.status==='withdrawn'?'pending':ex.status});
       if(ex.status==='price' && ex.price_entry_id) await sbFetch('/rest/v1/price_week_operative_entries?id=eq.'+ex.price_entry_id, {method:'PATCH', body:JSON.stringify({amount, updated_at:new Date().toISOString()})});
     }
-    for(const e of existing){ if(!bySite[e.site_id]){ if(e.status==='pending') await dbDelete('wage_pushes', e.id); else await dbUpdate('wage_pushes', e.id, {status:'withdrawn', amount:0}); } }
+    for(const e of existing){ if(!bySite[e.site_id]){ if(e.status==='pending') await dbDelete('wage_pushes', e.id); else if(e.status!=='withdrawn') await finWagePushWithdraw(e); } }
   }catch(e){ console.error('push', e); }
 }
 

@@ -28,7 +28,9 @@ function finInvTotals(lines, vatTreatment, vatRate){
     const a = Number(l.amount)||0; net += a;
     const k = finInvLineVat(l, vatTreatment, vatRate), c = FIN_INV_VAT[k];
     const b = by[k] = by[k] || {net:0, vat:0}; b.net += a;
-    const v = a*c.r/100;
+    // VAT is rounded on each line, the way Xero does it, so OpHUB and Xero totals match to the penny
+    // and the VAT rows always add up to the VAT total (audit FA-10 / FA-21, 24 Oct).
+    const v = finRound(a*c.r/100);
     if(c.rc){ vatDue += v; b.vat += v; } else { vat += v; b.vat += v; }
   });
   Object.values(by).forEach(b=>{ b.net = finRound(b.net); b.vat = finRound(b.vat); });
@@ -205,6 +207,8 @@ function finInvDraftRow(){
 window.saveFinInvoiceDraft = async function(showToast){
   if(!finInvDraft) return null;
   const row = await dbUpdate('fin_invoices', finInvDraft.id, finInvDraftRow());
+  // undefined = nothing was updated: the draft has been deleted (audit FA-12).
+  if(row===undefined) toast('This draft no longer exists — it may have been deleted. Copy your lines and start a new invoice.');
   if(row && showToast) toast('Draft saved');
   return row;
 };
@@ -225,6 +229,7 @@ window.issueFinInvoice = async function(siteId, skipConfirm){
   const btn = document.getElementById('finInvIssue'); const reset = ()=>{ if(btn){ btn.disabled=false; btn.textContent='Issue invoice…'; } };
   if(btn){ btn.disabled = true; btn.textContent = 'Issuing…'; }
   const saved = await dbUpdate('fin_invoices', finInvDraft.id, row);
+  if(saved===undefined) toast('This draft no longer exists — it may have been deleted. Copy your lines and start a new invoice.');
   if(!saved){ reset(); return; }
   const issued = await finIssueInvoiceById(finInvDraft.id);
   if(!issued){ reset(); return; }

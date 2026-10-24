@@ -23,7 +23,7 @@ function finBillingType(jf, itemsCount, appsCount){
 // Shown at the top of a project's Finance page until it's chosen.
 function finBillingChoiceHtml(siteId){
   return `<div class="card finbtchoose">
-    <p class="sectiontitle" style="margin-top:0;">How do you get paid on this project?</p>
+    <p class="sectiontitle" style="margin-top:0;">Payment Procedure</p>
     <div class="finbtopts">
       ${Object.keys(FIN_BT).map(k=>`<button type="button" class="finbtopt" onclick="setFinBillingType('${siteId}','${k}')">
         <span class="finbtopt-i">${FIN_BT[k].icon}</span><b>${FIN_BT[k].t}</b><span>${FIN_BT[k].s}</span></button>`).join('')}
@@ -223,7 +223,7 @@ function finAppDatesHtml(jf, st){
   const months = finNext12Months(), custom = (jf && jf.app_dates) || {};
   const n = months.filter(m=>custom[m]).length;
   return `<details class="finappdates" style="grid-column:1 / -1;" ${n?'open':''}>
-    <summary>Application dates for the next 12 months${n ? ` <em>· ${n} set by hand</em>` : ''}</summary>
+    <summary>Manually select monthly application dates${n ? ` <em>· ${n} set by hand</em>` : ''}</summary>
     <p class="stub" style="margin:0 16px 10px;font-style:normal;">Each month uses the day above unless you pick a date for it (e.g. the client’s valuation calendar). Leave a box empty to use the normal day.</p>
     <div class="finappdates-g">${months.map(m=>{ const def = finAppDateFor({app_reminder_day:jf && jf.app_reminder_day}, st, m) || ''; const v = custom[m] || '';
       return `<label class="${custom[m]?'set':''}"><span>${new Date(m+'-01T12:00:00').toLocaleDateString('en-GB',{month:'short', year:'numeric'})}</span><input type="date" data-ym="${m}" data-def="${def}" value="${v}" min="${m}-01" max="${m}-31" onchange="this.parentNode.classList.toggle('set', !!this.value && this.value!==this.dataset.def)"><em>${def ? 'Normally '+finDate(def) : 'No day set'}</em></label>`; }).join('')}</div>

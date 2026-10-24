@@ -9,7 +9,7 @@
   const pattern = /^(save|new|raise|mark|issue|send|void|delete|clear)[A-Z]/;
   const extra = ['finInboxFile','finInboxUpload','finShopSave','finShopAddManual','finPoQuoteApply','finSendToSow','finSetOriginal','finQuoteHideAll','finAddWorker','finTeamNewInvite','finXeroPush','finXeroPullPayments','setFinBillingType','setFinPoStatus','setPurchaseInvoiceStatus','setFinPiPaid','uploadFinAppExcel','finContractUploadPicked','toggleFinanceAccess'];
   const skip = new Set(['finAppSaveSoft']);
-  const running = new Set();
+  const running = new Map(); // key -> the save that is still going
   const wrap = name=>{
     const fn = window[name];
     if(typeof fn!=='function' || fn.__once || skip.has(name)) return;
@@ -17,10 +17,17 @@
     const w = async function(...args){
       // Xero posts are guarded per record, so posting several bills at once isn't dropped (audit FB-06).
       const key = name==='finXeroPush' ? name+':'+args[0]+':'+args[1] : name;
-      if(running.has(key)) return; // already working on it — ignore the second tap
-      running.add(key); document.documentElement.classList.add('finbusy');
-      try{ return await fn.apply(this, args); }
-      finally{ running.delete(key); if(!running.size) document.documentElement.classList.remove('finbusy'); }
+      // Already working on it: don't start a second one, but hand back the first
+      // one's answer when it finishes, so a caller that waits (e.g. Apply waiting
+      // for Save) doesn't carry on while it is still writing (audit FB-24).
+      if(running.has(key)) return running.get(key);
+      document.documentElement.classList.add('finbusy');
+      const p = (async ()=>{
+        try{ return await fn.apply(this, args); }
+        finally{ running.delete(key); if(!running.size) document.documentElement.classList.remove('finbusy'); }
+      })();
+      running.set(key, p);
+      return p;
     };
     w.__once = true; window[name] = w;
   };

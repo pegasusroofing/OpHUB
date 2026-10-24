@@ -33,9 +33,25 @@ async function finWagePush(t, rows){
     for(const e of existing){
       if(bySite[e.site_id]) continue;
       if(e.status==='pending') await dbDelete('wage_pushes', e.id);
-      else if(e.status!=='withdrawn') await dbUpdate('wage_pushes', e.id, {status:'withdrawn', amount:0});
+      else if(e.status!=='withdrawn') await finWagePushWithdraw(e);
     }
   }catch(e){ console.error('wage push', e); }
+}
+// Take a push off. If the PM had booked it against a price, zero that wage
+// line too, so the price doesn't keep the wage (and re-booking later doesn't
+// count it twice) — audit FA-17.
+async function finWagePushWithdraw(e){
+  const ok = await dbUpdate('wage_pushes', e.id, {status:'withdrawn', amount:0});
+  if(ok && e.status==='price' && e.price_entry_id){
+    try{
+      await sbFetch('/rest/v1/price_week_operative_entries?id=eq.'+e.price_entry_id, {method:'PATCH', body:JSON.stringify({amount:0, updated_at:new Date().toISOString()})});
+      if(e.element_id && e.week_number){
+        const sh = await dbSelect('price_builder_sheets', 'pricing_element_id=eq.'+e.element_id+'&select=id&limit=1');
+        if(!sh.length && typeof rollUpPriceWeekFromOperativeEntries==='function') await rollUpPriceWeekFromOperativeEntries(e.element_id, e.site_id, e.week_number);
+      }
+    }catch(err){ console.error('wage push withdraw', err); }
+  }
+  return ok;
 }
 const FIN_WP_LABEL = {pending:'With PM', price:'On price', general:'General costs', withdrawn:'Taken off'};
 function finWagePushChip(p){
@@ -85,7 +101,15 @@ async function pmWagePushesHtml(siteId, elements){
 }
 window.pmWagePushBook = async function(siteId, id, how){
   const box = document.getElementById('pmwp-'+id); if(!box) return;
-  const p = (await dbSelect('wage_pushes', 'id=eq.'+id))[0]; if(!p || p.status!=='pending'){ render(); return; }
+  // One tap at a time — a second tap must not book the wage twice (audit FA-17).
+  if(box.dataset.busy==='1') return;
+  const btns = Array.from(box.querySelectorAll('button')).filter(x=>!x.disabled);
+  box.dataset.busy = '1'; btns.forEach(x=>{ x.disabled = true; });
+  try{ return await pmWagePushBookOnce(box, siteId, id, how); }
+  finally{ if(document.body.contains(box)){ box.dataset.busy = ''; btns.forEach(x=>{ x.disabled = false; }); } }
+};
+async function pmWagePushBookOnce(box, siteId, id, how){
+  const p = (await dbSelectNet('wage_pushes', 'id=eq.'+id))[0]; if(!p || p.status!=='pending'){ render(); return; }
   const patch = {status:how, decided_by:ME.id, decided_at:new Date().toISOString()};
   if(how==='price'){
     const elId = box.querySelector('.pmwp-el').value; if(!elId){ toast('Add a price tile first.'); return; }
@@ -102,4 +126,4 @@ window.pmWagePushBook = async function(siteId, id, how){
   if(!(await dbUpdate('wage_pushes', id, patch))) return;
   toast(how==='price' ? 'Added to the price' : 'Added to other job costs');
   render();
-};
+}

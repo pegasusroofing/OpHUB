@@ -46807,7 +46807,8 @@ window.saveFinanceSettings = async function(){
   if(btn){ btn.disabled = false; btn.textContent = 'Save settings'; }
   if(!res.ok){ toast('Save failed — '+(await safeErr(res))); return; }
   FIN_SETTINGS = (await res.json())[0] || FIN_SETTINGS;
-  if(!orgRow){ return; }
+  // The company record can be quietly refused (not an admin) — say so rather than saying nothing (audit FA-27).
+  if(!orgRow){ toast(orgRow===undefined ? 'Finance settings saved. The project number settings can only be changed by an admin.' : 'Finance settings saved, but the project number settings didn’t save. Please try again.'); render(); return; }
   toast('Finance settings saved');
   render();
 };
@@ -46882,7 +46883,7 @@ async function renderSiteFinance(siteId){
             <div class="stub" style="margin:2px 0 0;font-style:normal;">${[p.value!=null?finMoney(p.value):'', p.po_date?new Date(p.po_date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):'', p.description||''].filter(Boolean).map(escapeHtml).join(' · ') || 'No value or date'}</div>
           </div>
           <div class="finpo-act">
-            ${p.file_path ? `<button class="ghostbtn" style="padding:5px 10px;width:auto;" onclick="openClientPoFile('${p.id}')">View</button>` : ''}
+            ${(p.files&&p.files.length) || p.file_path ? `<button class="ghostbtn" style="padding:5px 10px;width:auto;" onclick="openClientPoFile('${p.id}')">View${p.files&&p.files.length>1?' ('+p.files.length+')':''}</button>` : ''}
             <button class="ghostbtn" style="padding:5px 10px;width:auto;" onclick="openClientPoForm('${siteId}','${p.id}')">Edit</button>
           </div>
         </div>`).join('') + (pos.length>1 ? `<p class="stub" style="margin:8px 0 0;font-style:normal;">Total of POs: <b>${finMoney(poTotal)}</b></p>` : '')
@@ -46981,9 +46982,9 @@ window.openClientPoForm = async function(siteId, poId){
       </div>
       <div class="formfield"><label class="field-label">What it covers</label><input type="text" id="finPoDesc" value="${escapeHtml(po&&po.description||'')}" placeholder="e.g. Main contract, Variation 2"></div>
       <label class="finswitch"><input type="checkbox" id="finPoPrimary" ${primary?'checked':''}> Main PO (shown on invoices, applications and certificates)</label>
-      <div class="formfield"><label class="field-label">Copy of the PO (optional)</label>
-        <input type="file" id="finPoFileInput" accept="application/pdf,image/*" onchange="finPoFile=this.files[0]||null">
-        ${po&&po.file_name ? `<p class="stub" style="margin:4px 0 0;font-style:normal;">Saved: ${escapeHtml(po.file_name)}</p>` : ''}
+      <div class="formfield"><label class="field-label">Copies of the PO (optional, any files)</label>
+        <input type="file" id="finPoFileInput" multiple onchange="finPoFile=Array.from(this.files||[])">
+        ${po ? (()=>{ const fl = finPoFilesOf(po); return fl.length ? `<p class="stub" style="margin:4px 0 0;font-style:normal;">Saved: ${fl.map(f=>escapeHtml(f.name||'file')).join(', ')} — new files are added to these.</p>` : ''; })() : ''}
       </div>
       <button class="darkbtn" id="finPoSave" style="width:100%;" onclick="saveClientPo('${siteId}','${po?po.id:''}')">Save PO</button>
       ${po ? `<button class="ghostbtn" style="width:100%;margin-top:8px;color:var(--red);" onclick="deleteClientPo('${siteId}','${po.id}')">Remove this PO</button>` : ''}
@@ -47001,13 +47002,18 @@ window.saveClientPo = async function(siteId, poId){
   const primary = document.getElementById('finPoPrimary').checked;
   const btn = document.getElementById('finPoSave'); if(btn){ btn.disabled = true; btn.textContent = 'Saving…'; }
   const row = {po_number:no, value:val, po_date:finVal('finPoDate')||null, description:finVal('finPoDesc')||null, is_primary:primary};
-  if(finPoFile){
-    if(finPoFile.size > 20*1024*1024){ toast('That file is over 20 MB.'); if(btn){ btn.disabled=false; btn.textContent='Save PO'; } return; }
-    const safe = finPoFile.name.replace(/[^a-z0-9.\-]+/gi,'_').slice(-80);
-    const path = ME.org_id+'/'+siteId+'/client-po/'+uid()+'-'+safe;
-    const stored = await uploadToStorage('finance-docs', path, finPoFile, finPoFile.type||'application/octet-stream');
-    if(!stored){ if(btn){ btn.disabled=false; btn.textContent='Save PO'; } return; }
-    row.file_path = stored; row.file_name = finPoFile.name;
+  const newFiles = Array.isArray(finPoFile) ? finPoFile : (finPoFile ? [finPoFile] : []);
+  if(newFiles.length){
+    if(newFiles.some(f=>f.size > 20*1024*1024)){ toast('A file is over 20 MB.'); if(btn){ btn.disabled=false; btn.textContent='Save PO'; } return; }
+    const old = poId ? finPoFilesOf((await dbSelect('client_pos', 'id=eq.'+poId+'&select=file_path,file_name,files'))[0]||{}) : [];
+    const files = old.slice();
+    for(const f of newFiles){
+      const safe = f.name.replace(/[^a-z0-9.\-]+/gi,'_').slice(-80);
+      const stored = await uploadToStorage('finance-docs', ME.org_id+'/'+siteId+'/client-po/'+uid()+'-'+safe, f, f.type||'application/octet-stream');
+      if(!stored){ if(btn){ btn.disabled=false; btn.textContent='Save PO'; } return; }
+      files.push({path:stored, name:f.name});
+    }
+    row.files = files; row.file_path = files[0].path; row.file_name = files[0].name;
   }
   let saved;
   if(poId) saved = await dbUpdate('client_pos', poId, row);
@@ -47031,12 +47037,23 @@ window.deleteClientPo = async function(siteId, poId){
   toast('PO removed');
   render();
 };
-window.openClientPoFile = async function(poId){
-  const po = (await dbSelect('client_pos', 'id=eq.'+poId+'&select=file_path,file_name'))[0];
-  if(!po || !po.file_path) return;
-  const url = await resolveStorageUrl(publicUrl('finance-docs', po.file_path));
-  if(/\.pdf$/i.test(po.file_name||po.file_path) && typeof viewPdfInApp==='function') return viewPdfInApp(url, po.file_name||'Client PO');
-  if(/\.(jpe?g|png|gif|webp|heic)$/i.test(po.file_name||po.file_path) && typeof viewImage==='function') return viewImage(url);
+// A PO can hold several files (24 Oct): files = [{path, name}], older rows just file_path/file_name.
+function finPoFilesOf(po){ const f = Array.isArray(po && po.files) ? po.files.filter(x=>x && x.path) : []; if(!f.length && po && po.file_path) f.push({path:po.file_path, name:po.file_name||'Client PO'}); return f; }
+window.openClientPoFile = async function(poId, idx){
+  const po = (await dbSelect('client_pos', 'id=eq.'+poId+'&select=file_path,file_name,files,po_number'))[0];
+  const files = finPoFilesOf(po||{}); if(!files.length) return;
+  if(idx==null && files.length > 1){
+    let ov = document.getElementById('finPoFilesOv');
+    if(!ov){ ov = document.createElement('div'); ov.id = 'finPoFilesOv'; ov.className = 'geo-modal-overlay'; document.body.appendChild(ov); }
+    ov.onclick = e=>{ if(e.target===ov) ov.style.display = 'none'; };
+    ov.innerHTML = `<div class="geo-modal-card" style="max-width:420px;"><h3 style="margin:0 0 10px;">PO ${escapeHtml(po.po_number||'')} — files</h3>${files.map((f,i)=>`<button type="button" class="ghostbtn" style="width:100%;margin:0 0 6px;text-align:left;" onclick="document.getElementById('finPoFilesOv').style.display='none';openClientPoFile('${poId}',${i})">📄 ${escapeHtml(f.name||'File '+(i+1))}</button>`).join('')}<button class="geo-modal-cancel" onclick="document.getElementById('finPoFilesOv').style.display='none'">Close</button></div>`;
+    document.body.appendChild(ov); ov.style.display = 'flex'; if(typeof modalAddX==='function') modalAddX();
+    return;
+  }
+  const f = files[idx||0];
+  const url = await resolveStorageUrl(publicUrl('finance-docs', f.path));
+  if(/\.pdf$/i.test(f.name||f.path) && typeof viewPdfInApp==='function') return viewPdfInApp(url, f.name||'Client PO');
+  if(/\.(jpe?g|png|gif|webp|heic)$/i.test(f.name||f.path) && typeof viewImage==='function') return viewImage(url);
   window.open(url, '_blank');
 };
 
@@ -47084,7 +47101,9 @@ function finInvTotals(lines, vatTreatment, vatRate){
     const a = Number(l.amount)||0; net += a;
     const k = finInvLineVat(l, vatTreatment, vatRate), c = FIN_INV_VAT[k];
     const b = by[k] = by[k] || {net:0, vat:0}; b.net += a;
-    const v = a*c.r/100;
+    // VAT is rounded on each line, the way Xero does it, so OpHUB and Xero totals match to the penny
+    // and the VAT rows always add up to the VAT total (audit FA-10 / FA-21, 24 Oct).
+    const v = finRound(a*c.r/100);
     if(c.rc){ vatDue += v; b.vat += v; } else { vat += v; b.vat += v; }
   });
   Object.values(by).forEach(b=>{ b.net = finRound(b.net); b.vat = finRound(b.vat); });
@@ -47261,6 +47280,8 @@ function finInvDraftRow(){
 window.saveFinInvoiceDraft = async function(showToast){
   if(!finInvDraft) return null;
   const row = await dbUpdate('fin_invoices', finInvDraft.id, finInvDraftRow());
+  // undefined = nothing was updated: the draft has been deleted (audit FA-12).
+  if(row===undefined) toast('This draft no longer exists — it may have been deleted. Copy your lines and start a new invoice.');
   if(row && showToast) toast('Draft saved');
   return row;
 };
@@ -47281,6 +47302,7 @@ window.issueFinInvoice = async function(siteId, skipConfirm){
   const btn = document.getElementById('finInvIssue'); const reset = ()=>{ if(btn){ btn.disabled=false; btn.textContent='Issue invoice…'; } };
   if(btn){ btn.disabled = true; btn.textContent = 'Issuing…'; }
   const saved = await dbUpdate('fin_invoices', finInvDraft.id, row);
+  if(saved===undefined) toast('This draft no longer exists — it may have been deleted. Copy your lines and start a new invoice.');
   if(!saved){ reset(); return; }
   const issued = await finIssueInvoiceById(finInvDraft.id);
   if(!issued){ reset(); return; }
@@ -47720,7 +47742,10 @@ window.saveFinContract = async function(siteId){
   if(rows.some(r=>!r.description)){ toast('Every line needs a description.'); return; }
   if(rows.some(r=>finIsItem(r) && r.value===null)){ toast('Every item needs a value (quantity × rate, or a lump sum).'); return; }
   const btn = document.getElementById('finContractSave'); if(btn){ btn.disabled = true; btn.textContent = 'Saving…'; }
-  const existing = await dbSelect('fin_contract_items', 'site_id=eq.'+siteId+'&select=id');
+  // A failed read used to look like "no lines saved yet", so every line was added again (audit FA-23 / FB-07).
+  const exR = await dbSelectChecked('fin_contract_items', 'site_id=eq.'+siteId+'&select=id');
+  if(!exR.ok){ if(btn){ btn.disabled = false; btn.textContent = 'Save Bill of Quantities'; } toast('Couldn’t reach the server, so nothing was saved — check your signal and tap Save again.'); return; }
+  const existing = exR.data;
   const keep = new Set(rows.filter(r=>r.id).map(r=>r.id));
   let failed = 0;
   for(const e of existing) if(!keep.has(e.id)){ if(!(await dbDelete('fin_contract_items', e.id))) failed++; }
@@ -47739,7 +47764,7 @@ window.saveFinContract = async function(siteId){
   const base = {};
   if(jfNow.original_value==null){ base.original_value = total; base.original_at = new Date().toISOString(); }
   if(jfNow.original_cost==null && allCosted && costTotal){ base.original_cost = costTotal; if(!base.original_at) base.original_at = new Date().toISOString(); }
-  const patch = {...base, site_id:siteId, org_id:ME.org_id, contract_value:total, billing_type:'application', updated_at:new Date().toISOString(), updated_by:ME.id};
+  const patch = {...base, site_id:siteId, org_id:ME.org_id, ...(await finCvPatch(siteId, total)), billing_type:'application', updated_at:new Date().toISOString(), updated_by:ME.id};
   if(finContractFile){
     const safe = finContractFile.name.replace(/[^a-z0-9.\-]+/gi,'_').slice(-80);
     const stored = await uploadToStorage('finance-docs', ME.org_id+'/'+siteId+'/contract/'+uid()+'-'+safe, finContractFile, finContractFile.type||'application/octet-stream');
@@ -47957,7 +47982,21 @@ window.newFinApplication = async function(siteId){
       .concat(((last&&last.dayworks)||[]).filter(d=>!d.fin_daywork_id).map(d=>Object.assign({}, d))),
     retention_pct: jf.retention_pct!=null ? jf.retention_pct : st.default_retention_pct, created_by:ME.id,
   };
-  const ins = await dbInsert('fin_applications', row);
+  // Two people starting an application at the same moment would both pick the same number; the
+  // database refuses the second (unique site + number), so take the next free number and try again (audit FA-16).
+  let ins = null;
+  for(let tries = 0; tries < 4; tries++){
+    let res;
+    try{ res = await sbFetch('/rest/v1/fin_applications', {method:'POST', headers:{'Prefer':'return=representation'}, body:JSON.stringify(row)}); }
+    catch(e){ toast('Save failed — connection dropped. Check your signal and try again.'); return; }
+    if(res.ok){ ins = await res.json(); break; }
+    const err = await safeErr(res);
+    if(res.status===409 && tries < 3){
+      const top = await dbSelectChecked('fin_applications', 'site_id=eq.'+siteId+'&select=number&order=number.desc&limit=1');
+      if(top.ok){ row.number = ((top.data[0] && top.data[0].number) || 0) + 1; continue; }
+    }
+    toast('Save failed — '+err); return;
+  }
   if(ins && ins[0]) go(`#/site/${siteId}/finance/application/${ins[0].id}`);
 };
 
@@ -47978,7 +48017,13 @@ async function renderFinApplication(siteId, appId){
   if(!finApp || finApp.id!==a.id){ finAppCollapsed = {}; finAppValued = false; }
   if(!finApp || finApp.id!==a.id || finApp.__loaded !== a.updated_at){ finApp = JSON.parse(JSON.stringify(a)); finApp.__loaded = a.updated_at; }
   const jf = jfRows[0] || {};
-  finAppCtx = {site, jf, previous: finPreviousCertified(apps, a.number), locked: ['submitted','certified','invoiced','void'].includes(a.status), siteProgress};
+  // Once applied (locked), the application keeps the "previously certified" it was sent with, so the
+  // screen matches the Excel the client has; drafts work it out live (audit FA-09).
+  const prevLive = finPreviousCertified(apps, a.number), isLocked = ['submitted','certified','invoiced','void'].includes(a.status);
+  const prevUse = isLocked && a.previous!=null ? finRound(a.previous) : prevLive;
+  finAppCtx = {appId:a.id, site, jf, previous: prevUse, previousLive: prevLive, locked: isLocked, siteProgress};
+  const prevNote = isLocked && a.status==='submitted' && a.cert_net==null && Math.abs(prevLive - prevUse) >= 0.005
+    ? `<div class="finbanner" style="background:var(--warn-bg);color:var(--warn);border-color:#F2D9B8;">Earlier certificates now add up to ${finMoney(prevLive)}, not the ${finMoney(prevUse)} used when this application was sent. The applied figures stay as sent; the certificate uses ${finMoney(prevLive)}.</div>` : '';
   const spAhead = (finApp.lines||[]).filter(l=>finIsItem(l) && siteProgress[l.item_id]!=null && siteProgress[l.item_id] > finPct(l.pct)).length;
   const locked = finAppCtx.locked;
   document.getElementById('app').innerHTML = shell(`
@@ -47988,7 +48033,7 @@ async function renderFinApplication(siteId, appId){
       <div><div class="finhead-l">Client PO</div><div class="finhead-v">${escapeHtml(a.client_po||'—')}</div></div>
       <div><div class="finhead-l">Due this application</div><div class="finhead-v" id="finAppDueHead">—</div></div>
     </div>
-    ${locked ? (a.status==='submitted' && a.cert_net==null ? `<div class="finbanner finsubmitted" style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;"><span>📤 Submitted${a.submitted_at?' on '+finDate(String(a.submitted_at).slice(0,10)):''}${a.sent_to?' to '+escapeHtml(a.sent_to):''} — locked. Next: enter the client’s certificate below.</span><span style="display:flex;gap:8px;"><button class="ghostbtn" onclick="openFinAppEmail('${siteId}','${a.id}')">Email again</button><button class="ghostbtn" onclick="finAppToDraft('${a.id}')">Return to draft</button></span></div>` : `<div class="finbanner" style="background:var(--warn-bg);color:var(--warn);border-color:#F2D9B8;">This application has been ${a.status==='void'?'voided':'certified'}, so it can’t be changed.</div>`) : `
+    ${locked ? (a.status==='submitted' && a.cert_net==null ? `<div class="finbanner finsubmitted" style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;"><span>📤 Submitted${a.submitted_at?' on '+finDate(String(a.submitted_at).slice(0,10)):''}${a.sent_to?' to '+escapeHtml(a.sent_to):''} — locked. Next: enter the client’s certificate below.</span><span style="display:flex;gap:8px;"><button class="ghostbtn" onclick="openFinAppEmail('${siteId}','${a.id}')">Email again</button><button class="ghostbtn" onclick="finAppToDraft('${a.id}')">Return to draft</button></span></div>${prevNote}` : `<div class="finbanner" style="background:var(--warn-bg);color:var(--warn);border-color:#F2D9B8;">This application has been ${a.status==='void'?'voided':'certified'}, so it can’t be changed.</div>`) : `
     <details class="card finappdates">
       <summary><span>📅 Dates &amp; retention</span><em>Valuation ${finDate(a.valuation_date)} · Due ${finDate(a.due_date)} · Final ${finDate(a.final_date)} · Retention ${finPct(a.retention_pct)}%</em><b>▾</b></summary>
       <div class="finappdates-g">
@@ -48285,7 +48330,7 @@ window.uploadFinAppExcel = async function(file){
       if(desc && desc!==v.description){ v.description = desc; changed++; }
       return;
     }
-    if((m = /^D:(\d+)$/.exec(id))){ const val = num(r[cValue]); const d = finApp.dayworks[+m[1]]; if(d){ newDay.push({description:desc||d.description, value:val!==null?val:d.value}); if(val!==Number(d.value) || desc!==d.description) changed++; } return; }
+    if((m = /^D:(\d+)$/.exec(id))){ const val = num(r[cValue]); const d = finApp.dayworks[+m[1]]; if(d){ newDay.push(Object.assign({}, d, {description:desc||d.description, value:val!==null?val:d.value})); /* keeps fin_daywork_id (audit FA-22) */ if(val!==Number(d.value) || desc!==d.description) changed++; } return; }
     if(inDay && !id && desc){ const val = num(r[cValue]) ?? num(r[cGross]); if(val!==null){ newDay.push({description:desc, value:val}); added++; } }
   });
   if(rows.some(r=>/^D:\d+$/.test(String(r[0]||'').trim())) || added) finApp.dayworks = newDay;
@@ -48298,7 +48343,8 @@ window.uploadFinAppExcel = async function(file){
 
 /* ---- email ---- */
 window.openFinAppEmail = async function(siteId, appId){
-  await saveFinApplication(false);
+  // Only a draft is saved first — "Email again" on an applied one must not rewrite its figures (audit FA-09).
+  if(finApp && finApp.id===appId && finAppCtx && !finAppCtx.locked) await saveFinApplication(false);
   const a = (await dbSelect('fin_applications', 'id=eq.'+appId))[0]; if(!a) return;
   const jf = (await dbSelect('job_finance', 'site_id=eq.'+siteId))[0] || {};
   const site = SITES.find(s=>s.id===siteId) || {};
@@ -48419,7 +48465,9 @@ function finCertSlotRender(a){
   if(finCertSlotRender._for !== a.id){ finCertFile = null; finCertSlotRender._for = a.id; }
   const el = document.getElementById('finCertSlot'); if(!el) return;
   if(a.cert_net==null){
-    const appliedPrev = Number(a.previous||0);
+    // Previously certified as it stands now (audit FA-09): if an earlier certificate came in
+    // different, the certificate uses the real figure, not the one stored when this was applied for.
+    const appliedPrev = (typeof finAppCtx!=='undefined' && finAppCtx && finAppCtx.appId===a.id && finAppCtx.previousLive!=null) ? finAppCtx.previousLive : Number(a.previous||0);
     el.innerHTML = `<div class="card" style="margin-top:14px;">
       <p class="sectiontitle" style="margin-top:0;">Client’s certificate ${finHelp('certified')}</p>
       <p class="stub" style="margin:0 0 10px;font-style:normal;">When the client’s certificate (or pay-less notice) comes back, enter its figures. They start as what you applied for.</p>
@@ -48539,6 +48587,25 @@ function finRetentionHeld(apps){
 function finAddMonths(iso, m){ const d = new Date(iso+'T12:00:00'); const day = d.getDate(); d.setDate(1); d.setMonth(d.getMonth()+(Number(m)||0)); const last = new Date(d.getFullYear(), d.getMonth()+1, 0).getDate(); d.setDate(Math.min(day, last)); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 // Retention halves: the second half takes the odd penny so the two add up to what's held.
 function finRetHalf(held, n){ const a = finRound(held/2); return n===1 ? a : finRound(held - a); }
+// Net of a linked retention release invoice (null if none, or it's void / not in the list).
+function finRetInvNet(invs, id){ const i = id && (invs||[]).find(x=>x.id===id); return i && i.status!=='void' ? finRound(Number(i.net||0)) : null; }
+// What each half is (audit FA-19): a half already invoiced is what that invoice says; the second
+// half is what's held now less the first-half invoice, so the two always add up to what's held.
+function finRetHalfAmt(held, n, jf, invs){
+  const r1 = finRetInvNet(invs, jf && jf.ret1_invoice_id);
+  if(n===1) return r1!=null ? r1 : finRetHalf(held, 1);
+  const r2 = finRetInvNet(invs, jf && jf.ret2_invoice_id);
+  if(r2!=null) return r2;
+  return r1!=null ? finRound(Math.max(0, held - r1)) : finRetHalf(held, 2);
+}
+// Retention the client is still holding (audit FA-08): held to date, less the release invoices
+// already issued (drafts and void ones don't count).
+function finRetentionReleased(jf, invs){
+  let t = 0;
+  [jf && jf.ret1_invoice_id, jf && jf.ret2_invoice_id].forEach(id=>{ const i = id && (invs||[]).find(x=>x.id===id); if(i && !['void','draft'].includes(i.status)) t += Number(i.net||0); });
+  return finRound(t);
+}
+function finRetentionStillHeld(apps, jf, invs){ return finRound(Math.max(0, finRetentionHeld(apps) - finRetentionReleased(jf, invs))); }
 function finRetentionDates(jf, st){
   if(!jf || !jf.pc_date) return {first:null, second:null};
   const months = jf.defects_months!=null ? jf.defects_months : ((st&&st.default_defects_months)!=null ? st.default_defects_months : 12);
@@ -48583,8 +48650,11 @@ window.raiseRetentionInvoice = async function(siteId, n){
   const jf = jfRows[0] || {};
   const already = n===1 ? jf.ret1_invoice_id : jf.ret2_invoice_id;
   if(already){ go(`#/site/${siteId}/finance/invoice/${already}`); return; }
-  const amt = finRetHalf(finRetentionHeld(apps), n);
-  if(!amt){ toast('No retention held on this project yet.'); return; }
+  // Second half = held now less what the first-half invoice released (audit FA-19).
+  let r1inv = null;
+  if(n===2 && jf.ret1_invoice_id) r1inv = (await dbSelect('fin_invoices', 'id=eq.'+jf.ret1_invoice_id+'&select=id,status,net'))[0] || null;
+  const amt = finRetHalfAmt(finRetentionHeld(apps), n, jf, r1inv ? [r1inv] : []);
+  if(!(amt>0)){ toast(n===2 && r1inv ? 'Nothing left to release — the first-half invoice already covers all the retention held.' : 'No retention held on this project yet.'); return; }
   const lines = [{description:`Release of retention — ${n===1?'first half (practical completion'+(jf.pc_date?' '+finDate(jf.pc_date):'')+')':'second half (end of defects period)'}`, amount:amt}];
   if(typeof finClientsLoad==='function'){ await finClientsLoad(); const c = finClientByName(jf.billing_name||site.client_name); const m = {'20':'20','5':'5','rc20':'rc20','rc5':'rc5','0':'0','ex':'ex','none':'ex'}; if(c && m[c.sales_vat] && FIN_INV_VAT[m[c.sales_vat]]) lines.forEach(l=>{ if(!l.vat) l.vat = m[c.sales_vat]; }); }
   const t = finInvTotals(lines, jf.vat_treatment||st.default_vat||'standard', 20);
@@ -48828,10 +48898,14 @@ window.savePurchaseInvoice = async function(siteId, receipt){
   const warnEl = document.getElementById('finPiWarn');
   const btn = document.getElementById('finPiSave');
   // Duplicate: same supplier + invoice number anywhere in the company.
-  if(no && !(btn && btn.dataset.dupOk==='1')){
+  // FA-29: "Save again to add it anyway" only counts for the supplier + number that was warned about.
+  // Change either and the check runs again.
+  const dupKey = supplier.trim().toLowerCase()+'|'+String(no||'').trim().toLowerCase();
+  if(no && !(btn && btn.dataset.dupOk===dupKey)){
     const dup = await dbSelect('purchase_invoices', 'invoice_no=eq.'+encodeURIComponent(no)+'&select=id,supplier_name,site_id,invoice_date');
     const same = dup.filter(d=>String(d.supplier_name||'').trim().toLowerCase()===supplier.toLowerCase());
-    if(same.length){ const s = SITES.find(x=>x.id===same[0].site_id); if(warnEl) warnEl.innerHTML = `<p class="stub" style="margin:0 0 8px;font-style:normal;color:var(--red);"><b>Possible duplicate:</b> ${escapeHtml(supplier)} invoice ${escapeHtml(no)} is already on ${escapeHtml(s?s.name:'another project')}. Tap Save again to add it anyway.</p>`; if(btn) btn.dataset.dupOk='1'; return; }
+    if(same.length){ const s = SITES.find(x=>x.id===same[0].site_id); if(warnEl) warnEl.innerHTML = `<p class="stub" style="margin:0 0 8px;font-style:normal;color:var(--red);"><b>Possible duplicate:</b> ${escapeHtml(supplier)} invoice ${escapeHtml(no)} is already on ${escapeHtml(s?s.name:'another project')}. Tap Save again to add it anyway.</p>`; if(btn) btn.dataset.dupOk=dupKey; return; }
+    if(warnEl) warnEl.innerHTML = ''; // the corrected number isn't a duplicate — clear the old warning
   }
   const flags = [];
   let po = null;
@@ -48905,7 +48979,17 @@ window.setFinPiPaid = async function(id, date){
   document.getElementById('finPiOverlay').style.display = 'none';
   toast(date ? 'Marked paid' : 'Paid date removed'); render();
 };
+// FA-11: records already posted to Xero. Changing them in OpHUB doesn't change Xero (and Xero
+// won't take the same record twice), so ask first and say what to do in Xero.
+// Returns true to go ahead. Used here, by cost coding (910 / 9219g) and operative invoices (9219g).
+async function finXeroPostedConfirm(table, id, question, inXero){
+  let row = null;
+  try{ row = (await dbSelect(table, 'id=eq.'+id+'&select=xero_id'))[0]; }catch(e){}
+  if(!row || !row.xero_id) return true;
+  return !!(await customConfirm(question+'\n\nThis is already in Xero. Changing it here won’t change Xero, so '+(inXero||'make the same change in Xero yourself')+', or the two won’t match.', {confirmLabel:'Go ahead'}));
+}
 window.setPurchaseInvoiceStatus = async function(id, status){
+  if(status==='rejected' && !(await finXeroPostedConfirm('purchase_invoices', id, 'Reject this purchase invoice?', 'void the bill in Xero as well'))) return;
   const patch = {status};
   if(status==='approved'){ patch.approved_by = ME.id; patch.approved_at = new Date().toISOString(); }
   const r = await dbUpdate('purchase_invoices', id, patch);
@@ -49152,7 +49236,7 @@ async function finInboxReadPending(items, ctx){
     const patch = {extracted:ex};
     if(ex.site_id) patch.site_id = ex.site_id;
     if(ex.po_id) patch.po_id = ex.po_id;
-    await dbUpdate('fin_inbox', it.id, patch);
+    await dbUpdate('fin_inbox', it.id+'&status=eq.new', patch); // FA-03: leave it alone if it's been filed meanwhile
     changed = true;
   }
   return changed;
@@ -49266,10 +49350,12 @@ window.finInboxFile = async function(id){
       if(mats.length && !mats.some(m=>m.grn)) flags.push('nothing on this PO has been marked received yet');
     }
   } else flags.push('no PO');
+  // FA-03: claim it first (only works while it's still "new"), so two people can't file it twice.
+  if(!(await dbUpdate('fin_inbox', id+'&status=eq.new', {status:'filed'}))){ toast('This one has just been filed by someone else.'); render(); return; }
   const pi = await dbInsert('purchase_invoices', {org_id:ME.org_id, site_id:siteId, po_id:poId||null, no_po:!poId, kind:'invoice', supplier_id:po?po.supplier_id:null, supplier_name:supplier,
     invoice_no:no||null, invoice_date:g('date')||finToday(), net:finRound(net), vat:finRound(vat), total:finRound(total), status: flags.length ? 'query' : 'to_approve', query_note: flags.length ? flags.join('; ') : null,
     file_path:it.file_path, file_name:it.file_name, created_by:ME.id});
-  if(!pi || !pi[0]) return;
+  if(!pi || !pi[0]){ await dbUpdate('fin_inbox', id, {status:'new'}); return; } // didn't save — put it back
   await dbUpdate('fin_inbox', id, {status:'filed', site_id:siteId, po_id:poId||null, purchase_invoice_id:pi[0].id});
   if(typeof finCheckInvoiceLines==='function') finCheckInvoiceLines(pi[0].id).then(r=>{ if(r && r.notes.length) toast(r.notes.length+' line difference'+(r.notes.length===1?'':'s')+' with the PO — see Purchases'); });
   toast(flags.length ? 'Filed and flagged: '+flags[0] : 'Filed — waiting for approval');
@@ -49679,8 +49765,12 @@ window.openFinNewJob = async function(){
       <div class="formfield"><label class="field-label">Project number *</label><input type="text" id="finNjNo" ${auto?`disabled placeholder="Automatic (${escapeHtml(finNextJobNumberLabel())})"`:`value="${escapeHtml(finNextJobNoGuess())}"`}></div>
       <div class="formfield"><label class="field-label">Status</label><select id="finNjStatus">${Object.keys(FIN_JOB_STATUS).map(k=>`<option value="${k}" ${k==='live'?'selected':''}>${FIN_JOB_STATUS[k]}</option>`).join('')}</select></div>
     </div>
-    <div class="formfield"><label class="field-label">How do you get paid? *</label><select id="finNjBt" onchange="document.getElementById('finNjCvWrap').hidden=this.value!=='invoice'"><option value="">Choose…</option><option value="invoice">Invoices — I type the contract value</option><option value="application">Applications — against a Bill of Quantities</option></select></div>
-    <div class="formfield" id="finNjCvWrap" hidden><label class="field-label">Contract value £ (excl. VAT)</label><input type="text" inputmode="decimal" data-money id="finNjCv" placeholder="Leave blank if not known yet"></div>
+    <div class="formfield"><label class="field-label">Payment Procedure *</label><select id="finNjBt"><option value="">Choose…</option><option value="invoice">Invoices</option><option value="application">Applications for payment (Bill of Quantities)</option></select></div>
+    <div class="formfield" id="finNjCvWrap"><label class="field-label">Contract value £ (excl. VAT)</label><input type="text" inputmode="decimal" data-money id="finNjCv" placeholder="Leave blank if not known yet"></div>
+    <div class="fingrid2">
+      <div class="formfield"><label class="field-label">Client PO number</label><input type="text" id="finNjPo" placeholder="Optional"></div>
+      <div class="formfield"><label class="field-label">Client PO copy (any files)</label><input type="file" id="finNjPoFiles" multiple></div>
+    </div>
     ${isFinanceOnly() ? '' : `<div class="fingrid2">
       <div class="formfield"><label class="field-label">Project manager</label><select id="finNjPm"><option value="">Choose later</option>${Object.values(PROFILES||{}).filter(p=>isFullManager(p) && p.org_id===ME.org_id).sort((a,b)=>String(a.name).localeCompare(String(b.name))).map(p=>`<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('')}</select></div>
       <div class="formfield"><label class="field-label">Type of job</label><select id="finNjKind"><option value="">Single site</option><option value="multi">Multi-site (plots)</option><option value="repair">Repairs contract</option></select></div>
@@ -49704,6 +49794,10 @@ window.saveFinNewJob = async function(){
   if(!(ORG && ORG.auto_job_numbers) && !no){ toast('Enter a project number.'); return; }
   const bt = finVal('finNjBt');
   if(!bt){ toast('Choose how you get paid on this project.'); return; }
+  const cvRaw = finNum(finVal('finNjCv')); const cvIn = (cvRaw!==null && !isNaN(cvRaw) && cvRaw>0) ? finRound(cvRaw) : null;
+  const poNo = finVal('finNjPo'); const poFiles = Array.from((document.getElementById('finNjPoFiles')||{}).files||[]);
+  if(poFiles.length && !poNo){ toast('Add the client PO number for the PO copy.'); return; }
+  if(poFiles.some(f=>f.size > 20*1024*1024)){ toast('One of the PO files is over 20 MB.'); return; }
   const btn = document.getElementById('finNjSave'); if(btn){ btn.disabled = true; btn.textContent = 'Creating…'; }
   // Client comes from the Directory (a new name is added to it).
   const cli = typeof finClientEnsure==='function' ? await finClientEnsure(finVal('finNjClient')) : null;
@@ -49722,7 +49816,18 @@ window.saveFinNewJob = async function(){
   const made = SITES.find(x=>x.id===newId) || row;
   // Set up in Finance = set up in Projects too: same folders and toolbox talks as a project made there.
   if(!isFinanceOnly() && SITES.find(x=>x.id===newId)){ try{ await Promise.all([typeof preloadTbtBankForSite==='function' ? preloadTbtBankForSite(made) : null, typeof preloadDrawingFoldersForSite==='function' ? preloadDrawingFoldersForSite(made) : null]); }catch(e){} }
-  await sbFetch('/rest/v1/job_finance', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify({site_id:newId, org_id:ME.org_id, billing_type:bt, billing_name:row.client_name||null, billing_email:email||null, billing_address:(cli && typeof finClientAddr==='function' && finClientAddr(cli))||null, vat_treatment:(typeof finClientVatTreatment==='function' && finClientVatTreatment(cli))||null, contract_value:(bt==='invoice' && finNum(finVal('finNjCv'))) ? finRound(finNum(finVal('finNjCv'))) : null, original_value:(bt==='invoice' && finNum(finVal('finNjCv'))) ? finRound(finNum(finVal('finNjCv'))) : null, updated_at:new Date().toISOString(), updated_by:ME.id})});
+  await sbFetch('/rest/v1/job_finance', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify({site_id:newId, org_id:ME.org_id, billing_type:bt, billing_name:row.client_name||null, billing_email:email||null, billing_address:(cli && typeof finClientAddr==='function' && finClientAddr(cli))||null, vat_treatment:(typeof finClientVatTreatment==='function' && finClientVatTreatment(cli))||null, contract_value:cvIn, original_value:cvIn, contract_value_manual:cvIn, contract_value_source:cvIn!=null ? 'manual' : null, updated_at:new Date().toISOString(), updated_by:ME.id})});
+  // Client PO (24 Oct, Andy): number + any number of files, saved as the project's main PO.
+  if(poNo){
+    const files = [];
+    for(const f of poFiles){
+      const safe = f.name.replace(/[^a-z0-9.\-]+/gi,'_').slice(-80);
+      const stored = await uploadToStorage('finance-docs', ME.org_id+'/'+newId+'/client-po/'+uid()+'-'+safe, f, f.type||'application/octet-stream');
+      if(stored) files.push({path:stored, name:f.name});
+    }
+    await dbInsert('client_pos', {org_id:ME.org_id, site_id:newId, created_by:ME.id, po_number:poNo, is_primary:true, file_path:files[0]?files[0].path:null, file_name:files[0]?files[0].name:null, files});
+    if(files.length < poFiles.length) toast('Some PO files didn’t upload — add them from Project Admin.');
+  }
   if(ORG && ORG.auto_job_numbers) ORG.next_job_number = (ORG.next_job_number||0)+1;
   document.getElementById('finJobOverlay').style.display = 'none';
   toast('Project '+(made.job_number||'')+' created');
@@ -49799,12 +49904,22 @@ function finTeamRole(p){ return p.role==='admin' ? 'Admin' : (p.role==='pm' ? 'M
 window.finTeamToggle = async function(userId){
   const p = PROFILES[userId]; if(!p) return;
   // Finance users need the manager role to create jobs, suppliers and POs.
+  let wasRole = null;
   if(!p.finance_enabled && !['pm','admin'].includes(p.role)){
+    if(!await customConfirm('Give '+p.name+' Finance? This also makes them a manager, so they can see every job on the Projects side too.')) return;
+    wasRole = p.role;
     const r = await dbUpdate('profiles', userId, {role:'pm'});
-    if(!r){ toast('Could not update their role.'); return; }
+    if(!r || r.role!=='pm'){ toast('Could not update their role.'); return; }
     p.role = 'pm';
   }
   await toggleFinanceAccess(userId);
+  // If Finance didn't switch on after all, put their old role back (audit FA-15).
+  if(wasRole && !p.finance_enabled){
+    const back = await dbUpdate('profiles', userId, {role:wasRole});
+    if(back && back.role===wasRole) p.role = wasRole;
+    else toast(p.name+' was made a manager but Finance didn’t switch on. Change their role back in Admin Centre › Users.');
+    render();
+  }
 };
 window.finTeamMakeAdmin = async function(userId){
   const p = PROFILES[userId]; if(!p) return;
@@ -49885,7 +50000,7 @@ window.openFinNewPo = async function(siteId){
         <div class="formfield"><label class="field-label">Your reference (optional)</label><input type="text" id="finNpoRef" placeholder="e.g. Quote Q-5521"></div>
         <div class="formfield"><label class="field-label">Notes for the supplier</label><textarea id="finNpoNote" rows="2" placeholder="e.g. Call 30 minutes before delivery"></textarea></div>
         <p class="finb-st">VAT</p>
-        <div class="formfield"><label class="field-label">VAT for all lines</label><select id="finNpoVatAll" onchange="finNpoVatAll(this.value)">${Object.keys(FIN_VAT_RATES).map(k=>`<option value="${k}" ${vat===k?'selected':''}>${FIN_VAT_RATES[k].l}</option>`).join('')}</select></div>
+        <div class="formfield"><label class="field-label">VAT for all lines</label><select id="finNpoVatAll" onchange="finNpoVatAll(this.value)">${(typeof finVatKeysWith==='function' ? finVatKeysWith(FIN_VAT_RATES, vat) : Object.keys(FIN_VAT_RATES)).map(k=>`<option value="${k}" ${vat===k?'selected':''}>${FIN_VAT_RATES[k].l}</option>`).join('')}</select></div>
         <p class="finb-st">Costs</p>
         <div class="finkv"><span>Subtotal</span><b id="finNpoTot">£0.00</b></div>
         <div class="finkv"><span>VAT</span><b id="finNpoVat">£0.00</b></div>
@@ -49909,7 +50024,7 @@ function finNpoPaint(){
     <label><span>Unit</span><input type="text" value="${escapeHtml(l.unit||'')}" placeholder="m², nr" oninput="finNpoSet(${i},'unit',this.value)"></label>
     <label><span>Rate</span><input type="text" inputmode="decimal" data-money value="${l.rate!=null?l.rate:''}" placeholder="£" oninput="finNpoSet(${i},'rate',this.value)"></label>
     <label><span>Cost code</span><select onchange="finNpoSet(${i},'cost_code',this.value)">${codeOpts(l.cost_code||'materials')}</select></label>
-    <label><span>VAT</span><select onchange="finNpoSet(${i},'vat',this.value)">${Object.keys(FIN_VAT_RATES).map(k=>`<option value="${k}" ${(l.vat||'20')===k?'selected':''}>${FIN_VAT_RATES[k].s}</option>`).join('')}</select></label>
+    <label><span>VAT</span><select onchange="finNpoSet(${i},'vat',this.value)">${(typeof finVatKeysWith==='function' ? finVatKeysWith(FIN_VAT_RATES, l.vat||'20') : Object.keys(FIN_VAT_RATES)).map(k=>`<option value="${k}" ${(l.vat||'20')===k?'selected':''}>${FIN_VAT_RATES[k].s}</option>`).join('')}</select></label>
     <b class="finb-net" id="finNpoL-${i}">${finMoney(l.amount)}</b>
     ${finNewPo.lines.length>1 ? `<button class="linkbtn finb-del" aria-label="Remove line" onclick="finNpoDel(${i})">✕</button>` : '<span></span>'}
   </div>`).join('');
@@ -50312,6 +50427,25 @@ window.finCostExportPdf = async function(){
   viewPdfInApp(await pdf.save(), finCostExportName('pdf'));
 };
 
+/* ---------- FA-20 (24 Oct 2026): plant card total ----------
+   A hire set to "cost comes from the hire company's invoices" is already counted through those
+   invoices, so it mustn't be added again at rate × time in the card's "Plant to date" total
+   (911's job costs and 9219y's Purchases tab already leave it out). The hire is still listed. */
+(function(){
+  if(typeof finPlantCardHtml!=='function') return;
+  const base = finPlantCardHtml;
+  finPlantCardHtml = function(siteId, hires){
+    const html = base.apply(this, arguments);
+    const list = hires || [];
+    if(!list.some(h=>h.cost_from==='invoices')) return html;
+    const all = finMoney(list.reduce((t,h)=>t+finPlantCost(h).cost, 0));
+    const fixed = finMoney(list.filter(h=>h.cost_from!=='invoices').reduce((t,h)=>t+finPlantCost(h).cost, 0));
+    const at = html.indexOf('<div class="finkv big"><span>Plant to date'); if(at < 0) return html;
+    const tail = html.slice(at).replace('<b>'+all+'</b></div>', '<b>'+fixed+'</b></div><p class="stub" style="margin:4px 0 0;font-style:normal;">Hires costed from the hire company’s invoices are counted with the purchase invoices, not in this total.</p>');
+    return html.slice(0, at) + tail;
+  };
+})();
+
 /* ============================================================
    OpHUB Finance — QS tools
    • The "book": every finance record for one job (or the whole company),
@@ -50386,6 +50520,18 @@ function finCostLinesFromBook(b, siteId){
   (b.ops||[]).forEach(p=>(p.lines||[]).forEach((l,li)=>{ if(l.site_id!==siteId) return;
     lines.push({key:'op:'+p.id+':'+li, date:p.period_start, cat:'labour', desc:(l.description || 'Operative invoice')+(p.invoice_no?' · inv '+p.invoice_no:''), who:p.name||'', ref:'w/c '+finDate(p.period_start), status:p.status==='paid'?'Paid':'To pay', net:finRound(Number(l.amount||0)), person:p.worker_id?'w:'+p.worker_id:p.user_id, sub:l.sub_job_id||null, share:1, open:`go('#/finance/labour/payment/${p.id}')`});
   }));
+  // FA-13: materials the operative supplied (on the invoice as one figure, not per job) go to the
+  // jobs on that invoice, shared by each job line's labour value — so job costs include them.
+  (b.ops||[]).forEach(p=>{
+    const mat = Number(p.materials||0); if(!(mat > 0)) return;
+    const ls = (p.lines||[]).filter(l=>l && l.site_id);
+    const lab = ls.reduce((t,l)=>t+Math.max(0, Number(l.amount||0)), 0);
+    ls.forEach((l,li)=>{ if(l.site_id!==siteId) return;
+      const share = lab > 0 ? Math.max(0, Number(l.amount||0))/lab : 1/ls.length;
+      if(!(share > 0)) return;
+      lines.push({key:'opm:'+p.id+':'+li, date:p.period_start, cat:'materials', desc:'Materials supplied by operative'+(p.invoice_no?' · inv '+p.invoice_no:'')+(share < 0.9999 ? ' ('+finRound(share*100)+'% share)' : ''), who:p.name||'', ref:'w/c '+finDate(p.period_start), status:p.status==='paid'?'Paid':'To pay', net:finRound(mat*share), sub:l.sub_job_id||null, share, open:`go('#/finance/labour/payment/${p.id}')`});
+    });
+  });
   finLabourDaysFrom(dayCks).forEach(d=>{
     const r = b.rates[d.user_id];
     if(!r || r.pay_type!=='paye') return;
@@ -50755,7 +50901,8 @@ window.finVarExport = async function(siteId, kind){
    rate. The subcontractor applies (cumulative gross to date); you certify
    (cumulative), with retention held and contra charges to date:
      net due this time = certified gross − retention − contra to date − paid before
-     CIS on the labour part (this payment less new materials)
+     CIS on the labour part (this payment BEFORE contra charges, less new
+     materials) — HMRC CISR15030: a contra counts as paid to them
    Payment / pay-less notice PDF; "Mark paid" records a CIS payment so it
    shows in the CIS summary, statements and Xero.
    Route: #/site/<id>/finance/sub/<subcontract id>
@@ -50829,9 +50976,9 @@ window.saveFinSubcontract = async function(siteId, id){
   let r;
   if(id) r = await dbUpdate('fin_subcontracts', id, row);
   else {
-    const ex = await dbSelect('fin_subcontracts', 'site_id=eq.'+siteId+'&select=seq&order=seq.desc&limit=1');
-    const seq = (ex[0] ? ex[0].seq : 0) + 1;
-    r = await dbInsert('fin_subcontracts', Object.assign({org_id:ME.org_id, site_id:siteId, seq, number:'SC-'+String(seq).padStart(3,'0'), created_by:ME.id}, row));
+    r = await finScInsertNumbered('fin_subcontracts',
+      async ()=>{ const ex = await dbSelectNet('fin_subcontracts', 'site_id=eq.'+siteId+'&select=seq&order=seq.desc&limit=1'); return (ex[0] ? ex[0].seq : 0) + 1; },
+      seq=>Object.assign({org_id:ME.org_id, site_id:siteId, seq, number:'SC-'+String(seq).padStart(3,'0'), created_by:ME.id}, row));
   }
   if(!r) return;
   const saved = Array.isArray(r) ? r[0] : r;
@@ -50840,6 +50987,23 @@ window.saveFinSubcontract = async function(siteId, id){
   toast('Subcontractor PO saved');
   if(!id && r[0]) go('#/site/'+siteId+'/finance/sub/'+r[0].id); else render();
 };
+
+/* Numbered insert (SC-001, application 1, 2…). The next number is worked out
+   here, so two people saving at the same moment could pick the same one. When
+   the database has a unique rule on the number it answers 409 and we simply
+   take the next number and try again (up to 4 goes). */
+async function finScInsertNumbered(table, nextNo, build){
+  for(let go_ = 0; go_ < 4; go_++){
+    const n = await nextNo();
+    let res;
+    try{ res = await sbFetch('/rest/v1/'+table, {method:'POST', headers:{'Prefer':'return=representation'}, body:JSON.stringify(build(n))}); }
+    catch(e){ toast('Save failed — connection dropped. Check your signal and try again.'); return null; }
+    if(res.ok) return await res.json();
+    if(res.status === 409) continue;
+    toast('Save failed — '+(await safeErr(res))); return null;
+  }
+  toast('Save failed — someone else was saving at the same moment. Please try again.'); return null;
+}
 
 /* ---------- the subcontract page ---------- */
 async function renderFinSubcontract(siteId, scId){
@@ -50932,6 +51096,13 @@ window.openFinSubApp = async function(siteId, scId, appId){
   </div>`;
   ov.style.display = 'flex';
   finSaPaint();
+  if(a && a.status==='paid'){
+    const have = await dbSelectChecked('fin_sub_payments', 'sub_app_id=eq.'+a.id+'&status=neq.void&select=id&limit=1');
+    const sum = document.getElementById('finSaSum');
+    if(have.ok && !have.data.length && sum && finSa && finSa.a===a){
+      sum.insertAdjacentHTML('afterend', `<div class="card" style="margin-top:10px;border-color:var(--red);"><p class="stub" style="margin:0 0 8px;font-style:normal;color:var(--red);">This application is marked paid but its CIS record is missing, so it isn’t on the CIS return.</p><button class="darkbtn" style="width:100%;" onclick="markFinSubAppPaid('${a.id}')">Add it to the CIS return</button></div>`);
+    }
+  }
 };
 function finSaCalc(){
   const n = id=>{ const x = finNum(finVal(id)); return (x===null||isNaN(x)) ? null : x; };
@@ -50941,9 +51112,16 @@ function finSaCalc(){
   const retention = finRound(cert * Number(sc.retention_pct||0)/100);
   const net = finRound(cert - retention - contra - finSa.prevNet);
   const newMat = Math.max(0, finRound(mat - finSa.prevM));
-  const labour = Math.max(0, finRound(net - newMat));
+  // HMRC (CISR15030): a contra charge — plant, services or goods we supplied to
+  // them — counts as paid to the subcontractor, so it does NOT reduce the
+  // amount CIS is worked out on. Add this time's contra back before working
+  // out the labour part. (Money held back for poor work is a "set-off": that
+  // goes in as a lower certified amount, which does reduce the CIS.)
+  const contraNow = finRound(contra - (finSa.prevContra||0));
+  const gross = finRound(net + contraNow);
+  const labour = Math.max(0, finRound(gross - newMat));
   const cis = finRound(labour * Number(sc.cis_rate||0)/100);
-  return {applied, mat, cert, contra, retention, net, newMat, labour, cis, pay:finRound(net - cis), payless: cert < applied - 0.005};
+  return {applied, mat, cert, contra, contraNow, gross, retention, net, newMat, labour, cis, pay:finRound(net - cis), payless: cert < applied - 0.005};
 }
 window.finSaPaint = function(){
   const el = document.getElementById('finSaSum'); if(!el || !finSa) return;
@@ -50954,7 +51132,7 @@ window.finSaPaint = function(){
     <div class="finkv"><span>Less contra charges to date</span><b>−${finMoney(c.contra)}</b></div>
     <div class="finkv"><span>Less paid before</span><b>−${finMoney(finSa.prevNet)}</b></div>
     <div class="finkv big"><span>Net due this time</span><b>${finMoney(c.net)}</b></div>
-    <div class="finkv"><span>CIS @ ${finSa.sc.cis_rate}% on labour (${finMoney(c.labour)})</span><b>−${finMoney(c.cis)}</b></div>
+    <div class="finkv"><span>CIS @ ${finSa.sc.cis_rate}% on labour (${finMoney(c.labour)}${Math.abs(c.contraNow)>0.005?', before contra charges':''})</span><b>−${finMoney(c.cis)}</b></div>
     <div class="finkv big"><span>Pay them</span><b>${finMoney(c.pay)}</b></div>
     ${c.payless ? `<p class="stub" style="margin:6px 0 0;color:var(--red);">You’re certifying ${finMoney(c.applied - c.cert)} less than they applied for — the notice will be a pay less notice, so give the reason above and send it before the final date for payment.</p>` : ''}`;
 };
@@ -50970,8 +51148,9 @@ window.saveFinSubApp = async function(certify){
   let r;
   if(s.a) r = await dbUpdate('fin_sub_apps', s.a.id, row);
   else {
-    const ex = await dbSelect('fin_sub_apps', 'subcontract_id=eq.'+s.sc.id+'&select=number&order=number.desc&limit=1');
-    r = await dbInsert('fin_sub_apps', Object.assign({org_id:ME.org_id, site_id:s.siteId, subcontract_id:s.sc.id, number:(ex[0]?ex[0].number:0)+1, created_by:ME.id}, row));
+    r = await finScInsertNumbered('fin_sub_apps',
+      async ()=>{ const ex = await dbSelectNet('fin_sub_apps', 'subcontract_id=eq.'+s.sc.id+'&select=number&order=number.desc&limit=1'); return (ex[0]?ex[0].number:0)+1; },
+      number=>Object.assign({org_id:ME.org_id, site_id:s.siteId, subcontract_id:s.sc.id, number, created_by:ME.id}, row));
   }
   if(!r) return;
   document.getElementById('finSaOverlay').style.display = 'none';
@@ -50985,18 +51164,31 @@ window.deleteFinSubApp = async function(id){
 // Paying it also records a CIS payment (CIS summary, statements, Xero).
 window.markFinSubAppPaid = async function(id){
   const a = (await dbSelect('fin_sub_apps', 'id=eq.'+id))[0]; if(!a) return;
-  if(a.status==='paid'){ toast('Already marked paid.'); render(); return; }
   const sc = (await dbSelect('fin_subcontracts', 'id=eq.'+a.subcontract_id))[0]; if(!sc) return;
-  const today = finToday();
-  const r = await dbUpdate('fin_sub_apps', id, {status:'paid', paid_on:today});
-  if(!r) return;
-  const prev = (await dbSelect('fin_sub_apps', 'subcontract_id=eq.'+a.subcontract_id+'&number=lt.'+a.number+'&certified_gross=not.is.null&order=number.desc&limit=1'))[0];
-  const materials = Math.max(0, finRound(Number(a.materials_part||0) - Number(prev ? prev.materials_part||0 : 0)));
-  const labour = Math.max(0, finRound(Number(a.net_due) - materials));
-  await dbInsert('fin_sub_payments', {org_id:ME.org_id, worker_id:sc.worker_id||null, name:sc.name, utr:sc.utr||null, sub_app_id:a.id, period_start:a.app_date, period_end:a.app_date,
-    lines:[{site_id:a.site_id, description:sc.number+' application '+a.number, days:1, rate:labour, amount:labour}], labour, materials, gross:Number(a.net_due), cis_rate:sc.cis_rate, cis_deduction:Number(a.cis_deduction), net_pay:Number(a.pay_amount), status:'paid', paid_on:today, created_by:ME.id});
+  // Is the CIS payment already recorded? (A failed check means we can't tell, so stop.)
+  const have = await dbSelectChecked('fin_sub_payments', 'sub_app_id=eq.'+a.id+'&status=neq.void&select=id&limit=1');
+  if(!have.ok){ toast('Couldn’t check the CIS record — check your signal and try again.'); return; }
+  if(a.status==='paid' && have.data.length){ toast('Already marked paid.'); render(); return; }
+  const today = a.paid_on || finToday();
+  if(!have.data.length){
+    // Record the CIS payment FIRST — the CIS return, statements and Xero read
+    // this. The application is only marked paid once it has saved.
+    const prev = (await dbSelect('fin_sub_apps', 'subcontract_id=eq.'+a.subcontract_id+'&number=lt.'+a.number+'&certified_gross=not.is.null&order=number.desc&limit=1'))[0];
+    const materials = Math.max(0, finRound(Number(a.materials_part||0) - Number(prev ? prev.materials_part||0 : 0)));
+    // Gross for CIS is before contra charges (HMRC treats a contra as paid to them).
+    const contraNow = finRound(Number(a.contra||0) - Number(prev ? prev.contra||0 : 0));
+    const gross = finRound(Number(a.net_due) + contraNow);
+    const labour = Math.max(0, finRound(gross - materials));
+    const ins = await dbInsert('fin_sub_payments', {org_id:ME.org_id, worker_id:sc.worker_id||null, name:sc.name, utr:sc.utr||null, sub_app_id:a.id, period_start:a.app_date, period_end:a.app_date,
+      lines:[{site_id:a.site_id, description:sc.number+' application '+a.number, days:1, rate:labour, amount:labour}], labour, materials, gross, cis_rate:sc.cis_rate, cis_deduction:Number(a.cis_deduction), net_pay:Number(a.pay_amount), status:'paid', paid_on:today, created_by:ME.id});
+    if(!ins || (Array.isArray(ins) && !ins.length)){ toast('Not marked paid — the CIS record didn’t save. Please try again.'); return; }
+  }
+  if(a.status!=='paid'){
+    const r = await dbUpdate('fin_sub_apps', id, {status:'paid', paid_on:today});
+    if(!r){ toast('The CIS record is saved, but the application couldn’t be marked paid. Tap “Mark paid today” again.'); render(); return; }
+  }
   document.getElementById('finSaOverlay').style.display = 'none';
-  toast('Marked paid — added to the CIS return'); render();
+  toast(a.status==='paid' ? 'Missing CIS record added to the CIS return' : 'Marked paid — added to the CIS return'); render();
 };
 
 /* ---------- payment / pay less notice ---------- */
@@ -51128,17 +51320,17 @@ const FIN_REPORTS = [
   {id:'overview', group:'qs', title:'Company overview', desc:'Every project: contract, final account, invoiced, owed, costs, forecast margin.', filters:['status','job'], run:async f=>{
     const b = await finRepBookLoad();
     const rows = finRepSites(f).map(s=>{ const fc = finJobForecast(b, s.id); return {job:finRepJob(s), client:s.client_name||'', contract:fc.contract, vars:fc.vAgreed, ffa:fc.ffa, invoiced:fc.invoiced, owed:fc.owed, cost:fc.costToDate, committed:fc.committedTotal, fcost:fc.budgetTotal==null?null:fc.forecastCost, margin:fc.budgetTotal==null?null:fc.forecastMargin, pct:fc.budgetTotal==null?null:fc.forecastMarginPct, ret:fc.retHeld, _go:`#/site/${s.id}/finance`}; });
-    return {cols:[{k:'job',l:'Project',w:150},{k:'client',l:'Client',w:90},{k:'contract',l:'Contract',money:1},{k:'vars',l:'Variations agreed',money:1},{k:'ffa',l:'Forecast final account',money:1},{k:'invoiced',l:'Invoiced',money:1},{k:'owed',l:'Owed',money:1},{k:'cost',l:'Costs to date',money:1},{k:'committed',l:'Ordered, not invoiced',money:1},{k:'fcost',l:'Expected final cost (needs a budget)',money:1},{k:'margin',l:'Expected profit',money:1},{k:'pct',l:'Profit %',pct:1},{k:'ret',l:'Retention held',money:1}], rows, totals:true};
+    return {cols:[{k:'job',l:'Project',w:150},{k:'client',l:'Client',w:90},{k:'contract',l:'Contract',money:1},{k:'vars',l:'Variations agreed',money:1},{k:'ffa',l:'Forecast final account (incl. submitted variations)',money:1},{k:'invoiced',l:'Invoiced',money:1},{k:'owed',l:'Owed',money:1},{k:'cost',l:'Costs to date',money:1},{k:'committed',l:'Ordered, not invoiced',money:1},{k:'fcost',l:'Expected final cost (needs a budget)',money:1},{k:'margin',l:'Expected profit',money:1},{k:'pct',l:'Profit %',pct:1},{k:'ret',l:'Retention held',money:1}], rows, totals:true};
   }},
   {id:'cvr', group:'qs', title:'Cost value reconciliation (CVR)', desc:'Value to date against cost to date, and the forecast at completion, project by project.', filters:['status','job'], run:async f=>{
     const b = await finRepBookLoad();
     const rows = finRepSites(f).map(s=>{ const fc = finJobForecast(b, s.id); return {job:finRepJob(s), value:fc.sales, cost:fc.costToDate, margin:fc.salesMargin, mpct:fc.salesMarginPct, committed:fc.committedTotal, ffa:fc.ffa, fcost:fc.forecastCost, fmargin:fc.forecastMargin, fpct:fc.forecastMarginPct, _go:`#/site/${s.id}/finance/budget`}; });
-    return {cols:[{k:'job',l:'Project',w:160},{k:'value',l:'Value to date',money:1},{k:'cost',l:'Cost to date',money:1},{k:'margin',l:'Margin to date',money:1},{k:'mpct',l:'%',pct:1},{k:'committed',l:'Committed',money:1},{k:'ffa',l:'Forecast final account',money:1},{k:'fcost',l:'Forecast final cost',money:1},{k:'fmargin',l:'Forecast margin',money:1},{k:'fpct',l:'%',pct:1}], rows, totals:true, note:'Value to date is the latest certified (or applied) gross valuation. Cost to date excludes committed orders.'};
+    return {cols:[{k:'job',l:'Project',w:160},{k:'value',l:'Value to date',money:1},{k:'cost',l:'Cost to date',money:1},{k:'margin',l:'Margin to date',money:1},{k:'mpct',l:'%',pct:1},{k:'committed',l:'Committed',money:1},{k:'ffa',l:'Forecast final account (incl. submitted variations)',money:1},{k:'fcost',l:'Forecast final cost',money:1},{k:'fmargin',l:'Forecast margin',money:1},{k:'fpct',l:'%',pct:1}], rows, totals:true, note:'Value to date is the latest certified (or applied) gross valuation. Cost to date excludes committed orders.'};
   }},
   {id:'ffa', group:'qs', title:'Forecast final account', desc:'Contract sum plus variations agreed, submitted and instructed, by project.', filters:['status','job'], run:async f=>{
     const b = await finRepBookLoad();
     const rows = finRepSites(f).map(s=>{ const fc = finJobForecast(b, s.id); return {job:finRepJob(s), contract:fc.contract, agreed:fc.vAgreed, pending:fc.vPending, ffa:fc.ffa, instructed:fc.vInstructed, certified:fc.certified, _go:`#/site/${s.id}/finance/variations`}; });
-    return {cols:[{k:'job',l:'Project',w:170},{k:'contract',l:'Contract sum',money:1},{k:'agreed',l:'Variations agreed',money:1},{k:'pending',l:'Submitted, not agreed',money:1},{k:'ffa',l:'Forecast final account',money:1},{k:'instructed',l:'Instructed, not priced (est.)',money:1},{k:'certified',l:'Certified to date',money:1}], rows, totals:true};
+    return {cols:[{k:'job',l:'Project',w:170},{k:'contract',l:'Contract sum',money:1},{k:'agreed',l:'Variations agreed',money:1},{k:'pending',l:'Submitted, not agreed',money:1},{k:'ffa',l:'Forecast final account (incl. submitted variations)',money:1},{k:'instructed',l:'Instructed, not priced (est.)',money:1},{k:'certified',l:'Certified to date',money:1}], rows, totals:true};
   }},
   {id:'budget', group:'qs', title:'Budget vs actual', desc:'Budget, spent, committed and forecast by heading, for one project or all.', filters:['status','job'], run:async f=>{
     const b = await finRepBookLoad(); const rows = [];
@@ -51202,9 +51394,13 @@ const FIN_REPORTS = [
   }},
   {id:'labour', group:'tax', title:'Labour by person', desc:'Days and cost per person per project.', filters:['job','dates'], run:async f=>{
     const b = await finRepBookLoad(); const by = {};
-    finRepSites(Object.assign({}, f, {status:'all'})).forEach(s=>finCostLinesFromBook(b, s.id).filter(l=>l.cat==='labour' && (!f.from && !f.to || finInRange(l.date, f))).forEach(l=>{ const k = (l.person||l.who)+'|'+s.id; const r = by[k] = by[k] || {who:l.who, job:finRepJob(s), days:0, cost:0}; r.days += l.days || (l.key.startsWith('ck:') ? 1 : 0); r.cost += l.net; }));
-    const rows = Object.values(by).map(r=>Object.assign(r, {cost:finRound(r.cost)})).sort((x,y)=>String(x.who).localeCompare(String(y.who)));
-    return {cols:[{k:'who',l:'Person',w:140},{k:'job',l:'Project',w:170},{k:'days',l:'Days',num:1},{k:'cost',l:'Cost',money:1}], rows, totals:true};
+    // Operative invoice lines: take the days from the invoice line when it has them (audit FA-25).
+    const opDays = key=>{ const m = String(key).split(':'); if(m[0]!=='op') return null; const p = (b.ops||[]).find(x=>x.id===m[1]); const ln = p && (p.lines||[])[Number(m[2])]; return ln && Number(ln.days) ? Number(ln.days) : null; };
+    let unk = false;
+    finRepSites(Object.assign({}, f, {status:'all'})).forEach(s=>finCostLinesFromBook(b, s.id).filter(l=>l.cat==='labour' && (!f.from && !f.to || finInRange(l.date, f))).forEach(l=>{ const k = (l.person||l.who)+'|'+s.id; const r = by[k] = by[k] || {who:l.who, job:finRepJob(s), days:0, cost:0, unk:false}; const d = l.days || (String(l.key).startsWith('ck:') ? 1 : opDays(l.key)); if(d) r.days += Number(d); else if(l.net){ r.unk = true; unk = true; } r.cost += l.net; }));
+    // Days we don't know (an invoice with no days on it) show as blank, not 0.
+    const rows = Object.values(by).map(r=>{ const o = Object.assign({}, r, {cost:finRound(r.cost), days:r.days ? finRound(r.days) : (r.unk ? null : 0)}); delete o.unk; return o; }).sort((x,y)=>String(x.who).localeCompare(String(y.who)));
+    return {cols:[{k:'who',l:'Person',w:140},{k:'job',l:'Project',w:170},{k:'days',l:'Days',num:1},{k:'cost',l:'Cost',money:1}], rows, totals:true, note:unk ? 'Some operative invoices don’t say how many days they cover, so those days aren’t counted.' : undefined};
   }},
   {id:'cis', group:'tax', title:'CIS payments', desc:'Subcontractor payments, materials and CIS deducted, for your return.', filters:['dates'], run:async f=>{
     const pays = await dbSelect('fin_sub_payments', 'org_id=eq.'+ME.org_id+'&status=eq.paid&order=paid_on.asc'+(f.from?'&paid_on=gte.'+f.from:'')+(f.to?'&paid_on=lte.'+f.to:''));
@@ -52375,7 +52571,7 @@ function finBillingType(jf, itemsCount, appsCount){
 // Shown at the top of a project's Finance page until it's chosen.
 function finBillingChoiceHtml(siteId){
   return `<div class="card finbtchoose">
-    <p class="sectiontitle" style="margin-top:0;">How do you get paid on this project?</p>
+    <p class="sectiontitle" style="margin-top:0;">Payment Procedure</p>
     <div class="finbtopts">
       ${Object.keys(FIN_BT).map(k=>`<button type="button" class="finbtopt" onclick="setFinBillingType('${siteId}','${k}')">
         <span class="finbtopt-i">${FIN_BT[k].icon}</span><b>${FIN_BT[k].t}</b><span>${FIN_BT[k].s}</span></button>`).join('')}
@@ -52575,7 +52771,7 @@ function finAppDatesHtml(jf, st){
   const months = finNext12Months(), custom = (jf && jf.app_dates) || {};
   const n = months.filter(m=>custom[m]).length;
   return `<details class="finappdates" style="grid-column:1 / -1;" ${n?'open':''}>
-    <summary>Application dates for the next 12 months${n ? ` <em>· ${n} set by hand</em>` : ''}</summary>
+    <summary>Manually select monthly application dates${n ? ` <em>· ${n} set by hand</em>` : ''}</summary>
     <p class="stub" style="margin:0 16px 10px;font-style:normal;">Each month uses the day above unless you pick a date for it (e.g. the client’s valuation calendar). Leave a box empty to use the normal day.</p>
     <div class="finappdates-g">${months.map(m=>{ const def = finAppDateFor({app_reminder_day:jf && jf.app_reminder_day}, st, m) || ''; const v = custom[m] || '';
       return `<label class="${custom[m]?'set':''}"><span>${new Date(m+'-01T12:00:00').toLocaleDateString('en-GB',{month:'short', year:'numeric'})}</span><input type="date" data-ym="${m}" data-def="${def}" value="${v}" min="${m}-01" max="${m}-31" onchange="this.parentNode.classList.toggle('set', !!this.value && this.value!==this.dataset.def)"><em>${def ? 'Normally '+finDate(def) : 'No day set'}</em></label>`; }).join('')}</div>
@@ -52959,9 +53155,25 @@ async function finWagePush(t, rows){
     for(const e of existing){
       if(bySite[e.site_id]) continue;
       if(e.status==='pending') await dbDelete('wage_pushes', e.id);
-      else if(e.status!=='withdrawn') await dbUpdate('wage_pushes', e.id, {status:'withdrawn', amount:0});
+      else if(e.status!=='withdrawn') await finWagePushWithdraw(e);
     }
   }catch(e){ console.error('wage push', e); }
+}
+// Take a push off. If the PM had booked it against a price, zero that wage
+// line too, so the price doesn't keep the wage (and re-booking later doesn't
+// count it twice) — audit FA-17.
+async function finWagePushWithdraw(e){
+  const ok = await dbUpdate('wage_pushes', e.id, {status:'withdrawn', amount:0});
+  if(ok && e.status==='price' && e.price_entry_id){
+    try{
+      await sbFetch('/rest/v1/price_week_operative_entries?id=eq.'+e.price_entry_id, {method:'PATCH', body:JSON.stringify({amount:0, updated_at:new Date().toISOString()})});
+      if(e.element_id && e.week_number){
+        const sh = await dbSelect('price_builder_sheets', 'pricing_element_id=eq.'+e.element_id+'&select=id&limit=1');
+        if(!sh.length && typeof rollUpPriceWeekFromOperativeEntries==='function') await rollUpPriceWeekFromOperativeEntries(e.element_id, e.site_id, e.week_number);
+      }
+    }catch(err){ console.error('wage push withdraw', err); }
+  }
+  return ok;
 }
 const FIN_WP_LABEL = {pending:'With PM', price:'On price', general:'General costs', withdrawn:'Taken off'};
 function finWagePushChip(p){
@@ -53011,7 +53223,15 @@ async function pmWagePushesHtml(siteId, elements){
 }
 window.pmWagePushBook = async function(siteId, id, how){
   const box = document.getElementById('pmwp-'+id); if(!box) return;
-  const p = (await dbSelect('wage_pushes', 'id=eq.'+id))[0]; if(!p || p.status!=='pending'){ render(); return; }
+  // One tap at a time — a second tap must not book the wage twice (audit FA-17).
+  if(box.dataset.busy==='1') return;
+  const btns = Array.from(box.querySelectorAll('button')).filter(x=>!x.disabled);
+  box.dataset.busy = '1'; btns.forEach(x=>{ x.disabled = true; });
+  try{ return await pmWagePushBookOnce(box, siteId, id, how); }
+  finally{ if(document.body.contains(box)){ box.dataset.busy = ''; btns.forEach(x=>{ x.disabled = false; }); } }
+};
+async function pmWagePushBookOnce(box, siteId, id, how){
+  const p = (await dbSelectNet('wage_pushes', 'id=eq.'+id))[0]; if(!p || p.status!=='pending'){ render(); return; }
   const patch = {status:how, decided_by:ME.id, decided_at:new Date().toISOString()};
   if(how==='price'){
     const elId = box.querySelector('.pmwp-el').value; if(!elId){ toast('Add a price tile first.'); return; }
@@ -53028,7 +53248,7 @@ window.pmWagePushBook = async function(siteId, id, how){
   if(!(await dbUpdate('wage_pushes', id, patch))) return;
   toast(how==='price' ? 'Added to the price' : 'Added to other job costs');
   render();
-};
+}
 
 /* ============================================================
    OpHUB Finance — weekly pay run (subcontract labour, a week in hand).
@@ -53052,8 +53272,10 @@ function finBankOk(r){ return !!(r && String(r.bank_sort_code||'').replace(/\D/g
 // Lines for one person's week (sign-in days at their rate + timesheet lines), as on a payment.
 async function finPayLinesFor(key, from, to, rates){
   const isW = String(key).startsWith('w:'), userId = isW ? null : key, wid = isW ? key.slice(2) : null;
+  // UK local midnight to midnight (BST in summer), sent to the database in UTC (audit FA-26).
+  const tsFrom = new Date(from+'T00:00:00').toISOString(), tsTo = new Date(finAddDays(to, 1)+'T00:00:00').toISOString();
   const [cks, man] = await Promise.all([
-    userId ? dbSelect('checkins', 'user_id=eq.'+userId+'&type=eq.in&ts=gte.'+from+'T00:00:00&ts=lte.'+to+'T23:59:59&select=user_id,site_id,ts,type') : Promise.resolve([]),
+    userId ? dbSelect('checkins', 'user_id=eq.'+userId+'&type=eq.in&ts=gte.'+tsFrom+'&ts=lt.'+tsTo+'&select=user_id,site_id,ts,type') : Promise.resolve([]),
     dbSelect('fin_labour_manual', (userId ? 'user_id=eq.'+userId : 'worker_id=eq.'+wid)+'&work_date=gte.'+from+'&work_date=lte.'+to),
   ]);
   const r = rates[key] || {};
@@ -53145,11 +53367,15 @@ function finApplicationsCardHtml(siteId, apps, due, invs){
   </div>`;
 }
 // Drafts opened by "New invoice" and left empty are tidied away.
+// Only your own drafts that have sat empty for over a day (anyone's after a week), so a draft
+// someone is still typing on another phone or computer isn't deleted under them (audit FA-12).
 function finCleanEmptyDrafts(invs){
   const empty = i=>i.status==='draft' && !i.number && (i.lines||[]).every(l=>!String(l.description||'').trim() && (l.amount==null || l.amount===''));
+  const age = i=>{ const t = Date.parse(i.updated_at || i.created_at || ''); return isNaN(t) ? 0 : Date.now() - t; };
+  const old = i=>(i.created_by===ME.id && age(i) > 24*3600*1000) || age(i) > 7*24*3600*1000;
   const keep = [], gone = [];
-  invs.forEach(i=>{ if(empty(i) && !(typeof finInvDraft!=='undefined' && finInvDraft && finInvDraft.id===i.id)) gone.push(i); else keep.push(i); });
-  gone.forEach(i=>{ sbFetch('/rest/v1/fin_invoices?id=eq.'+i.id+'&status=eq.draft', {method:'DELETE'}).catch(()=>null); });
+  invs.forEach(i=>{ if(empty(i) && !(typeof finInvDraft!=='undefined' && finInvDraft && finInvDraft.id===i.id)) { if(old(i)) gone.push(i); } else keep.push(i); });
+  gone.forEach(i=>{ sbFetch('/rest/v1/fin_invoices?id=eq.'+i.id+'&status=eq.draft&number=is.null', {method:'DELETE'}).catch(()=>null); });
   return keep;
 }
 
@@ -53200,14 +53426,15 @@ async function renderFinSales(sub){
   } else {
     const jfBy = {}; jf.forEach(r=>jfBy[r.site_id]=r);
     const appsBy = {}; apps.forEach(a=>{ (appsBy[a.site_id] = appsBy[a.site_id]||[]).push(a); });
-    const rows = SITES.map(s=>({s, held:finRetentionHeld(appsBy[s.id]||[]), jf:jfBy[s.id]||{}})).filter(x=>x.held);
+    // "Still held" = held less the retention release invoices already raised (audit FA-08).
+    const rows = SITES.map(s=>({s, held:finRetentionStillHeld(appsBy[s.id]||[], jfBy[s.id]||{}, invs), jf:jfBy[s.id]||{}})).filter(x=>x.held);
     const total = rows.reduce((t,x)=>t+x.held,0);
     body = finSecHead('Retention') + `<p class="stub" style="margin:-4px 0 12px;">Money your clients are holding back until the work is signed off: ${finMoney(total)} across ${rows.length} job${rows.length===1?'':'s'}. Half usually comes back at practical completion and half at the end of the defects period — set the dates here (they save to the project) to get reminders.</p>`
       + finSearchHtml('Search project, client', 'finSalesList')
       + `<div id="finSalesList">${rows.length ? `<div class="finreptbl-wrap"><table class="fincosttbl fininvtbl">
-        <thead><tr><th>Project</th><th>Client</th><th>1st Retention Release</th><th>Final Retention Release</th><th class="num">Held</th></tr></thead>
+        <thead><tr><th>Project</th><th>Client</th><th>1st Retention Release</th><th>Final Retention Release</th><th class="num">Still Held</th></tr></thead>
         <tbody>${rows.map(x=>{ const d = finRetentionDates(x.jf, st); const when = (dt, inv, n)=>inv ? finDate(dt)+' <span class="finpill ok">Claimed</span>' : `<input type="date" class="finretd" value="${dt||''}" title="${n===1?'Practical completion — first half of the retention is due':'End of the defects period — the rest of the retention is due'}" onclick="event.stopPropagation()" onchange="finRetSetDate('${x.s.id}',${n},this.value)">`;
-          return `<tr class="click" data-lf="${lfText([finRepJobOr(x.s), x.s.client_name].join(' '))}" onclick="go('#/site/${x.s.id}/finance')"><td data-l="Project"><b>${escapeHtml(finRepJobOr(x.s))}</b></td><td data-l="Client">${escapeHtml(x.s.client_name||'—')}</td><td data-l="1st Retention Release">${when(d.first, x.jf.ret1_invoice_id, 1)}</td><td data-l="Final Retention Release">${when(d.second, x.jf.ret2_invoice_id, 2)}</td><td data-l="Held" class="num"><b>${finMoney(x.held)}</b></td></tr>`; }).join('')}</tbody>
+          return `<tr class="click" data-lf="${lfText([finRepJobOr(x.s), x.s.client_name].join(' '))}" onclick="go('#/site/${x.s.id}/finance')"><td data-l="Project"><b>${escapeHtml(finRepJobOr(x.s))}</b></td><td data-l="Client">${escapeHtml(x.s.client_name||'—')}</td><td data-l="1st Retention Release">${when(d.first, x.jf.ret1_invoice_id, 1)}</td><td data-l="Final Retention Release">${when(d.second, x.jf.ret2_invoice_id, 2)}</td><td data-l="Still Held" class="num"><b>${finMoney(x.held)}</b></td></tr>`; }).join('')}</tbody>
         <tfoot><tr><td colspan="4"><b>${rows.length} job${rows.length===1?'':'s'}</b></td><td class="num"><b>${finMoney(total)}</b></td></tr></tfoot></table></div>` : '<div class="empty">No retention held.</div>'}</div>`;
   }
   document.getElementById('app').innerHTML = shell(`
@@ -53232,15 +53459,17 @@ window.finRaiseCertInvoice = async function(siteId, appId, net){
   if(!await customConfirm(`Raise and issue the invoice for this certificate (${finMoney(net)} net)?\n\nIt gets the next invoice number and is saved as a PDF ready to email.`, {confirmLabel:'Raise and issue'})) return;
   return raiseInvoiceFromCert(siteId, appId, true);
 };
-// "To date" strip for a job's Sales tab: applied, certified, invoiced, paid.
+// "To date" strip for a job's Sales tab (24 Oct, Andy): Applied, Invoiced, Paid — all excl. VAT.
 function finSalesToDateHtml(apps, invs){
   const live = (apps||[]).filter(a=>a.status!=='void').sort((x,y)=>y.number-x.number);
-  const last = live[0], lastC = live.find(a=>a.cert_gross!=null);
+  const last = live.find(a=>a.status!=='draft') || null;
   const li = (invs||[]).filter(i=>!['void','draft'].includes(i.status));
-  const invoiced = finRound(li.reduce((t,i)=>t+Number(i.net||0),0)), paid = finRound(li.reduce((t,i)=>t+Math.min(Number(i.paid||0), Number(i.total||0)),0));
+  const invoiced = finRound(li.reduce((t,i)=>t+Number(i.net||0),0));
+  const paid = finRound(li.reduce((t,i)=>{ const tt = Number(i.total||0); return t + (tt ? Math.min(Number(i.paid||0), tt)*Number(i.net||0)/tt : 0); },0));
   const cell = (l, v, s)=>`<div><span>${l}</span><b>${v}</b>${s?`<em>${s}</em>`:''}</div>`;
-  return `<div class="fintodate">${last ? cell('Applied to date', finMoney(last.gross, 0), 'gross, application '+last.number) : ''}${lastC ? cell('Certified to date', finMoney(lastC.cert_gross, 0), 'gross, by the client') : (last ? cell('Certified to date', '—', 'waiting') : '')}${cell('Invoiced', finMoney(invoiced, 0), 'net, '+li.length+' invoice'+(li.length===1?'':'s'))}${cell('Paid to you', finMoney(paid, 0), 'incl. VAT')}</div>`;
+  return `<div class="fintodate fintodate3">${cell('Applied', last ? finMoney(last.gross, 0) : '—', last ? 'excl. VAT · to date (App '+last.number+')' : 'no applications yet')}${cell('Invoiced', finMoney(invoiced, 0), 'excl. VAT · '+li.length+' invoice'+(li.length===1?'':'s'))}${cell('Paid', finMoney(paid, 0), 'excl. VAT')}</div>`;
 }
+(function(){ const st = document.createElement('style'); st.textContent = `.fintodate.fintodate3{grid-template-columns:repeat(3,minmax(0,1fr)) !important;} .fintodate3 em{white-space:normal;}`; document.head.appendChild(st); })();
 
 /* ============================================================
    OpHUB Finance — Purchases as row tables, and the purchase invoice inbox
@@ -53298,13 +53527,14 @@ async function finInboxAutoProcess(){
       const figs = ex.net!=null || ex.total!=null;
       const patch = {extracted:ex, site_id:ex.site_id||null, po_id:ex.po_id||null};
       if(job.site_id && figs && ex.supplier){
-        await dbUpdate('fin_inbox', it.id, patch);
+        // FA-03: only touch it while it's still new — another phone / PC may have filed it already.
+        if(!(await dbUpdate('fin_inbox', it.id+'&status=eq.new', patch))) continue;
         const r = await finInboxFileCore(Object.assign({}, it, patch), {site_id:ex.site_id, po_id:ex.po_id||'', supplier:ex.supplier, invoice_no:ex.invoice_no||'', date:ex.date||'', net:ex.net, vat:ex.vat, total:ex.total}, true);
         if(r) await dbUpdate('fin_inbox', it.id, {auto_filed:true, stage:'auto', comments:[{name:'OpHUB', at:new Date().toISOString(), text:'Read and filed to the job automatically ('+job.how+').'}]});
       } else {
         patch.stage = 'query';
         patch.query_reason = job.site_id ? (!figs ? 'Couldn’t read the amounts' : 'Couldn’t tell the supplier') : job.why;
-        await dbUpdate('fin_inbox', it.id, patch);
+        await dbUpdate('fin_inbox', it.id+'&status=eq.new', patch); // FA-03: not if it's been filed meanwhile
       }
       changed = true;
     }
@@ -53333,10 +53563,15 @@ async function finInboxFileCore(it, f, quiet){
       if(po.value!=null && sofar > Number(po.value)+0.005) flags.push(finMoney(sofar-Number(po.value))+' over the PO value of '+finMoney(po.value));
     }
   }
+  // FA-03: claim the inbox item before filing it. The change only goes through while it's still
+  // "new", so when two phones / PCs file the same emailed invoice at once only one of them gets
+  // a row back — the other stops here instead of filing a second copy.
+  const claim = await dbUpdate('fin_inbox', it.id+'&status=eq.new', {status:'filed'});
+  if(!claim){ if(!quiet) toast('This one has just been filed by someone else.'); return null; }
   const pi = await dbInsert('purchase_invoices', {org_id:ME.org_id, site_id:f.site_id, po_id:f.po_id||null, no_po:!f.po_id, kind:'invoice', supplier_id:po?po.supplier_id:null, supplier_name:f.supplier||'Supplier',
     invoice_no:f.invoice_no||null, invoice_date:f.date||finToday(), net:finRound(net), vat:finRound(vat), total:finRound(total), status: flags.length ? 'query' : 'to_approve', query_note: flags.length ? flags.join('; ') : null,
     file_path:it.file_path, file_name:it.file_name, created_by:ME.id});
-  if(!pi || !pi[0]) return null;
+  if(!pi || !pi[0]){ await dbUpdate('fin_inbox', it.id, {status:'new'}); return null; } // didn't save — put it back in the inbox
   await dbUpdate('fin_inbox', it.id, {status:'filed', site_id:f.site_id, po_id:f.po_id||null, purchase_invoice_id:pi[0].id});
   if(typeof finCheckInvoiceLines==='function') finCheckInvoiceLines(pi[0].id).catch(()=>null);
   return pi[0];
@@ -53853,7 +54088,7 @@ async function finOpPushToPm(p, key){
       await dbUpdate('wage_pushes', ex.id, {amount, description:row.description, status:ex.status==='withdrawn'?'pending':ex.status});
       if(ex.status==='price' && ex.price_entry_id) await sbFetch('/rest/v1/price_week_operative_entries?id=eq.'+ex.price_entry_id, {method:'PATCH', body:JSON.stringify({amount, updated_at:new Date().toISOString()})});
     }
-    for(const e of existing){ if(!bySite[e.site_id]){ if(e.status==='pending') await dbDelete('wage_pushes', e.id); else await dbUpdate('wage_pushes', e.id, {status:'withdrawn', amount:0}); } }
+    for(const e of existing){ if(!bySite[e.site_id]){ if(e.status==='pending') await dbDelete('wage_pushes', e.id); else if(e.status!=='withdrawn') await finWagePushWithdraw(e); } }
   }catch(e){ console.error('push', e); }
 }
 
@@ -54113,7 +54348,7 @@ const FIN_HELP = {
   retention:'Money the client holds back (often 3–5%) until the work is signed off. Half usually comes back at practical completion, half at the end of the defects period.',
   certified:'The amount the client (or their QS) agrees you’re owed — the payment certificate. It can be less than you applied for.',
   payless:'A notice saying you (or the client) will pay less than the amount applied for, and why. It must be sent before the final date for payment.',
-  contra:'Charges taken off a subcontractor’s payment, e.g. for damage, clearing up or materials you supplied.',
+  contra:'Charges taken off a subcontractor’s payment for things you supplied them, e.g. plant, clearing up or materials. HMRC counts these as paid to them, so CIS is still worked out on the amount before contra charges. If you’re holding money back for poor or unfinished work, put in a lower certified amount instead — that does reduce the CIS.',
   committed:'Ordered on a purchase order but not invoiced by the supplier yet.',
   reverse:'Domestic reverse charge (construction): on CIS work between VAT-registered businesses the customer pays the VAT straight to HMRC, so it isn’t added to the invoice total.',
   valuation:'The value of the work done to date, used for the application.',
@@ -54459,6 +54694,10 @@ window.finPiCodeSave = async function(){
     const sumP = out.reduce((t,x)=>t+x.pct, 0); out[out.length-1].pct = Math.round((out[out.length-1].pct + 100 - sumP)*10000)/10000;
     patch = {cost_code:parts[0].cost_code, split:out, sub_job_id:null, lines:linesOut};
   }
+  // FA-11: a bill already in Xero is tracked there by project — warn if the projects change.
+  const siteSet = sp=>Array.from(new Set(sp && sp.length ? sp.map(e=>e.site_id) : [d.row.site_id])).sort().join(',');
+  if(siteSet(d.row.split)!==siteSet(patch.split) && typeof finXeroPostedConfirm==='function'
+    && !(await finXeroPostedConfirm('purchase_invoices', d.id, 'Save this coding? It moves cost between projects.', 'change the project tracking on the bill in Xero yourself'))) return;
   const r = await dbUpdate('purchase_invoices', d.id, patch);
   if(!r){ toast('Could not save the coding.'); return; }
   toast(patch.split ? 'Coded across '+patch.split.length+' project / cost type'+(patch.split.length===1?'':'s') : 'Coded to '+FIN_COST_CATS[patch.cost_code]);
@@ -54466,6 +54705,30 @@ window.finPiCodeSave = async function(){
   render();
   openPurchaseInvoiceView(siteId, d.id);
 };
+
+/* ---------- FA-11: operative invoices already in Xero (24 Oct 2026) ----------
+   Editing or cancelling one in OpHUB doesn't change the bill in Xero, so ask first.
+   (Wrapped here rather than in 9219c so the guard sits with the purchase-invoice one.) */
+(function(){
+  const baseSave = window.saveFinOpInvoice;
+  if(baseSave) window.saveFinOpInvoice = async function(){
+    const O = typeof finOp!=='undefined' ? finOp : null;
+    if(O && O.id && typeof finXeroPostedConfirm==='function'
+      && !(await finXeroPostedConfirm('fin_sub_payments', O.id, 'Save these changes?', 'edit or void the bill in Xero as well'))) return;
+    return baseSave.apply(this, arguments);
+  };
+  const baseCancel = window.finOpCancel;
+  if(baseCancel) window.finOpCancel = async function(id){
+    let row = null;
+    try{ row = (await dbSelect('fin_sub_payments', 'id=eq.'+id+'&select=xero_id'))[0]; }catch(e){}
+    if(!row || !row.xero_id) return baseCancel.apply(this, arguments);
+    // Same steps as 9219c's finOpCancel, with one question that covers Xero too.
+    if(!(await customConfirm('Cancel this invoice? It comes off the job’s costs and out of the pay run.\n\nIt’s already in Xero. Cancelling it here won’t remove it from Xero, so void the bill in Xero as well, or the two won’t match.', {confirmLabel:'Cancel it'}))) return;
+    if(!(await dbUpdate('fin_sub_payments', id, {status:'void'}))) return;
+    if(typeof finOpPushToPm==='function') await finOpPushToPm({id, lines:[]}, '');
+    toast('Cancelled — now void it in Xero'); go('#/finance/subs/opinv');
+  };
+})();
 
 /* styles for the above (kept here so this file can be dropped in on its own) */
 (function(){
@@ -54613,7 +54876,8 @@ window.finCliPull = async function(){
       if(x.terms_type){ patch.terms_type = x.terms_type; patch.terms_days = x.terms_days; }
       const ex = byX[x.id] || byN[String(x.name).trim().toLowerCase()];
       if(ex){ await dbUpdate('fin_clients', ex.id, patch); linked++; }
-      else { const ins = await dbInsert('fin_clients', Object.assign({org_id:ME.org_id, created_by:ME.id}, patch)); if(ins) added++; }
+      // FB-28: remember the new row, so the same name (or the same contact on a later Xero page) updates it instead of adding it twice.
+      else { const ins = await dbInsert('fin_clients', Object.assign({org_id:ME.org_id, created_by:ME.id}, patch)); if(ins){ added++; const row = ins[0] || Object.assign({}, patch); byX[x.id] = row; byN[String(x.name).trim().toLowerCase()] = row; } }
     }
     toast(`From Xero: ${list.length} customer${list.length===1?'':'s'} — ${added} new, ${linked} updated`);
   } finally { finCliBusy = ''; render(); }
@@ -54875,7 +55139,7 @@ function finDirPaint(){
   const v = x=>escapeHtml(x==null?'':String(x));
   const tog = (k, label, sub)=>`<label class="findir-tog ${r[k]?'on':''}"><span><b>${label}</b>${sub?`<small>${sub}</small>`:''}</span><input type="checkbox" ${r[k]?'checked':''} onchange="finDirSet('${k}',this.checked);finDirPaint()"></label>`;
   const inp = (k, label, ph, type)=>`<div class="formfield"><label class="field-label">${label}</label><input type="${type||'text'}" value="${v(r[k])}" placeholder="${escapeHtml(ph||'')}" oninput="finDirSet('${k}',this.value)"></div>`;
-  const vatSel = (k, label)=>`<div class="formfield"><label class="field-label">${label}</label><select onchange="finDirSet('${k}',this.value)"><option value="">Not set</option>${Object.keys(FIN_DIR_VAT).map(x=>`<option value="${x}" ${r[k]===x?'selected':''}>${FIN_DIR_VAT[x]}</option>`).join('')}</select></div>`;
+  const vatSel = (k, label)=>`<div class="formfield"><label class="field-label">${label}</label><select onchange="finDirSet('${k}',this.value)"><option value="">Not set</option>${(typeof finVatKeysWith==='function' ? finVatKeysWith(FIN_DIR_VAT, r[k]) : Object.keys(FIN_DIR_VAT)).map(x=>`<option value="${x}" ${r[k]===x?'selected':''}>${FIN_DIR_VAT[x]}</option>`).join('')}</select></div>`;
   const codes = FIN_CODES||[];
   const tabs = [['general','General'], ['terms','Payment terms'], ['tax','Tax'], ['cis','CIS']];
   let body = '';
@@ -55594,13 +55858,17 @@ window.finStmtCreate = async function(){
 /* ---------- one statement ---------- */
 async function renderFinStatement(id){
   const __gen = RENDER_GEN;
-  const rec = /^[A-Za-z0-9_-]{6,64}$/.test(id) ? (await dbSelect('fin_statements', 'id=eq.'+encodeURIComponent(id)))[0] : null;
+  // Straight after a line change we already hold the saved statement, the
+  // invoices and the PDF link, so just repaint (audit FB-22).
+  const reuse = finStmt && finStmt.quick && finStmt.rec && finStmt.rec.id===id ? finStmt : null;
+  if(reuse) reuse.quick = false;
+  const rec = reuse ? reuse.rec : (/^[A-Za-z0-9_-]{6,64}$/.test(id) ? (await dbSelect('fin_statements', 'id=eq.'+encodeURIComponent(id)))[0] : null);
   if(!rec){ go('#/finance/purchases/statements'); return; }
-  const cands = await finStmtCands(rec.supplier_name);
-  let fileUrl = '';
-  if(rec.file_path && /\.pdf$/i.test(rec.file_name||'')){ try{ fileUrl = await resolveStorageUrl(publicUrl('finance-docs', rec.file_path)); }catch(e){} }
+  const cands = reuse ? reuse.cands : await finStmtCands(rec.supplier_name);
+  let fileUrl = reuse ? (reuse.fileUrl||'') : '';
+  if(!reuse && rec.file_path && /\.pdf$/i.test(rec.file_name||'')){ try{ fileUrl = await resolveStorageUrl(publicUrl('finance-docs', rec.file_path)); }catch(e){} }
   if(__gen !== RENDER_GEN) return;
-  finStmt = {rec, cands};
+  finStmt = {rec, cands, fileUrl};
   const lines = rec.lines || [];
   const st = lines.map(l=>({l, s:finStmtLineState(l, cands)}));
   const cnt = k=>st.filter(x=>x.s.k===k).length;
@@ -55650,7 +55918,7 @@ function finStmtSave(patch){
     if(!finStmt) return;
     const r = finStmt.rec;
     const row = await dbUpdate('fin_statements', r.id, Object.assign({lines:r.lines, updated_at:new Date().toISOString()}, patch||{}));
-    if(row && finStmt && finStmt.rec.id===row.id){ finStmt.rec = row; render(); }
+    if(row && finStmt && finStmt.rec.id===row.id){ finStmt.rec = row; if(location.hash.indexOf('/statements/'+row.id) >= 0){ finStmt.quick = true; await render(); } }
   }).catch(()=>{});
   return finStmtSaving;
 }
@@ -56194,19 +56462,21 @@ function finProjTabsHtml(siteId, bt){
   if(cur==='boq' && bt!=='application') finProjTab[siteId] = 'overview';
   return `<nav class="finsecnav finptabs" role="tablist">${tabs.map(t=>`<button type="button" role="tab" data-t="${t.k}" class="${t.k===(finProjTab[siteId]||cur)?'on':''}" onclick="finProjTabGo('${siteId}','${t.k}')">${t.l}</button>`).join('')}</nav>`;
 }
+let finRetInvsFor = null; // {siteId, invs}: this project's invoices, for the Retention card drawn just after (audit FA-08)
 function finJobOverviewHtml(d){
   const {siteId, site, jf, st, bt, invs, apps, items, pos, pinvs, hires} = d;
+  finRetInvsFor = {siteId, invs};
   const live = invs.filter(i=>i.status!=='void');
   const owed = live.reduce((t,i)=>t+finInvOutstandingNet(i), 0);
   const od = live.filter(finInvOverdue), overdue = od.reduce((t,i)=>t+finInvOutstandingNet(i), 0);
-  const retHeld = typeof finRetentionHeld==='function' ? finRetentionHeld(apps) : 0;
+  const retHeld = typeof finRetentionStillHeld==='function' ? finRetentionStillHeld(apps, jf, invs) : 0;
   const tiles = `<div class="pmstats finstats">
     <div class="pmstat" onclick="finProjTabGo('${siteId}','setup')"><b>${finMoney(jf.contract_value||0, 0)}</b><span>Contract value</span></div>
     <div class="pmstat" onclick="finSalesGo('${siteId}','invoices')"><b>${finMoney(owed, 0)}</b><span>Owed to you</span></div>
     <div class="pmstat" onclick="finSalesGo('${siteId}','invoices')"><b${overdue?' class="hot"':''}>${finMoney(overdue, 0)}</b><span>Overdue</span></div>
     <div class="pmstat" onclick="finSalesGo('${siteId}','retention')"><b>${finMoney(retHeld, 0)}</b><span>Retention held by client</span></div>
   </div>`;
-  const start = finStartCardHtml(siteId, bt, {items:items.filter(finIsItem).length, pos:pos.length, invs:invs.length, apps:apps.length});
+  const start = finStartCardHtml(siteId, bt, {jf, items:items.filter(finIsItem).length, pos:pos.length, invs:invs.length, apps:apps.length});
   if(start) return tiles + start;
   const todo = [], T = (tone, t, s, n, js)=>todo.push({tone, t, s, n, js});
   const tab = k=>`finProjTabGo('${siteId}','${k}')`;
@@ -56250,15 +56520,19 @@ function finRetentionCardHtml(siteId, jf, st, apps){
   const held = finRetentionHeld(apps);
   const d = finRetentionDates(jf, st);
   const alerts = finRetentionAlerts(jf, st, held);
+  // Released so far and still held, and each half from its invoice once raised (audit FA-08 / FA-19).
+  const invs = finRetInvsFor && finRetInvsFor.siteId===siteId ? finRetInvsFor.invs : [];
+  const released = finRetentionReleased(jf, invs), still = finRound(Math.max(0, held - released));
+  const half = n=>finRetHalfAmt(held, n, jf, invs);
   const act = (n, date, invId)=> invId ? `<button class="linkbtn" onclick="go('#/site/${siteId}/finance/invoice/${invId}')">View invoice</button>`
     : (held && date ? `<button class="linkbtn" onclick="raiseRetentionInvoice('${siteId}',${n})">Raise invoice</button>` : '<span class="stub" style="margin:0;">—</span>');
   const due = (n, date)=>date ? finDate(date) : '<span class="stub" style="margin:0;font-style:normal;">Set PC date</span>';
   return `<div class="card finret">
-    <div class="finret-h"><p class="sectiontitle" style="margin:0;">Retention</p><span>Held to date <b>${finMoney(held)}</b></span></div>
+    <div class="finret-h"><p class="sectiontitle" style="margin:0;">Retention</p><span>Held to date <b>${finMoney(held)}</b>${released ? ` · Released <b>${finMoney(released)}</b> · Still held <b>${finMoney(still)}</b>` : ''}</span></div>
     ${alerts.length ? `<div class="finchecks" style="margin:6px 0 0;">${alerts.map(x=>`<span>${x.half===1?'First':'Second'} half due ${finDate(x.date)}</span>`).join('')}</div>` : ''}
     <table class="finret-t"><thead><tr><th>Release</th><th>Due</th><th class="num">Amount</th><th></th></tr></thead><tbody>
-      <tr><td>1st half · practical completion</td><td>${due(1, d.first)}</td><td class="num">${finMoney(finRetHalf(held, 1))}</td><td class="r">${act(1, d.first, jf.ret1_invoice_id)}</td></tr>
-      <tr><td>2nd half · end of defects</td><td>${due(2, d.second)}</td><td class="num">${finMoney(finRetHalf(held, 2))}</td><td class="r">${act(2, d.second, jf.ret2_invoice_id)}</td></tr>
+      <tr><td>1st half · practical completion</td><td>${due(1, d.first)}</td><td class="num">${finMoney(half(1))}</td><td class="r">${act(1, d.first, jf.ret1_invoice_id)}</td></tr>
+      <tr><td>2nd half · end of defects</td><td>${due(2, d.second)}</td><td class="num">${finMoney(half(2))}</td><td class="r">${act(2, d.second, jf.ret2_invoice_id)}</td></tr>
     </tbody></table>
     <div class="finret-f">
       <label>Practical completion<input type="date" id="finPcDate" value="${jf.pc_date||''}"></label>
@@ -56492,7 +56766,10 @@ async function finContractAutoSave(){
     const rowsNow = finContractRows;
     const onScreen = new Set(rowsNow.filter(r=>r.id).map(r=>r.id));
     const rows = rowsNow.map((r,_i)=>({_i, r, kind:r.kind||'item', description:String(r.description||'').trim()})).filter(x=>x.description);
-    const existing = await dbSelect('fin_contract_items', 'site_id=eq.'+siteId+'&select=id');
+    // A failed read must stop the save, or every line is added a second time (audit FB-07).
+    const exR = await dbSelectChecked('fin_contract_items', 'site_id=eq.'+siteId+'&select=id');
+    if(!exR.ok) throw new Error('Could not read the saved lines');
+    const existing = exR.data;
     let failed = 0;
     for(const e of existing) if(!onScreen.has(e.id)){ if(!(await dbDelete('fin_contract_items', e.id))) failed++; }
     for(let p=0;p<rows.length;p++){
@@ -56504,7 +56781,7 @@ async function finContractAutoSave(){
       else { const ins = await dbInsert('fin_contract_items', Object.assign({org_id:ME.org_id, site_id:siteId}, data)); if(ins && ins[0]) r.id = ins[0].id; else failed++; }
     }
     const total = finRound(rows.filter(x=>x.kind==='item').reduce((t,x)=>t+(Number(finItemValue(x.r))||0), 0));
-    await sbFetch('/rest/v1/job_finance', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify({site_id:siteId, org_id:ME.org_id, contract_value:total, billing_type:'application', updated_at:new Date().toISOString(), updated_by:ME.id})});
+    await sbFetch('/rest/v1/job_finance', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify({site_id:siteId, org_id:ME.org_id, ...(await finCvPatch(siteId, total)), billing_type:'application', updated_at:new Date().toISOString(), updated_by:ME.id})});
     if(finContractRows===rowsNow && !failed) finContractSnap = finContractSnapOf(finContractRows);
     finCtAuto.at = new Date(); finCtAuto.err = failed ? failed+' line'+(failed===1?'':'s')+' didn’t save' : '';
   }catch(e){ console.error(e); finCtAuto.err = 'Not saved — check your connection'; }
@@ -56512,6 +56789,17 @@ async function finContractAutoSave(){
   finCtAutoPaint();
   if(finCtAuto.again){ finCtAuto.again = false; finContractAutoSave(); }
 }
+// The Save button waits for an autosave that's still running (and autosave waits for Save), so the
+// two never add the same new lines at once (audit FB-07).
+(function(){
+  const base = window.saveFinContract;
+  window.saveFinContract = async function(){
+    for(let i = 0; finCtAuto.busy && i < 200; i++) await new Promise(r=>setTimeout(r, 150));
+    finCtAuto.busy = true;
+    try{ return await base.apply(this, arguments); }
+    finally{ finCtAuto.busy = false; finCtAuto.again = false; }
+  };
+})();
 function finCtAutoPaint(msg){
   let el = document.getElementById('finCtAuto');
   if(!el){ const t = document.getElementById('finContractTotal'); if(!t) return; el = document.createElement('span'); el.id = 'finCtAuto'; el.className = 'finctauto'; t.closest('.fincontot').prepend(el); }
@@ -56710,7 +56998,7 @@ async function finAppAddLineCore(siteId, e){
   const order = boq.slice(0, at).concat(made, boq.slice(at));
   for(let p=0;p<order.length;p++) if(order[p].position!==p) await dbUpdate('fin_contract_items', order[p].id, {position:p});
   const total = finRound(order.filter(finIsItem).reduce((t,b)=>t+Number(b.value||0), 0));
-  await sbFetch('/rest/v1/job_finance', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify({site_id:siteId, org_id:ME.org_id, contract_value:total, updated_at:new Date().toISOString(), updated_by:ME.id})});
+  await sbFetch('/rest/v1/job_finance', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify({site_id:siteId, org_id:ME.org_id, ...(await finCvPatch(siteId, total)), updated_at:new Date().toISOString(), updated_by:ME.id})});
   if(finAppCtx && finAppCtx.jf) finAppCtx.jf.contract_value = total;
   const appLines = finApp.lines || (finApp.lines = []);
   const toLine = b=>finIsItem(b) ? {kind:'item', item_id:b.id, ref:b.ref||'', description:b.description, qty:b.qty!=null?Number(b.qty):null, unit:b.unit||'', rate:b.rate!=null?Number(b.rate):null, value:Number(b.value||0), pct:finPct(e.pct||0)} : {kind:b.kind, item_id:b.id, ref:b.ref||'', description:b.description};
@@ -56759,6 +57047,8 @@ function finXlCols(rows){
   const col = (re, d)=>{ const i = H.findIndex(h=>re.test(h)); return i>=0 ? i : d; };
   return {hi, ref:col(/^ref/,1), desc:col(/^description$/,2), qty:col(/^(qty|quantity)$/,3), unit:col(/^unit$/,4), rate:col(/^rate$/,5), value:col(/^contract value$/,6), pct:col(/^% ?complete/,7), gross:col(/^value to date$/,8)};
 }
+// An Excel row with no OpHUB key matches a line that's already there (same description and value)?
+function finXlSameLine(list, desc, value){ const d = String(desc||'').trim().toLowerCase(); return (list||[]).some(l=>String(l.description||'').trim().toLowerCase()===d && Math.abs(Number(l.value||0)-Number(value||0)) < 0.005); }
 const finXlNum = v=>{ if(typeof v==='number') return v; const n = Number(String(v||'').replace(/[£,%\s]/g,'')); return (String(v||'').trim()==='' || isNaN(n)) ? null : n; };
 (function(){
   const base = window.uploadFinAppExcel;
@@ -56766,7 +57056,7 @@ const finXlNum = v=>{ if(typeof v==='number') return v; const n = Number(String(
     if(!file || !finApp) return;
     const rows = await finXlRows(file); if(!rows) return;
     const C = finXlCols(rows);
-    let inContract = false, head = '', added = 0;
+    let inContract = false, head = '', added = 0, skipped = 0;
     const adds = [];
     rows.forEach((r, ri)=>{
       if(ri<=C.hi) return;
@@ -56779,6 +57069,7 @@ const finXlNum = v=>{ if(typeof v==='number') return v; const n = Number(String(
       const qty = finXlNum(r[C.qty]), rate = finXlNum(r[C.rate]), val = finXlNum(r[C.value]);
       const value = qty!=null && rate!=null ? finRound(qty*rate) : val;
       if(value==null) return;
+      if(finXlSameLine((finApp.lines||[]).filter(finIsItem), desc, value)){ skipped++; return; } // same file uploaded twice (audit FB-14)
       adds.push({kind:'item', under:(finApp.lines||[]).some(l=>l.item_id===head) ? head : '', ref:String(r[C.ref]||'').trim()||null, desc, qty, unit:String(r[C.unit]||'').trim()||null, rate, value, cost:null, pct:finXlNum(r[C.pct])||0});
     });
     if(adds.length){
@@ -56786,7 +57077,7 @@ const finXlNum = v=>{ if(typeof v==='number') return v; const n = Number(String(
       catch(e){ console.error(e); toast('Some new lines from the Excel could not be added.'); }
     }
     const res = await base.call(this, file);
-    if(added) toast(`${added} new line${added===1?'':'s'} added from the Excel (and to the Bill of Quantities)`);
+    if(added || skipped) toast((added ? `${added} new line${added===1?'':'s'} added from the Excel (and to the Bill of Quantities)` : 'No new lines added')+(skipped ? ` — ${skipped} already there, so not added again` : ''));
     return res;
   };
 })();
@@ -57022,6 +57313,13 @@ function finVatApply(){
   }
 }
 finVatApply();
+// FB-27: keys for a VAT drop-down. A switched-off rate (kept hidden above) that this record still
+// uses is put back in its own list, so the drop-down shows the real rate instead of the first one.
+function finVatKeysWith(obj, cur){
+  const keys = Object.keys(obj||{});
+  if(cur!=null && cur!=='' && !keys.includes(String(cur)) && Object.prototype.hasOwnProperty.call(obj, String(cur))) keys.push(String(cur));
+  return keys;
+}
 (function(){
   const base = finLoadSettings;
   finLoadSettings = async function(){ const r = await base.apply(this, arguments); finVatApply(); return r; };
@@ -57242,7 +57540,8 @@ async function finAppExportData(a){
   const site = SITES.find(s=>s.id===a.site_id) || {};
   const [jfRows, apps] = await Promise.all([dbSelect('job_finance', 'site_id=eq.'+a.site_id), dbSelect('fin_applications', 'site_id=eq.'+a.site_id+'&order=number.asc')]);
   const jf = jfRows[0] || {};
-  const prev = apps.filter(x=>x.number < a.number && ['certified','invoiced'].includes(x.status)).pop() || apps.filter(x=>x.number < a.number && x.status==='submitted').pop() || null;
+  // "Prev Certified" only ever comes from a certified (or invoiced) application, as on screen (audit FB-23).
+  const prev = apps.filter(x=>x.number < a.number && ['certified','invoiced'].includes(x.status)).pop() || null;
   const prevPct = {}, prevVar = {};
   if(prev){
     const cl = {}; (prev.cert_lines||[]).forEach(l=>{ cl[l.item_id] = l.pct; });
@@ -57405,7 +57704,7 @@ function finXlParse(book){
     const book = await finXlBook(file); if(!book) return;
     const P = finXlParse(book);
     if(P.format!=='sheets') return older.call(this, file);
-    let changed = 0, added = 0;
+    let changed = 0, added = 0, skipped = 0;
     const lineBy = {}; (finApp.lines||[]).forEach(l=>{ if(finIsItem(l)) lineBy[l.item_id] = l; });
     for(const it of P.items){
       let m;
@@ -57420,6 +57719,10 @@ function finXlParse(book){
       }
       if((m = /^D:(\d+)$/.exec(it.key))){ const d = (finApp.dayworks||[])[+m[1]]; if(d){ if(it.amount!=null && it.amount!==Number(d.value)){ d.value = it.amount; changed++; } if(it.desc && it.desc!==d.description){ d.description = it.desc; changed++; } } continue; }
       if(it.key || !it.desc) continue;
+      // A new row (no OpHUB key) that's already on the application came from uploading the same file twice (audit FB-14).
+      { const val = it.qty!=null && it.rate!=null ? finRound(it.qty*it.rate) : it.amount;
+        const list = /^variations$/i.test(it.sheet) ? finApp.variations : /^dayworks$/i.test(it.sheet) ? finApp.dayworks : (finApp.lines||[]).filter(finIsItem);
+        if(val!=null && finXlSameLine(list, it.desc, val)){ skipped++; continue; } }
       if(/^variations$/i.test(it.sheet)){ const val = it.qty!=null && it.rate!=null ? finRound(it.qty*it.rate) : it.amount; if(val!=null){ (finApp.variations = finApp.variations||[]).push({variation_id:null, description:it.desc, value:val, pct:it.applied==null?100:it.applied}); added++; } continue; }
       if(/^dayworks$/i.test(it.sheet)){ if(it.amount!=null){ (finApp.dayworks = finApp.dayworks||[]).push({description:it.desc, value:it.amount}); added++; } continue; }
       const value = it.qty!=null && it.rate!=null ? finRound(it.qty*it.rate) : it.amount;
@@ -57430,7 +57733,7 @@ function finXlParse(book){
     const r = await dbUpdate('fin_applications', finApp.id, finAppRowForSave());
     if(!r) return;
     finApp = null;
-    toast(changed||added ? `Updated from Excel: ${changed} change${changed===1?'':'s'}${added?', '+added+' new line'+(added===1?'':'s'):''}` : 'No changes found in that file');
+    toast((changed||added ? `Updated from Excel: ${changed} change${changed===1?'':'s'}${added?', '+added+' new line'+(added===1?'':'s'):''}` : 'No changes found in that file')+(skipped ? ` (${skipped} new line${skipped===1?' was':'s were'} already there, so not added again)` : ''));
     render();
   };
 })();
@@ -57450,8 +57753,10 @@ window.finCertFromExcel = async function(file, appId){
     lines.push({item_id:l.item_id, description:l.description, value:Number(l.value||0), applied_pct:finPct(l.pct), pct:p, gross:g});
     if(p!==finPct(l.pct)) diffs.push(l.description+': '+finPct(l.pct)+'% → '+p+'%');
   });
-  (a.variations||[]).forEach((v,i)=>{ const it = byKey['V:'+(v.variation_id||('x'+i))]; const p = it && it.certified!=null ? it.certified : finPct(v.pct); const val = it && it.amount!=null ? it.amount : Number(v.value||0); if(it) found++; gross += finRound(val*p/100); if(p!==finPct(v.pct) || val!==Number(v.value||0)) diffs.push((v.description||'Variation')+' changed'); });
-  (a.dayworks||[]).forEach((d,i)=>{ const it = byKey['D:'+i]; const p = it && it.certified!=null ? it.certified : 100; const val = it && it.amount!=null ? it.amount : Number(d.value||0); if(it) found++; gross += finRound(val*p/100); if(p!==100 || val!==Number(d.value||0)) diffs.push((d.description||'Daywork')+' changed'); });
+  // Variations and day works come back as lines too, so the line-by-line certificate keeps the
+  // client's figures (audit FB-09). A variation's certified £ is kept as a % of our value.
+  (a.variations||[]).forEach((v,i)=>{ const it = byKey['V:'+(v.variation_id||('x'+i))]; const p = it && it.certified!=null ? it.certified : finPct(v.pct); const val = it && it.amount!=null ? it.amount : Number(v.value||0); if(it) found++; const g = finRound(val*p/100); gross += g; const ov = Number(v.value||0); lines.push({var_index:i, description:v.description, value:ov, applied_pct:finPct(v.pct), pct: ov ? Math.round(g/ov*10000)/100 : p, gross:g}); if(p!==finPct(v.pct) || val!==Number(v.value||0)) diffs.push((v.description||'Variation')+' changed'); });
+  (a.dayworks||[]).forEach((d,i)=>{ const it = byKey['D:'+i]; const p = it && it.certified!=null ? it.certified : 100; const val = it && it.amount!=null ? it.amount : Number(d.value||0); if(it) found++; const g = finRound(val*p/100); gross += g; lines.push({day_index:i, description:d.description, value:Number(d.value||0), applied_pct:100, pct:Number(d.value||0) ? finRound(g/Number(d.value)*100) : 0, gross:g}); if(p!==100 || val!==Number(d.value||0)) diffs.push((d.description||'Daywork')+' changed'); });
   if(!found){ toast('That doesn’t look like this application’s Excel — download it from OpHUB, send it to the client and upload their copy.'); return; }
   gross = finRound(gross);
   const jf = (await dbSelect('job_finance', 'site_id=eq.'+a.site_id))[0] || {};
@@ -57675,7 +57980,7 @@ window.finCertSet = function(kind, i, v){
     await xl.apply(this, arguments);
     if(!finCertMode() || !Array.isArray(finCertLines)) return;
     const W = finCertWorkInit();
-    finCertLines.forEach(l=>{ if(l.item_id) W.lines[l.item_id] = l.pct; });
+    finCertLines.forEach(l=>{ if(l.item_id) W.lines[l.item_id] = l.pct; else if(l.var_index!=null) W.vars[l.var_index] = l.pct; else if(l.day_index!=null) W.days[l.day_index] = Number(l.gross||0); });
     document.querySelectorAll('.fincertin, .fincertg, .fincertro').forEach(e=>e.remove());
     document.querySelectorAll('[data-cert]').forEach(e=>{ delete e.dataset.cert; });
     finAppPaintLines(); finAppPaint(); finCertDecorate(); finCertRecalc();
@@ -57718,8 +58023,10 @@ function finCertSummaryHtml(){
   (finApp.lines||[]).forEach(l=>{ if(finIsItem(l)) cLines += finRound(Number(l.value||0)*finPct(W.lines[l.item_id])/100); });
   (finApp.variations||[]).forEach((v,i)=>{ cVars += finRound(Number(v.value||0)*finPct(W.vars[i])/100); });
   (finApp.dayworks||[]).forEach((d,i)=>{ cDays += Number(W.days[i]||0); });
-  const prev = finRound(finAppCtx.previous||0);
-  const cNet = finRound(t.gross - t.disc - t.ret - prev);
+  // Applied column: the previously certified the application was sent with. Certified column: what
+  // earlier certificates actually add up to now (audit FA-09).
+  const prev = finRound(finAppCtx.previous||0), prevC = finRound(finAppCtx.previousLive!=null ? finAppCtx.previousLive : prev);
+  const cNet = finRound(t.gross - t.disc - t.ret - prevC);
   const vt = finAppVatTreat(finAppCtx.jf);
   const row = (label, a, b, cls)=>`<div class="fincs-r ${cls||''}"><span>${label}</span><b>${a}</b><b class="c">${b}</b></div>`;
   const neg = v=>'−'+finMoney(v);
@@ -57734,7 +58041,7 @@ function finCertSummaryHtml(){
     + row('<b>Gross valuation to date</b>', finMoney(c.gross), finMoney(t.gross), 'bold')
     + row('Less discount '+disc, neg(c.discount), neg(t.disc))
     + row(`Less retention @ ${finPct(finApp.retention_pct)}%`, neg(c.retention), neg(t.ret))
-    + row('Less previously certified', neg(prev), neg(prev))
+    + row('Less previously certified', neg(prev), neg(prevC))
     + row('Amount due this application', finMoney(c.net_due), finMoney(cNet), 'big');
   if(vt==='standard') h += row('VAT @ 20%', finMoney(finRound(c.net_due*.2)), finMoney(finRound(cNet*.2))) + row('Total incl. VAT', finMoney(finRound(c.net_due*1.2)), finMoney(finRound(cNet*1.2)), 'bold');
   else if(false && vt==='reverse_charge') h += row('Reverse charge VAT @ 20% <em class="stub" style="font-style:normal;">client pays HMRC</em>', finMoney(finRound(c.net_due*.2)), finMoney(finRound(cNet*.2)));
@@ -58097,9 +58404,10 @@ function finTopVal(k, d, fc){
   if(k==='contract') return {v:Number(d.jf.contract_value||0), go:tg('setup')};
   if(k==='owed') return {v:live.reduce((t,i)=>t+finInvOutstandingNet(i),0), go:sg('invoices'), note:'Excl. VAT'};
   if(k==='overdue'){ const v = live.filter(finInvOverdue).reduce((t,i)=>t+finInvOutstandingNet(i),0); return {v, go:sg('invoices'), hot:v>0, note:'Excl. VAT'}; }
-  if(k==='retention') return {v:typeof finRetentionHeld==='function' ? finRetentionHeld(d.apps) : 0, go:sg('retention')};
+  if(k==='retention') return {v:typeof finRetentionStillHeld==='function' ? finRetentionStillHeld(d.apps, d.jf, d.invs) : 0, go:sg('retention')};   // less release invoices raised (audit FA-08)
   if(k==='invoiced') return {v:finRound(live.filter(i=>i.status!=='draft').reduce((t,i)=>t+Number(i.net||0),0)), go:sg('invoices'), note:'Excl. VAT'};
-  if(k==='received') return {v:finRound(live.reduce((t,i)=>t+Number(i.paid||0),0)), go:sg('invoices'), note:'Excl. VAT'};
+  // paid is the gross received; take the net share so it really is excl. VAT (audit FB-15).
+  if(k==='received') return {v:finRound(live.reduce((t,i)=>{ const tt = Number(i.total||0); return t + (tt ? Math.min(Number(i.paid||0), tt)*Number(i.net||0)/tt : 0); },0)), go:sg('invoices'), note:'Excl. VAT'};
   if(!fc) return wait;
   if(k==='ffa') return {v:fc.ffa, go:`go('#/site/${s}/finance/budget')`};
   if(k==='valued') return {v:fc.sales, go:sg('apps')};
@@ -58203,11 +58511,12 @@ finForecastCardHtml = function(siteId, fc){
 
     </div>
     <div class="fintiles">${vT}${cT}${pT}${ppT}</div>
+    <div class="finvdrow" id="finVdRow" data-site="${siteId}">${finVdRowHtml(siteId)}</div>
     <div class="finkv" style="margin-top:10px;"><span>Contract ${finMoney(fc.contract, 0)} · Agreed Variations ${finMoney(fc.vAgreed, 0)}${fc.vPending?' · Awaiting Agreement '+finMoney(fc.vPending, 0):''}</span><b>Forecasted Final Cost ${finMoney(fc.forecastCost, 0)}</b></div>
     ${finAutoOriginal(siteId, fc)}
     <div class="finsumbtns">
       <button type="button" class="ghostbtn" onclick="finDsTab='summary';go('#/site/${siteId}/finance/summary')">Full Summary</button>
-      <span><button type="button" class="ghostbtn" onclick="go('#/site/${siteId}/finance/reports')">Run Reports</button><button type="button" class="ghostbtn" onclick="go('#/site/${siteId}/finance/budget')">Change Budget</button></span>
+      <span><button type="button" class="ghostbtn" onclick="go('#/site/${siteId}/finance/reports')">Reports</button><button type="button" class="ghostbtn" onclick="go('#/site/${siteId}/finance/budget')">Budgets</button></span>
     </div>
     ${fc.budgetSource==='schedule' && fc.schedCostedN < fc.schedItemsN ? `<div class="finnote warn">${fc.schedItemsN - fc.schedCostedN} Bill of Quantities line${fc.schedItemsN - fc.schedCostedN===1?' has':'s have'} no cost price yet, so the budget is low. <a href="#/site/${siteId}/finance/contract">Add costs</a></div>` : ''}
   </div>`;
@@ -58240,9 +58549,9 @@ window.finSumSet = function(slot, k){
 .fintop-n{font-style:normal;opacity:.7;font-weight:600;}
 .fintile-l{display:flex;align-items:center;justify-content:space-between;gap:6px;}
 .finpick .finmb-m{max-height:340px;overflow:auto;}
-.finsumbtns{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid var(--line);}
-.finsumbtns > span{display:flex;gap:8px;flex-wrap:wrap;}
-.finsumbtns .ghostbtn{width:auto !important;margin:0 !important;padding:7px 14px !important;}`;
+.finsumbtns{display:flex;align-items:center;gap:6px;flex-wrap:nowrap;margin-top:12px;padding-top:12px;border-top:1px solid var(--line);}
+.finsumbtns > span{display:contents;}
+.finsumbtns .ghostbtn{flex:1 1 0;min-width:0;width:auto !important;margin:0 !important;padding:7px 6px !important;font-size:13px !important;white-space:nowrap;text-align:center;}`;
   document.head.appendChild(st);
 })();
 
@@ -58319,6 +58628,47 @@ window.finRowVoidInv = async function(id){
 .finrowmenu button:hover{background:#F4F6FA;}
 .finrowmenu button.bad{color:var(--red);}
 @media (max-width:700px){ .fininvtbl td.finrowdots{position:absolute !important;top:6px;right:6px;width:auto;padding:0 !important;} .fininvtbl tbody tr{position:relative;padding-right:44px !important;} }`;
+  document.head.appendChild(st);
+})();
+
+/* ---------- Variations & Day Works row in the Project Summary (24 Oct, Andy) ----------
+   The ⋯ picks Variations or Day Works, approved / unapproved / all. */
+const FIN_VD_OPTS = [['va','Variations — Approved'],['vu','Variations — Unapproved'],['v','Variations — All'],['da','Day Works — Approved'],['du','Day Works — Unapproved'],['d','Day Works — All']];
+let FIN_VD_DATA = {};   // siteId -> {vars, dws}
+function finVdTotals(siteId, k){
+  const D = FIN_VD_DATA[siteId]; if(!D) return null;
+  const isVar = k[0]==='v', list = (isVar ? D.vars : D.dws).filter(x=>x.status!=='rejected' && x.status!=='void');
+  const ok = x=>isVar ? x.status==='agreed' : x.status==='approved';
+  const pick = k.length===1 ? list : list.filter(x=>k[1]==='a' ? ok(x) : !ok(x));
+  const val = x=>isVar ? Number(ok(x) ? (x.agreed_value!=null ? x.agreed_value : x.quoted) : (x.quoted!=null ? x.quoted : x.agreed_value)) || 0 : Number(x.value||0);
+  return {n:pick.length, v:finRound(pick.reduce((t,x)=>t+val(x),0))};
+}
+function finVdRowHtml(siteId){
+  const cur = finLsGet(FIN_SUM_LS, FIN_SUM_DEF), k = FIN_VD_OPTS.some(o=>o[0]===cur.vd) ? cur.vd : 'va';
+  const lab = FIN_VD_OPTS.find(o=>o[0]===k)[1], m = finPickMenuHtml('Show', FIN_VD_OPTS, k, 'finVdSet', 'vd');
+  const t = finVdTotals(siteId, k);
+  if(!FIN_VD_DATA[siteId]) setTimeout(()=>finVdLoad(siteId), 0);
+  const sub = k[0]==='v' ? 'var' : 'dw';
+  return `<div class="finvd" onclick="finBoqSub['${siteId}']='${sub}';go('#/site/${siteId}/finance/contract')"><span class="fintile-l">${escapeHtml(lab)} ${m}</span><b>${t ? finMoney(t.v, 0) : '…'}</b><span class="finvd-n">${t ? t.n+' '+(k[0]==='v' ? (t.n===1?'variation':'variations') : (t.n===1?'day work':'day works')) : ''}</span></div>`;
+}
+async function finVdLoad(siteId){
+  const [vars, dws] = await Promise.all([
+    dbSelect('fin_variations', 'site_id=eq.'+siteId+'&select=status,quoted,agreed_value').catch(()=>[]),
+    dbSelect('fin_dayworks', 'site_id=eq.'+siteId+'&select=status,value').catch(()=>[])]);
+  FIN_VD_DATA[siteId] = {vars:vars||[], dws:dws||[]};
+  const el = document.getElementById('finVdRow'); if(el && el.dataset.site===siteId) el.innerHTML = finVdRowHtml(siteId);
+}
+window.finVdSet = function(slot, k){
+  const cur = finLsGet(FIN_SUM_LS, FIN_SUM_DEF); cur.vd = k; finLsSet(FIN_SUM_LS, cur);
+  const el = document.getElementById('finVdRow'); if(el) el.innerHTML = finVdRowHtml(el.dataset.site);
+};
+(function(){
+  const st = document.createElement('style');
+  st.textContent = `.finvdrow{margin-top:10px;}
+.finvd{display:flex;align-items:center;gap:10px;border:1px solid var(--line,#ECEEF2);border-radius:14px;padding:10px 14px;cursor:pointer;background:#fff;}
+.finvd .fintile-l{flex:1;min-width:0;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:var(--slate);}
+.finvd > b{font-size:18px;font-weight:800;}
+.finvd-n{font-size:12px;color:var(--slate);min-width:70px;text-align:right;}`;
   document.head.appendChild(st);
 })();
 
@@ -58911,6 +59261,30 @@ finJobStatusSelHtml = function(){
   document.head.appendChild(st);
 })();
 
+/* Variation numbers (audit FA-16, 24 Oct): the next number is worked out on the phone or computer, so
+   two people adding a variation at the same moment could both get V005. After saving, check
+   whether someone else got the same number first; if so, this one moves to the next free number. */
+(function(){
+  if(typeof finVarInsert!=='function') return;
+  const base = finVarInsert;
+  finVarInsert = async function(siteId, row){
+    const ins = await base.apply(this, arguments);
+    const mine = ins && ins[0]; if(!mine || mine.seq==null) return ins;
+    try{
+      const same = await dbSelectChecked('fin_variations', 'site_id=eq.'+siteId+'&seq=eq.'+mine.seq+'&select=id,created_at&order=created_at.asc,id.asc');
+      if(same.ok && same.data.length > 1 && same.data[0].id !== mine.id){
+        const top = await dbSelectChecked('fin_variations', 'site_id=eq.'+siteId+'&select=seq&order=seq.desc&limit=1');
+        if(top.ok){
+          const seq = ((top.data[0] && top.data[0].seq) || 0) + 1;
+          const r = await dbUpdate('fin_variations', mine.id, {seq, number:'V'+String(seq).padStart(3,'0')});
+          if(r){ ins[0] = r; toast('Someone else took '+mine.number+' at the same time — this one is '+r.number+'.'); }
+        }
+      }
+    }catch(e){ console.error(e); }
+    return ins;
+  };
+})();
+
 /* ============================================================
    OpHUB Finance — a totals bar under the applications and invoices lists
    (23 Oct 2026, Andy: "add a summary bar below the last job as we have in projects,
@@ -58988,6 +59362,8 @@ label:has(> #finPcDate), label:has(> #finDefects){font-size:11.5px !important;ga
 .finstatp:has(.finstatp-menu){z-index:80;}
 .finstatp-menu{z-index:1000 !important;}
 .pmstats.finstats{position:relative;z-index:5;}
+/* Audit FB-18: the 44px gap for the ⋯ button is only for rows that have one. */
+@media (max-width:700px){ .fininvtbl tbody tr:not(:has(> td.finrowdots)){padding-right:12px !important;} }
 `;
   document.head.appendChild(st);
 })();
@@ -59104,6 +59480,23 @@ window.finJobDVDate = async function(k){
   document.head.appendChild(st);
 })();
 
+/* Audit FB-19: keep the "Send & export" menu inside the screen on a phone
+   (9219p places it at the button's left edge and never checks the right). */
+(function(){
+  const base = window.finAppMoreMenu;
+  if(typeof base!=='function') return;
+  window.finAppMoreMenu = function(){
+    const r = base.apply(this, arguments);
+    const pop = document.getElementById('finAppMorePop');
+    if(pop){
+      const left = parseFloat(pop.style.left) || 0;
+      const maxLeft = window.scrollX + document.documentElement.clientWidth - pop.offsetWidth - 8;
+      pop.style.left = Math.max(window.scrollX + 8, Math.min(left, maxLeft))+'px';
+    }
+    return r;
+  };
+})();
+
 /* ============================================================
    OpHUB Finance — Project Admin laid out like Construction Manager (23 Oct 2026, Andy):
    one "Project Details" section — Job No, Customer, Start Date, Contract Value,
@@ -59200,6 +59593,37 @@ function finPaRestructure(){
   document.head.appendChild(st);
 })();
 
+/* Delete a job from Finance — safer check (audit FB-29; replaces the 9219n
+   version). A lookup that fails counts as "can't tell", so nothing is
+   deleted; and the newer Finance tables are checked too. */
+window.finDeleteJob = async function(siteId){
+  const site = SITES.find(s=>s.id===siteId); if(!site) return;
+  const q = (t, qs)=>dbSelectChecked(t, (qs || 'site_id=eq.'+siteId)+'&select=id&limit=1');
+  const tabs = [['fin_invoices','invoices'], ['fin_applications','applications'], ['purchase_orders','purchase orders'], ['purchase_invoices','purchase invoices'],
+    ['fin_job_costs','costs'], ['fin_subcontracts','subcontracts'], ['fin_sub_apps','subcontract applications'], ['fin_sub_values','subcontract values'],
+    ['fin_variations','variations'], ['fin_dayworks','day works'], ['fin_plant_hires','plant hire'], ['fin_job_budgets','budgets'],
+    ['fin_contract_items','a bill of quantities'], ['fin_quotes','quotes'], ['fin_quote_items','quote items'], ['fin_labour_manual','timesheets'],
+    ['fin_inbox','emailed invoices'], ['yard_moves','yard stock moves'], ['wage_pushes','wages'],
+    ['fin_sub_payments','operative invoices', 'org_id=eq.'+ME.org_id+'&lines=cs.'+encodeURIComponent(JSON.stringify([{site_id:siteId}]))]];
+  const got = await Promise.all(tabs.map(t=>q(t[0], t[2])));
+  if(got.some(g=>!g.ok)){
+    toast('Couldn’t check what’s booked to this project, so it hasn’t been deleted. Check your signal and try again.');
+    return;
+  }
+  const used = tabs.filter((t,i)=>got[i].data.length).map(t=>t[1]);
+  if(used.length){
+    if(await customConfirm(`“${site.name}” already has ${used.join(', ')} booked to it, so it can’t be deleted — that would wipe financial records. Close it instead? (It moves to Closed and drops off the live lists.)`)){
+      const row = await dbUpdate('sites', siteId, {status:'closed', closed_at:new Date().toISOString(), closed_by:ME.id});
+      if(row){ Object.assign(site, row); toast('Project closed'); go('#/finance/jobs'); }
+    }
+    return;
+  }
+  // Nothing financial on it — hand over to the normal delete (it asks to confirm, and
+  // PMs can only close a job that has Projects data in it).
+  await deleteSite(siteId, site.name);
+  if(!SITES.find(s=>s.id===siteId)) go('#/finance/jobs');
+};
+
 /* ============================================================
    OpHUB Finance — Detailed Summary for one project (23 Oct 2026, Andy: "a more detailed
    summary … like the attached (Coreloops cost summary), with the tabs to pull all the
@@ -59238,13 +59662,14 @@ async function renderFinDetail(siteId){
   const last = appsTo[appsTo.length-1];
   const appGross = last ? Number(last.gross||0) : 0, appDisc = last ? Number(last.discount||0) : 0;
   const lastCert = appsTo.filter(a=>a.cert_gross!=null).pop(); const certGross = lastCert ? Number(lastCert.cert_gross) : 0;
-  const retHeld = typeof finRetentionHeld==='function' ? finRetentionHeld(appsTo) : 0;
+  const retHeld = typeof finRetentionStillHeld==='function' ? finRetentionStillHeld(appsTo, jf, finBy(b.invs, siteId)) : 0;   // less release invoices raised (audit FA-08)
   const invs = finBy(b.invs, siteId).filter(i=>i.status!=='void' && i.status!=='draft' && finDsIn(i.issue_date));
   const invoiced = finRound(invs.reduce((t,i)=>t+Number(i.net||0),0));
   const outstanding = finRound(invs.reduce((t,i)=>t+finInvOutstandingNet(i),0));
   const received = finRound(invs.reduce((t,i)=>{ const tt = Number(i.total||0); return t + (tt ? Number(i.paid||0)*Number(i.net||0)/tt : 0); },0));
   const bt = finBillingType(jf, fc.schedItemsN, apps.length);
-  const salesValue = bt==='invoice' ? invoiced : (last ? Number(last.cert_gross!=null ? last.cert_gross : last.gross||0) - Number(last.discount||0) : 0);
+  // Certified gross goes with the certificate's own discount, applied gross with the applied one (audit FB-26).
+  const salesValue = bt==='invoice' ? invoiced : (last ? (last.cert_gross!=null ? Number(last.cert_gross) - Number(last.cert_discount!=null ? last.cert_discount : (last.discount||0)) : Number(last.gross||0) - Number(last.discount||0)) : 0);
   const profit = finRound(salesValue - totalCost), pct = salesValue ? finRound(profit/salesValue*100) : null;
   const kv = (l, v, o)=>`<div class="finds-kv${o&&o.bold?' b':''}"><span>${l}</span><b style="${o&&o.col?o.col:''}">${v}</b></div>`;
   const neg = v=>v<0 ? 'color:var(--red);' : (v>0 ? 'color:var(--ok);' : '');
@@ -59769,13 +60194,16 @@ function finPpTable(head, rows, empty){
 }
 async function finPpFill(siteId){
   const el = document.getElementById('finPpBody'); if(!el) return;
-  const [pos, pinvs, hires, xc] = await Promise.all([
+  const [pos, pinvs, hires, xcAll] = await Promise.all([
     dbSelect('purchase_orders', 'site_id=eq.'+siteId+'&order=created_at.desc&limit=2000').catch(()=>[]),
     dbSelect('purchase_invoices', 'site_id=eq.'+siteId+'&order=invoice_date.desc&limit=5000').catch(()=>[]),
     dbSelect('fin_plant_hires', 'site_id=eq.'+siteId+'&order=on_hire.desc').catch(()=>[]),
     dbSelect('fin_job_costs', 'site_id=eq.'+siteId+'&order=cost_date.desc&limit=5000').catch(()=>[]),
   ]);
   if(!document.getElementById('finPpBody')) return;
+  // FB-25: this tab is purchases only — labour and subcontract costs entered by hand live on their
+  // own tab, so leave them out here (same as the Purchases card in 9219x).
+  const xc = xcAll.filter(x=>!['labour','subcontract'].includes(x.category));
   const live = pinvs.filter(i=>i.status!=='rejected');
   const poBy = {}; pos.forEach(p=>poBy[p.id] = p);
   const k = finPpSub[siteId] || 'invoices';
@@ -60041,10 +60469,28 @@ function modalAddX(){
 (function(){
   let t = null;
   new MutationObserver(()=>{ clearTimeout(t); t = setTimeout(modalAddX, 30); }).observe(document.body, {childList:true, subtree:true});
+  // Esc closes the pop-up on top (audit FB-20). A yes/no confirm always sits
+  // on top; otherwise the highest z-index wins, then the last one in the page.
+  // Esc used to close something smaller first (the client suggestion list, a
+  // menu) is left alone.
+  let sugEsc = false;
+  window.addEventListener('keydown', e=>{
+    if(e.key!=='Escape') return;
+    const t = e.target;
+    sugEsc = !!(t && t.hasAttribute && t.hasAttribute('data-finclient') && document.querySelector('.finsug'));
+  }, true);
   document.addEventListener('keydown', e=>{
     if(e.key!=='Escape') return;
+    if(e.defaultPrevented || sugEsc){ sugEsc = false; return; }
     const open = Array.from(document.querySelectorAll('.geo-modal-overlay')).filter(o=>getComputedStyle(o).display!=='none');
-    const top = open[open.length-1]; const card = top && top.querySelector('.geo-modal-card'); if(card) modalClose(card);
+    if(!open.length) return;
+    const conf = open.find(o=>o.id==='confirmModalOverlay');
+    let top = conf || null;
+    if(!top){
+      let best = -Infinity;
+      open.forEach(o=>{ const z = parseInt(getComputedStyle(o).zIndex, 10); const zz = isNaN(z) ? 0 : z; if(zz >= best){ best = zz; top = o; } });
+    }
+    const card = top && top.querySelector('.geo-modal-card'); if(card){ e.preventDefault(); modalClose(card); }
   });
   const st = document.createElement('style');
   st.textContent = `.geo-modal-card > .modal-x{position:sticky;top:0;float:right;z-index:3;margin:-8px -8px 0 8px;width:34px;height:34px;border:0;border-radius:10px;background:#F1F3F6;color:var(--ink);font-size:16px;font-weight:700;cursor:pointer;line-height:1;}
@@ -60144,7 +60590,7 @@ finNpoPaint = function(){
     <label><span>Rate</span><input type="text" inputmode="decimal" data-money value="${l.rate!=null?l.rate:''}" placeholder="£" oninput="finNpoSet(${i},'rate',this.value)"></label>
     <label><span>Disc %</span><input type="text" inputmode="decimal" value="${Number(l.disc||0) ? l.disc : ''}" placeholder="0" oninput="finNpoSet(${i},'disc',this.value)"></label>
     <label><span>Cost code</span><select onchange="finNpoSet(${i},'cost_code',this.value)">${finNpoCodeOpts(l)}</select></label>
-    <label><span>VAT</span><select onchange="finNpoSet(${i},'vat',this.value)">${Object.keys(FIN_VAT_RATES).map(k=>`<option value="${k}" ${(l.vat||'20')===k?'selected':''}>${FIN_VAT_RATES[k].s}</option>`).join('')}</select></label>
+    <label><span>VAT</span><select onchange="finNpoSet(${i},'vat',this.value)">${(typeof finVatKeysWith==='function' ? finVatKeysWith(FIN_VAT_RATES, l.vat||'20') : Object.keys(FIN_VAT_RATES)).map(k=>`<option value="${k}" ${(l.vat||'20')===k?'selected':''}>${FIN_VAT_RATES[k].s}</option>`).join('')}</select></label>
     <b class="finb-net" id="finNpoL-${i}">${finMoney(l.amount)}</b>
     ${finNewPo.lines.length>1 ? `<button class="linkbtn finb-del" aria-label="Remove line" onclick="finNpoDel(${i})">✕</button>` : '<span></span>'}
   </div>`).join('');
@@ -60249,7 +60695,9 @@ window.saveFinNewPo = async function(){
   if(btn){ btn.disabled = false; btn.textContent = 'Raise PO'; }
   if(!res.ok){ toast('Could not raise the PO — '+(await safeErr(res))); return; }
   const d = await res.json();
-  const sub = finVal('finNpoSub');
+  // FB-17: the plot picker lists the plots of the job the builder was opened from. If the PO has
+  // ended up on another job (line 1's job was changed), that plot doesn't belong to it — drop it.
+  const sub = poSite===n.siteId ? finVal('finNpoSub') : '';
   const vatTot = finRound(items.reduce((t,x)=>t+Number(x.vat||0),0)), netTot = finRound(items.reduce((t,x)=>t+Number(x.amount||0),0));
   // lines for other jobs: their cost goes to those jobs (split by value)
   const bySite = {}; items.forEach(x=>{ bySite[x.site_id] = (bySite[x.site_id]||0) + Number(x.amount||0); });
@@ -60894,6 +61342,508 @@ window.finRetSetDate = async function(siteId, n, v){
 })();
 
 /* ============================================================
+   OpHUB Finance — project set-up tidy (24 Oct 2026, Andy):
+   - Getting started: compact; finished steps drop off the list; no "Make the first application";
+     "Check retention, VAT…" has a ✓ Done button (saving Project Admin also ticks it).
+   - "Paid by" → "Payment Procedure", on one tidy row.
+   - Contract value typed on a new project is kept; when the Bill of Quantities adds up to
+     something different, a pop-up (and a bar on the BoQ page) asks which to use.
+   - Finance › Projects (phone): bottom bar on one row.
+   ============================================================ */
+
+/* ---------- contract value: typed vs Bill of Quantities ---------- */
+async function finCvPatch(siteId, total){
+  const jf = (await dbSelect('job_finance', 'site_id=eq.'+siteId+'&select=contract_value_source').catch(()=>[]))[0];
+  return jf && jf.contract_value_source==='manual' ? {} : {contract_value:total};
+}
+async function finCvCheck(siteId){
+  const [jfs, items] = await Promise.all([
+    dbSelect('job_finance', 'site_id=eq.'+siteId+'&select=contract_value,contract_value_source').catch(()=>[]),
+    dbSelect('fin_contract_items', 'site_id=eq.'+siteId+'&select=kind,value&limit=10000').catch(()=>null)]);
+  const jf = jfs[0]; if(!jf || jf.contract_value_source!=='manual' || !items) return null;
+  const boq = finRound(items.filter(finIsItem).reduce((t,i)=>t+Number(i.value||0),0));
+  const typed = finRound(Number(jf.contract_value||0));
+  if(!boq || Math.abs(boq-typed) < 0.5) return null;
+  return {boq, typed};
+}
+function finCvAckKey(siteId, c){ return 'finCvAck:'+siteId+':'+c.boq+':'+c.typed; }
+window.finCvUse = async function(siteId, which, boq){
+  const ov = document.getElementById('finCvOv'); if(ov) ov.style.display = 'none';
+  if(which==='boq'){
+    const res = await sbFetch('/rest/v1/job_finance?on_conflict=site_id', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify({site_id:siteId, org_id:ME.org_id, contract_value:boq, contract_value_source:'boq', updated_at:new Date().toISOString(), updated_by:ME.id})});
+    if(!res.ok){ toast('Not saved — '+(await safeErr(res))); return; }
+    toast('Contract value now follows the Bill of Quantities');
+  } else {
+    const c = await finCvCheck(siteId); if(c) try{ localStorage.setItem(finCvAckKey(siteId, c), '1'); }catch(e){}
+    toast('Kept the typed contract value');
+  }
+  render();
+};
+function finCvPrompt(siteId, c){
+  let ov = document.getElementById('finCvOv');
+  if(!ov){ ov = document.createElement('div'); ov.id = 'finCvOv'; ov.className = 'geo-modal-overlay'; }
+  document.body.appendChild(ov);
+  ov.onclick = e=>{ if(e.target===ov) ov.style.display = 'none'; };
+  ov.innerHTML = `<div class="geo-modal-card" style="max-width:440px;">
+    <h3 style="margin:0 0 6px;">Contract Value Doesn’t Match</h3>
+    <p class="stub" style="margin:0 0 14px;font-style:normal;">The Bill of Quantities adds up to <b>${finMoney(c.boq)}</b>, but the contract value typed on the project is <b>${finMoney(c.typed)}</b> (excl. VAT). Which should the project use?</p>
+    <button type="button" class="darkbtn" style="width:100%;margin:0 0 8px;" onclick="finCvUse('${siteId}','boq',${c.boq})">Use the Bill of Quantities — ${finMoney(c.boq)}</button>
+    <button type="button" class="ghostbtn" style="width:100%;margin:0;" onclick="finCvUse('${siteId}','manual')">Keep the typed value — ${finMoney(c.typed)}</button>
+  </div>`;
+  ov.style.display = 'flex'; if(typeof modalAddX==='function') modalAddX();
+}
+(function(){
+  // Pop-up when the BoQ is saved
+  const sv = window.saveFinContract;
+  if(sv) window.saveFinContract = async function(siteId){
+    const sid = siteId || (parseRoute()||[])[1];
+    const r = await sv.apply(this, arguments);
+    try{ const c = sid && await finCvCheck(sid); if(c) finCvPrompt(sid, c); }catch(e){}
+    return r;
+  };
+  // Bar on the BoQ page while they differ
+  const rc = renderFinContract;
+  renderFinContract = async function(siteId){
+    const r = await rc.apply(this, arguments);
+    try{
+      const c = await finCvCheck(siteId);
+      if(c && !document.getElementById('finCvBar')){
+        let ack = false; try{ ack = localStorage.getItem(finCvAckKey(siteId, c))==='1'; }catch(e){}
+        if(!ack){
+          const first = document.querySelector('#app .scrollarea .card') || document.querySelector('#app .card');
+          if(first) first.insertAdjacentHTML('beforebegin', `<div class="finnote warn" id="finCvBar" style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+            <span>⚠ The Bill of Quantities (<b>${finMoney(c.boq)}</b>) doesn’t match the typed contract value (<b>${finMoney(c.typed)}</b>).</span>
+            <span style="display:flex;gap:6px;"><button class="darkbtn" style="width:auto;margin:0;padding:6px 12px;" onclick="finCvUse('${siteId}','boq',${c.boq})">Use BoQ</button><button class="ghostbtn" style="width:auto;margin:0;padding:6px 12px;" onclick="finCvUse('${siteId}','manual')">Keep Typed</button></span></div>`);
+        }
+      }
+    }catch(e){}
+    return r;
+  };
+})();
+
+/* ---------- Getting started ---------- */
+window.finSetupDone = async function(siteId){
+  const res = await sbFetch('/rest/v1/job_finance?on_conflict=site_id', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify({site_id:siteId, org_id:ME.org_id, setup_checked_at:new Date().toISOString(), updated_by:ME.id})});
+  if(!res.ok){ toast('Not saved — '+(await safeErr(res))); return; }
+  render();
+};
+function finStartCardHtml(siteId, bt, n){
+  if(n.invs || n.apps) return '';
+  const jf = n.jf || {};
+  const b = (label, js, dark)=>`<button type="button" class="${dark?'darkbtn':'ghostbtn'} finstart-b" onclick="${js}">${label}</button>`;
+  const step = (done, t, btns)=>done ? '' : `<div class="finstart-step"><span class="finstart-tick"></span><b>${t}</b><span class="finstart-btns">${btns}</span></div>`;
+  const checked = !!jf.setup_checked_at;
+  const steps = bt==='application' ? [
+    step(n.items>0, 'Set up the Bill of Quantities', b('Open BoQ', `finProjTabGo('${siteId}','boq')`)),
+    step(n.pos>0, 'Add the client’s PO', b('Add PO', `openClientPoForm('${siteId}')`)),
+    step(checked, 'Check retention, VAT and application dates', b('Project Admin', `finProjTabGo('${siteId}','setup')`)+b('✓ Done', `finSetupDone('${siteId}')`, 1)),
+  ] : [
+    step(checked, 'Check the contract value, VAT and payment terms', b('Project Admin', `finProjTabGo('${siteId}','setup')`)+b('✓ Done', `finSetupDone('${siteId}')`, 1)),
+    step(n.pos>0, 'Add the client’s PO', b('Add PO', `openClientPoForm('${siteId}')`)),
+  ];
+  const left = steps.filter(Boolean);
+  if(!left.length) return '';
+  return `<div class="card finstart"><p class="sectiontitle" style="margin:0 0 4px;">Getting Started</p>${left.join('')}</div>`;
+}
+(function(){
+  // Saving Project Admin counts as checking the terms.
+  const save = window.saveSiteFinance;
+  if(save) window.saveSiteFinance = async function(siteId){
+    const r = await save.apply(this, arguments);
+    try{ await sbFetch('/rest/v1/job_finance?on_conflict=site_id', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify({site_id:siteId, org_id:ME.org_id, setup_checked_at:new Date().toISOString()})}); }catch(e){}
+    return r;
+  };
+})();
+
+/* ---------- Payment Procedure line ---------- */
+function finBillingLineHtml(siteId, bt){
+  if(!bt) return '';
+  const other = bt==='invoice' ? 'application' : 'invoice';
+  return `<div class="finpaidby"><span class="finpaidby-l">Payment Procedure</span><b>${FIN_BT[bt].icon} ${FIN_BT[bt].t}</b><button type="button" class="linkbtn" onclick="setFinBillingType('${siteId}','${other}')">Change to ${bt==='invoice'?'applications':'invoices'}</button></div>`;
+}
+
+(function(){
+  const st = document.createElement('style');
+  st.textContent = `#finCvBar b{display:inline !important;}
+.finstart{padding:12px 16px !important;}
+html.desk.finmode .finstart{padding:14px 20px !important;}
+.finstart .finstart-step{display:flex;align-items:center;gap:10px;padding:7px 0 !important;border-top:1px solid #F0F1F4;}
+.finstart .finstart-step:first-of-type{border-top:0;}
+.finstart .finstart-tick{width:16px;height:16px;border-width:2px;}
+.finstart .finstart-step > b{flex:1;min-width:0;font-size:13.5px;font-weight:700;line-height:1.25;}
+.finstart-btns{display:flex;gap:6px;flex:none;}
+.finstart-b{width:auto !important;margin:0 !important;padding:5px 10px !important;font-size:12.5px !important;}
+.finpaidby{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 0;border-top:1px solid var(--line,#EEF0F3);font-size:14px;}
+.finpaidby-l{color:var(--slate);min-width:140px;}
+.finpaidby b{font-weight:700;}
+.finpaidby .linkbtn{margin-left:auto;font-size:13px;padding:0;}
+@media (max-width:700px){
+  .finpaidby{gap:4px 10px;padding:6px 0;font-size:13.5px;}
+  .finpaidby-l{min-width:0;width:100%;font-size:12px;}
+  .finstart .finstart-step{flex-wrap:wrap;}
+  .finstart .finstart-step > b{flex:1 1 calc(100% - 30px);}
+  .finstart-btns{margin-left:26px;}
+  #finJobGridFoot{flex-wrap:nowrap !important;gap:6px !important;padding:7px 10px !important;align-items:center;}
+  #finJobGridFoot > b{font-size:12px;white-space:nowrap;flex:none;}
+  #finJobGridFoot > span:not(.fgfoot-ctl){font-size:11.5px;white-space:nowrap;flex:none;}
+  #finJobGridFoot .fgfoot-ctl{flex:1 1 auto !important;display:flex;gap:5px;justify-content:flex-end;min-width:0;order:0 !important;}
+  #finJobGridFoot .fgfoot-ctl select{flex:0 1 auto !important;width:auto !important;max-width:86px;min-width:0;height:26px !important;min-height:26px !important;font-size:11px !important;padding:0 18px 0 6px !important;}
+  #finJobGridFoot .fjq-sort{height:26px;padding:0 8px;font-size:11px;}
+  #finJobGridFoot .fgcolbtn{flex:none;height:26px;padding:0 7px !important;order:0 !important;}
+  #finJobGridFoot .fgfoot-n, #finJobGridFoot .fjq-n{display:none;}
+}`;
+  document.head.appendChild(st);
+})();
+
+/* ============================================================
+   OpHUB Finance — project Overview: one block (24 Oct 2026, Andy picked "option 1 layout
+   with option 2 boxes"). Replaces the four coloured tiles and the Project Summary card:
+   - headline card: value (⋯ Forecasted Final Account / Contract Value), margin pill,
+     contract + variations line, progress bar (valued vs value);
+   - six colour boxes, each with a ⋯ to choose what it shows;
+   - the Variations & Day Works row, then Full Summary · Reports · Budgets.
+   ============================================================ */
+const FIN_OV_LS = 'ophub.finOvBoxes';
+const FIN_OV_DEF = {h:'ffa', b1:'valued', b2:'cost', b3:'profit', b4:'margin', b5:'owed', b6:'overdue', b7:'retention', b8:'invoiced'};
+const FIN_OV_OPTS = FIN_TOP_OPTS.concat([['margin','Margin % To Date'],['fmargin','Forecasted Margin %']]);
+const FIN_OV_H = [['ffa','Forecasted Final Account'],['contract','Contract Value']];
+const FIN_OV_SHORT = {contract:'Contract', ffa:'Final Account', valued:'Valued', applied:'Applied', certified:'Certified', invoiced:'Invoiced', received:'Received', owed:'Owed', overdue:'Overdue', retention:'Retention', cost:'Cost', profit:'Profit', fprofit:'Forecast Profit', margin:'Margin', fmargin:'Forecast Margin'};
+let __finOv = null;  // {siteId, d}
+function finK(v){
+  if(v==null || isNaN(v)) return '—';
+  const a = Math.abs(v), sg = v<0 ? '−' : '';
+  if(a >= 1000000) return sg+'£'+(a/1000000).toFixed(2).replace(/\.?0+$/,'')+'m';
+  if(a >= 1000) return sg+'£'+(a/1000).toFixed(a>=100000?0:1)+'k';
+  return sg+'£'+Math.round(a);
+}
+// Margin boxes are percentages; everything else comes from the top-tile figures.
+function finOvVal(k, d, fc){
+  if(k==='margin'){ if(!fc) return {v:null}; if(!fc.sales) return {v:null, note:'Nothing valued yet'}; return {v:Math.round((fc.sales-fc.costToDate)/fc.sales*1000)/10, pct:1, go:`finProjTabGo('${d.siteId}','overview')`}; }
+  if(k==='fmargin'){ if(!fc) return {v:null}; if(fc.budgetTotal==null || fc.forecastMarginPct==null) return {v:null, note:'Needs a budget', go:`go('#/site/${d.siteId}/finance/budget')`}; return {v:fc.forecastMarginPct, pct:1, go:`go('#/site/${d.siteId}/finance/budget')`}; }
+  return finTopVal(k, d, fc) || {};
+}
+function finOvTone(k, v){
+  if(k==='margin' || k==='fmargin') return v<0 ? 'red' : 'green';
+  if(k==='overdue') return v>0 ? 'red' : 'grey';
+  if(k==='retention') return 'amber';
+  if(k==='cost') return 'grey';
+  if(k==='profit' || k==='fprofit') return v<0 ? 'red' : 'green';
+  if(k==='owed' || k==='received') return 'green';
+  return 'blue';
+}
+function finOvSub(k, d, fc, r){
+  const pct = (a, b)=>b ? Math.round(a/b*1000)/10 : null;
+  if(!fc && ['valued','applied','certified','ffa','cost','profit','fprofit'].includes(k)) return '';
+  if(k==='valued' || k==='applied' || k==='certified'){ const p = pct(r.v||0, fc.ffa); return p!=null ? p+'% done' : ''; }
+  if(k==='cost') return fc.budgetTotal ? pct(fc.costToDate, fc.budgetTotal)+'% budget' : 'No budget yet';
+  if(k==='profit'){ return 'on work valued'; }
+  if(k==='margin') return r.v==null ? '' : 'on work valued';
+  if(k==='fmargin') return r.v==null ? '' : 'forecast';
+  if(k==='fprofit') return fc.forecastMarginPct!=null ? fc.forecastMarginPct+'%' : 'Needs a budget';
+  if(k==='overdue'){ const n = (d.invs||[]).filter(i=>i.status!=='void').filter(finInvOverdue).length; return n ? n+' invoice'+(n===1?'':'s') : 'excl. VAT'; }
+  if(k==='retention') return 'held';
+  if(k==='owed' || k==='invoiced' || k==='received') return 'excl. VAT';
+  if(k==='contract') return 'excl. VAT';
+  return '';
+}
+function finOvBlockHtml(siteId, d, fc){
+  const cur = finLsGet(FIN_OV_LS, FIN_OV_DEF);
+  const hk = FIN_OV_H.some(o=>o[0]===cur.h) ? cur.h : 'ffa';
+  const contract = fc ? fc.contract : Number((d.jf||{}).contract_value||0);
+  const hv = hk==='contract' ? contract : (fc ? fc.ffa : null);
+  const valued = fc ? fc.sales : null;
+  // margin: forecast if there's a budget, otherwise profit on work valued
+  let mPct = null, mLabel = '';
+  if(fc && fc.budgetTotal!=null && fc.forecastMarginPct!=null){ mPct = fc.forecastMarginPct; mLabel = 'margin'; }
+  else if(fc && fc.sales){ mPct = Math.round((fc.sales - fc.costToDate)/fc.sales*1000)/10; mLabel = 'margin to date'; }
+  const pill = mPct==null ? `<span class="finov-pill grey" onclick="event.stopPropagation();go('#/site/${siteId}/finance/budget')">Set a budget</span>` : `<span class="finov-pill ${mPct<0?'red':'green'}">${mPct}% ${mLabel}</span>`;
+  const pv = fc && fc.ffa ? Math.max(0, Math.min(100, Math.round(valued/fc.ffa*100))) : 0;
+  const subLine = fc ? `Contract ${finMoney(fc.contract, 0)} + ${finMoney(fc.vAgreed||0, 0)} agreed variations${fc.budgetTotal!=null ? ' · forecast profit '+finMoney(fc.forecastMargin, 0) : ''}` : '';
+  const head = `<div class="card finov-head" onclick="finProjTabGo('${siteId}','setup')">
+    <div class="finov-row"><span class="finov-lbl">${escapeHtml(FIN_OV_H.find(o=>o[0]===hk)[1])}</span>${finPickMenuHtml('Headline', FIN_OV_H, hk, 'finOvSet', 'h')}</div>
+    <div class="finov-row"><span class="finov-big">${hv==null ? '…' : finMoney(hv, 0)}</span>${pill}</div>
+    ${subLine ? `<div class="finov-sm">${subLine}</div>` : ''}
+    <div class="finov-bar"><i style="width:${pv}%"></i></div>
+    <div class="finov-row finov-sm"><span>${valued==null ? '' : finMoney(valued, 0)+' valued ('+pv+'%)'}</span><span>${fc && fc.ffa ? finMoney(Math.max(0, fc.ffa - valued), 0)+' to go' : ''}</span></div>
+  </div>`;
+  const boxes = ['b1','b2','b3','b4','b5','b6','b7','b8'].map(slot=>{
+    const k = FIN_OV_OPTS.some(o=>o[0]===cur[slot]) ? cur[slot] : FIN_OV_DEF[slot];
+    const r = finOvVal(k, d, fc);
+    return `<div class="finov-box ${finOvTone(k, r.v||0)}" onclick="${escapeHtml(r.go||'')}">
+      <div class="finov-row"><span class="finov-bl">${escapeHtml(FIN_OV_SHORT[k]||k)}</span>${finPickMenuHtml('Show in this box', FIN_OV_OPTS, k, 'finOvSet', slot)}</div>
+      <b>${r.v==null ? (r.note ? '—' : '…') : (r.pct ? r.v+'%' : finK(r.v))}</b><span class="finov-bs">${escapeHtml(finOvSub(k, d, fc, r) || (r.v==null && r.note ? r.note : ''))}</span></div>`;
+  }).join('');
+  const warn = fc && fc.budgetSource==='schedule' && fc.schedCostedN < fc.schedItemsN ? `<div class="finnote warn">${fc.schedItemsN - fc.schedCostedN} Bill of Quantities line${fc.schedItemsN - fc.schedCostedN===1?' has':'s have'} no cost price yet, so the budget is low.</div>` : '';
+  return `${head}<div class="finov-grid">${boxes}</div>
+    <div class="finvdrow" id="finVdRow" data-site="${siteId}">${finVdRowHtml(siteId)}</div>${warn}
+    <div class="finsumbtns finov-btns">
+      <button type="button" class="ghostbtn" onclick="finDsTab='summary';go('#/site/${siteId}/finance/summary')">Full Summary</button>
+      <button type="button" class="ghostbtn" onclick="go('#/site/${siteId}/finance/reports')">Reports</button>
+      <button type="button" class="ghostbtn" onclick="go('#/site/${siteId}/finance/budget')">Budgets</button>
+    </div>`;
+}
+function finOvPaint(){
+  const el = document.getElementById('finOvTop'); if(!el || !__finOv) return;
+  const fcL = window.__finFcLast && window.__finFcLast.siteId===__finOv.siteId ? window.__finFcLast.fc : null;
+  el.innerHTML = finOvBlockHtml(__finOv.siteId, __finOv.d, fcL);
+}
+window.finOvSet = function(slot, k){
+  const cur = finLsGet(FIN_OV_LS, FIN_OV_DEF); cur[slot] = k; finLsSet(FIN_OV_LS, cur);
+  finOvPaint();
+};
+(function(){
+  // Overview: the old coloured tiles become the new block's slot.
+  const base = finJobOverviewHtml;
+  finJobOverviewHtml = function(d){
+    const html = base.apply(this, arguments);
+    __finOv = {siteId:d.siteId, d};
+    const fcL = window.__finFcLast && window.__finFcLast.siteId===d.siteId ? window.__finFcLast.fc : null;
+    const block = `<div id="finOvTop" class="finov">${finOvBlockHtml(d.siteId, d, fcL)}</div>`;
+    return block + html;   // old tiles are hidden by CSS
+  };
+  // The Project Summary card is now part of the block above.
+  const fcHtml = finForecastCardHtml;
+  finForecastCardHtml = function(siteId, fc){
+    fcHtml.apply(this, arguments);           // keeps its side effects (starting point, last figures)
+    window.__finFcLast = {siteId, fc};
+    setTimeout(finOvPaint, 0);
+    return '';
+  };
+  const st = document.createElement('style');
+  st.textContent = `#finTopTiles{display:none !important;}
+.finov{margin-bottom:14px;}
+.finov-head{cursor:pointer;padding:14px 16px !important;margin-bottom:10px !important;}
+.finov-row{display:flex;justify-content:space-between;align-items:center;gap:8px;}
+.finov-lbl{font-size:10.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--slate);}
+.finov-big{font-size:30px;font-weight:800;letter-spacing:-.5px;line-height:1.15;font-variant-numeric:tabular-nums;}
+.finov-sm{font-size:12px;color:var(--slate);margin-top:2px;}
+.finov-pill{display:inline-block;font-size:12.5px;font-weight:800;border-radius:10px;padding:4px 10px;white-space:nowrap;}
+.finov-pill.green{background:#E7F6EC;color:#1E7A43;} .finov-pill.red{background:#FDECEC;color:#B91C1C;} .finov-pill.grey{background:#F1F2F4;color:#4B5563;cursor:pointer;}
+.finov-bar{height:8px;background:#EEF0F3;border-radius:5px;overflow:hidden;margin-top:10px;} .finov-bar i{display:block;height:100%;background:var(--brand1,#E3262B);border-radius:5px;}
+.finov-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-bottom:10px;}
+.finov-box{border-radius:12px;padding:8px 8px;border:1px solid;cursor:pointer;min-width:0;}
+.finov-box > b{display:block;font-size:16px;font-weight:800;letter-spacing:-.3px;margin:1px 0;font-variant-numeric:tabular-nums;white-space:nowrap;}
+.finov-bl{font-size:11px;font-weight:700;color:#4B5563;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.finov-bs{display:block;font-size:10.5px;color:#4B5563;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.finov-box{position:relative;} .finov-box .finmb{position:absolute;top:5px;right:5px;} .finov-box .finmb-b{transform:scale(.8);transform-origin:top right;} .finov-box .finov-row{padding-right:20px;}
+.finov .finvdrow{margin:0 0 10px;}
+.finov-box.blue{background:#EEF4FF;border-color:#D6E2FF;} .finov-box.blue > b{color:#1D4ED8;}
+.finov-box.green{background:#EAF7EF;border-color:#CDEBD8;} .finov-box.green > b{color:#1E7A43;}
+.finov-box.red{background:#FDEEEE;border-color:#F7D4D4;} .finov-box.red > b{color:#C81E1E;}
+.finov-box.amber{background:#FFF8E6;border-color:#F6E3B5;} .finov-box.amber > b{color:#B45309;}
+.finov-box.grey{background:#F6F7F9;border-color:#E6E8EC;} .finov-box.grey > b{color:#111827;}
+.finov-btns{border-top:0 !important;padding-top:0 !important;margin-top:0 !important;}
+html.desk .finov-grid{grid-template-columns:repeat(8,minmax(0,1fr));}
+html.desk .finov-box > b{font-size:22px;}
+@media (max-width:700px){ .finov-box .finmb{top:2px;right:2px;} .finov-box .finmb-b{transform:scale(.7);} .finov-box .finov-row{padding-right:16px;} .finov-bl{font-size:10.5px;} .finov-bs{white-space:normal;line-height:1.2;} }`;
+  document.head.appendChild(st);
+})();
+
+/* ============================================================
+   OpHUB Finance — Bill of Quantities on the phone, refreshed (24 Oct 2026, Andy: "it's not
+   clear… needs a complete refresh").
+   - The list reads like a priced bill: section bars with their totals, sub-section bars,
+     and one tidy row per item (ref, description, qty × rate, value, cost/margin).
+   - Tap any row to edit it in a panel that slides up (all the boxes, move, delete).
+   - One "＋ Add" button at the bottom asks what you're adding; each section also has its
+     own "＋ Add item here".
+   Computers keep the full grid.
+   ============================================================ */
+function finBqPhone(){ return !(typeof isDeskMode==='function' && isDeskMode()); }
+function finBqGroupEnd(i){
+  const r = finContractRows[i]; let j = i+1;
+  while(j < finContractRows.length){
+    const k = finContractRows[j].kind;
+    if(k==='section' || (r.kind==='subsection' && k==='subsection')) break;
+    j++;
+  }
+  return j;
+}
+function finBqQtyTxt(r){
+  const q = finCrNum(r.qty), rt = finCrNum(r.rate);
+  if(q!=null && rt!=null) return `${Number(q).toLocaleString('en-GB',{maximumFractionDigits:3})} ${escapeHtml(r.unit||'')} × ${finMoney(rt)}`;
+  return r.unit ? escapeHtml(r.unit) : 'Lump sum';
+}
+function finBqPaintPhone(){
+  const el = document.getElementById('finContractList'); if(!el) return;
+  const rows = finContractRows || [];
+  const tot = finGroupTotals(rows, r=>finItemValue(r));
+  const html = [];
+  rows.forEach((r, i)=>{
+    if(r.kind==='section' || r.kind==='subsection'){
+      html.push(`<div class="bq-${r.kind==='section'?'sec':'sub'}" onclick="finBqEdit(${i})">
+        ${r.ref ? `<span class="bq-ref">${escapeHtml(r.ref)}</span>` : ''}<b class="bq-name">${escapeHtml(r.description||(r.kind==='section'?'Untitled section':'Untitled sub-section'))}</b><span class="bq-tot">${finMoney((tot[i]||{}).value||0)}</span></div>`);
+    } else {
+      const v = finItemValue(r), c = r.cost;
+      const mg = c!=null && !isNaN(c) && v ? `<span class="bq-mg ${v-c<0?'neg':''}">Cost ${finMoney(c, 0)} · ${finPctTxt(finRound((v-c)/v*100))}</span>` : `<span class="bq-mg none">No cost yet</span>`;
+      html.push(`<div class="bq-item" onclick="finBqEdit(${i})">
+        <div class="bq-l1">${r.ref ? `<span class="bq-ref">${escapeHtml(r.ref)}</span>` : ''}<span class="bq-desc">${escapeHtml(r.description||'New item — tap to fill in')}</span><b class="bq-val">${v!=null && !isNaN(v) ? finMoney(v) : '£—'}</b></div>
+        <div class="bq-l2"><span>${finBqQtyTxt(r)}</span>${mg}</div></div>`);
+    }
+    // "＋ Add item to …" after the last line under each heading
+    const next = rows[i+1];
+    if((!next || next.kind==='section' || next.kind==='subsection') && !(r.kind==='section' && next && next.kind==='subsection')){
+      let h = -1; for(let k=i;k>=0;k--) if(rows[k].kind==='section' || rows[k].kind==='subsection'){ h = k; break; }
+      if(h>=0) html.push(`<button type="button" class="bq-additem" onclick="finBqAddAt('item', ${i+1})">＋ Add item to ${escapeHtml(rows[h].description||'this section')}</button>`);
+    }
+  });
+  el.innerHTML = rows.length ? `<div class="bq">${html.join('')}</div>` : `<div class="bq-empty"><b>No lines yet</b><span>Upload the client’s bill (Excel or PDF) below, or start with a section such as “Main Roof”.</span></div>`;
+  el.insertAdjacentHTML('beforeend', `<button type="button" class="darkbtn bq-addbtn" onclick="finBqAddSheet()">＋ Add to Bill of Quantities</button><datalist id="finUnitList">${finUnitOptions().map(u=>`<option value="${escapeHtml(u)}">`).join('')}</datalist>`);
+  finContractPaintTotal();
+}
+window.finBqAddAt = function(kind, at){
+  const row = {kind, ref:'', description:'', qty:null, unit:'', rate:null, value:null};
+  if(at==null || at>finContractRows.length) at = finContractRows.length;
+  finContractRows.splice(at, 0, row);
+  finContractPaint();
+  if(typeof finContractAutoSave==='function') finContractAutoSave();
+  finBqEdit(at, true);
+};
+window.finBqAddSheet = function(){
+  const ov = finBqOv();
+  ov.innerHTML = `<div class="bq-sheet"><div class="bq-sh-h"><b>Add to the Bill of Quantities</b><button type="button" class="bq-x" onclick="finBqClose()">✕</button></div>
+    <button type="button" class="bq-opt" onclick="finBqAddAt('section')"><b>Section</b><span>A main heading, e.g. “Main Roof” or “Plot 3”. Its total adds up from the items under it.</span></button>
+    <button type="button" class="bq-opt" onclick="finBqAddAt('subsection')"><b>Sub-section</b><span>A heading inside a section, e.g. “Slating” or “Leadwork”.</span></button>
+    <button type="button" class="bq-opt" onclick="finBqAddAt('item')"><b>Item</b><span>A priced line: description, quantity, unit and rate (or a lump sum). Goes at the bottom — use “＋ Add item to…” to put it in a section.</span></button>
+  </div>`;
+  ov.style.display = 'flex';
+};
+function finBqOv(){
+  let ov = document.getElementById('finBqOv');
+  if(!ov){ ov = document.createElement('div'); ov.id = 'finBqOv'; ov.className = 'bq-ov'; document.body.appendChild(ov); ov.addEventListener('click', e=>{ if(e.target===ov) finBqClose(); }); }
+  return ov;
+}
+window.finBqClose = function(){
+  const ov = document.getElementById('finBqOv'); if(!ov || ov.style.display==='none') return;
+  ov.style.display = 'none'; ov.innerHTML = '';
+  finContractPaint();
+  if(typeof finContractIsDirty==='function' && finContractIsDirty() && typeof finContractAutoSave==='function') finContractAutoSave();
+};
+window.finBqEdit = function(i, isNew){
+  const r = finContractRows[i]; if(!r) return;
+  const ov = finBqOv();
+  const subs = FIN_SUBJOBS[finContractSite] || [];
+  const plot = subs.length ? `<label class="bq-f"><span>${escapeHtml(finSubNoun(finContractSite))}</span><select onchange="finContractRows[${i}].sub=this.value"><option value="">${r.kind==='item' ? 'As its section' : 'None'}</option>${subs.map(a=>`<option value="${a.id}" ${r.sub===a.id?'selected':''}>${escapeHtml(a.name||a.label||'')}</option>`).join('')}</select></label>` : '';
+  const kinds = Object.keys(FIN_KIND_LABEL).filter(k=>k!==r.kind);
+  const acts = `<div class="bq-acts">
+      ${i>0 ? `<button type="button" class="ghostbtn" onclick="finBqMove(${i},-1)">↑ Up</button>` : ''}
+      ${i<finContractRows.length-1 ? `<button type="button" class="ghostbtn" onclick="finBqMove(${i},1)">↓ Down</button>` : ''}
+      <select class="bq-kind" onchange="if(this.value){finContractRows[${i}].kind=this.value;finBqEdit(${i});}"><option value="">Change to…</option>${kinds.map(k=>`<option value="${k}">${escapeHtml(FIN_KIND_LABEL[k])}</option>`).join('')}</select>
+      <button type="button" class="ghostbtn bq-del" onclick="finBqDelete(${i})">Remove</button>
+    </div>`;
+  const money = v=>v==null || isNaN(v) ? '' : finCr2(v);
+  let body;
+  if(r.kind==='section' || r.kind==='subsection'){
+    body = `<div class="bq-g2"><label class="bq-f bq-fref"><span>Ref</span><input type="text" value="${escapeHtml(r.ref||'')}" oninput="finContractRows[${i}].ref=this.value"></label>
+      <label class="bq-f"><span>${r.kind==='section'?'Section name':'Sub-section name'}</span><input type="text" id="finBqName" value="${escapeHtml(r.description||'')}" placeholder="${r.kind==='section'?'e.g. Main Roof':'e.g. Slating'}" oninput="finContractRows[${i}].description=this.value"></label></div>${plot}`;
+  } else {
+    const auto = finCrNum(r.qty)!==null && finCrNum(r.rate)!==null;
+    body = `<div class="bq-g2"><label class="bq-f bq-fref"><span>Ref</span><input type="text" value="${escapeHtml(r.ref||'')}" oninput="finContractRows[${i}].ref=this.value"></label>
+      <label class="bq-f"><span>Description</span><textarea id="finBqName" rows="2" placeholder="What the work is" oninput="finContractRows[${i}].description=this.value">${escapeHtml(r.description||'')}</textarea></label></div>
+      <div class="bq-g2b"><label class="bq-f"><span>Quantity</span><input type="text" inputmode="decimal" id="finBqQty" value="${r.qty!=null && !isNaN(r.qty) ? r.qty : ''}" placeholder="—" oninput="finCrSetNum(${i},'qty',this.value)"></label>
+        <label class="bq-f"><span>Unit</span><input type="text" list="finUnitList" autocomplete="off" value="${escapeHtml(r.unit||'')}" placeholder="m², nr…" oninput="finContractRows[${i}].unit=this.value"></label></div>
+      <div class="bq-box sell"><span class="bq-bt">Selling price</span><div class="bq-g2b">
+        <label class="bq-f"><span>Rate £</span><input type="text" inputmode="decimal" value="${money(finCrNum(r.rate))}" placeholder="0.00" oninput="finCrSetNum(${i},'rate',this.value)"></label>
+        <label class="bq-f"><span>Total £</span><input type="text" inputmode="decimal" id="finCVal-${i}" value="${money(finItemValue(r))}" placeholder="0.00" ${auto?'disabled title="Quantity × rate"':''} oninput="finCrSetNum(${i},'value',this.value)"></label></div></div>
+      <div class="bq-box cost"><span class="bq-bt">Cost (your budget)</span><div class="bq-g2b">
+        <label class="bq-f"><span>Rate £</span><input type="text" inputmode="decimal" id="finCCR-${i}" value="${finCr2(finCrCostRate(r))}" placeholder="0.00" oninput="finCrSetCostRate(${i}, this.value)"></label>
+        <label class="bq-f"><span>Total £</span><input type="text" inputmode="decimal" id="finCCost-${i}" value="${finCr2(r.cost)}" placeholder="0.00" oninput="finCrSetCostPrice(${i}, this.value)"></label></div></div>
+      <div class="bq-mgline">Margin <span id="finCMg-${i}" class="fincpill-mg">${finCrMarginHtml(r)}</span></div>
+      <p class="bq-hint">Leave quantity and rate empty for a lump sum and type the total.</p>${plot}`;
+  }
+  ov.innerHTML = `<div class="bq-sheet"><div class="bq-sh-h"><b>${isNew?'New ':'Edit '}${escapeHtml(FIN_KIND_LABEL[r.kind]||'Line')}</b><button type="button" class="bq-x" onclick="finBqClose()">✕</button></div>
+    ${body}${acts}
+    <button type="button" class="darkbtn bq-done" id="finBqDone" onclick="finBqClose()">Done</button></div>`;
+  ov.style.display = 'flex';
+  if(isNew) setTimeout(()=>{ const n = document.getElementById('finBqName'); if(n) n.focus(); }, 80);
+};
+window.finBqMove = function(i, d){ const j = i+d; if(j<0 || j>=finContractRows.length) return; finContractMove(i, d); finBqEdit(j); };
+window.finBqDelete = async function(i){
+  const r = finContractRows[i]; if(!r) return;
+  const what = r.description ? '“'+r.description+'”' : 'this line';
+  if(!await customConfirm(`Remove ${what} from the Bill of Quantities?`, {confirmLabel:'Remove'})) return;
+  finContractRows.splice(i, 1);
+  const ov = document.getElementById('finBqOv'); if(ov){ ov.style.display = 'none'; ov.innerHTML = ''; }
+  finContractPaint();
+  if(typeof finContractAutoSave==='function') finContractAutoSave();
+};
+(function(){
+  const desk = finContractPaint;
+  finContractPaint = function(){ return finBqPhone() ? finBqPaintPhone() : desk.apply(this, arguments); };
+  window.finContractPaint = finContractPaint;
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape' && document.getElementById('finBqOv') && document.getElementById('finBqOv').style.display==='flex'){ e.stopPropagation(); finBqClose(); } }, true);
+  const st = document.createElement('style');
+  st.textContent = `@media (max-width:700px){
+  .finboqadd, #finCtBulk, .finboqpane .row-gap:has(> button[onclick*="finContractAdd"]){display:none !important;}
+}
+.bq{display:flex;flex-direction:column;gap:6px;}
+.bq-sec,.bq-sub{display:flex;align-items:center;gap:8px;cursor:pointer;border-radius:10px;}
+.bq-sec{background:var(--brand1,#E3262B);color:var(--brand1-text,#fff);padding:10px 12px;margin-top:6px;}
+.bq-sec:first-child{margin-top:0;}
+.bq-sub{background:#EEF1F5;background:color-mix(in srgb, var(--brand1,#E3262B) 10%, #fff);padding:8px 12px;}
+.bq-name{flex:1;min-width:0;font-size:14.5px;}
+.bq-sub .bq-name{font-size:13.5px;}
+.bq-tot{font-weight:800;font-size:14px;font-variant-numeric:tabular-nums;white-space:nowrap;}
+.bq-ref{font-size:11.5px;font-weight:800;opacity:.75;flex:none;}
+.bq-item{border:1px solid var(--line,#ECEEF2);border-radius:10px;padding:8px 10px;cursor:pointer;background:#fff;}
+.bq-item:active{background:#F6F7F9;}
+.bq-l1{display:flex;align-items:flex-start;gap:8px;}
+.bq-desc{flex:1;min-width:0;font-size:13.5px;font-weight:600;line-height:1.3;}
+.bq-val{font-size:14px;font-weight:800;white-space:nowrap;font-variant-numeric:tabular-nums;}
+.bq-l2{display:flex;justify-content:space-between;gap:8px;margin-top:3px;font-size:12px;color:var(--slate);}
+.bq-mg{font-weight:600;color:#1E7A43;white-space:nowrap;} .bq-mg.neg{color:var(--red);} .bq-mg.none{color:#B45309;}
+.bq-item .bq-ref{color:var(--slate);margin-top:2px;}
+.bq-additem{all:unset;box-sizing:border-box;cursor:pointer;font-size:12.5px;font-weight:700;color:var(--brand1,#E3262B);padding:2px 4px 6px 12px;}
+.bq-addbtn{display:block !important;width:100% !important;margin:12px 0 0 !important;padding:12px !important;font-size:15px !important;}
+.bq-empty{display:flex;flex-direction:column;gap:4px;text-align:center;padding:18px 8px;color:var(--slate);font-size:13px;} .bq-empty b{color:var(--ink);font-size:15px;}
+.bq-ov{position:fixed;inset:0;background:rgba(17,24,39,.45);z-index:10050;display:none;align-items:flex-end;justify-content:center;}
+.bq-sheet{background:#fff;width:100%;max-width:560px;max-height:88vh;overflow:auto;border-radius:18px 18px 0 0;padding:14px 16px calc(16px + env(safe-area-inset-bottom));box-shadow:0 -8px 30px rgba(0,0,0,.18);}
+.bq-sh-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;} .bq-sh-h b{font-size:16px;}
+.bq-x{all:unset;cursor:pointer;width:32px;height:32px;border-radius:9px;background:#F1F2F4;display:flex;align-items:center;justify-content:center;font-weight:800;}
+.bq-opt{all:unset;box-sizing:border-box;display:block;width:100%;cursor:pointer;border:1px solid var(--line,#ECEEF2);border-radius:12px;padding:12px 14px;margin-bottom:8px;}
+.bq-opt b{display:block;font-size:15px;margin-bottom:2px;} .bq-opt span{font-size:12.5px;color:var(--slate);line-height:1.35;}
+.bq-opt:active{background:#F6F7F9;}
+.bq-f{display:flex;flex-direction:column;gap:3px;min-width:0;margin-bottom:8px;} .bq-f > span{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;color:var(--slate);}
+.bq-f input,.bq-f textarea,.bq-f select{width:100% !important;box-sizing:border-box;min-height:38px !important;height:auto;margin:0 !important;font-size:15px !important;padding:8px 10px !important;border-radius:9px !important;}
+.bq-f input:disabled{background:#F6F7F9;color:var(--ink);opacity:1;}
+.bq-g2{display:grid;grid-template-columns:78px minmax(0,1fr);gap:8px;}
+.bq-g2b{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.bq-box{border-radius:12px;padding:8px 10px 0;margin-bottom:8px;} .bq-box.sell{background:#F4F8FF;} .bq-box.cost{background:#FFFBF2;}
+.bq-bt{display:block;font-size:12px;font-weight:800;margin-bottom:4px;}
+.bq-mgline{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:var(--slate);margin:2px 0 6px;}
+.bq-hint{font-size:11.5px;color:var(--slate);margin:0 0 8px;}
+.bq-acts{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 10px;}
+.bq-acts .ghostbtn,.bq-acts select{width:auto !important;margin:0 !important;padding:6px 10px !important;font-size:13px !important;min-height:34px !important;height:34px !important;}
+.bq-del{color:var(--red) !important;margin-left:auto !important;}
+.bq-done{width:100% !important;margin:0 !important;}`;
+  document.head.appendChild(st);
+})();
+
+/* Variations / Day Works (24 Oct, Andy): the three totals fit on one row on a phone, and
+   Excel / PDF move to a quiet "Export" line at the bottom. */
+(function(){
+  const tidy = id=>{
+    const box = document.getElementById(id); if(!box) return;
+    const btns = Array.from(box.querySelectorAll('button')).filter(b=>/Export\(/.test(b.getAttribute('onclick')||''));
+    if(!btns.length) return;
+    const wrap = document.createElement('div'); wrap.className = 'finexp'; wrap.innerHTML = '<span>Export:</span>';
+    btns.forEach(b=>{ b.className = 'linkbtn'; b.removeAttribute('style'); wrap.appendChild(b); });
+    box.appendChild(wrap);
+  };
+  if(typeof finCtVariationsFill==='function'){ const v = finCtVariationsFill; finCtVariationsFill = async function(){ const r = await v.apply(this, arguments); tidy('finCtVars'); return r; }; }
+  if(typeof finDwFill==='function'){ const d = finDwFill; finDwFill = async function(){ const r = await d.apply(this, arguments); tidy('finDwCard'); return r; }; }
+  const st = document.createElement('style');
+  st.textContent = `.finexp{display:flex;align-items:center;gap:12px;justify-content:flex-end;margin-top:12px;padding-top:8px;border-top:1px solid var(--line,#ECEEF2);font-size:12.5px;color:var(--slate);}
+.finexp button.linkbtn{font-size:12.5px !important;padding:0 !important;margin:0 !important;color:var(--slate) !important;font-weight:600 !important;text-decoration:underline;}
+@media (max-width:700px){
+  .finboqtot{display:grid !important;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px !important;}
+  .finboqtot > span{min-width:0 !important;padding:7px 8px !important;}
+  .finboqtot em{font-size:10.5px !important;} .finboqtot b{font-size:14px !important;white-space:nowrap;}
+}`;
+  document.head.appendChild(st);
+})();
+
+/* ============================================================
    OpHUB Finance — no double taps (deep dive, 20 Oct).
    Every Finance action that saves, sends or creates something ignores a
    second tap while the first is still running, so a slow connection can't
@@ -60904,7 +61854,7 @@ window.finRetSetDate = async function(siteId, n, v){
   const pattern = /^(save|new|raise|mark|issue|send|void|delete|clear)[A-Z]/;
   const extra = ['finInboxFile','finInboxUpload','finShopSave','finShopAddManual','finPoQuoteApply','finSendToSow','finSetOriginal','finQuoteHideAll','finAddWorker','finTeamNewInvite','finXeroPush','finXeroPullPayments','setFinBillingType','setFinPoStatus','setPurchaseInvoiceStatus','setFinPiPaid','uploadFinAppExcel','finContractUploadPicked','toggleFinanceAccess'];
   const skip = new Set(['finAppSaveSoft']);
-  const running = new Set();
+  const running = new Map(); // key -> the save that is still going
   const wrap = name=>{
     const fn = window[name];
     if(typeof fn!=='function' || fn.__once || skip.has(name)) return;
@@ -60912,10 +61862,17 @@ window.finRetSetDate = async function(siteId, n, v){
     const w = async function(...args){
       // Xero posts are guarded per record, so posting several bills at once isn't dropped (audit FB-06).
       const key = name==='finXeroPush' ? name+':'+args[0]+':'+args[1] : name;
-      if(running.has(key)) return; // already working on it — ignore the second tap
-      running.add(key); document.documentElement.classList.add('finbusy');
-      try{ return await fn.apply(this, args); }
-      finally{ running.delete(key); if(!running.size) document.documentElement.classList.remove('finbusy'); }
+      // Already working on it: don't start a second one, but hand back the first
+      // one's answer when it finishes, so a caller that waits (e.g. Apply waiting
+      // for Save) doesn't carry on while it is still writing (audit FB-24).
+      if(running.has(key)) return running.get(key);
+      document.documentElement.classList.add('finbusy');
+      const p = (async ()=>{
+        try{ return await fn.apply(this, args); }
+        finally{ running.delete(key); if(!running.size) document.documentElement.classList.remove('finbusy'); }
+      })();
+      running.set(key, p);
+      return p;
     };
     w.__once = true; window[name] = w;
   };

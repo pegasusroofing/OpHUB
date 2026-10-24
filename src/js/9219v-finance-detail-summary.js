@@ -36,13 +36,14 @@ async function renderFinDetail(siteId){
   const last = appsTo[appsTo.length-1];
   const appGross = last ? Number(last.gross||0) : 0, appDisc = last ? Number(last.discount||0) : 0;
   const lastCert = appsTo.filter(a=>a.cert_gross!=null).pop(); const certGross = lastCert ? Number(lastCert.cert_gross) : 0;
-  const retHeld = typeof finRetentionHeld==='function' ? finRetentionHeld(appsTo) : 0;
+  const retHeld = typeof finRetentionStillHeld==='function' ? finRetentionStillHeld(appsTo, jf, finBy(b.invs, siteId)) : 0;   // less release invoices raised (audit FA-08)
   const invs = finBy(b.invs, siteId).filter(i=>i.status!=='void' && i.status!=='draft' && finDsIn(i.issue_date));
   const invoiced = finRound(invs.reduce((t,i)=>t+Number(i.net||0),0));
   const outstanding = finRound(invs.reduce((t,i)=>t+finInvOutstandingNet(i),0));
   const received = finRound(invs.reduce((t,i)=>{ const tt = Number(i.total||0); return t + (tt ? Number(i.paid||0)*Number(i.net||0)/tt : 0); },0));
   const bt = finBillingType(jf, fc.schedItemsN, apps.length);
-  const salesValue = bt==='invoice' ? invoiced : (last ? Number(last.cert_gross!=null ? last.cert_gross : last.gross||0) - Number(last.discount||0) : 0);
+  // Certified gross goes with the certificate's own discount, applied gross with the applied one (audit FB-26).
+  const salesValue = bt==='invoice' ? invoiced : (last ? (last.cert_gross!=null ? Number(last.cert_gross) - Number(last.cert_discount!=null ? last.cert_discount : (last.discount||0)) : Number(last.gross||0) - Number(last.discount||0)) : 0);
   const profit = finRound(salesValue - totalCost), pct = salesValue ? finRound(profit/salesValue*100) : null;
   const kv = (l, v, o)=>`<div class="finds-kv${o&&o.bold?' b':''}"><span>${l}</span><b style="${o&&o.col?o.col:''}">${v}</b></div>`;
   const neg = v=>v<0 ? 'color:var(--red);' : (v>0 ? 'color:var(--ok);' : '');

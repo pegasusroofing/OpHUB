@@ -34,9 +34,10 @@ function finTopVal(k, d, fc){
   if(k==='contract') return {v:Number(d.jf.contract_value||0), go:tg('setup')};
   if(k==='owed') return {v:live.reduce((t,i)=>t+finInvOutstandingNet(i),0), go:sg('invoices'), note:'Excl. VAT'};
   if(k==='overdue'){ const v = live.filter(finInvOverdue).reduce((t,i)=>t+finInvOutstandingNet(i),0); return {v, go:sg('invoices'), hot:v>0, note:'Excl. VAT'}; }
-  if(k==='retention') return {v:typeof finRetentionHeld==='function' ? finRetentionHeld(d.apps) : 0, go:sg('retention')};
+  if(k==='retention') return {v:typeof finRetentionStillHeld==='function' ? finRetentionStillHeld(d.apps, d.jf, d.invs) : 0, go:sg('retention')};   // less release invoices raised (audit FA-08)
   if(k==='invoiced') return {v:finRound(live.filter(i=>i.status!=='draft').reduce((t,i)=>t+Number(i.net||0),0)), go:sg('invoices'), note:'Excl. VAT'};
-  if(k==='received') return {v:finRound(live.reduce((t,i)=>t+Number(i.paid||0),0)), go:sg('invoices'), note:'Excl. VAT'};
+  // paid is the gross received; take the net share so it really is excl. VAT (audit FB-15).
+  if(k==='received') return {v:finRound(live.reduce((t,i)=>{ const tt = Number(i.total||0); return t + (tt ? Math.min(Number(i.paid||0), tt)*Number(i.net||0)/tt : 0); },0)), go:sg('invoices'), note:'Excl. VAT'};
   if(!fc) return wait;
   if(k==='ffa') return {v:fc.ffa, go:`go('#/site/${s}/finance/budget')`};
   if(k==='valued') return {v:fc.sales, go:sg('apps')};
@@ -140,11 +141,12 @@ finForecastCardHtml = function(siteId, fc){
 
     </div>
     <div class="fintiles">${vT}${cT}${pT}${ppT}</div>
+    <div class="finvdrow" id="finVdRow" data-site="${siteId}">${finVdRowHtml(siteId)}</div>
     <div class="finkv" style="margin-top:10px;"><span>Contract ${finMoney(fc.contract, 0)} · Agreed Variations ${finMoney(fc.vAgreed, 0)}${fc.vPending?' · Awaiting Agreement '+finMoney(fc.vPending, 0):''}</span><b>Forecasted Final Cost ${finMoney(fc.forecastCost, 0)}</b></div>
     ${finAutoOriginal(siteId, fc)}
     <div class="finsumbtns">
       <button type="button" class="ghostbtn" onclick="finDsTab='summary';go('#/site/${siteId}/finance/summary')">Full Summary</button>
-      <span><button type="button" class="ghostbtn" onclick="go('#/site/${siteId}/finance/reports')">Run Reports</button><button type="button" class="ghostbtn" onclick="go('#/site/${siteId}/finance/budget')">Change Budget</button></span>
+      <span><button type="button" class="ghostbtn" onclick="go('#/site/${siteId}/finance/reports')">Reports</button><button type="button" class="ghostbtn" onclick="go('#/site/${siteId}/finance/budget')">Budgets</button></span>
     </div>
     ${fc.budgetSource==='schedule' && fc.schedCostedN < fc.schedItemsN ? `<div class="finnote warn">${fc.schedItemsN - fc.schedCostedN} Bill of Quantities line${fc.schedItemsN - fc.schedCostedN===1?' has':'s have'} no cost price yet, so the budget is low. <a href="#/site/${siteId}/finance/contract">Add costs</a></div>` : ''}
   </div>`;
@@ -177,9 +179,9 @@ window.finSumSet = function(slot, k){
 .fintop-n{font-style:normal;opacity:.7;font-weight:600;}
 .fintile-l{display:flex;align-items:center;justify-content:space-between;gap:6px;}
 .finpick .finmb-m{max-height:340px;overflow:auto;}
-.finsumbtns{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid var(--line);}
-.finsumbtns > span{display:flex;gap:8px;flex-wrap:wrap;}
-.finsumbtns .ghostbtn{width:auto !important;margin:0 !important;padding:7px 14px !important;}`;
+.finsumbtns{display:flex;align-items:center;gap:6px;flex-wrap:nowrap;margin-top:12px;padding-top:12px;border-top:1px solid var(--line);}
+.finsumbtns > span{display:contents;}
+.finsumbtns .ghostbtn{flex:1 1 0;min-width:0;width:auto !important;margin:0 !important;padding:7px 6px !important;font-size:13px !important;white-space:nowrap;text-align:center;}`;
   document.head.appendChild(st);
 })();
 
@@ -256,5 +258,46 @@ window.finRowVoidInv = async function(id){
 .finrowmenu button:hover{background:#F4F6FA;}
 .finrowmenu button.bad{color:var(--red);}
 @media (max-width:700px){ .fininvtbl td.finrowdots{position:absolute !important;top:6px;right:6px;width:auto;padding:0 !important;} .fininvtbl tbody tr{position:relative;padding-right:44px !important;} }`;
+  document.head.appendChild(st);
+})();
+
+/* ---------- Variations & Day Works row in the Project Summary (24 Oct, Andy) ----------
+   The ⋯ picks Variations or Day Works, approved / unapproved / all. */
+const FIN_VD_OPTS = [['va','Variations — Approved'],['vu','Variations — Unapproved'],['v','Variations — All'],['da','Day Works — Approved'],['du','Day Works — Unapproved'],['d','Day Works — All']];
+let FIN_VD_DATA = {};   // siteId -> {vars, dws}
+function finVdTotals(siteId, k){
+  const D = FIN_VD_DATA[siteId]; if(!D) return null;
+  const isVar = k[0]==='v', list = (isVar ? D.vars : D.dws).filter(x=>x.status!=='rejected' && x.status!=='void');
+  const ok = x=>isVar ? x.status==='agreed' : x.status==='approved';
+  const pick = k.length===1 ? list : list.filter(x=>k[1]==='a' ? ok(x) : !ok(x));
+  const val = x=>isVar ? Number(ok(x) ? (x.agreed_value!=null ? x.agreed_value : x.quoted) : (x.quoted!=null ? x.quoted : x.agreed_value)) || 0 : Number(x.value||0);
+  return {n:pick.length, v:finRound(pick.reduce((t,x)=>t+val(x),0))};
+}
+function finVdRowHtml(siteId){
+  const cur = finLsGet(FIN_SUM_LS, FIN_SUM_DEF), k = FIN_VD_OPTS.some(o=>o[0]===cur.vd) ? cur.vd : 'va';
+  const lab = FIN_VD_OPTS.find(o=>o[0]===k)[1], m = finPickMenuHtml('Show', FIN_VD_OPTS, k, 'finVdSet', 'vd');
+  const t = finVdTotals(siteId, k);
+  if(!FIN_VD_DATA[siteId]) setTimeout(()=>finVdLoad(siteId), 0);
+  const sub = k[0]==='v' ? 'var' : 'dw';
+  return `<div class="finvd" onclick="finBoqSub['${siteId}']='${sub}';go('#/site/${siteId}/finance/contract')"><span class="fintile-l">${escapeHtml(lab)} ${m}</span><b>${t ? finMoney(t.v, 0) : '…'}</b><span class="finvd-n">${t ? t.n+' '+(k[0]==='v' ? (t.n===1?'variation':'variations') : (t.n===1?'day work':'day works')) : ''}</span></div>`;
+}
+async function finVdLoad(siteId){
+  const [vars, dws] = await Promise.all([
+    dbSelect('fin_variations', 'site_id=eq.'+siteId+'&select=status,quoted,agreed_value').catch(()=>[]),
+    dbSelect('fin_dayworks', 'site_id=eq.'+siteId+'&select=status,value').catch(()=>[])]);
+  FIN_VD_DATA[siteId] = {vars:vars||[], dws:dws||[]};
+  const el = document.getElementById('finVdRow'); if(el && el.dataset.site===siteId) el.innerHTML = finVdRowHtml(siteId);
+}
+window.finVdSet = function(slot, k){
+  const cur = finLsGet(FIN_SUM_LS, FIN_SUM_DEF); cur.vd = k; finLsSet(FIN_SUM_LS, cur);
+  const el = document.getElementById('finVdRow'); if(el) el.innerHTML = finVdRowHtml(el.dataset.site);
+};
+(function(){
+  const st = document.createElement('style');
+  st.textContent = `.finvdrow{margin-top:10px;}
+.finvd{display:flex;align-items:center;gap:10px;border:1px solid var(--line,#ECEEF2);border-radius:14px;padding:10px 14px;cursor:pointer;background:#fff;}
+.finvd .fintile-l{flex:1;min-width:0;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:var(--slate);}
+.finvd > b{font-size:18px;font-weight:800;}
+.finvd-n{font-size:12px;color:var(--slate);min-width:70px;text-align:right;}`;
   document.head.appendChild(st);
 })();

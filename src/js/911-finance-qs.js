@@ -72,6 +72,18 @@ function finCostLinesFromBook(b, siteId){
   (b.ops||[]).forEach(p=>(p.lines||[]).forEach((l,li)=>{ if(l.site_id!==siteId) return;
     lines.push({key:'op:'+p.id+':'+li, date:p.period_start, cat:'labour', desc:(l.description || 'Operative invoice')+(p.invoice_no?' · inv '+p.invoice_no:''), who:p.name||'', ref:'w/c '+finDate(p.period_start), status:p.status==='paid'?'Paid':'To pay', net:finRound(Number(l.amount||0)), person:p.worker_id?'w:'+p.worker_id:p.user_id, sub:l.sub_job_id||null, share:1, open:`go('#/finance/labour/payment/${p.id}')`});
   }));
+  // FA-13: materials the operative supplied (on the invoice as one figure, not per job) go to the
+  // jobs on that invoice, shared by each job line's labour value — so job costs include them.
+  (b.ops||[]).forEach(p=>{
+    const mat = Number(p.materials||0); if(!(mat > 0)) return;
+    const ls = (p.lines||[]).filter(l=>l && l.site_id);
+    const lab = ls.reduce((t,l)=>t+Math.max(0, Number(l.amount||0)), 0);
+    ls.forEach((l,li)=>{ if(l.site_id!==siteId) return;
+      const share = lab > 0 ? Math.max(0, Number(l.amount||0))/lab : 1/ls.length;
+      if(!(share > 0)) return;
+      lines.push({key:'opm:'+p.id+':'+li, date:p.period_start, cat:'materials', desc:'Materials supplied by operative'+(p.invoice_no?' · inv '+p.invoice_no:'')+(share < 0.9999 ? ' ('+finRound(share*100)+'% share)' : ''), who:p.name||'', ref:'w/c '+finDate(p.period_start), status:p.status==='paid'?'Paid':'To pay', net:finRound(mat*share), sub:l.sub_job_id||null, share, open:`go('#/finance/labour/payment/${p.id}')`});
+    });
+  });
   finLabourDaysFrom(dayCks).forEach(d=>{
     const r = b.rates[d.user_id];
     if(!r || r.pay_type!=='paye') return;

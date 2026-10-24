@@ -77,11 +77,15 @@ function finApplicationsCardHtml(siteId, apps, due, invs){
   </div>`;
 }
 // Drafts opened by "New invoice" and left empty are tidied away.
+// Only your own drafts that have sat empty for over a day (anyone's after a week), so a draft
+// someone is still typing on another phone or computer isn't deleted under them (audit FA-12).
 function finCleanEmptyDrafts(invs){
   const empty = i=>i.status==='draft' && !i.number && (i.lines||[]).every(l=>!String(l.description||'').trim() && (l.amount==null || l.amount===''));
+  const age = i=>{ const t = Date.parse(i.updated_at || i.created_at || ''); return isNaN(t) ? 0 : Date.now() - t; };
+  const old = i=>(i.created_by===ME.id && age(i) > 24*3600*1000) || age(i) > 7*24*3600*1000;
   const keep = [], gone = [];
-  invs.forEach(i=>{ if(empty(i) && !(typeof finInvDraft!=='undefined' && finInvDraft && finInvDraft.id===i.id)) gone.push(i); else keep.push(i); });
-  gone.forEach(i=>{ sbFetch('/rest/v1/fin_invoices?id=eq.'+i.id+'&status=eq.draft', {method:'DELETE'}).catch(()=>null); });
+  invs.forEach(i=>{ if(empty(i) && !(typeof finInvDraft!=='undefined' && finInvDraft && finInvDraft.id===i.id)) { if(old(i)) gone.push(i); } else keep.push(i); });
+  gone.forEach(i=>{ sbFetch('/rest/v1/fin_invoices?id=eq.'+i.id+'&status=eq.draft&number=is.null', {method:'DELETE'}).catch(()=>null); });
   return keep;
 }
 
@@ -132,14 +136,15 @@ async function renderFinSales(sub){
   } else {
     const jfBy = {}; jf.forEach(r=>jfBy[r.site_id]=r);
     const appsBy = {}; apps.forEach(a=>{ (appsBy[a.site_id] = appsBy[a.site_id]||[]).push(a); });
-    const rows = SITES.map(s=>({s, held:finRetentionHeld(appsBy[s.id]||[]), jf:jfBy[s.id]||{}})).filter(x=>x.held);
+    // "Still held" = held less the retention release invoices already raised (audit FA-08).
+    const rows = SITES.map(s=>({s, held:finRetentionStillHeld(appsBy[s.id]||[], jfBy[s.id]||{}, invs), jf:jfBy[s.id]||{}})).filter(x=>x.held);
     const total = rows.reduce((t,x)=>t+x.held,0);
     body = finSecHead('Retention') + `<p class="stub" style="margin:-4px 0 12px;">Money your clients are holding back until the work is signed off: ${finMoney(total)} across ${rows.length} job${rows.length===1?'':'s'}. Half usually comes back at practical completion and half at the end of the defects period — set the dates here (they save to the project) to get reminders.</p>`
       + finSearchHtml('Search project, client', 'finSalesList')
       + `<div id="finSalesList">${rows.length ? `<div class="finreptbl-wrap"><table class="fincosttbl fininvtbl">
-        <thead><tr><th>Project</th><th>Client</th><th>1st Retention Release</th><th>Final Retention Release</th><th class="num">Held</th></tr></thead>
+        <thead><tr><th>Project</th><th>Client</th><th>1st Retention Release</th><th>Final Retention Release</th><th class="num">Still Held</th></tr></thead>
         <tbody>${rows.map(x=>{ const d = finRetentionDates(x.jf, st); const when = (dt, inv, n)=>inv ? finDate(dt)+' <span class="finpill ok">Claimed</span>' : `<input type="date" class="finretd" value="${dt||''}" title="${n===1?'Practical completion — first half of the retention is due':'End of the defects period — the rest of the retention is due'}" onclick="event.stopPropagation()" onchange="finRetSetDate('${x.s.id}',${n},this.value)">`;
-          return `<tr class="click" data-lf="${lfText([finRepJobOr(x.s), x.s.client_name].join(' '))}" onclick="go('#/site/${x.s.id}/finance')"><td data-l="Project"><b>${escapeHtml(finRepJobOr(x.s))}</b></td><td data-l="Client">${escapeHtml(x.s.client_name||'—')}</td><td data-l="1st Retention Release">${when(d.first, x.jf.ret1_invoice_id, 1)}</td><td data-l="Final Retention Release">${when(d.second, x.jf.ret2_invoice_id, 2)}</td><td data-l="Held" class="num"><b>${finMoney(x.held)}</b></td></tr>`; }).join('')}</tbody>
+          return `<tr class="click" data-lf="${lfText([finRepJobOr(x.s), x.s.client_name].join(' '))}" onclick="go('#/site/${x.s.id}/finance')"><td data-l="Project"><b>${escapeHtml(finRepJobOr(x.s))}</b></td><td data-l="Client">${escapeHtml(x.s.client_name||'—')}</td><td data-l="1st Retention Release">${when(d.first, x.jf.ret1_invoice_id, 1)}</td><td data-l="Final Retention Release">${when(d.second, x.jf.ret2_invoice_id, 2)}</td><td data-l="Still Held" class="num"><b>${finMoney(x.held)}</b></td></tr>`; }).join('')}</tbody>
         <tfoot><tr><td colspan="4"><b>${rows.length} job${rows.length===1?'':'s'}</b></td><td class="num"><b>${finMoney(total)}</b></td></tr></tfoot></table></div>` : '<div class="empty">No retention held.</div>'}</div>`;
   }
   document.getElementById('app').innerHTML = shell(`
@@ -164,12 +169,14 @@ window.finRaiseCertInvoice = async function(siteId, appId, net){
   if(!await customConfirm(`Raise and issue the invoice for this certificate (${finMoney(net)} net)?\n\nIt gets the next invoice number and is saved as a PDF ready to email.`, {confirmLabel:'Raise and issue'})) return;
   return raiseInvoiceFromCert(siteId, appId, true);
 };
-// "To date" strip for a job's Sales tab: applied, certified, invoiced, paid.
+// "To date" strip for a job's Sales tab (24 Oct, Andy): Applied, Invoiced, Paid — all excl. VAT.
 function finSalesToDateHtml(apps, invs){
   const live = (apps||[]).filter(a=>a.status!=='void').sort((x,y)=>y.number-x.number);
-  const last = live[0], lastC = live.find(a=>a.cert_gross!=null);
+  const last = live.find(a=>a.status!=='draft') || null;
   const li = (invs||[]).filter(i=>!['void','draft'].includes(i.status));
-  const invoiced = finRound(li.reduce((t,i)=>t+Number(i.net||0),0)), paid = finRound(li.reduce((t,i)=>t+Math.min(Number(i.paid||0), Number(i.total||0)),0));
+  const invoiced = finRound(li.reduce((t,i)=>t+Number(i.net||0),0));
+  const paid = finRound(li.reduce((t,i)=>{ const tt = Number(i.total||0); return t + (tt ? Math.min(Number(i.paid||0), tt)*Number(i.net||0)/tt : 0); },0));
   const cell = (l, v, s)=>`<div><span>${l}</span><b>${v}</b>${s?`<em>${s}</em>`:''}</div>`;
-  return `<div class="fintodate">${last ? cell('Applied to date', finMoney(last.gross, 0), 'gross, application '+last.number) : ''}${lastC ? cell('Certified to date', finMoney(lastC.cert_gross, 0), 'gross, by the client') : (last ? cell('Certified to date', '—', 'waiting') : '')}${cell('Invoiced', finMoney(invoiced, 0), 'net, '+li.length+' invoice'+(li.length===1?'':'s'))}${cell('Paid to you', finMoney(paid, 0), 'incl. VAT')}</div>`;
+  return `<div class="fintodate fintodate3">${cell('Applied', last ? finMoney(last.gross, 0) : '—', last ? 'excl. VAT · to date (App '+last.number+')' : 'no applications yet')}${cell('Invoiced', finMoney(invoiced, 0), 'excl. VAT · '+li.length+' invoice'+(li.length===1?'':'s'))}${cell('Paid', finMoney(paid, 0), 'excl. VAT')}</div>`;
 }
+(function(){ const st = document.createElement('style'); st.textContent = `.fintodate.fintodate3{grid-template-columns:repeat(3,minmax(0,1fr)) !important;} .fintodate3 em{white-space:normal;}`; document.head.appendChild(st); })();

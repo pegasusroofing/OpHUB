@@ -70,7 +70,7 @@ async function finInboxReadPending(items, ctx){
     const patch = {extracted:ex};
     if(ex.site_id) patch.site_id = ex.site_id;
     if(ex.po_id) patch.po_id = ex.po_id;
-    await dbUpdate('fin_inbox', it.id, patch);
+    await dbUpdate('fin_inbox', it.id+'&status=eq.new', patch); // FA-03: leave it alone if it's been filed meanwhile
     changed = true;
   }
   return changed;
@@ -184,10 +184,12 @@ window.finInboxFile = async function(id){
       if(mats.length && !mats.some(m=>m.grn)) flags.push('nothing on this PO has been marked received yet');
     }
   } else flags.push('no PO');
+  // FA-03: claim it first (only works while it's still "new"), so two people can't file it twice.
+  if(!(await dbUpdate('fin_inbox', id+'&status=eq.new', {status:'filed'}))){ toast('This one has just been filed by someone else.'); render(); return; }
   const pi = await dbInsert('purchase_invoices', {org_id:ME.org_id, site_id:siteId, po_id:poId||null, no_po:!poId, kind:'invoice', supplier_id:po?po.supplier_id:null, supplier_name:supplier,
     invoice_no:no||null, invoice_date:g('date')||finToday(), net:finRound(net), vat:finRound(vat), total:finRound(total), status: flags.length ? 'query' : 'to_approve', query_note: flags.length ? flags.join('; ') : null,
     file_path:it.file_path, file_name:it.file_name, created_by:ME.id});
-  if(!pi || !pi[0]) return;
+  if(!pi || !pi[0]){ await dbUpdate('fin_inbox', id, {status:'new'}); return; } // didn't save — put it back
   await dbUpdate('fin_inbox', id, {status:'filed', site_id:siteId, po_id:poId||null, purchase_invoice_id:pi[0].id});
   if(typeof finCheckInvoiceLines==='function') finCheckInvoiceLines(pi[0].id).then(r=>{ if(r && r.notes.length) toast(r.notes.length+' line difference'+(r.notes.length===1?'':'s')+' with the PO — see Purchases'); });
   toast(flags.length ? 'Filed and flagged: '+flags[0] : 'Filed — waiting for approval');

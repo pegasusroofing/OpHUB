@@ -218,7 +218,10 @@ window.saveFinContract = async function(siteId){
   if(rows.some(r=>!r.description)){ toast('Every line needs a description.'); return; }
   if(rows.some(r=>finIsItem(r) && r.value===null)){ toast('Every item needs a value (quantity × rate, or a lump sum).'); return; }
   const btn = document.getElementById('finContractSave'); if(btn){ btn.disabled = true; btn.textContent = 'Saving…'; }
-  const existing = await dbSelect('fin_contract_items', 'site_id=eq.'+siteId+'&select=id');
+  // A failed read used to look like "no lines saved yet", so every line was added again (audit FA-23 / FB-07).
+  const exR = await dbSelectChecked('fin_contract_items', 'site_id=eq.'+siteId+'&select=id');
+  if(!exR.ok){ if(btn){ btn.disabled = false; btn.textContent = 'Save Bill of Quantities'; } toast('Couldn’t reach the server, so nothing was saved — check your signal and tap Save again.'); return; }
+  const existing = exR.data;
   const keep = new Set(rows.filter(r=>r.id).map(r=>r.id));
   let failed = 0;
   for(const e of existing) if(!keep.has(e.id)){ if(!(await dbDelete('fin_contract_items', e.id))) failed++; }
@@ -237,7 +240,7 @@ window.saveFinContract = async function(siteId){
   const base = {};
   if(jfNow.original_value==null){ base.original_value = total; base.original_at = new Date().toISOString(); }
   if(jfNow.original_cost==null && allCosted && costTotal){ base.original_cost = costTotal; if(!base.original_at) base.original_at = new Date().toISOString(); }
-  const patch = {...base, site_id:siteId, org_id:ME.org_id, contract_value:total, billing_type:'application', updated_at:new Date().toISOString(), updated_by:ME.id};
+  const patch = {...base, site_id:siteId, org_id:ME.org_id, ...(await finCvPatch(siteId, total)), billing_type:'application', updated_at:new Date().toISOString(), updated_by:ME.id};
   if(finContractFile){
     const safe = finContractFile.name.replace(/[^a-z0-9.\-]+/gi,'_').slice(-80);
     const stored = await uploadToStorage('finance-docs', ME.org_id+'/'+siteId+'/contract/'+uid()+'-'+safe, finContractFile, finContractFile.type||'application/octet-stream');
@@ -455,7 +458,21 @@ window.newFinApplication = async function(siteId){
       .concat(((last&&last.dayworks)||[]).filter(d=>!d.fin_daywork_id).map(d=>Object.assign({}, d))),
     retention_pct: jf.retention_pct!=null ? jf.retention_pct : st.default_retention_pct, created_by:ME.id,
   };
-  const ins = await dbInsert('fin_applications', row);
+  // Two people starting an application at the same moment would both pick the same number; the
+  // database refuses the second (unique site + number), so take the next free number and try again (audit FA-16).
+  let ins = null;
+  for(let tries = 0; tries < 4; tries++){
+    let res;
+    try{ res = await sbFetch('/rest/v1/fin_applications', {method:'POST', headers:{'Prefer':'return=representation'}, body:JSON.stringify(row)}); }
+    catch(e){ toast('Save failed — connection dropped. Check your signal and try again.'); return; }
+    if(res.ok){ ins = await res.json(); break; }
+    const err = await safeErr(res);
+    if(res.status===409 && tries < 3){
+      const top = await dbSelectChecked('fin_applications', 'site_id=eq.'+siteId+'&select=number&order=number.desc&limit=1');
+      if(top.ok){ row.number = ((top.data[0] && top.data[0].number) || 0) + 1; continue; }
+    }
+    toast('Save failed — '+err); return;
+  }
   if(ins && ins[0]) go(`#/site/${siteId}/finance/application/${ins[0].id}`);
 };
 
@@ -476,7 +493,13 @@ async function renderFinApplication(siteId, appId){
   if(!finApp || finApp.id!==a.id){ finAppCollapsed = {}; finAppValued = false; }
   if(!finApp || finApp.id!==a.id || finApp.__loaded !== a.updated_at){ finApp = JSON.parse(JSON.stringify(a)); finApp.__loaded = a.updated_at; }
   const jf = jfRows[0] || {};
-  finAppCtx = {site, jf, previous: finPreviousCertified(apps, a.number), locked: ['submitted','certified','invoiced','void'].includes(a.status), siteProgress};
+  // Once applied (locked), the application keeps the "previously certified" it was sent with, so the
+  // screen matches the Excel the client has; drafts work it out live (audit FA-09).
+  const prevLive = finPreviousCertified(apps, a.number), isLocked = ['submitted','certified','invoiced','void'].includes(a.status);
+  const prevUse = isLocked && a.previous!=null ? finRound(a.previous) : prevLive;
+  finAppCtx = {appId:a.id, site, jf, previous: prevUse, previousLive: prevLive, locked: isLocked, siteProgress};
+  const prevNote = isLocked && a.status==='submitted' && a.cert_net==null && Math.abs(prevLive - prevUse) >= 0.005
+    ? `<div class="finbanner" style="background:var(--warn-bg);color:var(--warn);border-color:#F2D9B8;">Earlier certificates now add up to ${finMoney(prevLive)}, not the ${finMoney(prevUse)} used when this application was sent. The applied figures stay as sent; the certificate uses ${finMoney(prevLive)}.</div>` : '';
   const spAhead = (finApp.lines||[]).filter(l=>finIsItem(l) && siteProgress[l.item_id]!=null && siteProgress[l.item_id] > finPct(l.pct)).length;
   const locked = finAppCtx.locked;
   document.getElementById('app').innerHTML = shell(`
@@ -486,7 +509,7 @@ async function renderFinApplication(siteId, appId){
       <div><div class="finhead-l">Client PO</div><div class="finhead-v">${escapeHtml(a.client_po||'—')}</div></div>
       <div><div class="finhead-l">Due this application</div><div class="finhead-v" id="finAppDueHead">—</div></div>
     </div>
-    ${locked ? (a.status==='submitted' && a.cert_net==null ? `<div class="finbanner finsubmitted" style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;"><span>📤 Submitted${a.submitted_at?' on '+finDate(String(a.submitted_at).slice(0,10)):''}${a.sent_to?' to '+escapeHtml(a.sent_to):''} — locked. Next: enter the client’s certificate below.</span><span style="display:flex;gap:8px;"><button class="ghostbtn" onclick="openFinAppEmail('${siteId}','${a.id}')">Email again</button><button class="ghostbtn" onclick="finAppToDraft('${a.id}')">Return to draft</button></span></div>` : `<div class="finbanner" style="background:var(--warn-bg);color:var(--warn);border-color:#F2D9B8;">This application has been ${a.status==='void'?'voided':'certified'}, so it can’t be changed.</div>`) : `
+    ${locked ? (a.status==='submitted' && a.cert_net==null ? `<div class="finbanner finsubmitted" style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;"><span>📤 Submitted${a.submitted_at?' on '+finDate(String(a.submitted_at).slice(0,10)):''}${a.sent_to?' to '+escapeHtml(a.sent_to):''} — locked. Next: enter the client’s certificate below.</span><span style="display:flex;gap:8px;"><button class="ghostbtn" onclick="openFinAppEmail('${siteId}','${a.id}')">Email again</button><button class="ghostbtn" onclick="finAppToDraft('${a.id}')">Return to draft</button></span></div>${prevNote}` : `<div class="finbanner" style="background:var(--warn-bg);color:var(--warn);border-color:#F2D9B8;">This application has been ${a.status==='void'?'voided':'certified'}, so it can’t be changed.</div>`) : `
     <details class="card finappdates">
       <summary><span>📅 Dates &amp; retention</span><em>Valuation ${finDate(a.valuation_date)} · Due ${finDate(a.due_date)} · Final ${finDate(a.final_date)} · Retention ${finPct(a.retention_pct)}%</em><b>▾</b></summary>
       <div class="finappdates-g">
@@ -783,7 +806,7 @@ window.uploadFinAppExcel = async function(file){
       if(desc && desc!==v.description){ v.description = desc; changed++; }
       return;
     }
-    if((m = /^D:(\d+)$/.exec(id))){ const val = num(r[cValue]); const d = finApp.dayworks[+m[1]]; if(d){ newDay.push({description:desc||d.description, value:val!==null?val:d.value}); if(val!==Number(d.value) || desc!==d.description) changed++; } return; }
+    if((m = /^D:(\d+)$/.exec(id))){ const val = num(r[cValue]); const d = finApp.dayworks[+m[1]]; if(d){ newDay.push(Object.assign({}, d, {description:desc||d.description, value:val!==null?val:d.value})); /* keeps fin_daywork_id (audit FA-22) */ if(val!==Number(d.value) || desc!==d.description) changed++; } return; }
     if(inDay && !id && desc){ const val = num(r[cValue]) ?? num(r[cGross]); if(val!==null){ newDay.push({description:desc, value:val}); added++; } }
   });
   if(rows.some(r=>/^D:\d+$/.test(String(r[0]||'').trim())) || added) finApp.dayworks = newDay;
@@ -796,7 +819,8 @@ window.uploadFinAppExcel = async function(file){
 
 /* ---- email ---- */
 window.openFinAppEmail = async function(siteId, appId){
-  await saveFinApplication(false);
+  // Only a draft is saved first — "Email again" on an applied one must not rewrite its figures (audit FA-09).
+  if(finApp && finApp.id===appId && finAppCtx && !finAppCtx.locked) await saveFinApplication(false);
   const a = (await dbSelect('fin_applications', 'id=eq.'+appId))[0]; if(!a) return;
   const jf = (await dbSelect('job_finance', 'site_id=eq.'+siteId))[0] || {};
   const site = SITES.find(s=>s.id===siteId) || {};

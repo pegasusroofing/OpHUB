@@ -184,6 +184,10 @@ window.finPiCodeSave = async function(){
     const sumP = out.reduce((t,x)=>t+x.pct, 0); out[out.length-1].pct = Math.round((out[out.length-1].pct + 100 - sumP)*10000)/10000;
     patch = {cost_code:parts[0].cost_code, split:out, sub_job_id:null, lines:linesOut};
   }
+  // FA-11: a bill already in Xero is tracked there by project — warn if the projects change.
+  const siteSet = sp=>Array.from(new Set(sp && sp.length ? sp.map(e=>e.site_id) : [d.row.site_id])).sort().join(',');
+  if(siteSet(d.row.split)!==siteSet(patch.split) && typeof finXeroPostedConfirm==='function'
+    && !(await finXeroPostedConfirm('purchase_invoices', d.id, 'Save this coding? It moves cost between projects.', 'change the project tracking on the bill in Xero yourself'))) return;
   const r = await dbUpdate('purchase_invoices', d.id, patch);
   if(!r){ toast('Could not save the coding.'); return; }
   toast(patch.split ? 'Coded across '+patch.split.length+' project / cost type'+(patch.split.length===1?'':'s') : 'Coded to '+FIN_COST_CATS[patch.cost_code]);
@@ -191,6 +195,30 @@ window.finPiCodeSave = async function(){
   render();
   openPurchaseInvoiceView(siteId, d.id);
 };
+
+/* ---------- FA-11: operative invoices already in Xero (24 Oct 2026) ----------
+   Editing or cancelling one in OpHUB doesn't change the bill in Xero, so ask first.
+   (Wrapped here rather than in 9219c so the guard sits with the purchase-invoice one.) */
+(function(){
+  const baseSave = window.saveFinOpInvoice;
+  if(baseSave) window.saveFinOpInvoice = async function(){
+    const O = typeof finOp!=='undefined' ? finOp : null;
+    if(O && O.id && typeof finXeroPostedConfirm==='function'
+      && !(await finXeroPostedConfirm('fin_sub_payments', O.id, 'Save these changes?', 'edit or void the bill in Xero as well'))) return;
+    return baseSave.apply(this, arguments);
+  };
+  const baseCancel = window.finOpCancel;
+  if(baseCancel) window.finOpCancel = async function(id){
+    let row = null;
+    try{ row = (await dbSelect('fin_sub_payments', 'id=eq.'+id+'&select=xero_id'))[0]; }catch(e){}
+    if(!row || !row.xero_id) return baseCancel.apply(this, arguments);
+    // Same steps as 9219c's finOpCancel, with one question that covers Xero too.
+    if(!(await customConfirm('Cancel this invoice? It comes off the job’s costs and out of the pay run.\n\nIt’s already in Xero. Cancelling it here won’t remove it from Xero, so void the bill in Xero as well, or the two won’t match.', {confirmLabel:'Cancel it'}))) return;
+    if(!(await dbUpdate('fin_sub_payments', id, {status:'void'}))) return;
+    if(typeof finOpPushToPm==='function') await finOpPushToPm({id, lines:[]}, '');
+    toast('Cancelled — now void it in Xero'); go('#/finance/subs/opinv');
+  };
+})();
 
 /* styles for the above (kept here so this file can be dropped in on its own) */
 (function(){

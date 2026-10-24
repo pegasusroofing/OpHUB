@@ -349,19 +349,49 @@ Deno.serve(async (req) => {
       }
       const [{ data: site }, { data: po }] = await Promise.all([
         admin.from('sites').select('name, job_number').eq('id', pi.site_id).maybeSingle(),
-        pi.po_id ? admin.from('purchase_orders').select('number').eq('id', pi.po_id).maybeSingle() : Promise.resolve({ data: null }),
+        pi.po_id ? admin.from('purchase_orders').select('number, split').eq('id', pi.po_id).maybeSingle() : Promise.resolve({ data: null }),
       ]);
       try {
         const { data: sup } = pi.supplier_id ? await admin.from('suppliers').select('email').eq('id', pi.supplier_id).maybeSingle() : { data: null };
         const contact = await contactFor(call, pi.supplier_name || 'Supplier', (sup as any)?.email || null, null);
         const tracking = await trackingFor(call, s.xero_tracking_name || 'Project', jobLabel(site));
         const vat = r2(pi.vat);
+        const desc = pi.description || ('Materials' + (po ? ' — ' + po.number : ''));
+        const taxType = vat > 0 ? 'INPUT2' : 'ZERORATEDINPUT';
+        let lineItems: any[] = [{ Description: desc.slice(0, 4000), Quantity: 1, UnitAmount: r2(pi.net),
+            AccountCode: s.xero_purchase_account || '310', TaxType: taxType, TaxAmount: vat, Tracking: tracking }];
+        // FA-28: a bill split across projects in OpHUB (its own split, or its PO's split when it
+        // follows the PO) goes to Xero as one line per project, each tracked to that project.
+        // Net and VAT are shared by the split %; the last line takes any rounding penny.
+        const sp: any[] | null = Array.isArray(pi.split) && pi.split.length ? pi.split
+          : (!pi.sub_job_id && Array.isArray((po as any)?.split) && (po as any).split.length ? (po as any).split : null);
+        if (sp) {
+          const by: Record<string, number> = {};
+          sp.forEach((e: any) => { if (e && e.site_id) by[e.site_id] = (by[e.site_id] || 0) + (Number(e.pct) || 0); });
+          const parts = Object.keys(by).filter(k => by[k] > 0).map(k => ({ site_id: k, pct: by[k] })).sort((a, b) => b.pct - a.pct);
+          if (parts.length > 1) {
+            const { data: ss } = await admin.from('sites').select('id, name, job_number').eq('org_id', orgId).in('id', parts.map(p => p.site_id));
+            const tot = parts.reduce((t, p) => t + p.pct, 0) || 100;
+            let netLeft = r2(pi.net), vatLeft = vat;
+            const out: any[] = [];
+            for (let i = 0; i < parts.length; i++) {
+              const last = i === parts.length - 1;
+              const n = last ? netLeft : r2(Number(pi.net || 0) * parts[i].pct / tot);
+              const v = last ? r2(vatLeft) : r2(vat * parts[i].pct / tot);
+              netLeft = r2(netLeft - n); vatLeft = r2(vatLeft - v);
+              const ps = (ss || []).find((x: any) => x.id === parts[i].site_id);
+              const label = jobLabel(ps);
+              out.push({ Description: (desc + ' — ' + (Math.round(parts[i].pct / tot * 10000) / 100) + '%' + (label ? ' ' + label : '')).slice(0, 4000), Quantity: 1, UnitAmount: n,
+                AccountCode: s.xero_purchase_account || '310', TaxType: taxType, TaxAmount: v, Tracking: label ? await trackingFor(call, s.xero_tracking_name || 'Project', label) : undefined });
+            }
+            lineItems = out;
+          }
+        }
         const x: any = {
           Type: 'ACCPAY', Contact: contact, InvoiceNumber: pi.invoice_no || undefined,
           Reference: [po?.number, site?.job_number].filter(Boolean).join(' / ').slice(0, 255) || undefined,
           Date: pi.invoice_date, DueDate: pi.due_date || pi.invoice_date, LineAmountTypes: 'Exclusive', Status: 'AUTHORISED',
-          LineItems: [{ Description: (pi.description || ('Materials' + (po ? ' — ' + po.number : ''))).slice(0, 4000), Quantity: 1, UnitAmount: r2(pi.net),
-            AccountCode: s.xero_purchase_account || '310', TaxType: vat > 0 ? 'INPUT2' : 'ZERORATEDINPUT', TaxAmount: vat, Tracking: tracking }],
+          LineItems: lineItems,
         };
         if (pi.xero_id) x.InvoiceID = pi.xero_id;
         const r = await call('POST', '/Invoices', { Invoices: [x] });

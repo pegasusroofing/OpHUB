@@ -43,7 +43,7 @@ window.openFinNewPo = async function(siteId){
         <div class="formfield"><label class="field-label">Your reference (optional)</label><input type="text" id="finNpoRef" placeholder="e.g. Quote Q-5521"></div>
         <div class="formfield"><label class="field-label">Notes for the supplier</label><textarea id="finNpoNote" rows="2" placeholder="e.g. Call 30 minutes before delivery"></textarea></div>
         <p class="finb-st">VAT</p>
-        <div class="formfield"><label class="field-label">VAT for all lines</label><select id="finNpoVatAll" onchange="finNpoVatAll(this.value)">${Object.keys(FIN_VAT_RATES).map(k=>`<option value="${k}" ${vat===k?'selected':''}>${FIN_VAT_RATES[k].l}</option>`).join('')}</select></div>
+        <div class="formfield"><label class="field-label">VAT for all lines</label><select id="finNpoVatAll" onchange="finNpoVatAll(this.value)">${(typeof finVatKeysWith==='function' ? finVatKeysWith(FIN_VAT_RATES, vat) : Object.keys(FIN_VAT_RATES)).map(k=>`<option value="${k}" ${vat===k?'selected':''}>${FIN_VAT_RATES[k].l}</option>`).join('')}</select></div>
         <p class="finb-st">Costs</p>
         <div class="finkv"><span>Subtotal</span><b id="finNpoTot">£0.00</b></div>
         <div class="finkv"><span>VAT</span><b id="finNpoVat">£0.00</b></div>
@@ -67,7 +67,7 @@ function finNpoPaint(){
     <label><span>Unit</span><input type="text" value="${escapeHtml(l.unit||'')}" placeholder="m², nr" oninput="finNpoSet(${i},'unit',this.value)"></label>
     <label><span>Rate</span><input type="text" inputmode="decimal" data-money value="${l.rate!=null?l.rate:''}" placeholder="£" oninput="finNpoSet(${i},'rate',this.value)"></label>
     <label><span>Cost code</span><select onchange="finNpoSet(${i},'cost_code',this.value)">${codeOpts(l.cost_code||'materials')}</select></label>
-    <label><span>VAT</span><select onchange="finNpoSet(${i},'vat',this.value)">${Object.keys(FIN_VAT_RATES).map(k=>`<option value="${k}" ${(l.vat||'20')===k?'selected':''}>${FIN_VAT_RATES[k].s}</option>`).join('')}</select></label>
+    <label><span>VAT</span><select onchange="finNpoSet(${i},'vat',this.value)">${(typeof finVatKeysWith==='function' ? finVatKeysWith(FIN_VAT_RATES, l.vat||'20') : Object.keys(FIN_VAT_RATES)).map(k=>`<option value="${k}" ${(l.vat||'20')===k?'selected':''}>${FIN_VAT_RATES[k].s}</option>`).join('')}</select></label>
     <b class="finb-net" id="finNpoL-${i}">${finMoney(l.amount)}</b>
     ${finNewPo.lines.length>1 ? `<button class="linkbtn finb-del" aria-label="Remove line" onclick="finNpoDel(${i})">✕</button>` : '<span></span>'}
   </div>`).join('');

@@ -13,13 +13,16 @@ function finPpTable(head, rows, empty){
 }
 async function finPpFill(siteId){
   const el = document.getElementById('finPpBody'); if(!el) return;
-  const [pos, pinvs, hires, xc] = await Promise.all([
+  const [pos, pinvs, hires, xcAll] = await Promise.all([
     dbSelect('purchase_orders', 'site_id=eq.'+siteId+'&order=created_at.desc&limit=2000').catch(()=>[]),
     dbSelect('purchase_invoices', 'site_id=eq.'+siteId+'&order=invoice_date.desc&limit=5000').catch(()=>[]),
     dbSelect('fin_plant_hires', 'site_id=eq.'+siteId+'&order=on_hire.desc').catch(()=>[]),
     dbSelect('fin_job_costs', 'site_id=eq.'+siteId+'&order=cost_date.desc&limit=5000').catch(()=>[]),
   ]);
   if(!document.getElementById('finPpBody')) return;
+  // FB-25: this tab is purchases only — labour and subcontract costs entered by hand live on their
+  // own tab, so leave them out here (same as the Purchases card in 9219x).
+  const xc = xcAll.filter(x=>!['labour','subcontract'].includes(x.category));
   const live = pinvs.filter(i=>i.status!=='rejected');
   const poBy = {}; pos.forEach(p=>poBy[p.id] = p);
   const k = finPpSub[siteId] || 'invoices';

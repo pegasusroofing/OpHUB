@@ -4,7 +4,8 @@
    rate. The subcontractor applies (cumulative gross to date); you certify
    (cumulative), with retention held and contra charges to date:
      net due this time = certified gross − retention − contra to date − paid before
-     CIS on the labour part (this payment less new materials)
+     CIS on the labour part (this payment BEFORE contra charges, less new
+     materials) — HMRC CISR15030: a contra counts as paid to them
    Payment / pay-less notice PDF; "Mark paid" records a CIS payment so it
    shows in the CIS summary, statements and Xero.
    Route: #/site/<id>/finance/sub/<subcontract id>
@@ -78,9 +79,9 @@ window.saveFinSubcontract = async function(siteId, id){
   let r;
   if(id) r = await dbUpdate('fin_subcontracts', id, row);
   else {
-    const ex = await dbSelect('fin_subcontracts', 'site_id=eq.'+siteId+'&select=seq&order=seq.desc&limit=1');
-    const seq = (ex[0] ? ex[0].seq : 0) + 1;
-    r = await dbInsert('fin_subcontracts', Object.assign({org_id:ME.org_id, site_id:siteId, seq, number:'SC-'+String(seq).padStart(3,'0'), created_by:ME.id}, row));
+    r = await finScInsertNumbered('fin_subcontracts',
+      async ()=>{ const ex = await dbSelectNet('fin_subcontracts', 'site_id=eq.'+siteId+'&select=seq&order=seq.desc&limit=1'); return (ex[0] ? ex[0].seq : 0) + 1; },
+      seq=>Object.assign({org_id:ME.org_id, site_id:siteId, seq, number:'SC-'+String(seq).padStart(3,'0'), created_by:ME.id}, row));
   }
   if(!r) return;
   const saved = Array.isArray(r) ? r[0] : r;
@@ -89,6 +90,23 @@ window.saveFinSubcontract = async function(siteId, id){
   toast('Subcontractor PO saved');
   if(!id && r[0]) go('#/site/'+siteId+'/finance/sub/'+r[0].id); else render();
 };
+
+/* Numbered insert (SC-001, application 1, 2…). The next number is worked out
+   here, so two people saving at the same moment could pick the same one. When
+   the database has a unique rule on the number it answers 409 and we simply
+   take the next number and try again (up to 4 goes). */
+async function finScInsertNumbered(table, nextNo, build){
+  for(let go_ = 0; go_ < 4; go_++){
+    const n = await nextNo();
+    let res;
+    try{ res = await sbFetch('/rest/v1/'+table, {method:'POST', headers:{'Prefer':'return=representation'}, body:JSON.stringify(build(n))}); }
+    catch(e){ toast('Save failed — connection dropped. Check your signal and try again.'); return null; }
+    if(res.ok) return await res.json();
+    if(res.status === 409) continue;
+    toast('Save failed — '+(await safeErr(res))); return null;
+  }
+  toast('Save failed — someone else was saving at the same moment. Please try again.'); return null;
+}
 
 /* ---------- the subcontract page ---------- */
 async function renderFinSubcontract(siteId, scId){
@@ -181,6 +199,13 @@ window.openFinSubApp = async function(siteId, scId, appId){
   </div>`;
   ov.style.display = 'flex';
   finSaPaint();
+  if(a && a.status==='paid'){
+    const have = await dbSelectChecked('fin_sub_payments', 'sub_app_id=eq.'+a.id+'&status=neq.void&select=id&limit=1');
+    const sum = document.getElementById('finSaSum');
+    if(have.ok && !have.data.length && sum && finSa && finSa.a===a){
+      sum.insertAdjacentHTML('afterend', `<div class="card" style="margin-top:10px;border-color:var(--red);"><p class="stub" style="margin:0 0 8px;font-style:normal;color:var(--red);">This application is marked paid but its CIS record is missing, so it isn’t on the CIS return.</p><button class="darkbtn" style="width:100%;" onclick="markFinSubAppPaid('${a.id}')">Add it to the CIS return</button></div>`);
+    }
+  }
 };
 function finSaCalc(){
   const n = id=>{ const x = finNum(finVal(id)); return (x===null||isNaN(x)) ? null : x; };
@@ -190,9 +215,16 @@ function finSaCalc(){
   const retention = finRound(cert * Number(sc.retention_pct||0)/100);
   const net = finRound(cert - retention - contra - finSa.prevNet);
   const newMat = Math.max(0, finRound(mat - finSa.prevM));
-  const labour = Math.max(0, finRound(net - newMat));
+  // HMRC (CISR15030): a contra charge — plant, services or goods we supplied to
+  // them — counts as paid to the subcontractor, so it does NOT reduce the
+  // amount CIS is worked out on. Add this time's contra back before working
+  // out the labour part. (Money held back for poor work is a "set-off": that
+  // goes in as a lower certified amount, which does reduce the CIS.)
+  const contraNow = finRound(contra - (finSa.prevContra||0));
+  const gross = finRound(net + contraNow);
+  const labour = Math.max(0, finRound(gross - newMat));
   const cis = finRound(labour * Number(sc.cis_rate||0)/100);
-  return {applied, mat, cert, contra, retention, net, newMat, labour, cis, pay:finRound(net - cis), payless: cert < applied - 0.005};
+  return {applied, mat, cert, contra, contraNow, gross, retention, net, newMat, labour, cis, pay:finRound(net - cis), payless: cert < applied - 0.005};
 }
 window.finSaPaint = function(){
   const el = document.getElementById('finSaSum'); if(!el || !finSa) return;
@@ -203,7 +235,7 @@ window.finSaPaint = function(){
     <div class="finkv"><span>Less contra charges to date</span><b>−${finMoney(c.contra)}</b></div>
     <div class="finkv"><span>Less paid before</span><b>−${finMoney(finSa.prevNet)}</b></div>
     <div class="finkv big"><span>Net due this time</span><b>${finMoney(c.net)}</b></div>
-    <div class="finkv"><span>CIS @ ${finSa.sc.cis_rate}% on labour (${finMoney(c.labour)})</span><b>−${finMoney(c.cis)}</b></div>
+    <div class="finkv"><span>CIS @ ${finSa.sc.cis_rate}% on labour (${finMoney(c.labour)}${Math.abs(c.contraNow)>0.005?', before contra charges':''})</span><b>−${finMoney(c.cis)}</b></div>
     <div class="finkv big"><span>Pay them</span><b>${finMoney(c.pay)}</b></div>
     ${c.payless ? `<p class="stub" style="margin:6px 0 0;color:var(--red);">You’re certifying ${finMoney(c.applied - c.cert)} less than they applied for — the notice will be a pay less notice, so give the reason above and send it before the final date for payment.</p>` : ''}`;
 };
@@ -219,8 +251,9 @@ window.saveFinSubApp = async function(certify){
   let r;
   if(s.a) r = await dbUpdate('fin_sub_apps', s.a.id, row);
   else {
-    const ex = await dbSelect('fin_sub_apps', 'subcontract_id=eq.'+s.sc.id+'&select=number&order=number.desc&limit=1');
-    r = await dbInsert('fin_sub_apps', Object.assign({org_id:ME.org_id, site_id:s.siteId, subcontract_id:s.sc.id, number:(ex[0]?ex[0].number:0)+1, created_by:ME.id}, row));
+    r = await finScInsertNumbered('fin_sub_apps',
+      async ()=>{ const ex = await dbSelectNet('fin_sub_apps', 'subcontract_id=eq.'+s.sc.id+'&select=number&order=number.desc&limit=1'); return (ex[0]?ex[0].number:0)+1; },
+      number=>Object.assign({org_id:ME.org_id, site_id:s.siteId, subcontract_id:s.sc.id, number, created_by:ME.id}, row));
   }
   if(!r) return;
   document.getElementById('finSaOverlay').style.display = 'none';
@@ -234,18 +267,31 @@ window.deleteFinSubApp = async function(id){
 // Paying it also records a CIS payment (CIS summary, statements, Xero).
 window.markFinSubAppPaid = async function(id){
   const a = (await dbSelect('fin_sub_apps', 'id=eq.'+id))[0]; if(!a) return;
-  if(a.status==='paid'){ toast('Already marked paid.'); render(); return; }
   const sc = (await dbSelect('fin_subcontracts', 'id=eq.'+a.subcontract_id))[0]; if(!sc) return;
-  const today = finToday();
-  const r = await dbUpdate('fin_sub_apps', id, {status:'paid', paid_on:today});
-  if(!r) return;
-  const prev = (await dbSelect('fin_sub_apps', 'subcontract_id=eq.'+a.subcontract_id+'&number=lt.'+a.number+'&certified_gross=not.is.null&order=number.desc&limit=1'))[0];
-  const materials = Math.max(0, finRound(Number(a.materials_part||0) - Number(prev ? prev.materials_part||0 : 0)));
-  const labour = Math.max(0, finRound(Number(a.net_due) - materials));
-  await dbInsert('fin_sub_payments', {org_id:ME.org_id, worker_id:sc.worker_id||null, name:sc.name, utr:sc.utr||null, sub_app_id:a.id, period_start:a.app_date, period_end:a.app_date,
-    lines:[{site_id:a.site_id, description:sc.number+' application '+a.number, days:1, rate:labour, amount:labour}], labour, materials, gross:Number(a.net_due), cis_rate:sc.cis_rate, cis_deduction:Number(a.cis_deduction), net_pay:Number(a.pay_amount), status:'paid', paid_on:today, created_by:ME.id});
+  // Is the CIS payment already recorded? (A failed check means we can't tell, so stop.)
+  const have = await dbSelectChecked('fin_sub_payments', 'sub_app_id=eq.'+a.id+'&status=neq.void&select=id&limit=1');
+  if(!have.ok){ toast('Couldn’t check the CIS record — check your signal and try again.'); return; }
+  if(a.status==='paid' && have.data.length){ toast('Already marked paid.'); render(); return; }
+  const today = a.paid_on || finToday();
+  if(!have.data.length){
+    // Record the CIS payment FIRST — the CIS return, statements and Xero read
+    // this. The application is only marked paid once it has saved.
+    const prev = (await dbSelect('fin_sub_apps', 'subcontract_id=eq.'+a.subcontract_id+'&number=lt.'+a.number+'&certified_gross=not.is.null&order=number.desc&limit=1'))[0];
+    const materials = Math.max(0, finRound(Number(a.materials_part||0) - Number(prev ? prev.materials_part||0 : 0)));
+    // Gross for CIS is before contra charges (HMRC treats a contra as paid to them).
+    const contraNow = finRound(Number(a.contra||0) - Number(prev ? prev.contra||0 : 0));
+    const gross = finRound(Number(a.net_due) + contraNow);
+    const labour = Math.max(0, finRound(gross - materials));
+    const ins = await dbInsert('fin_sub_payments', {org_id:ME.org_id, worker_id:sc.worker_id||null, name:sc.name, utr:sc.utr||null, sub_app_id:a.id, period_start:a.app_date, period_end:a.app_date,
+      lines:[{site_id:a.site_id, description:sc.number+' application '+a.number, days:1, rate:labour, amount:labour}], labour, materials, gross, cis_rate:sc.cis_rate, cis_deduction:Number(a.cis_deduction), net_pay:Number(a.pay_amount), status:'paid', paid_on:today, created_by:ME.id});
+    if(!ins || (Array.isArray(ins) && !ins.length)){ toast('Not marked paid — the CIS record didn’t save. Please try again.'); return; }
+  }
+  if(a.status!=='paid'){
+    const r = await dbUpdate('fin_sub_apps', id, {status:'paid', paid_on:today});
+    if(!r){ toast('The CIS record is saved, but the application couldn’t be marked paid. Tap “Mark paid today” again.'); render(); return; }
+  }
   document.getElementById('finSaOverlay').style.display = 'none';
-  toast('Marked paid — added to the CIS return'); render();
+  toast(a.status==='paid' ? 'Missing CIS record added to the CIS return' : 'Marked paid — added to the CIS return'); render();
 };
 
 /* ---------- payment / pay less notice ---------- */

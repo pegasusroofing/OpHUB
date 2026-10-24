@@ -319,3 +319,27 @@ finJobStatusSelHtml = function(){
 @media (min-width:701px){ .finjobfilt:not(.finprojfilt){display:none !important;} }`;
   document.head.appendChild(st);
 })();
+
+/* Variation numbers (audit FA-16, 24 Oct): the next number is worked out on the phone or computer, so
+   two people adding a variation at the same moment could both get V005. After saving, check
+   whether someone else got the same number first; if so, this one moves to the next free number. */
+(function(){
+  if(typeof finVarInsert!=='function') return;
+  const base = finVarInsert;
+  finVarInsert = async function(siteId, row){
+    const ins = await base.apply(this, arguments);
+    const mine = ins && ins[0]; if(!mine || mine.seq==null) return ins;
+    try{
+      const same = await dbSelectChecked('fin_variations', 'site_id=eq.'+siteId+'&seq=eq.'+mine.seq+'&select=id,created_at&order=created_at.asc,id.asc');
+      if(same.ok && same.data.length > 1 && same.data[0].id !== mine.id){
+        const top = await dbSelectChecked('fin_variations', 'site_id=eq.'+siteId+'&select=seq&order=seq.desc&limit=1');
+        if(top.ok){
+          const seq = ((top.data[0] && top.data[0].seq) || 0) + 1;
+          const r = await dbUpdate('fin_variations', mine.id, {seq, number:'V'+String(seq).padStart(3,'0')});
+          if(r){ ins[0] = r; toast('Someone else took '+mine.number+' at the same time — this one is '+r.number+'.'); }
+        }
+      }
+    }catch(e){ console.error(e); }
+    return ins;
+  };
+})();

@@ -175,7 +175,8 @@ window.saveFinanceSettings = async function(){
   if(btn){ btn.disabled = false; btn.textContent = 'Save settings'; }
   if(!res.ok){ toast('Save failed — '+(await safeErr(res))); return; }
   FIN_SETTINGS = (await res.json())[0] || FIN_SETTINGS;
-  if(!orgRow){ return; }
+  // The company record can be quietly refused (not an admin) — say so rather than saying nothing (audit FA-27).
+  if(!orgRow){ toast(orgRow===undefined ? 'Finance settings saved. The project number settings can only be changed by an admin.' : 'Finance settings saved, but the project number settings didn’t save. Please try again.'); render(); return; }
   toast('Finance settings saved');
   render();
 };
@@ -250,7 +251,7 @@ async function renderSiteFinance(siteId){
             <div class="stub" style="margin:2px 0 0;font-style:normal;">${[p.value!=null?finMoney(p.value):'', p.po_date?new Date(p.po_date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):'', p.description||''].filter(Boolean).map(escapeHtml).join(' · ') || 'No value or date'}</div>
           </div>
           <div class="finpo-act">
-            ${p.file_path ? `<button class="ghostbtn" style="padding:5px 10px;width:auto;" onclick="openClientPoFile('${p.id}')">View</button>` : ''}
+            ${(p.files&&p.files.length) || p.file_path ? `<button class="ghostbtn" style="padding:5px 10px;width:auto;" onclick="openClientPoFile('${p.id}')">View${p.files&&p.files.length>1?' ('+p.files.length+')':''}</button>` : ''}
             <button class="ghostbtn" style="padding:5px 10px;width:auto;" onclick="openClientPoForm('${siteId}','${p.id}')">Edit</button>
           </div>
         </div>`).join('') + (pos.length>1 ? `<p class="stub" style="margin:8px 0 0;font-style:normal;">Total of POs: <b>${finMoney(poTotal)}</b></p>` : '')
@@ -349,9 +350,9 @@ window.openClientPoForm = async function(siteId, poId){
       </div>
       <div class="formfield"><label class="field-label">What it covers</label><input type="text" id="finPoDesc" value="${escapeHtml(po&&po.description||'')}" placeholder="e.g. Main contract, Variation 2"></div>
       <label class="finswitch"><input type="checkbox" id="finPoPrimary" ${primary?'checked':''}> Main PO (shown on invoices, applications and certificates)</label>
-      <div class="formfield"><label class="field-label">Copy of the PO (optional)</label>
-        <input type="file" id="finPoFileInput" accept="application/pdf,image/*" onchange="finPoFile=this.files[0]||null">
-        ${po&&po.file_name ? `<p class="stub" style="margin:4px 0 0;font-style:normal;">Saved: ${escapeHtml(po.file_name)}</p>` : ''}
+      <div class="formfield"><label class="field-label">Copies of the PO (optional, any files)</label>
+        <input type="file" id="finPoFileInput" multiple onchange="finPoFile=Array.from(this.files||[])">
+        ${po ? (()=>{ const fl = finPoFilesOf(po); return fl.length ? `<p class="stub" style="margin:4px 0 0;font-style:normal;">Saved: ${fl.map(f=>escapeHtml(f.name||'file')).join(', ')} — new files are added to these.</p>` : ''; })() : ''}
       </div>
       <button class="darkbtn" id="finPoSave" style="width:100%;" onclick="saveClientPo('${siteId}','${po?po.id:''}')">Save PO</button>
       ${po ? `<button class="ghostbtn" style="width:100%;margin-top:8px;color:var(--red);" onclick="deleteClientPo('${siteId}','${po.id}')">Remove this PO</button>` : ''}
@@ -369,13 +370,18 @@ window.saveClientPo = async function(siteId, poId){
   const primary = document.getElementById('finPoPrimary').checked;
   const btn = document.getElementById('finPoSave'); if(btn){ btn.disabled = true; btn.textContent = 'Saving…'; }
   const row = {po_number:no, value:val, po_date:finVal('finPoDate')||null, description:finVal('finPoDesc')||null, is_primary:primary};
-  if(finPoFile){
-    if(finPoFile.size > 20*1024*1024){ toast('That file is over 20 MB.'); if(btn){ btn.disabled=false; btn.textContent='Save PO'; } return; }
-    const safe = finPoFile.name.replace(/[^a-z0-9.\-]+/gi,'_').slice(-80);
-    const path = ME.org_id+'/'+siteId+'/client-po/'+uid()+'-'+safe;
-    const stored = await uploadToStorage('finance-docs', path, finPoFile, finPoFile.type||'application/octet-stream');
-    if(!stored){ if(btn){ btn.disabled=false; btn.textContent='Save PO'; } return; }
-    row.file_path = stored; row.file_name = finPoFile.name;
+  const newFiles = Array.isArray(finPoFile) ? finPoFile : (finPoFile ? [finPoFile] : []);
+  if(newFiles.length){
+    if(newFiles.some(f=>f.size > 20*1024*1024)){ toast('A file is over 20 MB.'); if(btn){ btn.disabled=false; btn.textContent='Save PO'; } return; }
+    const old = poId ? finPoFilesOf((await dbSelect('client_pos', 'id=eq.'+poId+'&select=file_path,file_name,files'))[0]||{}) : [];
+    const files = old.slice();
+    for(const f of newFiles){
+      const safe = f.name.replace(/[^a-z0-9.\-]+/gi,'_').slice(-80);
+      const stored = await uploadToStorage('finance-docs', ME.org_id+'/'+siteId+'/client-po/'+uid()+'-'+safe, f, f.type||'application/octet-stream');
+      if(!stored){ if(btn){ btn.disabled=false; btn.textContent='Save PO'; } return; }
+      files.push({path:stored, name:f.name});
+    }
+    row.files = files; row.file_path = files[0].path; row.file_name = files[0].name;
   }
   let saved;
   if(poId) saved = await dbUpdate('client_pos', poId, row);
@@ -399,12 +405,23 @@ window.deleteClientPo = async function(siteId, poId){
   toast('PO removed');
   render();
 };
-window.openClientPoFile = async function(poId){
-  const po = (await dbSelect('client_pos', 'id=eq.'+poId+'&select=file_path,file_name'))[0];
-  if(!po || !po.file_path) return;
-  const url = await resolveStorageUrl(publicUrl('finance-docs', po.file_path));
-  if(/\.pdf$/i.test(po.file_name||po.file_path) && typeof viewPdfInApp==='function') return viewPdfInApp(url, po.file_name||'Client PO');
-  if(/\.(jpe?g|png|gif|webp|heic)$/i.test(po.file_name||po.file_path) && typeof viewImage==='function') return viewImage(url);
+// A PO can hold several files (24 Oct): files = [{path, name}], older rows just file_path/file_name.
+function finPoFilesOf(po){ const f = Array.isArray(po && po.files) ? po.files.filter(x=>x && x.path) : []; if(!f.length && po && po.file_path) f.push({path:po.file_path, name:po.file_name||'Client PO'}); return f; }
+window.openClientPoFile = async function(poId, idx){
+  const po = (await dbSelect('client_pos', 'id=eq.'+poId+'&select=file_path,file_name,files,po_number'))[0];
+  const files = finPoFilesOf(po||{}); if(!files.length) return;
+  if(idx==null && files.length > 1){
+    let ov = document.getElementById('finPoFilesOv');
+    if(!ov){ ov = document.createElement('div'); ov.id = 'finPoFilesOv'; ov.className = 'geo-modal-overlay'; document.body.appendChild(ov); }
+    ov.onclick = e=>{ if(e.target===ov) ov.style.display = 'none'; };
+    ov.innerHTML = `<div class="geo-modal-card" style="max-width:420px;"><h3 style="margin:0 0 10px;">PO ${escapeHtml(po.po_number||'')} — files</h3>${files.map((f,i)=>`<button type="button" class="ghostbtn" style="width:100%;margin:0 0 6px;text-align:left;" onclick="document.getElementById('finPoFilesOv').style.display='none';openClientPoFile('${poId}',${i})">📄 ${escapeHtml(f.name||'File '+(i+1))}</button>`).join('')}<button class="geo-modal-cancel" onclick="document.getElementById('finPoFilesOv').style.display='none'">Close</button></div>`;
+    document.body.appendChild(ov); ov.style.display = 'flex'; if(typeof modalAddX==='function') modalAddX();
+    return;
+  }
+  const f = files[idx||0];
+  const url = await resolveStorageUrl(publicUrl('finance-docs', f.path));
+  if(/\.pdf$/i.test(f.name||f.path) && typeof viewPdfInApp==='function') return viewPdfInApp(url, f.name||'Client PO');
+  if(/\.(jpe?g|png|gif|webp|heic)$/i.test(f.name||f.path) && typeof viewImage==='function') return viewImage(url);
   window.open(url, '_blank');
 };
 
