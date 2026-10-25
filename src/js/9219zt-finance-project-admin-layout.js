@@ -30,6 +30,8 @@ function finPaLayout(){
   const ff = id=>{ const el = document.getElementById(id); return el ? el.closest('.formfield') : null; };
   const fld = (id, label, key)=>{ const f = ff(id); if(!f) return null; const l = f.querySelector('.field-label'); if(l) l.textContent = label; f.classList.add('fpa-f', 'fk-'+key); return f; };
   const auto = !!(ORG && ORG.auto_job_numbers);
+  // Invoice jobs (Andy 26 Oct): no retention, application day or monthly application dates.
+  const isInv = !!detCard && Array.from(detCard.querySelectorAll('button[onclick*="setFinBillingType"]')).some(b=>(b.getAttribute('onclick')||'').indexOf(",'application')")>=0);
 
   const card = document.createElement('div'); card.className = 'card fpa'; card.dataset.coll = '1';
   card.innerHTML = `<div class="fpa-h">Project Details</div>
@@ -40,7 +42,7 @@ function finPaLayout(){
       <section class="fpa-sec s2"><div class="fpa-h">Retention</div><div class="fpa-sg" data-s="ret"></div></section>
       <section class="fpa-sec s3"><div class="fpa-h">Payment</div><div class="fpa-sg" data-s="pay"></div></section>
       <section class="fpa-sec s1"><div class="fpa-h">Overheads</div><div class="fpa-sg" data-s="ohp"></div></section>
-      <section class="fpa-sec s4"><div class="fpa-h">Monthly Application Dates <span class="fpa-hint">Leave a month blank to use the application day</span></div><div data-s="appd"></div></section>
+      <section class="fpa-sec s4"><div class="fpa-h">Monthly Application Dates <span class="fpa-hint">Filled in from the application day. Change any month by hand</span></div><div data-s="appd"></div></section>
       <section class="fpa-sec s4"><div class="fpa-h">Billing <span class="fpa-hint" data-s="billhint"></span><span class="fpa-hbtn" data-s="billbtn"></span></div><div class="fpa-sg" data-s="bill"></div></section>
     </div>
     <div class="fpa-foot" data-s="foot"></div>`;
@@ -86,8 +88,17 @@ function finPaLayout(){
   if(oh){ const i = oh.querySelector('input'); fld('finOhpJob', 'Overheads %', 'ohp'); i.placeholder = 'Company figure: '+(i.placeholder||'0')+'%'; i.title = 'Leave blank to use the company figure'; slot('ohp').appendChild(oh); }
   else slot('ohp').closest('.fpa-sec').remove();
   const ad = detCard && detCard.querySelector('details.finappdates');
-  if(ad){ ad.open = true; ad.removeAttribute('style'); slot('appd').appendChild(ad); ad.addEventListener('toggle', ()=>{ if(!ad.open) ad.open = true; }); }
+  // Application jobs: a drop-down, closed to start. Typing the application day fills in every month.
+  if(ad){ ad.open = false; ad.removeAttribute('style'); slot('appd').appendChild(ad);
+    const h = slot('appd').closest('.fpa-sec').querySelector(':scope > .fpa-h'); const sm = ad.querySelector('summary');
+    if(h && sm){ sm.innerHTML = h.innerHTML; sm.className = "fpa-h"; h.remove(); }
+    finPaAppDatesFill(true);
+  }
   else slot('appd').closest('.fpa-sec').remove();
+  if(isInv){
+    const hide = el=>{ if(el) el.style.display = 'none'; };   // hidden, not removed: Save still reads them
+    hide(slot('ret').closest('.fpa-sec')); hide(slot('appd').closest('.fpa-sec')); hide(adf);
+  }
 
   // ---- Billing (from the client in the Directory) ----
   const bill = slot('bill');
@@ -302,5 +313,30 @@ html .fpa input[disabled], html .fpa input[readonly]{background:#F4F5F7 !importa
   .fpa .fpa-foot .fpa-del{margin:0 auto;}
   .fpa [data-s="bill"] > .formfield{grid-column:1 / -1;}
 }`;
+  document.head.appendChild(st);
+})();
+
+/* Monthly application dates follow the application day: each month's box shows its date (the day,
+   or the month's last day if shorter). A date picked by hand stays as it is. */
+document.addEventListener('input', e=>{ if(e.target && e.target.id==='finAppDay') finPaAppDatesFill(false); });
+function finPaAppDatesFill(first){
+  const day = finInt(finVal('finAppDay'));
+  document.querySelectorAll('.finappdates input[data-ym]').forEach(el=>{
+    const ym = el.dataset.ym;
+    const def = day && day>=1 && day<=31 ? ym+'-'+String(Math.min(day, new Date(+ym.slice(0,4), +ym.slice(5,7), 0).getDate())).padStart(2,'0') : '';
+    const hand = first ? (!!el.value && el.value!==el.dataset.def) : el.parentNode.classList.contains('set');
+    if(!hand) el.value = def;
+    el.dataset.def = def;
+    const em = el.parentNode.querySelector('em'); if(em) em.textContent = def ? (hand ? 'Normally '+finDate(def) : 'Application day') : 'No day set';
+    el.parentNode.classList.toggle('set', hand);
+  });
+}
+(function(){
+  const st = document.createElement('style');
+  st.textContent = `.fpa details.finappdates > summary{display:flex !important;align-items:baseline;gap:10px;padding:0 0 5px !important;margin:0 0 8px;cursor:pointer;list-style:none;font-size:inherit;}
+.fpa details.finappdates > summary::-webkit-details-marker{display:none;}
+.fpa details.finappdates > summary::after{content:'';width:8px;height:8px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg);margin:-3px 0 0 4px;opacity:.55;transition:transform .15s;}
+.fpa details.finappdates[open] > summary::after{transform:rotate(-135deg);margin-top:3px;}
+.fpa details.finappdates[open] > summary{margin-bottom:10px;}`;
   document.head.appendChild(st);
 })();

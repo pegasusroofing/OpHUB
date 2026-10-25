@@ -788,8 +788,9 @@ html.desk #finInvPanel{width:calc((100vw - 248px) * .5 - 24px);}`;
 let finSalesSub = {}; // siteId -> 'apps'|'invoices'|'retention'
 function finSalesSubTabsHtml(siteId, bt, nApps){
   const def = (bt==='application' || nApps) ? 'apps' : 'invoices';
-  const cur = finSalesSub[siteId] || def;
-  const tabs = [['apps','Applications & Certificates'],['invoices','Invoices'],['retention','Retention']].filter(t=>t[0]!=='apps' || bt==='application' || nApps);
+  // Invoice jobs: no Retention tab (Andy 26 Oct).
+  const tabs = [['apps','Applications & Certificates'],['invoices','Invoices'],['retention','Retention']].filter(t=>(t[0]!=='apps' || bt==='application' || nApps) && (t[0]!=='retention' || bt!=='invoice'));
+  const cur = tabs.some(t=>t[0]===finSalesSub[siteId]) ? finSalesSub[siteId] : def;
   return `<div class="finsubtabs finsalestabs">${tabs.map(([k,l])=>`<button type="button" data-s="${k}" class="${k===cur?'on':''}" onclick="finSalesSubGo('${siteId}','${k}')">${l}</button>`).join('')}</div>`;
 }
 window.finSalesSubGo = function(siteId, k){
