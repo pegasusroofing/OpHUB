@@ -153,8 +153,14 @@ function finBqdLayout(siteId){
     if(!add){ add = document.createElement('span'); add.className = 'finboqadd'; add.innerHTML = `<button class="ghostbtn" onclick="finContractAdd('section')">+ Section</button><button class="ghostbtn" onclick="finContractAdd('subsection')">+ Sub-section</button><button class="ghostbtn" onclick="finContractAdd('item')">+ Item</button>`; hdr.appendChild(add); }
     const bud = document.createElement('button'); bud.type = 'button'; bud.className = 'ghostbtn bqd-budbtn'; bud.id = 'finBqdBudBtn';
     bud.setAttribute('aria-expanded', 'false'); bud.setAttribute('onclick', 'event.stopPropagation();finBqdBudget()');
-    bud.innerHTML = 'Budget Cost <span aria-hidden="true">▾</span>';
+    bud.innerHTML = 'Budgets <span aria-hidden="true">▾</span>';
     add.prepend(bud);
+    // One "+ Add ▾" button with Section / Sub-section / Item underneath (Andy, 25 Oct)
+    Array.from(add.querySelectorAll('button[onclick*="finContractAdd"]')).forEach(b=>b.remove());
+    const addWrap = document.createElement('span'); addWrap.className = 'bqd-addwrap';
+    addWrap.innerHTML = `<button type="button" class="ghostbtn bqd-addbtn" aria-expanded="false" onclick="event.stopPropagation();finBqdAddMenu()">+ Add <span aria-hidden="true">▾</span></button>
+      <span class="bqd-addmenu" id="finBqdAddMenu" hidden><button type="button" onclick="finBqdAddMenu(false);finContractAdd('section')"><b>Section</b><em>A main heading, e.g. Main Roof</em></button><button type="button" onclick="finBqdAddMenu(false);finContractAdd('subsection')"><b>Sub-section</b><em>A heading inside a section</em></button><button type="button" onclick="finBqdAddMenu(false);finContractAdd('item')"><b>Item</b><em>A priced line</em></button></span>`;
+    add.appendChild(addWrap);
     const panel = document.createElement('div'); panel.className = 'bqd-budpanel'; panel.id = 'finBqdBud'; panel.hidden = true;
     panel.innerHTML = `<div class="bqd-budhead"><b>Budget Cost</b><button type="button" class="bqd-x" aria-label="Close" onclick="finBqdBudget(false)">✕</button></div>
       <p class="bqd-budtxt">Each line’s budget cost is its quantity × cost rate (or a lump sum when there’s no quantity). Type it on each line, or work it out from the sell price with a margin or mark-up % — for every line, or just the ones you’ve ticked.</p>
@@ -239,6 +245,12 @@ function finBqdSum(){
   const p = document.getElementById('finBqdBud'); if(p && !p.hidden) finBqdBudTable();
 }
 
+window.finBqdAddMenu = function(open){
+  const m = document.getElementById('finBqdAddMenu'); if(!m) return;
+  const show = open===undefined ? m.hidden : !!open;
+  m.hidden = !show; const b = document.querySelector('.bqd-addbtn'); if(b) b.setAttribute('aria-expanded', String(show));
+  if(show) setTimeout(()=>document.addEventListener('click', function c(){ finBqdAddMenu(false); document.removeEventListener('click', c); }), 0);
+};
 /* ---------- Budget Cost drop-down ---------- */
 window.finBqdBudget = function(open, focusPct){
   const p = document.getElementById('finBqdBud'); const b = document.getElementById('finBqdBudBtn'); if(!p) return;
@@ -373,6 +385,26 @@ ${L} .bqd-sowst{font-size:12.5px;color:var(--slate);}
 ${L} .bqd-acts .fincontot{margin-left:auto;}
 ${L} .bqd-acts .fincontot > :not(.finctauto){display:none !important;}
 ${L} .bqd-hint{font-size:12px;color:var(--slate);margin:10px 0 0;line-height:1.4;}
+/* 25 Oct (Andy): smaller tick boxes and buttons, "+ Add ▾", boxes across the whole row */
+${L} .fincsel, ${L} .fincsel input[type=checkbox], ${L} input[type=checkbox].fincsel{width:14px !important;height:14px !important;min-width:14px;margin:0 !important;transform:none;}
+${L} .fincrow-head{grid-template-columns:14px 64px minmax(0,1fr) 30px !important;}
+${L} #finCtBulk input[type=checkbox]{width:14px !important;height:14px !important;}
+${L} .finboqadd .ghostbtn{height:28px !important;min-height:28px !important;padding:0 10px !important;font-size:12.5px !important;border-radius:7px !important;}
+${L} .bqd-budbtn{margin-right:4px !important;gap:4px !important;}
+${L} .bqd-addwrap{position:relative;display:inline-flex;}
+${L} .bqd-addbtn span{font-size:10px;color:var(--slate);margin-left:2px;}
+${L} .bqd-addmenu{position:absolute;right:0;top:calc(100% + 6px);z-index:31;min-width:230px;background:#fff;border:1px solid #E1E4EA;border-radius:10px;box-shadow:0 12px 30px rgba(16,24,40,.16);padding:5px;display:flex;flex-direction:column;}
+${L} .bqd-addmenu[hidden]{display:none !important;}
+${L} .bqd-addmenu button{all:unset;box-sizing:border-box;cursor:pointer;display:flex;flex-direction:column;padding:7px 10px;border-radius:7px;text-align:left;}
+${L} .bqd-addmenu button:hover, ${L} .bqd-addmenu button:focus-visible{background:#F4F6F9;}
+${L} .bqd-addmenu b{font-size:13px;} ${L} .bqd-addmenu em{font-style:normal;font-size:11.5px;color:var(--slate);}
+${L} .bqd-acts .darkbtn, ${L} .bqd-acts .ghostbtn{height:30px !important;min-height:30px !important;padding:0 12px !important;font-size:12.5px !important;border-radius:8px !important;}
+${L} .fincrow.item .fincpills{display:flex !important;flex-wrap:nowrap;gap:4px;width:100%;}
+${L} .fincrow.item .fincpill{flex:1 1 auto;min-width:max-content;justify-content:space-between;}
+${L} .fincrow.item .fincpill input{flex:1 1 auto;max-width:none;text-align:right;}
+${L} .fincrow.item .fincpill input[data-bqn=u]{text-align:left;}
+${L} .fincrow.item .fincpill.mg{flex:1 1 auto;justify-content:flex-start;}
+${L} .fincrow.item .fincpills .fincrow-plot{flex:1 1 auto;min-width:max-content;}
 /* upload, top right of the tab row */
 html.desk .finboqsub{align-items:center;}
 html.desk .finboqsub .bqd-up{margin-left:auto;display:flex;align-items:center;gap:12px;padding:0 2px;flex:none;}
