@@ -58,7 +58,7 @@ function storageParse(u){
 function signedFor(p){
   const c = SIGNED[p.key];
   if(!c || c.e - Date.now() < SIGNED_MIN_LEFT_MS) return null;
-  let u = c.u;
+  let u = signedUrlSafe(c.u);
   if(p.query){
     const extra = p.query.split('&').filter(x=>x && !/^token=/.test(x));
     if(extra.length) u += '&' + extra.join('&');
@@ -108,7 +108,7 @@ async function flushSignQueue(){
         (Array.isArray(rows) ? rows : []).forEach(r=>{
           const s = r && (r.signedURL || r.signedUrl);
           if(s && r.path && !r.error){
-            SIGNED[bucket+'/'+r.path] = {u: s.indexOf('http')===0 ? s : SUPABASE_URL+'/storage/v1'+(s.charAt(0)==='/'?'':'/')+s, e: exp};
+            SIGNED[bucket+'/'+r.path] = {u: signedUrlSafe(s.indexOf('http')===0 ? s : SUPABASE_URL+'/storage/v1'+(s.charAt(0)==='/'?'':'/')+s), e: exp};
             got.add(r.path);
           }
         });
@@ -119,6 +119,10 @@ async function flushSignQueue(){
   }));
   signedSave();
 }
+// Fix round 2 (SEC-H2): the signed link is swapped into src="…" and
+// onclick="viewImage('…')" on the page, so any quote, bracket, space or
+// angle bracket in it (from an odd file name) is percent-encoded first.
+function signedUrlSafe(u){ return String(u).replace(/['"()<>\\\s`]/g, c=>'%'+('0'+c.charCodeAt(0).toString(16).toUpperCase()).slice(-2)); }
 // Always resolves: the signed link, or the original address if it can't be signed.
 async function resolveStorageUrl(u){
   const p = storageParse(u);
@@ -178,8 +182,17 @@ if(_origOpen){
     if(!p) return _origOpen.apply(window, arguments);
     const r = signedFor(p);
     if(r) return _origOpen.apply(window, [r].concat(rest));
+    // Fix round 2 (CORE-M8): the phone app's '_system' (hand it to the real
+    // browser) has no pop-up blocker — sign first, then open. Never turn a
+    // new-window open into navigating the app itself away.
+    const target = rest.length ? String(rest[0]||'') : '_blank';
+    if(target === '_system'){ resolveStorageUrl(s).then(u=>{ try{ _origOpen.apply(window, [u].concat(rest)); }catch(e){} }); return null; }
+    if(target === '_self'){ resolveStorageUrl(s).then(u=>{ location.href = u; }); return null; }
     const w = _origOpen.apply(window, ['about:blank'].concat(rest)); // opened now so it isn't blocked
-    resolveStorageUrl(s).then(u=>{ try{ if(w) w.location.href = u; else location.href = u; }catch(e){ location.href = u; } });
+    resolveStorageUrl(s).then(u=>{
+      try{ if(w && !w.closed){ w.location.href = u; return; } }catch(e){}
+      try{ const w2 = _origOpen.apply(window, [u].concat(rest)); if(!w2 && typeof toast==='function') toast('Your browser blocked the file from opening — allow pop-ups for OpHUB and try again.'); }catch(e){}
+    });
     return w;
   };
 }

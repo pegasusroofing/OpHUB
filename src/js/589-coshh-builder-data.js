@@ -56,6 +56,7 @@ function coshhSuggestPictos(h){
 }
 function coshhSuggestSignal(h){
   if(!h.length) return '';
-  const danger = /^(H20[0-3]|H220|H222|H224|H225|H230|H231|H240|H241|H250|H260|H270|H271|H300|H301|H304|H310|H311|H314|H318|H330|H331|H334|H340|H350|H360|H370|H372)/;
+  // CLP 'Danger' hazard statements (the rest carry 'Warning').
+  const danger = /^(H20[0-3]|H20[5-7]|H220|H222|H224|H225|H230|H231|H232|H240|H241|H250|H251|H260|H270|H271|H300|H301|H304|H310|H311|H314|H318|H330|H331|H334|H340|H350|H360|H370|H372)/;
   return h.some(c=>danger.test(c)) ? 'Danger' : 'Warning';
 }

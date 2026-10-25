@@ -83,8 +83,9 @@ async function renderMcInspections(siteId){
         </div>
       ` : ''}
     ` : ''}
+    ${!canAdd && submissions.length ? `<p class="stub" style="margin:0 0 8px;">Ask a project manager if you need to see a full inspection report.</p>` : ''}
     ${submissions.map(s=>`
-      <div class="sitecard" style="cursor:pointer;" onclick="go('#/site/${siteId}/snagging/reports/${s.status==='in_progress'?'fill':'view'}/${s.id}')">
+      <div class="sitecard" ${canAdd ? `style="cursor:pointer;" onclick="go('#/site/${siteId}/snagging/reports/${s.status==='in_progress'?'fill':'view'}/${s.id}')"` : ''}>
         <div class="info">
           <div class="name">${escapeHtml(s.template_name)}</div>
           <div class="addr">${s.status==='in_progress' ? 'Started' : ('Submitted '+new Date(s.submitted_at).toLocaleString('en-GB'))} · ${escapeHtml(nameOf(s.submitted_by))}</div>

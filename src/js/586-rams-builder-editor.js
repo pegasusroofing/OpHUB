@@ -100,25 +100,64 @@ window.ramsSeedAndReload = async function(){
   const rows = await ramsSeedLibrary();
   if(rows) toast('Starter library loaded'); render();
 };
+// Takes the next RA / MS numbers for a new RAMS straight from the database
+// and moves them on in one guarded update ("only if nobody else has taken
+// this number since I read it"), so two PMs starting RAMS at the same time
+// never both get RA-0042. Returns {ra, ms}, or null if it couldn't (then the
+// caller falls back to the saved copy, as before).
+async function ramsReserveNumbers(){
+  let lastSeen = null;
+  for(let attempt=0; attempt<4; attempt++){
+    const rows = await dbSelectNet('organizations', 'id=eq.'+ME.org_id+'&select=rams_settings&limit=1');
+    if(!rows || !rows[0]) return null;
+    const cur = rows[0].rams_settings || {};
+    if(ORG) ORG.rams_settings = cur;
+    if(lastSeen !== null && String(cur.nextRa) === lastSeen) return null; // update matched nothing and nobody else moved it: no permission
+    lastSeen = String(cur.nextRa);
+    const ra = Number(cur.nextRa)||1, ms = Number(cur.nextMs)||1;
+    const next = Object.assign({}, cur, {nextRa: ra+1, nextMs: ms+1});
+    const guard = cur.nextRa==null ? 'rams_settings->>nextRa=is.null' : 'rams_settings->>nextRa=eq.'+encodeURIComponent(String(cur.nextRa));
+    try{
+      const res = await sbFetch('/rest/v1/organizations?id=eq.'+ME.org_id+'&'+guard, {method:'PATCH', headers:{'Prefer':'return=representation'}, body: JSON.stringify({rams_settings: next})});
+      if(!res || !res.ok) return null;
+      const out = await res.json();
+      if(Array.isArray(out) && out.length){ if(ORG) ORG.rams_settings = next; return {ra, ms}; }
+    }catch(e){ return null; }
+  }
+  return null;
+}
 window.ramsCreate = async function(siteId){
+  if(ramsCreateBusy) return;
+  ramsCreateBusy = true;
+  try{ await ramsCreateInner(siteId); } finally { ramsCreateBusy = false; }
+};
+let ramsCreateBusy = false;
+async function ramsCreateInner(siteId){
   const site = SITES.find(s=>s.id===siteId);
   const tplIds = Array.from(document.querySelectorAll('.ramsTplPick:checked')).map(c=>c.value);
   const copyIds = Array.from(document.querySelectorAll('.ramsCopyPick:checked')).map(c=>c.value);
   const title = (document.getElementById('ramsNewTitle').value||'').trim() || 'RAMS';
   const details = ramsDefaultDetails(site);
+  const nums = await ramsReserveNumbers();
+  if(nums){ details.raNumber = String(nums.ra).padStart(10,'0'); details.msNumber = String(nums.ms); }
   let hazards = [], sections = [], ppe = RAMS_DEFAULT_PPE.slice();
   // Several templates / copied RAMS are combined; an item in more than one is only added once.
   const key = x => String(x.title||'').trim().toLowerCase();
   const addH = h => { if(h && !hazards.some(x=>key(x)===key(h))) hazards.push(h); };
   const addS = x => { if(x && !sections.some(y=>key(y)===key(x) && y.part===x.part)) sections.push(x); };
   const addGroups = gs => (gs||[]).forEach(g=>{ if(!details.groups.includes(g)) details.groups.push(g); });
+  const missing = []; // template entries not found in the library
   if(tplIds.length){
     const lib = await ramsLoadLibrary();
-    const byTitle = (kind, t) => lib.find(i=>i.kind===kind && i.title===t);
+    // Templates name their library items by title (renaming an item updates
+    // the templates too — see ramsLibSave). Matched exactly first, then
+    // ignoring case and spaces; anything still missing is reported below.
+    const norm = t => String(t||'').trim().toLowerCase();
+    const byTitle = (kind, t) => lib.find(i=>i.kind===kind && i.title===t) || lib.find(i=>i.kind===kind && norm(i.title)===norm(t));
     tplIds.forEach(id=>{
       const tpl = lib.find(i=>i.id===id); if(!tpl) return;
-      (tpl.data.hazards||[]).forEach(h=> addH(typeof h==='string' ? (byTitle('hazard',h) ? ramsHazardFromLib(byTitle('hazard',h)) : null) : Object.assign({}, h, {id:ramsUid(), controls:(h.controls||[]).slice()})));
-      (tpl.data.sections||[]).forEach(x=> addS(typeof x==='string' ? (byTitle('section',x) ? ramsSectionFromLib(byTitle('section',x)) : null) : Object.assign({}, x, {id:ramsUid(), steps:(x.steps||[]).slice()})));
+      (tpl.data.hazards||[]).forEach(h=>{ if(typeof h==='string' && !byTitle('hazard',h)) missing.push(h); addH(typeof h==='string' ? (byTitle('hazard',h) ? ramsHazardFromLib(byTitle('hazard',h)) : null) : Object.assign({}, h, {id:ramsUid(), controls:(h.controls||[]).slice()})); });
+      (tpl.data.sections||[]).forEach(x=>{ if(typeof x==='string' && !byTitle('section',x)) missing.push(x); addS(typeof x==='string' ? (byTitle('section',x) ? ramsSectionFromLib(byTitle('section',x)) : null) : Object.assign({}, x, {id:ramsUid(), steps:(x.steps||[]).slice()})); });
       (tpl.data.ppe||[]).forEach(k=>{ if(!ppe.includes(k)) ppe.push(k); });
       addGroups(tpl.data.groups);
     });
@@ -138,13 +177,13 @@ window.ramsCreate = async function(siteId){
   sections = sections.filter(x=>x.part!=='method').concat(sections.filter(x=>x.part==='method'));
   const rows = await dbInsert('rams_builds', [{org_id:ME.org_id, site_id:siteId, title, details, hazards, sections, ppe, created_by:ME.id}]);
   if(!rows || !rows[0]) return;
-  // Reserve the document numbers.
-  const st = ramsSettings();
-  saveRamsSettings({nextRa: st.nextRa+1, nextMs: st.nextMs+1});
+  // Numbers couldn't be reserved up front: move the saved counter on the old way.
+  if(!nums){ const st = ramsSettings(); await saveRamsSettings({nextRa: st.nextRa+1, nextMs: st.nextMs+1}); }
   logSiteActivity(siteId, 'rams_build_created', `Started RAMS "${title}"`);
   ramsEd = null;
   go('#/site/'+siteId+'/hs/rams/build/'+rows[0].id);
-};
+  if(missing.length) customAlert(`Heads up: ${missing.length===1?'one item':missing.length+' items'} in the template could not be found in the RAMS library, so ${missing.length===1?'it was':'they were'} not added: ${missing.join(' · ')}. Add ${missing.length===1?'it':'them'} from the library in the editor, and fix the template in the RAMS Library.`);
+}
 
 // ---------- Editor ----------
 async function renderRamsBuild(siteId, buildId){

@@ -81,7 +81,8 @@ window.saveFinSubcontract = async function(siteId, id){
   else {
     r = await finScInsertNumbered('fin_subcontracts',
       async ()=>{ const ex = await dbSelectNet('fin_subcontracts', 'site_id=eq.'+siteId+'&select=seq&order=seq.desc&limit=1'); return (ex[0] ? ex[0].seq : 0) + 1; },
-      seq=>Object.assign({org_id:ME.org_id, site_id:siteId, seq, number:'SC-'+String(seq).padStart(3,'0'), created_by:ME.id}, row));
+      seq=>Object.assign({org_id:ME.org_id, site_id:siteId, seq, number:'SC-'+String(seq).padStart(3,'0'), created_by:ME.id}, row),
+      seq=>'SC-'+String(seq).padStart(3,'0'));
   }
   if(!r) return;
   const saved = Array.isArray(r) ? r[0] : r;
@@ -91,19 +92,27 @@ window.saveFinSubcontract = async function(siteId, id){
   if(!id && r[0]) go('#/site/'+siteId+'/finance/sub/'+r[0].id); else render();
 };
 
-/* Numbered insert (SC-001, application 1, 2…). The next number is worked out
-   here, so two people saving at the same moment could pick the same one. When
-   the database has a unique rule on the number it answers 409 and we simply
-   take the next number and try again (up to 4 goes). */
-async function finScInsertNumbered(table, nextNo, build){
+/* Numbered insert (SC-001, application 1, 2…, V001, DW001). The next number is worked out
+   here, so two people saving at the same moment could pick the same one. When the database
+   has a unique rule on the number it answers 409 / 23505 and we take the next number and try
+   again (up to 4 goes), and say so. Any other error is shown as it is (FX-P7).
+   label(n) gives the number as people see it, for the "someone else took…" message. */
+async function finScInsertNumbered(table, nextNo, build, label){
+  let first = null;
   for(let go_ = 0; go_ < 4; go_++){
     const n = await nextNo();
+    if(first===null) first = n;
     let res;
     try{ res = await sbFetch('/rest/v1/'+table, {method:'POST', headers:{'Prefer':'return=representation'}, body:JSON.stringify(build(n))}); }
     catch(e){ toast('Save failed — connection dropped. Check your signal and try again.'); return null; }
-    if(res.ok) return await res.json();
-    if(res.status === 409) continue;
-    toast('Save failed — '+(await safeErr(res))); return null;
+    if(res.ok){
+      const out = await res.json();
+      if(n!==first && label) toast('Someone else took '+label(first)+' at the same moment — this one is '+label(n)+'.');
+      return out;
+    }
+    const e = await finDupKeyCheck(res);
+    if(e.dup) continue;
+    toast('Save failed — '+e.msg); return null;
   }
   toast('Save failed — someone else was saving at the same moment. Please try again.'); return null;
 }
@@ -253,7 +262,8 @@ window.saveFinSubApp = async function(certify){
   else {
     r = await finScInsertNumbered('fin_sub_apps',
       async ()=>{ const ex = await dbSelectNet('fin_sub_apps', 'subcontract_id=eq.'+s.sc.id+'&select=number&order=number.desc&limit=1'); return (ex[0]?ex[0].number:0)+1; },
-      number=>Object.assign({org_id:ME.org_id, site_id:s.siteId, subcontract_id:s.sc.id, number, created_by:ME.id}, row));
+      number=>Object.assign({org_id:ME.org_id, site_id:s.siteId, subcontract_id:s.sc.id, number, created_by:ME.id}, row),
+      number=>'application '+number);
   }
   if(!r) return;
   document.getElementById('finSaOverlay').style.display = 'none';
@@ -283,7 +293,8 @@ window.markFinSubAppPaid = async function(id){
     const gross = finRound(Number(a.net_due) + contraNow);
     const labour = Math.max(0, finRound(gross - materials));
     const ins = await dbInsert('fin_sub_payments', {org_id:ME.org_id, worker_id:sc.worker_id||null, name:sc.name, utr:sc.utr||null, sub_app_id:a.id, period_start:a.app_date, period_end:a.app_date,
-      lines:[{site_id:a.site_id, description:sc.number+' application '+a.number, days:1, rate:labour, amount:labour}], labour, materials, gross, cis_rate:sc.cis_rate, cis_deduction:Number(a.cis_deduction), net_pay:Number(a.pay_amount), status:'paid', paid_on:today, created_by:ME.id});
+      lines:[{site_id:a.site_id, description:sc.number+' application '+a.number, days:1, rate:labour, amount:labour}], labour, materials, gross, cis_rate:sc.cis_rate, cis_deduction:Number(a.cis_deduction), net_pay:Number(a.pay_amount), status:'paid', paid_on:today, created_by:ME.id,
+      contra:contraNow || 0});   // FIN-NEW-01: this period's contra, so the Xero bill can take it off as a negative line
     if(!ins || (Array.isArray(ins) && !ins.length)){ toast('Not marked paid — the CIS record didn’t save. Please try again.'); return; }
   }
   if(a.status!=='paid'){

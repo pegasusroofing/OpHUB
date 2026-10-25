@@ -21,11 +21,46 @@ const HR_COLOURS = ['#D32F2F','#2457C5','#17804A','#B35A00','#7B3FB5','#0E7F7C',
   '#F4511E','#0288D1','#43A047','#8E24AA','#00897B','#6D4C41','#3949AB','#C0CA33','#EC407A','#26A69A','#FB8C00','#5C6BC0','#7CB342','#212121'];
 // England & Wales bank holidays (gov.uk). Auto-booked for PMs / site managers
 // (not admins) and taken out of their 28-day allowance.
-const HR_BANK_HOLS = new Set([
+// Fix round 2 (CORE-L5): the list used to stop at 2028. These known years
+// are kept as published; any other year is worked out from the standard
+// rules (New Year, Good Friday, Easter Monday, early May, spring and summer
+// Mondays, Christmas and Boxing Day, moved to the Monday/Tuesday when they
+// fall at a weekend). One-off extra days (e.g. a coronation) still need
+// adding here by hand.
+const HR_BANK_HOLS_KNOWN = [
   '2026-01-01','2026-04-03','2026-04-06','2026-05-04','2026-05-25','2026-08-31','2026-12-25','2026-12-28',
   '2027-01-01','2027-03-26','2027-03-29','2027-05-03','2027-05-31','2027-08-30','2027-12-27','2027-12-28',
   '2028-01-03','2028-04-14','2028-04-17','2028-05-01','2028-05-29','2028-08-28','2028-12-25','2028-12-26',
-]);
+];
+function hrBankHolsForYear(y){
+  const iso = d => d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  const D = (m, day) => new Date(y, m, day);
+  const add = (d, n) => { const x = new Date(d); x.setDate(x.getDate()+n); return x; };
+  // Easter Sunday (Anonymous Gregorian algorithm)
+  const a = y%19, b = Math.floor(y/100), c = y%100, d = Math.floor(b/4), e = b%4, f = Math.floor((b+8)/25), g = Math.floor((b-f+1)/3);
+  const h = (19*a+b-d-g+15)%30, i = Math.floor(c/4), k = c%4, l = (32+2*e+2*i-h-k)%7, m = Math.floor((a+11*h+22*l)/451);
+  const em = Math.floor((h+l-7*m+114)/31)-1, ed = ((h+l-7*m+114)%31)+1;
+  const easter = D(em, ed);
+  const firstMon = mo => { let x = D(mo, 1); while(x.getDay()!==1) x = add(x, 1); return x; };
+  const lastMon = mo => { let x = D(mo+1, 0); while(x.getDay()!==1) x = add(x, -1); return x; };
+  let ny = D(0, 1); if(ny.getDay()===6) ny = D(0, 3); else if(ny.getDay()===0) ny = D(0, 2);
+  const xd = D(11, 25).getDay();
+  let xmas, boxing;
+  if(xd===5){ xmas = D(11, 25); boxing = D(11, 28); }        // Fri: Boxing Day (Sat) moves to Mon
+  else if(xd===6){ xmas = D(11, 27); boxing = D(11, 28); }   // Sat: Mon + Tue
+  else if(xd===0){ xmas = D(11, 27); boxing = D(11, 26); }   // Sun: Boxing Day Mon, Christmas Tue
+  else { xmas = D(11, 25); boxing = D(11, 26); }
+  return [ny, add(easter, -2), add(easter, 1), firstMon(4), lastMon(4), lastMon(7), xmas, boxing].map(iso);
+}
+const HR_BANK_HOLS = (function(){
+  const set = new Set(HR_BANK_HOLS_KNOWN), done = new Set(['2026','2027','2028']);
+  const ensure = y => { y = String(y||'').slice(0,4); if(!/^\d{4}$/.test(y) || done.has(y)) return; done.add(y); try{ hrBankHolsForYear(Number(y)).forEach(d=>set.add(d)); }catch(e){} };
+  return {
+    has(dStr){ ensure(dStr); return set.has(dStr); },
+    forEach(fn){ set.forEach(fn); },
+    ensureYear: ensure,
+  };
+})();
 function hrIsWorkingDay(dStr){ const d = new Date(dStr+'T00:00:00'); const wd = d.getDay(); return wd!==0 && wd!==6 && !HR_BANK_HOLS.has(dStr); }
 function hrEachDay(a, b, fn){ const d = new Date(a+'T00:00:00'), e = new Date(b+'T00:00:00'); while(d <= e){ fn(localISODate(d)); d.setDate(d.getDate()+1); } }
 // #(hr-part-days) 2026-10-17: a booking over several days can start in the
@@ -62,7 +97,7 @@ async function hrLoad(force){
   const [settingsRows, hpRows, leave] = await Promise.all([
     dbSelect('hr_settings', 'org_id=eq.'+ME.org_id+'&limit=1'),
     dbSelect('hr_people', 'org_id=eq.'+ME.org_id),
-    dbSelect('hr_leave', 'org_id=eq.'+ME.org_id+'&end_date=gte.'+(y-1)+'-01-01&start_date=lte.'+(y+1)+'-12-31&order=start_date.asc&limit=2000'),
+    dbSelectAll('hr_leave', 'org_id=eq.'+ME.org_id+'&end_date=gte.'+(y-1)+'-01-01&start_date=lte.'+(y+1)+'-12-31&order=start_date.asc,id.asc'), // paged: never cut off at 1000 rows (CORE-M5)
   ]);
   const settings = Object.assign({max_off_at_once:2, approval_required:true, type_codes:Object.assign({}, HR_DEFAULT_CODES)}, settingsRows[0]||{});
   settings.type_codes = Object.assign({}, HR_DEFAULT_CODES, settings.type_codes||{});
@@ -80,7 +115,7 @@ function hrAllowance(uid){ const r = HR && HR.hp[uid]; return r && r.allowance_d
 // #(hr-bank-hols) Bank holidays are booked automatically for everyone on the
 // holiday calendar except admins.
 function hrGetsBankHols(uid){ const p = PROFILES && PROFILES[uid]; return !!p && p.role!=='admin'; }
-function hrBankHolCount(year){ let n = 0; HR_BANK_HOLS.forEach(d=>{ if(d.slice(0,4)===String(year)) n++; }); return n; }
+function hrBankHolCount(year){ HR_BANK_HOLS.ensureYear(year); let n = 0; HR_BANK_HOLS.forEach(d=>{ if(d.slice(0,4)===String(year)) n++; }); return n; }
 function hrCode(type){ return ((HR && HR.settings.type_codes[type]) || HR_DEFAULT_CODES[type] || '??').toUpperCase().slice(0,2); }
 function hrInitials(uid){ return (nameOf(uid)||'?').split(' ').filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase(); }
 function hrUsed(uid, year, statuses){
@@ -418,7 +453,7 @@ window.hrEmailPolicy = async function(id){
     const path = 'company-policies/'+ME.org_id+'/exports/'+crypto.randomUUID()+'-'+b.filename.replace(/[^a-z0-9.\-]+/gi,'_');
     const stored = await uploadToStorage('mc-documents', path, new Blob([b.bytes], {type:'application/pdf'}), 'application/pdf');
     if(!stored){ toast('Could not upload the PDF.'); return; }
-    const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', timeoutMs:90000, body: JSON.stringify({general_label: b.p.kind==='handbook'?'Company handbook':'Company policy', recipient_email: email, cc_email: email!==ME.email ? ME.email : undefined, doc_title: b.p.title+' (signed)', file_url: publicUrl('mc-documents', stored)})});
+    const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', timeoutMs:90000, body: JSON.stringify({general_label: b.p.kind==='handbook'?'Company handbook':'Company policy', recipient_email: email, cc_email: email!==ME.email ? ME.email : undefined, doc_title: b.p.title+' (signed)', file_url: publicUrl('mc-documents', stored), storage_bucket: 'mc-documents', storage_path: stored})}); // storage_path lets the email function fetch the private file itself (CORE-L8)
     toast(res && res.ok ? 'Emailed' : 'Could not send the email — '+(await safeErr(res)));
   }catch(e){ console.error(e); toast('Could not send the email.'); }
 };

@@ -102,7 +102,7 @@ finForecastCardHtml = function(siteId, fc){
   // Value
   let vT;
   { const lab = FIN_SUM_V.find(o=>o[0]===vk)[1], m = finPickMenuHtml('Show', FIN_SUM_V, vk, 'finSumSet', 'v');
-    if(vk==='ffa') vT = tile(lab, m, finMoney(fc.ffa, 0), fc.origValue!=null ? ff('Original', finMoney(fc.origValue, 0)) : ff('Contract + Variations', finMoney(fc.ffa, 0)), diff(fc.ffa, fc.origValue));
+    if(vk==='ffa') vT = tile(lab, m, finMoney(fc.ffa, 0), fc.origValue!=null ? ff('Original', finMoney(fc.origValue, 0)) : ff('Incl. Submitted Variations', finMoney(fc.vPending||0, 0)), diff(fc.ffa, fc.origValue));
     else if(vk==='contract') vT = tile(lab, m, finMoney(fc.contract, 0), ff('Agreed Variations', finMoney(fc.vAgreed, 0)));
     else { const v = finSumValueOf(fc, vk), p = fc.ffa ? finRound(v/fc.ffa*100) : null;
       vT = tile(lab, m, finMoney(v, 0), ff('Of Forecasted Final Account', finPctTxt(p))+bar(p, false, 'blue')); } }

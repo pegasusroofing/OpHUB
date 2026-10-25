@@ -30,7 +30,10 @@ function finInvTotals(lines, vatTreatment, vatRate){
     const b = by[k] = by[k] || {net:0, vat:0}; b.net += a;
     // VAT is rounded on each line, the way Xero does it, so OpHUB and Xero totals match to the penny
     // and the VAT rows always add up to the VAT total (audit FA-10 / FA-21, 24 Oct).
-    const v = finRound(a*c.r/100);
+    // FX-P3: worked in whole pence and rounded half away from zero (as Xero does), so £20.10 at 5%
+    // is £1.01 (not 1.00 from float error) and a −½p line rounds to −1p, not 0.
+    const pp = Math.round(a*100)*c.r;
+    const v = (pp<0 ? -1 : 1)*Math.round(Math.abs(pp)/100)/100;
     if(c.rc){ vatDue += v; b.vat += v; } else { vat += v; b.vat += v; }
   });
   Object.values(by).forEach(b=>{ b.net = finRound(b.net); b.vat = finRound(b.vat); });

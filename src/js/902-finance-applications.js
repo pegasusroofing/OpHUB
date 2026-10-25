@@ -211,13 +211,15 @@ window.finContractPaintTotal = function(){
 };
 window.finContractAdd = function(kind){ finContractRows.push({kind, ref:'', description:'', qty:null, unit:'', rate:null, value:null}); finContractPaint(); };
 window.saveFinContract = async function(siteId){
-  const rows = finContractRows.map((r,_i)=>({_i, id:r.id, sub:r.sub||null, _task_id:r._task_id||null, _sec_id:r._sec_id||null, kind:r.kind||'item', ref:String(r.ref||'').trim()||null, description:String(r.description||'').trim(),
+  const rows = finContractRows.map((r,_i)=>({_i, _o:r, id:r.id, sub:r.sub||null, _task_id:r._task_id||null, _sec_id:r._sec_id||null, kind:r.kind||'item', ref:String(r.ref||'').trim()||null, description:String(r.description||'').trim(),
       qty: (finNum(r.qty)===null||isNaN(finNum(r.qty))) ? null : finNum(r.qty), unit:String(r.unit||'').trim()||null,
       rate: (finNum(r.rate)===null||isNaN(finNum(r.rate))) ? null : finNum(r.rate), value: finItemValue(r), cost:(r.cost==null||isNaN(r.cost))?null:finRound(Number(r.cost)), cost_basis:r.cost_basis||null, cost_pct:r.cost_pct==null?null:Number(r.cost_pct)}))
     .filter(r=>r.description || r.value!==null);
   if(rows.some(r=>!r.description)){ toast('Every line needs a description.'); return; }
   if(rows.some(r=>finIsItem(r) && r.value===null)){ toast('Every item needs a value (quantity × rate, or a lump sum).'); return; }
   const btn = document.getElementById('finContractSave'); if(btn){ btn.disabled = true; btn.textContent = 'Saving…'; }
+  // FX-P8: what's being saved, so lines added or changed while it saves aren't thrown away at the end.
+  const startSnap = finContractSnapOf(finContractRows), liveRows = finContractRows;
   // A failed read used to look like "no lines saved yet", so every line was added again (audit FA-23 / FB-07).
   const exR = await dbSelectChecked('fin_contract_items', 'site_id=eq.'+siteId+'&select=id');
   if(!exR.ok){ if(btn){ btn.disabled = false; btn.textContent = 'Save Bill of Quantities'; } toast('Couldn’t reach the server, so nothing was saved — check your signal and tap Save again.'); return; }
@@ -254,8 +256,19 @@ window.saveFinContract = async function(siteId){
     rows.forEach(r=>{ if(r.id && finContractRows[r._i]) finContractRows[r._i].id = r.id; });
     return;
   }
-  finContractRows = null; finContractFile = null;
+  finContractFile = null;
   if(btn){ btn.disabled = false; btn.textContent = 'Save schedule'; }
+  // FX-P8: give the lines on screen their new ids; if anything was added / moved / typed while this
+  // was saving, keep the screen as it is and save those changes straight after (9219n autosave).
+  rows.forEach(r=>{ if(r.id && r._o) r._o.id = r.id; });
+  if(finContractRows && finContractRows===liveRows && finContractSnapOf(finContractRows)!==startSnap){
+    finContractSnap = startSnap;
+    toast('Schedule saved — saving your latest changes now');
+    render();
+    if(typeof finContractAutoSave==='function') finContractAutoSave();
+    return;
+  }
+  finContractRows = null;
   toast('contract_value' in patch ? 'Schedule saved — contract value '+finMoney(total) : 'Schedule saved — Bill of Quantities '+finMoney(total)+' (typed contract value kept)');
   render();
 };
@@ -466,12 +479,26 @@ window.newFinApplication = async function(siteId){
     try{ res = await sbFetch('/rest/v1/fin_applications', {method:'POST', headers:{'Prefer':'return=representation'}, body:JSON.stringify(row)}); }
     catch(e){ toast('Save failed — connection dropped. Check your signal and try again.'); return; }
     if(res.ok){ ins = await res.json(); break; }
-    const err = await safeErr(res);
-    if(res.status===409 && tries < 3){
+    // FX-P7: only a unique-key clash (23505) means the number was taken; anything else is a real error.
+    const e = await finDupKeyCheck(res);
+    if(e.dup && tries < 3){
+      // FX-P6: someone else has just started this application — if it's a fresh draft, open theirs
+      // rather than making a second one for the same period.
+      const clash = await dbSelectChecked('fin_applications', 'site_id=eq.'+siteId+'&number=eq.'+row.number+'&select=id,number,status,created_at,created_by');
+      const c = clash.ok && clash.data[0];
+      if(c && c.status==='draft' && c.created_at && Date.now() - new Date(c.created_at).getTime() < 15*60*1000){
+        toast('Application '+c.number+' was started '+(c.created_by && c.created_by!==ME.id ? 'by '+(((PROFILES||{})[c.created_by]||{}).name||'someone else') : 'a moment ago')+' — opening it.');
+        go(`#/site/${siteId}/finance/application/${c.id}`); return;
+      }
       const top = await dbSelectChecked('fin_applications', 'site_id=eq.'+siteId+'&select=number&order=number.desc&limit=1');
-      if(top.ok){ row.number = ((top.data[0] && top.data[0].number) || 0) + 1; continue; }
+      if(top.ok){
+        const was = row.number;
+        row.number = ((top.data[0] && top.data[0].number) || 0) + 1;
+        toast('Application '+was+' was started by someone else a moment ago — this one is Application '+row.number+'.');
+        continue;
+      }
     }
-    toast('Save failed — '+err); return;
+    toast('Save failed — '+e.msg); return;
   }
   if(ins && ins[0]) go(`#/site/${siteId}/finance/application/${ins[0].id}`);
 };

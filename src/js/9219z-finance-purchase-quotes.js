@@ -14,7 +14,7 @@ async function finPqLoad(siteId){
   const c = finPqCache[siteId]; if(c && Date.now()-c.at < 60000) return c;
   const [quotes, items] = await Promise.all([
     dbSelect('fin_quotes', 'org_id=eq.'+ME.org_id+'&purpose=eq.pquote&or=(site_id.eq.'+siteId+',site_id.is.null)&order=created_at.desc').catch(()=>[]),
-    dbSelect('fin_quote_items', 'org_id=eq.'+ME.org_id+'&or=(site_id.eq.'+siteId+',site_id.is.null)&active=eq.true&order=position.asc&limit=10000').catch(()=>[]),
+    finSelectAll('fin_quote_items', 'org_id=eq.'+ME.org_id+'&or=(site_id.eq.'+siteId+',site_id.is.null)&active=eq.true&order=position.asc').catch(()=>[]),
   ]);
   return (finPqCache[siteId] = {quotes, items, at:Date.now()});
 }
@@ -128,7 +128,7 @@ async function renderFinPriceLists(){
   const __gen = RENDER_GEN;
   const [quotes, items] = await Promise.all([
     dbSelect('fin_quotes', 'org_id=eq.'+ME.org_id+'&purpose=eq.pquote&site_id=is.null&order=created_at.desc').catch(()=>[]),
-    dbSelect('fin_quote_items', 'org_id=eq.'+ME.org_id+'&site_id=is.null&select=quote_id&limit=20000').catch(()=>[]),
+    finSelectAll('fin_quote_items', 'org_id=eq.'+ME.org_id+'&site_id=is.null&select=quote_id').catch(()=>[]),
   ]);
   if(__gen !== RENDER_GEN) return;
   document.getElementById('app').innerHTML = shell(`

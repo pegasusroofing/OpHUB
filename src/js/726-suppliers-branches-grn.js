@@ -57,10 +57,10 @@ async function renderSuppliersAdmin(){
           <div class="formfield"><label class="field-label">Our account number</label><input type="text" placeholder="e.g. RTB001 — added to every order email to them" value="${escapeHtml(s.account_number||'')}" onblur="saveSupplierAccount(this,'${s.id}')"></div>
           <p class="opmat-h" style="margin-top:6px;">Branches</p>
           ${brs.map(b=>`<div class="supbranch">
-            <input type="text" placeholder="Branch name, e.g. Stockton" value="${escapeHtml(b.name||'')}" onblur="saveBranchField('${s.id}','${b.id}','name',this.value)">
-            <input type="text" placeholder="Address" value="${escapeHtml(b.address||'')}" onblur="saveBranchField('${s.id}','${b.id}','address',this.value)">
-            <input type="email" placeholder="Branch order email (optional — used instead of the main one)" value="${escapeHtml(b.email||'')}" onblur="saveBranchField('${s.id}','${b.id}','email',this.value)">
-            <div style="display:flex;gap:6px;"><input type="tel" placeholder="Phone (optional)" style="flex:1;" value="${escapeHtml(b.phone||'')}" onblur="saveBranchField('${s.id}','${b.id}','phone',this.value)"><button class="ghostbtn" style="width:auto;color:var(--warn);" onclick="deleteBranch('${s.id}','${b.id}')">🗑</button></div>
+            <input type="text" placeholder="Branch name, e.g. Stockton" value="${escapeHtml(b.name||'')}" onblur="saveBranchField('${s.id}','${b.id}','name',this.value,this)">
+            <input type="text" placeholder="Address" value="${escapeHtml(b.address||'')}" onblur="saveBranchField('${s.id}','${b.id}','address',this.value,this)">
+            <input type="email" placeholder="Branch order email (optional — used instead of the main one)" value="${escapeHtml(b.email||'')}" onblur="saveBranchField('${s.id}','${b.id}','email',this.value,this)">
+            <div style="display:flex;gap:6px;"><input type="tel" placeholder="Phone (optional)" style="flex:1;" value="${escapeHtml(b.phone||'')}" onblur="saveBranchField('${s.id}','${b.id}','phone',this.value,this)"><button class="ghostbtn" style="width:auto;color:var(--warn);" onclick="deleteBranch('${s.id}','${b.id}')">🗑</button></div>
           </div>`).join('') || `<p class="stub" style="margin:0 0 8px;">No branches yet.</p>`}
           <div class="row-gap"><button class="ghostbtn" style="flex:1;" onclick="addBranch('${s.id}')">+ Add branch</button><button class="ghostbtn" style="flex:1;color:var(--warn);" onclick="deleteSupplier(null,'${s.id}')">Delete supplier</button></div>
         </div>` : ''}
@@ -74,23 +74,37 @@ async function renderSuppliersAdmin(){
   `;
   if(__gen === RENDER_GEN) document.getElementById('app').innerHTML = shell(html, {title:'Suppliers', back:'#/team/libraries'});
 }
-async function updateSupplierBranches(supplierId, fn){
-  const s = (await dbSelect('suppliers', 'id=eq.'+supplierId))[0]; if(!s) return null;
-  const brs = fn((Array.isArray(s.branches) ? s.branches : []).map(b=>Object.assign({}, b)));
-  return await dbUpdate('suppliers', supplierId, {branches: brs});
+// PB-16 (fix round 2): each change re-reads the supplier and writes the
+// whole branches list back, so two quick blurs (Name → Address → Phone)
+// could overwrite each other. They now run strictly one after another, and
+// a change that alters nothing isn't written at all.
+let supplierBranchQueue = Promise.resolve();
+const SUPPLIER_BRANCHES_UNCHANGED = {unchanged:true};
+function updateSupplierBranches(supplierId, fn){
+  const run = supplierBranchQueue.then(async ()=>{
+    const s = (await dbSelect('suppliers', 'id=eq.'+supplierId))[0]; if(!s) return null;
+    const before = Array.isArray(s.branches) ? s.branches : [];
+    const brs = fn(before.map(b=>Object.assign({}, b)));
+    if(JSON.stringify(brs) === JSON.stringify(before)) return SUPPLIER_BRANCHES_UNCHANGED;
+    return await dbUpdate('suppliers', supplierId, {branches: brs});
+  });
+  supplierBranchQueue = run.catch(()=>null);
+  return run;
 }
 window.addBranch = async function(supplierId){
   const row = await updateSupplierBranches(supplierId, brs=>brs.concat([{id:'b'+Math.random().toString(36).slice(2,9), name:'', address:'', phone:'', email:''}]));
   if(row) render();
 };
-window.saveBranchField = async function(supplierId, branchId, field, value){
+window.saveBranchField = async function(supplierId, branchId, field, value, el){
+  if(el && String(el.defaultValue||'').trim() === String(value||'').trim()) return; // not changed since it was shown/saved
   const row = await updateSupplierBranches(supplierId, brs=>brs.map(b=>b.id===branchId ? Object.assign(b, {[field]: String(value||'').trim()}) : b));
-  if(row){ const s = (window.MAT_SUPPLIERS||[]).find(x=>x.id===supplierId); if(s) s.branches = row.branches; toast('Saved'); }
+  if(row === SUPPLIER_BRANCHES_UNCHANGED){ if(el) el.defaultValue = String(value||''); return; }
+  if(row){ if(el) el.defaultValue = String(value||''); const s = (window.MAT_SUPPLIERS||[]).find(x=>x.id===supplierId); if(s) s.branches = row.branches; toast('Saved'); }
 };
 window.deleteBranch = async function(supplierId, branchId){
   if(!(await customConfirm('Delete this branch?'))) return;
   const row = await updateSupplierBranches(supplierId, brs=>brs.filter(b=>b.id!==branchId));
-  if(row) render();
+  if(row && row!==SUPPLIER_BRANCHES_UNCHANGED) render();
 };
 
 // ---------- GRN (goods received) ----------

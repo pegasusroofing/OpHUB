@@ -124,8 +124,28 @@ window.ramsLibSave = async function(id){
       ppe: Array.from(document.querySelectorAll('.rlTplPpe:checked')).map(c=>c.value),
     });
   }
-  const row = await dbUpdate('rams_library_items', id, {title:v('rlTitle').trim()||it.title, data, updated_at:new Date().toISOString()});
-  if(row){ ramsLibEditId = null; toast('Saved'); render(); }
+  const newTitle = v('rlTitle').trim()||it.title;
+  const row = await dbUpdate('rams_library_items', id, {title:newTitle, data, updated_at:new Date().toISOString()});
+  if(!row) return;
+  // Templates list their hazards / sections by title, so a renamed item is
+  // renamed in every template that uses it — otherwise new RAMS made from
+  // those templates would quietly leave it out.
+  let tplFailed = 0, tplChanged = 0;
+  if(newTitle !== it.title && (it.kind==='hazard' || it.kind==='section')){
+    const key = it.kind==='hazard' ? 'hazards' : 'sections';
+    const tpls = await dbSelect('rams_library_items', 'org_id=eq.'+ME.org_id+'&kind=eq.template');
+    for(const t of (tpls||[])){
+      const list = (t.data && t.data[key]) || [];
+      if(!list.some(x=>x===it.title)) continue;
+      const d2 = Object.assign({}, t.data, {[key]: list.map(x=>x===it.title ? newTitle : x)});
+      const ok = await dbUpdate('rams_library_items', t.id, {data:d2, updated_at:new Date().toISOString()});
+      if(ok) tplChanged++; else tplFailed++;
+    }
+  }
+  ramsLibEditId = null;
+  if(tplFailed) customAlert(`Saved, but ${tplFailed} template${tplFailed>1?'s':''} still use${tplFailed>1?'':'s'} the old name "${it.title}" and could not be updated. Open ${tplFailed>1?'those templates':'that template'} and tick "${newTitle}" again.`);
+  else toast(tplChanged ? `Saved — ${tplChanged} template${tplChanged>1?'s':''} updated with the new name` : 'Saved');
+  render();
 };
 // Only one ⋯ menu open at a time; tapping elsewhere closes it.
 window.ramsLibMenuToggle = function(el){

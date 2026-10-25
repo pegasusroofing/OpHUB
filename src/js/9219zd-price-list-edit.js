@@ -9,7 +9,7 @@ let finPlEdit = null;
 window.openFinPlEdit = async function(qid){
   const [q, items, mats] = await Promise.all([
     dbSelect('fin_quotes', 'id=eq.'+qid).then(r=>r[0]).catch(()=>null),
-    dbSelect('fin_quote_items', 'quote_id=eq.'+qid+'&order=position.asc&limit=10000').catch(()=>[]),
+    finSelectAll('fin_quote_items', 'quote_id=eq.'+qid+'&order=position.asc').catch(()=>[]),
     dbSelect('suppliers', 'org_id=eq.'+ME.org_id+'&select=id,name&order=name.asc').catch(()=>[]),
   ]);
   if(!q){ toast('That price list has gone.'); return; }
@@ -65,7 +65,7 @@ window.finPlSave = async function(){
   const sid = (parseRoute()||[])[1]; if(document.getElementById('finPpBody') && sid) finPpFill(sid); else render();
 };
 window.finPlDuplicate = async function(qid){
-  const [q, items] = await Promise.all([dbSelect('fin_quotes', 'id=eq.'+qid).then(r=>r[0]).catch(()=>null), dbSelect('fin_quote_items', 'quote_id=eq.'+qid+'&order=position.asc&limit=10000').catch(()=>[])]);
+  const [q, items] = await Promise.all([dbSelect('fin_quotes', 'id=eq.'+qid).then(r=>r[0]).catch(()=>null), finSelectAll('fin_quote_items', 'quote_id=eq.'+qid+'&order=position.asc').catch(()=>[])]);
   if(!q) return;
   const ref = await customPrompt('Name for the copy (e.g. 2027 price list)', (q.quote_no ? q.quote_no+' (copy)' : 'Copy')); if(ref==null) return;
   const ins = await dbInsert('fin_quotes', {org_id:ME.org_id, site_id:q.site_id||null, purpose:'pquote', supplier_name:q.supplier_name, quote_no:String(ref).trim()||null, quote_date:finToday(), file_path:q.file_path, file_name:q.file_name, lines:[], read_by:'copy', created_by:ME.id});

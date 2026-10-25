@@ -505,7 +505,8 @@ function deliverySiteFullLabel(t){
   return [(t.manual_site_name||'').trim(), (t.manual_site_address||'').trim()].filter(Boolean).join(', ') || 'Unknown site';
 }
 // "Push to Tomorrow" — for when a drop doesn't get done. Moves the delivery
-// to the next working day's 2pm slot (the day after its own date, or after
+// to the next working day's first free drop from the 2pm one on (a 1st drop
+// goes to that day's 1st drop if it's free) (the day after its own date, or after
 // today if it was already overdue; Saturday/Sunday roll on to Monday), moves the linked Key Dates entry with it, and
 // tells the PM who booked it. If that next day already has a first-drop
 // high priority, the pushed one loses its flag so the day never ends up
@@ -526,17 +527,23 @@ window.pushDeliveryToTomorrow = async function(taskId){
   // 2-drop delivery there, or this being one, used to overlap).
   const dayList = await dbSelect('delivery_tasks', 'org_id=eq.'+ME.org_id+'&scheduled_date=eq.'+nextISO+'&select=id,time_slot,double_slot,status,site_id,manual_site_name,manual_site_address');
   const from2 = DELIVERY_TIME_SLOTS.slice(Math.max(0, DELIVERY_TIME_SLOTS.findIndex(s=>s.key==='2pm')));
-  const freeSlot = from2.find(s=>!deliverySlotProblem(dayList, t, s.key)) || DELIVERY_TIME_SLOTS.find(s=>!deliverySlotProblem(dayList, t, s.key));
-  if(!freeSlot){ customAlert('No free drop on '+nextLabel+' — '+deliverySlotProblem(dayList, t, '2pm')); return; }
-  const slotKey = freeSlot.key, slotLabel = freeSlot.label;
-  if(!await customConfirm('Push this delivery to '+nextLabel+' ('+slotLabel+')?', {confirmLabel:'Yes — push it', cancelLabel:'No'})) return;
-  deliveryPushBusyId = taskId; render();
+  // PB-10: a 1st drop keeps its 1st drop if that day hasn't already got one
+  // and the first drop is free — it used to always lose the flag here.
   let keepHigh = !!t.high_priority;
   if(keepHigh){
     const clash = await dbSelect('delivery_tasks', 'org_id=eq.'+ME.org_id+'&scheduled_date=eq.'+nextISO+'&high_priority=is.true&status=eq.pending&id=neq.'+taskId+'&select=id');
     if(clash.length) keepHigh = false;
   }
-  const row = await dbUpdate('delivery_tasks', taskId, {scheduled_date: nextISO, time_slot: slotKey, sub_priority: 999, high_priority: keepHigh && slotKey===DELIVERY_TIME_SLOTS[0].key, updated_at: new Date().toISOString()});
+  const firstFree = keepHigh && !deliverySlotProblem(dayList, t, DELIVERY_TIME_SLOTS[0].key) ? DELIVERY_TIME_SLOTS[0] : null;
+  const freeSlot = firstFree || from2.find(s=>!deliverySlotProblem(dayList, t, s.key)) || DELIVERY_TIME_SLOTS.find(s=>!deliverySlotProblem(dayList, t, s.key));
+  if(!freeSlot){ customAlert('No free drop on '+nextLabel+' — '+deliverySlotProblem(dayList, t, '2pm')); return; }
+  const slotKey = freeSlot.key, slotLabel = freeSlot.label;
+  if(!await customConfirm('Push this delivery to '+nextLabel+' ('+slotLabel+')?', {confirmLabel:'Yes — push it', cancelLabel:'No'})) return;
+  deliveryPushBusyId = taskId; render();
+  // A 1st drop only stays a 1st drop if it actually lands in the first drop.
+  const newHigh = keepHigh && slotKey===DELIVERY_TIME_SLOTS[0].key;
+  const lostHigh = !!t.high_priority && !newHigh;
+  const row = await dbUpdate('delivery_tasks', taskId, {scheduled_date: nextISO, time_slot: slotKey, sub_priority: 999, high_priority: newHigh, updated_at: new Date().toISOString()});
   deliveryPushBusyId = null;
   if(!row){ toast('Could not move it — try again.'); render(); return; }
   try{
@@ -546,12 +553,12 @@ window.pushDeliveryToTomorrow = async function(taskId){
   }catch(e){ /* the move itself is saved — ordering/calendar tidy-up is best-effort */ }
   if(t.created_by && t.created_by!==ME.id){
     postSystemMessageToUser(t.created_by, t.site_id, 'message',
-      `Delivery pushed to ${nextLabel}, 2pm by ${ME.name} — ${deliverySiteLabel(t)}: ${t.description||''}`+(t.high_priority && !keepHigh ? ' (1st drop removed — that day already has one)' : ''),
+      `Delivery pushed to ${nextLabel}, ${slotLabel} by ${ME.name} — ${deliverySiteLabel(t)}: ${t.description||''}`+(lostHigh ? (keepHigh ? ' (1st drop removed — the first drop that day is taken)' : ' (1st drop removed — that day already has one)') : ''),
       taskId);
   }
   // Email the job's PM (or whoever booked it, if the site isn't on the app).
   try{ sbFetch('/functions/v1/notify-delivery-pushed', {method:'POST', timeoutMs:30000, body: JSON.stringify({task_id: taskId})}).catch(()=>{}); }catch(e){}
-  toast('Moved to '+nextLabel+', 2pm');
+  toast('Moved to '+nextLabel+', '+slotLabel+(lostHigh ? ' — no longer 1st drop' : ''));
   render();
 };
 // Re-open a completed delivery. Asks whether it goes back on its original

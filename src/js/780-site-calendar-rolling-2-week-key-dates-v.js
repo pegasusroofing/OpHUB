@@ -163,8 +163,17 @@ function calRecurrenceOccurrences(startDateStr, freq, siteObj){
   const closedBoundary = siteObj && siteObj.closed_at ? localISODate(new Date(siteObj.closed_at)) : null;
   const alreadyClosed = siteObj && siteStatusKey(siteObj)==='closed';
   const dates = [];
-  let d = new Date(startDateStr+'T00:00:00');
+  const start = new Date(startDateStr+'T00:00:00');
+  let d = new Date(start);
   for(let i=0;i<maxCount;i++){
+    // PB-09: each monthly date is worked out from the start date (31 Jan →
+    // 28/29 Feb → 31 Mar …), not by adding a month to the previous one,
+    // which drifted (31 Jan → 3 Mar → 3 Apr …).
+    if(freq==='monthly' && i>0){
+      const y = start.getFullYear(), m0 = start.getMonth()+i;
+      const dim = new Date(y, m0+1, 0).getDate();
+      d = new Date(y, m0, Math.min(start.getDate(), dim));
+    }
     if(d>horizon) break;
     const dStr = localISODate(d);
     if(closedBoundary && dStr>closedBoundary) break;
@@ -172,7 +181,7 @@ function calRecurrenceOccurrences(startDateStr, freq, siteObj){
     dates.push(dStr);
     if(freq==='daily') d.setDate(d.getDate()+1);
     else if(freq==='weekly') d.setDate(d.getDate()+7);
-    else if(freq==='monthly') d.setMonth(d.getMonth()+1);
+    else if(freq==='monthly') { /* next date worked out at the top of the loop */ }
     else break;
   }
   return dates;

@@ -72,7 +72,7 @@ async function renderFinDirectory(sub){
   if(sub==='clients'){
     const [jf, invs] = await Promise.all([
       dbSelect('job_finance', 'org_id=eq.'+ME.org_id+'&select=site_id,contract_value,billing_name,billing_email'),
-      dbSelect('fin_invoices', 'org_id=eq.'+ME.org_id+'&status=neq.void&limit=3000&select=site_id,status,total,paid,net,due_date'),
+      finSelectAll('fin_invoices', 'org_id=eq.'+ME.org_id+'&status=neq.void&select=site_id,status,total,paid,net,due_date'),
     ]);
     const jfBy = {}; jf.forEach(r=>{ jfBy[r.site_id] = r; });
     body = await finClientsHtml(jfBy, invs);
@@ -109,7 +109,7 @@ async function finSuppliersHtml(){
   const [mat, fin, pinvs] = await Promise.all([
     dbSelect('suppliers', 'org_id=eq.'+ME.org_id+'&select=id,name,email,account_number&order=name.asc'),
     dbSelect('fin_suppliers', 'org_id=eq.'+ME.org_id+'&order=name.asc&limit=5000').catch(()=>[]),
-    dbSelect('purchase_invoices', 'org_id=eq.'+ME.org_id+'&select=supplier_id,supplier_name,status,net,total,paid_on&limit=5000').catch(()=>[]),
+    finSelectAll('purchase_invoices', 'org_id=eq.'+ME.org_id+'&select=supplier_id,supplier_name,status,net,total,paid_on').catch(()=>[]),
   ]);
   const key = n=>String(n||'').trim().toLowerCase();
   const rows = {}; // by lower-case name

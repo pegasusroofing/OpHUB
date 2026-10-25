@@ -6,6 +6,7 @@
 let labourInvoicesSectionOpen = {}; // elementId -> outer "Labour Invoices" dropdown open
 let labourInvoicesListOpen = {};    // elementId -> bool, default true (read with !==false above)
 let labourInvoicePreview = {path:null, filename:null, loading:false, error:null, sheetHtml:null};
+let labourInvoicePreviewEl = null; // the Pricing Element whose card the preview belongs to
 window.uploadLabourInvoices = async function(siteId, elementId, input){
   const files = input.files ? Array.from(input.files) : [];
   if(!files.length) return;
@@ -24,16 +25,17 @@ window.deleteLabourInvoice = async function(siteId, fileId, storagePath){
   if(!await customConfirm('Delete this invoice? This can\'t be undone.')) return;
   const rows = await dbSelect('labour_invoices', 'id=eq.'+fileId+'&select=filename');
   const filename = rows[0] && rows[0].filename;
-  try{ await sbFetch('/storage/v1/object/labour-invoices/'+storagePath, {method:'DELETE'}); }catch(e){}
+  // Row first, then the file (see deletePriceFile).
   const ok = await dbDelete('labour_invoices', fileId);
   if(ok){
+    try{ await sbFetch('/storage/v1/object/labour-invoices/'+storagePath, {method:'DELETE'}); }catch(e){}
     toast('Invoice deleted');
     logSiteActivity(siteId, 'labour_invoice_deleted', `Deleted labour invoice "${filename||''}"`);
     if(labourInvoicePreview.path===storagePath) labourInvoicePreview = {path:null, filename:null, loading:false, error:null, sheetHtml:null};
     render();
   }
 };
-window.viewLabourInvoice = async function(siteId, storagePath, filename){
+window.viewLabourInvoice = async function(siteId, storagePath, filename, elementId){
   const isSheet = /\.(xlsx|xls|csv)$/i.test(filename);
   if(!isSheet){
     const res = await sbFetchOD('/functions/v1/labour-invoice-access', {method:'POST', body:JSON.stringify({site_id:siteId, storage_path:storagePath})});
@@ -44,6 +46,7 @@ window.viewLabourInvoice = async function(siteId, storagePath, filename){
     return;
   }
   labourInvoicePreview = {path:storagePath, filename, loading:true, error:null, sheetHtml:null};
+  labourInvoicePreviewEl = elementId || null;
   render();
   try{
     const res = await sbFetchOD('/functions/v1/labour-invoice-access', {method:'POST', body:JSON.stringify({site_id:siteId, storage_path:storagePath})});

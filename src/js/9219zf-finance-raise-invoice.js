@@ -69,7 +69,8 @@ async function finIdPreview(site){
     finInvDraft.xero_post = post;
     const id = finInvDraft.id;
     if(btn){ btn.disabled = true; btn.textContent = 'Issuing…'; }
-    try{ await issueFinInvoice(siteId, true); }   // the box is the confirmation
+    // FX-X1: on a computer the preview panel beside it is the confirmation; on a phone (no preview) ask first.
+    try{ await issueFinInvoice(siteId, !!(finIdOn() && document.getElementById('finIdPanel'))); }
     finally{ const b = document.getElementById('finIdIssue'); if(b){ b.disabled = false; b.textContent = '✓ Approve & Issue Invoice'; } }
     const inv = (await dbSelect('fin_invoices', 'id=eq.'+id+'&select=id,status,xero_id').catch(()=>[]))[0];
     if(inv && inv.status!=='draft' && post && typeof finXeroConnected==='function' && finXeroConnected() && !(FIN_SETTINGS && FIN_SETTINGS.xero_auto) && !inv.xero_id){

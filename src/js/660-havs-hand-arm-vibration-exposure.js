@@ -168,16 +168,21 @@ async function notifyIfHavsThresholdCrossed(siteId, userId, entryDate, justToolI
 // every day) gets committed here in one go.
 async function commitOneHavsDraftEntry(siteId, dayIdx, toolId, userId){
   const d = havsDraft2For(dayIdx, toolId);
-  const check = havsWholeMinutes(d.minutesByUser[userId]);
+  const typed = d.minutesByUser[userId];
+  const check = havsWholeMinutes(typed);
   if(check.empty || !check.ok) return false; // silently skip blank/invalid — a bulk flush shouldn't toast for every empty box
   const date = havsWeekDates(havsWeekOffset)[dayIdx];
   const entry_date = localISODate(date);
+  // Taken out of the box before saving (put back if the save fails), so a
+  // second save running at the same time — e.g. leaving the page while a
+  // day is being closed — can't save the same minutes twice.
+  delete d.minutesByUser[userId];
   const rows = await dbInsert('havs_entries', {org_id:ME.org_id, site_id:siteId, user_id:userId, entry_date, tool_id:toolId, minutes:check.minutes, created_by:ME.id});
   if(rows){
-    delete d.minutesByUser[userId];
     notifyIfHavsThresholdCrossed(siteId, userId, entry_date, toolId, check.minutes);
     return true;
   }
+  if(d.minutesByUser[userId]===undefined) d.minutesByUser[userId] = typed;
   return false;
 }
 // Every box still holding a typed-but-uncommitted value for this one day,
@@ -190,6 +195,7 @@ async function flushHavsDayDrafts(siteId, dayIdx){
     if(!key.startsWith(prefix)) continue;
     const toolId = key.slice(prefix.length);
     const draft = havsDraft2[key];
+    if(!draft || !draft.minutesByUser) continue;
     for(const userId of Object.keys(draft.minutesByUser)){
       if(await commitOneHavsDraftEntry(siteId, dayIdx, toolId, userId)) any = true;
     }
@@ -205,6 +211,35 @@ async function flushAllHavsDrafts(siteId){
   for(let di=0; di<5; di++){ if(await flushHavsDayDrafts(siteId, di)) any = true; }
   return any;
 }
+// PB-04 (fix round 2): typed minutes used to be lost if you left HAVS by the
+// back arrow / tab bar, or the phone closed the app, before closing the day.
+// Now they're also saved by the "Save Minutes" button (everyone), whenever
+// the router takes you off the HAVS page, and when the app goes into the
+// background.
+function havsHasDrafts(){
+  return Object.keys(havsDraft2).some(k=>{ const d = havsDraft2[k]; return d && d.minutesByUser && Object.keys(d.minutesByUser).some(u=>String(d.minutesByUser[u]==null?'':d.minutesByUser[u]).trim()!==''); });
+}
+function havsLeaveFlush(){
+  try{
+    if(!havsDraftSiteId || !havsHasDrafts()) return;
+    const here = String(location.hash||'').split('?')[0];
+    if(here === '#/site/'+havsDraftSiteId+'/hs/havs') return;
+    const sid = havsDraftSiteId;
+    flushAllHavsDrafts(sid).then(saved=>{ if(saved) toast('HAVS minutes saved'); }).catch(e=>console.error('HAVS save on leave failed', e));
+  }catch(e){ console.error(e); }
+}
+document.addEventListener('visibilitychange', ()=>{
+  try{
+    if(document.visibilityState==='hidden' && havsDraftSiteId && havsHasDrafts()) flushAllHavsDrafts(havsDraftSiteId).catch(()=>{});
+  }catch(e){}
+});
+window.saveHavsDrafts = async function(siteId){
+  const typed = havsHasDrafts();
+  const saved = await flushAllHavsDrafts(siteId);
+  if(saved) toast('Minutes saved');
+  else toast(typed ? 'Nothing saved — check the minutes are whole numbers between 1 and 480.' : 'Nothing new to save — type your minutes in the boxes first.');
+  render();
+};
 window.toggleHavsExportSelected = function(userId){
   const i = havsExportSelectedIds.indexOf(userId);
   if(i>-1) havsExportSelectedIds.splice(i,1); else havsExportSelectedIds.push(userId);
@@ -233,6 +268,7 @@ window.deleteHavsEntry = async function(entryId){
 };
 window.toggleHavsSiteToolPicker = function(){ havsSiteToolPickerOpen = !havsSiteToolPickerOpen; render(); };
 window.toggleSiteHavsTool = async function(siteId, toolId, isOn){
+  if(!isManager(ME)){ toast('Only project managers and admins can change the tools on this site.'); render(); return; }
   if(isOn){
     const res = await sbFetch('/rest/v1/site_havs_tools?site_id=eq.'+siteId+'&tool_id=eq.'+toolId, {method:'DELETE'});
     if(!res.ok){ toast('Could not remove — '+(await safeErr(res))); return; }
@@ -372,6 +408,10 @@ async function renderHavs(siteId){
     <p class="ddrow" style="margin-top:0;${havsSiteToolPickerOpen?'':'margin-bottom:14px;'}" onclick="toggleHavsSiteToolPicker()"><span class="arrow">${havsSiteToolPickerOpen?'▼':'▶'}</span> Tools On This Site (${tools.length})</p>
     ${havsSiteToolPickerOpen ? `
     <div class="card" style="margin-bottom:14px;">
+      ${!canManage ? `
+      <p class="stub" style="margin:0 0 10px;">The HAVS tools set up for this site. Your PM or admin chooses these.</p>
+      ${tools.length ? tools.map(t=>`<div style="padding:6px 4px;font-size:13px;font-weight:600;color:var(--ink);border-bottom:1px solid var(--line);">${escapeHtml(titleCaseWords(t.name))} <span class="stub" style="margin:0;">(${t.vibration_magnitude} m/s²)</span></div>`).join('') : `<div class="empty">No HAVS tools set up for this site yet.</div>`}
+      ` : `
       <p class="stub" style="margin:0 0 10px;">Tick which HAVS tools are relevant to this site — only these show up as entry boxes below.</p>
       ${allTools.length ? allTools.map(t=>`
         <label style="display:flex;align-items:center;gap:8px;padding:6px 4px;font-size:13px;font-weight:600;color:var(--ink);cursor:pointer;border-bottom:1px solid var(--line);">
@@ -379,6 +419,7 @@ async function renderHavs(siteId){
           ${escapeHtml(titleCaseWords(t.name))} <span class="stub" style="margin:0;">(${t.vibration_magnitude} m/s²)</span>
         </label>
       `).join('') : `<div class="empty">No HAVS tools set up yet.</div>`}
+      `}
       ${canManage ? (havsNewToolFormOpen ? `
         <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;">
           <input type="text" placeholder="Tool name" style="flex:2;min-width:120px;" value="${escapeHtml(havsNewToolDraft.name)}" oninput="setHavsNewToolDraft('name',this.value)">
@@ -429,7 +470,13 @@ async function renderHavs(siteId){
     ${tools.length && operatives.length ? days.map((d,di)=>{
       const dateStr = localISODate(d);
       const isOpen = !!havsDayOpen[di];
-      const dayTotalPts = tools.reduce((sum,tool)=>sum + entries.filter(e=>e.entry_date===dateStr && e.tool_id===tool.id).reduce((s,e)=>s+havsPoints(tool.vibration_magnitude, e.minutes),0), 0);
+      // PB-03: EAV/ELV are per person, so the day's badge goes on the
+      // highest single operative's total, not everyone's points added up.
+      const dayPtsByUser = {};
+      entries.forEach(e=>{ if(e.entry_date!==dateStr) return; const tool = toolById[e.tool_id]; if(!tool) return; dayPtsByUser[e.user_id] = (dayPtsByUser[e.user_id]||0) + havsPoints(tool.vibration_magnitude, e.minutes); });
+      const dayUserPts = Object.keys(dayPtsByUser).map(k=>dayPtsByUser[k]);
+      const dayTotalPts = dayUserPts.length ? Math.max.apply(null, dayUserPts) : 0;
+      const dayOverCount = dayUserPts.filter(p=>p >= (dayTotalPts>=400 ? 400 : 100)).length;
       return `
       <p class="ddrow" style="margin-top:${di===0?0:10}px;" onclick="toggleHavsDay(${di},'${siteId}')">
         <span class="arrow">${isOpen?'▼':'▶'}</span> ${HAVS_DAY_LABELS[di]} <span class="stub" style="font-weight:400;">${d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}</span>
@@ -443,12 +490,13 @@ async function renderHavs(siteId){
           const [bg,color,label] = dayTotalPts>=400 ? ['#FBE1DE','var(--brand1)','ELV EXCEEDED']
             : dayTotalPts>=100 ? ['var(--warn-bg)','var(--warn)','ACTION NEEDED']
             : ['var(--ok-bg)','var(--ok)','OK'];
-          return `<span style="${pillBase}background:${bg};color:${color};">${label}</span>`;
+          const who = (canManage && dayTotalPts>=100) ? ` · ${dayOverCount} ${dayOverCount===1?'person':'people'}` : '';
+          return `<span style="${pillBase}background:${bg};color:${color};">${label}${who}</span>`;
         })() : ''}
       </p>
       ${isOpen ? `
       <div class="card" style="margin-bottom:4px;">
-        ${!weekCompletion ? `<p class="stub" style="margin:0 0 8px;">Minutes save when you close ${HAVS_DAY_LABELS[di]} again (tap the day above).</p>` : ''}
+        ${!weekCompletion ? `<p class="stub" style="margin:0 0 8px;">Minutes save when you tap Save Minutes at the bottom, close ${HAVS_DAY_LABELS[di]} (tap the day above), or leave this page.</p>` : ''}
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;">
           ${tools.map(tool=>{
             const sessions = entries.filter(e=>e.entry_date===dateStr && e.tool_id===tool.id).map(e=>{
@@ -522,6 +570,9 @@ async function renderHavs(siteId){
       </div>
       ` : ''}`;
     }).join('') : ''}
+    ${tools.length && operatives.length && !weekCompletion ? `
+    <button class="darkbtn" style="width:100%;margin-top:14px;" onclick="saveHavsDrafts('${siteId}')">Save Minutes</button>
+    ` : ''}
     ${canManage && operatives.length ? `
     <div class="card" style="margin-top:14px;">
       ${weekCompletion ? `
@@ -998,6 +1049,7 @@ window.exportHavsSelected = async function(siteId){
   }
 };
 window.markHavsWeekComplete = async function(siteId, weekStart){
+  if(havsMarkCompleteBusy) return;
   havsMarkCompleteBusy = true; render();
   // Flush anything still sitting typed-but-uncommitted in a box before
   // locking the week — otherwise Save & Close could lock the register with

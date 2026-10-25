@@ -229,7 +229,7 @@ window.toggleOdFolderPin = async function(id, name, driveId){
     if(ORG) ORG.onedrive_pinned_folders = row.onedrive_pinned_folders;
     toast(exists ? 'Removed Quick Link' : 'Added Quick Link');
     render();
-  }
+  } else if(row !== null) toast('Quick Link not changed — it could not be saved. Ask a company admin.');
 };
 // Dedicated "finish" action for the Admin Centre > Quick Links flow —
 // pins the folder (if not already pinned) then drops straight back into
@@ -240,7 +240,9 @@ window.pinAsQuickLink = async function(id, name, driveId){
   if(!pinned.some(p=>p.id===id)){
     const next = [...pinned, {id, name, driveId: driveId||null}];
     const row = await dbUpdate('organizations', ME.org_id, {onedrive_pinned_folders: next});
-    if(row && ORG) ORG.onedrive_pinned_folders = row.onedrive_pinned_folders;
+    // Nothing back means it wasn't saved (no signal, or no permission to change company settings).
+    if(!row){ toast('Quick Link not added — it could not be saved. Check your signal, or ask a company admin.'); return; }
+    if(ORG) ORG.onedrive_pinned_folders = row.onedrive_pinned_folders;
     toast('Added Quick Link — "'+name+'"');
   }
   odPickerStack = null;

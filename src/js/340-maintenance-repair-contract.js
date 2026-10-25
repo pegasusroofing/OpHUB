@@ -203,8 +203,9 @@ async function renderRepairJobsHub(siteId){
   // site never gets the prompt at all and stays unstaffed until someone
   // remembers to go and do it manually from Settings & Admin.
   if(isManager(ME) && siteStatusKey(site)==='live'){
+    const hereHash = location.hash;
     dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id&limit=1').then(rows=>{
-      if(!rows.length) openAssignOperativesModal(siteId);
+      if(!rows.length && location.hash===hereHash) openAssignOperativesModal(siteId); // not if they've already moved on
     });
   }
   const jobs = await dbSelect('repair_jobs', 'site_id=eq.'+siteId+'&select=id,closed');
@@ -1489,7 +1490,7 @@ window.setRepairJobSurveyStatus = async function(jobId, value){
   // status alone (e.g. re-editing survey notes on an already-approved job
   // shouldn't knock it back). Reverting to "not surveyed" sends it back.
   if((value==='Y' || value==='NA') && job && job.quote_approved==null && (!job.job_status || job.job_status==='To Survey')){
-    patch.job_status = job.variation_cost!=null ? 'Surveyed - Variation Issued' : 'Surveyed - Awaiting Cost';
+    patch.job_status = job.variation_issued_at ? 'Surveyed - Variation Issued' : 'Surveyed - Awaiting Cost';
   } else if((!value || value==='N') && job && (!job.job_status || job.job_status==='Surveyed - Awaiting Cost' || job.job_status==='Surveyed - Variation Issued')){
     patch.job_status = 'To Survey';
   }
@@ -2087,7 +2088,7 @@ window.setResponsiblePM = async function(siteId, pmId){
   const row = await dbUpdate('sites', siteId, {responsible_pm_id: pmId || null});
   if(row){
     const idx = SITES.findIndex(s=>s.id===siteId);
-    SITES[idx] = row;
+    if(idx>-1) SITES[idx] = row;
     toast('Responsible project manager updated');
     if(pmId) notifySiteAssignment(siteId, pmId);
   }

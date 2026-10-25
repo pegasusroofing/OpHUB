@@ -267,21 +267,37 @@ window.coshhMakeAssessment = async function(productId, saveFirst){
 async function coshhProductFromSds(blob, fileName, opts){
   opts = opts || {};
   const e = {title:'', data:coshhBlank()};
-  let stored = opts.sdsPath || null;
-  if(!stored){
-    const path = ME.org_id+'/sds/'+uid()+'-'+String(fileName||'data-sheet.pdf').replace(/[^a-z0-9.\-]+/gi,'_');
-    stored = await uploadToStorage('coshh-library', path, blob, 'application/pdf');
-  }
-  if(stored){ e.data.sdsPath = stored; e.data.sdsName = fileName; }
   let n = 0;
   try{ n = coshhApplySds(e, await coshhReadSds(blob)); }catch(err){ console.warn('[sds]', err); }
   if(!e.title) e.title = String(fileName||'Product').replace(/\.pdf$/i,'').replace(/[_-]+/g,' ').trim();
   if(!e.data.manufacturer && opts.folderName) e.data.manufacturer = opts.folderName;
+  // Same product already in the library (e.g. the sheet uploaded again):
+  // same name AND same manufacturer (or no manufacturer on this sheet), so
+  // two makers' "Primer" stay separate products.
+  const mk = t => coshhTitleKey(t);
+  const existing = (await coshhLoadLibrary()).find(i=>mk(i.title)===mk(e.title) && (!mk(e.data.manufacturer) || mk(e.data.manufacturer)===mk(i.data && i.data.manufacturer)));
+  const uploadSheet = async ()=>{
+    if(opts.sdsPath) return opts.sdsPath;
+    const path = ME.org_id+'/sds/'+uid()+'-'+String(fileName||'data-sheet.pdf').replace(/[^a-z0-9.\-]+/gi,'_');
+    return await uploadToStorage('coshh-library', path, blob, 'application/pdf');
+  };
+  if(existing){
+    // Only fill in what's still blank — anything already worked on by hand
+    // (controls, risk, PPE, first aid…) and the data sheet it already has are kept.
+    const cur = Object.assign(coshhBlank(), existing.data||{});
+    const blank = (k, v) => v==null || (Array.isArray(v) ? !v.length : !String(v).trim()) || (COSHH_DEFAULTS[k] !== undefined && v===COSHH_DEFAULTS[k]);
+    let filled = 0;
+    ['manufacturer','use','pictos','signal','h','p','wel','controls','firstAid','fire','spill','storage','disposal'].forEach(k=>{ if(blank(k, cur[k]) && !blank(k, e.data[k])){ cur[k] = e.data[k]; filled++; } });
+    if(!cur.sdsPath){ const stored = await uploadSheet(); if(stored){ cur.sdsPath = stored; cur.sdsName = fileName; filled++; } }
+    if(opts.importedFrom && !cur.importedFrom) cur.importedFrom = opts.importedFrom;
+    if(filled) cur.needsCheck = true;
+    const row = await dbUpdate('rams_library_items', existing.id, {data:cur, updated_at:new Date().toISOString()});
+    return row ? {id:existing.id, n:filled, updated:true} : null;
+  }
+  const stored = await uploadSheet();
+  if(stored){ e.data.sdsPath = stored; e.data.sdsName = fileName; }
   if(opts.importedFrom) e.data.importedFrom = opts.importedFrom;
   e.data.needsCheck = true;
-  // Same product already in the library (e.g. the sheet uploaded again): update it rather than adding a second copy.
-  const existing = (await coshhLoadLibrary()).find(i=>coshhTitleKey(i.title)===coshhTitleKey(e.title));
-  if(existing){ const row = await dbUpdate('rams_library_items', existing.id, {title:e.title.slice(0,140), data:e.data, updated_at:new Date().toISOString()}); return row ? {id:existing.id, n, updated:true} : null; }
   const rows = await dbInsert('rams_library_items', [{org_id:ME.org_id, kind:'coshh', title:e.title.slice(0,140), data:e.data, sort_order:0, created_by:ME.id}]);
   return rows && rows[0] ? {id:rows[0].id, n} : null;
 }
@@ -465,10 +481,14 @@ window.coshhAddSds = async function(input){
     const path = ME.org_id+'/sds/'+uid()+'-'+file.name.replace(/[^a-z0-9.\-]+/gi,'_');
     const stored = await uploadToStorage('coshh-library', path, file, 'application/pdf');
     if(stored){ e.data.sdsPath = stored; e.data.sdsName = file.name; }
-    const found = await coshhReadSds(file);
-    const n = coshhApplySds(e, found);
-    toast(n ? 'Filled in '+n+' item'+(n===1?'':'s')+' from the data sheet — please check them' : 'Data sheet attached. Nothing could be read from it (it may be a scan) — fill it in by hand.');
-  }catch(err){ console.warn('[sds]', err); toast('Data sheet attached, but it could not be read — fill it in by hand.'); }
+    // Upload failed: the codes can still be read off the file, but say
+    // plainly that the data sheet itself is NOT attached.
+    let n = 0, readOk = true;
+    try{ n = coshhApplySds(e, await coshhReadSds(file)); }catch(err){ console.warn('[sds]', err); readOk = false; }
+    if(!stored) customAlert('Upload failed — the data sheet is NOT attached, so it will not be on the back of the assessment. '+(n ? 'Filled in '+n+' item'+(n===1?'':'s')+' from it — please check them. ' : '')+'Check your signal and add the data sheet again.');
+    else if(!readOk) toast('Data sheet attached, but it could not be read — fill it in by hand.');
+    else toast(n ? 'Filled in '+n+' item'+(n===1?'':'s')+' from the data sheet — please check them' : 'Data sheet attached. Nothing could be read from it (it may be a scan) — fill it in by hand.');
+  }catch(err){ console.warn('[sds]', err); toast('Could not add the data sheet — check your signal and try again.'); }
   e.busy = false; coshhRerender();
 };
 // Puts what was read into the form. Text boxes are only filled if they're empty

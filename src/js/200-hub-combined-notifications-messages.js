@@ -111,7 +111,7 @@ async function computeHubItems(forcedPmId){
       items.push({type:'snag', typeLbl:'Snag', label:'Open snag', siteId:s.id, siteName:s.name, pmId:s.responsible_pm_id, dueDate:null, href:`#/site/${s.id}/snagging/list`});
     });
     if(sowStartedBySite[s.id]){
-      const rams = unsignedCount(s.id, ramsDocs, ramsSigsCur, 'rams_id');
+      const rams = unsignedCount(s.id, ramsDocs, ramsSigsCur, 'rams_id', operativeRosterBySite); // operatives only, as on the RAMS page (CORE-M4)
       if(rams) items.push({type:'rams', typeLbl:'RAMS', label:`RAMS not signed by operatives (${rams})`, siteId:s.id, siteName:s.name, pmId:s.responsible_pm_id, dueDate:null, href:`#/site/${s.id}/hs/rams`});
       const coshh = unsignedCount(s.id, coshhDocs, coshhSigsCur, 'coshh_id', operativeRosterBySite);
       if(coshh) items.push({type:'coshh', typeLbl:'COSHH', label:`COSHH not signed by operatives (${coshh})`, siteId:s.id, siteName:s.name, pmId:s.responsible_pm_id, dueDate:null, href:`#/site/${s.id}/hs/coshh`});
@@ -129,14 +129,14 @@ async function computeHubItems(forcedPmId){
     const rows = await sowAlertsP;
     (rows||[]).forEach(a=>{
       const site = sites.find(s=>s.id===a.site_id); if(!site) return;
-      items.push({type:'sowphoto', typeLbl:'SOW photos', label:`${a.photos} new photo${a.photos===1?'':'s'} on the Schedule of Works`, siteId:site.id, siteName:site.name, pmId:site.responsible_pm_id, dueDate:new Date(a.latest), href:`#/site/${site.id}/schedule`});
+      items.push({type:'sowphoto', typeLbl:'SOW photos', label:`${a.photos} new photo${a.photos===1?'':'s'} on the Schedule of Works`, siteId:site.id, siteName:site.name, pmId:site.responsible_pm_id, dueDate:null, at:new Date(a.latest), href:`#/site/${site.id}/schedule`});
     });
   }catch(e){}
   const reads = [].concat(...readsNested);
   const readSet = new Set(reads.map(r=>r.message_id));
   mgrMsgs.filter(m=>!readSet.has(m.id)).forEach(m=>{
     const site = m.site_id ? sites.find(s=>s.id===m.site_id) : null;
-    items.push({type:'message', typeLbl:'Message', label: site ? 'New message' : 'New message (all sites)', siteId: m.site_id||null, siteName: site ? site.name : 'All sites', pmId: site ? site.responsible_pm_id : null, dueDate: new Date(m.created_at), href: site ? `#/site/${site.id}/messages` : '#/my-messages'});
+    items.push({type:'message', typeLbl:'Message', label: site ? 'New message' : 'New message (all sites)', siteId: m.site_id||null, siteName: site ? site.name : 'All sites', pmId: site ? site.responsible_pm_id : null, dueDate: null, at: new Date(m.created_at), href: site ? `#/site/${site.id}/messages` : '#/my-messages'});
   });
   return {items, sites, isAdmin};
 }
@@ -168,10 +168,16 @@ async function renderHub(){
   });
   // Soonest due date first; items with no due date (RAMS/COSHH/snags have no
   // natural one) sort to the end rather than being treated as most urgent.
+  // Fix round 2 (CORE-L3): messages and SOW photos have no due date (they
+  // used to use the time they arrived, so they all showed as "overdue");
+  // among the no-date items the newest arrivals come first.
   filtered = filtered.sort((a,b)=>{
     if(a.dueDate && b.dueDate) return a.dueDate - b.dueDate;
     if(a.dueDate) return -1;
     if(b.dueDate) return 1;
+    if(a.at && b.at) return b.at - a.at;
+    if(a.at) return -1;
+    if(b.at) return 1;
     return 0;
   });
   const fmtDue = d => !d ? '—' : d.toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'});
@@ -208,11 +214,11 @@ async function renderHub(){
     </div>
     <div style="margin-top:14px;">
       ${filtered.length ? filtered.map(it=>`
-        <div class="sitecard" style="cursor:pointer;" onclick="go('${it.href}')">
+        <div class="sitecard" style="cursor:pointer;" onclick="go('${jsAttr(it.href)}')">
           <div class="swatch" style="background:var(--warn-bg);color:var(--warn);">!</div>
           <div class="info">
             <div class="name">${escapeHtml(it.label)}</div>
-            <div class="sub">${escapeHtml(it.typeLbl)} · ${escapeHtml(it.siteName)}${it.dueDate?' · Due '+fmtDue(it.dueDate):''}</div>
+            <div class="sub">${escapeHtml(it.typeLbl)} · ${escapeHtml(it.siteName)}${it.dueDate?' · Due '+fmtDue(it.dueDate):(it.at?' · '+fmtDue(it.at):'')}</div>
           </div>
         </div>
       `).join('') : `<div class="empty">Nothing matches these filters right now.</div>`}

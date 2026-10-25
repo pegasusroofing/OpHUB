@@ -376,6 +376,11 @@ window.moveTemplateItem = function(si, ii, dir){
   const items = editingTemplate.sections[si].items;
   const target = ii + dir;
   if(target<0 || target>=items.length) return;
+  // A follow-up question has to stay below the question it depends on,
+  // or it can never be shown.
+  const a = items[ii], b = items[target];
+  const upper = dir<0 ? b : a, lower = dir<0 ? a : b; // after the swap, lower goes above upper
+  if(lower.showIf && lower.showIf.qId===upper.id){ toast('A follow-up question has to stay below the question it depends on.'); return; }
   const [moved] = items.splice(ii,1);
   items.splice(target,0,moved);
   render();
@@ -387,7 +392,7 @@ function renderMediaRequiredEditor(si, ii, it){
       ${opts ? `
         <label class="field-label" style="margin-bottom:2px;">Require the photo when the answer is…</label>
         <div class="row-gap" style="flex-wrap:wrap;">
-          ${opts.map(o=>`<label class="stub" style="display:flex;align-items:center;gap:4px;"><input type="checkbox" style="width:auto;" ${(it.mediaRequiredWhen||[]).includes(o)?'checked':''} onchange="toggleMediaRequiredValue(${si},${ii},${jsLit(o)},this.checked)">${escapeHtml(typeof o==='boolean'?(o?'Yes':'No'):(pfLbl(it,o)))}</label>`).join('')}
+          ${opts.map(o=>`<label class="stub" style="display:flex;align-items:center;gap:4px;"><input type="checkbox" style="width:auto;" ${(it.mediaRequiredWhen||[]).includes(o)?'checked':''} onchange="toggleMediaRequiredValue(${si},${ii},${escapeHtml(jsLit(o))},this.checked)">${escapeHtml(typeof o==='boolean'?(o?'Yes':'No'):(pfLbl(it,o)))}</label>`).join('')}
         </div>
       ` : `
         <label class="stub" style="display:flex;align-items:center;gap:6px;"><input type="checkbox" style="width:auto;" ${(it.mediaRequiredWhen||[]).includes('__always__')?'checked':''} onchange="editingTemplate.sections[${si}].items[${ii}].mediaRequiredWhen=this.checked?['__always__']:[];render()">Always require the photo</label>
@@ -455,7 +460,7 @@ function renderTemplateItemLogicEditor(si, ii, it){
         </select>
         ${(isEquals && fixedOptions) ? `
           <div class="row-gap" style="margin-top:6px;flex-wrap:wrap;">
-            ${triggerOptionsFor(it.showIf.qId).map(o=>`<label class="stub" style="display:flex;align-items:center;gap:4px;"><input type="checkbox" style="width:auto;" ${(it.showIf.values||[]).includes(o)?'checked':''} onchange="toggleItemLogicValue(${si},${ii},'${o.replace(/'/g,"\\'")}',this.checked)">${escapeHtml(pfLbl(triggerItem,o))}</label>`).join('')}
+            ${triggerOptionsFor(it.showIf.qId).map(o=>`<label class="stub" style="display:flex;align-items:center;gap:4px;"><input type="checkbox" style="width:auto;" ${(it.showIf.values||[]).includes(o)?'checked':''} onchange="toggleItemLogicValue(${si},${ii},'${jsAttr(o)}',this.checked)">${escapeHtml(pfLbl(triggerItem,o))}</label>`).join('')}
           </div>
         ` : ''}
       ` : ''}
@@ -502,8 +507,29 @@ window.addTemplateItem = function(si, type){
   editingTemplate.sections[si].items.push({id:uid(), type:type||'text', label: type==='textarea' ? 'Notes' : '', required:false, options:[], scored:false, showIf:null, allowMedia:true, mediaRequiredWhen:[]});
   render();
 };
-window.removeTemplateItem = function(si, ii){
-  editingTemplate.sections[si].items.splice(ii,1);
+window.removeTemplateItem = async function(si, ii){
+  const items = editingTemplate.sections[si].items;
+  const gone = items[ii]; if(!gone) return;
+  // Follow-up questions that depend on this one (and on those, and so on):
+  // left as they were they'd point at a question that no longer exists and
+  // never show on a report again.
+  const deps = new Set(); let grew = true;
+  while(grew){ grew = false; items.forEach(x=>{ if(x.showIf && x.showIf.qId && !deps.has(x.id) && (x.showIf.qId===gone.id || deps.has(x.showIf.qId))){ deps.add(x.id); grew = true; } }); }
+  if(deps.size){
+    const n = deps.size;
+    const removeToo = await customConfirm(`"${gone.label||'This question'}" has ${n} follow-up question${n>1?'s':''} that only show${n>1?'':'s'} depending on its answer. Remove ${n>1?'them':'it'} as well?\n\nIf you keep ${n>1?'them':'it'}, ${n>1?'they':'it'} will always show.`, {confirmLabel:`Yes, remove ${n>1?'them':'it'} too`, cancelLabel:`No, keep ${n>1?'them':'it'}`});
+    if(!editingTemplate || !editingTemplate.sections[si] || editingTemplate.sections[si].items !== items) return; // left the editor meanwhile
+    const at = items.indexOf(gone); if(at<0) return;
+    items.splice(at,1);
+    if(removeToo){
+      for(let k=items.length-1;k>=0;k--) if(deps.has(items[k].id)) items.splice(k,1);
+    } else {
+      items.forEach(x=>{ if(x.showIf && x.showIf.qId===gone.id) x.showIf = null; });
+    }
+    render();
+    return;
+  }
+  items.splice(ii,1);
   render();
 };
 window.saveTemplate = async function(){

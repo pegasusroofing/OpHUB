@@ -307,13 +307,16 @@ window.setFinPiPaid = async function(id, date){
   toast(date ? 'Marked paid' : 'Paid date removed'); render();
 };
 // FA-11: records already posted to Xero. Changing them in OpHUB doesn't change Xero (and Xero
-// won't take the same record twice), so ask first and say what to do in Xero.
-// Returns true to go ahead. Used here, by cost coding (910 / 9219g) and operative invoices (9219g).
+// won't take the same record twice), so the change is stopped unless the person confirms they'll
+// make the same change in Xero. If we can't check (no signal) it's stopped too.
+// Returns true to go ahead. Used here, by cost coding (910 / 9219g), the split pop-up (917)
+// and operative invoices (9219g).
 async function finXeroPostedConfirm(table, id, question, inXero){
-  let row = null;
-  try{ row = (await dbSelect(table, 'id=eq.'+id+'&select=xero_id'))[0]; }catch(e){}
+  const r = await dbSelectChecked(table, 'id=eq.'+id+'&select=xero_id');
+  if(!r.ok){ toast('Couldn’t check whether this is already in Xero — check your signal and try again.'); return false; }
+  const row = r.data[0];
   if(!row || !row.xero_id) return true;
-  return !!(await customConfirm(question+'\n\nThis is already in Xero. Changing it here won’t change Xero, so '+(inXero||'make the same change in Xero yourself')+', or the two won’t match.', {confirmLabel:'Go ahead'}));
+  return !!(await customConfirm(question+'\n\nThis is already in Xero. Changing it here won’t change Xero — change it in Xero too ('+(inXero||'make the same change there')+'), or the two won’t match.', {confirmLabel:'I’ll change Xero too'}));
 }
 window.setPurchaseInvoiceStatus = async function(id, status){
   if(status==='rejected' && !(await finXeroPostedConfirm('purchase_invoices', id, 'Reject this purchase invoice?', 'void the bill in Xero as well'))) return;
@@ -326,7 +329,8 @@ window.setPurchaseInvoiceStatus = async function(id, status){
   if(status==='approved' && typeof finXeroAuto==='function') finXeroAuto('bill', id);
   if(r.po_id && typeof finPoMaybeClose==='function') finPoMaybeClose(r.po_id);
 };
-window.queryPurchaseInvoice = function(id){
+window.queryPurchaseInvoice = async function(id){
+  if(!(await finXeroPostedConfirm('purchase_invoices', id, 'Mark this purchase invoice as a query?', 'put the bill on hold or void it in Xero'))) return;
   const card = document.querySelector('#finPiOverlay .geo-modal-card'); if(!card) return;
   card.insertAdjacentHTML('beforeend', `<div class="formfield" style="margin-top:10px;"><label class="field-label">What needs checking?</label><input type="text" id="finPiQuery" placeholder="e.g. 2 packs short, price higher than quote"></div><button class="darkbtn" style="width:100%;" onclick="savePurchaseInvoiceQuery('${id}')">Save query</button>`);
 };

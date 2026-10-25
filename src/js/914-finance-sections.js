@@ -66,12 +66,12 @@ async function renderFinanceHome(){
   const [jf, pos, invs, apps, st, toApprove, onHire, inbox, subApps] = await Promise.all([
     dbSelect('job_finance', 'org_id=eq.'+ME.org_id+'&select=site_id,contract_value,app_reminder_day,app_dates,pc_date,defects_months,final_release_date,ret1_invoice_id,ret2_invoice_id'),
     dbSelect('client_pos', 'org_id=eq.'+ME.org_id+'&select=site_id'),
-    dbSelect('fin_invoices', 'org_id=eq.'+ME.org_id+'&status=neq.void&limit=2000&select=id,site_id,status,due_date,total,paid,net'),
-    dbSelect('fin_applications', 'org_id=eq.'+ME.org_id+'&limit=2000&select=site_id,number,valuation_date,status,cert_retention'),
+    finSelectAll('fin_invoices', 'org_id=eq.'+ME.org_id+'&status=neq.void&select=id,site_id,status,due_date,issue_date,total,paid,net'),
+    finSelectAll('fin_applications', 'org_id=eq.'+ME.org_id+'&select=site_id,number,valuation_date,status,cert_retention,cert_date'),
     finLoadSettings(),
     dbSelect('purchase_invoices', 'org_id=eq.'+ME.org_id+'&status=in.(to_approve,query)&select=id,net'),
     dbSelect('fin_plant_hires', 'org_id=eq.'+ME.org_id+'&off_hire=is.null&select=id,site_id,item,on_hire,rate,rate_period'),
-    dbSelect('fin_inbox', 'org_id=eq.'+ME.org_id+'&status=eq.new&stage=neq.with_pm&extracted=not.is.null&select=id'),
+    dbSelect('fin_inbox', 'org_id=eq.'+ME.org_id+'&'+FIN_INBOX_OPEN_Q+'&stage=neq.with_pm&extracted=not.is.null&select=id'),
     dbSelect('fin_sub_apps', 'org_id=eq.'+ME.org_id+'&status=eq.received&select=id'),
   ]);
   const xeroReady = typeof finXeroReadyLoad==='function' ? await finXeroReadyLoad() : [];
@@ -86,8 +86,11 @@ async function renderFinanceHome(){
   const noPo = liveSites.filter(s=>!hasPo.has(s.id)), noValue = liveSites.filter(s=>!(jfBy[s.id]||{}).contract_value);
   const owed = invs.reduce((t,i)=>t+finInvOutstandingNet(i), 0);
   const overdueInv = invs.filter(finInvOverdue), overdue = overdueInv.reduce((t,i)=>t+finInvOutstandingNet(i), 0);
-  const retHeld = SITES.reduce((t,s)=>t+finRetentionHeld(appsBy[s.id]||[]), 0);
-  const retDue = SITES.map(s=>({s, a:finRetentionAlerts(jfBy[s.id], st, finRetentionHeld(appsBy[s.id]||[]))})).filter(x=>x.a.length);
+  // FA-08: what clients still hold — less the release invoices raised — as on each project's Retention card.
+  const invsBy = {}; invs.forEach(i=>{ (invsBy[i.site_id] = invsBy[i.site_id] || []).push(i); });
+  const stillBy = s=>finRetentionStillHeld(appsBy[s.id]||[], jfBy[s.id]||{}, invsBy[s.id]||[]);
+  const retHeld = SITES.reduce((t,s)=>t+stillBy(s), 0);
+  const retDue = SITES.map(s=>({s, a:finRetentionAlerts(jfBy[s.id], st, stillBy(s))})).filter(x=>x.a.length);
   const appsDue = liveSites.filter(s=>finAppDueThisMonth(appsBy[s.id]||[], finAppDateFor(jfBy[s.id], st, finToday().slice(0,7))));
   const longHire = onHire.filter(h=>finPlantCost(h).days>28);
   const one = (list, single, many)=>list.length===1 ? single(list[0]) : many;
@@ -133,7 +136,7 @@ async function renderFinJobs(sub){
   const [jf, pos, invs] = await Promise.all([
     dbSelect('job_finance', 'org_id=eq.'+ME.org_id+'&select=site_id,contract_value,billing_name,billing_email'),
     dbSelect('client_pos', 'org_id=eq.'+ME.org_id+'&select=site_id,po_number&order=created_at.asc'),
-    dbSelect('fin_invoices', 'org_id=eq.'+ME.org_id+'&status=neq.void&limit=3000&select=site_id,status,total,paid,net,due_date'),
+    finSelectAll('fin_invoices', 'org_id=eq.'+ME.org_id+'&status=neq.void&select=site_id,status,total,paid,net,due_date'),
   ]);
   if(__gen !== RENDER_GEN) return;
   const jfBy = {}; jf.forEach(r=>{ jfBy[r.site_id] = r; });

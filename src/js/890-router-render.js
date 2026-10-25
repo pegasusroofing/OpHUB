@@ -8,6 +8,22 @@
 // call that was supposed to redraw it had thrown partway through and never
 // finished, and nothing on screen indicated anything had gone wrong.
 let RENDERED_HASH = null;
+// PB-02: ticked rows (grouped material orders, collections, briefings, PPE,
+// TBTs, reports) belong to the job they were ticked on. Opening a different
+// job starts with nothing ticked, so a selection can never be sent, closed
+// or exported under the wrong job.
+let SELECTION_SITE_ID = null;
+function resetSelectionsForSite(key){
+  if(SELECTION_SITE_ID === key) return;
+  SELECTION_SITE_ID = key;
+  try{ if(typeof clearMaterialSelection==='function') clearMaterialSelection(); }catch(e){}
+  try{ selectedMatReqIds = new Set(); }catch(e){}
+  try{ selectedBriefingIds = new Set(); }catch(e){}
+  try{ selectedPpeIds = new Set(); }catch(e){}
+  try{ selectedPpeRequestIds = new Set(); }catch(e){}
+  try{ selectedTbtIds = new Set(); }catch(e){}
+  try{ selectedReportIds = new Set(); }catch(e){}
+}
 async function render(){
   // New page, or the remembered data is more than 30 seconds old: start fresh.
   if(uiReadCache.hash !== location.hash || (Date.now() - uiReadCache.at) > UI_READ_CACHE_MS){
@@ -19,6 +35,10 @@ async function render(){
   // replaced on every render, so put it back where it was.
   const sameHash = (RENDERED_HASH === location.hash) && uiRenderDepth === 0;
   if(!sameHash && uiRenderDepth === 0) navNoteArrival(RENDERED_HASH, location.hash);
+  // PB-17: a job's list of addresses (multi-site jobs) is looked up afresh on
+  // each new page, so an address just added in the job's Settings shows in
+  // the material request / delivery forms straight away.
+  if(!sameHash && uiRenderDepth === 0 && typeof SUB_ADDR_CACHE !== 'undefined'){ try{ Object.keys(SUB_ADDR_CACHE).forEach(k=>{ delete SUB_ADDR_CACHE[k]; }); }catch(e){} }
   const keepY = sameHash ? appScrollY() : 0;
   uiRenderDepth++;
   try{
@@ -49,6 +69,9 @@ async function renderRoute(){
   if(schedulePollTimer){ clearInterval(schedulePollTimer); schedulePollTimer = null; }
   if(subSchedulePollTimer){ clearInterval(subSchedulePollTimer); subSchedulePollTimer = null; }
   if(siteLayoutPollTimer){ clearInterval(siteLayoutPollTimer); siteLayoutPollTimer = null; }
+  // PB-04: minutes typed on the HAVS page and not saved yet are saved as
+  // soon as you go to any other page.
+  if(typeof havsLeaveFlush==='function') havsLeaveFlush();
   const preParts = parseRoute();
   if(preParts[0]==='join' && preParts[1]){ return renderJoin(preParts[1]); }
   if(String(location.hash||'').startsWith('#/reset')) return renderResetPassword();
@@ -137,6 +160,7 @@ async function renderRoute(){
   if(parts[0]==='outstanding'){ return renderOutstandingTasks(); }
   if(parts[0]==='general-reports'){
     if(!ME || !isManager(ME)){ toast('Project managers and admins only.'); go('#/sites'); return; }
+    resetSelectionsForSite(GENERAL_REPORTS);
     if(parts[1]==='fill' && parts[2]) return renderReportFill(GENERAL_REPORTS, parts[2]);
     if(parts[1]==='view' && parts[2]) return renderReportView(GENERAL_REPORTS, parts[2]);
     return renderSiteReports(GENERAL_REPORTS);
@@ -202,6 +226,28 @@ async function renderRoute(){
   if(parts[0]==='site' && parts[1]){
     const siteId = parts[1];
     const page = parts[2] || 'home';
+    // The job in the link must be one of this user's jobs. A made-up or
+    // tampered id (e.g. one with quote marks in it) never reaches the page
+    // builders, whose buttons put the id straight into onclick handlers.
+    // A proper id we don't know yet (a job created on another device since
+    // the app opened) gets one fresh look-up first; if we're offline and
+    // can't check, a proper id is still let through (it can't carry code).
+    if(!SITES.some(s=>s && s.id===siteId)){
+      const looksLikeId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(siteId);
+      let checked = false;
+      if(looksLikeId){
+        try{
+          const fresh = await dbSelectChecked('sites', 'select=*&order=created_at.asc');
+          if(fresh && fresh.ok){ SITES = fresh.data || []; checked = true; }
+        }catch(e){}
+      }
+      if(!looksLikeId || (checked && !SITES.some(s=>s && s.id===siteId))){
+        toast("That job couldn't be found — it may have been removed, or you're not on it.");
+        go(homeHash());
+        return;
+      }
+    }
+    resetSelectionsForSite(siteId);
     // Once a job is closed, operatives lose access to it entirely — bounce
     // them back to the site list rather than letting a stale tab/bookmark
     // keep it reachable. Managers still need to get in (to reopen it, pull
@@ -297,11 +343,17 @@ async function renderRoute(){
         if(puwerUserId) return renderPuwerFill(siteId, puwerUserId);
         return renderPuwer(siteId);
       }
-      // LOLER fill/view reuse the same general Reports fill/view routes MC
-      // Inspections already shares (see the comment above renderMcInspections)
-      // rather than a bespoke hs/loler/fill path — same "return to Reports"
-      // limitation until LOLER gets its own bespoke behaviour, same as MC.
-      if(sub==='loler') return renderLolerInspections(siteId);
+      if(sub==='loler'){
+        // PB-05: LOLER's own fill/view routes (were snagging/reports/…, which
+        // is manager-only, so operatives shown the LOLER tile got bounced).
+        const lsub = parts[4], lid = parts[5];
+        if((lsub==='fill' || lsub==='view') && lid){
+          if(!isManager(ME) && !(await isLolerSubmissionFor(siteId, lid))){ toast('That inspection could not be found.'); go(`#/site/${siteId}/hs/loler`); return; }
+          if(lsub==='fill' && isManager(ME)) return renderReportFill(siteId, lid);
+          return renderReportView(siteId, lid);
+        }
+        return renderLolerInspections(siteId);
+      }
       if(sub==='mytools') return renderMyTools(siteId);
       if(sub==='policy') return renderHsPolicy(siteId);
       // #383: both old routes now land on the merged Operative Dashboard —
@@ -464,7 +516,11 @@ async function renderRoute(){
  'addTodo','addTask','addSection','confirmPdfImport','useScheduleLibraryTemplate','doCheckAction','doCheckActionSub','createNewTemplate',
  'submitSiteInduction','addRams','coshhIssue','ramsCreate','ramsIssue','submitIssuePermit','confirmSendMaterial','confirmSendGroupedMaterial',
  'startBriefing','addCalEvent','completeMaterialRequiredList','setToolboxTalkStatus','issueToolboxTalkCompanyWide','importSelectedDrawings',
- 'saveCoshhToLibraryHere','sendMessageReply','hoNewManual','saveDeliveryTask'].forEach(name=>{
+ 'saveCoshhToLibraryHere','sendMessageReply','hoNewManual','saveDeliveryTask',
+ // Fix round 2 (25 Oct 2026, PB-18): uploads/signatures/week sign-offs that
+ // could still be double-tapped into two records.
+ 'addCoshh','addToolboxTalk','addMaterial','signCoshh','signAllCoshh','signHsPolicyGate','addHsPolicy','saveGrn',
+ 'markHavsWeekComplete','markPuwerWeekComplete','submitPlantCheckout'].forEach(name=>{
   const original = window[name];
   if(typeof original !== 'function') return;
   let running = false;

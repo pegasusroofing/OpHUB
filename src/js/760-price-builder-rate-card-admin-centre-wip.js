@@ -587,9 +587,11 @@ window.confirmSendGroupedMaterial = async function(siteId){
   const supplier = suppliers && suppliers[0];
   if(supplier && !toMe && !orderRecipient(supplier, fulfil, toMe)){ toast(fulfil.sendTo==='pm' ? 'There is no email address on your profile.' : 'No order email for '+supplier.name+(fulfil.branch?' ('+fulfil.branch.name+')':'')+' — add one in Admin › Suppliers.'); return; }
   if(!supplier){ toast('Could not find that supplier.'); return; }
-  const matIds = Array.from(selectedMaterialIds);
-  const materials = await dbSelect('materials', 'id=in.('+matIds.join(',')+')&select=*&order=created_at.desc');
-  if(!materials || !materials.length){ toast('Could not load the selected requests.'); return; }
+  // PB-02: only ever send this job's own requests — a tick left over from
+  // another job must never be closed and ordered under this one.
+  const materials = ((await dbSelect('materials', 'id=in.('+Array.from(selectedMaterialIds).join(',')+')&select=*&order=created_at.desc')) || []).filter(m=>m && m.site_id===siteId);
+  if(!materials.length){ toast('Could not load the selected requests.'); clearMaterialSelection(); render(); return; }
+  const matIds = materials.map(m=>m.id);
   addDeliverTo(fulfil, materials);
   if(!(await confirmRebookCollection(fulfil, materials))) fulfil.skipBooking = true;
   const nowIso = new Date().toISOString();

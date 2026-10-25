@@ -18,7 +18,9 @@ window.forgotPassword = async function(){
 };
 function resetParams(){
   const q = String(location.hash||'').split('?')[1] || '';
-  const o = {}; q.split('&').forEach(kv=>{ const i = kv.indexOf('='); if(i>0) o[decodeURIComponent(kv.slice(0,i))] = decodeURIComponent(kv.slice(i+1)); });
+  // A cut-off link (a broken %-code) must not crash the page (CORE-L11).
+  const dec = x => { try{ return decodeURIComponent(x); }catch(e){ return x; } };
+  const o = {}; q.split('&').forEach(kv=>{ const i = kv.indexOf('='); if(i>0) o[dec(kv.slice(0,i))] = dec(kv.slice(i+1)); });
   return o;
 }
 let resetBusy = false, resetError = null;
@@ -53,7 +55,7 @@ window.doResetPassword = async function(){
     if(!ur.ok){ resetError = (ud && (ud.msg||ud.error_description||ud.message)) || 'Could not save the new password — try again.'; render(); return; }
     fetchWithTimeout(SUPABASE_URL+'/auth/v1/logout', {method:'POST', headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+vd.access_token}}, 8000).catch(()=>{});
     authError = null; authInfo = 'Password changed — log in with your new password.'; authPrefillEmail = p.e || (vd.user && vd.user.email) || '';
-    try{ const r = JSON.parse(localStorage.getItem('ophub_remember')||'null'); if(r && r.email && authPrefillEmail && r.email.toLowerCase()===authPrefillEmail.toLowerCase()) localStorage.removeItem('ophub_remember'); }catch(e){}
+    scrubRememberedPassword(); // only the email is ever kept now
     if(SESSION && SESSION.user && authPrefillEmail && String(SESSION.user.email||'').toLowerCase()===authPrefillEmail.toLowerCase()){ await doSignOut(); }
     location.hash = ''; render();
   }catch(e){ resetBusy = false; resetError = 'Could not reach the server — check your connection and try again.'; render(); }
@@ -71,14 +73,14 @@ function renderLogin(){
       </div>
       <div class="formfield">
         <label class="field-label">Password</label>
-        <input type="password" id="authPassword" value="${escapeHtml(authPrefillEmail && authPrefillEmail.toLowerCase()!==String(rememberedAuth().email||'').toLowerCase() ? '' : rememberedAuth().password)}" placeholder="••••••••" onkeyup="maybeAutoSignIn()">
+        <input type="password" id="authPassword" value="" placeholder="••••••••" autocomplete="current-password" onkeyup="maybeAutoSignIn()">
       </div>
-      <label class="stub" style="display:flex;align-items:center;gap:6px;margin:2px 0 12px;"><input type="checkbox" id="authRemember" style="width:auto;" ${rememberedAuth().remember?'checked':''}>Remember my email & password on this device</label>
+      <label class="stub" style="display:flex;align-items:center;gap:6px;margin:2px 0 12px;"><input type="checkbox" id="authRemember" style="width:auto;" ${rememberedAuth().remember?'checked':''}>Remember my email on this device</label>
       <button class="primarybtn" style="background:var(--brand1);color:var(--brand1-text);border-color:var(--brand1);" ${authBusy?'disabled':''} onclick="doSignIn()">
         ${authBusy ? '<span class="spinner"></span>'+escapeHtml(authBusyLabel||'Please wait…') : 'Sign In'}
       </button>
       <p style="text-align:center;margin:12px 0 0;"><span class="viewlink" style="cursor:pointer;font-weight:700;" onclick="forgotPassword()">Forgot password?</span></p>
-      <p class="stub" style="margin-top:10px;">Real Supabase account — password is never seen or stored by our servers. Ticking "Remember" saves it on this device only, so only use it on a phone/computer that's yours alone.</p>
+      <p class="stub" style="margin-top:10px;">Real Supabase account — password is never seen or stored by our servers. Ticking "Remember" saves your email on this device — never your password. You stay signed in until you tap Sign out.</p>
       <p class="stub" style="margin-top:14px;">New team member? You'll need an invite link from your Project Manager to create an account — sign-up isn't open to the public.</p>
     </div>
     <div style="display:flex;justify-content:center;margin-top:22px;">
@@ -94,17 +96,17 @@ window.maybeAutoSignIn = function(ev){
   // click or Enter key only, from here on.
   if(ev && ev.key === 'Enter'){ doSignIn(); }
 };
-// "Remember me" on the sign-in page — stored in localStorage, on-device
-// only, and never sent anywhere except back into these two fields. Opt-in
+// "Remember me" on the sign-in page — the EMAIL only, in localStorage on
+// this device (fix round 2, CORE-M2: the password is never stored). Opt-in
 // via the checkbox; unticking it (or a fresh sign-in without it checked)
 // clears whatever was saved.
 function rememberedAuth(){
   try{
-    const raw = localStorage.getItem('ophub_remember');
-    if(!raw) return {email:'', password:'', remember:false};
+    const raw = localStorage.getItem(K_REMEMBER);
+    if(!raw) return {email:'', remember:false};
     const parsed = JSON.parse(raw);
-    return {email: parsed.email||'', password: parsed.password||'', remember:true};
-  }catch(e){ return {email:'', password:'', remember:false}; }
+    return {email: (parsed && typeof parsed.email==='string') ? parsed.email : '', remember:true};
+  }catch(e){ return {email:'', remember:false}; }
 }
 window.doSignIn = async function(){
   if(authBusy) return; // Enter key + button tap at the same time used to start two sign-ins
@@ -113,7 +115,7 @@ window.doSignIn = async function(){
   const remember = document.getElementById('authRemember') && document.getElementById('authRemember').checked;
   authPrefillEmail = email; // keep what they typed if the password's wrong
   if(!email || !password){ authError='Enter your email and password.'; render(); return; }
-  try{ if(!remember) localStorage.removeItem('ophub_remember'); }catch(e){}
+  try{ if(!remember) localStorage.removeItem(K_REMEMBER); }catch(e){}
   // authBusy stays true (and the button stays showing progress) for the
   // WHOLE sign-in sequence, not just the initial password check — it used
   // to flip back to false the moment the password check passed, but with
@@ -129,8 +131,8 @@ window.doSignIn = async function(){
   try{
     const r = await signIn(email, password);
     if(r.error){ authError = r.error; return; }
-    // Only remember a password that actually worked.
-    try{ if(remember) localStorage.setItem('ophub_remember', JSON.stringify({email, password})); }catch(e){}
+    // Only remember an email that actually worked — never the password.
+    try{ if(remember) localStorage.setItem(K_REMEMBER, JSON.stringify({email})); }catch(e){}
     resetPerUserState(); // never carry the previous person's lists into this sign-in
     authBusyLabel = 'Loading your account…'; render();
     await loadProfile();
@@ -139,7 +141,7 @@ window.doSignIn = async function(){
       await doSignOut();
       return;
     }
-    if(ME.role==='superadmin'){ go('#/'); return; }
+    if(ME.role==='superadmin'){ await persistSession(); go('#/'); return; }
     if(deviceLockApplies(ME)){
       authBusyLabel = 'Checking this device…'; render();
       const lock = await checkDeviceLock();
@@ -151,6 +153,9 @@ window.doSignIn = async function(){
         return;
       }
     }
+    // Fix round 2 (CORE-M3): the sign-in is only saved on this device once the
+    // device check has passed — closing the app mid-way leaves it signed out.
+    await persistSession();
     authBusyLabel = 'Getting your sites…'; render();
     // These three don't depend on each other, so run them together instead
     // of stacking three separate timeouts one after another.

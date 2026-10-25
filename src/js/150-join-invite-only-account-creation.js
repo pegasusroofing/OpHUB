@@ -91,13 +91,11 @@ window.doJoin = async function(inviteId){
         return;
       }
       joinInfo = undefined;
-      joinBusyLabel = 'Getting your sites…'; render();
-      const [, , sitesRes] = await Promise.all([loadOrg(), loadAllProfiles(true), dbSelectChecked('sites', 'select=*&order=created_at.asc')]);
-      if(sitesRes.ok){ SITES = sitesRes.data; saveBootSnapshot(); }
-      warmUpLibs();
-      registerPushNotifications(); // a brand-new account was never registered for notifications until its next sign-in
-      // Lock this phone to the new account now, rather than only at its next sign-in.
+      // Lock this phone to the new account now, rather than only at its next
+      // sign-in — and before anything is saved on the device (fix round 2,
+      // CORE-M3: the session is only stored once this check has passed).
       if(deviceLockApplies(ME)){
+        joinBusyLabel = 'Checking this device…'; render();
         const lock = await checkDeviceLock();
         if(lock && (lock.error==='device_locked' || lock.error==='pending_approval')){
           try{ sbFetch('/functions/v1/notify-admin-signup', {method:'POST', body: JSON.stringify({})}); }catch(e){}
@@ -107,6 +105,12 @@ window.doJoin = async function(inviteId){
           return;
         }
       }
+      await persistSession();
+      joinBusyLabel = 'Getting your sites…'; render();
+      const [, , sitesRes] = await Promise.all([loadOrg(), loadAllProfiles(true), dbSelectChecked('sites', 'select=*&order=created_at.asc')]);
+      if(sitesRes.ok){ SITES = sitesRes.data; saveBootSnapshot(); }
+      warmUpLibs();
+      registerPushNotifications(); // a brand-new account was never registered for notifications until its next sign-in
       try{ sbFetch('/functions/v1/notify-admin-signup', {method:'POST', body: JSON.stringify({})}); }catch(e){ /* best-effort, silent */ }
       go(homeHash());
     } else {

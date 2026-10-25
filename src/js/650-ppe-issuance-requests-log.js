@@ -101,7 +101,7 @@ async function buildPpeRequestsSummaryPdf(siteId, requests){
   const logoImg = await havsFetchLogoImg(pdfDoc);
   const {bold, reg, INK, SLATE, LINE, BRAND, WHITE} = fonts;
   const PAGE_W = 595.28, PAGE_H = 841.89, MARGIN = 44;
-  const page = pdfDoc.addPage([PAGE_W, PAGE_H]);
+  let page = pdfDoc.addPage([PAGE_W, PAGE_H]);
   page.drawRectangle({x:0, y:PAGE_H-80, width:PAGE_W, height:80, color:BRAND});
   if(logoImg){
     const dim = logoImg.scale(1); const s = HAVS_LOGO_SIZE/Math.max(dim.width, dim.height);
@@ -112,15 +112,24 @@ async function buildPpeRequestsSummaryPdf(siteId, requests){
   page.drawText('REQUESTED PPE', {x:MARGIN, y:PAGE_H-34, size:9, font:bold, color:WHITE, opacity:0.85});
   pdfDrawFit(page, pdfSiteLabel(site), {x:MARGIN, y:PAGE_H-54, size:16, font:bold, color:WHITE});
   let y = PAGE_H-110;
+  // PB-08: carry on over as many pages as the list needs (it used to run
+  // off the bottom of the one page after ~17 requests).
+  const footer = pg => pg.drawText('Generated via OpHUB', {x:MARGIN, y:20, size:8, font:reg, color:SLATE});
   requests.forEach(r=>{
-    page.drawText(nameOf(r.user_id)+' — '+r.item_name, {x:MARGIN, y, size:11, font:bold, color:INK});
+    if(y < 70){
+      footer(page);
+      page = pdfDoc.addPage([PAGE_W, PAGE_H]);
+      pdfDrawFit(page, 'REQUESTED PPE (continued) · '+pdfSiteLabel(site), {x:MARGIN, y:PAGE_H-44, size:9, font:bold, color:SLATE});
+      y = PAGE_H-70;
+    }
+    pdfDrawFit(page, nameOf(r.user_id)+' — '+r.item_name, {x:MARGIN, y, size:11, font:bold, color:INK});
     y -= 14;
     page.drawText('Status: '+cap1(r.status)+(r.date_needed?' · Needed by '+new Date(r.date_needed+'T00:00:00').toLocaleDateString('en-GB'):''), {x:MARGIN, y, size:9, font:reg, color:SLATE});
     y -= 10;
     page.drawLine({start:{x:MARGIN,y}, end:{x:PAGE_W-MARGIN,y}, thickness:0.5, color:LINE});
     y -= 16;
   });
-  page.drawText('Generated via OpHUB', {x:MARGIN, y:20, size:8, font:reg, color:SLATE});
+  footer(page);
   const bytes = await pdfDoc.save();
   const filename = exportFilename(site?site.name:'', `Requested PPE (${requests.length})`, 'pdf');
   return {bytes, filename};
@@ -461,8 +470,14 @@ async function buildPpeIssuancePdf(issuanceId){
   page.drawLine({start:{x:MARGIN,y:y+8}, end:{x:PAGE_W-MARGIN,y:y+8}, thickness:0.5, color:LINE});
   y -= 8;
   page.drawText('Issued by '+nameOf(i.issued_by)+' on '+new Date(i.issued_at).toLocaleDateString('en-GB'), {x:MARGIN, y, size:10, font:reg, color:SLATE}); y -= 34;
-  page.drawText('I confirm I have received the above PPE items and will use/maintain them as instructed.', {x:MARGIN, y, size:9.5, font:reg, color:SLATE}); y -= 22;
-  page.drawText('Signed by '+nameOf(i.user_id)+' · '+(i.signed_at?new Date(i.signed_at).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}):''), {x:MARGIN, y, size:9.5, font:bold, color:SLATE});
+  if(i.signature_image_path){
+    page.drawText('I confirm I have received the above PPE items and will use/maintain them as instructed.', {x:MARGIN, y, size:9.5, font:reg, color:SLATE}); y -= 22;
+    page.drawText('Signed by '+nameOf(i.user_id)+' · '+(i.signed_at?new Date(i.signed_at).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}):''), {x:MARGIN, y, size:9.5, font:bold, color:SLATE});
+  } else {
+    // PB-15: handed over in person by the PM — the operative never signed
+    // this, so the record mustn't claim they did.
+    pdfDrawFit(page, 'Issued in person by '+nameOf(i.issued_by)+' — not signed by the operative.', {x:MARGIN, y, size:9.5, font:bold, color:SLATE});
+  }
   y -= 20;
   if(i.signature_image_path){
     try{

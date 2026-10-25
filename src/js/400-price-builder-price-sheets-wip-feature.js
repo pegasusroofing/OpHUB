@@ -499,6 +499,9 @@ window.pbChangeOption = function(oldKey, itemId, newOptionId){
   const o = opts.find(o=>o.id===newOptionId); if(!o) return;
   if(o.id===entry.optionId) return; // unchanged
   const newKey = itemId+'::'+o.id;
+  // Another line on this sheet already uses that option: don't overwrite it
+  // (its quantity would be lost) — say so and leave both lines as they are.
+  if(pbWorking.items[newKey]){ toast(`"${o.label}" is already on this sheet — change the quantity on that line instead.`); render(); return; }
   delete pbWorking.items[oldKey];
   pbWorking.items[newKey] = {...entry, optionId:o.id, optionRate:Number(o.rate), optionLabel:o.label, rateOverride:null, isManualRate:false};
   render();
@@ -727,7 +730,19 @@ window.issuePriceBuilderSheet = async function(siteId, sheetId){
     subTileName = typed.trim() || pbWorking.title;
   }
 
-  if(!await customConfirm('Issue this sheet? It becomes read-only and visible to everyone assigned to this site — you can\'t un-issue it.')) return;
+  // Multi-address job: the new tile has to belong to an address, or it never
+  // shows under any of them on the Price tile. Ask which one (the address
+  // last picked on the Price tile is pre-selected).
+  let newTileSubId = null;
+  const issueSite = SITES.find(s=>s.id===siteId)||{};
+  if(!sheet.pricing_element_id && issueSite.multi_site){
+    const addrs = await dbSelect('site_sub_addresses', 'site_id=eq.'+siteId+'&order=name.asc');
+    if(!addrs.length){ customAlert('This job has more than one address but none are set up yet. Add the addresses in Site Settings › Multi-Site first, then issue the sheet.'); return; }
+    newTileSubId = addrs.length===1 ? addrs[0].id : await pbAskSubAddress(addrs, priceSubAddrSelected[siteId]);
+    if(!newTileSubId) return;
+  }
+
+  if(!await customConfirm('Issue this sheet? It becomes read-only and visible to everyone assigned to this site. You can un-issue it later if you need to change it.')) return;
 
   const issuePersist = await pbPersist(siteId, sheetId, 'issued');
   const {total, rows, failed} = issuePersist;
@@ -739,7 +754,7 @@ window.issuePriceBuilderSheet = async function(siteId, sheetId){
   if(!pricingElementId){
     const existingEls = await dbSelect('pricing_elements', 'site_id=eq.'+siteId+'&select=sort_order&order=sort_order.desc&limit=1');
     const nextOrder = existingEls.length ? Number(existingEls[0].sort_order||0)+1 : 0;
-    const newEls = await dbInsert('pricing_elements', {site_id:siteId, sub_site_id: (SITES.find(s=>s.id===siteId)||{}).multi_site ? (priceSubAddrSelected[siteId]||null) : null, name: subTileName, sort_order: nextOrder, price_total: total, created_by: ME.id});
+    const newEls = await dbInsert('pricing_elements', {site_id:siteId, sub_site_id: newTileSubId, name: subTileName, sort_order: nextOrder, price_total: total, created_by: ME.id});
     if(newEls && newEls[0]) pricingElementId = newEls[0].id;
   } else {
     await dbUpdate('pricing_elements', pricingElementId, {price_total: total});
@@ -796,6 +811,28 @@ window.issuePriceBuilderSheet = async function(siteId, sheetId){
   }
   pbWorking = {sheetId:null, title:'', assignedUserIds:[], phase:'tick', populateSOW:true, items:{}, customRows:[]};
   go(`#/site/${siteId}/pricebuilder/view/${sheetId}`);
+};
+// Address picker for issuing a sheet on a multi-address job. Resolves with
+// the chosen site_sub_addresses id, or null if cancelled.
+let _pbAddrResolve = null;
+function pbAskSubAddress(addrs, preselect){
+  if(_pbAddrResolve){ const r = _pbAddrResolve; _pbAddrResolve = null; r(null); }
+  return new Promise(resolve=>{
+    _pbAddrResolve = resolve;
+    let ov = document.getElementById('pbAddrOverlay');
+    if(!ov){ ov = document.createElement('div'); ov.id = 'pbAddrOverlay'; ov.className = 'geo-modal-overlay'; document.body.appendChild(ov); }
+    ov.onclick = e=>{ if(e.target===ov) window._pbAddrAnswer(null); };
+    ov.innerHTML = `<div class="geo-modal-card">
+        <p class="stub" style="margin:0 0 12px;font-weight:600;color:var(--ink);">Which address is this sheet for? Its tile goes under that address on the Price tile.</p>
+        ${addrs.map(a=>`<button class="${a.id===preselect?'darkbtn':'ghostbtn'}" style="width:100%;margin-bottom:8px;" onclick="window._pbAddrAnswer('${jsAttr(a.id)}')">${escapeHtml(a.name||'Address')}</button>`).join('')}
+        <button class="geo-modal-cancel" onclick="window._pbAddrAnswer(null)">Cancel</button>
+      </div>`;
+    ov.style.display = 'flex';
+  });
+}
+window._pbAddrAnswer = function(v){
+  const ov = document.getElementById('pbAddrOverlay'); if(ov) ov.style.display = 'none';
+  const r = _pbAddrResolve; _pbAddrResolve = null; if(r) r(v||null);
 };
 // Un-issue — PM/admin only. Issuing is normally one-way (the app says so at
 // the confirm prompt), but that assumes the sheet's line items actually made

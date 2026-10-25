@@ -26,7 +26,7 @@ async function renderFinSubsSection(sub){
   const [scs, sapps, ops] = await Promise.all([
     dbSelect('fin_subcontracts', 'org_id=eq.'+ME.org_id+'&order=created_at.desc'),
     dbSelect('fin_sub_apps', 'org_id=eq.'+ME.org_id+'&order=app_date.desc'),
-    dbSelect('fin_sub_payments', finOpQ()+'&order=created_at.desc&limit=3000'),
+    finSelectAll('fin_sub_payments', finOpQ()+'&order=created_at.desc'),
   ]);
   if(__gen !== RENDER_GEN) return;
   if(!FIN_SETTINGS) await finLoadSettings();
@@ -238,7 +238,7 @@ async function renderFinPayRun(){
   if(!FIN_SETTINGS) await finLoadSettings();
   if(!finRunDay) finRunDay = finNextPayDay();
   const upTo = finAddDays(finRunWeek(finRunDay), 6); // last day of the week being paid
-  const [ops, rates] = await Promise.all([dbSelect('fin_sub_payments', finOpQ()+'&order=period_start.asc&limit=3000'), finLoadRates()]);
+  const [ops, rates] = await Promise.all([finSelectAll('fin_sub_payments', finOpQ()+'&order=period_start.asc'), finLoadRates()]);
   if(__gen !== RENDER_GEN) return;
   const keyOf = p=>p.worker_id ? 'w:'+p.worker_id : (p.user_id||'');
   const due = ops.filter(p=>p.status==='approved' && p.period_start <= upTo);
@@ -297,8 +297,8 @@ window.finPayCfgSave = async function(k, v){
 /* ---------- Labour on a job: operative invoices + PAYE days ---------- */
 async function finJobLabour(siteId){
   const [ops, cks, manual, rates] = await Promise.all([
-    dbSelect('fin_sub_payments', finOpQ()+'&status=in.(approved,paid)&limit=5000'),
-    dbSelect('checkins', 'site_id=eq.'+siteId+'&type=eq.in&select=user_id,site_id,ts,type&order=ts.desc&limit=20000'),
+    finSelectAll('fin_sub_payments', finOpQ()+'&status=in.(approved,paid)'),
+    finSelectAll('checkins', 'site_id=eq.'+siteId+'&type=eq.in&select=user_id,site_id,ts,type&order=ts.desc'),
     dbSelect('fin_labour_manual', 'site_id=eq.'+siteId+'&order=work_date.desc'),
     finLoadRates(),
   ]);

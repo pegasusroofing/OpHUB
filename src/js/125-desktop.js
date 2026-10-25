@@ -78,7 +78,7 @@ function deskSidebar(opts){
   }
   let activeTop = inSite ? (parts[2]==='finance' && typeof isFinanceUser==='function' && isFinanceUser() ? 'finance' : 'sites') : (top || (usesPmHome(ME) ? 'home' : 'sites'));
   if(finOnly){ activeTop = inSite ? 'finance' : (top==='finance' && parts[1]==='inbox') ? 'finance/purchases' : (top==='finance' && ['jobs','sales','purchases','subs','labour','settings','reports','directory'].includes(parts[1]) ? 'finance/'+parts[1] : (top||'finance')); if(activeTop==='finance/labour') activeTop = 'finance/subs'; }
-  const row = (i, active)=>`<button type="button" class="desknav-i ${active?'on':''}" onclick="${i.pre||''}go('${i.go}')">${ophIcon(i.ic, 18)}<span>${escapeHtml(i.lbl)}</span>${i.badge?`<b class="desknav-badge">${i.badge}</b>`:''}</button>`;
+  const row = (i, active)=>`<button type="button" class="desknav-i ${active?'on':''}" onclick="${i.pre||''}go('${jsAttr(i.go)}')">${ophIcon(i.ic, 18)}<span>${escapeHtml(i.lbl)}</span>${i.badge?`<b class="desknav-badge">${i.badge}</b>`:''}</button>`;
   const navOpen = deskNavOpenSet();
   const group = i=>{
     const kids = (i.kids||[]).filter(c=>c.show!==false);

@@ -153,8 +153,11 @@ async function buildSignedSiteLayoutPdf(layoutId){
   const docs = await dbSelect('site_layout_docs', 'id=eq.'+layoutId+'&select=*');
   const doc = docs[0];
   if(!doc) return null;
-  const sigs = await dbSelect('site_layout_signatures', 'layout_id=eq.'+layoutId+'&order=signed_at.asc');
+  // Only this signing round's signatures — the same ones the screen shows —
+  // not people who signed before the job was last asked to sign again.
+  const sigs = filterCurrentCycleSigs(await dbSelect('site_layout_signatures', 'layout_id=eq.'+layoutId+'&order=signed_at.asc'), [doc], 'layout_id', SITES.find(s=>s.id===doc.site_id));
   if(!sigs.length) return null;
+  await loadAllProfiles();
   try{
     const srcBytes = await (await fetch(publicUrl('mc-documents', doc.storage_path))).arrayBuffer();
     const pdfDoc = await PDFLib.PDFDocument.load(srcBytes, {ignoreEncryption:true});

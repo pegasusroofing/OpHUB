@@ -61,7 +61,7 @@ const FIN_REPORTS = [
   {id:'retention', group:'qs', title:'Retention ledger', desc:'Retention held by your clients, release dates, and retention you hold on subcontractors.', filters:['status','job'], run:async f=>{
     const b = await finRepBookLoad(); const st = await finLoadSettings(); const rows = [];
     finRepSites(f).forEach(s=>{
-      const apps = finBy(b.apps, s.id).filter(a=>a.status!=='void'); const held = finRetentionHeld(apps); const jf = finBy(b.jf, s.id)[0] || {};
+      const apps = finBy(b.apps, s.id).filter(a=>a.status!=='void'); const jf = finBy(b.jf, s.id)[0] || {}; const held = finRetentionStillHeld(apps, jf, finBy(b.invs, s.id));   // FA-08: still held, less releases
       if(held){ const d = finRetentionDates(jf, st) || {}; rows.push({job:finRepJob(s), who:s.client_name||'Client', type:'Held by client (owed to us)', held, first:d.first||null, second:d.second||null, _go:`#/site/${s.id}/finance`}); }
       finBy(b.scs, s.id).forEach(sc=>{ const last = (b.sapps||[]).filter(a=>a.subcontract_id===sc.id && a.certified_gross!=null).sort((x,y)=>x.number-y.number).pop(); if(last && Number(last.retention)) rows.push({job:finRepJob(s), who:sc.name, type:'We hold (owed to subcontractor)', held:-Number(last.retention), first:null, second:null, _go:`#/site/${s.id}/finance/sub/${sc.id}`}); });
     });

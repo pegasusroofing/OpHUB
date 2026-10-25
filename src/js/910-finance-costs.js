@@ -167,6 +167,12 @@ window.deleteFinJobCost = async function(id){
 };
 // Cost type on a purchase invoice (materials / plant / subcontract / overheads / other).
 window.setFinPiCostCode = async function(id, code){
+  // FA-11: the bill in Xero keeps its old account code.
+  const sel = typeof event!=='undefined' && event && event.target && event.target.tagName==='SELECT' ? event.target : null;
+  if(typeof finXeroPostedConfirm==='function' && !(await finXeroPostedConfirm('purchase_invoices', id, 'Change the cost type to '+(FIN_COST_CATS[code]||code)+'?', 'change the account on the bill in Xero'))){
+    const was = sel && sel.querySelector('option[selected]'); if(was) sel.value = was.value;
+    return;
+  }
   const r = await dbUpdate('purchase_invoices', id, {cost_code:code});
   if(r) toast('Cost type: '+(FIN_COST_CATS[code]||code));
 };

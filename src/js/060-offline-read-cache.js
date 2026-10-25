@@ -43,14 +43,74 @@ async function touchCacheIndex(key){
     evicted.forEach(k=>{ sdelete(CACHE_PREFIX+k, false).catch(()=>{}); });
   }catch(e){ /* best-effort — a failed cache write is never worth surfacing */ }
 }
+// Fix round 2 (SEC-L7 / SEC-N1 / CP-NEW-2): never keep a copy on the device
+// of anything holding sign-in tokens or company money (OneDrive / Xero
+// connections, Finance and wages). Those screens just need signal.
+function cacheNeverStore(table){
+  const t = String(table||'').toLowerCase();
+  return /^(onedrive_|xero_|fin_|wage_|wages_)/.test(t) || t==='job_finance' || t.indexOf('token') > -1 || t.indexOf('secret') > -1;
+}
+const CACHE_MAX_ENTRY_CHARS = 250000; // a single very large answer isn't worth filling the phone's storage with
 async function cacheRows(table, qs, rows){
   const key = table+'?'+qs;
+  if(cacheNeverStore(table)) return;
   try{
-    await setJSON(CACHE_PREFIX+key, {data:rows, at:Date.now()}, false);
+    const txt = JSON.stringify({data:rows, at:Date.now()});
+    if(txt.length > CACHE_MAX_ENTRY_CHARS){ await cacheDropKey(key); return; }
+    let ok = await sset(CACHE_PREFIX+key, txt, false);
+    if(!ok){
+      // Storage is full — make room by dropping the oldest half of the saved
+      // copies (never the sign-in), then try once more.
+      await cacheEvictOldest(0.5);
+      ok = await sset(CACHE_PREFIX+key, txt, false);
+      if(!ok) return;
+    }
     await touchCacheIndex(key);
   }catch(e){ /* best-effort */ }
 }
+async function cacheDropKey(key){
+  try{
+    const idx = await getCacheIndex();
+    const pos = idx.indexOf(key);
+    if(pos !== -1){ idx.splice(pos, 1); cacheIndexMem = idx; await setJSON(CACHE_INDEX_KEY, idx, false); }
+    await sdelete(CACHE_PREFIX+key, false);
+  }catch(e){}
+}
+async function cacheEvictOldest(frac){
+  try{
+    const idx = await getCacheIndex();
+    const n = Math.max(1, Math.ceil(idx.length * (frac||0.5)));
+    const gone = idx.splice(0, n);
+    cacheIndexMem = idx;
+    for(const k of gone){ await sdelete(CACHE_PREFIX+k, false); }
+    await setJSON(CACHE_INDEX_KEY, idx, false);
+  }catch(e){}
+}
+// One-off tidy at start-up: remove any saved copy of a never-store table
+// that an older version of the app wrote (e.g. the OneDrive tokens).
+async function cachePurgeSensitive(){
+  try{
+    const idx = await getCacheIndex();
+    const bad = idx.filter(k=>cacheNeverStore(String(k).split('?')[0]));
+    if(bad.length){
+      for(const k of bad){ await sdelete(CACHE_PREFIX+k, false); }
+      cacheIndexMem = idx.filter(k=>bad.indexOf(k) === -1);
+      await setJSON(CACHE_INDEX_KEY, cacheIndexMem, false);
+    }
+  }catch(e){}
+  // Website: also catch copies that fell out of the index.
+  try{
+    const kill = [];
+    for(let i=0; i<localStorage.length; i++){
+      const k = localStorage.key(i);
+      if(k && k.indexOf(CACHE_PREFIX) === 0 && cacheNeverStore(k.slice(CACHE_PREFIX.length).split('?')[0])) kill.push(k);
+    }
+    kill.forEach(k=>{ try{ localStorage.removeItem(k); }catch(e){} });
+  }catch(e){}
+}
+cachePurgeSensitive();
 async function getCachedRows(table, qs){
+  if(cacheNeverStore(table)) return null;
   try{
     const v = await getJSON(CACHE_PREFIX+(table+'?'+qs), false, null);
     return (v && Array.isArray(v.data)) ? v : null;
@@ -120,6 +180,22 @@ async function dbSelectNet(table, qs){
   if(data && typeof data==='object') dbSelectOk.add(data);
   return data;
 }
+// Fix round 2 (CORE-M5): the server hands back at most 1000 rows per
+// request, so long lists (a month of check-ins, a year of leave) are read in
+// pages of 1000 until a short page comes back. qs must have a fixed order.
+const DB_PAGE_ROWS = 1000;
+async function dbSelectAll(table, qs, maxRows){
+  const base = String(qs||'').split('&').filter(x=>x && !/^(limit|offset)=/.test(x)).join('&');
+  const cap = maxRows || 20000;
+  let out = [];
+  for(let off=0; off<cap; off+=DB_PAGE_ROWS){
+    const rows = await dbSelect(table, base+'&limit='+DB_PAGE_ROWS+'&offset='+off);
+    if(!Array.isArray(rows) || !rows.length) break;
+    out = out.concat(rows);
+    if(rows.length < DB_PAGE_ROWS) break;
+  }
+  return out;
+}
 // Like dbSelect, but says whether the answer actually came from the server.
 // dbSelect returns [] both for "no rows" and for "the request failed", which
 // is fine for a list on screen but not for decisions like "this account no
@@ -138,10 +214,27 @@ async function dbSelectChecked(table, qs){
 // swaps from cached data to live data without anyone having to pull to
 // refresh themselves — only fires if something was actually shown from
 // cache during the current screen's last render.
+// Fix round 2 (CORE-L6): only the job-list / home screens redraw by
+// themselves (nothing is typed there). Anywhere else a "tap to refresh" bar
+// appears instead, so half-typed text in a form is never wiped.
 window.addEventListener('online', function(){
   uiReadCacheClear();
-  if(OFFLINE_CACHE_USED) render();
+  if(!OFFLINE_CACHE_USED) return;
+  if(typeof onJobListScreen !== 'function' || onJobListScreen()){ render(); return; }
+  showBackOnlineBar();
 });
+function showBackOnlineBar(){
+  try{
+    if(document.getElementById('backOnlineBar')) return;
+    const el = document.createElement('div'); el.id = 'backOnlineBar';
+    el.setAttribute('role','status');
+    el.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 10px);z-index:99999;background:var(--ok,#1a7f37);color:#fff;padding:10px 16px;border-radius:999px;font-size:13.5px;font-weight:700;box-shadow:0 4px 16px rgba(0,0,0,.3);cursor:pointer;max-width:92vw;text-align:center;';
+    el.textContent = 'Signal\'s back — tap here to refresh this page';
+    el.onclick = function(){ el.remove(); render(); };
+    document.body.appendChild(el);
+  }catch(e){}
+}
+window.addEventListener('hashchange', function(){ const b = document.getElementById('backOnlineBar'); if(b) b.remove(); });
 async function dbInsert(table, rowOrRows){
   let res;
   try{
@@ -280,7 +373,14 @@ function uploadBusyTrack(promiseFn, counts){
   // Preparing a photo shows the pill too, but only the send counts as "1 of N".
   compressImage = function(){ const a = arguments; return uploadBusyTrack(()=>rawCompress.apply(this, a), false); };
 }
-function publicUrl(bucket, path){ return path ? (SUPABASE_URL+'/storage/v1/object/public/'+bucket+'/'+path) : null; }
+// Fix round 2 (SEC-H2): each part of the file path is URL-encoded — and so
+// are ' ( ) ! * which encodeURIComponent leaves alone — so a stored path can
+// never break out of src="…" or onclick="viewImage('…')". Paths in the
+// database are raw (unencoded), so they are only ever encoded here, once.
+function storagePathEnc(path){
+  return String(path).split('/').map(seg=>encodeURIComponent(seg).replace(/[!'()*]/g, c=>'%'+c.charCodeAt(0).toString(16).toUpperCase())).join('/');
+}
+function publicUrl(bucket, path){ return path ? (SUPABASE_URL+'/storage/v1/object/public/'+bucket+'/'+storagePathEnc(path)) : null; }
 function blobToBase64(blob){
   return new Promise((resolve, reject)=>{
     const reader = new FileReader();
@@ -502,7 +602,10 @@ async function deliverIcsFile(icsText, filename){
         // the '_system' target is what Capacitor recognises as "hand this
         // off to the real system browser" instead of opening its own view,
         // which is what lets iOS's Calendar-import handoff actually fire.
-        window.open(publicUrl('site-photos', stored), '_system');
+        // Fix round 2 (CORE-M8): get the signed link first, so the phone's
+        // browser is handed the real file and the app itself never navigates.
+        const u = typeof resolveStorageUrl==='function' ? await resolveStorageUrl(publicUrl('site-photos', stored)) : publicUrl('site-photos', stored);
+        window.open(u, '_system');
         return;
       }
     }catch(e){ /* fall through to the direct-download fallback below */ }

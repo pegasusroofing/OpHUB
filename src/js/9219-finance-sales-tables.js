@@ -40,13 +40,20 @@ function finAppStage(a){
   if(a.status==='submitted') return {k:'submitted', l:'Waiting for certificate', c:'blue'};
   return {k:'draft', l:'Draft', c:'grey'};
 }
+// NS-L5: the project's client (and billing name) so "Search application no., project or client" finds it.
+function finAppClientText(siteId){
+  const s = (typeof SITES!=='undefined' ? SITES : []).find(x=>x.id===siteId) || {};
+  const jf = (typeof finAppClientJf!=='undefined' && finAppClientJf[siteId]) || {};
+  return [s.client_name, jf.billing_name].filter(Boolean).join(' ');
+}
+let finAppClientJf = {};
 function finAppTableHtml(apps, invBy, opts){
   opts = opts || {};
   if(!apps.length) return `<div class="empty" style="margin:8px 0 0;">${opts.empty||'No applications yet.'}</div>`;
   const job = !!opts.showJob;
   return `<div class="finreptbl-wrap"><table class="fincosttbl fininvtbl">
     <thead><tr>${job?'<th>Project</th>':''}<th>Application</th><th>Date</th><th class="num">Applied (net)</th><th class="num">Certified (net)</th><th>Stage</th><th>Invoice</th></tr></thead>
-    <tbody>${apps.map(a=>{ const s = finAppStage(a); const inv = invBy[a.invoice_id]; const short = a.cert_net!=null ? finRound(Number(a.cert_net)-Number(a.net_due||0)) : 0; return `<tr class="click" data-lf="${lfText(finJobTag(a.site_id)+' application certificate '+a.number)}" onclick="go('#/site/${a.site_id}/finance/application/${a.id}')">
+    <tbody>${apps.map(a=>{ const s = finAppStage(a); const inv = invBy[a.invoice_id]; const short = a.cert_net!=null ? finRound(Number(a.cert_net)-Number(a.net_due||0)) : 0; return `<tr class="click" data-lf="${lfText(finJobTag(a.site_id)+' application certificate '+a.number+' '+finAppClientText(a.site_id))}" onclick="go('#/site/${a.site_id}/finance/application/${a.id}')">
       ${job?`<td data-l="Project" class="d"><b>${escapeHtml(finJobTag(a.site_id))}</b></td>`:''}
       <td data-l="Application" ${job?'':'class="d"'}>${job?'':'<b>'}${a.cert_net!=null || a.invoice_id ? 'Certificate' : 'Application'} ${a.number}${job?'':'</b>'}</td>
       <td data-l="Date">${finDate(a.valuation_date)}</td>
@@ -84,7 +91,8 @@ function finCleanEmptyDrafts(invs){
   const age = i=>{ const t = Date.parse(i.updated_at || i.created_at || ''); return isNaN(t) ? 0 : Date.now() - t; };
   const old = i=>(i.created_by===ME.id && age(i) > 24*3600*1000) || age(i) > 7*24*3600*1000;
   const keep = [], gone = [];
-  invs.forEach(i=>{ if(empty(i) && !(typeof finInvDraft!=='undefined' && finInvDraft && finInvDraft.id===i.id)) { if(old(i)) gone.push(i); } else keep.push(i); });
+  // FIN-NEW-05: a young empty draft stays in the list (it's counted in "Drafts not sent yet", so it has to be findable to finish or delete).
+  invs.forEach(i=>{ if(empty(i) && old(i) && !(typeof finInvDraft!=='undefined' && finInvDraft && finInvDraft.id===i.id)) gone.push(i); else keep.push(i); });
   gone.forEach(i=>{ sbFetch('/rest/v1/fin_invoices?id=eq.'+i.id+'&status=eq.draft&number=is.null', {method:'DELETE'}).catch(()=>null); });
   return keep;
 }
@@ -98,14 +106,15 @@ async function renderFinSales(sub){
   sub = ['apps','invoices','retention'].includes(sub) ? sub : null;
   const __gen = RENDER_GEN;
   const [invs0, apps, pays, jf, st] = await Promise.all([
-    dbSelect('fin_invoices', 'org_id=eq.'+ME.org_id+'&order=created_at.desc&limit=3000'),
-    dbSelect('fin_applications', 'org_id=eq.'+ME.org_id+'&order=valuation_date.desc&limit=3000&select=id,site_id,number,status,valuation_date,due_date,final_date,gross,net_due,cert_date,cert_gross,cert_net,cert_retention,cert_is_payless,invoice_id,submitted_at,created_at'),
-    dbSelect('fin_payments', 'org_id=eq.'+ME.org_id+'&select=amount,paid_on&limit=10000'),
+    finSelectAll('fin_invoices', 'org_id=eq.'+ME.org_id+'&order=created_at.desc'),
+    finSelectAll('fin_applications', 'org_id=eq.'+ME.org_id+'&order=valuation_date.desc&select=id,site_id,number,status,valuation_date,due_date,final_date,gross,net_due,cert_date,cert_gross,cert_net,cert_retention,cert_is_payless,invoice_id,submitted_at,created_at'),
+    finSelectAll('fin_payments', 'org_id=eq.'+ME.org_id+'&select=amount,paid_on'),
     dbSelect('job_finance', 'org_id=eq.'+ME.org_id),
     finLoadSettings(),
   ]);
   if(__gen !== RENDER_GEN) return;
   const invs = finCleanEmptyDrafts(invs0);
+  finAppClientJf = {}; (jf||[]).forEach(r=>{ finAppClientJf[r.site_id] = r; });
   if(!sub) sub = apps.some(a=>['draft','submitted','certified'].includes(finAppStage(a).k)) ? 'apps' : 'invoices';
   const live = invs.filter(i=>i.status!=='void');
   const owed = live.reduce((t,i)=>t+finInvOutstandingNet(i),0), overdue = live.filter(finInvOverdue).reduce((t,i)=>t+finInvOutstandingNet(i),0);

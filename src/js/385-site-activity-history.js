@@ -7,11 +7,14 @@
 let siteActivityFilter = 'all';     // all | changes | notices
 let siteActivityPerson = '';        // '' = everyone
 let siteActivityLimit = 150;
+let siteActivitySite = null;        // the job the filters above belong to
 const SITE_ACTIVITY_KIND_LABEL = {material_request:'Material requested', variation:'Variation raised', snag_closed:'Snag closed', snag_raised:'Snag raised', schedule_flag:'Site flag raised', delivery_complete:'Delivery completed', permit_issued:'Permit issued', permit_closed:'Permit closed', havs_elv_exceeded:'HAVS limit exceeded', havs_eav_exceeded:'HAVS action value exceeded', vehicle_checklist_fail:'Vehicle check failed', additional_works_requested:'Variation requested', todo_assigned:'To-do assigned', doc_needs_signing:'Document issued for signing', price_sheet_issued:'Price sheet issued', delivery_assigned:'Delivery / collection assigned'};
 async function renderSiteActivity(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   if(!site){ go('#/sites'); return; }
+  // Filters belong to one job: a different job starts with them cleared.
+  if(siteActivitySite !== siteId){ siteActivitySite = siteId; siteActivityFilter = 'all'; siteActivityPerson = ''; siteActivityLimit = 150; }
   const [logRows, msgRows] = await Promise.all([
     dbSelect('site_activity_log', 'site_id=eq.'+siteId+'&order=created_at.desc&limit='+siteActivityLimit),
     // Ordinary chat messages and the routine "checked in" notices are left out — this is a record of actions.
@@ -25,6 +28,7 @@ async function renderSiteActivity(siteId){
     ...(msgRows||[]).map(r=>({type:'notices', at:r.created_at, by:r.sender_id, head:SITE_ACTIVITY_KIND_LABEL[r.kind] || words(r.kind), text:r.body||''})),
   ].sort((a,b)=>String(b.at).localeCompare(String(a.at)));
   const peopleIds = Array.from(new Set(items.map(i=>i.by).filter(Boolean))).sort((a,b)=>nameOf(a).localeCompare(nameOf(b)));
+  if(siteActivityPerson && !peopleIds.includes(siteActivityPerson)) peopleIds.push(siteActivityPerson); // keep the chosen person pickable so the filter can be cleared
   const shown = items.filter(i=>(siteActivityFilter==='all' || i.type===siteActivityFilter) && (!siteActivityPerson || i.by===siteActivityPerson));
   const more = (logRows||[]).length>=siteActivityLimit || (msgRows||[]).length>=siteActivityLimit;
   let lastDay = '';
@@ -32,7 +36,7 @@ async function renderSiteActivity(siteId){
     <div class="filterrow" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;overflow:visible;">
       ${[['all','All'],['changes','Changes'],['notices','Notices']].map(c=>`<div class="filterchip ${siteActivityFilter===c[0]?'active':''}" style="flex:none;min-width:0;width:auto;margin:0;text-align:center;" onclick="siteActivityFilter='${c[0]}';render()">${c[1]}</div>`).join('')}
     </div>
-    ${peopleIds.length>1 ? `<div class="formfield"><label class="field-label">Person</label><select onchange="siteActivityPerson=this.value;render()"><option value="">Everyone</option>${peopleIds.map(id=>`<option value="${id}" ${siteActivityPerson===id?'selected':''}>${escapeHtml(nameOf(id))}</option>`).join('')}</select></div>` : ''}
+    ${(peopleIds.length>1 || siteActivityPerson) ? `<div class="formfield"><label class="field-label">Person</label><select onchange="siteActivityPerson=this.value;render()"><option value="">Everyone</option>${peopleIds.map(id=>`<option value="${id}" ${siteActivityPerson===id?'selected':''}>${escapeHtml(nameOf(id))}</option>`).join('')}</select></div>` : ''}
     <p class="stub" style="margin:8px 0 10px;">Changes are edits, closures and deletions. Notices are things raised on the job, such as material requests, snags and variations.</p>
     ${shown.map(i=>{
       const d = new Date(i.at);

@@ -239,8 +239,14 @@ window.saveFinDaywork = async function(siteId, id){
   if(file){ const stored = await uploadToStorage('finance-docs', ME.org_id+'/'+siteId+'/dayworks/'+uid()+'-'+file.name.replace(/[^a-z0-9.\-]+/gi,'_').slice(-80), file, file.type||'application/octet-stream'); if(stored){ row.file_path = stored; row.file_name = file.name; } }
   let r;
   if(id) r = await dbUpdate('fin_dayworks', id, row);
-  else { const ex = await dbSelect('fin_dayworks', 'site_id=eq.'+siteId+'&select=seq&order=seq.desc&limit=1').catch(()=>[]); const seq = (ex[0] ? ex[0].seq : 0) + 1;
-    r = await dbInsert('fin_dayworks', Object.assign({org_id:ME.org_id, site_id:siteId, seq, number:'DW'+String(seq).padStart(3,'0'), created_by:ME.id}, row)); }
+  else {
+    // FA-16: numbered the same way as variations — a clash takes the next free number and says so.
+    const lab = seq=>'DW'+String(seq).padStart(3,'0');
+    r = await finScInsertNumbered('fin_dayworks',
+      async ()=>{ const ex = await dbSelectNet('fin_dayworks', 'site_id=eq.'+siteId+'&select=seq&order=seq.desc&limit=1').catch(()=>[]); return (ex[0] ? ex[0].seq : 0) + 1; },
+      seq=>Object.assign({org_id:ME.org_id, site_id:siteId, seq, number:lab(seq), created_by:ME.id}, row), lab);
+    if(r && r[0]) await finRenumberIfClash('fin_dayworks', siteId, r[0], lab);
+  }
   if(btn){ btn.disabled = false; btn.textContent = 'Save'; }
   if(!r) return;
   document.getElementById('finDwOverlay').style.display = 'none'; toast('Day work saved'); finDwFill(siteId);
@@ -320,26 +326,33 @@ finJobStatusSelHtml = function(){
   document.head.appendChild(st);
 })();
 
-/* Variation numbers (audit FA-16, 24 Oct): the next number is worked out on the phone or computer, so
-   two people adding a variation at the same moment could both get V005. After saving, check
-   whether someone else got the same number first; if so, this one moves to the next free number. */
+/* Variation and day work numbers (audit FA-16, 24 Oct): the next number is worked out on the phone or
+   computer, so two people adding one at the same moment could both get V005. With the database's
+   unique (site, seq) rule the insert itself retries (912 finScInsertNumbered). Until that rule is in
+   place, after saving check whether someone else got the same number first; if so, this one moves
+   to the next free number. */
+async function finRenumberIfClash(table, siteId, mine, label){
+  if(!mine || mine.seq==null) return mine;
+  try{
+    const same = await dbSelectChecked(table, 'site_id=eq.'+siteId+'&seq=eq.'+mine.seq+'&select=id,created_at&order=created_at.asc,id.asc');
+    if(same.ok && same.data.length > 1 && same.data[0].id !== mine.id){
+      const top = await dbSelectChecked(table, 'site_id=eq.'+siteId+'&select=seq&order=seq.desc&limit=1');
+      if(top.ok){
+        const seq = ((top.data[0] && top.data[0].seq) || 0) + 1;
+        const r = await dbUpdate(table, mine.id, {seq, number:label(seq)});
+        if(r){ toast('Someone else took '+(mine.number||label(mine.seq))+' at the same time — this one is '+r.number+'.'); return r; }
+      }
+    }
+  }catch(e){ console.error(e); }
+  return mine;
+}
 (function(){
   if(typeof finVarInsert!=='function') return;
   const base = finVarInsert;
   finVarInsert = async function(siteId, row){
     const ins = await base.apply(this, arguments);
     const mine = ins && ins[0]; if(!mine || mine.seq==null) return ins;
-    try{
-      const same = await dbSelectChecked('fin_variations', 'site_id=eq.'+siteId+'&seq=eq.'+mine.seq+'&select=id,created_at&order=created_at.asc,id.asc');
-      if(same.ok && same.data.length > 1 && same.data[0].id !== mine.id){
-        const top = await dbSelectChecked('fin_variations', 'site_id=eq.'+siteId+'&select=seq&order=seq.desc&limit=1');
-        if(top.ok){
-          const seq = ((top.data[0] && top.data[0].seq) || 0) + 1;
-          const r = await dbUpdate('fin_variations', mine.id, {seq, number:'V'+String(seq).padStart(3,'0')});
-          if(r){ ins[0] = r; toast('Someone else took '+mine.number+' at the same time — this one is '+r.number+'.'); }
-        }
-      }
-    }catch(e){ console.error(e); }
+    ins[0] = await finRenumberIfClash('fin_variations', siteId, mine, seq=>'V'+String(seq).padStart(3,'0'));
     return ins;
   };
 })();

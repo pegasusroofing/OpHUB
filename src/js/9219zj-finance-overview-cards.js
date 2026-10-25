@@ -61,7 +61,7 @@ function finOvBlockHtml(siteId, d, fc){
   else if(fc && fc.sales){ mPct = Math.round((fc.sales - fc.costToDate)/fc.sales*1000)/10; mLabel = 'margin to date'; }
   const pill = mPct==null ? `<span class="finov-pill grey" onclick="event.stopPropagation();go('#/site/${siteId}/finance/budget')">Set a budget</span>` : `<span class="finov-pill ${mPct<0?'red':'green'}">${mPct}% ${mLabel}</span>`;
   const pv = fc && fc.ffa ? Math.max(0, Math.min(100, Math.round(valued/fc.ffa*100))) : 0;
-  const subLine = fc ? `Contract ${finMoney(fc.contract, 0)} + ${finMoney(fc.vAgreed||0, 0)} agreed variations${fc.budgetTotal!=null ? ' · forecast profit '+finMoney(fc.forecastMargin, 0) : ''}` : '';
+  const subLine = fc ? `Contract ${finMoney(fc.contract, 0)} + ${finMoney(fc.vAgreed||0, 0)} agreed variations${fc.vPending ? ' + '+finMoney(fc.vPending, 0)+' submitted' : ''}${fc.budgetTotal!=null ? ' · forecast profit '+finMoney(fc.forecastMargin, 0) : ''}` : '';
   const head = `<div class="card finov-head" onclick="finProjTabGo('${siteId}','setup')">
     <div class="finov-row"><span class="finov-lbl">${escapeHtml(FIN_OV_H.find(o=>o[0]===hk)[1])}</span>${finPickMenuHtml('Headline', FIN_OV_H, hk, 'finOvSet', 'h')}</div>
     <div class="finov-row"><span class="finov-big">${hv==null ? '…' : finMoney(hv, 0)}</span>${pill}</div>

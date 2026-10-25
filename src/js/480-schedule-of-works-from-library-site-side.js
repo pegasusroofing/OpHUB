@@ -1299,12 +1299,30 @@ window.moveScheduleTask = async function(siteId, taskId, dir){
   }finally{ scheduleMoveBusy = false; }
   render();
 };
+// The photo files of tasks that have just been deleted: their rows go with
+// the task, and the files (full size, mid and thumbnail) are removed from
+// storage too so they don't linger. Best effort, never blocks.
+async function sowRemoveTaskPhotoFiles(photos, taskIds){
+  try{
+    if(taskIds && taskIds.length){ try{ await sbFetch('/rest/v1/schedule_photos?task_id=in.('+taskIds.join(',')+')', {method:'DELETE'}); }catch(e){} }
+    const paths = [];
+    (photos||[]).forEach(p=>{
+      if(!p.storage_path) return;
+      const base = p.storage_path.replace(/\.[a-z0-9]+$/i, '');
+      [p.storage_path, p.mid_path || base+'_m.jpg', p.thumb_path || base+'_t.jpg'].forEach(x=>{ if(x && !paths.includes(x)) paths.push(x); });
+    });
+    for(let i=0;i<paths.length;i+=100){
+      try{ await sbFetch('/storage/v1/object/site-photos', {method:'DELETE', body: JSON.stringify({prefixes: paths.slice(i,i+100)})}); }catch(e){}
+    }
+  }catch(e){ /* non-fatal */ }
+}
 window.deleteTask = async function(siteId, taskId){
   if(!await customConfirm('Delete this task? This also removes its progress photos. This can\'t be undone.')) return;
   const rows = await dbSelect('schedule_tasks', 'id=eq.'+taskId+'&select=name');
   const name = rows[0] && rows[0].name;
+  const photos = await dbSelect('schedule_photos', 'task_id=eq.'+taskId+'&select=storage_path,mid_path,thumb_path');
   const ok = await dbDelete('schedule_tasks', taskId);
-  if(ok){ toast('Task deleted'); logSiteActivity(siteId, 'schedule_task_deleted', `Deleted Schedule of Works task "${name||''}"`); render(); }
+  if(ok){ toast('Task deleted'); logSiteActivity(siteId, 'schedule_task_deleted', `Deleted Schedule of Works task "${name||''}"`); sowRemoveTaskPhotoFiles(photos, [taskId]); render(); }
 };
 window.enterScheduleMultiSelect = function(taskId){
   scheduleMultiSelectMode = true;
@@ -1325,14 +1343,23 @@ window.deleteScheduleMultiSelected = async function(siteId){
   const ids = Array.from(scheduleMultiSelectedIds);
   const count = ids.length;
   if(!await customConfirm(`Delete ${count} task${count===1?'':'s'}? This also removes their progress photos. This can't be undone.`)) return;
-  const res = await sbFetch('/rest/v1/schedule_tasks?id=in.('+ids.join(',')+')', {method:'DELETE'});
-  if(res.ok){
-    toast(`${count} task${count===1?'':'s'} deleted`);
-    logSiteActivity(siteId, 'schedule_task_deleted', `Deleted ${count} Schedule of Works task${count>1?'s':''}`);
-    scheduleMultiSelectMode = false;
-    scheduleMultiSelectedIds = new Set();
-    render();
-  } else toast('Could not delete — '+(await safeErr(res)));
+  const photos = await dbSelect('schedule_photos', 'task_id=in.('+ids.join(',')+')&select=task_id,storage_path,mid_path,thumb_path');
+  let res;
+  try{ res = await sbFetch('/rest/v1/schedule_tasks?id=in.('+ids.join(',')+')', {method:'DELETE', headers:{'Prefer':'return=representation'}}); }
+  catch(e){ toast('Delete failed — connection dropped. Check your signal and try again.'); return; }
+  if(!res.ok){ toast('Could not delete — '+(await safeErr(res))); return; }
+  // The database says "OK" even when its permission rules removed nothing,
+  // so count what really went.
+  let gone = null; try{ gone = await res.json(); }catch(e){}
+  const goneIds = Array.isArray(gone) ? gone.map(r=>r.id) : ids;
+  if(!goneIds.length){ toast('Nothing was deleted — you may not have permission to remove these tasks.'); render(); return; }
+  const n = goneIds.length;
+  toast(n===count ? `${n} task${n===1?'':'s'} deleted` : `Only ${n} of ${count} tasks could be deleted — you may not have permission for the rest.`);
+  logSiteActivity(siteId, 'schedule_task_deleted', `Deleted ${n} Schedule of Works task${n>1?'s':''}`);
+  sowRemoveTaskPhotoFiles((photos||[]).filter(p=>goneIds.includes(p.task_id)), goneIds);
+  scheduleMultiSelectMode = false;
+  scheduleMultiSelectedIds = new Set();
+  render();
 };
 // Every photo is tagged with the task's stage AT THE TIME it's taken
 // (stage: 'todo'/'progress'/'done'), not derived later from wherever the

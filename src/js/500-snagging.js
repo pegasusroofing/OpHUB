@@ -5,6 +5,18 @@ let snagNewTitle = ''; // kept in JS state (not just read from the DOM at submit
 let snagNewLocation = ''; // because attaching a photo/PDF triggers a re-render mid-form,
                            // which was wiping out whatever had been typed so far.
 let closingSnagId = null;
+// The half-written snag above belongs to one job. Each job keeps its own,
+// so photos started on Job A can never be saved as a snag on Job B.
+let snagDraftSite = null;
+let snagDraftsBySite = {};
+function snagDraftUseSite(siteId){
+  if(snagDraftSite === siteId) return;
+  if(snagDraftSite && (snagNewPhotos.length || snagNewTitle || snagNewLocation)) snagDraftsBySite[snagDraftSite] = {photos:snagNewPhotos, title:snagNewTitle, loc:snagNewLocation};
+  const d = snagDraftsBySite[siteId] || {photos:[], title:'', loc:''};
+  delete snagDraftsBySite[siteId];
+  snagNewPhotos = d.photos; snagNewTitle = d.title; snagNewLocation = d.loc;
+  snagDraftSite = siteId;
+}
 let expandedSnagIds = new Set();
 window.toggleSnagExpand = function(id){
   if(expandedSnagIds.has(id)) expandedSnagIds.delete(id); else expandedSnagIds.add(id);
@@ -42,6 +54,7 @@ function snagCardBody(siteId, s, canAdd){
 }
 async function renderSnagging(siteId){
   const __gen = RENDER_GEN;
+  snagDraftUseSite(siteId);
   const site = SITES.find(s=>s.id===siteId);
   const canAdd = isManager(ME);
   const status = snagFilter==='live' ? 'open' : 'closed';
@@ -145,6 +158,7 @@ window.removeSnagNewPhoto = function(idx){
   render();
 };
 window.addSnag = async function(siteId){
+  if(snagDraftSite !== siteId){ render(); return; } // the form on screen belongs to another job
   const title = snagNewTitle.trim();
   const location = snagNewLocation.trim();
   if(!title) return;

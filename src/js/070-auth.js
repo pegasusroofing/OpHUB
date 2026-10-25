@@ -21,8 +21,9 @@ async function signUp(email, password, extra){
   const d = await res.json();
   if(!res.ok) return {error: d.msg||d.error_description||d.error||'Sign up failed'};
   if(d.access_token){
+    // Kept in memory only — the join flow saves it once the device check
+    // has passed (fix round 2, CORE-M3).
     SESSION = {access_token:d.access_token, refresh_token:d.refresh_token, expires_at:Date.now()+(d.expires_in*1000), user:{id:d.user.id, email:d.user.email}};
-    await setJSON(K_SESSION, SESSION, false);
     return {ok:true, confirmed:true};
   }
   return {ok:true, confirmed:false};
@@ -47,8 +48,10 @@ async function signIn(email, password){
   }catch(e){ return {error:'Could not reach the server — check your connection and try again.'}; }
   const d = await res.json();
   if(!res.ok) return {error: d.msg||d.error_description||d.error||'Sign in failed'};
+  // Fix round 2 (CORE-M3): kept in memory only. doSignIn saves it to the
+  // device (persistSession) after the device-lock check has passed, so
+  // closing the app mid-sign-in can't leave a saved session behind.
   SESSION = {access_token:d.access_token, refresh_token:d.refresh_token, expires_at:Date.now()+(d.expires_in*1000), user:{id:d.user.id, email:d.user.email}};
-  await setJSON(K_SESSION, SESSION, false);
   return {ok:true};
 }
 // One phone/browser profile = one operative. The first operative to sign
@@ -74,6 +77,7 @@ window.doSignOut = async function(){
   await sdelete(K_SESSION, false);
   await sdelete(K_BOOT, false);
   await clearOfflineCache();
+  scrubRememberedPassword(); // never leave an old saved password behind (CORE-M2)
   location.hash = '';
   render();
 };

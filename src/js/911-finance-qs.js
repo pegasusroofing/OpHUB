@@ -15,24 +15,25 @@ async function finLoadBook(siteId){
   const f = siteId ? 'site_id=eq.'+siteId : 'org_id=eq.'+ME.org_id;
   // Rows that can be split across projects are also fetched when another project's row has a share here.
   const fs = siteId ? 'or=(site_id.eq.'+siteId+',split_sites.cs.{'+siteId+'})' : f;
+  // FA-05: finSelectAll pages past the database's 1,000-row cap (900).
   const [jf, invs, apps, pinvs, pos, cks, manual, hires, extra, budgets, vars, scs, sapps, rates, cpos, items, ops] = await Promise.all([
     dbSelect('job_finance', f),
-    dbSelect('fin_invoices', f+'&status=neq.draft&limit=5000'),
-    dbSelect('fin_applications', f+'&order=number.asc&limit=5000'),
-    dbSelect('purchase_invoices', fs+'&status=neq.rejected&limit=10000'),
-    dbSelect('purchase_orders', fs+'&limit=10000'),
-    dbSelect('checkins', (siteId ? 'site_id=eq.'+siteId+'&' : '')+'type=eq.in&select=user_id,site_id,sub_site_id,ts,type&order=ts.desc&limit=50000'),
-    dbSelect('fin_labour_manual', f+'&limit=20000'),
-    dbSelect('fin_plant_hires', fs),
-    dbSelect('fin_job_costs', fs+'&limit=10000'),
+    finSelectAll('fin_invoices', f+'&status=neq.draft'),
+    finSelectAll('fin_applications', f+'&order=number.asc'),
+    finSelectAll('purchase_invoices', fs+'&status=neq.rejected'),
+    finSelectAll('purchase_orders', fs+''),
+    finSelectAll('checkins', (siteId ? 'site_id=eq.'+siteId+'&' : '')+'type=eq.in&select=user_id,site_id,sub_site_id,ts,type&order=ts.desc'),
+    finSelectAll('fin_labour_manual', f+''),
+    finSelectAll('fin_plant_hires', fs),
+    finSelectAll('fin_job_costs', fs+''),
     dbSelect('fin_job_budgets', f),
-    dbSelect('fin_variations', f+'&order=seq.asc'),
+    finSelectAll('fin_variations', f+'&order=seq.asc'),
     dbSelect('fin_subcontracts', f+'&order=seq.asc'),
-    dbSelect('fin_sub_apps', f+'&order=number.asc'),
+    finSelectAll('fin_sub_apps', f+'&order=number.asc'),
     finLoadRates(),
     dbSelect('client_pos', f+'&order=is_primary.desc,created_at.asc'),
-    dbSelect('fin_contract_items', f+'&select=id,site_id,kind,value,cost,sub_job_id,position&order=position.asc&limit=20000'),
-    dbSelect('fin_sub_payments', 'org_id=eq.'+ME.org_id+'&sub_app_id=is.null&status=in.(approved,paid)&limit=10000'),
+    finSelectAll('fin_contract_items', f+'&select=id,site_id,kind,value,cost,sub_job_id,position&order=position.asc'),
+    finSelectAll('fin_sub_payments', 'org_id=eq.'+ME.org_id+'&sub_app_id=is.null&status=in.(approved,paid)'),
   ]);
   await loadAllProfiles();
   return {siteId, jf, invs, apps, pinvs, pos, cks, manual, hires, extra, budgets, vars, scs, sapps, rates, cpos, items, ops};
@@ -165,7 +166,8 @@ function finJobForecast(b, siteId){
   }
   const sales = finBillingType(jf, schedItems.length, apps.length)==='invoice' ? invoiced : valuation;
   const ov = jf.original_value!=null ? Number(jf.original_value) : null, oc = jf.original_cost!=null ? Number(jf.original_cost) : null;
-  const retHeld = typeof finRetentionHeld==='function' ? finRetentionHeld(apps) : 0;
+  // FA-08: what the client still holds (less releases), the same figure as the project's Retention card.
+  const retHeld = typeof finRetentionStillHeld==='function' ? finRetentionStillHeld(apps, jf, invs) : 0;
   return {lines, cats, actual, committed, budget, toComplete, tcSet, forecast, jf, contract, vAgreed, vPending, vInstructed, ffa,
     valuation, certified, invoiced, owed, retHeld, applied: lastApp ? Number(lastApp.gross||0) : 0, costToDate, committedTotal, forecastCost,
     budgetTotal, budgetSource, schedCost, schedCostedN:schedCosted.length, schedItemsN:schedItems.length, varCost, toCompleteSched, sales,
@@ -218,7 +220,7 @@ function finForecastCardHtml(siteId, fc){
       </div>
     </div>
     <div class="fintiles">
-      ${tile('Expected final value', finMoney(fc.ffa, 0), (fc.origValue!=null?ff('Original', finMoney(fc.origValue, 0)):'Contract plus agreed variations'), diff(fc.ffa, fc.origValue))}
+      ${tile('Expected final value', finMoney(fc.ffa, 0), (fc.origValue!=null?ff('Original', finMoney(fc.origValue, 0)):'Contract + agreed variations, incl. submitted'), diff(fc.ffa, fc.origValue)+(fc.vPending?`<span class="fintile-x">incl. ${finMoney(fc.vPending, 0)} submitted variations, not agreed yet</span>`:''))}
       ${tile('Budget (expected cost)', fc.budgetTotal!=null ? finMoney(fc.budgetTotal, 0) : '—', fc.budgetTotal==null ? `<a href="#/site/${siteId}/finance/budget">Set a budget</a>` : (fc.origCost!=null?ff('Original', finMoney(fc.origCost, 0)):(fc.budgetSource==='schedule'?'From the schedule':'&nbsp;')), diff(fc.budgetTotal, fc.origCost))}
       ${fc.budgetTotal==null ? tile('Expected profit', '—', 'Needs a budget') + tile('Expected profit %', '—', 'Needs a budget')
         : tile('Expected profit', finMoney(fc.forecastMargin, 0), fc.origMargin!=null?ff('Original', finMoney(fc.origMargin, 0)):'&nbsp;', diff(fc.forecastMargin, fc.origMargin), pctCol(fc.forecastMargin))
@@ -257,7 +259,7 @@ async function renderFinBudget(siteId){
   const cell = (k, f)=>`<input type="text" inputmode="decimal" data-money data-k="${f}" data-c="${k}" value="${f==='budget' ? (fc.budget[k]!=null?fc.budget[k]:'') : (fc.tcSet[k]?fc.toComplete[k]:'')}" placeholder="${f==='to_complete' ? finMoneyIn(fc.toComplete[k]||0) : '£0.00'}" oninput="finBudPaint()">`;
   document.getElementById('app').innerHTML = shell(`
     <div class="pmstats finstats">
-      <div class="pmstat"><b>${finMoney(fc.ffa, 0)}</b><span>Forecast final account</span></div>
+      <div class="pmstat"><b>${finMoney(fc.ffa, 0)}</b><span>Forecast final account (incl. submitted variations)</span></div>
       <div class="pmstat"><b id="finBudFc">${finMoney(fc.forecastCost, 0)}</b><span>Forecast final cost</span></div>
       <div class="pmstat"><b id="finBudFm">${finMoney(fc.forecastMargin, 0)}</b><span>Forecast margin</span></div>
       <div class="pmstat"><b id="finBudFp">${finPctTxt(fc.forecastMarginPct)}</b><span>Forecast margin %</span></div>
@@ -269,7 +271,7 @@ async function renderFinBudget(siteId){
       <div class="finkv"><span>Variations agreed</span><b>${finMoney(fc.vAgreed)}</b></div>
       <div class="finkv"><span>Variations priced or submitted (not agreed)</span><b>${finMoney(fc.vPending)}</b></div>
       ${fc.vInstructed ? `<div class="finkv"><span>Instructed, not priced yet (estimate, not included)</span><b>${finMoney(fc.vInstructed)}</b></div>` : ''}
-      <div class="finkv big"><span>Forecast final account</span><b>${finMoney(fc.ffa)}</b></div>
+      <div class="finkv big"><span>Forecast final account (incl. submitted variations)</span><b>${finMoney(fc.ffa)}</b></div>
       <div class="finkv"><span>Valuation to date (last application)</span><b>${finMoney(fc.valuation)}</b></div>
       <div class="finkv"><span>Invoiced</span><b>${finMoney(fc.invoiced)}</b></div>
     </div>
@@ -386,10 +388,13 @@ window.finVarFromSite = async function(siteId, varId){
   await finVarInsert(siteId, {title:String(v.description||'Variation').slice(0,200), description:v.description||null, variation_id:v.id, instructed_on:String(v.created_at||'').slice(0,10)||null, status: v.approval_status==='approved' ? 'agreed' : 'instructed', quoted:(amt===null||isNaN(amt))?null:amt, agreed_value: v.approval_status==='approved' && amt!==null && !isNaN(amt) ? amt : null});
   toast('Added to the register'); render();
 };
+// FA-16: numbered like subcontracts (912 finScInsertNumbered) — with the unique (site, seq) rule in
+// the database a clash takes the next number and says so. Read fresh, not from the screen cache.
 async function finVarInsert(siteId, row){
-  const ex = await dbSelect('fin_variations', 'site_id=eq.'+siteId+'&select=seq&order=seq.desc&limit=1');
-  const seq = (ex[0] ? ex[0].seq : 0) + 1;
-  return dbInsert('fin_variations', Object.assign({org_id:ME.org_id, site_id:siteId, seq, number:'V'+String(seq).padStart(3,'0'), created_by:ME.id}, row));
+  const lab = seq=>'V'+String(seq).padStart(3,'0');
+  return finScInsertNumbered('fin_variations',
+    async ()=>{ const ex = await dbSelectNet('fin_variations', 'site_id=eq.'+siteId+'&select=seq&order=seq.desc&limit=1'); return (ex[0] ? ex[0].seq : 0) + 1; },
+    seq=>Object.assign({org_id:ME.org_id, site_id:siteId, seq, number:lab(seq), created_by:ME.id}, row), lab);
 }
 window.openFinVariation = async function(siteId, id){
   const v = id ? (await dbSelect('fin_variations', 'id=eq.'+id))[0] : null;

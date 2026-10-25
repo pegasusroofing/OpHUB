@@ -230,18 +230,32 @@ function loadSession(){
 async function ensureFreshToken(){
   if(!SESSION) return;
   if(Date.now() < SESSION.expires_at - 60000) return;
-  const res = await fetch(SUPABASE_URL+'/auth/v1/token?grant_type=refresh_token', {
-    method:'POST', headers:{'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json'},
-    body: JSON.stringify({refresh_token: SESSION.refresh_token})
-  });
+  // Fix round 2 (CORE-L10): same rule as the app — only sign out when the
+  // server actually says the sign-in is no good (400/401/403). A dropped
+  // connection, rate limit or server blip keeps the session.
+  let res;
+  try{
+    res = await fetch(SUPABASE_URL+'/auth/v1/token?grant_type=refresh_token', {
+      method:'POST', headers:{'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json'},
+      body: JSON.stringify({refresh_token: SESSION.refresh_token})
+    });
+  }catch(e){ return; }
   if(res.ok){
     const d = await res.json();
     SESSION = {access_token:d.access_token, refresh_token:d.refresh_token, expires_at:Date.now()+(d.expires_in*1000), user:SESSION.user};
     saveSession();
-  } else {
+  } else if(res.status===400 || res.status===401 || res.status===403){
     clearSession();
+    toast('Your session has expired — please sign in again.');
+    setTimeout(()=>location.reload(), 1500);
   }
 }
+// A dropped connection used to leave buttons silently doing nothing.
+window.addEventListener('unhandledrejection', e=>{
+  const r = e && e.reason;
+  console.error(r);
+  toast((r && (r.name==='TypeError' || r.name==='AbortError')) ? 'Could not reach the server — check your connection and try again.' : 'Something went wrong — please try again.');
+});
 async function sbFetch(path, opts){
   opts = opts || {};
   await ensureFreshToken();

@@ -155,10 +155,42 @@ async function renderCheckinSubAddress(siteId, subId){
   `;
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(body, {title:'Check In / Out', subtitle:site.name+' — '+addr.name, siteNameSubtitle:true, back:`#/site/${siteId}/checkin`, siteId, activeTab:'checkin'}); }
 }
+// This person's latest check-in / out on a job, per address ('' = the
+// job itself, no address), read fresh from the server — so a page left open
+// (or a second tab) can't make a second check-in or a check-out with no check-in.
+async function checkinLatestByAddress(siteId){
+  const rows = await dbSelectNet('checkins', 'site_id=eq.'+siteId+'&user_id=eq.'+ME.id+'&select=sub_site_id,type,ts&order=ts.desc&limit=200');
+  const latest = {};
+  (rows||[]).forEach(r=>{ const k = r.sub_site_id||''; if(!(k in latest)) latest[k] = r; });
+  return latest;
+}
 window.doCheckActionSub = async function(siteId, subId, type){
   checkinError = null;
   checkinBusy = true;
   render();
+
+  // Closed address: no new check-ins (checking out is still allowed).
+  // Only one address at a time: check out of the other one first.
+  {
+    const [addrRows, latest] = await Promise.all([
+      dbSelectNet('site_sub_addresses', 'id=eq.'+subId+'&select=id,name,closed'),
+      checkinLatestByAddress(siteId),
+    ]);
+    const here = latest[subId];
+    const amIn = !!(here && here.type==='in');
+    if(type==='in'){
+      if(addrRows[0] && addrRows[0].closed){ checkinBusy = false; checkinError = 'This address is closed — new check-ins are switched off.'; render(); return; }
+      if(amIn){ checkinBusy = false; toast('You\'re already checked in here.'); render(); return; }
+      const elsewhere = Object.keys(latest).filter(k=>k!==subId && latest[k].type==='in');
+      if(elsewhere.length){
+        const all = await dbSelect('site_sub_addresses', 'site_id=eq.'+siteId+'&select=id,name');
+        const names = elsewhere.map(k=>{ const a = all.find(x=>x.id===k); return a ? a.name : (k ? 'another address' : 'this job'); }).join(', ');
+        checkinBusy = false; render();
+        customAlert(`You're still checked in at ${names}. Check out there first, then check in here.`);
+        return;
+      }
+    } else if(!amIn){ checkinBusy = false; toast('You\'re not checked in here.'); render(); return; }
+  }
 
   // Check-out from a multi-site address is blocked until every Schedule of
   // Works task linked to that specific address has at least one photo
@@ -223,6 +255,14 @@ window.doCheckAction = async function(siteId, type){
   checkinError = null;
   checkinBusy = true;
   render();
+  // Re-check against the server: a page left open could otherwise add a
+  // second check-in, or a check-out with no check-in.
+  {
+    const here = (await dbSelectNet('checkins', 'site_id=eq.'+siteId+'&user_id=eq.'+ME.id+'&select=type,ts&order=ts.desc&limit=1'))[0]; // same rule as the Status card
+    const amIn = !!(here && here.type==='in');
+    if(type==='in' && amIn){ checkinBusy = false; toast('You\'re already checked in.'); render(); return; }
+    if(type==='out' && !amIn){ checkinBusy = false; toast('You\'re not checked in.'); render(); return; }
+  }
 
   // OpHUB Basic doesn't include GPS check-in & geofencing — just log the
   // timestamp with no location and skip the distance check entirely. PMs
@@ -265,9 +305,21 @@ window.doCheckAction = async function(siteId, type){
 window.exportCheckins = async function(siteId, scope){
   if(!(await loadLib('XLSX'))){ toast('Excel library failed to load — check connection.'); return; }
   const site = SITES.find(s=>s.id===siteId);
-  let qs = 'site_id=eq.'+siteId+'&order=ts.asc';
+  let qs = 'site_id=eq.'+siteId+'&order=ts.asc,id.asc';
   if(scope==='week') qs += '&ts=gte.'+new Date(startOfWeek(Date.now())).toISOString();
-  const rows = await dbSelect('checkins', qs);
+  // The server hands back at most 1,000 rows at a time, so a long job's full
+  // history is fetched page by page — otherwise the newest weeks were cut off.
+  // Keeps going until a page comes back empty, so it works whatever the
+  // server's own row cap is.
+  const PAGE = 1000, rows = [], seenIds = new Set();
+  for(let guard=0; guard<500; guard++){
+    const r = await dbSelectChecked('checkins', qs+'&limit='+PAGE+'&offset='+rows.length);
+    if(!r.ok){ toast('Could not load all the check-ins — check your signal and try again.'); return; }
+    const fresh = r.data.filter(c=>!seenIds.has(c.id));
+    if(!fresh.length) break;
+    fresh.forEach(c=>seenIds.add(c.id));
+    rows.push(...fresh);
+  }
   if(!rows.length){ toast('No check-ins in that range.'); return; }
   const data = rows.map(c=>({
     Name: nameOf(c.user_id),

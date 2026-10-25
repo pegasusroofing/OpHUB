@@ -103,6 +103,7 @@ window.setPlantChecklistAnswer = function(itemId, key, val){
   render();
 };
 window.submitPlantCheckout = async function(siteId, itemId){
+  if(plantBusy) return;
   const answers = plantCheckoutAnswers[itemId] || {};
   if(PLANT_CHECKLIST_ITEMS.some(q=>answers[q.key]===undefined)){ toast('Answer every checklist question first.'); return; }
   const checklist_answers = PLANT_CHECKLIST_ITEMS.map(q=>({key:q.key, label:q.label, answer:!!answers[q.key]}));

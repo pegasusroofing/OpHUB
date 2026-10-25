@@ -366,7 +366,13 @@ window.finCertFromExcel = async function(file, appId){
   });
   // Variations and day works come back as lines too, so the line-by-line certificate keeps the
   // client's figures (audit FB-09). A variation's certified £ is kept as a % of our value.
-  (a.variations||[]).forEach((v,i)=>{ const it = byKey['V:'+(v.variation_id||('x'+i))]; const p = it && it.certified!=null ? it.certified : finPct(v.pct); const val = it && it.amount!=null ? it.amount : Number(v.value||0); if(it) found++; const g = finRound(val*p/100); gross += g; const ov = Number(v.value||0); lines.push({var_index:i, description:v.description, value:ov, applied_pct:finPct(v.pct), pct: ov ? Math.round(g/ov*10000)/100 : p, gross:g}); if(p!==finPct(v.pct) || val!==Number(v.value||0)) diffs.push((v.description||'Variation')+' changed'); });
+  (a.variations||[]).forEach((v,i)=>{ const it = byKey['V:'+(v.variation_id||('x'+i))]; const p = it && it.certified!=null ? it.certified : finPct(v.pct); const val = it && it.amount!=null ? it.amount : Number(v.value||0); if(it) found++;
+    // FX-P9: kept as a % of our value and capped at 100% of it here (as the line-by-line certificate does),
+    // so the gross, the saved lines and the note all agree.
+    const ov = Number(v.value||0), raw = finRound(val*p/100), pc = ov ? finPct(raw/ov*100) : finPct(p), g = finRound(ov*pc/100);
+    gross += g; lines.push({var_index:i, description:v.description, value:ov, applied_pct:finPct(v.pct), pct:pc, gross:g});
+    if(Math.abs(raw - g) >= 0.01) diffs.push((v.description||'Variation')+': client certified '+finMoney(raw)+', capped at our value '+finMoney(g));
+    else if(p!==finPct(v.pct) || val!==Number(v.value||0)) diffs.push((v.description||'Variation')+' changed'); });
   (a.dayworks||[]).forEach((d,i)=>{ const it = byKey['D:'+i]; const p = it && it.certified!=null ? it.certified : 100; const val = it && it.amount!=null ? it.amount : Number(d.value||0); if(it) found++; const g = finRound(val*p/100); gross += g; lines.push({day_index:i, description:d.description, value:Number(d.value||0), applied_pct:100, pct:Number(d.value||0) ? finRound(g/Number(d.value)*100) : 0, gross:g}); if(p!==100 || val!==Number(d.value||0)) diffs.push((d.description||'Daywork')+' changed'); });
   if(!found){ toast('That doesn’t look like this application’s Excel — download it from OpHUB, send it to the client and upload their copy.'); return; }
   gross = finRound(gross);

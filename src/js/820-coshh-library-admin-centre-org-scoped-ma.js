@@ -367,7 +367,7 @@ window.importSelectedCoshhFromLibrary = async function(siteId){
     if(note) note.style.display = '';
   };
   setProgress('Adding… please wait');
-  let added = 0, failed = 0; const addedNames = [];
+  let added = 0, failed = 0; const addedNames = [], notPdfNames = [];
   try{
     const ids = Array.from(coshhPickSelected);
     const files = await dbSelect('coshh_library_files', 'id=in.('+ids.join(',')+')&select=*');
@@ -379,6 +379,11 @@ window.importSelectedCoshhFromLibrary = async function(siteId){
         const srcRes = await fetchWithTimeout(publicUrl('coshh-library', f.storage_path), {}, 60000);
         if(!srcRes.ok) throw new Error('download failed');
         const blob = await srcRes.blob();
+        // PB-12: the library takes any file, but a site COSHH has to be a
+        // PDF (it's viewed, signed and exported as one) — skip anything else.
+        let isPdf = false;
+        try{ const head = new Uint8Array(await blob.slice(0,5).arrayBuffer()); isPdf = String.fromCharCode.apply(null, Array.from(head)) === '%PDF-'; }catch(e){ isPdf = /\.pdf$/i.test(f.name||''); }
+        if(!isPdf){ notPdfNames.push(f.name); continue; }
         const path = siteId+'/coshh/'+uid()+'-'+f.name.replace(/[^a-z0-9.\-]+/gi,'_');
         const stored = await uploadToStorage('coshh-docs', path, blob, 'application/pdf');
         if(!stored){ failed++; continue; }
@@ -389,13 +394,17 @@ window.importSelectedCoshhFromLibrary = async function(siteId){
   }finally{
     coshhImportBusy = false;
   }
+  const notPdfNote = notPdfNames.length ? ' Not added (only PDFs can be signed): '+notPdfNames.slice(0,6).join(', ')+(notPdfNames.length>6?' and '+(notPdfNames.length-6)+' more':'')+'.' : '';
   if(!added){
+    if(notPdfNames.length && !failed){ customAlert('Nothing was added.'+notPdfNote); render(); return; }
     toast('Nothing was added — check your connection and try again.');
     render();
     return;
   }
   coshhPickSelected = new Set();
-  customAlert('✓ Upload complete — '+added+' document'+(added===1?'':'s')+' added to this site\'s COSHH'+(added<=6 ? ': '+addedNames.join(', ') : '')+'.'+(failed ? ' '+failed+' could not be added — try those again.' : ''));
+  // Same "something new to sign" notice operatives get from a normal upload — once for the batch.
+  try{ notifyDocNeedsSigning(siteId, 'COSHH', added===1 ? addedNames[0] : added+' documents ('+addedNames.slice(0,4).join(', ')+(added>4?'…':'')+')'); }catch(e){}
+  customAlert('✓ Upload complete — '+added+' document'+(added===1?'':'s')+' added to this site\'s COSHH'+(added<=6 ? ': '+addedNames.join(', ') : '')+'.'+(failed ? ' '+failed+' could not be added — try those again.' : '')+notPdfNote);
   go(`#/site/${siteId}/hs/coshh`);
 };
 

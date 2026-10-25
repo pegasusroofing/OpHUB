@@ -29,6 +29,45 @@ function finNum(v){
   const n = Number(s);
   return isNaN(n) ? NaN : n;
 }
+// FA-05: the database hands back at most 1,000 rows per request (Supabase max_rows), so a plain
+// dbSelect with limit=50000 quietly loses everything past the first 1,000. This asks page by page
+// (limit/offset) until a short page comes back. Any limit= in qs is kept as the overall cap.
+// Pages are ordered (an id tie-break is added) so nothing is skipped or repeated between pages.
+const FIN_PAGE = 1000;
+// opts.checked: use dbSelectChecked and return {ok, data} (ok false if any page failed).
+async function finSelectAll(table, qs, opts){
+  const checked = !!(opts && opts.checked);
+  const parts = String(qs||'').split('&').filter(Boolean);
+  let cap = Infinity, order = null;
+  const keep = parts.filter(x=>{
+    if(/^limit=/.test(x)){ const n = Number(x.slice(6)); if(n > 0) cap = n; return false; }
+    if(/^offset=/.test(x)) return false;
+    if(/^order=/.test(x)){ order = x; return false; }
+    return true;
+  });
+  if(!order) order = 'order=id.asc';
+  else if(!/(^|[=,])id\.(asc|desc)/.test(order)) order += ',id.asc';
+  const base = keep.concat([order]).join('&');
+  let out = [];
+  for(let off = 0; off < cap && off < 500000; off += FIN_PAGE){
+    const want = Math.min(FIN_PAGE, cap - off);
+    let page;
+    if(checked){ const r = await dbSelectChecked(table, base+'&limit='+want+'&offset='+off); if(!r.ok) return {ok:false, data:out}; page = r.data; }
+    else page = await dbSelect(table, base+'&limit='+want+'&offset='+off);
+    if(!Array.isArray(page)) break;
+    out = out.concat(page);
+    if(page.length < want) break;
+  }
+  return checked ? {ok:true, data:out} : out;
+}
+window.finSelectAll = finSelectAll;
+// FA-16 / FX-P7: a 409 from the database is only "that number is already taken" when the code is
+// 23505 (unique key). Anything else (e.g. 23503, the project was deleted) is a real error to show.
+async function finDupKeyCheck(res){
+  let j = null; try{ j = await res.json(); }catch(e){}
+  const msg = (j && (j.message || j.details || j.hint)) || res.status;
+  return {dup: res.status===409 && !!j && j.code==='23505', msg};
+}
 function finInt(v){ const n = finNum(v); return (n===null || isNaN(n)) ? n : Math.round(n); }
 function finVal(id){ const el = document.getElementById(id); return el ? el.value.trim() : ''; }
 function finSettings(){ return Object.assign({}, FIN_DEFAULTS, FIN_SETTINGS||{}); }
@@ -93,7 +132,7 @@ async function renderFinanceSettings(){
       <p class="stub" style="margin:0 0 10px;font-style:normal;">Every material order sent from a project’s Materials tile becomes a purchase order numbered by project (e.g. ${escapeHtml(((SITES.find(x=>x.job_number)||{}).job_number)||'2628')}-PO-001). The number goes on the order email and the request.</p>
       <label class="finswitch"><input type="checkbox" id="finPoOn" ${st.po_enabled?'checked':''}> Raise a PO for every PM’s order</label>
       <p class="stub" style="margin:0;font-style:normal;">${st.po_enabled ? 'On: orders sent by anyone with Finance switched on get a PO number (other PMs’ orders don’t).' : 'Off: no POs are raised from material orders.'}</p>
-      <div class="formfield" style="margin-top:12px;max-width:320px;"><label class="field-label">VAT on new PO lines</label><select id="finPoVat">${Object.keys(FIN_VAT_RATES).map(k=>`<option value="${k}" ${String(st.po_vat_default||'20')===k?'selected':''}>${FIN_VAT_RATES[k].l}</option>`).join('')}</select></div>
+      <div class="formfield" style="margin-top:12px;max-width:320px;"><label class="field-label">VAT on new PO lines</label><select id="finPoVat">${(typeof finVatKeysWith==='function' ? finVatKeysWith(FIN_VAT_RATES, String(st.po_vat_default||'20')) : Object.keys(FIN_VAT_RATES)).map(k=>`<option value="${k}" ${String(st.po_vat_default||'20')===k?'selected':''}>${FIN_VAT_RATES[k].l}</option>`).join('')}</select></div>
     </div>
     ${typeof finVatRatesCardHtml==='function' ? finVatRatesCardHtml() : ''}
     <div class="card">
@@ -203,7 +242,7 @@ async function renderSiteFinance(siteId){
     dbSelect('client_pos', 'site_id=eq.'+siteId+'&order=is_primary.desc,created_at.asc'),
     dbSelect('fin_invoices', 'site_id=eq.'+siteId+'&order=created_at.desc'),
     dbSelect('fin_contract_items', 'site_id=eq.'+siteId+'&select=id,value,kind'),
-    dbSelect('fin_applications', 'site_id=eq.'+siteId+'&order=number.desc&select=id,site_id,number,status,valuation_date,gross,net_due,cert_gross,cert_net,cert_retention,invoice_id'),
+    dbSelect('fin_applications', 'site_id=eq.'+siteId+'&order=number.desc&select=id,site_id,number,status,valuation_date,gross,net_due,cert_date,cert_gross,cert_net,cert_retention,invoice_id'),
     dbSelect('purchase_orders', 'site_id=eq.'+siteId+'&order=seq.desc'),
     dbSelect('purchase_invoices', 'site_id=eq.'+siteId+'&order=created_at.desc'),
     finJobLabour(siteId),
@@ -236,7 +275,7 @@ async function renderSiteFinance(siteId){
     <div class="finsalesub" data-s="retention">${finRetentionCardHtml(siteId, jf, st, apps)}</div>
     </div>
     <div class="finptab" data-t="purchases">
-    <div id="finJcSlot">${finJobCostCardHtml(finJobCost(jf, invs, pords, pinvs, lab.cost, hires.reduce((t,h)=>t+finPlantCost(h).cost,0), xcosts.reduce((t,x)=>t+Number(x.net||0),0)), siteId)}</div>
+    <div id="finJcSlot">${finJobCostCardHtml(finJobCost(jf, invs, pords, pinvs, lab.cost, hires.filter(h=>h.cost_from!=='invoices').reduce((t,h)=>t+finPlantCost(h).cost,0), xcosts.reduce((t,x)=>t+Number(x.net||0),0)), siteId)}</div>
     <div id="fin-a-purchasing"></div>${finPurchasingCardHtml(siteId, pords, pinvs)}
     ${finPlantCardHtml(siteId, hires)}
     </div>
@@ -346,11 +385,15 @@ window.saveSiteFinance = async function(siteId){
     due_days:(due===null||isNaN(due))?null:due, final_days:(fin===null||isNaN(fin))?null:fin, app_reminder_day:appDay, app_dates:appDates,
     vat_treatment:finVal('finVat')||null, billing_name:finVal('finBillName')||null, billing_address:finVal('finBillAddr')||null,
     billing_email:email||null, notes:finVal('finNotes')||null, updated_at:new Date().toISOString(), updated_by:ME.id,
+    // NS-L1: saving Project Admin ticks "Check retention, VAT…" on Getting Started — in this same write,
+    // so it only happens when the save worked, and before the page is redrawn.
+    setup_checked_at:new Date().toISOString(),
   })});
   done();
   if(!res.ok){ toast('Save failed — '+(await safeErr(res))); return; }
   toast('Project details saved');
   render();
+  return true;
 };
 
 /* ---------- Client PO add / edit ---------- */
@@ -453,6 +496,14 @@ window.openClientPoFile = async function(poId, idx){
 };
 
 /* ---------- Admin Centre › Users: the per-person switch ---------- */
+// FA-15: when giving Finance makes someone a manager (908 finTeamToggle), their old role is
+// remembered so switching Finance off puts it back. There's no profiles column for it yet
+// (wanted: profiles.finance_prev_role), so it's kept on this device.
+const FIN_PREV_ROLE_LS = 'ophub.finPrevRole';
+function finPrevRoles(){ try{ const o = JSON.parse(localStorage.getItem(FIN_PREV_ROLE_LS)||'{}'); return o && typeof o==='object' ? o : {}; }catch(e){ return {}; } }
+function finPrevRoleGet(userId){ const v = finPrevRoles()[userId]; return v && ['operative','driver','subcontractor'].includes(v) ? v : null; }
+function finPrevRoleSet(userId, role){ try{ const o = finPrevRoles(); if(role) o[userId] = role; else delete o[userId]; localStorage.setItem(FIN_PREV_ROLE_LS, JSON.stringify(o)); }catch(e){} }
+const FIN_ROLE_WORD = {operative:'an operative', driver:'a driver', subcontractor:'a subcontractor', pm:'a manager', admin:'an admin'};
 window.toggleFinanceAccess = async function(userId){
   if(!isFinanceUser()) return;
   const p = PROFILES[userId]; if(!p) return;
@@ -462,6 +513,15 @@ window.toggleFinanceAccess = async function(userId){
   if(!row) return;
   if(row.finance_enabled !== next){ toast('Only an admin with Finance switched on can change this.'); return; }
   p.finance_enabled = row.finance_enabled;
+  // Switching off: if they were only made a manager for Finance, put their old role back.
+  const prev = !next ? finPrevRoleGet(userId) : null;
+  if(prev && p.role==='pm'){
+    const back = await dbUpdate('profiles', userId, {role:prev});
+    if(back && back.role===prev){ p.role = prev; finPrevRoleSet(userId, null); toast('OpHUB Finance switched off for '+p.name+' — they’re '+FIN_ROLE_WORD[prev]+' again'); }
+    else toast('OpHUB Finance switched off for '+p.name+', but they’re still a manager — change their role in Admin Centre › Users.');
+    render(); return;
+  }
+  if(!next && prev) finPrevRoleSet(userId, null);   // their role was changed some other way since — leave it
   toast(next ? 'OpHUB Finance switched on for '+p.name : 'OpHUB Finance switched off for '+p.name);
   render();
 };

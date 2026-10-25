@@ -21,7 +21,7 @@ async function finSubJobsLoad(siteId, force){
   if(FIN_SUBJOBS[siteId] && !force) return FIN_SUBJOBS[siteId];
   const k = finSubKind(siteId); let out = [];
   if(k==='repair'){
-    const rows = await dbSelect('repair_jobs', 'site_id=eq.'+siteId+'&select=id,job_number,address,description,variation_cost,job_status,closed,created_at&order=created_at.asc&limit=5000');
+    const rows = await finSelectAll('repair_jobs', 'site_id=eq.'+siteId+'&select=id,job_number,address,description,variation_cost,job_status,closed,created_at&order=created_at.asc');
     out = (rows||[]).map(r=>({id:r.id, short:r.job_number || (r.address||'').split(',')[0] || 'Repair', label:[r.job_number, r.address].filter(Boolean).join(' — ') || 'Repair job', detail:r.description||'', value:r.variation_cost!=null ? Number(r.variation_cost) : null, status:r.job_status||'', closed:!!r.closed}));
   } else if(k==='multi'){
     const rows = await dbSelect('site_sub_addresses', 'site_id=eq.'+siteId+'&order=name.asc');
@@ -86,7 +86,8 @@ const FIN_SPLIT_TABLES = {
   purchase_invoices:{noun:'purchase invoice', net:r=>r.net},
   purchase_orders:{noun:'PO', net:r=>r.value},
   fin_job_costs:{noun:'cost', net:r=>r.net},
-  fin_plant_hires:{noun:'plant hire', net:r=>typeof finPlantCost==='function' ? finPlantCost(r).cost : null},
+  // FA-20: a hire costed from the hire company's invoices has no cost of its own (the invoices carry it).
+  fin_plant_hires:{noun:'plant hire', net:r=>r.cost_from==='invoices' ? null : (typeof finPlantCost==='function' ? finPlantCost(r).cost : null)},
 };
 let finSplit = null; // {table, id, row, net, mode, rows:[{site_id, sub, v}]}
 window.openFinSplit = async function(table, id){
@@ -123,7 +124,8 @@ window.finSplitPaint = function(){
   const homeSubs = FIN_SUBJOBS[d.row.site_id] || [];
   ov.innerHTML = `<div class="geo-modal-card finsplit" style="max-width:640px;">
     <h3>Allocate this ${d.noun}</h3>
-    <p class="stub" style="margin:-4px 0 12px;font-style:normal;">${d.net!=null ? finMoney(d.net)+' excl. VAT. ' : ''}Book it to one ${homeSubs.length ? finSubNoun(d.row.site_id).toLowerCase() : 'project'}, or split it across as many projects${homeSubs.length ? ' / '+finSubNoun(d.row.site_id, true).toLowerCase() : ''} as you need. It must add up to ${pct ? '100%' : finMoney(d.net)}.</p>
+    ${d.row.xero_id ? `<div class="finnote warn" style="margin:0 0 10px;"><b style="display:inline;">Already in Xero.</b> Changing the split here won’t change Xero — change the project tracking on the bill in Xero too, or the two won’t match.</div>` : ''}
+    <p class="stub" style="margin:-4px 0 12px;font-style:normal;">${d.net!=null ? finMoney(d.net)+' excl. VAT. ' : (d.table==='fin_plant_hires' && d.row.cost_from==='invoices' ? 'The cost comes from the hire company’s invoices. ' : '')}Book it to one ${homeSubs.length ? finSubNoun(d.row.site_id).toLowerCase() : 'project'}, or split it across as many projects${homeSubs.length ? ' / '+finSubNoun(d.row.site_id, true).toLowerCase() : ''} as you need. It must add up to ${pct ? '100%' : finMoney(d.net)}.</p>
     <div class="finseg" role="tablist">
       <button type="button" class="${pct?'on':''}" onclick="finSplitMode('pct')">By %</button>
       <button type="button" class="${!pct?'on':''}" ${d.net==null?'disabled title="No value yet"':''} onclick="finSplitMode('gbp')">By £</button>
@@ -200,6 +202,10 @@ window.saveFinSplit = async function(){
     const sumP = out.reduce((t,x)=>t+x.pct, 0); out[out.length-1].pct = Math.round((out[out.length-1].pct + 100 - sumP)*10000)/10000;
     patch = {split:out, sub_job_id:null};
   }
+  // FA-11: a bill already in Xero is tracked there by project — stop unless they'll change Xero too.
+  const siteSet = sp=>Array.from(new Set(sp && sp.length ? sp.map(e=>e.site_id) : [d.row.site_id])).sort().join(',');
+  if(d.table==='purchase_invoices' && siteSet(d.row.split)!==siteSet(patch.split) && typeof finXeroPostedConfirm==='function'
+    && !(await finXeroPostedConfirm(d.table, d.id, 'Save this split? It moves cost between projects.', 'change the project tracking on the bill in Xero'))) return;
   const res = await dbUpdate(d.table, d.id, patch);
   if(!res){ toast('Could not save the split.'); return; }
   document.getElementById('finSplitOverlay').style.display = 'none';

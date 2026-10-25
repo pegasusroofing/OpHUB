@@ -59,7 +59,12 @@ async function getMcTiles(siteId, site){
   ]);
   const countByCat = {}; counts.forEach(c=>{ countByCat[c.category] = (countByCat[c.category]||0)+1; });
   const inductionAssigned = inductionAssignedAll.filter(a=>!PROFILES[a.user_id] || PROFILES[a.user_id].role==='operative');
-  const inductionSub = inductionAssigned.length ? `${inductionDone.length} of ${inductionAssigned.length} inducted` : `${inductionDone.length} completed`;
+  // Count people, not completion rows (someone re-inducted counts once), and
+  // only people still on the job — never "12 of 10 inducted".
+  const rosterIds = new Set(inductionAssigned.map(a=>a.user_id));
+  const doneIds = new Set(inductionDone.map(c=>c.operative_id));
+  const doneOnRoster = Array.from(doneIds).filter(id=>rosterIds.has(id)).length;
+  const inductionSub = inductionAssigned.length ? `${doneOnRoster} of ${inductionAssigned.length} inducted` : `${doneIds.size} completed`;
   const permitsSub = openPermits.length ? `${openPermits.length} open` : 'None open';
   const [inspSubs, mcProgFiles] = await Promise.all([
     mcInspectionTemplates.length ? dbSelect('report_submissions', 'site_id=eq.'+siteId+'&template_id=in.('+mcInspectionTemplates.map(t=>t.id).join(',')+')&select=id') : [],

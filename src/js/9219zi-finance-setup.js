@@ -19,7 +19,7 @@ async function finCvPatch(siteId, total){
 async function finCvCheck(siteId){
   const [jr, ir] = await Promise.all([
     dbSelectChecked('job_finance', 'site_id=eq.'+siteId+'&select=contract_value,contract_value_source').catch(()=>({ok:false})),
-    dbSelectChecked('fin_contract_items', 'site_id=eq.'+siteId+'&select=kind,value&limit=10000').catch(()=>({ok:false}))]);
+    finSelectAll('fin_contract_items', 'site_id=eq.'+siteId+'&select=kind,value', {checked:true}).catch(()=>({ok:false}))]);
   if(!jr || !jr.ok || !ir || !ir.ok) return null;
   const jf = (jr.data||[])[0], items = ir.data||[]; if(!jf || jf.contract_value_source!=='manual') return null;
   const boq = finRound(items.filter(finIsItem).reduce((t,i)=>t+Number(i.value||0),0));
@@ -110,15 +110,9 @@ function finStartCardHtml(siteId, bt, n){
   if(!left.length) return '';
   return `<div class="card finstart"><p class="sectiontitle" style="margin:0 0 4px;">Getting Started</p>${left.join('')}</div>`;
 }
-(function(){
-  // Saving Project Admin counts as checking the terms.
-  const save = window.saveSiteFinance;
-  if(save) window.saveSiteFinance = async function(siteId){
-    const r = await save.apply(this, arguments);
-    try{ await sbFetch('/rest/v1/job_finance?on_conflict=site_id', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify({site_id:siteId, org_id:ME.org_id, setup_checked_at:new Date().toISOString()})}); }catch(e){}
-    return r;
-  };
-})();
+// Saving Project Admin counts as checking the terms: setup_checked_at now goes in the same write as
+// the rest of Project Admin (900 saveSiteFinance), so a save that stopped (bad email, retention %,
+// job-number clash, QS not saved) doesn't tick it (NS-L1).
 
 /* ---------- Payment Procedure line ---------- */
 function finBillingLineHtml(siteId, bt){

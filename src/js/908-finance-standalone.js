@@ -218,22 +218,31 @@ function finTeamRole(p){ return p.role==='admin' ? 'Admin' : (p.role==='pm' ? 'M
 window.finTeamToggle = async function(userId){
   const p = PROFILES[userId]; if(!p) return;
   // Finance users need the manager role to create jobs, suppliers and POs.
-  let wasRole = null;
+  // FA-15: switch Finance on first, and only then make them a manager. Their old role is
+  // remembered (900 finPrevRoleSet) so switching Finance off later puts it back.
   if(!p.finance_enabled && !['pm','admin'].includes(p.role)){
-    if(!await customConfirm('Give '+p.name+' Finance? This also makes them a manager, so they can see every job on the Projects side too.')) return;
-    wasRole = p.role;
+    if(typeof isFinanceUser==='function' && !isFinanceUser()) return;
+    if(userId===ME.id) return;
+    if(!await customConfirm('Give '+p.name+' Finance? This also makes them a manager, so they can see every job on the Projects side too. Switching Finance off later makes them '+(FIN_ROLE_WORD[p.role]||'what they were')+' again.')) return;
+    const wasRole = p.role;
+    const on = await dbUpdate('profiles', userId, {finance_enabled:true});
+    if(!on) return;
+    if(on.finance_enabled!==true){ toast('Only an admin with Finance switched on can change this.'); return; }
+    p.finance_enabled = true;
     const r = await dbUpdate('profiles', userId, {role:'pm'});
-    if(!r || r.role!=='pm'){ toast('Could not update their role.'); return; }
+    if(!r || r.role!=='pm'){
+      // Don't leave them half set up: Finance goes back off.
+      const off = await dbUpdate('profiles', userId, {finance_enabled:false});
+      if(off && off.finance_enabled===false) p.finance_enabled = false;
+      toast(p.finance_enabled ? 'Finance is on for '+p.name+' but they couldn’t be made a manager — change their role in Admin Centre › Users.' : 'Couldn’t make '+p.name+' a manager, so Finance was left off.');
+      render(); return;
+    }
     p.role = 'pm';
+    finPrevRoleSet(userId, wasRole);
+    toast('OpHUB Finance switched on for '+p.name+' (now a manager)');
+    render(); return;
   }
   await toggleFinanceAccess(userId);
-  // If Finance didn't switch on after all, put their old role back (audit FA-15).
-  if(wasRole && !p.finance_enabled){
-    const back = await dbUpdate('profiles', userId, {role:wasRole});
-    if(back && back.role===wasRole) p.role = wasRole;
-    else toast(p.name+' was made a manager but Finance didn’t switch on. Change their role back in Admin Centre › Users.');
-    render();
-  }
 };
 window.finTeamMakeAdmin = async function(userId){
   const p = PROFILES[userId]; if(!p) return;

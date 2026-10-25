@@ -203,17 +203,26 @@ window.finPiCodeSave = async function(){
   const baseSave = window.saveFinOpInvoice;
   if(baseSave) window.saveFinOpInvoice = async function(){
     const O = typeof finOp!=='undefined' ? finOp : null;
-    if(O && O.id && typeof finXeroPostedConfirm==='function'
+    if(O && O.id && !O.__xeroOk && typeof finXeroPostedConfirm==='function'
       && !(await finXeroPostedConfirm('fin_sub_payments', O.id, 'Save these changes?', 'edit or void the bill in Xero as well'))) return;
     return baseSave.apply(this, arguments);
   };
+  // Ask before the form even opens, so nobody types changes in for nothing (asked once, not again at Save).
+  const baseOpen = window.openFinOpInvoice;
+  if(baseOpen) window.openFinOpInvoice = async function(a, id){
+    if(id && typeof finXeroPostedConfirm==='function' && !(await finXeroPostedConfirm('fin_sub_payments', id, 'Edit this operative invoice?', 'edit or void the bill in Xero as well'))) return;
+    const r = await baseOpen.apply(this, arguments);
+    try{ if(id && typeof finOp!=='undefined' && finOp && finOp.id===id) finOp.__xeroOk = true; }catch(e){}
+    return r;
+  };
   const baseCancel = window.finOpCancel;
   if(baseCancel) window.finOpCancel = async function(id){
-    let row = null;
-    try{ row = (await dbSelect('fin_sub_payments', 'id=eq.'+id+'&select=xero_id'))[0]; }catch(e){}
+    const chk = await dbSelectChecked('fin_sub_payments', 'id=eq.'+id+'&select=xero_id');
+    if(!chk.ok){ toast('Couldn’t check whether this is already in Xero — check your signal and try again.'); return; }
+    const row = chk.data[0];
     if(!row || !row.xero_id) return baseCancel.apply(this, arguments);
     // Same steps as 9219c's finOpCancel, with one question that covers Xero too.
-    if(!(await customConfirm('Cancel this invoice? It comes off the job’s costs and out of the pay run.\n\nIt’s already in Xero. Cancelling it here won’t remove it from Xero, so void the bill in Xero as well, or the two won’t match.', {confirmLabel:'Cancel it'}))) return;
+    if(!(await customConfirm('Cancel this invoice? It comes off the job’s costs and out of the pay run.\n\nIt’s already in Xero. Cancelling it here won’t change Xero — void the bill in Xero too, or the two won’t match.', {confirmLabel:'Cancel it — I’ll void it in Xero'}))) return;
     if(!(await dbUpdate('fin_sub_payments', id, {status:'void'}))) return;
     if(typeof finOpPushToPm==='function') await finOpPushToPm({id, lines:[]}, '');
     toast('Cancelled — now void it in Xero'); go('#/finance/subs/opinv');

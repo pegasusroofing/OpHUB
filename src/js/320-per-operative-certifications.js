@@ -179,6 +179,19 @@ function certDisplayName(f){
   }
   return 'Certificate';
 }
+// What sort of file a certificate is: from the stored file's own name
+// (storage_path keeps the original extension), then the display name, then
+// the file's first bytes when we have them. Renaming "CSCS card.jpg" to
+// "CSCS card" no longer stops it previewing or going into the bundle.
+function certFileKind(c, bytes){
+  if(bytes && bytes.length > 4){
+    if(bytes[0]===0x25 && bytes[1]===0x50 && bytes[2]===0x44 && bytes[3]===0x46) return 'pdf';
+    if(bytes[0]===0x89 && bytes[1]===0x50 && bytes[2]===0x4E && bytes[3]===0x47) return 'png';
+    if(bytes[0]===0xFF && bytes[1]===0xD8) return 'jpg';
+  }
+  const fromName = n => { n = String(n||'').toLowerCase(); if(/\.pdf$/.test(n)) return 'pdf'; if(/\.png$/.test(n)) return 'png'; if(/\.jpe?g$/.test(n)) return 'jpg'; if(/\.(gif|webp)$/.test(n)) return 'image'; return ''; };
+  return fromName(c && c.storage_path) || fromName(c && c.name) || (/^image\//i.test((c && c.content_type)||'') ? 'image' : (/pdf/i.test((c && c.content_type)||'') ? 'pdf' : ''));
+}
 function operativeCertListHtml(certs, canManage, opts){
   opts = opts || {};
   if(!certs.length) return `<div class="empty">No certificates yet.</div>`;
@@ -242,7 +255,8 @@ window.viewOperativeCertFile = async function(storagePath, name){
     const res = await sbFetchOD('/functions/v1/operative-certification-file-access', {method:'POST', body: JSON.stringify({storage_path:storagePath})});
     const d = await res.json();
     if(!res.ok || d.error){ toast('Could not open file — '+(d.error||res.status)); return; }
-    viewDrawing(d.url, /\.(png|jpe?g|gif|webp)$/i.test(name), name);
+    const kind = certFileKind({storage_path:storagePath, name});
+    viewDrawing(d.url, kind==='png' || kind==='jpg' || kind==='image', name);
   }catch(e){ toast('Could not open file.'); }
 };
 window.deleteOperativeCertFile = async function(fileId, storagePath){
@@ -348,6 +362,9 @@ function certListSelectionBarHtml(certs, key, operativeId, pmList){
 // copied straight in, images get placed on their own page under a heading;
 // anything else (e.g. a Word doc synced from OneDrive) gets a placeholder
 // note since it can't be flattened into a PDF page client-side.
+// Standard PDF fonts only cover basic Latin — swap anything else out so a
+// name with an emoji or unusual dash can't knock its page out of the bundle.
+function pdfSafeCertText(t){ return String(t||'Certificate').replace(/[\u2018\u2019]/g,"'").replace(/[\u201C\u201D]/g,'"').replace(/[\u2013\u2014]/g,'-').replace(/[^\x20-\x7E\xA0-\xFF]/g,'?'); }
 async function buildCertBundlePdf(certIds){
   if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return null; }
   const certs = await dbSelect('operative_certifications', 'id=in.('+certIds.join(',')+')&select=*');
@@ -360,22 +377,24 @@ async function buildCertBundlePdf(certIds){
       if(!res.ok || d.error || !d.url) continue;
       const fr = await fetch(d.url);
       const bytes = new Uint8Array(await fr.arrayBuffer());
-      if(/\.pdf$/i.test(c.name)){
+      const kind = certFileKind(c, bytes);
+      const title = certDisplayName(c);
+      if(kind==='pdf'){
         const src = await PDFLib.PDFDocument.load(bytes);
         const pages = await merged.copyPages(src, src.getPageIndices());
         pages.forEach(p=>merged.addPage(p));
-      } else if(/\.(png|jpe?g)$/i.test(c.name)){
-        let img; try{ img = await merged.embedJpg(bytes); }catch(e){ img = await merged.embedPng(bytes); }
+      } else if(kind==='png' || kind==='jpg'){
+        let img; try{ img = kind==='png' ? await merged.embedPng(bytes) : await merged.embedJpg(bytes); }catch(e){ img = kind==='png' ? await merged.embedJpg(bytes) : await merged.embedPng(bytes); }
         const dim = img.scale(1);
         const PAGE_W=595.28, PAGE_H=841.89, MARGIN=44;
         const maxW = PAGE_W-2*MARGIN, maxH = PAGE_H-2*MARGIN-30;
         const s = Math.min(maxW/dim.width, maxH/dim.height, 1);
         const page = merged.addPage([PAGE_W,PAGE_H]);
-        page.drawText(c.name, {x:MARGIN, y:PAGE_H-MARGIN+8, size:10, font:fonts.bold, color:fonts.INK});
+        page.drawText(pdfSafeCertText(title), {x:MARGIN, y:PAGE_H-MARGIN+8, size:10, font:fonts.bold, color:fonts.INK});
         page.drawImage(img, {x:MARGIN, y:PAGE_H-MARGIN-30-dim.height*s, width:dim.width*s, height:dim.height*s});
       } else {
         const page = merged.addPage([595.28,841.89]);
-        page.drawText(c.name, {x:44, y:780, size:12, font:fonts.bold, color:fonts.INK});
+        page.drawText(pdfSafeCertText(title), {x:44, y:780, size:12, font:fonts.bold, color:fonts.INK});
         page.drawText('This file type can\'t be previewed here — open it from the app to view.', {x:44, y:760, size:9, font:fonts.reg, color:fonts.SLATE});
       }
     }catch(e){ console.error('Cert bundle: skipped', c && c.name, e); }

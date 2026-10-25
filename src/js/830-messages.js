@@ -58,6 +58,23 @@ async function postSystemMessageToUser(userId, siteId, kind, body, relatedId){
     await quietMessageInsert({org_id: ME.org_id, site_id: siteId||null, sender_id: ME.id, audience:'single', recipient_id:userId, kind, body, related_id: relatedId||null});
   }catch(e){ /* silent */ }
 }
+// PB-07 (fix round 2): messages sent to one named person (audience
+// 'single' + recipient_id — delivery/collection assignments, "1st drop
+// removed", subcontractor form filled in, time-off requests…) only ever went
+// out as a push notification; no inbox read them. These are now shown in
+// the Inbox list (and the site's Messages page) of the person they're for.
+async function myDirectMessages(siteId){
+  if(!ME || !ME.id) return [];
+  try{
+    const rows = await dbSelect('messages', `audience=eq.single&recipient_id=eq.${ME.id}&parent_id=is.null${siteId ? '&site_id=eq.'+siteId : ''}&order=created_at.desc&limit=50`);
+    return Array.isArray(rows) ? rows : [];
+  }catch(e){ return []; }
+}
+function mergeMessagesNewestFirst(a, b){
+  const seen = new Set(), out = [];
+  [...(a||[]), ...(b||[])].forEach(m=>{ if(m && !seen.has(m.id)){ seen.add(m.id); out.push(m); } });
+  return out.sort((x,y)=>new Date(y.created_at)-new Date(x.created_at));
+}
 async function markMessagesRead(ids){
   if(!ids || !ids.length) return;
   try{
@@ -86,12 +103,19 @@ async function renderMessages(siteId){
 
   let broadcasts = [], fromTeam = [];
   if(mgr){
-    [broadcasts, fromTeam] = await Promise.all([
+    let mine;
+    [broadcasts, fromTeam, mine] = await Promise.all([
       dbSelect('messages', `audience=eq.operatives&parent_id=is.null&or=(site_id.eq.${siteId},site_id.is.null)&order=created_at.desc&limit=50`),
       dbSelect('messages', `audience=eq.managers&parent_id=is.null&site_id=eq.${siteId}&order=created_at.desc&limit=50`),
+      myDirectMessages(siteId),
     ]);
+    fromTeam = mergeMessagesNewestFirst(fromTeam, mine);
   } else {
-    broadcasts = await dbSelect('messages', `audience=eq.operatives&parent_id=is.null&or=(site_id.eq.${siteId},site_id.is.null)&order=created_at.desc&limit=50`);
+    const [team, mine] = await Promise.all([
+      dbSelect('messages', `audience=eq.operatives&parent_id=is.null&or=(site_id.eq.${siteId},site_id.is.null)&order=created_at.desc&limit=50`),
+      myDirectMessages(siteId),
+    ]);
+    broadcasts = mergeMessagesNewestFirst(team, mine);
   }
   const __pAllReads = (mgr && broadcasts.length) ? dbSelect('message_reads', 'message_id=in.('+broadcasts.map(m=>m.id).join(',')+')&select=message_id,user_id,read_at') : Promise.resolve([]);
   await __pProfiles;
@@ -154,7 +178,7 @@ async function renderMessages(siteId){
     });
   }
 
-  const kindLabel = {material_request:'Material request', snag_closed:'Snag closed', variation:'Variation raised', todo_assigned:'To Do assigned', price_overbooked:'Price overbooked', additional_works_requested:'Variation to price requested', schedule_flag:'Waste/leftover flag', material_pickup:'Material pickup assigned', message:null};
+  const kindLabel = {material_request:'Material request', snag_closed:'Snag closed', variation:'Variation raised', todo_assigned:'To Do assigned', price_overbooked:'Price overbooked', additional_works_requested:'Variation to price requested', schedule_flag:'Waste/leftover flag', material_pickup:'Material pickup assigned', delivery_assigned:'Delivery assigned', delivery_complete:'Delivery done', price_sheet_issued:'Price sheet issued', message:null};
   // Tapping a message that's about a specific thing (a material request,
   // variation, or closed snag) jumps straight to that tab — same routing
   // table used for push-notification taps in registerPushNotifications().
@@ -199,7 +223,7 @@ async function renderMessages(siteId){
           `).join('')}
         </div>
       ` : ''}
-      ${msgReplyOpenId===m.id ? `
+      ${m.audience==='single' ? '' : msgReplyOpenId===m.id ? `
         <div style="margin-top:8px;" onclick="event.stopPropagation();">
           <textarea style="min-height:60px;" placeholder="Write a reply..." oninput="msgReplyDraft=this.value">${escapeHtml(msgReplyDraft)}</textarea>
           <div class="row-gap" style="margin-top:6px;">
@@ -252,9 +276,13 @@ async function renderMyMessages(){
   const __pProfiles = loadAllProfiles();
   const mySiteIds = SITES.map(s=>s.id);
   const sitesCsv = mySiteIds.join(',');
-  const rows = mySiteIds.length
-    ? await dbSelect('messages', `audience=eq.operatives&parent_id=is.null&or=(site_id.in.(${sitesCsv}),site_id.is.null)&order=created_at.desc&limit=100`)
-    : await dbSelect('messages', `audience=eq.operatives&parent_id=is.null&site_id=is.null&order=created_at.desc&limit=100`);
+  const [teamRows, myRows] = await Promise.all([
+    mySiteIds.length
+      ? dbSelect('messages', `audience=eq.operatives&parent_id=is.null&or=(site_id.in.(${sitesCsv}),site_id.is.null)&order=created_at.desc&limit=100`)
+      : dbSelect('messages', `audience=eq.operatives&parent_id=is.null&site_id=is.null&order=created_at.desc&limit=100`),
+    myDirectMessages(null),
+  ]);
+  const rows = mergeMessagesNewestFirst(teamRows, myRows).slice(0, 150);
   await __pProfiles;
   let unreadMsgIds = new Set();
   if(rows.length){
@@ -268,7 +296,9 @@ async function renderMyMessages(){
   const siteName = id => id ? ((SITES.find(s=>s.id===id)||{}).name || 'a site') : 'All sites';
   const row = m => {
     const isUnread = unreadMsgIds.has(m.id);
-    const dest = m.site_id ? `#/site/${m.site_id}/messages` : null;
+    const dest = m.audience==='single'
+      ? ((m.kind==='delivery_assigned' && ME.role==='driver') ? '#/driver/schedule' : null)
+      : (m.site_id ? `#/site/${m.site_id}/messages` : null);
     return `
     <div class="card" style="padding:10px 12px;margin-bottom:8px;${dest?'cursor:pointer;':''}${isUnread?'border-left:4px solid var(--brand1);background:color-mix(in srgb, var(--brand1) 7%, var(--card));':''}" ${dest?`onclick="go('${dest}')"`:''}>
       <div style="font-size:12px;color:var(--slate);margin-bottom:4px;">${isUnread?`<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--brand1);margin-right:5px;"></span>`:''}${escapeHtml(nameOf(m.sender_id))} · ${new Date(m.created_at).toLocaleString(undefined,{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})} · <span style="font-weight:600;">${escapeHtml(siteName(m.site_id))}</span></div>

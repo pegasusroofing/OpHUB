@@ -42,3 +42,19 @@ const K_SESSION = 'rtb-session-v1';
 // home page straight from the device on launch (and with no signal at all)
 // instead of waiting on the network first. See init() / refreshBootData().
 const K_BOOT = 'ophub-boot-v1';
+// Fix round 2 (CORE-M2): "Remember me" now keeps the EMAIL only. Older
+// versions also saved the password in plain text — wipe it on every start-up
+// (and again on sign-out, see doSignOut). Staying signed in is handled by the
+// saved session itself, which survives restarts.
+const K_REMEMBER = 'ophub_remember';
+function scrubRememberedPassword(){
+  try{
+    const raw = localStorage.getItem(K_REMEMBER);
+    if(!raw) return;
+    let p = null; try{ p = JSON.parse(raw); }catch(e){}
+    if(p && typeof p.email === 'string' && p.email){
+      if(Object.keys(p).some(k=>k!=='email')) localStorage.setItem(K_REMEMBER, JSON.stringify({email: p.email}));
+    } else localStorage.removeItem(K_REMEMBER);
+  }catch(e){}
+}
+scrubRememberedPassword();

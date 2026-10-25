@@ -4,6 +4,7 @@ let reportSubmitBusy = false;
 let reportSaveBusy = false;
 let reportsFilterTemplate = '';      // '' = all templates
 let selectedReportIds = new Set();   // checked rows, for bulk email/export/delete
+let reportsListSite = null;          // the job the filter / ticks above were made on
 let bulkEmailBusy = false;
 let bulkExportBusy = false;
 let bulkDeleteBusy = false;
@@ -58,10 +59,23 @@ async function renderSiteReports(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   const general = isGeneralReports(siteId);
-  const [templates, submissions] = await Promise.all([
+  // The filter and the ticked rows belong to one job: opening a different
+  // job's Reports starts clean, so "Delete 3 Selected" can never act on
+  // another job's reports.
+  const listKey = general ? GENERAL_REPORTS : siteId;
+  if(reportsListSite !== listKey){ reportsListSite = listKey; reportsFilterTemplate = ''; selectedReportIds = new Set(); }
+  // Daily briefings have their own home (H&S) with the signature lock and the
+  // signed PDF, so they're left out of this list and its "start" picker.
+  // MC and LOLER inspections are left out of the picker (they have their own
+  // start pages) but stay in the list, since their fill / view pages come back here.
+  const [liveTemplates, briefingTpls] = await Promise.all([
     dbSelect('report_templates', 'org_id=eq.'+ME.org_id+'&archived=eq.false&order=name.asc'),
-    dbSelect('report_submissions', (general ? 'site_id=is.null&org_id=eq.'+ME.org_id : 'site_id=eq.'+siteId)+'&order=submitted_at.desc&limit=100'),
+    dbSelect('report_templates', 'org_id=eq.'+ME.org_id+'&is_daily_briefing=eq.true&select=id'), // archived ones too
   ]);
+  const briefingTplIds = (briefingTpls||[]).map(t=>t.id);
+  const templates = (liveTemplates||[]).filter(t=>!t.is_daily_briefing && !t.is_mc_inspection && !t.is_loler_inspection);
+  const notBriefing = briefingTplIds.length ? '&or=(template_id.is.null,template_id.not.in.('+briefingTplIds.join(',')+'))' : '';
+  const submissions = await dbSelect('report_submissions', (general ? 'site_id=is.null&org_id=eq.'+ME.org_id : 'site_id=eq.'+siteId)+notBriefing+'&order=submitted_at.desc&limit=100');
   await loadAllProfiles();
   // Reports parked on this phone: flag the ones already in the list, and add
   // any that were started with no signal (the server doesn't know them yet).
@@ -71,6 +85,9 @@ async function renderSiteReports(siteId){
     submissions.unshift({id:r.submissionId, template_name:r.draft.template_name, general_label:r.draft.generalLabel, status:'in_progress', submitted_at:new Date(r.updatedAt).toISOString(), submitted_by:ME.id});
   });
   const templateNames = Array.from(new Set(submissions.map(s=>s.template_name))).sort();
+  if(reportsFilterTemplate && !templateNames.includes(reportsFilterTemplate)) templateNames.push(reportsFilterTemplate); // so the filter can always be cleared
+  // Only keep ticks for reports on this list.
+  selectedReportIds = new Set(Array.from(selectedReportIds).filter(id=>submissions.some(s=>s.id===id)));
   const filtered = reportsFilterTemplate ? submissions.filter(s=>s.template_name===reportsFilterTemplate) : submissions;
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
@@ -89,7 +106,7 @@ async function renderSiteReports(siteId){
         </div>
       ` : ''}
     ` : ''}
-    ${templateNames.length>1 ? `
+    ${(templateNames.length>1 || reportsFilterTemplate) ? `
       <div class="formfield" style="margin-top:0;">
         <label class="field-label">Filter by template</label>
         <select onchange="setReportsFilter(this.value)">
@@ -251,7 +268,7 @@ window.deleteSelectedReports = async function(siteId){
     }
     selectedReportIds = new Set();
     toast(okCount ? `${okCount} report${okCount>1?'s':''} deleted` : 'Delete failed');
-    if(okCount && !isGeneralReports(siteId)) logSiteActivity(siteId, 'briefing_reports_deleted', `Deleted ${okCount} daily briefing submission${okCount>1?'s':''}`);
+    if(okCount && !isGeneralReports(siteId)) logSiteActivity(siteId, 'reports_deleted', `Deleted ${okCount} report${okCount>1?'s':''} / inspection${okCount>1?'s':''}`);
   }catch(e){ toast('Delete failed.'); }
   bulkDeleteBusy = false; render();
 };
@@ -280,7 +297,14 @@ async function renderReportFill(siteId, submissionId, fromBriefing){
       // read-only view as before.
       let editable = false;
       if(isManager(ME)){
-        if(fromBriefing){
+        // The signature lock follows the template, not the route: a signed
+        // briefing opened from anywhere else (Reports, a link) is locked too.
+        let isBriefing = !!fromBriefing;
+        if(!isBriefing && sub.template_id){
+          const tpl = await dbSelect('report_templates', 'id=eq.'+sub.template_id+'&select=is_daily_briefing&limit=1');
+          isBriefing = !!(tpl && tpl[0] && tpl[0].is_daily_briefing);
+        }
+        if(isBriefing){
           const sigs = await dbSelect('daily_briefing_signatures', 'submission_id=eq.'+submissionId+'&select=id&limit=1');
           editable = !sigs.length;
         } else {
@@ -385,15 +409,18 @@ window.reportDrawingUpload = async function(id, input){
   if(!Array.isArray(a[id+'__orig'])) a[id+'__orig'] = [];
   if(!Array.isArray(a[id+'__ops'])) a[id+'__ops'] = [];
   let added = 0;
+  const cut = []; // PDFs with more pages than could be added
   for(const f of files){
     try{
       toast('Loading '+(f.name||'drawing')+'…');
       const imgs = (f.type==='application/pdf' || /\.pdf$/i.test(f.name||'')) ? await planPdfToImages(f) : [await planImageFileToDataUrl(f)];
       imgs.forEach(d=>{ a[id].push(d); a[id+'__orig'].push(d); a[id+'__ops'].push([]); added++; });
+      if(imgs.skippedPages > 0) cut.push(`"${f.name||'PDF'}" has ${imgs.totalPages} pages — only the first ${imgs.totalPages-imgs.skippedPages} were added`);
     }catch(e){ console.error(e); toast('Could not read '+(f.name||'that file')+'.'); }
   }
   render();
   if(added){ toast(added===1 ? 'Drawing added - tap Mark up' : added+' drawings added - tap Mark up'); reportBackgroundSave(); }
+  if(cut.length) customAlert(cut.join('. ')+'. To add the rest, save those pages as a separate PDF and add that too.');
 };
 window.reportDrawingEdit = async function(id, idx){
   if(!reportFillDraft) return;
@@ -1751,8 +1778,15 @@ window.emailReportPDF = async function(submissionId, fromBriefing){
   // A quick site_id-only lookup ahead of building the PDF — just enough to
   // know whether to offer "CC client contact" on the prompt, without
   // waiting on the (potentially slow, photo-heavy) full PDF build first.
-  const subRow = await dbSelect('report_submissions', 'id=eq.'+submissionId+'&select=site_id&limit=1');
+  const subRow = await dbSelect('report_submissions', 'id=eq.'+submissionId+'&select=site_id,template_id&limit=1');
   const site = subRow.length ? SITES.find(s=>s.id===subRow[0].site_id) : null;
+  // A daily briefing goes out with its signature table, whichever screen it
+  // was emailed from (same PDF as its Export button).
+  if(!fromBriefing && subRow.length && subRow[0].template_id){
+    const tpl = await dbSelect('report_templates', 'id=eq.'+subRow[0].template_id+'&select=is_daily_briefing&limit=1');
+    if(tpl && tpl[0] && tpl[0].is_daily_briefing) fromBriefing = true;
+  }
+  const withSignatures = !!fromBriefing && typeof buildBriefingPdfWithSignatures === 'function';
   const answer = await customPromptWithCc('Email this report PDF to:', ME.email||'', site);
   if(!answer) return;
   const typedTrim = (answer.value||'').trim();
@@ -1763,7 +1797,8 @@ window.emailReportPDF = async function(submissionId, fromBriefing){
   reportEmailBusy = submissionId; render();
   toast('Building PDF…');
   try{
-    const built = await buildReportPdf(submissionId, {fromBriefing:!!fromBriefing});
+    if(withSignatures && !(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); reportEmailBusy = null; render(); return; }
+    const built = withSignatures ? await buildBriefingPdfWithSignatures(submissionId) : await buildReportPdf(submissionId, {fromBriefing:!!fromBriefing});
     if(!built){ reportEmailBusy = null; render(); return; }
     if(!built.bytes || !built.bytes.length){ toast('Something went wrong building this PDF — it came out empty. Please try again.'); reportEmailBusy = null; render(); return; }
     const path = (built.sub.site_id||'general')+'/report-exports/'+crypto.randomUUID()+'-'+built.filename.replace(/[^a-z0-9.\-]+/gi,'_');
@@ -1772,7 +1807,10 @@ window.emailReportPDF = async function(submissionId, fromBriefing){
       customAlert('This PDF is '+Math.round(built.bytes.length/1048576)+'MB — too big to email (50MB max). Use Export PDF to save it instead, or split the photos across two reports.');
       return;
     }
-    const stored = (built.storedPath || (built.savePromise && await built.savePromise)) || await uploadToStorage('mc-documents', path, new Blob([built.bytes], {type:'application/pdf'}), 'application/pdf');
+    // The saved copy of a report is the report only (no signature table), so
+    // a briefing's signed PDF is always uploaded fresh — signatures added
+    // since the last save are never missed.
+    const stored = (!withSignatures && (built.storedPath || (built.savePromise && await built.savePromise))) || await uploadToStorage('mc-documents', path, new Blob([built.bytes], {type:'application/pdf'}), 'application/pdf');
     if(!stored){ toast('Could not upload the PDF — try again.'); reportEmailBusy = null; render(); return; }
     toast('Sending…');
     const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', timeoutMs:90000, body: JSON.stringify({

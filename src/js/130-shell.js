@@ -101,12 +101,16 @@ function navBackFor(defaultBack){
   if(o && defaultBack && o!==n && !/^#\/site\//.test(n)) return o;
   return defaultBack;
 }
+function isSafeBackHash(h){ return typeof h==='string' && /^#\/[A-Za-z0-9_\-\/?=&%.:,+~@]*$/.test(h); }
 function shell(innerHtml, opts){
   opts = opts||{};
   // Finance pages get Finance's own button style (html.finmode in app.css).
   { const h = String(location.hash||''); document.documentElement.classList.toggle('finmode', !!ME && /^#\/finance(\/|$)|^#\/fin-team|^#\/site\/[^/]+\/finance(\/|$)/.test(h)); }
   { const cur = String(location.hash||''); if(!NAV_STACK.length && /^#\//.test(cur)) NAV_STACK.push(cur); }
-  if(opts.back) opts.back = navBackFor(opts.back);
+  // Fix round 2 (CORE-C1): a back target must be one of our own #/… routes
+  // with no quotes, brackets or backslashes — anything else (e.g. a
+  // crafted ?from= link) falls back to the page's normal back.
+  if(opts.back){ const def = isSafeBackHash(opts.back) ? opts.back : '#/sites'; const b = navBackFor(def); opts.back = isSafeBackHash(b) ? b : def; }
   CURRENT_BACK_HASH = opts.back || null;
   return `
     <div class="appshell" style="display:flex;flex-direction:column;min-height:100vh;">
@@ -145,7 +149,7 @@ function shell(innerHtml, opts){
             ${opts.subtitle ? `<div class="meta" style="cursor:pointer;" onclick="event.stopPropagation();copyHeaderSubtitle('${jsAttr(opts.subtitle)}','${jsAttr(opts.title||'')}')" title="Tap to copy">${escapeHtml(opts.subtitle)}</div>` : ''}
           </div>
           <div style="flex:0 0 auto;min-width:72px;display:flex;align-items:center;justify-content:flex-end;gap:6px;">
-            ${typeof qsTopBtnHtml==='function' ? qsTopBtnHtml() : ''}${ME && opts.showRoleChip ? `<span class="plaintag" style="margin-left:auto;">${personRoleLabel(ME)}</span>` : (ME && opts.siteId && opts.activeTab!=='home' && !(typeof isFinanceOnly==='function' && isFinanceOnly()) ? `<span class="homebtn" title="Site home" onclick="go('#/site/${opts.siteId}/home')">🏠</span>` : '')}
+            ${typeof qsTopBtnHtml==='function' ? qsTopBtnHtml() : ''}${ME && opts.showRoleChip ? `<span class="plaintag" style="margin-left:auto;">${personRoleLabel(ME)}</span>` : (ME && opts.siteId && opts.activeTab!=='home' && !(typeof isFinanceOnly==='function' && isFinanceOnly()) ? `<span class="homebtn" title="Site home" onclick="go('${jsAttr('#/site/'+opts.siteId+'/home')}')">🏠</span>` : '')}
           </div>
         </div>
         `}
@@ -167,7 +171,7 @@ function tabbar(siteId, active){
     {k:'home', ic:ophIcon('home'), lbl:'Home', href: active==='home' ? '#/sites' : `#/site/${siteId}/home`},
     // PMs/admins/site managers: Deliveries in this slot (Andy, 11 Oct);
     // operatives can't open the delivery schedule, so they keep SOW.
-    isManager(ME) ? {k:'deliveries', ic:ophIcon('truck'), lbl:'Deliveries', href:'#/delivery', pre:`deliveryScheduleBackHash='#/site/${siteId}/home';`, badge:(typeof deliveryRequestsCount!=='undefined' && deliveryRequestsCount)||0} : {k:'schedule', ic:ophIcon('clipboard'), lbl:'SOW', href:`#/site/${siteId}/schedule`},
+    isManager(ME) ? {k:'deliveries', ic:ophIcon('truck'), lbl:'Deliveries', href:'#/delivery', pre:`deliveryScheduleBackHash='${jsAttr('#/site/'+siteId+'/home')}';`, badge:(typeof deliveryRequestsCount!=='undefined' && deliveryRequestsCount)||0} : {k:'schedule', ic:ophIcon('clipboard'), lbl:'SOW', href:`#/site/${siteId}/schedule`},
     {k:'checkin', ic:ophIcon('pin'), lbl:'Check In', href:`#/site/${siteId}/checkin`, emph:true},
     {k:'messages', ic:ophIcon('chat'), lbl:'Inbox', href:`#/site/${siteId}/messages`, badge:currentUnreadMsgs},
     // "More" is now a direct jump to Settings & Admin (managers/admins) or
@@ -177,7 +181,7 @@ function tabbar(siteId, active){
     {k:'more', ic:ophIcon('gear'), lbl:'Settings', href: isManager(ME) ? `#/site/${siteId}/team` : '#/account'},
   ];
   return `<div class="tabbar">${tabs.map(t=>`
-    <div class="tb ${t.emph?'tb-emph':''} ${active===t.k?'active':''}" onclick="${t.pre||''}go('${t.href}')" style="position:relative;">
+    <div class="tb ${t.emph?'tb-emph':''} ${active===t.k?'active':''}" onclick="${t.pre||''}go('${jsAttr(t.href)}')" style="position:relative;">
       <span class="tabicon">${t.ic}</span>${t.lbl}
       ${t.badge?`<span class="badge-count" style="position:absolute;top:2px;right:calc(50% - 22px);">${t.badge}</span>`:''}
     </div>`).join('')}</div>`;

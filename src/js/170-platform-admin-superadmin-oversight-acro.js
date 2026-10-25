@@ -150,7 +150,7 @@ window.setUserRole = async function(userId, role, sel){
   if(row){
     if(PROFILES[userId]){ PROFILES[userId].role = est ? 'pm' : role; PROFILES[userId].is_estimator = est; } // keep the cache correct without a re-fetch
     toast(`Role changed to ${roleLabel(role)}`); render();
-  }
+  } else render(); // save failed — put the drop-down back to the real role
 };
 // Support mode: open a company's app as its admin, and come back out.
 async function superadminSwitch(orgId){

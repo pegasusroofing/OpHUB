@@ -43,12 +43,14 @@ let siteInductionNewQuestion = '';
 let siteInductionFilter = 'outstanding'; // PM/client tab state: outstanding | completed
 let siteInductionOneDrivePanelOpen = false; // manager: OneDrive sync panel toggled from the "+" beside the tabs
 let siteInductionSelectedIds = new Set(); // manager: multi-tick selection on the Completed Inductions tab, for bulk export/email
+let siteInductionSelSite = null; // the job the ticks above were made on
 async function fetchSiteInductionData(siteId){
   const [assigned, completions] = await Promise.all([
     dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id'),
     dbSelect('site_induction_completions', 'site_id=eq.'+siteId+'&order=completed_at.desc'),
   ]);
-  const byOperative = {}; completions.forEach(c=>{ byOperative[c.operative_id]=c; });
+  // Newest first, so keep the first one seen per person: their latest induction.
+  const byOperative = {}; completions.forEach(c=>{ if(!byOperative[c.operative_id]) byOperative[c.operative_id]=c; });
   return {assignedIds: assigned.map(a=>a.user_id), completions, byOperative};
 }
 async function renderSiteInductions(siteId){
@@ -56,6 +58,7 @@ async function renderSiteInductions(siteId){
   const site = SITES.find(s=>s.id===siteId);
   const canManage = isManager(ME);
   const isClientView = ME.role==='client';
+  if(siteInductionSelSite !== siteId){ siteInductionSelSite = siteId; siteInductionSelectedIds = new Set(); }
   await loadAllProfiles();
   const {assignedIds, completions, byOperative} = await fetchSiteInductionData(siteId);
   const linked = !!site.site_inductions_folder_id;
@@ -307,10 +310,32 @@ window.toggleSiteInductionSelect = function(id){
 window.exportSelectedInductions = async function(){
   const ids = Array.from(siteInductionSelectedIds);
   if(!ids.length) return;
-  const rows = await dbSelect('site_induction_completions', 'id=in.('+ids.join(',')+')&select=pdf_path');
+  const rows = await dbSelect('site_induction_completions', 'id=in.('+ids.join(',')+')&select=pdf_path,site_id,completed_at&order=completed_at.desc');
   const withPdf = rows.filter(r=>r.pdf_path);
-  withPdf.forEach(r=> window.open(publicUrl('mc-documents', r.pdf_path), '_blank'));
-  toast(`Opened ${withPdf.length} PDF${withPdf.length===1?'':'s'}`);
+  if(!withPdf.length){ toast('No PDFs available for those inductions.'); return; }
+  // One combined PDF — opening a window per induction was stopped by the
+  // pop-up blocker after the first one.
+  if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return; }
+  toast('Building PDF…');
+  try{
+    const merged = await PDFLib.PDFDocument.create();
+    let added = 0, failed = 0;
+    for(const r of withPdf){
+      try{
+        const res = await fetchWithTimeout(publicUrl('mc-documents', r.pdf_path), {}, 60000);
+        if(!res.ok){ failed++; continue; }
+        const src = await PDFLib.PDFDocument.load(new Uint8Array(await res.arrayBuffer()), {ignoreEncryption:true});
+        (await merged.copyPages(src, src.getPageIndices())).forEach(pg=>merged.addPage(pg));
+        added++;
+      }catch(e){ failed++; }
+    }
+    if(!added){ toast('Could not load the induction PDFs — check your connection and try again.'); return; }
+    const site = SITES.find(st=>st.id===withPdf[0].site_id);
+    const filename = exportFilename(site?site.name:'', `Site Inductions (${added})`, 'pdf');
+    merged.setTitle(filename.replace(/\.pdf$/i,''));
+    await deliverPdf(await merged.save(), filename);
+    if(failed) toast(`${failed} induction PDF${failed===1?'':'s'} could not be included — check your connection.`);
+  }catch(e){ console.error(e); toast('Could not build the combined PDF.'); }
 };
 window.emailSiteInductionPdf = async function(completionId, operativeName){
   const rows = await dbSelect('site_induction_completions', 'id=eq.'+completionId+'&select=pdf_path,site_id,operative_id');
@@ -573,14 +598,24 @@ window.addSubcontractorCompany = async function(siteId){
   // name match, so a company's library documents (insurance, accreditations
   // etc.) persist across every site that company is chosen for, instead of
   // each site's subcontractor_companies row starting with an empty folder.
-  let masterId = null;
+  let masterId = null, rowName = name;
   const existingMaster = await dbSelect('subcontractor_company_profiles', 'org_id=eq.'+site.org_id+'&name=eq.'+encodeURIComponent(name)+'&select=id');
   if(existingMaster.length){ masterId = existingMaster[0].id; }
   else {
+    // The library profile may have been renamed since: a job still showing
+    // the old name already points at it, so use that rather than a new one.
+    const viaJob = await dbSelect('subcontractor_companies', 'org_id=eq.'+site.org_id+'&name=eq.'+encodeURIComponent(name)+'&master_company_id=not.is.null&select=master_company_id&limit=1');
+    if(viaJob.length){
+      masterId = viaJob[0].master_company_id;
+      const prof = await dbSelect('subcontractor_company_profiles', 'id=eq.'+masterId+'&select=name&limit=1');
+      if(prof[0] && prof[0].name) rowName = prof[0].name; // its current name
+    }
+  }
+  if(!masterId){
     const createdMaster = await dbInsert('subcontractor_company_profiles', {org_id: site.org_id, name, created_by:ME.id});
     if(createdMaster) masterId = createdMaster[0].id;
   }
-  const rows = await dbInsert('subcontractor_companies', {org_id: site.org_id, site_id:siteId, name, created_by:ME.id, master_company_id: masterId});
+  const rows = await dbInsert('subcontractor_companies', {org_id: site.org_id, site_id:siteId, name: rowName, created_by:ME.id, master_company_id: masterId});
   if(rows){ subcoAddOpen=false; subcoNewName=''; toast('Subcontractor added'); render(); }
 };
 window.deleteSubcontractorCompany = async function(id, name){

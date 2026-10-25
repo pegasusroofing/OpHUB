@@ -261,6 +261,9 @@ function navUpTarget(){
     if(c) return '#/finance/'+b;
     return '#/finance';
   }
+  // FB-21: the Projects-side "up one level" is for managers. Operatives and drivers open check-in
+  // or the SOW from their Home dashboard, so their back arrow keeps going where it always did.
+  if(!(typeof isManager==='function' && isManager(ME))) return null;
   if(a==='site' && b){
     if(!c || c==='home') return '#/sites';
     if(!d) return '#/site/'+b+'/home';

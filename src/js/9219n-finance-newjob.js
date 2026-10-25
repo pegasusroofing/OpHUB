@@ -260,8 +260,8 @@ function finRetentionCardHtml(siteId, jf, st, apps){
   const alerts = finRetentionAlerts(jf, st, held);
   // Released so far and still held, and each half from its invoice once raised (audit FA-08 / FA-19).
   const invs = finRetInvsFor && finRetInvsFor.siteId===siteId ? finRetInvsFor.invs : [];
-  const released = finRetentionReleased(jf, invs), still = finRound(Math.max(0, held - released));
-  const half = n=>finRetHalfAmt(held, n, jf, invs);
+  const released = finRetentionReleased(jf, invs, apps), still = finRound(Math.max(0, held - released));
+  const half = n=>finRetHalfAmt(held, n, jf, invs, apps);
   const act = (n, date, invId)=> invId ? `<button class="linkbtn" onclick="go('#/site/${siteId}/finance/invoice/${invId}')">View invoice</button>`
     : (held && date ? `<button class="linkbtn" onclick="raiseRetentionInvoice('${siteId}',${n})">Raise invoice</button>` : '<span class="stub" style="margin:0;">—</span>');
   const due = (n, date)=>date ? finDate(date) : '<span class="stub" style="margin:0;font-style:normal;">Set PC date</span>';
@@ -537,7 +537,8 @@ async function finContractAutoSave(){
     for(let i = 0; finCtAuto.busy && i < 200; i++) await new Promise(r=>setTimeout(r, 150));
     finCtAuto.busy = true;
     try{ return await base.apply(this, arguments); }
-    finally{ finCtAuto.busy = false; finCtAuto.again = false; }
+    // FX-P8: an autosave asked for while Save was running (a line added or moved) runs now, not dropped.
+    finally{ finCtAuto.busy = false; if(finCtAuto.again){ finCtAuto.again = false; finContractAutoSave(); } }
   };
 })();
 function finCtAutoPaint(msg){

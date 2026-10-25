@@ -102,8 +102,8 @@ async function renderVariations(siteId){
           </div>
           ` : `
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-top:10px;align-items:center;">
-            ${v.approval_status==='pending' ? `<button class="ghostbtn" style="width:100%;padding:8px 12px;color:var(--ok);border-color:var(--ok);" onclick="approveVariation('${siteId}','${v.id}')">Approve</button>` : ''}
-            ${v.approval_status==='pending' ? `<button class="ghostbtn" style="width:100%;padding:8px 12px;color:var(--red);border-color:var(--red);" onclick="startDeclineVariation('${v.id}')">Decline</button>` : ''}
+            ${(!v.approval_status || v.approval_status==='pending') ? `<button class="ghostbtn" style="width:100%;padding:8px 12px;color:var(--ok);border-color:var(--ok);" onclick="approveVariation('${siteId}','${v.id}')">Approve</button>` : ''}
+            ${(!v.approval_status || v.approval_status==='pending') ? `<button class="ghostbtn" style="width:100%;padding:8px 12px;color:var(--red);border-color:var(--red);" onclick="startDeclineVariation('${v.id}')">Decline</button>` : ''}
             <button class="ghostbtn" style="width:100%;padding:8px 12px;" onclick="startModifyVariation('${v.id}','${jsAttr(v.description)}')">Modify &amp; Approve</button>
             ${v.approval_status==='approved' ? (v.schedule_section_id ? `<span class="stub" style="margin:0;color:var(--ok);align-self:center;">✓ In Schedule of Works</span>` : `<button class="ghostbtn" style="width:100%;padding:8px 12px;" onclick="addVariationToSchedule('${siteId}','${v.id}')">+ Add to Schedule of Works</button>`) : `<span class="stub" style="margin:0;align-self:center;font-size:11px;">Approve to add to Schedule of Works</span>`}
             <button class="ghostbtn" style="width:100%;padding:8px 12px;" onclick="closeVariation('${siteId}','${v.id}')">Mark as closed</button>
@@ -150,7 +150,7 @@ window.submitVariation = async function(siteId){
   const desc = (varDraft.desc||'').trim();
   const path = await uploadDataUrl('site-photos', siteId+'/variations/'+crypto.randomUUID()+'.jpg', varDraft.photo);
   if(!path) return;
-  const rows = await dbInsert('variations', {site_id:siteId, photo_path:path, description:desc||'—', created_by:ME.id, status:'live'});
+  const rows = await dbInsert('variations', {site_id:siteId, photo_path:path, description:desc||'—', created_by:ME.id, status:'live', approval_status:'pending'});
   if(rows){
     postSystemMessage(siteId, 'variation', `${ME.name} raised a variation: ${desc||'(no description)'}`);
     varDraft = null;

@@ -527,7 +527,7 @@ window.setGeofence = async function(siteId){
   const row = await dbUpdate('sites', siteId, {geofence_lat:g.lat, geofence_lon:g.lon});
   if(row){
     const idx = SITES.findIndex(s=>s.id===siteId);
-    SITES[idx] = row;
+    if(idx>-1) SITES[idx] = row;
     toast('Site location saved — now choose the check-in distance below');
     // Straight into the distance picker rather than leaving it collapsed —
     // setting a location isn't finished until a check-in/out distance is
@@ -540,7 +540,7 @@ async function saveGeofenceCoords(siteId, lat, lon){
   const row = await dbUpdate('sites', siteId, {geofence_lat:lat, geofence_lon:lon});
   if(row){
     const idx = SITES.findIndex(s=>s.id===siteId);
-    SITES[idx] = row;
+    if(idx>-1) SITES[idx] = row;
     toast('Site location saved — now choose the check-in distance below');
     checkinGeofenceOpen = true;
     render();

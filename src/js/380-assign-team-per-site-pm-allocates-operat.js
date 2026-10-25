@@ -360,10 +360,28 @@ window.changeSiteStartDate = async function(siteId, currentDate){
     render();
   }
 };
+// Takes someone off a job: their site_assignments row, and any subcontractor
+// allocation on the same job (so they no longer show under that company).
+// Asks the database for the removed rows back, because it answers "OK" even
+// when its permission rules quietly removed nothing. Returns true when done.
+async function removeFromSiteChecked(siteId, userId){
+  let res;
+  try{ res = await sbFetch('/rest/v1/site_assignments?site_id=eq.'+siteId+'&user_id=eq.'+userId, {method:'DELETE', headers:{'Prefer':'return=representation'}}); }
+  catch(e){ toast('Could not remove — connection dropped. Check your signal and try again.'); return false; }
+  if(!res.ok){ toast('Could not remove — '+(await safeErr(res))); return false; }
+  let gone = null; try{ gone = await res.json(); }catch(e){}
+  if(Array.isArray(gone) && !gone.length){
+    const still = await dbSelect('site_assignments', 'site_id=eq.'+siteId+'&user_id=eq.'+userId+'&select=user_id&limit=1');
+    if(still.length){ toast('Nothing was removed — you may not have permission to take people off this job.'); return false; }
+  }
+  const subRows = await dbSelect('subcontractor_operatives', 'site_id=eq.'+siteId+'&user_id=eq.'+userId+'&select=id');
+  for(const r of (subRows||[])) await dbDelete('subcontractor_operatives', r.id);
+  try{ subOpCache = {}; }catch(e){}
+  return true;
+}
 window.toggleAssignment = async function(siteId, userId, isAssigned){
   if(isAssigned){
-    const res = await sbFetch('/rest/v1/site_assignments?site_id=eq.'+siteId+'&user_id=eq.'+userId, {method:'DELETE'});
-    if(!res.ok){ toast('Could not remove — '+(await safeErr(res))); return; }
+    if(!(await removeFromSiteChecked(siteId, userId))){ render(); return; }
     toast('Removed from site');
   } else {
     const rows = await dbInsert('site_assignments', {site_id:siteId, user_id:userId, assigned_by:ME.id});
@@ -432,8 +450,7 @@ window.toggleAssignOpModal = async function(siteId, userId, checked){
     assignOpModalAssignedIds.add(userId);
     notifySiteAssignment(siteId, userId);
   } else {
-    const res = await sbFetch('/rest/v1/site_assignments?site_id=eq.'+siteId+'&user_id=eq.'+userId, {method:'DELETE'});
-    if(!res.ok){ toast('Could not update — '+(await safeErr(res))); return; }
+    if(!(await removeFromSiteChecked(siteId, userId))) return;
     assignOpModalAssignedIds.delete(userId);
   }
   toast(checked ? 'Assigned to site' : 'Removed from site');

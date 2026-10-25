@@ -139,21 +139,43 @@ function finRetHalf(held, n){ const a = finRound(held/2); return n===1 ? a : fin
 function finRetInvNet(invs, id){ const i = id && (invs||[]).find(x=>x.id===id); return i && i.status!=='void' ? finRound(Number(i.net||0)) : null; }
 // What each half is (audit FA-19): a half already invoiced is what that invoice says; the second
 // half is what's held now less the first-half invoice, so the two always add up to what's held.
-function finRetHalfAmt(held, n, jf, invs){
+function finRetHalfAmt(held, n, jf, invs, apps){
   const r1 = finRetInvNet(invs, jf && jf.ret1_invoice_id);
   if(n===1) return r1!=null ? r1 : finRetHalf(held, 1);
   const r2 = finRetInvNet(invs, jf && jf.ret2_invoice_id);
   if(r2!=null) return r2;
-  return r1!=null ? finRound(Math.max(0, held - r1)) : finRetHalf(held, 2);
+  // FX-P5: if a later certificate already holds less (the first half came off it), only the
+  // part of the first-half invoice the certificate hasn't already taken off is deducted again.
+  const r1Counts = apps ? finRetentionReleased({ret1_invoice_id:jf && jf.ret1_invoice_id}, invs, apps) : r1;
+  return r1!=null ? finRound(Math.max(0, held - (r1Counts||0))) : finRetHalf(held, 2);
+}
+// The certificates' retention drop (FX-P5): highest retention certified less the latest, and the
+// date of the latest certificate that held less than the one before it.
+function finRetentionDropInfo(apps){
+  const c = (apps||[]).filter(a=>a.cert_retention!=null && a.status!=='void').sort((x,y)=>x.number-y.number);
+  if(!c.length) return {amt:0, date:null};
+  let peak = 0, date = null;
+  c.forEach((a,i)=>{ const v = Number(a.cert_retention||0); if(i && v < Number(c[i-1].cert_retention||0) - 0.005) date = a.cert_date || a.valuation_date || null; peak = Math.max(peak, v); });
+  return {amt:finRound(Math.max(0, peak - Number(c[c.length-1].cert_retention||0))), date};
 }
 // Retention the client is still holding (audit FA-08): held to date, less the release invoices
 // already issued (drafts and void ones don't count).
-function finRetentionReleased(jf, invs){
-  let t = 0;
-  [jf && jf.ret1_invoice_id, jf && jf.ret2_invoice_id].forEach(id=>{ const i = id && (invs||[]).find(x=>x.id===id); if(i && !['void','draft'].includes(i.status)) t += Number(i.net||0); });
-  return finRound(t);
+// FX-P5: pass the applications too. When a later certificate already shows less retention, a
+// release invoice raised before that drop is taken to be inside it, so it's only counted for
+// whatever the drop doesn't cover — no double deduction. Releases raised after the drop count in full.
+// (Retention released through an application — 9219zn — is just a lower certificate: no invoice.)
+function finRetentionReleased(jf, invs, apps){
+  const list = [];
+  [jf && jf.ret1_invoice_id, jf && jf.ret2_invoice_id].forEach(id=>{ const i = id && (invs||[]).find(x=>x.id===id); if(i && !['void','draft'].includes(i.status)) list.push(i); });
+  const sum = arr=>arr.reduce((t,i)=>t+Number(i.net||0), 0);
+  if(!apps) return finRound(sum(list));
+  const drop = finRetentionDropInfo(apps);
+  if(!(drop.amt > 0)) return finRound(sum(list));
+  const before = list.filter(i=>!drop.date || !i.issue_date || String(i.issue_date).slice(0,10) <= drop.date);
+  const after = list.filter(i=>before.indexOf(i)===-1);
+  return finRound(sum(after) + Math.max(0, sum(before) - drop.amt));
 }
-function finRetentionStillHeld(apps, jf, invs){ return finRound(Math.max(0, finRetentionHeld(apps) - finRetentionReleased(jf, invs))); }
+function finRetentionStillHeld(apps, jf, invs){ return finRound(Math.max(0, finRetentionHeld(apps) - finRetentionReleased(jf, invs, apps))); }
 function finRetentionDates(jf, st){
   if(!jf || !jf.pc_date) return {first:null, second:null};
   const months = jf.defects_months!=null ? jf.defects_months : ((st&&st.default_defects_months)!=null ? st.default_defects_months : 12);
@@ -196,14 +218,14 @@ window.saveFinRetentionDates = async function(siteId){
 };
 window.raiseRetentionInvoice = async function(siteId, n){
   const site = SITES.find(s=>s.id===siteId) || {};
-  const [st, jfRows, apps, pos] = await Promise.all([finLoadSettings(), dbSelect('job_finance', 'site_id=eq.'+siteId), dbSelect('fin_applications', 'site_id=eq.'+siteId+'&select=number,status,cert_retention'), dbSelect('client_pos', 'site_id=eq.'+siteId+'&order=is_primary.desc,created_at.asc&select=po_number')]);
+  const [st, jfRows, apps, pos] = await Promise.all([finLoadSettings(), dbSelect('job_finance', 'site_id=eq.'+siteId), dbSelect('fin_applications', 'site_id=eq.'+siteId+'&select=number,status,cert_retention,cert_date,valuation_date'), dbSelect('client_pos', 'site_id=eq.'+siteId+'&order=is_primary.desc,created_at.asc&select=po_number')]);
   const jf = jfRows[0] || {};
   const already = n===1 ? jf.ret1_invoice_id : jf.ret2_invoice_id;
   if(already){ go(`#/site/${siteId}/finance/invoice/${already}`); return; }
   // Second half = held now less what the first-half invoice released (audit FA-19).
   let r1inv = null;
-  if(n===2 && jf.ret1_invoice_id) r1inv = (await dbSelect('fin_invoices', 'id=eq.'+jf.ret1_invoice_id+'&select=id,status,net'))[0] || null;
-  const amt = finRetHalfAmt(finRetentionHeld(apps), n, jf, r1inv ? [r1inv] : []);
+  if(n===2 && jf.ret1_invoice_id) r1inv = (await dbSelect('fin_invoices', 'id=eq.'+jf.ret1_invoice_id+'&select=id,status,net,issue_date'))[0] || null;
+  const amt = finRetHalfAmt(finRetentionHeld(apps), n, jf, r1inv ? [r1inv] : [], apps);
   if(!(amt>0)){ toast(n===2 && r1inv ? 'Nothing left to release — the first-half invoice already covers all the retention held.' : 'No retention held on this project yet.'); return; }
   const lines = [{description:`Release of retention — ${n===1?'first half (practical completion'+(jf.pc_date?' '+finDate(jf.pc_date):'')+')':'second half (end of defects period)'}`, amount:amt}];
   if(typeof finClientsLoad==='function'){ await finClientsLoad(); const c = finClientByName(jf.billing_name||site.client_name); const m = {'20':'20','5':'5','rc20':'rc20','rc5':'rc5','0':'0','ex':'ex','none':'ex'}; if(c && m[c.sales_vat] && FIN_INV_VAT[m[c.sales_vat]]) lines.forEach(l=>{ if(!l.vat) l.vat = m[c.sales_vat]; }); }

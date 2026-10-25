@@ -17,7 +17,8 @@ async function renderDashboard(){
     liveIds.length ? dbSelect('coshh_docs', 'site_id=in.('+liveIdsCsv+')&subcontractor_company_id=is.null&select=id,site_id,uploaded_at,resign_cycle_start') : [],
     liveIds.length ? dbSelect('site_assignments', 'site_id=in.('+liveIdsCsv+')&select=site_id,user_id') : [],
     liveIds.length ? dbSelect('schedule_tasks', 'site_id=in.('+liveIdsCsv+')&select=site_id,status,percent_complete') : [],
-    dbSelect('incident_reports', 'order=created_at.desc&limit=500&select=id,site_id,created_at,riddor_reportable,location,injury_occurred,damage_occurred'),
+    // Only this company's projects (CORE-L2 — the table has no org_id to filter on).
+    dbSelect('incident_reports', 'order=created_at.desc&limit=500&select=id,site_id,created_at,riddor_reportable,location,injury_occurred,damage_occurred').then(rows=>(rows||[]).filter(r=>SITES.some(x=>x.id===r.site_id))),
     liveIds.length ? dbSelect('toolbox_talks', 'status=eq.live&site_id=in.('+liveIdsCsv+')&subcontractor_company_id=is.null&select=id,site_id') : [],
   ]);
   const tbtIds = liveTbts.map(t=>t.id).join(',');
@@ -58,7 +59,7 @@ async function renderDashboard(){
     });
     return bySite;
   }
-  const ramsOutstandingBySite = outstandingBySite(ramsDocs, ramsSigs, 'rams_id', rosterBySite);
+  const ramsOutstandingBySite = outstandingBySite(ramsDocs, ramsSigs, 'rams_id', operativeRosterBySite); // operatives only, as on the RAMS page (CORE-M4)
   const coshhOutstandingBySite = outstandingBySite(coshhDocs, coshhSigs, 'coshh_id', operativeRosterBySite);
   const tbtSignedByTalk = {};
   tbtSigs.forEach(s=>{ (tbtSignedByTalk[s.tbt_id]=tbtSignedByTalk[s.tbt_id]||new Set()).add(s.user_id); });

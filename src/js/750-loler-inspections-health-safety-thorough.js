@@ -49,9 +49,34 @@ window.startLolerInspection = async function(siteId, templateId, plantItemId, ma
     reportFillDraft = null;
     lolerPickerOpen = false; lolerPlantPickOpen = false; lolerManualName = '';
     toast('LOLER inspection started');
-    go(`#/site/${siteId}/snagging/reports/fill/${inserted[0].id}`);
+    go(`#/site/${siteId}/hs/loler/fill/${inserted[0].id}`);
   }
 };
+// PB-05 (fix round 2): LOLER inspections now open under their own
+// hs/loler/fill|view routes, so operatives (who can be shown the LOLER tile)
+// aren't bounced off the manager-only Reports route, and Back / "Edit
+// Report" / "Complete" all stay inside LOLER. The shared report screens
+// work out their list page from reportListPath, so while you're on a LOLER
+// page that answers with the LOLER list.
+(function(){
+  const baseListPath = reportListPath;
+  reportListPath = function(siteId, fromBriefing){
+    if(!fromBriefing && siteId && !isGeneralReports(siteId)){
+      const h = String(location.hash||'').split('?')[0];
+      if(h.indexOf('#/site/'+siteId+'/hs/loler/')===0) return '#/site/'+siteId+'/hs/loler';
+    }
+    return baseListPath.apply(this, arguments);
+  };
+})();
+// Only a LOLER inspection on this job can be opened through the LOLER
+// route — stops the route being used to read any other report by id.
+async function isLolerSubmissionFor(siteId, submissionId){
+  const subs = await dbSelect('report_submissions', 'id=eq.'+encodeURIComponent(submissionId)+'&select=id,site_id,template_id&limit=1');
+  const sub = subs[0];
+  if(!sub || sub.site_id!==siteId || !sub.template_id) return false;
+  const ts = await dbSelect('report_templates', 'id=eq.'+encodeURIComponent(sub.template_id)+'&select=id,is_loler_inspection&limit=1');
+  return !!(ts[0] && ts[0].is_loler_inspection);
+}
 window.toggleLolerPlantPick = function(){ lolerPlantPickOpen = !lolerPlantPickOpen; render(); };
 async function renderLolerInspections(siteId){
   const __gen = RENDER_GEN;
@@ -95,7 +120,7 @@ async function renderLolerInspections(siteId){
       ` : ''}
     ` : ''}
     ${submissions.map(s=>`
-      <div class="sitecard" style="cursor:pointer;" onclick="go('#/site/${siteId}/snagging/reports/${s.status==='in_progress'?'fill':'view'}/${s.id}')">
+      <div class="sitecard" style="cursor:pointer;" onclick="go('#/site/${siteId}/hs/loler/${(canAdd && s.status==='in_progress')?'fill':'view'}/${s.id}')">
         <div class="info">
           <div class="name">${escapeHtml((s.answers && s.answers.loler_make_model) || s.template_name)}</div>
           <div class="addr">${s.status==='in_progress' ? 'Started' : ('Submitted '+new Date(s.submitted_at).toLocaleString('en-GB'))} · ${escapeHtml(nameOf(s.submitted_by))}</div>

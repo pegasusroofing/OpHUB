@@ -93,12 +93,13 @@ async function finInboxFileCore(it, f, quiet){
   // FA-03: claim the inbox item before filing it. The change only goes through while it's still
   // "new", so when two phones / PCs file the same emailed invoice at once only one of them gets
   // a row back — the other stops here instead of filing a second copy.
-  const claim = await dbUpdate('fin_inbox', it.id+'&status=eq.new', {status:'filed'});
-  if(!claim){ if(!quiet && claim===undefined) toast('This one has just been filed by someone else.'); return null; }   // null = no connection (already toasted)
+  // FX-P1: an item left "filed" with no invoice (a save that never finished) can be claimed again after 5 minutes.
+  const claim = await finInboxClaim(it);
+  if(!claim.ok){ if(!quiet) finInboxClaimToast(claim); return null; }
   const pi = await dbInsert('purchase_invoices', {org_id:ME.org_id, site_id:f.site_id, po_id:f.po_id||null, no_po:!f.po_id, kind:'invoice', supplier_id:po?po.supplier_id:null, supplier_name:f.supplier||'Supplier',
     invoice_no:f.invoice_no||null, invoice_date:f.date||finToday(), net:finRound(net), vat:finRound(vat), total:finRound(total), status: flags.length ? 'query' : 'to_approve', query_note: flags.length ? flags.join('; ') : null,
     file_path:it.file_path, file_name:it.file_name, created_by:ME.id});
-  if(!pi || !pi[0]){ await dbUpdate('fin_inbox', it.id, {status:'new'}); return null; } // didn't save — put it back in the inbox
+  if(!pi || !pi[0]){ await dbUpdate('fin_inbox', it.id+'&purchase_invoice_id=is.null', claim.revert); return null; } // didn't save — put it back in the inbox
   await dbUpdate('fin_inbox', it.id, {status:'filed', site_id:f.site_id, po_id:f.po_id||null, purchase_invoice_id:pi[0].id});
   if(typeof finCheckInvoiceLines==='function') finCheckInvoiceLines(pi[0].id).catch(()=>null);
   return pi[0];
@@ -114,10 +115,10 @@ async function renderFinPurchases(sub){
   const __gen = RENDER_GEN;
   finInboxAutoProcess().then(ch=>{ if(ch && __gen===RENDER_GEN) render(); });
   const [pinvs, pos, inbox, hires, suppliers] = await Promise.all([
-    dbSelect('purchase_invoices', 'org_id=eq.'+ME.org_id+'&order=invoice_date.desc&limit=5000'),
-    dbSelect('purchase_orders', 'org_id=eq.'+ME.org_id+'&order=created_at.desc&limit=5000'),
-    dbSelect('fin_inbox', 'org_id=eq.'+ME.org_id+'&status=eq.new&order=received_at.desc&limit=300'),
-    dbSelect('fin_plant_hires', 'org_id=eq.'+ME.org_id+'&order=on_hire.desc&limit=2000'),
+    finSelectAll('purchase_invoices', 'org_id=eq.'+ME.org_id+'&order=invoice_date.desc'),
+    finSelectAll('purchase_orders', 'org_id=eq.'+ME.org_id+'&order=created_at.desc'),
+    dbSelect('fin_inbox', 'org_id=eq.'+ME.org_id+'&'+FIN_INBOX_OPEN_Q+'&order=received_at.desc&limit=300').then(finInboxAsNew),   // FX-P1: stuck "filed, no invoice" ones too
+    finSelectAll('fin_plant_hires', 'org_id=eq.'+ME.org_id+'&order=on_hire.desc'),
     sub==='suppliers' ? dbSelect('suppliers', 'select=id,name,email&order=name.asc') : Promise.resolve([]),
   ]);
   if(__gen !== RENDER_GEN) return;
@@ -282,7 +283,7 @@ window.finInboxFileFromModal = async function(id){
   const f = finInbFields(id); if(!f) return;
   if(!f.site_id){ toast('Choose the job.'); return; }
   if(!f.supplier){ toast('Enter the supplier.'); return; }
-  const it = (await dbSelect('fin_inbox', 'id=eq.'+id))[0]; if(!it || it.status!=='new'){ toast('Already filed.'); return; }
+  const it = (await dbSelect('fin_inbox', 'id=eq.'+id))[0]; if(!finInboxIsOpen(it)){ toast('Already filed.'); return; }
   const pi = await finInboxFileCore(it, f);
   if(!pi) return;
   document.getElementById('finInbOverlay').style.display = 'none';
@@ -295,7 +296,9 @@ window.finInboxSendPm = async function(id){
   const ex = Object.assign({}, it.extracted||{}, {supplier:f.supplier, invoice_no:f.invoice_no, date:f.date, net:f.net, vat:f.vat, total:f.total});
   const note = finVal('finInbNote');
   const comments = (it.comments||[]).concat([{by:ME.id, name:ME.name, at:new Date().toISOString(), text:'Sent to '+((PROFILES[pm]||{}).name||'PM')+' to book'+(note?': '+note:'')}]);
-  if(!(await dbUpdate('fin_inbox', id, {extracted:ex, stage:'with_pm', assigned_pm:pm, assigned_at:new Date().toISOString(), comments}))) return;
+  // FX-P1: a stuck "filed, no invoice" item goes back to new so the PM can book it.
+  const stuck = finInboxStuck(it);
+  if(!(await dbUpdate('fin_inbox', id+(stuck ? '&purchase_invoice_id=is.null' : ''), Object.assign({extracted:stuck ? finInboxExNoClaim(ex) : ex, stage:'with_pm', assigned_pm:pm, assigned_at:new Date().toISOString(), comments}, stuck ? {status:'new'} : {})))) return;
   document.getElementById('finInbOverlay').style.display = 'none';
   toast('Sent to '+((PROFILES[pm]||{}).name||'the PM')+' — it’s on their home screen'); render();
 };

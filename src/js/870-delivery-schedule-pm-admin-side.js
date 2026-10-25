@@ -729,8 +729,13 @@ window.saveDeliveryTask = async function(){
   // whether to swap: Yes moves the flag onto this delivery (the other one
   // is un-flagged after this one saves, and whoever booked it is told); No
   // unticks it here and leaves the existing one alone.
+  // PB-11: it's only saved as the 1st drop if it's actually in the first
+  // drop — so only then can it take the 1st drop off another delivery
+  // (ticking 1st DROP and then changing the Drop list used to clear the
+  // day's 1st drop and leave the day with none).
+  const willBeHigh = !!d.high_priority && (!DELIVERY_TIME_SLOTS[0] || d.time_slot===DELIVERY_TIME_SLOTS[0].key);
   let highPriorityToClear = [];
-  if(d.high_priority){
+  if(willBeHigh){
     const existingHigh = await dbSelect('delivery_tasks', 'org_id=eq.'+ME.org_id+'&scheduled_date=eq.'+d.scheduled_date+'&high_priority=is.true&status=eq.pending&select=id,site_id,manual_site_name,manual_site_address,description,created_by');
     highPriorityToClear = existingHigh.filter(o=>o.id!==d._id);
     if(highPriorityToClear.length){
@@ -763,7 +768,7 @@ window.saveDeliveryTask = async function(){
     photo_paths: Array.isArray(d.photo_paths) ? d.photo_paths : (d.photo_path ? [d.photo_path] : []),
     scheduled_date: d.scheduled_date,
     time_slot: d.time_slot,
-    high_priority: !!d.high_priority && (!DELIVERY_TIME_SLOTS[0] || d.time_slot===DELIVERY_TIME_SLOTS[0].key),
+    high_priority: willBeHigh,
     double_slot: !!d.double_slot,
     driver_id: (d.driver_id && d.driver_id!=='none') ? d.driver_id : null,
     needs_completing: false, // saving the full form — whether new or a quick-added stub being properly filled in — means it's no longer "needs completing"

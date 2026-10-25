@@ -110,7 +110,9 @@ async function computeOutstandingRows(forId){
     return docsHere.filter(d=>!signedIds.has(d.id)).length;
   }
   const rows = sites.map(s=>{
-    const rams = unsignedCount(s.id, ramsDocs, ramsSigsCur, 'rams_id');
+    // Fix round 2 (CORE-M4): RAMS counts operatives only, the same rule as
+    // the RAMS page itself — clients/drivers/PMs on the site never sign it.
+    const rams = unsignedCount(s.id, ramsDocs, ramsSigsCur, 'rams_id', operativeRosterBySite);
     const coshh = unsignedCount(s.id, coshhDocs, coshhSigsCur, 'coshh_id', operativeRosterBySite);
     // TBT is a personal "you need to sign this" item, not a manager
     // roster-completion metric (managers already get a live-TBT nudge via
@@ -222,7 +224,9 @@ async function computeNotificationRows(forId){
     if(snags) items.push({lbl:`Open snags (${snags})`, href:`#/site/${s.id}/snagging/list`});
 
     if(sowStartedBySite[s.id]){
-      const rams = unsignedCount(s.id, ramsDocs, ramsSigsCur, 'rams_id');
+      // Fix round 2 (CORE-M4): RAMS counts operatives only, the same rule as
+    // the RAMS page itself — clients/drivers/PMs on the site never sign it.
+    const rams = unsignedCount(s.id, ramsDocs, ramsSigsCur, 'rams_id', operativeRosterBySite);
       if(rams) items.push({lbl:`RAMS not signed by operatives (${rams})`, href:`#/site/${s.id}/hs/rams`});
       const coshh = unsignedCount(s.id, coshhDocs, coshhSigsCur, 'coshh_id', operativeRosterBySite);
       if(coshh) items.push({lbl:`COSHH not signed by operatives (${coshh})`, href:`#/site/${s.id}/hs/coshh`});

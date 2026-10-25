@@ -90,7 +90,7 @@ let pmTodosCache = {at:0, uid:null, rows:[]};
 async function loadPmTodos(force){
   if(!force && pmTodosCache.uid===ME.id && (Date.now()-pmTodosCache.at) < 30000) return pmTodosCache.rows;
   const mySites = new Set(SITES.filter(x=>x.responsible_pm_id===ME.id).map(x=>x.id));
-  const all = await dbSelect('todos', 'done=eq.false&select=id,site_id,text,assigned_to,created_by,date_required_by,created_at&order=date_required_by.asc.nullslast,created_at.asc&limit=500');
+  const all = await dbSelect('todos', 'or=(site_id.not.is.null,org_id.eq.'+ME.org_id+')&done=eq.false&select=id,site_id,text,assigned_to,created_by,date_required_by,created_at&order=date_required_by.asc.nullslast,created_at.asc&limit=500');
   const rows = (all||[]).filter(t=>!t.site_id || (SITES.some(x=>x.id===t.site_id) && (mySites.has(t.site_id) || t.assigned_to===ME.id || t.created_by===ME.id)));
   pmTodosCache = {at:Date.now(), uid:ME.id, rows};
   return rows;
@@ -502,9 +502,11 @@ let onSiteCache = {at:0, rows:[]};
 async function loadOnSiteNow(force){
   if(!force && Date.now()-onSiteCache.at < 30000) return onSiteCache.rows;
   const start = new Date(); start.setHours(0,0,0,0);
-  const rows = await dbSelect('checkins', 'ts=gte.'+start.toISOString()+'&order=ts.asc&select=site_id,user_id,type,ts');
+  // Newest first (CORE-M5): if the day ever goes past the server's 1000-row
+  // cap it's the oldest rows that drop off, never someone's latest check-out.
+  const rows = await dbSelect('checkins', 'ts=gte.'+start.toISOString()+'&order=ts.desc&limit=1000&select=site_id,user_id,type,ts');
   const last = {};
-  (rows||[]).forEach(c=>{ if(c.user_id) last[c.user_id] = c; });
+  (rows||[]).forEach(c=>{ if(c.user_id && !last[c.user_id]) last[c.user_id] = c; });
   const siteIds = new Set(SITES.map(x=>x.id));
   const out = Object.values(last).filter(c=>c.type==='in' && siteIds.has(c.site_id));
   onSiteCache = {at:Date.now(), rows:out};

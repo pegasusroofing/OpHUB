@@ -215,6 +215,11 @@ window.ramsIssue = async function(siteId){
   await ramsSaveNow();
   const b = ramsEd.build;
   if(!b.hazards.length && !b.sections.length){ toast('Add some hazards or sections first'); return; }
+  // Re-issuing with no hazards (or no sections) would make no new Risk
+  // Assessment (or Method Statement), so the old one would stay "current"
+  // and operatives would keep signing it. Stop and say so.
+  if(b.ra_doc_id && !b.hazards.length){ customAlert('This RAMS already has a Risk Assessment, but it now has no hazards. Add the hazards back on the RA tab before re-issuing — otherwise everyone keeps signing the old Risk Assessment.'); return; }
+  if(b.ms_doc_id && !b.sections.length){ customAlert('This RAMS already has a Method Statement, but it now has no sections. Add them back on the SSOW or MS tab before re-issuing — otherwise everyone keeps signing the old Method Statement.'); return; }
   const miss = ramsMissingInfo(b);
   if(miss.length){ toast('Fill in '+miss.join(' and ')+' on the Info tab first'); ramsSetTab('details'); return; }
   const reissue = b.status==='issued';

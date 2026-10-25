@@ -103,6 +103,7 @@ window.togglePricingElementShowWhenClosed = async function(elementId, checked){
    the price-file-access edge function, which is the only thing allowed to
    touch the private price-files bucket. ---- */
 let priceFilePreview = {path:null, filename:null, loading:false, error:null, sheetHtml:null};
+let priceFilePreviewEl = null; // the Pricing Element whose card the preview belongs to
 let priceFileApplyToAll = {}; // elementId -> checkbox state on the upload form, before upload
 window.togglePriceFileApplyToAll = function(elementId, checked){ priceFileApplyToAll[elementId] = checked; };
 // #400: "Apply to all" ticks element_id to null (and stamps sub_site_id so a
@@ -129,16 +130,18 @@ window.deletePriceFile = async function(siteId, fileId, storagePath){
   if(!await customConfirm('Delete this price file? This can\'t be undone. If it was applied to all elements, it will be removed from all of them.')) return;
   const rows = await dbSelect('price_files', 'id=eq.'+fileId+'&select=filename');
   const filename = rows[0] && rows[0].filename;
-  try{ await sbFetch('/storage/v1/object/price-files/'+storagePath, {method:'DELETE'}); }catch(e){}
+  // Row first, then the file: if the row can't be deleted (no rights, no
+  // signal) the file is left alone, so the list never points at a missing file.
   const ok = await dbDelete('price_files', fileId);
   if(ok){
+    try{ await sbFetch('/storage/v1/object/price-files/'+storagePath, {method:'DELETE'}); }catch(e){}
     toast('File deleted');
     logSiteActivity(siteId, 'price_file_deleted', `Deleted price file "${filename||''}"`);
     if(priceFilePreview.path===storagePath) priceFilePreview = {path:null, filename:null, loading:false, error:null, sheetHtml:null};
     render();
   }
 };
-window.viewPriceFile = async function(siteId, storagePath, filename){
+window.viewPriceFile = async function(siteId, storagePath, filename, elementId){
   const isSheet = /\.(xlsx|xls|csv)$/i.test(filename);
   if(!isSheet){
     const res = await sbFetchOD('/functions/v1/price-file-access', {method:'POST', body:JSON.stringify({site_id:siteId, storage_path:storagePath})});
@@ -149,6 +152,7 @@ window.viewPriceFile = async function(siteId, storagePath, filename){
     return;
   }
   priceFilePreview = {path:storagePath, filename, loading:true, error:null, sheetHtml:null};
+  priceFilePreviewEl = elementId || null;
   render();
   try{
     const res = await sbFetchOD('/functions/v1/price-file-access', {method:'POST', body:JSON.stringify({site_id:siteId, storage_path:storagePath})});
@@ -1149,14 +1153,10 @@ function pricingElementCardHtml(el, d, ctx){
           Let operatives with access still see the price while this is closed
         </label>
         ` : ''}
-        ${canManage ? `
-        <label class="stub" style="display:flex;align-items:center;gap:8px;margin:10px 0 12px;padding:8px 10px;background:var(--paper);border-radius:8px;">
-          <input type="checkbox" style="width:auto;" ${el.include_in_summary!==false?'checked':''} onchange="toggleIncludeInSummary('${el.id}', this.checked)">
-          Include in the Overview summary at the top of the Price tile
-        </label>
-        ` : ''}
+        ${/* The "Include in the Overview summary" tick was removed: the Overview it
+             fed has gone, so it did nothing. include_in_summary stays in the DB. */''}
 
-        <div class="formfield" style="${canManage?'':'margin-top:12px;'}">
+        <div class="formfield" style="margin-top:12px;">
           <label class="field-label">Price Total</label>
           ${canManage
             ? `<div class="currency-input-wrap"><span class="currency-prefix">£</span><input type="number" step="0.01" inputmode="decimal" value="${el.price_total!=null?el.price_total:''}" placeholder="0.00" onblur="savePriceField('${el.id}','price_total',this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"></div>`
@@ -1337,13 +1337,13 @@ function pricingElementCardHtml(el, d, ctx){
               <div class="sitecard">
                 <div class="info"><div class="name">${/\.(xlsx|xls|csv)$/i.test(f.filename)?'📊':'📄'} ${escapeHtml(f.filename)}${!f.element_id ? ' <span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--brand1);">Applies to all</span>' : ''}</div><div class="addr">${new Date(f.uploaded_at).toLocaleString(undefined,{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</div></div>
                 <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                  <button class="ghostbtn" style="width:auto;padding:8px 12px;" onclick="viewPriceFile('${siteId}','${jsAttr(f.storage_path)}','${jsAttr(f.filename)}')">View</button>
+                  <button class="ghostbtn" style="width:auto;padding:8px 12px;" onclick="viewPriceFile('${siteId}','${jsAttr(f.storage_path)}','${jsAttr(f.filename)}','${el.id}')">View</button>
                   ${canManage ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;color:var(--warn);" onclick="deletePriceFile('${siteId}','${f.id}','${jsAttr(f.storage_path)}')">Delete</button>` : ''}
                 </div>
               </div>
             `).join('') : `<div class="empty">No price files uploaded yet${canManage ? ' — add one above.' : '.'}</div>`}
 
-            ${priceFilePreview.path ? `
+            ${priceFilePreview.path && priceFilePreviewEl===el.id ? `
             <p class="sectiontitle" style="display:flex;align-items:center;justify-content:space-between;">
               <span>Preview — ${escapeHtml(priceFilePreview.filename||'')}</span>
               <span style="cursor:pointer;font-weight:400;font-size:12.5px;color:var(--slate);" onclick="closePriceFilePreview()">✕ Close</span>
@@ -1379,7 +1379,7 @@ function pricingElementCardHtml(el, d, ctx){
                   <div class="sitecard">
                     <div class="info"><div class="name">${/\.(xlsx|xls|csv)$/i.test(f.filename)?'📊':/\.pdf$/i.test(f.filename)?'📄':'📎'} ${escapeHtml(f.filename)}</div><div class="addr">${new Date(f.uploaded_at).toLocaleString(undefined,{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</div></div>
                     <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                      <button class="ghostbtn" style="width:auto;padding:8px 12px;" onclick="viewLabourInvoice('${siteId}','${jsAttr(f.storage_path)}','${jsAttr(f.filename)}')">View</button>
+                      <button class="ghostbtn" style="width:auto;padding:8px 12px;" onclick="viewLabourInvoice('${siteId}','${jsAttr(f.storage_path)}','${jsAttr(f.filename)}','${el.id}')">View</button>
                       ${canManage ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;color:var(--warn);" onclick="deleteLabourInvoice('${siteId}','${f.id}','${jsAttr(f.storage_path)}')">Delete</button>` : ''}
                     </div>
                   </div>
@@ -1388,7 +1388,7 @@ function pricingElementCardHtml(el, d, ctx){
               ` : ''}
             </div>
 
-            ${labourInvoicePreview.path ? `
+            ${labourInvoicePreview.path && labourInvoicePreviewEl===el.id ? `
             <p class="sectiontitle" style="display:flex;align-items:center;justify-content:space-between;">
               <span>Preview — ${escapeHtml(labourInvoicePreview.filename||'')}</span>
               <span style="cursor:pointer;font-weight:400;font-size:12.5px;color:var(--slate);" onclick="closeLabourInvoicePreview()">✕ Close</span>

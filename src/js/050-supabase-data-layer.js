@@ -73,7 +73,7 @@ async function _refreshTokenNow(){
     if(res.ok){
       const d = await res.json();
       SESSION = {access_token:d.access_token, refresh_token:d.refresh_token, expires_at:Date.now()+(d.expires_in*1000), user:session.user};
-      await setJSON(K_SESSION, SESSION, false);
+      await persistSession(); // checked save — makes room if storage is full (CORE-M6)
     } else if(res.status===400 || res.status===401 || res.status===403){
       // The server actually answered and said the refresh token itself is
       // no good (expired/revoked) — this really is a "log in again" case.
@@ -96,6 +96,24 @@ async function _refreshTokenNow(){
     // access token, which may well still be valid) instead of silently
     // logging the user out from what could be a one-off blip.
   }
+}
+// Fix round 2 (CORE-M6): saving the sign-in can fail when the phone's
+// browser storage is full of saved offline copies. The refresh token has
+// just been swapped for a new one, so losing that save signs the person out
+// on the next open. Check the save; if it fails, clear the offline copies
+// and saved file links (they are only a speed-up) and try again.
+async function persistSession(){
+  if(!SESSION) return false;
+  let ok = await setJSON(K_SESSION, SESSION, false);
+  if(ok) return true;
+  try{ await clearOfflineCache(); }catch(e){}
+  try{ signedCacheClear(); }catch(e){}
+  ok = await setJSON(K_SESSION, SESSION, false);
+  if(ok) return true;
+  try{ await sdelete(K_BOOT, false); }catch(e){}
+  ok = await setJSON(K_SESSION, SESSION, false);
+  if(!ok) console.error('Could not save the sign-in on this device (storage full or blocked).');
+  return !!ok;
 }
 async function sbFetch(path, opts){
   opts = opts || {};

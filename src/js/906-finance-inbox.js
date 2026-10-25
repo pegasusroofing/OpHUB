@@ -8,6 +8,45 @@
    adding one by hand (over the PO, duplicate, not received). */
 
 let finInboxTab = 'new';
+/* ---------- FX-P1: claiming an inbox item to file it ----------
+   The claim marks it "filed" before the purchase invoice is saved. If the save never finishes
+   (signal drops, app closed) the item used to be left "filed" with no invoice and vanished.
+   Now: such stuck items are listed as new again, and can be claimed again once 5 minutes have
+   passed since the last claim (the claim time is kept in extracted.claimed_at — fin_inbox has
+   no updated_at). The re-claim only goes through if nobody has claimed it since, so two people
+   still can't file it twice. Proper fix: one RPC that claims, saves and links in one go. */
+const FIN_INBOX_STUCK_MS = 5*60*1000;
+const FIN_INBOX_OPEN_Q = 'or=(status.eq.new,and(status.eq.filed,purchase_invoice_id.is.null))';
+function finInboxStuck(it){ return !!(it && it.status==='filed' && !it.purchase_invoice_id); }
+function finInboxIsOpen(it){ return !!(it && (it.status==='new' || finInboxStuck(it))); }
+// Stuck rows are shown (and handled) exactly like new ones.
+function finInboxAsNew(rows){ return (rows||[]).map(r=>finInboxStuck(r) ? Object.assign({}, r, {status:'new', __stuck:true}) : r); }
+function finInboxExNoClaim(ex){ if(!ex || typeof ex!=='object') return ex || null; const o = Object.assign({}, ex); delete o.claimed_at; return Object.keys(o).length ? o : null; }
+// Returns {ok:true, revert:<patch to put it back>} or {ok:false, why:'offline'|'taken'|'busy'}.
+async function finInboxClaim(it){
+  const now = new Date().toISOString();
+  const exNow = Object.assign({}, it.extracted||{}, {claimed_at:now});
+  const revert = {status:'new', extracted:finInboxExNoClaim(it.extracted)};
+  let r = await dbUpdate('fin_inbox', it.id+'&status=eq.new', {status:'filed', extracted:exNow});
+  if(r===null) return {ok:false, why:'offline'};
+  if(r) return {ok:true, revert};
+  const cur = await dbSelectChecked('fin_inbox', 'id=eq.'+it.id+'&select=status,purchase_invoice_id,extracted,received_at');
+  if(!cur.ok) return {ok:false, why:'offline'};
+  const row = cur.data[0];
+  if(!finInboxStuck(row)) return {ok:false, why:'taken'};
+  const was = row.extracted && row.extracted.claimed_at;
+  const since = was || row.received_at;
+  if(since && Date.now() - new Date(since).getTime() < FIN_INBOX_STUCK_MS) return {ok:false, why:'busy'};
+  const cond = '&status=eq.filed&purchase_invoice_id=is.null&extracted->>claimed_at='+(was ? 'eq.'+encodeURIComponent(was) : 'is.null');
+  r = await dbUpdate('fin_inbox', it.id+cond, {status:'filed', extracted:Object.assign({}, row.extracted||{}, it.extracted||{}, {claimed_at:now})});
+  if(r===null) return {ok:false, why:'offline'};
+  return r ? {ok:true, revert} : {ok:false, why:'taken'};
+}
+function finInboxClaimToast(c){
+  toast(c.why==='offline' ? 'Couldn’t reach the server — it’s still in the inbox. Check your signal and try again.'
+    : c.why==='busy' ? 'Someone started filing this a moment ago. If it’s still here in 5 minutes, file it again.'
+    : 'This one has just been filed by someone else.');
+}
 const FIN_PO_RE = /\b([A-Z0-9]{1,12}-PO-\d{3,4})\b/i;
 function finParseDate(s){
   if(!s) return null;
@@ -62,7 +101,7 @@ async function finPdfText(url){
 async function finInboxReadPending(items, ctx){
   let changed = false;
   for(const it of items){
-    if(it.extracted || it.status!=='new') continue;
+    if(it.extracted || it.status!=='new' || it.__stuck) continue;
     let ex = {};
     if(/pdf/i.test(it.content_type||'') || /\.pdf$/i.test(it.file_name||'')){
       try{ const url = await resolveStorageUrl(publicUrl('finance-docs', it.file_path)); ex = finReadInvoiceText(await finPdfText(url), ctx); ex.read = true; }catch(e){ ex = {read:false}; }
@@ -80,13 +119,13 @@ async function renderFinInbox(){
   if(!finGuard()) return;
   const __gen = RENDER_GEN;
   const [items, pos, suppliers] = await Promise.all([
-    dbSelect('fin_inbox', 'org_id=eq.'+ME.org_id+'&status=eq.'+finInboxTab+'&order=received_at.desc&limit=100'),
+    dbSelect('fin_inbox', 'org_id=eq.'+ME.org_id+'&'+(finInboxTab==='new' ? FIN_INBOX_OPEN_Q : 'status=eq.'+finInboxTab)+'&order=received_at.desc&limit=100').then(r=>finInboxTab==='new' ? finInboxAsNew(r) : r),
     dbSelect('purchase_orders', 'org_id=eq.'+ME.org_id+'&status=neq.cancelled&select=id,number,site_id,supplier_name,value'),
     dbSelect('suppliers', 'select=id,name'),
   ]);
   if(__gen !== RENDER_GEN) return;
   const ctx = {pos, suppliers, sites:SITES};
-  if(finInboxTab==='new' && items.some(i=>!i.extracted)){
+  if(finInboxTab==='new' && items.some(i=>!i.extracted && !i.__stuck)){
     document.getElementById('app').innerHTML = shell(`
     ${finSectionNav('purchases')}${finSubTabs('purchases','inbox')}<div class="empty">Reading ${items.filter(i=>!i.extracted).length} new invoice${items.filter(i=>!i.extracted).length===1?'':'s'}…</div>`, {title:'Invoice inbox', subtitle:'OpHUB Finance', back:'#/finance', tabs:false});
     if(await finInboxReadPending(items, ctx)) return render();
@@ -159,7 +198,7 @@ window.finInboxFile = async function(id){
   const card = document.getElementById('finInb-'+id); if(!card) return;
   const g = k=>{ const el = card.querySelector(`[data-k="${k}"]`); return el ? el.value.trim() : ''; };
   const it = (await dbSelect('fin_inbox', 'id=eq.'+id))[0]; if(!it) return;
-  if(it.status!=='new'){ toast('Already filed.'); render(); return; }
+  if(!finInboxIsOpen(it)){ toast('Already filed.'); render(); return; }
   const siteId = g('site_id'), poId = g('po_id'), supplier = g('supplier'), no = g('invoice_no');
   let net = finNum(g('net')), vat = finNum(g('vat')), total = finNum(g('total'));
   if(!siteId){ toast('Choose the project.'); return; }
@@ -185,11 +224,12 @@ window.finInboxFile = async function(id){
     }
   } else flags.push('no PO');
   // FA-03: claim it first (only works while it's still "new"), so two people can't file it twice.
-  if(!(await dbUpdate('fin_inbox', id+'&status=eq.new', {status:'filed'}))){ toast('This one has just been filed by someone else.'); render(); return; }
+  const claim = await finInboxClaim(it);
+  if(!claim.ok){ finInboxClaimToast(claim); if(claim.why!=='offline') render(); return; }
   const pi = await dbInsert('purchase_invoices', {org_id:ME.org_id, site_id:siteId, po_id:poId||null, no_po:!poId, kind:'invoice', supplier_id:po?po.supplier_id:null, supplier_name:supplier,
     invoice_no:no||null, invoice_date:g('date')||finToday(), net:finRound(net), vat:finRound(vat), total:finRound(total), status: flags.length ? 'query' : 'to_approve', query_note: flags.length ? flags.join('; ') : null,
     file_path:it.file_path, file_name:it.file_name, created_by:ME.id});
-  if(!pi || !pi[0]){ await dbUpdate('fin_inbox', id, {status:'new'}); return; } // didn't save — put it back
+  if(!pi || !pi[0]){ await dbUpdate('fin_inbox', id+'&purchase_invoice_id=is.null', claim.revert); return; } // didn't save — put it back
   await dbUpdate('fin_inbox', id, {status:'filed', site_id:siteId, po_id:poId||null, purchase_invoice_id:pi[0].id});
   if(typeof finCheckInvoiceLines==='function') finCheckInvoiceLines(pi[0].id).then(r=>{ if(r && r.notes.length) toast(r.notes.length+' line difference'+(r.notes.length===1?'':'s')+' with the PO — see Purchases'); });
   toast(flags.length ? 'Filed and flagged: '+flags[0] : 'Filed — waiting for approval');

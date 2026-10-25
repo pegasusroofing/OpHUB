@@ -201,7 +201,7 @@ async function renderPermitView(siteId, permitId, companyId){
       <p class="sectiontitle" style="margin-top:18px;">Closed down</p>
       <div class="card">
         <p class="stub" style="margin:0 0 4px;"><b>Closed by</b> ${escapeHtml(nameOf(permit.closed_by))} on ${permit.closed_at ? new Date(permit.closed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'}) : ''}</p>
-        ${permit.closed_notes ? `<p class="stub" style="margin:0 0 8px;">${escapeHtml(permit.closed_notes)}</p>` : ''}
+        ${permit.closed_notes ? `<p class="stub" style="margin:0 0 8px;white-space:pre-line;">${escapeHtml(permit.closed_notes)}</p>` : ''}
         ${permit.closer_signature_path ? `<img src="${publicUrl('signatures', permit.closer_signature_path)}" style="height:40px;max-width:180px;object-fit:contain;margin-bottom:8px;display:block;">` : ''}
         ${permit.closedown_photo_path_1 || permit.closedown_photo_path_2 ? `
           <p class="field-label" style="margin-bottom:6px;">Fire extinguisher photos</p>
@@ -258,12 +258,29 @@ window.signPermit = async function(permitId){
 };
 window.closePermit = async function(siteId, permitId){
   if(!ME.signature_path){ toast('Adopt your signature first.'); go('#/signature'); return; }
-  const existing = await dbSelect('permits', 'id=eq.'+permitId+'&select=permit_type');
+  const existing = await dbSelect('permits', 'id=eq.'+permitId+'&select=permit_type,assigned_user_ids,subcontractor_company_id');
   const permit = existing[0];
   const state = permitCloseState[permitId] || {photo1:null, photo2:null, notes:''};
   if(permit && permit.permit_type==='hot_works' && (!state.photo1 || !state.photo2)){
     toast('Both fire-extinguisher photos are required to close a hot works permit.');
     return;
+  }
+  // Everyone named on the permit should have signed it before it's closed.
+  // A manager can still close it, but only after saying so — and that's
+  // written on the permit and in the job's history.
+  let overrideNote = '';
+  if(permit && (permit.assigned_user_ids||[]).length){
+    const signoffs = await dbSelect('permit_signoffs', 'permit_id=eq.'+permitId+'&select=user_id');
+    const signed = new Set((signoffs||[]).map(x=>x.user_id));
+    const unsigned = (permit.assigned_user_ids||[]).filter(id=>!signed.has(id));
+    if(unsigned.length){
+      await loadAllProfiles();
+      const names = unsigned.map(id=>nameOf(id)).join(', ');
+      const canOverride = isManager(ME) || (permit.subcontractor_company_id ? await isSubcontractorAdmin(permit.subcontractor_company_id) : false);
+      if(!canOverride){ customAlert(`This permit can't be closed yet — still waiting for ${unsigned.length===1?'a signature':'signatures'} from: ${names}.`); return; }
+      if(!(await customConfirm(`Still waiting for ${unsigned.length===1?'a signature':'signatures'} from: ${names}.\n\nClose the permit anyway? This will be recorded on the permit and in the job's history.`, {confirmLabel:'Close without their signature', cancelLabel:'Cancel', danger:true}))) return;
+      overrideNote = 'Closed by '+(ME.name||'a manager')+' without sign-off from: '+names+'.';
+    }
   }
   let photoPath1 = null, photoPath2 = null;
   if(state.photo1) photoPath1 = await uploadDataUrl('site-photos', siteId+'/permits/'+permitId+'-ext1-'+crypto.randomUUID()+'.jpg', state.photo1);
@@ -273,14 +290,14 @@ window.closePermit = async function(siteId, permitId){
     return;
   }
   const row = await dbUpdate('permits', permitId, {
-    status:'closed', closed_by:ME.id, closed_at:new Date().toISOString(), closed_notes: state.notes||null,
+    status:'closed', closed_by:ME.id, closed_at:new Date().toISOString(), closed_notes: [state.notes||'', overrideNote].filter(Boolean).join('\n') || null,
     closer_signature_path: ME.signature_path,
     closedown_photo_path_1: photoPath1, closedown_photo_path_2: photoPath2,
   });
   if(row){
     delete permitCloseState[permitId];
     postSystemMessage(siteId, 'permit_closed', `${ME.name} closed a permit`);
-    logSiteActivity(siteId, 'permit_closed', `Closed a ${PERMIT_TYPE_LABEL[row.permit_type]||''} permit`);
+    logSiteActivity(siteId, 'permit_closed', `Closed a ${PERMIT_TYPE_LABEL[row.permit_type]||''} permit`+(overrideNote ? ' — '+overrideNote : ''));
     toast('Permit closed');
     render();
   }

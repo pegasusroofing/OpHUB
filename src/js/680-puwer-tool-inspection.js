@@ -92,6 +92,7 @@ window.togglePuwerExportSelected = function(userId){
   render();
 };
 window.markPuwerWeekComplete = async function(siteId, weekStart){
+  if(puwerMarkCompleteBusy) return;
   puwerMarkCompleteBusy = true; render();
   const row = await dbInsert('puwer_weekly_completions', {org_id:ME.org_id, site_id:siteId, week_start:weekStart, completed_by:ME.id});
   if(row){ toast('Week marked complete'); puwerWeekOffset += 1; }

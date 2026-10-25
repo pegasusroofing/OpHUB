@@ -117,12 +117,29 @@ async function stampRamsSignLayout(pdfDoc, layout, people){
 // page's Subcontractor RAMS dropdown, not just from within that
 // subcontractor's own tile) can build from exactly the same bytes. Returns
 // null (after its own toast) on any failure/no-signatures-yet.
+// PB-06 (fix round 2): the signed-PDF exports used every signature row ever
+// made on a document, so after a yearly re-sign each operative appeared
+// twice and took up two signature boxes. Same cycle rule as the screen
+// (filterCurrentCycleSigs), then only the newest signature per person, kept
+// in signing order.
+function currentCycleSigsForPdf(sigs, doc, keyField){
+  let list = Array.isArray(sigs) ? sigs.slice() : [];
+  try{
+    const site = doc && SITES.find(s=>s.id===doc.site_id);
+    if(doc && site) list = filterCurrentCycleSigs(list, [doc], keyField, site);
+  }catch(e){ console.error(e); }
+  const newest = {};
+  list.forEach(s=>{ const k = s.user_id || ('row:'+s.id); if(!newest[k] || new Date(s.signed_at) >= new Date(newest[k].signed_at)) newest[k] = s; });
+  return list.filter(s=>newest[s.user_id || ('row:'+s.id)]===s).sort((a,b)=>new Date(a.signed_at)-new Date(b.signed_at));
+}
 async function buildSignedRamsPdfBytes(ramsId){
   if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return null; }
   const docs = await dbSelect('rams_docs', 'id=eq.'+ramsId+'&select=*');
   const doc = docs[0];
   if(!doc){ toast('Document not found.'); return null; }
-  const sigs = await dbSelect('rams_signatures', 'rams_id=eq.'+ramsId+'&order=signed_at.asc');
+  // PB-06: only this signing cycle's signatures (after a yearly re-sign the
+  // old ones stay in the table), and one per person — the newest.
+  const sigs = currentCycleSigsForPdf(await dbSelect('rams_signatures', 'rams_id=eq.'+ramsId+'&order=signed_at.asc'), doc, 'rams_id');
   // Client signatures (emailed link), one per client number; the newest signed one wins.
   const clientRows = await dbSelect('rams_client_signatures', 'rams_id=eq.'+ramsId+'&signed_at=not.is.null&order=signed_at.asc&select=id,client_slot,signer_name,client_name,client_email,signed_at,signature_path');
   if(!sigs.length && !clientRows.length){ toast('No signatures yet.'); return null; }

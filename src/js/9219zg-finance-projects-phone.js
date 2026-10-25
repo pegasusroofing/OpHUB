@@ -6,18 +6,32 @@
      replacing the Client box.
    ============================================================ */
 let finJobQ = '';
+function finJobPhone(){ try{ return window.matchMedia('(max-width:700px)').matches; }catch(e){ return false; } }
 function finJobSearchApply(){
   const g = document.getElementById('finJobGrid'); if(!g) return;
-  const q = finJobQ.trim().toLowerCase();
-  let n = 0, all = 0;
+  // NS-L6: the search box only shows on phones, so it only filters there.
+  const q = finJobPhone() ? finJobQ.trim().toLowerCase() : '';
   g.querySelectorAll('tbody tr').forEach(tr=>{
     const ok = !q || String(tr.dataset.lf||tr.textContent).toLowerCase().includes(q);
     tr.classList.toggle('fjq-hide', !ok);
-    if(tr.style.display==='none') return;
-    all++; if(ok && !tr.classList.contains('fg-hide')) n++;
   });
+  // Count the rows really on screen (search, column filters and the client filter all hide rows).
+  let n = 0; g.querySelectorAll('tbody tr').forEach(tr=>{ if(tr.style.display!=='none' && tr.offsetParent!==null) n++; });
   const foot = document.getElementById('finJobGridFoot');
-  if(foot){ let note = foot.querySelector('.fjq-n'); if(q){ if(!note){ note = document.createElement('em'); note.className = 'fjq-n'; const b = foot.querySelector('b'); if(b) b.after(note); else foot.prepend(note); } note.textContent = n+' match'; } else if(note) note.remove(); }
+  if(foot){ let note = foot.querySelector('.fjq-n'); if(q){ if(!note){ note = document.createElement('em'); note.className = 'fjq-n'; const b = foot.querySelector('b'); if(b) b.after(note); else foot.prepend(note); } note.textContent = n+(n===1?' match':' matches'); } else if(note) note.remove(); }
+  finJobChipPaint();
+}
+// NS-L6: on a phone the PM / Client filters are hidden, so say when one is still on, with a ✕ to clear it.
+function finJobChipPaint(){
+  const row = document.getElementById('finJobQRow'); if(!row) return;
+  let chip = row.querySelector('.fjq-chip');
+  const f = (typeof finJobFilt!=='undefined' && finJobFilt) || {};
+  const pmName = f.pm ? (f.pm==='none' ? 'No PM' : (((PROFILES||{})[f.pm]||{}).name || 'PM')) : '';
+  const txt = [String(f.client||'').trim(), pmName].filter(Boolean).join(' · ');
+  if(!txt){ if(chip) chip.remove(); return; }
+  if(!chip){ chip = document.createElement('button'); chip.type = 'button'; chip.className = 'fjq-chip'; chip.setAttribute('onclick', "finJobFilt.pm='';finJobFilt.client='';render()"); const inp = row.querySelector('input'); if(inp) inp.after(chip); else row.prepend(chip); }
+  chip.textContent = 'Filtered: '+txt+' ✕';
+  chip.title = 'Clear the filter';
 }
 window.finJobSearch = function(v){ finJobQ = v||''; finJobSearchApply(); };
 function finJobPhoneTidy(){
@@ -36,8 +50,9 @@ function finJobPhoneTidy(){
   const foot = document.getElementById('finJobGridFoot');
   const sel = foot && foot.querySelector('select[aria-label="Sort"]');
   if(sel && !sel.closest('.fjq-sort')){
+    // NS-L6: the "Sort ▾" look is for phones only (CSS below) — on a computer the drop-down shows as normal.
     const lab = document.createElement('label'); lab.className = 'fjq-sort'; lab.title = 'Sort by';
-    sel.parentNode.insertBefore(lab, sel); lab.appendChild(document.createTextNode('Sort ▾')); lab.appendChild(sel);
+    sel.parentNode.insertBefore(lab, sel); const t = document.createElement('span'); t.className = 'fjq-sort-t'; t.textContent = 'Sort ▾'; lab.appendChild(t); lab.appendChild(sel);
   }
   finJobSearchApply();
 }
@@ -49,16 +64,23 @@ function finJobPhoneTidy(){
     return r;
   };
   window.render = render;
+  const jc = window.finJobCli;
+  if(jc) window.finJobCli = function(){ const r = jc.apply(this, arguments); try{ finJobSearchApply(); }catch(e){} return r; };
+  let wasPhone = finJobPhone();
+  window.addEventListener('resize', ()=>{ const p = finJobPhone(); if(p!==wasPhone){ wasPhone = p; try{ finJobSearchApply(); }catch(e){} } });
   const gf = window.finGridFilter;
   if(gf) window.finGridFilter = function(id){ const r = gf.apply(this, arguments); if(id==='finJobGrid') finJobSearchApply(); return r; };
   const st = document.createElement('style');
   st.textContent = `.fjq-row{display:none;}
 #finJobGrid tbody tr.fjq-hide{display:none !important;}
 .fjq-n{font-style:normal;font-size:12px;opacity:.85;margin-left:6px;}
-.fjq-sort{position:relative;display:inline-flex;align-items:center;justify-content:center;height:28px;padding:0 12px;border-radius:8px;font-size:12px;font-weight:700;white-space:nowrap;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);color:inherit;cursor:pointer;flex:none !important;}
-.fjq-sort select{position:absolute !important;inset:0 !important;width:100% !important;height:100% !important;opacity:0 !important;cursor:pointer;margin:0 !important;}
+.fjq-sort-t{display:none;}
+.fjq-chip{flex:none;max-width:45%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border:1px solid var(--line,#E3E6EB);background:#FFF4E5;color:var(--ink,#16181D);border-radius:999px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer;}
 #finJobGrid td[data-l="Client"]{font-weight:700;color:var(--ink,#16181D);}   /* client in bold (25 Oct) */
 @media (max-width:700px){
+  .fjq-sort{position:relative;display:inline-flex;align-items:center;justify-content:center;height:28px;padding:0 12px;border-radius:8px;font-size:12px;font-weight:700;white-space:nowrap;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);color:inherit;cursor:pointer;flex:none !important;}
+  .fjq-sort select{position:absolute !important;inset:0 !important;width:100% !important;height:100% !important;opacity:0 !important;cursor:pointer;margin:0 !important;}
+  .fjq-sort-t{display:inline;}
   .fjq-row{display:flex;gap:8px;align-items:center;margin:0 0 10px;}
   .fjq-row input{flex:1;min-width:0;height:38px !important;min-height:38px !important;margin:0 !important;padding:0 12px !important;font-size:14px !important;border-radius:10px !important;}
   .fjq-row .fjq-new{flex:none;width:auto !important;margin:0 !important;padding:9px 12px !important;font-size:13.5px !important;white-space:nowrap;}

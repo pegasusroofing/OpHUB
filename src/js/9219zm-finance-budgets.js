@@ -40,7 +40,7 @@ async function renderFinBudget(siteId){
         <span class="fbh-pill" id="finBudFp">${finPctTxt(fc.forecastMarginPct)}</span>
       </div>
       <div class="fbh-3">
-        <div><span>Final account</span><b>${finMoney(fc.ffa, 0)}</b></div>
+        <div><span>Final account${fc.vPending?' (incl. submitted variations)':''}</span><b>${finMoney(fc.ffa, 0)}</b></div>
         <div><span>Forecast final cost</span><b id="finBudFc">${finMoney(fc.forecastCost, 0)}</b></div>
         <div><span>Budget</span><b id="finBudHB">—</b></div>
       </div>
@@ -85,7 +85,7 @@ async function renderFinBudget(siteId){
       <div class="finkv"><span>Variations agreed</span><b>${finMoney(fc.vAgreed)}</b></div>
       <div class="finkv"><span>Variations priced or submitted (not agreed)</span><b>${finMoney(fc.vPending)}</b></div>
       ${fc.vInstructed ? `<div class="finkv"><span>Instructed, not priced yet (estimate, not included)</span><b>${finMoney(fc.vInstructed)}</b></div>` : ''}
-      <div class="finkv big"><span>Forecast final account</span><b>${finMoney(fc.ffa)}</b></div>
+      <div class="finkv big"><span>Forecast final account (incl. submitted variations)</span><b>${finMoney(fc.ffa)}</b></div>
       ${ohpLine}
       <div class="finkv"><span>Valuation to date (last application)</span><b>${finMoney(fc.valuation)}</b></div>
       <div class="finkv"><span>Invoiced</span><b>${finMoney(fc.invoiced)}</b></div>

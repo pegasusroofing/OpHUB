@@ -13,7 +13,7 @@ async function finSiteVarProgress(siteId){
   const [fv, sv, tasks] = await Promise.all([
     dbSelect('fin_variations', 'site_id=eq.'+siteId+'&schedule_section_id=not.is.null&select=id,variation_id,schedule_section_id').catch(()=>[]),
     dbSelect('variations', 'site_id=eq.'+siteId+'&schedule_section_id=not.is.null&select=id,schedule_section_id').catch(()=>[]),
-    dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&select=section_id,status,percent_complete&limit=5000').catch(()=>[]),
+    finSelectAll('schedule_tasks', 'site_id=eq.'+siteId+'&select=section_id,status,percent_complete').catch(()=>[]),
   ]);
   const bySec = {};
   tasks.forEach(t=>{ if(!t.section_id) return; const p = t.status==='done' ? 100 : Math.max(0, Math.min(100, Number(t.percent_complete||0))); (bySec[t.section_id] = bySec[t.section_id] || []).push(p); });

@@ -20,6 +20,13 @@ function resetPerUserState(){
   try{ uiReadCacheClear(); }catch(e){}
   try{ signedCacheClear(); }catch(e){}
   try{ pmSignNagDone = false; howtoShownThisSession = new Set(); opUnreadCache = {at:0, n:0}; onSiteCache = {at:0, rows:[]}; deliveryRequestsCount = null; subformMineCache = {uid:null, at:0, done:null}; SUBFORM = null; }catch(e){}
+  // Fix round 2 (CORE-L7): the previous person's HUB / Outstanding /
+  // Projects / Reports filters and HR data never carry over to the next one.
+  try{ hubFilterPmId = ''; hubFilterSiteId = ''; }catch(e){}
+  try{ outstandingPmId = null; }catch(e){}
+  try{ siteFilterPmIds = []; }catch(e){}
+  try{ HR = null; HR_BH_ENSURED = false; }catch(e){}
+  try{ pmReportsTpl = ''; pmReportsBy = ''; }catch(e){}
 }
 
 const OPHUB_LOGO = 'assets/ophub-logo.png?v=2';
@@ -299,7 +306,8 @@ function mediaRequiredFor(it, answers){
 }
 function orgLogoUrl(org){
   // Path segments are URL-encoded so a crafted logo_path can't break out of src="…" (audit 24 Oct).
-  return org && org.logo_path ? publicUrl('org-logos', String(org.logo_path).split('/').map(encodeURIComponent).join('/')) : OPHUB_LOGO;
+  // publicUrl() now does that encoding itself (fix round 2), so pass the raw path.
+  return org && org.logo_path ? publicUrl('org-logos', String(org.logo_path)) : OPHUB_LOGO;
 }
 // 'admin' is a superset of 'pm' capabilities everywhere in this app, and
 // 'site_manager' is a day-to-day-operational subset of 'pm' — mirrors the
@@ -441,7 +449,7 @@ function roleActionsHtml(ME, p, allPeople){
   if(canRemove) items.push(`<div class="statusmenu-item danger" onclick="rowActionsMenuOpenFor=null;removeTeamMember('${p.id}','${jsAttr(p.name)}')">🗑 Remove</div>`);
   return `
     <div style="display:flex;gap:6px;align-items:center;" onclick="event.stopPropagation()">
-      ${options ? `<select style="${smallBtn}" onchange="setUserRole('${p.id}', this.value)">
+      ${options ? `<select style="${smallBtn}" onchange="setUserRole('${jsAttr(p.id)}', this.value, this)">
         ${options.map(o=>`<option value="${o.value}" ${o.value===(isEstimator(p)?'estimator':p.role)?'selected':''}>${o.label}</option>`).join('')}
       </select>` : ''}
       ${items.length ? rowActionsMenuHtml('user-'+p.id, items.join('')) : ''}
@@ -479,7 +487,7 @@ async function loadAllProfilesNow(){
   // onedrive_folder_id/onedrive_last_synced_at back to undefined client-side
   // even though the database row itself was correct — reading as "sync
   // isn't working" when it actually was.
-  const rows = await dbSelect('profiles', 'select=id,name,email,role,is_estimator,phone,subform_required,finance_enabled,see_costs,signature_path,onedrive_folder_id,onedrive_folder_name,onedrive_drive_id,onedrive_last_synced_at');
+  const rows = await dbSelect('profiles', (ME && ME.org_id ? 'org_id=eq.'+ME.org_id+'&' : '')+'select=id,org_id,name,email,role,is_estimator,phone,subform_required,finance_enabled,see_costs,signature_path,onedrive_folder_id,onedrive_folder_name,onedrive_drive_id,onedrive_last_synced_at');
   // An organisation always has at least one profile (yours), so an empty
   // answer means the request failed — keep the names we already have.
   if(!rows.length) return; // a failed fetch is never "no people" — keep what we have and try again next time

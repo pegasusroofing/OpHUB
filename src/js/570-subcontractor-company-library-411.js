@@ -52,8 +52,18 @@ async function renderCompanyLibraryHub(siteId){
 window.renameCompanyLibraryProfile = async function(id, currentName){
   const next = await customPrompt('Rename company', currentName);
   if(!next || !next.trim() || next.trim()===currentName) return;
-  const row = await dbUpdate('subcontractor_company_profiles', id, {name: next.trim()});
-  if(row){ toast('Renamed'); render(); }
+  const name = next.trim();
+  const row = await dbUpdate('subcontractor_company_profiles', id, {name});
+  if(!row) return;
+  // Every job this company is on shows the same new name, so it's never
+  // added again under the old one (which would make a second library profile).
+  let jobsOk = true;
+  try{
+    const res = await sbFetch('/rest/v1/subcontractor_companies?master_company_id=eq.'+id, {method:'PATCH', headers:{'Prefer':'return=minimal'}, body: JSON.stringify({name})});
+    jobsOk = !!(res && res.ok);
+  }catch(e){ jobsOk = false; }
+  toast(jobsOk ? 'Renamed' : 'Renamed in the library, but not on every job — try again.');
+  render();
 };
 window.addCompanyLibraryProfile = async function(siteId){
   const name = (document.getElementById('companyLibraryNewNameInput')||{}).value ? document.getElementById('companyLibraryNewNameInput').value.trim() : companyLibraryNewName.trim();

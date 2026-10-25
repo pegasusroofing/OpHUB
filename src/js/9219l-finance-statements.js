@@ -122,8 +122,8 @@ async function finStmtReadSheet(file){
 async function finStmtCands(supplierName){
   const k = finSupK(supplierName);
   const [pis, inbox] = await Promise.all([
-    dbSelect('purchase_invoices', 'org_id=eq.'+ME.org_id+'&status=neq.rejected&select=id,site_id,supplier_name,invoice_no,invoice_date,total,status,paid_on&limit=5000'),
-    dbSelect('fin_inbox', 'org_id=eq.'+ME.org_id+'&status=eq.new&select=id,extracted,received_at,stage&limit=500').catch(()=>[]),
+    finSelectAll('purchase_invoices', 'org_id=eq.'+ME.org_id+'&status=neq.rejected&select=id,site_id,supplier_name,invoice_no,invoice_date,total,status,paid_on'),
+    dbSelect('fin_inbox', 'org_id=eq.'+ME.org_id+'&'+FIN_INBOX_OPEN_Q+'&select=id,extracted,received_at,stage&limit=500').catch(()=>[]),
   ]);
   const a = pis.filter(p=>finSupK(p.supplier_name)===k || (k.length>3 && finSupK(p.supplier_name).includes(k)) || (finSupK(p.supplier_name).length>3 && k.includes(finSupK(p.supplier_name))))
     .map(p=>({id:p.id, kind:'pi', site_id:p.site_id, invoice_no:p.invoice_no||'', date:p.invoice_date, total:Number(p.total||0), status:p.paid_on?'paid':p.status}));

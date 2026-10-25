@@ -27,8 +27,8 @@ function finRetentionCardHtml(siteId, jf, st, apps){
   const d = finRetentionDates(jf, st);
   const alerts = finRetentionAlerts(jf, st, held);
   const invs = finRetInvsFor && finRetInvsFor.siteId===siteId ? finRetInvsFor.invs : [];
-  const released = finRetentionReleased(jf, invs) + finRetentionPeakDrop(apps), still = finRound(Math.max(0, held - finRetentionReleased(jf, invs)));
-  const half = n=>finRetHalfAmt(held, n, jf, invs);
+  const released = finRetentionReleased(jf, invs, apps) + finRetentionPeakDrop(apps), still = finRetentionStillHeld(apps, jf, invs);   // FX-P5: no double deduction
+  const half = n=>finRetHalfAmt(held, n, jf, invs, apps);
   const act = (n, date, invId)=>{
     if(invId) return `<button class="linkbtn" onclick="go('#/site/${siteId}/finance/invoice/${invId}')">View invoice</button>`;
     const a = finRetAppFor(jf, n, apps);

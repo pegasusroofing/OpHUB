@@ -103,7 +103,7 @@ async function renderTeam(adminPage, adminItemKey){
   let pendingInvites = [], permanentInvite = null;
   __tp.push((async()=>{ if(teamSectionOpen.invites){
     const [pendingInviteRows, permanentInviteRows] = await Promise.all([
-      dbSelect('invites', 'used_at=is.null&is_reusable=eq.false&order=created_at.desc&select=*'),
+      dbSelect('invites', 'org_id=eq.'+ME.org_id+'&used_at=is.null&is_reusable=eq.false&order=created_at.desc&select=*'),
       dbSelect('invites', 'org_id=eq.'+ME.org_id+'&is_reusable=eq.true&order=created_at.desc&limit=1&select=*'),
     ]);
     pendingInvites = pendingInviteRows;
@@ -156,14 +156,18 @@ async function renderTeam(adminPage, adminItemKey){
   let checkinLogRows = [];
   __tp.push((async()=>{ if(isManager(ME) && teamSectionOpen.checkinlogs){
     const range = checkinLogEffectiveRange();
-    checkinLogRows = await dbSelect('checkins', 'ts=gte.'+new Date(range.start).toISOString()+'&ts=lt.'+new Date(range.end).toISOString()+'&order=ts.asc&select=*');
+    // Paged so a busy month isn't cut off at 1000 rows (CORE-M5), and only
+    // this company's projects/people are kept (CORE-L2 — checkins has no org_id).
+    const rows = await dbSelectAll('checkins', 'ts=gte.'+new Date(range.start).toISOString()+'&ts=lt.'+new Date(range.end).toISOString()+'&order=ts.asc,id.asc&select=*');
+    const siteIds = new Set(SITES.map(x=>x.id));
+    checkinLogRows = rows.filter(c=>siteIds.has(c.site_id) || PROFILES[c.user_id]);
   } })());
   // Same "only when open" pattern — the PPE log spans every site, no need
   // to query it on every Admin Centre visit if nobody's looking at it.
   let ppeLogRows = [];
   __tp.push((async()=>{ if(isManager(ME) && teamSectionOpen.ppelog){
     const range = ppeLogRange(ppeLogMode, ppeLogOffset);
-    ppeLogRows = await dbSelect('ppe_issuances', 'issued_at=gte.'+new Date(range.start).toISOString()+'&issued_at=lt.'+new Date(range.end).toISOString()+'&order=issued_at.desc&select=*');
+    ppeLogRows = await dbSelectAll('ppe_issuances', 'org_id=eq.'+ME.org_id+'&issued_at=gte.'+new Date(range.start).toISOString()+'&issued_at=lt.'+new Date(range.end).toISOString()+'&order=issued_at.desc,id.desc&select=*');
   } })());
   // Same "only when the section is actually open" pattern as Check-In Logs —
   // the library can be several levels deep, no need to query it on every
@@ -934,7 +938,7 @@ async function renderTeam(adminPage, adminItemKey){
       <span class="stub" style="cursor:pointer;text-decoration:underline;" onclick="doSignOut()">Sign out</span>
     </p>
     ` : ''}
-  `, {title: adminItem ? adminItem.label : (adminPage ? ADMIN_PAGES[adminPage].label : 'Admin Centre'), back: teamBackFrom ? decodeURIComponent(teamBackFrom) : (adminBack || '#/sites'), tabs:false, showRoleChip:!adminPage, titleGoesHome:true});
+  `, {title: adminItem ? adminItem.label : (adminPage ? ADMIN_PAGES[adminPage].label : 'Admin Centre'), back: (teamBackFrom && isSafeBackHash(teamBackFrom)) ? teamBackFrom : (adminBack || '#/sites'), tabs:false, showRoleChip:!adminPage, titleGoesHome:true});
     if(!adminPage && adminSearch) adminSearchRender(); }
 }
 let teamSectionOpen = {branding:false, integrations:false, brandingintegrations:false, libraries:false, reporttemplates:false, suppliers:false, healthsafety:false, tbt:false, devicelocks:false, checkinlogs:false, havstools:false, coshhlibrary:false, operativetools:false, invites:false, users:false, ppelog:false, invitesusers:false, hspolicy:false, pricebuilder:false, sowlibrary:false};

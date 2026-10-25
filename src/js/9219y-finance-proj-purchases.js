@@ -14,10 +14,10 @@ function finPpTable(head, rows, empty){
 async function finPpFill(siteId){
   const el = document.getElementById('finPpBody'); if(!el) return;
   const [pos, pinvs, hires, xcAll] = await Promise.all([
-    dbSelect('purchase_orders', 'site_id=eq.'+siteId+'&order=created_at.desc&limit=2000').catch(()=>[]),
-    dbSelect('purchase_invoices', 'site_id=eq.'+siteId+'&order=invoice_date.desc&limit=5000').catch(()=>[]),
+    finSelectAll('purchase_orders', 'site_id=eq.'+siteId+'&order=created_at.desc').catch(()=>[]),
+    finSelectAll('purchase_invoices', 'site_id=eq.'+siteId+'&order=invoice_date.desc').catch(()=>[]),
     dbSelect('fin_plant_hires', 'site_id=eq.'+siteId+'&order=on_hire.desc').catch(()=>[]),
-    dbSelect('fin_job_costs', 'site_id=eq.'+siteId+'&order=cost_date.desc&limit=5000').catch(()=>[]),
+    finSelectAll('fin_job_costs', 'site_id=eq.'+siteId+'&order=cost_date.desc').catch(()=>[]),
   ]);
   if(!document.getElementById('finPpBody')) return;
   // FB-25: this tab is purchases only — labour and subcontract costs entered by hand live on their

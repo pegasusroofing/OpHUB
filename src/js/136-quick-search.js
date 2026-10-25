@@ -54,8 +54,8 @@ async function qsRemote(q, local){
   ]);
   if(my !== qsState.seq) return;
   const more = [];
-  (reps||[]).filter(r=>r.site_id).forEach(r=>more.push({g:'Reports', ic:'📋', t:r.general_label||r.template_name||'Report', s:[siteName(r.site_id), r.status==='draft'?'Draft':''].filter(Boolean).join(' · '), go:`#/site/${r.site_id}/snagging/reports/${r.status==='draft'?'fill':'view'}/${r.id}`}));
-  (docs||[]).forEach(d=>more.push({g:'Documents', ic:/\.(jpe?g|png)$/i.test(d.storage_path||'')?'🖼':/\.docx?$/i.test(d.name||'')?'📝':'📐', t:d.name, s:siteName(d.site_id), go:`#/site/${d.site_id}/drawings${d.folder_id?'/'+d.folder_id:''}`}));
+  (reps||[]).filter(r=>r.site_id).forEach(r=>more.push({g:'Reports', ic:'📋', t:r.general_label||r.template_name||'Report', s:[siteName(r.site_id), r.status==='in_progress'?'Draft':''].filter(Boolean).join(' · '), go:`#/site/${r.site_id}/snagging/reports/${r.status==='in_progress'?'fill':'view'}/${r.id}`}));
+  (docs||[]).filter(d=>SITES.some(s=>s.id===d.site_id)).forEach(d=>more.push({g:'Documents', ic:/\.(jpe?g|png)$/i.test(d.storage_path||'')?'🖼':/\.docx?$/i.test(d.name||'')?'📝':'📐', t:d.name, s:siteName(d.site_id), go:`#/site/${d.site_id}/drawings${d.folder_id?'/'+d.folder_id:''}`}));
   const acts = local.filter(x=>x.g==='Go to'), rest = local.filter(x=>x.g!=='Go to');
   qsPaint(rest.concat(more, acts));
 }

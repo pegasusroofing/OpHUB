@@ -100,8 +100,8 @@ window.setFinSubValue = async function(siteId, subId, v){
 function finSowAllowed(siteId){ const s = SITES.find(x=>x.id===siteId); return !!(s && !s.repair_contract); }
 async function finSowStatus(siteId){
   const [tasks, items] = await Promise.all([
-    dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&select=id,contract_item_id,name,section_id,sub_site_id,status,percent_complete&limit=5000'),
-    dbSelect('fin_contract_items', 'site_id=eq.'+siteId+'&select=id,kind&limit=5000'),
+    finSelectAll('schedule_tasks', 'site_id=eq.'+siteId+'&select=id,contract_item_id,name,section_id,sub_site_id,status,percent_complete'),
+    finSelectAll('fin_contract_items', 'site_id=eq.'+siteId+'&select=id,kind'),
   ]);
   const itemIds = new Set(items.filter(finIsItem).map(i=>i.id));
   const linked = new Set(tasks.filter(t=>t.contract_item_id && itemIds.has(t.contract_item_id)).map(t=>t.contract_item_id));
@@ -185,7 +185,7 @@ window.finContractFromSow = async function(siteId){
 /* ---------- site progress → application ---------- */
 // {item_id: pct} from the operatives' Schedule of Works (done = 100%).
 async function finSiteProgress(siteId){
-  const tasks = await dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&contract_item_id=not.is.null&select=contract_item_id,status,percent_complete&limit=5000');
+  const tasks = await finSelectAll('schedule_tasks', 'site_id=eq.'+siteId+'&contract_item_id=not.is.null&select=contract_item_id,status,percent_complete');
   const acc = {};
   tasks.forEach(t=>{ const p = t.status==='done' ? 100 : Math.max(0, Math.min(100, Number(t.percent_complete||0))); (acc[t.contract_item_id] = acc[t.contract_item_id] || []).push(p); });
   const out = {}; Object.keys(acc).forEach(k=>out[k] = finRound(acc[k].reduce((a,b)=>a+b,0)/acc[k].length));

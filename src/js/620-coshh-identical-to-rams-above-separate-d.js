@@ -355,7 +355,8 @@ async function buildSignedCoshhPdf(coshhId){
   const docs = await dbSelect('coshh_docs', 'id=eq.'+coshhId+'&select=*');
   const doc = docs[0];
   if(!doc) return null;
-  const sigs = await dbSelect('coshh_signatures', 'coshh_id=eq.'+coshhId+'&order=signed_at.asc');
+  // PB-06: this signing cycle only, newest signature per person.
+  const sigs = currentCycleSigsForPdf(await dbSelect('coshh_signatures', 'coshh_id=eq.'+coshhId+'&order=signed_at.asc'), doc, 'coshh_id');
   if(!sigs.length) return null;
   try{
     const srcBytes = await (await fetch(publicUrl('coshh-docs', doc.storage_path))).arrayBuffer();

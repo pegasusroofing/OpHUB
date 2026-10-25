@@ -220,7 +220,7 @@ window.finPoQuoteApply = async function(){
 async function renderFinPriceBook(){
   if(!finGuard()) return;
   const __gen = RENDER_GEN;
-  const rows = await dbSelect('fin_price_book', 'org_id=eq.'+ME.org_id+'&order=supplier_name.asc,description.asc&limit=5000');
+  const rows = await finSelectAll('fin_price_book', 'org_id=eq.'+ME.org_id+'&order=supplier_name.asc,description.asc');
   if(__gen !== RENDER_GEN) return;
   document.getElementById('app').innerHTML = shell(`
     ${finSectionNav('purchases')}${finSubTabs('purchases','pricebook')}

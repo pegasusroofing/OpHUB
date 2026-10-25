@@ -39,7 +39,11 @@ async function planPdfToImages(file){
   const buf = new Uint8Array(await file.arrayBuffer());
   const pdf = await pdfjsLib.getDocument({data: buf}).promise;
   const out = [];
+  // Each page becomes a large image held in memory, so only the first 10 are
+  // turned into drawings; the caller is told how many were left out.
   const pages = Math.min(pdf.numPages, 10);
+  out.totalPages = pdf.numPages;
+  out.skippedPages = pdf.numPages - pages;
   for(let i=1;i<=pages;i++){
     const page = await pdf.getPage(i);
     const vp1 = page.getViewport({scale:1});
