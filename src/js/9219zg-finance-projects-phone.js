@@ -57,6 +57,7 @@ function finJobPhoneTidy(){
 .fjq-n{font-style:normal;font-size:12px;opacity:.85;margin-left:6px;}
 .fjq-sort{position:relative;display:inline-flex;align-items:center;justify-content:center;height:28px;padding:0 12px;border-radius:8px;font-size:12px;font-weight:700;white-space:nowrap;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);color:inherit;cursor:pointer;flex:none !important;}
 .fjq-sort select{position:absolute !important;inset:0 !important;width:100% !important;height:100% !important;opacity:0 !important;cursor:pointer;margin:0 !important;}
+#finJobGrid td[data-l="Client"]{font-weight:700;color:var(--ink,#16181D);}   /* client in bold (25 Oct) */
 @media (max-width:700px){
   .fjq-row{display:flex;gap:8px;align-items:center;margin:0 0 10px;}
   .fjq-row input{flex:1;min-width:0;height:38px !important;min-height:38px !important;margin:0 !important;padding:0 12px !important;font-size:14px !important;border-radius:10px !important;}
@@ -72,7 +73,7 @@ function finJobPhoneTidy(){
   #finJobGrid tbody td:not([data-l="Job"]):not([data-l="Project"]){flex:0 0 calc((100% - 16px) / 3) !important;display:block !important;text-align:left !important;font-size:12.5px !important;line-height:1.25;padding:2px 0 !important;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   #finJobGrid tbody td:not([data-l="Job"]):not([data-l="Project"])::before{display:block !important;font-size:9.5px !important;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--slate);margin:0 0 1px !important;}
   #finJobGrid td[data-l="Value"]{font-weight:700;}
-  #finJobGrid td[data-l="Status"] .finpill{font-size:10.5px;padding:1px 7px;}
+  #finJobGrid td[data-l="Status"] .finpill{font-size:12.5px !important;padding:0 !important;background:none !important;border:0 !important;line-height:1.25 !important;display:inline !important;vertical-align:baseline !important;margin:0 !important;}   /* lines up with the other columns (25 Oct) */
   #finJobGridFoot .fgfoot-ctl select{font-size:11.5px !important;}
   #finJobGridFoot .fjq-sort{height:28px;padding:0 10px;font-size:11.5px;}
 }`;

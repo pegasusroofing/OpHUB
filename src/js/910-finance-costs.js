@@ -8,7 +8,7 @@
    (committed), sign-in labour days × rate, timesheets, plant hires, and
    costs added here (fin_job_costs).
    ============================================================ */
-const FIN_COST_CATS = {materials:'Materials', labour:'Labour', plant:'Plant', subcontract:'Subcontract', overheads:'Prelims & overheads', other:'Other'};
+const FIN_COST_CATS = {materials:'Materials', labour:'Labour', plant:'Plant', subcontract:'Subcontract', overheads:'Prelims & site costs', other:'Other'};
 let finCosts = null; // {siteId, tab, q, from, to, sort, dir, lines}
 
 // Built from the job's "book" (911) so the ledger, job page and reports agree.
@@ -130,7 +130,7 @@ window.openFinJobCost = async function(siteId, id){
   const cat = x ? x.category : (finCosts && FIN_COST_CATS[finCosts.tab] && finCosts.tab!=='labour' ? finCosts.tab : 'overheads');
   ov.innerHTML = `<div class="geo-modal-card">
     <h3>${x?'Cost':'Add a cost'}</h3>
-    <p class="stub" style="margin:0 0 10px;font-style:normal;">For costs without a purchase invoice in OpHUB — skips, fuel, travel, accommodation, site set-up, a share of overheads.</p>
+    <p class="stub" style="margin:0 0 10px;font-style:normal;">For costs without a purchase invoice in OpHUB — skips, fuel, travel, accommodation, site set-up. (Company overheads are added automatically — Finance › Settings › Company overheads.)</p>
     <div class="fingrid2">
       <div class="formfield"><label class="field-label">Type</label><select id="finJcCat">${Object.keys(FIN_COST_CATS).map(k=>`<option value="${k}" ${cat===k?'selected':''}>${FIN_COST_CATS[k]}</option>`).join('')}</select></div>
       <div class="formfield"><label class="field-label">Date</label><input type="date" id="finJcDate" value="${x?x.cost_date:finToday()}"></div>

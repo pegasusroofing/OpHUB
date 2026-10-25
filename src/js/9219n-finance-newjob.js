@@ -502,6 +502,8 @@ async function finContractAutoSave(){
   finCtAuto.busy = true; finCtAutoPaint('Saving…');
   try{
     const rowsNow = finContractRows;
+    // What's being sent — edits typed while this save runs keep the page "not saved" (review 24 Oct H1).
+    const sentSnap = finContractSnapOf(rowsNow);
     const onScreen = new Set(rowsNow.filter(r=>r.id).map(r=>r.id));
     const rows = rowsNow.map((r,_i)=>({_i, r, kind:r.kind||'item', description:String(r.description||'').trim()})).filter(x=>x.description);
     // A failed read must stop the save, or every line is added a second time (audit FB-07).
@@ -520,7 +522,7 @@ async function finContractAutoSave(){
     }
     const total = finRound(rows.filter(x=>x.kind==='item').reduce((t,x)=>t+(Number(finItemValue(x.r))||0), 0));
     await sbFetch('/rest/v1/job_finance', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify({site_id:siteId, org_id:ME.org_id, ...(await finCvPatch(siteId, total)), billing_type:'application', updated_at:new Date().toISOString(), updated_by:ME.id})});
-    if(finContractRows===rowsNow && !failed) finContractSnap = finContractSnapOf(finContractRows);
+    if(finContractRows===rowsNow && !failed) finContractSnap = sentSnap;
     finCtAuto.at = new Date(); finCtAuto.err = failed ? failed+' line'+(failed===1?'':'s')+' didn’t save' : '';
   }catch(e){ console.error(e); finCtAuto.err = 'Not saved — check your connection'; }
   finCtAuto.busy = false;

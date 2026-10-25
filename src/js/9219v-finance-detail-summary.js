@@ -8,7 +8,8 @@
    excl. VAT, and can be limited to a date range.
    ============================================================ */
 let finDsTab = 'summary', finDsF = {from:'', to:''};
-const FIN_DS_TABS = [['summary','Cost Summary'],['labour','Labour & Subcontractors'],['plant','Plant'],['sales','Applications & Invoices'],['purchases','Purchases & Orders']];
+const FIN_DS_TABS = [['summary','Cost Summary'],['purchases','Purchases'],['labour','Labour & Subcontractors'],['sales','Applications & Invoices'],['plant','Plant']];   // Purchases second, Plant last (Andy, 25 Oct)
+let finDsBook = null, finDsQ = '';   // last loaded book (tab and date changes redraw from it — no reload, no jumping back)
 function finDsIn(d){ const s = String(d||'').slice(0,10); if(finDsF.from && (!s || s < finDsF.from)) return false; if(finDsF.to && (!s || s > finDsF.to)) return false; return true; }
 function finDsLinesHtml(lines, empty){
   if(!lines.length) return `<div class="empty" style="margin:6px 0 0;">${empty||'Nothing here.'}</div>`;
@@ -21,8 +22,10 @@ async function renderFinDetail(siteId){
   if(!finGuard()) return;
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId); if(!site){ go('#/finance'); return; }
-  const b = await finLoadBook(siteId);
-  if(__gen !== RENDER_GEN) return;
+  const cached = finDsBook && finDsBook.siteId===siteId && finDsBook.quick;
+  const b = cached ? finDsBook.b : await finLoadBook(siteId);
+  if(!cached && __gen !== RENDER_GEN) return;
+  finDsBook = {siteId, b};
   const fc = finJobForecast(b, siteId);
   const jf = fc.jf || {};
   const L = fc.lines.filter(l=>finDsIn(l.date));
@@ -67,11 +70,13 @@ async function renderFinDetail(siteId){
         ${kv('Plant', finMoney(byCat('plant')))}
         ${kv('Labour', finMoney(byCat('labour')))}
         ${kv('Subcontractors', finMoney(byCat('subcontract')))}
-        ${kv('Prelims & Overheads', finMoney(byCat('overheads')))}
+        ${kv('Prelims & Site Costs', finMoney(byCat('overheads')))}
         ${kv('Other', finMoney(byCat('other')))}
         ${kv('Total Cost', finMoney(totalCost), {bold:1})}
-        ${kv('Profit', finMoney(profit), {bold:1, col:neg(profit)})}
-        ${kv('% Profit', finPctTxt(pct), {bold:1, col:neg(profit)})}
+        ${kv('Profit Before Overheads', finMoney(profit), {bold:1, col:neg(profit)})}
+        ${fc.ohpPct ? kv('Company Overheads (OHP) '+fc.ohpPct+'%', '−'+finMoney(finRound(salesValue*fc.ohpPct/100))) : ''}
+        ${fc.ohpPct ? kv('Profit After Overheads', finMoney(finRound(profit - salesValue*fc.ohpPct/100)), {bold:1, col:neg(profit - salesValue*fc.ohpPct/100)}) : ''}
+        ${kv('% Profit'+(fc.ohpPct ? ' (after overheads)' : ''), finPctTxt(salesValue ? finRound((profit - salesValue*(fc.ohpPct||0)/100)/salesValue*100) : null), {bold:1, col:neg(profit - salesValue*(fc.ohpPct||0)/100)})}
         ${kv('Ordered, Not Invoiced Yet', finMoney(committedTot))}
         <p class="stub finds-n">Ordered (open POs and subcontract orders) isn't in Total Cost until it's invoiced or certified.</p>
       </div>
@@ -105,30 +110,100 @@ async function renderFinDetail(siteId){
         <div><span>Job No</span><b>${escapeHtml(site.job_number||'—')}</b></div>
         <div><span>Customer</span><b>${escapeHtml(site.client_name||'—')}</b></div>
         <div><span>Contract Name</span><b>${escapeHtml(site.name||'')}</b></div>
-        <div class="finds-dates"><label>Date From<input type="date" value="${finDsF.from}" onchange="finDsF.from=this.value;render()"></label><label>Date To<input type="date" value="${finDsF.to}" onchange="finDsF.to=this.value;render()"></label>${finDsF.from||finDsF.to ? `<button type="button" class="linkbtn" onclick="finDsF={from:'',to:''};render()">Clear</button>` : ''}</div>
+        <div class="finds-dates"><span class="finds-dl">Only show items dated</span><label>From<input type="date" value="${finDsF.from}" onchange="finDsF.from=this.value;finDsGo('${siteId}')"></label><label>To<input type="date" value="${finDsF.to}" onchange="finDsF.to=this.value;finDsGo('${siteId}')"></label>${finDsF.from||finDsF.to ? `<button type="button" class="linkbtn" onclick="finDsF={from:'',to:''};finDsGo('${siteId}')">Whole job</button>` : ''}
+          <span class="finds-dn">${finDsF.from||finDsF.to ? 'Showing '+(finDsF.from ? 'from '+finDate(finDsF.from) : '')+(finDsF.to ? ' to '+finDate(finDsF.to) : '')+' — every tab, and the totals, only count items in these dates.' : 'Showing the whole job. Pick dates to see one period (e.g. a month) on every tab.'}</span></div>
       </div>
     </div>
-    <nav class="finboqsub" role="tablist">${FIN_DS_TABS.map(([k,l])=>`<button type="button" class="${finDsTab===k?'on':''}" onclick="finDsTab='${k}';render()">${l}</button>`).join('')}</nav>
+    <nav class="finboqsub" role="tablist">${FIN_DS_TABS.map(([k,l])=>`<button type="button" class="${finDsTab===k?'on':''}" onclick="finDsTab='${k}';finDsQ='';finDsGo('${siteId}')">${l}</button>`).join('')}</nav>
+    <div class="finds-tools">${finDsTab==='summary' ? '' : `<input type="search" id="finDsQ" placeholder="Search this tab — supplier, PO, invoice no., description…" value="${escapeHtml(finDsQ)}" oninput="finDsQ=this.value;finDsFilter()">`}
+      <button type="button" class="finds-xl" title="Download this tab as Excel" onclick="finDsExcel('${siteId}')"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3" fill="#1D6F42"/><path d="M8 7l3.2 5L8 17h2.4l2-3.4 2 3.4H17l-3.2-5L17 7h-2.4l-2 3.3-2-3.3z" fill="#fff"/></svg><span>Excel</span></button></div>
     <div class="card finds-body">${body}</div>
   `, {title:'Detailed Summary', subtitle:(site.job_number?site.job_number+' · ':'')+site.name, back:`#/site/${siteId}/finance`, siteId, tabs:false});
 }
 window.renderFinDetail = renderFinDetail;
+// Tabs and dates redraw from the figures already loaded (quick, and nothing can pull you back to Cost Summary).
+window.finDsGo = function(siteId){
+  const y = typeof appScrollY==='function' ? appScrollY() : 0;
+  if(finDsBook && finDsBook.siteId===siteId) finDsBook.quick = true;
+  Promise.resolve(renderFinDetail(siteId)).then(()=>{ if(finDsBook) finDsBook.quick = false; finDsFilter(); if(typeof appScrollTo==='function') appScrollTo(y); });
+};
+// Search: hides rows (and tables) that don't contain every word typed.
+window.finDsFilter = function(){
+  const words = String(finDsQ||'').toLowerCase().split(/\s+/).filter(Boolean);
+  document.querySelectorAll('.finds-body tbody tr').forEach(tr=>{ const t = tr.textContent.toLowerCase(); tr.style.display = words.every(w=>t.includes(w)) ? '' : 'none'; });
+  document.querySelectorAll('.finds-body .finds-nomatch').forEach(x=>x.remove());
+  if(words.length) document.querySelectorAll('.finds-body table').forEach(tb=>{ if(![...tb.querySelectorAll('tbody tr')].some(tr=>tr.style.display!=='none')){ const n = document.createElement('div'); n.className = 'empty finds-nomatch'; n.style.margin = '6px 0 0'; n.textContent = 'Nothing matches “'+finDsQ+'”.'; tb.closest('.finreptbl-wrap, table').insertAdjacentElement('afterend', n); } });
+};
+// Excel: every table on the tab (only the rows showing, if you've searched), one sheet each.
+window.finDsExcel = async function(siteId){
+  if(!(await loadLib('ExcelJS'))){ toast('Could not load the Excel tool — check your connection.'); return; }
+  const site = SITES.find(s=>s.id===siteId) || {};
+  const tabName = (FIN_DS_TABS.find(t=>t[0]===finDsTab)||['','Summary'])[1];
+  const wb = new ExcelJS.Workbook(); wb.creator = (ORG&&ORG.name)||'OpHUB';
+  const head = ws=>{ ws.getCell('A1').value = tabName+' — '+(site.job_number?site.job_number+' · ':'')+(site.name||''); ws.getCell('A1').font = {bold:true, size:14};
+    ws.getCell('A2').value = (ORG&&ORG.name||'')+' · '+(finDsF.from||finDsF.to ? 'Dated '+(finDsF.from?finDate(finDsF.from):'start')+' to '+(finDsF.to?finDate(finDsF.to):'today') : 'Whole job')+(finDsQ ? ' · search “'+finDsQ+'”' : '')+' · excl. VAT · exported '+finDate(finToday()); ws.getCell('A2').font = {color:{argb:'FF6B7280'}}; };
+  const mon = {jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,sept:8,oct:9,nov:10,dec:11};
+  const cellVal = t=>{
+    const s = String(t||'').replace(/\s+/g,' ').trim();
+    if(/^[−-]?£-?[\d,]+(\.\d+)?$/.test(s)){ const n = Number(s.replace(/[£,]/g,'').replace('−','-')); if(!isNaN(n)) return {v:n, money:1}; }
+    const m = s.match(/^(\d{1,2}) ([A-Za-z]{3,4}) (\d{4})$/); if(m && mon[m[2].toLowerCase()]!=null) return {v:new Date(Number(m[3]), mon[m[2].toLowerCase()], Number(m[1]), 12), date:1};
+    return {v:s};
+  };
+  const used = {};
+  if(finDsTab==='summary'){
+    const ws = wb.addWorksheet('Cost Summary'); head(ws); let r = 4;
+    document.querySelectorAll('.finds-body .finds-p').forEach(p=>{
+      const t = (p.querySelector('.sectiontitle')||{}).textContent || ''; ws.getCell('A'+r).value = t; ws.getCell('A'+r).font = {bold:true, size:12}; r++;
+      p.querySelectorAll('.finds-kv').forEach(kv=>{ const c = cellVal((kv.querySelector('b')||{}).textContent); ws.getCell('A'+r).value = (kv.querySelector('span')||{}).textContent||''; ws.getCell('B'+r).value = c.v; if(c.money) ws.getCell('B'+r).numFmt = '£#,##0.00'; if(kv.classList.contains('b')) ws.getRow(r).font = {bold:true}; r++; });
+      r++;
+    });
+    ws.getColumn(1).width = 40; ws.getColumn(2).width = 18;
+  } else {
+    const tables = [...document.querySelectorAll('.finds-body table')];
+    if(!tables.length){ toast('Nothing on this tab to export.'); return; }
+    tables.forEach((tb, ti)=>{
+      let prev = tb.closest('.finreptbl-wrap') || tb; let title = '';
+      for(let e = prev.previousElementSibling; e; e = e.previousElementSibling){ if(e.classList.contains('sectiontitle')){ title = e.textContent.trim(); break; } }
+      let nm = (title || tabName || 'Sheet').replace(/[\\/?*\[\]:]/g,' ').slice(0,28).trim() || 'Sheet'; if(used[nm]) nm = nm.slice(0,25)+' '+(ti+1); used[nm] = 1;
+      const ws = wb.addWorksheet(nm); head(ws);
+      const ths = [...((tb.querySelector('thead tr')||{}).children||[])].map(th=>th.textContent.replace(/\s+/g,' ').trim());
+      const keep = ths.map((h,i)=>h!=='' || i===0);
+      ws.getRow(4).values = ths.filter((h,i)=>keep[i]); ws.getRow(4).font = {bold:true}; ws.getRow(4).fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FFEEF1F4'}};
+      let r = 5; const moneyCols = new Set();
+      tb.querySelectorAll('tbody tr').forEach(tr=>{
+        if(tr.style.display==='none') return;
+        const tds = [...tr.children].filter((c,i)=>keep[i]); const row = ws.getRow(r);
+        tds.forEach((td, j)=>{ const c = cellVal(td.textContent); const cell = row.getCell(j+1); cell.value = c.v; if(c.money){ cell.numFmt = '£#,##0.00'; moneyCols.add(j+1); } if(c.date) cell.numFmt = 'dd/mm/yyyy'; });
+        r++;
+      });
+      if(r>5) moneyCols.forEach(c=>{ const col = ws.getColumn(c).letter; const cell = ws.getRow(r).getCell(c); cell.value = {formula:`SUM(${col}5:${col}${r-1})`}; cell.numFmt = '£#,##0.00'; cell.font = {bold:true}; });
+      if(r>5 && moneyCols.size){ ws.getRow(r).getCell(1).value = 'Total'; ws.getRow(r).getCell(1).font = {bold:true}; }
+      ths.filter((h,i)=>keep[i]).forEach((h,i)=>{ ws.getColumn(i+1).width = /descr/i.test(h) ? 46 : /supplier|who|client|project/i.test(h) ? 26 : 15; });
+      ws.views = [{state:'frozen', ySplit:4}];
+      ws.autoFilter = {from:{row:4, column:1}, to:{row:4, column:Math.max(1, ths.filter((h,i)=>keep[i]).length)}};
+    });
+  }
+  const fname = ('Summary - '+(site.job_number?site.job_number+' ':'')+(site.name||'')+' - '+tabName+' - '+finToday()).replace(/[\\/:*?"<>|]+/g,'')+'.xlsx';
+  return deliverExcelBuffer(await wb.xlsx.writeBuffer(), fname);
+};
 // Run Reports for one project (Andy, 23 Oct): pick any report that can be run per project;
 // it opens with this project already chosen.
 function renderFinJobReports(siteId){
   if(!finGuard()) return;
   const site = SITES.find(s=>s.id===siteId); if(!site){ go('#/finance'); return; }
   const reps = FIN_REPORTS.filter(r=>(r.filters||[]).includes('job'));
-  const card = (t, d, js)=>`<button type="button" class="finrepcard" onclick="${js}"><b>${escapeHtml(t)}</b><span>${escapeHtml(d)}</span></button>`;
+  const card = (t, d, js)=>`<button type="button" class="finrepcard" onclick="${js}"><span class="frc-t"><b>${escapeHtml(t)}</b><span>${escapeHtml(d)}</span></span><i aria-hidden="true">›</i></button>`;
   const keep = finProjTab[siteId]; finProjTab[siteId] = '__none';
   const tabs = typeof finProjTabsHtml==='function' ? finProjTabsHtml(siteId, 'application') : '';
   finProjTab[siteId] = keep;
   document.getElementById('app').innerHTML = shell(`
     ${tabs}
-    <p class="stub" style="margin:0 0 14px;">Reports for <b>${escapeHtml((site.job_number?site.job_number+' · ':'')+site.name)}</b>. Pick one — it opens for this project; set the dates, then download it as Excel or PDF.</p>
+    <div class="finjobreps">
+    <p class="stub" style="margin:0 0 10px;">Reports for <b>${escapeHtml((site.job_number?site.job_number+' · ':'')+site.name)}</b>. Pick one — it opens for this project; set the dates, then download it as Excel or PDF.</p>
     <p class="sectiontitle">This project</p>
     <div class="finrepgrid">${card('Detailed Summary', 'Sales against cost, with labour, plant, invoices and purchases.', `finDsTab='summary';go('#/site/${siteId}/finance/summary')`)}${card('Monthly Report', 'This month\'s value, cost and margin for the project.', `go('#/site/${siteId}/finance/monthly')`)}</div>
     ${Object.keys(FIN_REPORT_GROUPS).map(g=>{ const rs = reps.filter(r=>r.group===g); return rs.length ? `<p class="sectiontitle">${FIN_REPORT_GROUPS[g]}</p><div class="finrepgrid">${rs.map(r=>card(r.title, r.desc, `finRep={id:'${r.id}', f:{job:'${siteId}', from:'', to:'', status:'all', opening:'', varstatus:'', postatus:''}, sort:null, dir:1};go('#/finance/reports/${r.id}')`)).join('')}</div>` : ''; }).join('')}
+  </div>
   `, {title:'Run Reports', subtitle:(site.job_number?site.job_number+' · ':'')+site.name, back:`#/site/${siteId}/finance`, siteId, tabs:false});
 }
 window.renderFinJobReports = renderFinJobReports;
@@ -136,10 +211,16 @@ window.renderFinJobReports = renderFinJobReports;
   const rsf = renderSiteFinance;
   renderSiteFinance = function(siteId){ const p = parseRoute(); if(p[3]==='summary') return renderFinDetail(siteId); if(p[3]==='reports') return renderFinJobReports(siteId); return rsf.apply(this, arguments); };
   const st = document.createElement('style');
-  st.textContent = `.finds-hg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) minmax(0,1.6fr);gap:10px 18px;align-items:end;}
+  st.textContent = `.finds-hg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) minmax(0,1.6fr);gap:10px 18px;align-items:center;}
 .finds-hg > div > span{display:block;font-size:11.5px;font-weight:700;color:var(--slate);margin-bottom:3px;}
 .finds-hg > div > b{font-size:14.5px;}
 .finds-dates{display:flex;gap:10px;align-items:end;flex-wrap:wrap;}
+.finds-dl{flex:0 0 100%;font-size:11.5px;font-weight:800;color:var(--slate);text-transform:uppercase;letter-spacing:.03em;}
+.finds-dn{flex:0 0 100%;font-size:11.5px;color:var(--slate);line-height:1.3;}
+.finds-tools{display:flex;gap:8px;align-items:center;margin:0 0 10px;}
+.finds-tools input{flex:1;min-width:0;height:38px !important;min-height:38px !important;margin:0 !important;padding:0 12px !important;font-size:14px !important;border-radius:10px !important;}
+.finds-xl{all:unset;box-sizing:border-box;cursor:pointer;display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 12px;border:1px solid #CFE3D7;background:#F1F8F4;color:#1D6F42;border-radius:10px;font-size:13px;font-weight:800;margin-left:auto;}
+.finds-xl:hover{background:#E4F2EA;}
 .finds-dates label{display:flex;flex-direction:column;gap:3px;font-size:11.5px;font-weight:700;color:var(--slate);}
 .finds-dates input{height:32px !important;min-height:32px !important;padding:0 8px !important;font-size:13px !important;border-radius:8px !important;margin:0 !important;}
 .finds-sum{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
@@ -151,8 +232,17 @@ window.renderFinJobReports = renderFinJobReports;
 .finds-kv.b span, .finds-kv.b b{font-weight:800;}
 .finds-n{margin:8px 0 0 !important;font-size:12px;font-style:normal;}
 .finds-h{margin:16px 0 6px !important;} .finds-body > .finds-h:first-child{margin-top:0 !important;}
+.finjobreps .sectiontitle{margin:12px 0 6px !important;font-size:13px !important;}
+.finjobreps .finrepgrid{display:block !important;background:#fff;border:1px solid var(--line,#ECEEF2);border-radius:12px;overflow:hidden;margin:0 0 6px;}
+.finjobreps .finrepcard{all:unset;box-sizing:border-box;display:flex !important;align-items:center;gap:10px;width:100%;padding:9px 14px;cursor:pointer;border-top:1px solid var(--line,#ECEEF2);}
+.finjobreps .finrepcard:first-child{border-top:0;}
+.finjobreps .finrepcard:hover{background:#F8F9FB;}
+.finjobreps .frc-t{flex:1;min-width:0;display:flex;flex-direction:column;}
+.finjobreps .frc-t b{font-size:14px;font-weight:700;}
+.finjobreps .frc-t span{font-size:12px;color:var(--slate);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.finjobreps .finrepcard i{font-style:normal;font-size:20px;color:var(--slate);}
 .findsfoot{margin-top:8px;border-radius:10px;padding:5px 12px;font-size:12.5px;}
-@media (max-width:900px){ .finds-sum{grid-template-columns:1fr;} .finds-hg{grid-template-columns:1fr 1fr;} }`;
+@media (max-width:900px){ .finds-sum{grid-template-columns:1fr;} .finds-hg{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px 10px;align-items:start;} .finds-hg > div > b{font-size:13.5px;} .finds-dates{grid-column:1/-1;border-top:1px solid var(--line,#ECEEF2);padding-top:10px;} .finds-dates label{flex:1 1 0;min-width:0;} .finds-dates input{width:100% !important;} }`;
   document.head.appendChild(st);
 })();
 

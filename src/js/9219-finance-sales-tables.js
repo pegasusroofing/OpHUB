@@ -99,7 +99,7 @@ async function renderFinSales(sub){
   const __gen = RENDER_GEN;
   const [invs0, apps, pays, jf, st] = await Promise.all([
     dbSelect('fin_invoices', 'org_id=eq.'+ME.org_id+'&order=created_at.desc&limit=3000'),
-    dbSelect('fin_applications', 'org_id=eq.'+ME.org_id+'&order=valuation_date.desc&limit=3000&select=id,site_id,number,status,valuation_date,due_date,final_date,gross,net_due,cert_date,cert_gross,cert_net,cert_retention,cert_is_payless,invoice_id'),
+    dbSelect('fin_applications', 'org_id=eq.'+ME.org_id+'&order=valuation_date.desc&limit=3000&select=id,site_id,number,status,valuation_date,due_date,final_date,gross,net_due,cert_date,cert_gross,cert_net,cert_retention,cert_is_payless,invoice_id,submitted_at,created_at'),
     dbSelect('fin_payments', 'org_id=eq.'+ME.org_id+'&select=amount,paid_on&limit=10000'),
     dbSelect('job_finance', 'org_id=eq.'+ME.org_id),
     finLoadSettings(),

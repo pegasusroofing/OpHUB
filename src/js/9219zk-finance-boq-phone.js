@@ -72,15 +72,22 @@ function finBqOv(){
   if(!ov){ ov = document.createElement('div'); ov.id = 'finBqOv'; ov.className = 'bq-ov'; document.body.appendChild(ov); ov.addEventListener('click', e=>{ if(e.target===ov) finBqClose(); }); }
   return ov;
 }
+let finBqOpen = null;   // the line open in the sheet: {row, snap, site}
 window.finBqClose = function(){
   const ov = document.getElementById('finBqOv'); if(!ov || ov.style.display==='none') return;
   ov.style.display = 'none'; ov.innerHTML = '';
+  // Save if anything changed — either against the last save, or since this line was opened (review 24 Oct H1).
+  const o = finBqOpen; finBqOpen = null;
+  const lineChanged = !!(o && o.site===finContractSite && JSON.stringify(o.row)!==o.snap);
   finContractPaint();
-  if(typeof finContractIsDirty==='function' && finContractIsDirty() && typeof finContractAutoSave==='function') finContractAutoSave();
+  if(typeof finContractAutoSave==='function' && (lineChanged || (typeof finContractIsDirty==='function' && finContractIsDirty()))) finContractAutoSave();
 };
+// Leaving the page closes the sheet (and saves) so it can't sit over the next screen (review 24 Oct M5).
+window.addEventListener('hashchange', ()=>{ const ov = document.getElementById('finBqOv'); if(ov && ov.style.display==='flex') finBqClose(); });
 window.finBqEdit = function(i, isNew){
   const r = finContractRows[i]; if(!r) return;
   const ov = finBqOv();
+  if(!finBqOpen || finBqOpen.row!==r) finBqOpen = {row:r, snap:isNew ? '' : JSON.stringify(r), site:finContractSite};
   const subs = FIN_SUBJOBS[finContractSite] || [];
   const plot = subs.length ? `<label class="bq-f"><span>${escapeHtml(finSubNoun(finContractSite))}</span><select onchange="finContractRows[${i}].sub=this.value"><option value="">${r.kind==='item' ? 'As its section' : 'None'}</option>${subs.map(a=>`<option value="${a.id}" ${r.sub===a.id?'selected':''}>${escapeHtml(a.name||a.label||'')}</option>`).join('')}</select></label>` : '';
   const kinds = Object.keys(FIN_KIND_LABEL).filter(k=>k!==r.kind);
@@ -120,9 +127,12 @@ window.finBqMove = function(i, d){ const j = i+d; if(j<0 || j>=finContractRows.l
 window.finBqDelete = async function(i){
   const r = finContractRows[i]; if(!r) return;
   const what = r.description ? '“'+r.description+'”' : 'this line';
-  if(!await customConfirm(`Remove ${what} from the Bill of Quantities?`, {confirmLabel:'Remove'})) return;
+  // Hide the sheet first, or the question opens behind it (review 24 Oct H2).
+  const ov = document.getElementById('finBqOv'); if(ov) ov.style.display = 'none';
+  if(!await customConfirm(`Remove ${what} from the Bill of Quantities?`, {confirmLabel:'Remove'})){ if(ov) ov.style.display = 'flex'; return; }
+  finBqOpen = null;
   finContractRows.splice(i, 1);
-  const ov = document.getElementById('finBqOv'); if(ov){ ov.style.display = 'none'; ov.innerHTML = ''; }
+  if(ov){ ov.style.display = 'none'; ov.innerHTML = ''; }
   finContractPaint();
   if(typeof finContractAutoSave==='function') finContractAutoSave();
 };
@@ -132,9 +142,7 @@ window.finBqDelete = async function(i){
   window.finContractPaint = finContractPaint;
   document.addEventListener('keydown', e=>{ if(e.key==='Escape' && document.getElementById('finBqOv') && document.getElementById('finBqOv').style.display==='flex'){ e.stopPropagation(); finBqClose(); } }, true);
   const st = document.createElement('style');
-  st.textContent = `@media (max-width:700px){
-  .finboqadd, #finCtBulk, .finboqpane .row-gap:has(> button[onclick*="finContractAdd"]){display:none !important;}
-}
+  st.textContent = `html:not(.desk) .finboqadd, html:not(.desk) #finCtBulk, html:not(.desk) .finboqpane .row-gap:has(> button[onclick*="finContractAdd"]){display:none !important;}
 .bq{display:flex;flex-direction:column;gap:6px;}
 .bq-sec,.bq-sub{display:flex;align-items:center;gap:8px;cursor:pointer;border-radius:10px;}
 .bq-sec{background:var(--brand1,#E3262B);color:var(--brand1-text,#fff);padding:10px 12px;margin-top:6px;}

@@ -10,14 +10,18 @@
 
 /* ---------- contract value: typed vs Bill of Quantities ---------- */
 async function finCvPatch(siteId, total){
-  const jf = (await dbSelect('job_finance', 'site_id=eq.'+siteId+'&select=contract_value_source').catch(()=>[]))[0];
+  // A failed read leaves the contract value alone — never overwrite a typed value on a bad signal (review 24 Oct M1).
+  const r = await dbSelectChecked('job_finance', 'site_id=eq.'+siteId+'&select=contract_value_source').catch(()=>({ok:false}));
+  if(!r || !r.ok) return {};
+  const jf = (r.data||[])[0];
   return jf && jf.contract_value_source==='manual' ? {} : {contract_value:total};
 }
 async function finCvCheck(siteId){
-  const [jfs, items] = await Promise.all([
-    dbSelect('job_finance', 'site_id=eq.'+siteId+'&select=contract_value,contract_value_source').catch(()=>[]),
-    dbSelect('fin_contract_items', 'site_id=eq.'+siteId+'&select=kind,value&limit=10000').catch(()=>null)]);
-  const jf = jfs[0]; if(!jf || jf.contract_value_source!=='manual' || !items) return null;
+  const [jr, ir] = await Promise.all([
+    dbSelectChecked('job_finance', 'site_id=eq.'+siteId+'&select=contract_value,contract_value_source').catch(()=>({ok:false})),
+    dbSelectChecked('fin_contract_items', 'site_id=eq.'+siteId+'&select=kind,value&limit=10000').catch(()=>({ok:false}))]);
+  if(!jr || !jr.ok || !ir || !ir.ok) return null;
+  const jf = (jr.data||[])[0], items = ir.data||[]; if(!jf || jf.contract_value_source!=='manual') return null;
   const boq = finRound(items.filter(finIsItem).reduce((t,i)=>t+Number(i.value||0),0));
   const typed = finRound(Number(jf.contract_value||0));
   if(!boq || Math.abs(boq-typed) < 0.5) return null;
@@ -55,7 +59,11 @@ function finCvPrompt(siteId, c){
   if(sv) window.saveFinContract = async function(siteId){
     const sid = siteId || (parseRoute()||[])[1];
     const r = await sv.apply(this, arguments);
-    try{ const c = sid && await finCvCheck(sid); if(c) finCvPrompt(sid, c); }catch(e){}
+    try{
+      const c = sid && await finCvCheck(sid);
+      let kept = false; try{ kept = !!(c && localStorage.getItem(finCvAckKey(sid, c))); }catch(e){}
+      if(c && !kept) finCvPrompt(sid, c);
+    }catch(e){}
     return r;
   };
   // Bar on the BoQ page while they differ

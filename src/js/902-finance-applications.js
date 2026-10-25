@@ -256,7 +256,7 @@ window.saveFinContract = async function(siteId){
   }
   finContractRows = null; finContractFile = null;
   if(btn){ btn.disabled = false; btn.textContent = 'Save schedule'; }
-  toast('Schedule saved — contract value '+finMoney(total));
+  toast('contract_value' in patch ? 'Schedule saved — contract value '+finMoney(total) : 'Schedule saved — Bill of Quantities '+finMoney(total)+' (typed contract value kept)');
   render();
 };
 window.openFinDoc = async function(path, name){

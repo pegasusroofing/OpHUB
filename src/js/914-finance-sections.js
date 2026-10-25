@@ -64,7 +64,7 @@ async function renderFinanceHome(){
   if(!finGuard()) return;
   const __gen = RENDER_GEN;
   const [jf, pos, invs, apps, st, toApprove, onHire, inbox, subApps] = await Promise.all([
-    dbSelect('job_finance', 'org_id=eq.'+ME.org_id+'&select=site_id,contract_value,app_reminder_day,app_dates,pc_date,defects_months,ret1_invoice_id,ret2_invoice_id'),
+    dbSelect('job_finance', 'org_id=eq.'+ME.org_id+'&select=site_id,contract_value,app_reminder_day,app_dates,pc_date,defects_months,final_release_date,ret1_invoice_id,ret2_invoice_id'),
     dbSelect('client_pos', 'org_id=eq.'+ME.org_id+'&select=site_id'),
     dbSelect('fin_invoices', 'org_id=eq.'+ME.org_id+'&status=neq.void&limit=2000&select=id,site_id,status,due_date,total,paid,net'),
     dbSelect('fin_applications', 'org_id=eq.'+ME.org_id+'&limit=2000&select=site_id,number,valuation_date,status,cert_retention'),

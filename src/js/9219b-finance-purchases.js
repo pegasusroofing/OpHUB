@@ -94,7 +94,7 @@ async function finInboxFileCore(it, f, quiet){
   // "new", so when two phones / PCs file the same emailed invoice at once only one of them gets
   // a row back — the other stops here instead of filing a second copy.
   const claim = await dbUpdate('fin_inbox', it.id+'&status=eq.new', {status:'filed'});
-  if(!claim){ if(!quiet) toast('This one has just been filed by someone else.'); return null; }
+  if(!claim){ if(!quiet && claim===undefined) toast('This one has just been filed by someone else.'); return null; }   // null = no connection (already toasted)
   const pi = await dbInsert('purchase_invoices', {org_id:ME.org_id, site_id:f.site_id, po_id:f.po_id||null, no_po:!f.po_id, kind:'invoice', supplier_id:po?po.supplier_id:null, supplier_name:f.supplier||'Supplier',
     invoice_no:f.invoice_no||null, invoice_date:f.date||finToday(), net:finRound(net), vat:finRound(vat), total:finRound(total), status: flags.length ? 'query' : 'to_approve', query_note: flags.length ? flags.join('; ') : null,
     file_path:it.file_path, file_name:it.file_name, created_by:ME.id});

@@ -46748,6 +46748,12 @@ async function renderFinanceSettings(){
       <div class="formfield"><label class="field-label">VAT</label><select id="finDefVat">${vatOpts}</select></div>
     </div>
     <div class="card">
+      <p class="sectiontitle" style="margin-top:0;">Company overheads (OHP)</p>
+      <p class="stub" style="margin:0 0 10px;font-style:normal;">The cost of running the business (office, vans, insurance, staff not on a job) shared out over every project as a % of the work valued. It comes off each project’s profit, so the profit and margin figures show what a job really makes. Leave it at 0 to show profit before overheads. A project can have its own % (Project Admin).</p>
+      <div class="formfield" style="max-width:260px;"><label class="field-label">Overheads charged to every project (% of value)</label><input type="number" id="finOhp" min="0" max="100" step="0.5" placeholder="0" value="${st.ohp_pct!=null?escapeHtml(String(st.ohp_pct)):''}" ${ME.role==='admin'?'':'disabled title="Only a company admin can change this"'}></div>
+      ${ME.role==='admin' ? '' : '<p class="stub" style="margin:0;font-style:normal;">Only a company admin can change this.</p>'}
+    </div>
+    <div class="card">
       <p class="sectiontitle" style="margin-top:0;">On your invoices</p>
       <p class="stub" style="margin:0 0 10px;font-style:normal;">Printed at the bottom of every invoice and application.</p>
       <div class="formfield"><label class="field-label">Company address</label><textarea id="finCoAddr" rows="3">${escapeHtml(st.company_address||'')}</textarea></div>
@@ -46790,7 +46796,9 @@ window.saveFinanceSettings = async function(){
   // Only write the counters back if the box was actually changed — a form left open must not wind them back (audit FA-01).
   const changed = id=>{ const el = document.getElementById(id); return !!(el && el.value!==el.defaultValue); };
   const orgPatch = {auto_job_numbers:auto, job_number_prefix:prefix}; if(changed('finJobNext') || !ORG.next_job_number) orgPatch.next_job_number = nextJob||null;
-  const orgRow = await dbUpdate('organizations', ORG.id, orgPatch);
+  // Only send the project-number settings when one of them changed, so a manager saving bank details isn't told off (review 24 Oct P4).
+  const orgTouched = 'next_job_number' in orgPatch || !!ORG.auto_job_numbers !== !!auto || String(ORG.job_number_prefix||'') !== String(prefix||'');
+  const orgRow = orgTouched ? await dbUpdate('organizations', ORG.id, orgPatch) : ORG;
   if(orgRow) ORG = Object.assign(ORG, orgRow);
   const finBody = {
     org_id:ME.org_id, invoice_prefix:finVal('finInvPrefix'), next_invoice_number:invNext, default_retention_pct:ret,
@@ -46803,6 +46811,8 @@ window.saveFinanceSettings = async function(){
     bank_account_no:finVal('finBankAcc')||null, invoice_footer:finVal('finFooter')||null,
   };
   if(!changed('finInvNext') && FIN_SETTINGS && FIN_SETTINGS.org_id) delete finBody.next_invoice_number;
+  // Company overheads (OHP) — company admins only (25 Oct).
+  if(ME.role==='admin' && document.getElementById('finOhp')){ const o = finNum(finVal('finOhp')); if(o!==null && (isNaN(o) || o<0 || o>100)){ toast('Overheads must be between 0 and 100%.'); if(btn){ btn.disabled=false; btn.textContent='Save settings'; } return; } finBody.ohp_pct = o; }
   const res = await sbFetch('/rest/v1/fin_settings', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates,return=representation'}, body:JSON.stringify(finBody)});
   if(btn){ btn.disabled = false; btn.textContent = 'Save settings'; }
   if(!res.ok){ toast('Save failed — '+(await safeErr(res))); return; }
@@ -46894,9 +46904,10 @@ async function renderSiteFinance(siteId){
       <p class="sectiontitle" style="margin-top:0;">Project details</p>
       <div class="fingrid2">
         <div class="formfield"><label class="field-label">Project number</label><input type="text" id="finJobNo" value="${escapeHtml(site.job_number||'')}"></div>
-        <div class="formfield"><label class="field-label">Contract value (£, excl. VAT)</label><input type="text" inputmode="decimal" data-money id="finContract" placeholder="0.00" value="${jf.contract_value!=null?escapeHtml(String(jf.contract_value)):''}" ${bt==='application' && items.length?'disabled title="Set by the Bill of Quantities"':''}></div>
+        <div class="formfield"><label class="field-label">Contract value (£, excl. VAT)</label><input type="text" inputmode="decimal" data-money id="finContract" placeholder="0.00" value="${jf.contract_value!=null?escapeHtml(String(jf.contract_value)):''}" ${bt==='application' && items.length && jf.contract_value_source!=='manual'?'disabled title="Set by the Bill of Quantities"':''}></div>
         <div class="formfield"><label class="field-label">Retention %</label><input type="number" id="finRet" min="0" max="100" step="0.5" value="${escapeHtml(String(pick('retention_pct', st.default_retention_pct)))}"></div>
         <div class="formfield"><label class="field-label">Retention limit % (if any)</label><input type="number" id="finRetLimit" min="0" max="100" step="0.5" placeholder="None" value="${jf.retention_limit_pct!=null?escapeHtml(String(jf.retention_limit_pct)):''}"></div>
+        ${finOhpFieldHtml(jf, st)}
         <div class="formfield"><label class="field-label">Days to due date</label><input type="number" id="finDue" min="0" step="1" value="${escapeHtml(String(pick('due_days', st.default_due_days)))}"></div>
         <div class="formfield"><label class="field-label">Days to final date for payment</label><input type="number" id="finFinal" min="0" step="1" value="${escapeHtml(String(pick('final_days', st.default_final_days)))}"></div>
         <div class="formfield"><label class="field-label">Application date (day of month)</label><input type="number" id="finAppDay" min="1" max="31" step="1" placeholder="e.g. 25" value="${escapeHtml(String(pick('app_reminder_day', st.app_reminder_day)||''))}"></div>
@@ -46904,7 +46915,7 @@ async function renderSiteFinance(siteId){
         <div class="formfield"><label class="field-label">VAT</label><select id="finVat">${Object.keys(FIN_VAT_LABEL).map(k=>`<option value="${k}" ${vat===k?'selected':''}>${FIN_VAT_LABEL[k]}</option>`).join('')}</select></div>
       </div>
       ${finBillingLineHtml(siteId, bt)}
-      <p class="stub" style="margin:8px 0 0;font-style:normal;">${bt==='application' ? (items.length ? 'The contract value comes from the Bill of Quantities.' : 'Set up the Bill of Quantities (its own tab) and the contract value fills in from it.') : bt==='invoice' ? 'Type the contract value.'+(finSubKind(siteId) ? ' Values for each '+escapeHtml(finSubNoun(siteId).toLowerCase())+' go on the Costs by '+(finSubKind(siteId)==='repair'?'repair job':'plot')+' page.' : '') : 'Choose how you get paid on this project (top of the page).'}</p>
+      <p class="stub" style="margin:8px 0 0;font-style:normal;">${bt==='application' ? (items.length ? (jf.contract_value_source==='manual' ? 'The contract value was typed in, so the Bill of Quantities doesn’t change it.' : 'The contract value comes from the Bill of Quantities.') : 'Set up the Bill of Quantities (its own tab) and the contract value fills in from it.') : bt==='invoice' ? 'Type the contract value.'+(finSubKind(siteId) ? ' Values for each '+escapeHtml(finSubNoun(siteId).toLowerCase())+' go on the Costs by '+(finSubKind(siteId)==='repair'?'repair job':'plot')+' page.' : '') : 'Choose how you get paid on this project (top of the page).'}</p>
     </div>
 
     ${finBillingSummaryHtml(siteId, site, jf)}
@@ -46924,6 +46935,17 @@ async function renderSiteFinance(siteId){
     const ss = document.getElementById('finScSlot'); if(ss && typeof finSubcontractsCardHtml==='function') ss.innerHTML = finSubcontractsCardHtml(siteId, b);
   }).catch(e=>console.error(e));
 }
+/* A contract value typed in Project Admin is kept when a Bill of Quantities is added (review 24 Oct M4/L7). */
+/* Company overheads (OHP) on one project — blank = the company figure; company admins only (25 Oct). */
+function finOhpFieldHtml(jf, st){
+  const co = st && st.ohp_pct!=null ? Number(st.ohp_pct) : 0;
+  return `<div class="formfield"><label class="field-label">Company overheads % (blank = company ${co}%)</label><input type="number" id="finOhpJob" min="0" max="100" step="0.5" placeholder="${co}" value="${jf.ohp_pct!=null?escapeHtml(String(jf.ohp_pct)):''}" ${ME.role==='admin'?'':'disabled title="Only a company admin can change this"'}></div>`;
+}
+function finOhpFieldRead(){
+  const el = document.getElementById('finOhpJob'); if(!el || el.disabled || ME.role!=='admin') return {};
+  const v = finNum(el.value); return {ohp_pct: v===null || isNaN(v) || v<0 || v>100 ? null : v};
+}
+function finCvTypedFlag(){ const el = document.getElementById('finContract'); return el && !el.disabled && String(el.value).trim()!=='' && finNum(el.value)!==finNum(el.defaultValue) ? {contract_value_source:'manual'} : {}; }
 window.saveSiteFinance = async function(siteId){
   const site = SITES.find(s=>s.id===siteId);
   const contract = finNum(finVal('finContract'));
@@ -46952,7 +46974,7 @@ window.saveSiteFinance = async function(siteId){
   const jfPrev = (await dbSelect('job_finance', 'site_id=eq.'+siteId))[0] || {};
   const orig = (jfPrev.original_value==null && contract!==null && !isNaN(contract) && contract>0) ? {original_value:contract, original_at:jfPrev.original_at||new Date().toISOString()} : {};
   const res = await sbFetch('/rest/v1/job_finance', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates,return=representation'}, body:JSON.stringify({
-    ...orig, site_id:siteId, org_id:ME.org_id, contract_value:contract, retention_pct:ret, retention_limit_pct:retLim,
+    ...orig, ...finCvTypedFlag(), ...finOhpFieldRead(), site_id:siteId, org_id:ME.org_id, contract_value:contract, retention_pct:ret, retention_limit_pct:retLim,
     due_days:(due===null||isNaN(due))?null:due, final_days:(fin===null||isNaN(fin))?null:fin, app_reminder_day:appDay, app_dates:appDates,
     vat_treatment:finVal('finVat')||null, billing_name:finVal('finBillName')||null, billing_address:finVal('finBillAddr')||null,
     billing_email:email||null, notes:finVal('finNotes')||null, updated_at:new Date().toISOString(), updated_by:ME.id,
@@ -47005,7 +47027,12 @@ window.saveClientPo = async function(siteId, poId){
   const newFiles = Array.isArray(finPoFile) ? finPoFile : (finPoFile ? [finPoFile] : []);
   if(newFiles.length){
     if(newFiles.some(f=>f.size > 20*1024*1024)){ toast('A file is over 20 MB.'); if(btn){ btn.disabled=false; btn.textContent='Save PO'; } return; }
-    const old = poId ? finPoFilesOf((await dbSelect('client_pos', 'id=eq.'+poId+'&select=file_path,file_name,files'))[0]||{}) : [];
+    let old = [];
+    if(poId){
+      const pr = await dbSelectChecked('client_pos', 'id=eq.'+poId+'&select=file_path,file_name,files');
+      if(!pr.ok){ toast('Couldn’t read the PO’s saved files — check your connection and try again.'); if(btn){ btn.disabled=false; btn.textContent='Save PO'; } return; }
+      old = finPoFilesOf((pr.data||[])[0]||{});
+    }
     const files = old.slice();
     for(const f of newFiles){
       const safe = f.name.replace(/[^a-z0-9.\-]+/gi,'_').slice(-80);
@@ -47780,7 +47807,7 @@ window.saveFinContract = async function(siteId){
   }
   finContractRows = null; finContractFile = null;
   if(btn){ btn.disabled = false; btn.textContent = 'Save schedule'; }
-  toast('Schedule saved — contract value '+finMoney(total));
+  toast('contract_value' in patch ? 'Schedule saved — contract value '+finMoney(total) : 'Schedule saved — Bill of Quantities '+finMoney(total)+' (typed contract value kept)');
   render();
 };
 window.openFinDoc = async function(path, name){
@@ -48640,7 +48667,9 @@ function finRetentionCardHtml(siteId, jf, st, apps){
 window.saveFinRetentionDates = async function(siteId){
   const months = finInt(finVal('finDefects'));
   if(months===null || isNaN(months) || months<0 || months>120){ toast('Enter the defects period in months.'); return; }
-  const res = await sbFetch('/rest/v1/job_finance', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify({site_id:siteId, org_id:ME.org_id, pc_date:finVal('finPcDate')||null, defects_months:months, updated_at:new Date().toISOString(), updated_by:ME.id})});
+  // Changing PC date or defects here replaces a final date typed in Sales › Retention (review 24 Oct M3).
+  const moved = ['finPcDate','finDefects'].some(id=>{ const el = document.getElementById(id); return el && el.value!==el.defaultValue; });
+  const res = await sbFetch('/rest/v1/job_finance', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify(Object.assign({site_id:siteId, org_id:ME.org_id, pc_date:finVal('finPcDate')||null, defects_months:months, updated_at:new Date().toISOString(), updated_by:ME.id}, moved ? {final_release_date:null} : {}))});
   if(!res.ok){ toast('Save failed — '+(await safeErr(res))); return; }
   toast('Retention dates saved'); render();
 };
@@ -49795,6 +49824,7 @@ window.saveFinNewJob = async function(){
   const bt = finVal('finNjBt');
   if(!bt){ toast('Choose how you get paid on this project.'); return; }
   const cvRaw = finNum(finVal('finNjCv')); const cvIn = (cvRaw!==null && !isNaN(cvRaw) && cvRaw>0) ? finRound(cvRaw) : null;
+  let poWarn = "";
   const poNo = finVal('finNjPo'); const poFiles = Array.from((document.getElementById('finNjPoFiles')||{}).files||[]);
   if(poFiles.length && !poNo){ toast('Add the client PO number for the PO copy.'); return; }
   if(poFiles.some(f=>f.size > 20*1024*1024)){ toast('One of the PO files is over 20 MB.'); return; }
@@ -49825,12 +49855,13 @@ window.saveFinNewJob = async function(){
       const stored = await uploadToStorage('finance-docs', ME.org_id+'/'+newId+'/client-po/'+uid()+'-'+safe, f, f.type||'application/octet-stream');
       if(stored) files.push({path:stored, name:f.name});
     }
-    await dbInsert('client_pos', {org_id:ME.org_id, site_id:newId, created_by:ME.id, po_number:poNo, is_primary:true, file_path:files[0]?files[0].path:null, file_name:files[0]?files[0].name:null, files});
-    if(files.length < poFiles.length) toast('Some PO files didn’t upload — add them from Project Admin.');
+    const poRow = await dbInsert('client_pos', {org_id:ME.org_id, site_id:newId, created_by:ME.id, po_number:poNo, is_primary:true, file_path:files[0]?files[0].path:null, file_name:files[0]?files[0].name:null, files});
+    if(!poRow || !poRow[0]) poWarn = 'Project created, but the client PO didn’t save — add it in Project Admin.';   // review 24 Oct L8
+    else if(files.length < poFiles.length) poWarn = 'Project created. Some PO files didn’t upload — add them from Project Admin.';
   }
   if(ORG && ORG.auto_job_numbers) ORG.next_job_number = (ORG.next_job_number||0)+1;
   document.getElementById('finJobOverlay').style.display = 'none';
-  toast('Project '+(made.job_number||'')+' created');
+  toast(poWarn || 'Project '+(made.job_number||'')+' created');
   // Land on the job's Finance overview, where Getting started shows what to do next.
   if(typeof finProjTab!=='undefined') finProjTab[newId] = 'overview';
   go('#/site/'+newId+'/finance');
@@ -50209,7 +50240,7 @@ window.sendFinPoEmail = async function(siteId, poId){
    (committed), sign-in labour days × rate, timesheets, plant hires, and
    costs added here (fin_job_costs).
    ============================================================ */
-const FIN_COST_CATS = {materials:'Materials', labour:'Labour', plant:'Plant', subcontract:'Subcontract', overheads:'Prelims & overheads', other:'Other'};
+const FIN_COST_CATS = {materials:'Materials', labour:'Labour', plant:'Plant', subcontract:'Subcontract', overheads:'Prelims & site costs', other:'Other'};
 let finCosts = null; // {siteId, tab, q, from, to, sort, dir, lines}
 
 // Built from the job's "book" (911) so the ledger, job page and reports agree.
@@ -50331,7 +50362,7 @@ window.openFinJobCost = async function(siteId, id){
   const cat = x ? x.category : (finCosts && FIN_COST_CATS[finCosts.tab] && finCosts.tab!=='labour' ? finCosts.tab : 'overheads');
   ov.innerHTML = `<div class="geo-modal-card">
     <h3>${x?'Cost':'Add a cost'}</h3>
-    <p class="stub" style="margin:0 0 10px;font-style:normal;">For costs without a purchase invoice in OpHUB — skips, fuel, travel, accommodation, site set-up, a share of overheads.</p>
+    <p class="stub" style="margin:0 0 10px;font-style:normal;">For costs without a purchase invoice in OpHUB — skips, fuel, travel, accommodation, site set-up. (Company overheads are added automatically — Finance › Settings › Company overheads.)</p>
     <div class="fingrid2">
       <div class="formfield"><label class="field-label">Type</label><select id="finJcCat">${Object.keys(FIN_COST_CATS).map(k=>`<option value="${k}" ${cat===k?'selected':''}>${FIN_COST_CATS[k]}</option>`).join('')}</select></div>
       <div class="formfield"><label class="field-label">Date</label><input type="date" id="finJcDate" value="${x?x.cost_date:finToday()}"></div>
@@ -51319,13 +51350,13 @@ function finDaysBetween(a, b){ return Math.round((new Date(b+'T12:00:00') - new 
 const FIN_REPORTS = [
   {id:'overview', group:'qs', title:'Company overview', desc:'Every project: contract, final account, invoiced, owed, costs, forecast margin.', filters:['status','job'], run:async f=>{
     const b = await finRepBookLoad();
-    const rows = finRepSites(f).map(s=>{ const fc = finJobForecast(b, s.id); return {job:finRepJob(s), client:s.client_name||'', contract:fc.contract, vars:fc.vAgreed, ffa:fc.ffa, invoiced:fc.invoiced, owed:fc.owed, cost:fc.costToDate, committed:fc.committedTotal, fcost:fc.budgetTotal==null?null:fc.forecastCost, margin:fc.budgetTotal==null?null:fc.forecastMargin, pct:fc.budgetTotal==null?null:fc.forecastMarginPct, ret:fc.retHeld, _go:`#/site/${s.id}/finance`}; });
-    return {cols:[{k:'job',l:'Project',w:150},{k:'client',l:'Client',w:90},{k:'contract',l:'Contract',money:1},{k:'vars',l:'Variations agreed',money:1},{k:'ffa',l:'Forecast final account (incl. submitted variations)',money:1},{k:'invoiced',l:'Invoiced',money:1},{k:'owed',l:'Owed',money:1},{k:'cost',l:'Costs to date',money:1},{k:'committed',l:'Ordered, not invoiced',money:1},{k:'fcost',l:'Expected final cost (needs a budget)',money:1},{k:'margin',l:'Expected profit',money:1},{k:'pct',l:'Profit %',pct:1},{k:'ret',l:'Retention held',money:1}], rows, totals:true};
+    const rows = finRepSites(f).map(s=>{ const fc = finJobForecast(b, s.id); return {job:finRepJob(s), client:s.client_name||'', contract:fc.contract, vars:fc.vAgreed, ffa:fc.ffa, invoiced:fc.invoiced, owed:fc.owed, cost:fc.costToDate, committed:fc.committedTotal, fcost:fc.budgetTotal==null?null:fc.forecastCost, ohp:fc.ohpForecast||0, margin:fc.budgetTotal==null?null:fc.forecastMargin, pct:fc.budgetTotal==null?null:fc.forecastMarginPct, ret:fc.retHeld, _go:`#/site/${s.id}/finance`}; });
+    return {cols:[{k:'job',l:'Project',w:150},{k:'client',l:'Client',w:90},{k:'contract',l:'Contract',money:1},{k:'vars',l:'Variations agreed',money:1},{k:'ffa',l:'Forecast final account (incl. submitted variations)',money:1},{k:'invoiced',l:'Invoiced',money:1},{k:'owed',l:'Owed',money:1},{k:'cost',l:'Costs to date',money:1},{k:'committed',l:'Ordered, not invoiced',money:1},{k:'fcost',l:'Expected final cost (needs a budget)',money:1},{k:'ohp',l:'Company overheads (OHP)',money:1},{k:'margin',l:'Expected profit (after overheads)',money:1},{k:'pct',l:'Profit %',pct:1},{k:'ret',l:'Retention held',money:1}], rows, totals:true};
   }},
   {id:'cvr', group:'qs', title:'Cost value reconciliation (CVR)', desc:'Value to date against cost to date, and the forecast at completion, project by project.', filters:['status','job'], run:async f=>{
     const b = await finRepBookLoad();
-    const rows = finRepSites(f).map(s=>{ const fc = finJobForecast(b, s.id); return {job:finRepJob(s), value:fc.sales, cost:fc.costToDate, margin:fc.salesMargin, mpct:fc.salesMarginPct, committed:fc.committedTotal, ffa:fc.ffa, fcost:fc.forecastCost, fmargin:fc.forecastMargin, fpct:fc.forecastMarginPct, _go:`#/site/${s.id}/finance/budget`}; });
-    return {cols:[{k:'job',l:'Project',w:160},{k:'value',l:'Value to date',money:1},{k:'cost',l:'Cost to date',money:1},{k:'margin',l:'Margin to date',money:1},{k:'mpct',l:'%',pct:1},{k:'committed',l:'Committed',money:1},{k:'ffa',l:'Forecast final account (incl. submitted variations)',money:1},{k:'fcost',l:'Forecast final cost',money:1},{k:'fmargin',l:'Forecast margin',money:1},{k:'fpct',l:'%',pct:1}], rows, totals:true, note:'Value to date is the latest certified (or applied) gross valuation. Cost to date excludes committed orders.'};
+    const rows = finRepSites(f).map(s=>{ const fc = finJobForecast(b, s.id); return {job:finRepJob(s), value:fc.sales, cost:fc.costToDate, ohp:fc.ohpToDate||0, margin:fc.salesMargin, mpct:fc.salesMarginPct, committed:fc.committedTotal, ffa:fc.ffa, fcost:fc.forecastCost, fmargin:fc.forecastMargin, fpct:fc.forecastMarginPct, _go:`#/site/${s.id}/finance/budget`}; });
+    return {cols:[{k:'job',l:'Project',w:160},{k:'value',l:'Value to date',money:1},{k:'cost',l:'Cost to date',money:1},{k:'ohp',l:'Overheads (OHP) to date',money:1},{k:'margin',l:'Margin to date (after overheads)',money:1},{k:'mpct',l:'%',pct:1},{k:'committed',l:'Committed',money:1},{k:'ffa',l:'Forecast final account (incl. submitted variations)',money:1},{k:'fcost',l:'Forecast final cost',money:1},{k:'fmargin',l:'Forecast margin',money:1},{k:'fpct',l:'%',pct:1}], rows, totals:true, note:'Value to date is the latest certified (or applied) gross valuation. Cost to date excludes committed orders. Margins are after company overheads (OHP), set in Finance › Settings.'};
   }},
   {id:'ffa', group:'qs', title:'Forecast final account', desc:'Contract sum plus variations agreed, submitted and instructed, by project.', filters:['status','job'], run:async f=>{
     const b = await finRepBookLoad();
@@ -51612,7 +51643,7 @@ async function renderFinanceHome(){
   if(!finGuard()) return;
   const __gen = RENDER_GEN;
   const [jf, pos, invs, apps, st, toApprove, onHire, inbox, subApps] = await Promise.all([
-    dbSelect('job_finance', 'org_id=eq.'+ME.org_id+'&select=site_id,contract_value,app_reminder_day,app_dates,pc_date,defects_months,ret1_invoice_id,ret2_invoice_id'),
+    dbSelect('job_finance', 'org_id=eq.'+ME.org_id+'&select=site_id,contract_value,app_reminder_day,app_dates,pc_date,defects_months,final_release_date,ret1_invoice_id,ret2_invoice_id'),
     dbSelect('client_pos', 'org_id=eq.'+ME.org_id+'&select=site_id'),
     dbSelect('fin_invoices', 'org_id=eq.'+ME.org_id+'&status=neq.void&limit=2000&select=id,site_id,status,due_date,total,paid,net'),
     dbSelect('fin_applications', 'org_id=eq.'+ME.org_id+'&limit=2000&select=site_id,number,valuation_date,status,cert_retention'),
@@ -53389,7 +53420,7 @@ async function renderFinSales(sub){
   const __gen = RENDER_GEN;
   const [invs0, apps, pays, jf, st] = await Promise.all([
     dbSelect('fin_invoices', 'org_id=eq.'+ME.org_id+'&order=created_at.desc&limit=3000'),
-    dbSelect('fin_applications', 'org_id=eq.'+ME.org_id+'&order=valuation_date.desc&limit=3000&select=id,site_id,number,status,valuation_date,due_date,final_date,gross,net_due,cert_date,cert_gross,cert_net,cert_retention,cert_is_payless,invoice_id'),
+    dbSelect('fin_applications', 'org_id=eq.'+ME.org_id+'&order=valuation_date.desc&limit=3000&select=id,site_id,number,status,valuation_date,due_date,final_date,gross,net_due,cert_date,cert_gross,cert_net,cert_retention,cert_is_payless,invoice_id,submitted_at,created_at'),
     dbSelect('fin_payments', 'org_id=eq.'+ME.org_id+'&select=amount,paid_on&limit=10000'),
     dbSelect('job_finance', 'org_id=eq.'+ME.org_id),
     finLoadSettings(),
@@ -53567,7 +53598,7 @@ async function finInboxFileCore(it, f, quiet){
   // "new", so when two phones / PCs file the same emailed invoice at once only one of them gets
   // a row back — the other stops here instead of filing a second copy.
   const claim = await dbUpdate('fin_inbox', it.id+'&status=eq.new', {status:'filed'});
-  if(!claim){ if(!quiet) toast('This one has just been filed by someone else.'); return null; }
+  if(!claim){ if(!quiet && claim===undefined) toast('This one has just been filed by someone else.'); return null; }   // null = no connection (already toasted)
   const pi = await dbInsert('purchase_invoices', {org_id:ME.org_id, site_id:f.site_id, po_id:f.po_id||null, no_po:!f.po_id, kind:'invoice', supplier_id:po?po.supplier_id:null, supplier_name:f.supplier||'Supplier',
     invoice_no:f.invoice_no||null, invoice_date:f.date||finToday(), net:finRound(net), vat:finRound(vat), total:finRound(total), status: flags.length ? 'query' : 'to_approve', query_note: flags.length ? flags.join('; ') : null,
     file_path:it.file_path, file_name:it.file_name, created_by:ME.id});
@@ -55456,7 +55487,7 @@ const FIN_SET_ICONS = {
   'who can see material costs':['👁','#eef2ff','#3b4cca'], 'project numbers':['#','#fdecec','#c62828'],
   'purchase orders':['🧾','#fff4e0','#a35f00'], 'invoice numbers':['№','#eaf6ee','#1e7a3c'],
   'defaults for new projects':['⚙','#f1f3f6','#4a5260'], 'on your invoices':['🏦','#e8f4fb','#1b6a96'],
-  'invoice inbox (email)':['📥','#f4ecfb','#6b3fa0'], 'xero':['🔗','#e6f7fb','#0b7a99'],
+  'invoice inbox (email)':['📥','#f4ecfb','#6b3fa0'], 'company overheads (ohp)':['%','#fdf2e9','#b45309'], 'xero':['🔗','#e6f7fb','#0b7a99'],
 };
 (function(){
   const base = finCollapseCards;
@@ -56764,6 +56795,8 @@ async function finContractAutoSave(){
   finCtAuto.busy = true; finCtAutoPaint('Saving…');
   try{
     const rowsNow = finContractRows;
+    // What's being sent — edits typed while this save runs keep the page "not saved" (review 24 Oct H1).
+    const sentSnap = finContractSnapOf(rowsNow);
     const onScreen = new Set(rowsNow.filter(r=>r.id).map(r=>r.id));
     const rows = rowsNow.map((r,_i)=>({_i, r, kind:r.kind||'item', description:String(r.description||'').trim()})).filter(x=>x.description);
     // A failed read must stop the save, or every line is added a second time (audit FB-07).
@@ -56782,7 +56815,7 @@ async function finContractAutoSave(){
     }
     const total = finRound(rows.filter(x=>x.kind==='item').reduce((t,x)=>t+(Number(finItemValue(x.r))||0), 0));
     await sbFetch('/rest/v1/job_finance', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify({site_id:siteId, org_id:ME.org_id, ...(await finCvPatch(siteId, total)), billing_type:'application', updated_at:new Date().toISOString(), updated_by:ME.id})});
-    if(finContractRows===rowsNow && !failed) finContractSnap = finContractSnapOf(finContractRows);
+    if(finContractRows===rowsNow && !failed) finContractSnap = sentSnap;
     finCtAuto.at = new Date(); finCtAuto.err = failed ? failed+' line'+(failed===1?'':'s')+' didn’t save' : '';
   }catch(e){ console.error(e); finCtAuto.err = 'Not saved — check your connection'; }
   finCtAuto.busy = false;
@@ -58414,7 +58447,7 @@ function finTopVal(k, d, fc){
   if(k==='applied') return {v:fc.applied, go:sg('apps')};
   if(k==='certified') return {v:fc.certified, go:sg('apps')};
   if(k==='cost') return {v:fc.costToDate, go:`finCosts=null;go('#/site/${s}/finance/costs')`};
-  if(k==='profit'){ const v = finRound(fc.sales - fc.costToDate); return {v, go:'', hot:v<0}; }
+  if(k==='profit'){ const v = fc.salesMargin!=null ? fc.salesMargin : finRound(fc.sales - fc.costToDate); return {v, go:'', hot:v<0}; }   // after overheads (OHP)
   if(k==='fprofit') return fc.budgetTotal==null ? {v:null, go:`go('#/site/${s}/finance/budget')`, note:'Needs A Budget'} : {v:fc.forecastMargin, go:`go('#/site/${s}/finance/budget')`, hot:fc.forecastMargin<0};
   return wait;
 }
@@ -58647,7 +58680,8 @@ function finVdRowHtml(siteId){
   const cur = finLsGet(FIN_SUM_LS, FIN_SUM_DEF), k = FIN_VD_OPTS.some(o=>o[0]===cur.vd) ? cur.vd : 'va';
   const lab = FIN_VD_OPTS.find(o=>o[0]===k)[1], m = finPickMenuHtml('Show', FIN_VD_OPTS, k, 'finVdSet', 'vd');
   const t = finVdTotals(siteId, k);
-  if(!FIN_VD_DATA[siteId]) setTimeout(()=>finVdLoad(siteId), 0);
+  const D = FIN_VD_DATA[siteId];
+  if(!D || Date.now()-(D.at||0) > 3000) setTimeout(()=>finVdLoad(siteId), 0);   // keep it fresh (review 24 Oct M2)
   const sub = k[0]==='v' ? 'var' : 'dw';
   return `<div class="finvd" onclick="finBoqSub['${siteId}']='${sub}';go('#/site/${siteId}/finance/contract')"><span class="fintile-l">${escapeHtml(lab)} ${m}</span><b>${t ? finMoney(t.v, 0) : '…'}</b><span class="finvd-n">${t ? t.n+' '+(k[0]==='v' ? (t.n===1?'variation':'variations') : (t.n===1?'day work':'day works')) : ''}</span></div>`;
 }
@@ -58655,7 +58689,7 @@ async function finVdLoad(siteId){
   const [vars, dws] = await Promise.all([
     dbSelect('fin_variations', 'site_id=eq.'+siteId+'&select=status,quoted,agreed_value').catch(()=>[]),
     dbSelect('fin_dayworks', 'site_id=eq.'+siteId+'&select=status,value').catch(()=>[])]);
-  FIN_VD_DATA[siteId] = {vars:vars||[], dws:dws||[]};
+  FIN_VD_DATA[siteId] = {vars:vars||[], dws:dws||[], at:Date.now()};
   const el = document.getElementById('finVdRow'); if(el && el.dataset.site===siteId) el.innerHTML = finVdRowHtml(siteId);
 }
 window.finVdSet = function(slot, k){
@@ -59634,7 +59668,8 @@ window.finDeleteJob = async function(siteId){
    excl. VAT, and can be limited to a date range.
    ============================================================ */
 let finDsTab = 'summary', finDsF = {from:'', to:''};
-const FIN_DS_TABS = [['summary','Cost Summary'],['labour','Labour & Subcontractors'],['plant','Plant'],['sales','Applications & Invoices'],['purchases','Purchases & Orders']];
+const FIN_DS_TABS = [['summary','Cost Summary'],['purchases','Purchases'],['labour','Labour & Subcontractors'],['sales','Applications & Invoices'],['plant','Plant']];   // Purchases second, Plant last (Andy, 25 Oct)
+let finDsBook = null, finDsQ = '';   // last loaded book (tab and date changes redraw from it — no reload, no jumping back)
 function finDsIn(d){ const s = String(d||'').slice(0,10); if(finDsF.from && (!s || s < finDsF.from)) return false; if(finDsF.to && (!s || s > finDsF.to)) return false; return true; }
 function finDsLinesHtml(lines, empty){
   if(!lines.length) return `<div class="empty" style="margin:6px 0 0;">${empty||'Nothing here.'}</div>`;
@@ -59647,8 +59682,10 @@ async function renderFinDetail(siteId){
   if(!finGuard()) return;
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId); if(!site){ go('#/finance'); return; }
-  const b = await finLoadBook(siteId);
-  if(__gen !== RENDER_GEN) return;
+  const cached = finDsBook && finDsBook.siteId===siteId && finDsBook.quick;
+  const b = cached ? finDsBook.b : await finLoadBook(siteId);
+  if(!cached && __gen !== RENDER_GEN) return;
+  finDsBook = {siteId, b};
   const fc = finJobForecast(b, siteId);
   const jf = fc.jf || {};
   const L = fc.lines.filter(l=>finDsIn(l.date));
@@ -59693,11 +59730,13 @@ async function renderFinDetail(siteId){
         ${kv('Plant', finMoney(byCat('plant')))}
         ${kv('Labour', finMoney(byCat('labour')))}
         ${kv('Subcontractors', finMoney(byCat('subcontract')))}
-        ${kv('Prelims & Overheads', finMoney(byCat('overheads')))}
+        ${kv('Prelims & Site Costs', finMoney(byCat('overheads')))}
         ${kv('Other', finMoney(byCat('other')))}
         ${kv('Total Cost', finMoney(totalCost), {bold:1})}
-        ${kv('Profit', finMoney(profit), {bold:1, col:neg(profit)})}
-        ${kv('% Profit', finPctTxt(pct), {bold:1, col:neg(profit)})}
+        ${kv('Profit Before Overheads', finMoney(profit), {bold:1, col:neg(profit)})}
+        ${fc.ohpPct ? kv('Company Overheads (OHP) '+fc.ohpPct+'%', '−'+finMoney(finRound(salesValue*fc.ohpPct/100))) : ''}
+        ${fc.ohpPct ? kv('Profit After Overheads', finMoney(finRound(profit - salesValue*fc.ohpPct/100)), {bold:1, col:neg(profit - salesValue*fc.ohpPct/100)}) : ''}
+        ${kv('% Profit'+(fc.ohpPct ? ' (after overheads)' : ''), finPctTxt(salesValue ? finRound((profit - salesValue*(fc.ohpPct||0)/100)/salesValue*100) : null), {bold:1, col:neg(profit - salesValue*(fc.ohpPct||0)/100)})}
         ${kv('Ordered, Not Invoiced Yet', finMoney(committedTot))}
         <p class="stub finds-n">Ordered (open POs and subcontract orders) isn't in Total Cost until it's invoiced or certified.</p>
       </div>
@@ -59731,30 +59770,100 @@ async function renderFinDetail(siteId){
         <div><span>Job No</span><b>${escapeHtml(site.job_number||'—')}</b></div>
         <div><span>Customer</span><b>${escapeHtml(site.client_name||'—')}</b></div>
         <div><span>Contract Name</span><b>${escapeHtml(site.name||'')}</b></div>
-        <div class="finds-dates"><label>Date From<input type="date" value="${finDsF.from}" onchange="finDsF.from=this.value;render()"></label><label>Date To<input type="date" value="${finDsF.to}" onchange="finDsF.to=this.value;render()"></label>${finDsF.from||finDsF.to ? `<button type="button" class="linkbtn" onclick="finDsF={from:'',to:''};render()">Clear</button>` : ''}</div>
+        <div class="finds-dates"><span class="finds-dl">Only show items dated</span><label>From<input type="date" value="${finDsF.from}" onchange="finDsF.from=this.value;finDsGo('${siteId}')"></label><label>To<input type="date" value="${finDsF.to}" onchange="finDsF.to=this.value;finDsGo('${siteId}')"></label>${finDsF.from||finDsF.to ? `<button type="button" class="linkbtn" onclick="finDsF={from:'',to:''};finDsGo('${siteId}')">Whole job</button>` : ''}
+          <span class="finds-dn">${finDsF.from||finDsF.to ? 'Showing '+(finDsF.from ? 'from '+finDate(finDsF.from) : '')+(finDsF.to ? ' to '+finDate(finDsF.to) : '')+' — every tab, and the totals, only count items in these dates.' : 'Showing the whole job. Pick dates to see one period (e.g. a month) on every tab.'}</span></div>
       </div>
     </div>
-    <nav class="finboqsub" role="tablist">${FIN_DS_TABS.map(([k,l])=>`<button type="button" class="${finDsTab===k?'on':''}" onclick="finDsTab='${k}';render()">${l}</button>`).join('')}</nav>
+    <nav class="finboqsub" role="tablist">${FIN_DS_TABS.map(([k,l])=>`<button type="button" class="${finDsTab===k?'on':''}" onclick="finDsTab='${k}';finDsQ='';finDsGo('${siteId}')">${l}</button>`).join('')}</nav>
+    <div class="finds-tools">${finDsTab==='summary' ? '' : `<input type="search" id="finDsQ" placeholder="Search this tab — supplier, PO, invoice no., description…" value="${escapeHtml(finDsQ)}" oninput="finDsQ=this.value;finDsFilter()">`}
+      <button type="button" class="finds-xl" title="Download this tab as Excel" onclick="finDsExcel('${siteId}')"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3" fill="#1D6F42"/><path d="M8 7l3.2 5L8 17h2.4l2-3.4 2 3.4H17l-3.2-5L17 7h-2.4l-2 3.3-2-3.3z" fill="#fff"/></svg><span>Excel</span></button></div>
     <div class="card finds-body">${body}</div>
   `, {title:'Detailed Summary', subtitle:(site.job_number?site.job_number+' · ':'')+site.name, back:`#/site/${siteId}/finance`, siteId, tabs:false});
 }
 window.renderFinDetail = renderFinDetail;
+// Tabs and dates redraw from the figures already loaded (quick, and nothing can pull you back to Cost Summary).
+window.finDsGo = function(siteId){
+  const y = typeof appScrollY==='function' ? appScrollY() : 0;
+  if(finDsBook && finDsBook.siteId===siteId) finDsBook.quick = true;
+  Promise.resolve(renderFinDetail(siteId)).then(()=>{ if(finDsBook) finDsBook.quick = false; finDsFilter(); if(typeof appScrollTo==='function') appScrollTo(y); });
+};
+// Search: hides rows (and tables) that don't contain every word typed.
+window.finDsFilter = function(){
+  const words = String(finDsQ||'').toLowerCase().split(/\s+/).filter(Boolean);
+  document.querySelectorAll('.finds-body tbody tr').forEach(tr=>{ const t = tr.textContent.toLowerCase(); tr.style.display = words.every(w=>t.includes(w)) ? '' : 'none'; });
+  document.querySelectorAll('.finds-body .finds-nomatch').forEach(x=>x.remove());
+  if(words.length) document.querySelectorAll('.finds-body table').forEach(tb=>{ if(![...tb.querySelectorAll('tbody tr')].some(tr=>tr.style.display!=='none')){ const n = document.createElement('div'); n.className = 'empty finds-nomatch'; n.style.margin = '6px 0 0'; n.textContent = 'Nothing matches “'+finDsQ+'”.'; tb.closest('.finreptbl-wrap, table').insertAdjacentElement('afterend', n); } });
+};
+// Excel: every table on the tab (only the rows showing, if you've searched), one sheet each.
+window.finDsExcel = async function(siteId){
+  if(!(await loadLib('ExcelJS'))){ toast('Could not load the Excel tool — check your connection.'); return; }
+  const site = SITES.find(s=>s.id===siteId) || {};
+  const tabName = (FIN_DS_TABS.find(t=>t[0]===finDsTab)||['','Summary'])[1];
+  const wb = new ExcelJS.Workbook(); wb.creator = (ORG&&ORG.name)||'OpHUB';
+  const head = ws=>{ ws.getCell('A1').value = tabName+' — '+(site.job_number?site.job_number+' · ':'')+(site.name||''); ws.getCell('A1').font = {bold:true, size:14};
+    ws.getCell('A2').value = (ORG&&ORG.name||'')+' · '+(finDsF.from||finDsF.to ? 'Dated '+(finDsF.from?finDate(finDsF.from):'start')+' to '+(finDsF.to?finDate(finDsF.to):'today') : 'Whole job')+(finDsQ ? ' · search “'+finDsQ+'”' : '')+' · excl. VAT · exported '+finDate(finToday()); ws.getCell('A2').font = {color:{argb:'FF6B7280'}}; };
+  const mon = {jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,sept:8,oct:9,nov:10,dec:11};
+  const cellVal = t=>{
+    const s = String(t||'').replace(/\s+/g,' ').trim();
+    if(/^[−-]?£-?[\d,]+(\.\d+)?$/.test(s)){ const n = Number(s.replace(/[£,]/g,'').replace('−','-')); if(!isNaN(n)) return {v:n, money:1}; }
+    const m = s.match(/^(\d{1,2}) ([A-Za-z]{3,4}) (\d{4})$/); if(m && mon[m[2].toLowerCase()]!=null) return {v:new Date(Number(m[3]), mon[m[2].toLowerCase()], Number(m[1]), 12), date:1};
+    return {v:s};
+  };
+  const used = {};
+  if(finDsTab==='summary'){
+    const ws = wb.addWorksheet('Cost Summary'); head(ws); let r = 4;
+    document.querySelectorAll('.finds-body .finds-p').forEach(p=>{
+      const t = (p.querySelector('.sectiontitle')||{}).textContent || ''; ws.getCell('A'+r).value = t; ws.getCell('A'+r).font = {bold:true, size:12}; r++;
+      p.querySelectorAll('.finds-kv').forEach(kv=>{ const c = cellVal((kv.querySelector('b')||{}).textContent); ws.getCell('A'+r).value = (kv.querySelector('span')||{}).textContent||''; ws.getCell('B'+r).value = c.v; if(c.money) ws.getCell('B'+r).numFmt = '£#,##0.00'; if(kv.classList.contains('b')) ws.getRow(r).font = {bold:true}; r++; });
+      r++;
+    });
+    ws.getColumn(1).width = 40; ws.getColumn(2).width = 18;
+  } else {
+    const tables = [...document.querySelectorAll('.finds-body table')];
+    if(!tables.length){ toast('Nothing on this tab to export.'); return; }
+    tables.forEach((tb, ti)=>{
+      let prev = tb.closest('.finreptbl-wrap') || tb; let title = '';
+      for(let e = prev.previousElementSibling; e; e = e.previousElementSibling){ if(e.classList.contains('sectiontitle')){ title = e.textContent.trim(); break; } }
+      let nm = (title || tabName || 'Sheet').replace(/[\\/?*\[\]:]/g,' ').slice(0,28).trim() || 'Sheet'; if(used[nm]) nm = nm.slice(0,25)+' '+(ti+1); used[nm] = 1;
+      const ws = wb.addWorksheet(nm); head(ws);
+      const ths = [...((tb.querySelector('thead tr')||{}).children||[])].map(th=>th.textContent.replace(/\s+/g,' ').trim());
+      const keep = ths.map((h,i)=>h!=='' || i===0);
+      ws.getRow(4).values = ths.filter((h,i)=>keep[i]); ws.getRow(4).font = {bold:true}; ws.getRow(4).fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FFEEF1F4'}};
+      let r = 5; const moneyCols = new Set();
+      tb.querySelectorAll('tbody tr').forEach(tr=>{
+        if(tr.style.display==='none') return;
+        const tds = [...tr.children].filter((c,i)=>keep[i]); const row = ws.getRow(r);
+        tds.forEach((td, j)=>{ const c = cellVal(td.textContent); const cell = row.getCell(j+1); cell.value = c.v; if(c.money){ cell.numFmt = '£#,##0.00'; moneyCols.add(j+1); } if(c.date) cell.numFmt = 'dd/mm/yyyy'; });
+        r++;
+      });
+      if(r>5) moneyCols.forEach(c=>{ const col = ws.getColumn(c).letter; const cell = ws.getRow(r).getCell(c); cell.value = {formula:`SUM(${col}5:${col}${r-1})`}; cell.numFmt = '£#,##0.00'; cell.font = {bold:true}; });
+      if(r>5 && moneyCols.size){ ws.getRow(r).getCell(1).value = 'Total'; ws.getRow(r).getCell(1).font = {bold:true}; }
+      ths.filter((h,i)=>keep[i]).forEach((h,i)=>{ ws.getColumn(i+1).width = /descr/i.test(h) ? 46 : /supplier|who|client|project/i.test(h) ? 26 : 15; });
+      ws.views = [{state:'frozen', ySplit:4}];
+      ws.autoFilter = {from:{row:4, column:1}, to:{row:4, column:Math.max(1, ths.filter((h,i)=>keep[i]).length)}};
+    });
+  }
+  const fname = ('Summary - '+(site.job_number?site.job_number+' ':'')+(site.name||'')+' - '+tabName+' - '+finToday()).replace(/[\\/:*?"<>|]+/g,'')+'.xlsx';
+  return deliverExcelBuffer(await wb.xlsx.writeBuffer(), fname);
+};
 // Run Reports for one project (Andy, 23 Oct): pick any report that can be run per project;
 // it opens with this project already chosen.
 function renderFinJobReports(siteId){
   if(!finGuard()) return;
   const site = SITES.find(s=>s.id===siteId); if(!site){ go('#/finance'); return; }
   const reps = FIN_REPORTS.filter(r=>(r.filters||[]).includes('job'));
-  const card = (t, d, js)=>`<button type="button" class="finrepcard" onclick="${js}"><b>${escapeHtml(t)}</b><span>${escapeHtml(d)}</span></button>`;
+  const card = (t, d, js)=>`<button type="button" class="finrepcard" onclick="${js}"><span class="frc-t"><b>${escapeHtml(t)}</b><span>${escapeHtml(d)}</span></span><i aria-hidden="true">›</i></button>`;
   const keep = finProjTab[siteId]; finProjTab[siteId] = '__none';
   const tabs = typeof finProjTabsHtml==='function' ? finProjTabsHtml(siteId, 'application') : '';
   finProjTab[siteId] = keep;
   document.getElementById('app').innerHTML = shell(`
     ${tabs}
-    <p class="stub" style="margin:0 0 14px;">Reports for <b>${escapeHtml((site.job_number?site.job_number+' · ':'')+site.name)}</b>. Pick one — it opens for this project; set the dates, then download it as Excel or PDF.</p>
+    <div class="finjobreps">
+    <p class="stub" style="margin:0 0 10px;">Reports for <b>${escapeHtml((site.job_number?site.job_number+' · ':'')+site.name)}</b>. Pick one — it opens for this project; set the dates, then download it as Excel or PDF.</p>
     <p class="sectiontitle">This project</p>
     <div class="finrepgrid">${card('Detailed Summary', 'Sales against cost, with labour, plant, invoices and purchases.', `finDsTab='summary';go('#/site/${siteId}/finance/summary')`)}${card('Monthly Report', 'This month\'s value, cost and margin for the project.', `go('#/site/${siteId}/finance/monthly')`)}</div>
     ${Object.keys(FIN_REPORT_GROUPS).map(g=>{ const rs = reps.filter(r=>r.group===g); return rs.length ? `<p class="sectiontitle">${FIN_REPORT_GROUPS[g]}</p><div class="finrepgrid">${rs.map(r=>card(r.title, r.desc, `finRep={id:'${r.id}', f:{job:'${siteId}', from:'', to:'', status:'all', opening:'', varstatus:'', postatus:''}, sort:null, dir:1};go('#/finance/reports/${r.id}')`)).join('')}</div>` : ''; }).join('')}
+  </div>
   `, {title:'Run Reports', subtitle:(site.job_number?site.job_number+' · ':'')+site.name, back:`#/site/${siteId}/finance`, siteId, tabs:false});
 }
 window.renderFinJobReports = renderFinJobReports;
@@ -59762,10 +59871,16 @@ window.renderFinJobReports = renderFinJobReports;
   const rsf = renderSiteFinance;
   renderSiteFinance = function(siteId){ const p = parseRoute(); if(p[3]==='summary') return renderFinDetail(siteId); if(p[3]==='reports') return renderFinJobReports(siteId); return rsf.apply(this, arguments); };
   const st = document.createElement('style');
-  st.textContent = `.finds-hg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) minmax(0,1.6fr);gap:10px 18px;align-items:end;}
+  st.textContent = `.finds-hg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) minmax(0,1.6fr);gap:10px 18px;align-items:center;}
 .finds-hg > div > span{display:block;font-size:11.5px;font-weight:700;color:var(--slate);margin-bottom:3px;}
 .finds-hg > div > b{font-size:14.5px;}
 .finds-dates{display:flex;gap:10px;align-items:end;flex-wrap:wrap;}
+.finds-dl{flex:0 0 100%;font-size:11.5px;font-weight:800;color:var(--slate);text-transform:uppercase;letter-spacing:.03em;}
+.finds-dn{flex:0 0 100%;font-size:11.5px;color:var(--slate);line-height:1.3;}
+.finds-tools{display:flex;gap:8px;align-items:center;margin:0 0 10px;}
+.finds-tools input{flex:1;min-width:0;height:38px !important;min-height:38px !important;margin:0 !important;padding:0 12px !important;font-size:14px !important;border-radius:10px !important;}
+.finds-xl{all:unset;box-sizing:border-box;cursor:pointer;display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 12px;border:1px solid #CFE3D7;background:#F1F8F4;color:#1D6F42;border-radius:10px;font-size:13px;font-weight:800;margin-left:auto;}
+.finds-xl:hover{background:#E4F2EA;}
 .finds-dates label{display:flex;flex-direction:column;gap:3px;font-size:11.5px;font-weight:700;color:var(--slate);}
 .finds-dates input{height:32px !important;min-height:32px !important;padding:0 8px !important;font-size:13px !important;border-radius:8px !important;margin:0 !important;}
 .finds-sum{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
@@ -59777,8 +59892,17 @@ window.renderFinJobReports = renderFinJobReports;
 .finds-kv.b span, .finds-kv.b b{font-weight:800;}
 .finds-n{margin:8px 0 0 !important;font-size:12px;font-style:normal;}
 .finds-h{margin:16px 0 6px !important;} .finds-body > .finds-h:first-child{margin-top:0 !important;}
+.finjobreps .sectiontitle{margin:12px 0 6px !important;font-size:13px !important;}
+.finjobreps .finrepgrid{display:block !important;background:#fff;border:1px solid var(--line,#ECEEF2);border-radius:12px;overflow:hidden;margin:0 0 6px;}
+.finjobreps .finrepcard{all:unset;box-sizing:border-box;display:flex !important;align-items:center;gap:10px;width:100%;padding:9px 14px;cursor:pointer;border-top:1px solid var(--line,#ECEEF2);}
+.finjobreps .finrepcard:first-child{border-top:0;}
+.finjobreps .finrepcard:hover{background:#F8F9FB;}
+.finjobreps .frc-t{flex:1;min-width:0;display:flex;flex-direction:column;}
+.finjobreps .frc-t b{font-size:14px;font-weight:700;}
+.finjobreps .frc-t span{font-size:12px;color:var(--slate);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.finjobreps .finrepcard i{font-style:normal;font-size:20px;color:var(--slate);}
 .findsfoot{margin-top:8px;border-radius:10px;padding:5px 12px;font-size:12.5px;}
-@media (max-width:900px){ .finds-sum{grid-template-columns:1fr;} .finds-hg{grid-template-columns:1fr 1fr;} }`;
+@media (max-width:900px){ .finds-sum{grid-template-columns:1fr;} .finds-hg{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px 10px;align-items:start;} .finds-hg > div > b{font-size:13.5px;} .finds-dates{grid-column:1/-1;border-top:1px solid var(--line,#ECEEF2);padding-top:10px;} .finds-dates label{flex:1 1 0;min-width:0;} .finds-dates input{width:100% !important;} }`;
   document.head.appendChild(st);
 })();
 
@@ -61254,6 +61378,7 @@ function finJobPhoneTidy(){
 .fjq-n{font-style:normal;font-size:12px;opacity:.85;margin-left:6px;}
 .fjq-sort{position:relative;display:inline-flex;align-items:center;justify-content:center;height:28px;padding:0 12px;border-radius:8px;font-size:12px;font-weight:700;white-space:nowrap;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);color:inherit;cursor:pointer;flex:none !important;}
 .fjq-sort select{position:absolute !important;inset:0 !important;width:100% !important;height:100% !important;opacity:0 !important;cursor:pointer;margin:0 !important;}
+#finJobGrid td[data-l="Client"]{font-weight:700;color:var(--ink,#16181D);}   /* client in bold (25 Oct) */
 @media (max-width:700px){
   .fjq-row{display:flex;gap:8px;align-items:center;margin:0 0 10px;}
   .fjq-row input{flex:1;min-width:0;height:38px !important;min-height:38px !important;margin:0 !important;padding:0 12px !important;font-size:14px !important;border-radius:10px !important;}
@@ -61269,7 +61394,7 @@ function finJobPhoneTidy(){
   #finJobGrid tbody td:not([data-l="Job"]):not([data-l="Project"]){flex:0 0 calc((100% - 16px) / 3) !important;display:block !important;text-align:left !important;font-size:12.5px !important;line-height:1.25;padding:2px 0 !important;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   #finJobGrid tbody td:not([data-l="Job"]):not([data-l="Project"])::before{display:block !important;font-size:9.5px !important;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--slate);margin:0 0 1px !important;}
   #finJobGrid td[data-l="Value"]{font-weight:700;}
-  #finJobGrid td[data-l="Status"] .finpill{font-size:10.5px;padding:1px 7px;}
+  #finJobGrid td[data-l="Status"] .finpill{font-size:12.5px !important;padding:0 !important;background:none !important;border:0 !important;line-height:1.25 !important;display:inline !important;vertical-align:baseline !important;margin:0 !important;}   /* lines up with the other columns (25 Oct) */
   #finJobGridFoot .fgfoot-ctl select{font-size:11.5px !important;}
   #finJobGridFoot .fjq-sort{height:28px;padding:0 10px;font-size:11.5px;}
 }`;
@@ -61353,14 +61478,18 @@ window.finRetSetDate = async function(siteId, n, v){
 
 /* ---------- contract value: typed vs Bill of Quantities ---------- */
 async function finCvPatch(siteId, total){
-  const jf = (await dbSelect('job_finance', 'site_id=eq.'+siteId+'&select=contract_value_source').catch(()=>[]))[0];
+  // A failed read leaves the contract value alone — never overwrite a typed value on a bad signal (review 24 Oct M1).
+  const r = await dbSelectChecked('job_finance', 'site_id=eq.'+siteId+'&select=contract_value_source').catch(()=>({ok:false}));
+  if(!r || !r.ok) return {};
+  const jf = (r.data||[])[0];
   return jf && jf.contract_value_source==='manual' ? {} : {contract_value:total};
 }
 async function finCvCheck(siteId){
-  const [jfs, items] = await Promise.all([
-    dbSelect('job_finance', 'site_id=eq.'+siteId+'&select=contract_value,contract_value_source').catch(()=>[]),
-    dbSelect('fin_contract_items', 'site_id=eq.'+siteId+'&select=kind,value&limit=10000').catch(()=>null)]);
-  const jf = jfs[0]; if(!jf || jf.contract_value_source!=='manual' || !items) return null;
+  const [jr, ir] = await Promise.all([
+    dbSelectChecked('job_finance', 'site_id=eq.'+siteId+'&select=contract_value,contract_value_source').catch(()=>({ok:false})),
+    dbSelectChecked('fin_contract_items', 'site_id=eq.'+siteId+'&select=kind,value&limit=10000').catch(()=>({ok:false}))]);
+  if(!jr || !jr.ok || !ir || !ir.ok) return null;
+  const jf = (jr.data||[])[0], items = ir.data||[]; if(!jf || jf.contract_value_source!=='manual') return null;
   const boq = finRound(items.filter(finIsItem).reduce((t,i)=>t+Number(i.value||0),0));
   const typed = finRound(Number(jf.contract_value||0));
   if(!boq || Math.abs(boq-typed) < 0.5) return null;
@@ -61398,7 +61527,11 @@ function finCvPrompt(siteId, c){
   if(sv) window.saveFinContract = async function(siteId){
     const sid = siteId || (parseRoute()||[])[1];
     const r = await sv.apply(this, arguments);
-    try{ const c = sid && await finCvCheck(sid); if(c) finCvPrompt(sid, c); }catch(e){}
+    try{
+      const c = sid && await finCvCheck(sid);
+      let kept = false; try{ kept = !!(c && localStorage.getItem(finCvAckKey(sid, c))); }catch(e){}
+      if(c && !kept) finCvPrompt(sid, c);
+    }catch(e){}
     return r;
   };
   // Bar on the BoQ page while they differ
@@ -61713,15 +61846,22 @@ function finBqOv(){
   if(!ov){ ov = document.createElement('div'); ov.id = 'finBqOv'; ov.className = 'bq-ov'; document.body.appendChild(ov); ov.addEventListener('click', e=>{ if(e.target===ov) finBqClose(); }); }
   return ov;
 }
+let finBqOpen = null;   // the line open in the sheet: {row, snap, site}
 window.finBqClose = function(){
   const ov = document.getElementById('finBqOv'); if(!ov || ov.style.display==='none') return;
   ov.style.display = 'none'; ov.innerHTML = '';
+  // Save if anything changed — either against the last save, or since this line was opened (review 24 Oct H1).
+  const o = finBqOpen; finBqOpen = null;
+  const lineChanged = !!(o && o.site===finContractSite && JSON.stringify(o.row)!==o.snap);
   finContractPaint();
-  if(typeof finContractIsDirty==='function' && finContractIsDirty() && typeof finContractAutoSave==='function') finContractAutoSave();
+  if(typeof finContractAutoSave==='function' && (lineChanged || (typeof finContractIsDirty==='function' && finContractIsDirty()))) finContractAutoSave();
 };
+// Leaving the page closes the sheet (and saves) so it can't sit over the next screen (review 24 Oct M5).
+window.addEventListener('hashchange', ()=>{ const ov = document.getElementById('finBqOv'); if(ov && ov.style.display==='flex') finBqClose(); });
 window.finBqEdit = function(i, isNew){
   const r = finContractRows[i]; if(!r) return;
   const ov = finBqOv();
+  if(!finBqOpen || finBqOpen.row!==r) finBqOpen = {row:r, snap:isNew ? '' : JSON.stringify(r), site:finContractSite};
   const subs = FIN_SUBJOBS[finContractSite] || [];
   const plot = subs.length ? `<label class="bq-f"><span>${escapeHtml(finSubNoun(finContractSite))}</span><select onchange="finContractRows[${i}].sub=this.value"><option value="">${r.kind==='item' ? 'As its section' : 'None'}</option>${subs.map(a=>`<option value="${a.id}" ${r.sub===a.id?'selected':''}>${escapeHtml(a.name||a.label||'')}</option>`).join('')}</select></label>` : '';
   const kinds = Object.keys(FIN_KIND_LABEL).filter(k=>k!==r.kind);
@@ -61761,9 +61901,12 @@ window.finBqMove = function(i, d){ const j = i+d; if(j<0 || j>=finContractRows.l
 window.finBqDelete = async function(i){
   const r = finContractRows[i]; if(!r) return;
   const what = r.description ? '“'+r.description+'”' : 'this line';
-  if(!await customConfirm(`Remove ${what} from the Bill of Quantities?`, {confirmLabel:'Remove'})) return;
+  // Hide the sheet first, or the question opens behind it (review 24 Oct H2).
+  const ov = document.getElementById('finBqOv'); if(ov) ov.style.display = 'none';
+  if(!await customConfirm(`Remove ${what} from the Bill of Quantities?`, {confirmLabel:'Remove'})){ if(ov) ov.style.display = 'flex'; return; }
+  finBqOpen = null;
   finContractRows.splice(i, 1);
-  const ov = document.getElementById('finBqOv'); if(ov){ ov.style.display = 'none'; ov.innerHTML = ''; }
+  if(ov){ ov.style.display = 'none'; ov.innerHTML = ''; }
   finContractPaint();
   if(typeof finContractAutoSave==='function') finContractAutoSave();
 };
@@ -61773,9 +61916,7 @@ window.finBqDelete = async function(i){
   window.finContractPaint = finContractPaint;
   document.addEventListener('keydown', e=>{ if(e.key==='Escape' && document.getElementById('finBqOv') && document.getElementById('finBqOv').style.display==='flex'){ e.stopPropagation(); finBqClose(); } }, true);
   const st = document.createElement('style');
-  st.textContent = `@media (max-width:700px){
-  .finboqadd, #finCtBulk, .finboqpane .row-gap:has(> button[onclick*="finContractAdd"]){display:none !important;}
-}
+  st.textContent = `html:not(.desk) .finboqadd, html:not(.desk) #finCtBulk, html:not(.desk) .finboqpane .row-gap:has(> button[onclick*="finContractAdd"]){display:none !important;}
 .bq{display:flex;flex-direction:column;gap:6px;}
 .bq-sec,.bq-sub{display:flex;align-items:center;gap:8px;cursor:pointer;border-radius:10px;}
 .bq-sec{background:var(--brand1,#E3262B);color:var(--brand1-text,#fff);padding:10px 12px;margin-top:6px;}
@@ -61840,6 +61981,536 @@ window.finBqDelete = async function(i){
   .finboqtot > span{min-width:0 !important;padding:7px 8px !important;}
   .finboqtot em{font-size:10.5px !important;} .finboqtot b{font-size:14px !important;white-space:nowrap;}
 }`;
+  document.head.appendChild(st);
+})();
+
+/* ============================================================
+   OpHUB Finance — project Overview tiles, round 2 (25 Oct 2026, Andy):
+   - eight fixed tiles: Contract Value · Variations · Costs · Profit %
+                        Applied · Invoiced · Overdue · Retention
+   - each ⋯ only offers versions of its own tile (e.g. Costs → Materials / Labour / Plant…;
+     Variations → Approved (default) / Unapproved / All);
+   - the separate Variations & Day Works row underneath is gone (it's the Variations tile now);
+   - ⋯ menus are kept on the screen (on an iPhone the first one used to open off the left edge);
+   - company overheads (OHP): a company admin sets a % in Finance › Settings (a project can
+     have its own in Project Admin). It is charged on the work valued and comes off profit
+     and margin everywhere the forecast is used (Overview, reports, budgets).
+   ============================================================ */
+
+/* ---------- Company overheads (OHP) ---------- */
+function finOhpPct(jf){
+  const j = jf && jf.ohp_pct;
+  if(j!=null && j!=='' && !isNaN(j)) return Number(j);
+  const s = typeof FIN_SETTINGS!=='undefined' && FIN_SETTINGS && FIN_SETTINGS.ohp_pct;
+  return s!=null && s!=='' && !isNaN(s) ? Number(s) : 0;
+}
+(function(){
+  const base = finJobForecast;
+  finJobForecast = function(b, siteId){
+    const fc = base.apply(this, arguments);
+    const p = finOhpPct(fc.jf);
+    fc.ohpPct = p;
+    fc.ohpToDate = finRound((fc.sales||0)*p/100);
+    fc.ohpOnValuation = finRound((fc.valuation||0)*p/100);
+    fc.ohpForecast = finRound((fc.ffa||0)*p/100);
+    fc.grossProfitToDate = finRound((fc.sales||0) - (fc.costToDate||0));     // before overheads
+    if(p){
+      fc.salesMargin = finRound(fc.salesMargin - fc.ohpToDate);
+      fc.salesMarginPct = fc.sales ? finRound(fc.salesMargin/fc.sales*100) : null;
+      fc.marginToDate = finRound(fc.marginToDate - fc.ohpOnValuation);
+      fc.marginToDatePct = fc.valuation ? finRound(fc.marginToDate/fc.valuation*100) : null;
+      fc.forecastMargin = finRound(fc.forecastMargin - fc.ohpForecast);
+      fc.forecastMarginPct = fc.ffa ? finRound(fc.forecastMargin/fc.ffa*100) : null;
+    }
+    fc.profitToDate = fc.salesMargin; fc.profitToDatePct = fc.salesMarginPct;
+    return fc;
+  };
+})();
+
+// The company OHP % lives in the Finance settings — make sure they're loaded whenever a job book is.
+(function(){
+  const base = finLoadBook;
+  finLoadBook = async function(){
+    const [b] = await Promise.all([base.apply(this, arguments), (typeof FIN_SETTINGS==='undefined' || !FIN_SETTINGS) && typeof finLoadSettings==='function' ? finLoadSettings().catch(()=>null) : null]);
+    return b;
+  };
+})();
+
+/* ---------- the eight tiles ---------- */
+const FIN_OV2_LS = 'ophub.finOv2';
+const FIN_OV2 = [
+  {slot:'cv',  t:'Contract Value', ts:'Contract', def:'contract', opts:[['contract','Contract Value'],['cva','Contract + Approved Variations'],['ffa','Forecasted Final Account']]},
+  {slot:'var', t:'Variations',     def:'va', opts:[['va','Approved Variations'],['vu','Unapproved Variations'],['v','All Variations'],['da','Approved Day Works'],['d','All Day Works']]},
+  {slot:'cost',t:'Costs',          def:'all', opts:[['all','All Costs To Date'],['materials','Materials'],['labour','Labour'],['plant','Plant'],['subcontract','Subcontract'],['overheads','Prelims & Site Costs'],['other','Other'],['committed','Ordered, Not Invoiced']]},
+  {slot:'pr',  t:'Profit',         def:'td', opts:[['td','Profit To Date'],['fc','Forecast Profit'],['gross','Profit Before Overheads']]},
+  {slot:'ap',  t:'Applied',        def:'applied', opts:[['applied','Applied To Date'],['certified','Certified To Date'],['valued','Valued To Date']]},
+  {slot:'inv', t:'Invoiced',       def:'invoiced', opts:[['invoiced','Invoiced To Date'],['owed','Owed To You'],['received','Paid To Date']]},
+  {slot:'od',  t:'Overdue',        def:'net', opts:[['net','Overdue (excl. VAT)'],['gross','Overdue (incl. VAT)']]},
+  {slot:'ret', t:'Retention',      def:'held', opts:[['held','Held By Client'],['released','Released To Date'],['taken','Total Retention Taken']]},
+];
+const FIN_OV2_SHORT = {cva:'Contract + Variations', ffa:'Final Account', va:'Variations', vu:'Unapproved', v:'Variations', da:'Day Works', d:'Day Works',
+  all:'Costs', materials:'Materials', labour:'Labour', plant:'Plant', subcontract:'Subcontract', overheads:'Prelims', other:'Other Costs', committed:'Ordered',
+  td:'Profit', fc:'Forecast Profit', gross:'Profit (pre-OHP)', certified:'Certified', valued:'Valued', owed:'Owed', received:'Paid', released:'Released', taken:'Retention Taken'};
+function finOv2Cur(){ const c = finLsGet(FIN_OV2_LS, {}); const out = {}; FIN_OV2.forEach(t=>{ out[t.slot] = t.opts.some(o=>o[0]===c[t.slot]) ? c[t.slot] : t.def; }); return out; }
+window.finOv2Set = function(slot, k){ const c = finLsGet(FIN_OV2_LS, {}); c[slot] = k; finLsSet(FIN_OV2_LS, c); document.querySelectorAll('.finmb.open').forEach(x=>x.classList.remove('open')); finOvPaint(); };
+function finOv2Tile(t, k, d, fc){
+  const s = d.siteId, sg = sub=>`finSalesGo('${s}','${sub}')`;
+  const live = (d.invs||[]).filter(i=>i.status!=='void');
+  const pc = (a, b)=>b ? Math.round(a/b*1000)/10 : null;
+  let v = null, sub = '', tone = 'blue', go = '', big = null;
+  if(t.slot==='cv'){
+    const contract = fc ? fc.contract : Number((d.jf||{}).contract_value||0);
+    v = k==='contract' ? contract : !fc ? null : k==='cva' ? finRound(fc.contract + (fc.vAgreed||0)) : fc.ffa;
+    sub = k==='ffa' ? 'incl. submitted variations' : 'excl. VAT'; go = `finProjTabGo('${s}','setup')`;
+  } else if(t.slot==='var'){
+    const r = typeof finVdTotals==='function' ? finVdTotals(s, k) : null;
+    const D = typeof FIN_VD_DATA!=='undefined' && FIN_VD_DATA[s];
+    if(!D || Date.now()-(D.at||0) > 3000) setTimeout(()=>finVdLoad(s), 0);
+    v = r ? r.v : null; sub = r ? r.n+' '+(k[0]==='v' ? (r.n===1?'variation':'variations') : (r.n===1?'day work':'day works'))+(k.length===1?'':k[1]==='a'?' approved':' not approved') : '';
+    tone = k[1]==='u' ? 'amber' : 'blue';
+    go = `finBoqSub['${s}']='${k[0]==='v'?'var':'dw'}';go('#/site/${s}/finance/contract')`;
+  } else if(t.slot==='cost'){
+    tone = 'grey'; go = `finCosts=null;go('#/site/${s}/finance/costs')`;
+    if(fc){
+      v = k==='all' ? fc.costToDate : k==='committed' ? fc.committedTotal : (fc.actual||{})[k];
+      if(k==='all') sub = fc.budgetTotal ? pc(fc.costToDate, fc.budgetTotal)+'% of budget' : 'No budget yet';
+      else if(k==='committed') sub = 'on POs, no invoice yet';
+      else { const bud = (fc.budget||{})[k]; sub = bud ? pc(v||0, bud)+'% of '+finK(bud)+' budget' : fc.costToDate ? pc(v||0, fc.costToDate)+'% of all costs' : 'to date'; }
+    }
+  } else if(t.slot==='pr'){
+    if(fc){
+      let p, m;
+      if(k==='fc'){ if(fc.budgetTotal==null || fc.forecastMarginPct==null){ p = null; sub = 'Needs a budget'; go = `go('#/site/${s}/finance/budget')`; } else { p = fc.forecastMarginPct; m = fc.forecastMargin; } }
+      else if(k==='gross'){ m = fc.grossProfitToDate; p = fc.sales ? pc(m, fc.sales) : null; }
+      else { m = fc.profitToDate; p = fc.sales ? fc.profitToDatePct : null; }
+      if(p==null && !sub) sub = 'Nothing valued yet';
+      if(p!=null) p = Math.round(p*10)/10;
+      big = p==null ? '—' : p+'%';
+      if(p!=null) sub = finMoney(m, 0)+(k==='td' && fc.ohpPct ? ' after '+fc.ohpPct+'% OHP' : k==='gross' ? ' before OHP' : k==='fc' ? ' forecast' : ' to date');
+      v = p; tone = p==null ? 'grey' : p<0 ? 'red' : 'green';
+      if(!go) go = `go('#/site/${s}/finance/budget')`;
+    }
+  } else if(t.slot==='ap'){
+    v = !fc ? null : k==='applied' ? fc.applied : k==='certified' ? fc.certified : fc.sales;
+    const p = fc ? pc(v||0, fc.ffa) : null; sub = p!=null ? p+'% of final account' : ''; go = sg('apps');
+  } else if(t.slot==='inv'){
+    if(k==='invoiced') v = finRound(live.filter(i=>i.status!=='draft').reduce((a,i)=>a+Number(i.net||0),0));
+    else if(k==='owed') v = finRound(live.reduce((a,i)=>a+finInvOutstandingNet(i),0));
+    else v = finRound(live.reduce((a,i)=>{ const tt = Number(i.total||0); return a + (tt ? Math.min(Number(i.paid||0), tt)*Number(i.net||0)/tt : 0); },0));
+    sub = 'excl. VAT'; tone = 'green'; go = sg('invoices');
+  } else if(t.slot==='od'){
+    const od = live.filter(finInvOverdue);
+    v = finRound(od.reduce((a,i)=>a+(k==='gross' ? finInvOutstanding(i) : finInvOutstandingNet(i)),0));
+    sub = od.length ? od.length+' invoice'+(od.length===1?'':'s') : (k==='gross'?'incl. VAT':'excl. VAT'); tone = v>0 ? 'red' : 'grey'; go = sg('invoices');
+  } else if(t.slot==='ret'){
+    const apps = d.apps||[], taken = finRetentionHeld(apps), still = finRetentionStillHeld(apps, d.jf, d.invs);
+    v = k==='held' ? still : k==='taken' ? taken : finRound(Math.max(0, taken - still) + finRetentionPeakDrop(apps));
+    sub = k==='held' ? 'still with the client' : k==='taken' ? 'on the latest certificate' : 'invoiced or applied for'; tone = 'amber'; go = sg('retention');
+  }
+  const title = k===t.def ? t.t : (FIN_OV2_SHORT[k] || t.t);
+  const shortT = k===t.def ? (t.ts || t.t) : title;
+  return `<div class="finov-box ${tone}" onclick="${escapeHtml(go)}">
+      <div class="finov-row"><span class="finov-bl"><span class="finov-lt">${escapeHtml(title)}</span><span class="finov-st">${escapeHtml(shortT)}</span></span>${finPickMenuHtml(t.t, t.opts, k, 'finOv2Set', t.slot)}</div>
+      <b>${big!=null ? big : v==null ? '…' : finK(v)}</b><span class="finov-bs">${escapeHtml(sub||'')}</span></div>`;
+}
+// Retention given back through an application (lower % on a later certificate) — highest certificate retention less the latest.
+function finRetentionPeakDrop(apps){
+  const c = (apps||[]).filter(a=>a.cert_retention!=null && a.status!=='void');
+  if(!c.length) return 0;
+  const peak = Math.max(...c.map(a=>Number(a.cert_retention||0)));
+  return finRound(Math.max(0, peak - finRetentionHeld(apps)));
+}
+function finOvBlockHtml(siteId, d, fc){
+  const cur = finLsGet(FIN_OV_LS, FIN_OV_DEF);
+  const hk = FIN_OV_H.some(o=>o[0]===cur.h) ? cur.h : 'ffa';
+  const contract = fc ? fc.contract : Number((d.jf||{}).contract_value||0);
+  const hv = hk==='contract' ? contract : (fc ? fc.ffa : null);
+  const valued = fc ? fc.sales : null;
+  let mPct = null, mLabel = '';
+  if(fc && fc.budgetTotal!=null && fc.forecastMarginPct!=null){ mPct = fc.forecastMarginPct; mLabel = 'margin'; }
+  else if(fc && fc.sales){ mPct = fc.profitToDatePct; mLabel = 'margin to date'; }
+  if(mPct!=null) mPct = Math.round(mPct*10)/10;
+  const pill = mPct==null ? `<span class="finov-pill grey" onclick="event.stopPropagation();go('#/site/${siteId}/finance/budget')">Set a budget</span>` : `<span class="finov-pill ${mPct<0?'red':'green'}">${mPct}% ${mLabel}</span>`;
+  const pv = fc && fc.ffa ? Math.max(0, Math.min(100, Math.round(valued/fc.ffa*100))) : 0;
+  const subLine = fc ? `Contract ${finMoney(fc.contract, 0)} + ${finMoney(fc.vAgreed||0, 0)} agreed variations${fc.vPending ? ' + '+finMoney(fc.vPending, 0)+' submitted' : ''}${fc.budgetTotal!=null ? ' · forecast profit '+finMoney(fc.forecastMargin, 0) : ''}${fc.ohpPct ? ' (after '+fc.ohpPct+'% overheads)' : ''}` : '';
+  const head = `<div class="card finov-head" onclick="finProjTabGo('${siteId}','setup')">
+    <div class="finov-row"><span class="finov-lbl">${escapeHtml(FIN_OV_H.find(o=>o[0]===hk)[1])}</span>${finPickMenuHtml('Headline', FIN_OV_H, hk, 'finOvSet', 'h')}</div>
+    <div class="finov-row"><span class="finov-big">${hv==null ? '…' : finMoney(hv, 0)}</span>${pill}</div>
+    ${subLine ? `<div class="finov-sm">${subLine}</div>` : ''}
+    <div class="finov-bar"><i style="width:${pv}%"></i></div>
+    <div class="finov-row finov-sm"><span>${valued==null ? '' : finMoney(valued, 0)+' valued ('+pv+'%)'}</span><span>${fc && fc.ffa ? finMoney(Math.max(0, fc.ffa - valued), 0)+' to go' : ''}</span></div>
+  </div>`;
+  const cur2 = finOv2Cur();
+  const boxes = FIN_OV2.map(t=>finOv2Tile(t, cur2[t.slot], d, fc)).join('');
+  const warn = fc && fc.budgetSource==='schedule' && fc.schedCostedN < fc.schedItemsN ? `<div class="finnote warn">${fc.schedItemsN - fc.schedCostedN} Bill of Quantities line${fc.schedItemsN - fc.schedCostedN===1?' has':'s have'} no cost price yet, so the budget is low.</div>` : '';
+  return `${head}<div class="finov-grid">${boxes}</div>${warn}
+    <div class="finsumbtns finov-btns">
+      <button type="button" class="ghostbtn" onclick="finDsTab='summary';go('#/site/${siteId}/finance/summary')">Full Summary</button>
+      <button type="button" class="ghostbtn" onclick="go('#/site/${siteId}/finance/reports')">Reports</button>
+      <button type="button" class="ghostbtn" onclick="go('#/site/${siteId}/finance/budget')">Budgets</button>
+    </div>`;
+}
+// The variations tile fills in once its two small lists have loaded.
+(function(){
+  const base = finVdLoad;
+  finVdLoad = async function(siteId){
+    if(finVdLoad.__busy && finVdLoad.__busy[siteId]) return;
+    (finVdLoad.__busy = finVdLoad.__busy || {})[siteId] = 1;
+    try{ await base.apply(this, arguments); } finally { delete finVdLoad.__busy[siteId]; }
+    if(__finOv && __finOv.siteId===siteId && document.getElementById('finOvTop')) finOvPaint();
+  };
+})();
+
+/* ---------- keep ⋯ menus on the screen ---------- */
+function finMenuClamp(){
+  document.querySelectorAll('.finmb.open .finmb-m').forEach(m=>{
+    m.style.transform = ''; m.style.maxWidth = 'calc(100vw - 16px)';
+    const r = m.getBoundingClientRect(), vw = document.documentElement.clientWidth;
+    let dx = 0;
+    if(r.left < 8) dx = 8 - r.left; else if(r.right > vw - 8) dx = (vw - 8) - r.right;
+    if(dx) m.style.transform = 'translateX('+Math.round(dx)+'px)';
+    const rb = m.getBoundingClientRect();
+    if(rb.bottom > window.innerHeight - 8 && rb.top > rb.height + 40){ m.style.top = 'auto'; m.style.bottom = '26px'; }
+  });
+}
+document.addEventListener('click', e=>{ if(e.target && e.target.closest && e.target.closest('.finmb-b')) requestAnimationFrame(finMenuClamp); }, true);
+window.addEventListener('resize', ()=>{ if(document.querySelector('.finmb.open')) finMenuClamp(); });
+(function(){
+  const st = document.createElement('style');
+  st.textContent = `.finov .finvdrow{display:none !important;}
+.finov-box .finmb-m{min-width:200px;}
+.finov-box > b{line-height:1.15;}
+.finov-st{display:none;} @media (max-width:700px){ .finov-lt{display:none;} .finov-st{display:inline;} }
+html.desk .finov-grid{grid-template-columns:repeat(4,minmax(0,1fr)) !important;gap:8px !important;}
+html.desk .finov-box{padding:10px 12px !important;}
+html.desk .finov-bs{white-space:normal;}`;
+  document.head.appendChild(st);
+})();
+
+/* ============================================================
+   OpHUB Finance — Budgets as a proper feature (25 Oct 2026, Andy: "make the budgets a bit
+   more of a feature"). One project's Budget & forecast page now has:
+   - a headline card: forecast profit (after company overheads), margin %, and one bar showing
+     spent + ordered against the budget, with "on budget" / "£x over";
+   - "Set budgets from a target margin": type the margin you want, it works out the money
+     available for costs and splits it across the headings (you can change the split);
+   - each heading row gets a used-of-budget bar, coloured amber near the limit and red over;
+   - the Value card shows the company overheads (OHP) taken off.
+   Same table, same Save — the headings still save to fin_job_budgets.
+   ============================================================ */
+const FIN_BUD_SPLIT_LS = 'ophub.finBudSplit';
+const FIN_BUD_SPLIT_DEF = {materials:45, labour:30, plant:5, subcontract:10, overheads:7, other:3};
+function finBudBarHtml(id){ return `<div class="fbb" id="${id}"><i class="s"></i><i class="c"></i></div>`; }
+function finBudSetBar(id, spent, committed, budget){
+  const el = document.getElementById(id); if(!el) return;
+  const s = el.querySelector('.s'), c = el.querySelector('.c');
+  if(!budget){ el.classList.add('none'); s.style.width = '0'; c.style.width = '0'; el.title = 'No budget'; return; }
+  el.classList.remove('none');
+  const ps = Math.min(100, spent/budget*100), pc = Math.min(100 - ps, committed/budget*100), used = (spent+committed)/budget*100;
+  s.style.width = ps+'%'; c.style.width = pc+'%';
+  el.classList.toggle('warn', used>=85 && used<=100); el.classList.toggle('over', used>100);
+  el.title = Math.round(used)+'% of budget used (spent + ordered)';
+}
+async function renderFinBudget(siteId){
+  if(!finGuard()) return;
+  const __gen = RENDER_GEN;
+  const site = SITES.find(s=>s.id===siteId); if(!site){ go('#/finance'); return; }
+  const b = await finLoadBook(siteId);
+  if(__gen !== RENDER_GEN) return;
+  const fc = finJobForecast(b, siteId);
+  finBud = {siteId, fc};
+  const cell = (k, f)=>`<input type="text" inputmode="decimal" data-money data-k="${f}" data-c="${k}" value="${f==='budget' ? (fc.budget[k]!=null?fc.budget[k]:'') : (fc.tcSet[k]?fc.toComplete[k]:'')}" placeholder="${f==='to_complete' ? finMoneyIn(fc.toComplete[k]||0) : '£0.00'}" oninput="finBudPaint()">`;
+  const split = Object.assign({}, FIN_BUD_SPLIT_DEF, finLsGet(FIN_BUD_SPLIT_LS, {}));
+  const ohpLine = fc.ohpPct ? `<div class="finkv"><span>Company overheads (OHP) ${fc.ohpPct}% of the final account</span><b>−${finMoney(fc.ohpForecast)}</b></div>` : '';
+  document.getElementById('app').innerHTML = shell(`
+    <div class="card fbh">
+      <div class="fbh-top">
+        <div><span class="fbh-l">Forecast profit${fc.ohpPct ? ' (after '+fc.ohpPct+'% overheads)' : ''}</span><b class="fbh-big" id="finBudFm">${finMoney(fc.forecastMargin, 0)}</b></div>
+        <span class="fbh-pill" id="finBudFp">${finPctTxt(fc.forecastMarginPct)}</span>
+      </div>
+      <div class="fbh-3">
+        <div><span>Final account</span><b>${finMoney(fc.ffa, 0)}</b></div>
+        <div><span>Forecast final cost</span><b id="finBudFc">${finMoney(fc.forecastCost, 0)}</b></div>
+        <div><span>Budget</span><b id="finBudHB">—</b></div>
+      </div>
+      ${finBudBarHtml('finBudHBar')}
+      <div class="fbh-leg"><span><i class="s"></i>Spent ${finMoney(fc.costToDate, 0)}</span><span><i class="c"></i>Ordered ${finMoney(fc.committedTotal, 0)}</span><span id="finBudHLeft"></span></div>
+      <div class="fbh-st" id="finBudHSt"></div>
+    </div>
+    ${fc.budgetSource==='schedule' ? `<div class="finnote ok">The budget is coming from the cost prices on the Bill of Quantities: <b style="display:inline;">${finMoney(fc.schedCost)}</b>${fc.varCost?' + '+finMoney(fc.varCost)+' variation costs':''}. Type budgets by heading below only if you want to split it up instead.</div>` : ''}
+    <details class="card fbt" ${fc.budgetTotal==null ? 'open' : ''}>
+      <summary><b>Set budgets from a target margin</b><span>Type the margin you want; it works out what you can spend and splits it across the headings.</span></summary>
+      <div class="fbt-b">
+        <div class="fbt-row"><label class="formfield"><span class="field-label">Target margin %</span><input type="number" id="finBudTgt" min="0" max="90" step="0.5" value="${finLsGet(FIN_BUD_SPLIT_LS, {}).tgt!=null ? finLsGet(FIN_BUD_SPLIT_LS, {}).tgt : 20}" oninput="finBudTgtPaint()"></label>
+          <div class="fbt-avail"><span>Available for costs</span><b id="finBudAvail">—</b><em id="finBudAvailN"></em></div></div>
+        <p class="field-label" style="margin:6px 0 4px;">Split (% of the cost budget)</p>
+        <div class="fbt-split">${fc.cats.map(k=>`<label><span>${escapeHtml(FIN_COST_CATS[k])}</span><input type="number" min="0" max="100" step="1" data-sp="${k}" value="${split[k]!=null?split[k]:0}" oninput="finBudTgtPaint()"><em id="finBudSp-${k}"></em></label>`).join('')}</div>
+        <div class="fbt-foot"><span id="finBudSpTot"></span><button type="button" class="darkbtn" onclick="finBudFillFromTarget()">Fill the budgets below</button></div>
+        <p class="stub" style="margin:6px 0 0;font-style:normal;">Nothing is saved until you press “Save budget &amp; forecast”.</p>
+      </div>
+    </details>
+    <div class="card">
+      <p class="sectiontitle" style="margin-top:0;">Cost by heading</p>
+      <p class="stub" style="margin:-6px 0 12px;">Set a budget for each heading. Cost to complete is what you expect still to spend — leave it blank and it’s worked out as budget less spent and ordered.</p>
+      <div class="finbudtbl-wrap"><table class="fincosttbl finbudtbl">
+        <thead><tr><th>Heading</th><th class="num">Budget £</th><th class="num">Spent</th><th class="num">Ordered</th><th class="num">To complete £</th><th class="num">Forecast final</th><th class="num">Over / under</th><th>Used</th></tr></thead>
+        <tbody>${fc.cats.map(k=>`<tr data-cat="${k}">
+          <td data-l="Heading" class="d">${FIN_COST_CATS[k]}</td>
+          <td data-l="Budget £" class="num">${cell(k,'budget')}</td>
+          <td data-l="Spent" class="num"><a href="javascript:void(0)" onclick="finCosts=null;go('#/site/${siteId}/finance/costs')">${finMoney(fc.actual[k])}</a></td>
+          <td data-l="Ordered" class="num">${finMoney(fc.committed[k])}</td>
+          <td data-l="To complete £" class="num">${cell(k,'to_complete')}</td>
+          <td data-l="Forecast final" class="num" id="finBudF-${k}">${finMoney(fc.forecast[k])}</td>
+          <td data-l="Over / under" class="num" id="finBudV-${k}">—</td>
+          <td data-l="Used" class="fbu">${finBudBarHtml('finBudB-'+k)}</td>
+        </tr>`).join('')}</tbody>
+        <tfoot><tr><td>Total</td><td class="num" id="finBudTB">—</td><td class="num">${finMoney(fc.costToDate)}</td><td class="num">${finMoney(fc.committedTotal)}</td><td class="num" id="finBudTT">—</td><td class="num" id="finBudTF">—</td><td class="num" id="finBudTV">—</td><td></td></tr></tfoot>
+      </table></div>
+      <button class="darkbtn" style="width:100%;margin-top:14px;" onclick="saveFinBudget('${siteId}')">Save budget &amp; forecast</button>
+    </div>
+    <div class="card">
+      <p class="sectiontitle" style="margin-top:0;">Value</p>
+      <div class="finkv"><span>Contract value</span><b>${finMoney(fc.contract)}</b></div>
+      <div class="finkv"><span>Variations agreed</span><b>${finMoney(fc.vAgreed)}</b></div>
+      <div class="finkv"><span>Variations priced or submitted (not agreed)</span><b>${finMoney(fc.vPending)}</b></div>
+      ${fc.vInstructed ? `<div class="finkv"><span>Instructed, not priced yet (estimate, not included)</span><b>${finMoney(fc.vInstructed)}</b></div>` : ''}
+      <div class="finkv big"><span>Forecast final account</span><b>${finMoney(fc.ffa)}</b></div>
+      ${ohpLine}
+      <div class="finkv"><span>Valuation to date (last application)</span><b>${finMoney(fc.valuation)}</b></div>
+      <div class="finkv"><span>Invoiced</span><b>${finMoney(fc.invoiced)}</b></div>
+      ${fc.ohpPct ? '' : `<p class="stub" style="margin:8px 0 0;font-style:normal;">No company overheads are being taken off this project’s profit. ${ME.role==='admin' ? 'Set them in Finance › Settings › Company overheads (OHP).' : 'A company admin can set them in Finance › Settings.'}</p>`}
+    </div>
+  `, {title:'Budget & forecast', subtitle:(site.job_number?site.job_number+' · ':'')+site.name, back:`#/site/${siteId}/finance`, siteId, tabs:false});
+  finBudPaint();
+  finBudTgtPaint();
+}
+// Paint: the base works out the table; then the bars, headline and the overheads.
+(function(){
+  const base = window.finBudPaint;
+  window.finBudPaint = function(){
+    base.apply(this, arguments);
+    if(!finBud) return;
+    const fc = finBud.fc, r = finBudRead();
+    let tb = 0, anyB = false, tf = 0;
+    fc.cats.forEach(k=>{ const x = r[k]; tf += x.forecast; if(x.budget!=null){ tb += x.budget; anyB = true; } finBudSetBar('finBudB-'+k, fc.actual[k], fc.committed[k], x.budget); });
+    if(!anyB && fc.budgetSource==='schedule'){ tb = fc.budgetTotal; tf = Math.max(tf, finRound(fc.budgetTotal)); }
+    const budget = anyB || fc.budgetSource==='schedule' ? finRound(tb) : null;
+    // forecast profit after overheads (the base leaves OHP out)
+    const fEl = document.getElementById('finBudFc'), fcost = fEl ? finNum(fEl.textContent) : tf;
+    const m = finRound(fc.ffa - (fcost!=null && !isNaN(fcost) ? fcost : tf) - (fc.ohpForecast||0));
+    const mEl = document.getElementById('finBudFm'); if(mEl){ mEl.textContent = finMoney(m, 0); mEl.style.color = m<0 ? 'var(--red)' : ''; }
+    const pEl = document.getElementById('finBudFp'); if(pEl){ pEl.textContent = fc.ffa ? finPctTxt(m/fc.ffa*100) : '—'; pEl.classList.toggle('neg', m<0); }
+    const hb = document.getElementById('finBudHB'); if(hb) hb.textContent = budget!=null ? finMoney(budget, 0) : 'Not set';
+    finBudSetBar('finBudHBar', fc.costToDate, fc.committedTotal, budget);
+    const left = document.getElementById('finBudHLeft'); if(left) left.textContent = budget!=null ? 'Left '+finMoney(Math.max(0, finRound(budget - fc.costToDate - fc.committedTotal)), 0) : '';
+    const st = document.getElementById('finBudHSt');
+    if(st){
+      if(budget==null){ st.className = 'fbh-st none'; st.textContent = 'No budget yet — set one below (or from a target margin) to see if the job is on track.'; }
+      else { const over = finRound(tf - budget); st.className = 'fbh-st '+(over>0.5 ? 'over' : 'ok'); st.textContent = over>0.5 ? 'Forecast to go '+finMoney(over, 0)+' over budget' : 'Forecast to finish '+finMoney(Math.abs(over), 0)+' under budget'; }
+    }
+  };
+})();
+window.finBudTgtPaint = function(){
+  if(!finBud) return;
+  const fc = finBud.fc;
+  const t = finNum((document.getElementById('finBudTgt')||{}).value);
+  const avail = t==null || isNaN(t) ? null : finRound(fc.ffa*(1 - t/100) - (fc.ohpForecast||0));
+  const a = document.getElementById('finBudAvail'); if(a) a.textContent = avail==null ? '—' : finMoney(avail, 0);
+  const n = document.getElementById('finBudAvailN'); if(n) n.textContent = fc.ohpPct ? `${finMoney(fc.ffa, 0)} less ${t||0}% margin less ${finMoney(fc.ohpForecast, 0)} overheads` : `${finMoney(fc.ffa, 0)} less ${t||0}% margin`;
+  let tot = 0; const sp = {};
+  document.querySelectorAll('[data-sp]').forEach(i=>{ const v = Number(i.value)||0; sp[i.dataset.sp] = v; tot += v; });
+  Object.keys(sp).forEach(k=>{ const e = document.getElementById('finBudSp-'+k); if(e) e.textContent = avail!=null && tot ? finMoney(finRound(avail*sp[k]/tot), 0) : ''; });
+  const st = document.getElementById('finBudSpTot'); if(st){ st.textContent = 'Split adds up to '+tot+'%'+(Math.abs(tot-100)>0.01 ? ' — it’ll be scaled to 100%' : ''); st.classList.toggle('warn', Math.abs(tot-100)>0.01); }
+};
+window.finBudFillFromTarget = function(){
+  if(!finBud) return;
+  const fc = finBud.fc;
+  const t = finNum((document.getElementById('finBudTgt')||{}).value);
+  if(t==null || isNaN(t) || t<0 || t>=100){ toast('Type a target margin between 0 and 99%.'); return; }
+  if(!fc.ffa){ toast('Set the contract value (or the Bill of Quantities) first.'); return; }
+  const avail = finRound(fc.ffa*(1 - t/100) - (fc.ohpForecast||0));
+  if(avail<=0){ toast('That margin leaves nothing to spend.'); return; }
+  const sp = {}; let tot = 0;
+  document.querySelectorAll('[data-sp]').forEach(i=>{ const v = Math.max(0, Number(i.value)||0); sp[i.dataset.sp] = v; tot += v; });
+  if(!tot){ toast('Give the split some percentages first.'); return; }
+  let used = 0; const keys = Object.keys(sp).filter(k=>sp[k]>0);
+  keys.forEach((k, i)=>{ const v = i===keys.length-1 ? finRound(avail - used) : finRound(avail*sp[k]/tot); used = finRound(used + v);
+    const el = document.querySelector(`.finbudtbl input[data-c="${k}"][data-k="budget"]`); if(el) el.value = String(v); });
+  Object.keys(sp).filter(k=>!sp[k]).forEach(k=>{ const el = document.querySelector(`.finbudtbl input[data-c="${k}"][data-k="budget"]`); if(el) el.value = ''; });
+  finLsSet(FIN_BUD_SPLIT_LS, Object.assign({}, sp, {tgt:t}));
+  finBudPaint();
+  toast('Budgets filled in — check them, then Save budget & forecast');
+  const tb = document.querySelector('.finbudtbl'); if(tb) tb.scrollIntoView({behavior:'smooth', block:'start'});
+};
+(function(){
+  const st = document.createElement('style');
+  st.textContent = `.fbh{padding:16px 18px !important;}
+.fbh-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
+.fbh-l{display:block;font-size:10.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--slate);}
+.fbh-big{display:block;font-size:30px;font-weight:800;letter-spacing:-.5px;line-height:1.15;font-variant-numeric:tabular-nums;}
+.fbh-pill{font-size:13px;font-weight:800;border-radius:10px;padding:5px 11px;background:#E7F6EC;color:#1E7A43;white-space:nowrap;} .fbh-pill.neg{background:#FDECEC;color:#B91C1C;}
+.fbh-3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:12px 0 10px;}
+.fbh-3 span{display:block;font-size:11.5px;font-weight:700;color:var(--slate);} .fbh-3 b{font-size:17px;font-weight:800;font-variant-numeric:tabular-nums;}
+.fbb{height:10px;border-radius:6px;background:#EEF0F3;overflow:hidden;display:flex;}
+.fbb i{display:block;height:100%;} .fbb .s{background:#16181D;} .fbb .c{background:#9CA3AF;}
+.fbb.warn .s{background:#B45309;} .fbb.over .s{background:#C81E1E;} .fbb.none{opacity:.45;}
+.fbh-leg{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--slate);margin-top:6px;}
+.fbh-leg i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;vertical-align:-1px;} .fbh-leg i.s{background:#16181D;} .fbh-leg i.c{background:#9CA3AF;}
+.fbh-leg span:last-child{margin-left:auto;font-weight:700;color:var(--ink);}
+.fbh-st{margin-top:10px;font-size:13px;font-weight:800;border-radius:10px;padding:7px 10px;} .fbh-st.ok{background:#EAF7EF;color:#1E7A43;} .fbh-st.over{background:#FDEEEE;color:#C81E1E;} .fbh-st.none{background:#F6F7F9;color:#4B5563;font-weight:600;}
+.fbt{padding:0 !important;} .fbt > summary{list-style:none;cursor:pointer;padding:14px 18px;display:flex;flex-direction:column;gap:2px;} .fbt > summary::-webkit-details-marker{display:none;}
+.fbt > summary b{font-size:15px;} .fbt > summary b::after{content:' ▾';color:var(--slate);font-size:12px;} .fbt[open] > summary b::after{content:' ▴';}
+.fbt > summary span{font-size:12.5px;color:var(--slate);}
+.fbt-b{padding:0 18px 16px;}
+.fbt-row{display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;} .fbt-row .formfield{margin:0;max-width:160px;}
+.fbt-avail span{display:block;font-size:11.5px;font-weight:700;color:var(--slate);} .fbt-avail b{font-size:20px;font-weight:800;} .fbt-avail em{display:block;font-style:normal;font-size:11.5px;color:var(--slate);}
+.fbt-split{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;}
+.fbt-split label{display:flex;flex-direction:column;gap:2px;font-size:12px;font-weight:700;color:var(--slate);}
+.fbt-split input{height:34px !important;min-height:34px !important;margin:0 !important;padding:0 8px !important;font-size:14px !important;}
+.fbt-split em{font-style:normal;font-size:11.5px;color:var(--ink);font-weight:700;min-height:14px;}
+.fbt-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;flex-wrap:wrap;} .fbt-foot span{font-size:12.5px;color:var(--slate);} .fbt-foot span.warn{color:#B45309;font-weight:700;}
+.fbt-foot .darkbtn{width:auto !important;margin:0 !important;padding:9px 14px !important;}
+.finbudtbl td.fbu{min-width:90px;vertical-align:middle;} .finbudtbl td.fbu .fbb{height:8px;}
+@media (max-width:700px){ .fbt-split{grid-template-columns:repeat(2,minmax(0,1fr));} .fbh-3 b{font-size:15px;} .fbh-big{font-size:26px;} }`;
+  document.head.appendChild(st);
+})();
+
+/* ============================================================
+   OpHUB Finance — retention release by application (25 Oct 2026, Andy: "it might not just be
+   invoiced for retention release, we might need to go through the normal apply process").
+   - Each half on a project's Retention card now offers "Apply" as well as "Raise invoice".
+   - Apply starts the next application (or uses the draft you already have) with the retention
+     cut: half the rate for the 1st release (practical completion), 0% for the final release.
+     The client certifies it like any other application and the release comes through in
+     the "net due" — then it's invoiced from the certificate as normal.
+   - The card shows "In Application N" once a half has been applied for.
+   - Voided invoices sit in a closed "Voided" drop-down under every invoice list.
+   - Date boxes in the retention tables sit in the middle of the row on iPhone.
+   ============================================================ */
+function finRetAppFor(jf, n, apps){
+  const id = jf && (n===1 ? jf.ret1_app_id : jf.ret2_app_id); if(!id) return null;
+  const a = (apps||[]).find(x=>x.id===id);
+  return a && a.status!=='void' ? a : null;
+}
+(function(){
+  const base = finRetentionAlerts;
+  finRetentionAlerts = function(jf, st, held){
+    const out = base.apply(this, arguments);
+    return out.filter(x=>!(jf && (x.half===1 ? jf.ret1_app_id : jf.ret2_app_id)));
+  };
+})();
+function finRetentionCardHtml(siteId, jf, st, apps){
+  const held = finRetentionHeld(apps);
+  const d = finRetentionDates(jf, st);
+  const alerts = finRetentionAlerts(jf, st, held);
+  const invs = finRetInvsFor && finRetInvsFor.siteId===siteId ? finRetInvsFor.invs : [];
+  const released = finRetentionReleased(jf, invs) + finRetentionPeakDrop(apps), still = finRound(Math.max(0, held - finRetentionReleased(jf, invs)));
+  const half = n=>finRetHalfAmt(held, n, jf, invs);
+  const act = (n, date, invId)=>{
+    if(invId) return `<button class="linkbtn" onclick="go('#/site/${siteId}/finance/invoice/${invId}')">View invoice</button>`;
+    const a = finRetAppFor(jf, n, apps);
+    if(a) return `<button class="linkbtn" onclick="go('#/site/${siteId}/finance/application/${a.id}')">In Application ${a.number}</button>`;
+    if(!held) return '<span class="stub" style="margin:0;">—</span>';
+    return `<span class="finret-acts"><button class="linkbtn" title="Start an application with the retention cut, for the client to certify" onclick="finApplyRetention('${siteId}',${n})">Apply</button>${date ? `<button class="linkbtn" onclick="raiseRetentionInvoice('${siteId}',${n})">Raise invoice</button>` : ''}</span>`;
+  };
+  const due = (n, date)=>date ? finDate(date) : '<span class="stub" style="margin:0;font-style:normal;">Set PC date</span>';
+  return `<div class="card finret">
+    <div class="finret-h"><p class="sectiontitle" style="margin:0;">Retention</p><span>Held to date <b>${finMoney(held + finRetentionPeakDrop(apps))}</b>${released ? ` · Released <b>${finMoney(released)}</b> · Still held <b>${finMoney(still)}</b>` : ''}</span></div>
+    ${alerts.length ? `<div class="finchecks" style="margin:6px 0 0;">${alerts.map(x=>`<span>${x.half===1?'First':'Second'} half due ${finDate(x.date)}</span>`).join('')}</div>` : ''}
+    <table class="finret-t"><thead><tr><th>Release</th><th>Due</th><th class="num">Amount</th><th></th></tr></thead><tbody>
+      <tr><td>1st half · practical completion</td><td>${due(1, d.first)}</td><td class="num">${finMoney(half(1))}</td><td class="r">${act(1, d.first, jf.ret1_invoice_id)}</td></tr>
+      <tr><td>2nd half · end of defects</td><td>${due(2, d.second)}</td><td class="num">${finMoney(half(2))}</td><td class="r">${act(2, d.second, jf.ret2_invoice_id)}</td></tr>
+    </tbody></table>
+    <p class="stub finret-how">Release it either way: <b>Apply</b> puts it through your next application (the client certifies it), or <b>Raise invoice</b> bills it straight away.</p>
+    <div class="finret-f">
+      <label>Practical completion<input type="date" id="finPcDate" value="${jf.pc_date||''}"></label>
+      <label>Defects (months)<input type="number" min="0" step="1" id="finDefects" value="${jf.defects_months!=null?jf.defects_months:(st.default_defects_months!=null?st.default_defects_months:12)}"></label>
+      <button class="ghostbtn" onclick="saveFinRetentionDates('${siteId}')">Save dates</button>
+    </div>
+  </div>`;
+}
+window.finApplyRetention = async function(siteId, n){
+  const [jfR, appsR] = await Promise.all([
+    dbSelectChecked('job_finance', 'site_id=eq.'+siteId),
+    dbSelectChecked('fin_applications', 'site_id=eq.'+siteId+'&order=number.desc&select=id,number,status,retention_pct,cert_retention,retention_release')]);
+  if(!jfR.ok || !appsR.ok){ toast('Couldn’t load the project — check your connection.'); return; }
+  const jf = jfR.data[0] || {}, apps = appsR.data || [];
+  const st = finSettings();
+  const basePct = jf.retention_pct!=null ? Number(jf.retention_pct) : Number(st.default_retention_pct||0);
+  if(!basePct && !apps.some(a=>Number(a.cert_retention||0))){ toast('No retention is being held on this project.'); return; }
+  const pct = n===1 ? finRound(basePct/2) : 0;
+  const draft = apps.find(a=>a.status==='draft');
+  const msg = (n===1 ? `Apply for the first half of the retention?` : `Apply for the final retention release?`)
+    + `\n\n${draft ? 'Your draft Application '+draft.number+' will' : 'A new application will'} have retention at ${pct}% instead of ${basePct}%, so the client releases ${n===1 ? 'half of it' : 'the rest'} when they certify it. Everything else works as normal.`;
+  if(!await customConfirm(msg, {confirmLabel: draft ? 'Use Application '+draft.number : 'Start the application'})) return;
+  let app = draft;
+  if(!app){
+    const before = new Set(apps.map(a=>a.id));
+    const keepGo = window.go; let target = null;
+    window.go = h=>{ target = h; };        // let newFinApplication make it, then go there ourselves
+    try{ await newFinApplication(siteId); } finally { window.go = keepGo; }
+    const r = await dbSelectChecked('fin_applications', 'site_id=eq.'+siteId+'&status=eq.draft&order=number.desc&limit=1&select=id,number,status');
+    app = r.ok && r.data[0] && !before.has(r.data[0].id) ? r.data[0] : null;
+    if(!app){ if(target) go(target); return; }   // it stopped with its own message (e.g. no Bill of Quantities)
+  }
+  const up = await dbUpdate('fin_applications', app.id, {retention_pct:pct, retention_release:n, updated_at:new Date().toISOString()});
+  if(!up){ go(`#/site/${siteId}/finance/application/${app.id}`); return; }
+  await sbFetch('/rest/v1/job_finance?on_conflict=site_id', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify(Object.assign({site_id:siteId, org_id:ME.org_id, updated_at:new Date().toISOString(), updated_by:ME.id}, n===1 ? {ret1_app_id:app.id} : {ret2_app_id:app.id}))});
+  toast(`Application ${app.number}: retention ${pct}% — ${n===1?'first half':'final'} release applied for`);
+  go(`#/site/${siteId}/finance/application/${app.id}`);
+};
+// The application itself says what it's doing.
+(function(){
+  const base = renderFinApplication;
+  renderFinApplication = async function(siteId, appId){
+    const r = await base.apply(this, arguments);
+    try{
+      if(finApp && finApp.id===appId && finApp.retention_release && !document.getElementById('finRetRelNote')){
+        const host = document.querySelector('.scrollarea'); const first = host && (host.querySelector('.finprojbar') ? host.querySelector('.finprojbar').nextElementSibling : host.firstElementChild);
+        const n = document.createElement('div'); n.id = 'finRetRelNote'; n.className = 'finnote ok';
+        n.innerHTML = `<b style="display:inline;">Retention release — ${finApp.retention_release===1 ? 'first half (practical completion)' : 'final release'}.</b> Retention on this application is ${finPct(finApp.retention_pct)}%, so the client pays back ${finApp.retention_release===1 ? 'half of what they hold' : 'what they still hold'} when they certify it.`;
+        if(first) first.insertAdjacentElement('beforebegin', n);
+      }
+    }catch(e){}
+    return r;
+  };
+})();
+// If the release application is voided, the card offers Apply / Raise invoice again.
+(function(){
+  const base = window.voidFinApplication;
+  if(typeof base==='function') window.voidFinApplication = async function(siteId, appId){
+    const r = await base.apply(this, arguments);
+    try{ const jf = (await dbSelect('job_finance', 'site_id=eq.'+siteId+'&select=ret1_app_id,ret2_app_id'))[0] || {}; const p = {}; if(jf.ret1_app_id===appId) p.ret1_app_id = null; if(jf.ret2_app_id===appId) p.ret2_app_id = null; if(Object.keys(p).length) await sbFetch('/rest/v1/job_finance?on_conflict=site_id', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify(Object.assign({site_id:siteId, org_id:ME.org_id}, p))}); }catch(e){}
+    return r;
+  };
+})();
+
+/* ---------- voided invoices in a closed drop-down ---------- */
+(function(){
+  const base = finInvTableHtml;
+  finInvTableHtml = function(invs, opts){
+    const all = invs || [], v = all.filter(i=>i.status==='void');
+    if(!v.length) return base.apply(this, arguments);
+    const live = all.filter(i=>i.status!=='void');
+    return (live.length ? base(live, opts) : `<div class="empty" style="margin:8px 0 0;">${(opts&&opts.empty)||'No invoices yet.'}</div>`)
+      + `<details class="finvoidfold"><summary>Voided invoices <span>${v.length}</span></summary>${base(v, opts)}</details>`;
+  };
+})();
+
+(function(){
+  const st = document.createElement('style');
+  st.textContent = `.finret-acts{display:inline-flex;gap:12px;justify-content:flex-end;flex-wrap:wrap;}
+.finret-how{margin:6px 0 0 !important;font-size:12px !important;font-style:normal !important;}
+.finvoidfold{margin:10px 0 0;border:1px solid var(--line,#ECEEF2);border-radius:10px;background:#FAFAFB;}
+.finvoidfold > summary{cursor:pointer;list-style:none;padding:9px 12px;font-size:13px;font-weight:700;color:var(--slate);display:flex;align-items:center;gap:8px;}
+.finvoidfold > summary::-webkit-details-marker{display:none;}
+.finvoidfold > summary::before{content:'▸';font-size:11px;} .finvoidfold[open] > summary::before{content:'▾';}
+.finvoidfold > summary span{background:#ECEEF2;border-radius:8px;padding:0 7px;font-size:11.5px;}
+.finvoidfold > .finreptbl-wrap{margin:0 8px 8px;}
+/* iPhone draws the date inside a date box at the top — keep it in the middle */
+.finretd, .finret-f input[type=date], #finPcDate{-webkit-appearance:none;appearance:none;display:inline-flex;align-items:center;line-height:normal !important;vertical-align:middle;}
+.finretd::-webkit-date-and-time-value, .finret-f input[type=date]::-webkit-date-and-time-value, #finPcDate::-webkit-date-and-time-value{text-align:left;margin:0;padding:0;line-height:normal;}
+td:has(> .finretd){vertical-align:middle !important;}`;
   document.head.appendChild(st);
 })();
 

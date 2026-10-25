@@ -44,7 +44,7 @@ function finTopVal(k, d, fc){
   if(k==='applied') return {v:fc.applied, go:sg('apps')};
   if(k==='certified') return {v:fc.certified, go:sg('apps')};
   if(k==='cost') return {v:fc.costToDate, go:`finCosts=null;go('#/site/${s}/finance/costs')`};
-  if(k==='profit'){ const v = finRound(fc.sales - fc.costToDate); return {v, go:'', hot:v<0}; }
+  if(k==='profit'){ const v = fc.salesMargin!=null ? fc.salesMargin : finRound(fc.sales - fc.costToDate); return {v, go:'', hot:v<0}; }   // after overheads (OHP)
   if(k==='fprofit') return fc.budgetTotal==null ? {v:null, go:`go('#/site/${s}/finance/budget')`, note:'Needs A Budget'} : {v:fc.forecastMargin, go:`go('#/site/${s}/finance/budget')`, hot:fc.forecastMargin<0};
   return wait;
 }
@@ -277,7 +277,8 @@ function finVdRowHtml(siteId){
   const cur = finLsGet(FIN_SUM_LS, FIN_SUM_DEF), k = FIN_VD_OPTS.some(o=>o[0]===cur.vd) ? cur.vd : 'va';
   const lab = FIN_VD_OPTS.find(o=>o[0]===k)[1], m = finPickMenuHtml('Show', FIN_VD_OPTS, k, 'finVdSet', 'vd');
   const t = finVdTotals(siteId, k);
-  if(!FIN_VD_DATA[siteId]) setTimeout(()=>finVdLoad(siteId), 0);
+  const D = FIN_VD_DATA[siteId];
+  if(!D || Date.now()-(D.at||0) > 3000) setTimeout(()=>finVdLoad(siteId), 0);   // keep it fresh (review 24 Oct M2)
   const sub = k[0]==='v' ? 'var' : 'dw';
   return `<div class="finvd" onclick="finBoqSub['${siteId}']='${sub}';go('#/site/${siteId}/finance/contract')"><span class="fintile-l">${escapeHtml(lab)} ${m}</span><b>${t ? finMoney(t.v, 0) : '…'}</b><span class="finvd-n">${t ? t.n+' '+(k[0]==='v' ? (t.n===1?'variation':'variations') : (t.n===1?'day work':'day works')) : ''}</span></div>`;
 }
@@ -285,7 +286,7 @@ async function finVdLoad(siteId){
   const [vars, dws] = await Promise.all([
     dbSelect('fin_variations', 'site_id=eq.'+siteId+'&select=status,quoted,agreed_value').catch(()=>[]),
     dbSelect('fin_dayworks', 'site_id=eq.'+siteId+'&select=status,value').catch(()=>[])]);
-  FIN_VD_DATA[siteId] = {vars:vars||[], dws:dws||[]};
+  FIN_VD_DATA[siteId] = {vars:vars||[], dws:dws||[], at:Date.now()};
   const el = document.getElementById('finVdRow'); if(el && el.dataset.site===siteId) el.innerHTML = finVdRowHtml(siteId);
 }
 window.finVdSet = function(slot, k){

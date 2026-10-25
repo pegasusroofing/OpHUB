@@ -10,7 +10,7 @@ const FIN_SET_ICONS = {
   'who can see material costs':['👁','#eef2ff','#3b4cca'], 'project numbers':['#','#fdecec','#c62828'],
   'purchase orders':['🧾','#fff4e0','#a35f00'], 'invoice numbers':['№','#eaf6ee','#1e7a3c'],
   'defaults for new projects':['⚙','#f1f3f6','#4a5260'], 'on your invoices':['🏦','#e8f4fb','#1b6a96'],
-  'invoice inbox (email)':['📥','#f4ecfb','#6b3fa0'], 'xero':['🔗','#e6f7fb','#0b7a99'],
+  'invoice inbox (email)':['📥','#f4ecfb','#6b3fa0'], 'company overheads (ohp)':['%','#fdf2e9','#b45309'], 'xero':['🔗','#e6f7fb','#0b7a99'],
 };
 (function(){
   const base = finCollapseCards;

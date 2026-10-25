@@ -188,7 +188,9 @@ function finRetentionCardHtml(siteId, jf, st, apps){
 window.saveFinRetentionDates = async function(siteId){
   const months = finInt(finVal('finDefects'));
   if(months===null || isNaN(months) || months<0 || months>120){ toast('Enter the defects period in months.'); return; }
-  const res = await sbFetch('/rest/v1/job_finance', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify({site_id:siteId, org_id:ME.org_id, pc_date:finVal('finPcDate')||null, defects_months:months, updated_at:new Date().toISOString(), updated_by:ME.id})});
+  // Changing PC date or defects here replaces a final date typed in Sales › Retention (review 24 Oct M3).
+  const moved = ['finPcDate','finDefects'].some(id=>{ const el = document.getElementById(id); return el && el.value!==el.defaultValue; });
+  const res = await sbFetch('/rest/v1/job_finance', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify(Object.assign({site_id:siteId, org_id:ME.org_id, pc_date:finVal('finPcDate')||null, defects_months:months, updated_at:new Date().toISOString(), updated_by:ME.id}, moved ? {final_release_date:null} : {}))});
   if(!res.ok){ toast('Save failed — '+(await safeErr(res))); return; }
   toast('Retention dates saved'); render();
 };

@@ -107,6 +107,7 @@ window.saveFinNewJob = async function(){
   const bt = finVal('finNjBt');
   if(!bt){ toast('Choose how you get paid on this project.'); return; }
   const cvRaw = finNum(finVal('finNjCv')); const cvIn = (cvRaw!==null && !isNaN(cvRaw) && cvRaw>0) ? finRound(cvRaw) : null;
+  let poWarn = "";
   const poNo = finVal('finNjPo'); const poFiles = Array.from((document.getElementById('finNjPoFiles')||{}).files||[]);
   if(poFiles.length && !poNo){ toast('Add the client PO number for the PO copy.'); return; }
   if(poFiles.some(f=>f.size > 20*1024*1024)){ toast('One of the PO files is over 20 MB.'); return; }
@@ -137,12 +138,13 @@ window.saveFinNewJob = async function(){
       const stored = await uploadToStorage('finance-docs', ME.org_id+'/'+newId+'/client-po/'+uid()+'-'+safe, f, f.type||'application/octet-stream');
       if(stored) files.push({path:stored, name:f.name});
     }
-    await dbInsert('client_pos', {org_id:ME.org_id, site_id:newId, created_by:ME.id, po_number:poNo, is_primary:true, file_path:files[0]?files[0].path:null, file_name:files[0]?files[0].name:null, files});
-    if(files.length < poFiles.length) toast('Some PO files didn’t upload — add them from Project Admin.');
+    const poRow = await dbInsert('client_pos', {org_id:ME.org_id, site_id:newId, created_by:ME.id, po_number:poNo, is_primary:true, file_path:files[0]?files[0].path:null, file_name:files[0]?files[0].name:null, files});
+    if(!poRow || !poRow[0]) poWarn = 'Project created, but the client PO didn’t save — add it in Project Admin.';   // review 24 Oct L8
+    else if(files.length < poFiles.length) poWarn = 'Project created. Some PO files didn’t upload — add them from Project Admin.';
   }
   if(ORG && ORG.auto_job_numbers) ORG.next_job_number = (ORG.next_job_number||0)+1;
   document.getElementById('finJobOverlay').style.display = 'none';
-  toast('Project '+(made.job_number||'')+' created');
+  toast(poWarn || 'Project '+(made.job_number||'')+' created');
   // Land on the job's Finance overview, where Getting started shows what to do next.
   if(typeof finProjTab!=='undefined') finProjTab[newId] = 'overview';
   go('#/site/'+newId+'/finance');

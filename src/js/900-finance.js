@@ -116,6 +116,12 @@ async function renderFinanceSettings(){
       <div class="formfield"><label class="field-label">VAT</label><select id="finDefVat">${vatOpts}</select></div>
     </div>
     <div class="card">
+      <p class="sectiontitle" style="margin-top:0;">Company overheads (OHP)</p>
+      <p class="stub" style="margin:0 0 10px;font-style:normal;">The cost of running the business (office, vans, insurance, staff not on a job) shared out over every project as a % of the work valued. It comes off each project’s profit, so the profit and margin figures show what a job really makes. Leave it at 0 to show profit before overheads. A project can have its own % (Project Admin).</p>
+      <div class="formfield" style="max-width:260px;"><label class="field-label">Overheads charged to every project (% of value)</label><input type="number" id="finOhp" min="0" max="100" step="0.5" placeholder="0" value="${st.ohp_pct!=null?escapeHtml(String(st.ohp_pct)):''}" ${ME.role==='admin'?'':'disabled title="Only a company admin can change this"'}></div>
+      ${ME.role==='admin' ? '' : '<p class="stub" style="margin:0;font-style:normal;">Only a company admin can change this.</p>'}
+    </div>
+    <div class="card">
       <p class="sectiontitle" style="margin-top:0;">On your invoices</p>
       <p class="stub" style="margin:0 0 10px;font-style:normal;">Printed at the bottom of every invoice and application.</p>
       <div class="formfield"><label class="field-label">Company address</label><textarea id="finCoAddr" rows="3">${escapeHtml(st.company_address||'')}</textarea></div>
@@ -158,7 +164,9 @@ window.saveFinanceSettings = async function(){
   // Only write the counters back if the box was actually changed — a form left open must not wind them back (audit FA-01).
   const changed = id=>{ const el = document.getElementById(id); return !!(el && el.value!==el.defaultValue); };
   const orgPatch = {auto_job_numbers:auto, job_number_prefix:prefix}; if(changed('finJobNext') || !ORG.next_job_number) orgPatch.next_job_number = nextJob||null;
-  const orgRow = await dbUpdate('organizations', ORG.id, orgPatch);
+  // Only send the project-number settings when one of them changed, so a manager saving bank details isn't told off (review 24 Oct P4).
+  const orgTouched = 'next_job_number' in orgPatch || !!ORG.auto_job_numbers !== !!auto || String(ORG.job_number_prefix||'') !== String(prefix||'');
+  const orgRow = orgTouched ? await dbUpdate('organizations', ORG.id, orgPatch) : ORG;
   if(orgRow) ORG = Object.assign(ORG, orgRow);
   const finBody = {
     org_id:ME.org_id, invoice_prefix:finVal('finInvPrefix'), next_invoice_number:invNext, default_retention_pct:ret,
@@ -171,6 +179,8 @@ window.saveFinanceSettings = async function(){
     bank_account_no:finVal('finBankAcc')||null, invoice_footer:finVal('finFooter')||null,
   };
   if(!changed('finInvNext') && FIN_SETTINGS && FIN_SETTINGS.org_id) delete finBody.next_invoice_number;
+  // Company overheads (OHP) — company admins only (25 Oct).
+  if(ME.role==='admin' && document.getElementById('finOhp')){ const o = finNum(finVal('finOhp')); if(o!==null && (isNaN(o) || o<0 || o>100)){ toast('Overheads must be between 0 and 100%.'); if(btn){ btn.disabled=false; btn.textContent='Save settings'; } return; } finBody.ohp_pct = o; }
   const res = await sbFetch('/rest/v1/fin_settings', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates,return=representation'}, body:JSON.stringify(finBody)});
   if(btn){ btn.disabled = false; btn.textContent = 'Save settings'; }
   if(!res.ok){ toast('Save failed — '+(await safeErr(res))); return; }
@@ -262,9 +272,10 @@ async function renderSiteFinance(siteId){
       <p class="sectiontitle" style="margin-top:0;">Project details</p>
       <div class="fingrid2">
         <div class="formfield"><label class="field-label">Project number</label><input type="text" id="finJobNo" value="${escapeHtml(site.job_number||'')}"></div>
-        <div class="formfield"><label class="field-label">Contract value (£, excl. VAT)</label><input type="text" inputmode="decimal" data-money id="finContract" placeholder="0.00" value="${jf.contract_value!=null?escapeHtml(String(jf.contract_value)):''}" ${bt==='application' && items.length?'disabled title="Set by the Bill of Quantities"':''}></div>
+        <div class="formfield"><label class="field-label">Contract value (£, excl. VAT)</label><input type="text" inputmode="decimal" data-money id="finContract" placeholder="0.00" value="${jf.contract_value!=null?escapeHtml(String(jf.contract_value)):''}" ${bt==='application' && items.length && jf.contract_value_source!=='manual'?'disabled title="Set by the Bill of Quantities"':''}></div>
         <div class="formfield"><label class="field-label">Retention %</label><input type="number" id="finRet" min="0" max="100" step="0.5" value="${escapeHtml(String(pick('retention_pct', st.default_retention_pct)))}"></div>
         <div class="formfield"><label class="field-label">Retention limit % (if any)</label><input type="number" id="finRetLimit" min="0" max="100" step="0.5" placeholder="None" value="${jf.retention_limit_pct!=null?escapeHtml(String(jf.retention_limit_pct)):''}"></div>
+        ${finOhpFieldHtml(jf, st)}
         <div class="formfield"><label class="field-label">Days to due date</label><input type="number" id="finDue" min="0" step="1" value="${escapeHtml(String(pick('due_days', st.default_due_days)))}"></div>
         <div class="formfield"><label class="field-label">Days to final date for payment</label><input type="number" id="finFinal" min="0" step="1" value="${escapeHtml(String(pick('final_days', st.default_final_days)))}"></div>
         <div class="formfield"><label class="field-label">Application date (day of month)</label><input type="number" id="finAppDay" min="1" max="31" step="1" placeholder="e.g. 25" value="${escapeHtml(String(pick('app_reminder_day', st.app_reminder_day)||''))}"></div>
@@ -272,7 +283,7 @@ async function renderSiteFinance(siteId){
         <div class="formfield"><label class="field-label">VAT</label><select id="finVat">${Object.keys(FIN_VAT_LABEL).map(k=>`<option value="${k}" ${vat===k?'selected':''}>${FIN_VAT_LABEL[k]}</option>`).join('')}</select></div>
       </div>
       ${finBillingLineHtml(siteId, bt)}
-      <p class="stub" style="margin:8px 0 0;font-style:normal;">${bt==='application' ? (items.length ? 'The contract value comes from the Bill of Quantities.' : 'Set up the Bill of Quantities (its own tab) and the contract value fills in from it.') : bt==='invoice' ? 'Type the contract value.'+(finSubKind(siteId) ? ' Values for each '+escapeHtml(finSubNoun(siteId).toLowerCase())+' go on the Costs by '+(finSubKind(siteId)==='repair'?'repair job':'plot')+' page.' : '') : 'Choose how you get paid on this project (top of the page).'}</p>
+      <p class="stub" style="margin:8px 0 0;font-style:normal;">${bt==='application' ? (items.length ? (jf.contract_value_source==='manual' ? 'The contract value was typed in, so the Bill of Quantities doesn’t change it.' : 'The contract value comes from the Bill of Quantities.') : 'Set up the Bill of Quantities (its own tab) and the contract value fills in from it.') : bt==='invoice' ? 'Type the contract value.'+(finSubKind(siteId) ? ' Values for each '+escapeHtml(finSubNoun(siteId).toLowerCase())+' go on the Costs by '+(finSubKind(siteId)==='repair'?'repair job':'plot')+' page.' : '') : 'Choose how you get paid on this project (top of the page).'}</p>
     </div>
 
     ${finBillingSummaryHtml(siteId, site, jf)}
@@ -292,6 +303,17 @@ async function renderSiteFinance(siteId){
     const ss = document.getElementById('finScSlot'); if(ss && typeof finSubcontractsCardHtml==='function') ss.innerHTML = finSubcontractsCardHtml(siteId, b);
   }).catch(e=>console.error(e));
 }
+/* A contract value typed in Project Admin is kept when a Bill of Quantities is added (review 24 Oct M4/L7). */
+/* Company overheads (OHP) on one project — blank = the company figure; company admins only (25 Oct). */
+function finOhpFieldHtml(jf, st){
+  const co = st && st.ohp_pct!=null ? Number(st.ohp_pct) : 0;
+  return `<div class="formfield"><label class="field-label">Company overheads % (blank = company ${co}%)</label><input type="number" id="finOhpJob" min="0" max="100" step="0.5" placeholder="${co}" value="${jf.ohp_pct!=null?escapeHtml(String(jf.ohp_pct)):''}" ${ME.role==='admin'?'':'disabled title="Only a company admin can change this"'}></div>`;
+}
+function finOhpFieldRead(){
+  const el = document.getElementById('finOhpJob'); if(!el || el.disabled || ME.role!=='admin') return {};
+  const v = finNum(el.value); return {ohp_pct: v===null || isNaN(v) || v<0 || v>100 ? null : v};
+}
+function finCvTypedFlag(){ const el = document.getElementById('finContract'); return el && !el.disabled && String(el.value).trim()!=='' && finNum(el.value)!==finNum(el.defaultValue) ? {contract_value_source:'manual'} : {}; }
 window.saveSiteFinance = async function(siteId){
   const site = SITES.find(s=>s.id===siteId);
   const contract = finNum(finVal('finContract'));
@@ -320,7 +342,7 @@ window.saveSiteFinance = async function(siteId){
   const jfPrev = (await dbSelect('job_finance', 'site_id=eq.'+siteId))[0] || {};
   const orig = (jfPrev.original_value==null && contract!==null && !isNaN(contract) && contract>0) ? {original_value:contract, original_at:jfPrev.original_at||new Date().toISOString()} : {};
   const res = await sbFetch('/rest/v1/job_finance', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates,return=representation'}, body:JSON.stringify({
-    ...orig, site_id:siteId, org_id:ME.org_id, contract_value:contract, retention_pct:ret, retention_limit_pct:retLim,
+    ...orig, ...finCvTypedFlag(), ...finOhpFieldRead(), site_id:siteId, org_id:ME.org_id, contract_value:contract, retention_pct:ret, retention_limit_pct:retLim,
     due_days:(due===null||isNaN(due))?null:due, final_days:(fin===null||isNaN(fin))?null:fin, app_reminder_day:appDay, app_dates:appDates,
     vat_treatment:finVal('finVat')||null, billing_name:finVal('finBillName')||null, billing_address:finVal('finBillAddr')||null,
     billing_email:email||null, notes:finVal('finNotes')||null, updated_at:new Date().toISOString(), updated_by:ME.id,
@@ -373,7 +395,12 @@ window.saveClientPo = async function(siteId, poId){
   const newFiles = Array.isArray(finPoFile) ? finPoFile : (finPoFile ? [finPoFile] : []);
   if(newFiles.length){
     if(newFiles.some(f=>f.size > 20*1024*1024)){ toast('A file is over 20 MB.'); if(btn){ btn.disabled=false; btn.textContent='Save PO'; } return; }
-    const old = poId ? finPoFilesOf((await dbSelect('client_pos', 'id=eq.'+poId+'&select=file_path,file_name,files'))[0]||{}) : [];
+    let old = [];
+    if(poId){
+      const pr = await dbSelectChecked('client_pos', 'id=eq.'+poId+'&select=file_path,file_name,files');
+      if(!pr.ok){ toast('Couldn’t read the PO’s saved files — check your connection and try again.'); if(btn){ btn.disabled=false; btn.textContent='Save PO'; } return; }
+      old = finPoFilesOf((pr.data||[])[0]||{});
+    }
     const files = old.slice();
     for(const f of newFiles){
       const safe = f.name.replace(/[^a-z0-9.\-]+/gi,'_').slice(-80);
