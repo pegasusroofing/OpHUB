@@ -197,6 +197,8 @@ window.addEventListener('resize', ()=>{ if(document.querySelector('.finmb.open')
 .finov-st{display:none;} @media (max-width:700px){ .finov-lt{display:none;} .finov-st{display:inline;} }
 html.desk .finov-grid{grid-template-columns:repeat(4,minmax(0,1fr)) !important;gap:8px !important;}
 html.desk .finov-box{padding:10px 12px !important;}
-html.desk .finov-bs{white-space:normal;}`;
+html.desk .finov-bs{white-space:normal;}
+/* Reports and Budgets at the right-hand end of the row on a computer (Andy, 25 Oct) */
+html.desk .finov-btns > button[onclick*="/finance/reports"]{margin-left:auto !important;}`;
   document.head.appendChild(st);
 })();

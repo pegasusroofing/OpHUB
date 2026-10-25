@@ -77,7 +77,51 @@ function finBqdRows(){
   });
   list.querySelectorAll('input[data-bqn]').forEach(finBqdFmt);
   finBqdSize();
+  // A small + between a section's total and its ⋮ — adds a sub-section or an item inside it (Andy, 25 Oct).
+  list.querySelectorAll(':scope > .fincrow.section, :scope > .fincrow.subsection').forEach(row=>{
+    const menu = row.querySelector('.fincrow-menu:not(.bqd-plus)'); if(!menu || row.querySelector('.bqd-plus')) return;
+    const m = /finCrowMenu\(event,\s*(\d+)\)/.exec(menu.getAttribute('onclick') || ''); if(!m) return;
+    const sec = row.classList.contains('section');
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'fincrow-menu bqd-plus';
+    b.title = sec ? 'Add a sub-section or item to this section' : 'Add an item to this sub-section'; b.setAttribute('aria-label', b.title);
+    b.setAttribute('onclick', 'finBqdPlus(event, '+m[1]+')'); b.textContent = '+';
+    menu.before(b);
+  });
 }
+// Where a new line goes: a sub-section at the end of the section; an item at the end of the
+// section's own items (before its first sub-section), or at the end of the sub-section.
+function finBqdInsertAt(i, kind){
+  const rows = finContractRows || []; const head = rows[i]; if(!head) return rows.length;
+  let j = i + 1;
+  for(; j<rows.length; j++){
+    const k = rows[j].kind;
+    if(k==='section') break;
+    if(k==='subsection' && (head.kind==='subsection' || kind==='item')) break;
+  }
+  return j;
+}
+window.finBqdInsert = function(i, kind){
+  const at = finBqdInsertAt(i, kind);
+  finContractRows.splice(at, 0, {kind, ref:'', description:'', qty:null, unit:'', rate:null, value:null});
+  finContractPaint();
+  if(typeof finContractAutoSave==='function') finContractAutoSave();
+  setTimeout(()=>{ const row = document.querySelectorAll('#finContractList > .fincrow')[at]; const f = row && row.querySelector('textarea, .fincrow-title'); if(f){ f.focus(); row.scrollIntoView({block:'nearest'}); } }, 30);
+};
+window.finBqdPlus = function(ev, i){
+  ev.stopPropagation();
+  const old = document.getElementById('finBqdPlusPop'); if(old){ const same = old.dataset.i===String(i); old.remove(); if(same) return; }
+  const cp = document.getElementById('finCrowPop'); if(cp) cp.remove();
+  const r = (finContractRows||[])[i]; if(!r) return;
+  const pop = document.createElement('div'); pop.id = 'finBqdPlusPop'; pop.className = 'fincrow-pop bqd-pluspop'; pop.dataset.i = String(i);
+  pop.innerHTML = (r.kind==='section' ? `<button type="button" data-k="subsection">Sub-section</button>` : '')+`<button type="button" data-k="item">Item</button>`;
+  pop.addEventListener('click', e=>{ const b = e.target.closest('button'); if(!b) return; e.stopPropagation(); pop.remove(); finBqdInsert(i, b.dataset.k); });
+  document.body.appendChild(pop);
+  const rc = ev.currentTarget.getBoundingClientRect();
+  const up = rc.bottom + pop.offsetHeight + 8 > window.innerHeight;
+  pop.style.top = (up ? rc.top + window.scrollY - pop.offsetHeight - 4 : rc.bottom + window.scrollY + 4)+'px';
+  pop.style.left = Math.max(8, rc.right + window.scrollX - pop.offsetWidth)+'px';
+  setTimeout(()=>document.addEventListener('click', function close(){ pop.remove(); document.removeEventListener('click', close); }), 0);
+};
 (function(){
   document.addEventListener('focusin', e=>{ const el = e.target; if(el && el.dataset && el.dataset.bqn && el.dataset.bqn!=='u' && !el.disabled){ const n = finNum(el.value); if(el.value!=='' && n!==null && !isNaN(n)) el.value = String(n); } });
   document.addEventListener('focusout', e=>{ const el = e.target; if(el && el.dataset && el.dataset.bqn){ setTimeout(()=>{ finBqdFmt(el); finBqdSize(); }, 0); } });
@@ -117,7 +161,21 @@ function finBqdRows(){
   const bulk = finContractBulkPaint;
   finContractBulkPaint = function(){
     const r = bulk.apply(this, arguments);
-    if(finBqDesk()){ const b = document.querySelector('#finCtBulk button[onclick*="finCtPct"]'); if(b){ b.setAttribute('onclick', 'finBqdBudget(true, true)'); b.textContent = 'Budget Cost…'; } }
+    if(finBqDesk()){
+      const el = document.getElementById('finCtBulk');
+      const b = document.querySelector('#finCtBulk button[onclick*="finCtPct"]'); if(b){ b.setAttribute('onclick', 'finBqdBudget(true, true)'); b.textContent = 'Budget Cost…'; }
+      // Nothing ticked → no bar (Andy, 25 Oct: "remove the tick all lines row"). Something ticked →
+      // a compact bar with Select all and the usual actions.
+      if(el){
+        const n = finContractSelIdx().length, all = (finContractRows||[]).filter(finIsItem).length;
+        if(!n){ el.innerHTML = ''; el.style.display = 'none'; }
+        else {
+          el.classList.add('bqd-bulk');
+          const cnt = el.querySelector(':scope > b');
+          if(cnt && n < all){ const sa = document.createElement('button'); sa.type = 'button'; sa.className = 'linkbtn bqd-selall'; sa.setAttribute('onclick', 'finContractTickAll(true)'); sa.textContent = 'Select all '+all; cnt.after(sa); }
+        }
+      }
+    }
     return r;
   };
   // Upload button only shows on the Bill of Quantities sub-tab.
@@ -181,7 +239,7 @@ function finBqdLayout(siteId){
 
   // Bottom: summary · actions · hint · export.
   const foot = document.createElement('div'); foot.className = 'bqd-foot';
-  foot.innerHTML = `<div class="finboqtot bqd-sum" id="finBqdSum"></div><div class="bqd-acts" id="finBqdActs"></div><p class="bqd-hint" id="finBqdHint"></p>
+  foot.innerHTML = `<div class="bqd-sumrow"><div class="finboqtot bqd-sum" id="finBqdSum"></div><div class="bqd-sow" id="finBqdSow"></div></div><div class="bqd-acts" id="finBqdActs"></div><p class="bqd-hint" id="finBqdHint"></p>
     <div class="finexp"><span>Export:</span><button type="button" class="linkbtn" onclick="finBoqExport('${sid}','xlsx')">Excel</button><button type="button" class="linkbtn" onclick="finBoqExport('${sid}','pdf')">PDF</button></div>`;
   lines.appendChild(foot);
   const acts = foot.querySelector('#finBqdActs');
@@ -191,10 +249,17 @@ function finBqdLayout(siteId){
   const sow = pane.querySelector('#finSowCard');
   if(sow){
     const send = sow.querySelector('button[onclick*="finSendToSow"]');
-    if(send){ send.className = 'ghostbtn'; send.removeAttribute('style'); send.textContent = /update/i.test(send.textContent) ? 'Update SOW for Operatives' : 'Issue as SOW to Operatives'; acts.appendChild(send); }
+    const sowBox = foot.querySelector('#finBqdSow');
+    if(send){ send.className = 'ghostbtn bqd-sowbtn'; send.removeAttribute('style'); send.textContent = /update/i.test(send.textContent) ? 'Update SOW for Operatives' : 'Issue as SOW to Operatives'; sowBox.appendChild(send); }
     const copy = sow.querySelector('button[onclick*="finContractFromSow"]');
     if(copy){ copy.className = 'ghostbtn'; copy.removeAttribute('style'); copy.textContent = copy.textContent.trim().replace(/(^|\s)([a-z])/g, (m, s, c)=>s+c.toUpperCase()); acts.appendChild(copy); }
-    const st = sow.querySelector('p.stub'); if(st && send){ const s = document.createElement('span'); s.className = 'bqd-sowst'; s.textContent = st.textContent.trim(); acts.appendChild(s); }
+    const st = sow.querySelector('p.stub');
+    if(st && send){
+      const full = st.textContent.trim(); const s = document.createElement('span'); s.className = 'bqd-sowst'; s.title = full;
+      const some = /(\d+) of (\d+) lines/.exec(full), every = /All (\d+) lines/.exec(full);
+      s.textContent = some ? some[1]+' of '+some[2]+' lines are on the SoW' : every ? '✓ All '+every[1]+' lines are on the SoW' : full;
+      sowBox.appendChild(s);
+    }
     sow.remove();
   }
   const ct = lines.querySelector('.fincontot'); if(ct) acts.appendChild(ct);
@@ -406,6 +471,21 @@ ${L} .fincrow.item .fincpill input[data-bqn=u]{text-align:left;}
 ${L} .fincrow.item .fincpill.mg{flex:1 1 auto;justify-content:flex-start;}
 ${L} .fincrow.item .fincpills .fincrow-plot{flex:1 1 auto;min-width:max-content;}
 /* upload, top right of the tab row */
+/* 25 Oct (Andy): Issue as SOW small, at the right of the summary row */
+${L} .bqd-sumrow{display:flex;align-items:center;gap:12px;margin:12px 0 14px;}
+${L} .bqd-sumrow .bqd-sum{margin:0 !important;flex:1 1 auto;min-width:0;}
+${L} .bqd-sow{margin-left:auto;flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:4px;}
+${L} .bqd-sow:empty{display:none;}
+${L} .bqd-sow .bqd-sowbtn{width:auto !important;margin:0 !important;height:26px !important;min-height:26px !important;padding:0 10px !important;font-size:12px !important;border-radius:7px !important;white-space:nowrap;}
+${L} .bqd-sow .bqd-sowst{font-size:11px;line-height:1.3;color:var(--slate);white-space:nowrap;}
+/* + on section / sub-section rows, styled like the ⋮ */
+${L} .fincrow.section .bqd-plus, ${L} .fincrow.subsection .bqd-plus{order:3;font-size:17px;font-weight:700;}
+${L} .fincrow.section .fincrow-menu:not(.bqd-plus), ${L} .fincrow.subsection .fincrow-menu:not(.bqd-plus){margin-left:-4px;}
+.bqd-pluspop{min-width:140px;}
+/* ticked-lines bar: only when something's ticked, compact */
+${L} #finCtBulk.bqd-bulk{margin:6px 0 4px;padding:4px 10px;min-height:0;gap:4px 14px;font-size:12.5px;border-radius:8px;flex-wrap:wrap;align-items:center;}
+${L} #finCtBulk.bqd-bulk .linkbtn{font-size:12.5px !important;padding:2px 0 !important;margin:0 !important;}
+${L} #finCtBulk.bqd-bulk select{height:26px;min-height:26px;font-size:12px;padding:0 6px;}
 html.desk .finboqsub{align-items:center;}
 html.desk .finboqsub .bqd-up{margin-left:auto;display:flex;align-items:center;gap:12px;padding:0 2px;flex:none;}
 html.desk .finboqsub:not(.bqd-onboq) .bqd-up{display:none;}

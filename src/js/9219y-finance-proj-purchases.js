@@ -7,9 +7,9 @@ let finPpSub = {};
 const FIN_PI_ST = {to_approve:['To approve','warn'], query:['Query','bad'], approved:['Approved','blue'], rejected:['Rejected','grey']};
 function finPiStatusPill(i){ if(i.paid_on) return '<span class="finpill ok">Paid</span>'; const s = FIN_PI_ST[i.status] || [i.status||'—','grey']; return `<span class="finpill ${s[1]}">${s[0]}</span>`; }
 function finPpHead(title, btns){ return `<div class="finpp-h"><p class="sectiontitle" style="margin:0;">${title}</p><span>${btns}</span></div>`; }
-function finPpTable(head, rows, empty){
+function finPpTable(head, rows, empty, cls){
   if(!rows.length) return `<div class="empty" style="margin:6px 0 0;">${empty}</div>`;
-  return `<div class="finreptbl-wrap"><table class="fincosttbl fininvtbl"><thead><tr>${head.map(([l, num])=>`<th class="${num?'num':''}">${l}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
+  return `<div class="finreptbl-wrap"><table class="fincosttbl fininvtbl${cls ? ' '+cls : ''}"><thead><tr>${head.map(([l, num])=>`<th class="${num?'num':''}">${l}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
 }
 async function finPpFill(siteId){
   const el = document.getElementById('finPpBody'); if(!el) return;
@@ -42,7 +42,7 @@ async function finPpFill(siteId){
     body = finPpHead('Purchase Invoices', btn('+ ▾', `finPpAddMenu(this,'${siteId}')`)+btn('+ Add Invoice', `openPurchaseInvoiceForm('${siteId}')`, 1))
       + finPpTable([['Supplier'],['Invoice No.'],['Date'],['PO'],['Net',1],['VAT',1],['Gross',1],['Status']], live.map(i=>{ const po = poBy[i.po_id];
         return `<tr class="click" onclick="openPurchaseInvoiceView('${siteId}','${i.id}')"><td data-l="Supplier" class="d"><b>${escapeHtml(i.supplier_name||'—')}</b></td><td data-l="Invoice No.">${escapeHtml(i.invoice_no||'—')}</td><td data-l="Date">${finDate(i.invoice_date)}</td><td data-l="PO">${po?escapeHtml(po.number):'<span class="stub" style="margin:0;">No PO</span>'}</td><td data-l="Net" class="num">${finMoney(i.net)}</td><td data-l="VAT" class="num">${finMoney(i.vat)}</td><td data-l="Gross" class="num"><b>${finMoney(i.total)}</b></td><td data-l="Status">${finPiStatusPill(i)}</td></tr>`;
-      }).concat(xc.filter(x=>x.ref==='YARD' || /^(yard stock|returned to yard)/i.test(String(x.description||''))).map(x=>`<tr class="click" onclick="${typeof openFinJobCost==='function' ? `openFinJobCost('${siteId}','${x.id}')` : ''}"><td data-l="Supplier" class="d"><b>Yard Stock</b></td><td data-l="Invoice No.">—</td><td data-l="Date">${finDate(x.cost_date)}</td><td data-l="PO">${escapeHtml(String(x.description||'').replace(/^yard stock:\s*/i,''))}</td><td data-l="Net" class="num">${finMoney(x.net)}</td><td data-l="VAT" class="num">—</td><td data-l="Gross" class="num"><b>${finMoney(x.net)}</b></td><td data-l="Status"><span class="finpill blue">Approved</span></td></tr>`)), 'No purchase invoices on this project yet.');
+      }).concat(xc.filter(x=>x.ref==='YARD' || /^(yard stock|returned to yard)/i.test(String(x.description||''))).map(x=>`<tr class="click" onclick="${typeof openFinJobCost==='function' ? `openFinJobCost('${siteId}','${x.id}')` : ''}"><td data-l="Supplier" class="d"><b>Yard Stock</b></td><td data-l="Invoice No.">—</td><td data-l="Date">${finDate(x.cost_date)}</td><td data-l="PO">${escapeHtml(String(x.description||'').replace(/^yard stock:\s*/i,''))}</td><td data-l="Net" class="num">${finMoney(x.net)}</td><td data-l="VAT" class="num">—</td><td data-l="Gross" class="num"><b>${finMoney(x.net)}</b></td><td data-l="Status"><span class="finpill blue">Approved</span></td></tr>`)), 'No purchase invoices on this project yet.', 'finpp-pitbl');
   } else if(k==='plant'){
     body = finPpHead('Plant', btn('+ Add Plant', `openFinPlantForm('${siteId}')`, 1))
       + finPpTable([['Item'],['Supplier'],['Hire Ref'],['On Hire'],['Off Hire'],['Weeks'],['Cost',1],['Status']], hires.map(h=>{ const c = finPlantCost(h);
@@ -94,6 +94,39 @@ window.finPpFill = finPpFill;
 .finpurtabs button em{font-style:normal;font-size:11px;font-weight:800;background:#EEF1F5;border-radius:9px;padding:1px 7px;margin-left:4px;color:var(--slate);}
 .finpp-h{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:10px;}
 .finpp-h > span{display:flex;gap:6px;flex-wrap:wrap;}
-.finpp-h .ghostbtn, .finpp-h .darkbtn{width:auto !important;margin:0 !important;padding:6px 12px !important;}`;
+.finpp-h .ghostbtn, .finpp-h .darkbtn{width:auto !important;margin:0 !important;padding:6px 12px !important;}
+/* Purchase Invoices table on a computer (Andy, 25 Oct): shorter rows, a wider PO column,
+   narrower Net / VAT / Gross / Status with the amounts on the right. */
+html.desk .finreptbl-wrap table.finpp-pitbl tbody td{padding-top:5px !important;padding-bottom:5px !important;line-height:1.3;}
+html.desk .finreptbl-wrap table.finpp-pitbl thead tr:first-child th{padding-top:7px !important;padding-bottom:7px !important;}
+html.desk .finreptbl-wrap table.finpp-pitbl thead tr:first-child th:nth-child(4){width:150px;min-width:130px;}
+html.desk .finreptbl-wrap table.finpp-pitbl td[data-l="PO"]{white-space:nowrap;}
+html.desk .finreptbl-wrap table.finpp-pitbl thead tr:first-child th.num{width:92px;}
+html.desk .finreptbl-wrap table.finpp-pitbl thead tr:first-child th:nth-child(8){width:92px;}
+html.desk .finreptbl-wrap table.finpp-pitbl th.num, html.desk .finreptbl-wrap table.finpp-pitbl td.num{text-align:right !important;white-space:nowrap;font-variant-numeric:tabular-nums;}
+html.desk .finreptbl-wrap table.finpp-pitbl td[data-l="Status"]{white-space:nowrap;}
+html.desk .finreptbl-wrap table.finpp-pitbl td[data-l="Status"] .finpill{font-size:10.5px;padding:1px 7px;line-height:16px;}
+html.desk .finfa .finfa-col.finpp-r{transform:translate(-100%,-50%);}`;
   document.head.appendChild(st);
+  // The totals under Net / VAT / Gross line up with the right-hand edge of their column, like the amounts.
+  if(typeof finFootAlign==='function'){
+    const fa = finFootAlign;
+    finFootAlign = function(){
+      const r = fa.apply(this, arguments);
+      if(typeof isDeskMode==='function' && isDeskMode()) try{
+        document.querySelectorAll('#app table.finpp-pitbl').forEach(tbl=>{
+          const wrap = tbl.closest('.finreptbl-wrap'); const foot = wrap && wrap.nextElementSibling;
+          if(!foot || !foot.classList.contains('finfa')) return;
+          const ths = Array.from(tbl.querySelectorAll('thead tr:first-child th.num')); const fr = foot.getBoundingClientRect();
+          foot.querySelectorAll('.finfa-col').forEach(sp=>{
+            const th = ths.find(t=>t.textContent.trim().toLowerCase()===String(sp.dataset.lbl||'').toLowerCase()); if(!th) return;
+            const rc = th.getBoundingClientRect(); const pr = parseFloat(getComputedStyle(th).paddingRight) || 0;
+            sp.style.left = Math.round(rc.right - pr - fr.left)+'px'; sp.classList.add('finpp-r');
+          });
+        });
+      }catch(e){ console.error(e); }
+      return r;
+    };
+    window.finFootAlign = finFootAlign;
+  }
 })();

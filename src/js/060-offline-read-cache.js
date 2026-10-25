@@ -542,7 +542,7 @@ async function deliverExcelFile(wb, filename){
       const out = XLSX.write(wb, {type:'array', bookType:'xlsx'});
       const blob = new Blob([out], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
       const safeName = filename.replace(/[^a-z0-9.\-]+/gi,'-');
-      const path = 'exports/'+uid()+'-'+safeName;
+      const path = 'exports/'+(ME && ME.org_id ? ME.org_id+'/' : '')+uid()+'-'+safeName; // SEC3-M6: company folder
       const stored = await uploadToStorage('site-photos', path, blob, blob.type);
       if(stored && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser){
         await openInAppBrowser(publicUrl('site-photos', stored)+'?download='+encodeURIComponent(filename));
@@ -564,7 +564,7 @@ async function deliverExcelBuffer(buffer, filename){
     toast('Opening file…');
     try{
       const safeName = filename.replace(/[^a-z0-9.\-]+/gi,'-');
-      const path = 'exports/'+uid()+'-'+safeName;
+      const path = 'exports/'+(ME && ME.org_id ? ME.org_id+'/' : '')+uid()+'-'+safeName; // SEC3-M6: company folder
       const stored = await uploadToStorage('site-photos', path, blob, blob.type);
       if(stored && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser){
         await openInAppBrowser(publicUrl('site-photos', stored)+'?download='+encodeURIComponent(filename));
@@ -590,7 +590,7 @@ async function deliverIcsFile(icsText, filename){
     toast('Opening calendar file…');
     try{
       const safeName = filename.replace(/[^a-z0-9.\-]+/gi,'-');
-      const path = 'exports/'+uid()+'-'+safeName;
+      const path = 'exports/'+(ME && ME.org_id ? ME.org_id+'/' : '')+uid()+'-'+safeName; // SEC3-M6: company folder
       const stored = await uploadToStorage('site-photos', path, blob, 'text/calendar');
       if(stored){
         // #(ics-in-app-browser-fix): a .ics only gets iOS's native "Add to

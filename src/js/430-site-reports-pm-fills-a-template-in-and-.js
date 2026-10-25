@@ -240,7 +240,7 @@ window.emailSelectedReports = async function(){
       const built = await buildReportPdf(id);
       if(!built || !built.bytes || !built.bytes.length){ failed++; continue; }
       totalPhotoFailures += built.photoEmbedFailures||0;
-      const path = (built.sub.site_id||'general')+'/report-exports/'+crypto.randomUUID()+'-'+built.filename.replace(/[^a-z0-9.\-]+/gi,'_');
+      const path = (built.sub.site_id||('general/'+(built.sub.org_id||ME.org_id)))+'/report-exports/'+crypto.randomUUID()+'-'+built.filename.replace(/[^a-z0-9.\-]+/gi,'_');
       const stored = (built.storedPath || (built.savePromise && await built.savePromise)) || await uploadToStorage('mc-documents', path, new Blob([built.bytes], {type:'application/pdf'}), 'application/pdf');
       if(!stored){ failed++; continue; }
       const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', timeoutMs:90000, body: JSON.stringify({
@@ -664,7 +664,7 @@ async function uploadReportDraftPhotos(siteId, quiet){
     while(next < refs.length){
       const r = refs[next++];
       let path = null;
-      try{ path = await uploadDataUrl('site-photos', (isGeneralReports(siteId)?'general':siteId)+'/reports/'+crypto.randomUUID()+'.jpg', r.val); }catch(e){ path = null; }
+      try{ path = await uploadDataUrl('site-photos', (isGeneralReports(siteId)?'general/'+ME.org_id:siteId)+'/reports/'+crypto.randomUUID()+'.jpg', r.val); }catch(e){ path = null; }
       const arr = reportFillDraft && reportFillDraft.answers[r.k];
       if(path && Array.isArray(arr)){
         // Written back by value, in case a photo was removed while uploading.
@@ -1196,7 +1196,9 @@ async function buildReportPdf(submissionId, opts){
   const sub0 = rows[0]; if(!sub0) return null;
   await applyLiveShowUnanswered(sub0);
   const key = await reportPdfCacheKey(sub0, opts);
-  const cachePath = key ? 'report-pdfs/'+submissionId+'/'+key+'.pdf' : null;
+  // SEC3-M6: kept under the company's own folder (report-pdfs/<org>/…); an old
+  // copy saved at report-pdfs/<id>/… simply isn't matched and is rebuilt once.
+  const cachePath = key ? 'report-pdfs/'+(sub0.org_id||ME.org_id)+'/'+submissionId+'/'+key+'.pdf' : null;
   if(cachePath && sub0.pdf_path === cachePath){
     try{
       const res = await fetchWithTimeout(publicUrl('mc-documents', cachePath), {}, 120000);
@@ -1801,7 +1803,7 @@ window.emailReportPDF = async function(submissionId, fromBriefing){
     const built = withSignatures ? await buildBriefingPdfWithSignatures(submissionId) : await buildReportPdf(submissionId, {fromBriefing:!!fromBriefing});
     if(!built){ reportEmailBusy = null; render(); return; }
     if(!built.bytes || !built.bytes.length){ toast('Something went wrong building this PDF — it came out empty. Please try again.'); reportEmailBusy = null; render(); return; }
-    const path = (built.sub.site_id||'general')+'/report-exports/'+crypto.randomUUID()+'-'+built.filename.replace(/[^a-z0-9.\-]+/gi,'_');
+    const path = (built.sub.site_id||('general/'+(built.sub.org_id||ME.org_id)))+'/report-exports/'+crypto.randomUUID()+'-'+built.filename.replace(/[^a-z0-9.\-]+/gi,'_');
     if(built.bytes.length > 49*1024*1024){
       reportEmailBusy = null; render();
       customAlert('This PDF is '+Math.round(built.bytes.length/1048576)+'MB — too big to email (50MB max). Use Export PDF to save it instead, or split the photos across two reports.');

@@ -4104,7 +4104,7 @@ async function deliverExcelFile(wb, filename){
       const out = XLSX.write(wb, {type:'array', bookType:'xlsx'});
       const blob = new Blob([out], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
       const safeName = filename.replace(/[^a-z0-9.\-]+/gi,'-');
-      const path = 'exports/'+uid()+'-'+safeName;
+      const path = 'exports/'+(ME && ME.org_id ? ME.org_id+'/' : '')+uid()+'-'+safeName; // SEC3-M6: company folder
       const stored = await uploadToStorage('site-photos', path, blob, blob.type);
       if(stored && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser){
         await openInAppBrowser(publicUrl('site-photos', stored)+'?download='+encodeURIComponent(filename));
@@ -4126,7 +4126,7 @@ async function deliverExcelBuffer(buffer, filename){
     toast('Opening file…');
     try{
       const safeName = filename.replace(/[^a-z0-9.\-]+/gi,'-');
-      const path = 'exports/'+uid()+'-'+safeName;
+      const path = 'exports/'+(ME && ME.org_id ? ME.org_id+'/' : '')+uid()+'-'+safeName; // SEC3-M6: company folder
       const stored = await uploadToStorage('site-photos', path, blob, blob.type);
       if(stored && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser){
         await openInAppBrowser(publicUrl('site-photos', stored)+'?download='+encodeURIComponent(filename));
@@ -4152,7 +4152,7 @@ async function deliverIcsFile(icsText, filename){
     toast('Opening calendar file…');
     try{
       const safeName = filename.replace(/[^a-z0-9.\-]+/gi,'-');
-      const path = 'exports/'+uid()+'-'+safeName;
+      const path = 'exports/'+(ME && ME.org_id ? ME.org_id+'/' : '')+uid()+'-'+safeName; // SEC3-M6: company folder
       const stored = await uploadToStorage('site-photos', path, blob, 'text/calendar');
       if(stored){
         // #(ics-in-app-browser-fix): a .ics only gets iOS's native "Add to
@@ -20752,7 +20752,7 @@ window.emailSelectedReports = async function(){
       const built = await buildReportPdf(id);
       if(!built || !built.bytes || !built.bytes.length){ failed++; continue; }
       totalPhotoFailures += built.photoEmbedFailures||0;
-      const path = (built.sub.site_id||'general')+'/report-exports/'+crypto.randomUUID()+'-'+built.filename.replace(/[^a-z0-9.\-]+/gi,'_');
+      const path = (built.sub.site_id||('general/'+(built.sub.org_id||ME.org_id)))+'/report-exports/'+crypto.randomUUID()+'-'+built.filename.replace(/[^a-z0-9.\-]+/gi,'_');
       const stored = (built.storedPath || (built.savePromise && await built.savePromise)) || await uploadToStorage('mc-documents', path, new Blob([built.bytes], {type:'application/pdf'}), 'application/pdf');
       if(!stored){ failed++; continue; }
       const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', timeoutMs:90000, body: JSON.stringify({
@@ -21176,7 +21176,7 @@ async function uploadReportDraftPhotos(siteId, quiet){
     while(next < refs.length){
       const r = refs[next++];
       let path = null;
-      try{ path = await uploadDataUrl('site-photos', (isGeneralReports(siteId)?'general':siteId)+'/reports/'+crypto.randomUUID()+'.jpg', r.val); }catch(e){ path = null; }
+      try{ path = await uploadDataUrl('site-photos', (isGeneralReports(siteId)?'general/'+ME.org_id:siteId)+'/reports/'+crypto.randomUUID()+'.jpg', r.val); }catch(e){ path = null; }
       const arr = reportFillDraft && reportFillDraft.answers[r.k];
       if(path && Array.isArray(arr)){
         // Written back by value, in case a photo was removed while uploading.
@@ -21708,7 +21708,9 @@ async function buildReportPdf(submissionId, opts){
   const sub0 = rows[0]; if(!sub0) return null;
   await applyLiveShowUnanswered(sub0);
   const key = await reportPdfCacheKey(sub0, opts);
-  const cachePath = key ? 'report-pdfs/'+submissionId+'/'+key+'.pdf' : null;
+  // SEC3-M6: kept under the company's own folder (report-pdfs/<org>/…); an old
+  // copy saved at report-pdfs/<id>/… simply isn't matched and is rebuilt once.
+  const cachePath = key ? 'report-pdfs/'+(sub0.org_id||ME.org_id)+'/'+submissionId+'/'+key+'.pdf' : null;
   if(cachePath && sub0.pdf_path === cachePath){
     try{
       const res = await fetchWithTimeout(publicUrl('mc-documents', cachePath), {}, 120000);
@@ -22313,7 +22315,7 @@ window.emailReportPDF = async function(submissionId, fromBriefing){
     const built = withSignatures ? await buildBriefingPdfWithSignatures(submissionId) : await buildReportPdf(submissionId, {fromBriefing:!!fromBriefing});
     if(!built){ reportEmailBusy = null; render(); return; }
     if(!built.bytes || !built.bytes.length){ toast('Something went wrong building this PDF — it came out empty. Please try again.'); reportEmailBusy = null; render(); return; }
-    const path = (built.sub.site_id||'general')+'/report-exports/'+crypto.randomUUID()+'-'+built.filename.replace(/[^a-z0-9.\-]+/gi,'_');
+    const path = (built.sub.site_id||('general/'+(built.sub.org_id||ME.org_id)))+'/report-exports/'+crypto.randomUUID()+'-'+built.filename.replace(/[^a-z0-9.\-]+/gi,'_');
     if(built.bytes.length > 49*1024*1024){
       reportEmailBusy = null; render();
       customAlert('This PDF is '+Math.round(built.bytes.length/1048576)+'MB — too big to email (50MB max). Use Export PDF to save it instead, or split the photos across two reports.');
@@ -22513,7 +22515,7 @@ window.reportOfflineSync = async function(manual){
       }
       // 2. photos, one at a time, each kept as soon as it lands
       let photoFailed = false;
-      const folder = (isGeneralReports(d.siteId) ? 'general' : d.siteId)+'/reports/';
+      const folder = (isGeneralReports(d.siteId) ? 'general/'+(rec.orgId||ME.org_id) : d.siteId)+'/reports/'; // SEC3-M6: company folder
       for(const key of Object.keys(d.answers||{})){
         const arr = d.answers[key];
         if(!Array.isArray(arr)) continue;
@@ -45569,7 +45571,7 @@ async function hoDeliverBlob(blob, filename){
   const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
   if(isNative){
     try{
-      const path = 'exports/'+uid()+'-'+filename.replace(/[^a-z0-9.\-]+/gi,'-');
+      const path = 'exports/'+(ME && ME.org_id ? ME.org_id+'/' : '')+uid()+'-'+filename.replace(/[^a-z0-9.\-]+/gi,'-');
       const stored = await uploadToStorage('site-photos', path, blob, blob.type);
       if(stored && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser){ await openInAppBrowser(publicUrl('site-photos', stored)+'?download='+encodeURIComponent(filename)); return; }
     }catch(e){}
@@ -61452,9 +61454,9 @@ let finPpSub = {};
 const FIN_PI_ST = {to_approve:['To approve','warn'], query:['Query','bad'], approved:['Approved','blue'], rejected:['Rejected','grey']};
 function finPiStatusPill(i){ if(i.paid_on) return '<span class="finpill ok">Paid</span>'; const s = FIN_PI_ST[i.status] || [i.status||'—','grey']; return `<span class="finpill ${s[1]}">${s[0]}</span>`; }
 function finPpHead(title, btns){ return `<div class="finpp-h"><p class="sectiontitle" style="margin:0;">${title}</p><span>${btns}</span></div>`; }
-function finPpTable(head, rows, empty){
+function finPpTable(head, rows, empty, cls){
   if(!rows.length) return `<div class="empty" style="margin:6px 0 0;">${empty}</div>`;
-  return `<div class="finreptbl-wrap"><table class="fincosttbl fininvtbl"><thead><tr>${head.map(([l, num])=>`<th class="${num?'num':''}">${l}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
+  return `<div class="finreptbl-wrap"><table class="fincosttbl fininvtbl${cls ? ' '+cls : ''}"><thead><tr>${head.map(([l, num])=>`<th class="${num?'num':''}">${l}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
 }
 async function finPpFill(siteId){
   const el = document.getElementById('finPpBody'); if(!el) return;
@@ -61487,7 +61489,7 @@ async function finPpFill(siteId){
     body = finPpHead('Purchase Invoices', btn('+ ▾', `finPpAddMenu(this,'${siteId}')`)+btn('+ Add Invoice', `openPurchaseInvoiceForm('${siteId}')`, 1))
       + finPpTable([['Supplier'],['Invoice No.'],['Date'],['PO'],['Net',1],['VAT',1],['Gross',1],['Status']], live.map(i=>{ const po = poBy[i.po_id];
         return `<tr class="click" onclick="openPurchaseInvoiceView('${siteId}','${i.id}')"><td data-l="Supplier" class="d"><b>${escapeHtml(i.supplier_name||'—')}</b></td><td data-l="Invoice No.">${escapeHtml(i.invoice_no||'—')}</td><td data-l="Date">${finDate(i.invoice_date)}</td><td data-l="PO">${po?escapeHtml(po.number):'<span class="stub" style="margin:0;">No PO</span>'}</td><td data-l="Net" class="num">${finMoney(i.net)}</td><td data-l="VAT" class="num">${finMoney(i.vat)}</td><td data-l="Gross" class="num"><b>${finMoney(i.total)}</b></td><td data-l="Status">${finPiStatusPill(i)}</td></tr>`;
-      }).concat(xc.filter(x=>x.ref==='YARD' || /^(yard stock|returned to yard)/i.test(String(x.description||''))).map(x=>`<tr class="click" onclick="${typeof openFinJobCost==='function' ? `openFinJobCost('${siteId}','${x.id}')` : ''}"><td data-l="Supplier" class="d"><b>Yard Stock</b></td><td data-l="Invoice No.">—</td><td data-l="Date">${finDate(x.cost_date)}</td><td data-l="PO">${escapeHtml(String(x.description||'').replace(/^yard stock:\s*/i,''))}</td><td data-l="Net" class="num">${finMoney(x.net)}</td><td data-l="VAT" class="num">—</td><td data-l="Gross" class="num"><b>${finMoney(x.net)}</b></td><td data-l="Status"><span class="finpill blue">Approved</span></td></tr>`)), 'No purchase invoices on this project yet.');
+      }).concat(xc.filter(x=>x.ref==='YARD' || /^(yard stock|returned to yard)/i.test(String(x.description||''))).map(x=>`<tr class="click" onclick="${typeof openFinJobCost==='function' ? `openFinJobCost('${siteId}','${x.id}')` : ''}"><td data-l="Supplier" class="d"><b>Yard Stock</b></td><td data-l="Invoice No.">—</td><td data-l="Date">${finDate(x.cost_date)}</td><td data-l="PO">${escapeHtml(String(x.description||'').replace(/^yard stock:\s*/i,''))}</td><td data-l="Net" class="num">${finMoney(x.net)}</td><td data-l="VAT" class="num">—</td><td data-l="Gross" class="num"><b>${finMoney(x.net)}</b></td><td data-l="Status"><span class="finpill blue">Approved</span></td></tr>`)), 'No purchase invoices on this project yet.', 'finpp-pitbl');
   } else if(k==='plant'){
     body = finPpHead('Plant', btn('+ Add Plant', `openFinPlantForm('${siteId}')`, 1))
       + finPpTable([['Item'],['Supplier'],['Hire Ref'],['On Hire'],['Off Hire'],['Weeks'],['Cost',1],['Status']], hires.map(h=>{ const c = finPlantCost(h);
@@ -61539,8 +61541,41 @@ window.finPpFill = finPpFill;
 .finpurtabs button em{font-style:normal;font-size:11px;font-weight:800;background:#EEF1F5;border-radius:9px;padding:1px 7px;margin-left:4px;color:var(--slate);}
 .finpp-h{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:10px;}
 .finpp-h > span{display:flex;gap:6px;flex-wrap:wrap;}
-.finpp-h .ghostbtn, .finpp-h .darkbtn{width:auto !important;margin:0 !important;padding:6px 12px !important;}`;
+.finpp-h .ghostbtn, .finpp-h .darkbtn{width:auto !important;margin:0 !important;padding:6px 12px !important;}
+/* Purchase Invoices table on a computer (Andy, 25 Oct): shorter rows, a wider PO column,
+   narrower Net / VAT / Gross / Status with the amounts on the right. */
+html.desk .finreptbl-wrap table.finpp-pitbl tbody td{padding-top:5px !important;padding-bottom:5px !important;line-height:1.3;}
+html.desk .finreptbl-wrap table.finpp-pitbl thead tr:first-child th{padding-top:7px !important;padding-bottom:7px !important;}
+html.desk .finreptbl-wrap table.finpp-pitbl thead tr:first-child th:nth-child(4){width:150px;min-width:130px;}
+html.desk .finreptbl-wrap table.finpp-pitbl td[data-l="PO"]{white-space:nowrap;}
+html.desk .finreptbl-wrap table.finpp-pitbl thead tr:first-child th.num{width:92px;}
+html.desk .finreptbl-wrap table.finpp-pitbl thead tr:first-child th:nth-child(8){width:92px;}
+html.desk .finreptbl-wrap table.finpp-pitbl th.num, html.desk .finreptbl-wrap table.finpp-pitbl td.num{text-align:right !important;white-space:nowrap;font-variant-numeric:tabular-nums;}
+html.desk .finreptbl-wrap table.finpp-pitbl td[data-l="Status"]{white-space:nowrap;}
+html.desk .finreptbl-wrap table.finpp-pitbl td[data-l="Status"] .finpill{font-size:10.5px;padding:1px 7px;line-height:16px;}
+html.desk .finfa .finfa-col.finpp-r{transform:translate(-100%,-50%);}`;
   document.head.appendChild(st);
+  // The totals under Net / VAT / Gross line up with the right-hand edge of their column, like the amounts.
+  if(typeof finFootAlign==='function'){
+    const fa = finFootAlign;
+    finFootAlign = function(){
+      const r = fa.apply(this, arguments);
+      if(typeof isDeskMode==='function' && isDeskMode()) try{
+        document.querySelectorAll('#app table.finpp-pitbl').forEach(tbl=>{
+          const wrap = tbl.closest('.finreptbl-wrap'); const foot = wrap && wrap.nextElementSibling;
+          if(!foot || !foot.classList.contains('finfa')) return;
+          const ths = Array.from(tbl.querySelectorAll('thead tr:first-child th.num')); const fr = foot.getBoundingClientRect();
+          foot.querySelectorAll('.finfa-col').forEach(sp=>{
+            const th = ths.find(t=>t.textContent.trim().toLowerCase()===String(sp.dataset.lbl||'').toLowerCase()); if(!th) return;
+            const rc = th.getBoundingClientRect(); const pr = parseFloat(getComputedStyle(th).paddingRight) || 0;
+            sp.style.left = Math.round(rc.right - pr - fr.left)+'px'; sp.classList.add('finpp-r');
+          });
+        });
+      }catch(e){ console.error(e); }
+      return r;
+    };
+    window.finFootAlign = finFootAlign;
+  }
 })();
 
 /* ============================================================
@@ -63340,7 +63375,9 @@ window.addEventListener('resize', ()=>{ if(document.querySelector('.finmb.open')
 .finov-st{display:none;} @media (max-width:700px){ .finov-lt{display:none;} .finov-st{display:inline;} }
 html.desk .finov-grid{grid-template-columns:repeat(4,minmax(0,1fr)) !important;gap:8px !important;}
 html.desk .finov-box{padding:10px 12px !important;}
-html.desk .finov-bs{white-space:normal;}`;
+html.desk .finov-bs{white-space:normal;}
+/* Reports and Budgets at the right-hand end of the row on a computer (Andy, 25 Oct) */
+html.desk .finov-btns > button[onclick*="/finance/reports"]{margin-left:auto !important;}`;
   document.head.appendChild(st);
 })();
 
@@ -64820,7 +64857,51 @@ function finBqdRows(){
   });
   list.querySelectorAll('input[data-bqn]').forEach(finBqdFmt);
   finBqdSize();
+  // A small + between a section's total and its ⋮ — adds a sub-section or an item inside it (Andy, 25 Oct).
+  list.querySelectorAll(':scope > .fincrow.section, :scope > .fincrow.subsection').forEach(row=>{
+    const menu = row.querySelector('.fincrow-menu:not(.bqd-plus)'); if(!menu || row.querySelector('.bqd-plus')) return;
+    const m = /finCrowMenu\(event,\s*(\d+)\)/.exec(menu.getAttribute('onclick') || ''); if(!m) return;
+    const sec = row.classList.contains('section');
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'fincrow-menu bqd-plus';
+    b.title = sec ? 'Add a sub-section or item to this section' : 'Add an item to this sub-section'; b.setAttribute('aria-label', b.title);
+    b.setAttribute('onclick', 'finBqdPlus(event, '+m[1]+')'); b.textContent = '+';
+    menu.before(b);
+  });
 }
+// Where a new line goes: a sub-section at the end of the section; an item at the end of the
+// section's own items (before its first sub-section), or at the end of the sub-section.
+function finBqdInsertAt(i, kind){
+  const rows = finContractRows || []; const head = rows[i]; if(!head) return rows.length;
+  let j = i + 1;
+  for(; j<rows.length; j++){
+    const k = rows[j].kind;
+    if(k==='section') break;
+    if(k==='subsection' && (head.kind==='subsection' || kind==='item')) break;
+  }
+  return j;
+}
+window.finBqdInsert = function(i, kind){
+  const at = finBqdInsertAt(i, kind);
+  finContractRows.splice(at, 0, {kind, ref:'', description:'', qty:null, unit:'', rate:null, value:null});
+  finContractPaint();
+  if(typeof finContractAutoSave==='function') finContractAutoSave();
+  setTimeout(()=>{ const row = document.querySelectorAll('#finContractList > .fincrow')[at]; const f = row && row.querySelector('textarea, .fincrow-title'); if(f){ f.focus(); row.scrollIntoView({block:'nearest'}); } }, 30);
+};
+window.finBqdPlus = function(ev, i){
+  ev.stopPropagation();
+  const old = document.getElementById('finBqdPlusPop'); if(old){ const same = old.dataset.i===String(i); old.remove(); if(same) return; }
+  const cp = document.getElementById('finCrowPop'); if(cp) cp.remove();
+  const r = (finContractRows||[])[i]; if(!r) return;
+  const pop = document.createElement('div'); pop.id = 'finBqdPlusPop'; pop.className = 'fincrow-pop bqd-pluspop'; pop.dataset.i = String(i);
+  pop.innerHTML = (r.kind==='section' ? `<button type="button" data-k="subsection">Sub-section</button>` : '')+`<button type="button" data-k="item">Item</button>`;
+  pop.addEventListener('click', e=>{ const b = e.target.closest('button'); if(!b) return; e.stopPropagation(); pop.remove(); finBqdInsert(i, b.dataset.k); });
+  document.body.appendChild(pop);
+  const rc = ev.currentTarget.getBoundingClientRect();
+  const up = rc.bottom + pop.offsetHeight + 8 > window.innerHeight;
+  pop.style.top = (up ? rc.top + window.scrollY - pop.offsetHeight - 4 : rc.bottom + window.scrollY + 4)+'px';
+  pop.style.left = Math.max(8, rc.right + window.scrollX - pop.offsetWidth)+'px';
+  setTimeout(()=>document.addEventListener('click', function close(){ pop.remove(); document.removeEventListener('click', close); }), 0);
+};
 (function(){
   document.addEventListener('focusin', e=>{ const el = e.target; if(el && el.dataset && el.dataset.bqn && el.dataset.bqn!=='u' && !el.disabled){ const n = finNum(el.value); if(el.value!=='' && n!==null && !isNaN(n)) el.value = String(n); } });
   document.addEventListener('focusout', e=>{ const el = e.target; if(el && el.dataset && el.dataset.bqn){ setTimeout(()=>{ finBqdFmt(el); finBqdSize(); }, 0); } });
@@ -64860,7 +64941,21 @@ function finBqdRows(){
   const bulk = finContractBulkPaint;
   finContractBulkPaint = function(){
     const r = bulk.apply(this, arguments);
-    if(finBqDesk()){ const b = document.querySelector('#finCtBulk button[onclick*="finCtPct"]'); if(b){ b.setAttribute('onclick', 'finBqdBudget(true, true)'); b.textContent = 'Budget Cost…'; } }
+    if(finBqDesk()){
+      const el = document.getElementById('finCtBulk');
+      const b = document.querySelector('#finCtBulk button[onclick*="finCtPct"]'); if(b){ b.setAttribute('onclick', 'finBqdBudget(true, true)'); b.textContent = 'Budget Cost…'; }
+      // Nothing ticked → no bar (Andy, 25 Oct: "remove the tick all lines row"). Something ticked →
+      // a compact bar with Select all and the usual actions.
+      if(el){
+        const n = finContractSelIdx().length, all = (finContractRows||[]).filter(finIsItem).length;
+        if(!n){ el.innerHTML = ''; el.style.display = 'none'; }
+        else {
+          el.classList.add('bqd-bulk');
+          const cnt = el.querySelector(':scope > b');
+          if(cnt && n < all){ const sa = document.createElement('button'); sa.type = 'button'; sa.className = 'linkbtn bqd-selall'; sa.setAttribute('onclick', 'finContractTickAll(true)'); sa.textContent = 'Select all '+all; cnt.after(sa); }
+        }
+      }
+    }
     return r;
   };
   // Upload button only shows on the Bill of Quantities sub-tab.
@@ -64924,7 +65019,7 @@ function finBqdLayout(siteId){
 
   // Bottom: summary · actions · hint · export.
   const foot = document.createElement('div'); foot.className = 'bqd-foot';
-  foot.innerHTML = `<div class="finboqtot bqd-sum" id="finBqdSum"></div><div class="bqd-acts" id="finBqdActs"></div><p class="bqd-hint" id="finBqdHint"></p>
+  foot.innerHTML = `<div class="bqd-sumrow"><div class="finboqtot bqd-sum" id="finBqdSum"></div><div class="bqd-sow" id="finBqdSow"></div></div><div class="bqd-acts" id="finBqdActs"></div><p class="bqd-hint" id="finBqdHint"></p>
     <div class="finexp"><span>Export:</span><button type="button" class="linkbtn" onclick="finBoqExport('${sid}','xlsx')">Excel</button><button type="button" class="linkbtn" onclick="finBoqExport('${sid}','pdf')">PDF</button></div>`;
   lines.appendChild(foot);
   const acts = foot.querySelector('#finBqdActs');
@@ -64934,10 +65029,17 @@ function finBqdLayout(siteId){
   const sow = pane.querySelector('#finSowCard');
   if(sow){
     const send = sow.querySelector('button[onclick*="finSendToSow"]');
-    if(send){ send.className = 'ghostbtn'; send.removeAttribute('style'); send.textContent = /update/i.test(send.textContent) ? 'Update SOW for Operatives' : 'Issue as SOW to Operatives'; acts.appendChild(send); }
+    const sowBox = foot.querySelector('#finBqdSow');
+    if(send){ send.className = 'ghostbtn bqd-sowbtn'; send.removeAttribute('style'); send.textContent = /update/i.test(send.textContent) ? 'Update SOW for Operatives' : 'Issue as SOW to Operatives'; sowBox.appendChild(send); }
     const copy = sow.querySelector('button[onclick*="finContractFromSow"]');
     if(copy){ copy.className = 'ghostbtn'; copy.removeAttribute('style'); copy.textContent = copy.textContent.trim().replace(/(^|\s)([a-z])/g, (m, s, c)=>s+c.toUpperCase()); acts.appendChild(copy); }
-    const st = sow.querySelector('p.stub'); if(st && send){ const s = document.createElement('span'); s.className = 'bqd-sowst'; s.textContent = st.textContent.trim(); acts.appendChild(s); }
+    const st = sow.querySelector('p.stub');
+    if(st && send){
+      const full = st.textContent.trim(); const s = document.createElement('span'); s.className = 'bqd-sowst'; s.title = full;
+      const some = /(\d+) of (\d+) lines/.exec(full), every = /All (\d+) lines/.exec(full);
+      s.textContent = some ? some[1]+' of '+some[2]+' lines are on the SoW' : every ? '✓ All '+every[1]+' lines are on the SoW' : full;
+      sowBox.appendChild(s);
+    }
     sow.remove();
   }
   const ct = lines.querySelector('.fincontot'); if(ct) acts.appendChild(ct);
@@ -65149,6 +65251,21 @@ ${L} .fincrow.item .fincpill input[data-bqn=u]{text-align:left;}
 ${L} .fincrow.item .fincpill.mg{flex:1 1 auto;justify-content:flex-start;}
 ${L} .fincrow.item .fincpills .fincrow-plot{flex:1 1 auto;min-width:max-content;}
 /* upload, top right of the tab row */
+/* 25 Oct (Andy): Issue as SOW small, at the right of the summary row */
+${L} .bqd-sumrow{display:flex;align-items:center;gap:12px;margin:12px 0 14px;}
+${L} .bqd-sumrow .bqd-sum{margin:0 !important;flex:1 1 auto;min-width:0;}
+${L} .bqd-sow{margin-left:auto;flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:4px;}
+${L} .bqd-sow:empty{display:none;}
+${L} .bqd-sow .bqd-sowbtn{width:auto !important;margin:0 !important;height:26px !important;min-height:26px !important;padding:0 10px !important;font-size:12px !important;border-radius:7px !important;white-space:nowrap;}
+${L} .bqd-sow .bqd-sowst{font-size:11px;line-height:1.3;color:var(--slate);white-space:nowrap;}
+/* + on section / sub-section rows, styled like the ⋮ */
+${L} .fincrow.section .bqd-plus, ${L} .fincrow.subsection .bqd-plus{order:3;font-size:17px;font-weight:700;}
+${L} .fincrow.section .fincrow-menu:not(.bqd-plus), ${L} .fincrow.subsection .fincrow-menu:not(.bqd-plus){margin-left:-4px;}
+.bqd-pluspop{min-width:140px;}
+/* ticked-lines bar: only when something's ticked, compact */
+${L} #finCtBulk.bqd-bulk{margin:6px 0 4px;padding:4px 10px;min-height:0;gap:4px 14px;font-size:12.5px;border-radius:8px;flex-wrap:wrap;align-items:center;}
+${L} #finCtBulk.bqd-bulk .linkbtn{font-size:12.5px !important;padding:2px 0 !important;margin:0 !important;}
+${L} #finCtBulk.bqd-bulk select{height:26px;min-height:26px;font-size:12px;padding:0 6px;}
 html.desk .finboqsub{align-items:center;}
 html.desk .finboqsub .bqd-up{margin-left:auto;display:flex;align-items:center;gap:12px;padding:0 2px;flex:none;}
 html.desk .finboqsub:not(.bqd-onboq) .bqd-up{display:none;}

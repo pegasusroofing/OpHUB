@@ -174,7 +174,7 @@ window.reportOfflineSync = async function(manual){
       }
       // 2. photos, one at a time, each kept as soon as it lands
       let photoFailed = false;
-      const folder = (isGeneralReports(d.siteId) ? 'general' : d.siteId)+'/reports/';
+      const folder = (isGeneralReports(d.siteId) ? 'general/'+(rec.orgId||ME.org_id) : d.siteId)+'/reports/'; // SEC3-M6: company folder
       for(const key of Object.keys(d.answers||{})){
         const arr = d.answers[key];
         if(!Array.isArray(arr)) continue;

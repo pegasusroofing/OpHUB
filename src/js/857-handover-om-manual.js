@@ -1050,7 +1050,7 @@ async function hoDeliverBlob(blob, filename){
   const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
   if(isNative){
     try{
-      const path = 'exports/'+uid()+'-'+filename.replace(/[^a-z0-9.\-]+/gi,'-');
+      const path = 'exports/'+(ME && ME.org_id ? ME.org_id+'/' : '')+uid()+'-'+filename.replace(/[^a-z0-9.\-]+/gi,'-');
       const stored = await uploadToStorage('site-photos', path, blob, blob.type);
       if(stored && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser){ await openInAppBrowser(publicUrl('site-photos', stored)+'?download='+encodeURIComponent(filename)); return; }
     }catch(e){}
