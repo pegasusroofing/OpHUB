@@ -69,7 +69,7 @@ function finTcSweep(){
 }
 /* ---------- 1b. totals bar on any Finance list that doesn't have one ---------- */
 const FIN_MON3 = {jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,sept:9,oct:10,nov:11,dec:12};
-function finParseUkDate(t){ const m = /(\d{1,2})\s+([A-Za-z]{3,4})\w*\s+(\d{4})/.exec(String(t||'')); if(!m) return ''; const mo = FIN_MON3[m[2].toLowerCase()]; return mo ? `${m[3]}-${String(mo).padStart(2,'0')}` : ''; }
+function finParseUkDate(t){ const sd = /^\s*(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})\s*$/.exec(String(t||'')); if(sd) return (sd[3].length===2 ? '20'+sd[3] : sd[3])+'-'+sd[2].padStart(2,'0'); const m = /(\d{1,2})\s+([A-Za-z]{3,4})\w*\s+(\d{4})/.exec(String(t||'')); if(!m) return ''; const mo = FIN_MON3[m[2].toLowerCase()]; return mo ? `${m[3]}-${String(mo).padStart(2,'0')}` : ''; }
 function finParseMoney(t){ const m = /-?−?£\s?-?[\d,]+(\.\d+)?/.exec(String(t||'')); if(!m) return null; const neg = /[-−]/.test(m[0]); const n = Number(m[0].replace(/[^\d.]/g,'')); return isNaN(n) ? null : (neg ? -n : n); }
 let finAutoMonth = {};
 function finAutoFoot(){
@@ -102,8 +102,9 @@ function finAutoFootPaint(){
     const wrap = foot.previousElementSibling; const tbl = wrap && wrap.querySelector('table'); if(!tbl || !foot._cols) return;
     const m = finAutoMonth[foot.dataset.key] || '';
     const rows = Array.from(tbl.querySelectorAll('tbody tr'));
-    rows.forEach(tr=>tr.classList.toggle('fmhide', !!m && finParseUkDate((tr.children[foot._cols.date]||{}).textContent)!==m));
-    const vis = rows.filter(tr=>tr.style.display!=='none' && !tr.classList.contains('fmhide') && !tr.classList.contains('void') && !tr.classList.contains('fg-hide') && !tr.classList.contains('fcf-hide'));
+    rows.forEach(tr=>{ if(!tr.classList.contains('finpi-line')) tr.classList.toggle('fmhide', !!m && finParseUkDate((tr.children[foot._cols.date]||{}).textContent)!==m); });
+    rows.forEach(tr=>{ if(tr.classList.contains('finpi-line')){ const p = tbl.querySelector('tr[data-pi="'+tr.dataset.pof+'"]'); tr.classList.toggle('fmhide', !!p && p.classList.contains('fmhide')); } });
+    const vis = rows.filter(tr=>!tr.classList.contains('finpi-line') && tr.style.display!=='none' && !tr.classList.contains('fmhide') && !tr.classList.contains('void') && !tr.classList.contains('fg-hide') && !tr.classList.contains('fcf-hide'));
     const t = foot.querySelector('.finsfoot-t');
     const sums = foot._cols.money.map(([i, l])=>{ let s = 0, any = false; vis.forEach(tr=>{ const v = finParseMoney((tr.children[i]||{}).textContent); if(v!=null){ s += v; any = true; } }); return any ? `<span>${escapeHtml(finTitleCase(l.toLowerCase()))} ${finMoney(finRound(s))}</span>` : ''; }).join('');
     t.innerHTML = `<b>${vis.length} shown${m ? ' · '+finMonthLabel(m) : ''}</b>${sums}`;
@@ -221,7 +222,9 @@ function finColFilters(){
 }
 function finColApply(tbl){
   const fs = Array.from(tbl.querySelectorAll('tr.fcf-row input')).map(i=>({c:Number(i.dataset.col), q:i.value.trim().toLowerCase()})).filter(f=>f.q);
-  tbl.querySelectorAll('tbody tr').forEach(tr=>{ const ok = fs.every(f=>{ const td = tr.children[f.c]; return td && td.textContent.toLowerCase().includes(f.q); }); tr.classList.toggle('fcf-hide', !ok); });
+  tbl.querySelectorAll('tbody tr').forEach(tr=>{ if(tr.classList.contains('finpi-line')) return; const ok = fs.every(f=>{ const td = tr.children[f.c]; return td && td.textContent.toLowerCase().includes(f.q); }); tr.classList.toggle('fcf-hide', !ok); });
+  // An invoice's line items show and hide with their invoice (the filters search the items through it).
+  tbl.querySelectorAll('tbody tr.finpi-line').forEach(tr=>{ const p = tbl.querySelector('tr[data-pi="'+tr.dataset.pof+'"]'); tr.classList.toggle('fcf-hide', !!p && p.classList.contains('fcf-hide')); });
   if(typeof finSalesFootPaintAll==='function') finSalesFootPaintAll();
   if(typeof finAutoFootPaint==='function') finAutoFootPaint();
 }
