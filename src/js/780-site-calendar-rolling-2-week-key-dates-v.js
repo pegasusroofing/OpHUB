@@ -304,7 +304,7 @@ async function renderSiteCalendar(siteId){
               ${dayEvents.length ? dayEvents.map(e=>`
                 <div class="calday-ev">
                   <span class="calday-evt" style="${e._leave?'color:var(--slate);font-style:italic;':e.is_private?'color:var(--slate);':'color:var(--ink);'}">${e._leave?'🏖 ':''}${e.is_private?'🔒 ':''}${e.recurrence_group_id?'🔁 ':''}${escapeHtml(e.title)}</span>
-                  ${mgr && !e._leave ? `
+                  ${mgr && !e._leave && !e._pseudo ? `
                     <span style="display:flex;gap:6px;flex:0 0 auto;">
                       <span class="taskicon" style="width:22px;height:22px;font-size:11px;" onclick="openCalEditEvent('${e.id}','${jsAttr(e.title)}','${e.event_date}',${e.is_private?'true':'false'},${escapeHtml(JSON.stringify([...(e.reminder_recipient_ids||[])]))},'${e.reminder_timing||''}','${e.reminder_date||''}')">✎</span>
                       <span class="taskicon danger" style="width:22px;height:22px;font-size:11px;" onclick="deleteCalEvent('${siteId}','${e.id}','${e.recurrence_group_id||''}','${e.event_date}')">🗑</span>

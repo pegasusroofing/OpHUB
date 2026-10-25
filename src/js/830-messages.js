@@ -82,6 +82,15 @@ async function markMessagesRead(ids){
     await sbFetch('/rest/v1/message_reads', {method:'POST', headers:{'Prefer':'resolution=ignore-duplicates,return=minimal'}, body: JSON.stringify(rows)});
   }catch(e){ /* silent */ }
 }
+// What tapping a message does: a page to go to (dest), or — for messages
+// that open a pop-up, e.g. an invoice query (9219zr) — the JS that opens it.
+// Returns '' when the message doesn't open anything.
+function msgClickJs(m, dest){
+  const x = typeof window.msgExtraClick==='function' ? window.msgExtraClick(m) : '';
+  return x || (dest ? `go('${dest}')` : '');
+}
+// Short label for the kind of message (Inbox list), e.g. "Delivery problem".
+function msgKindTag(m){ return typeof window.msgExtraLabel==='function' ? (window.msgExtraLabel(m) || '') : ''; }
 let msgDraft = '';
 // Manager view is now two tabs instead of two independently-collapsible
 // dropdowns — defaults to "From Team" every time a different site is opened,
@@ -178,19 +187,20 @@ async function renderMessages(siteId){
     });
   }
 
-  const kindLabel = {material_request:'Material request', snag_closed:'Snag closed', variation:'Variation raised', todo_assigned:'To Do assigned', price_overbooked:'Price overbooked', additional_works_requested:'Variation to price requested', schedule_flag:'Waste/leftover flag', material_pickup:'Material pickup assigned', delivery_assigned:'Delivery assigned', delivery_complete:'Delivery done', price_sheet_issued:'Price sheet issued', message:null};
+  const kindLabel = {material_request:'Material request', snag_closed:'Snag closed', variation:'Variation raised', todo_assigned:'To Do assigned', price_overbooked:'Price overbooked', additional_works_requested:'Variation to price requested', schedule_flag:'Waste/leftover flag', material_pickup:'Material pickup assigned', delivery_assigned:'Delivery assigned', delivery_complete:'Delivery done', price_sheet_issued:'Price sheet issued', grn_problem:'Delivery problem', pi_query:'Invoice query', pi_query_reply:'Invoice query reply', message:null};
   // Tapping a message that's about a specific thing (a material request,
   // variation, or closed snag) jumps straight to that tab — same routing
   // table used for push-notification taps in registerPushNotifications().
   const kindRoute = {material_request:'materials', variation:'variations', snag_closed:'snagging/list', todo_assigned:'todos', price_overbooked:'price', additional_works_requested:'price', schedule_flag:'schedule', material_pickup:'materialrequired'};
   const msgRow = m => {
     const dest = m.site_id && kindRoute[m.kind] ? `#/site/${m.site_id}/${kindRoute[m.kind]}` : null;
+    const click = msgClickJs(m, dest);
     const replies = repliesByParent[m.id] || [];
     const replyAudience = m.audience==='operatives' ? 'managers' : 'operatives';
     const selected = msgSelectedIds.has(m.id);
     const isUnread = unreadMsgIds.has(m.id);
     return `
-    <div class="card" style="padding:10px 12px;margin-bottom:8px;${dest?'cursor:pointer;':''}${isUnread?'border-left:4px solid var(--brand1);background:color-mix(in srgb, var(--brand1) 7%, var(--card));':''}" ${dest?`onclick="go('${dest}')"`:''}>
+    <div class="card" style="padding:10px 12px;margin-bottom:8px;${click?'cursor:pointer;':''}${isUnread?'border-left:4px solid var(--brand1);background:color-mix(in srgb, var(--brand1) 7%, var(--card));':''}" ${click?`onclick="${click}"`:''}>
       <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;">
         <div style="display:flex;align-items:flex-start;gap:8px;flex:1;min-width:0;">
           ${mgr ? `<input type="checkbox" style="width:18px;height:18px;flex:0 0 18px;margin-top:1px;" ${selected?'checked':''} onclick="event.stopPropagation();toggleMsgSelect('${m.id}')">` : ''}
@@ -299,9 +309,10 @@ async function renderMyMessages(){
     const dest = m.audience==='single'
       ? ((m.kind==='delivery_assigned' && ME.role==='driver') ? '#/driver/schedule' : null)
       : (m.site_id ? `#/site/${m.site_id}/messages` : null);
+    const click = msgClickJs(m, dest), kindTag = msgKindTag(m);
     return `
-    <div class="card" style="padding:10px 12px;margin-bottom:8px;${dest?'cursor:pointer;':''}${isUnread?'border-left:4px solid var(--brand1);background:color-mix(in srgb, var(--brand1) 7%, var(--card));':''}" ${dest?`onclick="go('${dest}')"`:''}>
-      <div style="font-size:12px;color:var(--slate);margin-bottom:4px;">${isUnread?`<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--brand1);margin-right:5px;"></span>`:''}${escapeHtml(nameOf(m.sender_id))} · ${new Date(m.created_at).toLocaleString(undefined,{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})} · <span style="font-weight:600;">${escapeHtml(siteName(m.site_id))}</span></div>
+    <div class="card" style="padding:10px 12px;margin-bottom:8px;${click?'cursor:pointer;':''}${isUnread?'border-left:4px solid var(--brand1);background:color-mix(in srgb, var(--brand1) 7%, var(--card));':''}" ${click?`onclick="${click}"`:''}>
+      <div style="font-size:12px;color:var(--slate);margin-bottom:4px;">${isUnread?`<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--brand1);margin-right:5px;"></span>`:''}${escapeHtml(nameOf(m.sender_id))} · ${new Date(m.created_at).toLocaleString(undefined,{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})} · <span style="font-weight:600;">${escapeHtml(siteName(m.site_id))}</span>${kindTag?` · <span style="color:var(--blue);">${escapeHtml(kindTag)}</span>`:''}</div>
       <div style="font-size:13.5px;${isUnread?'font-weight:700;':''}">${escapeHtml(m.body)}</div>
     </div>`;
   };

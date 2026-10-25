@@ -19,6 +19,14 @@ function matDoneEntries(list){
   });
   return out;
 }
+// A request cancelled from Finance reads "Cancelled on PO <number> in
+// Finance". Operatives and drivers never see PO numbers (Andy, 25 Oct), so
+// they get "the order was cancelled by the office" instead.
+function matCancelReasonText(reason, isPM){
+  const r = String(reason||'');
+  if(isPM) return r;
+  return /\bPO\b/.test(r) ? 'the order was cancelled by the office' : r;
+}
 function matGroupGrnTag(items){
   const withGrn = items.filter(x=>x.grn);
   if(!withGrn.length) return '';
@@ -251,7 +259,7 @@ async function renderMaterialRequests(siteId){
               ? `<div class="merchantrow">${m.merchant==='Yard stock' ? `<span class="statustag closed">🏗 From yard stock</span>` : m.email_sent_at ? `<span class="statustag closed">✓ Emailed ${new Date(m.email_sent_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</span>` : '<span class="statustag pending">Email pending</span>'}</div>${m.required_for_delivery ? `<div class="merchantrow" style="margin-top:4px;">Required for delivery: <strong>${new Date(m.required_for_delivery+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</strong></div>` : ''}${m.po_number ? `<div class="merchantrow" style="margin-top:4px;">PO: <strong>${escapeHtml(m.po_number)}</strong></div>` : ''}`
               : `<div class="merchantrow">→ <span class="merchantchip sent">${escapeHtml(m.merchant||supplierName(m.supplier_id)||'Supplier')}</span> ${m.email_sent_at ? '<span class="statustag closed" style="margin-left:6px;">✓ Email sent</span>' : '<span class="statustag pending" style="margin-left:6px;">Email pending</span>'}</div>${m.required_for_delivery ? `<div class="merchantrow" style="margin-top:4px;">Required for delivery: <strong>${new Date(m.required_for_delivery+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</strong></div>` : ''}${m.po_number ? `<div class="merchantrow" style="margin-top:4px;">PO: <strong>${escapeHtml(m.po_number)}</strong></div>` : ''}`
           ) : '') :
-            m.status==='cancelled' ? `<div class="merchantrow" style="color:var(--warn);">Cancelled by ${escapeHtml(nameOf(m.cancelled_by))}${m.cancel_reason ? ' — '+escapeHtml(m.cancel_reason) : ''}</div>` :
+            m.status==='cancelled' ? `<div class="merchantrow" style="color:var(--warn);">Cancelled by ${escapeHtml(nameOf(m.cancelled_by))}${m.cancel_reason ? ' — '+escapeHtml(matCancelReasonText(m.cancel_reason, isPM)) : ''}</div>` :
             m.status==='pending' ? (isPM ? (
               selectedMaterialIds.has(m.id) ? `<div class="merchantrow" style="color:var(--brand1);font-weight:800;">✓ Selected — use the grouped order panel above to send.</div>` :
               sendingMaterial && sendingMaterial.matId===m.id ? `

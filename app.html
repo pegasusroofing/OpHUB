@@ -4636,6 +4636,9 @@ async function registerPushNotifications(){
     PN.addListener('pushNotificationActionPerformed', (action)=>{
       try{
         const data = (action && action.notification && action.notification.data) || {};
+        // Finance links (9219zr): an invoice query opens its pop-up, a delivery
+        // problem opens the PO / the job's materials. Their related_id is not a delivery.
+        if(typeof window.msgPushOpen==='function' && window.msgPushOpen(data)) return;
         // A delivery notification carries the delivery's id (task_id, from
         // messages.related_id). Drivers land on their own schedule, PMs and
         // admins on that delivery; anyone else (e.g. the site contact told a
@@ -37974,6 +37977,14 @@ function matDoneEntries(list){
   });
   return out;
 }
+// A request cancelled from Finance reads "Cancelled on PO <number> in
+// Finance". Operatives and drivers never see PO numbers (Andy, 25 Oct), so
+// they get "the order was cancelled by the office" instead.
+function matCancelReasonText(reason, isPM){
+  const r = String(reason||'');
+  if(isPM) return r;
+  return /\bPO\b/.test(r) ? 'the order was cancelled by the office' : r;
+}
 function matGroupGrnTag(items){
   const withGrn = items.filter(x=>x.grn);
   if(!withGrn.length) return '';
@@ -38206,7 +38217,7 @@ async function renderMaterialRequests(siteId){
               ? `<div class="merchantrow">${m.merchant==='Yard stock' ? `<span class="statustag closed">🏗 From yard stock</span>` : m.email_sent_at ? `<span class="statustag closed">✓ Emailed ${new Date(m.email_sent_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</span>` : '<span class="statustag pending">Email pending</span>'}</div>${m.required_for_delivery ? `<div class="merchantrow" style="margin-top:4px;">Required for delivery: <strong>${new Date(m.required_for_delivery+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</strong></div>` : ''}${m.po_number ? `<div class="merchantrow" style="margin-top:4px;">PO: <strong>${escapeHtml(m.po_number)}</strong></div>` : ''}`
               : `<div class="merchantrow">→ <span class="merchantchip sent">${escapeHtml(m.merchant||supplierName(m.supplier_id)||'Supplier')}</span> ${m.email_sent_at ? '<span class="statustag closed" style="margin-left:6px;">✓ Email sent</span>' : '<span class="statustag pending" style="margin-left:6px;">Email pending</span>'}</div>${m.required_for_delivery ? `<div class="merchantrow" style="margin-top:4px;">Required for delivery: <strong>${new Date(m.required_for_delivery+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</strong></div>` : ''}${m.po_number ? `<div class="merchantrow" style="margin-top:4px;">PO: <strong>${escapeHtml(m.po_number)}</strong></div>` : ''}`
           ) : '') :
-            m.status==='cancelled' ? `<div class="merchantrow" style="color:var(--warn);">Cancelled by ${escapeHtml(nameOf(m.cancelled_by))}${m.cancel_reason ? ' — '+escapeHtml(m.cancel_reason) : ''}</div>` :
+            m.status==='cancelled' ? `<div class="merchantrow" style="color:var(--warn);">Cancelled by ${escapeHtml(nameOf(m.cancelled_by))}${m.cancel_reason ? ' — '+escapeHtml(matCancelReasonText(m.cancel_reason, isPM)) : ''}</div>` :
             m.status==='pending' ? (isPM ? (
               selectedMaterialIds.has(m.id) ? `<div class="merchantrow" style="color:var(--brand1);font-weight:800;">✓ Selected — use the grouped order panel above to send.</div>` :
               sendingMaterial && sendingMaterial.matId===m.id ? `
@@ -40518,6 +40529,8 @@ async function bookOrderCollection(siteId, f, supplier, toMe, materials){
       const rows = await dbInsert('delivery_tasks', payload);
       const saved = rows && rows[0];
       if(!saved) return ' — but it could not be added to the Delivery Schedule, add it by hand';
+      // Link the collection to the requests (and PO) so the driver completing it marks them received (9219zr).
+      if(typeof matLinkDeliveryTask==='function') await matLinkDeliveryTask(saved.id, materials, f.poId||null);
       try{ await resequenceSlot(payload.scheduled_date, payload.time_slot); await syncDeliveryCalendarEvent(saved.id, null, payload); }catch(e){}
       if(f.collectorId!==ME.id) postSystemMessageToUser(f.collectorId, siteId, 'delivery_assigned', `You've been assigned a collection for ${dateLabel}: ${itemsText}${f.note ? ' — Note: '+f.note : ''}`, saved.id);
       return ' — added to the Delivery Schedule for '+whoName+', '+dateLabel;
@@ -41446,7 +41459,7 @@ async function renderSiteCalendar(siteId){
               ${dayEvents.length ? dayEvents.map(e=>`
                 <div class="calday-ev">
                   <span class="calday-evt" style="${e._leave?'color:var(--slate);font-style:italic;':e.is_private?'color:var(--slate);':'color:var(--ink);'}">${e._leave?'🏖 ':''}${e.is_private?'🔒 ':''}${e.recurrence_group_id?'🔁 ':''}${escapeHtml(e.title)}</span>
-                  ${mgr && !e._leave ? `
+                  ${mgr && !e._leave && !e._pseudo ? `
                     <span style="display:flex;gap:6px;flex:0 0 auto;">
                       <span class="taskicon" style="width:22px;height:22px;font-size:11px;" onclick="openCalEditEvent('${e.id}','${jsAttr(e.title)}','${e.event_date}',${e.is_private?'true':'false'},${escapeHtml(JSON.stringify([...(e.reminder_recipient_ids||[])]))},'${e.reminder_timing||''}','${e.reminder_date||''}')">✎</span>
                       <span class="taskicon danger" style="width:22px;height:22px;font-size:11px;" onclick="deleteCalEvent('${siteId}','${e.id}','${e.recurrence_group_id||''}','${e.event_date}')">🗑</span>
@@ -43188,6 +43201,15 @@ async function markMessagesRead(ids){
     await sbFetch('/rest/v1/message_reads', {method:'POST', headers:{'Prefer':'resolution=ignore-duplicates,return=minimal'}, body: JSON.stringify(rows)});
   }catch(e){ /* silent */ }
 }
+// What tapping a message does: a page to go to (dest), or — for messages
+// that open a pop-up, e.g. an invoice query (9219zr) — the JS that opens it.
+// Returns '' when the message doesn't open anything.
+function msgClickJs(m, dest){
+  const x = typeof window.msgExtraClick==='function' ? window.msgExtraClick(m) : '';
+  return x || (dest ? `go('${dest}')` : '');
+}
+// Short label for the kind of message (Inbox list), e.g. "Delivery problem".
+function msgKindTag(m){ return typeof window.msgExtraLabel==='function' ? (window.msgExtraLabel(m) || '') : ''; }
 let msgDraft = '';
 // Manager view is now two tabs instead of two independently-collapsible
 // dropdowns — defaults to "From Team" every time a different site is opened,
@@ -43284,19 +43306,20 @@ async function renderMessages(siteId){
     });
   }
 
-  const kindLabel = {material_request:'Material request', snag_closed:'Snag closed', variation:'Variation raised', todo_assigned:'To Do assigned', price_overbooked:'Price overbooked', additional_works_requested:'Variation to price requested', schedule_flag:'Waste/leftover flag', material_pickup:'Material pickup assigned', delivery_assigned:'Delivery assigned', delivery_complete:'Delivery done', price_sheet_issued:'Price sheet issued', message:null};
+  const kindLabel = {material_request:'Material request', snag_closed:'Snag closed', variation:'Variation raised', todo_assigned:'To Do assigned', price_overbooked:'Price overbooked', additional_works_requested:'Variation to price requested', schedule_flag:'Waste/leftover flag', material_pickup:'Material pickup assigned', delivery_assigned:'Delivery assigned', delivery_complete:'Delivery done', price_sheet_issued:'Price sheet issued', grn_problem:'Delivery problem', pi_query:'Invoice query', pi_query_reply:'Invoice query reply', message:null};
   // Tapping a message that's about a specific thing (a material request,
   // variation, or closed snag) jumps straight to that tab — same routing
   // table used for push-notification taps in registerPushNotifications().
   const kindRoute = {material_request:'materials', variation:'variations', snag_closed:'snagging/list', todo_assigned:'todos', price_overbooked:'price', additional_works_requested:'price', schedule_flag:'schedule', material_pickup:'materialrequired'};
   const msgRow = m => {
     const dest = m.site_id && kindRoute[m.kind] ? `#/site/${m.site_id}/${kindRoute[m.kind]}` : null;
+    const click = msgClickJs(m, dest);
     const replies = repliesByParent[m.id] || [];
     const replyAudience = m.audience==='operatives' ? 'managers' : 'operatives';
     const selected = msgSelectedIds.has(m.id);
     const isUnread = unreadMsgIds.has(m.id);
     return `
-    <div class="card" style="padding:10px 12px;margin-bottom:8px;${dest?'cursor:pointer;':''}${isUnread?'border-left:4px solid var(--brand1);background:color-mix(in srgb, var(--brand1) 7%, var(--card));':''}" ${dest?`onclick="go('${dest}')"`:''}>
+    <div class="card" style="padding:10px 12px;margin-bottom:8px;${click?'cursor:pointer;':''}${isUnread?'border-left:4px solid var(--brand1);background:color-mix(in srgb, var(--brand1) 7%, var(--card));':''}" ${click?`onclick="${click}"`:''}>
       <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;">
         <div style="display:flex;align-items:flex-start;gap:8px;flex:1;min-width:0;">
           ${mgr ? `<input type="checkbox" style="width:18px;height:18px;flex:0 0 18px;margin-top:1px;" ${selected?'checked':''} onclick="event.stopPropagation();toggleMsgSelect('${m.id}')">` : ''}
@@ -43405,9 +43428,10 @@ async function renderMyMessages(){
     const dest = m.audience==='single'
       ? ((m.kind==='delivery_assigned' && ME.role==='driver') ? '#/driver/schedule' : null)
       : (m.site_id ? `#/site/${m.site_id}/messages` : null);
+    const click = msgClickJs(m, dest), kindTag = msgKindTag(m);
     return `
-    <div class="card" style="padding:10px 12px;margin-bottom:8px;${dest?'cursor:pointer;':''}${isUnread?'border-left:4px solid var(--brand1);background:color-mix(in srgb, var(--brand1) 7%, var(--card));':''}" ${dest?`onclick="go('${dest}')"`:''}>
-      <div style="font-size:12px;color:var(--slate);margin-bottom:4px;">${isUnread?`<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--brand1);margin-right:5px;"></span>`:''}${escapeHtml(nameOf(m.sender_id))} · ${new Date(m.created_at).toLocaleString(undefined,{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})} · <span style="font-weight:600;">${escapeHtml(siteName(m.site_id))}</span></div>
+    <div class="card" style="padding:10px 12px;margin-bottom:8px;${click?'cursor:pointer;':''}${isUnread?'border-left:4px solid var(--brand1);background:color-mix(in srgb, var(--brand1) 7%, var(--card));':''}" ${click?`onclick="${click}"`:''}>
+      <div style="font-size:12px;color:var(--slate);margin-bottom:4px;">${isUnread?`<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--brand1);margin-right:5px;"></span>`:''}${escapeHtml(nameOf(m.sender_id))} · ${new Date(m.created_at).toLocaleString(undefined,{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})} · <span style="font-weight:600;">${escapeHtml(siteName(m.site_id))}</span>${kindTag?` · <span style="color:var(--blue);">${escapeHtml(kindTag)}</span>`:''}</div>
       <div style="font-size:13.5px;${isUnread?'font-weight:700;':''}">${escapeHtml(m.body)}</div>
     </div>`;
   };
@@ -47760,7 +47784,6 @@ async function renderSiteFinance(siteId){
   const pick = (k, d)=> (jf[k]!==undefined && jf[k]!==null && jf[k]!=='') ? jf[k] : d;
   const vat = pick('vat_treatment', st.default_vat);
   const bt = finBillingType(jf, items.length, apps.length);
-  const poTotal = pos.reduce((t,p)=>t+Number(p.value||0), 0);
   document.getElementById('app').innerHTML = shell(`
     ${finProjTabsHtml(siteId, bt)}
     ${typeof isFinanceOnly==='function' && isFinanceOnly() ? '' : '<div class="finbanner">🔒 Only you can see this while OpHUB Finance is being built.</div>'}
@@ -47800,13 +47823,13 @@ async function renderSiteFinance(siteId){
         <div class="finpo">
           <div class="finpo-main">
             <div class="finpo-no">${escapeHtml(p.po_number)} ${p.is_primary?'<span class="tag-ok">Main PO</span>':''}</div>
-            <div class="stub" style="margin:2px 0 0;font-style:normal;">${[p.value!=null?finMoney(p.value):'', p.po_date?new Date(p.po_date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):'', p.description||''].filter(Boolean).map(escapeHtml).join(' · ') || 'No value or date'}</div>
+            <div class="stub" style="margin:2px 0 0;font-style:normal;">${[p.po_date?new Date(p.po_date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):'', p.description||''].filter(Boolean).map(escapeHtml).join(' · ') || 'No date'}</div>
           </div>
           <div class="finpo-act">
             ${(p.files&&p.files.length) || p.file_path ? `<button class="ghostbtn" style="padding:5px 10px;width:auto;" onclick="openClientPoFile('${p.id}')">View${p.files&&p.files.length>1?' ('+p.files.length+')':''}</button>` : ''}
             <button class="ghostbtn" style="padding:5px 10px;width:auto;" onclick="openClientPoForm('${siteId}','${p.id}')">Edit</button>
           </div>
-        </div>`).join('') + (pos.length>1 ? `<p class="stub" style="margin:8px 0 0;font-style:normal;">Total of POs: <b>${finMoney(poTotal)}</b></p>` : '')
+        </div>`).join('')
       : `<div class="empty" style="margin:0;">No client PO yet.</div>`}
     </div>
     ${typeof finJobEditHtml==='function' ? finJobEditHtml(site) : ''}
@@ -47912,10 +47935,7 @@ window.openClientPoForm = async function(siteId, poId){
   ov.innerHTML = `<div class="geo-modal-card">
       <h3>${po ? 'Edit client PO' : 'Add client PO'}</h3>
       <div class="formfield"><label class="field-label">PO number</label><input type="text" id="finPoNo" value="${escapeHtml(po?po.po_number:'')}" placeholder="As shown on the client’s order"></div>
-      <div class="fingrid2">
-        <div class="formfield"><label class="field-label">Value (£, excl. VAT)</label><input type="text" inputmode="decimal" data-money id="finPoVal" value="${po&&po.value!=null?escapeHtml(String(po.value)):''}" placeholder="Optional"></div>
-        <div class="formfield"><label class="field-label">Date</label><input type="date" id="finPoDate" value="${po&&po.po_date?po.po_date:''}"></div>
-      </div>
+      <div class="formfield"><label class="field-label">Date</label><input type="date" id="finPoDate" value="${po&&po.po_date?po.po_date:''}"></div>
       <div class="formfield"><label class="field-label">What it covers</label><input type="text" id="finPoDesc" value="${escapeHtml(po&&po.description||'')}" placeholder="e.g. Main contract, Variation 2"></div>
       <label class="finswitch"><input type="checkbox" id="finPoPrimary" ${primary?'checked':''}> Main PO (shown on invoices, applications and certificates)</label>
       <div class="formfield"><label class="field-label">Copies of the PO (optional, any files)</label>
@@ -47932,12 +47952,11 @@ window.openClientPoForm = async function(siteId, poId){
 window.closeClientPoForm = function(){ const ov = document.getElementById('finPoOverlay'); if(ov) ov.style.display = 'none'; finPoFile = null; };
 window.saveClientPo = async function(siteId, poId){
   const no = finVal('finPoNo');
-  const val = finNum(finVal('finPoVal'));
+  // No value on a client PO (Andy, 25 Oct): the contract value lives in Project Details.
   if(!no){ toast('Enter the PO number.'); return; }
-  if(val!==null && (isNaN(val) || val < 0)){ toast('Enter the PO value as a number.'); return; }
   const primary = document.getElementById('finPoPrimary').checked;
   const btn = document.getElementById('finPoSave'); if(btn){ btn.disabled = true; btn.textContent = 'Saving…'; }
-  const row = {po_number:no, value:val, po_date:finVal('finPoDate')||null, description:finVal('finPoDesc')||null, is_primary:primary};
+  const row = {po_number:no, po_date:finVal('finPoDate')||null, description:finVal('finPoDesc')||null, is_primary:primary};
   const newFiles = Array.isArray(finPoFile) ? finPoFile : (finPoFile ? [finPoFile] : []);
   if(newFiles.length){
     if(newFiles.some(f=>f.size > 20*1024*1024)){ toast('A file is over 20 MB.'); if(btn){ btn.disabled=false; btn.textContent='Save PO'; } return; }
@@ -60989,6 +61008,16 @@ window.renderFinJobReports = renderFinJobReports;
 .finds-tools input{flex:1;min-width:0;height:38px !important;min-height:38px !important;margin:0 !important;padding:0 12px !important;font-size:14px !important;border-radius:10px !important;}
 .finds-xl{all:unset;box-sizing:border-box;cursor:pointer;display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 12px;border:1px solid #CFE3D7;background:#F1F8F4;color:#1D6F42;border-radius:10px;font-size:13px;font-weight:800;margin-left:auto;}
 .finds-xl:hover{background:#E4F2EA;}
+.finds-tools input{-webkit-appearance:none;appearance:none;border:1px solid var(--line,#DCE1E8) !important;box-shadow:none !important;background:#fff;}
+.finds-tools input:focus{border-color:var(--brand1,#E3262B) !important;outline:none;}
+/* Full Summary tables on a computer: compact, and every column lines up with its heading (Andy, 25 Oct) */
+.finds-body table.findstbl{font-size:13px;}
+.finds-body table.findstbl th, .finds-body table.findstbl td{text-align:left !important;padding:6px 10px !important;vertical-align:middle !important;line-height:1.3;}
+.finds-body table.findstbl th.num, .finds-body table.findstbl td.num, .finds-body table.findstbl td[data-l="Net"], .finds-body table.findstbl td[data-l="Value"], .finds-body table.findstbl td[data-l="Invoiced"], .finds-body table.findstbl td[data-l="Left To Invoice"]{text-align:right !important;}
+.finds-body table.findstbl tr.fcf-row{display:none !important;}
+.finds-body .findsfoot{padding:3px 12px;font-size:12px;}
+/* Applications & Invoices: leave as is, but centre the Application column */
+.finds-body table.fininvtbl:not(.findstbl) td[data-l="Application"], .finds-body table.fininvtbl:has(td[data-l="Application"]) thead tr th:first-child{text-align:center !important;}
 .finds-dates label{display:flex;flex-direction:column;gap:3px;font-size:11.5px;font-weight:700;color:var(--slate);}
 .finds-dates input{height:32px !important;min-height:32px !important;padding:0 8px !important;font-size:13px !important;border-radius:8px !important;margin:0 !important;}
 .finds-sum{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
@@ -63639,6 +63668,1767 @@ window.finApplyRetention = async function(siteId, n){
 .finretd, .finret-f input[type=date], #finPcDate{-webkit-appearance:none;appearance:none;display:inline-flex;align-items:center;line-height:normal !important;vertical-align:middle;}
 .finretd::-webkit-date-and-time-value, .finret-f input[type=date]::-webkit-date-and-time-value, #finPcDate::-webkit-date-and-time-value{text-align:left;margin:0;padding:0;line-height:normal;}
 td:has(> .finretd){vertical-align:middle !important;}`;
+  document.head.appendChild(st);
+})();
+
+/* ============================================================
+   OpHUB Finance — proof of works on applications (25 Oct 2026, Andy: "on the applications,
+   add a pop up on the export to include the pdf report from schedule of works … as proof
+   of works").
+   - Download PDF: asks first; with the report, the Schedule of Works pages are added to the
+     end of the application PDF (one file).
+   - Download Excel: asks first; with the report, the Schedule of Works PDF downloads as well.
+   - Email to client: a tick box "Attach the Schedule of Works report" (with which report),
+     sent as a second attachment.
+   Report choice: the whole Schedule of Works, or just the photos taken since the last
+   application. Only offered when the project has a Schedule of Works.
+   ============================================================ */
+const FIN_SOW_LS = 'ophub.finSowProof';
+async function finSowHasTasks(siteId){
+  const r = await dbSelectChecked('schedule_tasks', 'site_id=eq.'+siteId+'&select=id&limit=1').catch(()=>({ok:false}));
+  return !!(r && r.ok && r.data && r.data.length);
+}
+// Valuation date of the application before this one (the start of "since the last application").
+async function finSowPrevDate(a){
+  const r = await dbSelectChecked('fin_applications', 'site_id=eq.'+a.site_id+'&number=lt.'+a.number+'&status=not.in.(draft,void)&select=valuation_date&order=number.desc&limit=1').catch(()=>({ok:false}));
+  return r && r.ok && r.data[0] ? r.data[0].valuation_date : null;
+}
+function finSowRange(prev, a){
+  const to = String(a.valuation_date || finToday()).slice(0,10);
+  if(!prev) return null;
+  const f = new Date(String(prev).slice(0,10)+'T00:00:00'); f.setDate(f.getDate()+1);
+  const from = typeof localISODate==='function' ? localISODate(f) : f.toISOString().slice(0,10);
+  return from <= to ? {from, to} : null;
+}
+function finSowPrefs(){ return finLsGet(FIN_SOW_LS, {include:true, mode:'full'}); }
+function finSowChoiceHtml(range, prefix){
+  const p = finSowPrefs();
+  const mode = range ? p.mode : 'full';
+  return `<div class="finsow-opts">
+      <label class="finsow-o"><input type="radio" name="${prefix}Mode" value="full" ${mode!=='photos'?'checked':''}><span><b>Whole Schedule of Works</b><em>Every task, its progress and photos</em></span></label>
+      ${range ? `<label class="finsow-o"><input type="radio" name="${prefix}Mode" value="photos" ${mode==='photos'?'checked':''}><span><b>Photos since the last application</b><em>${finDate(range.from)} – ${finDate(range.to)}</em></span></label>` : ''}
+    </div>`;
+}
+function finSowReadChoice(prefix, range){
+  const el = document.querySelector(`input[name="${prefix}Mode"]:checked`);
+  const mode = el ? el.value : 'full';
+  return {mode, period: mode==='photos' && range ? sowPeriodRange('custom', range.from, range.to) : {full:true}};
+}
+// The pop-up before a download. Resolves {include, mode, period} or null (cancelled).
+function finSowAsk(a, how){
+  return new Promise(async resolve=>{
+    if(!(await finSowHasTasks(a.site_id))) return resolve({include:false});
+    const range = finSowRange(await finSowPrevDate(a), a);
+    let ov = document.getElementById('finSowOv');
+    if(!ov){ ov = document.createElement('div'); ov.id = 'finSowOv'; ov.className = 'geo-modal-overlay'; }
+    document.body.appendChild(ov);
+    const done = v=>{ ov.style.display = 'none'; ov.innerHTML = ''; resolve(v); };
+    ov.onclick = e=>{ if(e.target===ov) done(null); };
+    ov.innerHTML = `<div class="geo-modal-card" style="max-width:460px;">
+      <h3 style="margin:0 0 6px;">Add Proof Of Works?</h3>
+      <p class="stub" style="margin:0 0 12px;font-style:normal;">Include the Schedule of Works report with Application ${a.number}, ${how==='pdf' ? 'as extra pages at the end of the PDF' : 'as a PDF downloaded with the Excel'}.</p>
+      ${finSowChoiceHtml(range, 'finSowDl')}
+      <button type="button" class="darkbtn" style="width:100%;margin:12px 0 8px;" id="finSowYes">Include the report</button>
+      <button type="button" class="ghostbtn" style="width:100%;margin:0 0 8px;" id="finSowNo">Export without it</button>
+      <button type="button" class="geo-modal-cancel" id="finSowCancel">Cancel</button>
+    </div>`;
+    ov.style.display = 'flex';
+    document.getElementById('finSowYes').onclick = ()=>{ const c = finSowReadChoice('finSowDl', range); finLsSet(FIN_SOW_LS, {include:true, mode:c.mode}); done(Object.assign({include:true}, c)); };
+    document.getElementById('finSowNo').onclick = ()=>{ finLsSet(FIN_SOW_LS, Object.assign(finSowPrefs(), {include:false})); done({include:false}); };
+    document.getElementById('finSowCancel').onclick = ()=>done(null);
+  });
+}
+// The Schedule of Works PDF (all tasks, whatever tab is showing on the SoW page).
+async function finSowBytes(siteId, period){
+  const keep = typeof scheduleFilter!=='undefined' ? scheduleFilter : null;
+  try{
+    if(keep!==null) scheduleFilter = 'all';
+    toast('Building the Schedule of Works report…');
+    return await buildSchedulePdfBytes(siteId, period);
+  } finally { if(keep!==null) scheduleFilter = keep; }
+}
+function finSowFilename(a){ return finAppFilename(a).replace(/\.xlsx$/i, '')+' - Proof of works.pdf'; }
+
+/* ---------- Download PDF ---------- */
+(function(){
+  const base = window.downloadFinAppPdf;
+  window.downloadFinAppPdf = async function(id){
+    if(finApp && finApp.id===id && document.getElementById('finAppSave')) await saveFinApplication(false);
+    const a = (await dbSelect('fin_applications', 'id=eq.'+id))[0]; if(!a) return;
+    const c = await finSowAsk(a, 'pdf'); if(!c) return;
+    if(!c.include) return base.apply(this, arguments);
+    if(!(await loadLib('PDFLib'))){ toast('Could not load the PDF tool — check your connection.'); return; }
+    const appBytes = await finAppPdfBytes(a); if(!appBytes) return;
+    const sow = await finSowBytes(a.site_id, c.period);
+    if(!sow){ toast('The Schedule of Works report couldn’t be built — downloading the application on its own.'); return deliverPdf(appBytes, finAppFilename(a).replace(/\.xlsx$/i, '.pdf')); }
+    try{
+      const out = await PDFLib.PDFDocument.create();
+      for(const bytes of [appBytes, sow.outBytes]){
+        const src = await PDFLib.PDFDocument.load(bytes);
+        (await out.copyPages(src, src.getPageIndices())).forEach(p=>out.addPage(p));
+      }
+      out.setTitle('Application '+a.number+' with proof of works');
+      return deliverPdf(await out.save(), finAppFilename(a).replace(/\.xlsx$/i, '')+' with proof of works.pdf');
+    }catch(e){ console.error(e); toast('Couldn’t join the two PDFs — downloading them separately.'); await deliverPdf(appBytes, finAppFilename(a).replace(/\.xlsx$/i, '.pdf')); return deliverPdf(sow.outBytes, finSowFilename(a)); }
+  };
+})();
+
+/* ---------- Download Excel ---------- */
+(function(){
+  const base = window.downloadFinAppExcel;
+  window.downloadFinAppExcel = async function(id){
+    if(finApp && finApp.id===id && document.getElementById('finAppSave')) await saveFinApplication(false);
+    const a = (await dbSelect('fin_applications', 'id=eq.'+id))[0]; if(!a) return;
+    const c = await finSowAsk(a, 'xlsx'); if(!c) return;
+    const r = await base.apply(this, arguments);
+    if(c.include){ const sow = await finSowBytes(a.site_id, c.period); if(sow) await deliverPdf(sow.outBytes, finSowFilename(a)); }
+    return r;
+  };
+})();
+
+/* ---------- Email: a tick box in the email pop-up, sent as a second attachment ---------- */
+let finSowMail = null;   // {appId, range}
+(function(){
+  const base = window.openFinAppEmail;
+  window.openFinAppEmail = async function(siteId, appId){
+    const r = await base.apply(this, arguments);
+    finSowMail = null;
+    try{
+      const card = document.querySelector('#finMailOverlay .geo-modal-card'); const send = document.getElementById('finMailSend');
+      if(!card || !send || !(await finSowHasTasks(siteId))) return r;
+      const a = (await dbSelect('fin_applications', 'id=eq.'+appId+'&select=id,site_id,number,valuation_date'))[0]; if(!a) return r;
+      const range = finSowRange(await finSowPrevDate(a), a);
+      finSowMail = {appId, range};
+      const box = document.createElement('div'); box.className = 'finsow-mail';
+      box.innerHTML = `<label class="finswitch"><input type="checkbox" id="finMailSow" ${finSowPrefs().include?'checked':''} onchange="document.getElementById('finMailSowOpts').hidden=!this.checked"> Attach the Schedule of Works report (proof of works)</label>
+        <div id="finMailSowOpts" ${finSowPrefs().include?'':'hidden'}>${finSowChoiceHtml(range, 'finSowMail')}</div>`;
+      send.insertAdjacentElement('beforebegin', box);
+      const intro = card.querySelector('p.stub'); if(intro) intro.innerHTML = intro.innerHTML.replace('Sent as an Excel file.', 'Sent as an Excel file (plus the Schedule of Works report if ticked).');
+    }catch(e){ console.error(e); }
+    return r;
+  };
+})();
+window.sendFinAppEmail = async function(siteId, appId){
+  const to = finVal('finMailTo').split(/[,;\s]+/).map(s=>s.trim()).filter(Boolean);
+  if(!to.length || to.some(e=>!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e))){ toast('Check the email address.'); return; }
+  const btn = document.getElementById('finMailSend'); const reset = ()=>{ if(btn){ btn.disabled=false; btn.textContent='Send'; } };
+  if(btn){ btn.disabled = true; btn.textContent = 'Sending…'; }
+  const a = (await dbSelect('fin_applications', 'id=eq.'+appId))[0]; if(!a){ reset(); return; }
+  const buf = await finAppExcelBytes(a); if(!buf){ reset(); return; }
+  const path = ME.org_id+'/'+siteId+'/applications/Application-'+a.number+'-'+Date.now()+'.xlsx';
+  const stored = await uploadToStorage('finance-docs', path, new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  if(!stored){ reset(); return; }
+  // Proof of works, if ticked
+  const extra = [];
+  const sowBox = document.getElementById('finMailSow');
+  if(sowBox && sowBox.checked && finSowMail && finSowMail.appId===appId){
+    const c = finSowReadChoice('finSowMail', finSowMail.range);
+    finLsSet(FIN_SOW_LS, {include:true, mode:c.mode});
+    if(btn) btn.textContent = 'Building the report…';
+    const sow = await finSowBytes(siteId, c.period);
+    if(!sow){ toast('The Schedule of Works report couldn’t be built, so it wasn’t sent.'); reset(); return; }
+    if(btn) btn.textContent = 'Sending…';
+    const sp = await uploadToStorage('finance-docs', ME.org_id+'/'+siteId+'/applications/Application-'+a.number+'-'+Date.now()+'-proof-of-works.pdf', new Blob([sow.outBytes], {type:'application/pdf'}), 'application/pdf');
+    if(!sp){ reset(); return; }
+    extra.push({storage_path:sp, filename:finSowFilename(a)});
+  } else if(sowBox) finLsSet(FIN_SOW_LS, Object.assign(finSowPrefs(), {include:false}));
+  let res;
+  try{
+    res = await sbFetch('/functions/v1/send-finance-email', {method:'POST', timeoutMs:90000, body:JSON.stringify({
+      kind:'application', site_id:siteId, storage_path:stored, filename:finAppFilename(a), recipients:to, extra_attachments:extra,
+      cc: document.getElementById('finMailMe').checked && ME.email ? [ME.email] : [],
+      reference:'No. '+a.number, client_po:a.client_po||'', amount:finMoney(a.net_due)+' excl. VAT', due:a.due_date?finDate(a.due_date):'', message:finVal('finMailMsg'),
+    })});
+  }catch(e){ toast('Could not reach the server — check your connection.'); reset(); return; }
+  const d = await res.json().catch(()=>({}));
+  if(!res.ok || d.error){ toast('Email failed — '+String(d.error||res.status).slice(0,140)); reset(); return; }
+  await dbUpdate('fin_applications', appId, {excel_path:stored, submitted_at:new Date().toISOString(), sent_to:to.join(', '), status: a.status});
+  document.getElementById('finMailOverlay').style.display = 'none';
+  finApp = null; toast(extra.length ? 'Application emailed with the Schedule of Works report' : 'Application emailed'); render();
+};
+(function(){
+  const st = document.createElement('style');
+  st.textContent = `.finsow-opts{display:flex;flex-direction:column;gap:6px;}
+.finsow-o{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line,#ECEEF2);border-radius:10px;padding:9px 11px;cursor:pointer;}
+.finsow-o input{width:auto !important;margin:3px 0 0 !important;flex:none;}
+.finsow-o span{display:flex;flex-direction:column;} .finsow-o b{font-size:14px;} .finsow-o em{font-style:normal;font-size:12.5px;color:var(--slate);}
+.finsow-o:has(input:checked){border-color:var(--brand1,#E3262B);background:#FFF7F7;}
+.finsow-mail{margin:4px 0 12px;display:flex;flex-direction:column;gap:8px;}`;
+  document.head.appendChild(st);
+})();
+
+/* ============================================================
+   OpHUB Finance — application dates on the calendars (25 Oct 2026, Andy: "application dates
+   for the pm should pull through to the site calendar … for pms, admins, estimators, qs's").
+   Each month's application date for a project (the date set for that month in Project Admin,
+   or the day-of-month rule) shows on that project's calendar and on the all-projects
+   calendar as "💷 Application due" — or "💷 Application sent" once that month's
+   application has gone. They can't be edited there; tap one to open the project's Finance.
+   Only managers, Finance users and the project's QS see them (the database checks this too:
+   site_application_dates).
+   ============================================================ */
+function finAppCalAllowed(){
+  if(!ME) return false;
+  if(['pm','admin'].includes(ME.role)) return true;               // PMs, admins and estimators
+  return typeof isFinanceUser==='function' && isFinanceUser();    // QS / Finance users
+}
+let finAppCalCache = null;   // {at, rows}
+async function finAppCalRows(){
+  if(finAppCalCache && Date.now()-finAppCalCache.at < 120000) return finAppCalCache.rows;
+  let rows = [];
+  try{
+    const res = await sbFetch('/rest/v1/rpc/site_application_dates', {method:'POST', body:JSON.stringify({p_site_ids:null})});
+    if(res.ok) rows = await res.json(); else return finAppCalCache ? finAppCalCache.rows : [];
+  }catch(e){ return finAppCalCache ? finAppCalCache.rows : []; }
+  finAppCalCache = {at:Date.now(), rows: Array.isArray(rows) ? rows : []};
+  return finAppCalCache.rows;
+}
+function finAppCalEventsFor(rows, from, to, siteId){
+  const out = [];
+  if(!from || !to) return out;
+  const months = [];
+  const d = new Date(from.slice(0,7)+'-01T12:00:00'), end = new Date(to.slice(0,7)+'-01T12:00:00');
+  while(d <= end){ months.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')); d.setMonth(d.getMonth()+1); }
+  rows.forEach(r=>{
+    if(siteId && r.site_id!==siteId) return;
+    const site = SITES.find(s=>s.id===r.site_id); if(!site) return;
+    const jf = {app_dates:r.app_dates||null, app_reminder_day:r.app_reminder_day};
+    const st = {app_reminder_day:r.org_app_day};
+    const applied = new Set((r.applied_dates||[]).map(x=>String(x).slice(0,7)));
+    months.forEach(ym=>{
+      const date = finAppDateFor(jf, st, ym);
+      if(!date || date < from || date > to) return;
+      const sent = applied.has(ym);
+      out.push({_pseudo:'app', _color: sent ? '#1E7A43' : '#B45309', id:'app-'+r.site_id+'-'+ym, _target:r.site_id, site_id:r.site_id, event_date:date,
+        title: sent ? '💷 Application sent' : '💷 Application due', _where: site.name});
+    });
+  });
+  return out;
+}
+// The calendars read site_calendar_events for a date range — add the application dates to that.
+(function(){
+  const base = dbSelect;
+  dbSelect = async function(table, qs){
+    const rows = await base.apply(this, arguments);
+    try{
+      if(table!=='site_calendar_events' || !finAppCalAllowed() || !Array.isArray(rows)) return rows;
+      const from = (/event_date=gte\.(\d{4}-\d{2}-\d{2})/.exec(qs||'')||[])[1], to = (/event_date=lte\.(\d{4}-\d{2}-\d{2})/.exec(qs||'')||[])[1];
+      if(!from || !to) return rows;
+      const site = (/(?:^|&)site_id=eq\.([0-9a-f-]{36})/.exec(qs||'')||[])[1] || null;
+      const extra = finAppCalEventsFor(await finAppCalRows(), from, to, site);
+      return extra.length ? rows.concat(extra).sort((a,b)=>String(a.event_date).localeCompare(String(b.event_date))) : rows;
+    }catch(e){ console.error(e); return rows; }
+  };
+  window.dbSelect = dbSelect;
+  const op = window.openCalPseudo;
+  window.openCalPseudo = function(kind, id){
+    if(kind==='app'){ go(typeof isFinanceUser==='function' && isFinanceUser() ? '#/site/'+id+'/finance' : '#/site/'+id+'/calendar'); return; }
+    return op ? op.apply(this, arguments) : undefined;
+  };
+})();
+
+/* ============================================================
+   Yard — book stock in (25 Oct 2026, Andy: "yard book stock in needs to have a section in
+   projects and in the finance. allow for pms / drivers to do this, and put in the material
+   tab in projects").
+   - Projects › Materials: a "⬇ Book into yard" chip for PMs / admins (next to 📦 Yard stock).
+   - Drivers: a "Book Stock Into The Yard" tile on their home screen.
+   - Finance › Purchases › Yard stock: "⬇ Book stock in" opens the same form.
+   The form records the item and qty, who it came from, the PO or delivery note number and a
+   photo of the delivery note. Finance users can pick the PO itself (links the booking to it).
+   Each section lists the latest bookings in. Drivers can book in only — the count and the
+   rates stay with the office (database: "drivers book stock in").
+   ============================================================ */
+function yardBookInCan(){ return !!ME && (yardCanEdit() || ME.role==='driver'); }
+let yardIn = null;   // {photo:File|null}
+window.yardBookInOpen = async function(){
+  if(!yardBookInCan()){ toast('Only managers, drivers and Finance can book stock in.'); return; }
+  const [Y, recent, pos] = await Promise.all([
+    yardLoad(true),
+    dbSelect('yard_moves', 'org_id=eq.'+ME.org_id+'&kind=eq.in&order=created_at.desc&limit=15&select=id,stock_id,qty,note,ref,supplier_name,po_id,photo_path,created_by,created_at').catch(()=>[]),
+    (typeof isFinanceUser==='function' && isFinanceUser()) ? dbSelect('purchase_orders', 'org_id=eq.'+ME.org_id+'&status=not.in.(cancelled,closed)&order=created_at.desc&limit=200&select=id,number,supplier_name,site_id').catch(()=>[]) : Promise.resolve([]),
+    typeof loadAllProfiles==='function' ? loadAllProfiles() : null,
+  ]);
+  const items = Y.items.filter(s=>s.active!==false);
+  yardIn = {photo:null};
+  const byId = {}; Y.items.forEach(s=>byId[s.id] = s);
+  let ov = document.getElementById('yardInOverlay');
+  if(!ov){ ov = document.createElement('div'); ov.id = 'yardInOverlay'; ov.className = 'geo-modal-overlay'; }
+  document.body.appendChild(ov);
+  ov.onclick = e=>{ if(e.target===ov) ov.style.display = 'none'; };
+  ov.innerHTML = `<div class="geo-modal-card yardin-card">
+    <div class="yardin-h"><h3 style="margin:0;">⬇ Book Stock Into The Yard</h3><button type="button" class="ghostbtn finsmall" style="width:auto;margin:0;" onclick="document.getElementById('yardInOverlay').style.display='none'">✕</button></div>
+    ${items.length ? `
+    <div class="formfield"><label class="field-label">Item</label><select id="yiItem">${items.map(s=>`<option value="${s.id}">${escapeHtml(s.item)} — ${yardQty(s.qty)} ${escapeHtml(s.unit||'')} in yard</option>`).join('')}</select>
+      ${yardCanEdit() ? `<button type="button" class="linkbtn" style="margin-top:4px;" onclick="document.getElementById('yardInOverlay').style.display='none';yardItemOpen('')">+ Not on the list? Add a new item</button>` : `<span class="stub" style="display:block;margin:4px 0 0;font-size:12px;font-style:normal;">Not on the list? Book it with a note and ask the office to add it.</span>`}</div>
+    <div class="fingrid2">
+      <div class="formfield"><label class="field-label">Qty</label><input type="text" inputmode="decimal" id="yiQty" placeholder="e.g. 40"></div>
+      <div class="formfield"><label class="field-label">From (supplier)</label><input type="text" id="yiSup" placeholder="e.g. SIG, or job 2653 leftovers"></div>
+    </div>
+    ${pos.length ? `<div class="formfield"><label class="field-label">Purchase order (optional)</label><select id="yiPo" onchange="yardInPoPick(this)"><option value="">None</option>${pos.map(p=>`<option value="${p.id}" data-sup="${escapeHtml(p.supplier_name||'')}" data-no="${escapeHtml(p.number||'')}">${escapeHtml(p.number||'PO')} · ${escapeHtml(p.supplier_name||'')}</option>`).join('')}</select></div>` : ''}
+    <div class="formfield"><label class="field-label">PO or delivery note number</label><input type="text" id="yiRef" placeholder="e.g. J101-PO-004 or DN 55231"></div>
+    <div class="formfield"><label class="field-label">Photo of the delivery note (optional)</label><input type="file" id="yiPhoto" accept="image/*" capture="environment" onchange="yardIn.photo=this.files&&this.files[0]||null"></div>
+    <div class="formfield"><label class="field-label">Note (optional)</label><input type="text" id="yiNote" placeholder="e.g. 2 damaged, left in bay 3"></div>
+    <button type="button" class="darkbtn" id="yiGo" style="width:100%;" onclick="yardBookInSave()">Book In</button>`
+    : `<div class="empty">The yard list is empty. ${yardCanEdit() ? `<button type="button" class="linkbtn" onclick="document.getElementById('yardInOverlay').style.display='none';yardItemOpen('')">Add the first item</button>` : 'Ask the office to add the yard items first.'}</div>`}
+    <p class="sectiontitle" style="margin:16px 0 6px;">Recently Booked In</p>
+    <div class="yardin-list">${recent.length ? recent.map(m=>{ const s = byId[m.stock_id] || {}; const who = (PROFILES[m.created_by]||{}).name || '';
+      return `<div class="yardin-row"><div><b>${escapeHtml(s.item||'Item')}</b><span>${new Date(m.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}${who?' · '+escapeHtml(who):''}${m.supplier_name?' · '+escapeHtml(m.supplier_name):''}${m.ref?' · '+escapeHtml(m.ref):''}${m.note?' · '+escapeHtml(m.note):''}</span></div>
+        <div class="yardin-q">+${yardQty(m.qty)} ${escapeHtml(s.unit||'')}${m.photo_path?` <button type="button" class="linkbtn" onclick="viewImage('${jsAttr(publicUrl('site-photos', m.photo_path))}')">📷</button>`:''}</div></div>`; }).join('') : '<div class="empty" style="margin:0;">Nothing booked in yet.</div>'}</div>
+  </div>`;
+  ov.style.display = 'flex';
+};
+window.yardInPoPick = function(sel){
+  const o = sel.options[sel.selectedIndex]; if(!o || !o.value) return;
+  const sup = document.getElementById('yiSup'), ref = document.getElementById('yiRef');
+  if(sup && !sup.value) sup.value = o.dataset.sup || '';
+  if(ref) ref.value = o.dataset.no || '';
+};
+let yardInBusy = false;
+window.yardBookInSave = async function(){
+  if(yardInBusy) return;
+  const stockId = finVal('yiItem'); const s = yardCache && yardCache.items.find(x=>x.id===stockId);
+  if(!s){ toast('Choose the item.'); return; }
+  const q = yardNum(finVal('yiQty'));
+  if(q==null || !(q > 0)){ toast('Enter the qty as a number.'); return; }
+  yardInBusy = true;
+  const btn = document.getElementById('yiGo'); if(btn){ btn.disabled = true; btn.textContent = 'Saving…'; }
+  try{
+    let photo = null;
+    if(yardIn && yardIn.photo){
+      const safe = String(yardIn.photo.name||'delivery.jpg').replace(/[^a-z0-9.\-]+/gi,'_').slice(-60);
+      photo = await uploadToStorage('site-photos', ME.org_id+'/yard/'+uid()+'-'+safe, yardIn.photo, yardIn.photo.type||'image/jpeg');
+      if(!photo){ return; }
+    }
+    const row = {org_id:ME.org_id, stock_id:stockId, kind:'in', qty:q, site_id:null, note:finVal('yiNote')||null, created_by:ME.id,
+      ref:finVal('yiRef')||null, supplier_name:finVal('yiSup')||null, po_id:finVal('yiPo')||null, photo_path:photo};
+    const ins = await dbInsert('yard_moves', row);
+    if(!ins) return;
+    yardCache = null;
+    document.getElementById('yardInOverlay').style.display = 'none';
+    toast(`Booked in — ${yardQty(Number(s.qty||0)+q)} ${s.unit||''} now in the yard`);
+    render();
+  } finally { yardInBusy = false; if(btn){ btn.disabled = false; btn.textContent = 'Book In'; } }
+};
+
+// Projects › Materials: chip next to "📦 Yard stock"
+(function(){
+  if(typeof matTopTabsHtml!=='function') return;
+  const base = matTopTabsHtml;
+  matTopTabsHtml = function(){
+    let h = base.apply(this, arguments);
+    if(yardBookInCan()) h = h.replace(/<\/div>\s*$/, `<div class="filterchip yardchip" onclick="yardBookInOpen()">⬇ Book into yard</div></div>`);
+    return h;
+  };
+})();
+// Finance yard page and the 📦 Yard stock pop-up: "Book stock in" uses this form
+(function(){
+  const base = window.yardMoveOpen;
+  if(typeof base==='function') window.yardMoveOpen = function(kind, stockId, siteId, materialId){
+    if(kind==='in' && !materialId) return yardBookInOpen();
+    return base.apply(this, arguments);
+  };
+})();
+// Drivers: a tile on their home screen
+(function(){
+  if(typeof renderDriverHome!=='function') return;
+  const base = renderDriverHome;
+  renderDriverHome = async function(){
+    const r = await base.apply(this, arguments);
+    try{
+      const grid = document.querySelector('#app .tilegrid');
+      if(grid && !document.getElementById('yardInTile')){
+        const t = document.createElement('div'); t.className = 'tile'; t.id = 'yardInTile'; t.onclick = ()=>yardBookInOpen();
+        t.innerHTML = `<div class="icon" style="background:#EEF4FF;color:#1D4ED8;">📦</div><div class="lbl">Book Stock Into The Yard</div><div class="sub">Deliveries and leftovers</div>`;
+        grid.appendChild(t);
+      }
+    }catch(e){}
+    return r;
+  };
+})();
+(function(){
+  const st = document.createElement('style');
+  st.textContent = `.yardin-card{max-width:520px;}
+.yardin-h{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;}
+.yardin-list{display:flex;flex-direction:column;gap:6px;max-height:240px;overflow:auto;}
+.yardin-row{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;border:1px solid var(--line,#ECEEF2);border-radius:10px;padding:8px 10px;}
+.yardin-row b{display:block;font-size:13.5px;} .yardin-row span{font-size:12px;color:var(--slate);}
+.yardin-q{font-weight:800;white-space:nowrap;color:#1E7A43;}`;
+  document.head.appendChild(st);
+})();
+
+/* ============================================================
+   Materials ⇄ Finance purchase orders (25 Oct 2026, Andy chose these from the
+   Projects ⇄ Finance map, stage 5 "Materials & orders"):
+   1. A request that's on a sent PO is locked in Projects — no edit, cancel,
+      delete or re-send ("Changes are made in Finance"). Finance users get
+      "Open the PO". In Finance, cancelling a PO or removing a line from it
+      marks the linked request(s) cancelled, so the site's list stays right.
+   2. Goods received with a problem tells Finance (fin_flag_grn_problem: the
+      PO's supplier invoices go on query and every Finance user gets a
+      "Delivery problem" message).
+   3. Managers see "Ordered By The Office" on the job's Materials screen
+      (site_office_orders, no prices). Everyone on the job sees the delivery /
+      collection dates on the job calendar (site_delivery_dates — supplier
+      only, no PO numbers, values or items); managers also on the
+      all-projects calendar. Operatives and drivers never see POs.
+   4. A driver collection booked from an order remembers the requests and PO
+      (delivery_tasks.material_ids / po_id). When the driver completes it, the
+      goods are marked received with the driver's photos.
+   5. Finance PO PDFs are filed in the job's Material PO's › "Finance POs"
+      folder, with the required-by date as the delivery date.
+   6. A supplier invoice put on query messages the job's PM; the PM answers
+      from a small pop-up (fin_pi_query_view / fin_pi_query_reply). Finance
+      sees the conversation on the invoice and can reply too.
+   7. The note on a material order is kept on its PO.
+   The database pieces are added separately. Anything not there yet is
+   skipped quietly (no section, no error).
+   ============================================================ */
+
+/* ---------- small helpers ---------- */
+function mplId(x){ return String(x==null ? '' : x).replace(/[^A-Za-z0-9_-]/g, ''); }
+function mplIsUuid(x){ return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(x||'')); }
+function mplFin(){ return typeof isFinanceUser==='function' && isFinanceUser(); }
+function mplMgr(){ return !!ME && typeof isManager==='function' && isManager(ME); }
+function mplMoney(v){ if(v==null || v==='') return ''; return typeof finMoney==='function' ? finMoney(v) : '£'+Number(v).toFixed(2); }
+function mplDay(d){ if(!d) return ''; const x = new Date(String(d).length===10 ? d+'T12:00:00' : d); return isNaN(x) ? '' : x.toLocaleDateString('en-GB', {weekday:'short', day:'numeric', month:'short'}); }
+function mplWhen(d){ if(!d) return ''; const x = new Date(d); return isNaN(x) ? '' : x.toLocaleString('en-GB', {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'}); }
+// Calls a database function. {ok, data} — or {ok:false, missing:true} when it isn't there yet.
+async function mplRpc(name, body){
+  try{
+    const res = await sbFetch('/rest/v1/rpc/'+name, {method:'POST', body:JSON.stringify(body||{})});
+    if(!res.ok){
+      let msg = '', code = '';
+      try{ const j = await res.json(); msg = j.message || j.error || ''; code = j.code || ''; }catch(e){}
+      return {ok:false, missing: res.status===404 || code==='PGRST202' || code==='42883', msg: msg || String(res.status)};
+    }
+    let data = null; try{ data = await res.json(); }catch(e){}
+    return {ok:true, data};
+  }catch(e){ return {ok:false, offline:true, msg:(e && e.message) || ''}; }
+}
+// Quiet writes: a side effect that fails must never show "Update failed" over the thing that worked.
+async function mplPatch(table, qs, patch){
+  try{
+    const res = await sbFetch('/rest/v1/'+table+'?'+qs, {method:'PATCH', headers:{'Prefer':'return=representation'}, body:JSON.stringify(patch)});
+    if(!res.ok){ console.warn('not saved ('+table+'):', await safeErr(res)); return null; }
+    const d = await res.json().catch(()=>[]);
+    return Array.isArray(d) ? d : [d];
+  }catch(e){ return null; }
+}
+async function mplInsert(table, row){
+  try{
+    const res = await sbFetch('/rest/v1/'+table, {method:'POST', headers:{'Prefer':'return=representation'}, body:JSON.stringify(row)});
+    if(!res.ok){ console.warn('not saved ('+table+'):', await safeErr(res)); return null; }
+    return await res.json().catch(()=>null);
+  }catch(e){ return null; }
+}
+async function mplGetOne(table, qs){
+  try{
+    const res = await sbFetch('/rest/v1/'+table+'?'+qs, {method:'GET'});
+    if(!res.ok) return null;
+    const d = await res.json();
+    return Array.isArray(d) ? (d[0] || null) : d;
+  }catch(e){ return null; }
+}
+function mplOverlay(id){
+  let ov = document.getElementById(id);
+  if(!ov){ ov = document.createElement('div'); ov.id = id; ov.className = 'geo-modal-overlay'; document.body.appendChild(ov); }
+  ov.onclick = e=>{ if(e.target===ov) ov.style.display = 'none'; };
+  return ov;
+}
+
+/* ============================================================
+   1. Requests on a sent PO are locked in Projects
+   ============================================================ */
+// The first of these requests that's on a PO which has been sent (and not cancelled), or null.
+async function mplLockedPo(matIds){
+  const ids = Array.from(new Set((matIds||[]).map(mplId).filter(Boolean)));
+  if(!ids.length) return null;
+  const rows = await dbSelect('materials', 'id=in.('+ids.join(',')+')&select=*');
+  const on = (rows||[]).filter(m=>m && m.status!=='cancelled' && (m.po_number || m.po_id) && (m.sent_at || m.email_sent_at || m.status==='sent' || m.status==='closed'));
+  for(const m of on){
+    let po = null;
+    // Finance users can read the PO itself: a cancelled one doesn't lock anything, and it gives the link.
+    if(mplFin()){
+      if(mplIsUuid(m.po_id)) po = (await dbSelect('purchase_orders', 'id=eq.'+m.po_id+'&select=id,number,status,site_id,sent_at'))[0] || null;
+      if(!po) po = (await dbSelect('purchase_orders', 'material_ids=cs.{'+mplId(m.id)+'}&order=created_at.desc&limit=1&select=id,number,status,site_id,sent_at'))[0] || null;
+      if(po && po.status==='cancelled') continue;
+    }
+    return {number: (po && po.number) || m.po_number || '', poId: po ? po.id : (mplIsUuid(m.po_id) ? m.po_id : null), siteId: (po && po.site_id) || m.site_id, many: ids.length>1};
+  }
+  return null;
+}
+function mplLockText(L){
+  return (L.many ? 'One or more of these is on PO ' : 'This is on PO ')+(L.number || '(no number)')+', which has been sent. Changes are made in Finance (it’s linked to Xero).';
+}
+// True (after telling them) when the action must stop.
+async function mplLockStop(matIds){
+  let L = null;
+  try{ L = await mplLockedPo(matIds); }catch(e){ return false; }
+  if(!L) return false;
+  const msg = mplLockText(L);
+  if(mplFin() && L.poId && L.siteId){
+    if(await customConfirm(msg, {confirmLabel:'Open the PO', cancelLabel:'OK'})) go('#/site/'+L.siteId+'/finance/po/'+L.poId);
+  } else customAlert(msg);
+  return true;
+}
+window.matPoLockCheck = mplLockStop;
+(function(){
+  const sel = ()=>{ try{ return Array.from(selectedMaterialIds); }catch(e){ return []; } };
+  const guards = {
+    openMaterialEdit: a=>[a[1]], deleteMaterial: a=>[a[1]], cancelMaterial: a=>[a[1]], openReemailPrompt: a=>[a[1]],
+    sendMaterialAgain: a=>[a[0]], deleteSelectedMaterials: sel, confirmSendGroupedMaterial: sel,
+  };
+  Object.keys(guards).forEach(name=>{
+    const base = window[name];
+    if(typeof base!=='function') return;
+    window[name] = async function(){
+      const args = arguments;
+      if(await mplLockStop(guards[name](args))) return;
+      return base.apply(this, args);
+    };
+  });
+})();
+// If the database refuses a change (trigger materials_po_lock) the raw error
+// reached the toast as "Update failed — This item is on PO …". Show just the
+// reason — and operatives / drivers never see a PO number.
+(function(){
+  const base = toast;
+  toast = function(msg){
+    try{
+      const s = String(msg==null ? '' : msg), i = s.indexOf('This item is on PO');
+      if(i>=0) msg = mplMgr() ? s.slice(i) : 'This has already been ordered by the office, so it can’t be changed here.';
+    }catch(e){}
+    return base.apply(this, [msg].concat(Array.prototype.slice.call(arguments, 1)));
+  };
+  window.toast = toast;
+})();
+// Finance: requests on a cancelled PO / a removed line are marked cancelled.
+async function mplCancelMaterials(ids, poNumber){
+  const clean = Array.from(new Set((ids||[]).map(mplId).filter(Boolean)));
+  if(!clean.length) return 0;
+  const rows = await mplPatch('materials', 'id=in.('+clean.join(',')+')&status=neq.cancelled', {status:'cancelled', cancel_reason:'Cancelled on PO '+(poNumber||'')+' in Finance', cancelled_by:ME.id});
+  return rows ? rows.length : 0;
+}
+(function(){
+  const base = window.setFinPoStatus;
+  if(typeof base!=='function') return;
+  window.setFinPoStatus = async function(poId, status){
+    const r = await base.apply(this, arguments); // reads the tapped button straight away ("tap again to cancel")
+    if(status!=='cancelled') return r;
+    try{
+      const po = await mplGetOne('purchase_orders', 'id=eq.'+mplId(poId)+'&select=id,number,status,material_ids');
+      if(!po || po.status!=='cancelled') return r; // first tap only asked "tap again"
+      const n = await mplCancelMaterials(po.material_ids || [], po.number);
+      if(n) toast('PO cancelled — '+n+' site request'+(n===1?'':'s')+' marked cancelled');
+    }catch(e){ console.error(e); }
+    return r;
+  };
+})();
+// PO page: "Remove lines…" on an open PO.
+(function(){
+  if(typeof renderFinPo!=='function') return;
+  const base = renderFinPo;
+  renderFinPo = async function(siteId, poId){
+    const gen = RENDER_GEN;
+    const r = await base.apply(this, arguments);
+    try{
+      if(gen!==RENDER_GEN) return r;
+      const po = (await dbSelect('purchase_orders', 'id=eq.'+mplId(poId)+'&select=id,status,items'))[0];
+      if(gen!==RENDER_GEN || !po || po.status!=='open' || !(po.items||[]).length) return r;
+      const t = Array.from(document.querySelectorAll('#app .sectiontitle')).find(e=>e.textContent.trim()==='Items');
+      if(!t || t.parentElement.querySelector('.mpl-rmlines')) return r;
+      t.parentElement.insertAdjacentHTML('beforeend', `<button type="button" class="ghostbtn mpl-rmlines" style="width:100%;margin-top:10px;" onclick="mplPoRemoveLinesOpen('${jsAttr(siteId)}','${jsAttr(po.id)}')">Remove lines…</button>`);
+    }catch(e){ console.error(e); }
+    return r;
+  };
+})();
+window.mplPoRemoveLinesOpen = async function(siteId, poId){
+  const po = (await dbSelect('purchase_orders', 'id=eq.'+mplId(poId)))[0];
+  if(!po){ toast('PO not found.'); return; }
+  if(po.status!=='open'){ toast('Only an open PO can have lines taken off.'); return; }
+  const items = po.items || [];
+  const ov = mplOverlay('mplPoRmOverlay');
+  ov.innerHTML = `<div class="geo-modal-card">
+    <h3>Remove Lines From PO ${escapeHtml(po.number||'')}</h3>
+    <p class="stub" style="margin:0 0 10px;font-style:normal;">Tick the lines to take off this PO. A site request on a removed line is marked cancelled (“Cancelled on PO ${escapeHtml(po.number||'')} in Finance”). Email the supplier the new PO afterwards if they need to know.</p>
+    ${items.map((it,i)=>`<label class="mpl-rmrow"><input type="checkbox" data-i="${i}"><span>${escapeHtml(it.item||'Item')}${it.qty!=null && it.qty!=='' ? ' · '+escapeHtml(String(it.qty))+(it.unit?' '+escapeHtml(it.unit):'') : ''}${it.material_id ? ' <em>site request</em>' : ''}</span><b>${it.amount!=null ? mplMoney(it.amount) : ''}</b></label>`).join('')}
+    <button class="darkbtn" style="width:100%;margin-top:10px;background:var(--warn);border-color:var(--warn);" id="mplPoRmGo" onclick="mplPoRemoveLines('${jsAttr(siteId)}','${jsAttr(po.id)}')">Remove ticked lines</button>
+    <button class="geo-modal-cancel" onclick="document.getElementById('mplPoRmOverlay').style.display='none'">Cancel</button>
+  </div>`;
+  ov.style.display = 'flex';
+};
+let mplPoRmBusy = false;
+window.mplPoRemoveLines = async function(siteId, poId){
+  if(mplPoRmBusy) return;
+  const idx = new Set(Array.from(document.querySelectorAll('#mplPoRmOverlay input[data-i]:checked')).map(el=>Number(el.dataset.i)));
+  if(!idx.size){ toast('Tick at least one line.'); return; }
+  mplPoRmBusy = true;
+  try{
+    const po = (await dbSelectChecked('purchase_orders', 'id=eq.'+mplId(poId))).data[0];
+    if(!po){ toast('Couldn’t load the PO — check your signal and try again.'); return; }
+    const items = po.items || [];
+    if(idx.size >= items.length){ toast('To take every line off, cancel the PO instead.'); return; }
+    if(!(await customConfirm('Take '+idx.size+' line'+(idx.size===1?'':'s')+' off PO '+(po.number||'')+'?', {confirmLabel:'Remove', danger:true}))) return;
+    const keep = items.filter((_,i)=>!idx.has(i)), gone = items.filter((_,i)=>idx.has(i));
+    const goneMats = gone.map(x=>x.material_id).filter(Boolean);
+    const patch = {items:keep, material_ids:(po.material_ids||[]).filter(id=>!goneMats.includes(id))};
+    if(po.value!=null){
+      const r2 = n=>Math.round((Number(n)||0)*100)/100;
+      const goneAmt = gone.reduce((t,x)=>t+(x.amount!=null ? Number(x.amount)||0 : 0), 0);
+      patch.value = r2(Math.max(0, Number(po.value) - goneAmt));
+      if(po.vat!=null){
+        const ratio = Number(po.value) ? Number(po.vat)/Number(po.value) : 0;
+        const goneVat = gone.reduce((t,x)=>t+(x.vat!=null ? Number(x.vat)||0 : (x.amount!=null ? (Number(x.amount)||0)*ratio : 0)), 0);
+        patch.vat = r2(Math.max(0, Number(po.vat) - goneVat));
+        patch.total = r2(patch.value + patch.vat);
+      }
+    }
+    const row = await dbUpdate('purchase_orders', po.id, patch);
+    if(!row) return;
+    const n = await mplCancelMaterials(goneMats, po.number);
+    document.getElementById('mplPoRmOverlay').style.display = 'none';
+    toast(gone.length+' line'+(gone.length===1?'':'s')+' removed'+(n ? ' — '+n+' site request'+(n===1?'':'s')+' marked cancelled' : ''));
+    render();
+  } finally { mplPoRmBusy = false; }
+};
+
+/* ============================================================
+   2. Goods received with a problem → Finance
+   ============================================================ */
+(function(){
+  const base = window.saveGrn;
+  if(typeof base!=='function') return;
+  window.saveGrn = async function(siteId, matId){
+    let wasOk = true, note = '';
+    try{ wasOk = !!grnDraft.ok; note = String(grnDraft.notes||'').trim(); }catch(e){}
+    const r = await base.apply(this, arguments);
+    try{
+      // Only after a GRN with a problem really saved (the form closes on success).
+      if(wasOk || !note || grnOpenFor!==null) return r;
+      const res = await mplRpc('fin_flag_grn_problem', {p_material_id: matId, p_note: note});
+      if(!res.ok) return r; // not there yet — the managers' message from 726 still went
+      let d = res.data; if(Array.isArray(d)) d = d[0];
+      if(d && typeof d==='object' && (d.ok===false || d.po_id===null)) return r; // not on a PO: nothing for Finance
+      const q = d && typeof d==='object' ? Number(d.queried!=null ? d.queried : d.invoices_queried!=null ? d.invoices_queried : d.invoices) : NaN;
+      if(mplMgr()) toast('Saved — Finance has been told about the problem'+(q>0 ? ' and '+q+' supplier invoice'+(q===1?' is':'s are')+' on hold' : ''));
+      else toast('Saved — the office has been told about the problem');
+    }catch(e){ console.error(e); }
+    return r;
+  };
+})();
+
+/* ============================================================
+   3a. "Ordered By The Office" on the job's Materials screen (managers only)
+   ============================================================ */
+function mplOfficeOrdersHtml(rows){
+  const line = (it, rec)=>{
+    const g = it && it.material_id && rec ? rec[it.material_id] : null;
+    const tag = g ? (g.ok===false ? `<span class="opmat-pill" style="background:#FDE2E0;color:#B3261E;">⚠ Problem</span>` : `<span class="opmat-pill" style="background:#DDF3E3;color:#1E7A3C;">✓ Received</span>`)
+      : `<span class="opmat-pill" style="background:#EEF0F3;color:#5B6270;">Not received</span>`;
+    return `<div class="mplofc-line"><span>${escapeHtml(it.item||'Item')}${it.qty!=null && it.qty!=='' ? ` <span class="opmat-qty">× ${escapeHtml(String(it.qty))}${it.unit?' '+escapeHtml(it.unit):''}</span>` : ''}</span>${tag}</div>`;
+  };
+  return `<div class="card mplofc">
+    <p class="sectiontitle" style="margin-top:0;">Ordered By The Office</p>
+    <p class="stub" style="margin:0 0 8px;">Orders Finance has raised for this job.</p>
+    ${rows.map(p=>{
+      const items = Array.isArray(p.items) ? p.items : [], rec = (p.received && typeof p.received==='object') ? p.received : {};
+      const coll = p.fulfilment==='collection';
+      return `<div class="mplofc-po">
+        <div class="mplofc-h"><b>${escapeHtml(p.number||'PO')}</b><span>${escapeHtml(p.supplier_name||'Supplier')}</span>
+          <span class="opmat-pill" style="background:#E3EEFA;color:#1F5FA6;margin-left:auto;">${coll ? 'Collection' : 'Delivery'}${p.required_by ? ' '+escapeHtml(mplDay(p.required_by)) : ' date to be confirmed'}</span></div>
+        ${p.sent_at ? '' : `<div class="stub" style="margin:2px 0 4px;font-size:12px;">Not sent to the supplier yet</div>`}
+        ${items.length ? items.map(it=>line(it, rec)).join('') : `<div class="stub" style="margin:4px 0 0;font-size:12px;">No lines on it yet.</div>`}
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+(function(){
+  if(typeof renderMaterials!=='function') return;
+  const base = renderMaterials;
+  renderMaterials = async function(siteId){
+    const gen = RENDER_GEN;
+    const r = await base.apply(this, arguments);
+    try{
+      if(!mplMgr() || gen!==RENDER_GEN) return r;
+      const res = await mplRpc('site_office_orders', {p_site: siteId});
+      if(gen!==RENDER_GEN || !res.ok || !Array.isArray(res.data)) return r;
+      // POs raised from the Materials tile already show under Material Requests.
+      const rows = res.data.filter(p=>p && p.source!=='materials' && p.status!=='cancelled');
+      const grid = document.querySelector('#app .tilegrid');
+      if(!rows.length || !grid || document.querySelector('#app .mplofc')) return r;
+      grid.insertAdjacentHTML('afterend', mplOfficeOrdersHtml(rows));
+    }catch(e){ console.error(e); }
+    return r;
+  };
+})();
+
+/* ============================================================
+   3b. Delivery dates on the calendars — supplier only, no PO
+   ============================================================ */
+let mplDlvCache = {};       // site|from|to -> {at, rows}
+let mplDlvMissing = false;  // site_delivery_dates isn't there yet
+async function mplDeliveryRows(siteId, from, to){
+  if(mplDlvMissing || !siteId) return [];
+  const key = siteId+'|'+from+'|'+to, c = mplDlvCache[key];
+  if(c && Date.now()-c.at < 120000) return c.rows;
+  const res = await mplRpc('site_delivery_dates', {p_site: siteId, p_from: from, p_to: to});
+  if(!res.ok){ if(res.missing) mplDlvMissing = true; return c ? c.rows : []; }
+  const rows = Array.isArray(res.data) ? res.data : [];
+  mplDlvCache[key] = {at: Date.now(), rows};
+  return rows;
+}
+function mplDeliveryEvents(rows, siteId){
+  return (rows||[]).map((r,i)=>{
+    if(!r) return null;
+    const date = String(r.required_by || r.delivery_date || r.event_date || r.date || '').slice(0,10);
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+    const sid = r.site_id || siteId, sup = String(r.supplier_name || r.supplier || '').trim();
+    return {_pseudo:'delivery', _color:'#1F5FA6', id:'dlv-'+sid+'-'+date+'-'+i, _target:sid, site_id:sid, event_date:date, is_private:false,
+      title:'🚚 '+(r.fulfilment==='collection' ? 'Collection' : 'Delivery')+(sup ? ': '+sup : '')};
+  }).filter(Boolean);
+}
+async function mplDeliveryEventsAll(from, to){
+  const sites = (SITES||[]).filter(s=>{ const k = typeof siteStatusKey==='function' ? siteStatusKey(s) : 'live'; return k==='live' || k==='upcoming'; });
+  const out = [];
+  for(let i=0; i<sites.length && !mplDlvMissing; i+=6){
+    const part = await Promise.all(sites.slice(i, i+6).map(s=>mplDeliveryRows(s.id, from, to).then(rows=>mplDeliveryEvents(rows, s.id)).catch(()=>[])));
+    part.forEach(p=>out.push(...p));
+  }
+  return out;
+}
+(function(){
+  const base = dbSelect;
+  dbSelect = async function(table, qs){
+    const rows = await base.apply(this, arguments);
+    try{
+      if(table!=='site_calendar_events' || !Array.isArray(rows) || !ME || mplDlvMissing) return rows;
+      const from = (/event_date=gte\.(\d{4}-\d{2}-\d{2})/.exec(qs||'')||[])[1], to = (/event_date=lte\.(\d{4}-\d{2}-\d{2})/.exec(qs||'')||[])[1];
+      if(!from || !to) return rows;
+      const site = (/(?:^|&)site_id=eq\.([0-9a-f-]{36})/.exec(qs||'')||[])[1] || null;
+      let extra = [];
+      if(site) extra = mplDeliveryEvents(await mplDeliveryRows(site, from, to), site);
+      else if(mplMgr()) extra = await mplDeliveryEventsAll(from, to);   // all-projects calendar: managers only
+      return extra.length ? rows.concat(extra).sort((a,b)=>String(a.event_date).localeCompare(String(b.event_date))) : rows;
+    }catch(e){ console.error(e); return rows; }
+  };
+  window.dbSelect = dbSelect;
+  const op = window.openCalPseudo;
+  window.openCalPseudo = function(kind, id){
+    if(kind==='delivery'){ go('#/site/'+mplId(id)+'/'+(mplMgr() ? 'materials' : 'calendar')); return; }
+    return op ? op.apply(this, arguments) : undefined;
+  };
+})();
+
+/* ---------- 3c. drivers booking stock into the yard: no PO wording ---------- */
+(function(){
+  const base = window.yardBookInOpen;
+  if(typeof base!=='function') return;
+  window.yardBookInOpen = async function(){
+    const r = await base.apply(this, arguments);
+    try{
+      if(mplMgr() || mplFin()) return r;
+      const ov = document.getElementById('yardInOverlay'); if(!ov) return r;
+      const ref = ov.querySelector('#yiRef');
+      if(ref){ ref.placeholder = 'e.g. DN 55231'; const lab = ref.parentElement && ref.parentElement.querySelector('.field-label'); if(lab) lab.textContent = 'Delivery note number'; }
+      // Bookings made by the office can carry a PO number as the reference — not shown to drivers.
+      const walk = document.createTreeWalker(ov.querySelector('.yardin-list') || ov, NodeFilter.SHOW_TEXT);
+      const hits = []; while(walk.nextNode()) hits.push(walk.currentNode);
+      hits.forEach(n=>{ if(/-PO-\d+/i.test(n.nodeValue)) n.nodeValue = n.nodeValue.replace(/ · [^·]*-PO-\d+[^·]*/gi, '').replace(/[A-Z0-9]+-PO-\d+/gi, ''); });
+    }catch(e){}
+    return r;
+  };
+})();
+
+/* ============================================================
+   4. Driver collection = goods received
+   ============================================================ */
+// Called by 760 bookOrderCollection once the collection is on the Delivery Schedule.
+async function matLinkDeliveryTask(taskId, materials, poId){
+  const ids = (materials||[]).map(m=>m && mplId(m.id)).filter(Boolean);
+  if(!taskId || (!ids.length && !poId)) return;
+  await mplPatch('delivery_tasks', 'id=eq.'+mplId(taskId), Object.assign({material_ids: ids}, poId ? {po_id: poId} : {}));
+}
+window.matLinkDeliveryTask = matLinkDeliveryTask;
+(function(){
+  const base = window.finRaisePoForOrder;
+  if(typeof base!=='function') return;
+  finRaisePoForOrder = window.finRaisePoForOrder = async function(siteId, matIds, supplier, toMe, fulfil){
+    const po = await base.apply(this, arguments);
+    try{
+      if(po && po.id && fulfil && typeof fulfil==='object'){
+        fulfil.poId = po.id; // 4: the collection booked next is linked to this PO
+        // 7: the order's note (branch + message) is kept on the PO — fin_raise_po is passed p_note;
+        // if it didn't come back saved, put it on.
+        const note = String(fulfil.note||'').trim();
+        if(note && !po.note) await mplPatch('purchase_orders', 'id=eq.'+mplId(po.id), {note});
+      }
+    }catch(e){}
+    return po;
+  };
+})();
+async function mplGrnFromTask(taskId){
+  const t = (await dbSelect('delivery_tasks', 'id=eq.'+mplId(taskId)+'&select=*'))[0];
+  if(!t || t.status!=='completed') return 0;
+  const ids = (Array.isArray(t.material_ids) ? t.material_ids : []).map(mplId).filter(Boolean);
+  if(!ids.length) return 0;
+  const who = (PROFILES[t.completed_by] && PROFILES[t.completed_by].name) || (ME && ME.name) || 'the driver';
+  const photos = typeof deliveryCompletionPhotos==='function' ? deliveryCompletionPhotos(t) : [];
+  const grn = {at: t.completed_at || new Date().toISOString(), by: t.completed_by || ME.id, byName: who, ok:true, notes:'Collected by '+who, photos};
+  // Only the ones not already received.
+  const rows = await mplPatch('materials', 'id=in.('+ids.join(',')+')&grn=is.null', {grn});
+  const n = rows ? rows.length : 0;
+  if(n && t.site_id) logSiteActivity(t.site_id, 'material_grn', 'Goods received: collected by '+who+' ('+n+' item'+(n===1?'':'s')+')');
+  return n;
+}
+['markDeliveryComplete', 'completeDeliveryTask'].forEach(name=>{
+  const base = window[name];
+  if(typeof base!=='function') return;
+  window[name] = async function(){
+    const taskId = name==='markDeliveryComplete' ? arguments[0] : arguments[1];
+    const r = await base.apply(this, arguments);
+    try{ const n = await mplGrnFromTask(taskId); if(n) toast('Delivery marked complete — '+n+' item'+(n===1?'':'s')+' marked as received'); }catch(e){ console.error(e); }
+    return r;
+  };
+});
+
+/* ============================================================
+   5. Finance PO PDFs filed in Material PO's › Finance POs
+   ============================================================ */
+let mplLastPoPdf = null; // {id, bytes} — the PDF just built, so it isn't built twice
+async function mplUploadQuiet(bucket, path, blob){
+  try{
+    await ensureFreshToken();
+    if(!SESSION || !SESSION.access_token) return false;
+    const res = await fetchWithTimeout(SUPABASE_URL+'/storage/v1/object/'+bucket+'/'+path, {method:'POST',
+      headers:{'apikey':SUPABASE_ANON_KEY, 'Authorization':'Bearer '+SESSION.access_token, 'Content-Type':'application/pdf', 'x-upsert':'true'}, body:blob}, 60000);
+    return res.ok;
+  }catch(e){ return false; }
+}
+async function mplFilePoPdf(po, bytes){
+  const siteId = po && po.site_id;
+  if(!siteId || !bytes) return false;
+  const FOLDER = 'Finance POs';
+  let folder = (await dbSelect('material_order_folders', 'site_id=eq.'+mplId(siteId)+'&parent_id=is.null&name=eq.'+encodeURIComponent(FOLDER)+'&select=id&limit=1'))[0];
+  if(!folder){ const ins = await mplInsert('material_order_folders', {site_id:siteId, parent_id:null, name:FOLDER, created_by:ME.id}); folder = ins && ins[0]; }
+  const path = mplId(siteId)+'/finance-pos/'+mplId(po.id)+'.pdf';
+  if(!(await mplUploadQuiet('material-orders', path, new Blob([bytes], {type:'application/pdf'})))) return false;
+  const itemId = 'finpo-'+mplId(po.id);
+  const row = {name:'PO '+(po.number||'')+(po.supplier_name ? ' – '+po.supplier_name : '')+'.pdf', storage_path:path, size:bytes.byteLength || bytes.length || null,
+    scheduled_delivery_date: po.required_by ? String(po.required_by).slice(0,10) : null, synced_at:new Date().toISOString()};
+  const ex = (await dbSelect('material_order_files', 'site_id=eq.'+mplId(siteId)+'&item_id=eq.'+encodeURIComponent(itemId)+'&select=id&limit=1'))[0];
+  const ok = ex ? await mplPatch('material_order_files', 'id=eq.'+mplId(ex.id), row)
+    : await mplInsert('material_order_files', Object.assign({site_id:siteId, org_id:ME.org_id, folder_id: folder ? folder.id : null, item_id:itemId}, row));
+  return !!ok;
+}
+(function(){
+  if(typeof finBuildPoPdf!=='function' || typeof finStorePoPdf!=='function') return;
+  const baseBuild = finBuildPoPdf, baseStore = finStorePoPdf;
+  finBuildPoPdf = async function(po){
+    const b = await baseBuild.apply(this, arguments);
+    mplLastPoPdf = (b && po) ? {id:po.id, bytes:b} : null;
+    return b;
+  };
+  finStorePoPdf = async function(po){
+    const stored = await baseStore.apply(this, arguments);
+    try{
+      if(stored && po && mplLastPoPdf && mplLastPoPdf.id===po.id){
+        const bytes = mplLastPoPdf.bytes; mplLastPoPdf = null;
+        mplFilePoPdf(po, bytes).catch(e=>console.warn('PO not filed in Material PO’s', e));
+      }
+    }catch(e){}
+    return stored;
+  };
+})();
+
+/* ============================================================
+   6. Supplier invoice query → the job's PM
+   ============================================================ */
+async function mplTellPm(pi, kind, body){
+  const site = (SITES||[]).find(s=>s.id===pi.site_id);
+  const pm = site && site.responsible_pm_id;
+  if(!pm) return {sent:false, why:'nopm'};
+  if(pm===ME.id) return {sent:false, why:'me'};
+  await postSystemMessageToUser(pm, pi.site_id, kind, body, pi.id);
+  return {sent:true, pm};
+}
+function mplPiLabel(pi){ return (pi.supplier_name || 'supplier')+' invoice'+(pi.invoice_no ? ' '+pi.invoice_no : ''); }
+(function(){
+  const base = window.savePurchaseInvoiceQuery;
+  if(typeof base!=='function') return;
+  window.savePurchaseInvoiceQuery = async function(id){
+    const r = await base.apply(this, arguments);
+    try{
+      const pi = await mplGetOne('purchase_invoices', 'id=eq.'+mplId(id)+'&select=id,site_id,status,supplier_name,invoice_no,query_note');
+      if(!pi || pi.status!=='query') return r;
+      const t = await mplTellPm(pi, 'pi_query', 'Query on '+mplPiLabel(pi)+': '+(pi.query_note || 'Query'));
+      if(t.sent){ await loadAllProfiles().catch(()=>{}); toast('Marked as query — sent to '+nameOf(t.pm)+' to answer'); }
+      else if(t.why==='nopm') toast('Marked as query — this project has no PM set, so nobody on site was asked.');
+    }catch(e){ console.error(e); }
+    return r;
+  };
+})();
+function mplThreadHtml(thread){
+  const list = (Array.isArray(thread) ? thread : []).filter(x=>x && x.text);
+  if(!list.length) return `<p class="stub" style="margin:0 0 8px;font-style:normal;">No replies yet.</p>`;
+  return `<div class="mplpiq-thread">${list.map(x=>`<div class="mplpiq-msg ${x.by===ME.id?'me':''}"><div class="mplpiq-who">${escapeHtml(x.name || nameOf(x.by))} · ${escapeHtml(mplWhen(x.at))}</div><div class="mplpiq-txt">${escapeHtml(x.text)}</div></div>`).join('')}</div>`;
+}
+// PM side: the pop-up opened from the Inbox message.
+window.openPiQuery = async function(piId){
+  const id = mplId(piId); if(!id) return;
+  const res = await mplRpc('fin_pi_query_view', {p_pi:id});
+  if(!res.ok){ toast(res.missing ? 'Invoice queries aren’t switched on yet — ask the office.' : res.offline ? 'Couldn’t reach the server — check your signal.' : 'Couldn’t open the query — '+String(res.msg||'').slice(0,120)); return; }
+  let d = res.data; if(Array.isArray(d)) d = d[0];
+  if(!d || typeof d!=='object'){ toast('This invoice query couldn’t be found — it may have been sorted already.'); return; }
+  const site = (SITES||[]).find(s=>s.id===d.site_id);
+  const kv = (k, v)=> v!=null && v!=='' ? `<div class="finkv"><span>${k}</span><b style="white-space:normal;">${escapeHtml(String(v))}</b></div>` : '';
+  const ov = mplOverlay('mplPiqOverlay');
+  ov.innerHTML = `<div class="geo-modal-card">
+    <h3 style="margin-bottom:4px;">Invoice Query</h3>
+    <p class="stub" style="margin:0 0 10px;font-style:normal;">The office needs your help with this supplier invoice.</p>
+    ${kv('Supplier', d.supplier_name)}${kv('Invoice no.', d.invoice_no)}${kv('Date', d.invoice_date ? (typeof finDate==='function' ? finDate(String(d.invoice_date).slice(0,10)) : d.invoice_date) : '')}
+    ${kv('Project', d.site_name || (site && site.name))}${kv('PO', d.po_number)}${kv('For', d.description)}
+    ${d.net!=null ? kv('Net', mplMoney(d.net)) : ''}${d.total!=null ? kv('Total', mplMoney(d.total)) : ''}
+    ${d.query_note ? `<p class="stub" style="margin:10px 0;font-style:normal;color:var(--red,#B3261E);"><b>Query:</b> ${escapeHtml(d.query_note)}</p>` : ''}
+    ${d.status && d.status!=='query' ? `<p class="stub" style="margin:0 0 10px;font-style:normal;color:var(--ok);">The office has sorted this one now.</p>` : ''}
+    <p class="sectiontitle" style="margin:12px 0 6px;">Conversation</p>
+    ${mplThreadHtml(d.query_thread)}
+    <div class="formfield" style="margin-top:8px;"><label class="field-label">Your reply</label><textarea id="mplPiqText" rows="3" placeholder="e.g. Yes, 2 packs came short — the driver has the note"></textarea></div>
+    <button class="darkbtn" style="width:100%;" id="mplPiqGo" onclick="mplPiqSend('${jsAttr(id)}')">Send reply</button>
+    <button class="geo-modal-cancel" onclick="document.getElementById('mplPiqOverlay').style.display='none'">Close</button>
+  </div>`;
+  ov.style.display = 'flex';
+};
+let mplPiqBusy = false;
+window.mplPiqSend = async function(piId){
+  if(mplPiqBusy) return;
+  const el = document.getElementById('mplPiqText'), text = el ? el.value.trim() : '';
+  if(!text){ toast('Write a reply first.'); return; }
+  mplPiqBusy = true;
+  const btn = document.getElementById('mplPiqGo'); if(btn){ btn.disabled = true; btn.textContent = 'Sending…'; }
+  try{
+    const res = await mplRpc('fin_pi_query_reply', {p_pi: mplId(piId), p_text: text.slice(0, 2000)});
+    if(!res.ok){ toast(res.missing ? 'Replies aren’t switched on yet — ask the office.' : 'Couldn’t send the reply — '+(res.offline ? 'check your signal.' : String(res.msg||'').slice(0,120))); return; }
+    toast('Reply sent to the office');
+    await window.openPiQuery(piId);
+  } finally { mplPiqBusy = false; const b = document.getElementById('mplPiqGo'); if(b){ b.disabled = false; b.textContent = 'Send reply'; } }
+};
+// Finance side: the conversation under the query note on the purchase invoice, with a reply box.
+(function(){
+  const base = window.openPurchaseInvoiceView;
+  if(typeof base!=='function') return;
+  window.openPurchaseInvoiceView = async function(siteId, id){
+    const r = await base.apply(this, arguments);
+    try{
+      const card = document.querySelector('#finPiOverlay .geo-modal-card');
+      if(!card || card.querySelector('.mplpiq')) return r;
+      const i = await mplGetOne('purchase_invoices', 'id=eq.'+mplId(id)+'&select=id,status,query_thread,site_id'); // null while query_thread isn't there yet
+      if(!i || !document.body.contains(card) || card.querySelector('.mplpiq')) return r;
+      const thread = Array.isArray(i.query_thread) ? i.query_thread : [];
+      if(i.status!=='query' && !thread.length) return r;
+      const site = (SITES||[]).find(s=>s.id===i.site_id), pm = site && site.responsible_pm_id;
+      const html = `<div class="mplpiq">
+        <p class="sectiontitle" style="margin:4px 0 6px;">Conversation With The PM${pm ? ' <span class="stub" style="text-transform:none;letter-spacing:0;font-style:normal;">('+escapeHtml(nameOf(pm))+')</span>' : ''}</p>
+        ${mplThreadHtml(thread)}
+        ${i.status==='query' ? (pm ? `<div class="row-gap" style="margin:6px 0 10px;"><input type="text" id="mplPiThreadText" placeholder="Reply to the PM…" style="flex:1;min-width:0;"><button class="darkbtn" style="width:auto;flex:none;" onclick="mplPiThreadSend('${jsAttr(i.id)}')">Send</button></div>`
+          : `<p class="stub" style="margin:0 0 10px;font-style:normal;">This project has no PM set, so nobody on site can be asked.</p>`) : ''}
+      </div>`;
+      const chk = Array.from(card.querySelectorAll('p.stub')).find(p=>/^\s*Check:/.test(p.textContent));
+      if(chk) chk.insertAdjacentHTML('afterend', html);
+      else { const h = card.querySelector('h3'); if(h) h.insertAdjacentHTML('afterend', html); }
+    }catch(e){ console.error(e); }
+    return r;
+  };
+})();
+let mplPiThreadBusy = false;
+window.mplPiThreadSend = async function(piId){
+  if(mplPiThreadBusy) return;
+  const el = document.getElementById('mplPiThreadText'), text = el ? el.value.trim() : '';
+  if(!text){ toast('Write a reply first.'); return; }
+  mplPiThreadBusy = true;
+  try{
+    const pi = await mplGetOne('purchase_invoices', 'id=eq.'+mplId(piId)+'&select=id,site_id,supplier_name,invoice_no,query_thread');
+    if(!pi){ toast('Couldn’t load the invoice — check your signal and try again.'); return; }
+    const thread = (Array.isArray(pi.query_thread) ? pi.query_thread : []).concat([{by:ME.id, name:ME.name||'', at:new Date().toISOString(), text:text.slice(0,2000)}]);
+    const saved = await mplPatch('purchase_invoices', 'id=eq.'+mplId(pi.id), {query_thread:thread});
+    if(!saved || !saved.length){ toast('Couldn’t save the reply — try again.'); return; }
+    const t = await mplTellPm(pi, 'pi_query', 'Reply on '+mplPiLabel(pi)+': '+text.slice(0,300));
+    toast(t.sent ? 'Reply sent to '+nameOf(t.pm) : 'Reply saved');
+    if(typeof openPurchaseInvoiceView==='function') await openPurchaseInvoiceView(pi.site_id, pi.id);
+  } finally { mplPiThreadBusy = false; }
+};
+
+/* ---------- Inbox / HUB / push: the new message kinds ---------- */
+const MPL_KIND_LABEL = {grn_problem:'Delivery problem', pi_query:'Invoice query', pi_query_reply:'Invoice query reply'};
+window.msgExtraLabel = function(m){ return (m && MPL_KIND_LABEL[m.kind]) || ''; };
+window.msgExtraClick = function(m){
+  if(!m || !MPL_KIND_LABEL[m.kind]) return '';
+  const site = jsAttr(mplId(m.site_id)), rel = jsAttr(mplId(m.related_id));
+  if(m.kind==='grn_problem') return `mplOpenGrnProblem('${site}','${rel}')`;
+  if(!m.related_id) return '';
+  return m.kind==='pi_query_reply' ? `mplOpenPiForFinance('${site}','${rel}')` : `openPiQuery('${rel}')`;
+};
+window.mplOpenPiForFinance = async function(siteId, piId){
+  if(mplFin() && typeof openPurchaseInvoiceView==='function'){
+    const pi = await mplGetOne('purchase_invoices', 'id=eq.'+mplId(piId)+'&select=id,site_id');
+    if(pi){ await openPurchaseInvoiceView(pi.site_id || siteId, pi.id); return; }
+  }
+  return window.openPiQuery(piId);
+};
+window.mplOpenGrnProblem = async function(siteId, relId){
+  if(mplFin() && mplIsUuid(relId)){
+    let po = (await dbSelect('purchase_orders', 'id=eq.'+relId+'&select=id,site_id'))[0];
+    if(!po) po = (await dbSelect('purchase_orders', 'material_ids=cs.{'+relId+'}&order=created_at.desc&limit=1&select=id,site_id'))[0];
+    if(po && po.site_id){ go('#/site/'+po.site_id+'/finance/po/'+po.id); return; }
+  }
+  if(!siteId){ toast('This delivery isn’t linked to a project.'); return; }
+  if(mplMgr()){ try{ matFilter = 'ordered'; }catch(e){} go('#/site/'+siteId+'/materialrequests'); }
+  else go('#/site/'+siteId+'/materials');
+};
+// Push tap (080): returns true when handled here.
+window.msgPushOpen = function(data){
+  if(!data || !MPL_KIND_LABEL[data.kind]) return false;
+  const rel = data.related_id || data.task_id || '';
+  const m = {kind:data.kind, site_id:data.site_id||'', related_id:rel};
+  if(m.kind==='grn_problem'){ window.mplOpenGrnProblem(mplId(m.site_id), mplId(rel)); return true; }
+  if(!rel) return false;
+  if(m.kind==='pi_query_reply') window.mplOpenPiForFinance(mplId(m.site_id), mplId(rel)); else window.openPiQuery(rel);
+  return true;
+};
+// HUB: unread delivery-problem / invoice-query messages sent to me (they open from the Inbox).
+(function(){
+  if(typeof computeHubItems!=='function') return;
+  const base = computeHubItems;
+  computeHubItems = async function(forcedPmId){
+    const out = await base.apply(this, arguments);
+    try{
+      const who = forcedPmId!==undefined ? forcedPmId : (typeof hubFilterPmId!=='undefined' ? hubFilterPmId : '');
+      if(who!=='' || !out || !Array.isArray(out.items)) return out;
+      const since = new Date(Date.now()-90*864e5).toISOString();
+      const rows = await dbSelect('messages', 'audience=eq.single&recipient_id=eq.'+ME.id+'&kind=in.(grn_problem,pi_query,pi_query_reply)&created_at=gte.'+since+'&order=created_at.desc&limit=50&select=id,site_id,kind,body,created_at');
+      if(!rows.length) return out;
+      const reads = await dbSelect('message_reads', 'user_id=eq.'+ME.id+'&message_id=in.('+rows.map(m=>mplId(m.id)).join(',')+')&select=message_id');
+      const read = new Set(reads.map(x=>x.message_id));
+      rows.filter(m=>!read.has(m.id)).forEach(m=>{
+        const site = m.site_id ? (SITES||[]).find(s=>s.id===m.site_id) : null;
+        out.items.push({type:'message', typeLbl:MPL_KIND_LABEL[m.kind], label:String(m.body||MPL_KIND_LABEL[m.kind]).slice(0,120), siteId:m.site_id||null, siteName: site ? site.name : 'Finance', pmId:null, dueDate:null, at:new Date(m.created_at), href:'#/my-messages'});
+      });
+    }catch(e){ console.error(e); }
+    return out;
+  };
+})();
+
+/* styles for the above */
+(function(){
+  const css = `
+  .mplofc{margin-top:14px;}
+  .mplofc-po{border:1px solid var(--line,#E3E6EB);border-radius:12px;padding:10px 12px;margin-top:8px;}
+  .mplofc-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13.5px;}
+  .mplofc-h span{color:var(--slate);}
+  .mplofc-line{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0 0;font-size:13px;min-width:0;}
+  .mplofc-line > span:first-child{min-width:0;overflow-wrap:anywhere;}
+  .mplofc-line .opmat-pill{flex:none;}
+  .mpl-rmrow{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line,#ECEEF2);font-size:13px;cursor:pointer;}
+  .mpl-rmrow input{width:18px;height:18px;flex:0 0 18px;margin:0;}
+  .mpl-rmrow span{flex:1;min-width:0;overflow-wrap:anywhere;}
+  .mpl-rmrow em{font-style:normal;font-size:11px;color:var(--blue,#1F5FA6);margin-left:4px;}
+  .mpl-rmrow b{flex:none;font-variant-numeric:tabular-nums;}
+  .mplpiq-thread{display:flex;flex-direction:column;gap:6px;margin:0 0 8px;max-height:40vh;overflow-y:auto;}
+  .mplpiq-msg{background:var(--bg,#F4F5F7);border-radius:10px;padding:7px 10px;max-width:92%;}
+  .mplpiq-msg.me{align-self:flex-end;background:#E3EEFA;}
+  .mplpiq-who{font-size:11px;color:var(--slate);margin-bottom:2px;}
+  .mplpiq-txt{font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere;}`;
+  try{ const st = document.createElement('style'); st.id = 'mplCss'; st.textContent = css; document.head.appendChild(st); }catch(e){}
+})();
+
+/* ============================================================
+   OpHUB Finance — Bill of Quantities on a computer, made simpler to read (25 Oct 2026, Andy:
+   "this should make it a lot simpler to view").
+   Computers only (html.desk). The phone Bill of Quantities (9219zk) is unchanged.
+   - Numbers show with commas (10,000.00) when you're not typing in them; boxes are sized so
+     nothing is cut off, and every line's boxes line up.
+   - Only the part you type in is shaded; worked-out boxes are plain.
+   - Totals can't be typed: cost price = quantity × cost rate, sell price = quantity × sell rate.
+     Lump sums: leave the quantity empty — then the two totals are the boxes you type in and the
+     rates are greyed out.
+   - Shorter ref / description boxes; section rows on one line with their total; the number boxes
+     at 0.9 of the old size; margin shows the % first, then the £.
+   - + Section / + Sub-section / + Item stay at the top of the list (the header sticks while you
+     scroll); the old row of the same buttons at the bottom is gone.
+   - "Budget Cost ▾" opens a drop-down with the margin / mark-up tool and a section-by-section
+     budget, instead of a card further down the page.
+   - Bottom of the list: the summary (lines, sell total, budget cost, margin), then
+     Save Bill of Quantities + Issue as SOW to Operatives, then a quiet Export: Excel · PDF line.
+   - Upload Client's Bill sits top right, in line with the Bill of Quantities / Variations /
+     Day Works tabs.
+   ============================================================ */
+function finBqDesk(){ return typeof isDeskMode==='function' && isDeskMode(); }
+
+/* ---------- numbers: commas when not typing, plain while typing ---------- */
+function finBqdTxt(kind, v){
+  const n = finNum(v); if(v==='' || v==null || n===null || isNaN(n)) return v==null ? '' : String(v);
+  if(kind==='q') return n.toLocaleString('en-GB', {maximumFractionDigits:3});
+  return n.toLocaleString('en-GB', {minimumFractionDigits:2, maximumFractionDigits:4});
+}
+function finBqdFmt(el){
+  if(!el || !el.dataset || !el.dataset.bqn || el.dataset.bqn==='u' || el===document.activeElement) return;
+  if(el.value!=='') el.value = finBqdTxt(el.dataset.bqn, el.value);
+}
+// Every line's boxes the same width, wide enough for the longest value on the page
+// (measured in the box's own font, so nothing is cut off).
+let finBqdSizeQ = false, finBqdCanvas = null;
+function finBqdSize(){
+  if(finBqdSizeQ) return; finBqdSizeQ = true;
+  requestAnimationFrame(()=>{
+    finBqdSizeQ = false;
+    const list = document.getElementById('finContractList'); if(!list) return;
+    const els = list.querySelectorAll('input[data-bqn]'); if(!els.length) return;
+    const ctx = (finBqdCanvas = finBqdCanvas || document.createElement('canvas')).getContext('2d');
+    const cs = getComputedStyle(els[0]); ctx.font = cs.fontWeight+' '+cs.fontSize+' '+cs.fontFamily;
+    const minTxt = {q:'0000', u:'item', cr:'00.00', cp:'0,000.00', sr:'00.00', sp:'0,000.00'}, w = {};
+    Object.keys(minTxt).forEach(k=>w[k] = ctx.measureText(minTxt[k]).width);
+    els.forEach(el=>{ const k = el.dataset.bqn; const t = el.value || el.placeholder || ''; const x = ctx.measureText(t).width; if(x > (w[k]||0)) w[k] = x; });
+    Object.keys(w).forEach(k=>list.style.setProperty('--bq-'+k, Math.ceil(Math.min(w[k], 160) + 2)+'px'));
+  });
+}
+// Which boxes can be typed in: with a quantity, the rates (totals are worked out);
+// without one (a lump sum), the totals.
+function finBqdState(i){
+  const r = (finContractRows||[])[i]; const cp = document.getElementById('finCCost-'+i); if(!r || !cp) return;
+  const row = cp.closest('.fincrow'); if(!row) return;
+  const cr = document.getElementById('finCCR-'+i), sp = document.getElementById('finCVal-'+i), sr = row.querySelector('input[data-bqn="sr"]');
+  const hasQ = finCrNum(r.qty)!==null;
+  [cr, sr].forEach(x=>{ if(!x) return;
+    x.disabled = !hasQ;
+    if(!hasQ){ if(x!==document.activeElement) x.value = ''; x.placeholder = '—'; x.title = 'Lump sum — type a quantity to use a rate'; }
+    else { x.placeholder = '0.00'; x.title = ''; }
+  });
+  [cp, sp].forEach(x=>{ if(!x) return; x.disabled = hasQ; x.title = hasQ ? 'Quantity × rate' : 'Lump sum — type the total'; });
+  if(hasQ && sr && sr!==document.activeElement){ const rt = finCrNum(r.rate); sr.value = rt===null ? '' : finBqdTxt('sr', finCr2(rt)); }
+  row.classList.toggle('bqd-lump', !hasQ);
+}
+function finBqdRows(){
+  const list = document.getElementById('finContractList'); if(!list) return;
+  list.querySelectorAll(':scope > .fincrow.item').forEach(row=>{
+    const cp = row.querySelector('input[id^="finCCost-"]'); if(!cp) return;
+    const i = +cp.id.slice(9);
+    const tag = (el, k)=>{ if(el) el.dataset.bqn = k; };
+    tag(row.querySelector('input.w-q'), 'q'); tag(row.querySelector('input.w-u'), 'u');
+    tag(row.querySelector('input[id^="finCCR-"]'), 'cr'); tag(cp, 'cp');
+    tag(row.querySelector('.fincpill.sell input:not([id])'), 'sr'); tag(row.querySelector('input[id^="finCVal-"]'), 'sp');
+    finBqdState(i);
+  });
+  list.querySelectorAll('input[data-bqn]').forEach(finBqdFmt);
+  finBqdSize();
+}
+(function(){
+  document.addEventListener('focusin', e=>{ const el = e.target; if(el && el.dataset && el.dataset.bqn && el.dataset.bqn!=='u' && !el.disabled){ const n = finNum(el.value); if(el.value!=='' && n!==null && !isNaN(n)) el.value = String(n); } });
+  document.addEventListener('focusout', e=>{ const el = e.target; if(el && el.dataset && el.dataset.bqn){ setTimeout(()=>{ finBqdFmt(el); finBqdSize(); }, 0); } });
+  document.addEventListener('input', e=>{ const el = e.target; if(el && el.dataset && el.dataset.bqn) finBqdSize(); });
+})();
+
+/* ---------- hooks into the existing Bill of Quantities code (9219n / 9219zk) ---------- */
+(function(){
+  // Lines drawn (computer) → tag, format and size the boxes.
+  const paint = finContractPaint;
+  finContractPaint = function(){ const r = paint.apply(this, arguments); if(finBqDesk()) try{ finBqdRows(); }catch(e){ console.error(e); } return r; };
+  window.finContractPaint = finContractPaint;
+  // One line changed → keep its boxes in the right state and formatted.
+  const refresh = finCrRefresh;
+  finCrRefresh = function(i){
+    const r = refresh.apply(this, arguments);
+    if(finBqDesk()) try{
+      finBqdState(i);
+      ['finCCR-','finCCost-','finCVal-'].forEach(p=>finBqdFmt(document.getElementById(p+i)));
+      finBqdSize();
+    }catch(e){ console.error(e); }
+    return r;
+  };
+  // Margin: the % first, then the £ smaller (computer only — the phone keeps its own).
+  const mg = finCrMarginHtml;
+  finCrMarginHtml = function(r){
+    if(!finBqDesk()) return mg.apply(this, arguments);
+    const v = Number(finItemValue(r)), c = r.cost;
+    if(c==null || isNaN(c) || !finItemValue(r)) return '<b>—</b>';
+    const m = finRound(v - Number(c)), p = v ? (v - Number(c))/v*100 : null;
+    return `<b class="${m<0?'neg':''}">${p!=null ? finPctTxt(finRound(p)) : '—'}</b><em>${finMoney(m)}</em>`;
+  };
+  // Totals → the summary at the bottom (and the Budget Cost drop-down, when open).
+  const tot = window.finContractPaintTotal;
+  window.finContractPaintTotal = function(){ const r = tot.apply(this, arguments); if(finBqDesk()) try{ finBqdSum(); }catch(e){ console.error(e); } return r; };
+  // The ticked-lines bar's "Margin / mark-up" link opens the Budget Cost drop-down.
+  const bulk = finContractBulkPaint;
+  finContractBulkPaint = function(){
+    const r = bulk.apply(this, arguments);
+    if(finBqDesk()){ const b = document.querySelector('#finCtBulk button[onclick*="finCtPct"]'); if(b){ b.setAttribute('onclick', 'finBqdBudget(true, true)'); b.textContent = 'Budget Cost…'; } }
+    return r;
+  };
+  // Upload button only shows on the Bill of Quantities sub-tab.
+  const sub = window.finBoqSubGo;
+  window.finBoqSubGo = function(siteId, k){ const r = sub.apply(this, arguments); document.querySelectorAll('.finboqsub').forEach(n=>n.classList.toggle('bqd-onboq', k==='boq')); if(k!=='boq') finBqdBudget(false); return r; };
+  // The page itself.
+  const page = renderFinContract;
+  renderFinContract = async function(siteId){
+    const r = await page.apply(this, arguments);
+    if(finBqDesk()) try{ finBqdLayout(siteId); }catch(e){ console.error(e); }
+    return r;
+  };
+})();
+
+/* ---------- page layout (computer) ---------- */
+function finBqdLayout(siteId){
+  const pane = document.querySelector('.finboqpane[data-k="boq"]'); const list = document.getElementById('finContractList');
+  if(!pane || !list || pane.dataset.bqd) return;
+  const lines = list.closest('.card'); if(!lines) return;
+  pane.dataset.bqd = '1'; pane.classList.add('bqd'); lines.classList.add('bqd-lines');
+  const sid = jsAttr(siteId);
+  // Breadcrumb back at the top of the page, like the other Finance pages.
+  const sa = document.querySelector('#app .scrollarea'); const crumbs = pane.querySelector('.navcrumbs');
+  if(sa && crumbs) sa.prepend(crumbs);
+  // Warnings above the list.
+  ['#finCvBar', '.finbanner'].forEach(sel=>{ const b = pane.querySelector(sel); if(b) lines.before(b); });
+
+  // Header: Lines · [Budget Cost ▾] [+ Section] [+ Sub-section] [+ Item] — stays at the top while scrolling.
+  const title = lines.querySelector('.sectiontitle'); const hdr = title && title.parentNode;
+  if(hdr){
+    hdr.classList.add('bqd-hdr');
+    let add = hdr.querySelector('.finboqadd');
+    if(!add){ add = document.createElement('span'); add.className = 'finboqadd'; add.innerHTML = `<button class="ghostbtn" onclick="finContractAdd('section')">+ Section</button><button class="ghostbtn" onclick="finContractAdd('subsection')">+ Sub-section</button><button class="ghostbtn" onclick="finContractAdd('item')">+ Item</button>`; hdr.appendChild(add); }
+    const bud = document.createElement('button'); bud.type = 'button'; bud.className = 'ghostbtn bqd-budbtn'; bud.id = 'finBqdBudBtn';
+    bud.setAttribute('aria-expanded', 'false'); bud.setAttribute('onclick', 'event.stopPropagation();finBqdBudget()');
+    bud.innerHTML = 'Budget Cost <span aria-hidden="true">▾</span>';
+    add.prepend(bud);
+    const panel = document.createElement('div'); panel.className = 'bqd-budpanel'; panel.id = 'finBqdBud'; panel.hidden = true;
+    panel.innerHTML = `<div class="bqd-budhead"><b>Budget Cost</b><button type="button" class="bqd-x" aria-label="Close" onclick="finBqdBudget(false)">✕</button></div>
+      <p class="bqd-budtxt">Each line’s budget cost is its quantity × cost rate (or a lump sum when there’s no quantity). Type it on each line, or work it out from the sell price with a margin or mark-up % — for every line, or just the ones you’ve ticked.</p>
+      <div class="fincosttool-sm bqd-tool" id="finBqdBudTool"></div>
+      <p class="bqd-budsub">By Section</p><div id="finBqdBudTbl"></div>`;
+    hdr.appendChild(panel);
+    panel.addEventListener('click', e=>e.stopPropagation());
+    const tool = pane.querySelector('.fincosttool');
+    if(tool){
+      const row = tool.querySelector('.fincosttool-row'); const eg = tool.querySelector('#finCtEg');
+      const t = row && row.querySelector('.fincosttool-t'); if(t) t.remove();
+      const box = panel.querySelector('#finBqdBudTool'); if(row) box.appendChild(row); if(eg) box.appendChild(eg);
+      tool.remove();
+    }
+  }
+  // The old row of add buttons under the list.
+  Array.from(lines.querySelectorAll(':scope > .row-gap')).forEach(g=>{ if(g.querySelector('button[onclick*="finContractAdd"]')) g.remove(); });
+
+  // Bottom: summary · actions · hint · export.
+  const foot = document.createElement('div'); foot.className = 'bqd-foot';
+  foot.innerHTML = `<div class="finboqtot bqd-sum" id="finBqdSum"></div><div class="bqd-acts" id="finBqdActs"></div><p class="bqd-hint" id="finBqdHint"></p>
+    <div class="finexp"><span>Export:</span><button type="button" class="linkbtn" onclick="finBoqExport('${sid}','xlsx')">Excel</button><button type="button" class="linkbtn" onclick="finBoqExport('${sid}','pdf')">PDF</button></div>`;
+  lines.appendChild(foot);
+  const acts = foot.querySelector('#finBqdActs');
+  const save = pane.querySelector('#finContractSave');
+  const oldHint = save && save.nextElementSibling && save.nextElementSibling.matches('p.stub') ? save.nextElementSibling : null;
+  if(save){ save.removeAttribute('style'); acts.appendChild(save); }
+  const sow = pane.querySelector('#finSowCard');
+  if(sow){
+    const send = sow.querySelector('button[onclick*="finSendToSow"]');
+    if(send){ send.className = 'ghostbtn'; send.removeAttribute('style'); send.textContent = /update/i.test(send.textContent) ? 'Update SOW for Operatives' : 'Issue as SOW to Operatives'; acts.appendChild(send); }
+    const copy = sow.querySelector('button[onclick*="finContractFromSow"]');
+    if(copy){ copy.className = 'ghostbtn'; copy.removeAttribute('style'); copy.textContent = copy.textContent.trim().replace(/(^|\s)([a-z])/g, (m, s, c)=>s+c.toUpperCase()); acts.appendChild(copy); }
+    const st = sow.querySelector('p.stub'); if(st && send){ const s = document.createElement('span'); s.className = 'bqd-sowst'; s.textContent = st.textContent.trim(); acts.appendChild(s); }
+    sow.remove();
+  }
+  const ct = lines.querySelector('.fincontot'); if(ct) acts.appendChild(ct);
+  const plots = oldHint && /Put a header[^]*$/.exec(oldHint.textContent || '');
+  foot.querySelector('#finBqdHint').textContent = 'Totals are quantity × rate, so you type the rates. For a lump sum, leave the quantity empty and type the total. Saving sets the project’s contract value to the total of the items.' + (plots ? ' '+plots[0] : '');
+  if(oldHint) oldHint.remove();
+
+  // Upload: top right, in line with the Bill of Quantities / Variations / Day Works tabs.
+  const nav = document.querySelector('.finboqsub'); const inp = pane.querySelector('#finContractUpload');
+  if(nav && inp){
+    const upCard = inp.closest('details, .card');
+    const view = upCard && upCard.querySelector('button[onclick*="openFinDoc"]');
+    const last = view && view.closest('p'); const lastName = last ? last.textContent.replace(/^\s*Last uploaded:\s*/i, '').replace(/\s*view\s*$/i, '').trim() : '';
+    const up = document.createElement('span'); up.className = 'bqd-up';
+    up.innerHTML = `${view ? `<button type="button" class="bqd-lastup" title="${escapeHtml(lastName)}">Last Upload</button>` : ''}<button type="button" class="bqd-upbtn" onclick="document.getElementById('finContractUpload').click()" title="An Excel or PDF of the priced contract — you check the lines before they’re used">⇪ Upload Client’s Bill</button>`;
+    if(view) up.querySelector('.bqd-lastup').setAttribute('onclick', view.getAttribute('onclick'));
+    inp.hidden = true; up.appendChild(inp);
+    nav.appendChild(up);
+    nav.classList.toggle('bqd-onboq', (finBoqSub[siteId] || 'boq')==='boq');
+    if(upCard && upCard.closest('.finboqpane')) upCard.remove();
+  }
+  finBqdSum();
+  finBqdRows();
+}
+
+/* ---------- summary at the bottom ---------- */
+function finBqdNums(rows){
+  const items = rows.filter(finIsItem);
+  const sell = finRound(items.reduce((s,r)=>s+(Number(finItemValue(r))||0), 0));
+  const costed = items.filter(r=>r.cost!=null && !isNaN(r.cost));
+  const cost = finRound(costed.reduce((s,r)=>s+Number(r.cost), 0));
+  const sellC = finRound(costed.reduce((s,r)=>s+(Number(finItemValue(r))||0), 0));
+  const m = finRound(sellC - cost);
+  return {items:items.length, sell, cost, costed:costed.length, missing:items.length-costed.length, m, p: sellC ? m/sellC*100 : null};
+}
+function finBqdSum(){
+  const el = document.getElementById('finBqdSum'); if(!el) return;
+  const rows = finContractRows || [];
+  const secs = rows.filter(x=>x.kind==='section').length, subs = rows.filter(x=>x.kind==='subsection').length;
+  const n = finBqdNums(rows);
+  const pl = (k, w)=>k+' '+w+(k===1?'':'s');
+  const count = [secs ? pl(secs, 'section') : '', subs ? pl(subs, 'sub-section') : '', pl(n.items, 'item')].filter(Boolean).join(' · ');
+  el.hidden = !rows.length;
+  el.innerHTML = `<span class="bqd-cnt"><em>Lines</em><b>${count}</b></span>
+    <span><em>Sell Total</em><b>${finMoney(n.sell)}</b></span>
+    <span class="${n.missing ? 'warn' : ''}"><em>Budget Cost</em><b>${n.costed ? finMoney(n.cost) : '—'}</b>${n.missing ? `<i>${n.missing} line${n.missing===1?'':'s'} without a cost</i>` : ''}</span>
+    <span class="${n.costed ? (n.m<0 ? 'bad' : 'ok') : ''}"><em>Margin${n.missing && n.costed ? ' (Costed Lines)' : ''}</em><b>${n.costed ? finPctTxt(n.p==null ? null : finRound(n.p)) : '—'}${n.costed ? `<small>${finMoney(n.m)}</small>` : ''}</b></span>`;
+  const p = document.getElementById('finBqdBud'); if(p && !p.hidden) finBqdBudTable();
+}
+
+/* ---------- Budget Cost drop-down ---------- */
+window.finBqdBudget = function(open, focusPct){
+  const p = document.getElementById('finBqdBud'); const b = document.getElementById('finBqdBudBtn'); if(!p) return;
+  const show = open==null ? p.hidden : !!open;
+  p.hidden = !show; if(b){ b.setAttribute('aria-expanded', show ? 'true' : 'false'); b.classList.toggle('on', show); }
+  if(show){ finBqdBudTable(); if(focusPct) setTimeout(()=>{ const x = document.getElementById('finCtPct'); if(x) x.focus(); }, 30); }
+};
+function finBqdBudTable(){
+  const box = document.getElementById('finBqdBudTbl'); if(!box) return;
+  const rows = finContractRows || [];
+  const groups = []; let g = null;
+  rows.forEach(r=>{
+    if(r.kind==='section'){ g = {name:(r.ref ? r.ref+' ' : '')+(r.description || 'Untitled section'), rows:[]}; groups.push(g); return; }
+    if(!finIsItem(r)) return;
+    if(!g){ g = {name:'Lines before the first section', rows:[]}; groups.push(g); }
+    g.rows.push(r);
+  });
+  if(!groups.length){ box.innerHTML = '<p class="bqd-budtxt" style="margin:0;">No lines yet.</p>'; return; }
+  const all = finBqdNums(rows);
+  const tr = (name, n, b)=>`<tr${b?' class="bqd-tot"':''}><td>${escapeHtml(name)}</td><td class="num">${n.items}</td><td class="num">${finMoney(n.sell)}</td><td class="num">${n.costed ? finMoney(n.cost) : '—'}</td><td class="num ${n.m<0?'neg':''}">${n.costed ? finPctTxt(n.p==null ? null : finRound(n.p))+' <small>'+finMoney(n.m)+'</small>' : '—'}</td><td class="num ${n.missing?'warn':''}">${n.missing || '—'}</td></tr>`;
+  box.innerHTML = `<div class="bqd-budwrap"><table class="bqd-budtbl"><thead><tr><th>Section</th><th class="num">Items</th><th class="num">Sell</th><th class="num">Budget Cost</th><th class="num">Margin</th><th class="num">Without A Cost</th></tr></thead><tbody>
+    ${groups.map(x=>tr(x.name, finBqdNums(x.rows))).join('')}${groups.length > 1 ? tr('Total', all, true) : ''}</tbody></table></div>`;
+}
+(function(){
+  document.addEventListener('click', e=>{ const p = document.getElementById('finBqdBud'); if(p && !p.hidden && !(e.target.closest && e.target.closest('#finBqdBud, #finBqdBudBtn'))) finBqdBudget(false); });
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ const p = document.getElementById('finBqdBud'); if(p && !p.hidden) finBqdBudget(false); } });
+})();
+
+/* ---------- Export the Bill of Quantities (Excel / PDF) ---------- */
+window.finBoqExport = async function(siteId, kind){
+  const site = SITES.find(s=>s.id===siteId) || {};
+  let rows = (finContractSite===siteId && finContractRows) ? finContractRows : null;
+  if(!rows){
+    const items = await dbSelect('fin_contract_items', 'site_id=eq.'+siteId+'&order=position.asc');
+    rows = items.map(i=>({kind:i.kind||'item', ref:i.ref||'', description:i.description, qty:i.qty!=null?Number(i.qty):null, unit:i.unit||'', rate:i.rate!=null?Number(i.rate):null, value:i.value!=null?Number(i.value):null, cost:i.cost!=null?Number(i.cost):null}));
+  }
+  if(!rows.length){ toast('No lines to export yet.'); return; }
+  const vt = finGroupTotals(rows, r=>finItemValue(r));
+  const mgOf = (v, c)=>c!=null && v ? finRound((v-c)/v*100) : null;
+  const out = rows.map((r,i)=>{
+    if(!finIsItem(r)){
+      const g = []; for(let j=i+1;j<rows.length;j++){ const k = rows[j].kind; if(k==='section' || (r.kind==='subsection' && k==='subsection')) break; if(finIsItem(rows[j])) g.push(rows[j]); }
+      const n = finBqdNums(g); const v = (vt[i]||{}).value;
+      return {ref:r.ref||'', desc: r.kind==='section' ? String(r.description||'').toUpperCase() : String(r.description||''), value:v, cost: n.costed ? n.cost : null, mg: n.costed && !n.missing ? mgOf(v, n.cost) : null};
+    }
+    const v = finItemValue(r), c = (r.cost==null || isNaN(r.cost)) ? null : Number(r.cost);
+    return {ref:r.ref||'', desc:String(r.description||''), qty:finCrNum(r.qty), unit:r.unit||'', rate: finCrNum(r.qty)!==null ? finCrNum(r.rate) : null, value:v, cost:c, mg:mgOf(v, c)};
+  });
+  const n = finBqdNums(rows);
+  out.push({ref:'', desc:'Total', value:n.sell, cost:n.costed ? n.cost : null, mg: n.costed && !n.missing ? mgOf(n.sell, n.cost) : null});
+  const cols = [{k:'ref', l:'Ref', w:45}, {k:'desc', l:'Description', w:300}, {k:'qty', l:'Qty', w:50, num:true}, {k:'unit', l:'Unit', w:45}, {k:'rate', l:'Rate', w:70, money:true}, {k:'value', l:'Total', w:80, money:true}, {k:'cost', l:'Budget Cost', w:80, money:true}, {k:'mg', l:'Margin', w:50, pct:true}];
+  const job = (site.job_number ? site.job_number+' · ' : '')+(site.name||'');
+  return finExportTable(kind, {title:'Bill of Quantities — '+job, cols, rows:out, note: n.missing ? n.missing+' line'+(n.missing===1?' has':'s have')+' no budget cost yet.' : '', name:'Bill of Quantities - '+(site.job_number||'')+' '+(site.name||'')});
+};
+
+/* ---------- styles (computer only) ---------- */
+(function(){
+  const st = document.createElement('style');
+  const L = 'html.desk .bqd-lines';
+  st.textContent = `
+${L} .bqd-hdr{position:sticky;top:-24px;z-index:8;background:#fff;padding:10px 0 8px;margin:-10px 0 0;border-bottom:1px solid #EEF0F3;}
+${L} .bqd-hdr .sectiontitle{font-size:16px;}
+${L} .bqd-hdr #finCtCount, ${L} .bqd-hdr .fincontot{display:none !important;}
+${L} .finboqadd{align-items:center;gap:6px;}
+${L} .finboqadd .ghostbtn{height:32px;min-height:32px !important;padding:0 12px !important;font-size:13px !important;border-radius:8px !important;}
+${L} .bqd-budbtn{margin-right:8px !important;display:inline-flex !important;align-items:center;gap:6px;}
+${L} .bqd-budbtn span{font-size:10px;color:var(--slate);}
+${L} .bqd-budbtn.on{background:#F2F4F7 !important;border-color:#C9CFD8 !important;}
+${L} .bqd-budpanel{position:absolute;right:0;top:calc(100% + 6px);z-index:30;width:min(720px, 100%);box-sizing:border-box;background:#fff;border:1px solid #E1E4EA;border-radius:12px;box-shadow:0 14px 36px rgba(16,24,40,.18);padding:14px 16px 16px;text-align:left;}
+${L} .bqd-budpanel[hidden]{display:none !important;}
+.bqd-budhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;} .bqd-budhead b{font-size:15px;}
+.bqd-x{all:unset;cursor:pointer;width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--slate);} .bqd-x:hover{background:#F1F2F4;}
+.bqd-budtxt{font-size:12.5px;color:var(--slate);margin:0 0 10px;line-height:1.4;}
+.bqd-tool{padding:0 !important;} .bqd-tool #finCtEg{margin:6px 0 0 !important;}
+.bqd-budsub{font-size:12px;font-weight:800;color:var(--slate);margin:14px 0 6px;text-transform:uppercase;letter-spacing:.03em;}
+.bqd-budwrap{max-height:320px;overflow:auto;border:1px solid #EEF0F3;border-radius:10px;}
+.bqd-budtbl{width:100%;border-collapse:collapse;font-size:12.5px;}
+.bqd-budtbl th{position:sticky;top:0;background:#F7F8FA;text-align:left;font-size:11.5px;font-weight:800;color:var(--slate);padding:7px 10px;}
+.bqd-budtbl td{padding:6px 10px;border-top:1px solid #F0F1F4;font-variant-numeric:tabular-nums;}
+.bqd-budtbl .num{text-align:right;white-space:nowrap;} .bqd-budtbl td.neg{color:var(--red);} .bqd-budtbl td.warn{color:#B45309;font-weight:700;}
+.bqd-budtbl small{font-size:11px;color:var(--slate);margin-left:4px;}
+.bqd-budtbl tr.bqd-tot td{font-weight:800;background:#FAFBFC;}
+/* lines: shorter boxes */
+${L} #finCtBulk{margin-top:8px;padding:6px 12px;font-size:13px;}
+${L} #finCtBulk:empty{display:none !important;}
+${L} .fincrow{padding:7px 0 !important;}
+${L} .fincrow-head{grid-template-columns:18px 64px minmax(0,1fr) 30px !important;gap:6px !important;}
+${L} .fincrow-head input[type=text], ${L} .fincrow-head textarea{height:32px !important;min-height:32px !important;padding:5px 10px !important;font-size:13.5px !important;line-height:20px !important;border-radius:8px !important;box-sizing:border-box;}
+${L} .fincrow-head textarea{resize:vertical;overflow:hidden;}
+${L} .fincrow-menu{width:30px;height:30px;font-size:18px;}
+/* section / sub-section: one line with the total */
+${L} .fincrow.section, ${L} .fincrow.subsection{display:flex;align-items:center;gap:6px;padding:6px 8px !important;}
+${L} .fincrow.section > .fincrow-head, ${L} .fincrow.subsection > .fincrow-head{display:contents;}
+${L} .fincrow.section .fincsel, ${L} .fincrow.subsection .fincsel{flex:none;}
+${L} .fincrow.section .fincline-ref, ${L} .fincrow.subsection .fincline-ref{flex:0 0 64px;width:64px !important;}
+${L} .fincrow.section .fincrow-title, ${L} .fincrow.subsection .fincrow-title{flex:1 1 auto;min-width:0;}
+${L} .fincrow.section .fincrow-foot, ${L} .fincrow.subsection .fincrow-foot{order:2;flex:none;margin:0 0 0 8px !important;gap:8px;}
+${L} .fincrow.section .fincrow-foot b, ${L} .fincrow.subsection .fincrow-foot b{min-width:100px;text-align:right;font-size:14px;}
+${L} .fincrow.section .fincrow-menu, ${L} .fincrow.subsection .fincrow-menu{order:3;}
+/* the number boxes, 0.9 of the old size */
+${L} .fincrow.item{margin-left:12px !important;}
+${L} .fincpills{gap:4px;margin:6px 0 0 0;}
+${L} .fincpill{height:29px;padding:0 2px 0 7px;font-size:11.3px;border-radius:7px;gap:5px;}
+${L} .fincpill input{height:23px !important;font-size:12.2px !important;padding:0 4px !important;border-radius:5px;font-variant-numeric:tabular-nums;background:rgba(30,50,80,.06);box-shadow:inset 0 0 0 1px rgba(30,50,80,.14);}
+${L} .fincpill input:focus{background:#fff;box-shadow:inset 0 0 0 1.5px var(--blue,#2F6FDE);}
+${L} .fincpill input:disabled{background:transparent;box-shadow:none;color:var(--ink);-webkit-text-fill-color:var(--ink);opacity:1;cursor:default;}
+${L} .fincpill input:disabled::placeholder{color:#A9B0BA;-webkit-text-fill-color:#A9B0BA;}
+${L} .fincpill input[data-bqn=q]{width:calc(var(--bq-q,4ch) + 10px) !important;}
+${L} .fincpill input[data-bqn=u]{width:calc(var(--bq-u,4ch) + 10px) !important;}
+${L} .fincpill input[data-bqn=cr]{width:calc(var(--bq-cr,6ch) + 10px) !important;}
+${L} .fincpill input[data-bqn=cp]{width:calc(var(--bq-cp,8ch) + 10px) !important;}
+${L} .fincpill input[data-bqn=sr]{width:calc(var(--bq-sr,6ch) + 10px) !important;}
+${L} .fincpill input[data-bqn=sp]{width:calc(var(--bq-sp,8ch) + 10px) !important;}
+${L} .fincpill.mg{padding-right:8px;}
+${L} .fincpill input[data-bqn=u]::-webkit-calendar-picker-indicator{display:none !important;}
+${L} .fincpill input[data-bqn=u]{text-align:left;}
+${L} .fincpill-mg{gap:5px;} ${L} .fincpill-mg b{font-size:12.2px;} ${L} .fincpill-mg em{font-size:10.8px;}
+${L} .fincpills .fincrow-plot{height:29px;font-size:11.3px;}
+/* bottom: summary, actions, export */
+${L} .bqd-foot{margin-top:12px;padding-top:4px;border-top:1px solid #E3E6EB;}
+${L} .bqd-sum{margin:12px 0 14px !important;}
+${L} .bqd-sum[hidden]{display:none !important;}
+${L} .bqd-sum[hidden] + .bqd-acts{margin-top:12px;}
+${L} .bqd-sum > span{min-width:140px;}
+${L} .bqd-sum > span.warn{background:#FFF7EB;} ${L} .bqd-sum > span.bad{background:#FDECEC;} ${L} .bqd-sum > span.ok{background:#EAF6EE;}
+${L} .bqd-sum b small{font-size:12px;font-weight:600;color:var(--slate);margin-left:8px;}
+${L} .bqd-sum i{font-style:normal;font-size:11.5px;font-weight:600;color:#B45309;margin-top:1px;}
+${L} .bqd-sum .bqd-cnt b{font-size:13.5px;line-height:22px;}
+${L} .bqd-acts{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+${L} .bqd-acts .darkbtn, ${L} .bqd-acts .ghostbtn{width:auto !important;flex:none !important;margin:0 !important;height:38px;min-height:38px !important;padding:0 18px !important;font-size:13.5px !important;border-radius:10px !important;}
+${L} .bqd-sowst{font-size:12.5px;color:var(--slate);}
+${L} .bqd-acts .fincontot{margin-left:auto;}
+${L} .bqd-acts .fincontot > :not(.finctauto){display:none !important;}
+${L} .bqd-hint{font-size:12px;color:var(--slate);margin:10px 0 0;line-height:1.4;}
+/* upload, top right of the tab row */
+html.desk .finboqsub{align-items:center;}
+html.desk .finboqsub .bqd-up{margin-left:auto;display:flex;align-items:center;gap:12px;padding:0 2px;flex:none;}
+html.desk .finboqsub:not(.bqd-onboq) .bqd-up{display:none;}
+html.desk .finboqsub .bqd-up button.bqd-upbtn{all:unset;box-sizing:border-box;cursor:pointer;display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 14px;border:1px solid #D9DDE3;border-radius:8px;background:#fff;font-size:13px;font-weight:700;color:var(--ink);white-space:nowrap;}
+html.desk .finboqsub .bqd-up button.bqd-upbtn:hover{background:#F6F7F9;}
+html.desk .finboqsub .bqd-up button.bqd-lastup{all:unset;cursor:pointer;font-size:12.5px;font-weight:600;color:var(--slate);text-decoration:underline;white-space:nowrap;}`;
+  document.head.appendChild(st);
+})();
+
+/* ============================================================
+   OpHUB Finance — Project Admin, one compact page (25 Oct 2026, Andy: "it's a bit ugly").
+   Replaces the 9219u "Project Details" + "Contract Terms" drop-downs with one card:
+     Project Details (4 a row on a laptop, 2 a row on a phone)
+       Job No · Project Name · Project Address · Project Postcode
+       Contract Value · Client · PO Number · Client PO (files)
+       Start Date · Status · PM · QS
+     then plain sub-headers (no drop-downs): Contract Terms · Retention · Payment ·
+     Overheads · Monthly Application Dates · Billing — and one Save button.
+   The fields are the same inputs as before (moved, not copied), so saveSiteFinance (900),
+   the client → Directory step (9219n), the QS save (9219u) and the job edit (908) all
+   still save them. The main client PO's number and files save from here too.
+   No value on a client PO any more — the contract value is in Project Details.
+   ============================================================ */
+function finPaRoHtml(label, val, cls){
+  return `<div class="formfield fpa-f ${cls||''}"><label class="field-label">${escapeHtml(label)}</label><div class="fpa-ro">${val ? escapeHtml(val) : '<span class="fpa-dim">—</span>'}</div></div>`;
+}
+function finPaLayout(){
+  const root = document.querySelector('.finptab[data-t="setup"]'); if(!root || root.dataset.pa) return;
+  const siteId = (parseRoute()||[])[1]; const site = SITES.find(s=>s.id===siteId);
+  const cv = document.getElementById('finContract');
+  if(!site || !cv) return;
+  root.dataset.pa = '2';   // 9219u's older restructure skips a tab that's already been laid out
+  const cards = Array.from(root.querySelectorAll(':scope > .card'));
+  const titleOf = c=>{ const t = c.querySelector('.sectiontitle'); return t ? t.textContent.trim().toLowerCase() : ''; };
+  const poCard = cards.find(c=>titleOf(c).startsWith('client purchase orders'));
+  const jobCard = cards.find(c=>titleOf(c)==='project');
+  const detCard = cv.closest('.card');
+  const billEl = document.getElementById('finBillName'); const billCard = billEl ? billEl.closest('.card') : null;
+  const ff = id=>{ const el = document.getElementById(id); return el ? el.closest('.formfield') : null; };
+  const fld = (id, label, key)=>{ const f = ff(id); if(!f) return null; const l = f.querySelector('.field-label'); if(l) l.textContent = label; f.classList.add('fpa-f', 'fk-'+key); return f; };
+  const auto = !!(ORG && ORG.auto_job_numbers);
+
+  const card = document.createElement('div'); card.className = 'card fpa'; card.dataset.coll = '1';
+  card.innerHTML = `<div class="fpa-h">Project Details</div>
+    <div class="fpa-g fpa-pd" data-s="pd"></div>
+    <div class="fpa-sub" data-s="pos"></div>
+    <div class="fpa-g fpa-terms">
+      <section class="fpa-sec s2"><div class="fpa-h">Contract Terms</div><div class="fpa-sg" data-s="terms"></div></section>
+      <section class="fpa-sec s2"><div class="fpa-h">Retention</div><div class="fpa-sg" data-s="ret"></div></section>
+      <section class="fpa-sec s3"><div class="fpa-h">Payment</div><div class="fpa-sg" data-s="pay"></div></section>
+      <section class="fpa-sec s1"><div class="fpa-h">Overheads</div><div class="fpa-sg" data-s="ohp"></div></section>
+      <section class="fpa-sec s4"><div class="fpa-h">Monthly Application Dates <span class="fpa-hint">Leave a month blank to use the application day</span></div><div data-s="appd"></div></section>
+      <section class="fpa-sec s4"><div class="fpa-h">Billing <span class="fpa-hint" data-s="billhint"></span><span class="fpa-hbtn" data-s="billbtn"></span></div><div class="fpa-sg" data-s="bill"></div></section>
+    </div>
+    <div class="fpa-foot" data-s="foot"></div>`;
+  const slot = k=>card.querySelector('[data-s="'+k+'"]');
+  const put = (k, f)=>{ if(f) slot(k).appendChild(f); };
+
+  // ---- Project Details ----
+  const pd = slot('pd');
+  const jn = fld('finJobNo', 'Job No', 'jobno');
+  if(jn){ const i = jn.querySelector('input'); if(auto){ i.readOnly = true; i.title = 'Given automatically — Finance › Settings'; if(!i.value) i.placeholder = 'Automatic'; jn.querySelector('.field-label').textContent = 'Job No (auto)'; } pd.appendChild(jn); }
+  const roIf = (id, label, key, val)=>{ const f = fld(id, label, key); if(f) pd.appendChild(f); else pd.insertAdjacentHTML('beforeend', finPaRoHtml(label, val, 'fk-'+key)); };
+  roIf('finJeName', 'Project Name', 'name', site.name);
+  roIf('finJeAddr', 'Project Address', 'addr', site.address);
+  roIf('finJePc', 'Project Postcode', 'pc', site.postcode);
+  put('pd', fld('finContract', 'Contract Value (£ ex VAT)', 'cv'));
+  const cl = fld('finJeClient', 'Client', 'client');
+  if(cl){ const i = cl.querySelector('input'); i.placeholder = 'Pick from the Directory or type a new one'; pd.appendChild(cl); }
+  else pd.insertAdjacentHTML('beforeend', finPaRoHtml('Client', site.client_name, 'fk-client'));
+  pd.insertAdjacentHTML('beforeend', `<div class="formfield fpa-f fk-pono"><label class="field-label">PO Number</label><input type="text" id="finPaPoNo" placeholder="Loading…" disabled data-was=""></div>
+    <div class="formfield fpa-f fk-pofile"><label class="field-label">Client PO</label><div class="fpa-up"><span class="fpa-files" id="finPaPoList"><span class="fpa-dim">Loading…</span></span><label class="fpa-upbtn" title="Add the client’s PO — any files, several at once">Upload<input type="file" id="finPaPoFiles" multiple disabled onchange="finPaPoPicked(this)"></label></div></div>`);
+  roIf('finJeStart', 'Start Date', 'start', site.start_date ? finDate(site.start_date) : '');
+  roIf('finJeStatus', 'Status', 'status', typeof FIN_JOB_STATUS!=='undefined' ? FIN_JOB_STATUS[site.status]||site.status : site.status);
+  if(document.getElementById('finJePm')) put('pd', fld('finJePm', 'PM', 'pm'));
+  else if(!(typeof isFinanceOnly==='function' && isFinanceOnly())){ const p = site.responsible_pm_id && PROFILES && PROFILES[site.responsible_pm_id]; pd.insertAdjacentHTML('beforeend', finPaRoHtml('PM', p ? p.name : '', 'fk-pm')); }
+  pd.insertAdjacentHTML('beforeend', `<div class="formfield fpa-f fk-qs"><label class="field-label">QS</label><select id="finJeQs" data-was="">${typeof finQsOptions==='function' ? finQsOptions('') : '<option value="">None yet</option>'}</select></div>`);
+  const cvNote = detCard && detCard.querySelector(':scope > p.stub');
+  if(cvNote){ cvNote.className = 'fpa-note'; cvNote.removeAttribute('style'); slot('pos').appendChild(cvNote); }
+
+  // ---- Contract Terms ----
+  const paid = detCard && detCard.querySelector('.finpaidby');
+  const pp = document.createElement('div'); pp.className = 'formfield fpa-f';
+  pp.innerHTML = '<label class="field-label">Payment Procedure</label><div class="fpa-ro fpa-pp"></div>';
+  if(paid){ const b = paid.querySelector('b'), btn = paid.querySelector('button'); if(b){ const full = b.textContent.replace(/^[^A-Za-z]+/, '').trim(); b.textContent = /^applications/i.test(full) ? 'Applications' : full; b.title = full; pp.lastChild.appendChild(b); } if(btn){ btn.title = btn.textContent; btn.textContent = 'Change'; pp.lastChild.appendChild(btn); } paid.remove(); }
+  else pp.lastChild.innerHTML = '<span class="fpa-dim">Not chosen yet — choose at the top of the page</span>';
+  slot('terms').appendChild(pp);
+  put('terms', fld('finVat', 'VAT', 'vat'));
+  put('ret', fld('finRet', 'Retention %', 'ret'));
+  put('ret', fld('finRetLimit', 'Retention Limit %', 'retlim'));
+  put('pay', fld('finDue', 'Days to Due Date', 'due'));
+  put('pay', fld('finFinal', 'Days to Final Date', 'final'));
+  const adf = fld('finAppDay', 'Application Day (of month)', 'appday'); if(adf){ adf.querySelector('input').placeholder = 'e.g. 25'; adf.querySelector('input').title = 'Day of the month the application is due'; slot('pay').appendChild(adf); }
+  const oh = ff('finOhpJob');
+  if(oh){ const i = oh.querySelector('input'); fld('finOhpJob', 'Overheads %', 'ohp'); i.placeholder = 'Company figure: '+(i.placeholder||'0')+'%'; i.title = 'Leave blank to use the company figure'; slot('ohp').appendChild(oh); }
+  else slot('ohp').closest('.fpa-sec').remove();
+  const ad = detCard && detCard.querySelector('details.finappdates');
+  if(ad){ ad.open = true; ad.removeAttribute('style'); slot('appd').appendChild(ad); ad.addEventListener('toggle', ()=>{ if(!ad.open) ad.open = true; }); }
+  else slot('appd').closest('.fpa-sec').remove();
+
+  // ---- Billing (from the client in the Directory) ----
+  const bill = slot('bill');
+  ['finBillName', 'finBillAddr', 'finBillEmail'].forEach(id=>{ const el = document.getElementById(id); if(el) card.appendChild(el); });
+  bill.insertAdjacentHTML('beforeend', `<div class="formfield fpa-f"><label class="field-label">Bill To</label><div class="fpa-ro" id="finPaBillName"></div></div>
+    <div class="formfield fpa-f"><label class="field-label">Billing Address</label><div class="fpa-ro" id="finPaBillAddr"></div></div>
+    <div class="formfield fpa-f"><label class="field-label">Accounts Email</label><div class="fpa-ro" id="finPaBillEmail"></div></div>`);
+  const notes = ff('finNotes'); if(notes){ notes.classList.add('fpa-f'); notes.querySelector('.field-label').textContent = 'Payment Notes'; const ta = notes.querySelector('textarea'); ta.rows = 1; ta.placeholder = 'Anything about payment'; bill.appendChild(notes); }
+  const dirBtn = billCard && billCard.querySelector('button[onclick^="openFinDirEdit"]');
+  if(dirBtn){ dirBtn.className = 'linkbtn'; dirBtn.removeAttribute('style'); slot('billbtn').appendChild(dirBtn); }
+
+  // ---- One Save button; delete sits beside it ----
+  const foot = slot('foot');
+  const save = document.getElementById('finJobSave'); if(save){ save.removeAttribute('style'); foot.appendChild(save); }
+  const del = jobCard && jobCard.querySelector('button[onclick^="finDeleteJob"]'); if(del){ del.removeAttribute('style'); del.classList.add('fpa-del'); foot.appendChild(del); }
+
+  // Anything else still in the old cards (a field added later) is kept, under "More", rather than lost.
+  const left = [jobCard, detCard, billCard].filter(Boolean).flatMap(c=>Array.from(c.querySelectorAll('.formfield')).filter(f=>f.querySelector('input:not([type=hidden]),select,textarea')));
+  if(left.length){ const sec = document.createElement('section'); sec.className = 'fpa-sec s4'; sec.innerHTML = '<div class="fpa-h">More</div><div class="fpa-sg"></div>'; left.forEach(f=>{ f.classList.add('fpa-f'); sec.lastChild.appendChild(f); }); card.querySelector('.fpa-terms').appendChild(sec); }
+  [poCard, jobCard, detCard, billCard].forEach(c=>{ if(c && c.parentNode) c.remove(); });
+  root.prepend(card);
+  finPaBillPaint();
+  const cIn = document.getElementById('finJeClient'); if(cIn) cIn.addEventListener('change', finPaBillPaint);
+  finPaLoad(siteId);
+}
+// Bill to / address / email shown from the Directory client (what invoices use).
+function finPaBillPaint(){
+  const set = (id, v, dim)=>{ const el = document.getElementById(id); if(el) el.innerHTML = v ? escapeHtml(v) : '<span class="fpa-dim">'+escapeHtml(dim||'—')+'</span>'; };
+  const typed = (document.getElementById('finJeClient')||{}).value;
+  const name = typed!=null ? String(typed).trim() : finVal('finBillName');
+  const c = typeof finClientByName==='function' ? finClientByName(name) : null;
+  const hint = document.querySelector('.fpa [data-s="billhint"]');
+  if(c){ set('finPaBillName', c.name); set('finPaBillAddr', String(finClientAddr(c)||'').replace(/\n/g, ', ')); set('finPaBillEmail', c.email||'', 'No accounts email yet'); if(hint) hint.textContent = 'From the client in the Directory'; }
+  else if(name && name===finVal('finBillName')){ set('finPaBillName', name); set('finPaBillAddr', finVal('finBillAddr').replace(/\n/g, ', ')); set('finPaBillEmail', finVal('finBillEmail')); if(hint) hint.textContent = 'Not in the Directory yet'; }
+  else { set('finPaBillName', name, 'No client yet'); set('finPaBillAddr', ''); set('finPaBillEmail', ''); if(hint) hint.textContent = name ? 'New client — added to the Directory when you save' : 'Add a client in Project Details'; }
+}
+// Main client PO + QS fill in once read (a failed read leaves the PO boxes locked, so nothing is overwritten).
+async function finPaLoad(siteId){
+  const gen = RENDER_GEN;
+  const [pr, qr] = await Promise.all([
+    dbSelectChecked('client_pos', 'site_id=eq.'+siteId+'&order=is_primary.desc,created_at.asc').catch(()=>({ok:false})),
+    dbSelectChecked('job_finance', 'site_id=eq.'+siteId+'&select=qs_id').catch(()=>({ok:false}))]);
+  if(gen !== RENDER_GEN) return;
+  const qs = document.getElementById('finJeQs');
+  if(qs && qr && qr.ok && qr.data[0] && qr.data[0].qs_id){ qs.innerHTML = finQsOptions(qr.data[0].qs_id); qs.dataset.was = qr.data[0].qs_id; }
+  const no = document.getElementById('finPaPoNo'), fi = document.getElementById('finPaPoFiles'), list = document.getElementById('finPaPoList');
+  if(!no || !fi || !list) return;
+  if(!pr || !pr.ok){ no.placeholder = 'Couldn’t load'; list.innerHTML = '<span class="fpa-dim">Couldn’t load the PO — reload to try again</span>'; return; }
+  const pos = pr.data || [];
+  const main = pos.find(p=>p.is_primary) || pos[0] || null;
+  no.disabled = false; fi.disabled = false;
+  no.placeholder = 'As on the client’s order';
+  no.value = main ? (main.po_number||'') : ''; no.dataset.was = no.value; no.dataset.id = main ? main.id : '';
+  finPaPoFilesPaint(main);
+  // Date / description and any other POs (e.g. for a variation) — small line under the grid.
+  const sub = document.querySelector('.fpa [data-s="pos"]'); if(!sub) return;
+  const others = pos.filter(p=>p!==main);
+  const d = p=>[p.po_date ? finDate(p.po_date) : '', p.description||''].filter(Boolean).map(escapeHtml).join(' · ');
+  const nFiles = p=>finPoFilesOf(p).length;
+  sub.insertAdjacentHTML('afterbegin', `<div class="fpa-pos">${main ? `<span><b>Main PO</b> ${escapeHtml(main.po_number||'')}${d(main) ? ' · '+d(main) : ''} <button type="button" class="linkbtn" onclick="openClientPoForm('${siteId}','${main.id}')">Date, description…</button></span>` : ''}
+    ${others.map(p=>`<span><b>PO</b> ${escapeHtml(p.po_number||'')}${d(p) ? ' · '+d(p) : ''}${nFiles(p) ? ` <button type="button" class="linkbtn" onclick="openClientPoFile('${p.id}')">View${nFiles(p)>1?' ('+nFiles(p)+')':''}</button>` : ''} <button type="button" class="linkbtn" onclick="openClientPoForm('${siteId}','${p.id}')">Edit</button></span>`).join('')}
+    ${main ? `<button type="button" class="linkbtn" onclick="openClientPoForm('${siteId}')">+ Add another PO</button>` : ''}</div>`);
+}
+function finPaPoFilesPaint(main){
+  const list = document.getElementById('finPaPoList'); if(!list) return;
+  const fl = main ? finPoFilesOf(main) : [];
+  const fi = document.getElementById('finPaPoFiles'); const picked = fi && fi.files ? fi.files.length : 0;
+  let h = '';
+  if(fl.length===1) h = `<button type="button" class="fpa-chip" title="${escapeHtml(fl[0].name||'')}" onclick="openClientPoFile('${main.id}',0)">📄 ${escapeHtml(fl[0].name||'PO')}</button>`;
+  else if(fl.length>1) h = `<button type="button" class="fpa-chip" onclick="openClientPoFile('${main.id}')">📄 ${fl.length} files · View</button>`;
+  if(picked) h += `<span class="fpa-new">+ ${picked} new</span>`;
+  list.innerHTML = h || '<span class="fpa-dim">No copy yet</span>';
+}
+window.finPaPoPicked = function(inp){
+  const id = (document.getElementById('finPaPoNo')||{}).dataset.id;
+  const big = Array.from(inp.files||[]).some(f=>f.size > 20*1024*1024);
+  if(big){ toast('One of the files is over 20 MB.'); inp.value = ''; }
+  (id ? dbSelect('client_pos', 'id=eq.'+id).then(r=>r[0]||null).catch(()=>null) : Promise.resolve(null)).then(finPaPoFilesPaint);
+};
+// Same checks as saving (900), done first so nothing half-saves when one box is wrong.
+function finPaCheck(siteId){
+  const site = SITES.find(s=>s.id===siteId) || {};
+  if(document.getElementById('finJeName') && !finVal('finJeName')) return 'A project needs a name.';
+  const jn = document.getElementById('finJobNo');
+  if(jn && !jn.readOnly && finVal('finJobNo')!==String(site.job_number||'') && !finVal('finJobNo')) return 'A project needs a project number.';
+  const contract = finNum(finVal('finContract')), ret = finNum(finVal('finRet')), retLim = finNum(finVal('finRetLimit')), appDay = finInt(finVal('finAppDay'));
+  if(contract!==null && (isNaN(contract) || contract < 0)) return 'Enter the contract value as a number.';
+  if(ret!==null && (isNaN(ret) || ret < 0 || ret > 100)) return 'Retention must be between 0 and 100%.';
+  if(retLim!==null && (isNaN(retLim) || retLim < 0 || retLim > 100)) return 'Retention limit must be between 0 and 100%.';
+  if(appDay!==null && (isNaN(appDay) || appDay < 1 || appDay > 31)) return 'Application date must be a day of the month, 1 to 31.';
+  const no = document.getElementById('finPaPoNo'), fi = document.getElementById('finPaPoFiles');
+  if(no && !no.disabled){
+    const files = Array.from((fi && fi.files) || []);
+    if(files.length && !no.value.trim()) return 'Add the client PO number for the PO copy.';
+    if(!no.value.trim() && no.dataset.was) return 'A client PO needs a number. To remove the PO, use “Date, description…” under Project Details.';
+    if(files.some(f=>f.size > 20*1024*1024)) return 'One of the PO files is over 20 MB.';
+  }
+  return '';
+}
+// The main client PO: number and any new files (added to the ones already there).
+async function finPaSavePo(siteId){
+  const no = document.getElementById('finPaPoNo'), fi = document.getElementById('finPaPoFiles');
+  if(!no || no.disabled) return true;
+  const num = no.value.trim(), files = Array.from((fi && fi.files) || []), id = no.dataset.id || '';
+  if(num===(no.dataset.was||'') && !files.length) return true;
+  const row = {po_number:num};
+  if(files.length){
+    let old = [];
+    if(id){
+      const r = await dbSelectChecked('client_pos', 'id=eq.'+id+'&select=file_path,file_name,files');
+      if(!r.ok){ toast('Couldn’t read the PO’s saved files — check your connection and try again.'); return false; }
+      old = finPoFilesOf((r.data||[])[0]||{});
+    }
+    const all = old.slice();
+    for(const f of files){
+      const safe = f.name.replace(/[^a-z0-9.\-]+/gi, '_').slice(-80);
+      const stored = await uploadToStorage('finance-docs', ME.org_id+'/'+siteId+'/client-po/'+uid()+'-'+safe, f, f.type||'application/octet-stream');
+      if(!stored){ toast('The PO file didn’t upload — nothing was saved. Try again.'); return false; }
+      all.push({path:stored, name:f.name});
+    }
+    row.files = all; row.file_path = all[0].path; row.file_name = all[0].name;
+  }
+  let saved;
+  if(id) saved = await dbUpdate('client_pos', id, row);
+  else { const r = await dbInsert('client_pos', Object.assign({org_id:ME.org_id, site_id:siteId, created_by:ME.id, is_primary:true}, row)); saved = r && r[0]; }
+  if(!saved) return false;
+  no.dataset.was = num; no.dataset.id = saved.id; if(fi) fi.value = '';
+  return true;
+}
+(function(){
+  const base = finAfterProjectRender;
+  finAfterProjectRender = function(){ try{ finPaLayout(); }catch(e){ console.error(e); } return base.apply(this, arguments); };
+  const save = window.saveSiteFinance;
+  window.saveSiteFinance = async function(siteId){
+    if(!document.querySelector('.fpa')) return save.apply(this, arguments);
+    const err = finPaCheck(siteId); if(err){ toast(err); return; }
+    const btn = document.getElementById('finJobSave'); const was = btn ? btn.textContent : '';
+    if(btn){ btn.disabled = true; btn.textContent = 'Saving…'; }
+    const ok = await finPaSavePo(siteId);
+    if(btn){ btn.disabled = false; btn.textContent = was; }
+    if(!ok) return;
+    return save.apply(this, arguments);
+  };
+  const st = document.createElement('style');
+  st.textContent = `.fpa{padding:14px 18px 16px !important;}
+html.desk.finmode .fpa{padding:16px 22px 18px !important;}
+.fpa .fpa-h{display:flex;align-items:baseline;gap:10px;font-size:14px;font-weight:800;color:var(--ink);margin:0 0 8px;padding-bottom:5px;border-bottom:1px solid var(--line,#E6E8EC);grid-column:1 / -1;}
+.fpa .fpa-hint{font-size:11.5px;font-weight:500;color:var(--slate);flex:1;min-width:0;}
+.fpa .fpa-hbtn{margin-left:auto;} .fpa .fpa-hbtn .linkbtn{font-size:12.5px;padding:0;margin:0;color:var(--blue,#1f6feb);white-space:nowrap;}
+.fpa-g{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 14px;}
+.fpa-terms{margin-top:16px;row-gap:16px;}
+.fpa-sec{min-width:0;}
+.fpa-sec.s1{grid-column:span 1;} .fpa-sec.s2{grid-column:span 2;} .fpa-sec.s3{grid-column:span 3;} .fpa-sec.s4{grid-column:1 / -1;}
+.fpa-sg{display:grid;gap:10px 14px;}
+.fpa-sec.s1 .fpa-sg{grid-template-columns:minmax(0,1fr);} .fpa-sec.s2 .fpa-sg{grid-template-columns:repeat(2,minmax(0,1fr));}
+.fpa-sec.s3 .fpa-sg{grid-template-columns:repeat(3,minmax(0,1fr));} .fpa-sec.s4 .fpa-sg{grid-template-columns:repeat(4,minmax(0,1fr));}
+.fpa .formfield{margin:0 !important;min-width:0;display:flex;flex-direction:column;justify-content:flex-end;}
+html .fpa .field-label, html.finmode .fpa .field-label{display:block;font-size:10.5px !important;font-weight:800 !important;text-transform:uppercase !important;letter-spacing:.04em !important;color:var(--slate) !important;margin:0 0 4px !important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3;}
+html .fpa input[type=text], html .fpa input[type=number], html .fpa input[type=date], html .fpa input[type=email], html .fpa select, html .fpa textarea, .fpa .fpa-ro, .fpa .fpa-up{box-sizing:border-box;width:100%;height:36px !important;min-height:36px !important;margin:0 !important;padding:0 10px !important;font-size:13.5px !important;line-height:34px;border-radius:8px !important;}
+html .fpa select{padding:0 24px 0 8px !important;font-size:13px !important;}
+html .fpa .fk-vat select{padding-right:20px !important;font-size:12.5px !important;}
+html .fpa textarea{line-height:1.35;padding:8px 10px !important;resize:vertical;}
+html .fpa input[disabled], html .fpa input[readonly]{background:#F4F5F7 !important;color:#5A5E66;}
+.fpa .fpa-ro{display:flex;align-items:center;gap:8px;border:1px solid var(--line,#E1E4EA);background:#F7F8FA;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.fpa .fpa-ro b{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}
+.fpa .fpa-pp .linkbtn{margin-left:auto;font-size:12.5px;padding:0;flex:none;color:var(--blue,#1f6feb);}
+.fpa .fpa-dim{color:#9AA0A8;font-weight:500;}
+.fpa .fpa-up{display:flex;align-items:center;gap:6px;border:1px solid var(--line,#E1E4EA);background:#fff;padding:0 4px 0 8px !important;}
+.fpa .fpa-files{flex:1;min-width:0;display:flex;align-items:center;gap:6px;overflow:hidden;font-size:12.5px;}
+.fpa .fpa-chip{all:unset;cursor:pointer;font-size:12.5px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}
+.fpa .fpa-chip:hover{text-decoration:underline;}
+.fpa .fpa-new{font-size:11.5px;font-weight:700;color:#2E7D32;white-space:nowrap;}
+.fpa .fpa-upbtn{flex:none;position:relative;overflow:hidden;cursor:pointer;font-size:12px;font-weight:700;color:var(--ink);border:1px solid #D1D5DB;border-radius:6px;padding:0 9px;height:26px;line-height:24px;background:#fff;}
+.fpa .fpa-upbtn input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+.fpa .fpa-upbtn:has(input[disabled]){opacity:.5;cursor:default;}
+.fpa .fpa-sub{margin-top:8px;}
+.fpa .fpa-pos{display:flex;flex-wrap:wrap;align-items:center;gap:4px 16px;font-size:12.5px;color:var(--slate);}
+.fpa .fpa-pos b{color:var(--ink);font-weight:700;}
+.fpa .fpa-pos .linkbtn{font-size:12.5px;padding:0;margin:0 0 0 4px;color:var(--blue,#1f6feb);}
+.fpa .fpa-note{font-size:12px;color:var(--slate);margin:4px 0 0;font-style:normal;}
+.fpa .finappdates{border:0 !important;background:none !important;padding:0 !important;margin:0 !important;box-shadow:none !important;}
+.fpa .finappdates > summary, .fpa .finappdates > p.stub{display:none !important;}
+.fpa .finappdates-g{grid-template-columns:repeat(6,minmax(0,1fr)) !important;gap:8px 14px !important;padding:0 !important;}
+.fpa .finappdates-g label{display:flex;flex-direction:column;gap:3px;min-width:0;margin:0;}
+.fpa .finappdates-g label > span{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--slate);}
+.fpa .finappdates-g label.set > span{color:#1f4f99;}
+.fpa .finappdates-g input{height:32px !important;min-height:32px !important;font-size:13px !important;padding:0 8px !important;}
+.fpa .finappdates-g em{font-style:normal;font-size:10.5px;color:#9AA0A8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.fpa .fpa-foot{display:flex;align-items:center;gap:14px;margin-top:18px;padding-top:14px;border-top:1px solid var(--line,#E6E8EC);}
+.fpa .fpa-foot #finJobSave{width:auto !important;min-width:220px !important;margin:0 !important;height:40px;padding:0 24px !important;font-size:14px !important;}
+.fpa .fpa-foot .fpa-del{margin-left:auto;color:#C0392B;font-size:13px;padding:0;}
+@media (max-width:900px){
+  .fpa-g{grid-template-columns:repeat(2,minmax(0,1fr));}
+  .fpa-sec.s1,.fpa-sec.s2,.fpa-sec.s3{grid-column:1 / -1;}
+  .fpa-sec .fpa-sg{grid-template-columns:repeat(2,minmax(0,1fr)) !important;}
+  .fpa-pd .fk-name{order:1;grid-column:1 / -1;} .fpa-pd .fk-jobno{order:2;} .fpa-pd .fk-status{order:3;}
+  .fpa-pd .fk-addr{order:4;grid-column:1 / -1;} .fpa-pd .fk-pc{order:5;} .fpa-pd .fk-start{order:6;}
+  .fpa-pd .fk-client{order:7;grid-column:1 / -1;} .fpa-pd .fk-cv{order:8;} .fpa-pd .fk-pono{order:9;}
+  .fpa-pd .fk-pofile{order:10;grid-column:1 / -1;} .fpa-pd .fk-pm{order:11;} .fpa-pd .fk-qs{order:12;}
+  .fpa .fpa-terms .fpa-sec.s2:first-child .fpa-sg > .formfield{grid-column:1 / -1;}
+  .fpa .finappdates-g{grid-template-columns:repeat(3,minmax(0,1fr)) !important;}
+}
+@media (max-width:560px){
+  .fpa{padding:12px 12px 14px !important;}
+  .fpa-g, .fpa-sg{gap:8px 10px !important;}
+  .fpa .finappdates-g{grid-template-columns:repeat(2,minmax(0,1fr)) !important;gap:8px 10px !important;}
+  .fpa .fpa-hint{display:none;}
+  html .fpa .field-label, html.finmode .fpa .field-label{white-space:normal;}
+  .fpa .fpa-foot{flex-wrap:wrap;}
+  .fpa .fpa-foot #finJobSave{flex:1 1 100% !important;width:100% !important;max-width:none !important;}
+  .fpa .fpa-foot .fpa-del{margin:0 auto;}
+  .fpa [data-s="bill"] > .formfield{grid-column:1 / -1;}
+}`;
   document.head.appendChild(st);
 })();
 

@@ -221,6 +221,16 @@ window.renderFinJobReports = renderFinJobReports;
 .finds-tools input{flex:1;min-width:0;height:38px !important;min-height:38px !important;margin:0 !important;padding:0 12px !important;font-size:14px !important;border-radius:10px !important;}
 .finds-xl{all:unset;box-sizing:border-box;cursor:pointer;display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 12px;border:1px solid #CFE3D7;background:#F1F8F4;color:#1D6F42;border-radius:10px;font-size:13px;font-weight:800;margin-left:auto;}
 .finds-xl:hover{background:#E4F2EA;}
+.finds-tools input{-webkit-appearance:none;appearance:none;border:1px solid var(--line,#DCE1E8) !important;box-shadow:none !important;background:#fff;}
+.finds-tools input:focus{border-color:var(--brand1,#E3262B) !important;outline:none;}
+/* Full Summary tables on a computer: compact, and every column lines up with its heading (Andy, 25 Oct) */
+.finds-body table.findstbl{font-size:13px;}
+.finds-body table.findstbl th, .finds-body table.findstbl td{text-align:left !important;padding:6px 10px !important;vertical-align:middle !important;line-height:1.3;}
+.finds-body table.findstbl th.num, .finds-body table.findstbl td.num, .finds-body table.findstbl td[data-l="Net"], .finds-body table.findstbl td[data-l="Value"], .finds-body table.findstbl td[data-l="Invoiced"], .finds-body table.findstbl td[data-l="Left To Invoice"]{text-align:right !important;}
+.finds-body table.findstbl tr.fcf-row{display:none !important;}
+.finds-body .findsfoot{padding:3px 12px;font-size:12px;}
+/* Applications & Invoices: leave as is, but centre the Application column */
+.finds-body table.fininvtbl:not(.findstbl) td[data-l="Application"], .finds-body table.fininvtbl:has(td[data-l="Application"]) thead tr th:first-child{text-align:center !important;}
 .finds-dates label{display:flex;flex-direction:column;gap:3px;font-size:11.5px;font-weight:700;color:var(--slate);}
 .finds-dates input{height:32px !important;min-height:32px !important;padding:0 8px !important;font-size:13px !important;border-radius:8px !important;margin:0 !important;}
 .finds-sum{display:grid;grid-template-columns:1fr 1fr;gap:14px;}

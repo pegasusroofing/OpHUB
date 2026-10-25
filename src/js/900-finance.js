@@ -257,7 +257,6 @@ async function renderSiteFinance(siteId){
   const pick = (k, d)=> (jf[k]!==undefined && jf[k]!==null && jf[k]!=='') ? jf[k] : d;
   const vat = pick('vat_treatment', st.default_vat);
   const bt = finBillingType(jf, items.length, apps.length);
-  const poTotal = pos.reduce((t,p)=>t+Number(p.value||0), 0);
   document.getElementById('app').innerHTML = shell(`
     ${finProjTabsHtml(siteId, bt)}
     ${typeof isFinanceOnly==='function' && isFinanceOnly() ? '' : '<div class="finbanner">🔒 Only you can see this while OpHUB Finance is being built.</div>'}
@@ -297,13 +296,13 @@ async function renderSiteFinance(siteId){
         <div class="finpo">
           <div class="finpo-main">
             <div class="finpo-no">${escapeHtml(p.po_number)} ${p.is_primary?'<span class="tag-ok">Main PO</span>':''}</div>
-            <div class="stub" style="margin:2px 0 0;font-style:normal;">${[p.value!=null?finMoney(p.value):'', p.po_date?new Date(p.po_date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):'', p.description||''].filter(Boolean).map(escapeHtml).join(' · ') || 'No value or date'}</div>
+            <div class="stub" style="margin:2px 0 0;font-style:normal;">${[p.po_date?new Date(p.po_date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):'', p.description||''].filter(Boolean).map(escapeHtml).join(' · ') || 'No date'}</div>
           </div>
           <div class="finpo-act">
             ${(p.files&&p.files.length) || p.file_path ? `<button class="ghostbtn" style="padding:5px 10px;width:auto;" onclick="openClientPoFile('${p.id}')">View${p.files&&p.files.length>1?' ('+p.files.length+')':''}</button>` : ''}
             <button class="ghostbtn" style="padding:5px 10px;width:auto;" onclick="openClientPoForm('${siteId}','${p.id}')">Edit</button>
           </div>
-        </div>`).join('') + (pos.length>1 ? `<p class="stub" style="margin:8px 0 0;font-style:normal;">Total of POs: <b>${finMoney(poTotal)}</b></p>` : '')
+        </div>`).join('')
       : `<div class="empty" style="margin:0;">No client PO yet.</div>`}
     </div>
     ${typeof finJobEditHtml==='function' ? finJobEditHtml(site) : ''}
@@ -409,10 +408,7 @@ window.openClientPoForm = async function(siteId, poId){
   ov.innerHTML = `<div class="geo-modal-card">
       <h3>${po ? 'Edit client PO' : 'Add client PO'}</h3>
       <div class="formfield"><label class="field-label">PO number</label><input type="text" id="finPoNo" value="${escapeHtml(po?po.po_number:'')}" placeholder="As shown on the client’s order"></div>
-      <div class="fingrid2">
-        <div class="formfield"><label class="field-label">Value (£, excl. VAT)</label><input type="text" inputmode="decimal" data-money id="finPoVal" value="${po&&po.value!=null?escapeHtml(String(po.value)):''}" placeholder="Optional"></div>
-        <div class="formfield"><label class="field-label">Date</label><input type="date" id="finPoDate" value="${po&&po.po_date?po.po_date:''}"></div>
-      </div>
+      <div class="formfield"><label class="field-label">Date</label><input type="date" id="finPoDate" value="${po&&po.po_date?po.po_date:''}"></div>
       <div class="formfield"><label class="field-label">What it covers</label><input type="text" id="finPoDesc" value="${escapeHtml(po&&po.description||'')}" placeholder="e.g. Main contract, Variation 2"></div>
       <label class="finswitch"><input type="checkbox" id="finPoPrimary" ${primary?'checked':''}> Main PO (shown on invoices, applications and certificates)</label>
       <div class="formfield"><label class="field-label">Copies of the PO (optional, any files)</label>
@@ -429,12 +425,11 @@ window.openClientPoForm = async function(siteId, poId){
 window.closeClientPoForm = function(){ const ov = document.getElementById('finPoOverlay'); if(ov) ov.style.display = 'none'; finPoFile = null; };
 window.saveClientPo = async function(siteId, poId){
   const no = finVal('finPoNo');
-  const val = finNum(finVal('finPoVal'));
+  // No value on a client PO (Andy, 25 Oct): the contract value lives in Project Details.
   if(!no){ toast('Enter the PO number.'); return; }
-  if(val!==null && (isNaN(val) || val < 0)){ toast('Enter the PO value as a number.'); return; }
   const primary = document.getElementById('finPoPrimary').checked;
   const btn = document.getElementById('finPoSave'); if(btn){ btn.disabled = true; btn.textContent = 'Saving…'; }
-  const row = {po_number:no, value:val, po_date:finVal('finPoDate')||null, description:finVal('finPoDesc')||null, is_primary:primary};
+  const row = {po_number:no, po_date:finVal('finPoDate')||null, description:finVal('finPoDesc')||null, is_primary:primary};
   const newFiles = Array.isArray(finPoFile) ? finPoFile : (finPoFile ? [finPoFile] : []);
   if(newFiles.length){
     if(newFiles.some(f=>f.size > 20*1024*1024)){ toast('A file is over 20 MB.'); if(btn){ btn.disabled=false; btn.textContent='Save PO'; } return; }

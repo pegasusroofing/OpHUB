@@ -453,6 +453,8 @@ async function bookOrderCollection(siteId, f, supplier, toMe, materials){
       const rows = await dbInsert('delivery_tasks', payload);
       const saved = rows && rows[0];
       if(!saved) return ' — but it could not be added to the Delivery Schedule, add it by hand';
+      // Link the collection to the requests (and PO) so the driver completing it marks them received (9219zr).
+      if(typeof matLinkDeliveryTask==='function') await matLinkDeliveryTask(saved.id, materials, f.poId||null);
       try{ await resequenceSlot(payload.scheduled_date, payload.time_slot); await syncDeliveryCalendarEvent(saved.id, null, payload); }catch(e){}
       if(f.collectorId!==ME.id) postSystemMessageToUser(f.collectorId, siteId, 'delivery_assigned', `You've been assigned a collection for ${dateLabel}: ${itemsText}${f.note ? ' — Note: '+f.note : ''}`, saved.id);
       return ' — added to the Delivery Schedule for '+whoName+', '+dateLabel;

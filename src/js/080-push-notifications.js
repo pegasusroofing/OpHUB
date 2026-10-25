@@ -46,6 +46,9 @@ async function registerPushNotifications(){
     PN.addListener('pushNotificationActionPerformed', (action)=>{
       try{
         const data = (action && action.notification && action.notification.data) || {};
+        // Finance links (9219zr): an invoice query opens its pop-up, a delivery
+        // problem opens the PO / the job's materials. Their related_id is not a delivery.
+        if(typeof window.msgPushOpen==='function' && window.msgPushOpen(data)) return;
         // A delivery notification carries the delivery's id (task_id, from
         // messages.related_id). Drivers land on their own schedule, PMs and
         // admins on that delivery; anyone else (e.g. the site contact told a
