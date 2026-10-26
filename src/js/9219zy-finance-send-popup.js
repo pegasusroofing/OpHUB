@@ -87,8 +87,8 @@ window.openFinEmail = async function(siteId, invId, mode){
   const hi = client ? `Hi ${client},` : 'Hello,';
   const po = inv.client_po ? ` (your PO ${inv.client_po})` : '';
   const body = reminder
-    ? `${hi}\n\nThis is a reminder that ${docName} ${num}${po} was due on ${finDate(inv.due_date)}, and ${finMoney(finInvOutstanding(inv))} is still outstanding.\n\nPlease could you let us know when it will be paid?\n\nThanks,\n${(ME && ME.name) || company}\n${company}`
-    : `${hi}\n\nHere's ${docName} ${num}${po} for ${finMoney(inv.total)}${inv.due_date && !isCredit ? ', due on '+finDate(inv.due_date) : ''}.\n\nIf you have any questions, please let us know.\n\nThanks,\n${(ME && ME.name) || company}\n${company}`;
+    ? `${hi}\n\nThis is a reminder that ${docName} ${num}${po} was due on ${finDate(inv.due_date)}, and ${finMoney(finInvOutstanding(inv))} is still outstanding.\n\nPlease could you let us know when it will be paid?\n\nKind regards,`
+    : `${hi}\n\nPlease find attached ${docName} ${num} for ${site.name || 'the works'}${site.job_number ? ' (job '+site.job_number+')' : ''}${po}.\n\nAmount: ${finMoney(inv.total)}${Number(inv.vat||0) ? ' including VAT' : ''}${inv.due_date && !isCredit ? '\nPayment due by: '+finDate(inv.due_date) : ''}\n\n${isCredit ? 'This credit note will be taken off your account.' : 'Our bank details are on the invoice.'} If you have any questions, please let us know.\n\nKind regards,`;
   finSend = {kind:'invoice', siteId: inv.site_id || siteId, id: invId, mode, att:[{key:'main', name: finInvFilename(inv, site), on:true}]};
   finSendOpen({title: reminder ? 'Send Reminder' : (isCredit ? 'Send Credit Note' : 'Send Sales Invoice'), to: inv.bill_email || jf.billing_email || site.client_email || '', subject, body});
 };
@@ -104,7 +104,7 @@ window.openFinAppEmail = async function(siteId, appId){
   const hi = client ? `Hi ${client},` : 'Hello,';
   const val = a.valuation_date ? ` (valued to ${finDate(a.valuation_date)})` : '';
   const subject = `Application for Payment ${a.number} from ${company}${client ? ' to '+client : ''} — ${site.name||''}${site.job_number ? ' ('+site.job_number+')' : ''}`;
-  const body = `${hi}\n\nPlease find attached application for payment ${a.number} for ${site.name||'the project'}${val}.\n\nAmount applied for: ${finMoney(a.net_due)} excl. VAT${a.due_date ? '\nDue: '+finDate(a.due_date) : ''}${a.client_po ? '\nYour PO: '+a.client_po : ''}\n\nIf you have any questions, please let us know.\n\nThanks,\n${(ME && ME.name) || company}\n${company}`;
+  const body = `${hi}\n\nPlease find attached application for payment ${a.number} for ${site.name||'the project'}${val}.\n\nAmount applied for: ${finMoney(a.net_due)} excl. VAT${a.due_date ? '\nDue: '+finDate(a.due_date) : ''}${a.client_po ? '\nYour PO: '+a.client_po : ''}\n\nIf you have any questions, please let us know.\n\nKind regards,`;
   const att = [{key:'main', name: finAppFilename(a), on:true}];
   let sowRange = null;
   try{

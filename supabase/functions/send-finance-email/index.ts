@@ -151,6 +151,7 @@ Deno.serve(withCors(async (req) => {
     }
 
     const { data: org } = await admin.from('organizations').select('name, logo_path, color_primary').eq('id', caller.org_id).maybeSingle();
+    const { data: fset } = await admin.from('fin_settings').select('company_reg_no, company_vat_no').eq('org_id', caller.org_id).maybeSingle();
     const company = org?.name || 'OpHUB';
     const logoUrl = org?.logo_path ? `${SUPABASE_URL}/storage/v1/object/public/org-logos/${org.logo_path}` : null;
     const label = KIND_LABEL[kind];
@@ -169,13 +170,24 @@ Deno.serve(withCors(async (req) => {
       greeting: 'Hello,', intro,
       bodyHtml: ophubRows(rows) + (message ? `<p style="margin:0 0 12px;font-size:15px;line-height:1.5;color:#101114;white-space:pre-wrap;">${ophubEsc(message)}</p>` : '') + `<p style="margin:18px 0 12px;font-size:15px;line-height:1.5;color:#101114;">Kind regards,<br>${ophubEsc(sender)}<br>${ophubEsc(company)}</p>`,
     });
+    // Signature under the message (Andy 26 Oct): who sent it, the company, their email, company number, then the logo.
+    const regNo = String(fset?.company_reg_no || '').trim(), vatNo = String(fset?.company_vat_no || '').trim();
+    const sigLines = [caller.name || '', company, caller.email || '', regNo ? 'Company No. ' + regNo : '', vatNo ? 'VAT No. ' + vatNo : ''].filter(Boolean);
+    const sigHtml = `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:18px 0 6px;border-top:1px solid #ECEEF2;padding-top:14px;width:100%;"><tr><td style="padding-top:14px;">`
+      + (caller.name ? `<div style="font-size:15px;font-weight:700;color:#101114;">${ophubEsc(caller.name)}</div>` : '')
+      + `<div style="font-size:13.5px;color:#3A3B3E;line-height:1.6;">${ophubEsc(company)}</div>`
+      + (caller.email ? `<div style="font-size:13.5px;line-height:1.6;"><a href="mailto:${ophubEsc(caller.email)}" style="color:#2F6FDE;text-decoration:none;">${ophubEsc(caller.email)}</a></div>` : '')
+      + (regNo || vatNo ? `<div style="font-size:12.5px;color:#8A8D93;line-height:1.6;">${[regNo ? 'Company No. ' + ophubEsc(regNo) : '', vatNo ? 'VAT No. ' + ophubEsc(vatNo) : ''].filter(Boolean).join(' &nbsp;·&nbsp; ')}</div>` : '')
+      + (logoUrl ? `<div style="margin-top:12px;"><img src="${ophubEsc(logoUrl)}" alt="${ophubEsc(company)}" height="52" style="height:52px;width:auto;max-width:200px;display:block;border:0;"></div>` : '')
+      + `</td></tr></table>`;
+    const sigText = '\n\n--\n' + sigLines.join('\n');
     // The send pop-up (26 Oct) passes the whole message as typed: it's sent as written, inside the branded email.
     const bodyText = String(body.body_text || '').replace(/\r\n/g, '\n').slice(0, 5000).trim();
     const html = bodyText
       ? ophubEmail({ company, brand: org?.color_primary, logoUrl, kicker: site.name, title: label + (ref ? ' ' + ref : ''),
-          bodyHtml: `<p style="margin:0 0 12px;font-size:15px;line-height:1.55;color:#101114;white-space:pre-wrap;">${ophubEsc(bodyText)}</p>` })
+          bodyHtml: `<p style="margin:0 0 12px;font-size:15px;line-height:1.55;color:#101114;white-space:pre-wrap;">${ophubEsc(bodyText)}</p>` + sigHtml })
       : htmlStd;
-    const text = bodyText || `Hello,\n\n${intro}\n${rows.filter(r => r[1]).map(r => r[0] + ': ' + r[1]).join('\n')}\n\n${message ? message + '\n\n' : ''}Kind regards,\n${sender}\n${company}`;
+    const text = bodyText ? bodyText + sigText : `Hello,\n\n${intro}\n${rows.filter(r => r[1]).map(r => r[0] + ': ' + r[1]).join('\n')}\n\n${message ? message + '\n\n' : ''}Kind regards,\n${sender}\n${company}`;
 
     const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
     const FROM_EMAIL = Deno.env.get('INVITES_FROM_EMAIL') || Deno.env.get('ORDERS_FROM_EMAIL') || 'reports@ophub.app';
