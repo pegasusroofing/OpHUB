@@ -6,17 +6,56 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 // login. Each PDF / image attachment is stored in finance-docs/<org>/inbox/
 // and listed in the Finance inbox, where the app reads it and files it to a
 // job and PO.
-//   POST /functions/v1/finance-inbox?key=<inbox key>
+//   POST /functions/v1/finance-inbox      with header  x-inbox-key: <inbox key>   (preferred)
+//   POST /functions/v1/finance-inbox?key=<inbox key>                              (still accepted)
 //   { "from": "accounts@supplier.co.uk", "subject": "Invoice 123",
 //     "attachments": [ { "filename": "inv.pdf", "content_type": "application/pdf", "content_base64": "..." } ] }
 // Power Automate's "attachments" array ({Name, ContentType, ContentBytes}) is accepted as-is too.
-const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'content-type, x-inbox-key' };
+const cors = { 'Access-Control-Allow-Headers': 'content-type, x-inbox-key' };
+// ---- CORS allow-list (security review L8, 25 Oct 2026) ----
+// Only the OpHUB web app (live domain, Vercel production + preview URLs) and
+// the phone apps get a CORS grant; every other website's browser is refused.
+// Calls with no Origin header (cron, Power Automate, server-to-server) are
+// not affected by CORS at all. withCors() sets the header on every response
+// the handler returns, so the code below can keep using corsHeaders as before.
+const OPHUB_ORIGINS = new Set([
+  'https://operativehub.co.uk',
+  'https://www.operativehub.co.uk',
+  'https://ophub-ten.vercel.app',
+  'capacitor://localhost',
+  'https://localhost',
+  'http://localhost',
+]);
+function ophubOriginAllowed(origin: string | null): boolean {
+  if (!origin) return false;
+  if (OPHUB_ORIGINS.has(origin)) return true;
+  if (/^https:\/\/ophub-[a-z0-9-]+-op-hub\.vercel\.app$/.test(origin)) return true; // Vercel preview deployments
+  if (/^http:\/\/localhost:\d{2,5}$/.test(origin)) return true; // local dev server
+  return false;
+}
+function withCors(handler: (req: Request) => Response | Promise<Response>) {
+  return async (req: Request): Promise<Response> => {
+    const res = await handler(req);
+    const origin = req.headers.get('Origin');
+    const headers = new Headers(res.headers);
+    headers.delete('Access-Control-Allow-Origin');
+    if (ophubOriginAllowed(origin)) headers.set('Access-Control-Allow-Origin', origin as string);
+    headers.append('Vary', 'Origin');
+    return new Response(res.body, { status: res.status, statusText: res.statusText, headers });
+  };
+}
+// ---- end CORS allow-list ----
+
 const json = (o: unknown, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
 const OK_TYPES = /^(application\/pdf|image\/(jpeg|png|heic|heif|webp))$/i;
 const API_KEY = Deno.env.get('ANTHROPIC_API_KEY') || '';
 const MODEL = Deno.env.get('ANTHROPIC_MODEL') || 'claude-sonnet-4-5';
 const r2 = (n: unknown) => Math.round((Number(n) || 0) * 100) / 100;
 const norm = (s: unknown) => String(s || '').toUpperCase().replace(/\s+/g, '');
+// L5: supplier names compared loosely ("Jewson Ltd" = "JEWSON LIMITED" = "Jewson").
+const supKey = (s: unknown) => String(s || '').toLowerCase().replace(/&/g, ' and ').replace(/[^a-z0-9 ]+/g, ' ')
+  .replace(/\b(ltd|limited|plc|llp|uk|the|co|company|group|trading|t\/a)\b/g, ' ').replace(/\s+/g, ' ').trim();
+const sameSupplier = (a: unknown, b: unknown) => { const x = supKey(a), y = supKey(b); return !!x && !!y && (x === y || x.includes(y) || y.includes(x)); };
 
 // Read the invoice with Claude (only when ANTHROPIC_API_KEY is set; otherwise the app reads it when Finance is opened).
 async function readDoc(bytes: Uint8Array, type: string) {
@@ -76,6 +115,21 @@ async function autoProcess(admin: any, orgId: string, inboxId: string, path: str
       query_reason: job.site_id ? (net == null ? 'Couldn’t read the amounts' : 'Couldn’t tell the supplier') : job.why }).eq('id', inboxId);
     return;
   }
+  // L5: the AI read the supplier and PO off a document anyone can email in.
+  // Before linking it to one of our POs, the supplier on the invoice must
+  // match the PO's supplier - otherwise it goes to the inbox as a query for a
+  // person to check, and nothing is filed.
+  if (job.po) {
+    const poNames: string[] = [];
+    const { data: poRow } = await admin.from('purchase_orders').select('supplier_name').eq('id', job.po.id).maybeSingle();
+    if (poRow?.supplier_name) poNames.push(poRow.supplier_name);
+    if (job.po.supplier_id) { const { data: sup } = await admin.from('suppliers').select('name').eq('id', job.po.supplier_id).maybeSingle(); if (sup?.name) poNames.push(sup.name); }
+    if (!poNames.some((n) => sameSupplier(n, extracted.supplier))) {
+      await admin.from('fin_inbox').update({ extracted: Object.assign(extracted, { site_id: job.site_id, match: job.how }), site_id: job.site_id, po_id: job.po.id, stage: 'query',
+        query_reason: `Supplier on the invoice (${String(extracted.supplier).slice(0, 80)}) doesn’t match PO ${job.po.number}${poNames[0] ? ' (' + String(poNames[0]).slice(0, 80) + ')' : ''} — check before filing` }).eq('id', inboxId);
+      return;
+    }
+  }
   const flags: string[] = [];
   if (extracted.invoice_no) {
     const { data: dup } = await admin.from('purchase_invoices').select('id, supplier_name').eq('org_id', orgId).eq('invoice_no', extracted.invoice_no);
@@ -86,6 +140,7 @@ async function autoProcess(admin: any, orgId: string, inboxId: string, path: str
     const sofar = (others || []).reduce((t: number, i: any) => t + Number(i.net || 0), 0) + Number(net);
     if (sofar > Number(job.po.value) + 0.005) flags.push('£' + r2(sofar - Number(job.po.value)).toFixed(2) + ' over the PO value');
   }
+  // Never auto-approved: an auto-filed invoice is always 'to_approve' or 'query'.
   const { data: pi } = await admin.from('purchase_invoices').insert({ org_id: orgId, site_id: job.site_id, po_id: job.po?.id || null, no_po: !job.po, kind: 'invoice', supplier_id: job.po?.supplier_id || null,
     supplier_name: extracted.supplier, invoice_no: extracted.invoice_no, invoice_date: extracted.date || new Date().toISOString().slice(0, 10), net: r2(net), vat: r2(vat), total: r2(total),
     status: flags.length ? 'query' : 'to_approve', query_note: flags.length ? flags.join('; ') : null, file_path: path, file_name: name }).select('id').single();
@@ -94,12 +149,14 @@ async function autoProcess(admin: any, orgId: string, inboxId: string, path: str
     purchase_invoice_id: pi.id, comments: [{ name: 'OpHUB', at: new Date().toISOString(), text: 'Read and filed to the job automatically (' + job.how + ').' }] }).eq('id', inboxId);
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withCors(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'POST') return json({ error: 'POST only' }, 405);
   try {
     const url = new URL(req.url);
-    const key = (url.searchParams.get('key') || req.headers.get('x-inbox-key') || '').trim();
+    // L5: the x-inbox-key header is preferred (query strings end up in logs);
+    // ?key= keeps working so existing Power Automate flows don't break.
+    const key = (req.headers.get('x-inbox-key') || url.searchParams.get('key') || '').trim();
     if (!/^[A-Za-z0-9_-]{24,80}$/.test(key)) return json({ error: 'Missing or invalid key' }, 401);
     const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { autoRefreshToken: false, persistSession: false } });
     const { data: st } = await admin.from('fin_settings').select('org_id').eq('inbox_key', key).maybeSingle();
@@ -132,6 +189,7 @@ Deno.serve(async (req) => {
     }
     return json({ ok: true, saved: saved.length });
   } catch (e) {
-    return json({ error: String(e) }, 500);
+    console.error('finance-inbox failed', e);
+    return json({ error: 'Something went wrong — the attachments may not have been saved.' }, 500);
   }
-});
+}));

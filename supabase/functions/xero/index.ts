@@ -9,7 +9,41 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 // Optional XERO_SCOPES to override the default scopes.
 // Tokens live in xero_connections (RLS on, no policies: only this function can read them).
 
-const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type' };
+const cors = { 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type' };
+// ---- CORS allow-list (security review L8, 25 Oct 2026) ----
+// Only the OpHUB web app (live domain, Vercel production + preview URLs) and
+// the phone apps get a CORS grant; every other website's browser is refused.
+// Calls with no Origin header (cron, Power Automate, server-to-server) are
+// not affected by CORS at all. withCors() sets the header on every response
+// the handler returns, so the code below can keep using corsHeaders as before.
+const OPHUB_ORIGINS = new Set([
+  'https://operativehub.co.uk',
+  'https://www.operativehub.co.uk',
+  'https://ophub-ten.vercel.app',
+  'capacitor://localhost',
+  'https://localhost',
+  'http://localhost',
+]);
+function ophubOriginAllowed(origin: string | null): boolean {
+  if (!origin) return false;
+  if (OPHUB_ORIGINS.has(origin)) return true;
+  if (/^https:\/\/ophub-[a-z0-9-]+-op-hub\.vercel\.app$/.test(origin)) return true; // Vercel preview deployments
+  if (/^http:\/\/localhost:\d{2,5}$/.test(origin)) return true; // local dev server
+  return false;
+}
+function withCors(handler: (req: Request) => Response | Promise<Response>) {
+  return async (req: Request): Promise<Response> => {
+    const res = await handler(req);
+    const origin = req.headers.get('Origin');
+    const headers = new Headers(res.headers);
+    headers.delete('Access-Control-Allow-Origin');
+    if (ophubOriginAllowed(origin)) headers.set('Access-Control-Allow-Origin', origin as string);
+    headers.append('Vary', 'Origin');
+    return new Response(res.body, { status: res.status, statusText: res.statusText, headers });
+  };
+}
+// ---- end CORS allow-list ----
+
 const json = (o: unknown, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
 const text = (t: string, status = 200) => new Response(t, { status, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
 
@@ -77,7 +111,7 @@ async function xero(orgId: string) {
   const call = async (method: string, path: string, body?: unknown, raw?: { bytes: Uint8Array; type: string }, base?: string) => {
     const headers: Record<string, string> = { Authorization: 'Bearer ' + access, 'xero-tenant-id': c.tenant_id, Accept: 'application/json' };
     let payload: BodyInit | undefined;
-    if (raw) { headers['Content-Type'] = raw.type; payload = raw.bytes; }
+    if (raw) { headers['Content-Type'] = raw.type; payload = raw.bytes as unknown as BodyInit; }
     else if (body !== undefined) { headers['Content-Type'] = 'application/json'; payload = JSON.stringify(body); }
     const res = await fetch((base || API) + path, { method, headers, body: payload });
     const j = await res.json().catch(() => ({}));
@@ -139,7 +173,7 @@ const salesTax = (t: string) => t === 'reverse_charge' ? 'DRCHARGESUPPLY20' : t 
 // VAT chosen on each invoice line in OpHUB -> Xero UK tax type.
 const LINE_TAX: Record<string, string> = { '20': 'OUTPUT2', '5': 'RROUTPUT', '0': 'ZERORATEDOUTPUT', 'ex': 'EXEMPTOUTPUT', 'rc20': 'DRCHARGESUPPLY20', 'rc5': 'DRCHARGESUPPLY5' };
 
-Deno.serve(async (req) => {
+Deno.serve(withCors(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   const url = new URL(req.url);
   try {
@@ -416,6 +450,14 @@ Deno.serve(async (req) => {
         const items: any[] = [];
         if (r2(p.labour)) items.push({ Description: `Labour ${p.period_start} to ${p.period_end}`, Quantity: 1, UnitAmount: r2(p.labour), AccountCode: s.xero_labour_account || '320', TaxType: 'NONE' });
         if (r2(p.materials)) items.push({ Description: `Materials ${p.period_start} to ${p.period_end}`, Quantity: 1, UnitAmount: r2(p.materials), AccountCode: s.xero_purchase_account || '310', TaxType: 'NONE' });
+        // FIN-NEW-01: a contra charge (goods / plant / services we supplied
+        // to the subcontractor) is part of the CIS gross - HMRC treats it as
+        // paid to them - so it stays inside the labour line above, and comes
+        // off the bill here as a negative line. The bill then equals what is
+        // actually paid before CIS. Same account as the line it came out of
+        // (labour; materials if there is no labour line).
+        const contra = r2(p.contra);
+        if (contra > 0) items.push({ Description: `Contra charge ${p.period_start} to ${p.period_end}`, Quantity: 1, UnitAmount: -contra, AccountCode: r2(p.labour) ? (s.xero_labour_account || '320') : (s.xero_purchase_account || '310'), TaxType: 'NONE' });
         const x: any = { Type: 'ACCPAY', Contact: contact, InvoiceNumber: p.invoice_no || undefined, Reference: `CIS ${p.period_start}–${p.period_end}`, Date: p.paid_on || p.period_end, DueDate: p.paid_on || p.period_end, LineAmountTypes: 'NoTax', Status: 'AUTHORISED', LineItems: items };
         if (p.xero_id) x.InvoiceID = p.xero_id;
         const r = await call('POST', '/Invoices', { Invoices: [x] });
@@ -454,4 +496,4 @@ Deno.serve(async (req) => {
   } catch (e) {
     return json({ error: String((e as Error).message || e) }, 400);
   }
-});
+}));
