@@ -66337,6 +66337,16 @@ async function dtoStop(msg){
   document.head.appendChild(st);
 })();
 
+/* Finance › project › Sales: the first column (Application / Invoice) lines up under its title and
+   filter box, centred like the other columns (Andy 27 Oct). */
+(function(){
+  const st = document.createElement('style');
+  st.textContent = `@media (min-width:701px){
+  .finsalesub .finreptbl-wrap .fininvtbl thead th:first-child, .finsalesub .finreptbl-wrap .fininvtbl tbody td:first-child{text-align:center !important;}
+}`;
+  document.head.appendChild(st);
+})();
+
 /* ============================================================
    OpHUB Finance — no double taps (deep dive, 20 Oct).
    Every Finance action that saves, sends or creates something ignores a
