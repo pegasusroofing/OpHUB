@@ -559,7 +559,7 @@ async function emailCompletedTbtToPM(siteId, tbtId){
     if(!stored) return;
     for(const to of recipients.slice(0, 6)){
       await sbFetch('/functions/v1/send-document-email', {method:'POST', timeoutMs:60000, body: JSON.stringify({
-        site_id: siteId, recipient_email: to, doc_title: (built.talk.title||'Toolbox Talk')+' — completed, signed by all operatives', file_url: publicUrl('mc-documents', stored),
+        site_id: siteId, recipient_email: to, doc_title: (built.talk.title||'Toolbox Talk')+' — completed, signed by all operatives', file_url: publicUrl('mc-documents', stored), storage_bucket: 'mc-documents', storage_path: stored,
       })});
     }
   }catch(e){ /* best-effort */ }
@@ -700,7 +700,7 @@ window.emailSignedToolboxTalk = async function(siteId, tbtId){
     if(!stored){ toast('Could not upload the PDF — try again.'); return; }
     toast('Sending…');
     const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', body: JSON.stringify({
-      site_id: siteId, recipient_email: trimmed, cc_email: emailTo.cc, client_cc_email: ccClientEmailFromPromptAnswer(answer, site), doc_title: (built.talk&&built.talk.title||'Toolbox Talk')+' (Signed Toolbox Talk)', file_url: publicUrl('mc-documents', stored),
+      site_id: siteId, recipient_email: trimmed, cc_email: emailTo.cc, client_cc_email: ccClientEmailFromPromptAnswer(answer, site), doc_title: (built.talk&&built.talk.title||'Toolbox Talk')+' (Signed Toolbox Talk)', file_url: publicUrl('mc-documents', stored), storage_bucket: 'mc-documents', storage_path: stored,
     })});
     if(res && res.ok){ toast('Emailed'); } else { toast('Could not send the email — please try again.'); }
   }catch(e){
@@ -769,7 +769,7 @@ window.tbtDoneEmail = async function(){
     const path = 'tbt-exports/'+ME.org_id+'/'+uid()+'-'+m.filename.replace(/[^a-z0-9.\-]+/gi,'_');
     const stored = await uploadToStorage('mc-documents', path, new Blob([m.bytes], {type:'application/pdf'}), 'application/pdf');
     if(!stored){ tbtDoneBusy = ''; render(); toast('Could not upload the PDF — try again.'); return; }
-    const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', timeoutMs:120000, body: JSON.stringify({general_label:'Toolbox Talks', recipient_email: email, cc_email: email!==ME.email ? ME.email : undefined, doc_title: 'Signed Toolbox Talks ('+m.n+')', file_url: publicUrl('mc-documents', stored)})});
+    const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', timeoutMs:120000, body: JSON.stringify({general_label:'Toolbox Talks', recipient_email: email, cc_email: email!==ME.email ? ME.email : undefined, doc_title: 'Signed Toolbox Talks ('+m.n+')', file_url: publicUrl('mc-documents', stored), storage_bucket: 'mc-documents', storage_path: stored})});
     const d = res ? await res.json().catch(()=>({})) : {};
     tbtDoneBusy = '';
     if(res && res.ok && !d.error){ tbtDoneSel = new Set(); toast(m.n+' toolbox talk'+(m.n===1?'':'s')+' emailed to '+email+(d.attached===false?' (as a link — too big to attach)':'')); }

@@ -470,6 +470,8 @@ async function opUnreadCount(){
     const readSet = new Set(reads.map(r=>r.message_id));
     n = rows.filter(m=>m.sender_id!==ME.id && !readSet.has(m.id)).length;
   }
+  // PB-07: messages sent to me alone count too (the Inbox lists them).
+  try{ n += (await myUnreadDirectMessages(null)).length; }catch(e){}
   opUnreadCache = {at:Date.now(), n};
   return n;
 }

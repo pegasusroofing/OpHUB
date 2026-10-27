@@ -851,7 +851,7 @@ async function renderSchedule(siteId){
     </div>
     ` : ''}
     <div id="scheduleLiveMarker" style="display:none;"></div>
-  </div>`, {title:'Schedule of Works', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back: scheduleBackFrom ? decodeURIComponent(scheduleBackFrom) : `#/site/${siteId}/home`, siteId, activeTab:'schedule'}); }
+  </div>`, {title:'Schedule of Works', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back: scheduleBackFrom ? schedBackHash(scheduleBackFrom, siteId) : `#/site/${siteId}/home`, siteId, activeTab:'schedule'}); }
 
   // Live two-way sync with any subcontractor's own filtered Schedule of
   // Works view (renderSubSchedule) — both pages read/write the exact same
@@ -923,7 +923,7 @@ window.addVariationWorkFromSchedule = async function(siteId){
   render();
 };
 window.addVariationToSchedule = async function(siteId, variationId){
-  const rows = await dbSelect('variations', 'id=eq.'+variationId+'&select=*');
+  const rows = await dbSelect('variations', 'id=eq.'+variationId+'&select=id,description,approval_status,schedule_section_id');
   const v = rows[0]; if(!v) return;
   // #291: only ever allowed once a PM has approved the variation.
   if(v.approval_status!=='approved'){ toast('This variation needs PM approval before it can be added to the schedule.'); return; }
@@ -1549,3 +1549,10 @@ window.confirmPdfImport = async function(siteId){
     render();
   }
 };
+// CORE-L11: ?from= is already decoded once by routeQuery; an old link may still carry it encoded
+// twice. A cut-off one ("%E2%8") made decodeURIComponent throw and the page never drew.
+function schedBackHash(from, siteId){
+  let h = String(from||'');
+  if(/%[0-9A-Fa-f]{2}/.test(h)){ try{ h = decodeURIComponent(h); }catch(e){ h = String(from||''); } }
+  return (typeof isSafeBackHash!=='function' || isSafeBackHash(h)) ? h : `#/site/${siteId}/home`;
+}

@@ -437,3 +437,17 @@ window.disconnectOneDrive = async function(){
   const res = await sbFetch('/rest/v1/onedrive_connections?org_id=eq.'+ME.org_id, {method:'DELETE'});
   if(res.ok){ toast('OneDrive disconnected'); render(); } else { toast('Could not disconnect — try again.'); }
 };
+// CP-NEW-1 (27 Oct): whether OneDrive is really connected, from the database
+// (onedrive_status: the sign-in tokens are there and were used in the last 90
+// days) rather than "a connection record exists". The tokens never come to the
+// browser. Falls back to the old record check if that function isn't there or
+// the call fails. Returns null when there's no connection at all, otherwise
+// {connected, needs_reconnect, reason, account_email, folder_path, ...}.
+async function oneDriveStatus(){
+  try{
+    const res = await sbFetch('/rest/v1/rpc/onedrive_status', {method:'POST', body:'{}'});
+    if(res.ok){ const d = await res.json(); return d && d.exists ? d : null; }
+  }catch(e){ /* no signal: use the record check below */ }
+  const row = (await dbSelect('onedrive_connections', 'org_id=eq.'+ME.org_id+'&select=org_id,account_email,folder_path,connected_at'))[0];
+  return row ? Object.assign({exists:true, connected:true, needs_reconnect:false}, row) : null;
+}

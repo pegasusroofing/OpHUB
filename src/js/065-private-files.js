@@ -47,13 +47,14 @@ function storageParse(u){
   const end = qi > -1 ? qi : (hi > -1 ? hi : rest.length);
   const main = rest.slice(0, end);
   const query = qi > -1 ? rest.slice(qi+1).split('#')[0] : '';
+  const hash = hi > -1 ? rest.slice(hi) : ''; // e.g. "#view=FitH" on a PDF in a frame
   const si = main.indexOf('/');
   if(si < 1) return null;
   const bucket = main.slice(0, si);
   if(!PRIVATE_BUCKETS.has(bucket)) return null;
   let path = main.slice(si+1);
   try{ path = decodeURIComponent(path); }catch(e){}
-  return {bucket, path, query, key: bucket+'/'+path};
+  return {bucket, path, query, hash, key: bucket+'/'+path};
 }
 function signedFor(p){
   const c = SIGNED[p.key];
@@ -63,7 +64,7 @@ function signedFor(p){
     const extra = p.query.split('&').filter(x=>x && !/^token=/.test(x));
     if(extra.length) u += '&' + extra.join('&');
   }
-  return u;
+  return p.hash ? u + p.hash : u;
 }
 // The address to actually use, if we already have it (else null while it's signed).
 function resolveStorageUrlSync(u){ const p = storageParse(u); if(!p) return u; return signedFor(p); }
@@ -142,12 +143,35 @@ async function presignStorageUrls(urls){
   await Promise.all(want.map(p=>queueSign(p)));
 }
 window.presignStorageUrls = presignStorageUrls;
+// The same for saved data that holds {bucket, path} file references (an O&M
+// manual's photos and attachments): every one is signed in one go.
+async function presignStorageRefs(obj){
+  const urls = [];
+  const walk = (o, depth)=>{
+    if(!o || typeof o !== 'object' || depth > 8 || urls.length > 2000) return;
+    if(Array.isArray(o)){ o.forEach(x=>walk(x, depth+1)); return; }
+    if(typeof o.bucket === 'string' && typeof o.path === 'string' && PRIVATE_BUCKETS.has(o.bucket)) urls.push(publicUrl(o.bucket, o.path));
+    Object.keys(o).forEach(k=>{ const v = o[k]; if(v && typeof v === 'object') walk(v, depth+1); });
+  };
+  try{ walk(obj, 0); await presignStorageUrls(urls); }catch(e){}
+}
+window.presignStorageRefs = presignStorageRefs;
 
 // ---- fetch(): resolve before sending ----
 window.fetch = function(input, init){
   if(typeof input === 'string' || (typeof URL !== 'undefined' && input instanceof URL)){
     const s = String(input);
-    if(storageParse(s)) return resolveStorageUrl(s).then(u=>_origFetch(u, init));
+    const p = storageParse(s);
+    if(p) return resolveStorageUrl(s).then(async u=>{
+      let res = await _origFetch(u, init);
+      // A saved signed link the server no longer accepts: sign again, once.
+      if(!res.ok && u !== s && (res.status === 400 || res.status === 401 || res.status === 403)){
+        delete SIGNED[p.key]; delete signFailedAt[p.key];
+        const u2 = await resolveStorageUrl(s);
+        if(u2 !== u) res = await _origFetch(u2, init);
+      }
+      return res;
+    });
   }
   return _origFetch(input, init);
 };
@@ -167,7 +191,7 @@ try{
         // Don't load the old address (it would fail and fire onerror) —
         // wait for the signed one, then load that.
         this.__ophubWant = s;
-        resolveStorageUrl(s).then(u=>{ if(this.__ophubWant === s){ this.__ophubWant = null; srcDesc.set.call(this, u); } });
+        resolveStorageUrl(s).then(u=>{ if(this.__ophubWant === s){ this.__ophubWant = null; this.__ophubPlain = storageParse(u) ? u : null; srcDesc.set.call(this, u); } });
       },
     });
   }
@@ -200,11 +224,32 @@ if(_origOpen){
 // ---- links, pictures and buttons already on the page ----
 const STORAGE_URL_RE = new RegExp(STORAGE_PUBLIC_PREFIX.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'[^\'"\\s)<>]+', 'g');
 const STORAGE_ATTRS = ['src','href','onclick','style','data-src','data-full'];
+// Put an address in src. One that is still the public address (it couldn't
+// be signed: signed out, no signal, or no access) is remembered, so the
+// page-watcher doesn't pick it up again and go round in a loop.
+function storageSetPlainSrc(el, u){
+  el.__ophubPlain = storageParse(u) ? u : null;
+  el.setAttribute('src', u);
+}
 function fixStorageEl(el){
   if(!el || el.nodeType !== 1) return;
+  // A picture that arrived with a blank stand-in (storageRewriteHtml below,
+  // or an earlier pass here): load the signed link once it's ready. If it
+  // can't be signed, load the original address, exactly as before.
+  const want = el.getAttribute('data-ophub-src');
+  if(want && !el.__ophubPending){
+    const wp = storageParse(want);
+    const r = wp ? signedFor(wp) : want;
+    if(r){ el.removeAttribute('data-ophub-src'); el.setAttribute('src', r); }
+    else {
+      el.__ophubPending = true;
+      resolveStorageUrl(want).then(u=>{ el.__ophubPending = false; if(el.getAttribute('data-ophub-src') === want){ el.removeAttribute('data-ophub-src'); storageSetPlainSrc(el, u); } });
+    }
+  }
   for(const a of STORAGE_ATTRS){
     const v = el.getAttribute(a);
     if(!v || v.indexOf(STORAGE_PUBLIC_PREFIX) === -1) continue;
+    if(a === 'src' && el.__ophubPlain === v) continue; // couldn't be signed: left as it is (no loop)
     if(a === 'src' || a === 'href' || a === 'data-src' || a === 'data-full'){
       const p = storageParse(v); if(!p) continue;
       const r = signedFor(p);
@@ -212,11 +257,14 @@ function fixStorageEl(el){
       if(a === 'src' && (el.tagName === 'IMG' || el.tagName === 'IFRAME')){
         el.setAttribute('data-ophub-src', v);
         el.setAttribute('src', el.tagName === 'IMG' ? BLANK_GIF : 'about:blank');
+        el.__ophubPending = true;
       }
       resolveStorageUrl(v).then(u=>{
+        // The stand-in always gets an address back, even one that couldn't
+        // be signed (it still opens while the bucket is public).
+        if(a === 'src' && el.getAttribute('data-ophub-src') === v){ el.__ophubPending = false; el.removeAttribute('data-ophub-src'); storageSetPlainSrc(el, u); return; }
         if(u === v) return; // couldn't sign — leave as it was
-        if(a === 'src' && el.getAttribute('data-ophub-src') === v){ el.removeAttribute('data-ophub-src'); el.setAttribute('src', u); }
-        else if(el.getAttribute(a) === v) el.setAttribute(a, u);
+        if(el.getAttribute(a) === v) el.setAttribute(a, u);
       });
     } else {
       // onclick="viewImage('…')", style="background-image:url(…)": swap every address inside
@@ -232,7 +280,7 @@ function fixStorageEl(el){
     }
   }
 }
-const STORAGE_SEL = STORAGE_ATTRS.map(a=>'['+a+'*="/object/public/"]').join(',');
+const STORAGE_SEL = STORAGE_ATTRS.map(a=>'['+a+'*="/object/public/"]').join(',')+',[data-ophub-src]';
 function fixStorageTree(root){
   if(!root || root.nodeType !== 1) return;
   fixStorageEl(root);
@@ -247,6 +295,99 @@ try{
   }).observe(document.documentElement, {subtree:true, childList:true, attributes:true, attributeFilter:STORAGE_ATTRS});
 }catch(e){}
 document.addEventListener('DOMContentLoaded', ()=>fixStorageTree(document.body));
+
+// ---- HTML put on the page from code (innerHTML and friends) ----
+// SEC-H3 prep (27 Oct): the page-watcher above swaps an address only after
+// the browser has seen it, so every picture first fired a request at the
+// public address (a wasted round trip; once the buckets are private, a
+// failed one). Here the HTML is fixed before the browser reads it: a link
+// that is already signed goes straight in, and a picture that isn't yet
+// signed starts as a blank stand-in that the watcher fills in as soon as
+// its batch is signed. Pages with no file addresses are untouched.
+const STORAGE_IMG_TAG_RE = /<(?:img|iframe)\b[^>]*>/gi;
+const STORAGE_IMG_SRC_RE = /(\ssrc\s*=\s*)(["'])([^"']*)\2/i;
+function storageHtmlUrl(u){ return u.replace(/&/g, '&amp;'); }
+function storageRewriteHtml(html){
+  if(typeof html !== 'string' || html.indexOf('/object/public/') === -1) return html;
+  try{
+    let out = html.replace(STORAGE_IMG_TAG_RE, tag=>{
+      if(tag.indexOf('/object/public/') === -1 || tag.indexOf('data-ophub-src') !== -1) return tag;
+      return tag.replace(STORAGE_IMG_SRC_RE, (m, pre, q, v)=>{
+        const p = storageParse(v.replace(/&amp;/g, '&')); if(!p) return m;
+        const r = signedFor(p);
+        if(r) return pre+q+storageHtmlUrl(r)+q;
+        queueSign(p);
+        const blank = /^<iframe/i.test(tag) ? 'about:blank' : BLANK_GIF;
+        return pre+q+blank+q+' data-ophub-src='+q+v+q;
+      });
+    });
+    // Every other address (onclick="viewImage('…')", href, style…): use the
+    // signed one when it's known; otherwise start signing it now.
+    out = out.replace(STORAGE_URL_RE, f=>{
+      const p = storageParse(f.replace(/&amp;/g, '&')); if(!p) return f;
+      const r = signedFor(p);
+      if(r) return storageHtmlUrl(r);
+      queueSign(p);
+      return f;
+    });
+    return out;
+  }catch(e){ return html; }
+}
+window.storageRewriteHtml = storageRewriteHtml;
+try{
+  const ihDesc = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
+  if(ihDesc && ihDesc.set && ihDesc.get){
+    Object.defineProperty(Element.prototype, 'innerHTML', {
+      configurable: true, enumerable: ihDesc.enumerable,
+      get(){ return ihDesc.get.call(this); },
+      set(v){ return ihDesc.set.call(this, typeof v === 'string' ? storageRewriteHtml(v) : v); },
+    });
+  }
+  const ohDesc = Object.getOwnPropertyDescriptor(Element.prototype, 'outerHTML');
+  if(ohDesc && ohDesc.set && ohDesc.get){
+    Object.defineProperty(Element.prototype, 'outerHTML', {
+      configurable: true, enumerable: ohDesc.enumerable,
+      get(){ return ohDesc.get.call(this); },
+      set(v){ return ohDesc.set.call(this, typeof v === 'string' ? storageRewriteHtml(v) : v); },
+    });
+  }
+  const iah = Element.prototype.insertAdjacentHTML;
+  if(typeof iah === 'function'){
+    Element.prototype.insertAdjacentHTML = function(pos, html){ return iah.call(this, pos, typeof html === 'string' ? storageRewriteHtml(html) : html); };
+  }
+}catch(e){}
+// ---- a picture that still fails to load: sign it again and retry once ----
+// SEC-H3 (27 Oct): once the buckets are private, a picture can fail when
+// its saved signed link no longer works (keys changed on the server) or
+// when it was left on the public address because signing failed at the
+// time (no signal, signed out). The first failure of a picture from one of
+// these buckets drops the saved link, signs again and retries; the
+// picture's own onerror (a grey stand-in) only runs if that retry fails
+// too. While the buckets are public this never fires.
+const STORAGE_SIGN_PREFIX = SUPABASE_URL+'/storage/v1/object/sign/';
+function storageKeyOf(u){
+  const pub = storageParse(u); if(pub) return pub;
+  if(typeof u !== 'string' || u.indexOf(STORAGE_SIGN_PREFIX) !== 0) return null;
+  const main = u.slice(STORAGE_SIGN_PREFIX.length).split('?')[0].split('#')[0];
+  const si = main.indexOf('/'); if(si < 1) return null;
+  const bucket = main.slice(0, si); if(!PRIVATE_BUCKETS.has(bucket)) return null;
+  let path = main.slice(si+1); try{ path = decodeURIComponent(path); }catch(e){}
+  return {bucket, path, query:'', hash:'', key: bucket+'/'+path};
+}
+document.addEventListener('error', e=>{
+  const el = e.target;
+  if(!el || el.tagName !== 'IMG' || el.__ophubRetried) return;
+  const cur = el.getAttribute('src') || '';
+  const p = storageKeyOf(cur); if(!p) return;
+  el.__ophubRetried = true;
+  e.stopImmediatePropagation(); // hold back the picture's own onerror until the retry has failed too
+  delete SIGNED[p.key]; delete signFailedAt[p.key];
+  const pub = publicUrl(p.bucket, p.path);
+  resolveStorageUrl(pub).then(u=>{
+    if(u && u !== cur){ el.__ophubPlain = storageParse(u) ? u : null; el.setAttribute('src', u); return; }
+    if(typeof el.onerror === 'function'){ try{ el.onerror.call(el, new Event('error')); }catch(err){} }
+  });
+}, true);
 // A link tapped before its signed address arrived: open it once it has.
 document.addEventListener('click', e=>{
   const a = e.target && e.target.closest ? e.target.closest('a[href]') : null;

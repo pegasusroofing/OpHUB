@@ -153,7 +153,7 @@ window.coshhLibEmail = async function(){
   if(!stored){ toast('Could not upload the PDF — try again.'); return; }
   toast('Sending…');
   try{
-    const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', timeoutMs:90000, body: JSON.stringify({general_label:'COSHH assessments', recipient_email: to, cc_email: to!==ME.email ? ME.email : undefined, doc_title: p.label, file_url: publicUrl('mc-documents', stored)})});
+    const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', timeoutMs:90000, body: JSON.stringify({general_label:'COSHH assessments', recipient_email: to, cc_email: to!==ME.email ? ME.email : undefined, doc_title: p.label, file_url: publicUrl('mc-documents', stored), storage_bucket: 'mc-documents', storage_path: stored})});
     if(res && res.ok){ toast('Emailed'); coshhLibSel = new Set(); render(); } else toast('Could not send the email — '+(await safeErr(res)));
   }catch(e){ toast('Could not send the email.'); }
 };

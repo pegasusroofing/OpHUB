@@ -9,7 +9,7 @@ async function renderAssignTeam(siteId){
   const __pActivity = Promise.resolve([]); // the Activity History now has its own screen (renderSiteActivity)
   const __pMain = Promise.all([
     dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id'),
-    dbSelect('onedrive_connections', 'org_id=eq.'+ME.org_id+'&select=org_id'),
+    oneDriveStatus().catch(()=>null), // CP-NEW-1: the real state, not just "a record exists"
     dbSelect('site_sub_addresses', 'site_id=eq.'+siteId+'&order=name.asc'),
   ]);
   await loadAllProfiles();
@@ -18,7 +18,8 @@ async function renderAssignTeam(siteId){
   const siteManagerPeople = Object.values(PROFILES).filter(p=>p.role==='site_manager').sort((a,b)=>a.name.localeCompare(b.name));
   const [assigned, odConnRows, subAddresses] = await __pMain;
   const assignedIds = new Set(assigned.map(a=>a.user_id));
-  const odCompanyConnected = odConnRows.length>0;
+  const odCompanyConnected = !!odConnRows; // a connection exists (it may need reconnecting — see odNeedsReconnect)
+  const odNeedsReconnect = !!(odConnRows && odConnRows.needs_reconnect);
   // Quick multi-tick "Assign Operatives to X" per subcontractor, right here
   // on Settings & Admin, so a PM doesn't have to go via Subcontractors > the
   // company > Operatives (one-at-a-time) just to build a crew list. Only
@@ -124,6 +125,7 @@ async function renderAssignTeam(siteId){
     <p class="ddrow" style="margin-top:18px;" onclick="toggleSiteTeamSection('sync')"><span class="arrow">${siteTeamSectionOpen.sync?'▼':'▶'}</span> Sync Folder</p>
     ${siteTeamSectionOpen.sync ? `
     <div class="card" style="padding:10px 14px;">
+      ${odNeedsReconnect ? `<p class="stub" style="margin:0 0 8px;color:var(--warn);">OneDrive isn't syncing at the moment — the company connection needs reconnecting by an admin (Admin Centre › Integrations).</p>` : ''}
       ${site.onedrive_folder_id ? `
         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
           <span class="stub" style="margin:0;font-size:13px;color:var(--ok);">📁 Already synced to "${escapeHtml(site.onedrive_folder_name||'')}"</span>

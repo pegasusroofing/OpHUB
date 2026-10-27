@@ -1398,7 +1398,7 @@ window.emailPriceBuilderSheetPdf = async function(siteId, sheetId){
   try{
     const res = await sbFetch('/functions/v1/send-price-builder-email', {method:'POST', body: JSON.stringify({
       site_id: siteId, recipient_email: trimmed, cc_email: emailTo.cc,
-      sheet_title: built.sheet.title, file_url: publicUrl('mc-documents', stored),
+      sheet_title: built.sheet.title, file_url: publicUrl('mc-documents', stored), storage_bucket: 'mc-documents', storage_path: stored,
     })});
     if(res && res.ok){ toast('Emailed'); } else { toast('Could not send the email — '+(await safeErr(res))); }
   }catch(e){

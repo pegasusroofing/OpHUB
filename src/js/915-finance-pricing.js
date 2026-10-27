@@ -76,7 +76,7 @@ async function finReadDoc(opts){
   // Basic reader
   if(sheetLines) return {data:{lines:sheetLines}, via:'basic', path};
   if(path && /\.pdf$/i.test(path)){
-    const url = typeof presignStorageUrl==='function' ? await presignStorageUrl(publicUrl('finance-docs', path)) : publicUrl('finance-docs', path);
+    const url = typeof resolveStorageUrl==='function' ? await resolveStorageUrl(publicUrl('finance-docs', path)) : publicUrl('finance-docs', path); // signed link (finance-docs is private)
     const text = await finPdfText(url);
     const head = finReadInvoiceText(text, {pos:[], suppliers:[], sites:[]}) || {};
     return {data:{supplier:head.supplier, doc_number:head.invoice_no, doc_date:head.date, net:head.net, vat:head.vat, total:head.total, po_number:head.po_number, lines:finParseLinesFromText(text)}, via:'basic', path};

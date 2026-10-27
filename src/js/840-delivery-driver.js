@@ -194,7 +194,7 @@ window.doDriverCheckAction = async function(type){
       for(const b of open) await dbUpdate('driver_breaks', b.id, {ended_at: new Date().toISOString()});
     }catch(e){ /* the weekly summary also closes a break at check-out */ }
   }
-  const rows = await dbInsert('driver_checkins', {org_id:ME.org_id, user_id:ME.id, type});
+  const rows = await dbInsert('driver_checkins', {org_id:ME.org_id, user_id:ME.id, type, ...checkinDeviceField()});
   driverCheckinBusy = false;
   if(rows){
     toast((type==='in'?'Checked in':'Checked out')+' · '+new Date().toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'}));

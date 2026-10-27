@@ -151,15 +151,65 @@ async function mplCancelMaterials(ids, poNumber){
   const rows = await mplPatch('materials', 'id=in.('+clean.join(',')+')&status=neq.cancelled', {status:'cancelled', cancel_reason:'Cancelled on PO '+(poNumber||'')+' in Finance', cancelled_by:ME.id});
   return rows ? rows.length : 0;
 }
+// Materials leftover (27 Oct): each request's status before the cancel is kept on its PO line
+// (items[].was_status, matched by material_id), so reopening the PO can put it back.
+const MPL_REQ_STATUSES = ['pending','sent','closed'];
+async function mplRememberStatuses(po){
+  const ids = Array.from(new Set((po.material_ids||[]).map(mplId).filter(Boolean)));
+  if(!ids.length) return {};
+  const rows = await dbSelectNet('materials', 'id=in.('+ids.join(',')+')&status=neq.cancelled&select=id,status');
+  const was = {}; (rows||[]).forEach(m=>{ if(MPL_REQ_STATUSES.includes(m.status)) was[m.id] = m.status; });
+  return was;
+}
+async function mplSaveWasStatus(po, was){
+  if(!po || !Array.isArray(po.items) || !Object.keys(was).length) return;
+  let hit = false;
+  const items = po.items.map(l=>{ if(l && l.material_id && was[l.material_id]){ hit = true; return Object.assign({}, l, {was_status:was[l.material_id]}); } return l; });
+  if(hit) await mplPatch('purchase_orders', 'id=eq.'+mplId(po.id), {items});
+}
+// Reopening a cancelled PO: the site requests it cancelled go back to what they were (or to
+// 'sent' — the "ordered" state on the site's list — when that wasn't recorded, e.g. older
+// cancels). Only requests cancelled by this PO's cancel are touched.
+async function mplRestoreMaterials(po){
+  const ids = Array.from(new Set((po.material_ids||[]).map(mplId).filter(Boolean)));
+  if(!ids.length) return 0;
+  const rows = await dbSelectNet('materials', 'id=in.('+ids.join(',')+')&status=eq.cancelled&select=id,cancel_reason');
+  const mine = (rows||[]).filter(m=>String(m.cancel_reason||'')==='Cancelled on PO '+(po.number||'')+' in Finance');
+  if(!mine.length) return 0;
+  const was = {}; (po.items||[]).forEach(l=>{ if(l && l.material_id && MPL_REQ_STATUSES.includes(l.was_status)) was[l.material_id] = l.was_status; });
+  const groups = {};
+  mine.forEach(m=>{ const st = was[m.id] || 'sent'; (groups[st] = groups[st] || []).push(m.id); });
+  let n = 0;
+  for(const st of Object.keys(groups)){
+    const done = await mplPatch('materials', 'id=in.('+groups[st].join(',')+')&status=eq.cancelled', {status:st, cancel_reason:null, cancelled_by:null});
+    n += done ? done.length : 0;
+  }
+  if(n && Array.isArray(po.items) && po.items.some(l=>l && l.was_status)){
+    await mplPatch('purchase_orders', 'id=eq.'+mplId(po.id), {items: po.items.map(l=>{ if(!l || !l.was_status) return l; const c = Object.assign({}, l); delete c.was_status; return c; })});
+  }
+  return n;
+}
 (function(){
   const base = window.setFinPoStatus;
   if(typeof base!=='function') return;
   window.setFinPoStatus = async function(poId, status){
+    // The requests' statuses are read alongside the cancel (only the PO changes there). No await
+    // before the base call: it reads the tapped button from window.event straight away.
+    const beforeP = status==='cancelled'
+      ? mplGetOne('purchase_orders', 'id=eq.'+mplId(poId)+'&select=id,material_ids').then(po0=>po0 ? mplRememberStatuses(po0) : null).catch(()=>null)
+      : null;
     const r = await base.apply(this, arguments); // reads the tapped button straight away ("tap again to cancel")
-    if(status!=='cancelled') return r;
+    const before = beforeP ? await beforeP : null;
+    if(status!=='cancelled' && status!=='open') return r;
     try{
-      const po = await mplGetOne('purchase_orders', 'id=eq.'+mplId(poId)+'&select=id,number,status,material_ids');
-      if(!po || po.status!=='cancelled') return r; // first tap only asked "tap again"
+      const po = await mplGetOne('purchase_orders', 'id=eq.'+mplId(poId)+'&select=id,number,status,material_ids,items');
+      if(!po || po.status!==status) return r; // first tap only asked "tap again", or the save failed
+      if(status==='open'){
+        const n = await mplRestoreMaterials(po);
+        if(n) toast('PO reopened — '+n+' site request'+(n===1?'':'s')+' put back');
+        return r;
+      }
+      if(before) await mplSaveWasStatus(po, before);
       const n = await mplCancelMaterials(po.material_ids || [], po.number);
       if(n) toast('PO cancelled — '+n+' site request'+(n===1?'':'s')+' marked cancelled');
     }catch(e){ console.error(e); }
@@ -420,7 +470,13 @@ async function mplGrnFromTask(taskId){
   const rows = await mplPatch('materials', 'id=in.('+ids.join(',')+')&grn=is.null', {grn});
   const n = rows ? rows.length : 0;
   if(n && t.site_id) logSiteActivity(t.site_id, 'material_grn', 'Goods received: collected by '+who+' ('+n+' item'+(n===1?'':'s')+')');
-  return n;
+  if(n) return n;
+  // Map L41 (27 Oct): the database now marks them received itself when the task
+  // is completed (delivery_task_grn_on_complete, which also logs it), so usually
+  // there's nothing left to patch here. Count what it did, for the toast. A
+  // driver can't read Materials, so for them this is just 0 (no extra toast).
+  const done = await dbSelect('materials', 'id=in.('+ids.join(',')+')&grn->>task_id=eq.'+mplId(taskId)+'&select=id');
+  return Array.isArray(done) ? done.length : 0;
 }
 ['markDeliveryComplete', 'completeDeliveryTask'].forEach(name=>{
   const base = window[name];
@@ -636,7 +692,9 @@ window.msgPushOpen = function(data){
   if(m.kind==='pi_query_reply') window.mplOpenPiForFinance(mplId(m.site_id), mplId(rel)); else window.openPiQuery(rel);
   return true;
 };
-// HUB: unread delivery-problem / invoice-query messages sent to me (they open from the Inbox).
+// HUB: unread messages sent to me alone. Delivery problem / invoice query ones open from the
+// Inbox; PB-07 (27 Oct): every other one-person message (delivery assigned, time off, sub form…)
+// counts too, so the HUB list and the home badge (which counts the HUB list) include them.
 (function(){
   if(typeof computeHubItems!=='function') return;
   const base = computeHubItems;
@@ -644,15 +702,12 @@ window.msgPushOpen = function(data){
     const out = await base.apply(this, arguments);
     try{
       const who = forcedPmId!==undefined ? forcedPmId : (typeof hubFilterPmId!=='undefined' ? hubFilterPmId : '');
-      if(who!=='' || !out || !Array.isArray(out.items)) return out;
-      const since = new Date(Date.now()-90*864e5).toISOString();
-      const rows = await dbSelect('messages', 'audience=eq.single&recipient_id=eq.'+ME.id+'&kind=in.(grn_problem,pi_query,pi_query_reply)&created_at=gte.'+since+'&order=created_at.desc&limit=50&select=id,site_id,kind,body,created_at');
-      if(!rows.length) return out;
-      const reads = await dbSelect('message_reads', 'user_id=eq.'+ME.id+'&message_id=in.('+rows.map(m=>mplId(m.id)).join(',')+')&select=message_id');
-      const read = new Set(reads.map(x=>x.message_id));
-      rows.filter(m=>!read.has(m.id)).forEach(m=>{
+      if((who!=='' && who!==ME.id && who!=='all') || !out || !Array.isArray(out.items)) return out;
+      const rows = await myUnreadDirectMessages(null);
+      rows.forEach(m=>{
         const site = m.site_id ? (SITES||[]).find(s=>s.id===m.site_id) : null;
-        out.items.push({type:'message', typeLbl:MPL_KIND_LABEL[m.kind], label:String(m.body||MPL_KIND_LABEL[m.kind]).slice(0,120), siteId:m.site_id||null, siteName: site ? site.name : 'Finance', pmId:null, dueDate:null, at:new Date(m.created_at), href:'#/my-messages'});
+        const lbl = MPL_KIND_LABEL[m.kind];
+        out.items.push({type:'message', typeLbl:lbl || 'Message', label:String(m.body||lbl||'New message').slice(0,120), siteId:m.site_id||null, siteName: site ? site.name : (lbl ? 'Finance' : 'All sites'), pmId:null, dueDate:null, at:new Date(m.created_at), href: (!lbl && site) ? '#/site/'+site.id+'/messages' : '#/my-messages'});
       });
     }catch(e){ console.error(e); }
     return out;

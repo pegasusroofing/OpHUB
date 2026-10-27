@@ -2111,11 +2111,14 @@ async function unreadCountForSiteForUser(siteId, userId, audience){
   // listed as their own rows either.
   const siteFilter = audience==='managers' ? `site_id=eq.${siteId}` : `or=(site_id.eq.${siteId},site_id.is.null)`;
   const msgs = await dbSelect('messages', `audience=eq.${audience}&${siteFilter}&sender_id=neq.${userId}&select=id`);
-  if(!msgs.length) return 0;
+  // PB-07: my own unread one-person messages for this job (the job's Messages
+  // page lists them). Only for me: nobody else can read those.
+  const direct = (ME && userId===ME.id && typeof myUnreadDirectMessages==='function') ? (await myUnreadDirectMessages(siteId)).length : 0;
+  if(!msgs.length) return direct;
   const ids = msgs.map(m=>m.id);
   const reads = await dbSelect('message_reads', `user_id=eq.${userId}&message_id=in.(${ids.join(',')})&select=message_id`);
   const readSet = new Set(reads.map(r=>r.message_id));
-  return msgs.filter(m=>!readSet.has(m.id)).length;
+  return msgs.filter(m=>!readSet.has(m.id)).length + direct;
 }
 // Non-blocking unread-badge refresh. The router used to `await unreadCountForSite`
 // on every single site-scoped page transition, which forced 2 sequential DB

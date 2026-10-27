@@ -492,13 +492,15 @@ window.openClientPoFile = async function(poId, idx){
 
 /* ---------- Admin Centre › Users: the per-person switch ---------- */
 // FA-15: when giving Finance makes someone a manager (908 finTeamToggle), their old role is
-// remembered so switching Finance off puts it back. There's no profiles column for it yet
-// (wanted: profiles.finance_prev_role), so it's kept on this device.
+// remembered so switching Finance off puts it back. It's saved on their profile
+// (profiles.finance_prev_role, 27 Oct) so any device can put it back. The copy kept on this
+// device is only a fallback for people given Finance before the column was used.
 const FIN_PREV_ROLE_LS = 'ophub.finPrevRole';
 function finPrevRoles(){ try{ const o = JSON.parse(localStorage.getItem(FIN_PREV_ROLE_LS)||'{}'); return o && typeof o==='object' ? o : {}; }catch(e){ return {}; } }
-function finPrevRoleGet(userId){ const v = finPrevRoles()[userId]; return v && ['operative','driver','subcontractor'].includes(v) ? v : null; }
+const FIN_PREV_ROLES = ['operative','driver','subcontractor','site_manager','client'];
+function finPrevRoleGet(userId){ const v = finPrevRoles()[userId]; return v && FIN_PREV_ROLES.includes(v) ? v : null; }
 function finPrevRoleSet(userId, role){ try{ const o = finPrevRoles(); if(role) o[userId] = role; else delete o[userId]; localStorage.setItem(FIN_PREV_ROLE_LS, JSON.stringify(o)); }catch(e){} }
-const FIN_ROLE_WORD = {operative:'an operative', driver:'a driver', subcontractor:'a subcontractor', pm:'a manager', admin:'an admin'};
+const FIN_ROLE_WORD = {operative:'an operative', driver:'a driver', subcontractor:'a subcontractor', site_manager:'a site manager', client:'a client', pm:'a manager', admin:'an admin'};
 window.toggleFinanceAccess = async function(userId){
   if(!isFinanceUser()) return;
   const p = PROFILES[userId]; if(!p) return;
@@ -508,15 +510,20 @@ window.toggleFinanceAccess = async function(userId){
   if(!row) return;
   if(row.finance_enabled !== next){ toast('Only an admin with Finance switched on can change this.'); return; }
   p.finance_enabled = row.finance_enabled;
+  if(row.role) p.role = row.role;
   // Switching off: if they were only made a manager for Finance, put their old role back.
-  const prev = !next ? finPrevRoleGet(userId) : null;
+  // The profile's saved role first (any device), then this device's copy (older rows).
+  const saved = !next && FIN_PREV_ROLES.includes(row.finance_prev_role) ? row.finance_prev_role : null;
+  const prev = !next ? (saved || finPrevRoleGet(userId)) : null;
   if(prev && p.role==='pm'){
-    const back = await dbUpdate('profiles', userId, {role:prev});
+    const back = await dbUpdate('profiles', userId, {role:prev, finance_prev_role:null});
     if(back && back.role===prev){ p.role = prev; finPrevRoleSet(userId, null); toast('OpHUB Finance switched off for '+p.name+' — they’re '+FIN_ROLE_WORD[prev]+' again'); }
     else toast('OpHUB Finance switched off for '+p.name+', but they’re still a manager — change their role in Admin Centre › Users.');
     render(); return;
   }
-  if(!next && prev) finPrevRoleSet(userId, null);   // their role was changed some other way since — leave it
+  // Their role was changed some other way since — leave it, and forget the old one.
+  if(!next && prev) finPrevRoleSet(userId, null);
+  if(!next && row.finance_prev_role) await dbUpdate('profiles', userId, {finance_prev_role:null});
   toast(next ? 'OpHUB Finance switched on for '+p.name : 'OpHUB Finance switched off for '+p.name);
   render();
 };

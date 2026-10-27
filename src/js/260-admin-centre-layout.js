@@ -109,7 +109,7 @@ async function renderTeam(adminPage, adminItemKey){
     pendingInvites = pendingInviteRows;
     permanentInvite = permanentInviteRows[0] || null;
   } })());
-  let odConn = null; __tp.push((async()=>{ if(iAmAdmin && teamSectionOpen.integrations) odConn = (await dbSelect('onedrive_connections', 'org_id=eq.'+ME.org_id+'&select=org_id,account_email,folder_path,connected_at'))[0] || null; /* never pull the tokens into the browser (audit 24 Oct) */ })());
+  let odConn = null; __tp.push((async()=>{ if(iAmAdmin && teamSectionOpen.integrations) odConn = await oneDriveStatus(); /* CP-NEW-1: the real state, from the database; the tokens never come to the browser (audit 24 Oct) */ })());
   let tbtTemplates = []; __tp.push((async()=>{ if(iAmAdmin && teamSectionOpen.tbt) tbtTemplates = await dbSelect('tbt_templates', 'org_id=eq.'+ME.org_id+'&order=created_at.desc'); })());
   let reportTemplates = []; __tp.push((async()=>{ if(isManager(ME) && teamSectionOpen.reporttemplates) reportTemplates = await dbSelect('report_templates', 'org_id=eq.'+ME.org_id+'&archived=eq.false&order=name.asc'); })());
   let deviceLocks = []; __tp.push((async()=>{ if(isFullManager(ME) && teamSectionOpen.devicelocks) deviceLocks = await dbSelect('device_locks', 'org_id=eq.'+ME.org_id+'&order=last_seen_at.desc'); })());
@@ -287,8 +287,11 @@ async function renderTeam(adminPage, adminItemKey){
     <div class="adm-od">
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">OneDrive — progress report photos</p>
-      ${odConn ? `
-        <p class="stub" style="margin:0 0 8px;color:var(--ok);">Connected — syncing to ${escapeHtml(odConn.account_email||'your OneDrive')} · folder "${escapeHtml(odConn.folder_path)}"</p>
+      ${odConn && odConn.needs_reconnect ? `
+        <p class="stub" style="margin:0 0 8px;color:var(--warn);">Not syncing — the connection to ${escapeHtml(odConn.account_email||'your OneDrive')} has ${odConn.reason==='expired' ? 'run out (not used for over 90 days)' : 'stopped working'}. Reconnect it to start syncing again.</p>
+        <div class="row-gap"><button class="darkbtn" style="flex:1;" ${odBusy?'disabled':''} onclick="connectOneDrive()">${odBusy?'Connecting…':'Reconnect OneDrive'}</button><button class="ghostbtn" style="width:auto;padding:10px 16px;" onclick="disconnectOneDrive()">Disconnect</button></div>
+      ` : odConn ? `
+        <p class="stub" style="margin:0 0 8px;color:var(--ok);">Connected — syncing to ${escapeHtml(odConn.account_email||'your OneDrive')} · folder "${escapeHtml(odConn.folder_path||'')}"</p>
         <button class="ghostbtn" onclick="disconnectOneDrive()">Disconnect</button>
       ` : `
         <p class="stub" style="margin:0 0 8px;">Connect your company's OneDrive so schedule progress photos upload there automatically.</p>

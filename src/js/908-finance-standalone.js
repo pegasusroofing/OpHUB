@@ -21,6 +21,13 @@ function finOnlyRoute(parts){
   const ok = ['finance', 'account', 'signature', 'suppliers', 'join', 'reset'].includes(top)
     || (top === 'site' && parts[2] === 'finance');
   if(!ok){ go('#/finance'); return null; }
+  // CORE-C1: the job in a #/site/<id>/finance link must be one of ours. A made-up id (quote
+  // marks and all) goes back to the Finance home here; a proper id we don't have yet carries
+  // on to the router's own check (890), which looks it up once and also lands on #/finance.
+  if(top === 'site' && !(SITES||[]).some(s=>s && s.id===parts[1])
+     && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(parts[1]||'')){
+    toast('That job couldn’t be found.'); go('#/finance'); return null;
+  }
   return undefined;
 }
 
@@ -225,20 +232,22 @@ window.finTeamToggle = async function(userId){
     if(userId===ME.id) return;
     if(!await customConfirm('Give '+p.name+' Finance? This also makes them a manager, so they can see every job on the Projects side too. Switching Finance off later makes them '+(FIN_ROLE_WORD[p.role]||'what they were')+' again.')) return;
     const wasRole = p.role;
-    const on = await dbUpdate('profiles', userId, {finance_enabled:true});
+    // FA-15: their old role is saved on the profile in the same update, so switching Finance
+    // off on any device puts it back (900 toggleFinanceAccess).
+    const on = await dbUpdate('profiles', userId, {finance_enabled:true, finance_prev_role:wasRole});
     if(!on) return;
-    if(on.finance_enabled!==true){ toast('Only an admin with Finance switched on can change this.'); return; }
+    if(on.finance_enabled!==true){ toast('Only an admin with Finance switched on can change this.'); if(on.finance_prev_role) dbUpdate('profiles', userId, {finance_prev_role:null}); return; }
     p.finance_enabled = true;
     const r = await dbUpdate('profiles', userId, {role:'pm'});
     if(!r || r.role!=='pm'){
       // Don't leave them half set up: Finance goes back off.
-      const off = await dbUpdate('profiles', userId, {finance_enabled:false});
+      const off = await dbUpdate('profiles', userId, {finance_enabled:false, finance_prev_role:null});
       if(off && off.finance_enabled===false) p.finance_enabled = false;
       toast(p.finance_enabled ? 'Finance is on for '+p.name+' but they couldn’t be made a manager — change their role in Admin Centre › Users.' : 'Couldn’t make '+p.name+' a manager, so Finance was left off.');
       render(); return;
     }
     p.role = 'pm';
-    finPrevRoleSet(userId, wasRole);
+    finPrevRoleSet(userId, wasRole); // device copy too, in case the profile column couldn't be saved
     toast('OpHUB Finance switched on for '+p.name+' (now a manager)');
     render(); return;
   }

@@ -42,7 +42,30 @@ async function finInboxClaim(it){
   if(r===null) return {ok:false, why:'offline'};
   return r ? {ok:true, revert} : {ok:false, why:'taken'};
 }
+// FX-P1 (27 Oct): file an inbox item in ONE database step (fin_inbox_file): the
+// item is locked, the purchase invoice added and linked, and the item marked
+// filed all together, so it can't be left "filed" with no invoice. pi = the
+// purchase invoice fields. Returns {ok:true, pi}, {ok:false, why} (same "why"
+// values as finInboxClaim, plus 'error' with a message), or {missing:true}
+// when the function isn't on the server yet (then the old claim / insert path runs).
+async function finInboxFileRpc(id, pi){
+  let res;
+  try{ res = await sbFetch('/rest/v1/rpc/fin_inbox_file', {method:'POST', body:JSON.stringify({p_id:id, p_pi:pi})}); }
+  catch(e){ return {ok:false, why:'offline'}; }
+  if(!res.ok){
+    let code = '', msg = '';
+    try{ const j = await res.json(); code = j.code || ''; msg = j.message || ''; }catch(e){}
+    if(res.status===404 || code==='PGRST202' || code==='42883') return {missing:true};
+    return {ok:false, why:'error', msg: msg || String(res.status)};
+  }
+  let d = null; try{ d = await res.json(); }catch(e){}
+  if(d && d.ok && d.pi) return {ok:true, pi:d.pi};
+  const why = d && d.why;
+  return {ok:false, why: why==='busy' ? 'busy' : why==='taken' ? 'taken' : 'error',
+    msg: why==='bad_site' ? 'that project isn’t one of yours' : why==='bad_po' ? 'that PO wasn’t found' : why==='bad_amount' ? 'check the amounts' : why==='not_allowed' ? 'you need Finance access to file invoices' : 'please try again'};
+}
 function finInboxClaimToast(c){
+  if(c && c.why==='error'){ toast('Couldn’t file it — '+(c.msg||'please try again')+'. It’s still in the inbox.'); return; }
   toast(c.why==='offline' ? 'Couldn’t reach the server — it’s still in the inbox. Check your signal and try again.'
     : c.why==='busy' ? 'Someone started filing this a moment ago. If it’s still here in 5 minutes, file it again.'
     : 'This one has just been filed by someone else.');
@@ -223,14 +246,23 @@ window.finInboxFile = async function(id){
       if(mats.length && !mats.some(m=>m.grn)) flags.push('nothing on this PO has been marked received yet');
     }
   } else flags.push('no PO');
+  // FX-P1: one server step (claim + purchase invoice + link) when the database has it.
+  const one = await finInboxFileRpc(id, {site_id:siteId, po_id:poId||null, supplier_name:supplier, invoice_no:no||null, invoice_date:g('date')||finToday(),
+    net:finRound(net), vat:finRound(vat), total:finRound(total), status: flags.length ? 'query' : 'to_approve', query_note: flags.length ? flags.join('; ') : null});
+  let pi;
+  if(!one.missing){
+    if(!one.ok){ finInboxClaimToast(one); if(one.why!=='offline') render(); return; }
+    pi = [one.pi];
+  } else {
   // FA-03: claim it first (only works while it's still "new"), so two people can't file it twice.
   const claim = await finInboxClaim(it);
   if(!claim.ok){ finInboxClaimToast(claim); if(claim.why!=='offline') render(); return; }
-  const pi = await dbInsert('purchase_invoices', {org_id:ME.org_id, site_id:siteId, po_id:poId||null, no_po:!poId, kind:'invoice', supplier_id:po?po.supplier_id:null, supplier_name:supplier,
+  pi = await dbInsert('purchase_invoices', {org_id:ME.org_id, site_id:siteId, po_id:poId||null, no_po:!poId, kind:'invoice', supplier_id:po?po.supplier_id:null, supplier_name:supplier,
     invoice_no:no||null, invoice_date:g('date')||finToday(), net:finRound(net), vat:finRound(vat), total:finRound(total), status: flags.length ? 'query' : 'to_approve', query_note: flags.length ? flags.join('; ') : null,
     file_path:it.file_path, file_name:it.file_name, created_by:ME.id});
   if(!pi || !pi[0]){ await dbUpdate('fin_inbox', id+'&purchase_invoice_id=is.null', claim.revert); return; } // didn't save — put it back
   await dbUpdate('fin_inbox', id, {status:'filed', site_id:siteId, po_id:poId||null, purchase_invoice_id:pi[0].id});
+  }
   if(typeof finCheckInvoiceLines==='function') finCheckInvoiceLines(pi[0].id).then(r=>{ if(r && r.notes.length) toast(r.notes.length+' line difference'+(r.notes.length===1?'':'s')+' with the PO — see Purchases'); });
   toast(flags.length ? 'Filed and flagged: '+flags[0] : 'Filed — waiting for approval');
   render();

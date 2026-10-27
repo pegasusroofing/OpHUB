@@ -457,7 +457,7 @@ window.emailSignedCoshh = async function(siteId, coshhId){
   toast('Sending…');
   try{
     const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', body: JSON.stringify({
-      site_id: siteId, recipient_email: trimmed, cc_email: emailTo.cc, client_cc_email: ccClientEmailFromPromptAnswer(answer, site), doc_title: built.doc.name+' (Signed COSHH)', file_url: publicUrl('mc-documents', stored),
+      site_id: siteId, recipient_email: trimmed, cc_email: emailTo.cc, client_cc_email: ccClientEmailFromPromptAnswer(answer, site), doc_title: built.doc.name+' (Signed COSHH)', file_url: publicUrl('mc-documents', stored), storage_bucket: 'mc-documents', storage_path: stored,
     })});
     if(res && res.ok){ toast('Emailed'); } else { toast('Could not send the email — please try again.'); }
   }catch(e){ toast('Could not send the email — please try again.'); }

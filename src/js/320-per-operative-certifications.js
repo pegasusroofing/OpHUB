@@ -480,7 +480,8 @@ window.onOperativeSearchInput = function(v){
 };
 async function renderOperativesList(){
   const __gen = RENDER_GEN;
-  const opListFrom = routeQuery().get('from');
+  // CORE-L11/C1: only one of our own #/… pages (it goes into an onclick below and the back arrow).
+  const opListFrom = (h=>typeof isSafeBackHash!=='function' || isSafeBackHash(h) ? h : null)(routeQuery().get('from'));
   await loadAllProfiles();
   const operatives = Object.values(PROFILES).filter(p=>p.role==='operative').sort((a,b)=>a.name.localeCompare(b.name));
   if(!_opListCountsCache || (Date.now()-_opListCountsAt) >= OPLIST_COUNTS_TTL_MS){
@@ -548,7 +549,7 @@ async function renderOperativesList(){
     <button class="ghostbtn" style="width:100%;margin-bottom:14px;" onclick="exportTrainingMatrixExcel()">📊 Export Training Matrix (Excel)</button>
     <button class="ghostbtn" style="width:100%;margin-bottom:14px;" onclick="exportTrainingMatrixPdf()">📄 Export Training Matrix (PDF)</button>
     ${filtered.length ? filtered.map(o=>`
-      <div class="sitecard" style="cursor:pointer;" onclick="go('#/operatives/${o.id}${opListFrom ? '?listFrom='+encodeURIComponent(opListFrom) : ''}')">
+      <div class="sitecard" style="cursor:pointer;" onclick="go('${jsAttr('#/operatives/'+o.id+(opListFrom ? '?listFrom='+encodeURIComponent(opListFrom) : ''))}')">
         <div class="swatch">${(o.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase()}</div>
         <div class="info"><div class="name">${escapeHtml(o.name)}</div><div class="addr">${(siteCountByOp[o.id]?siteCountByOp[o.id].size:0)} site${(siteCountByOp[o.id]&&siteCountByOp[o.id].size===1)?'':'s'} · ${certCountByOp[o.id]||0} certificate${(certCountByOp[o.id]||0)===1?'':'s'}${o.phone?' · 📞 '+escapeHtml(o.phone):''}</div></div>
       </div>
@@ -585,7 +586,7 @@ window.toggleOperativePhoneEdit = function(operativeId){
 async function renderOperativeDetail(operativeId){
   const __gen = RENDER_GEN;
   const fromSiteId = routeQuery().get('from');
-  const listFrom = routeQuery().get('listFrom');
+  const listFrom = (h=>typeof isSafeBackHash!=='function' || isSafeBackHash(h) ? h : null)(routeQuery().get('listFrom'));
   await loadAllProfiles();
   const operative = PROFILES[operativeId];
   if(!operative){ go('#/operatives'); return; }

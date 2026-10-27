@@ -173,7 +173,7 @@ async function emailPdfsSeparately(o){
     const path = (o.siteId || ME.org_id)+'/email-exports/'+uid()+'-'+nm.replace(/[^a-z0-9.\-]+/gi,'_')+'.pdf';
     const stored = await uploadToStorage('mc-documents', path, new Blob([p.bytes], {type:'application/pdf'}), 'application/pdf');
     if(!stored) return {ok:false};
-    files.push({url: publicUrl('mc-documents', stored), name: nm+'.pdf'});
+    files.push({url: publicUrl('mc-documents', stored), name: nm+'.pdf', path: stored}); // path: for when send-document-email reads files[] from storage too (v12 reads only the url)
   }
   try{
     const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', timeoutMs:120000, body: JSON.stringify({
@@ -198,7 +198,7 @@ async function emailPdfAsLink(o){
   try{
     const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', timeoutMs:60000, body: JSON.stringify({
       site_id: o.siteId, recipient_email: o.to, cc_email: o.cc || undefined, client_cc_email: o.clientCc || undefined,
-      doc_title: o.title, file_url: publicUrl('mc-documents', stored),
+      doc_title: o.title, file_url: publicUrl('mc-documents', stored), storage_bucket: 'mc-documents', storage_path: stored,
     })});
     return !!(res && res.ok);
   }catch(e){ return false; }

@@ -70,6 +70,22 @@ async function myDirectMessages(siteId){
     return Array.isArray(rows) ? rows : [];
   }catch(e){ return []; }
 }
+// PB-07 (27 Oct): the unread ones of those, for the home, HUB and job Inbox
+// badges. "Read" is a message_reads row (user_id = me), written when the
+// Inbox or the job's Messages page lists the message (markMessagesRead).
+// Same window as the lists (newest 50), so anything counted can be cleared
+// by opening the Inbox.
+async function myUnreadDirectMessages(siteId){
+  if(!ME || !ME.id) return [];
+  try{
+    const since = new Date(Date.now()-180*864e5).toISOString();
+    const rows = await dbSelect('messages', `audience=eq.single&recipient_id=eq.${ME.id}&sender_id=neq.${ME.id}&parent_id=is.null${siteId ? '&site_id=eq.'+siteId : ''}&created_at=gte.${since}&order=created_at.desc&limit=50&select=id,site_id,sender_id,kind,body,created_at`);
+    if(!Array.isArray(rows) || !rows.length) return [];
+    const reads = await dbSelect('message_reads', `user_id=eq.${ME.id}&message_id=in.(${rows.map(m=>m.id).join(',')})&select=message_id`);
+    const read = new Set((reads||[]).map(r=>r.message_id));
+    return rows.filter(m=>!read.has(m.id));
+  }catch(e){ return []; }
+}
 function mergeMessagesNewestFirst(a, b){
   const seen = new Set(), out = [];
   [...(a||[]), ...(b||[])].forEach(m=>{ if(m && !seen.has(m.id)){ seen.add(m.id); out.push(m); } });

@@ -353,7 +353,7 @@ window.emailSelectedRams = async function(siteId){
   toast('Sending…');
   try{
     const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', body: JSON.stringify({
-      site_id: siteId, recipient_email: emailTo.to, cc_email: emailTo.cc, client_cc_email: ccClientEmailFromPromptAnswer(answer, site), doc_title: pack.label+' (Signed RAMS)', file_url: publicUrl('mc-documents', stored),
+      site_id: siteId, recipient_email: emailTo.to, cc_email: emailTo.cc, client_cc_email: ccClientEmailFromPromptAnswer(answer, site), doc_title: pack.label+' (Signed RAMS)', file_url: publicUrl('mc-documents', stored), storage_bucket: 'mc-documents', storage_path: stored,
     })});
     if(res && res.ok){ toast('Emailed'); ramsSelIds = new Set(); render(); } else toast('Could not send the email — please try again.');
   }catch(e){ toast('Could not send the email — please try again.'); }

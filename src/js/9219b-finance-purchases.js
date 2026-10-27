@@ -94,13 +94,23 @@ async function finInboxFileCore(it, f, quiet){
   // "new", so when two phones / PCs file the same emailed invoice at once only one of them gets
   // a row back — the other stops here instead of filing a second copy.
   // FX-P1: an item left "filed" with no invoice (a save that never finished) can be claimed again after 5 minutes.
+  // FX-P1 (27 Oct): now one server step (fin_inbox_file) — claim, purchase invoice and link together.
+  // The old claim / insert / link path below only runs if that function isn't on the server.
+  const one = typeof finInboxFileRpc==='function' ? await finInboxFileRpc(it.id, {site_id:f.site_id, po_id:f.po_id||null, supplier_name:f.supplier||'Supplier', invoice_no:f.invoice_no||null,
+    invoice_date:f.date||finToday(), net:finRound(net), vat:finRound(vat), total:finRound(total), status: flags.length ? 'query' : 'to_approve', query_note: flags.length ? flags.join('; ') : null}) : {missing:true};
+  let pi;
+  if(!one.missing){
+    if(!one.ok){ if(!quiet) finInboxClaimToast(one); return null; }
+    pi = [one.pi];
+  } else {
   const claim = await finInboxClaim(it);
   if(!claim.ok){ if(!quiet) finInboxClaimToast(claim); return null; }
-  const pi = await dbInsert('purchase_invoices', {org_id:ME.org_id, site_id:f.site_id, po_id:f.po_id||null, no_po:!f.po_id, kind:'invoice', supplier_id:po?po.supplier_id:null, supplier_name:f.supplier||'Supplier',
+  pi = await dbInsert('purchase_invoices', {org_id:ME.org_id, site_id:f.site_id, po_id:f.po_id||null, no_po:!f.po_id, kind:'invoice', supplier_id:po?po.supplier_id:null, supplier_name:f.supplier||'Supplier',
     invoice_no:f.invoice_no||null, invoice_date:f.date||finToday(), net:finRound(net), vat:finRound(vat), total:finRound(total), status: flags.length ? 'query' : 'to_approve', query_note: flags.length ? flags.join('; ') : null,
     file_path:it.file_path, file_name:it.file_name, created_by:ME.id});
   if(!pi || !pi[0]){ await dbUpdate('fin_inbox', it.id+'&purchase_invoice_id=is.null', claim.revert); return null; } // didn't save — put it back in the inbox
   await dbUpdate('fin_inbox', it.id, {status:'filed', site_id:f.site_id, po_id:f.po_id||null, purchase_invoice_id:pi[0].id});
+  }
   if(typeof finCheckInvoiceLines==='function') finCheckInvoiceLines(pi[0].id).catch(()=>null);
   return pi[0];
 }

@@ -1880,6 +1880,12 @@ html.finmode .finstats .pmstat{cursor:pointer;}
 @media (max-width:600px){ .finhome-t{padding:10px 10px;} .finhome-t b{font-size:16px;} .finhome-t span{font-size:10.5px;letter-spacing:.02em;} .finhome-t em{font-size:11px;} .finhome-t b small{display:block;font-size:11.5px;} }
 /* margin basis ⋯ menu (921) */
 .finhome-hd,.fintile-l{display:flex;align-items:center;justify-content:space-between;gap:6px;}
+/* Project home money strip: everything centred in its box (Andy 27 Oct); the ⋯ sits in the corner. */
+.finhome-t{align-items:center;text-align:center;position:relative;}
+.finhome-t b, .finhome-t em{max-width:100%;}
+.finhome-t b.sk{align-self:center;}
+.finhome-t .finhome-hd{justify-content:center;padding:0 24px;}
+.finhome-t .finhome-hd .finmb{position:absolute;top:6px;right:6px;}
 .finmb{position:relative;display:inline-flex;text-transform:none;letter-spacing:0;}
 .finmb-b{border:0;background:#F1F3F6;color:var(--ink);border-radius:8px;width:28px;height:22px;line-height:1;font-size:16px;font-weight:800;cursor:pointer;padding:0;}
 .finmb-b:hover{background:#E6E9EF;}
@@ -2550,6 +2556,13 @@ function deviceLockMessage(lock){
         ? `This phone needs approving before you can sign in on it. Ask your Project Manager or admin to approve it in Admin Centre › Device Locks, then sign in again.`
         : `This is a new device for your account. Ask your Project Manager or admin to approve it in Admin Centre › Device Locks, then try signing in again.`)
     : 'Could not verify this device — check your connection and try again.';
+}
+// CORE-M3 (27 Oct): each check-in carries this phone's device id, so the
+// database can refuse a check-in from a phone that is locked to someone else
+// or still waiting for approval (checkin_device_guard). PMs/admins are exempt
+// there, as here. Never throws: no id simply means the old behaviour.
+function checkinDeviceField(){
+  try{ if(!deviceLockApplies(ME)) return {}; const id = getDeviceId(); return id ? {device_id: String(id)} : {}; }catch(e){ return {}; }
 }
 function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 // Shared "CC client contact" tick box, dropped into every "email this"
@@ -3334,8 +3347,9 @@ const K_SESSION = 'rtb-session-v1';
 // home page straight from the device on launch (and with no signal at all)
 // instead of waiting on the network first. See init() / refreshBootData().
 const K_BOOT = 'ophub-boot-v1';
-// Fix round 2 (CORE-M2): "Remember me" now keeps the EMAIL only. Older
-// versions also saved the password in plain text — wipe it on every start-up
+// "Remember me" keeps the email and (27 Oct, Andy) the password — the password only ever
+// encrypted with a key the browser won't hand out (see 140 authPw*). Older versions saved
+// the password in plain text — that is wiped on every start-up
 // (and again on sign-out, see doSignOut). Staying signed in is handled by the
 // saved session itself, which survives restarts.
 const K_REMEMBER = 'ophub_remember';
@@ -3345,7 +3359,11 @@ function scrubRememberedPassword(){
     if(!raw) return;
     let p = null; try{ p = JSON.parse(raw); }catch(e){}
     if(p && typeof p.email === 'string' && p.email){
-      if(Object.keys(p).some(k=>k!=='email')) localStorage.setItem(K_REMEMBER, JSON.stringify({email: p.email}));
+      // Keep the email and the ENCRYPTED password (pw = {iv, ct}, see 140 authPw*). Anything
+      // else — e.g. an old plain-text "password" from before 25 Oct — is wiped.
+      const keep = {email: p.email};
+      if(p.pw && typeof p.pw.iv==='string' && typeof p.pw.ct==='string') keep.pw = {iv:p.pw.iv, ct:p.pw.ct};
+      if(Object.keys(p).some(k=>k!=='email' && k!=='pw') || (p.pw && !keep.pw)) localStorage.setItem(K_REMEMBER, JSON.stringify(keep));
     } else localStorage.removeItem(K_REMEMBER);
   }catch(e){}
 }
@@ -4272,13 +4290,14 @@ function storageParse(u){
   const end = qi > -1 ? qi : (hi > -1 ? hi : rest.length);
   const main = rest.slice(0, end);
   const query = qi > -1 ? rest.slice(qi+1).split('#')[0] : '';
+  const hash = hi > -1 ? rest.slice(hi) : ''; // e.g. "#view=FitH" on a PDF in a frame
   const si = main.indexOf('/');
   if(si < 1) return null;
   const bucket = main.slice(0, si);
   if(!PRIVATE_BUCKETS.has(bucket)) return null;
   let path = main.slice(si+1);
   try{ path = decodeURIComponent(path); }catch(e){}
-  return {bucket, path, query, key: bucket+'/'+path};
+  return {bucket, path, query, hash, key: bucket+'/'+path};
 }
 function signedFor(p){
   const c = SIGNED[p.key];
@@ -4288,7 +4307,7 @@ function signedFor(p){
     const extra = p.query.split('&').filter(x=>x && !/^token=/.test(x));
     if(extra.length) u += '&' + extra.join('&');
   }
-  return u;
+  return p.hash ? u + p.hash : u;
 }
 // The address to actually use, if we already have it (else null while it's signed).
 function resolveStorageUrlSync(u){ const p = storageParse(u); if(!p) return u; return signedFor(p); }
@@ -4367,12 +4386,35 @@ async function presignStorageUrls(urls){
   await Promise.all(want.map(p=>queueSign(p)));
 }
 window.presignStorageUrls = presignStorageUrls;
+// The same for saved data that holds {bucket, path} file references (an O&M
+// manual's photos and attachments): every one is signed in one go.
+async function presignStorageRefs(obj){
+  const urls = [];
+  const walk = (o, depth)=>{
+    if(!o || typeof o !== 'object' || depth > 8 || urls.length > 2000) return;
+    if(Array.isArray(o)){ o.forEach(x=>walk(x, depth+1)); return; }
+    if(typeof o.bucket === 'string' && typeof o.path === 'string' && PRIVATE_BUCKETS.has(o.bucket)) urls.push(publicUrl(o.bucket, o.path));
+    Object.keys(o).forEach(k=>{ const v = o[k]; if(v && typeof v === 'object') walk(v, depth+1); });
+  };
+  try{ walk(obj, 0); await presignStorageUrls(urls); }catch(e){}
+}
+window.presignStorageRefs = presignStorageRefs;
 
 // ---- fetch(): resolve before sending ----
 window.fetch = function(input, init){
   if(typeof input === 'string' || (typeof URL !== 'undefined' && input instanceof URL)){
     const s = String(input);
-    if(storageParse(s)) return resolveStorageUrl(s).then(u=>_origFetch(u, init));
+    const p = storageParse(s);
+    if(p) return resolveStorageUrl(s).then(async u=>{
+      let res = await _origFetch(u, init);
+      // A saved signed link the server no longer accepts: sign again, once.
+      if(!res.ok && u !== s && (res.status === 400 || res.status === 401 || res.status === 403)){
+        delete SIGNED[p.key]; delete signFailedAt[p.key];
+        const u2 = await resolveStorageUrl(s);
+        if(u2 !== u) res = await _origFetch(u2, init);
+      }
+      return res;
+    });
   }
   return _origFetch(input, init);
 };
@@ -4392,7 +4434,7 @@ try{
         // Don't load the old address (it would fail and fire onerror) —
         // wait for the signed one, then load that.
         this.__ophubWant = s;
-        resolveStorageUrl(s).then(u=>{ if(this.__ophubWant === s){ this.__ophubWant = null; srcDesc.set.call(this, u); } });
+        resolveStorageUrl(s).then(u=>{ if(this.__ophubWant === s){ this.__ophubWant = null; this.__ophubPlain = storageParse(u) ? u : null; srcDesc.set.call(this, u); } });
       },
     });
   }
@@ -4425,11 +4467,32 @@ if(_origOpen){
 // ---- links, pictures and buttons already on the page ----
 const STORAGE_URL_RE = new RegExp(STORAGE_PUBLIC_PREFIX.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'[^\'"\\s)<>]+', 'g');
 const STORAGE_ATTRS = ['src','href','onclick','style','data-src','data-full'];
+// Put an address in src. One that is still the public address (it couldn't
+// be signed: signed out, no signal, or no access) is remembered, so the
+// page-watcher doesn't pick it up again and go round in a loop.
+function storageSetPlainSrc(el, u){
+  el.__ophubPlain = storageParse(u) ? u : null;
+  el.setAttribute('src', u);
+}
 function fixStorageEl(el){
   if(!el || el.nodeType !== 1) return;
+  // A picture that arrived with a blank stand-in (storageRewriteHtml below,
+  // or an earlier pass here): load the signed link once it's ready. If it
+  // can't be signed, load the original address, exactly as before.
+  const want = el.getAttribute('data-ophub-src');
+  if(want && !el.__ophubPending){
+    const wp = storageParse(want);
+    const r = wp ? signedFor(wp) : want;
+    if(r){ el.removeAttribute('data-ophub-src'); el.setAttribute('src', r); }
+    else {
+      el.__ophubPending = true;
+      resolveStorageUrl(want).then(u=>{ el.__ophubPending = false; if(el.getAttribute('data-ophub-src') === want){ el.removeAttribute('data-ophub-src'); storageSetPlainSrc(el, u); } });
+    }
+  }
   for(const a of STORAGE_ATTRS){
     const v = el.getAttribute(a);
     if(!v || v.indexOf(STORAGE_PUBLIC_PREFIX) === -1) continue;
+    if(a === 'src' && el.__ophubPlain === v) continue; // couldn't be signed: left as it is (no loop)
     if(a === 'src' || a === 'href' || a === 'data-src' || a === 'data-full'){
       const p = storageParse(v); if(!p) continue;
       const r = signedFor(p);
@@ -4437,11 +4500,14 @@ function fixStorageEl(el){
       if(a === 'src' && (el.tagName === 'IMG' || el.tagName === 'IFRAME')){
         el.setAttribute('data-ophub-src', v);
         el.setAttribute('src', el.tagName === 'IMG' ? BLANK_GIF : 'about:blank');
+        el.__ophubPending = true;
       }
       resolveStorageUrl(v).then(u=>{
+        // The stand-in always gets an address back, even one that couldn't
+        // be signed (it still opens while the bucket is public).
+        if(a === 'src' && el.getAttribute('data-ophub-src') === v){ el.__ophubPending = false; el.removeAttribute('data-ophub-src'); storageSetPlainSrc(el, u); return; }
         if(u === v) return; // couldn't sign — leave as it was
-        if(a === 'src' && el.getAttribute('data-ophub-src') === v){ el.removeAttribute('data-ophub-src'); el.setAttribute('src', u); }
-        else if(el.getAttribute(a) === v) el.setAttribute(a, u);
+        if(el.getAttribute(a) === v) el.setAttribute(a, u);
       });
     } else {
       // onclick="viewImage('…')", style="background-image:url(…)": swap every address inside
@@ -4457,7 +4523,7 @@ function fixStorageEl(el){
     }
   }
 }
-const STORAGE_SEL = STORAGE_ATTRS.map(a=>'['+a+'*="/object/public/"]').join(',');
+const STORAGE_SEL = STORAGE_ATTRS.map(a=>'['+a+'*="/object/public/"]').join(',')+',[data-ophub-src]';
 function fixStorageTree(root){
   if(!root || root.nodeType !== 1) return;
   fixStorageEl(root);
@@ -4472,6 +4538,99 @@ try{
   }).observe(document.documentElement, {subtree:true, childList:true, attributes:true, attributeFilter:STORAGE_ATTRS});
 }catch(e){}
 document.addEventListener('DOMContentLoaded', ()=>fixStorageTree(document.body));
+
+// ---- HTML put on the page from code (innerHTML and friends) ----
+// SEC-H3 prep (27 Oct): the page-watcher above swaps an address only after
+// the browser has seen it, so every picture first fired a request at the
+// public address (a wasted round trip; once the buckets are private, a
+// failed one). Here the HTML is fixed before the browser reads it: a link
+// that is already signed goes straight in, and a picture that isn't yet
+// signed starts as a blank stand-in that the watcher fills in as soon as
+// its batch is signed. Pages with no file addresses are untouched.
+const STORAGE_IMG_TAG_RE = /<(?:img|iframe)\b[^>]*>/gi;
+const STORAGE_IMG_SRC_RE = /(\ssrc\s*=\s*)(["'])([^"']*)\2/i;
+function storageHtmlUrl(u){ return u.replace(/&/g, '&amp;'); }
+function storageRewriteHtml(html){
+  if(typeof html !== 'string' || html.indexOf('/object/public/') === -1) return html;
+  try{
+    let out = html.replace(STORAGE_IMG_TAG_RE, tag=>{
+      if(tag.indexOf('/object/public/') === -1 || tag.indexOf('data-ophub-src') !== -1) return tag;
+      return tag.replace(STORAGE_IMG_SRC_RE, (m, pre, q, v)=>{
+        const p = storageParse(v.replace(/&amp;/g, '&')); if(!p) return m;
+        const r = signedFor(p);
+        if(r) return pre+q+storageHtmlUrl(r)+q;
+        queueSign(p);
+        const blank = /^<iframe/i.test(tag) ? 'about:blank' : BLANK_GIF;
+        return pre+q+blank+q+' data-ophub-src='+q+v+q;
+      });
+    });
+    // Every other address (onclick="viewImage('…')", href, style…): use the
+    // signed one when it's known; otherwise start signing it now.
+    out = out.replace(STORAGE_URL_RE, f=>{
+      const p = storageParse(f.replace(/&amp;/g, '&')); if(!p) return f;
+      const r = signedFor(p);
+      if(r) return storageHtmlUrl(r);
+      queueSign(p);
+      return f;
+    });
+    return out;
+  }catch(e){ return html; }
+}
+window.storageRewriteHtml = storageRewriteHtml;
+try{
+  const ihDesc = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
+  if(ihDesc && ihDesc.set && ihDesc.get){
+    Object.defineProperty(Element.prototype, 'innerHTML', {
+      configurable: true, enumerable: ihDesc.enumerable,
+      get(){ return ihDesc.get.call(this); },
+      set(v){ return ihDesc.set.call(this, typeof v === 'string' ? storageRewriteHtml(v) : v); },
+    });
+  }
+  const ohDesc = Object.getOwnPropertyDescriptor(Element.prototype, 'outerHTML');
+  if(ohDesc && ohDesc.set && ohDesc.get){
+    Object.defineProperty(Element.prototype, 'outerHTML', {
+      configurable: true, enumerable: ohDesc.enumerable,
+      get(){ return ohDesc.get.call(this); },
+      set(v){ return ohDesc.set.call(this, typeof v === 'string' ? storageRewriteHtml(v) : v); },
+    });
+  }
+  const iah = Element.prototype.insertAdjacentHTML;
+  if(typeof iah === 'function'){
+    Element.prototype.insertAdjacentHTML = function(pos, html){ return iah.call(this, pos, typeof html === 'string' ? storageRewriteHtml(html) : html); };
+  }
+}catch(e){}
+// ---- a picture that still fails to load: sign it again and retry once ----
+// SEC-H3 (27 Oct): once the buckets are private, a picture can fail when
+// its saved signed link no longer works (keys changed on the server) or
+// when it was left on the public address because signing failed at the
+// time (no signal, signed out). The first failure of a picture from one of
+// these buckets drops the saved link, signs again and retries; the
+// picture's own onerror (a grey stand-in) only runs if that retry fails
+// too. While the buckets are public this never fires.
+const STORAGE_SIGN_PREFIX = SUPABASE_URL+'/storage/v1/object/sign/';
+function storageKeyOf(u){
+  const pub = storageParse(u); if(pub) return pub;
+  if(typeof u !== 'string' || u.indexOf(STORAGE_SIGN_PREFIX) !== 0) return null;
+  const main = u.slice(STORAGE_SIGN_PREFIX.length).split('?')[0].split('#')[0];
+  const si = main.indexOf('/'); if(si < 1) return null;
+  const bucket = main.slice(0, si); if(!PRIVATE_BUCKETS.has(bucket)) return null;
+  let path = main.slice(si+1); try{ path = decodeURIComponent(path); }catch(e){}
+  return {bucket, path, query:'', hash:'', key: bucket+'/'+path};
+}
+document.addEventListener('error', e=>{
+  const el = e.target;
+  if(!el || el.tagName !== 'IMG' || el.__ophubRetried) return;
+  const cur = el.getAttribute('src') || '';
+  const p = storageKeyOf(cur); if(!p) return;
+  el.__ophubRetried = true;
+  e.stopImmediatePropagation(); // hold back the picture's own onerror until the retry has failed too
+  delete SIGNED[p.key]; delete signFailedAt[p.key];
+  const pub = publicUrl(p.bucket, p.path);
+  resolveStorageUrl(pub).then(u=>{
+    if(u && u !== cur){ el.__ophubPlain = storageParse(u) ? u : null; el.setAttribute('src', u); return; }
+    if(typeof el.onerror === 'function'){ try{ el.onerror.call(el, new Event('error')); }catch(err){} }
+  });
+}, true);
 // A link tapped before its signed address arrived: open it once it has.
 document.addEventListener('click', e=>{
   const a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
@@ -4572,7 +4731,7 @@ window.doSignOut = async function(){
   await sdelete(K_SESSION, false);
   await sdelete(K_BOOT, false);
   await clearOfflineCache();
-  scrubRememberedPassword(); // never leave an old saved password behind (CORE-M2)
+  scrubRememberedPassword(); // only the email + encrypted password stay (Remember ticked); any old plain-text one goes
   location.hash = '';
   render();
 };
@@ -6801,7 +6960,7 @@ window.doResetPassword = async function(){
     if(!ur.ok){ resetError = (ud && (ud.msg||ud.error_description||ud.message)) || 'Could not save the new password — try again.'; render(); return; }
     fetchWithTimeout(SUPABASE_URL+'/auth/v1/logout', {method:'POST', headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+vd.access_token}}, 8000).catch(()=>{});
     authError = null; authInfo = 'Password changed — log in with your new password.'; authPrefillEmail = p.e || (vd.user && vd.user.email) || '';
-    scrubRememberedPassword(); // only the email is ever kept now
+    try{ const r0 = JSON.parse(localStorage.getItem(K_REMEMBER)||"null"); if(r0 && r0.email) localStorage.setItem(K_REMEMBER, JSON.stringify({email:r0.email})); }catch(e){} // new password: forget the old saved one
     if(SESSION && SESSION.user && authPrefillEmail && String(SESSION.user.email||'').toLowerCase()===authPrefillEmail.toLowerCase()){ await doSignOut(); }
     location.hash = ''; render();
   }catch(e){ resetBusy = false; resetError = 'Could not reach the server — check your connection and try again.'; render(); }
@@ -6813,26 +6972,29 @@ function renderLogin(){
     <div class="card">
       ${authError ? `<div class="errbox">${escapeHtml(authError)}</div>` : ''}
       ${authInfo ? `<div class="card" style="background:var(--ok-bg);border-color:var(--ok);color:var(--ok);font-weight:700;padding:10px 12px;margin-bottom:12px;">${escapeHtml(authInfo)}</div>` : ''}
+      <form id="authForm" autocomplete="on" onsubmit="event.preventDefault();doSignIn();" style="margin:0;">
       <div class="formfield">
         <label class="field-label">Email</label>
-        <input type="email" id="authEmail" value="${escapeHtml(authPrefillEmail || rememberedAuth().email)}" placeholder="you@yourcompany.co.uk">
+        <input type="email" id="authEmail" name="username" autocomplete="username" value="${escapeHtml(authPrefillEmail || rememberedAuth().email)}" placeholder="you@yourcompany.co.uk">
       </div>
       <div class="formfield">
         <label class="field-label">Password</label>
-        <input type="password" id="authPassword" value="" placeholder="••••••••" autocomplete="current-password" onkeyup="maybeAutoSignIn()">
+        <input type="password" id="authPassword" name="password" value="" placeholder="••••••••" autocomplete="current-password" onkeyup="maybeAutoSignIn(event)">
       </div>
-      <label class="stub" style="display:flex;align-items:center;gap:6px;margin:2px 0 12px;"><input type="checkbox" id="authRemember" style="width:auto;" ${rememberedAuth().remember?'checked':''}>Remember my email on this device</label>
+      <label class="stub" style="display:flex;align-items:center;gap:6px;margin:2px 0 12px;"><input type="checkbox" id="authRemember" style="width:auto;" ${rememberedAuth().remember?'checked':''}>Remember my email and password on this device</label>
+      <button type="submit" style="display:none;" tabindex="-1" aria-hidden="true"></button>
+      </form>
       <button class="primarybtn" style="background:var(--brand1);color:var(--brand1-text);border-color:var(--brand1);" ${authBusy?'disabled':''} onclick="doSignIn()">
         ${authBusy ? '<span class="spinner"></span>'+escapeHtml(authBusyLabel||'Please wait…') : 'Sign In'}
       </button>
       <p style="text-align:center;margin:12px 0 0;"><span class="viewlink" style="cursor:pointer;font-weight:700;" onclick="forgotPassword()">Forgot password?</span></p>
-      <p class="stub" style="margin-top:10px;">Real Supabase account — password is never seen or stored by our servers. Ticking "Remember" saves your email on this device — never your password. You stay signed in until you tap Sign out.</p>
+      <p class="stub" style="margin-top:10px;">Real Supabase account — password is never seen or stored by our servers. Ticking "Remember" keeps your email and password on this device (the password is stored encrypted) so they're filled in for you next time. Untick it on a shared device. You stay signed in until you tap Sign out.</p>
       <p class="stub" style="margin-top:14px;">New team member? You'll need an invite link from your Project Manager to create an account — sign-up isn't open to the public.</p>
     </div>
     <div style="display:flex;justify-content:center;margin-top:22px;">
       <img src="${orgLogoUrl(ORG)}" alt="OpHUB" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'" style="width:226.8px;height:226.8px;border-radius:32.4px;object-fit:cover;box-shadow:0 3.6px 16.2px rgba(0,0,0,0.12);max-width:75vw;max-height:75vw;">
     </div>
-  `, {centerTitle:true, tabs:false}); }
+  `, {centerTitle:true, tabs:false}); authPwFill(); }
 }
 window.maybeAutoSignIn = function(ev){
   // Only Enter submits — a bare "fields look filled" trigger caused false
@@ -6842,8 +7004,8 @@ window.maybeAutoSignIn = function(ev){
   // click or Enter key only, from here on.
   if(ev && ev.key === 'Enter'){ doSignIn(); }
 };
-// "Remember me" on the sign-in page — the EMAIL only, in localStorage on
-// this device (fix round 2, CORE-M2: the password is never stored). Opt-in
+// "Remember me" on the sign-in page — the email, plus (27 Oct, Andy) the password
+// encrypted with AES-GCM under a key that can't be read out of the browser (authPw*). Opt-in
 // via the checkbox; unticking it (or a fresh sign-in without it checked)
 // clears whatever was saved.
 function rememberedAuth(){
@@ -6878,7 +7040,7 @@ window.doSignIn = async function(){
     const r = await signIn(email, password);
     if(r.error){ authError = r.error; return; }
     // Only remember an email that actually worked — never the password.
-    try{ if(remember) localStorage.setItem(K_REMEMBER, JSON.stringify({email})); }catch(e){}
+    try{ if(remember){ localStorage.setItem(K_REMEMBER, JSON.stringify({email})); authPwSave(email, password); } }catch(e){}
     resetPerUserState(); // never carry the previous person's lists into this sign-in
     authBusyLabel = 'Loading your account…'; render();
     await loadProfile();
@@ -6917,6 +7079,55 @@ window.doSignIn = async function(){
     authBusy = false; authBusyLabel = null; render();
   }
 };
+
+/* ---------- saved password (27 Oct 2026, Andy: "i want the logins to remember the saved password") ----------
+   The password is kept encrypted (AES-GCM). The key is made by the browser as "non-extractable"
+   and kept in IndexedDB: it can be used on this device but never read out, so a copy of the
+   saved data on its own is useless. Where the browser has a password manager (Chrome, Edge,
+   Android) it's also offered there. If this device can't do any of that, only the email is kept. */
+const AUTHPW_DB = 'ophub-sec', AUTHPW_STORE = 'keys';
+function authPwIdb(){
+  return new Promise((res, rej)=>{
+    try{
+      const rq = indexedDB.open(AUTHPW_DB, 1);
+      rq.onupgradeneeded = ()=>{ try{ rq.result.createObjectStore(AUTHPW_STORE); }catch(e){} };
+      rq.onsuccess = ()=>res(rq.result); rq.onerror = ()=>rej(rq.error);
+    }catch(e){ rej(e); }
+  });
+}
+async function authPwKey(create){
+  if(!(window.crypto && crypto.subtle && window.indexedDB)) return null;
+  const db = await authPwIdb();
+  const get = ()=>new Promise((res)=>{ try{ const t = db.transaction(AUTHPW_STORE, 'readonly').objectStore(AUTHPW_STORE).get('remember'); t.onsuccess = ()=>res(t.result||null); t.onerror = ()=>res(null); }catch(e){ res(null); } });
+  let k = await get();
+  if(!k && create){
+    k = await crypto.subtle.generateKey({name:'AES-GCM', length:256}, false, ['encrypt','decrypt']);
+    await new Promise((res)=>{ try{ const t = db.transaction(AUTHPW_STORE, 'readwrite').objectStore(AUTHPW_STORE).put(k, 'remember'); t.onsuccess = ()=>res(); t.onerror = ()=>res(); }catch(e){ res(); } });
+  }
+  return k;
+}
+function authB64(buf){ let s = ''; const b = new Uint8Array(buf); for(let i=0;i<b.length;i++) s += String.fromCharCode(b[i]); return btoa(s); }
+function authUnB64(str){ const s = atob(str); const b = new Uint8Array(s.length); for(let i=0;i<s.length;i++) b[i] = s.charCodeAt(i); return b; }
+async function authPwSave(email, password){
+  try{
+    const key = await authPwKey(true); if(!key) return;
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const ct = await crypto.subtle.encrypt({name:'AES-GCM', iv}, key, new TextEncoder().encode(password));
+    localStorage.setItem(K_REMEMBER, JSON.stringify({email, pw:{iv:authB64(iv), ct:authB64(ct)}}));
+  }catch(e){ console.warn('saved password not kept', e); }
+  try{ if(window.PasswordCredential && navigator.credentials && navigator.credentials.store) await navigator.credentials.store(new PasswordCredential({id:email, password, name:email})); }catch(e){}
+}
+async function authPwFill(){
+  try{
+    const raw = localStorage.getItem(K_REMEMBER); if(!raw) return;
+    const p = JSON.parse(raw); if(!p || !p.pw || !p.email) return;
+    const em = document.getElementById('authEmail'), pw = document.getElementById('authPassword'); if(!em || !pw || pw.value) return;
+    if(em.value && em.value.trim().toLowerCase() !== String(p.email).toLowerCase()) return;   // a different email was typed — don't fill
+    const key = await authPwKey(false); if(!key) return;
+    const plain = await crypto.subtle.decrypt({name:'AES-GCM', iv:authUnB64(p.pw.iv)}, key, authUnB64(p.pw.ct));
+    if(document.getElementById('authPassword')===pw && !pw.value) pw.value = new TextDecoder().decode(plain);
+  }catch(e){ /* key gone (browser data cleared) — just leave the box empty */ }
+}
 
 /* ================= JOIN (invite-only account creation) ================= */
 let joinBusy = false;
@@ -8345,6 +8556,8 @@ async function opUnreadCount(){
     const readSet = new Set(reads.map(r=>r.message_id));
     n = rows.filter(m=>m.sender_id!==ME.id && !readSet.has(m.id)).length;
   }
+  // PB-07: messages sent to me alone count too (the Inbox lists them).
+  try{ n += (await myUnreadDirectMessages(null)).length; }catch(e){}
   opUnreadCache = {at:Date.now(), n};
   return n;
 }
@@ -10037,7 +10250,7 @@ async function renderTeam(adminPage, adminItemKey){
     pendingInvites = pendingInviteRows;
     permanentInvite = permanentInviteRows[0] || null;
   } })());
-  let odConn = null; __tp.push((async()=>{ if(iAmAdmin && teamSectionOpen.integrations) odConn = (await dbSelect('onedrive_connections', 'org_id=eq.'+ME.org_id+'&select=org_id,account_email,folder_path,connected_at'))[0] || null; /* never pull the tokens into the browser (audit 24 Oct) */ })());
+  let odConn = null; __tp.push((async()=>{ if(iAmAdmin && teamSectionOpen.integrations) odConn = await oneDriveStatus(); /* CP-NEW-1: the real state, from the database; the tokens never come to the browser (audit 24 Oct) */ })());
   let tbtTemplates = []; __tp.push((async()=>{ if(iAmAdmin && teamSectionOpen.tbt) tbtTemplates = await dbSelect('tbt_templates', 'org_id=eq.'+ME.org_id+'&order=created_at.desc'); })());
   let reportTemplates = []; __tp.push((async()=>{ if(isManager(ME) && teamSectionOpen.reporttemplates) reportTemplates = await dbSelect('report_templates', 'org_id=eq.'+ME.org_id+'&archived=eq.false&order=name.asc'); })());
   let deviceLocks = []; __tp.push((async()=>{ if(isFullManager(ME) && teamSectionOpen.devicelocks) deviceLocks = await dbSelect('device_locks', 'org_id=eq.'+ME.org_id+'&order=last_seen_at.desc'); })());
@@ -10215,8 +10428,11 @@ async function renderTeam(adminPage, adminItemKey){
     <div class="adm-od">
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">OneDrive — progress report photos</p>
-      ${odConn ? `
-        <p class="stub" style="margin:0 0 8px;color:var(--ok);">Connected — syncing to ${escapeHtml(odConn.account_email||'your OneDrive')} · folder "${escapeHtml(odConn.folder_path)}"</p>
+      ${odConn && odConn.needs_reconnect ? `
+        <p class="stub" style="margin:0 0 8px;color:var(--warn);">Not syncing — the connection to ${escapeHtml(odConn.account_email||'your OneDrive')} has ${odConn.reason==='expired' ? 'run out (not used for over 90 days)' : 'stopped working'}. Reconnect it to start syncing again.</p>
+        <div class="row-gap"><button class="darkbtn" style="flex:1;" ${odBusy?'disabled':''} onclick="connectOneDrive()">${odBusy?'Connecting…':'Reconnect OneDrive'}</button><button class="ghostbtn" style="width:auto;padding:10px 16px;" onclick="disconnectOneDrive()">Disconnect</button></div>
+      ` : odConn ? `
+        <p class="stub" style="margin:0 0 8px;color:var(--ok);">Connected — syncing to ${escapeHtml(odConn.account_email||'your OneDrive')} · folder "${escapeHtml(odConn.folder_path||'')}"</p>
         <button class="ghostbtn" onclick="disconnectOneDrive()">Disconnect</button>
       ` : `
         <p class="stub" style="margin:0 0 8px;">Connect your company's OneDrive so schedule progress photos upload there automatically.</p>
@@ -11462,6 +11678,20 @@ window.disconnectOneDrive = async function(){
   const res = await sbFetch('/rest/v1/onedrive_connections?org_id=eq.'+ME.org_id, {method:'DELETE'});
   if(res.ok){ toast('OneDrive disconnected'); render(); } else { toast('Could not disconnect — try again.'); }
 };
+// CP-NEW-1 (27 Oct): whether OneDrive is really connected, from the database
+// (onedrive_status: the sign-in tokens are there and were used in the last 90
+// days) rather than "a connection record exists". The tokens never come to the
+// browser. Falls back to the old record check if that function isn't there or
+// the call fails. Returns null when there's no connection at all, otherwise
+// {connected, needs_reconnect, reason, account_email, folder_path, ...}.
+async function oneDriveStatus(){
+  try{
+    const res = await sbFetch('/rest/v1/rpc/onedrive_status', {method:'POST', body:'{}'});
+    if(res.ok){ const d = await res.json(); return d && d.exists ? d : null; }
+  }catch(e){ /* no signal: use the record check below */ }
+  const row = (await dbSelect('onedrive_connections', 'org_id=eq.'+ME.org_id+'&select=org_id,account_email,folder_path,connected_at'))[0];
+  return row ? Object.assign({exists:true, connected:true, needs_reconnect:false}, row) : null;
+}
 
 /* ================= ONEDRIVE FOLDER PICKER (link a site to its real, existing project folder) =================
    A folder can either live in the connected account's own OneDrive (driveId
@@ -12265,7 +12495,8 @@ window.onOperativeSearchInput = function(v){
 };
 async function renderOperativesList(){
   const __gen = RENDER_GEN;
-  const opListFrom = routeQuery().get('from');
+  // CORE-L11/C1: only one of our own #/… pages (it goes into an onclick below and the back arrow).
+  const opListFrom = (h=>typeof isSafeBackHash!=='function' || isSafeBackHash(h) ? h : null)(routeQuery().get('from'));
   await loadAllProfiles();
   const operatives = Object.values(PROFILES).filter(p=>p.role==='operative').sort((a,b)=>a.name.localeCompare(b.name));
   if(!_opListCountsCache || (Date.now()-_opListCountsAt) >= OPLIST_COUNTS_TTL_MS){
@@ -12333,7 +12564,7 @@ async function renderOperativesList(){
     <button class="ghostbtn" style="width:100%;margin-bottom:14px;" onclick="exportTrainingMatrixExcel()">📊 Export Training Matrix (Excel)</button>
     <button class="ghostbtn" style="width:100%;margin-bottom:14px;" onclick="exportTrainingMatrixPdf()">📄 Export Training Matrix (PDF)</button>
     ${filtered.length ? filtered.map(o=>`
-      <div class="sitecard" style="cursor:pointer;" onclick="go('#/operatives/${o.id}${opListFrom ? '?listFrom='+encodeURIComponent(opListFrom) : ''}')">
+      <div class="sitecard" style="cursor:pointer;" onclick="go('${jsAttr('#/operatives/'+o.id+(opListFrom ? '?listFrom='+encodeURIComponent(opListFrom) : ''))}')">
         <div class="swatch">${(o.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase()}</div>
         <div class="info"><div class="name">${escapeHtml(o.name)}</div><div class="addr">${(siteCountByOp[o.id]?siteCountByOp[o.id].size:0)} site${(siteCountByOp[o.id]&&siteCountByOp[o.id].size===1)?'':'s'} · ${certCountByOp[o.id]||0} certificate${(certCountByOp[o.id]||0)===1?'':'s'}${o.phone?' · 📞 '+escapeHtml(o.phone):''}</div></div>
       </div>
@@ -12370,7 +12601,7 @@ window.toggleOperativePhoneEdit = function(operativeId){
 async function renderOperativeDetail(operativeId){
   const __gen = RENDER_GEN;
   const fromSiteId = routeQuery().get('from');
-  const listFrom = routeQuery().get('listFrom');
+  const listFrom = (h=>typeof isSafeBackHash!=='function' || isSafeBackHash(h) ? h : null)(routeQuery().get('listFrom'));
   await loadAllProfiles();
   const operative = PROFILES[operativeId];
   if(!operative){ go('#/operatives'); return; }
@@ -12875,8 +13106,9 @@ async function renderSiteHome(siteId){
       ]);
       pending = pendingAw.length; wages = (wp||[]).length;
     }
-    // PMs/admin can switch pricing on from the job's home (it used to be hidden in Project settings).
-    const canTurnOn = !site.price_enabled && isFullManager(ME) && (ME.role==='admin' || site.responsible_pm_id===ME.id || !site.responsible_pm_id);
+    // The Price tile only shows when Price is ticked in the project's settings — no
+    // "Off — tap to turn on" tile on the job's home (Andy 27 Oct).
+    const canTurnOn = false;
     return {can, pending, wages, canTurnOn};
   })();
   const hsGapPromise = (async ()=>{
@@ -15240,11 +15472,14 @@ async function unreadCountForSiteForUser(siteId, userId, audience){
   // listed as their own rows either.
   const siteFilter = audience==='managers' ? `site_id=eq.${siteId}` : `or=(site_id.eq.${siteId},site_id.is.null)`;
   const msgs = await dbSelect('messages', `audience=eq.${audience}&${siteFilter}&sender_id=neq.${userId}&select=id`);
-  if(!msgs.length) return 0;
+  // PB-07: my own unread one-person messages for this job (the job's Messages
+  // page lists them). Only for me: nobody else can read those.
+  const direct = (ME && userId===ME.id && typeof myUnreadDirectMessages==='function') ? (await myUnreadDirectMessages(siteId)).length : 0;
+  if(!msgs.length) return direct;
   const ids = msgs.map(m=>m.id);
   const reads = await dbSelect('message_reads', `user_id=eq.${userId}&message_id=in.(${ids.join(',')})&select=message_id`);
   const readSet = new Set(reads.map(r=>r.message_id));
-  return msgs.filter(m=>!readSet.has(m.id)).length;
+  return msgs.filter(m=>!readSet.has(m.id)).length + direct;
 }
 // Non-blocking unread-badge refresh. The router used to `await unreadCountForSite`
 // on every single site-scoped page transition, which forced 2 sequential DB
@@ -16110,7 +16345,7 @@ async function renderAssignTeam(siteId){
   const __pActivity = Promise.resolve([]); // the Activity History now has its own screen (renderSiteActivity)
   const __pMain = Promise.all([
     dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id'),
-    dbSelect('onedrive_connections', 'org_id=eq.'+ME.org_id+'&select=org_id'),
+    oneDriveStatus().catch(()=>null), // CP-NEW-1: the real state, not just "a record exists"
     dbSelect('site_sub_addresses', 'site_id=eq.'+siteId+'&order=name.asc'),
   ]);
   await loadAllProfiles();
@@ -16119,7 +16354,8 @@ async function renderAssignTeam(siteId){
   const siteManagerPeople = Object.values(PROFILES).filter(p=>p.role==='site_manager').sort((a,b)=>a.name.localeCompare(b.name));
   const [assigned, odConnRows, subAddresses] = await __pMain;
   const assignedIds = new Set(assigned.map(a=>a.user_id));
-  const odCompanyConnected = odConnRows.length>0;
+  const odCompanyConnected = !!odConnRows; // a connection exists (it may need reconnecting — see odNeedsReconnect)
+  const odNeedsReconnect = !!(odConnRows && odConnRows.needs_reconnect);
   // Quick multi-tick "Assign Operatives to X" per subcontractor, right here
   // on Settings & Admin, so a PM doesn't have to go via Subcontractors > the
   // company > Operatives (one-at-a-time) just to build a crew list. Only
@@ -16225,6 +16461,7 @@ async function renderAssignTeam(siteId){
     <p class="ddrow" style="margin-top:18px;" onclick="toggleSiteTeamSection('sync')"><span class="arrow">${siteTeamSectionOpen.sync?'▼':'▶'}</span> Sync Folder</p>
     ${siteTeamSectionOpen.sync ? `
     <div class="card" style="padding:10px 14px;">
+      ${odNeedsReconnect ? `<p class="stub" style="margin:0 0 8px;color:var(--warn);">OneDrive isn't syncing at the moment — the company connection needs reconnecting by an admin (Admin Centre › Integrations).</p>` : ''}
       ${site.onedrive_folder_id ? `
         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
           <span class="stub" style="margin:0;font-size:13px;color:var(--ok);">📁 Already synced to "${escapeHtml(site.onedrive_folder_name||'')}"</span>
@@ -19867,7 +20104,7 @@ window.emailPriceBuilderSheetPdf = async function(siteId, sheetId){
   try{
     const res = await sbFetch('/functions/v1/send-price-builder-email', {method:'POST', body: JSON.stringify({
       site_id: siteId, recipient_email: trimmed, cc_email: emailTo.cc,
-      sheet_title: built.sheet.title, file_url: publicUrl('mc-documents', stored),
+      sheet_title: built.sheet.title, file_url: publicUrl('mc-documents', stored), storage_bucket: 'mc-documents', storage_path: stored,
     })});
     if(res && res.ok){ toast('Emailed'); } else { toast('Could not send the email — '+(await safeErr(res))); }
   }catch(e){
@@ -20756,7 +20993,7 @@ window.emailSelectedReports = async function(){
       const stored = (built.storedPath || (built.savePromise && await built.savePromise)) || await uploadToStorage('mc-documents', path, new Blob([built.bytes], {type:'application/pdf'}), 'application/pdf');
       if(!stored){ failed++; continue; }
       const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', timeoutMs:90000, body: JSON.stringify({
-        site_id: built.sub.site_id, general_label: built.sub.site_id ? undefined : (built.sub.general_label||'General survey'), recipient_email: recipient, cc_email: recipient!==ME.email ? ME.email : undefined, doc_title: built.sub.template_name, file_url: publicUrl('mc-documents', stored),
+        site_id: built.sub.site_id, general_label: built.sub.site_id ? undefined : (built.sub.general_label||'General survey'), recipient_email: recipient, cc_email: recipient!==ME.email ? ME.email : undefined, doc_title: built.sub.template_name, file_url: publicUrl('mc-documents', stored), storage_bucket: 'mc-documents', storage_path: stored,
       })});
       if(res && res.ok) sent++; else failed++;
     }catch(e){ failed++; }
@@ -22328,7 +22565,7 @@ window.emailReportPDF = async function(submissionId, fromBriefing){
     if(!stored){ toast('Could not upload the PDF — try again.'); reportEmailBusy = null; render(); return; }
     toast('Sending…');
     const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', timeoutMs:90000, body: JSON.stringify({
-      site_id: built.sub.site_id, general_label: built.sub.site_id ? undefined : (built.sub.general_label||'General survey'), recipient_email: trimmed, cc_email: emailTo.cc, doc_title: built.sub.template_name, file_url: publicUrl('mc-documents', stored),
+      site_id: built.sub.site_id, general_label: built.sub.site_id ? undefined : (built.sub.general_label||'General survey'), recipient_email: trimmed, cc_email: emailTo.cc, doc_title: built.sub.template_name, file_url: publicUrl('mc-documents', stored), storage_bucket: 'mc-documents', storage_path: stored,
       client_cc_email: ccClientEmailFromPromptAnswer(answer, site),
     })});
     if(res && res.ok){ toast(built.photoEmbedFailures>0 ? `Emailed — but ${built.photoEmbedFailures} photo${built.photoEmbedFailures>1?'s':''} could not be included.` : 'Emailed'); } else { toast('Could not send the email — '+(await safeErr(res))); }
@@ -23023,7 +23260,7 @@ window.doCheckActionSub = async function(siteId, subId, type){
   }
 
   if(!orgAllowsGps() || isManager(ME)){
-    const rows = await dbInsert('checkins', {site_id:siteId, sub_site_id:subId, user_id:ME.id, type});
+    const rows = await dbInsert('checkins', {site_id:siteId, sub_site_id:subId, user_id:ME.id, type, ...checkinDeviceField()});
     checkinBusy = false;
     if(rows){
       toast((type==='in'?'Checked in':'Checked out')+' · '+new Date().toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'}));
@@ -23049,7 +23286,7 @@ window.doCheckActionSub = async function(siteId, subId, type){
       return;
     }
   }
-  const rows = await dbInsert('checkins', {site_id:siteId, sub_site_id:subId, user_id:ME.id, type, lat:g.lat, lon:g.lon, accuracy_m:Math.round(g.accuracy||0)});
+  const rows = await dbInsert('checkins', {site_id:siteId, sub_site_id:subId, user_id:ME.id, type, lat:g.lat, lon:g.lon, accuracy_m:Math.round(g.accuracy||0), ...checkinDeviceField()});
   checkinBusy = false;
   if(rows){
     toast((type==='in'?'Checked in':'Checked out')+' · '+new Date().toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'}));
@@ -23076,7 +23313,7 @@ window.doCheckAction = async function(siteId, type){
   // and admins get the same no-GPS path regardless of tier — they don't
   // need to be physically on site to check themselves in/out.
   if(!orgAllowsGps() || isManager(ME)){
-    const rows = await dbInsert('checkins', {site_id:siteId, user_id:ME.id, type});
+    const rows = await dbInsert('checkins', {site_id:siteId, user_id:ME.id, type, ...checkinDeviceField()});
     checkinBusy = false;
     if(rows){
       toast((type==='in'?'Checked in':'Checked out')+' · '+new Date().toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'}));
@@ -23101,7 +23338,7 @@ window.doCheckAction = async function(siteId, type){
       return;
     }
   }
-  const rows = await dbInsert('checkins', {site_id:siteId, user_id:ME.id, type, lat:g.lat, lon:g.lon, accuracy_m:Math.round(g.accuracy||0)});
+  const rows = await dbInsert('checkins', {site_id:siteId, user_id:ME.id, type, lat:g.lat, lon:g.lon, accuracy_m:Math.round(g.accuracy||0), ...checkinDeviceField()});
   checkinBusy = false;
   if(rows){
     toast((type==='in'?'Checked in':'Checked out')+' · '+new Date().toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'}));
@@ -24177,7 +24414,7 @@ async function renderSchedule(siteId){
     </div>
     ` : ''}
     <div id="scheduleLiveMarker" style="display:none;"></div>
-  </div>`, {title:'Schedule of Works', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back: scheduleBackFrom ? decodeURIComponent(scheduleBackFrom) : `#/site/${siteId}/home`, siteId, activeTab:'schedule'}); }
+  </div>`, {title:'Schedule of Works', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back: scheduleBackFrom ? schedBackHash(scheduleBackFrom, siteId) : `#/site/${siteId}/home`, siteId, activeTab:'schedule'}); }
 
   // Live two-way sync with any subcontractor's own filtered Schedule of
   // Works view (renderSubSchedule) — both pages read/write the exact same
@@ -24249,7 +24486,7 @@ window.addVariationWorkFromSchedule = async function(siteId){
   render();
 };
 window.addVariationToSchedule = async function(siteId, variationId){
-  const rows = await dbSelect('variations', 'id=eq.'+variationId+'&select=*');
+  const rows = await dbSelect('variations', 'id=eq.'+variationId+'&select=id,description,approval_status,schedule_section_id');
   const v = rows[0]; if(!v) return;
   // #291: only ever allowed once a PM has approved the variation.
   if(v.approval_status!=='approved'){ toast('This variation needs PM approval before it can be added to the schedule.'); return; }
@@ -24875,6 +25112,13 @@ window.confirmPdfImport = async function(siteId){
     render();
   }
 };
+// CORE-L11: ?from= is already decoded once by routeQuery; an old link may still carry it encoded
+// twice. A cut-off one ("%E2%8") made decodeURIComponent throw and the page never drew.
+function schedBackHash(from, siteId){
+  let h = String(from||'');
+  if(/%[0-9A-Fa-f]{2}/.test(h)){ try{ h = decodeURIComponent(h); }catch(e){ h = String(from||''); } }
+  return (typeof isSafeBackHash!=='function' || isSafeBackHash(h)) ? h : `#/site/${siteId}/home`;
+}
 
 /* ================= Schedule of Works: instant photos =================
  * Picking photos on a task no longer waits for the upload. Each photo shows
@@ -28513,7 +28757,7 @@ window.emailSiteInductionPdf = async function(completionId, operativeName){
       recipient_email: trimmed,
       cc_email: emailTo.cc,
       client_cc_email: ccClientEmailFromPromptAnswer(answer, site),
-      items: [{operative_name: operativeName || nameOf(row.operative_id), file_url: publicUrl('mc-documents', row.pdf_path)}],
+      items: [{operative_name: operativeName || nameOf(row.operative_id), file_url: publicUrl('mc-documents', row.pdf_path), storage_path: row.pdf_path}],
     })});
     if(res && res.ok){ toast('Emailed'); } else { toast('Could not send the email — please try again.'); }
   }catch(e){ toast('Could not send the email — please try again.'); }
@@ -28539,7 +28783,7 @@ window.emailSelectedInductions = async function(){
       recipient_email: trimmed,
       cc_email: emailTo.cc,
       client_cc_email: ccClientEmailFromPromptAnswer(answer, site),
-      items: withPdf.map(r=>({operative_name: nameOf(r.operative_id), file_url: publicUrl('mc-documents', r.pdf_path)})),
+      items: withPdf.map(r=>({operative_name: nameOf(r.operative_id), file_url: publicUrl('mc-documents', r.pdf_path), storage_path: r.pdf_path})),
     })});
     if(res && res.ok){ toast('Emailed'); siteInductionSelectedIds = new Set(); render(); } else { toast('Could not send the email — please try again.'); }
   }catch(e){ toast('Could not send the email — please try again.'); }
@@ -29236,7 +29480,7 @@ window.addSubInspection = async function(input, siteId, companyId, folderId){
       try{
         await sbFetch('/functions/v1/send-subcontractor-inspection-email', {method:'POST', timeoutMs:60000, body: JSON.stringify({
           site_id: siteId, company_name: company ? company.name : null,
-          file_name: file.name, file_url: publicUrl('mc-documents', stored),
+          file_name: file.name, file_url: publicUrl('mc-documents', stored), storage_bucket: 'mc-documents', storage_path: stored,
         })});
       }catch(e){}
     }
@@ -29804,7 +30048,7 @@ window.emailSelectedRams = async function(siteId){
   toast('Sending…');
   try{
     const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', body: JSON.stringify({
-      site_id: siteId, recipient_email: emailTo.to, cc_email: emailTo.cc, client_cc_email: ccClientEmailFromPromptAnswer(answer, site), doc_title: pack.label+' (Signed RAMS)', file_url: publicUrl('mc-documents', stored),
+      site_id: siteId, recipient_email: emailTo.to, cc_email: emailTo.cc, client_cc_email: ccClientEmailFromPromptAnswer(answer, site), doc_title: pack.label+' (Signed RAMS)', file_url: publicUrl('mc-documents', stored), storage_bucket: 'mc-documents', storage_path: stored,
     })});
     if(res && res.ok){ toast('Emailed'); ramsSelIds = new Set(); render(); } else toast('Could not send the email — please try again.');
   }catch(e){ toast('Could not send the email — please try again.'); }
@@ -30361,6 +30605,22 @@ window.ramsSeedAndReload = async function(){
 // never both get RA-0042. Returns {ra, ms}, or null if it couldn't (then the
 // caller falls back to the saved copy, as before).
 async function ramsReserveNumbers(){
+  // PA-19 (27 Oct): the database hands the numbers out (rams_take_numbers locks
+  // the company's row while it takes them), so they can never be given twice.
+  // The guarded update below is only used if that function isn't there.
+  try{
+    const res = await sbFetch('/rest/v1/rpc/rams_take_numbers', {method:'POST', body:'{}'});
+    if(res.ok){
+      const d = await res.json();
+      if(d && d.ok && Number(d.ra) > 0 && Number(d.ms) > 0){
+        if(ORG && d.rams_settings) ORG.rams_settings = d.rams_settings;
+        return {ra: Number(d.ra), ms: Number(d.ms)};
+      }
+      if(d && d.ok === false) return null; // not allowed: same as before (the saved copy is used)
+    }else if(res.status !== 404){
+      return null;
+    }
+  }catch(e){ return null; }
   let lastSeen = null;
   for(let attempt=0; attempt<4; attempt++){
     const rows = await dbSelectNet('organizations', 'id=eq.'+ME.org_id+'&select=rams_settings&limit=1');
@@ -32790,6 +33050,8 @@ async function stampRamsSignLayout(pdfDoc, layout, people){
     return imgCache.get(path);
   };
   const personFor = w=>{ const cn = ramsBoxClientNum(w); return cn ? ((people.clients||{})[cn] || null) : (w==='pm' ? people.pm : (people.ops[ramsBoxOpNum(w)-1] || null)); };
+  // SEC-H3: sign every signature picture's link in one request, not one per person.
+  try{ if(typeof presignStorageUrls === 'function') await presignStorageUrls(boxes.map(b=>{ const s = personFor(b.w); return s && s.imagePath ? publicUrl('signatures', s.imagePath) : null; }).filter(Boolean)); }catch(e){}
   for(const b of boxes){
     const s = personFor(b.w); if(!s) continue;
     const page = pages[b.p-1]; if(!page) continue;
@@ -32945,7 +33207,7 @@ window.emailSignedRams = async function(siteId, ramsId){
   toast('Sending…');
   try{
     const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', body: JSON.stringify({
-      site_id: siteId, recipient_email: trimmed, cc_email: emailTo.cc, client_cc_email: ccClientEmailFromPromptAnswer(answer, site), doc_title: built.doc.name+' (Signed RAMS)', file_url: publicUrl('mc-documents', stored),
+      site_id: siteId, recipient_email: trimmed, cc_email: emailTo.cc, client_cc_email: ccClientEmailFromPromptAnswer(answer, site), doc_title: built.doc.name+' (Signed RAMS)', file_url: publicUrl('mc-documents', stored), storage_bucket: 'mc-documents', storage_path: stored,
     })});
     if(res && res.ok){ toast('Emailed'); } else { toast('Could not send the email — please try again.'); }
   }catch(e){ toast('Could not send the email — please try again.'); }
@@ -33439,7 +33701,7 @@ window.emailSignedCoshh = async function(siteId, coshhId){
   toast('Sending…');
   try{
     const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', body: JSON.stringify({
-      site_id: siteId, recipient_email: trimmed, cc_email: emailTo.cc, client_cc_email: ccClientEmailFromPromptAnswer(answer, site), doc_title: built.doc.name+' (Signed COSHH)', file_url: publicUrl('mc-documents', stored),
+      site_id: siteId, recipient_email: trimmed, cc_email: emailTo.cc, client_cc_email: ccClientEmailFromPromptAnswer(answer, site), doc_title: built.doc.name+' (Signed COSHH)', file_url: publicUrl('mc-documents', stored), storage_bucket: 'mc-documents', storage_path: stored,
     })});
     if(res && res.ok){ toast('Emailed'); } else { toast('Could not send the email — please try again.'); }
   }catch(e){ toast('Could not send the email — please try again.'); }
@@ -36319,6 +36581,8 @@ async function drawPuwerInspectionPage(pdfDoc, fonts, siteName, weekLabel, op, t
     ensureRoom(24);
     page.drawText('TOOL PHOTO SUMMARY', {x:MARGIN, y, size:11, font:bold, color:INK});
     y -= 18;
+    // Sign every photo's link in one go (SEC-H3), not one request per photo.
+    try{ if(typeof presignStorageUrls === 'function') await presignStorageUrls(tools.filter(t=>t.photo_path).map(t=>publicUrl('operative-tools', t.photo_path))); }catch(e){}
     for(let i=0;i<tools.length;i++){
       const t = tools[i];
       const pass = PUWER_QUESTIONS.every(q=>t[q.key]);
@@ -36981,7 +37245,7 @@ async function emailPdfsSeparately(o){
     const path = (o.siteId || ME.org_id)+'/email-exports/'+uid()+'-'+nm.replace(/[^a-z0-9.\-]+/gi,'_')+'.pdf';
     const stored = await uploadToStorage('mc-documents', path, new Blob([p.bytes], {type:'application/pdf'}), 'application/pdf');
     if(!stored) return {ok:false};
-    files.push({url: publicUrl('mc-documents', stored), name: nm+'.pdf'});
+    files.push({url: publicUrl('mc-documents', stored), name: nm+'.pdf', path: stored}); // path: for when send-document-email reads files[] from storage too (v12 reads only the url)
   }
   try{
     const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', timeoutMs:120000, body: JSON.stringify({
@@ -37006,7 +37270,7 @@ async function emailPdfAsLink(o){
   try{
     const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', timeoutMs:60000, body: JSON.stringify({
       site_id: o.siteId, recipient_email: o.to, cc_email: o.cc || undefined, client_cc_email: o.clientCc || undefined,
-      doc_title: o.title, file_url: publicUrl('mc-documents', stored),
+      doc_title: o.title, file_url: publicUrl('mc-documents', stored), storage_bucket: 'mc-documents', storage_path: stored,
     })});
     return !!(res && res.ok);
   }catch(e){ return false; }
@@ -37690,7 +37954,7 @@ async function emailCompletedTbtToPM(siteId, tbtId){
     if(!stored) return;
     for(const to of recipients.slice(0, 6)){
       await sbFetch('/functions/v1/send-document-email', {method:'POST', timeoutMs:60000, body: JSON.stringify({
-        site_id: siteId, recipient_email: to, doc_title: (built.talk.title||'Toolbox Talk')+' — completed, signed by all operatives', file_url: publicUrl('mc-documents', stored),
+        site_id: siteId, recipient_email: to, doc_title: (built.talk.title||'Toolbox Talk')+' — completed, signed by all operatives', file_url: publicUrl('mc-documents', stored), storage_bucket: 'mc-documents', storage_path: stored,
       })});
     }
   }catch(e){ /* best-effort */ }
@@ -37831,7 +38095,7 @@ window.emailSignedToolboxTalk = async function(siteId, tbtId){
     if(!stored){ toast('Could not upload the PDF — try again.'); return; }
     toast('Sending…');
     const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', body: JSON.stringify({
-      site_id: siteId, recipient_email: trimmed, cc_email: emailTo.cc, client_cc_email: ccClientEmailFromPromptAnswer(answer, site), doc_title: (built.talk&&built.talk.title||'Toolbox Talk')+' (Signed Toolbox Talk)', file_url: publicUrl('mc-documents', stored),
+      site_id: siteId, recipient_email: trimmed, cc_email: emailTo.cc, client_cc_email: ccClientEmailFromPromptAnswer(answer, site), doc_title: (built.talk&&built.talk.title||'Toolbox Talk')+' (Signed Toolbox Talk)', file_url: publicUrl('mc-documents', stored), storage_bucket: 'mc-documents', storage_path: stored,
     })});
     if(res && res.ok){ toast('Emailed'); } else { toast('Could not send the email — please try again.'); }
   }catch(e){
@@ -37900,7 +38164,7 @@ window.tbtDoneEmail = async function(){
     const path = 'tbt-exports/'+ME.org_id+'/'+uid()+'-'+m.filename.replace(/[^a-z0-9.\-]+/gi,'_');
     const stored = await uploadToStorage('mc-documents', path, new Blob([m.bytes], {type:'application/pdf'}), 'application/pdf');
     if(!stored){ tbtDoneBusy = ''; render(); toast('Could not upload the PDF — try again.'); return; }
-    const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', timeoutMs:120000, body: JSON.stringify({general_label:'Toolbox Talks', recipient_email: email, cc_email: email!==ME.email ? ME.email : undefined, doc_title: 'Signed Toolbox Talks ('+m.n+')', file_url: publicUrl('mc-documents', stored)})});
+    const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', timeoutMs:120000, body: JSON.stringify({general_label:'Toolbox Talks', recipient_email: email, cc_email: email!==ME.email ? ME.email : undefined, doc_title: 'Signed Toolbox Talks ('+m.n+')', file_url: publicUrl('mc-documents', stored), storage_bucket: 'mc-documents', storage_path: stored})});
     const d = res ? await res.json().catch(()=>({})) : {};
     tbtDoneBusy = '';
     if(res && res.ok && !d.error){ tbtDoneSel = new Set(); toast(m.n+' toolbox talk'+(m.n===1?'':'s')+' emailed to '+email+(d.attached===false?' (as a link — too big to attach)':'')); }
@@ -41778,9 +42042,72 @@ let varEditingId = null; // id of the variation currently being modified-then-ap
 let varEditDescDraft = '';
 let varDecliningId = null; // id whose decline-reason box is open
 let varDeclineReasonDraft = '';
+// Map L22 / P06 (27 Oct): a site variation's value (variations.cost_impact, text) — typed by a
+// PM/admin here — is what Finance's register and applications use for it. Operatives and site
+// managers never see or type money here.
+function varCanPrice(){ return typeof isFullManager==='function' && isFullManager(ME); }
+// Everyone else downloads the variation without its value (the row's other columns only).
+const VAR_COLS_NO_VALUE = 'id,site_id,photo_path,description,created_by,created_at,status,approval_status,decided_by,decided_at,decline_reason,closed_at,schedule_section_id';
+function varSelectCols(){ return varCanPrice() || (typeof isFinanceUser==='function' && isFinanceUser()) ? '*' : VAR_COLS_NO_VALUE; }
+function varValueOf(v){ const n = Number(String(v && v.cost_impact!=null ? v.cost_impact : '').replace(/[£,\s]/g, '')); return (v && v.cost_impact!=null && String(v.cost_impact).trim()!=='' && isFinite(n)) ? n : null; }
+function varMoney(n){ return (n<0?'−':'')+'£'+Math.abs(Number(n)).toLocaleString('en-GB', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+// What's typed in a value box: undefined = no box on screen, null = left empty, NaN = not a number.
+function varReadValueInput(elId){
+  const el = document.getElementById(elId); if(!el) return undefined;
+  const t = String(el.value||'').replace(/[£,\s]/g, '');
+  if(t==='') return null;
+  const n = Number(t); return isFinite(n) ? Math.round(n*100)/100 : NaN;
+}
+// Finance users: the value goes onto the variation's Finance copy (fin_variations.variation_id)
+// straight away, but never over a price Finance typed: quoted / agreed value are only filled
+// when empty, or when they still hold this variation's previous site value. Other users: the
+// Finance side picks it up the next time it's opened (9219zzb finVarSiteValuesSync).
+async function varSyncValueToFinance(varId, oldVal, newVal){
+  if(newVal==null || !(typeof isFinanceUser==='function' && isFinanceUser())) return;
+  try{
+    const rows = await dbSelectNet('fin_variations', 'variation_id=eq.'+varId+'&select=id,status,quoted,agreed_value');
+    for(const f of rows||[]){
+      const patch = finVarSiteValuePatch(f, oldVal, newVal);
+      if(patch) await sbFetch('/rest/v1/fin_variations?id=eq.'+f.id, {method:'PATCH', headers:{'Prefer':'return=minimal'}, body:JSON.stringify(patch)});
+    }
+  }catch(e){ console.warn('variation value not copied to Finance', e); }
+}
+function finVarSiteValuePatch(f, oldVal, newVal){
+  if(newVal==null || !f) return null;
+  const same = (x)=>x!=null && oldVal!=null && Math.abs(Number(x)-Number(oldVal)) < 0.005;
+  const patch = {};
+  if(f.quoted==null || same(f.quoted)) patch.quoted = newVal;
+  if(f.status==='agreed' && (f.agreed_value==null || same(f.agreed_value))) patch.agreed_value = newVal;
+  Object.keys(patch).forEach(k=>{ if(f[k]!=null && Math.abs(Number(f[k])-newVal) < 0.005) delete patch[k]; });
+  return Object.keys(patch).length ? patch : null;
+}
+// Saves the value box (if it's on screen and changed) — on its own, or as part of an approve.
+async function varValuePatchFor(id, elId){
+  const val = varReadValueInput(elId);
+  if(val===undefined) return {patch:{}};
+  if(Number.isNaN(val)){ toast('Enter the value as a number, e.g. 850'); return null; }
+  const cur = (await dbSelect('variations', 'id=eq.'+id+'&select=cost_impact'))[0];
+  const oldVal = varValueOf(cur);
+  if(val===oldVal || (val==null && oldVal==null)) return {patch:{}, oldVal, val};
+  return {patch:{cost_impact: val==null ? null : val.toFixed(2)}, oldVal, val};
+}
+window.saveVariationValue = async function(siteId, id){
+  const vp = await varValuePatchFor(id, 'varVal-'+id); if(!vp) return;
+  if(!('cost_impact' in vp.patch)){ toast('Value saved'); return; }
+  const row = await dbUpdate('variations', id, vp.patch);
+  if(!row) return;
+  if(String(row.cost_impact||'')!==String(vp.patch.cost_impact||'')){ toast('Only a project manager or admin can set the value.'); return; }
+  await varSyncValueToFinance(id, vp.oldVal, vp.val);
+  toast(vp.val==null ? 'Value cleared' : 'Value saved — '+varMoney(vp.val)); render();
+};
 window.approveVariation = async function(siteId, id){
-  const row = await dbUpdate('variations', id, {approval_status:'approved', decided_by:ME.id, decided_at:new Date().toISOString(), decline_reason:null});
-  if(row){ toast('Variation approved'); postSystemMessage(siteId, 'variation', `${ME.name} approved a variation: ${row.description||''}`); render(); }
+  const vp = varCanPrice() ? await varValuePatchFor(id, 'varVal-'+id) : {patch:{}};
+  if(!vp) return;
+  const row = await dbUpdate('variations', id, Object.assign({approval_status:'approved', decided_by:ME.id, decided_at:new Date().toISOString(), decline_reason:null}, vp.patch));
+  if(row){
+    if('cost_impact' in vp.patch) await varSyncValueToFinance(id, vp.oldVal, vp.val);
+    toast('Variation approved'); postSystemMessage(siteId, 'variation', `${ME.name} approved a variation: ${row.description||''}`); render();
+  }
 };
 window.startDeclineVariation = function(id){ varDecliningId = id; varDeclineReasonDraft = ''; render(); };
 window.cancelDeclineVariation = function(){ varDecliningId = null; render(); };
@@ -41797,8 +42124,13 @@ window.saveModifyAndApproveVariation = async function(siteId, id){
   const input = document.getElementById('varEditDesc');
   const desc = String(input ? input.value : varEditDescDraft || '').trim();
   if(!desc){ toast('Enter a description.'); return; }
-  const row = await dbUpdate('variations', id, {description:desc, approval_status:'approved', decided_by:ME.id, decided_at:new Date().toISOString(), decline_reason:null});
-  if(row){ varEditingId = null; toast('Modified and approved'); render(); }
+  const vp = varCanPrice() ? await varValuePatchFor(id, 'varEditVal') : {patch:{}};
+  if(!vp) return;
+  const row = await dbUpdate('variations', id, Object.assign({description:desc, approval_status:'approved', decided_by:ME.id, decided_at:new Date().toISOString(), decline_reason:null}, vp.patch));
+  if(row){
+    if('cost_impact' in vp.patch) await varSyncValueToFinance(id, vp.oldVal, vp.val);
+    varEditingId = null; toast('Modified and approved'); render();
+  }
 };
 window.deleteVariation = async function(siteId, id){
   if(!await customConfirm('Delete this variation? This cannot be undone.')) return;
@@ -41811,7 +42143,7 @@ async function renderVariations(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   varDraft = varDraft || {photo:null, desc:''};
-  const variations = await dbSelect('variations', 'site_id=eq.'+siteId+'&status=eq.'+varFilter+'&order=created_at.desc');
+  const variations = await dbSelect('variations', 'site_id=eq.'+siteId+'&status=eq.'+varFilter+'&order=created_at.desc&select='+varSelectCols());
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="filterrow">
@@ -41830,6 +42162,7 @@ async function renderVariations(siteId){
         <div class="info"><div class="name">${escapeHtml(v.description)}</div><div class="addr">${escapeHtml(nameOf(v.created_by))} · ${new Date(v.created_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</div></div>
         <span class="statustag2 ${v.status}">${v.status}</span>
         ${v.status!=='closed' ? `<span class="statustag" style="margin-left:6px;color:${approvalColor};border-color:${approvalColor};">${approvalLabel}</span>` : ''}
+        ${varCanPrice() && varValueOf(v)!=null ? `<span class="statustag" style="margin-left:6px;">${varMoney(varValueOf(v))}</span>` : ''}
         <span style="font-size:13px;color:var(--slate);margin-left:6px;">${open?'▼':'▶'}</span>
       </div>
       ${open ? `
@@ -41847,6 +42180,10 @@ async function renderVariations(siteId){
               <label class="field-label">Description</label>
               <textarea id="varEditDesc" rows="3" style="width:100%;font-family:inherit;font-size:13px;padding:10px;border-radius:8px;border:1px solid var(--line);box-sizing:border-box;" oninput="varEditDescDraft=this.value">${escapeHtml(v.description)}</textarea>
             </div>
+            ${varCanPrice() ? `<div class="formfield" style="margin:0 0 8px;">
+              <label class="field-label">Value to the client (£, ex VAT)</label>
+              <input id="varEditVal" type="text" inputmode="decimal" placeholder="e.g. 850" value="${varValueOf(v)!=null ? escapeHtml(varValueOf(v).toFixed(2)) : ''}">
+            </div>` : ''}
             <div style="display:flex;gap:6px;flex-wrap:wrap;">
               <button class="darkbtn" style="width:auto;padding:8px 12px;" onclick="saveModifyAndApproveVariation('${siteId}','${v.id}')">Save &amp; Approve</button>
               <button class="ghostbtn" style="width:auto;padding:8px 12px;" onclick="cancelModifyVariation()">Cancel</button>
@@ -41864,6 +42201,14 @@ async function renderVariations(siteId){
             </div>
           </div>
           ` : `
+          ${varCanPrice() ? `<div class="formfield" style="margin:10px 0 0;">
+            <label class="field-label" for="varVal-${v.id}">Value to the client (£, ex VAT)</label>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <input id="varVal-${v.id}" type="text" inputmode="decimal" placeholder="e.g. 850" value="${varValueOf(v)!=null ? escapeHtml(varValueOf(v).toFixed(2)) : ''}" style="flex:1;min-width:0;">
+              <button class="ghostbtn" style="width:auto;padding:8px 12px;margin:0;" onclick="saveVariationValue('${siteId}','${v.id}')">Save value</button>
+            </div>
+            <div class="stub" style="margin:4px 0 0;font-size:11.5px;">Goes to Finance as this variation’s price. It won’t replace a price Finance has typed.</div>
+          </div>` : ''}
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-top:10px;align-items:center;">
             ${(!v.approval_status || v.approval_status==='pending') ? `<button class="ghostbtn" style="width:100%;padding:8px 12px;color:var(--ok);border-color:var(--ok);" onclick="approveVariation('${siteId}','${v.id}')">Approve</button>` : ''}
             ${(!v.approval_status || v.approval_status==='pending') ? `<button class="ghostbtn" style="width:100%;padding:8px 12px;color:var(--red);border-color:var(--red);" onclick="startDeclineVariation('${v.id}')">Decline</button>` : ''}
@@ -41892,6 +42237,10 @@ async function renderVariations(siteId){
         <label class="field-label">Description</label>
         <textarea id="varDesc" placeholder="What's changed and why..." oninput="varDraft.desc=this.value">${escapeHtml(varDraft.desc)}</textarea>
       </div>
+      ${varCanPrice() ? `<div class="formfield">
+        <label class="field-label">Value to the client (£, ex VAT) — optional</label>
+        <input id="varNewVal" type="text" inputmode="decimal" placeholder="e.g. 850" value="${escapeHtml(varDraft.value||'')}" oninput="varDraft.value=this.value">
+      </div>` : ''}
       <button class="primarybtn" ${(varDraft.photo)?'':'disabled'} onclick="submitVariation('${siteId}')">Submit Variation</button>
     </div>
     ` : ''}
@@ -41911,9 +42260,11 @@ window.varPhoto = async function(input){
 };
 window.submitVariation = async function(siteId){
   const desc = (varDraft.desc||'').trim();
+  const val = varCanPrice() ? varReadValueInput('varNewVal') : undefined;
+  if(Number.isNaN(val)){ toast('Enter the value as a number, e.g. 850'); return; }
   const path = await uploadDataUrl('site-photos', siteId+'/variations/'+crypto.randomUUID()+'.jpg', varDraft.photo);
   if(!path) return;
-  const rows = await dbInsert('variations', {site_id:siteId, photo_path:path, description:desc||'—', created_by:ME.id, status:'live', approval_status:'pending'});
+  const rows = await dbInsert('variations', Object.assign({site_id:siteId, photo_path:path, description:desc||'—', created_by:ME.id, status:'live', approval_status:'pending'}, val!=null && val!==undefined ? {cost_impact: val.toFixed(2)} : {}));
   if(rows){
     postSystemMessage(siteId, 'variation', `${ME.name} raised a variation: ${desc||'(no description)'}`);
     varDraft = null;
@@ -41932,7 +42283,7 @@ window.exportVariationsPDF = async function(siteId, scope){
   if(scope==='live') qs += '&status=eq.live';
   else if(scope==='closed') qs += '&status=eq.closed';
   else qs += '&status=in.(live,closed)';
-  const variations = await dbSelect('variations', qs);
+  const variations = await dbSelect('variations', qs+'&select='+varSelectCols());
   if(!variations.length){ toast('No variations to export for that filter.'); return; }
   await loadAllProfiles();
   toast('Building PDF…');
@@ -42807,7 +43158,7 @@ window.coshhLibEmail = async function(){
   if(!stored){ toast('Could not upload the PDF — try again.'); return; }
   toast('Sending…');
   try{
-    const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', timeoutMs:90000, body: JSON.stringify({general_label:'COSHH assessments', recipient_email: to, cc_email: to!==ME.email ? ME.email : undefined, doc_title: p.label, file_url: publicUrl('mc-documents', stored)})});
+    const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', timeoutMs:90000, body: JSON.stringify({general_label:'COSHH assessments', recipient_email: to, cc_email: to!==ME.email ? ME.email : undefined, doc_title: p.label, file_url: publicUrl('mc-documents', stored), storage_bucket: 'mc-documents', storage_path: stored})});
     if(res && res.ok){ toast('Emailed'); coshhLibSel = new Set(); render(); } else toast('Could not send the email — '+(await safeErr(res)));
   }catch(e){ toast('Could not send the email.'); }
 };
@@ -43189,6 +43540,22 @@ async function myDirectMessages(siteId){
   try{
     const rows = await dbSelect('messages', `audience=eq.single&recipient_id=eq.${ME.id}&parent_id=is.null${siteId ? '&site_id=eq.'+siteId : ''}&order=created_at.desc&limit=50`);
     return Array.isArray(rows) ? rows : [];
+  }catch(e){ return []; }
+}
+// PB-07 (27 Oct): the unread ones of those, for the home, HUB and job Inbox
+// badges. "Read" is a message_reads row (user_id = me), written when the
+// Inbox or the job's Messages page lists the message (markMessagesRead).
+// Same window as the lists (newest 50), so anything counted can be cleared
+// by opening the Inbox.
+async function myUnreadDirectMessages(siteId){
+  if(!ME || !ME.id) return [];
+  try{
+    const since = new Date(Date.now()-180*864e5).toISOString();
+    const rows = await dbSelect('messages', `audience=eq.single&recipient_id=eq.${ME.id}&sender_id=neq.${ME.id}&parent_id=is.null${siteId ? '&site_id=eq.'+siteId : ''}&created_at=gte.${since}&order=created_at.desc&limit=50&select=id,site_id,sender_id,kind,body,created_at`);
+    if(!Array.isArray(rows) || !rows.length) return [];
+    const reads = await dbSelect('message_reads', `user_id=eq.${ME.id}&message_id=in.(${rows.map(m=>m.id).join(',')})&select=message_id`);
+    const read = new Set((reads||[]).map(r=>r.message_id));
+    return rows.filter(m=>!read.has(m.id));
   }catch(e){ return []; }
 }
 function mergeMessagesNewestFirst(a, b){
@@ -43690,7 +44057,7 @@ window.doDriverCheckAction = async function(type){
       for(const b of open) await dbUpdate('driver_breaks', b.id, {ended_at: new Date().toISOString()});
     }catch(e){ /* the weekly summary also closes a break at check-out */ }
   }
-  const rows = await dbInsert('driver_checkins', {org_id:ME.org_id, user_id:ME.id, type});
+  const rows = await dbInsert('driver_checkins', {org_id:ME.org_id, user_id:ME.id, type, ...checkinDeviceField()});
   driverCheckinBusy = false;
   if(rows){
     toast((type==='in'?'Checked in':'Checked out')+' · '+new Date().toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'}));
@@ -45334,7 +45701,7 @@ window.hoEmail = async function(kind){
       const path = hoState.siteId+'/om-exports/'+uid()+'-'+fname.replace(/[^a-z0-9.\-]+/gi,'_');
       const stored = await uploadToStorage('mc-documents', path, blob, blob.type);
       if(!stored){ hoBusy = ''; render(); toast('Could not upload the file — try again.'); return; }
-      const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', timeoutMs:120000, body: JSON.stringify({site_id: hoState.siteId, recipient_email: email, cc_email: email!==ME.email ? ME.email : undefined, doc_title: 'O&M Manual', file_url: publicUrl('mc-documents', stored), file_ext: kind==='docx' ? 'docx' : 'pdf'})});
+      const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', timeoutMs:120000, body: JSON.stringify({site_id: hoState.siteId, recipient_email: email, cc_email: email!==ME.email ? ME.email : undefined, doc_title: 'O&M Manual', file_url: publicUrl('mc-documents', stored), storage_bucket: 'mc-documents', storage_path: stored, file_ext: kind==='docx' ? 'docx' : 'pdf'})});
       hoBusy = ''; render();
       const out = res ? await res.json().catch(()=>({})) : {};
       if(res && res.ok && !out.error) toast('O&M manual emailed to '+email+(email!==ME.email?' (you\'ve been copied in)':'')+(out.attached===false?' — sent as a link (too big to attach)':''));
@@ -45359,6 +45726,7 @@ window.hoExportPdf = async function(onBuilt){
 };
 async function hoBuildPdf(){
   const d = hoState.data, c = d.cover, rgb = PDFLib.rgb;
+  try{ if(typeof presignStorageRefs === 'function') await presignStorageRefs(d); }catch(e){} // SEC-H3: one signing request per bucket, not one per photo
   const pdf = await PDFLib.PDFDocument.create();
   const bold = await pdf.embedFont(PDFLib.StandardFonts.HelveticaBold), reg = await pdf.embedFont(PDFLib.StandardFonts.Helvetica);
   const BRAND = pdfHexToRgb((ORG && ORG.color_primary) || '#8B1A1A'), INK = rgb(0.08,0.08,0.09), SLATE = rgb(0.35,0.36,0.4), LINE = rgb(0.7,0.7,0.72), LIGHT = rgb(0.94,0.94,0.95), WHITE = rgb(1,1,1);
@@ -45495,6 +45863,7 @@ window.hoExportWord = async function(onBuilt){
   hoBusy = 'Building the Word file…'; render();
   try{
     const d = hoState.data, c = d.cover;
+    try{ if(typeof presignStorageRefs === 'function') await presignStorageRefs(d); }catch(e){} // SEC-H3: sign every photo in one go
     const brand = String((ORG && ORG.color_primary) || '#8B1A1A').replace('#','').toUpperCase();
     const media = []; // {name, bytes, w, h}
     const imgXml = (im, maxWcm) => {
@@ -47364,6 +47733,15 @@ async function renderRoute(){
     if(page==='mc'){
       const site = SITES.find(s=>s.id===siteId);
       const sub = parts[3];
+      // PA-38: a tile a manager has hidden from operatives (⋮ › Hide from operatives,
+      // site.mc_hidden_tiles) can't be opened by a direct link either — same rule as
+      // getMcTiles (managers always see every tile). A subcontractor operative still
+      // reaches their own company's folder under a hidden Subcontractors tile.
+      if(sub && !isManager(ME) && ((site && site.mc_hidden_tiles) || []).includes(sub)){
+        const mySub = sub==='subcontractors' && !isClient(ME) ? await getMySubcontractorCompanyId(siteId) : null;
+        if(!mySub){ toast('That page isn’t available on this job.'); go(`#/site/${siteId}/home`); return; }
+        if(parts[4]!==mySub){ go(`#/site/${siteId}/mc/subcontractors/${mySub}`); return; }
+      }
       // Site Rules & Layout applies to every site regardless of
       // site.acting_as_main_contractor, so it stays reachable here. Site
       // Inductions is deliberately Main-Contractor-only — it belongs
@@ -48021,13 +48399,15 @@ window.openClientPoFile = async function(poId, idx){
 
 /* ---------- Admin Centre › Users: the per-person switch ---------- */
 // FA-15: when giving Finance makes someone a manager (908 finTeamToggle), their old role is
-// remembered so switching Finance off puts it back. There's no profiles column for it yet
-// (wanted: profiles.finance_prev_role), so it's kept on this device.
+// remembered so switching Finance off puts it back. It's saved on their profile
+// (profiles.finance_prev_role, 27 Oct) so any device can put it back. The copy kept on this
+// device is only a fallback for people given Finance before the column was used.
 const FIN_PREV_ROLE_LS = 'ophub.finPrevRole';
 function finPrevRoles(){ try{ const o = JSON.parse(localStorage.getItem(FIN_PREV_ROLE_LS)||'{}'); return o && typeof o==='object' ? o : {}; }catch(e){ return {}; } }
-function finPrevRoleGet(userId){ const v = finPrevRoles()[userId]; return v && ['operative','driver','subcontractor'].includes(v) ? v : null; }
+const FIN_PREV_ROLES = ['operative','driver','subcontractor','site_manager','client'];
+function finPrevRoleGet(userId){ const v = finPrevRoles()[userId]; return v && FIN_PREV_ROLES.includes(v) ? v : null; }
 function finPrevRoleSet(userId, role){ try{ const o = finPrevRoles(); if(role) o[userId] = role; else delete o[userId]; localStorage.setItem(FIN_PREV_ROLE_LS, JSON.stringify(o)); }catch(e){} }
-const FIN_ROLE_WORD = {operative:'an operative', driver:'a driver', subcontractor:'a subcontractor', pm:'a manager', admin:'an admin'};
+const FIN_ROLE_WORD = {operative:'an operative', driver:'a driver', subcontractor:'a subcontractor', site_manager:'a site manager', client:'a client', pm:'a manager', admin:'an admin'};
 window.toggleFinanceAccess = async function(userId){
   if(!isFinanceUser()) return;
   const p = PROFILES[userId]; if(!p) return;
@@ -48037,15 +48417,20 @@ window.toggleFinanceAccess = async function(userId){
   if(!row) return;
   if(row.finance_enabled !== next){ toast('Only an admin with Finance switched on can change this.'); return; }
   p.finance_enabled = row.finance_enabled;
+  if(row.role) p.role = row.role;
   // Switching off: if they were only made a manager for Finance, put their old role back.
-  const prev = !next ? finPrevRoleGet(userId) : null;
+  // The profile's saved role first (any device), then this device's copy (older rows).
+  const saved = !next && FIN_PREV_ROLES.includes(row.finance_prev_role) ? row.finance_prev_role : null;
+  const prev = !next ? (saved || finPrevRoleGet(userId)) : null;
   if(prev && p.role==='pm'){
-    const back = await dbUpdate('profiles', userId, {role:prev});
+    const back = await dbUpdate('profiles', userId, {role:prev, finance_prev_role:null});
     if(back && back.role===prev){ p.role = prev; finPrevRoleSet(userId, null); toast('OpHUB Finance switched off for '+p.name+' — they’re '+FIN_ROLE_WORD[prev]+' again'); }
     else toast('OpHUB Finance switched off for '+p.name+', but they’re still a manager — change their role in Admin Centre › Users.');
     render(); return;
   }
-  if(!next && prev) finPrevRoleSet(userId, null);   // their role was changed some other way since — leave it
+  // Their role was changed some other way since — leave it, and forget the old one.
+  if(!next && prev) finPrevRoleSet(userId, null);
+  if(!next && row.finance_prev_role) await dbUpdate('profiles', userId, {finance_prev_role:null});
   toast(next ? 'OpHUB Finance switched on for '+p.name : 'OpHUB Finance switched off for '+p.name);
   render();
 };
@@ -50245,7 +50630,30 @@ async function finInboxClaim(it){
   if(r===null) return {ok:false, why:'offline'};
   return r ? {ok:true, revert} : {ok:false, why:'taken'};
 }
+// FX-P1 (27 Oct): file an inbox item in ONE database step (fin_inbox_file): the
+// item is locked, the purchase invoice added and linked, and the item marked
+// filed all together, so it can't be left "filed" with no invoice. pi = the
+// purchase invoice fields. Returns {ok:true, pi}, {ok:false, why} (same "why"
+// values as finInboxClaim, plus 'error' with a message), or {missing:true}
+// when the function isn't on the server yet (then the old claim / insert path runs).
+async function finInboxFileRpc(id, pi){
+  let res;
+  try{ res = await sbFetch('/rest/v1/rpc/fin_inbox_file', {method:'POST', body:JSON.stringify({p_id:id, p_pi:pi})}); }
+  catch(e){ return {ok:false, why:'offline'}; }
+  if(!res.ok){
+    let code = '', msg = '';
+    try{ const j = await res.json(); code = j.code || ''; msg = j.message || ''; }catch(e){}
+    if(res.status===404 || code==='PGRST202' || code==='42883') return {missing:true};
+    return {ok:false, why:'error', msg: msg || String(res.status)};
+  }
+  let d = null; try{ d = await res.json(); }catch(e){}
+  if(d && d.ok && d.pi) return {ok:true, pi:d.pi};
+  const why = d && d.why;
+  return {ok:false, why: why==='busy' ? 'busy' : why==='taken' ? 'taken' : 'error',
+    msg: why==='bad_site' ? 'that project isn’t one of yours' : why==='bad_po' ? 'that PO wasn’t found' : why==='bad_amount' ? 'check the amounts' : why==='not_allowed' ? 'you need Finance access to file invoices' : 'please try again'};
+}
 function finInboxClaimToast(c){
+  if(c && c.why==='error'){ toast('Couldn’t file it — '+(c.msg||'please try again')+'. It’s still in the inbox.'); return; }
   toast(c.why==='offline' ? 'Couldn’t reach the server — it’s still in the inbox. Check your signal and try again.'
     : c.why==='busy' ? 'Someone started filing this a moment ago. If it’s still here in 5 minutes, file it again.'
     : 'This one has just been filed by someone else.');
@@ -50426,14 +50834,23 @@ window.finInboxFile = async function(id){
       if(mats.length && !mats.some(m=>m.grn)) flags.push('nothing on this PO has been marked received yet');
     }
   } else flags.push('no PO');
+  // FX-P1: one server step (claim + purchase invoice + link) when the database has it.
+  const one = await finInboxFileRpc(id, {site_id:siteId, po_id:poId||null, supplier_name:supplier, invoice_no:no||null, invoice_date:g('date')||finToday(),
+    net:finRound(net), vat:finRound(vat), total:finRound(total), status: flags.length ? 'query' : 'to_approve', query_note: flags.length ? flags.join('; ') : null});
+  let pi;
+  if(!one.missing){
+    if(!one.ok){ finInboxClaimToast(one); if(one.why!=='offline') render(); return; }
+    pi = [one.pi];
+  } else {
   // FA-03: claim it first (only works while it's still "new"), so two people can't file it twice.
   const claim = await finInboxClaim(it);
   if(!claim.ok){ finInboxClaimToast(claim); if(claim.why!=='offline') render(); return; }
-  const pi = await dbInsert('purchase_invoices', {org_id:ME.org_id, site_id:siteId, po_id:poId||null, no_po:!poId, kind:'invoice', supplier_id:po?po.supplier_id:null, supplier_name:supplier,
+  pi = await dbInsert('purchase_invoices', {org_id:ME.org_id, site_id:siteId, po_id:poId||null, no_po:!poId, kind:'invoice', supplier_id:po?po.supplier_id:null, supplier_name:supplier,
     invoice_no:no||null, invoice_date:g('date')||finToday(), net:finRound(net), vat:finRound(vat), total:finRound(total), status: flags.length ? 'query' : 'to_approve', query_note: flags.length ? flags.join('; ') : null,
     file_path:it.file_path, file_name:it.file_name, created_by:ME.id});
   if(!pi || !pi[0]){ await dbUpdate('fin_inbox', id+'&purchase_invoice_id=is.null', claim.revert); return; } // didn't save — put it back
   await dbUpdate('fin_inbox', id, {status:'filed', site_id:siteId, po_id:poId||null, purchase_invoice_id:pi[0].id});
+  }
   if(typeof finCheckInvoiceLines==='function') finCheckInvoiceLines(pi[0].id).then(r=>{ if(r && r.notes.length) toast(r.notes.length+' line difference'+(r.notes.length===1?'':'s')+' with the PO — see Purchases'); });
   toast(flags.length ? 'Filed and flagged: '+flags[0] : 'Filed — waiting for approval');
   render();
@@ -50786,6 +51203,13 @@ function finOnlyRoute(parts){
   const ok = ['finance', 'account', 'signature', 'suppliers', 'join', 'reset'].includes(top)
     || (top === 'site' && parts[2] === 'finance');
   if(!ok){ go('#/finance'); return null; }
+  // CORE-C1: the job in a #/site/<id>/finance link must be one of ours. A made-up id (quote
+  // marks and all) goes back to the Finance home here; a proper id we don't have yet carries
+  // on to the router's own check (890), which looks it up once and also lands on #/finance.
+  if(top === 'site' && !(SITES||[]).some(s=>s && s.id===parts[1])
+     && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(parts[1]||'')){
+    toast('That job couldn’t be found.'); go('#/finance'); return null;
+  }
   return undefined;
 }
 
@@ -50990,20 +51414,22 @@ window.finTeamToggle = async function(userId){
     if(userId===ME.id) return;
     if(!await customConfirm('Give '+p.name+' Finance? This also makes them a manager, so they can see every job on the Projects side too. Switching Finance off later makes them '+(FIN_ROLE_WORD[p.role]||'what they were')+' again.')) return;
     const wasRole = p.role;
-    const on = await dbUpdate('profiles', userId, {finance_enabled:true});
+    // FA-15: their old role is saved on the profile in the same update, so switching Finance
+    // off on any device puts it back (900 toggleFinanceAccess).
+    const on = await dbUpdate('profiles', userId, {finance_enabled:true, finance_prev_role:wasRole});
     if(!on) return;
-    if(on.finance_enabled!==true){ toast('Only an admin with Finance switched on can change this.'); return; }
+    if(on.finance_enabled!==true){ toast('Only an admin with Finance switched on can change this.'); if(on.finance_prev_role) dbUpdate('profiles', userId, {finance_prev_role:null}); return; }
     p.finance_enabled = true;
     const r = await dbUpdate('profiles', userId, {role:'pm'});
     if(!r || r.role!=='pm'){
       // Don't leave them half set up: Finance goes back off.
-      const off = await dbUpdate('profiles', userId, {finance_enabled:false});
+      const off = await dbUpdate('profiles', userId, {finance_enabled:false, finance_prev_role:null});
       if(off && off.finance_enabled===false) p.finance_enabled = false;
       toast(p.finance_enabled ? 'Finance is on for '+p.name+' but they couldn’t be made a manager — change their role in Admin Centre › Users.' : 'Couldn’t make '+p.name+' a manager, so Finance was left off.');
       render(); return;
     }
     p.role = 'pm';
-    finPrevRoleSet(userId, wasRole);
+    finPrevRoleSet(userId, wasRole); // device copy too, in case the profile column couldn't be saved
     toast('OpHUB Finance switched on for '+p.name+' (now a manager)');
     render(); return;
   }
@@ -52917,7 +53343,7 @@ async function finReadDoc(opts){
   // Basic reader
   if(sheetLines) return {data:{lines:sheetLines}, via:'basic', path};
   if(path && /\.pdf$/i.test(path)){
-    const url = typeof presignStorageUrl==='function' ? await presignStorageUrl(publicUrl('finance-docs', path)) : publicUrl('finance-docs', path);
+    const url = typeof resolveStorageUrl==='function' ? await resolveStorageUrl(publicUrl('finance-docs', path)) : publicUrl('finance-docs', path); // signed link (finance-docs is private)
     const text = await finPdfText(url);
     const head = finReadInvoiceText(text, {pos:[], suppliers:[], sites:[]}) || {};
     return {data:{supplier:head.supplier, doc_number:head.invoice_no, doc_date:head.date, net:head.net, vat:head.vat, total:head.total, po_number:head.po_number, lines:finParseLinesFromText(text)}, via:'basic', path};
@@ -54695,13 +55121,23 @@ async function finInboxFileCore(it, f, quiet){
   // "new", so when two phones / PCs file the same emailed invoice at once only one of them gets
   // a row back — the other stops here instead of filing a second copy.
   // FX-P1: an item left "filed" with no invoice (a save that never finished) can be claimed again after 5 minutes.
+  // FX-P1 (27 Oct): now one server step (fin_inbox_file) — claim, purchase invoice and link together.
+  // The old claim / insert / link path below only runs if that function isn't on the server.
+  const one = typeof finInboxFileRpc==='function' ? await finInboxFileRpc(it.id, {site_id:f.site_id, po_id:f.po_id||null, supplier_name:f.supplier||'Supplier', invoice_no:f.invoice_no||null,
+    invoice_date:f.date||finToday(), net:finRound(net), vat:finRound(vat), total:finRound(total), status: flags.length ? 'query' : 'to_approve', query_note: flags.length ? flags.join('; ') : null}) : {missing:true};
+  let pi;
+  if(!one.missing){
+    if(!one.ok){ if(!quiet) finInboxClaimToast(one); return null; }
+    pi = [one.pi];
+  } else {
   const claim = await finInboxClaim(it);
   if(!claim.ok){ if(!quiet) finInboxClaimToast(claim); return null; }
-  const pi = await dbInsert('purchase_invoices', {org_id:ME.org_id, site_id:f.site_id, po_id:f.po_id||null, no_po:!f.po_id, kind:'invoice', supplier_id:po?po.supplier_id:null, supplier_name:f.supplier||'Supplier',
+  pi = await dbInsert('purchase_invoices', {org_id:ME.org_id, site_id:f.site_id, po_id:f.po_id||null, no_po:!f.po_id, kind:'invoice', supplier_id:po?po.supplier_id:null, supplier_name:f.supplier||'Supplier',
     invoice_no:f.invoice_no||null, invoice_date:f.date||finToday(), net:finRound(net), vat:finRound(vat), total:finRound(total), status: flags.length ? 'query' : 'to_approve', query_note: flags.length ? flags.join('; ') : null,
     file_path:it.file_path, file_name:it.file_name, created_by:ME.id});
   if(!pi || !pi[0]){ await dbUpdate('fin_inbox', it.id+'&purchase_invoice_id=is.null', claim.revert); return null; } // didn't save — put it back in the inbox
   await dbUpdate('fin_inbox', it.id, {status:'filed', site_id:f.site_id, po_id:f.po_id||null, purchase_invoice_id:pi[0].id});
+  }
   if(typeof finCheckInvoiceLines==='function') finCheckInvoiceLines(pi[0].id).catch(()=>null);
   return pi[0];
 }
@@ -64310,15 +64746,65 @@ async function mplCancelMaterials(ids, poNumber){
   const rows = await mplPatch('materials', 'id=in.('+clean.join(',')+')&status=neq.cancelled', {status:'cancelled', cancel_reason:'Cancelled on PO '+(poNumber||'')+' in Finance', cancelled_by:ME.id});
   return rows ? rows.length : 0;
 }
+// Materials leftover (27 Oct): each request's status before the cancel is kept on its PO line
+// (items[].was_status, matched by material_id), so reopening the PO can put it back.
+const MPL_REQ_STATUSES = ['pending','sent','closed'];
+async function mplRememberStatuses(po){
+  const ids = Array.from(new Set((po.material_ids||[]).map(mplId).filter(Boolean)));
+  if(!ids.length) return {};
+  const rows = await dbSelectNet('materials', 'id=in.('+ids.join(',')+')&status=neq.cancelled&select=id,status');
+  const was = {}; (rows||[]).forEach(m=>{ if(MPL_REQ_STATUSES.includes(m.status)) was[m.id] = m.status; });
+  return was;
+}
+async function mplSaveWasStatus(po, was){
+  if(!po || !Array.isArray(po.items) || !Object.keys(was).length) return;
+  let hit = false;
+  const items = po.items.map(l=>{ if(l && l.material_id && was[l.material_id]){ hit = true; return Object.assign({}, l, {was_status:was[l.material_id]}); } return l; });
+  if(hit) await mplPatch('purchase_orders', 'id=eq.'+mplId(po.id), {items});
+}
+// Reopening a cancelled PO: the site requests it cancelled go back to what they were (or to
+// 'sent' — the "ordered" state on the site's list — when that wasn't recorded, e.g. older
+// cancels). Only requests cancelled by this PO's cancel are touched.
+async function mplRestoreMaterials(po){
+  const ids = Array.from(new Set((po.material_ids||[]).map(mplId).filter(Boolean)));
+  if(!ids.length) return 0;
+  const rows = await dbSelectNet('materials', 'id=in.('+ids.join(',')+')&status=eq.cancelled&select=id,cancel_reason');
+  const mine = (rows||[]).filter(m=>String(m.cancel_reason||'')==='Cancelled on PO '+(po.number||'')+' in Finance');
+  if(!mine.length) return 0;
+  const was = {}; (po.items||[]).forEach(l=>{ if(l && l.material_id && MPL_REQ_STATUSES.includes(l.was_status)) was[l.material_id] = l.was_status; });
+  const groups = {};
+  mine.forEach(m=>{ const st = was[m.id] || 'sent'; (groups[st] = groups[st] || []).push(m.id); });
+  let n = 0;
+  for(const st of Object.keys(groups)){
+    const done = await mplPatch('materials', 'id=in.('+groups[st].join(',')+')&status=eq.cancelled', {status:st, cancel_reason:null, cancelled_by:null});
+    n += done ? done.length : 0;
+  }
+  if(n && Array.isArray(po.items) && po.items.some(l=>l && l.was_status)){
+    await mplPatch('purchase_orders', 'id=eq.'+mplId(po.id), {items: po.items.map(l=>{ if(!l || !l.was_status) return l; const c = Object.assign({}, l); delete c.was_status; return c; })});
+  }
+  return n;
+}
 (function(){
   const base = window.setFinPoStatus;
   if(typeof base!=='function') return;
   window.setFinPoStatus = async function(poId, status){
+    // The requests' statuses are read alongside the cancel (only the PO changes there). No await
+    // before the base call: it reads the tapped button from window.event straight away.
+    const beforeP = status==='cancelled'
+      ? mplGetOne('purchase_orders', 'id=eq.'+mplId(poId)+'&select=id,material_ids').then(po0=>po0 ? mplRememberStatuses(po0) : null).catch(()=>null)
+      : null;
     const r = await base.apply(this, arguments); // reads the tapped button straight away ("tap again to cancel")
-    if(status!=='cancelled') return r;
+    const before = beforeP ? await beforeP : null;
+    if(status!=='cancelled' && status!=='open') return r;
     try{
-      const po = await mplGetOne('purchase_orders', 'id=eq.'+mplId(poId)+'&select=id,number,status,material_ids');
-      if(!po || po.status!=='cancelled') return r; // first tap only asked "tap again"
+      const po = await mplGetOne('purchase_orders', 'id=eq.'+mplId(poId)+'&select=id,number,status,material_ids,items');
+      if(!po || po.status!==status) return r; // first tap only asked "tap again", or the save failed
+      if(status==='open'){
+        const n = await mplRestoreMaterials(po);
+        if(n) toast('PO reopened — '+n+' site request'+(n===1?'':'s')+' put back');
+        return r;
+      }
+      if(before) await mplSaveWasStatus(po, before);
       const n = await mplCancelMaterials(po.material_ids || [], po.number);
       if(n) toast('PO cancelled — '+n+' site request'+(n===1?'':'s')+' marked cancelled');
     }catch(e){ console.error(e); }
@@ -64579,7 +65065,13 @@ async function mplGrnFromTask(taskId){
   const rows = await mplPatch('materials', 'id=in.('+ids.join(',')+')&grn=is.null', {grn});
   const n = rows ? rows.length : 0;
   if(n && t.site_id) logSiteActivity(t.site_id, 'material_grn', 'Goods received: collected by '+who+' ('+n+' item'+(n===1?'':'s')+')');
-  return n;
+  if(n) return n;
+  // Map L41 (27 Oct): the database now marks them received itself when the task
+  // is completed (delivery_task_grn_on_complete, which also logs it), so usually
+  // there's nothing left to patch here. Count what it did, for the toast. A
+  // driver can't read Materials, so for them this is just 0 (no extra toast).
+  const done = await dbSelect('materials', 'id=in.('+ids.join(',')+')&grn->>task_id=eq.'+mplId(taskId)+'&select=id');
+  return Array.isArray(done) ? done.length : 0;
 }
 ['markDeliveryComplete', 'completeDeliveryTask'].forEach(name=>{
   const base = window[name];
@@ -64795,7 +65287,9 @@ window.msgPushOpen = function(data){
   if(m.kind==='pi_query_reply') window.mplOpenPiForFinance(mplId(m.site_id), mplId(rel)); else window.openPiQuery(rel);
   return true;
 };
-// HUB: unread delivery-problem / invoice-query messages sent to me (they open from the Inbox).
+// HUB: unread messages sent to me alone. Delivery problem / invoice query ones open from the
+// Inbox; PB-07 (27 Oct): every other one-person message (delivery assigned, time off, sub form…)
+// counts too, so the HUB list and the home badge (which counts the HUB list) include them.
 (function(){
   if(typeof computeHubItems!=='function') return;
   const base = computeHubItems;
@@ -64803,15 +65297,12 @@ window.msgPushOpen = function(data){
     const out = await base.apply(this, arguments);
     try{
       const who = forcedPmId!==undefined ? forcedPmId : (typeof hubFilterPmId!=='undefined' ? hubFilterPmId : '');
-      if(who!=='' || !out || !Array.isArray(out.items)) return out;
-      const since = new Date(Date.now()-90*864e5).toISOString();
-      const rows = await dbSelect('messages', 'audience=eq.single&recipient_id=eq.'+ME.id+'&kind=in.(grn_problem,pi_query,pi_query_reply)&created_at=gte.'+since+'&order=created_at.desc&limit=50&select=id,site_id,kind,body,created_at');
-      if(!rows.length) return out;
-      const reads = await dbSelect('message_reads', 'user_id=eq.'+ME.id+'&message_id=in.('+rows.map(m=>mplId(m.id)).join(',')+')&select=message_id');
-      const read = new Set(reads.map(x=>x.message_id));
-      rows.filter(m=>!read.has(m.id)).forEach(m=>{
+      if((who!=='' && who!==ME.id && who!=='all') || !out || !Array.isArray(out.items)) return out;
+      const rows = await myUnreadDirectMessages(null);
+      rows.forEach(m=>{
         const site = m.site_id ? (SITES||[]).find(s=>s.id===m.site_id) : null;
-        out.items.push({type:'message', typeLbl:MPL_KIND_LABEL[m.kind], label:String(m.body||MPL_KIND_LABEL[m.kind]).slice(0,120), siteId:m.site_id||null, siteName: site ? site.name : 'Finance', pmId:null, dueDate:null, at:new Date(m.created_at), href:'#/my-messages'});
+        const lbl = MPL_KIND_LABEL[m.kind];
+        out.items.push({type:'message', typeLbl:lbl || 'Message', label:String(m.body||lbl||'New message').slice(0,120), siteId:m.site_id||null, siteName: site ? site.name : (lbl ? 'Finance' : 'All sites'), pmId:null, dueDate:null, at:new Date(m.created_at), href: (!lbl && site) ? '#/site/'+site.id+'/messages' : '#/my-messages'});
       });
     }catch(e){ console.error(e); }
     return out;
@@ -66345,6 +66836,66 @@ async function dtoStop(msg){
   .finsalesub .finreptbl-wrap .fininvtbl thead th:first-child, .finsalesub .finreptbl-wrap .fininvtbl tbody td:first-child{text-align:center !important;}
 }`;
   document.head.appendChild(st);
+})();
+
+/* ============================================================
+   Map L22 / Proposal P06 (27 Oct 2026): site variations reach Finance at
+   their value, not £0.
+
+   A PM/admin types the variation's value on Projects › Variations (800,
+   variations.cost_impact). Finance's copy of it (fin_variations.variation_id)
+   gets that value as its quoted price, and as its agreed value when it's
+   agreed — but only where Finance hasn't typed one (the field is empty).
+   800 copies it straight away when the person saving is a Finance user;
+   otherwise it is filled here, the next time Finance opens the job's
+   Variations (BoQ › Variations) or makes a new application.
+   Site variations not in the register yet are imported with the value by
+   9219s finCtVariationsFill / 911 finVarFromSite, and an approved one added
+   straight onto an application uses it too (902 newFinApplication).
+   ============================================================ */
+const FIN_VAR_SITE_SYNC_AT = {}; // siteId -> time of the last check (one check per 20 s per job)
+async function finVarSiteValuesSync(siteId, force){
+  if(!siteId || !(typeof isFinanceUser==='function' && isFinanceUser())) return 0;
+  if(typeof isFinanceOnly==='function' && isFinanceOnly()) return 0; // no Projects side
+  if(!force && FIN_VAR_SITE_SYNC_AT[siteId] && Date.now()-FIN_VAR_SITE_SYNC_AT[siteId] < 20000) return 0;
+  FIN_VAR_SITE_SYNC_AT[siteId] = Date.now();
+  const [fvs, svs] = await Promise.all([
+    dbSelectNet('fin_variations', 'site_id=eq.'+siteId+'&variation_id=not.is.null&select=id,variation_id,status,quoted,agreed_value').catch(()=>[]),
+    dbSelectNet('variations', 'site_id=eq.'+siteId+'&cost_impact=not.is.null&select=id,cost_impact').catch(()=>[]),
+  ]);
+  if(!Array.isArray(fvs) || !fvs.length || !Array.isArray(svs) || !svs.length) return 0;
+  const val = {};
+  svs.forEach(v=>{ const n = typeof varValueOf==='function' ? varValueOf(v) : finNum(v.cost_impact); if(n!=null && !isNaN(n)) val[v.id] = n; });
+  let n = 0;
+  for(const f of fvs){
+    const v = val[f.variation_id]; if(v==null) continue;
+    const patch = {};
+    if(f.quoted==null) patch.quoted = v;                                     // never over a typed price
+    if(f.status==='agreed' && f.agreed_value==null) patch.agreed_value = v;
+    if(!Object.keys(patch).length) continue;
+    try{
+      const res = await sbFetch('/rest/v1/fin_variations?id=eq.'+f.id+'&variation_id=eq.'+f.variation_id, {method:'PATCH', headers:{'Prefer':'return=minimal'}, body:JSON.stringify(patch)});
+      if(res && res.ok) n++;
+    }catch(e){}
+  }
+  if(n){ try{ if(typeof FIN_VD_DATA!=='undefined' && FIN_VD_DATA) delete FIN_VD_DATA[siteId]; }catch(e){} }
+  return n;
+}
+(function(){
+  if(typeof finCtVariationsFill==='function'){
+    const base = finCtVariationsFill;
+    finCtVariationsFill = async function(siteId){
+      try{ await finVarSiteValuesSync(siteId); }catch(e){ console.warn(e); }
+      return base.apply(this, arguments);
+    };
+  }
+  const app = window.newFinApplication;
+  if(typeof app==='function'){
+    window.newFinApplication = async function(siteId){
+      try{ await finVarSiteValuesSync(siteId, true); }catch(e){ console.warn(e); }
+      return app.apply(this, arguments);
+    };
+  }
 })();
 
 /* ============================================================

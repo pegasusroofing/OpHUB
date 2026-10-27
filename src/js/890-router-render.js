@@ -372,6 +372,15 @@ async function renderRoute(){
     if(page==='mc'){
       const site = SITES.find(s=>s.id===siteId);
       const sub = parts[3];
+      // PA-38: a tile a manager has hidden from operatives (⋮ › Hide from operatives,
+      // site.mc_hidden_tiles) can't be opened by a direct link either — same rule as
+      // getMcTiles (managers always see every tile). A subcontractor operative still
+      // reaches their own company's folder under a hidden Subcontractors tile.
+      if(sub && !isManager(ME) && ((site && site.mc_hidden_tiles) || []).includes(sub)){
+        const mySub = sub==='subcontractors' && !isClient(ME) ? await getMySubcontractorCompanyId(siteId) : null;
+        if(!mySub){ toast('That page isn’t available on this job.'); go(`#/site/${siteId}/home`); return; }
+        if(parts[4]!==mySub){ go(`#/site/${siteId}/mc/subcontractors/${mySub}`); return; }
+      }
       // Site Rules & Layout applies to every site regardless of
       // site.acting_as_main_contractor, so it stays reachable here. Site
       // Inductions is deliberately Main-Contractor-only — it belongs

@@ -110,6 +110,13 @@ function deviceLockMessage(lock){
         : `This is a new device for your account. Ask your Project Manager or admin to approve it in Admin Centre › Device Locks, then try signing in again.`)
     : 'Could not verify this device — check your connection and try again.';
 }
+// CORE-M3 (27 Oct): each check-in carries this phone's device id, so the
+// database can refuse a check-in from a phone that is locked to someone else
+// or still waiting for approval (checkin_device_guard). PMs/admins are exempt
+// there, as here. Never throws: no id simply means the old behaviour.
+function checkinDeviceField(){
+  try{ if(!deviceLockApplies(ME)) return {}; const id = getDeviceId(); return id ? {device_id: String(id)} : {}; }catch(e){ return {}; }
+}
 function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 // Shared "CC client contact" tick box, dropped into every "email this"
 // picker in the app except Material and Price (those stay internal-only).

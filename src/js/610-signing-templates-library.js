@@ -90,6 +90,8 @@ async function stampRamsSignLayout(pdfDoc, layout, people){
     return imgCache.get(path);
   };
   const personFor = w=>{ const cn = ramsBoxClientNum(w); return cn ? ((people.clients||{})[cn] || null) : (w==='pm' ? people.pm : (people.ops[ramsBoxOpNum(w)-1] || null)); };
+  // SEC-H3: sign every signature picture's link in one request, not one per person.
+  try{ if(typeof presignStorageUrls === 'function') await presignStorageUrls(boxes.map(b=>{ const s = personFor(b.w); return s && s.imagePath ? publicUrl('signatures', s.imagePath) : null; }).filter(Boolean)); }catch(e){}
   for(const b of boxes){
     const s = personFor(b.w); if(!s) continue;
     const page = pages[b.p-1]; if(!page) continue;
@@ -245,7 +247,7 @@ window.emailSignedRams = async function(siteId, ramsId){
   toast('Sending…');
   try{
     const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', body: JSON.stringify({
-      site_id: siteId, recipient_email: trimmed, cc_email: emailTo.cc, client_cc_email: ccClientEmailFromPromptAnswer(answer, site), doc_title: built.doc.name+' (Signed RAMS)', file_url: publicUrl('mc-documents', stored),
+      site_id: siteId, recipient_email: trimmed, cc_email: emailTo.cc, client_cc_email: ccClientEmailFromPromptAnswer(answer, site), doc_title: built.doc.name+' (Signed RAMS)', file_url: publicUrl('mc-documents', stored), storage_bucket: 'mc-documents', storage_path: stored,
     })});
     if(res && res.ok){ toast('Emailed'); } else { toast('Could not send the email — please try again.'); }
   }catch(e){ toast('Could not send the email — please try again.'); }

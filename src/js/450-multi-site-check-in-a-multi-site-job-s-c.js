@@ -216,7 +216,7 @@ window.doCheckActionSub = async function(siteId, subId, type){
   }
 
   if(!orgAllowsGps() || isManager(ME)){
-    const rows = await dbInsert('checkins', {site_id:siteId, sub_site_id:subId, user_id:ME.id, type});
+    const rows = await dbInsert('checkins', {site_id:siteId, sub_site_id:subId, user_id:ME.id, type, ...checkinDeviceField()});
     checkinBusy = false;
     if(rows){
       toast((type==='in'?'Checked in':'Checked out')+' · '+new Date().toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'}));
@@ -242,7 +242,7 @@ window.doCheckActionSub = async function(siteId, subId, type){
       return;
     }
   }
-  const rows = await dbInsert('checkins', {site_id:siteId, sub_site_id:subId, user_id:ME.id, type, lat:g.lat, lon:g.lon, accuracy_m:Math.round(g.accuracy||0)});
+  const rows = await dbInsert('checkins', {site_id:siteId, sub_site_id:subId, user_id:ME.id, type, lat:g.lat, lon:g.lon, accuracy_m:Math.round(g.accuracy||0), ...checkinDeviceField()});
   checkinBusy = false;
   if(rows){
     toast((type==='in'?'Checked in':'Checked out')+' · '+new Date().toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'}));
@@ -269,7 +269,7 @@ window.doCheckAction = async function(siteId, type){
   // and admins get the same no-GPS path regardless of tier — they don't
   // need to be physically on site to check themselves in/out.
   if(!orgAllowsGps() || isManager(ME)){
-    const rows = await dbInsert('checkins', {site_id:siteId, user_id:ME.id, type});
+    const rows = await dbInsert('checkins', {site_id:siteId, user_id:ME.id, type, ...checkinDeviceField()});
     checkinBusy = false;
     if(rows){
       toast((type==='in'?'Checked in':'Checked out')+' · '+new Date().toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'}));
@@ -294,7 +294,7 @@ window.doCheckAction = async function(siteId, type){
       return;
     }
   }
-  const rows = await dbInsert('checkins', {site_id:siteId, user_id:ME.id, type, lat:g.lat, lon:g.lon, accuracy_m:Math.round(g.accuracy||0)});
+  const rows = await dbInsert('checkins', {site_id:siteId, user_id:ME.id, type, lat:g.lat, lon:g.lon, accuracy_m:Math.round(g.accuracy||0), ...checkinDeviceField()});
   checkinBusy = false;
   if(rows){
     toast((type==='in'?'Checked in':'Checked out')+' · '+new Date().toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'}));

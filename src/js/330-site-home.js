@@ -70,8 +70,9 @@ async function renderSiteHome(siteId){
       ]);
       pending = pendingAw.length; wages = (wp||[]).length;
     }
-    // PMs/admin can switch pricing on from the job's home (it used to be hidden in Project settings).
-    const canTurnOn = !site.price_enabled && isFullManager(ME) && (ME.role==='admin' || site.responsible_pm_id===ME.id || !site.responsible_pm_id);
+    // The Price tile only shows when Price is ticked in the project's settings — no
+    // "Off — tap to turn on" tile on the job's home (Andy 27 Oct).
+    const canTurnOn = false;
     return {can, pending, wages, canTurnOn};
   })();
   const hsGapPromise = (async ()=>{

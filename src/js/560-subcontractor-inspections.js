@@ -88,7 +88,7 @@ window.addSubInspection = async function(input, siteId, companyId, folderId){
       try{
         await sbFetch('/functions/v1/send-subcontractor-inspection-email', {method:'POST', timeoutMs:60000, body: JSON.stringify({
           site_id: siteId, company_name: company ? company.name : null,
-          file_name: file.name, file_url: publicUrl('mc-documents', stored),
+          file_name: file.name, file_url: publicUrl('mc-documents', stored), storage_bucket: 'mc-documents', storage_path: stored,
         })});
       }catch(e){}
     }

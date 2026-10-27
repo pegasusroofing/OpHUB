@@ -15,9 +15,72 @@ let varEditingId = null; // id of the variation currently being modified-then-ap
 let varEditDescDraft = '';
 let varDecliningId = null; // id whose decline-reason box is open
 let varDeclineReasonDraft = '';
+// Map L22 / P06 (27 Oct): a site variation's value (variations.cost_impact, text) — typed by a
+// PM/admin here — is what Finance's register and applications use for it. Operatives and site
+// managers never see or type money here.
+function varCanPrice(){ return typeof isFullManager==='function' && isFullManager(ME); }
+// Everyone else downloads the variation without its value (the row's other columns only).
+const VAR_COLS_NO_VALUE = 'id,site_id,photo_path,description,created_by,created_at,status,approval_status,decided_by,decided_at,decline_reason,closed_at,schedule_section_id';
+function varSelectCols(){ return varCanPrice() || (typeof isFinanceUser==='function' && isFinanceUser()) ? '*' : VAR_COLS_NO_VALUE; }
+function varValueOf(v){ const n = Number(String(v && v.cost_impact!=null ? v.cost_impact : '').replace(/[£,\s]/g, '')); return (v && v.cost_impact!=null && String(v.cost_impact).trim()!=='' && isFinite(n)) ? n : null; }
+function varMoney(n){ return (n<0?'−':'')+'£'+Math.abs(Number(n)).toLocaleString('en-GB', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+// What's typed in a value box: undefined = no box on screen, null = left empty, NaN = not a number.
+function varReadValueInput(elId){
+  const el = document.getElementById(elId); if(!el) return undefined;
+  const t = String(el.value||'').replace(/[£,\s]/g, '');
+  if(t==='') return null;
+  const n = Number(t); return isFinite(n) ? Math.round(n*100)/100 : NaN;
+}
+// Finance users: the value goes onto the variation's Finance copy (fin_variations.variation_id)
+// straight away, but never over a price Finance typed: quoted / agreed value are only filled
+// when empty, or when they still hold this variation's previous site value. Other users: the
+// Finance side picks it up the next time it's opened (9219zzb finVarSiteValuesSync).
+async function varSyncValueToFinance(varId, oldVal, newVal){
+  if(newVal==null || !(typeof isFinanceUser==='function' && isFinanceUser())) return;
+  try{
+    const rows = await dbSelectNet('fin_variations', 'variation_id=eq.'+varId+'&select=id,status,quoted,agreed_value');
+    for(const f of rows||[]){
+      const patch = finVarSiteValuePatch(f, oldVal, newVal);
+      if(patch) await sbFetch('/rest/v1/fin_variations?id=eq.'+f.id, {method:'PATCH', headers:{'Prefer':'return=minimal'}, body:JSON.stringify(patch)});
+    }
+  }catch(e){ console.warn('variation value not copied to Finance', e); }
+}
+function finVarSiteValuePatch(f, oldVal, newVal){
+  if(newVal==null || !f) return null;
+  const same = (x)=>x!=null && oldVal!=null && Math.abs(Number(x)-Number(oldVal)) < 0.005;
+  const patch = {};
+  if(f.quoted==null || same(f.quoted)) patch.quoted = newVal;
+  if(f.status==='agreed' && (f.agreed_value==null || same(f.agreed_value))) patch.agreed_value = newVal;
+  Object.keys(patch).forEach(k=>{ if(f[k]!=null && Math.abs(Number(f[k])-newVal) < 0.005) delete patch[k]; });
+  return Object.keys(patch).length ? patch : null;
+}
+// Saves the value box (if it's on screen and changed) — on its own, or as part of an approve.
+async function varValuePatchFor(id, elId){
+  const val = varReadValueInput(elId);
+  if(val===undefined) return {patch:{}};
+  if(Number.isNaN(val)){ toast('Enter the value as a number, e.g. 850'); return null; }
+  const cur = (await dbSelect('variations', 'id=eq.'+id+'&select=cost_impact'))[0];
+  const oldVal = varValueOf(cur);
+  if(val===oldVal || (val==null && oldVal==null)) return {patch:{}, oldVal, val};
+  return {patch:{cost_impact: val==null ? null : val.toFixed(2)}, oldVal, val};
+}
+window.saveVariationValue = async function(siteId, id){
+  const vp = await varValuePatchFor(id, 'varVal-'+id); if(!vp) return;
+  if(!('cost_impact' in vp.patch)){ toast('Value saved'); return; }
+  const row = await dbUpdate('variations', id, vp.patch);
+  if(!row) return;
+  if(String(row.cost_impact||'')!==String(vp.patch.cost_impact||'')){ toast('Only a project manager or admin can set the value.'); return; }
+  await varSyncValueToFinance(id, vp.oldVal, vp.val);
+  toast(vp.val==null ? 'Value cleared' : 'Value saved — '+varMoney(vp.val)); render();
+};
 window.approveVariation = async function(siteId, id){
-  const row = await dbUpdate('variations', id, {approval_status:'approved', decided_by:ME.id, decided_at:new Date().toISOString(), decline_reason:null});
-  if(row){ toast('Variation approved'); postSystemMessage(siteId, 'variation', `${ME.name} approved a variation: ${row.description||''}`); render(); }
+  const vp = varCanPrice() ? await varValuePatchFor(id, 'varVal-'+id) : {patch:{}};
+  if(!vp) return;
+  const row = await dbUpdate('variations', id, Object.assign({approval_status:'approved', decided_by:ME.id, decided_at:new Date().toISOString(), decline_reason:null}, vp.patch));
+  if(row){
+    if('cost_impact' in vp.patch) await varSyncValueToFinance(id, vp.oldVal, vp.val);
+    toast('Variation approved'); postSystemMessage(siteId, 'variation', `${ME.name} approved a variation: ${row.description||''}`); render();
+  }
 };
 window.startDeclineVariation = function(id){ varDecliningId = id; varDeclineReasonDraft = ''; render(); };
 window.cancelDeclineVariation = function(){ varDecliningId = null; render(); };
@@ -34,8 +97,13 @@ window.saveModifyAndApproveVariation = async function(siteId, id){
   const input = document.getElementById('varEditDesc');
   const desc = String(input ? input.value : varEditDescDraft || '').trim();
   if(!desc){ toast('Enter a description.'); return; }
-  const row = await dbUpdate('variations', id, {description:desc, approval_status:'approved', decided_by:ME.id, decided_at:new Date().toISOString(), decline_reason:null});
-  if(row){ varEditingId = null; toast('Modified and approved'); render(); }
+  const vp = varCanPrice() ? await varValuePatchFor(id, 'varEditVal') : {patch:{}};
+  if(!vp) return;
+  const row = await dbUpdate('variations', id, Object.assign({description:desc, approval_status:'approved', decided_by:ME.id, decided_at:new Date().toISOString(), decline_reason:null}, vp.patch));
+  if(row){
+    if('cost_impact' in vp.patch) await varSyncValueToFinance(id, vp.oldVal, vp.val);
+    varEditingId = null; toast('Modified and approved'); render();
+  }
 };
 window.deleteVariation = async function(siteId, id){
   if(!await customConfirm('Delete this variation? This cannot be undone.')) return;
@@ -48,7 +116,7 @@ async function renderVariations(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   varDraft = varDraft || {photo:null, desc:''};
-  const variations = await dbSelect('variations', 'site_id=eq.'+siteId+'&status=eq.'+varFilter+'&order=created_at.desc');
+  const variations = await dbSelect('variations', 'site_id=eq.'+siteId+'&status=eq.'+varFilter+'&order=created_at.desc&select='+varSelectCols());
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="filterrow">
@@ -67,6 +135,7 @@ async function renderVariations(siteId){
         <div class="info"><div class="name">${escapeHtml(v.description)}</div><div class="addr">${escapeHtml(nameOf(v.created_by))} · ${new Date(v.created_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</div></div>
         <span class="statustag2 ${v.status}">${v.status}</span>
         ${v.status!=='closed' ? `<span class="statustag" style="margin-left:6px;color:${approvalColor};border-color:${approvalColor};">${approvalLabel}</span>` : ''}
+        ${varCanPrice() && varValueOf(v)!=null ? `<span class="statustag" style="margin-left:6px;">${varMoney(varValueOf(v))}</span>` : ''}
         <span style="font-size:13px;color:var(--slate);margin-left:6px;">${open?'▼':'▶'}</span>
       </div>
       ${open ? `
@@ -84,6 +153,10 @@ async function renderVariations(siteId){
               <label class="field-label">Description</label>
               <textarea id="varEditDesc" rows="3" style="width:100%;font-family:inherit;font-size:13px;padding:10px;border-radius:8px;border:1px solid var(--line);box-sizing:border-box;" oninput="varEditDescDraft=this.value">${escapeHtml(v.description)}</textarea>
             </div>
+            ${varCanPrice() ? `<div class="formfield" style="margin:0 0 8px;">
+              <label class="field-label">Value to the client (£, ex VAT)</label>
+              <input id="varEditVal" type="text" inputmode="decimal" placeholder="e.g. 850" value="${varValueOf(v)!=null ? escapeHtml(varValueOf(v).toFixed(2)) : ''}">
+            </div>` : ''}
             <div style="display:flex;gap:6px;flex-wrap:wrap;">
               <button class="darkbtn" style="width:auto;padding:8px 12px;" onclick="saveModifyAndApproveVariation('${siteId}','${v.id}')">Save &amp; Approve</button>
               <button class="ghostbtn" style="width:auto;padding:8px 12px;" onclick="cancelModifyVariation()">Cancel</button>
@@ -101,6 +174,14 @@ async function renderVariations(siteId){
             </div>
           </div>
           ` : `
+          ${varCanPrice() ? `<div class="formfield" style="margin:10px 0 0;">
+            <label class="field-label" for="varVal-${v.id}">Value to the client (£, ex VAT)</label>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <input id="varVal-${v.id}" type="text" inputmode="decimal" placeholder="e.g. 850" value="${varValueOf(v)!=null ? escapeHtml(varValueOf(v).toFixed(2)) : ''}" style="flex:1;min-width:0;">
+              <button class="ghostbtn" style="width:auto;padding:8px 12px;margin:0;" onclick="saveVariationValue('${siteId}','${v.id}')">Save value</button>
+            </div>
+            <div class="stub" style="margin:4px 0 0;font-size:11.5px;">Goes to Finance as this variation’s price. It won’t replace a price Finance has typed.</div>
+          </div>` : ''}
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-top:10px;align-items:center;">
             ${(!v.approval_status || v.approval_status==='pending') ? `<button class="ghostbtn" style="width:100%;padding:8px 12px;color:var(--ok);border-color:var(--ok);" onclick="approveVariation('${siteId}','${v.id}')">Approve</button>` : ''}
             ${(!v.approval_status || v.approval_status==='pending') ? `<button class="ghostbtn" style="width:100%;padding:8px 12px;color:var(--red);border-color:var(--red);" onclick="startDeclineVariation('${v.id}')">Decline</button>` : ''}
@@ -129,6 +210,10 @@ async function renderVariations(siteId){
         <label class="field-label">Description</label>
         <textarea id="varDesc" placeholder="What's changed and why..." oninput="varDraft.desc=this.value">${escapeHtml(varDraft.desc)}</textarea>
       </div>
+      ${varCanPrice() ? `<div class="formfield">
+        <label class="field-label">Value to the client (£, ex VAT) — optional</label>
+        <input id="varNewVal" type="text" inputmode="decimal" placeholder="e.g. 850" value="${escapeHtml(varDraft.value||'')}" oninput="varDraft.value=this.value">
+      </div>` : ''}
       <button class="primarybtn" ${(varDraft.photo)?'':'disabled'} onclick="submitVariation('${siteId}')">Submit Variation</button>
     </div>
     ` : ''}
@@ -148,9 +233,11 @@ window.varPhoto = async function(input){
 };
 window.submitVariation = async function(siteId){
   const desc = (varDraft.desc||'').trim();
+  const val = varCanPrice() ? varReadValueInput('varNewVal') : undefined;
+  if(Number.isNaN(val)){ toast('Enter the value as a number, e.g. 850'); return; }
   const path = await uploadDataUrl('site-photos', siteId+'/variations/'+crypto.randomUUID()+'.jpg', varDraft.photo);
   if(!path) return;
-  const rows = await dbInsert('variations', {site_id:siteId, photo_path:path, description:desc||'—', created_by:ME.id, status:'live', approval_status:'pending'});
+  const rows = await dbInsert('variations', Object.assign({site_id:siteId, photo_path:path, description:desc||'—', created_by:ME.id, status:'live', approval_status:'pending'}, val!=null && val!==undefined ? {cost_impact: val.toFixed(2)} : {}));
   if(rows){
     postSystemMessage(siteId, 'variation', `${ME.name} raised a variation: ${desc||'(no description)'}`);
     varDraft = null;
@@ -169,7 +256,7 @@ window.exportVariationsPDF = async function(siteId, scope){
   if(scope==='live') qs += '&status=eq.live';
   else if(scope==='closed') qs += '&status=eq.closed';
   else qs += '&status=in.(live,closed)';
-  const variations = await dbSelect('variations', qs);
+  const variations = await dbSelect('variations', qs+'&select='+varSelectCols());
   if(!variations.length){ toast('No variations to export for that filter.'); return; }
   await loadAllProfiles();
   toast('Building PDF…');

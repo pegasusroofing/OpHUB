@@ -106,6 +106,22 @@ window.ramsSeedAndReload = async function(){
 // never both get RA-0042. Returns {ra, ms}, or null if it couldn't (then the
 // caller falls back to the saved copy, as before).
 async function ramsReserveNumbers(){
+  // PA-19 (27 Oct): the database hands the numbers out (rams_take_numbers locks
+  // the company's row while it takes them), so they can never be given twice.
+  // The guarded update below is only used if that function isn't there.
+  try{
+    const res = await sbFetch('/rest/v1/rpc/rams_take_numbers', {method:'POST', body:'{}'});
+    if(res.ok){
+      const d = await res.json();
+      if(d && d.ok && Number(d.ra) > 0 && Number(d.ms) > 0){
+        if(ORG && d.rams_settings) ORG.rams_settings = d.rams_settings;
+        return {ra: Number(d.ra), ms: Number(d.ms)};
+      }
+      if(d && d.ok === false) return null; // not allowed: same as before (the saved copy is used)
+    }else if(res.status !== 404){
+      return null;
+    }
+  }catch(e){ return null; }
   let lastSeen = null;
   for(let attempt=0; attempt<4; attempt++){
     const rows = await dbSelectNet('organizations', 'id=eq.'+ME.org_id+'&select=rams_settings&limit=1');

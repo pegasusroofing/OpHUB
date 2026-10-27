@@ -580,6 +580,8 @@ async function drawPuwerInspectionPage(pdfDoc, fonts, siteName, weekLabel, op, t
     ensureRoom(24);
     page.drawText('TOOL PHOTO SUMMARY', {x:MARGIN, y, size:11, font:bold, color:INK});
     y -= 18;
+    // Sign every photo's link in one go (SEC-H3), not one request per photo.
+    try{ if(typeof presignStorageUrls === 'function') await presignStorageUrls(tools.filter(t=>t.photo_path).map(t=>publicUrl('operative-tools', t.photo_path))); }catch(e){}
     for(let i=0;i<tools.length;i++){
       const t = tools[i];
       const pass = PUWER_QUESTIONS.every(q=>t[q.key]);

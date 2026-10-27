@@ -813,7 +813,7 @@ window.hoEmail = async function(kind){
       const path = hoState.siteId+'/om-exports/'+uid()+'-'+fname.replace(/[^a-z0-9.\-]+/gi,'_');
       const stored = await uploadToStorage('mc-documents', path, blob, blob.type);
       if(!stored){ hoBusy = ''; render(); toast('Could not upload the file — try again.'); return; }
-      const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', timeoutMs:120000, body: JSON.stringify({site_id: hoState.siteId, recipient_email: email, cc_email: email!==ME.email ? ME.email : undefined, doc_title: 'O&M Manual', file_url: publicUrl('mc-documents', stored), file_ext: kind==='docx' ? 'docx' : 'pdf'})});
+      const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', timeoutMs:120000, body: JSON.stringify({site_id: hoState.siteId, recipient_email: email, cc_email: email!==ME.email ? ME.email : undefined, doc_title: 'O&M Manual', file_url: publicUrl('mc-documents', stored), storage_bucket: 'mc-documents', storage_path: stored, file_ext: kind==='docx' ? 'docx' : 'pdf'})});
       hoBusy = ''; render();
       const out = res ? await res.json().catch(()=>({})) : {};
       if(res && res.ok && !out.error) toast('O&M manual emailed to '+email+(email!==ME.email?' (you\'ve been copied in)':'')+(out.attached===false?' — sent as a link (too big to attach)':''));
@@ -838,6 +838,7 @@ window.hoExportPdf = async function(onBuilt){
 };
 async function hoBuildPdf(){
   const d = hoState.data, c = d.cover, rgb = PDFLib.rgb;
+  try{ if(typeof presignStorageRefs === 'function') await presignStorageRefs(d); }catch(e){} // SEC-H3: one signing request per bucket, not one per photo
   const pdf = await PDFLib.PDFDocument.create();
   const bold = await pdf.embedFont(PDFLib.StandardFonts.HelveticaBold), reg = await pdf.embedFont(PDFLib.StandardFonts.Helvetica);
   const BRAND = pdfHexToRgb((ORG && ORG.color_primary) || '#8B1A1A'), INK = rgb(0.08,0.08,0.09), SLATE = rgb(0.35,0.36,0.4), LINE = rgb(0.7,0.7,0.72), LIGHT = rgb(0.94,0.94,0.95), WHITE = rgb(1,1,1);
@@ -974,6 +975,7 @@ window.hoExportWord = async function(onBuilt){
   hoBusy = 'Building the Word file…'; render();
   try{
     const d = hoState.data, c = d.cover;
+    try{ if(typeof presignStorageRefs === 'function') await presignStorageRefs(d); }catch(e){} // SEC-H3: sign every photo in one go
     const brand = String((ORG && ORG.color_primary) || '#8B1A1A').replace('#','').toUpperCase();
     const media = []; // {name, bytes, w, h}
     const imgXml = (im, maxWcm) => {

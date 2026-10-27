@@ -356,7 +356,7 @@ window.emailSiteInductionPdf = async function(completionId, operativeName){
       recipient_email: trimmed,
       cc_email: emailTo.cc,
       client_cc_email: ccClientEmailFromPromptAnswer(answer, site),
-      items: [{operative_name: operativeName || nameOf(row.operative_id), file_url: publicUrl('mc-documents', row.pdf_path)}],
+      items: [{operative_name: operativeName || nameOf(row.operative_id), file_url: publicUrl('mc-documents', row.pdf_path), storage_path: row.pdf_path}],
     })});
     if(res && res.ok){ toast('Emailed'); } else { toast('Could not send the email — please try again.'); }
   }catch(e){ toast('Could not send the email — please try again.'); }
@@ -382,7 +382,7 @@ window.emailSelectedInductions = async function(){
       recipient_email: trimmed,
       cc_email: emailTo.cc,
       client_cc_email: ccClientEmailFromPromptAnswer(answer, site),
-      items: withPdf.map(r=>({operative_name: nameOf(r.operative_id), file_url: publicUrl('mc-documents', r.pdf_path)})),
+      items: withPdf.map(r=>({operative_name: nameOf(r.operative_id), file_url: publicUrl('mc-documents', r.pdf_path), storage_path: r.pdf_path})),
     })});
     if(res && res.ok){ toast('Emailed'); siteInductionSelectedIds = new Set(); render(); } else { toast('Could not send the email — please try again.'); }
   }catch(e){ toast('Could not send the email — please try again.'); }

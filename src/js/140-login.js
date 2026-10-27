@@ -55,7 +55,7 @@ window.doResetPassword = async function(){
     if(!ur.ok){ resetError = (ud && (ud.msg||ud.error_description||ud.message)) || 'Could not save the new password — try again.'; render(); return; }
     fetchWithTimeout(SUPABASE_URL+'/auth/v1/logout', {method:'POST', headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+vd.access_token}}, 8000).catch(()=>{});
     authError = null; authInfo = 'Password changed — log in with your new password.'; authPrefillEmail = p.e || (vd.user && vd.user.email) || '';
-    scrubRememberedPassword(); // only the email is ever kept now
+    try{ const r0 = JSON.parse(localStorage.getItem(K_REMEMBER)||"null"); if(r0 && r0.email) localStorage.setItem(K_REMEMBER, JSON.stringify({email:r0.email})); }catch(e){} // new password: forget the old saved one
     if(SESSION && SESSION.user && authPrefillEmail && String(SESSION.user.email||'').toLowerCase()===authPrefillEmail.toLowerCase()){ await doSignOut(); }
     location.hash = ''; render();
   }catch(e){ resetBusy = false; resetError = 'Could not reach the server — check your connection and try again.'; render(); }
@@ -67,26 +67,29 @@ function renderLogin(){
     <div class="card">
       ${authError ? `<div class="errbox">${escapeHtml(authError)}</div>` : ''}
       ${authInfo ? `<div class="card" style="background:var(--ok-bg);border-color:var(--ok);color:var(--ok);font-weight:700;padding:10px 12px;margin-bottom:12px;">${escapeHtml(authInfo)}</div>` : ''}
+      <form id="authForm" autocomplete="on" onsubmit="event.preventDefault();doSignIn();" style="margin:0;">
       <div class="formfield">
         <label class="field-label">Email</label>
-        <input type="email" id="authEmail" value="${escapeHtml(authPrefillEmail || rememberedAuth().email)}" placeholder="you@yourcompany.co.uk">
+        <input type="email" id="authEmail" name="username" autocomplete="username" value="${escapeHtml(authPrefillEmail || rememberedAuth().email)}" placeholder="you@yourcompany.co.uk">
       </div>
       <div class="formfield">
         <label class="field-label">Password</label>
-        <input type="password" id="authPassword" value="" placeholder="••••••••" autocomplete="current-password" onkeyup="maybeAutoSignIn()">
+        <input type="password" id="authPassword" name="password" value="" placeholder="••••••••" autocomplete="current-password" onkeyup="maybeAutoSignIn(event)">
       </div>
-      <label class="stub" style="display:flex;align-items:center;gap:6px;margin:2px 0 12px;"><input type="checkbox" id="authRemember" style="width:auto;" ${rememberedAuth().remember?'checked':''}>Remember my email on this device</label>
+      <label class="stub" style="display:flex;align-items:center;gap:6px;margin:2px 0 12px;"><input type="checkbox" id="authRemember" style="width:auto;" ${rememberedAuth().remember?'checked':''}>Remember my email and password on this device</label>
+      <button type="submit" style="display:none;" tabindex="-1" aria-hidden="true"></button>
+      </form>
       <button class="primarybtn" style="background:var(--brand1);color:var(--brand1-text);border-color:var(--brand1);" ${authBusy?'disabled':''} onclick="doSignIn()">
         ${authBusy ? '<span class="spinner"></span>'+escapeHtml(authBusyLabel||'Please wait…') : 'Sign In'}
       </button>
       <p style="text-align:center;margin:12px 0 0;"><span class="viewlink" style="cursor:pointer;font-weight:700;" onclick="forgotPassword()">Forgot password?</span></p>
-      <p class="stub" style="margin-top:10px;">Real Supabase account — password is never seen or stored by our servers. Ticking "Remember" saves your email on this device — never your password. You stay signed in until you tap Sign out.</p>
+      <p class="stub" style="margin-top:10px;">Real Supabase account — password is never seen or stored by our servers. Ticking "Remember" keeps your email and password on this device (the password is stored encrypted) so they're filled in for you next time. Untick it on a shared device. You stay signed in until you tap Sign out.</p>
       <p class="stub" style="margin-top:14px;">New team member? You'll need an invite link from your Project Manager to create an account — sign-up isn't open to the public.</p>
     </div>
     <div style="display:flex;justify-content:center;margin-top:22px;">
       <img src="${orgLogoUrl(ORG)}" alt="OpHUB" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'" style="width:226.8px;height:226.8px;border-radius:32.4px;object-fit:cover;box-shadow:0 3.6px 16.2px rgba(0,0,0,0.12);max-width:75vw;max-height:75vw;">
     </div>
-  `, {centerTitle:true, tabs:false}); }
+  `, {centerTitle:true, tabs:false}); authPwFill(); }
 }
 window.maybeAutoSignIn = function(ev){
   // Only Enter submits — a bare "fields look filled" trigger caused false
@@ -96,8 +99,8 @@ window.maybeAutoSignIn = function(ev){
   // click or Enter key only, from here on.
   if(ev && ev.key === 'Enter'){ doSignIn(); }
 };
-// "Remember me" on the sign-in page — the EMAIL only, in localStorage on
-// this device (fix round 2, CORE-M2: the password is never stored). Opt-in
+// "Remember me" on the sign-in page — the email, plus (27 Oct, Andy) the password
+// encrypted with AES-GCM under a key that can't be read out of the browser (authPw*). Opt-in
 // via the checkbox; unticking it (or a fresh sign-in without it checked)
 // clears whatever was saved.
 function rememberedAuth(){
@@ -132,7 +135,7 @@ window.doSignIn = async function(){
     const r = await signIn(email, password);
     if(r.error){ authError = r.error; return; }
     // Only remember an email that actually worked — never the password.
-    try{ if(remember) localStorage.setItem(K_REMEMBER, JSON.stringify({email})); }catch(e){}
+    try{ if(remember){ localStorage.setItem(K_REMEMBER, JSON.stringify({email})); authPwSave(email, password); } }catch(e){}
     resetPerUserState(); // never carry the previous person's lists into this sign-in
     authBusyLabel = 'Loading your account…'; render();
     await loadProfile();
@@ -171,3 +174,52 @@ window.doSignIn = async function(){
     authBusy = false; authBusyLabel = null; render();
   }
 };
+
+/* ---------- saved password (27 Oct 2026, Andy: "i want the logins to remember the saved password") ----------
+   The password is kept encrypted (AES-GCM). The key is made by the browser as "non-extractable"
+   and kept in IndexedDB: it can be used on this device but never read out, so a copy of the
+   saved data on its own is useless. Where the browser has a password manager (Chrome, Edge,
+   Android) it's also offered there. If this device can't do any of that, only the email is kept. */
+const AUTHPW_DB = 'ophub-sec', AUTHPW_STORE = 'keys';
+function authPwIdb(){
+  return new Promise((res, rej)=>{
+    try{
+      const rq = indexedDB.open(AUTHPW_DB, 1);
+      rq.onupgradeneeded = ()=>{ try{ rq.result.createObjectStore(AUTHPW_STORE); }catch(e){} };
+      rq.onsuccess = ()=>res(rq.result); rq.onerror = ()=>rej(rq.error);
+    }catch(e){ rej(e); }
+  });
+}
+async function authPwKey(create){
+  if(!(window.crypto && crypto.subtle && window.indexedDB)) return null;
+  const db = await authPwIdb();
+  const get = ()=>new Promise((res)=>{ try{ const t = db.transaction(AUTHPW_STORE, 'readonly').objectStore(AUTHPW_STORE).get('remember'); t.onsuccess = ()=>res(t.result||null); t.onerror = ()=>res(null); }catch(e){ res(null); } });
+  let k = await get();
+  if(!k && create){
+    k = await crypto.subtle.generateKey({name:'AES-GCM', length:256}, false, ['encrypt','decrypt']);
+    await new Promise((res)=>{ try{ const t = db.transaction(AUTHPW_STORE, 'readwrite').objectStore(AUTHPW_STORE).put(k, 'remember'); t.onsuccess = ()=>res(); t.onerror = ()=>res(); }catch(e){ res(); } });
+  }
+  return k;
+}
+function authB64(buf){ let s = ''; const b = new Uint8Array(buf); for(let i=0;i<b.length;i++) s += String.fromCharCode(b[i]); return btoa(s); }
+function authUnB64(str){ const s = atob(str); const b = new Uint8Array(s.length); for(let i=0;i<s.length;i++) b[i] = s.charCodeAt(i); return b; }
+async function authPwSave(email, password){
+  try{
+    const key = await authPwKey(true); if(!key) return;
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const ct = await crypto.subtle.encrypt({name:'AES-GCM', iv}, key, new TextEncoder().encode(password));
+    localStorage.setItem(K_REMEMBER, JSON.stringify({email, pw:{iv:authB64(iv), ct:authB64(ct)}}));
+  }catch(e){ console.warn('saved password not kept', e); }
+  try{ if(window.PasswordCredential && navigator.credentials && navigator.credentials.store) await navigator.credentials.store(new PasswordCredential({id:email, password, name:email})); }catch(e){}
+}
+async function authPwFill(){
+  try{
+    const raw = localStorage.getItem(K_REMEMBER); if(!raw) return;
+    const p = JSON.parse(raw); if(!p || !p.pw || !p.email) return;
+    const em = document.getElementById('authEmail'), pw = document.getElementById('authPassword'); if(!em || !pw || pw.value) return;
+    if(em.value && em.value.trim().toLowerCase() !== String(p.email).toLowerCase()) return;   // a different email was typed — don't fill
+    const key = await authPwKey(false); if(!key) return;
+    const plain = await crypto.subtle.decrypt({name:'AES-GCM', iv:authUnB64(p.pw.iv)}, key, authUnB64(p.pw.ct));
+    if(document.getElementById('authPassword')===pw && !pw.value) pw.value = new TextDecoder().decode(plain);
+  }catch(e){ /* key gone (browser data cleared) — just leave the box empty */ }
+}

@@ -244,7 +244,7 @@ window.emailSelectedReports = async function(){
       const stored = (built.storedPath || (built.savePromise && await built.savePromise)) || await uploadToStorage('mc-documents', path, new Blob([built.bytes], {type:'application/pdf'}), 'application/pdf');
       if(!stored){ failed++; continue; }
       const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', timeoutMs:90000, body: JSON.stringify({
-        site_id: built.sub.site_id, general_label: built.sub.site_id ? undefined : (built.sub.general_label||'General survey'), recipient_email: recipient, cc_email: recipient!==ME.email ? ME.email : undefined, doc_title: built.sub.template_name, file_url: publicUrl('mc-documents', stored),
+        site_id: built.sub.site_id, general_label: built.sub.site_id ? undefined : (built.sub.general_label||'General survey'), recipient_email: recipient, cc_email: recipient!==ME.email ? ME.email : undefined, doc_title: built.sub.template_name, file_url: publicUrl('mc-documents', stored), storage_bucket: 'mc-documents', storage_path: stored,
       })});
       if(res && res.ok) sent++; else failed++;
     }catch(e){ failed++; }
@@ -1816,7 +1816,7 @@ window.emailReportPDF = async function(submissionId, fromBriefing){
     if(!stored){ toast('Could not upload the PDF — try again.'); reportEmailBusy = null; render(); return; }
     toast('Sending…');
     const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', timeoutMs:90000, body: JSON.stringify({
-      site_id: built.sub.site_id, general_label: built.sub.site_id ? undefined : (built.sub.general_label||'General survey'), recipient_email: trimmed, cc_email: emailTo.cc, doc_title: built.sub.template_name, file_url: publicUrl('mc-documents', stored),
+      site_id: built.sub.site_id, general_label: built.sub.site_id ? undefined : (built.sub.general_label||'General survey'), recipient_email: trimmed, cc_email: emailTo.cc, doc_title: built.sub.template_name, file_url: publicUrl('mc-documents', stored), storage_bucket: 'mc-documents', storage_path: stored,
       client_cc_email: ccClientEmailFromPromptAnswer(answer, site),
     })});
     if(res && res.ok){ toast(built.photoEmbedFailures>0 ? `Emailed — but ${built.photoEmbedFailures} photo${built.photoEmbedFailures>1?'s':''} could not be included.` : 'Emailed'); } else { toast('Could not send the email — '+(await safeErr(res))); }

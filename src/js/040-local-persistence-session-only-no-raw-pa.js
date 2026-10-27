@@ -42,8 +42,9 @@ const K_SESSION = 'rtb-session-v1';
 // home page straight from the device on launch (and with no signal at all)
 // instead of waiting on the network first. See init() / refreshBootData().
 const K_BOOT = 'ophub-boot-v1';
-// Fix round 2 (CORE-M2): "Remember me" now keeps the EMAIL only. Older
-// versions also saved the password in plain text — wipe it on every start-up
+// "Remember me" keeps the email and (27 Oct, Andy) the password — the password only ever
+// encrypted with a key the browser won't hand out (see 140 authPw*). Older versions saved
+// the password in plain text — that is wiped on every start-up
 // (and again on sign-out, see doSignOut). Staying signed in is handled by the
 // saved session itself, which survives restarts.
 const K_REMEMBER = 'ophub_remember';
@@ -53,7 +54,11 @@ function scrubRememberedPassword(){
     if(!raw) return;
     let p = null; try{ p = JSON.parse(raw); }catch(e){}
     if(p && typeof p.email === 'string' && p.email){
-      if(Object.keys(p).some(k=>k!=='email')) localStorage.setItem(K_REMEMBER, JSON.stringify({email: p.email}));
+      // Keep the email and the ENCRYPTED password (pw = {iv, ct}, see 140 authPw*). Anything
+      // else — e.g. an old plain-text "password" from before 25 Oct — is wiped.
+      const keep = {email: p.email};
+      if(p.pw && typeof p.pw.iv==='string' && typeof p.pw.ct==='string') keep.pw = {iv:p.pw.iv, ct:p.pw.ct};
+      if(Object.keys(p).some(k=>k!=='email' && k!=='pw') || (p.pw && !keep.pw)) localStorage.setItem(K_REMEMBER, JSON.stringify(keep));
     } else localStorage.removeItem(K_REMEMBER);
   }catch(e){}
 }

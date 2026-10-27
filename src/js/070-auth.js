@@ -77,7 +77,7 @@ window.doSignOut = async function(){
   await sdelete(K_SESSION, false);
   await sdelete(K_BOOT, false);
   await clearOfflineCache();
-  scrubRememberedPassword(); // never leave an old saved password behind (CORE-M2)
+  scrubRememberedPassword(); // only the email + encrypted password stay (Remember ticked); any old plain-text one goes
   location.hash = '';
   render();
 };

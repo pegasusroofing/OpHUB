@@ -156,7 +156,12 @@ Deno.serve(withCors(async (req) => {
     const url = new URL(req.url);
     // L5: the x-inbox-key header is preferred (query strings end up in logs);
     // ?key= keeps working so existing Power Automate flows don't break.
-    const key = (req.headers.get('x-inbox-key') || url.searchParams.get('key') || '').trim();
+    const headerKey = (req.headers.get('x-inbox-key') || '').trim();
+    const key = (headerKey || url.searchParams.get('key') || '').trim();
+    // SEC-L5 (fix3c): the old ?key= link still works for now (the mail
+    // forwarder may use it) but is logged, so the forwarder can be moved to
+    // the x-inbox-key header and the link then retired. The key is never logged.
+    if (!headerKey && key) console.warn('finance-inbox: called with the old ?key= link - please switch the forwarder to the x-inbox-key header');
     if (!/^[A-Za-z0-9_-]{24,80}$/.test(key)) return json({ error: 'Missing or invalid key' }, 401);
     const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { autoRefreshToken: false, persistSession: false } });
     const { data: st } = await admin.from('fin_settings').select('org_id').eq('inbox_key', key).maybeSingle();
