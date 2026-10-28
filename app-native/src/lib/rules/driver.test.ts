@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import {
-  collectionKind, collectionLine, continuations, dayTotals, dtoDays, dtoProblem, groupCollections, hasFails, minsLabel,
+  bySlotOrder, collectionKind, collectionLine, continuations, dayTotals, fullSlots, dtoDays, dtoProblem, groupCollections, hasFails, minsLabel,
   nextSlotKey, nextWorkingDay, pushSlot, resequence, slotProblem, vehicleSubmitProblem, VEHICLE_ITEMS, VEHICLE_PHOTOS, weekStart,
   type DTask, type VItem,
 } from './driver.ts';
@@ -96,4 +96,17 @@ test('vehicle checklist: week start and submit checks in the old order', () => {
   items.horn = { key: 'horn', result: 'fail', note: 'broken' };
   assert.match(vehicleSubmitProblem('AB12', 1, items), /photo and a note/);
   assert.equal(hasFails(items), true);
+});
+
+test('fullSlots marks a 2-drop booking and the drop after it', () => {
+  const list = [{ id: 'a', site_id: 's', time_slot: '8am', status: 'pending', double_slot: true }, { id: 'b', site_id: 's', time_slot: '7am', status: 'pending' }] as DTask[];
+  const f = fullSlots(list);
+  assert.equal(f['8am']?.id, 'a');
+  assert.equal(f['9am']?.id, 'a');
+  assert.equal(f['7am'], undefined);
+});
+
+test('bySlotOrder puts the 1st drop first, then order number', () => {
+  const rows = [{ id: 'x', site_id: null, time_slot: '7am', status: 'pending', sub_priority: 1 }, { id: 'y', site_id: null, time_slot: '7am', status: 'pending', sub_priority: 2, high_priority: true }] as DTask[];
+  assert.deepEqual(rows.sort(bySlotOrder).map((r) => r.id), ['y', 'x']);
 });

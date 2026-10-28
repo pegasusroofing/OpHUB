@@ -49,7 +49,7 @@ export function siteHeading(t: Delivery, sites: Site[]): string[] {
   return [name, addr];
 }
 
-async function messageTo(me: Profile, userId: string, siteId: string | null, kind: string, body: string, relatedId?: string) {
+export async function messageTo(me: Profile, userId: string, siteId: string | null, kind: string, body: string, relatedId?: string) {
   if (!me.org_id) return;
   try {
     await db.from('messages').insert({ org_id: me.org_id, site_id: siteId || null, sender_id: me.id, audience: 'single', recipient_id: userId, kind, body, related_id: relatedId || null } as never);
@@ -125,7 +125,7 @@ export async function resequenceSlot(orgId: string, dateISO: string, slot: strin
   const want = resequence(rows);
   await Promise.all(rows.map((r) => (r.sub_priority !== want[r.id] ? db.from('delivery_tasks').update({ sub_priority: want[r.id] } as never).eq('id', r.id) : null)));
 }
-const placeOf = (sites: Site[]) => (t: DTask) => (t.site_id ? sites.find((s) => s.id === t.site_id)?.name || 'Site' : t.manual_site_name || t.manual_site_address || 'Site');
+export const placeOf = (sites: Site[]) => (t: DTask) => (t.site_id ? sites.find((s) => s.id === t.site_id)?.name || 'Site' : t.manual_site_name || t.manual_site_address || 'Site');
 
 /** Works out where a push would go; returns null + message if the day is full. */
 export async function planPush(me: Profile, t: Delivery, sites: Site[]): Promise<{ date: string; slot: string; keepHigh: boolean; label: string } | { error: string }> {
@@ -186,13 +186,13 @@ export async function reopenDelivery(me: Profile, t: Delivery, choice: { date: s
   return { ok: true, msg: `Re-opened for ${when}` };
 }
 
-async function uploadPhoto(path: string, p: Picked): Promise<string | null> {
+export async function uploadPhoto(path: string, p: Picked): Promise<string | null> {
   const uri = await compressOne(p);
   const bytes = await (await fetch(uri)).arrayBuffer();
   const up = await supabase.storage.from('site-photos').upload(path, bytes, { contentType: 'image/jpeg' });
   return up.error ? null : up.data.path;
 }
-const rid = () => (globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}${Math.random().toString(16).slice(2)}`);
+export const rid = () => (globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}${Math.random().toString(16).slice(2)}`);
 
 export async function addCompletionPhotos(me: Profile, t: Delivery, picked: Picked[]): Promise<{ added: number; failed: number }> {
   const added: string[] = []; let failed = 0;

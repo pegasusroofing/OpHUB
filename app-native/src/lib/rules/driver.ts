@@ -236,3 +236,14 @@ export function vehicleSubmitProblem(reg: string, mileage: string | number | nul
   }
   return '';
 }
+
+/** Drops that can't take another delivery: carried-on extra time, or held by a 2-drop booking. */
+export function fullSlots<T extends DTask>(list: T[]): Record<string, T> {
+  const out: Record<string, T> = { ...blockedSlots(list) };
+  list.forEach((t) => { if (t.double_slot && t.status !== 'cancelled' && !out[t.time_slot]) out[t.time_slot] = t; });
+  return out;
+}
+
+/** Sort for one drop on the schedule: 1st drop, then sub_priority. */
+export const bySlotOrder = (a: DTask, b: DTask) =>
+  ((b.high_priority ? 1 : 0) - (a.high_priority ? 1 : 0)) || ((a.sub_priority == null ? 999 : a.sub_priority) - (b.sub_priority == null ? 999 : b.sub_priority)) || ((a.created_at || '') < (b.created_at || '') ? -1 : 1);
