@@ -14,7 +14,10 @@ import { nameOf, usePeople } from '@/data/hs';
 import { useSite } from '@/data/sites';
 import { approvalLabel, raiseVariation, useManagerVariations } from '@/data/variations';
 import { useAuth } from '@/lib/auth';
+import { deliverPdf } from '@/lib/pdf';
 import { pickPhotos, type Picked } from '@/lib/photos';
+import { buildVariationsPdf, type SnagScope } from '@/lib/snagPdf';
+import { supabase } from '@/lib/supabase';
 import { money, readMoney, valueOf } from '@/lib/rules/variations';
 import { isFinanceUser, isFullManager, isManager } from '@/lib/roles';
 import { base, radius, space } from '@/theme/theme';
@@ -28,6 +31,7 @@ export default function Variations() {
   const qc = useQueryClient();
   const { data: site } = useSite(id);
   const [filter, setFilter] = useState<'live' | 'closed'>('live');
+  const [pdfBusy, setPdfBusy] = useState<string | null>(null);
   const mgr = !!me && isManager(me);
   const canPrice = isFullManager(me);
   const { data: list, isLoading } = useManagerVariations(id, filter, mgr && (canPrice || isFinanceUser(me, org)));
@@ -107,7 +111,23 @@ export default function Variations() {
           <Button disabled={!photo} busy={busy} title="Submit Variation" onPress={submit} />
         </Card>
       )}
-      <Muted style={{ marginTop: space.m }}>PDF export of variations comes with the PM screens.</Muted>
+      <SectionTitle>Export</SectionTitle>
+      <View style={{ flexDirection: 'row', gap: 6 }}>
+        {([['live', 'Export live'], ['closed', 'Export closed'], ['all', 'Export all']] as [SnagScope, string][]).map(([sc, label]) => (
+          <View key={sc} style={{ flex: 1 }}><Button kind="ghost" busy={pdfBusy === sc} title={label} onPress={async () => {
+            setPdfBusy(sc);
+            try {
+              let q = (supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> }).from('variations').select('description,status,created_by,created_at,closed_at,photo_path').eq('site_id', site.id);
+              q = sc === 'live' ? q.eq('status', 'live') : sc === 'closed' ? q.eq('status', 'closed') : q.in('status', ['live', 'closed']);
+              const vars = ((await q.order('created_at')).data as Parameters<typeof buildVariationsPdf>[0] | null) ?? [];
+              if (!vars.length) { toast('No variations to export for that filter.'); return; }
+              toast('Building PDF…');
+              const b = await buildVariationsPdf(vars, site, org, sc, (u) => nameOf(people, u));
+              if (!(await deliverPdf(b.bytes, b.filename))) toast('Could not save the PDF.');
+            } catch { toast('Could not build the PDF.'); } finally { setPdfBusy(null); }
+          }} /></View>
+        ))}
+      </View>
     </ScrollView>
   );
 }
