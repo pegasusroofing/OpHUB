@@ -4,6 +4,9 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { messageTo } from '@/data/driver';
+import { exportFilename, fetchBytes, PDFDocument } from '@/lib/pdf';
+import { publicUrl } from '@/lib/privateFiles';
+import { drawSignatureTable } from '@/lib/signedPdf';
 import { HR_COLOURS, HR_DEFAULT_ALLOWANCE, HR_DEFAULT_CODES, type Leave } from '@/lib/rules/hr';
 import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/lib/types';
@@ -87,14 +90,14 @@ export async function saveHrSettings(me: Profile, max: number, codes: Record<str
 
 /* ---------- policies & handbook ---------- */
 export type Policy = { id: string; kind: 'policy' | 'handbook'; title: string; storage_path: string; file_name: string | null; uploaded_at: string };
-export type PolicySig = { policy_id: string; user_id: string; signed_at: string };
+export type PolicySig = { policy_id: string; user_id: string; signed_at: string; signature_image_path?: string | null };
 export function usePolicies(orgId: string | null | undefined) {
   return useQuery({
     queryKey: ['hrPolicies', orgId],
     enabled: !!orgId,
     queryFn: async () => {
       const pols = ((await db.from('company_policies').select('*').eq('org_id', orgId as string).eq('archived', false).order('uploaded_at')).data as Policy[] | null) ?? [];
-      const sigs = pols.length ? (((await db.from('company_policy_signatures').select('policy_id,user_id,signed_at').in('policy_id', pols.map((p) => p.id)).order('signed_at')).data as PolicySig[] | null) ?? []) : [];
+      const sigs = pols.length ? (((await db.from('company_policy_signatures').select('policy_id,user_id,signed_at,signature_image_path').in('policy_id', pols.map((p) => p.id)).order('signed_at')).data as PolicySig[] | null) ?? []) : [];
       return { pols, sigs };
     },
   });
@@ -120,4 +123,24 @@ export async function signPolicies(me: Profile & { signature_path?: string | nul
   const at = new Date().toISOString();
   const res = await Promise.all(ids.map((id) => db.from('company_policy_signatures').insert({ policy_id: id, user_id: me.id, signature_image_path: me.signature_path, signed_at: at } as never)));
   return res.filter((r) => !r.error).length;
+}
+
+/* ---------- signed policy record (186 hrBuildPolicyPdf) ---------- */
+export async function buildPolicyPdf(p: Policy, sigs: PolicySig[], orgName: string, nameOf: (id: string) => string) {
+  let doc: PDFDocument | null = null;
+  if (/\.pdf$/i.test(p.file_name || p.storage_path)) {
+    const src = await fetchBytes(publicUrl('mc-documents', p.storage_path));
+    if (src) { try { doc = await PDFDocument.load(src, { ignoreEncryption: true }); } catch { doc = null; } }
+  }
+  if (!doc) doc = await PDFDocument.create();
+  const disclaimer = p.kind === 'handbook'
+    ? `I have read and understood the ${orgName ? `${orgName} ` : ''}company handbook (${p.title}) and agree to follow it.`
+    : `I have read and understood this company policy (${p.title}) and agree to follow it.`;
+  await drawSignatureTable(doc, {
+    title: p.title, disclaimer,
+    signers: sigs.filter((s) => s.policy_id === p.id).map((s) => ({ name: nameOf(s.user_id), plainName: '', dateText: '', imagePath: s.signature_image_path ?? null, when: new Date(s.signed_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) })),
+  });
+  const filename = exportFilename('', `${p.title} (Signed)`, 'pdf');
+  doc.setTitle(filename.replace(/\.pdf$/i, ''));
+  return { bytes: await doc.save(), filename };
 }

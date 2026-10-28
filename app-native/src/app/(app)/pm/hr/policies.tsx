@@ -7,16 +7,17 @@ import { router, Stack } from 'expo-router';
 import { useState } from 'react';
 import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
 
-import { confirmAsk, useToast } from '@/components/toast';
+import { confirmAsk, promptText, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
-import { archivePolicy, signPolicies, uploadPolicies, usePolicies, useHr, type Policy } from '@/data/hr';
+import { archivePolicy, buildPolicyPdf, signPolicies, uploadPolicies, usePolicies, useHr, type Policy } from '@/data/hr';
 import { openDocLink } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
+import { deliverPdf, emailPdf } from '@/lib/pdf';
 import { isManager } from '@/lib/roles';
 import { base, space } from '@/theme/theme';
 
 export default function Policies() {
-  const { me } = useAuth();
+  const { me, org } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
   const { data, isLoading } = usePolicies(me?.org_id);
@@ -73,6 +74,22 @@ export default function Policies() {
                 <Text style={{ color: s ? base.ok : base.slate, fontWeight: '700' }}>{s ? `✓ ${fmt(s.signed_at)}` : 'Not yet'}</Text>
               </View>
             ); })}
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <View style={{ flex: 1 }}><Button kind="ghost" title="Export PDF" onPress={async () => {
+                toast('Building PDF…');
+                try { const b = await buildPolicyPdf(p, sigs, org?.name || '', (u) => people.find((x) => x.id === u)?.name || 'Unknown'); if (!(await deliverPdf(b.bytes, b.filename))) toast('Could not save the PDF.'); } catch { toast('Could not build the PDF.'); }
+              }} /></View>
+              <View style={{ flex: 1 }}><Button kind="ghost" title="Email" onPress={async () => {
+                const to = await promptText('Email the signed record to:', me.email || ''); if (to === null) return;
+                const email = to.trim(); if (!/^[^s@]+@[^s@]+.[^s@]+$/.test(email)) { toast('Enter a valid email address.'); return; }
+                toast('Building PDF…');
+                try {
+                  const b = await buildPolicyPdf(p, sigs, org?.name || '', (u) => people.find((x) => x.id === u)?.name || 'Unknown');
+                  const err = await emailPdf(b.bytes, b.filename, `company-policies/${me.org_id}/exports`, { general_label: p.kind === 'handbook' ? 'Company handbook' : 'Company policy', recipient_email: email, cc_email: email !== me.email ? me.email || undefined : undefined, doc_title: `${p.title} (signed)` });
+                  if (err) showAlert(err); else toast('Emailed');
+                } catch { toast('Could not send the email.'); }
+              }} /></View>
+            </View>
             <Button kind="ghost" title="Remove document" onPress={async () => {
               if (!(await confirmAsk('Remove this document? Signatures already collected are kept on record.', 'Remove'))) return;
               toast((await archivePolicy(p.id)) ? 'Removed' : 'Could not save — try again.'); refresh();
@@ -99,7 +116,6 @@ export default function Policies() {
           <Muted style={{ marginBottom: 8 }}>Read it, then sign it on its own — it isn&apos;t part of &quot;Sign all&quot;.</Muted>
           {handbooks.length ? handbooks.map((p) => row(p, true)) : <Empty>No handbook uploaded yet.</Empty>}
           {isAdmin && <Button kind="ghost" busy={busy} title="+ Upload handbook (PDF or Word)" onPress={() => void upload('handbook')} />}
-          {isAdmin && <Card style={{ marginTop: space.m }}><Muted>Exporting or emailing the signed record as a PDF is still in the current app for now.</Muted></Card>}
         </>
       )}
     </ScrollView>
