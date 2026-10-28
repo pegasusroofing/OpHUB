@@ -22,7 +22,7 @@ export type CheckResult =
 
 const NO_SIGNAL = 'Could not reach the server — check your signal and try again.';
 
-async function getPosition(): Promise<Pos | { error: string }> {
+export async function getPosition(): Promise<Pos | { error: string }> {
   try {
     let perm = await Location.getForegroundPermissionsAsync();
     if (perm.status !== 'granted') perm = await Location.requestForegroundPermissionsAsync();

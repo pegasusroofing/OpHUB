@@ -59,8 +59,8 @@ Every source file in `src/js`, in build order, with the first line of its header
 - `420-report-templates-company-admin-builds-pm.js` — REPORT TEMPLATES (Company Admin builds; PM fills in)
 - `430-site-reports-pm-fills-a-template-in-and-.js` — SITE REPORTS (PM fills a template in and submits)
 - `435-reports-offline.js` — REPORTS — WORKING WITH NO SIGNAL
-- `440-check-in-out.js` — CHECK IN/OUT ◐ native (operative part; PM geofence/team/history/export in phase 2)
-- `450-multi-site-check-in-a-multi-site-job-s-c.js` — MULTI-SITE CHECK-IN: a multi-site job's Check In page replaces the single site-wide button with a list of its addresses; each address gets its own GPS-geofenced check-in flow (renderCheckinSubAddress) writing checkins.su… ◐ native (operative part; address add/close in phase 2)
+- `440-check-in-out.js` — CHECK IN/OUT ◐ native (all but the Excel exports)
+- `450-multi-site-check-in-a-multi-site-job-s-c.js` — MULTI-SITE CHECK-IN: a multi-site job's Check In page replaces the single site-wide button with a list of its addresses; each address gets its own GPS-geofenced check-in flow (renderCheckinSubAddress) writing checkins.su… ◐ native (address add/close/geofence done; address edit in Admin later)
 - `460-schedule-of-works.js` — SCHEDULE OF WORKS ◐ native (operative part)
 - `470-schedule-of-works-assignable-visibility-.js` — Schedule of Works — assignable visibility. A section (or an ungrouped task; grouped tasks always inherit their section's setting) can be scoped to "All" (default — visible to everyone with site access, same as before thi…
 - `480-schedule-of-works-from-library-site-side.js` — Schedule of Works — "From Library" (site side). Lets a PM/admin pick one of the org's sow_library_templates (built in Admin Centre) and COPY its sections/tasks into THIS site's real schedule_sections/schedule_tasks — a o… ◐ native (operative part: tasks, status, photos, %, site condition, docs; PM tools/export/email in phase 2)

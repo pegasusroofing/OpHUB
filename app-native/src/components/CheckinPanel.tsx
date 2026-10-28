@@ -1,13 +1,15 @@
 // Status + Check In/Out button + Recent, for a job or one address of a multi-site job.
-// Ported from renderCheckin / renderCheckinSubAddress (operative parts). The PM parts
-// (geofence set-up, team live status, history, exports) come with the PM screens in phase 2.
+// Ported from renderCheckin / renderCheckinSubAddress. Managers also get Close/Reopen
+// Address and the CheckinManager section (geofence, team status, history).
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Text, View } from 'react-native';
 
-import { showAlert, useToast } from '@/components/toast';
+import { CheckinManager } from '@/components/CheckinManager';
+import { confirmAsk, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Empty, Notice, Pill, SectionTitle, Toggle } from '@/components/ui';
 import { doCheck } from '@/data/checkinAction';
+import { setAddressClosed } from '@/data/checkinManager';
 import { useMyCheckins } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { statusFromLatest, timeHM } from '@/lib/rules/checkin';
@@ -54,6 +56,13 @@ export function CheckinPanel({ site, sub }: { site: Site; sub?: SubAddress }) {
       {(!closed || status === 'in') && (
         <Button busy={busy} title={busy ? (gps ? 'Getting GPS lock…' : 'Please wait…') : status === 'in' ? 'Check Out' : 'Check In'} onPress={act} />
       )}
+      {isManager(me) && sub && (
+        <Button kind="ghost" title={closed ? 'Reopen Address' : 'Close Address'} onPress={async () => {
+          if (!closed && !(await confirmAsk("Close this address? It'll move into the Closed Addresses list and new check-ins there will be switched off. You can reopen it any time.", 'Close'))) return;
+          if (await setAddressClosed(me, site.id, sub.id, sub.name, !closed)) { toast(closed ? 'Address reopened' : 'Address closed'); void qc.invalidateQueries({ queryKey: ['subAddresses', site.id] }); }
+        }} />
+      )}
+      {isManager(me) && <CheckinManager site={site} sub={sub} />}
       {me.role === 'operative' && (
         <>
           <Toggle title="Recent" open={recentOpen} onPress={() => setRecentOpen(!recentOpen)} />

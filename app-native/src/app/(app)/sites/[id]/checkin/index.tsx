@@ -1,10 +1,13 @@
 // Check In / Out for a job. A multi-site job shows its addresses to pick from instead.
+import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, Text } from 'react-native';
 
 import { CheckinPanel } from '@/components/CheckinPanel';
-import { Empty, Muted, Row, SectionTitle, Toggle } from '@/components/ui';
+import { useToast } from '@/components/toast';
+import { Button, Card, Empty, Field, Muted, Row, SectionTitle, Toggle } from '@/components/ui';
+import { addAddress } from '@/data/checkinManager';
 import { useSite, useSubAddresses } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { fullSiteAddress } from '@/lib/rules/checkin';
@@ -54,6 +57,37 @@ function AddressList({ siteId }: { siteId: string }) {
           {closedOpen && closed.map(row)}
         </>
       )}
+      {isManager(me) && <AddAddress siteId={siteId} />}
     </>
+  );
+}
+
+// Managers: add an address to a multi-site job (370). Its geofence is set from the address's own page.
+function AddAddress({ siteId }: { siteId: string }) {
+  const { me } = useAuth();
+  const toast = useToast();
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState('');
+  const [address, setAddress] = useState('');
+  const [postcode, setPostcode] = useState('');
+  if (!me) return null;
+  if (!open) return <Button kind="ghost" title="+ Add Address" onPress={() => setOpen(true)} />;
+  return (
+    <Card style={{ backgroundColor: base.paper }}>
+      <SectionTitle>Add Address</SectionTitle>
+      <Field label="Name" value={name} onChangeText={setName} placeholder="e.g. 12 High Street" />
+      <Field label="Address (optional)" value={address} onChangeText={setAddress} autoCapitalize="words" />
+      <Field label="Postcode (optional)" value={postcode} onChangeText={(v) => setPostcode(v.toUpperCase())} autoCapitalize="characters" />
+      <Muted style={{ marginBottom: 10 }}>The geofence for this address can be set from its own page afterwards.</Muted>
+      <Button title="Add Address" onPress={async () => {
+        if (!name.trim()) { toast('Enter a name for this address.'); return; }
+        if (await addAddress(me, siteId, name.trim(), address.trim(), postcode.trim())) {
+          toast('Address added'); setOpen(false); setName(''); setAddress(''); setPostcode('');
+          void qc.invalidateQueries({ queryKey: ['subAddresses', siteId] });
+        } else toast('Could not save — try again.');
+      }} />
+      <Button kind="ghost" title="Cancel" onPress={() => setOpen(false)} />
+    </Card>
   );
 }
