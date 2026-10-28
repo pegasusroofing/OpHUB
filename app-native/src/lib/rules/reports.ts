@@ -5,8 +5,10 @@
 export type ReportItem = {
   id: string; type: string; label: string; scored?: boolean; pfWords?: boolean; autofill?: string;
   allowMedia?: boolean; allowNote?: boolean; showIf?: { qId?: string; mode?: string; values?: unknown[] };
+  required?: boolean; options?: string[]; asButtons?: boolean; traffic?: boolean; mediaRequiredWhen?: string[]; addedOnSite?: boolean;
 };
-export type ReportSection = { id: string; title: string; items?: ReportItem[]; showUnanswered?: boolean };
+export type TrafficLevel = { id: string; color: string; label: string };
+export type ReportSection = { id: string; title: string; items?: ReportItem[]; showUnanswered?: boolean; traffic?: { on?: boolean; levels?: TrafficLevel[] } };
 export type Answers = Record<string, unknown>;
 
 export const REPORT_STATUS_LABEL: Record<string, string> = { in_progress: 'In Progress', completed: 'Completed' };
@@ -98,4 +100,69 @@ export function weekLabelOf(mondayIso: string): string {
   const end = new Date(start); end.setDate(end.getDate() + 6);
   const f = (dt: Date) => dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
   return `Week of ${f(start)} – ${f(end)}`;
+}
+
+/* ---------- filling in (430 / 100-state) ---------- */
+export const TRAFFIC_HEX: Record<string, string> = {
+  red: '#D32F2F', orange: '#EF7D00', yellow: '#E0B400', purple: '#7B3FB5', blue: '#2F6FD9', green: '#1F9D52',
+  grey: '#76767A', pink: '#D63384', teal: '#0F9D9A', brown: '#8D5524', black: '#111111',
+};
+export const trafficHex = (k: string) => TRAFFIC_HEX[k] || '#76767A';
+/** The template's condition key (kept on the first section), or null when it's off. */
+export function trafficLevels(sections: ReportSection[] | null | undefined): TrafficLevel[] | null {
+  const t = sections?.[0]?.traffic;
+  return t?.on && Array.isArray(t.levels) && t.levels.length ? t.levels : null;
+}
+export function itemHasTraffic(sections: ReportSection[] | null | undefined, it: ReportItem): boolean {
+  if (it.traffic === false || ['instruction', 'photo', 'signature', 'operatives', 'drawing'].includes(it.type)) return false;
+  return !!trafficLevels(sections);
+}
+export function itemTrafficLevel(sections: ReportSection[] | null | undefined, it: ReportItem, answers: Answers): TrafficLevel | null {
+  if (!itemHasTraffic(sections, it)) return null;
+  const id = answers[`${it.id}__tl`];
+  return id ? trafficLevels(sections)?.find((l) => l.id === id) ?? null : null;
+}
+
+/** A photo is required for this answer (template rule "photo required when …"). */
+export function mediaRequiredFor(it: ReportItem, answers: Answers): boolean {
+  if (!itemAllowsMedia(it) || !it.mediaRequiredWhen?.length) return false;
+  if (it.mediaRequiredWhen.includes('__always__')) return true;
+  const v = answers[it.id];
+  return Array.isArray(v) ? v.some((x) => it.mediaRequiredWhen?.includes(String(x))) : it.mediaRequiredWhen.includes(String(v));
+}
+
+/** Template list plus any answers typed in on this report (kept as <id>__opts). */
+export function itemOptions(it: ReportItem, answers: Answers): string[] {
+  const extra = Array.isArray(answers[`${it.id}__opts`]) ? (answers[`${it.id}__opts`] as string[]) : [];
+  const out = (it.options || []).slice();
+  extra.forEach((o) => { if (!out.includes(o)) out.push(o); });
+  return out;
+}
+
+export function autofillValue(kind: string, ctx: { siteAddress: string; today: string; me: string }): string | undefined {
+  if (kind === 'site_address') return ctx.siteAddress;
+  if (kind === 'today_date') return ctx.today;
+  if (kind === 'inspector_name') return ctx.me;
+  return undefined;
+}
+
+/** The first thing stopping the report being completed, or null. */
+export function completeProblem(sections: ReportSection[], answers: Answers, hasSignature: boolean): string | null {
+  for (const s of sections || []) {
+    for (const it of s.items || []) {
+      if (it.type === 'instruction' || !itemVisible(it, answers)) continue;
+      const v = answers[it.id];
+      if (it.required) {
+        if (it.type === 'photo' || it.type === 'multichoice' || it.type === 'drawing') { if (!Array.isArray(v) || !v.length) return `"${it.label}" is required.`; }
+        else if (it.type === 'operatives') { if (!Array.isArray(v) || !(v as { included?: boolean }[]).some((r) => r.included)) return `"${it.label}" needs at least one operative on site.`; }
+        else if (it.type === 'signature') { if (!hasSignature) return 'Adopt your signature before submitting.'; if (!v) return `Tap to sign "${it.label}" before submitting.`; }
+        else if (v === undefined || v === null || v === '') return `"${it.label}" is required.`;
+      }
+      if (mediaRequiredFor(it, answers)) {
+        const m = answers[`${it.id}__media`];
+        if (!Array.isArray(m) || !m.length) return `A photo is required for "${it.label}" based on your answer.`;
+      }
+    }
+  }
+  return null;
 }

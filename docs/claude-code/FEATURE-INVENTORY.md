@@ -57,7 +57,7 @@ Every source file in `src/js`, in build order, with the first line of its header
 - `400-price-builder-price-sheets-wip-feature.js` — PRICE BUILDER — price sheets (WIP feature) Separate from the Pricing Elements system above (see #PB-wip) — builds a tick-box price sheet from the org's rate card (Settings & Admin › Price Sheet Rate Card) for a specific …
 - `410-labour-invoices.js` — LABOUR INVOICES
 - `420-report-templates-company-admin-builds-pm.js` — REPORT TEMPLATES (Company Admin builds; PM fills in)
-- `430-site-reports-pm-fills-a-template-in-and-.js` — SITE REPORTS (PM fills a template in and submits)
+- `430-site-reports-pm-fills-a-template-in-and-.js` — SITE REPORTS (PM fills a template in and submits) ◐ native (list, start from template, fill every question type with traffic lights/notes/photos/required-photo rules, background photo upload, save & exit, complete, manager edit with history, delete; PDF export/email, offline parking, extra items, drawing mark-up still to do)
 - `435-reports-offline.js` — REPORTS — WORKING WITH NO SIGNAL
 - `440-check-in-out.js` — CHECK IN/OUT ◐ native (all but the Excel exports)
 - `450-multi-site-check-in-a-multi-site-job-s-c.js` — MULTI-SITE CHECK-IN: a multi-site job's Check In page replaces the single site-wide button with a list of its addresses; each address gets its own GPS-geofenced check-in flow (renderCheckinSubAddress) writing checkins.su… ◐ native (address add/close/geofence done; address edit in Admin later)
@@ -65,7 +65,7 @@ Every source file in `src/js`, in build order, with the first line of its header
 - `470-schedule-of-works-assignable-visibility-.js` — Schedule of Works — assignable visibility. A section (or an ungrouped task; grouped tasks always inherit their section's setting) can be scoped to "All" (default — visible to everyone with site access, same as before thi…
 - `480-schedule-of-works-from-library-site-side.js` — Schedule of Works — "From Library" (site side). Lets a PM/admin pick one of the org's sow_library_templates (built in Admin Centre) and COPY its sections/tasks into THIS site's real schedule_sections/schedule_tasks — a o… ◐ native (operative + manager add/edit/move/delete, sections, variation work, PM complete, multi-delete; library/import/docs upload/visibility/export still to do)
 - `481-sow-instant-photos.js` — Schedule of Works: instant photos * Picking photos on a task no longer waits for the upload. Each photo shows * on the task straight away (with a small "sending" mark), is shrunk and * kept safely on the phone, and goes … ✅ native (upload queue)
-- `490-snagging-variations-folder-snagging-vari.js` — SNAGGING / VARIATIONS (folder: Snagging + Variations) ◐ native (folder; variations + reports pending)
+- `490-snagging-variations-folder-snagging-vari.js` — SNAGGING / VARIATIONS (folder: Snagging + Variations) ◐ native (folder with Reports tile for managers)
 - `498-plan-markup.js` — Drawing mark-up (roof plans / A3 drawings) * planMarkup(src, opts) opens a full-screen editor over a drawing (a photo or * a page rendered from a PDF). Different from the snag photo markup: it is * built for large A3 dra…
 - `499-photo-markup.js` — Photo markup (draw + text on a photo) * photoMarkup(src) opens a full-screen editor over a photo (a data URL or a * web address). The user can draw (pen, arrow, circle) and add text, each in * its own colour (pen and tex…
 - `500-snagging.js` — SNAGGING ◐ native (list, close with photo, managers add; mark-up + PDF export/email + SoW PDF in phase 2)

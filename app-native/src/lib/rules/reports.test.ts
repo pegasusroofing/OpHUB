@@ -56,3 +56,20 @@ test('briefing weeks start on Monday', () => {
   assert.equal(weekKeyOf(new Date(2026, 9, 26)), '2026-10-26');
   assert.equal(weekLabelOf('2026-10-26'), 'Week of 26 Oct – 01 Nov');
 });
+
+import { completeProblem, itemOptions, itemTrafficLevel, mediaRequiredFor } from './reports.ts';
+test('filling-in rules', () => {
+  const secs = [{ id: 's', title: 'S', traffic: { on: true, levels: [{ id: 'g', color: 'green', label: 'OK' }] }, items: [
+    { id: 'a', type: 'passfail', label: 'Ladder', required: true, mediaRequiredWhen: ['Fail'] },
+    { id: 'b', type: 'choice', label: 'Kind', options: ['x'] },
+    { id: 'c', type: 'signature', label: 'Sign', required: true },
+  ] }];
+  assert.equal(completeProblem(secs, {}, true), '"Ladder" is required.');
+  assert.equal(completeProblem(secs, { a: 'Fail' }, true), 'A photo is required for "Ladder" based on your answer.');
+  assert.equal(completeProblem(secs, { a: 'Pass' }, false), 'Adopt your signature before submitting.');
+  assert.equal(completeProblem(secs, { a: 'Pass', c: 'sig.png' }, true), null);
+  assert.equal(mediaRequiredFor(secs[0].items[0], { a: 'Pass' }), false);
+  assert.deepEqual(itemOptions(secs[0].items[1], { b__opts: ['y', 'x'] }), ['x', 'y']);
+  assert.equal(itemTrafficLevel(secs, secs[0].items[1], { b__tl: 'g' })?.label, 'OK');
+  assert.equal(itemTrafficLevel(secs, secs[0].items[2], { c__tl: 'g' }), null);
+});
