@@ -29,12 +29,12 @@ Every source file in `src/js`, in build order, with the first line of its header
 - `170-platform-admin-superadmin-oversight-acro.js` — PLATFORM ADMIN (superadmin oversight across all companies)
 - `180-sites-list.js` — SITES LIST
 - `185-pm-home.js` — #(pm-home) PM / admin home + all-reports page ◐ native (operative home + inbox; PM home in phase 2)
-- `186-hr.js` — #(hr) HR — holiday calendar, company policies, handbook For PMs, admins and site managers (is_pm() in the database). - Holiday calendar: each person books annual leave / training / sick days (full or half day). Everyone … (managers only — phase 2)
+- `186-hr.js` — #(hr) HR — holiday calendar, company policies, handbook For PMs, admins and site managers (is_pm() in the database). - Holiday calendar: each person books annual leave / training / sick days (full or half day). Everyone … (managers only — phase 2) ◐ native (holiday calendar, book / approve / cancel, settings, policies & handbook sign; PDF/email export still to do)
 - `190-outstanding-tasks-home-bottom-bar-everyo.js` — OUTSTANDING TASKS (Home bottom bar — everyone, scoped to their own sites) ◐ native (operative: to sign list + home count; manager feed in phase 2)
-- `200-hub-combined-notifications-messages.js` — HUB (combined Notifications + Messages)
+- `200-hub-combined-notifications-messages.js` — HUB (combined Notifications + Messages) ◐ native (HUB list with filters and PM switch; Notifications count on PM home)
 - `210-operative-onboarding-checklist.js` — OPERATIVE ONBOARDING CHECKLIST ✅ native (home-screen steps on web only)
 - `220-account-settings-home-bottom-bar-everyon.js` — ACCOUNT / SETTINGS (Home bottom bar — everyone)
-- `230-company-dashboard-admin-only-management-.js` — COMPANY DASHBOARD (admin-only, management overview across every live project)
+- `230-company-dashboard-admin-only-management-.js` — COMPANY DASHBOARD (admin-only, management overview across every live project) ◐ native (all figures and lists)
 - `240-my-signature-adopted-once-reused-on-rams.js` — MY SIGNATURE (adopted once, reused on RAMS & Toolbox Talks) ✅ native
 - `250-manage-team-admin-pm-grant-revoke-and-re.js` — MANAGE TEAM (admin/PM grant, revoke, and remove team members)
 - `260-admin-centre-layout.js` — ADMIN CENTRE LAYOUT Front page (#/team) search + day-to-day tiles + four set-up tiles Section page (#/team/<page>) a plain list of what's in Company / Libraries / People / Logs Item screen (#/team/<page>/<item>) that one…
@@ -47,13 +47,13 @@ Every source file in `src/js`, in build order, with the first line of its header
 - `310-onedrive-folder-picker-link-a-site-to-it.js` — ONEDRIVE FOLDER PICKER (link a site to its real, existing project folder) A folder can either live in the connected account's own OneDrive (driveId null — addressed via /me/drive/...) or in a DIFFERENT drive that's been …
 - `320-per-operative-certifications.js` — PER-OPERATIVE CERTIFICATIONS Replaces the old flat org-wide Certifications sync (single shared OneDrive folder, no per-person structure) with a per-operative system: each operative gets their own certificate list (CSCS c… ◐ native (my certificates: view, add, summary; office side, matrix, exports in phase 2/3)
 - `330-site-home.js` — SITE HOME ◐ native (all tiles + rules incl. Price only when switched on; several tiles still say coming; repair hub, MC tiles, auto assign pop-up pending)
-- `340-maintenance-repair-contract.js` — Maintenance / Repair Contract A repair_contract site's "Home" is a list of individual repair jobs (repair_jobs) instead of the usual Schedule of Works/Check-in layout — see the branch in renderSiteHome above. Operatives …
+- `340-maintenance-repair-contract.js` — Maintenance / Repair Contract A repair_contract site's "Home" is a list of individual repair jobs (repair_jobs) instead of the usual Schedule of Works/Check-in layout — see the branch in renderSiteHome above. Operatives … ◐ native (hub, tiles, lists, bulk actions, full job page; Excel, bulk import, report PDFs, OneDrive still to do)
 - `350-to-do-list.js` — TO DO LIST ◐ native (live/closed, add with comment/date/PM/files, edit, assign, complete/reopen, attachments, comments, delete, email list or ticked; PDF export and general (no-project) to-dos still to do)
 - `360-multi-site-sub-addresses-geofence-patter.js` — MULTI-SITE SUB-ADDRESSES: geofence pattern re-parameterized to target a site_sub_addresses row instead of a sites row. Mirrors openGeoOptions/geoOptionManual/geoOptionClick/saveManualGeo/setGeofence/ setGeofenceRadius ab…
 - `370-multi-site-addresses-crud-settings-admin.js` — MULTI-SITE: addresses CRUD (Settings & Admin "Multi-Site" section) ✅ native
 - `380-assign-team-per-site-pm-allocates-operat.js` — ASSIGN TEAM (per-site — PM allocates operatives to this job) ◐ native (Settings & Admin: details, Main Contractor, Multi-Site + addresses, Repair Contract, assign operatives/site managers/subcontractor crews/clients, job status, Price switch, Site Info, Client Info, nobody-assigned prompt; OneDrive folder and saved-client picker still to do)
 - `385-site-activity-history.js` — SITE ACTIVITY HISTORY (one timeline per job) ✅ native
-- `390-pricing-elements.js` — PRICING ELEMENTS
+- `390-pricing-elements.js` — PRICING ELEMENTS ◐ native (tiles, figures, groups shown, price total/override, variations; weekly build-up editing, files, labour invoices still to do)
 - `400-price-builder-price-sheets-wip-feature.js` — PRICE BUILDER — price sheets (WIP feature) Separate from the Pricing Elements system above (see #PB-wip) — builds a tick-box price sheet from the org's rate card (Settings & Admin › Price Sheet Rate Card) for a specific …
 - `410-labour-invoices.js` — LABOUR INVOICES
 - `420-report-templates-company-admin-builds-pm.js` — REPORT TEMPLATES (Company Admin builds; PM fills in)
@@ -120,11 +120,11 @@ Every source file in `src/js`, in build order, with the first line of its header
 - `830-messages.js` — MESSAGES ◐ native (job messages for everyone incl. manager send/tabs/receipts/delete; HUB still to do)
 - `840-delivery-driver.js` — DELIVERY DRIVER ◐ native (driver: home, check in/out + breaks, schedule, collections, completion photos, push, re-open, vehicle checklist; photo mark-up + office check-in log + driver-view preview in phase 2)
 - `850-deliveries-hub-admin-centre-deliveries-t.js` — DELIVERIES HUB (Admin Centre "Deliveries" tile)
-- `857-handover-om-manual.js` — HANDOVER / O&M MANUAL #(handover) A Handover tile on each project once it's marked Closed (it takes the To Do List's place). Three parts: - Data sheets: technical data sheets / DoPs / specs for the products used. - Guara…
+- `857-handover-om-manual.js` — HANDOVER / O&M MANUAL #(handover) A Handover tile on each project once it's marked Closed (it takes the To Do List's place). Three parts: - Data sheets: technical data sheets / DoPs / specs for the products used. - Guara… ◐ native (data sheets, guarantees, manual list/rename; manual editor and export still to do)
 - `860-dashboard-choice-bottom-bar-dashboard-bu.js` — DASHBOARD CHOICE (bottom bar "Dashboard" button)
 - `866-subcontractor-applications.js` — #(sub-signup) Subcontractor sign-up form — applications 2026-10-17 (Andy): a Google-Forms-style public form (subcontractor.html?org=…) subcontractors fill in themselves. Submissions land here for PMs/admins to review, ap…
 - `867-subcontractor-form-in-app.js` — #(subform-in-app) Subcontractor form inside the app 2026-10-18 (Andy): the same questions as the public sign-up form, but filled in inside the app (Google-Forms look, like the report forms). Operatives get a "Subcontract…
-- `870-delivery-schedule-pm-admin-side.js` — DELIVERY SCHEDULE (PM/admin side)
+- `870-delivery-schedule-pm-admin-side.js` — DELIVERY SCHEDULE (PM/admin side) ◐ native (day view, add/edit/delete, moves, push, To schedule, driver hours; Excel, drag, driver view still to do)
 - `880-vehicle-checklists-pm-admin-view.js` — VEHICLE CHECKLISTS (PM/admin view)
 - `890-router-render.js` — router / render
 
