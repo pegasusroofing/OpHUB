@@ -3,10 +3,11 @@
 // manager and any clients who signed by emailed link; COSHH adds whoever put it
 // on the job as "issued by".
 import { docBucket } from '@/data/hs';
-import { exportFilename, fetchBytes } from '@/lib/pdf';
+import { exportFilename, fetchBytes, PDFDocument } from '@/lib/pdf';
 import { publicUrl } from '@/lib/privateFiles';
 import { currentCycleSigs } from '@/lib/rules/hs';
-import { buildSignedDocPdf, clientRow, signerRow, type SignLayout, type Signer } from '@/lib/signedPdf';
+import { isManager } from '@/lib/roles';
+import { buildSignedDocPdf, clientRow, drawSignatureTable, signerRow, type SignLayout, type Signer } from '@/lib/signedPdf';
 import { supabase } from '@/lib/supabase';
 import type { Site } from '@/lib/types';
 
@@ -51,5 +52,36 @@ export async function buildSignedHsPdf(kind: 'rams' | 'coshh', docId: string, si
     const filename = exportFilename(site.name, `${doc.name} (Signed)`, 'pdf');
     pdf.setTitle(filename.replace(/\.pdf$/i, ''));
     return { bytes: await pdf.save(), filename, name: doc.name };
+  } catch { return 'Could not build the signed PDF — the source file may not be a valid PDF.'; }
+}
+
+/** Signed Toolbox Talk (710 buildSignedToolboxTalkPdfBytes): the talk, then the record — conducted / issued by first, then operatives, then 6+ blank rows. */
+export async function buildSignedTbtPdf(tbtId: string, site: Site): Promise<{ bytes: Uint8Array; filename: string; name: string } | string> {
+  const talk = ((await db.from('toolbox_talks').select('*').eq('id', tbtId).maybeSingle()).data as { id: string; title: string; storage_path: string; created_by: string | null; created_at: string } | null);
+  if (!talk) return 'Toolbox Talk not found.';
+  const sigs = ((await db.from('toolbox_talk_signatures').select('*').eq('tbt_id', tbtId).order('signed_at')).data as Sig[] | null) ?? [];
+  if (!sigs.length) return 'No signatures yet.';
+  const ids = [...new Set([...sigs.map((s) => s.user_id), talk.created_by].filter((x): x is string => !!x))];
+  const profs = (((await db.from('profiles').select('id,name,role,signature_path').in('id', ids)).data as { id: string; name: string; role: string; signature_path: string | null }[] | null) ?? []);
+  const prof = (id: string | null) => profs.find((p) => p.id === id);
+  const mgr = (id: string | null) => { const p = prof(id); return !!p && isManager(p as never); };
+  const src = await fetchBytes(publicUrl('rams-docs', talk.storage_path));
+  if (!src) return 'Could not open the original document.';
+  const when = (d: string) => new Date(d).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const managerSig = sigs.find((s) => mgr(s.user_id));
+  const conductor = prof(talk.created_by);
+  const issued = `Issued ${new Date(managerSig?.signed_at || talk.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}`;
+  const conduct: Signer | null = managerSig ? { issued: true, label: 'CONDUCTED / ISSUED BY:', name: prof(managerSig.user_id)?.name || 'Unknown', plainName: '', dateText: '', imagePath: managerSig.signature_image_path, when: issued }
+    : conductor ? { issued: true, label: 'CONDUCTED / ISSUED BY:', name: conductor.name, plainName: '', dateText: '', imagePath: conductor.signature_path, when: issued } : null;
+  const signers: Signer[] = [
+    ...(conduct ? [conduct] : []),
+    ...sigs.filter((s) => (!managerSig || s.user_id !== managerSig.user_id) && prof(s.user_id) && !mgr(s.user_id)).map((s) => ({ name: prof(s.user_id)?.name || 'Unknown', plainName: '', dateText: '', when: when(s.signed_at), imagePath: s.signature_image_path })),
+  ];
+  try {
+    const pdf = await PDFDocument.load(src, { ignoreEncryption: true });
+    await drawSignatureTable(pdf, { title: talk.title, disclaimer: `I have read and understood the contents of this Toolbox Talk (${talk.title}). At all times employees must work in a safe manner both to prevent personal injury or injury/harm to others. Anything I did not understand has been explained to me to my satisfaction.`, signers, minBlank: 6 });
+    const filename = exportFilename(site.name, `${talk.title} (Signed)`, 'pdf');
+    pdf.setTitle(filename.replace(/\.pdf$/i, ''));
+    return { bytes: await pdf.save(), filename, name: talk.title };
   } catch { return 'Could not build the signed PDF — the source file may not be a valid PDF.'; }
 }

@@ -13,7 +13,9 @@ import * as DocumentPicker from 'expo-document-picker';
 
 import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Card, Muted } from '@/components/ui';
+import { buildSignedTbtPdf } from '@/data/hsPdf';
 import { useSites } from '@/data/sites';
+import { deliverPdf, emailPdf } from '@/lib/pdf';
 import { completeTbt, deleteTbt, issueTbt, issueTbtCompanyWide, remindTbt, renameTbt, replaceTbtFile } from '@/data/tbtManager';
 import { isManager } from '@/lib/roles';
 import { openDocLink, signTbt, usePeople, useTbt } from '@/data/hs';
@@ -32,6 +34,7 @@ export default function TbtView() {
   const { data: sites } = useSites();
   if (!me) return null;
   const mgr = isManager(me);
+  const site = (sites ?? []).find((s) => s.id === id);
   const talk = data?.talk;
   const mine = data?.sigs.find((s) => s.user_id === me.id);
   const live = talk?.status === 'live';
@@ -55,8 +58,20 @@ export default function TbtView() {
       ...(talk.status !== 'live' && talk.status !== 'completed' ? [{ key: 'issue', label: '✍ Issue for Signing' }] : []),
       ...(talk.status === 'bank' ? [{ key: 'wide', label: '📢 Issue company-wide' }] : []),
       ...(talk.status === 'live' ? [{ key: 'remind', label: '🔔 Ask Outstanding to Sign' }, { key: 'complete', label: '✓ Mark as Completed' }] : []),
+      ...((data?.sigs ?? []).length ? [{ key: 'pdf', label: '📄 Export signed PDF' }, { key: 'email', label: '✉ Email signed PDF' }] : []),
       { key: 'rename', label: '✏️ Rename' }, { key: 'replace', label: '🔁 Replace file' }, { key: 'del', label: '🗑 Delete', danger: true },
     ]);
+    if ((k === 'pdf' || k === 'email') && site) {
+      let to = '';
+      if (k === 'email') { const t = await promptText('Email this signed Toolbox Talk PDF to:', ''); if (t === null) return; to = t.trim(); if (!/^[^s@]+@[^s@]+.[^s@]+$/.test(to)) { toast('Enter a valid email address.'); return; } }
+      toast('Building signed PDF…');
+      const b = await buildSignedTbtPdf(talk.id, site).catch(() => 'Could not build the signed PDF.');
+      if (typeof b === 'string') { toast(b); return; }
+      if (k === 'pdf') { if (!(await deliverPdf(b.bytes, b.filename))) toast('Could not save the PDF.'); return; }
+      toast('Sending…');
+      const err = await emailPdf(b.bytes, b.filename, `${id}/tbt-exports`, { site_id: id, recipient_email: to, doc_title: `${b.name} (Signed Toolbox Talk)` });
+      toast(err || 'Emailed'); return;
+    }
     if (k === 'issue') { setBusy(true); const r = await issueTbt(me, id, talk); setBusy(false); toast(r.msg); refresh(); if (r.id && r.id !== talk.id) router.replace(`/sites/${id}/hs/tbt/${r.id}`); }
     else if (k === 'wide') { if (await confirmAsk(`Issue "${talk.title}" for signing at every live site company-wide?`, 'Issue')) { setBusy(true); toast(await issueTbtCompanyWide(me, talk, sites ?? [])); setBusy(false); refresh(); } }
     else if (k === 'remind') {
