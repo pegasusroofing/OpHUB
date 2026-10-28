@@ -10,6 +10,7 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { showAlert, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
+import { PuwerPdfButtons } from '@/components/PuwerPdfButtons';
 import { PuwerRoster } from '@/components/PuwerRoster';
 import { confirmAsk } from '@/components/toast';
 import { nameOf, usePeople } from '@/data/hs';
@@ -103,7 +104,7 @@ export default function Puwer() {
             if (!(await confirmAsk('Delete this PUWER inspection? This cannot be undone.', 'Delete'))) return;
             if (await deletePuwer(me, id, data.inspectionId as string, whoName)) { toast('Inspection deleted'); void qc.invalidateQueries({ queryKey: ['puwer', id] }); void qc.invalidateQueries({ queryKey: ['puwerRoster', id] }); }
           }} />}
-          <Muted style={{ marginTop: 10 }}>PUWER PDF export and email are still in the current app for now.</Muted>
+          {!!data?.inspectionId && <PuwerPdfButtons siteId={id} weekStart={ws} one={{ id: who, name: whoName }} />}
         </>
       )}
     </ScrollView>

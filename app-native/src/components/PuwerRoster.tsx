@@ -5,6 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack } from 'expo-router';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
+import { PuwerPdfButtons } from '@/components/PuwerPdfButtons';
 import { useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted } from '@/components/ui';
 import { nameOf, usePeople } from '@/data/hs';
@@ -54,7 +55,7 @@ export function PuwerRoster({ siteId, offset, setOffset }: { siteId: string; off
         }} />
       )}
       {data?.completion && <Button kind="ghost" title="Reopen This Week" onPress={async () => { if (await reopenPuwerWeek(data.completion!.id)) { toast('Week reopened'); refresh(); } }} />}
-      <Muted style={{ marginTop: space.m }}>Weekly PUWER PDFs (one operative, all, or selected) and email are still in the current app for now.</Muted>
+      <PuwerPdfButtons siteId={siteId} weekStart={ws} />
     </ScrollView>
   );
 }
