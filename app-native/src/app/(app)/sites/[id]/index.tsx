@@ -3,7 +3,7 @@
 // Tiles for pages not built yet say so.
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback } from 'react';
-import { ScrollView, Text } from 'react-native';
+import { Pressable, ScrollView, Text } from 'react-native';
 
 import { useToast } from '@/components/toast';
 import { Card, Muted, Tile } from '@/components/ui';
@@ -41,8 +41,30 @@ export default function SiteHome() {
 
   return (
     <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
-      <Stack.Screen options={{ title: site.name }} />
+      <Stack.Screen options={{
+        title: site.name,
+        headerRight: mgr ? () => <Pressable onPress={go('admin')} hitSlop={10} style={{ paddingHorizontal: 12 }}><Text style={{ fontSize: 15, color: base.ink }}>⚙ Settings</Text></Pressable> : undefined,
+      }} />
       {!!fullSiteAddress(site) && <Muted style={{ marginBottom: space.m }}>{fullSiteAddress(site)}</Muted>}
+      {!client && (
+        <Pressable disabled={!mgr} onPress={go('client')}>
+          <Card style={{ paddingVertical: 10 }}>
+            {site.client_name || site.client_contact_name || site.client_phone ? (
+              <>
+                <Text style={{ color: base.ink }} numberOfLines={1}><Text style={{ fontWeight: '700' }}>Client:</Text> {site.client_name || '—'}</Text>
+                <Text style={{ color: base.ink }} numberOfLines={1}><Text style={{ fontWeight: '700' }}>Contact:</Text> {[site.client_contact_name, site.client_phone].filter(Boolean).join(' · ') || '—'}</Text>
+              </>
+            ) : <Text style={{ color: base.slate, fontWeight: '700' }}>{mgr ? 'Add client info' : 'No client info yet'}</Text>}
+          </Card>
+        </Pressable>
+      )}
+      {mgr && siteStatusKey(site) === 'live' && h?.assignedCount === 0 && (
+        <Pressable onPress={go('admin')}>
+          <Card style={{ backgroundColor: base.warnBg }}>
+            <Text style={{ color: base.ink }}><Text style={{ fontWeight: '700' }}>Nobody is assigned to this job yet.</Text> Tap to assign operatives so they can check in.</Text>
+          </Card>
+        </Pressable>
+      )}
       {client ? (
         <>
           <Tile icon="📋" tint={base.blueBg} title="Schedule of Works" sub={sowSub} onPress={go('schedule')} />

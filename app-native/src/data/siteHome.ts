@@ -44,12 +44,14 @@ export function useSiteHome(site: Site | undefined) {
       ((orThrow(team) as { user_id: string; type: string }[]) ?? []).forEach((c) => { if (!(c.user_id in latest)) latest[c.user_id] = c.type; });
       // Managers: "!" on H&S when an operative on the job still needs to sign the current RAMS or COSHH.
       let hsGap = false;
+      let assignedCount: number | null = null;
       if (mgr) {
         const [a, ops, coshh] = await Promise.all([
           db.from('site_assignments').select('user_id').eq('site_id', s.id),
           db.from('profiles').select('id').eq('role', 'operative'),
           db.from('coshh_docs').select('id,resign_cycle_start,uploaded_at').eq('site_id', s.id).is('subcontractor_company_id', null),
         ]);
+        assignedCount = ((a.data as unknown[] | null) ?? []).length;
         const opSet = new Set(((ops.data as { id: string }[] | null) ?? []).map((x) => x.id));
         const roster = ((a.data as { user_id: string }[] | null) ?? []).map((x) => x.user_id).filter((id) => opSet.has(id));
         const gap = async (table: string, key: 'rams_id' | 'coshh_id', docs: Doc[]) => {
@@ -71,6 +73,7 @@ export function useSiteHome(site: Site | undefined) {
         todayEvents: ((cal.data as { title: string }[] | null) ?? []).map((e) => e.title),
         canSeePrice: price,
         hsGap,
+        assignedCount,
       };
     }),
   });

@@ -71,7 +71,13 @@ export type Site = {
   repair_contract: boolean;
   price_enabled: boolean;
   client_name: string | null;
+  client_contact_name?: string | null;
+  client_phone?: string | null;
+  client_email?: string | null;
   created_at: string | null;
+  created_by?: string | null;
+  closed_at?: string | null;
+  closed_by?: string | null;
   tile_visibility?: Record<string, string[]> | null;
 };
 

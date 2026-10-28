@@ -50,9 +50,9 @@ Every source file in `src/js`, in build order, with the first line of its header
 - `340-maintenance-repair-contract.js` — Maintenance / Repair Contract A repair_contract site's "Home" is a list of individual repair jobs (repair_jobs) instead of the usual Schedule of Works/Check-in layout — see the branch in renderSiteHome above. Operatives …
 - `350-to-do-list.js` — TO DO LIST
 - `360-multi-site-sub-addresses-geofence-patter.js` — MULTI-SITE SUB-ADDRESSES: geofence pattern re-parameterized to target a site_sub_addresses row instead of a sites row. Mirrors openGeoOptions/geoOptionManual/geoOptionClick/saveManualGeo/setGeofence/ setGeofenceRadius ab…
-- `370-multi-site-addresses-crud-settings-admin.js` — MULTI-SITE: addresses CRUD (Settings & Admin "Multi-Site" section)
-- `380-assign-team-per-site-pm-allocates-operat.js` — ASSIGN TEAM (per-site — PM allocates operatives to this job)
-- `385-site-activity-history.js` — SITE ACTIVITY HISTORY (one timeline per job)
+- `370-multi-site-addresses-crud-settings-admin.js` — MULTI-SITE: addresses CRUD (Settings & Admin "Multi-Site" section) ✅ native
+- `380-assign-team-per-site-pm-allocates-operat.js` — ASSIGN TEAM (per-site — PM allocates operatives to this job) ◐ native (Settings & Admin: details, Main Contractor, Multi-Site + addresses, Repair Contract, assign operatives/site managers/subcontractor crews/clients, job status, Price switch, Site Info, Client Info, nobody-assigned prompt; OneDrive folder and saved-client picker still to do)
+- `385-site-activity-history.js` — SITE ACTIVITY HISTORY (one timeline per job) ✅ native
 - `390-pricing-elements.js` — PRICING ELEMENTS
 - `400-price-builder-price-sheets-wip-feature.js` — PRICE BUILDER — price sheets (WIP feature) Separate from the Pricing Elements system above (see #PB-wip) — builds a tick-box price sheet from the org's rate card (Settings & Admin › Price Sheet Rate Card) for a specific …
 - `410-labour-invoices.js` — LABOUR INVOICES
