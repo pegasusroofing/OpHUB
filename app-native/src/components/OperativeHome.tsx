@@ -1,11 +1,12 @@
 // Operative home. Ported from renderOpHome (185-pm-home.js).
-// Still to come: the Getting Started checklist, the subcontractor form tile and My dashboard.
+// Still to come: the subcontractor form tile and My dashboard.
 import { router } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 
 import { Muted, Screen, Stat, Tile } from '@/components/ui';
 import { outstandingCount, useOutstanding } from '@/data/inbox';
 import { useOpUnreadCount } from '@/data/messages';
+import { useOnboarding } from '@/data/onboarding';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { greeting, siteStatusKey } from '@/lib/rules/checkin';
@@ -22,6 +23,7 @@ export function OperativeHome() {
   const { data: unread = 0 } = useOpUnreadCount(sites.map((s) => s.id));
   const { data: outRows } = useOutstanding(sites);
   const todo = outstandingCount(outRows);
+  const { data: onboarding } = useOnboarding(sites);
   const first = (me?.name || '').trim().split(/\s+/)[0] || '';
   const dateTxt = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
 
@@ -29,6 +31,12 @@ export function OperativeHome() {
     <Screen>
       <Text style={{ fontSize: 12.5, color: base.slate, fontWeight: '600' }}>{dateTxt}</Text>
       <Text style={{ fontSize: 21, fontWeight: '800', color: base.ink, marginBottom: 14 }}>{greeting()}{first ? `, ${first}` : ''}</Text>
+      {onboarding && !onboarding.allDone && (
+        <Pressable onPress={() => router.push('/getting-started')} style={{ backgroundColor: base.warnBg, borderWidth: 1, borderColor: base.warn, borderRadius: 18, padding: 14, marginBottom: 14 }}>
+          <Text style={{ fontWeight: '800', color: base.warn }}>Getting Started</Text>
+          <Text style={{ color: base.slate, marginTop: 2 }}>{onboarding.items.filter((i) => i.done).length} of {onboarding.items.length} steps done — tap to finish</Text>
+        </Pressable>
+      )}
       <View style={{ flexDirection: 'row', gap: 8, marginBottom: space.m }}>
         <Stat n={live.length} label="Live jobs" onPress={() => router.push('/sites')} />
         <Stat n={upcoming.length} label="Upcoming" onPress={() => router.push('/sites')} />

@@ -32,7 +32,7 @@ Every source file in `src/js`, in build order, with the first line of its header
 - `186-hr.js` — #(hr) HR — holiday calendar, company policies, handbook For PMs, admins and site managers (is_pm() in the database). - Holiday calendar: each person books annual leave / training / sick days (full or half day). Everyone … (managers only — phase 2)
 - `190-outstanding-tasks-home-bottom-bar-everyo.js` — OUTSTANDING TASKS (Home bottom bar — everyone, scoped to their own sites) ◐ native (operative: to sign list + home count; manager feed in phase 2)
 - `200-hub-combined-notifications-messages.js` — HUB (combined Notifications + Messages)
-- `210-operative-onboarding-checklist.js` — OPERATIVE ONBOARDING CHECKLIST
+- `210-operative-onboarding-checklist.js` — OPERATIVE ONBOARDING CHECKLIST ✅ native (home-screen steps on web only)
 - `220-account-settings-home-bottom-bar-everyon.js` — ACCOUNT / SETTINGS (Home bottom bar — everyone)
 - `230-company-dashboard-admin-only-management-.js` — COMPANY DASHBOARD (admin-only, management overview across every live project)
 - `240-my-signature-adopted-once-reused-on-rams.js` — MY SIGNATURE (adopted once, reused on RAMS & Toolbox Talks) ✅ native
@@ -95,7 +95,7 @@ Every source file in `src/js`, in build order, with the first line of its header
 - `620-coshh-identical-to-rams-above-separate-d.js` — COSHH (identical to RAMS above — separate document type) ◐ native (operative: view, sign, sign all)
 - `629-tile-visibility.js` — TILE VISIBILITY BY JOB ROLE (per job) * Generic version of the Plant/Expenses ⋮ menu: any tile can be shown or * hidden per job role on a given job. Stored on sites.tile_visibility as * {tileKey: [roles that can see it]}… ◐ native (respected; editing in phase 2)
 - `630-health-safety-folder-rams-coshh-toolbox-.js` — HEALTH & SAFETY (folder: RAMS + COSHH + Toolbox Talks) ◐ native (folder; briefings/HAVS/PPE/incidents/operatives tiles pending)
-- `640-h-s-policy-org-wide-document-everyone-si.js` — H&S POLICY (org-wide document everyone signs) Mirrors the RAMS read-and-sign pattern, but there is exactly one current document per company (not per site) — uploading a replacement supersedes the old one and, same as RAM…
+- `640-h-s-policy-org-wide-document-everyone-si.js` — H&S POLICY (org-wide document everyone signs) Mirrors the RAMS read-and-sign pattern, but there is exactly one current document per company (not per site) — uploading a replacement supersedes the old one and, same as RAM… ◐ native (compulsory gate, sign, shown in RAMS; upload/signed list in phase 2)
 - `650-ppe-issuance-requests-log.js` — PPE (issuance, requests, log) PPE issuances are deliberately org-wide on SELECT (see RLS) rather than filtered by has_site_access, because the whole point is that an operative's current PPE list travels with them to what… ◐ native (operative: current kit, sign, request; PM issue/fulfil/log/exports in phase 2)
 - `660-havs-hand-arm-vibration-exposure.js` — HAVS (Hand-Arm Vibration exposure) Real HSE formula (matches the government HAVS calculator, not the old spreadsheet's ambiguous multiplier): for a tool with vibration magnitude D (m/s²) used for M minutes, partial daily… ◐ native (operative: log/edit/delete own minutes, day pills, limit alerts; manager grid, close week, completed tab, PDFs in phase 2)
 - `670-operative-tools-personal-tool-register.js` — OPERATIVE TOOLS (personal tool register) Every operative's own log of the power tools they use — name, serial/item number, and a photo. Never its own H&S tile: the entry point is a small "My Tools" link inside H&S (alway…

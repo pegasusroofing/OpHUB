@@ -67,3 +67,15 @@ export function canSeeTile(site: { tile_visibility?: Record<string, string[]> | 
   const v = site?.tile_visibility?.[key];
   return (Array.isArray(v) ? v : def).includes(role);
 }
+
+/* ---------- company H&S Policy (640) ---------- */
+/** A policy signature counts if it's on or after the policy's current cycle start. */
+export function policySigValid(doc: CycleDoc | null, sig: { signed_at: string | null } | null | undefined): boolean {
+  if (!doc || !sig || !sig.signed_at) return false;
+  return new Date(sig.signed_at).getTime() >= new Date(resignCycleStart(doc) || 0).getTime();
+}
+/** The gate: everyone except the platform admin (and Finance-only companies) must have signed the current policy. */
+export function policyGatePending(role: string, financeOnly: boolean, doc: CycleDoc | null, mySigsOldestFirst: { signed_at: string | null }[]): boolean {
+  if (role === 'superadmin' || financeOnly || !doc) return false;
+  return !policySigValid(doc, mySigsOldestFirst[mySigsOldestFirst.length - 1]);
+}

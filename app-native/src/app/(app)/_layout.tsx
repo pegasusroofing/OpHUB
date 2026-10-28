@@ -1,9 +1,11 @@
 // The signed-in shell: bottom tabs on a phone, a left-hand menu on a computer
 // (wide web window), like 125-desktop.js in the current app.
-import { Tabs } from 'expo-router';
+import { Tabs, usePathname } from 'expo-router';
 import { SymbolView, type SymbolViewProps } from 'expo-symbols';
 import { Platform, useWindowDimensions } from 'react-native';
 
+import { PolicyGate } from '@/components/PolicyGate';
+import { useHsPolicy } from '@/data/hsPolicy';
 import { useAuth } from '@/lib/auth';
 import { homeKind } from '@/lib/roles';
 import { base, useTheme } from '@/theme/theme';
@@ -18,6 +20,10 @@ export default function AppLayout() {
   const hasSites = !['driver', 'finance', 'superadmin'].includes(homeKind(me, org));
   const { width } = useWindowDimensions();
   const desk = Platform.OS === 'web' && width >= 900;
+  // Compulsory H&S Policy: until it's signed, nothing but the signature page (640).
+  const policy = useHsPolicy();
+  const path = usePathname();
+  if (policy.data?.pending && policy.data.doc && path !== '/signature') return <PolicyGate doc={policy.data.doc} />;
   return (
     <Tabs
       screenOptions={{
@@ -36,6 +42,7 @@ export default function AppLayout() {
       <Tabs.Screen name="account" options={{ title: 'Account', tabBarIcon: icon({ ios: 'person.crop.circle', android: 'person', web: 'person' }) }} />
       <Tabs.Screen name="driver" options={{ href: null, title: 'Driver' }} />
       <Tabs.Screen name="inbox" options={{ href: null, title: 'Messages & tasks' }} />
+      <Tabs.Screen name="getting-started" options={{ href: null, title: 'Getting Started' }} />
       <Tabs.Screen name="signature" options={{ href: null, title: 'My Signature' }} />
     </Tabs>
   );

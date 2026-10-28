@@ -57,3 +57,15 @@ test('canSeeTile: managers always, others by the job setting', () => {
   assert.equal(canSeeTile({ tile_visibility: { hs_ppe: ['site_manager'] } }, 'hs_ppe', 'operative'), false);
   assert.equal(canSeeTile({ tile_visibility: { hs_ppe: ['operative'] } }, 'hs_ppe', 'operative'), true);
 });
+
+test('H&S policy gate', async () => {
+  const { policyGatePending, policySigValid } = await import('./hs.ts');
+  const doc = { id: 'p', resign_cycle_start: '2026-06-01T00:00:00Z', uploaded_at: '2026-01-01T00:00:00Z' };
+  assert.equal(policySigValid(doc, { signed_at: '2026-05-01T00:00:00Z' }), false);
+  assert.equal(policySigValid(doc, { signed_at: '2026-06-02T00:00:00Z' }), true);
+  assert.equal(policyGatePending('operative', false, null, []), false);
+  assert.equal(policyGatePending('operative', false, doc, []), true);
+  assert.equal(policyGatePending('pm', false, doc, [{ signed_at: '2026-05-01T00:00:00Z' }, { signed_at: '2026-07-01T00:00:00Z' }]), false);
+  assert.equal(policyGatePending('superadmin', false, doc, []), false);
+  assert.equal(policyGatePending('admin', true, doc, []), false);
+});
