@@ -96,8 +96,9 @@
   - Expenses now sits inside Materials and follows the job's visibility setting, as in the current app.
   - Reports & surveys (form engine), LOLER, Daily Briefings, permits, incidents, inductions, Main Contractor and subcontractor pages, Plant, the manager H&S tools.
   - PM home pages: the HUB (notifications), all-projects Reports, To do and Calendar, the office Delivery Schedule (day view, add/edit, moves, To schedule, driver hours), the Operatives dashboard (record, certificates, tools; also the job's H&S › Operatives tile), HR (holiday calendar, requests, settings, policies and handbook), the Company Dashboard.
+  - PDFs: reports and surveys, Snagging, Schedule of Works (full or a period), Variations, signed RAMS / COSHH (stamped boxes + signature record), signed Toolbox Talks, incident reports — export and email.
   - Job page: Handover (data sheets, guarantees, O&M manual list), maintenance / repair contracts (job hub, lists, full job page), the Price tile (pricing elements, figures, variations to price).
-- **Phase 2 still in the current app for now:** Admin Centre tile, Finance tile, PDF exports (snags, SoW, reports, signed RAMS/TBT, policies, Training Matrix…), Excel exports, the O&M manual editor, Price weekly build-up / Price Sheets / price files / labour invoices, repair bulk import and reports, drag-to-move deliveries, the driver view and vehicle checks for managers, H&S builders (RAMS/COSHH), OneDrive linking.
+- **Phase 2 still in the current app for now:** Admin Centre tile, Finance tile, PDF exports still to port (HAVS, PUWER, PPE, briefing signature sheets, policies, Training Matrix, repair reports), Excel exports, the O&M manual editor, Price weekly build-up / Price Sheets / price files / labour invoices, repair bulk import and reports, drag-to-move deliveries, the driver view and vehicle checks for managers, H&S builders (RAMS/COSHH), OneDrive linking.
 - **Android test build:** `b979c2f7…` was queued on Expo's free plan when last checked.
 
 ## Andy's own to-dos
