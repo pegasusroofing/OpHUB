@@ -33,8 +33,16 @@ export default function SiteHome() {
   if (site.repair_contract) {
     return (
       <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
-        <Stack.Screen options={{ title: site.name }} />
-        <Muted>This is a maintenance / repair contract. Its repair jobs list is still being built in the new app.</Muted>
+        <Stack.Screen options={{
+          title: site.name,
+          headerRight: mgr ? () => <Pressable onPress={go('admin')} hitSlop={10} style={{ paddingHorizontal: 12 }}><Text style={{ fontSize: 15, color: base.ink }}>⚙ Settings</Text></Pressable> : undefined,
+        }} />
+        {!!fullSiteAddress(site) && <Muted style={{ marginBottom: space.m }}>{fullSiteAddress(site)}</Muted>}
+        <Tile icon="🛠" tint="#FDECEA" title="Live Jobs" sub="Repair jobs on this contract" onPress={go('repairs')} />
+        <Tile icon="📄" tint="#E7E9EE" title="Health & Safety" sub="RAMS · COSHH · TBT" onPress={go('hs')} />
+        <Tile icon="🧱" tint={base.okBg} title="Materials" sub="Orders" onPress={go('materials')} />
+        <Tile icon="📅" tint={base.blueBg} title="Calendar" sub="Key dates" onPress={go('calendar')} />
+        <Tile icon="✅" tint="#EFEAFB" title="To Do List" sub="Tasks" onPress={go('todos')} />
       </ScrollView>
     );
   }
