@@ -1,6 +1,5 @@
 // Health & Safety folder for a job. Ported from renderHealthSafety (630).
-// Tiles follow the job's per-role visibility (629). Tools/HAVS/PUWER,
-// Accident/Incident and Operatives are still to be built; their tiles say so.
+// Tiles follow the job's per-role visibility (629). The Operatives tile is still to be built.
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { ScrollView } from 'react-native';
 
@@ -29,7 +28,7 @@ export default function HealthSafety() {
     { key: 'hs_briefings', icon: '📣', tint: '#FDECEA', title: 'Daily Briefings', sub: 'Read and sign', go: 'briefings' },
     { key: 'hs_havspuwer', icon: '🖐', tint: '#FFF3E0', title: 'Tools, HAVS & PUWER', sub: 'Tools, vibration & tool checks', go: 'havspuwer' },
     { key: 'hs_ppe', icon: '🦺', tint: '#FDECEA', title: 'PPE', sub: mgr ? 'Issue & track PPE' : sum?.ppeToSign ? `${sum.ppeToSign} to sign` : 'My PPE', badge: mgr ? 0 : sum?.ppeToSign, go: '../ppe' },
-    { key: 'hs_incidents', icon: '⚠️', tint: '#FDECEA', title: 'Accident / Incident', sub: 'Coming soon' },
+    { key: 'hs_incidents', icon: '⚠️', tint: '#FDECEA', title: 'Accident / Incident', sub: 'Report & view', go: 'incidents' },
     { key: 'hs_operatives', icon: '🪪', tint: '#E8F0FE', title: 'Operatives', sub: 'Coming soon' },
   ];
   const visible = tiles.filter((t) => canSeeTile(site, t.key, me.role));
