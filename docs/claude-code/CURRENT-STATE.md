@@ -64,18 +64,19 @@
   - **Device lock at switch-over:** the native app gets a new device id. Each operative's first sign-in on the new app will show up as a new device to approve.
   - **Web output:** the web build is a single-page app (`npm run build:web`). It isn't on Vercel yet.
 
-## Native app: Phase 1 (operatives and drivers), in progress
+## Native app: Phase 1 (operatives and drivers): built, awaiting testing
 - **Built:**
   - Operative home, My projects and the job page, with the Getting Started checklist.
   - The compulsory H&S Policy gate.
   - Check In / Out, including multi-address jobs.
   - Schedule of Works with the photo upload queue.
-  - H&S: RAMS, COSHH, toolbox talks and daily briefings (read and sign), the H&S Policy, PPE, HAVS, My Tools, and My signature.
+  - H&S: RAMS, COSHH, toolbox talks and daily briefings (read and sign), the H&S Policy, PPE, HAVS, PUWER, My Tools, and My signature.
+  - My dashboard: certificates and My Tools.
   - Messages & tasks, and the job Messages page.
   - Snagging and variations, plus expenses.
   - Driver app: check in/out with breaks, schedule, collections, completion photos, push and re-open, vehicle checklist and time off.
-- **Rules:** 55 unit tests in `app-native/src/lib/rules` (`npm test`).
-- **Still to do in Phase 1:** PUWER and LOLER inspections (operative side) and My dashboard (hours, certificates).
+- **Rules:** 60 unit tests in `app-native/src/lib/rules` (`npm test`).
+- **Phase 1 is built.** Next: Andy tests it on the web and on a phone build. LOLER moves to Phase 2, because it uses the report-form engine.
 - **Moved to Phase 2:** holidays (HR) are managers-only in the old app.
 - **Noticed for Phase 3:** the old app forces a new company's admin through Company Setup (logo and colours) before anything else.
 - **Known gaps carried to Phase 2:**

@@ -1,5 +1,5 @@
 // Operative home. Ported from renderOpHome (185-pm-home.js).
-// Still to come: the subcontractor form tile and My dashboard.
+// Still to come: the subcontractor form tile.
 import { router } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 
@@ -50,6 +50,7 @@ export function OperativeHome() {
       <Tile icon="💬" tint={base.blueBg} title="Messages & tasks" badge={todo + unread}
         sub={[todo ? `${todo} to sign or do` : 'Nothing to sign', unread ? `${unread} new message${unread === 1 ? '' : 's'}` : 'no new messages'].join(' · ')}
         onPress={() => router.push('/inbox')} />
+      <Tile icon="🧰" tint={base.okBg} title="My dashboard" sub="Hours, tools, certificates" onPress={() => router.push('/dashboard')} />
       <Tile icon="⚙️" tint={base.paper} title="Settings" sub="Account, signature, password" onPress={() => router.push('/account')} />
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 22 }}>
         <Muted>{me?.name}</Muted>
