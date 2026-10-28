@@ -75,7 +75,7 @@
   - Messages & tasks, and the job Messages page.
   - Snagging and variations, plus expenses.
   - Driver app: check in/out with breaks, schedule, collections, completion photos, push and re-open, vehicle checklist and time off.
-- **Rules:** 60 unit tests in `app-native/src/lib/rules` (`npm test`).
+- **Rules:** 82 unit tests in `app-native/src/lib/rules` (`npm test`).
 - **Phase 1 is built.** Next: Andy tests it on the web and on a phone build. LOLER moves to Phase 2, because it uses the report-form engine.
 - **Moved to Phase 2:** holidays (HR) are managers-only in the old app.
 - **Noticed for Phase 3:** the old app forces a new company's admin through Company Setup (logo and colours) before anything else.
@@ -88,6 +88,13 @@
 - **Questions for Andy:**
   - RAMS/COSHH rows now have a "View document" link for operatives. The old operative row had none. Keep it?
   - The old "Monday vehicle check before check-in" gate was never switched on. Should it be?
+- **Phase 2 (PMs and site managers), built so far, awaiting testing:**
+  - PM home, On site now, the full job page tiles, and the job's Settings & Admin (details, Main Contractor, Multi-Site addresses, Repair Contract, team assignments, job status, Price switch), Activity History and Client Info.
+  - Manager side of Check In / Out (geofence, team status, history, PM logins), Schedule of Works tools, job Messages, Variations (decide, value, add to SoW).
+  - Materials: requests, sending orders to suppliers, Collections, goods received (GRN), Ordered By The Office, yard stock and booking stock in (drivers too), Material PO's.
+  - Drawings, Spec's & Programme; the job Calendar; the To Do List.
+  - Expenses now sits inside Materials and follows the job's visibility setting, as in the current app.
+- **Phase 2 still to build:** report-form engine (reports, LOLER, starting briefings), H&S builders (RAMS/COSHH), Price, HUB, Deliveries (PM), Operatives, HR, Admin tiles, permits/incidents/inductions, repair contracts, handover, plant, OneDrive linking, PDF exports.
 - **Android test build:** `b979c2f7…` was queued on Expo's free plan when last checked.
 
 ## Andy's own to-dos
