@@ -66,6 +66,7 @@ export type Site = {
   geofence_lon: number | null;
   geofence_radius_m: number;
   multi_site: boolean;
+  acting_as_main_contractor?: boolean;
   repair_contract: boolean;
   price_enabled: boolean;
   client_name: string | null;
