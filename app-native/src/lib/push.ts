@@ -47,7 +47,7 @@ export async function unregisterPush(): Promise<void> {
 // for now this returns the route the old app used, for the router to map.
 export type PushData = { kind?: string; site_id?: string; task_id?: string };
 export function pushRoute(data: PushData, me: Profile | null): string | null {
-  if (data.task_id && me?.role === 'driver') return '/driver';
+  if (data.task_id && me?.role === 'driver') return '/driver/schedule';
   if (!data.site_id) return null;
   const routes: Record<string, string> = {
     material_request: 'materials', variation: 'variations', snag_closed: 'snagging/list', todo_assigned: 'todos',
