@@ -29,10 +29,10 @@ export const ADMIN_ITEMS: AdminItem[] = [
   { key: 'havstools', page: 'libraries', group: 'Health & Safety', icon: '🛠️', label: 'HAVS Tools', sub: 'Vibration tool list', kw: 'havs vibration tools', route: '/pm/admin/havstools', show: isFullManager },
   { key: 'ramslibrary', page: 'libraries', group: 'Health & Safety', icon: '🦺', label: 'RAMS Library', sub: 'Hazards, method statements, templates', kw: 'rams risk assessment method statement hazard template', route: null, show: isFullManager },
   { key: 'coshhbuilder', page: 'libraries', group: 'Health & Safety', icon: '🧪', label: 'COSHH Library', sub: 'Data sheets → products → assessments in folders', kw: 'coshh substance product data sheet', route: null, show: isFullManager },
-  { key: 'tbt', page: 'libraries', group: 'Health & Safety', icon: '🗣️', label: 'Toolbox Talk Templates', sub: 'All sites', kw: 'toolbox talk tbt', route: null, show: (me) => isFullManager(me) && admin(me) },
+  { key: 'tbt', page: 'libraries', group: 'Health & Safety', icon: '🗣️', label: 'Toolbox Talk Templates', sub: 'All sites', kw: 'toolbox talk tbt', route: '/pm/admin/tbt', show: (me) => isFullManager(me) && admin(me) },
   { key: 'ppelog', page: 'libraries', group: 'Health & Safety', icon: '🦺', label: 'PPE Log', sub: 'Issued PPE and the register', kw: 'ppe register', route: '/pm/admin/ppelog', show: isFullManager },
   { key: 'branding', page: 'company', group: 'Branding', icon: '🖼️', label: 'Company Logo & Theme', sub: 'Logo and colours', kw: 'logo theme colour color brand', route: '/pm/admin/branding', show: admin },
-  { key: 'expensesemail', page: 'company', group: 'Integrations', icon: '🧾', label: 'Expenses Email', sub: 'Where expense receipts go', kw: 'expenses receipts email', route: null, show: admin },
+  { key: 'expensesemail', page: 'company', group: 'Integrations', icon: '🧾', label: 'Expenses Email', sub: 'Where expense receipts go', kw: 'expenses receipts email', route: '/pm/admin/expensesemail', show: admin },
   { key: 'onedrive', page: 'company', group: 'Integrations', icon: '☁️', label: 'OneDrive', sub: 'Photo and export syncing, quick links', kw: 'onedrive sync folder sharepoint microsoft', route: null, show: admin },
   { key: 'finance', page: 'company', group: 'OpHUB Finance', icon: '💷', label: 'OpHUB Finance', sub: 'Jobs, client POs, job numbers, finance settings', kw: 'finance invoice application certificate retention', route: null, show: (me, org) => isFinanceUser(me, org) },
 ];
