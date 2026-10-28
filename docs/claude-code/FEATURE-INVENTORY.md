@@ -65,10 +65,10 @@ Every source file in `src/js`, in build order, with the first line of its header
 - `470-schedule-of-works-assignable-visibility-.js` — Schedule of Works — assignable visibility. A section (or an ungrouped task; grouped tasks always inherit their section's setting) can be scoped to "All" (default — visible to everyone with site access, same as before thi…
 - `480-schedule-of-works-from-library-site-side.js` — Schedule of Works — "From Library" (site side). Lets a PM/admin pick one of the org's sow_library_templates (built in Admin Centre) and COPY its sections/tasks into THIS site's real schedule_sections/schedule_tasks — a o… ◐ native (operative part: tasks, status, photos, %, site condition, docs; PM tools/export/email in phase 2)
 - `481-sow-instant-photos.js` — Schedule of Works: instant photos * Picking photos on a task no longer waits for the upload. Each photo shows * on the task straight away (with a small "sending" mark), is shrunk and * kept safely on the phone, and goes … ✅ native (upload queue)
-- `490-snagging-variations-folder-snagging-vari.js` — SNAGGING / VARIATIONS (folder: Snagging + Variations)
+- `490-snagging-variations-folder-snagging-vari.js` — SNAGGING / VARIATIONS (folder: Snagging + Variations) ◐ native (folder; variations + reports pending)
 - `498-plan-markup.js` — Drawing mark-up (roof plans / A3 drawings) * planMarkup(src, opts) opens a full-screen editor over a drawing (a photo or * a page rendered from a PDF). Different from the snag photo markup: it is * built for large A3 dra…
 - `499-photo-markup.js` — Photo markup (draw + text on a photo) * photoMarkup(src) opens a full-screen editor over a photo (a data URL or a * web address). The user can draw (pen, arrow, circle) and add text, each in * its own colour (pen and tex…
-- `500-snagging.js` — SNAGGING
+- `500-snagging.js` — SNAGGING ◐ native (list, close with photo, managers add; mark-up + PDF export/email + SoW PDF in phase 2)
 - `510-main-contractor-tiles.js` — MAIN CONTRACTOR TILES
 - `520-permit-to-work.js` — PERMIT TO WORK
 - `530-main-contractor-inspections.js` — MAIN CONTRACTOR INSPECTIONS

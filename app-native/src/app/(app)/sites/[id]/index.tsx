@@ -22,7 +22,9 @@ export default function SiteHome() {
         onPress={() => router.push(`/sites/${site.id}/schedule`)} />
       <Tile icon="🦺" tint="#FDECEA" title="Health & Safety" sub="RAMS, COSHH, toolbox talks"
         onPress={() => router.push(`/sites/${site.id}/hs`)} />
-      <Muted style={{ marginTop: space.m }}>Snags, materials and the rest of this job's tiles are being added next.</Muted>
+      <Tile icon="🏷" tint="#FBEEDE" title="Snagging" sub="Snags and variations"
+        onPress={() => router.push(`/sites/${site.id}/snagging`)} />
+      <Muted style={{ marginTop: space.m }}>Materials, messages and the rest of this job's tiles are being added next.</Muted>
     </ScrollView>
   );
 }
