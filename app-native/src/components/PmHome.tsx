@@ -46,7 +46,7 @@ export function PmHome() {
         <Text style={{ color: t.brand1Text, opacity: 0.85, marginTop: 4 }}>{live.length} live{upcoming.length ? ` · ${upcoming.length} upcoming` : ''}</Text>
       </Pressable>
       {isFinanceUser(me, org) && <Tile icon="£" tint={base.okBg} title="OpHUB Finance" sub="Money in & out" onPress={soon('Finance')} />}
-      <Tile icon="📈" tint="#E0F2F1" title="Dashboard" sub="Company overview" onPress={soon('The company dashboard')} />
+      <Tile icon="📈" tint="#E0F2F1" title="Dashboard" sub="Company overview" onPress={() => router.push('/pm/dashboard' as never)} />
       <Tile icon="📅" tint={base.okBg} title="Calendar" sub="All projects" onPress={() => router.push('/pm/calendar' as never)} />
       <Tile icon="🔔" tint={base.warnBg} title="HUB" sub="Notifications & messages" onPress={() => router.push('/pm/hub' as never)} />
       <Tile icon="🚚" tint="#F0E4F5" title="Deliveries" sub="Delivery schedule" onPress={() => router.push('/pm/deliveries' as never)} />
