@@ -31,8 +31,11 @@ Phones need a build (EAS, see below). Expo Go won't run it because it uses nativ
 `eas.json` has three profiles: `development`, `preview` (internal testing; Android gives an .apk) and `production`.
 ```
 npx eas-cli@latest login
-npx eas-cli@latest build --profile preview --platform android
+EAS_NO_VCS=1 npx eas-cli@latest build --profile preview --platform android
 ```
+- **Expo account:** `ophub` (pegasus.roofing@mail.com). The project is `@ophub/ophub-site-app`.
+- **Test builds get their own app id.** That's `com.ophub.app.preview` ("OpHUB (test)") or `.dev`, set in `app.config.ts`, so they install alongside the live app. Production keeps `com.ophub.app`.
+- **`EAS_NO_VCS=1` is needed.** EAS normally copies the project with git, and git can't handle this folder's path (spaces plus the apostrophe in "Andy's Documents"). With it set, EAS uploads the folder directly and still skips everything in `.gitignore`. In PowerShell, run `$env:EAS_NO_VCS = '1'` first.
 
 ## Gotcha: OneDrive and moved folders
 If you **move** a folder inside this project, OneDrive can tag it as a cloud "reparse point". Expo then can't see the screens in it and shows "Welcome to Expo". The fix is to copy the folder to a new one, delete the old one, and rename the new one back.
