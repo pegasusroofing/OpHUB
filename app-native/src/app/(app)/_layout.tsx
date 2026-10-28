@@ -34,6 +34,7 @@ export default function AppLayout() {
       <Tabs.Screen name="home" options={{ title: 'Home', tabBarIcon: icon({ ios: 'house', android: 'home', web: 'home' }) }} />
       <Tabs.Screen name="sites" options={{ title: 'Projects', href: hasSites ? undefined : null, tabBarIcon: icon({ ios: 'building.2', android: 'apartment', web: 'apartment' }) }} />
       <Tabs.Screen name="account" options={{ title: 'Account', tabBarIcon: icon({ ios: 'person.crop.circle', android: 'person', web: 'person' }) }} />
+      <Tabs.Screen name="driver" options={{ href: null, title: 'Driver' }} />
       <Tabs.Screen name="inbox" options={{ href: null, title: 'Messages & tasks' }} />
       <Tabs.Screen name="signature" options={{ href: null, title: 'My Signature' }} />
     </Tabs>
