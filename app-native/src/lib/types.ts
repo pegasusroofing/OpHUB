@@ -68,6 +68,7 @@ export type Site = {
   geofence_radius_m: number;
   multi_site: boolean;
   acting_as_main_contractor?: boolean;
+  mc_hidden_tiles?: string[] | null;
   repair_contract: boolean;
   price_enabled: boolean;
   client_name: string | null;

@@ -80,7 +80,7 @@ export default function SiteHome() {
             </Card>
           )}
           <Tile icon="📋" tint={base.blueBg} title="Schedule of Works" sub={sowSub} onPress={go('schedule')} />
-          {site.acting_as_main_contractor && <Tile icon="🏢" tint="#E7E9EE" title="Main Contractor" sub="Areas and subcontractors" onPress={soon('The Main Contractor area')} />}
+          {site.acting_as_main_contractor && <Tile icon="🏢" tint="#E7E9EE" title="Main Contractor" sub="Areas and subcontractors" onPress={go('mc')} />}
           <Tile icon="🛡" tint="#E7E9EE" title="Health & Safety" sub={h ? `${h.pendingRams} to sign` : '…'}
             badge={mgr ? (h?.hsGap ? 1 : undefined) : h?.pendingRams || undefined} onPress={go('hs')} />
           <Tile icon="✏️" tint="#E7EFEA" title="Drawings, Spec's & Programme" sub="View & upload" onPress={go('drawings')} />
