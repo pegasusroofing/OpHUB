@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { ToastProvider } from '@/components/toast';
 import { AuthProvider, useAuth } from '@/lib/auth';
 import { startUploadQueue } from '@/lib/uploadQueue';
 import { ThemeProvider } from '@/theme/theme';
@@ -39,6 +40,7 @@ function Root() {
   const signedIn = status === 'ready';
   return (
     <ThemeProvider org={org}>
+      <ToastProvider>
       <StatusBar style="dark" />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Protected guard={signedIn}>
@@ -51,6 +53,7 @@ function Root() {
         {/* Reachable signed in or out, like the current app's #/reset. */}
         <Stack.Screen name="reset" />
       </Stack>
+      </ToastProvider>
     </ThemeProvider>
   );
 }

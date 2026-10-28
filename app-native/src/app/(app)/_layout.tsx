@@ -4,6 +4,8 @@ import { Tabs } from 'expo-router';
 import { SymbolView, type SymbolViewProps } from 'expo-symbols';
 import { Platform, useWindowDimensions } from 'react-native';
 
+import { useAuth } from '@/lib/auth';
+import { homeKind } from '@/lib/roles';
 import { base, useTheme } from '@/theme/theme';
 
 const icon = (name: SymbolViewProps['name']) => ({ color }: { color: import('react-native').ColorValue }) =>
@@ -11,6 +13,9 @@ const icon = (name: SymbolViewProps['name']) => ({ color }: { color: import('rea
 
 export default function AppLayout() {
   const t = useTheme();
+  const { me, org } = useAuth();
+  // Drivers, finance-only companies and the platform admin have no project list.
+  const hasSites = !['driver', 'finance', 'superadmin'].includes(homeKind(me, org));
   const { width } = useWindowDimensions();
   const desk = Platform.OS === 'web' && width >= 900;
   return (
@@ -27,6 +32,7 @@ export default function AppLayout() {
         tabBarLabelStyle: { fontSize: desk ? 14 : 10, fontWeight: '600' },
       }}>
       <Tabs.Screen name="home" options={{ title: 'Home', tabBarIcon: icon({ ios: 'house', android: 'home', web: 'home' }) }} />
+      <Tabs.Screen name="sites" options={{ title: 'Projects', href: hasSites ? undefined : null, tabBarIcon: icon({ ios: 'building.2', android: 'apartment', web: 'apartment' }) }} />
       <Tabs.Screen name="account" options={{ title: 'Account', tabBarIcon: icon({ ios: 'person.crop.circle', android: 'person', web: 'person' }) }} />
     </Tabs>
   );

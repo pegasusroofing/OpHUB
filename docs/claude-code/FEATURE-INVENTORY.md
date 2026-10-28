@@ -11,9 +11,9 @@ Every source file in `src/js`, in build order, with the first line of its header
 - `040-local-persistence-session-only-no-raw-pa.js` — local persistence (session only — no raw passwords ever stored) Keeps a signed-in user signed in across page reloads / app restarts, so nobody has to log back in every time — only an explicit "Sign out" clears this. Uses…
 - `050-supabase-data-layer.js` — Supabase data layer
 - `060-offline-read-cache.js` — offline read cache Read-only offline support: every successful dbSelect() response is written through to persistent storage (the same window.storage used for the session — Capacitor Preferences natively, localStorage on …
-- `065-private-files.js` — #(private-files) Private file storage 2026-10-19 (Andy): files (signatures, induction PDFs with health answers, receipts, site photos, RAMS/COSHH, drawings…) move from "anyone with the link can open it" to private storag…
-- `070-auth.js` — auth
-- `080-push-notifications.js` — push notifications
+- `065-private-files.js` — #(private-files) Private file storage 2026-10-19 (Andy): files (signatures, induction PDFs with health answers, receipts, site photos, RAMS/COSHH, drawings…) move from "anyone with the link can open it" to private storag… ✅ native
+- `070-auth.js` — auth ✅ native
+- `080-push-notifications.js` — push notifications ✅ native
 - `090-onedrive-oauth-deep-link-handoff-native-.js` — OneDrive OAuth deep-link handoff (native app only) The OneDrive "Connected"/"Connection failed" page (served from Supabase, in the system browser Browser.open() opened) redirects to ophub://onedrive-callback once it's do…
 - `100-state.js` — state
 - `110-routing.js` — routing
@@ -23,8 +23,8 @@ Every source file in `src/js`, in build order, with the first line of its header
 - `135-howto.js` — #(howto) Quick "how this works" tips 2026-10-17 (Andy): a short step-by-step pop-up the first time someone opens each main page — different wording for PMs/admins and for operatives — with "Don't show this again". Dismis…
 - `136-quick-search.js` — QUICK SEARCH (21 Oct 2026, Andy: "the pop-up search is cool — make it a non-intrusive search button"). A small 🔍 in the left menu on a computer (and Ctrl+K / ⌘K), a small magnifier in the top bar on a phone. Opens a pop-…
 - `136-uniform-action-buttons.js` — UNIFORM EXPORT / EMAIL / ONEDRIVE BUTTONS These buttons were built screen by screen and ended up with different colours, icons and wording. Rather than restyle seventy buttons one at a time, every button drawn on screen …
-- `140-login.js` — LOGIN
-- `150-join-invite-only-account-creation.js` — JOIN (invite-only account creation)
+- `140-login.js` — LOGIN ✅ native
+- `150-join-invite-only-account-creation.js` — JOIN (invite-only account creation) ✅ native
 - `160-company-setup-forced-on-the-founding-pm-.js` — COMPANY SETUP (forced on the founding PM until logo+colours are set)
 - `170-platform-admin-superadmin-oversight-acro.js` — PLATFORM ADMIN (superadmin oversight across all companies)
 - `180-sites-list.js` — SITES LIST
@@ -59,8 +59,8 @@ Every source file in `src/js`, in build order, with the first line of its header
 - `420-report-templates-company-admin-builds-pm.js` — REPORT TEMPLATES (Company Admin builds; PM fills in)
 - `430-site-reports-pm-fills-a-template-in-and-.js` — SITE REPORTS (PM fills a template in and submits)
 - `435-reports-offline.js` — REPORTS — WORKING WITH NO SIGNAL
-- `440-check-in-out.js` — CHECK IN/OUT
-- `450-multi-site-check-in-a-multi-site-job-s-c.js` — MULTI-SITE CHECK-IN: a multi-site job's Check In page replaces the single site-wide button with a list of its addresses; each address gets its own GPS-geofenced check-in flow (renderCheckinSubAddress) writing checkins.su…
+- `440-check-in-out.js` — CHECK IN/OUT ◐ native (operative part; PM geofence/team/history/export in phase 2)
+- `450-multi-site-check-in-a-multi-site-job-s-c.js` — MULTI-SITE CHECK-IN: a multi-site job's Check In page replaces the single site-wide button with a list of its addresses; each address gets its own GPS-geofenced check-in flow (renderCheckinSubAddress) writing checkins.su… ◐ native (operative part; address add/close in phase 2)
 - `460-schedule-of-works.js` — SCHEDULE OF WORKS
 - `470-schedule-of-works-assignable-visibility-.js` — Schedule of Works — assignable visibility. A section (or an ungrouped task; grouped tasks always inherit their section's setting) can be scoped to "All" (default — visible to everyone with site access, same as before thi…
 - `480-schedule-of-works-from-library-site-side.js` — Schedule of Works — "From Library" (site side). Lets a PM/admin pick one of the org's sow_library_templates (built in Admin Centre) and COPY its sections/tasks into THIS site's real schedule_sections/schedule_tasks — a o…

@@ -2,6 +2,7 @@
 // their tiles arrive in phases 2-5.
 import { Text, View } from 'react-native';
 
+import { OperativeHome } from '@/components/OperativeHome';
 import { Card, Muted, Screen } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import { homeKind, isFinanceUser, roleLabel, type HomeKind } from '@/lib/roles';
@@ -21,7 +22,7 @@ const HOME_COMING: Record<HomeKind, string> = {
   superadmin: 'Company oversight comes in phase 4.',
   finance: 'Jobs, invoices and the rest of Finance come in phase 5.',
   manager: 'Projects, team, reports and approvals come in phase 3.',
-  operative: 'Check-in, your sites and Schedule of Works come in phase 2.',
+  operative: '',
   driver: 'Your delivery schedule comes in phase 2.',
   client: 'Client screens come in a later phase.',
   subcontractor: 'Subcontractor screens come in a later phase.',
@@ -32,6 +33,7 @@ export default function Home() {
   const { me, org } = useAuth();
   const t = useTheme();
   const kind = homeKind(me, org);
+  if (kind === 'operative') return <OperativeHome />;
   const today = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
   const first = (me?.name || '').split(' ')[0];
   return (

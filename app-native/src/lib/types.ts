@@ -51,6 +51,66 @@ export type InviteInfo = {
   color_secondary: string | null;
 };
 
+export type Site = {
+  id: string;
+  name: string;
+  address: string | null;
+  postcode: string | null;
+  status: string | null;
+  org_id: string | null;
+  responsible_pm_id: string | null;
+  job_number: string | null;
+  start_date: string | null;
+  geofence_lat: number | null;
+  geofence_lon: number | null;
+  geofence_radius_m: number;
+  multi_site: boolean;
+  repair_contract: boolean;
+  price_enabled: boolean;
+  client_name: string | null;
+  created_at: string | null;
+};
+
+export type SubAddress = {
+  id: string;
+  site_id: string | null;
+  org_id: string | null;
+  name: string;
+  address: string | null;
+  postcode: string | null;
+  geofence_lat: number | null;
+  geofence_lon: number | null;
+  geofence_radius_m: number | null;
+  closed: boolean;
+};
+
+export type Checkin = {
+  id: string;
+  site_id: string | null;
+  sub_site_id: string | null;
+  user_id: string | null;
+  type: 'in' | 'out' | string;
+  ts: string | null;
+  lat: number | null;
+  lon: number | null;
+  accuracy_m: number | null;
+  device_id: string | null;
+};
+
+export type Message = {
+  id: string;
+  org_id: string;
+  site_id: string | null;
+  sender_id: string | null;
+  audience: string;
+  kind: string;
+  body: string;
+  created_at: string;
+  parent_id: string | null;
+  recipient_id: string | null;
+  related_id: string | null;
+};
+
 type Table<Row> = { Row: Row; Insert: Partial<Row>; Update: Partial<Row>; Relationships: [] };
 
 export type Database = {
@@ -58,6 +118,13 @@ export type Database = {
     Tables: {
       profiles: Table<Profile>;
       organizations: Table<Organization>;
+      sites: Table<Site>;
+      site_sub_addresses: Table<SubAddress>;
+      checkins: Table<Checkin>;
+      messages: Table<Message>;
+      message_reads: Table<{ message_id: string; user_id: string; read_at: string }>;
+      schedule_tasks: Table<{ id: string; site_id: string | null; sub_site_id: string | null; name: string; status: string | null }>;
+      schedule_photos: Table<{ id: string; task_id: string | null; storage_path: string }>;
       push_tokens: Table<{ id: string; user_id: string; token: string; platform: string | null; created_at: string | null; updated_at: string | null }>;
     };
     Views: Record<string, never>;

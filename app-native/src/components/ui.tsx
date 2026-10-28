@@ -89,7 +89,89 @@ export function Check({ label, value, onChange }: { label: string; value: boolea
   );
 }
 
+// Green "On site since 07:42" / grey "Not checked in" pill.
+export function Pill({ on, text }: { on: boolean; text: string }) {
+  return (
+    <View style={[s.pill, { backgroundColor: on ? base.okBg : base.paper }]}>
+      <View style={[s.dot, { backgroundColor: on ? base.ok : base.slateLight }]} />
+      <Text style={{ color: on ? base.ok : base.slate, fontWeight: '700', fontSize: 12.5 }}>{text}</Text>
+    </View>
+  );
+}
+
+// Tappable card row, e.g. a site or an address.
+export function Row({ title, sub, extra, onPress, dim }: { title: string; sub?: string | null; extra?: ReactNode; onPress?: () => void; dim?: boolean }) {
+  return (
+    <Pressable onPress={onPress} disabled={!onPress} accessibilityRole={onPress ? 'button' : undefined}
+      style={({ pressed }) => [s.row, dim && { opacity: 0.7 }, pressed && { opacity: 0.6 }]}>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={s.rowTitle} numberOfLines={1}>{title}</Text>
+        {!!sub && <Text style={s.rowSub} numberOfLines={1}>{sub}</Text>}
+        {extra}
+      </View>
+      {onPress && <Text style={{ fontSize: 20, color: base.slate, marginLeft: 8 }}>›</Text>}
+    </Pressable>
+  );
+}
+
+export function SectionTitle({ children }: { children: ReactNode }) {
+  return <Text style={s.section}>{children}</Text>;
+}
+
+export function Empty({ children }: { children: ReactNode }) {
+  return <Text style={s.empty}>{children}</Text>;
+}
+
+// Collapsible header row ("▶ Recent").
+export function Toggle({ title, open, onPress }: { title: string; open: boolean; onPress: () => void }) {
+  return (
+    <Pressable onPress={onPress} style={[s.row, { marginTop: space.l }]} accessibilityRole="button" accessibilityState={{ expanded: open }}>
+      <Text style={{ color: base.slate, marginRight: 8 }}>{open ? '▼' : '▶'}</Text>
+      <Text style={[s.rowTitle, { fontSize: 13.5 }]}>{title}</Text>
+    </Pressable>
+  );
+}
+
+// Small stat box on home pages (big number + label).
+export function Stat({ n, label, hot, onPress }: { n: number | string; label: string; hot?: boolean; onPress?: () => void }) {
+  return (
+    <Pressable onPress={onPress} style={s.stat}>
+      <Text style={[s.statN, hot && { color: base.red }]}>{n}</Text>
+      <Text style={s.statL}>{label}</Text>
+    </Pressable>
+  );
+}
+
+// Home tile: coloured icon square + title + subtitle.
+export function Tile({ icon, tint, title, sub, onPress, badge }: { icon: string; tint: string; title: string; sub: string; onPress: () => void; badge?: number }) {
+  return (
+    <Pressable onPress={onPress} style={({ pressed }) => [s.tile, pressed && { opacity: 0.7 }]} accessibilityRole="button">
+      <View style={[s.tileIc, { backgroundColor: tint }]}>
+        <Text style={{ fontSize: 20 }}>{icon}</Text>
+        {!!badge && <Text style={s.badge}>{badge}</Text>}
+      </View>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={s.rowTitle}>{title}</Text>
+        <Text style={s.rowSub}>{sub}</Text>
+      </View>
+    </Pressable>
+  );
+}
+
 const s = StyleSheet.create({
+  pill: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 6, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999 },
+  dot: { width: 8, height: 8, borderRadius: 4 },
+  row: { flexDirection: 'row', alignItems: 'center', backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, paddingHorizontal: 14, paddingVertical: 12, marginBottom: space.s },
+  rowTitle: { fontSize: 14.5, fontWeight: '700', color: base.ink },
+  rowSub: { fontSize: 12, color: base.slate, marginTop: 2 },
+  section: { fontSize: 12, fontWeight: '800', letterSpacing: 0.5, textTransform: 'uppercase', color: base.slate, marginTop: space.l, marginBottom: space.s },
+  empty: { color: base.slate, textAlign: 'center', paddingVertical: space.l, fontSize: 13 },
+  stat: { flex: 1, backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 16, paddingVertical: 11, paddingHorizontal: 10 },
+  statN: { fontSize: 21, fontWeight: '800', color: base.ink },
+  statL: { fontSize: 10.5, color: base.slate, fontWeight: '600' },
+  tile: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.tile, padding: 14, marginBottom: space.s },
+  tileIc: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  badge: { position: 'absolute', top: -6, right: -6, backgroundColor: base.red, color: '#fff', fontSize: 11, fontWeight: '800', borderRadius: 9, minWidth: 18, textAlign: 'center', paddingHorizontal: 4, overflow: 'hidden' },
   screen: { flex: 1, backgroundColor: base.paper },
   scroll: { flexGrow: 1, padding: space.l },
   center: { justifyContent: 'center' },
