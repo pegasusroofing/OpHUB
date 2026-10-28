@@ -90,7 +90,7 @@ export default function SiteHome() {
           {isFinanceUser(me, org) && <Tile icon="£" tint={base.okBg} title="Finance" sub={site.job_number ? `Job ${site.job_number}` : 'OpHUB Finance'} onPress={soon('Finance')} />}
           <Tile icon="📅" tint={base.okBg} title="Calendar" sub="Key dates" onPress={go('calendar')} />
           {mgr && siteStatusKey(site) === 'closed'
-            ? <Tile icon="📚" tint={base.paper} title="Handover" sub="O&M manual · data sheets · guarantees" onPress={soon('Handover')} />
+            ? <Tile icon="📚" tint={base.paper} title="Handover" sub="O&M manual · data sheets · guarantees" onPress={() => router.push(`/sites/${site.id}/handover` as never)} />
             : mgr && <Tile icon="✅" tint={base.paper} title="To Do List" sub={h ? (h.openTodos ? `${h.openTodos} open` : 'Nothing outstanding') : '…'} onPress={go('todos')} />}
           <Tile icon="💬" tint={base.blueBg} title="Messages" sub="Team messages for this job" onPress={go('messages')} />
         </>
