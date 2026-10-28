@@ -1,11 +1,13 @@
 // PPE for operatives: My Current PPE, Awaiting Your Signature, Request PPE, My Requests.
-// Ported from renderPpe (650, operative view).
+// Managers get the PM/admin page (PpeManager). Ported from renderPpe (650).
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
+import { PpeManager } from '@/components/PpeManager';
 import { useToast } from '@/components/toast';
+import { useSite } from '@/data/sites';
 import { Button, Card, Empty, Field, Muted, SectionTitle } from '@/components/ui';
 import { nameOf, usePeople } from '@/data/hs';
 import { requestPpe, signPpe, useMyPpe } from '@/data/ppe';
@@ -22,6 +24,7 @@ export default function Ppe() {
   const toast = useToast();
   const qc = useQueryClient();
   const { data, isLoading } = useMyPpe();
+  const { data: site } = useSite(id);
   const { data: people } = usePeople();
   const [open, setOpen] = useState(false);
   const [item, setItem] = useState('');
@@ -29,7 +32,7 @@ export default function Ppe() {
   const [date, setDate] = useState('');
   const [busy, setBusy] = useState(false);
   if (!me) return null;
-  if (isManager(me)) return <Muted style={{ padding: space.l }}>The PM/admin PPE page (issue, requests, site log) comes with the PM screens.</Muted>;
+  if (isManager(me)) return site ? <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled"><Stack.Screen options={{ title: 'PPE' }} /><PpeManager site={site} /></ScrollView> : <Muted style={{ padding: space.l }}>Loading…</Muted>;
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['myPpe'] }); void qc.invalidateQueries({ queryKey: ['hsSummary'] }); };
   const mine = data ? currentPpe(data.issuances, me.id) : [];
   const pending = (data?.issuances ?? []).filter((i) => i.status === 'pending_signature');
