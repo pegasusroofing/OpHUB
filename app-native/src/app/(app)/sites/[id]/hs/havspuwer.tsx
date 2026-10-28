@@ -33,7 +33,7 @@ export default function HavsPuwer() {
       )}
       <Tile icon="🛠" tint="#E8F0FE" title="PUWER Tool Inspection" sub="Weekly tool checks" onPress={() => router.push(`/sites/${site.id}/hs/puwer`)} />
       {canSeeTile(site, 'hs_loler', me.role, ['site_manager']) && (
-        <Tile icon="⛓" tint="#F3EAFB" title="LOLER Inspection" sub="Lifting equipment — coming soon" onPress={() => toast('LOLER inspections are still being built in the new app.')} />
+        <Tile icon="⛓" tint="#F3EAFB" title="LOLER Inspection" sub="Lifting equipment" onPress={() => router.push(`/sites/${site.id}/hs/loler` as never)} />
       )}
     </ScrollView>
   );

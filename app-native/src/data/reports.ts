@@ -60,8 +60,8 @@ export function useSubmission(id: string | undefined) {
   });
 }
 
-export async function startReport(me: Profile, site: Site, t: Template, extra: Record<string, unknown> = {}): Promise<string | null> {
-  const answers: Answers = {};
+export async function startReport(me: Profile, site: Site, t: Template, extra: Record<string, unknown> = {}, preset: Answers = {}): Promise<string | null> {
+  const answers: Answers = { ...preset };
   const ctx = { siteAddress: fullSiteAddress(site) || '', today: localISODate(new Date()), me: me.name || '' };
   (t.sections || []).forEach((s) => (s.items || []).forEach((it) => {
     if (!it.autofill) return;
@@ -152,4 +152,32 @@ export async function deleteReports(me: Profile, siteId: string, ids: string[]):
   for (const id of ids) if (!(await db.from('report_submissions').delete().eq('id', id)).error) n++;
   if (n && me.org_id) void db.from('site_activity_log').insert({ site_id: siteId, org_id: me.org_id, actor_id: me.id, action: 'reports_deleted', description: `Deleted ${n} report${n > 1 ? 's' : ''} / inspection${n > 1 ? 's' : ''}` } as never);
   return n;
+}
+
+/* ---------- LOLER (750): lifting equipment, tied to a plant register item or a one-off name ---------- */
+export type PlantItem = { id: string; name: string; description: string | null; serial_number: string | null };
+export function useLoler(siteId: string | undefined, orgId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['loler', siteId],
+    enabled: !!siteId && !!orgId,
+    queryFn: () => cachedQuery(`loler:${siteId}`, async () => {
+      const tpls = orThrow(await db.from('report_templates').select('*').eq('org_id', orgId as string).eq('is_loler_inspection', true).eq('archived', false).order('name')) as Template[];
+      const subs = tpls.length ? orThrow(await db.from('report_submissions').select('id,template_id,template_name,status,submitted_by,submitted_at,answers').eq('site_id', siteId as string).in('template_id', tpls.map((t) => t.id)).order('submitted_at', { ascending: false }).limit(100)) as Sub[] : [];
+      return { template: tpls[0] ?? null, subs };
+    }),
+  });
+}
+export function usePlantItems(orgId: string | null | undefined, enabled: boolean) {
+  return useQuery({
+    queryKey: ['plantItems', orgId],
+    enabled: !!orgId && enabled,
+    queryFn: async () => orThrow(await db.from('plant_items').select('id,name,description,serial_number').eq('org_id', orgId as string).order('name')) as PlantItem[],
+  });
+}
+/** The template's fixed equipment questions are pre-filled from the plant item (or the typed name). */
+export function startLoler(me: Profile, site: Site, t: Template, item: PlantItem | null, manualName: string | null) {
+  const preset: Answers = {};
+  if (item) { preset.loler_make_model = item.name; if (item.description) preset.loler_equipment_desc = item.description; if (item.serial_number) preset.loler_serial = item.serial_number; }
+  else if (manualName) preset.loler_make_model = manualName;
+  return startReport(me, site, t, { plant_item_id: item?.id ?? null }, preset);
 }

@@ -1,4 +1,5 @@
-// Daily briefings (operative side): list by week, read one, sign it once issued.
+// Daily briefings: list by week, read one, sign it once issued; managers start,
+// fill (the report engine), issue for signing and edit until the first signature.
 // Ported from 700-daily-briefings.js and renderReportView (430, fromBriefing).
 import { useQuery } from '@tanstack/react-query';
 
@@ -7,6 +8,8 @@ import { cachedQuery, orThrow } from '@/lib/offlineCache';
 import type { Answers, ReportSection } from '@/lib/rules/reports';
 import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/lib/types';
+
+import type { Template } from './reports';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 
@@ -58,4 +61,18 @@ export async function signBriefing(me: Profile & { signature_path?: string | nul
   if (!me.signature_path) return { ok: false, needSignature: true, msg: "Adopt your signature first — one tap and it's used everywhere." };
   const r = await db.from('daily_briefing_signatures').insert({ submission_id: subId, user_id: me.id, signature_image_path: me.signature_path } as never);
   return r.error ? { ok: false, msg: 'Could not save — check your signal and try again.' } : { ok: true, msg: 'Signed' };
+}
+
+/* ---------- manager side (700) ---------- */
+/** The company's Daily Briefing template (the first one flagged), if any. */
+export async function briefingTemplate(orgId: string) {
+  const r = await db.from('report_templates').select('*').eq('org_id', orgId).eq('is_daily_briefing', true).eq('archived', false).order('name').limit(1);
+  return ((r.data as Template[] | null) ?? [])[0] ?? null;
+}
+export async function issueBriefing(me: Profile, subId: string) {
+  return !(await db.from('report_submissions').update({ issued_at: new Date().toISOString(), issued_by: me.id } as never).eq('id', subId)).error;
+}
+/** Admins can remove a briefing that was started but never completed. */
+export async function deleteBriefing(subId: string) {
+  return !(await db.from('report_submissions').delete().eq('id', subId).eq('status', 'in_progress')).error;
 }
