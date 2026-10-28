@@ -6,7 +6,11 @@ export type Session = { inTs: string | null; outTs: string | null; siteId: strin
 const startOfWeek = (t: number) => { const d = new Date(t); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d; };
 
 /** Monday–Sunday week, or calendar month, `offset` back from now; or chosen dates. */
-export function logRange(mode: 'weekly' | 'monthly', offset: number, from?: string, to?: string, now = Date.now()) {
+export function logRange(mode: 'weekly' | 'monthly' | 'yearly', offset: number, from?: string, to?: string, now = Date.now()) {
+  if (mode === 'yearly' && !(from && to)) {
+    const y = new Date(now).getFullYear() + offset;
+    return { start: +new Date(y, 0, 1), end: +new Date(y + 1, 0, 1), label: String(y), custom: false };
+  }
   if (from && to) {
     const f = new Date(`${from}T00:00:00`), t = new Date(`${to}T00:00:00`), fmt = (d: Date) => d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
     return { start: +f, end: +t + 864e5, label: `${fmt(f)} – ${fmt(t)}`, custom: true };
