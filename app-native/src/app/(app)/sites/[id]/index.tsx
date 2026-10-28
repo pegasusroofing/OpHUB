@@ -4,12 +4,14 @@ import { ScrollView } from 'react-native';
 
 import { Muted, Tile } from '@/components/ui';
 import { useSite } from '@/data/sites';
+import { useAuth } from '@/lib/auth';
 import { fullSiteAddress } from '@/lib/rules/checkin';
 import { base, space } from '@/theme/theme';
 
 export default function SiteHome() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: site, isLoading } = useSite(id);
+  const { me } = useAuth();
   if (!site) return <Muted style={{ padding: space.l }}>{isLoading ? 'Loading…' : 'Project not found.'}</Muted>;
   return (
     <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
@@ -24,7 +26,11 @@ export default function SiteHome() {
         onPress={() => router.push(`/sites/${site.id}/hs`)} />
       <Tile icon="🏷" tint="#FBEEDE" title="Snagging" sub="Snags and variations"
         onPress={() => router.push(`/sites/${site.id}/snagging`)} />
-      <Muted style={{ marginTop: space.m }}>Materials, messages and the rest of this job's tiles are being added next.</Muted>
+      {me?.role !== 'client' && (
+        <Tile icon="🧾" tint="#E7E9EE" title="Expenses" sub="Send receipts to the office"
+          onPress={() => router.push(`/sites/${site.id}/expenses`)} />
+      )}
+      <Muted style={{ marginTop: space.m }}>Materials, messages and the rest of this job's tiles are being added next. (In the old app Expenses sits inside Materials.)</Muted>
     </ScrollView>
   );
 }

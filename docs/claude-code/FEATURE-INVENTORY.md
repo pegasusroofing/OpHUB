@@ -89,7 +89,7 @@ Every source file in `src/js`, in build order, with the first line of its header
 
 ## Projects B: snags, variations, materials, deliveries, drivers, calendar, messages, handover (590–899)
 
-- `590-expenses-sub-tile-inside-materials.js` — EXPENSES (sub-tile inside Materials)
+- `590-expenses-sub-tile-inside-materials.js` — EXPENSES (sub-tile inside Materials) ✅ native (own tile until Materials is built; expenses email settings stay in Admin Centre, phase 3)
 - `600-rams-signature-boxes-docusign-style-plac.js` — RAMS SIGNATURE BOXES (DocuSign-style placement)
 - `610-signing-templates-library.js` — SIGNING TEMPLATES LIBRARY
 - `620-coshh-identical-to-rams-above-separate-d.js` — COSHH (identical to RAMS above — separate document type) ◐ native (operative: view, sign, sign all)
