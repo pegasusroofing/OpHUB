@@ -1,7 +1,7 @@
 # Current state (28 Oct 2026)
 
 ## Code
-- **Laptop repo:** at commit `2349a21` on master, **2 commits ahead of GitHub** (`55855f2`, `2349a21`) plus this handoff pack. **Andy needs to press Push origin.** Nothing below is live on the website until he does.
+- **Laptop repo:** branch `main`. Fix round 3 (`2349a21`) is pushed and live on the website. The handoff pack commit (`65e6613`) adds docs only; Push origin sends it to GitHub.
 - **Fix round 3** (in those commits):
   - Variation values reach Finance.
   - The old role comes back when Finance is switched off.
@@ -32,7 +32,7 @@
   - bank holidays past 2028, the `hr_leave` approval guard, the device lock at check-in, the collection-received rule;
   - more manager-only field guards, locked signed briefings, `rams_take_numbers`, `fin_inbox_file`, `onedrive_status`, `variation_value_insert_guard`.
 - **SQL file 4 (`sql/4 - OpHUB fixes (27 Oct).sql`): NOT run.** It makes 9 storage buckets private. Run it only after **all** of these, in this order:
-  1. Push origin (the website gets the private-file-ready app).
+  1. ~~Push origin~~ (done: the website has the private-file-ready app).
   2. Update 6 server functions to sign files instead of building public links: `client-sign`, `send-expenses-email`, `send-price-builder-email`, `send-site-induction-email`, `send-subcontractor-inspection-email`, and `send-document-email` (multi-file).
   3. Rebuild the phone apps, and make sure everyone has updated.
   4. Andy pastes SQL file 4 into Supabase › SQL Editor.
@@ -46,7 +46,7 @@
 - When redeploying, keep each function's `verify_jwt` setting as it is live.
 
 ## Andy's own to-dos
-- Press **Push origin**.
+- Press **Push origin** for the handoff pack.
 - Turn on leaked-password protection (Supabase › Authentication).
 - Reconnect OneDrive, and revoke the old Microsoft sessions.
 - Change the finance inbox mail forwarder to send the `x-inbox-key` header instead of the key in the link.
