@@ -1,5 +1,6 @@
 {
   "expo": {
+    "owner": "ophub",
     "name": "OpHUB Site App",
     "slug": "ophub-site-app",
     "version": "2.0.0",
@@ -61,6 +62,16 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "0a32a8a8-7652-4447-999d-c8dd64bd3bae"
+      }
     }
   }
 }
