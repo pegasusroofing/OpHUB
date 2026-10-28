@@ -46,6 +46,7 @@ export default function AppLayout() {
       <Tabs.Screen name="inbox" options={{ href: null, title: 'Messages & tasks' }} />
       <Tabs.Screen name="getting-started" options={{ href: null, title: 'Getting Started' }} />
       <Tabs.Screen name="signature" options={{ href: null, title: 'My Signature' }} />
+      <Tabs.Screen name="pm" options={{ href: null, title: 'Manager' }} />
     </Tabs>
   );
 }

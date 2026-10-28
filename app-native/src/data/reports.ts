@@ -181,3 +181,13 @@ export function startLoler(me: Profile, site: Site, t: Template, item: PlantItem
   else if (manualName) preset.loler_make_model = manualName;
   return startReport(me, site, t, { plant_item_id: item?.id ?? null }, preset);
 }
+
+/* ---------- all projects (185) and general surveys (no project) ---------- */
+export async function startGeneralReport(me: Profile, t: Template, label: string | null): Promise<string | null> {
+  const answers: Answers = {};
+  const ctx = { siteAddress: label || '', today: localISODate(new Date()), me: me.name || '' };
+  (t.sections || []).forEach((s) => (s.items || []).forEach((it) => { if (!it.autofill) return; const v = autofillValue(it.autofill, ctx); if (v !== undefined) answers[it.id] = v; }));
+  const r = await db.from('report_submissions').insert({ template_id: t.id, org_id: me.org_id, site_id: null, general_label: label, template_name: t.name, sections: t.sections, answers, submitted_by: me.id, status: 'in_progress' } as never).select('id').single();
+  return (r.data as { id: string } | null)?.id ?? null;
+}
+export const renameGeneral = async (id: string, label: string | null) => !(await db.from('report_submissions').update({ general_label: label } as never).eq('id', id)).error;

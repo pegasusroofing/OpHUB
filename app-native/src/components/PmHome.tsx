@@ -35,7 +35,7 @@ export function PmHome() {
       <View style={{ flexDirection: 'row', gap: 8, marginBottom: space.m }}>
         <Stat n={live.length} label="Live jobs" onPress={() => router.push('/sites')} />
         <Stat n={onSite.length} label="On site now" onPress={() => router.push('/onsite')} />
-        <Stat n={todos.length} label="To do" onPress={soon('To do')} />
+        <Stat n={todos.length} label="To do" onPress={() => router.push('/pm/todos' as never)} />
         <Stat n={0} label="Notifications" onPress={soon('The HUB')} />
       </View>
       <Pressable onPress={() => router.push('/sites')} accessibilityRole="button"
@@ -48,7 +48,7 @@ export function PmHome() {
       <Tile icon="📅" tint={base.okBg} title="Calendar" sub="All projects" onPress={soon('The calendar')} />
       <Tile icon="🔔" tint={base.warnBg} title="HUB" sub="Notifications & messages" onPress={soon('The HUB')} />
       <Tile icon="🚚" tint="#F0E4F5" title="Deliveries" sub="Delivery schedule" onPress={soon('The delivery schedule')} />
-      <Tile icon="📋" tint={base.blueBg} title="Reports & surveys" sub={open.length ? `${open.length} in progress` : 'All projects'} onPress={soon('Reports & surveys')} />
+      <Tile icon="📋" tint={base.blueBg} title="Reports & surveys" sub={open.length ? `${open.length} in progress` : 'All projects'} onPress={() => router.push('/pm/reports' as never)} />
       <Tile icon="🪪" tint={base.blueBg} title="Operatives" sub="Certifications, training, tools" onPress={soon('Operatives')} />
       <Tile icon="👥" tint="#F0E4F5" title="HR" sub="Holidays, policies & handbook" onPress={soon('HR')} />
       <Tile icon="⚙️" tint={base.paper} title="Admin" sub="Team, libraries, settings" onPress={soon('Admin')} />
@@ -56,7 +56,7 @@ export function PmHome() {
         <>
           <SectionTitle>Pick up where you left off</SectionTitle>
           {mine.map((r) => (
-            <Pressable key={r.id} onPress={soon('Reports')} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 14, padding: 12, marginBottom: 8 }}>
+            <Pressable key={r.id} onPress={() => router.push((r.site_id ? `/sites/${r.site_id}/snagging/reports/fill/${r.id}` : `/pm/survey/${r.id}?mode=fill`) as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 14, padding: 12, marginBottom: 8 }}>
               <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: base.warn }} />
               <View style={{ flex: 1 }}>
                 <Text style={{ fontWeight: '700', color: base.ink }}>{r.template_name || 'Report'}</Text>

@@ -41,7 +41,8 @@ export function ReportFill({ sub, siteId, editingCompleted, isBriefing, onDone }
   useEffect(() => {
     const items = sections.flatMap((s) => s.items || []).filter((it) => it.type === 'operatives' && live.current[it.id] === undefined);
     if (!items.length) return;
-    void defaultOperatives(siteId).then((list) => setAnswers((a) => { const n = { ...a }; items.forEach((it) => { if (n[it.id] === undefined) n[it.id] = list; }); return n; }));
+    // A general survey (no project) has no assigned team: start empty.
+    void (siteId.startsWith('general') ? Promise.resolve([]) : defaultOperatives(siteId)).then((list) => setAnswers((a) => { const n = { ...a }; items.forEach((it) => { if (n[it.id] === undefined) n[it.id] = list; }); return n; }));
   }, [sections, siteId]);
 
   if (!me) return null;
