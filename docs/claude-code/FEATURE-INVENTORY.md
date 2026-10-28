@@ -28,9 +28,9 @@ Every source file in `src/js`, in build order, with the first line of its header
 - `160-company-setup-forced-on-the-founding-pm-.js` — COMPANY SETUP (forced on the founding PM until logo+colours are set)
 - `170-platform-admin-superadmin-oversight-acro.js` — PLATFORM ADMIN (superadmin oversight across all companies)
 - `180-sites-list.js` — SITES LIST
-- `185-pm-home.js` — #(pm-home) PM / admin home + all-reports page
+- `185-pm-home.js` — #(pm-home) PM / admin home + all-reports page ◐ native (operative home + inbox; PM home in phase 2)
 - `186-hr.js` — #(hr) HR — holiday calendar, company policies, handbook For PMs, admins and site managers (is_pm() in the database). - Holiday calendar: each person books annual leave / training / sick days (full or half day). Everyone …
-- `190-outstanding-tasks-home-bottom-bar-everyo.js` — OUTSTANDING TASKS (Home bottom bar — everyone, scoped to their own sites)
+- `190-outstanding-tasks-home-bottom-bar-everyo.js` — OUTSTANDING TASKS (Home bottom bar — everyone, scoped to their own sites) ◐ native (operative: to sign list + home count; manager feed in phase 2)
 - `200-hub-combined-notifications-messages.js` — HUB (combined Notifications + Messages)
 - `210-operative-onboarding-checklist.js` — OPERATIVE ONBOARDING CHECKLIST
 - `220-account-settings-home-bottom-bar-everyon.js` — ACCOUNT / SETTINGS (Home bottom bar — everyone)
