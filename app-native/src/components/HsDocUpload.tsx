@@ -6,7 +6,7 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Muted, Toggle } from '@/components/ui';
-import { useHsDocs, type DocKind } from '@/data/hs';
+import { DOC_LABEL, useHsDocs, type DocKind } from '@/data/hs';
 import { outstanding, RAMS_DOC_TYPES, sendSignReminder, uploadHsDoc } from '@/data/hsManager';
 import { useAuth } from '@/lib/auth';
 import type { Site } from '@/lib/types';
@@ -24,12 +24,12 @@ export function HsDocUpload({ kind, site }: { kind: DocKind; site: Site }) {
   const [file, setFile] = useState<{ uri: string; name: string } | null>(null);
   const [busy, setBusy] = useState(false);
   if (!me) return null;
-  const label = kind === 'rams' ? 'RAMS' : 'COSHH';
+  const label = DOC_LABEL[kind];
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['hsDocs', kind, site.id] }); void qc.invalidateQueries({ queryKey: ['hsSummary', site.id] }); };
 
   return (
     <View style={{ marginBottom: 12 }}>
-      {!!data?.docs.length && (
+      {!!data?.docs.length && kind !== 'layout' && (
         <Button kind="ghost" title="🔔 Ask Outstanding to Sign" onPress={async () => {
           const out = outstanding(kind, data.roster, data.docs, data.sigs);
           if (!out.length) { toast(`Everyone on this site has signed all ${label} documents.`); return; }

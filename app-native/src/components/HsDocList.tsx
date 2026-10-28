@@ -14,7 +14,7 @@ import * as DocumentPicker from 'expo-document-picker';
 
 import { chooseAction, confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, Toggle } from '@/components/ui';
-import { docBucket, nameOf, openDocLink, signDocs, useHsDocs, usePeople, type DocKind, type HsDoc, type HsSig } from '@/data/hs';
+import { DOC_LABEL, docBucket, nameOf, openDocLink, sigDocId, signDocs, useHsDocs, usePeople, type DocKind, type HsDoc, type HsSig } from '@/data/hs';
 import { deleteHsDoc, replaceCoshh } from '@/data/hsManager';
 import { useAuth } from '@/lib/auth';
 import { resignDue, signedHeadline, signers } from '@/lib/rules/hs';
@@ -36,9 +36,9 @@ export function HsDocList({ kind, site }: { kind: DocKind; site: Site }) {
   const manager = isManager(me);
   if (isLoading || !data) return <Muted>Loading…</Muted>;
 
-  const sigsFor = (id: string) => data.sigs.filter((s) => (kind === 'rams' ? s.rams_id : s.coshh_id) === id);
+  const sigsFor = (id: string) => data.sigs.filter((s) => sigDocId(kind, s) === id);
   const mineFor = (id: string) => sigsFor(id).find((s) => s.user_id === me.id);
-  const label = kind === 'rams' ? 'RAMS' : 'COSHH';
+  const label = DOC_LABEL[kind];
   const toSign = data.docs.filter((r) => manager && kind === 'rams'
     ? !sigsFor(r.id).some((s) => s.issued || s.user_id === me.id)
     : !mineFor(r.id));
@@ -66,7 +66,7 @@ export function HsDocList({ kind, site }: { kind: DocKind; site: Site }) {
         const { signed, waiting } = signers(data.roster, sigs);
         const issued = sigs.filter((s) => s.issued);
         const due = resignDue(r, site);
-        const canTap = !(manager && (issued.length || mine)) && !(kind === 'coshh' && manager);
+        const canTap = !(manager && (issued.length || mine)) && !(kind !== 'rams' && manager);
         return (
           <Card key={r.id} style={{ padding: 12 }}>
             <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
@@ -116,7 +116,7 @@ export function HsDocList({ kind, site }: { kind: DocKind; site: Site }) {
         );
       }) : <Empty>No {label} uploaded.</Empty>}
 
-      {data.docs.length > 0 && !(manager && (kind === 'coshh' || !toSign.length)) && (
+      {data.docs.length > 0 && !(manager && (kind !== 'rams' || !toSign.length)) && (
         <Button busy={busy} disabled={!toSign.length} onPress={() => sign(toSign.map((x) => x.id))}
           title={manager
             ? (toSign.length ? `Mark All RAMS as Issued (${toSign.length})` : 'All RAMS documents marked as issued')

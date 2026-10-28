@@ -10,6 +10,7 @@ const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supab
 const T = {
   rams: { docs: 'rams_docs', sigs: 'rams_signatures', key: 'rams_id', bucket: 'rams-docs', label: 'RAMS' },
   coshh: { docs: 'coshh_docs', sigs: 'coshh_signatures', key: 'coshh_id', bucket: 'coshh-docs', label: 'COSHH' },
+  layout: { docs: 'site_layout_docs', sigs: 'site_layout_signatures', key: 'layout_id', bucket: 'mc-documents', label: 'Site Rules & Layout' },
 } as const;
 export const RAMS_DOC_TYPES = ['Risk Assessment', 'Method Statement', 'RAMS'];
 
@@ -17,7 +18,7 @@ type Asset = { uri: string; name: string };
 async function put(kind: DocKind, siteId: string, a: Asset): Promise<string | null> {
   const rid = globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}`;
   try {
-    const up = await supabase.storage.from(T[kind].bucket).upload(`${siteId}/${kind}/${rid}-${a.name.replace(/[^a-z0-9.\-]+/gi, '_')}`, await (await fetch(a.uri)).arrayBuffer(), { contentType: 'application/pdf' });
+    const up = await supabase.storage.from(T[kind].bucket).upload(`${siteId}/${kind === 'layout' ? 'site-layout' : kind}/${rid}-${a.name.replace(/[^a-z0-9.\-]+/gi, '_')}`, await (await fetch(a.uri)).arrayBuffer(), { contentType: 'application/pdf' });
     return up.error ? null : up.data.path;
   } catch { return null; }
 }
@@ -68,7 +69,7 @@ export async function deleteHsDoc(me: Profile, kind: DocKind, siteId: string, do
 
 /** Operatives on the job still missing a signature on any current document. */
 export function outstanding(kind: DocKind, roster: string[], docs: HsDoc[], sigs: HsSig[]): string[] {
-  return roster.filter((u) => docs.some((d) => !sigs.some((s) => (kind === 'rams' ? s.rams_id : s.coshh_id) === d.id && s.user_id === u)));
+  return roster.filter((u) => docs.some((d) => !sigs.some((s) => s[T[kind].key] === d.id && s.user_id === u)));
 }
 export async function sendSignReminder(kind: DocKind, siteId: string, userIds: string[]): Promise<string> {
   try {

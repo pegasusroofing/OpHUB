@@ -14,7 +14,7 @@ export type HsDoc = {
   id: string; site_id: string; name: string; storage_path: string; uploaded_by: string | null; uploaded_at: string | null;
   resign_cycle_start: string | null; status?: string; supersedes?: string | null; superseded_by?: string | null; doc_type?: string;
 };
-export type HsSig = { id: string; user_id: string | null; signed_at: string | null; signature_image_path: string | null; issued?: boolean | null; rams_id?: string; coshh_id?: string; tbt_id?: string };
+export type HsSig = { id: string; user_id: string | null; signed_at: string | null; signature_image_path: string | null; issued?: boolean | null; rams_id?: string; coshh_id?: string; layout_id?: string; tbt_id?: string };
 export type Tbt = { id: string; site_id: string; title: string; storage_path: string; created_by: string | null; created_at: string; status: string };
 export type Person = { id: string; name: string; role: string };
 
@@ -41,11 +41,16 @@ async function operativeRoster(siteId: string): Promise<string[]> {
 }
 
 /* ---------- RAMS / COSHH (same shape) ---------- */
-export type DocKind = 'rams' | 'coshh';
+export type DocKind = 'rams' | 'coshh' | 'layout';
 const T = {
   rams: { docs: 'rams_docs', sigs: 'rams_signatures', key: 'rams_id' as const, bucket: 'rams-docs' },
   coshh: { docs: 'coshh_docs', sigs: 'coshh_signatures', key: 'coshh_id' as const, bucket: 'coshh-docs' },
+  // Site Rules & Layout (540): signed like COSHH; no subcontractor copies.
+  layout: { docs: 'site_layout_docs', sigs: 'site_layout_signatures', key: 'layout_id' as const, bucket: 'mc-documents' },
 };
+export const DOC_LABEL: Record<DocKind, string> = { rams: 'RAMS', coshh: 'COSHH', layout: 'Site Rules & Layout' };
+/** Which document a signature belongs to. */
+export const sigDocId = (kind: DocKind, s: HsSig) => s[T[kind].key];
 
 export function useHsDocs(kind: DocKind, site: Site | undefined) {
   const { me } = useAuth();
@@ -54,7 +59,8 @@ export function useHsDocs(kind: DocKind, site: Site | undefined) {
     enabled: !!site && !!me,
     queryFn: () => cachedQuery(`hsDocs:${kind}:${site?.id}:${me?.id}`, async () => {
       const s = site as Site, t = T[kind];
-      let cur = db.from(t.docs).select('*').eq('site_id', s.id).is('subcontractor_company_id', null);
+      let cur = db.from(t.docs).select('*').eq('site_id', s.id);
+      if (kind !== 'layout') cur = cur.is('subcontractor_company_id', null);
       if (kind === 'rams') cur = cur.eq('status', 'current');
       const [docsR, supR, roster] = await Promise.all([
         cur.order('uploaded_at', { ascending: false }),
