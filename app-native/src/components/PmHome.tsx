@@ -6,6 +6,7 @@ import { Pressable, Text, View } from 'react-native';
 import { useToast } from '@/components/toast';
 import { Muted, Screen, SectionTitle, Stat, Tile } from '@/components/ui';
 import { useOnSiteNow, usePmReports, usePmTodos } from '@/data/pmHome';
+import { useHub } from '@/data/hub';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { greeting, siteStatusKey } from '@/lib/rules/checkin';
@@ -20,6 +21,7 @@ export function PmHome() {
   const { data: onSite = [] } = useOnSiteNow(sites);
   const { data: todos = [] } = usePmTodos(sites);
   const { data: reports = [] } = usePmReports();
+  const { data: hub } = useHub(me, sites, '');
   const live = (sites ?? []).filter((s) => siteStatusKey(s) === 'live');
   const upcoming = (sites ?? []).filter((s) => siteStatusKey(s) === 'upcoming');
   const open = reports.filter((r) => r.status === 'in_progress');
@@ -36,7 +38,7 @@ export function PmHome() {
         <Stat n={live.length} label="Live jobs" onPress={() => router.push('/sites')} />
         <Stat n={onSite.length} label="On site now" onPress={() => router.push('/onsite')} />
         <Stat n={todos.length} label="To do" onPress={() => router.push('/pm/todos' as never)} />
-        <Stat n={0} label="Notifications" onPress={soon('The HUB')} />
+        <Stat n={hub?.items.length ?? 0} label="Notifications" onPress={() => router.push('/pm/hub' as never)} />
       </View>
       <Pressable onPress={() => router.push('/sites')} accessibilityRole="button"
         style={({ pressed }) => [{ backgroundColor: t.brand1, borderRadius: 22, padding: 20, marginBottom: space.m }, pressed && { opacity: 0.85 }]}>
@@ -46,7 +48,7 @@ export function PmHome() {
       {isFinanceUser(me, org) && <Tile icon="£" tint={base.okBg} title="OpHUB Finance" sub="Money in & out" onPress={soon('Finance')} />}
       <Tile icon="📈" tint="#E0F2F1" title="Dashboard" sub="Company overview" onPress={soon('The company dashboard')} />
       <Tile icon="📅" tint={base.okBg} title="Calendar" sub="All projects" onPress={() => router.push('/pm/calendar' as never)} />
-      <Tile icon="🔔" tint={base.warnBg} title="HUB" sub="Notifications & messages" onPress={soon('The HUB')} />
+      <Tile icon="🔔" tint={base.warnBg} title="HUB" sub="Notifications & messages" onPress={() => router.push('/pm/hub' as never)} />
       <Tile icon="🚚" tint="#F0E4F5" title="Deliveries" sub="Delivery schedule" onPress={soon('The delivery schedule')} />
       <Tile icon="📋" tint={base.blueBg} title="Reports & surveys" sub={open.length ? `${open.length} in progress` : 'All projects'} onPress={() => router.push('/pm/reports' as never)} />
       <Tile icon="🪪" tint={base.blueBg} title="Operatives" sub="Certifications, training, tools" onPress={soon('Operatives')} />
