@@ -16,6 +16,18 @@ export function useStorageUrl(bucket: string, path: string | null | undefined): 
   return url;
 }
 
+// For rows that store the full ".../object/public/..." address (e.g. report photos).
+export function UrlImage({ url, style }: { url: string; style: StyleProp<ImageStyle> }) {
+  const [u, setU] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    resolveStorageUrl(url).then((x) => { if (alive) setU(x); });
+    return () => { alive = false; };
+  }, [url]);
+  if (!u) return <View style={[style as object, { backgroundColor: base.line }]} />;
+  return <Image source={{ uri: u }} style={style} />;
+}
+
 export function StorageImage({ bucket, path, style }: { bucket: string; path: string | null | undefined; style: StyleProp<ImageStyle> }) {
   const url = useStorageUrl(bucket, path);
   if (!url) return <View style={[style as object, { backgroundColor: base.line }]} />;

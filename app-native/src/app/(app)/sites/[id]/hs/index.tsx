@@ -1,5 +1,5 @@
 // Health & Safety folder for a job. Ported from renderHealthSafety (630).
-// Tiles follow the job's per-role visibility (629). Daily Briefings, Tools/HAVS/PUWER,
+// Tiles follow the job's per-role visibility (629). Tools/HAVS/PUWER,
 // PPE, Accident/Incident and Operatives are still to be built; their tiles say so.
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { ScrollView } from 'react-native';
@@ -26,7 +26,7 @@ export default function HealthSafety() {
     { key: 'hs_rams', icon: '📄', tint: '#E7E9EE', title: 'RAMS', sub: sum ? plural(sum.rams) : '…', badge: mgr ? 0 : sum?.ramsTodo, go: 'rams' },
     { key: 'hs_coshh', icon: '🧪', tint: '#E7E9EE', title: 'COSHH', sub: sum ? plural(sum.coshh) : '…', badge: mgr ? 0 : sum?.coshhTodo, go: 'coshh' },
     { key: 'hs_tbt', icon: '🗣', tint: base.blueBg, title: 'TBT', sub: sum ? (sum.liveTbts ? 'Live now' : 'None live') : '…', go: 'tbt' },
-    { key: 'hs_briefings', icon: '📣', tint: '#FDECEA', title: 'Daily Briefings', sub: 'Coming soon' },
+    { key: 'hs_briefings', icon: '📣', tint: '#FDECEA', title: 'Daily Briefings', sub: 'Read and sign', go: 'briefings' },
     { key: 'hs_havspuwer', icon: '🖐', tint: '#FFF3E0', title: 'Tools, HAVS & PUWER', sub: 'Coming soon' },
     { key: 'hs_ppe', icon: '🦺', tint: '#FDECEA', title: 'PPE', sub: 'Coming soon' },
     { key: 'hs_incidents', icon: '⚠️', tint: '#FDECEA', title: 'Accident / Incident', sub: 'Coming soon' },
