@@ -31,7 +31,7 @@ export default function HavsPuwer() {
       {canSeeTile(site, 'hs_havs', me.role, ['site_manager']) && (
         <Tile icon="🖐" tint="#FFF3E0" title="HAVS" sub="Vibration exposure" onPress={() => router.push(`/sites/${site.id}/hs/havs`)} />
       )}
-      <Tile icon="🛠" tint="#E8F0FE" title="PUWER Tool Inspection" sub="Weekly tool checks — coming soon" onPress={() => toast('PUWER inspections are still being built in the new app.')} />
+      <Tile icon="🛠" tint="#E8F0FE" title="PUWER Tool Inspection" sub="Weekly tool checks" onPress={() => router.push(`/sites/${site.id}/hs/puwer`)} />
       {canSeeTile(site, 'hs_loler', me.role, ['site_manager']) && (
         <Tile icon="⛓" tint="#F3EAFB" title="LOLER Inspection" sub="Lifting equipment — coming soon" onPress={() => toast('LOLER inspections are still being built in the new app.')} />
       )}
