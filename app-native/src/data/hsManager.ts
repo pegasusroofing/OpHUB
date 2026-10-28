@@ -22,10 +22,10 @@ async function put(kind: DocKind, siteId: string, a: Asset): Promise<string | nu
     return up.error ? null : up.data.path;
   } catch { return null; }
 }
-const tellOperatives = (me: Profile, siteId: string, body: string) => {
+export const tellOperatives = (me: Profile, siteId: string, body: string) => {
   if (me.org_id) void db.from('messages').insert({ org_id: me.org_id, site_id: siteId, sender_id: me.id, audience: 'operatives', kind: 'doc_needs_signing', body } as never);
 };
-const log = (me: Profile, siteId: string, action: string, description: string) => {
+export const log = (me: Profile, siteId: string, action: string, description: string) => {
   if (me.org_id) void db.from('site_activity_log').insert({ site_id: siteId, org_id: me.org_id, actor_id: me.id, action, description } as never);
 };
 
