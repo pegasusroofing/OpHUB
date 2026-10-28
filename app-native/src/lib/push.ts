@@ -54,5 +54,5 @@ export function pushRoute(data: PushData, me: Profile | null): string | null {
     price_overbooked: 'price', additional_works_requested: 'price', message: 'messages', rams_reminder: 'hs/rams',
     coshh_reminder: 'hs/coshh', material_pickup: 'materialrequired',
   };
-  return `/site/${data.site_id}/${routes[data.kind || ''] || 'messages'}`;
+  return `/sites/${data.site_id}/${routes[data.kind || ''] || 'messages'}`;
 }
