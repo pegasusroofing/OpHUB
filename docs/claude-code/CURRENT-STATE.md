@@ -1,0 +1,64 @@
+# Current state (28 Oct 2026)
+
+## Code
+- **Laptop repo:** at commit `2349a21` on master, **2 commits ahead of GitHub** (`55855f2`, `2349a21`) plus this handoff pack. **Andy needs to press Push origin.** Nothing below is live on the website until he does.
+- **Fix round 3** (in those commits):
+  - Variation values reach Finance.
+  - The old role comes back when Finance is switched off.
+  - Unread badges count one-person messages.
+  - Hidden MC tiles are blocked by direct link.
+  - The Schedule of Works crash is fixed.
+  - The Finance link is checked in Finance-only companies.
+  - Reopening a PO restores its site requests.
+  - Check-ins carry the device id.
+  - OneDrive status.
+  - RAMS numbers come from the database.
+  - Inbox filing is one server step.
+  - The app works with public **or** private buckets.
+- **Recent features:**
+  - Bill of Quantities tidy-up; purchase invoices with expandable lines.
+  - Invoice-only jobs (no Applied/Retention); application dates auto-filled.
+  - The send pop-up for invoices and applications.
+  - Driver time off, with the delivery block.
+  - The Price tile only when ticked in project admin.
+  - Saved password on login.
+  - Plain-English errors across Finance.
+- **Phone apps:** they still carry an older app.html and need rebuilding (App Builder → Android Studio / Xcode) to get the recent changes.
+
+## Database (Supabase `dtrfupmcazoioubhwdml`)
+- **SQL files 1–3:** done (security batches and materials).
+- **Applied 26–27 Oct (additive):**
+  - `fin_fill_defaults`, `driver_time_off` + `delivery_driver_off_check`, `edge_email_log`;
+  - bank holidays past 2028, the `hr_leave` approval guard, the device lock at check-in, the collection-received rule;
+  - more manager-only field guards, locked signed briefings, `rams_take_numbers`, `fin_inbox_file`, `onedrive_status`, `variation_value_insert_guard`.
+- **SQL file 4 (`sql/4 - OpHUB fixes (27 Oct).sql`): NOT run.** It makes 9 storage buckets private. Run it only after **all** of these, in this order:
+  1. Push origin (the website gets the private-file-ready app).
+  2. Update 6 server functions to sign files instead of building public links: `client-sign`, `send-expenses-email`, `send-price-builder-email`, `send-site-induction-email`, `send-subcontractor-inspection-email`, and `send-document-email` (multi-file).
+  3. Rebuild the phone apps, and make sure everyone has updated.
+  4. Andy pastes SQL file 4 into Supabase › SQL Editor.
+
+  If the native app is close, it's fine to wait and do this at switch-over instead.
+
+## Server functions
+- `send-finance-email` v5 (subject, text, extra attachments, signature with company number, VAT, email and logo).
+- 30 send and notify functions hardened. Repo copies are in `supabase/functions/`.
+- The `xero` and `finance-inbox` repo copies match live.
+- When redeploying, keep each function's `verify_jwt` setting as it is live.
+
+## Andy's own to-dos
+- Press **Push origin**.
+- Turn on leaked-password protection (Supabase › Authentication).
+- Reconnect OneDrive, and revoke the old Microsoft sessions.
+- Change the finance inbox mail forwarder to send the `x-inbox-key` header instead of the key in the link.
+- Check that the API "max rows" setting is 1,000 or more.
+- Rebuild the phone apps.
+
+## Still open (carry into the native app, or fix in the old one if urgent)
+- **Finance go-live switches:** the trial stubs, and POs for every PM order (proposals P01, P02; map links L28, L51, L52, L59, L73). Finance stays in **TRIAL** until Andy says otherwise.
+- **18 "Missing" Projects↔Finance links:** see `context/finance-projects-map-v3.md` and `context/proposals.md`.
+- **Messages to one person:** check the database lets people read messages sent only to them (PB-07).
+- **Company filter in the database:** check-ins, incidents and drawings have no company column; the app filters them (CORE-L2).
+- **Supplier order email:** check it never shows the PO number to operatives.
+- **Push function:** check it sends the message's own id.
+- **Labour review and repair jobs in Finance:** waiting for Andy.
+- **Andy said no** to the Schedule of Works photo upload speed-up and to general speed work on the old app. The native app covers both.

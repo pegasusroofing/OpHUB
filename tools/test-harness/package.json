@@ -1,0 +1,6 @@
+{
+  "name": "ophub-test-harness",
+  "private": true,
+  "description": "Browser tests for the current OpHUB app.html against a fake Supabase (no real data touched).",
+  "dependencies": { "playwright": "^1.48.0", "exceljs": "^4.4.0", "pdf-lib": "^1.17.1", "xlsx": "^0.18.5" }
+}
