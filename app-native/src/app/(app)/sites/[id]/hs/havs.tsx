@@ -2,6 +2,7 @@
 // (no future weeks), the job's tools, Monday–Friday with each day's status pill,
 // your logged sessions (edit/delete until the week is closed), minutes boxes and
 // Save Minutes. Minutes typed in a day also save when you close that day.
+// Export / Email PDF: your own week (managers: every operative on the job).
 import { useQueryClient } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useRef, useState } from 'react';
@@ -11,6 +12,10 @@ import { confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, Toggle } from '@/components/ui';
 import { addHavsEntry, deleteHavsEntry, editHavsEntry, useHavsWeek, type HavsTool } from '@/data/havs';
 import { useSite } from '@/data/sites';
+import { buildHavsPdf, emailHavsPdf } from '@/lib/havsPdf';
+import { deliverPdf } from '@/lib/pdf';
+import { isManager } from '@/lib/roles';
+import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { localISODate } from '@/lib/rules/driver';
 import { DAY_STATUS_LABEL, dayStatus, HAVS_DAY_LABELS, points, titleCaseWords, weekDates, weekLabel, wholeMinutes } from '@/lib/rules/havs';
@@ -20,8 +25,9 @@ const PILL = { elv: { bg: '#FBE1DE', fg: base.red }, eav: { bg: base.warnBg, fg:
 
 export default function Havs() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { me } = useAuth();
+  const { me, org } = useAuth();
   const toast = useToast();
+  const [pdfBusy, setPdfBusy] = useState<'pdf' | 'email' | null>(null);
   const qc = useQueryClient();
   const { data: site } = useSite(id);
   const [offset, setOffset] = useState(0);
@@ -147,7 +153,26 @@ export default function Havs() {
               refresh();
             }} />
           )}
-          <Muted style={{ marginTop: space.m }}>Export and email of HAVS records come with the PM screens.</Muted>
+          <View style={{ flexDirection: 'row', gap: 8, marginTop: space.m }}>
+            {(['pdf', 'email'] as const).map((k) => (
+              <View key={k} style={{ flex: 1 }}><Button kind="ghost" busy={pdfBusy === k} title={k === 'pdf' ? (isManager(me) ? 'Export All' : 'Export PDF') : (isManager(me) ? 'Email All' : 'Email PDF')} onPress={async () => {
+                let cc: string | null = null;
+                if (k === 'email' && site.client_email && (await confirmAsk(`CC client contact${site.client_contact_name || site.client_name ? ` (${site.client_contact_name || site.client_name})` : ''} on this email?`, 'Yes, CC them'))) cc = site.client_email;
+                setPdfBusy(k);
+                try {
+                  let ops = [{ id: me.id, name: me.name }];
+                  if (isManager(me)) {
+                    const a = (((await supabase.from('site_assignments').select('user_id').eq('site_id', site.id)).data ?? []) as { user_id: string }[]).map((x) => x.user_id);
+                    ops = a.length ? ((((await supabase.from('profiles').select('id,name,role').in('id', a)).data ?? []) as { id: string; name: string; role: string }[]).filter((p) => p.role === 'operative').sort((x, y) => x.name.localeCompare(y.name))) : [];
+                  }
+                  if (!ops.length) { toast(k === 'pdf' ? 'No operatives to export.' : 'No operatives to email.'); return; }
+                  const b = await buildHavsPdf(site, org, days, weekLabel(days), ops, isManager(me) ? 'All Operatives' : me.name);
+                  if (k === 'pdf') { if (!(await deliverPdf(b.bytes, b.filename))) toast('Could not save the PDF.'); }
+                  else toast(await emailHavsPdf(site.id, b.bytes, b.filename, weekLabel(days), cc));
+                } catch { toast(k === 'pdf' ? 'Export failed — try again.' : 'Email failed — try again.'); } finally { setPdfBusy(null); }
+              }} /></View>
+            ))}
+          </View>
         </>
       )}
     </ScrollView>
