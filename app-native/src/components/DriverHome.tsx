@@ -30,6 +30,7 @@ export function DriverHome() {
       <Tile icon="🌴" tint="#ECFDF3" title="Book Time Off"
         sub={next ? `Next: ${next.start_date === next.end_date ? dtoFmt(next.start_date) : `${dtoFmt(next.start_date)} – ${dtoFmt(next.end_date)}`}` : 'Pick a day or a range'}
         onPress={() => router.push('/driver/timeoff')} />
+      <Tile icon="📦" tint="#EEF4FF" title="Book Stock Into The Yard" sub="Deliveries and leftovers" onPress={() => router.push('/driver/yard')} />
     </Screen>
   );
 }

@@ -176,3 +176,20 @@ export function sortSuppliers<T extends { name: string; favourite?: boolean | nu
   const f = (t ? list.filter((s) => s.name.toLowerCase().includes(t)) : list).slice().sort((a, b) => a.name.localeCompare(b.name));
   return [...f.filter((s) => s.favourite), ...f.filter((s) => !s.favourite)];
 }
+
+/* ---------- yard stock (9219m / 9219zq) ---------- */
+export type YardItem = { id: string; item: string; unit: string | null; qty: number | string | null; min_qty: number | string | null; location: string | null; category: string | null; active?: boolean | null };
+export const yardQty = (n: unknown) => (Math.round(Number(n || 0) * 100) / 100).toLocaleString('en-GB');
+export const yardLow = (s: YardItem) => s.min_qty != null && Number(s.qty || 0) <= Number(s.min_qty);
+/** "2 rolls" → 2, "1.5" → 1.5; null if no number. */
+export function yardNum(t: unknown): number | null {
+  const m = String(t == null ? '' : t).replace(/,/g, '').match(/-?\d+(?:\.\d+)?/);
+  return m ? Number(m[0]) : null;
+}
+/** Best guess of which yard item a request means, from its wording. */
+export function yardGuess(items: YardItem[], requestItem: string): string | null {
+  const words = requestItem.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 2);
+  let best: string | null = null; let bestN = 0;
+  for (const s of items) { const n = words.filter((w) => s.item.toLowerCase().includes(w)).length; if (n > bestN) { bestN = n; best = s.id; } }
+  return best;
+}

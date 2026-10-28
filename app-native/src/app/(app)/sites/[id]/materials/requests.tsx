@@ -14,7 +14,7 @@ import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import { nameOf, usePeople } from '@/data/hs';
 import {
   addMaterial, cancelMaterial, deleteMaterials, editMaterial, groupMaterials, poLock, reopenMaterials,
-  reemailOrder, setMaterialsStatus, toCollections, ungroupMaterials, useCollectionsOpenCount, useMaterialRequests, useSubAddresses, useSuppliers, type MatTab, type SubAddr,
+  reemailOrder, setMaterialsStatus, yardBookInCan, yardCanEdit, toCollections, ungroupMaterials, useCollectionsOpenCount, useMaterialRequests, useSubAddresses, useSuppliers, type MatTab, type SubAddr,
 } from '@/data/materials';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
@@ -144,7 +144,10 @@ export default function MaterialRequests() {
             <View style={{ flex: 1 }}><Button title="🚚 Order from merchant" onPress={() => void startOrder([m], false)} /></View>
             <View style={{ flex: 1 }}><Button kind="ghost" title="📦 Add to collections" onPress={() => void collections([m])} /></View>
           </View>
-          <Button kind="ghost" title="Close request" onPress={() => void close([m])} />
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            {yardCanEdit(me, fin) && <View style={{ flex: 1 }}><Button kind="ghost" title="🏗 From yard stock" onPress={() => router.push(`/sites/${id}/materials/yard?mat=${m.id}` as never)} /></View>}
+            <View style={{ flex: 1 }}><Button kind="ghost" title="Close request" onPress={() => void close([m])} /></View>
+          </View>
         </View>
       )}
       {mgr && m.status === 'sent' && !sel.has(m.id) && (
@@ -199,6 +202,11 @@ export default function MaterialRequests() {
         <Card style={{ borderColor: base.ink, borderWidth: 1.5 }}>
           <OrderPanel siteId={id} mats={ordering.mats} again={ordering.again} onDone={() => { setOrdering(null); refresh(); }} onCancel={() => setOrdering(null)} />
         </Card>
+      )}
+      {mgr && (yardCanEdit(me, fin) || yardBookInCan(me, fin)) && tab !== 'closed' && (
+        <Pressable onPress={() => router.push(`/sites/${id}/materials/yard` as never)} style={{ marginBottom: 10 }}>
+          <Text style={{ color: base.blue, fontWeight: '700' }}>📦 Yard stock · ⬇ Book into yard →</Text>
+        </Pressable>
       )}
       {mgr && selectable.length > 1 && (sel.size > 0 || !done) && (
         <Pressable onPress={() => setSel(sel.size >= selectable.length ? new Set() : new Set(selectable.map((m) => m.id)))} style={{ marginBottom: 10 }}>
@@ -278,7 +286,7 @@ export default function MaterialRequests() {
           toast('Request added'); refresh(); return true;
         }} />
       )}
-      {mgr && <Muted style={{ marginTop: space.m }}>Still to come here: the Suppliers list, yard stock and Import from Excel.</Muted>}
+      {mgr && <Muted style={{ marginTop: space.m }}>Still to come here: adding new yard items and Import from Excel (both in Finance / the old app for now).</Muted>}
     </ScrollView>
   );
 }

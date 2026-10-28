@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { cachedQuery, orThrow } from '@/lib/offlineCache';
 import { compressOne, type Picked } from '@/lib/photos';
 import { DELIVERY_TIME_SLOTS, localISODate, slotProblem } from '@/lib/rules/driver';
-import { branchLabel, comingToSite, companyOperativeLabel, onSentPo, orderCcEmails, orderRecipient, poLockText, subAddrLabel, type Branch, type Fulfil, type Mat, type OrderSupplier, type Pickup } from '@/lib/rules/materials';
+import { branchLabel, comingToSite, companyOperativeLabel, onSentPo, orderCcEmails, orderRecipient, poLockText, subAddrLabel, type Branch, type Fulfil, type Mat, type OrderSupplier, type Pickup, type YardItem, yardQty } from '@/lib/rules/materials';
 import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/lib/types';
 
@@ -447,4 +447,51 @@ export function useOfficeOrders(siteId: string | undefined, enabled: boolean) {
       return (r.data as OfficeOrder[]).filter((p) => p && p.source !== 'materials' && p.status !== 'cancelled');
     },
   });
+}
+
+/* ---------- yard stock (9219m / 9219zq): no rates here, those stay in Finance ---------- */
+export const yardCanEdit = (me: Profile | null, financeUser: boolean) => !!me && (me.role === 'pm' || me.role === 'admin' || financeUser);
+export const yardBookInCan = (me: Profile | null, financeUser: boolean) => yardCanEdit(me, financeUser) || me?.role === 'driver';
+
+export function useYard(orgId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['yard', orgId],
+    enabled: !!orgId,
+    queryFn: async () => ((orThrow(await db.from('yard_stock').select('*').eq('org_id', orgId as string).order('item').limit(3000)) as YardItem[]).filter((s) => s.active !== false)),
+  });
+}
+
+export type YardBookIn = { id: string; stock_id: string; qty: number; note: string | null; ref: string | null; supplier_name: string | null; photo_path: string | null; created_by: string | null; created_at: string };
+export function useRecentBookIns(orgId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['yard', orgId, 'in'],
+    enabled: !!orgId,
+    queryFn: async () => ((await db.from('yard_moves').select('id,stock_id,qty,note,ref,supplier_name,photo_path,created_by,created_at').eq('org_id', orgId as string).eq('kind', 'in').order('created_at', { ascending: false }).limit(15)).data as YardBookIn[] | null) ?? [],
+  });
+}
+
+/** Issue to a job / return from a job. With a request, issuing fills it (closed as "Yard stock"). */
+export async function yardMove(me: Profile, f: { kind: 'issue' | 'return'; stock: YardItem; qty: number; siteId: string; materialId?: string | null; note?: string | null }): Promise<string | null> {
+  const r = await db.from('yard_moves').insert({ org_id: me.org_id, stock_id: f.stock.id, kind: f.kind, qty: f.qty, site_id: f.siteId, material_id: f.materialId ?? null, note: f.note || null, created_by: me.id } as never);
+  if (r.error) return 'Could not save — try again.';
+  if (f.materialId) {
+    const note = `From yard: ${yardQty(f.qty)} ${f.stock.unit || ''} ${f.stock.item}`.replace(/\s+/g, ' ').trim();
+    await db.from('materials').update({ status: 'closed', merchant: 'Yard stock', sent_at: new Date().toISOString(), order_note: note } as never).eq('id', f.materialId);
+  }
+  return null;
+}
+
+export async function yardBookIn(me: Profile, f: { stock: YardItem; qty: number; supplier: string; ref: string; note: string; photo: Picked | null }): Promise<string | null> {
+  let photo: string | null = null;
+  if (f.photo) {
+    try {
+      const uri = await compressOne(f.photo);
+      const rid = globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}`;
+      const up = await supabase.storage.from('site-photos').upload(`${me.org_id}/yard/${rid}-delivery.jpg`, await (await fetch(uri)).arrayBuffer(), { contentType: 'image/jpeg' });
+      if (up.error) return 'Could not upload the photo — check your signal and try again.';
+      photo = up.data.path;
+    } catch { return 'Could not upload the photo — check your signal and try again.'; }
+  }
+  const r = await db.from('yard_moves').insert({ org_id: me.org_id, stock_id: f.stock.id, kind: 'in', qty: f.qty, site_id: null, note: f.note || null, created_by: me.id, ref: f.ref || null, supplier_name: f.supplier || null, po_id: null, photo_path: photo } as never);
+  return r.error ? 'Could not save — try again.' : null;
 }

@@ -88,3 +88,14 @@ test('order note, cc parsing, labels, supplier sort', () => {
   assert.equal(companyOperativeLabel('RTB Roofing Ltd'), 'RTB Operative');
   assert.deepEqual(sortSuppliers([{ name: 'B' }, { name: 'A' }, { name: 'C', favourite: true }], '').map((s) => s.name), ['C', 'A', 'B']);
 });
+
+import { yardGuess, yardNum, yardQty } from './materials.ts';
+test('yard helpers', () => {
+  assert.equal(yardNum('2 rolls'), 2);
+  assert.equal(yardNum('1,250.5'), 1250.5);
+  assert.equal(yardNum('some'), null);
+  assert.equal(yardQty(1250.456), '1,250.46');
+  const items = [{ id: 'a', item: 'Code 4 lead', unit: null, qty: 1, min_qty: null, location: null, category: null }, { id: 'b', item: 'Marley slate 600x300', unit: null, qty: 1, min_qty: null, location: null, category: null }];
+  assert.equal(yardGuess(items, '200 marley slates'), 'b');
+  assert.equal(yardGuess(items, 'nails'), null);
+});
