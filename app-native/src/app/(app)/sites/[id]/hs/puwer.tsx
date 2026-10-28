@@ -1,7 +1,8 @@
 // PUWER weekly tool inspection for operatives: your registered tools, the five checks
 // per tool (unticked until you confirm each), a warning when you untick one, an
 // Acceptable / Can't be used line per tool, comments, Save. Locked once saved (as today).
-// Ported from renderPuwer / renderPuwerFill (680).
+// Managers get the weekly roster (PuwerRoster) and can fill one in for any
+// operative (?user=…), edit it after saving and delete it. Ported from 680.
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -9,7 +10,10 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { showAlert, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
-import { savePuwer, usePuwer } from '@/data/puwer';
+import { PuwerRoster } from '@/components/PuwerRoster';
+import { confirmAsk } from '@/components/toast';
+import { nameOf, usePeople } from '@/data/hs';
+import { deletePuwer, savePuwer, usePuwer } from '@/data/puwer';
 import { useAuth } from '@/lib/auth';
 import { localISODate } from '@/lib/rules/driver';
 import { weekDates, weekLabel } from '@/lib/rules/havs';
@@ -18,22 +22,26 @@ import { isManager } from '@/lib/roles';
 import { base, radius, space } from '@/theme/theme';
 
 export default function Puwer() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, user } = useLocalSearchParams<{ id: string; user?: string }>();
   const { me } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
+  const { data: people } = usePeople();
   const [offset, setOffset] = useState(0);
   const days = weekDates(offset);
   const ws = localISODate(days[0]);
-  const { data, isLoading } = usePuwer(id, ws);
+  const { data, isLoading } = usePuwer(id, ws, user);
   const [tools, setTools] = useState<PuwerTool[]>([]);
   const [comments, setComments] = useState('');
   const [retry, setRetry] = useState(false);
   const [busy, setBusy] = useState(false);
   useEffect(() => { if (data) { setTools(data.tools); setComments(data.comments); setRetry(false); } }, [data]);
   if (!me) return null;
-  if (isManager(me)) return <Muted style={{ padding: space.l }}>The manager PUWER roster (inspect for others, close the week, exports) comes with the PM screens.</Muted>;
-  const locked = !!data?.inspectionId && !retry;
+  const mgr = isManager(me);
+  if (mgr && !user) return <PuwerRoster siteId={id} offset={offset} setOffset={setOffset} />;
+  const who = user ?? me.id;
+  const whoName = who === me.id ? me.name : nameOf(people, who);
+  const locked = !mgr && !!data?.inspectionId && !retry;
 
   const toggle = (i: number, k: PuwerKey) => {
     const next = tools.map((t, j) => (j === i ? { ...t, [k]: !t[k] } : t));
@@ -42,12 +50,12 @@ export default function Puwer() {
   };
   const save = async () => {
     setBusy(true);
-    const r = await savePuwer(me, id, ws, data?.inspectionId ?? null, tools, comments.trim());
+    const r = await savePuwer(me, id, ws, data?.inspectionId ?? null, tools, comments.trim(), who);
     setBusy(false);
     if (r.error) { toast(r.error); return; }
     setRetry(r.failed > 0);
     toast(r.failed ? `${r.failed} tool${r.failed > 1 ? 's' : ''} did NOT save — check your signal and press Save Inspection again.` : 'Inspection saved');
-    if (!r.failed) void qc.invalidateQueries({ queryKey: ['puwer', id] });
+    if (!r.failed) { void qc.invalidateQueries({ queryKey: ['puwer', id] }); void qc.invalidateQueries({ queryKey: ['puwerRoster', id] }); }
   };
 
   return (
@@ -62,11 +70,11 @@ export default function Puwer() {
       {isLoading || !data ? <Muted>Loading…</Muted> : (
         <>
           <Card>
-            <SectionTitle>{me.name}'s Registered Tools</SectionTitle>
+            <SectionTitle>{whoName}'s Registered Tools</SectionTitle>
             {tools.length ? <Muted>{tools.length} tool{tools.length === 1 ? '' : 's'} pulled through from My Tools: {tools.map((t) => t.name).join(', ')}</Muted> : null}
           </Card>
           {!tools.length ? (
-            <Empty>You haven't logged any tools yet. <Text style={{ color: base.blue, fontWeight: '700' }} onPress={() => router.push(`/sites/${id}/hs/mytools`)}>Add one in My Tools</Text></Empty>
+            <Empty>{who === me.id ? 'You have' : `${whoName} has`} not logged any tools yet. <Text style={{ color: base.blue, fontWeight: '700' }} onPress={() => router.push(`/sites/${id}/hs/mytools`)}>Add one in My Tools</Text></Empty>
           ) : tools.map((t, i) => (
             <Card key={t.toolId || t.dbId || i}>
               <Text style={{ fontWeight: '800', color: base.ink, marginBottom: 6 }}>{t.name}{t.serial_number ? <Text style={{ fontWeight: '400', color: base.slate }}>  · {t.serial_number}</Text> : null}</Text>
@@ -90,7 +98,12 @@ export default function Puwer() {
               style={{ minHeight: 70, borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, backgroundColor: base.card, color: base.ink }} />
           ) : !!comments && <Card><Text style={{ color: base.ink }}>{comments}</Text></Card>}
           {!locked && tools.length > 0 && <Button busy={busy} title="Save Inspection" onPress={save} />}
-          {locked && <Muted style={{ marginTop: 10 }}>Saved for this week. Export PDF comes with the PM screens.</Muted>}
+          {locked && <Muted style={{ marginTop: 10 }}>Saved for this week.</Muted>}
+          {mgr && !!data?.inspectionId && <Button kind="ghost" title="Delete Inspection" onPress={async () => {
+            if (!(await confirmAsk('Delete this PUWER inspection? This cannot be undone.', 'Delete'))) return;
+            if (await deletePuwer(me, id, data.inspectionId as string, whoName)) { toast('Inspection deleted'); void qc.invalidateQueries({ queryKey: ['puwer', id] }); void qc.invalidateQueries({ queryKey: ['puwerRoster', id] }); }
+          }} />}
+          <Muted style={{ marginTop: 10 }}>PUWER PDF export and email are still in the current app for now.</Muted>
         </>
       )}
     </ScrollView>
