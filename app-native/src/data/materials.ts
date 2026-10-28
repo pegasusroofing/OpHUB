@@ -4,6 +4,7 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { cachedQuery, orThrow } from '@/lib/offlineCache';
+import { compressOne, type Picked } from '@/lib/photos';
 import { DELIVERY_TIME_SLOTS, localISODate, slotProblem } from '@/lib/rules/driver';
 import { branchLabel, comingToSite, companyOperativeLabel, onSentPo, orderCcEmails, orderRecipient, poLockText, subAddrLabel, type Branch, type Fulfil, type Mat, type OrderSupplier, type Pickup } from '@/lib/rules/materials';
 import { supabase } from '@/lib/supabase';
@@ -389,4 +390,40 @@ export async function emailCollectionList(siteId: string, recipients: string[], 
     const err = (r.data as { error?: string } | null)?.error || (r.error ? 'try again.' : '');
     return err ? `Email failed — ${String(err).slice(0, 140)}` : null;
   } catch { return 'Email failed — could not reach the server.'; }
+}
+
+/* ---------- Goods received (726 + 9219zr) ---------- */
+export type Grn = { at: string; by: string; byName: string; ok: boolean; notes: string; photos: string[] };
+
+/** Saves a GRN on a delivery; a problem tells the managers and (if it's on a PO) Finance. Returns the message, or an error. */
+export async function saveGrn(me: Profile, siteId: string, m: Mat, ok: boolean, notes: string, photos: Picked[], isManager: boolean): Promise<{ ok: boolean; msg: string }> {
+  if (!ok && !notes.trim()) return { ok: false, msg: "Add a note saying what's wrong" };
+  const paths: string[] = [];
+  for (const p of photos) {
+    try {
+      const uri = await compressOne(p);
+      const rid = globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}${paths.length}`;
+      const up = await supabase.storage.from('site-photos').upload(`${siteId}/grn/${m.id}/${rid}.jpg`, await (await fetch(uri)).arrayBuffer(), { contentType: 'image/jpeg' });
+      if (!up.error) paths.push(up.data.path);
+    } catch { /* counted below */ }
+  }
+  if (paths.length < photos.length) return { ok: false, msg: 'Some photos could not upload — check signal and try again.' };
+  const grn: Grn = { at: new Date().toISOString(), by: me.id, byName: me.name || '', ok, notes: notes.trim(), photos: paths };
+  const r = await db.from('materials').update({ grn } as never).eq('id', m.id);
+  if (r.error) return { ok: false, msg: dbMsg(r.error, isManager) };
+  const item = m.item + (m.qty ? ` × ${m.qty}` : '');
+  log(me, siteId, 'material_grn', `Goods received: ${item}${grn.ok ? '' : ` — PROBLEM: ${grn.notes}`}`);
+  if (!grn.ok || grn.notes || paths.length) tellManagers(me, siteId, 'material_grn', `${me.name} received "${item}"${grn.ok ? '' : ' with a problem'}${grn.notes ? `: ${grn.notes}` : ''}${paths.length ? ` (${paths.length} photo${paths.length > 1 ? 's' : ''})` : ''}`);
+  if (grn.ok) return { ok: true, msg: 'Goods received ✓' };
+  try {
+    const rpc = supabase.rpc as unknown as (n: string, a: object) => Promise<{ data: unknown; error: unknown }>;
+    const f = await rpc('fin_flag_grn_problem', { p_material_id: m.id, p_note: grn.notes });
+    let d = f.data as Record<string, unknown> | Record<string, unknown>[] | null;
+    if (Array.isArray(d)) d = d[0];
+    if (!f.error && !(d && (d.ok === false || d.po_id === null))) {
+      const q = Number(d?.queried ?? d?.invoices_queried ?? d?.invoices);
+      return { ok: true, msg: isManager ? `Saved — Finance has been told about the problem${q > 0 ? ` and ${q} supplier invoice${q === 1 ? ' is' : 's are'} on hold` : ''}` : 'Saved — the office has been told about the problem' };
+    }
+  } catch { /* the managers' message still went */ }
+  return { ok: true, msg: 'Saved — managers told about the problem' };
 }

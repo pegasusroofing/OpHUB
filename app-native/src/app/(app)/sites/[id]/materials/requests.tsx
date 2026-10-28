@@ -7,6 +7,7 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useRef, useState, type ComponentRef } from 'react';
 import { Pressable, RefreshControl, ScrollView, Text, TextInput, View } from 'react-native';
 
+import { GrnDetail } from '@/components/Grn';
 import { OrderPanel } from '@/components/OrderPanel';
 import { chooseAction, confirmAsk, promptText, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
@@ -120,7 +121,7 @@ export default function MaterialRequests() {
           }}><Text style={{ fontSize: 18, color: base.slate, paddingHorizontal: 4 }}>⋮</Text></Pressable>
         )}
       </View>
-      {m.grn && <Muted style={{ marginTop: 6 }}>{m.grn.ok ? '✓ Goods received' : '⚠ Goods received with a problem'}</Muted>}
+      {m.grn && <GrnDetail g={m.grn} />}
       {(m.status === 'sent' || (m.status === 'closed' && m.merchant)) && mgr && (
         <View style={{ marginTop: 6 }}>
           {m.merchant === 'Yard stock' ? <Muted>🏗 From yard stock</Muted>

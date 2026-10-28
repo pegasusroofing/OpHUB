@@ -8,7 +8,7 @@ export type Mat = {
   supplier_id?: string | null; sent_at?: string | null; email_sent_at?: string | null;
   cancel_reason?: string | null; cancelled_by?: string | null; sub_site_id?: string | null;
   sub_site_label?: string | null; group_id?: string | null; fulfilment?: string | null;
-  po_number?: string | null; po_id?: string | null; grn?: { ok?: boolean; at?: string } | null;
+  po_number?: string | null; po_id?: string | null; grn?: { ok?: boolean; at?: string; by?: string; byName?: string; notes?: string; photos?: string[] } | null;
 };
 
 /** "today", "yesterday", "3d ago", "2w ago", "4mo ago". */

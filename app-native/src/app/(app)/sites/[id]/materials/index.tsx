@@ -6,6 +6,7 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Linking, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 
+import { GrnForm } from '@/components/Grn';
 import { useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle, Tile } from '@/components/ui';
 import { collectPickups, useCollectionsOpenCount, useMaterialRequests, useOpMaterials } from '@/data/materials';
@@ -53,6 +54,7 @@ function OperativeMaterials({ siteId, vis }: { siteId: string; vis: Parameters<t
   const { data, isLoading, refetch, isRefetching } = useOpMaterials(siteId, me?.id);
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
+  const [grnFor, setGrnFor] = useState<string | null>(null);
   if (!me) return null;
   const supName = (sid: string) => data?.suppliers.find((s) => s.id === sid)?.name ?? null;
   const groups = groupPickups(data?.pickups ?? [], supName);
@@ -104,13 +106,18 @@ function OperativeMaterials({ siteId, vis }: { siteId: string; vis: Parameters<t
 
           <SectionTitle>Coming to site</SectionTitle>
           {data?.coming.length ? data.coming.map((m) => (
-            <Card key={m.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Card key={m.id}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <View style={{ flex: 1 }}>
                 <Text style={{ fontWeight: '700', color: base.ink }}>{m.item}{m.qty ? <Text style={{ color: base.slate, fontWeight: '400' }}> × {m.qty}</Text> : null}</Text>
                 <Muted>Delivery{m.required_for_delivery ? ` · ${fmt(m.required_for_delivery)}` : ''}</Muted>
                 {!!m.sub_site_label && <Muted>📍 {m.sub_site_label}</Muted>}
               </View>
-              <Text style={{ fontSize: 11, fontWeight: '700', color: m.grn ? (m.grn.ok ? base.ok : base.red) : base.blue }}>{m.grn ? (m.grn.ok ? 'Received' : 'Problem') : 'Delivery'}</Text>
+              <Text style={{ fontSize: 11, fontWeight: '700', color: m.grn ? (m.grn.ok ? base.ok : base.red) : base.blue }}>{m.grn ? (m.grn.ok ? 'GRN ✓' : 'GRN ⚠') : 'Delivery'}</Text>
+              </View>
+              {!m.grn && (grnFor === m.id
+                ? <GrnForm siteId={siteId} m={m} onCancel={() => setGrnFor(null)} onDone={() => { setGrnFor(null); void qc.invalidateQueries({ queryKey: ['materials', siteId] }); }} />
+                : <Pressable onPress={() => setGrnFor(m.id)} style={{ marginTop: 8 }}><Text style={{ color: base.ink }}>☐ Goods received (GRN)</Text></Pressable>)}
             </Card>
           )) : <Empty>No deliveries booked.</Empty>}
 
@@ -130,7 +137,6 @@ function OperativeMaterials({ siteId, vis }: { siteId: string; vis: Parameters<t
           {showPlant && <Button kind="ghost" title="🏗 Plant" onPress={() => toast('Plant is still being built in the new app.')} />}
           {showExp && <Button kind="ghost" title="🧾 Expenses" onPress={() => router.push(`/sites/${siteId}/expenses` as never)} />}
           <Pressable onPress={() => router.push(`/sites/${siteId}/materials/requests` as never)} style={{ marginTop: 10 }}><Text style={{ color: base.slate }}>See all my requests →</Text></Pressable>
-          <Muted style={{ marginTop: space.m }}>Goods received (GRN) on deliveries comes next.</Muted>
         </>
       )}
     </ScrollView>
