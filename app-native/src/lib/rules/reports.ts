@@ -166,3 +166,24 @@ export function completeProblem(sections: ReportSection[], answers: Answers, has
   }
   return null;
 }
+
+/** A first section made only of text / date / number boxes is the report's title page. */
+export const TITLE_SECTION_TYPES = ['text', 'date', 'number', 'textarea'];
+export const isTitleSection = (s: ReportSection | undefined) => !!(s && s.items && s.items.length && s.items.every((it) => TITLE_SECTION_TYPES.includes(it.type)));
+
+/** Numbered pins on a drawing: their labels, answers and condition colours, in number order. */
+export function reportDrawingKeys(sections: ReportSection[] | null | undefined, answers: Answers) {
+  const out: { n: number; label: string; answer: string; color: string | null; tl: string }[] = [];
+  (sections || []).forEach((s) => (s.items || []).forEach((it) => {
+    const n = answers && answers[`${it.id}__dnum`];
+    if (!n) return;
+    const v = answers[it.id];
+    let ans = '';
+    if (typeof v === 'string') ans = v;
+    else if (Array.isArray(v)) ans = v.filter((x) => typeof x === 'string' && !/^(data:|https?:)/.test(x)).join(', ');
+    else if (v === true) ans = 'Yes'; else if (v === false) ans = 'No'; else if (v != null) ans = String(v);
+    const tl = itemTrafficLevel(sections, it, answers);
+    out.push({ n: +(n as number), label: (s.title ? `${s.title} - ` : '') + (it.label || ''), answer: ans.trim(), color: tl ? trafficHex(tl.color) : null, tl: tl ? tl.label : '' });
+  }));
+  return out.sort((a, b) => a.n - b.n);
+}

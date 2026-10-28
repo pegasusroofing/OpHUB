@@ -6,6 +6,7 @@ import { Pressable, ScrollView, Text } from 'react-native';
 
 import { ReportAnswers } from '@/components/ReportAnswers';
 import { ReportFill } from '@/components/ReportFill';
+import { ReportPdfActions } from '@/components/ReportPdfActions';
 import { promptText, useToast } from '@/components/toast';
 import { Button, Muted, SectionTitle } from '@/components/ui';
 import { nameOf, usePeople } from '@/data/hs';
@@ -45,6 +46,7 @@ export default function GeneralSurvey() {
           <Muted>Submitted {sub.submitted_at ? new Date(sub.submitted_at).toLocaleString('en-GB') : 'in progress'} by {nameOf(people, sub.submitted_by)}</Muted>
           <ReportAnswers sections={sub.sections || []} answers={sub.answers || {}} nameOf={(u) => nameOf(people, u)} />
           {mgr && <Button kind="ghost" title={sub.status === 'in_progress' ? 'Carry on filling in' : 'Edit Report'} onPress={() => router.push(`/pm/survey/${sub.id}?mode=fill` as never)} />}
+          <ReportPdfActions sub={sub as never} />
         </>
       )}
     </ScrollView>

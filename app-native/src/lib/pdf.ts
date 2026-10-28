@@ -3,6 +3,7 @@
 // images (private buckets go through signed links), the file name, and handing
 // the finished PDF to the person — share sheet on phones, download on the web.
 import { File, Paths } from 'expo-file-system';
+import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as Sharing from 'expo-sharing';
 import { PDFDocument, rgb, StandardFonts, type PDFFont, type PDFImage, type PDFPage } from 'pdf-lib';
 import { Platform } from 'react-native';
@@ -79,6 +80,20 @@ export async function fetchBytes(url: string | null | undefined): Promise<Uint8A
     return r.ok ? new Uint8Array(await r.arrayBuffer()) : null;
   } catch { return null; }
 }
+/** A photo shrunk to fit maxSide px (JPEG) so big reports stay small; falls back to the original. */
+export async function fetchScaled(url: string | null | undefined, maxSide: number, q: number): Promise<Uint8Array | null> {
+  if (!url) return null;
+  if (url.startsWith('data:')) { try { return Uint8Array.from(atob(url.split(',')[1]), (c) => c.charCodeAt(0)); } catch { return null; } }
+  try {
+    const u = (await resolveStorageUrl(url)) || url;
+    let img = await ImageManipulator.manipulate(u).renderAsync();
+    const sc = Math.min(1, maxSide / Math.max(img.width, img.height));
+    if (sc < 1) img = await ImageManipulator.manipulate(u).resize({ width: Math.max(1, Math.round(img.width * sc)) }).renderAsync();
+    const out = await img.saveAsync({ compress: q, format: SaveFormat.JPEG, base64: true });
+    if (out.base64) return Uint8Array.from(atob(out.base64), (c) => c.charCodeAt(0));
+  } catch { /* fall back below */ }
+  return fetchBytes(url);
+}
 export async function embedImage(doc: PDFDocument, bytes: Uint8Array | null): Promise<PDFImage | null> {
   if (!bytes) return null;
   try { return await doc.embedPng(bytes); } catch { try { return await doc.embedJpg(bytes); } catch { return null; } }
@@ -100,4 +115,16 @@ export async function deliverPdf(bytes: Uint8Array, filename: string): Promise<b
     if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(f.uri, { mimeType: 'application/pdf', dialogTitle: filename, UTI: 'com.adobe.pdf' });
     return true;
   } catch { return false; }
+}
+
+/** Uploads a finished PDF and emails a link to it (send-document-email), as the current app does. */
+export async function emailPdf(bytes: Uint8Array, filename: string, folder: string, body: { site_id?: string | null; general_label?: string; recipient_email: string; cc_email?: string; doc_title: string }): Promise<string | null> {
+  if (bytes.length > 49 * 1024 * 1024) return `This PDF is ${Math.round(bytes.length / 1048576)}MB — too big to email (50MB max). Use Export PDF to save it instead.`;
+  const id = globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}`;
+  const path = `${folder}/${id}-${filename.replace(/[^a-z0-9.-]+/gi, '_')}`;
+  const { supabase } = await import('@/lib/supabase');
+  const up = await supabase.storage.from('mc-documents').upload(path, bytes, { contentType: 'application/pdf' });
+  if (up.error) return 'Could not upload the PDF — try again.';
+  const r = await supabase.functions.invoke('send-document-email', { body: { ...body, file_url: publicUrl('mc-documents', up.data.path), storage_bucket: 'mc-documents', storage_path: up.data.path } });
+  return r.error ? 'Could not send the email — try again.' : null;
 }

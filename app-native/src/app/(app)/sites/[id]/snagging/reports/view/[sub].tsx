@@ -3,6 +3,7 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { ScrollView } from 'react-native';
 
 import { ReportAnswers } from '@/components/ReportAnswers';
+import { ReportPdfActions } from '@/components/ReportPdfActions';
 import { Button, Muted, SectionTitle } from '@/components/ui';
 import { nameOf, usePeople } from '@/data/hs';
 import { useSubmission } from '@/data/reports';
@@ -25,7 +26,7 @@ export default function ReportView() {
       <Muted>Submitted {sub.submitted_at ? new Date(sub.submitted_at).toLocaleString('en-GB') : 'in progress'} by {nameOf(people, sub.submitted_by)}</Muted>
       <ReportAnswers sections={sub.sections || []} answers={sub.answers || {}} nameOf={(u) => nameOf(people, u)} />
       {isManager(me) && <Button kind="ghost" title="Edit Report" onPress={() => router.push(`/sites/${id}/snagging/reports/fill/${sub.id}` as never)} />}
-      <Muted style={{ marginTop: space.m }}>Export PDF and Email Report are still in the current app for now.</Muted>
+      <ReportPdfActions sub={sub as never} />
     </ScrollView>
   );
 }
