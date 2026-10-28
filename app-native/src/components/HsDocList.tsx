@@ -75,12 +75,12 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
               <Text style={{ flex: 1, fontSize: 16.5, fontWeight: '800', color: base.ink }}>{r.name}</Text>
               {manager && (
                 <Pressable hitSlop={8} onPress={async () => {
-                  const k = await chooseAction(r.name, [{ key: 'view', label: '👁 View document' }, ...(kind !== 'layout' ? [{ key: 'pdf', label: '📄 Export signed PDF' }, { key: 'email', label: '✉ Email signed PDF' }] : []), ...(kind === 'coshh' ? [{ key: 'replace', label: '🔁 Replace file (resets signatures)' }] : []), { key: 'del', label: '🗑 Delete', danger: true }]);
+                  const k = await chooseAction(r.name, [{ key: 'view', label: '👁 View document' }, ...(kind !== 'layout' ? [{ key: 'pdf', label: '📄 Export signed PDF' }, { key: 'email', label: '✉ Email signed PDF' }] : []), ...(kind === 'coshh' ? [{ key: 'replace', label: '🔁 Replace file (resets signatures)' }, { key: 'tolib', label: '📚 Save to COSHH Library' }] : []), { key: 'del', label: '🗑 Delete', danger: true }]);
                   const refresh = () => { void qc.invalidateQueries({ queryKey: ['hsDocs', kind, site.id] }); void qc.invalidateQueries({ queryKey: ['hsSummary', site.id] }); };
                   if (k === 'view') void view(r);
                   else if (k === 'pdf' || k === 'email') {
                     let to = '';
-                    if (k === 'email') { const t = await promptText(`Email this signed ${label} PDF to:`, ''); if (t === null) return; to = t.trim(); if (!/^[^s@]+@[^s@]+.[^s@]+$/.test(to)) { toast('Enter a valid email address.'); return; } }
+                    if (k === 'email') { const t = await promptText(`Email this signed ${label} PDF to:`, ''); if (t === null) return; to = t.trim(); if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) { toast('Enter a valid email address.'); return; } }
                     toast('Building signed PDF…');
                     const b = await buildSignedHsPdf(kind as 'rams' | 'coshh', r.id, site).catch(() => 'Could not build the signed PDF.');
                     if (typeof b === 'string') { toast(b); return; }
@@ -89,6 +89,7 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
                     const err = await emailPdf(b.bytes, b.filename, `${site.id}/${kind}-exports`, { site_id: site.id, recipient_email: to, doc_title: `${b.name} (Signed ${label})` });
                     if (err) showAlert(err); else toast('Emailed');
                   }
+                  else if (k === 'tolib') router.push({ pathname: '/sites/[id]/hs/coshh/save', params: { id: site.id, name: r.name, path: r.storage_path } } as never);
                   else if (k === 'replace') {
                     if (!(await confirmAsk('Replace this COSHH document with a new file? Everyone who has already signed will need to sign again.', 'Replace'))) return;
                     const p = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true });

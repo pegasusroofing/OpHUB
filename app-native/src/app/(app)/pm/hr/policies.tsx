@@ -81,7 +81,7 @@ export default function Policies() {
               }} /></View>
               <View style={{ flex: 1 }}><Button kind="ghost" title="Email" onPress={async () => {
                 const to = await promptText('Email the signed record to:', me.email || ''); if (to === null) return;
-                const email = to.trim(); if (!/^[^s@]+@[^s@]+.[^s@]+$/.test(email)) { toast('Enter a valid email address.'); return; }
+                const email = to.trim(); if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast('Enter a valid email address.'); return; }
                 toast('Building PDF…');
                 try {
                   const b = await buildPolicyPdf(p, sigs, org?.name || '', (u) => people.find((x) => x.id === u)?.name || 'Unknown');

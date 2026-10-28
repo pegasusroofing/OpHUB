@@ -29,7 +29,7 @@ export async function loadLibrary(orgId: string | null): Promise<LibItem[]> {
 export function useLibrary(orgId: string | null | undefined) {
   return useQuery({ queryKey: ['ramsLib', orgId], enabled: !!orgId, queryFn: () => loadLibrary(orgId ?? null) });
 }
-async function loadSettings(org: Org): Promise<RamsSettings> {
+export async function loadSettings(org: Org): Promise<RamsSettings> {
   const r = org ? ((await db.from('organizations').select('rams_settings').eq('id', org.id).maybeSingle()).data as { rams_settings: Partial<RamsSettings> | null } | null) : null;
   return ramsSettings(r?.rams_settings ?? org?.rams_settings, org?.name);
 }

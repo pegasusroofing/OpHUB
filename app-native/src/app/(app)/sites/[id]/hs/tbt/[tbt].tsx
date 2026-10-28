@@ -63,7 +63,7 @@ export default function TbtView() {
     ]);
     if ((k === 'pdf' || k === 'email') && site) {
       let to = '';
-      if (k === 'email') { const t = await promptText('Email this signed Toolbox Talk PDF to:', ''); if (t === null) return; to = t.trim(); if (!/^[^s@]+@[^s@]+.[^s@]+$/.test(to)) { toast('Enter a valid email address.'); return; } }
+      if (k === 'email') { const t = await promptText('Email this signed Toolbox Talk PDF to:', ''); if (t === null) return; to = t.trim(); if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) { toast('Enter a valid email address.'); return; } }
       toast('Building signed PDF…');
       const b = await buildSignedTbtPdf(talk.id, site).catch(() => 'Could not build the signed PDF.');
       if (typeof b === 'string') { toast(b); return; }
