@@ -4,6 +4,7 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, Text, TextInput, View } from 'react-native';
 
+import { ManagerMessages } from '@/components/ManagerMessages';
 import { useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted } from '@/components/ui';
 import { nameOf, usePeople } from '@/data/hs';
@@ -39,7 +40,14 @@ export default function SiteMessages() {
   }, [me, data, qc]);
 
   if (!me) return null;
-  if (isManager(me)) return <Muted style={{ padding: space.l }}>The manager Messages page (send to operatives, From Team / Sent, read receipts) comes with the PM screens.</Muted>;
+  if (isManager(me)) {
+    return (
+      <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+        <Stack.Screen options={{ title: 'Messages' }} />
+        <ManagerMessages siteId={id} />
+      </ScrollView>
+    );
+  }
 
   const row = (m: Message) => {
     const replies = (data?.replies ?? []).filter((r) => r.parent_id === m.id);

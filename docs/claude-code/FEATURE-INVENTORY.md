@@ -117,7 +117,7 @@ Every source file in `src/js`, in build order, with the first line of its header
 - `800-variations.js` — VARIATIONS ◐ native (operative: list, raise with photo, no money shown; PM decisions/value/SoW/PDF in phase 2)
 - `810-drawings-pm-admin-managed-folders-of-pdf.js` — DRAWINGS (PM/admin-managed folders of PDF drawings, per site)
 - `820-coshh-library-admin-centre-org-scoped-ma.js` — COSHH LIBRARY (Admin Centre, org-scoped master library) Same folder/file tree pattern as Drawings above, but org-scoped instead of site-scoped (org_id instead of site_id) and browsed inline inside the Admin Centre "COSHH…
-- `830-messages.js` — MESSAGES ◐ native (operative: job messages, replies, inbox, read marks; manager send/receipts/delete in phase 2)
+- `830-messages.js` — MESSAGES ◐ native (job messages for everyone incl. manager send/tabs/receipts/delete; HUB still to do)
 - `840-delivery-driver.js` — DELIVERY DRIVER ◐ native (driver: home, check in/out + breaks, schedule, collections, completion photos, push, re-open, vehicle checklist; photo mark-up + office check-in log + driver-view preview in phase 2)
 - `850-deliveries-hub-admin-centre-deliveries-t.js` — DELIVERIES HUB (Admin Centre "Deliveries" tile)
 - `857-handover-om-manual.js` — HANDOVER / O&M MANUAL #(handover) A Handover tile on each project once it's marked Closed (it takes the To Do List's place). Three parts: - Data sheets: technical data sheets / DoPs / specs for the products used. - Guara…
