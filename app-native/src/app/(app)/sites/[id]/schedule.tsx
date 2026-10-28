@@ -17,7 +17,7 @@ import {
   addLeftoverPhoto, closeOutSiteCondition, documentLink, markViewedOnce, saveFlag, useSchedule, type Flag, type Task,
 } from '@/data/sow';
 import { useSite } from '@/data/sites';
-import { addSection, addTask, addVariationWork, deleteSection, deleteTasks, duplicateSection, markSowViewed, renameSection } from '@/data/sowManager';
+import { addSection, addTask, addVariationWork, copyLibraryTemplate, deleteSection, deleteTasks, duplicateSection, libraryTemplates, markSowViewed, renameSection } from '@/data/sowManager';
 import { useAuth } from '@/lib/auth';
 import { pickPhotos } from '@/lib/photos';
 import { fullSiteAddress } from '@/lib/rules/checkin';
@@ -109,7 +109,15 @@ export default function Schedule() {
     }
   };
   const more = async () => {
-    const k = await chooseAction('Schedule of Works', [{ key: 'sec', label: '📁 Add Section' }, { key: 'var', label: '📐 Add Variation Work' }]);
+    const k = await chooseAction('Schedule of Works', [{ key: 'sec', label: '📁 Add Section' }, { key: 'lib', label: '📚 From Library' }, { key: 'var', label: '📐 Add Variation Work' }]);
+    if (k === 'lib') {
+      const tpls = await libraryTemplates(me.org_id as string);
+      if (!tpls.length) { toast('No library templates yet — build one in Admin Centre › Schedule of Works Library.'); return; }
+      const id = await chooseAction('Copy from the library', tpls.map((t) => ({ key: t.id, label: t.name })));
+      if (!id || !(await confirmAsk('Copy this template into the Schedule of Works for this site? Nothing in the library itself changes, and every copied line can be edited or deleted afterwards like any other task.', 'Copy'))) return;
+      const r = await copyLibraryTemplate(me, site.id, id);
+      toast(`Copied ${r.secs} section${r.secs === 1 ? '' : 's'} and ${r.tasks} task${r.tasks === 1 ? '' : 's'} into the schedule`); changed(); return;
+    }
     if (k === 'sec') {
       const n = await promptText('Section name (e.g. Roof Level 1)', '');
       if (n?.trim()) { if (await addSection(me, site.id, n.trim())) { toast('Section added'); changed(); } }

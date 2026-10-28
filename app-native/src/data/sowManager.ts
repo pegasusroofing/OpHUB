@@ -1,7 +1,7 @@
 // Schedule of Works manager tools. Ported from 480/460: add/rename/duplicate/delete
 // sections, add "Variation N" work, add/rename/move/delete tasks (and their photos),
 // link a task to an address, and complete a task by picking photos already on it.
-// Still to port: the template library, Excel/PDF import, documents upload,
+// Copy from the company SoW library. Still to port: Excel/PDF import, documents upload,
 // visibility assigning, subcontractor assigning, PDF export/email.
 import { supabase } from '@/lib/supabase';
 import { moveTask, nextVariationName } from '@/lib/rules/sow';
@@ -129,4 +129,27 @@ export async function pmComplete(siteId: string, me: Profile, taskId: string, ph
 /** Managers: "viewed the Schedule of Works" for the HUB. */
 export async function markSowViewed(me: Profile, siteId: string): Promise<void> {
   try { await db.from('sow_views').upsert({ user_id: me.id, site_id: siteId, viewed_at: new Date().toISOString() } as never, { onConflict: 'user_id,site_id' }); } catch { /* best effort */ }
+}
+
+/* ---------- From Library (480 useScheduleLibraryTemplate) ---------- */
+export async function libraryTemplates(orgId: string) {
+  return ((await db.from('sow_library_templates').select('id,name').eq('org_id', orgId).order('name')).data as { id: string; name: string }[] | null) ?? [];
+}
+/** A one-time copy of a library template's sections and tasks into this job (all To Do). */
+export async function copyLibraryTemplate(me: Profile, siteId: string, templateId: string): Promise<{ secs: number; tasks: number }> {
+  const [s, t] = await Promise.all([
+    db.from('sow_library_sections').select('id,name').eq('template_id', templateId).order('position', { ascending: true, nullsFirst: false }).order('created_at'),
+    db.from('sow_library_tasks').select('name,section_id').eq('template_id', templateId).order('position', { ascending: true, nullsFirst: false }).order('created_at'),
+  ]);
+  const secs = (s.data as { id: string; name: string }[] | null) ?? [], tasks = (t.data as { name: string; section_id: string | null }[] | null) ?? [];
+  const map: Record<string, string> = {};
+  let sp = await nextPos('schedule_sections', siteId);
+  for (const sec of secs) {
+    const r = await db.from('schedule_sections').insert({ site_id: siteId, name: sec.name, position: sp++, created_by: me.id } as never).select('id').single();
+    if (r.data) map[sec.id] = (r.data as { id: string }).id;
+  }
+  let tp = await nextPos('schedule_tasks', siteId);
+  const rows = tasks.filter((x) => !x.section_id || map[x.section_id]).map((x) => ({ site_id: siteId, name: x.name, status: 'todo', position: tp++, ...(x.section_id ? { section_id: map[x.section_id] } : {}) }));
+  if (rows.length) await db.from('schedule_tasks').insert(rows as never);
+  return { secs: secs.length, tasks: tasks.length };
 }
