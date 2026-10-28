@@ -52,7 +52,7 @@ export function PmHome() {
       <Tile icon="🚚" tint="#F0E4F5" title="Deliveries" sub="Delivery schedule" onPress={() => router.push('/pm/deliveries' as never)} />
       <Tile icon="📋" tint={base.blueBg} title="Reports & surveys" sub={open.length ? `${open.length} in progress` : 'All projects'} onPress={() => router.push('/pm/reports' as never)} />
       <Tile icon="🪪" tint={base.blueBg} title="Operatives" sub="Certifications, training, tools" onPress={() => router.push('/pm/operatives' as never)} />
-      <Tile icon="👥" tint="#F0E4F5" title="HR" sub="Holidays, policies & handbook" onPress={soon('HR')} />
+      <Tile icon="👥" tint="#F0E4F5" title="HR" sub="Holidays, policies & handbook" onPress={() => router.push('/pm/hr' as never)} />
       <Tile icon="⚙️" tint={base.paper} title="Admin" sub="Team, libraries, settings" onPress={soon('Admin')} />
       {mine.length > 0 && (
         <>
