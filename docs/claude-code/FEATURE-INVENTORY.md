@@ -89,7 +89,7 @@ Every source file in `src/js`, in build order, with the first line of its header
 
 ## Projects B: snags, variations, materials, deliveries, drivers, calendar, messages, handover (590–899)
 
-- `590-expenses-sub-tile-inside-materials.js` — EXPENSES (sub-tile inside Materials) ✅ native (own tile until Materials is built; expenses email settings stay in Admin Centre, phase 3)
+- `590-expenses-sub-tile-inside-materials.js` — EXPENSES (sub-tile inside Materials) ✅ native (now inside Materials, shown by the job's Plant/Expenses visibility as before; expenses email settings stay in Admin Centre, phase 3)
 - `600-rams-signature-boxes-docusign-style-plac.js` — RAMS SIGNATURE BOXES (DocuSign-style placement)
 - `610-signing-templates-library.js` — SIGNING TEMPLATES LIBRARY
 - `620-coshh-identical-to-rams-above-separate-d.js` — COSHH (identical to RAMS above — separate document type) ◐ native (operative: view, sign, sign all)
@@ -103,8 +103,8 @@ Every source file in `src/js`, in build order, with the first line of its header
 - `690-accident-incident-near-miss-reporting.js` — ACCIDENT / INCIDENT / NEAR MISS REPORTING Modelled directly on RTB Roofing's paper "Accident, Incident & Near Miss Report" form. Anyone with site access can file one (near misses need reporting by whoever's there, not ju…
 - `700-daily-briefings.js` — DAILY BRIEFINGS Uses the same templated Report system as Reports (a template with sections/items, filled per site — see SITE REPORTS below) but any template flagged is_daily_briefing surfaces here instead of Reports. Add… ◐ native (operative: list by week, read, sign; start/fill/issue + PDF in phase 2)
 - `710-toolbox-talks.js` — TOOLBOX TALKS PMs upload a weekly PDF as "Bank TBT", then tap "Issue for Signing" to make it the one Live TBT — operatives only ever see the currently-live talk plus any they've personally already signed (enforced in the… ◐ native (operative: list, view, sign, auto-close; completion email + PM tools in phase 2)
-- `720-materials.js` — MATERIALS
-- `725-materials-operative-view.js` — MATERIALS — operative view + "Add to collections" * Operatives get one simple Materials screen instead of tiles: * 1. Your collection list — Collection List items a manager has assigned to * them, grouped by merchant, as…
+- `720-materials.js` — MATERIALS ◐ native (manager tiles; requests: To action/Completed, close, reopen, edit, delete, group/ungroup, add to collections, PO lock; still to do: send to supplier, suppliers list, yard stock, Excel import)
+- `725-materials-operative-view.js` — MATERIALS — operative view + "Add to collections" * Operatives get one simple Materials screen instead of tiles: * 1. Your collection list — Collection List items a manager has assigned to * them, grouped by merchant, as… ◐ native (collection tick list, coming to site, my requests, raise/edit/cancel, Plant/Expenses visibility; GRN still to do)
 - `726-suppliers-branches-grn.js` — SUPPLIERS & BRANCHES, BRANCH PICKING, GRN * Suppliers can hold branches (suppliers.branches jsonb [{id,name,address,phone}]), * managed from Admin Centre → Suppliers (#/suppliers). When an order is * sent for collection/…
 - `727-multi-site-addresses.js` — MULTI-SITE JOBS — choosing the address * A multi-site job (site.multi_site) has several addresses * (site_sub_addresses). Deliveries and material requests/orders on such a * job ask which address it's for; the choice is …
 - `730-material-list-pick-up-list.js` — MATERIAL LIST (pick-up list) * A separate flow from Material Requests (operative-raised) — PM/admin adds * rows to a pick-up list, assigns one to an operative to collect, and the * operative (or a PM/admin) marks it coll…

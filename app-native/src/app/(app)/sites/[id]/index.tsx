@@ -62,7 +62,7 @@ export default function SiteHome() {
           <Tile icon="🛡" tint="#E7E9EE" title="Health & Safety" sub={h ? `${h.pendingRams} to sign` : '…'}
             badge={mgr ? (h?.hsGap ? 1 : undefined) : h?.pendingRams || undefined} onPress={go('hs')} />
           <Tile icon="✏️" tint="#E7EFEA" title="Drawings, Spec's & Programme" sub="View & upload" onPress={soon('Drawings')} />
-          <Tile icon="📦" tint={base.okBg} title="Materials" sub={h ? `${h.pendingMaterials} pending` : '…'} onPress={soon('Materials')} />
+          <Tile icon="📦" tint={base.okBg} title="Materials" sub={h ? `${h.pendingMaterials} pending` : '…'} onPress={go('materials')} />
           <Tile icon="🏷" tint={base.warnBg} title={mgr ? 'Inspections & Reports' : 'Snagging & Variations'} sub={h ? `${h.openSnags} open` : '…'} badge={h?.openSnags || undefined} onPress={go('snagging')} />
           {h?.canSeePrice && <Tile icon="💷" tint="#FFF3D9" title="Price" sub="Restricted access" onPress={soon('The Price tile')} />}
           {isFinanceUser(me, org) && <Tile icon="£" tint={base.okBg} title="Finance" sub={site.job_number ? `Job ${site.job_number}` : 'OpHUB Finance'} onPress={soon('Finance')} />}
@@ -71,7 +71,6 @@ export default function SiteHome() {
             ? <Tile icon="📚" tint={base.paper} title="Handover" sub="O&M manual · data sheets · guarantees" onPress={soon('Handover')} />
             : mgr && <Tile icon="✅" tint={base.paper} title="To Do List" sub={h ? (h.openTodos ? `${h.openTodos} open` : 'Nothing outstanding') : '…'} onPress={soon('The To Do list')} />}
           <Tile icon="💬" tint={base.blueBg} title="Messages" sub="Team messages for this job" onPress={go('messages')} />
-          <Tile icon="🧾" tint="#E7E9EE" title="Expenses" sub="Send receipts to the office (inside Materials in the old app)" onPress={go('expenses')} />
         </>
       )}
     </ScrollView>

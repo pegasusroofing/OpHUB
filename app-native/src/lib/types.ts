@@ -54,6 +54,7 @@ export type InviteInfo = {
 
 export type Site = {
   id: string;
+  materials_visibility?: { plant?: string[]; expenses?: string[] } | null;
   name: string;
   address: string | null;
   postcode: string | null;
