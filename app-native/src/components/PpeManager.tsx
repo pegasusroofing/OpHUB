@@ -8,7 +8,10 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 import { confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle, Toggle } from '@/components/ui';
 import { orThrow } from '@/lib/offlineCache';
+import { nameOf, usePeople } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
+import { deliverPdf } from '@/lib/pdf';
+import { ppeEmailPdfs, ppeExportPdf } from '@/lib/ppePdf';
 import { cap1, currentPpe, PPE_STANDARD_ITEMS, type Issuance } from '@/lib/rules/ppe';
 import { supabase } from '@/lib/supabase';
 import type { Site } from '@/lib/types';
@@ -35,10 +38,13 @@ function useSitePpe(siteId: string) {
 }
 
 export function PpeManager({ site }: { site: Site }) {
-  const { me } = useAuth();
+  const { me, org } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
   const { data, isLoading } = useSitePpe(site.id);
+  const { data: people } = usePeople();
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [pdfBusy, setPdfBusy] = useState<'pdf' | 'email' | null>(null);
   const [issueOpen, setIssueOpen] = useState(false);
   const [who, setWho] = useState<string[]>([]);
   const [items, setItems] = useState<string[]>([]);
@@ -126,6 +132,11 @@ export function PpeManager({ site }: { site: Site }) {
                     </View>
                     <Text style={{ fontSize: 11, color: base.slate }}>{i.kind === 'request' ? 'Fulfilled' : i.status === 'signed' ? 'Signed' : 'Pending'}</Text>
                     {i.kind === 'issuance' && (
+                      <Pressable hitSlop={6} onPress={() => setPicked((x) => { const n = new Set(x); if (n.has(i.id)) n.delete(i.id); else n.add(i.id); return n; })}>
+                        <Text style={{ fontSize: 17, color: base.ink }}>{picked.has(i.id) ? '☑' : '☐'}</Text>
+                      </Pressable>
+                    )}
+                    {i.kind === 'issuance' && (
                       <Pressable hitSlop={6} onPress={async () => {
                         if (!(await confirmAsk('Delete this PPE issuance record? This cannot be undone.', 'Delete'))) return;
                         if (!(await db.from('ppe_issuances').delete().eq('id', i.id)).error) {
@@ -142,7 +153,23 @@ export function PpeManager({ site }: { site: Site }) {
           </View>
         );
       }) : <Empty>No operatives assigned to this site yet.</Empty>}
-      <Muted style={{ marginTop: 12 }}>Signed-PPE PDFs, the request summary PDF and the company PPE register are still in the current app for now.</Muted>
+      {picked.size > 0 && (
+        <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+          <View style={{ flex: 1 }}><Button kind="ghost" busy={pdfBusy === 'pdf'} title={`Export ${picked.size} (PDF)`} onPress={async () => {
+            setPdfBusy('pdf'); toast('Building PDF…');
+            try {
+              const b = await ppeExportPdf([...picked], site, org, (u) => nameOf(people, u));
+              if (!b) toast('Could not build any of the selected records.');
+              else if (await deliverPdf(b.bytes, b.filename)) setPicked(new Set());
+            } catch { toast('Could not build the combined PDF.'); } finally { setPdfBusy(null); }
+          }} /></View>
+          <View style={{ flex: 1 }}><Button kind="ghost" busy={pdfBusy === 'email'} title={`Email ${picked.size}`} onPress={async () => {
+            setPdfBusy('email'); toast('Building PDFs…');
+            try { const r = await ppeEmailPdfs([...picked], site, org, (u) => nameOf(people, u)); toast(r.msg); if (r.ok) setPicked(new Set()); } catch { toast('Email failed — could not reach the server.'); } finally { setPdfBusy(null); }
+          }} /></View>
+        </View>
+      )}
+      <Muted style={{ marginTop: 12 }}>Tick issued records to export or email them. The request summary PDF and the company PPE register are still in the current app for now.</Muted>
     </View>
   );
 }
