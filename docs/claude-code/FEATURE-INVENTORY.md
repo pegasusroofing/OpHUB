@@ -90,8 +90,8 @@ Every source file in `src/js`, in build order, with the first line of its header
 ## Projects B: snags, variations, materials, deliveries, drivers, calendar, messages, handover (590–899)
 
 - `590-expenses-sub-tile-inside-materials.js` — EXPENSES (sub-tile inside Materials) ✅ native (now inside Materials, shown by the job's Plant/Expenses visibility as before; expenses email settings stay in Admin Centre, phase 3)
-- `600-rams-signature-boxes-docusign-style-plac.js` — RAMS SIGNATURE BOXES (DocuSign-style placement)
-- `610-signing-templates-library.js` — SIGNING TEMPLATES LIBRARY
+- `600-rams-signature-boxes-docusign-style-plac.js` — RAMS SIGNATURE BOXES (DocuSign-style placement) ✅ native (web only for drawing)
+- `610-signing-templates-library.js` — SIGNING TEMPLATES LIBRARY ✅ native
 - `620-coshh-identical-to-rams-above-separate-d.js` — COSHH (identical to RAMS above — separate document type) ◐ native (operative: view, sign, sign all)
 - `629-tile-visibility.js` — TILE VISIBILITY BY JOB ROLE (per job) * Generic version of the Plant/Expenses ⋮ menu: any tile can be shown or * hidden per job role on a given job. Stored on sites.tile_visibility as * {tileKey: [roles that can see it]}… ◐ native (respected; editing in phase 2)
 - `630-health-safety-folder-rams-coshh-toolbox-.js` — HEALTH & SAFETY (folder: RAMS + COSHH + Toolbox Talks) ◐ native (folder; briefings/HAVS/PPE/incidents/operatives tiles pending)

@@ -4,10 +4,11 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
-import { confirmAsk, useToast } from '@/components/toast';
+import { chooseAction, confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Muted, Toggle } from '@/components/ui';
 import { DOC_LABEL, useHsDocs, type DocKind } from '@/data/hs';
 import { outstanding, RAMS_DOC_TYPES, sendSignReminder, uploadHsDoc } from '@/data/hsManager';
+import { boxesOf, layoutSummary, useSignTemplates } from '@/data/signTemplates';
 import { useAuth } from '@/lib/auth';
 import type { Site } from '@/lib/types';
 import { base, radius } from '@/theme/theme';
@@ -23,6 +24,9 @@ export function HsDocUpload({ kind, site, companyId = null }: { kind: DocKind; s
   const [sup, setSup] = useState<string | null>(null);
   const [file, setFile] = useState<{ uri: string; name: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [tpl, setTpl] = useState<string | null>(null);
+  const { data: tplsAll = [] } = useSignTemplates(kind === 'rams' && !companyId && open);
+  const tpls = tplsAll.filter((t) => boxesOf(t.layout).length);
   if (!me) return null;
   const label = DOC_LABEL[kind];
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['hsDocs', kind, site.id] }); void qc.invalidateQueries({ queryKey: ['hsSummary', site.id] }); };
@@ -50,11 +54,20 @@ export function HsDocUpload({ kind, site, companyId = null }: { kind: DocKind; s
               {!!data?.docs.length && (
                 <>
                   <Muted style={{ fontWeight: '700' }}>Supersedes (optional)</Muted>
-                  <Pressable onPress={() => setSup(null)}><Text style={{ paddingVertical: 5, color: base.ink }}>{!sup ? '◉' : '○'} New document, doesn't replace anything</Text></Pressable>
+                  <Pressable onPress={() => setSup(null)}><Text style={{ paddingVertical: 5, color: base.ink }}>{!sup ? '◉' : '○'} New document, doesn&apos;t replace anything</Text></Pressable>
                   {data.docs.map((d) => <Pressable key={d.id} onPress={() => setSup(d.id)}><Text style={{ paddingVertical: 5, color: base.ink }}>{sup === d.id ? '◉' : '○'} {d.name}</Text></Pressable>)}
                 </>
               )}
             </>
+          )}
+          {kind === 'rams' && !companyId && (
+            <Pressable onPress={async () => {
+              if (!tpls.length) { toast('No signing templates yet — set one up in Admin Centre → Signing Templates.'); return; }
+              const k = await chooseAction('Signing template', [{ key: '-', label: '— None (signatures listed on a page at the end) —' }, ...tpls.map((t) => ({ key: t.id, label: `${t.name} · ${layoutSummary(t.layout)}` }))]);
+              if (k) setTpl(k === '-' ? null : k);
+            }} style={[box, { justifyContent: 'center' }]}>
+              <Text style={{ color: base.ink }}>✍ Signing template: {tpl ? tpls.find((t) => t.id === tpl)?.name : 'None (signatures on a page at the end)'}</Text>
+            </Pressable>
           )}
           <Button kind="ghost" title={file ? `📄 ${file.name}` : 'Choose PDF'} onPress={async () => {
             const r = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true });
@@ -63,13 +76,13 @@ export function HsDocUpload({ kind, site, companyId = null }: { kind: DocKind; s
           <Button busy={busy} title={`Upload ${label}`} onPress={async () => {
             if (!name.trim() || !file) { toast('Add a name and choose a PDF.'); return; }
             setBusy(true);
-            const err = await uploadHsDoc(me, kind, site.id, { name: name.trim(), docType: type, supersedesId: sup, file, companyId });
+            const err = await uploadHsDoc(me, kind, site.id, { name: name.trim(), docType: type, supersedesId: sup, file, companyId, signLayout: tpl ? { v: 2, boxes: boxesOf(tpls.find((t) => t.id === tpl)?.layout ?? null), multi: true } : null });
             setBusy(false);
             if (err) { toast(err); return; }
-            toast(`${label} uploaded`); setName(''); setFile(null); setSup(null); refresh();
+            toast(`${label} uploaded`); setName(''); setFile(null); setSup(null); setTpl(null); refresh();
             if (kind === 'rams') setOpen(false);
           }} />
-          {kind === 'rams' && <Muted style={{ marginTop: 6 }}>Building a RAMS in the app, signing boxes inside the document and sending it to the client to sign are still in the current app for now.</Muted>}
+          {kind === 'rams' && <Muted style={{ marginTop: 6 }}>Signature boxes can be set on any uploaded RAMS from its ⋯ menu (on the office laptop). Sending a RAMS to the client to sign is still in the current app for now.</Muted>}
         </Card>
       )}
     </View>

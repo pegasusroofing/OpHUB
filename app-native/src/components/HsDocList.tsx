@@ -6,6 +6,8 @@
 // read the document before signing — the current operative row has none.
 import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
+import { testFill } from '@/data/signTemplates';
+import { supabase } from '@/lib/supabase';
 import { useState } from 'react';
 import { Linking, Pressable, Text, View } from 'react-native';
 
@@ -75,7 +77,7 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
               <Text style={{ flex: 1, fontSize: 16.5, fontWeight: '800', color: base.ink }}>{r.name}</Text>
               {manager && (
                 <Pressable hitSlop={8} onPress={async () => {
-                  const k = await chooseAction(r.name, [{ key: 'view', label: '👁 View document' }, ...(kind !== 'layout' ? [{ key: 'pdf', label: '📄 Export signed PDF' }, { key: 'email', label: '✉ Email signed PDF' }] : []), ...(kind === 'coshh' ? [{ key: 'replace', label: '🔁 Replace file (resets signatures)' }, { key: 'tolib', label: '📚 Save to COSHH Library' }] : []), { key: 'del', label: '🗑 Delete', danger: true }]);
+                  const k = await chooseAction(r.name, [{ key: 'view', label: '👁 View document' }, ...(kind !== 'layout' ? [{ key: 'pdf', label: '📄 Export signed PDF' }, { key: 'email', label: '✉ Email signed PDF' }] : []), ...(kind === 'rams' ? [{ key: 'boxes', label: '✍ Signature boxes' }, { key: 'testfill', label: '🧪 Test fill the boxes' }] : []), ...(kind === 'coshh' ? [{ key: 'replace', label: '🔁 Replace file (resets signatures)' }, { key: 'tolib', label: '📚 Save to COSHH Library' }] : []), { key: 'del', label: '🗑 Delete', danger: true }]);
                   const refresh = () => { void qc.invalidateQueries({ queryKey: ['hsDocs', kind, site.id] }); void qc.invalidateQueries({ queryKey: ['hsSummary', site.id] }); };
                   if (k === 'view') void view(r);
                   else if (k === 'pdf' || k === 'email') {
@@ -89,6 +91,8 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
                     const err = await emailPdf(b.bytes, b.filename, `${site.id}/${kind}-exports`, { site_id: site.id, recipient_email: to, doc_title: `${b.name} (Signed ${label})` });
                     if (err) showAlert(err); else toast('Emailed');
                   }
+                  else if (k === 'boxes') router.push(`/sites/${site.id}/hs/rams/boxes/${r.id}` as never);
+                  else if (k === 'testfill') { toast('Building test fill…'); const row = (await supabase.from('rams_docs').select('name,storage_path,sign_layout').eq('id', r.id).maybeSingle()).data; const e = row ? await testFill(row as never).catch(() => 'Could not build the test fill — please try again.') : 'Document not found.'; if (e) toast(e); }
                   else if (k === 'tolib') router.push({ pathname: '/sites/[id]/hs/coshh/save', params: { id: site.id, name: r.name, path: r.storage_path } } as never);
                   else if (k === 'replace') {
                     if (!(await confirmAsk('Replace this COSHH document with a new file? Everyone who has already signed will need to sign again.', 'Replace'))) return;

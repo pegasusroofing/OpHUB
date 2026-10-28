@@ -29,12 +29,12 @@ export const log = (me: Profile, siteId: string, action: string, description: st
   if (me.org_id) void db.from('site_activity_log').insert({ site_id: siteId, org_id: me.org_id, actor_id: me.id, action, description } as never);
 };
 
-export async function uploadHsDoc(me: Profile & { signature_path?: string | null }, kind: DocKind, siteId: string, f: { name: string; docType: string; supersedesId: string | null; file: Asset; companyId?: string | null }): Promise<string | null> {
+export async function uploadHsDoc(me: Profile & { signature_path?: string | null }, kind: DocKind, siteId: string, f: { name: string; docType: string; supersedesId: string | null; file: Asset; companyId?: string | null; signLayout?: object | null }): Promise<string | null> {
   const path = await put(kind, siteId, f.file);
   if (!path) return 'Could not upload — check your signal and try again.';
   const co = f.companyId ? { subcontractor_company_id: f.companyId } : {};
   const row = kind === 'rams'
-    ? { site_id: siteId, name: f.name, storage_path: path, uploaded_by: me.id, doc_type: f.companyId ? 'RAMS' : f.docType, supersedes: f.companyId ? null : f.supersedesId, ...co }
+    ? { site_id: siteId, name: f.name, storage_path: path, uploaded_by: me.id, doc_type: f.companyId ? 'RAMS' : f.docType, supersedes: f.companyId ? null : f.supersedesId, ...(f.signLayout ? { sign_layout: f.signLayout } : {}), ...co }
     : { site_id: siteId, name: f.name, storage_path: path, uploaded_by: me.id, ...co };
   const r = await db.from(T[kind].docs).insert(row as never).select('id').single();
   const id = (r.data as { id: string } | null)?.id;
