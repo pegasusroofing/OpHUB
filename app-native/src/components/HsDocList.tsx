@@ -1,7 +1,7 @@
 // RAMS or COSHH list for operatives: each document with its "tap to sign" box,
 // who has/hasn't signed, and Sign All. Ported from ramsDocsHtml / renderRams (580)
-// and the COSHH copy (620). Manager tools (upload, builder, signature boxes,
-// export/email, reminders, client signing) come with the PM screens.
+// and the COSHH copy (620). Managers also get a ⋮ menu per document (view,
+// replace a COSHH file, delete); upload and reminders are in HsDocUpload.
 // Added (question for Andy): a "View document" link on each row, so people can
 // read the document before signing — the current operative row has none.
 import { useQueryClient } from '@tanstack/react-query';
@@ -10,9 +10,12 @@ import { useState } from 'react';
 import { Linking, Pressable, Text, View } from 'react-native';
 
 import { StorageImage } from '@/components/StorageImage';
-import { useToast } from '@/components/toast';
+import * as DocumentPicker from 'expo-document-picker';
+
+import { chooseAction, confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, Toggle } from '@/components/ui';
 import { docBucket, nameOf, openDocLink, signDocs, useHsDocs, usePeople, type DocKind, type HsDoc, type HsSig } from '@/data/hs';
+import { deleteHsDoc, replaceCoshh } from '@/data/hsManager';
 import { useAuth } from '@/lib/auth';
 import { resignDue, signedHeadline, signers } from '@/lib/rules/hs';
 import { isManager } from '@/lib/roles';
@@ -66,7 +69,26 @@ export function HsDocList({ kind, site }: { kind: DocKind; site: Site }) {
         const canTap = !(manager && (issued.length || mine)) && !(kind === 'coshh' && manager);
         return (
           <Card key={r.id} style={{ padding: 12 }}>
-            <Text style={{ fontSize: 16.5, fontWeight: '800', color: base.ink }}>{r.name}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+              <Text style={{ flex: 1, fontSize: 16.5, fontWeight: '800', color: base.ink }}>{r.name}</Text>
+              {manager && (
+                <Pressable hitSlop={8} onPress={async () => {
+                  const k = await chooseAction(r.name, [{ key: 'view', label: '👁 View document' }, ...(kind === 'coshh' ? [{ key: 'replace', label: '🔁 Replace file (resets signatures)' }] : []), { key: 'del', label: '🗑 Delete', danger: true }]);
+                  const refresh = () => { void qc.invalidateQueries({ queryKey: ['hsDocs', kind, site.id] }); void qc.invalidateQueries({ queryKey: ['hsSummary', site.id] }); };
+                  if (k === 'view') void view(r);
+                  else if (k === 'replace') {
+                    if (!(await confirmAsk('Replace this COSHH document with a new file? Everyone who has already signed will need to sign again.', 'Replace'))) return;
+                    const p = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true });
+                    if (p.canceled || !p.assets[0]) return;
+                    const err = await replaceCoshh(me, site.id, r, { uri: p.assets[0].uri, name: p.assets[0].name || 'document.pdf' });
+                    toast(err ?? 'COSHH document replaced — signatures reset'); refresh();
+                  } else if (k === 'del') {
+                    if (!(await confirmAsk(`Delete this ${label} document and all its signatures? This cannot be undone.`, 'Delete'))) return;
+                    if (await deleteHsDoc(me, kind, site.id, r)) { toast(`${label} document deleted`); refresh(); } else toast('Could not delete — try again.');
+                  }
+                }}><Text style={{ fontSize: 18, color: base.slate, paddingHorizontal: 4 }}>⋮</Text></Pressable>
+              )}
+            </View>
             <Muted>
               Uploaded by {nameOf(people, r.uploaded_by)} · {d(r.uploaded_at)}
               {r.supersedes ? ` · Supersedes "${nameById[r.supersedes] || 'an earlier version'}"` : ''}
