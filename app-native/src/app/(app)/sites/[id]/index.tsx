@@ -91,7 +91,7 @@ export default function SiteHome() {
           <Tile icon="📅" tint={base.okBg} title="Calendar" sub="Key dates" onPress={go('calendar')} />
           {mgr && siteStatusKey(site) === 'closed'
             ? <Tile icon="📚" tint={base.paper} title="Handover" sub="O&M manual · data sheets · guarantees" onPress={soon('Handover')} />
-            : mgr && <Tile icon="✅" tint={base.paper} title="To Do List" sub={h ? (h.openTodos ? `${h.openTodos} open` : 'Nothing outstanding') : '…'} onPress={soon('The To Do list')} />}
+            : mgr && <Tile icon="✅" tint={base.paper} title="To Do List" sub={h ? (h.openTodos ? `${h.openTodos} open` : 'Nothing outstanding') : '…'} onPress={go('todos')} />}
           <Tile icon="💬" tint={base.blueBg} title="Messages" sub="Team messages for this job" onPress={go('messages')} />
         </>
       )}

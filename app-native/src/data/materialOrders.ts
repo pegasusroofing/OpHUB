@@ -4,7 +4,8 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { orThrow } from '@/lib/offlineCache';
-import { supabase, SUPABASE_ANON_KEY } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
+import { invokeAsUser } from '@/lib/userFunctions';
 import type { Profile } from '@/lib/types';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
@@ -100,24 +101,13 @@ export async function setDeliveryDate(me: Profile, siteId: string, f: MOFile, da
   return !(await db.from('material_order_files').update({ scheduled_delivery_date: date, calendar_event_id: ev } as never).eq('id', f.id)).error;
 }
 
-/** The OneDrive functions take the user's token in X-User-Token (as the current app does). */
-async function odInvoke<T>(name: string, body: object): Promise<{ data: T | null; error: string | null }> {
-  const { data: s } = await supabase.auth.getSession();
-  try {
-    const r = await supabase.functions.invoke(name, { body, headers: { Authorization: `Bearer ${SUPABASE_ANON_KEY}`, 'X-User-Token': s.session?.access_token ?? '' } });
-    const d = r.data as (T & { error?: string }) | null;
-    if (r.error || d?.error) return { data: null, error: d?.error || 'could not reach the server' };
-    return { data: d, error: null };
-  } catch { return { data: null, error: 'could not reach the server' }; }
-}
-
 export async function viewMOFile(siteId: string, path: string) {
-  const r = await odInvoke<{ url: string }>('material-order-file-access', { site_id: siteId, storage_path: path });
+  const r = await invokeAsUser<{ url: string }>('material-order-file-access', { site_id: siteId, storage_path: path });
   return r.data?.url ?? null;
 }
 
 export async function syncMaterialOrders(siteId: string): Promise<string> {
-  const r = await odInvoke<{ synced?: number; dupSkipped?: number }>('sync-material-orders', { site_id: siteId });
+  const r = await invokeAsUser<{ synced?: number; dupSkipped?: number }>('sync-material-orders', { site_id: siteId });
   if (r.error) return `Sync failed — ${r.error}`;
   void db.from('sites').update({ material_orders_last_synced_at: new Date().toISOString() } as never).eq('id', siteId);
   const d = r.data ?? {};
