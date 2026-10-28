@@ -69,3 +69,19 @@ export async function addSnag(me: Profile, site: Site, title: string, location: 
   if (me.org_id) void db.from('messages').insert({ org_id: me.org_id, site_id: site.id, sender_id: me.id, audience: 'operatives', kind: 'snag_raised', body: `New snag raised: "${title}"` } as never);
   return 'Snag added';
 }
+
+/* ---------- Snagging Report PDF (500 exportSnaggingPDF / emailSnaggingPDF) ---------- */
+export async function snagsForPdf(siteId: string, scope: 'live' | 'closed' | 'all'): Promise<Snag[]> {
+  let q = db.from('snags').select('*').eq('site_id', siteId);
+  q = scope === 'live' ? q.eq('status', 'open') : scope === 'closed' ? q.eq('status', 'closed') : q.in('status', ['open', 'closed']);
+  return ((await q.order('created_at')).data as Snag[] | null) ?? [];
+}
+/** Sends the report to the person's own inbox (send-snags-email), optionally CC'ing the client. */
+export async function emailSnagPdf(siteId: string, siteName: string, bytes: Uint8Array, filename: string, scopeLabel: string, clientCc: string | null): Promise<string> {
+  const id = globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}`;
+  const up = await supabase.storage.from('mc-documents').upload(`${siteId}/snagging-exports/${id}-${filename.replace(/[^a-z0-9.-]+/gi, '_')}`, bytes, { contentType: 'application/pdf' });
+  if (up.error) return 'Could not upload the PDF — try again.';
+  const r = await supabase.functions.invoke('send-snags-email', { body: { filename, storage_path: up.data.path, storage_bucket: 'mc-documents', site_name: siteName, scope_label: scopeLabel, client_cc_email: clientCc } });
+  const d = r.data as { to?: string; error?: string } | null;
+  return r.error || d?.error ? `Email failed — ${d?.error || 'try again'}` : `Snagging report emailed to ${d?.to || 'you'}`;
+}

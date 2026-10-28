@@ -1,18 +1,20 @@
 // Snagging list: Live / Closed, photos, close with a "fixed" photo; managers can add.
-// Ported from renderSnagging (500). Photo mark-up and PDF export/email come later.
+// Ported from renderSnagging (500), with the Snagging Report PDF export / email. Photo mark-up comes later.
 import { useQueryClient } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Image, Linking, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { StorageImage } from '@/components/StorageImage';
-import { showAlert, useToast } from '@/components/toast';
+import { confirmAsk, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Empty, Field, Muted, SectionTitle } from '@/components/ui';
 import { nameOf, openDocLink, usePeople } from '@/data/hs';
 import { useSite } from '@/data/sites';
-import { addSnag, closeSnag, snagPhotos, useSnags, type Snag } from '@/data/snags';
+import { addSnag, closeSnag, emailSnagPdf, snagPhotos, snagsForPdf, useSnags, type Snag } from '@/data/snags';
 import { useAuth } from '@/lib/auth';
+import { deliverPdf } from '@/lib/pdf';
 import { pickPhotos, type Picked } from '@/lib/photos';
+import { buildSnagPdf, type SnagScope } from '@/lib/snagPdf';
 import { isManager } from '@/lib/roles';
 import { base, radius, space } from '@/theme/theme';
 
@@ -20,10 +22,11 @@ const d = (t: string | null) => (t ? new Date(t).toLocaleDateString('en-GB', { d
 
 export default function SnagList() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { me } = useAuth();
+  const { me, org } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
   const { data: site } = useSite(id);
+  const [pdfBusy, setPdfBusy] = useState<string | null>(null);
   const [filter, setFilter] = useState<'open' | 'closed'>('open');
   const { data: snags, isLoading } = useSnags(id, filter);
   const { data: people } = usePeople();
@@ -128,7 +131,25 @@ export default function SnagList() {
           <Button busy={busy === 'new'} title="Add Snag" onPress={add} />
         </Card>
       )}
-      <Muted style={{ marginTop: space.m }}>Export and email of the snag list come with the PM screens.</Muted>
+      <SectionTitle>Export</SectionTitle>
+      <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
+        {(filter === 'open' ? [['live', 'Export Live', false], ['live', 'Email Live Snags', true]] : [['closed', 'Export Closed', false], ['closed', 'Email Closed', true], ['all', 'Export All', false]]).map(([sc, label, email]) => (
+          <View key={label as string} style={{ flex: 1, minWidth: 100 }}><Button kind="ghost" busy={pdfBusy === label} title={label as string} onPress={async () => {
+            const scope = sc as SnagScope;
+            let cc: string | null = null;
+            if (email && site.client_email && (await confirmAsk(`CC client contact${site.client_contact_name || site.client_name ? ` (${site.client_contact_name || site.client_name})` : ''} on this email?`, 'Yes, CC them'))) cc = site.client_email;
+            setPdfBusy(label as string);
+            try {
+              const list = await snagsForPdf(site.id, scope);
+              if (!list.length) { toast('No snags to export for that filter.'); return; }
+              toast('Building PDF…');
+              const b = await buildSnagPdf(list, site, org, scope, (u) => nameOf(people, u));
+              if (email) toast(await emailSnagPdf(site.id, site.name, b.bytes, b.filename, scope === 'live' ? 'Live' : scope === 'closed' ? 'Closed' : 'All', cc));
+              else if (!(await deliverPdf(b.bytes, b.filename))) toast('Could not save the PDF.');
+            } catch { toast('Could not build the PDF.'); } finally { setPdfBusy(null); }
+          }} /></View>
+        ))}
+      </View>
     </ScrollView>
   );
 }

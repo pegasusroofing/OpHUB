@@ -128,3 +128,31 @@ export async function emailPdf(bytes: Uint8Array, filename: string, folder: stri
   const r = await supabase.functions.invoke('send-document-email', { body: { ...body, file_url: publicUrl('mc-documents', up.data.path), storage_bucket: 'mc-documents', storage_path: up.data.path } });
   return r.error ? 'Could not send the email — try again.' : null;
 }
+
+/** "Media summary" pages: every photo, four to a page, numbered (500 appendMediaSummaryPages). */
+export async function appendMediaSummary(doc: PDFDocument, refs: { bucket?: string; path: string; caption?: string }[], o: { maxDim?: number; quality?: number } = {}) {
+  if (!refs.length) return;
+  const bold = await doc.embedFont(StandardFonts.HelveticaBold), reg = await doc.embedFont(StandardFonts.Helvetica);
+  const HEADBAR = rgb(0.925, 0.91, 0.87), PAGE_W = 595.28, PAGE_H = 841.89, MARGIN = 42, CONTENT_W = PAGE_W - 2 * MARGIN;
+  const gutter = 14, capH = 16, headingH = 40, cellW = (CONTENT_W - gutter) / 2, cellH = (PAGE_H - 2 * MARGIN - headingH - gutter - capH * 2) / 2;
+  let num = 0;
+  for (let i = 0; i < refs.length; i += 4) {
+    const page = doc.addPage([PAGE_W, PAGE_H]);
+    let y = PAGE_H - MARGIN;
+    if (i === 0) { page.drawRectangle({ x: MARGIN, y: y - 26, width: CONTENT_W, height: 26, color: HEADBAR }); page.drawText('Media summary', { x: MARGIN + 10, y: y - 18, size: 11.5, font: bold, color: INK }); y -= 36; } else y -= headingH;
+    const group = refs.slice(i, i + 4);
+    for (let r = 0; r < 2; r++) {
+      const row = group.slice(r * 2, r * 2 + 2); if (!row.length) break;
+      const rowTop = y - r * (cellH + capH + gutter);
+      for (let c = 0; c < row.length; c++) {
+        num++;
+        const ref = row[c], cx = MARGIN + c * (cellW + gutter);
+        const b = await fetchScaled(publicUrl(ref.bucket || 'site-photos', ref.path), o.maxDim || 1500, o.quality ?? 0.8);
+        const img = await embedImage(doc, b);
+        if (img) { const d = img.scale(1), sc = Math.min(cellW / d.width, cellH / d.height, 1) * 0.8, w = d.width * sc, h = d.height * sc; page.drawImage(img, { x: cx + (cellW - w) / 2, y: rowTop - cellH + (cellH - h) / 2, width: w, height: h }); }
+        else { page.drawRectangle({ x: cx, y: rowTop - cellH, width: cellW, height: cellH, color: HEADBAR }); page.drawText(`Photo ${num} - could not be loaded`, { x: cx + 8, y: rowTop - cellH / 2, size: 9, font: reg, color: SLATE }); }
+        page.drawText(safe(`Photo ${num}${ref.caption ? `  ·  ${ref.caption}` : ''}`).slice(0, 90), { x: cx, y: rowTop - cellH - 13, size: 8.5, font: reg, color: SLATE });
+      }
+    }
+  }
+}
