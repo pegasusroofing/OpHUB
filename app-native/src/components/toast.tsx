@@ -27,6 +27,17 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
 export const useToast = () => useContext(Ctx);
 
+// Yes/No question. Resolves true for the confirm button.
+export function confirmAsk(message: string, yes = 'Yes', no = 'Cancel'): Promise<boolean> {
+  if (Platform.OS === 'web') return Promise.resolve(!!globalThis.confirm?.(message));
+  return new Promise((resolve) => {
+    Alert.alert('OpHUB', message, [
+      { text: no, style: 'cancel', onPress: () => resolve(false) },
+      { text: yes, onPress: () => resolve(true) },
+    ], { cancelable: true, onDismiss: () => resolve(false) });
+  });
+}
+
 export function showAlert(message: string, title = 'OpHUB') {
   if (Platform.OS === 'web') globalThis.alert?.(message);
   else Alert.alert(title, message);

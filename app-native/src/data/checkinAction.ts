@@ -79,7 +79,7 @@ export async function doCheck(me: Profile, site: Site, type: CheckType, sub?: Su
         if (photos.error) return { ok: false, error: NO_SIGNAL };
         const withPhoto = new Set(photos.data.map((p) => p.task_id));
         // Photos still waiting for signal count too.
-        (await pendingUploads()).forEach((j) => { const t = j.onDone?.row.task_id; if (typeof t === 'string') withPhoto.add(t); });
+        (await pendingUploads()).forEach((j) => { const t = j.insert?.row.task_id; if (typeof t === 'string') withPhoto.add(t); });
         const missing = tasks.data.filter((t) => !withPhoto.has(t.id));
         if (missing.length) {
           return { ok: false, alert: `Add at least one photo to the Schedule of Works task${missing.length === 1 ? '' : 's'} for this address before checking out: ${missing.map((t) => t.name).join(', ')}.` };

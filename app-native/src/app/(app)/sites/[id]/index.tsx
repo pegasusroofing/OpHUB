@@ -18,7 +18,9 @@ export default function SiteHome() {
       <Tile icon="📍" tint={base.okBg} title="Check In / Out"
         sub={site.multi_site ? 'Pick the address you are at' : 'GPS check-in for this job'}
         onPress={() => router.push(`/sites/${site.id}/checkin`)} />
-      <Muted style={{ marginTop: space.m }}>Schedule of Works, H&S documents, snags and the rest of this job's tiles are being added next.</Muted>
+      <Tile icon="📋" tint={base.blueBg} title="Schedule of Works" sub="Tasks, photos and progress"
+        onPress={() => router.push(`/sites/${site.id}/schedule`)} />
+      <Muted style={{ marginTop: space.m }}>H&S documents, snags and the rest of this job's tiles are being added next.</Muted>
     </ScrollView>
   );
 }
