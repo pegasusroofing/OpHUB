@@ -64,6 +64,28 @@
   - **Device lock at switch-over:** the native app gets a new device id. Each operative's first sign-in on the new app will show up as a new device to approve.
   - **Web output:** the web build is a single-page app (`npm run build:web`). It isn't on Vercel yet.
 
+## Native app: Phase 1 (operatives and drivers), in progress
+- **Built:**
+  - Operative home, My projects and the job page.
+  - Check In / Out, including multi-address jobs.
+  - Schedule of Works with the photo upload queue.
+  - H&S: RAMS, COSHH, toolbox talks and daily briefings (read and sign), plus My signature.
+  - Messages & tasks.
+  - Snagging.
+  - Driver app: check in/out with breaks, schedule, collections, completion photos, push and re-open, vehicle checklist and time off.
+- **Rules:** 46 unit tests in `app-native/src/lib/rules` (`npm test`).
+- **Still to do in Phase 1:** HAVS, PPE, holidays (HR leave), expenses, the job Messages page, variations (operative view), and the Getting Started checklist.
+- **Known gaps carried to Phase 2:**
+  - signed-TBT PDF email on auto-close;
+  - all PDF exports and emails;
+  - photo mark-up;
+  - report traffic-light colours;
+  - the office's driver check-in log.
+- **Questions for Andy:**
+  - RAMS/COSHH rows now have a "View document" link for operatives. The old operative row had none. Keep it?
+  - The old "Monday vehicle check before check-in" gate was never switched on. Should it be?
+- **Android test build:** `b979c2f7…` was queued on Expo's free plan when last checked.
+
 ## Andy's own to-dos
 - Press **Push origin** for the handoff pack.
 - Turn on leaked-password protection (Supabase › Authentication).
