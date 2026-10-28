@@ -88,7 +88,7 @@ export default function SiteHome() {
           <Tile icon="🏷" tint={base.warnBg} title={mgr ? 'Inspections & Reports' : 'Snagging & Variations'} sub={h ? `${h.openSnags} open` : '…'} badge={h?.openSnags || undefined} onPress={go('snagging')} />
           {h?.canSeePrice && <Tile icon="💷" tint="#FFF3D9" title="Price" sub="Restricted access" onPress={soon('The Price tile')} />}
           {isFinanceUser(me, org) && <Tile icon="£" tint={base.okBg} title="Finance" sub={site.job_number ? `Job ${site.job_number}` : 'OpHUB Finance'} onPress={soon('Finance')} />}
-          <Tile icon="📅" tint={base.okBg} title="Calendar" sub="Key dates" onPress={soon('The job calendar')} />
+          <Tile icon="📅" tint={base.okBg} title="Calendar" sub="Key dates" onPress={go('calendar')} />
           {mgr && siteStatusKey(site) === 'closed'
             ? <Tile icon="📚" tint={base.paper} title="Handover" sub="O&M manual · data sheets · guarantees" onPress={soon('Handover')} />
             : mgr && <Tile icon="✅" tint={base.paper} title="To Do List" sub={h ? (h.openTodos ? `${h.openTodos} open` : 'Nothing outstanding') : '…'} onPress={soon('The To Do list')} />}
