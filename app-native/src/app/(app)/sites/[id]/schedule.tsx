@@ -11,6 +11,7 @@ import { Linking, Pressable, RefreshControl, ScrollView, Text, View } from 'reac
 
 import { SowTaskRow } from '@/components/SowTaskRow';
 import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
+import { SowExport } from '@/components/SowExport';
 import { Button, Card, Empty, Field, Muted, SectionTitle } from '@/components/ui';
 import {
   addLeftoverPhoto, closeOutSiteCondition, documentLink, markViewedOnce, saveFlag, useSchedule, type Flag, type Task,
@@ -213,7 +214,7 @@ export default function Schedule() {
                 changed();
               }} />
           )}
-          <Muted style={{ marginTop: space.m }}>Export PDF and Email Report are coming with the PM screens.</Muted>
+          {manager && !!view?.allTasks.length && <View style={{ marginTop: space.m }}><SowExport site={site} tab={filter} /></View>}
         </>
       )}
     </ScrollView>
