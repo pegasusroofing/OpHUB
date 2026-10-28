@@ -116,11 +116,11 @@ export function useDriverDay(dateISO: string) {
   });
 }
 
-async function dayList(orgId: string, dateISO: string): Promise<DTask[]> {
+export async function dayList(orgId: string, dateISO: string): Promise<DTask[]> {
   const r = await db.from('delivery_tasks').select('id,time_slot,double_slot,status,site_id,manual_site_name,manual_site_address,high_priority,sub_priority,created_at').eq('org_id', orgId).eq('scheduled_date', dateISO);
   return orThrow(r) as DTask[];
 }
-async function resequenceSlot(orgId: string, dateISO: string, slot: string) {
+export async function resequenceSlot(orgId: string, dateISO: string, slot: string) {
   const rows = (await dayList(orgId, dateISO)).filter((r) => r.time_slot === slot);
   const want = resequence(rows);
   await Promise.all(rows.map((r) => (r.sub_priority !== want[r.id] ? db.from('delivery_tasks').update({ sub_priority: want[r.id] } as never).eq('id', r.id) : null)));

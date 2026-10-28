@@ -67,3 +67,24 @@ test('groupPickups', () => {
   ], (id) => (id === 's1' ? 'Jewson' : null));
   assert.deepEqual(g.map((x) => [x.name, x.items.length]), [['Jewson', 2], ['To collect', 1]]);
 });
+
+import { orderCcEmails, orderNote, orderRecipient, parseCc, sendToOptions, sortSuppliers, companyOperativeLabel } from './materials.ts';
+
+test('order recipient and CCs', () => {
+  const s = { id: 's', name: 'Jewson', email: 'orders@jewson.co.uk' };
+  const b = { id: 'b', name: 'Leeds', email: 'leeds@jewson.co.uk' };
+  assert.equal(orderRecipient(s, { sendTo: 'branch', branch: b }, false, 'me@x.com'), 'leeds@jewson.co.uk');
+  assert.equal(orderRecipient(s, { sendTo: 'branch', branch: null }, false, 'me@x.com'), 'orders@jewson.co.uk');
+  assert.equal(orderRecipient(s, { sendTo: 'pm', branch: b }, false, 'me@x.com'), 'me@x.com');
+  assert.deepEqual(orderCcEmails(s, { sendTo: 'branch', branch: b, ccEmails: ['a@b.com'] }, false), ['a@b.com', 'orders@jewson.co.uk']);
+  assert.deepEqual(orderCcEmails(s, { sendTo: 'main', branch: b, ccEmails: [] }, false), []);
+  assert.deepEqual(sendToOptions(s, b, 'me@x.com').map((o) => o.key), ['branch', 'main', 'pm']);
+});
+
+test('order note, cc parsing, labels, supplier sort', () => {
+  assert.equal(orderNote('rear gate', { id: 'b', name: 'Leeds', address: '1 Road', phone: '0113' }, 'delivery', ['Block A']), 'Deliver to: Block A — Branch: Leeds — 1 Road (0113) — rear gate');
+  assert.equal(orderNote('x', null, 'collection', ['Block A']), 'x');
+  assert.deepEqual(parseCc('a@b.com, bad; c@d.co.uk'), { ok: ['a@b.com', 'c@d.co.uk'], bad: ['bad'] });
+  assert.equal(companyOperativeLabel('RTB Roofing Ltd'), 'RTB Operative');
+  assert.deepEqual(sortSuppliers([{ name: 'B' }, { name: 'A' }, { name: 'C', favourite: true }], '').map((s) => s.name), ['C', 'A', 'B']);
+});

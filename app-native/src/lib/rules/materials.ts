@@ -113,3 +113,66 @@ export function canSeeMatTile(vis: { plant?: string[]; expenses?: string[] } | n
   const list = Array.isArray(vis?.[key]) ? (vis?.[key] as string[]) : ['site_manager'];
   return !!role && list.includes(role);
 }
+
+/* ---------- sending an order (760 / 726) ---------- */
+export type Branch = { id: string; name?: string; address?: string; phone?: string; email?: string };
+export type OrderSupplier = { id: string; name: string; email: string | null; branches?: Branch[] | null };
+export type SendTo = 'branch' | 'main' | 'pm';
+export type Fulfil = {
+  mode: 'delivery' | 'collection'; date: string; note: string; branch: Branch | null; sendTo: SendTo;
+  ccIds: string[]; ccEmails: string[]; collectorKind: 'driver' | 'op' | 'rtbop' | null; collectorId: string | null; slot: string | null;
+};
+
+export const branchLabel = (b: Branch | null | undefined) => (b ? [b.name, b.address].filter(Boolean).join(' — ') : '');
+/** The branch's own email when it has one, else the supplier's main order email. */
+export const orderEmailFor = (s: OrderSupplier | null, b: Branch | null) => b?.email || s?.email || '';
+
+/** Who the order email goes to. toMe = the "Email to me" choice. */
+export function orderRecipient(s: OrderSupplier | null, f: Pick<Fulfil, 'sendTo' | 'branch'>, toMe: boolean, myEmail: string): string {
+  if (toMe) return myEmail;
+  if (f.sendTo === 'pm') return myEmail;
+  if (f.sendTo === 'main') return s?.email || '';
+  return orderEmailFor(s, f.branch);
+}
+
+/** Typed CCs, plus the supplier's main email when the order goes to a branch's own different email. */
+export function orderCcEmails(s: OrderSupplier | null, f: Pick<Fulfil, 'sendTo' | 'branch' | 'ccEmails'>, toMe: boolean): string[] {
+  const out = f.ccEmails.slice();
+  if (!toMe && f.sendTo !== 'pm' && f.sendTo !== 'main' && s?.email && f.branch?.email && f.branch.email.toLowerCase() !== s.email.toLowerCase()) out.push(s.email);
+  return out;
+}
+
+/** The "Send order email to" choices for a supplier (and chosen branch). */
+export function sendToOptions(s: OrderSupplier, b: Branch | null, myEmail: string): { key: SendTo; label: string }[] {
+  const out: { key: SendTo; label: string }[] = [];
+  if (b?.email) out.push({ key: 'branch', label: `Branch — ${b.name || 'branch'} (${b.email})` });
+  if (s.email) out.push({ key: 'main', label: `Supplier main email (${s.email})` });
+  if (!out.length) out.push({ key: 'branch', label: 'No supplier email set — add one in Admin › Suppliers' });
+  out.push({ key: 'pm', label: `Don't email the supplier — just email me${myEmail ? ` (${myEmail})` : ''}` });
+  return out;
+}
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+export const isEmail = (x: string) => EMAIL_RE.test(x.trim());
+/** "a@b.com, c@d.com" → list, or the bad ones. */
+export function parseCc(raw: string): { ok: string[]; bad: string[] } {
+  const all = raw.split(/[\s,;]+/).map((x) => x.trim()).filter(Boolean);
+  return { ok: all.filter(isEmail), bad: all.filter((x) => !isEmail(x)) };
+}
+
+/** The supplier sees the branch on the order (it goes out in the note); multi-site deliveries say which address. */
+export function orderNote(typed: string, branch: Branch | null, mode: Fulfil['mode'], subLabels: (string | null | undefined)[]): string {
+  let note = branch ? `Branch: ${branchLabel(branch)}${branch.phone ? ` (${branch.phone})` : ''}${typed ? ` — ${typed}` : ''}` : typed;
+  const labels = [...new Set(subLabels.filter(Boolean))] as string[];
+  if (mode === 'delivery' && labels.length === 1) note = `Deliver to: ${labels[0]}${note ? ` — ${note}` : ''}`;
+  return note;
+}
+
+export const companyOperativeLabel = (orgName: string | null | undefined) => `${String(orgName || '').trim().split(/\s+/)[0] || 'Company'} Operative`;
+
+/** Favourites (max 3) first, then the rest, each alphabetical; filtered by typed text. */
+export function sortSuppliers<T extends { name: string; favourite?: boolean | null }>(list: T[], q: string): T[] {
+  const t = q.trim().toLowerCase();
+  const f = (t ? list.filter((s) => s.name.toLowerCase().includes(t)) : list).slice().sort((a, b) => a.name.localeCompare(b.name));
+  return [...f.filter((s) => s.favourite), ...f.filter((s) => !s.favourite)];
+}

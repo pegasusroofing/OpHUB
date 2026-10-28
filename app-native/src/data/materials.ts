@@ -4,10 +4,12 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { cachedQuery, orThrow } from '@/lib/offlineCache';
-import { localISODate } from '@/lib/rules/driver';
-import { comingToSite, onSentPo, poLockText, subAddrLabel, type Mat, type Pickup } from '@/lib/rules/materials';
+import { DELIVERY_TIME_SLOTS, localISODate, slotProblem } from '@/lib/rules/driver';
+import { branchLabel, comingToSite, companyOperativeLabel, onSentPo, orderCcEmails, orderRecipient, poLockText, subAddrLabel, type Branch, type Fulfil, type Mat, type OrderSupplier, type Pickup } from '@/lib/rules/materials';
 import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/lib/types';
+
+import { dayList, resequenceSlot } from './driver';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 
@@ -156,4 +158,235 @@ export async function toCollections(me: Profile, siteId: string, items: Mat[]): 
   await Promise.all(items.map((m) => db.from('materials').update({ status: 'closed', order_note: m.order_note ? `${m.order_note} · Moved to Collection List` : 'Moved to Collection List' } as never).eq('id', m.id)));
   log(me, siteId, 'material_moved_to_collection', items.length > 1 ? `Moved ${items.length} grouped items from Material Requests to Collections` : `Moved "${items[0].item}" from Material Requests to the Collection List`);
   return true;
+}
+
+/* ---------- sending orders to suppliers (760 / 726 / 904 / 9219zr) ---------- */
+export type FullSupplier = OrderSupplier & { favourite?: boolean | null };
+
+export function useSuppliers(orgId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['suppliers', orgId],
+    enabled: !!orgId,
+    queryFn: () => cachedQuery(`suppliers:${orgId}`, async () => orThrow(await db.from('suppliers').select('*').eq('org_id', orgId as string).order('name')) as FullSupplier[]),
+  });
+}
+
+/** Up to 3 favourites pin to the top of the supplier list. */
+export async function toggleFavourite(orgId: string, s: FullSupplier): Promise<string | null> {
+  if (!s.favourite) {
+    const n = ((await db.from('suppliers').select('id').eq('org_id', orgId).eq('favourite', true)).data ?? []).length;
+    if (n >= 3) return 'You can only favourite up to 3 suppliers — unfavourite one first.';
+  }
+  return (await db.from('suppliers').update({ favourite: !s.favourite } as never).eq('id', s.id)).error ? 'Could not save — try again.' : null;
+}
+
+export type OrderPerson = { id: string; name: string; role: string; email: string | null };
+/** Who could collect: every driver, and the operatives assigned to this job. */
+export function useOrderPeople(siteId: string | undefined, enabled: boolean) {
+  return useQuery({
+    queryKey: ['orderPeople', siteId],
+    enabled: !!siteId && enabled,
+    queryFn: async () => {
+      const [p, a] = await Promise.all([
+        db.from('profiles').select('id,name,role,email').in('role', ['driver', 'operative']).order('name'),
+        db.from('site_assignments').select('user_id').eq('site_id', siteId as string),
+      ]);
+      const ppl = orThrow(p) as OrderPerson[];
+      const on = new Set(((a.data as { user_id: string }[] | null) ?? []).map((x) => x.user_id));
+      return { drivers: ppl.filter((x) => x.role === 'driver'), siteOps: ppl.filter((x) => x.role === 'operative' && on.has(x.id)) };
+    },
+  });
+}
+
+async function firstFreeSlot(orgId: string, dateISO: string, prefer: string): Promise<string> {
+  const list = await dayList(orgId, dateISO);
+  const keys = DELIVERY_TIME_SLOTS.map((s) => s.key);
+  const start = Math.max(0, keys.indexOf(prefer));
+  const order = keys.slice(start).concat(keys.slice(0, start));
+  return order.find((k) => !slotProblem(list, { id: 'new', double_slot: false }, k, () => 'Site')) || prefer || keys[0];
+}
+
+/** A collection goes on the driver's Delivery Schedule (one job for the order) or the operative's Collections. */
+async function bookCollection(me: Profile, siteId: string, f: Fulfil, supplier: OrderSupplier | null, toMe: boolean, mats: Mat[], poId: string | null, people: OrderPerson[], orgName: string | null, skip: boolean): Promise<string> {
+  if (f.mode !== 'collection') return '';
+  if (f.collectorKind === 'rtbop') return ` — to be collected by an ${companyOperativeLabel(orgName)}`;
+  if (skip) return ` — not added to the ${f.collectorKind === 'driver' ? 'Delivery Schedule' : 'Collections tab'} again`;
+  const whoName = people.find((p) => p.id === f.collectorId)?.name || 'them';
+  const dateLabel = new Date(`${f.date}T00:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' });
+  const itemsText = mats.map((m) => m.item + (m.qty ? ` x ${m.qty}` : '')).join('; ');
+  try {
+    if (f.collectorKind === 'driver') {
+      const oneSub = new Set(mats.map((m) => m.sub_site_id || '')).size === 1 ? mats[0] : null;
+      const payload: Record<string, unknown> = {
+        org_id: me.org_id, site_id: siteId, description: `Collect order: ${itemsText}${f.note ? ` — Note: ${f.note}` : ''}`,
+        collection_type: toMe || f.branch ? 'manual' : 'supplier', supplier_id: toMe ? null : supplier?.id ?? null,
+        collection_address_manual: f.branch ? `${supplier?.name ?? ''} ${branchLabel(f.branch)}` : toMe ? 'Supplier to be confirmed' : null,
+        scheduled_date: f.date, time_slot: await firstFreeSlot(me.org_id as string, f.date, f.slot || '7am'), high_priority: false,
+        driver_id: f.collectorId, needs_completing: false, created_by: me.id,
+        sub_site_id: oneSub?.sub_site_id ?? null, sub_site_label: oneSub?.sub_site_label ?? null,
+      };
+      const r = await db.from('delivery_tasks').insert(payload as never).select('id').single();
+      const saved = r.data as { id: string } | null;
+      if (!saved) return ' — but it could not be added to the Delivery Schedule, add it by hand';
+      // Link the collection to the requests (and PO) so the driver completing it marks them received (9219zr).
+      void db.from('delivery_tasks').update({ material_ids: mats.map((m) => m.id), ...(poId ? { po_id: poId } : {}) } as never).eq('id', saved.id);
+      try {
+        await resequenceSlot(me.org_id as string, f.date, payload.time_slot as string);
+        const ev = await db.from('site_calendar_events').insert({ org_id: me.org_id, site_id: siteId, title: `Delivery: ${payload.description as string}`, event_date: f.date, is_private: false, reminder_recipient_ids: [], created_by: me.id } as never).select('id').single();
+        const evId = (ev.data as { id: string } | null)?.id;
+        if (evId) await db.from('delivery_tasks').update({ calendar_event_id: evId } as never).eq('id', saved.id);
+      } catch { /* best effort */ }
+      if (f.collectorId !== me.id) void db.from('messages').insert({ org_id: me.org_id, site_id: siteId, sender_id: me.id, audience: 'single', recipient_id: f.collectorId, kind: 'delivery_assigned', body: `You've been assigned a collection for ${dateLabel}: ${itemsText}${f.note ? ` — Note: ${f.note}` : ''}`, related_id: saved.id } as never);
+      return ` — added to the Delivery Schedule for ${whoName}, ${dateLabel}`;
+    }
+    const now = new Date().toISOString();
+    const ins = await db.from('material_required_items').insert(mats.map((m) => ({
+      site_id: siteId, org_id: me.org_id, item: `${m.item} (collect ${dateLabel}${f.note ? ` — ${f.note}` : ''})`, qty: m.qty || null,
+      supplier_id: toMe ? null : supplier?.id ?? null, supplier_branch: f.branch || null, sub_site_id: m.sub_site_id || null, sub_site_label: m.sub_site_label || null,
+      status: 'assigned', assigned_to: f.collectorId, assigned_at: now, created_by: me.id,
+    })) as never);
+    if (ins.error) return ' — but it could not be added to Collections, add it by hand';
+    if (f.collectorId !== me.id) void db.from('messages').insert({ org_id: me.org_id, site_id: siteId, sender_id: me.id, audience: 'single', recipient_id: f.collectorId, kind: 'message', body: `Material to collect on ${dateLabel}${toMe ? '' : ` from ${supplier?.name ?? ''}`}: ${itemsText}${f.note ? ` — Note: ${f.note}` : ''}` } as never);
+    return ` — added to Collections for ${whoName} to collect ${dateLabel}`;
+  } catch { return ' — but the collection could not be booked, add it by hand'; }
+}
+
+/**
+ * Sends one order (one or several requests) to a supplier, or "Email to me".
+ * Closes the requests, raises a Finance PO (finance users only, as today — the
+ * database also refuses it while the company's PO switch is off), books any
+ * collection, then emails the order. Returns the message to show.
+ */
+export async function sendOrder(me: Profile, opts: {
+  siteId: string; mats: Mat[]; supplier: OrderSupplier | null; toMe: boolean; f: Fulfil; financeUser: boolean;
+  people: OrderPerson[]; orgName: string | null; skipBooking: boolean;
+}): Promise<string> {
+  const { siteId, supplier, toMe, f } = opts;
+  const mats = opts.mats.filter((m) => m.site_id === siteId); // never order another job's ticks
+  if (!mats.length) return 'Could not load the selected requests.';
+  const myEmail = me.email || '';
+  const to = orderRecipient(supplier, f, toMe, myEmail);
+  if (!to) return f.sendTo === 'pm' || toMe ? 'There is no email address on your profile.' : `No order email for ${supplier?.name ?? 'that supplier'}${f.branch ? ` (${f.branch.name})` : ''} — add one in Admin › Suppliers.`;
+  const name = toMe ? `Emailed to ${me.name}` : supplier?.name ?? '';
+  const now = new Date().toISOString();
+  const up = await Promise.all(mats.map((m) => db.from('materials').update({
+    status: 'closed', merchant: name, supplier_id: toMe ? null : supplier?.id ?? null, sent_at: now, required_for_delivery: f.date,
+    fulfilment: f.mode, collector_id: f.collectorId || null, order_note: f.note || null, supplier_branch: f.branch || null,
+  } as never).eq('id', m.id)));
+  if (up.every((r) => r.error)) return dbMsg(up[0].error, true);
+  let warn = up.some((r) => r.error) ? 'Some requests could not be updated — check them manually. ' : '';
+  let po: { id: string; note?: string | null } | null = null;
+  if (opts.financeUser) {
+    const rpc = supabase.rpc as unknown as (n: string, a: object) => Promise<{ data: unknown; error: unknown }>;
+    const r = await rpc('fin_raise_po', {
+      p_site: siteId, p_material_ids: mats.map((m) => m.id),
+      p_supplier_id: !toMe && supplier && /^[0-9a-f-]{36}$/i.test(supplier.id) ? supplier.id : null,
+      p_supplier_name: toMe ? `Emailed to ${me.name || 'me'}` : supplier?.name || null,
+      p_branch: f.branch?.name || null, p_required: f.date || null, p_fulfilment: f.mode, p_note: f.note || null,
+    });
+    const d = r.data as { id?: string; note?: string | null } | null;
+    po = !r.error && d?.id ? { id: d.id, note: d.note } : null;
+    if (po && f.note.trim() && !po.note) await db.from('purchase_orders').update({ note: f.note.trim() } as never).eq('id', po.id);
+  }
+  const collectNote = await bookCollection(me, siteId, f, supplier, toMe, mats, po?.id ?? null, opts.people, opts.orgName, opts.skipBooking);
+  const one = mats.length === 1 ? mats[0] : null;
+  const body = {
+    ...(one ? { material_id: one.id, item: one.item, qty: one.qty } : { items: mats.map((m) => ({ item: m.item, qty: m.qty })) }),
+    supplier_email: to, supplier_name: toMe ? me.name : supplier?.name, supplier_id: toMe ? null : supplier?.id ?? null,
+    site_id: siteId, po_id: po?.id ?? null, required_for_delivery: f.date, note: f.note || null,
+    cc_user_ids: f.ccIds, cc_emails: orderCcEmails(supplier, f, toMe), fulfilment: f.mode,
+    collector_name: f.collectorKind === 'rtbop' ? companyOperativeLabel(opts.orgName) : opts.people.find((p) => p.id === f.collectorId)?.name ?? null,
+  };
+  try {
+    const r = await supabase.functions.invoke('send-material-order', { body });
+    const err = (r.data as { error?: string } | null)?.error || (r.error ? 'check it manually.' : '');
+    if (err) return `${warn}Routed to ${name}, but the order email failed to send — ${String(err).slice(0, 140)}`;
+  } catch { return `${warn}Routed to ${name}, but the order email failed to send — check it manually.`; }
+  const sentAt = new Date().toISOString();
+  await Promise.all(mats.map((m) => db.from('materials').update({ email_sent_at: sentAt } as never).eq('id', m.id)));
+  const cc = f.ccIds.length ? ` — copied to ${f.ccIds.length} operative${f.ccIds.length > 1 ? 's' : ''}` : '';
+  warn += toMe ? `Order emailed to you at ${myEmail}` : f.sendTo === 'pm' ? `Order emailed to you only — ${name} was not emailed` : `Order emailed to ${name} at ${to} (you've been CC'd)`;
+  return warn + cc + collectNote;
+}
+
+/** Re-email a sent order (the address can be changed for this one send). */
+export async function reemailOrder(siteId: string, m: Mat, email: string, supplierName: string): Promise<string> {
+  try {
+    const r = await supabase.functions.invoke('send-material-order', { body: {
+      material_id: m.id, supplier_email: email, supplier_name: supplierName, item: m.item, qty: m.qty, site_id: siteId,
+      supplier_id: m.supplier_id || null, required_for_delivery: m.required_for_delivery, po_id: m.po_id || null,
+    } });
+    const err = (r.data as { error?: string } | null)?.error || (r.error ? 'check it manually.' : '');
+    if (err) return `Re-email failed — ${String(err).slice(0, 140)}`;
+  } catch { return 'Re-email failed — could not reach the server.'; }
+  await db.from('materials').update({ email_sent_at: new Date().toISOString() } as never).eq('id', m.id);
+  return `The order was re-emailed to ${email}.`;
+}
+
+/* ---------- Collections (730): items for an operative to pick up ---------- */
+export type CollItem = Pickup & { site_id: string; assigned_to: string | null; qty_collected?: string | null; sub_site_id?: string | null; sub_site_label?: string | null; created_at: string };
+
+export function useCollections(siteId: string | undefined, tab: 'live' | 'closed') {
+  return useQuery({
+    queryKey: ['materials', siteId, 'collections', tab],
+    enabled: !!siteId,
+    queryFn: () => cachedQuery(`collections:${siteId}:${tab}`, async () =>
+      orThrow(await db.from('material_required_items').select('*').eq('site_id', siteId as string).in('status', tab === 'live' ? ['open', 'assigned', 'collected'] : ['closed']).order('created_at', { ascending: false })) as CollItem[]),
+  });
+}
+
+export type CollDraft = { item: string; qty: string | null; supplier_id: string | null; supplier_branch: Branch | null; sub_site_id: string | null };
+export async function addCollectionItems(me: Profile, siteId: string, rows: CollDraft[]): Promise<boolean> {
+  return !(await db.from('material_required_items').insert(rows.map((r) => ({ site_id: siteId, org_id: me.org_id, ...r, status: 'open', created_by: me.id })) as never)).error;
+}
+
+export async function assignCollections(me: Profile, siteId: string, siteName: string, items: CollItem[], userId: string, userName: string): Promise<number> {
+  const now = new Date().toISOString();
+  const res = await Promise.all(items.map((m) => db.from('material_required_items').update({ assigned_to: userId, status: 'assigned', assigned_at: now } as never).eq('id', m.id)));
+  const n = res.filter((r) => !r.error).length;
+  if (n) {
+    const label = items.length === 1 ? items[0].item : `${n} items`;
+    void supabase.functions.invoke('notify-material-pickup', { body: { site_id: siteId, user_id: userId, item_label: label } }).catch(() => undefined);
+    if (me.org_id) void db.from('messages').insert({ org_id: me.org_id, site_id: siteId, sender_id: me.id, audience: 'operatives', kind: 'material_pickup', body: items.length === 1 ? `${userName} was asked to collect "${label}" for ${siteName}.` : `${userName} was asked to collect ${n} item${n > 1 ? 's' : ''} for ${siteName}.` } as never);
+  }
+  return n;
+}
+
+export async function collectWithQty(me: Profile, id: string, qty: string): Promise<boolean> {
+  return !(await db.from('material_required_items').update({ status: 'collected', qty_collected: qty || null, collected_by: me.id, collected_at: new Date().toISOString() } as never).eq('id', id)).error;
+}
+
+/** "✓ Collected" in the app; the stored value is 'closed'. */
+export async function closeCollections(me: Profile, siteId: string, items: CollItem[]): Promise<number> {
+  const now = new Date().toISOString();
+  const res = await Promise.all(items.map((m) => db.from('material_required_items').update({ status: 'closed', closed_by: me.id, closed_at: now } as never).eq('id', m.id)));
+  items.forEach((m, i) => { if (!res[i].error) log(me, siteId, 'material_required_item_closed', `Marked material item "${m.item || ''}" as collected`); });
+  return res.filter((r) => !r.error).length;
+}
+
+export async function deleteCollection(me: Profile, siteId: string, m: CollItem): Promise<boolean> {
+  const r = await db.from('material_required_items').delete().eq('id', m.id);
+  if (!r.error) log(me, siteId, 'material_required_item_deleted', `Deleted material required item "${m.item || ''}"`);
+  return !r.error;
+}
+
+export async function editCollection(id: string, patch: { item: string; qty: string | null; supplier_id: string | null; supplier_branch: Branch | null }): Promise<boolean> {
+  return !(await db.from('material_required_items').update(patch as never).eq('id', id)).error;
+}
+
+/** PMs/admins with an email, for "Email Selected". */
+export function useManagerEmails(enabled: boolean) {
+  return useQuery({
+    queryKey: ['managerEmails'],
+    enabled,
+    queryFn: async () => ((await db.from('profiles').select('id,name,email,role').in('role', ['pm', 'admin'])).data as { id: string; name: string; email: string | null }[] | null ?? []).filter((p) => !!p.email),
+  });
+}
+
+export async function emailCollectionList(siteId: string, recipients: string[], items: { item: string; qty: string | null; supplier_name?: string | null }[], label: string): Promise<string | null> {
+  try {
+    const r = await supabase.functions.invoke('send-material-list-email', { body: { site_id: siteId, recipients, items, context_label: label } });
+    const err = (r.data as { error?: string } | null)?.error || (r.error ? 'try again.' : '');
+    return err ? `Email failed — ${String(err).slice(0, 140)}` : null;
+  } catch { return 'Email failed — could not reach the server.'; }
 }

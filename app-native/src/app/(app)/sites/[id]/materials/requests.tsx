@@ -3,21 +3,22 @@
 // reopen, edit, delete, group several into one request, move to Collections.
 // A request on a sent PO is locked here (changes are made in Finance) — 9219zr.
 import { useQueryClient } from '@tanstack/react-query';
-import { Stack, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { useRef, useState, type ComponentRef } from 'react';
 import { Pressable, RefreshControl, ScrollView, Text, TextInput, View } from 'react-native';
 
+import { OrderPanel } from '@/components/OrderPanel';
 import { chooseAction, confirmAsk, promptText, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import { nameOf, usePeople } from '@/data/hs';
 import {
   addMaterial, cancelMaterial, deleteMaterials, editMaterial, groupMaterials, poLock, reopenMaterials,
-  setMaterialsStatus, toCollections, ungroupMaterials, useCollectionsOpenCount, useMaterialRequests, useSubAddresses, type MatTab, type SubAddr,
+  reemailOrder, setMaterialsStatus, toCollections, ungroupMaterials, useCollectionsOpenCount, useMaterialRequests, useSubAddresses, useSuppliers, type MatTab, type SubAddr,
 } from '@/data/materials';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { localISODate } from '@/lib/rules/driver';
-import { cancelReasonText, doneEntries, liveEntries, matAgo, OP_STATUS_LABEL, readIsoDate, subAddrLabel, wasOrdered, type Mat } from '@/lib/rules/materials';
+import { cancelReasonText, doneEntries, isEmail, liveEntries, matAgo, OP_STATUS_LABEL, orderEmailFor, readIsoDate, subAddrLabel, wasOrdered, type Branch, type Mat } from '@/lib/rules/materials';
 import { isFinanceUser, isManager } from '@/lib/roles';
 import { base, radius, space } from '@/theme/theme';
 
@@ -42,6 +43,9 @@ export default function MaterialRequests() {
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [editing, setEditing] = useState<Mat | null>(null);
   const [busy, setBusy] = useState(false);
+  const [ordering, setOrdering] = useState<{ mats: Mat[]; again: boolean } | null>(null);
+  const { data: suppliers } = useSuppliers(mgr ? me?.org_id : null);
+  const scroll = useRef<ComponentRef<typeof ScrollView>>(null);
   if (!me || !site) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
 
   const done = tab === 'done' || tab === 'closed';
@@ -76,7 +80,21 @@ export default function MaterialRequests() {
     if (!reason.trim()) { toast('A reason is required to cancel.'); return; }
     void act(() => cancelMaterial(me, m.id, reason.trim(), mgr), 'Request cancelled');
   };
-  const orderSoon = () => toast('Sending orders to suppliers is the next part being built.');
+  const startOrder = async (ms: Mat[], again: boolean) => {
+    if (again && (await locked(ms))) return;
+    setOrdering({ mats: ms, again }); setSel(new Set());
+    scroll.current?.scrollTo({ y: 0, animated: true });
+  };
+  const reemail = async (m: Mat) => {
+    if (await locked([m])) return;
+    const sup = suppliers?.find((x) => x.id === m.supplier_id);
+    if (!sup) { toast('Could not find that supplier.'); return; }
+    const email = await promptText('Re-email order — this order was emailed to the address below. Edit it if you need to send it somewhere else this time.', orderEmailFor(sup, (m as Mat & { supplier_branch?: Branch | null }).supplier_branch ?? null));
+    if (email === null) return;
+    if (!isEmail(email)) { toast('Enter a valid email address.'); return; }
+    setBusy(true); const msg = await reemailOrder(id, m, email.trim(), sup.name); setBusy(false);
+    showAlert(msg, msg.startsWith('Re-email failed') ? 'OpHUB' : '✓ Email sent'); refresh();
+  };
 
   const body = (m: Mat) => (
     <View>
@@ -122,7 +140,7 @@ export default function MaterialRequests() {
       {mgr && m.status === 'pending' && !sel.has(m.id) && (
         <View style={{ marginTop: 6 }}>
           <View style={{ flexDirection: 'row', gap: 8 }}>
-            <View style={{ flex: 1 }}><Button title="🚚 Order from merchant" onPress={orderSoon} /></View>
+            <View style={{ flex: 1 }}><Button title="🚚 Order from merchant" onPress={() => void startOrder([m], false)} /></View>
             <View style={{ flex: 1 }}><Button kind="ghost" title="📦 Add to collections" onPress={() => void collections([m])} /></View>
           </View>
           <Button kind="ghost" title="Close request" onPress={() => void close([m])} />
@@ -131,12 +149,19 @@ export default function MaterialRequests() {
       {mgr && m.status === 'sent' && !sel.has(m.id) && (
         <View style={{ marginTop: 6 }}>
           <Button kind="ghost" title="✎ Edit order" onPress={() => void edit(m)} />
+          <Button kind="ghost" title="↻ Resend order" onPress={() => void startOrder([m], true)} />
           <Button kind="ghost" title="✓ Received — close" onPress={() => void close([m])} />
         </View>
       )}
       {mgr && m.status === 'closed' && !sel.has(m.id) && (
         <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
           {wasOrdered(m) && m.merchant !== 'Yard stock' && <View style={{ flex: 1 }}><Button kind="ghost" title="✎ Edit order" onPress={() => void edit(m)} /></View>}
+          {wasOrdered(m) && m.merchant !== 'Yard stock' && !!m.merchant && !!m.supplier_id && <View style={{ flex: 1 }}><Button kind="ghost" title="↻ Resend order" onPress={() => void reemail(m)} /></View>}
+        </View>
+      )}
+      {mgr && m.status === 'closed' && !sel.has(m.id) && (
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <View style={{ flex: 1 }}><Button kind="ghost" title={wasOrdered(m) && m.merchant !== 'Yard stock' ? 'Send to another supplier' : 'Order it'} onPress={() => void startOrder([m], true)} /></View>
           <View style={{ flex: 1 }}><Button kind="ghost" title="Reopen" onPress={() => void act(() => reopenMaterials([m]), 'Material request reopened')} /></View>
         </View>
       )}
@@ -156,19 +181,24 @@ export default function MaterialRequests() {
   const entries = done ? doneEntries(items) : mgr ? liveEntries(items) : items.map((m) => ({ m, items: [m] }));
 
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled"
+    <ScrollView ref={scroll} contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled"
       refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => { void refetch(); }} />}>
       <Stack.Screen options={{ title: 'Material Requests' }} />
       {mgr && <Card style={{ backgroundColor: '#F1E4FA' }}><Text style={{ color: '#4E1F6E' }}><Text style={{ fontWeight: '700' }}>Requests from operatives.</Text> Order them from a merchant, or give them to an operative to collect — those move to Collections. Tick several to group them into one request.</Text></Card>}
       <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
         {(mgr ? [['pending', 'To action'], ['collect', `Collections${collectN ? ` (${collectN})` : ''}`], ['done', 'Completed']] : [['live', 'Live/Pending'], ['closed', 'Closed']]).map(([k, l]) => (
-          <Pressable key={k} onPress={() => { if (k === 'collect') { toast('The Collections list is the next part being built.'); return; } setSel(new Set()); setTab(k as MatTab); }}
+          <Pressable key={k} onPress={() => { if (k === 'collect') { router.push(`/sites/${id}/materials/collections` as never); return; } setSel(new Set()); setTab(k as MatTab); }}
             style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 16, borderWidth: 1, borderColor: tab === k ? base.ink : base.line, backgroundColor: tab === k ? base.ink : base.card }}>
             <Text style={{ fontWeight: '700', color: tab === k ? '#fff' : base.ink }}>{l}</Text>
           </Pressable>
         ))}
       </View>
 
+      {ordering && (
+        <Card style={{ borderColor: base.ink, borderWidth: 1.5 }}>
+          <OrderPanel siteId={id} mats={ordering.mats} again={ordering.again} onDone={() => { setOrdering(null); refresh(); }} onCancel={() => setOrdering(null)} />
+        </Card>
+      )}
       {mgr && selectable.length > 1 && (sel.size > 0 || !done) && (
         <Pressable onPress={() => setSel(sel.size >= selectable.length ? new Set() : new Set(selectable.map((m) => m.id)))} style={{ marginBottom: 10 }}>
           <Text style={{ fontWeight: '700', color: base.ink }}>{sel.size >= selectable.length ? '☑' : '☐'} Select all ({selectable.length}){sel.size > 0 && sel.size < selectable.length ? ` · ${sel.size} selected` : ''}</Text>
@@ -178,7 +208,7 @@ export default function MaterialRequests() {
         <Card style={{ borderColor: base.ink, borderWidth: 1.5 }}>
           <SectionTitle>{done ? `${picked.length} completed order${picked.length > 1 ? 's' : ''} selected` : `${picked.length} request${picked.length > 1 ? 's' : ''} selected for a grouped order`}</SectionTitle>
           {!done && picked.length > 1 && <Button kind="ghost" title="🔗 Group into one request" onPress={() => void act(() => groupMaterials(picked), `${picked.length} requests grouped into one`)} />}
-          <Button title={done ? `Send Again (${picked.length})` : picked.length > 1 ? `Send as one grouped order (${picked.length} items)` : 'Send Order (1 item)'} onPress={orderSoon} />
+          <Button title={done ? `Send Again (${picked.length})` : picked.length > 1 ? `Send as one grouped order (${picked.length} items)` : 'Send Order (1 item)'} onPress={() => void startOrder(picked, done)} />
           {done && (
             <View style={{ flexDirection: 'row', gap: 8 }}>
               <View style={{ flex: 1 }}><Button kind="ghost" title="Reopen selected" onPress={() => void act(() => reopenMaterials(picked), 'Reopened')} /></View>
@@ -222,7 +252,7 @@ export default function MaterialRequests() {
             </View>
             {e.items.map((x) => <Text key={x.id} style={{ color: base.ink, marginTop: 6 }}>• <Text style={{ fontWeight: '700' }}>{x.item}</Text> · Qty {x.qty || '1'}{x.order_note ? ` · 📝 ${x.order_note}` : ''}{x.sub_site_label ? ` · 📍 ${x.sub_site_label}` : ''}</Text>)}
             <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-              <View style={{ flex: 1 }}><Button title="🚚 Order from merchant" onPress={orderSoon} /></View>
+              <View style={{ flex: 1 }}><Button title="🚚 Order from merchant" onPress={() => void startOrder(e.items, false)} /></View>
               <View style={{ flex: 1 }}><Button kind="ghost" title="📦 Add to collections" onPress={() => void collections(e.items)} /></View>
             </View>
             <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -247,7 +277,7 @@ export default function MaterialRequests() {
           toast('Request added'); refresh(); return true;
         }} />
       )}
-      {mgr && <Muted style={{ marginTop: space.m }}>Still to come here: sending orders to suppliers, Collections, the Suppliers list, yard stock and Import from Excel.</Muted>}
+      {mgr && <Muted style={{ marginTop: space.m }}>Still to come here: the Suppliers list, yard stock and Import from Excel.</Muted>}
     </ScrollView>
   );
 }
