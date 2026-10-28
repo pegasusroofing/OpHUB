@@ -1,6 +1,7 @@
 // One Accident / Incident / Near Miss report, read-only (690 renderIncidentView).
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 
 import { StorageImage } from '@/components/StorageImage';
@@ -8,6 +9,9 @@ import { confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Muted } from '@/components/ui';
 import { nameOf, usePeople } from '@/data/hs';
 import { deleteIncident, useIncident } from '@/data/incidents';
+import { useSite } from '@/data/sites';
+import { buildIncidentPdf, emailIncidentPdf } from '@/lib/incidentPdf';
+import { deliverPdf } from '@/lib/pdf';
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
 import { base, space } from '@/theme/theme';
@@ -18,10 +22,12 @@ const when = (s: unknown) => (s ? new Date(String(s)).toLocaleString('en-GB', { 
 
 export default function IncidentView() {
   const { id, rid } = useLocalSearchParams<{ id: string; rid: string }>();
-  const { me } = useAuth();
+  const { me, org } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
   const { data: r, isLoading } = useIncident(rid);
+  const { data: site } = useSite(id);
+  const [pdfBusy, setPdfBusy] = useState<'pdf' | 'email' | null>(null);
   const { data: people } = usePeople();
   if (!me) return null;
   if (isLoading || !r) return <Muted style={{ padding: space.l }}>{isLoading ? 'Loading…' : 'Report not found.'}</Muted>;
@@ -81,7 +87,20 @@ export default function IncidentView() {
       {isManager(me) && <Button kind="ghost" title="Delete Report" onPress={async () => {
         if (await confirmAsk('Delete this report? This cannot be undone.', 'Delete') && await deleteIncident(me, r)) { toast('Report deleted'); void qc.invalidateQueries({ queryKey: ['incidents', id] }); router.back(); }
       }} />}
-      <Muted style={{ marginTop: space.m }}>Export PDF and Email PDF of incident reports are still in the current app for now.</Muted>
+      {!!site && (
+        <View style={{ flexDirection: 'row', gap: 8, marginTop: space.m }}>
+          <View style={{ flex: 1 }}><Button kind="ghost" busy={pdfBusy === 'pdf'} title="Export PDF" onPress={async () => {
+            setPdfBusy('pdf'); toast('Building PDF…');
+            try { const b = await buildIncidentPdf(r as never, site, org, (u) => nameOf(people, u)); if (!(await deliverPdf(b.bytes, b.filename))) toast('Could not save the PDF.'); } catch { toast('Export failed — try again.'); } finally { setPdfBusy(null); }
+          }} /></View>
+          <View style={{ flex: 1 }}><Button kind="ghost" busy={pdfBusy === 'email'} title="Email PDF" onPress={async () => {
+            let cc: string | null = null;
+            if (site.client_email && (await confirmAsk(`CC client contact${site.client_contact_name || site.client_name ? ` (${site.client_contact_name || site.client_name})` : ''} on this email?`, 'Yes, CC them'))) cc = site.client_email;
+            setPdfBusy('email'); toast('Building PDF…');
+            try { const b = await buildIncidentPdf(r as never, site, org, (u) => nameOf(people, u)); toast(await emailIncidentPdf(site.id, b.bytes, b.filename, cc)); } catch { toast('Email failed — try again.'); } finally { setPdfBusy(null); }
+          }} /></View>
+        </View>
+      )}
     </ScrollView>
   );
 }
