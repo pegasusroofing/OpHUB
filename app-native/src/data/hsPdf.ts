@@ -1,0 +1,55 @@
+// Signed RAMS / COSHH PDFs (610 buildSignedRamsPdfBytes, 620 buildSignedCoshhPdf):
+// this signing cycle only, newest signature per person; RAMS adds the issuing
+// manager and any clients who signed by emailed link; COSHH adds whoever put it
+// on the job as "issued by".
+import { docBucket } from '@/data/hs';
+import { exportFilename, fetchBytes } from '@/lib/pdf';
+import { publicUrl } from '@/lib/privateFiles';
+import { currentCycleSigs } from '@/lib/rules/hs';
+import { buildSignedDocPdf, clientRow, signerRow, type SignLayout, type Signer } from '@/lib/signedPdf';
+import { supabase } from '@/lib/supabase';
+import type { Site } from '@/lib/types';
+
+const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
+type Sig = { id: string; user_id: string | null; signed_at: string; signature_image_path: string | null; issued?: boolean | null };
+
+function newestPerPerson<S extends Sig>(list: S[]): S[] {
+  const newest: Record<string, S> = {};
+  list.forEach((s) => { const k = s.user_id || `row:${s.id}`; if (!newest[k] || new Date(s.signed_at) >= new Date(newest[k].signed_at)) newest[k] = s; });
+  return list.filter((s) => newest[s.user_id || `row:${s.id}`] === s).sort((a, b) => +new Date(a.signed_at) - +new Date(b.signed_at));
+}
+
+export async function buildSignedHsPdf(kind: 'rams' | 'coshh', docId: string, site: Site): Promise<{ bytes: Uint8Array; filename: string; name: string } | string> {
+  const table = kind === 'rams' ? 'rams_docs' : 'coshh_docs', sigTable = kind === 'rams' ? 'rams_signatures' : 'coshh_signatures', key = kind === 'rams' ? 'rams_id' : 'coshh_id';
+  const doc = ((await db.from(table).select('*').eq('id', docId).maybeSingle()).data as { id: string; name: string; storage_path: string; uploaded_by: string | null; uploaded_at: string; resign_cycle_start: string | null; sign_layout?: SignLayout } | null);
+  if (!doc) return 'Document not found.';
+  const raw = ((await db.from(sigTable).select('*').eq(key, docId).order('signed_at')).data as (Sig & Record<string, string>)[] | null) ?? [];
+  const sigs = newestPerPerson(currentCycleSigs(raw, [doc], key as never, site));
+  const clientsRaw = kind === 'rams' ? (((await db.from('rams_client_signatures').select('client_slot,signer_name,client_name,signed_at,signature_path').eq('rams_id', docId).not('signed_at', 'is', null).order('signed_at')).data as { client_slot: number | null; signer_name: string | null; client_name: string | null; signed_at: string; signature_path: string | null }[] | null) ?? []) : [];
+  if (!sigs.length && !clientsRaw.length) return kind === 'rams' ? 'No signatures yet.' : 'Could not build the signed PDF — check there are signatures and the source file is a valid PDF.';
+  const ids = [...new Set([...sigs.map((s) => s.user_id), doc.uploaded_by].filter((x): x is string => !!x))];
+  const profs = ids.length ? (((await db.from('profiles').select('id,name,signature_path').in('id', ids)).data as { id: string; name: string; signature_path: string | null }[] | null) ?? []) : [];
+  const nm = (id: string | null) => profs.find((p) => p.id === id)?.name || 'Unknown';
+  const src = await fetchBytes(publicUrl(docBucket(kind), doc.storage_path));
+  if (!src) return 'Could not open the original document.';
+  const disclaimer = `I have read and understood the contents of this ${kind === 'rams' ? 'RAMS' : 'COSHH'} document (${doc.name}). At all times employees must work in a safe manner both to prevent personal injury or injury/harm to others. Anything I did not understand has been explained to me to my satisfaction.`;
+  let signers: Signer[], clients: Signer[] = [];
+  if (kind === 'rams') {
+    signers = sigs.map((s) => signerRow(nm(s.user_id), s.signed_at, s.issued ? s.signature_image_path || profs.find((p) => p.id === s.user_id)?.signature_path || null : s.signature_image_path, !!s.issued));
+    const bySlot: Record<number, Signer> = {};
+    clientsRaw.forEach((c) => { const slot = c.client_slot || 1; bySlot[slot] = clientRow(slot, c.signer_name || c.client_name || 'Client', c.signed_at, c.signature_path); });
+    clients = Object.values(bySlot).sort((a, b) => (a.slot || 0) - (b.slot || 0));
+  } else {
+    signers = sigs.map((s) => ({ ...signerRow(nm(s.user_id), s.signed_at, s.signature_image_path), name: nm(s.user_id) }));
+    if (doc.uploaded_by) {
+      const issuer = profs.find((p) => p.id === doc.uploaded_by);
+      signers.unshift({ ...signerRow(issuer?.name || nm(doc.uploaded_by), doc.uploaded_at, issuer?.signature_path || null, true), name: issuer?.name || nm(doc.uploaded_by), when: new Date(doc.uploaded_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) });
+    }
+  }
+  try {
+    const pdf = await buildSignedDocPdf(src, { title: doc.name, disclaimer, layout: kind === 'rams' ? doc.sign_layout ?? null : null, signers, clients });
+    const filename = exportFilename(site.name, `${doc.name} (Signed)`, 'pdf');
+    pdf.setTitle(filename.replace(/\.pdf$/i, ''));
+    return { bytes: await pdf.save(), filename, name: doc.name };
+  } catch { return 'Could not build the signed PDF — the source file may not be a valid PDF.'; }
+}

@@ -12,10 +12,12 @@ import { Linking, Pressable, Text, View } from 'react-native';
 import { StorageImage } from '@/components/StorageImage';
 import * as DocumentPicker from 'expo-document-picker';
 
-import { chooseAction, confirmAsk, useToast } from '@/components/toast';
+import { chooseAction, confirmAsk, promptText, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, Toggle } from '@/components/ui';
 import { DOC_LABEL, docBucket, nameOf, openDocLink, sigDocId, signDocs, useHsDocs, usePeople, type DocKind, type HsDoc, type HsSig } from '@/data/hs';
 import { deleteHsDoc, replaceCoshh } from '@/data/hsManager';
+import { buildSignedHsPdf } from '@/data/hsPdf';
+import { deliverPdf, emailPdf } from '@/lib/pdf';
 import { useAuth } from '@/lib/auth';
 import { resignDue, signedHeadline, signers } from '@/lib/rules/hs';
 import { isManager } from '@/lib/roles';
@@ -73,9 +75,20 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
               <Text style={{ flex: 1, fontSize: 16.5, fontWeight: '800', color: base.ink }}>{r.name}</Text>
               {manager && (
                 <Pressable hitSlop={8} onPress={async () => {
-                  const k = await chooseAction(r.name, [{ key: 'view', label: '👁 View document' }, ...(kind === 'coshh' ? [{ key: 'replace', label: '🔁 Replace file (resets signatures)' }] : []), { key: 'del', label: '🗑 Delete', danger: true }]);
+                  const k = await chooseAction(r.name, [{ key: 'view', label: '👁 View document' }, ...(kind !== 'layout' ? [{ key: 'pdf', label: '📄 Export signed PDF' }, { key: 'email', label: '✉ Email signed PDF' }] : []), ...(kind === 'coshh' ? [{ key: 'replace', label: '🔁 Replace file (resets signatures)' }] : []), { key: 'del', label: '🗑 Delete', danger: true }]);
                   const refresh = () => { void qc.invalidateQueries({ queryKey: ['hsDocs', kind, site.id] }); void qc.invalidateQueries({ queryKey: ['hsSummary', site.id] }); };
                   if (k === 'view') void view(r);
+                  else if (k === 'pdf' || k === 'email') {
+                    let to = '';
+                    if (k === 'email') { const t = await promptText(`Email this signed ${label} PDF to:`, ''); if (t === null) return; to = t.trim(); if (!/^[^s@]+@[^s@]+.[^s@]+$/.test(to)) { toast('Enter a valid email address.'); return; } }
+                    toast('Building signed PDF…');
+                    const b = await buildSignedHsPdf(kind as 'rams' | 'coshh', r.id, site).catch(() => 'Could not build the signed PDF.');
+                    if (typeof b === 'string') { toast(b); return; }
+                    if (k === 'pdf') { if (!(await deliverPdf(b.bytes, b.filename))) toast('Could not save the PDF.'); return; }
+                    toast('Sending…');
+                    const err = await emailPdf(b.bytes, b.filename, `${site.id}/${kind}-exports`, { site_id: site.id, recipient_email: to, doc_title: `${b.name} (Signed ${label})` });
+                    if (err) showAlert(err); else toast('Emailed');
+                  }
                   else if (k === 'replace') {
                     if (!(await confirmAsk('Replace this COSHH document with a new file? Everyone who has already signed will need to sign again.', 'Replace'))) return;
                     const p = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true });
