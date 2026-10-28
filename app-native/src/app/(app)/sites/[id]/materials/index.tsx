@@ -42,7 +42,7 @@ function ManagerTiles({ siteId, vis, role }: { siteId: string; vis: Parameters<t
     <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
       <Tile icon="🙋" tint="#F1E4FA" title="Material Requests" sub={sub} badge={pending?.length || undefined} onPress={go('materials/requests')} />
       <Tile icon="📄" tint="#FBEFE0" title="Material PO's" sub="Order files for this job" onPress={go('materials/pos')} />
-      {canSeeMatTile(vis, 'plant', role) && <Tile icon="🏗" tint="#EAF3EC" title="Plant" sub="Check in / out" onPress={() => toast('Plant is still being built in the new app.')} />}
+      {canSeeMatTile(vis, 'plant', role) && <Tile icon="🏗" tint="#EAF3EC" title="Plant" sub="Check in / out" onPress={go('plant')} />}
       {canSeeMatTile(vis, 'expenses', role) && <Tile icon="🧾" tint="#FDF1DE" title="Expenses" sub="Send receipts" onPress={go('expenses')} />}
       {!!office?.length && (
         <Card style={{ marginTop: space.m }}>
@@ -163,7 +163,7 @@ function OperativeMaterials({ siteId, vis }: { siteId: string; vis: Parameters<t
             </Pressable>
           ))}
           <Button title="+ Request materials" onPress={() => router.push(`/sites/${siteId}/materials/requests?add=1` as never)} />
-          {showPlant && <Button kind="ghost" title="🏗 Plant" onPress={() => toast('Plant is still being built in the new app.')} />}
+          {showPlant && <Button kind="ghost" title="🏗 Plant" onPress={() => router.push(`/sites/${siteId}/plant` as never)} />}
           {showExp && <Button kind="ghost" title="🧾 Expenses" onPress={() => router.push(`/sites/${siteId}/expenses` as never)} />}
           <Pressable onPress={() => router.push(`/sites/${siteId}/materials/requests` as never)} style={{ marginTop: 10 }}><Text style={{ color: base.slate }}>See all my requests →</Text></Pressable>
         </>
