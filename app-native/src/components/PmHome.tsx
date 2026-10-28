@@ -45,7 +45,7 @@ export function PmHome() {
       </Pressable>
       {isFinanceUser(me, org) && <Tile icon="£" tint={base.okBg} title="OpHUB Finance" sub="Money in & out" onPress={soon('Finance')} />}
       <Tile icon="📈" tint="#E0F2F1" title="Dashboard" sub="Company overview" onPress={soon('The company dashboard')} />
-      <Tile icon="📅" tint={base.okBg} title="Calendar" sub="All projects" onPress={soon('The calendar')} />
+      <Tile icon="📅" tint={base.okBg} title="Calendar" sub="All projects" onPress={() => router.push('/pm/calendar' as never)} />
       <Tile icon="🔔" tint={base.warnBg} title="HUB" sub="Notifications & messages" onPress={soon('The HUB')} />
       <Tile icon="🚚" tint="#F0E4F5" title="Deliveries" sub="Delivery schedule" onPress={soon('The delivery schedule')} />
       <Tile icon="📋" tint={base.blueBg} title="Reports & surveys" sub={open.length ? `${open.length} in progress` : 'All projects'} onPress={() => router.push('/pm/reports' as never)} />
