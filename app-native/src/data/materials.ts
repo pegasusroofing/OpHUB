@@ -427,3 +427,24 @@ export async function saveGrn(me: Profile, siteId: string, m: Mat, ok: boolean, 
   } catch { /* the managers' message still went */ }
   return { ok: true, msg: 'Saved — managers told about the problem' };
 }
+
+/* ---------- "Ordered By The Office" (9219zr 3a): Finance POs for this job, no prices ---------- */
+export type OfficeOrder = {
+  id?: string; number?: string | null; supplier_name?: string | null; fulfilment?: string | null; required_by?: string | null;
+  sent_at?: string | null; source?: string | null; status?: string | null;
+  items?: { item?: string; qty?: string | number | null; unit?: string | null; material_id?: string | null }[] | null;
+  received?: Record<string, { ok?: boolean }> | null;
+};
+export function useOfficeOrders(siteId: string | undefined, enabled: boolean) {
+  return useQuery({
+    queryKey: ['materials', siteId, 'office'],
+    enabled: !!siteId && enabled,
+    queryFn: async () => {
+      const rpc = supabase.rpc as unknown as (n: string, a: object) => Promise<{ data: unknown; error: unknown }>;
+      const r = await rpc('site_office_orders', { p_site: siteId });
+      if (r.error || !Array.isArray(r.data)) return [] as OfficeOrder[];
+      // POs raised from the Materials tile already show under Material Requests.
+      return (r.data as OfficeOrder[]).filter((p) => p && p.source !== 'materials' && p.status !== 'cancelled');
+    },
+  });
+}

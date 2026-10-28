@@ -9,7 +9,7 @@ import { Linking, Pressable, RefreshControl, ScrollView, Text, View } from 'reac
 import { GrnForm } from '@/components/Grn';
 import { useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle, Tile } from '@/components/ui';
-import { collectPickups, useCollectionsOpenCount, useMaterialRequests, useOpMaterials } from '@/data/materials';
+import { collectPickups, useCollectionsOpenCount, useMaterialRequests, useOfficeOrders, useOpMaterials } from '@/data/materials';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { canSeeMatTile, groupPickups } from '@/lib/rules/materials';
@@ -35,6 +35,7 @@ function ManagerTiles({ siteId, vis, role }: { siteId: string; vis: Parameters<t
   const toast = useToast();
   const { data: pending } = useMaterialRequests(siteId, 'pending');
   const { data: collectN } = useCollectionsOpenCount(siteId, true);
+  const { data: office } = useOfficeOrders(siteId, true);
   const go = (p: string) => () => router.push(`/sites/${siteId}/${p}` as never);
   const sub = [pending?.length ? `${pending.length} to action` : '', collectN ? `${collectN} to collect` : ''].filter(Boolean).join(' · ') || 'Requests from operatives';
   return (
@@ -43,6 +44,34 @@ function ManagerTiles({ siteId, vis, role }: { siteId: string; vis: Parameters<t
       <Tile icon="📄" tint="#FBEFE0" title="Material PO's" sub="Order files for this job" onPress={() => toast("Material PO's is still being built in the new app.")} />
       {canSeeMatTile(vis, 'plant', role) && <Tile icon="🏗" tint="#EAF3EC" title="Plant" sub="Check in / out" onPress={() => toast('Plant is still being built in the new app.')} />}
       {canSeeMatTile(vis, 'expenses', role) && <Tile icon="🧾" tint="#FDF1DE" title="Expenses" sub="Send receipts" onPress={go('expenses')} />}
+      {!!office?.length && (
+        <Card style={{ marginTop: space.m }}>
+          <SectionTitle>Ordered By The Office</SectionTitle>
+          <Muted style={{ marginBottom: 8 }}>Orders Finance has raised for this job.</Muted>
+          {office.map((p, i) => {
+            const rec = p.received && typeof p.received === 'object' ? p.received : {};
+            return (
+              <View key={p.id ?? i} style={{ borderTopWidth: i ? 1 : 0, borderTopColor: base.line, paddingTop: i ? 8 : 0, marginTop: i ? 8 : 0 }}>
+                <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <Text style={{ fontWeight: '700', color: base.ink }}>{p.number || 'PO'}</Text>
+                  <Text style={{ color: base.slate, flex: 1 }}>{p.supplier_name || 'Supplier'}</Text>
+                  <Text style={{ fontSize: 11, fontWeight: '700', color: base.blue }}>{p.fulfilment === 'collection' ? 'Collection' : 'Delivery'}{p.required_by ? ` ${fmt(p.required_by)}` : ' date to be confirmed'}</Text>
+                </View>
+                {!p.sent_at && <Muted>Not sent to the supplier yet</Muted>}
+                {(p.items ?? []).length ? (p.items ?? []).map((it, j) => {
+                  const g = it.material_id ? rec[it.material_id] : null;
+                  return (
+                    <View key={j} style={{ flexDirection: 'row', gap: 8, paddingVertical: 3 }}>
+                      <Text style={{ flex: 1, color: base.ink }}>{it.item || 'Item'}{it.qty != null && it.qty !== '' ? <Text style={{ color: base.slate }}> × {String(it.qty)}{it.unit ? ` ${it.unit}` : ''}</Text> : null}</Text>
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: g ? (g.ok === false ? base.red : base.ok) : base.slate }}>{g ? (g.ok === false ? '⚠ Problem' : '✓ Received') : 'Not received'}</Text>
+                    </View>
+                  );
+                }) : <Muted>No lines on it yet.</Muted>}
+              </View>
+            );
+          })}
+        </Card>
+      )}
     </ScrollView>
   );
 }
