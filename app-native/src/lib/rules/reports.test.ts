@@ -73,3 +73,11 @@ test('filling-in rules', () => {
   assert.equal(itemTrafficLevel(secs, secs[0].items[1], { b__tl: 'g' })?.label, 'OK');
   assert.equal(itemTrafficLevel(secs, secs[0].items[2], { c__tl: 'g' }), null);
 });
+
+test('mediaRequiredFor: Yes / No triggers are true / false', async () => {
+  const { mediaRequiredFor } = await import('./reports.ts');
+  const it = { id: 'q', type: 'checkbox', label: 'x', mediaRequiredWhen: [false] };
+  assert.equal(mediaRequiredFor(it, { q: false }), true);
+  assert.equal(mediaRequiredFor(it, { q: true }), false);
+  assert.equal(mediaRequiredFor({ ...it, type: 'passfail', mediaRequiredWhen: ['Fail'] }, { q: 'Fail' }), true);
+});

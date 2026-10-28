@@ -5,7 +5,7 @@
 export type ReportItem = {
   id: string; type: string; label: string; scored?: boolean; pfWords?: boolean; autofill?: string;
   allowMedia?: boolean; allowNote?: boolean; showIf?: { qId?: string; mode?: string; values?: unknown[] };
-  required?: boolean; options?: string[]; asButtons?: boolean; traffic?: boolean; mediaRequiredWhen?: string[]; addedOnSite?: boolean;
+  required?: boolean; options?: string[]; asButtons?: boolean; traffic?: boolean; mediaRequiredWhen?: unknown[]; addedOnSite?: boolean;
 };
 export type TrafficLevel = { id: string; color: string; label: string };
 export type ReportSection = { id: string; title: string; items?: ReportItem[]; showUnanswered?: boolean; traffic?: { on?: boolean; levels?: TrafficLevel[] } };
@@ -128,7 +128,8 @@ export function mediaRequiredFor(it: ReportItem, answers: Answers): boolean {
   if (!itemAllowsMedia(it) || !it.mediaRequiredWhen?.length) return false;
   if (it.mediaRequiredWhen.includes('__always__')) return true;
   const v = answers[it.id];
-  return Array.isArray(v) ? v.some((x) => it.mediaRequiredWhen?.includes(String(x))) : it.mediaRequiredWhen.includes(String(v));
+  // Raw values, as the current app compares them (Yes / No questions store true / false).
+  return Array.isArray(v) ? v.some((x) => it.mediaRequiredWhen?.includes(x)) : it.mediaRequiredWhen.includes(v);
 }
 
 /** Template list plus any answers typed in on this report (kept as <id>__opts). */
