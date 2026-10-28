@@ -74,3 +74,19 @@ test('allDone and doneCount', () => {
   assert.equal(allDone([{ status: 'done' }, { status: 'todo' }]), false);
   assert.equal(doneCount([{ status: 'done' }, { status: 'todo' }]), '1/2 done');
 });
+
+test('nextVariationName', async () => {
+  const { nextVariationName } = await import('./sow.ts');
+  assert.equal(nextVariationName([]), 'Variation 1');
+  assert.equal(nextVariationName(['Roof', 'variation 2', 'Variation 7 ', 'Variation x']), 'Variation 8');
+});
+
+test('moveTask keeps done and open tasks apart', async () => {
+  const { moveTask } = await import('./sow.ts');
+  const t = (id: string, position: number, status = 'todo', section_id: string | null = null) => ({ id, position, status, section_id });
+  const all = [t('a', 0), t('b', 1, 'done'), t('c', 2), t('x', 0, 'todo', 's1')];
+  assert.deepEqual(moveTask(all, 'c', -1), { changes: [{ id: 'c', position: 0 }, { id: 'a', position: 1 }, { id: 'b', position: 2 }] });
+  assert.deepEqual(moveTask(all, 'a', -1), { message: 'Already at the top.' });
+  assert.deepEqual(moveTask(all, 'b', 1), { message: 'Already at the bottom.' });
+  assert.deepEqual(moveTask(all, 'x', 1), { message: 'Already at the bottom.' });
+});

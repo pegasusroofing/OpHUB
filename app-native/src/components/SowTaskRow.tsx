@@ -1,17 +1,19 @@
 // One Schedule of Works task: name, photos (sent and still waiting), Add photo,
 // the three status buttons, the "complete needs a photo" card and the % chooser.
-// Ported from taskRowHtml (480). Manager-only editing (rename, move, delete,
-// visibility, address/subcontractor linking) arrives with the PM screens.
+// Ported from taskRowHtml (480). Managers also get a ⋮ menu (edit, link address, move,
+// delete, select multiple) and can complete by ticking photos already on the task.
+// Still to port: visibility assigning and subcontractor assigning.
 import { useState } from 'react';
 import { Image, Linking, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { StorageImage, useStorageUrl } from '@/components/StorageImage';
-import { confirmAsk, showAlert, useToast } from '@/components/toast';
+import { chooseAction, confirmAsk, promptText, showAlert, useToast } from '@/components/toast';
 import { Button } from '@/components/ui';
 import {
   addPhotos, cancelUpload, completeWithPhotos, deletePhoto, moveToProgressAfterPhotos, setPercent, setStatus,
   type Photo, type Task,
 } from '@/data/sow';
+import { deleteTasks, moveScheduleTask, pmComplete, renameTask, setTaskAddress } from '@/data/sowManager';
 import { pickPhotos } from '@/lib/photos';
 import { photoStage, snapPct } from '@/lib/rules/sow';
 import { isManager } from '@/lib/roles';
@@ -25,9 +27,10 @@ const STATUS_COLOURS = {
   done: { bg: base.okBg, fg: base.ok },
 };
 
-export function SowTaskRow({ me, site, task, photos, pending, address, onChanged, percentPrompt, setPercentPrompt }: {
-  me: Profile; site: Site; task: Task; photos: Photo[]; pending: UploadJob[]; address?: SubAddress | null;
+export function SowTaskRow({ me, site, task, photos, pending, address, addresses = [], onChanged, percentPrompt, setPercentPrompt, selectMode, selected, onToggleSelect, onSelectMode }: {
+  me: Profile; site: Site; task: Task; photos: Photo[]; pending: UploadJob[]; address?: SubAddress | null; addresses?: SubAddress[];
   onChanged: () => void; percentPrompt: boolean; setPercentPrompt: (on: boolean) => void;
+  selectMode?: boolean; selected?: boolean; onToggleSelect?: () => void; onSelectMode?: () => void;
 }) {
   const toast = useToast();
   const [completing, setCompleting] = useState(false);
@@ -36,6 +39,58 @@ export function SowTaskRow({ me, site, task, photos, pending, address, onChanged
   const [viewing, setViewing] = useState<string | null>(null);
   const status = (task.status || 'todo') as keyof typeof STATUS_COLOURS;
   const done = status === 'done';
+  const mgr = isManager(me);
+  const [pick, setPick] = useState<Set<string> | null>(null);
+  const picked = pick ?? new Set(photos.filter((p) => p.stage === 'done').map((p) => p.id));
+
+  const menu = async () => {
+    const items = [
+      { key: 'edit', label: '✎ Edit' },
+      ...(site.multi_site ? [{ key: 'addr', label: '📍 Link Address' }] : []),
+      { key: 'up', label: '▲ Move up' }, { key: 'down', label: '▼ Move down' },
+      { key: 'del', label: '🗑 Delete', danger: true }, { key: 'multi', label: '☑ Select Multiple' },
+    ];
+    const k = await chooseAction(task.name, items);
+    if (k === 'edit') {
+      const n = await promptText('Task name', task.name);
+      if (n === null) return;
+      if (!n.trim()) { toast("Task name can't be empty."); return; }
+      if (await renameTask(task.id, n.trim())) { toast('Task updated'); onChanged(); }
+    } else if (k === 'addr') {
+      const a = await chooseAction('Link this task to an address', [{ key: '', label: 'Not on the list' }, ...addresses.map((x) => ({ key: x.id, label: x.name }))]);
+      if (a === null) return;
+      if (await setTaskAddress(task.id, a || null)) { toast(a ? 'Address linked' : 'Address unlinked'); onChanged(); }
+    } else if (k === 'up' || k === 'down') {
+      const err = await moveScheduleTask(site.id, task.id, k === 'up' ? -1 : 1);
+      if (err) toast(err);
+      onChanged();
+    } else if (k === 'del') {
+      if (!(await confirmAsk("Delete this task? This also removes its progress photos. This can't be undone.", 'Delete'))) return;
+      if (await deleteTasks(me, site.id, [task.id], task.name)) { toast('Task deleted'); onChanged(); }
+    } else if (k === 'multi') onSelectMode?.();
+  };
+  const completeNow = async () => {
+    const ids = [...picked];
+    if (!ids.length && !(await confirmAsk('Mark this task complete without any completed photos?', 'Complete'))) return;
+    setBusy(true);
+    const ok = await pmComplete(site.id, me, task.id, ids);
+    setBusy(false);
+    if (!ok) { toast('Could not mark complete — check your connection and try again.'); return; }
+    setCompleting(false); setPick(null);
+    toast(`Task marked complete${ids.length ? ` — ${ids.length} photo${ids.length === 1 ? '' : 's'} moved to Completed` : ''}`);
+    onChanged();
+  };
+
+  if (selectMode) {
+    return (
+      <Pressable onPress={onToggleSelect} style={[s.task, { flexDirection: 'row', alignItems: 'center', gap: 10, borderLeftColor: STATUS_COLOURS[status].fg }]}>
+        <View style={{ width: 20, height: 20, borderRadius: 5, borderWidth: 1.5, borderColor: base.slateLight, alignItems: 'center', justifyContent: 'center', backgroundColor: selected ? base.ink : base.card }}>
+          {selected && <Text style={{ color: '#fff', fontWeight: '800', fontSize: 12 }}>✓</Text>}
+        </View>
+        <Text style={[s.name, done && s.nameDone, { flex: 1 }]}>{task.name}{done ? '  ✓' : ''}</Text>
+      </Pressable>
+    );
+  }
 
   const take = async (source: 'camera' | 'library', mode: 'add' | 'complete') => {
     setChoose(null);
@@ -112,6 +167,7 @@ export function SowTaskRow({ me, site, task, photos, pending, address, onChanged
         {site.multi_site && (
           <Text style={[s.addrPill, !task.sub_site_id && { color: base.warn, backgroundColor: base.warnBg }]}>{address?.name || 'No address'}</Text>
         )}
+        {mgr && <Pressable onPress={menu} hitSlop={8} style={{ paddingHorizontal: 6 }}><Text style={{ fontSize: 18, color: base.slate }}>⋮</Text></Pressable>}
       </View>
 
       {(photos.length > 0 || pending.length > 0) && (
@@ -138,6 +194,26 @@ export function SowTaskRow({ me, site, task, photos, pending, address, onChanged
         <View style={s.completeCard}>
           <Text style={{ color: '#7A1F1F', marginBottom: 4 }}>Upload at least one completed photo to mark this task complete.</Text>
           {chooser('complete')}
+          {mgr && (
+            <View style={{ marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderStyle: 'dashed', borderTopColor: '#E8B4B4' }}>
+              <Text style={{ color: '#7A1F1F', fontWeight: '700', marginBottom: 6 }}>PM: or tick photos already uploaded to use as Completed photos</Text>
+              {photos.length ? (
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                  {photos.map((p) => {
+                    const on = picked.has(p.id);
+                    return (
+                      <Pressable key={p.id} onPress={() => { const n = new Set(picked); if (on) n.delete(p.id); else n.add(p.id); setPick(n); }}
+                        style={{ borderWidth: 2, borderColor: on ? base.ok : 'transparent', borderRadius: 10 }}>
+                        <StorageImage bucket="site-photos" path={p.thumb_path || p.mid_path || p.storage_path} style={{ width: 56, height: 56, borderRadius: 8 }} />
+                        {on && <Text style={{ position: 'absolute', top: 2, right: 4, color: base.ok, fontWeight: '800' }}>✓</Text>}
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              ) : <Text style={{ color: base.slate, marginBottom: 8 }}>No photos on this task yet.</Text>}
+              <Button busy={busy} title={picked.size ? `✓ Mark complete with ${picked.size} photo${picked.size === 1 ? '' : 's'}` : '✓ Mark complete (no photos)'} onPress={completeNow} />
+            </View>
+          )}
           <Pressable onPress={() => setCompleting(false)} style={{ marginTop: 8 }}><Text style={{ color: base.slate, textAlign: 'center' }}>‹ Back to In Progress</Text></Pressable>
         </View>
       ) : (

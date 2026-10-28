@@ -96,3 +96,34 @@ export function allDone(tasks: Pick<SowTask, 'status'>[]): boolean {
 export function doneCount(tasks: Pick<SowTask, 'status'>[]): string {
   return `${tasks.filter((t) => t.status === 'done').length}/${tasks.length} done`;
 }
+
+/* ---------- manager tools ---------- */
+/** "Variation 3" when sections Variation 1 and Variation 2 exist (case-insensitive, gaps ignored). */
+export function nextVariationName(sectionNames: string[]): string {
+  let max = 0;
+  sectionNames.forEach((n) => { const m = /^Variation (\d+)$/i.exec((n || '').trim()); if (m) max = Math.max(max, parseInt(m[1], 10)); });
+  return `Variation ${max + 1}`;
+}
+
+/**
+ * Move a task up (-1) or down (+1) among the tasks in the same section. Done and
+ * not-done tasks are kept apart (a move skips over the other kind). Returns the
+ * position each task should now have (only those that change), or a message.
+ */
+export function moveTask(
+  all: { id: string; section_id: string | null; status: string | null; position: number | null }[],
+  taskId: string, dir: -1 | 1,
+): { changes: { id: string; position: number }[] } | { message: string } {
+  const me = all.find((t) => t.id === taskId);
+  if (!me) return { message: 'Task not found.' };
+  const sibs = all.filter((t) => (t.section_id || null) === (me.section_id || null)).map((t, k) => ({ t, k }));
+  sibs.sort((x, y) => ((x.t.position ?? 1e9) - (y.t.position ?? 1e9)) || x.k - y.k);
+  const list = sibs.map((x) => x.t);
+  const done = (t: { status: string | null }) => t.status === 'done';
+  const i = list.indexOf(me);
+  let j = i + dir;
+  while (j >= 0 && j < list.length && done(list[j]) !== done(me)) j += dir;
+  if (j < 0 || j >= list.length) return { message: dir < 0 ? 'Already at the top.' : 'Already at the bottom.' };
+  list.splice(i, 1); list.splice(j, 0, me);
+  return { changes: list.map((t, idx) => ({ id: t.id, position: idx, old: t.position })).filter((x) => x.old !== x.position).map(({ id, position }) => ({ id, position })) };
+}
