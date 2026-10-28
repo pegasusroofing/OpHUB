@@ -83,7 +83,7 @@ export default function SiteHome() {
           {site.acting_as_main_contractor && <Tile icon="🏢" tint="#E7E9EE" title="Main Contractor" sub="Areas and subcontractors" onPress={soon('The Main Contractor area')} />}
           <Tile icon="🛡" tint="#E7E9EE" title="Health & Safety" sub={h ? `${h.pendingRams} to sign` : '…'}
             badge={mgr ? (h?.hsGap ? 1 : undefined) : h?.pendingRams || undefined} onPress={go('hs')} />
-          <Tile icon="✏️" tint="#E7EFEA" title="Drawings, Spec's & Programme" sub="View & upload" onPress={soon('Drawings')} />
+          <Tile icon="✏️" tint="#E7EFEA" title="Drawings, Spec's & Programme" sub="View & upload" onPress={go('drawings')} />
           <Tile icon="📦" tint={base.okBg} title="Materials" sub={h ? `${h.pendingMaterials} pending` : '…'} onPress={go('materials')} />
           <Tile icon="🏷" tint={base.warnBg} title={mgr ? 'Inspections & Reports' : 'Snagging & Variations'} sub={h ? `${h.openSnags} open` : '…'} badge={h?.openSnags || undefined} onPress={go('snagging')} />
           {h?.canSeePrice && <Tile icon="💷" tint="#FFF3D9" title="Price" sub="Restricted access" onPress={soon('The Price tile')} />}
