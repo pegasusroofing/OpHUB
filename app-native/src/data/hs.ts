@@ -167,10 +167,11 @@ export function useHsSummary(site: Site | undefined) {
     enabled: !!site && !!me,
     queryFn: () => cachedQuery(`hsSummary:${site?.id}:${me?.id}`, async () => {
       const s = site as Site, uid = (me as Profile).id;
-      const [rams, coshh, tbts] = await Promise.all([
+      const [rams, coshh, tbts, ppe] = await Promise.all([
         db.from('rams_docs').select('id,resign_cycle_start,uploaded_at').eq('site_id', s.id).eq('status', 'current').is('subcontractor_company_id', null),
         db.from('coshh_docs').select('id,resign_cycle_start,uploaded_at').eq('site_id', s.id).is('subcontractor_company_id', null),
         db.from('toolbox_talks').select('id').eq('site_id', s.id).eq('status', 'live').is('subcontractor_company_id', null),
+        db.from('ppe_issuances').select('id').eq('user_id', uid).eq('status', 'pending_signature'),
       ]);
       const ramsDocs = orThrow(rams) as HsDoc[], coshhDocs = orThrow(coshh) as HsDoc[];
       const pending = async (table: string, key: 'rams_id' | 'coshh_id', docs: HsDoc[]) => {
@@ -180,7 +181,7 @@ export function useHsSummary(site: Site | undefined) {
         return docs.length - new Set(valid.map((x) => x[key])).size;
       };
       const [ramsTodo, coshhTodo] = await Promise.all([pending('rams_signatures', 'rams_id', ramsDocs), pending('coshh_signatures', 'coshh_id', coshhDocs)]);
-      return { rams: ramsDocs.length, coshh: coshhDocs.length, liveTbts: (orThrow(tbts) as unknown[]).length, ramsTodo, coshhTodo };
+      return { rams: ramsDocs.length, coshh: coshhDocs.length, liveTbts: (orThrow(tbts) as unknown[]).length, ramsTodo, coshhTodo, ppeToSign: ((ppe.data as unknown[] | null) ?? []).length };
     }),
   });
 }
