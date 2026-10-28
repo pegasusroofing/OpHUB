@@ -45,6 +45,25 @@
 - The `xero` and `finance-inbox` repo copies match live.
 - When redeploying, keep each function's `verify_jwt` setting as it is live.
 
+## Native app: Phase 0 (started 28 Oct 2026)
+- **Built:** `app-native/` (Expo SDK 58, TypeScript strict). See `app-native/README.md`.
+  - Sign-in with saved login, password reset, invite join.
+  - Profile and company loading, and the device lock (checked again at every start).
+  - An empty home for each role: phone tabs, or a left menu on a wide screen.
+  - Shared services: offline cache, upload queue, signed links, push registration.
+  - `eas.json` build profiles.
+- **Tested in the laptop browser:** the sign-in page and its errors, the invite check, the reset page, and the redirect to sign-in when signed out. Signed-in screens still need a real login (Andy).
+- **Still to do in Phase 0:**
+  - Expo account and EAS login (Andy).
+  - The first preview build for Andy's phone.
+  - Firebase set-up for Android push: `google-services.json`, held as an EAS file secret, not committed.
+  - Using the existing Play Store signing key (`App Builder/ophub-release-key.jks`) through `eas credentials`.
+  - The full database types (`npx supabase login`, then `npm run gen:types`).
+- **Found while porting:**
+  - **iPhone push:** the server sends through Firebase (FCM v1). The current iOS app has no Firebase file, so iPhone pushes probably don't arrive today. The native app on iPhone will need Firebase iOS set up, or the push functions taught to use APNs/Expo.
+  - **Device lock at switch-over:** the native app gets a new device id. Each operative's first sign-in on the new app will show up as a new device to approve.
+  - **Web output:** the web build is a single-page app (`npm run build:web`). It isn't on Vercel yet.
+
 ## Andy's own to-dos
 - Press **Push origin** for the handoff pack.
 - Turn on leaked-password protection (Supabase › Authentication).

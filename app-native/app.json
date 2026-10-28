@@ -1,0 +1,66 @@
+{
+  "expo": {
+    "name": "OpHUB Site App",
+    "slug": "ophub-site-app",
+    "version": "2.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "ophub",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "bundleIdentifier": "com.ophub.app",
+      "supportsTablet": true,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "com.ophub.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#101114",
+        "foregroundImage": "./assets/images/android-icon-foreground.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#101114",
+          "imageWidth": 200
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "OpHUB uses your location when you check in and out of a site, so your PM knows you're on site."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "OpHUB lets you attach photos to Schedule of Works, snags, reports and deliveries.",
+          "cameraPermission": "OpHUB uses the camera to take site photos for Schedule of Works, snags, reports and deliveries."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#4E8FD1"
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
