@@ -16,6 +16,7 @@ export type Profile = {
   created_at: string | null;
   org_id: string | null;
   signature_path: string | null;
+  viewed_schedule_at?: string | null;
   phone: string | null;
   is_estimator: boolean;
   view_as_org_id: string | null;
@@ -69,6 +70,7 @@ export type Site = {
   price_enabled: boolean;
   client_name: string | null;
   created_at: string | null;
+  tile_visibility?: Record<string, string[]> | null;
 };
 
 export type SubAddress = {

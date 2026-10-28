@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Text } from 'react-native';
 
@@ -31,6 +32,7 @@ export default function Account() {
         <Muted>{deviceLockApplies(me) ? 'One-phone rule applies to you.' : 'One-phone rule does not apply to you.'}</Muted>
         {queued > 0 && <Muted style={{ marginTop: 6 }}>{queued} photo{queued === 1 ? '' : 's'} waiting for signal to upload.</Muted>}
       </Card>
+      <Button kind="ghost" title={me?.signature_path ? '✍ My signature' : '✍ Adopt my signature'} onPress={() => router.push('/signature')} />
       <Button kind="ghost" title="Sign out" busy={busy} onPress={async () => { setBusy(true); await signOut(); }} />
     </Screen>
   );

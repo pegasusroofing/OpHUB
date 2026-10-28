@@ -1,0 +1,129 @@
+// RAMS or COSHH list for operatives: each document with its "tap to sign" box,
+// who has/hasn't signed, and Sign All. Ported from ramsDocsHtml / renderRams (580)
+// and the COSHH copy (620). Manager tools (upload, builder, signature boxes,
+// export/email, reminders, client signing) come with the PM screens.
+// Added (question for Andy): a "View document" link on each row, so people can
+// read the document before signing — the current operative row has none.
+import { useQueryClient } from '@tanstack/react-query';
+import { router } from 'expo-router';
+import { useState } from 'react';
+import { Linking, Pressable, Text, View } from 'react-native';
+
+import { StorageImage } from '@/components/StorageImage';
+import { useToast } from '@/components/toast';
+import { Button, Card, Empty, Muted, Toggle } from '@/components/ui';
+import { docBucket, nameOf, openDocLink, signDocs, useHsDocs, usePeople, type DocKind, type HsDoc, type HsSig } from '@/data/hs';
+import { useAuth } from '@/lib/auth';
+import { resignDue, signedHeadline, signers } from '@/lib/rules/hs';
+import { isManager } from '@/lib/roles';
+import type { Site } from '@/lib/types';
+import { base, radius } from '@/theme/theme';
+
+const d = (t: string | null) => (t ? new Date(t).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '');
+
+export function HsDocList({ kind, site }: { kind: DocKind; site: Site }) {
+  const { me } = useAuth();
+  const toast = useToast();
+  const qc = useQueryClient();
+  const { data, isLoading } = useHsDocs(kind, site);
+  const { data: people } = usePeople();
+  const [busy, setBusy] = useState(false);
+  const [supOpen, setSupOpen] = useState(false);
+  if (!me) return null;
+  const manager = isManager(me);
+  if (isLoading || !data) return <Muted>Loading…</Muted>;
+
+  const sigsFor = (id: string) => data.sigs.filter((s) => (kind === 'rams' ? s.rams_id : s.coshh_id) === id);
+  const mineFor = (id: string) => sigsFor(id).find((s) => s.user_id === me.id);
+  const label = kind === 'rams' ? 'RAMS' : 'COSHH';
+  const toSign = data.docs.filter((r) => manager && kind === 'rams'
+    ? !sigsFor(r.id).some((s) => s.issued || s.user_id === me.id)
+    : !mineFor(r.id));
+  const nameById = Object.fromEntries([...data.docs, ...data.superseded].map((x) => [x.id, x.name]));
+
+  const sign = async (ids: string[]) => {
+    if (busy) return;
+    setBusy(true);
+    const r = await signDocs(kind, me, ids);
+    setBusy(false);
+    toast(r.msg);
+    if (!r.ok && r.needSignature) router.push('/signature');
+    if (r.ok) { await qc.invalidateQueries({ queryKey: ['hsDocs', kind, site.id] }); void qc.invalidateQueries({ queryKey: ['hsSummary', site.id] }); }
+  };
+  const view = async (doc: HsDoc) => {
+    const u = await openDocLink(docBucket(kind), doc.storage_path);
+    if (u) void Linking.openURL(u); else toast('Could not open the document.');
+  };
+
+  return (
+    <View>
+      {data.docs.length ? data.docs.map((r) => {
+        const sigs = sigsFor(r.id);
+        const mine = mineFor(r.id);
+        const { signed, waiting } = signers(data.roster, sigs);
+        const issued = sigs.filter((s) => s.issued);
+        const due = resignDue(r, site);
+        const canTap = !(manager && (issued.length || mine)) && !(kind === 'coshh' && manager);
+        return (
+          <Card key={r.id} style={{ padding: 12 }}>
+            <Text style={{ fontSize: 16.5, fontWeight: '800', color: base.ink }}>{r.name}</Text>
+            <Muted>
+              Uploaded by {nameOf(people, r.uploaded_by)} · {d(r.uploaded_at)}
+              {r.supersedes ? ` · Supersedes "${nameById[r.supersedes] || 'an earlier version'}"` : ''}
+              {due ? ` · Re-sign due ${due.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}` : ''}
+            </Muted>
+            <Pressable onPress={() => view(r)}><Text style={{ color: base.blue, marginTop: 4 }}>View document ↗</Text></Pressable>
+            {canTap && (
+              <Pressable disabled={!!mine || busy} onPress={() => sign([r.id])}
+                style={{ marginTop: 8, borderWidth: 1.5, borderStyle: mine ? 'solid' : 'dashed', borderColor: mine ? base.ok : base.line, backgroundColor: mine ? base.okBg : base.card, borderRadius: radius.input, padding: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                {mine ? (
+                  <>
+                    {mine.signature_image_path
+                      ? <StorageImage bucket="signatures" path={mine.signature_image_path} style={{ height: 24, width: 100, resizeMode: 'contain' }} />
+                      : <Text style={{ fontWeight: '700' }}>{me.name}</Text>}
+                    <Text style={{ color: base.ok, fontWeight: '700' }}>Signed {d(mine.signed_at)}</Text>
+                  </>
+                ) : <Text style={{ color: base.ink, fontWeight: '700' }}>✍ Tap to {kind === 'rams' && manager ? 'mark as issued' : 'sign'}</Text>}
+              </Pressable>
+            )}
+            {issued.map((s) => (
+              <Text key={s.id} style={{ marginTop: 6, color: base.ink }}><Text style={{ fontWeight: '800' }}>ISSUED BY:</Text> {nameOf(people, s.user_id)} · {d(s.signed_at)}</Text>
+            ))}
+            <SignerList headline={signedHeadline(data.roster.length, waiting.length)} signed={signed} waiting={waiting} people={people} />
+          </Card>
+        );
+      }) : <Empty>No {label} uploaded.</Empty>}
+
+      {data.docs.length > 0 && !(manager && (kind === 'coshh' || !toSign.length)) && (
+        <Button busy={busy} disabled={!toSign.length} onPress={() => sign(toSign.map((x) => x.id))}
+          title={manager
+            ? (toSign.length ? `Mark All RAMS as Issued (${toSign.length})` : 'All RAMS documents marked as issued')
+            : (toSign.length ? `Sign All ${label} Documents (${toSign.length} unsigned)` : `All ${label} documents signed`)} />
+      )}
+
+      {data.superseded.length > 0 && (
+        <>
+          <Toggle title={`Superseded Documents (${data.superseded.length})`} open={supOpen} onPress={() => setSupOpen(!supOpen)} />
+          {supOpen && data.superseded.map((r) => (
+            <Card key={r.id} style={{ padding: 12 }}>
+              <Text style={{ fontWeight: '700', color: base.ink }}>{r.name}</Text>
+              <Muted>Uploaded {r.uploaded_at ? new Date(r.uploaded_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : ''} · superseded{r.superseded_by ? ` by "${nameById[r.superseded_by] || 'a newer version'}"` : ''}</Muted>
+              <Pressable onPress={() => view(r)}><Text style={{ color: base.blue, marginTop: 4 }}>View document ↗</Text></Pressable>
+            </Card>
+          ))}
+        </>
+      )}
+    </View>
+  );
+}
+
+export function SignerList({ headline, signed, waiting, people }: { headline: string; signed: HsSig[]; waiting: string[]; people: { id: string; name: string; role: string }[] | undefined }) {
+  if (!headline && !signed.length && !waiting.length) return null;
+  return (
+    <View style={{ marginTop: 8, padding: 8, backgroundColor: base.paper, borderRadius: 10 }}>
+      {!!headline && <Text style={{ fontWeight: '700', color: headline.startsWith('✓') ? base.ok : base.ink, marginBottom: 4 }}>{headline}</Text>}
+      {signed.map((s) => <Text key={s.id} style={{ color: base.ink, fontSize: 12.5 }}><Text style={{ color: base.ok, fontWeight: '700' }}>✓</Text> {nameOf(people, s.user_id)} <Text style={{ color: base.slate }}>{d(s.signed_at)}</Text></Text>)}
+      {waiting.map((id) => <Text key={id} style={{ color: base.slate, fontSize: 12.5 }}>○ {nameOf(people, id)} not signed yet</Text>)}
+    </View>
+  );
+}
