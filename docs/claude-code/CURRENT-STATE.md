@@ -66,15 +66,24 @@
 
 ## Native app: Phase 1 (operatives and drivers), in progress
 - **Built:**
-  - Operative home, My projects and the job page.
+  - Operative home, My projects and the job page, with the Getting Started checklist.
+  - The compulsory H&S Policy gate.
   - Check In / Out, including multi-address jobs.
   - Schedule of Works with the photo upload queue.
-  - H&S: RAMS, COSHH, toolbox talks and daily briefings (read and sign), plus My signature.
-  - Messages & tasks.
-  - Snagging.
+  - H&S: RAMS, COSHH, toolbox talks and daily briefings (read and sign), the H&S Policy, PPE, HAVS, My Tools, and My signature.
+  - Messages & tasks, and the job Messages page.
+  - Snagging and variations, plus expenses.
   - Driver app: check in/out with breaks, schedule, collections, completion photos, push and re-open, vehicle checklist and time off.
-- **Rules:** 46 unit tests in `app-native/src/lib/rules` (`npm test`).
-- **Still to do in Phase 1:** HAVS, PPE, holidays (HR leave), expenses, the job Messages page, variations (operative view), and the Getting Started checklist.
+- **Rules:** 55 unit tests in  (Unknown command: "test"
+
+
+Did you mean this?
+  npm test # Test a package
+To see a list of supported npm commands, run:
+  npm help).
+- **Still to do in Phase 1:** PUWER and LOLER inspections (operative side) and My dashboard (hours, certificates).
+- **Moved to Phase 2:** holidays (HR) are managers-only in the old app.
+- **Noticed for Phase 3:** the old app forces a new company's admin through Company Setup (logo and colours) before anything else.
 - **Known gaps carried to Phase 2:**
   - signed-TBT PDF email on auto-close;
   - all PDF exports and emails;
