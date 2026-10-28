@@ -31,6 +31,9 @@ export function usePeople() {
 export const nameOf = (people: Person[] | undefined, id: string | null | undefined) =>
   (id && people?.find((p) => p.id === id)?.name) || 'Unknown';
 
+async function companyRoster(companyId: string): Promise<string[]> {
+  return (((await db.from('subcontractor_operatives').select('user_id').eq('subcontractor_company_id', companyId)).data as { user_id: string }[] | null) ?? []).map((x) => x.user_id);
+}
 async function operativeRoster(siteId: string): Promise<string[]> {
   const [a, p] = await Promise.all([
     db.from('site_assignments').select('user_id').eq('site_id', siteId),
@@ -52,22 +55,23 @@ export const DOC_LABEL: Record<DocKind, string> = { rams: 'RAMS', coshh: 'COSHH'
 /** Which document a signature belongs to. */
 export const sigDocId = (kind: DocKind, s: HsSig) => s[T[kind].key];
 
-export function useHsDocs(kind: DocKind, site: Site | undefined) {
+/** companyId: a subcontractor company's own documents, signed by its allocated operatives. */
+export function useHsDocs(kind: DocKind, site: Site | undefined, companyId: string | null = null) {
   const { me } = useAuth();
   return useQuery({
-    queryKey: ['hsDocs', kind, site?.id, me?.id],
+    queryKey: ['hsDocs', kind, site?.id, me?.id, companyId],
     enabled: !!site && !!me,
-    queryFn: () => cachedQuery(`hsDocs:${kind}:${site?.id}:${me?.id}`, async () => {
+    queryFn: () => cachedQuery(`hsDocs:${kind}:${site?.id}:${me?.id}:${companyId ?? ''}`, async () => {
       const s = site as Site, t = T[kind];
       let cur = db.from(t.docs).select('*').eq('site_id', s.id);
-      if (kind !== 'layout') cur = cur.is('subcontractor_company_id', null);
+      if (kind !== 'layout') cur = companyId ? cur.eq('subcontractor_company_id', companyId) : cur.is('subcontractor_company_id', null);
       if (kind === 'rams') cur = cur.eq('status', 'current');
       const [docsR, supR, roster] = await Promise.all([
         cur.order('uploaded_at', { ascending: false }),
-        kind === 'rams'
+        kind === 'rams' && !companyId
           ? db.from(t.docs).select('*').eq('site_id', s.id).eq('status', 'superseded').is('subcontractor_company_id', null).order('uploaded_at', { ascending: false })
           : Promise.resolve({ data: [], error: null }),
-        operativeRoster(s.id),
+        companyId ? companyRoster(companyId) : operativeRoster(s.id),
       ]);
       const docs = orThrow(docsR) as HsDoc[];
       let sigs: HsSig[] = [];

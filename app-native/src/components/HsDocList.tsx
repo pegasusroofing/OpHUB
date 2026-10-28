@@ -24,16 +24,16 @@ import { base, radius } from '@/theme/theme';
 
 const d = (t: string | null) => (t ? new Date(t).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '');
 
-export function HsDocList({ kind, site }: { kind: DocKind; site: Site }) {
+export function HsDocList({ kind, site, companyId = null, canManage }: { kind: DocKind; site: Site; companyId?: string | null; canManage?: boolean }) {
   const { me } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
-  const { data, isLoading } = useHsDocs(kind, site);
+  const { data, isLoading } = useHsDocs(kind, site, companyId);
   const { data: people } = usePeople();
   const [busy, setBusy] = useState(false);
   const [supOpen, setSupOpen] = useState(false);
   if (!me) return null;
-  const manager = isManager(me);
+  const manager = canManage ?? isManager(me);
   if (isLoading || !data) return <Muted>Loading…</Muted>;
 
   const sigsFor = (id: string) => data.sigs.filter((s) => sigDocId(kind, s) === id);

@@ -12,11 +12,11 @@ import { useAuth } from '@/lib/auth';
 import type { Site } from '@/lib/types';
 import { base, radius } from '@/theme/theme';
 
-export function HsDocUpload({ kind, site }: { kind: DocKind; site: Site }) {
+export function HsDocUpload({ kind, site, companyId = null }: { kind: DocKind; site: Site; companyId?: string | null }) {
   const { me } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
-  const { data } = useHsDocs(kind, site);
+  const { data } = useHsDocs(kind, site, companyId);
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [type, setType] = useState('RAMS');
@@ -29,7 +29,7 @@ export function HsDocUpload({ kind, site }: { kind: DocKind; site: Site }) {
 
   return (
     <View style={{ marginBottom: 12 }}>
-      {!!data?.docs.length && kind !== 'layout' && (
+      {!!data?.docs.length && kind !== 'layout' && !companyId && (
         <Button kind="ghost" title="🔔 Ask Outstanding to Sign" onPress={async () => {
           const out = outstanding(kind, data.roster, data.docs, data.sigs);
           if (!out.length) { toast(`Everyone on this site has signed all ${label} documents.`); return; }
@@ -41,7 +41,7 @@ export function HsDocUpload({ kind, site }: { kind: DocKind; site: Site }) {
       {open && (
         <Card>
           <TextInput value={name} onChangeText={setName} placeholder={`${label} name`} style={box} />
-          {kind === 'rams' && (
+          {kind === 'rams' && !companyId && (
             <>
               <Muted style={{ fontWeight: '700' }}>Document type</Muted>
               <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
@@ -63,7 +63,7 @@ export function HsDocUpload({ kind, site }: { kind: DocKind; site: Site }) {
           <Button busy={busy} title={`Upload ${label}`} onPress={async () => {
             if (!name.trim() || !file) { toast('Add a name and choose a PDF.'); return; }
             setBusy(true);
-            const err = await uploadHsDoc(me, kind, site.id, { name: name.trim(), docType: type, supersedesId: sup, file });
+            const err = await uploadHsDoc(me, kind, site.id, { name: name.trim(), docType: type, supersedesId: sup, file, companyId });
             setBusy(false);
             if (err) { toast(err); return; }
             toast(`${label} uploaded`); setName(''); setFile(null); setSup(null); refresh();

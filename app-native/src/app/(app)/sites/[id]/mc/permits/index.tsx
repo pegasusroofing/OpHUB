@@ -23,16 +23,17 @@ function Chip({ on, label, onPress }: { on: boolean; label: string; onPress: () 
 }
 
 export default function Permits() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  // ?co=<company>: one subcontractor's own permits (from their hub).
+  const { id, co: fixedCo } = useLocalSearchParams<{ id: string; co?: string }>();
   const { me } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
   const { data: site } = useSite(id);
   const [tab, setTab] = useState<'open' | 'closed'>('open');
-  const { data, isLoading } = usePermits(id, tab);
+  const { data, isLoading } = usePermits(id, tab, fixedCo ?? null);
   const [issuing, setIssuing] = useState(false);
   const [type, setType] = useState('hot_works');
-  const [co, setCo] = useState<string | null>(null);
+  const [co, setCo] = useState<string | null>(fixedCo ?? null);
   const [who, setWho] = useState<Set<string>>(new Set());
   const [q, setQ] = useState('');
   const [desc, setDesc] = useState('');
@@ -71,7 +72,7 @@ export default function Permits() {
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginVertical: 8 }}>
             {Object.keys(PERMIT_LABEL).map((k) => <Chip key={k} on={type === k} label={`${PERMIT_ICON[k]} ${PERMIT_LABEL[k]}`} onPress={() => setType(k)} />)}
           </View>
-          {!!data?.companies.length && (
+          {!!data?.companies.length && !fixedCo && (
             <>
               <Muted style={{ fontWeight: '700' }}>Contractor</Muted>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginVertical: 8 }}>
@@ -105,7 +106,7 @@ export default function Permits() {
               const ok = await issuePermit(me, site, { type, companyId: co, assignees: [...who], description: desc.trim(), date: d, location: fullSiteAddress(site) || '' });
               setBusy(false);
               if (!ok) { toast('Could not issue — try again.'); return; }
-              toast('Permit issued'); setIssuing(false); setDesc(''); setWho(new Set()); setCo(null); setQ('');
+              toast('Permit issued'); setIssuing(false); setDesc(''); setWho(new Set()); setCo(fixedCo ?? null); setQ('');
               void qc.invalidateQueries({ queryKey: ['permits', id] }); void qc.invalidateQueries({ queryKey: ['mcTiles', id] });
             }} /></View>
           </View>

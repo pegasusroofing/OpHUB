@@ -105,13 +105,13 @@ export type Permit = {
 };
 export type Signoff = { id: string; permit_id: string; user_id: string; signature_image_path: string | null; signed_at: string };
 
-export function usePermits(siteId: string | undefined, status: 'open' | 'closed') {
+export function usePermits(siteId: string | undefined, status: 'open' | 'closed', companyId: string | null = null) {
   return useQuery({
-    queryKey: ['permits', siteId, status],
+    queryKey: ['permits', siteId, status, companyId],
     enabled: !!siteId,
     queryFn: async () => {
       const [p, c] = await Promise.all([
-        db.from('permits').select('*').eq('site_id', siteId as string).eq('status', status).order('created_at', { ascending: false }),
+        (companyId ? db.from('permits').select('*').eq('site_id', siteId as string).eq('subcontractor_company_id', companyId) : db.from('permits').select('*').eq('site_id', siteId as string)).eq('status', status).order('created_at', { ascending: false }),
         db.from('subcontractor_companies').select('id,name').eq('site_id', siteId as string),
       ]);
       return { permits: orThrow(p) as Permit[], companies: (c.data as { id: string; name: string }[] | null) ?? [] };
