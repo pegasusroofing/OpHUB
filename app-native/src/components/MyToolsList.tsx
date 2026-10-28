@@ -12,11 +12,11 @@ import { useAuth } from '@/lib/auth';
 import { pickPhotos, type Picked } from '@/lib/photos';
 import { base } from '@/theme/theme';
 
-export function MyToolsList() {
+export function MyToolsList({ userId, name: who }: { userId?: string; name?: string } = {}) {
   const { me } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
-  const { data: tools, isLoading } = useMyTools();
+  const { data: tools, isLoading } = useMyTools(userId);
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState('');
   const [serial, setSerial] = useState('');
@@ -28,7 +28,7 @@ export function MyToolsList() {
 
   return (
     <View>
-      <Muted style={{ marginBottom: 14 }}>Your own power tools — name, serial/item number, and a photo. Used to auto-populate PUWER Tool Inspections.</Muted>
+      <Muted style={{ marginBottom: 14 }}>{who ? `${who}'s own logged power tools` : 'Your own power tools'} — name, serial/item number, and a photo. Used to auto-populate PUWER Tool Inspections.</Muted>
       {isLoading ? <Muted>Loading…</Muted> : tools?.length ? tools.map((t) => (
         <Card key={t.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           {t.photo_path ? <StorageImage bucket="operative-tools" path={t.photo_path} style={{ width: 48, height: 48, borderRadius: 8 }} />
@@ -39,7 +39,7 @@ export function MyToolsList() {
           </View>
           <Pressable onPress={async () => {
             const p = await take(); if (!p) return;
-            setBusy(t.id); const ok = await setToolPhoto(me, t.id, p); setBusy(null);
+            setBusy(t.id); const ok = await setToolPhoto(me, t.id, p, userId); setBusy(null);
             toast(ok ? 'Photo updated' : 'Photo upload failed'); refresh();
           }}><Text style={{ color: base.slate, textDecorationLine: 'underline' }}>{busy === t.id ? 'Uploading…' : t.photo_path ? 'Change photo' : 'Add photo'}</Text></Pressable>
           <Pressable hitSlop={6} onPress={async () => {
@@ -57,7 +57,7 @@ export function MyToolsList() {
           <Button kind="ghost" title={photo ? 'Retake photo' : 'Take photo'} onPress={async () => { const p = await take(); if (p) setPhoto(p); }} />
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <View style={{ flex: 1 }}><Button busy={busy === 'new'} title="Save Tool" onPress={async () => {
-              setBusy('new'); const err = await addTool(me, name.trim(), serial.trim(), photo); setBusy(null);
+              setBusy('new'); const err = await addTool(me, name.trim(), serial.trim(), photo, userId); setBusy(null);
               if (err) { toast(err); return; }
               toast('Tool added'); setAdding(false); setName(''); setSerial(''); setPhoto(null); refresh();
             }} /></View>
