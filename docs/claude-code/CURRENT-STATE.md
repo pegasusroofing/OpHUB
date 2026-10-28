@@ -74,13 +74,7 @@
   - Messages & tasks, and the job Messages page.
   - Snagging and variations, plus expenses.
   - Driver app: check in/out with breaks, schedule, collections, completion photos, push and re-open, vehicle checklist and time off.
-- **Rules:** 55 unit tests in  (Unknown command: "test"
-
-
-Did you mean this?
-  npm test # Test a package
-To see a list of supported npm commands, run:
-  npm help).
+- **Rules:** 55 unit tests in `app-native/src/lib/rules` (`npm test`).
 - **Still to do in Phase 1:** PUWER and LOLER inspections (operative side) and My dashboard (hours, certificates).
 - **Moved to Phase 2:** holidays (HR) are managers-only in the old app.
 - **Noticed for Phase 3:** the old app forces a new company's admin through Company Setup (logo and colours) before anything else.
