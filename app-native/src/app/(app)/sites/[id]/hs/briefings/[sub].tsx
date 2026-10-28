@@ -6,6 +6,7 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { ReportAnswers } from '@/components/ReportAnswers';
+import { ReportPdfActions } from '@/components/ReportPdfActions';
 import { StorageImage } from '@/components/StorageImage';
 import { confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Muted, SectionTitle } from '@/components/ui';
@@ -64,7 +65,7 @@ export default function BriefingView() {
         ))}
       </Card>
       {mgr && !sigs.length && <Button kind="ghost" title="Edit Briefing" onPress={() => router.push(`/sites/${id}/hs/briefings/fill/${sub.id}` as never)} />}
-      <Muted>Export PDF and email of briefings are still in the current app for now.</Muted>
+      {mgr && <ReportPdfActions sub={sub as never} fromBriefing />}
     </ScrollView>
   );
 }

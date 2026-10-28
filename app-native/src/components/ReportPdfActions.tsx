@@ -9,8 +9,10 @@ import { Button } from '@/components/ui';
 import { nameOf, usePeople } from '@/data/hs';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
-import { deliverPdf, emailPdf } from '@/lib/pdf';
+import { deliverPdf, emailPdf, PDFDocument } from '@/lib/pdf';
 import { buildReportPdf, type PdfSub } from '@/lib/reportPdf';
+import { drawSignatureTable } from '@/lib/signedPdf';
+import { supabase } from '@/lib/supabase';
 
 export function ReportPdfActions({ sub, fromBriefing }: { sub: PdfSub; fromBriefing?: boolean }) {
   const { me, org } = useAuth();
@@ -24,6 +26,18 @@ export function ReportPdfActions({ sub, fromBriefing }: { sub: PdfSub; fromBrief
     toast('Building PDF…');
     const b = await buildReportPdf(sub, site, org, (u) => nameOf(people, u), { fromBriefing, onProgress: toast }).catch(() => null);
     if (!b || !b.bytes.length) { toast('Could not build the PDF.'); return null; }
+    // A daily briefing goes out with its signature table (700 buildBriefingPdfWithSignatures).
+    if (fromBriefing) {
+      const sigs = ((await supabase.from('daily_briefing_signatures').select('user_id,signed_at,signature_image_path').eq('submission_id', sub.id).order('signed_at')).data ?? []) as { user_id: string; signed_at: string; signature_image_path: string | null }[];
+      if (sigs.length) {
+        const doc = await PDFDocument.load(b.bytes);
+        await drawSignatureTable(doc, {
+          title: sub.template_name, disclaimer: `I confirm I have read and understood the contents of this briefing (${sub.template_name}).`,
+          signers: sigs.map((s) => ({ name: nameOf(people, s.user_id), plainName: '', dateText: '', imagePath: s.signature_image_path, when: new Date(s.signed_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) })),
+        });
+        b.bytes = await doc.save();
+      }
+    }
     if (b.failures) toast(`${b.failures} photo${b.failures > 1 ? 's' : ''} could not be included in the PDF — check your connection and re-export if needed.`);
     return b;
   };
