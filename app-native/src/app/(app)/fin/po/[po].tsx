@@ -10,9 +10,12 @@ import { ScrollView, Text, TextInput, View } from 'react-native';
 import { FinRow, FinStat } from '@/components/FinNav';
 import { confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Muted, SectionTitle } from '@/components/ui';
+import { fdb, loadSettings } from '@/data/finance';
 import { loadPo, savePoValue, setPoStatus } from '@/data/finPurchase';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
+import { buildPoPdf } from '@/lib/finPoPdf';
+import { deliverPdf } from '@/lib/pdf';
 import { COST_CATS, PI_STATUS, poInvoiced } from '@/lib/rules/finBook';
 import { fdate, jobTag, money, num } from '@/lib/rules/finance';
 import { base, radius, space } from '@/theme/theme';
@@ -21,7 +24,7 @@ type Row = Record<string, any>;
 
 export default function FinPo() {
   const { po: poId, site } = useLocalSearchParams<{ po: string; site?: string }>();
-  const { me } = useAuth();
+  const { me, org } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
   const { data: sites = [] } = useSites();
@@ -78,7 +81,14 @@ export default function FinPo() {
         {po.status === 'open' && <Button kind="ghost" title="Cancel PO" onPress={async () => { if (await confirmAsk('Cancel this purchase order?', 'Cancel PO')) { if (await setPoStatus(po.id, 'cancelled')) { toast('PO cancelled'); refresh(); } } }} />}
         {po.status !== 'open' && <Button kind="ghost" title="Reopen PO" onPress={async () => { if (await setPoStatus(po.id, 'open')) { toast('PO reopened'); refresh(); } }} />}
       </View>
-      <Muted style={{ marginTop: 8 }}>The PO PDF, emailing it to the supplier and pricing from a quote file are still in the current app.</Muted>
+      <Button kind="ghost" title="📄 Download the PO PDF" onPress={async () => {
+        try {
+          const sup = po.supplier_id ? ((await fdb.from('suppliers').select('id,name,email').eq('id', po.supplier_id).maybeSingle()).data as Row | null) : null;
+          const bytes = await buildPoPdf(po, sites.find((s) => s.id === po.site_id) as Row | undefined, await loadSettings(me.org_id), sup, org);
+          if (!(await deliverPdf(bytes, `PO ${String(po.number).replace(/[^a-z0-9-]+/gi, '_')}.pdf`))) toast('Could not make the PDF — try again.');
+        } catch { toast('Could not build the PO PDF.'); }
+      }} />
+      <Muted style={{ marginTop: 8 }}>Emailing the PO to the supplier is off during the Finance trial. Pricing from a quote file is still in the current app.</Muted>
     </ScrollView>
   );
 }
