@@ -25,7 +25,7 @@ import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { forecast, pctTxt } from '@/lib/rules/finBook';
 import { heading } from '@/lib/fonts';
-import { FIN_VAT_LABEL, fdate, invOutstandingNet, invOverdue, money, num, retentionAlerts, retentionDates, retHalf, type FinInv } from '@/lib/rules/finance';
+import { FIN_VAT_LABEL, fdate, invOutstandingNet, invOverdue, money, num, retentionAlerts, retentionDates, retentionHeld, retHalfAmt, type FinApp, type FinInv } from '@/lib/rules/finance';
 import { isFinanceOnlyOrg, isFinanceUser, isFullManager } from '@/lib/roles';
 import { base, page, space, useTheme } from '@/theme/theme';
 
@@ -79,7 +79,7 @@ export default function FinJob() {
           </Pressable>
         ))}
       </ScrollView>
-      {isLoading || !fc || !data ? <Muted>Loading…</Muted> : tab === 'overview' ? <Overview id={id} fc={fc} settings={data.settings} invs={data.book.invs.filter((i) => i.site_id === id)} />
+      {isLoading || !fc || !data ? <Muted>Loading…</Muted> : tab === 'overview' ? <Overview id={id} fc={fc} settings={data.settings} invs={data.book.invs.filter((i) => i.site_id === id)} apps={data.book.apps.filter((a) => a.site_id === id)} />
         : tab === 'sales' ? <>{subTabs('sales', [['invoices', 'Invoices'], ['apps', 'Applications & Certificates'], ['retention', 'Retention']])}<SalesLists key={sub.sales} tab={sub.sales as 'invoices'} siteId={id} /></>
         : tab === 'purchases' ? <>{subTabs('purchases', [['orders', 'Purchase orders'], ['invoices', 'Purchase invoices'], ['plant', 'Plant hire']])}<PurchasesLists key={sub.purchases} tab={sub.purchases as 'orders'} siteId={id} /></>
         : tab === 'subs' ? <>{subTabs('subs', [['orders', 'Subcontractor POs'], ['apps', 'Applications'], ['opinv', 'Operative invoices']])}<SubsLists key={sub.subs} tab={sub.subs as 'orders'} siteId={id} /></>
@@ -88,7 +88,9 @@ export default function FinJob() {
   );
 }
 
-function Overview({ id, fc, settings, invs }: { id: string; fc: ReturnType<typeof forecast>; settings: Row; invs: FinInv[] }) {
+function Overview({ id, fc, settings, invs, apps }: { id: string; fc: ReturnType<typeof forecast>; settings: Row; invs: FinInv[]; apps: FinApp[] }) {
+  // Each half is worked out from what the latest certificate holds (903), not what's still held.
+  const heldCert = retentionHeld(apps);
   const d = retentionDates(fc.jf, settings), alerts = retentionAlerts(fc.jf, settings, fc.retHeld);
   const { me } = useAuth();
   const { data: site } = useSite(id);
@@ -173,8 +175,8 @@ function Overview({ id, fc, settings, invs }: { id: string; fc: ReturnType<typeo
           <Card>
             {alerts.map((a) => <Text key={a.half} style={{ color: '#D98A00', fontWeight: '700' }}>{a.half === 1 ? 'First' : 'Second'} half due {fdate(a.date)}</Text>)}
             <FinRow title="Held to date" right={money(fc.retHeld)} />
-            <FinRow title="First half — at practical completion" sub={`${d.first ? fdate(d.first) : 'Set the practical completion date in Set-up'}${fc.jf.ret1_invoice_id ? ' · invoiced' : ''}`} right={money(retHalf(fc.retHeld, 1))} onPress={() => void retInv(1)} />
-            <FinRow title="Second half — end of defects period" sub={`${d.second ? fdate(d.second) : '—'}${fc.jf.ret2_invoice_id ? ' · invoiced' : ''}`} right={money(retHalf(fc.retHeld, 2))} onPress={() => void retInv(2)} />
+            <FinRow title="First half — at practical completion" sub={`${d.first ? fdate(d.first) : 'Set the practical completion date in Set-up'}${fc.jf.ret1_invoice_id ? ' · invoiced' : ''}`} right={money(retHalfAmt(heldCert, 1, fc.jf, invs, apps))} onPress={() => void retInv(1)} />
+            <FinRow title="Second half — end of defects period" sub={`${d.second ? fdate(d.second) : '—'}${fc.jf.ret2_invoice_id ? ' · invoiced' : ''}`} right={money(retHalfAmt(heldCert, 2, fc.jf, invs, apps))} onPress={() => void retInv(2)} />
             <Muted>Tap a half to release it: Apply puts it through your next application (the client certifies it), or Raise invoice bills it straight away.</Muted>
           </Card>
         </>

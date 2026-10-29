@@ -83,6 +83,18 @@ export function retentionDates(jf: JobFin | null | undefined, st: Partial<FinSet
   return { first: jf.pc_date, second: jf.final_release_date || addMonths(jf.pc_date, months), months };
 }
 export const retHalf = (held: number, n: 1 | 2) => { const a = round2(held / 2); return n === 1 ? a : round2(held - a); };
+/** What each half is (903 finRetHalfAmt): a half already invoiced is what that invoice says; the second half is
+ *  what's held less the first-half invoice (only the part a later certificate hasn't already taken off).
+ *  `held` is the retention held on the latest certificate (retentionHeld), not what's still held. */
+export function retHalfAmt(held: number, n: 1 | 2, jf: JobFin | null | undefined, invs: FinInv[], apps?: FinApp[]): number {
+  const net = (id: string | null | undefined) => { const i = id ? invs.find((x) => x.id === id) : null; return i && i.status !== 'void' ? round2(Number(i.net || 0)) : null; };
+  const r1 = net(jf?.ret1_invoice_id);
+  if (n === 1) return r1 != null ? r1 : retHalf(held, 1);
+  const r2 = net(jf?.ret2_invoice_id);
+  if (r2 != null) return r2;
+  const r1Counts = apps ? retentionReleased({ ret1_invoice_id: jf?.ret1_invoice_id } as JobFin, invs, apps) : r1;
+  return r1 != null ? round2(Math.max(0, held - (r1Counts || 0))) : retHalf(held, 2);
+}
 /** Halves due within 30 days (or past) and not yet invoiced or applied for. */
 export function retentionAlerts(jf: JobFin | null | undefined, st: Partial<FinSettings>, held: number, now = today()) {
   if (!held || !jf) return [];
