@@ -6,7 +6,7 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { ScrollView } from 'react-native';
 
 import { chooseAction, useToast } from '@/components/toast';
-import { Muted, Tile } from '@/components/ui';
+import { JobGrid, Muted, Tile } from '@/components/ui';
 import { setMcTileHidden, useMcTiles } from '@/data/mc';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
@@ -26,7 +26,7 @@ export default function McHome() {
   const { data: site } = useSite(id);
   const { data } = useMcTiles(site, me?.org_id);
   if (!me || !site) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
-  if (!site.acting_as_main_contractor) return <Muted style={{ padding: space.l }}>This job isn't set up as a Main Contractor job.</Muted>;
+  if (!site.acting_as_main_contractor) return <Muted style={{ padding: space.l }}>This job isn&apos;t set up as a Main Contractor job.</Muted>;
   const mgr = isManager(me);
   const hidden = site.mc_hidden_tiles ?? [];
   const tiles = (data?.tiles ?? []).filter((t) => mgr || !hidden.includes(t.key));
@@ -41,7 +41,7 @@ export default function McHome() {
   return (
     <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'Main Contractor' }} />
-      {!data ? <Muted>Loading…</Muted> : tiles.map((t) => (
+      {!data ? <Muted>Loading…</Muted> : <JobGrid>{tiles.map((t) => (
         <Tile key={t.key} icon={t.icon} tint="#E7E9EE" title={t.title} sub={`${t.sub}${mgr && hidden.includes(t.key) ? ' · hidden from operatives' : ''}`}
           onPress={async () => {
             if (!mgr) { open(t.key); return; }
@@ -52,7 +52,7 @@ export default function McHome() {
               if (await setMcTileHidden(id, hidden, t.key, hide)) { toast(hide ? 'Hidden from operatives' : 'Now visible to everyone'); void qc.invalidateQueries({ queryKey: ['sites'] }); }
             }
           }} />
-      ))}
+      ))}</JobGrid>}
     </ScrollView>
   );
 }

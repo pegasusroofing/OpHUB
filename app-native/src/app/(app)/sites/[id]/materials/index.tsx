@@ -9,7 +9,7 @@ import { Linking, Pressable, RefreshControl, ScrollView, Text, View } from 'reac
 
 import { GrnForm } from '@/components/Grn';
 import { useToast } from '@/components/toast';
-import { Button, Card, Empty, Muted, SectionTitle, Tile } from '@/components/ui';
+import { Button, Card, Empty, JobGrid, Muted, SectionTitle, Tile } from '@/components/ui';
 import { collectPickups, useCollectionsOpenCount, useMaterialRequests, useOfficeOrders, useOpMaterials } from '@/data/materials';
 import { useSite } from '@/data/sites';
 import { tileRoles, tileVisMenu } from '@/data/tileVis';
@@ -45,10 +45,12 @@ function ManagerTiles({ siteId, vis, role, me, site }: { siteId: string; vis: Pa
   const sub = [pending?.length ? `${pending.length} to action` : '', collectN ? `${collectN} to collect` : ''].filter(Boolean).join(' · ') || 'Requests from operatives';
   return (
     <ScrollView contentContainerStyle={page(720)}>
+      <JobGrid>
       <Tile icon="🙋" tint="#F1E4FA" title="Material Requests" sub={sub} badge={pending?.length || undefined} onPress={go('materials/requests')} />
       <Tile icon="📄" tint="#FBEFE0" title="Material PO's" sub="Order files for this job" onPress={go('materials/pos')} />
       {canSeeMatTile(vis, 'plant', role) && <Tile icon="🏗" tint="#EAF3EC" title="Plant" sub="Check in / out" onPress={go('plant')} {...visProps('plant', 'Plant')} />}
       {canSeeMatTile(vis, 'expenses', role) && <Tile icon="🧾" tint="#FDF1DE" title="Expenses" sub="Send receipts" onPress={go('expenses')} {...visProps('expenses', 'Expenses')} />}
+      </JobGrid>
       {!!office?.length && (
         <Card style={{ marginTop: space.m }}>
           <SectionTitle>Ordered By The Office</SectionTitle>

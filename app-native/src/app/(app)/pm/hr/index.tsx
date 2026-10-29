@@ -3,7 +3,7 @@
 import { router, Stack } from 'expo-router';
 import { ScrollView } from 'react-native';
 
-import { Muted, Tile } from '@/components/ui';
+import { JobGrid, Muted, Tile } from '@/components/ui';
 import { HowTo } from '@/components/HowTo';
 import { hrAllowance, useHr, usePolicies } from '@/data/hr';
 import { useAuth } from '@/lib/auth';
@@ -26,8 +26,10 @@ export default function HrHub() {
     <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'HR' }} />
       <HowTo k="hr" />
+      <JobGrid>
       <Tile icon="📅" tint={base.okBg} title="Holiday calendar" sub={left == null ? '…' : `${left} day${left === 1 ? '' : 's'} left this year${me.role === 'admin' && pending ? ` · ${pending} to approve` : ''}`} badge={me.role === 'admin' ? pending || undefined : undefined} onPress={() => router.push('/pm/hr/holidays' as never)} />
       <Tile icon="📘" tint={base.blueBg} title="Company policies & handbook" sub={pol ? (toSign ? `${toSign} to read and sign` : 'All signed') : '…'} badge={toSign || undefined} onPress={() => router.push('/pm/hr/policies' as never)} />
+      </JobGrid>
     </ScrollView>
   );
 }

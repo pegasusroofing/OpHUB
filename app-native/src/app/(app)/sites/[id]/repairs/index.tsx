@@ -10,7 +10,7 @@ import { useState } from 'react';
 import { ScrollView, Text, TextInput, View } from 'react-native';
 
 import { useToast } from '@/components/toast';
-import { Button, Card, Check, Muted, SectionTitle, Tile } from '@/components/ui';
+import { Button, Card, Check, JobGrid, Muted, SectionTitle, Tile } from '@/components/ui';
 import { addRepairJob, setRepairHiddenTiles, uploadWorkOrder, useRepairHiddenTiles, useRepairJobs } from '@/data/repairs';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
@@ -77,15 +77,13 @@ export default function RepairsHub() {
           </View>
         </Card>
       ) : <Button title="+ Add Job" onPress={() => setAdding(true)} />)}
-      {tiles.map((k) => {
+      <JobGrid>{tiles.map((k) => {
         const def = REPAIR_CATEGORIES[k];
         const off = mgr && hidden.includes(k);
         return (
-          <View key={k} style={{ opacity: off ? 0.55 : 1 }}>
-            <Tile icon={def.icon} tint={base.paper} title={`${def.label}${off ? ' 🚫' : ''}`} sub={String(jobs.filter(def.match).length)} onPress={() => router.push(`/sites/${site.id}/repairs/list/${k}` as never)} />
-          </View>
+          <Tile key={k} dim={off} icon={def.icon} tint={base.paper} title={`${def.label}${off ? ' 🚫' : ''}`} sub={String(jobs.filter(def.match).length)} onPress={() => router.push(`/sites/${site.id}/repairs/list/${k}` as never)} />
         );
-      })}
+      })}</JobGrid>
       {mgr && (
         <>
           <Button kind="ghost" title={`View All Jobs (${jobs.length})`} onPress={() => router.push(`/sites/${site.id}/repairs/list/all` as never)} />

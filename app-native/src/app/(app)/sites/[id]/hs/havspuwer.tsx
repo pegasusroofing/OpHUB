@@ -7,7 +7,7 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { ScrollView } from 'react-native';
 
 import { useToast } from '@/components/toast';
-import { Muted, Tile } from '@/components/ui';
+import { JobGrid, Muted, Tile } from '@/components/ui';
 import { useMyTools } from '@/data/myTools';
 import { useSite } from '@/data/sites';
 import { tileRoles, tileVisMenu } from '@/data/tileVis';
@@ -29,6 +29,7 @@ export default function HavsPuwer() {
   return (
     <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'Tools, HAVS & PUWER' }} />
+      <JobGrid>
       {!isManager(me) && (
         <Tile icon="🔧" tint="#E8F0FE" title="My Tools" sub={n ? `${n} tool${n === 1 ? '' : 's'}` : 'Add your tools'} badge={n ? undefined : 1}
           onPress={() => router.push(`/sites/${site.id}/hs/mytools`)} />
@@ -40,6 +41,7 @@ export default function HavsPuwer() {
       {canSeeTile(site, 'hs_loler', me.role, ['site_manager']) && (
         <Tile icon="⛓" tint="#F3EAFB" title="LOLER Inspection" sub="Lifting equipment" onPress={() => router.push(`/sites/${site.id}/hs/loler` as never)} {...visProps('hs_loler', 'LOLER Inspection')} />
       )}
+      </JobGrid>
     </ScrollView>
   );
 }

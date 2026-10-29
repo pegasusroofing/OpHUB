@@ -1,7 +1,7 @@
 // Basic building blocks matching the current app's look (src/css/app.css): cards
 // with a soft shadow, small uppercase Sora section titles, outlined uppercase
 // buttons, home tiles as a grid of boxes (TileGrid) with line icons in tinted squares.
-import { createContext, useContext, type ReactNode } from 'react';
+import { Children, createContext, useContext, type ReactNode } from 'react';
 import {
   ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
   type TextInputProps, type ViewStyle,
@@ -11,7 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { OphIcon } from '@/components/OphIcon';
 import { heading } from '@/lib/fonts';
 
-import { base, isDesk, radius, space, useTheme } from '@/theme/theme';
+import { base, isDesk, radius, space, useDesk, useTheme } from '@/theme/theme';
 
 export function Screen({ children, center }: { children: ReactNode; center?: boolean }) {
   return (
@@ -175,6 +175,20 @@ const GridCtx = createContext<number>(0);
 export function TileGrid({ children, cols = 2 }: { children: ReactNode; cols?: number }) {
   return <GridCtx.Provider value={cols}><View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -5 }}>{children}</View></GridCtx.Provider>;
 }
+/** A job's tile pages (.tilegrid on Health & Safety, Materials, Snagging…): centred icon and
+ *  label, 2 across on a phone and 4 on a computer; an odd last tile fills its row. */
+export function JobGrid({ children }: { children: ReactNode }) {
+  const desk = useDesk();
+  const items = Children.toArray(children).filter(Boolean);
+  const cols = desk ? 4 : 2;
+  return (
+    <GridCtx.Provider value={-1}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -5 }}>
+        {items.map((c, i) => <View key={i} style={{ width: items.length % 2 === 1 && i === items.length - 1 ? '100%' : `${100 / cols}%`, padding: 5 }}>{c}</View>)}
+      </View>
+    </GridCtx.Provider>
+  );
+}
 // The tint behind a line icon, and the icon colour that goes with it (.pmtint-*).
 export const TINTS = {
   blue: ['#EEF3FD', '#2457C5'], orange: ['#FDF1E6', '#B35A00'], green: ['#EAF6EF', '#17804A'], purple: ['#F3EEFA', '#6B3FA8'], grey: ['#F1F2F4', '#1E2124'], teal: ['#E7F5F5', '#0E7F7C'], red: ['#FDECEA', '#C8102E'],
@@ -183,6 +197,23 @@ export const TINTS = {
 // Home tile: coloured icon square (a line icon via ic, else the emoji) + title + subtitle.
 export function Tile({ icon, ic, tint, fg, title, sub, onPress, badge, onMenu, dim }: { icon?: string; ic?: string; tint: string; fg?: string; title: string; sub: string; onPress: () => void; badge?: number; onMenu?: () => void; dim?: boolean }) {
   const cols = useContext(GridCtx);
+  if (cols === -1) return (
+    <Pressable onPress={onPress} accessibilityRole="button"
+      style={({ pressed }) => [s.jbox, pressed && { opacity: 0.7 }]}>
+      <View style={[{ width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: tint }, dim && { opacity: 0.45 }]}>
+        {ic ? <OphIcon name={ic} size={20} color={fg || base.ink} /> : <Text style={{ fontSize: 18 }}>{icon}</Text>}
+      </View>
+      <Text numberOfLines={2} style={[heading(700), { fontSize: 13.2, color: base.ink, textAlign: 'center' }, dim && { opacity: 0.45 }]}>{title}</Text>
+      {!!sub && <Text numberOfLines={1} style={[{ fontSize: 11.1, color: base.slateLight, textAlign: 'center' }, dim && { opacity: 0.45 }]}>{sub}</Text>}
+      {!!badge && <Text style={[s.badge, { top: 8, right: onMenu ? 34 : 8 }]}>{badge}</Text>}
+      {onMenu && (
+        <Pressable onPress={onMenu} hitSlop={8} accessibilityLabel={`Who sees ${title}`}
+          style={{ position: 'absolute', top: 7, right: 7, width: 20, height: 20, borderRadius: 5, borderWidth: 1, borderColor: base.line, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ fontSize: 8, color: base.slate }}>▾</Text>
+        </Pressable>
+      )}
+    </Pressable>
+  );
   if (cols) return (
     <View style={{ width: `${100 / cols}%`, padding: 5 }}>
       <Pressable onPress={onPress} style={({ pressed }) => [s.tbox, dim && { backgroundColor: '#F3F3F1' }, pressed && { opacity: 0.7 }]} accessibilityRole="button">
@@ -232,6 +263,7 @@ const s = StyleSheet.create({
   statL: { fontSize: 10.5, color: base.slate, fontWeight: '600' },
   tile: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.tile, padding: 14, marginBottom: space.s, ...shadow },
   tileIc: { width: 42, height: 42, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+  jbox: { backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 18, height: 106, alignItems: 'center', justifyContent: 'center', gap: 6.6, paddingHorizontal: 10, ...shadow },
   tbox: { backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 18, padding: 13.5, height: 112, justifyContent: 'space-between', ...shadow },
   boxIc: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   boxT: { fontSize: 13, fontWeight: '800', color: base.ink },

@@ -7,7 +7,7 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { ScrollView } from 'react-native';
 
 import { useToast } from '@/components/toast';
-import { Muted, Tile } from '@/components/ui';
+import { JobGrid, Muted, Tile } from '@/components/ui';
 import { HowTo } from '@/components/HowTo';
 import { useHsSummary } from '@/data/hs';
 import { useSite } from '@/data/sites';
@@ -42,12 +42,12 @@ export default function HealthSafety() {
     <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'Health & Safety' }} />
       <HowTo k="hs" />
-      {visible.length ? visible.map((t) => (
+      {visible.length ? <JobGrid>{visible.map((t) => (
         <Tile key={t.key} icon={t.icon} tint={t.tint} title={t.title} sub={t.sub} badge={t.badge || undefined}
           dim={isFullManager(me) && !tileRoles(site, t.key).includes('operative')}
           onMenu={isFullManager(me) ? async () => { const m = await tileVisMenu(me, site, t.key, t.title); if (m) { toast(m); void qc.invalidateQueries({ queryKey: ['sites'] }); } } : undefined}
           onPress={() => (t.go ? router.push(t.go.startsWith('/') ? (t.go as never) : t.go.startsWith('../') ? `/sites/${site.id}/${t.go.slice(3)}` : `/sites/${site.id}/hs/${t.go}`) : toast('This part is still being built in the new app.'))} />
-      )) : <Muted>Nothing here for you on this job.</Muted>}
+      ))}</JobGrid> : <Muted>Nothing here for you on this job.</Muted>}
     </ScrollView>
   );
 }
