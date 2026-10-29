@@ -82,7 +82,7 @@ export function HsDocUpload({ kind, site, companyId = null }: { kind: DocKind; s
             toast(`${label} uploaded`); setName(''); setFile(null); setSup(null); setTpl(null); refresh();
             if (kind === 'rams') setOpen(false);
           }} />
-          {kind === 'rams' && <Muted style={{ marginTop: 6 }}>Signature boxes can be set on any uploaded RAMS from its ⋯ menu (on the office laptop). Sending a RAMS to the client to sign is still in the current app for now.</Muted>}
+          {kind === 'rams' && <Muted style={{ marginTop: 6 }}>Signature boxes can be set on any uploaded RAMS from its ⋯ menu (on the office laptop). Send a RAMS to the client to sign from the line under it.</Muted>}
         </Card>
       )}
     </View>

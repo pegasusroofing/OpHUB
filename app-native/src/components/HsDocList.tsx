@@ -11,6 +11,7 @@ import { supabase } from '@/lib/supabase';
 import { useState } from 'react';
 import { Linking, Pressable, Text, View } from 'react-native';
 
+import { ClientSignLines } from '@/components/ClientSignLines';
 import { StorageImage } from '@/components/StorageImage';
 import * as DocumentPicker from 'expo-document-picker';
 
@@ -130,6 +131,7 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
               <Text key={s.id} style={{ marginTop: 6, color: base.ink }}><Text style={{ fontWeight: '800' }}>ISSUED BY:</Text> {nameOf(people, s.user_id)} · {d(s.signed_at)}</Text>
             ))}
             <SignerList headline={signedHeadline(data.roster.length, waiting.length)} signed={signed} waiting={waiting} people={people} />
+            {kind === 'rams' && manager && !companyId && <ClientSignLines ramsId={r.id} site={site} />}
           </Card>
         );
       }) : <Empty>No {label} uploaded.</Empty>}
