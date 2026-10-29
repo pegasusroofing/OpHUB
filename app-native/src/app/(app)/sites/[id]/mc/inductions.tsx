@@ -8,12 +8,14 @@ import { useState } from 'react';
 import { Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { StorageImage } from '@/components/StorageImage';
-import { chooseAction, confirmAsk, useToast } from '@/components/toast';
+import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle, Toggle } from '@/components/ui';
 import { nameOf, openDocLink, usePeople } from '@/data/hs';
 import { deleteCompletion, HEALTH_ITEMS, inductionItems, setInductionQuestions, submitInduction, useInductions } from '@/data/inductions';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
+import { deliverPdf, emailPdf, exportFilename, fetchBytes, PDFDocument } from '@/lib/pdf';
+import { publicUrl } from '@/lib/privateFiles';
 import { isManager } from '@/lib/roles';
 import { base, radius, space } from '@/theme/theme';
 
@@ -63,7 +65,7 @@ export default function Inductions() {
             <Toggle title="Induction Form" open={qOpen} onPress={() => setQOpen(!qOpen)} />
             {qOpen && (
               <Card>
-                <Muted style={{ marginBottom: 8 }}>Every operative ticks each of these before signing. Add a question below and it applies to every site's induction form for your organisation straight away.</Muted>
+                <Muted style={{ marginBottom: 8 }}>Every operative ticks each of these before signing. Add a question below and it applies to every site&apos;s induction form for your organisation straight away.</Muted>
                 {items.map((q, i) => (
                   <View key={i} style={{ flexDirection: 'row', gap: 8, paddingVertical: 6, borderTopWidth: 1, borderTopColor: base.line }}>
                     <Text style={{ flex: 1, color: base.ink }}>{i + 1}. {q}</Text>
@@ -101,7 +103,23 @@ export default function Inductions() {
           );
         }) : <Empty>{tab === 'completed' ? 'No completed inductions yet.' : 'No outstanding operatives — everyone on the roster has completed their induction.'}</Empty>}
         {mgr && <Button kind="ghost" title="☁️ Link OneDrive inductions folder" onPress={() => router.push({ pathname: '/pm/onedrive-pick', params: { target: 'siteinductions', id: id } } as never)} />}
-        {mgr && <Muted style={{ marginTop: space.m }}>Exporting or emailing several inductions at once is still in the current app for now.</Muted>}
+        {mgr && roster.some((u) => byOp[u]?.pdf_path) && (
+          <View style={{ flexDirection: 'row', gap: 8, marginTop: space.m }}>
+            {([['pdf', '📄 Export all completed'], ['email', '✉ Email all completed']] as const).map(([k, l]) => <View key={k} style={{ flex: 1 }}><Button kind="ghost" title={l} onPress={async () => {
+              let to = '';
+              if (k === 'email') { to = (await promptText('Email the completed inductions to:', ''))?.trim() || ''; if (!to) return; if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) { toast('Enter a valid email address.'); return; } }
+              const paths = roster.map((u) => byOp[u]?.pdf_path).filter(Boolean) as string[];
+              toast('Building PDF…');
+              const merged = await PDFDocument.create(); let failed = 0;
+              for (const p of paths) { try { const b = await fetchBytes(publicUrl('mc-documents', p)); if (!b) { failed++; continue; } const src = await PDFDocument.load(b, { ignoreEncryption: true }); (await merged.copyPages(src, src.getPageIndices())).forEach((pg) => merged.addPage(pg)); } catch { failed++; } }
+              if (!merged.getPageCount()) { toast('Could not load the induction PDFs — check your connection and try again.'); return; }
+              const name = exportFilename(site?.name || '', `Site Inductions (${paths.length - failed})`, 'pdf'), bytes = await merged.save();
+              if (k === 'pdf') { if (!(await deliverPdf(bytes, name))) toast('Could not save the PDF.'); }
+              else { const err = await emailPdf(bytes, name, `${id}/induction-exports`, { site_id: id, recipient_email: to, doc_title: `Site Inductions — ${site?.name || ''}` }); toast(err || `Emailed to ${to}`); }
+              if (failed) toast(`${failed} induction PDF${failed === 1 ? '' : 's'} could not be included — check your connection.`);
+            }} /></View>)}
+          </View>
+        )}
       </ScrollView>
     );
   }
@@ -115,7 +133,7 @@ export default function Inductions() {
         <Card style={{ alignItems: 'center' }}>
           <Text style={{ fontSize: 34 }}>✅</Text>
           <SectionTitle>Induction completed</SectionTitle>
-          <Muted style={{ marginBottom: 12 }}>You completed this site's induction on {day(mine.completed_at)}.</Muted>
+          <Muted style={{ marginBottom: 12 }}>You completed this site&apos;s induction on {day(mine.completed_at)}.</Muted>
           <Button kind="ghost" title="View My Induction" onPress={() => void view(mine.pdf_path)} />
         </Card>
       </ScrollView>
@@ -151,7 +169,7 @@ export default function Inductions() {
         </>
       ) : (
         <>
-          <Muted style={{ marginBottom: 12 }}>Health Questionnaire for {site.name} — please answer every question. Any "Yes" needs a few details so we can keep you safe on site.</Muted>
+          <Muted style={{ marginBottom: 12 }}>Health Questionnaire for {site.name} — please answer every question. Any &quot;Yes&quot; needs a few details so we can keep you safe on site.</Muted>
           {HEALTH_ITEMS.map((it, i) => (
             <Card key={i}>
               <Text style={{ fontSize: 11.5, fontWeight: '700', color: base.slate }}>{it.category.toUpperCase()}</Text>
@@ -182,7 +200,7 @@ export default function Inductions() {
               </Pressable>
             ) : (
               <>
-                <Muted style={{ color: base.warn, marginBottom: 8 }}>Adopt your signature first — one tap and it's used everywhere.</Muted>
+                <Muted style={{ color: base.warn, marginBottom: 8 }}>Adopt your signature first — one tap and it&apos;s used everywhere.</Muted>
                 <Button title="Adopt Your Signature" onPress={() => router.push('/signature')} />
               </>
             )}
