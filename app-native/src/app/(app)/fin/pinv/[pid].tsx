@@ -7,22 +7,26 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
+import { SelectBox } from '@/components/SelectBox';
 import { FinForm } from '@/components/FinForm';
 import { AllocRow } from '@/components/FinSplit';
 import { FinRow, FinStat } from '@/components/FinNav';
 import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
-import { Button, Card, Check, Muted } from '@/components/ui';
+import { Button, Card, Check, Muted, SectionTitle } from '@/components/ui';
+import { fdb } from '@/data/finance';
 import { viewDoc } from '@/components/DocViewer';
 import { openDocLink } from '@/data/hs';
 import { addPinv, duplicateOf, isInXero, loadPinv, setPinvCostCode, setPinvPaid, setPinvStatus } from '@/data/finPurchase';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { COST_CATS, PI_STATUS } from '@/lib/rules/finBook';
+import { codePatch, codeStart, type CodeLine } from '@/lib/rules/piCode';
 import { fdate, jobTag, money, num, round2, today } from '@/lib/rules/finance';
 import { base, page, space } from '@/theme/theme';
 
 const XERO_Q = 'This is already in Xero. Changing it here won’t change Xero — change it in Xero too, or the two won’t match.';
 
+type Row = Record<string, any>;
 export default function FinPinv() {
   const { pid, site, po, receipt } = useLocalSearchParams<{ pid: string; site?: string; po?: string; receipt?: string }>();
   if (pid === 'new') return <NewPinv siteId={site || ''} poId={po || ''} receipt={receipt === '1'} />;
@@ -104,6 +108,7 @@ function ViewPinv({ id }: { id: string }) {
         {i.due_date && <FinRow title="Due" right={fdate(i.due_date)} />}{i.description && <FinRow title="Description" right={i.description} />}
         {i.paid_on && <FinRow title="Paid" right={fdate(i.paid_on)} />}
       </Card>
+      <CodeLines i={i} sites={sites} onSaved={refresh} />
       {i.file_path && <Button kind="ghost" title={`📄 ${i.file_name || 'Open the invoice'}`} onPress={async () => { const u = await openDocLink('finance-docs', i.file_path); if (u) viewDoc(u); else toast('Could not open the file.'); }} />}
       <View style={{ gap: 8, marginTop: 10 }}>
         {i.status !== 'approved' && i.status !== 'rejected' && <Button title="✓ Approve" onPress={() => void status('approved', 'Approve')} />}
@@ -113,5 +118,43 @@ function ViewPinv({ id }: { id: string }) {
       </View>
       <Muted style={{ marginTop: 8 }}>Net {money(i.net)} · VAT {money(i.vat)} · gross {money(round2(Number(i.net) + Number(i.vat || 0)))}</Muted>
     </ScrollView>
+  );
+}
+
+// Code each line to a project and cost type (9219g): one invoice can cover several jobs.
+function CodeLines({ i, sites, onSaved }: { i: Row; sites: { id: string; job_number?: string | null; name?: string | null; status?: string | null }[]; onSaved: () => void }) {
+  const toast = useToast();
+  const [lines, setLines] = useState<CodeLine[] | null>(null);
+  const items = ((i.lines || []) as Row[]).filter((l) => l && (l.kind || 'item') !== 'total');
+  if (!items.length) return null;
+  if (!lines) return <Button small kind="ghost" title={`🏷 Code each line (${items.length}) to a project / cost type`} onPress={() => setLines(codeStart(i, COST_CATS))} />;
+  const pick = sites.filter((x) => x.status !== 'closed' || lines.some((l) => l.site_id === x.id)).slice().sort((a, b) => String(b.job_number || '').localeCompare(String(a.job_number || ''), undefined, { numeric: true }));
+  const tot = round2(lines.reduce((t, l) => t + Number(l.amount || 0), 0));
+  return (
+    <Card>
+      <SectionTitle>Code each line</SectionTitle>
+      <Muted style={{ marginBottom: 6 }}>Pick the project and cost type for each line. One invoice can cover several jobs.</Muted>
+      {lines.map((l, k) => (
+        <View key={k} style={{ borderTopWidth: k ? 1 : 0, borderTopColor: base.line, paddingVertical: 6 }}>
+          <View style={{ flexDirection: 'row' }}><Text style={{ flex: 1, fontWeight: '700', color: base.ink }}>{l.description || `Line ${k + 1}`}</Text><Text style={{ fontWeight: '700', color: base.ink }}>{money(l.amount)}</Text></View>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+            <SelectBox value={l.site_id} title="Project" options={pick.map((x) => [x.id, jobTag(x)] as [string, string])} onChange={(v) => setLines(lines.map((y, j) => (j === k ? { ...y, site_id: v } : y)))} style={{ marginBottom: 0, minWidth: 220, flexGrow: 1 }} />
+            <SelectBox value={l.cost_code} title="Cost type" options={Object.entries(COST_CATS).filter(([c]) => c !== 'labour')} onChange={(v) => setLines(lines.map((y, j) => (j === k ? { ...y, cost_code: v } : y)))} style={{ marginBottom: 0, minWidth: 170 }} />
+          </View>
+        </View>
+      ))}
+      <FinRow title="Lines total (net)" right={money(tot)} />
+      {Math.abs(tot - Number(i.net || 0)) >= 0.5 && <Text style={{ color: base.warn, marginBottom: 6 }}>The lines add up to {money(tot)}, the invoice net is {money(i.net)}. The invoice total is shared in the same proportions.</Text>}
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        <Button small title="Save coding" onPress={async () => {
+          const r = codePatch(i, lines); if ('error' in r) { toast(r.error); return; }
+          const before = Array.from(new Set(Array.isArray(i.split) && i.split.length ? i.split.map((e: Row) => e.site_id) : [i.site_id])).sort().join(), after = Array.from(new Set(r.patch.split ? r.patch.split.map((e: Row) => e.site_id) : [i.site_id])).sort().join();
+          if (before !== after && (await isInXero('purchase_invoices', i.id)) && !(await confirmAsk(`Save this coding? It moves cost between projects.\n\n${XERO_Q}`, 'I’ll change Xero too'))) return;
+          if ((await fdb.from('purchase_invoices').update(r.patch as never).eq('id', i.id)).error) { toast('Could not save the coding.'); return; }
+          setLines(null); onSaved();
+        }} />
+        <Button small kind="ghost" title="Cancel" onPress={() => setLines(null)} />
+      </View>
+    </Card>
   );
 }
