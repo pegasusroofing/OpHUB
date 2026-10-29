@@ -46,8 +46,9 @@ export function Field({ label, ...props }: TextInputProps & { label: string }) {
   );
 }
 
-export function Button({ title, onPress, busy, kind = 'primary', disabled }: {
-  title: string; onPress: () => void; busy?: boolean; kind?: 'primary' | 'ghost'; disabled?: boolean;
+/** small = the compact Finance-style button (smaller text, sized to its words). */
+export function Button({ title, onPress, busy, kind = 'primary', disabled, small }: {
+  title: string; onPress: () => void; busy?: boolean; kind?: 'primary' | 'ghost'; disabled?: boolean; small?: boolean;
 }) {
   const t = useTheme();
   const primary = kind === 'primary';
@@ -59,10 +60,11 @@ export function Button({ title, onPress, busy, kind = 'primary', disabled }: {
       style={({ pressed }) => [
         s.btn,
         primary ? { backgroundColor: base.card, borderColor: t.brand1, borderWidth: 2.5 } : { backgroundColor: base.card, borderColor: base.line },
+        small && s.btnSmall,
         (pressed || busy || disabled) && { opacity: 0.7 },
       ]}>
       {busy && <ActivityIndicator color={primary ? t.brand1 : base.ink} style={{ marginRight: 8 }} />}
-      <Text style={[s.btnText, { color: primary ? t.brand1 : base.ink }]}>{title}</Text>
+      <Text style={[s.btnText, small && s.btnTextSmall, { color: primary ? t.brand1 : base.ink }]}>{title}</Text>
     </Pressable>
   );
 }
@@ -287,6 +289,8 @@ const s = StyleSheet.create({
   input: { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, paddingHorizontal: 12, paddingVertical: 11, fontSize: 15, color: base.ink, backgroundColor: base.card },
   btn: { borderWidth: 1, borderRadius: radius.button, paddingVertical: 10, paddingHorizontal: 8, minHeight: 40, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', marginTop: 4 },
   btnText: { fontSize: 12, fontWeight: '800', letterSpacing: 0.3, textTransform: 'uppercase', textAlign: 'center' },
+  btnSmall: { paddingVertical: 5, paddingHorizontal: 12, minHeight: 30, alignSelf: 'flex-start', borderWidth: 1 },
+  btnTextSmall: { fontSize: 12, fontWeight: '700', letterSpacing: 0, textTransform: 'none' },
   notice: { borderWidth: 1, borderRadius: radius.input, padding: 10, marginBottom: space.m },
   checkRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginVertical: space.s },
   box: { width: 20, height: 20, borderRadius: 5, borderWidth: 1.5, borderColor: base.slateLight, alignItems: 'center', justifyContent: 'center' },

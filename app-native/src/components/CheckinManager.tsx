@@ -3,9 +3,10 @@
 // renderCheckinSubAddress (450). Excel exports come with the export work.
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Linking, Modal, Pressable, Text, TextInput, View } from 'react-native';
+import { Linking, Pressable, Text, TextInput, View } from 'react-native';
 
 import { showAlert, useToast } from '@/components/toast';
+import { Popup } from '@/components/Popup';
 import { Button, Card, Empty, Muted, Pill, SectionTitle, Toggle } from '@/components/ui';
 import { getPosition } from '@/data/checkinAction';
 import { checkinsForExport, setFencePoint, setFenceRadius, usePmLogins, useTeamCheckins } from '@/data/checkinManager';
@@ -129,10 +130,10 @@ export function CheckinManager({ site, sub }: { site: Site; sub?: SubAddress }) 
       {/* Every manager can export, as the current app (440). */}
       {!!me && isManager(me) && !sub && (
         <>
-          <SectionTitle>Reports</SectionTitle>
-          <View style={{ flexDirection: 'row', gap: 8 }}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 18, paddingTop: 10, borderTopWidth: 1, borderTopColor: base.line }}>
+            <Muted style={{ fontSize: 12 }}>Export check-ins:</Muted>
             {(['week', 'all'] as const).map((scope) => (
-              <View key={scope} style={{ flex: 1 }}><Button kind="ghost" busy={exporting === scope} title={scope === 'week' ? 'Export this week (Excel)' : 'Export full history (Excel)'} onPress={async () => {
+              <View key={scope}><Button kind="ghost" small busy={exporting === scope} title={scope === 'week' ? '📊 This week (Excel)' : '📊 Full history (Excel)'} onPress={async () => {
                 setExporting(scope);
                 try {
                   const rows = await checkinsForExport(site.id, scope);
@@ -151,20 +152,16 @@ export function CheckinManager({ site, sub }: { site: Site; sub?: SubAddress }) 
         </>
       )}
 
-      <Modal visible={!!modal} transparent animationType="fade" onRequestClose={() => setModal(null)}>
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,.45)', justifyContent: 'center', padding: 16 }}>
-          <View style={{ backgroundColor: base.card, borderRadius: R.card, padding: 16, maxWidth: 460, width: '100%', alignSelf: 'center' }}>
+      {!!modal && (
+        <Popup title={modal === 'choose' ? `Set ${place} location` : 'Input GPS Co-Ordinates'} width={440} onClose={() => setModal(null)}>
             {modal === 'choose' ? (
               <>
-                <Text style={{ fontSize: 17, fontWeight: '800', color: base.ink }}>Set {place} location</Text>
                 <Muted style={{ marginBottom: 10 }}>Choose how to set the GPS point operatives must check in near.</Muted>
                 <Button kind="ghost" title="Input GPS Co-Ordinates — type in latitude & longitude" onPress={() => setModal('manual')} />
                 <Button kind="ghost" title="Click for GPS Co-Ordinates — use this device's location" onPress={useHere} />
-                <Button kind="ghost" title="Cancel" onPress={() => setModal(null)} />
               </>
             ) : (
               <>
-                <Text style={{ fontSize: 17, fontWeight: '800', color: base.ink }}>Input GPS Co-Ordinates</Text>
                 <Muted style={{ marginBottom: 10 }}>Plain decimal (51.51828) or Google&apos;s degrees/minutes/seconds (51°31&apos;05.8&quot;N) both work. You can also paste a full pair from Google into the Latitude box.</Muted>
                 <Muted style={{ fontWeight: '700' }}>Latitude</Muted>
                 <TextInput value={lat} onChangeText={setLat} placeholder={`e.g. 51.51828 or 51°31'05.8"N`} autoCapitalize="none" style={inp} />
@@ -179,20 +176,20 @@ export function CheckinManager({ site, sub }: { site: Site; sub?: SubAddress }) 
                 <Button kind="ghost" title="‹ Back" onPress={() => setModal('choose')} />
               </>
             )}
-          </View>
-        </View>
-      </Modal>
+        </Popup>
+      )}
     </View>
   );
 }
 
 function RadiusPicker({ current, onSave }: { current: number | null; onSave: (r: number) => void }) {
-  const [pick, setPick] = useState(current || 100);
+  // The radius can come back from the database as text ("100"): compare as numbers so it shows as chosen.
+  const [pick, setPick] = useState(Number(current) || 100);
   return (
     <View style={{ marginTop: 14 }}>
       <Muted style={{ marginBottom: 6 }}>Check-in/out distance limit</Muted>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
-        {radiusOptions(current).map((r) => (
+        {radiusOptions(Number(current) || null).map((r) => (
           <Pressable key={r} onPress={() => setPick(r)} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 14, borderWidth: 1, borderColor: pick === r ? base.ink : base.line, backgroundColor: pick === r ? base.ink : base.card }}>
             <Text style={{ fontSize: 12, fontWeight: '700', color: pick === r ? '#fff' : base.ink }}>{r}m</Text>
           </Pressable>
