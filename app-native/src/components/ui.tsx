@@ -1,7 +1,7 @@
 // Basic building blocks matching the current app's look (src/css/app.css): cards
 // with a soft shadow, small uppercase Sora section titles, outlined uppercase
 // buttons, home tiles as a grid of boxes (TileGrid) with line icons in tinted squares.
-import { Children, createContext, useContext, type ReactNode } from 'react';
+import { Children, createContext, useContext, useRef, type ReactNode } from 'react';
 import {
   ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
   type TextInputProps, type ViewStyle,
@@ -47,16 +47,28 @@ export function Field({ label, ...props }: TextInputProps & { label: string }) {
 }
 
 /** small = the compact Finance-style button (smaller text, sized to its words). */
+/** A second tap while the first is still running is ignored (922 finance-once), so a slow connection can't
+ *  make two payments, invoices, POs or applications. An action that hands back a promise is held until it
+ *  finishes; others for a moment. */
 export function Button({ title, onPress, busy, kind = 'primary', disabled, small }: {
-  title: string; onPress: () => void; busy?: boolean; kind?: 'primary' | 'ghost'; disabled?: boolean; small?: boolean;
+  title: string; onPress: () => void | Promise<unknown>; busy?: boolean; kind?: 'primary' | 'ghost'; disabled?: boolean; small?: boolean;
 }) {
   const t = useTheme();
   const primary = kind === 'primary';
+  const held = useRef(false);
+  const press = () => {
+    if (held.current) return;
+    held.current = true;
+    let r: unknown;
+    try { r = onPress(); } catch (e) { held.current = false; throw e; }
+    if (r && typeof (r as Promise<unknown>).then === 'function') void (r as Promise<unknown>).finally(() => { held.current = false; });
+    else setTimeout(() => { held.current = false; }, 900);
+  };
   return (
     <Pressable
       accessibilityRole="button"
       disabled={busy || disabled}
-      onPress={onPress}
+      onPress={press}
       style={({ pressed }) => [
         s.btn,
         primary ? { backgroundColor: base.card, borderColor: t.brand1, borderWidth: 2.5 } : { backgroundColor: base.card, borderColor: base.line },
