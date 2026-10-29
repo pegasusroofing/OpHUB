@@ -7,12 +7,14 @@ import { Text, TextInput, View } from 'react-native';
 
 import { FinRow, FinSeg, FinStat } from '@/components/FinNav';
 import { Cell, FinTable, FootText } from '@/components/FinTable';
+import { SelectBox } from '@/components/SelectBox';
 import { chooseAction } from '@/components/toast';
 import { Button, Card, Empty, Muted } from '@/components/ui';
 import { selectAll, useFinSettings } from '@/data/finance';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { byJobNoDesc, fdate, INV_STATUS, invOutstanding, invOutstandingNet, invOverdue, jobTag, money, retentionDates, retentionStillHeld, round2, type FinApp, type FinInv, type JobFin } from '@/lib/rules/finance';
+import { monthLabel, monthOf, monthsIn } from '@/lib/rules/finFilters';
 import { base, radius, useDesk } from '@/theme/theme';
 
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 9, color: base.ink, backgroundColor: base.card, marginBottom: 10 };
@@ -54,6 +56,7 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
   const { data: st } = useFinSettings(me?.org_id);
   const { data } = useSales(me?.org_id, siteId);
   const [af, setAf] = useState<string | null>(null);
+  const [mon, setMon] = useState(''); // month picker (9219t): the list and its totals follow it
   const [inf, setInf] = useState(f0 || 'outstanding');
   const [q, setQ] = useState('');
   const desk = useDesk();
@@ -70,12 +73,15 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
   if (tab === 'apps') {
     const F: Record<string, (a: App) => boolean> = { open: (a) => ['draft', 'submitted'].includes(stage(a)), certified: (a) => stage(a) === 'certified', invoiced: (a) => stage(a) === 'invoiced', all: (a) => stage(a) !== 'void' };
     const cur = af || ['open', 'certified', 'invoiced'].find((k) => data.apps.filter(F[k]).length) || 'all';
-    const list = data.apps.filter(F[cur]).filter((a) => !ql || `${a.number} ${jobTag(site(a.site_id))} ${site(a.site_id)?.client_name || ''}`.toLowerCase().includes(ql));
+    const aMonth = (a: App) => monthOf(a.valuation_date);
+    const list = data.apps.filter(F[cur]).filter((a) => !mon || aMonth(a) === mon).filter((a) => !ql || `${a.number} ${jobTag(site(a.site_id))} ${site(a.site_id)?.client_name || ''}`.toLowerCase().includes(ql));
+    const months = monthsIn(data.apps.filter(F[cur]), aMonth);
     return (
       <View>
         <Muted style={{ marginBottom: 8, fontSize: 12 }}>Apply → the client certifies it (enter their figures on the application) → the invoice is raised for you. A certificate is just a certified application.</Muted>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 10 }}>
           <FinSeg value={cur} onChange={setAf} items={[['open', 'In Progress'], ['certified', 'Certified — To Invoice'], ['invoiced', 'Invoiced'], ['all', 'All']].map(([k, l]) => [k, l, data.apps.filter(F[k]).length] as [string, string, number])} />
+          <SelectBox value={mon} title="Month" options={[['', 'All months'], ...(mon && !months.includes(mon) ? [mon, ...months] : months).map((m) => [m, monthLabel(m)] as [string, string])]} onChange={setMon} style={{ marginBottom: 0, width: 150 }} />
           <View style={{ marginLeft: 'auto' }}><Button title="+ New application" onPress={() => void newFor('application')} /></View>
         </View>
         <TextInput value={q} onChangeText={setQ} placeholder="Search application no., project or client" style={box} />
@@ -99,11 +105,15 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
   }
   if (tab === 'invoices') {
     const F: Record<string, (i: Inv) => boolean> = { outstanding: (i) => invOutstanding(i) > 0, overdue: (i) => invOverdue(i), draft: (i) => i.status === 'draft', paid: (i) => i.status === 'paid', all: () => true };
-    const list = (inf === 'all' ? data.invs : live).filter(F[inf] || F.outstanding).filter((i) => !ql || `${i.number || ''} ${i.client_name || ''} ${jobTag(site(i.site_id))}`.toLowerCase().includes(ql));
+    const iMonth = (i: Inv) => monthOf(i.issue_date || i.created_at);
+    const base0 = (inf === 'all' ? data.invs : live).filter(F[inf] || F.outstanding);
+    const list = base0.filter((i) => !mon || iMonth(i) === mon).filter((i) => !ql || `${i.number || ''} ${i.client_name || ''} ${jobTag(site(i.site_id))}`.toLowerCase().includes(ql));
+    const months = monthsIn(base0, iMonth);
     return (
       <View>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 10 }}>
           <FinSeg value={inf} onChange={setInf} items={[['outstanding', 'Owed'], ['overdue', 'Overdue'], ['draft', 'Drafts'], ['paid', 'Paid'], ['all', 'All']].map(([k, l]) => [k, l, (k === 'all' ? data.invs : live).filter(F[k]).length] as [string, string, number])} />
+          <SelectBox value={mon} title="Month" options={[['', 'All months'], ...(mon && !months.includes(mon) ? [mon, ...months] : months).map((m) => [m, monthLabel(m)] as [string, string])]} onChange={setMon} style={{ marginBottom: 0, width: 150 }} />
           <View style={{ marginLeft: 'auto' }}><Button title="+ New invoice" onPress={() => void newFor('invoice')} /></View>
         </View>
         <TextInput value={q} onChangeText={setQ} placeholder="Search invoice no., client or project" style={box} />

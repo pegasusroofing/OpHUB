@@ -11,6 +11,7 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 import { FinRow, FinSeg, FinStat } from '@/components/FinNav';
 import { Cell, FinTable, FootText } from '@/components/FinTable';
 import { pickJob } from '@/components/FinSales';
+import { SelectBox } from '@/components/SelectBox';
 import { chooseAction, confirmAsk, useToast } from '@/components/toast';
 import { Button, Empty, Muted } from '@/components/ui';
 import { askDate } from '@/components/DateField';
@@ -22,6 +23,7 @@ import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { PI_STATUS, poInvoiced } from '@/lib/rules/finBook';
 import { fdate, jobTag, money, plantCost, round2, today } from '@/lib/rules/finance';
+import { monthLabel, monthOf, monthsIn, valueTest } from '@/lib/rules/finFilters';
 import { base, radius, useDesk } from '@/theme/theme';
 
 type Row = Record<string, any>;
@@ -52,6 +54,8 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
   const [sup, setSup] = useState('');
   const [job, setJob] = useState('');
   const [sort, setSort] = useState('new');
+  const [mon, setMon] = useState(''); // month and value filters (9219t)
+  const [val, setVal] = useState('');
   const [q, setQ] = useState('');
   const desk = useDesk();
   // Tick several to approve, or to mark paid (9219g finPiBulkApprove / finPiBulkPaid).
@@ -80,7 +84,8 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
   const site = (id: string) => sites.find((s) => s.id === id);
   const live = data.pinvs.filter((i) => i.status !== 'rejected');
   const supKey = (n: unknown) => String(n || '').trim().toLowerCase();
-  const fOK = (x: Row) => (!sup || supKey(x.supplier_name) === sup) && (!job || x.site_id === job);
+  const mOf = (x: Row) => monthOf(x.invoice_date || x.on_hire || x.created_at), vt = valueTest(val);
+  const fOK = (x: Row) => (!sup || supKey(x.supplier_name) === sup) && (!job || x.site_id === job) && (!mon || mOf(x) === mon) && (!vt || vt(Number(x.total ?? x.value ?? x.rate ?? 0)));
   const ql = q.trim().toLowerCase();
   const hit = (...v: unknown[]) => !ql || v.join(' ').toLowerCase().includes(ql);
   const sortBy = (list: Row[], dk: string, vk: string) => list.slice().sort({ new: (a: Row, b: Row) => String(b[dk] || '').localeCompare(String(a[dk] || '')), old: (a: Row, b: Row) => String(a[dk] || '').localeCompare(String(b[dk] || '')), big: (a: Row, b: Row) => Number(b[vk] || 0) - Number(a[vk] || 0), sup: (a: Row, b: Row) => String(a.supplier_name || '').localeCompare(String(b.supplier_name || '')) }[sort]);
@@ -92,7 +97,9 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
       <Pressable onPress={async () => { const k = await chooseAction('Supplier', [{ key: '*', label: 'All suppliers' }, ...Object.keys(supNames).sort().map((k2) => ({ key: k2, label: supNames[k2] }))]); if (k) setSup(k === '*' ? '' : k); }} style={box}><Text style={{ color: base.ink }}>Supplier: {sup ? supNames[sup] : 'All'} ▾</Text></Pressable>
       {!siteId && <Pressable onPress={async () => { const k = await chooseAction('Project', [{ key: '*', label: 'All projects' }, ...jobIds.map((id) => ({ key: id, label: jobTag(site(id)) }))]); if (k) setJob(k === '*' ? '' : k); }} style={box}><Text style={{ color: base.ink }}>Project: {job ? jobTag(site(job)) : 'All'} ▾</Text></Pressable>}
       <Pressable onPress={async () => { const k = await chooseAction('Sort', [['new', 'Newest first'], ['old', 'Oldest first'], ['big', 'Biggest first'], ['sup', 'Supplier A–Z']].map(([key, label]) => ({ key, label }))); if (k) setSort(k); }} style={box}><Text style={{ color: base.ink }}>Sort ▾</Text></Pressable>
-      {!!(sup || job) && <Pressable onPress={() => { setSup(''); setJob(''); }} style={{ justifyContent: 'center' }}><Text style={{ color: base.blue }}>Clear</Text></Pressable>}
+      <SelectBox value={mon} title="Month" options={[['', 'All months'], ...monthsIn([...data.pos, ...data.pinvs, ...data.hires], mOf).map((m) => [m, monthLabel(m)] as [string, string])]} onChange={setMon} style={{ marginBottom: 0, width: 150 }} />
+      <TextInput value={val} onChangeText={setVal} placeholder="Value e.g. >1k" style={[box, { width: 130 }, val && !vt ? { borderColor: '#C0392B' } : null]} />
+      {!!(sup || job || mon || val) && <Pressable onPress={() => { setSup(''); setJob(''); setMon(''); setVal(''); }} style={{ justifyContent: 'center' }}><Text style={{ color: base.blue }}>Clear</Text></Pressable>}
     </View>
   );
   const search = (ph: string) => <TextInput value={q} onChangeText={setQ} placeholder={ph} style={[box, { marginBottom: 10 }]} />;

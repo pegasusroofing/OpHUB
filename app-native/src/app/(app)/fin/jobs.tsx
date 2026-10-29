@@ -9,13 +9,16 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { FinChip, FinPage, FinRow } from '@/components/FinNav';
 import { Cell, FinTable, FootText } from '@/components/FinTable';
+import { askDate } from '@/components/DateField';
+import { SelectBox } from '@/components/SelectBox';
 import { chooseAction } from '@/components/toast';
 import { Button, Card, Empty, Muted } from '@/components/ui';
 import { finStatus, selectAll } from '@/data/finance';
 import { usePeople } from '@/data/hs';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
-import { byJobNoDesc, invOutstandingNet, invOverdue, jobTag, money, type FinInv } from '@/lib/rules/finance';
+import { byJobNoDesc, fdate, invOutstandingNet, invOverdue, jobTag, money, today, type FinInv } from '@/lib/rules/finance';
+import { DATE_RANGES, dateRange, valueTest } from '@/lib/rules/finFilters';
 import { isFullManager } from '@/lib/roles';
 import type { Site } from '@/lib/types';
 import { base, radius, useDesk, useTheme } from '@/theme/theme';
@@ -56,6 +59,9 @@ export default function FinJobs() {
   const [cli, setCli] = useState('');
   const [q, setQ] = useState('');
   const [sort, setSort] = useState('noza');
+  const [dr, setDr] = useState(''); // Start: a date range (9219t)
+  const [custom, setCustom] = useState<{ from?: string; to?: string }>({});
+  const [val, setVal] = useState(''); // Value: 50k, >100k, <25k, 25k-100k
   const sites = ((sitesRaw || []) as SiteX[]).slice().sort(byJobNoDesc);
   const go = (k: string) => router.setParams({ tab: k });
   const cliOf = (s: SiteX) => data?.jfBy[s.id]?.billing_name || s.client_name || '';
@@ -69,6 +75,10 @@ export default function FinJobs() {
     && (!ql || [s.job_number, s.name, cliOf(s), s.client_name, (data?.posBy[s.id] || []).join(' '), pmName(s.responsible_pm_id), s.postcode].join(' ').toLowerCase().includes(ql)));
   const num = (s: SiteX) => String(s.job_number || ''), nm = (s: SiteX) => String(s.name || '');
   const cmp: Record<string, (a: SiteX, b: SiteX) => number> = { az: (a, b) => nm(a).localeCompare(nm(b)), za: (a, b) => nm(b).localeCompare(nm(a)), noaz: (a, b) => num(a).localeCompare(num(b), undefined, { numeric: true }), noza: byJobNoDesc, start: (a, b) => String(b.start_date || '').localeCompare(String(a.start_date || '')) };
+  const range = dateRange(dr, today(), custom), vt = valueTest(val);
+  const startOf = (s: SiteX) => String(s.start_date || (s as { created_at?: string }).created_at || '').slice(0, 10);
+  if (range) shown = shown.filter((s) => { const d = startOf(s); return !!d && d >= range[0] && d <= range[1]; });
+  if (vt) shown = shown.filter((s) => vt(Number(data?.jfBy[s.id]?.contract_value || 0)));
   shown = shown.slice().sort(cmp[sort]);
   const pms = Array.from(new Set(sites.map((s) => s.responsible_pm_id).filter(Boolean))) as string[];
   const tot = shown.reduce((t, s) => { const m = data?.m[s.id]; return { v: t.v + Number(data?.jfBy[s.id]?.contract_value || 0), inv: t.inv + (m?.inv || 0), owed: t.owed + (m?.owed || 0), od: t.od + (m?.overdue || 0) }; }, { v: 0, inv: 0, owed: 0, od: 0 });
@@ -82,7 +92,12 @@ export default function FinJobs() {
         <Pressable onPress={async () => { const k = await chooseAction('PM', [{ key: '*', label: 'All PMs' }, ...pms.map((id) => ({ key: id, label: pmName(id) })), { key: 'none', label: 'No PM' }]); if (k) setPm(k === '*' ? '' : k); }} style={box}><Text style={{ color: base.ink }}>PM: {pm ? (pm === 'none' ? 'No PM' : pmName(pm)) : 'All'} ▾</Text></Pressable>
         <TextInput value={cli} onChangeText={setCli} placeholder="Client name" style={[box, { minWidth: 140 }]} />
         <Pressable onPress={async () => { const k = await chooseAction('Sort', [['noza', 'Project no. (newest first)'], ['noaz', 'Project no. (A–Z)'], ['az', 'Name A–Z'], ['za', 'Name Z–A'], ['start', 'Start date (newest)']].map(([key, label]) => ({ key, label }))); if (k) setSort(k); }} style={box}><Text style={{ color: base.ink }}>Sort ▾</Text></Pressable>
-        {!!(pm || cli) && <Pressable onPress={() => { setPm(''); setCli(''); }} style={{ justifyContent: 'center' }}><Text style={{ color: base.blue }}>Clear</Text></Pressable>}
+        <SelectBox value={dr} title="Start date" options={DATE_RANGES.map(([k, l]) => [k, k === 'custom' && dr === 'custom' && (custom.from || custom.to) ? `${custom.from ? fdate(custom.from) : '…'} – ${custom.to ? fdate(custom.to) : '…'}` : l] as [string, string])} style={{ marginBottom: 0, width: 190 }} onChange={async (k) => {
+          if (k === 'custom') { const from = await askDate('Start dates from'); if (from === null) return; const to = await askDate('Start dates to', { min: from || undefined }); if (to === null) return; setCustom({ from: from || undefined, to: to || undefined }); }
+          setDr(k);
+        }} />
+        <TextInput value={val} onChangeText={setVal} placeholder="Value e.g. >50k, 25k-100k" style={[box, { minWidth: 170 }, val && !vt ? { borderColor: '#C0392B' } : null]} />
+        {!!(pm || cli || dr || val) && <Pressable onPress={() => { setPm(''); setCli(''); setDr(''); setVal(''); }} style={{ justifyContent: 'center' }}><Text style={{ color: base.blue }}>Clear</Text></Pressable>}
       </View>
       <TextInput value={q} onChangeText={setQ} placeholder="Search project no., name, client or PO" style={[box, { marginBottom: 10 }]} />
       {!data ? <Muted>Loading…</Muted> : desk && shown.length ? (
