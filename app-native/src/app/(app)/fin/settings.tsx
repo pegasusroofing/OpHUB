@@ -4,6 +4,9 @@
 // for invoices, CIS references — plus Xero's connection status. The counters
 // are only written back when they were changed, so a form left open can't
 // wind them back. The purchase-order switch isn't changed here during the trial.
+// Also: who can see material costs (916: profiles.see_costs — admins with
+// Finance switch people on) and the invoice inbox address (906: a private key
+// in fin_settings; while Finance is on trial nothing that arrives is read or filed).
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useState } from 'react';
@@ -11,11 +14,14 @@ import { Linking, Platform, Pressable, Text, View } from 'react-native';
 
 import { FinForm } from '@/components/FinForm';
 import { FinPage, FinRow } from '@/components/FinNav';
-import { useToast } from '@/components/toast';
+import { confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Muted, TINTS } from '@/components/ui';
 import { fdb, finInvoke, useFinSettings } from '@/data/finance';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
+import { isFinanceUser, roleLabel } from '@/lib/roles';
+import { SUPABASE_URL } from '@/lib/supabase';
+import type { Profile } from '@/lib/types';
 import { FIN_TRIAL, FIN_VAT_LABEL, num } from '@/lib/rules/finance';
 import { base } from '@/theme/theme';
 
@@ -31,14 +37,35 @@ export default function FinSettings() {
   const { data: xero } = useQuery({ queryKey: ['finXeroStatus', me?.org_id], enabled: !!me, queryFn: async () => (me ? finInvoke<Row>(me, 'xero', { action: 'status' }) : null) });
   const [edit, setEdit] = useState(false);
   const [openS, setOpenS] = useState<string[]>([]);
+  const { data: team, refetch: refetchTeam } = useQuery({ queryKey: ['finSeeCosts', me?.org_id], enabled: !!me && openS.includes('costs'), queryFn: async () =>
+    (((await fdb.from('profiles').select('*').eq('org_id', me?.org_id as string)).data as Profile[] | null) ?? [])
+      .filter((p) => !p.finance_enabled && ['pm', 'site_manager', 'operative', 'admin'].includes(p.role)).sort((x, y) => String(x.name).localeCompare(String(y.name))) });
+  const setSeeCosts = async (p: Profile, on: boolean) => {
+    const r = await fdb.from('profiles').update({ see_costs: on } as never).eq('id', p.id).select('see_costs');
+    const ok = !r.error && ((r.data as { see_costs: boolean }[] | null) ?? [])[0]?.see_costs === on;
+    toast(!ok ? 'Only an admin with Finance can change this.' : on ? 'They can now see material costs' : 'Material costs hidden from them');
+    void refetchTeam();
+  };
+  const newInboxKey = async () => {
+    if (!me) return;
+    if (s0.inbox_key && !(await confirmAsk('Make a new inbox key? The old address stops working, so update your email forwarding afterwards.', 'Make a new key'))) return;
+    const bytes = new Uint8Array(24); globalThis.crypto.getRandomValues(bytes);
+    const key = Array.from(bytes, (b) => `0${b.toString(16)}`.slice(-2)).join('');
+    const r = await fdb.from('fin_settings').upsert({ org_id: me.org_id, inbox_key: key, updated_at: new Date().toISOString(), updated_by: me.id } as never, { onConflict: 'org_id' });
+    if (r.error) { toast(`Could not make a key — ${r.error.message}`); return; }
+    toast('New inbox key made — update it in your email forwarding'); void qc.invalidateQueries({ queryKey: ['finSettings'] });
+  };
   if (!me) return null;
   const s = (st || {}) as Row;
+  const s0 = s;
+  const canEditCosts = me.role === 'admin' && isFinanceUser(me, org);
   const initial = { ...s, auto_job_numbers: !!o?.auto_job_numbers, job_number_prefix: o?.job_number_prefix || '', next_job_number: o?.next_job_number ?? '' };
   const xs = xero?.data, xErr = xero?.error;
   return (
     <FinPage title="Finance settings" section="settings" sub="general" onSub={(k) => router.push((k === 'codes' ? '/fin/directory?kind=codes' : '/fin/settings') as never)}>
       {/* Each part opens on its own (the current app's settings list); Edit settings changes them all. */}
       {([
+        ['costs', 'Who can see material costs', '👁', 'blue', []],
         ['nums', 'Project numbers', '#', 'red', [['Project numbers', o?.auto_job_numbers ? `Automatic · next ${o.job_number_prefix || ''}${o.next_job_number ?? ''}` : 'Typed by hand']]],
         ['po', 'Purchase orders', '📄', 'orange', [['Purchase orders from Finance', `${s.po_enabled ? 'On' : 'Off'}${FIN_TRIAL ? ' (not changed during the trial)' : ''}`]]],
         ['vat', 'VAT rates', '%', 'green', [['Default VAT', FIN_VAT_LABEL[s.default_vat] || '—']]],
@@ -46,6 +73,7 @@ export default function FinSettings() {
         ['def', 'Defaults for new projects', '⚙', 'grey', [['Retention', `${s.default_retention_pct ?? 5}%`], ['Payment terms', `${s.default_due_days ?? 30} days · final ${s.default_final_days ?? 14} days`], ['Application date', s.app_reminder_day ? `${s.app_reminder_day} of each month` : 'Not set']]],
         ['ohp', 'Company overheads (OHP)', '%', 'orange', [['Company overheads', `${s.ohp_pct ?? 0}%`]]],
         ['bill', 'On your invoices', '🏛', 'grey', [['Company address', s.company_address || '—'], ['VAT no.', s.company_vat_no || '—'], ['Company no.', s.company_reg_no || '—'], ['Bank', [s.bank_name, s.bank_account_name, s.bank_sort_code, s.bank_account_no].filter(Boolean).join(' · ') || '—'], ['Contractor UTR (CIS)', s.contractor_utr || '—'], ['Employer ref', s.employer_ref || '—']]],
+        ['inbox', 'Invoice inbox (email)', '✉', 'purple', []],
         ['xero', 'Xero', '🔗', 'blue', []],
       ] as [string, string, string, keyof typeof TINTS, [string, string][]][]).map(([k, title, ic, tn, rows]) => {
         const on = openS.includes(k);
@@ -58,7 +86,35 @@ export default function FinSettings() {
             </Pressable>
             {on && (
               <Card style={{ marginTop: 6, marginBottom: 0 }}>
-                {k === 'xero' ? (
+                {k === 'costs' ? (
+                  <>
+                    <Muted style={{ marginBottom: 8 }}>Prices on project quotes (and in the Materials tile) are hidden from everyone except Finance users and the people switched on here.</Muted>
+                    {!team ? <Muted>Loading…</Muted> : team.length ? team.map((p) => (
+                      <View key={p.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#F0F1F4' }}>
+                        <Text style={{ flex: 1, color: base.ink }}>{p.name} <Text style={{ fontSize: 12, color: base.slate, fontStyle: 'italic' }}>{roleLabel(p)}</Text></Text>
+                        {canEditCosts
+                          ? <Pressable onPress={() => void setSeeCosts(p, !p.see_costs)} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                              <View style={{ width: 36, height: 20, borderRadius: 10, backgroundColor: p.see_costs ? '#15803d' : '#d1d5db', padding: 2, alignItems: p.see_costs ? 'flex-end' : 'flex-start' }}><View style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: '#fff' }} /></View>
+                              <Text style={{ fontWeight: '700', color: base.ink, minWidth: 54 }}>{p.see_costs ? 'Can see' : 'Hidden'}</Text>
+                            </Pressable>
+                          : <Text style={{ fontWeight: '700', color: base.ink }}>{p.see_costs ? 'Can see' : 'Hidden'}</Text>}
+                      </View>
+                    )) : <Muted>Nobody else in the team yet.</Muted>}
+                    {!canEditCosts && <Muted style={{ marginTop: 6 }}>Only an admin with Finance can change these.</Muted>}
+                  </>
+                ) : k === 'inbox' ? (
+                  <>
+                    <Muted style={{ marginBottom: 8 }}>Set up a shared mailbox such as invoices@ in Microsoft 365, and have its attachments sent to the address below — Power Automate (“When a new email arrives in a shared mailbox” → HTTP POST), Zapier or Make can all do this. Purchase invoices then appear in Finance › Purchases › Purchase invoices, already read. Keep this address private: anyone with it can add invoices to your inbox.</Muted>
+                    {FIN_TRIAL && <Muted style={{ marginBottom: 8, color: '#b45309' }}>While Finance is on trial, invoices that arrive are kept but not read or filed automatically — allocate them by hand.</Muted>}
+                    {!!s.inbox_key && (
+                      <>
+                        <Text selectable style={{ fontSize: 12, color: base.ink, backgroundColor: '#F6F7F9', borderRadius: 6, padding: 8 }}>{`${SUPABASE_URL}/functions/v1/finance-inbox?key=${s.inbox_key}`}</Text>
+                        <Muted style={{ marginTop: 6, fontSize: 12 }}>Send JSON: {'{"from": "...", "subject": "...", "attachments": [{"filename": "...", "content_type": "application/pdf", "content_base64": "..."}]}'}. Power Automate’s own attachment format (Name, ContentType, ContentBytes) also works.</Muted>
+                      </>
+                    )}
+                    {me.role === 'admin' && <View style={{ marginTop: 8 }}><Button kind="ghost" title={s.inbox_key ? 'Make a new key (stops the old one)' : 'Make an inbox key'} onPress={() => void newInboxKey()} /></View>}
+                  </>
+                ) : k === 'xero' ? (
                   <>
                     {xErr ? <Muted>{/not_configured|not connected/i.test(xErr) ? 'Xero isn’t connected.' : `Xero: ${xErr}`}</Muted> : xs ? <Text style={{ color: xs.connected ? '#1E7A3C' : base.slate }}>{xs.connected ? `Connected${xs.tenant_name ? ` to ${xs.tenant_name}` : ''}` : 'Not connected'}</Text> : <Muted>Checking…</Muted>}
                     {FIN_TRIAL && <Muted style={{ marginTop: 6 }}>While Finance is on trial nothing is posted to Xero. Reading and adding clients and suppliers still works.</Muted>}
