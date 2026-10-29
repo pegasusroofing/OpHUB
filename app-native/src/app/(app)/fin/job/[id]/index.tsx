@@ -14,6 +14,7 @@ import { SalesLists } from '@/components/FinSales';
 import { SubsLists } from '@/components/FinSubs';
 import { useToast } from '@/components/toast';
 import { Button, Card, Muted, SectionTitle } from '@/components/ui';
+import { raiseRetentionInvoice } from '@/data/finApp';
 import { deleteClientPo, saveClientPo, saveJobFinance, saveJobNumber, useBook } from '@/data/finBook';
 import { openDocLink } from '@/data/hs';
 import { useSite } from '@/data/sites';
@@ -61,6 +62,15 @@ function Overview({ id, fc, settings }: { id: string; fc: ReturnType<typeof fore
   const tone = (n: number | null) => (n == null || Math.abs(n) < 0.005 ? undefined : n < 0 ? '#C0392B' : '#1E7A3C');
   const waiting = fc.lines.filter((l) => l.waiting && l.cat !== 'labour').reduce((t, l) => t + l.net, 0);
   const d = retentionDates(fc.jf, settings), alerts = retentionAlerts(fc.jf, settings, fc.retHeld);
+  const { me } = useAuth();
+  const { data: site } = useSite(id);
+  const toast = useToast();
+  const retInv = async (n: 1 | 2) => {
+    if (!me) return;
+    const r = await raiseRetentionInvoice(me, id, n, site as never);
+    if (r.error) toast(r.error);
+    if (r.id) router.push(`/fin/job/${id}/invoice/${r.id}` as never);
+  };
   return (
     <View>
       <SectionTitle>Project summary</SectionTitle>
@@ -90,8 +100,9 @@ function Overview({ id, fc, settings }: { id: string; fc: ReturnType<typeof fore
           <Card>
             {alerts.map((a) => <Text key={a.half} style={{ color: '#D98A00', fontWeight: '700' }}>{a.half === 1 ? 'First' : 'Second'} half due {fdate(a.date)}</Text>)}
             <FinRow title="Held to date" right={money(fc.retHeld)} />
-            <FinRow title="First half — at practical completion" sub={d.first ? fdate(d.first) : 'Set the practical completion date in Set-up'} right={money(retHalf(fc.retHeld, 1))} />
-            <FinRow title="Second half — end of defects period" sub={d.second ? fdate(d.second) : '—'} right={money(retHalf(fc.retHeld, 2))} />
+            <FinRow title="First half — at practical completion" sub={`${d.first ? fdate(d.first) : 'Set the practical completion date in Set-up'}${fc.jf.ret1_invoice_id ? ' · invoiced' : ''}`} right={money(retHalf(fc.retHeld, 1))} onPress={() => void retInv(1)} />
+            <FinRow title="Second half — end of defects period" sub={`${d.second ? fdate(d.second) : '—'}${fc.jf.ret2_invoice_id ? ' · invoiced' : ''}`} right={money(retHalf(fc.retHeld, 2))} onPress={() => void retInv(2)} />
+            <Muted>Tap a half to raise (or open) its release invoice.</Muted>
           </Card>
         </>
       )}

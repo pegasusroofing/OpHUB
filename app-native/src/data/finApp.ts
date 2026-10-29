@@ -5,7 +5,7 @@
 import { issue } from '@/data/finInvoice';
 import { fdb, loadSettings } from '@/data/finance';
 import { appCalc, certInvoiceLines, isItem, previousCertified } from '@/lib/rules/finApp';
-import { addDays, appDateFor, fdate, round2, today } from '@/lib/rules/finance';
+import { addDays, appDateFor, fdate, retentionHeld, retentionReleased, retHalf, round2, today } from '@/lib/rules/finance';
 import { invTotals, vatFromTreatment } from '@/lib/rules/finInvoice';
 import { supabase } from '@/lib/supabase';
 import type { Organization, Profile } from '@/lib/types';
@@ -90,4 +90,28 @@ export async function raiseInvoiceFromCert(me: Profile, org: Organization | null
   await setStatus(a.id, { invoice_id: inv.id, status: 'invoiced' });
   if (issueNow && inv.bill_name) { const x = await issue(me, org, inv.id, site); if (x.error) return { id: inv.id, error: x.error }; }
   return { id: inv.id };
+}
+
+/** The invoice that releases one half of the retention (903 raiseRetentionInvoice). Second half = held now less what the first-half invoice released. */
+export async function raiseRetentionInvoice(me: Profile, siteId: string, n: 1 | 2, site: Row | undefined): Promise<{ id?: string; error?: string }> {
+  const [st, jfR, apps, pos, cli] = await Promise.all([loadSettings(me.org_id), rows(fdb.from('job_finance').select('*').eq('site_id', siteId)), rows(fdb.from('fin_applications').select('number,status,cert_retention,cert_date,valuation_date').eq('site_id', siteId)), rows(fdb.from('client_pos').select('po_number').eq('site_id', siteId).order('is_primary', { ascending: false }).order('created_at')), rows(fdb.from('fin_clients').select('name,sales_vat').eq('org_id', me.org_id as string))]);
+  const jf = jfR[0] || {};
+  const already = n === 1 ? jf.ret1_invoice_id : jf.ret2_invoice_id;
+  if (already) return { id: already };
+  const r1inv = n === 2 && jf.ret1_invoice_id ? (((await fdb.from('fin_invoices').select('id,status,net,issue_date').eq('id', jf.ret1_invoice_id).maybeSingle()).data as Row | null) || null) : null;
+  const held = retentionHeld(apps as never);
+  const invNet = (id: string | null | undefined) => (r1inv && r1inv.id === id && r1inv.status !== 'void' ? round2(r1inv.net) : null);
+  let amt: number;
+  if (n === 1) amt = retHalf(held, 1);
+  else { const r1 = invNet(jf.ret1_invoice_id); const counts = r1 != null ? retentionReleased({ ret1_invoice_id: jf.ret1_invoice_id }, r1inv ? [r1inv as never] : [], apps as never) : 0; amt = r1 != null ? round2(Math.max(0, held - counts)) : retHalf(held, 2); }
+  if (!(amt > 0)) return { error: n === 2 && r1inv ? 'Nothing left to release — the first-half invoice already covers all the retention held.' : 'No retention held on this project yet.' };
+  const treat = jf.vat_treatment || st.default_vat || 'standard', billName = jf.billing_name || site?.client_name || null;
+  const c = cli.find((x) => String(x.name).trim().toLowerCase() === String(billName || '').trim().toLowerCase());
+  const map: Record<string, string> = { '20': '20', '5': '5', rc20: 'rc20', rc5: 'rc5', '0': '0', ex: 'ex', none: 'ex' };
+  const lines = [{ description: `Release of retention — ${n === 1 ? `first half (practical completion${jf.pc_date ? ` ${fdate(jf.pc_date)}` : ''})` : 'second half (end of defects period)'}`, amount: amt, vat: (c && map[c.sales_vat]) || vatFromTreatment(treat, 20) }];
+  const t = invTotals(lines, treat, 20);
+  const r = await fdb.from('fin_invoices').insert({ org_id: me.org_id, site_id: siteId, status: 'draft', issue_date: today(), due_date: addDays(today(), Number(jf.due_days ?? st.default_due_days) || 30), client_po: pos[0]?.po_number || null, bill_name: billName, bill_address: jf.billing_address || null, bill_email: jf.billing_email || site?.client_email || null, vat_treatment: treat, lines, net: t.net, vat: t.vat, rc_vat: t.vatDue, total: t.total, source: 'retention', created_by: me.id } as never).select('id').single();
+  const id = (r.data as Row | null)?.id; if (!id) return { error: 'Could not raise the invoice.' };
+  const lk = await fdb.from('job_finance').upsert({ site_id: siteId, org_id: me.org_id, updated_at: new Date().toISOString(), [n === 1 ? 'ret1_invoice_id' : 'ret2_invoice_id']: id } as never, { onConflict: 'site_id' });
+  return lk.error ? { id, error: 'Invoice made, but it couldn’t be linked to the retention.' } : { id };
 }
