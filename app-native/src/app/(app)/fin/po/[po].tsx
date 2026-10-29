@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { ScrollView, Text, TextInput, View } from 'react-native';
 
 import { FinRow, FinStat } from '@/components/FinNav';
+import { PoQuote } from '@/components/PoQuote';
 import { confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Muted, SectionTitle } from '@/components/ui';
 import { fdb, loadSettings } from '@/data/finance';
@@ -88,7 +89,8 @@ export default function FinPo() {
           if (!(await deliverPdf(bytes, `PO ${String(po.number).replace(/[^a-z0-9-]+/gi, '_')}.pdf`))) toast('Could not make the PDF — try again.');
         } catch { toast('Could not build the PO PDF.'); }
       }} />
-      <Muted style={{ marginTop: 8 }}>Emailing the PO to the supplier is off during the Finance trial. Pricing from a quote file is still in the current app.</Muted>
+      {po.status !== 'cancelled' && <PoQuote me={me} po={po} onDone={refresh} />}
+      <Muted style={{ marginTop: 8 }}>Emailing the PO to the supplier is off during the Finance trial.</Muted>
     </ScrollView>
   );
 }
