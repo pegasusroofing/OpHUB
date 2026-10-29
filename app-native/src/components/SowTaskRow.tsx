@@ -270,7 +270,7 @@ function PhotoViewer({ path, onClose }: { path: string | null; onClose: () => vo
 const s = StyleSheet.create({
   task: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#ECEEF2', borderRadius: 14, paddingVertical: 12, paddingRight: 12, paddingLeft: 14, marginBottom: 8 },
   accent: { position: 'absolute', left: 0, top: 10, bottom: 10, width: 4, borderTopRightRadius: 4, borderBottomRightRadius: 4 },
-  name: { fontSize: 14, fontWeight: '700', color: base.ink },
+  name: { fontSize: 17, fontWeight: '700', color: base.ink },
   nameDone: { color: base.slate },
   meta: { fontSize: 11.5, color: base.slate, marginTop: 2 },
   addrPill: { fontSize: 10.5, fontWeight: '700', textTransform: 'uppercase', color: base.slate, backgroundColor: base.paper, borderRadius: 20, paddingHorizontal: 8, paddingVertical: 2, overflow: 'hidden' },

@@ -312,7 +312,7 @@ function AddTaskBox({ addresses, onAdd, onCancel }: { addresses: { id: string; n
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
         <TextInput value={name} onChangeText={setName} placeholder="New task, e.g. Fit lead flashing" autoFocus onSubmitEditing={() => void add()} placeholderTextColor={base.slateLight}
           style={{ flex: 1, borderWidth: 1, borderColor: base.line, borderRadius: radius.input, paddingHorizontal: 12, paddingVertical: 9, fontSize: 15, color: base.ink, backgroundColor: base.card }} />
-        <Pressable accessibilityRole="button" onPress={() => void add()} disabled={busy || !name.trim()} style={{ paddingHorizontal: 14, paddingVertical: 9, borderRadius: radius.input, backgroundColor: base.blue, opacity: busy || !name.trim() ? 0.5 : 1 }}>
+        <Pressable accessibilityRole="button" onPress={() => void add()} disabled={busy || !name.trim()} style={{ minWidth: 74, alignItems: 'center', paddingHorizontal: 18, paddingVertical: 9, borderRadius: radius.input, backgroundColor: base.blue, opacity: busy || !name.trim() ? 0.5 : 1 }}>
           <Text style={{ color: '#fff', fontWeight: '800' }}>Add</Text>
         </Pressable>
         <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={onCancel} hitSlop={8} style={{ paddingHorizontal: 6 }}>
