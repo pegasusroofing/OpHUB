@@ -21,12 +21,13 @@ import { fullSiteAddress } from '@/lib/rules/checkin';
 import { blockedSlots, bySlotOrder, collectionLine, dayTotals, DELIVERY_TIME_SLOTS, fullSlots, localISODate, minsLabel, slotLabel } from '@/lib/rules/driver';
 import { readIsoDate } from '@/lib/rules/materials';
 import { isManager } from '@/lib/roles';
-import { base, page, radius, space } from '@/theme/theme';
+import { base, page, radius, space, useTheme } from '@/theme/theme';
 
 const addDays = (iso: string, n: number) => { const d = new Date(`${iso}T12:00:00`); d.setDate(d.getDate() + n); return localISODate(d); };
 
 export default function DeliverySchedule() {
   const { me, org } = useAuth();
+  const th = useTheme();
   const toast = useToast();
   const qc = useQueryClient();
   const today = localISODate(new Date());
@@ -74,12 +75,13 @@ export default function DeliverySchedule() {
       <Stack.Screen options={{ title: 'Delivery Schedule' }} />
       <HowTo k="delivery" />
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-        <Pressable onPress={() => setIso(addDays(iso, -1))} style={{ width: 52, height: 52, borderRadius: 14, backgroundColor: base.red, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff', fontSize: 30, fontWeight: '800' }}>‹</Text></Pressable>
+        <Pressable onPress={() => setIso(addDays(iso, -1))} style={{ width: 52, height: 52, borderRadius: 14, backgroundColor: th.brand1, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: th.brand1Text, fontSize: 30, fontWeight: '800' }}>‹</Text></Pressable>
         <Text style={{ flex: 1, textAlign: 'center', fontWeight: '700', fontSize: 15, color: base.ink }} numberOfLines={1}>{dayLabel} <Text style={{ color: base.slate, fontWeight: '400' }}>({tasks.length})</Text></Text>
-        <Pressable onPress={() => setIso(addDays(iso, 1))} style={{ width: 52, height: 52, borderRadius: 14, backgroundColor: base.red, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff', fontSize: 30, fontWeight: '800' }}>›</Text></Pressable>
+        <Pressable onPress={() => setIso(addDays(iso, 1))} style={{ width: 52, height: 52, borderRadius: 14, backgroundColor: th.brand1, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: th.brand1Text, fontSize: 30, fontWeight: '800' }}>›</Text></Pressable>
       </View>
       <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12, alignItems: 'center' }}>
-        <TextInput value={jump} onChangeText={setJump} placeholder="Jump to (YYYY-MM-DD)" autoCapitalize="none" onSubmitEditing={() => { const d = readIsoDate(jump); if (d && d !== 'bad') { setIso(d); setJump(''); } else toast('Enter the date as YYYY-MM-DD.'); }}
+        <Text style={{ fontSize: 11, fontWeight: '800', letterSpacing: 0.6, color: base.ink }}>JUMP TO</Text>
+        <TextInput value={jump} onChangeText={setJump} placeholder="YYYY-MM-DD" autoCapitalize="none" onSubmitEditing={() => { const d = readIsoDate(jump); if (d && d !== 'bad') { setIso(d); setJump(''); } else toast('Enter the date as YYYY-MM-DD.'); }}
           style={{ flex: 1, borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card }} />
         {iso !== today && <Pressable onPress={() => setIso(today)} style={{ padding: 10 }}><Text style={{ color: base.blue, fontWeight: '700' }}>Today</Text></Pressable>}
       </View>
@@ -111,6 +113,8 @@ export default function DeliverySchedule() {
       )}
 
       <Button title="+ Add Delivery" onPress={() => add()} />
+      <View style={{ marginTop: 8 }}><Button kind="ghost" title="👁 Driver view" onPress={() => router.push(`/driver/schedule?preview=1&date=${iso}` as never)} /></View>
+      <Text style={{ textAlign: 'center', fontSize: 10.5, fontStyle: 'italic', color: base.slateLight, marginTop: 4, marginBottom: 8 }}>Tip: tap ⇄ on a delivery to move it to another drop.</Text>
       {DELIVERY_TIME_SLOTS.map((slot) => {
         const list = tasks.filter((t) => t.time_slot === slot.key).sort(bySlotOrder);
         const carry = blocked[slot.key];
@@ -154,7 +158,7 @@ export default function DeliverySchedule() {
                   }} style={{ width: 30, height: 30, borderRadius: 8, borderWidth: 1, borderColor: base.line, alignItems: 'center', justifyContent: 'center' }}><Text>⇄</Text></Pressable>
                 </View>
               </View>
-            )) : !carry ? <Muted style={{ marginBottom: 6 }}>Nothing in this drop.</Muted> : null}
+            )) : !carry ? <Text style={{ textAlign: 'center', color: base.slateLight, fontSize: 12.5, paddingVertical: 22 }}>Nothing in this drop.</Text> : null}
           </View>
         );
       })}
@@ -205,7 +209,6 @@ export default function DeliverySchedule() {
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
           {([['x', '📊 Export Excel'], ['p', '📄 Export PDF']] as const).map(([k, l]) => <Button key={k} kind="ghost" title={busy === `exp${k}` ? 'Building…' : l} onPress={async () => { setBusy(`exp${k}`); const why = await exportDeliverySchedule(k, me.org_id as string, Array.from({ length: 7 }, (_, i) => addDays(iso, i)), sites, people, org); setBusy(null); if (why) toast(why); }} />)}
         </View>
-        <Button kind="ghost" title="👁 Driver view" onPress={() => router.push(`/driver/schedule?preview=1&date=${iso}` as never)} />
         <Button kind="ghost" title="🚐 Vehicle health checks" onPress={() => router.push('/pm/vehicles' as never)} />
         <Muted>Exports cover 7 days from the day shown.</Muted>
       </Card>
