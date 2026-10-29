@@ -186,7 +186,7 @@ export function forecast(b: Book, siteId: string, settings: Row | null) {
     lines, cats, actual, committed, budget, toComplete, tcSet, forecast: fcast, jf, contract, vAgreed, vPending, vInstructed, ffa, ffaFromInvoiced,
     valuation, certified, invoiced, owed, retHeld, applied: lastApp ? Number(lastApp.gross || 0) : 0, costToDate, committedTotal, forecastCost,
     budgetTotal, budgetSource, schedCost, schedCostedN: schedCosted.length, schedItemsN: schedItems.length, varCost, toCompleteSched, sales, isInvoiceJob,
-    ohpPct: p, ohpToDate, grossProfitToDate: round2(sales - costToDate),
+    ohpPct: p, ohpToDate, ohpForecast, grossProfitToDate: round2(sales - costToDate),
     salesMargin, salesMarginPct: sales ? round2((salesMargin / sales) * 100) : null, profitToDate: salesMargin, profitToDatePct: sales ? round2((salesMargin / sales) * 100) : null,
     origValue: ov, origCost: oc, origMargin: ov != null && oc != null ? round2(ov - oc) : null, origMarginPct: ov && oc != null ? round2(((ov - oc) / ov) * 100) : null,
     marginToDate, marginToDatePct: valuation ? round2((marginToDate / valuation) * 100) : null,
