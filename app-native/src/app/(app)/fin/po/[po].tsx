@@ -5,7 +5,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { ScrollView, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { FinRow, FinStat } from '@/components/FinNav';
 import { AllocRow } from '@/components/FinSplit';
@@ -13,7 +13,7 @@ import { PoQuote } from '@/components/PoQuote';
 import { confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Muted, SectionTitle } from '@/components/ui';
 import { fdb, loadSettings } from '@/data/finance';
-import { loadPo, savePoValue, setPoStatus } from '@/data/finPurchase';
+import { loadPo, removePoLines, savePoValue, setPoStatus, setPoStatusWithRequests } from '@/data/finPurchase';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { buildPoPdf } from '@/lib/finPoPdf';
@@ -32,6 +32,7 @@ export default function FinPo() {
   const { data: sites = [] } = useSites();
   const { data, isLoading } = useQuery({ queryKey: ['finPo', poId], enabled: poId !== 'new', queryFn: () => loadPo(poId) });
   const [val, setVal] = useState<string | null>(null);
+  const [rm, setRm] = useState<Set<number> | null>(null); // ticking lines to take off (9219zr)
   if (!me) return null;
   if (poId === 'new') return (
     <ScrollView contentContainerStyle={{ padding: space.l }}>
@@ -63,7 +64,22 @@ export default function FinPo() {
       </Card>
       <SectionTitle>Items</SectionTitle>
       <Card>
-        {(po.items || []).map((it: Row, k: number) => { const m = it.material_id ? matBy[it.material_id] : null; return <FinRow key={k} title={`${it.item}${it.qty != null ? ` · ${it.qty}${it.unit ? ` ${it.unit}` : ''}` : ''}${it.rate != null ? ` × ${money(it.rate)}` : ''}`} sub={[it.cost_code ? COST_CATS[it.cost_code] : '', m?.grn ? (m.grn.ok === false ? '⚠ problem on delivery' : '✓ received') : m ? 'not received yet' : '', m?.status === 'cancelled' ? 'cancelled' : ''].filter(Boolean).join(' · ')} right={it.amount != null ? money(it.amount) : ''} />; })}
+        {(po.items || []).map((it: Row, k: number) => { const m = it.material_id ? matBy[it.material_id] : null; return <View key={k} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>{rm && <Pressable hitSlop={8} onPress={() => setRm((x) => { const n = new Set(x ?? []); if (n.has(k)) n.delete(k); else n.add(k); return n; })}><Text style={{ fontSize: 18 }}>{rm.has(k) ? '☑' : '☐'}</Text></Pressable>}<View style={{ flex: 1 }}><FinRow title={`${it.item}${it.qty != null ? ` · ${it.qty}${it.unit ? ` ${it.unit}` : ''}` : ''}${it.rate != null ? ` × ${money(it.rate)}` : ''}`} sub={[it.cost_code ? COST_CATS[it.cost_code] : '', m?.grn ? (m.grn.ok === false ? '⚠ problem on delivery' : '✓ received') : m ? 'not received yet' : '', m?.status === 'cancelled' ? 'cancelled' : ''].filter(Boolean).join(' · ')} right={it.amount != null ? money(it.amount) : ''} /></View></View>; })}
+        {po.status === 'open' && (po.items || []).length > 1 && (rm ? (
+          <View style={{ gap: 6, marginTop: 6 }}>
+            <Muted>Tick the lines to take off this PO. A site request on a removed line is marked cancelled. Email the supplier the updated PO afterwards.</Muted>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <View style={{ flex: 1 }}><Button title="Remove ticked lines" onPress={async () => {
+                if (!rm.size) { toast('Tick at least one line.'); return; }
+                if (!(await confirmAsk(`Take ${rm.size} line${rm.size === 1 ? '' : 's'} off PO ${po.number || ''}?`, 'Remove'))) return;
+                const r = await removePoLines(me, po.id, [...rm]);
+                if (r.error) { toast(r.error); return; }
+                toast(`${r.removed} line${r.removed === 1 ? '' : 's'} removed${r.cancelled ? ` — ${r.cancelled} site request${r.cancelled === 1 ? '' : 's'} marked cancelled` : ''}`); setRm(null); refresh();
+              }} /></View>
+              <View style={{ flex: 1 }}><Button kind="ghost" title="Cancel" onPress={() => setRm(null)} /></View>
+            </View>
+          </View>
+        ) : <Pressable onPress={() => setRm(new Set())} style={{ marginTop: 6 }}><Text style={{ color: base.blue, fontWeight: '700' }}>Remove lines…</Text></Pressable>)}
         {po.vat != null && <><FinRow title="Subtotal" right={money(po.value)} /><FinRow title="VAT" right={money(po.vat)} /><FinRow title="Total" right={money(po.total ?? Number(po.value) + Number(po.vat))} /></>}
       </Card>
       {po.status !== 'cancelled' && (
@@ -81,8 +97,8 @@ export default function FinPo() {
       {po.status !== 'cancelled' && <Button kind="ghost" title="+ Add invoice" onPress={() => router.push(`/fin/pinv/new?site=${po.site_id}&po=${po.id}` as never)} />}
       <View style={{ gap: 8, marginTop: 12 }}>
         {po.status === 'open' && <Button kind="ghost" title="Mark fully invoiced" onPress={async () => { if (await setPoStatus(po.id, 'invoiced')) { toast('PO marked fully invoiced'); refresh(); } }} />}
-        {po.status === 'open' && <Button kind="ghost" title="Cancel PO" onPress={async () => { if (await confirmAsk('Cancel this purchase order?', 'Cancel PO')) { if (await setPoStatus(po.id, 'cancelled')) { toast('PO cancelled'); refresh(); } } }} />}
-        {po.status !== 'open' && <Button kind="ghost" title="Reopen PO" onPress={async () => { if (await setPoStatus(po.id, 'open')) { toast('PO reopened'); refresh(); } }} />}
+        {po.status === 'open' && <Button kind="ghost" title="Cancel PO" onPress={async () => { if (await confirmAsk('Cancel this purchase order? Its site requests are marked cancelled too.', 'Cancel PO')) { const n = await setPoStatusWithRequests(me, po.id, 'cancelled'); if (n !== null) { toast(n ? `PO cancelled — ${n} site request${n === 1 ? '' : 's'} marked cancelled` : 'PO cancelled'); refresh(); } } }} />}
+        {po.status !== 'open' && <Button kind="ghost" title="Reopen PO" onPress={async () => { const n = await setPoStatusWithRequests(me, po.id, 'open'); if (n !== null) { toast(n ? `PO reopened — ${n} site request${n === 1 ? '' : 's'} put back` : 'PO reopened'); refresh(); } }} />}
       </View>
       <Button kind="ghost" title="📄 Download the PO PDF" onPress={async () => {
         try {

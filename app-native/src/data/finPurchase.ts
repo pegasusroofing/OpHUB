@@ -72,3 +72,60 @@ export async function savePoValue(po: Row, v: number | null): Promise<boolean> {
   return !(await fdb.from('purchase_orders').update(patch as never).eq('id', po.id)).error;
 }
 export const setPoStatus = async (id: string, status: string) => !(await fdb.from('purchase_orders').update({ status } as never).eq('id', id)).error;
+
+/* ---------- a PO's site requests (9219zr): cancel, reopen, remove lines ---------- */
+type PoRow = { id: string; number?: string | null; status?: string; items?: Record<string, any>[] | null; material_ids?: string[] | null; value?: number | null; vat?: number | null };
+const REQ_STATUSES = ['pending', 'sent', 'closed'];
+const cancelReason = (n: string | null | undefined) => `Cancelled on PO ${n || ''} in Finance`;
+async function cancelRequests(me: Profile, ids: string[], poNumber: string | null | undefined): Promise<number> {
+  const clean = [...new Set(ids.filter(Boolean))]; if (!clean.length) return 0;
+  const r = await fdb.from('materials').update({ status: 'cancelled', cancel_reason: cancelReason(poNumber), cancelled_by: me.id } as never).in('id', clean).neq('status', 'cancelled').select('id');
+  return ((r.data as unknown[] | null) ?? []).length;
+}
+/** Cancel or reopen a PO. Cancelling also cancels its site requests (their status is kept on the PO lines);
+ *  reopening puts back the ones that cancel did. Returns how many requests changed, or null if not saved. */
+export async function setPoStatusWithRequests(me: Profile, id: string, status: 'cancelled' | 'open'): Promise<number | null> {
+  const po = (await fdb.from('purchase_orders').select('id,number,status,items,material_ids').eq('id', id).maybeSingle()).data as PoRow | null;
+  if (!po) return null;
+  const ids = [...new Set((po.material_ids ?? []).filter(Boolean))];
+  if (status === 'cancelled') {
+    const was: Record<string, string> = {};
+    if (ids.length) (((await fdb.from('materials').select('id,status').in('id', ids).neq('status', 'cancelled')).data as { id: string; status: string }[] | null) ?? []).forEach((m) => { if (REQ_STATUSES.includes(m.status)) was[m.id] = m.status; });
+    const items = (po.items ?? []).map((l) => (l?.material_id && was[l.material_id] ? { ...l, was_status: was[l.material_id] } : l));
+    if ((await fdb.from('purchase_orders').update({ status, items } as never).eq('id', id)).error) return null;
+    return cancelRequests(me, ids, po.number);
+  }
+  if ((await fdb.from('purchase_orders').update({ status } as never).eq('id', id)).error) return null;
+  if (!ids.length) return 0;
+  const mine = (((await fdb.from('materials').select('id,cancel_reason').in('id', ids).eq('status', 'cancelled')).data as { id: string; cancel_reason: string | null }[] | null) ?? []).filter((m) => m.cancel_reason === cancelReason(po.number));
+  const was: Record<string, string> = {}; (po.items ?? []).forEach((l) => { if (l?.material_id && REQ_STATUSES.includes(l.was_status)) was[l.material_id] = l.was_status; });
+  let n = 0;
+  for (const st of [...new Set(mine.map((m) => was[m.id] || 'sent'))]) {
+    const r = await fdb.from('materials').update({ status: st, cancel_reason: null, cancelled_by: null } as never).in('id', mine.filter((m) => (was[m.id] || 'sent') === st).map((m) => m.id)).eq('status', 'cancelled').select('id');
+    n += ((r.data as unknown[] | null) ?? []).length;
+  }
+  if (n && (po.items ?? []).some((l) => l?.was_status)) await fdb.from('purchase_orders').update({ items: (po.items ?? []).map((l) => { if (!l?.was_status) return l; const c = { ...l }; delete c.was_status; return c; }) } as never).eq('id', id);
+  return n;
+}
+/** Take lines off an open PO: the value / VAT follow, and requests on removed lines are cancelled. */
+export async function removePoLines(me: Profile, id: string, idx: number[]): Promise<{ error?: string; removed?: number; cancelled?: number }> {
+  const po = (await fdb.from('purchase_orders').select('*').eq('id', id).maybeSingle()).data as PoRow | null;
+  if (!po) return { error: 'Couldn’t load the PO — check your signal and try again.' };
+  const items = po.items ?? [], drop = new Set(idx);
+  if (drop.size >= items.length) return { error: 'To take every line off, cancel the PO instead.' };
+  const keep = items.filter((_, i) => !drop.has(i)), gone = items.filter((_, i) => drop.has(i));
+  const goneMats = gone.map((x) => x.material_id).filter(Boolean) as string[];
+  const patch: Record<string, unknown> = { items: keep, material_ids: (po.material_ids ?? []).filter((m) => !goneMats.includes(m)) };
+  const r2 = (n: number) => Math.round(n * 100) / 100;
+  if (po.value != null) {
+    const goneAmt = gone.reduce((t, x) => t + (x.amount != null ? Number(x.amount) || 0 : 0), 0);
+    patch.value = r2(Math.max(0, Number(po.value) - goneAmt));
+    if (po.vat != null) {
+      const ratio = Number(po.value) ? Number(po.vat) / Number(po.value) : 0;
+      const goneVat = gone.reduce((t, x) => t + (x.vat != null ? Number(x.vat) || 0 : x.amount != null ? (Number(x.amount) || 0) * ratio : 0), 0);
+      patch.vat = r2(Math.max(0, Number(po.vat) - goneVat)); patch.total = r2((patch.value as number) + (patch.vat as number));
+    }
+  }
+  if ((await fdb.from('purchase_orders').update(patch as never).eq('id', id)).error) return { error: 'Could not save — try again.' };
+  return { removed: gone.length, cancelled: await cancelRequests(me, goneMats, po.number) };
+}
