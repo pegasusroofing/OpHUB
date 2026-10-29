@@ -68,7 +68,7 @@ function MoneyStrip({ site }: { site: Site }) {
   const fc = data ? forecast(data.book, site.id, data.settings) : null;
   const cell = (label: string, v: ReactNode, em: string, first?: boolean) => (
     <View style={{ flex: 1, minWidth: 0, alignItems: 'center', gap: 3, paddingVertical: desk ? 14 : 10, paddingHorizontal: desk ? 16 : 8, borderLeftWidth: first ? 0 : 1, borderLeftColor: '#EEF0F4' }}>
-      <Text numberOfLines={1} style={[heading(700), { fontSize: desk ? 11 : 10, color: base.slate, textTransform: 'uppercase', letterSpacing: 0.5 }]}>{label}</Text>
+      <Text numberOfLines={1} style={{ fontSize: desk ? 12 : 10.5, fontWeight: '700', color: base.slate, textTransform: 'uppercase', letterSpacing: desk ? 0.5 : 0.2 }}>{label}</Text>
       {fc ? v : <View style={{ backgroundColor: '#F0F2F5', borderRadius: 6, width: '70%', height: 24 }} />}
       <Text numberOfLines={1} style={{ fontSize: desk ? 12.5 : 11, color: base.slate }}>{fc ? em || ' ' : ' '}</Text>
     </View>
