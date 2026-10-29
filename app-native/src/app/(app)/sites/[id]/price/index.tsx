@@ -60,6 +60,7 @@ export default function PriceTile() {
           )) : <Muted>No addresses on this job yet.</Muted>}
         </View>
       )}
+      <Button kind="ghost" title="💷 Price Sheets" onPress={() => router.push(`/sites/${site.id}/price/sheets` as never)} />
       {data.mgr && (!multi || subId) && <Button title="+ Add price" onPress={async () => {
         const n = await promptText('Name for the new price (e.g. Flat Roofing)', ''); if (!n || !n.trim()) { if (n !== null) toast('Enter a name for the Pricing Element'); return; }
         if (await addElement(me, site.id, subId, n.trim())) { toast('Pricing Element added'); void qc.invalidateQueries({ queryKey: ['priceTile', site.id] }); } else toast('Could not save — try again.');

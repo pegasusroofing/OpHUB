@@ -20,7 +20,8 @@ export function tableSheets(t: Table, org: Organization | null, more: Table[] = 
 }
 export const exportTableExcel = (t: Table, org: Organization | null, more: Table[] = []) => deliverXlsx(makeXlsx(tableSheets(t, org, more)), exportFilename(t.site || '', t.title, 'xlsx'));
 
-export async function exportTablePdf(t: Table, org: Organization | null) {
+/** deliver: what to do with the finished PDF (default: hand it to the person). */
+export async function exportTablePdf(t: Table, org: Organization | null, deliver: (bytes: Uint8Array, filename: string) => Promise<boolean> = deliverPdf) {
   const doc = await PDFDocument.create();
   const bold = await doc.embedFont(StandardFonts.HelveticaBold), reg = await doc.embedFont(StandardFonts.Helvetica);
   const logo = await storageImage(doc, 'org-logos', org?.logo_path);
@@ -60,5 +61,5 @@ export async function exportTablePdf(t: Table, org: Organization | null) {
   newPage();
   t.rows.forEach((r) => line(r));
   if (t.totals) { page.drawLine({ start: { x: M, y: y + 11 }, end: { x: W - M, y: y + 11 }, thickness: 1, color: INK }); line(t.totals, bold); }
-  return deliverPdf(await doc.save(), exportFilename(t.site || '', t.title, 'pdf'));
+  return deliver(await doc.save(), exportFilename(t.site || '', t.title, 'pdf'));
 }

@@ -1,6 +1,6 @@
 // One Pricing Element (390 renderPricingElementDetail): Price Total, Booked In
 // (auto from the weekly build-up, or a manager's override), Balance, the weekly
-// figures, and Variations to Price. Managers rename, close / reopen, delete and
+// build-up (PriceWeeks — or qty per line when fed by a Price Sheet), and Variations to Price. Managers rename, close / reopen, delete and
 // decide variations; anyone with price access can request one.
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
@@ -9,6 +9,7 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Card, Check, Empty, Muted, SectionTitle } from '@/components/ui';
+import { PriceWeeks } from '@/components/PriceWeeks';
 import { nameOf, usePeople } from '@/data/hs';
 import { decideVariation, deleteElement, patchElement, removeVariation, requestVariation, reviseVariation, usePriceTile, type PriceVariation } from '@/data/price';
 import { useSite } from '@/data/sites';
@@ -38,7 +39,6 @@ export default function PriceElementPage() {
   const f = data.figs[el.id], mgr = data.mgr, canPrice = data.canPrice(el.id);
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['priceTile', site.id] }); };
   const vs = data.variations.filter((v) => v.element_id === el.id);
-  const weeks = data.weeks.filter((w) => w.element_id === el.id).sort((a, b) => a.week_number - b.week_number);
   const saveNum = async (field: 'price_total' | 'price_booked_override', v: string) => {
     const n = readAmount(v); if (n === 'bad') { toast('Enter a number'); return; }
     toast((await patchElement(el.id, { [field]: n })) ? 'Saved' : 'Could not save — try again.'); setTotal(null); setOverride(null); refresh();
@@ -94,12 +94,7 @@ export default function PriceElementPage() {
         </Card>
       ) : <Muted style={{ marginBottom: 8 }}>You can see this price&apos;s labour invoices only — they&apos;re still in the current app for now.</Muted>}
 
-      {canPrice && weeks.length > 0 && (
-        <>
-          <SectionTitle>Weekly build-up</SectionTitle>
-          <Card>{weeks.map((w) => row(`Week ${w.week_number}`, money(w.amount)))}</Card>
-        </>
-      )}
+      {canPrice && <PriceWeeks me={me} site={site} elementId={el.id} mgr={mgr} />}
 
       {canPrice && (
         <>

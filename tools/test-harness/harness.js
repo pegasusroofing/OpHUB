@@ -78,7 +78,10 @@ async function makeContext(browser, role, log, opts){
     if(p.startsWith('/rest/v1/rpc/')) return json((p.endsWith('check_device_lock_v2')||p.endsWith('check_and_lock_device'))?{ok:true}:[]);
     if(p.startsWith('/rest/v1/')){
       const table = p.slice(9); const sp = u.searchParams;
-      if(m==='GET' || m==='HEAD') return json(query(db, table, sp));
+      // .single() / .maybeSingle() ask for one object (Accept: vnd.pgrst.object): give the first row, or 406 when there is none.
+      const one = /vnd.pgrst.object/.test(req.headers()['accept']||'');
+      const reply = (rows, st) => !one ? json(rows, st) : rows.length ? json(rows[0], st) : route.fulfill({status:406, contentType:'application/json', body:JSON.stringify({code:'PGRST116', message:'no rows'})});
+      if(m==='GET' || m==='HEAD') return reply(query(db, table, sp));
       let body = null; try{ body = JSON.parse(req.postData()||'null'); }catch(e){}
       if(m==='POST'){
         const merge = /merge-duplicates/.test(req.headers()['prefer']||'');
@@ -90,9 +93,9 @@ async function makeContext(browser, role, log, opts){
           const r = Object.assign({id:'new-'+table+'-'+Date.now()+'-'+(idn++), created_at:new Date().toISOString()}, r0);
           (db[table] = db[table]||[]).push(r); out.push(r);
         }
-        return json(out, 201);
+        return reply(out, 201);
       }
-      if(m==='PATCH'){ const hit = query(db, table, sp); hit.forEach(r=>Object.assign(r, body)); return json(hit); }
+      if(m==='PATCH'){ const hit = query(db, table, sp); hit.forEach(r=>Object.assign(r, body)); return reply(hit); }
       if(m==='DELETE'){ const hit = query(db, table, sp); db[table] = (db[table]||[]).filter(r=>!hit.includes(r)); return json(hit); }
     }
     return json({});
