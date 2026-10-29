@@ -131,3 +131,13 @@ export function plantCost(h: { on_hire: string; off_hire?: string | null; rate?:
 /** Job tag "J101 · Studley Rd". */
 export const jobTag = (s: { job_number?: string | null; name?: string | null } | undefined) => (s ? `${s.job_number ? `${s.job_number} · ` : ''}${s.name || ''}` : '');
 export const byJobNoDesc = (a: { job_number?: string | null }, b: { job_number?: string | null }) => String(b.job_number || '').localeCompare(String(a.job_number || ''), undefined, { numeric: true });
+
+/* ---------- the company's VAT rates (9219o) ---------- */
+const VAT_DEFAULTS = [
+  { code: '20', name: '20% VAT', rate: 20, rc: false, active: true }, { code: '5', name: '5% VAT (reduced rate)', rate: 5, rc: false, active: true },
+  { code: 'rc20', name: 'Domestic reverse charge 20%', rate: 20, rc: true, active: true }, { code: 'rc5', name: 'Domestic reverse charge 5%', rate: 5, rc: true, active: true },
+  { code: '0', name: 'Zero rated (0%)', rate: 0, rc: false, active: true }, { code: 'ex', name: 'VAT exempt', rate: 0, rc: false, active: true },
+  { code: 'none', name: 'No VAT (outside the scope)', rate: 0, rc: false, active: true },
+];
+export type VatRate = { code: string; name: string; rate: number; rc: boolean; active: boolean; custom?: boolean };
+export const vatList = (s: Record<string, any> | null | undefined): VatRate[] => (Array.isArray(s?.vat_rates) && s.vat_rates.length ? s.vat_rates : VAT_DEFAULTS).map((r: VatRate) => ({ ...r }));

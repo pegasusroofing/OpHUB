@@ -10,7 +10,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Linking, Platform, Pressable, Text, View } from 'react-native';
+import { Linking, Platform, Pressable, Text, TextInput, View } from 'react-native';
 
 import { FinForm } from '@/components/FinForm';
 import { FinPage, FinRow } from '@/components/FinNav';
@@ -22,8 +22,8 @@ import { useAuth } from '@/lib/auth';
 import { isFinanceUser, roleLabel } from '@/lib/roles';
 import { SUPABASE_URL } from '@/lib/supabase';
 import type { Profile } from '@/lib/types';
-import { FIN_TRIAL, FIN_VAT_LABEL, num } from '@/lib/rules/finance';
-import { base } from '@/theme/theme';
+import { FIN_TRIAL, FIN_VAT_LABEL, num, vatList, type VatRate } from '@/lib/rules/finance';
+import { base, radius } from '@/theme/theme';
 
 type Row = Record<string, any>;
 
@@ -120,6 +120,8 @@ export default function FinSettings() {
                     {FIN_TRIAL && <Muted style={{ marginTop: 6 }}>While Finance is on trial nothing is posted to Xero. Reading and adding clients and suppliers still works.</Muted>}
                     {xs && !xs.connected && <View style={{ marginTop: 8 }}><Button kind="ghost" title="Connect Xero" onPress={async () => { const r = await finInvoke<Row>(me, 'xero', { action: 'connect', origin: Platform.OS === 'web' ? window.location.origin : null }); if (r.error || !r.data?.url) { toast(r.error || 'Could not start the Xero connection.'); return; } if (Platform.OS === 'web') window.location.href = r.data.url; else void Linking.openURL(r.data.url); }} /></View>}
                   </>
+                ) : k === 'vat' ? (
+                  <>{rows.map(([l, v]) => <FinRow key={l} title={l} right={v} />)}<VatRates s={s} canEdit={me.role === 'admin' && isFinanceUser(me, org)} onSaved={() => void qc.invalidateQueries({ queryKey: ['finSettings'] })} /></>
                 ) : rows.map(([l, v]) => <FinRow key={l} title={l} right={v} />)}
               </Card>
             )}
@@ -164,5 +166,43 @@ export default function FinSettings() {
           }} />
       )}
     </FinPage>
+  );
+}
+
+// The company's VAT rates (9219o): the rates you can pick on purchase orders and as a client's or supplier's
+// default in the Directory. Built-in rates keep their rate; switch one off to hide it (anything already using
+// it keeps it). Kept in fin_settings.vat_rates.
+function VatRates({ s, canEdit, onSaved }: { s: Row; canEdit: boolean; onSaved: () => void }) {
+  const { me } = useAuth();
+  const toast = useToast();
+  const [list, setList] = useState<VatRate[]>(() => vatList(s));
+  const [dirty, setDirty] = useState(false);
+  const set = (i: number, p: Partial<VatRate>) => { setList(list.map((r, j) => (j === i ? { ...r, ...p } : r))); setDirty(true); };
+  const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 6, color: base.ink, backgroundColor: base.card };
+  return (
+    <View style={{ marginTop: 8 }}>
+      <Muted style={{ marginBottom: 8 }}>The rates you can pick on purchase orders and as a client’s or supplier’s default in the Directory. Switch one off to hide it; anything already using it keeps it. Reverse charge: no VAT goes on the invoice — the customer accounts for it.</Muted>
+      {list.map((r, i) => (
+        <View key={r.code} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 5, opacity: r.active ? 1 : 0.5 }}>
+          <TextInput editable={canEdit} value={r.name} onChangeText={(v) => set(i, { name: v })} style={[box, { flex: 1 }]} />
+          <TextInput editable={canEdit && !!r.custom} value={String(r.rate)} onChangeText={(v) => set(i, { rate: Math.max(0, Math.min(100, Number(v) || 0)) })} keyboardType="decimal-pad" style={[box, { width: 56 }]} />
+          <Text style={{ color: base.slate }}>%</Text>
+          <Pressable disabled={!canEdit || !r.custom} onPress={() => set(i, { rc: !r.rc })}><Text style={{ color: base.ink }}>{r.rc ? '☑' : '☐'} RC</Text></Pressable>
+          <Pressable disabled={!canEdit} onPress={() => set(i, { active: !r.active })}><Text style={{ color: base.ink }}>{r.active ? '☑' : '☐'} In use</Text></Pressable>
+        </View>
+      ))}
+      {canEdit && (
+        <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+          <Button kind="ghost" title="+ Add VAT rate" onPress={() => { setList([...list, { code: `c${Date.now().toString(36)}`, name: '', rate: 0, rc: false, active: true, custom: true }]); setDirty(true); }} />
+          {dirty && <Button title="Save VAT rates" onPress={async () => {
+            const out = list.filter((r) => r.name.trim() || !r.custom).map((r) => ({ ...r, name: r.name.trim() || r.code }));
+            if (!out.some((r) => r.active)) { toast('Keep at least one VAT rate switched on.'); return; }
+            const res = await fdb.from('fin_settings').update({ vat_rates: out } as never).eq('org_id', me?.org_id as string);
+            if (res.error) { toast('VAT rates not saved — try again.'); return; }
+            toast('VAT rates saved'); setDirty(false); onSaved();
+          }} />}
+        </View>
+      )}
+    </View>
   );
 }

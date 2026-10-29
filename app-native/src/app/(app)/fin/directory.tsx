@@ -13,17 +13,16 @@ import { Cell, FinTable, FootText } from '@/components/FinTable';
 import { bankOk, sortCode } from '@/components/FinSubs';
 import { useToast } from '@/components/toast';
 import { Button, Empty, Muted, SectionTitle } from '@/components/ui';
-import { fdb, finInvoke, finStatus, selectAll } from '@/data/finance';
+import { fdb, finInvoke, finStatus, selectAll, useFinSettings } from '@/data/finance';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { useJobsData } from './jobs';
 import { COST_CATS } from '@/lib/rules/finBook';
-import { fdate, money, num } from '@/lib/rules/finance';
+import { fdate, money, num, vatList } from '@/lib/rules/finance';
 import { base, radius, useDesk, useTheme } from '@/theme/theme';
 
 type Row = Record<string, any>;
 type Kind = 'client' | 'supplier' | 'labour' | 'codes';
-const VAT: [string, string][] = [['', 'Not set'], ['20', '20%'], ['5', '5% reduced rate'], ['0', 'Zero rated'], ['ex', 'Exempt'], ['rc20', 'Reverse charge (20%)'], ['rc5', 'Reverse charge (5%)'], ['none', 'No VAT']];
 const TERMS: [string, string][] = [['', 'Not set'], ['of_following_month', 'of the following month'], ['days_after_bill', 'days after bill date'], ['days_after_month', 'days after bill month'], ['of_current_month', 'of the current month']];
 const CIS: [string, string][] = [['0', 'Gross (0%)'], ['20', 'Standard (20%)'], ['30', 'Unverified (30%)']];
 const SUP_CATS = ['Materials', 'Plant & hire', 'Scaffolding', 'Waste', 'Subcontractor', 'Services', 'Travel', 'Other'];
@@ -38,6 +37,10 @@ export function termsText(r: Row) {
 export default function FinDirectory() {
   const { kind = 'client' } = useLocalSearchParams<{ kind?: Kind }>();
   const { me } = useAuth();
+  // The company's VAT rates (Finance Settings): switched-off ones still show on records that use them.
+  const { data: fst } = useFinSettings(me?.org_id);
+  const vatAll = vatList(fst), VAT_SHOW: [string, string][] = vatAll.map((r) => [r.code, r.name]);
+  const VAT: [string, string][] = [['', 'Not set'], ...vatAll.filter((r) => r.active).map((r) => [r.code, r.name] as [string, string])];
   const toast = useToast();
   const qc = useQueryClient();
   const [q, setQ] = useState('');
@@ -187,7 +190,7 @@ export default function FinDirectory() {
               { k: 'n', l: sup ? 'Supplier' : 'Client', flex: 2.2, min: 220, render: (c: Row) => (
                 <View style={{ alignSelf: 'stretch' }}>
                   <Text style={{ fontWeight: '800', fontSize: 13, color: '#111827' }}>{c.name}</Text>
-                  <Text style={{ fontSize: 11.5, color: '#6b7280' }}>{[sup ? c.category : '', termsText(c), c.sales_vat ? `${sup ? '' : 'Sales '}VAT ${VAT.find(([k]) => k === c.sales_vat)?.[1]}` : '', c.cis_registered ? 'CIS' : ''].filter(Boolean).join(' · ')}</Text>
+                  <Text style={{ fontSize: 11.5, color: '#6b7280' }}>{[sup ? c.category : '', termsText(c), c.sales_vat ? `${sup ? '' : 'Sales '}VAT ${VAT_SHOW.find(([k]) => k === c.sales_vat)?.[1]}` : '', c.cis_registered ? 'CIS' : ''].filter(Boolean).join(' · ')}</Text>
                   {!!c.email && <Text style={{ fontSize: 11.5, color: '#6b7280' }}>{c.email}</Text>}
                 </View>
               ) },
@@ -197,7 +200,7 @@ export default function FinDirectory() {
             ]}
             foot={<><FootText bold>{list.length} shown</FootText>{!sup && <FootText>Owed {money(list.reduce((t, c) => t + owedOf(c).o, 0))}</FootText>}</>} />
         );
-      })() : list.length ? list.map((c) => <FinRow key={c.id} title={c.name} sub={[sup ? c.category : '', c.email, termsText(c), c.sales_vat ? `VAT ${VAT.find(([k]) => k === c.sales_vat)?.[1]}` : '', c.cis_registered ? 'CIS' : '', c.xero_contact_id ? 'In Xero' : 'Not in Xero'].filter(Boolean).join(' · ')} onPress={() => setEdit(c)} />) : <Empty>Nothing here yet.</Empty>}
+      })() : list.length ? list.map((c) => <FinRow key={c.id} title={c.name} sub={[sup ? c.category : '', c.email, termsText(c), c.sales_vat ? `VAT ${VAT_SHOW.find(([k]) => k === c.sales_vat)?.[1]}` : '', c.cis_registered ? 'CIS' : '', c.xero_contact_id ? 'In Xero' : 'Not in Xero'].filter(Boolean).join(' · ')} onPress={() => setEdit(c)} />) : <Empty>Nothing here yet.</Empty>}
       {edit && (
         <FinForm title={edit.id ? edit.name : `New ${sup ? 'supplier' : 'client'}`} initial={{ ...edit, terms_days: edit.terms_days ?? '', cis_rate: String(edit.cis_rate ?? 20), toX: !edit.xero_contact_id }} onClose={() => setEdit(null)}
           note={edit.xero_contact_id ? 'Linked to Xero.' : 'Not in Xero yet.'}
