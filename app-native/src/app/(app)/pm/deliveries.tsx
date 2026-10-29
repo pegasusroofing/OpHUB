@@ -1,6 +1,7 @@
 // Delivery Schedule, office side (870 renderDeliverySchedulePM): one day at a
 // time, drop by drop. "To schedule" lists waste / leftovers flagged on site.
-// ▲▼ reorder within a drop and hop into the next free drop at the ends; push a
+// ▲▼ reorder within a drop and hop into the next free drop at the ends, ⇄ move
+// straight to any drop (the current app's drag and drop); push a
 // delivery to the next working day; tap one to edit. Driver hours underneath.
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack } from 'expo-router';
@@ -8,9 +9,9 @@ import { useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { StorageImage } from '@/components/StorageImage';
-import { confirmAsk, showAlert, useToast } from '@/components/toast';
+import { chooseAction, confirmAsk, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
-import { dismissRequest, moveDelivery, useDeliveryRequests, useDriverHours, useScheduleDay, useStaff, type FullDelivery } from '@/data/deliveries';
+import { dismissRequest, moveDelivery, moveToSlot, useDeliveryRequests, useDriverHours, useScheduleDay, useStaff, type FullDelivery } from '@/data/deliveries';
 import { planPush, pushDelivery, siteHeading } from '@/data/driver';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
@@ -141,6 +142,14 @@ export default function DeliverySchedule() {
                 <View style={{ gap: 4 }}>
                   <Pressable disabled={busy === t.id} onPress={() => void move(t, 'up')} style={{ width: 30, height: 30, borderRadius: 8, borderWidth: 1, borderColor: base.line, alignItems: 'center', justifyContent: 'center' }}><Text>▲</Text></Pressable>
                   <Pressable disabled={busy === t.id} onPress={() => void move(t, 'down')} style={{ width: 30, height: 30, borderRadius: 8, borderWidth: 1, borderColor: base.line, alignItems: 'center', justifyContent: 'center' }}><Text>▼</Text></Pressable>
+                  <Pressable disabled={busy === t.id} accessibilityLabel="Move to another drop" onPress={async () => {
+                    const k = await chooseAction('Move to which drop?', DELIVERY_TIME_SLOTS.filter((s) => s.key !== t.time_slot).map((s) => ({ key: s.key, label: s.label })));
+                    if (!k) return;
+                    if (t.high_priority && k !== DELIVERY_TIME_SLOTS[0].key && !(await confirmAsk('This is the 1st DROP. Moving it to a later drop takes the 1st DROP off it — carry on?', 'Yes — move it', 'No'))) return;
+                    setBusy(t.id); const why = await moveToSlot(me, t, k, sites); setBusy(null);
+                    if (why) showAlert(why); else toast(`Moved to the ${slotLabel(k)}`);
+                    refresh();
+                  }} style={{ width: 30, height: 30, borderRadius: 8, borderWidth: 1, borderColor: base.line, alignItems: 'center', justifyContent: 'center' }}><Text>⇄</Text></Pressable>
                 </View>
               </View>
             )) : !carry ? <Muted style={{ marginBottom: 6 }}>Nothing in this drop.</Muted> : null}
@@ -195,7 +204,7 @@ export default function DeliverySchedule() {
           {([['x', '📊 Export Excel'], ['p', '📄 Export PDF']] as const).map(([k, l]) => <Button key={k} kind="ghost" title={busy === `exp${k}` ? 'Building…' : l} onPress={async () => { setBusy(`exp${k}`); const why = await exportDeliverySchedule(k, me.org_id as string, Array.from({ length: 7 }, (_, i) => addDays(iso, i)), sites, people, org); setBusy(null); if (why) toast(why); }} />)}
         </View>
         <Button kind="ghost" title="👁 Driver view" onPress={() => router.push(`/driver/schedule?preview=1&date=${iso}` as never)} />
-        <Muted>Exports cover 7 days from the day shown. Drag-to-move and vehicle health checks are still in the current app for now.</Muted>
+        <Muted>Exports cover 7 days from the day shown. Vehicle health checks are still in the current app for now.</Muted>
       </Card>
     </ScrollView>
   );

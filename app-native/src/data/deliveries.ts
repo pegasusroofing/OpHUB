@@ -49,6 +49,19 @@ export async function dismissRequest(id: string): Promise<boolean> {
 }
 
 /** ▲/▼ on the schedule. Returns a message to show, or null when moved. */
+/** Move a delivery straight into another drop the same day, at the end of it (870 dlvSaveOrder — the drag-and-drop). Returns why not, or null. */
+export async function moveToSlot(me: Profile, t: FullDelivery, toSlot: string, sites: Site[]): Promise<string | null> {
+  if (toSlot === t.time_slot) return null;
+  const org = me.org_id as string;
+  const why = slotProblem(await dayList(org, t.scheduled_date), t, toSlot, placeOf(sites));
+  if (why) return why;
+  const patch: Record<string, unknown> = { time_slot: toSlot, sub_priority: 999 };
+  if (t.high_priority && toSlot !== DELIVERY_TIME_SLOTS[0].key) patch.high_priority = false;
+  if ((await db.from('delivery_tasks').update(patch as never).eq('id', t.id)).error) return 'Could not save — try again.';
+  await resequenceSlot(org, t.scheduled_date, t.time_slot);
+  await resequenceSlot(org, t.scheduled_date, toSlot);
+  return null;
+}
 export async function moveDelivery(me: Profile, t: FullDelivery, dir: 'up' | 'down', sites: Site[]): Promise<string | null> {
   const org = me.org_id as string;
   const list = await dayList(org, t.scheduled_date);
