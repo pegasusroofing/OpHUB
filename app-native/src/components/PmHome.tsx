@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 
 import { Muted, Screen, SectionTitle, Stat, Tile } from '@/components/ui';
+import { HowTo } from '@/components/HowTo';
 import { useOnSiteNow, usePmReports, usePmTodos } from '@/data/pmHome';
 import { useHub } from '@/data/hub';
 import { useSites } from '@/data/sites';
@@ -32,6 +33,7 @@ export function PmHome() {
     <Screen>
       <Text style={{ fontSize: 12.5, color: base.slate, fontWeight: '600' }}>{new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}</Text>
       <Text style={{ fontSize: 21, fontWeight: '800', color: base.ink, marginBottom: 14 }}>{greeting()}{first ? `, ${first}` : ''}</Text>
+      <HowTo k="home" />
       <View style={{ flexDirection: 'row', gap: 8, marginBottom: space.m }}>
         <Stat n={live.length} label="Live jobs" onPress={() => router.push('/sites')} />
         <Stat n={onSite.length} label="On site now" onPress={() => router.push('/onsite')} />

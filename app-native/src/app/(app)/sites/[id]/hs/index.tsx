@@ -8,6 +8,7 @@ import { ScrollView } from 'react-native';
 
 import { useToast } from '@/components/toast';
 import { Muted, Tile } from '@/components/ui';
+import { HowTo } from '@/components/HowTo';
 import { useHsSummary } from '@/data/hs';
 import { useSite } from '@/data/sites';
 import { tileRoles, tileVisMenu } from '@/data/tileVis';
@@ -40,6 +41,7 @@ export default function HealthSafety() {
   return (
     <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
       <Stack.Screen options={{ title: 'Health & Safety' }} />
+      <HowTo k="hs" />
       {visible.length ? visible.map((t) => (
         <Tile key={t.key} icon={t.icon} tint={t.tint} title={t.title} sub={t.sub} badge={t.badge || undefined}
           dim={isFullManager(me) && !tileRoles(site, t.key).includes('operative')}

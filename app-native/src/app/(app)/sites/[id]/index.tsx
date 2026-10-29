@@ -7,6 +7,7 @@ import { Pressable, ScrollView, Text } from 'react-native';
 
 import { useToast } from '@/components/toast';
 import { Card, Muted, Tile } from '@/components/ui';
+import { HowTo } from '@/components/HowTo';
 import { useSiteHome } from '@/data/siteHome';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
@@ -37,6 +38,7 @@ export default function SiteHome() {
           title: site.name,
           headerRight: mgr ? () => <Pressable onPress={go('admin')} hitSlop={10} style={{ paddingHorizontal: 12 }}><Text style={{ fontSize: 15, color: base.ink }}>⚙ Settings</Text></Pressable> : undefined,
         }} />
+        <HowTo k="site_home" />
         {!!fullSiteAddress(site) && <Muted style={{ marginBottom: space.m }}>{fullSiteAddress(site)}</Muted>}
         <Tile icon="🛠" tint="#FDECEA" title="Live Jobs" sub="Repair jobs on this contract" onPress={go('repairs')} />
         <Tile icon="📄" tint="#E7E9EE" title="Health & Safety" sub="RAMS · COSHH · TBT" onPress={go('hs')} />

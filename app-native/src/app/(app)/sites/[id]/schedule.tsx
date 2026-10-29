@@ -37,6 +37,7 @@ import { columnTasks, pdfTaskLines, sheetColumns } from '@/lib/rules/sowImport';
 import { csvRows, readXlsx } from '@/lib/rules/xlsxRead';
 import { supabase } from '@/lib/supabase';
 import { VisibilityEditor } from '@/components/VisibilityEditor';
+import { HowTo } from '@/components/HowTo';
 import { onQueueChange, onUploadsSent, pendingUploads, type UploadJob } from '@/lib/uploadQueue';
 import { base, radius, space } from '@/theme/theme';
 
@@ -183,6 +184,7 @@ export default function Schedule() {
     <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 820, width: '100%', alignSelf: 'center' }}
       refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={changed} />}>
       <Stack.Screen options={{ title: 'Schedule of Works' }} />
+      <HowTo k="schedule" />
       <Muted style={{ marginBottom: space.m }}>{[site.name, fullSiteAddress(site)].filter(Boolean).join(' · ')}</Muted>
       {isLoading && !data && <Muted>Loading…</Muted>}
       {view && (

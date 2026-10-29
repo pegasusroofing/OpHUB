@@ -11,6 +11,7 @@ import { Pressable, RefreshControl, ScrollView, Text, TextInput, View } from 're
 import { StorageImage } from '@/components/StorageImage';
 import { chooseAction, confirmAsk, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
+import { HowTo } from '@/components/HowTo';
 import { dismissRequest, moveDelivery, moveToSlot, useDeliveryRequests, useDriverHours, useScheduleDay, useStaff, type FullDelivery } from '@/data/deliveries';
 import { planPush, pushDelivery, siteHeading } from '@/data/driver';
 import { useSites } from '@/data/sites';
@@ -71,6 +72,7 @@ export default function DeliverySchedule() {
     <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled"
       refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => { void refetch(); }} />}>
       <Stack.Screen options={{ title: 'Delivery Schedule' }} />
+      <HowTo k="delivery" />
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
         <Pressable onPress={() => setIso(addDays(iso, -1))} style={{ width: 52, height: 52, borderRadius: 14, backgroundColor: base.red, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff', fontSize: 30, fontWeight: '800' }}>‹</Text></Pressable>
         <Text style={{ flex: 1, textAlign: 'center', fontWeight: '700', fontSize: 15, color: base.ink }} numberOfLines={1}>{dayLabel} <Text style={{ color: base.slate, fontWeight: '400' }}>({tasks.length})</Text></Text>

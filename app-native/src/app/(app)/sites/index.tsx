@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { ActivityIndicator, RefreshControl, ScrollView, View } from 'react-native';
 
 import { Empty, Muted, Row, SectionTitle } from '@/components/ui';
+import { HowTo } from '@/components/HowTo';
 import { useSites } from '@/data/sites';
 import { fullSiteAddress, siteStatusKey } from '@/lib/rules/checkin';
 import type { Site } from '@/lib/types';
@@ -20,6 +21,7 @@ export default function Sites() {
   return (
     <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}
       refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => { void refetch(); }} />}>
+      <HowTo k="sites" />
       {isLoading && <ActivityIndicator style={{ marginTop: 24 }} />}
       {!isLoading && error && !data && <Muted>Couldn't load your projects — check your signal and pull down to try again.</Muted>}
       {!isLoading && !!data && (

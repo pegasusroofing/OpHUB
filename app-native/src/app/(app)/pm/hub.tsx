@@ -7,6 +7,7 @@ import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native'
 
 import { chooseAction } from '@/components/toast';
 import { Empty, Muted } from '@/components/ui';
+import { HowTo } from '@/components/HowTo';
 import { useHub } from '@/data/hub';
 import { useSites } from '@/data/sites';
 import { usePmList } from '@/data/todos';
@@ -41,6 +42,7 @@ export default function Hub() {
     <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}
       refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => { void refetch(); }} />}>
       <Stack.Screen options={{ title: 'HUB' }} />
+      <HowTo k="hub" />
       <Muted style={{ marginBottom: 10 }}>Everything needing your attention — Toolbox Talks, RAMS/COSHH, snags, tasks and messages — in one place. Tap a row to jump straight to it.</Muted>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
         {TYPES.map(([k, l]) => (

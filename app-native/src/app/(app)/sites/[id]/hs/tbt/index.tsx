@@ -12,6 +12,7 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { TbtStatusTag } from '@/components/TbtStatusTag';
 import { promptText, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
+import { HowTo } from '@/components/HowTo';
 import { nameOf, usePeople, useTbts } from '@/data/hs';
 import { useSite } from '@/data/sites';
 import { syncTbtBank, tbtDue, uploadTbt } from '@/data/tbtManager';
@@ -70,6 +71,7 @@ export default function Tbts() {
   return (
     <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Toolbox Talks' }} />
+      <HowTo k="tbt" />
       {!!due && (
         <Card style={{ borderColor: base.warn, borderWidth: 1.5 }}>
           <Text style={{ fontWeight: '700', color: base.warn }}>{due}</Text>

@@ -23,7 +23,7 @@ const seed = require('./fresh/seed');
     db.price_builder_sheet_items = [{id:'si1', sheet_id:'ps2', rate_item_id:'ri1', category:'Pitched Roofing', name:'Strip and re-slate', unit:'m2', rate:12.5, quantity:50, option_id:null, option_label:null, is_manual_rate:false, line_total:625, sort_order:0},{id:'si2', sheet_id:'ps2', rate_item_id:'ri2', category:'Roofline', name:'Valleys', unit:'lm', rate:40, quantity:17.5, option_id:'ro1', option_label:'Lead', is_manual_rate:false, line_total:700, sort_order:1}];
     db.price_builder_sheet_item_weeks = [];
     db.repair_jobs = [{id:'rj1', site_id:S1, org_id:org, job_number:'R1', address:'1 High St', description:'Leak', created_at:new Date().toISOString(), job_status:'Approved - To Do', quote_approved:true, quote_approved_at:new Date().toISOString(), closed:false, works_completed:false}]; }
-  db.profiles[0].finance_enabled = true; db.profiles[0].howto_dismissed = ['*'];
+  db.profiles[0].finance_enabled = true; db.profiles[0].howto_dismissed = process.env.TIPS ? [] : ['*'];
   const page = await ctx.newPage(); page.on('pageerror', e=>errs.push(e.message));
   await page.goto(BASE+'/login'); await page.waitForTimeout(5000);
   await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');

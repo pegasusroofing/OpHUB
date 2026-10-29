@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 
 import { Muted, Screen, Stat, Tile } from '@/components/ui';
+import { HowTo } from '@/components/HowTo';
 import { outstandingCount, useOutstanding } from '@/data/inbox';
 import { useOpUnreadCount } from '@/data/messages';
 import { useOnboarding } from '@/data/onboarding';
@@ -33,6 +34,7 @@ export function OperativeHome() {
     <Screen>
       <Text style={{ fontSize: 12.5, color: base.slate, fontWeight: '600' }}>{dateTxt}</Text>
       <Text style={{ fontSize: 21, fontWeight: '800', color: base.ink, marginBottom: 14 }}>{greeting()}{first ? `, ${first}` : ''}</Text>
+      <HowTo k="home" />
       {onboarding && !onboarding.allDone && (
         <Pressable onPress={() => router.push('/getting-started')} style={{ backgroundColor: base.warnBg, borderWidth: 1, borderColor: base.warn, borderRadius: 18, padding: 14, marginBottom: 14 }}>
           <Text style={{ fontWeight: '800', color: base.warn }}>Getting Started</Text>

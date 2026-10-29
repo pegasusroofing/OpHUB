@@ -10,6 +10,7 @@ import { MarkupEditor } from '@/components/MarkupEditor';
 import { StorageImage } from '@/components/StorageImage';
 import { chooseAction, confirmAsk, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Empty, Field, Muted, SectionTitle } from '@/components/ui';
+import { HowTo } from '@/components/HowTo';
 import { nameOf, openDocLink, usePeople } from '@/data/hs';
 import { useSite } from '@/data/sites';
 import { addSnag, closeSnag, emailSnagPdf, replaceSnagPhoto, snagPhotos, snagsForPdf, useSnags, type Snag } from '@/data/snags';
@@ -88,6 +89,7 @@ export default function SnagList() {
   return (
     <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
       <Stack.Screen options={{ title: 'Snagging' }} />
+      <HowTo k="snagging" />
       <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
         {([['open', 'Live'], ['closed', 'Closed']] as const).map(([k, l]) => (
           <Pressable key={k} onPress={() => setFilter(k)} style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 16, borderWidth: 1, borderColor: filter === k ? base.ink : base.line, backgroundColor: filter === k ? base.ink : base.card }}>

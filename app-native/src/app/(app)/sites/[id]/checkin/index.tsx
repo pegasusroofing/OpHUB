@@ -7,6 +7,7 @@ import { ScrollView, Text } from 'react-native';
 import { CheckinPanel } from '@/components/CheckinPanel';
 import { useToast } from '@/components/toast';
 import { Button, Card, Empty, Field, Muted, Row, SectionTitle, Toggle } from '@/components/ui';
+import { HowTo } from '@/components/HowTo';
 import { addAddress } from '@/data/checkinManager';
 import { useSite, useSubAddresses } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
@@ -21,6 +22,7 @@ export default function Checkin() {
   return (
     <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
       <Stack.Screen options={{ title: 'Check In / Out' }} />
+      <HowTo k="checkin" />
       {!site ? <Muted>Loading…</Muted> : (
         <>
           <Muted style={{ marginBottom: space.m }}>{[site.name, fullSiteAddress(site)].filter(Boolean).join(' · ')}</Muted>

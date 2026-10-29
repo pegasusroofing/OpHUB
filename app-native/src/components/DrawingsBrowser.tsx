@@ -10,6 +10,7 @@ import { router, Stack } from 'expo-router';
 import { useState } from 'react';
 import { Linking, Pressable, Text, TextInput, View } from 'react-native';
 
+import { HowTo } from '@/components/HowTo';
 import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import {
@@ -79,6 +80,7 @@ export function DrawingsBrowser({ siteId, folderId }: { siteId: string; folderId
   return (
     <View>
       <Stack.Screen options={{ title: folder ? folder.name : "Drawings, Spec's & Programme" }} />
+      {!folderId && <HowTo k="drawings" />}
       {mgr && (
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
           <Text style={{ flex: 1, fontWeight: '700', color: base.slate }}>Folder/File Name</Text>

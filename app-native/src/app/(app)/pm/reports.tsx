@@ -8,6 +8,7 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { chooseAction, promptText, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted } from '@/components/ui';
+import { HowTo } from '@/components/HowTo';
 import { nameOf, usePeople } from '@/data/hs';
 import { usePmReports } from '@/data/pmHome';
 import { startGeneralReport, startReport, useTemplates } from '@/data/reports';
@@ -91,6 +92,7 @@ export default function AllReports() {
   return (
     <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Reports & surveys' }} />
+      <HowTo k="reports" />
       <Button busy={busy} title="+ Start a report" onPress={() => void start()} />
       <TextInput value={q} onChangeText={setQ} placeholder="Search reports, projects, people" style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card, marginVertical: 10 }} />
       <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>

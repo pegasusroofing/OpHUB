@@ -9,6 +9,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { chooseAction } from '@/components/toast';
 import { Card, Muted } from '@/components/ui';
+import { HowTo } from '@/components/HowTo';
 import { nameOf, usePeople } from '@/data/hs';
 import { useSites } from '@/data/sites';
 import { usePmList } from '@/data/todos';
@@ -82,6 +83,7 @@ export default function AllCalendar() {
   return (
     <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
       <Stack.Screen options={{ title: 'Calendar' }} />
+      <HowTo k="calendar" />
       <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
         <Chip on={!!pmF.length} label={pmF.length ? (pmF.length === 1 ? nameOf(people, pmF[0]) : `${pmF.length} PMs`) : 'Filter by PM'} onPress={() => void pickMany('Filter by PM', pms ?? [], pmF, setPmF)} />
         <Chip on={!!siteF.length} label={siteF.length ? `${siteF.length} sites` : 'Filter by site'} onPress={() => void pickMany('Filter by site', sites ?? [], siteF, setSiteF)} />

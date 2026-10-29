@@ -7,6 +7,7 @@ import { Pressable, RefreshControl, ScrollView, Text, TextInput, View } from 're
 import { ManagerMessages } from '@/components/ManagerMessages';
 import { useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted } from '@/components/ui';
+import { HowTo } from '@/components/HowTo';
 import { nameOf, usePeople } from '@/data/hs';
 import { markMessagesRead } from '@/data/inbox';
 import { KIND_LABEL, KIND_ROUTE, sendReply, useSiteMessages } from '@/data/siteMessages';
@@ -44,6 +45,7 @@ export default function SiteMessages() {
     return (
       <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
         <Stack.Screen options={{ title: 'Messages' }} />
+        <HowTo k="messages" />
         <ManagerMessages siteId={id} />
       </ScrollView>
     );

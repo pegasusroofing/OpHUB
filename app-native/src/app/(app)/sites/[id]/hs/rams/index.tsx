@@ -7,6 +7,7 @@ import { HsDocUpload } from '@/components/HsDocUpload';
 import { PolicyCard } from '@/components/PolicyCard';
 import { confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Muted, SectionTitle } from '@/components/ui';
+import { HowTo } from '@/components/HowTo';
 import { deleteBuild, useSiteBuilds } from '@/data/ramsBuilder';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
@@ -46,6 +47,7 @@ export default function Rams() {
   return (
     <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
       <Stack.Screen options={{ title: 'RAMS' }} />
+      <HowTo k="rams" />
       <PolicyCard />
       {site && me && isFullManager(me) && <BuilderCard siteId={site.id} />}
       {site && me && isManager(me) && <HsDocUpload kind="rams" site={site} />}
