@@ -153,8 +153,12 @@ export async function ungroupMaterials(items: Mat[]): Promise<boolean> {
 }
 
 /** Requests → open Collection List rows (choose a collector there); the requests close, noted as moved. */
-export async function toCollections(me: Profile, siteId: string, items: Mat[]): Promise<boolean> {
-  const ins = await db.from('material_required_items').insert(items.map((m) => ({ site_id: siteId, org_id: me.org_id, item: m.item, qty: m.qty || null, supplier_id: null, status: 'open', created_by: me.id })) as never);
+// Several requests moved together stay together on Collections (and once collected).
+export const collGroup = (items: { group_id?: string | null }[]) => (items.length > 1 ? items[0].group_id || (globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : null) : null);
+
+export async function toCollections(me: Profile, siteId: string, items: Mat[], opts: { supplierId?: string | null; branch?: Branch | null; assignTo?: string | null } = {}): Promise<boolean> {
+  const g = collGroup(items), now = new Date().toISOString();
+  const ins = await db.from('material_required_items').insert(items.map((m) => ({ site_id: siteId, org_id: me.org_id, item: m.item, qty: m.qty || null, supplier_id: opts.supplierId ?? null, supplier_branch: opts.branch ?? null, sub_site_id: m.sub_site_id || null, sub_site_label: m.sub_site_label || null, status: opts.assignTo ? 'assigned' : 'open', ...(opts.assignTo ? { assigned_to: opts.assignTo, assigned_at: now } : {}), created_by: me.id, ...(g ? { group_id: g } : {}) })) as never);
   if (ins.error) return false;
   await Promise.all(items.map((m) => db.from('materials').update({ status: 'closed', order_note: m.order_note ? `${m.order_note} · Moved to Collection List` : 'Moved to Collection List' } as never).eq('id', m.id)));
   log(me, siteId, 'material_moved_to_collection', items.length > 1 ? `Moved ${items.length} grouped items from Material Requests to Collections` : `Moved "${items[0].item}" from Material Requests to the Collection List`);
@@ -242,11 +246,11 @@ async function bookCollection(me: Profile, siteId: string, f: Fulfil, supplier: 
       if (f.collectorId !== me.id) void db.from('messages').insert({ org_id: me.org_id, site_id: siteId, sender_id: me.id, audience: 'single', recipient_id: f.collectorId, kind: 'delivery_assigned', body: `You've been assigned a collection for ${dateLabel}: ${itemsText}${f.note ? ` — Note: ${f.note}` : ''}`, related_id: saved.id } as never);
       return ` — added to the Delivery Schedule for ${whoName}, ${dateLabel}`;
     }
-    const now = new Date().toISOString();
+    const now = new Date().toISOString(), grp = collGroup(mats);
     const ins = await db.from('material_required_items').insert(mats.map((m) => ({
       site_id: siteId, org_id: me.org_id, item: `${m.item} (collect ${dateLabel}${f.note ? ` — ${f.note}` : ''})`, qty: m.qty || null,
       supplier_id: toMe ? null : supplier?.id ?? null, supplier_branch: f.branch || null, sub_site_id: m.sub_site_id || null, sub_site_label: m.sub_site_label || null,
-      status: 'assigned', assigned_to: f.collectorId, assigned_at: now, created_by: me.id,
+      status: 'assigned', assigned_to: f.collectorId, assigned_at: now, created_by: me.id, ...(grp ? { group_id: grp } : {}),
     })) as never);
     if (ins.error) return ' — but it could not be added to Collections, add it by hand';
     if (f.collectorId !== me.id) void db.from('messages').insert({ org_id: me.org_id, site_id: siteId, sender_id: me.id, audience: 'single', recipient_id: f.collectorId, kind: 'message', body: `Material to collect on ${dateLabel}${toMe ? '' : ` from ${supplier?.name ?? ''}`}: ${itemsText}${f.note ? ` — Note: ${f.note}` : ''}` } as never);
@@ -327,7 +331,7 @@ export async function reemailOrder(siteId: string, m: Mat, email: string, suppli
 }
 
 /* ---------- Collections (730): items for an operative to pick up ---------- */
-export type CollItem = Pickup & { site_id: string; assigned_to: string | null; qty_collected?: string | null; sub_site_id?: string | null; sub_site_label?: string | null; created_at: string };
+export type CollItem = Pickup & { group_id?: string | null; site_id: string; assigned_to: string | null; qty_collected?: string | null; sub_site_id?: string | null; sub_site_label?: string | null; created_at: string };
 
 export function useCollections(siteId: string | undefined, tab: 'live' | 'closed') {
   return useQuery({
@@ -460,6 +464,21 @@ export function useYard(orgId: string | null | undefined) {
     queryKey: ['yard', orgId],
     enabled: !!orgId,
     queryFn: async () => ((orThrow(await db.from('yard_stock').select('*').eq('org_id', orgId as string).order('item').limit(3000)) as YardItem[]).filter((s) => s.active !== false)),
+  });
+}
+
+/** Yard stock issued to (or returned from) a job without a request — shown under Completed, internal (no PO). */
+export function useYardIssues(siteId: string | undefined, enabled: boolean) {
+  return useQuery({
+    queryKey: ['materials', siteId, 'yardIssues'],
+    enabled: !!siteId && enabled,
+    queryFn: async () => {
+      const mv = ((await db.from('yard_moves').select('id,stock_id,kind,qty,created_at,material_id').eq('site_id', siteId as string).in('kind', ['issue', 'return']).order('created_at', { ascending: false }).limit(200)).data as { id: string; stock_id: string; kind: string; qty: number; created_at: string; material_id: string | null }[] | null) ?? [];
+      const own = mv.filter((m) => !m.material_id);
+      const ids = [...new Set(own.map((m) => m.stock_id))];
+      const st = ids.length ? ((await db.from('yard_stock').select('id,item,unit').in('id', ids)).data as { id: string; item: string; unit: string | null }[] | null) ?? [] : [];
+      return own.map((m) => { const x = st.find((y) => y.id === m.stock_id); return { ...m, item: x?.item || 'Yard item', unit: x?.unit || '' }; });
+    },
   });
 }
 

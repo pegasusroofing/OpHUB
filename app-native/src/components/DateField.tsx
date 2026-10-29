@@ -1,6 +1,6 @@
 // A date you pick from a calendar (Andy: every date is a clickable calendar). The value is kept as
 // YYYY-MM-DD and shown as 29 Oct 2026. `min` stops earlier days being picked (e.g. today onwards).
-import { useState, type ComponentProps } from 'react';
+import { useEffect, useState, type ComponentProps } from 'react';
 import { Pressable, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { Popup } from '@/components/Popup';
@@ -87,4 +87,17 @@ export function DateField({ label, ...p }: ComponentProps<typeof DateBox> & { la
       <DateBox title={label} {...p} />
     </View>
   );
+}
+
+// A calendar you can wait on (e.g. "Required by" while importing). Resolves '' for no date, null if closed.
+type AskReq = { title: string; min?: string; resolve: (v: string | null) => void };
+const askListeners = new Set<(r: AskReq) => void>();
+export function askDate(title: string, opts: { min?: string } = {}): Promise<string | null> {
+  return new Promise((resolve) => { askListeners.forEach((l) => l({ title, min: opts.min, resolve })); });
+}
+export function DateAskHost() {
+  const [req, setReq] = useState<AskReq | null>(null);
+  useEffect(() => { const l = (r: AskReq) => setReq(r); askListeners.add(l); return () => { askListeners.delete(l); }; }, []);
+  if (!req) return null;
+  return <CalendarPopup title={req.title} min={req.min} clearable onClose={() => { req.resolve(null); setReq(null); }} onPick={(iso) => { req.resolve(iso); setReq(null); }} />;
 }

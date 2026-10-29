@@ -2,6 +2,7 @@
 // tapped (components/Popup), with an ✕ to close. "Saved" / "Added" style messages aren't shown —
 // only the ones you need to act on (could not…, enter…, choose…).
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { DateAskHost } from '@/components/DateField';
 import { DocViewerHost } from '@/components/DocViewer';
 import { EmailPromptHost } from '@/components/EmailPrompt';
 import { noteTap, Popup, PopupButtons } from '@/components/Popup';
@@ -29,6 +30,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         {children}
       </View>
       <DocViewerHost />
+      <DateAskHost />
       <PromptHost />
       <MenuHost />
       <ConfirmHost />

@@ -1,0 +1,34 @@
+// Materials: requests with the three buttons, Order from Merchant panel (delivery drop-down, supplier search, calendar), operative collection with no supplier, grouped collections stay grouped, yard issues under Completed.
+const {chromium, makeContext, S1} = require('./harness');
+(async()=>{
+  const BASE = 'http://localhost:8081';
+  const browser = await chromium.launch(); const errs = [];
+  const {ctx, db} = await makeContext(browser, 'admin', [], {viewport:{width:1300, height:900}});
+  db.profiles[0].howto_dismissed = ['*'];
+  const org = db.profiles[0].org_id, now = new Date().toISOString();
+  db.materials = [{id:'m1', site_id:S1, item:'Slates 500x250', qty:'400', status:'pending', requested_by:'o1', created_at:now},{id:'m2', site_id:S1, item:'Lead code 4', qty:'2', status:'pending', requested_by:'o1', created_at:now, group_id:'g1'},{id:'m3', site_id:S1, item:'Copper nails', qty:'5', status:'pending', requested_by:'o1', created_at:now, group_id:'g1'}];
+  db.suppliers = [{id:'s1', org_id:org, name:'Jewson', email:'j@x.test', branches:[{id:'b1', name:'Clapham', email:'c@x.test'}]},{id:'s2', org_id:org, name:'Travis Perkins', email:'t@x.test', favourite:true}];
+  db.yard_stock = [{id:'y1', org_id:org, item:'Felt roll', unit:'roll', qty:10, active:true}];
+  db.yard_moves = [{id:'ym1', org_id:org, stock_id:'y1', kind:'issue', qty:3, site_id:S1, material_id:null, created_at:now}];
+  const page = await ctx.newPage(); page.on('pageerror', e=>errs.push(e.message));
+  await page.goto(BASE+'/login'); await page.waitForTimeout(5000);
+  await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
+  await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
+  await page.goto(BASE+'/sites/'+S1+'/materials/requests'); await page.waitForTimeout(5000);
+  await page.screenshot({path:'shots/mat-1.png', fullPage:true});
+  await page.getByText('🚚 Order from Merchant').first().click(); await page.waitForTimeout(800);
+  await page.getByPlaceholder('Type to find a supplier — ★ favourites first').click(); await page.waitForTimeout(500);
+  await page.screenshot({path:'shots/mat-2-panel.png'});
+  await page.getByText('Delivery', {exact:true}).first().click().catch(()=>{});
+  await page.getByLabel('Delivery').first().click(); await page.waitForTimeout(500);
+  await page.screenshot({path:'shots/mat-3-delivery.png'});
+  await page.getByText('👷 Operative collection').click(); await page.waitForTimeout(500);
+  await page.screenshot({path:'shots/mat-4-op.png'});
+  await page.getByText(/^📦 Add .*to Collections$/).click(); await page.waitForTimeout(2000);
+  console.log('collections rows:', JSON.stringify((db.material_required_items||[]).map(r=>[r.item, r.group_id||null, r.status])));
+  console.log('m statuses:', db.materials.map(m=>m.id+':'+m.status).join(' '));
+  await page.getByText('Completed', {exact:true}).first().click(); await page.waitForTimeout(2000);
+  await page.screenshot({path:'shots/mat-5-done.png', fullPage:true});
+  console.log('errors', errs.join(' / ').slice(0,400) || 'none');
+  await browser.close(); process.exit(0);
+})();

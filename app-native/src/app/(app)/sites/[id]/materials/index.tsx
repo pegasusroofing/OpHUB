@@ -43,7 +43,7 @@ function ManagerTiles({ siteId, vis, role, me, site }: { siteId: string; vis: Pa
   const { data: collectN } = useCollectionsOpenCount(siteId, true);
   const { data: office } = useOfficeOrders(siteId, true);
   const go = (p: string) => () => router.push(`/sites/${siteId}/${p}` as never);
-  const sub = [pending?.length ? `${pending.length} to action` : '', collectN ? `${collectN} to collect` : ''].filter(Boolean).join(' · ');
+  const sub = [pending?.length ? `${pending.length} new` : '', collectN ? `${collectN} to collect` : ''].filter(Boolean).join(' · ');
   return (
     <ScrollView contentContainerStyle={page(720)}>
       <HowTo k="materials" />

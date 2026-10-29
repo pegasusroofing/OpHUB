@@ -1,6 +1,7 @@
 // Collections (730, the old Collection List): items for an operative to pick up,
 // grouped by supplier. Managers add items (queue several, then Complete List),
-// assign who collects, mark collected, edit, delete and email the list.
+// assign who collects, mark collected, edit, delete and email the list. Items moved here
+// together (a grouped request) stay grouped, on To collect and once Collected.
 import { useQueryClient } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
@@ -21,6 +22,8 @@ import { base, page, radius, space } from '@/theme/theme';
 
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card, marginBottom: 8 };
 const STATUS: Record<string, string> = { open: 'Open', assigned: 'Assigned', collected: 'Collected', closed: '✓ Collected' };
+// Items that came over together (same group) are kept in one bundle, in list order.
+const bundles = (list: CollItem[]) => { const out: CollItem[][] = []; const at: Record<string, number> = {}; list.forEach((m) => { if (m.group_id && at[m.group_id] !== undefined) out[at[m.group_id]].push(m); else { if (m.group_id) at[m.group_id] = out.length; out.push([m]); } }); return out; };
 const branchesOf = (s: FullSupplier | undefined) => (Array.isArray(s?.branches) ? s?.branches : []) as Branch[];
 
 export default function Collections() {
@@ -44,7 +47,7 @@ export default function Collections() {
   const [emailing, setEmailing] = useState<null | { kind: 'selected' } | { kind: 'supplier'; sup: FullSupplier }>(null);
   const [busy, setBusy] = useState(false);
   if (!me || !site) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
-  if (!isManager(me)) return <Muted style={{ padding: space.l }}>Your items to collect are on the job's Materials screen.</Muted>;
+  if (!isManager(me)) return <Muted style={{ padding: space.l }}>Your items to collect are on the job&apos;s Materials screen.</Muted>;
 
   const items = list ?? [];
   const ops = who?.siteOps ?? [];
@@ -71,7 +74,7 @@ export default function Collections() {
         <Pressable onPress={() => flip(m.id, open, setOpen)} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12 }}>
           <Pressable hitSlop={8} onPress={() => flip(m.id, sel, setSel)}><Text style={{ fontSize: 18 }}>{sel.has(m.id) ? '☑' : '☐'}</Text></Pressable>
           <Text style={{ color: base.slate }}>{isOpen ? '▼' : '▶'}</Text>
-          <Text style={{ flex: 1, fontWeight: '700', color: base.ink }}>{m.item}</Text>
+          <Text style={{ flex: 1, fontWeight: '700', color: base.ink, fontSize: 15.5 }}>{m.item}{m.qty ? <Text style={{ color: base.slate, fontWeight: '600' }}> × {m.qty}</Text> : null}</Text>
           <Text style={{ fontSize: 11.5, fontWeight: '700', color: m.status === 'closed' || m.status === 'collected' ? base.ok : m.status === 'assigned' ? base.blue : base.warn }}>{STATUS[m.status] || m.status}</Text>
         </Pressable>
         {isOpen && (
@@ -88,7 +91,7 @@ export default function Collections() {
             {editFor?.id === m.id && (
               <Card style={{ marginTop: 10, backgroundColor: base.paper }}>
                 <TextInput value={editFor.item} onChangeText={(t) => setEditFor({ ...editFor, item: t })} placeholder="Item" style={box} />
-                <TextInput value={editFor.qty} onChangeText={(t) => setEditFor({ ...editFor, qty: t })} placeholder="Quantity (optional)" style={box} />
+                <TextInput value={editFor.qty} onChangeText={(t) => setEditFor({ ...editFor, qty: t.replace(/[^0-9.]/g, '') })} keyboardType="decimal-pad" placeholder="Quantity (optional)" style={box} />
                 <SupplierPick suppliers={suppliers ?? []} value={editFor.sup} onChange={(s) => setEditFor({ ...editFor, sup: s, branch: null })} />
                 <BranchPick branches={branchesOf(suppliers?.find((s) => s.id === editFor.sup))} value={editFor.branch} onChange={(b) => setEditFor({ ...editFor, branch: b })} />
                 <Button busy={busy} title="Save" onPress={async () => {
@@ -109,15 +112,15 @@ export default function Collections() {
             {m.status === 'assigned' && (collectFor?.id === m.id ? (
               <Card style={{ marginTop: 10 }}>
                 <Muted>Qty actually collected:</Muted>
-                <TextInput value={collectFor.qty} onChangeText={(t) => setCollectFor({ id: m.id, qty: t })} style={box} />
+                <TextInput value={collectFor.qty} onChangeText={(t) => setCollectFor({ id: m.id, qty: t.replace(/[^0-9.]/g, '') })} keyboardType="decimal-pad" style={box} />
                 <Button title="Confirm Collected" onPress={async () => { if (await collectWithQty(me, m.id, collectFor.qty.trim())) { toast('Marked collected'); setCollectFor(null); refresh(); } }} />
                 <Button kind="ghost" title="Cancel" onPress={() => setCollectFor(null)} />
               </Card>
             ) : <Pressable onPress={() => setCollectFor({ id: m.id, qty: m.qty || '' })} style={{ marginTop: 10 }}><Text style={{ color: base.ink }}>☐ Collected</Text></Pressable>)}
             {m.status !== 'closed' && assignFor !== m.id && (
-              <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-                <View style={{ flex: 1 }}><Button title="Assign Operative to Collect" onPress={() => { setAssignFor(m.id); setCollectFor(null); }} /></View>
-                <View style={{ flex: 1 }}><Button kind="ghost" title="✓ Collected" onPress={() => void markCollected([m])} /></View>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+                <Button small title="Assign Operative to Collect" onPress={() => { setAssignFor(m.id); setCollectFor(null); }} />
+                <Button small kind="ghost" title="✓ Collected" onPress={() => void markCollected([m])} />
               </View>
             )}
           </View>
@@ -187,7 +190,12 @@ export default function Collections() {
               <Text style={{ flex: 1, fontWeight: '700', color: base.ink }}>{k === '__none' ? 'No supplier' : sup?.name ?? 'Supplier'} <Text style={{ color: base.slate, fontWeight: '400' }}>({groups[k].length} item{groups[k].length > 1 ? 's' : ''})</Text></Text>
               {k !== '__none' && sup && <Pressable onPress={() => { if (!sup.email && !branchesOf(sup).some((b) => b.email)) { toast('This supplier has no email on file.'); return; } setEmailing({ kind: 'supplier', sup }); }}><Text style={{ color: base.blue }}>✉ Email Supplier</Text></Pressable>}
             </View>
-            {groups[k].map(row)}
+            {bundles(groups[k]).map((b) => (b.length < 2 ? row(b[0]) : (
+              <View key={`g:${b[0].group_id}`} style={{ borderLeftWidth: 4, borderLeftColor: '#6A2C91', paddingLeft: 8, marginBottom: 8 }}>
+                <Text style={{ fontWeight: '700', color: '#4E1F6E', marginBottom: 6 }}>🔗 Grouped request · {b.length} items</Text>
+                {b.map(row)}
+              </View>
+            )))}
           </Card>
         );
       }) : <Empty>{tab === 'live' ? 'Nothing waiting to be collected.' : 'Nothing collected yet.'}</Empty>}
@@ -259,7 +267,7 @@ function AddBox({ suppliers, addrs, onSave }: { suppliers: FullSupplier[]; addrs
         </Card>
       )}
       <TextInput value={item} onChangeText={setItem} placeholder="Item" style={box} />
-      <TextInput value={qty} onChangeText={setQty} placeholder="Quantity (optional)" style={box} />
+      <TextInput value={qty} onChangeText={(t) => setQty(t.replace(/[^0-9.]/g, ''))} keyboardType="decimal-pad" placeholder="Quantity (optional)" style={box} />
       <SupplierPick suppliers={suppliers} value={sup} onChange={(s) => { setSup(s); setBranch(null); }} />
       <BranchPick branches={branchesOf(suppliers.find((s) => s.id === sup))} value={branch} onChange={setBranch} />
       {addrs && (

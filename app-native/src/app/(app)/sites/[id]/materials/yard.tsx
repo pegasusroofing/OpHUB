@@ -1,5 +1,5 @@
 // Yard stock for a job (9219m, managers / Finance): what's in the yard (no rates),
-// issue to this job, return from it, book stock in. Opened with ?mat=<request> it
+// issue to this job and return from it (stock is booked in from Finance › Yard). Opened with ?mat=<request> it
 // fills that request from the yard instead.
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
@@ -8,7 +8,6 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
-import { YardBookIn } from '@/components/YardBookIn';
 import { useMaterialRequests, useYard, yardCanEdit, yardMove } from '@/data/materials';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
@@ -78,7 +77,7 @@ export default function Yard() {
         </Card>
       )}
 
-      <Muted style={{ marginBottom: 8 }}>What's in the yard. {request ? 'Tap Use to fill the request with an item.' : `Issue sends it to ${site.name}; Return brings it back from this job.`}</Muted>
+      <Muted style={{ marginBottom: 8 }}>What&apos;s in the yard. {request ? 'Tap Use to fill the request with an item.' : `Issue sends it to ${site.name}; Return brings it back from this job.`}</Muted>
       {!request && (
         <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
           {(['issue', 'return'] as const).map((k) => (
@@ -104,7 +103,6 @@ export default function Yard() {
           )}
         </View>
       )) : <Empty>{list.length ? 'Nothing matches.' : 'Nothing in the yard list yet.'}</Empty>}
-      {!request && <View style={{ marginTop: space.m }}><YardBookIn canAddItems /></View>}
     </ScrollView>
   );
 }

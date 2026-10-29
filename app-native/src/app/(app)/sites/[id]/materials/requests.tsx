@@ -1,6 +1,8 @@
 // Material Requests (720). Operatives: Live/Pending and Closed, raise a request,
-// edit or cancel their own while it waits. Managers: To action and Completed; close,
-// reopen, edit, delete, group several into one request, move to Collections.
+// edit or cancel their own while it waits. Managers: Material Requests and Completed;
+// each request has Order from Merchant (delivery, driver or operative collection), Yard Stock
+// and Close Request; edit, delete, group several into one request. Yard stock booked to the
+// job shows under Completed (internal — no PO). Dates come from a calendar; qty is numbers only.
 // A request on a sent PO is locked here (changes are made in Finance) — 9219zr.
 import { useQueryClient } from '@tanstack/react-query';
 import * as DocumentPicker from 'expo-document-picker';
@@ -8,6 +10,7 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useRef, useState, type ComponentRef, type ReactNode } from 'react';
 import { Pressable, RefreshControl, ScrollView, Text, TextInput, View } from 'react-native';
 
+import { askDate, DateBox, todayIso } from '@/components/DateField';
 import { GrnDetail } from '@/components/Grn';
 import { OrderPanel } from '@/components/OrderPanel';
 import { ShopPicker, type ShopItem } from '@/components/ShopPicker';
@@ -16,12 +19,11 @@ import { Button, Card, Empty, FilterRow, Muted, SectionTitle } from '@/component
 import { nameOf, usePeople } from '@/data/hs';
 import {
   addMaterial, cancelMaterial, deleteMaterials, importMaterials, editMaterial, groupMaterials, poLock, reopenMaterials,
-  reemailOrder, setMaterialsStatus, yardBookInCan, yardCanEdit, toCollections, ungroupMaterials, useCollectionsOpenCount, useMaterialRequests, useSubAddresses, useSuppliers, type MatTab, type SubAddr,
+  reemailOrder, setMaterialsStatus, yardCanEdit, ungroupMaterials, useYardIssues, useCollectionsOpenCount, useMaterialRequests, useSubAddresses, useSuppliers, type MatTab, type SubAddr,
 } from '@/data/materials';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
-import { localISODate } from '@/lib/rules/driver';
-import { cancelReasonText, doneEntries, isEmail, liveEntries, matAgo, matSheetLines, OP_STATUS_LABEL, orderEmailFor, readIsoDate, subAddrLabel, wasOrdered, type Branch, type Mat } from '@/lib/rules/materials';
+import { cancelReasonText, doneEntries, isEmail, liveEntries, matAgo, matSheetLines, OP_STATUS_LABEL, orderEmailFor, subAddrLabel, wasOrdered, type Branch, type Mat } from '@/lib/rules/materials';
 import { csvRows, readXlsx } from '@/lib/rules/xlsxRead';
 import { isFinanceUser, isFullManager, isManager } from '@/lib/roles';
 import { base, page, radius, space } from '@/theme/theme';
@@ -50,6 +52,7 @@ export default function MaterialRequests() {
   const [importing, setImporting] = useState(false);
   const [ordering, setOrdering] = useState<{ mats: Mat[]; again: boolean } | null>(null);
   const { data: suppliers } = useSuppliers(mgr ? me?.org_id : null);
+  const { data: yardIssues } = useYardIssues(id, mgr && (tab === 'done'));
   const scroll = useRef<ComponentRef<typeof ScrollView>>(null);
   if (!me || !site) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
 
@@ -68,10 +71,6 @@ export default function MaterialRequests() {
   };
 
   const close = (ms: Mat[]) => act(() => setMaterialsStatus(me, id, ms, 'closed'), ms.length > 1 ? 'Requests closed' : 'Material request closed');
-  const collections = async (ms: Mat[]) => {
-    if (!(await confirmAsk(ms.length > 1 ? `Add these ${ms.length} items to Collections?\n\nYou can then choose who collects them.` : `Add "${ms[0].item}"${ms[0].qty ? ` × ${ms[0].qty}` : ''} to Collections?\n\nYou can then choose who collects it.`, 'Add'))) return;
-    void act(async () => ((await toCollections(me, id, ms)) ? null : 'Could not add to Collections'), 'Added to Collections');
-  };
   const del = async (ms: Mat[]) => {
     if (await locked(ms)) return;
     if (!(await confirmAsk(ms.length > 1 ? `Delete ${ms.length} material requests? This can't be undone.` : "Delete this material request? This can't be undone.", 'Delete'))) return;
@@ -108,7 +107,7 @@ export default function MaterialRequests() {
           <Pressable onPress={() => toggle([m.id])} hitSlop={8}><Text style={{ fontSize: 18 }}>{sel.has(m.id) ? '☑' : '☐'}</Text></Pressable>
         )}
         <View style={{ flex: 1 }}>
-          <Text style={{ fontWeight: '700', color: base.ink }}>{m.item} <Text style={{ fontSize: 11, color: base.slate, fontWeight: '400' }}>{matAgo(m.created_at)}</Text></Text>
+          <Text style={{ fontWeight: '700', color: base.ink, fontSize: 16.5 }}>{m.item} <Text style={{ fontSize: 12, color: base.slate, fontWeight: '400' }}>{matAgo(m.created_at)}</Text></Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
             <Chip text={`Qty ${m.qty || '1'}`} />
             <Chip text={`👷 ${nameOf(people, m.requested_by)}`} />
@@ -137,40 +136,31 @@ export default function MaterialRequests() {
       {m.status === 'cancelled' && <Text style={{ color: base.warn, marginTop: 6 }}>Cancelled by {nameOf(people, m.cancelled_by ?? null)}{m.cancel_reason ? ` — ${cancelReasonText(m.cancel_reason, mgr)}` : ''}</Text>}
       {m.status === 'pending' && !mgr && <Muted style={{ marginTop: 6 }}>Awaiting action from project manager</Muted>}
       {!mgr && m.status === 'pending' && m.requested_by === me.id && (
-        <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
-          <View style={{ flex: 1 }}><Button kind="ghost" title="✎ Edit request" onPress={() => void edit(m)} /></View>
-          <View style={{ flex: 1 }}><Button kind="ghost" title="Cancel request" onPress={() => void cancel(m)} /></View>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+          <Button small kind="ghost" title="✎ Edit request" onPress={() => void edit(m)} />
+          <Button small kind="ghost" title="Cancel request" onPress={() => void cancel(m)} />
         </View>
       )}
       {mgr && m.status === 'pending' && !sel.has(m.id) && (
-        <View style={{ marginTop: 6 }}>
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            <View style={{ flex: 1 }}><Button title="🚚 Order from merchant" onPress={() => void startOrder([m], false)} /></View>
-            <View style={{ flex: 1 }}><Button kind="ghost" title="📦 Add to collections" onPress={() => void collections([m])} /></View>
-          </View>
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            {yardCanEdit(me, fin) && <View style={{ flex: 1 }}><Button kind="ghost" title="🏗 From yard stock" onPress={() => router.push(`/sites/${id}/materials/yard?mat=${m.id}` as never)} /></View>}
-            <View style={{ flex: 1 }}><Button kind="ghost" title="Close request" onPress={() => void close([m])} /></View>
-          </View>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+          <Button small title="🚚 Order from Merchant" onPress={() => void startOrder([m], false)} />
+          {yardCanEdit(me, fin) && <Button small kind="ghost" title="🏗 Yard Stock" onPress={() => router.push(`/sites/${id}/materials/yard?mat=${m.id}` as never)} />}
+          <Button small kind="ghost" title="Close Request" onPress={() => void close([m])} />
         </View>
       )}
       {mgr && m.status === 'sent' && !sel.has(m.id) && (
-        <View style={{ marginTop: 6 }}>
-          <Button kind="ghost" title="✎ Edit order" onPress={() => void edit(m)} />
-          <Button kind="ghost" title="↻ Resend order" onPress={() => void startOrder([m], true)} />
-          <Button kind="ghost" title="✓ Received — close" onPress={() => void close([m])} />
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+          <Button small kind="ghost" title="✎ Edit order" onPress={() => void edit(m)} />
+          <Button small kind="ghost" title="↻ Resend order" onPress={() => void startOrder([m], true)} />
+          <Button small kind="ghost" title="✓ Received — close" onPress={() => void close([m])} />
         </View>
       )}
       {mgr && m.status === 'closed' && !sel.has(m.id) && (
-        <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
-          {wasOrdered(m) && m.merchant !== 'Yard stock' && <View style={{ flex: 1 }}><Button kind="ghost" title="✎ Edit order" onPress={() => void edit(m)} /></View>}
-          {wasOrdered(m) && m.merchant !== 'Yard stock' && !!m.merchant && !!m.supplier_id && <View style={{ flex: 1 }}><Button kind="ghost" title="↻ Resend order" onPress={() => void reemail(m)} /></View>}
-        </View>
-      )}
-      {mgr && m.status === 'closed' && !sel.has(m.id) && (
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          <View style={{ flex: 1 }}><Button kind="ghost" title={wasOrdered(m) && m.merchant !== 'Yard stock' ? 'Send to another supplier' : 'Order it'} onPress={() => void startOrder([m], true)} /></View>
-          <View style={{ flex: 1 }}><Button kind="ghost" title="Reopen" onPress={() => void act(() => reopenMaterials([m]), 'Material request reopened')} /></View>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+          {wasOrdered(m) && m.merchant !== 'Yard stock' && <Button small kind="ghost" title="✎ Edit order" onPress={() => void edit(m)} />}
+          {wasOrdered(m) && m.merchant !== 'Yard stock' && !!m.merchant && !!m.supplier_id && <Button small kind="ghost" title="↻ Resend order" onPress={() => void reemail(m)} />}
+          <Button small kind="ghost" title={wasOrdered(m) && m.merchant !== 'Yard stock' ? 'Send to another supplier' : 'Order it'} onPress={() => void startOrder([m], true)} />
+          <Button small kind="ghost" title="Reopen" onPress={() => void act(() => reopenMaterials([m]), 'Material request reopened')} />
         </View>
       )}
     </View>
@@ -179,7 +169,7 @@ export default function MaterialRequests() {
   const row = (m: Mat) => done ? (
     <View key={m.id}>
       <Pressable onPress={() => flip(m.id)} style={rowStyle}>
-        <Text style={{ flex: 1, color: base.ink, fontWeight: '700' }}>{open.has(m.id) ? '▼' : '▶'} {m.item}{m.qty ? <Text style={{ color: base.slate, fontWeight: '600' }}> × {m.qty}</Text> : null}</Text>
+        <Text style={{ flex: 1, color: base.ink, fontWeight: '700', fontSize: 15.5 }}>{open.has(m.id) ? '▼' : '▶'} {m.item}{m.qty ? <Text style={{ color: base.slate, fontWeight: '600' }}> × {m.qty}</Text> : null}</Text>
         <Text style={{ fontSize: 11, color: base.slate }}>{doneTag(m)}</Text>
       </Pressable>
       {open.has(m.id) && <Card>{body(m)}</Card>}
@@ -190,7 +180,7 @@ export default function MaterialRequests() {
 
   const importBtn = (
         <View style={{ marginTop: 8 }}>
-          <Button kind="ghost" busy={importing} title={importing ? 'Importing…' : '📄 Import from Excel'} onPress={async () => {
+          <Button small kind="ghost" busy={importing} title={importing ? 'Importing…' : '📄 Import from Excel'} onPress={async () => {
             const r = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true }); if (r.canceled || !r.assets[0]) return;
             const a = r.assets[0], name = a.name || 'spreadsheet';
             if (/\.xls$/i.test(name)) { toast('Save it as .xlsx or .csv first — old .xls files can’t be read.'); return; }
@@ -203,9 +193,7 @@ export default function MaterialRequests() {
             } catch { toast('Could not read that file — is it an Excel or CSV file?'); return; }
             if (!lines.length) { showAlert('No items found in that file. It needs a column headed "Description" (or "Item") and one headed "Quantity" (or "Qty").'); return; }
             if (lines.length > 300) { showAlert(`That file has ${lines.length} items — the most that can be imported in one go is 300.`); return; }
-            const rb = ((await promptText('Required by (optional, YYYY-MM-DD)', '')) || '').trim();
-            const req = rb ? readIsoDate(rb) : '';
-            if (req === 'bad') { toast('Enter the date as YYYY-MM-DD.'); return; }
+            const req = await askDate('Required by? (optional — close to skip)', { min: todayIso() }) || '';
             const preview = lines.slice(0, 12).map((l) => `• ${l.item} — ${l.qty}`).join('\n') + (lines.length > 12 ? `\n…and ${lines.length - 12} more` : '');
             if (!(await confirmAsk(`Add these ${lines.length} item${lines.length === 1 ? '' : 's'} from "${name}" as material requests?${req ? ` Required by ${req}.` : ''}\n\n${preview}`, 'Add them'))) return;
             setImporting(true); const n = await importMaterials(me, id, lines, req || null, name); setImporting(false);
@@ -221,10 +209,10 @@ export default function MaterialRequests() {
       {mgr && <Card style={{ backgroundColor: '#F1E4FA', flexDirection: 'row', gap: 10, alignItems: 'flex-start', shadowOpacity: 0 }}><Text style={{ fontSize: 16 }}>🙋</Text><Text style={{ flex: 1, color: '#4E1F6E' }}><Text style={{ fontWeight: '700' }}>Requests from operatives.</Text> Order them from a merchant, or give them to an operative to collect — those move to the <Text style={{ fontWeight: '700' }}>Collections</Text> tab. Tick several to group them into one request.</Text></Card>}
       <FilterRow value={tab as string} onChange={(k) => {
         if (k === 'collect') { router.push(`/sites/${id}/materials/collections` as never); return; }
-        if (k === 'yard' || k === 'bookin') { router.push(`/sites/${id}/materials/yard` as never); return; }
+        if (k === 'yard') { router.push(`/sites/${id}/materials/yard` as never); return; }
         setSel(new Set()); setTab(k as MatTab);
       }} options={(mgr
-        ? [['pending', 'To action'], ['collect', `Collections${collectN ? ` (${collectN})` : ''}`], ['done', 'Completed'], ...((yardCanEdit(me, fin) || yardBookInCan(me, fin)) ? [['yard', '📦 Yard stock'], ['bookin', '⬇ Book into yard']] : [])]
+        ? [['pending', 'Material Requests'], ['collect', `Collections${collectN ? ` (${collectN})` : ''}`], ['done', 'Completed'], ...(yardCanEdit(me, fin) ? [['yard', '📦 Yard Stock']] : [])]
         : [['live', 'Live/Pending'], ['closed', 'Closed']]) as [string, string][]} />
 
       {ordering && (
@@ -283,21 +271,29 @@ export default function MaterialRequests() {
                 <Muted>{due ? `📅 First needed ${short(due)} · ` : ''}👷 {[...new Set(e.items.map((x) => nameOf(people, x.requested_by)))].join(', ')}</Muted>
               </View>
             </View>
-            {e.items.map((x) => <Text key={x.id} style={{ color: base.ink, marginTop: 6 }}>• <Text style={{ fontWeight: '700' }}>{x.item}</Text> · Qty {x.qty || '1'}{x.order_note ? ` · 📝 ${x.order_note}` : ''}{x.sub_site_label ? ` · 📍 ${x.sub_site_label}` : ''}</Text>)}
-            <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-              <View style={{ flex: 1 }}><Button title="🚚 Order from merchant" onPress={() => void startOrder(e.items, false)} /></View>
-              <View style={{ flex: 1 }}><Button kind="ghost" title="📦 Add to collections" onPress={() => void collections(e.items)} /></View>
-            </View>
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              <View style={{ flex: 1 }}><Button kind="ghost" title="Ungroup" onPress={() => void act(() => ungroupMaterials(e.items), 'Ungrouped')} /></View>
-              <View style={{ flex: 1 }}><Button kind="ghost" title="Close request" onPress={async () => {
+            {e.items.map((x) => <Text key={x.id} style={{ color: base.ink, marginTop: 6, fontSize: 15.5 }}>• <Text style={{ fontWeight: '700' }}>{x.item}</Text> · Qty {x.qty || '1'}{x.order_note ? ` · 📝 ${x.order_note}` : ''}{x.sub_site_label ? ` · 📍 ${x.sub_site_label}` : ''}</Text>)}
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
+              <Button small title="🚚 Order from Merchant" onPress={() => void startOrder(e.items, false)} />
+              <Button small kind="ghost" title="Ungroup" onPress={() => void act(() => ungroupMaterials(e.items), 'Ungrouped')} />
+              <Button small kind="ghost" title="Close Request" onPress={async () => {
                 if (await confirmAsk(`Close this grouped request (${e.items.length} items) without ordering?`, 'Close')) void close(e.items);
-              }} /></View>
+              }} />
             </View>
           </Card>
         );
       }) : <Empty>{mgr ? (tab === 'pending' ? 'Nothing to action — no new requests from operatives.' : 'Nothing completed yet.') : `No ${tab === 'live' ? 'live' : 'closed'} material requests.`}</Empty>}
 
+      {mgr && tab === 'done' && !!yardIssues?.length && (
+        <View style={{ marginTop: space.m }}>
+          <SectionTitle>From the yard (internal — no PO)</SectionTitle>
+          {yardIssues.map((y) => (
+            <View key={y.id} style={rowStyle}>
+              <Text style={{ flex: 1, color: base.ink, fontWeight: '700', fontSize: 15.5 }}>{y.kind === 'return' ? '↩ ' : '🏗 '}{y.item}<Text style={{ color: base.slate, fontWeight: '600' }}> × {y.qty}{y.unit ? ` ${y.unit}` : ''}</Text></Text>
+              <Text style={{ fontSize: 11, color: base.slate }}>{y.kind === 'return' ? 'Returned to yard' : 'From yard'} {long(y.created_at)}</Text>
+            </View>
+          ))}
+        </View>
+      )}
       {editing && <EditBox m={editing} busy={busy} onCancel={() => setEditing(null)} onSave={async (f) => {
         setBusy(true); const err = await editMaterial(me, id, editing.id, f, mgr); setBusy(false);
         if (err) { toast(err); return; }
@@ -310,11 +306,12 @@ export default function MaterialRequests() {
           toast('Request added'); refresh(); return true;
         }} />
       )}
-      {mgr && <Muted style={{ marginTop: space.m }}>New yard items are added in Finance › Yard.</Muted>}
     </ScrollView>
   );
 }
 
+// Quantities: numbers only (a decimal point allowed).
+const numOnly = (t: string) => t.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');
 const lbl = { fontSize: 11, fontWeight: '800' as const, letterSpacing: 0.5, color: base.slate, marginBottom: 4 };
 const rowStyle = { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 8, backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, padding: 12, marginBottom: 8 };
 const doneTag = (m: Mat) => (m.status === 'cancelled' ? 'Cancelled' : m.merchant === 'Yard stock' ? 'Yard stock' : m.email_sent_at ? `Emailed ${long(m.email_sent_at)}` : wasOrdered(m) ? 'Ordered' : 'Closed');
@@ -345,7 +342,7 @@ function RequestBox({ siteId, shop, addrs, busy, autoFocus, extra, onSubmit }: {
           )) : <Muted>No addresses added to this job yet — add them in the job&apos;s Settings › Multi-Site.</Muted>}
         </View>
       )}
-      <TextInput autoFocus={autoFocus} value={item} onChangeText={setItem} placeholder="Item" style={box} />
+      <TextInput autoFocus={autoFocus} value={item} onChangeText={setItem} placeholder="Item" style={[box, { fontSize: 16 }]} />
       {shop && (
         <View style={{ marginBottom: 8 }}>
           <Button kind="ghost" title="📋 Pick from a project quote" onPress={() => setPicking(true)} />
@@ -357,19 +354,17 @@ function RequestBox({ siteId, shop, addrs, busy, autoFocus, extra, onSubmit }: {
       <View style={{ flexDirection: 'row', gap: 8 }}>
         <View style={{ flex: 1 }}>
           <Text style={lbl}>QUANTITY</Text>
-          <TextInput value={qty} onChangeText={setQty} placeholder={shopItemId && pick?.unit ? `Quantity (${pick.unit})` : 'Quantity'} style={box} />
+          <TextInput value={qty} onChangeText={(t) => setQty(numOnly(t))} keyboardType="decimal-pad" placeholder={shopItemId && pick?.unit ? `Quantity (${pick.unit})` : 'Quantity'} style={box} />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={lbl}>REQUIRED BY (OPTIONAL)</Text>
-          <TextInput value={by} onChangeText={setBy} placeholder="YYYY-MM-DD" autoCapitalize="none" style={box} />
+          <DateBox value={by} onChange={setBy} min={todayIso()} placeholder="Choose a date" title="Required by" style={{ marginBottom: 8 }} />
         </View>
       </View>
-      <Button busy={busy} title="Request Material Order" onPress={async () => {
+      <Button small busy={busy} title="Request Material Order" onPress={async () => {
         if (!item.trim()) return;
         if (addrs && addrs.length && !sub) { toast('Choose which address on this job.'); return; }
-        const d = readIsoDate(by);
-        if (d === 'bad') { toast('Enter the date as YYYY-MM-DD, e.g. 2026-11-03'); return; }
-        if (d && d < localISODate(new Date())) { toast('The required-by date has passed.'); return; }
+        const d = by || null;
         if (await onSubmit({ item: item.trim(), qty: qty.trim(), requiredBy: d, sub, shopItemId })) { setItem(''); setQty(''); setBy(''); setSub(null); setPick(null); }
       }} />
       {extra}
@@ -390,14 +385,12 @@ function EditBox({ m, busy, onSave, onCancel }: { m: Mat; busy: boolean; onSave:
       <Muted style={{ fontWeight: '700' }}>Item</Muted>
       <TextInput value={item} onChangeText={setItem} style={box} />
       <Muted style={{ fontWeight: '700' }}>Quantity</Muted>
-      <TextInput value={qty} onChangeText={setQty} style={box} />
-      <Muted style={{ fontWeight: '700' }}>Required by (optional, YYYY-MM-DD)</Muted>
-      <TextInput value={by} onChangeText={setBy} autoCapitalize="none" style={box} />
+      <TextInput value={qty} onChangeText={(t) => setQty(numOnly(t))} keyboardType="decimal-pad" style={box} />
+      <Muted style={{ fontWeight: '700' }}>Required by (optional)</Muted>
+      <DateBox value={by} onChange={setBy} title="Required by" style={{ marginBottom: 8 }} />
       <Button busy={busy} title="Save changes" onPress={() => {
         if (!item.trim()) { toast('Enter the item.'); return; }
-        const d = readIsoDate(by);
-        if (d === 'bad') { toast('Enter the date as YYYY-MM-DD, e.g. 2026-11-03'); return; }
-        onSave({ item: item.trim(), qty: qty.trim(), requiredBy: d });
+        onSave({ item: item.trim(), qty: qty.trim(), requiredBy: by || null });
       }} />
       <Button kind="ghost" title="Cancel" onPress={onCancel} />
     </Card>
