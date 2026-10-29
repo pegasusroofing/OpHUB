@@ -52,3 +52,19 @@ export async function setAddressClosed(me: Profile, siteId: string, subId: strin
   if (closed && me.org_id) void db.from('site_activity_log').insert({ site_id: siteId, org_id: me.org_id, actor_id: me.id, action: 'sub_address_closed', description: `Closed address "${name}"` } as never);
   return true;
 }
+
+/** Every check-in on the job (this week from Monday, or all), fetched 1,000 at a time so long jobs aren't cut off (450 exportCheckins). */
+export async function checkinsForExport(siteId: string, scope: 'week' | 'all'): Promise<{ user_id: string; type: string; ts: string; lat: number | null; lon: number | null; accuracy_m: number | null }[] | null> {
+  const monday = new Date(); monday.setHours(0, 0, 0, 0); monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+  const out: { id: string; user_id: string; type: string; ts: string; lat: number | null; lon: number | null; accuracy_m: number | null }[] = [], seen = new Set<string>();
+  for (let guard = 0; guard < 500; guard++) {
+    let q = supabase.from('checkins').select('id,user_id,type,ts,lat,lon,accuracy_m').eq('site_id', siteId);
+    if (scope === 'week') q = q.gte('ts', monday.toISOString());
+    const r = await q.order('ts', { ascending: true }).order('id', { ascending: true }).range(out.length, out.length + 999);
+    if (r.error) return null;
+    const fresh = ((r.data ?? []) as typeof out).filter((c) => !seen.has(c.id));
+    if (!fresh.length) break;
+    fresh.forEach((c) => seen.add(c.id)); out.push(...fresh);
+  }
+  return out;
+}

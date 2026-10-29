@@ -8,16 +8,17 @@ import { Linking, Modal, Pressable, Text, TextInput, View } from 'react-native';
 import { showAlert, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, Pill, SectionTitle, Toggle } from '@/components/ui';
 import { getPosition } from '@/data/checkinAction';
-import { setFencePoint, setFenceRadius, usePmLogins, useTeamCheckins } from '@/data/checkinManager';
+import { checkinsForExport, setFencePoint, setFenceRadius, usePmLogins, useTeamCheckins } from '@/data/checkinManager';
 import { nameOf, usePeople } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
+import { exportTableExcel } from '@/lib/tableExport';
 import { buildCheckinSessions, checkinDayLabel, timeHM } from '@/lib/rules/checkin';
 import { parseCoordToken, radiusOptions, splitCoordPair, validLatLon } from '@/lib/rules/geo';
 import type { Site, SubAddress } from '@/lib/types';
-import { base, radius as R, space } from '@/theme/theme';
+import { base, radius as R } from '@/theme/theme';
 
 export function CheckinManager({ site, sub }: { site: Site; sub?: SubAddress }) {
-  const { me } = useAuth();
+  const { me, org } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
   const { data: rows = [] } = useTeamCheckins(site.id, sub?.id);
@@ -27,6 +28,7 @@ export function CheckinManager({ site, sub }: { site: Site; sub?: SubAddress }) 
   const [fenceOpen, setFenceOpen] = useState(false);
   const [histOpen, setHistOpen] = useState(false);
   const [pmOpen, setPmOpen] = useState(false);
+  const [exporting, setExporting] = useState<'week' | 'all' | null>(null);
   const [modal, setModal] = useState<null | 'choose' | 'manual'>(null);
   const [lat, setLat] = useState('');
   const [lon, setLon] = useState('');
@@ -85,7 +87,7 @@ export function CheckinManager({ site, sub }: { site: Site; sub?: SubAddress }) 
         </>
       ) : (
         <Card>
-          <Muted style={{ marginBottom: 8 }}>Not set — check-ins won't be distance-checked yet.</Muted>
+          <Muted style={{ marginBottom: 8 }}>Not set — check-ins won&apos;t be distance-checked yet.</Muted>
           <Button title={`Set ${place} location`} onPress={() => setModal('choose')} />
           <RadiusPicker current={fence.geofence_radius_m} onSave={async (r) => { if (await setFenceRadius(target, r)) { toast(`Check-in distance set to ${r}m`); refresh(); } }} />
         </Card>
@@ -123,7 +125,29 @@ export function CheckinManager({ site, sub }: { site: Site; sub?: SubAddress }) 
           )) : <Empty>{site.responsible_pm_id ? 'No check-ins yet.' : 'No project manager assigned to this project yet.'}</Empty>)}
         </>
       )}
-      {!sub && <Muted style={{ marginTop: space.m }}>Excel exports of check-ins come with the export work.</Muted>}
+      {admin && !sub && (
+        <>
+          <SectionTitle>Reports</SectionTitle>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            {(['week', 'all'] as const).map((scope) => (
+              <View key={scope} style={{ flex: 1 }}><Button kind="ghost" busy={exporting === scope} title={scope === 'week' ? 'Export this week (Excel)' : 'Export full history (Excel)'} onPress={async () => {
+                setExporting(scope);
+                try {
+                  const rows = await checkinsForExport(site.id, scope);
+                  if (!rows) { toast('Could not load all the check-ins — check your signal and try again.'); return; }
+                  if (!rows.length) { toast('No check-ins in that range.'); return; }
+                  const ok = await exportTableExcel({
+                    title: scope === 'week' ? 'Check-ins (This Week)' : 'Check-ins (All Time)', site: site.name,
+                    cols: [{ l: 'Name', w: 18 }, { l: 'Type', w: 11 }, { l: 'Date', w: 11 }, { l: 'Time', w: 8 }, { l: 'Latitude', num: true, w: 11 }, { l: 'Longitude', num: true, w: 11 }, { l: 'Accuracy (m)', num: true, w: 11 }],
+                    rows: rows.map((c) => [nameOf(people, c.user_id), c.type === 'in' ? 'Check In' : 'Check Out', new Date(c.ts).toLocaleDateString('en-GB'), new Date(c.ts).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }), c.lat, c.lon, c.accuracy_m ?? '']),
+                  }, org);
+                  if (!ok) toast('Could not make the file — try again.');
+                } finally { setExporting(null); }
+              }} /></View>
+            ))}
+          </View>
+        </>
+      )}
 
       <Modal visible={!!modal} transparent animationType="fade" onRequestClose={() => setModal(null)}>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,.45)', justifyContent: 'center', padding: 16 }}>
@@ -139,7 +163,7 @@ export function CheckinManager({ site, sub }: { site: Site; sub?: SubAddress }) 
             ) : (
               <>
                 <Text style={{ fontSize: 17, fontWeight: '800', color: base.ink }}>Input GPS Co-Ordinates</Text>
-                <Muted style={{ marginBottom: 10 }}>Plain decimal (51.51828) or Google's degrees/minutes/seconds (51°31'05.8"N) both work. You can also paste a full pair from Google into the Latitude box.</Muted>
+                <Muted style={{ marginBottom: 10 }}>Plain decimal (51.51828) or Google&apos;s degrees/minutes/seconds (51°31&apos;05.8&quot;N) both work. You can also paste a full pair from Google into the Latitude box.</Muted>
                 <Muted style={{ fontWeight: '700' }}>Latitude</Muted>
                 <TextInput value={lat} onChangeText={setLat} placeholder={`e.g. 51.51828 or 51°31'05.8"N`} autoCapitalize="none" style={inp} />
                 <Muted style={{ fontWeight: '700' }}>Longitude</Muted>
