@@ -1,6 +1,7 @@
 // A job's Reports (430 renderSiteReports): inspections list (daily briefings live
 // under H&S), "+ New Report" from a template, filter by template, tick to delete.
-// Managers only. Templates are built in the Admin Centre.
+// Managers only. Templates are built in the Admin Centre. Tick several to export
+// them as one PDF (430 exportSelectedReports).
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
@@ -12,13 +13,16 @@ import { nameOf, usePeople } from '@/data/hs';
 import { deleteReports, startReport, useSiteReports, useTemplates } from '@/data/reports';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
+import { deliverPdf, exportFilename, PDFDocument } from '@/lib/pdf';
+import { buildReportPdf, type PdfSub } from '@/lib/reportPdf';
+import { supabase } from '@/lib/supabase';
 import { REPORT_STATUS_LABEL } from '@/lib/rules/reports';
 import { isManager } from '@/lib/roles';
 import { base, radius, space } from '@/theme/theme';
 
 export default function Reports() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { me } = useAuth();
+  const { me, org } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
   const { data: site } = useSite(id);
@@ -71,6 +75,18 @@ export default function Reports() {
             setBusy(true); const n = await deleteReports(me, id, [...sel]); setBusy(false);
             toast(n ? `${n} report${n > 1 ? 's' : ''} deleted` : 'Delete failed'); setSel(new Set()); void refetch();
           }} /></View>
+          <View style={{ flex: 1 }}><Button kind="ghost" busy={busy} title={`PDF of ${sel.size}`} onPress={async () => {
+            setBusy(true);
+            try {
+              const ids = list.filter((x) => sel.has(x.id) && x.status !== 'in_progress').map((x) => x.id);
+              if (!ids.length) { toast('Only submitted reports can be exported.'); return; }
+              const rows = ((await supabase.from('report_submissions').select('*').in('id', ids)).data ?? []) as unknown as PdfSub[];
+              const out = await PDFDocument.create(); let fails = 0;
+              for (const id2 of ids) { const r = rows.find((x) => x.id === id2); if (!r) continue; toast(`Building ${r.template_name}…`); const b = await buildReportPdf(r, site, org, (u) => nameOf(people, u)).catch(() => null); if (!b) { fails++; continue; } const d = await PDFDocument.load(b.bytes); (await out.copyPages(d, d.getPageIndices())).forEach((p) => out.addPage(p)); }
+              if (!out.getPageCount()) { toast('Could not build the PDF.'); return; }
+              if (!(await deliverPdf(await out.save(), exportFilename(site.name, `Reports (${ids.length})`, 'pdf')))) toast('Could not save the PDF.'); else { if (fails) toast(`${fails} report${fails > 1 ? 's' : ''} could not be included.`); setSel(new Set()); }
+            } finally { setBusy(false); }
+          }} /></View>
           <View style={{ flex: 1 }}><Button kind="ghost" title="Clear" onPress={() => setSel(new Set())} /></View>
         </View>
       )}
@@ -84,7 +100,7 @@ export default function Reports() {
           <Text style={{ fontSize: 11.5, fontWeight: '700', color: s.status === 'in_progress' ? base.warn : base.ok }}>{REPORT_STATUS_LABEL[s.status] || s.status}</Text>
         </View>
       )) : <Empty>No inspections started yet{filter ? ' for this template.' : '.'}</Empty>}
-      <Muted style={{ marginTop: space.m }}>Export / email PDFs of reports are still in the current app for now.</Muted>
+      <Muted style={{ marginTop: space.m }}>Tick reports to export them as one PDF. Open a report to export or email it on its own.</Muted>
     </ScrollView>
   );
 }

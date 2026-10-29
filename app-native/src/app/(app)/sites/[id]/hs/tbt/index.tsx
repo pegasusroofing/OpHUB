@@ -1,7 +1,8 @@
 // Toolbox talks for a job (710). Operatives see every talk (live ones to sign).
 // Managers get Bank / Live / Completed tabs (Live first when there is one), the
 // monthly "due" warning, signed counts and who's still to sign, upload into the
-// bank and sync the bank from the Admin Centre library.
+// bank and sync the bank from the Admin Centre library. On Completed, tick talks
+// to export or email their signed PDFs as one file (710 exportSelectedTbts).
 import * as DocumentPicker from 'expo-document-picker';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
@@ -9,12 +10,14 @@ import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { TbtStatusTag } from '@/components/TbtStatusTag';
-import { useToast } from '@/components/toast';
+import { promptText, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import { nameOf, usePeople, useTbts } from '@/data/hs';
 import { useSite } from '@/data/sites';
 import { syncTbtBank, tbtDue, uploadTbt } from '@/data/tbtManager';
+import { buildSignedTbtPdf } from '@/data/hsPdf';
 import { useAuth } from '@/lib/auth';
+import { deliverPdf, emailPdf, exportFilename, PDFDocument } from '@/lib/pdf';
 import { isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
 import { base, radius, space } from '@/theme/theme';
@@ -34,6 +37,7 @@ export default function Tbts() {
   const [title, setTitle] = useState('');
   const [file, setFile] = useState<{ uri: string; name: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [sel, setSel] = useState<Set<string>>(new Set());
   // Managers: signed counts and who's still to sign on live talks.
   const { data: roster } = useQuery({
     queryKey: ['tbtRoster', id, (talks ?? []).map((t) => t.id).join(',')],
@@ -51,6 +55,17 @@ export default function Tbts() {
   const shown = mgr ? (talks ?? []).filter((t) => t.status === cur) : talks ?? [];
   const due = mgr && site && talks ? tbtDue(site, talks) : null;
   const refresh = () => void qc.invalidateQueries({ queryKey: ['tbts', id] });
+  const combined = async (): Promise<{ bytes: Uint8Array; filename: string } | null> => {
+    if (!site) return null;
+    const out = await PDFDocument.create(); let skipped = 0;
+    for (const tid of shown.filter((t) => sel.has(t.id)).map((t) => t.id)) {
+      const b = await buildSignedTbtPdf(tid, site).catch(() => 'x');
+      if (typeof b === 'string') { skipped++; continue; }
+      const d = await PDFDocument.load(b.bytes, { ignoreEncryption: true }); (await out.copyPages(d, d.getPageIndices())).forEach((p) => out.addPage(p));
+    }
+    if (skipped) toast(`${skipped} talk${skipped > 1 ? 's' : ''} had no signatures or could not be read — left out.`);
+    return out.getPageCount() ? { bytes: await out.save(), filename: exportFilename(site.name, `Toolbox Talks (${sel.size}, signed)`, 'pdf') } : null;
+  };
 
   return (
     <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
@@ -74,11 +89,11 @@ export default function Tbts() {
         const signed = (roster?.sigs ?? []).filter((s) => s.tbt_id === t.id && opIds.has(s.user_id));
         const waiting = t.status === 'live' ? (roster?.assigned ?? []).filter((u) => opIds.has(u) && !signed.some((s) => s.user_id === u)) : [];
         return (
-          <Pressable key={t.id} onPress={() => router.push(`/sites/${site.id}/hs/tbt/${t.id}`)}>
+          <Pressable key={t.id} onPress={() => (mgr && cur === 'completed' && sel.size ? setSel((x) => { const n = new Set(x); if (n.has(t.id)) n.delete(t.id); else n.add(t.id); return n; }) : router.push(`/sites/${site.id}/hs/tbt/${t.id}`))} onLongPress={mgr && cur === 'completed' ? () => setSel((x) => new Set(x).add(t.id)) : undefined}>
             <Card>
               <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontWeight: '800', color: base.ink }}>{t.title}</Text>
+                  <Text style={{ fontWeight: '800', color: base.ink }}>{mgr && cur === 'completed' ? <Text onPress={() => setSel((x) => { const n = new Set(x); if (n.has(t.id)) n.delete(t.id); else n.add(t.id); return n; })}>{sel.has(t.id) ? '☑ ' : '☐ '}</Text> : null}{t.title}</Text>
                   <Muted>{new Date(t.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</Muted>
                 </View>
                 <TbtStatusTag status={t.status} />
@@ -108,11 +123,24 @@ export default function Tbts() {
               if (err) { toast(err); return; }
               toast('Toolbox talk uploaded to Bank TBT'); setTitle(''); setFile(null); setTab('bank'); refresh();
             }} />
-            <Muted>New uploads go into Bank TBT — operatives can't see them until you tap "Issue for Signing".</Muted>
+            <Muted>New uploads go into Bank TBT — operatives can&apos;t see them until you tap &quot;Issue for Signing&quot;.</Muted>
           </Card>
         </>
       )}
-      {mgr && <Muted style={{ marginTop: space.m }}>Subcontractor toolbox talks, signed-TBT PDFs and emailing completed talks are still in the current app for now.</Muted>}
+      {mgr && cur === 'completed' && shown.length > 0 && (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+          <Button kind="ghost" title={sel.size === shown.length ? 'Clear all' : 'Tick all'} onPress={() => setSel(sel.size === shown.length ? new Set() : new Set(shown.map((t) => t.id)))} />
+          {sel.size > 0 && <Button kind="ghost" busy={busy} title={`📄 Signed PDF of ${sel.size}`} onPress={async () => { setBusy(true); toast('Building signed PDF…'); const b = await combined().catch(() => null); setBusy(false); if (!b) { toast('Nothing to export.'); return; } if (!(await deliverPdf(b.bytes, b.filename))) toast('Could not save the PDF.'); }} />}
+          {sel.size > 0 && <Button kind="ghost" busy={busy} title={`✉ Email ${sel.size}`} onPress={async () => {
+            const to = (await promptText('Email the signed toolbox talks to:', ''))?.trim(); if (!to) return;
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) { toast('Enter a valid email address.'); return; }
+            setBusy(true); const b = await combined().catch(() => null);
+            const err = b ? await emailPdf(b.bytes, b.filename, `${id}/tbt-exports`, { site_id: id, recipient_email: to, doc_title: `Toolbox Talks (signed) — ${site?.name || ''}` }) : 'Nothing to email.';
+            setBusy(false); toast(err || 'Emailed'); if (!err) setSel(new Set());
+          }} />}
+        </View>
+      )}
+      {mgr && <Muted style={{ marginTop: space.m }}>{cur === 'completed' ? 'Tick talks to export or email their signed PDFs together. ' : ''}Subcontractor toolbox talks are still in the current app for now.</Muted>}
     </ScrollView>
   );
 }
