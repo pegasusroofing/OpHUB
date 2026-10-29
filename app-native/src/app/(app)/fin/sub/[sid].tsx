@@ -11,9 +11,11 @@ import { FinForm } from '@/components/FinForm';
 import { FinRow, FinStat } from '@/components/FinNav';
 import { confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Muted, SectionTitle } from '@/components/ui';
-import { fdb, insertNumbered } from '@/data/finance';
+import { fdb, insertNumbered, loadSettings } from '@/data/finance';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
+import { buildSubNoticePdf } from '@/lib/finSubNoticePdf';
+import { deliverPdf } from '@/lib/pdf';
 import { addDays, fdate, jobTag, money, num, round2, today } from '@/lib/rules/finance';
 import { subAppCalc } from '@/lib/rules/finSubs';
 import { base, space } from '@/theme/theme';
@@ -22,7 +24,7 @@ type Row = Record<string, any>;
 
 export default function FinSubcontract() {
   const { sid, site, app } = useLocalSearchParams<{ sid: string; site?: string; app?: string }>();
-  const { me } = useAuth();
+  const { me, org } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
   const { data: sites = [] } = useSites();
@@ -78,7 +80,8 @@ export default function FinSubcontract() {
           <SectionTitle>Applications</SectionTitle>
           {apps.length ? apps.slice().reverse().map((a) => <FinRow key={a.id} left={`No. ${a.number}`} title={fdate(a.app_date)} sub={[`applied ${money(a.applied_gross)}`, a.certified_gross != null ? `certified ${money(a.certified_gross)}` : '', a.final_date ? `pay by ${fdate(a.final_date)}` : '', a.status === 'paid' ? 'Paid' : a.status === 'certified' ? 'Certified' : 'To certify', a.payless ? 'Pay less' : ''].filter(Boolean).join(' · ')} right={a.certified_gross != null ? money(a.pay_amount) : '—'} tone={a.status !== 'paid' && a.final_date && a.final_date < today() ? '#C0392B' : undefined} onPress={() => setAppEdit(a)} />) : <Muted>No applications yet.</Muted>}
           <Button title="+ Record an application" onPress={() => setAppEdit('new')} />
-          <Muted style={{ marginTop: 8 }}>The payment / pay less notice PDF and emailing it are still in the current app.</Muted>
+          {apps.some((a) => a.certified_gross != null) && <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>{apps.filter((a) => a.certified_gross != null).slice(-4).reverse().map((a) => <Button key={a.id} kind="ghost" title={`📄 ${a.payless ? 'Pay less' : 'Payment'} notice — No. ${a.number}`} onPress={async () => { try { const bytes = await buildSubNoticePdf(a, sc, sites.find((x) => x.id === a.site_id) as Row | undefined, await loadSettings(me.org_id), org, me.name || ''); if (!(await deliverPdf(bytes, `${a.payless ? 'Pay less notice' : 'Payment notice'} - ${sc.number} app ${a.number}.pdf`))) toast('Could not make the PDF — try again.'); } catch { toast('Could not build the notice.'); } }} />)}</View>}
+          <Muted style={{ marginTop: 8 }}>Emailing the notice is off during the Finance trial.</Muted>
         </>
       )}
       {edit && (
