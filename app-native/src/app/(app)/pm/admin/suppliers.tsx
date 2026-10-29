@@ -1,18 +1,20 @@
 // Admin Centre › Suppliers (726 renderSuppliersAdmin, 730 add / rename / delete):
 // name, order email, our account number, and branches (name, address, branch
-// order email, phone). Same-company duplicates are blocked, look-alikes warned.
-import { useQueryClient } from '@tanstack/react-query';
+// order email, phone). Same-company duplicates are blocked, look-alikes warned. Finance users can link
+// a supplier to its Finance Directory record (9219zc) — two records, neither changes the other.
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
+import { SelectBox } from '@/components/SelectBox';
 import { confirmAsk, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted } from '@/components/ui';
 import { useSuppliers, type FullSupplier } from '@/data/materials';
 import { useAuth } from '@/lib/auth';
 import { type Branch } from '@/lib/rules/materials';
 import { supplierConflict } from '@/lib/rules/suppliers';
-import { isFullManager } from '@/lib/roles';
+import { isFinanceUser, isFullManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
 import { base, page, radius, space } from '@/theme/theme';
 
@@ -46,10 +48,12 @@ function updateBranches(id: string, fn: (b: Branch[]) => Branch[]): Promise<bool
 }
 
 export default function Suppliers() {
-  const { me } = useAuth();
+  const { me, org } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
   const { data: list = [], isLoading } = useSuppliers(me?.org_id);
+  const fin = isFinanceUser(me, org);
+  const { data: dir = [], refetch: refetchDir } = useQuery({ queryKey: ['finDirSups', me?.org_id], enabled: !!me && fin, queryFn: async () => ((await db.from('fin_suppliers').select('id,name,supplier_id').eq('org_id', me?.org_id as string).order('name')).data as { id: string; name: string; supplier_id: string | null }[] | null) ?? [] });
   const [open, setOpen] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState(''), [email, setEmail] = useState('');
@@ -86,6 +90,14 @@ export default function Suppliers() {
             {isOpen && (
               <View style={{ paddingHorizontal: 12, paddingBottom: 12 }}>
                 <Field label="Name" value={s.name} onSave={(v) => void saveField(s, 'name', v)} />
+                {fin && (() => { const linked = dir.find((f) => f.supplier_id === s.id); return (
+                  <SelectBox label="Finance Directory (accounts)" value={linked?.id || ''} options={[['', 'Not linked'], ...dir.map((f) => [f.id, `${f.name}${f.supplier_id && f.supplier_id !== s.id ? ' (linked to another)' : ''}`] as [string, string]), ['__new', '+ Add to the Finance Directory']]} onChange={async (v) => {
+                    for (const p of dir.filter((f) => f.supplier_id === s.id && f.id !== v)) await db.from('fin_suppliers').update({ supplier_id: null } as never).eq('id', p.id);
+                    if (v === '__new') { if ((await db.from('fin_suppliers').insert({ org_id: me.org_id, created_by: me.id, name: s.name, supplier_id: s.id } as never)).error) toast('Could not add it.'); void refetchDir(); return; }
+                    if (v) { const f = dir.find((x) => x.id === v); if (f?.supplier_id && f.supplier_id !== s.id && !(await confirmAsk(`${f.name} is linked to another Projects supplier. Link it to this one instead?`, 'Link it here'))) return; await db.from('fin_suppliers').update({ supplier_id: s.id } as never).eq('id', v); }
+                    void refetchDir();
+                  }} />
+                ); })()}
                 <Field label="Order email" value={s.email || ''} keyboard="email-address" onSave={(v) => void saveField(s, 'email', v)} />
                 <Field label="Our account number" value={s.account_number || ''} placeholder="e.g. RTB001 — added to every order email to them" onSave={async (v) => {
                   const val = v.slice(0, 60);

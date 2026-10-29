@@ -63,6 +63,8 @@ export default function FinDirectory() {
     if (kind === 'codes') return (await selectAll<Row>('fin_cost_codes', '*', (x) => x.eq('org_id', org))).sort((a, b) => `${a.grp} ${a.name}`.localeCompare(`${b.grp} ${b.name}`));
     return (await selectAll<Row>(kind === 'client' ? 'fin_clients' : 'fin_suppliers', '*', (x) => x.eq('org_id', org))).sort((a, b) => String(a.name).localeCompare(String(b.name)));
   } });
+  // Projects suppliers (ordering), to link a Directory supplier to (9219zc) — two records, neither changes the other.
+  const { data: mats = [] } = useQuery({ queryKey: ['finDir', me?.org_id, 'mats'], enabled: !!me && kind === 'supplier', queryFn: async () => ((await fdb.from('suppliers').select('id,name').eq('org_id', me?.org_id as string).order('name')).data as Row[] | null) ?? [] });
   const { data: codes = [] } = useQuery({ queryKey: ['finDir', me?.org_id, 'codes'], enabled: !!me && kind !== 'codes', queryFn: async () => selectAll<Row>('fin_cost_codes', '*', (x) => x.eq('org_id', me?.org_id as string)) });
   if (!me) return null;
   const refresh = () => void qc.invalidateQueries({ queryKey: ['finDir'] });
@@ -205,7 +207,7 @@ export default function FinDirectory() {
         <FinForm title={edit.id ? edit.name : `New ${sup ? 'supplier' : 'client'}`} initial={{ ...edit, terms_days: edit.terms_days ?? '', cis_rate: String(edit.cis_rate ?? 20), toX: !edit.xero_contact_id }} onClose={() => setEdit(null)}
           note={edit.xero_contact_id ? 'Linked to Xero.' : 'Not in Xero yet.'}
           fields={[
-            { k: 'name', label: `${sup ? 'Supplier' : 'Client'} name` }, ...(sup ? [{ k: 'category', label: 'Category', kind: 'choice', options: [['', 'Not set'], ...SUP_CATS.map((x) => [x, x])] }] as Field[] : []),
+            { k: 'name', label: `${sup ? 'Supplier' : 'Client'} name` }, ...(sup ? [{ k: 'category', label: 'Category', kind: 'choice', options: [['', 'Not set'], ...SUP_CATS.map((x) => [x, x])] }, { k: 'supplier_id', label: 'Projects Supplier (ordering)', kind: 'choice', options: [['', 'Not linked'], ...mats.map((m) => { const other = ((data as Row[]) || []).find((x) => x.supplier_id === m.id && x.id !== edit.id); return [m.id, `${m.name}${other ? ` (linked to ${other.name})` : ''}`]; }), ['__new', '+ Add to the Projects suppliers']], note: 'Links this Directory record to the supplier you order from on projects. They stay separate — changing one never changes the other.' }] as Field[] : []),
             { k: 'email', label: sup ? 'Supplier email' : 'Accounts email', kind: 'email' }, { k: 'address', label: 'Address', kind: 'multiline' }, { k: 'postcode', label: 'Postcode', half: true }, { k: 'phone', label: 'Phone', half: true },
             { k: 'cost_code_id', label: 'Default cost code', kind: 'choice', options: [['', 'None'], ...codes.filter((x) => x.active !== false).map((x) => [x.id, `${x.code ? `${x.code} – ` : ''}${x.name}`] as [string, string])] },
             { k: 'terms_days', label: 'Payment terms (number)', kind: 'number', half: true }, { k: 'terms_type', label: 'Terms type', kind: 'choice', options: TERMS, half: true }, { k: 'terms_agreed', label: 'Terms agreed (signed)', kind: 'check' },
@@ -220,7 +222,9 @@ export default function FinDirectory() {
             const utr = String(v.utr || '').replace(/\s/g, ''); if (utr && !/^\d{10}$/.test(utr)) return 'A UTR is 10 numbers.';
             const t = (k: string) => String(v[k] ?? '').trim() || null;
             const row: Row = { name, email: email || null, address: t('address'), postcode: t('postcode'), phone: t('phone'), vat_registered: !!v.vat_registered, vat_number: t('vat_number'), sales_vat: t('sales_vat'), terms_days: num(v.terms_days), terms_type: t('terms_type'), terms_agreed: !!v.terms_agreed, cost_code_id: t('cost_code_id'), company_number: t('company_number'), cis_registered: !!v.cis_registered, cis_rate: Number(v.cis_rate || 20), notes: t('notes') };
-            if (sup) Object.assign(row, { category: t('category'), purchase_vat: t('purchase_vat'), foreign_supplier: !!v.foreign_supplier, no_sync: !!v.no_sync, utr: utr || null, updated_at: new Date().toISOString() });
+            let link = sup ? String(v.supplier_id || '') || null : null;
+            if (link === '__new') { const m = await fdb.from('suppliers').insert({ org_id: me.org_id, name, email: email || null, created_by: me.id } as never).select('id').single(); link = (m.data as Row | null)?.id ?? null; if (!link) return 'Could not add it to the Projects suppliers.'; }
+            if (sup) Object.assign(row, { supplier_id: link, category: t('category'), purchase_vat: t('purchase_vat'), foreign_supplier: !!v.foreign_supplier, no_sync: !!v.no_sync, utr: utr || null, updated_at: new Date().toISOString() });
             const dup = ((data as Row[]) || []).find((x) => x.id !== edit.id && String(x.name).trim().toLowerCase() === name.toLowerCase());
             if (dup) return `“${dup.name}” is already in the directory.`;
             const r = edit.id ? await fdb.from(tbl).update(row as never).eq('id', edit.id).select('*').single() : await fdb.from(tbl).insert({ ...row, org_id: me.org_id, created_by: me.id } as never).select('*').single();
