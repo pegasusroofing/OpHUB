@@ -8,6 +8,7 @@ import { cachedQuery, orThrow } from '@/lib/offlineCache';
 import { DELIVERY_TIME_SLOTS, slotProblem } from '@/lib/rules/driver';
 import { eachDay, isWorkingDay } from '@/lib/rules/hr';
 import { deliveryLines, recurrenceDates, reminderDate, type Repeat, type Timing } from '@/lib/rules/calendar';
+import { appDateFor } from '@/lib/rules/finance';
 import { supabase } from '@/lib/supabase';
 import type { Profile, Site } from '@/lib/types';
 
@@ -19,18 +20,20 @@ export type CalEvent = {
   id: string; site_id: string; title: string; event_date: string; is_private: boolean; recurrence_group_id: string | null;
   reminder_recipient_ids: string[] | null; reminder_timing: Timing | null; reminder_date: string | null;
 };
-export type CalLine = (CalEvent & { kind: 'event' }) | { kind: 'delivery' | 'leave'; id: string; event_date: string; title: string };
+export type CalLine = (CalEvent & { kind: 'event' }) | { kind: 'delivery' | 'leave' | 'app'; id: string; event_date: string; title: string; colour?: string };
 
-export function useCalendar(siteId: string | undefined, from: string, to: string) {
+/** apps: also show the job's application dates (PMs, admins, Finance users). */
+export function useCalendar(siteId: string | undefined, from: string, to: string, apps = false) {
   return useQuery({
-    queryKey: ['calendar', siteId, from, to],
+    queryKey: ['calendar', siteId, from, to, apps],
     enabled: !!siteId,
-    queryFn: () => cachedQuery(`calendar:${siteId}:${from}:${to}`, async () => {
+    queryFn: () => cachedQuery(`calendar:${siteId}:${from}:${to}:${apps ? 1 : 0}`, async () => {
       const rpc = supabase.rpc.bind(supabase) as unknown as (n: string, a: object) => Promise<{ data: unknown; error: unknown }>;
-      const [ev, dl, lv] = await Promise.all([
+      const [ev, dl, lv, ap] = await Promise.all([
         db.from('site_calendar_events').select('*').eq('site_id', siteId as string).gte('event_date', from).lte('event_date', to).order('event_date').order('created_at'),
         rpc('site_delivery_dates', { p_site: siteId, p_from: from, p_to: to }).catch(() => ({ data: [], error: null })),
         rpc('site_pm_leave', { p_site: siteId, p_from: from, p_to: to }).catch(() => ({ data: [], error: null })),
+        apps ? appDateLines(siteId as string, from, to) : Promise.resolve([] as ExtraLine[]),
       ]);
       const lines: CalLine[] = (orThrow(ev) as CalEvent[]).map((e) => ({ ...e, kind: 'event' as const }));
       deliveryLines(Array.isArray(dl.data) ? (dl.data as Record<string, unknown>[]) : []).forEach((d, i) => lines.push({ kind: 'delivery', id: `dlv-${d.date}-${i}`, event_date: d.date, title: d.title }));
@@ -38,6 +41,7 @@ export function useCalendar(siteId: string | undefined, from: string, to: string
         if (ds < from || ds > to || !isWorkingDay(ds)) return;
         lines.push({ kind: 'leave', id: `lv${ds}${l.user_id}`, event_date: ds, title: `${l.name} off (${(l.code || '').toUpperCase()}${l.half ? ' ½ day' : ''})` });
       }));
+      ap.forEach((a) => lines.push({ kind: 'app', id: a.id, event_date: a.event_date, title: a.title, colour: a.colour }));
       const byDate: Record<string, CalLine[]> = {};
       lines.forEach((l) => { (byDate[l.event_date] ||= []).push(l); });
       return byDate;
@@ -107,4 +111,43 @@ export async function addToDeliverySchedule(me: Profile, siteId: string, title: 
   if (r.error) return false;
   await resequenceSlot(me.org_id as string, date, slot);
   return true;
+}
+
+// ---------- items the calendars add from elsewhere ----------
+export type ExtraLine = { kind: 'app' | 'delivery'; id: string; site_id: string; event_date: string; title: string; colour: string };
+const rpcAny = supabase.rpc.bind(supabase) as unknown as (n: string, a: object) => Promise<{ data: unknown; error: unknown }>;
+const monthsBetween = (from: string, to: string) => {
+  const out: string[] = [];
+  const d = new Date(`${from.slice(0, 7)}-01T12:00:00`), end = new Date(`${to.slice(0, 7)}-01T12:00:00`);
+  while (d <= end) { out.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`); d.setMonth(d.getMonth() + 1); }
+  return out;
+};
+/** Application dates (9219zp): "💷 Application due" / "sent" on each project's date for the month.
+ *  PMs, admins and Finance users only (site_application_dates checks too). */
+export async function appDateLines(siteId: string | null, from: string, to: string): Promise<ExtraLine[]> {
+  const r = await Promise.resolve(rpcAny('site_application_dates', { p_site_ids: null })).catch(() => ({ data: [] as unknown }));
+  const rows = Array.isArray(r.data) ? (r.data as { site_id: string; app_dates: Record<string, string> | null; app_reminder_day: number | null; org_app_day: number | null; applied_dates: string[] | null }[]) : [];
+  const months = monthsBetween(from, to), out: ExtraLine[] = [];
+  rows.forEach((row) => {
+    if (siteId && row.site_id !== siteId) return;
+    const applied = new Set((row.applied_dates || []).map((x) => String(x).slice(0, 7)));
+    months.forEach((ym) => {
+      const date = appDateFor({ app_dates: row.app_dates, app_reminder_day: row.app_reminder_day }, { app_reminder_day: row.org_app_day } as never, ym);
+      if (!date || date < from || date > to) return;
+      const sent = applied.has(ym);
+      out.push({ kind: 'app', id: `app-${row.site_id}-${ym}`, site_id: row.site_id, event_date: date, title: sent ? '💷 Application sent' : '💷 Application due', colour: sent ? '#1E7A43' : '#B45309' });
+    });
+  });
+  return out;
+}
+/** Supplier delivery dates (9219zr) for several projects — the all-projects calendar, managers only. */
+export async function deliveryDateLines(siteIds: string[], from: string, to: string): Promise<ExtraLine[]> {
+  const out: ExtraLine[] = [];
+  for (let i = 0; i < siteIds.length; i += 6) {
+    const part = await Promise.all(siteIds.slice(i, i + 6).map((sid) => Promise.resolve(rpcAny('site_delivery_dates', { p_site: sid, p_from: from, p_to: to }))
+      .then((r) => deliveryLines(Array.isArray(r.data) ? (r.data as Record<string, unknown>[]) : []).map((d, k) => ({ kind: 'delivery' as const, id: `dlv-${sid}-${d.date}-${k}`, site_id: sid, event_date: d.date, title: d.title, colour: '#1F5FA6' })))
+      .catch(() => [] as ExtraLine[])));
+    part.forEach((p) => out.push(...p));
+  }
+  return out;
 }

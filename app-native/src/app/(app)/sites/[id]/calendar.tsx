@@ -7,19 +7,21 @@ import { Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
+import { CalTools, MonthGrid, type GridItem } from '@/components/MonthGrid';
 import { chooseAction, confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Check, Muted } from '@/components/ui';
 import { addEvent, addToDeliverySchedule, deleteEvent, saveEvent, useCalendar, useRecipients, type CalEvent, type CalLine, type Draft } from '@/data/calendar';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
+import { heading } from '@/lib/fonts';
 import { deliverFile, exportFilename } from '@/lib/pdf';
 import { monthGrid, ordinal, REPEAT_LABEL, type Repeat } from '@/lib/rules/calendar';
 import { localISODate } from '@/lib/rules/driver';
 import { readIsoDate } from '@/lib/rules/materials';
 import { buildIcs } from '@/lib/rules/ics';
-import { isManager } from '@/lib/roles';
+import { isFinanceUser, isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
-import { base, page, radius, space } from '@/theme/theme';
+import { base, page, radius, space, useTheme } from '@/theme/theme';
 
 type View_ = 'week' | 'twoweek' | 'month';
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card, marginBottom: 8 };
@@ -28,7 +30,8 @@ const addDays = (iso: string, n: number) => { const d = new Date(`${iso}T00:00:0
 
 export default function SiteCalendar() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { me } = useAuth();
+  const { me, org } = useAuth();
+  const th = useTheme();
   const toast = useToast();
   const qc = useQueryClient();
   const { data: site } = useSite(id);
@@ -41,7 +44,7 @@ export default function SiteCalendar() {
   const days = view === 'month' ? [sel] : Array.from({ length: view === 'week' ? 7 : 14 }, (_, i) => addDays(today, i));
   const from = view === 'month' ? grid[0] : today;
   const to = view === 'month' ? grid[grid.length - 1] : days[days.length - 1];
-  const { data: byDate } = useCalendar(id, from, to);
+  const { data: byDate } = useCalendar(id, from, to, !!me && (['pm', 'admin'].includes(me.role) || isFinanceUser(me, org)));
   const { data: recipients } = useRecipients(id, mgr);
   const [form, setForm] = useState<{ at: string; editId: string | null; d: Draft } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -119,7 +122,7 @@ export default function SiteCalendar() {
 
   const line = (l: CalLine) => (
     <View key={l.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 3 }}>
-      <Text style={{ flex: 1, color: l.kind === 'delivery' ? base.blue : l.kind === 'leave' ? '#7B3FB5' : l.kind === 'event' && l.is_private ? base.slate : base.ink, fontStyle: l.kind === 'leave' ? 'italic' : 'normal' }}>
+      <Text style={{ flex: 1, color: l.kind === 'app' ? l.colour : l.kind === 'delivery' ? base.blue : l.kind === 'leave' ? '#7B3FB5' : l.kind === 'event' && l.is_private ? base.slate : base.ink, fontStyle: l.kind === 'leave' ? 'italic' : 'normal' }}>
         {l.kind === 'leave' ? '🏖 ' : ''}{l.kind === 'event' && l.is_private ? '🔒 ' : ''}{l.kind === 'event' && l.recurrence_group_id ? '🔁 ' : ''}{l.title}
       </Text>
       {mgr && l.kind === 'event' && (
@@ -140,42 +143,34 @@ export default function SiteCalendar() {
     </View>
   );
 
+  const phoneCal = async () => {
+      const today = new Date().toISOString().slice(0, 10);
+      const evs = ((await supabase.from('site_calendar_events').select('id,title,event_date').eq('site_id', id).gte('event_date', today).order('event_date')).data ?? []) as { id: string; title: string | null; event_date: string }[];
+      if (!evs.length) { toast('No upcoming key dates to export.'); return; }
+      const ok = await deliverFile(new TextEncoder().encode(buildIcs(evs, site?.name || '')), exportFilename(site?.name || '', 'Key Dates', 'ics'), 'text/calendar', 'com.apple.ical.ics');
+      toast(ok ? 'Calendar file ready — open it to add these to your phone calendar' : 'Could not build the calendar file — please try again.');
+  };
+  const gridItems: Record<string, GridItem[]> = {};
+  Object.entries(byDate ?? {}).forEach(([ds, list]) => { gridItems[ds] = list.map((l) => ({ id: l.id, title: l.title, colour: l.kind === 'app' ? l.colour || '#B45309' : l.kind === 'delivery' ? '#1F5FA6' : l.kind === 'leave' ? '#7B3FB5' : l.kind === 'event' && l.is_private ? base.slateLight : th.brand1 })); });
   const anchorMonth = new Date().getMonth();
   return (
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Calendar' }} />
-      <View style={{ flexDirection: 'row', gap: 6, marginBottom: 10 }}>
-        {([['week', '1 week'], ['twoweek', '2 weeks'], ['month', 'Month']] as const).map(([k, l]) => <Chip key={k} on={view === k} label={l} onPress={() => setView(k)} />)}
-        <View style={{ flex: 1 }} />
-        <Chip on={false} label="＋ Add" onPress={() => setForm({ at: 'top', editId: null, d: blank(view === 'month' && sel >= today ? sel : today) })} />
+      <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10 }}>
+        <CalTools view={view} onView={setView} label="Options" extra={[
+          { key: 'add', label: '＋ Add a key date', run: () => setForm({ at: 'top', editId: null, d: blank(view === 'month' && sel >= today ? sel : today) }) },
+          { key: 'ics', label: '📅 Add to phone calendar', run: () => void phoneCal() },
+        ]} />
       </View>
       {editor('top')}
 
       {view === 'month' ? (
-        <Card>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-            <Pressable hitSlop={10} onPress={() => setMonth(month.m === 0 ? { y: month.y - 1, m: 11 } : { y: month.y, m: month.m - 1 })}><Text style={{ fontSize: 20, paddingHorizontal: 10 }}>‹</Text></Pressable>
-            <Text style={{ flex: 1, textAlign: 'center', fontWeight: '800', color: base.ink }}>{new Date(month.y, month.m, 1).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}</Text>
-            <Pressable hitSlop={10} onPress={() => { const t = new Date(); setMonth({ y: t.getFullYear(), m: t.getMonth() }); setSel(today); }}><Text style={{ color: base.blue, paddingHorizontal: 6 }}>Today</Text></Pressable>
-            <Pressable hitSlop={10} onPress={() => setMonth(month.m === 11 ? { y: month.y + 1, m: 0 } : { y: month.y, m: month.m + 1 })}><Text style={{ fontSize: 20, paddingHorizontal: 10 }}>›</Text></Pressable>
-          </View>
-          <View style={{ flexDirection: 'row' }}>{['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => <Text key={i} style={{ flex: 1, textAlign: 'center', fontSize: 11, fontWeight: '800', color: i > 4 ? base.red : base.slate }}>{d}</Text>)}</View>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-            {grid.map((ds) => {
-              const d = new Date(`${ds}T00:00:00`);
-              const inMonth = d.getMonth() === month.m;
-              const has = !!byDate?.[ds]?.length;
-              return (
-                <Pressable key={ds} onPress={() => setSel(ds)} style={{ width: `${100 / 7}%`, alignItems: 'center', paddingVertical: 6 }}>
-                  <View style={{ width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: sel === ds ? base.ink : 'transparent', borderWidth: ds === today ? 2 : 0, borderColor: base.red }}>
-                    <Text style={{ color: sel === ds ? '#fff' : inMonth ? base.ink : base.line, fontWeight: '700' }}>{d.getDate()}</Text>
-                  </View>
-                  <Text style={{ fontSize: 8, color: has ? base.red : 'transparent' }}>●</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </Card>
+        <>
+          <MonthGrid year={month.y} month={month.m} sel={sel} today={today} items={gridItems} onSelect={setSel}
+            onShift={(n) => { const m = new Date(month.y, month.m + n, 1); setMonth({ y: m.getFullYear(), m: m.getMonth() }); const now = new Date(); setSel(m.getFullYear() === now.getFullYear() && m.getMonth() === now.getMonth() ? today : localISODate(m)); }}
+            onToday={() => { const n = new Date(); setMonth({ y: n.getFullYear(), m: n.getMonth() }); setSel(today); }} />
+          <Text style={[heading(800), { fontSize: 17, color: base.ink, marginTop: 10, marginBottom: 2 }]}>{new Date(`${sel}T00:00:00`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}{(byDate?.[sel] ?? []).length ? ` · ${(byDate?.[sel] ?? []).length} booked` : ''}</Text>
+        </>
       ) : <Muted style={{ marginBottom: 8 }}>Next {days.length} days{mgr ? ' — 🔒 items are only seen by PMs/admins' : ''}.</Muted>}
 
       {days.map((ds) => {
@@ -187,7 +182,7 @@ export default function SiteCalendar() {
             <View style={{ flexDirection: 'row', gap: 12 }}>
               <View style={{ width: 64, alignItems: 'center' }}>
                 <Text style={{ fontSize: 10, fontWeight: '800', color: weekend ? base.red : base.slate }}>{d.toLocaleDateString('en-GB', { weekday: 'short' }).toUpperCase()}</Text>
-                <Text style={{ fontWeight: '800', color: base.ink, borderWidth: ds === today ? 2 : 0, borderColor: base.red, borderRadius: 12, paddingHorizontal: 5 }}>
+                <Text style={{ fontWeight: '800', color: base.ink, borderWidth: ds === today ? 2 : 0, borderColor: th.brand1, borderRadius: 12, paddingHorizontal: 5 }}>
                   {d.getDate()}{ordinal(d.getDate())}{d.getMonth() !== anchorMonth ? ` ${d.toLocaleDateString('en-GB', { month: 'short' })}` : ''}
                 </Text>
               </View>
@@ -200,13 +195,6 @@ export default function SiteCalendar() {
           </View>
         );
       })}
-      <Button kind="ghost" title="📅 Add to phone calendar" onPress={async () => {
-        const today = new Date().toISOString().slice(0, 10);
-        const evs = ((await supabase.from('site_calendar_events').select('id,title,event_date').eq('site_id', id).gte('event_date', today).order('event_date')).data ?? []) as { id: string; title: string | null; event_date: string }[];
-        if (!evs.length) { toast('No upcoming key dates to export.'); return; }
-        const ok = await deliverFile(new TextEncoder().encode(buildIcs(evs, site?.name || '')), exportFilename(site?.name || '', 'Key Dates', 'ics'), 'text/calendar', 'com.apple.ical.ics');
-        toast(ok ? 'Calendar file ready — open it to add these to your phone calendar' : 'Could not build the calendar file — please try again.');
-      }} />
     </ScrollView>
   );
 }
