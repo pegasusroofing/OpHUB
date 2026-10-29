@@ -9,6 +9,7 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { FinForm } from '@/components/FinForm';
 import { FinRow, FinStat } from '@/components/FinNav';
+import { XeroRow } from '@/components/FinXero';
 import { chooseAction, confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Muted, SectionTitle } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
@@ -124,6 +125,7 @@ function Issued({ inv, pays, site }: { inv: Row; pays: Row[]; site: Row | undefi
       <Card>
         <FinRow title="Bill to" right={inv.bill_name || site?.client_name || '—'} /><FinRow title="Issued" right={fdate(inv.issue_date)} /><FinRow title="Due" right={fdate(inv.due_date)} />
         <FinRow title="Sent" right={inv.sent_at ? `${fdate(String(inv.sent_at).slice(0, 10))}${inv.sent_to ? ` to ${inv.sent_to}` : ''}` : 'Not emailed yet'} />
+        <XeroRow kind="invoice" rec={inv} onDone={refresh} />
       </Card>
       <SectionTitle>Lines</SectionTitle>
       <Card>

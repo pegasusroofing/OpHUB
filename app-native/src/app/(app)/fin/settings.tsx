@@ -14,6 +14,7 @@ import { Linking, Platform, Pressable, Text, TextInput, View } from 'react-nativ
 
 import { FinForm } from '@/components/FinForm';
 import { FinPage, FinRow } from '@/components/FinNav';
+import { XeroSettings } from '@/components/FinXero';
 import { confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Muted, TINTS } from '@/components/ui';
 import { fdb, finInvoke, useFinSettings } from '@/data/finance';
@@ -118,6 +119,7 @@ export default function FinSettings() {
                   <>
                     {xErr ? <Muted>{/not_configured|not connected/i.test(xErr) ? 'Xero isn’t connected.' : `Xero: ${xErr}`}</Muted> : xs ? <Text style={{ color: xs.connected ? '#1E7A3C' : base.slate }}>{xs.connected ? `Connected${xs.tenant_name ? ` to ${xs.tenant_name}` : ''}` : 'Not connected'}</Text> : <Muted>Checking…</Muted>}
                     {FIN_TRIAL && <Muted style={{ marginTop: 6 }}>While Finance is on trial nothing is posted to Xero. Reading and adding clients and suppliers still works.</Muted>}
+                    {xs?.connected && me.role === 'admin' && <XeroSettings s={s} />}
                     {xs && !xs.connected && <View style={{ marginTop: 8 }}><Button kind="ghost" title="Connect Xero" onPress={async () => { const r = await finInvoke<Row>(me, 'xero', { action: 'connect', origin: Platform.OS === 'web' ? window.location.origin : null }); if (r.error || !r.data?.url) { toast(r.error || 'Could not start the Xero connection.'); return; } if (Platform.OS === 'web') window.location.href = r.data.url; else void Linking.openURL(r.data.url); }} /></View>}
                   </>
                 ) : k === 'vat' ? (

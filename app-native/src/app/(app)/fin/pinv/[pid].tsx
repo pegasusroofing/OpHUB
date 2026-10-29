@@ -10,6 +10,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SelectBox } from '@/components/SelectBox';
 import { FinForm } from '@/components/FinForm';
 import { AllocRow } from '@/components/FinSplit';
+import { XeroRow } from '@/components/FinXero';
 import { FinRow, FinStat } from '@/components/FinNav';
 import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Card, Check, Muted, SectionTitle } from '@/components/ui';
@@ -107,6 +108,7 @@ function ViewPinv({ id }: { id: string }) {
         <AllocRow table="purchase_invoices" row={i} po={data?.po} onSaved={refresh} />
         {i.due_date && <FinRow title="Due" right={fdate(i.due_date)} />}{i.description && <FinRow title="Description" right={i.description} />}
         {i.paid_on && <FinRow title="Paid" right={fdate(i.paid_on)} />}
+        <XeroRow kind="bill" rec={i} onDone={refresh} />
       </Card>
       <CodeLines i={i} sites={sites} onSaved={refresh} />
       {i.file_path && <Button kind="ghost" title={`📄 ${i.file_name || 'Open the invoice'}`} onPress={async () => { const u = await openDocLink('finance-docs', i.file_path); if (u) viewDoc(u); else toast('Could not open the file.'); }} />}
