@@ -6,14 +6,15 @@
 import * as DocumentPicker from 'expo-document-picker';
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useState, type ReactNode } from 'react';
-import { Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { useEffect, useState, type ReactNode } from 'react';
+import { AppState, Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { StorageImage, useStorageUrl } from '@/components/StorageImage';
 import { chooseAction, confirmAsk, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Muted, SectionTitle } from '@/components/ui';
 import { nameOf, openDocLink, usePeople } from '@/data/hs';
 import { useSite } from '@/data/sites';
+import { repairReportsAfter, scheduleRepairReport, syncRepairPhotos } from '@/data/repairOneDrive';
 import { exportRepairReport } from '@/lib/repairReportPdf';
 import { addRepairPhotos, deleteRepairJob, hasRepairPhoto, hideRepairPhoto, notifyPmOfRepairNotes, patchRepairJob, syncRepairEvent, uploadWorkOrder, useRepairJob, type RepairPhoto } from '@/data/repairs';
 import { useAuth } from '@/lib/auth';
@@ -54,13 +55,24 @@ export default function RepairJobPage() {
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [surveyEdit, setSurveyEdit] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  const [odNote, setOdNote] = useState('');
+  // Photos not yet in OneDrive go when the job opens and when the app comes back to the front (e.g. after the camera).
+  useEffect(() => {
+    if (!jobId) return;
+    const go = () => { void syncRepairPhotos(jobId).then((r) => { if (r.failed) toast(`${r.failed} photo${r.failed === 1 ? '' : 's'} still to go to OneDrive — will retry`); }); };
+    const t = setTimeout(go, 1200);
+    const sub = AppState.addEventListener('change', (st) => { if (st === 'active') setTimeout(go, 1500); });
+    return () => { clearTimeout(t); sub.remove(); };
+  }, [jobId, toast]);
   if (!me) return null;
   if (isLoading || !data) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   const job = data.job;
   if (!job) return <Muted style={{ padding: space.l }}>This job no longer exists.</Muted>;
   const mgr = isManager(me);
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['repairJob', jobId] }); void qc.invalidateQueries({ queryKey: ['repairJobs', id] }); };
-  const save = async (patch: Partial<RepairJob> & Record<string, unknown>, msg = 'Saved') => { const ok = await patchRepairJob(job.id, patch); toast(ok ? msg : 'Could not save — try again.'); refresh(); return ok; };
+  // The Survey / Completed Works reports in OneDrive are rebuilt after a change that's in them.
+  const reportsAfter = (j: Record<string, unknown>, c: { keys?: string[]; photoCategory?: string }) => repairReportsAfter(j, c).forEach((k) => scheduleRepairReport(k, job.id, org, k === 'survey' && job.surveyed_by ? nameOf(people, job.surveyed_by) : ''));
+  const save = async (patch: Partial<RepairJob> & Record<string, unknown>, msg = 'Saved') => { const ok = await patchRepairJob(job.id, patch); toast(ok ? msg : 'Could not save — try again.'); refresh(); if (ok) reportsAfter({ ...job, ...patch }, { keys: Object.keys(patch) }); return ok; };
   const val = (k: keyof RepairJob) => (draft[k] ?? (job[k] == null ? '' : String(job[k])));
   const setVal = (k: keyof RepairJob) => (v: string) => setDraft({ ...draft, [k]: v });
   const ops = people.filter((p) => p.role === 'operative');
@@ -80,7 +92,7 @@ export default function RepairJobPage() {
         <Label>{title}{list.length ? ` (${list.length})` : ''}</Label>
         {list.length > 0 && <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>{list.map((p) => <Photo key={p.id} p={p} onRemove={mgr ? async () => {
           if (!(await confirmAsk('Remove this photo? It stays saved on the job under "Deleted photos" so you can restore it.', 'Remove'))) return;
-          toast((await hideRepairPhoto(me, p.id)) ? 'Photo removed' : 'Could not remove — try again.'); refresh();
+          toast((await hideRepairPhoto(me, p.id)) ? 'Photo removed' : 'Could not remove — try again.'); refresh(); reportsAfter(job, { photoCategory: category });
         } : undefined} />)}</View>}
         <Button kind="ghost" busy={busy === category} title="📷 Add photos" onPress={async () => {
           const src = await chooseAction('Add photos', [{ key: 'camera', label: 'Take a photo' }, { key: 'library', label: 'Choose from library' }]);
@@ -89,11 +101,11 @@ export default function RepairJobPage() {
           if ('error' in picked) { showAlert(picked.error); return; }
           if (!picked.length) return;
           setBusy(category); const failed = await addRepairPhotos(me, job.id, category, picked); setBusy(null);
-          toast(failed ? `${failed} photo${failed === 1 ? '' : 's'} failed to upload — try again.` : 'Photo(s) added'); refresh();
+          toast(failed ? `${failed} photo${failed === 1 ? '' : 's'} failed to upload — try again.` : 'Photo(s) added'); refresh(); reportsAfter(job, { photoCategory: category });
         }} />
         {hiddenOnes.length > 0 && <Pressable onPress={async () => {
           const k = await chooseAction('Deleted photos — tap one to restore', hiddenOnes.map((p, i) => ({ key: p.id, label: `Photo ${i + 1}${p.uploaded_at ? ` · ${fmt(p.uploaded_at)}` : ''}` })));
-          if (k) { toast((await hideRepairPhoto(me, k, true)) ? 'Photo restored' : 'Could not restore — try again.'); refresh(); }
+          if (k) { toast((await hideRepairPhoto(me, k, true)) ? 'Photo restored' : 'Could not restore — try again.'); refresh(); reportsAfter(job, { photoCategory: category }); }
         }}><Muted style={{ textDecorationLine: 'underline' }}>Deleted photos ({hiddenOnes.length})</Muted></Pressable>}
       </View>
     );
@@ -341,6 +353,11 @@ export default function RepairJobPage() {
         </>
       )}
       <Button kind="ghost" title="☁️ Link this job's OneDrive folder" onPress={() => router.push({ pathname: '/pm/onedrive-pick', params: { target: 'repairjob', id: jobId } } as never)} />
+      {mgr && <Button kind="ghost" busy={!!odNote} title={odNote ? `Sending to OneDrive… ${odNote}` : '☁️ Send everything on this job to OneDrive'} onPress={async () => {
+        setOdNote('…');
+        const r = await syncRepairPhotos(job.id, { force: true, onProgress: setOdNote, reports: { org, surveyor: job.surveyed_by ? nameOf(people, job.surveyed_by) : '' } }).finally(() => setOdNote(''));
+        toast(!r.linked ? 'Link a OneDrive folder first.' : r.failed ? `${r.done} photo${r.done === 1 ? '' : 's'} sent to OneDrive, ${r.failed} didn’t go — they’ll retry next time the job is opened` : `Sent ${r.done} photo${r.done === 1 ? '' : 's'} to OneDrive`);
+      }} />}
       <View style={{ flexDirection: 'row', gap: 8, marginBottom: space.xl }}>
         <View style={{ flex: 1 }}><Button kind="ghost" title="📄 Survey report PDF" onPress={async () => { if (!(await exportRepairReport('survey', job, site, org, job.surveyed_by ? nameOf(people, job.surveyed_by) : '').catch(() => false))) toast('Could not build the PDF.'); }} /></View>
         <View style={{ flex: 1 }}><Button kind="ghost" title="📄 Completed works PDF" onPress={async () => { if (!(await exportRepairReport('completion', job, site, org, '').catch(() => false))) toast('Could not build the PDF.'); }} /></View>

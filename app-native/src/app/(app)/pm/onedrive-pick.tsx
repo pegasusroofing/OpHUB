@@ -11,13 +11,14 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useToast } from '@/components/toast';
 import { Button, Empty, Muted, SectionTitle } from '@/components/ui';
 import { linkFolder, listFolders, setQuickLinks, useQuickLinks, type OdFolder, type OdTarget } from '@/data/onedrive';
+import { syncRepairPhotos } from '@/data/repairOneDrive';
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
 import { base, page, radius, space } from '@/theme/theme';
 
 const DONE: Record<OdTarget, string> = {
   progress: 'Folder linked — photos for this site will sync there from now on', materials: "Folder linked — Material PO's will sync from there daily",
-  siteinductions: 'Folder linked — signed inductions will be pushed there from now on', repairjob: 'Folder linked', operative: 'Folder linked', quicklink: 'Added Quick Link',
+  siteinductions: 'Folder linked — signed inductions will be pushed there from now on', repairjob: 'Folder linked — sending what’s already on the job', operative: 'Folder linked', quicklink: 'Added Quick Link',
 };
 
 export default function OneDrivePick() {
@@ -41,6 +42,8 @@ export default function OneDrivePick() {
         void qc.invalidateQueries({ queryKey: ['odQuick'] });
       } else if (!(await linkFolder(target, id, f))) { toast('Could not link that folder — please try again.'); return; }
       ['odSites', 'sites', 'site'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] }));
+      // A newly linked repair job folder gets what's already on the job (photos and the work order).
+      if (target === 'repairjob') void syncRepairPhotos(id, { force: true });
       toast(target === 'quicklink' ? `Added Quick Link — "${f.name}"` : DONE[target]); router.back();
     } finally { setBusy(false); }
   };

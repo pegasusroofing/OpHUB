@@ -16,7 +16,7 @@ HIGH = money, data, permissions, safety or a daily job. MED = noticeable. LOW = 
 - LOW OPEN — "Add your mobile number" prompt; manager-only pages with no role check (onsite, todos, hub, sitemap); search depth (materials, to-dos, snags, admin items); HR people query not company-filtered; copy the address by tapping the header; "CC me" on emails.
 
 ## Repairs, pricing, reports (290–435)
-- HIGH OPEN — Repair jobs to OneDrive: photos, work order, Survey and Completed Works PDFs (rebuilt automatically on changes), job's own folder or a job-number subfolder, retry/re-sync, push existing items after linking.
+- HIGH FIXED — Repair jobs to OneDrive: photos (each marked once sent, retried when the job opens or the app comes back), work order, Survey and Completed Works PDFs (rebuilt automatically on changes), job's own folder or a job-number subfolder, "Send everything" re-sync, existing items sent after linking.
 - MED OPEN — Change a certificate's type (Other asks for a description).
 - MED OPEN — Certificates for people not on the app (certification_manual_people): add person, upload, remove; shown on the job's operatives dashboard.
 - MED OPEN — Operatives' "Needs your signature" pop-up when opening a job (RAMS, COSHH, TBT, Sign now).

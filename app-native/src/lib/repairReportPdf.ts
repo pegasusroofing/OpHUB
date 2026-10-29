@@ -10,6 +10,11 @@ const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supab
 const ukd = (v: string | null) => (v ? new Date(v).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '');
 
 export async function exportRepairReport(kind: 'survey' | 'completion', job: RepairJob, site: Site | null | undefined, org: Organization | null, surveyor: string): Promise<boolean> {
+  const r = await buildRepairReport(kind, job, site, org, surveyor);
+  return deliverPdf(r.bytes, r.filename);
+}
+/** The report itself (also sent to the job's OneDrive folder whenever it changes). */
+export async function buildRepairReport(kind: 'survey' | 'completion', job: RepairJob, site: Site | null | undefined, org: Organization | null, surveyor: string): Promise<{ bytes: Uint8Array; filename: string }> {
   const doc = await PDFDocument.create();
   const bold = await doc.embedFont(StandardFonts.HelveticaBold), reg = await doc.embedFont(StandardFonts.Helvetica);
   const FAINT = rgb(0.85, 0.84, 0.8), HEADBAR = rgb(0.933, 0.941, 0.961), BRAND = hexToRgb(org?.color_primary || DEFAULT_BRAND1);
@@ -59,5 +64,5 @@ export async function exportRepairReport(kind: 'survey' | 'completion', job: Rep
   });
   const filename = exportFilename(job.address || '', kind === 'survey' ? 'Survey Report' : 'Completed Works Report', 'pdf');
   doc.setTitle(filename.replace(/\.pdf$/i, ''));
-  return deliverPdf(await doc.save(), filename);
+  return { bytes: await doc.save(), filename };
 }

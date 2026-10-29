@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { compressOne, type Picked } from '@/lib/photos';
 import type { RepairJob } from '@/lib/rules/repairs';
 import { supabase } from '@/lib/supabase';
+import { pushWorkOrder, syncRepairPhotos } from '@/data/repairOneDrive';
 import type { Profile } from '@/lib/types';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
@@ -89,6 +90,8 @@ export async function addRepairPhotos(me: Profile, jobId: string, category: stri
       if (r.error) failed++;
     } catch { failed++; }
   }
+  // Each photo goes to OneDrive in the background, one at a time, marked once it's there (retried if not).
+  void syncRepairPhotos(jobId);
   return failed;
 }
 /** Hidden, not deleted — it can be restored from "Deleted photos". */
@@ -98,7 +101,9 @@ export async function hideRepairPhoto(me: Profile, id: string, restore = false):
 export async function uploadWorkOrder(me: Profile, job: RepairJob, f: { uri: string; name: string; mimeType?: string | null }): Promise<boolean> {
   const path = `${me.org_id}/repairjobs/${job.id}/workorder/${rid()}-${f.name.replace(/[^a-z0-9.-]+/gi, '_')}`;
   const up = await supabase.storage.from('site-photos').upload(path, await (await fetch(f.uri)).arrayBuffer(), { contentType: f.mimeType || 'application/pdf' });
-  return !up.error && (await patchRepairJob(job.id, { work_order_path: up.data.path }));
+  if (up.error || !(await patchRepairJob(job.id, { work_order_path: up.data.path, work_order_name: f.name }))) return false;
+  void pushWorkOrder({ ...job, work_order_path: up.data.path, work_order_name: f.name } as never);
+  return true;
 }
 /** Managers only. Permanent: the job and its photo records go. */
 export async function deleteRepairJob(job: RepairJob): Promise<boolean> {
