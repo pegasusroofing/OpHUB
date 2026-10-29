@@ -75,6 +75,7 @@ export async function loadApplication(id: string) {
   const j = (jf.data as Row | null) || {}, previousLive = previousCertified(apps, a.number);
   // Each line's % on the last certificate, for the Previous / This time figures (9219r).
   const prevPct = appDoc(a, j, apps).prevPct;
+  const siteProgress = await loadSiteProgress(a.site_id);
   if (a.status === 'draft') {
     const [vars, fvars, fdays] = await loadRegisters(a.site_id);
     const { varRows, dayRows } = registerRows(a, vars, fvars, fdays);
@@ -82,10 +83,10 @@ export async function loadApplication(id: string) {
     if (key(varRows) !== key(a.variations || []) || key(dayRows) !== key(a.dayworks || [])) {
       const next = { ...a, variations: varRows, dayworks: dayRows };
       const saved = rowForSave(next, j, previousLive);
-      if (!(await fdb.from('fin_applications').update(saved as never).eq('id', a.id).eq('status', 'draft')).error) return { a: { ...next, ...saved }, jf: j, previousLive, prevPct, synced: true };
+      if (!(await fdb.from('fin_applications').update(saved as never).eq('id', a.id).eq('status', 'draft')).error) return { a: { ...next, ...saved }, jf: j, previousLive, prevPct, siteProgress, synced: true };
     }
   }
-  return { a, jf: j, previousLive, prevPct, synced: false };
+  return { a, jf: j, previousLive, prevPct, siteProgress, synced: false };
 }
 export function rowForSave(a: Row, jf: Row, previous: number) {
   const c = appCalc(a, jf.contract_value, jf.retention_limit_pct, previous);
@@ -226,4 +227,13 @@ export async function deleteApplicationAny(a: Row): Promise<string | null> {
   const later = (await rows(fdb.from('fin_applications').select('id,number,status').eq('site_id', a.site_id).gt('number', a.number))).filter((x) => x.status !== 'void');
   if (later.length) return `Delete the later application${later.length > 1 ? 's' : ''} first (No. ${later.map((x) => x.number).sort((p, q) => q - p).join(', ')}) — each one builds on the last.`;
   return (await fdb.from('fin_applications').delete().eq('id', a.id)).error ? 'Could not delete — try again.' : null;
+}
+
+/** Each Bill of Quantities line's progress on site (918 finSiteProgress): the average of the operatives'
+ *  Schedule of Works tasks linked to it (done = 100%). */
+export async function loadSiteProgress(siteId: string): Promise<Record<string, number>> {
+  const tasks = await rows(fdb.from('schedule_tasks').select('contract_item_id,status,percent_complete').eq('site_id', siteId).not('contract_item_id', 'is', null));
+  const acc: Record<string, number[]> = {};
+  tasks.forEach((t) => { const p = t.status === 'done' ? 100 : Math.max(0, Math.min(100, Number(t.percent_complete || 0))); (acc[t.contract_item_id] ||= []).push(p); });
+  return Object.fromEntries(Object.entries(acc).map(([k, v]) => [k, round2(v.reduce((x, y) => x + y, 0) / v.length)]));
 }

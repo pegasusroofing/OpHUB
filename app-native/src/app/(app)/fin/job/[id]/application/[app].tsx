@@ -53,10 +53,10 @@ export default function FinApplication() {
   const { data, isLoading } = useQuery({ queryKey: ['finApp', app], enabled: app !== 'new', gcTime: 0, queryFn: () => loadApplication(app) });
   if (app === 'new' || isLoading) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   if (!data) return <Muted style={{ padding: space.l }}>Application not found.</Muted>;
-  return <Editor key={`${data.a.id}${data.a.updated_at}`} a0={data.a} jf={data.jf} previousLive={data.previousLive} prevPct={data.prevPct} />;
+  return <Editor key={`${data.a.id}${data.a.updated_at}`} a0={data.a} jf={data.jf} previousLive={data.previousLive} prevPct={data.prevPct} siteProgress={data.siteProgress} />;
 }
 
-function Editor({ a0, jf, previousLive, prevPct }: { a0: Row; jf: Row; previousLive: number; prevPct: Record<string, number> }) {
+function Editor({ a0, jf, previousLive, prevPct, siteProgress }: { a0: Row; jf: Row; previousLive: number; prevPct: Record<string, number>; siteProgress: Record<string, number> }) {
   const { me, org } = useAuth();
   const { data: site } = useSite(a0.site_id);
   const toast = useToast();
@@ -65,7 +65,9 @@ function Editor({ a0, jf, previousLive, prevPct }: { a0: Row; jf: Row; previousL
   const [mode, setMode] = useState<'pct' | 'gbp'>('pct');
   const [hideZero, setHideZero] = useState(false);
   const [busy, setBusy] = useState('');
-  const [adding, setAdding] = useState<'line' | 'section' | null>(null); // a new Bill of Quantities line / header (9219n)
+  const [adding, setAdding] = useState<'line' | 'section' | null>(null);
+  // Bumped when a button changes many lines at once, so the % / £ boxes show the new figures.
+  const [gen, setGen] = useState(0); // a new Bill of Quantities line / header (9219n)
   // Autosave (9219ze): a copy on this device after every change, saved to the server two seconds after
   // typing stops and when you leave; an unsaved copy left on the device is brought back when it's newer.
   const KEY = `finAppDraft:${a0.id}`, isDraft = APP_STAGE(a0) === 'draft';
@@ -102,7 +104,7 @@ function Editor({ a0, jf, previousLive, prevPct }: { a0: Row; jf: Row; previousL
   const tots = groupTotals(c.lines, (l) => l.value, (l) => l.gross);
   const refresh = () => { ['finApp', 'finSales', 'finBook', 'finOverview'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] })); };
   const setLine = (i: number, patch: Row) => setA({ ...a, lines: a.lines.map((l: Row, j: number) => (j === i ? { ...l, ...patch } : l)) });
-  const fill = (i: number, p: number) => { const lv = a.lines[i].kind, ls = a.lines.slice(); for (let j = i + 1; j < ls.length; j++) { const k = ls[j].kind; if (k === 'section' || (lv === 'subsection' && k === 'subsection')) break; if (isItem(ls[j])) ls[j] = { ...ls[j], pct: p }; } setA({ ...a, lines: ls }); };
+  const fill = (i: number, p: number) => { const lv = a.lines[i].kind, ls = a.lines.slice(); for (let j = i + 1; j < ls.length; j++) { const k = ls[j].kind; if (k === 'section' || (lv === 'subsection' && k === 'subsection')) break; if (isItem(ls[j])) ls[j] = { ...ls[j], pct: p }; } setA({ ...a, lines: ls }); setGen((g) => g + 1); };
   const exportAs = async (kind: 'xlsx' | 'pdf') => {
     if (!me) return;
     if (isDraft && JSON.stringify(a) !== savedSnap.current && !(await save(true))) return;
@@ -129,7 +131,7 @@ function Editor({ a0, jf, previousLive, prevPct }: { a0: Row; jf: Row; previousL
         });
         if (!made) toast('Could not add the new lines to the Bill of Quantities.');
       }
-      setA(next);
+      setA(next); setGen((g) => g + 1);
       toast((up.changed || added ? `Updated from Excel: ${up.changed} change${up.changed === 1 ? '' : 's'}${added ? `, ${added} new line${added === 1 ? '' : 's'}` : ''}` : 'No changes found in that file') + (up.skipped ? ` (${up.skipped} new line${up.skipped === 1 ? ' was' : 's were'} already there, so not added again)` : ''));
     } finally { setBusy(''); }
   };
@@ -161,6 +163,20 @@ function Editor({ a0, jf, previousLive, prevPct }: { a0: Row; jf: Row; previousL
         <Check label="Hide 0% lines" value={hideZero} onChange={setHideZero} />
       </View>
       <SectionTitle>Bill of Quantities</SectionTitle>
+      {!locked && Object.keys(siteProgress).length > 0 && (() => {
+        // Site progress from the operatives' Schedule of Works (918): lines where site is ahead can be brought up to it.
+        const ahead = (a.lines || []).filter((l: Row) => isItem(l) && siteProgress[l.item_id] != null && siteProgress[l.item_id] > pct(l.pct)).length;
+        return (
+          <Card style={{ backgroundColor: ahead ? '#fffaf0' : '#f1fbf5' }}>
+            <Text style={{ color: base.ink }}>{ahead ? `Site progress is ahead on ${ahead} line${ahead === 1 ? '' : 's'} (from the operatives’ Schedule of Works).` : 'Matches site progress from the operatives’ Schedule of Works.'}</Text>
+            {ahead > 0 && <View style={{ marginTop: 6 }}><Button kind="ghost" title="Use site progress" onPress={() => {
+              let n = 0;
+              const lines = (a.lines || []).map((l: Row) => { if (isItem(l) && siteProgress[l.item_id] != null && siteProgress[l.item_id] > pct(l.pct)) { n++; return { ...l, pct: pct(siteProgress[l.item_id]) }; } return l; });
+              setA({ ...a, lines }); setGen((g) => g + 1); toast(n ? `${n} line${n === 1 ? '' : 's'} updated from site progress — check them` : 'Already matches site progress');
+            }} /></View>}
+          </Card>
+        );
+      })()}
       {c.lines.map((l: Row, i: number) => {
         if (l.kind === 'section' || l.kind === 'subsection') {
           const t = tots[i];
@@ -180,13 +196,13 @@ function Editor({ a0, jf, previousLive, prevPct }: { a0: Row; jf: Row; previousL
           <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 7, borderBottomWidth: 1, borderColor: base.line }}>
             <View style={{ flex: 1 }}>
               <Text style={{ color: base.ink }}>{l.ref ? `${l.ref} · ` : ''}{l.description}</Text>
-              <Muted>{hasQty ? `${l.qty} ${l.unit || ''} × ${money(l.rate)} = ` : 'Value '}{money(l.value)}</Muted>
+              <Muted>{hasQty ? `${l.qty} ${l.unit || ''} × ${money(l.rate)} = ` : 'Value '}{money(l.value)}{siteProgress[l.item_id] != null ? <Text style={{ color: siteProgress[l.item_id] > pct(l.pct) ? '#b45309' : base.slate, fontWeight: '700' }}>{`  · Site ${siteProgress[l.item_id]}%`}</Text> : null}</Muted>
               {/* Previous = certified on this line last time; This time = to date less previous (9219r). */}
               {(() => { const prev = round2((Number(l.value || 0) * (prevPct[l.item_id] || 0)) / 100); return prev || l.gross ? <Muted style={{ fontSize: 11.5 }}>Previous {money(prev)} · This time {money(round2(l.gross - prev))}</Muted> : null; })()}
             </View>
             {locked ? <Text style={{ color: base.slate }}>{pct(l.pct)}%</Text> : mode === 'pct'
-              ? <TextInput defaultValue={String(pct(l.pct))} onChangeText={(v) => setLine(i, { pct: pct(v) })} keyboardType="decimal-pad" style={[box, { width: 70 }]} />
-              : <TextInput defaultValue={String(l.gross)} onChangeText={(v) => { const n = num(v), val = Number(l.value || 0); if (val && n !== null && !isNaN(n)) setLine(i, { pct: pct((n / val) * 100) }); }} keyboardType="decimal-pad" style={[box, { width: 100 }]} />}
+              ? <TextInput key={`p${i}-${gen}`} defaultValue={String(pct(l.pct))} onChangeText={(v) => setLine(i, { pct: pct(v) })} keyboardType="decimal-pad" style={[box, { width: 70 }]} />
+              : <TextInput key={`g${i}-${gen}`} defaultValue={String(l.gross)} onChangeText={(v) => { const n = num(v), val = Number(l.value || 0); if (val && n !== null && !isNaN(n)) setLine(i, { pct: pct((n / val) * 100) }); }} keyboardType="decimal-pad" style={[box, { width: 100 }]} />}
             <Text style={{ width: 96, textAlign: 'right', fontWeight: '700', color: base.ink }}>{money(l.gross)}</Text>
           </View>
         );
