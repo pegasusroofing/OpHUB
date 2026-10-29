@@ -2,8 +2,9 @@
 // rejected, with the value issued, the approved value and the cost estimate.
 import { useQueryClient } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams } from 'expo-router';
+import * as DocumentPicker from 'expo-document-picker';
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { FinForm } from '@/components/FinForm';
 import { FinChip, FinRow, FinStat } from '@/components/FinNav';
@@ -12,7 +13,9 @@ import { Button, Empty, Muted } from '@/components/ui';
 import { fdb, insertNumbered } from '@/data/finance';
 import { useBook } from '@/data/finBook';
 import { importSiteVariations, setVarGroup, varToSow } from '@/data/finVar';
+import { openDocLink } from '@/data/hs';
 import { useSites } from '@/data/sites';
+import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { exportTableExcel, exportTablePdf, type Table } from '@/lib/tableExport';
 import { isFinanceOnlyOrg } from '@/lib/roles';
@@ -39,6 +42,8 @@ export default function FinVariations() {
     void importSiteVariations(me, id).then((r) => { setSite(r.site); if (r.added) void qc.invalidateQueries({ queryKey: ['finBook'] }); });
   }, [me, id, finOnly, qc]);
   const [busy, setBusy] = useState('');
+  // The instruction / quote document on a variation (911 finVaFile).
+  const [vfile, setVfile] = useState<{ uri: string; name: string; mimeType?: string | null } | null>(null);
   if (!data || !me) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   const vars = data.book.vars.filter((v) => v.site_id === id).sort((a, b) => (a.seq || 0) - (b.seq || 0));
   const g = (v: Row) => (v.status === 'agreed' ? 'agreed' : v.status === 'rejected' ? 'rejected' : 'submitted');
@@ -106,7 +111,13 @@ export default function FinVariations() {
         </FinRow>)
         : <Empty>No variations yet.</Empty>}
       {edit && (
-        <FinForm title={cur ? `Variation ${cur.number}` : 'New variation'} initial={cur ? { ...cur, status: g(cur) } : { status: 'submitted' }} onClose={() => setEdit(null)}
+        <FinForm title={cur ? `Variation ${cur.number}` : 'New variation'} initial={cur ? { ...cur, status: g(cur) } : { status: 'submitted' }} onClose={() => { setEdit(null); setVfile(null); }}
+          extra={(
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 8 }}>
+              {!!cur?.file_path && <Pressable onPress={async () => { const u = await openDocLink('finance-docs', cur.file_path); if (u) void Linking.openURL(u); }}><Text style={{ color: base.blue, fontWeight: '700' }}>📄 {cur.file_name || 'Instruction / quote document'}</Text></Pressable>}
+              <Pressable onPress={async () => { const r = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true }); if (!r.canceled && r.assets[0]) setVfile({ uri: r.assets[0].uri, name: r.assets[0].name || 'document', mimeType: r.assets[0].mimeType }); }}><Text style={{ color: base.blue }}>📎 {vfile ? vfile.name : cur?.file_path ? 'Replace the document' : 'Attach the instruction / quote document'}</Text></Pressable>
+            </View>
+          )}
           fields={[
             { k: 'title', label: 'Title' }, { k: 'description', label: 'Description', kind: 'multiline' },
             { k: 'instructed_by', label: 'Instructed by', half: true }, { k: 'instruction_ref', label: 'Instruction ref', half: true }, { k: 'instructed_on', label: 'Instructed on', kind: 'date', half: true },
@@ -121,10 +132,16 @@ export default function FinVariations() {
             const status = String(x.status || 'submitted');
             let agreed = n('agreed_value'); if (status === 'agreed' && agreed == null) agreed = n('quoted');
             if (status === 'agreed' && agreed == null) return 'Add the approved value.';
-            const row = { title, description: String(x.description).trim() || null, instructed_by: String(x.instructed_by).trim() || null, instruction_ref: String(x.instruction_ref).trim() || null, instructed_on: String(x.instructed_on).trim() || null, status, cost_estimate: n('cost_estimate'), quoted: n('quoted'), submitted_on: String(x.submitted_on).trim() || null, agreed_value: agreed, agreed_on: String(x.agreed_on).trim() || (status === 'agreed' ? today() : null), notes: String(x.notes).trim() || null, updated_at: new Date().toISOString() };
+            const fileCols: Row = {};
+            if (vfile) {
+              const rid = globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}`;
+              const up = await supabase.storage.from('finance-docs').upload(`${me.org_id}/${id}/variations/${rid}-${vfile.name.replace(/[^a-z0-9.-]+/gi, '_').slice(-80)}`, await (await fetch(vfile.uri)).arrayBuffer(), { contentType: vfile.mimeType || 'application/octet-stream' });
+              if (!up.error) { fileCols.file_path = up.data.path; fileCols.file_name = vfile.name; }
+            }
+            const row = { ...fileCols, title, description: String(x.description).trim() || null, instructed_by: String(x.instructed_by).trim() || null, instruction_ref: String(x.instruction_ref).trim() || null, instructed_on: String(x.instructed_on).trim() || null, status, cost_estimate: n('cost_estimate'), quoted: n('quoted'), submitted_on: String(x.submitted_on).trim() || null, agreed_value: agreed, agreed_on: String(x.agreed_on).trim() || (status === 'agreed' ? today() : null), notes: String(x.notes).trim() || null, updated_at: new Date().toISOString() };
             const ok = cur ? !(await fdb.from('fin_variations').update(row as never).eq('id', cur.id)).error : !!(await insertNumbered('fin_variations', { col: 'site_id', val: id }, (s) => `V${String(s).padStart(3, '0')}`, { ...row, org_id: me.org_id, site_id: id, created_by: me.id }));
             if (!ok) return 'Could not save — try again.';
-            toast('Variation saved'); refresh(); return null;
+            toast('Variation saved'); setVfile(null); refresh(); return null;
           }} />
       )}
     </ScrollView>
