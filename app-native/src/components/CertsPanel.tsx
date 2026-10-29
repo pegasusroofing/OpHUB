@@ -9,7 +9,7 @@ import { Linking, Pressable, Text, View } from 'react-native';
 
 import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Card, Field, Muted } from '@/components/ui';
-import { deleteCert, renameCert, setCertExpiry, uploadCert, useMyCerts } from '@/data/certs';
+import { deleteCert, renameCert, setCertCategory, setCertExpiry, uploadCert, useMyCerts } from '@/data/certs';
 import { openDocLink } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
 import { buildCertBundlePdf } from '@/lib/certBundlePdf';
@@ -18,11 +18,11 @@ import { CERT_CATEGORIES_AZ, certCategoryLabel, certDisplayName, certStats, type
 import { readIsoDate } from '@/lib/rules/materials';
 import { base } from '@/theme/theme';
 
-export function CertsPanel({ userId }: { userId: string }) {
+export function CertsPanel({ userId, manual = false }: { userId: string; manual?: boolean }) {
   const { me } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
-  const { data: certs = [], isLoading } = useMyCerts(userId);
+  const { data: certs = [], isLoading } = useMyCerts(userId, manual);
   const [showMissing, setShowMissing] = useState(false);
   const [adding, setAdding] = useState(false);
   const [cat, setCat] = useState('cscs_card');
@@ -46,7 +46,7 @@ export function CertsPanel({ userId }: { userId: string }) {
     } catch { toast('Could not build the combined PDF.'); } finally { setBulk(null); }
   };
   const s = certStats(certs);
-  const refresh = () => { void qc.invalidateQueries({ queryKey: ['myCerts', userId] }); void qc.invalidateQueries({ queryKey: ['operativeList'] }); };
+  const refresh = () => { void qc.invalidateQueries({ queryKey: ['myCerts', userId] }); void qc.invalidateQueries({ queryKey: ['operativeList'] }); void qc.invalidateQueries({ queryKey: ['manualPeople'] }); };
   const stat = (v: number, label: string, colour: string, onPress?: () => void) => (
     <Pressable onPress={onPress} disabled={!onPress} style={{ flex: 1, minWidth: 80, backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 16, padding: 10, alignItems: 'center' }}>
       <Text style={{ fontSize: 22, fontWeight: '800', color: v ? colour : base.ink }}>{v}</Text>
@@ -57,18 +57,23 @@ export function CertsPanel({ userId }: { userId: string }) {
     if (!file) { toast('Choose a file to upload.'); return; }
     const ex = readIsoDate(expiry); if (ex === 'bad') { toast('Expiry should look like 2027-03-31.'); return; }
     setBusy(true);
-    const err = await uploadCert(me, { uri: file.uri, name: file.name || 'certificate', mimeType: file.mimeType, size: file.size }, cat, other.trim(), ex || null, userId);
+    const err = await uploadCert(me, { uri: file.uri, name: file.name || 'certificate', mimeType: file.mimeType, size: file.size }, cat, other.trim(), ex || null, userId, manual);
     setBusy(false);
     if (err) { toast(err); return; }
     toast('Certificate uploaded'); setAdding(false); setFile(null); setOther(''); setExpiry(''); refresh();
   };
   const menu = async (c: Cert) => {
-    const k = await chooseAction(certDisplayName(c), [{ key: 'open', label: 'Open' }, { key: 'rename', label: 'Rename' }, { key: 'expiry', label: 'Set expiry date' }, { key: 'delete', label: 'Delete' }]);
+    const k = await chooseAction(certDisplayName(c), [{ key: 'open', label: 'Open' }, { key: 'rename', label: 'Rename' }, { key: 'type', label: 'Change type' }, { key: 'expiry', label: 'Set expiry date' }, { key: 'delete', label: 'Delete' }]);
     if (k === 'open') { const u = await openDocLink('certifications', c.storage_path); if (u) void Linking.openURL(u); else toast('Could not open the file.'); }
     else if (k === 'rename') {
       const n = await promptText('Rename certificate', certDisplayName(c)); if (n === null) return;
       if (!n.trim()) { toast('Name cannot be blank.'); return; }
       toast((await renameCert(c.id, n.trim())) ? 'Renamed' : 'Could not save — try again.'); refresh();
+    } else if (k === 'type') {
+      const t = await chooseAction('Type of card / certificate', CERT_CATEGORIES_AZ.map((x) => ({ key: x.key, label: x.label }))); if (!t) return;
+      let desc: string | null = null;
+      if (t === 'other') { const d = await promptText('What type of card / certificate is it?', c.other_type_description || ''); if (d === null) return; desc = d.trim() || null; }
+      toast((await setCertCategory(c.id, t, desc)) ? `Moved to ${t === 'other' && desc ? desc : certCategoryLabel(t)}` : 'Could not save — try again.'); refresh();
     } else if (k === 'expiry') {
       const v = await promptText('Expiry date (YYYY-MM-DD) — leave blank for none', c.expiry_date || ''); if (v === null) return;
       const d = readIsoDate(v); if (d === 'bad') { toast('Enter the date as YYYY-MM-DD.'); return; }

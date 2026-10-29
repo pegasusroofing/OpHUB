@@ -17,8 +17,8 @@ HIGH = money, data, permissions, safety or a daily job. MED = noticeable. LOW = 
 
 ## Repairs, pricing, reports (290–435)
 - HIGH FIXED — Repair jobs to OneDrive: photos (each marked once sent, retried when the job opens or the app comes back), work order, Survey and Completed Works PDFs (rebuilt automatically on changes), job's own folder or a job-number subfolder, "Send everything" re-sync, existing items sent after linking.
-- MED OPEN — Change a certificate's type (Other asks for a description).
-- MED OPEN — Certificates for people not on the app (certification_manual_people): add person, upload, remove; shown on the job's operatives dashboard.
+- MED FIXED — Change a certificate's type (Other asks for a description).
+- MED FIXED — Certificates for people not on the app (certification_manual_people): add person, upload, remove; shown on the job's operatives dashboard.
 - MED OPEN — Operatives' "Needs your signature" pop-up when opening a job (RAMS, COSHH, TBT, Sign now).
 - MED OPEN — Price tile badge: variations to price + pending wage pushes.
 - MED OPEN — Repair job notes saved when leaving the page (and the PM email).

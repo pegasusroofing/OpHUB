@@ -2,15 +2,16 @@
 // certificate counts; search; tap one for their full record. Opened from a job's
 // H&S › Operatives tile with ?site= it lists just the people on that job. Training
 // Matrix Excel / PDF at the top, Operative Tools (everyone's tools) underneath.
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
+import { CertsPanel } from '@/components/CertsPanel';
 import { MyToolsList } from '@/components/MyToolsList';
-import { useToast } from '@/components/toast';
-import { Button, Empty, Muted, Toggle } from '@/components/ui';
-import { useOperativeList } from '@/data/certs';
+import { confirmAsk, useToast } from '@/components/toast';
+import { Button, Empty, Muted, SectionTitle, Toggle } from '@/components/ui';
+import { addManualPerson, removeManualPerson, useManualPeople, useOperativeList } from '@/data/certs';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { exportTrainingMatrixExcel, exportTrainingMatrixPdf, loadTrainingMatrix } from '@/lib/trainingMatrix';
@@ -26,6 +27,9 @@ export default function Operatives() {
   const [busy, setBusy] = useState('');
   const [toolsOpen, setToolsOpen] = useState(false);
   const [openFor, setOpenFor] = useState<Set<string>>(new Set());
+  const [newName, setNewName] = useState('');
+  const qc = useQueryClient();
+  const { data: manual = [] } = useManualPeople(site);
   const { data: toolCount } = useQuery({
     queryKey: ['opToolCounts', me?.org_id], enabled: toolsOpen && !!me?.org_id,
     queryFn: async () => {
@@ -75,6 +79,27 @@ export default function Operatives() {
           <Text style={{ color: base.slate, fontSize: 18 }}>›</Text>
         </Pressable>
       )) : <Empty>{site ? 'No operatives assigned to this job yet.' : 'No operatives found.'}</Empty>}
+      {!!site && (
+        <>
+          <SectionTitle>Other People ({manual.length})</SectionTitle>
+          <Muted style={{ marginBottom: 8 }}>For someone with certificates to track who isn&apos;t a registered operative — a subcontractor, for example. No account or login is created for them.</Muted>
+          {manual.map((p) => (
+            <View key={p.id}>
+              <Pressable disabled={!isManager(me)} onPress={() => setOpenFor((x) => { const n = new Set(x); if (n.has(p.id)) n.delete(p.id); else n.add(p.id); return n; })} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 8, backgroundColor: base.card }}>
+                <View style={{ flex: 1 }}><Text style={{ fontWeight: '700', color: base.ink }}>{p.name}</Text><Muted>{p.certs} certificate{p.certs === 1 ? '' : 's'}</Muted></View>
+                {isManager(me) && <Pressable hitSlop={8} onPress={async () => { if (!(await confirmAsk("Remove this person? Their certificates will be deleted too — this can't be undone.", 'Remove'))) return; toast((await removeManualPerson(p.id)) ? 'Removed' : 'Could not remove — try again.'); void qc.invalidateQueries({ queryKey: ['manualPeople', site] }); }}><Text>🗑</Text></Pressable>}
+              </Pressable>
+              {openFor.has(p.id) && isManager(me) && <View style={{ backgroundColor: base.card, borderRadius: 14, borderWidth: 1, borderColor: base.cardLine, padding: 12, marginBottom: 10 }}><CertsPanel userId={p.id} manual /></View>}
+            </View>
+          ))}
+          {isManager(me) && (
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
+              <TextInput value={newName} onChangeText={setNewName} placeholder="Name" style={{ flex: 1, borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card }} />
+              <Button title="+ Add person" onPress={async () => { if (!newName.trim()) { toast('Enter a name.'); return; } if (await addManualPerson(me, site, newName.trim())) { toast('Added — you can now upload certificates for them.'); setNewName(''); void qc.invalidateQueries({ queryKey: ['manualPeople', site] }); } else toast('Could not save — try again.'); }} />
+            </View>
+          )}
+        </>
+      )}
       {!site && (
         <>
           <Toggle title="Operative Tools" open={toolsOpen} onPress={() => setToolsOpen(!toolsOpen)} />
