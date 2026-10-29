@@ -13,6 +13,27 @@ import type { Organization, Profile } from '@/lib/types';
 type Row = Record<string, any>;
 const rows = async (q: PromiseLike<{ data: unknown }>) => ((await q).data as Row[] | null) ?? [];
 
+/** The application's variation and day-work rows from the registers: agreed Finance variations, approved
+ *  site variations not linked to one, approved day works; percentages carried from `prev` (the last
+ *  application, or this draft itself), and hand-typed rows kept. */
+function registerRows(prev: Row | undefined, vars: Row[], fvars: Row[], fdays: Row[]) {
+  const lastVar: Row = {}, lastFinVar: Row = {}, lastDay: Row = {};
+  (prev?.variations || []).forEach((v: Row) => { if (v.variation_id) lastVar[v.variation_id] = v; if (v.fin_variation_id) lastFinVar[v.fin_variation_id] = v; });
+  (prev?.dayworks || []).forEach((d: Row) => { if (d.fin_daywork_id) lastDay[d.fin_daywork_id] = d; });
+  const linked = new Set(fvars.map((v) => v.variation_id).filter(Boolean));
+  const varRows: Row[] = fvars.map((v) => ({ fin_variation_id: v.id, variation_id: v.variation_id || null, description: `${v.number} ${v.title}`, value: v.agreed_value != null ? Number(v.agreed_value) : Number(v.quoted || 0), pct: lastFinVar[v.id] ? lastFinVar[v.id].pct : 100 }));
+  vars.filter((v) => !linked.has(v.id)).forEach((v) => { const p = lastVar[v.id], amt = Number(String(v.cost_impact ?? '').replace(/[£,\s]/g, '')); varRows.push({ variation_id: v.id, description: v.description || 'Variation', value: isNaN(amt) || !String(v.cost_impact ?? '').trim() ? (p ? p.value : 0) : amt, pct: p ? p.pct : 100 }); });
+  (prev?.variations || []).filter((v: Row) => !v.variation_id && !v.fin_variation_id).forEach((v: Row) => varRows.push({ ...v }));
+  const dayRows: Row[] = fdays.map((d) => ({ fin_daywork_id: d.id, description: `${d.number ? `${d.number} ` : ''}${d.title}`, value: Number(d.value || 0) }))
+    .concat((prev?.dayworks || []).filter((d: Row) => !d.fin_daywork_id).map((d: Row) => ({ ...d })));
+  return { varRows, dayRows };
+}
+const loadRegisters = (siteId: string) => Promise.all([
+  rows(fdb.from('variations').select('*').eq('site_id', siteId).eq('approval_status', 'approved').order('created_at')),
+  rows(fdb.from('fin_variations').select('*').eq('site_id', siteId).eq('status', 'agreed').order('seq')),
+  rows(fdb.from('fin_dayworks').select('*').eq('site_id', siteId).eq('status', 'approved').order('seq')),
+]);
+
 export async function newApplication(me: Profile, siteId: string): Promise<{ id?: string; error?: string }> {
   const [st, jfR, pos, items, apps, vars, fvars, fdays] = await Promise.all([
     loadSettings(me.org_id), rows(fdb.from('job_finance').select('*').eq('site_id', siteId)), rows(fdb.from('client_pos').select('po_number').eq('site_id', siteId).order('is_primary', { ascending: false }).order('created_at')),
@@ -23,18 +44,14 @@ export async function newApplication(me: Profile, siteId: string): Promise<{ id?
   if (!items.filter(isItem).length) return { error: 'Set up the Bill of Quantities first.' };
   const jf = jfR[0] || {}, last = apps.find((a) => a.status !== 'void');
   const lastPct: Row = {}; (last?.lines || []).forEach((l: Row) => { if (isItem(l)) lastPct[l.item_id] = l.pct; });
-  const lastVar: Row = {}, lastFinVar: Row = {}; (last?.variations || []).forEach((v: Row) => { if (v.variation_id) lastVar[v.variation_id] = v; if (v.fin_variation_id) lastFinVar[v.fin_variation_id] = v; });
   const val = appDateFor(jf, st, today().slice(0, 7)) || today();
   const due = addDays(val, Number(jf.due_days ?? st.default_due_days) || 30);
-  const linked = new Set(fvars.map((v) => v.variation_id).filter(Boolean));
-  const varRows: Row[] = fvars.map((v) => ({ fin_variation_id: v.id, variation_id: v.variation_id || null, description: `${v.number} ${v.title}`, value: v.agreed_value != null ? Number(v.agreed_value) : Number(v.quoted || 0), pct: lastFinVar[v.id] ? lastFinVar[v.id].pct : 100 }));
-  vars.filter((v) => !linked.has(v.id)).forEach((v) => { const p = lastVar[v.id], amt = Number(String(v.cost_impact ?? '').replace(/[£,\s]/g, '')); varRows.push({ variation_id: v.id, description: v.description || 'Variation', value: p ? p.value : isNaN(amt) ? 0 : amt, pct: p ? p.pct : 100 }); });
-  (last?.variations || []).filter((v: Row) => !v.variation_id && !v.fin_variation_id).forEach((v: Row) => varRows.push({ ...v }));
+  const { varRows, dayRows } = registerRows(last, vars, fvars, fdays);
   const row: Row = {
     org_id: me.org_id, site_id: siteId, status: 'draft', valuation_date: val, due_date: due, final_date: addDays(due, Number(jf.final_days ?? st.default_final_days) || 14), client_po: pos[0]?.po_number || null,
     lines: items.map((i) => (isItem(i) ? { kind: 'item', item_id: i.id, ref: i.ref || '', description: i.description, qty: i.qty != null ? Number(i.qty) : null, unit: i.unit || '', rate: i.rate != null ? Number(i.rate) : null, value: Number(i.value), pct: lastPct[i.id] != null ? lastPct[i.id] : 0 } : { kind: i.kind, item_id: i.id, ref: i.ref || '', description: i.description })),
     variations: varRows,
-    dayworks: fdays.map((d) => ({ fin_daywork_id: d.id, description: `${d.number ? `${d.number} ` : ''}${d.title}`, value: Number(d.value || 0) })).concat((last?.dayworks || []).filter((d: Row) => !d.fin_daywork_id).map((d: Row) => ({ ...d }))),
+    dayworks: dayRows,
     retention_pct: jf.retention_pct != null ? jf.retention_pct : st.default_retention_pct, created_by: me.id,
   };
   // Two people starting at once would pick the same number: the database refuses the second, so take the next one.
@@ -51,7 +68,18 @@ export async function loadApplication(id: string) {
   const a = (await fdb.from('fin_applications').select('*').eq('id', id).maybeSingle()).data as Row | null;
   if (!a) return null;
   const [jf, apps] = await Promise.all([fdb.from('job_finance').select('*').eq('site_id', a.site_id).maybeSingle(), rows(fdb.from('fin_applications').select('number,status,cert_net,net_due').eq('site_id', a.site_id))]);
-  return { a, jf: (jf.data as Row | null) || {}, previousLive: previousCertified(apps, a.number) };
+  const j = (jf.data as Row | null) || {}, previousLive = previousCertified(apps, a.number);
+  if (a.status === 'draft') {
+    const [vars, fvars, fdays] = await loadRegisters(a.site_id);
+    const { varRows, dayRows } = registerRows(a, vars, fvars, fdays);
+    const key = (x: Row[]) => JSON.stringify(x.map((r) => [r.fin_variation_id || r.variation_id || r.fin_daywork_id || r.description, Number(r.value || 0), r.pct ?? null]));
+    if (key(varRows) !== key(a.variations || []) || key(dayRows) !== key(a.dayworks || [])) {
+      const next = { ...a, variations: varRows, dayworks: dayRows };
+      const saved = rowForSave(next, j, previousLive);
+      if (!(await fdb.from('fin_applications').update(saved as never).eq('id', a.id).eq('status', 'draft')).error) return { a: { ...next, ...saved }, jf: j, previousLive, synced: true };
+    }
+  }
+  return { a, jf: j, previousLive, synced: false };
 }
 export function rowForSave(a: Row, jf: Row, previous: number) {
   const c = appCalc(a, jf.contract_value, jf.retention_limit_pct, previous);
@@ -61,7 +89,7 @@ export const saveApplication = async (a: Row, jf: Row, previous: number) => !(aw
 export const setStatus = async (id: string, patch: Row) => !(await fdb.from('fin_applications').update({ ...patch, updated_at: new Date().toISOString() } as never).eq('id', id)).error;
 export const deleteApplication = async (id: string) => !(await fdb.from('fin_applications').delete().eq('id', id).eq('status', 'draft')).error;
 export async function saveCertificate(me: Profile, a: Row, v: Row, file?: { uri: string; name: string; mimeType?: string | null } | null): Promise<string | null> {
-  const row: Row = { cert_gross: round2(v.cert_gross), cert_retention: round2(v.cert_retention), cert_previous: round2(v.cert_previous), cert_discount: round2(v.cert_discount || 0), cert_net: round2(v.cert_net), cert_date: v.cert_date || today(), cert_is_payless: !!v.cert_is_payless, cert_notes: v.cert_notes || null, status: 'certified', updated_at: new Date().toISOString() };
+  const row: Row = { cert_gross: round2(v.cert_gross), cert_retention: round2(v.cert_retention), cert_previous: round2(v.cert_previous), cert_discount: round2(v.cert_discount || 0), cert_net: round2(v.cert_net), cert_date: v.cert_date || today(), cert_is_payless: !!v.cert_is_payless, cert_notes: v.cert_notes || null, status: 'certified', updated_at: new Date().toISOString(), ...(v.cert_lines ? { cert_lines: v.cert_lines } : {}) };
   if (file) {
     const rid = globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}`;
     const up = await supabase.storage.from('finance-docs').upload(`${me.org_id}/${a.site_id}/certificates/${rid}-${file.name.replace(/[^a-z0-9.-]+/gi, '_').slice(-80)}`, await (await fetch(file.uri)).arrayBuffer(), { contentType: file.mimeType || 'application/octet-stream' });

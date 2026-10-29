@@ -16,6 +16,8 @@ import { clearCertificate, deleteApplication, loadApplication, newApplication, r
 import { openDocLink } from '@/data/hs';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
+import { plainGet, plainSet } from '@/lib/kv';
+import { useFlushOnLeave } from '@/lib/useFlushOnLeave';
 import { APP_STAGE, appCalc, groupTotals, isItem, pct } from '@/lib/rules/finApp';
 import { fdate, money, num, round2, today } from '@/lib/rules/finance';
 import { base, page, radius, space } from '@/theme/theme';
@@ -49,6 +51,35 @@ function Editor({ a0, jf, previousLive }: { a0: Row; jf: Row; previousLive: numb
   const [mode, setMode] = useState<'pct' | 'gbp'>('pct');
   const [hideZero, setHideZero] = useState(false);
   const [busy, setBusy] = useState('');
+  // Autosave (9219ze): a copy on this device after every change, saved to the server two seconds after
+  // typing stops and when you leave; an unsaved copy left on the device is brought back when it's newer.
+  const KEY = `finAppDraft:${a0.id}`, isDraft = APP_STAGE(a0) === 'draft';
+  const savedSnap = useRef(JSON.stringify(a0));
+  const [autoNote, setAutoNote] = useState('');
+  const autoSave = useRef<(() => Promise<unknown>) | null>(null);
+  useFlushOnLeave(autoSave);
+  useEffect(() => {
+    if (!isDraft) return;
+    void plainGet<{ at: string; a: Row } | null>(KEY, null).then((c) => {
+      if (c?.a && (!a0.updated_at || c.at > String(a0.updated_at)) && JSON.stringify(c.a) !== savedSnap.current) { setA(c.a); toast('Your unsaved changes were brought back from this device.'); }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    const now = JSON.stringify(a);
+    if (!isDraft || now === savedSnap.current) return;
+    void plainSet(KEY, { at: new Date().toISOString(), a });
+    setAutoNote('Saving…');
+    const run = async () => {
+      if (JSON.stringify(a) === savedSnap.current) return;
+      const ok = await saveApplication(a, jf, previousLive);
+      if (ok) { savedSnap.current = now; void plainSet(KEY, null); setAutoNote('All changes saved'); } else setAutoNote('Not saved yet — kept on this device');
+    };
+    autoSave.current = run;
+    const t = setTimeout(() => { void run(); }, 2000);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [a]);
   if (!me) return null;
   const stage = APP_STAGE(a0), locked = stage !== 'draft';
   const previous = locked ? Number(a0.previous || 0) : previousLive;
@@ -57,11 +88,12 @@ function Editor({ a0, jf, previousLive }: { a0: Row; jf: Row; previousLive: numb
   const refresh = () => { ['finApp', 'finSales', 'finBook', 'finOverview'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] })); };
   const setLine = (i: number, patch: Row) => setA({ ...a, lines: a.lines.map((l: Row, j: number) => (j === i ? { ...l, ...patch } : l)) });
   const fill = (i: number, p: number) => { const lv = a.lines[i].kind, ls = a.lines.slice(); for (let j = i + 1; j < ls.length; j++) { const k = ls[j].kind; if (k === 'section' || (lv === 'subsection' && k === 'subsection')) break; if (isItem(ls[j])) ls[j] = { ...ls[j], pct: p }; } setA({ ...a, lines: ls }); };
-  const save = async (quiet?: boolean) => { setBusy('save'); const ok = await saveApplication(a, jf, previous); setBusy(''); if (!quiet) toast(ok ? 'Application saved' : 'Could not save — try again.'); refresh(); return ok; };
+  const save = async (quiet?: boolean) => { setBusy('save'); const ok = await saveApplication(a, jf, previous); setBusy(''); if (ok) { savedSnap.current = JSON.stringify(a); void plainSet(KEY, null); } if (!quiet) toast(ok ? 'Application saved' : 'Could not save — try again.'); refresh(); return ok; };
   const contractTotal = c.lines.filter(isItem).reduce((t: number, l: Row) => t + Number(l.value || 0), 0), contractDone = c.lines.reduce((t: number, l: Row) => t + l.gross, 0);
   return (
     <ScrollView contentContainerStyle={page(1000)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: `Application ${a0.number}` }} />
+      {!!autoNote && <Muted style={{ marginBottom: 6, textAlign: 'right', fontSize: 12 }}>{autoNote}</Muted>}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
         <FinStat v={STAGE[stage]} label="Stage" /><FinStat v={money(c.net_due)} label="Amount due this application" />
         <FinStat v={fdate(a.valuation_date)} label="Valuation date" /><FinStat v={a.final_date ? fdate(a.final_date) : '—'} label="Final date for payment" />
@@ -155,7 +187,7 @@ function Editor({ a0, jf, previousLive }: { a0: Row; jf: Row; previousLive: numb
       )}
       {stage === 'applied' && (
         <>
-          <Certificate a={a0} previous={previousLive} onSaved={refresh} />
+          <Certificate a={a0} jf={jf} previous={previousLive} onSaved={refresh} />
           <Button kind="ghost" title="Return to draft to edit" onPress={async () => { if (await confirmAsk('Return this application to draft so you can edit it?', 'Return to draft')) { if (await setStatus(a0.id, { status: 'draft' })) { toast('Back to draft — you can edit it now'); refresh(); } } }} />
           <Muted style={{ marginTop: 6 }}>Emailing the application to the client is switched off while Finance is on trial.</Muted>
         </>
@@ -180,13 +212,34 @@ function Editor({ a0, jf, previousLive }: { a0: Row; jf: Row; previousLive: numb
   );
 }
 
-function Certificate({ a, previous, onSaved }: { a: Row; previous: number; onSaved: () => void }) {
+function Certificate({ a, jf, previous, onSaved }: { a: Row; jf: Row; previous: number; onSaved: () => void }) {
   const { me, org } = useAuth();
   const { data: site } = useSite(a.site_id);
   const toast = useToast();
   const [v, setV] = useState<Row>({ cert_date: today(), cert_gross: String(round2(a.gross)), cert_retention: String(round2(a.retention)), cert_previous: String(round2(previous)), cert_discount: String(round2(a.discount != null ? Number(a.discount) : (Number(a.gross || 0) * Number(a.discount_pct || 0)) / 100)), cert_notes: '', cert_is_payless: false, invoiceNow: false });
   const [file, setFile] = useState<{ uri: string; name: string; mimeType?: string | null } | null>(null);
   const [busy, setBusy] = useState(false);
+  // Certify line by line (9219p finCertTotals): a Certified % for each line and variation and an amount for each
+  // day work; the totals (with discount, retention and its limit) are worked out from them.
+  const [byLine, setByLine] = useState(false);
+  const [cp, setCp] = useState<Record<string, string>>(() => {
+    const o: Record<string, string> = {};
+    (a.lines || []).forEach((l: Row, i: number) => { if (isItem(l)) o[`l${i}`] = String(l.pct ?? 0); });
+    (a.variations || []).forEach((x: Row, i: number) => { o[`v${i}`] = String(x.pct ?? 100); });
+    (a.dayworks || []).forEach((d: Row, i: number) => { o[`d${i}`] = String(d.value ?? 0); });
+    return o;
+  });
+  const certApp = () => ({
+    ...a,
+    lines: (a.lines || []).map((l: Row, i: number) => (isItem(l) ? { ...l, pct: pct(cp[`l${i}`]) } : l)),
+    variations: (a.variations || []).map((x: Row, i: number) => ({ ...x, pct: pct(cp[`v${i}`]) })),
+    dayworks: (a.dayworks || []).map((d: Row, i: number) => ({ ...d, value: num(cp[`d${i}`]) || 0 })),
+  });
+  const applyLines = (next: Record<string, string>) => {
+    setCp(next);
+    const c2 = appCalc({ ...certApp(), ...((): Row => { const o = { ...a }; o.lines = (a.lines || []).map((l: Row, i: number) => (isItem(l) ? { ...l, pct: pct(next[`l${i}`]) } : l)); o.variations = (a.variations || []).map((x: Row, i: number) => ({ ...x, pct: pct(next[`v${i}`]) })); o.dayworks = (a.dayworks || []).map((d: Row, i: number) => ({ ...d, value: num(next[`d${i}`]) || 0 })); return o; })() }, jf.contract_value, jf.retention_limit_pct, num(v.cert_previous) || 0);
+    setV({ ...v, cert_gross: String(c2.gross), cert_discount: String(c2.discount), cert_retention: String(c2.retention) });
+  };
   if (!me) return null;
   const n = (k: string) => num(v[k]) || 0;
   const net = round2(n('cert_gross') - n('cert_retention') - n('cert_previous') - n('cert_discount'));
@@ -199,6 +252,33 @@ function Certificate({ a, previous, onSaved }: { a: Row; previous: number; onSav
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 8 }}>
         {f('cert_date', 'Certificate date')}{f('cert_gross', 'Total certified to date (£)')}{f('cert_retention', 'Retention held (£)')}{f('cert_previous', 'Previously certified (£)')}{f('cert_discount', 'Discount, if any (£)')}
       </View>
+      <Pressable onPress={() => setByLine(!byLine)} style={{ marginBottom: 6 }}><Text style={{ color: base.blue, fontWeight: '700' }}>{byLine ? '▼' : '▶'} Certify line by line</Text></Pressable>
+      {byLine && (
+        <View style={{ marginBottom: 8 }}>
+          <Muted style={{ marginBottom: 6 }}>Type the client&apos;s Certified % against each line (and the amount for each day work). The totals above fill in from these.</Muted>
+          {(a.lines || []).map((l: Row, i: number) => isItem(l) ? (
+            <View key={`l${i}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4, borderTopWidth: 1, borderTopColor: '#F0F1F4' }}>
+              <Text numberOfLines={2} style={{ flex: 1, color: base.ink, fontSize: 12.5 }}>{[l.ref, l.description].filter(Boolean).join(' ')}</Text>
+              <Muted style={{ width: 70, textAlign: 'right', fontSize: 12 }}>applied {pct(l.pct)}%</Muted>
+              <TextInput value={cp[`l${i}`]} onChangeText={(x) => applyLines({ ...cp, [`l${i}`]: x })} keyboardType="decimal-pad" style={[box, { width: 64, marginBottom: 0 }]} /><Text>%</Text>
+            </View>
+          ) : <Text key={`l${i}`} style={{ fontWeight: '800', color: base.ink, marginTop: 8 }}>{l.description}</Text>)}
+          {(a.variations || []).map((x: Row, i: number) => (
+            <View key={`v${i}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4, borderTopWidth: 1, borderTopColor: '#F0F1F4' }}>
+              <Text numberOfLines={2} style={{ flex: 1, color: base.ink, fontSize: 12.5 }}>Variation: {x.description}</Text>
+              <Muted style={{ width: 70, textAlign: 'right', fontSize: 12 }}>applied {pct(x.pct)}%</Muted>
+              <TextInput value={cp[`v${i}`]} onChangeText={(t) => applyLines({ ...cp, [`v${i}`]: t })} keyboardType="decimal-pad" style={[box, { width: 64, marginBottom: 0 }]} /><Text>%</Text>
+            </View>
+          ))}
+          {(a.dayworks || []).map((d: Row, i: number) => (
+            <View key={`d${i}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4, borderTopWidth: 1, borderTopColor: '#F0F1F4' }}>
+              <Text numberOfLines={2} style={{ flex: 1, color: base.ink, fontSize: 12.5 }}>Day work: {d.description}</Text>
+              <Muted style={{ width: 90, textAlign: 'right', fontSize: 12 }}>applied {money(d.value)}</Muted>
+              <Text>£</Text><TextInput value={cp[`d${i}`]} onChangeText={(t) => applyLines({ ...cp, [`d${i}`]: t })} keyboardType="decimal-pad" style={[box, { width: 90, marginBottom: 0 }]} />
+            </View>
+          ))}
+        </View>
+      )}
       <FinRow title="Net due" right={money(net)} />
       <Text style={{ color: diff < 0 ? '#C0392B' : diff > 0 ? '#1E7A3C' : base.slate, marginBottom: 6 }}>{diff ? `${diff < 0 ? 'Short by' : 'Over by'} ${money(Math.abs(diff))} compared with the ${money(a.net_due)} applied for.` : 'Matches what was applied for.'}</Text>
       <Check label="This is a pay-less notice" value={!!v.cert_is_payless} onChange={(x) => setV({ ...v, cert_is_payless: x })} />
@@ -210,7 +290,9 @@ function Certificate({ a, previous, onSaved }: { a: Row; previous: number; onSav
         if (vals.some((x) => x === null || isNaN(x))) { toast('Fill in every amount (0 if none).'); return; }
         setBusy(true);
         try {
-          const e = await saveCertificate(me, a, { ...v, cert_gross: vals[0], cert_retention: vals[1], cert_previous: vals[2], cert_discount: vals[3], cert_net: net }, file);
+          const ca = byLine ? appCalc(certApp(), jf.contract_value, jf.retention_limit_pct, vals[2] as number) : null;
+          const certLines = ca ? [...ca.lines.filter(isItem).map((l: Row) => ({ item_id: l.item_id, pct: l.pct, gross: l.gross })), ...ca.variations.map((x: Row) => ({ fin_variation_id: x.fin_variation_id || null, variation_id: x.variation_id || null, description: x.description, pct: x.pct, gross: x.gross })), ...ca.dayworks.map((d: Row) => ({ fin_daywork_id: d.fin_daywork_id || null, description: d.description, gross: d.gross }))] : null;
+          const e = await saveCertificate(me, a, { ...v, cert_gross: vals[0], cert_retention: vals[1], cert_previous: vals[2], cert_discount: vals[3], cert_net: net, cert_lines: certLines }, file);
           if (e) { toast(e); return; }
           if (v.invoiceNow && net > 0) {
             const r = await raiseInvoiceFromCert(me, org, { ...a, cert_gross: vals[0], cert_retention: vals[1], cert_previous: vals[2], cert_discount: vals[3], cert_net: net, cert_date: v.cert_date }, site as never, true);
