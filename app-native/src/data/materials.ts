@@ -495,3 +495,12 @@ export async function yardBookIn(me: Profile, f: { stock: YardItem; qty: number;
   const r = await db.from('yard_moves').insert({ org_id: me.org_id, stock_id: f.stock.id, kind: 'in', qty: f.qty, site_id: null, note: f.note || null, created_by: me.id, ref: f.ref || null, supplier_name: f.supplier || null, po_id: null, photo_path: photo } as never);
   return r.error ? 'Could not save — try again.' : null;
 }
+
+/** Spreadsheet lines as material requests (730 importMaterialsExcel): top to bottom in the file's order; the managers are told. */
+export async function importMaterials(me: Profile, siteId: string, lines: { item: string; qty: string }[], requiredBy: string | null, fileName: string): Promise<number> {
+  const base = Date.now();
+  const r = await db.from('materials').insert(lines.map((l, i) => ({ site_id: siteId, item: l.item, qty: l.qty || '1', required_by_date: requiredBy, requested_by: me.id, status: 'pending', created_at: new Date(base - i).toISOString() })) as never);
+  if (r.error) return 0;
+  tellManagers(me, siteId, 'material_request', `${me.name} requested ${lines.length} material item${lines.length === 1 ? '' : 's'} from a spreadsheet (${fileName})${requiredBy ? ` — required by ${requiredBy}` : ''}`);
+  return lines.length;
+}

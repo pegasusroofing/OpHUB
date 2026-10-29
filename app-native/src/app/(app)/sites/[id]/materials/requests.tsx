@@ -3,6 +3,7 @@
 // reopen, edit, delete, group several into one request, move to Collections.
 // A request on a sent PO is locked here (changes are made in Finance) — 9219zr.
 import { useQueryClient } from '@tanstack/react-query';
+import * as DocumentPicker from 'expo-document-picker';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useRef, useState, type ComponentRef } from 'react';
 import { Pressable, RefreshControl, ScrollView, Text, TextInput, View } from 'react-native';
@@ -13,14 +14,15 @@ import { chooseAction, confirmAsk, promptText, showAlert, useToast } from '@/com
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import { nameOf, usePeople } from '@/data/hs';
 import {
-  addMaterial, cancelMaterial, deleteMaterials, editMaterial, groupMaterials, poLock, reopenMaterials,
+  addMaterial, cancelMaterial, deleteMaterials, importMaterials, editMaterial, groupMaterials, poLock, reopenMaterials,
   reemailOrder, setMaterialsStatus, yardBookInCan, yardCanEdit, toCollections, ungroupMaterials, useCollectionsOpenCount, useMaterialRequests, useSubAddresses, useSuppliers, type MatTab, type SubAddr,
 } from '@/data/materials';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { localISODate } from '@/lib/rules/driver';
-import { cancelReasonText, doneEntries, isEmail, liveEntries, matAgo, OP_STATUS_LABEL, orderEmailFor, readIsoDate, subAddrLabel, wasOrdered, type Branch, type Mat } from '@/lib/rules/materials';
-import { isFinanceUser, isManager } from '@/lib/roles';
+import { cancelReasonText, doneEntries, isEmail, liveEntries, matAgo, matSheetLines, OP_STATUS_LABEL, orderEmailFor, readIsoDate, subAddrLabel, wasOrdered, type Branch, type Mat } from '@/lib/rules/materials';
+import { csvRows, readXlsx } from '@/lib/rules/xlsxRead';
+import { isFinanceUser, isFullManager, isManager } from '@/lib/roles';
 import { base, radius, space } from '@/theme/theme';
 
 const short = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
@@ -44,6 +46,7 @@ export default function MaterialRequests() {
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [editing, setEditing] = useState<Mat | null>(null);
   const [busy, setBusy] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [ordering, setOrdering] = useState<{ mats: Mat[]; again: boolean } | null>(null);
   const { data: suppliers } = useSuppliers(mgr ? me?.org_id : null);
   const scroll = useRef<ComponentRef<typeof ScrollView>>(null);
@@ -286,7 +289,33 @@ export default function MaterialRequests() {
           toast('Request added'); refresh(); return true;
         }} />
       )}
-      {mgr && <Muted style={{ marginTop: space.m }}>Still to come here: adding new yard items and Import from Excel (both in Finance / the old app for now).</Muted>}
+      {(tab === 'live' || tab === 'pending') && !editing && me && isFullManager(me) && (
+        <View style={{ marginTop: 8 }}>
+          <Button kind="ghost" busy={importing} title={importing ? 'Importing…' : '📄 Import from Excel'} onPress={async () => {
+            const r = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true }); if (r.canceled || !r.assets[0]) return;
+            const a = r.assets[0], name = a.name || 'spreadsheet';
+            if (/\.xls$/i.test(name)) { toast('Save it as .xlsx or .csv first — old .xls files can’t be read.'); return; }
+            if ((a.size || 0) > 15 * 1024 * 1024) { toast('That file is too big to read.'); return; }
+            let lines: { item: string; qty: string }[] = [];
+            try {
+              const bytes = new Uint8Array(await (await fetch(a.uri)).arrayBuffer());
+              const sheets = /\.csv$/i.test(name) ? [{ rows: csvRows(new TextDecoder().decode(bytes)) }] : await readXlsx(bytes);
+              for (const sh of sheets) { lines = matSheetLines(sh.rows); if (lines.length) break; }
+            } catch { toast('Could not read that file — is it an Excel or CSV file?'); return; }
+            if (!lines.length) { showAlert('No items found in that file. It needs a column headed "Description" (or "Item") and one headed "Quantity" (or "Qty").'); return; }
+            if (lines.length > 300) { showAlert(`That file has ${lines.length} items — the most that can be imported in one go is 300.`); return; }
+            const rb = ((await promptText('Required by (optional, YYYY-MM-DD)', '')) || '').trim();
+            const req = rb ? readIsoDate(rb) : '';
+            if (req === 'bad') { toast('Enter the date as YYYY-MM-DD.'); return; }
+            const preview = lines.slice(0, 12).map((l) => `• ${l.item} — ${l.qty}`).join('\n') + (lines.length > 12 ? `\n…and ${lines.length - 12} more` : '');
+            if (!(await confirmAsk(`Add these ${lines.length} item${lines.length === 1 ? '' : 's'} from "${name}" as material requests?${req ? ` Required by ${req}.` : ''}\n\n${preview}`, 'Add them'))) return;
+            setImporting(true); const n = await importMaterials(me, id, lines, req || null, name); setImporting(false);
+            showAlert(n ? `✓ ${n} material request${n === 1 ? '' : 's'} added.` : 'They could not be added — check your connection, then import again.'); refresh();
+          }} />
+          <Muted>Pick a material order spreadsheet — each item and quantity becomes its own request. You&apos;re shown the list to confirm first.</Muted>
+        </View>
+      )}
+      {mgr && <Muted style={{ marginTop: space.m }}>New yard items are added in Finance › Yard.</Muted>}
     </ScrollView>
   );
 }
@@ -312,7 +341,7 @@ function RequestBox({ addrs, busy, autoFocus, onSubmit }: { addrs: SubAddr[] | n
           <Muted style={{ fontWeight: '700', marginBottom: 4 }}>Which address on this job?</Muted>
           {addrs.length ? addrs.map((a) => (
             <Pressable key={a.id} onPress={() => setSub(a)}><Text style={{ paddingVertical: 6, color: base.ink, fontWeight: sub?.id === a.id ? '700' : '400' }}>{sub?.id === a.id ? '◉' : '○'} {subAddrLabel(a)}</Text></Pressable>
-          )) : <Muted>No addresses added to this job yet — add them in the job's Settings › Multi-Site.</Muted>}
+          )) : <Muted>No addresses added to this job yet — add them in the job&apos;s Settings › Multi-Site.</Muted>}
         </View>
       )}
       <TextInput autoFocus={autoFocus} value={item} onChangeText={setItem} placeholder="Item" style={box} />

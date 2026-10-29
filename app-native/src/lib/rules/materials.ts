@@ -193,3 +193,32 @@ export function yardGuess(items: YardItem[], requestItem: string): string | null
   for (const s of items) { const n = words.filter((w) => s.item.toLowerCase().includes(w)).length; if (n > bestN) { bestN = n; best = s.id; } }
   return best;
 }
+
+/** A material order spreadsheet into request lines (730 matReqParseSheetRows): finds the Description / Quantity (and Unit) headings in the first 40 rows, else the first text and number columns; skips blank, zero and total rows. */
+export function matSheetLines(rows: unknown[][]): { item: string; qty: string }[] {
+  const norm = (v: unknown) => String(v ?? '').trim().toLowerCase();
+  const isDesc = (t: string) => /^(description|item|items|material|materials|product|name|item description|material description)$/.test(t);
+  const isQty = (t: string) => /^(qty|quantity|quantities|qty required|quantity required|no\.?|amount)$/.test(t);
+  const isUnit = (t: string) => /^(unit|units|uom)$/.test(t);
+  let hdr = -1, cDesc = -1, cQty = -1, cUnit = -1;
+  for (let r = 0; r < Math.min(rows.length, 40) && hdr < 0; r++) {
+    const cells = (rows[r] || []).map(norm), d = cells.findIndex(isDesc), q = cells.findIndex(isQty);
+    if (d > -1 && q > -1) { hdr = r; cDesc = d; cQty = q; cUnit = cells.findIndex(isUnit); }
+  }
+  if (hdr < 0) {
+    for (let r = 0; r < Math.min(rows.length, 60) && cDesc < 0; r++) {
+      const row = rows[r] || [], d = row.findIndex((v) => typeof v === 'string' && v.trim().length > 1), q = row.findIndex((v) => typeof v === 'number');
+      if (d > -1 && q > -1) { cDesc = d; cQty = q; hdr = r - 1; }
+    }
+  }
+  if (cDesc < 0 || cQty < 0) return [];
+  const out: { item: string; qty: string }[] = [];
+  for (let r = hdr + 1; r < rows.length; r++) {
+    const row = rows[r] || [], item = String(row[cDesc] ?? '').trim(), raw = row[cQty];
+    const n = typeof raw === 'number' ? raw : parseFloat(String(raw ?? '').replace(/,/g, ''));
+    if (!item || !isFinite(n) || n <= 0 || /total/i.test(item)) continue;
+    const q = String(Math.round(n * 100) / 100), unit = cUnit > -1 ? String(row[cUnit] ?? '').trim() : '';
+    out.push({ item: item.slice(0, 300), qty: unit ? `${q} ${unit}` : q });
+  }
+  return out;
+}

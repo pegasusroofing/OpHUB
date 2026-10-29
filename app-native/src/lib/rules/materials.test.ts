@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { cancelReasonText, comingToSite, doneEntries, groupPickups, liveEntries, matAgo, onSentPo, readIsoDate, subAddrLabel, type Mat } from './materials.ts';
+import { cancelReasonText, comingToSite, doneEntries, groupPickups, liveEntries, matSheetLines, matAgo, onSentPo, readIsoDate, subAddrLabel, type Mat } from './materials.ts';
 
 const m = (o: Partial<Mat>): Mat => ({ id: 'x', site_id: 's', item: 'Slates', qty: '1', status: 'pending', requested_by: null, created_at: '2026-10-01T09:00:00Z', required_by_date: null, ...o });
 const iso = (d: Date) => d.toISOString().slice(0, 10);
@@ -98,4 +98,11 @@ test('yard helpers', () => {
   const items = [{ id: 'a', item: 'Code 4 lead', unit: null, qty: 1, min_qty: null, location: null, category: null }, { id: 'b', item: 'Marley slate 600x300', unit: null, qty: 1, min_qty: null, location: null, category: null }];
   assert.equal(yardGuess(items, '200 marley slates'), 'b');
   assert.equal(yardGuess(items, 'nails'), null);
+});
+
+test('material order spreadsheet: headings found below a title, unit added, totals and blanks skipped; no headings falls back', () => {
+  assert.deepEqual(matSheetLines([['Order for Studley Rd'], [], ['Item', 'Qty', 'Unit'], ['Batten 25x50', 100, 'm'], ['Felt', '4', 'roll'], ['Total', 104, ''], ['Nails', 0, 'box']]),
+    [{ item: 'Batten 25x50', qty: '100 m' }, { item: 'Felt', qty: '4 roll' }]);
+  assert.deepEqual(matSheetLines([['Lead code 4', 2.5], ['Sealant', 3]]), [{ item: 'Lead code 4', qty: '2.5' }, { item: 'Sealant', qty: '3' }]);
+  assert.deepEqual(matSheetLines([['nothing here']]), []);
 });
