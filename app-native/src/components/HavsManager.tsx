@@ -14,6 +14,7 @@ import { Button, Card, Empty, Muted, Toggle } from '@/components/ui';
 import {
   addHavsEntryFor, addHavsTool, closeHavsWeek, deleteHavsEntry, editHavsEntry, reopenHavsWeek, setSiteHavsTool, useHavsCompleted, useHavsManagerWeek, type HavsOp, type HavsTool,
 } from '@/data/havs';
+import { usePeople } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
 import { useFlushOnLeave } from '@/lib/useFlushOnLeave';
 import { buildHavsPdf, emailHavsPdf } from '@/lib/havsPdf';
@@ -43,6 +44,9 @@ export function HavsManager({ site }: { site: Site }) {
   useFlushOnLeave(flushRef);
   const [, force] = useState(0);
   const [busy, setBusy] = useState<string | null>(null);
+  // "+ Add operative" for the odd person not assigned to this job (660 extraUserIds), per day and tool.
+  const [extra, setExtra] = useState<Record<string, string[]>>({});
+  const { data: everyone } = usePeople();
   if (!me) return null;
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['havs', site.id] }); };
   const tools = data?.tools ?? [];
@@ -58,7 +62,7 @@ export function HavsManager({ site }: { site: Site }) {
       if (onlyDay !== undefined && Number(di) !== onlyDay) continue;
       const m = wholeMinutes(raw);
       if (!m.ok) { if (!m.empty && m.error) toast(m.error); continue; }
-      const tool = toolById[toolId], op = opById[uid] ?? { id: uid, name: data.nameById[uid] || 'Operative' };
+      const tool = toolById[toolId], op = opById[uid] ?? { id: uid, name: data.nameById[uid] || (everyone ?? []).find((p) => p.id === uid)?.name || 'Operative' };
       if (!tool) continue;
       delete drafts.current[key];
       if (await addHavsEntryFor(me, site, op, days[Number(di)], tool, m.minutes, data.allTools)) saved++; else drafts.current[key] = raw;
@@ -163,15 +167,21 @@ export function HavsManager({ site }: { site: Site }) {
                                   </>}
                                 </View>
                               ))}
-                              {data.locked ? <Muted style={{ marginTop: 6 }}>🔒 Week locked</Muted> : data.ops.map((o) => {
+                              {data.locked ? <Muted style={{ marginTop: 6 }}>🔒 Week locked</Muted> : [...data.ops.map((o) => ({ id: o.id, name: o.name, added: false })), ...(extra[`${di}|${tool.id}`] || []).map((u) => ({ id: u, name: (everyone ?? []).find((p) => p.id === u)?.name || 'Operative', added: true }))].map((o) => {
                                 const key = `${di}|${tool.id}|${o.id}`;
                                 return (
                                   <View key={o.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 }}>
                                     <Text style={{ flex: 1, fontSize: 12, color: base.ink }} numberOfLines={1}>{o.name}</Text>
                                     <TextInput placeholder="Mins" keyboardType="number-pad" defaultValue={drafts.current[key] ?? ''} onChangeText={(v) => { drafts.current[key] = v; }} style={minsBox} />
+                                    {o.added && <Pressable hitSlop={6} onPress={() => { delete drafts.current[key]; setExtra((x) => ({ ...x, [`${di}|${tool.id}`]: (x[`${di}|${tool.id}`] || []).filter((u) => u !== o.id) })); }}><Text style={{ color: base.slate }}>✕</Text></Pressable>}
                                   </View>
                                 );
                               })}
+                              {!data.locked && (() => {
+                                const k = `${di}|${tool.id}`, have = new Set([...data.ops.map((o) => o.id), ...(extra[k] || [])]);
+                                const pick = (everyone ?? []).filter((p) => p.role === 'operative' && !have.has(p.id)).sort((a, b) => a.name.localeCompare(b.name));
+                                return pick.length ? <Pressable onPress={async () => { const u = await chooseAction('Add an operative not on this job', pick.map((p) => ({ key: p.id, label: p.name }))); if (u) setExtra((x) => ({ ...x, [k]: [...(x[k] || []), u] })); }}><Text style={{ color: base.blue, fontSize: 12, fontWeight: '700', marginTop: 6 }}>+ Add operative</Text></Pressable> : null;
+                              })()}
                             </View>
                           ))}
                         </View>

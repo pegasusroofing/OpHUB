@@ -47,7 +47,7 @@ HIGH = money, data, permissions, safety or a daily job. MED = noticeable. LOW = 
 - HIGH FIXED — HAVS typed minutes saved when you leave the page or the app goes to the background.
 - MED FIXED — Hidden H&S screens open by direct link (no route guard).
 - MED FIXED — Client's Operatives tile: read-only list of the job's operatives and certificates.
-- MED OPEN — HAVS: manager adds an operative not assigned to the job.
+- MED FIXED — HAVS: manager adds an operative not assigned to the job.
 - MED OPEN — COSHH products in bulk from many data sheets.
 - MED FIXED — COSHH on a job: tick several / select all → one PDF or email; "Email all signed COSHH".
 - MED FIXED — CC me / CC client on RAMS, COSHH and TBT emails.
