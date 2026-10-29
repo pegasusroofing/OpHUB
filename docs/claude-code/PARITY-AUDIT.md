@@ -12,7 +12,7 @@ HIGH = money, data, permissions, safety or a daily job. MED = noticeable. LOW = 
 - MED FIXED — General (not a project) to-dos: can't add, tick, edit or delete.
 - MED FIXED — Refresh data when the app comes back from the background (role changes, removal, finance switch).
 - MED FIXED — Clients can type the address of non-client job pages (old router allowed home, schedule, hs, snagging only). Also found and fixed: non-managers kept out of closed jobs, and operatives allocated to a subcontractor company kept to the Main Contractor pages.
-- MED OPEN — "Save to OneDrive" on exported PDFs.
+- MED FIXED — "Save to OneDrive" on exported PDFs. After any PDF export a bar offers it (managers); the job you're on (Projects or Finance) decides the folder, otherwise Company Exports.
 - LOW OPEN — "Add your mobile number" prompt; manager-only pages with no role check (onsite, todos, hub, sitemap); search depth (materials, to-dos, snags, admin items); HR people query not company-filtered; copy the address by tapping the header; "CC me" on emails.
 
 ## Repairs, pricing, reports (290–435)
@@ -25,7 +25,7 @@ HIGH = money, data, permissions, safety or a daily job. MED = noticeable. LOW = 
 - MED FIXED — Repair bulk actions: Mark Scaffold Erected, Mark Invoiced.
 - MED FIXED — Photo on a variation to price.
 - MED FIXED — Email selected reports from a project's reports list.
-- MED OPEN — Exported report PDF also saved to the site's OneDrive folder.
+- MED FIXED — Exported report PDF also saved to the site's OneDrive folder.
 - MED OPEN — Start a new report with no signal.
 - LOW OPEN — re-sync after linking a repair folder; OneDrive/phone source icon on certificates; repair-contract money strip and assign prompt; folder prompt after adding a repair job; Invoiced tick before sign-off; job number hidden from operatives; work order file name; close several pricing elements; price sheet Excel weekly booked-in and wages sections; quick-create Daily Briefing / MC Inspection templates; add a condition while filling a report; "Waiting to send" reports shown with manual send.
 

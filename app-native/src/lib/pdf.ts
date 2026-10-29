@@ -8,6 +8,7 @@ import * as Sharing from 'expo-sharing';
 import { PDFDocument, rgb, StandardFonts, type PDFFont, type PDFImage, type PDFPage } from 'pdf-lib';
 import { Platform } from 'react-native';
 
+import { offerOneDrive } from '@/lib/oneDriveSave';
 import { publicUrl, resolveStorageUrl } from '@/lib/privateFiles';
 import { fullSiteAddress } from '@/lib/rules/checkin';
 
@@ -100,8 +101,12 @@ export async function embedImage(doc: PDFDocument, bytes: Uint8Array | null): Pr
 }
 export const storageImage = async (doc: PDFDocument, bucket: string, path: string | null | undefined) => (path ? embedImage(doc, await fetchBytes(publicUrl(bucket, path))) : null);
 
-/** Hands the PDF to the person: share sheet on a phone, a download on the web. */
-export const deliverPdf = (bytes: Uint8Array, filename: string) => deliverFile(bytes, filename, 'application/pdf', 'com.adobe.pdf');
+/** Hands the PDF to the person: share sheet on a phone, a download on the web; then offers a copy to OneDrive. */
+export const deliverPdf = async (bytes: Uint8Array, filename: string) => {
+  const ok = await deliverFile(bytes, filename, 'application/pdf', 'com.adobe.pdf');
+  if (ok) offerOneDrive({ bytes, filename });
+  return ok;
+};
 /** An Excel file made with lib/rules/xlsx, handed over the same way. */
 export const deliverXlsx = (bytes: Uint8Array, filename: string) => deliverFile(bytes, filename, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'org.openxmlformats.spreadsheetml.sheet');
 export async function deliverFile(bytes: Uint8Array, filename: string, mime: string, uti?: string): Promise<boolean> {

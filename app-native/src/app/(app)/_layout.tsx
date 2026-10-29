@@ -4,6 +4,7 @@ import { router, Tabs, usePathname } from 'expo-router';
 import { useEffect } from 'react';
 import { Platform, useWindowDimensions, View } from 'react-native';
 
+import { OneDriveSaveBar } from '@/components/OneDriveSaveBar';
 import { AppBar } from '@/components/AppBar';
 import { DeskNav } from '@/components/DeskNav';
 import { OphIcon } from '@/components/OphIcon';
@@ -79,6 +80,7 @@ export default function AppLayout() {
       <Tabs.Screen name="pm" options={{ ...(siteMgr && !desk ? { tabBarIcon: icon('bell'), tabBarLabel: 'HUB', href: '/pm/hub' as never } : hidden), title: 'Manager', headerShown: false }} />
       <Tabs.Screen name="fin" options={{ ...hidden, title: 'Finance', headerShown: false }} />
     </Tabs>
+    <OneDriveSaveBar />
     </View>
   );
 }

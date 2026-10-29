@@ -10,6 +10,7 @@ import { nameOf, usePeople } from '@/data/hs';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { deliverPdf, emailPdf, PDFDocument } from '@/lib/pdf';
+import { saveToOneDrive } from '@/lib/oneDriveSave';
 import { buildReportPdf, type PdfSub } from '@/lib/reportPdf';
 import { drawSignatureTable } from '@/lib/signedPdf';
 import { supabase } from '@/lib/supabase';
@@ -44,7 +45,10 @@ export function ReportPdfActions({ sub, fromBriefing }: { sub: PdfSub; fromBrief
   return (
     <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
       <View style={{ flex: 1 }}><Button kind="ghost" busy={busy === 'pdf'} title="📄 Export PDF" onPress={async () => {
-        setBusy('pdf'); const b = await build(); if (b && !(await deliverPdf(b.bytes, b.filename))) toast('Could not save the PDF.'); setBusy(null);
+        setBusy('pdf'); const b = await build(); if (b && !(await deliverPdf(b.bytes, b.filename))) toast('Could not save the PDF.');
+        // A project report also goes to the project's OneDrive folder (best-effort, 430 exportReportPDF).
+        if (b && sub.site_id) void saveToOneDrive(me.org_id, b.bytes, b.filename, sub.site_id);
+        setBusy(null);
       }} /></View>
       <View style={{ flex: 1 }}><Button kind="ghost" busy={busy === 'email'} title="✉ Email Report" onPress={async () => {
         const to = await promptText('Email this report PDF to:', me.email || ''); if (to === null) return;
