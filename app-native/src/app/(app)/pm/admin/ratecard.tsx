@@ -2,7 +2,9 @@
 // card — items by element of works, each with a unit and a rate, or a
 // dropdown priced by option — plus the Terms & Conditions page printed first
 // on every Price Sheet. Sheets already issued keep their own copy of the rates.
+// Download the card as Excel to edit; uploading it back replaces the card.
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import * as DocumentPicker from 'expo-document-picker';
 import { Stack } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
@@ -10,6 +12,10 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Card, Check, Empty, Muted, SectionTitle } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
+import { deliverXlsx } from '@/lib/pdf';
+import { rateCardSheets, readRateCard } from '@/lib/rules/rateCardExcel';
+import { makeXlsx } from '@/lib/rules/xlsx';
+import { readXlsx } from '@/lib/rules/xlsxRead';
 import { RATE_UNITS, rateCategories, readRate, type RateItem, type RateOption } from '@/lib/rules/rateCard';
 import { supabase } from '@/lib/supabase';
 import { base, radius, space } from '@/theme/theme';
@@ -58,7 +64,35 @@ export default function RateCard() {
   return (
     <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Price Sheet Rate Card' }} />
-      <Muted style={{ marginBottom: 10 }}>One shared rate card for the whole company. Changes here don&apos;t affect any sheet already issued — those keep their own copy of the rates used. (Downloading and uploading the rate card as an Excel file is still done in the current app.)</Muted>
+      <Muted style={{ marginBottom: 10 }}>One shared rate card for the whole company. Changes here don&apos;t affect any sheet already issued — those keep their own copy of the rates used.</Muted>
+      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
+        <View style={{ flex: 1 }}><Button kind="ghost" title="⬇ Download as Excel" onPress={async () => {
+          if (!(await deliverXlsx(makeXlsx(rateCardSheets(data?.items ?? [], data?.options ?? [], org?.name || 'Company')), `${(org?.name || 'Company').replace(/[^a-z0-9]+/gi, '_')}_Price_Builder_Rate_Card.xlsx`))) toast('Could not make the file — try again.');
+        }} /></View>
+        <View style={{ flex: 1 }}><Button kind="ghost" title="⬆ Upload Excel (replaces the card)" onPress={async () => {
+          const r = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true }); if (r.canceled || !r.assets[0]) return;
+          let read;
+          try { read = readRateCard(await readXlsx(new Uint8Array(await (await fetch(r.assets[0].uri)).arrayBuffer()))); } catch { toast('Could not read that file — check it’s a valid .xlsx exported from this tool.'); return; }
+          const { items: ni, skipped } = read;
+          if (!ni.length) { toast('Nothing usable found — check each tab has Item / Unit / Rate (or Option) columns filled in.'); return; }
+          const cats = new Set(ni.map((i) => i.category)).size;
+          if (!(await confirmAsk(`This will replace the entire rate card with ${ni.length} item${ni.length === 1 ? '' : 's'} across ${cats} categor${cats === 1 ? 'y' : 'ies'} from this file.${skipped ? ` (${skipped} row${skipped === 1 ? '' : 's'} skipped — missing rate or options.)` : ''} Continue?`, 'Replace'))) return;
+          // The new card goes in first; the old one is only removed once it's safely saved.
+          const ex = await db.from('price_rate_items').select('id').eq('org_id', me.org_id as string);
+          if (ex.error) { toast('Could not reach the server — rate card left unchanged.'); return; }
+          const oldIds = ((ex.data as { id: string }[] | null) ?? []).map((x) => x.id);
+          const ins = await db.from('price_rate_items').insert(ni.map((it) => ({ org_id: me.org_id, category: it.category, name: it.name, unit: it.unit, rate: it.rate, is_dropdown: it.is_dropdown, sort_order: it.sort_order, created_by: me.id })) as never).select('id');
+          const newRows = (ins.data as { id: string }[] | null) ?? [];
+          const undo = async () => { if (newRows.length) await db.from('price_rate_items').delete().in('id', newRows.map((x) => x.id)); };
+          if (ins.error || newRows.length !== ni.length) { await undo(); toast('Import failed — your existing rate card has been left unchanged.'); refresh(); return; }
+          const optRows = ni.flatMap((it, i) => it.options.map((o) => ({ rate_item_id: newRows[i].id, label: o.label, rate: o.rate, sort_order: o.sort_order })));
+          if (optRows.length && (await db.from('price_rate_options').insert(optRows as never)).error) { await undo(); toast('Import failed part way — your existing rate card has been left unchanged.'); refresh(); return; }
+          let left = 0;
+          for (let i = 0; i < oldIds.length; i += 80) { const chunk = oldIds.slice(i, i + 80); if ((await db.from('price_rate_items').delete().in('id', chunk)).error) left += chunk.length; }
+          toast(left ? `New rates imported, but ${left} old item${left === 1 ? '' : 's'} could not be removed — delete the duplicates by hand or import again.` : `Rate card replaced — ${ni.length} item${ni.length === 1 ? '' : 's'}, ${optRows.length} option${optRows.length === 1 ? '' : 's'}.`);
+          refresh();
+        }} /></View>
+      </View>
       <Card>
         <SectionTitle>Terms &amp; Conditions</SectionTitle>
         <Muted style={{ marginBottom: 6 }}>Shown as its own page 1 on every Price Sheet PDF export, before the priced items — paste your subcontractor T&amp;Cs in here word for word.</Muted>
