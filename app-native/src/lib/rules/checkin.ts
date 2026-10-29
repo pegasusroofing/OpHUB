@@ -120,3 +120,17 @@ export function greeting(now: Date = new Date()): string {
   const h = now.getHours();
   return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
 }
+
+/** Saved clients (180 clientPortfolio): every client name used on a job, with the latest contact, phone and email given for it. */
+export function clientPortfolio(sites: { client_name?: string | null; client_contact_name?: string | null; client_phone?: string | null; client_email?: string | null; created_at?: string | null }[]) {
+  const by: Record<string, { name: string; contact: string; phone: string; email: string; count: number }> = {};
+  [...sites].sort((a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()).forEach((s) => {
+    const n = String(s.client_name || '').trim(); if (!n) return;
+    const c = (by[n.toLowerCase()] ||= { name: n, contact: '', phone: '', email: '', count: 0 });
+    c.name = n; c.count++;
+    if (s.client_contact_name) c.contact = s.client_contact_name;
+    if (s.client_phone) c.phone = s.client_phone;
+    if (s.client_email) c.email = s.client_email;
+  });
+  return Object.values(by).sort((a, b) => a.name.localeCompare(b.name));
+}

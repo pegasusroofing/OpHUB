@@ -12,7 +12,7 @@ export default function SitesLayout() {
         headerBackButtonDisplayMode: 'minimal',
         contentStyle: { backgroundColor: base.paper },
       }}>
-      <Stack.Screen name="index" options={{ title: 'My projects' }} />
+      <Stack.Screen name="index" options={{ title: 'Projects' }} />
     </Stack>
   );
 }

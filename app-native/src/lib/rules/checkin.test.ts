@@ -91,3 +91,14 @@ test('greeting', () => {
   assert.equal(greeting(new Date(2026, 0, 1, 13)), 'Good afternoon');
   assert.equal(greeting(new Date(2026, 0, 1, 19)), 'Good evening');
 });
+
+test('saved clients: one per name, latest contact details win, A–Z', async () => {
+  const { clientPortfolio } = await import('./checkin.ts');
+  const p = clientPortfolio([
+    { client_name: 'Bellway Homes', client_contact_name: 'Sam', client_email: 'old@b.test', created_at: '2026-01-01' },
+    { client_name: 'Acme', created_at: '2026-02-01' },
+    { client_name: 'bellway homes ', client_email: 'new@b.test', created_at: '2026-03-01' },
+    { client_name: '', created_at: '2026-04-01' },
+  ]);
+  assert.deepEqual(p.map((c) => [c.name, c.contact, c.email, c.count]), [['Acme', '', '', 1], ['bellway homes', 'Sam', 'new@b.test', 2]]);
+});
