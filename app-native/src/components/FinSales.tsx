@@ -5,14 +5,15 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Text, TextInput, View } from 'react-native';
 
-import { FinChip, FinRow, FinStat } from '@/components/FinNav';
+import { FinRow, FinSeg, FinStat } from '@/components/FinNav';
+import { Cell, FinTable, FootText } from '@/components/FinTable';
 import { chooseAction } from '@/components/toast';
 import { Button, Card, Empty, Muted } from '@/components/ui';
 import { selectAll, useFinSettings } from '@/data/finance';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { byJobNoDesc, fdate, INV_STATUS, invOutstanding, invOutstandingNet, invOverdue, jobTag, money, retentionDates, retentionStillHeld, round2, type FinApp, type FinInv, type JobFin } from '@/lib/rules/finance';
-import { base, radius } from '@/theme/theme';
+import { base, radius, useDesk } from '@/theme/theme';
 
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 9, color: base.ink, backgroundColor: base.card, marginBottom: 10 };
 export type App = FinApp & { id: string; site_id: string; due_date?: string | null; gross?: number | null; net_due?: number | null; cert_gross?: number | null; cert_net?: number | null; cert_is_payless?: boolean | null; invoice_id?: string | null; submitted_at?: string | null; created_at?: string };
@@ -55,6 +56,7 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
   const [af, setAf] = useState<string | null>(null);
   const [inf, setInf] = useState(f0 || 'outstanding');
   const [q, setQ] = useState('');
+  const desk = useDesk();
   const sites = sitesRaw as (typeof sitesRaw[number] & { job_number?: string | null; client_name?: string | null })[];
   const site = (id: string) => sites.find((s) => s.id === id);
   const ql = q.trim().toLowerCase();
@@ -67,17 +69,29 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
   };
   if (tab === 'apps') {
     const F: Record<string, (a: App) => boolean> = { open: (a) => ['draft', 'submitted'].includes(stage(a)), certified: (a) => stage(a) === 'certified', invoiced: (a) => stage(a) === 'invoiced', all: (a) => stage(a) !== 'void' };
-    const cur = af || ['certified', 'open', 'invoiced'].find((k) => data.apps.filter(F[k]).length) || 'all';
+    const cur = af || ['open', 'certified', 'invoiced'].find((k) => data.apps.filter(F[k]).length) || 'all';
     const list = data.apps.filter(F[cur]).filter((a) => !ql || `${a.number} ${jobTag(site(a.site_id))} ${site(a.site_id)?.client_name || ''}`.toLowerCase().includes(ql));
     return (
       <View>
-        <Muted style={{ marginBottom: 8 }}>Apply → the client certifies it (enter their figures on the application) → the invoice is raised for you.</Muted>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
-          {[['open', 'In progress'], ['certified', 'Certified — to invoice'], ['invoiced', 'Invoiced'], ['all', 'All']].map(([k, l]) => <FinChip key={k} on={cur === k} label={l} n={data.apps.filter(F[k]).length} onPress={() => setAf(k)} />)}
+        <Muted style={{ marginBottom: 8, fontSize: 12 }}>Apply → the client certifies it (enter their figures on the application) → the invoice is raised for you. A certificate is just a certified application.</Muted>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 10 }}>
+          <FinSeg value={cur} onChange={setAf} items={[['open', 'In Progress'], ['certified', 'Certified — To Invoice'], ['invoiced', 'Invoiced'], ['all', 'All']].map(([k, l]) => [k, l, data.apps.filter(F[k]).length] as [string, string, number])} />
           <View style={{ marginLeft: 'auto' }}><Button title="+ New application" onPress={() => void newFor('application')} /></View>
         </View>
         <TextInput value={q} onChangeText={setQ} placeholder="Search application no., project or client" style={box} />
-        {list.length ? list.map((a) => { const s = appStage(a); return (
+        {desk && list.length ? (
+          <FinTable rows={list} keyOf={(a) => a.id} onRow={(a) => router.push(`/fin/job/${a.site_id}/application/${a.id}` as never)}
+            cols={[
+              ...(siteId ? [] : [{ k: 'p', l: 'Project', flex: 1.8, min: 180, render: (a: App) => <Cell bold>{jobTag(site(a.site_id))}</Cell> }]),
+              { k: 'n', l: 'Application', render: (a: App) => <Cell>Application {a.number}</Cell> },
+              { k: 'd', l: 'Date', render: (a: App) => <Cell>{fdate(a.valuation_date)}</Cell> },
+              { k: 'ap', l: 'Applied (Net)', render: (a: App) => <Cell>{money(a.net_due)}</Cell> },
+              { k: 'ce', l: 'Certified (Net)', render: (a: App) => <Cell>{a.cert_net != null ? money(a.cert_net) : '—'}</Cell> },
+              { k: 'st', l: 'Stage', render: (a: App) => { const s = appStage(a); return <Text style={{ fontSize: 10.5, fontWeight: '800', color: s.c, backgroundColor: `${s.c}1A`, borderRadius: 999, paddingVertical: 3, paddingHorizontal: 9, overflow: 'hidden', textAlign: 'center' }}>● {s.l}</Text>; } },
+              { k: 'inv', l: 'Invoice', render: (a: App) => <Cell>{a.invoice_id ? data.invs.find((i) => i.id === a.invoice_id)?.number || 'Invoiced' : '—'}</Cell> },
+            ]}
+            foot={<><FootText bold>{list.length} application{list.length === 1 ? '' : 's'}</FootText><FootText>Applied {money(list.reduce((t, a) => t + Number(a.net_due || 0), 0))}</FootText><FootText>Certified {money(list.reduce((t, a) => t + Number(a.cert_net || 0), 0))}</FootText></>} />
+        ) : list.length ? list.map((a) => { const s = appStage(a); return (
           <FinRow key={a.id} left={`App ${a.number}`} title={siteId ? fdate(a.valuation_date) : jobTag(site(a.site_id))} sub={[siteId ? '' : fdate(a.valuation_date), s.l, a.cert_net != null ? `certified ${money(a.cert_net)}` : ''].filter(Boolean).join(' · ')} right={money(a.cert_net ?? a.net_due)} tone={s.c} onPress={() => router.push(`/fin/job/${a.site_id}/application/${a.id}` as never)} />
         ); }) : <Empty>Nothing here.</Empty>}
       </View>
@@ -88,12 +102,24 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
     const list = (inf === 'all' ? data.invs : live).filter(F[inf] || F.outstanding).filter((i) => !ql || `${i.number || ''} ${i.client_name || ''} ${jobTag(site(i.site_id))}`.toLowerCase().includes(ql));
     return (
       <View>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
-          {[['outstanding', 'Owed'], ['overdue', 'Overdue'], ['draft', 'Drafts'], ['paid', 'Paid'], ['all', 'All']].map(([k, l]) => <FinChip key={k} on={inf === k} label={l} n={(k === 'all' ? data.invs : live).filter(F[k]).length} onPress={() => setInf(k)} />)}
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 10 }}>
+          <FinSeg value={inf} onChange={setInf} items={[['outstanding', 'Owed'], ['overdue', 'Overdue'], ['draft', 'Drafts'], ['paid', 'Paid'], ['all', 'All']].map(([k, l]) => [k, l, (k === 'all' ? data.invs : live).filter(F[k]).length] as [string, string, number])} />
           <View style={{ marginLeft: 'auto' }}><Button title="+ New invoice" onPress={() => void newFor('invoice')} /></View>
         </View>
         <TextInput value={q} onChangeText={setQ} placeholder="Search invoice no., client or project" style={box} />
-        {list.length ? list.map((i) => {
+        {desk && list.length ? (
+          <FinTable rows={list} keyOf={(i) => i.id} onRow={(i) => router.push(`/fin/job/${i.site_id}/invoice/${i.id}` as never)}
+            cols={[
+              { k: 'no', l: 'Invoice', render: (i: Inv) => <Cell bold>{i.number || 'Draft'}</Cell> },
+              ...(siteId ? [] : [{ k: 'p', l: 'Project', flex: 1.8, min: 180, render: (i: Inv) => <Cell bold>{jobTag(site(i.site_id))}</Cell> }]),
+              { k: 'c', l: 'Client', flex: 1.4, min: 140, render: (i: Inv) => <Cell>{i.client_name || '—'}</Cell> },
+              { k: 'd', l: 'Date', render: (i: Inv) => <Cell>{i.issue_date ? fdate(i.issue_date) : '—'}</Cell> },
+              { k: 't', l: 'Total', render: (i: Inv) => <Cell>{money(i.total)}</Cell> },
+              { k: 'o', l: 'Owed', render: (i: Inv) => { const o = invOutstanding(i); return <Cell tone={invOverdue(i) ? '#C0392B' : undefined}>{o ? money(o) : '—'}</Cell>; } },
+              { k: 's', l: 'Status', render: (i: Inv) => <Cell tone={invOverdue(i) ? '#C0392B' : undefined}>{invOverdue(i) ? 'Overdue' : INV_STATUS[i.status] || i.status}</Cell> },
+            ]}
+            foot={<><FootText bold>{list.length} invoice{list.length === 1 ? '' : 's'}</FootText><FootText>Total {money(list.reduce((t, i) => t + Number(i.total || 0), 0))}</FootText><FootText>Owed {money(list.reduce((t, i) => t + invOutstanding(i), 0))}</FootText></>} />
+        ) : list.length ? list.map((i) => {
           const od = invOverdue(i), o = invOutstanding(i);
           return <FinRow key={i.id} left={i.number || 'Draft'} title={siteId ? (i.client_name || '—') : jobTag(site(i.site_id))} sub={[siteId ? '' : i.client_name, i.issue_date ? fdate(i.issue_date) : '', INV_STATUS[i.status] || i.status, o ? `${money(o)} owed${od ? ' — overdue' : ''}` : ''].filter(Boolean).join(' · ')} right={money(i.total)} tone={od ? '#C0392B' : undefined} onPress={() => router.push(`/fin/job/${i.site_id}/invoice/${i.id}` as never)} />;
         }) : <Empty>No invoices here.</Empty>}
@@ -111,10 +137,20 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
     <View>
       <Muted style={{ marginBottom: 8 }}>Money your clients are holding back until the work is signed off: {money(total)} across {rows.length} job{rows.length === 1 ? '' : 's'}. Half usually comes back at practical completion and half at the end of the defects period — set the dates on each project.</Muted>
       {!siteId && <TextInput value={q} onChangeText={setQ} placeholder="Search project, client" style={box} />}
-      {rows.length ? rows.map((x) => { const d = retentionDates(x.jf, st || {}); return (
+      {desk && rows.length ? (
+        <FinTable rows={rows} keyOf={(x) => x.s.id} onRow={(x) => router.push(`/fin/job/${x.s.id}?tab=setup` as never)}
+          cols={[
+            { k: 'p', l: 'Project', flex: 1.8, min: 180, render: (x) => <Cell bold>{jobTag(x.s)}</Cell> },
+            { k: 'c', l: 'Client', flex: 1.4, min: 140, render: (x) => <Cell>{x.s.client_name || '—'}</Cell> },
+            { k: 'f', l: '1st Release', render: (x) => { const d = retentionDates(x.jf, st || {}); return <Cell>{d.first ? fdate(d.first) : 'Not set'}{x.jf.ret1_invoice_id || x.jf.ret1_app_id ? ' (claimed)' : ''}</Cell>; } },
+            { k: 's', l: 'Final Release', render: (x) => { const d = retentionDates(x.jf, st || {}); return <Cell>{d.second ? fdate(d.second) : 'Not set'}{x.jf.ret2_invoice_id || x.jf.ret2_app_id ? ' (claimed)' : ''}</Cell>; } },
+            { k: 'h', l: 'Held', render: (x) => <Cell bold>{money(x.held)}</Cell> },
+          ]}
+          foot={<><FootText bold>{rows.length} job{rows.length === 1 ? '' : 's'}</FootText><FootText>{money(total)} still held</FootText></>} />
+      ) : rows.length ? rows.map((x) => { const d = retentionDates(x.jf, st || {}); return (
         <FinRow key={x.s.id} title={jobTag(x.s)} sub={[x.s.client_name, `1st release ${d.first ? fdate(d.first) : 'not set'}${x.jf.ret1_invoice_id || x.jf.ret1_app_id ? ' (claimed)' : ''}`, `final ${d.second ? fdate(d.second) : 'not set'}${x.jf.ret2_invoice_id || x.jf.ret2_app_id ? ' (claimed)' : ''}`].filter(Boolean).join(' · ')} right={money(x.held)} onPress={() => router.push(`/fin/job/${x.s.id}?tab=setup` as never)} />
       ); }) : <Empty>No retention held.</Empty>}
-      {rows.length > 0 && <Card><Text style={{ fontWeight: '800', color: base.ink }}>{rows.length} job{rows.length === 1 ? '' : 's'} · {money(total)} still held</Text></Card>}
+      {!desk && rows.length > 0 && <Card><Text style={{ fontWeight: '800', color: base.ink }}>{rows.length} job{rows.length === 1 ? '' : 's'} · {money(total)} still held</Text></Card>}
     </View>
   );
 }
@@ -132,9 +168,9 @@ export function SalesStats() {
   const overdue = live.filter((i) => invOverdue(i)).reduce((t, i) => t + invOutstandingNet(i), 0);
   const waiting = data.apps.filter((a) => appStage(a).k === 'submitted').reduce((t, a) => t + Number(a.net_due || 0), 0);
   return (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
-      <FinStat v={money(applied, 0)} label="Applied value · this month" /><FinStat v={money(invoiced, 0)} label="Invoiced value · this month" />
-      <FinStat v={money(overdue, 0)} label="Overdue" hot={overdue > 0} /><FinStat v={money(waiting, 0)} label="Applied, not certified or invoiced" />
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
+      <FinStat tone="blue" v={money(applied, 0)} label="Applied Value · this month" /><FinStat tone="green" v={money(invoiced, 0)} label="Invoiced Value · this month" />
+      <FinStat tone="red" v={money(overdue, 0)} label="Overdue · all time" /><FinStat tone="amber" v={money(waiting, 0)} label="Applied, Not Certified Or Invoiced · all time" />
     </View>
   );
 }

@@ -7,8 +7,7 @@ import { SalesLists, SalesStats } from '@/components/FinSales';
 export default function FinSales() {
   const { tab = 'apps', f } = useLocalSearchParams<{ tab?: 'apps' | 'invoices' | 'retention'; f?: string }>();
   return (
-    <FinPage title="Sales" section="sales" sub={tab} onSub={(k) => router.setParams({ tab: k })}>
-      <SalesStats />
+    <FinPage title="Sales" section="sales" sub={tab} onSub={(k) => router.setParams({ tab: k })} top={<SalesStats />}>
       <SalesLists key={`${tab}${f || ''}`} tab={tab} f={f} />
     </FinPage>
   );

@@ -27,8 +27,24 @@ const Chip = ({ on, label, onPress, n }: { on: boolean; label: string; onPress: 
   </Pressable>
 );
 export { Chip as FinChip };
+/** The grey filter bar with counts (finsubtabs): the chosen one white. */
+export function FinSeg({ items, value, onChange }: { items: [string, string, number?][]; value: string; onChange: (k: string) => void }) {
+  return (
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignSelf: 'flex-start', gap: 2, backgroundColor: '#EEF0F2', borderRadius: 10, padding: 3 }}>
+      {items.map(([k, l, n], i) => {
+        const on = k === value;
+        return (
+          <Pressable key={k} onPress={() => onChange(k)} style={[{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8 }, on && { backgroundColor: '#fff', shadowColor: '#14161C', shadowOpacity: 0.1, shadowRadius: 3, shadowOffset: { width: 0, height: 1 } }]}>
+            <Text style={{ fontSize: 12, fontWeight: on ? '700' : '600', color: on ? '#111827' : '#6b7280' }}>{l}</Text>
+            {n != null && n > 0 && <Text style={{ fontSize: 10.5, fontWeight: '800', color: i === 0 ? '#fff' : '#6b7280', backgroundColor: i === 0 ? '#E3262B' : '#E1E4E8', borderRadius: 9, minWidth: 18, textAlign: 'center', paddingHorizontal: 5, overflow: 'hidden' }}>{n}</Text>}
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
 
-export function FinPage({ title, section, sub, onSub, badges, children, wide }: { title: string; section: string; sub?: string; onSub?: (k: string) => void; badges?: Record<string, number>; children: ReactNode; wide?: boolean }) {
+export function FinPage({ title, section, sub, onSub, badges, children, wide, top }: { title: string; section: string; sub?: string; onSub?: (k: string) => void; badges?: Record<string, number>; children: ReactNode; wide?: boolean; top?: ReactNode }) {
   const { me, org } = useAuth();
   const t = useTheme();
   const subs = FIN_SUBS[section] || [];
@@ -44,12 +60,13 @@ export function FinPage({ title, section, sub, onSub, badges, children, wide }: 
               </Pressable>
             ))}
           </ScrollView>
+          {section === 'overview' && <View style={{ backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 12, marginBottom: 14 }}><Text style={{ color: '#111827', fontSize: 12 }}>🔒 Finance trial — nothing is sent from Finance (no emails, no Xero, no pushes to PMs) while it&apos;s being tested.</Text></View>}
+          {!!top && <FinMode.Provider value>{top}</FinMode.Provider>}
           {subs.length > 1 && onSub && (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, marginBottom: 12 }}>
               {subs.map(([k, l]) => <Pressable key={k} onPress={() => onSub(k)} style={{ paddingHorizontal: 10, paddingVertical: 6, borderBottomWidth: 2, borderColor: k === sub ? base.ink : 'transparent' }}><Text style={{ fontWeight: k === sub ? '800' : '600', color: k === sub ? base.ink : base.slate }}>{l}{badges?.[k] ? ` · ${badges[k]}` : ''}</Text></Pressable>)}
             </ScrollView>
           )}
-          <View style={{ backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 12, marginBottom: 14 }}><Text style={{ color: '#111827', fontSize: 12 }}>🔒 Finance trial — nothing is sent from Finance (no emails, no Xero, no pushes to PMs) while it&apos;s being tested.</Text></View>
           <FinMode.Provider value>{children}</FinMode.Provider>
         </>
       )}
