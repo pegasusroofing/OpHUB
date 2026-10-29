@@ -161,8 +161,10 @@ export function Toggle({ title, open, onPress }: { title: string; open: boolean;
 
 // Small stat box on home pages (big number + label).
 export function Stat({ n, label, hot, onPress }: { n: number | string; label: string; hot?: boolean; onPress?: () => void }) {
+  const desk = useDesk();
+  // .pmstat: 11/10 padding on a phone (8 at the sides so 'Notifications' fits), 16/18 on a computer.
   return (
-    <Pressable onPress={onPress} style={s.stat}>
+    <Pressable onPress={onPress} style={[s.stat, desk ? { paddingVertical: 16, paddingHorizontal: 18 } : { paddingHorizontal: 8 }]}>
       <Text style={[s.statN, hot && { color: base.red }]}>{n}</Text>
       <Text style={s.statL}>{label}</Text>
     </Pressable>

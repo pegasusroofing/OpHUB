@@ -107,7 +107,9 @@ async function makeContext(browser, role, log, opts){
   await ctx.route(/basemaps\.cartocdn\.com/, route=>route.fulfill({status:200, contentType:'image/png', body:PNG}));
   await ctx.route(/(unpkg\.com|cdn\.jsdelivr\.net)\/(npm\/)?maplibre-gl/, route=>{
     const u = route.request().url(); const css = u.endsWith('.css');
-    route.fulfill({status:200, contentType: css?'text/css':'application/javascript', body: fs.readFileSync(__dirname+'/node_modules/maplibre-gl/dist/maplibre-gl'+(css?'.css':'.js'))});
+    const f = __dirname+'/node_modules/maplibre-gl/dist/maplibre-gl'+(css?'.css':'.js');
+    if(!fs.existsSync(f)) return route.continue(); // no local copy: fetch the real one
+    route.fulfill({status:200, contentType: css?'text/css':'application/javascript', body: fs.readFileSync(f)});
   });
   await ctx.route(/tiles\.openfreemap\.org/, route=>route.fulfill({status:200, contentType:'application/json', body: JSON.stringify({version:8, sources:{}, layers:[{id:'bg', type:'background', paint:{'background-color':'#EEF1F4'}}]})}));
   if(opts.mockGeo){

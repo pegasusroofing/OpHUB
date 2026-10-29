@@ -8,6 +8,7 @@ import { Pressable, Text, View } from 'react-native';
 import { HowTo } from '@/components/HowTo';
 import { OphIcon } from '@/components/OphIcon';
 import { SearchButton } from '@/components/SearchButton';
+import { SitesMapCard } from '@/components/SitesMap';
 import { Muted, Screen, SectionTitle, Stat, Tile, TileGrid, TINTS } from '@/components/ui';
 import { useHub } from '@/data/hub';
 import { useDeliveryRequests } from '@/data/deliveries';
@@ -61,6 +62,7 @@ export function PmHome() {
         <Text style={[heading(800), { color: t.brand1Text, fontSize: 20, letterSpacing: -0.2 }]}>Live projects</Text>
         <Text style={{ color: t.brand1Text, opacity: 0.92, marginTop: 4, fontSize: 13, fontWeight: '500' }}>{live.length} live{upcoming.length ? ` · ${upcoming.length} upcoming` : ''}</Text>
       </Pressable>
+      {!!sites?.length && <SitesMapCard sites={sites} />}
       <TileGrid cols={desk ? 4 : 2}>
         {isFinanceUser(me, org) && <Tile ic="pound" tint={TINTS.green[0]} fg={TINTS.green[1]} title="OpHUB Finance" sub="Money in & out" onPress={go('/fin')} />}
         <Tile ic="chart" tint={TINTS.teal[0]} fg={TINTS.teal[1]} title="Dashboard" sub="Company overview" onPress={go('/pm/dashboard')} />
