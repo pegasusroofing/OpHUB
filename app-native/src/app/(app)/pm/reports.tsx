@@ -1,6 +1,7 @@
 // Reports & surveys across all projects (185 renderAllReports): Start a report for
 // a project or as a general survey (no project), search, In progress / Completed /
-// All, filter by template or surveyor, open any report.
+// All, filter by template or surveyor, open any report; tick completed ones to
+// export or email them as one PDF. Completed TBTs (all projects) is linked below.
 import { router, Stack } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
@@ -12,9 +13,14 @@ import { usePmReports } from '@/data/pmHome';
 import { startGeneralReport, startReport, useTemplates } from '@/data/reports';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
+import { deliverPdf, emailPdf, PDFDocument } from '@/lib/pdf';
+import { buildReportPdf, type PdfSub } from '@/lib/reportPdf';
+import { supabase } from '@/lib/supabase';
 import { siteStatusKey } from '@/lib/rules/checkin';
 import { isManager } from '@/lib/roles';
 import { base, radius, space } from '@/theme/theme';
+
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function AllReports() {
   const { me } = useAuth();
@@ -28,6 +34,8 @@ export default function AllReports() {
   const [tpl, setTpl] = useState('');
   const [by, setBy] = useState('');
   const [busy, setBusy] = useState(false);
+  const [sel, setSel] = useState<Set<string>>(new Set());
+  const [xBusy, setXBusy] = useState('');
   if (!me) return null;
   if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
   const where = (r: (typeof rows)[number]) => (r.site_id ? (sites ?? []).find((s) => s.id === r.site_id)?.name || 'Project' : r.general_label || 'General survey');
@@ -68,6 +76,15 @@ export default function AllReports() {
       <Text style={{ fontWeight: '700', color: tab === k ? '#fff' : base.ink }}>{l} ({count[k]})</Text>
     </Pressable>
   );
+  const merged = async () => {
+    const ids = rows.filter((r) => sel.has(r.id) && r.status !== 'in_progress').map((r) => r.id);
+    if (!ids.length) { toast('Only completed reports can be exported.'); return null; }
+    const full = ((await supabase.from('report_submissions').select('*').in('id', ids)).data ?? []) as unknown as PdfSub[];
+    const out = await PDFDocument.create(); let n = 0;
+    for (const id of ids) { const r = full.find((x) => x.id === id); if (!r) continue; const site = r.site_id ? (sites ?? []).find((x) => x.id === r.site_id) ?? null : null; const b = await buildReportPdf(r, site, null, (u) => nameOf(people, u)).catch(() => null); if (!b) continue; const d = await PDFDocument.load(b.bytes); (await out.copyPages(d, d.getPageIndices())).forEach((p) => out.addPage(p)); n++; }
+    if (!n) { toast('Could not build the PDF.'); return null; }
+    return { bytes: await out.save(), filename: `Reports (${n}) - ${new Date().toLocaleDateString('en-GB').replace(/\//g, '-')}.pdf`, n };
+  };
   const tplNames = [...new Set(rows.map((r) => r.template_name).filter(Boolean) as string[])].sort();
   const surveyors = [...new Set(rows.map((r) => r.submitted_by).filter(Boolean) as string[])];
 
@@ -81,8 +98,23 @@ export default function AllReports() {
         <Pressable onPress={async () => { const k = await chooseAction('Template', [{ key: '', label: 'All templates' }, ...tplNames.map((n) => ({ key: n, label: n }))]); if (k !== null) setTpl(k); }} style={{ paddingHorizontal: 12, paddingVertical: 7 }}><Text style={{ color: base.blue }}>{tpl || 'Template ▾'}</Text></Pressable>
         <Pressable onPress={async () => { const k = await chooseAction('Surveyor', [{ key: '', label: 'Everyone' }, ...surveyors.map((u) => ({ key: u, label: nameOf(people, u) }))]); if (k !== null) setBy(k); }} style={{ paddingHorizontal: 12, paddingVertical: 7 }}><Text style={{ color: base.blue }}>{by ? nameOf(people, by) : 'Surveyor ▾'}</Text></Pressable>
       </View>
+      {sel.size > 0 && (
+        <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Text style={{ flex: 1, fontWeight: '700', color: base.ink }}>{sel.size} selected</Text>
+          <Button kind="ghost" busy={xBusy === 'pdf'} title="Export PDF" onPress={async () => { setXBusy('pdf'); toast('Building PDF…'); const m = await merged().catch(() => null); setXBusy(''); if (m && !(await deliverPdf(m.bytes, m.filename))) toast('Could not save the PDF.'); }} />
+          <Button busy={xBusy === 'email'} title="Email" onPress={async () => {
+            const to = (await promptText(`Email the ${sel.size} ticked report${sel.size === 1 ? '' : 's'} (one PDF) to:`, ''))?.trim(); if (!to) return;
+            if (!EMAIL.test(to)) { toast('Enter a valid email address.'); return; }
+            setXBusy('email'); const m = await merged().catch(() => null);
+            const err = m ? await emailPdf(m.bytes, m.filename, `report-exports/${me.org_id}`, { general_label: 'Reports', recipient_email: to, cc_email: to !== me.email ? me.email || undefined : undefined, doc_title: `Reports (${m.n})` }) : 'Nothing to send.';
+            setXBusy(''); toast(err || `${m?.n} report${m?.n === 1 ? '' : 's'} emailed to ${to}`); if (!err) setSel(new Set());
+          }} />
+          <Pressable onPress={() => setSel(new Set())}><Text style={{ color: base.slate }}>✕</Text></Pressable>
+        </Card>
+      )}
       {isLoading ? <Muted>Loading…</Muted> : shown.length ? shown.map((r) => (
-        <Pressable key={r.id} onPress={() => open(r)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 8, backgroundColor: base.card }}>
+        <Pressable key={r.id} onPress={() => open(r)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderWidth: 1, borderColor: sel.has(r.id) ? base.blue : base.cardLine, borderRadius: radius.row, marginBottom: 8, backgroundColor: base.card }}>
+          {r.status !== 'in_progress' && <Pressable hitSlop={8} onPress={() => setSel((x) => { const n = new Set(x); if (n.has(r.id)) n.delete(r.id); else n.add(r.id); return n; })}><Text style={{ fontSize: 20 }}>{sel.has(r.id) ? '☑' : '☐'}</Text></Pressable>}
           <View style={{ flex: 1 }}>
             <Text style={{ fontWeight: '700', color: base.ink }}>{r.template_name || 'Report'}</Text>
             <Muted>{where(r)} · {nameOf(people, r.submitted_by)}{r.status === 'in_progress' || !r.submitted_at ? '' : ` · ${new Date(r.submitted_at).toLocaleDateString('en-GB')}`}</Muted>
@@ -90,9 +122,7 @@ export default function AllReports() {
           <Text style={{ fontWeight: '700', color: r.status === 'in_progress' ? base.warn : base.ok }}>{r.status === 'in_progress' ? 'In progress' : 'Completed'}</Text>
         </Pressable>
       )) : <Empty>No reports here{tpl || by ? ' for these filters' : ''}.</Empty>}
-      <Card style={{ marginTop: space.m }}>
-        <Muted>Exporting or emailing several reports as PDFs, and the completed-TBTs page, are still in the current app for now.</Muted>
-      </Card>
+      <Button kind="ghost" title="Completed TBTs — signed toolbox talks, all projects" onPress={() => router.push('/pm/tbts' as never)} />
     </ScrollView>
   );
 }
