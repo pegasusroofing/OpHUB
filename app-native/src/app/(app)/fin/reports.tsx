@@ -9,7 +9,8 @@ import { Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } fro
 import { FinChip, FinPage } from '@/components/FinNav';
 import { pickJob } from '@/components/FinSales';
 import { useToast } from '@/components/toast';
-import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
+import { OphIcon } from '@/components/OphIcon';
+import { Button, Card, Empty, Muted, TINTS } from '@/components/ui';
 import { finStatus, loadSettings, selectAll } from '@/data/finance';
 import { loadBook } from '@/data/finBook';
 import { useSites } from '@/data/sites';
@@ -26,21 +27,32 @@ const fmt = (c: Col, v: unknown) => (v === null || v === undefined || v === '' ?
 export default function FinReports() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const rep = REPORTS.find((r) => r.id === id);
+  const [open, setOpen] = useState<string[]>([Object.keys(REPORT_GROUPS)[0]]);
+  // Each group as a card that opens (the current app's report picker): a tinted icon, "· n reports", then a row per report.
+  const ICON = [['chart', 'blue'], ['pound', 'green'], ['reports', 'orange']] as const;
   if (!rep) return (
     <FinPage title="Reports" section="reports">
-      <Muted style={{ marginBottom: 10 }}>Pick a report, then set the projects and dates.</Muted>
-      {Object.keys(REPORT_GROUPS).map((g) => (
-        <View key={g}>
-          <SectionTitle>{REPORT_GROUPS[g]}</SectionTitle>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-            {REPORTS.filter((r) => r.group === g).map((r) => (
-              <Pressable key={r.id} onPress={() => router.setParams({ id: r.id })} style={{ flexBasis: 260, flexGrow: 1, backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, padding: 12 }}>
-                <Text style={{ fontWeight: '800', color: base.ink }}>{r.title}</Text><Text style={{ color: base.slate, fontSize: 12.5 }}>{r.desc}</Text>
-              </Pressable>
-            ))}
+      <Muted style={{ marginBottom: 10, fontSize: 12 }}>Pick a report, set the project and dates, then download it as Excel or PDF.</Muted>
+      {Object.keys(REPORT_GROUPS).map((g, gi) => {
+        const list = REPORTS.filter((r) => r.group === g), on = open.includes(g), [ic, tn] = ICON[gi % ICON.length];
+        return (
+          <View key={g} style={{ marginBottom: 10 }}>
+            <Pressable onPress={() => setOpen(on ? open.filter((x) => x !== g) : [...open, g])} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10, paddingVertical: 12, paddingHorizontal: 14 }}>
+              <View style={{ width: 30, height: 30, borderRadius: 8, backgroundColor: TINTS[tn][0], alignItems: 'center', justifyContent: 'center' }}><OphIcon name={ic} size={16} color={TINTS[tn][1]} /></View>
+              <Text style={{ flex: 1, color: '#111827' }}><Text style={{ fontWeight: '800' }}>{REPORT_GROUPS[g]}</Text><Text style={{ color: '#6b7280', fontSize: 12 }}> · {list.length} reports</Text></Text>
+              <Text style={{ color: '#111827', fontSize: 10 }}>{on ? '▼' : '▶'}</Text>
+            </Pressable>
+            {on && <View style={{ marginLeft: 14, marginTop: 6, gap: 6 }}>
+              {list.map((r) => (
+                <Pressable key={r.id} onPress={() => router.setParams({ id: r.id })} style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10, paddingVertical: 10, paddingHorizontal: 14 }, pressed && { backgroundColor: '#F8F9FB' }]}>
+                  <View style={{ flex: 1 }}><Text style={{ fontWeight: '700', color: '#111827', fontSize: 13 }}>{r.title}</Text><Text style={{ color: '#6b7280', fontSize: 11.5, marginTop: 1 }}>{r.desc}</Text></View>
+                  <OphIcon name="chevron" size={16} color={base.slateLight} stroke={2.2} />
+                </Pressable>
+              ))}
+            </View>}
           </View>
-        </View>
-      ))}
+        );
+      })}
     </FinPage>
   );
   return <Report key={rep.id} id={rep.id} />;
