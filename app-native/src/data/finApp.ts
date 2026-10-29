@@ -71,8 +71,10 @@ export async function newApplication(me: Profile, siteId: string): Promise<{ id?
 export async function loadApplication(id: string) {
   const a = (await fdb.from('fin_applications').select('*').eq('id', id).maybeSingle()).data as Row | null;
   if (!a) return null;
-  const [jf, apps] = await Promise.all([fdb.from('job_finance').select('*').eq('site_id', a.site_id).maybeSingle(), rows(fdb.from('fin_applications').select('number,status,cert_net,net_due').eq('site_id', a.site_id))]);
+  const [jf, apps] = await Promise.all([fdb.from('job_finance').select('*').eq('site_id', a.site_id).maybeSingle(), rows(fdb.from('fin_applications').select('number,status,cert_net,net_due,lines,cert_lines,variations').eq('site_id', a.site_id))]);
   const j = (jf.data as Row | null) || {}, previousLive = previousCertified(apps, a.number);
+  // Each line's % on the last certificate, for the Previous / This time figures (9219r).
+  const prevPct = appDoc(a, j, apps).prevPct;
   if (a.status === 'draft') {
     const [vars, fvars, fdays] = await loadRegisters(a.site_id);
     const { varRows, dayRows } = registerRows(a, vars, fvars, fdays);
@@ -80,10 +82,10 @@ export async function loadApplication(id: string) {
     if (key(varRows) !== key(a.variations || []) || key(dayRows) !== key(a.dayworks || [])) {
       const next = { ...a, variations: varRows, dayworks: dayRows };
       const saved = rowForSave(next, j, previousLive);
-      if (!(await fdb.from('fin_applications').update(saved as never).eq('id', a.id).eq('status', 'draft')).error) return { a: { ...next, ...saved }, jf: j, previousLive, synced: true };
+      if (!(await fdb.from('fin_applications').update(saved as never).eq('id', a.id).eq('status', 'draft')).error) return { a: { ...next, ...saved }, jf: j, previousLive, prevPct, synced: true };
     }
   }
-  return { a, jf: j, previousLive, synced: false };
+  return { a, jf: j, previousLive, prevPct, synced: false };
 }
 export function rowForSave(a: Row, jf: Row, previous: number) {
   const c = appCalc(a, jf.contract_value, jf.retention_limit_pct, previous);

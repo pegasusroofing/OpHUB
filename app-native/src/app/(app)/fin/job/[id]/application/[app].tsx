@@ -53,10 +53,10 @@ export default function FinApplication() {
   const { data, isLoading } = useQuery({ queryKey: ['finApp', app], enabled: app !== 'new', gcTime: 0, queryFn: () => loadApplication(app) });
   if (app === 'new' || isLoading) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   if (!data) return <Muted style={{ padding: space.l }}>Application not found.</Muted>;
-  return <Editor key={`${data.a.id}${data.a.updated_at}`} a0={data.a} jf={data.jf} previousLive={data.previousLive} />;
+  return <Editor key={`${data.a.id}${data.a.updated_at}`} a0={data.a} jf={data.jf} previousLive={data.previousLive} prevPct={data.prevPct} />;
 }
 
-function Editor({ a0, jf, previousLive }: { a0: Row; jf: Row; previousLive: number }) {
+function Editor({ a0, jf, previousLive, prevPct }: { a0: Row; jf: Row; previousLive: number; prevPct: Record<string, number> }) {
   const { me, org } = useAuth();
   const { data: site } = useSite(a0.site_id);
   const toast = useToast();
@@ -181,6 +181,8 @@ function Editor({ a0, jf, previousLive }: { a0: Row; jf: Row; previousLive: numb
             <View style={{ flex: 1 }}>
               <Text style={{ color: base.ink }}>{l.ref ? `${l.ref} · ` : ''}{l.description}</Text>
               <Muted>{hasQty ? `${l.qty} ${l.unit || ''} × ${money(l.rate)} = ` : 'Value '}{money(l.value)}</Muted>
+              {/* Previous = certified on this line last time; This time = to date less previous (9219r). */}
+              {(() => { const prev = round2((Number(l.value || 0) * (prevPct[l.item_id] || 0)) / 100); return prev || l.gross ? <Muted style={{ fontSize: 11.5 }}>Previous {money(prev)} · This time {money(round2(l.gross - prev))}</Muted> : null; })()}
             </View>
             {locked ? <Text style={{ color: base.slate }}>{pct(l.pct)}%</Text> : mode === 'pct'
               ? <TextInput defaultValue={String(pct(l.pct))} onChangeText={(v) => setLine(i, { pct: pct(v) })} keyboardType="decimal-pad" style={[box, { width: 70 }]} />
