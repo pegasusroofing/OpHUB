@@ -97,19 +97,21 @@ export async function driverBreak(me: Profile, action: 'start' | 'end'): Promise
 }
 
 /* ---------- schedule ---------- */
-export function useDriverDay(dateISO: string) {
+/** One day for a driver. viewAs: a manager's "Driver view" of another driver (or '' for none set up). */
+export function useDriverDay(dateISO: string, viewAs?: string) {
   const { me } = useAuth();
+  const who = viewAs ?? me?.id;
   return useQuery({
-    queryKey: ['driverDay', me?.id, dateISO],
+    queryKey: ['driverDay', who, dateISO],
     enabled: !!me,
-    queryFn: () => cachedQuery(`driverDay:${me?.id}:${dateISO}`, async () => {
+    queryFn: () => cachedQuery(`driverDay:${who}:${dateISO}`, async () => {
       const p = me as Profile;
       const [t, s] = await Promise.all([
         db.from('delivery_tasks').select('*').eq('org_id', p.org_id as string).eq('scheduled_date', dateISO).order('sub_priority', { ascending: true }),
         db.from('suppliers').select('id,name').eq('org_id', p.org_id as string),
       ]);
       // A driver sees their own deliveries plus any not yet given to a driver.
-      const tasks = (orThrow(t) as Delivery[]).filter((x) => !x.driver_id || x.driver_id === p.id);
+      const tasks = (orThrow(t) as Delivery[]).filter((x) => !x.driver_id || x.driver_id === (who ?? p.id));
       const suppliers = Object.fromEntries((orThrow(s) as { id: string; name: string }[]).map((x) => [x.id, x.name]));
       return { tasks, suppliers };
     }),

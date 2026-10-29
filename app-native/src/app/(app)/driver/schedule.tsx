@@ -1,7 +1,10 @@
 // Driver's delivery schedule. Ported from renderDriverSchedule (840): break bar,
 // day picker, To do / Completed tabs, "what to pick up where", deliveries by drop,
 // completion photos, Mark Complete, Push to Next Working Day and Re-open.
+// ?preview=1 is a manager's "Driver view" (840 preview): the same screen for a
+// chosen driver, view only (no break, photo, complete, push or re-open buttons).
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Linking, Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
@@ -12,12 +15,14 @@ import {
   addCompletionPhotos, completeDelivery, completionPhotos, deliveryPhotos, driverBreak, planPush, pushDelivery,
   removeCompletionPhoto, reopenDelivery, siteHeading, useDriverDay, useDriverStatus, type Delivery,
 } from '@/data/driver';
+import { useStaff } from '@/data/deliveries';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { pickPhotos } from '@/lib/photos';
 import {
   collectionLine, continuations, DELIVERY_TIME_SLOTS, groupCollections, localISODate, slotLabel,
 } from '@/lib/rules/driver';
+import { isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
 import { base, radius, space, useTheme } from '@/theme/theme';
 
@@ -34,14 +39,20 @@ export default function DriverSchedule() {
   const th = useTheme();
   const toast = useToast();
   const qc = useQueryClient();
-  const [offset, setOffset] = useState(0);
+  const params = useLocalSearchParams<{ preview?: string; date?: string }>();
+  const preview = params.preview === '1' && !!me && isManager(me);
+  const [offset, setOffset] = useState(() => (params.date ? Math.round((new Date(`${params.date}T12:00:00`).getTime() - new Date(`${localISODate(new Date())}T12:00:00`).getTime()) / 864e5) : 0));
+  const { data: staff = [] } = useStaff();
+  const drivers = staff.filter((p) => p.role === 'driver');
+  const [pick, setPick] = useState<string | null>(null);
+  const viewAs = preview ? (pick && drivers.some((p) => p.id === pick) ? pick : drivers[0]?.id || '') : undefined;
   const [tab, setTab] = useState<'todo' | 'done'>('todo');
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
   const [reopen, setReopen] = useState<Delivery | null>(null);
   const d = new Date(); d.setDate(d.getDate() + offset);
   const dateISO = localISODate(d);
-  const { data, isLoading } = useDriverDay(dateISO);
+  const { data, isLoading } = useDriverDay(dateISO, viewAs);
   const status = useDriverStatus();
   const { data: sites = [] } = useSites();
   const { data: people = [] } = usePhones();
@@ -92,7 +103,13 @@ export default function DriverSchedule() {
 
   return (
     <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
-      {onDuty ? (
+      {preview ? (
+        <Card style={{ backgroundColor: base.blueBg }}>
+          <Text style={{ fontWeight: '700', color: base.ink }}>👁 Driver view</Text>
+          <Muted>{drivers.length ? 'This is what the driver sees: their own deliveries plus any not yet given to a driver. View only.' : 'There are no drivers set up yet, so this shows only deliveries not given to a driver.'}</Muted>
+          {drivers.length > 1 && <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>{drivers.map((p) => <Pressable key={p.id} onPress={() => setPick(p.id)} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 14, borderWidth: 1, borderColor: viewAs === p.id ? base.ink : base.line, backgroundColor: viewAs === p.id ? base.ink : base.card }}><Text style={{ fontWeight: '700', color: viewAs === p.id ? '#fff' : base.ink }}>{p.name}</Text></Pressable>)}</View>}
+        </Card>
+      ) : onDuty ? (
         <Button kind={brk ? 'primary' : 'ghost'} title={brk ? '▶ End Break' : '☕ Start Break'}
           onPress={async () => { const ok = await driverBreak(me, brk ? 'end' : 'start'); toast(ok ? (brk ? 'Break ended' : 'Break started') : 'Could not save — check your connection and try again.'); void qc.invalidateQueries({ queryKey: ['driverStatus'] }); }} />
       ) : <Muted style={{ textAlign: 'center', marginBottom: 6 }}>☕ Breaks — check in first</Muted>}
@@ -172,7 +189,12 @@ export default function DriverSchedule() {
                 {t.status === 'completed' ? (
                   <>
                     <Text style={{ color: base.ok, marginTop: 8 }}>✓ Completed {t.completed_at ? new Date(t.completed_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}</Text>
-                    <Button kind="ghost" title="↩ Re-open delivery" onPress={() => setReopen(t)} />
+                    {!preview && <Button kind="ghost" title="↩ Re-open delivery" onPress={() => setReopen(t)} />}
+                  </>
+                ) : preview ? (
+                  <>
+                    {cPhotos.length > 0 && <Muted style={{ marginTop: 8 }}>Completion photos ({cPhotos.length})</Muted>}
+                    <Thumbs paths={cPhotos} />
                   </>
                 ) : (
                   <>
