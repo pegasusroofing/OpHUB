@@ -31,7 +31,8 @@ export default function Branding() {
   const swatch = (c: string) => <View style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: HEX.test(c) ? c : base.line, borderWidth: 1, borderColor: base.line }} />;
   return (
     <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
-      <Stack.Screen options={{ title: 'Company Logo & Theme' }} />
+      <Stack.Screen options={{ title: org && !org.logo_path ? 'Set Up Your Company' : 'Company Logo & Theme' }} />
+      {!!org && !org.logo_path && <Card style={{ backgroundColor: base.warnBg, borderColor: base.warn }}><Text style={{ color: base.ink }}>Before you get started, set up <Text style={{ fontWeight: '800' }}>{org.name}</Text>&apos;s branding — your logo and colours are shown throughout the app and on your team&apos;s invite link. Add your logo to carry on.</Text></Card>}
       <SectionTitle>Company Logo</SectionTitle>
       <Card>
         <Muted style={{ marginBottom: 10 }}>Shown throughout the app and on your team&apos;s invite/join screen.</Muted>

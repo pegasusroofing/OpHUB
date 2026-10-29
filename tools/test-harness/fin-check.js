@@ -7,6 +7,7 @@ const seed = require('./fresh/seed');
   const browser = await chromium.launch(); const errs = [];
   const {ctx, db} = await makeContext(browser, 'admin', [], {viewport:{width:1300, height:900}});
   seed(db); try{ require('./seeds/ex1')(db); }catch(e){}
+  if(process.env.NOLOGO) db.organizations[0].logo_path = null;
   if(process.env.CHECKINS) db.checkins = [{id:'ck1', site_id:S1, user_id:'o1', type:'in', ts:new Date().toISOString(), lat:51.46, lon:-0.13, accuracy_m:12}, {id:'ck2', site_id:S1, user_id:'o1', type:'out', ts:new Date().toISOString(), lat:51.46, lon:-0.13, accuracy_m:9}];
   if(process.env.EXTRA){ const d = new Date().toISOString().slice(0,10), org = db.profiles[0].org_id, uid = db.profiles[0].id;
     db.delivery_tasks = [{id:'dt1', org_id:org, site_id:S1, scheduled_date:d, time_slot:'7am', description:'Slates x 2 pallets', status:'scheduled', high_priority:true}];

@@ -36,6 +36,9 @@ export default function AppLayout() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [me, org]);
+  // A new company's admin sets up the logo first (160): kept on the branding page until there is one.
+  const needsSetup = me?.role === 'admin' && !me._support && !!org && !org.logo_path;
+  useEffect(() => { if (needsSetup && path !== '/pm/admin/branding') router.replace('/pm/admin/branding' as never); }, [needsSetup, path]);
   if (policy.data?.pending && policy.data.doc && path !== '/signature' && !me?._support) return <PolicyGate doc={policy.data.doc} />;
   return (
     <View style={{ flex: 1 }}>
