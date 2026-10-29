@@ -11,25 +11,11 @@ import { Platform, Pressable, Text, View } from 'react-native';
 import { useToast } from '@/components/toast';
 import { Button, Card, Muted } from '@/components/ui';
 import { fetchBytes } from '@/lib/pdf';
+import { loadPdfJs, type PdfDoc } from '@/lib/pdfjs';
 import { publicUrl } from '@/lib/privateFiles';
 import { align, BOX_WHAT, clientNum, MAX_OPS, opNum, repeatBoxes, repeatOffset, summary, whoColor, whoLabel, type SBox } from '@/lib/rules/signBoxes';
 import { base, radius } from '@/theme/theme';
 
-type PdfJs = { getDocument: (o: { data: Uint8Array }) => { promise: Promise<PdfDoc> }; GlobalWorkerOptions: { workerSrc: string } };
-type PdfDoc = { numPages: number; getPage: (n: number) => Promise<{ getViewport: (o: { scale: number }) => { width: number; height: number }; render: (o: object) => { promise: Promise<void> } }> };
-const PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
-let pdfjsLoad: Promise<PdfJs | null> | null = null;
-function loadPdfJs(): Promise<PdfJs | null> {
-  const w = globalThis as unknown as { pdfjsLib?: PdfJs };
-  if (w.pdfjsLib) return Promise.resolve(w.pdfjsLib);
-  if (!pdfjsLoad) pdfjsLoad = new Promise((res) => {
-    const s = document.createElement('script'); s.src = `${PDFJS}pdf.min.js`;
-    s.onload = () => { if (w.pdfjsLib) w.pdfjsLib.GlobalWorkerOptions.workerSrc = `${PDFJS}pdf.worker.min.js`; res(w.pdfjsLib ?? null); };
-    s.onerror = () => { pdfjsLoad = null; res(null); };
-    document.head.appendChild(s);
-  });
-  return pdfjsLoad;
-}
 const r4 = (n: number) => Math.round(n * 10000) / 10000;
 
 export function SignBoxEditor({ storagePath, initial, intro, saveLabel, onSave, extra }: {

@@ -1,6 +1,8 @@
 // Repair jobs hub (340 renderRepairJobsCategoryHub): a tile per stage with its
 // count. Managers add jobs, see every tile (dimmed if hidden from operatives),
-// open All Jobs and choose which tiles operatives can see.
+// open All Jobs and choose which tiles operatives can see. A work order PDF fills
+// in the new job's number, address and description (read from its own text —
+// office laptop); Bulk add makes a job from each of many work orders.
 import { useQueryClient } from '@tanstack/react-query';
 import * as DocumentPicker from 'expo-document-picker';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
@@ -12,12 +14,19 @@ import { Button, Card, Check, Muted, SectionTitle, Tile } from '@/components/ui'
 import { addRepairJob, setRepairHiddenTiles, uploadWorkOrder, useRepairHiddenTiles, useRepairJobs } from '@/data/repairs';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
+import { pdfLines } from '@/lib/pdfjs';
 import { exportRepairTracker } from '@/lib/repairExports';
+import { parseWorkOrder } from '@/lib/rules/workOrder';
 import { REPAIR_CATEGORIES, REPAIR_TILES, type RepairJob } from '@/lib/rules/repairs';
 import { isManager } from '@/lib/roles';
 import { base, radius, space } from '@/theme/theme';
 
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card, marginBottom: 8 };
+/** Work order fields from a picked PDF (nothing when it can't be read). */
+async function readWo(uri: string, name?: string | null) {
+  if (!/\.pdf$/i.test(name || '')) return {};
+  try { const rows = await pdfLines(new Uint8Array(await (await fetch(uri)).arrayBuffer())); return rows ? parseWorkOrder(rows) : {}; } catch { return {}; }
+}
 const titleCase = (s: string) => s.replace(/\b([a-z])/g, (m) => m.toUpperCase());
 
 export default function RepairsHub() {
@@ -35,6 +44,7 @@ export default function RepairsHub() {
   const [wo, setWo] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
   const [busy, setBusy] = useState(false);
   const [vis, setVis] = useState(false);
+  const [bulk, setBulk] = useState('');
   if (!me || !site) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   const mgr = isManager(me);
   const tiles = REPAIR_TILES.filter((k) => (k === 'to_invoice' ? mgr : mgr || !hidden.includes(k)));
@@ -60,7 +70,7 @@ export default function RepairsHub() {
           <TextInput value={num} onChangeText={setNum} placeholder="Job number (optional)" style={box} />
           <TextInput value={addr} onChangeText={(v) => setAddr(titleCase(v))} placeholder="Address" style={box} />
           <TextInput value={desc} onChangeText={setDesc} placeholder="Description of call out" multiline style={[box, { minHeight: 56 }]} />
-          <Button kind="ghost" title={wo ? `📎 ${wo.name}` : 'Work order (optional)…'} onPress={async () => { const r = await DocumentPicker.getDocumentAsync({ type: ['application/pdf', 'image/*'], copyToCacheDirectory: true }); if (!r.canceled && r.assets[0]) setWo(r.assets[0]); }} />
+          <Button kind="ghost" title={wo ? `📎 ${wo.name}` : 'Work order (optional)…'} onPress={async () => { const r = await DocumentPicker.getDocumentAsync({ type: ['application/pdf', 'image/*'], copyToCacheDirectory: true }); if (!r.canceled && r.assets[0]) { const a = r.assets[0]; setWo(a); const p = await readWo(a.uri, a.name); let n = 0; if (p.jobNumber) { setNum(p.jobNumber); n++; } if (p.address) { setAddr(p.address); n++; } if (p.description) { setDesc(p.description); n++; } if (n) toast(`Filled ${n} field${n > 1 ? 's' : ''} from the work order — check before saving`); } }} />
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <View style={{ flex: 1 }}><Button busy={busy} title="Add Job" onPress={() => void add()} /></View>
             <View style={{ flex: 1 }}><Button kind="ghost" title="Cancel" onPress={() => setAdding(false)} /></View>
@@ -91,8 +101,27 @@ export default function RepairsHub() {
               ))}
             </Card>
           )}
+          <Button kind="ghost" title={bulk || '📥 Bulk add from work orders'} disabled={!!bulk} onPress={async () => {
+            const r = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', multiple: true, copyToCacheDirectory: true });
+            if (r.canceled || !r.assets.length) return;
+            const have = new Set(jobs.map((j) => (j.job_number || '').trim().toLowerCase()).filter(Boolean));
+            let made = 0, review = 0, dup = 0;
+            for (let i = 0; i < r.assets.length; i++) {
+              const a = r.assets[i]; setBulk(`Importing ${i + 1} of ${r.assets.length}…`);
+              try {
+                const p = await readWo(a.uri, a.name), key = (p.jobNumber || '').trim().toLowerCase();
+                if (key && have.has(key)) { dup++; continue; }
+                const jid = await addRepairJob(me, site.id, { address: p.address || `⚠ Review — ${(a.name || 'work order').replace(/\.pdf$/i, '')}`, job_number: p.jobNumber || '', description: p.description || '' });
+                if (!jid) continue;
+                await uploadWorkOrder(me, { id: jid } as RepairJob, { uri: a.uri, name: a.name || 'work-order.pdf', mimeType: a.mimeType });
+                made++; if (!p.address) review++; if (key) have.add(key);
+              } catch { /* one bad file doesn't stop the rest */ }
+            }
+            setBulk(''); void qc.invalidateQueries({ queryKey: ['repairJobs', id] });
+            toast(`Done — ${made} job${made === 1 ? '' : 's'} created${review ? ` (${review} need review — the address couldn't be read, check the attached PDF)` : ''}${dup ? `, ${dup} already on this contract skipped` : ''}`);
+          }} />
           <Button kind="ghost" title="⬇ Export Excel (Repair Tracker)" onPress={async () => { if (!(await exportRepairTracker(site.name, jobs))) toast('Could not make the file — try again.'); }} />
-          <Card style={{ marginTop: space.m }}><Muted>Bulk add from work orders is still in the current app for now. Route-order exports are on the Survey, Scaffold and Approved lists.</Muted></Card>
+          <Card style={{ marginTop: space.m }}><Muted>Reading the work order works on the office laptop (a typed PDF, not a scan); on a phone the job is still made, marked for review. Route-order exports are on the Survey, Scaffold and Approved lists.</Muted></Card>
         </>
       )}
     </ScrollView>
