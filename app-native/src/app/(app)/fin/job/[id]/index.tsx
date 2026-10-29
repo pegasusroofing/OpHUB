@@ -84,7 +84,7 @@ function Overview({ id, fc, settings }: { id: string; fc: ReturnType<typeof fore
       </View>
       <Card><Text style={{ color: base.ink }}>Contract {money(fc.contract, 0)} · agreed variations {money(fc.vAgreed, 0)}{fc.vPending ? ` · waiting for agreement ${money(fc.vPending, 0)}` : ''} · <Text style={{ fontWeight: '800' }}>Expected final cost {money(fc.forecastCost, 0)}</Text>{fc.ohpPct ? ` · company overheads ${fc.ohpPct}%` : ''}</Text></Card>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
-        {[['Detailed summary', `/fin/job/${id}/summary`], ['Budget', `/fin/job/${id}/budget`], ['Variations', `/fin/job/${id}/variations`], ['Costs ledger', `/fin/job/${id}/costs`]].map(([l, p]) => <View key={l}><Button kind="ghost" title={`${l} ›`} onPress={() => router.push(p as never)} /></View>)}
+        {[['Detailed summary', `/fin/job/${id}/summary`], ['Budget', `/fin/job/${id}/budget`], ['Variations', `/fin/job/${id}/variations`], ['Costs ledger', `/fin/job/${id}/costs`], ['Monthly report', `/fin/job/${id}/monthly`], ['Day works', `/fin/job/${id}/dayworks`]].map(([l, p]) => <View key={l}><Button kind="ghost" title={`${l} ›`} onPress={() => router.push(p as never)} /></View>)}
       </View>
       <SectionTitle>Project cost to date (excl. VAT)</SectionTitle>
       <Card>
