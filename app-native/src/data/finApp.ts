@@ -143,3 +143,24 @@ export async function raiseRetentionInvoice(me: Profile, siteId: string, n: 1 | 
   const lk = await fdb.from('job_finance').upsert({ site_id: siteId, org_id: me.org_id, updated_at: new Date().toISOString(), [n === 1 ? 'ret1_invoice_id' : 'ret2_invoice_id']: id } as never, { onConflict: 'site_id' });
   return lk.error ? { id, error: 'Invoice made, but it couldn’t be linked to the retention.' } : { id };
 }
+
+/** Release retention through an application (9219zn finApplyRetention): the draft application (or a new
+ *  one) gets retention at half the rate for the first release, 0% for the final, so the client pays
+ *  it back when they certify. The project remembers which application did it. */
+export async function applyRetention(me: Profile, siteId: string, n: 1 | 2): Promise<{ id?: string; number?: number; pct?: number; error?: string }> {
+  const [jfR, apps, st] = await Promise.all([rows(fdb.from('job_finance').select('*').eq('site_id', siteId)), rows(fdb.from('fin_applications').select('id,number,status,cert_retention').eq('site_id', siteId).order('number', { ascending: false })), loadSettings(me.org_id)]);
+  const jf = jfR[0] || {};
+  const basePct = jf.retention_pct != null ? Number(jf.retention_pct) : Number(st.default_retention_pct || 0);
+  if (!basePct && !apps.some((a) => Number(a.cert_retention || 0))) return { error: 'No retention is being held on this project.' };
+  const pct = n === 1 ? round2(basePct / 2) : 0;
+  let app = apps.find((a) => a.status === 'draft');
+  if (!app) {
+    const r = await newApplication(me, siteId);
+    if (r.error || !r.id) return { error: r.error || 'Could not start the application.' };
+    app = ((await rows(fdb.from('fin_applications').select('id,number').eq('id', r.id)))[0]) as Row;
+  }
+  const up = await fdb.from('fin_applications').update({ retention_pct: pct, retention_release: n, updated_at: new Date().toISOString() } as never).eq('id', app.id);
+  if (up.error) return { error: 'Could not update the application — try again.' };
+  await fdb.from('job_finance').upsert({ site_id: siteId, org_id: me.org_id, updated_at: new Date().toISOString(), updated_by: me.id, ...(n === 1 ? { ret1_app_id: app.id } : { ret2_app_id: app.id }) } as never, { onConflict: 'site_id' });
+  return { id: app.id, number: app.number, pct };
+}

@@ -94,6 +94,7 @@ function Editor({ a0, jf, previousLive }: { a0: Row; jf: Row; previousLive: numb
     <ScrollView contentContainerStyle={page(1000)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: `Application ${a0.number}` }} />
       {!!autoNote && <Muted style={{ marginBottom: 6, textAlign: 'right', fontSize: 12 }}>{autoNote}</Muted>}
+      {!!a0.retention_release && <Card style={{ backgroundColor: '#f1fbf5', borderColor: '#d3f0de' }}><Text style={{ color: base.ink }}><Text style={{ fontWeight: '800' }}>Retention release — {a0.retention_release === 1 ? 'first half (practical completion)' : 'final release'}.</Text> Retention on this application is {pct(a0.retention_pct)}%, so the client pays back {a0.retention_release === 1 ? 'half of what they hold' : 'what they still hold'} when they certify it.</Text></Card>}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
         <FinStat v={STAGE[stage]} label="Stage" /><FinStat v={money(c.net_due)} label="Amount due this application" />
         <FinStat v={fdate(a.valuation_date)} label="Valuation date" /><FinStat v={a.final_date ? fdate(a.final_date) : '—'} label="Final date for payment" />

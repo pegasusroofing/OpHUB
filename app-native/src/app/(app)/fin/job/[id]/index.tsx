@@ -15,7 +15,7 @@ import { SalesLists } from '@/components/FinSales';
 import { SubsLists } from '@/components/FinSubs';
 import { chooseAction, useToast } from '@/components/toast';
 import { Button, Card, Muted, SectionTitle } from '@/components/ui';
-import { raiseRetentionInvoice } from '@/data/finApp';
+import { applyRetention, raiseRetentionInvoice } from '@/data/finApp';
 import { deleteClientPo, saveClientPo, saveJobFinance, saveJobNumber, useBook } from '@/data/finBook';
 import { openDocLink } from '@/data/hs';
 import { useSite } from '@/data/sites';
@@ -85,9 +85,19 @@ function Overview({ id, fc, settings, invs }: { id: string; fc: ReturnType<typeo
   const toast = useToast();
   // One tap at a time: a double tap could otherwise raise two release invoices (922).
   const [retBusy, setRetBusy] = useState(false);
+  // Release a half either way (9219zn): Apply puts it through the next application, or Raise invoice bills it now.
   const retInv = async (n: 1 | 2) => {
     if (!me || retBusy) return;
+    const done = n === 1 ? fc.jf.ret1_invoice_id : fc.jf.ret2_invoice_id;
+    const k = done ? 'inv' : await chooseAction(n === 1 ? 'First half of the retention' : 'Final retention release', [{ key: 'app', label: 'Apply — through the next application (the client certifies it)' }, { key: 'inv', label: 'Raise invoice — bill it straight away' }]);
+    if (!k) return;
     setRetBusy(true);
+    if (k === 'app') {
+      const a = await applyRetention(me, id, n).finally(() => setRetBusy(false));
+      if (a.error) { toast(a.error); return; }
+      toast(`Application ${a.number}: retention ${a.pct}% — ${n === 1 ? 'first half' : 'final'} release applied for`);
+      router.push(`/fin/job/${id}/application/${a.id}` as never); return;
+    }
     const r = await raiseRetentionInvoice(me, id, n, site as never).finally(() => setRetBusy(false));
     if (r.error) toast(r.error);
     if (r.id) router.push(`/fin/job/${id}/invoice/${r.id}` as never);
@@ -154,7 +164,7 @@ function Overview({ id, fc, settings, invs }: { id: string; fc: ReturnType<typeo
             <FinRow title="Held to date" right={money(fc.retHeld)} />
             <FinRow title="First half — at practical completion" sub={`${d.first ? fdate(d.first) : 'Set the practical completion date in Set-up'}${fc.jf.ret1_invoice_id ? ' · invoiced' : ''}`} right={money(retHalf(fc.retHeld, 1))} onPress={() => void retInv(1)} />
             <FinRow title="Second half — end of defects period" sub={`${d.second ? fdate(d.second) : '—'}${fc.jf.ret2_invoice_id ? ' · invoiced' : ''}`} right={money(retHalf(fc.retHeld, 2))} onPress={() => void retInv(2)} />
-            <Muted>Tap a half to raise (or open) its release invoice.</Muted>
+            <Muted>Tap a half to release it: Apply puts it through your next application (the client certifies it), or Raise invoice bills it straight away.</Muted>
           </Card>
         </>
       )}
