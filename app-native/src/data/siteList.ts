@@ -19,7 +19,7 @@ export async function createSite(me: Profile, d: NewSite, autoNumbers: boolean):
   // Plain insert (asking for the row back can be refused by the sites policy).
   const r = await db.from('sites').insert({
     id, name: d.name, address: d.address || null, postcode: d.postcode || null, job_number: autoNumbers ? null : d.job_number || null, status: d.status,
-    start_date: d.status === 'upcoming' ? d.start_date || null : null, multi_site: d.multi_site, repair_contract: d.repair_contract,
+    start_date: d.start_date || null, multi_site: d.multi_site, repair_contract: d.repair_contract,
     client_name: d.client_name || null, client_phone: d.client_phone || null, client_email: d.client_email || null, org_id: me.org_id, created_by: me.id,
   } as never);
   if (r.error) return { error: `Save failed — ${r.error.message}` };

@@ -1,0 +1,32 @@
+// Projects › Add a Project: client suggestions from the Directory, contact on one row, calendar start date, required fields.
+const {chromium, makeContext} = require('./harness');
+(async()=>{
+  const BASE = 'http://localhost:8081';
+  const browser = await chromium.launch(); const errs = [];
+  const {ctx, db} = await makeContext(browser, 'admin', [], {viewport:{width:1300, height:900}});
+  db.profiles[0].howto_dismissed = ['*'];
+  db.fin_clients = [{id:'c1', org_id:db.profiles[0].org_id, name:'Acme Homes', email:'jo@acme.test', phone:'01234 567890'}];
+  const page = await ctx.newPage(); page.on('pageerror', e=>errs.push(e.message));
+  await page.goto(BASE+'/login'); await page.waitForTimeout(5000);
+  await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
+  await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
+  await page.goto(BASE+'/sites/new'); await page.waitForTimeout(5000);
+  const inputs = page.locator('input');
+  await inputs.nth(0).fill('Test Job');
+  await page.getByText('Create Project', {exact:true}).click(); await page.waitForTimeout(800);
+  await page.screenshot({path:'shots/pn-1-missing.png'});
+  await inputs.nth(1).fill('1 High Street'); await inputs.nth(3).fill('J900');
+  await page.getByPlaceholder('Start typing — clients from the Directory come up').fill('ac'); await page.waitForTimeout(600);
+  await page.screenshot({path:'shots/pn-2-suggest.png'});
+  await page.getByText('Acme Homes', {exact:true}).click(); await page.waitForTimeout(400);
+  await page.getByText('Active', {exact:true}).click();
+  await page.getByText('Choose a date', {exact:true}).click(); await page.waitForTimeout(600);
+  await page.screenshot({path:'shots/pn-3-cal.png'});
+  await page.getByText('Today', {exact:true}).click(); await page.waitForTimeout(400);
+  await page.screenshot({path:'shots/pn-4-filled.png'});
+  await page.getByText('Create Project', {exact:true}).click(); await page.waitForTimeout(4000);
+  const s = (db.sites||[]).find(x=>x.name==='Test Job');
+  console.log('url', page.url().replace(BASE,''), '| errors', errs.join(' / ').slice(0,300) || 'none');
+  console.log('site', JSON.stringify(s && {client:s.client_name, phone:s.client_phone, email:s.client_email, start:s.start_date, addr:s.address, status:s.status}));
+  await browser.close(); process.exit(0);
+})();
