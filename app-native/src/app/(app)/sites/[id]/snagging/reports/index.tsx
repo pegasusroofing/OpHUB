@@ -7,13 +7,13 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 
-import { chooseAction, confirmAsk, useToast } from '@/components/toast';
+import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted } from '@/components/ui';
 import { nameOf, usePeople } from '@/data/hs';
 import { deleteReports, startReport, useSiteReports, useTemplates } from '@/data/reports';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
-import { deliverPdf, exportFilename, PDFDocument } from '@/lib/pdf';
+import { deliverPdf, emailPdf, exportFilename, PDFDocument } from '@/lib/pdf';
 import { buildReportPdf, type PdfSub } from '@/lib/reportPdf';
 import { supabase } from '@/lib/supabase';
 import { REPORT_STATUS_LABEL } from '@/lib/rules/reports';
@@ -39,6 +39,16 @@ export default function Reports() {
   const names = [...new Set((subs ?? []).map((s) => s.template_name))].sort();
   const list = (subs ?? []).filter((s) => !filter || s.template_name === filter);
 
+  // The ticked (submitted) reports as one PDF.
+  const merged = async () => {
+    const ids = list.filter((x) => sel.has(x.id) && x.status !== 'in_progress').map((x) => x.id);
+    if (!ids.length) { toast('Only submitted reports can be exported.'); return null; }
+    const rows = ((await supabase.from('report_submissions').select('*').in('id', ids)).data ?? []) as unknown as PdfSub[];
+    const out = await PDFDocument.create(); let fails = 0;
+    for (const id2 of ids) { const r = rows.find((x) => x.id === id2); if (!r) continue; toast(`Building ${r.template_name}…`); const b = await buildReportPdf(r, site, org, (u) => nameOf(people, u)).catch(() => null); if (!b) { fails++; continue; } const d = await PDFDocument.load(b.bytes); (await out.copyPages(d, d.getPageIndices())).forEach((p) => out.addPage(p)); }
+    if (!out.getPageCount()) { toast('Could not build the PDF.'); return null; }
+    return { bytes: await out.save(), filename: exportFilename(site.name, `Reports (${ids.length})`, 'pdf'), n: ids.length - fails, fails };
+  };
   return (
     <ScrollView contentContainerStyle={page(720)}
       refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => { void refetch(); }} />}>
@@ -69,7 +79,7 @@ export default function Reports() {
         </Pressable>
       )}
       {sel.size > 0 && (
-        <View style={{ flexDirection: 'row', gap: 8 }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           <View style={{ flex: 1 }}><Button kind="ghost" busy={busy} title={`Delete ${sel.size} Selected`} onPress={async () => {
             if (!(await confirmAsk(`Delete ${sel.size} report${sel.size > 1 ? 's' : ''}? This cannot be undone.`, 'Delete'))) return;
             setBusy(true); const n = await deleteReports(me, id, [...sel]); setBusy(false);
@@ -78,15 +88,21 @@ export default function Reports() {
           <View style={{ flex: 1 }}><Button kind="ghost" busy={busy} title={`PDF of ${sel.size}`} onPress={async () => {
             setBusy(true);
             try {
-              const ids = list.filter((x) => sel.has(x.id) && x.status !== 'in_progress').map((x) => x.id);
-              if (!ids.length) { toast('Only submitted reports can be exported.'); return; }
-              const rows = ((await supabase.from('report_submissions').select('*').in('id', ids)).data ?? []) as unknown as PdfSub[];
-              const out = await PDFDocument.create(); let fails = 0;
-              for (const id2 of ids) { const r = rows.find((x) => x.id === id2); if (!r) continue; toast(`Building ${r.template_name}…`); const b = await buildReportPdf(r, site, org, (u) => nameOf(people, u)).catch(() => null); if (!b) { fails++; continue; } const d = await PDFDocument.load(b.bytes); (await out.copyPages(d, d.getPageIndices())).forEach((p) => out.addPage(p)); }
-              if (!out.getPageCount()) { toast('Could not build the PDF.'); return; }
-              if (!(await deliverPdf(await out.save(), exportFilename(site.name, `Reports (${ids.length})`, 'pdf')))) toast('Could not save the PDF.'); else { if (fails) toast(`${fails} report${fails > 1 ? 's' : ''} could not be included.`); setSel(new Set()); }
+              const m = await merged(); if (!m) return;
+              if (!(await deliverPdf(m.bytes, m.filename))) toast('Could not save the PDF.'); else { if (m.fails) toast(`${m.fails} report${m.fails > 1 ? 's' : ''} could not be included.`); setSel(new Set()); }
             } finally { setBusy(false); }
           }} /></View>
+          {isManager(me) && <View style={{ flex: 1 }}><Button kind="ghost" busy={busy} title="Email" onPress={async () => {
+            // Email the ticked reports (430 emailSelectedReports), as one PDF sent as a link; a copy to you.
+            const to = (await promptText('Email the selected reports to:', me.email || ''))?.trim(); if (!to) return;
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) { toast('Enter a valid email address.'); return; }
+            setBusy(true);
+            try {
+              const m = await merged(); if (!m) return;
+              const err = await emailPdf(m.bytes, m.filename, `${id}/report-exports`, { site_id: id, recipient_email: to, cc_email: to !== me.email ? me.email || undefined : undefined, doc_title: `Reports (${m.n})` });
+              toast(err || `${m.n} report${m.n === 1 ? '' : 's'} emailed to ${to}${m.fails ? `, ${m.fails} could not be included` : ''}`); if (!err) setSel(new Set());
+            } finally { setBusy(false); }
+          }} /></View>}
           <View style={{ flex: 1 }}><Button kind="ghost" title="Clear" onPress={() => setSel(new Set())} /></View>
         </View>
       )}

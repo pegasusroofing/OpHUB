@@ -5,16 +5,18 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Card, Check, Empty, Muted, SectionTitle } from '@/components/ui';
 import { PriceFiles } from '@/components/PriceFiles';
 import { PriceWeeks } from '@/components/PriceWeeks';
-import { nameOf, usePeople } from '@/data/hs';
-import { decideVariation, deleteElement, patchElement, removeVariation, requestVariation, reviseVariation, usePriceTile, type PriceVariation } from '@/data/price';
+import { StorageImage } from '@/components/StorageImage';
+import { nameOf, openDocLink, usePeople } from '@/data/hs';
+import { addVariationPhoto, decideVariation, deleteElement, patchElement, removeVariation, requestVariation, reviseVariation, usePriceTile, type PriceVariation } from '@/data/price';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
+import { pickPhotos } from '@/lib/photos';
 import { money, readAmount } from '@/lib/rules/price';
 import { base, page, radius, space } from '@/theme/theme';
 
@@ -107,7 +109,15 @@ export default function PriceElementPage() {
                 <View style={{ flex: 1 }}>
                   <Text style={{ fontWeight: '700', color: base.ink }}>{money(v.amount)} · {v.note || ''}</Text>
                   <Muted>{v.requested_by ? `${nameOf(people, v.requested_by)} · ` : ''}{new Date(v.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}{v.rejection_reason ? ` · Reason: ${v.rejection_reason}` : ''}</Muted>
+                  {!!v.photo_path && <Pressable onPress={async () => { const u = await openDocLink('site-photos', v.photo_path as string); if (u) void Linking.openURL(u); }}><StorageImage bucket="site-photos" path={v.photo_path} style={{ width: 64, height: 64, borderRadius: 8, marginTop: 6 }} /></Pressable>}
                 </View>
+                {!v.photo_path && (mgr || v.requested_by === me.id) && (
+                  <Pressable hitSlop={6} onPress={async () => {
+                    const src = await chooseAction('Add a photo', [{ key: 'camera', label: 'Take a photo' }, { key: 'library', label: 'Choose from library' }]); if (!src) return;
+                    const picked = await pickPhotos(src as 'camera' | 'library', false); if ('error' in picked) { toast(picked.error); return; } if (!picked[0]) return;
+                    toast((await addVariationPhoto(site.id, v, picked[0])) ? 'Photo added' : 'Could not add the photo — try again.'); refresh();
+                  }} style={{ width: 30, height: 30, borderRadius: 15, borderWidth: 1, borderColor: base.line, alignItems: 'center', justifyContent: 'center' }}><Text style={{ fontSize: 13 }}>📷</Text></Pressable>
+                )}
                 <Text style={{ fontWeight: '700', color: v.status === 'approved' ? base.ok : v.status === 'rejected' ? base.red : base.warn }}>{v.status === 'approved' ? 'Approved' : v.status === 'rejected' ? 'Rejected' : 'Pending'}</Text>
               </Card>
             </Pressable>

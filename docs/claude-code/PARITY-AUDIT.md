@@ -23,8 +23,8 @@ HIGH = money, data, permissions, safety or a daily job. MED = noticeable. LOW = 
 - MED FIXED — Price tile badge: variations to price + pending wage pushes.
 - MED FIXED — Repair job notes saved when leaving the page (and the PM email).
 - MED FIXED — Repair bulk actions: Mark Scaffold Erected, Mark Invoiced.
-- MED OPEN — Photo on a variation to price.
-- MED OPEN — Email selected reports from a project's reports list.
+- MED FIXED — Photo on a variation to price.
+- MED FIXED — Email selected reports from a project's reports list.
 - MED OPEN — Exported report PDF also saved to the site's OneDrive folder.
 - MED OPEN — Start a new report with no signal.
 - LOW OPEN — re-sync after linking a repair folder; OneDrive/phone source icon on certificates; repair-contract money strip and assign prompt; folder prompt after adding a repair job; Invoiced tick before sign-off; job number hidden from operatives; work order file name; close several pricing elements; price sheet Excel weekly booked-in and wages sections; quick-create Daily Briefing / MC Inspection templates; add a condition while filling a report; "Waiting to send" reports shown with manual send.

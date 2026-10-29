@@ -5,6 +5,7 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { elementFigures, groupFigures, type Figures, type PriceElement, type PriceWeek } from '@/lib/rules/price';
+import { compressOne, type Picked } from '@/lib/photos';
 import { isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
 import type { Profile, Site } from '@/lib/types';
@@ -106,4 +107,14 @@ export async function setElementGroup(elementId: string, groupId: string | null)
 }
 export async function updateGroup(groupId: string, patch: { name?: string; color?: string }): Promise<boolean> {
   return !(await db.from('pricing_element_groups').update(patch as never).eq('id', groupId)).error;
+}
+
+/** One quick photo on a variation to price (390 uploadAwPhoto). */
+export async function addVariationPhoto(siteId: string, v: PriceVariation, p: Picked): Promise<boolean> {
+  try {
+    const rid = globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}`;
+    const up = await supabase.storage.from('site-photos').upload(`${siteId}/variations-to-price/${v.id}-${rid}.jpg`, await (await fetch(await compressOne(p))).arrayBuffer(), { contentType: 'image/jpeg' });
+    if (up.error) return false;
+    return !(await db.from('additional_works_requests').update({ photo_path: up.data.path } as never).eq('id', v.id)).error;
+  } catch { return false; }
 }
