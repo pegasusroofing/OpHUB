@@ -81,6 +81,15 @@ function Editor({ id, initial }: { id: string; initial: Row[] }) {
       const jr = await fdb.from('job_finance').upsert(patch as never, { onConflict: 'site_id' });
       if (failed || jr.error) { toast(failed ? `${failed} line${failed === 1 ? '' : 's'} didn’t save — tap Save again.` : 'The contract value didn’t update.'); return; }
       toast(patch.contract_value != null ? `Schedule saved — contract value ${money(total)}` : `Schedule saved — Bill of Quantities ${money(total)} (typed contract value kept)`);
+      // A typed contract value that doesn't match the Bill: ask which the project should use (9219zi finCvPrompt).
+      const typed = round2(Number(jf.contract_value || 0));
+      if (jf.contract_value_source === 'manual' && total && Math.abs(total - typed) >= 0.5) {
+        const k = await chooseAction(`The Bill of Quantities adds up to ${money(total)}, but the contract value typed on the project is ${money(typed)} (excl. VAT). Which should the project use?`, [{ key: 'boq', label: `Use the Bill of Quantities — ${money(total)}` }, { key: 'keep', label: `Keep the typed value — ${money(typed)}` }]);
+        if (k === 'boq') {
+          const r2 = await fdb.from('job_finance').upsert({ site_id: id, org_id: me.org_id, contract_value: total, contract_value_source: 'boq', updated_at: new Date().toISOString(), updated_by: me.id } as never, { onConflict: 'site_id' });
+          toast(r2.error ? 'Not saved — try again.' : 'Contract value now follows the Bill of Quantities');
+        }
+      }
       ['finBoq', 'finBook', 'finJobs'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] }));
     } finally { setBusy(false); }
   };
