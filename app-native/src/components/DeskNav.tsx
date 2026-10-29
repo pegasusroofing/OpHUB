@@ -36,6 +36,7 @@ export function DeskNav() {
       ...(isFullManager(me) ? [{ k: 'home', ic: 'home', lbl: 'Home', go: '/home' }] : []),
       { k: 'sites', ic: 'projects', lbl: 'Projects', go: '/sites', kids: [
         ...(isFullManager(me) ? [{ k: 'onsite', ic: 'users', lbl: 'On Site Now', go: '/onsite' }] : []),
+        ...(isManager(me) ? [{ k: 'pm/sitemap', ic: 'pin', lbl: 'Sites Map', go: '/pm/sitemap' }] : []),
         ...(isFullManager(me) ? [{ k: 'pm/reports', ic: 'reports', lbl: 'Reports & Surveys', go: '/pm/reports' }] : []),
       ] },
       { k: 'pm/deliveries', ic: 'truck', lbl: 'Deliveries', go: '/pm/deliveries' },

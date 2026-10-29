@@ -13,19 +13,23 @@ import { nameOf, usePeople } from '@/data/hs';
 import { usePmReports } from '@/data/pmHome';
 import { startGeneralReport, startReport, useTemplates } from '@/data/reports';
 import { useSites } from '@/data/sites';
+import { OphIcon } from '@/components/OphIcon';
 import { useAuth } from '@/lib/auth';
+import { heading } from '@/lib/fonts';
 import { deliverPdf, emailPdf, PDFDocument } from '@/lib/pdf';
 import { buildReportPdf, type PdfSub } from '@/lib/reportPdf';
 import { supabase } from '@/lib/supabase';
 import { siteStatusKey } from '@/lib/rules/checkin';
 import { isManager } from '@/lib/roles';
-import { base, page, radius, space } from '@/theme/theme';
+import { base, page, radius, space, useTheme } from '@/theme/theme';
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function AllReports() {
   const { me } = useAuth();
   const toast = useToast();
+  const t = useTheme();
+  const [gen, setGen] = useState(false);
   const { data: rows = [], isLoading, refetch } = usePmReports();
   const { data: sites } = useSites();
   const { data: tpls } = useTemplates(me?.org_id);
@@ -40,7 +44,8 @@ export default function AllReports() {
   if (!me) return null;
   if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
   const where = (r: (typeof rows)[number]) => (r.site_id ? (sites ?? []).find((s) => s.id === r.site_id)?.name || 'Project' : r.general_label || 'General survey');
-  const filtered = rows.filter((r) => (!tpl || r.template_name === tpl) && (!by || r.submitted_by === by));
+  // General surveys (the card at the bottom): only those not linked to a project.
+  const filtered = rows.filter((r) => (!tpl || r.template_name === tpl) && (!by || r.submitted_by === by) && (!gen || !r.site_id));
   const count = { open: filtered.filter((r) => r.status === 'in_progress').length, done: filtered.filter((r) => r.status !== 'in_progress').length, all: filtered.length };
   const shown = filtered.filter((r) => tab === 'all' || (tab === 'open') === (r.status === 'in_progress'))
     .filter((r) => !q.trim() || [r.template_name, where(r), nameOf(people, r.submitted_by), r.general_label].join(' ').toLowerCase().includes(q.trim().toLowerCase()));
@@ -73,8 +78,8 @@ export default function AllReports() {
     router.push((where2 === 'general' ? `/pm/survey/${sid}?mode=fill` : `/sites/${where2}/snagging/reports/fill/${sid}`) as never);
   };
   const chip = (k: 'open' | 'done' | 'all', l: string) => (
-    <Pressable key={k} onPress={() => setTab(k)} style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: 16, borderWidth: 1, borderColor: tab === k ? base.ink : base.line, backgroundColor: tab === k ? base.ink : base.card }}>
-      <Text style={{ fontWeight: '700', color: tab === k ? '#fff' : base.ink }}>{l} ({count[k]})</Text>
+    <Pressable key={k} onPress={() => setTab(k)} style={{ height: 30, paddingHorizontal: 10, justifyContent: 'center', borderRadius: 999, borderWidth: 1, borderColor: tab === k ? base.ink : base.line, backgroundColor: tab === k ? base.ink : '#fff' }}>
+      <Text style={{ fontSize: 11.5, fontWeight: '700', color: tab === k ? '#fff' : base.ink }}>{l} ({count[k]})</Text>
     </Pressable>
   );
   const merged = async () => {
@@ -93,12 +98,30 @@ export default function AllReports() {
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Reports & surveys' }} />
       <HowTo k="reports" />
-      <Button busy={busy} title="+ Start a report" onPress={() => void start()} />
-      <TextInput value={q} onChangeText={setQ} placeholder="Search reports, projects, people" style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card, marginVertical: 10 }} />
-      <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+      {gen && <Stack.Screen options={{ title: 'General surveys' }} />}
+      <Pressable onPress={() => void start()} disabled={busy} accessibilityRole="button"
+        style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: t.brand1, borderRadius: 14, paddingVertical: 13 }, (pressed || busy) && { opacity: 0.8 }]}>
+        <OphIcon name="plus" size={16} color={t.brand1Text} stroke={2.4} />
+        <Text style={[heading(700), { fontSize: 14, color: t.brand1Text }]}>{busy ? 'Starting…' : 'Start a report'}</Text>
+      </Pressable>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#fff', borderWidth: 1, borderColor: base.line, borderRadius: 14, paddingHorizontal: 14, height: 46, marginVertical: 12 }}>
+        <OphIcon name="search" size={18} color={base.slate} />
+        <TextInput value={q} onChangeText={setQ} placeholder="Search reports, projects, people" placeholderTextColor={base.slateLight} style={{ flex: 1, fontSize: 14, color: base.ink, height: 44 }} />
+      </View>
+      <View style={{ flexDirection: 'row', gap: 4, alignItems: 'center', marginBottom: 12 }}>
         {chip('open', 'In progress')}{chip('done', 'Completed')}{chip('all', 'All')}
-        <Pressable onPress={async () => { const k = await chooseAction('Template', [{ key: '', label: 'All templates' }, ...tplNames.map((n) => ({ key: n, label: n }))]); if (k !== null) setTpl(k); }} style={{ paddingHorizontal: 12, paddingVertical: 7 }}><Text style={{ color: base.blue }}>{tpl || 'Template ▾'}</Text></Pressable>
-        <Pressable onPress={async () => { const k = await chooseAction('Surveyor', [{ key: '', label: 'Everyone' }, ...surveyors.map((u) => ({ key: u, label: nameOf(people, u) }))]); if (k !== null) setBy(k); }} style={{ paddingHorizontal: 12, paddingVertical: 7 }}><Text style={{ color: base.blue }}>{by ? nameOf(people, by) : 'Surveyor ▾'}</Text></Pressable>
+        <View style={{ flex: 1 }} />
+        <Pressable onPress={async () => {
+          const k = await chooseAction('Filter', [
+            { key: 'tpl', label: `Template: ${tpl || 'All templates'}` }, { key: 'by', label: `Surveyor: ${by ? nameOf(people, by) : 'Everyone'}` },
+            ...(tpl || by || gen ? [{ key: 'clear', label: 'Clear filters' }] : []),
+          ]);
+          if (k === 'tpl') { const v = await chooseAction('Template', [{ key: '', label: 'All templates' }, ...tplNames.map((n) => ({ key: n, label: n }))]); if (v !== null) setTpl(v); }
+          else if (k === 'by') { const v = await chooseAction('Surveyor', [{ key: '', label: 'Everyone' }, ...surveyors.map((u) => ({ key: u, label: nameOf(people, u) }))]); if (v !== null) setBy(v); }
+          else if (k === 'clear') { setTpl(''); setBy(''); setGen(false); }
+        }} style={{ height: 30, paddingHorizontal: 10, justifyContent: 'center', borderRadius: 999, borderWidth: 1, borderColor: tpl || by ? base.ink : base.line, backgroundColor: '#fff' }}>
+          <Text style={{ fontSize: 11.5, fontWeight: '700', color: base.ink }}>{tpl || by ? `Filter (${(tpl ? 1 : 0) + (by ? 1 : 0)})` : 'Filter'} ▾</Text>
+        </Pressable>
       </View>
       {sel.size > 0 && (
         <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -124,7 +147,14 @@ export default function AllReports() {
           <Text style={{ fontWeight: '700', color: r.status === 'in_progress' ? base.warn : base.ok }}>{r.status === 'in_progress' ? 'In progress' : 'Completed'}</Text>
         </Pressable>
       )) : <Empty>No reports here{tpl || by ? ' for these filters' : ''}.</Empty>}
-      <Button kind="ghost" title="Completed TBTs — signed toolbox talks, all projects" onPress={() => router.push('/pm/tbts' as never)} />
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 14 }}>
+        {([[gen ? 'All reports' : 'General surveys', gen ? 'Every project' : 'Not linked to a project', () => setGen(!gen)], ['Completed TBTs', 'Signed toolbox talks, all projects', () => router.push('/pm/tbts' as never)]] as [string, string, () => void][]).map(([title, sub, go]) => (
+          <Pressable key={title} onPress={go} style={{ minWidth: 220, flexBasis: 220, maxWidth: 420, flexGrow: 1, backgroundColor: '#fff', borderWidth: 1, borderColor: '#ECEEF2', borderRadius: 14, paddingVertical: 12, paddingHorizontal: 14 }}>
+            <Text style={[heading(700), { fontSize: 13.5, color: base.ink }]}>{title}</Text>
+            <Text style={{ fontSize: 11.5, color: base.slate, marginTop: 2 }}>{sub}</Text>
+          </Pressable>
+        ))}
+      </View>
     </ScrollView>
   );
 }
