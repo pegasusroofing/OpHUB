@@ -11,6 +11,7 @@ import { SupportBar } from '@/components/PlatformAdmin';
 import { PolicyGate } from '@/components/PolicyGate';
 import { useHsPolicy } from '@/data/hsPolicy';
 import { useAuth } from '@/lib/auth';
+import { usePushTaps } from '@/lib/push';
 import { homeKind } from '@/lib/roles';
 import { base, useTheme } from '@/theme/theme';
 
@@ -23,6 +24,8 @@ const hidden = { tabBarButton: () => null, tabBarItemStyle: { display: 'none' as
 export default function AppLayout() {
   const t = useTheme();
   const { me, org } = useAuth();
+  // Tapping a notification opens the right screen (080).
+  usePushTaps(me);
   // Drivers, finance-only companies and the platform admin have no project list.
   const hasSites = !['driver', 'finance', 'superadmin'].includes(homeKind(me, org));
   // Site managers, clients and subcontractor logins land on Projects; on a phone their bar also has

@@ -6,7 +6,7 @@ HIGH = money, data, permissions, safety or a daily job. MED = noticeable. LOW = 
 
 ## Core, Home, Admin (000–270)
 - HIGH FIXED — Phone tabs for site managers, clients and subcontractor logins: no way to HR, HUB, Inbox or My Dashboard on a phone (old bottom bar). Site managers had an HR row on Projects.
-- MED OPEN — Tapping a push notification doesn't open the right page (no tap listener; route map uses old paths).
+- MED FIXED — Tapping a push notification doesn't open the right page (no tap listener; route map uses old paths).
 - MED OPEN — Setting the responsible PM from the Projects list doesn't notify that PM (notify-site-assignment).
 - MED OPEN — "Needs your signature" pop-up on Home for unsigned company policies.
 - MED OPEN — General (not a project) to-dos: can't add, tick, edit or delete.
@@ -55,7 +55,7 @@ HIGH = money, data, permissions, safety or a daily job. MED = noticeable. LOW = 
 - LOW OPEN — HAVS/PUWER export a ticked set; bring old COSHH PDFs in as products; product ↔ job shortcuts; expenses "Send now" for the sender; PPE requests tick/export/email; certificate email to a team member; briefing delete logged; TBT "needs signing" wording; manual TBT "Email to PM"; import suppliers from Excel.
 
 ## Drawings, calendar, driver, deliveries (770–890, 9219zr/zq/m/zz)
-- HIGH OPEN — Tapping a push notification opens the right screen (same as above).
+- HIGH FIXED — Tapping a push notification opens the right screen (same as above).
 - MED OPEN — PM reply to a supplier-invoice query (fin_pi_query_view / fin_pi_query_reply).
 - MED OPEN — Finance PO PDF saved into the job's Material PO's › Finance POs folder.
 - MED OPEN — Cancelling a PO cancels its site requests; remove lines; reopen restores.

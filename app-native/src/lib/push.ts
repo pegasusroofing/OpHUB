@@ -4,9 +4,11 @@
 // using the same claim_push_token database function as the current app.
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
+import { router } from 'expo-router';
+import { useEffect } from 'react';
 import { Platform } from 'react-native';
 
-import { isEstimator } from './roles';
+import { isEstimator, isManager } from './roles';
 import { supabase } from './supabase';
 import type { Profile } from './types';
 
@@ -43,16 +45,38 @@ export async function unregisterPush(): Promise<void> {
   try { await supabase.from('push_tokens').delete().eq('token', tokenValue); } catch { /* best effort */ }
 }
 
-// Where a tapped notification should take you. Screens are added in later phases;
-// for now this returns the route the old app used, for the router to map.
-export type PushData = { kind?: string; site_id?: string; task_id?: string };
+// Where a tapped notification takes you (080 pushNotificationActionPerformed + 9219zr msgPushOpen).
+export type PushData = { kind?: string; site_id?: string; task_id?: string; related_id?: string };
 export function pushRoute(data: PushData, me: Profile | null): string | null {
-  if (data.task_id && me?.role === 'driver') return '/driver/schedule';
+  const rel = data.related_id || data.task_id || '';
+  // Delivery problem / invoice query (9219zr): the job's materials, or the purchase invoice.
+  if (data.kind === 'grn_problem' && data.site_id) return `/sites/${data.site_id}/materials`;
+  if ((data.kind === 'pi_query' || data.kind === 'pi_query_reply') && rel) return isManager(me) ? `/fin/pinv/${rel}` : null;
+  // A delivery: drivers to their schedule, managers to that delivery.
+  if (data.task_id) {
+    if (me?.role === 'driver') return '/driver/schedule';
+    if (isManager(me)) return `/pm/delivery/${data.task_id}`;
+  }
   if (!data.site_id) return null;
   const routes: Record<string, string> = {
-    material_request: 'materials', variation: 'variations', snag_closed: 'snagging/list', todo_assigned: 'todos',
+    material_request: 'materials', variation: 'snagging/variations', snag_closed: 'snagging/list', todo_assigned: 'todos',
     price_overbooked: 'price', additional_works_requested: 'price', message: 'messages', rams_reminder: 'hs/rams',
-    coshh_reminder: 'hs/coshh', material_pickup: 'materialrequired',
+    coshh_reminder: 'hs/coshh', material_pickup: 'materials/collections',
   };
   return `/sites/${data.site_id}/${routes[data.kind || ''] || 'messages'}`;
+}
+
+/** Opens the right screen when a notification is tapped — also when the tap started the app. */
+export function usePushTaps(me: Profile | null) {
+  useEffect(() => {
+    if (Platform.OS === 'web' || !me) return;
+    const open = (r: Notifications.NotificationResponse | null) => {
+      const d = (r?.notification.request.content.data ?? {}) as PushData;
+      const to = pushRoute(d, me);
+      if (to) router.push(to as never);
+    };
+    void Notifications.getLastNotificationResponseAsync().then(open).catch(() => {});
+    const sub = Notifications.addNotificationResponseReceivedListener(open);
+    return () => sub.remove();
+  }, [me]);
 }
