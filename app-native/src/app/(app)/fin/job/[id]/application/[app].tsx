@@ -12,17 +12,30 @@ import { Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-nat
 import { FinChip, FinRow, FinStat } from '@/components/FinNav';
 import { confirmAsk, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Check, Muted, SectionTitle } from '@/components/ui';
-import { clearCertificate, deleteApplication, loadApplication, newApplication, raiseInvoiceFromCert, saveApplication, saveCertificate, setStatus } from '@/data/finApp';
+import { addBoqLines, clearCertificate, deleteApplication, exportApplication, loadApplication, newApplication, raiseInvoiceFromCert, saveApplication, saveCertificate, setStatus } from '@/data/finApp';
 import { openDocLink } from '@/data/hs';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { plainGet, plainSet } from '@/lib/kv';
 import { useFlushOnLeave } from '@/lib/useFlushOnLeave';
 import { APP_STAGE, appCalc, groupTotals, isItem, pct } from '@/lib/rules/finApp';
+import { applyAppUpload, certFromItems, parseAppBook, type AppXlItem } from '@/lib/rules/finAppExcel';
+import { readXlsx } from '@/lib/rules/xlsxRead';
 import { fdate, money, num, round2, today } from '@/lib/rules/finance';
 import { base, page, radius, space } from '@/theme/theme';
 
 type Row = Record<string, any>;
+/** Picks an Excel file and reads it as an OpHUB application workbook (null = cancelled or not one; told why). */
+async function pickAppExcel(toast: (m: string) => void): Promise<AppXlItem[] | null> {
+  const r = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true }); if (r.canceled || !r.assets[0]) return null;
+  const f = r.assets[0];
+  if (/\.xls$/i.test(f.name || '')) { toast('Save it as .xlsx first — old .xls files can’t be read.'); return null; }
+  const book = await readXlsx(new Uint8Array(await (await fetch(f.uri)).arrayBuffer())).catch(() => null);
+  if (!book) { toast('Could not read that file.'); return null; }
+  const items = parseAppBook(book);
+  if (!items) toast('That doesn’t look like this application’s Excel — download it from OpHUB, send it to the client and upload their copy.');
+  return items;
+}
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 7, color: base.ink, backgroundColor: base.card };
 const STAGE: Record<string, string> = { draft: 'Draft', applied: 'Applied — waiting for certificate', certified: 'Certified', invoiced: 'Invoiced', void: 'Void' };
 
@@ -88,6 +101,36 @@ function Editor({ a0, jf, previousLive }: { a0: Row; jf: Row; previousLive: numb
   const refresh = () => { ['finApp', 'finSales', 'finBook', 'finOverview'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] })); };
   const setLine = (i: number, patch: Row) => setA({ ...a, lines: a.lines.map((l: Row, j: number) => (j === i ? { ...l, ...patch } : l)) });
   const fill = (i: number, p: number) => { const lv = a.lines[i].kind, ls = a.lines.slice(); for (let j = i + 1; j < ls.length; j++) { const k = ls[j].kind; if (k === 'section' || (lv === 'subsection' && k === 'subsection')) break; if (isItem(ls[j])) ls[j] = { ...ls[j], pct: p }; } setA({ ...a, lines: ls }); };
+  const exportAs = async (kind: 'xlsx' | 'pdf') => {
+    if (!me) return;
+    if (isDraft && JSON.stringify(a) !== savedSnap.current && !(await save(true))) return;
+    setBusy(kind);
+    const ok = await exportApplication(me, org, isDraft ? { ...a0, ...a } : a0, kind).catch(() => false);
+    setBusy(''); if (!ok) toast(kind === 'pdf' ? 'Could not make the PDF — try again.' : 'Could not make the Excel — try again.');
+  };
+  // A valued copy back (9219p uploadFinAppExcel): the Applied % column updates this draft; new rows become
+  // new variation / day-work rows or new Bill of Quantities lines under their header.
+  const uploadExcel = async () => {
+    if (!me) return;
+    const items = await pickAppExcel(toast); if (!items) return;
+    setBusy('up');
+    try {
+      const up = applyAppUpload(a, items);
+      const next = up.a; let added = up.added;
+      if (up.newLines.length) {
+        const made = await addBoqLines(me, a0.site_id, up.newLines);
+        (made || []).forEach(({ under, line }) => {
+          const L: Row[] = next.lines, hi = under ? L.findIndex((l) => l.item_id === under) : -1;
+          let at = L.length;
+          if (hi >= 0) { at = hi + 1; while (at < L.length && L[at].kind !== 'section' && !(L[hi].kind === 'subsection' && L[at].kind === 'subsection')) at++; }
+          L.splice(at, 0, line); added++;
+        });
+        if (!made) toast('Could not add the new lines to the Bill of Quantities.');
+      }
+      setA(next);
+      toast((up.changed || added ? `Updated from Excel: ${up.changed} change${up.changed === 1 ? '' : 's'}${added ? `, ${added} new line${added === 1 ? '' : 's'}` : ''}` : 'No changes found in that file') + (up.skipped ? ` (${up.skipped} new line${up.skipped === 1 ? ' was' : 's were'} already there, so not added again)` : ''));
+    } finally { setBusy(''); }
+  };
   const save = async (quiet?: boolean) => { setBusy('save'); const ok = await saveApplication(a, jf, previous); setBusy(''); if (ok) { savedSnap.current = JSON.stringify(a); void plainSet(KEY, null); } if (!quiet) toast(ok ? 'Application saved' : 'Could not save — try again.'); refresh(); return ok; };
   const contractTotal = c.lines.filter(isItem).reduce((t: number, l: Row) => t + Number(l.value || 0), 0), contractDone = c.lines.reduce((t: number, l: Row) => t + l.gross, 0);
   return (
@@ -98,6 +141,11 @@ function Editor({ a0, jf, previousLive }: { a0: Row; jf: Row; previousLive: numb
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
         <FinStat v={STAGE[stage]} label="Stage" /><FinStat v={money(c.net_due)} label="Amount due this application" />
         <FinStat v={fdate(a.valuation_date)} label="Valuation date" /><FinStat v={a.final_date ? fdate(a.final_date) : '—'} label="Final date for payment" />
+      </View>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+        <Button kind="ghost" busy={busy === 'xlsx'} title="⬇ Download Excel" onPress={() => void exportAs('xlsx')} />
+        <Button kind="ghost" busy={busy === 'pdf'} title="⬇ Download PDF" onPress={() => void exportAs('pdf')} />
+        {stage === 'draft' && <Button kind="ghost" busy={busy === 'up'} title="⬆ Upload edited Excel" onPress={() => void uploadExcel()} />}
       </View>
       {!locked && (
         <Card>
@@ -223,6 +271,7 @@ function Certificate({ a, jf, previous, onSaved }: { a: Row; jf: Row; previous: 
   // Certify line by line (9219p finCertTotals): a Certified % for each line and variation and an amount for each
   // day work; the totals (with discount, retention and its limit) are worked out from them.
   const [byLine, setByLine] = useState(false);
+  const [xlNote, setXlNote] = useState('');
   const [cp, setCp] = useState<Record<string, string>>(() => {
     const o: Record<string, string> = {};
     (a.lines || []).forEach((l: Row, i: number) => { if (isItem(l)) o[`l${i}`] = String(l.pct ?? 0); });
@@ -253,6 +302,15 @@ function Certificate({ a, jf, previous, onSaved }: { a: Row; jf: Row; previous: 
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 8 }}>
         {f('cert_date', 'Certificate date')}{f('cert_gross', 'Total certified to date (£)')}{f('cert_retention', 'Retention held (£)')}{f('cert_previous', 'Previously certified (£)')}{f('cert_discount', 'Discount, if any (£)')}
       </View>
+      <Pressable onPress={async () => {
+        const items = await pickAppExcel(toast); if (!items) return;
+        const r = certFromItems(a, items);
+        if (!r.found) { toast('That doesn’t look like this application’s Excel — download it from OpHUB, send it to the client and upload their copy.'); return; }
+        setByLine(true); applyLines({ ...cp, ...r.cp });
+        setXlNote(`Read from the client’s Excel. ${r.diffs.length ? `${r.diffs.length} line${r.diffs.length === 1 ? ' differs' : 's differ'} from what you applied for:\n${r.diffs.slice(0, 8).join('\n')}${r.diffs.length > 8 ? `\n…and ${r.diffs.length - 8} more` : ''}` : 'Every line matches what you applied for.'} Check the figures, then save.`);
+        toast('Certificate filled in from the Excel');
+      }} style={{ marginBottom: 6 }}><Text style={{ color: base.blue, fontWeight: '700' }}>📥 Fill in from the client&apos;s Excel</Text></Pressable>
+      {!!xlNote && <Card style={{ backgroundColor: '#f4f8fd' }}><Text style={{ color: base.ink, fontSize: 12.5 }}>{xlNote}</Text></Card>}
       <Pressable onPress={() => setByLine(!byLine)} style={{ marginBottom: 6 }}><Text style={{ color: base.blue, fontWeight: '700' }}>{byLine ? '▼' : '▶'} Certify line by line</Text></Pressable>
       {byLine && (
         <View style={{ marginBottom: 8 }}>

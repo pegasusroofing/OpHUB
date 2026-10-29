@@ -4,7 +4,11 @@
 // and the invoice raised from it.
 import { issue } from '@/data/finInvoice';
 import { fdb, loadSettings } from '@/data/finance';
-import { appCalc, certInvoiceLines, isItem, previousCertified } from '@/lib/rules/finApp';
+import { buildAppPdf } from '@/lib/finAppPdf';
+import { deliverPdf, deliverXlsx } from '@/lib/pdf';
+import { appCalc, certInvoiceLines, isItem, pct, previousCertified } from '@/lib/rules/finApp';
+import { appDoc, appExcelSheets, appFilename, type NewBoqLine } from '@/lib/rules/finAppExcel';
+import { makeXlsx } from '@/lib/rules/xlsx';
 import { addDays, appDateFor, fdate, retentionHeld, retentionReleased, retHalf, round2, today } from '@/lib/rules/finance';
 import { invTotals, vatFromTreatment } from '@/lib/rules/finInvoice';
 import { supabase } from '@/lib/supabase';
@@ -163,4 +167,45 @@ export async function applyRetention(me: Profile, siteId: string, n: 1 | 2): Pro
   if (up.error) return { error: 'Could not update the application — try again.' };
   await fdb.from('job_finance').upsert({ site_id: siteId, org_id: me.org_id, updated_at: new Date().toISOString(), updated_by: me.id, ...(n === 1 ? { ret1_app_id: app.id } : { ret2_app_id: app.id }) } as never, { onConflict: 'site_id' });
   return { id: app.id, number: app.number, pct };
+}
+
+/** The application as the client document (9219p): Excel (summary sheet + a sheet per header, with a hidden
+ *  key column so a valued copy can come back) or PDF, handed over to save or share. */
+export async function exportApplication(me: Profile, org: Organization | null, a: Row, kind: 'xlsx' | 'pdf'): Promise<boolean> {
+  const [jfR, apps, siteR, st] = await Promise.all([
+    rows(fdb.from('job_finance').select('*').eq('site_id', a.site_id)),
+    rows(fdb.from('fin_applications').select('number,status,lines,cert_lines,variations').eq('site_id', a.site_id)),
+    rows(fdb.from('sites').select('name,job_number,client_name').eq('id', a.site_id)),
+    loadSettings(me.org_id),
+  ]);
+  const jf = jfR[0] || {}, site = siteR[0] || {};
+  const D = appDoc(a, jf, apps, (st as Row).default_vat);
+  const info = { company: org?.name || '', client: jf.billing_name || site.client_name || '', project: site.name || '', jobNo: site.job_number || '', valDate: a.valuation_date ? fdate(a.valuation_date) : '' };
+  if (kind === 'xlsx') return deliverXlsx(makeXlsx(appExcelSheets(a, D, info)), appFilename(a, site, 'xlsx'));
+  return deliverPdf(await buildAppPdf(a, D, { ...info, brand: org?.color_primary }), appFilename(a, site, 'pdf'));
+}
+
+/** New Bill of Quantities lines from an uploaded Excel (9219n finAppAddLineCore): each goes in under its
+ *  header (or at the end), positions renumbered, and the contract value follows the Bill unless it was
+ *  typed in. Returns the application lines to add, with where they go. */
+export async function addBoqLines(me: Profile, siteId: string, adds: NewBoqLine[]): Promise<{ under: string; line: Row }[] | null> {
+  let boq = await rows(fdb.from('fin_contract_items').select('*').eq('site_id', siteId).order('position'));
+  const out: { under: string; line: Row }[] = [];
+  for (const e of adds) {
+    const ins = await fdb.from('fin_contract_items').insert({ org_id: me.org_id, site_id: siteId, position: 0, kind: 'item', ref: e.ref, description: e.desc, qty: e.qty, unit: e.unit, rate: e.rate, value: e.value, cost: null } as never).select('*').single();
+    if (ins.error || !ins.data) return out.length ? out : null;
+    const b = ins.data as Row;
+    let at = boq.length;
+    const hi = e.under ? boq.findIndex((x) => x.id === e.under) : -1;
+    if (hi >= 0) { at = hi + 1; while (at < boq.length && boq[at].kind !== 'section' && !(boq[hi].kind === 'subsection' && boq[at].kind === 'subsection')) at++; }
+    boq = [...boq.slice(0, at), b, ...boq.slice(at)];
+    out.push({ under: e.under, line: { kind: 'item', item_id: b.id, ref: b.ref || '', description: b.description, qty: b.qty != null ? Number(b.qty) : null, unit: b.unit || '', rate: b.rate != null ? Number(b.rate) : null, value: Number(b.value || 0), pct: pct(e.pct) } });
+  }
+  for (let i = 0; i < boq.length; i++) if (boq[i].position !== i) await fdb.from('fin_contract_items').update({ position: i } as never).eq('id', boq[i].id);
+  const jf = await fdb.from('job_finance').select('contract_value_source').eq('site_id', siteId).maybeSingle();
+  if (!jf.error && (jf.data as Row | null)?.contract_value_source !== 'manual') {
+    const total = round2(boq.filter(isItem).reduce((t, x) => t + Number(x.value || 0), 0));
+    await fdb.from('job_finance').upsert({ site_id: siteId, org_id: me.org_id, contract_value: total, updated_at: new Date().toISOString(), updated_by: me.id } as never, { onConflict: 'site_id' });
+  }
+  return out;
 }

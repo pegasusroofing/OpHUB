@@ -1,0 +1,30 @@
+// Upload an edited application Excel: Ridge to 10% and a new line under Main Roof.
+const {chromium, makeContext, S1} = require('./harness');
+const seed = require('./fresh/seed'); const ExcelJS = require('exceljs');
+const {PDFDocument} = require('pdf-lib'); const fs = require('fs');
+(async()=>{
+  const pdf = await PDFDocument.load(fs.readFileSync('shots/app-test.pdf')); console.log('pdf pages', pdf.getPageCount());
+  const wb = new ExcelJS.Workbook(); await wb.xlsx.readFile('shots/app-test.xlsx');
+  const ws = wb.getWorksheet('Main Roof'); ws.getCell('J4').value = 0.1;
+  ws.addRow(['', '', 'Lead flashing', null, '', null, 500, 0, null, 1, null, 1, null, null, '', 1]);
+  await wb.xlsx.writeFile('shots/app-edited.xlsx');
+  const BASE = 'http://localhost:8081';
+  const browser = await chromium.launch(); const errs = [];
+  const {ctx, db} = await makeContext(browser, 'admin', [], {viewport:{width:1300, height:900}});
+  seed(db); db.profiles[0].finance_enabled = true; db.profiles[0].howto_dismissed = ['*']; db.organizations[0].has_pm = true;
+  require('./seeds/ex4')(db);
+  const page = await ctx.newPage(); page.on('pageerror', e=>errs.push(e.message));
+  await page.goto(BASE+'/login'); await page.waitForTimeout(4000);
+  await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
+  await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
+  await page.goto(BASE+'/fin/job/'+S1+'/application/ap2'); await page.waitForTimeout(6000);
+  const fc = page.waitForEvent('filechooser', {timeout:15000});
+  await page.getByText('⬆ Upload edited Excel', {exact:true}).click();
+  await (await fc).setFiles('shots/app-edited.xlsx'); await page.waitForTimeout(6000);
+  const toastTxt = await page.getByText(/Updated from Excel|No changes/).first().textContent().catch(()=>'(no toast)');
+  console.log('toast', toastTxt);
+  const ap = db.fin_applications.find(a=>a.id==='ap2');
+  console.log('saved lines', JSON.stringify(ap.lines.map(l=>[l.description,l.pct])), 'boq', JSON.stringify((db.fin_contract_items||[]).map(b=>[b.description,b.position,b.value])), 'cv', db.job_finance.find(j=>j.site_id===S1).contract_value);
+  await page.screenshot({path:'shots/native_app_upload-1300.png'});
+  console.log('errors', errs.join(' | ')||'none'); await browser.close(); process.exit(0);
+})();

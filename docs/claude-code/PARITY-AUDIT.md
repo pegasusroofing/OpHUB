@@ -68,7 +68,7 @@ HIGH = money, data, permissions, safety or a daily job. MED = noticeable. LOW = 
 ## Finance part 1 (900–9219j)
 The money calculations themselves (invoice VAT rounding, application maths, retention, CIS, plant cost, forecast/OHP, reports) were checked line by line and match. The gaps are missing actions:
 - HIGH FIXED — Xero posting rule: only post when Xero is connected, the company's "send automatically" is on and the record isn't already in Xero (invoices and approved purchase invoices). Today only the trial stops it.
-- HIGH OPEN — Application as Excel (the client document) and upload a valued Excel back. (Same as part 2.)
+- HIGH FIXED — Application as Excel (the client document) and upload a valued Excel back. (Same as part 2.)
 - HIGH OPEN — CIS payment statement PDF for a subcontractor payment.
 - HIGH OPEN — Add / edit / delete "other" job costs (prelims, site costs).
 - HIGH OPEN — Split a cost across projects and plots; plots on purchase invoices, plant, subcontracts, POs; per-plot Parts report.
@@ -78,7 +78,7 @@ The money calculations themselves (invoice VAT rounding, application maths, rete
 ## Finance part 2 (9219k–922)
 - HIGH FIXED — Site variations imported into Finance's register (when the project or its Variations page opens), tagged "Site", with quick Approve / Reject and "+ Schedule of Works" (off during the trial).
 - HIGH FIXED — New invoice takes the client's default VAT code (reverse charge).
-- HIGH OPEN — Application Excel / PDF in the old layout; upload the Excel back.
+- HIGH FIXED — Application Excel / PDF in the old layout; upload the Excel back (Applied % updates a draft, new rows become new lines); the certificate fills in from the client's Excel. Still open (MED): the optional Schedule of Works progress PDF alongside, and the old one-sheet Excel layout from before 22 Oct.
 - HIGH FIXED — Certify line by line (Certified % per line; cert_lines saved; from the client's Excel/PDF).
 - HIGH FIXED — Certificate discount starts from the application's discount. (The discount on an Applied application can no longer be typed into and then lost; it's set while the application is a draft.)
 - HIGH FIXED — Open draft application keeps up with newly approved / unapproved variations and day works.
