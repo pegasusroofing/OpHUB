@@ -12,7 +12,9 @@ import { Button, Empty, Muted } from '@/components/ui';
 import { fdb, insertNumbered } from '@/data/finance';
 import { useBook } from '@/data/finBook';
 import { importSiteVariations, setVarGroup, varToSow } from '@/data/finVar';
+import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
+import { exportTableExcel, exportTablePdf, type Table } from '@/lib/tableExport';
 import { isFinanceOnlyOrg } from '@/lib/roles';
 import { fdate, money, num, round2, today } from '@/lib/rules/finance';
 import { base, page, space } from '@/theme/theme';
@@ -23,6 +25,7 @@ const ST: Record<string, [string, string]> = { instructed: ['Instructed', '#7A7F
 export default function FinVariations() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { me, org } = useAuth();
+  const { data: sites = [] } = useSites();
   const toast = useToast();
   const qc = useQueryClient();
   const { data } = useBook(me?.org_id, id);
@@ -42,6 +45,15 @@ export default function FinVariations() {
   const list = vars.filter((v) => f === 'all' || g(v) === f);
   const sum = (k: string, fn: (v: Row) => boolean) => round2(vars.filter(fn).reduce((t, v) => t + Number(v[k] || 0), 0));
   const cur = edit && edit !== 'new' ? edit : null;
+  // The register as Excel or PDF (911 finVarExport).
+  const exportReg = async (kind: 'xlsx' | 'pdf') => {
+    const sn = sites.find((x) => x.id === id), label = [sn?.job_number, sn?.name].filter(Boolean).join(' · ');
+    const t: Table = { title: 'Variations register', sub: label, site: [sn?.job_number, sn?.name].filter(Boolean).join(' '),
+      cols: [{ l: 'No.', w: 50 }, { l: 'Variation', w: 230 }, { l: 'Instruction', w: 110 }, { l: 'Instructed', w: 70 }, { l: 'Status', w: 70 }, { l: 'Our cost £', money: true, w: 70 }, { l: 'Quoted £', money: true, w: 70 }, { l: 'Agreed £', money: true, w: 70 }],
+      rows: vars.map((v) => [v.number, v.title, [v.instruction_ref, v.instructed_by].filter(Boolean).join(' · '), v.instructed_on ? fdate(v.instructed_on) : '', ST[v.status]?.[0] || v.status, v.cost_estimate != null ? Number(v.cost_estimate) : null, v.quoted != null ? Number(v.quoted) : null, v.agreed_value != null ? Number(v.agreed_value) : null]),
+      totals: ['Total', '', '', '', '', sum('cost_estimate', () => true), sum('quoted', () => true), sum('agreed_value', () => true)] };
+    if (!(await (kind === 'xlsx' ? exportTableExcel(t, org) : exportTablePdf(t, org)))) toast('Could not make the file — try again.');
+  };
   const refresh = () => void qc.invalidateQueries({ queryKey: ['finBook'] });
   const siteBy: Record<string, Row> = {}; site.forEach((x) => { siteBy[x.id] = x; });
   const inSow = (v: Row) => !!(v.schedule_section_id || (v.variation_id && siteBy[v.variation_id]?.schedule_section_id));
@@ -76,7 +88,11 @@ export default function FinVariations() {
       <Muted style={{ marginBottom: 10 }}>{`Only approved variations go onto applications, at their approved value.${finOnly ? '' : ' Variations raised on site (Projects › Variations) come in here on their own.'}`}</Muted>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
         {[['all', 'All'], ['submitted', 'Issued'], ['agreed', 'Approved'], ['rejected', 'Rejected']].map(([k, l]) => <FinChip key={k} on={f === k} label={l} n={vars.filter((v) => k === 'all' || g(v) === k).length} onPress={() => setF(k)} />)}
-        <View style={{ marginLeft: 'auto' }}><Button title="+ Variation" onPress={() => setEdit('new')} /></View>
+        <View style={{ marginLeft: 'auto', flexDirection: 'row', gap: 6 }}>
+          <Button kind="ghost" title="Excel" onPress={() => void exportReg('xlsx')} />
+          <Button kind="ghost" title="PDF" onPress={() => void exportReg('pdf')} />
+          <Button title="+ Variation" onPress={() => setEdit('new')} />
+        </View>
       </View>
       {list.length ? list.map((v) => <FinRow key={v.id} left={v.number} title={v.title} sub={[ST[v.status]?.[0] || v.status, v.instructed_by ? `by ${v.instructed_by}` : '', v.submitted_on ? `issued ${fdate(v.submitted_on)}` : '', v.agreed_on && v.status === 'agreed' ? `approved ${fdate(v.agreed_on)}` : '', v.cost_estimate != null ? `cost ${money(v.cost_estimate)}` : ''].filter(Boolean).join(' · ')} right={money(v.status === 'agreed' ? v.agreed_value ?? v.quoted : v.quoted)} tone={ST[v.status]?.[1]} onPress={() => setEdit(v)}>
           {(v.variation_id || g(v) === 'submitted' || !finOnly) && (
