@@ -25,6 +25,7 @@ import {
   doneCount, filterTasks, overallPct, sectionVisible, siteConditionSaved, SOW_FILTER_LABEL, SOW_FILTERS, tasksForAddress, type SowFilter,
 } from '@/lib/rules/sow';
 import { isManager } from '@/lib/roles';
+import { VisibilityEditor } from '@/components/VisibilityEditor';
 import { onQueueChange, onUploadsSent, pendingUploads, type UploadJob } from '@/lib/uploadQueue';
 import { base, radius, space } from '@/theme/theme';
 
@@ -36,6 +37,7 @@ export default function Schedule() {
   const { data, isLoading, refetch, isRefetching } = useSchedule(site);
   const [filter, setFilter] = useState<SowFilter>('active');
   const [showAll, setShowAll] = useState(false);
+  const [vis, setVis] = useState<string | null>(null);
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [pending, setPending] = useState<UploadJob[]>([]);
   const [pctPrompt, setPctPrompt] = useState<string | null>(null);
@@ -90,8 +92,9 @@ export default function Schedule() {
         onAdd={async (name, subId) => { if (await addTask(site.id, name, sectionId, subId)) { toast('Task added'); changed(); return true; } toast('Could not save — try again.'); return false; }} />
     : <Button kind="ghost" title="➕ Add task" onPress={() => setAdding(key)} />);
   const sectionMenu = async (sec: { id: string; name: string }) => {
-    const k = await chooseAction(sec.name, [{ key: 'dup', label: '⧉ Duplicate section' }, { key: 'ren', label: '✎ Rename' }, { key: 'del', label: '🗑 Delete', danger: true }]);
-    if (k === 'ren') {
+    const k = await chooseAction(sec.name, [{ key: 'dup', label: '⧉ Duplicate section' }, { key: 'ren', label: '✎ Rename' }, { key: 'vis', label: '🔒 Who can see this' }, { key: 'del', label: '🗑 Delete', danger: true }]);
+    if (k === 'vis') { setVis(sec.id); setOpen((o) => ({ ...o, [sec.id]: true })); }
+    else if (k === 'ren') {
       const n = await promptText('Section name', sec.name);
       if (n === null) return;
       if (!n.trim()) { toast("Section name can't be empty."); return; }
@@ -202,6 +205,7 @@ export default function Schedule() {
             <Group key={sec.id} title={`${sec.visibility_mode === 'assigned' ? '🔒 ' : ''}${sec.name}`}
               count={(view.bySectionAll[sec.id] || []).length ? doneCount(view.bySectionAll[sec.id]) : ''}
               open={isOpen(sec.id)} onToggle={() => toggle(sec.id)} onMenu={manager ? () => sectionMenu(sec) : undefined}>
+              {vis === sec.id && me.org_id && <VisibilityEditor table="schedule_sections" id={sec.id} siteId={site.id} orgId={me.org_id} onClose={(saved) => { setVis(null); if (saved) changed(); }} />}
               {(view.bySection[sec.id] || []).length ? view.bySection[sec.id].map(row) : <Empty>No tasks on this tab.</Empty>}
               {addBox(sec.id, sec.id)}
             </Group>

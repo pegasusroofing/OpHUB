@@ -7,6 +7,7 @@ import { cachedQuery, orThrow } from '@/lib/offlineCache';
 import { publicUrl, resolveStorageUrl } from '@/lib/privateFiles';
 import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/lib/types';
+import { invokeAsUser } from '@/lib/userFunctions';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 
@@ -109,6 +110,42 @@ export async function deleteFile(me: Profile, f: DFile) {
 export const fileUrl = (f: DFile) => resolveStorageUrl(publicUrl('drawings', f.storage_path));
 
 /** After a programme upload: put a key date on the job calendar. */
-export async function addKeyDate(me: Profile, siteId: string, date: string, title: string) {
-  return !(await db.from('site_calendar_events').insert({ org_id: me.org_id, site_id: siteId, title, event_date: date, is_private: false, reminder_recipient_ids: [], created_by: me.id } as never)).error;
+export async function addKeyDate(me: Profile, siteId: string, date: string, title: string, fileId?: string) {
+  const r = await db.from('site_calendar_events').insert({ org_id: me.org_id, site_id: siteId, title, event_date: date, is_private: false, reminder_recipient_ids: [], created_by: me.id } as never).select('id').single();
+  if (r.error) return false;
+  if (fileId) await db.from('drawing_files').update({ calendar_event_id: (r.data as { id: string }).id } as never).eq('id', fileId);
+  return true;
+}
+
+// Two-way OneDrive sync for Drawings (810), only when the job has a OneDrive folder linked.
+const b64 = (u: Uint8Array) => { let s = ''; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode(...u.subarray(i, i + 0x8000)); return btoa(s); };
+/** Push half: a copy of an uploaded file into the job's linked folder. Best-effort and silent, as today. */
+export async function pushDrawingToOneDrive(siteId: string, name: string, uri: string) {
+  try { const bytes = new Uint8Array(await (await fetch(uri)).arrayBuffer()); await invokeAsUser('onedrive-upload', { filename: name, content_base64: b64(bytes), site_id: siteId }); } catch { /* OneDrive sync is opportunistic */ }
+}
+export type OdItem = { id: string; name: string; driveId?: string | null };
+/** One level of the linked folder: sub-folders and files. */
+export async function listOneDriveLevel(at: { id: string; driveId?: string | null }): Promise<{ folders: OdItem[]; files: OdItem[]; error?: string }> {
+  const r = await invokeAsUser<{ folders?: OdItem[]; files?: OdItem[]; error?: string }>('onedrive-list-folders', { includeFiles: true, parent_id: at.id, ...(at.driveId ? { drive_id: at.driveId } : {}) });
+  if (r.error || r.data?.error) return { folders: [], files: [], error: r.data?.error || 'Could not load OneDrive folders.' };
+  return { folders: r.data?.folders || [], files: r.data?.files || [] };
+}
+/** Pull half: copy the ticked OneDrive files into this Drawings folder. */
+export async function importFromOneDrive(me: Profile, siteId: string, folderId: string | null, files: OdItem[], onStep: (s: string) => void): Promise<{ imported: number; failed: number }> {
+  let imported = 0, failed = 0;
+  for (let i = 0; i < files.length; i++) {
+    const f = files[i]; onStep(`Importing ${i + 1} of ${files.length}…`);
+    try {
+      const d = await invokeAsUser<{ content_base64?: string; error?: string }>('onedrive-download-file', { item_id: f.id, drive_id: f.driveId || null, name: f.name });
+      if (d.error || !d.data?.content_base64) { failed++; continue; }
+      const bin = atob(d.data.content_base64), bytes = new Uint8Array(bin.length);
+      for (let j = 0; j < bin.length; j++) bytes[j] = bin.charCodeAt(j);
+      const rid = globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}${i}`;
+      const up = await supabase.storage.from('drawings').upload(`${siteId}/${folderId || 'root'}/${rid}-${f.name.replace(/[^a-z0-9.\-]+/gi, '_')}`, bytes, { contentType: mimeFromName(f.name) || 'application/octet-stream' });
+      if (up.error) { failed++; continue; }
+      const r = await db.from('drawing_files').insert({ site_id: siteId, folder_id: folderId, name: f.name, storage_path: up.data.path, uploaded_by: me.id } as never);
+      if (r.error) failed++; else imported++;
+    } catch { failed++; }
+  }
+  return { imported, failed };
 }

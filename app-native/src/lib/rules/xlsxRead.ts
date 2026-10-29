@@ -34,14 +34,25 @@ const unesc = (s: string) => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').repla
 const colIndex = (ref: string) => { const l = (ref.match(/^[A-Z]+/) || ['A'])[0]; let n = 0; for (const ch of l) n = n * 26 + ch.charCodeAt(0) - 64; return n - 1; };
 const texts = (xml: string) => Array.from(xml.matchAll(/<t[^>]*>([\s\S]*?)<\/t>/g)).map((m) => unesc(m[1])).join('');
 
-/** A sheet's XML into rows (gaps filled with ''). */
-export function sheetRows(xml: string, shared: string[]): Cell[][] {
+/** An Excel date serial (days since 30 Dec 1899) as YYYY-MM-DD. */
+export const serialDate = (n: number) => new Date(Date.UTC(1899, 11, 30) + Math.floor(n) * 86400000).toISOString().slice(0, 10);
+/** Which cell styles (s="N") show a date: built-in date formats, or a custom one with d / m / y outside quotes. */
+export function dateStyleIds(stylesXml: string): Set<number> {
+  const custom: Record<number, string> = {};
+  for (const m of stylesXml.matchAll(/<numFmt\b[^>]*>/g)) { const id = Number((m[0].match(/numFmtId="(\d+)"/) || [])[1]), code = unesc((m[0].match(/formatCode="([^"]*)"/) || [])[1] || ''); custom[id] = code; }
+  const isDate = (id: number) => (id >= 14 && id <= 22) || (id >= 45 && id <= 47) || (custom[id] != null && /[dmy]/i.test(custom[id].replace(/"[^"]*"|\[[^\]]*\]/g, '')));
+  const out = new Set<number>(), xfs = (stylesXml.match(/<cellXfs\b[\s\S]*?<\/cellXfs>/) || [''])[0];
+  Array.from(xfs.matchAll(/<xf\b[^>]*>/g)).forEach((m, i) => { if (isDate(Number((m[0].match(/numFmtId="(\d+)"/) || [])[1] || 0))) out.add(i); });
+  return out;
+}
+/** A sheet's XML into rows (gaps filled with ''). With dateStyles, date cells come back as YYYY-MM-DD. */
+export function sheetRows(xml: string, shared: string[], dateStyles?: Set<number>): Cell[][] {
   const rows: Cell[][] = [];
   for (const rm of xml.matchAll(/<row\b[^>]*?(?:\/>|>([\s\S]*?)<\/row>)/g)) {
     const row: Cell[] = [];
     for (const cm of (rm[1] || '').matchAll(/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)) {
       const attrs = cm[1], inner = cm[2] || '';
-      const ref = (attrs.match(/\br="([A-Z]+\d+)"/) || [])[1], t = (attrs.match(/\bt="([^"]+)"/) || [])[1];
+      const ref = (attrs.match(/\br="([A-Z]+\d+)"/) || [])[1], t = (attrs.match(/\bt="([^"]+)"/) || [])[1], st = Number((attrs.match(/\bs="(\d+)"/) || [])[1] ?? -1);
       const ci = ref ? colIndex(ref) : row.length;
       const v = (inner.match(/<v>([\s\S]*?)<\/v>/) || [])[1];
       let val: Cell = '';
@@ -49,6 +60,7 @@ export function sheetRows(xml: string, shared: string[]): Cell[][] {
       else if (t === 'inlineStr') val = texts(inner);
       else if (t === 'str' || t === 'e') val = unesc(v ?? '');
       else if (t === 'b') val = v === '1' ? 'TRUE' : 'FALSE';
+      else if (v != null && v !== '' && dateStyles?.has(st) && !Number.isNaN(Number(v))) val = serialDate(Number(v));
       else if (v != null && v !== '') val = Number.isNaN(Number(v)) ? unesc(v) : Number(v);
       while (row.length < ci) row.push('');
       row[ci] = val;
@@ -58,17 +70,18 @@ export function sheetRows(xml: string, shared: string[]): Cell[][] {
   return rows;
 }
 /** The workbook's sheets in order, each as rows. */
-export async function readXlsx(bytes: Uint8Array): Promise<{ name: string; rows: Cell[][] }[]> {
+/** opts.dates: date cells as YYYY-MM-DD instead of Excel serial numbers. */
+export async function readXlsx(bytes: Uint8Array, opts?: { dates?: boolean }): Promise<{ name: string; rows: Cell[][] }[]> {
   const f = await unzip(bytes), dec = new TextDecoder();
   const s = (n: string) => (f[n] ? dec.decode(f[n]) : '');
   const shared = Array.from(s('xl/sharedStrings.xml').matchAll(/<si>([\s\S]*?)<\/si>/g)).map((m) => texts(m[1]));
   const rels: Record<string, string> = {};
   for (const m of s('xl/_rels/workbook.xml.rels').matchAll(/<Relationship\b[^>]*>/g)) { const id = (m[0].match(/Id="([^"]+)"/) || [])[1], tg = (m[0].match(/Target="([^"]+)"/) || [])[1]; if (id && tg) rels[id] = tg.replace(/^\/?xl\//, '').replace(/^\//, ''); }
-  const out: { name: string; rows: Cell[][] }[] = [];
+  const out: { name: string; rows: Cell[][] }[] = [], ds = opts?.dates ? dateStyleIds(s('xl/styles.xml')) : undefined;
   for (const m of s('xl/workbook.xml').matchAll(/<sheet\b[^>]*>/g)) {
     const name = unesc((m[0].match(/name="([^"]*)"/) || [])[1] || 'Sheet'), rid = (m[0].match(/r:id="([^"]+)"/) || [])[1];
     const path = `xl/${rid && rels[rid] ? rels[rid] : `worksheets/sheet${out.length + 1}.xml`}`;
-    out.push({ name, rows: sheetRows(s(path), shared) });
+    out.push({ name, rows: sheetRows(s(path), shared, ds) });
   }
   return out;
 }

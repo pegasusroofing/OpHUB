@@ -1,7 +1,9 @@
 // One level of Drawings, Spec's & Programme (810): sub-folders, current files,
 // superseded files. Managers get + (Add Folder / Add Document), folder ⋮ (move,
 // rename, delete), file rename/delete, Supersedes on upload, and the "add a key
-// date to the Calendar?" card after a programme upload.
+// date to the Calendar?" card after a programme upload (an Excel programme is
+// scanned for its dates), "Who can see this" per folder, and — when the job has
+// a OneDrive folder linked — Import from OneDrive and a copy of each upload.
 import * as DocumentPicker from 'expo-document-picker';
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack } from 'expo-router';
@@ -11,10 +13,14 @@ import { Linking, Pressable, Text, TextInput, View } from 'react-native';
 import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import {
-  addKeyDate, createFolder, deleteFile, deleteFolder, drawingsOnlyOk, fileIcon, fileUrl, mimeFromName, moveFolder, renameFile, renameFolder,
+  addKeyDate, createFolder, pushDrawingToOneDrive, deleteFile, deleteFolder, drawingsOnlyOk, fileIcon, fileUrl, mimeFromName, moveFolder, renameFile, renameFolder,
   uploadFiles, useDrawings, type DFile,
 } from '@/data/drawings';
+import { VisibilityEditor } from '@/components/VisibilityEditor';
+import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
+import { programmeDates } from '@/lib/rules/programmeDates';
+import { readXlsx } from '@/lib/rules/xlsxRead';
 import { readIsoDate } from '@/lib/rules/materials';
 import { isManager } from '@/lib/roles';
 import { base, radius, space } from '@/theme/theme';
@@ -31,7 +37,10 @@ export function DrawingsBrowser({ siteId, folderId }: { siteId: string; folderId
   const [supersedes, setSupersedes] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [showOld, setShowOld] = useState(false);
-  const [keyDate, setKeyDate] = useState<{ name: string; date: string; label: string } | null>(null);
+  const [keyDate, setKeyDate] = useState<{ name: string; date: string; label: string; fileId: string; cands: { date: string; label: string; on: boolean }[] } | null>(null);
+  const [vis, setVis] = useState<string | null>(null);
+  const { data: site } = useSite(siteId);
+  const linked = !!(site as { onedrive_folder_id?: string | null } | undefined)?.onedrive_folder_id;
   if (!me) return null;
   const mgr = isManager(me);
   const folder = data?.folder ?? null;
@@ -57,7 +66,12 @@ export function DrawingsBrowser({ siteId, folderId }: { siteId: string; folderId
     if (res.uploaded) {
       toast(res.uploaded === 1 ? 'File uploaded' : `${res.uploaded} files uploaded${skipped ? `, ${skipped} skipped (wrong file type)` : ''}`);
       setMode(null); setSupersedes(null);
-      if (isProgramme && res.uploaded === 1 && res.last) setKeyDate({ name: res.last.name, date: '', label: `Programme: ${res.last.name}` });
+      if (linked) for (const a of assets) void pushDrawingToOneDrive(siteId, a.name, a.uri);
+      if (isProgramme && res.uploaded === 1 && res.last) {
+        let cands: { date: string; label: string; on: boolean }[] = [];
+        if (/.xlsx$/i.test(assets[0].name)) { try { cands = programmeDates(await readXlsx(new Uint8Array(await (await fetch(assets[0].uri)).arrayBuffer()), { dates: true })).map((c) => ({ ...c, on: false })); } catch { /* plain date form */ } }
+        setKeyDate({ name: res.last.name, date: '', label: `Programme: ${res.last.name}`, fileId: res.last.id, cands });
+      }
     } else toast('Could not upload — check your signal and try again.');
     refresh();
   };
@@ -69,8 +83,9 @@ export function DrawingsBrowser({ siteId, folderId }: { siteId: string; folderId
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
           <Text style={{ flex: 1, fontWeight: '700', color: base.slate }}>Folder/File Name</Text>
           <Pressable onPress={async () => {
-            const k = await chooseAction('What would you like to add?', [{ key: 'folder', label: '📁 Add Folder' }, { key: 'upload', label: '📄 Add Document' }]);
+            const k = await chooseAction('What would you like to add?', [{ key: 'folder', label: '📁 Add Folder' }, { key: 'upload', label: '📄 Add Document' }, ...(linked ? [{ key: 'od', label: '☁️ Import from OneDrive' }] : [])]);
             if (k === 'folder' || k === 'upload') setMode(k);
+            else if (k === 'od') router.push(`/sites/${siteId}/drawings/import${folderId ? `?folder=${folderId}` : ''}` as never);
           }} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: base.ink, alignItems: 'center', justifyContent: 'center' }}>
             <Text style={{ color: '#fff', fontSize: 22, lineHeight: 24 }}>+</Text>
           </Pressable>
@@ -93,7 +108,7 @@ export function DrawingsBrowser({ siteId, folderId }: { siteId: string; folderId
           {!!data?.files.length && (
             <View style={{ marginTop: 8 }}>
               <Muted style={{ fontWeight: '700' }}>Supersedes (optional, single file only)</Muted>
-              <Pressable onPress={() => setSupersedes(null)}><Text style={{ paddingVertical: 5, color: base.ink }}>{!supersedes ? '◉' : '○'} New document, doesn't replace anything</Text></Pressable>
+              <Pressable onPress={() => setSupersedes(null)}><Text style={{ paddingVertical: 5, color: base.ink }}>{!supersedes ? '◉' : '○'} New document, doesn&apos;t replace anything</Text></Pressable>
               {data.files.map((f) => <Pressable key={f.id} onPress={() => setSupersedes(f.id)}><Text style={{ paddingVertical: 5, color: base.ink }}>{supersedes === f.id ? '◉' : '○'} {f.name}</Text></Pressable>)}
             </View>
           )}
@@ -103,15 +118,35 @@ export function DrawingsBrowser({ siteId, folderId }: { siteId: string; folderId
       )}
       {keyDate && (
         <Card style={{ backgroundColor: base.paper }}>
-          <SectionTitle>Add a key date from "{keyDate.name}"?</SectionTitle>
+          <SectionTitle>Add a key date from &quot;{keyDate.name}&quot;?</SectionTitle>
           <Muted>Puts the date straight onto the job Calendar so the team can see it without opening the document.</Muted>
+          {keyDate.cands.length ? <View style={{ marginTop: 8 }}>
+            <Muted style={{ fontWeight: '700' }}>Dates found in the programme — tick the ones to add:</Muted>
+            {keyDate.cands.map((c, i) => (
+              <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                <Pressable onPress={() => setKeyDate({ ...keyDate, cands: keyDate.cands.map((x, j) => (j === i ? { ...x, on: !x.on } : x)) })}><Text style={{ fontSize: 18, color: base.ink }}>{c.on ? '☑' : '☐'}</Text></Pressable>
+                <Text style={{ width: 92, color: base.ink, fontWeight: '700' }}>{new Date(`${c.date}T12:00:00`).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</Text>
+                <TextInput value={c.label} onChangeText={(t) => setKeyDate({ ...keyDate, cands: keyDate.cands.map((x, j) => (j === i ? { ...x, label: t } : x)) })} placeholder={`Programme: ${keyDate.name}`} style={[box, { flex: 1, marginBottom: 0 }]} />
+              </View>
+            ))}
+          </View> : <>
           <TextInput value={keyDate.date} onChangeText={(t) => setKeyDate({ ...keyDate, date: t })} placeholder="Date (YYYY-MM-DD)" autoCapitalize="none" style={[box, { marginTop: 8 }]} />
           <TextInput value={keyDate.label} onChangeText={(t) => setKeyDate({ ...keyDate, label: t })} style={box} />
-          <View style={{ flexDirection: 'row', gap: 8 }}>
+          </>}
+          <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
             <View style={{ flex: 1 }}><Button title="Add to Calendar" onPress={async () => {
+              if (keyDate.cands.length) {
+                const on = keyDate.cands.filter((c) => c.on);
+                if (!on.length) { toast('Tick at least one date, or use Skip.'); return; }
+                let added = 0;
+                for (const c of on) if (await addKeyDate(me, siteId, c.date, c.label.trim() || `Programme: ${keyDate.name}`, added ? undefined : keyDate.fileId)) added++;
+                toast(added === 1 ? 'Key date added to the Calendar' : added ? `${added} key dates added to the Calendar` : 'Could not save — try again.');
+                if (added) setKeyDate(null);
+                return;
+              }
               const d = readIsoDate(keyDate.date);
               if (!d || d === 'bad') { toast('Enter the date as YYYY-MM-DD.'); return; }
-              if (await addKeyDate(me, siteId, d, keyDate.label.trim() || `Programme: ${keyDate.name}`)) { toast('Added to the Calendar'); setKeyDate(null); } else toast('Could not save — try again.');
+              if (await addKeyDate(me, siteId, d, keyDate.label.trim() || `Programme: ${keyDate.name}`, keyDate.fileId)) { toast('Added to the Calendar'); setKeyDate(null); } else toast('Could not save — try again.');
             }} /></View>
             <View style={{ flex: 1 }}><Button kind="ghost" title="Skip" onPress={() => setKeyDate(null)} /></View>
           </View>
@@ -120,8 +155,8 @@ export function DrawingsBrowser({ siteId, folderId }: { siteId: string; folderId
 
       {isLoading ? <Muted>Loading…</Muted> : (data?.folders.length || data?.files.length) ? (
         <>
-          {data.folders.map((f, i) => (
-            <Pressable key={f.id} onPress={() => router.push(`/sites/${siteId}/drawings/${f.id}` as never)}
+          {data.folders.map((f, i) => (<View key={f.id}>
+            <Pressable onPress={() => router.push(`/sites/${siteId}/drawings/${f.id}` as never)}
               style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 8, backgroundColor: base.card }}>
               <Text style={{ fontSize: 20 }}>{f.name === 'Specification' ? '📄' : '📁'}</Text>
               <View style={{ flex: 1 }}>
@@ -132,21 +167,23 @@ export function DrawingsBrowser({ siteId, folderId }: { siteId: string; folderId
                 <Pressable hitSlop={8} onPress={async () => {
                   const k = await chooseAction(f.name, [
                     ...(i > 0 ? [{ key: 'up', label: '▲ Move Up' }] : []), ...(i < data.folders.length - 1 ? [{ key: 'down', label: '▼ Move Down' }] : []),
-                    { key: 'rename', label: '✏️ Rename' }, { key: 'del', label: '🗑 Delete', danger: true },
+                    { key: 'rename', label: '✏️ Rename' }, { key: 'vis', label: '🔒 Who can see this' }, { key: 'del', label: '🗑 Delete', danger: true },
                   ]);
+                  if (k === 'vis') { setVis(f.id); return; }
                   if (k === 'up' || k === 'down') { if (!(await moveFolder(data.folders, f.id, k === 'up' ? -1 : 1))) toast('Move failed — could not save the new order, try again.'); refresh(); }
                   else if (k === 'rename') { const n = await promptText('Rename folder', f.name); if (n && n.trim() && n.trim() !== f.name && await renameFolder(f.id, n.trim())) { toast('Folder renamed'); refresh(); } }
                   else if (k === 'del' && await confirmAsk("Delete this folder and everything inside it? This can't be undone.", 'Delete')) { if (await deleteFolder(me, f)) { toast('Folder deleted'); refresh(); } }
                 }}><Text style={{ fontSize: 18, color: base.slate, paddingHorizontal: 4 }}>⋮</Text></Pressable>
               )}
             </Pressable>
-          ))}
+            {vis === f.id && me.org_id && <VisibilityEditor table="drawing_folders" id={f.id} siteId={siteId} orgId={me.org_id} onClose={(saved) => { setVis(null); if (saved) refresh(); }} />}
+          </View>))}
           {data.files.map((f) => (
             <Card key={f.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <Text style={{ fontSize: 18 }}>{fileIcon(f)}</Text>
               <View style={{ flex: 1 }}>
                 <Text style={{ fontWeight: '700', color: base.ink }}>{f.name}</Text>
-                {!!f.supersedes && <Muted>Supersedes "{data.nameById[f.supersedes] || 'an earlier version'}"</Muted>}
+                {!!f.supersedes && <Muted>Supersedes &quot;{data.nameById[f.supersedes] || 'an earlier version'}&quot;</Muted>}
               </View>
               <Pressable onPress={() => void view(f)} style={{ paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: base.line, borderRadius: 8 }}><Text style={{ fontWeight: '700', color: base.ink }}>View</Text></Pressable>
               {mgr && <Pressable hitSlop={6} onPress={async () => { const n = await promptText('Rename drawing', f.name); if (n && n.trim() && n.trim() !== f.name && await renameFile(f.id, n.trim())) { toast('Drawing renamed'); refresh(); } }}><Text>✏️</Text></Pressable>}
@@ -175,7 +212,7 @@ export function DrawingsBrowser({ siteId, folderId }: { siteId: string; folderId
           )}
         </>
       )}
-      {mgr && <Muted style={{ marginTop: space.m }}>Still in the current app for now: who-can-see-this-folder settings, OneDrive import and copying uploads to OneDrive, reading key dates out of an Excel programme, and drawing mark-up.</Muted>}
+      {mgr && <Muted style={{ marginTop: space.m }}>Still in the current app for now: drawing mark-up.</Muted>}
     </View>
   );
 }
