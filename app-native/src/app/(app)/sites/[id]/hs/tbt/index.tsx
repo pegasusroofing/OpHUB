@@ -140,7 +140,55 @@ export default function Tbts() {
           }} />}
         </View>
       )}
-      {mgr && <Muted style={{ marginTop: space.m }}>{cur === 'completed' ? 'Tick talks to export or email their signed PDFs together. ' : ''}Subcontractor toolbox talks are still in the current app for now.</Muted>}
+      {mgr && cur === 'completed' && <Muted style={{ marginTop: space.m }}>Tick talks to export or email their signed PDFs together.</Muted>}
+      {mgr && site && <SubTbts siteId={id} site={site} />}
     </ScrollView>
+  );
+}
+
+/** Subcontractors' own toolbox talks on this job, a fold per company, each signed PDF to export or email (710). */
+function SubTbts({ siteId, site }: { siteId: string; site: NonNullable<ReturnType<typeof useSite>['data']> }) {
+  const toast = useToast();
+  const [open, setOpen] = useState<Record<string, boolean>>({});
+  const { data = [] } = useQuery({ queryKey: ['subTbtsSite', siteId], queryFn: async () => {
+    const cos = ((await db.from('subcontractor_companies').select('id,name').eq('site_id', siteId).order('name')).data as { id: string; name: string }[] | null) ?? [];
+    if (!cos.length) return [];
+    const talks = ((await db.from('toolbox_talks').select('id,title,status,created_at,subcontractor_company_id').in('subcontractor_company_id', cos.map((c) => c.id)).order('created_at', { ascending: false })).data as { id: string; title: string; status: string; created_at: string; subcontractor_company_id: string }[] | null) ?? [];
+    return cos.map((c) => ({ ...c, talks: talks.filter((t) => t.subcontractor_company_id === c.id) })).filter((c) => c.talks.length);
+  } });
+  if (!data.length) return null;
+  const pdf = async (tid: string) => {
+    toast('Building signed PDF…');
+    const b = await buildSignedTbtPdf(tid, site).catch(() => 'Could not build the signed PDF.');
+    if (typeof b === 'string') { toast(b); return null; }
+    return b;
+  };
+  return (
+    <>
+      <SectionTitle>Subcontractor Toolbox Talks</SectionTitle>
+      {data.map((c) => (
+        <Card key={c.id}>
+          <Pressable onPress={() => setOpen({ ...open, [c.id]: !open[c.id] })}><Text style={{ fontWeight: '800', color: base.ink }}>{open[c.id] ? '▼' : '▶'} {c.name} ({c.talks.length})</Text></Pressable>
+          {open[c.id] && c.talks.map((t) => (
+            <View key={t.id} style={{ paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: base.line }}>
+              <Pressable onPress={() => router.push(`/sites/${siteId}/mc/subcontractors/${c.id}/tbt` as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <View style={{ flex: 1 }}><Text style={{ fontWeight: '700', color: base.ink }}>{t.title}</Text><Muted>{new Date(t.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</Muted></View>
+                <TbtStatusTag status={t.status as never} />
+              </Pressable>
+              <View style={{ flexDirection: 'row', gap: 16, marginTop: 4 }}>
+                <Text style={{ color: base.blue }} onPress={async () => { const b = await pdf(t.id); if (b && !(await deliverPdf(b.bytes, b.filename))) toast('Could not save the PDF.'); }}>⬇ Export</Text>
+                <Text style={{ color: base.blue }} onPress={async () => {
+                  const to = (await promptText('Email this signed Toolbox Talk PDF to:', ''))?.trim(); if (!to) return;
+                  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) { toast('Enter a valid email address.'); return; }
+                  const b = await pdf(t.id); if (!b) return;
+                  const err = await emailPdf(b.bytes, b.filename, `${siteId}/tbt-exports`, { site_id: siteId, recipient_email: to, doc_title: `${t.title} (signed)` });
+                  toast(err || `Emailed to ${to}`);
+                }}>✉️ Email</Text>
+              </View>
+            </View>
+          ))}
+        </Card>
+      ))}
+    </>
   );
 }
