@@ -230,6 +230,12 @@ export default function FinDirectory() {
             const r = edit.id ? await fdb.from(tbl).update(row as never).eq('id', edit.id).select('*').single() : await fdb.from(tbl).insert({ ...row, org_id: me.org_id, created_by: me.id } as never).select('*').single();
             const rec = r.data as Row | null; if (!rec) return 'Could not save — try again.';
             let msg = edit.id ? 'Saved' : 'Added';
+            // A client's details carry to the projects billed to it (bill-to synced with the Directory).
+            if (!sup && edit.id) {
+              const old = String(edit.name || '').trim();
+              const ids = (((await fdb.from('job_finance').select('site_id,billing_name').eq('org_id', me.org_id as string)).data as Row[] | null) ?? []).filter((j) => String(j.billing_name || '').trim().toLowerCase() === old.toLowerCase()).map((j) => j.site_id);
+              if (ids.length) await fdb.from('job_finance').update({ billing_name: rec.name, billing_email: rec.email || null, billing_address: [rec.address, rec.postcode].filter(Boolean).join('\n') || null } as never).in('site_id', ids);
+            }
             if (v.toX && !rec.xero_contact_id) {
               const lines = String(rec.address || '').split(/\n|,/).map((x) => x.trim()).filter(Boolean);
               const x = await finInvoke<{ contact: { id: string }; existed?: boolean }>(me, 'xero', { action: 'create_contact', name: rec.name, email: rec.email || '', phone: rec.phone || '', line1: lines[0] || '', line2: lines.slice(1, -1).join(', '), city: lines.length > 1 ? lines[lines.length - 1] : '', postcode: rec.postcode || '', supplier: sup });

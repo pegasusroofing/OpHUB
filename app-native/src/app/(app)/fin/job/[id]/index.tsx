@@ -2,7 +2,7 @@
 // layout): Overview (project summary, cost to date, retention), Sales,
 // Purchases, Subcontractors & Labour, and Set-up (contract, billing, client POs).
 import * as DocumentPicker from 'expo-document-picker';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
@@ -17,6 +17,7 @@ import { SubsLists } from '@/components/FinSubs';
 import { chooseAction, confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Muted, SectionTitle } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
+import { fdb } from '@/data/finance';
 import { applyRetention, raiseRetentionInvoice } from '@/data/finApp';
 import { deleteClientPo, finBookedOn, saveClientPo, saveJobFinance, saveJobNumber, useBook } from '@/data/finBook';
 import { deleteSite, setSiteStatus, siteIsEmpty } from '@/data/siteList';
@@ -193,6 +194,8 @@ function Setup({ id, site, jf, cpos, settings }: { id: string; site: Row | undef
   const qc = useQueryClient();
   const [edit, setEdit] = useState<'job' | 'po' | 'dates' | null>(null);
   const { data: people } = usePeople();
+  // Directory clients: the bill-to follows the client's Directory record (9219u — it lives on the client).
+  const { data: dirClients = [] } = useQuery({ queryKey: ['finDirClients', me?.org_id], enabled: !!me, queryFn: async () => ((await fdb.from('fin_clients').select('id,name,email,address,postcode').eq('org_id', me?.org_id as string).order('name')).data as Row[] | null) ?? [] });
   const [po, setPo] = useState<Row | null>(null);
   const [file, setFile] = useState<{ uri: string; name: string; mimeType?: string | null } | null>(null);
   if (!me) return null;
@@ -266,7 +269,7 @@ function Setup({ id, site, jf, cpos, settings }: { id: string; site: Row | undef
             { k: 'due_days', label: 'Payment due (days)', kind: 'number', half: true, ph: String(settings.default_due_days) }, { k: 'final_days', label: 'Final date (days)', kind: 'number', half: true, ph: String(settings.default_final_days) },
             { k: 'vat_treatment', label: 'VAT', kind: 'choice', options: [['', 'Company default'], ...Object.entries(FIN_VAT_LABEL)] as [string, string][] },
             { k: 'app_reminder_day', label: 'Application date (day of month)', kind: 'number', half: true }, { k: 'ohp_pct', label: `Company overheads % (blank = ${settings.ohp_pct ?? 0}%)`, kind: 'number', half: true, note: me.role === 'admin' ? undefined : 'Only a company admin can change this.' },
-            { k: 'billing_name', label: 'Bill to (client)' }, { k: 'billing_address', label: 'Billing address', kind: 'multiline' }, { k: 'billing_email', label: 'Accounts email', kind: 'email' },
+            { k: 'billing_name', label: 'Bill to (client)', kind: 'choice', options: [['', 'Not set'], ...dirClients.map((c) => [c.name, c.name] as [string, string]), ...(jf.billing_name && !dirClients.some((c) => c.name === jf.billing_name) ? [[jf.billing_name, `${jf.billing_name} (not in the Directory)`] as [string, string]] : [])], note: 'From the Directory — the billing address and accounts email follow the client’s Directory record.' }, { k: 'billing_address', label: 'Billing address', kind: 'multiline' }, { k: 'billing_email', label: 'Accounts email', kind: 'email' },
             { k: 'pc_date', label: 'Practical completion date', kind: 'date', half: true }, { k: 'defects_months', label: 'Defects period (months)', kind: 'number', half: true },
             { k: 'final_release_date', label: 'Final retention release (blank = end of defects period)', kind: 'date', half: true },
             { k: 'qs_id', label: 'QS', kind: 'choice', half: true, options: [['', 'None yet'], ...(people ?? []).filter((p) => ['pm', 'admin'].includes(p.role)).sort((a, b) => a.name.localeCompare(b.name)).map((p) => [p.id, p.name] as [string, string])] },
@@ -279,6 +282,9 @@ function Setup({ id, site, jf, cpos, settings }: { id: string; site: Row | undef
             if (ret !== null && (isNaN(ret) || ret < 0 || ret > 100)) return 'Retention must be between 0 and 100%.';
             if (retLim !== null && (isNaN(retLim) || retLim < 0 || retLim > 100)) return 'Retention limit must be between 0 and 100%.';
             if (appDay !== null && (isNaN(appDay) || appDay < 1 || appDay > 31)) return 'Application date must be a day of the month, 1 to 31.';
+            // The bill-to follows the Directory: address and accounts email come from the client's record.
+            const dc = dirClients.find((c) => c.name === String(v.billing_name || ''));
+            if (dc) { v.billing_address = [dc.address, dc.postcode].filter(Boolean).join('\n') || String(v.billing_address || ''); v.billing_email = dc.email || String(v.billing_email || ''); }
             const email = String(v.billing_email).trim();
             if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return 'Enter a valid accounts email.';
             const jobNo = String(v.job_number).trim();
