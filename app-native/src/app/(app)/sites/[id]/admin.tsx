@@ -7,6 +7,8 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
+import { DateBox } from '@/components/DateField';
+import { SelectBox } from '@/components/SelectBox';
 import { AssignList } from '@/components/AssignList';
 import { chooseAction, confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Check, Empty, Muted, SectionTitle, Toggle } from '@/components/ui';
@@ -17,7 +19,6 @@ import {
 } from '@/data/siteAdmin';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
-import { readIsoDate } from '@/lib/rules/materials';
 import { siteStatusKey } from '@/lib/rules/checkin';
 import { isFullManager, isManager } from '@/lib/roles';
 import { base, page, radius, space } from '@/theme/theme';
@@ -75,12 +76,11 @@ export default function SiteAdmin() {
                   <TextInput value={details.postcode} onChangeText={(t) => setDetails({ ...details, postcode: t.toUpperCase() })} autoCapitalize="characters" style={box} />
                   <Muted style={{ fontWeight: '700' }}>Job Number</Muted>
                   <TextInput value={details.job} onChangeText={(t) => setDetails({ ...details, job: t })} placeholder="Optional" style={box} />
-                  <Muted style={{ fontWeight: '700' }}>Start Date (YYYY-MM-DD)</Muted>
-                  <TextInput value={details.start} onChangeText={(t) => setDetails({ ...details, start: t })} autoCapitalize="none" style={box} />
+                  <Muted style={{ fontWeight: '700' }}>Start Date</Muted>
+                  <DateBox value={details.start} onChange={(v) => setDetails({ ...details, start: v })} title="Start date" style={{ marginBottom: 8 }} />
                   <Button title="Save" onPress={async () => {
                     if (!details.name.trim()) { toast('Site name cannot be blank.'); return; }
-                    const d = readIsoDate(details.start);
-                    if (d === 'bad') { toast('Enter the date as YYYY-MM-DD, e.g. 2026-11-03'); return; }
+                    const d = details.start || null;
                     if (await updateSite(qc, id, { name: details.name.trim(), address: details.address.trim() || null, postcode: details.postcode.trim() || null, job_number: details.job.trim() || null, start_date: d })) { toast('Details updated'); setDetails(null); }
                     else toast('Could not save — try again.');
                   }} />
@@ -206,17 +206,11 @@ export default function SiteAdmin() {
       {full && (
         <>
           <SectionTitle>Job status</SectionTitle>
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            {(['live', 'upcoming', 'closed'] as const).map((k) => (
-              <Pressable key={k} onPress={async () => {
-                if (k === sk) return;
-                if (k === 'closed' && !(await confirmAsk(`Close "${site.name}"? Operatives lose access to it, and the Handover tile (O&M manual) appears on the job. You can reopen it any time from here or the Closed list.`, 'Close job'))) return;
-                toast((await setSiteStatus(qc, me, id, k)) ? 'Status updated' : 'Could not save — try again.');
-              }} style={{ flex: 1, paddingVertical: 10, borderRadius: radius.row, borderWidth: 1.5, alignItems: 'center', borderColor: k === sk ? base.ink : base.line, backgroundColor: k === sk ? base.ink : base.card }}>
-                <Text style={{ fontWeight: '700', color: k === sk ? '#fff' : k === 'closed' ? base.warn : k === 'live' ? base.ok : base.ink }}>{k === 'live' ? 'Live' : k === 'upcoming' ? 'Upcoming' : 'Closed'}</Text>
-              </Pressable>
-            ))}
-          </View>
+          <SelectBox title="Job status" value={sk} options={[['live', '🟢 Live'], ['upcoming', '🗓 Upcoming'], ['closed', '🔒 Closed']]} style={{ maxWidth: 320 }} onChange={async (k) => {
+            if (k === sk) return;
+            if (k === 'closed' && !(await confirmAsk(`Close "${site.name}"? Operatives lose access to it, and the Handover tile (O&M manual) appears on the job. You can reopen it any time from here or the Closed list.`, 'Close job'))) return;
+            if (!(await setSiteStatus(qc, me, id, k))) toast('Could not save — try again.');
+          }} />
 
           <Toggle title="Price" open={!!open.price} onPress={() => flip('price')} />
           {open.price && (

@@ -7,6 +7,7 @@ import { router, Stack } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
+import { askDate, DateBox, todayIso } from '@/components/DateField';
 import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle, Toggle } from '@/components/ui';
 import { nameOf, usePeople } from '@/data/hs';
@@ -16,7 +17,6 @@ import { addTodo, deleteTodo, editTodo, setTodoDone, usePmList, type Pm, type To
 import { useAuth } from '@/lib/auth';
 import { siteStatusKey } from '@/lib/rules/checkin';
 import { localISODate } from '@/lib/rules/driver';
-import { readIsoDate } from '@/lib/rules/materials';
 import { base, page, radius } from '@/theme/theme';
 
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card, marginBottom: 8 };
@@ -46,7 +46,7 @@ export default function PmTodos() {
     const k = await chooseAction(t.text, [{ key: 'done', label: 'Mark done' }, { key: 'edit', label: 'Change the wording' }, { key: 'date', label: 'Change the date required' }, { key: 'del', label: 'Delete', danger: true }]);
     if (k === 'done') { toast((await setTodoDone(t.id, true)) ? 'Marked done' : 'Could not save — try again.'); reload(); }
     if (k === 'edit') { const v = await promptText('What needs doing?', t.text); if (v && v.trim()) { toast((await editTodo(t.id, v.trim(), t.date_required_by)) ? 'Saved' : 'Could not save — try again.'); reload(); } }
-    if (k === 'date') { const v = await promptText('Required by (YYYY-MM-DD, blank for none)', t.date_required_by || ''); if (v != null) { const d = readIsoDate(v); if (d === 'bad') { toast('Enter the date as YYYY-MM-DD.'); return; } toast((await editTodo(t.id, t.text, d)) ? 'Saved' : 'Could not save — try again.'); reload(); } }
+    if (k === 'date') { const v = await askDate('Required by', { min: todayIso() }); if (v != null) { if (!(await editTodo(t.id, t.text, v || null))) toast('Could not save — try again.'); reload(); } }
     if (k === 'del' && (await confirmAsk('Delete this to-do?', 'Delete'))) { toast((await deleteTodo(me, 'general', t)) ? 'Deleted' : 'Could not delete — try again.'); reload(); }
   };
 
@@ -61,7 +61,7 @@ export default function PmTodos() {
           </Pressable>
           <TextInput value={text} onChangeText={setText} placeholder="What needs doing?" style={box} />
           <View style={{ flexDirection: 'row', gap: 8 }}>
-            <TextInput value={date} onChangeText={setDate} placeholder="Required by (YYYY-MM-DD)" autoCapitalize="none" style={[box, { flex: 1 }]} />
+            <DateBox value={date} onChange={setDate} min={todayIso()} placeholder="Required by (optional)" title="Required by" style={{ flex: 1, marginBottom: 8 }} />
             <Pressable onPress={async () => { const k = await chooseAction('Assign to a PM', [{ key: '', label: 'Unassigned' }, ...(pms ?? []).map((p) => ({ key: p.id, label: p.name }))]); if (k !== null) setPm((pms ?? []).find((p) => p.id === k) ?? null); }} style={[box, { flex: 1, justifyContent: 'center' }]}>
               <Text style={{ color: base.ink }}>▶ {pm ? pm.name : 'Assign to a PM'}</Text>
             </Pressable>
@@ -69,7 +69,7 @@ export default function PmTodos() {
           <Button busy={busy} title="Add To Do" onPress={async () => {
             if (!siteId) { toast('Choose which project it is for, or General.'); return; }
             if (!text.trim()) { toast('Enter what needs doing first.'); return; }
-            const d = readIsoDate(date); if (d === 'bad') { toast('Enter the date as YYYY-MM-DD.'); return; }
+            const d = date || null;
             setBusy(true);
             const ok = await addTodo(me, siteId, siteId === 'general' ? '' : live.find((s) => s.id === siteId)?.name || '', { text: text.trim(), comment: '', date: d, pm, files: [] });
             setBusy(false);

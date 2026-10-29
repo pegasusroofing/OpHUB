@@ -7,6 +7,7 @@ import { Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
+import { DateBox, todayIso } from '@/components/DateField';
 import { chooseAction, confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Check, Empty, Muted, SectionTitle, Toggle } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
@@ -18,8 +19,6 @@ import {
 } from '@/data/todos';
 import { useAuth } from '@/lib/auth';
 import { exportTablePdf } from '@/lib/tableExport';
-import { localISODate } from '@/lib/rules/driver';
-import { readIsoDate } from '@/lib/rules/materials';
 import { isManager } from '@/lib/roles';
 import { base, page, radius, space } from '@/theme/theme';
 
@@ -52,7 +51,6 @@ export default function TodoList() {
   const all = data?.todos ?? [];
   const list = all.filter((t) => (tab === 'live' ? !t.done : t.done));
   const picked = list.filter((t) => sel.has(t.id)).map((t) => t.id);
-  const today = localISODate(new Date());
   const ukd = (d: string) => new Date(`${d.slice(0, 10)}T12:00:00`).toLocaleDateString('en-GB');
   const exportPdf = async (ids: string[]) => {
     const rows = list.filter((t) => ids.includes(t.id));
@@ -79,11 +77,11 @@ export default function TodoList() {
             {edit?.id === t.id ? (
               <View>
                 <TextInput value={edit.text} onChangeText={(x) => setEdit({ ...edit, text: x })} style={box} />
-                <TextInput value={edit.date} onChangeText={(x) => setEdit({ ...edit, date: x })} placeholder="Date required by (YYYY-MM-DD)" autoCapitalize="none" style={box} />
+                <DateBox value={edit.date} onChange={(x) => setEdit({ ...edit, date: x })} min={todayIso()} placeholder="Required by (optional)" title="Required by" style={{ marginBottom: 8 }} />
                 <View style={{ flexDirection: 'row', gap: 8 }}>
                   <View style={{ flex: 1 }}><Button title="Save" onPress={async () => {
                     if (!edit.text.trim()) { toast("To-do text can't be empty."); return; }
-                    const d = readIsoDate(edit.date); if (d === 'bad') { toast('Enter the date as YYYY-MM-DD.'); return; }
+                    const d = edit.date || null;
                     if (await editTodo(t.id, edit.text.trim(), d)) { toast('To-do updated'); setEdit(null); refresh(); } else toast('Could not save — try again.');
                   }} /></View>
                   <View style={{ flex: 1 }}><Button kind="ghost" title="Cancel" onPress={() => setEdit(null)} /></View>
@@ -91,19 +89,22 @@ export default function TodoList() {
               </View>
             ) : (
               <>
-                <Text style={{ fontSize: 16, fontWeight: '600', color: t.done ? base.slate : base.ink, textDecorationLine: t.done ? 'line-through' : 'none' }}>{t.text}</Text>
-                {!!t.date_required_by && (
-                  <Pressable onPress={() => setEdit({ id: t.id, text: t.text, date: t.date_required_by || '' })} style={{ alignSelf: 'flex-start', marginTop: 6, paddingHorizontal: 9, paddingVertical: 3, borderRadius: 12, backgroundColor: !t.done && t.date_required_by < today ? base.warnBg : base.line }}>
-                    <Text style={{ fontSize: 11, fontWeight: '700', color: !t.done && t.date_required_by < today ? base.warn : base.slate }}>📅 Required by {new Date(`${t.date_required_by}T00:00:00`).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</Text>
-                  </Pressable>
-                )}
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
+                  <Text style={{ flex: 1, fontSize: 18, fontWeight: '600', color: t.done ? base.slate : base.ink, textDecorationLine: t.done ? 'line-through' : 'none' }}>{t.text}</Text>
+                  {!!t.date_required_by && (
+                    <Pressable disabled={t.done} onPress={() => setEdit({ id: t.id, text: t.text, date: t.date_required_by || '' })} style={{ alignItems: 'flex-end' }}>
+                      <Text style={{ fontSize: 11.5, color: base.slate }}>Required by</Text>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: base.ink }}>{new Date(`${t.date_required_by}T00:00:00`).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</Text>
+                    </Pressable>
+                  )}
+                </View>
               </>
             )}
             <Pressable disabled={t.done} onPress={async () => {
               const pm = await choosePm(t.assigned_to); if (pm === undefined) return;
               if (await assignTodo(me, id, site.name, t, pm)) { toast(pm ? 'Project manager updated' : 'Project manager removed'); refresh(); }
             }} style={{ marginTop: 6 }}>
-              <Text style={{ fontSize: 11, fontStyle: 'italic', color: base.slate }}>{t.assigned_to ? <>Assigned to <Text style={{ fontWeight: '700', fontStyle: 'normal' }}>{nameOf(people, t.assigned_to)}</Text>{t.done ? '' : ' — tap to change'}</> : t.done ? 'Unassigned' : 'Tap to assign a project manager'}</Text>
+              <Text style={{ fontSize: 13.5, fontStyle: 'italic', color: base.slate }}>{t.assigned_to ? <>Assigned to <Text style={{ fontWeight: '700', fontStyle: 'normal' }}>{nameOf(people, t.assigned_to)}</Text>{t.done ? '' : ' — tap to change'}</> : t.done ? 'Unassigned' : 'Tap to assign a project manager'}</Text>
             </Pressable>
           </View>
         </View>
@@ -128,7 +129,7 @@ export default function TodoList() {
             </View>
           ))}
           <Pressable onPress={async () => { const a = await pickFiles(); if (!a.length) return; const n = await uploadTodoFiles(me, t.id, a); toast(n ? (n === 1 ? 'Attachment added' : `${n} attachments added`) : 'Could not upload — try again.'); refresh(); }}>
-            <Text style={{ fontSize: 11, color: base.slate, textDecorationLine: 'underline' }}>+ Add photo/document</Text>
+            <Text style={{ fontSize: 13.5, color: base.slate, textDecorationLine: 'underline' }}>+ Add photo/document</Text>
           </Pressable>
         </View>
         <View style={{ marginTop: 10, paddingTop: 8, borderTopWidth: 1, borderTopColor: base.line }}>
@@ -136,21 +137,21 @@ export default function TodoList() {
             <Pressable onPress={() => { const n = new Set(openComments); if (n.has(t.id)) n.delete(t.id); else n.add(t.id); setOpenComments(n); }}>
               <Text style={{ fontWeight: '700', color: base.ink }}>{showComments ? '▼' : '▶'} Comments{comments.length ? ` (${comments.length})` : ''}</Text>
             </Pressable>
-          ) : <Muted style={{ fontSize: 10, fontWeight: '700' }}>COMMENTS</Muted>}
+          ) : <Muted style={{ fontSize: 12, fontWeight: '700' }}>COMMENTS</Muted>}
           {showComments && (
             <>
               {comments.length ? comments.map((c) => (
                 <View key={c.id} style={{ marginTop: 6 }}>
-                  <Text style={{ fontSize: 11.5, color: base.ink }}><Text style={{ fontWeight: '700' }}>{nameOf(people, c.created_by)}</Text> <Text style={{ color: base.slate, fontSize: 10 }}>{new Date(c.created_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</Text></Text>
-                  <Text style={{ color: base.ink }}>{c.body}</Text>
+                  <Text style={{ fontSize: 13.5, color: base.ink }}><Text style={{ fontWeight: '700' }}>{nameOf(people, c.created_by)}</Text> <Text style={{ color: base.slate, fontSize: 12 }}>{new Date(c.created_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</Text></Text>
+                  <Text style={{ color: base.ink, fontSize: 15 }}>{c.body}</Text>
                 </View>
               )) : <Muted>No comments yet — add one if something isn&apos;t possible.</Muted>}
               <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
-                <TextInput value={comment[t.id] ?? ''} onChangeText={(x) => setComment({ ...comment, [t.id]: x })} placeholder="Add a comment…" style={[box, { flex: 2, marginBottom: 0 }]} />
-                <View style={{ flex: 1 }}><Button kind="ghost" title="Comment" onPress={async () => {
+                <TextInput value={comment[t.id] ?? ''} onChangeText={(x) => setComment({ ...comment, [t.id]: x })} placeholder="Add a comment…" style={[box, { flex: 1, marginBottom: 0, fontSize: 15 }]} />
+                <Button small kind="ghost" title="Comment" onPress={async () => {
                   const b = (comment[t.id] ?? '').trim(); if (!b) return;
                   if (await addComment(me, t.id, b)) { setComment({ ...comment, [t.id]: '' }); refresh(); }
-                }} /></View>
+                }} />
               </View>
             </>
           )}
@@ -170,10 +171,10 @@ export default function TodoList() {
         ))}
       </View>
       {picked.length > 0 && (
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          <View style={{ flex: 1 }}><Button title={`Email ${picked.length}`} onPress={() => setEmail({ ids: picked })} /></View>
-          <View style={{ flex: 1 }}><Button kind="ghost" title={`PDF of ${picked.length}`} onPress={() => void exportPdf(picked)} /></View>
-          <View style={{ flex: 1 }}><Button kind="ghost" title="Clear" onPress={() => setSel(new Set())} /></View>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
+          <Button small title={`Email ${picked.length}`} onPress={() => setEmail({ ids: picked })} />
+          <Button small kind="ghost" title={`PDF of ${picked.length}`} onPress={() => void exportPdf(picked)} />
+          <Button small kind="ghost" title="Clear" onPress={() => setSel(new Set())} />
         </View>
       )}
       {email && <EmailBox site={site} pms={pms ?? []} count={email.ids?.length ?? null} onCancel={() => setEmail(null)} onSend={async (rec, cc) => {
@@ -189,10 +190,14 @@ export default function TodoList() {
             if (await addTodo(me, id, site.name, f)) { toast('Added to the to-do list'); refresh(); return true; }
             toast('Could not save — try again.'); return false;
           }} />}
-          {list.length > 0 && <Button kind="ghost" title="Email To Do List" onPress={() => setEmail({ ids: null })} />}
         </>
       )}
-      {list.length > 0 && <Button kind="ghost" title={`📄 Export PDF (${tab === 'live' ? 'live' : 'closed'} list)`} onPress={() => void exportPdf(list.map((t) => t.id))} />}
+      {list.length > 0 && (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 }}>
+          {tab === 'live' && <Button small kind="ghost" title="✉ Email To Do List" onPress={() => setEmail({ ids: null })} />}
+          <Button small kind="ghost" title={`📄 Export PDF (${tab === 'live' ? 'live' : 'closed'} list)`} onPress={() => void exportPdf(list.map((t) => t.id))} />
+        </View>
+      )}
     </ScrollView>
   );
 }
@@ -207,30 +212,30 @@ function AddBox({ choosePm, onAdd }: { pms: Pm[]; choosePm: (c: string | null) =
   const [busy, setBusy] = useState(false);
   const submit = async () => {
     if (!text.trim()) { toast('Enter what needs doing first.'); return; }
-    const d = readIsoDate(date); if (d === 'bad') { toast('Enter the date as YYYY-MM-DD.'); return; }
+    const d = date || null;
     setBusy(true);
     if (await onAdd({ text: text.trim(), comment: note.trim(), date: d, pm, files })) { setText(''); setNote(''); setDate(''); setPm(null); setFiles([]); }
     setBusy(false);
   };
   return (
     <Card>
-      <TextInput value={text} onChangeText={setText} placeholder="What needs doing?" style={box} onSubmitEditing={() => void submit()} />
+      <TextInput value={text} onChangeText={setText} placeholder="What needs doing?" style={[box, { fontSize: 16 }]} onSubmitEditing={() => void submit()} />
       <Muted style={{ fontWeight: '700' }}>Comments (optional)</Muted>
       <TextInput value={note} onChangeText={setNote} multiline placeholder="Add any notes…" style={[box, { minHeight: 56 }]} />
       <View style={{ flexDirection: 'row', gap: 8 }}>
-        <TextInput value={date} onChangeText={setDate} placeholder="Required by (YYYY-MM-DD)" autoCapitalize="none" style={[box, { flex: 1 }]} />
+        <DateBox value={date} onChange={setDate} min={todayIso()} placeholder="Required by (optional)" title="Required by" style={{ flex: 1, marginBottom: 8 }} />
         <Pressable onPress={async () => { const p = await choosePm(pm?.id ?? null); if (p !== undefined) setPm(p); }} style={[box, { flex: 1, justifyContent: 'center' }]}>
           <Text style={{ color: base.ink }}>▶ {pm ? pm.name : 'Assign to a PM (optional)'}</Text>
         </Pressable>
       </View>
-      <Button kind="ghost" title="Photos / documents (optional)" onPress={async () => setFiles([...files, ...(await pickFiles())])} />
+      <Button small kind="ghost" title="📎 Photos / documents (optional)" onPress={async () => setFiles([...files, ...(await pickFiles())])} />
       {files.map((f, i) => (
         <View key={`${f.uri}${i}`} style={{ flexDirection: 'row', gap: 8, marginBottom: 4 }}>
           <Text style={{ flex: 1, color: base.slate }} numberOfLines={1}>{f.name}</Text>
           <Pressable onPress={() => setFiles(files.filter((_, j) => j !== i))}><Text style={{ color: base.warn, fontWeight: '700' }}>Remove</Text></Pressable>
         </View>
       ))}
-      <Button busy={busy} title="Add To Do" onPress={() => void submit()} />
+      <View style={{ marginTop: 8 }}><Button small busy={busy} title="Add To Do" onPress={() => void submit()} /></View>
     </Card>
   );
 }

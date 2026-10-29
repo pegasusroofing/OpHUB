@@ -157,11 +157,12 @@ export function Empty({ children }: { children: ReactNode }) {
 }
 
 // Collapsible header row ("▶ Recent").
+/** A slim open / close bar (Andy: the drop-downs were big and intrusive). */
 export function Toggle({ title, open, onPress }: { title: string; open: boolean; onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} style={[s.row, { marginTop: space.l }]} accessibilityRole="button" accessibilityState={{ expanded: open }}>
-      <Text style={{ color: base.slate, marginRight: 8 }}>{open ? '▼' : '▶'}</Text>
-      <Text style={[s.rowTitle, { fontSize: 13.5 }]}>{title}</Text>
+    <Pressable onPress={onPress} style={[s.row, { marginTop: 8, marginBottom: 6, paddingVertical: 9, borderRadius: 10 }]} accessibilityRole="button" accessibilityState={{ expanded: open }}>
+      <Text style={[s.rowTitle, { fontSize: 13.5, flex: 1 }]}>{title}</Text>
+      <Text style={{ color: base.slate, fontSize: 11, marginLeft: 8 }}>{open ? '▲' : '▼'}</Text>
     </Pressable>
   );
 }
