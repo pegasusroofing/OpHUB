@@ -8,6 +8,7 @@ import { useCallback, type ReactNode } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { HowTo } from '@/components/HowTo';
+import { JobSignPrompt } from '@/components/JobSignPrompt';
 import { OphIcon } from '@/components/OphIcon';
 import { Card, Muted, TINTS } from '@/components/ui';
 import { useBook } from '@/data/finBook';
@@ -191,6 +192,7 @@ export default function SiteHome() {
     <ScrollView contentContainerStyle={page(720)}>
       {header}
       <HowTo k="site_home" />
+      <JobSignPrompt siteId={site.id} />
       <View style={[cardBox, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderColor: base.line, borderRadius: 16, paddingVertical: 10.8, paddingHorizontal: 12.6, marginBottom: 12.6, shadowOpacity: 0 }]}>
         <Text style={{ fontSize: 12.6, color: base.ink }}>{site.job_number ? <><Text style={{ fontWeight: '800' }}>Job No:</Text> {site.job_number}</> : ' '}</Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 999, paddingVertical: 4.5, paddingHorizontal: 8, backgroundColor: h?.meOnSite ? base.okBg : base.line }}>
