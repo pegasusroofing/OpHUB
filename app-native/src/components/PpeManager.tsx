@@ -93,7 +93,7 @@ export function PpeManager({ site }: { site: Site }) {
       <Toggle title={`PPE Requests${pendingReqs.length ? ` (${pendingReqs.length} pending)` : ''}`} open={reqOpen} onPress={() => setReqOpen(!reqOpen)} />
       {reqOpen && (
         <Card>
-          <Muted style={{ marginBottom: 8 }}>Fulfilled requests move into Site Issued PPE below, under the operative's name.</Muted>
+          <Muted style={{ marginBottom: 8 }}>Fulfilled requests move into Site Issued PPE below, under the operative&apos;s name.</Muted>
           {data.requests.filter((r) => r.status !== 'fulfilled').length ? data.requests.filter((r) => r.status !== 'fulfilled').map((r) => (
             <View key={r.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, borderTopWidth: 1, borderTopColor: base.line }}>
               <View style={{ flex: 1 }}>
