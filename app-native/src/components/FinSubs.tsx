@@ -6,7 +6,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
-import { FinChip, FinRow, FinStat } from '@/components/FinNav';
+import { FinChip, FinRow, FinSeg, FinStat } from '@/components/FinNav';
 import { pickJob } from '@/components/FinSales';
 import { confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
@@ -74,7 +74,7 @@ export function SubsLists({ tab, siteId }: { tab: 'opinv' | 'payrun' | 'orders' 
       <View>
         <Muted style={{ marginBottom: 8 }}>When an operative sends their invoice, put it in here with the amount for each job. CIS is worked out for you and it&apos;s paid in the pay run. (Sending it to the job&apos;s PM is off while Finance is on trial.)</Muted>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
-          {[['topay', 'To pay'], ['paid', 'Paid'], ['all', 'All']].map(([k, l]) => <FinChip key={k} on={opf === k} label={l} n={data.ops.filter(F[k]).length} onPress={() => setOpf(k)} />)}
+          <FinSeg value={opf} onChange={setOpf} items={[['topay', 'To Pay'], ['paid', 'Paid'], ['all', 'All']].map(([k, l]) => [k, l, data.ops.filter(F[k]).length] as [string, string, number])} />
           <View style={{ marginLeft: 'auto' }}><Button title="+ Operative invoice" onPress={() => router.push('/fin/labour/new' as never)} /></View>
         </View>
         {search('Search name, invoice no. or job')}
@@ -134,7 +134,7 @@ export function SubsLists({ tab, siteId }: { tab: 'opinv' | 'payrun' | 'orders' 
       <View>
         <Muted style={{ marginBottom: 8 }}>For subcontractors on a fixed price who apply for payment (e.g. leadwork, scaffolding).</Muted>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
-          {[['active', 'Active'], ['complete', 'Complete'], ['all', 'All']].map(([k, l]) => <FinChip key={k} on={scf === k} label={l} n={data.scs.filter(F[k]).length} onPress={() => setScf(k)} />)}
+          <FinSeg value={scf} onChange={setScf} items={[['active', 'Active'], ['complete', 'Complete'], ['all', 'All']].map(([k, l]) => [k, l, data.scs.filter(F[k]).length] as [string, string, number])} />
           <View style={{ marginLeft: 'auto' }}><Button title="+ Subcontractor PO" onPress={async () => { const sid = siteId || (await pickJob('New subcontractor PO', sites.filter((s) => s.status !== 'closed'))); if (sid) router.push(`/fin/sub/new?site=${sid}` as never); }} /></View>
         </View>
         {search('Search subcontractor or project')}
@@ -151,7 +151,7 @@ export function SubsLists({ tab, siteId }: { tab: 'opinv' | 'payrun' | 'orders' 
       <View>
         <Muted style={{ marginBottom: 8 }}>A subcontractor applies → you certify it and send the payment or pay-less notice before the final date → mark it paid.</Muted>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
-          {[['open', 'To certify'], ['certified', 'Certified — to pay'], ['paid', 'Paid'], ['all', 'All']].map(([k, l]) => <FinChip key={k} on={saf === k} label={l} n={data.sapps.filter(F[k]).length} onPress={() => setSaf(k)} />)}
+          <FinSeg value={saf} onChange={setSaf} items={[['open', 'To Certify'], ['certified', 'Certified — To Pay'], ['paid', 'Paid'], ['all', 'All']].map(([k, l]) => [k, l, data.sapps.filter(F[k]).length] as [string, string, number])} />
         </View>
         {search('Search subcontractor or project')}
         {list.length ? list.map((a) => { const sc = scBy[a.subcontract_id] || {}, late = a.status !== 'paid' && a.final_date && a.final_date < today(); return (
@@ -190,11 +190,11 @@ export function SubsStats() {
   const { data } = useSubsData(me?.org_id);
   if (!data) return null;
   return (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
-      <FinStat v={money(data.ops.filter((p) => p.status === 'approved').reduce((t, p) => t + Number(p.net_pay || 0), 0), 0)} label="Operative invoices to pay" />
-      <FinStat v={fdate(nextPayDay(st))} label="Next pay day" />
-      <FinStat v={String(data.sapps.filter((a) => a.status === 'received').length)} label="Applications to certify" />
-      <FinStat v={money(data.sapps.filter((a) => a.status === 'certified').reduce((t, a) => t + Number(a.pay_amount || 0), 0), 0)} label="Certified, to pay" />
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
+      <FinStat tone="blue" v={money(data.ops.filter((p) => p.status === 'approved').reduce((t, p) => t + Number(p.net_pay || 0), 0), 0)} label="Operative Invoices To Pay" />
+      <FinStat tone="green" v={fdate(nextPayDay(st))} label="Next Pay Day" />
+      <FinStat tone="red" v={String(data.sapps.filter((a) => a.status === 'received').length)} label="Applications To Certify" />
+      <FinStat tone="amber" v={money(data.sapps.filter((a) => a.status === 'certified').reduce((t, a) => t + Number(a.pay_amount || 0), 0), 0)} label="Certified, To Pay" />
     </View>
   );
 }
