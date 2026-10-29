@@ -85,3 +85,26 @@ export async function buildSignedTbtPdf(tbtId: string, site: Site): Promise<{ by
     return { bytes: await pdf.save(), filename, name: talk.title };
   } catch { return 'Could not build the signed PDF — the source file may not be a valid PDF.'; }
 }
+
+/** Signed Site Rules & Layout (540 buildSignedSiteLayoutPdf): the document, then this signing round's signatures. */
+export async function buildSignedLayoutPdf(layoutId: string, site: Site): Promise<{ bytes: Uint8Array; filename: string; name: string } | string> {
+  const doc = ((await db.from('site_layout_docs').select('*').eq('id', layoutId).maybeSingle()).data as { id: string; name: string; storage_path: string; uploaded_at: string; resign_cycle_start: string | null } | null);
+  if (!doc) return 'Document not found.';
+  const raw = ((await db.from('site_layout_signatures').select('*').eq('layout_id', layoutId).order('signed_at')).data as (Sig & Record<string, string>)[] | null) ?? [];
+  const sigs = currentCycleSigs(raw, [doc], 'layout_id' as never, site) as unknown as Sig[];
+  if (!sigs.length) return 'No signatures yet.';
+  const ids = [...new Set(sigs.map((s) => s.user_id).filter((x): x is string => !!x))];
+  const profs = ids.length ? (((await db.from('profiles').select('id,name').in('id', ids)).data as { id: string; name: string }[] | null) ?? []) : [];
+  const src = await fetchBytes(publicUrl('mc-documents', doc.storage_path));
+  if (!src) return 'Could not open the original document.';
+  try {
+    const pdf = await PDFDocument.load(src, { ignoreEncryption: true });
+    await drawSignatureTable(pdf, {
+      title: doc.name, disclaimer: `I have read and understood this Site Rules & Layout document (${doc.name}) and agree to follow it at all times while on this site.`,
+      signers: sigs.map((s) => ({ ...signerRow(profs.find((p) => p.id === s.user_id)?.name || 'Unknown', s.signed_at, s.signature_image_path), name: profs.find((p) => p.id === s.user_id)?.name || 'Unknown' })),
+    });
+    const filename = exportFilename(site.name, `${doc.name} (Signed)`, 'pdf');
+    pdf.setTitle(filename.replace(/\.pdf$/i, ''));
+    return { bytes: await pdf.save(), filename, name: doc.name };
+  } catch { return 'Could not build the signed PDF — check there are signatures and the source file is a valid PDF.'; }
+}

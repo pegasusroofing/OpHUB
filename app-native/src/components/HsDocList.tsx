@@ -22,7 +22,7 @@ import { chooseAction, confirmAsk, showAlert, useToast } from '@/components/toas
 import { Button, Card, Empty, Muted, Toggle } from '@/components/ui';
 import { DOC_LABEL, docBucket, nameOf, openDocLink, sigDocId, signDocs, useHsDocs, usePeople, type DocKind, type HsDoc, type HsSig } from '@/data/hs';
 import { deleteHsDoc, replaceCoshh } from '@/data/hsManager';
-import { buildSignedHsPdf } from '@/data/hsPdf';
+import { buildSignedHsPdf, buildSignedLayoutPdf } from '@/data/hsPdf';
 import { deliverPdf, emailPdf, fetchBytes, PDFDocument } from '@/lib/pdf';
 import { publicUrl } from '@/lib/privateFiles';
 import { useAuth } from '@/lib/auth';
@@ -126,13 +126,13 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
               <Text style={{ flex: 1, fontSize: 16.5, fontWeight: '800', color: base.ink }}>{r.name}</Text>
               {manager && (
                 <Pressable hitSlop={8} onPress={async () => {
-                  const k = await chooseAction(r.name, [{ key: 'view', label: '👁 View document' }, ...(kind !== 'layout' ? [{ key: 'pdf', label: '📄 Export signed PDF' }, { key: 'email', label: '✉ Email signed PDF' }] : []), ...(kind === 'rams' ? [{ key: 'boxes', label: '✍ Signature boxes' }, { key: 'testfill', label: '🧪 Test fill the boxes' }] : []), ...(kind === 'coshh' ? [{ key: 'replace', label: '🔁 Replace file (resets signatures)' }, { key: 'tolib', label: '📚 Save to COSHH Library' }] : []), { key: 'del', label: '🗑 Delete', danger: true }]);
+                  const k = await chooseAction(r.name, [{ key: 'view', label: '👁 View document' }, ...(kind !== 'layout' ? [{ key: 'pdf', label: '📄 Export signed PDF' }, { key: 'email', label: '✉ Email signed PDF' }] : sigsFor(r.id).length ? [{ key: 'pdf', label: '📄 Export signed PDF' }] : []), ...(kind === 'rams' ? [{ key: 'boxes', label: '✍ Signature boxes' }, { key: 'testfill', label: '🧪 Test fill the boxes' }] : []), ...(kind === 'coshh' ? [{ key: 'replace', label: '🔁 Replace file (resets signatures)' }, { key: 'tolib', label: '📚 Save to COSHH Library' }] : []), { key: 'del', label: '🗑 Delete', danger: true }]);
                   const refresh = () => { void qc.invalidateQueries({ queryKey: ['hsDocs', kind, site.id] }); void qc.invalidateQueries({ queryKey: ['hsSummary', site.id] }); };
                   if (k === 'view') void view(r);
                   else if (k === 'email') void emailIds([r.id]);
                   else if (k === 'pdf') {
                     toast('Building signed PDF…');
-                    const b = await buildSignedHsPdf(kind as 'rams' | 'coshh', r.id, site).catch(() => 'Could not build the signed PDF.');
+                    const b = await (kind === 'layout' ? buildSignedLayoutPdf(r.id, site) : buildSignedHsPdf(kind, r.id, site)).catch(() => 'Could not build the signed PDF.');
                     if (typeof b === 'string') { toast(b); return; }
                     if (!(await deliverPdf(b.bytes, b.filename))) toast('Could not save the PDF.');
                   }
