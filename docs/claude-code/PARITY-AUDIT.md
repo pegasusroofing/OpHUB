@@ -50,7 +50,7 @@ HIGH = money, data, permissions, safety or a daily job. MED = noticeable. LOW = 
 - MED OPEN — HAVS: manager adds an operative not assigned to the job.
 - MED OPEN — COSHH products in bulk from many data sheets.
 - MED FIXED — COSHH on a job: tick several / select all → one PDF or email; "Email all signed COSHH".
-- MED FIXED (RAMS, COSHH) — CC me / CC client on RAMS, COSHH and TBT emails. TBT still to do.
+- MED FIXED — CC me / CC client on RAMS, COSHH and TBT emails.
 - MED OPEN — Daily briefings: tick several → one PDF or email.
 - LOW OPEN — HAVS/PUWER export a ticked set; bring old COSHH PDFs in as products; product ↔ job shortcuts; expenses "Send now" for the sender; PPE requests tick/export/email; certificate email to a team member; briefing delete logged; TBT "needs signing" wording; manual TBT "Email to PM"; import suppliers from Excel.
 

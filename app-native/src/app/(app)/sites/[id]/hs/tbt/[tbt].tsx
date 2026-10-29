@@ -11,6 +11,7 @@ import { StorageImage } from '@/components/StorageImage';
 import { TbtStatusTag } from '@/components/TbtStatusTag';
 import * as DocumentPicker from 'expo-document-picker';
 
+import { promptEmail, type EmailTo } from '@/components/EmailPrompt';
 import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Card, Muted } from '@/components/ui';
 import { buildSignedTbtPdf } from '@/data/hsPdf';
@@ -62,14 +63,14 @@ export default function TbtView() {
       { key: 'rename', label: '✏️ Rename' }, { key: 'replace', label: '🔁 Replace file' }, { key: 'del', label: '🗑 Delete', danger: true },
     ]);
     if ((k === 'pdf' || k === 'email') && site) {
-      let to = '';
-      if (k === 'email') { const t = await promptText('Email this signed Toolbox Talk PDF to:', ''); if (t === null) return; to = t.trim(); if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) { toast('Enter a valid email address.'); return; } }
+      let to: EmailTo | null = null;
+      if (k === 'email') { to = await promptEmail('Email this signed Toolbox Talk PDF to:', { myEmail: me.email, clientEmail: site.client_email }); if (!to) return; }
       toast('Building signed PDF…');
       const b = await buildSignedTbtPdf(talk.id, site).catch(() => 'Could not build the signed PDF.');
       if (typeof b === 'string') { toast(b); return; }
       if (k === 'pdf') { if (!(await deliverPdf(b.bytes, b.filename))) toast('Could not save the PDF.'); return; }
       toast('Sending…');
-      const err = await emailPdf(b.bytes, b.filename, `${id}/tbt-exports`, { site_id: id, recipient_email: to, doc_title: `${b.name} (Signed Toolbox Talk)` });
+      const err = await emailPdf(b.bytes, b.filename, `${id}/tbt-exports`, { site_id: id, recipient_email: to?.to || '', cc_email: to?.cc, client_cc_email: to?.clientCc, doc_title: `${b.name} (Signed Toolbox Talk)` });
       toast(err || 'Emailed'); return;
     }
     if (k === 'issue') { setBusy(true); const r = await issueTbt(me, id, talk); setBusy(false); toast(r.msg); refresh(); if (r.id && r.id !== talk.id) router.replace(`/sites/${id}/hs/tbt/${r.id}`); }
