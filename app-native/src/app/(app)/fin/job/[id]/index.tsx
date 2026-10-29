@@ -167,7 +167,7 @@ function Overview({ id, fc, settings, invs, apps }: { id: string; fc: ReturnType
         {ghost('Full Summary', `/fin/job/${id}/summary`)}
         {!!subKind(site) && ghost(subKind(site) === 'repair' ? 'Costs by repair job' : 'Costs by plot', `/fin/job/${id}/parts`)}
         <View style={{ flex: 1 }} />
-        {ghost('Monthly Report', `/fin/job/${id}/monthly`)}{ghost('Day Works', `/fin/job/${id}/dayworks`)}{ghost('Budgets', `/fin/job/${id}/budget`)}
+        {ghost('Monthly Report', `/fin/job/${id}/monthly`)}{ghost('Day Works', `/fin/job/${id}/dayworks`)}{ghost('Budgets', `/fin/job/${id}/budget`)}{ghost('Project Quotes', `/fin/job/${id}/quotes`)}
       </View>
       {!fc.isInvoiceJob && (
         <>
