@@ -7,12 +7,12 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Linking, Platform, Text, View } from 'react-native';
+import { Linking, Platform, Pressable, Text, View } from 'react-native';
 
 import { FinForm } from '@/components/FinForm';
 import { FinPage, FinRow } from '@/components/FinNav';
 import { useToast } from '@/components/toast';
-import { Button, Card, Muted, SectionTitle } from '@/components/ui';
+import { Button, Card, Muted, TINTS } from '@/components/ui';
 import { fdb, finInvoke, useFinSettings } from '@/data/finance';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
@@ -30,33 +30,47 @@ export default function FinSettings() {
   const { data: o } = useQuery({ queryKey: ['finOrgNums', me?.org_id], enabled: !!me, queryFn: async () => (await fdb.from('organizations').select('auto_job_numbers,job_number_prefix,next_job_number').eq('id', me?.org_id as string).maybeSingle()).data as Row | null });
   const { data: xero } = useQuery({ queryKey: ['finXeroStatus', me?.org_id], enabled: !!me, queryFn: async () => (me ? finInvoke<Row>(me, 'xero', { action: 'status' }) : null) });
   const [edit, setEdit] = useState(false);
+  const [openS, setOpenS] = useState<string[]>([]);
   if (!me) return null;
   const s = (st || {}) as Row;
   const initial = { ...s, auto_job_numbers: !!o?.auto_job_numbers, job_number_prefix: o?.job_number_prefix || '', next_job_number: o?.next_job_number ?? '' };
   const xs = xero?.data, xErr = xero?.error;
   return (
-    <FinPage title="Settings" section="settings" sub="general" onSub={(k) => router.push((k === 'codes' ? '/fin/directory?kind=codes' : k === 'directory' ? '/fin/directory' : '/fin/settings') as never)}>
-      <SectionTitle>Numbers and defaults</SectionTitle>
-      <Card>
-        <FinRow title="Project numbers" right={o?.auto_job_numbers ? `Automatic · next ${o.job_number_prefix || ''}${o.next_job_number ?? ''}` : 'Typed by hand'} />
-        <FinRow title="Invoice numbers" right={`${s.invoice_prefix || ''}${s.next_invoice_number ?? ''} next`} />
-        <FinRow title="Retention" right={`${s.default_retention_pct ?? 5}%`} /><FinRow title="Payment terms" right={`${s.default_due_days ?? 30} days · final ${s.default_final_days ?? 14} days`} />
-        <FinRow title="VAT" right={FIN_VAT_LABEL[s.default_vat] || '—'} /><FinRow title="Application date" right={s.app_reminder_day ? `${s.app_reminder_day} of each month` : 'Not set'} />
-        <FinRow title="Company overheads (OHP)" right={`${s.ohp_pct ?? 0}%`} /><FinRow title="Purchase orders from Finance" right={`${s.po_enabled ? 'On' : 'Off'}${FIN_TRIAL ? ' (not changed during the trial)' : ''}`} />
-      </Card>
-      <SectionTitle>On your invoices</SectionTitle>
-      <Card>
-        <FinRow title="Company address" right={s.company_address || '—'} /><FinRow title="VAT no." right={s.company_vat_no || '—'} /><FinRow title="Company no." right={s.company_reg_no || '—'} />
-        <FinRow title="Bank" right={[s.bank_name, s.bank_account_name, s.bank_sort_code, s.bank_account_no].filter(Boolean).join(' · ') || '—'} />
-        <FinRow title="Contractor UTR (CIS)" right={s.contractor_utr || '—'} /><FinRow title="Employer ref" right={s.employer_ref || '—'} />
-      </Card>
-      <Button title="Edit settings" onPress={() => setEdit(true)} />
-      <SectionTitle>Xero</SectionTitle>
-      <Card>
-        {xErr ? <Muted>{/not_configured|not connected/i.test(xErr) ? 'Xero isn’t connected.' : `Xero: ${xErr}`}</Muted> : xs ? <Text style={{ color: xs.connected ? '#1E7A3C' : base.slate }}>{xs.connected ? `Connected${xs.tenant_name ? ` to ${xs.tenant_name}` : ''}` : 'Not connected'}</Text> : <Muted>Checking…</Muted>}
-        {FIN_TRIAL && <Muted style={{ marginTop: 6 }}>While Finance is on trial nothing is posted to Xero. Reading and adding clients and suppliers still works.</Muted>}
-        {xs && !xs.connected && <View style={{ marginTop: 8 }}><Button kind="ghost" title="Connect Xero" onPress={async () => { const r = await finInvoke<Row>(me, 'xero', { action: 'connect', origin: Platform.OS === 'web' ? window.location.origin : null }); if (r.error || !r.data?.url) { toast(r.error || 'Could not start the Xero connection.'); return; } if (Platform.OS === 'web') window.location.href = r.data.url; else void Linking.openURL(r.data.url); }} /></View>}
-      </Card>
+    <FinPage title="Finance settings" section="settings" sub="general" onSub={(k) => router.push((k === 'codes' ? '/fin/directory?kind=codes' : '/fin/settings') as never)}>
+      {/* Each part opens on its own (the current app's settings list); Edit settings changes them all. */}
+      {([
+        ['nums', 'Project numbers', '#', 'red', [['Project numbers', o?.auto_job_numbers ? `Automatic · next ${o.job_number_prefix || ''}${o.next_job_number ?? ''}` : 'Typed by hand']]],
+        ['po', 'Purchase orders', '📄', 'orange', [['Purchase orders from Finance', `${s.po_enabled ? 'On' : 'Off'}${FIN_TRIAL ? ' (not changed during the trial)' : ''}`]]],
+        ['vat', 'VAT rates', '%', 'green', [['Default VAT', FIN_VAT_LABEL[s.default_vat] || '—']]],
+        ['inv', 'Invoice numbers', 'Nº', 'green', [['Next invoice number', `${s.invoice_prefix || ''}${s.next_invoice_number ?? ''}`]]],
+        ['def', 'Defaults for new projects', '⚙', 'grey', [['Retention', `${s.default_retention_pct ?? 5}%`], ['Payment terms', `${s.default_due_days ?? 30} days · final ${s.default_final_days ?? 14} days`], ['Application date', s.app_reminder_day ? `${s.app_reminder_day} of each month` : 'Not set']]],
+        ['ohp', 'Company overheads (OHP)', '%', 'orange', [['Company overheads', `${s.ohp_pct ?? 0}%`]]],
+        ['bill', 'On your invoices', '🏛', 'grey', [['Company address', s.company_address || '—'], ['VAT no.', s.company_vat_no || '—'], ['Company no.', s.company_reg_no || '—'], ['Bank', [s.bank_name, s.bank_account_name, s.bank_sort_code, s.bank_account_no].filter(Boolean).join(' · ') || '—'], ['Contractor UTR (CIS)', s.contractor_utr || '—'], ['Employer ref', s.employer_ref || '—']]],
+        ['xero', 'Xero', '🔗', 'blue', []],
+      ] as [string, string, string, keyof typeof TINTS, [string, string][]][]).map(([k, title, ic, tn, rows]) => {
+        const on = openS.includes(k);
+        return (
+          <View key={k} style={{ marginBottom: 8 }}>
+            <Pressable onPress={() => setOpenS(on ? openS.filter((x) => x !== k) : [...openS, k])} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10, paddingVertical: 12, paddingHorizontal: 14 }}>
+              <View style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: TINTS[tn][0], alignItems: 'center', justifyContent: 'center' }}><Text style={{ fontSize: 12, fontWeight: '800', color: TINTS[tn][1] }}>{ic}</Text></View>
+              <Text style={{ flex: 1, fontWeight: '800', color: '#111827', fontSize: 13 }}>{title}</Text>
+              <Text style={{ fontSize: 10, color: '#111827' }}>{on ? '▼' : '▶'}</Text>
+            </Pressable>
+            {on && (
+              <Card style={{ marginTop: 6, marginBottom: 0 }}>
+                {k === 'xero' ? (
+                  <>
+                    {xErr ? <Muted>{/not_configured|not connected/i.test(xErr) ? 'Xero isn’t connected.' : `Xero: ${xErr}`}</Muted> : xs ? <Text style={{ color: xs.connected ? '#1E7A3C' : base.slate }}>{xs.connected ? `Connected${xs.tenant_name ? ` to ${xs.tenant_name}` : ''}` : 'Not connected'}</Text> : <Muted>Checking…</Muted>}
+                    {FIN_TRIAL && <Muted style={{ marginTop: 6 }}>While Finance is on trial nothing is posted to Xero. Reading and adding clients and suppliers still works.</Muted>}
+                    {xs && !xs.connected && <View style={{ marginTop: 8 }}><Button kind="ghost" title="Connect Xero" onPress={async () => { const r = await finInvoke<Row>(me, 'xero', { action: 'connect', origin: Platform.OS === 'web' ? window.location.origin : null }); if (r.error || !r.data?.url) { toast(r.error || 'Could not start the Xero connection.'); return; } if (Platform.OS === 'web') window.location.href = r.data.url; else void Linking.openURL(r.data.url); }} /></View>}
+                  </>
+                ) : rows.map(([l, v]) => <FinRow key={l} title={l} right={v} />)}
+              </Card>
+            )}
+          </View>
+        );
+      })}
+      <View style={{ alignSelf: 'flex-start', marginTop: 6 }}><Button title="Edit settings" onPress={() => setEdit(true)} /></View>
       {edit && (
         <FinForm title="Finance settings" initial={initial} onClose={() => setEdit(false)}
           fields={[

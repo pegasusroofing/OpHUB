@@ -5,18 +5,21 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { TextInput, View } from 'react-native';
+import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { FinForm, type Field } from '@/components/FinForm';
 import { FinChip, FinPage, FinRow } from '@/components/FinNav';
+import { Cell, FinTable, FootText } from '@/components/FinTable';
 import { bankOk, sortCode } from '@/components/FinSubs';
 import { useToast } from '@/components/toast';
 import { Button, Empty, Muted, SectionTitle } from '@/components/ui';
-import { fdb, finInvoke, selectAll } from '@/data/finance';
+import { fdb, finInvoke, finStatus, selectAll } from '@/data/finance';
+import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
+import { useJobsData } from './jobs';
 import { COST_CATS } from '@/lib/rules/finBook';
 import { fdate, money, num } from '@/lib/rules/finance';
-import { base, radius } from '@/theme/theme';
+import { base, radius, useDesk, useTheme } from '@/theme/theme';
 
 type Row = Record<string, any>;
 type Kind = 'client' | 'supplier' | 'labour' | 'codes';
@@ -41,6 +44,10 @@ export default function FinDirectory() {
   const [edit, setEdit] = useState<Row | null>(null);
   const [ppl, setPpl] = useState('subs');
   const [busy, setBusy] = useState(false);
+  const desk = useDesk();
+  const th = useTheme();
+  const { data: sites = [] } = useSites();
+  const { data: jd } = useJobsData(kind === 'client' ? me?.org_id : null);
   const { data, isLoading } = useQuery({ queryKey: ['finDir', me?.org_id, kind], enabled: !!me, queryFn: async () => {
     const org = me?.org_id as string;
     if (kind === 'labour') {
@@ -58,11 +65,7 @@ export default function FinDirectory() {
   const refresh = () => void qc.invalidateQueries({ queryKey: ['finDir'] });
   const go = (k: string) => router.setParams({ kind: k });
   const ql = q.trim().toLowerCase();
-  const tabs = (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
-      {([['client', 'Clients'], ['supplier', 'Suppliers'], ['labour', 'Labour (CIS)'], ['codes', 'Cost codes']] as const).map(([k, l]) => <FinChip key={k} on={kind === k} label={l} onPress={() => { setQ(''); go(k); }} />)}
-    </View>
-  );
+  const onSub = (k: string) => { setQ(''); go(k); };
   const pull = async () => {
     setBusy(true);
     try {
@@ -90,8 +93,7 @@ export default function FinDirectory() {
     const list = rows.filter(F[ppl]).filter((x) => !ql || `${x.name} ${x.r.name || ''} ${x.r.utr || ''}`.toLowerCase().includes(ql));
     const cur = edit;
     return (
-      <FinPage title="Directory" section="directory">
-        {tabs}
+      <FinPage title="Directory" section="directory" sub={kind} onSub={onSub}>
         <Muted style={{ marginBottom: 8 }}>Subcontractors who invoice you under CIS, and PAYE staff. Check each subbie&apos;s CIS status with HMRC before you pay them.</Muted>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
           {[['subs', 'CIS subcontractors'], ['unver', 'Not verified'], ['paye', 'PAYE staff'], ['left', 'No longer working for us'], ['all', 'All']].map(([k, l]) => <FinChip key={k} on={ppl === k} label={l} n={rows.filter(F[k]).length} onPress={() => setPpl(k)} />)}
@@ -144,8 +146,7 @@ export default function FinDirectory() {
     const list = ((data as Row[]) || []).filter((c) => !ql || `${c.name} ${c.code || ''} ${c.description || ''}`.toLowerCase().includes(ql));
     const groups: Record<string, Row[]> = {}; list.forEach((c) => { (groups[c.grp || 'No group'] = groups[c.grp || 'No group'] || []).push(c); });
     return (
-      <FinPage title="Cost codes" section="settings">
-        {tabs}
+      <FinPage title="Cost codes" section="directory" sub={kind} onSub={onSub}>
         <View style={{ flexDirection: 'row', marginBottom: 8 }}><Muted style={{ flex: 1 }}>The ID is the Xero account code each cost goes to. The type decides which column it adds up in on job costs and reports.</Muted><Button title="+ Add cost code" onPress={() => setEdit({ category: 'materials', grp: list[0]?.grp || '' })} /></View>
         <TextInput value={q} onChangeText={setQ} placeholder="Search cost codes" style={box} />
         {Object.keys(groups).sort().map((g) => (
@@ -170,15 +171,33 @@ export default function FinDirectory() {
   const sup = kind === 'supplier', tbl = sup ? 'fin_suppliers' : 'fin_clients';
   const list = ((data as Row[]) || []).filter((c) => !ql || `${c.name} ${c.email || ''} ${c.category || ''}`.toLowerCase().includes(ql));
   return (
-    <FinPage title="Directory" section="directory">
-      {tabs}
-      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
-        <View style={{ flex: 1 }}><Button kind="ghost" busy={busy} title="⟳ Pull from Xero" onPress={() => void pull()} /></View>
-        <View style={{ flex: 1 }}><Button title={`+ New ${sup ? 'supplier' : 'client'}`} onPress={() => setEdit({ toX: true })} /></View>
+    <FinPage title="Directory" section="directory" sub={kind} onSub={onSub}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+        <Text style={{ flex: 1, minWidth: 200, fontSize: 12, color: '#6b7280' }}>{list.length} {sup ? 'supplier' : 'client'}{list.length === 1 ? '' : 's'} · {list.filter((c) => c.xero_contact_id).length} in Xero. New {sup ? 'suppliers' : 'clients'} you add here go into Xero too.</Text>
+        <Pressable disabled={busy} onPress={() => void pull()} style={{ borderWidth: 1, borderColor: '#e5e7eb', backgroundColor: '#fff', borderRadius: 8, paddingVertical: 7, paddingHorizontal: 12 }}><Text style={{ fontSize: 12, fontWeight: '700', color: base.ink }}>{busy ? 'Pulling…' : '⟳ Pull from Xero'}</Text></Pressable>
+        <Pressable onPress={() => setEdit({ toX: true })} style={{ backgroundColor: th.brand1, borderRadius: 8, paddingVertical: 7, paddingHorizontal: 12 }}><Text style={{ fontSize: 12, fontWeight: '800', color: th.brand1Text }}>+ New {sup ? 'supplier' : 'client'}</Text></Pressable>
       </View>
-      <Muted style={{ marginBottom: 8 }}>{list.length} {sup ? 'supplier' : 'client'}{list.length === 1 ? '' : 's'} · {list.filter((c) => c.xero_contact_id).length} in Xero.</Muted>
       <TextInput value={q} onChangeText={setQ} placeholder={`Search ${sup ? 'suppliers' : 'clients'}`} style={box} />
-      {isLoading ? <Muted>Loading…</Muted> : list.length ? list.map((c) => <FinRow key={c.id} title={c.name} sub={[sup ? c.category : '', c.email, termsText(c), c.sales_vat ? `VAT ${VAT.find(([k]) => k === c.sales_vat)?.[1]}` : '', c.cis_registered ? 'CIS' : '', c.xero_contact_id ? 'In Xero' : 'Not in Xero'].filter(Boolean).join(' · ')} onPress={() => setEdit(c)} />) : <Empty>Nothing here yet.</Empty>}
+      {isLoading ? <Muted>Loading…</Muted> : desk && list.length ? (() => {
+        const jobsOf = (c: Row) => sites.filter((s) => String(s.client_name || jd?.jfBy[s.id]?.billing_name || '').trim().toLowerCase() === String(c.name).trim().toLowerCase());
+        const owedOf = (c: Row) => jobsOf(c).reduce((t, s) => ({ o: t.o + (jd?.m[s.id]?.owed || 0), od: t.od + (jd?.m[s.id]?.overdue || 0) }), { o: 0, od: 0 });
+        return (
+          <FinTable rows={list} keyOf={(c) => c.id} onRow={(c) => setEdit(c)}
+            cols={[
+              { k: 'n', l: sup ? 'Supplier' : 'Client', flex: 2.2, min: 220, render: (c: Row) => (
+                <View style={{ alignSelf: 'stretch' }}>
+                  <Text style={{ fontWeight: '800', fontSize: 13, color: '#111827' }}>{c.name}</Text>
+                  <Text style={{ fontSize: 11.5, color: '#6b7280' }}>{[sup ? c.category : '', termsText(c), c.sales_vat ? `${sup ? '' : 'Sales '}VAT ${VAT.find(([k]) => k === c.sales_vat)?.[1]}` : '', c.cis_registered ? 'CIS' : ''].filter(Boolean).join(' · ')}</Text>
+                  {!!c.email && <Text style={{ fontSize: 11.5, color: '#6b7280' }}>{c.email}</Text>}
+                </View>
+              ) },
+              ...(sup ? [] : [{ k: 'j', l: 'Jobs', render: (c: Row) => { const js = jobsOf(c); return <Cell bold>{js.length} job{js.length === 1 ? '' : 's'} · {js.filter((s) => finStatus(s) === 'live').length} live</Cell>; } }]),
+              { k: 'x', l: 'Xero', render: (c: Row) => c.xero_contact_id ? <Cell>In Xero</Cell> : <Text style={{ fontSize: 12, fontWeight: '700', color: base.ink, borderWidth: 1, borderColor: '#d1d5db', borderRadius: 6, paddingVertical: 5, paddingHorizontal: 10, overflow: 'hidden' }}>Add to Xero</Text> },
+              ...(sup ? [] : [{ k: 'o', l: 'Owed', render: (c: Row) => { const o = owedOf(c); return <View style={{ alignItems: 'center' }}><Cell>{o.o ? money(o.o, 0) : '—'}</Cell>{o.od ? <Text style={{ fontSize: 11, color: '#c81e1e', fontWeight: '700' }}>{money(o.od, 0)} overdue</Text> : null}</View>; } }]),
+            ]}
+            foot={<><FootText bold>{list.length} shown</FootText>{!sup && <FootText>Owed {money(list.reduce((t, c) => t + owedOf(c).o, 0))}</FootText>}</>} />
+        );
+      })() : list.length ? list.map((c) => <FinRow key={c.id} title={c.name} sub={[sup ? c.category : '', c.email, termsText(c), c.sales_vat ? `VAT ${VAT.find(([k]) => k === c.sales_vat)?.[1]}` : '', c.cis_registered ? 'CIS' : '', c.xero_contact_id ? 'In Xero' : 'Not in Xero'].filter(Boolean).join(' · ')} onPress={() => setEdit(c)} />) : <Empty>Nothing here yet.</Empty>}
       {edit && (
         <FinForm title={edit.id ? edit.name : `New ${sup ? 'supplier' : 'client'}`} initial={{ ...edit, terms_days: edit.terms_days ?? '', cis_rate: String(edit.cis_rate ?? 20), toX: !edit.xero_contact_id }} onClose={() => setEdit(null)}
           note={edit.xero_contact_id ? 'Linked to Xero.' : 'Not in Xero yet.'}
