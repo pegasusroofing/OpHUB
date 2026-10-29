@@ -1,7 +1,7 @@
 // A purchase order (904 renderFinPo): items, the PO value (excl. VAT),
 // purchase invoices against it, mark fully invoiced / cancel / reopen.
-// New POs come from a project's Materials tile; raising or emailing one from
-// Finance is switched off during the Finance trial.
+// New POs come from a project's Materials tile, or are raised here with typed lines (FinNewPo);
+// emailing one from Finance is switched off during the Finance trial.
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
@@ -9,6 +9,7 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { FinRow, FinStat } from '@/components/FinNav';
 import { AllocRow } from '@/components/FinSplit';
+import { FinNewPo } from '@/components/FinNewPo';
 import { PoQuote } from '@/components/PoQuote';
 import { confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Muted, SectionTitle } from '@/components/ui';
@@ -34,13 +35,15 @@ export default function FinPo() {
   const [val, setVal] = useState<string | null>(null);
   const [rm, setRm] = useState<Set<number> | null>(null); // ticking lines to take off (9219zr)
   if (!me) return null;
-  if (poId === 'new') return (
-    <ScrollView contentContainerStyle={{ padding: space.l }}>
-      <Stack.Screen options={{ title: 'New purchase order' }} />
-      <Card><Muted>Raising purchase orders from Finance is switched off while Finance is on trial. Order materials from the project&apos;s Materials tile — the PO appears here by itself.</Muted></Card>
-      {site && <Button title="Open the project's Materials" onPress={() => router.push(`/sites/${site}/materials` as never)} />}
-    </ScrollView>
-  );
+  if (poId === 'new') {
+    const st = sites.find((x) => x.id === site);
+    return (
+      <ScrollView contentContainerStyle={page(900)} keyboardShouldPersistTaps="handled">
+        <Stack.Screen options={{ title: 'New purchase order' }} />
+        {st ? <FinNewPo site={st} /> : <Muted>Choose the project first.</Muted>}
+      </ScrollView>
+    );
+  }
   if (isLoading) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   if (!data) return <Muted style={{ padding: space.l }}>PO not found.</Muted>;
   const { po, pinvs, mats } = data;
