@@ -13,6 +13,8 @@ import { StorageImage, useStorageUrl } from '@/components/StorageImage';
 import { chooseAction, confirmAsk, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Muted, SectionTitle } from '@/components/ui';
 import { nameOf, openDocLink, usePeople } from '@/data/hs';
+import { useSite } from '@/data/sites';
+import { exportRepairReport } from '@/lib/repairReportPdf';
 import { addRepairPhotos, deleteRepairJob, hasRepairPhoto, hideRepairPhoto, notifyPmOfRepairNotes, patchRepairJob, syncRepairEvent, uploadWorkOrder, useRepairJob, type RepairPhoto } from '@/data/repairs';
 import { useAuth } from '@/lib/auth';
 import { pickPhotos } from '@/lib/photos';
@@ -42,11 +44,12 @@ function Photo({ p, onRemove }: { p: RepairPhoto; onRemove?: () => void }) {
 
 export default function RepairJobPage() {
   const { id, job: jobId } = useLocalSearchParams<{ id: string; job: string }>();
-  const { me } = useAuth();
+  const { me, org } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
   const { data, isLoading } = useRepairJob(jobId);
   const { data: people = [] } = usePeople();
+  const { data: site } = useSite(id);
   const [edit, setEdit] = useState<Record<string, string> | null>(null);
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [surveyEdit, setSurveyEdit] = useState(false);
@@ -338,7 +341,10 @@ export default function RepairJobPage() {
         </>
       )}
       <Button kind="ghost" title="☁️ Link this job's OneDrive folder" onPress={() => router.push({ pathname: '/pm/onedrive-pick', params: { target: 'repairjob', id: jobId } } as never)} />
-      <Muted style={{ marginBottom: space.xl }}>Survey / completion report PDFs are still in the current app for now.</Muted>
+      <View style={{ flexDirection: 'row', gap: 8, marginBottom: space.xl }}>
+        <View style={{ flex: 1 }}><Button kind="ghost" title="📄 Survey report PDF" onPress={async () => { if (!(await exportRepairReport('survey', job, site, org, job.surveyed_by ? nameOf(people, job.surveyed_by) : '').catch(() => false))) toast('Could not build the PDF.'); }} /></View>
+        <View style={{ flex: 1 }}><Button kind="ghost" title="📄 Completed works PDF" onPress={async () => { if (!(await exportRepairReport('completion', job, site, org, '').catch(() => false))) toast('Could not build the PDF.'); }} /></View>
+      </View>
     </ScrollView>
   );
 }
