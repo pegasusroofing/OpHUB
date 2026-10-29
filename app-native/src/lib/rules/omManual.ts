@@ -97,7 +97,7 @@ export type OmSection = {
 };
 export type OmAppendix = { kind: 'file' | 'sow-app' | 'report'; label: string; bucket?: string; path?: string; reportId?: string };
 export type OmCover = { title?: string; project?: string; address?: string; header?: string; volume?: string; subtitle?: string; revision?: string; date?: string; coverPhoto?: { bucket: string; path: string } | null };
-export type OmData = { cover: OmCover; attach: Record<string, boolean>; appendix: OmAppendix[]; sections: OmSection[] };
+export type OmData = { cover: OmCover; attach: Record<string, boolean>; appendix: OmAppendix[]; sections: OmSection[]; synced?: Record<string, 1>; syncInit?: 1; syncedCoshh?: Record<string, 1> };
 
 export const omUid = () => `s${Math.random().toString(36).slice(2, 9)}`;
 export const omFmtDate = (d: string | null | undefined) => (d ? new Date(d.length === 10 ? `${d}T00:00:00` : d).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '');
@@ -195,4 +195,83 @@ export function buildDefaultOm(j: OmJob): OmData {
       { id: omUid(), type: 'table', title: 'Contacts', columns: ['', company], rows: [['Contact name', pm?.name || ''], ['Position', ''], ['Telephone', pm?.phone || j.settings.phone || ''], ['Email', pm?.email || '']] },
     ],
   };
+}
+
+const filled = (r: string[], skipFirst: boolean) => r.some((v, i) => (skipFirst ? i > 0 : true) && v);
+const blankRow = (rows: string[][], skipFirst: boolean) => rows.findIndex((r) => r.every((v, i) => !v || (skipFirst && i === 0)));
+type HoDocLite = { id: string; kind: string | null; name: string; provider?: string | null; ref?: string | null; expiry_date?: string | null; maintenance?: string | null };
+/**
+ * Data sheets and guarantees uploaded to the job's Handover after the manual was started go into the
+ * Materials Log / Guarantees table, linked so they're attached in the back (857 hoSyncDocs). The first
+ * time, what's there already is just noted. A row the user deletes stays deleted.
+ */
+export function syncOmDocs(d: OmData, docs: HoDocLite[]): boolean {
+  d.synced = d.synced || {};
+  if (!d.syncInit) { docs.forEach((x) => { (d.synced as Record<string, 1>)[x.id] = 1; }); d.syncInit = 1; return true; }
+  let changed = false;
+  docs.forEach((x) => {
+    if ((d.synced as Record<string, 1>)[x.id]) return;
+    const isSheet = x.kind === 'datasheet';
+    const t = isSheet ? d.sections.find((q) => q.type === 'materials') : d.sections.find((q) => q.type === 'table' && /guarantee|warrant/i.test(q.title || ''));
+    (d.synced as Record<string, 1>)[x.id] = 1; changed = true;
+    if (!t || !t.columns) return;
+    t.rows = t.rows || []; t.links = t.links || [];
+    const nm = String(x.name || '').replace(/\.pdf$/i, '');
+    const row = t.columns.map(() => '');
+    if (isSheet) { row[0] = String(t.rows.filter((r) => filled(r, true)).length + 1); if (row.length > 2) row[2] = nm; if (row.length > 3) row[3] = x.provider || ''; }
+    else { row[0] = x.provider ? `${x.provider} – ${nm}` : nm; if (row.length > 1) row[1] = x.ref || ''; if (row.length > 2) row[2] = x.expiry_date ? omFmtDate(x.expiry_date) : ''; if (row.length > 3) row[3] = x.maintenance || ''; }
+    const at = blankRow(t.rows, isSheet);
+    if (at >= 0) { t.rows[at] = row; t.links[at] = [{ docId: x.id, name: x.name }]; } else { t.rows.push(row); t.links[t.rows.length - 1] = [{ docId: x.id, name: x.name }]; }
+  });
+  return changed;
+}
+const coshhKey = (n: unknown) => String(n || '').replace(/\.pdf$/i, '').replace(/^COSHH\s*(Assessment)?\s*[—–-]\s*/i, '').replace(/^Data sheet\s*[—–-]\s*/i, '').trim().toLowerCase();
+/**
+ * COSHH assessments on the job go into the Materials Log, each linked so it's attached straight after
+ * the product (857 hoSyncCoshh) — including ones added after the manual was started. Matched to a
+ * row already there by product name so nothing is listed twice.
+ */
+export function syncOmCoshh(d: OmData, coshh: { id: string; name: string; storage_path: string | null }[]): boolean {
+  d.syncedCoshh = d.syncedCoshh || {};
+  const t = d.sections.find((q) => q.type === 'materials');
+  if (!t || !t.columns) return false;
+  t.rows = t.rows || []; t.links = t.links || [];
+  let changed = false;
+  coshh.forEach((c) => {
+    if (!c.storage_path || (d.syncedCoshh as Record<string, 1>)[c.id]) return;
+    (d.syncedCoshh as Record<string, 1>)[c.id] = 1; changed = true;
+    const links = t.links as OmLink[][], rows = t.rows as string[][];
+    const lk: OmLink = { bucket: 'coshh-docs', path: c.storage_path, name: c.name };
+    if (links.some((ls) => (ls || []).some((l) => l.path === c.storage_path))) return;
+    const nm = coshhKey(c.name);
+    let at = nm ? rows.findIndex((r) => coshhKey(r[2]) === nm) : -1;
+    if (at < 0) at = links.findIndex((ls) => (ls || []).some((l) => coshhKey(l.name) === nm));
+    if (at >= 0) { const ls = (links[at] = links[at] || []); if (!ls.some((l) => /coshh/i.test(l.name || '') && !/^data sheet/i.test(l.name || ''))) ls.push(lk); return; }
+    const row = (t.columns as string[]).map(() => '');
+    row[0] = String(rows.filter((r) => filled(r, true)).length + 1);
+    if (row.length > 1) row[1] = 'COSHH';
+    if (row.length > 2) row[2] = String(c.name || '').replace(/\.pdf$/i, '').replace(/^COSHH\s*(Assessment)?\s*[—–-]\s*/i, '');
+    const b = blankRow(rows, true);
+    if (b >= 0) { rows[b] = row; links[b] = [lk]; } else { rows.push(row); links[rows.length - 1] = [lk]; }
+  });
+  return changed;
+}
+/** Products picked from the COSHH Library go into the Materials Log with their data sheet and assessment linked (857 hoPickDatasheets). */
+export function addOmProducts(d: OmData, secId: string, picked: { title: string; manufacturer: string; sdsPath: string | null; assessPath: string | null }[]): number {
+  const t = d.sections.find((q) => q.id === secId); if (!t || !t.columns) return 0;
+  t.rows = t.rows || []; t.links = t.links || [];
+  const have = new Set(t.rows.map((r) => String(r[2] || '').trim().toLowerCase()));
+  let n = 0;
+  picked.forEach((it) => {
+    if (have.has(it.title.trim().toLowerCase())) return;
+    const rows = t.rows as string[][], links = t.links as OmLink[][];
+    const r = (t.columns as string[]).map(() => ''); r[0] = String(rows.filter((x) => filled(x, true)).length + 1); if (r.length > 2) r[2] = it.title; if (r.length > 3) r[3] = it.manufacturer || '';
+    const ls: OmLink[] = [];
+    if (it.sdsPath) ls.push({ bucket: 'coshh-library', path: it.sdsPath, name: `Data sheet – ${it.title}` });
+    if (it.assessPath) ls.push({ bucket: 'coshh-library', path: it.assessPath, name: `COSHH – ${it.title}` });
+    const b = blankRow(rows, true);
+    if (b >= 0) { rows[b] = r; links[b] = ls; } else { rows.push(r); links.push(ls); }
+    have.add(it.title.trim().toLowerCase()); n++;
+  });
+  return n;
 }

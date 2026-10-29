@@ -3,7 +3,9 @@
 // Log, maintenance procedures per roof system, photos — each can be renamed,
 // moved or deleted, and new ones added. Saves as you go. Export the PDF (with
 // the data sheets, guarantees, COSHH, drawings and appendix attached behind it)
-// or email it. The Scope of Works has to be filled in first.
+// or email it. The Scope of Works has to be filled in first. Files can be attached to any table row,
+// products picked from the COSHH Library go into the Materials Log with their data sheet and
+// assessment, and documents / COSHH added to the job since the manual was started come in on opening.
 // Or a Word file to carry on editing.
 import { useQuery } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams } from 'expo-router';
@@ -14,14 +16,18 @@ import { StorageImage } from '@/components/StorageImage';
 import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Card, Check, Muted, SectionTitle } from '@/components/ui';
 import { DateBox } from '@/components/DateField';
-import { nameOf, usePeople } from '@/data/hs';
-import { jobPhotos, loadManual, saveManual } from '@/data/omManual';
+import { nameOf, openDocLink, usePeople } from '@/data/hs';
+import * as DocumentPicker from 'expo-document-picker';
+import { assessMap, loadProducts } from '@/data/coshhLib';
+import { jobPhotos, loadManual, saveManual, uploadRowFile } from '@/data/omManual';
+import { viewDoc } from '@/components/DocViewer';
+import { Popup, PopupButtons } from '@/components/Popup';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { buildOmPdf } from '@/lib/omPdf';
 import { buildOmWord, deliverDocx } from '@/lib/omWord';
 import { deliverPdf, emailPdf } from '@/lib/pdf';
-import { HO_MAINT, omUid, scopeEmpty, type OmData, type OmPhoto, type OmSection } from '@/lib/rules/omManual';
+import { addOmProducts, HO_MAINT, omUid, scopeEmpty, type OmData, type OmPhoto, type OmSection } from '@/lib/rules/omManual';
 import { isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
 import type { Organization, Profile, Site } from '@/lib/types';
@@ -48,6 +54,16 @@ function Editor({ me, org, site, manualId, name0, data0 }: { me: Profile; org: O
   const [name, setName] = useState(name0);
   const [status, setStatus] = useState('');
   const [picker, setPicker] = useState<null | { sec: string | null }>(null);
+  const [libFor, setLibFor] = useState<string | null>(null);
+  const [busyRow, setBusyRow] = useState('');
+  const attachRow = async (sid: string, ri: number) => {
+    const r = await DocumentPicker.getDocumentAsync({ multiple: true, copyToCacheDirectory: true }); if (r.canceled || !r.assets.length) return;
+    const got: { bucket: string; path: string; name: string }[] = [];
+    for (let i = 0; i < r.assets.length; i++) { setBusyRow(`Uploading ${i + 1} of ${r.assets.length}…`); const f = await uploadRowFile(me, site, { uri: r.assets[i].uri, name: r.assets[i].name || 'file', mimeType: r.assets[i].mimeType }); if (f) got.push(f); }
+    setBusyRow('');
+    if (!got.length) { toast('Upload failed — check your signal and try again.'); return; }
+    up((x) => { const t = sec(x, sid); t.links = t.links || []; t.links[ri] = [...(t.links[ri] || []), ...got]; });
+  };
   const pending = useRef<{ name: string; d: OmData } | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const flush = async () => {
@@ -163,7 +179,8 @@ function Editor({ me, org, site, manualId, name0, data0 }: { me: Profile; org: O
           {s.key === 'scope' && scopeEmpty(d) && <Text style={{ color: base.red, marginTop: 4 }}>Required — describe the works carried out.</Text>}
           <View style={{ marginTop: 8 }}>
             {s.type === 'text' && <TextInput value={s.body || ''} onChangeText={(v) => up((x) => { sec(x, s.id).body = v; })} multiline placeholder={s.key === 'scope' ? 'Describe the works carried out.' : 'Text'} style={[box, { minHeight: 90, textAlignVertical: 'top' }]} />}
-            {(s.type === 'table' || s.type === 'materials') && <TableEdit s={s} up={(fn) => up((x) => fn(sec(x, s.id)))} />}
+            {(s.type === 'table' || s.type === 'materials') && <TableEdit s={s} up={(fn) => up((x) => fn(sec(x, s.id)))} onAttach={(ri) => void attachRow(s.id, ri)} busy={busyRow} />}
+            {s.type === 'materials' && <Text style={small} onPress={() => setLibFor(s.id)}>📚 Choose data sheets from the COSHH Library</Text>}
             {s.type === 'maint' && <MaintEdit s={s} up={(fn) => up((x) => fn(sec(x, s.id)))} />}
             {s.type === 'photos' && (
               <>
@@ -184,6 +201,7 @@ function Editor({ me, org, site, manualId, name0, data0 }: { me: Profile; org: O
       ))}
       <Button kind="ghost" title="+ Add a section" onPress={() => void addSec()} />
       <Muted style={{ marginTop: 8, marginBottom: space.xl }}>Saves as you type.</Muted>
+      {libFor && <LibraryPicker orgId={me.org_id as string} have={(d.sections.find((q) => q.id === libFor)?.rows || []).map((r) => String(r[2] || '').trim().toLowerCase())} onClose={() => setLibFor(null)} onPick={(ps) => { const sid = libFor; setLibFor(null); up((x) => { addOmProducts(x, sid, ps); }); }} />}
       {picker && <PhotoPicker siteId={site.id} single={picker.sec === null} onClose={() => setPicker(null)} onPick={(ps) => {
         if (picker.sec === null) up((x) => { x.cover.coverPhoto = ps[0] ? { bucket: ps[0].bucket, path: ps[0].path } : x.cover.coverPhoto; });
         else { const sid = picker.sec; up((x) => { const t = sec(x, sid); t.photos = [...(t.photos || []), ...ps]; }); }
@@ -193,7 +211,7 @@ function Editor({ me, org, site, manualId, name0, data0 }: { me: Profile; org: O
   );
 }
 
-function TableEdit({ s, up }: { s: OmSection; up: (fn: (t: OmSection) => void) => void }) {
+function TableEdit({ s, up, onAttach, busy }: { s: OmSection; up: (fn: (t: OmSection) => void) => void; onAttach: (row: number) => void; busy: string }) {
   const cols = s.columns || [], rows = s.rows || [];
   const cw = 150;
   return (
@@ -209,10 +227,22 @@ function TableEdit({ s, up }: { s: OmSection; up: (fn: (t: OmSection) => void) =
             ))}
           </View>
           {rows.map((r, ri) => (
-            <View key={ri} style={{ flexDirection: 'row', gap: 4, alignItems: 'flex-start' }}>
+            <View key={ri}>
+            <View style={{ flexDirection: 'row', gap: 4, alignItems: 'flex-start' }}>
               {cols.map((_, ci) => <TextInput key={ci} value={r[ci] || ''} onChangeText={(v) => up((t) => { (t.rows as string[][])[ri][ci] = v; })} multiline style={[box, { width: cw }]} />)}
               <Text style={[small, { color: base.red, paddingTop: 8 }]} onPress={() => up((t) => { (t.rows as string[][]).splice(ri, 1); if (t.links) t.links.splice(ri, 1); })}>✕</Text>
-              {(s.links?.[ri]?.length ?? 0) > 0 && <Text style={{ color: base.slate, paddingTop: 8 }}>📎 {s.links?.[ri].length}</Text>}
+              <Text style={[small, { paddingTop: 8 }]} onPress={() => onAttach(ri)}>📎 Attach</Text>
+            </View>
+            {(s.links?.[ri]?.length ?? 0) > 0 && (
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 6, marginLeft: 4 }}>
+                {(s.links?.[ri] || []).map((l, li) => (
+                  <View key={li} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <Text style={{ color: base.blue, fontSize: 12.5 }} onPress={async () => { const u = l.path && l.bucket ? await openDocLink(l.bucket, l.path) : null; if (u) viewDoc(u, l.name || ''); }}>📄 {l.name || 'Document'}</Text>
+                    <Text style={{ color: base.red, fontSize: 12 }} onPress={async () => { if (await confirmAsk(`Remove "${l.name || 'this file'}" from this row?`, 'Remove')) up((t) => { (t.links as { name?: string }[][])[ri].splice(li, 1); }); }}>✕</Text>
+                  </View>
+                ))}
+              </View>
+            )}
             </View>
           ))}
         </View>
@@ -221,7 +251,8 @@ function TableEdit({ s, up }: { s: OmSection; up: (fn: (t: OmSection) => void) =
         <Text style={small} onPress={() => up((t) => { (t.rows = t.rows || []).push((t.columns || []).map((_, i) => (t.type === 'materials' && i === 0 ? String((t.rows || []).length + 1) : ''))); (t.links = t.links || []).push([]); })}>+ Row</Text>
         <Text style={small} onPress={() => up((t) => { (t.columns = t.columns || []).push('New column'); (t.rows || []).forEach((r) => r.push('')); })}>+ Column</Text>
       </View>
-      {s.type === 'materials' && <Muted style={{ marginTop: 4 }}>📎 = data sheets / COSHH attached in the back of the PDF.</Muted>}
+      {!!busy && <Muted>{busy}</Muted>}
+      <Muted style={{ marginTop: 4 }}>Files attached to a row go in the back of the PDF{s.type === 'materials' ? ', straight after that product' : ''}.</Muted>
     </>
   );
 }
@@ -275,5 +306,31 @@ function PhotoPicker({ siteId, single, onPick, onClose }: { siteId: string; sing
         </View>
       </View>
     </Modal>
+  );
+}
+
+// Products from the COSHH Library, ticked to go into the Materials Log (857 hoPickDatasheets).
+function LibraryPicker({ orgId, have, onPick, onClose }: { orgId: string; have: string[]; onPick: (p: { title: string; manufacturer: string; sdsPath: string | null; assessPath: string | null }[]) => void; onClose: () => void }) {
+  const { data, isLoading } = useQuery({ queryKey: ['omLib', orgId], queryFn: async () => { const lib = await loadProducts(orgId); return { lib, amap: await assessMap(orgId, lib) }; } });
+  const [q, setQ] = useState('');
+  const [sel, setSel] = useState<string[]>([]);
+  const lib = (data?.lib || []).filter((it) => !q.trim() || `${it.title} ${it.data.manufacturer || ''}`.toLowerCase().includes(q.trim().toLowerCase()));
+  return (
+    <Popup title="Choose data sheets from the library" onClose={onClose} width={560} center footer={<PopupButtons yes={`Add ${sel.length || ''} ticked`} no="Cancel" onNo={onClose} onYes={() => onPick((data?.lib || []).filter((it) => sel.includes(it.id)).map((it) => ({ title: it.title, manufacturer: it.data.manufacturer || '', sdsPath: it.data.sdsPath || null, assessPath: data?.amap[it.id]?.files[0]?.storage_path || null })))} />}>
+      <TextInput value={q} onChangeText={setQ} placeholder="Search products" style={box} />
+      <Muted style={{ marginBottom: 6 }}>Each product goes into the log with its data sheet, and its COSHH assessment straight after.</Muted>
+      {isLoading ? <Muted>Loading the library…</Muted> : !data?.lib.length ? <Muted>No products in the COSHH library yet — add data sheets in Admin › COSHH Library.</Muted> : lib.map((it) => {
+        const inLog = have.includes(it.title.trim().toLowerCase()), on = sel.includes(it.id), a = data.amap[it.id];
+        return (
+          <Pressable key={it.id} disabled={inLog} onPress={() => setSel(on ? sel.filter((x) => x !== it.id) : [...sel, it.id])} style={{ flexDirection: 'row', gap: 10, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: base.line, opacity: inLog ? 0.5 : 1 }}>
+            <Text style={{ fontSize: 18 }}>{on || inLog ? '☑' : '☐'}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontWeight: '700', color: base.ink }}>{it.title}</Text>
+              <Muted>{[it.data.manufacturer, it.data.sdsPath ? '📄 data sheet' : 'no data sheet', a ? '✓ COSHH assessment' : 'no COSHH yet', inLog ? 'already in the log' : ''].filter(Boolean).join(' · ')}</Muted>
+            </View>
+          </Pressable>
+        );
+      })}
+    </Popup>
   );
 }

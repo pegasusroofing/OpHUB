@@ -4,7 +4,7 @@
 import { loadSettings } from '@/data/ramsBuilder';
 import { fullSiteAddress } from '@/lib/rules/checkin';
 import { localISODate } from '@/lib/rules/driver';
-import { buildDefaultOm, normalizeOm, type OmData, type OmPhoto } from '@/lib/rules/omManual';
+import { buildDefaultOm, normalizeOm, syncOmCoshh, syncOmDocs, type OmData, type OmPhoto } from '@/lib/rules/omManual';
 import { supabase } from '@/lib/supabase';
 import type { Organization, Profile, Site } from '@/lib/types';
 
@@ -51,7 +51,15 @@ export async function loadManual(me: Profile, org: Organization | null, site: Si
   let data = row.data?.sections ? (row.data as OmData) : null;
   const isNew = !data;
   if (!data) data = await buildFromJob(me, org, site);
-  if (normalizeOm(data) || isNew) await saveManual(me, id, row.name || 'O&M Manual', data);
+  // Documents and COSHH added to the job since the manual was started come in now (857 hoSyncDocs / hoSyncCoshh).
+  const [docs, coshh] = await Promise.all([
+    db.from('handover_docs').select('id,kind,name,provider,ref,expiry_date,maintenance').eq('site_id', site.id).order('position').order('created_at'),
+    db.from('coshh_docs').select('id,name,storage_path').eq('site_id', site.id).is('subcontractor_company_id', null).order('uploaded_at'),
+  ]);
+  const tidy = normalizeOm(data);
+  const synced = syncOmDocs(data, rows(docs) as never);
+  const syncedC = syncOmCoshh(data, rows(coshh) as never);
+  if (tidy || isNew || synced || syncedC) await saveManual(me, id, row.name || 'O&M Manual', data);
   return { name: row.name || 'O&M Manual', data };
 }
 export async function saveManual(me: Profile, id: string, name: string, data: OmData): Promise<boolean> {
@@ -89,4 +97,13 @@ export async function collectAttachments(siteId: string, d: OmData): Promise<OmA
   if (d.attach.coshh) rows(await db.from('coshh_docs').select('name,storage_path').eq('site_id', siteId).is('subcontractor_company_id', null)).forEach((x) => add('coshh', { bucket: 'coshh-docs', path: x.storage_path, name: x.name }));
   if (d.attach.datasheets) docs.filter((x) => x.kind === 'datasheet' && x.storage_path).forEach((x) => add('coshh', { bucket: 'mc-documents', path: x.storage_path, name: x.name }));
   return [...G.app, ...G.guar, ...G.draw, ...G.coshh];
+}
+
+/** A file attached to a table row (857 hoRowUpload) — goes in the back of the PDF after that section. */
+export async function uploadRowFile(me: Profile, site: Site, a: { uri: string; name: string; mimeType?: string | null }): Promise<{ bucket: string; path: string; name: string } | null> {
+  try {
+    const rid = globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}`;
+    const up = await supabase.storage.from('mc-documents').upload(`${site.org_id || me.org_id}/handover/${site.id}/rows/${rid}-${(a.name || 'file').replace(/[^a-z0-9.-]+/gi, '_')}`, await (await fetch(a.uri)).arrayBuffer(), { contentType: a.mimeType || 'application/pdf' });
+    return up.error ? null : { bucket: 'mc-documents', path: up.data.path, name: a.name || 'Document' };
+  } catch { return null; }
 }

@@ -60,7 +60,7 @@ HIGH = money, data, permissions, safety or a daily job. MED = noticeable. LOW = 
 - MED FIXED — Finance PO PDF saved into the job's Material PO's › Finance POs folder.
 - MED FIXED — Cancelling a PO cancels its site requests; remove lines; reopen restores.
 - MED FIXED — Driver day off: clear "Driver has a scheduled day off" message (now "Could not save"), and the all-drivers-off check.
-- MED OPEN — O&M manual: attach files to table rows; choose data sheets from the COSHH library; add documents added since the manual started.
+- MED FIXED — O&M manual: attach files to table rows; choose data sheets from the COSHH library; add documents added since the manual started.
 - MED FIXED — COSHH library: drop several data sheets into a folder → an assessment each.
 - MED FIXED — PM's "Things the office has sent you" page (#/to-book).
 - LOW OPEN — message taps for delivery problem / invoice query; delivery form role check; cover photo from camera; uploaded SoW PDF as appendix; wipe COSHH library; sub company library from the job; delete sub application (any manager); pick PO when booking stock in.
