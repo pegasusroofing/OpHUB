@@ -10,16 +10,16 @@ import { Linking, Text, TextInput, View } from 'react-native';
 
 import { FinForm } from '@/components/FinForm';
 import { FinPage, FinRow, FinStat } from '@/components/FinNav';
-import { chooseAction, confirmAsk, useToast } from '@/components/toast';
+import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import { fdb, selectAll } from '@/data/finance';
 import { openDocLink } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
 import { pdfPageTexts } from '@/lib/pdfjs';
-import { guessSupplier, parseStmtText, stmtBalance, stmtFromRows } from '@/lib/rules/finStatementRead';
+import { guessSupplier, parseStmtText, stmtAmt, stmtBalance, stmtDate, stmtFromRows } from '@/lib/rules/finStatementRead';
 import { csvRows, readXlsx } from '@/lib/rules/xlsxRead';
 import { supabase } from '@/lib/supabase';
-import { fdate, money } from '@/lib/rules/finance';
+import { fdate, money, round2 } from '@/lib/rules/finance';
 import { autoMatch, lineState, sameSupplier, STMT_TYPES, supKey, type Cand, type SLine } from '@/lib/rules/finStatements';
 import { base, radius } from '@/theme/theme';
 
@@ -134,15 +134,29 @@ function Statement({ id }: { id: string }) {
   const save = async (patch: Row) => { if ((await fdb.from('fin_statements').update({ ...patch, updated_at: new Date().toISOString() } as never).eq('id', id)).error) { toast('Could not save — try again.'); return false; } void qc.invalidateQueries({ queryKey: ['finStmt'] }); void qc.invalidateQueries({ queryKey: ['finStmts'] }); return true; };
   const setLine = (lid: string, p: Partial<SLine>) => save({ lines: lines.map((l) => (l.id === lid ? { ...l, ...p } : l)) });
   const used = new Set(lines.map((l) => l.match).filter(Boolean));
-  const notOnStmt = cands.filter((c) => !used.has(c.id) && (!s.statement_date || !c.date || c.date <= s.statement_date));
+  const notOnStmt = cands.filter((c) => !used.has(c.id) && c.status !== 'paid' && (!s.statement_date || !c.date || c.date <= s.statement_date));
+  // The lines (not ignored) add up to — checked against the balance on the statement (9219l).
+  const tot = round2(lines.filter((l) => !l.ignore).reduce((t, l) => t + Number(l.amount || 0), 0));
+  const off = s.closing_balance != null ? round2(tot - Number(s.closing_balance)) : 0;
+  const addLine = async () => {
+    const ref = await promptText('Reference / invoice number on the statement:', ''); if (ref === null) return;
+    const a = await promptText('Amount £ (use a minus for a credit or payment):', ''); if (a === null) return;
+    const n = stmtAmt(a); if (n === null) { toast('Enter the amount as a number.'); return; }
+    const dt = await promptText('Date (dd/mm/yyyy):', fdate(s.statement_date || new Date().toISOString().slice(0, 10)));
+    const id2 = globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}`;
+    const line: SLine = { id: id2, ref: ref.trim(), amount: round2(n), date: stmtDate(dt) || null, type: n < 0 ? 'credit' : 'invoice', text: 'Added by hand' } as SLine;
+    if (await save({ lines: autoMatch([...lines, line], cands) })) toast('Line added');
+  };
   const counts = lines.reduce((o: Record<string, number>, l) => { const k = lineState(l, cands).k; o[k] = (o[k] || 0) + 1; return o; }, {});
   return (
     <FinPage title={s.supplier_name} section="purchases">
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
         <FinStat v={s.statement_date ? fdate(s.statement_date) : '—'} label="Statement date" /><FinStat v={s.closing_balance != null ? money(s.closing_balance) : '—'} label="Balance" />
+        <FinStat v={money(tot)} label={s.closing_balance != null && Math.abs(off) >= 0.01 ? `Lines add up to (${off > 0 ? '+' : '−'}${money(Math.abs(off))} vs balance)` : 'Lines add up to'} hot={s.closing_balance != null && Math.abs(off) >= 0.01} />
         <FinStat v={String(counts.ok || 0)} label="Matched" /><FinStat v={String(counts.missing || 0)} label="Not in OpHUB" hot={!!counts.missing} />
       </View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+        <Button kind="ghost" title="+ Add a line" onPress={() => void addLine()} />
         <Button kind="ghost" title="Match again" onPress={async () => { if (await save({ lines: autoMatch(lines, cands) })) toast('Matched again'); }} />
         {s.file_path && <Button kind="ghost" title="📄 Open the statement" onPress={async () => { const u = await openDocLink('finance-docs', s.file_path); if (u) void Linking.openURL(u); }} />}
         {s.status === 'reconciled' ? <Button kind="ghost" title="Reopen" onPress={async () => { if (await save({ status: 'open', reconciled_at: null, reconciled_by: null })) toast('Reopened'); }} />
@@ -154,9 +168,14 @@ function Statement({ id }: { id: string }) {
         return (
           <FinRow key={l.id} left={l.date ? fdate(l.date) : ''} title={`${STMT_TYPES[l.type] || l.type} ${l.ref || ''}`} sub={[st.label, c ? `→ ${c.invoice_no || 'invoice'} ${fdate(c.date)} ${money(c.total)}${c.kind === 'inbox' ? ' (unallocated)' : ''}` : ''].filter(Boolean).join(' · ')} right={money(l.amount)} tone={TONE[st.k]}
             onPress={async () => {
-              const k = await chooseAction(`${l.ref || 'Line'} · ${money(l.amount)}`, [...cands.filter((x) => !used.has(x.id) || x.id === l.match).map((x) => ({ key: x.id, label: `${x.invoice_no || 'No number'} · ${fdate(x.date)} · ${money(x.total)}${x.kind === 'inbox' ? ' (unallocated)' : ''}` })), { key: '-none', label: 'No match' }, { key: l.ignore ? '-unignore' : '-ignore', label: l.ignore ? 'Stop ignoring this line' : 'Ignore this line' }]);
+              const k = await chooseAction(`${l.ref || 'Line'} · ${money(l.amount)}`, [...cands.filter((x) => !used.has(x.id) || x.id === l.match).map((x) => ({ key: x.id, label: `${x.invoice_no || 'No number'} · ${fdate(x.date)} · ${money(x.total)}${x.kind === 'inbox' ? ' (unallocated)' : ''}` })), { key: '-none', label: 'No match' }, { key: '-type', label: `Change type (now ${STMT_TYPES[l.type] || l.type})` }, { key: l.ignore ? '-unignore' : '-ignore', label: l.ignore ? 'Stop ignoring this line' : 'Ignore this line' }]);
               if (!k) return;
-              if (k === '-ignore') void setLine(l.id, { ignore: true }); else if (k === '-unignore') void setLine(l.id, { ignore: false });
+              if (k === '-type') {
+                // Credits and payments are negative, invoices positive; a payment isn't matched to an invoice.
+                const t = await chooseAction('Type of line', Object.entries(STMT_TYPES).map(([key, label]) => ({ key, label }))); if (!t) return;
+                const amt = Math.abs(Number(l.amount || 0));
+                void setLine(l.id, { type: t, ...(t === 'credit' || t === 'payment' ? { amount: -amt } : t === 'invoice' ? { amount: amt } : {}), ...(t === 'payment' ? { match: null, how: null } : {}) });
+              } else if (k === '-ignore') void setLine(l.id, { ignore: true, match: null, how: null }); else if (k === '-unignore') void setLine(l.id, { ignore: false });
               else if (k === '-none') void setLine(l.id, { match: null, how: 'manual' }); else void setLine(l.id, { match: k, how: 'manual', ignore: false });
             }} />
         );

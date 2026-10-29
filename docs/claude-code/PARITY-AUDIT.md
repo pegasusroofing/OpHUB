@@ -86,7 +86,7 @@ The money calculations themselves (invoice VAT rounding, application maths, rete
 - HIGH FIXED — Release retention through an application.
 - HIGH TRIAL — New PO builder in Finance (job per line, Disc %, cost codes, site contact).
 - MED FIXED — "Raise and issue the invoice now" should start unticked when certifying.
-- MED OPEN — Statements: add a line by hand, change a line's type, "lines add up to" check.
+- MED FIXED — Statements: add a line by hand, change a line's type, "lines add up to" check.
 - MED OPEN — Add a line / section inside an application; delete a job (with the booked-items check); BoQ autosave and line fields (plot, cost rate, margin); bill-to synced with the Directory; send a variation to the SoW.
 - MED OPEN — Company VAT rates list; row ⋯ delete application at any stage + export; per-line Previous / This period columns; list month pickers and value filters; Project Admin fields (QS, monthly application dates, final release date, project details); site-progress suggestions on applications; Purchase Quotes tab and price list edit; edit a yard-stock cost line; link Directory supplier to Projects supplier; contract value vs BoQ total choice; budgets from a target margin; retention halves use held not still-held; SoW report attached to applications; Send pop-up; BoQ export / margin tool / add item at a position; site variation value sync; double-tap locks (retention half now FIXED; others open).
 - LOW OPEN — Getting started card; stage drop-down; tile option menus; variation/day work attachments; over/under budget bars; voided invoices fold; raw database messages; Detailed Summary search; project Purchases "All" tab.
