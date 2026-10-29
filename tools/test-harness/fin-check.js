@@ -11,6 +11,7 @@ const seed = require('./fresh/seed');
     db.delivery_tasks = [{id:'dt1', org_id:org, site_id:S1, scheduled_date:d, time_slot:'first', description:'Slates x 2 pallets', status:'scheduled', high_priority:true}];
     db.ppe_issuances = [{id:'pp1', org_id:org, user_id:uid, site_id:S1, items:['Gloves','Hard Hat'], status:'signed', issued_at:new Date().toISOString(), issued_by:uid}];
     db.fin_sub_apps = [{id:'sa1', org_id:org, site_id:S1, subcontract_id:'sc1', number:1, app_date:d, final_date:d, applied_gross:5000, certified_gross:4500, retention:225, contra:0, previous:0, net_due:4275, cis_deduction:855, pay_amount:3420, payless:true, payless_reason:'Snagging not finished on plots 3-4', status:'certified'}];
+    db.todos = [{id:'td1', org_id:org, site_id:S1, text:'Chase scaffold handover cert', done:false, assigned_to:uid, date_required_by:d, created_at:new Date().toISOString()}];
     db.repair_jobs = [{id:'rj1', site_id:S1, org_id:org, job_number:'R1', address:'1 High St', description:'Leak', created_at:new Date().toISOString(), job_status:'Approved - To Do', quote_approved:true, quote_approved_at:new Date().toISOString(), closed:false, works_completed:false}]; }
   db.profiles[0].finance_enabled = true; db.profiles[0].howto_dismissed = ['*'];
   await ctx.route(/supabase\.co\/rest\/v1\/(?!rpc)/, async route=>{

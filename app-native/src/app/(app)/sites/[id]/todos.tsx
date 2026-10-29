@@ -1,6 +1,6 @@
 // A job's To Do List (350). Managers only. Live / Closed; each to-do has its text,
 // a required-by date (red when overdue), the PM it's assigned to, attachments and
-// comments. Tick several to email just those; or email the whole live list.
+// comments. Tick several to email or export just those; or the whole list.
 import * as DocumentPicker from 'expo-document-picker';
 import { useQueryClient } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams } from 'expo-router';
@@ -16,6 +16,7 @@ import {
   usePmList, useTodos, type Pm, type Todo,
 } from '@/data/todos';
 import { useAuth } from '@/lib/auth';
+import { exportTablePdf } from '@/lib/tableExport';
 import { localISODate } from '@/lib/rules/driver';
 import { readIsoDate } from '@/lib/rules/materials';
 import { isManager } from '@/lib/roles';
@@ -30,7 +31,7 @@ const pickFiles = async (): Promise<Asset[]> => {
 
 export default function TodoList() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { me } = useAuth();
+  const { me, org } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
   const { data: site } = useSite(id);
@@ -51,6 +52,14 @@ export default function TodoList() {
   const list = all.filter((t) => (tab === 'live' ? !t.done : t.done));
   const picked = list.filter((t) => sel.has(t.id)).map((t) => t.id);
   const today = localISODate(new Date());
+  const ukd = (d: string) => new Date(`${d.slice(0, 10)}T12:00:00`).toLocaleDateString('en-GB');
+  const exportPdf = async (ids: string[]) => {
+    const rows = list.filter((t) => ids.includes(t.id));
+    if (!rows.length) { toast('Nothing to export.'); return; }
+    const coms = data?.comments ?? [];
+    const ok = await exportTablePdf({ title: tab === 'live' ? 'To Do List' : 'To Do List (closed)', site: site.name, sub: site.name, cols: [{ l: 'To do', w: 260 }, { l: 'Required by', w: 70 }, { l: 'Assigned to', w: 100 }, { l: 'Added', w: 70 }, { l: 'Latest comment', w: 220 }], rows: rows.map((t) => { const c = coms.filter((x) => x.todo_id === t.id).pop(); return [t.text, t.date_required_by ? ukd(t.date_required_by) : '', t.assigned_to ? nameOf(people, t.assigned_to) : 'Unassigned', ukd(t.created_at.slice(0, 10)), c ? c.body : '']; }) }, org).catch(() => false);
+    if (!ok) toast('Could not build the PDF.'); else setSel(new Set());
+  };
   const choosePm = async (current: string | null): Promise<Pm | null | undefined> => {
     const k = await chooseAction('Assign to a project manager', [{ key: '', label: 'Unassigned' }, ...(pms ?? []).map((p) => ({ key: p.id, label: `${current === p.id ? '✓ ' : ''}${p.name}` }))]);
     if (k === null) return undefined;
@@ -134,7 +143,7 @@ export default function TodoList() {
                   <Text style={{ fontSize: 11.5, color: base.ink }}><Text style={{ fontWeight: '700' }}>{nameOf(people, c.created_by)}</Text> <Text style={{ color: base.slate, fontSize: 10 }}>{new Date(c.created_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</Text></Text>
                   <Text style={{ color: base.ink }}>{c.body}</Text>
                 </View>
-              )) : <Muted>No comments yet — add one if something isn't possible.</Muted>}
+              )) : <Muted>No comments yet — add one if something isn&apos;t possible.</Muted>}
               <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
                 <TextInput value={comment[t.id] ?? ''} onChangeText={(x) => setComment({ ...comment, [t.id]: x })} placeholder="Add a comment…" style={[box, { flex: 2, marginBottom: 0 }]} />
                 <View style={{ flex: 1 }}><Button kind="ghost" title="Comment" onPress={async () => {
@@ -162,6 +171,7 @@ export default function TodoList() {
       {picked.length > 0 && (
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <View style={{ flex: 1 }}><Button title={`Email ${picked.length}`} onPress={() => setEmail({ ids: picked })} /></View>
+          <View style={{ flex: 1 }}><Button kind="ghost" title={`PDF of ${picked.length}`} onPress={() => void exportPdf(picked)} /></View>
           <View style={{ flex: 1 }}><Button kind="ghost" title="Clear" onPress={() => setSel(new Set())} /></View>
         </View>
       )}
@@ -181,7 +191,7 @@ export default function TodoList() {
           {list.length > 0 && <Button kind="ghost" title="Email To Do List" onPress={() => setEmail({ ids: null })} />}
         </>
       )}
-      <Muted style={{ marginTop: space.m }}>Export PDF of to-dos is still in the current app for now.</Muted>
+      {list.length > 0 && <Button kind="ghost" title={`📄 Export PDF (${tab === 'live' ? 'live' : 'closed'} list)`} onPress={() => void exportPdf(list.map((t) => t.id))} />}
     </ScrollView>
   );
 }
