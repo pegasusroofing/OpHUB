@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { StorageImage } from '@/components/StorageImage';
+import { useStoredPhotoMarkup } from '@/components/StoredPhotoMarkup';
 import { chooseAction, confirmAsk, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Check, Muted } from '@/components/ui';
 import { blankDraft, deleteDelivery, draftFrom, existingFirstDrop, loadDelivery, saveDelivery, uploadDraftPhotos, useDeliveryRequests, useStaff, type Draft, type FullDelivery, type Orig } from '@/data/deliveries';
@@ -33,6 +34,7 @@ export default function DeliveryForm() {
   const { id, date, slot, req } = useLocalSearchParams<{ id: string; date?: string; slot?: string; req?: string }>();
   const { me } = useAuth();
   const toast = useToast();
+  const markup = useStoredPhotoMarkup();
   const qc = useQueryClient();
   const { data: sites = [] } = useSites();
   const { data: people = [] } = useStaff();
@@ -249,7 +251,11 @@ export default function DeliveryForm() {
       {d.photo_paths.length > 0 && (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
           {d.photo_paths.map((p, i) => (
-            <Pressable key={p} onPress={async () => { if (await confirmAsk('Remove this photo?', 'Remove')) set({ photo_paths: d.photo_paths.filter((_, j) => j !== i) }); }}>
+            <Pressable key={p} onPress={async () => {
+              const k = await chooseAction('Photo', [{ key: 'mk', label: '✏️ Mark up (draw / add text)' }, { key: 'rm', label: '🗑 Remove', danger: true }]);
+              if (k === 'rm') set({ photo_paths: d.photo_paths.filter((_, j) => j !== i) });
+              else if (k === 'mk') void markup.open(p, `${me?.org_id}/delivery/drafts`, (np) => set({ photo_paths: d.photo_paths.map((x) => (x === p ? np : x)) }));
+            }}>
               <StorageImage bucket="site-photos" path={p} style={{ width: 80, height: 80, borderRadius: 8 }} />
             </Pressable>
           ))}
@@ -265,6 +271,7 @@ export default function DeliveryForm() {
         if (!(await confirmAsk('Delete this delivery? This cannot be undone.', 'Delete'))) return;
         if (await deleteDelivery(me, task)) { toast('Delivery deleted'); void qc.invalidateQueries({ queryKey: ['scheduleDay'] }); router.back(); } else toast('Could not delete — try again.');
       }} />}
+      {markup.editor}
     </ScrollView>
   );
 }

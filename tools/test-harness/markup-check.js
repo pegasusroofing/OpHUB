@@ -21,6 +21,7 @@ const seed = require('./fresh/seed');
   await page.getByText('✏️ Mark up', {exact:true}).click(); await page.waitForTimeout(2500);
   console.log('editor:', (await page.evaluate(()=>document.body.innerText)).replace(/\s+/g,' ').match(/Tap the drawing[^.]*\./)?.[0]);
   const vp = page.viewportSize();
+  await page.getByText('+', {exact:true}).click(); await page.waitForTimeout(500);
   await page.mouse.click(vp.width/2, vp.height*0.62); await page.waitForTimeout(500);
   await page.getByText('✕ Cross', {exact:true}).click(); await page.waitForTimeout(300);
   await page.mouse.click(vp.width/2 - 120, vp.height*0.62); await page.waitForTimeout(500);

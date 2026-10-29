@@ -2,13 +2,15 @@
 // the three status buttons, the "complete needs a photo" card and the % chooser.
 // Ported from taskRowHtml (480). Managers also get a ⋮ menu (edit, link address, move,
 // delete, select multiple) and can complete by ticking photos already on the task.
-// Still to port: visibility assigning and subcontractor assigning.
+// A task outside any section can be limited to chosen people (Who can see this);
+// tasks in a section follow the section. Still to port: subcontractor assigning.
 import { useState } from 'react';
 import { Image, Linking, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { StorageImage, useStorageUrl } from '@/components/StorageImage';
 import { chooseAction, confirmAsk, promptText, showAlert, useToast } from '@/components/toast';
 import { Button } from '@/components/ui';
+import { VisibilityEditor } from '@/components/VisibilityEditor';
 import {
   addPhotos, cancelUpload, completeWithPhotos, deletePhoto, moveToProgressAfterPhotos, setPercent, setStatus,
   type Photo, type Task,
@@ -36,6 +38,7 @@ export function SowTaskRow({ me, site, task, photos, pending, address, addresses
   const [completing, setCompleting] = useState(false);
   const [choose, setChoose] = useState<null | 'add' | 'complete'>(null);
   const [busy, setBusy] = useState(false);
+  const [vis, setVis] = useState(false);
   const [viewing, setViewing] = useState<string | null>(null);
   const status = (task.status || 'todo') as keyof typeof STATUS_COLOURS;
   const done = status === 'done';
@@ -48,10 +51,12 @@ export function SowTaskRow({ me, site, task, photos, pending, address, addresses
       { key: 'edit', label: '✎ Edit' },
       ...(site.multi_site ? [{ key: 'addr', label: '📍 Link Address' }] : []),
       { key: 'up', label: '▲ Move up' }, { key: 'down', label: '▼ Move down' },
+      ...(!task.section_id ? [{ key: 'vis', label: '🔒 Who can see this' }] : []),
       { key: 'del', label: '🗑 Delete', danger: true }, { key: 'multi', label: '☑ Select Multiple' },
     ];
     const k = await chooseAction(task.name, items);
-    if (k === 'edit') {
+    if (k === 'vis') setVis(true);
+    else if (k === 'edit') {
       const n = await promptText('Task name', task.name);
       if (n === null) return;
       if (!n.trim()) { toast("Task name can't be empty."); return; }
@@ -254,6 +259,7 @@ export function SowTaskRow({ me, site, task, photos, pending, address, addresses
         </View>
       )}
 
+      {vis && me.org_id && <VisibilityEditor table="schedule_tasks" id={task.id} siteId={site.id} orgId={me.org_id} onClose={(saved) => { setVis(false); if (saved) onChanged(); }} />}
       <PhotoViewer path={viewing} onClose={() => setViewing(null)} />
     </View>
   );

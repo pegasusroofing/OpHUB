@@ -314,3 +314,11 @@ export async function afterChecklistSubmit(me: Profile, d: Checklist, failedLabe
     } catch { /* best effort */ }
   }
 }
+
+/** A marked-up copy of a completion photo takes the old one's place (840 markupDeliveryCompletionPhoto). */
+export async function replaceCompletionPhoto(t: Delivery, oldPath: string, newPath: string): Promise<boolean> {
+  const cur = await db.from('delivery_tasks').select('completion_photo_paths,completion_photo_path').eq('id', t.id);
+  const all = completionPhotos(((cur.data as Delivery[] | null) ?? [])[0] ?? t); const i = all.indexOf(oldPath);
+  if (i >= 0) all[i] = newPath; else all.push(newPath);
+  return !(await db.from('delivery_tasks').update({ completion_photo_paths: all, completion_photo_path: all[0] } as never).eq('id', t.id)).error;
+}

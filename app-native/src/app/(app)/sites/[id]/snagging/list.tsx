@@ -1,20 +1,23 @@
 // Snagging list: Live / Closed, photos, close with a "fixed" photo; managers can add.
-// Ported from renderSnagging (500), with the Snagging Report PDF export / email. Photo mark-up comes later.
+// Ported from renderSnagging (500), with the Snagging Report PDF export / email, and photo mark-up (draw / add text on a
+// photo before the snag is added, or on a live snag's photo — the marked copy replaces it).
 import { useQueryClient } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Image, Linking, Pressable, ScrollView, Text, View } from 'react-native';
 
+import { MarkupEditor } from '@/components/MarkupEditor';
 import { StorageImage } from '@/components/StorageImage';
-import { confirmAsk, showAlert, useToast } from '@/components/toast';
+import { chooseAction, confirmAsk, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Empty, Field, Muted, SectionTitle } from '@/components/ui';
 import { nameOf, openDocLink, usePeople } from '@/data/hs';
 import { useSite } from '@/data/sites';
-import { addSnag, closeSnag, emailSnagPdf, snagPhotos, snagsForPdf, useSnags, type Snag } from '@/data/snags';
+import { addSnag, closeSnag, emailSnagPdf, replaceSnagPhoto, snagPhotos, snagsForPdf, useSnags, type Snag } from '@/data/snags';
 import { useAuth } from '@/lib/auth';
 import { deliverPdf } from '@/lib/pdf';
 import { pickPhotos, type Picked } from '@/lib/photos';
 import { buildSnagPdf, type SnagScope } from '@/lib/snagPdf';
+import { publicUrl, resolveStorageUrl } from '@/lib/privateFiles';
 import { isManager } from '@/lib/roles';
 import { base, radius, space } from '@/theme/theme';
 
@@ -35,6 +38,7 @@ export default function SnagList() {
   const [title, setTitle] = useState('');
   const [loc, setLoc] = useState('');
   const [newPhotos, setNewPhotos] = useState<Picked[]>([]);
+  const [marking, setMarking] = useState<{ src: string; done: (uri: string) => Promise<void> | void } | null>(null);
   if (!me || !site) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   const client = me.role === 'client';
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['snags', id] }); void qc.invalidateQueries({ queryKey: ['snagFolder', id] }); };
@@ -58,7 +62,13 @@ export default function SnagList() {
     <View>
       {snagPhotos(s).length > 0 && (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
-          {snagPhotos(s).map((p) => <StorageImage key={p} bucket="site-photos" path={p} style={{ width: 72, height: 72, borderRadius: 8 }} />)}
+          {snagPhotos(s).map((p) => (
+            <Pressable key={p} disabled={client || s.status === 'closed'} onPress={async () => {
+              if ((await chooseAction('Photo', [{ key: 'mk', label: '✏️ Mark up (draw / add text)' }])) !== 'mk') return;
+              const src = await resolveStorageUrl(publicUrl('site-photos', p)); if (!src) { toast('Could not open the photo — check your signal.'); return; }
+              setMarking({ src, done: async (uri) => { setBusy(s.id); const ok = await replaceSnagPhoto(site, s, p, uri); setBusy(null); toast(ok ? '✓ Photo marked up' : 'Could not save the marked-up photo — check your connection.'); refresh(); } });
+            }}><StorageImage bucket="site-photos" path={p} style={{ width: 72, height: 72, borderRadius: 8 }} /></Pressable>
+          ))}
         </View>
       )}
       {!!s.pdf_path && (
@@ -118,7 +128,11 @@ export default function SnagList() {
           {newPhotos.length > 0 && (
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
               {newPhotos.map((p, i) => (
-                <Pressable key={p.uri} onPress={() => setNewPhotos(newPhotos.filter((_, j) => j !== i))}>
+                <Pressable key={p.uri} onPress={async () => {
+                  const k = await chooseAction('Photo', [{ key: 'mk', label: '✏️ Mark up (draw / add text)' }, { key: 'rm', label: '🗑 Remove', danger: true }]);
+                  if (k === 'rm') setNewPhotos(newPhotos.filter((_, j) => j !== i));
+                  else if (k === 'mk') setMarking({ src: p.uri, done: (uri) => setNewPhotos((all) => all.map((x) => (x.uri === p.uri ? { ...x, uri } : x))) });
+                }}>
                   <Image source={{ uri: p.uri }} style={{ width: 72, height: 72, borderRadius: 8 }} />
                 </Pressable>
               ))}
@@ -131,6 +145,7 @@ export default function SnagList() {
           <Button busy={busy === 'new'} title="Add Snag" onPress={add} />
         </Card>
       )}
+      {marking && <MarkupEditor photo src={marking.src} onClose={(out) => { const m = marking; setMarking(null); if (out) void m.done(out.image); }} />}
       <SectionTitle>Export</SectionTitle>
       <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
         {(filter === 'open' ? [['live', 'Export Live', false], ['live', 'Email Live Snags', true]] : [['closed', 'Export Closed', false], ['closed', 'Email Closed', true], ['all', 'Export All', false]]).map(([sc, label, email]) => (

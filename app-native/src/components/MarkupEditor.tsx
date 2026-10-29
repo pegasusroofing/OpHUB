@@ -4,23 +4,25 @@
 // sizes; eraser, undo and clear. Marks are kept in the current app's format
 // so a drawing can be re-opened in either app. Save gives a JPEG with the
 // marks drawn in (the office laptop draws it full size; phones snapshot the
-// screen) plus the marks. No pinch-zoom yet — use the office laptop for fine
-// work on big A3 drawings.
+// screen) plus the marks. − / + zoom in up to 4×, and ✋ Move scrolls round
+// the drawing (drawing is paused while moving).
 import { useEffect, useMemo, useRef, useState, type ComponentRef } from 'react';
 import { Image, Modal, PanResponder, Platform, Pressable, ScrollView, Text, View } from 'react-native';
-import Svg, { Circle, G, Path, Text as SvgText } from 'react-native-svg';
+import Svg, { Circle, Ellipse, G, Path, Text as SvgText } from 'react-native-svg';
 import { captureRef } from 'react-native-view-shot';
 
 import { confirmAsk, promptText, useToast } from '@/components/toast';
 import {
-  arrowParts, crossPath, haloOf, isLight, MARK_COLOURS, MARK_SIZES, markCanvas, markRadius, nearestOp, nextFree, numFont, penPath, refreshKeyColours, tickPath, warnPath,
+  arrowParts, PHOTO_COLOURS, ringBox, crossPath, haloOf, isLight, MARK_COLOURS, MARK_SIZES, markCanvas, markRadius, nearestOp, nextFree, numFont, penPath, refreshKeyColours, tickPath, warnPath,
   type MarkKey, type MarkOp, type MarkSize, type Pt,
 } from '@/lib/rules/markup';
 import { renderMarked } from '@/lib/markupRender';
 import { base } from '@/theme/theme';
 
-type Tool = 'num' | 'key' | 'cross' | 'tick' | 'warn' | 'arrow' | 'pen' | 'text' | 'erase';
+type Tool = 'num' | 'key' | 'cross' | 'tick' | 'warn' | 'arrow' | 'ring' | 'pen' | 'text' | 'erase';
 const TOOLS: [Tool, string][] = [['num', '① Number'], ['cross', '✕ Cross'], ['tick', '✓ Tick'], ['warn', '⚠ Warning'], ['arrow', '➜ Arrow'], ['pen', '✎ Pen'], ['text', 'T Text'], ['erase', '⌫ Eraser']];
+// Photos (snags, deliveries — 499 photoMarkup): pen, arrow, circle and text.
+const PHOTO_TOOLS: [Tool, string][] = [['pen', '✎ Pen'], ['arrow', '➜ Arrow'], ['ring', '◯ Circle'], ['text', 'T Text'], ['erase', '⌫ Eraser']];
 
 export function MarkOps({ ops }: { ops: MarkOp[] }) {
   return <>{ops.map((o, i) => <MarkShape key={i} o={o} />)}</>;
@@ -32,42 +34,46 @@ function MarkShape({ o }: { o: MarkOp }) {
   if (o.t === 'warn') { const r = o.r * 1.15; return <G><Path d={warnPath(o)} fill={o.c} stroke={halo} strokeWidth={Math.max(3, r * 0.14)} strokeLinejoin="round" /><SvgText x={o.x} y={o.y + r * 0.18} dy={r * 0.36} fontSize={Math.round(r * 1.05)} fontWeight="bold" textAnchor="middle" fill={isLight(o.c) ? '#111' : '#fff'}>!</SvgText></G>; }
   if (o.t === 'text') return <G><SvgText x={o.x} y={o.y} dy={o.fs * 0.35} fontSize={o.fs} fontWeight="bold" stroke={halo} strokeWidth={Math.max(3, o.fs / 5)} strokeLinejoin="round" fill={halo}>{o.s}</SvgText><SvgText x={o.x} y={o.y} dy={o.fs * 0.35} fontSize={o.fs} fontWeight="bold" fill={o.c}>{o.s}</SvgText></G>;
   if (!('pts' in o)) return null;
+  if (o.t === 'ring') { if (!o.pts[1]) return null; const b = ringBox(o.pts[0], o.pts[1]); return <Ellipse cx={b.cx} cy={b.cy} rx={b.rx} ry={b.ry} stroke={o.c} strokeWidth={o.w} fill="none" />; }
   if (o.t === 'pen') return <Path d={penPath(o.pts)} stroke={o.c} strokeWidth={o.w} strokeLinecap="round" strokeLinejoin="round" fill="none" />;
   if (!o.pts[1]) return null;
   const a = arrowParts(o.pts[0], o.pts[1], o.w);
   return <G><Path d={a.shaft} stroke={o.c} strokeWidth={o.w} strokeLinecap="round" fill="none" /><Path d={a.head} fill={o.c} /></G>;
 }
 
-export function MarkupEditor({ src, ops: initial, keys = [], onClose }: { src: string; ops?: MarkOp[]; keys?: MarkKey[]; onClose: (out: { image: string; ops: MarkOp[] } | null) => void }) {
+export function MarkupEditor({ src, ops: initial, keys = [], photo = false, onClose }: { src: string; ops?: MarkOp[]; keys?: MarkKey[]; photo?: boolean; onClose: (out: { image: string; ops: MarkOp[] } | null) => void }) {
   const toast = useToast();
   const [size, setSize] = useState<{ W: number; H: number } | null>(null);
   const [area, setArea] = useState({ w: 0, h: 0 });
   const [ops, setOps] = useState<MarkOp[]>(() => { const c = JSON.parse(JSON.stringify(initial || [])) as MarkOp[]; refreshKeyColours(c, keys); return c; });
-  const [tool, setTool] = useState<Tool>(keys.length ? 'key' : 'num');
-  const [colour, setColour] = useState(MARK_COLOURS[0].k);
+  const [tool, setTool] = useState<Tool>(photo ? 'pen' : keys.length ? 'key' : 'num');
+  const COLOURS = photo ? PHOTO_COLOURS : MARK_COLOURS;
+  const [colour, setColour] = useState(COLOURS[0].k);
   const [picked, setPicked] = useState(false);
   const [sz, setSz] = useState<MarkSize>('m');
+  const [z, setZ] = useState(1);
+  const [moving, setMoving] = useState(false);
   const [keyPick, setKeyPick] = useState<number | null>(() => { const placed = new Set((initial || []).filter((o) => o.t === 'num').map((o) => +(o as { n: number }).n)); return keys.find((k) => !placed.has(+k.n))?.n ?? null; });
   const [cur, setCur] = useState<MarkOp | null>(null);
   const [saving, setSaving] = useState(false);
   const view = useRef<ComponentRef<typeof View>>(null);
-  const st = useRef({ ops, tool, colour, picked, sz, keyPick, k: 1, size, cur: null as MarkOp | null, nextNum: 0 });
-  useEffect(() => { Object.assign(st.current, { ops, tool, colour, picked, sz, keyPick, size }); }, [ops, tool, colour, picked, sz, keyPick, size]);
+  const st = useRef({ ops, tool, colour, picked, sz, keyPick, k: 1, size, cur: null as MarkOp | null, nextNum: 0, moving: false });
+  useEffect(() => { Object.assign(st.current, { ops, tool, colour, picked, sz, keyPick, size, moving }); }, [ops, tool, colour, picked, sz, keyPick, size, moving]);
 
   useEffect(() => { Image.getSize(src, (w, h) => setSize(markCanvas(w, h)), () => { toast('Could not open that drawing.'); onClose(null); }); }, [src]); // eslint-disable-line react-hooks/exhaustive-deps
-  const k = size && area.w ? Math.min(area.w / size.W, area.h / size.H) : 0;
+  const k = size && area.w ? Math.min(area.w / size.W, area.h / size.H) * z : 0;
   useEffect(() => { st.current.k = k; }, [k]);
 
   // The handlers read the latest state from st at touch time, not during render.
   // eslint-disable-next-line react-hooks/refs
   const responder = useMemo(() => PanResponder.create({
-    onStartShouldSetPanResponder: () => true,
-    onMoveShouldSetPanResponder: () => true,
+    onStartShouldSetPanResponder: () => !st.current.moving,
+    onMoveShouldSetPanResponder: () => !st.current.moving,
     onPanResponderTerminationRequest: () => false,
     onPanResponderGrant: (e) => {
       const s = st.current; if (!s.size || !s.k) return;
       const p = { x: e.nativeEvent.locationX / s.k, y: e.nativeEvent.locationY / s.k };
-      if (s.tool === 'pen' || s.tool === 'arrow') { s.cur = { t: s.tool, c: s.colour, w: Math.max(4, Math.round(markRadius(s.size.W, s.size.H, s.sz) / 4)), pts: [p] }; setCur({ ...s.cur }); }
+      if (s.tool === 'pen' || s.tool === 'arrow' || s.tool === 'ring') { s.cur = { t: s.tool, c: s.colour, w: Math.max(4, Math.round(markRadius(s.size.W, s.size.H, s.sz) / 4)), pts: [p] }; setCur({ ...s.cur }); }
       else s.cur = null;
       (s as unknown as { tap: Pt }).tap = p;
     },
@@ -119,7 +125,11 @@ export function MarkupEditor({ src, ops: initial, keys = [], onClose }: { src: s
     try {
       let image: string | null = null;
       if (Platform.OS === 'web') image = await renderMarked(src, ops);
-      else image = await captureRef(view, { format: 'jpg', quality: 0.86, result: 'tmpfile' });
+      else {
+        // The phone snapshots what's on screen: back to the whole drawing first.
+        if (z !== 1) { setZ(1); await new Promise((r) => setTimeout(r, 350)); }
+        image = await captureRef(view, { format: 'jpg', quality: 0.86, result: 'tmpfile' });
+      }
       if (!image) { toast('Could not save the marked-up drawing.'); return; }
       onClose({ image, ops });
     } catch { toast('Could not save the marked-up drawing.'); } finally { setSaving(false); }
@@ -135,19 +145,24 @@ export function MarkupEditor({ src, ops: initial, keys = [], onClose }: { src: s
       <View style={{ flex: 1, backgroundColor: '#1c1f24' }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', padding: 10, gap: 8 }}>
           {chip(false, 'Cancel', () => void close())}
-          <Text style={{ flex: 1, color: '#fff', fontWeight: '800', textAlign: 'center' }}>Mark up drawing</Text>
+          <Text style={{ flex: 1, color: '#fff', fontWeight: '800', textAlign: 'center' }}>{photo ? 'Mark up photo' : 'Mark up drawing'}</Text>
           {chip(false, '↶ Undo', () => setOps((x) => x.slice(0, -1)))}
           {chip(false, 'Clear', async () => { if (ops.length && (await confirmAsk('Remove all the marks?', 'Clear'))) setOps([]); })}
           <Pressable onPress={() => void save()} disabled={saving} style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 8, backgroundColor: base.blue }}><Text style={{ color: '#fff', fontWeight: '800' }}>{saving ? 'Saving…' : 'Save'}</Text></Pressable>
         </View>
         <ScrollView horizontal style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 6, paddingHorizontal: 10, paddingBottom: 6 }}>
           {keys.length > 0 && chip(tool === 'key', '📍 Report items', () => setTool('key'))}
-          {TOOLS.map(([t, l]) => chip(tool === t, l, () => setTool(t), t))}
+          {(photo ? PHOTO_TOOLS : TOOLS).map(([t, l]) => chip(tool === t && !moving, l, () => { setTool(t); setMoving(false); }, t))}
+          <View style={{ width: 8 }} />
+          {chip(false, '−', () => setZ((x) => Math.max(1, x / 1.5)), 'zo')}
+          {chip(false, `${Math.round(z * 100)}%`, () => { setZ(1); setMoving(false); }, 'zf')}
+          {chip(false, '+', () => setZ((x) => Math.min(4, x * 1.5)), 'zi')}
+          {z > 1 && chip(moving, '✋ Move', () => setMoving(!moving), 'mv')}
         </ScrollView>
         <ScrollView horizontal style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 8, paddingHorizontal: 10, paddingBottom: 8, alignItems: 'center' }}>
-          {MARK_COLOURS.map((c) => <Pressable key={c.k} accessibilityLabel={c.n} onPress={() => { setColour(c.k); setPicked(true); }} style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: c.k, borderWidth: 3, borderColor: colour === c.k ? '#fff' : 'transparent' }} />)}
+          {COLOURS.map((c) => <Pressable key={c.k} accessibilityLabel={c.n} onPress={() => { setColour(c.k); setPicked(true); }} style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: c.k, borderWidth: 3, borderColor: colour === c.k ? '#fff' : 'transparent' }} />)}
           <View style={{ width: 10 }} />
-          {(Object.keys(MARK_SIZES) as MarkSize[]).map((s) => chip(sz === s, s.toUpperCase(), () => setSz(s), s))}
+          {(Object.keys(MARK_SIZES) as MarkSize[]).filter((x) => !photo || x !== 'xs').map((s) => chip(sz === s, s.toUpperCase(), () => setSz(s), s))}
         </ScrollView>
         {tool === 'key' && keys.length > 0 && (
           <ScrollView horizontal style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 6, paddingHorizontal: 10, paddingBottom: 8 }}>
@@ -155,16 +170,20 @@ export function MarkupEditor({ src, ops: initial, keys = [], onClose }: { src: s
           </ScrollView>
         )}
         <Text style={{ color: '#cbd2db', fontSize: 12, paddingHorizontal: 10, paddingBottom: 6 }}>
-          {tool === 'key' ? (keyPick != null ? `Tap the drawing to place number ${keyPick}.` : 'All the ticked items are placed.') : tool === 'pen' ? 'Draw with your finger.' : tool === 'arrow' ? 'Drag from the start to the point.' : tool === 'erase' ? 'Tap a mark to remove it.' : 'Tap the drawing to place it.'}
+          {moving ? 'Drag to move round the drawing. Tap a tool to carry on marking.' : tool === 'key' ? (keyPick != null ? `Tap the drawing to place number ${keyPick}.` : 'All the ticked items are placed.') : tool === 'pen' ? 'Draw with your finger.' : tool === 'arrow' ? 'Drag from the start to the point.' : tool === 'ring' ? 'Drag across what to circle.' : tool === 'erase' ? 'Tap a mark to remove it.' : 'Tap the drawing to place it.'}
         </Text>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }} onLayout={(e) => setArea({ w: e.nativeEvent.layout.width - 16, h: e.nativeEvent.layout.height - 16 })}>
           {size && k > 0 ? (
+            <ScrollView style={{ alignSelf: 'stretch' }} scrollEnabled={moving} contentContainerStyle={{ flexGrow: 1, alignItems: 'center', justifyContent: 'center' }}>
+            <ScrollView horizontal scrollEnabled={moving} contentContainerStyle={{ flexGrow: 1, alignItems: 'center', justifyContent: 'center' }}>
             <View ref={view} collapsable={false} {...responder.panHandlers} style={{ width: size.W * k, height: size.H * k, backgroundColor: '#fff' }}>
               <Image source={{ uri: src }} style={{ position: 'absolute', left: 0, top: 0, width: size.W * k, height: size.H * k }} resizeMode="stretch" />
               <Svg width={size.W * k} height={size.H * k} viewBox={`0 0 ${size.W} ${size.H}`} style={{ position: 'absolute', left: 0, top: 0 }} pointerEvents="none">
                 <MarkOps ops={cur ? [...ops, cur] : ops} />
               </Svg>
             </View>
+            </ScrollView>
+            </ScrollView>
           ) : <Text style={{ color: '#fff' }}>Loading the drawing…</Text>}
         </View>
       </View>

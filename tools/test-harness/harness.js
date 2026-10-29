@@ -71,7 +71,7 @@ async function makeContext(browser, role, log, opts){
     if(log) log.push(m+' '+p+u.search);
     if(p.startsWith('/auth/v1/token')) return json({access_token:'h.'+Buffer.from(JSON.stringify({sub:'me'})).toString('base64')+'.s', refresh_token:'r', expires_in:3600, user:{id:'me', email:'a@x.co'}});
     if(p.startsWith('/auth/v1/')) return json({});
-    if(p.startsWith('/storage/v1/object/sign/') && m==='POST'){ let b={}; try{ b=JSON.parse(req.postData()||'{}'); }catch(e){} const bucket=p.split('/')[5]; if(global.__signLog) global.__signLog.push(bucket+':'+(b.paths||[]).length); return json((b.paths||[]).map(x=>({path:x, signedURL:'/object/sign/'+bucket+'/'+x+'?token=T'}))); }
+    if(p.startsWith('/storage/v1/object/sign/') && m==='POST'){ let b={}; try{ b=JSON.parse(req.postData()||'{}'); }catch(e){} const bucket=p.split('/')[5]; if(global.__signLog) global.__signLog.push(bucket+':'+(b.paths||[]).length); if(!b.paths) return json({signedURL:'/object/sign/'+p.split('/').slice(5).join('/')+'?token=T'}); return json((b.paths||[]).map(x=>({path:x, signedURL:'/object/sign/'+bucket+'/'+x+'?token=T'}))); }
     if(p.startsWith('/storage/v1/object/public/') && global.__privateBuckets && global.__privateBuckets.includes(p.split('/')[5])){ if(global.__publicHits) global.__publicHits.push(p); return route.fulfill({status:400, contentType:'application/json', body:'{"error":"not found"}'}); }
     if(p.startsWith('/storage/')){ if(m==='GET') return route.fulfill({status:200, contentType:'image/png', body:PNG}); return json({Key:'x'}); }
     if(p.startsWith('/functions/v1/')){ if(global.__fn){ let b={}; try{ b=JSON.parse(req.postData()||'{}'); }catch(e){} const r=global.__fn(p.slice(14), b); if(r) return json(r); } return json({ok:true}); }

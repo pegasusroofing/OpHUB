@@ -9,11 +9,12 @@ import { useState } from 'react';
 import { Linking, Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { StorageImage } from '@/components/StorageImage';
+import { useStoredPhotoMarkup } from '@/components/StoredPhotoMarkup';
 import { confirmAsk, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import {
   addCompletionPhotos, completeDelivery, completionPhotos, deliveryPhotos, driverBreak, planPush, pushDelivery,
-  removeCompletionPhoto, reopenDelivery, siteHeading, useDriverDay, useDriverStatus, type Delivery,
+  removeCompletionPhoto, replaceCompletionPhoto, reopenDelivery, siteHeading, useDriverDay, useDriverStatus, type Delivery,
 } from '@/data/driver';
 import { useStaff } from '@/data/deliveries';
 import { useSites } from '@/data/sites';
@@ -38,6 +39,7 @@ export default function DriverSchedule() {
   const { me } = useAuth();
   const th = useTheme();
   const toast = useToast();
+  const markup = useStoredPhotoMarkup();
   const qc = useQueryClient();
   const params = useLocalSearchParams<{ preview?: string; date?: string }>();
   const preview = params.preview === '1' && !!me && isManager(me);
@@ -199,7 +201,8 @@ export default function DriverSchedule() {
                 ) : (
                   <>
                     {cPhotos.length > 0 && <Muted style={{ marginTop: 8 }}>Completion photos ({cPhotos.length})</Muted>}
-                    <Thumbs paths={cPhotos} onRemove={async (i) => { await removeCompletionPhoto(t, i); refresh(); }} />
+                    <Thumbs paths={cPhotos} onRemove={async (i) => { await removeCompletionPhoto(t, i); refresh(); }}
+                      onMarkup={(i) => void markup.open(cPhotos[i], `${me?.org_id}/delivery/${t.id}`, async (np) => { toast((await replaceCompletionPhoto(t, cPhotos[i], np)) ? 'Photo updated' : 'Could not save — try again.'); refresh(); })} />
                     <View style={{ flexDirection: 'row', gap: 8 }}>
                       <View style={{ flex: 1 }}><Button kind="ghost" disabled={!!busyId} title={busy ? 'Uploading…' : '📷 Take photo'} onPress={() => addPhotos(t, 'camera')} /></View>
                       <View style={{ flex: 1 }}><Button kind="ghost" disabled={!!busyId} title="🖼 Choose photos" onPress={() => addPhotos(t, 'library')} /></View>
@@ -223,17 +226,19 @@ export default function DriverSchedule() {
         if (!r.ok) { showAlert(r.msg); return; }
         setReopen(null); toast(r.msg); refresh();
       }} />
+      {markup.editor}
     </ScrollView>
   );
 }
 
-function Thumbs({ paths, onRemove }: { paths: string[]; onRemove?: (i: number) => void }) {
+function Thumbs({ paths, onRemove, onMarkup }: { paths: string[]; onRemove?: (i: number) => void; onMarkup?: (i: number) => void }) {
   if (!paths.length) return null;
   return (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginVertical: 6 }}>
       {paths.map((p, i) => (
         <View key={p}>
-          <StorageImage bucket="site-photos" path={p} style={{ width: 64, height: 64, borderRadius: 8 }} />
+          <Pressable disabled={!onMarkup} onPress={() => onMarkup?.(i)}><StorageImage bucket="site-photos" path={p} style={{ width: 64, height: 64, borderRadius: 8 }} /></Pressable>
+          {onMarkup && <Text style={{ position: 'absolute', bottom: 2, left: 4, fontSize: 13 }}>✏️</Text>}
           {onRemove && (
             <Pressable onPress={() => onRemove(i)} hitSlop={8} style={{ position: 'absolute', top: -6, right: -6, width: 20, height: 20, borderRadius: 10, backgroundColor: base.red, alignItems: 'center', justifyContent: 'center' }}>
               <Text style={{ color: '#fff', fontWeight: '800' }}>×</Text>

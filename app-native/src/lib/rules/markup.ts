@@ -7,7 +7,7 @@ export type MarkOp =
   | { t: 'num'; n: number; c: string; r: number; x: number; y: number; key?: boolean; auto?: boolean }
   | { t: 'cross' | 'tick' | 'warn'; c: string; r: number; x: number; y: number }
   | { t: 'text'; c: string; fs: number; s: string; x: number; y: number }
-  | { t: 'pen' | 'arrow'; c: string; w: number; pts: Pt[] };
+  | { t: 'pen' | 'arrow' | 'ring'; c: string; w: number; pts: Pt[] };
 export type MarkKey = { n: number; label: string; color: string | null };
 
 export const MARK_MAX = 3600;
@@ -15,6 +15,13 @@ export const MARK_COLOURS = [
   { k: '#D32F2F', n: 'Red' }, { k: '#EF7D00', n: 'Orange' }, { k: '#E0B400', n: 'Yellow' }, { k: '#1F9D52', n: 'Green' },
   { k: '#2F6FD9', n: 'Blue' }, { k: '#7B3FB5', n: 'Purple' }, { k: '#111111', n: 'Black' },
 ];
+/** Photo mark-up (499) colours: white and yellow show up on dark photos. */
+export const PHOTO_COLOURS = [
+  { k: '#e53935', n: 'Red' }, { k: '#ffd400', n: 'Yellow' }, { k: '#ff8f00', n: 'Orange' }, { k: '#1e88e5', n: 'Blue' },
+  { k: '#43a047', n: 'Green' }, { k: '#ffffff', n: 'White' }, { k: '#111111', n: 'Black' },
+];
+/** A circle drawn by dragging across it: centre and radii from the two corners. */
+export function ringBox(a: Pt, b: Pt) { return { cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2, rx: Math.abs(b.x - a.x) / 2, ry: Math.abs(b.y - a.y) / 2 }; }
 export const MARK_SIZES = { xs: 0.45, s: 0.7, m: 1, l: 1.45 } as const;
 export type MarkSize = keyof typeof MARK_SIZES;
 
