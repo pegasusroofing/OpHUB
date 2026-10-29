@@ -3,8 +3,9 @@
 import { router, Tabs, usePathname } from 'expo-router';
 import { useEffect } from 'react';
 import { SymbolView, type SymbolViewProps } from 'expo-symbols';
-import { Platform, useWindowDimensions } from 'react-native';
+import { Platform, useWindowDimensions, View } from 'react-native';
 
+import { SupportBar } from '@/components/PlatformAdmin';
 import { PolicyGate } from '@/components/PolicyGate';
 import { useHsPolicy } from '@/data/hsPolicy';
 import { useAuth } from '@/lib/auth';
@@ -35,8 +36,10 @@ export default function AppLayout() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [me, org]);
-  if (policy.data?.pending && policy.data.doc && path !== '/signature') return <PolicyGate doc={policy.data.doc} />;
+  if (policy.data?.pending && policy.data.doc && path !== '/signature' && !me?._support) return <PolicyGate doc={policy.data.doc} />;
   return (
+    <View style={{ flex: 1 }}>
+    <SupportBar />
     <Tabs
       screenOptions={{
         headerShown: false,
@@ -63,5 +66,6 @@ export default function AppLayout() {
       <Tabs.Screen name="pm" options={{ ...hidden, title: 'Manager' }} />
       <Tabs.Screen name="fin" options={{ ...hidden, title: 'Finance' }} />
     </Tabs>
+    </View>
   );
 }

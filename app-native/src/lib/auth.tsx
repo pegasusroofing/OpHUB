@@ -39,8 +39,10 @@ const NO_SIGNAL = 'Could not reach the server — check your connection and try 
 export const normaliseEmail = (e: string) => String(e || '').trim().toLowerCase();
 
 async function loadProfile(uid: string): Promise<Profile | null> {
-  return cachedQuery(`profile:${uid}`, async () =>
+  const p = await cachedQuery(`profile:${uid}`, async () =>
     orThrow(await supabase.from('profiles').select('*').eq('id', uid).maybeSingle()) as Profile | null);
+  // Support mode (100-state): the platform owner viewing a company is that company's admin until they exit.
+  return p && p.role === 'superadmin' && p.view_as_org_id ? { ...p, role: 'admin', org_id: p.view_as_org_id, _support: true, _realOrgId: p.org_id } : p;
 }
 async function loadOrg(orgId: string | null): Promise<Organization | null> {
   if (!orgId) return null;

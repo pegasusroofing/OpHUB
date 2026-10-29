@@ -1,10 +1,11 @@
-// Each role lands on its own home. Phase 0: the homes are empty placeholders;
-// their tiles arrive in phases 2-5.
+// Each role lands on its own home. Clients and subcontractor-company logins land
+// on their projects list, as in the current app.
 import { Redirect } from 'expo-router';
 import { Text, View } from 'react-native';
 
 import { DriverHome } from '@/components/DriverHome';
 import { OperativeHome } from '@/components/OperativeHome';
+import { PlatformAdmin } from '@/components/PlatformAdmin';
 import { PmHome } from '@/components/PmHome';
 import { Card, Muted, Screen } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
@@ -41,6 +42,8 @@ export default function Home() {
   if (kind === 'finance') return <Redirect href={'/fin' as never} />;
   // PMs and admins get the PM home; site managers go straight to the projects list (as today).
   if (kind === 'manager') return me?.role === 'site_manager' ? <Redirect href="/sites" /> : <PmHome />;
+  if (kind === 'client' || kind === 'subcontractor') return <Redirect href="/sites" />;
+  if (kind === 'superadmin') return <PlatformAdmin />;
   const today = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
   const first = (me?.name || '').split(' ')[0];
   return (
