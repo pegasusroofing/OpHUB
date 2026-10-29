@@ -2,13 +2,14 @@
 // (no future weeks), the job's tools, Monday–Friday with each day's status pill,
 // your logged sessions (edit/delete until the week is closed), minutes boxes and
 // Save Minutes. Minutes typed in a day also save when you close that day.
-// Export / Email PDF: your own week (managers: every operative on the job).
+// Export / Email PDF: your own week. Managers get the whole-job screen (HavsManager).
 import { useQueryClient } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { confirmAsk, useToast } from '@/components/toast';
+import { HavsManager } from '@/components/HavsManager';
 import { Button, Card, Empty, Muted, Toggle } from '@/components/ui';
 import { addHavsEntry, deleteHavsEntry, editHavsEntry, useHavsWeek, type HavsTool } from '@/data/havs';
 import { useSite } from '@/data/sites';
@@ -39,6 +40,7 @@ export default function Havs() {
   const [, force] = useState(0);
   const [editing, setEditing] = useState<{ id: string; v: string } | null>(null);
   if (!me || !site) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
+  if (isManager(me)) return <><Stack.Screen options={{ title: 'HAVS' }} /><HavsManager site={site} /></>;
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['havs', site.id] }); };
   const tools = data?.tools ?? [];
   const toolById: Record<string, HavsTool> = Object.fromEntries(tools.map((t) => [t.id, t]));
