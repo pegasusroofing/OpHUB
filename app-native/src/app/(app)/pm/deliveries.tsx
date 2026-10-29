@@ -14,6 +14,7 @@ import { dismissRequest, moveDelivery, useDeliveryRequests, useDriverHours, useS
 import { planPush, pushDelivery, siteHeading } from '@/data/driver';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
+import { exportDeliverySchedule } from '@/lib/deliveryExport';
 import { fullSiteAddress } from '@/lib/rules/checkin';
 import { blockedSlots, bySlotOrder, collectionLine, dayTotals, DELIVERY_TIME_SLOTS, fullSlots, localISODate, minsLabel, slotLabel } from '@/lib/rules/driver';
 import { readIsoDate } from '@/lib/rules/materials';
@@ -23,7 +24,7 @@ import { base, radius, space } from '@/theme/theme';
 const addDays = (iso: string, n: number) => { const d = new Date(`${iso}T12:00:00`); d.setDate(d.getDate() + n); return localISODate(d); };
 
 export default function DeliverySchedule() {
-  const { me } = useAuth();
+  const { me, org } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
   const today = localISODate(new Date());
@@ -190,7 +191,10 @@ export default function DeliverySchedule() {
         </Card>
       )}
       <Card style={{ marginTop: space.m }}>
-        <Muted>The Excel export, drag-to-move, the driver view and vehicle health checks are still in the current app for now.</Muted>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
+          {([['x', '📊 Export Excel'], ['p', '📄 Export PDF']] as const).map(([k, l]) => <Button key={k} kind="ghost" title={busy === `exp${k}` ? 'Building…' : l} onPress={async () => { setBusy(`exp${k}`); const why = await exportDeliverySchedule(k, me.org_id as string, Array.from({ length: 7 }, (_, i) => addDays(iso, i)), sites, people, org); setBusy(null); if (why) toast(why); }} />)}
+        </View>
+        <Muted>Exports cover 7 days from the day shown. Drag-to-move, the driver view and vehicle health checks are still in the current app for now.</Muted>
       </Card>
     </ScrollView>
   );

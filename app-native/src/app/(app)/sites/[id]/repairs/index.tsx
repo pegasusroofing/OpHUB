@@ -12,6 +12,7 @@ import { Button, Card, Check, Muted, SectionTitle, Tile } from '@/components/ui'
 import { addRepairJob, setRepairHiddenTiles, uploadWorkOrder, useRepairHiddenTiles, useRepairJobs } from '@/data/repairs';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
+import { exportRepairTracker } from '@/lib/repairExports';
 import { REPAIR_CATEGORIES, REPAIR_TILES, type RepairJob } from '@/lib/rules/repairs';
 import { isManager } from '@/lib/roles';
 import { base, radius, space } from '@/theme/theme';
@@ -90,7 +91,8 @@ export default function RepairsHub() {
               ))}
             </Card>
           )}
-          <Card style={{ marginTop: space.m }}><Muted>Excel export, bulk add from work orders, route-order exports and OneDrive folders for jobs are still in the current app for now.</Muted></Card>
+          <Button kind="ghost" title="⬇ Export Excel (Repair Tracker)" onPress={async () => { if (!(await exportRepairTracker(site.name, jobs))) toast('Could not make the file — try again.'); }} />
+          <Card style={{ marginTop: space.m }}><Muted>Bulk add from work orders is still in the current app for now. Route-order exports are on the Survey, Scaffold and Approved lists.</Muted></Card>
         </>
       )}
     </ScrollView>

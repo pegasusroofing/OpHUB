@@ -1,7 +1,8 @@
 // One stage's repair jobs (340 renderRepairJobsListPage): search, sort, tap a
 // job to open it. Managers can select several and approve, mark completed or
-// close them together.
-import { useQueryClient } from '@tanstack/react-query';
+// close them together, and export the stage in route order (from the yard) or,
+// for Approved & Ready, oldest approval first.
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
@@ -9,7 +10,9 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { chooseAction, confirmAsk, useToast } from '@/components/toast';
 import { Button, Empty, Muted } from '@/components/ui';
 import { patchRepairJob, patchRepairJobs, useRepairHiddenTiles, useRepairJobs } from '@/data/repairs';
+import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
+import { exportRepairRoute, exportRepairsByApproved, lastRepairRoute, REPAIR_ROUTE_CATEGORIES, viewLastRepairRoute } from '@/lib/repairExports';
 import { approveStatus, matchesRepairSearch, REPAIR_CATEGORIES, REPAIR_SORT_LABELS, sortRepairs, type RepairSort } from '@/lib/rules/repairs';
 import { isManager } from '@/lib/roles';
 import { base, radius, space } from '@/theme/theme';
@@ -65,6 +68,7 @@ export default function RepairList() {
           <View style={{ flex: 1 }}><Button kind="ghost" title="Close" onPress={() => void bulk('close')} /></View>
         </View>
       )}
+      {mgr && (REPAIR_ROUTE_CATEGORIES.includes(key) || key === 'approved') && <RouteExports siteId={id} cat={key} jobs={jobs} />}
       <Muted style={{ marginBottom: 6 }}>{list.length} job{list.length === 1 ? '' : 's'}</Muted>
       {isLoading ? <Muted>Loading…</Muted> : list.length ? list.map((j) => (
         <Pressable key={j.id} onPress={() => (selecting ? setSel((s) => { const n = new Set(s); if (n.has(j.id)) n.delete(j.id); else n.add(j.id); return n; }) : router.push(`/sites/${id}/repairs/job/${j.id}` as never))}
@@ -79,5 +83,24 @@ export default function RepairList() {
         </Pressable>
       )) : <Empty>No jobs here.</Empty>}
     </ScrollView>
+  );
+}
+
+function RouteExports({ siteId, cat, jobs }: { siteId: string; cat: string; jobs: Parameters<typeof exportRepairsByApproved>[1] }) {
+  const toast = useToast();
+  const qc = useQueryClient();
+  const { data: site } = useSite(siteId);
+  const [busy, setBusy] = useState('');
+  const route = REPAIR_ROUTE_CATEGORIES.includes(cat);
+  const { data: last } = useQuery({ queryKey: ['repairRoute', siteId, cat], enabled: route, queryFn: () => lastRepairRoute(siteId, cat) });
+  const name = site?.name || '';
+  const run = async (k: string, fn: () => Promise<string>) => { setBusy(k); const msg = await fn().catch(() => 'Could not export — check your connection and try again.'); setBusy(''); toast(msg); void qc.invalidateQueries({ queryKey: ['repairRoute', siteId, cat] }); };
+  return (
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+      {route && last && <Button kind="ghost" title={busy === 'v' ? 'Opening…' : '👁️ View last route'} onPress={() => run('v', () => viewLastRepairRoute(name, cat, last))} />}
+      {route && <Button kind="ghost" title={busy === 'r' ? 'Working out the route…' : last ? '🔄 Update route' : '🗺️ Export route order'} onPress={() => run('r', () => exportRepairRoute(siteId, name, cat))} />}
+      {cat === 'approved' && <Button kind="ghost" title={busy === 'a' ? 'Making…' : '📋 Export by oldest approved'} onPress={() => run('a', () => exportRepairsByApproved(name, jobs))} />}
+      {route && last ? <Muted style={{ alignSelf: 'center' }}>Last route: {new Date(last.generated_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</Muted> : null}
+    </View>
   );
 }

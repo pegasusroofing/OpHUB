@@ -7,6 +7,10 @@ const seed = require('./fresh/seed');
   const browser = await chromium.launch(); const errs = [];
   const {ctx, db} = await makeContext(browser, 'admin', [], {viewport:{width:1300, height:900}});
   seed(db); try{ require('./seeds/ex1')(db); }catch(e){}
+  if(process.env.EXTRA){ const d = new Date().toISOString().slice(0,10), org = db.profiles[0].org_id, uid = db.profiles[0].id;
+    db.delivery_tasks = [{id:'dt1', org_id:org, site_id:S1, scheduled_date:d, time_slot:'first', description:'Slates x 2 pallets', status:'scheduled', high_priority:true}];
+    db.ppe_issuances = [{id:'pp1', org_id:org, user_id:uid, site_id:S1, items:['Gloves','Hard Hat'], status:'signed', issued_at:new Date().toISOString(), issued_by:uid}];
+    db.repair_jobs = [{id:'rj1', site_id:S1, org_id:org, job_number:'R1', address:'1 High St', description:'Leak', created_at:new Date().toISOString(), job_status:'Approved - To Do', quote_approved:true, quote_approved_at:new Date().toISOString(), closed:false, works_completed:false}]; }
   db.profiles[0].finance_enabled = true; db.profiles[0].howto_dismissed = ['*'];
   await ctx.route(/supabase\.co\/rest\/v1\/(?!rpc)/, async route=>{
     const req = route.request();

@@ -1,25 +1,30 @@
 // Admin Centre › PPE Log (260 ppelog, 300 ppeLogRange): PPE issued across every
-// site, weekly / monthly / yearly, filter by operative.
+// site, weekly / monthly / yearly, filter by operative. Excel / PDF of the log,
+// and the PPE Register (who currently holds which item, 300 exportPpeRegister).
 import { useQuery } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
-import { chooseAction } from '@/components/toast';
-import { Card, Empty, Muted } from '@/components/ui';
+import { chooseAction, useToast } from '@/components/toast';
+import { Button, Card, Empty, Muted } from '@/components/ui';
 import { useTeam } from '@/data/admin';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { logRange } from '@/lib/rules/checkinLog';
+import { currentPpe, PPE_STANDARD_ITEMS, type Issuance } from '@/lib/rules/ppe';
+import { exportTableExcel, exportTablePdf, type Table } from '@/lib/tableExport';
 import { isFullManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
 import { base, space } from '@/theme/theme';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
-type Row = { id: string; user_id: string; site_id: string; items: string[] | null; status: string; issued_at: string };
+type Row = { id: string; user_id: string; site_id: string; items: string[] | null; status: string; issued_at: string; issued_by?: string | null };
 
 export default function PpeLog() {
-  const { me } = useAuth();
+  const { me, org } = useAuth();
+  const toast = useToast();
+  const [busy, setBusy] = useState('');
   const { data: team = [] } = useTeam(me?.org_id);
   const { data: sites = [] } = useSites();
   const [mode, setMode] = useState<'weekly' | 'monthly' | 'yearly'>('monthly');
@@ -42,6 +47,16 @@ export default function PpeLog() {
   if (!isFullManager(me)) return <Muted style={{ padding: space.l }}>Project Managers and admins only.</Muted>;
   const shown = ops.length ? rows.filter((r) => ops.includes(r.user_id)) : rows;
   const name = (id: string) => team.find((p) => p.id === id)?.name || 'Unknown';
+  const logTable = (): Table => ({ title: `PPE Log (${range.label})`, cols: [{ l: 'Operative' }, { l: 'Item' }, { l: 'Site' }, { l: 'Issued date' }, { l: 'Status' }, { l: 'Issued by' }], rows: shown.slice().sort((a, b) => a.issued_at.localeCompare(b.issued_at)).flatMap((r) => (r.items?.length ? r.items : ['—']).map((item) => [name(r.user_id), item, sites.find((x) => x.id === r.site_id)?.name || '', new Date(r.issued_at).toLocaleDateString('en-GB'), r.status === 'signed' ? 'Signed' : 'Pending signature', r.issued_by ? name(r.issued_by) : ''])) });
+  const register = async (): Promise<boolean> => {
+    const all: Issuance[] = [];
+    for (let i = 0; ; i += 1000) { const r = ((await db.from('ppe_issuances').select('id,user_id,items,status,issued_at').eq('org_id', me.org_id as string).eq('status', 'signed').order('issued_at', { ascending: false }).range(i, i + 999)).data as Issuance[] | null) ?? []; all.push(...r); if (r.length < 1000) break; }
+    const opsAll = team.filter((p) => p.role === 'operative').sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    if (!opsAll.length) { toast('No operatives to report on.'); return true; }
+    const items = Array.from(new Set([...PPE_STANDARD_ITEMS, ...all.flatMap((x) => x.items || [])])).sort();
+    return exportTableExcel({ title: 'PPE Register', sub: 'Items each operative currently holds (latest signed issue)', cols: [{ l: 'Operative' }, ...items.map((x) => ({ l: x, w: 70 }))], rows: opsAll.map((p) => { const cur = new Set(currentPpe(all, p.id)); return [p.name, ...items.map((x) => (cur.has(x) ? 'Issued' : ''))]; }) }, org);
+  };
+  const run = async (k: string, fn: () => Promise<boolean>) => { if (k !== 'r' && !shown.length) { toast('No PPE issued in that range.'); return; } setBusy(k); const ok = await fn().catch(() => false); setBusy(''); if (!ok) toast('Could not make the file — try again.'); };
   const chip = (on: boolean, l: string, onPress: () => void) => <Pressable onPress={onPress} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: on ? base.ink : base.line, backgroundColor: on ? base.ink : base.card }}><Text style={{ fontWeight: '700', fontSize: 12, color: on ? '#fff' : base.ink }}>{l}</Text></Pressable>;
   return (
     <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
@@ -70,7 +85,11 @@ export default function PpeLog() {
           <Muted>{sites.find((s) => s.id === r.site_id)?.name || ''} · {new Date(r.issued_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</Muted>
         </Card>
       )) : <Empty>No PPE issued in this period.</Empty>}
-      <Muted style={{ marginTop: 10 }}>Excel / PDF export of the log and the PPE Register are still in the current app for now.</Muted>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
+        <Button kind="ghost" title={busy === 'x' ? 'Making…' : '📊 Export to Excel'} onPress={() => run('x', () => exportTableExcel(logTable(), org))} />
+        <Button kind="ghost" title={busy === 'p' ? 'Making…' : '📄 Export to PDF'} onPress={() => run('p', () => exportTablePdf(logTable(), org))} />
+        <Button kind="ghost" title={busy === 'r' ? 'Making…' : '📋 PPE Register (all operatives)'} onPress={() => run('r', register)} />
+      </View>
     </ScrollView>
   );
 }
