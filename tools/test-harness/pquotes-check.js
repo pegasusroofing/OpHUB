@@ -1,0 +1,36 @@
+// Purchase Quotes on a project: upload a CSV quote, see the every-project price list too, tick two items, Raise a PO → lines filled in; edit the price list.
+const fs = require('fs'), os = require('os'), path = require('path');
+const {chromium, makeContext, S1} = require('./harness');
+(async()=>{
+  const BASE = 'http://localhost:8081';
+  const browser = await chromium.launch(); const errs = [];
+  const {ctx, db} = await makeContext(browser, 'admin', [], {viewport:{width:1300, height:900}});
+  db.profiles[0].howto_dismissed = ['*']; db.profiles[0].finance_enabled = true;
+  const org = db.profiles[0].org_id;
+  db.suppliers = [{id:'s1', org_id:org, name:'Alltype'}];
+  db.fin_quotes = [{id:'q1', org_id:org, site_id:null, purpose:'pquote', supplier_name:'Alltype', quote_no:'2026 list', created_at:'2026-01-05'}];
+  db.fin_quote_items = [{id:'qi1', org_id:org, quote_id:'q1', site_id:null, supplier_name:'Alltype', code:'AT-100', description:'Felt underlay 1x20m', unit:'roll', rate:42.5, position:0, active:true}];
+  const csv = path.join(os.tmpdir(), 'bauder_quote.csv'); fs.writeFileSync(csv, 'Code,Description,Unit,Rate\nB1,Bauder K5 primer,tin,65\nB2,Bauder cap sheet,roll,120\n');
+  const page = await ctx.newPage(); page.on('pageerror', e=>errs.push(e.message));
+  await page.goto(BASE+'/login'); await page.waitForTimeout(5000);
+  await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
+  await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
+  await page.goto(BASE+'/fin/job/'+S1); await page.waitForTimeout(5000);
+  await page.getByText('Purchases', {exact:true}).first().click(); await page.waitForTimeout(1000);
+  await page.getByText('Purchase Quotes', {exact:true}).first().click(); await page.waitForTimeout(2500);
+  await page.getByPlaceholder('Supplier name').fill('Bauder');
+  const [fc] = await Promise.all([page.waitForEvent('filechooser'), page.getByText(/Upload quotes/).click()]); await fc.setFiles(csv); await page.waitForTimeout(4000);
+  console.log('quote items now:', db.fin_quote_items.filter(i=>i.active).map(i=>[i.code, i.description, i.rate, i.site_id ? 'project' : 'all']).join(' | '));
+  await page.getByText('Felt underlay 1x20m', {exact:false}).first().click(); await page.getByText('Bauder cap sheet', {exact:false}).first().click(); await page.waitForTimeout(300);
+  await page.screenshot({path:'shots/pquotes.png', fullPage:true});
+  await page.getByText('Raise a PO from these').click(); await page.waitForTimeout(5000);
+  const vals = await page.evaluate(()=>Array.from(document.querySelectorAll('input')).map(e=>e.value).filter(Boolean));
+  console.log('new PO fields:', vals.slice(0, 12).join(' | '));
+  await page.goto(BASE+'/fin/purchases?tab=pricelists'); await page.waitForTimeout(4000);
+  await page.screenshot({path:'shots/pricelists.png'}); console.log('pl text:', (await page.evaluate(()=>document.body.innerText)).replace(/s+/g,' ').slice(0,600));
+  await page.getByText(/Alltype · 2026 list/).first().click(); await page.waitForTimeout(500); await page.getByText('✎ Edit this list').click(); await page.waitForTimeout(1500);
+  await page.getByPlaceholder('Rate £').first().fill('44'); await page.getByText('Save list').click(); await page.waitForTimeout(2500);
+  console.log('edited rate:', db.fin_quote_items.find(i=>i.id==='qi1').rate);
+  console.log('errors', errs.join(' / ').slice(0,400) || 'none');
+  await browser.close(); process.exit(0);
+})();

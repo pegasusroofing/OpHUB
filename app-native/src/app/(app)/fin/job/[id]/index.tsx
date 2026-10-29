@@ -10,6 +10,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { FinForm } from '@/components/FinForm';
 import { FinChip, FinRow } from '@/components/FinNav';
 import { OphIcon } from '@/components/OphIcon';
+import { PurchaseQuotes } from '@/components/FinPurchaseQuotes';
 import { PurchasesLists } from '@/components/FinPurchases';
 import { SalesLists } from '@/components/FinSales';
 import { SubsLists } from '@/components/FinSubs';
@@ -82,7 +83,7 @@ export default function FinJob() {
       </ScrollView>
       {isLoading || !fc || !data ? <Muted>Loading…</Muted> : tab === 'overview' ? <Overview id={id} fc={fc} settings={data.settings} invs={data.book.invs.filter((i) => i.site_id === id)} apps={data.book.apps.filter((a) => a.site_id === id)} />
         : tab === 'sales' ? <>{subTabs('sales', [['invoices', 'Invoices'], ['apps', 'Applications & Certificates'], ['retention', 'Retention']])}<SalesLists key={sub.sales} tab={sub.sales as 'invoices'} siteId={id} /></>
-        : tab === 'purchases' ? <>{subTabs('purchases', [['orders', 'Purchase orders'], ['invoices', 'Purchase invoices'], ['plant', 'Plant hire']])}<PurchasesLists key={sub.purchases} tab={sub.purchases as 'orders'} siteId={id} /></>
+        : tab === 'purchases' ? <>{subTabs('purchases', [['orders', 'Purchase orders'], ['invoices', 'Purchase invoices'], ['plant', 'Plant hire'], ['quotes', 'Purchase Quotes']])}{sub.purchases === 'quotes' ? <PurchaseQuotes siteId={id} /> : <PurchasesLists key={sub.purchases} tab={sub.purchases as 'orders'} siteId={id} />}</>
         : tab === 'subs' ? <>{subTabs('subs', [['orders', 'Subcontractor POs'], ['apps', 'Applications'], ['opinv', 'Operative invoices']])}<SubsLists key={sub.subs} tab={sub.subs as 'orders'} siteId={id} /></>
         : <Setup id={id} site={s} jf={fc.jf} cpos={data.book.cpos.filter((p) => p.site_id === id)} settings={data.settings} />}
     </ScrollView>

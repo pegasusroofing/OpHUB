@@ -17,7 +17,7 @@ export const FIN_SECTIONS = [
 export const FIN_SUBS: Record<string, [string, string][]> = {
   jobs: [['list', 'Projects'], ['clients', 'Clients']],
   sales: [['apps', 'Applications & Certificates'], ['invoices', 'Invoices'], ['retention', 'Retention']],
-  purchases: [['orders', 'Purchase orders'], ['invoices', 'Purchase invoices'], ['statements', 'Statements'], ['plant', 'Plant hire'], ['suppliers', 'Suppliers'], ['pricebook', 'Price book'], ['yard', 'Yard stock']],
+  purchases: [['orders', 'Purchase orders'], ['invoices', 'Purchase invoices'], ['statements', 'Statements'], ['plant', 'Plant hire'], ['suppliers', 'Suppliers'], ['pricebook', 'Price book'], ['pricelists', 'Price lists'], ['yard', 'Yard stock']],
   subs: [['opinv', 'Operative invoices'], ['payrun', 'Pay run'], ['orders', 'Subcontractor POs'], ['apps', 'Applications & Certificates'], ['cis', 'CIS'], ['rates', 'People & rates']],
   settings: [['general', 'Settings'], ['codes', 'Cost Codes']],
   directory: [['client', 'Clients'], ['supplier', 'Suppliers'], ['labour', 'Labour (CIS)'], ['codes', 'Cost codes']],

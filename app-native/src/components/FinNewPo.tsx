@@ -25,7 +25,7 @@ type Line = { description: string; qty: string; unit: string; rate: string; cost
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, paddingHorizontal: 8, paddingVertical: 7, color: base.ink, backgroundColor: base.card };
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
-export function FinNewPo({ site }: { site: Site }) {
+export function FinNewPo({ site, itemIds = [] }: { site: Site; itemIds?: string[] }) {
   const { me } = useAuth();
   const toast = useToast();
   const { data: subs = [] } = useSubJobs(site);
@@ -43,6 +43,15 @@ export function FinNewPo({ site }: { site: Site }) {
   const [ref, setRef] = useState('');
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
+  // Ticked on Purchase Quotes (9219z finPqRaisePo): those items become the lines, the supplier filled in.
+  const [filled, setFilled] = useState(false);
+  const { data: picked } = useQuery({ queryKey: ['finNewPoItems', itemIds.join(',')], enabled: itemIds.length > 0, queryFn: async () => ((await fdb.from('fin_quote_items').select('*').in('id', itemIds)).data as Record<string, any>[] | null) ?? [] });
+  if (picked && picked.length && setup && !filled) {
+    setFilled(true);
+    setLines(picked.map((i) => ({ ...blank(), description: `${i.code ? `${i.code} – ` : ''}${i.description}`, unit: i.unit || '', rate: i.rate != null ? String(i.rate) : '' })));
+    const names = Array.from(new Set(picked.map((i) => String(i.supplier_name || '').trim()).filter(Boolean)));
+    if (names.length === 1) { const m = setup.sups.find((x) => x.name.trim().toLowerCase() === names[0].toLowerCase()); setSupText(m ? m.name : names[0]); setSupId(m ? m.id : null); }
+  }
   if (!me) return null;
   const rateOf = (code: string) => { const v = vats.find((x) => x.code === code); return v && !v.rc ? v.rate / 100 : 0; };
   const amt = (l: Line) => { const q = num(l.qty), r = num(l.rate); return q !== null && r !== null && !isNaN(q) && !isNaN(r) ? r2(q * r) : 0; };

@@ -26,7 +26,7 @@ import { base, page, radius, space } from '@/theme/theme';
 type Row = Record<string, any>;
 
 export default function FinPo() {
-  const { po: poId, site } = useLocalSearchParams<{ po: string; site?: string }>();
+  const { po: poId, site, items: itemIds } = useLocalSearchParams<{ po: string; site?: string; items?: string }>();
   const { me, org } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
@@ -40,7 +40,7 @@ export default function FinPo() {
     return (
       <ScrollView contentContainerStyle={page(900)} keyboardShouldPersistTaps="handled">
         <Stack.Screen options={{ title: 'New purchase order' }} />
-        {st ? <FinNewPo site={st} /> : <Muted>Choose the project first.</Muted>}
+        {st ? <FinNewPo site={st} itemIds={itemIds ? itemIds.split(',').filter(Boolean) : []} /> : <Muted>Choose the project first.</Muted>}
       </ScrollView>
     );
   }
