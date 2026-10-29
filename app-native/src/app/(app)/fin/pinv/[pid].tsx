@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { FinForm } from '@/components/FinForm';
+import { AllocRow } from '@/components/FinSplit';
 import { FinRow, FinStat } from '@/components/FinNav';
 import { confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Card, Check, Muted } from '@/components/ui';
@@ -93,6 +94,7 @@ function ViewPinv({ id }: { id: string }) {
         <FinRow title="Project" right={jobTag(sites.find((s) => s.id === i.site_id))} onPress={() => router.push(`/fin/job/${i.site_id}` as never)} />
         <FinRow title="PO" right={data?.po ? data.po.number : 'No PO'} onPress={data?.po ? () => router.push(`/fin/po/${data.po!.id}` as never) : undefined} />
         <FinRow title="Cost type" right={COST_CATS[i.cost_code] || 'Materials'} /><FinRow title="VAT" right={money(i.vat)} />
+        <AllocRow table="purchase_invoices" row={i} po={data?.po} onSaved={refresh} />
         {i.due_date && <FinRow title="Due" right={fdate(i.due_date)} />}{i.description && <FinRow title="Description" right={i.description} />}
         {i.paid_on && <FinRow title="Paid" right={fdate(i.paid_on)} />}
       </Card>

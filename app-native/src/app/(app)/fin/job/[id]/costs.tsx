@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { ScrollView, View } from 'react-native';
 
 import { FinForm } from '@/components/FinForm';
+import { AllocRow } from '@/components/FinSplit';
 import { FinChip, FinRow } from '@/components/FinNav';
 import { showAlert, useToast } from '@/components/toast';
 import { Button, Empty, Muted } from '@/components/ui';
@@ -17,7 +18,7 @@ import { fdate, money, num, round2, today } from '@/lib/rules/finance';
 import { page, space } from '@/theme/theme';
 
 export default function FinCosts() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, sub } = useLocalSearchParams<{ id: string; sub?: string }>();
   const { me } = useAuth();
   const { data } = useBook(me?.org_id, id);
   const [cat, setCat] = useState('all');
@@ -26,7 +27,7 @@ export default function FinCosts() {
   const qc = useQueryClient();
   if (!data || !me) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   const fc = forecast(data.book, id, data.settings);
-  const list = fc.lines.filter((l) => cat === 'all' || l.cat === cat).sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+  const list = fc.lines.filter((l) => (cat === 'all' || l.cat === cat) && (!sub || (sub === 'none' ? !l.sub : l.sub === sub))).sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
   const tot = (k: string) => fc.lines.filter((l) => l.cat === k).reduce((t, l) => t + l.net, 0);
   const refresh = () => void qc.invalidateQueries({ queryKey: ['finBook'] });
   // A line from fin_job_costs ("jc:<id>:…") opens the form; a yard-stock cost is changed from the stock.
@@ -39,6 +40,7 @@ export default function FinCosts() {
   return (
     <ScrollView contentContainerStyle={page(1000)}>
       <Stack.Screen options={{ title: 'Costs ledger' }} />
+      {!!sub && <View style={{ flexDirection: 'row', marginBottom: 8 }}><FinChip on label={`${sub === 'none' ? 'Not allocated to a plot' : 'One plot / repair job'} ✕`} onPress={() => router.setParams({ sub: '' })} /></View>}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
         <FinChip on={cat === 'all'} label={`All ${money(fc.costToDate + fc.committedTotal, 0)}`} onPress={() => setCat('all')} />
         {Object.entries(COST_CATS).map(([k, l]) => <FinChip key={k} on={cat === k} label={`${l} ${money(tot(k), 0)}`} onPress={() => setCat(k)} />)}
@@ -64,6 +66,7 @@ export default function FinCosts() {
             if (r.error) return 'Could not save — try again.';
             toast('Saved'); refresh(); return null;
           }}
+          extra={cur ? <AllocRow table="fin_job_costs" row={cur} onSaved={() => setEdit(null)} /> : null}
           onDelete={cur ? async () => { const r = await fdb.from('fin_job_costs').delete().eq('id', cur.id); if (r.error) return 'Could not remove — try again.'; toast('Removed'); refresh(); return null; } : undefined} />
       )}
       <Muted style={{ marginTop: 8 }}>All excl. VAT. Labour from sign-ins is only costed for PAYE staff with a day rate (People &amp; rates).</Muted>

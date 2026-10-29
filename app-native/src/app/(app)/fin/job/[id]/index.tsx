@@ -17,6 +17,7 @@ import { chooseAction, useToast } from '@/components/toast';
 import { Button, Card, Muted, SectionTitle } from '@/components/ui';
 import { applyRetention, raiseRetentionInvoice } from '@/data/finApp';
 import { deleteClientPo, saveClientPo, saveJobFinance, saveJobNumber, useBook } from '@/data/finBook';
+import { subKind } from '@/data/finSubJobs';
 import { importSiteVariations } from '@/data/finVar';
 import { openDocLink } from '@/data/hs';
 import { useSite } from '@/data/sites';
@@ -161,6 +162,7 @@ function Overview({ id, fc, settings, invs }: { id: string; fc: ReturnType<typeo
       </View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
         {ghost('Full Summary', `/fin/job/${id}/summary`)}
+        {!!subKind(site) && ghost(subKind(site) === 'repair' ? 'Costs by repair job' : 'Costs by plot', `/fin/job/${id}/parts`)}
         <View style={{ flex: 1 }} />
         {ghost('Monthly Report', `/fin/job/${id}/monthly`)}{ghost('Day Works', `/fin/job/${id}/dayworks`)}{ghost('Budgets', `/fin/job/${id}/budget`)}
       </View>

@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { ScrollView, Text, TextInput, View } from 'react-native';
 
 import { FinRow, FinStat } from '@/components/FinNav';
+import { AllocRow } from '@/components/FinSplit';
 import { PoQuote } from '@/components/PoQuote';
 import { confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Muted, SectionTitle } from '@/components/ui';
@@ -54,6 +55,7 @@ export default function FinPo() {
       </View>
       <Card>
         <FinRow title="Project" right={jobTag(sites.find((s) => s.id === po.site_id))} onPress={() => router.push(`/fin/job/${po.site_id}` as never)} />
+        <AllocRow table="purchase_orders" row={po} onSaved={refresh} />
         <FinRow title="Ordered" right={`${fdate(String(po.created_at).slice(0, 10))} by ${po.ordered_by_name || '—'}`} />
         {po.required_by && <FinRow title={po.fulfilment === 'collection' ? 'Collection' : 'Required for delivery'} right={fdate(po.required_by)} />}
         {po.supplier_branch && <FinRow title="Branch" right={po.supplier_branch} />}{po.note && <FinRow title="Note" right={po.note} />}

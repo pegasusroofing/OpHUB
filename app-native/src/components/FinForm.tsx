@@ -1,6 +1,6 @@
 // A small edit form in a pop-up, used all over Finance (the current app's
 // geo-modal-card forms): text, money, dates, multi-line notes and choices.
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { chooseAction, confirmAsk } from '@/components/toast';
@@ -11,8 +11,8 @@ export type Field = { k: string; label: string; kind?: 'text' | 'money' | 'numbe
 type V = Record<string, string | boolean>;
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 9, color: base.ink, backgroundColor: base.card };
 
-export function FinForm({ title, fields, initial, onSave, onClose, onDelete, saveLabel = 'Save', note }: {
-  title: string; fields: Field[]; initial?: Record<string, unknown>; saveLabel?: string; note?: string;
+export function FinForm({ title, fields, initial, onSave, onClose, onDelete, saveLabel = 'Save', note, extra }: {
+  title: string; fields: Field[]; initial?: Record<string, unknown>; saveLabel?: string; note?: string; extra?: ReactNode;
   onSave: (v: V) => Promise<string | null | void>; onClose: () => void; onDelete?: () => Promise<string | null | void>;
 }) {
   const [v, setV] = useState<V>(() => { const o: V = {}; fields.forEach((f) => { const x = initial?.[f.k]; o[f.k] = f.kind === 'check' ? !!x : x == null ? '' : String(x); }); return o; });
@@ -45,6 +45,7 @@ export function FinForm({ title, fields, initial, onSave, onClose, onDelete, sav
           <ScrollView style={{ flexGrow: 0 }} keyboardShouldPersistTaps="handled">
             {note ? <Muted style={{ marginBottom: 8 }}>{note}</Muted> : null}
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 8 }}>{fields.map(field)}</View>
+            {extra}
             {err ? <Text style={{ color: '#C0392B', marginBottom: 6 }}>{err}</Text> : null}
           </ScrollView>
           <View style={{ gap: 8, marginTop: 6 }}>

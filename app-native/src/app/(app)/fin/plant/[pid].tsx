@@ -6,6 +6,7 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { ScrollView } from 'react-native';
 
 import { FinForm } from '@/components/FinForm';
+import { AllocRow } from '@/components/FinSplit';
 import { useToast } from '@/components/toast';
 import { Muted } from '@/components/ui';
 import { fdb } from '@/data/finance';
@@ -49,6 +50,7 @@ export default function FinPlant() {
           ['finPlant', 'finPurchases', 'finBook'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] }));
           return null;
         }}
+        extra={h ? <AllocRow table="fin_plant_hires" row={h} /> : null}
         onDelete={h ? async () => { if ((await fdb.from('fin_plant_hires').delete().eq('id', h.id)).error) return 'Could not remove.'; toast('Removed'); ['finPurchases', 'finBook'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] })); return null; } : undefined} />
     </ScrollView>
   );
