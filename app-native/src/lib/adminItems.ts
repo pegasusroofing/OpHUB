@@ -35,7 +35,7 @@ export const ADMIN_ITEMS: AdminItem[] = [
   { key: 'branding', page: 'company', group: 'Branding', icon: '🖼️', label: 'Company Logo & Theme', sub: 'Logo and colours', kw: 'logo theme colour color brand', route: '/pm/admin/branding', show: admin },
   { key: 'expensesemail', page: 'company', group: 'Integrations', icon: '🧾', label: 'Expenses Email', sub: 'Where expense receipts go', kw: 'expenses receipts email', route: '/pm/admin/expensesemail', show: admin },
   { key: 'onedrive', page: 'company', group: 'Integrations', icon: '☁️', label: 'OneDrive', sub: 'Photo and export syncing, quick links', kw: 'onedrive sync folder sharepoint microsoft', route: '/pm/admin/onedrive', show: admin },
-  { key: 'finance', page: 'company', group: 'OpHUB Finance', icon: '💷', label: 'OpHUB Finance', sub: 'Jobs, client POs, job numbers, finance settings', kw: 'finance invoice application certificate retention', route: null, show: (me, org) => isFinanceUser(me, org) },
+  { key: 'finance', page: 'company', group: 'OpHUB Finance', icon: '💷', label: 'OpHUB Finance', sub: 'Jobs, client POs, job numbers, finance settings', kw: 'finance invoice application certificate retention', route: '/fin/settings', show: (me, org) => isFinanceUser(me, org) },
 ];
 
 export const visibleItems = (me: Profile, org: Organization | null) => ADMIN_ITEMS.filter((i) => i.show(me, org) && ADMIN_PAGES[i.page].show(me));

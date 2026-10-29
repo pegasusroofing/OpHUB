@@ -89,7 +89,7 @@ function Folders({ setPick }: { setPick: (p: Pick | null) => void }) {
         setBusy(''); refresh();
         showAlert(n ? `✓ Upload complete — ${n === 1 ? '1 document' : `${n} documents`} added to the COSHH library.${n < r.assets.length ? ` ${r.assets.length - n} could not be uploaded — try those again.` : ''}` : 'Upload failed — nothing was added. Check your connection and try again.');
       }} />
-      <Muted style={{ marginTop: 6 }}>To make an assessment from a data sheet, add the product on the Products tab, then tap Assess. Reading the codes off a data sheet automatically is still done in the current app.</Muted>
+      <Muted style={{ marginTop: 6 }}>To make an assessment from a data sheet, add the product on the Products tab, then tap Assess. On the office laptop the codes are read off the data sheet for you when you attach it.</Muted>
     </View>
   );
 }

@@ -169,7 +169,7 @@ export function PpeManager({ site }: { site: Site }) {
           }} /></View>
         </View>
       )}
-      <Muted style={{ marginTop: 12 }}>Tick issued records to export or email them. The request summary PDF and the company PPE register are still in the current app for now.</Muted>
+      <Muted style={{ marginTop: 12 }}>Tick issued records to export or email them. The company PPE Register is in Admin › PPE Log. The request summary PDF is still in the current app for now.</Muted>
     </View>
   );
 }
