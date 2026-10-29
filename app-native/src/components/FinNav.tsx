@@ -84,13 +84,14 @@ export function FinStat({ v, label, hot, onPress, tone }: { v: string; label: st
     </Pressable>
   );
 }
-export function FinRow({ left, title, sub, right, onPress, tone }: { left?: string; title: string; sub?: string; right?: string; onPress?: () => void; tone?: string }) {
+export function FinRow({ left, title, sub, right, onPress, tone, children }: { left?: string; title: string; sub?: string; right?: string; onPress?: () => void; tone?: string; children?: ReactNode }) {
   return (
     <Pressable onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 11, backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 6 }}>
       {left ? <Text style={{ fontWeight: '800', color: base.slate, minWidth: 54 }}>{left}</Text> : null}
       <View style={{ flex: 1 }}>
         <Text style={{ fontWeight: '700', color: base.ink }}>{title}</Text>
         {sub ? <Text style={{ fontSize: 12, color: base.slate }}>{sub}</Text> : null}
+        {children}
       </View>
       {right ? <Text style={{ fontWeight: '800', color: tone || base.ink }}>{right}</Text> : null}
       {onPress ? <Text style={{ color: base.slate }}>›</Text> : null}

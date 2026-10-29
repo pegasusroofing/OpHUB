@@ -76,14 +76,14 @@ The money calculations themselves (invoice VAT rounding, application maths, rete
 - LOW OPEN — several client PO files and 20 MB check; email invoice/reminder (trial); Directory client fills a draft's address; qty entry mode; PM "to book" (trial); workers from Xero; email PO (trial); costs PDF; price-sheet sync (trial); billing-type change warning; wage pushes (trial); operative invoice: new person inline, mark paid; jobs grid column chooser; checks column; PO VAT default setting.
 
 ## Finance part 2 (9219k–922)
-- HIGH OPEN — Site variations imported into Finance's register (forecast, Variations tile and page leave them out).
+- HIGH FIXED — Site variations imported into Finance's register (when the project or its Variations page opens), tagged "Site", with quick Approve / Reject and "+ Schedule of Works" (off during the trial).
 - HIGH FIXED — New invoice takes the client's default VAT code (reverse charge).
 - HIGH OPEN — Application Excel / PDF in the old layout; upload the Excel back.
-- HIGH OPEN — Certify line by line (Certified % per line; cert_lines saved; from the client's Excel/PDF).
+- HIGH FIXED — Certify line by line (Certified % per line; cert_lines saved; from the client's Excel/PDF).
 - HIGH FIXED — Certificate discount starts from the application's discount. (The discount on an Applied application can no longer be typed into and then lost; it's set while the application is a draft.)
-- HIGH OPEN — Open draft application keeps up with newly approved / unapproved variations and day works.
-- HIGH OPEN — Application autosave with a copy kept on the device.
-- HIGH OPEN — Release retention through an application.
+- HIGH FIXED — Open draft application keeps up with newly approved / unapproved variations and day works.
+- HIGH FIXED — Application autosave with a copy kept on the device.
+- HIGH FIXED — Release retention through an application.
 - HIGH TRIAL — New PO builder in Finance (job per line, Disc %, cost codes, site contact).
 - MED FIXED — "Raise and issue the invoice now" should start unticked when certifying.
 - MED OPEN — Statements: add a line by hand, change a line's type, "lines add up to" check.

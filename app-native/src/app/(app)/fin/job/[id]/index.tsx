@@ -4,7 +4,7 @@
 import * as DocumentPicker from 'expo-document-picker';
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { FinForm } from '@/components/FinForm';
@@ -17,13 +17,14 @@ import { chooseAction, useToast } from '@/components/toast';
 import { Button, Card, Muted, SectionTitle } from '@/components/ui';
 import { applyRetention, raiseRetentionInvoice } from '@/data/finApp';
 import { deleteClientPo, saveClientPo, saveJobFinance, saveJobNumber, useBook } from '@/data/finBook';
+import { importSiteVariations } from '@/data/finVar';
 import { openDocLink } from '@/data/hs';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { forecast, pctTxt } from '@/lib/rules/finBook';
 import { heading } from '@/lib/fonts';
 import { FIN_VAT_LABEL, fdate, invOutstandingNet, invOverdue, money, num, retentionAlerts, retentionDates, retHalf, type FinInv } from '@/lib/rules/finance';
-import { isFinanceUser } from '@/lib/roles';
+import { isFinanceOnlyOrg, isFinanceUser } from '@/lib/roles';
 import { base, page, space, useTheme } from '@/theme/theme';
 
 type Row = Record<string, any>;
@@ -38,6 +39,13 @@ export default function FinJob() {
   const { data, isLoading } = useBook(me?.org_id, id);
   const t = useTheme();
   const [sub, setSub] = useState<Record<string, string>>({ sales: 'invoices', purchases: 'orders', subs: 'orders' });
+  // Variations raised on site come into the register (so the forecast and the Variations tile count them).
+  const qcJob = useQueryClient();
+  const finOnly = isFinanceOnlyOrg(org);
+  useEffect(() => {
+    if (!me || !id || finOnly || !isFinanceUser(me, org)) return;
+    void importSiteVariations(me, id).then((r) => { if (r.added) void qcJob.invalidateQueries({ queryKey: ['finBook'] }); });
+  }, [me, org, id, finOnly, qcJob]);
   if (!me) return null;
   if (!isFinanceUser(me, org)) return <Muted style={{ padding: space.l }}>OpHUB Finance isn&apos;t switched on for your account.</Muted>;
   const s = site as (typeof site & Row) | undefined;
