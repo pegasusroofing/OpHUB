@@ -8,6 +8,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from 'react-native';
 
+import { HomePrompts } from '@/components/HomePrompts';
 import { HowTo } from '@/components/HowTo';
 import { OphIcon } from '@/components/OphIcon';
 import { ProjectCard } from '@/components/ProjectCard';
@@ -74,6 +75,7 @@ export default function Sites() {
       <ScrollView contentContainerStyle={page(720)}
         refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => { void refetch(); }} />}>
         <HowTo k="sites" />
+        {me?.role === 'site_manager' && <HomePrompts />}
         {me?.role === 'site_manager' && (
           <Pressable onPress={() => router.push('/pm/hr' as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 14, padding: 12, marginBottom: 12 }}>
             <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: '#F3EEFA', alignItems: 'center', justifyContent: 'center' }}><OphIcon name="users" size={18} color="#6B3FA8" /></View>
@@ -135,6 +137,7 @@ export default function Sites() {
     <ScrollView contentContainerStyle={page(820)} keyboardShouldPersistTaps="handled"
       refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => { void refetch(); }} />}>
       <HowTo k="sites" />
+      {me?.role === 'site_manager' && <HomePrompts />}
       {searchBar}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 4, marginBottom: 12 }}>
         {([['all', 'All', filtered.length], ['live', 'Live', lists.live.length], ['upcoming', 'Upcoming', lists.upcoming.length], ['closed', 'Closed', lists.closed.length]] as const).map(([k, l, n]) => (

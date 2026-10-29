@@ -47,7 +47,10 @@ export async function setSiteStatus(me: Profile, siteId: string, status: 'active
 }
 
 export async function setResponsiblePm(siteId: string, pmId: string): Promise<boolean> {
-  return !(await db.from('sites').update({ responsible_pm_id: pmId } as never).eq('id', siteId)).error;
+  const ok = !(await db.from('sites').update({ responsible_pm_id: pmId } as never).eq('id', siteId)).error;
+  // The PM is told (push + email), best-effort, as when someone is added to a site.
+  if (ok) void supabase.functions.invoke('notify-site-assignment', { body: { site_id: siteId, user_id: pmId } }).catch(() => undefined);
+  return ok;
 }
 
 /** True when nothing has been entered into the project yet (checked under your own access). */

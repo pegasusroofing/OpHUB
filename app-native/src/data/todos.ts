@@ -57,12 +57,13 @@ export async function uploadTodoFiles(me: Profile, todoId: string, assets: { uri
 }
 
 export async function addTodo(me: Profile, siteId: string, siteName: string, f: { text: string; comment: string; date: string | null; pm: Pm | null; files: { uri: string; name: string; mimeType?: string | null; size?: number | null }[] }): Promise<boolean> {
-  const r = await db.from('todos').insert({ site_id: siteId, org_id: me.org_id, text: f.text, assigned_to: f.pm?.id ?? null, date_required_by: f.date, created_by: me.id } as never).select('id').single();
+  const general = siteId === 'general';
+  const r = await db.from('todos').insert({ site_id: general ? null : siteId, org_id: me.org_id, text: f.text, assigned_to: f.pm?.id ?? null, date_required_by: f.date, created_by: me.id } as never).select('id').single();
   const row = r.data as { id: string } | null;
   if (r.error || !row) return false;
   if (f.comment) await db.from('todo_comments').insert({ todo_id: row.id, body: f.comment, created_by: me.id } as never);
-  if (f.files.length) await uploadTodoFiles(me, row.id, f.files);
-  if (f.pm) {
+  if (f.files.length && !general) await uploadTodoFiles(me, row.id, f.files);
+  if (f.pm && !general) {
     tellManagers(me, siteId, `${siteName}: New to-do assigned to ${f.pm.name}: ${f.text}`);
     void supabase.functions.invoke('notify-todo-assigned', { body: { site_id: siteId, todo_id: row.id, user_id: f.pm.id } }).catch(() => undefined);
   }
@@ -79,7 +80,7 @@ export async function assignTodo(me: Profile, siteId: string, siteName: string, 
 export const addComment = async (me: Profile, todoId: string, body: string) => !(await db.from('todo_comments').insert({ todo_id: todoId, body, created_by: me.id } as never)).error;
 export async function deleteTodo(me: Profile, siteId: string, t: Todo) {
   const r = await db.from('todos').delete().eq('id', t.id);
-  if (!r.error && me.org_id) void db.from('site_activity_log').insert({ site_id: siteId, org_id: me.org_id, actor_id: me.id, action: 'todo_deleted', description: `Deleted to-do "${t.text || ''}"` } as never);
+  if (!r.error && me.org_id && siteId !== 'general') void db.from('site_activity_log').insert({ site_id: siteId, org_id: me.org_id, actor_id: me.id, action: 'todo_deleted', description: `Deleted to-do "${t.text || ''}"` } as never);
   return !r.error;
 }
 export async function deleteTodoFile(f: TodoFile) {

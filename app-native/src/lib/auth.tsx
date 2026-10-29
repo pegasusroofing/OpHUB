@@ -6,7 +6,9 @@
 // supabase-js saves the session as soon as the password works, so the lock is checked
 // again every time the app starts: a phone that was refused can never stay signed in.
 import type { Session } from '@supabase/supabase-js';
+import { useQueryClient } from '@tanstack/react-query';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { AppState, Platform } from 'react-native';
 
 import { checkDeviceLock, deviceLockMessage, isLockRefusal } from './deviceLock';
 import { cachedQuery, clearOfflineCache, orThrow } from './offlineCache';
@@ -41,9 +43,10 @@ export const normaliseEmail = (e: string) => String(e || '').trim().toLowerCase(
 async function loadProfile(uid: string): Promise<Profile | null> {
   const p = await cachedQuery(`profile:${uid}`, async () =>
     orThrow(await supabase.from('profiles').select('*').eq('id', uid).maybeSingle()) as Profile | null);
-  // Support mode (100-state): the platform owner viewing a company is that company's admin until they exit.
-  return p && p.role === 'superadmin' && p.view_as_org_id ? { ...p, role: 'admin', org_id: p.view_as_org_id, _support: true, _realOrgId: p.org_id } : p;
+  return supportMe(p);
 }
+// Support mode (100-state): the platform owner viewing a company is that company's admin until they exit.
+const supportMe = (p: Profile | null): Profile | null => (p && p.role === 'superadmin' && p.view_as_org_id ? { ...p, role: 'admin', org_id: p.view_as_org_id, _support: true, _realOrgId: p.org_id } : p);
 async function loadOrg(orgId: string | null): Promise<Organization | null> {
   if (!orgId) return null;
   return cachedQuery(`org:${orgId}`, async () =>
@@ -57,6 +60,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [org, setOrg] = useState<Organization | null>(null);
   const [notice, setNotice] = useState<AuthState['notice']>(null);
   const busy = useRef(false); // a sign-in/join is running: it sets the state itself
+  const qc = useQueryClient();
+  const awayAt = useRef(0), lastCheck = useRef(0);
 
   const clearLocal = useCallback(async () => {
     await unregisterPush();
@@ -179,6 +184,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       busy.current = false;
     }
   }, [enter, clearLocal]);
+
+  // Back from the background (120 refreshOnReturn): after a minute away, or five since the last check,
+  // your account is read again — a changed role, the Finance switch or a new company setting shows, and
+  // someone removed from the company is signed out — and the lists are fetched again.
+  useEffect(() => {
+    if (!lastCheck.current) lastCheck.current = Date.now();
+    const back = async () => {
+      const away = awayAt.current ? Date.now() - awayAt.current : 0; awayAt.current = 0;
+      if (!session || busy.current || (away < 60000 && Date.now() - lastCheck.current < 5 * 60000)) return;
+      lastCheck.current = Date.now();
+      const r = await supabase.from('profiles').select('*').eq('id', session.user.id).maybeSingle();
+      if (r.error) return; // no signal: keep what we have
+      if (!r.data) { setNotice({ kind: 'error', text: 'Your account is no longer part of the company. Ask your admin if this is a mistake.' }); await clearLocal(); return; }
+      const p = supportMe(r.data as Profile);
+      setMe(p); setOrg(await loadOrg(p?.org_id ?? null).catch(() => null));
+      void qc.invalidateQueries();
+    };
+    const sub = AppState.addEventListener('change', (st) => { if (st === 'active') void back(); else if (!awayAt.current) awayAt.current = Date.now(); });
+    if (Platform.OS !== 'web' || typeof document === 'undefined') return () => sub.remove();
+    const vis = () => { if (document.visibilityState === 'hidden') { if (!awayAt.current) awayAt.current = Date.now(); } else void back(); };
+    document.addEventListener('visibilitychange', vis);
+    return () => { sub.remove(); document.removeEventListener('visibilitychange', vis); };
+  }, [session, clearLocal, qc]);
 
   const refresh = useCallback(async () => {
     if (!session) return;

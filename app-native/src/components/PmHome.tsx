@@ -5,6 +5,7 @@
 import { router } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 
+import { HomePrompts } from '@/components/HomePrompts';
 import { HowTo } from '@/components/HowTo';
 import { OphIcon } from '@/components/OphIcon';
 import { SearchButton } from '@/components/SearchButton';
@@ -47,6 +48,7 @@ export function PmHome() {
       <Text style={[heading(800), { fontSize: 21, color: base.ink, marginBottom: 14, letterSpacing: -0.2 }]}>{greeting()}{first ? `, ${first}` : ''}</Text>
       {!desk && <SearchButton />}
       <HowTo k="home" />
+      <HomePrompts />
       <View style={{ flexDirection: 'row', gap: desk ? 14 : 8, marginBottom: space.m }}>
         <Stat n={live.length} label="Live jobs" onPress={go('/sites')} />
         <Stat n={onSite.length} label="On site now" onPress={go('/onsite')} />

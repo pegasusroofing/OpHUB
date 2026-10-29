@@ -7,11 +7,11 @@ HIGH = money, data, permissions, safety or a daily job. MED = noticeable. LOW = 
 ## Core, Home, Admin (000–270)
 - HIGH FIXED — Phone tabs for site managers, clients and subcontractor logins: no way to HR, HUB, Inbox or My Dashboard on a phone (old bottom bar). Site managers had an HR row on Projects.
 - MED FIXED — Tapping a push notification doesn't open the right page (no tap listener; route map uses old paths).
-- MED OPEN — Setting the responsible PM from the Projects list doesn't notify that PM (notify-site-assignment).
-- MED OPEN — "Needs your signature" pop-up on Home for unsigned company policies.
-- MED OPEN — General (not a project) to-dos: can't add, tick, edit or delete.
-- MED OPEN — Refresh data when the app comes back from the background (role changes, removal, finance switch).
-- MED OPEN — Clients can type the address of non-client job pages (old router allowed home, schedule, hs, snagging only).
+- MED FIXED — Setting the responsible PM from the Projects list doesn't notify that PM (notify-site-assignment).
+- MED FIXED — "Needs your signature" pop-up on Home for unsigned company policies. Also asks PMs, admins and site managers with no mobile number for it.
+- MED FIXED — General (not a project) to-dos: can't add, tick, edit or delete.
+- MED FIXED — Refresh data when the app comes back from the background (role changes, removal, finance switch).
+- MED FIXED — Clients can type the address of non-client job pages (old router allowed home, schedule, hs, snagging only). Also found and fixed: non-managers kept out of closed jobs, and operatives allocated to a subcontractor company kept to the Main Contractor pages.
 - MED OPEN — "Save to OneDrive" on exported PDFs.
 - LOW OPEN — "Add your mobile number" prompt; manager-only pages with no role check (onsite, todos, hub, sitemap); search depth (materials, to-dos, snags, admin items); HR people query not company-filtered; copy the address by tapping the header; "CC me" on emails.
 
