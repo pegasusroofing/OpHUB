@@ -1,7 +1,9 @@
 // A subcontractor PO (912 renderFinSubcontract / openFinSubApp): the order
 // (name, work, value, retention, CIS, UTR), its applications — record one,
 // certify it (retention, contra charges, CIS on labour, pay less), mark paid
-// (which records the CIS payment first). "new" takes ?site=.
+// (which records the CIS payment first). "new" takes ?site=. A new order can start from your workers
+// list (People & rates — the worker is linked), have priced lines, and go into the project's Price file
+// as an issued price sheet for the PM (912 finScSheetBlockHtml / finScSyncSheet).
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as DocumentPicker from 'expo-document-picker';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
@@ -11,7 +13,8 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { FinForm } from '@/components/FinForm';
 import { FinRow, FinStat } from '@/components/FinNav';
 import { confirmAsk, useToast } from '@/components/toast';
-import { Button, Card, Muted, SectionTitle } from '@/components/ui';
+import { SelectBox } from '@/components/SelectBox';
+import { Button, Card, Check, Muted, SectionTitle } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
 import { DateBox } from '@/components/DateField';
 import { fdb, insertNumbered, loadSettings } from '@/data/finance';
@@ -36,6 +39,13 @@ export default function FinSubcontract() {
   const { data: sites = [] } = useSites();
   const [edit, setEdit] = useState(sid === 'new');
   const [appEdit, setAppEdit] = useState<Row | 'new' | null>(null);
+  // New order: from the workers list, priced lines, and into the project's Price file (912).
+  const [pre, setPre] = useState<Row | null>(null);
+  const [lines, setLines] = useState<{ name: string; qty: string; unit: string; rate: string }[]>([]);
+  const [toSheet, setToSheet] = useState(true);
+  const [tile, setTile] = useState('');
+  const { data: workers = [] } = useQuery({ queryKey: ['finWorkers', me?.org_id], enabled: !!me && sid === 'new', queryFn: async () => (((await fdb.from('fin_labour_rates').select('*').eq('org_id', me?.org_id as string)).data as Row[] | null) ?? []).filter((w) => !w.user_id && w.active !== false) });
+  const { data: tiles = [] } = useQuery({ queryKey: ['finTiles', site], enabled: !!site && sid === 'new', queryFn: async () => ((await fdb.from('pricing_elements').select('id,name').eq('site_id', site as string).eq('closed', false).order('sort_order')).data as Row[] | null) ?? [] });
   const { data, isLoading } = useQuery({ queryKey: ['finSub', sid], enabled: sid !== 'new', queryFn: async () => {
     const [sc, apps] = await Promise.all([fdb.from('fin_subcontracts').select('*').eq('id', sid).maybeSingle(), fdb.from('fin_sub_apps').select('*').eq('subcontract_id', sid).order('number')]);
     return { sc: sc.data as Row | null, apps: (apps.data as Row[] | null) ?? [] };
@@ -91,7 +101,30 @@ export default function FinSubcontract() {
         </>
       )}
       {edit && (
-        <FinForm title={sc ? `Edit ${sc.number}` : 'New subcontractor PO'} initial={sc || { retention_pct: 0, cis_rate: 20 }} onClose={() => { setEdit(false); if (!sc) router.back(); }}
+        <FinForm key={pre?.id || 'none'} title={sc ? `Edit ${sc.number}` : 'New subcontractor PO'} initial={sc || (pre ? { name: pre.trading_name || pre.name, email: pre.email, utr: pre.utr, cis_rate: String(pre.cis_rate ?? 20), vat_registered: !!pre.vat_registered, retention_pct: 0, order_value: linesTotal(lines) ?? '' } : { retention_pct: 0, cis_rate: 20 })} onClose={() => { setEdit(false); if (!sc) router.back(); }}
+          extra={sc ? undefined : (
+            <View style={{ marginBottom: 8 }}>
+              {workers.length > 0 && <SelectBox label="From your workers list (optional)" value={pre?.id || ''} options={[['', '—'], ...workers.map((w) => [w.id, w.trading_name || w.name || 'Worker'] as [string, string])]} onChange={(k) => setPre(workers.find((w) => w.id === k) || null)} />}
+              <Check label="Add to the project’s Price file for the PM (an issued price sheet)" value={toSheet} onChange={setToSheet} />
+              {toSheet && (
+                <View>
+                  <SelectBox label="Price tile" value={tile} options={[['', 'New tile named after the work'], ...tiles.map((t) => [t.id, t.name] as [string, string])]} onChange={setTile} />
+                  <Muted style={{ fontWeight: '700', marginBottom: 4 }}>Lines (optional — otherwise one line for the order value)</Muted>
+                  {lines.map((l, i) => (
+                    <View key={i} style={{ flexDirection: 'row', gap: 4, marginBottom: 4, alignItems: 'center' }}>
+                      <TextInput value={l.name} onChangeText={(t) => setLines(lines.map((x, j) => (j === i ? { ...x, name: t } : x)))} placeholder="Item" style={[lbox, { flex: 1 }]} />
+                      <TextInput value={l.qty} onChangeText={(t) => setLines(lines.map((x, j) => (j === i ? { ...x, qty: t.replace(/[^0-9.]/g, '') } : x)))} placeholder="Qty" keyboardType="decimal-pad" style={[lbox, { width: 54 }]} />
+                      <TextInput value={l.unit} onChangeText={(t) => setLines(lines.map((x, j) => (j === i ? { ...x, unit: t } : x)))} placeholder="Unit" style={[lbox, { width: 54 }]} />
+                      <TextInput value={l.rate} onChangeText={(t) => setLines(lines.map((x, j) => (j === i ? { ...x, rate: t.replace(/[^0-9.]/g, '') } : x)))} placeholder="Rate £" keyboardType="decimal-pad" style={[lbox, { width: 70 }]} />
+                      <Pressable hitSlop={8} onPress={() => setLines(lines.filter((_, j) => j !== i))}><Text style={{ color: base.slate, fontWeight: '700' }}>✕</Text></Pressable>
+                    </View>
+                  ))}
+                  <Button small kind="ghost" title="+ Add a line" onPress={() => setLines([...lines, { name: '', qty: '1', unit: 'item', rate: '' }])} />
+                  {linesTotal(lines) != null && <Muted style={{ marginTop: 4 }}>Lines total {money(linesTotal(lines) as number)} — used as the order value.</Muted>}
+                </View>
+              )}
+            </View>
+          )}
           fields={[
             { k: 'name', label: 'Subcontractor' }, { k: 'email', label: 'Email', kind: 'email' }, { k: 'description', label: 'Work', kind: 'multiline' },
             { k: 'order_value', label: 'Order value £', kind: 'money', half: true }, { k: 'retention_pct', label: 'Retention %', kind: 'number', half: true },
@@ -101,13 +134,15 @@ export default function FinSubcontract() {
           onSave={async (v) => {
             const name = String(v.name).trim(); if (!name) return 'Enter the subcontractor’s name.';
             const ret = num(v.retention_pct) ?? 0; if (isNaN(ret) || ret < 0 || ret > 20) return 'Retention should be between 0 and 20%.';
-            const val = num(v.order_value);
-            const row: Row = { name, email: String(v.email).trim() || null, description: String(v.description).trim() || null, order_value: val === null || isNaN(val) ? null : round2(val), retention_pct: ret, cis_rate: Number(v.cis_rate || 20), utr: String(v.utr).trim() || null, vat_registered: !!v.vat_registered };
+            const lt = sc ? null : linesTotal(lines);
+            const val = lt != null ? lt : num(v.order_value);
+            const row: Row = { name, email: String(v.email).trim() || null, description: String(v.description).trim() || null, order_value: val === null || isNaN(val) ? null : round2(val), retention_pct: ret, cis_rate: Number(v.cis_rate || 20), utr: String(v.utr).trim() || null, vat_registered: !!v.vat_registered, ...(!sc && pre ? { worker_id: pre.id } : {}) };
             if (sc && v.status) row.status = v.status;
             if (sc) { if ((await fdb.from('fin_subcontracts').update(row as never).eq('id', sc.id)).error) return 'Could not save.'; toast('Subcontractor PO saved'); refresh(); return null; }
             const r = await insertNumbered('fin_subcontracts', { col: 'site_id', val: site || '' }, (s) => `SC-${String(s).padStart(3, '0')}`, { ...row, org_id: me.org_id, site_id: site, created_by: me.id });
             if (!r) return 'Could not save — try again.';
-            toast('Subcontractor PO saved'); refresh(); router.replace(`/fin/sub/${r.id}` as never); return null;
+            if (toSheet && site) { const e = await orderToSheet(me, site, { ...row, id: r.id }, lines, tile, pre); if (e) toast(e); }
+            refresh(); router.replace(`/fin/sub/${r.id}` as never); return null;
           }} />
       )}
       {showApp && sc && <AppForm sc={sc} a={cur} ctx={ctx(cur)} nextNo={(apps[apps.length - 1]?.number || 0) + 1} onClose={() => { setAppEdit(null); if (openApp) router.setParams({ app: '' }); }} onSaved={refresh} onPaid={markPaid} />}
@@ -179,4 +214,32 @@ function AppForm({ sc, a, ctx, nextNo, onClose, onSaved, onPaid }: { sc: Row; a:
       </View>
     </Card>
   );
+}
+
+const lbox = { borderWidth: 1, borderColor: base.line, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 5, color: base.ink, backgroundColor: base.card };
+type ScLine = { name: string; qty: string; unit: string; rate: string };
+const goodLines = (ls: ScLine[]) => ls.filter((l) => l.name.trim() && Number(l.qty) && l.rate !== '' && !isNaN(Number(l.rate)));
+function linesTotal(ls: ScLine[]): number | null { const g = goodLines(ls); return g.length ? round2(g.reduce((t, l) => t + Number(l.qty) * Number(l.rate), 0)) : null; }
+/** The order into the project's Price file as an issued price sheet (its own tile, or added to a chosen one) — 912 finScSyncSheet. */
+async function orderToSheet(me: Row, siteId: string, sc: Row, ls: ScLine[], tileId: string, worker: Row | null): Promise<string | null> {
+  try {
+    const g = goodLines(ls);
+    const rows = g.length ? g.map((l) => ({ name: l.name.trim(), unit: l.unit || 'item', quantity: Number(l.qty), rate: round2(Number(l.rate)), line_total: round2(Number(l.qty) * Number(l.rate)) }))
+      : [{ name: sc.description || `Subcontract — ${sc.name}`, unit: 'item', quantity: 1, rate: round2(Number(sc.order_value || 0)), line_total: round2(Number(sc.order_value || 0)) }];
+    const total = round2(rows.reduce((t, r) => t + r.line_total, 0));
+    let elId = tileId;
+    if (!elId) {
+      const ex = ((await fdb.from('pricing_elements').select('sort_order').eq('site_id', siteId).order('sort_order', { ascending: false }).limit(1)).data as Row[] | null) ?? [];
+      const made = await fdb.from('pricing_elements').insert({ site_id: siteId, sub_site_id: null, name: sc.description || sc.name, sort_order: ex.length ? Number(ex[0].sort_order || 0) + 1 : 0, price_total: total, created_by: me.id } as never).select('id').single();
+      elId = (made.data as Row | null)?.id ?? '';
+    } else {
+      const el = ((await fdb.from('pricing_elements').select('price_total').eq('id', elId).maybeSingle()).data as Row | null);
+      if (el) await fdb.from('pricing_elements').update({ price_total: round2(Number(el.price_total || 0) + total) } as never).eq('id', elId);
+    }
+    const sh = await fdb.from('price_builder_sheets').insert({ org_id: me.org_id, site_id: siteId, title: `${sc.description || 'Subcontract'} — ${sc.name}`, subcontractor_name: sc.name, status: 'issued', total, created_by: me.id, issued_by: me.id, issued_at: new Date().toISOString(), pricing_element_id: elId || null, assigned_user_ids: worker?.user_id ? [worker.user_id] : [], fin_subcontract_id: sc.id } as never).select('id').single();
+    const shId = (sh.data as Row | null)?.id; if (!shId) return 'Order saved, but the price sheet wasn’t made — try again from the order.';
+    await fdb.from('price_builder_sheet_items').insert(rows.map((r, i) => ({ sheet_id: shId, category: 'Subcontract', sort_order: i, is_manual_rate: true, ...r })) as never);
+    await fdb.from('fin_subcontracts').update({ price_sheet_id: shId, source: 'finance' } as never).eq('id', sc.id);
+    return null;
+  } catch { return 'Order saved, but the price sheet wasn’t made — try again from the order.'; }
 }

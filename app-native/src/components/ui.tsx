@@ -62,7 +62,7 @@ export function Button({ title, onPress, busy, kind = 'primary', disabled, small
     let r: unknown;
     try { r = onPress(); } catch (e) { held.current = false; throw e; }
     if (r && typeof (r as Promise<unknown>).then === 'function') void (r as Promise<unknown>).finally(() => { held.current = false; });
-    else setTimeout(() => { held.current = false; }, 900);
+    else setTimeout(() => { held.current = false; }, 400);
   };
   return (
     <Pressable
