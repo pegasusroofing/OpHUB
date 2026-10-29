@@ -16,6 +16,7 @@ import { viewDoc } from '@/components/DocViewer';
 import { DateBox } from '@/components/DateField';
 import { openDocLink } from '@/data/hs';
 import { addPayment, deleteDraft, deletePayment, draftRow, issue, loadInvoice, newInvoice, saveDraft, storePdf, voidInvoice } from '@/data/finInvoice';
+import { finInvoke } from '@/data/finance';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { fdate, INV_STATUS, invOutstanding, invOverdue, money, num, today } from '@/lib/rules/finance';
@@ -145,7 +146,11 @@ function Issued({ inv, pays, site }: { inv: Row; pays: Row[]; site: Row | undefi
             {pays.length ? pays.map((p) => <FinRow key={p.id} title={`${fdate(p.paid_on)}${p.note ? ` · ${p.note}` : ''}`} right={money(p.amount)} onPress={async () => { if (await confirmAsk('Remove this payment?', 'Remove')) { if (await deletePayment(p.id)) { toast('Payment removed'); refresh(); } } }} />) : <Muted>No payments recorded yet.</Muted>}
             {out > 0 && <View style={{ marginTop: 8 }}><Button kind="ghost" title="+ Record payment" onPress={() => setPay(true)} /></View>}
           </Card>
-          <Button kind="ghost" title="Void this invoice" onPress={async () => { if (!(await confirmAsk('Void this invoice? This can’t be undone.', 'Void'))) return; if (await voidInvoice(inv.id)) { toast('Invoice voided'); refresh(); } }} />
+          <Button kind="ghost" title="Void this invoice" onPress={async () => { if (!(await confirmAsk('Void this invoice? This can’t be undone.', 'Void'))) return; if (await voidInvoice(inv.id)) {
+            // Already in Xero: void it there too (907 finXeroVoid) — during the Finance trial that's done by hand.
+            if (inv.xero_id && me) { const r = await finInvoke(me, 'xero', { action: 'push_invoice', id: inv.id }); toast(r.error ? `Voided here — void it in Xero by hand (${r.error})` : 'Also voided in Xero'); }
+            refresh();
+          } }} />
           <Muted style={{ marginTop: 6 }}>Issued invoices can&apos;t be changed. To correct one, void it and raise a new one.</Muted>
         </>
       ) : <Card><Muted>This invoice was voided.</Muted></Card>}
