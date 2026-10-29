@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { markCanvas, markRadius, nearestOp, nextFree, refreshKeyColours, type MarkOp } from './markup.ts';
+import { markCanvas, markRadius, nearestOp, nextFree, refreshKeyColours, type MarkOp, hitMark, scaleMark } from './markup.ts';
 
 test('mark-up: canvas size, radius, numbering after keys, eraser reach, key colours follow the condition', () => {
   assert.deepEqual(markCanvas(7200, 3600), { W: 3600, H: 1800 });
@@ -21,4 +21,16 @@ test('mark-up: canvas size, radius, numbering after keys, eraser reach, key colo
   assert.equal(refreshKeyColours(ops, [{ n: 2, label: 'Ridge', color: '#1F9D52' }, { n: 5, label: 'x', color: '#2F6FD9' }]), true);
   assert.equal((ops[0] as { c: string }).c, '#1F9D52');
   assert.equal((ops[1] as { c: string }).c, '#111111');
+});
+
+test('hitMark picks the number or text under a point, never a pen line', () => {
+  const ops = [{ t: 'pen', c: '#000', w: 4, pts: [{ x: 10, y: 10 }, { x: 20, y: 20 }] }, { t: 'num', n: 1, c: '#f00', r: 20, x: 100, y: 100 }, { t: 'text', c: '#000', fs: 20, s: 'Leak', x: 300, y: 300 }] as never[];
+  assert.equal(hitMark(ops, { x: 105, y: 110 }, 10), 1);
+  assert.equal(hitMark(ops, { x: 330, y: 302 }, 10), 2);
+  assert.equal(hitMark(ops, { x: 12, y: 12 }, 10), -1);
+});
+test('scaleMark grows and shrinks within limits', () => {
+  assert.equal((scaleMark({ t: 'num', n: 1, c: '#f00', r: 20, x: 0, y: 0 }, 1.2, 1000) as { r: number }).r, 24);
+  assert.equal((scaleMark({ t: 'num', n: 1, c: '#f00', r: 7, x: 0, y: 0 }, 0.5, 1000) as { r: number }).r, 6);
+  assert.equal((scaleMark({ t: 'text', c: '#f00', fs: 20, s: 'a', x: 0, y: 0 }, 1.5, 1000) as { fs: number }).fs, 30);
 });

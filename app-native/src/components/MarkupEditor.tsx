@@ -1,19 +1,21 @@
 // Drawing mark-up (498 planMarkup): full screen over a drawing — numbered
 // circles (auto-numbering, or the report items ticked "Add to drawing"),
 // crosses, ticks, warning triangles, arrows, pen and text, in 7 colours and 4
-// sizes; eraser, undo and clear. Marks are kept in the current app's format
+// sizes; eraser, undo and clear. Press on a number, symbol or text already placed to pick it up: drag
+// to move it, then − / + to resize, a colour to recolour, Edit text / Change number, or 🗑 to delete.
+// "Number from…" sets the next number placed. Marks are kept in the current app's format
 // so a drawing can be re-opened in either app. Save gives a JPEG with the
 // marks drawn in (the office laptop draws it full size; phones snapshot the
 // screen) plus the marks. pinch or − / + zoom in up to 4×, and ✋ Move scrolls round
 // the drawing (drawing is paused while moving).
 import { useEffect, useMemo, useRef, useState, type ComponentRef } from 'react';
 import { Image, Modal, PanResponder, Platform, Pressable, ScrollView, Text, View } from 'react-native';
-import Svg, { Circle, Ellipse, G, Path, Text as SvgText } from 'react-native-svg';
+import Svg, { Circle, Ellipse, G, Path, Rect, Text as SvgText } from 'react-native-svg';
 import { captureRef } from 'react-native-view-shot';
 
 import { confirmAsk, promptText, useToast } from '@/components/toast';
 import {
-  arrowParts, PHOTO_COLOURS, ringBox, crossPath, haloOf, isLight, MARK_COLOURS, MARK_SIZES, markCanvas, markRadius, nearestOp, nextFree, numFont, penPath, refreshKeyColours, tickPath, warnPath,
+  arrowParts, hitMark, scaleMark, PHOTO_COLOURS, ringBox, crossPath, haloOf, isLight, MARK_COLOURS, MARK_SIZES, markCanvas, markRadius, nearestOp, nextFree, numFont, penPath, refreshKeyColours, tickPath, warnPath,
   type MarkKey, type MarkOp, type MarkSize, type Pt,
 } from '@/lib/rules/markup';
 import { renderMarked } from '@/lib/markupRender';
@@ -55,10 +57,11 @@ export function MarkupEditor({ src, ops: initial, keys = [], photo = false, onCl
   const [moving, setMoving] = useState(false);
   const [keyPick, setKeyPick] = useState<number | null>(() => { const placed = new Set((initial || []).filter((o) => o.t === 'num').map((o) => +(o as { n: number }).n)); return keys.find((k) => !placed.has(+k.n))?.n ?? null; });
   const [cur, setCur] = useState<MarkOp | null>(null);
+  const [sel, setSel] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const view = useRef<ComponentRef<typeof View>>(null);
-  const st = useRef({ ops, tool, colour, picked, sz, keyPick, k: 1, size, cur: null as MarkOp | null, nextNum: 0, moving: false, z: 1, pinch: null as { d0: number; z0: number } | null });
-  useEffect(() => { Object.assign(st.current, { ops, tool, colour, picked, sz, keyPick, size, moving, z }); }, [ops, tool, colour, picked, sz, keyPick, size, moving, z]);
+  const st = useRef({ ops, tool, colour, picked, sz, keyPick, k: 1, size, cur: null as MarkOp | null, nextNum: 0, moving: false, z: 1, pinch: null as { d0: number; z0: number } | null, sel: null as number | null, drag: null as { i: number; dx: number; dy: number } | null });
+  useEffect(() => { Object.assign(st.current, { ops, tool, colour, picked, sz, keyPick, size, moving, z, sel }); }, [ops, tool, colour, picked, sz, keyPick, size, moving, z, sel]);
 
   useEffect(() => { Image.getSize(src, (w, h) => setSize(markCanvas(w, h)), () => { toast('Could not open that drawing.'); onClose(null); }); }, [src]); // eslint-disable-line react-hooks/exhaustive-deps
   const k = size && area.w ? Math.min(area.w / size.W, area.h / size.H) * z : 0;
@@ -73,6 +76,11 @@ export function MarkupEditor({ src, ops: initial, keys = [], photo = false, onCl
     onPanResponderGrant: (e) => {
       const s = st.current; if (!s.size || !s.k) return;
       const p = { x: e.nativeEvent.locationX / s.k, y: e.nativeEvent.locationY / s.k };
+      // Pressing on a mark already placed picks it up (select, and drag to move).
+      if (s.tool !== 'erase') {
+        const hit = hitMark(s.ops, p, 14 / s.k);
+        if (hit >= 0) { const o = s.ops[hit] as { x: number; y: number }; s.drag = { i: hit, dx: o.x - p.x, dy: o.y - p.y }; s.sel = hit; setSel(hit); s.cur = null; (s as unknown as { tap: Pt | null }).tap = null; return; }
+      }
       if (s.tool === 'pen' || s.tool === 'arrow' || s.tool === 'ring') { s.cur = { t: s.tool, c: s.colour, w: Math.max(4, Math.round(markRadius(s.size.W, s.size.H, s.sz) / 4)), pts: [p] }; setCur({ ...s.cur }); }
       else s.cur = null;
       (s as unknown as { tap: Pt }).tap = p;
@@ -87,6 +95,11 @@ export function MarkupEditor({ src, ops: initial, keys = [], photo = false, onCl
         else setZ(Math.max(1, Math.min(4, s.pinch.z0 * (d / s.pinch.d0))));
         return;
       }
+      if (s.drag && s.k && !s.pinch) {
+        const q = { x: e.nativeEvent.locationX / s.k, y: e.nativeEvent.locationY / s.k }, d = s.drag;
+        setOps((x) => x.map((o, j) => (j === d.i && !('pts' in o) ? { ...o, x: q.x + d.dx, y: q.y + d.dy } : o)));
+        return;
+      }
       if (s.pinch || !s.cur || !('pts' in s.cur) || !s.k) return;
       const p = { x: e.nativeEvent.locationX / s.k, y: e.nativeEvent.locationY / s.k };
       if (s.cur.t === 'pen') s.cur.pts.push(p); else s.cur.pts[1] = p;
@@ -98,6 +111,9 @@ export function MarkupEditor({ src, ops: initial, keys = [], photo = false, onCl
   const release = async () => {
     const s = st.current; if (!s.size) return;
     if (s.pinch) { s.pinch = null; return; } // the end of a pinch places nothing
+    if (s.drag) { s.drag = null; return; } // a mark was picked up / moved
+    // With a mark selected, a tap elsewhere just lets go of it.
+    if (s.sel != null) { s.sel = null; setSel(null); return; }
     const r = markRadius(s.size.W, s.size.H, s.sz), p = (s as unknown as { tap: Pt }).tap;
     if (s.cur && 'pts' in s.cur) {
       const o = s.cur; s.cur = null; setCur(null);
@@ -160,6 +176,17 @@ export function MarkupEditor({ src, ops: initial, keys = [], photo = false, onCl
           {chip(false, 'Clear', async () => { if (ops.length && (await confirmAsk('Remove all the marks?', 'Clear'))) setOps([]); })}
           <Pressable onPress={() => void save()} disabled={saving} style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 8, backgroundColor: base.blue }}><Text style={{ color: '#fff', fontWeight: '800' }}>{saving ? 'Saving…' : 'Save'}</Text></Pressable>
         </View>
+        {sel != null && ops[sel] ? (
+          <ScrollView horizontal style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 6, paddingHorizontal: 10, paddingBottom: 6, alignItems: 'center' }}>
+            <Text style={{ color: '#fff', fontWeight: '700', marginRight: 4 }}>Selected {(() => { const o = ops[sel]; return o.t === 'num' ? o.n : o.t === 'text' ? 'text' : o.t; })()}</Text>
+            {chip(false, '−', () => setOps((x) => x.map((o, j) => (j === sel && size ? scaleMark(o, 1 / 1.2, size.W) : o))), 'sm')}
+            {chip(false, '+', () => setOps((x) => x.map((o, j) => (j === sel && size ? scaleMark(o, 1.2, size.W) : o))), 'sb')}
+            {ops[sel].t === 'text' && chip(false, '✎ Edit text', async () => { const o = ops[sel] as { s: string }; const t = (await promptText('Edit text', o.s))?.trim(); if (t) setOps((x) => x.map((q, j) => (j === sel ? { ...q, s: t } as MarkOp : q))); }, 'et')}
+            {ops[sel].t === 'num' && chip(false, '# Change number', async () => { const o = ops[sel] as { n: number }; const n = parseInt((await promptText('Number', String(o.n))) || '', 10); if (n > 0) setOps((x) => x.map((q, j) => (j === sel ? { ...q, n } as MarkOp : q))); }, 'cn')}
+            {chip(false, '🗑 Delete', () => { setOps((x) => x.filter((_, j) => j !== sel)); setSel(null); }, 'dl')}
+            {chip(true, 'Done', () => setSel(null), 'dn')}
+          </ScrollView>
+        ) : (
         <ScrollView horizontal style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 6, paddingHorizontal: 10, paddingBottom: 6 }}>
           {keys.length > 0 && chip(tool === 'key', '📍 Report items', () => setTool('key'))}
           {(photo ? PHOTO_TOOLS : TOOLS).map(([t, l]) => chip(tool === t && !moving, l, () => { setTool(t); setMoving(false); }, t))}
@@ -167,10 +194,13 @@ export function MarkupEditor({ src, ops: initial, keys = [], photo = false, onCl
           {chip(false, '−', () => setZ((x) => Math.max(1, x / 1.5)), 'zo')}
           {chip(false, `${Math.round(z * 100)}%`, () => { setZ(1); setMoving(false); }, 'zf')}
           {chip(false, '+', () => setZ((x) => Math.min(4, x * 1.5)), 'zi')}
+          {/* eslint-disable-next-line react-hooks/refs -- read when tapped, not while drawing */}
+          {!photo && chip(false, 'Number from…', async () => { const n = parseInt((await promptText('Next number to place', String(st.current.nextNum || nextFree(ops, keys)))) || '', 10); if (n > 0) { st.current.nextNum = n; setTool('num'); setMoving(false); } }, 'nf')}
           {z > 1 && chip(moving, '✋ Move', () => setMoving(!moving), 'mv')}
         </ScrollView>
+        )}
         <ScrollView horizontal style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 8, paddingHorizontal: 10, paddingBottom: 8, alignItems: 'center' }}>
-          {COLOURS.map((c) => <Pressable key={c.k} accessibilityLabel={c.n} onPress={() => { setColour(c.k); setPicked(true); }} style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: c.k, borderWidth: 3, borderColor: colour === c.k ? '#fff' : 'transparent' }} />)}
+          {COLOURS.map((c) => <Pressable key={c.k} accessibilityLabel={c.n} onPress={() => { if (sel != null) { setOps((x) => x.map((o, j) => (j === sel ? { ...o, c: c.k, ...(o.t === 'num' ? { auto: false } : {}) } as MarkOp : o))); return; } setColour(c.k); setPicked(true); }} style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: c.k, borderWidth: 3, borderColor: (sel != null ? ops[sel]?.c === c.k : colour === c.k) ? '#fff' : 'transparent' }} />)}
           <View style={{ width: 10 }} />
           {(Object.keys(MARK_SIZES) as MarkSize[]).filter((x) => !photo || x !== 'xs').map((s) => chip(sz === s, s.toUpperCase(), () => setSz(s), s))}
         </ScrollView>
@@ -180,7 +210,7 @@ export function MarkupEditor({ src, ops: initial, keys = [], photo = false, onCl
           </ScrollView>
         )}
         <Text style={{ color: '#cbd2db', fontSize: 12, paddingHorizontal: 10, paddingBottom: 6 }}>
-          {moving ? 'Drag to move round the drawing. Tap a tool to carry on marking.' : tool === 'key' ? (keyPick != null ? `Tap the drawing to place number ${keyPick}.` : 'All the ticked items are placed.') : tool === 'pen' ? 'Draw with your finger.' : tool === 'arrow' ? 'Drag from the start to the point.' : tool === 'ring' ? 'Drag across what to circle.' : tool === 'erase' ? 'Tap a mark to remove it.' : 'Tap the drawing to place it.'}
+          {sel != null ? 'Drag the mark to move it. Tap anywhere else to let go.' : moving ? 'Drag to move round the drawing. Tap a tool to carry on marking.' : tool === 'key' ? (keyPick != null ? `Tap the drawing to place number ${keyPick}.` : 'All the ticked items are placed.') : tool === 'pen' ? 'Draw with your finger.' : tool === 'arrow' ? 'Drag from the start to the point.' : tool === 'ring' ? 'Drag across what to circle.' : tool === 'erase' ? 'Tap a mark to remove it.' : 'Tap the drawing to place it.'}
         </Text>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }} onLayout={(e) => setArea({ w: e.nativeEvent.layout.width - 16, h: e.nativeEvent.layout.height - 16 })}>
           {size && k > 0 ? (
@@ -190,6 +220,7 @@ export function MarkupEditor({ src, ops: initial, keys = [], photo = false, onCl
               <Image source={{ uri: src }} style={{ position: 'absolute', left: 0, top: 0, width: size.W * k, height: size.H * k }} resizeMode="stretch" />
               <Svg width={size.W * k} height={size.H * k} viewBox={`0 0 ${size.W} ${size.H}`} style={{ position: 'absolute', left: 0, top: 0 }} pointerEvents="none">
                 <MarkOps ops={cur ? [...ops, cur] : ops} />
+                {sel != null && ops[sel] && !('pts' in ops[sel]) && (() => { const o = ops[sel] as { x: number; y: number; r?: number; fs?: number; s?: string }; const rr = (o.r ?? (o.fs || 20)) * 1.5; return o.s != null ? <Rect x={o.x - 6} y={o.y - (o.fs || 20) * 0.8} width={(o.s.length * (o.fs || 20) * 0.6) + 12} height={(o.fs || 20) * 1.6} fill="none" stroke="#2F6FD9" strokeWidth={3} strokeDasharray="8 6" /> : <Circle cx={o.x} cy={o.y} r={rr} fill="none" stroke="#2F6FD9" strokeWidth={3} strokeDasharray="8 6" />; })()}
               </Svg>
             </View>
             </ScrollView>

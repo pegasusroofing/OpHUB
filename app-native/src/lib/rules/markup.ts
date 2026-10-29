@@ -67,3 +67,25 @@ export function arrowParts(a: Pt, b: Pt, w: number) {
   };
 }
 export const numFont = (o: { n: number; r: number }) => { const s = String(o.n); return Math.round(o.r * (s.length > 2 ? 0.85 : s.length > 1 ? 1.05 : 1.2)); };
+
+/** The number / symbol / text under a point, or -1 (498 plmHit). Pen lines, arrows and circles aren't picked up. */
+export function hitMark(ops: MarkOp[], p: Pt, minReach: number): number {
+  let best = -1, bd = Infinity;
+  ops.forEach((o, i) => {
+    if ('pts' in o) return;
+    let d: number, reach: number;
+    if (o.t === 'text') {
+      const w = (o.s || '').length * o.fs * 0.6;
+      const inside = p.x >= o.x - o.fs * 0.3 && p.x <= o.x + w + o.fs * 0.3 && Math.abs(p.y - o.y) <= o.fs * 0.8;
+      d = inside ? 0 : Infinity; reach = 1;
+    } else { d = Math.hypot(o.x - p.x, o.y - p.y); reach = Math.max(o.r * 1.25, minReach); }
+    if (d < reach && d < bd) { bd = d; best = i; }
+  });
+  return best;
+}
+/** A mark made bigger / smaller (498 plmScaleSel), kept within sensible limits for a drawing W wide. */
+export function scaleMark(o: MarkOp, f: number, W: number): MarkOp {
+  if (o.t === 'text') return { ...o, fs: Math.max(8, Math.min(W / 4, o.fs * f)) };
+  if ('r' in o) return { ...o, r: Math.max(6, Math.min(W / 6, o.r * f)) };
+  return { ...o, w: Math.max(2, Math.min(W / 40, o.w * f)) };
+}

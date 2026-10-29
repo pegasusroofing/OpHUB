@@ -34,7 +34,7 @@ HIGH = money, data, permissions, safety or a daily job. MED = noticeable. LOW = 
 - MED FIXED — Check-in Excel export for every manager (was admins only).
 - MED FIXED — Schedule of Works Export PDF / Email for everyone (was managers only).
 - MED FIXED — Opening another company's subcontractor hub by link now blocked for non-managers.
-- MED OPEN — Plan mark-up: select a mark to move, resize, recolour, edit text or delete; "Number from…".
+- MED FIXED — Plan mark-up: select a mark to move, resize, recolour, edit text or delete; "Number from…".
 - MED FIXED — Subcontractor admin issuing and closing permits (incl. override).
 - MED FIXED — Site Rules & Layout: Export Signed PDF.
 - MED FIXED — Inductions: email/export one or a ticked selection, with CC me / CC client.

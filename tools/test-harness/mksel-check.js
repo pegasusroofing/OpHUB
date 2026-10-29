@@ -1,0 +1,36 @@
+// Drawings: sub-folder trail back up, + menu beside the tap, PDF opens in the built-in viewer, mark up.
+const {chromium, makeContext, S1} = require('./harness');
+const { PDFDocument, StandardFonts } = require('pdf-lib');
+(async()=>{
+  const BASE = 'http://localhost:8081';
+  const browser = await chromium.launch(); const errs = [];
+  const {ctx, db} = await makeContext(browser, 'admin', [], {viewport:{width:1300, height:900}});
+  db.profiles[0].howto_dismissed = ['*'];
+  db.drawing_folders = [{id:'f1', site_id:S1, parent_id:null, name:'Drawings', position:0},{id:'f2', site_id:S1, parent_id:'f1', name:'Roof plans', position:0}];
+  db.drawing_files = [{id:'d1', site_id:S1, folder_id:'f2', name:'Roof plan A.pdf', storage_path:S1+'/f2/x-Roof_plan_A.pdf', status:'current', uploaded_at:new Date().toISOString()}];
+  const pdf = await PDFDocument.create(); const pg = pdf.addPage([842, 595]); pg.drawText('ROOF PLAN A — test drawing', {x:60, y:500, size:30, font: await pdf.embedFont(StandardFonts.Helvetica)}); pg.drawRectangle({x:100,y:100,width:600,height:300,borderWidth:3}); const bytes = Buffer.from(await pdf.save());
+  await ctx.route(/\/object\/sign\/drawings\/.*\.pdf|\/object\/drawings\/.*\.pdf/, r => r.fulfill({status:200, contentType:'application/pdf', body: bytes}));
+  const page = await ctx.newPage(); page.on('pageerror', e=>errs.push(e.message));
+  await page.goto(BASE+'/login'); await page.waitForTimeout(5000);
+  await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
+  await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
+  await page.goto(BASE+'/sites/'+S1+'/drawings/f2'); await page.waitForTimeout(5000);
+  await page.screenshot({path:'shots/dw-1-folder.png'});
+  await page.getByText('View', {exact:true}).first().click(); await page.waitForTimeout(5000);
+  await page.screenshot({path:'shots/dw-2-viewer.png'});
+  await page.getByText('✏️ Mark up').click(); await page.waitForTimeout(4000);
+  await page.screenshot({path:'shots/dw-3-markup.png'});
+  await page.mouse.click(500, 500); await page.waitForTimeout(500);
+  await page.mouse.move(500, 500); await page.mouse.down(); await page.mouse.move(560, 540, {steps:6}); await page.mouse.move(620, 580, {steps:6}); await page.mouse.up(); await page.waitForTimeout(500);
+  console.log('selected bar:', await page.getByText('Selected 1').count());
+  await page.getByText('+', {exact:true}).last().click(); await page.waitForTimeout(300);
+  await page.screenshot({path:'shots/mk-sel.png'});
+  await page.getByText('Done', {exact:true}).click(); await page.waitForTimeout(300);
+  await page.getByText('Number from…').click(); await page.waitForTimeout(400); await page.screenshot({path:'shots/mk-prompt.png'}); await page.locator('input').last().fill('7'); await page.getByText('OK', {exact:true}).last().click(); await page.waitForTimeout(300); await page.mouse.click(400, 700); await page.waitForTimeout(400);
+  await page.screenshot({path:'shots/mk-num7.png'});
+  await page.getByText('Save', {exact:true}).click(); await page.waitForTimeout(5000);
+  console.log('files now:', db.drawing_files.map(f=>f.name+' ['+f.folder_id+']').join(', '));
+  await page.screenshot({path:'shots/dw-4-saved.png'});
+  console.log('errors', errs.join(' / ').slice(0,400) || 'none');
+  await browser.close(); process.exit(0);
+})();
