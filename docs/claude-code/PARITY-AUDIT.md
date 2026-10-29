@@ -59,7 +59,7 @@ HIGH = money, data, permissions, safety or a daily job. MED = noticeable. LOW = 
 - MED OPEN — PM reply to a supplier-invoice query (fin_pi_query_view / fin_pi_query_reply).
 - MED OPEN — Finance PO PDF saved into the job's Material PO's › Finance POs folder.
 - MED OPEN — Cancelling a PO cancels its site requests; remove lines; reopen restores.
-- MED OPEN — Driver day off: clear "Driver has a scheduled day off" message (now "Could not save"), and the all-drivers-off check.
+- MED FIXED — Driver day off: clear "Driver has a scheduled day off" message (now "Could not save"), and the all-drivers-off check.
 - MED OPEN — O&M manual: attach files to table rows; choose data sheets from the COSHH library; add documents added since the manual started.
 - MED OPEN — COSHH library: drop several data sheets into a folder → an assessment each.
 - MED OPEN — PM's "Things the office has sent you" page (#/to-book).

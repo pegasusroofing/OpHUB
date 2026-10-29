@@ -144,6 +144,7 @@ export async function planPush(me: Profile, t: Delivery, sites: Site[]): Promise
 export async function pushDelivery(me: Profile, t: Delivery, plan: { date: string; slot: string; keepHigh: boolean; label: string }, sites: Site[]): Promise<string> {
   const newHigh = plan.keepHigh && plan.slot === '7am';
   const lostHigh = !!t.high_priority && !newHigh;
+  const off = await dayOffBlock(me.org_id as string, plan.date, t.driver_id ?? null); if (off) return off;
   const r = await db.from('delivery_tasks').update({ scheduled_date: plan.date, time_slot: plan.slot, sub_priority: 999, high_priority: newHigh, updated_at: new Date().toISOString() } as never).eq('id', t.id).eq('status', 'pending');
   if (r.error) return 'Could not move it — try again.';
   try {
@@ -321,4 +322,20 @@ export async function replaceCompletionPhoto(t: Delivery, oldPath: string, newPa
   const all = completionPhotos(((cur.data as Delivery[] | null) ?? [])[0] ?? t); const i = all.indexOf(oldPath);
   if (i >= 0) all[i] = newPath; else all.push(newPath);
   return !(await db.from('delivery_tasks').update({ completion_photo_paths: all, completion_photo_path: all[0] } as never).eq('id', t.id)).error;
+}
+
+/** Why a delivery can't go on this day (9219zz dtoBlockFor): the chosen driver is off, or (no driver
+ *  chosen) every driver is off. The database refuses it too (delivery_driver_off_check); this says why. */
+export async function dayOffBlock(orgId: string, date: string | null | undefined, driverId: string | null): Promise<string | null> {
+  if (!date) return null;
+  const off = ((await db.from('driver_time_off').select('user_id').eq('org_id', orgId).lte('start_date', date).gte('end_date', date)).data as { user_id: string }[] | null) ?? [];
+  if (!off.length) return null;
+  const offIds = new Set(off.map((o) => o.user_id));
+  const day = new Date(`${date}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+  const tail = (one: boolean) => ` Pick another day${one ? '' : ', or another driver'}. This delivery hasn’t been saved.`;
+  const people = ((await db.from('profiles').select('id,name,role').eq('org_id', orgId).eq('role', 'driver')).data as { id: string; name: string }[] | null) ?? [];
+  const who = (id: string) => people.find((p) => p.id === id)?.name || 'The driver';
+  if (driverId) return offIds.has(driverId) ? `🌴 Driver has a scheduled day off — ${who(driverId)} is off on ${day}.${tail(false)}` : null;
+  if (people.length && people.every((p) => offIds.has(p.id))) return `🌴 Driver has a scheduled day off — ${people.length === 1 ? `${people[0].name} (the driver) is` : 'every driver is'} off on ${day}.${tail(true)}`;
+  return null;
 }

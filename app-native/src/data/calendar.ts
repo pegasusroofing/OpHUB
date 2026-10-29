@@ -12,7 +12,7 @@ import { appDateFor } from '@/lib/rules/finance';
 import { supabase } from '@/lib/supabase';
 import type { Profile, Site } from '@/lib/types';
 
-import { dayList, resequenceSlot } from './driver';
+import { dayList, dayOffBlock, resequenceSlot } from './driver';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 
@@ -105,6 +105,7 @@ export async function deleteEvent(me: Profile, siteId: string, e: CalEvent, whol
 
 /** "Also Add to Delivery Schedule": a stub delivery flagged needs_completing, first free drop. */
 export async function addToDeliverySchedule(me: Profile, siteId: string, title: string, date: string): Promise<boolean> {
+  if (await dayOffBlock(me.org_id as string, date, null)) return false;
   const list = await dayList(me.org_id as string, date);
   const slot = DELIVERY_TIME_SLOTS.map((s) => s.key).find((k) => !slotProblem(list, { id: 'new', double_slot: false }, k, () => 'Site')) || '7am';
   const r = await db.from('delivery_tasks').insert({ org_id: me.org_id, site_id: siteId, created_by: me.id, description: title, scheduled_date: date, time_slot: slot, collection_type: 'yard', high_priority: false, needs_completing: true } as never);

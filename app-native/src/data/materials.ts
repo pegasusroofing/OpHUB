@@ -10,7 +10,7 @@ import { branchLabel, comingToSite, companyOperativeLabel, onSentPo, orderCcEmai
 import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/lib/types';
 
-import { dayList, resequenceSlot } from './driver';
+import { dayList, dayOffBlock, resequenceSlot } from './driver';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 
@@ -226,6 +226,8 @@ async function bookCollection(me: Profile, siteId: string, f: Fulfil, supplier: 
         driver_id: f.collectorId, needs_completing: false, created_by: me.id,
         sub_site_id: oneSub?.sub_site_id ?? null, sub_site_label: oneSub?.sub_site_label ?? null,
       };
+      const off = await dayOffBlock(me.org_id as string, f.date, f.collectorId || null);
+      if (off) return ` — but it could not be added to the Delivery Schedule: ${off}`;
       const r = await db.from('delivery_tasks').insert(payload as never).select('id').single();
       const saved = r.data as { id: string } | null;
       if (!saved) return ' — but it could not be added to the Delivery Schedule, add it by hand';

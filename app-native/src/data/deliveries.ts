@@ -4,7 +4,7 @@
 // driver messages, the site Key Dates entry, and the weekly driver hours table.
 import { useQuery } from '@tanstack/react-query';
 
-import { dayList, messageTo, placeOf, resequenceSlot, rid, siteLabel, uploadPhoto, type Delivery } from '@/data/driver';
+import { dayList, dayOffBlock, messageTo, placeOf, resequenceSlot, rid, siteLabel, uploadPhoto, type Delivery } from '@/data/driver';
 import type { Picked } from '@/lib/photos';
 import { bySlotOrder, DELIVERY_TIME_SLOTS, localISODate, slotProblem } from '@/lib/rules/driver';
 import { supabase } from '@/lib/supabase';
@@ -141,6 +141,9 @@ export async function saveDelivery(me: Profile, d: Draft, orig: Orig, sites: Sit
   const org = me.org_id as string;
   const why = slotProblem(await dayList(org, d.scheduled_date), { id: d.id || 'new', double_slot: d.double_slot }, d.time_slot, placeOf(sites));
   if (why) return { ok: false, msg: why };
+  // Only a new delivery, or a change of day or driver, is checked against days off.
+  const drv = d.driver_id && d.driver_id !== 'none' ? d.driver_id : null;
+  if (!orig || orig.date !== d.scheduled_date || (orig.driverId || null) !== drv) { const off = await dayOffBlock(org, d.scheduled_date, drv); if (off) return { ok: false, msg: off }; }
   const high = d.high_priority && d.time_slot === DELIVERY_TIME_SLOTS[0].key;
   const payload = {
     org_id: org, site_id: d.manualSite ? null : d.site_id, manual_site_name: d.manualSite ? d.manual_site_name.trim() || null : null, manual_site_address: d.manualSite ? d.manual_site_address.trim() || null : null,
