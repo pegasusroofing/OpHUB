@@ -66,20 +66,22 @@ export function Button({ title, onPress, busy, kind = 'primary', disabled }: {
 
 /** The .filterrow tabs: equal-width boxes, the chosen one outlined in the company colour.
  *  seg = the grey sliding bar used on Schedule of Works (.sowpage .filterrow). */
-export function FilterRow<K extends string>({ options, value, onChange, seg }: { options: [K, string][]; value: K; onChange: (k: K) => void; seg?: boolean }) {
+export function FilterRow<K extends string>({ options, value, onChange, seg, cols }: { options: [K, string][]; value: K; onChange: (k: K) => void; seg?: boolean; cols?: number }) {
   const t = useTheme();
   return (
-    <View style={[{ flexDirection: 'row', gap: seg ? 4 : 8, marginBottom: 12 }, seg && { backgroundColor: '#ECEDF0', borderRadius: 14, padding: 4 }]}>
+    <View style={[{ flexDirection: 'row', gap: seg ? 4 : 8, marginBottom: 12 }, seg && { backgroundColor: '#ECEDF0', borderRadius: 14, padding: 4 }, !!cols && { flexWrap: 'wrap', gap: 0, marginHorizontal: -4 }]}>
       {options.map(([k, l]) => {
         const on = k === value;
-        return (
+        const box = (
           <Pressable key={k} onPress={() => onChange(k)} accessibilityRole="tab" accessibilityState={{ selected: on }}
             style={[{ flex: 1, minWidth: 0, minHeight: 34, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8, paddingVertical: seg ? 6 : 8 },
               seg ? [{ borderRadius: 10 }, on && { backgroundColor: '#fff', ...shadowSm }]
                 : { borderRadius: 8, backgroundColor: '#fff', borderWidth: on ? 2 : 1.5, borderColor: on ? t.brand1 : base.line }]}>
-            <Text numberOfLines={2} style={{ textAlign: 'center', fontSize: 12, fontWeight: seg ? '700' : '800', letterSpacing: seg ? 0 : 0.4, textTransform: seg ? 'none' : 'uppercase', color: on ? (seg ? base.ink : t.brand1) : base.slate }}>{l}</Text>
+            <Text numberOfLines={2} style={{ textAlign: 'center', fontSize: 12, fontWeight: seg ? '700' : '800', letterSpacing: seg ? 0 : 0.4, textTransform: seg ? 'none' : 'uppercase', color: on ? base.ink : base.slate }}>{l}</Text>
           </Pressable>
         );
+        // cols: a grid of boxes (e.g. the HUB's two rows of four).
+        return cols ? <View key={k} style={{ width: `${100 / cols}%`, padding: 4 }}>{box}</View> : box;
       })}
     </View>
   );
