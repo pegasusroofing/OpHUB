@@ -12,10 +12,13 @@ import { Button, Card, Check, Muted } from '@/components/ui';
 import { addEvent, addToDeliverySchedule, deleteEvent, saveEvent, useCalendar, useRecipients, type CalEvent, type CalLine, type Draft } from '@/data/calendar';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
+import { deliverFile, exportFilename } from '@/lib/pdf';
 import { monthGrid, ordinal, REPEAT_LABEL, type Repeat } from '@/lib/rules/calendar';
 import { localISODate } from '@/lib/rules/driver';
 import { readIsoDate } from '@/lib/rules/materials';
+import { buildIcs } from '@/lib/rules/ics';
 import { isManager } from '@/lib/roles';
+import { supabase } from '@/lib/supabase';
 import { base, radius, space } from '@/theme/theme';
 
 type View_ = 'week' | 'twoweek' | 'month';
@@ -63,7 +66,7 @@ export default function SiteCalendar() {
 
   const editor = (at: string) => form && form.at === at && (
     <Card style={{ marginTop: 6, borderColor: base.ink, borderWidth: 1.5 }}>
-      <Muted style={{ fontWeight: '700' }}>What's happening</Muted>
+      <Muted style={{ fontWeight: '700' }}>What&apos;s happening</Muted>
       <TextInput value={form.d.title} onChangeText={(t) => setForm({ ...form, d: { ...form.d, title: t } })} placeholder="e.g. Scaffold delivery" style={box} />
       <Muted style={{ fontWeight: '700' }}>Date (YYYY-MM-DD)</Muted>
       <TextInput value={form.d.date} onChangeText={(t) => setForm({ ...form, d: { ...form.d, date: t } })} autoCapitalize="none" style={box} />
@@ -97,7 +100,7 @@ export default function SiteCalendar() {
                   </Pressable>
                 );
               })}
-              <Muted style={{ marginVertical: 6 }}>You'll be copied on the reminder too, as the person who created it.</Muted>
+              <Muted style={{ marginVertical: 6 }}>You&apos;ll be copied on the reminder too, as the person who created it.</Muted>
             </View>
           )}
         </>
@@ -197,7 +200,14 @@ export default function SiteCalendar() {
           </View>
         );
       })}
-      <Muted style={{ marginTop: space.m }}>Still in the current app for now: "Add to phone calendar" and the PM's time off shown on the job calendar.</Muted>
+      <Button kind="ghost" title="📅 Add to phone calendar" onPress={async () => {
+        const today = new Date().toISOString().slice(0, 10);
+        const evs = ((await supabase.from('site_calendar_events').select('id,title,event_date').eq('site_id', id).gte('event_date', today).order('event_date')).data ?? []) as { id: string; title: string | null; event_date: string }[];
+        if (!evs.length) { toast('No upcoming key dates to export.'); return; }
+        const ok = await deliverFile(new TextEncoder().encode(buildIcs(evs, site?.name || '')), exportFilename(site?.name || '', 'Key Dates', 'ics'), 'text/calendar', 'com.apple.ical.ics');
+        toast(ok ? 'Calendar file ready — open it to add these to your phone calendar' : 'Could not build the calendar file — please try again.');
+      }} />
+      <Muted style={{ marginTop: space.m }}>Still in the current app for now: the PM&apos;s time off shown on the job calendar.</Muted>
     </ScrollView>
   );
 }
