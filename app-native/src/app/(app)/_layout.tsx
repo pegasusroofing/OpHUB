@@ -1,8 +1,8 @@
 // The signed-in shell: bottom tabs on a phone, a left-hand menu on a computer
 // (wide web window), like 125-desktop.js in the current app.
-import { router, Tabs, usePathname } from 'expo-router';
+import { Redirect, router, Tabs, usePathname } from 'expo-router';
 import { useEffect } from 'react';
-import { Platform, useWindowDimensions, View } from 'react-native';
+import { Platform, Pressable, Text, useWindowDimensions, View } from 'react-native';
 
 import { OneDriveSaveBar } from '@/components/OneDriveSaveBar';
 import { AppBar } from '@/components/AppBar';
@@ -13,7 +13,7 @@ import { PolicyGate } from '@/components/PolicyGate';
 import { useHsPolicy } from '@/data/hsPolicy';
 import { useAuth } from '@/lib/auth';
 import { usePushTaps } from '@/lib/push';
-import { homeKind } from '@/lib/roles';
+import { homeKind, isFinanceOnlyOrg, isFinanceUser } from '@/lib/roles';
 import { base, useTheme } from '@/theme/theme';
 
 const icon = (name: string) => function TabIcon({ color }: { color: unknown }) { return <OphIcon name={name} size={22} color={String(color)} />; };
@@ -49,6 +49,11 @@ export default function AppLayout() {
   const needsSetup = me?.role === 'admin' && !me._support && !!org && !org.logo_path;
   useEffect(() => { if (needsSetup && path !== '/pm/admin/branding') router.replace('/pm/admin/branding' as never); }, [needsSetup, path]);
   if (policy.data?.pending && policy.data.doc && path !== '/signature' && !me?._support) return <PolicyGate doc={policy.data.doc} />;
+  // A Finance-only company (908 finOnlyRoute): just the Finance app; someone without Finance is told who switches it on.
+  if (me && org && isFinanceOnlyOrg(org) && me.role !== 'superadmin') {
+    if (!isFinanceUser(me, org)) return <FinNoAccess />;
+    if (!/^\/(fin|account|signature|home)(\/|$)/.test(path)) return <Redirect href={'/fin' as never} />;
+  }
   return (
     <View style={{ flex: 1 }}>
     <SupportBar />
@@ -81,6 +86,20 @@ export default function AppLayout() {
       <Tabs.Screen name="fin" options={{ ...hidden, title: 'Finance', headerShown: false }} />
     </Tabs>
     <OneDriveSaveBar />
+    </View>
+  );
+}
+
+function FinNoAccess() {
+  const { signOut } = useAuth();
+  return (
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, backgroundColor: base.paper }}>
+      <View style={{ backgroundColor: base.card, borderRadius: 16, padding: 24, maxWidth: 420, width: '100%', alignItems: 'center', borderWidth: 1, borderColor: base.cardLine }}>
+        <Text style={{ fontSize: 34 }}>🔒</Text>
+        <Text style={{ fontWeight: '800', fontSize: 16, color: base.ink, marginTop: 10, marginBottom: 4, textAlign: 'center' }}>You don’t have OpHUB Finance yet</Text>
+        <Text style={{ color: base.slate, textAlign: 'center', marginBottom: 16 }}>Ask your company admin to switch Finance on for you in Finance › Team.</Text>
+        <Pressable onPress={() => void signOut()} style={{ borderWidth: 1, borderColor: base.line, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 18 }}><Text style={{ fontWeight: '700', color: base.ink }}>Sign out</Text></Pressable>
+      </View>
     </View>
   );
 }

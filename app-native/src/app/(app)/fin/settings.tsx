@@ -63,7 +63,7 @@ export default function FinSettings() {
   const initial = { ...s, auto_job_numbers: !!o?.auto_job_numbers, job_number_prefix: o?.job_number_prefix || '', next_job_number: o?.next_job_number ?? '' };
   const xs = xero?.data, xErr = xero?.error;
   return (
-    <FinPage title="Finance settings" section="settings" sub="general" onSub={(k) => router.push((k === 'codes' ? '/fin/directory?kind=codes' : '/fin/settings') as never)}>
+    <FinPage title="Finance settings" section="settings" sub="general" onSub={(k) => router.push((k === 'codes' ? '/fin/directory?kind=codes' : k === 'team' ? '/fin/team' : '/fin/settings') as never)}>
       {/* Each part opens on its own (the current app's settings list); Edit settings changes them all. */}
       {([
         ['costs', 'Who can see material costs', '👁', 'blue', []],

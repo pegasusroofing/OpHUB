@@ -192,7 +192,7 @@ function Setup({ id, site, jf, cpos, settings }: { id: string; site: Row | undef
   const { me } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
-  const [edit, setEdit] = useState<'job' | 'po' | 'dates' | null>(null);
+  const [edit, setEdit] = useState<'job' | 'po' | 'dates' | 'site' | null>(null);
   const { data: people } = usePeople();
   // Directory clients: the bill-to follows the client's Directory record (9219u — it lives on the client).
   const { data: dirClients = [] } = useQuery({ queryKey: ['finDirClients', me?.org_id], enabled: !!me, queryFn: async () => ((await fdb.from('fin_clients').select('id,name,email,address,postcode').eq('org_id', me?.org_id as string).order('name')).data as Row[] | null) ?? [] });
@@ -229,7 +229,7 @@ function Setup({ id, site, jf, cpos, settings }: { id: string; site: Row | undef
         {kv('Final retention release', jf.final_release_date ? `${fdate(jf.final_release_date)} (set by hand)` : 'End of the defects period')}
         {kv('QS', jf.qs_id ? (people ?? []).find((p) => p.id === jf.qs_id)?.name || '—' : 'None yet')}
         {kv('Company overheads', jf.ohp_pct != null ? `${jf.ohp_pct}%` : `${settings.ohp_pct ?? 0}% (company)`)}
-        <View style={{ marginTop: 8, gap: 8 }}><Button title="Edit project details" onPress={() => setEdit('job')} /><Button kind="ghost" title="📅 Monthly application dates" onPress={() => setEdit('dates')} /></View>
+        <View style={{ marginTop: 8, gap: 8 }}>{isFullManager(me) && <Button kind="ghost" title="✎ Project — name, client, address, status" onPress={() => setEdit('site')} />}<Button title="Edit project details" onPress={() => setEdit('job')} /><Button kind="ghost" title="📅 Monthly application dates" onPress={() => setEdit('dates')} /></View>
       </Card>
       {isFullManager(me) && <View style={{ marginBottom: 8 }}><Button kind="ghost" title="🗑 Delete this project" onPress={() => void delJob()} /></View>}
       <SectionTitle>Client POs</SectionTitle>
@@ -237,6 +237,18 @@ function Setup({ id, site, jf, cpos, settings }: { id: string; site: Row | undef
         <FinRow key={p.id} title={`PO ${p.po_number}${p.is_primary ? ' (main)' : ''}`} sub={[p.po_date ? fdate(p.po_date) : '', p.description, Array.isArray(p.files) && p.files.length ? `${p.files.length} file${p.files.length === 1 ? '' : 's'}` : p.file_name ? '1 file' : ''].filter(Boolean).join(' · ')} onPress={() => { setPo(p); setFile(null); setEdit('po'); }} />
       )) : <Muted style={{ marginBottom: 8 }}>No client PO yet.</Muted>}
       <Button kind="ghost" title="+ Client PO" onPress={() => { setPo(null); setFile(null); setEdit('po'); }} />
+      {edit === 'site' && site && (
+        <FinForm title="Project" note="The same details as on the project itself — change them here or there and both update." initial={{ name: site.name || '', status: site.status === 'closed' ? 'closed' : site.status === 'upcoming' ? 'upcoming' : 'live', start_date: site.start_date || '', client_name: site.client_name || '', address: site.address || '', postcode: site.postcode || '' }} onClose={() => setEdit(null)}
+          fields={[{ k: 'name', label: 'Project name' }, { k: 'status', label: 'Status', kind: 'choice', options: [['upcoming', 'Upcoming'], ['live', 'Live'], ['closed', 'Closed']], half: true }, { k: 'start_date', label: 'Start date', kind: 'date', half: true }, { k: 'client_name', label: 'Client' }, { k: 'address', label: 'Site address' }, { k: 'postcode', label: 'Postcode', half: true }]}
+          onSave={async (v) => {
+            const name = String(v.name || '').trim(); if (!name) return 'A project needs a name.';
+            const p: Row = { name, client_name: String(v.client_name || '').trim() || null, address: String(v.address || '').trim() || null, postcode: String(v.postcode || '').trim().toUpperCase() || null, start_date: String(v.start_date || '') || null };
+            const cur = site.status === 'closed' ? 'closed' : site.status === 'upcoming' ? 'upcoming' : 'live', st = String(v.status || cur);
+            if (st !== cur) { p.status = st === 'live' ? 'active' : st; if (st === 'closed') { p.closed_at = new Date().toISOString(); p.closed_by = me.id; } else { p.closed_at = null; p.closed_by = null; } }
+            if ((await fdb.from('sites').update(p as never).eq('id', id)).error) return 'Could not save — try again.';
+            refresh(); return null;
+          }} />
+      )}
       {edit === 'dates' && (() => {
         const months = Array.from({ length: 13 }, (_, i) => { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 1 + i); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; });
         const custom = (jf.app_dates || {}) as Record<string, string>;
