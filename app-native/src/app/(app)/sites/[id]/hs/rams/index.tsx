@@ -6,22 +6,21 @@ import { HsDocList } from '@/components/HsDocList';
 import { HsDocUpload } from '@/components/HsDocUpload';
 import { PolicyCard } from '@/components/PolicyCard';
 import { confirmAsk, useToast } from '@/components/toast';
-import { Button, Card, Muted, SectionTitle } from '@/components/ui';
+import { Button, Muted } from '@/components/ui';
 import { HowTo } from '@/components/HowTo';
 import { deleteBuild, useSiteBuilds } from '@/data/ramsBuilder';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { isFullManager, isManager } from '@/lib/roles';
-import { base, page, space } from '@/theme/theme';
+import { base, page } from '@/theme/theme';
 
-/** RAMS Builder card (586 ramsBuilderCardHtml): this job's drafts and a start button. PMs and admins only. */
+/** The RAMS builder part of Create / Upload (586 ramsBuilderCardHtml): this job's drafts and a start button. PMs and admins only. */
 function BuilderCard({ siteId }: { siteId: string }) {
   const { data: builds = [] } = useSiteBuilds(siteId);
   const qc = useQueryClient();
   const toast = useToast();
   return (
-    <Card>
-      <SectionTitle>RAMS Builder</SectionTitle>
+    <View>
       <Muted style={{ marginBottom: 8 }}>Write a Risk Assessment and Method Statement from your library, and issue them as two documents.</Muted>
       {builds.map((b) => (
         <Pressable key={b.id} onPress={() => router.push(`/sites/${siteId}/hs/rams/build/${b.id}` as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 9, borderTopWidth: 1, borderColor: base.line }}>
@@ -36,7 +35,7 @@ function BuilderCard({ siteId }: { siteId: string }) {
         </Pressable>
       ))}
       <View style={{ marginTop: 8 }}><Button title="+ Start new RAMS" onPress={() => router.push(`/sites/${siteId}/hs/rams/new` as never)} /></View>
-    </Card>
+    </View>
   );
 }
 
@@ -49,9 +48,8 @@ export default function Rams() {
       <Stack.Screen options={{ title: 'RAMS' }} />
       <HowTo k="rams" />
       <PolicyCard />
-      {site && me && isFullManager(me) && <BuilderCard siteId={site.id} />}
-      {site && me && isManager(me) && <HsDocUpload kind="rams" site={site} />}
       {site ? <HsDocList kind="rams" site={site} /> : <Muted>Loading…</Muted>}
+      {site && me && isManager(me) && <HsDocUpload kind="rams" site={site} createLabel="🦺 Create RAMS" create={isFullManager(me) ? <BuilderCard siteId={site.id} /> : undefined} />}
     </ScrollView>
   );
 }

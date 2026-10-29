@@ -1,11 +1,14 @@
-// Managers' "Upload RAMS / COSHH" panel and "Ask Outstanding to Sign" (580/620).
+// Managers' "Create / Upload RAMS / COSHH" panel and "Ask Outstanding to Sign" (580/620).
+// With `create`, the current app's chooser: two buttons side by side, Create and
+// Upload, each opening its own part; in a card when the job has no documents
+// yet, else behind a "Create / Upload" heading under the list.
 import * as DocumentPicker from 'expo-document-picker';
 import { useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { chooseAction, confirmAsk, useToast } from '@/components/toast';
-import { Button, Card, Muted, Toggle } from '@/components/ui';
+import { Button, Card, Muted, SectionTitle, Toggle } from '@/components/ui';
 import { DOC_LABEL, useHsDocs, type DocKind } from '@/data/hs';
 import { outstanding, RAMS_DOC_TYPES, sendSignReminder, uploadHsDoc } from '@/data/hsManager';
 import { boxesOf, layoutSummary, useSignTemplates } from '@/data/signTemplates';
@@ -13,12 +16,14 @@ import { useAuth } from '@/lib/auth';
 import type { Site } from '@/lib/types';
 import { base, radius } from '@/theme/theme';
 
-export function HsDocUpload({ kind, site, companyId = null }: { kind: DocKind; site: Site; companyId?: string | null }) {
+export function HsDocUpload({ kind, site, companyId = null, create, createLabel }: { kind: DocKind; site: Site; companyId?: string | null; create?: ReactNode; createLabel?: string }) {
   const { me } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
   const { data } = useHsDocs(kind, site, companyId);
   const [open, setOpen] = useState(false);
+  const [making, setMaking] = useState(false);
+  const [wrap, setWrap] = useState(false);
   const [name, setName] = useState('');
   const [type, setType] = useState('RAMS');
   const [sup, setSup] = useState<string | null>(null);
@@ -41,8 +46,22 @@ export function HsDocUpload({ kind, site, companyId = null }: { kind: DocKind; s
           toast(await sendSignReminder(kind, site.id, out));
         }} />
       )}
-      <Toggle title={`Upload ${label}`} open={open} onPress={() => setOpen(!open)} />
-      {open && (
+      {create ? (
+        <>
+          {!!data?.docs.length && <Toggle title={`Create / Upload ${label}`} open={wrap} onPress={() => setWrap(!wrap)} />}
+          {(wrap || !data?.docs.length) && (
+            <Card>
+              {!data?.docs.length && <SectionTitle>{`Create / Upload ${label}`}</SectionTitle>}
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <View style={{ flex: 1 }}><Button kind={making ? 'primary' : 'ghost'} title={createLabel || `Create ${label}`} onPress={() => { setMaking(!making); setOpen(false); }} /></View>
+                <View style={{ flex: 1 }}><Button kind={open ? 'primary' : 'ghost'} title={`📄 Upload ${label}`} onPress={() => { setOpen(!open); setMaking(false); }} /></View>
+              </View>
+              {making && <View style={{ marginTop: 12 }}>{create}</View>}
+            </Card>
+          )}
+        </>
+      ) : <Toggle title={`Upload ${label}`} open={open} onPress={() => setOpen(!open)} />}
+      {open && (!create || wrap || !data?.docs.length) && (
         <Card>
           <TextInput value={name} onChangeText={setName} placeholder={`${label} name`} style={box} />
           {kind === 'rams' && !companyId && (
