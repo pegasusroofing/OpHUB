@@ -34,7 +34,9 @@ export function AppBar({ title, onBack, home, right }: { title?: string; onBack?
   // OpHUB Finance: title on the left, the section under it.
   const fin = /^\/fin(\/|$)/.test(path);
   const finSub = FIN_SUB[(path.split('/')[2] || '')] || 'OpHUB Finance';
-  const sub = home ? 'OpHUB' : fin ? (title === 'OpHUB Finance' ? finSub : 'OpHUB Finance') : site ? fullSiteAddress(site) || site.name : org?.name || 'OpHUB';
+  const finJobSub = (path.match(/^\/fin\/job\/([0-9a-f-]{36})$/) || [])[1];
+  const finClient = finJobSub ? sites?.find((s) => s.id === finJobSub)?.client_name : null;
+  const sub = home ? 'OpHUB' : fin ? (finJobSub ? `Finance${finClient ? ` · ${finClient}` : ''}` : title === 'OpHUB Finance' ? finSub : 'OpHUB Finance') : site ? fullSiteAddress(site) || site.name : org?.name || 'OpHUB';
   const main = home ? org?.name || 'OpHUB' : title || '';
   const sName = site ? [site.job_number, site.name].filter(Boolean).join(' ') : '';
   // Finance trail: Finance › Projects (› SBX-107 Andy House on a project's Finance).

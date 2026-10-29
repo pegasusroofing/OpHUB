@@ -8,30 +8,35 @@ import { useState } from 'react';
 import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { FinForm } from '@/components/FinForm';
-import { FinChip, FinRow, FinStat } from '@/components/FinNav';
+import { FinChip, FinRow } from '@/components/FinNav';
+import { OphIcon } from '@/components/OphIcon';
 import { PurchasesLists } from '@/components/FinPurchases';
 import { SalesLists } from '@/components/FinSales';
 import { SubsLists } from '@/components/FinSubs';
-import { useToast } from '@/components/toast';
+import { chooseAction, useToast } from '@/components/toast';
 import { Button, Card, Muted, SectionTitle } from '@/components/ui';
 import { raiseRetentionInvoice } from '@/data/finApp';
 import { deleteClientPo, saveClientPo, saveJobFinance, saveJobNumber, useBook } from '@/data/finBook';
 import { openDocLink } from '@/data/hs';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
-import { COST_CATS, forecast, marginOn, pctTxt } from '@/lib/rules/finBook';
-import { FIN_VAT_LABEL, fdate, money, num, retentionAlerts, retentionDates, retHalf } from '@/lib/rules/finance';
+import { forecast, pctTxt } from '@/lib/rules/finBook';
+import { heading } from '@/lib/fonts';
+import { FIN_VAT_LABEL, fdate, invOutstandingNet, invOverdue, money, num, retentionAlerts, retentionDates, retHalf, type FinInv } from '@/lib/rules/finance';
 import { isFinanceUser } from '@/lib/roles';
-import { base, page, space } from '@/theme/theme';
+import { base, page, space, useTheme } from '@/theme/theme';
 
 type Row = Record<string, any>;
-const TABS: [string, string][] = [['overview', 'Overview'], ['sales', 'Sales'], ['purchases', 'Purchases'], ['subs', 'Subcontractors & Labour'], ['setup', 'Set-up']];
+const TABS: [string, string][] = [['overview', 'Overview'], ['sales', 'Sales'], ['purchases', 'Purchases'], ['subs', 'Subcontractors & Labour'], ['setup', 'Project Admin']];
+// £10.0k, as the current app's tiles (finK).
+const k = (n: number | null | undefined) => (n == null ? '…' : Math.abs(n) >= 1000 ? `${n < 0 ? '−' : ''}£${(Math.abs(n) / 1000).toFixed(1)}k` : money(n, 0));
 
 export default function FinJob() {
   const { id, tab = 'overview' } = useLocalSearchParams<{ id: string; tab?: string }>();
   const { me, org } = useAuth();
   const { data: site } = useSite(id);
   const { data, isLoading } = useBook(me?.org_id, id);
+  const t = useTheme();
   const [sub, setSub] = useState<Record<string, string>>({ sales: 'invoices', purchases: 'orders', subs: 'orders' });
   if (!me) return null;
   if (!isFinanceUser(me, org)) return <Muted style={{ padding: space.l }}>OpHUB Finance isn&apos;t switched on for your account.</Muted>;
@@ -44,11 +49,27 @@ export default function FinJob() {
   return (
     <ScrollView contentContainerStyle={page(1000)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title }} />
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, marginBottom: 12 }}>
-        {TABS.filter(([k]) => k !== 'boq').map(([k, l]) => <FinChip key={k} on={tab === k} label={l} onPress={() => router.setParams({ tab: k })} />)}
-        {fc && !fc.isInvoiceJob && <FinChip on={false} label="Bill of Quantities" onPress={() => router.push(`/fin/job/${id}/boq` as never)} />}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10, padding: 8, marginBottom: 6 }}>
+        <Pressable onPress={() => router.push(`/sites/${id}` as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 8, paddingVertical: 6, paddingHorizontal: 10 }}>
+          <OphIcon name="home" size={14} color={base.ink} /><Text style={{ fontSize: 12, fontWeight: '700', color: base.ink }}>Home</Text>
+        </Pressable>
+        <Text numberOfLines={1} style={{ flex: 1, fontSize: 13, color: base.ink }}><Text style={{ fontWeight: '800' }}>{s?.job_number || ''}</Text>  {s?.name || ''}</Text>
+        <Pressable onPress={async () => {
+          const opts = [['inv', 'Invoice', `/fin/job/${id}/invoice/new`], ...(fc && !fc.isInvoiceJob ? [['app', 'Application', `/fin/job/${id}/application/new`]] : []), ['po', 'Purchase order', `/fin/po/new?site=${id}`], ['pinv', 'Purchase invoice', `/fin/pinv/new?site=${id}`], ['plant', 'Plant hire', `/fin/plant/new?site=${id}`], ['sub', 'Subcontract', `/fin/sub/new?site=${id}`]];
+          const k = await chooseAction('New', opts.map(([key, label]) => ({ key, label })));
+          const o = opts.find((x) => x[0] === k); if (o) router.push(o[2] as never);
+        }} style={{ backgroundColor: t.brand1, borderRadius: 8, paddingVertical: 7, paddingHorizontal: 14, flexDirection: 'row', gap: 18 }}>
+          <Text style={{ color: t.brand1Text, fontSize: 12.5, fontWeight: '800' }}>+ New</Text><Text style={{ color: t.brand1Text, fontSize: 11 }}>▾</Text>
+        </Pressable>
+      </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ borderBottomWidth: 1, borderBottomColor: '#e5e7eb', marginBottom: 14, flexGrow: 0 }} contentContainerStyle={{ gap: 2 }}>
+        {[...TABS, ...(fc && !fc.isInvoiceJob ? [['boq', 'Bill of Quantities'] as [string, string]] : [])].map(([key, l]) => (
+          <Pressable key={key} onPress={() => (key === 'boq' ? router.push(`/fin/job/${id}/boq` as never) : router.setParams({ tab: key }))} style={{ paddingVertical: 12, paddingHorizontal: 14, borderBottomWidth: 2, borderBottomColor: tab === key ? t.brand1 : 'transparent' }}>
+            <Text style={{ fontSize: 13, fontWeight: tab === key ? '700' : '600', color: tab === key ? '#111827' : '#6b7280' }}>{l}</Text>
+          </Pressable>
+        ))}
       </ScrollView>
-      {isLoading || !fc || !data ? <Muted>Loading…</Muted> : tab === 'overview' ? <Overview id={id} fc={fc} settings={data.settings} />
+      {isLoading || !fc || !data ? <Muted>Loading…</Muted> : tab === 'overview' ? <Overview id={id} fc={fc} settings={data.settings} invs={data.book.invs.filter((i) => i.site_id === id)} />
         : tab === 'sales' ? <>{subTabs('sales', [['invoices', 'Invoices'], ['apps', 'Applications & Certificates'], ['retention', 'Retention']])}<SalesLists key={sub.sales} tab={sub.sales as 'invoices'} siteId={id} /></>
         : tab === 'purchases' ? <>{subTabs('purchases', [['orders', 'Purchase orders'], ['invoices', 'Purchase invoices'], ['plant', 'Plant hire']])}<PurchasesLists key={sub.purchases} tab={sub.purchases as 'orders'} siteId={id} /></>
         : tab === 'subs' ? <>{subTabs('subs', [['orders', 'Subcontractor POs'], ['apps', 'Applications'], ['opinv', 'Operative invoices']])}<SubsLists key={sub.subs} tab={sub.subs as 'orders'} siteId={id} /></>
@@ -57,10 +78,7 @@ export default function FinJob() {
   );
 }
 
-function Overview({ id, fc, settings }: { id: string; fc: ReturnType<typeof forecast>; settings: Row }) {
-  const on = marginOn(fc), mg = on.value - fc.costToDate, mp = on.value ? (mg / on.value) * 100 : null;
-  const tone = (n: number | null) => (n == null || Math.abs(n) < 0.005 ? undefined : n < 0 ? '#C0392B' : '#1E7A3C');
-  const waiting = fc.lines.filter((l) => l.waiting && l.cat !== 'labour').reduce((t, l) => t + l.net, 0);
+function Overview({ id, fc, settings, invs }: { id: string; fc: ReturnType<typeof forecast>; settings: Row; invs: FinInv[] }) {
   const d = retentionDates(fc.jf, settings), alerts = retentionAlerts(fc.jf, settings, fc.retHeld);
   const { me } = useAuth();
   const { data: site } = useSite(id);
@@ -71,29 +89,60 @@ function Overview({ id, fc, settings }: { id: string; fc: ReturnType<typeof fore
     if (r.error) toast(r.error);
     if (r.id) router.push(`/fin/job/${id}/invoice/${r.id}` as never);
   };
+  const valued = fc.sales || 0;
+  const pv = fc.ffa ? Math.max(0, Math.min(100, Math.round((valued / fc.ffa) * 100))) : 0;
+  const mPct = fc.budgetTotal != null && fc.forecastMarginPct != null ? fc.forecastMarginPct : fc.sales ? fc.profitToDatePct : null;
+  const live = invs.filter((i) => i.status !== 'void'), od = live.filter((i) => invOverdue(i));
+  const odV = od.reduce((tt, i) => tt + invOutstandingNet(i), 0);
+  const inv = live.filter((i) => i.status !== 'draft').reduce((tt, i) => tt + Number(i.net || 0), 0);
+  const prof = fc.sales ? fc.profitToDatePct : null;
+  const TINT = { blue: ['#f3f7ff', '#dbe6ff', '#1d4ed8'], green: ['#f1fbf5', '#d3f0de', '#15803d'], red: ['#fff5f4', '#fbdcd9', '#c81e1e'], amber: ['#fffaf0', '#f8e7c2', '#b45309'], grey: ['#fff', '#e5e7eb', '#111827'] } as const;
+  const tiles: { t: string; v: string; sub: string; tone: keyof typeof TINT; go: string }[] = [
+    { t: 'Contract Value', v: k(fc.contract), sub: 'excl. VAT', tone: 'blue', go: `/fin/job/${id}?tab=setup` },
+    { t: 'Variations', v: k(fc.vAgreed), sub: fc.vPending ? `+ ${k(fc.vPending)} waiting for approval` : 'approved variations', tone: 'blue', go: `/fin/job/${id}/variations` },
+    { t: 'Costs', v: k(fc.costToDate), sub: fc.budgetTotal ? `${pctTxt((fc.costToDate / fc.budgetTotal) * 100)} of budget` : 'No budget yet', tone: 'grey', go: `/fin/job/${id}/costs` },
+    { t: 'Profit', v: prof == null ? '—' : pctTxt(prof), sub: prof == null ? 'Nothing valued yet' : `${money(fc.profitToDate, 0)}${fc.ohpPct ? ` after ${fc.ohpPct}% OHP` : ' to date'}`, tone: prof == null ? 'grey' : prof < 0 ? 'red' : 'green', go: `/fin/job/${id}/budget` },
+    ...(fc.isInvoiceJob ? [] : [{ t: 'Applied', v: k(fc.applied), sub: fc.ffa ? `${pctTxt((fc.applied / fc.ffa) * 100)} of final account` : '', tone: 'blue' as const, go: `/fin/job/${id}?tab=sales` }]),
+    { t: 'Invoiced', v: k(inv), sub: 'excl. VAT', tone: 'green', go: `/fin/job/${id}?tab=sales` },
+    { t: 'Overdue', v: k(odV), sub: od.length ? `${od.length} invoice${od.length === 1 ? '' : 's'}` : 'excl. VAT', tone: odV > 0 ? 'red' : 'grey', go: `/fin/job/${id}?tab=sales` },
+    ...(fc.isInvoiceJob ? [] : [{ t: 'Retention', v: k(fc.retHeld), sub: 'still with the client', tone: 'amber' as const, go: `/fin/job/${id}?tab=sales` }]),
+  ];
+  const ghost = (l: string, p: string) => <Pressable key={l} onPress={() => router.push(p as never)} style={{ borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 8, paddingVertical: 7, paddingHorizontal: 12, backgroundColor: '#fff' }}><Text style={{ fontSize: 12, fontWeight: '700', color: base.ink }}>{l}</Text></Pressable>;
   return (
     <View>
-      <SectionTitle>Project summary</SectionTitle>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
-        <FinStat v={money(fc.ffa, 0)} label={fc.ffaFromInvoiced ? 'Expected final value (= invoiced)' : `Expected final value${fc.vPending ? ` · incl. ${money(fc.vPending, 0)} submitted` : ''}`} />
-        <FinStat v={fc.budgetTotal != null ? money(fc.budgetTotal, 0) : '—'} label={fc.budgetTotal == null ? 'Budget not set' : `Budget${fc.budgetSource === 'schedule' ? ' (from the schedule)' : ''}`} onPress={() => router.push(`/fin/job/${id}/budget` as never)} />
-        <FinStat v={fc.budgetTotal == null ? '—' : money(fc.forecastMargin, 0)} label={`Expected profit${fc.budgetTotal == null ? ' — needs a budget' : ` · ${pctTxt(fc.forecastMarginPct)}`}`} hot={fc.forecastMargin < 0} />
-        <FinStat v={money(fc.sales, 0)} label={fc.isInvoiceJob ? 'Invoiced to date' : 'Work valued to date'} />
-        <FinStat v={money(fc.costToDate, 0)} label={`Cost to date${fc.committedTotal ? ` · + ${money(fc.committedTotal, 0)} ordered` : ''}`} />
-        <FinStat v={money(mg, 0)} label={`Profit to date on ${on.label} · ${pctTxt(mp)}${fc.ohpPct ? ' (before overheads)' : ''}`} hot={mg < 0} />
+      <Pressable onPress={() => router.setParams({ tab: 'setup' })}>
+        <Card>
+          <Text style={{ fontSize: 10.5, fontWeight: '800', letterSpacing: 0.6, color: '#6b7280', textTransform: 'uppercase' }}>Forecasted final account</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+            <Text style={[heading(800), { flex: 1, fontSize: 30, color: '#111827' }]}>{money(fc.ffa, 0)}</Text>
+            {mPct == null
+              ? <Pressable onPress={() => router.push(`/fin/job/${id}/budget` as never)} style={{ backgroundColor: '#EEF0F2', borderRadius: 999, paddingVertical: 5, paddingHorizontal: 10 }}><Text style={{ fontSize: 11.5, fontWeight: '700', color: base.ink }}>Set a budget</Text></Pressable>
+              : <Text style={{ fontSize: 11.5, fontWeight: '700', color: mPct < 0 ? '#c81e1e' : '#15803d', backgroundColor: mPct < 0 ? '#fff5f4' : '#f1fbf5', borderRadius: 999, paddingVertical: 5, paddingHorizontal: 10, overflow: 'hidden' }}>{pctTxt(mPct)} {fc.budgetTotal != null ? 'margin' : 'margin to date'}</Text>}
+          </View>
+          <Text style={{ fontSize: 12.5, color: '#6b7280', marginTop: 2 }}>Contract {money(fc.contract, 0)} + {money(fc.vAgreed, 0)} agreed variations{fc.vPending ? ` + ${money(fc.vPending, 0)} submitted` : ''}{fc.budgetTotal != null ? ` · forecast profit ${money(fc.forecastMargin, 0)}` : ''}</Text>
+          <View style={{ height: 6, borderRadius: 3, backgroundColor: '#EEF0F2', marginTop: 14, overflow: 'hidden' }}><View style={{ width: `${pv}%`, height: '100%', backgroundColor: '#15803d' }} /></View>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 }}>
+            <Text style={{ fontSize: 11.5, color: '#6b7280' }}>{money(valued, 0)} {fc.isInvoiceJob ? 'invoiced' : 'valued'} ({pv}%)</Text>
+            <Text style={{ fontSize: 11.5, color: '#6b7280' }}>{fc.ffa ? `${money(Math.max(0, fc.ffa - valued), 0)} to go` : ''}</Text>
+          </View>
+        </Card>
+      </Pressable>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4, marginBottom: 8 }}>
+        {tiles.map((x) => (
+          <View key={x.t} style={{ width: tiles.length > 6 ? '25%' : '33.333%', minWidth: 150, padding: 4, flexGrow: 1 }}>
+            <Pressable onPress={() => router.push(x.go as never)} style={{ backgroundColor: TINT[x.tone][0], borderWidth: 1, borderColor: TINT[x.tone][1], borderRadius: 10, paddingVertical: 10, paddingHorizontal: 12, minHeight: 72 }}>
+              <Text style={{ fontSize: 11, fontWeight: '700', color: '#111827' }}>{x.t}</Text>
+              <Text style={[heading(800), { fontSize: 19, color: TINT[x.tone][2], marginTop: 2 }]}>{x.v}</Text>
+              <Text style={{ fontSize: 11, color: '#6b7280' }}>{x.sub}</Text>
+            </Pressable>
+          </View>
+        ))}
       </View>
-      <Card><Text style={{ color: base.ink }}>Contract {money(fc.contract, 0)} · agreed variations {money(fc.vAgreed, 0)}{fc.vPending ? ` · waiting for agreement ${money(fc.vPending, 0)}` : ''} · <Text style={{ fontWeight: '800' }}>Expected final cost {money(fc.forecastCost, 0)}</Text>{fc.ohpPct ? ` · company overheads ${fc.ohpPct}%` : ''}</Text></Card>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
-        {[['Detailed summary', `/fin/job/${id}/summary`], ['Budget', `/fin/job/${id}/budget`], ['Variations', `/fin/job/${id}/variations`], ['Costs ledger', `/fin/job/${id}/costs`], ['Monthly report', `/fin/job/${id}/monthly`], ['Day works', `/fin/job/${id}/dayworks`]].map(([l, p]) => <View key={l}><Button kind="ghost" title={`${l} ›`} onPress={() => router.push(p as never)} /></View>)}
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
+        {ghost('Full Summary', `/fin/job/${id}/summary`)}
+        <View style={{ flex: 1 }} />
+        {ghost('Monthly Report', `/fin/job/${id}/monthly`)}{ghost('Day Works', `/fin/job/${id}/dayworks`)}{ghost('Budgets', `/fin/job/${id}/budget`)}
       </View>
-      <SectionTitle>Project cost to date (excl. VAT)</SectionTitle>
-      <Card>
-        <FinRow title="Contract value" right={money(fc.contract, 0)} /><FinRow title="Invoiced to client" right={money(fc.invoiced, 0)} />
-        {fc.cats.filter((k) => fc.actual[k] || k === 'materials' || k === 'labour').map((k) => <FinRow key={k} title={COST_CATS[k]} sub={k === 'materials' && waiting ? `+ ${money(waiting, 0)} waiting approval` : undefined} right={money(fc.actual[k], 0)} />)}
-        <FinRow title="Committed" sub="ordered, not invoiced" right={money(fc.committedTotal, 0)} />
-        <FinRow title="Costs to date" right={money(fc.costToDate, 0)} />
-        {fc.invoiced > 0 && <FinRow title="Invoiced less costs" right={money(fc.invoiced - fc.costToDate, 0)} tone={tone(fc.invoiced - fc.costToDate)} />}
-      </Card>
       {!fc.isInvoiceJob && (
         <>
           <SectionTitle>Retention</SectionTitle>
