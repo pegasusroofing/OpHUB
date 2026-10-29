@@ -10,10 +10,10 @@ import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { FinForm } from '@/components/FinForm';
 import { AllocRow } from '@/components/FinSplit';
 import { FinRow, FinStat } from '@/components/FinNav';
-import { confirmAsk, promptText, useToast } from '@/components/toast';
+import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Card, Check, Muted } from '@/components/ui';
 import { openDocLink } from '@/data/hs';
-import { addPinv, duplicateOf, isInXero, loadPinv, setPinvPaid, setPinvStatus } from '@/data/finPurchase';
+import { addPinv, duplicateOf, isInXero, loadPinv, setPinvCostCode, setPinvPaid, setPinvStatus } from '@/data/finPurchase';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { COST_CATS, PI_STATUS } from '@/lib/rules/finBook';
@@ -93,7 +93,12 @@ function ViewPinv({ id }: { id: string }) {
         <FinRow title="Supplier" right={i.supplier_name || '—'} /><FinRow title={i.kind === 'receipt' ? 'Receipt' : 'Invoice no.'} right={i.invoice_no || '—'} /><FinRow title="Date" right={fdate(i.invoice_date)} />
         <FinRow title="Project" right={jobTag(sites.find((s) => s.id === i.site_id))} onPress={() => router.push(`/fin/job/${i.site_id}` as never)} />
         <FinRow title="PO" right={data?.po ? data.po.number : 'No PO'} onPress={data?.po ? () => router.push(`/fin/po/${data.po!.id}` as never) : undefined} />
-        <FinRow title="Cost type" right={COST_CATS[i.cost_code] || 'Materials'} /><FinRow title="VAT" right={money(i.vat)} />
+        <FinRow title="Cost type" right={COST_CATS[i.cost_code] || 'Materials'} onPress={async () => {
+          // Change it after saving (904 setFinPiCostCode) — a bill already in Xero keeps its old account code there.
+          const k = await chooseAction('Cost type', Object.entries(COST_CATS).filter(([c]) => c !== 'labour').map(([key, label]) => ({ key, label }))); if (!k || k === (i.cost_code || 'materials')) return;
+          if ((await isInXero('purchase_invoices', id)) && !(await confirmAsk(`Change the cost type to ${COST_CATS[k]}?\n\n${XERO_Q}`, 'I’ll change Xero too'))) return;
+          toast((await setPinvCostCode(id, k)) ? `Cost type: ${COST_CATS[k]}` : 'Could not save — try again.'); refresh();
+        }} /><FinRow title="VAT" right={money(i.vat)} />
         <AllocRow table="purchase_invoices" row={i} po={data?.po} onSaved={refresh} />
         {i.due_date && <FinRow title="Due" right={fdate(i.due_date)} />}{i.description && <FinRow title="Description" right={i.description} />}
         {i.paid_on && <FinRow title="Paid" right={fdate(i.paid_on)} />}

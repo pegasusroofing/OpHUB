@@ -52,8 +52,22 @@ export async function setPinvStatus(me: Profile, id: string, status: string, not
   const r = await fdb.from('purchase_invoices').update(patch as never).eq('id', id).select('po_id').single();
   if (r.error) return { ok: false, xero: null };
   const x = status === 'approved' && (await xeroAutoOk(me.org_id, 'purchase_invoices', id)) ? await finInvoke(me, 'xero', { action: 'post_bill', purchase_invoice_id: id }) : { error: null };
+  const poId = (r.data as Row | null)?.po_id; if (poId) void poMaybeClose(poId);
   return { ok: true, xero: x.error };
 }
+/** A PO whose value is fully covered by approved invoices is closed as Invoiced; reopened when it no longer is (9219b finPoMaybeClose). */
+export async function poMaybeClose(poId: string): Promise<void> {
+  try {
+    const po = (await fdb.from('purchase_orders').select('id,status,value').eq('id', poId).maybeSingle()).data as Row | null;
+    if (!po || po.value == null || po.status === 'cancelled') return;
+    const inv = ((await fdb.from('purchase_invoices').select('net').eq('po_id', poId).eq('status', 'approved')).data as Row[] | null) ?? [];
+    const done = inv.reduce((t, i) => t + Number(i.net || 0), 0) >= Number(po.value) - 0.005;
+    if (done && po.status === 'open') await fdb.from('purchase_orders').update({ status: 'invoiced' } as never).eq('id', poId);
+    else if (!done && po.status === 'invoiced') await fdb.from('purchase_orders').update({ status: 'open' } as never).eq('id', poId);
+  } catch { /* the invoice is saved either way */ }
+}
+/** Change a saved purchase invoice's cost type (904 setFinPiCostCode). */
+export const setPinvCostCode = async (id: string, code: string) => !(await fdb.from('purchase_invoices').update({ cost_code: code } as never).eq('id', id)).error;
 export const setPinvPaid = async (id: string, date: string | null) => !(await fdb.from('purchase_invoices').update({ paid_on: date } as never).eq('id', id)).error;
 export const isInXero = async (table: string, id: string) => !!(((await fdb.from(table).select('xero_id').eq('id', id).maybeSingle()).data as Row | null)?.xero_id);
 
