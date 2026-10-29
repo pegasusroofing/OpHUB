@@ -7,8 +7,9 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
+import { promptEmail } from '@/components/EmailPrompt';
 import { StorageImage } from '@/components/StorageImage';
-import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
+import { chooseAction, confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle, Toggle } from '@/components/ui';
 import { nameOf, openDocLink, usePeople } from '@/data/hs';
 import { deleteCompletion, HEALTH_ITEMS, inductionItems, setInductionQuestions, submitInduction, useInductions } from '@/data/inductions';
@@ -31,6 +32,7 @@ export default function Inductions() {
   const { data, isLoading } = useInductions(id);
   const { data: people } = usePeople();
   const [tab, setTab] = useState<'outstanding' | 'completed'>('outstanding');
+  const [sel, setSel] = useState<Set<string>>(new Set());
   const [qOpen, setQOpen] = useState(false);
   const [newQ, setNewQ] = useState('');
   const [ticks, setTicks] = useState<Record<number, boolean>>({});
@@ -89,6 +91,7 @@ export default function Inductions() {
           const c = byOp[u];
           return (
             <View key={u} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 6, backgroundColor: base.card }}>
+              {c && mgr && <Pressable hitSlop={8} onPress={() => setSel((x) => { const n = new Set(x); if (n.has(u)) n.delete(u); else n.add(u); return n; })}><Text style={{ fontSize: 18 }}>{sel.has(u) ? '☑' : '☐'}</Text></Pressable>}
               <View style={{ flex: 1 }}>
                 <Text style={{ fontWeight: '700', color: base.ink }}>{nameOf(people, u)}</Text>
                 <Muted>{c ? `✓ Completed ${day(c.completed_at)}` : '○ Not yet completed'}</Muted>
@@ -105,17 +108,19 @@ export default function Inductions() {
         {mgr && <Button kind="ghost" title="☁️ Link OneDrive inductions folder" onPress={() => router.push({ pathname: '/pm/onedrive-pick', params: { target: 'siteinductions', id: id } } as never)} />}
         {mgr && roster.some((u) => byOp[u]?.pdf_path) && (
           <View style={{ flexDirection: 'row', gap: 8, marginTop: space.m }}>
-            {([['pdf', '📄 Export all completed'], ['email', '✉ Email all completed']] as const).map(([k, l]) => <View key={k} style={{ flex: 1 }}><Button kind="ghost" title={l} onPress={async () => {
-              let to = '';
-              if (k === 'email') { to = (await promptText('Email the completed inductions to:', ''))?.trim() || ''; if (!to) return; if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) { toast('Enter a valid email address.'); return; } }
-              const paths = roster.map((u) => byOp[u]?.pdf_path).filter(Boolean) as string[];
+            {([['pdf', sel.size ? `📄 Export ${sel.size} selected` : '📄 Export all completed'], ['email', sel.size ? `✉ Email ${sel.size} selected` : '✉ Email all completed']] as const).map(([k, l]) => <View key={k} style={{ flex: 1 }}><Button kind="ghost" title={l} onPress={async () => {
+              // The ticked inductions, or every completed one (550 exportSelectedInductions / emailSelectedInductions).
+              const who = roster.filter((u) => byOp[u]?.pdf_path && (!sel.size || sel.has(u)));
+              let to: Awaited<ReturnType<typeof promptEmail>> = null;
+              if (k === 'email') { to = await promptEmail(`Email ${who.length} induction${who.length === 1 ? '' : 's'} to:`, { myEmail: me.email, clientEmail: site?.client_email }); if (!to) return; }
+              const paths = who.map((u) => byOp[u]?.pdf_path).filter(Boolean) as string[];
               toast('Building PDF…');
               const merged = await PDFDocument.create(); let failed = 0;
               for (const p of paths) { try { const b = await fetchBytes(publicUrl('mc-documents', p)); if (!b) { failed++; continue; } const src = await PDFDocument.load(b, { ignoreEncryption: true }); (await merged.copyPages(src, src.getPageIndices())).forEach((pg) => merged.addPage(pg)); } catch { failed++; } }
               if (!merged.getPageCount()) { toast('Could not load the induction PDFs — check your connection and try again.'); return; }
               const name = exportFilename(site?.name || '', `Site Inductions (${paths.length - failed})`, 'pdf'), bytes = await merged.save();
               if (k === 'pdf') { if (!(await deliverPdf(bytes, name))) toast('Could not save the PDF.'); }
-              else { const err = await emailPdf(bytes, name, `${id}/induction-exports`, { site_id: id, recipient_email: to, doc_title: `Site Inductions — ${site?.name || ''}` }); toast(err || `Emailed to ${to}`); }
+              else if (to) { const err = await emailPdf(bytes, name, `${id}/induction-exports`, { site_id: id, recipient_email: to.to, cc_email: to.cc, client_cc_email: to.clientCc, doc_title: `Site Inductions — ${site?.name || ''}` }); toast(err || `Emailed to ${to.to}`); if (!err) setSel(new Set()); }
               if (failed) toast(`${failed} induction PDF${failed === 1 ? '' : 's'} could not be included — check your connection.`);
             }} /></View>)}
           </View>

@@ -2,26 +2,32 @@
 // "Tap to sign" shows on completed briefings that are issued and you haven't signed.
 // Managers: "+ New Briefing" from the company's Daily Briefing template, and an
 // unfinished one opens to carry on filling it in; admins can delete unfinished ones.
-// Ported from renderDailyBriefings (700). PDF export/email are still to come.
+// Ported from renderDailyBriefings (700). Managers can tick several completed briefings and export or
+// email them as one PDF, each with its signatures.
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
-import { confirmAsk, useToast } from '@/components/toast';
+import { promptEmail } from '@/components/EmailPrompt';
+import { buildReportWithSigs } from '@/components/ReportPdfActions';
+import { confirmAsk, showAlert, useToast } from '@/components/toast';
 import { Button, Empty, Muted, Row, Toggle } from '@/components/ui';
 import { briefingTemplate, deleteBriefing, signBriefing, useBriefings, type Submission } from '@/data/briefings';
 import { nameOf, usePeople } from '@/data/hs';
 import { startReport } from '@/data/reports';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
+import { deliverPdf, emailPdf, exportFilename, PDFDocument } from '@/lib/pdf';
+import type { PdfSub } from '@/lib/reportPdf';
+import { supabase } from '@/lib/supabase';
 import { REPORT_STATUS_LABEL, weekKeyOf, weekLabelOf } from '@/lib/rules/reports';
 import { isManager } from '@/lib/roles';
-import { base, page, radius, space } from '@/theme/theme';
+import { base, page, radius } from '@/theme/theme';
 
 export default function Briefings() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { me } = useAuth();
+  const { me, org } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
   const { data: site } = useSite(id);
@@ -29,6 +35,7 @@ export default function Briefings() {
   const { data: people } = usePeople();
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [busy, setBusy] = useState(false);
+  const [sel, setSel] = useState<Set<string>>(new Set());
   if (!me) return null;
   const mgr = isManager(me);
   const current = weekKeyOf(new Date());
@@ -44,9 +51,44 @@ export default function Briefings() {
     if (r.ok) refresh();
   };
 
+  // The ticked briefings as one PDF, oldest first, each with its signature table.
+  const merged = async () => {
+    const ids = (data?.subs ?? []).filter((s) => sel.has(s.id) && s.status === 'completed').sort((a, b) => a.submitted_at.localeCompare(b.submitted_at)).map((s) => s.id);
+    if (!ids.length || !site) { toast('Only completed briefings can be exported.'); return null; }
+    const rows = ((await supabase.from('report_submissions').select('*').in('id', ids)).data ?? []) as unknown as PdfSub[];
+    const out = await PDFDocument.create(); let n = 0;
+    for (const sid of ids) {
+      const r = rows.find((x) => x.id === sid); if (!r) continue;
+      toast(`Building ${r.template_name}…`);
+      const b = await buildReportWithSigs(r, site, org, (u) => nameOf(people, u), true);
+      if (!b) { toast(`Could not add "${r.template_name}" — skipped.`); continue; }
+      const d = await PDFDocument.load(b.bytes); (await out.copyPages(d, d.getPageIndices())).forEach((p) => out.addPage(p)); n++;
+    }
+    if (!n) { toast('Could not build the PDF.'); return null; }
+    return { bytes: await out.save(), filename: exportFilename(site.name, `Daily Briefings (${n})`, 'pdf'), n };
+  };
+  const tick = (sid: string) => setSel((x) => { const s = new Set(x); if (s.has(sid)) s.delete(sid); else s.add(sid); return s; });
+
   return (
     <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'Daily Briefings' }} />
+      {mgr && sel.size > 0 && (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+          <Text style={{ fontWeight: '700', color: base.ink }}>{sel.size} selected</Text>
+          <Button kind="ghost" busy={busy} title="📄 Export as one PDF" onPress={async () => { setBusy(true); try { const m = await merged(); if (m && !(await deliverPdf(m.bytes, m.filename))) toast('Could not save the PDF.'); } finally { setBusy(false); } }} />
+          <Button kind="ghost" busy={busy} title="✉ Email" onPress={async () => {
+            if (!site) return;
+            const to = await promptEmail(`Email the selected briefings (${sel.size}) as one PDF to:`, { myEmail: me.email, clientEmail: site.client_email }); if (!to) return;
+            setBusy(true);
+            try {
+              const m = await merged(); if (!m) return;
+              const err = await emailPdf(m.bytes, m.filename, `${id}/briefing-exports`, { site_id: id, recipient_email: to.to, cc_email: to.cc, client_cc_email: to.clientCc, doc_title: `Daily Briefings (${m.n})` });
+              if (err) showAlert(err); else { toast('Emailed'); setSel(new Set()); }
+            } finally { setBusy(false); }
+          }} />
+          <Pressable onPress={() => setSel(new Set())}><Text style={{ color: base.slate }}>Clear</Text></Pressable>
+        </View>
+      )}
       {mgr && site && (
         <>
           <Button busy={busy} disabled={data?.hasTemplate === false} title="+ New Briefing" onPress={async () => {
@@ -78,7 +120,9 @@ export default function Briefings() {
                   <Row title={`${s.template_name} · ${REPORT_STATUS_LABEL[s.status] || s.status}`}
                     sub={`${s.status === 'in_progress' ? 'Started' : 'Completed'} ${new Date(s.submitted_at).toLocaleString('en-GB')} · ${nameOf(people, s.submitted_by)}\n${s.issued_at ? `Issued for signing · ${sigs.length} signed` : 'Not issued for signing'}`}
                     onPress={go}
-                    extra={s.status === 'in_progress' && me.role === 'admin' ? (
+                    extra={mgr && s.status === 'completed' ? (
+                      <Pressable hitSlop={8} onPress={() => tick(s.id)}><Text style={{ fontSize: 18 }}>{sel.has(s.id) ? '☑' : '☐'}</Text></Pressable>
+                    ) : s.status === 'in_progress' && me.role === 'admin' ? (
                       <Pressable hitSlop={8} onPress={async () => {
                         if (!(await confirmAsk('Delete this unfinished briefing? This cannot be undone.', 'Delete'))) return;
                         if (await deleteBriefing(s.id)) { toast('Briefing deleted'); refresh(); } else toast('Could not delete — try again.');
