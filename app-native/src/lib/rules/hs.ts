@@ -62,8 +62,11 @@ export const TBT_STATUS_LABEL: Record<string, string> = { bank: 'BANK', live: 'L
 
 /* ---------- per-job tile visibility (sites.tile_visibility) ---------- */
 export const TILE_VIS_ALL = ['site_manager', 'operative', 'driver'];
+const CLIENT_HS = ['hs_rams', 'hs_coshh', 'hs_tbt', 'hs_havspuwer', 'hs_operatives'];
 export function canSeeTile(site: { tile_visibility?: Record<string, string[]> | null } | null, key: string, role: string, def: string[] = TILE_VIS_ALL): boolean {
-  if (['pm', 'admin', 'superadmin', 'client'].includes(role)) return true;
+  // Clients see RAMS, COSHH, Toolbox Talks, completed tool inspections and the job's operatives (630 isClient branch).
+  if (role === 'client') return !key.startsWith('hs_') || CLIENT_HS.includes(key);
+  if (['pm', 'admin', 'superadmin'].includes(role)) return true;
   const v = site?.tile_visibility?.[key];
   return (Array.isArray(v) ? v : def).includes(role);
 }

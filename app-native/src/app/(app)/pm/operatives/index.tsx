@@ -48,7 +48,8 @@ export default function Operatives() {
     queryFn: async () => new Set((((await supabase.from('site_assignments').select('user_id').eq('site_id', site as string)).data ?? []) as { user_id: string }[]).map((r) => r.user_id)),
   });
   if (!me) return null;
-  if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
+  // A client sees the job's operatives (630/670 client view); everything else is managers only.
+  if (!isManager(me) && !(me.role === 'client' && site)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
   const siteName = site ? sites.find((s) => s.id === site)?.name : null;
   const shown = ops.filter((o) => (!site || onSite?.has(o.id)) && (!q.trim() || (o.name || '').toLowerCase().includes(q.trim().toLowerCase())));
   return (

@@ -99,3 +99,13 @@ export async function insertNumbered(table: string, scope: { col: string; val: s
   }
   return null;
 }
+
+/** Should this record go to Xero automatically? (907 finXeroAuto) Only when Xero is connected, the company
+ *  has "send automatically" on, and the record isn't opted out or already in Xero. The trial still blocks the call. */
+export async function xeroAutoOk(orgId: string | null | undefined, table: 'fin_invoices' | 'purchase_invoices' | 'fin_sub_payments', id: string): Promise<boolean> {
+  if (!orgId) return false;
+  const st = (await loadSettings(orgId)) as Record<string, unknown>;
+  if (!st.xero_tenant_name || !st.xero_auto) return false;
+  const rec = ((await fdb.from(table).select('xero_post,xero_id').eq('id', id).maybeSingle()).data as { xero_post?: boolean | null; xero_id?: string | null } | null);
+  return !(rec && (rec.xero_post === false || rec.xero_id));
+}

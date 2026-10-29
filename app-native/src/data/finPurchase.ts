@@ -2,7 +2,7 @@
 // over-the-PO and nothing-received flags), approving / querying / rejecting,
 // paid dates, and a PO's value and status. Posting bills to Xero is off
 // during the Finance trial.
-import { fdb, finInvoke } from '@/data/finance';
+import { fdb, finInvoke, xeroAutoOk } from '@/data/finance';
 import { money, round2, today } from '@/lib/rules/finance';
 import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/lib/types';
@@ -51,7 +51,7 @@ export async function setPinvStatus(me: Profile, id: string, status: string, not
   if (status === 'query') patch.query_note = note || 'Query';
   const r = await fdb.from('purchase_invoices').update(patch as never).eq('id', id).select('po_id').single();
   if (r.error) return { ok: false, xero: null };
-  const x = status === 'approved' ? await finInvoke(me, 'xero', { action: 'post_bill', purchase_invoice_id: id }) : { error: null };
+  const x = status === 'approved' && (await xeroAutoOk(me.org_id, 'purchase_invoices', id)) ? await finInvoke(me, 'xero', { action: 'post_bill', purchase_invoice_id: id }) : { error: null };
   return { ok: true, xero: x.error };
 }
 export const setPinvPaid = async (id: string, date: string | null) => !(await fdb.from('purchase_invoices').update({ paid_on: date } as never).eq('id', id)).error;

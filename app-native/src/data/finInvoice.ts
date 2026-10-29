@@ -2,10 +2,10 @@
 // saving, issuing (the database hands out the next number, the PDF is kept
 // with it), voiding, payments received, and the PDF. Posting to Xero and
 // emailing the invoice are switched off while Finance is on trial.
-import { fdb, finInvoke, loadSettings } from '@/data/finance';
+import { fdb, finInvoke, loadSettings, xeroAutoOk } from '@/data/finance';
 import { buildInvoicePdf } from '@/lib/finInvoicePdf';
 import { addDays, round2, today } from '@/lib/rules/finance';
-import { cleanLines, invTotals, treatmentOf, type InvLine } from '@/lib/rules/finInvoice';
+import { cleanLines, invTotals, treatmentOf, type InvLine, INV_VAT } from '@/lib/rules/finInvoice';
 import { supabase } from '@/lib/supabase';
 import type { Organization, Profile } from '@/lib/types';
 
@@ -19,11 +19,16 @@ export async function newInvoice(me: Profile, site: Row): Promise<string | null>
     fdb.from('client_pos').select('po_number').eq('site_id', site.id).order('is_primary', { ascending: false }).order('created_at').limit(1),
   ]);
   const j = (jf.data as Row | null) || {};
+  // The client's VAT code from the Directory goes on the first line (9219n), e.g. reverse charge.
+  const billName = String(j.billing_name || site.client_name || '').trim();
+  const cl = billName ? ((await fdb.from('fin_clients').select('name,sales_vat').eq('org_id', me.org_id as string)).data as Row[] | null)?.find((c) => String(c.name || '').trim().toLowerCase() === billName.toLowerCase()) : null;
+  const code = ({ '20': '20', '5': '5', rc20: 'rc20', rc5: 'rc5', '0': '0', ex: 'ex', none: 'ex' } as Record<string, string>)[String(cl?.sales_vat || '')];
+  const firstLine = code && INV_VAT[code] ? { description: '', amount: null, vat: code } : { description: '', amount: null };
   const d = today(), due = j.due_days != null ? j.due_days : st.default_due_days;
   const r = await fdb.from('fin_invoices').insert({
     org_id: me.org_id, site_id: site.id, status: 'draft', issue_date: d, due_date: addDays(d, Number(due) || 30),
     client_po: ((pos.data as Row[] | null) || [])[0]?.po_number || null, bill_name: j.billing_name || site.client_name || null, bill_address: j.billing_address || null,
-    bill_email: j.billing_email || site.client_email || null, vat_treatment: j.vat_treatment || st.default_vat || 'standard', lines: [{ description: '', amount: null }], created_by: me.id, source: 'manual',
+    bill_email: j.billing_email || site.client_email || null, vat_treatment: j.vat_treatment || st.default_vat || 'standard', lines: [firstLine], created_by: me.id, source: 'manual',
   } as never).select('id').single();
   return (r.data as { id: string } | null)?.id ?? null;
 }
@@ -60,7 +65,7 @@ export async function issue(me: Profile, org: Organization | null, id: string, s
   if (!inv) return { inv: null, error: 'Could not issue — try again.', xero: null };
   await storePdf(me, org, inv, site);
   // Posting to Xero — blocked by the Finance trial for RTB.
-  const x = inv.xero_post !== false ? await finInvoke(me, 'xero', { action: 'post_invoice', invoice_id: inv.id }) : { error: null };
+  const x = (await xeroAutoOk(me.org_id, 'fin_invoices', inv.id)) ? await finInvoke(me, 'xero', { action: 'post_invoice', invoice_id: inv.id }) : { error: null };
   return { inv, error: null, xero: x.error };
 }
 export const voidInvoice = async (id: string) => !(await fdb.from('fin_invoices').update({ status: 'void', updated_at: new Date().toISOString() } as never).eq('id', id)).error;

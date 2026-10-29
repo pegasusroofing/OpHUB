@@ -129,7 +129,7 @@ function Editor({ a0, jf, previousLive }: { a0: Row; jf: Row; previousLive: numb
         <FinRow title="Gross valuation to date" right={money(c.gross)} />
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 }}>
           <Text style={{ flex: 1, color: base.ink }}>Less discount %</Text>
-          {stage === 'draft' || (stage === 'applied' && a0.cert_net == null) ? <TextInput defaultValue={String(pct(a.discount_pct || 0))} onChangeText={(v) => setA({ ...a, discount_pct: pct(v) })} keyboardType="decimal-pad" style={[box, { width: 64 }]} /> : <Text>{pct(a.discount_pct || 0)}%</Text>}
+          {stage === 'draft' ? <TextInput defaultValue={String(pct(a.discount_pct || 0))} onChangeText={(v) => setA({ ...a, discount_pct: pct(v) })} keyboardType="decimal-pad" style={[box, { width: 64 }]} /> : <Text>{pct(a.discount_pct || 0)}%</Text>}
           <Text style={{ width: 96, textAlign: 'right', color: base.ink }}>−{money(c.discount)}</Text>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 }}>
@@ -184,7 +184,7 @@ function Certificate({ a, previous, onSaved }: { a: Row; previous: number; onSav
   const { me, org } = useAuth();
   const { data: site } = useSite(a.site_id);
   const toast = useToast();
-  const [v, setV] = useState<Row>({ cert_date: today(), cert_gross: String(round2(a.gross)), cert_retention: String(round2(a.retention)), cert_previous: String(round2(previous)), cert_discount: '0', cert_notes: '', cert_is_payless: false, invoiceNow: true });
+  const [v, setV] = useState<Row>({ cert_date: today(), cert_gross: String(round2(a.gross)), cert_retention: String(round2(a.retention)), cert_previous: String(round2(previous)), cert_discount: String(round2(a.discount != null ? Number(a.discount) : (Number(a.gross || 0) * Number(a.discount_pct || 0)) / 100)), cert_notes: '', cert_is_payless: false, invoiceNow: false });
   const [file, setFile] = useState<{ uri: string; name: string; mimeType?: string | null } | null>(null);
   const [busy, setBusy] = useState(false);
   if (!me) return null;

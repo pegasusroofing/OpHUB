@@ -5,7 +5,7 @@ Seven read-only checks went through every old file in `src/js/` and compared eac
 HIGH = money, data, permissions, safety or a daily job. MED = noticeable. LOW = rarely used or minor.
 
 ## Core, Home, Admin (000–270)
-- HIGH OPEN — Phone tabs for site managers, clients and subcontractor logins: no way to HR, HUB, Inbox or My Dashboard on a phone (old bottom bar). Site managers had an HR row on Projects.
+- HIGH FIXED — Phone tabs for site managers, clients and subcontractor logins: no way to HR, HUB, Inbox or My Dashboard on a phone (old bottom bar). Site managers had an HR row on Projects.
 - MED OPEN — Tapping a push notification doesn't open the right page (no tap listener; route map uses old paths).
 - MED OPEN — Setting the responsible PM from the Projects list doesn't notify that PM (notify-site-assignment).
 - MED OPEN — "Needs your signature" pop-up on Home for unsigned company policies.
@@ -43,10 +43,10 @@ HIGH = money, data, permissions, safety or a daily job. MED = noticeable. LOW = 
 - LOW OPEN — close/reopen address from the list; SoW email recipient tick list; library template preview; Excel import template download; multi-site address carry-over on add; old photo size backfill; leftover-photo view; photo mark-up select tool; snag closing photo from library; MC inspections listed per company; inspection templates from the job; client sees sign box on site layout; OneDrive inductions folder show/unlink; sub company library in the hub; subcontractor RAMS per company on the RAMS page; delete superseded RAMS; RAMS multi-page signing tick.
 
 ## H&S, materials, plant (584–760)
-- HIGH OPEN — Clients' H&S folder shows only RAMS, COSHH, TBT, Completed Inspections (PUWER) and Operative Dashboard (new shows all 8).
+- HIGH FIXED — Clients' H&S folder shows only RAMS, COSHH, TBT, Completed Inspections (PUWER) and Operative Dashboard (new shows all 8).
 - HIGH OPEN — HAVS typed minutes saved when you leave the page or the app goes to the background.
 - MED OPEN — Hidden H&S screens open by direct link (no route guard).
-- MED OPEN — Client's Operatives tile: read-only list of the job's operatives and certificates.
+- MED FIXED — Client's Operatives tile: read-only list of the job's operatives and certificates.
 - MED OPEN — HAVS: manager adds an operative not assigned to the job.
 - MED OPEN — COSHH products in bulk from many data sheets.
 - MED OPEN — COSHH on a job: tick several / select all → one PDF or email; "Email all signed COSHH".
@@ -67,7 +67,7 @@ HIGH = money, data, permissions, safety or a daily job. MED = noticeable. LOW = 
 
 ## Finance part 1 (900–9219j)
 The money calculations themselves (invoice VAT rounding, application maths, retention, CIS, plant cost, forecast/OHP, reports) were checked line by line and match. The gaps are missing actions:
-- HIGH OPEN — Xero posting rule: only post when Xero is connected, the company's "send automatically" is on and the record isn't already in Xero (invoices and approved purchase invoices). Today only the trial stops it.
+- HIGH FIXED — Xero posting rule: only post when Xero is connected, the company's "send automatically" is on and the record isn't already in Xero (invoices and approved purchase invoices). Today only the trial stops it.
 - HIGH OPEN — Application as Excel (the client document) and upload a valued Excel back. (Same as part 2.)
 - HIGH OPEN — CIS payment statement PDF for a subcontractor payment.
 - HIGH OPEN — Add / edit / delete "other" job costs (prelims, site costs).
@@ -77,16 +77,16 @@ The money calculations themselves (invoice VAT rounding, application maths, rete
 
 ## Finance part 2 (9219k–922)
 - HIGH OPEN — Site variations imported into Finance's register (forecast, Variations tile and page leave them out).
-- HIGH OPEN — New invoice takes the client's default VAT code (reverse charge).
+- HIGH FIXED — New invoice takes the client's default VAT code (reverse charge).
 - HIGH OPEN — Application Excel / PDF in the old layout; upload the Excel back.
 - HIGH OPEN — Certify line by line (Certified % per line; cert_lines saved; from the client's Excel/PDF).
-- HIGH OPEN — Certificate discount starts from the application's discount; discount on an Applied application saved.
+- HIGH FIXED — Certificate discount starts from the application's discount. (The discount on an Applied application can no longer be typed into and then lost; it's set while the application is a draft.)
 - HIGH OPEN — Open draft application keeps up with newly approved / unapproved variations and day works.
 - HIGH OPEN — Application autosave with a copy kept on the device.
 - HIGH OPEN — Release retention through an application.
 - HIGH TRIAL — New PO builder in Finance (job per line, Disc %, cost codes, site contact).
-- MED OPEN — "Raise and issue the invoice now" should start unticked when certifying.
+- MED FIXED — "Raise and issue the invoice now" should start unticked when certifying.
 - MED OPEN — Statements: add a line by hand, change a line's type, "lines add up to" check.
 - MED OPEN — Add a line / section inside an application; delete a job (with the booked-items check); BoQ autosave and line fields (plot, cost rate, margin); bill-to synced with the Directory; send a variation to the SoW.
-- MED OPEN — Company VAT rates list; row ⋯ delete application at any stage + export; per-line Previous / This period columns; list month pickers and value filters; Project Admin fields (QS, monthly application dates, final release date, project details); site-progress suggestions on applications; Purchase Quotes tab and price list edit; edit a yard-stock cost line; link Directory supplier to Projects supplier; contract value vs BoQ total choice; budgets from a target margin; retention halves use held not still-held; SoW report attached to applications; Send pop-up; BoQ export / margin tool / add item at a position; site variation value sync; double-tap locks (retention half could raise two invoices).
+- MED OPEN — Company VAT rates list; row ⋯ delete application at any stage + export; per-line Previous / This period columns; list month pickers and value filters; Project Admin fields (QS, monthly application dates, final release date, project details); site-progress suggestions on applications; Purchase Quotes tab and price list edit; edit a yard-stock cost line; link Directory supplier to Projects supplier; contract value vs BoQ total choice; budgets from a target margin; retention halves use held not still-held; SoW report attached to applications; Send pop-up; BoQ export / margin tool / add item at a position; site variation value sync; double-tap locks (retention half now FIXED; others open).
 - LOW OPEN — Getting started card; stage drop-down; tile option menus; variation/day work attachments; over/under budget bars; voided invoices fold; raw database messages; Detailed Summary search; project Purchases "All" tab.

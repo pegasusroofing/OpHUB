@@ -83,9 +83,12 @@ function Overview({ id, fc, settings, invs }: { id: string; fc: ReturnType<typeo
   const { me } = useAuth();
   const { data: site } = useSite(id);
   const toast = useToast();
+  // One tap at a time: a double tap could otherwise raise two release invoices (922).
+  const [retBusy, setRetBusy] = useState(false);
   const retInv = async (n: 1 | 2) => {
-    if (!me) return;
-    const r = await raiseRetentionInvoice(me, id, n, site as never);
+    if (!me || retBusy) return;
+    setRetBusy(true);
+    const r = await raiseRetentionInvoice(me, id, n, site as never).finally(() => setRetBusy(false));
     if (r.error) toast(r.error);
     if (r.id) router.push(`/fin/job/${id}/invoice/${r.id}` as never);
   };
