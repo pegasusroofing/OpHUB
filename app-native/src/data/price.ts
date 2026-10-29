@@ -90,3 +90,20 @@ export async function removeVariation(me: Profile, siteId: string, v: PriceVaria
   if (me.org_id) void db.from('site_activity_log').insert({ org_id: me.org_id, site_id: siteId, actor_id: me.id, action: 'variation_to_price_deleted', description: `Deleted variation to price request "${v.note || ''}"` } as never);
   return true;
 }
+
+// Colour groups of tiles (390 pbCreateGroupForElement …): set up from each tile's ⋮.
+export const GROUP_COLOURS = [
+  { name: 'Blue', hex: '#1E88E5' }, { name: 'Green', hex: '#2E7D32' }, { name: 'Orange', hex: '#E67E22' },
+  { name: 'Purple', hex: '#8E44AD' }, { name: 'Red', hex: '#C0392B' }, { name: 'Teal', hex: '#00897B' },
+];
+export async function newGroupFor(me: Profile, siteId: string, subId: string | null, elementId: string, name: string, existing: number): Promise<boolean> {
+  const r = await db.from('pricing_element_groups').insert({ site_id: siteId, sub_site_id: subId, name, color: GROUP_COLOURS[existing % GROUP_COLOURS.length].hex, created_by: me.id } as never).select('id').single();
+  if (r.error) return false;
+  return !(await db.from('pricing_elements').update({ group_id: (r.data as { id: string }).id } as never).eq('id', elementId)).error;
+}
+export async function setElementGroup(elementId: string, groupId: string | null): Promise<boolean> {
+  return !(await db.from('pricing_elements').update({ group_id: groupId } as never).eq('id', elementId)).error;
+}
+export async function updateGroup(groupId: string, patch: { name?: string; color?: string }): Promise<boolean> {
+  return !(await db.from('pricing_element_groups').update(patch as never).eq('id', groupId)).error;
+}

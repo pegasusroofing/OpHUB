@@ -2,13 +2,17 @@
 // address filter, overall progress, the three tabs, documents, the ungrouped list,
 // sections with done counts, and the Site condition close-out.
 // Managers also get: + Add task per group (with address on multi-site jobs), a ⋮ menu
-// per section (duplicate, rename, delete), More (add section, add variation work),
-// and Select Multiple → delete. Still to port: the library, Excel/PDF import,
-// documents upload/visibility, visibility assigning, export/email.
+// per section (duplicate, rename, delete, who can see it), More (add section, from the
+// library, variation work, import tasks from Excel / CSV / PDF, add the office copy of
+// the schedule), documents (managers-only, remove), tagging tasks to a subcontractor
+// on main-contractor jobs, Select Multiple → delete, and export / email.
+import { useQuery } from '@tanstack/react-query';
+import * as DocumentPicker from 'expo-document-picker';
 import { Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Linking, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 
+import { FinForm } from '@/components/FinForm';
 import { SowTaskRow } from '@/components/SowTaskRow';
 import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { SowExport } from '@/components/SowExport';
@@ -17,14 +21,21 @@ import {
   addLeftoverPhoto, closeOutSiteCondition, documentLink, markViewedOnce, saveFlag, useSchedule, type Flag, type Task,
 } from '@/data/sow';
 import { useSite } from '@/data/sites';
-import { addSection, addTask, addVariationWork, copyLibraryTemplate, deleteSection, deleteTasks, duplicateSection, libraryTemplates, markSowViewed, renameSection } from '@/data/sowManager';
+import {
+  addSection, addTask, addVariationWork, copyLibraryTemplate, deleteSection, deleteSowDoc, deleteTasks, duplicateSection, importTasks, libraryTemplates, markSowViewed, renameSection,
+  setSowDocVisibility, uploadSowDocs,
+} from '@/data/sowManager';
 import { useAuth } from '@/lib/auth';
 import { pickPhotos } from '@/lib/photos';
 import { fullSiteAddress } from '@/lib/rules/checkin';
 import {
   doneCount, filterTasks, overallPct, sectionVisible, siteConditionSaved, SOW_FILTER_LABEL, SOW_FILTERS, tasksForAddress, type SowFilter,
 } from '@/lib/rules/sow';
+import { pdfLines } from '@/lib/pdfjs';
 import { isManager } from '@/lib/roles';
+import { columnTasks, pdfTaskLines, sheetColumns } from '@/lib/rules/sowImport';
+import { csvRows, readXlsx } from '@/lib/rules/xlsxRead';
+import { supabase } from '@/lib/supabase';
 import { VisibilityEditor } from '@/components/VisibilityEditor';
 import { onQueueChange, onUploadsSent, pendingUploads, type UploadJob } from '@/lib/uploadQueue';
 import { base, radius, space } from '@/theme/theme';
@@ -43,6 +54,9 @@ export default function Schedule() {
   const [pctPrompt, setPctPrompt] = useState<string | null>(null);
   const [selecting, setSelecting] = useState<Set<string> | null>(null);
   const [adding, setAdding] = useState<string | null>(null); // group key with the add-task box open
+  const [pdfText, setPdfText] = useState<string | null>(null); // tasks read from a PDF, to check before adding
+  // Main-contractor jobs: the job's subcontractors, for tagging tasks (460).
+  const { data: subCos = [] } = useQuery({ queryKey: ['sowSubCos', site?.id], enabled: !!site?.acting_as_main_contractor, queryFn: async () => (((await supabase.from('subcontractor_companies' as never).select('id,name').eq('site_id', site?.id as string)).data as { id: string; name: string }[] | null) ?? []) });
 
   useEffect(() => {
     pendingUploads().then(setPending);
@@ -80,7 +94,7 @@ export default function Schedule() {
   if (!site || !me) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   const changed = () => { void refetch(); };
   const row = (t: Task) => (
-    <SowTaskRow key={t.id} me={me} site={site} task={t} photos={view?.photosByTask[t.id] ?? []}
+    <SowTaskRow key={t.id} me={me} site={site} task={t} subCos={subCos} photos={view?.photosByTask[t.id] ?? []}
       pending={pending.filter((j) => j.waitKey === t.id)} address={t.sub_site_id ? view?.addrById[t.sub_site_id] : null}
       onChanged={changed} percentPrompt={pctPrompt === t.id} setPercentPrompt={(on) => setPctPrompt(on ? t.id : null)}
       addresses={data?.addresses ?? []} selectMode={!!selecting} selected={!!selecting?.has(t.id)}
@@ -112,7 +126,37 @@ export default function Schedule() {
     }
   };
   const more = async () => {
-    const k = await chooseAction('Schedule of Works', [{ key: 'sec', label: '📁 Add Section' }, { key: 'lib', label: '📚 From Library' }, { key: 'var', label: '📐 Add Variation Work' }]);
+    const k = await chooseAction('Schedule of Works', [{ key: 'sec', label: '📁 Add Section' }, { key: 'lib', label: '📚 From Library' }, { key: 'var', label: '📐 Add Variation Work' },
+      { key: 'xls', label: '📊 Import tasks from Excel / CSV' }, { key: 'pdf', label: '📄 Import tasks from a PDF' }, { key: 'doc', label: '📎 Add the Schedule of Works document' }]);
+    if (k === 'xls') {
+      const r = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true }); if (r.canceled || !r.assets[0]) return;
+      const a = r.assets[0];
+      if (/\.xls$/i.test(a.name || '')) { toast('Save it as .xlsx or .csv first — old .xls files can’t be read.'); return; }
+      try {
+        const bytes = new Uint8Array(await (await fetch(a.uri)).arrayBuffer());
+        const c = sheetColumns(/\.csv$/i.test(a.name || '') ? csvRows(new TextDecoder().decode(bytes)) : (await readXlsx(bytes))[0]?.rows ?? []);
+        if (!c.data.length) { toast('No data rows found below the header row.'); return; }
+        const col = await chooseAction('Which column has the task wording?', c.headers.map((h, i) => ({ key: String(i), label: `${i === c.guess ? '★ ' : ''}${h}${c.data[0]?.[i] != null && String(c.data[0][i]).trim() ? ` — e.g. "${String(c.data[0][i]).slice(0, 40)}"` : ''}` })));
+        if (col == null) return;
+        const names = columnTasks(c.data, Number(col));
+        if (!names.length) { toast('That column is empty for every row.'); return; }
+        if (!(await confirmAsk(`Add ${names.length} task${names.length === 1 ? '' : 's'} to the Schedule of Works?`, 'Import'))) return;
+        toast((await importTasks(site.id, names)) ? `${names.length} task(s) imported` : 'Could not import — try again.'); changed();
+      } catch { toast('Could not read that file — check it’s a valid .xlsx or .csv.'); }
+      return;
+    }
+    if (k === 'pdf') {
+      const r = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true }); if (r.canceled || !r.assets[0]) return;
+      toast('Reading PDF…');
+      const lines = await pdfLines(new Uint8Array(await (await fetch(r.assets[0].uri)).arrayBuffer()));
+      if (lines === null) { setPdfText(''); toast('No readable text found (or not on this device) — type or paste the list yourself.'); return; }
+      setPdfText(pdfTaskLines(lines).join('\n')); return;
+    }
+    if (k === 'doc') {
+      const r = await DocumentPicker.getDocumentAsync({ type: '*/*', multiple: true, copyToCacheDirectory: true }); if (r.canceled || !r.assets.length) return;
+      const n = await uploadSowDocs(me, site.id, r.assets.map((a) => ({ uri: a.uri, name: a.name || 'document', mimeType: a.mimeType, size: a.size })));
+      toast(n ? (n === 1 ? 'Document added' : `${n} documents added`) : 'Could not upload — check your signal and try again.'); changed(); return;
+    }
     if (k === 'lib') {
       const tpls = await libraryTemplates(me.org_id as string);
       if (!tpls.length) { toast('No library templates yet — build one in Admin Centre › Schedule of Works Library.'); return; }
@@ -187,9 +231,16 @@ export default function Schedule() {
             <Card>
               <SectionTitle>Schedule of Works Document</SectionTitle>
               {view.docs.map((d) => (
-                <Pressable key={d.id} onPress={async () => { const u = await documentLink(d); if (u) void Linking.openURL(u); else toast('Could not open the document.'); }} style={{ paddingVertical: 6 }}>
-                  <Text style={{ color: base.blue, fontWeight: '600', textDecorationLine: 'underline' }} numberOfLines={1}>📎 {d.name}</Text>
-                </Pressable>
+                <View key={d.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Pressable onPress={async () => { const u = await documentLink(d); if (u) void Linking.openURL(u); else toast('Could not open the document.'); }} style={{ paddingVertical: 6, flex: 1 }}>
+                    <Text style={{ color: base.blue, fontWeight: '600', textDecorationLine: 'underline' }} numberOfLines={1}>📎 {d.name}{d.visibility === 'managers' ? '  🔒' : ''}</Text>
+                  </Pressable>
+                  {manager && <Pressable hitSlop={8} onPress={async () => {
+                    const k = await chooseAction(d.name, [{ key: 'vis', label: d.visibility === 'managers' ? '👥 Show to everyone on this site' : '🔒 Managers only' }, { key: 'del', label: '🗑 Remove', danger: true }]);
+                    if (k === 'vis') { const mo = d.visibility !== 'managers'; if (await setSowDocVisibility(d.id, mo)) { toast(mo ? 'Now visible to managers only' : 'Now visible to everyone on this site'); changed(); } }
+                    else if (k === 'del' && (await confirmAsk(`Remove "${d.name}" from this Schedule of Works?`, 'Remove')) && (await deleteSowDoc(me, site.id, d))) { toast('Document removed'); changed(); }
+                  }}><Text style={{ fontSize: 18, color: base.slate }}>⋮</Text></Pressable>}
+                </View>
               ))}
             </Card>
           )}
@@ -228,6 +279,16 @@ export default function Schedule() {
           )}
           {manager && !!view?.allTasks.length && <View style={{ marginTop: space.m }}><SowExport site={site} tab={filter} /></View>}
         </>
+      )}
+      {pdfText !== null && (
+        <FinForm title="Tasks from the PDF" note="One task per line. Remove anything that isn't a task, then add them." saveLabel="Add these tasks"
+          fields={[{ k: 't', label: 'Tasks', kind: 'multiline' }]} initial={{ t: pdfText }} onClose={() => setPdfText(null)}
+          onSave={async (v) => {
+            const names = String(v.t || '').split('\n').map((x) => x.trim()).filter(Boolean);
+            if (!names.length) return 'Nothing to import.';
+            if (!(await importTasks(site.id, names))) return 'Could not add them — try again.';
+            toast(`${names.length} task${names.length === 1 ? '' : 's'} added`); changed();
+          }} />
       )}
     </ScrollView>
   );

@@ -1,8 +1,9 @@
 // Schedule of Works manager tools. Ported from 480/460: add/rename/duplicate/delete
 // sections, add "Variation N" work, add/rename/move/delete tasks (and their photos),
 // link a task to an address, and complete a task by picking photos already on it.
-// Copy from the company SoW library. Still to port: Excel/PDF import, documents upload,
-// visibility assigning, subcontractor assigning, PDF export/email.
+// Copy from the company SoW library, import tasks from Excel / CSV / PDF, the office
+// copy of the schedule (documents, managers-only), and tagging a task to a
+// subcontractor.
 import { supabase } from '@/lib/supabase';
 import { moveTask, nextVariationName } from '@/lib/rules/sow';
 import type { Profile } from '@/lib/types';
@@ -152,4 +153,38 @@ export async function copyLibraryTemplate(me: Profile, siteId: string, templateI
   const rows = tasks.filter((x) => !x.section_id || map[x.section_id]).map((x) => ({ site_id: siteId, name: x.name, status: 'todo', position: tp++, ...(x.section_id ? { section_id: map[x.section_id] } : {}) }));
   if (rows.length) await db.from('schedule_tasks').insert(rows as never);
   return { secs: secs.length, tasks: tasks.length };
+}
+
+/** Imported task names go on the end of the ungrouped list (480 confirmScheduleImport / confirmPdfImport). */
+export async function importTasks(siteId: string, names: string[]): Promise<boolean> {
+  const start = await nextPos('schedule_tasks', siteId);
+  return !(await db.from('schedule_tasks').insert(names.map((name, i) => ({ site_id: siteId, name, status: 'todo', position: start + i })) as never)).error;
+}
+
+/** The office copy of the Schedule of Works (480 uploadScheduleDocument). */
+export async function uploadSowDocs(me: Profile, siteId: string, files: { uri: string; name: string; mimeType?: string | null; size?: number | null }[]): Promise<number> {
+  let added = 0;
+  for (const f of files) {
+    try {
+      const rid = globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}${added}`;
+      const up = await supabase.storage.from('schedule-docs').upload(`${siteId}/${rid}-${f.name.replace(/[^a-z0-9.\-]+/gi, '_')}`, await (await fetch(f.uri)).arrayBuffer(), { contentType: f.mimeType || 'application/octet-stream' });
+      if (up.error) continue;
+      if (!(await db.from('schedule_documents').insert({ site_id: siteId, org_id: me.org_id, name: f.name, storage_path: up.data.path, size: f.size || null, uploaded_by: me.id } as never)).error) added++;
+    } catch { /* counted as not added */ }
+  }
+  return added;
+}
+export async function setSowDocVisibility(id: string, managersOnly: boolean): Promise<boolean> {
+  return !(await db.from('schedule_documents').update({ visibility: managersOnly ? 'managers' : 'all' } as never).eq('id', id)).error;
+}
+export async function deleteSowDoc(me: Profile, siteId: string, doc: { id: string; name: string; storage_path: string }): Promise<boolean> {
+  if ((await db.from('schedule_documents').delete().eq('id', doc.id)).error) return false;
+  void supabase.storage.from('schedule-docs').remove([doc.storage_path]).catch(() => undefined);
+  log(me, siteId, 'schedule_document_deleted', `Removed Schedule of Works document "${doc.name}"`);
+  return true;
+}
+
+/** Main-contractor jobs: tag a task to one of the job's subcontractors (460 setTaskSubcontractor). Visibility is untouched. */
+export async function setTaskSubcontractor(taskId: string, companyId: string | null): Promise<boolean> {
+  return !(await db.from('schedule_tasks').update({ subcontractor_company_id: companyId } as never).eq('id', taskId)).error;
 }

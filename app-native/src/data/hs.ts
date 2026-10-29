@@ -152,9 +152,7 @@ export async function signTbt(me: Profile & { signature_path?: string | null }, 
     const signed = ((sigs.data as { user_id: string }[] | null) ?? []).map((x) => x.user_id);
     if (tbtAllSigned(roster, signed)) {
       const u = await db.from('toolbox_talks').update({ status: 'completed' } as never).eq('id', talk.id);
-      // NOTE: the current app also emails the signed TBT PDF to the PM here. That
-      // needs the signed-PDF builder, which comes with the PM screens (phase 2).
-      if (!u.error) return { ok: true, msg: 'Everyone has signed — TBT closed automatically', closed: true };
+      if (!u.error) { void emailCompletedTbt(talk); return { ok: true, msg: 'Everyone has signed — TBT closed automatically', closed: true }; }
     }
   } catch { /* best effort */ }
   return { ok: true, msg: 'Signed' };
@@ -194,4 +192,25 @@ export function useHsSummary(site: Site | undefined) {
       return { rams: ramsDocs.length, coshh: coshhDocs.length, liveTbts: (orThrow(tbts) as unknown[]).length, ramsTodo, coshhTodo, ppeToSign: ((ppe.data as unknown[] | null) ?? []).length };
     }),
   });
+}
+
+/**
+ * When the last operative signs, the signed talk goes by email to the job's
+ * responsible PM, or to every PM / admin (not estimators) if none is set
+ * (710 emailCompletedTbtToPM). Best effort: never holds up the signing.
+ */
+async function emailCompletedTbt(talk: Tbt): Promise<void> {
+  try {
+    const site = ((await db.from('sites').select('*').eq('id', talk.site_id).limit(1)).data as Site[] | null)?.[0];
+    if (!site) return;
+    const { buildSignedTbtPdf } = await import('@/data/hsPdf');
+    const { emailPdf } = await import('@/lib/pdf');
+    const built = await buildSignedTbtPdf(talk.id, site);
+    if (typeof built === 'string') return;
+    const s = site as Site & { responsible_pm_id?: string | null; org_id?: string | null };
+    const people = ((await db.from('profiles').select('id,email,role,is_estimator').eq('org_id', s.org_id as string)).data as { id: string; email: string | null; role: string; is_estimator: boolean | null }[] | null) ?? [];
+    const pm = s.responsible_pm_id ? people.find((p) => p.id === s.responsible_pm_id && p.email) : null;
+    const to = pm ? [pm.email as string] : people.filter((p) => (p.role === 'pm' || p.role === 'admin') && p.email && !(p.role === 'pm' && p.is_estimator)).map((p) => p.email as string);
+    for (const email of to.slice(0, 6)) await emailPdf(built.bytes, built.filename, `${site.id}/tbt-exports`, { site_id: site.id, recipient_email: email, doc_title: `${talk.title || 'Toolbox Talk'} — completed, signed by all operatives` });
+  } catch { /* best effort */ }
 }

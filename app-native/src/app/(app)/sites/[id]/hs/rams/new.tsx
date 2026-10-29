@@ -49,7 +49,7 @@ export default function RamsNew() {
         {templates.length > 1 && <Check label="Select all templates" value={tpls.length === templates.length} onChange={(v) => setTpls(v ? templates.map((t) => t.id) : [])} />}
         {templates.map((t) => <Check key={t.id} label={`📋 ${t.title} · ${((t.data || {}).hazards as unknown[] || []).length} hazards · ${((t.data || {}).sections as unknown[] || []).length} sections`} value={tpls.includes(t.id)} onChange={() => tick(tpls, setTpls, t.id)} />)}
         <Muted style={{ marginTop: 6 }}>Tick nothing to start blank and add hazards and sections yourself from the library. Ticking several combines them — anything in more than one is only added once.</Muted>
-        {!templates.length && <Muted style={{ marginTop: 6 }}>No templates yet — {lib.length ? 'save one from any RAMS.' : 'the starter library can be loaded from the current app.'}</Muted>}
+        {!templates.length && <Muted style={{ marginTop: 6 }}>No templates yet — {lib.length ? 'save one from any RAMS.' : 'load the starter library in Admin Centre › RAMS Library.'}</Muted>}
       </Card>
       {builds.length > 0 && (
         <>

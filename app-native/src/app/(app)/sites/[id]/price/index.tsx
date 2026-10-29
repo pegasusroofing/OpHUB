@@ -1,14 +1,15 @@
 // Price tile (390 renderPriceTile): one tile per Pricing Element with price,
 // booked in and balance (red when over-booked); colour groups get a combined
-// card; closed ones fold away. Multi-address jobs pick an address first.
+// card (managers group tiles from each tile's ⋮); closed ones fold away.
+// Multi-address jobs pick an address first.
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
-import { promptText, useToast } from '@/components/toast';
+import { chooseAction, promptText, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted } from '@/components/ui';
-import { addElement, usePriceTile } from '@/data/price';
+import { addElement, GROUP_COLOURS, newGroupFor, setElementGroup, updateGroup, usePriceTile } from '@/data/price';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { money, type PriceElement } from '@/lib/rules/price';
@@ -38,10 +39,28 @@ export default function PriceTile() {
       </View>
     );
     const g = el.group_id ? data.groups.find((x) => x.id === el.group_id) : null;
+    // Manager ⋮: put the tile in a colour group, or rename / recolour / leave its group.
+    const groupMenu = async () => {
+      const here = data.groups.filter((x) => (multi ? x.sub_site_id === subId : !x.sub_site_id));
+      const k = await chooseAction(el.name, g
+        ? [{ key: 'ren', label: '✎ Rename group' }, { key: 'col', label: '🎨 Change colour' }, { key: 'out', label: 'Remove from group', danger: true }]
+        : [...here.map((x) => ({ key: `in:${x.id}`, label: `Add to "${x.name}"` })), { key: 'new', label: '+ New group…' }]);
+      if (!k) return;
+      let ok = true, msg = '';
+      if (k === 'new') { const n = (await promptText('Name this group of tiles', ''))?.trim(); if (!n) return; ok = await newGroupFor(me, site.id, subId, el.id, n, here.length); msg = 'Group created'; }
+      else if (k.startsWith('in:')) { ok = await setElementGroup(el.id, k.slice(3)); msg = 'Added to group'; }
+      else if (k === 'out') { ok = await setElementGroup(el.id, null); msg = 'Removed from group'; }
+      else if (k === 'ren' && g) { const n = (await promptText('Rename group', g.name))?.trim(); if (!n) return; ok = await updateGroup(g.id, { name: n }); msg = 'Group renamed'; }
+      else if (k === 'col' && g) { const c = await chooseAction('Colour for this group', GROUP_COLOURS.map((x) => ({ key: x.hex, label: `${g.color === x.hex ? '✓ ' : ''}${x.name}` }))); if (!c) return; ok = await updateGroup(g.id, { color: c }); msg = 'Colour changed'; }
+      toast(ok ? msg : 'Could not save — try again.'); void qc.invalidateQueries({ queryKey: ['priceTile', site.id] });
+    };
     return (
-      <Pressable key={el.id} onPress={() => router.push(`/sites/${site.id}/price/${el.id}` as never)}
+      <Pressable key={el.id} onPress={() => router.push(`/sites/${site.id}/price/${el.id}` as never)} onLongPress={data.mgr && !el.closed ? () => void groupMenu() : undefined}
         style={{ padding: 12, borderWidth: f.balance < 0 ? 2 : g ? 2 : 1, borderColor: f.balance < 0 ? base.warn : g ? g.color : base.cardLine, borderRadius: radius.row, marginBottom: 8, backgroundColor: base.card, opacity: el.closed ? 0.7 : 1 }}>
-        <Text style={{ fontWeight: '800', color: base.ink }}>🧾 {el.name}{el.closed ? '  · CLOSED' : ''}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Text style={{ flex: 1, fontWeight: '800', color: base.ink }}>🧾 {el.name}{el.closed ? '  · CLOSED' : ''}</Text>
+          {data.mgr && !el.closed && <Pressable hitSlop={10} accessibilityLabel="Group this tile" onPress={() => void groupMenu()}><Text style={{ fontSize: 18, color: base.slate, paddingHorizontal: 4 }}>⋮</Text></Pressable>}
+        </View>
         <Muted>{money(f.priceTotal)} · {money(f.bookedIn)} booked</Muted>
         <Text style={{ fontWeight: '700', color: f.balance < 0 ? base.warn : base.ink }}>Bal: {money(f.balance)}{f.balance < 0 ? '  ⚠ over-booked' : ''}</Text>
       </Pressable>
@@ -83,7 +102,6 @@ export default function PriceTile() {
           {showClosed && closed.map(tile)}
         </>
       )}
-      <Card style={{ marginTop: space.m }}><Muted>The weekly build-up, Price Sheets, price files, labour invoices and tile colour groups are still set up in the current app for now.</Muted></Card>
     </ScrollView>
   );
 }

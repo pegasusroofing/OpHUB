@@ -3,7 +3,8 @@
 // Ported from taskRowHtml (480). Managers also get a ⋮ menu (edit, link address, move,
 // delete, select multiple) and can complete by ticking photos already on the task.
 // A task outside any section can be limited to chosen people (Who can see this);
-// tasks in a section follow the section. Still to port: subcontractor assigning.
+// tasks in a section follow the section. On main-contractor jobs a task can be tagged
+// to one of the job's subcontractors (shown as a label to everyone).
 import { useState } from 'react';
 import { Image, Linking, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -15,7 +16,7 @@ import {
   addPhotos, cancelUpload, completeWithPhotos, deletePhoto, moveToProgressAfterPhotos, setPercent, setStatus,
   type Photo, type Task,
 } from '@/data/sow';
-import { deleteTasks, moveScheduleTask, pmComplete, renameTask, setTaskAddress } from '@/data/sowManager';
+import { deleteTasks, moveScheduleTask, pmComplete, renameTask, setTaskAddress, setTaskSubcontractor } from '@/data/sowManager';
 import { pickPhotos } from '@/lib/photos';
 import { photoStage, snapPct } from '@/lib/rules/sow';
 import { isManager } from '@/lib/roles';
@@ -29,8 +30,8 @@ const STATUS_COLOURS = {
   done: { bg: base.okBg, fg: base.ok },
 };
 
-export function SowTaskRow({ me, site, task, photos, pending, address, addresses = [], onChanged, percentPrompt, setPercentPrompt, selectMode, selected, onToggleSelect, onSelectMode }: {
-  me: Profile; site: Site; task: Task; photos: Photo[]; pending: UploadJob[]; address?: SubAddress | null; addresses?: SubAddress[];
+export function SowTaskRow({ me, site, task, subCos = [], photos, pending, address, addresses = [], onChanged, percentPrompt, setPercentPrompt, selectMode, selected, onToggleSelect, onSelectMode }: {
+  me: Profile; site: Site; task: Task; subCos?: { id: string; name: string }[]; photos: Photo[]; pending: UploadJob[]; address?: SubAddress | null; addresses?: SubAddress[];
   onChanged: () => void; percentPrompt: boolean; setPercentPrompt: (on: boolean) => void;
   selectMode?: boolean; selected?: boolean; onToggleSelect?: () => void; onSelectMode?: () => void;
 }) {
@@ -43,6 +44,7 @@ export function SowTaskRow({ me, site, task, photos, pending, address, addresses
   const status = (task.status || 'todo') as keyof typeof STATUS_COLOURS;
   const done = status === 'done';
   const mgr = isManager(me);
+  const subCo = task.subcontractor_company_id ? subCos.find((x) => x.id === task.subcontractor_company_id) ?? null : null;
   const [pick, setPick] = useState<Set<string> | null>(null);
   const picked = pick ?? new Set(photos.filter((p) => p.stage === 'done').map((p) => p.id));
 
@@ -52,10 +54,16 @@ export function SowTaskRow({ me, site, task, photos, pending, address, addresses
       ...(site.multi_site ? [{ key: 'addr', label: '📍 Link Address' }] : []),
       { key: 'up', label: '▲ Move up' }, { key: 'down', label: '▼ Move down' },
       ...(!task.section_id ? [{ key: 'vis', label: '🔒 Who can see this' }] : []),
+      ...(subCos.length ? [{ key: 'sub', label: '🏗 Assign to subcontractor' }] : []),
       { key: 'del', label: '🗑 Delete', danger: true }, { key: 'multi', label: '☑ Select Multiple' },
     ];
     const k = await chooseAction(task.name, items);
     if (k === 'vis') setVis(true);
+    else if (k === 'sub') {
+      const c = await chooseAction('Assign to subcontractor', [{ key: '-', label: `${subCo ? '' : '✓ '}Our own team / no subcontractor` }, ...subCos.map((x) => ({ key: x.id, label: `${subCo?.id === x.id ? '✓ ' : ''}${x.name}` }))]);
+      if (!c) return;
+      if (await setTaskSubcontractor(task.id, c === '-' ? null : c)) { toast(c === '-' ? 'Unassigned from subcontractor' : 'Assigned to subcontractor'); onChanged(); }
+    }
     else if (k === 'edit') {
       const n = await promptText('Task name', task.name);
       if (n === null) return;
@@ -165,6 +173,7 @@ export function SowTaskRow({ me, site, task, photos, pending, address, addresses
           <Text style={[s.name, done && s.nameDone]}>
             {!task.section_id && task.visibility_mode === 'assigned' ? '🔒 ' : ''}{task.name}{done ? '  ✓' : ''}
           </Text>
+          {!!subCo && <Text style={{ alignSelf: 'flex-start', fontSize: 10.5, fontWeight: '700', color: base.ink, backgroundColor: '#E7E9EE', borderWidth: 1, borderColor: base.line, borderRadius: 20, paddingHorizontal: 8, paddingVertical: 1, marginTop: 3, overflow: 'hidden' }}>{subCo.name.toUpperCase()}</Text>}
           {done && task.completed_at && (
             <Text style={s.meta}>Completed {new Date(task.completed_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</Text>
           )}

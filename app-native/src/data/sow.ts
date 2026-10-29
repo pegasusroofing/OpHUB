@@ -12,7 +12,7 @@ import type { Profile, Site, SubAddress } from '@/lib/types';
 export type Task = {
   id: string; site_id: string; name: string; status: string | null; section_id: string | null; sub_site_id: string | null;
   percent_complete: number | null; completed_at: string | null; created_at: string | null; position: number | null;
-  visibility_mode: string | null;
+  visibility_mode: string | null; subcontractor_company_id?: string | null;
 };
 export type Section = { id: string; site_id: string; name: string; position: number | null; visibility_mode: string | null };
 export type Photo = { id: string; task_id: string; storage_path: string; mid_path: string | null; thumb_path: string | null; uploaded_by: string | null; uploaded_at: string | null; stage: string | null };

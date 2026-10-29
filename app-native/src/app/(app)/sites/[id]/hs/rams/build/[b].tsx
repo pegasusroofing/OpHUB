@@ -341,7 +341,7 @@ function Picker({ kind, part, have, onClose, onAdd }: { kind: 'hazard' | 'sectio
             {fresh.map(row)}
             {added.length > 0 && <Muted style={{ marginTop: 10, fontWeight: '700' }}>Already added to this RAMS ({added.length})</Muted>}
             {added.map(row)}
-            {!isLoading && !fresh.length && !added.length && <Empty>{(libAll || []).length ? 'Nothing matches.' : 'The library is empty — the starter library can be loaded from the current app.'}</Empty>}
+            {!isLoading && !fresh.length && !added.length && <Empty>{(libAll || []).length ? 'Nothing matches.' : 'The library is empty — load the starter library in Admin Centre › RAMS Library.'}</Empty>}
           </ScrollView>
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
             <View style={{ flex: 2 }}><Button title={`Add ${sel.length || ''} selected`} onPress={() => { const items = lib.filter((i) => sel.includes(i.id)); if (!items.length) return; onAdd(items); }} /></View>
