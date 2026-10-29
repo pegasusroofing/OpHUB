@@ -37,10 +37,11 @@ export function usePriceTile(me: Profile | null, site: Site | undefined) {
       const priceIds = grants.data ? new Set((grants.data as { element_id: string }[]).map((g) => g.element_id)) : null;
       const labourIds = labour.data ? new Set((labour.data as { element_id: string }[]).map((g) => g.element_id)) : null;
       const canPrice = (id: string) => mgr || !!priceIds?.has(id);
+      const canLabour = (id: string) => mgr || !!labourIds?.has(id);
       const visible = elements.filter((el) => canPrice(el.id) || mgr || !!labourIds?.has(el.id));
       return {
         mgr, elements: visible, figs, variations, weeks: w, groups: (groups.data as PriceGroup[] | null) ?? [], groupFigs: groupFigures(visible, figs),
-        subs: (subs.data as { id: string; name: string }[] | null) ?? [], canPrice,
+        subs: (subs.data as { id: string; name: string }[] | null) ?? [], canPrice, canLabour,
       };
     },
   });

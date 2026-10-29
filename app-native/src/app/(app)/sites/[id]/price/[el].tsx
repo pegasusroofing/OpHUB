@@ -9,6 +9,7 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Card, Check, Empty, Muted, SectionTitle } from '@/components/ui';
+import { PriceFiles } from '@/components/PriceFiles';
 import { PriceWeeks } from '@/components/PriceWeeks';
 import { nameOf, usePeople } from '@/data/hs';
 import { decideVariation, deleteElement, patchElement, removeVariation, requestVariation, reviseVariation, usePriceTile, type PriceVariation } from '@/data/price';
@@ -92,7 +93,8 @@ export default function PriceElementPage() {
             </View>
           )}
         </Card>
-      ) : <Muted style={{ marginBottom: 8 }}>You can see this price&apos;s labour invoices only — they&apos;re still in the current app for now.</Muted>}
+      ) : <Muted style={{ marginBottom: 8 }}>You can see this price&apos;s labour invoices only.</Muted>}
+      <PriceFiles me={me} site={site} el={el} mgr={mgr} canPrice={canPrice} canLabour={data.canLabour(el.id)} />
 
       {canPrice && <PriceWeeks me={me} site={site} elementId={el.id} mgr={mgr} />}
 
