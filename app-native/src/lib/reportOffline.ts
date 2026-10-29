@@ -16,7 +16,28 @@ const key = (uid: string) => `ophub_report_drafts_${uid}`;
 
 export const parkedAll = (uid: string) => plainGet<Record<string, Parked>>(key(uid), {});
 export async function parkedFor(uid: string, subId: string): Promise<Parked | null> { return (await parkedAll(uid))[subId] ?? null; }
-export async function park(uid: string, p: Parked) { const all = await parkedAll(uid); all[p.sub.id] = p; await plainSet(key(uid), all); }
+export async function park(uid: string, p: Parked) { const all = await parkedAll(uid); all[p.sub.id] = { ...p, answers: await keepable(p.answers) }; await plainSet(key(uid), all); }
+
+// On the office laptop a new photo is a blob: link that dies when the page is
+// reloaded, so the kept copy holds the photo itself (a data: link) instead.
+const blobCache = new Map<string, string>();
+async function keepable(a: Answers): Promise<Answers> {
+  if (Platform.OS !== 'web') return a;
+  const out: Answers = {};
+  for (const [k, v] of Object.entries(a)) {
+    if (!Array.isArray(v) || !v.some((x) => typeof x === 'string' && x.startsWith('blob:'))) { out[k] = v; continue; }
+    out[k] = await Promise.all(v.map(async (x) => {
+      if (typeof x !== 'string' || !x.startsWith('blob:')) return x;
+      if (blobCache.has(x)) return blobCache.get(x) as string;
+      try {
+        const blob = await (await fetch(x)).blob();
+        const d = await new Promise<string>((ok, bad) => { const r = new FileReader(); r.onload = () => ok(String(r.result)); r.onerror = bad; r.readAsDataURL(blob); });
+        blobCache.set(x, d); return d;
+      } catch { return x; }
+    }));
+  }
+  return out;
+}
 export async function unpark(uid: string, subId: string) { const all = await parkedAll(uid); if (!all[subId]) return; delete all[subId]; await plainSet(key(uid), all); }
 /** How many are waiting to send (not just kept while open). */
 export async function parkedWaiting(uid: string) { return Object.values(await parkedAll(uid)).filter((p) => p.action !== 'keep').length; }

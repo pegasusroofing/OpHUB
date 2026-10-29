@@ -4,7 +4,7 @@
 // sizes; eraser, undo and clear. Marks are kept in the current app's format
 // so a drawing can be re-opened in either app. Save gives a JPEG with the
 // marks drawn in (the office laptop draws it full size; phones snapshot the
-// screen) plus the marks. − / + zoom in up to 4×, and ✋ Move scrolls round
+// screen) plus the marks. pinch or − / + zoom in up to 4×, and ✋ Move scrolls round
 // the drawing (drawing is paused while moving).
 import { useEffect, useMemo, useRef, useState, type ComponentRef } from 'react';
 import { Image, Modal, PanResponder, Platform, Pressable, ScrollView, Text, View } from 'react-native';
@@ -57,8 +57,8 @@ export function MarkupEditor({ src, ops: initial, keys = [], photo = false, onCl
   const [cur, setCur] = useState<MarkOp | null>(null);
   const [saving, setSaving] = useState(false);
   const view = useRef<ComponentRef<typeof View>>(null);
-  const st = useRef({ ops, tool, colour, picked, sz, keyPick, k: 1, size, cur: null as MarkOp | null, nextNum: 0, moving: false });
-  useEffect(() => { Object.assign(st.current, { ops, tool, colour, picked, sz, keyPick, size, moving }); }, [ops, tool, colour, picked, sz, keyPick, size, moving]);
+  const st = useRef({ ops, tool, colour, picked, sz, keyPick, k: 1, size, cur: null as MarkOp | null, nextNum: 0, moving: false, z: 1, pinch: null as { d0: number; z0: number } | null });
+  useEffect(() => { Object.assign(st.current, { ops, tool, colour, picked, sz, keyPick, size, moving, z }); }, [ops, tool, colour, picked, sz, keyPick, size, moving, z]);
 
   useEffect(() => { Image.getSize(src, (w, h) => setSize(markCanvas(w, h)), () => { toast('Could not open that drawing.'); onClose(null); }); }, [src]); // eslint-disable-line react-hooks/exhaustive-deps
   const k = size && area.w ? Math.min(area.w / size.W, area.h / size.H) * z : 0;
@@ -78,7 +78,16 @@ export function MarkupEditor({ src, ops: initial, keys = [], photo = false, onCl
       (s as unknown as { tap: Pt }).tap = p;
     },
     onPanResponderMove: (e) => {
-      const s = st.current; if (!s.cur || !('pts' in s.cur) || !s.k) return;
+      const s = st.current;
+      // Two fingers: pinch to zoom (1× to 4×); nothing gets marked by this touch.
+      const tch = e.nativeEvent.touches;
+      if (tch && tch.length >= 2) {
+        const d = Math.hypot(tch[0].pageX - tch[1].pageX, tch[0].pageY - tch[1].pageY);
+        if (!s.pinch) { s.pinch = { d0: d || 1, z0: s.z }; s.cur = null; setCur(null); }
+        else setZ(Math.max(1, Math.min(4, s.pinch.z0 * (d / s.pinch.d0))));
+        return;
+      }
+      if (s.pinch || !s.cur || !('pts' in s.cur) || !s.k) return;
       const p = { x: e.nativeEvent.locationX / s.k, y: e.nativeEvent.locationY / s.k };
       if (s.cur.t === 'pen') s.cur.pts.push(p); else s.cur.pts[1] = p;
       setCur({ ...s.cur, pts: [...s.cur.pts] });
@@ -88,6 +97,7 @@ export function MarkupEditor({ src, ops: initial, keys = [], photo = false, onCl
 
   const release = async () => {
     const s = st.current; if (!s.size) return;
+    if (s.pinch) { s.pinch = null; return; } // the end of a pinch places nothing
     const r = markRadius(s.size.W, s.size.H, s.sz), p = (s as unknown as { tap: Pt }).tap;
     if (s.cur && 'pts' in s.cur) {
       const o = s.cur; s.cur = null; setCur(null);
