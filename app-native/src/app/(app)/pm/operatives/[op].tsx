@@ -6,6 +6,7 @@ import { ScrollView, Text, View } from 'react-native';
 
 import { CertsPanel } from '@/components/CertsPanel';
 import { MyToolsList } from '@/components/MyToolsList';
+import { OperativeOneDrive } from '@/components/OperativeOneDrive';
 import { promptText, useToast } from '@/components/toast';
 import { Button, Card, Muted, SectionTitle } from '@/components/ui';
 import { saveOperativeField, useOperativeList } from '@/data/certs';
@@ -61,6 +62,7 @@ export default function OperativeDetail() {
       </Card>
       <View style={{ flexDirection: 'row', gap: 8 }}>{box(siteIds.length, 'Sites Assigned')}{box(live.length, 'Live Now')}</View>
       {live.length > 0 && <Muted style={{ marginBottom: 6 }}>On: {live.map((s) => s.name).join(', ')}</Muted>}
+      {me.org_id && <><SectionTitle>OneDrive Sync</SectionTitle><OperativeOneDrive orgId={me.org_id} opId={o.id} /></>}
       <SectionTitle>Certificates</SectionTitle>
       <Muted style={{ marginBottom: 6 }}>This is {o.name}&apos;s record in the company Training Matrix — it also shows on their own My Dashboard.</Muted>
       <CertsPanel userId={o.id} />

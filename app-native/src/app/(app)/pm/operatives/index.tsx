@@ -46,7 +46,7 @@ export default function Operatives() {
       )) : <Empty>{site ? 'No operatives assigned to this job yet.' : 'No operatives found.'}</Empty>}
       <Card style={{ marginTop: space.m }}>
         <Button kind="ghost" title="📊 Training Matrix (view, Excel, PDF)" onPress={() => router.push('/pm/operatives/matrix' as never)} />
-        <Muted style={{ marginTop: 6 }}>OneDrive certificate sync is still in the current app for now.</Muted>
+        <Muted style={{ marginTop: 6 }}>OneDrive certificate sync is on each operative&apos;s page.</Muted>
       </Card>
     </ScrollView>
   );
