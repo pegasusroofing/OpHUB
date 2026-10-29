@@ -10,6 +10,7 @@ import { chooseAction, confirmAsk, promptText, showAlert, useToast } from '@/com
 import { Button, Card, Check, Empty, Muted, SectionTitle } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import { lines, moveLib, P_LABELS, RAMS_DEFAULT_PPE, RAMS_PPE, ramsSettings, renameInTemplate, riskBand, rr, S_LABELS, type LibItem, type RamsSettings } from '@/lib/rules/rams';
+import { starterRows } from '@/lib/rules/ramsStarter';
 import { isFullManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
 import { base, radius, space } from '@/theme/theme';
@@ -237,7 +238,11 @@ export default function RamsLibrary() {
                 <Pressable hitSlop={8} onPress={() => void menu(it)}><Text style={{ fontSize: 18, color: base.slate }}>⋯</Text></Pressable>
               </Card>
             );
-          }) : <Empty>{ofTab.length ? 'Nothing matches.' : lib.length ? 'Nothing here yet.' : 'Your library is empty — the starter library can be loaded from the current app.'}</Empty>}
+          }) : <Empty>{ofTab.length ? 'Nothing matches.' : lib.length ? 'Nothing here yet.' : 'Your library is empty. The starter library adds RTB’s hazards, safe systems of work, method statements and a pitched-roof template, ready to edit.'}</Empty>}
+          {!lib.length && <Button kind="ghost" title="📚 Load the starter library" onPress={async () => {
+            const r = await supabase.from('rams_library_items').insert(starterRows().map((x) => ({ ...x, org_id: me.org_id, created_by: me.id })) as never);
+            toast(r.error ? 'Could not load it — try again.' : 'Starter library loaded'); refresh();
+          }} />}
           <Button title={`+ New ${tab === 'template' ? 'template' : tab === 'hazard' ? 'hazard' : part === 'method' ? 'method statement' : 'safe system of work'}`} onPress={() => void addNew()} />
         </>
       )}
