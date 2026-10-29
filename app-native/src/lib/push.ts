@@ -51,7 +51,9 @@ export function pushRoute(data: PushData, me: Profile | null): string | null {
   const rel = data.related_id || data.task_id || '';
   // Delivery problem / invoice query (9219zr): the job's materials, or the purchase invoice.
   if (data.kind === 'grn_problem' && data.site_id) return `/sites/${data.site_id}/materials`;
-  if ((data.kind === 'pi_query' || data.kind === 'pi_query_reply') && rel) return isManager(me) ? `/fin/pinv/${rel}` : null;
+  // An invoice query: the office's reply goes to Finance; a query for the PM opens the query page (no Finance needed).
+  if (data.kind === 'pi_query_reply' && rel) return isManager(me) ? `/fin/pinv/${rel}` : null;
+  if (data.kind === 'pi_query' && rel) return isManager(me) ? `/pm/piquery/${rel}` : null;
   // A delivery: drivers to their schedule, managers to that delivery.
   if (data.task_id) {
     if (me?.role === 'driver') return '/driver/schedule';
