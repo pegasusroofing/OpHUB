@@ -3,18 +3,21 @@
 // certify it (retention, contra charges, CIS on labour, pay less), mark paid
 // (which records the CIS payment first). "new" takes ?site=.
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import * as DocumentPicker from 'expo-document-picker';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { ScrollView, Text, TextInput, View } from 'react-native';
+import { Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { FinForm } from '@/components/FinForm';
 import { FinRow, FinStat } from '@/components/FinNav';
 import { confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Muted, SectionTitle } from '@/components/ui';
 import { fdb, insertNumbered, loadSettings } from '@/data/finance';
+import { openDocLink } from '@/data/hs';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { cisStatement } from '@/lib/finCisPdf';
+import { supabase } from '@/lib/supabase';
 import { buildSubNoticePdf } from '@/lib/finSubNoticePdf';
 import { deliverPdf } from '@/lib/pdf';
 import { addDays, fdate, jobTag, money, num, round2, today } from '@/lib/rules/finance';
@@ -115,6 +118,8 @@ function AppForm({ sc, a, ctx, nextNo, onClose, onSaved, onPaid }: { sc: Row; a:
   const toast = useToast();
   const [v, setV] = useState<Row>({ app_date: a?.app_date || today(), final_date: a?.final_date || addDays(a?.app_date || today(), 30), applied: String(a?.applied_gross ?? ''), mat: String(a?.materials_part ?? ctx.prevM ?? 0), cert: a?.certified_gross != null ? String(a.certified_gross) : '', contra: String(a?.contra ?? ctx.prevContra ?? 0), reason: a?.payless_reason || a?.contra_note || '' });
   const [busy, setBusy] = useState(false);
+  // Their application (PDF / photo), kept with it (912).
+  const [file, setFile] = useState<{ uri: string; name: string; mimeType?: string | null } | null>(null);
   if (!me) return null;
   const locked = a?.status === 'paid';
   const n = (k: string) => { const x = num(v[k]); return x === null || isNaN(x) ? null : x; };
@@ -126,6 +131,11 @@ function AppForm({ sc, a, ctx, nextNo, onClose, onSaved, onPaid }: { sc: Row; a:
     if (certify && 'net' in c) Object.assign(row, { certified_gross: round2(c.cert as number), retention: c.retention, contra: round2(c.contra as number), contra_note: v.reason || null, previous: ctx.prevNet, net_due: c.net, cis_deduction: c.cis, pay_amount: c.pay, status: 'certified', payless: !!c.payless, payless_reason: c.payless ? v.reason || null : null });
     setBusy(true);
     try {
+      if (file) {
+        const rid = globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}`;
+        const up = await supabase.storage.from('finance-docs').upload(`${me.org_id}/${sc.site_id}/subcontract/${rid}-${file.name.replace(/[^a-z0-9.-]+/gi, '_').slice(-80)}`, await (await fetch(file.uri)).arrayBuffer(), { contentType: file.mimeType || 'application/octet-stream' });
+        if (!up.error) { row.file_path = up.data.path; row.file_name = file.name; }
+      }
       const ok = a ? !(await fdb.from('fin_sub_apps').update(row as never).eq('id', a.id)).error : !(await fdb.from('fin_sub_apps').insert({ ...row, org_id: me.org_id, site_id: sc.site_id, subcontract_id: sc.id, number: nextNo, status: certify ? 'certified' : 'received', created_by: me.id } as never)).error;
       if (!ok) { toast('Could not save — try again.'); return; }
       toast(certify && 'pay' in c ? `Certified — ${money(c.pay)} to pay` : 'Application saved'); onSaved(); onClose();
@@ -145,6 +155,10 @@ function AppForm({ sc, a, ctx, nextNo, onClose, onSaved, onPaid }: { sc: Row; a:
       </View>
       <Muted>Contra / reason for paying less (shown on the notice)</Muted>
       <TextInput editable={!locked} value={v.reason} onChangeText={(x) => setV({ ...v, reason: x })} multiline style={[box, { minHeight: 50, marginBottom: 8 }]} />
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 8 }}>
+        {!!a?.file_path && <Pressable onPress={async () => { const u = await openDocLink('finance-docs', a.file_path); if (u) void Linking.openURL(u); }}><Text style={{ color: base.blue, fontWeight: '700' }}>📄 View {a.file_name || 'their application'}</Text></Pressable>}
+        {!locked && <Pressable onPress={async () => { const r = await DocumentPicker.getDocumentAsync({ type: ['application/pdf', 'image/*'], copyToCacheDirectory: true }); if (!r.canceled && r.assets[0]) setFile({ uri: r.assets[0].uri, name: r.assets[0].name || 'application.pdf', mimeType: r.assets[0].mimeType }); }}><Text style={{ color: base.blue }}>📎 {file ? file.name : a?.file_path ? 'Replace their application' : 'Attach their application (PDF / photo)'}</Text></Pressable>}
+      </View>
       {c.cert === null || !('net' in c) ? <Muted>Enter the certified amount to see what to pay.</Muted> : (
         <View>
           <FinRow title="Certified gross to date" right={money(c.cert)} /><FinRow title={`Less retention @ ${sc.retention_pct || 0}%`} right={`−${money(c.retention)}`} />
