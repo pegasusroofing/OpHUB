@@ -3,7 +3,7 @@
 // plant hire and suppliers — for the company or one project (siteId).
 // Inbox items are NOT read or filed automatically here while the Finance
 // trial is on (no inbox processing).
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
@@ -11,13 +11,14 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 import { FinRow, FinSeg, FinStat } from '@/components/FinNav';
 import { Cell, FinTable, FootText } from '@/components/FinTable';
 import { pickJob } from '@/components/FinSales';
-import { chooseAction } from '@/components/toast';
+import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Empty, Muted } from '@/components/ui';
 import { selectAll } from '@/data/finance';
+import { setPinvPaid, setPinvStatus } from '@/data/finPurchase';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { PI_STATUS, poInvoiced } from '@/lib/rules/finBook';
-import { fdate, jobTag, money, plantCost, round2 } from '@/lib/rules/finance';
+import { fdate, jobTag, money, plantCost, round2, today } from '@/lib/rules/finance';
 import { base, radius, useDesk } from '@/theme/theme';
 
 type Row = Record<string, any>;
@@ -50,6 +51,10 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
   const [sort, setSort] = useState('new');
   const [q, setQ] = useState('');
   const desk = useDesk();
+  // Tick several to approve, or to mark paid (9219g finPiBulkApprove / finPiBulkPaid).
+  const [sel, setSel] = useState<Set<string>>(new Set());
+  const toast = useToast();
+  const qc = useQueryClient();
   if (!data) return <Muted>Loading…</Muted>;
   const site = (id: string) => sites.find((s) => s.id === id);
   const live = data.pinvs.filter((i) => i.status !== 'rejected');
@@ -134,9 +139,34 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
             {search('Search supplier, invoice no. or project')}
             {(() => {
               const list = sortBy(data.pinvs.filter(F[cur]).filter(fOK).filter((i) => hit(i.supplier_name, i.invoice_no, jobTag(site(i.site_id)), posBy[i.po_id]?.number)), 'invoice_date', 'total');
+              const bulk = cur === 'approve' || cur === 'unpaid', picked = list.filter((i) => sel.has(i.id));
+              const tick = (i: Row) => <Pressable hitSlop={8} onPress={() => setSel((x) => { const n = new Set(x); if (n.has(i.id)) n.delete(i.id); else n.add(i.id); return n; })}><Text style={{ fontSize: 18 }}>{sel.has(i.id) ? '☑' : '☐'}</Text></Pressable>;
+              const refresh = () => { setSel(new Set()); ['finPurchases', 'finBook', 'finOverview', 'finPo'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] })); };
+              const approveAll = async () => {
+                const rows = picked.filter((i) => ['to_approve', 'query'].includes(i.status)); if (!rows.length || !me) { toast('None of those are waiting for approval.'); return; }
+                const qn = rows.filter((i) => i.status === 'query').length;
+                if (!(await confirmAsk(`Approve ${rows.length} purchase invoice${rows.length === 1 ? '' : 's'}?${qn ? `\n\n${qn} ${qn === 1 ? 'is' : 'are'} on query — approving clears the query.` : ''}`, 'Approve'))) return;
+                let ok = 0; for (const i of rows) if ((await setPinvStatus(me, i.id, 'approved')).ok) ok++;
+                toast(ok === rows.length ? `${ok} approved` : `${ok} of ${rows.length} approved`); refresh();
+              };
+              const paidAll = async () => {
+                const d = await promptText(`Paid on which date? (${picked.length} invoice${picked.length === 1 ? '' : 's'}, YYYY-MM-DD)`, today()); if (d == null) return;
+                const date = d.trim() || today(); if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { toast(`Use the date as YYYY-MM-DD, e.g. ${today()}`); return; }
+                const rows = picked.filter((i) => i.status === 'approved'); if (!rows.length) { toast('Only approved invoices can be marked paid.'); return; }
+                let ok = 0; for (const i of rows) if (await setPinvPaid(i.id, date)) ok++;
+                toast(`${ok} marked paid`); refresh();
+              };
+              const bulkBar = bulk && picked.length > 0 ? (
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <Text style={{ fontWeight: '800', color: base.ink }}>{picked.length} selected · {money(picked.reduce((t, i) => t + Number(i.total || 0), 0))}</Text>
+                  {cur === 'approve' ? <Button title={`✓ Approve ${picked.length}`} onPress={() => void approveAll()} /> : <Button title={`Mark ${picked.length} paid`} onPress={() => void paidAll()} />}
+                  <Pressable onPress={() => setSel(new Set())}><Text style={{ color: base.slate }}>Clear</Text></Pressable>
+                </View>
+              ) : bulk && list.length > 1 ? <Pressable onPress={() => setSel(new Set(list.map((i) => i.id)))} style={{ marginBottom: 8 }}><Text style={{ color: base.blue, fontWeight: '700' }}>☐ Tick all</Text></Pressable> : null;
               if (desk && list.length) return (
-                <FinTable rows={list} keyOf={(i) => i.id} onRow={(i) => router.push(`/fin/pinv/${i.id}` as never)}
+                <>{bulkBar}<FinTable rows={list} keyOf={(i) => i.id} onRow={(i) => router.push(`/fin/pinv/${i.id}` as never)}
                   cols={[
+                    ...(bulk ? [{ k: 'tick', l: '', flex: 0.3, min: 36, render: (i: Row) => tick(i) }] : []),
                     { k: 'no', l: 'Invoice', render: (i: Row) => <Cell bold>{i.invoice_no || '—'}</Cell> },
                     { k: 'sup', l: 'Supplier', flex: 1.3, min: 130, render: (i: Row) => <Cell>{i.supplier_name || 'Supplier'}</Cell> },
                     ...(siteId ? [] : [{ k: 'p', l: 'Project', flex: 1.6, min: 160, render: (i: Row) => <Cell>{jobTag(site(i.site_id))}</Cell> }]),
@@ -146,11 +176,12 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
                     { k: 't', l: 'Total', render: (i: Row) => <Cell bold>{money(i.total)}</Cell> },
                     { k: 's', l: 'Status', render: (i: Row) => <Cell tone={i.status === 'query' ? '#C0392B' : undefined}>{i.paid_on ? 'Paid' : PI_STATUS[i.status] || i.status}</Cell> },
                   ]}
-                  foot={<><FootText bold>{list.length} shown</FootText><FootText>Net {money(list.reduce((t, i) => t + Number(i.net || 0), 0))}</FootText><FootText>VAT {money(list.reduce((t, i) => t + Number(i.vat || 0), 0))}</FootText><FootText>Gross {money(list.reduce((t, i) => t + Number(i.total || 0), 0))}</FootText></>} />
+                  foot={<><FootText bold>{list.length} shown</FootText><FootText>Net {money(list.reduce((t, i) => t + Number(i.net || 0), 0))}</FootText><FootText>VAT {money(list.reduce((t, i) => t + Number(i.vat || 0), 0))}</FootText><FootText>Gross {money(list.reduce((t, i) => t + Number(i.total || 0), 0))}</FootText></>} /></>
               );
               return list.length ? (
                 <>
-                  {list.map((i) => <FinRow key={i.id} left={i.invoice_no || '—'} title={i.supplier_name || 'Supplier'} sub={[siteId ? '' : jobTag(site(i.site_id)), fdate(i.invoice_date), `net ${money(i.net)}`, posBy[i.po_id] ? `PO ${posBy[i.po_id].number}` : 'No PO', i.paid_on ? 'Paid' : PI_STATUS[i.status] || i.status, i.query_note ? `⚠ ${i.query_note}` : ''].filter(Boolean).join(' · ')} right={money(i.total)} tone={i.status === 'query' ? '#C0392B' : undefined} onPress={() => router.push(`/fin/pinv/${i.id}` as never)} />)}
+                  {bulkBar}
+                  {list.map((i) => <View key={i.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>{bulk && tick(i)}<View style={{ flex: 1 }}><FinRow left={i.invoice_no || '—'} title={i.supplier_name || 'Supplier'} sub={[siteId ? '' : jobTag(site(i.site_id)), fdate(i.invoice_date), `net ${money(i.net)}`, posBy[i.po_id] ? `PO ${posBy[i.po_id].number}` : 'No PO', i.paid_on ? 'Paid' : PI_STATUS[i.status] || i.status, i.query_note ? `⚠ ${i.query_note}` : ''].filter(Boolean).join(' · ')} right={money(i.total)} tone={i.status === 'query' ? '#C0392B' : undefined} onPress={() => router.push(`/fin/pinv/${i.id}` as never)} /></View></View>)}
                   {list.length > 1 && <Muted>Total ({list.length}): net {money(list.reduce((t, i) => t + Number(i.net || 0), 0))} · VAT {money(list.reduce((t, i) => t + Number(i.vat || 0), 0))} · gross {money(list.reduce((t, i) => t + Number(i.total || 0), 0))}</Muted>}
                 </>
               ) : <Empty>Nothing here.</Empty>;
