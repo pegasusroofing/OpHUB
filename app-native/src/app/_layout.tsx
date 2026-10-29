@@ -7,6 +7,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { ToastProvider } from '@/components/toast';
 import { AuthProvider, useAuth } from '@/lib/auth';
+import { startReportSync } from '@/lib/reportOffline';
 import { startUploadQueue } from '@/lib/uploadQueue';
 import { ThemeProvider } from '@/theme/theme';
 
@@ -31,11 +32,12 @@ export default function RootLayout() {
 }
 
 function Root() {
-  const { status, org } = useAuth();
+  const { status, org, me } = useAuth();
   useEffect(() => {
     if (status !== 'loading') SplashScreen.hideAsync();
     if (status === 'ready') startUploadQueue();
-  }, [status]);
+    if (status === 'ready' && me) startReportSync(me);
+  }, [status, me]);
   if (status === 'loading') return null;
   const signedIn = status === 'ready';
   return (

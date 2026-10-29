@@ -57,3 +57,22 @@ export async function pdfLines(bytes: Uint8Array): Promise<string[] | null> {
     return lines.length ? lines : null;
   } catch { return null; }
 }
+
+/** A PDF drawing's pages as JPEG data URLs, 3600px on the long side — the first 10 only (each is a big image in memory). */
+export async function pdfPageImages(bytes: Uint8Array, maxPages = 10): Promise<{ images: string[]; total: number } | null> {
+  const lib = await loadPdfJs(); if (!lib) return null;
+  try {
+    const pdf = await lib.getDocument({ data: bytes }).promise;
+    const images: string[] = [];
+    for (let i = 1; i <= Math.min(pdf.numPages, maxPages); i++) {
+      const page = await pdf.getPage(i);
+      const v1 = page.getViewport({ scale: 1 }), vp = page.getViewport({ scale: 3600 / Math.max(v1.width, v1.height) });
+      const cv = document.createElement('canvas'); cv.width = Math.round(vp.width); cv.height = Math.round(vp.height);
+      const ctx = cv.getContext('2d'); if (!ctx) break;
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cv.width, cv.height);
+      await page.render({ canvasContext: ctx, viewport: vp }).promise;
+      images.push(cv.toDataURL('image/jpeg', 0.88)); cv.width = cv.height = 0;
+    }
+    return { images, total: pdf.numPages };
+  } catch { return null; }
+}

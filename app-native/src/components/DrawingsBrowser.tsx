@@ -212,7 +212,6 @@ export function DrawingsBrowser({ siteId, folderId }: { siteId: string; folderId
           )}
         </>
       )}
-      {mgr && <Muted style={{ marginTop: space.m }}>Still in the current app for now: drawing mark-up.</Muted>}
     </View>
   );
 }

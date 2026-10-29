@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { answerText, isAnswered, itemVisible, reportListsItem, reportListsSection, scoreLabel, scoreSections, weekKeyOf, weekLabelOf } from './reports.ts';
+import { addItemCopy, answerText, canAddItem, isAnswered, itemVisible, nextItemLabel, reportListsItem, reportListsSection, scoreLabel, scoreSections, weekKeyOf, weekLabelOf } from './reports.ts';
 
 test('isAnswered', () => {
   assert.equal(isAnswered(''), false);
@@ -80,4 +80,13 @@ test('mediaRequiredFor: Yes / No triggers are true / false', async () => {
   assert.equal(mediaRequiredFor(it, { q: false }), true);
   assert.equal(mediaRequiredFor(it, { q: true }), false);
   assert.equal(mediaRequiredFor({ ...it, type: 'passfail', mediaRequiredWhen: ['Fail'] }, { q: 'Fail' }), true);
+});
+
+test('add another item: next number, else (n); copy is optional and on this report only', () => {
+  const items = [{ id: 'a', type: 'choice', label: 'Item 9', options: ['Good', 'Poor'], required: true, autofill: 'x' }, { id: 'b', type: 'choice', label: 'Item 10' }];
+  assert.equal(nextItemLabel(items, items[1]), 'Item 11');
+  assert.equal(nextItemLabel([{ id: 'c', type: 'text', label: 'Area' }, { id: 'd', type: 'text', label: 'Area (2)' }], { id: 'd', type: 'text', label: 'Area (2)' }), 'Area (3)');
+  assert.equal(canAddItem({ id: 's', title: 'S', items: [{ id: 'x', type: 'signature', label: 'Sign' }] }), false);
+  const out = addItemCopy([{ id: 's', title: 'S', items: [items[0]] }], 's', 'n1');
+  assert.deepEqual(out[0].items?.[1], { id: 'n1', type: 'choice', label: 'Item 10', options: ['Good', 'Poor'], required: false, showIf: undefined, addedOnSite: true });
 });

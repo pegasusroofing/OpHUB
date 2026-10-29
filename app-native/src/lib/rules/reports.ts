@@ -188,3 +188,31 @@ export function reportDrawingKeys(sections: ReportSection[] | null | undefined, 
   }));
   return out.sort((a, b) => a.n - b.n);
 }
+
+// "+ Add another item" while filling in (430): copies the section's last
+// question (same type, options and photo setting) with the next number —
+// "Item 10" → "Item 11", else "Area (2)". Lives on this report only.
+const ADDABLE = ['text', 'textarea', 'choice', 'multichoice', 'passfail', 'checkbox', 'number', 'photo', 'date'];
+export function canAddItem(s: ReportSection): boolean {
+  const last = (s.items || [])[(s.items || []).length - 1];
+  return !!last && ADDABLE.includes(last.type || 'text');
+}
+export function nextItemLabel(items: ReportItem[], last: ReportItem): string {
+  const m = /^(.*?)(\d+)\s*$/.exec(String(last.label || ''));
+  if (m) {
+    let n = parseInt(m[2], 10);
+    items.forEach((it) => { const mm = /^(.*?)(\d+)\s*$/.exec(String(it.label || '')); if (mm && mm[1] === m[1]) n = Math.max(n, parseInt(mm[2], 10)); });
+    return m[1] + (n + 1);
+  }
+  const bare = (l: string) => String(l || '').replace(/ \(\d+\)$/, '');
+  return `${bare(last.label) || 'Item'} (${items.filter((it) => bare(it.label) === bare(last.label)).length + 1})`;
+}
+export function addItemCopy(sections: ReportSection[], sectionId: string, newId: string): ReportSection[] {
+  return sections.map((s) => {
+    if (s.id !== sectionId || !canAddItem(s)) return s;
+    const items = s.items || [], last = items[items.length - 1];
+    const copy: ReportItem = { ...JSON.parse(JSON.stringify(last)), id: newId, label: nextItemLabel(items, last), required: false, showIf: undefined, addedOnSite: true };
+    delete copy.autofill;
+    return { ...s, items: [...items, copy] };
+  });
+}

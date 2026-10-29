@@ -1,0 +1,173 @@
+// Drawing mark-up (498 planMarkup): full screen over a drawing — numbered
+// circles (auto-numbering, or the report items ticked "Add to drawing"),
+// crosses, ticks, warning triangles, arrows, pen and text, in 7 colours and 4
+// sizes; eraser, undo and clear. Marks are kept in the current app's format
+// so a drawing can be re-opened in either app. Save gives a JPEG with the
+// marks drawn in (the office laptop draws it full size; phones snapshot the
+// screen) plus the marks. No pinch-zoom yet — use the office laptop for fine
+// work on big A3 drawings.
+import { useEffect, useMemo, useRef, useState, type ComponentRef } from 'react';
+import { Image, Modal, PanResponder, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import Svg, { Circle, G, Path, Text as SvgText } from 'react-native-svg';
+import { captureRef } from 'react-native-view-shot';
+
+import { confirmAsk, promptText, useToast } from '@/components/toast';
+import {
+  arrowParts, crossPath, haloOf, isLight, MARK_COLOURS, MARK_SIZES, markCanvas, markRadius, nearestOp, nextFree, numFont, penPath, refreshKeyColours, tickPath, warnPath,
+  type MarkKey, type MarkOp, type MarkSize, type Pt,
+} from '@/lib/rules/markup';
+import { renderMarked } from '@/lib/markupRender';
+import { base } from '@/theme/theme';
+
+type Tool = 'num' | 'key' | 'cross' | 'tick' | 'warn' | 'arrow' | 'pen' | 'text' | 'erase';
+const TOOLS: [Tool, string][] = [['num', '① Number'], ['cross', '✕ Cross'], ['tick', '✓ Tick'], ['warn', '⚠ Warning'], ['arrow', '➜ Arrow'], ['pen', '✎ Pen'], ['text', 'T Text'], ['erase', '⌫ Eraser']];
+
+export function MarkOps({ ops }: { ops: MarkOp[] }) {
+  return <>{ops.map((o, i) => <MarkShape key={i} o={o} />)}</>;
+}
+function MarkShape({ o }: { o: MarkOp }) {
+  const halo = haloOf(o.c);
+  if (o.t === 'num') { const fs = numFont(o); return <G><Circle cx={o.x} cy={o.y} r={o.r} fill={o.c} stroke={halo} strokeWidth={Math.max(3, o.r * 0.16)} /><SvgText x={o.x} y={o.y} dy={fs * 0.36} fontSize={fs} fontWeight="bold" textAnchor="middle" fill={isLight(o.c) ? '#111' : '#fff'}>{String(o.n)}</SvgText></G>; }
+  if (o.t === 'cross' || o.t === 'tick') { const d = o.t === 'cross' ? crossPath(o) : tickPath(o); return <G><Path d={d} stroke={halo} strokeWidth={o.r * 0.5} strokeLinecap="round" strokeLinejoin="round" fill="none" /><Path d={d} stroke={o.c} strokeWidth={o.r * 0.3} strokeLinecap="round" strokeLinejoin="round" fill="none" /></G>; }
+  if (o.t === 'warn') { const r = o.r * 1.15; return <G><Path d={warnPath(o)} fill={o.c} stroke={halo} strokeWidth={Math.max(3, r * 0.14)} strokeLinejoin="round" /><SvgText x={o.x} y={o.y + r * 0.18} dy={r * 0.36} fontSize={Math.round(r * 1.05)} fontWeight="bold" textAnchor="middle" fill={isLight(o.c) ? '#111' : '#fff'}>!</SvgText></G>; }
+  if (o.t === 'text') return <G><SvgText x={o.x} y={o.y} dy={o.fs * 0.35} fontSize={o.fs} fontWeight="bold" stroke={halo} strokeWidth={Math.max(3, o.fs / 5)} strokeLinejoin="round" fill={halo}>{o.s}</SvgText><SvgText x={o.x} y={o.y} dy={o.fs * 0.35} fontSize={o.fs} fontWeight="bold" fill={o.c}>{o.s}</SvgText></G>;
+  if (!('pts' in o)) return null;
+  if (o.t === 'pen') return <Path d={penPath(o.pts)} stroke={o.c} strokeWidth={o.w} strokeLinecap="round" strokeLinejoin="round" fill="none" />;
+  if (!o.pts[1]) return null;
+  const a = arrowParts(o.pts[0], o.pts[1], o.w);
+  return <G><Path d={a.shaft} stroke={o.c} strokeWidth={o.w} strokeLinecap="round" fill="none" /><Path d={a.head} fill={o.c} /></G>;
+}
+
+export function MarkupEditor({ src, ops: initial, keys = [], onClose }: { src: string; ops?: MarkOp[]; keys?: MarkKey[]; onClose: (out: { image: string; ops: MarkOp[] } | null) => void }) {
+  const toast = useToast();
+  const [size, setSize] = useState<{ W: number; H: number } | null>(null);
+  const [area, setArea] = useState({ w: 0, h: 0 });
+  const [ops, setOps] = useState<MarkOp[]>(() => { const c = JSON.parse(JSON.stringify(initial || [])) as MarkOp[]; refreshKeyColours(c, keys); return c; });
+  const [tool, setTool] = useState<Tool>(keys.length ? 'key' : 'num');
+  const [colour, setColour] = useState(MARK_COLOURS[0].k);
+  const [picked, setPicked] = useState(false);
+  const [sz, setSz] = useState<MarkSize>('m');
+  const [keyPick, setKeyPick] = useState<number | null>(() => { const placed = new Set((initial || []).filter((o) => o.t === 'num').map((o) => +(o as { n: number }).n)); return keys.find((k) => !placed.has(+k.n))?.n ?? null; });
+  const [cur, setCur] = useState<MarkOp | null>(null);
+  const [saving, setSaving] = useState(false);
+  const view = useRef<ComponentRef<typeof View>>(null);
+  const st = useRef({ ops, tool, colour, picked, sz, keyPick, k: 1, size, cur: null as MarkOp | null, nextNum: 0 });
+  useEffect(() => { Object.assign(st.current, { ops, tool, colour, picked, sz, keyPick, size }); }, [ops, tool, colour, picked, sz, keyPick, size]);
+
+  useEffect(() => { Image.getSize(src, (w, h) => setSize(markCanvas(w, h)), () => { toast('Could not open that drawing.'); onClose(null); }); }, [src]); // eslint-disable-line react-hooks/exhaustive-deps
+  const k = size && area.w ? Math.min(area.w / size.W, area.h / size.H) : 0;
+  useEffect(() => { st.current.k = k; }, [k]);
+
+  // The handlers read the latest state from st at touch time, not during render.
+  // eslint-disable-next-line react-hooks/refs
+  const responder = useMemo(() => PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: () => true,
+    onPanResponderTerminationRequest: () => false,
+    onPanResponderGrant: (e) => {
+      const s = st.current; if (!s.size || !s.k) return;
+      const p = { x: e.nativeEvent.locationX / s.k, y: e.nativeEvent.locationY / s.k };
+      if (s.tool === 'pen' || s.tool === 'arrow') { s.cur = { t: s.tool, c: s.colour, w: Math.max(4, Math.round(markRadius(s.size.W, s.size.H, s.sz) / 4)), pts: [p] }; setCur({ ...s.cur }); }
+      else s.cur = null;
+      (s as unknown as { tap: Pt }).tap = p;
+    },
+    onPanResponderMove: (e) => {
+      const s = st.current; if (!s.cur || !('pts' in s.cur) || !s.k) return;
+      const p = { x: e.nativeEvent.locationX / s.k, y: e.nativeEvent.locationY / s.k };
+      if (s.cur.t === 'pen') s.cur.pts.push(p); else s.cur.pts[1] = p;
+      setCur({ ...s.cur, pts: [...s.cur.pts] });
+    },
+    onPanResponderRelease: () => { void release(); },
+  }), []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const release = async () => {
+    const s = st.current; if (!s.size) return;
+    const r = markRadius(s.size.W, s.size.H, s.sz), p = (s as unknown as { tap: Pt }).tap;
+    if (s.cur && 'pts' in s.cur) {
+      const o = s.cur; s.cur = null; setCur(null);
+      const ok = o.t === 'pen' ? o.pts.length > 1 : !!o.pts[1] && Math.hypot(o.pts[1].x - o.pts[0].x, o.pts[1].y - o.pts[0].y) > 8;
+      if (ok) setOps((x) => [...x, o]);
+      return;
+    }
+    if (!p) return;
+    if (s.tool === 'erase') { const i = nearestOp(s.ops, p, r); if (i >= 0) setOps((x) => x.filter((_, j) => j !== i)); return; }
+    if (s.tool === 'key' && s.keyPick != null) {
+      const kc = keys.find((x) => +x.n === +s.keyPick!)?.color || null;
+      const op: MarkOp = { t: 'num', n: +s.keyPick, c: !s.picked && kc ? kc : s.colour, r, x: p.x, y: p.y, key: true, auto: !s.picked };
+      const placed = new Set(s.ops.filter((o) => o.t === 'num').map((o) => +(o as { n: number }).n)); placed.add(+s.keyPick);
+      const nxt = keys.find((x) => !placed.has(+x.n));
+      setKeyPick(nxt ? +nxt.n : null); if (!nxt) setTool('num');
+      setOps((x) => [...x, op]); return;
+    }
+    if (s.tool === 'num' || s.tool === 'key') {
+      const keyNums = new Set(keys.map((x) => +x.n));
+      let n = s.nextNum || nextFree(s.ops, keys);
+      while (keyNums.has(n)) n++;
+      s.nextNum = n + 1;
+      setOps((x) => [...x, { t: 'num', n, c: s.colour, r, x: p.x, y: p.y }]); return;
+    }
+    if (s.tool === 'cross' || s.tool === 'tick' || s.tool === 'warn') { setOps((x) => [...x, { t: s.tool as 'cross', c: s.colour, r, x: p.x, y: p.y }]); return; }
+    if (s.tool === 'text') {
+      const txt = (await promptText('Text to add to the drawing', ''))?.trim();
+      if (txt) setOps((x) => [...x, { t: 'text', c: s.colour, fs: Math.round(r * 1.1), s: txt, x: p.x, y: p.y }]);
+    }
+  };
+
+  const save = async () => {
+    if (!size) return;
+    setSaving(true);
+    try {
+      let image: string | null = null;
+      if (Platform.OS === 'web') image = await renderMarked(src, ops);
+      else image = await captureRef(view, { format: 'jpg', quality: 0.86, result: 'tmpfile' });
+      if (!image) { toast('Could not save the marked-up drawing.'); return; }
+      onClose({ image, ops });
+    } catch { toast('Could not save the marked-up drawing.'); } finally { setSaving(false); }
+  };
+  const close = async () => { if (ops.length && !(await confirmAsk('Close without saving your marks?', 'Close'))) return; onClose(null); };
+  const chip = (on: boolean, label: string, onPress: () => void, key?: string) => (
+    <Pressable key={key ?? label} onPress={onPress} style={{ paddingHorizontal: 10, paddingVertical: 7, borderRadius: 8, backgroundColor: on ? '#fff' : 'rgba(255,255,255,0.12)' }}>
+      <Text style={{ color: on ? base.ink : '#fff', fontWeight: '700', fontSize: 12.5 }}>{label}</Text>
+    </Pressable>
+  );
+  return (
+    <Modal animationType="fade" onRequestClose={() => void close()}>
+      <View style={{ flex: 1, backgroundColor: '#1c1f24' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', padding: 10, gap: 8 }}>
+          {chip(false, 'Cancel', () => void close())}
+          <Text style={{ flex: 1, color: '#fff', fontWeight: '800', textAlign: 'center' }}>Mark up drawing</Text>
+          {chip(false, '↶ Undo', () => setOps((x) => x.slice(0, -1)))}
+          {chip(false, 'Clear', async () => { if (ops.length && (await confirmAsk('Remove all the marks?', 'Clear'))) setOps([]); })}
+          <Pressable onPress={() => void save()} disabled={saving} style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 8, backgroundColor: base.blue }}><Text style={{ color: '#fff', fontWeight: '800' }}>{saving ? 'Saving…' : 'Save'}</Text></Pressable>
+        </View>
+        <ScrollView horizontal style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 6, paddingHorizontal: 10, paddingBottom: 6 }}>
+          {keys.length > 0 && chip(tool === 'key', '📍 Report items', () => setTool('key'))}
+          {TOOLS.map(([t, l]) => chip(tool === t, l, () => setTool(t), t))}
+        </ScrollView>
+        <ScrollView horizontal style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 8, paddingHorizontal: 10, paddingBottom: 8, alignItems: 'center' }}>
+          {MARK_COLOURS.map((c) => <Pressable key={c.k} accessibilityLabel={c.n} onPress={() => { setColour(c.k); setPicked(true); }} style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: c.k, borderWidth: 3, borderColor: colour === c.k ? '#fff' : 'transparent' }} />)}
+          <View style={{ width: 10 }} />
+          {(Object.keys(MARK_SIZES) as MarkSize[]).map((s) => chip(sz === s, s.toUpperCase(), () => setSz(s), s))}
+        </ScrollView>
+        {tool === 'key' && keys.length > 0 && (
+          <ScrollView horizontal style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 6, paddingHorizontal: 10, paddingBottom: 8 }}>
+            {keys.map((x) => chip(keyPick === +x.n, `${x.n}. ${x.label.slice(0, 40)}`, () => setKeyPick(+x.n), `k${x.n}`))}
+          </ScrollView>
+        )}
+        <Text style={{ color: '#cbd2db', fontSize: 12, paddingHorizontal: 10, paddingBottom: 6 }}>
+          {tool === 'key' ? (keyPick != null ? `Tap the drawing to place number ${keyPick}.` : 'All the ticked items are placed.') : tool === 'pen' ? 'Draw with your finger.' : tool === 'arrow' ? 'Drag from the start to the point.' : tool === 'erase' ? 'Tap a mark to remove it.' : 'Tap the drawing to place it.'}
+        </Text>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }} onLayout={(e) => setArea({ w: e.nativeEvent.layout.width - 16, h: e.nativeEvent.layout.height - 16 })}>
+          {size && k > 0 ? (
+            <View ref={view} collapsable={false} {...responder.panHandlers} style={{ width: size.W * k, height: size.H * k, backgroundColor: '#fff' }}>
+              <Image source={{ uri: src }} style={{ position: 'absolute', left: 0, top: 0, width: size.W * k, height: size.H * k }} resizeMode="stretch" />
+              <Svg width={size.W * k} height={size.H * k} viewBox={`0 0 ${size.W} ${size.H}`} style={{ position: 'absolute', left: 0, top: 0 }} pointerEvents="none">
+                <MarkOps ops={cur ? [...ops, cur] : ops} />
+              </Svg>
+            </View>
+          ) : <Text style={{ color: '#fff' }}>Loading the drawing…</Text>}
+        </View>
+      </View>
+    </Modal>
+  );
+}
