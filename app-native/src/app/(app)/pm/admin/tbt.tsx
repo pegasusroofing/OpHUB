@@ -11,7 +11,7 @@ import { Button, Card, Empty, Muted } from '@/components/ui';
 import { openDocLink } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 type Tpl = { id: string; title: string; storage_path: string; created_at: string };
@@ -31,7 +31,7 @@ export default function TbtTemplates() {
   if (me.role !== 'admin') return <Muted style={{ padding: space.l }}>Company admins only.</Muted>;
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['tbtTemplates'] }); };
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Toolbox Talk Templates' }} />
       <Muted style={{ marginBottom: 10 }}>Templates here are automatically copied into Bank TBT on every new site you create, so standard talks (e.g. Alcohol &amp; Drugs, Manual Handling) are already there without re-uploading per job.</Muted>
       {isLoading ? <Muted>Loading…</Muted> : list.length ? list.map((t) => (

@@ -2,13 +2,10 @@
 // to-dos, calendar, the HUB, deliveries, operatives, HR and the Admin Centre.
 import { Stack } from 'expo-router';
 
-import { base } from '@/theme/theme';
+import { stackHeader } from '@/components/AppBar';
 
 export default function PmLayout() {
   return (
-    <Stack screenOptions={{
-      headerTintColor: base.ink, headerStyle: { backgroundColor: base.card }, headerTitleStyle: { fontWeight: '800' },
-      headerBackButtonDisplayMode: 'minimal', contentStyle: { backgroundColor: base.paper },
-    }} />
+    <Stack screenOptions={stackHeader} />
   );
 }

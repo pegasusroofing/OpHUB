@@ -10,7 +10,7 @@ import { Muted, SectionTitle } from '@/components/ui';
 import { ADMIN_PAGES, searchItems, visibleItems, type AdminItem, type AdminPage } from '@/lib/adminItems';
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 export default function AdminCentre() {
   const { me, org } = useAuth();
@@ -32,7 +32,7 @@ export default function AdminCentre() {
   const hits = searchItems(me, org, q);
   const items = visibleItems(me, org);
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Admin Centre' }} />
       <TextInput value={q} onChangeText={setQ} placeholder="Search settings, libraries, people…" style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card, marginBottom: 12 }} />
       {q.trim() ? (hits.length ? <View style={{ backgroundColor: base.card, borderRadius: 16, borderWidth: 1, borderColor: base.cardLine }}>{hits.map(row)}</View> : <Muted>Nothing matches "{q.trim()}".</Muted>) : (

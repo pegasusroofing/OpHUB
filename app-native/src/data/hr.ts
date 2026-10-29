@@ -12,7 +12,7 @@ import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/lib/types';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
-const rpc = supabase.rpc as unknown as (n: string, a: object) => Promise<{ data: unknown; error: unknown }>;
+const rpc = supabase.rpc.bind(supabase) as unknown as (n: string, a: object) => Promise<{ data: unknown; error: unknown }>;
 
 export type HrSettings = { max_off_at_once: number; approval_required: boolean; type_codes: Record<string, string> };
 export type HrPerson = { id: string; name: string; role: string };
@@ -25,7 +25,7 @@ export function useHr(orgId: string | null | undefined) {
     enabled: !!orgId,
     queryFn: async (): Promise<HrData> => {
       // Bank holidays are real bookings for PMs / site managers, made once per session.
-      if (!bhEnsured) { const r = await rpc('hr_ensure_bank_holidays', {}).catch(() => ({ error: true })); bhEnsured = !r.error; }
+      if (!bhEnsured) { const r = await Promise.resolve(rpc('hr_ensure_bank_holidays', {})).catch(() => ({ error: true })); bhEnsured = !r.error; }
       const y = new Date().getFullYear();
       const [s, hp, p] = await Promise.all([
         db.from('hr_settings').select('*').eq('org_id', orgId as string).limit(1),

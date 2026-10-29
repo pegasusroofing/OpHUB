@@ -17,7 +17,7 @@ import { useAuth } from '@/lib/auth';
 import { deliverPdf, emailPdf, exportFilename, fetchBytes, PDFDocument } from '@/lib/pdf';
 import { publicUrl } from '@/lib/privateFiles';
 import { isManager } from '@/lib/roles';
-import { base, radius, space } from '@/theme/theme';
+import { base, page as pageStyle, radius, space } from '@/theme/theme';
 
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card, marginBottom: 8 };
 const day = (s: string) => new Date(s).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -51,7 +51,7 @@ export default function Inductions() {
     const byOp = data?.byOp ?? {};
     const shown = tab === 'completed' ? roster.filter((u) => byOp[u]).sort((a, b) => byOp[b].completed_at.localeCompare(byOp[a].completed_at)) : roster.filter((u) => !byOp[u]);
     return (
-      <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={pageStyle(720)} keyboardShouldPersistTaps="handled">
         <Stack.Screen options={{ title: 'Site Inductions' }} />
         <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
           {(['outstanding', 'completed'] as const).map((k) => (
@@ -128,7 +128,7 @@ export default function Inductions() {
   if (isLoading) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   if (mine) {
     return (
-      <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
+      <ScrollView contentContainerStyle={pageStyle(720)}>
         <Stack.Screen options={{ title: 'Site Inductions' }} />
         <Card style={{ alignItems: 'center' }}>
           <Text style={{ fontSize: 34 }}>✅</Text>
@@ -144,7 +144,7 @@ export default function Inductions() {
   const sig = (me as { signature_path?: string | null }).signature_path;
 
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={pageStyle(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Site Inductions' }} />
       {page === 1 ? (
         <>

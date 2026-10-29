@@ -14,13 +14,13 @@ import { useAuth } from '@/lib/auth';
 import { fullSiteAddress } from '@/lib/rules/checkin';
 import { isManager } from '@/lib/roles';
 import type { SubAddress } from '@/lib/types';
-import { base, space } from '@/theme/theme';
+import { base, page, space } from '@/theme/theme';
 
 export default function Checkin() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: site } = useSite(id);
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'Check In / Out' }} />
       <HowTo k="checkin" />
       {!site ? <Muted>Loading…</Muted> : (

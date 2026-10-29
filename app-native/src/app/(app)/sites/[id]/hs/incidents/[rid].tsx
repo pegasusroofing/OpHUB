@@ -14,7 +14,7 @@ import { buildIncidentPdf, emailIncidentPdf } from '@/lib/incidentPdf';
 import { deliverPdf } from '@/lib/pdf';
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
-import { base, space } from '@/theme/theme';
+import { base, page, space } from '@/theme/theme';
 
 const cap = (s: unknown) => (s ? String(s).charAt(0).toUpperCase() + String(s).slice(1) : '');
 const yn = (b: unknown) => (b === true ? 'Yes' : b === false ? 'No' : '');
@@ -44,7 +44,7 @@ export default function IncidentView() {
     </View>
   ) : null);
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'Incident Report' }} />
       <Card>
         <View style={{ flexDirection: 'row', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>

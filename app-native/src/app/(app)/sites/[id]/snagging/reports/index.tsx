@@ -18,7 +18,7 @@ import { buildReportPdf, type PdfSub } from '@/lib/reportPdf';
 import { supabase } from '@/lib/supabase';
 import { REPORT_STATUS_LABEL } from '@/lib/rules/reports';
 import { isManager } from '@/lib/roles';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 export default function Reports() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -40,7 +40,7 @@ export default function Reports() {
   const list = (subs ?? []).filter((s) => !filter || s.template_name === filter);
 
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}
+    <ScrollView contentContainerStyle={page(720)}
       refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => { void refetch(); }} />}>
       <Stack.Screen options={{ title: 'Reports' }} />
       <Button title={picker ? 'Cancel' : '+ New Report'} onPress={() => setPicker(!picker)} />

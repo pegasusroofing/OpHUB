@@ -5,7 +5,7 @@ import { ScrollView } from 'react-native';
 import { Muted, Tile } from '@/components/ui';
 import { useSubco } from '@/data/subcontractors';
 import { useAuth } from '@/lib/auth';
-import { space } from '@/theme/theme';
+import { page, space } from '@/theme/theme';
 
 export default function SubcoHub() {
   const { id, co } = useLocalSearchParams<{ id: string; co: string }>();
@@ -16,7 +16,7 @@ export default function SubcoHub() {
   const go = (p: string) => () => router.push(`/sites/${id}/mc/subcontractors/${co}/${p}` as never);
   const docs = (k: number) => `${k} document${k === 1 ? '' : 's'}`;
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: data.company.name }} />
       <Tile icon="📄" tint="#E7E9EE" title="RAMS" sub={docs(n.rams)} onPress={go('docs?kind=rams')} />
       <Tile icon="🧪" tint="#E7E9EE" title="COSHH" sub={docs(n.coshh)} onPress={go('docs?kind=coshh')} />

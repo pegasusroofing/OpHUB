@@ -5,7 +5,7 @@ import { ScrollView } from 'react-native';
 import { CheckinPanel } from '@/components/CheckinPanel';
 import { Link, Muted } from '@/components/ui';
 import { useSite, useSubAddresses } from '@/data/sites';
-import { space } from '@/theme/theme';
+import { page, space } from '@/theme/theme';
 
 export default function CheckinAddress() {
   const { id, sub } = useLocalSearchParams<{ id: string; sub: string }>();
@@ -13,7 +13,7 @@ export default function CheckinAddress() {
   const { data: addresses, isLoading } = useSubAddresses(id);
   const addr = addresses?.find((a) => a.id === sub);
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'Check In / Out' }} />
       {!site || isLoading ? <Muted>Loading…</Muted> : !addr ? (
         <>

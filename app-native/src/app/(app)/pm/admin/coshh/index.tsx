@@ -18,7 +18,7 @@ import { COSHH_PICTO_IMG } from '@/lib/coshhPictoImages';
 import { deliverPdf, emailPdf } from '@/lib/pdf';
 import { brandOf, titleKey, type CoshhItem } from '@/lib/rules/coshh';
 import { isFullManager } from '@/lib/roles';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 9, color: base.ink, backgroundColor: base.card };
 const chip = (on: boolean) => ({ flex: 1, padding: 9, borderRadius: 16, borderWidth: 1, borderColor: on ? base.ink : base.line, backgroundColor: on ? base.ink : base.card });
@@ -181,7 +181,7 @@ export default function CoshhLibrary() {
   return (
     <View style={{ flex: 1 }}>
       <Stack.Screen options={{ title: 'COSHH Library' }} />
-      <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
         <Muted style={{ marginBottom: 10 }}>1. Add a product and its data sheet. 2. Check it and tap Assess — the assessment is saved in a folder. 3. Add assessments to a job from its COSHH page (Add from COSHH Library), or tick them here to export or email.</Muted>
         <View style={{ flexDirection: 'row', gap: 6, marginBottom: 12 }}>
           {([['assess', 'Assessments (folders)'], ['products', 'Products (data sheets)']] as const).map(([k, l]) => <Pressable key={k} onPress={() => setTab(k)} style={chip(tab === k)}><Text style={{ textAlign: 'center', fontWeight: '700', fontSize: 12, color: tab === k ? '#fff' : base.ink }}>{l}</Text></Pressable>)}

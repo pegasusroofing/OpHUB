@@ -11,7 +11,7 @@ import { nameOf, usePeople } from '@/data/hs';
 import { markMessagesRead, outstandingCount, useMyMessages, useOutstanding } from '@/data/inbox';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
-import { base, space, useTheme } from '@/theme/theme';
+import { base, page, space, useTheme } from '@/theme/theme';
 
 type Tab = 'todo' | 'msgs';
 const TYPES = [{ k: 'all', l: 'All' }, { k: 'rams', l: 'RAMS' }, { k: 'coshh', l: 'COSHH' }, { k: 'tbt', l: 'TBT' }] as const;
@@ -48,7 +48,7 @@ export default function Inbox() {
   const unreadN = msgs.data?.unread.length ?? 0;
 
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}
+    <ScrollView contentContainerStyle={page(720)}
       refreshControl={<RefreshControl refreshing={out.isRefetching || msgs.isRefetching} onRefresh={() => { void out.refetch(); void msgs.refetch(); }} />}>
       <Title>Messages & tasks</Title>
       <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>

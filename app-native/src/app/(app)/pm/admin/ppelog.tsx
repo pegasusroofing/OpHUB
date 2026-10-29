@@ -16,7 +16,7 @@ import { currentPpe, PPE_STANDARD_ITEMS, type Issuance } from '@/lib/rules/ppe';
 import { exportTableExcel, exportTablePdf, type Table } from '@/lib/tableExport';
 import { isFullManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
-import { base, space } from '@/theme/theme';
+import { base, page, space } from '@/theme/theme';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 type Row = { id: string; user_id: string; site_id: string; items: string[] | null; status: string; issued_at: string; issued_by?: string | null };
@@ -59,7 +59,7 @@ export default function PpeLog() {
   const run = async (k: string, fn: () => Promise<boolean>) => { if (k !== 'r' && !shown.length) { toast('No PPE issued in that range.'); return; } setBusy(k); const ok = await fn().catch(() => false); setBusy(''); if (!ok) toast('Could not make the file — try again.'); };
   const chip = (on: boolean, l: string, onPress: () => void) => <Pressable onPress={onPress} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: on ? base.ink : base.line, backgroundColor: on ? base.ink : base.card }}><Text style={{ fontWeight: '700', fontSize: 12, color: on ? '#fff' : base.ink }}>{l}</Text></Pressable>;
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'PPE Log' }} />
       <Muted style={{ marginBottom: 10 }}>PPE issued across every site, for whichever period and operative(s) you choose.</Muted>
       <View style={{ flexDirection: 'row', gap: 6, marginBottom: 10, flexWrap: 'wrap', alignItems: 'center' }}>

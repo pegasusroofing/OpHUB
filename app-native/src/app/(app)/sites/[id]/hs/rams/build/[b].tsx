@@ -15,7 +15,7 @@ import { useAuth } from '@/lib/auth';
 import { deliverPdf } from '@/lib/pdf';
 import { hazardFromLib, lines, missingInfo, moveItem, P_LABELS, RAMS_GROUPS, RAMS_PPE, RAMS_REQUIRED, ramsUid, riskBand, rr, S_LABELS, sectionFromLib, type Hazard, type RamsBuild, type RamsDetails, type RSection } from '@/lib/rules/rams';
 import { isFullManager } from '@/lib/roles';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 type Tab = 'details' | 'ra' | 'ssow' | 'ms' | 'issue';
 const ORDER: Tab[] = ['details', 'ra', 'ssow', 'ms', 'issue'];
@@ -290,7 +290,7 @@ function Editor({ initial, siteId }: { initial: RamsBuild; siteId: string }) {
   return (
     <View style={{ flex: 1 }}>
       <Stack.Screen options={{ title: 'RAMS Builder' }} />
-      <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
         <TextInput value={b.title} onChangeText={(t) => change((x) => ({ ...x, title: t }))} style={[box, { fontSize: 17, fontWeight: '800' }]} />
         <Muted style={{ marginBottom: 8 }}>{saveState}</Muted>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }} contentContainerStyle={{ gap: 6 }}>

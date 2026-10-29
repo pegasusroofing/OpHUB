@@ -7,6 +7,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { ToastProvider } from '@/components/toast';
 import { AuthProvider, useAuth } from '@/lib/auth';
+import { useAppFonts } from '@/lib/fonts';
 import { startReportSync } from '@/lib/reportOffline';
 import { startUploadQueue } from '@/lib/uploadQueue';
 import { ThemeProvider } from '@/theme/theme';
@@ -33,12 +34,13 @@ export default function RootLayout() {
 
 function Root() {
   const { status, org, me } = useAuth();
+  const fontsReady = useAppFonts();
   useEffect(() => {
-    if (status !== 'loading') SplashScreen.hideAsync();
+    if (status !== 'loading' && fontsReady) SplashScreen.hideAsync();
     if (status === 'ready') startUploadQueue();
     if (status === 'ready' && me) startReportSync(me);
-  }, [status, me]);
-  if (status === 'loading') return null;
+  }, [status, me, fontsReady]);
+  if (status === 'loading' || !fontsReady) return null;
   const signedIn = status === 'ready';
   return (
     <ThemeProvider org={org}>

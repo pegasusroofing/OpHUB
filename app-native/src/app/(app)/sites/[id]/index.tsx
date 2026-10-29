@@ -14,7 +14,7 @@ import { useAuth } from '@/lib/auth';
 import { fullSiteAddress, siteStatusKey } from '@/lib/rules/checkin';
 import { overallPct } from '@/lib/rules/sow';
 import { isFinanceUser, isManager } from '@/lib/roles';
-import { base, space } from '@/theme/theme';
+import { base, page, space } from '@/theme/theme';
 
 export default function SiteHome() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -33,7 +33,7 @@ export default function SiteHome() {
 
   if (site.repair_contract) {
     return (
-      <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
+      <ScrollView contentContainerStyle={page(720)}>
         <Stack.Screen options={{
           title: site.name,
           headerRight: mgr ? () => <Pressable onPress={go('admin')} hitSlop={10} style={{ paddingHorizontal: 12 }}><Text style={{ fontSize: 15, color: base.ink }}>⚙ Settings</Text></Pressable> : undefined,
@@ -50,7 +50,7 @@ export default function SiteHome() {
   }
 
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{
         title: site.name,
         headerRight: mgr ? () => <Pressable onPress={go('admin')} hitSlop={10} style={{ paddingHorizontal: 12 }}><Text style={{ fontSize: 15, color: base.ink }}>⚙ Settings</Text></Pressable> : undefined,

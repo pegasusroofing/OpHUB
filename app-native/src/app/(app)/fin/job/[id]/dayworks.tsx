@@ -12,7 +12,7 @@ import { Button, Empty, Muted } from '@/components/ui';
 import { fdb, insertNumbered } from '@/data/finance';
 import { useAuth } from '@/lib/auth';
 import { fdate, money, num, round2, today } from '@/lib/rules/finance';
-import { space } from '@/theme/theme';
+import { page, space } from '@/theme/theme';
 
 type Row = Record<string, any>;
 const ST: Record<string, [string, string]> = { issued: ['Issued', '#D98A00'], approved: ['Approved', '#1E7A3C'], rejected: ['Rejected', '#C0392B'] };
@@ -29,7 +29,7 @@ export default function FinDayworks() {
   const list = data.filter((d) => f === 'all' || d.status === f);
   const sum = (s: string) => round2(data.filter((d) => d.status === s).reduce((t, d) => t + Number(d.value || 0), 0));
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 900, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(900)}>
       <Stack.Screen options={{ title: 'Day works' }} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}><FinStat v={money(sum('approved'), 0)} label="Approved" /><FinStat v={money(sum('issued'), 0)} label="Issued, waiting" /><FinStat v={money(sum('rejected'), 0)} label="Rejected" /></View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>

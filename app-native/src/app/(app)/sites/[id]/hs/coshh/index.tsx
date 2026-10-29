@@ -8,7 +8,7 @@ import { HowTo } from '@/components/HowTo';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
-import { space } from '@/theme/theme';
+import { page, space } from '@/theme/theme';
 
 export default function Coshh() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -16,7 +16,7 @@ export default function Coshh() {
   const { me } = useAuth();
   const manager = !!me && isManager(me);
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'COSHH' }} />
       <HowTo k="coshh" />
       {site && manager && (

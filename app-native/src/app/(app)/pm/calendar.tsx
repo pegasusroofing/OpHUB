@@ -19,7 +19,7 @@ import { siteStatusKey } from '@/lib/rules/checkin';
 import { localISODate, slotLabel } from '@/lib/rules/driver';
 import { isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 type Ev = { id: string; site_id: string | null; title: string; event_date: string; is_private?: boolean; recurrence_group_id?: string | null; created_by?: string | null; kind: 'event' | 'start' | 'driver'; colour: string; where?: string };
@@ -81,7 +81,7 @@ export default function AllCalendar() {
   };
 
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'Calendar' }} />
       <HowTo k="calendar" />
       <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>

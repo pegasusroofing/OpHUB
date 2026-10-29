@@ -22,7 +22,7 @@ import { siteStatusKey } from '@/lib/rules/checkin';
 import { blockedSlots, CLEAR_SITE, collectionKind, DELIVERY_TIME_SLOTS, localISODate, nextSlotKey, NO_COLLECTION, slotLabel, slotProblem } from '@/lib/rules/driver';
 import { branchLabel, readIsoDate, subAddrLabel } from '@/lib/rules/materials';
 import { supabase } from '@/lib/supabase';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card, marginBottom: 10 };
 const Label = ({ children }: { children: string }) => <Text style={{ fontSize: 12, fontWeight: '700', color: base.slate, marginBottom: 4 }}>{children}</Text>;
@@ -168,7 +168,7 @@ export default function DeliveryForm() {
 
   const done = task?.status === 'completed';
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: isNew ? 'Add Delivery' : 'Edit Delivery' }} />
       {done && task && (
         <Card style={{ borderColor: base.ok }}>

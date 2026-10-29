@@ -12,7 +12,7 @@ import { Button, Card, Empty, Muted } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 
@@ -30,7 +30,7 @@ export default function CompanyLibrary() {
   if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['companyLib'] }); };
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Subcontractor Library' }} />
       <Muted style={{ marginBottom: 12 }}>Every subcontractor company&apos;s own document library — shared across every site that company is added to.</Muted>
       {isLoading ? <Muted>Loading…</Muted> : list.length ? list.map((p) => (

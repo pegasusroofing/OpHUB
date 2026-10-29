@@ -18,7 +18,7 @@ import { buildSubNoticePdf } from '@/lib/finSubNoticePdf';
 import { deliverPdf } from '@/lib/pdf';
 import { addDays, fdate, jobTag, money, num, round2, today } from '@/lib/rules/finance';
 import { subAppCalc } from '@/lib/rules/finSubs';
-import { base, space } from '@/theme/theme';
+import { base, page, space } from '@/theme/theme';
 
 type Row = Record<string, any>;
 
@@ -63,7 +63,7 @@ export default function FinSubcontract() {
     toast('Marked paid — added to the CIS return'); setAppEdit(null); refresh();
   };
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 900, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(900)}>
       <Stack.Screen options={{ title: sc ? `${sc.number} · ${sc.name}` : 'New subcontractor PO' }} />
       {sc && (
         <>

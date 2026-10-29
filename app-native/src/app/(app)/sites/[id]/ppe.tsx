@@ -14,7 +14,7 @@ import { requestPpe, signPpe, useMyPpe } from '@/data/ppe';
 import { useAuth } from '@/lib/auth';
 import { cap1, currentPpe, PPE_STANDARD_ITEMS } from '@/lib/rules/ppe';
 import { isManager } from '@/lib/roles';
-import { base, space } from '@/theme/theme';
+import { base, page, space } from '@/theme/theme';
 
 const longDate = (d: string) => new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 
@@ -32,7 +32,7 @@ export default function Ppe() {
   const [date, setDate] = useState('');
   const [busy, setBusy] = useState(false);
   if (!me) return null;
-  if (isManager(me)) return site ? <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled"><Stack.Screen options={{ title: 'PPE' }} /><PpeManager site={site} /></ScrollView> : <Muted style={{ padding: space.l }}>Loading…</Muted>;
+  if (isManager(me)) return site ? <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled"><Stack.Screen options={{ title: 'PPE' }} /><PpeManager site={site} /></ScrollView> : <Muted style={{ padding: space.l }}>Loading…</Muted>;
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['myPpe'] }); void qc.invalidateQueries({ queryKey: ['hsSummary'] }); };
   const mine = data ? currentPpe(data.issuances, me.id) : [];
   const pending = (data?.issuances ?? []).filter((i) => i.status === 'pending_signature');
@@ -49,7 +49,7 @@ export default function Ppe() {
   };
 
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'PPE' }} />
       {isLoading ? <Muted>Loading…</Muted> : (
         <>

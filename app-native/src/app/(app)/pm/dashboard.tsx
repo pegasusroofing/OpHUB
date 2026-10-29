@@ -16,7 +16,7 @@ import { overallPct } from '@/lib/rules/sow';
 import { isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
 import type { Site } from '@/lib/types';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 const rows = <T,>(r: { data: unknown }) => ((r.data as T[] | null) ?? []);
@@ -99,7 +99,7 @@ export default function CompanyDashboard() {
   const sel = show && lists[show];
   const ranked = sel ? live.map((s) => ({ s, n: sel.map?.[s.id] || 0 })).filter((x) => x.n > 0).sort((a, b) => b.n - a.n) : [];
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'Company Dashboard' }} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
         {stat('Live Projects', live.length, null, () => router.push('/sites'))}

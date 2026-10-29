@@ -12,7 +12,7 @@ import { afterChecklistSubmit, loadChecklist, saveChecklist, uploadChecklistPhot
 import { useAuth } from '@/lib/auth';
 import { pickPhotos } from '@/lib/photos';
 import { VEHICLE_ITEMS, VEHICLE_PHOTOS, vehicleSubmitProblem } from '@/lib/rules/driver';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 export default function Vehicle() {
   const { me } = useAuth();
@@ -70,7 +70,7 @@ export default function Vehicle() {
   };
 
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(720)}>
       <Card>
         <Text style={{ fontWeight: '700', color: base.ink }}>Week commencing {new Date(`${d.week_start}T00:00:00`).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</Text>
         {submitted ? <Text style={{ color: base.ok }}>✓ Submitted</Text> : <Muted>{answered} of {VEHICLE_ITEMS.length} checked</Muted>}

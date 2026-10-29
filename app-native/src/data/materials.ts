@@ -278,7 +278,7 @@ export async function sendOrder(me: Profile, opts: {
   let warn = up.some((r) => r.error) ? 'Some requests could not be updated — check them manually. ' : '';
   let po: { id: string; note?: string | null } | null = null;
   if (opts.financeUser) {
-    const rpc = supabase.rpc as unknown as (n: string, a: object) => Promise<{ data: unknown; error: unknown }>;
+    const rpc = supabase.rpc.bind(supabase) as unknown as (n: string, a: object) => Promise<{ data: unknown; error: unknown }>;
     const r = await rpc('fin_raise_po', {
       p_site: siteId, p_material_ids: mats.map((m) => m.id),
       p_supplier_id: !toMe && supplier && /^[0-9a-f-]{36}$/i.test(supplier.id) ? supplier.id : null,
@@ -416,7 +416,7 @@ export async function saveGrn(me: Profile, siteId: string, m: Mat, ok: boolean, 
   if (!grn.ok || grn.notes || paths.length) tellManagers(me, siteId, 'material_grn', `${me.name} received "${item}"${grn.ok ? '' : ' with a problem'}${grn.notes ? `: ${grn.notes}` : ''}${paths.length ? ` (${paths.length} photo${paths.length > 1 ? 's' : ''})` : ''}`);
   if (grn.ok) return { ok: true, msg: 'Goods received ✓' };
   try {
-    const rpc = supabase.rpc as unknown as (n: string, a: object) => Promise<{ data: unknown; error: unknown }>;
+    const rpc = supabase.rpc.bind(supabase) as unknown as (n: string, a: object) => Promise<{ data: unknown; error: unknown }>;
     const f = await rpc('fin_flag_grn_problem', { p_material_id: m.id, p_note: grn.notes });
     let d = f.data as Record<string, unknown> | Record<string, unknown>[] | null;
     if (Array.isArray(d)) d = d[0];
@@ -440,7 +440,7 @@ export function useOfficeOrders(siteId: string | undefined, enabled: boolean) {
     queryKey: ['materials', siteId, 'office'],
     enabled: !!siteId && enabled,
     queryFn: async () => {
-      const rpc = supabase.rpc as unknown as (n: string, a: object) => Promise<{ data: unknown; error: unknown }>;
+      const rpc = supabase.rpc.bind(supabase) as unknown as (n: string, a: object) => Promise<{ data: unknown; error: unknown }>;
       const r = await rpc('site_office_orders', { p_site: siteId });
       if (r.error || !Array.isArray(r.data)) return [] as OfficeOrder[];
       // POs raised from the Materials tile already show under Material Requests.

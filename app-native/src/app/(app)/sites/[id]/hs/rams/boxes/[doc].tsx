@@ -13,7 +13,7 @@ import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
 import type { SignLayout } from '@/lib/signedPdf';
 import { supabase } from '@/lib/supabase';
-import { space } from '@/theme/theme';
+import { page, space } from '@/theme/theme';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 
@@ -31,7 +31,7 @@ export default function DocBoxes() {
   const usable = tpls.filter((t) => boxesOf(t.layout).length);
   const done = (msg: string) => { toast(msg); void qc.invalidateQueries({ queryKey: ['hsDocs', 'rams', id] }); router.back(); };
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 900, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(900)}>
       <Stack.Screen options={{ title: 'Signature Boxes' }} />
       <SignBoxEditor storagePath={d.storage_path} initial={JSON.parse(JSON.stringify(boxesOf(d.sign_layout)))} saveLabel="Save signature boxes"
         intro={`${d.name} — mark every place someone signs in this document. Operatives fill Operative 1, 2, 3… in the order they sign; the Project Manager box takes whoever issued it; the Client box takes the client's emailed-link signature.`}

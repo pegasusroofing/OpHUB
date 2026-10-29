@@ -25,7 +25,7 @@ import { isFullManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
 import { exportTableExcel, exportTablePdf, type Table } from '@/lib/tableExport';
 import type { Organization, Profile, Site } from '@/lib/types';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, paddingHorizontal: 8, paddingVertical: 6, color: base.ink, backgroundColor: base.card };
 
@@ -74,7 +74,7 @@ function View_({ me, org, site, sheet, items, can }: { me: Profile; org: Organiz
     else if (k === 'del') await del(sheet, site.id, toast, refresh);
   };
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 820, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(820)}>
       <Stack.Screen options={{ title: 'Price Sheet', headerRight: () => <Pressable onPress={() => void menu()} hitSlop={10} style={{ paddingHorizontal: 12 }}><Text style={{ fontSize: 18, color: base.ink }}>⋮</Text></Pressable> }} />
       <Card>
         {can ? <TextInput value={title} onChangeText={setTitle} onBlur={async () => { if (title.trim() && title !== sheet.title) toast((await renameSheet(sheet.id, title.trim())) ? 'Sheet renamed' : 'Could not save — try again.'); }} style={{ fontSize: 17, fontWeight: '800', color: base.ink, padding: 0 }} /> : <Text style={{ fontSize: 17, fontWeight: '800', color: base.ink }}>{sheet.title}</Text>}
@@ -168,7 +168,7 @@ function Builder({ me, site, sheet, items, alloc, rateItems, options }: { me: Pr
   };
 
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 820, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(820)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: issued ? 'Edit Price Sheet' : 'Price Sheet (draft)' }} />
       <Card>
         <TextInput value={w.title} onChangeText={(v) => up((x) => { x.title = v; })} placeholder="Title" style={[box, { fontWeight: '800', fontSize: 16, marginBottom: 8 }]} />

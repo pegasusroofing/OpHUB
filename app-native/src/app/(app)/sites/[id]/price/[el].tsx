@@ -16,7 +16,7 @@ import { decideVariation, deleteElement, patchElement, removeVariation, requestV
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { money, readAmount } from '@/lib/rules/price';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card, marginBottom: 8 };
 
@@ -73,7 +73,7 @@ export default function PriceElementPage() {
   const row = (l: string, v: string, colour: string = base.ink) => <View style={{ flexDirection: 'row', paddingVertical: 4 }}><Text style={{ flex: 1, color: base.slate }}>{l}</Text><Text style={{ fontWeight: '800', color: colour }}>{v}</Text></View>;
 
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: el.name, headerRight: mgr ? () => <Pressable onPress={() => void menu()} hitSlop={10} style={{ paddingHorizontal: 12 }}><Text style={{ fontSize: 18, color: base.ink }}>⋮</Text></Pressable> : undefined }} />
       {el.closed && <Muted style={{ marginBottom: 8 }}>This price is closed.</Muted>}
       {canPrice ? (

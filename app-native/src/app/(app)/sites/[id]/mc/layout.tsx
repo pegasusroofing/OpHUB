@@ -9,14 +9,14 @@ import { Muted } from '@/components/ui';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
-import { space } from '@/theme/theme';
+import { page, space } from '@/theme/theme';
 
 export default function SiteLayout() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: site } = useSite(id);
   const { me } = useAuth();
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'Site Rules & Layout' }} />
       {site && me && isManager(me) && <HsDocUpload kind="layout" site={site} />}
       {site ? <HsDocList kind="layout" site={site} /> : <Muted>Loading…</Muted>}

@@ -14,7 +14,7 @@ import { useAuth } from '@/lib/auth';
 import { isManager, roleLabel } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/lib/types';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 type Hit = { g: string; ic: string; t: string; s?: string; go: string };
 const has = (v: unknown, q: string) => String(v ?? '').toLowerCase().includes(q);
@@ -58,7 +58,7 @@ export default function Search() {
   const items = [...local, ...(query.length >= 2 ? remote : []), ...actions];
   let last = '';
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Search' }} />
       <TextInput value={q} onChangeText={setQ} autoFocus placeholder="🔍 Search projects, people, reports, documents…" autoCapitalize="none"
         onSubmitEditing={() => { if (items[0]) router.push(items[0].go as never); }}

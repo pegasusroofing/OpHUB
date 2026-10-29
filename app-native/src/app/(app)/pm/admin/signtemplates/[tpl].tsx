@@ -9,7 +9,7 @@ import { Muted } from '@/components/ui';
 import { boxesOf, loadTemplate, saveTemplateBoxes } from '@/data/signTemplates';
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
-import { space } from '@/theme/theme';
+import { page, space } from '@/theme/theme';
 
 export default function TemplateBoxes() {
   const { tpl } = useLocalSearchParams<{ tpl: string }>();
@@ -23,7 +23,7 @@ export default function TemplateBoxes() {
   if (!tp) return <Muted style={{ padding: space.l }}>Template not found.</Muted>;
   if (!tp.storage_path) return <Muted style={{ padding: space.l }}>This template has no sample document to show.</Muted>;
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 900, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(900)}>
       <Stack.Screen options={{ title: 'Template Boxes' }} />
       <SignBoxEditor storagePath={tp.storage_path} initial={JSON.parse(JSON.stringify(boxesOf(tp.layout)))} saveLabel="Save template"
         intro={`${tp.name} — this is the template's sample document. Mark every place someone signs. Any document you later upload with this template gets the same boxes in the same places. Set up as many operatives as the form has room for; spare boxes just stay empty.`}

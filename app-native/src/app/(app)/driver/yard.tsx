@@ -2,11 +2,11 @@
 import { ScrollView } from 'react-native';
 
 import { YardBookIn } from '@/components/YardBookIn';
-import { space } from '@/theme/theme';
+import { page, space } from '@/theme/theme';
 
 export default function DriverYard() {
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <YardBookIn canAddItems={false} />
     </ScrollView>
   );

@@ -12,7 +12,7 @@ import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 export default function Operatives() {
   const { site } = useLocalSearchParams<{ site?: string }>();
@@ -29,7 +29,7 @@ export default function Operatives() {
   const siteName = site ? sites.find((s) => s.id === site)?.name : null;
   const shown = ops.filter((o) => (!site || onSite?.has(o.id)) && (!q.trim() || (o.name || '').toLowerCase().includes(q.trim().toLowerCase())));
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: siteName ? `Operatives · ${siteName}` : 'Operatives' }} />
       <TextInput value={q} onChangeText={setQ} placeholder="Search operatives…" style={{ borderWidth: 1.5, borderColor: base.line, borderRadius: radius.input, padding: 12, color: base.ink, backgroundColor: base.card, marginBottom: 14 }} />
       {isLoading ? <Muted>Loading…</Muted> : shown.length ? shown.map((o) => (

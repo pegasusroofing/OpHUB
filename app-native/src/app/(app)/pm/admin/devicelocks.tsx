@@ -9,7 +9,7 @@ import { Button, Card, Empty, Muted } from '@/components/ui';
 import { approveDevice, unlockDevice, useDeviceLocks } from '@/data/admin';
 import { useAuth } from '@/lib/auth';
 import { isFullManager } from '@/lib/roles';
-import { base, space } from '@/theme/theme';
+import { base, page, space } from '@/theme/theme';
 
 const d = (s: string | null) => (s ? new Date(s).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '');
 
@@ -27,7 +27,7 @@ export default function DeviceLocks() {
   };
   const pending = data.filter((x) => x.status === 'pending'), locked = data.filter((x) => x.status !== 'pending');
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'Device Locks' }} />
       <Muted style={{ marginBottom: 10 }}>Everyone except Project Managers and admins is locked to one phone, and each phone to one person — whether they use the app or the web browser. A person&apos;s first phone locks to them automatically; a second phone waits here for approval.</Muted>
       {isLoading ? <Muted>Loading…</Muted> : (

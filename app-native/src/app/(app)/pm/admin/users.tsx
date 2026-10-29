@@ -12,7 +12,7 @@ import { useAuth } from '@/lib/auth';
 import { isFinanceUser, isFullManager, isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
 import { ROLE_LABEL, roleActionsFor, shownRole } from '@/lib/rules/users';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 const GROUPS: { title: string; match: (p: TeamMember) => boolean; empty: string }[] = [
   { title: 'Company Admins', match: (p) => p.role === 'admin', empty: 'No other admins yet.' },
@@ -81,7 +81,7 @@ Pass it on securely — it won’t be shown again.`, 'Password reset');
     }
   };
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'Users' }} />
       {isLoading ? <Muted>Loading…</Muted> : GROUPS.map((g) => {
         const list = team.filter(g.match);

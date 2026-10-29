@@ -17,7 +17,7 @@ import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { branchLabel, isEmail, orderEmailFor, sortSuppliers, type Branch } from '@/lib/rules/materials';
 import { isManager } from '@/lib/roles';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card, marginBottom: 8 };
 const STATUS: Record<string, string> = { open: 'Open', assigned: 'Assigned', collected: 'Collected', closed: '✓ Collected' };
@@ -132,7 +132,7 @@ export default function Collections() {
   const keys = Object.keys(groups).sort((a, b) => (a === '__none' ? 1 : b === '__none' ? -1 : (supName(a) || '').localeCompare(supName(b) || '')));
 
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled"
+    <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled"
       refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => { void refetch(); }} />}>
       <Stack.Screen options={{ title: 'Collections' }} />
       <Card style={{ backgroundColor: '#FCEFD2' }}><Text style={{ color: '#5E3D00' }}><Text style={{ fontWeight: '700' }}>Items for an operative to pick up.</Text> Assign who collects each one — it shows on their Materials screen as a tick list.</Text></Card>

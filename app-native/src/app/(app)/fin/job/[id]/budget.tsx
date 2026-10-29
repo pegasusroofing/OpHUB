@@ -12,7 +12,7 @@ import { useBook } from '@/data/finBook';
 import { useAuth } from '@/lib/auth';
 import { COST_CATS, forecast } from '@/lib/rules/finBook';
 import { money, num, round2 } from '@/lib/rules/finance';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 7, color: base.ink, backgroundColor: base.card, width: 110 };
 
@@ -29,7 +29,7 @@ export default function FinBudget() {
   const vals = v || Object.fromEntries(fc.cats.map((k) => [k, { budget: fc.budget[k] != null ? String(fc.budget[k]) : '', tc: fc.tcSet[k] ? String(fc.toComplete[k]) : '' }]));
   const set = (k: string, f: 'budget' | 'tc', x: string) => setV({ ...vals, [k]: { ...vals[k], [f]: x } });
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 900, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(900)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Budget & forecast' }} />
       <Muted style={{ marginBottom: 10 }}>Budget per heading, and (optional) what&apos;s left to spend. Blank &quot;to complete&quot; = budget less spent and ordered. Expected final cost = spent + ordered + to complete.</Muted>
       {fc.cats.map((k) => {

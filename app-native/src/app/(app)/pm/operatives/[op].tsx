@@ -16,7 +16,7 @@ import { useAuth } from '@/lib/auth';
 import { siteStatusKey } from '@/lib/rules/checkin';
 import { isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
-import { base, space } from '@/theme/theme';
+import { base, page, space } from '@/theme/theme';
 
 export default function OperativeDetail() {
   const { op } = useLocalSearchParams<{ op: string }>();
@@ -47,7 +47,7 @@ export default function OperativeDetail() {
     <Card style={{ flex: 1, alignItems: 'center' }}><Text style={{ fontSize: 26, fontWeight: '800', color: base.ink }}>{n}</Text><Muted>{l}</Muted></Card>
   );
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: o.name }} />
       <SectionTitle>Details</SectionTitle>
       <Card>

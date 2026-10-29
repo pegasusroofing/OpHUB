@@ -21,7 +21,7 @@ import { fullSiteAddress } from '@/lib/rules/checkin';
 import { blockedSlots, bySlotOrder, collectionLine, dayTotals, DELIVERY_TIME_SLOTS, fullSlots, localISODate, minsLabel, slotLabel } from '@/lib/rules/driver';
 import { readIsoDate } from '@/lib/rules/materials';
 import { isManager } from '@/lib/roles';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 const addDays = (iso: string, n: number) => { const d = new Date(`${iso}T12:00:00`); d.setDate(d.getDate() + n); return localISODate(d); };
 
@@ -69,7 +69,7 @@ export default function DeliverySchedule() {
   const drivers = people.filter((p) => p.role === 'driver');
 
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled"
+    <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled"
       refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => { void refetch(); }} />}>
       <Stack.Screen options={{ title: 'Delivery Schedule' }} />
       <HowTo k="delivery" />

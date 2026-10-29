@@ -22,7 +22,7 @@ import { useAuth } from '@/lib/auth';
 import { COST_CATS, forecast, marginOn, pctTxt } from '@/lib/rules/finBook';
 import { FIN_VAT_LABEL, fdate, money, num, retentionAlerts, retentionDates, retHalf } from '@/lib/rules/finance';
 import { isFinanceUser } from '@/lib/roles';
-import { base, space } from '@/theme/theme';
+import { base, page, space } from '@/theme/theme';
 
 type Row = Record<string, any>;
 const TABS: [string, string][] = [['overview', 'Overview'], ['sales', 'Sales'], ['purchases', 'Purchases'], ['subs', 'Subcontractors & Labour'], ['setup', 'Set-up']];
@@ -42,7 +42,7 @@ export default function FinJob() {
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>{opts.map(([v, l]) => <FinChip key={v} on={sub[k] === v} label={l} onPress={() => setSub({ ...sub, [k]: v })} />)}</View>
   );
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 1000, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(1000)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title }} />
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, marginBottom: 12 }}>
         {TABS.filter(([k]) => k !== 'boq').map(([k, l]) => <FinChip key={k} on={tab === k} label={l} onPress={() => router.setParams({ tab: k })} />)}

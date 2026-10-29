@@ -19,7 +19,7 @@ import { readIsoDate } from '@/lib/rules/materials';
 import { buildIcs } from '@/lib/rules/ics';
 import { isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 type View_ = 'week' | 'twoweek' | 'month';
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card, marginBottom: 8 };
@@ -142,7 +142,7 @@ export default function SiteCalendar() {
 
   const anchorMonth = new Date().getMonth();
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Calendar' }} />
       <View style={{ flexDirection: 'row', gap: 6, marginBottom: 10 }}>
         {([['week', '1 week'], ['twoweek', '2 weeks'], ['month', 'Month']] as const).map(([k, l]) => <Chip key={k} on={view === k} label={l} onPress={() => setView(k)} />)}

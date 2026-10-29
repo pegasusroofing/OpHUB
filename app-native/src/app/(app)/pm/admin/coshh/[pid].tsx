@@ -21,7 +21,7 @@ import { deliverPdf } from '@/lib/pdf';
 import { codeText, COSHH_PICTOS, COSHH_ROUTES, parseCodes, suggestPictos, suggestSignal, type CoshhData, type CoshhItem } from '@/lib/rules/coshh';
 import { RAMS_PPE } from '@/lib/rules/rams';
 import { isFullManager } from '@/lib/roles';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 9, color: base.ink, backgroundColor: base.card, marginBottom: 8 };
 const chipStyle = (on: boolean) => ({ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: on ? base.ink : base.line, backgroundColor: on ? base.ink : base.card });
@@ -71,7 +71,7 @@ function Editor({ initial }: { initial: CoshhItem }) {
   return (
     <View style={{ flex: 1 }}>
       <Stack.Screen options={{ title: 'COSHH Product' }} />
-      <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
         <Card>
           <SectionTitle>COSHH assessment</SectionTitle>
           {a ? (

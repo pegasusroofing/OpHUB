@@ -11,7 +11,7 @@ import { Button, Card, Muted, SectionTitle } from '@/components/ui';
 import { createInvite, createPermanentInvite, emailInvite, joinLink, revokeInvite, useInvites } from '@/data/admin';
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 const ROLES = [{ key: 'operative', label: 'Operative' }, { key: 'driver', label: 'Delivery Driver' }, { key: 'client', label: 'Client (view-only)' }];
 
@@ -37,7 +37,7 @@ export default function Invites() {
   const linkBox = (link: string) => <TextInput value={link} editable={false} selectTextOnFocus style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 8, fontSize: 11.5, color: base.ink, marginBottom: 8 }} />;
   const perm = data?.permanent;
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Invites' }} />
       <Card>
         {perm ? (

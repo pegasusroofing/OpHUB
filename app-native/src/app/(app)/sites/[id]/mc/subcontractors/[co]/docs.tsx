@@ -11,7 +11,7 @@ import { useSite } from '@/data/sites';
 import { useSubco } from '@/data/subcontractors';
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
-import { space } from '@/theme/theme';
+import { page, space } from '@/theme/theme';
 
 export default function SubcoDocs() {
   const { id, co, kind } = useLocalSearchParams<{ id: string; co: string; kind: 'rams' | 'coshh' }>();
@@ -22,7 +22,7 @@ export default function SubcoDocs() {
   const k = kind === 'coshh' ? 'coshh' : 'rams';
   const manage = isManager(me) || data.isAdmin;
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: `${data.company.name} — ${k === 'rams' ? 'RAMS' : 'COSHH'}` }} />
       {manage && <HsDocUpload kind={k} site={site} companyId={co} />}
       <HsDocList kind={k} site={site} companyId={co} canManage={manage} />

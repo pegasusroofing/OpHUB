@@ -12,7 +12,7 @@ import { useSite } from '@/data/sites';
 import { addSubco, deleteSubco, renameSubco, useSubcos } from '@/data/subcontractors';
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 export default function Subcontractors() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -28,7 +28,7 @@ export default function Subcontractors() {
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['subcos', id] }); void qc.invalidateQueries({ queryKey: ['mcTiles', id] }); };
   const canOpen = (cid: string) => mgr || me.role === 'client' || cid === data?.myCompany;
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Subcontractors' }} />
       <Muted style={{ marginBottom: 12 }}>Each subcontractor gets their own tile with RAMS, COSHH, Toolbox Talks, Daily Briefings and their own operatives — only operatives allocated to a company can open that company's tile.</Muted>
       {isLoading ? <Muted>Loading…</Muted> : data?.companies.length ? data.companies.map((c) => {

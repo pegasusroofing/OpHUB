@@ -19,7 +19,7 @@ import { billingType, forecast } from '@/lib/rules/finBook';
 import { money, round2, today } from '@/lib/rules/finance';
 import { itemPlots, monthlyReport, monthlyRows, type MonGroup } from '@/lib/rules/finMonthly';
 import { exportTableExcel, exportTablePdf, type Table } from '@/lib/tableExport';
-import { base, space } from '@/theme/theme';
+import { base, page, space } from '@/theme/theme';
 
 type Row = Record<string, any>;
 const label = (k: string) => { const [y, m] = k.split('-').map(Number); return new Date(y, m - 1, 1).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }); };
@@ -63,7 +63,7 @@ export default function FinMonthly() {
   });
   const cell = (v: number | null | undefined) => (v == null ? '' : v ? money(v, 0) : '—');
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 1200, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(1200)}>
       <Stack.Screen options={{ title: 'Monthly report' }} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10, alignItems: 'center' }}>
         <FinChip on={view === 'month'} label="In the month" onPress={() => setView('month')} /><FinChip on={view === 'cum'} label="Running total" onPress={() => setView('cum')} />

@@ -17,7 +17,7 @@ import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { COST_CATS, PI_STATUS } from '@/lib/rules/finBook';
 import { fdate, jobTag, money, num, round2, today } from '@/lib/rules/finance';
-import { base, space } from '@/theme/theme';
+import { base, page, space } from '@/theme/theme';
 
 const XERO_Q = 'This is already in Xero. Changing it here won’t change Xero — change it in Xero too, or the two won’t match.';
 
@@ -37,7 +37,7 @@ function NewPinv({ siteId, poId, receipt }: { siteId: string; poId: string; rece
   const [isReceipt, setIsReceipt] = useState(receipt);
   if (!me) return null;
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 700, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(700)}>
       <Stack.Screen options={{ title: isReceipt ? 'Add a receipt' : 'Add a purchase invoice' }} />
       <Muted style={{ marginBottom: 8 }}>{jobTag(sites.find((s) => s.id === siteId))}</Muted>
       <Check label="This is a receipt (no invoice number)" value={isReceipt} onChange={setIsReceipt} />
@@ -82,7 +82,7 @@ function ViewPinv({ id }: { id: string }) {
     toast(s === 'approved' ? `Approved${r.xero ? ' — not posted to Xero (Finance trial)' : ''}` : s === 'rejected' ? 'Rejected' : 'Marked as query'); refresh();
   };
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 800, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(800)}>
       <Stack.Screen options={{ title: i.supplier_name || 'Purchase invoice' }} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
         <FinStat v={i.paid_on ? 'Paid' : PI_STATUS[i.status] || i.status} label="Status" hot={i.status === 'query'} /><FinStat v={money(i.net)} label="Net" /><FinStat v={money(i.total)} label="Gross" />

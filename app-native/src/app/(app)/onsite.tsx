@@ -7,7 +7,7 @@ import { nameOf, usePeople } from '@/data/hs';
 import { useOnSiteNow } from '@/data/pmHome';
 import { useSites } from '@/data/sites';
 import { fullSiteAddress, timeHM } from '@/lib/rules/checkin';
-import { base, space } from '@/theme/theme';
+import { base, page, space } from '@/theme/theme';
 
 const ROLE: Record<string, string> = { site_manager: 'Site manager', pm: 'PM', admin: 'Admin', subcontractor: 'Subcontractor' };
 
@@ -20,7 +20,7 @@ export default function OnSiteNow() {
   const list = Object.keys(bySite).map((id) => sites.find((s) => s.id === id)).filter((s): s is NonNullable<typeof s> => !!s)
     .sort((a, b) => bySite[b.id].length - bySite[a.id].length || a.name.localeCompare(b.name));
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}
+    <ScrollView contentContainerStyle={page(720)}
       refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => { void refetch(); }} />}>
       <Title>On site now</Title>
       <Muted style={{ marginBottom: 10 }}>{new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}</Muted>

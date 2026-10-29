@@ -21,7 +21,7 @@ import { useAuth } from '@/lib/auth';
 import { deliverPdf, emailPdf, exportFilename, PDFDocument } from '@/lib/pdf';
 import { isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 
@@ -69,7 +69,7 @@ export default function Tbts() {
   };
 
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Toolbox Talks' }} />
       <HowTo k="tbt" />
       {!!due && (

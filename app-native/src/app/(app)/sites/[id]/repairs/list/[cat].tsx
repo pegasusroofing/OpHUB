@@ -15,7 +15,7 @@ import { useAuth } from '@/lib/auth';
 import { exportRepairRoute, exportRepairsByApproved, lastRepairRoute, REPAIR_ROUTE_CATEGORIES, viewLastRepairRoute } from '@/lib/repairExports';
 import { approveStatus, matchesRepairSearch, REPAIR_CATEGORIES, REPAIR_SORT_LABELS, sortRepairs, type RepairSort } from '@/lib/rules/repairs';
 import { isManager } from '@/lib/roles';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 export default function RepairList() {
   const { id, cat } = useLocalSearchParams<{ id: string; cat: string }>();
@@ -53,7 +53,7 @@ export default function RepairList() {
     toast(ok ? 'Done' : 'Some could not be saved — try again.'); refresh();
   };
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: def.label }} />
       <TextInput value={q} onChangeText={setQ} placeholder="Search address, description or job number" style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card, marginBottom: 8 }} />
       <View style={{ flexDirection: 'row', gap: 12, marginBottom: 10, alignItems: 'center' }}>

@@ -1,18 +1,23 @@
-// Basic building blocks matching the current app's look (cards, fields, buttons).
-import type { ReactNode } from 'react';
+// Basic building blocks matching the current app's look (src/css/app.css): cards
+// with a soft shadow, small uppercase Sora section titles, outlined uppercase
+// buttons, home tiles as a grid of boxes (TileGrid) with line icons in tinted squares.
+import { createContext, useContext, type ReactNode } from 'react';
 import {
   ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
   type TextInputProps, type ViewStyle,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { base, radius, space, useTheme } from '@/theme/theme';
+import { OphIcon } from '@/components/OphIcon';
+import { heading } from '@/lib/fonts';
+
+import { base, isDesk, radius, space, useTheme } from '@/theme/theme';
 
 export function Screen({ children, center }: { children: ReactNode; center?: boolean }) {
   return (
-    <SafeAreaView style={s.screen} edges={['top', 'left', 'right']}>
-      <ScrollView contentContainerStyle={[s.scroll, center && s.center]} keyboardShouldPersistTaps="handled">
-        <View style={s.inner}>{children}</View>
+    <SafeAreaView style={s.screen} edges={['left', 'right']}>
+      <ScrollView contentContainerStyle={[s.scroll, isDesk() && { paddingHorizontal: 40, paddingTop: 26, paddingBottom: 40 }, center && s.center]} keyboardShouldPersistTaps="handled">
+        <View style={[s.inner, isDesk() && { maxWidth: '100%' }]}>{children}</View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -50,11 +55,11 @@ export function Button({ title, onPress, busy, kind = 'primary', disabled }: {
       onPress={onPress}
       style={({ pressed }) => [
         s.btn,
-        primary ? { backgroundColor: t.brand1, borderColor: t.brand1 } : { backgroundColor: base.card, borderColor: base.line },
+        primary ? { backgroundColor: base.card, borderColor: t.brand1, borderWidth: 2.5 } : { backgroundColor: base.card, borderColor: base.line },
         (pressed || busy || disabled) && { opacity: 0.7 },
       ]}>
-      {busy && <ActivityIndicator color={primary ? t.brand1Text : base.ink} style={{ marginRight: 8 }} />}
-      <Text style={[s.btnText, { color: primary ? t.brand1Text : base.ink }]}>{title}</Text>
+      {busy && <ActivityIndicator color={primary ? t.brand1 : base.ink} style={{ marginRight: 8 }} />}
+      <Text style={[s.btnText, { color: primary ? t.brand1 : base.ink }]}>{title}</Text>
     </Pressable>
   );
 }
@@ -142,12 +147,42 @@ export function Stat({ n, label, hot, onPress }: { n: number | string; label: st
   );
 }
 
-// Home tile: coloured icon square + title + subtitle.
-export function Tile({ icon, tint, title, sub, onPress, badge, onMenu, dim }: { icon: string; tint: string; title: string; sub: string; onPress: () => void; badge?: number; onMenu?: () => void; dim?: boolean }) {
+// Tiles laid out as a grid of boxes (the current app's .pmtiles / .tilegrid): 2 across on a
+// phone, more on a wide screen. Outside a TileGrid a Tile is a full-width row.
+const GridCtx = createContext<number>(0);
+export function TileGrid({ children, cols = 2 }: { children: ReactNode; cols?: number }) {
+  return <GridCtx.Provider value={cols}><View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -5 }}>{children}</View></GridCtx.Provider>;
+}
+// The tint behind a line icon, and the icon colour that goes with it (.pmtint-*).
+export const TINTS = {
+  blue: ['#EEF3FD', '#2457C5'], orange: ['#FDF1E6', '#B35A00'], green: ['#EAF6EF', '#17804A'], purple: ['#F3EEFA', '#6B3FA8'], grey: ['#F1F2F4', '#1E2124'], teal: ['#E7F5F5', '#0E7F7C'], red: ['#FDECEA', '#C8102E'],
+} as const;
+
+// Home tile: coloured icon square (a line icon via ic, else the emoji) + title + subtitle.
+export function Tile({ icon, ic, tint, fg, title, sub, onPress, badge, onMenu, dim }: { icon?: string; ic?: string; tint: string; fg?: string; title: string; sub: string; onPress: () => void; badge?: number; onMenu?: () => void; dim?: boolean }) {
+  const cols = useContext(GridCtx);
+  if (cols) return (
+    <View style={{ width: `${100 / cols}%`, padding: 5 }}>
+      <Pressable onPress={onPress} style={({ pressed }) => [s.tbox, dim && { backgroundColor: '#F3F3F1' }, pressed && { opacity: 0.7 }]} accessibilityRole="button">
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+          <View style={[s.boxIc, { backgroundColor: tint }, dim && { opacity: 0.45 }]}>
+            {ic ? <OphIcon name={ic} size={19} color={fg || base.ink} /> : <Text style={{ fontSize: 18 }}>{icon}</Text>}
+            {!!badge && <Text style={s.badge}>{badge}</Text>}
+          </View>
+          <View style={{ flex: 1 }} />
+          {onMenu && <Pressable onPress={onMenu} hitSlop={10} accessibilityLabel={`Who sees ${title}`}><Text style={{ fontSize: 18, color: base.slate, paddingHorizontal: 2 }}>⋮</Text></Pressable>}
+        </View>
+        <View style={dim ? { opacity: 0.45 } : undefined}>
+          <Text style={s.boxT} numberOfLines={2}>{title}</Text>
+          {!!sub && <Text style={s.boxS} numberOfLines={1}>{sub}</Text>}
+        </View>
+      </Pressable>
+    </View>
+  );
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [s.tile, dim && { opacity: 0.55 }, pressed && { opacity: 0.7 }]} accessibilityRole="button">
       <View style={[s.tileIc, { backgroundColor: tint }]}>
-        <Text style={{ fontSize: 20 }}>{icon}</Text>
+        {ic ? <OphIcon name={ic} size={20} color={fg || base.ink} /> : <Text style={{ fontSize: 20 }}>{icon}</Text>}
         {!!badge && <Text style={s.badge}>{badge}</Text>}
       </View>
       <View style={{ flex: 1, minWidth: 0 }}>
@@ -159,31 +194,38 @@ export function Tile({ icon, tint, title, sub, onPress, badge, onMenu, dim }: { 
   );
 }
 
+// --shadow-card in app.css.
+const shadow = { shadowColor: '#14181D', shadowOpacity: 0.07, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 1 } as const;
+
 const s = StyleSheet.create({
   pill: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 6, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999 },
   dot: { width: 8, height: 8, borderRadius: 4 },
-  row: { flexDirection: 'row', alignItems: 'center', backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, paddingHorizontal: 14, paddingVertical: 12, marginBottom: space.s },
-  rowTitle: { fontSize: 14.5, fontWeight: '700', color: base.ink },
+  row: { flexDirection: 'row', alignItems: 'center', backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 16, paddingHorizontal: 14, paddingVertical: 13, marginBottom: space.s },
+  rowTitle: { fontSize: 14, fontWeight: '700', color: base.ink },
   rowSub: { fontSize: 12, color: base.slate, marginTop: 2 },
-  section: { fontSize: 12, fontWeight: '800', letterSpacing: 0.5, textTransform: 'uppercase', color: base.slate, marginTop: space.l, marginBottom: space.s },
-  empty: { color: base.slate, textAlign: 'center', paddingVertical: space.l, fontSize: 13 },
+  section: { ...heading(700), fontSize: 11, letterSpacing: 0.9, textTransform: 'uppercase', color: base.slate, marginTop: 14, marginBottom: 10 },
+  empty: { color: base.slateLight, textAlign: 'center', paddingVertical: 26, paddingHorizontal: 10, fontSize: 13 },
   stat: { flex: 1, backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 16, paddingVertical: 11, paddingHorizontal: 10 },
-  statN: { fontSize: 21, fontWeight: '800', color: base.ink },
+  statN: { ...heading(800), fontSize: 21, color: base.ink, lineHeight: 24 },
   statL: { fontSize: 10.5, color: base.slate, fontWeight: '600' },
-  tile: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.tile, padding: 14, marginBottom: space.s },
-  tileIc: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  tile: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.tile, padding: 14, marginBottom: space.s, ...shadow },
+  tileIc: { width: 42, height: 42, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+  tbox: { backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 18, padding: 13.5, height: 112, justifyContent: 'space-between', ...shadow },
+  boxIc: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  boxT: { fontSize: 13, fontWeight: '800', color: base.ink },
+  boxS: { fontSize: 10.5, color: base.slate, fontWeight: '500', marginTop: 2 },
   badge: { position: 'absolute', top: -6, right: -6, backgroundColor: base.red, color: '#fff', fontSize: 11, fontWeight: '800', borderRadius: 9, minWidth: 18, textAlign: 'center', paddingHorizontal: 4, overflow: 'hidden' },
   screen: { flex: 1, backgroundColor: base.paper },
   scroll: { flexGrow: 1, padding: space.l },
   center: { justifyContent: 'center' },
   inner: { width: '100%', maxWidth: 520, alignSelf: 'center' },
-  card: { backgroundColor: base.card, borderRadius: radius.card, borderWidth: 1, borderColor: base.cardLine, padding: space.l, marginBottom: space.m },
-  title: { fontSize: 21, fontWeight: '800', color: base.ink, marginBottom: space.s, letterSpacing: -0.2 },
+  card: { backgroundColor: base.card, borderRadius: radius.card, borderWidth: 1, borderColor: base.cardLine, padding: 14, marginBottom: space.m, ...shadow },
+  title: { ...heading(800), fontSize: 21, color: base.ink, marginBottom: space.s, letterSpacing: -0.2 },
   muted: { fontSize: 13, color: base.slate, lineHeight: 18 },
   label: { fontSize: 12, fontWeight: '700', color: base.slate, marginBottom: 4 },
   input: { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, paddingHorizontal: 12, paddingVertical: 11, fontSize: 15, color: base.ink, backgroundColor: base.card },
-  btn: { borderWidth: 1, borderRadius: radius.button, paddingVertical: 13, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', marginTop: 4 },
-  btnText: { fontSize: 15, fontWeight: '700' },
+  btn: { borderWidth: 1, borderRadius: radius.button, paddingVertical: 10, paddingHorizontal: 8, minHeight: 40, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', marginTop: 4 },
+  btnText: { fontSize: 12, fontWeight: '800', letterSpacing: 0.3, textTransform: 'uppercase', textAlign: 'center' },
   notice: { borderWidth: 1, borderRadius: radius.input, padding: 10, marginBottom: space.m },
   checkRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginVertical: space.s },
   box: { width: 20, height: 20, borderRadius: 5, borderWidth: 1.5, borderColor: base.slateLight, alignItems: 'center', justifyContent: 'center' },

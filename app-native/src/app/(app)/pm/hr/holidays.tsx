@@ -17,7 +17,7 @@ import { localISODate } from '@/lib/rules/driver';
 import { bankHolCount, bookingParts, dayFraction, HR_COLOURS, HR_TYPES, isBankHol, leaveDays, limitClash, offOn, usedDays, type Leave } from '@/lib/rules/hr';
 import { readIsoDate } from '@/lib/rules/materials';
 import { isManager } from '@/lib/roles';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card, marginBottom: 10 };
 function Chip({ on, label, onPress }: { on: boolean; label: string; onPress: () => void }) {
@@ -116,7 +116,7 @@ export default function Holidays() {
   const stat = (n: number, l: string, hot = false) => <Card style={{ flex: 1, alignItems: 'center' }}><Text style={{ fontSize: 22, fontWeight: '800', color: hot && n ? base.warn : base.ink }}>{n}</Text><Muted style={{ textAlign: 'center' }}>{l}</Muted></Card>;
 
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: view === 'req' ? 'Time off requests' : view === 'set' ? 'Holiday settings' : 'Holiday calendar' }} />
       <View style={{ flexDirection: 'row', gap: 8 }}>{stat(myAllow - myUsed - myPend, `Days left ${y}`)}{stat(myUsed, 'Taken / booked')}{stat(myPend, 'Awaiting approval', true)}</View>
       <Muted style={{ marginBottom: 10 }}>{bhCount(me.id) ? `Includes 1 day for each bank holiday (${bhCount(me.id)} this year), allocated automatically.` : `PMs and site managers get 1 day for each bank holiday (${bankHolCount(y)} this year) allocated automatically.`}</Muted>

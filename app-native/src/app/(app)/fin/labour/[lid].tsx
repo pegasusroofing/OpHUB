@@ -20,7 +20,7 @@ import { useAuth } from '@/lib/auth';
 import { addDays, fdate, jobTag, money, num, round2, today } from '@/lib/rules/finance';
 import { opCalc } from '@/lib/rules/finSubs';
 import { supabase } from '@/lib/supabase';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 type Row = Record<string, any>;
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 8, color: base.ink, backgroundColor: base.card };
@@ -87,7 +87,7 @@ function Editor({ p, rateBy, who }: { p: Row | null; rateBy: Record<string, Row>
     } finally { setBusy(false); }
   };
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 800, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(800)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: p ? `${p.name || 'Operative'} invoice` : 'Operative invoice' }} />
       {locked && <Card><Text style={{ color: '#1E7A3C', fontWeight: '700' }}>Paid {fdate(p?.paid_on)} — it can&apos;t be changed.</Text></Card>}
       <Card>

@@ -13,10 +13,10 @@ import { lines, moveLib, P_LABELS, RAMS_DEFAULT_PPE, RAMS_PPE, ramsSettings, ren
 import { starterRows } from '@/lib/rules/ramsStarter';
 import { isFullManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
-const rpc = supabase.rpc as unknown as (n: string, a: object) => Promise<{ data: unknown; error: unknown }>;
+const rpc = supabase.rpc.bind(supabase) as unknown as (n: string, a: object) => Promise<{ data: unknown; error: unknown }>;
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 9, color: base.ink, backgroundColor: base.card, marginBottom: 8 };
 type Tab = 'hazard' | 'section' | 'template' | 'company';
 const Badge = ({ p, s }: { p: unknown; s: unknown }) => { const n = rr(p, s), b = riskBand(n); return <Text style={{ backgroundColor: b.bg, color: b.fg, fontWeight: '800', paddingHorizontal: 7, borderRadius: 6, overflow: 'hidden' }}>{n}</Text>; };
@@ -204,7 +204,7 @@ export default function RamsLibrary() {
   };
   const chip = (on: boolean, l: string, onPress: () => void) => <Pressable onPress={onPress} style={{ flexBasis: '48%', flexGrow: 1, padding: 8, borderRadius: 16, borderWidth: 1, borderColor: on ? base.ink : base.line, backgroundColor: on ? base.ink : base.card }}><Text style={{ textAlign: 'center', fontWeight: '700', fontSize: 12, color: on ? '#fff' : base.ink }}>{l}</Text></Pressable>;
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'RAMS Library' }} />
       <Muted style={{ marginBottom: 10 }}>The hazards, safe systems of work and templates your team picks from in the RAMS Builder. Changing the library doesn&apos;t change RAMS already written for a job.</Muted>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>

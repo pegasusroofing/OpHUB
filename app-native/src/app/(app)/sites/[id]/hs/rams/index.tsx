@@ -12,7 +12,7 @@ import { deleteBuild, useSiteBuilds } from '@/data/ramsBuilder';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { isFullManager, isManager } from '@/lib/roles';
-import { base, space } from '@/theme/theme';
+import { base, page, space } from '@/theme/theme';
 
 /** RAMS Builder card (586 ramsBuilderCardHtml): this job's drafts and a start button. PMs and admins only. */
 function BuilderCard({ siteId }: { siteId: string }) {
@@ -45,7 +45,7 @@ export default function Rams() {
   const { data: site } = useSite(id);
   const { me } = useAuth();
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'RAMS' }} />
       <HowTo k="rams" />
       <PolicyCard />

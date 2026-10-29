@@ -18,10 +18,10 @@ import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { fdate, jobTag, money, num, round2, today } from '@/lib/rules/finance';
 import { supabase } from '@/lib/supabase';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 type Row = Record<string, any>;
-const rpc = supabase.rpc as unknown as (n: string, a: object) => Promise<{ data: unknown; error: { code?: string; message: string } | null }>;
+const rpc = supabase.rpc.bind(supabase) as unknown as (n: string, a: object) => Promise<{ data: unknown; error: { code?: string; message: string } | null }>;
 const WHY: Record<string, string> = { bad_site: 'that project isn’t one of yours', bad_po: 'that PO wasn’t found', bad_amount: 'check the amounts', not_allowed: 'you need Finance access to file invoices' };
 
 export default function FinInboxItem() {
@@ -43,7 +43,7 @@ export default function FinInboxItem() {
   const po = poId ?? it.po_id ?? null;
   const filed = it.status === 'filed' && it.purchase_invoice_id;
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 800, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(800)}>
       <Stack.Screen options={{ title: ex.supplier || it.from_email || 'Purchase invoice' }} />
       {filed && <Card><Text style={{ color: '#1E7A3C', fontWeight: '700' }}>Filed.</Text><Button kind="ghost" title="Open the purchase invoice" onPress={() => router.replace(`/fin/pinv/${it.purchase_invoice_id}` as never)} /></Card>}
       <Card>

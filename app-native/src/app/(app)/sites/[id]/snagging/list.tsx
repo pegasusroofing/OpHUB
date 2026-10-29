@@ -20,7 +20,7 @@ import { pickPhotos, type Picked } from '@/lib/photos';
 import { buildSnagPdf, type SnagScope } from '@/lib/snagPdf';
 import { publicUrl, resolveStorageUrl } from '@/lib/privateFiles';
 import { isManager } from '@/lib/roles';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 const d = (t: string | null) => (t ? new Date(t).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '');
 
@@ -87,7 +87,7 @@ export default function SnagList() {
   );
 
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'Snagging' }} />
       <HowTo k="snagging" />
       <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>

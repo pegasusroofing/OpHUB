@@ -24,7 +24,7 @@ import { HO_MAINT, omUid, scopeEmpty, type OmData, type OmPhoto, type OmSection 
 import { isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
 import type { Organization, Profile, Site } from '@/lib/types';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 8, color: base.ink, backgroundColor: base.card, marginBottom: 6 };
 const small = { color: base.blue, fontWeight: '700' as const, paddingHorizontal: 6 };
@@ -89,7 +89,7 @@ function Editor({ me, org, site, manualId, name0, data0 }: { me: Profile; org: O
   const cover = (k: keyof typeof c, v: string) => up((x) => { (x.cover as Record<string, unknown>)[k] = v; });
 
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 820, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(820)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: name || 'O&M Manual' }} />
       <TextInput value={name} onChangeText={(v) => { setName(v); queue(d, v); }} placeholder="Manual name" style={[box, { fontWeight: '800', fontSize: 16 }]} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>

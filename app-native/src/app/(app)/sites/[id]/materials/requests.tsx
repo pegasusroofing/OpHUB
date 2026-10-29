@@ -23,7 +23,7 @@ import { localISODate } from '@/lib/rules/driver';
 import { cancelReasonText, doneEntries, isEmail, liveEntries, matAgo, matSheetLines, OP_STATUS_LABEL, orderEmailFor, readIsoDate, subAddrLabel, wasOrdered, type Branch, type Mat } from '@/lib/rules/materials';
 import { csvRows, readXlsx } from '@/lib/rules/xlsxRead';
 import { isFinanceUser, isFullManager, isManager } from '@/lib/roles';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 const short = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
 const long = (d: string) => new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -188,7 +188,7 @@ export default function MaterialRequests() {
   const entries = done ? doneEntries(items) : mgr ? liveEntries(items) : items.map((m) => ({ m, items: [m] }));
 
   return (
-    <ScrollView ref={scroll} contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled"
+    <ScrollView ref={scroll} contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled"
       refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => { void refetch(); }} />}>
       <Stack.Screen options={{ title: 'Material Requests' }} />
       {mgr && <Card style={{ backgroundColor: '#F1E4FA' }}><Text style={{ color: '#4E1F6E' }}><Text style={{ fontWeight: '700' }}>Requests from operatives.</Text> Order them from a merchant, or give them to an operative to collect — those move to Collections. Tick several to group them into one request.</Text></Card>}

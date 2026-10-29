@@ -10,7 +10,7 @@ import { nameOf, usePeople } from '@/data/hs';
 import { useActivity } from '@/data/siteAdmin';
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
-import { base, space } from '@/theme/theme';
+import { base, page, space } from '@/theme/theme';
 
 export default function Activity() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -28,7 +28,7 @@ export default function Activity() {
   let lastDay = '';
 
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'Activity History' }} />
       <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
         {(['all', 'changes', 'notices'] as const).map((k) => (

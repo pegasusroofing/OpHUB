@@ -2,9 +2,11 @@
 // (wide web window), like 125-desktop.js in the current app.
 import { router, Tabs, usePathname } from 'expo-router';
 import { useEffect } from 'react';
-import { SymbolView, type SymbolViewProps } from 'expo-symbols';
 import { Platform, useWindowDimensions, View } from 'react-native';
 
+import { AppBar } from '@/components/AppBar';
+import { DeskNav } from '@/components/DeskNav';
+import { OphIcon } from '@/components/OphIcon';
 import { SupportBar } from '@/components/PlatformAdmin';
 import { PolicyGate } from '@/components/PolicyGate';
 import { useHsPolicy } from '@/data/hsPolicy';
@@ -12,8 +14,7 @@ import { useAuth } from '@/lib/auth';
 import { homeKind } from '@/lib/roles';
 import { base, useTheme } from '@/theme/theme';
 
-const icon = (name: SymbolViewProps['name']) => ({ color }: { color: import('react-native').ColorValue }) =>
-  <SymbolView name={name} tintColor={color} size={24} />;
+const icon = (name: string) => function TabIcon({ color }: { color: unknown }) { return <OphIcon name={name} size={22} color={String(color)} />; };
 
 // Pages reached from inside the app, not from the menu. Hidden this way (not href: null) so
 // a refresh or typed address on the web keeps you on the page instead of bouncing to Home.
@@ -25,7 +26,7 @@ export default function AppLayout() {
   // Drivers, finance-only companies and the platform admin have no project list.
   const hasSites = !['driver', 'finance', 'superadmin'].includes(homeKind(me, org));
   const { width } = useWindowDimensions();
-  const desk = Platform.OS === 'web' && width >= 900;
+  const desk = Platform.OS === 'web' && width >= 1100;
   // Compulsory H&S Policy: until it's signed, nothing but the signature page (640).
   const policy = useHsPolicy();
   const path = usePathname();
@@ -44,8 +45,10 @@ export default function AppLayout() {
     <View style={{ flex: 1 }}>
     <SupportBar />
     <Tabs
+      tabBar={desk ? () => <DeskNav /> : undefined}
       screenOptions={{
-        headerShown: false,
+        // Pages straight under the tabs get the shared top bar; the sections with their own Stack draw it themselves.
+        header: (p) => <AppBar title={p.options.title} home={p.route.name === 'home'} onBack={p.route.name === 'home' ? undefined : () => router.navigate('/home' as never)} />,
         tabBarActiveTintColor: t.brand1,
         tabBarInactiveTintColor: base.tabIdle,
         tabBarPosition: desk ? 'left' : 'bottom',
@@ -53,21 +56,21 @@ export default function AppLayout() {
         tabBarStyle: desk
           ? { width: 220, borderRightColor: base.cardLine, backgroundColor: base.card, paddingTop: 16 }
           : { borderTopColor: base.cardLine, backgroundColor: base.card },
-        tabBarLabelStyle: { fontSize: desk ? 14 : 10, fontWeight: '600' },
+        tabBarLabelStyle: { fontSize: 10, fontWeight: '600' },
       }}>
-      <Tabs.Screen name="home" options={{ title: 'Home', tabBarIcon: icon({ ios: 'house', android: 'home', web: 'home' }) }} />
-      <Tabs.Screen name="sites" options={{ title: 'Projects', href: hasSites ? undefined : null, tabBarIcon: icon({ ios: 'building.2', android: 'apartment', web: 'apartment' }) }} />
-      <Tabs.Screen name="account" options={{ title: 'Account', tabBarIcon: icon({ ios: 'person.crop.circle', android: 'person', web: 'person' }) }} />
+      <Tabs.Screen name="home" options={{ title: 'Home', tabBarIcon: icon('home') }} />
+      <Tabs.Screen name="sites" options={{ title: 'Projects', href: hasSites ? undefined : null, tabBarIcon: icon('projects'), headerShown: false }} />
+      <Tabs.Screen name="account" options={{ title: 'Settings', tabBarIcon: icon('gear') }} />
       <Tabs.Screen name="onsite" options={{ ...hidden, title: 'On site now' }} />
-      <Tabs.Screen name="dashboard" options={{ ...hidden, title: 'My dashboard' }} />
-      <Tabs.Screen name="driver" options={{ ...hidden, title: 'Driver' }} />
+      <Tabs.Screen name="dashboard" options={{ ...hidden, title: 'My Dashboard' }} />
+      <Tabs.Screen name="driver" options={{ ...hidden, title: 'Driver', headerShown: false }} />
       <Tabs.Screen name="inbox" options={{ ...hidden, title: 'Messages & tasks' }} />
       <Tabs.Screen name="getting-started" options={{ ...hidden, title: 'Getting Started' }} />
       <Tabs.Screen name="signature" options={{ ...hidden, title: 'My Signature' }} />
       <Tabs.Screen name="search" options={{ ...hidden, title: 'Search' }} />
       <Tabs.Screen name="subform" options={{ ...hidden, title: 'Subcontractor form' }} />
-      <Tabs.Screen name="pm" options={{ ...hidden, title: 'Manager' }} />
-      <Tabs.Screen name="fin" options={{ ...hidden, title: 'Finance' }} />
+      <Tabs.Screen name="pm" options={{ ...hidden, title: 'Manager', headerShown: false }} />
+      <Tabs.Screen name="fin" options={{ ...hidden, title: 'Finance', headerShown: false }} />
     </Tabs>
     </View>
   );

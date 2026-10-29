@@ -12,7 +12,7 @@ import { nameOf, openDocLink, usePeople } from '@/data/hs';
 import { addSubBriefing, deleteSubBriefing, useSubBriefings, useSubco } from '@/data/subcontractors';
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 export default function SubBriefings() {
   const { id, co } = useLocalSearchParams<{ id: string; co: string }>();
@@ -29,7 +29,7 @@ export default function SubBriefings() {
   const manage = isManager(me) || sub.isAdmin;
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['subBriefings', co] }); void qc.invalidateQueries({ queryKey: ['subco', co] }); };
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: `${sub.company.name} — Daily Briefings` }} />
       {isLoading ? <Muted>Loading…</Muted> : list?.length ? list.map((b) => (
         <Card key={b.id}>

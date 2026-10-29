@@ -14,7 +14,7 @@ import { tileRoles, tileVisMenu } from '@/data/tileVis';
 import { useAuth } from '@/lib/auth';
 import { canSeeTile } from '@/lib/rules/hs';
 import { isFullManager, isManager } from '@/lib/roles';
-import { space } from '@/theme/theme';
+import { page, space } from '@/theme/theme';
 
 export default function HavsPuwer() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -27,7 +27,7 @@ export default function HavsPuwer() {
   const n = tools?.length ?? 0;
   const visProps = (key: string, label: string) => (isFullManager(me) ? { dim: !tileRoles(site, key).includes('operative'), onMenu: async () => { const m = await tileVisMenu(me, site, key, label); if (m) { toast(m); void qc.invalidateQueries({ queryKey: ['sites'] }); } } } : {});
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'Tools, HAVS & PUWER' }} />
       {!isManager(me) && (
         <Tile icon="🔧" tint="#E8F0FE" title="My Tools" sub={n ? `${n} tool${n === 1 ? '' : 's'}` : 'Add your tools'} badge={n ? undefined : 1}

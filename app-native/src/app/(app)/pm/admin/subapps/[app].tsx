@@ -12,7 +12,7 @@ import { openDocLink } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
 import { isFullManager, isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
-import { base, space } from '@/theme/theme';
+import { base, page, space } from '@/theme/theme';
 
 import { subAppValue } from './index';
 
@@ -48,7 +48,7 @@ export default function SubApp() {
     refresh();
   };
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: r.company_name }} />
       <Card>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>

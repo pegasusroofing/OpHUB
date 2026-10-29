@@ -12,7 +12,7 @@ import { Button, Card, Check, Field, Muted, SectionTitle } from '@/components/ui
 import { joinLink } from '@/data/admin';
 import { createCompany, deleteCompany, deleteUser, resetPassword, setOrgModules, setOrgPlan, setUserRole, usePlatform, viewAsOrg } from '@/data/platform';
 import { useAuth } from '@/lib/auth';
-import { base, space } from '@/theme/theme';
+import { base, page, space } from '@/theme/theme';
 
 const PLAN_LABEL: Record<string, string> = { starter: 'OpHUB Basic', growth: 'OpHUB Pro', enterprise: 'OpHUB Enterprise' };
 const ROLES: [string, string][] = [['operative', 'Operative'], ['site_manager', 'Site Manager'], ['pm', 'Project Manager'], ['estimator', 'Estimator'], ['driver', 'Delivery Driver'], ['client', 'Client'], ['admin', 'Admin']];
@@ -38,7 +38,7 @@ export function PlatformAdmin() {
     showAlert(`New password for ${r.data.email} — share it with them securely; they should change it after signing in:\n\n${r.data.new_password}`);
   };
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 820, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(820)} keyboardShouldPersistTaps="handled">
       <Text style={{ fontSize: 21, fontWeight: '800', color: base.ink }}>Platform Admin</Text>
       <Muted style={{ marginBottom: 12 }}>OpHUB · all companies</Muted>
       <SectionTitle>My Account</SectionTitle>

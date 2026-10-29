@@ -20,7 +20,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { localISODate } from '@/lib/rules/driver';
 import { DAY_STATUS_LABEL, dayStatus, HAVS_DAY_LABELS, points, titleCaseWords, weekDates, weekLabel, wholeMinutes } from '@/lib/rules/havs';
-import { base, space } from '@/theme/theme';
+import { base, page, space } from '@/theme/theme';
 
 const PILL = { elv: { bg: '#FBE1DE', fg: base.red }, eav: { bg: base.warnBg, fg: base.warn }, ok: { bg: base.okBg, fg: base.ok } };
 
@@ -64,7 +64,7 @@ export default function Havs() {
   const shift = async (dir: number) => { await flush(); setOffset(offset + dir); };
 
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 820, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(820)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'HAVS' }} />
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
         <Pressable onPress={() => shift(-1)} style={nav}><Text style={{ fontSize: 20 }}>‹</Text></Pressable>

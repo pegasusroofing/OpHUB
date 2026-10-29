@@ -15,7 +15,7 @@ import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { money } from '@/lib/rules/price';
 import { isFullManager, isManager } from '@/lib/roles';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 export default function PriceSheets() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -32,7 +32,7 @@ export default function PriceSheets() {
   const can = isFullManager(me);
   const shown = sheets.filter((s) => can || (isManager(me) && s.status === 'issued') || (s.status === 'issued' && (s.assigned_user_ids || []).includes(me.id)));
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Price Sheets' }} />
       <Muted style={{ marginBottom: 10 }}>{can ? 'Tick-box price sheets built from the company rate card, ready to issue to a subcontractor.' : 'Price sheets issued for this project.'}</Muted>
       {isLoading ? <Muted>Loading…</Muted> : shown.length ? shown.map((s) => (

@@ -11,7 +11,7 @@ import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import { addSubTbt, useSubco, useSubTbts } from '@/data/subcontractors';
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 export default function SubTbt() {
   const { id, co } = useLocalSearchParams<{ id: string; co: string }>();
@@ -26,7 +26,7 @@ export default function SubTbt() {
   if (!me || !sub) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   const manage = isManager(me) || sub.isAdmin;
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: `${sub.company.name} — Toolbox Talks` }} />
       {isLoading ? <Muted>Loading…</Muted> : talks?.length ? talks.map((t) => (
         <Pressable key={t.id} onPress={() => router.push(`/sites/${id}/hs/tbt/${t.id}`)}>

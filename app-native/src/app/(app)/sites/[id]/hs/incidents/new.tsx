@@ -16,7 +16,7 @@ import { pickPhotos } from '@/lib/photos';
 import { fullSiteAddress } from '@/lib/rules/checkin';
 import { localISODate } from '@/lib/rules/driver';
 import { supabase } from '@/lib/supabase';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card, marginBottom: 12 };
@@ -87,7 +87,7 @@ export default function NewIncident() {
   const ticked = new Set(v.operatives.split(',').map((x) => x.trim()).filter(Boolean));
 
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'New Report' }} />
       <Muted style={{ marginBottom: 14 }}>Fill in what you can — the more detail the better. Fields marked * are required.</Muted>
       {toggle('type', '* What type of report is this?', [['incident', 'Incident'], ['accident', 'Accident'], ['near_miss', 'Near Miss']])}

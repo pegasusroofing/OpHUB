@@ -13,7 +13,7 @@ import { openDocLink } from '@/data/hs';
 import { addTemplate, deleteTemplate, layoutSummary, renameTemplate, useSignTemplates } from '@/data/signTemplates';
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 export default function SignTemplates() {
   const { me } = useAuth();
@@ -27,7 +27,7 @@ export default function SignTemplates() {
   if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['signTemplates'] }); };
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Signing Templates' }} />
       <Card>
         <Text style={{ fontWeight: '700', color: base.ink, marginBottom: 4 }}>How this works</Text>

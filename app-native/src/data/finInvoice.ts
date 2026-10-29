@@ -10,7 +10,7 @@ import { supabase } from '@/lib/supabase';
 import type { Organization, Profile } from '@/lib/types';
 
 type Row = Record<string, any>;
-const rpc = supabase.rpc as unknown as (n: string, a: object) => Promise<{ data: unknown; error: { message: string } | null }>;
+const rpc = supabase.rpc.bind(supabase) as unknown as (n: string, a: object) => Promise<{ data: unknown; error: { message: string } | null }>;
 
 export async function newInvoice(me: Profile, site: Row): Promise<string | null> {
   const [st, jf, pos] = await Promise.all([

@@ -15,7 +15,7 @@ import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { REPORT_STATUS_LABEL } from '@/lib/rules/reports';
 import { isManager } from '@/lib/roles';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 export default function McInspections() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -30,7 +30,7 @@ export default function McInspections() {
   if (!me || !site) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   const mgr = isManager(me);
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'Inspections' }} />
       {mgr && <Button title={picker ? 'Cancel' : '+ New Inspection'} onPress={() => setPicker(!picker)} />}
       {mgr && picker && (

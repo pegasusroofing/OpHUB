@@ -11,7 +11,7 @@ import { setMcTileHidden, useMcTiles } from '@/data/mc';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
-import { space } from '@/theme/theme';
+import { page, space } from '@/theme/theme';
 
 const ROUTE: Record<string, string> = {
   cpp: 'mc/docs/cpp', asbestos: 'mc/docs/asbestos', f10: 'mc/docs/f10', permits: 'mc/permits', inspections: 'mc/inspections',
@@ -39,7 +39,7 @@ export default function McHome() {
     router.push(`/sites/${id}/${ROUTE[key]}` as never);
   };
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'Main Contractor' }} />
       {!data ? <Muted>Loading…</Muted> : tiles.map((t) => (
         <Tile key={t.key} icon={t.icon} tint="#E7E9EE" title={t.title} sub={`${t.sub}${mgr && hidden.includes(t.key) ? ' · hidden from operatives' : ''}`}

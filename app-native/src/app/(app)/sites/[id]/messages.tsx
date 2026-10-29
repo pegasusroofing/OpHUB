@@ -14,7 +14,7 @@ import { KIND_LABEL, KIND_ROUTE, sendReply, useSiteMessages } from '@/data/siteM
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
 import type { Message } from '@/lib/types';
-import { base, space, useTheme } from '@/theme/theme';
+import { base, page, space, useTheme } from '@/theme/theme';
 
 const when = (t: string) => new Date(t).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 
@@ -43,7 +43,7 @@ export default function SiteMessages() {
   if (!me) return null;
   if (isManager(me)) {
     return (
-      <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
         <Stack.Screen options={{ title: 'Messages' }} />
         <HowTo k="messages" />
         <ManagerMessages siteId={id} />
@@ -95,7 +95,7 @@ export default function SiteMessages() {
   };
 
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}
+    <ScrollView contentContainerStyle={page(720)}
       refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => { void refetch(); }} />} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Messages' }} />
       {isLoading ? <Muted>Loading…</Muted> : data?.top.length ? data.top.map(row) : <Empty>No messages yet.</Empty>}

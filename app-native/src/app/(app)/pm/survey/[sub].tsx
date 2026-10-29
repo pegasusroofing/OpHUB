@@ -13,7 +13,7 @@ import { nameOf, usePeople } from '@/data/hs';
 import { renameGeneral, useSubmission } from '@/data/reports';
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
-import { base, space } from '@/theme/theme';
+import { base, page, space } from '@/theme/theme';
 
 export default function GeneralSurvey() {
   const { sub: subId, mode } = useLocalSearchParams<{ sub: string; mode?: string }>();
@@ -28,7 +28,7 @@ export default function GeneralSurvey() {
   const mgr = isManager(me);
   const fill = mode === 'fill' && mgr;
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: sub.template_name || 'Survey' }} />
       <Pressable disabled={!mgr} onPress={async () => {
         const v = await promptText('Job name / address for this survey:', sub.general_label || '');

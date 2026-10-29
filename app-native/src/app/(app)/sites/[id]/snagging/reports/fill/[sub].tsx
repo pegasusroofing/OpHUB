@@ -8,7 +8,7 @@ import { Muted } from '@/components/ui';
 import { useSubmission } from '@/data/reports';
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
-import { space } from '@/theme/theme';
+import { page, space } from '@/theme/theme';
 
 export default function ReportFillScreen() {
   const { id, sub: subId } = useLocalSearchParams<{ id: string; sub: string }>();
@@ -23,7 +23,7 @@ export default function ReportFillScreen() {
   if (isLoading || !sub) return <Muted style={{ padding: space.l }}>{isLoading ? 'Loading…' : 'Inspection not found.'}</Muted>;
   if (locked) return null;
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: sub.template_name || 'Inspection' }} />
       <ReportFill sub={sub} siteId={id} editingCompleted={done} isBriefing={!!data?.isBriefing}
         onDone={(sid, completed) => (completed ? router.replace(`/sites/${id}/snagging/reports/view/${sid}` as never) : router.back())} />

@@ -19,7 +19,7 @@ import { useAuth } from '@/lib/auth';
 import { fullSiteAddress, siteStatusKey } from '@/lib/rules/checkin';
 import { isFullManager } from '@/lib/roles';
 import type { Site } from '@/lib/types';
-import { base, radius, space, useTheme } from '@/theme/theme';
+import { base, page, radius, space, useTheme } from '@/theme/theme';
 
 const LABEL = { live: 'Active', upcoming: 'Upcoming', closed: 'Closed' } as const;
 const DOT = { live: base.ok, upcoming: base.warn, closed: base.slate } as const;
@@ -49,7 +49,7 @@ export default function Sites() {
     const live = mine.filter((s) => siteStatusKey(s) === 'live'), upcoming = mine.filter((s) => siteStatusKey(s) === 'upcoming');
     const row = (s: Site) => <Row key={s.id} title={s.job_number ? `${s.job_number} · ${s.name}` : s.name} sub={fullSiteAddress(s)} onPress={() => router.push(`/sites/${s.id}`)} />;
     return (
-      <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}
+      <ScrollView contentContainerStyle={page(720)}
         refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => { void refetch(); }} />}>
         <HowTo k="sites" />
         <TextInput value={q} onChangeText={setQ} placeholder="🔍 Search projects" style={search} />
@@ -129,7 +129,7 @@ export default function Sites() {
     </View>
   ) : null;
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 820, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled"
+    <ScrollView contentContainerStyle={page(820)} keyboardShouldPersistTaps="handled"
       refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => { void refetch(); }} />}>
       <HowTo k="sites" />
       <TextInput value={q} onChangeText={setQ} placeholder="🔍 Search projects" style={search} />

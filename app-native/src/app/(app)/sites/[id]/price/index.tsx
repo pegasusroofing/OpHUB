@@ -13,7 +13,7 @@ import { addElement, GROUP_COLOURS, newGroupFor, setElementGroup, updateGroup, u
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { money, type PriceElement } from '@/lib/rules/price';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 export default function PriceTile() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -68,7 +68,7 @@ export default function PriceTile() {
   };
   const grouped = new Set(open.filter((el) => el.group_id && groups.some((g) => g.id === el.group_id)).map((el) => el.id));
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'Price' }} />
       {multi && (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>

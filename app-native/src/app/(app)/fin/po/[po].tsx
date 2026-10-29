@@ -19,7 +19,7 @@ import { buildPoPdf } from '@/lib/finPoPdf';
 import { deliverPdf } from '@/lib/pdf';
 import { COST_CATS, PI_STATUS, poInvoiced } from '@/lib/rules/finBook';
 import { fdate, jobTag, money, num } from '@/lib/rules/finance';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 type Row = Record<string, any>;
 
@@ -46,7 +46,7 @@ export default function FinPo() {
   const matBy: Record<string, Row> = {}; mats.forEach((m) => { matBy[m.id] = m; });
   const refresh = () => ['finPo', 'finPurchases', 'finBook'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] }));
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 900, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(900)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: po.number }} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
         <FinStat v={`${po.number} · ${po.status}`} label="PO" /><FinStat v={po.supplier_name || '—'} label="Supplier" />

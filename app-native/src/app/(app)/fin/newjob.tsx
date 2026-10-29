@@ -20,7 +20,7 @@ import { useAuth } from '@/lib/auth';
 import { isFinanceOnlyOrg } from '@/lib/roles';
 import { FIN_SANDBOX_ORGS, FIN_TRIAL, FIN_TRIAL_MSG, round2 } from '@/lib/rules/finance';
 import { supabase } from '@/lib/supabase';
-import { base, space } from '@/theme/theme';
+import { base, page, space } from '@/theme/theme';
 
 type Row = Record<string, any>;
 const uuid = () => globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => { const r = (Math.random() * 16) | 0; return (c === 'x' ? r : (r & 3) | 8).toString(16); });
@@ -46,7 +46,7 @@ export default function FinNewJob() {
   const matches = q ? (clients ?? []).filter((c) => String(c.name || '').toLowerCase().includes(q) && String(c.name).toLowerCase() !== q).slice(0, 5) : [];
 
   if (blocked) return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 700, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(700)}>
       <Stack.Screen options={{ title: 'New project' }} />
       <Card><Muted>{`${FIN_TRIAL_MSG} — set new jobs up in Projects. Once a job exists there, its Finance page is ready here.`}</Muted></Card>
       <Button title="Go to Projects" onPress={() => router.push('/sites' as never)} />
@@ -95,7 +95,7 @@ export default function FinNewJob() {
   };
 
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 700, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(700)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'New project' }} />
       <Card>
         <Field label="Project name *" value={v.name || ''} onChangeText={set('name')} />

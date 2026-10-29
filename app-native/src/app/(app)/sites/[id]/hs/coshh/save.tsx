@@ -11,7 +11,7 @@ import { Button, Empty, Muted } from '@/components/ui';
 import { saveSiteDocToLibrary, useFolderView } from '@/data/coshhLib';
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 export default function CoshhSave() {
   const { name, path } = useLocalSearchParams<{ id: string; name: string; path: string }>();
@@ -25,7 +25,7 @@ export default function CoshhSave() {
   if (!isManager(me) || !path) return <Muted style={{ padding: space.l }}>Nothing to save.</Muted>;
   const cur = data?.current ?? null;
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'Save to COSHH Library' }} />
       <Muted style={{ marginBottom: 10 }}>Choose where to save &quot;{name}&quot; in the Admin Centre COSHH Library.</Muted>
       <Text style={{ fontWeight: '800', color: base.ink, marginBottom: 8 }}>{cur ? cur.name : 'Element of Works'}</Text>

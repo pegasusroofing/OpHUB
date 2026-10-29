@@ -13,7 +13,7 @@ import { nameOf, openDocLink, usePeople } from '@/data/hs';
 import { addSubInspection, addSubInspFolder, deleteSubInspection, renameSubInspFolder, useSubco, useSubInspections } from '@/data/subcontractors';
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 export default function SubInspections() {
   const { id, co, folder } = useLocalSearchParams<{ id: string; co: string; folder?: string }>();
@@ -30,7 +30,7 @@ export default function SubInspections() {
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['subInsp', co] }); void qc.invalidateQueries({ queryKey: ['subco', co] }); };
   const row = { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 10, padding: 12, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 8, backgroundColor: base.card };
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'Inspections' }} />
       <Muted style={{ marginBottom: 12 }}>Upload inspection files here — kept full resolution, never compressed — and the site's PM is emailed automatically each time.</Muted>
       {!folder && (data?.folders ?? []).map((f) => (

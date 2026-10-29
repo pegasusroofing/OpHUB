@@ -13,7 +13,7 @@ import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { pickPhotos } from '@/lib/photos';
 import { isFullManager } from '@/lib/roles';
-import { base, space } from '@/theme/theme';
+import { base, page, space } from '@/theme/theme';
 
 export default function Expenses() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -65,7 +65,7 @@ export default function Expenses() {
   };
 
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'Expenses' }} />
       <Card>
         <Text style={{ fontWeight: '700', color: base.ink }}>🧾 Send receipts to the office</Text>

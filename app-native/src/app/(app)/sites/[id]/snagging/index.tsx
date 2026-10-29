@@ -7,7 +7,7 @@ import { useTemplates } from '@/data/reports';
 import { useSnagFolderCounts } from '@/data/snags';
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
-import { space } from '@/theme/theme';
+import { page, space } from '@/theme/theme';
 
 export default function SnagFolder() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -16,7 +16,7 @@ export default function SnagFolder() {
   const mgr = !!me && isManager(me);
   const { data: tpls } = useTemplates(mgr ? me?.org_id : null);
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: mgr ? 'Inspections & Reports' : 'Snagging' }} />
       <Tile icon="🏷" tint="#FBEEDE" title="Snagging" sub={data ? `${data.openSnags} open` : '…'} onPress={() => router.push(`/sites/${id}/snagging/list`)} />
       <Tile icon="✎" tint="#F0E4F5" title="Variations" sub={data ? `${data.liveVariations} live` : '…'} onPress={() => router.push(`/sites/${id}/snagging/variations`)} />

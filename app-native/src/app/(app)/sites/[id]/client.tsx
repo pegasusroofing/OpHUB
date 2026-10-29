@@ -14,7 +14,7 @@ import { useAuth } from '@/lib/auth';
 import { clientPortfolio } from '@/lib/rules/checkin';
 import { isEmail } from '@/lib/rules/materials';
 import { isManager } from '@/lib/roles';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card, marginBottom: 8 };
 const titleCase = (t: string) => t.replace(/\b([a-z])/g, (c) => c.toUpperCase());
@@ -31,7 +31,7 @@ export default function ClientInfo() {
   if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
   const v = f ?? { name: site.client_name || '', contact: site.client_contact_name || '', phone: site.client_phone || '', email: site.client_email || '' };
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Client Info' }} />
       <Card>
         {clientPortfolio(all).length > 0 && <Button kind="ghost" title={`📇 Choose a saved client (${clientPortfolio(all).length})`} onPress={async () => {

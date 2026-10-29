@@ -15,7 +15,7 @@ import { closePermit, PERMIT_ICON, PERMIT_LABEL, signPermit, usePermit } from '@
 import { useAuth } from '@/lib/auth';
 import { pickPhotos, type Picked } from '@/lib/photos';
 import { isManager } from '@/lib/roles';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 const d = (s: string | null) => (s ? new Date(s.length === 10 ? `${s}T00:00:00` : s).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—');
 
@@ -49,7 +49,7 @@ export default function PermitView() {
   };
 
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: PERMIT_LABEL[permit.permit_type] || 'Permit' }} />
       <Card>
         <SectionTitle>{PERMIT_ICON[permit.permit_type] || '🧾'} {PERMIT_LABEL[permit.permit_type] || permit.permit_type}</SectionTitle>

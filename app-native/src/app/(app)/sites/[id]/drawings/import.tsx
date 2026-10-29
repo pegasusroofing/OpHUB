@@ -12,7 +12,7 @@ import { importFromOneDrive, listOneDriveLevel, type OdItem } from '@/data/drawi
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 const card = { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 10, padding: 12, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 8, backgroundColor: base.card };
 
@@ -33,7 +33,7 @@ export default function DrawingsImport() {
   if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
   const keys = Object.keys(sel);
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'Import from OneDrive' }} />
       {!root ? <Empty>This job has no OneDrive folder linked — link one in Team &amp; Admin › Sync Folder.</Empty> : <>
         <Muted style={{ marginBottom: 8 }}>{path.map((p) => p.name).join(' › ')}</Muted>

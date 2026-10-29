@@ -10,7 +10,7 @@ import { confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import { connectOneDrive, disconnectOneDrive, setQuickLinks, unlinkFolder, useOdSites, useOneDriveStatus, useQuickLinks, type OdTarget } from '@/data/onedrive';
 import { useAuth } from '@/lib/auth';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 export default function OneDriveAdmin() {
   const { me } = useAuth();
@@ -29,7 +29,7 @@ export default function OneDriveAdmin() {
   const pick = (target: OdTarget, id = '') => router.push({ pathname: '/pm/onedrive-pick', params: { target, id } } as never);
   const shown = sites.filter((s) => !q.trim() || s.name.toLowerCase().includes(q.trim().toLowerCase()));
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'OneDrive' }} />
       <Card>
         <SectionTitle>Connection</SectionTitle>

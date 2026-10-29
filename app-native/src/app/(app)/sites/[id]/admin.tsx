@@ -20,7 +20,7 @@ import { useAuth } from '@/lib/auth';
 import { readIsoDate } from '@/lib/rules/materials';
 import { siteStatusKey } from '@/lib/rules/checkin';
 import { isFullManager, isManager } from '@/lib/roles';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card, marginBottom: 8 };
 const long = (d: string | null | undefined) => (d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—');
@@ -56,7 +56,7 @@ export default function SiteAdmin() {
   const flag = async (patch: Record<string, unknown>, msg: string) => { if (await updateSite(qc, id, patch)) toast(msg); else toast('Could not save — try again.'); };
 
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Settings & Admin' }} />
 
       <Toggle title="⚙ Site set up — name & address, main contractor, multi-site" open={!!open.setup} onPress={() => flip('setup')} />

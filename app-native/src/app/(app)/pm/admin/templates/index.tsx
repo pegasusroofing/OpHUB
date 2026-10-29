@@ -11,7 +11,7 @@ import { useAuth } from '@/lib/auth';
 import { uid } from '@/lib/rules/templates';
 import { isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 type Tpl = { id: string; name: string; description: string | null; sections: unknown[] | null; is_daily_briefing: boolean | null; is_mc_inspection: boolean | null; is_loler_inspection: boolean | null };
@@ -29,7 +29,7 @@ export default function Templates() {
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['reportTplAdmin'] }); void qc.invalidateQueries({ queryKey: ['templates'] }); };
   const kind = (t: Tpl) => (t.is_daily_briefing ? 'Daily Briefing' : t.is_mc_inspection ? 'Main Contractor inspection' : t.is_loler_inspection ? 'LOLER inspection' : 'Report / survey');
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'Report Templates' }} />
       <Muted style={{ marginBottom: 10 }}>Build reusable inspection / report templates here. Project Managers can fill these in on site and submit them as a report. Editing a template never changes inspections already started from it.</Muted>
       {isLoading ? <Muted>Loading…</Muted> : list.length ? list.map((t) => (

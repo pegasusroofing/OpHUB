@@ -11,7 +11,7 @@ import { createBuild, useLibrary, useOrgBuilds } from '@/data/ramsBuilder';
 import { useSite, useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { isFullManager } from '@/lib/roles';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card, marginBottom: 8 };
 
@@ -39,7 +39,7 @@ export default function RamsNew() {
   const copySites = Object.keys(bySite).map((sid) => ({ id: sid, name: siteName(sid), n: bySite[sid].length })).sort((x, y) => x.name.localeCompare(y.name));
   const tick = (arr: string[], set: (v: string[]) => void, v: string) => set(arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Create RAMS' }} />
       <Card style={{ backgroundColor: '#E7EEF9', borderColor: '#C9D7EE' }}><Text style={{ color: '#1F3B66' }}>🦺 Builds a <Text style={{ fontWeight: '800' }}>Risk Assessment</Text> and a <Text style={{ fontWeight: '800' }}>Method Statement</Text> as two separate documents for this job. Everything stays editable until you issue it.</Text></Card>
       <Muted style={{ fontWeight: '700' }}>RAMS name</Muted>

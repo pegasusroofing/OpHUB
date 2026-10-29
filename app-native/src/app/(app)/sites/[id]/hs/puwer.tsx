@@ -20,7 +20,7 @@ import { localISODate } from '@/lib/rules/driver';
 import { weekDates, weekLabel } from '@/lib/rules/havs';
 import { PUWER_QUESTIONS, toolPasses, UNTICK_WARNING, type PuwerKey, type PuwerTool } from '@/lib/rules/puwer';
 import { isManager } from '@/lib/roles';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 export default function Puwer() {
   const { id, user } = useLocalSearchParams<{ id: string; user?: string }>();
@@ -60,7 +60,7 @@ export default function Puwer() {
   };
 
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 820, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(820)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'PUWER Tool Inspection' }} />
       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
         <Pressable onPress={() => setOffset(offset - 1)} style={nav}><Text style={{ fontSize: 20 }}>‹</Text></Pressable>

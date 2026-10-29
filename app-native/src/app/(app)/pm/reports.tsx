@@ -19,7 +19,7 @@ import { buildReportPdf, type PdfSub } from '@/lib/reportPdf';
 import { supabase } from '@/lib/supabase';
 import { siteStatusKey } from '@/lib/rules/checkin';
 import { isManager } from '@/lib/roles';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -90,7 +90,7 @@ export default function AllReports() {
   const surveyors = [...new Set(rows.map((r) => r.submitted_by).filter(Boolean) as string[])];
 
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Reports & surveys' }} />
       <HowTo k="reports" />
       <Button busy={busy} title="+ Start a report" onPress={() => void start()} />

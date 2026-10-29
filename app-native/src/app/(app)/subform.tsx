@@ -13,7 +13,7 @@ import { Button, Card, Muted } from '@/components/ui';
 import { loadSubDraft, saveSubDraft, sendSubform, uploadSubFile, useSubformNeeded } from '@/data/subform';
 import { useAuth } from '@/lib/auth';
 import { SUBFORM_SECTIONS, subformMissing, subQShown, type SubDraft, type SubQ } from '@/lib/rules/subform';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card };
 
@@ -30,7 +30,7 @@ export default function SubForm() {
   const update = (n: SubDraft) => { setD(n); void saveSubDraft(me, n); };
   const set = (k: string, v: unknown) => update({ ...d, data: { ...d.data, [k]: v } });
   if (me.role === 'operative' && need && !need.needed) return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'Subcontractor form' }} />
       <Card><Text style={{ color: base.ink }}>{need.off ? 'You don’t need to fill this in — we already have your details.' : 'Thanks — your form has been sent.'}</Text></Card>
     </ScrollView>
@@ -88,7 +88,7 @@ export default function SubForm() {
     );
   };
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Subcontractor form' }} />
       <Card style={{ borderTopWidth: 6, borderTopColor: base.blue }}>
         <Text style={{ fontSize: 20, fontWeight: '800', color: base.ink }}>Subcontractor form</Text>

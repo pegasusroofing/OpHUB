@@ -15,7 +15,7 @@ import { byDay, logRange, pairSessions, type LogRow } from '@/lib/rules/checkinL
 import { readIsoDate } from '@/lib/rules/materials';
 import { isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 
@@ -51,7 +51,7 @@ export default function CheckinLogs() {
   const chip = (on: boolean, l: string, onPress: () => void) => <Pressable onPress={onPress} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: on ? base.ink : base.line, backgroundColor: on ? base.ink : base.card }}><Text style={{ fontWeight: '700', fontSize: 12, color: on ? '#fff' : base.ink }}>{l}</Text></Pressable>;
   const dateBox = (v: string, set: (s: string) => void, ph: string) => <TextInput value={v} onChangeText={set} placeholder={ph} autoCapitalize="none" style={{ flex: 1, borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 8, fontSize: 12, color: base.ink, backgroundColor: base.card }} />;
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Check-In Logs' }} />
       <Muted style={{ marginBottom: 10 }}>Every operative&apos;s check-in / check-out times, across all sites.</Muted>
       <View style={{ flexDirection: 'row', gap: 6, marginBottom: 10, alignItems: 'center' }}>

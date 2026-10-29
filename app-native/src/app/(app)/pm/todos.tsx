@@ -16,7 +16,7 @@ import { useAuth } from '@/lib/auth';
 import { siteStatusKey } from '@/lib/rules/checkin';
 import { localISODate } from '@/lib/rules/driver';
 import { readIsoDate } from '@/lib/rules/materials';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card, marginBottom: 8 };
 
@@ -42,7 +42,7 @@ export default function PmTodos() {
   const live = (sites ?? []).filter((s) => siteStatusKey(s) !== 'closed').sort((a, b) => a.name.localeCompare(b.name));
 
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'To do' }} />
       <Toggle title="Add a to-do" open={open} onPress={() => setOpen(!open)} />
       {open && (

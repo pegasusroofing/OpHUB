@@ -17,7 +17,7 @@ import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { fdate, INV_STATUS, invOutstanding, invOverdue, money, num, today } from '@/lib/rules/finance';
 import { INV_VAT, invTotals, issueProblem, lineVat } from '@/lib/rules/finInvoice';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 type Row = Record<string, any>;
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 9, color: base.ink, backgroundColor: base.card };
@@ -54,7 +54,7 @@ function Draft({ inv, site }: { inv: Row; site: Row | undefined }) {
   );
   const refresh = () => { ['finInvoice', 'finSales', 'finBook', 'finOverview', 'finJobs'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] })); };
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 900, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(900)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Draft invoice' }} />
       <Card>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 8 }}>
@@ -113,7 +113,7 @@ function Issued({ inv, pays, site }: { inv: Row; pays: Row[]; site: Row | undefi
   const out = invOutstanding(inv as never), t = invTotals(inv.lines, inv.vat_treatment, inv.vat_rate);
   const refresh = () => { ['finInvoice', 'finSales', 'finBook', 'finOverview', 'finJobs'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] })); };
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 900, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(900)}>
       <Stack.Screen options={{ title: inv.number || 'Invoice' }} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
         <FinStat v={inv.number || '—'} label="Invoice" /><FinStat v={invOverdue(inv as never) ? 'Overdue' : INV_STATUS[inv.status] || inv.status} label="Status" hot={invOverdue(inv as never)} />

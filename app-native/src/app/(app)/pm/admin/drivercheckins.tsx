@@ -12,7 +12,7 @@ import { useAuth } from '@/lib/auth';
 import { dayTotals, localISODate, minsLabel } from '@/lib/rules/driver';
 import { isFullManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
-import { base, space } from '@/theme/theme';
+import { base, page, space } from '@/theme/theme';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 type Chk = { user_id: string; type: string; ts: string; lat: number | null; lon: number | null; accuracy_m: number | null };
@@ -42,7 +42,7 @@ export default function DriverCheckins() {
   rows.forEach((r) => { const k = localISODate(new Date(r.ts)); if (!dayKeys.includes(k)) dayKeys.push(k); });
   const today = localISODate(new Date());
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'Driver Check-In Log' }} />
       <View style={{ flexDirection: 'row', gap: 6, marginBottom: 10 }}>
         {[14, 30, 90].map((n) => (

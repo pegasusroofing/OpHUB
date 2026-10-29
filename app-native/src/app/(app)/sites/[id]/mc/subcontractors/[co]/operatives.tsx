@@ -12,7 +12,7 @@ import { nameOf, usePeople } from '@/data/hs';
 import { allocateSubOp, removeSubOp, setSubOpAdmin, useSubco, useSubOperatives } from '@/data/subcontractors';
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 export default function SubOperatives() {
   const { id, co } = useLocalSearchParams<{ id: string; co: string }>();
@@ -28,7 +28,7 @@ export default function SubOperatives() {
   const mgr = isManager(me);
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['subOps', co] }); void qc.invalidateQueries({ queryKey: ['subco', co] }); void qc.invalidateQueries({ queryKey: ['siteTeam', id] }); };
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: `${sub.company.name} — Operatives` }} />
       <Muted style={{ marginBottom: 10 }}>RTB's PM/admin and the subcontractor admin can upload RAMS, COSHH, Toolbox Talks and Daily Briefings into this folder — everyone else allocated here just views and signs.</Muted>
       {isLoading ? <Muted>Loading…</Muted> : data?.allocated.length ? data.allocated.map((a) => (

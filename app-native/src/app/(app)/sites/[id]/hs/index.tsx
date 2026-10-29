@@ -15,7 +15,7 @@ import { tileRoles, tileVisMenu } from '@/data/tileVis';
 import { useAuth } from '@/lib/auth';
 import { canSeeTile } from '@/lib/rules/hs';
 import { isFullManager, isManager } from '@/lib/roles';
-import { base, space } from '@/theme/theme';
+import { base, page, space } from '@/theme/theme';
 
 export default function HealthSafety() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -39,7 +39,7 @@ export default function HealthSafety() {
   ];
   const visible = tiles.filter((t) => canSeeTile(site, t.key, me.role));
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'Health & Safety' }} />
       <HowTo k="hs" />
       {visible.length ? visible.map((t) => (

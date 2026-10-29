@@ -8,7 +8,7 @@ import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/lib/types';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
-const rpc = supabase.rpc as unknown as (n: string, a: object) => Promise<{ data: unknown; error: unknown }>;
+const rpc = supabase.rpc.bind(supabase) as unknown as (n: string, a: object) => Promise<{ data: unknown; error: unknown }>;
 const uuid = () => (globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => { const r = (Math.random() * 16) | 0; return (c === 'x' ? r : (r & 3) | 8).toString(16); }));
 
 export type NewSite = { name: string; address: string; postcode: string; job_number: string; client_name: string; client_phone: string; client_email: string; multi_site: boolean; repair_contract: boolean; status: 'active' | 'upcoming'; start_date: string };

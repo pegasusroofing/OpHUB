@@ -13,7 +13,7 @@ import { markPuwerWeek, reopenPuwerWeek, usePuwerRoster } from '@/data/puwer';
 import { useAuth } from '@/lib/auth';
 import { localISODate } from '@/lib/rules/driver';
 import { weekDates, weekLabel } from '@/lib/rules/havs';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 export function PuwerRoster({ siteId, offset, setOffset }: { siteId: string; offset: number; setOffset: (n: number) => void }) {
   const { me } = useAuth();
@@ -27,7 +27,7 @@ export function PuwerRoster({ siteId, offset, setOffset }: { siteId: string; off
   const refresh = () => void qc.invalidateQueries({ queryKey: ['puwerRoster', siteId] });
 
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'PUWER Tool Inspection' }} />
       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
         <Pressable onPress={() => setOffset(offset - 1)} style={nav}><Text style={{ fontSize: 20 }}>‹</Text></Pressable>

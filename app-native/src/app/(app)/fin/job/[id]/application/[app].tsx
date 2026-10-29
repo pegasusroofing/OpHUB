@@ -18,7 +18,7 @@ import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { APP_STAGE, appCalc, groupTotals, isItem, pct } from '@/lib/rules/finApp';
 import { fdate, money, num, round2, today } from '@/lib/rules/finance';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 type Row = Record<string, any>;
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 7, color: base.ink, backgroundColor: base.card };
@@ -60,7 +60,7 @@ function Editor({ a0, jf, previousLive }: { a0: Row; jf: Row; previousLive: numb
   const save = async (quiet?: boolean) => { setBusy('save'); const ok = await saveApplication(a, jf, previous); setBusy(''); if (!quiet) toast(ok ? 'Application saved' : 'Could not save — try again.'); refresh(); return ok; };
   const contractTotal = c.lines.filter(isItem).reduce((t: number, l: Row) => t + Number(l.value || 0), 0), contractDone = c.lines.reduce((t: number, l: Row) => t + l.gross, 0);
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 1000, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(1000)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: `Application ${a0.number}` }} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
         <FinStat v={STAGE[stage]} label="Stage" /><FinStat v={money(c.net_due)} label="Amount due this application" />

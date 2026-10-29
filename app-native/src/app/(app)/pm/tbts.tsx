@@ -16,7 +16,7 @@ import { deliverPdf, emailPdf, PDFDocument } from '@/lib/pdf';
 import { isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
 import type { Site } from '@/lib/types';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 type Talk = { id: string; site_id: string; title: string; created_at: string };
@@ -52,7 +52,7 @@ export default function CompletedTbts() {
   };
   const ask = async (what: string) => { const to = (await promptText(`Email ${what} to:`, ''))?.trim(); if (!to) return null; if (!EMAIL.test(to)) { toast('Enter a valid email address.'); return null; } return to; };
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Completed TBTs' }} />
       <TextInput value={q} onChangeText={setQ} placeholder="Search toolbox talks or projects" style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card, marginBottom: 10 }} />
       {sel.size > 0 ? (

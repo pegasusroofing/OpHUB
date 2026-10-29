@@ -10,7 +10,7 @@ import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 export type SubApp = { id: string; company_name: string; contact_name: string; email: string; phone: string | null; status: string; created_at: string; data: Record<string, unknown> | null };
@@ -30,7 +30,7 @@ export default function SubApps() {
   const counts = { new: 0, approved: 0, rejected: 0 } as Record<string, number>;
   rows.forEach((r) => { counts[r.status] = (counts[r.status] || 0) + 1; });
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'Subcontractor sign-up' }} />
       <Card>
         <SectionTitle>Your sign-up form</SectionTitle>

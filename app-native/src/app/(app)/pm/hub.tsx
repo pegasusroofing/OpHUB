@@ -12,7 +12,7 @@ import { useHub } from '@/data/hub';
 import { useSites } from '@/data/sites';
 import { usePmList } from '@/data/todos';
 import { useAuth } from '@/lib/auth';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 const TYPES = [['all', 'All'], ['tbt', 'TBT'], ['snag', 'Snags'], ['rams', 'RAMS'], ['coshh', 'COSHH'], ['message', 'Messages'], ['task', 'Tasks'], ['sowphoto', 'Photos']] as const;
 const DUE = [['all', 'Any time'], ['overdue', 'Overdue'], ['week', 'Due within 7 days'], ['nodate', 'No due date']] as const;
@@ -39,7 +39,7 @@ export default function Hub() {
     </Pressable>
   );
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}
+    <ScrollView contentContainerStyle={page(720)}
       refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => { void refetch(); }} />}>
       <Stack.Screen options={{ title: 'HUB' }} />
       <HowTo k="hub" />

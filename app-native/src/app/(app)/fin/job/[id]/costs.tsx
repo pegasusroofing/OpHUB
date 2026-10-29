@@ -9,7 +9,7 @@ import { useBook } from '@/data/finBook';
 import { useAuth } from '@/lib/auth';
 import { COST_CATS, forecast } from '@/lib/rules/finBook';
 import { fdate, money } from '@/lib/rules/finance';
-import { space } from '@/theme/theme';
+import { page, space } from '@/theme/theme';
 
 export default function FinCosts() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -21,7 +21,7 @@ export default function FinCosts() {
   const list = fc.lines.filter((l) => cat === 'all' || l.cat === cat).sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
   const tot = (k: string) => fc.lines.filter((l) => l.cat === k).reduce((t, l) => t + l.net, 0);
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 1000, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(1000)}>
       <Stack.Screen options={{ title: 'Costs ledger' }} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
         <FinChip on={cat === 'all'} label={`All ${money(fc.costToDate + fc.committedTotal, 0)}`} onPress={() => setCat('all')} />

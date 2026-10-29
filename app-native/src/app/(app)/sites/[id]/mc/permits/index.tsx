@@ -15,7 +15,7 @@ import { fullSiteAddress } from '@/lib/rules/checkin';
 import { localISODate } from '@/lib/rules/driver';
 import { readIsoDate } from '@/lib/rules/materials';
 import { isManager } from '@/lib/roles';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card, marginBottom: 8 };
 function Chip({ on, label, onPress }: { on: boolean; label: string; onPress: () => void }) {
@@ -47,7 +47,7 @@ export default function Permits() {
   const sig = (me as { signature_path?: string | null }).signature_path;
 
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Permits To Work' }} />
       <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
         <Chip on={tab === 'open'} label="Open" onPress={() => { setTab('open'); setIssuing(false); }} />

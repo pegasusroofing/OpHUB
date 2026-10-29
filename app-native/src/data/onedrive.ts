@@ -8,7 +8,7 @@ import { Linking, Platform } from 'react-native';
 import { supabase } from '@/lib/supabase';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
-const rpc = supabase.rpc as unknown as (n: string, a: object) => Promise<{ data: unknown; error: unknown }>;
+const rpc = supabase.rpc.bind(supabase) as unknown as (n: string, a: object) => Promise<{ data: unknown; error: unknown }>;
 export type OdStatus = { exists: boolean; connected: boolean; needs_reconnect: boolean; reason?: string; account_email?: string; folder_path?: string } | null;
 export type OdFolder = { id: string; name: string; driveId?: string | null; virtual?: boolean; isSite?: boolean };
 export type OdTarget = 'progress' | 'materials' | 'siteinductions' | 'repairjob' | 'operative' | 'quicklink';

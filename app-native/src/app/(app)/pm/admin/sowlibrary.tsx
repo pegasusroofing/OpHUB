@@ -11,7 +11,7 @@ import { Button, Card, Empty, Muted } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 type Row = { id: string; name: string; position: number | null; section_id?: string | null };
@@ -69,7 +69,7 @@ export default function SowLibrary() {
     </View>
   );
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Schedule of Works Library' }} />
       <Muted style={{ marginBottom: 10 }}>Reusable Schedule of Works templates for the whole company — build one once here, then pick it from any site&apos;s Schedule of Works &quot;+ → From Library&quot; to copy the whole structure in. Every copied line becomes an ordinary task on that job.</Muted>
       {isLoading ? <Muted>Loading…</Muted> : tpls.length ? tpls.map((t) => (

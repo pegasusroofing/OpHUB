@@ -15,7 +15,7 @@ import { useAuth } from '@/lib/auth';
 import { readIsoDate } from '@/lib/rules/materials';
 import { isFullManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 type Doc = { id: string; name: string; storage_path: string; uploaded_at: string; uploaded_by: string | null; expiry_date: string | null; resign_cycle_start: string | null; superseded_by: string | null };
@@ -50,7 +50,7 @@ export default function HsPolicyAdmin() {
   const doc = data?.doc;
   const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, marginBottom: 8 };
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'H&S Policy' }} />
       <Card>
         {doc ? (

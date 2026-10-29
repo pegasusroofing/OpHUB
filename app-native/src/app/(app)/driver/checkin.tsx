@@ -9,7 +9,7 @@ import { Button, Card, Empty, Muted, Row, SectionTitle } from '@/components/ui';
 import { driverBreak, driverCheck, useDriverStatus } from '@/data/driver';
 import { useAuth } from '@/lib/auth';
 import { dayTotals, localISODate, minsLabel } from '@/lib/rules/driver';
-import { base, space } from '@/theme/theme';
+import { base, page, space } from '@/theme/theme';
 
 const t = (d: string) => new Date(d).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 const dt = (d: string) => new Date(d).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
@@ -41,7 +41,7 @@ export default function DriverCheckin() {
   ].sort((a, b) => b.ts.localeCompare(a.ts)).slice(0, 30) : [];
 
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 620, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(620)}>
       {isLoading ? <Muted>Loading…</Muted> : (
         <>
           <Card style={{ alignItems: 'stretch', paddingVertical: 24 }}>

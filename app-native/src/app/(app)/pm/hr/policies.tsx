@@ -14,7 +14,7 @@ import { openDocLink } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
 import { deliverPdf, emailPdf } from '@/lib/pdf';
 import { isManager } from '@/lib/roles';
-import { base, space } from '@/theme/theme';
+import { base, page, space } from '@/theme/theme';
 
 export default function Policies() {
   const { me, org } = useAuth();
@@ -100,7 +100,7 @@ export default function Policies() {
     );
   };
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'Policies & handbook' }} />
       <SectionTitle>Company policies</SectionTitle>
       {isLoading ? <Muted>Loading…</Muted> : (

@@ -21,7 +21,7 @@ import { pickPhotos } from '@/lib/photos';
 import { readIsoDate } from '@/lib/rules/materials';
 import { approveStatus, needsScaffold, progressMove, REPAIR_ACCESS, REPAIR_STATUSES, scaffoldMove, surveyStatusMove, type RepairJob } from '@/lib/rules/repairs';
 import { isManager } from '@/lib/roles';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card, marginBottom: 8 };
 const HINT: Record<string, string> = {
@@ -134,7 +134,7 @@ export default function RepairJobPage() {
   const pickPerson = async (title: string) => chooseAction(title, [{ key: '', label: 'Unassigned' }, ...ops.map((p) => ({ key: p.id, label: p.name }))]);
 
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: label }} />
       <Card>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>

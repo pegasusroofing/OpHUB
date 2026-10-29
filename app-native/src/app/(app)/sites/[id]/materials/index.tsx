@@ -17,7 +17,7 @@ import { useAuth } from '@/lib/auth';
 import { canSeeMatTile, groupPickups } from '@/lib/rules/materials';
 import { isFullManager, isManager } from '@/lib/roles';
 import type { Profile, Site } from '@/lib/types';
-import { base, space } from '@/theme/theme';
+import { base, page, space } from '@/theme/theme';
 
 const fmt = (d: string | null | undefined) => (d ? new Date(d.length === 10 ? `${d}T00:00:00` : d).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) : '');
 
@@ -44,7 +44,7 @@ function ManagerTiles({ siteId, vis, role, me, site }: { siteId: string; vis: Pa
   const go = (p: string) => () => router.push(`/sites/${siteId}/${p}` as never);
   const sub = [pending?.length ? `${pending.length} to action` : '', collectN ? `${collectN} to collect` : ''].filter(Boolean).join(' · ') || 'Requests from operatives';
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(720)}>
       <Tile icon="🙋" tint="#F1E4FA" title="Material Requests" sub={sub} badge={pending?.length || undefined} onPress={go('materials/requests')} />
       <Tile icon="📄" tint="#FBEFE0" title="Material PO's" sub="Order files for this job" onPress={go('materials/pos')} />
       {canSeeMatTile(vis, 'plant', role) && <Tile icon="🏗" tint="#EAF3EC" title="Plant" sub="Check in / out" onPress={go('plant')} {...visProps('plant', 'Plant')} />}
@@ -99,7 +99,7 @@ function OperativeMaterials({ siteId, vis }: { siteId: string; vis: Parameters<t
   const toggle = (x: string) => { const n = new Set(sel); if (n.has(x)) n.delete(x); else n.add(x); setSel(n); };
 
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}
+    <ScrollView contentContainerStyle={page(720)}
       refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => { void refetch(); }} />}>
       {isLoading ? <Muted>Loading…</Muted> : (
         <>

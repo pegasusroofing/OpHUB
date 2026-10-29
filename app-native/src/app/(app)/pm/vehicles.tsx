@@ -16,7 +16,7 @@ import { useAuth } from '@/lib/auth';
 import { VEHICLE_ITEMS, VEHICLE_PHOTOS, type VItem } from '@/lib/rules/driver';
 import { isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 type Check = { id: string; driver_id: string; vehicle_reg: string | null; week_start: string; mileage: number | null; has_fails: boolean; submitted_at: string | null; items: VItem[] | null };
@@ -47,7 +47,7 @@ export default function Vehicles() {
     const by: Record<string, VItem> = Object.fromEntries((r.items || []).map((it) => [it.key, it]));
     const cats = [...new Set(VEHICLE_ITEMS.map((i) => i.cat))];
     return (
-      <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
+      <ScrollView contentContainerStyle={page(720)}>
         <Stack.Screen options={{ title: 'Vehicle Checklist' }} />
         <Card>
           <Text style={{ fontWeight: '800', color: base.ink }}>{nameOf(people, r.driver_id) || 'Unknown driver'}</Text>
@@ -85,7 +85,7 @@ export default function Vehicles() {
 
   const shown = fails ? data.checks.filter((r) => r.has_fails) : data.checks;
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'Vehicle health checks' }} />
       <SectionTitle>Vehicles · 10,000-mile health checks</SectionTitle>
       {data.vstat.length ? data.vstat.map((v) => {

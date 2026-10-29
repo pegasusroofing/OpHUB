@@ -13,7 +13,7 @@ import { fdb, insertNumbered } from '@/data/finance';
 import { useBook } from '@/data/finBook';
 import { useAuth } from '@/lib/auth';
 import { fdate, money, num, round2, today } from '@/lib/rules/finance';
-import { space } from '@/theme/theme';
+import { page, space } from '@/theme/theme';
 
 type Row = Record<string, any>;
 const ST: Record<string, [string, string]> = { instructed: ['Instructed', '#7A7F87'], priced: ['Priced', '#2F6FB3'], submitted: ['Issued', '#D98A00'], agreed: ['Approved', '#1E7A3C'], rejected: ['Rejected', '#C0392B'] };
@@ -34,7 +34,7 @@ export default function FinVariations() {
   const cur = edit && edit !== 'new' ? edit : null;
   const refresh = () => void qc.invalidateQueries({ queryKey: ['finBook'] });
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 900, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(900)}>
       <Stack.Screen options={{ title: 'Variations' }} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
         <FinStat v={money(sum('agreed_value', (v) => v.status === 'agreed'), 0)} label="Approved" />

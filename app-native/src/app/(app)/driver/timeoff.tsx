@@ -10,7 +10,7 @@ import { Button, Card, Empty, Field, Muted, SectionTitle } from '@/components/ui
 import { bookTimeOff, removeTimeOff, useTimeOff } from '@/data/driver';
 import { useAuth } from '@/lib/auth';
 import { dtoDays, dtoProblem, dtoRange, localISODate } from '@/lib/rules/driver';
-import { base, space } from '@/theme/theme';
+import { base, page, space } from '@/theme/theme';
 
 export default function TimeOff() {
   const { me } = useAuth();
@@ -37,7 +37,7 @@ export default function TimeOff() {
   };
 
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 520, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(520)}>
       <Card>
         <Text style={{ fontSize: 18, fontWeight: '800', color: base.ink }}>🌴 Book Time Off</Text>
         <Muted style={{ marginBottom: 12 }}>Deliveries can’t be booked for you on these days.</Muted>

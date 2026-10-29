@@ -13,7 +13,7 @@ import { nameOf, openDocLink, usePeople } from '@/data/hs';
 import { deleteMcDoc, MC_DOC_LABEL, renameMcDoc, uploadMcDoc, useMcDocs } from '@/data/mc';
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 export default function McDocs() {
   const { id, cat } = useLocalSearchParams<{ id: string; cat: string }>();
@@ -32,7 +32,7 @@ export default function McDocs() {
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['mcDocs', id, cat] }); void qc.invalidateQueries({ queryKey: ['mcTiles', id] }); };
   const isOpen = open ?? !docs?.length;
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: label }} />
       {isLoading ? <Muted>Loading…</Muted> : docs?.length ? docs.map((d) => (
         <Card key={d.id}>

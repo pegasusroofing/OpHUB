@@ -8,7 +8,7 @@ import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/lib/types';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
-const rpc = supabase.rpc as unknown as (n: string, a: object) => Promise<{ data: unknown; error: unknown }>;
+const rpc = supabase.rpc.bind(supabase) as unknown as (n: string, a: object) => Promise<{ data: unknown; error: unknown }>;
 
 export const OPHUB_WEB_URL = 'https://operativehub.co.uk/app.html';
 export const joinLink = (inviteId: string) => `${OPHUB_WEB_URL}#/join/${inviteId}`;

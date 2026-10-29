@@ -17,7 +17,7 @@ import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { REPORT_STATUS_LABEL, weekKeyOf, weekLabelOf } from '@/lib/rules/reports';
 import { isManager } from '@/lib/roles';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 export default function Briefings() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -45,7 +45,7 @@ export default function Briefings() {
   };
 
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'Daily Briefings' }} />
       {mgr && site && (
         <>

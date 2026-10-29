@@ -14,7 +14,7 @@ import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { yardGuess, yardLow, yardNum, yardQty, type YardItem } from '@/lib/rules/materials';
 import { isFinanceUser } from '@/lib/roles';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 const qbox = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, paddingHorizontal: 8, paddingVertical: 6, width: 70, textAlign: 'center' as const, color: base.ink, backgroundColor: base.card };
 
@@ -55,7 +55,7 @@ export default function Yard() {
   };
 
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: '📦 Yard stock' }} />
       {request && (
         <Card style={{ borderColor: base.ink, borderWidth: 1.5 }}>

@@ -14,7 +14,7 @@ import { openDocLink } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
-import { base, space } from '@/theme/theme';
+import { base, page, space } from '@/theme/theme';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 const CATS = [
@@ -47,7 +47,7 @@ export default function CompanyLibraryDocs() {
   if (!data.profile) return <Muted style={{ padding: space.l }}>That company is no longer in the library.</Muted>;
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['companyLibDocs', co] }); };
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: data.profile.name }} />
       <Muted style={{ marginBottom: 12 }}>{data.profile.name}&apos;s own document library — insurance, accreditations, RAMS templates and the like. Anything kept here follows this company onto every site they&apos;re added to.</Muted>
       <Button kind="ghost" busy={busy} title="+ Add to Library" onPress={async () => {

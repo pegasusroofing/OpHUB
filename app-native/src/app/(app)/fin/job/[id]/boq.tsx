@@ -21,7 +21,7 @@ import { bestSheet, boqRows, guessColumns, importPdfLines, importRows, type BoqL
 import { csvRows, readXlsx, type Cell } from '@/lib/rules/xlsxRead';
 import { groupTotals, isItem, itemValue } from '@/lib/rules/finApp';
 import { money, num, round2 } from '@/lib/rules/finance';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 type Row = Record<string, any>;
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 7, color: base.ink, backgroundColor: base.card };
@@ -85,7 +85,7 @@ function Editor({ id, initial }: { id: string; initial: Row[] }) {
     } finally { setBusy(false); }
   };
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 1100, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(1100)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Bill of Quantities' }} />
       <Card><Text style={{ fontWeight: '800', color: base.ink }}>Total {money(total)}{costTotal ? ` · cost ${money(costTotal)} · margin ${money(total - costTotal)}` : ''}</Text><Muted>The operatives&apos; Schedule of Works can be brought in to price, or sent out from here (without prices).</Muted>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 }}>

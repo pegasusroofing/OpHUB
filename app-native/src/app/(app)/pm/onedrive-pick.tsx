@@ -13,7 +13,7 @@ import { Button, Empty, Muted, SectionTitle } from '@/components/ui';
 import { linkFolder, listFolders, setQuickLinks, useQuickLinks, type OdFolder, type OdTarget } from '@/data/onedrive';
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 const DONE: Record<OdTarget, string> = {
   progress: 'Folder linked — photos for this site will sync there from now on', materials: "Folder linked — Material PO's will sync from there daily",
@@ -50,7 +50,7 @@ export default function OneDrivePick() {
     </Pressable>
   );
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'Choose OneDrive folder' }} />
       <Text style={{ fontWeight: '800', color: base.ink, marginBottom: 8 }}>{['OneDrive', ...stack.map((s) => s.name)].join(' › ')}</Text>
       {stack.length > 0 && <View style={{ marginBottom: 8 }}><Button kind="ghost" title="‹ Up one level" onPress={() => setStack(stack.slice(0, -1))} /></View>}

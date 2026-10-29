@@ -21,7 +21,7 @@ import { isManager } from '@/lib/roles';
 import { openDocLink, signTbt, usePeople, useTbt } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
 import { signedHeadline, signers } from '@/lib/rules/hs';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 export default function TbtView() {
   const { id, tbt } = useLocalSearchParams<{ id: string; tbt: string }>();
@@ -92,7 +92,7 @@ export default function TbtView() {
   };
 
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: talk?.title || 'Toolbox Talk' }} />
       {isLoading ? <Muted>Loading…</Muted> : !talk ? <Muted>Could not load that toolbox talk — it may no longer be live.</Muted> : (
         <Card>

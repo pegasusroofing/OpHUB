@@ -14,7 +14,7 @@ import { issueBriefing, signBriefing, useBriefing } from '@/data/briefings';
 import { nameOf, usePeople } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 export default function BriefingView() {
   const { id, sub: subId } = useLocalSearchParams<{ id: string; sub: string }>();
@@ -32,7 +32,7 @@ export default function BriefingView() {
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['briefing', subId] }); void qc.invalidateQueries({ queryKey: ['briefings'] }); };
 
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: sub.template_name || 'Daily Briefing' }} />
       <SectionTitle>{sub.template_name}</SectionTitle>
       <Muted>Completed {new Date(sub.submitted_at).toLocaleString('en-GB')} by {nameOf(people, sub.submitted_by)}</Muted>

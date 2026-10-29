@@ -9,7 +9,7 @@ import { hrAllowance, useHr, usePolicies } from '@/data/hr';
 import { useAuth } from '@/lib/auth';
 import { usedDays } from '@/lib/rules/hr';
 import { isManager } from '@/lib/roles';
-import { base, space } from '@/theme/theme';
+import { base, page, space } from '@/theme/theme';
 
 export default function HrHub() {
   const { me } = useAuth();
@@ -23,7 +23,7 @@ export default function HrHub() {
   const signed = new Set((pol?.sigs ?? []).filter((s) => s.user_id === me.id).map((s) => s.policy_id));
   const toSign = (pol?.pols ?? []).filter((p) => !signed.has(p.id)).length;
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'HR' }} />
       <HowTo k="hr" />
       <Tile icon="📅" tint={base.okBg} title="Holiday calendar" sub={left == null ? '…' : `${left} day${left === 1 ? '' : 's'} left this year${me.role === 'admin' && pending ? ` · ${pending} to approve` : ''}`} badge={me.role === 'admin' ? pending || undefined : undefined} onPress={() => router.push('/pm/hr/holidays' as never)} />

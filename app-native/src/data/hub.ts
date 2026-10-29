@@ -31,7 +31,7 @@ export function useHub(me: Profile | null, allSites: Site[] | undefined, pmId: s
       }
       const ids = sites.map((s) => s.id);
       if (!ids.length) return { items: [] as HubItem[], sites };
-      const rpc = supabase.rpc as unknown as (n: string, a: object) => Promise<{ data: unknown; error: unknown }>;
+      const rpc = supabase.rpc.bind(supabase) as unknown as (n: string, a: object) => Promise<{ data: unknown; error: unknown }>;
       const since = new Date(Date.now() - 180 * 864e5).toISOString();
       const [rams, coshh, talks, snags, tasks, assigned, todos, msgs, ops, alerts] = await Promise.all([
         db.from('rams_docs').select('id,site_id,uploaded_at,resign_cycle_start').eq('status', 'current').in('site_id', ids).is('subcontractor_company_id', null),
@@ -43,7 +43,8 @@ export function useHub(me: Profile | null, allSites: Site[] | undefined, pmId: s
         db.from('todos').select('id,site_id,text,date_required_by').in('site_id', ids).eq('done', false).order('created_at'),
         db.from('messages').select('id,site_id,created_at').eq('audience', 'managers').or(`site_id.in.(${ids.join(',')}),site_id.is.null`).neq('sender_id', p.id).gte('created_at', since),
         db.from('profiles').select('id').eq('role', 'operative'),
-        rpc('sow_photo_alerts', {}).catch(() => ({ data: [], error: null })),
+        // A database request has then() but no catch(): wrapped so a failure here can't empty the whole HUB.
+        Promise.resolve(rpc('sow_photo_alerts', {})).catch(() => ({ data: [], error: null })),
       ]);
       type Doc = { id: string; site_id: string; uploaded_at: string; resign_cycle_start: string | null };
       const ramsD = rows<Doc>(rams), coshhD = rows<Doc>(coshh);

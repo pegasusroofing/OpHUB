@@ -16,7 +16,7 @@ import { clientPortfolio } from '@/lib/rules/checkin';
 import { readIsoDate } from '@/lib/rules/materials';
 import { isFullManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
-import { base, space } from '@/theme/theme';
+import { base, page, space } from '@/theme/theme';
 
 const titleCase = (t: string) => t.replace(/\b([a-z])/g, (c) => c.toUpperCase());
 const EMPTY: NewSite = { name: '', address: '', postcode: '', job_number: '', client_name: '', client_phone: '', client_email: '', multi_site: false, repair_contract: false, status: 'active', start_date: '' };
@@ -52,7 +52,7 @@ export default function NewProject() {
     router.replace(`/sites/${r.id}` as never);
   };
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Add a Project' }} />
       <Card>
         <Field label="Site name" value={d.name} onChangeText={(v) => set({ name: titleCase(v) })} />

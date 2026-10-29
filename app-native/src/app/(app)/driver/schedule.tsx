@@ -25,7 +25,7 @@ import {
 } from '@/lib/rules/driver';
 import { isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
-import { base, radius, space, useTheme } from '@/theme/theme';
+import { base, page, radius, space, useTheme } from '@/theme/theme';
 
 type P = { id: string; name: string; phone: string | null };
 function usePhones() {
@@ -104,7 +104,7 @@ export default function DriverSchedule() {
   const slots = DELIVERY_TIME_SLOTS.filter((s) => shown.some((t) => t.time_slot === s.key));
 
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(720)}>
       {preview ? (
         <Card style={{ backgroundColor: base.blueBg }}>
           <Text style={{ fontWeight: '700', color: base.ink }}>👁 Driver view</Text>

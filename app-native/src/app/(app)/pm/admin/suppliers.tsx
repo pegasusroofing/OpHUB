@@ -14,7 +14,7 @@ import { type Branch } from '@/lib/rules/materials';
 import { supplierConflict } from '@/lib/rules/suppliers';
 import { isFullManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 type Sup = FullSupplier & { account_number?: string | null };
@@ -70,7 +70,7 @@ export default function Suppliers() {
     toast((await updateBranches(s.id, (bs) => bs.map((b) => (b.id === bid ? { ...b, [field]: v } : b)))) ? 'Saved' : 'Could not save — try again.'); refresh();
   };
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Suppliers' }} />
       <Muted style={{ marginBottom: 12 }}>Supplier names, order emails and branches. Branches can be picked when you order for collection or add to a Collection List.</Muted>
       {isLoading ? <Muted>Loading…</Muted> : sups.length ? sups.map((s) => {

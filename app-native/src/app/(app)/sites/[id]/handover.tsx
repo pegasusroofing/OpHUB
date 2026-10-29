@@ -16,7 +16,7 @@ import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { readIsoDate } from '@/lib/rules/materials';
 import { isManager } from '@/lib/roles';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 9, color: base.ink, backgroundColor: base.card, marginBottom: 6 };
 const pick = async (multiple: boolean) => {
@@ -64,7 +64,7 @@ export default function Handover() {
   const when = (t: string | null) => (t ? new Date(t).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '');
 
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Handover' }} />
       <View style={{ flexDirection: 'row', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>{chip('manual', 'O&M manuals')}{chip('sheets', 'Data sheets', sheets.length)}{chip('guar', 'Guarantees', guars.length)}</View>
       {!!busy && <Muted style={{ marginBottom: 8 }}>{busy}</Muted>}

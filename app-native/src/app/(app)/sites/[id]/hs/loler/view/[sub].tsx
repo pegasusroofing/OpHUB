@@ -10,7 +10,7 @@ import { nameOf, usePeople } from '@/data/hs';
 import { useSubmission } from '@/data/reports';
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
-import { space } from '@/theme/theme';
+import { page, space } from '@/theme/theme';
 
 export default function LolerView() {
   const { id, sub: subId } = useLocalSearchParams<{ id: string; sub: string }>();
@@ -21,7 +21,7 @@ export default function LolerView() {
   const sub = data?.sub;
   if (isLoading || !sub || sub.site_id !== id) return <Muted style={{ padding: space.l }}>{isLoading ? 'Loading…' : 'Inspection not found.'}</Muted>;
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'LOLER Inspection' }} />
       <SectionTitle>{String(sub.answers?.loler_make_model || sub.template_name)}</SectionTitle>
       <Muted>Submitted {sub.submitted_at ? new Date(sub.submitted_at).toLocaleString('en-GB') : 'in progress'} by {nameOf(people, sub.submitted_by)}</Muted>

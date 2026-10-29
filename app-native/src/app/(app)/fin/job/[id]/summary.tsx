@@ -15,7 +15,7 @@ import { useAuth } from '@/lib/auth';
 import { forecast, poInvoiced, type CostLine } from '@/lib/rules/finBook';
 import { fdate, invOutstandingNet, money, retentionStillHeld, round2 } from '@/lib/rules/finance';
 import { exportTableExcel, type Table } from '@/lib/tableExport';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 type Row = Record<string, any>;
 const TABS: [string, string][] = [['summary', 'Cost Summary'], ['purchases', 'Purchases'], ['labour', 'Labour & Subcontractors'], ['sales', 'Applications & Invoices'], ['plant', 'Plant']];
@@ -115,7 +115,7 @@ export default function FinDetail() {
     );
   }
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 1100, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(1100)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Detailed Summary' }} />
       <Card>
         <Text style={{ fontWeight: '800', color: base.ink }}>{s?.job_number || '—'} · {s?.name} · {s?.client_name || 'No client'}</Text>

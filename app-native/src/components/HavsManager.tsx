@@ -20,7 +20,7 @@ import { deliverPdf } from '@/lib/pdf';
 import { localISODate } from '@/lib/rules/driver';
 import { DAY_STATUS_LABEL, dayStatus, HAVS_DAY_LABELS, points, titleCaseWords, weekDates, weekLabel, wholeMinutes } from '@/lib/rules/havs';
 import type { Site } from '@/lib/types';
-import { base, space } from '@/theme/theme';
+import { base, page, space } from '@/theme/theme';
 
 const PILL = { elv: { bg: '#FBE1DE', fg: base.red }, eav: { bg: base.warnBg, fg: base.warn }, ok: { bg: base.okBg, fg: base.ok } };
 const daysFrom = (ws: string) => [0, 1, 2, 3, 4].map((i) => { const d = new Date(`${ws}T00:00:00`); d.setDate(d.getDate() + i); return d; });
@@ -78,7 +78,7 @@ export function HavsManager({ site }: { site: Site }) {
   };
 
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 900, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(900)} keyboardShouldPersistTaps="handled">
       <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
         <FinChip on={tab === 'week'} label="This Week" onPress={() => setTab('week')} /><FinChip on={tab === 'done'} label="Completed HAVS" onPress={() => setTab('done')} />
       </View>

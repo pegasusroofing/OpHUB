@@ -8,7 +8,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { Button, Empty, Muted } from '@/components/ui';
 import { useSubco, useSubSchedule } from '@/data/subcontractors';
 import { useAuth } from '@/lib/auth';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 const LABEL: Record<string, string> = { todo: 'To Do', progress: 'In Progress', done: 'Complete' };
 
@@ -21,7 +21,7 @@ export default function SubSchedule() {
   if (!sub) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   const shown = (tasks ?? []).filter((t) => f === 'all' || (f === 'todo' ? t.status === 'todo' : t.status !== 'todo'));
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: `${sub.company.name} — Schedule of Works` }} />
       <Muted style={{ marginBottom: 10 }}>Only the work items assigned to {sub.company.name} — updates show straight away on the main Schedule of Works.</Muted>
       <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>

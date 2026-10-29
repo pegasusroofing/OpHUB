@@ -19,7 +19,7 @@ import {
 } from '@/lib/rules/templates';
 import { isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 type Tpl = { id: string; name: string; description: string | null; sections: Section[]; is_daily_briefing: boolean; is_mc_inspection: boolean; is_loler_inspection: boolean };
@@ -192,7 +192,7 @@ export default function TemplateEditor() {
   };
 
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Edit Template' }} />
       <Muted style={{ fontWeight: '700' }}>Template Name</Muted>
       <TextInput value={t.name} onChangeText={(v) => setT({ ...t, name: v })} style={[box, { marginBottom: 8 }]} />

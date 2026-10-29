@@ -11,7 +11,7 @@ import { supabase } from '@/lib/supabase';
 import type { Organization, Profile, Site } from '@/lib/types';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
-const rpc = supabase.rpc as unknown as (n: string, a: object) => Promise<{ data: unknown; error: unknown }>;
+const rpc = supabase.rpc.bind(supabase) as unknown as (n: string, a: object) => Promise<{ data: unknown; error: unknown }>;
 type Me = Profile & { signature_path?: string | null };
 type Org = (Organization & { rams_settings?: Partial<RamsSettings> | null }) | null;
 

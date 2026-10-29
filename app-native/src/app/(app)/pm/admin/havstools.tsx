@@ -12,7 +12,7 @@ import { useAuth } from '@/lib/auth';
 import { titleCaseWords } from '@/lib/rules/havs';
 import { isFullManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 type Tool = { id: string; name: string; vibration_magnitude: number };
@@ -57,7 +57,7 @@ export default function HavsTools() {
     toast((await db.from('havs_tools').update({ [field]: val } as never).eq('id', t.id)).error ? 'Could not save — try again.' : 'Tool updated'); refresh();
   };
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'HAVS Tools' }} />
       <Muted style={{ marginBottom: 10 }}>The vibration magnitude (m/s²) used to calculate everyone&apos;s HAVS exposure points. These are sensible starting defaults — update them if you have proper manufacturer or measured figures.</Muted>
       {isLoading ? <Muted>Loading…</Muted> : tools.length ? tools.map((t) => (

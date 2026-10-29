@@ -39,7 +39,7 @@ import { supabase } from '@/lib/supabase';
 import { VisibilityEditor } from '@/components/VisibilityEditor';
 import { HowTo } from '@/components/HowTo';
 import { onQueueChange, onUploadsSent, pendingUploads, type UploadJob } from '@/lib/uploadQueue';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 export default function Schedule() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -181,7 +181,7 @@ export default function Schedule() {
   const toggle = (k: string, dflt = true) => setOpen({ ...open, [k]: !isOpen(k, dflt) });
 
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 820, width: '100%', alignSelf: 'center' }}
+    <ScrollView contentContainerStyle={page(820)}
       refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={changed} />}>
       <Stack.Screen options={{ title: 'Schedule of Works' }} />
       <HowTo k="schedule" />

@@ -1,13 +1,10 @@
 import { Stack } from 'expo-router';
 
-import { base } from '@/theme/theme';
+import { stackHeader } from '@/components/AppBar';
 
 export default function DriverLayout() {
   return (
-    <Stack screenOptions={{
-      headerTintColor: base.ink, headerStyle: { backgroundColor: base.card }, headerTitleStyle: { fontWeight: '800' },
-      headerBackButtonDisplayMode: 'minimal', contentStyle: { backgroundColor: base.paper },
-    }}>
+    <Stack screenOptions={stackHeader}>
       <Stack.Screen name="checkin" options={{ title: 'Check In / Out' }} />
       <Stack.Screen name="schedule" options={{ title: 'Delivery Schedule' }} />
       <Stack.Screen name="vehicle" options={{ title: 'Vehicle Checklist' }} />

@@ -18,7 +18,7 @@ import { makeXlsx } from '@/lib/rules/xlsx';
 import { readXlsx } from '@/lib/rules/xlsxRead';
 import { RATE_UNITS, rateCategories, readRate, type RateItem, type RateOption } from '@/lib/rules/rateCard';
 import { supabase } from '@/lib/supabase';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 8, color: base.ink, backgroundColor: base.card };
@@ -62,7 +62,7 @@ export default function RateCard() {
   const { cats, opts } = rateCategories(data?.items ?? [], data?.options ?? []);
   const t = terms ?? data?.terms ?? '';
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Price Sheet Rate Card' }} />
       <Muted style={{ marginBottom: 10 }}>One shared rate card for the whole company. Changes here don&apos;t affect any sheet already issued — those keep their own copy of the rates used.</Muted>
       <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>

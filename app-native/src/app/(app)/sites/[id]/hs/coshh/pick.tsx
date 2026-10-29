@@ -11,7 +11,7 @@ import { Button, Check, Empty, Muted } from '@/components/ui';
 import { folderFileIds, importToSite, useFolderView } from '@/data/coshhLib';
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 export default function CoshhPick() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -26,7 +26,7 @@ export default function CoshhPick() {
   if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
   const cur = data?.current ?? null;
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'Add from Library' }} />
       <Text style={{ fontWeight: '800', color: base.ink, marginBottom: 8 }}>{cur ? cur.name : 'Element of Works'}</Text>
       {cur && <View style={{ marginBottom: 10 }}><Button kind="ghost" title="‹ Up one level" onPress={() => setFolderId(cur.parent_id)} /></View>}

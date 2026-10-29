@@ -26,7 +26,7 @@ export function useCalendar(siteId: string | undefined, from: string, to: string
     queryKey: ['calendar', siteId, from, to],
     enabled: !!siteId,
     queryFn: () => cachedQuery(`calendar:${siteId}:${from}:${to}`, async () => {
-      const rpc = supabase.rpc as unknown as (n: string, a: object) => Promise<{ data: unknown; error: unknown }>;
+      const rpc = supabase.rpc.bind(supabase) as unknown as (n: string, a: object) => Promise<{ data: unknown; error: unknown }>;
       const [ev, dl, lv] = await Promise.all([
         db.from('site_calendar_events').select('*').eq('site_id', siteId as string).gte('event_date', from).lte('event_date', to).order('event_date').order('created_at'),
         rpc('site_delivery_dates', { p_site: siteId, p_from: from, p_to: to }).catch(() => ({ data: [], error: null })),

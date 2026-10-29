@@ -20,7 +20,7 @@ import { pickPhotos, type Picked } from '@/lib/photos';
 import { readIsoDate } from '@/lib/rules/materials';
 import { categoryLabel, dueBadge, effectiveState, PLANT_CHECKLIST, type PlantItem } from '@/lib/rules/plant';
 import { isManager } from '@/lib/roles';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card, marginBottom: 8 };
 const toneColour = { none: base.slate, bad: base.red, warn: base.warn, ok: base.ok };
@@ -145,7 +145,7 @@ export default function Plant() {
   };
 
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Plant' }} />
       <Muted style={{ marginBottom: 12 }}>Check plant and equipment in and out — every check-out and check-in needs a Project Manager's electronic sign-off.</Muted>
       {isLoading || !data ? <Muted>Loading…</Muted> : data.items.length ? data.items.map(card) : <Empty>No plant assigned to this site yet.</Empty>}

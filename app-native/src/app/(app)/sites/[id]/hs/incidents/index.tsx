@@ -8,7 +8,7 @@ import { Button, Empty, Muted } from '@/components/ui';
 import { deleteIncident, useIncidents } from '@/data/incidents';
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 const chip = (t: string, bad?: boolean) => <Text key={t} style={{ fontSize: 11, fontWeight: '700', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, overflow: 'hidden', backgroundColor: bad ? '#FDECEA' : base.paper, color: bad ? base.red : base.slate }}>{t}</Text>;
 
@@ -20,7 +20,7 @@ export default function Incidents() {
   const { data, isLoading } = useIncidents(id);
   if (!me) return null;
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'Accident / Incident' }} />
       <Button title="⚠️ Report Accident / Incident / Near Miss" onPress={() => router.push(`/sites/${id}/hs/incidents/new` as never)} />
       {isLoading ? <Muted>Loading…</Muted> : data?.length ? data.map((r) => (

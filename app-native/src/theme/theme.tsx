@@ -1,6 +1,7 @@
 // Colours and spacing, taken from src/css/app.css in the current app.
 // Each company's own colours (organizations.color_primary / color_secondary) replace brand1/brand2.
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
+import { Dimensions, Platform, useWindowDimensions, type ViewStyle } from 'react-native';
 
 import type { Organization } from '@/lib/types';
 
@@ -10,9 +11,9 @@ export const DEFAULT_BRAND2 = '#101114';
 export const base = {
   red: '#C8102E',
   ink: '#1E2124',
-  paper: '#F3F4F6',
+  paper: '#EFF2F5',
   card: '#FFFFFF',
-  line: '#E6E8EC',
+  line: '#E1E5EA',
   cardLine: '#ECEEF2',
   slate: '#5B6472',
   slateLight: '#88909B',
@@ -58,3 +59,16 @@ export function ThemeProvider({ org, children }: { org: Organization | null; chi
   return <Ctx.Provider value={t}>{children}</Ctx.Provider>;
 }
 export const useTheme = () => useContext(Ctx);
+
+/** The computer layout (125 isDeskMode): a wide web window — left-hand menu, full-width pages, wider grids. */
+export function isDesk(): boolean {
+  return Platform.OS === 'web' && Dimensions.get('window').width >= 1100;
+}
+export function useDesk(): boolean {
+  const { width } = useWindowDimensions();
+  return Platform.OS === 'web' && width >= 1100;
+}
+/** A page's scroll content: full width beside the menu on a computer (padding 26 / 40 as app.css), else centred up to maxWidth. */
+export function page(maxWidth = 720): ViewStyle {
+  return isDesk() ? { paddingHorizontal: 40, paddingTop: 26, paddingBottom: 40, width: '100%' } : { padding: space.l, maxWidth, width: '100%', alignSelf: 'center' };
+}
