@@ -2,17 +2,22 @@
 // sections, sub-sections and items (ref, description, qty × rate or a lump
 // sum, and an optional cost price). Saving sets the contract value (unless
 // it was typed by hand) and makes the project billed by application.
-// Importing from Excel and copying in the site schedule are still in the current app.
+// Import a breakdown from Excel, CSV or PDF (902 finContractUploadPicked) and check it
+// before use. Copying in the site schedule is still in the current app.
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import * as DocumentPicker from 'expo-document-picker';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { FinRow } from '@/components/FinNav';
-import { chooseAction, useToast } from '@/components/toast';
+import { chooseAction, confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Muted } from '@/components/ui';
 import { fdb } from '@/data/finance';
 import { useAuth } from '@/lib/auth';
+import { pdfPageTexts } from '@/lib/pdfjs';
+import { bestSheet, boqRows, guessColumns, importPdfLines, importRows, type BoqLine } from '@/lib/rules/boqImport';
+import { csvRows, readXlsx, type Cell } from '@/lib/rules/xlsxRead';
 import { groupTotals, isItem, itemValue } from '@/lib/rules/finApp';
 import { money, num, round2 } from '@/lib/rules/finance';
 import { base, radius, space } from '@/theme/theme';
@@ -33,6 +38,8 @@ function Editor({ id, initial }: { id: string; initial: Row[] }) {
   const qc = useQueryClient();
   const [rows, setRows] = useState<Row[]>(() => initial.map((r) => ({ ...r, qty: r.qty ?? '', rate: r.rate ?? '', value: r.value ?? '', cost: r.cost ?? '' })));
   const [busy, setBusy] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [imp, setImp] = useState<Imp | null>(null);
   if (!me) return null;
   const set = (i: number, k: string, v: unknown) => setRows(rows.map((r, j) => (j === i ? { ...r, [k]: v } : r)));
   const move = (i: number, d: number) => { const j = i + d; if (j < 0 || j >= rows.length) return; const x = rows.slice(); [x[i], x[j]] = [x[j], x[i]]; setRows(x); };
@@ -75,7 +82,31 @@ function Editor({ id, initial }: { id: string; initial: Row[] }) {
   return (
     <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 1100, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Bill of Quantities' }} />
-      <Card><Text style={{ fontWeight: '800', color: base.ink }}>Total {money(total)}{costTotal ? ` · cost ${money(costTotal)} · margin ${money(total - costTotal)}` : ''}</Text><Muted>Importing from Excel and copying in the site&apos;s Schedule of Works are still in the current app.</Muted></Card>
+      <Card><Text style={{ fontWeight: '800', color: base.ink }}>Total {money(total)}{costTotal ? ` · cost ${money(costTotal)} · margin ${money(total - costTotal)}` : ''}</Text><Muted>Copying in the site&apos;s Schedule of Works is still in the current app.</Muted>
+        <View style={{ marginTop: 6 }}><Button kind="ghost" busy={importing} title="📥 Import a breakdown (Excel, CSV or PDF)" onPress={async () => {
+          const r = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true }); if (r.canceled || !r.assets[0]) return;
+          const a = r.assets[0];
+          if (/\.xls$/i.test(a.name || '')) { toast('Save it as .xlsx or .csv first — old .xls files can’t be read.'); return; }
+          setImporting(true);
+          try {
+            const bytes = new Uint8Array(await (await fetch(a.uri)).arrayBuffer());
+            if (/\.pdf$/i.test(a.name || '') || a.mimeType === 'application/pdf') {
+              const pages = await pdfPageTexts(bytes, 40);
+              setImp({ sheets: [], sheet: '', lines: importPdfLines((pages ?? []).join('\n').split('\n')) });
+            } else {
+              const sheets = /\.csv$/i.test(a.name || '') ? [{ name: 'CSV', rows: csvRows(new TextDecoder().decode(bytes)) }] : await readXlsx(bytes);
+              const best = bestSheet(sheets); if (!best) { toast('Nothing found in that file.'); return; }
+              const g = guessColumns(best.rows);
+              setImp({ sheets, sheet: best.name, lines: importRows(best.rows, g.header, g.cols) });
+            }
+          } catch { toast('Could not read that file.'); } finally { setImporting(false); }
+        }} /></View>
+      </Card>
+      {imp && <ImportPreview imp={imp} setImp={setImp} onUse={async (lines) => {
+        if (rows.some((x) => String(x.description || '').trim()) && !(await confirmAsk('Replace the lines here with the imported breakdown? Nothing is saved until you tap Save.', 'Replace'))) return;
+        setRows(boqRows(lines)); setImp(null);
+        toast(`${lines.filter((l) => l.kind !== 'skip').length} lines ready — check them and tap Save`);
+      }} />}
       {rows.map((r, i) => {
         const head = r.kind === 'section' || r.kind === 'subsection';
         return (
@@ -106,5 +137,36 @@ function Editor({ id, initial }: { id: string; initial: Row[] }) {
       <View style={{ marginTop: 8 }}><Button kind="ghost" title="+ New application from this BoQ" onPress={() => router.push(`/fin/job/${id}/application/new` as never)} /></View>
       {rows.length === 0 && <FinRow title="No lines yet" sub="Add sections and items, then save." />}
     </ScrollView>
+  );
+}
+
+type Imp = { sheets: { name: string; rows: Cell[][] }[]; sheet: string; lines: BoqLine[] };
+const KINDS: BoqLine['kind'][] = ['section', 'subsection', 'item', 'skip'];
+const KIND_LABEL: Record<string, string> = { section: 'Section', subsection: 'Sub-section', item: 'Item', skip: 'Skip' };
+/** Check the breakdown (902 finImportShow): pick the sheet, tap a line to change its type; totals start as Skip. */
+function ImportPreview({ imp, setImp, onUse }: { imp: Imp; setImp: (i: Imp | null) => void; onUse: (lines: BoqLine[]) => void }) {
+  const used = imp.lines.filter((l) => l.kind === 'item');
+  const total = round2(used.reduce((t, l) => t + Number(l.value || 0), 0));
+  return (
+    <Card style={{ borderColor: base.blue, borderWidth: 1.5 }}>
+      <Text style={{ fontWeight: '800', color: base.ink, marginBottom: 4 }}>Check the breakdown</Text>
+      {imp.sheets.length > 1 && (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
+          {imp.sheets.map((s) => <Pressable key={s.name} onPress={() => { const g = guessColumns(s.rows); setImp({ ...imp, sheet: s.name, lines: importRows(s.rows, g.header, g.cols) }); }} style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14, borderWidth: 1, borderColor: imp.sheet === s.name ? base.ink : base.line, backgroundColor: imp.sheet === s.name ? base.ink : base.card }}><Text style={{ color: imp.sheet === s.name ? '#fff' : base.ink, fontWeight: '700' }}>{s.name}</Text></Pressable>)}
+        </View>
+      )}
+      <Muted style={{ marginBottom: 6 }}>{used.length} item{used.length === 1 ? '' : 's'} · total {money(total)}. Tap a line to change its type; totals are skipped so nothing is counted twice.</Muted>
+      {imp.lines.length ? imp.lines.map((l, i) => (
+        <Pressable key={i} onPress={() => { const n = imp.lines.slice(); n[i] = { ...l, kind: KINDS[(KINDS.indexOf(l.kind) + 1) % KINDS.length] }; setImp({ ...imp, lines: n }); }} style={{ flexDirection: 'row', gap: 8, paddingVertical: 4, borderBottomWidth: 1, borderBottomColor: base.line, opacity: l.kind === 'skip' ? 0.45 : 1 }}>
+          <Text style={{ width: 82, fontSize: 11.5, fontWeight: '800', color: l.kind === 'item' ? base.ink : base.blue }}>{KIND_LABEL[l.kind]}</Text>
+          <Text style={{ flex: 1, color: base.ink, fontWeight: l.kind === 'section' ? '800' : '400' }}>{l.ref ? `${l.ref} · ` : ''}{l.description}{l.qty != null || l.rate != null ? `  (${l.qty ?? ''} ${l.unit || ''}${l.rate != null ? ` × ${l.rate}` : ''})` : ''}</Text>
+          <Text style={{ fontWeight: '700', color: base.ink }}>{l.value != null ? money(l.value) : ''}</Text>
+        </Pressable>
+      )) : <Muted>Nothing found. Try another sheet.</Muted>}
+      <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+        <View style={{ flex: 1 }}><Button title="Use this breakdown" disabled={!used.length} onPress={() => onUse(imp.lines)} /></View>
+        <View style={{ flex: 1 }}><Button kind="ghost" title="Cancel" onPress={() => setImp(null)} /></View>
+      </View>
+    </Card>
   );
 }
