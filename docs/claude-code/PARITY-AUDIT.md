@@ -45,7 +45,7 @@ HIGH = money, data, permissions, safety or a daily job. MED = noticeable. LOW = 
 ## H&S, materials, plant (584–760)
 - HIGH FIXED — Clients' H&S folder shows only RAMS, COSHH, TBT, Completed Inspections (PUWER) and Operative Dashboard (new shows all 8).
 - HIGH FIXED — HAVS typed minutes saved when you leave the page or the app goes to the background.
-- MED OPEN — Hidden H&S screens open by direct link (no route guard).
+- MED FIXED — Hidden H&S screens open by direct link (no route guard).
 - MED FIXED — Client's Operatives tile: read-only list of the job's operatives and certificates.
 - MED OPEN — HAVS: manager adds an operative not assigned to the job.
 - MED OPEN — COSHH products in bulk from many data sheets.
