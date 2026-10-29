@@ -8,7 +8,7 @@ import { ScrollView, View } from 'react-native';
 import { FinForm } from '@/components/FinForm';
 import { AllocRow } from '@/components/FinSplit';
 import { FinChip, FinRow } from '@/components/FinNav';
-import { showAlert, useToast } from '@/components/toast';
+import { confirmAsk, useToast } from '@/components/toast';
 import { Button, Empty, Muted } from '@/components/ui';
 import { useBook } from '@/data/finBook';
 import { fdb } from '@/data/finance';
@@ -33,7 +33,7 @@ export default function FinCosts() {
   // A line from fin_job_costs ("jc:<id>:…") opens the form; a yard-stock cost is changed from the stock.
   const openCost = (key: string) => {
     const x = (data.book.extra || []).find((r) => r.id === key.split(':')[1]); if (!x) return;
-    if (x.supplier === 'Yard' && x.ref === 'YARD') { showAlert(`This cost came from yard stock (${x.description || ''}). To change it, issue or return the stock in Purchases › Yard stock (or the project’s Material Requests) — the cost updates itself.`); return; }
+    if (x.supplier === 'Yard' && x.ref === 'YARD') { void confirmAsk(`This cost came from yard stock (${x.description || ''}). To change it, issue or return the stock in Yard stock (or the project’s Material Requests) — the cost updates itself.`, 'Open Yard stock', 'Close').then((go) => { if (go) router.push('/fin/yard' as never); }); return; }
     setEdit(x);
   };
   const cur = edit && edit !== 'new' ? edit : null;
