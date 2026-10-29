@@ -13,7 +13,9 @@ import { Cell, FinTable, FootText } from '@/components/FinTable';
 import { pickJob } from '@/components/FinSales';
 import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Empty, Muted } from '@/components/ui';
-import { selectAll } from '@/data/finance';
+import * as DocumentPicker from 'expo-document-picker';
+import { fdb, selectAll } from '@/data/finance';
+import { supabase } from '@/lib/supabase';
 import { setPinvPaid, setPinvStatus } from '@/data/finPurchase';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
@@ -32,7 +34,7 @@ export function usePurchases(orgId: string | null | undefined, siteId?: string) 
       const f = (q: Parameters<Parameters<typeof selectAll>[2]>[0]) => (siteId ? q.eq('site_id', siteId) : q.eq('org_id', orgId as string));
       const [pinvs, pos, inbox, hires, suppliers] = await Promise.all([
         selectAll<Row>('purchase_invoices', '*', f), selectAll<Row>('purchase_orders', '*', f),
-        selectAll<Row>('fin_inbox', 'id,site_id,received_at,from_email,subject,extracted,stage,query_reason,comments,status,purchase_invoice_id', (q) => f(q).or('status.eq.new,and(status.eq.filed,purchase_invoice_id.is.null)')),
+        selectAll<Row>('fin_inbox', 'id,site_id,received_at,from_email,subject,extracted,stage,query_reason,comments,status,purchase_invoice_id,file_name', (q) => f(q).or('status.eq.new,and(status.eq.filed,purchase_invoice_id.is.null)')),
         selectAll<Row>('fin_plant_hires', '*', f), selectAll<Row>('suppliers', 'id,name,email', (q) => q.eq('org_id', orgId as string)),
       ]);
       return { pinvs: pinvs.sort((a, b) => String(b.invoice_date || '').localeCompare(String(a.invoice_date || ''))), pos: pos.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || ''))), inbox, hires, suppliers };
@@ -55,6 +57,24 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
   const [sel, setSel] = useState<Set<string>>(new Set());
   const toast = useToast();
   const qc = useQueryClient();
+  const [upBusy, setUpBusy] = useState(false);
+  // Add invoices by hand (9219b finInboxUpload): each PDF / photo goes into the inbox to be read or filed.
+  const uploadInvoices = async () => {
+    if (!me) return;
+    const r = await DocumentPicker.getDocumentAsync({ type: ['application/pdf', 'image/*'], multiple: true, copyToCacheDirectory: true }); if (r.canceled) return;
+    setUpBusy(true); let n = 0;
+    try {
+      for (const f of r.assets) {
+        if ((f.size || 0) > 20 * 1024 * 1024) { toast(`${f.name} is over 20 MB — skipped.`); continue; }
+        const rid = globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}`;
+        const up = await supabase.storage.from('finance-docs').upload(`${me.org_id}/inbox/${rid}-${(f.name || 'invoice').replace(/[^a-z0-9.-]+/gi, '_').slice(-80)}`, await (await fetch(f.uri)).arrayBuffer(), { contentType: f.mimeType || 'application/octet-stream' });
+        if (up.error) continue;
+        const ins = await fdb.from('fin_inbox').insert({ org_id: me.org_id, source: 'upload', status: 'new', received_at: new Date().toISOString(), file_path: up.data.path, file_name: f.name, content_type: f.mimeType || null, created_by: me.id } as never);
+        if (!ins.error) n++;
+      }
+    } finally { setUpBusy(false); }
+    toast(`${n} invoice${n === 1 ? '' : 's'} added`); setPif('job'); void qc.invalidateQueries({ queryKey: ['finPurchases'] });
+  };
   if (!data) return <Muted>Loading…</Muted>;
   const site = (id: string) => sites.find((s) => s.id === id);
   const live = data.pinvs.filter((i) => i.status !== 'rejected');
@@ -110,7 +130,8 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
     );
   }
   if (tab === 'invoices') {
-    const needJob = data.inbox.filter((i) => i.extracted && i.stage !== 'with_pm'), withPm = data.inbox.filter((i) => i.stage === 'with_pm');
+    // Not read yet (uploaded or emailed, and while Finance is on trial nothing is read) count as unallocated too, to file by hand.
+    const needJob = data.inbox.filter((i) => i.stage !== 'with_pm'), withPm = data.inbox.filter((i) => i.stage === 'with_pm');
     const toApprove = data.pinvs.filter((i) => ['to_approve', 'query'].includes(i.status)), unpaid = data.pinvs.filter((i) => i.status === 'approved' && !i.paid_on);
     const F: Record<string, (i: Row) => boolean> = { approve: (i) => ['to_approve', 'query'].includes(i.status), unpaid: (i) => i.status === 'approved' && !i.paid_on, paid: (i) => !!i.paid_on, all: () => true };
     const cnt: Record<string, number> = { job: needJob.length, pm: withPm.length, approve: toApprove.length, unpaid: unpaid.length };
@@ -122,7 +143,10 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
         <Muted style={{ marginBottom: 8 }}>Purchase invoices emailed to your invoice address are read and filed to the job when we can tell which one. While Finance is on trial they are not read or filed automatically — allocate them by hand.</Muted>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
           <FinSeg value={cur} onChange={setPif} items={chips.map(([k, l, n]) => [k, l, n] as [string, string, number])} />
-          <View style={{ marginLeft: 'auto' }}><Button title="+ Type one in" onPress={() => void withJob('Add a purchase invoice', (sid) => `/fin/pinv/new?site=${sid}`)} /></View>
+          <View style={{ marginLeft: 'auto', flexDirection: 'row', gap: 6 }}>
+            <Button kind="ghost" busy={upBusy} title="+ Add invoices" onPress={() => void uploadInvoices()} />
+            <Button title="+ Type one in" onPress={() => void withJob('Add a purchase invoice', (sid) => `/fin/pinv/new?site=${sid}`)} />
+          </View>
         </View>
         {bar}
         {cur === 'job' || cur === 'pm' ? (
@@ -130,7 +154,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
             {search('Search supplier, email or invoice no.')}
             {(cur === 'job' ? needJob : withPm).filter((it) => (!sup || supKey(it.extracted?.supplier) === sup) && (!job || it.site_id === job) && hit(it.extracted?.supplier, it.from_email, it.extracted?.invoice_no, it.subject)).map((it) => {
               const ex = it.extracted || {}, last = (it.comments || []).slice(-1)[0];
-              return <FinRow key={it.id} title={ex.supplier || it.from_email || 'Purchase invoice'} sub={[ex.invoice_no, `received ${fdate(String(it.received_at).slice(0, 10))}`, cur === 'job' ? (it.stage === 'pm_replied' && last ? `PM replied — ${last.name}: ${last.text}` : it.query_reason) : 'Sent to a PM'].filter(Boolean).join(' · ')} right={ex.total != null ? money(ex.total) : '—'} onPress={() => router.push(`/fin/inbox/${it.id}` as never)} />;
+              return <FinRow key={it.id} title={ex.supplier || it.from_email || it.file_name || 'Purchase invoice'} sub={[ex.invoice_no, `received ${fdate(String(it.received_at).slice(0, 10))}`, cur === 'job' ? (!it.extracted ? 'Not read yet — open it to file by hand' : it.stage === 'pm_replied' && last ? `PM replied — ${last.name}: ${last.text}` : it.query_reason) : 'Sent to a PM'].filter(Boolean).join(' · ')} right={ex.total != null ? money(ex.total) : '—'} onPress={() => router.push(`/fin/inbox/${it.id}` as never)} />;
             })}
             {!(cur === 'job' ? needJob : withPm).length && <Empty>{cur === 'job' ? 'Nothing waiting to be allocated.' : 'Nothing with a PM.'}</Empty>}
           </>

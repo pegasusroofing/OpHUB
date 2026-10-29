@@ -10,7 +10,7 @@ import { Linking, Pressable, ScrollView, Text } from 'react-native';
 import { FinForm } from '@/components/FinForm';
 import { FinRow } from '@/components/FinNav';
 import { pickJob } from '@/components/FinSales';
-import { chooseAction, useToast } from '@/components/toast';
+import { chooseAction, confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Muted } from '@/components/ui';
 import { fdb } from '@/data/finance';
 import { openDocLink } from '@/data/hs';
@@ -61,6 +61,12 @@ export default function FinInboxItem() {
         </>}
       </Card>
       {!filed && <Button title="File to this project…" onPress={() => { if (!sid) { toast('Choose the project first.'); return; } setFiling(true); }} />}
+      {!filed && <Button kind="ghost" title="Not an invoice — ignore it" onPress={async () => {
+        // 9219b finInboxIgnore: it leaves the inbox lists.
+        if (!(await confirmAsk('Ignore this? It isn’t an invoice, so it comes off the list.', 'Ignore'))) return;
+        if ((await fdb.from('fin_inbox').update({ status: 'ignored', stage: 'ignored' } as never).eq('id', it.id)).error) { toast('Could not save — try again.'); return; }
+        toast('Ignored'); void qc.invalidateQueries({ queryKey: ['finPurchases'] }); router.back();
+      }} />}
       <Muted style={{ marginTop: 8 }}>Sending it to a PM to book is switched off while Finance is on trial.</Muted>
       {filing && sid && (
         <FinForm title="File as a purchase invoice" initial={{ supplier: ex.supplier || '', invoice_no: ex.invoice_no || '', date: ex.date || today(), net: ex.net ?? '', vat: ex.vat ?? '', total: ex.total ?? '' }} onClose={() => setFiling(false)} saveLabel="File it"
