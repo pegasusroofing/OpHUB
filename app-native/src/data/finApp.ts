@@ -209,3 +209,10 @@ export async function addBoqLines(me: Profile, siteId: string, adds: NewBoqLine[
   }
   return out;
 }
+
+/** A new header at the end of the Bill of Quantities, for the application to add lines under (9219n). */
+export async function addBoqSection(me: Profile, siteId: string, ref: string | null, desc: string): Promise<Row | null> {
+  const top = await rows(fdb.from('fin_contract_items').select('position').eq('site_id', siteId).order('position', { ascending: false }).limit(1));
+  const r = await fdb.from('fin_contract_items').insert({ org_id: me.org_id, site_id: siteId, position: (Number(top[0]?.position) || 0) + 1, kind: 'section', ref, description: desc, value: 0 } as never).select('*').single();
+  return r.error ? null : { kind: 'section', item_id: (r.data as Row).id, ref: ref || '', description: desc };
+}

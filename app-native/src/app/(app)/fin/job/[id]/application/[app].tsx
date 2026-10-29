@@ -11,8 +11,9 @@ import { Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-nat
 
 import { FinChip, FinRow, FinStat } from '@/components/FinNav';
 import { confirmAsk, showAlert, useToast } from '@/components/toast';
+import { FinForm } from '@/components/FinForm';
 import { Button, Card, Check, Muted, SectionTitle } from '@/components/ui';
-import { addBoqLines, clearCertificate, deleteApplication, exportApplication, loadApplication, newApplication, raiseInvoiceFromCert, saveApplication, saveCertificate, setStatus } from '@/data/finApp';
+import { addBoqLines, addBoqSection, clearCertificate, deleteApplication, exportApplication, loadApplication, newApplication, raiseInvoiceFromCert, saveApplication, saveCertificate, setStatus } from '@/data/finApp';
 import { openDocLink } from '@/data/hs';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
@@ -64,6 +65,7 @@ function Editor({ a0, jf, previousLive }: { a0: Row; jf: Row; previousLive: numb
   const [mode, setMode] = useState<'pct' | 'gbp'>('pct');
   const [hideZero, setHideZero] = useState(false);
   const [busy, setBusy] = useState('');
+  const [adding, setAdding] = useState<'line' | 'section' | null>(null); // a new Bill of Quantities line / header (9219n)
   // Autosave (9219ze): a copy on this device after every change, saved to the server two seconds after
   // typing stops and when you leave; an unsaved copy left on the device is brought back when it's newer.
   const KEY = `finAppDraft:${a0.id}`, isDraft = APP_STAGE(a0) === 'draft';
@@ -187,6 +189,45 @@ function Editor({ a0, jf, previousLive }: { a0: Row; jf: Row; previousLive: numb
           </View>
         );
       })}
+      {!locked && (
+        <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
+          <Button kind="ghost" title="+ Add a line" onPress={() => setAdding('line')} />
+          <Button kind="ghost" title="+ Add a section" onPress={() => setAdding('section')} />
+        </View>
+      )}
+      {adding && me && (
+        <FinForm title={adding === 'line' ? 'Add a line' : 'Add a section'} onClose={() => setAdding(null)}
+          note={adding === 'line' ? 'It goes into the Bill of Quantities too, so it carries on to later applications.' : 'A new header at the end of the Bill of Quantities.'}
+          initial={{ under: '', pct: '0' }}
+          fields={adding === 'line' ? [
+            { k: 'under', label: 'Under', kind: 'choice', options: [['', 'At the end'], ...(a.lines || []).filter((l: Row) => !isItem(l)).map((l: Row) => [l.item_id, `${l.ref ? `${l.ref} ` : ''}${l.description}`] as [string, string])] },
+            { k: 'ref', label: 'Ref', half: true }, { k: 'description', label: 'Description', half: true },
+            { k: 'qty', label: 'Qty', kind: 'number', half: true }, { k: 'unit', label: 'Unit', half: true },
+            { k: 'rate', label: 'Rate £', kind: 'money', half: true }, { k: 'value', label: 'Or a lump sum £', kind: 'money', half: true },
+            { k: 'pct', label: 'Applied % this time', kind: 'number', half: true },
+          ] : [{ k: 'ref', label: 'Ref', half: true }, { k: 'description', label: 'Header', half: true }]}
+          onSave={async (v) => {
+            const desc = String(v.description ?? '').trim(); if (!desc) return adding === 'line' ? 'Enter the description.' : 'Enter the header.';
+            const ref = String(v.ref ?? '').trim() || null;
+            if (adding === 'section') {
+              const line = await addBoqSection(me, a0.site_id, ref, desc); if (!line) return 'Could not save — try again.';
+              setA({ ...a, lines: [...(a.lines || []), line] }); toast('Section added'); return null;
+            }
+            const n = (k: string) => { const x = num(v[k]); return x === null || isNaN(x) ? null : x; };
+            const qty = n('qty'), rate = n('rate'), value = qty != null && rate != null ? round2(qty * rate) : n('value');
+            if (value == null) return 'Enter qty × rate, or a lump sum.';
+            const made = await addBoqLines(me, a0.site_id, [{ under: String(v.under || ''), ref, desc, qty, unit: String(v.unit ?? '').trim() || null, rate, value, pct: n('pct') || 0 }]);
+            if (!made?.length) return 'Could not save — try again.';
+            const L: Row[] = [...(a.lines || [])];
+            made.forEach(({ under, line }) => {
+              const hi = under ? L.findIndex((l) => l.item_id === under) : -1;
+              let at = L.length;
+              if (hi >= 0) { at = hi + 1; while (at < L.length && L[at].kind !== 'section' && !(L[hi].kind === 'subsection' && L[at].kind === 'subsection')) at++; }
+              L.splice(at, 0, line);
+            });
+            setA({ ...a, lines: L }); toast('Line added'); return null;
+          }} />
+      )}
       {(c.variations.length > 0 || !locked) && <SectionTitle>Variations</SectionTitle>}
       {c.variations.map((v: Row, i: number) => (
         <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6 }}>

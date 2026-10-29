@@ -64,3 +64,20 @@ export async function saveClientPo(me: Profile, siteId: string, poId: string | n
   return null;
 }
 export const deleteClientPo = async (id: string) => !(await fdb.from('client_pos').delete().eq('id', id)).error;
+
+/** What's booked to a project in Finance (9219u finDeleteJob), so it isn't deleted with financial records
+ *  on it. null = couldn't check (no signal) — then nothing is deleted. */
+export async function finBookedOn(orgId: string, siteId: string): Promise<string[] | null> {
+  const tabs: [string, string][] = [['fin_invoices', 'invoices'], ['fin_applications', 'applications'], ['purchase_orders', 'purchase orders'], ['purchase_invoices', 'purchase invoices'],
+    ['fin_job_costs', 'costs'], ['fin_subcontracts', 'subcontracts'], ['fin_sub_apps', 'subcontract applications'], ['fin_sub_values', 'subcontract values'],
+    ['fin_variations', 'variations'], ['fin_dayworks', 'day works'], ['fin_plant_hires', 'plant hire'], ['fin_job_budgets', 'budgets'],
+    ['fin_contract_items', 'a bill of quantities'], ['fin_quotes', 'quotes'], ['fin_labour_manual', 'timesheets'],
+    ['fin_inbox', 'emailed invoices'], ['yard_moves', 'yard stock moves'], ['wage_pushes', 'wages']];
+  const db = fdb as unknown as { from: (t: string) => { select: (c: string) => { eq: (k: string, v: string) => { limit: (n: number) => PromiseLike<{ data: unknown[] | null; error: unknown }> }; contains: (k: string, v: unknown) => { eq: (k: string, v: string) => { limit: (n: number) => PromiseLike<{ data: unknown[] | null; error: unknown }> } } } } };
+  const got = await Promise.all([
+    ...tabs.map(([t]) => db.from(t).select('id').eq('site_id', siteId).limit(1)),
+    db.from('fin_sub_payments').select('id').contains('lines', [{ site_id: siteId }]).eq('org_id', orgId).limit(1),
+  ]);
+  if (got.some((g) => g.error)) return null;
+  return [...tabs.map(([, l]) => l), 'operative invoices'].filter((_, i) => (got[i].data ?? []).length);
+}

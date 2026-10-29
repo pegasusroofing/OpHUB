@@ -13,10 +13,11 @@ import { OphIcon } from '@/components/OphIcon';
 import { PurchasesLists } from '@/components/FinPurchases';
 import { SalesLists } from '@/components/FinSales';
 import { SubsLists } from '@/components/FinSubs';
-import { chooseAction, useToast } from '@/components/toast';
+import { chooseAction, confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Muted, SectionTitle } from '@/components/ui';
 import { applyRetention, raiseRetentionInvoice } from '@/data/finApp';
-import { deleteClientPo, saveClientPo, saveJobFinance, saveJobNumber, useBook } from '@/data/finBook';
+import { deleteClientPo, finBookedOn, saveClientPo, saveJobFinance, saveJobNumber, useBook } from '@/data/finBook';
+import { deleteSite, setSiteStatus, siteIsEmpty } from '@/data/siteList';
 import { subKind } from '@/data/finSubJobs';
 import { importSiteVariations } from '@/data/finVar';
 import { openDocLink } from '@/data/hs';
@@ -25,7 +26,7 @@ import { useAuth } from '@/lib/auth';
 import { forecast, pctTxt } from '@/lib/rules/finBook';
 import { heading } from '@/lib/fonts';
 import { FIN_VAT_LABEL, fdate, invOutstandingNet, invOverdue, money, num, retentionAlerts, retentionDates, retHalf, type FinInv } from '@/lib/rules/finance';
-import { isFinanceOnlyOrg, isFinanceUser } from '@/lib/roles';
+import { isFinanceOnlyOrg, isFinanceUser, isFullManager } from '@/lib/roles';
 import { base, page, space, useTheme } from '@/theme/theme';
 
 type Row = Record<string, any>;
@@ -192,6 +193,17 @@ function Setup({ id, site, jf, cpos, settings }: { id: string; site: Row | undef
   if (!me) return null;
   const refresh = () => { ['finBook', 'finJobs', 'finOverview', 'sites'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] })); };
   const kv = (l: string, v: string) => <FinRow key={l} title={l} right={v} />;
+  // Delete from Finance (9219u finDeleteJob): not with anything financial booked to it — then close it instead.
+  const delJob = async () => {
+    if (!me || !site) return;
+    const closeIt = async () => { if (await setSiteStatus(me, id, 'closed')) { toast('Project closed'); router.replace('/fin/jobs' as never); } else toast('Could not save — try again.'); };
+    const used = await finBookedOn(me.org_id as string, id);
+    if (!used) { toast('Couldn’t check what’s booked to this project, so it hasn’t been deleted. Check your signal and try again.'); return; }
+    if (used.length) { if (await confirmAsk(`“${site.name}” already has ${used.join(', ')} booked to it, so it can’t be deleted — that would wipe financial records. Close it instead? (It moves to Closed and drops off the live lists.)`, 'Close it')) await closeIt(); return; }
+    if (me.role !== 'admin' && !(await siteIsEmpty(id))) { if (await confirmAsk(`“${site.name}” already has data in it, so it can’t be permanently deleted from here — this will close it instead. Continue?`, 'Close it')) await closeIt(); return; }
+    if (!(await confirmAsk(`Delete “${site.name}”? This permanently removes the project. This can’t be undone.`, 'Delete'))) return;
+    if (await deleteSite(id)) { toast('Project deleted'); void qc.invalidateQueries({ queryKey: ['sites'] }); router.replace('/fin/jobs' as never); } else toast('Could not delete — try again.');
+  };
   return (
     <View>
       <SectionTitle>Project details</SectionTitle>
@@ -209,6 +221,7 @@ function Setup({ id, site, jf, cpos, settings }: { id: string; site: Row | undef
         {kv('Company overheads', jf.ohp_pct != null ? `${jf.ohp_pct}%` : `${settings.ohp_pct ?? 0}% (company)`)}
         <View style={{ marginTop: 8 }}><Button title="Edit project details" onPress={() => setEdit('job')} /></View>
       </Card>
+      {isFullManager(me) && <View style={{ marginBottom: 8 }}><Button kind="ghost" title="🗑 Delete this project" onPress={() => void delJob()} /></View>}
       <SectionTitle>Client POs</SectionTitle>
       {cpos.length ? cpos.map((p) => (
         <FinRow key={p.id} title={`PO ${p.po_number}${p.is_primary ? ' (main)' : ''}`} sub={[p.po_date ? fdate(p.po_date) : '', p.description, Array.isArray(p.files) && p.files.length ? `${p.files.length} file${p.files.length === 1 ? '' : 's'}` : p.file_name ? '1 file' : ''].filter(Boolean).join(' · ')} onPress={() => { setPo(p); setFile(null); setEdit('po'); }} />
