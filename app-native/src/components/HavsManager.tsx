@@ -15,6 +15,7 @@ import {
   addHavsEntryFor, addHavsTool, closeHavsWeek, deleteHavsEntry, editHavsEntry, reopenHavsWeek, setSiteHavsTool, useHavsCompleted, useHavsManagerWeek, type HavsOp, type HavsTool,
 } from '@/data/havs';
 import { useAuth } from '@/lib/auth';
+import { useFlushOnLeave } from '@/lib/useFlushOnLeave';
 import { buildHavsPdf, emailHavsPdf } from '@/lib/havsPdf';
 import { deliverPdf } from '@/lib/pdf';
 import { localISODate } from '@/lib/rules/driver';
@@ -37,6 +38,9 @@ export function HavsManager({ site }: { site: Site }) {
   const { data: completed } = useHavsCompleted(site.id, tab === 'done');
   const [open, setOpen] = useState<Record<number, boolean>>({});
   const drafts = useRef<Record<string, string>>({});
+  // Typed minutes save when you leave the page or the app goes to the background (660).
+  const flushRef = useRef<(() => Promise<unknown>) | null>(null);
+  useFlushOnLeave(flushRef);
   const [, force] = useState(0);
   const [busy, setBusy] = useState<string | null>(null);
   if (!me) return null;
@@ -62,6 +66,9 @@ export function HavsManager({ site }: { site: Site }) {
     force((n) => n + 1);
     return saved;
   };
+  // Keep the latest save for useFlushOnLeave (the usual "latest callback in a ref" pattern).
+  // eslint-disable-next-line react-hooks/refs
+  flushRef.current = () => flush();
   const shift = async (dir: number) => { await flush(); setOffset(offset + dir); };
   const pdf = async (k: 'pdf' | 'email', wsDays: Date[], key: string) => {
     let cc: string | null = null;

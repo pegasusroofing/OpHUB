@@ -18,6 +18,7 @@ import { deliverPdf } from '@/lib/pdf';
 import { isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
+import { useFlushOnLeave } from '@/lib/useFlushOnLeave';
 import { localISODate } from '@/lib/rules/driver';
 import { DAY_STATUS_LABEL, dayStatus, HAVS_DAY_LABELS, points, titleCaseWords, weekDates, weekLabel, wholeMinutes } from '@/lib/rules/havs';
 import { base, page, space } from '@/theme/theme';
@@ -37,6 +38,9 @@ export default function Havs() {
   const { data, isLoading } = useHavsWeek(site, from, to);
   const [open, setOpen] = useState<Record<number, boolean>>({});
   const drafts = useRef<Record<string, string>>({});
+  // Typed minutes save when you leave the page or the app goes to the background (660).
+  const flushRef = useRef<(() => Promise<unknown>) | null>(null);
+  useFlushOnLeave(flushRef);
   const [, force] = useState(0);
   const [editing, setEditing] = useState<{ id: string; v: string } | null>(null);
   if (!me || !site) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
@@ -61,6 +65,9 @@ export default function Havs() {
     force((n) => n + 1);
     return saved;
   };
+  // Keep the latest save for useFlushOnLeave (the usual "latest callback in a ref" pattern).
+  // eslint-disable-next-line react-hooks/refs
+  flushRef.current = () => flush();
   const shift = async (dir: number) => { await flush(); setOffset(offset + dir); };
 
   return (
