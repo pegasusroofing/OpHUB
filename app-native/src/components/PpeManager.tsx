@@ -14,6 +14,7 @@ import { deliverPdf } from '@/lib/pdf';
 import { ppeEmailPdfs, ppeExportPdf } from '@/lib/ppePdf';
 import { cap1, currentPpe, PPE_STANDARD_ITEMS, type Issuance } from '@/lib/rules/ppe';
 import { supabase } from '@/lib/supabase';
+import { exportTablePdf } from '@/lib/tableExport';
 import type { Site } from '@/lib/types';
 import { base, radius } from '@/theme/theme';
 
@@ -108,6 +109,11 @@ export function PpeManager({ site }: { site: Site }) {
               ) : <Text style={{ color: base.slate }}>{cap1(r.status)}</Text>}
             </View>
           )) : <Empty>No requests yet.</Empty>}
+          {data.requests.some((r) => r.status !== 'fulfilled') && <Button kind="ghost" title="📄 Requested PPE — PDF" onPress={async () => {
+            const list = data.requests.filter((r) => r.status !== 'fulfilled');
+            const ok = await exportTablePdf({ title: `Requested PPE (${list.length})`, site: site.name, sub: site.name, cols: [{ l: 'Operative', w: 140 }, { l: 'Item', w: 160 }, { l: 'Status', w: 80 }, { l: 'Needed by', w: 80 }, { l: 'Requested', w: 80 }], rows: list.map((r) => [nameOf(people, r.user_id), r.item_name, cap1(r.status), r.date_needed ? new Date(`${r.date_needed}T00:00:00`).toLocaleDateString('en-GB') : '', new Date(r.created_at).toLocaleDateString('en-GB')]) }, org).catch(() => false);
+            if (!ok) toast('Could not build the PDF.');
+          }} />}
         </Card>
       )}
 
@@ -169,7 +175,7 @@ export function PpeManager({ site }: { site: Site }) {
           }} /></View>
         </View>
       )}
-      <Muted style={{ marginTop: 12 }}>Tick issued records to export or email them. The company PPE Register is in Admin › PPE Log. The request summary PDF is still in the current app for now.</Muted>
+      <Muted style={{ marginTop: 12 }}>Tick issued records to export or email them. The company PPE Register is in Admin › PPE Log.</Muted>
     </View>
   );
 }
