@@ -5,11 +5,12 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
-import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
+import { chooseAction, confirmAsk, promptText, showAlert, useToast } from '@/components/toast';
 import { Empty, Muted, SectionTitle } from '@/components/ui';
-import { removeMember, setPhone, setRole, setSubform, useTeam, type TeamMember } from '@/data/admin';
+import { removeMember, setPhone, setRole, setSubform, toggleFinance, useTeam, type TeamMember } from '@/data/admin';
 import { useAuth } from '@/lib/auth';
-import { isFullManager, isManager } from '@/lib/roles';
+import { isFinanceUser, isFullManager, isManager } from '@/lib/roles';
+import { supabase } from '@/lib/supabase';
 import { ROLE_LABEL, roleActionsFor, shownRole } from '@/lib/rules/users';
 import { base, radius, space } from '@/theme/theme';
 
@@ -24,7 +25,7 @@ const GROUPS: { title: string; match: (p: TeamMember) => boolean; empty: string 
 ];
 
 export default function Users() {
-  const { me } = useAuth();
+  const { me, org, refresh: refreshMe } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
   const { data: team = [], isLoading } = useTeam(me?.org_id);
@@ -37,6 +38,9 @@ export default function Users() {
     const opts = [
       ...(options && options.length > 1 ? [{ key: 'role', label: `Role: ${ROLE_LABEL[shownRole(p)] || p.role} — change` }] : []),
       ...(full && p.role === 'operative' ? [{ key: 'subform', label: `📝 Sub form: ${p.subform_required === false ? 'Off' : 'On'}` }] : []),
+      ...(p.id === me.id && isFinanceUser(me, org) ? [{ key: 'myfin', label: `💷 Finance: ${me.finance_hidden ? 'Off — turn on' : 'On — turn off'}` }] : []),
+      ...(isFinanceUser(me, org) && p.id !== me.id && (p.role === 'admin' || p.role === 'pm') ? [{ key: 'fin', label: `💷 Finance: ${p.finance_enabled ? 'On — turn off' : 'Off — turn on'}` }] : []),
+      ...(me.role === 'superadmin' && p.email ? [{ key: 'pw', label: '🔑 Reset password' }] : []),
       ...(full ? [{ key: 'phone', label: `📞 ${p.phone ? `${p.phone} — change` : 'Add phone'}` }] : []),
       ...(canRemove ? [{ key: 'remove', label: '🗑 Remove', danger: true }] : []),
     ];
@@ -51,6 +55,26 @@ export default function Users() {
     } else if (k === 'phone') {
       const v = await promptText(`Mobile number for ${p.name}`, p.phone || ''); if (v === null) return;
       toast((await setPhone(p.id, v.trim() || null)) ? 'Phone number saved' : "Could not save — admins can set anyone's number; PMs can set operatives', drivers' and site managers'."); refresh();
+    } else if (k === 'fin') {
+      toast(await toggleFinance(p)); refresh();
+    } else if (k === 'myfin') {
+      const show = !!me.finance_hidden;
+      const r = await supabase.from('profiles').update({ finance_hidden: !show } as never).eq('id', me.id);
+      toast(r.error ? 'Could not save — try again.' : show ? 'Finance shown' : 'Finance hidden'); await refreshMe();
+    } else if (k === 'pw' && p.email) {
+      const custom = await promptText(`Set a new password for ${p.email}.
+
+Type a password (min 8 characters), or leave this blank and press OK for a random one.`, '');
+      if (custom === null) return;
+      const pw = custom.trim(); if (pw && pw.length < 8) { toast('Password must be at least 8 characters.'); return; }
+      const r = await supabase.functions.invoke('admin-reset-password', { body: { target_email: p.email, new_password: pw || undefined } });
+      const d = r.data as { email?: string; new_password?: string; error?: string } | null;
+      if (r.error || d?.error) { toast(`Reset failed — ${d?.error || 'try again'}`); return; }
+      showAlert(`New password for ${d?.email || p.email}:
+
+${d?.new_password || pw}
+
+Pass it on securely — it won’t be shown again.`, 'Password reset');
     } else if (k === 'remove') {
       if (!(await confirmAsk(`Remove ${p.name || 'this person'} from the team? They will immediately lose access, and their email will be free to sign up fresh again later.`, 'Remove'))) return;
       const r = await removeMember(p.id); toast(r.msg); if (r.ok) refresh();
@@ -80,7 +104,7 @@ export default function Users() {
           </View>
         );
       })}
-      <Muted style={{ marginTop: 14 }}>Project Managers and Admins can remove Operatives and Drivers. Only a Company Admin can remove a Project Manager, Site Manager or another Admin. Password resets and the Finance switch are still in the current app for now.</Muted>
+      <Muted style={{ marginTop: 14 }}>Project Managers and Admins can remove Operatives and Drivers. Only a Company Admin can remove a Project Manager, Site Manager or another Admin.</Muted>
     </ScrollView>
   );
 }

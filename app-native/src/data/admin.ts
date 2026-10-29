@@ -13,12 +13,12 @@ const rpc = supabase.rpc as unknown as (n: string, a: object) => Promise<{ data:
 export const OPHUB_WEB_URL = 'https://operativehub.co.uk/app.html';
 export const joinLink = (inviteId: string) => `${OPHUB_WEB_URL}#/join/${inviteId}`;
 
-export type TeamMember = { id: string; name: string; email: string | null; role: string; is_estimator: boolean | null; phone: string | null; subform_required: boolean | null };
+export type TeamMember = { id: string; name: string; email: string | null; role: string; is_estimator: boolean | null; phone: string | null; subform_required: boolean | null; finance_enabled?: boolean | null; finance_prev_role?: string | null };
 export function useTeam(orgId: string | null | undefined) {
   return useQuery({
     queryKey: ['team', orgId],
     enabled: !!orgId,
-    queryFn: async () => (((await db.from('profiles').select('id,name,email,role,is_estimator,phone,subform_required').eq('org_id', orgId as string)).data as TeamMember[] | null) ?? []).sort((a, b) => (a.name || '').localeCompare(b.name || '')),
+    queryFn: async () => (((await db.from('profiles').select('id,name,email,role,is_estimator,phone,subform_required,finance_enabled,finance_prev_role').eq('org_id', orgId as string)).data as TeamMember[] | null) ?? []).sort((a, b) => (a.name || '').localeCompare(b.name || '')),
   });
 }
 export async function setRole(id: string, role: string): Promise<boolean> {
@@ -86,4 +86,20 @@ export async function approveDevice(deviceId: string): Promise<string | null> {
   const r = await rpc('approve_pending_device', { p_device_id: deviceId });
   const d = r.data as { ok?: boolean; error?: string } | null;
   return !r.error && d?.ok ? null : `Could not approve — ${d?.error || 'try again'}`;
+}
+
+/** Switch OpHUB Finance on / off for someone (900 toggleFinanceAccess). Off: if they were only made a manager for Finance, their old role goes back. */
+export async function toggleFinance(p: TeamMember): Promise<string> {
+  const next = !p.finance_enabled;
+  const r = await db.from('profiles').update({ finance_enabled: next } as never).eq('id', p.id).select('finance_enabled,role,finance_prev_role').maybeSingle();
+  const row = r.data as { finance_enabled: boolean; role: string; finance_prev_role: string | null } | null;
+  if (r.error || !row) return 'Could not save — try again.';
+  if (row.finance_enabled !== next) return 'Only an admin with Finance switched on can change this.';
+  const prev = !next && ['operative', 'driver', 'subcontractor', 'site_manager', 'client'].includes(row.finance_prev_role || '') ? row.finance_prev_role : null;
+  if (prev && row.role === 'pm') {
+    const b = await db.from('profiles').update({ role: prev, finance_prev_role: null } as never).eq('id', p.id).select('role').maybeSingle();
+    return (b.data as { role: string } | null)?.role === prev ? `OpHUB Finance switched off for ${p.name} — their old role is back` : `OpHUB Finance switched off for ${p.name}, but they’re still a manager — change their role here.`;
+  }
+  if (!next && row.finance_prev_role) await db.from('profiles').update({ finance_prev_role: null } as never).eq('id', p.id);
+  return next ? `OpHUB Finance switched on for ${p.name}` : `OpHUB Finance switched off for ${p.name}`;
 }
