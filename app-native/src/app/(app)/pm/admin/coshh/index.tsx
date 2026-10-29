@@ -12,7 +12,7 @@ import { CoshhFolderPicker } from '@/components/CoshhFolderPicker';
 import { chooseAction, confirmAsk, promptText, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
-import { alsoIn, deleteFile, deleteFolder, deleteProductFull, moveFiles, newProduct, packPdf, removeDuplicates, renameFile, renameFolder, saveAssessment, uploadFiles, useAssessMap, useFolderView, useProducts, createFolder } from '@/data/coshhLib';
+import { alsoIn, deleteFile, deleteFolder, deleteProductFull, moveFiles, newProduct, packPdf, productsFromSds, removeDuplicates, renameFile, renameFolder, saveAssessment, uploadFiles, useAssessMap, useFolderView, useProducts, createFolder } from '@/data/coshhLib';
 import { openDocLink } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
 import { COSHH_PICTO_IMG } from '@/lib/coshhPictoImages';
@@ -26,7 +26,7 @@ const chip = (on: boolean) => ({ flex: 1, padding: 9, borderRadius: 16, borderWi
 type Pick = { title: string; multi?: boolean; then: (ids: (string | null)[]) => void };
 
 function Folders({ setPick }: { setPick: (p: Pick | null) => void }) {
-  const { me } = useAuth();
+  const { me, org } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
   const [folderId, setFolderId] = useState<string | null>(null);
@@ -90,7 +90,17 @@ function Folders({ setPick }: { setPick: (p: Pick | null) => void }) {
         setBusy(''); refresh();
         showAlert(n ? `✓ Upload complete — ${n === 1 ? '1 document' : `${n} documents`} added to the COSHH library.${n < r.assets.length ? ` ${r.assets.length - n} could not be uploaded — try those again.` : ''}` : 'Upload failed — nothing was added. Check your connection and try again.');
       }} />
-      <Muted style={{ marginTop: 6 }}>To make an assessment from a data sheet, add the product on the Products tab, then tap Assess. On the office laptop the codes are read off the data sheet for you when you attach it.</Muted>
+      <Button kind="ghost" title={`📥 Make assessments from data sheets into ${cur ? `"${cur.name}"` : 'the top level'}`} onPress={async () => {
+        const r = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', multiple: true, copyToCacheDirectory: true }); if (r.canceled || !r.assets.length) return;
+        const res = await productsFromSds(me, org, folderId, r.assets.map((a) => ({ uri: a.uri, name: a.name || 'data-sheet.pdf', mimeType: a.mimeType })), (i) => setBusy(`Reading data sheet ${i + 1} of ${r.assets.length}…`));
+        setBusy(''); refresh(); void qc.invalidateQueries({ queryKey: ['coshhProducts'] });
+        showAlert([
+          res.assessed ? `✓ ${res.assessed} COSHH assessment${res.assessed === 1 ? '' : 's'} made into ${cur ? `"${cur.name}"` : 'the top level'} — check each one on the Products tab.` : '',
+          res.toFinish.length ? `${res.toFinish.length} product${res.toFinish.length === 1 ? '' : 's'} made with the data sheet attached, but the codes couldn't be read here — open ${res.toFinish.length === 1 ? 'it' : 'them'} on the Products tab, fill in the codes and tap Assess: ${res.toFinish.join(', ')}.` : '',
+          res.failed.length ? `Could not upload: ${res.failed.join(', ')} — try those again.` : '',
+        ].filter(Boolean).join('\n\n') || 'Nothing was added.');
+      }} />
+      <Muted style={{ marginTop: 6 }}>Pick several Safety Data Sheets at once: each becomes a product with its own COSHH assessment in this folder. On the office laptop the codes are read off each sheet for you — always check them.</Muted>
     </View>
   );
 }

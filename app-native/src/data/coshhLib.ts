@@ -9,7 +9,9 @@ import { loadSettings } from '@/data/ramsBuilder';
 import { buildCoshhPdf } from '@/lib/coshhPdf';
 import { fetchBytes, PDFDocument } from '@/lib/pdf';
 import { publicUrl } from '@/lib/privateFiles';
+import { pdfPageTexts } from '@/lib/pdfjs';
 import { assessName, cleanMaker, coshhBlank, coshhItem, duplicates, titleKey, type CoshhItem } from '@/lib/rules/coshh';
+import { applySds, dropRepeats, readSds } from '@/lib/rules/sdsRead';
 import { supabase } from '@/lib/supabase';
 import type { Organization, Profile, Site } from '@/lib/types';
 
@@ -242,3 +244,33 @@ export async function saveSiteDocToLibrary(me: Me, doc: { name: string; storage_
   return !(await db.from('coshh_library_files').insert({ org_id: me.org_id, folder_id: folderId, name: doc.name, storage_path: up.data.path, uploaded_by: me.id } as never)).error;
 }
 export { titleKey };
+
+/**
+ * Several Safety Data Sheets dropped into a folder: each becomes a product (named from what the sheet
+ * says, else its file name), with the sheet attached and its codes and sections read off it (office
+ * laptop), and — when something was read — its COSHH assessment made straight into the folder.
+ * On a phone the sheets can't be read, so the products are made for you to finish and assess.
+ */
+export async function productsFromSds(me: Me, org: Org, folderId: string | null, assets: Asset[], onStep?: (i: number) => void): Promise<{ made: number; assessed: number; failed: string[]; toFinish: string[] }> {
+  const out = { made: 0, assessed: 0, failed: [] as string[], toFinish: [] as string[] };
+  for (let i = 0; i < assets.length; i++) {
+    const a = assets[i]; onStep?.(i);
+    const fileTitle = (a.name || 'Product').replace(/\.pdf$/i, '').replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim() || 'Product';
+    try {
+      const path = await uploadSds(me, a);
+      if (!path) { out.failed.push(a.name); continue; }
+      let title = fileTitle, data = { ...coshhBlank(), sdsPath: path, sdsName: a.name }, n = 0;
+      try {
+        const pages = await pdfPageTexts(new Uint8Array(await (await fetch(a.uri)).arrayBuffer()));
+        if (pages) { const got = applySds(fileTitle, data, readSds(dropRepeats(pages))); title = got.title || fileTitle; data = got.d; n = got.n; }
+      } catch { /* attached; filled in by hand */ }
+      const r = await db.from('rams_library_items').insert({ org_id: me.org_id, kind: 'coshh', title, data, sort_order: 0, created_by: me.id } as never).select('*').single();
+      if (r.error || !r.data) { out.failed.push(a.name); continue; }
+      out.made++;
+      const it = coshhItem(r.data as CoshhItem);
+      if (n && (it.data.h.length || it.data.pictos.length)) { if (await saveAssessment(me, org, it, [folderId])) out.assessed++; else out.toFinish.push(title); }
+      else out.toFinish.push(title);
+    } catch { out.failed.push(a.name); }
+  }
+  return out;
+}

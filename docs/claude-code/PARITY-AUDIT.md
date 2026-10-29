@@ -48,7 +48,7 @@ HIGH = money, data, permissions, safety or a daily job. MED = noticeable. LOW = 
 - MED FIXED — Hidden H&S screens open by direct link (no route guard).
 - MED FIXED — Client's Operatives tile: read-only list of the job's operatives and certificates.
 - MED FIXED — HAVS: manager adds an operative not assigned to the job.
-- MED OPEN — COSHH products in bulk from many data sheets.
+- MED FIXED — COSHH products in bulk from many data sheets.
 - MED FIXED — COSHH on a job: tick several / select all → one PDF or email; "Email all signed COSHH".
 - MED FIXED — CC me / CC client on RAMS, COSHH and TBT emails.
 - MED FIXED — Daily briefings: tick several → one PDF or email.
@@ -61,7 +61,7 @@ HIGH = money, data, permissions, safety or a daily job. MED = noticeable. LOW = 
 - MED FIXED — Cancelling a PO cancels its site requests; remove lines; reopen restores.
 - MED FIXED — Driver day off: clear "Driver has a scheduled day off" message (now "Could not save"), and the all-drivers-off check.
 - MED OPEN — O&M manual: attach files to table rows; choose data sheets from the COSHH library; add documents added since the manual started.
-- MED OPEN — COSHH library: drop several data sheets into a folder → an assessment each.
+- MED FIXED — COSHH library: drop several data sheets into a folder → an assessment each.
 - MED FIXED — PM's "Things the office has sent you" page (#/to-book).
 - LOW OPEN — message taps for delivery problem / invoice query; delivery form role check; cover photo from camera; uploaded SoW PDF as appendix; wipe COSHH library; sub company library from the job; delete sub application (any manager); pick PO when booking stock in.
 
