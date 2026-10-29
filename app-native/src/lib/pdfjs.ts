@@ -25,6 +25,23 @@ export function loadPdfJs(): Promise<PdfJs | null> {
   return pdfjsLoad;
 }
 
+/** Each page's text in reading order (top to bottom, left to right), lines split where the row changes — for data sheets. */
+export async function pdfPageTexts(bytes: Uint8Array, maxPages = 25): Promise<string[] | null> {
+  const lib = await loadPdfJs(); if (!lib) return null;
+  try {
+    const pdf = await lib.getDocument({ data: bytes }).promise;
+    const pages: string[] = [];
+    for (let i = 1; i <= Math.min(pdf.numPages, maxPages); i++) {
+      const items = (await (await pdf.getPage(i)).getTextContent()).items.filter((t) => t.str && t.transform).map((t) => ({ s: t.str, x: t.transform[4], y: t.transform[5] }));
+      items.sort((a, b) => (Math.abs(b.y - a.y) > 3 ? b.y - a.y : a.x - b.x));
+      let out = '', lastY: number | null = null;
+      items.forEach((t) => { if (lastY !== null && Math.abs(t.y - lastY) > 3) out += '\n'; else if (out && !/[ \n]$/.test(out)) out += ' '; out += t.s; lastY = t.y; });
+      pages.push(out);
+    }
+    return pages;
+  } catch { return null; }
+}
+
 /** A PDF's text, one line per row on the page (top to bottom), or null when it can't be read (a scan has no text). */
 export async function pdfLines(bytes: Uint8Array): Promise<string[] | null> {
   const lib = await loadPdfJs(); if (!lib) return null;

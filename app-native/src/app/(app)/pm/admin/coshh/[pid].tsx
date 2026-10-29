@@ -14,6 +14,8 @@ import { Button, Card, Muted, SectionTitle } from '@/components/ui';
 import { assessMap, deleteProductFull, loadProduct, previewAssessment, saveAssessment, saveProduct, uploadSds } from '@/data/coshhLib';
 import { openDocLink } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
+import { pdfPageTexts } from '@/lib/pdfjs';
+import { applySds, dropRepeats, readSds } from '@/lib/rules/sdsRead';
 import { COSHH_PICTO_IMG } from '@/lib/coshhPictoImages';
 import { deliverPdf } from '@/lib/pdf';
 import { codeText, COSHH_PICTOS, COSHH_ROUTES, parseCodes, suggestPictos, suggestSignal, type CoshhData, type CoshhItem } from '@/lib/rules/coshh';
@@ -104,9 +106,24 @@ function Editor({ initial }: { initial: CoshhItem }) {
           <Button kind="ghost" busy={busy === 'sds'} title={d.sdsPath ? 'Replace data sheet (PDF)' : 'Add data sheet (PDF)'} onPress={async () => {
             const r = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true }); if (r.canceled || !r.assets[0]) return;
             setBusy('sds');
-            try { const p = await uploadSds(me, r.assets[0]); if (p) { set({ sdsPath: p, sdsName: r.assets[0].name }); toast('Data sheet attached — fill in the codes below from it, then Save'); } else toast('Upload failed — check your signal and try again.'); } finally { setBusy(''); }
+            try {
+              const a = r.assets[0];
+              const p = await uploadSds(me, a);
+              if (!p) { toast('Upload failed — check your signal and try again.'); return; }
+              // Read the data sheet's own text (office laptop) and fill in what it can.
+              let n = 0;
+              try {
+                const pages = await pdfPageTexts(new Uint8Array(await (await fetch(a.uri)).arrayBuffer()));
+                if (pages) {
+                  const got = applySds(it.title, { ...it.data, sdsPath: p, sdsName: a.name }, readSds(dropRepeats(pages)));
+                  n = got.n; setIt({ ...it, title: got.title, data: got.d }); setHText(got.d.h.join(' ')); setPText(got.d.p.join(' '));
+                }
+              } catch { /* still attached; fill in by hand */ }
+              if (!n) set({ sdsPath: p, sdsName: a.name });
+              toast(n ? `Data sheet attached — ${n} thing${n === 1 ? '' : 's'} filled in from it. Check them, then Save` : 'Data sheet attached — fill in the codes below from it, then Save');
+            } finally { setBusy(''); }
           }} />
-          <Muted style={{ marginTop: 6 }}>It&apos;s attached to the back of every COSHH assessment made from this product. (Reading the codes off it automatically is still done in the current app.)</Muted>
+          <Muted style={{ marginTop: 6 }}>It&apos;s attached to the back of every COSHH assessment made from this product. On the office laptop the codes, symbols and sections are read off it for you — always check them.</Muted>
         </Card>
         <Card>
           <SectionTitle>Hazard symbols</SectionTitle>
