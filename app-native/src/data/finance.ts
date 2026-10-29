@@ -85,3 +85,15 @@ export function useFinOverview(me: Profile | null, sites: Site[] | undefined) {
     },
   });
 }
+
+/** Inserts a numbered row (V001, SC001…): next number after the highest, tried again if two people save at once. */
+export async function insertNumbered(table: string, scope: { col: string; val: string }, label: (seq: number) => string, row: Record<string, unknown>): Promise<Record<string, unknown> | null> {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const top = (await fdb.from(table).select('seq').eq(scope.col, scope.val).order('seq', { ascending: false }).limit(1)).data as { seq: number }[] | null;
+    const seq = (top?.[0]?.seq || 0) + 1 + attempt;
+    const r = await fdb.from(table).insert({ ...row, seq, number: label(seq) } as never).select('*').single();
+    if (!r.error) return r.data as Record<string, unknown>;
+    if (r.error.code !== '23505') return null;
+  }
+  return null;
+}
