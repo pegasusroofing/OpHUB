@@ -19,7 +19,6 @@ import { COST_CATS, PI_STATUS } from '@/lib/rules/finBook';
 import { fdate, jobTag, money, num, round2, today } from '@/lib/rules/finance';
 import { base, space } from '@/theme/theme';
 
-type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 const XERO_Q = 'This is already in Xero. Changing it here won’t change Xero — change it in Xero too, or the two won’t match.';
 
 export default function FinPinv() {

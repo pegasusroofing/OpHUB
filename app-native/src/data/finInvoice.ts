@@ -9,7 +9,7 @@ import { cleanLines, invTotals, treatmentOf, type InvLine } from '@/lib/rules/fi
 import { supabase } from '@/lib/supabase';
 import type { Organization, Profile } from '@/lib/types';
 
-type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+type Row = Record<string, any>;
 const rpc = supabase.rpc as unknown as (n: string, a: object) => Promise<{ data: unknown; error: { message: string } | null }>;
 
 export async function newInvoice(me: Profile, site: Row): Promise<string | null> {

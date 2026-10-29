@@ -10,7 +10,7 @@ import { invTotals, vatFromTreatment } from '@/lib/rules/finInvoice';
 import { supabase } from '@/lib/supabase';
 import type { Organization, Profile } from '@/lib/types';
 
-type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+type Row = Record<string, any>;
 const rows = async (q: PromiseLike<{ data: unknown }>) => ((await q).data as Row[] | null) ?? [];
 
 export async function newApplication(me: Profile, siteId: string): Promise<{ id?: string; error?: string }> {

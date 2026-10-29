@@ -4,7 +4,7 @@
 // payments received, void. Emailing and Xero are off during the Finance trial.
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { FinForm } from '@/components/FinForm';
@@ -19,7 +19,7 @@ import { fdate, INV_STATUS, invOutstanding, invOverdue, money, num, today } from
 import { INV_VAT, invTotals, issueProblem, lineVat } from '@/lib/rules/finInvoice';
 import { base, radius, space } from '@/theme/theme';
 
-type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+type Row = Record<string, any>;
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 9, color: base.ink, backgroundColor: base.card };
 
 export default function FinInvoice() {
@@ -27,12 +27,12 @@ export default function FinInvoice() {
   const { me } = useAuth();
   const { data: site } = useSite(id);
   const toast = useToast();
-  const [made, setMade] = useState(false);
+  const made = useRef(false);
   useEffect(() => {
-    if (invId !== 'new' || made || !me || !site) return;
-    setMade(true);
+    if (invId !== 'new' || made.current || !me || !site) return;
+    made.current = true;
     void newInvoice(me, site as never).then((nid) => { if (nid) router.replace(`/fin/job/${id}/invoice/${nid}` as never); else toast('Could not start an invoice — try again.'); });
-  }, [invId, made, me, site, id, toast]);
+  }, [invId, me, site, id, toast]);
   const { data, isLoading } = useQuery({ queryKey: ['finInvoice', invId], enabled: invId !== 'new', gcTime: 0, queryFn: () => loadInvoice(invId) });
   if (invId === 'new' || isLoading) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   if (!data?.inv) return <Muted style={{ padding: space.l }}>Invoice not found.</Muted>;

@@ -3,7 +3,7 @@
 // retention with its limit, less previously certified, and section totals. Pure.
 import { num, round2 } from './finance.ts';
 
-type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+type Row = Record<string, any>;
 export const pct = (v: unknown) => { const n = num(v); return n === null || isNaN(n) ? 0 : Math.max(0, Math.min(100, Math.round(n * 100) / 100)); };
 export const isItem = (l: Row) => !l.kind || l.kind === 'item';
 /** qty × rate when both are given, otherwise the lump sum. */

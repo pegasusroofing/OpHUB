@@ -13,7 +13,7 @@ import { useAuth } from '@/lib/auth';
 import { fdate, num, plantCost, round2, today } from '@/lib/rules/finance';
 import { space } from '@/theme/theme';
 
-type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+type Row = Record<string, any>;
 
 export default function FinPlant() {
   const { pid, site } = useLocalSearchParams<{ pid: string; site?: string }>();

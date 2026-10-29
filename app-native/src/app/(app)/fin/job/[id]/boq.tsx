@@ -17,7 +17,7 @@ import { groupTotals, isItem, itemValue } from '@/lib/rules/finApp';
 import { money, num, round2 } from '@/lib/rules/finance';
 import { base, radius, space } from '@/theme/theme';
 
-type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+type Row = Record<string, any>;
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 7, color: base.ink, backgroundColor: base.card };
 
 export default function FinBoq() {

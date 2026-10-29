@@ -3,7 +3,6 @@
 import { router } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 
-import { useToast } from '@/components/toast';
 import { Muted, Screen, SectionTitle, Stat, Tile } from '@/components/ui';
 import { useOnSiteNow, usePmReports, usePmTodos } from '@/data/pmHome';
 import { useHub } from '@/data/hub';
@@ -16,7 +15,7 @@ import { base, space, useTheme } from '@/theme/theme';
 export function PmHome() {
   const { me, org, signOut } = useAuth();
   const t = useTheme();
-  const toast = useToast();
+
   const { data: sites } = useSites();
   const { data: onSite = [] } = useOnSiteNow(sites);
   const { data: todos = [] } = usePmTodos(sites);
@@ -27,7 +26,6 @@ export function PmHome() {
   const open = reports.filter((r) => r.status === 'in_progress');
   const mine = open.filter((r) => r.submitted_by === me?.id).slice(0, 2);
   const first = (me?.name || '').trim().split(/\s+/)[0] || '';
-  const soon = (what: string) => () => toast(`${what} is still being built in the new app.`);
   const where = (r: (typeof reports)[number]) => (r.site_id ? (sites ?? []).find((s) => s.id === r.site_id)?.name || 'Project' : r.general_label || 'General survey');
 
   return (

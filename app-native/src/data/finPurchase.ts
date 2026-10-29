@@ -7,7 +7,7 @@ import { money, round2, today } from '@/lib/rules/finance';
 import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/lib/types';
 
-type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+type Row = Record<string, any>;
 export async function loadPinv(id: string) {
   const i = (await fdb.from('purchase_invoices').select('*').eq('id', id).maybeSingle()).data as Row | null;
   const po = i?.po_id ? ((await fdb.from('purchase_orders').select('*').eq('id', i.po_id).maybeSingle()).data as Row | null) : null;

@@ -20,7 +20,7 @@ import { fdate, jobTag, money, num, round2, today } from '@/lib/rules/finance';
 import { supabase } from '@/lib/supabase';
 import { base, radius, space } from '@/theme/theme';
 
-type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+type Row = Record<string, any>;
 const rpc = supabase.rpc as unknown as (n: string, a: object) => Promise<{ data: unknown; error: { code?: string; message: string } | null }>;
 const WHY: Record<string, string> = { bad_site: 'that project isn’t one of yours', bad_po: 'that PO wasn’t found', bad_amount: 'check the amounts', not_allowed: 'you need Finance access to file invoices' };
 

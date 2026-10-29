@@ -8,7 +8,7 @@ import { invOutstandingNet, retentionStillHeld, round2, type FinApp, type FinInv
 
 export const COST_CATS: Record<string, string> = { materials: 'Materials', labour: 'Labour', plant: 'Plant', subcontract: 'Subcontract', overheads: 'Prelims & site costs', other: 'Other' };
 export const PI_STATUS: Record<string, string> = { to_approve: 'To approve', approved: 'Approved', query: 'Query', rejected: 'Rejected' };
-type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+type Row = Record<string, any>;
 export type Book = {
   siteId: string | null; jf: Row[]; invs: FinInv[]; apps: (FinApp & Row)[]; pinvs: Row[]; pos: Row[]; cks: Row[]; manual: Row[]; hires: Row[]; extra: Row[];
   budgets: Row[]; vars: Row[]; scs: Row[]; sapps: Row[]; rates: Record<string, Row>; cpos: Row[]; items: Row[]; ops: Row[]; names: Record<string, string>;

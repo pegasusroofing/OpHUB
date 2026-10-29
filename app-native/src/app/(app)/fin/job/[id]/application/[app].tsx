@@ -6,7 +6,7 @@
 import * as DocumentPicker from 'expo-document-picker';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { FinChip, FinRow, FinStat } from '@/components/FinNav';
@@ -20,7 +20,7 @@ import { APP_STAGE, appCalc, groupTotals, isItem, pct } from '@/lib/rules/finApp
 import { fdate, money, num, round2, today } from '@/lib/rules/finance';
 import { base, radius, space } from '@/theme/theme';
 
-type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+type Row = Record<string, any>;
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 7, color: base.ink, backgroundColor: base.card };
 const STAGE: Record<string, string> = { draft: 'Draft', applied: 'Applied — waiting for certificate', certified: 'Certified', invoiced: 'Invoiced', void: 'Void' };
 
@@ -28,12 +28,12 @@ export default function FinApplication() {
   const { id, app } = useLocalSearchParams<{ id: string; app: string }>();
   const { me } = useAuth();
   const toast = useToast();
-  const [started, setStarted] = useState(false);
+  const started = useRef(false);
   useEffect(() => {
-    if (app !== 'new' || started || !me) return;
-    setStarted(true);
+    if (app !== 'new' || started.current || !me) return;
+    started.current = true;
     void newApplication(me, id).then((r) => { if (r.id) router.replace(`/fin/job/${id}/application/${r.id}` as never); else { toast(r.error || 'Could not start.'); if (r.error?.startsWith('Set up')) router.replace(`/fin/job/${id}/boq` as never); } });
-  }, [app, started, me, id, toast]);
+  }, [app, me, id, toast]);
   const { data, isLoading } = useQuery({ queryKey: ['finApp', app], enabled: app !== 'new', gcTime: 0, queryFn: () => loadApplication(app) });
   if (app === 'new' || isLoading) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   if (!data) return <Muted style={{ padding: space.l }}>Application not found.</Muted>;

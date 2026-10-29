@@ -14,7 +14,7 @@ import { forecast, poInvoiced, type CostLine } from '@/lib/rules/finBook';
 import { fdate, invOutstandingNet, money, retentionStillHeld, round2 } from '@/lib/rules/finance';
 import { base, radius, space } from '@/theme/theme';
 
-type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+type Row = Record<string, any>;
 const TABS: [string, string][] = [['summary', 'Cost Summary'], ['purchases', 'Purchases'], ['labour', 'Labour & Subcontractors'], ['sales', 'Applications & Invoices'], ['plant', 'Plant']];
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 8, color: base.ink, backgroundColor: base.card };
 

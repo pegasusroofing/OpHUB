@@ -18,7 +18,7 @@ import { addDays, fdate, jobTag, money, num, round2, today } from '@/lib/rules/f
 import { subAppCalc } from '@/lib/rules/finSubs';
 import { base, space } from '@/theme/theme';
 
-type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+type Row = Record<string, any>;
 
 export default function FinSubcontract() {
   const { sid, site, app } = useLocalSearchParams<{ sid: string; site?: string; app?: string }>();

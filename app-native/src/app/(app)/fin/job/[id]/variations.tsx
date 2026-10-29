@@ -15,7 +15,7 @@ import { useAuth } from '@/lib/auth';
 import { fdate, money, num, round2, today } from '@/lib/rules/finance';
 import { space } from '@/theme/theme';
 
-type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+type Row = Record<string, any>;
 const ST: Record<string, [string, string]> = { instructed: ['Instructed', '#7A7F87'], priced: ['Priced', '#2F6FB3'], submitted: ['Issued', '#D98A00'], agreed: ['Approved', '#1E7A3C'], rejected: ['Rejected', '#C0392B'] };
 
 export default function FinVariations() {

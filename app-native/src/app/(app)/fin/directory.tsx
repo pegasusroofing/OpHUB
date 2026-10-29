@@ -18,7 +18,7 @@ import { COST_CATS } from '@/lib/rules/finBook';
 import { fdate, money, num } from '@/lib/rules/finance';
 import { base, radius } from '@/theme/theme';
 
-type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+type Row = Record<string, any>;
 type Kind = 'client' | 'supplier' | 'labour' | 'codes';
 const VAT: [string, string][] = [['', 'Not set'], ['20', '20%'], ['5', '5% reduced rate'], ['0', 'Zero rated'], ['ex', 'Exempt'], ['rc20', 'Reverse charge (20%)'], ['rc5', 'Reverse charge (5%)'], ['none', 'No VAT']];
 const TERMS: [string, string][] = [['', 'Not set'], ['of_following_month', 'of the following month'], ['days_after_bill', 'days after bill date'], ['days_after_month', 'days after bill month'], ['of_current_month', 'of the current month']];

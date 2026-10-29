@@ -17,7 +17,7 @@ import { COST_CATS, PI_STATUS, poInvoiced } from '@/lib/rules/finBook';
 import { fdate, jobTag, money, num } from '@/lib/rules/finance';
 import { base, radius, space } from '@/theme/theme';
 
-type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+type Row = Record<string, any>;
 
 export default function FinPo() {
   const { po: poId, site } = useLocalSearchParams<{ po: string; site?: string }>();

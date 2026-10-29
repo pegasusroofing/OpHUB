@@ -19,7 +19,7 @@ import { useAuth } from '@/lib/auth';
 import { FIN_TRIAL, FIN_VAT_LABEL, num } from '@/lib/rules/finance';
 import { base } from '@/theme/theme';
 
-type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+type Row = Record<string, any>;
 
 export default function FinSettings() {
   const { me, org } = useAuth();

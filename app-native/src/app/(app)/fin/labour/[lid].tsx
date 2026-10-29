@@ -22,7 +22,7 @@ import { opCalc } from '@/lib/rules/finSubs';
 import { supabase } from '@/lib/supabase';
 import { base, radius, space } from '@/theme/theme';
 
-type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+type Row = Record<string, any>;
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 8, color: base.ink, backgroundColor: base.card };
 
 export default function FinOpInvoice() {

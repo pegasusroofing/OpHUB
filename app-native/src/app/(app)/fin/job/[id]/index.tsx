@@ -23,7 +23,7 @@ import { FIN_VAT_LABEL, fdate, money, num, retentionAlerts, retentionDates, retH
 import { isFinanceUser } from '@/lib/roles';
 import { base, space } from '@/theme/theme';
 
-type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+type Row = Record<string, any>;
 const TABS: [string, string][] = [['overview', 'Overview'], ['sales', 'Sales'], ['purchases', 'Purchases'], ['subs', 'Subcontractors & Labour'], ['setup', 'Set-up']];
 
 export default function FinJob() {

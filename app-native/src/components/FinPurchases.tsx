@@ -19,7 +19,7 @@ import { PI_STATUS, poInvoiced } from '@/lib/rules/finBook';
 import { fdate, jobTag, money, plantCost, round2 } from '@/lib/rules/finance';
 import { base, radius } from '@/theme/theme';
 
-type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+type Row = Record<string, any>;
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 9, color: base.ink, backgroundColor: base.card };
 export const PO_STATUS: Record<string, string> = { open: 'Open', invoiced: 'Invoiced', cancelled: 'Cancelled', draft: 'Draft' };
 

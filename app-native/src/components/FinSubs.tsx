@@ -16,7 +16,7 @@ import { useAuth } from '@/lib/auth';
 import { addDays, fdate, jobTag, money, round2, today } from '@/lib/rules/finance';
 import { base, radius } from '@/theme/theme';
 
-type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+type Row = Record<string, any>;
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 9, color: base.ink, backgroundColor: base.card, marginBottom: 10 };
 export const monday = (d: string) => { const x = new Date(`${d}T12:00:00`); const wd = (x.getDay() + 6) % 7; x.setDate(x.getDate() - wd); return x.toISOString().slice(0, 10); };
 export const payCfg = (s: Row | undefined) => ({ wd: s?.pay_weekday != null ? Number(s.pay_weekday) : 5, wih: s?.pay_weeks_in_hand != null ? Number(s.pay_weeks_in_hand) : 1 });

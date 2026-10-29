@@ -6,7 +6,7 @@ import { fullSiteAddress } from '@/lib/rules/checkin';
 import { fdate, money } from '@/lib/rules/finance';
 import { INV_VAT, invTotals, lineVat, type InvLine } from '@/lib/rules/finInvoice';
 
-type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+type Row = Record<string, any>;
 export async function buildInvoicePdf(inv: Row, site: Row | undefined, st: Row, org: { name?: string | null; color_primary?: string | null; logo_path?: string | null } | null): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
   const reg = await pdf.embedFont(StandardFonts.Helvetica), bold = await pdf.embedFont(StandardFonts.HelveticaBold);
