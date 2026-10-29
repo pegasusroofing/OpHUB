@@ -16,7 +16,18 @@ HIGH = money, data, permissions, safety or a daily job. MED = noticeable. LOW = 
 - LOW OPEN — "Add your mobile number" prompt; manager-only pages with no role check (onsite, todos, hub, sitemap); search depth (materials, to-dos, snags, admin items); HR people query not company-filtered; copy the address by tapping the header; "CC me" on emails.
 
 ## Repairs, pricing, reports (290–435)
-- (report pending)
+- HIGH OPEN — Repair jobs to OneDrive: photos, work order, Survey and Completed Works PDFs (rebuilt automatically on changes), job's own folder or a job-number subfolder, retry/re-sync, push existing items after linking.
+- MED OPEN — Change a certificate's type (Other asks for a description).
+- MED OPEN — Certificates for people not on the app (certification_manual_people): add person, upload, remove; shown on the job's operatives dashboard.
+- MED OPEN — Operatives' "Needs your signature" pop-up when opening a job (RAMS, COSHH, TBT, Sign now).
+- MED OPEN — Price tile badge: variations to price + pending wage pushes.
+- MED OPEN — Repair job notes saved when leaving the page (and the PM email).
+- MED OPEN — Repair bulk actions: Mark Scaffold Erected, Mark Invoiced.
+- MED OPEN — Photo on a variation to price.
+- MED OPEN — Email selected reports from a project's reports list.
+- MED OPEN — Exported report PDF also saved to the site's OneDrive folder.
+- MED OPEN — Start a new report with no signal.
+- LOW OPEN — re-sync after linking a repair folder; OneDrive/phone source icon on certificates; repair-contract money strip and assign prompt; folder prompt after adding a repair job; Invoiced tick before sign-off; job number hidden from operatives; work order file name; close several pricing elements; price sheet Excel weekly booked-in and wages sections; quick-create Daily Briefing / MC Inspection templates; add a condition while filling a report; "Waiting to send" reports shown with manual send.
 
 ## Schedule of Works, snags, RAMS (440–580)
 - HIGH FIXED — Status change waiting for photos now shows straight away (481 sowPendingForRender).
@@ -32,7 +43,16 @@ HIGH = money, data, permissions, safety or a daily job. MED = noticeable. LOW = 
 - LOW OPEN — close/reopen address from the list; SoW email recipient tick list; library template preview; Excel import template download; multi-site address carry-over on add; old photo size backfill; leftover-photo view; photo mark-up select tool; snag closing photo from library; MC inspections listed per company; inspection templates from the job; client sees sign box on site layout; OneDrive inductions folder show/unlink; sub company library in the hub; subcontractor RAMS per company on the RAMS page; delete superseded RAMS; RAMS multi-page signing tick.
 
 ## H&S, materials, plant (584–760)
-- (report pending)
+- HIGH OPEN — Clients' H&S folder shows only RAMS, COSHH, TBT, Completed Inspections (PUWER) and Operative Dashboard (new shows all 8).
+- HIGH OPEN — HAVS typed minutes saved when you leave the page or the app goes to the background.
+- MED OPEN — Hidden H&S screens open by direct link (no route guard).
+- MED OPEN — Client's Operatives tile: read-only list of the job's operatives and certificates.
+- MED OPEN — HAVS: manager adds an operative not assigned to the job.
+- MED OPEN — COSHH products in bulk from many data sheets.
+- MED OPEN — COSHH on a job: tick several / select all → one PDF or email; "Email all signed COSHH".
+- MED OPEN — CC me / CC client on RAMS, COSHH and TBT emails.
+- MED OPEN — Daily briefings: tick several → one PDF or email.
+- LOW OPEN — HAVS/PUWER export a ticked set; bring old COSHH PDFs in as products; product ↔ job shortcuts; expenses "Send now" for the sender; PPE requests tick/export/email; certificate email to a team member; briefing delete logged; TBT "needs signing" wording; manual TBT "Email to PM"; import suppliers from Excel.
 
 ## Drawings, calendar, driver, deliveries (770–890, 9219zr/zq/m/zz)
 - HIGH OPEN — Tapping a push notification opens the right screen (same as above).
@@ -46,7 +66,14 @@ HIGH = money, data, permissions, safety or a daily job. MED = noticeable. LOW = 
 - LOW OPEN — message taps for delivery problem / invoice query; delivery form role check; cover photo from camera; uploaded SoW PDF as appendix; wipe COSHH library; sub company library from the job; delete sub application (any manager); pick PO when booking stock in.
 
 ## Finance part 1 (900–9219j)
-- (report pending)
+The money calculations themselves (invoice VAT rounding, application maths, retention, CIS, plant cost, forecast/OHP, reports) were checked line by line and match. The gaps are missing actions:
+- HIGH OPEN — Xero posting rule: only post when Xero is connected, the company's "send automatically" is on and the record isn't already in Xero (invoices and approved purchase invoices). Today only the trial stops it.
+- HIGH OPEN — Application as Excel (the client document) and upload a valued Excel back. (Same as part 2.)
+- HIGH OPEN — CIS payment statement PDF for a subcontractor payment.
+- HIGH OPEN — Add / edit / delete "other" job costs (prelims, site costs).
+- HIGH OPEN — Split a cost across projects and plots; plots on purchase invoices, plant, subcontracts, POs; per-plot Parts report.
+- MED OPEN — Void in Xero too; BoQ costing tools (margin/mark-up %, bulk actions, plot per line); final retention release date override; PO auto-closes/reopens with approved invoices; change cost type on a saved purchase invoice; inbox: ignore an item, upload PDFs by hand; Xero settings (account codes, tracking, send automatically, payments, disconnect, per-record post, last error); finance-only company mode (own home, Finance Team page, project edit); raise a PO from Finance with typed lines (fin_new_po); "set the original to today's figures"; variation attachment and register export; add a site variation into the register; subcontract from People & rates (worker link); subcontract priced lines; subcontractor application file and delete; check purchase-invoice lines against the PO; project shopping list management; monthly application date editor; "use site progress"; bulk approve / mark paid purchase invoices; code invoice lines to projects/cost types.
+- LOW OPEN — several client PO files and 20 MB check; email invoice/reminder (trial); Directory client fills a draft's address; qty entry mode; PM "to book" (trial); workers from Xero; email PO (trial); costs PDF; price-sheet sync (trial); billing-type change warning; wage pushes (trial); operative invoice: new person inline, mark paid; jobs grid column chooser; checks column; PO VAT default setting.
 
 ## Finance part 2 (9219k–922)
 - HIGH OPEN — Site variations imported into Finance's register (forecast, Variations tile and page leave them out).

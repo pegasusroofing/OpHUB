@@ -25,6 +25,10 @@ export default function AppLayout() {
   const { me, org } = useAuth();
   // Drivers, finance-only companies and the platform admin have no project list.
   const hasSites = !['driver', 'finance', 'superadmin'].includes(homeKind(me, org));
+  // Site managers, clients and subcontractor logins land on Projects; on a phone their bar also has
+  // Inbox and My Dashboard (and HUB for site managers), as the current app's bottom bar.
+  const extra = !!me && (me.role === 'site_manager' || ['client', 'subcontractor'].includes(homeKind(me, org)));
+  const siteMgr = me?.role === 'site_manager';
   const { width } = useWindowDimensions();
   const desk = Platform.OS === 'web' && width >= 1100;
   // Compulsory H&S Policy: until it's signed, nothing but the signature page (640).
@@ -62,14 +66,14 @@ export default function AppLayout() {
       <Tabs.Screen name="sites" options={{ title: 'Projects', href: hasSites ? undefined : null, tabBarIcon: icon('projects'), headerShown: false }} />
       <Tabs.Screen name="account" options={{ title: 'Settings', tabBarIcon: icon('gear') }} />
       <Tabs.Screen name="onsite" options={{ ...hidden, title: 'On site now' }} />
-      <Tabs.Screen name="dashboard" options={{ ...hidden, title: 'My Dashboard' }} />
+      <Tabs.Screen name="dashboard" options={{ ...(extra && !desk ? { tabBarIcon: icon('reports') } : hidden), title: 'My Dashboard' }} />
       <Tabs.Screen name="driver" options={{ ...hidden, title: 'Driver', headerShown: false }} />
-      <Tabs.Screen name="inbox" options={{ ...hidden, title: 'Messages & tasks' }} />
+      <Tabs.Screen name="inbox" options={{ ...(extra && !desk ? { tabBarIcon: icon('chat'), tabBarLabel: 'Inbox' } : hidden), title: 'Messages & tasks' }} />
       <Tabs.Screen name="getting-started" options={{ ...hidden, title: 'Getting Started' }} />
       <Tabs.Screen name="signature" options={{ ...hidden, title: 'My Signature' }} />
       <Tabs.Screen name="search" options={{ ...hidden, title: 'Search' }} />
       <Tabs.Screen name="subform" options={{ ...hidden, title: 'Subcontractor form' }} />
-      <Tabs.Screen name="pm" options={{ ...hidden, title: 'Manager', headerShown: false }} />
+      <Tabs.Screen name="pm" options={{ ...(siteMgr && !desk ? { tabBarIcon: icon('bell'), tabBarLabel: 'HUB', href: '/pm/hub' as never } : hidden), title: 'Manager', headerShown: false }} />
       <Tabs.Screen name="fin" options={{ ...hidden, title: 'Finance', headerShown: false }} />
     </Tabs>
     </View>

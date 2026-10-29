@@ -74,6 +74,13 @@ export default function Sites() {
       <ScrollView contentContainerStyle={page(720)}
         refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => { void refetch(); }} />}>
         <HowTo k="sites" />
+        {me?.role === 'site_manager' && (
+          <Pressable onPress={() => router.push('/pm/hr' as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 14, padding: 12, marginBottom: 12 }}>
+            <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: '#F3EEFA', alignItems: 'center', justifyContent: 'center' }}><OphIcon name="users" size={18} color="#6B3FA8" /></View>
+            <View style={{ flex: 1 }}><Text style={{ fontWeight: '700', color: base.ink }}>HR</Text><Muted>Holidays, policies &amp; handbook</Muted></View>
+            <OphIcon name="chevron" size={18} color={base.slateLight} stroke={2.2} />
+          </Pressable>
+        )}
         {searchBar}
         {isLoading && <ActivityIndicator style={{ marginTop: 24 }} />}
         {!isLoading && error && !data && <Muted>Couldn&apos;t load your projects — check your signal and pull down to try again.</Muted>}
