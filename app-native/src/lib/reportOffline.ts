@@ -4,10 +4,13 @@
 // "Complete" that can't reach the server parks it as waiting to send, and it
 // is sent on its own when there is signal — photos first, then the answers,
 // then the completion. Kept under this person only; removed once sent.
+// A report started with no signal is made on the phone too: its row is created on the server first,
+// as soon as there is signal, and then its answers follow.
 import { AppState, Platform } from 'react-native';
 
 import { completeReport, saveAnswers, uploadPhotos, type Sub } from '@/data/reports';
 import { plainGet, plainSet } from '@/lib/kv';
+import { supabase } from '@/lib/supabase';
 import type { Answers, ReportSection } from '@/lib/rules/reports';
 import type { Profile } from '@/lib/types';
 
@@ -38,9 +41,30 @@ async function keepable(a: Answers): Promise<Answers> {
   }
   return out;
 }
+// Reports started with no signal, waiting to be created on the server (keyed by their id).
+const NEW_KEY = 'ophub_report_new';
+export const newReportsAll = () => plainGet<Record<string, Record<string, unknown>>>(NEW_KEY, {});
+export async function keepNewReport(row: Record<string, unknown>) { const all = await newReportsAll(); all[String(row.id)] = row; await plainSet(NEW_KEY, all); }
+export async function newReportRow(id: string) { return (await newReportsAll())[id] ?? null; }
+/** Makes sure a report started with no signal exists on the server before its answers are saved. */
+export async function ensureCreated(id: string): Promise<boolean> { if (!(await newReportRow(id))) return true; return !(await createNewReports(id)).has(id); }
+async function createNewReports(only?: string): Promise<Set<string>> {
+  const all = await newReportsAll(), still = new Set<string>();
+  for (const [id, row] of Object.entries(all)) {
+    if (only && id !== only) continue;
+    try {
+      const r = await (supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> }).from('report_submissions').insert(row as never);
+      // Already there (sent before the phone heard back) counts as done.
+      if (r.error && !/duplicate|already exists|23505/i.test(`${r.error.message} ${(r.error as { code?: string }).code || ''}`)) { still.add(id); continue; }
+      delete all[id];
+    } catch { still.add(id); }
+  }
+  await plainSet(NEW_KEY, all);
+  return still;
+}
 export async function unpark(uid: string, subId: string) { const all = await parkedAll(uid); if (!all[subId]) return; delete all[subId]; await plainSet(key(uid), all); }
 /** How many are waiting to send (not just kept while open). */
-export async function parkedWaiting(uid: string) { return Object.values(await parkedAll(uid)).filter((p) => p.action !== 'keep').length; }
+export async function parkedWaiting(uid: string) { const n = Object.keys(await newReportsAll()).length; return Math.max(n, Object.values(await parkedAll(uid)).filter((p) => p.action !== 'keep').length); }
 
 let busy = false;
 /** Sends everything waiting. Returns how many went. */
@@ -48,8 +72,9 @@ export async function sendParked(me: Profile & { signature_path?: string | null 
   if (busy) return 0;
   busy = true; let sent = 0;
   try {
+    const notYet = await createNewReports();
     for (const p of Object.values(await parkedAll(me.id))) {
-      if (p.action === 'keep') continue;
+      if (p.action === 'keep' || notYet.has(p.sub.id)) continue;
       try {
         const up = await uploadPhotos(p.siteId, p.answers);
         if (up.failed) { await park(me.id, { ...p, answers: p.answers }); continue; }

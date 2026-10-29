@@ -47,6 +47,10 @@ export function useSubmission(id: string | undefined) {
     queryKey: ['reportSub', id],
     enabled: !!id,
     queryFn: () => cachedQuery(`reportSub:${id}`, async () => {
+      // Started on this phone with no signal and not on the server yet: open the copy kept here.
+      const { newReportRow } = await import('@/lib/reportOffline');
+      const kept = await newReportRow(id as string);
+      if (kept) return { sub: { submitted_at: null, ...kept } as unknown as Sub, isBriefing: false, signed: false };
       const r = orThrow(await db.from('report_submissions').select('*').eq('id', id as string).limit(1)) as Sub[];
       const sub = r[0] ?? null;
       let isBriefing = false; let signed = false;
@@ -68,11 +72,21 @@ export async function startReport(me: Profile, site: Site, t: Template, extra: R
     const v = autofillValue(it.autofill, ctx);
     if (v !== undefined) answers[it.id] = v;
   }));
-  const r = await db.from('report_submissions').insert({
-    template_id: t.id, org_id: me.org_id, site_id: site.id, template_name: t.name, sections: t.sections, answers, submitted_by: me.id, status: 'in_progress', ...extra,
-  } as never).select('id').single();
-  return (r.data as { id: string } | null)?.id ?? null;
+  // The id is made here, so a report can be started with no signal: it's kept on the phone and
+  // created on the server as soon as there is signal (lib/reportOffline).
+  const id = globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : null;
+  const row = { ...(id ? { id } : {}), template_id: t.id, org_id: me.org_id, site_id: site.id, template_name: t.name, sections: t.sections, answers, submitted_by: me.id, status: 'in_progress', ...extra };
+  try {
+    const r = await db.from('report_submissions').insert(row as never).select('id').single();
+    if (r.data) return (r.data as { id: string }).id;
+    if (!id || !isOffline(r.error)) return null;
+  } catch { if (!id) return null; }
+  const { keepNewReport } = await import('@/lib/reportOffline');
+  await keepNewReport({ ...row, created_at: new Date().toISOString() });
+  return id;
 }
+// No signal (rather than refused): the request never got an answer.
+const isOffline = (e: unknown) => /fetch|network|offline|timed? ?out|Failed to fetch|load failed/i.test(String((e as { message?: string } | null)?.message || e || ''));
 
 /** "Operatives on site" starts as everyone assigned to the job, ticked. */
 export async function defaultOperatives(siteId: string) {
@@ -114,6 +128,7 @@ export async function uploadPhotos(siteId: string, answers: Answers, onStep?: (d
 
 /** Saves the answers as they stand, leaving out photos not uploaded yet. */
 export async function saveAnswers(id: string, answers: Answers, sections?: ReportSection[]): Promise<boolean> {
+  if (!(await (await import('@/lib/reportOffline')).ensureCreated(id))) return false;
   const out: Answers = {};
   Object.entries(answers).forEach(([k, v]) => { out[k] = Array.isArray(v) ? v.filter((x) => !isLocal(x)) : v; });
   const r = await db.from('report_submissions').update({ answers: out, ...(sections ? { sections } : {}) } as never).eq('id', id).select('id');
@@ -127,6 +142,7 @@ export async function saveAnswers(id: string, answers: Answers, sections?: Repor
  * a plant item moves that item's last / next inspection dates on.
  */
 export async function completeReport(me: Profile & { signature_path?: string | null }, sub: Sub, answers: Answers, sections: ReportSection[], editingCompleted: boolean, sectionsChanged: boolean): Promise<boolean> {
+  if (!(await (await import('@/lib/reportOffline')).ensureCreated(sub.id))) return false;
   const a: Answers = { ...answers };
   sections.forEach((s) => (s.items || []).forEach((it) => { if (it.type === 'signature' && me.signature_path && (!editingCompleted || !a[it.id])) a[it.id] = me.signature_path; }));
   const payload: Record<string, unknown> = editingCompleted
