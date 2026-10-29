@@ -8,27 +8,27 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from 'react-native';
 
-import { FinChip } from '@/components/FinNav';
 import { HowTo } from '@/components/HowTo';
+import { OphIcon } from '@/components/OphIcon';
+import { ProjectCard } from '@/components/ProjectCard';
 import { chooseAction, confirmAsk, useToast } from '@/components/toast';
-import { Button, Empty, Muted, Row, SectionTitle } from '@/components/ui';
+import { Empty, Muted } from '@/components/ui';
 import { useTeam } from '@/data/admin';
 import { deleteSite, setResponsiblePm, setSiteStatus, siteIsEmpty } from '@/data/siteList';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
-import { fullSiteAddress, siteStatusKey } from '@/lib/rules/checkin';
+import { siteStatusKey } from '@/lib/rules/checkin';
 import { isFullManager } from '@/lib/roles';
 import type { Site } from '@/lib/types';
-import { base, page, radius, space, useTheme } from '@/theme/theme';
+import { heading } from '@/lib/fonts';
+import { base, page, useDesk, useTheme } from '@/theme/theme';
 
-const LABEL = { live: 'Active', upcoming: 'Upcoming', closed: 'Closed' } as const;
-const DOT = { live: base.ok, upcoming: base.warn, closed: base.slate } as const;
 const match = (s: Site, q: string) => !q || [s.name, s.address, s.postcode, s.job_number, s.client_name].filter(Boolean).join(' ').toLowerCase().includes(q);
-const initials = (n: string) => n.split(' ').slice(0, 2).map((w) => w[0] || '').join('').toUpperCase();
 
 export default function Sites() {
   const { me } = useAuth();
   const t = useTheme();
+  const desk = useDesk();
   const toast = useToast();
   const qc = useQueryClient();
   const { data, isLoading, refetch, isRefetching, error } = useSites();
@@ -43,24 +43,46 @@ export default function Sites() {
   const pms = team.filter((p) => p.role === 'pm' || p.role === 'admin');
   const pmName = (id: string | null | undefined) => pms.find((p) => p.id === id)?.name || '';
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['sites'] }); };
+  // The .pmsearch bar, and cards 2+ across on a computer (.projgrp-body grid).
+  const searchBar = (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#fff', borderWidth: 1, borderColor: base.line, borderRadius: 14, paddingHorizontal: 14, height: 46, marginBottom: 12 }}>
+      <OphIcon name="search" size={18} color={base.slate} />
+      <TextInput value={q} onChangeText={setQ} placeholder="Search projects" placeholderTextColor={base.slateLight} style={{ flex: 1, fontSize: 14, color: base.ink, height: 44 }} />
+    </View>
+  );
+  const grid = (list: Site[], card: (x: Site) => React.ReactNode) => desk
+    ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -6 }}>{list.map((x) => <View key={x.id} style={{ width: '50%', paddingHorizontal: 6 }}>{card(x)}</View>)}</View>
+    : <>{list.map((x) => <View key={x.id}>{card(x)}</View>)}</>;
+  const head = (k: string, label: string, n: number, on: boolean, toggle: () => void) => (
+    <Pressable key={`h${k}`} onPress={toggle} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10, marginBottom: 8, paddingVertical: 12, paddingHorizontal: 14, backgroundColor: base.card, borderWidth: 1, borderColor: base.line, borderRadius: 12 }}>
+      <Text style={{ fontWeight: '800', fontSize: 13, letterSpacing: 0.8, color: base.ink }}>{label.toUpperCase()}</Text>
+      <Text style={{ fontWeight: '600', fontSize: 13, color: base.slate }}>({n})</Text>
+      <View style={{ flex: 1 }} />
+      <Text style={{ color: base.ink, transform: [{ rotate: on ? '0deg' : '-90deg' }] }}>▾</Text>
+    </Pressable>
+  );
+  const chip = (on: boolean, label: string, onPress: () => void, key?: string) => (
+    <Pressable key={key ?? label} onPress={onPress} style={{ height: 32, paddingHorizontal: 10, borderRadius: 999, borderWidth: 1, borderColor: on ? base.ink : base.line, backgroundColor: on ? base.ink : '#fff', justifyContent: 'center' }}>
+      <Text style={{ fontSize: 11.5, fontWeight: '700', color: on ? '#fff' : base.ink }}>{label}</Text>
+    </Pressable>
+  );
 
   if (!full) {
     const mine = sites.filter((s) => match(s, query));
     const live = mine.filter((s) => siteStatusKey(s) === 'live'), upcoming = mine.filter((s) => siteStatusKey(s) === 'upcoming');
-    const row = (s: Site) => <Row key={s.id} title={s.job_number ? `${s.job_number} · ${s.name}` : s.name} sub={fullSiteAddress(s)} onPress={() => router.push(`/sites/${s.id}`)} />;
     return (
       <ScrollView contentContainerStyle={page(720)}
         refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => { void refetch(); }} />}>
         <HowTo k="sites" />
-        <TextInput value={q} onChangeText={setQ} placeholder="🔍 Search projects" style={search} />
+        {searchBar}
         {isLoading && <ActivityIndicator style={{ marginTop: 24 }} />}
         {!isLoading && error && !data && <Muted>Couldn&apos;t load your projects — check your signal and pull down to try again.</Muted>}
         {!isLoading && !!data && (
           <View>
-            <SectionTitle>Live ({live.length})</SectionTitle>
-            {live.length ? live.map(row) : <Empty>{query ? 'No projects match.' : 'No live projects.'}</Empty>}
-            {!!upcoming.length && <SectionTitle>Upcoming ({upcoming.length})</SectionTitle>}
-            {upcoming.map(row)}
+            {head('live', 'Live', live.length, grp.live, () => setGrp({ ...grp, live: !grp.live }))}
+            {grp.live && (live.length ? grid(live, (x) => <ProjectCard s={x} />) : <Empty>{query ? 'No projects match.' : 'No live projects.'}</Empty>)}
+            {!!upcoming.length && head('upcoming', 'Upcoming', upcoming.length, !!grp.upcoming, () => setGrp({ ...grp, upcoming: !grp.upcoming }))}
+            {grp.upcoming && grid(upcoming, (x) => <ProjectCard s={x} />)}
           </View>
         )}
       </ScrollView>
@@ -95,64 +117,38 @@ export default function Sites() {
     if (!(await confirmAsk(`Set ${p.name} as the responsible project manager for this site? A project manager can only be selected once — are you sure?`, 'Set PM'))) return;
     toast((await setResponsiblePm(s.id, p.id)) ? 'Project manager set' : 'Could not save — try again.'); refresh();
   };
-  const card = (s: Site) => {
-    const st = siteStatusKey(s) as 'live' | 'upcoming' | 'closed';
-    const sw = s.job_number || initials(s.name || '');
-    return (
-      <Pressable key={s.id} onPress={() => router.push(`/sites/${s.id}`)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 8, backgroundColor: base.card }}>
-        <View style={{ width: 42, height: 42, borderRadius: 10, backgroundColor: t.brand1, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ color: t.brand1Text, fontWeight: '800', fontSize: sw.length <= 3 ? 13.5 : sw.length <= 5 ? 10 : 8 }} numberOfLines={1}>{sw}</Text>
-        </View>
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={{ fontWeight: '700', color: base.ink }} numberOfLines={1}>{s.name}</Text>
-          <Text numberOfLines={1} style={sub}>{fullSiteAddress(s) || '—'}</Text>
-          {(!!s.client_name || (st === 'upcoming' && !!s.start_date)) && <Text numberOfLines={1} style={sub}>{st === 'upcoming' && s.start_date ? `Starts ${new Date(`${s.start_date}T00:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}${s.client_name ? ' · ' : ''}` : ''}{s.client_name || ''}</Text>}
-        </View>
-        <Pressable hitSlop={8} onPress={() => void pmMenu(s)} accessibilityLabel={s.responsible_pm_id ? `Responsible PM ${pmName(s.responsible_pm_id)}` : 'Choose the responsible PM'}
-          style={{ minWidth: 26, height: 18, borderRadius: 5, paddingHorizontal: 3, alignItems: 'center', justifyContent: 'center', backgroundColor: s.responsible_pm_id ? t.brand1 : base.line }}>
-          <Text style={{ fontSize: 9, color: s.responsible_pm_id ? t.brand1Text : base.slate }}>{s.responsible_pm_id ? initials(pmName(s.responsible_pm_id) || '?') : '–'}</Text>
-        </Pressable>
-        <Pressable hitSlop={8} onPress={() => void statusMenu(s)} accessibilityLabel={`Status ${LABEL[st]}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-          <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: DOT[st] }} />
-          <Text style={{ fontSize: 11, color: base.slate }}>{st === 'upcoming' ? '🕐' : ''}</Text>
-        </Pressable>
-      </Pressable>
-    );
-  };
+  const card = (x: Site) => <ProjectCard s={x} pmName={pmName(x.responsible_pm_id)} onPm={() => void pmMenu(x)} onStatus={() => void statusMenu(x)} />;
   const group = (k: 'live' | 'upcoming' | 'closed', label: string) => lists[k].length ? (
     <View key={k}>
-      <Pressable onPress={() => setGrp({ ...grp, [k]: !grp[k] })} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 8 }}>
-        <Text style={{ fontWeight: '800', color: base.ink, flex: 1 }}>{label} <Text style={{ fontWeight: '400', color: base.slate }}>({lists[k].length})</Text></Text>
-        <Text style={{ color: base.slate }}>{grp[k] ? '▾' : '▸'}</Text>
-      </Pressable>
-      {grp[k] && lists[k].map(card)}
+      {head(k, label, lists[k].length, !!grp[k], () => setGrp({ ...grp, [k]: !grp[k] }))}
+      {grp[k] && grid(lists[k], card)}
     </View>
   ) : null;
   return (
     <ScrollView contentContainerStyle={page(820)} keyboardShouldPersistTaps="handled"
       refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => { void refetch(); }} />}>
       <HowTo k="sites" />
-      <TextInput value={q} onChangeText={setQ} placeholder="🔍 Search projects" style={search} />
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginBottom: 12 }}>
+      {searchBar}
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 4, marginBottom: 12 }}>
         {([['all', 'All', filtered.length], ['live', 'Live', lists.live.length], ['upcoming', 'Upcoming', lists.upcoming.length], ['closed', 'Closed', lists.closed.length]] as const).map(([k, l, n]) => (
-          <FinChip key={k} on={tab === k} label={`${l} ${n}`} onPress={() => setTab(k)} />
+          chip(tab === k, `${l} (${n})`, () => setTab(k), k)
         ))}
         <View style={{ flex: 1 }} />
-        {pms.length > 0 && <FinChip on={!!pmIds.length} label={pmIds.length ? (pmIds.length === 1 ? pmName(pmIds[0]) : `${pmIds.length} PMs`) : 'PM ▾'} onPress={async () => {
+        {pms.length > 0 && chip(!!pmIds.length, pmIds.length ? (pmIds.length === 1 ? pmName(pmIds[0]) : `${pmIds.length} selected`) : 'PM ▼', async () => {
           const k = await chooseAction('Show projects for', [...pms.map((p) => ({ key: p.id, label: `${pmIds.includes(p.id) ? '☑' : '☐'} ${p.name}` })), ...(pmIds.length ? [{ key: '__clear', label: 'Clear' }] : [])]);
           if (!k) return; if (k === '__clear') { setPmIds([]); return; }
           setPmIds(pmIds.includes(k) ? pmIds.filter((x) => x !== k) : [...pmIds, k]);
-        }} />}
-        <Button title="+ New project" onPress={() => router.push('/sites/new' as never)} />
+        }, 'pm')}
+        <Pressable onPress={() => router.push('/sites/new' as never)} accessibilityLabel="Add a new project" style={{ height: 32, paddingHorizontal: 14, borderRadius: 20, borderWidth: 1, borderColor: t.brand1, justifyContent: 'center', marginLeft: 4 }}>
+          <Text style={[heading(700), { fontSize: 12.5, color: t.brand1 }]}>+ New project</Text>
+        </Pressable>
       </View>
       {isLoading && <ActivityIndicator style={{ marginTop: 24 }} />}
       {!isLoading && error && !data && <Muted>Couldn&apos;t load your projects — check your signal and pull down to try again.</Muted>}
       {!isLoading && !!data && (tab === 'all'
         ? ([group('live', 'Live'), group('upcoming', 'Upcoming'), group('closed', 'Closed')].some(Boolean) ? <>{group('live', 'Live')}{group('upcoming', 'Upcoming')}{group('closed', 'Closed')}</> : <Empty>{query ? 'No projects match.' : 'No projects.'}</Empty>)
-        : lists[tab].length ? lists[tab].map(card) : <Empty>{query ? 'No projects match.' : `No ${tab} projects.`}</Empty>)}
+        : lists[tab].length ? grid(lists[tab], card) : <Empty>{query ? 'No projects match.' : `No ${tab} projects.`}</Empty>)}
     </ScrollView>
   );
 }
 
-const search = { borderWidth: 1, borderColor: base.line, borderRadius: 22, paddingHorizontal: 14, paddingVertical: 10, color: base.ink, backgroundColor: base.card, marginBottom: 12 };
-const sub = { color: base.slate, fontSize: 12.5 };
