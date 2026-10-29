@@ -11,10 +11,9 @@ import { HowTo } from '@/components/HowTo';
 import { addAddress } from '@/data/checkinManager';
 import { useSite, useSubAddresses } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
-import { fullSiteAddress } from '@/lib/rules/checkin';
 import { isManager } from '@/lib/roles';
 import type { SubAddress } from '@/lib/types';
-import { base, page, space } from '@/theme/theme';
+import { base, page } from '@/theme/theme';
 
 export default function Checkin() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -25,7 +24,6 @@ export default function Checkin() {
       <HowTo k="checkin" />
       {!site ? <Muted>Loading…</Muted> : (
         <>
-          <Muted style={{ marginBottom: space.m }}>{[site.name, fullSiteAddress(site)].filter(Boolean).join(' · ')}</Muted>
           {site.multi_site ? <AddressList siteId={site.id} /> : <CheckinPanel site={site} />}
         </>
       )}
@@ -48,7 +46,7 @@ function AddressList({ siteId }: { siteId: string }) {
   if (isLoading) return <Muted>Loading addresses…</Muted>;
   return (
     <>
-      <SectionTitle>Choose the address you're checking in to</SectionTitle>
+      <SectionTitle>Choose the address you&apos;re checking in to</SectionTitle>
       {open.length ? open.map(row) : (
         <Empty>{closed.length ? 'No open addresses — see Closed Addresses below.'
           : `No addresses have been added for this project yet.${isManager(me) ? '' : ' Ask your project manager to add one.'}`}</Empty>

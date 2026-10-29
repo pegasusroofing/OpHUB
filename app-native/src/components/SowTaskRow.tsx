@@ -22,13 +22,8 @@ import { photoStage, snapPct } from '@/lib/rules/sow';
 import { isManager } from '@/lib/roles';
 import type { Profile, Site, SubAddress } from '@/lib/types';
 import type { UploadJob } from '@/lib/uploadQueue';
-import { base, radius } from '@/theme/theme';
+import { base } from '@/theme/theme';
 
-const STATUS_COLOURS = {
-  todo: { bg: '#F1F2F4', fg: base.slate },
-  progress: { bg: base.warnBg, fg: base.warn },
-  done: { bg: base.okBg, fg: base.ok },
-};
 
 export function SowTaskRow({ me, site, task, subCos = [], photos, pending, address, addresses = [], onChanged, percentPrompt, setPercentPrompt, selectMode, selected, onToggleSelect, onSelectMode }: {
   me: Profile; site: Site; task: Task; subCos?: { id: string; name: string }[]; photos: Photo[]; pending: UploadJob[]; address?: SubAddress | null; addresses?: SubAddress[];
@@ -41,7 +36,7 @@ export function SowTaskRow({ me, site, task, subCos = [], photos, pending, addre
   const [busy, setBusy] = useState(false);
   const [vis, setVis] = useState(false);
   const [viewing, setViewing] = useState<string | null>(null);
-  const status = (task.status || 'todo') as keyof typeof STATUS_COLOURS;
+  const status = (task.status || 'todo') as 'todo' | 'progress' | 'done';
   const done = status === 'done';
   const mgr = isManager(me);
   const subCo = task.subcontractor_company_id ? subCos.find((x) => x.id === task.subcontractor_company_id) ?? null : null;
@@ -96,7 +91,8 @@ export function SowTaskRow({ me, site, task, subCos = [], photos, pending, addre
 
   if (selectMode) {
     return (
-      <Pressable onPress={onToggleSelect} style={[s.task, { flexDirection: 'row', alignItems: 'center', gap: 10, borderLeftColor: STATUS_COLOURS[status].fg }]}>
+      <Pressable onPress={onToggleSelect} style={[s.task, { flexDirection: 'row', alignItems: 'center', gap: 10 }]}>
+        <View style={[s.accent, { backgroundColor: { todo: '#C9CDD4', progress: base.warn, done: base.ok }[status] }]} />
         <View style={{ width: 20, height: 20, borderRadius: 5, borderWidth: 1.5, borderColor: base.slateLight, alignItems: 'center', justifyContent: 'center', backgroundColor: selected ? base.ink : base.card }}>
           {selected && <Text style={{ color: '#fff', fontWeight: '800', fontSize: 12 }}>✓</Text>}
         </View>
@@ -167,7 +163,8 @@ export function SowTaskRow({ me, site, task, subCos = [], photos, pending, addre
   );
 
   return (
-    <View style={[s.task, { borderLeftColor: STATUS_COLOURS[status].fg }]}>
+    <View style={s.task}>
+      <View style={[s.accent, { backgroundColor: { todo: '#C9CDD4', progress: base.warn, done: base.ok }[status] }]} />
       <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
         <View style={{ flex: 1 }}>
           <Text style={[s.name, done && s.nameDone]}>
@@ -243,9 +240,9 @@ export function SowTaskRow({ me, site, task, subCos = [], photos, pending, addre
         {([['todo', 'To Commence'], ['progress', 'In Progress'], ['done', 'Complete']] as const).map(([k, label]) => {
           const active = k === 'done' ? (done || completing) : status === k && !completing;
           return (
-            <Pressable key={k} style={[s.statusBtn, active && { backgroundColor: STATUS_COLOURS[k].bg, borderColor: STATUS_COLOURS[k].fg }]}
+            <Pressable key={k} style={[s.statusBtn, active && (k === 'todo' ? s.statusTodo : { backgroundColor: k === 'done' ? base.ok : base.warn })]}
               onPress={() => (k === 'done' ? (setPercentPrompt(false), setCompleting(true)) : changeStatus(k))}>
-              <Text style={[s.statusTxt, active && { color: STATUS_COLOURS[k].fg }]}>{label}</Text>
+              <Text style={[s.statusTxt, active && { color: k === 'todo' ? base.ink : '#fff' }]}>{label}</Text>
             </Pressable>
           );
         })}
@@ -287,7 +284,8 @@ function PhotoViewer({ path, onClose }: { path: string | null; onClose: () => vo
 }
 
 const s = StyleSheet.create({
-  task: { backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderLeftWidth: 4, borderRadius: radius.row, padding: 12, marginBottom: 10 },
+  task: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#ECEEF2', borderRadius: 14, paddingVertical: 12, paddingRight: 12, paddingLeft: 14, marginBottom: 8 },
+  accent: { position: 'absolute', left: 0, top: 10, bottom: 10, width: 4, borderTopRightRadius: 4, borderBottomRightRadius: 4 },
   name: { fontSize: 14, fontWeight: '700', color: base.ink },
   nameDone: { color: base.slate },
   meta: { fontSize: 11.5, color: base.slate, marginTop: 2 },
@@ -297,11 +295,12 @@ const s = StyleSheet.create({
   del: { position: 'absolute', top: -6, right: -6, width: 20, height: 20, borderRadius: 10, backgroundColor: base.red, alignItems: 'center', justifyContent: 'center' },
   delX: { color: '#fff', fontWeight: '800', fontSize: 13, lineHeight: 15 },
   waiting: { position: 'absolute', bottom: 2, left: 0, right: 0, textAlign: 'center', fontSize: 10, fontWeight: '700', color: base.ink },
-  addPhoto: { marginTop: 10, paddingVertical: 9, borderRadius: 10, borderWidth: 1, borderColor: base.line, borderStyle: 'dashed', alignItems: 'center' },
+  addPhoto: { marginTop: 8, paddingVertical: 6, paddingHorizontal: 11, borderRadius: 999, borderWidth: 1, borderColor: '#DADCE0', alignSelf: 'flex-start', backgroundColor: '#fff' },
   completeCard: { marginTop: 10, padding: 10, borderRadius: 10, backgroundColor: '#FCEFEF', borderWidth: 1, borderColor: '#E8B4B4' },
-  statusRow: { flexDirection: 'row', gap: 6, marginTop: 10 },
-  statusBtn: { flex: 1, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: base.line, alignItems: 'center', backgroundColor: base.card },
-  statusTxt: { fontSize: 12, fontWeight: '700', color: base.slate },
+  statusRow: { flexDirection: 'row', gap: 3, marginTop: 8, backgroundColor: '#F1F2F4', borderRadius: 11, padding: 3 },
+  statusBtn: { flex: 1, paddingVertical: 7, paddingHorizontal: 4, borderRadius: 8, alignItems: 'center' },
+  statusTodo: { backgroundColor: '#fff', shadowColor: '#14161C', shadowOpacity: 0.12, shadowRadius: 3, shadowOffset: { width: 0, height: 1 } },
+  statusTxt: { fontSize: 11, fontWeight: '700', color: base.slate },
   pct: { marginTop: 10, padding: 10, borderRadius: 10, borderWidth: 1, borderColor: base.line },
   pctBar: { height: 8, borderRadius: 5, backgroundColor: base.line, overflow: 'hidden' },
   chip: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: 14, borderWidth: 1, borderColor: base.line },

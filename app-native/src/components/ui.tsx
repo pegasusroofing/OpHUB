@@ -64,6 +64,28 @@ export function Button({ title, onPress, busy, kind = 'primary', disabled }: {
   );
 }
 
+/** The .filterrow tabs: equal-width boxes, the chosen one outlined in the company colour.
+ *  seg = the grey sliding bar used on Schedule of Works (.sowpage .filterrow). */
+export function FilterRow<K extends string>({ options, value, onChange, seg }: { options: [K, string][]; value: K; onChange: (k: K) => void; seg?: boolean }) {
+  const t = useTheme();
+  return (
+    <View style={[{ flexDirection: 'row', gap: seg ? 4 : 8, marginBottom: 12 }, seg && { backgroundColor: '#ECEDF0', borderRadius: 14, padding: 4 }]}>
+      {options.map(([k, l]) => {
+        const on = k === value;
+        return (
+          <Pressable key={k} onPress={() => onChange(k)} accessibilityRole="tab" accessibilityState={{ selected: on }}
+            style={[{ flex: 1, minWidth: 0, minHeight: 34, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8, paddingVertical: seg ? 6 : 8 },
+              seg ? [{ borderRadius: 10 }, on && { backgroundColor: '#fff', ...shadowSm }]
+                : { borderRadius: 8, backgroundColor: '#fff', borderWidth: on ? 2 : 1.5, borderColor: on ? t.brand1 : base.line }]}>
+            <Text numberOfLines={2} style={{ textAlign: 'center', fontSize: 12, fontWeight: seg ? '700' : '800', letterSpacing: seg ? 0 : 0.4, textTransform: seg ? 'none' : 'uppercase', color: on ? (seg ? base.ink : t.brand1) : base.slate }}>{l}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+const shadowSm = { shadowColor: '#14161C', shadowOpacity: 0.12, shadowRadius: 4, shadowOffset: { width: 0, height: 1 }, elevation: 1 } as const;
+
 export function Notice({ kind, text }: { kind: 'error' | 'info'; text: string }) {
   const err = kind === 'error';
   return (

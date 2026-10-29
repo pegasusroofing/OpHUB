@@ -21,7 +21,7 @@ import { money } from '@/lib/rules/finance';
 import { overallPct } from '@/lib/rules/sow';
 import { isFinanceUser, isManager } from '@/lib/roles';
 import type { Site } from '@/lib/types';
-import { base, page, space, useDesk, useTheme } from '@/theme/theme';
+import { base, page, space, useDesk } from '@/theme/theme';
 
 type T = { key: string; ic?: string; emoji?: string; bg: string; fg: string; title: string; sub: string; badge?: number | string; onPress: () => void };
 
@@ -100,7 +100,6 @@ function MoneyStrip({ site }: { site: Site }) {
 export default function SiteHome() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { me, org } = useAuth();
-  const t = useTheme();
   const desk = useDesk();
   const { data: site, isLoading } = useSite(id);
   const { data: h, refetch } = useSiteHome(site);
@@ -123,19 +122,10 @@ export default function SiteHome() {
   const footer = (
     <Text style={{ textAlign: 'center', marginTop: 26, fontSize: 11, color: base.slateLight, fontStyle: 'italic' }}>{me.name}{org?.name ? `  -  ${org.name}` : ''}</Text>
   );
-  const crumb = desk && (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-      <Pressable onPress={() => router.push('/sites' as never)}><Text style={{ fontSize: 12, fontWeight: '600', color: t.brand1 }}>Projects</Text></Pressable>
-      <Text style={{ fontSize: 12, color: base.slateLight }}>›</Text>
-      <Text style={{ fontSize: 12, fontWeight: '700', color: base.ink }}>{[site.job_number, site.name].filter(Boolean).join(' ')}</Text>
-    </View>
-  );
-
   if (site.repair_contract) {
     return (
       <ScrollView contentContainerStyle={page(720)}>
         {header}
-        {crumb}
         <HowTo k="site_home" />
         <JobTiles cols={cols} tiles={[
           { key: 'jobs', ic: 'wrench', bg: TINTS.red[0], fg: TINTS.red[1], title: 'Live Jobs', sub: 'Repair jobs on this contract', onPress: go('repairs') },
@@ -200,7 +190,6 @@ export default function SiteHome() {
   return (
     <ScrollView contentContainerStyle={page(720)}>
       {header}
-      {crumb}
       <HowTo k="site_home" />
       <View style={[cardBox, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderColor: base.line, borderRadius: 16, paddingVertical: 10.8, paddingHorizontal: 12.6, marginBottom: 12.6, shadowOpacity: 0 }]}>
         <Text style={{ fontSize: 12.6, color: base.ink }}>{site.job_number ? <><Text style={{ fontWeight: '800' }}>Job No:</Text> {site.job_number}</> : ' '}</Text>

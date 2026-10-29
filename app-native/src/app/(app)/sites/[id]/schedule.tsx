@@ -16,7 +16,8 @@ import { FinForm } from '@/components/FinForm';
 import { SowTaskRow } from '@/components/SowTaskRow';
 import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { SowExport } from '@/components/SowExport';
-import { Button, Card, Empty, Field, Muted, SectionTitle } from '@/components/ui';
+import { Button, Card, Empty, Field, FilterRow, Muted, SectionTitle } from '@/components/ui';
+import { heading } from '@/lib/fonts';
 import {
   addLeftoverPhoto, closeOutSiteCondition, documentLink, markViewedOnce, saveFlag, useSchedule, type Flag, type Task,
 } from '@/data/sow';
@@ -27,7 +28,6 @@ import {
 } from '@/data/sowManager';
 import { useAuth } from '@/lib/auth';
 import { pickPhotos } from '@/lib/photos';
-import { fullSiteAddress } from '@/lib/rules/checkin';
 import {
   doneCount, filterTasks, overallPct, sectionVisible, siteConditionSaved, SOW_FILTER_LABEL, SOW_FILTERS, tasksForAddress, type SowFilter,
 } from '@/lib/rules/sow';
@@ -39,7 +39,7 @@ import { supabase } from '@/lib/supabase';
 import { VisibilityEditor } from '@/components/VisibilityEditor';
 import { HowTo } from '@/components/HowTo';
 import { onQueueChange, onUploadsSent, pendingUploads, type UploadJob } from '@/lib/uploadQueue';
-import { base, page, radius, space } from '@/theme/theme';
+import { base, page, space, useTheme } from '@/theme/theme';
 
 export default function Schedule() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -185,7 +185,6 @@ export default function Schedule() {
       refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={changed} />}>
       <Stack.Screen options={{ title: 'Schedule of Works' }} />
       <HowTo k="schedule" />
-      <Muted style={{ marginBottom: space.m }}>{[site.name, fullSiteAddress(site)].filter(Boolean).join(' · ')}</Muted>
       {isLoading && !data && <Muted>Loading…</Muted>}
       {view && (
         <>
@@ -198,21 +197,15 @@ export default function Schedule() {
             </Card>
           )}
           {view.allTasks.length > 0 && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12, backgroundColor: '#fff', borderWidth: 1, borderColor: '#ECEEF2', borderRadius: 16, paddingVertical: 12, paddingHorizontal: 14 }}>
               <Text style={{ fontSize: 12, fontWeight: '700', color: base.ink }}>Overall progress</Text>
-              <View style={{ flex: 1, height: 8, borderRadius: 5, backgroundColor: base.line, overflow: 'hidden' }}>
+              <View style={{ flex: 1, height: 10, borderRadius: 6, backgroundColor: base.line, overflow: 'hidden' }}>
                 <View style={{ width: `${overallPct(view.allTasks)}%`, height: '100%', backgroundColor: '#2E9E5B' }} />
               </View>
               <Text style={{ fontWeight: '800', color: base.ink }}>{overallPct(view.allTasks)}%</Text>
             </View>
           )}
-          <View style={{ flexDirection: 'row', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
-            {SOW_FILTERS.map((k) => (
-              <Pressable key={k} onPress={() => setFilter(k)} style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: 16, borderWidth: 1, borderColor: filter === k ? base.ink : base.line, backgroundColor: filter === k ? base.ink : base.card }}>
-                <Text style={{ fontSize: 12, fontWeight: '700', color: filter === k ? '#fff' : base.ink }}>{SOW_FILTER_LABEL[k]}</Text>
-              </Pressable>
-            ))}
-          </View>
+          <FilterRow seg options={SOW_FILTERS.map((k) => [k, SOW_FILTER_LABEL[k]] as [SowFilter, string])} value={filter} onChange={setFilter} />
 
           {manager && (
             selecting ? (
@@ -227,7 +220,7 @@ export default function Schedule() {
                 }} />
                 <Button kind="ghost" title="Cancel" onPress={() => setSelecting(null)} />
               </Card>
-            ) : <Button kind="ghost" title="⋯ More: add section or variation work" onPress={more} />
+            ) : null
           )}
           {view.docs.length > 0 && (
             <Card>
@@ -249,9 +242,11 @@ export default function Schedule() {
 
           {(manager ? true : filter === 'all' ? view.allUngrouped.length > 0 : view.ungrouped.length > 0) && (
             <Group title="Schedule of Works" count={view.allUngrouped.length ? doneCount(view.allUngrouped) : ''}
-              open={isOpen('__ungrouped__', view.ungrouped.length > 0)} onToggle={() => toggle('__ungrouped__', view.ungrouped.length > 0)}>
-              {view.ungrouped.length ? view.ungrouped.map(row) : <Empty>No tasks here.</Empty>}
-              {addBox('__ungrouped__', null)}
+              open={isOpen('__ungrouped__', view.ungrouped.length > 0)} onToggle={() => toggle('__ungrouped__', view.ungrouped.length > 0)}
+              onAdd={manager ? () => { setAdding(adding === '__ungrouped__' ? null : '__ungrouped__'); setOpen((o) => ({ ...o, __ungrouped__: true })); } : undefined}
+              onMore={manager ? more : undefined}>
+              {adding === '__ungrouped__' && addBox('__ungrouped__', null)}
+              {view.ungrouped.length ? view.ungrouped.map(row) : <Empty>{`No tasks${filter !== 'all' ? ' for this filter' : ''}.`}</Empty>}
             </Group>
           )}
           {view.sections.map((sec) => (
@@ -259,11 +254,11 @@ export default function Schedule() {
               count={(view.bySectionAll[sec.id] || []).length ? doneCount(view.bySectionAll[sec.id]) : ''}
               open={isOpen(sec.id)} onToggle={() => toggle(sec.id)} onMenu={manager ? () => sectionMenu(sec) : undefined}>
               {vis === sec.id && me.org_id && <VisibilityEditor table="schedule_sections" id={sec.id} siteId={site.id} orgId={me.org_id} onClose={(saved) => { setVis(null); if (saved) changed(); }} />}
-              {(view.bySection[sec.id] || []).length ? view.bySection[sec.id].map(row) : <Empty>No tasks on this tab.</Empty>}
+              {(view.bySection[sec.id] || []).length ? view.bySection[sec.id].map(row) : <Empty>{`No tasks in this section${filter !== 'all' ? ' for this filter' : ''}.`}</Empty>}
               {addBox(sec.id, sec.id)}
             </Group>
           ))}
-          {!view.allTasks.length && <Empty>No Schedule of Works tasks yet.</Empty>}
+          {!view.allTasks.length && !manager && <Empty>No tasks yet.</Empty>}
 
           {view.allTasks.length > 0 && (
             <SiteCondition flag={view.flags.__ungrouped__} tasks={view.allTasks} filter={filter}
@@ -320,16 +315,23 @@ function AddTaskBox({ addresses, onAdd, onCancel }: { addresses: { id: string; n
   );
 }
 
-function Group({ title, count, open, onToggle, onMenu, children }: { title: string; count: string; open: boolean; onToggle: () => void; onMenu?: () => void; children: ReactNode }) {
+function Group({ title, count, open, onToggle, onMenu, onAdd, onMore, children }: { title: string; count: string; open: boolean; onToggle: () => void; onMenu?: () => void; onAdd?: () => void; onMore?: () => void; children: ReactNode }) {
+  const t = useTheme();
   return (
-    <View style={{ backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.card, marginBottom: space.m, overflow: 'hidden' }}>
-      <Pressable onPress={onToggle} style={{ flexDirection: 'row', alignItems: 'center', padding: 14 }}>
-        <Text style={{ color: base.slate, marginRight: 8 }}>{open ? '▼' : '▶'}</Text>
-        <Text style={{ flex: 1, fontWeight: '800', color: base.ink }} numberOfLines={1}>{title}</Text>
-        {!!count && <Text style={{ fontSize: 12, color: base.slate, fontWeight: '700' }}>{count}</Text>}
+    <View style={{ backgroundColor: base.card, borderWidth: 1, borderColor: '#ECEEF2', borderRadius: 18, marginBottom: space.m, overflow: 'hidden' }}>
+      <Pressable onPress={onToggle} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 14 }}>
+        <Text style={{ fontSize: 10, color: base.slate, marginRight: 8 }}>{open ? '▼' : '▶'}</Text>
+        <Text style={[heading(800), { flex: 1, fontSize: 15, color: base.ink }]} numberOfLines={1}>{title}</Text>
+        {!!count && <Text style={{ fontSize: 11, fontWeight: '700', color: base.slate, backgroundColor: '#F1F2F4', borderRadius: 999, paddingVertical: 3, paddingHorizontal: 9, marginLeft: 6, overflow: 'hidden' }}>{count}</Text>}
+        {onAdd && (
+          <Pressable onPress={onAdd} hitSlop={6} style={{ marginLeft: 8, borderWidth: 1.5, borderColor: t.brand1, borderRadius: 999, paddingVertical: 5, paddingHorizontal: 10 }}>
+            <Text style={{ fontSize: 10, fontWeight: '800', letterSpacing: 0.4, color: t.brand1 }}>+ ADD TASK</Text>
+          </Pressable>
+        )}
+        {onMore && <Pressable onPress={onMore} hitSlop={8} accessibilityLabel="More" style={{ marginLeft: 6, width: 26, height: 26, borderRadius: 13, borderWidth: 1, borderColor: base.line, alignItems: 'center', justifyContent: 'center' }}><Text style={{ fontSize: 10, color: base.slate }}>▾</Text></Pressable>}
         {onMenu && <Pressable onPress={onMenu} hitSlop={8} style={{ marginLeft: 10 }}><Text style={{ fontSize: 18, color: base.slate }}>⋮</Text></Pressable>}
       </Pressable>
-      {open && <View style={{ paddingHorizontal: 12, paddingBottom: 4 }}>{children}</View>}
+      {open && <View style={{ paddingHorizontal: 14, paddingBottom: 14 }}>{children}</View>}
     </View>
   );
 }
