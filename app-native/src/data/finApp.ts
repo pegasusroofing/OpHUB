@@ -218,3 +218,12 @@ export async function addBoqSection(me: Profile, siteId: string, ref: string | n
   const r = await fdb.from('fin_contract_items').insert({ org_id: me.org_id, site_id: siteId, position: (Number(top[0]?.position) || 0) + 1, kind: 'section', ref, description: desc, value: 0 } as never).select('*').single();
   return r.error ? null : { kind: 'section', item_id: (r.data as Row).id, ref: ref || '', description: desc };
 }
+
+/** Delete an application at any stage (9219q finRowDelApp): not one with an invoice (void it first), and only
+ *  the latest — each one builds on the last. Returns why not, or null when deleted. */
+export async function deleteApplicationAny(a: Row): Promise<string | null> {
+  if (a.invoice_id) return 'This application has an invoice — void the invoice first, then delete it.';
+  const later = (await rows(fdb.from('fin_applications').select('id,number,status').eq('site_id', a.site_id).gt('number', a.number))).filter((x) => x.status !== 'void');
+  if (later.length) return `Delete the later application${later.length > 1 ? 's' : ''} first (No. ${later.map((x) => x.number).sort((p, q) => q - p).join(', ')}) — each one builds on the last.`;
+  return (await fdb.from('fin_applications').delete().eq('id', a.id)).error ? 'Could not delete — try again.' : null;
+}

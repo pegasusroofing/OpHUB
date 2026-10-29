@@ -13,7 +13,7 @@ import { FinChip, FinRow, FinStat } from '@/components/FinNav';
 import { confirmAsk, showAlert, useToast } from '@/components/toast';
 import { FinForm } from '@/components/FinForm';
 import { Button, Card, Check, Muted, SectionTitle } from '@/components/ui';
-import { addBoqLines, addBoqSection, clearCertificate, deleteApplication, exportApplication, loadApplication, newApplication, raiseInvoiceFromCert, saveApplication, saveCertificate, setStatus } from '@/data/finApp';
+import { addBoqLines, addBoqSection, clearCertificate, deleteApplication, deleteApplicationAny, exportApplication, loadApplication, newApplication, raiseInvoiceFromCert, saveApplication, saveCertificate, setStatus } from '@/data/finApp';
 import { openDocLink } from '@/data/hs';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
@@ -284,6 +284,12 @@ function Editor({ a0, jf, previousLive, prevPct }: { a0: Row; jf: Row; previousL
           <Muted style={{ marginTop: 6 }}>Emailing the application to the client is switched off while Finance is on trial.</Muted>
         </>
       )}
+      {stage !== 'draft' && <View style={{ marginTop: 8 }}><Button kind="ghost" title="🗑 Delete application" onPress={async () => {
+        // Any stage (9219q finRowDelApp): not with an invoice, and only the latest one.
+        if (!(await confirmAsk(`Delete application No. ${a0.number}?${a0.cert_net != null ? '\n\nIt has a certificate — that will be deleted too.' : ''}\n\nThis can’t be undone.`, 'Delete'))) return;
+        const e = await deleteApplicationAny(a0); if (e) { showAlert(e); return; }
+        toast('Application deleted'); refresh(); router.back();
+      }} /></View>}
       {(stage === 'certified' || stage === 'invoiced') && (
         <Card>
           <SectionTitle>{a0.cert_is_payless ? 'Pay-less notice' : 'Payment certificate'} · {fdate(a0.cert_date)}</SectionTitle>
