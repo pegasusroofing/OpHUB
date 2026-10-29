@@ -5,13 +5,14 @@
 import { useQueryClient } from '@tanstack/react-query';
 import * as DocumentPicker from 'expo-document-picker';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useRef, useState, type ComponentRef } from 'react';
+import { useRef, useState, type ComponentRef, type ReactNode } from 'react';
 import { Pressable, RefreshControl, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { GrnDetail } from '@/components/Grn';
 import { OrderPanel } from '@/components/OrderPanel';
+import { ShopPicker, type ShopItem } from '@/components/ShopPicker';
 import { chooseAction, confirmAsk, promptText, showAlert, useToast } from '@/components/toast';
-import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
+import { Button, Card, Empty, FilterRow, Muted, SectionTitle } from '@/components/ui';
 import { nameOf, usePeople } from '@/data/hs';
 import {
   addMaterial, cancelMaterial, deleteMaterials, importMaterials, editMaterial, groupMaterials, poLock, reopenMaterials,
@@ -187,29 +188,49 @@ export default function MaterialRequests() {
 
   const entries = done ? doneEntries(items) : mgr ? liveEntries(items) : items.map((m) => ({ m, items: [m] }));
 
+  const importBtn = (
+        <View style={{ marginTop: 8 }}>
+          <Button kind="ghost" busy={importing} title={importing ? 'Importing…' : '📄 Import from Excel'} onPress={async () => {
+            const r = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true }); if (r.canceled || !r.assets[0]) return;
+            const a = r.assets[0], name = a.name || 'spreadsheet';
+            if (/\.xls$/i.test(name)) { toast('Save it as .xlsx or .csv first — old .xls files can’t be read.'); return; }
+            if ((a.size || 0) > 15 * 1024 * 1024) { toast('That file is too big to read.'); return; }
+            let lines: { item: string; qty: string }[] = [];
+            try {
+              const bytes = new Uint8Array(await (await fetch(a.uri)).arrayBuffer());
+              const sheets = /\.csv$/i.test(name) ? [{ rows: csvRows(new TextDecoder().decode(bytes)) }] : await readXlsx(bytes);
+              for (const sh of sheets) { lines = matSheetLines(sh.rows); if (lines.length) break; }
+            } catch { toast('Could not read that file — is it an Excel or CSV file?'); return; }
+            if (!lines.length) { showAlert('No items found in that file. It needs a column headed "Description" (or "Item") and one headed "Quantity" (or "Qty").'); return; }
+            if (lines.length > 300) { showAlert(`That file has ${lines.length} items — the most that can be imported in one go is 300.`); return; }
+            const rb = ((await promptText('Required by (optional, YYYY-MM-DD)', '')) || '').trim();
+            const req = rb ? readIsoDate(rb) : '';
+            if (req === 'bad') { toast('Enter the date as YYYY-MM-DD.'); return; }
+            const preview = lines.slice(0, 12).map((l) => `• ${l.item} — ${l.qty}`).join('\n') + (lines.length > 12 ? `\n…and ${lines.length - 12} more` : '');
+            if (!(await confirmAsk(`Add these ${lines.length} item${lines.length === 1 ? '' : 's'} from "${name}" as material requests?${req ? ` Required by ${req}.` : ''}\n\n${preview}`, 'Add them'))) return;
+            setImporting(true); const n = await importMaterials(me, id, lines, req || null, name); setImporting(false);
+            showAlert(n ? `✓ ${n} material request${n === 1 ? '' : 's'} added.` : 'They could not be added — check your connection, then import again.'); refresh();
+          }} />
+          <Muted>Pick a material order spreadsheet — each item and quantity becomes its own request. You&apos;re shown the list to confirm first.</Muted>
+        </View>
+  );
   return (
     <ScrollView ref={scroll} contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled"
       refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => { void refetch(); }} />}>
       <Stack.Screen options={{ title: 'Material Requests' }} />
-      {mgr && <Card style={{ backgroundColor: '#F1E4FA' }}><Text style={{ color: '#4E1F6E' }}><Text style={{ fontWeight: '700' }}>Requests from operatives.</Text> Order them from a merchant, or give them to an operative to collect — those move to Collections. Tick several to group them into one request.</Text></Card>}
-      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
-        {(mgr ? [['pending', 'To action'], ['collect', `Collections${collectN ? ` (${collectN})` : ''}`], ['done', 'Completed']] : [['live', 'Live/Pending'], ['closed', 'Closed']]).map(([k, l]) => (
-          <Pressable key={k} onPress={() => { if (k === 'collect') { router.push(`/sites/${id}/materials/collections` as never); return; } setSel(new Set()); setTab(k as MatTab); }}
-            style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 16, borderWidth: 1, borderColor: tab === k ? base.ink : base.line, backgroundColor: tab === k ? base.ink : base.card }}>
-            <Text style={{ fontWeight: '700', color: tab === k ? '#fff' : base.ink }}>{l}</Text>
-          </Pressable>
-        ))}
-      </View>
+      {mgr && <Card style={{ backgroundColor: '#F1E4FA', flexDirection: 'row', gap: 10, alignItems: 'flex-start', shadowOpacity: 0 }}><Text style={{ fontSize: 16 }}>🙋</Text><Text style={{ flex: 1, color: '#4E1F6E' }}><Text style={{ fontWeight: '700' }}>Requests from operatives.</Text> Order them from a merchant, or give them to an operative to collect — those move to the <Text style={{ fontWeight: '700' }}>Collections</Text> tab. Tick several to group them into one request.</Text></Card>}
+      <FilterRow value={tab as string} onChange={(k) => {
+        if (k === 'collect') { router.push(`/sites/${id}/materials/collections` as never); return; }
+        if (k === 'yard' || k === 'bookin') { router.push(`/sites/${id}/materials/yard` as never); return; }
+        setSel(new Set()); setTab(k as MatTab);
+      }} options={(mgr
+        ? [['pending', 'To action'], ['collect', `Collections${collectN ? ` (${collectN})` : ''}`], ['done', 'Completed'], ...((yardCanEdit(me, fin) || yardBookInCan(me, fin)) ? [['yard', '📦 Yard stock'], ['bookin', '⬇ Book into yard']] : [])]
+        : [['live', 'Live/Pending'], ['closed', 'Closed']]) as [string, string][]} />
 
       {ordering && (
         <Card style={{ borderColor: base.ink, borderWidth: 1.5 }}>
           <OrderPanel siteId={id} mats={ordering.mats} again={ordering.again} onDone={() => { setOrdering(null); refresh(); }} onCancel={() => setOrdering(null)} />
         </Card>
-      )}
-      {mgr && (yardCanEdit(me, fin) || yardBookInCan(me, fin)) && tab !== 'closed' && (
-        <Pressable onPress={() => router.push(`/sites/${id}/materials/yard` as never)} style={{ marginBottom: 10 }}>
-          <Text style={{ color: base.blue, fontWeight: '700' }}>📦 Yard stock · ⬇ Book into yard →</Text>
-        </Pressable>
       )}
       {mgr && selectable.length > 1 && (sel.size > 0 || !done) && (
         <Pressable onPress={() => setSel(sel.size >= selectable.length ? new Set() : new Set(selectable.map((m) => m.id)))} style={{ marginBottom: 10 }}>
@@ -283,43 +304,18 @@ export default function MaterialRequests() {
         toast('Request updated'); setEditing(null); refresh();
       }} />}
       {(tab === 'live' || tab === 'pending') && !editing && (
-        <RequestBox autoFocus={add === '1'} addrs={site.multi_site ? addrs ?? [] : null} busy={busy} onSubmit={async (f) => {
+        <RequestBox siteId={id} shop={fin && !!org?.has_finance} autoFocus={add === '1'} addrs={site.multi_site ? addrs ?? [] : null} busy={busy} extra={me && isFullManager(me) ? importBtn : null} onSubmit={async (f) => {
           setBusy(true); const ok = await addMaterial(me, id, f); setBusy(false);
           if (!ok) { toast('Could not save — try again.'); return false; }
           toast('Request added'); refresh(); return true;
         }} />
-      )}
-      {(tab === 'live' || tab === 'pending') && !editing && me && isFullManager(me) && (
-        <View style={{ marginTop: 8 }}>
-          <Button kind="ghost" busy={importing} title={importing ? 'Importing…' : '📄 Import from Excel'} onPress={async () => {
-            const r = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true }); if (r.canceled || !r.assets[0]) return;
-            const a = r.assets[0], name = a.name || 'spreadsheet';
-            if (/\.xls$/i.test(name)) { toast('Save it as .xlsx or .csv first — old .xls files can’t be read.'); return; }
-            if ((a.size || 0) > 15 * 1024 * 1024) { toast('That file is too big to read.'); return; }
-            let lines: { item: string; qty: string }[] = [];
-            try {
-              const bytes = new Uint8Array(await (await fetch(a.uri)).arrayBuffer());
-              const sheets = /\.csv$/i.test(name) ? [{ rows: csvRows(new TextDecoder().decode(bytes)) }] : await readXlsx(bytes);
-              for (const sh of sheets) { lines = matSheetLines(sh.rows); if (lines.length) break; }
-            } catch { toast('Could not read that file — is it an Excel or CSV file?'); return; }
-            if (!lines.length) { showAlert('No items found in that file. It needs a column headed "Description" (or "Item") and one headed "Quantity" (or "Qty").'); return; }
-            if (lines.length > 300) { showAlert(`That file has ${lines.length} items — the most that can be imported in one go is 300.`); return; }
-            const rb = ((await promptText('Required by (optional, YYYY-MM-DD)', '')) || '').trim();
-            const req = rb ? readIsoDate(rb) : '';
-            if (req === 'bad') { toast('Enter the date as YYYY-MM-DD.'); return; }
-            const preview = lines.slice(0, 12).map((l) => `• ${l.item} — ${l.qty}`).join('\n') + (lines.length > 12 ? `\n…and ${lines.length - 12} more` : '');
-            if (!(await confirmAsk(`Add these ${lines.length} item${lines.length === 1 ? '' : 's'} from "${name}" as material requests?${req ? ` Required by ${req}.` : ''}\n\n${preview}`, 'Add them'))) return;
-            setImporting(true); const n = await importMaterials(me, id, lines, req || null, name); setImporting(false);
-            showAlert(n ? `✓ ${n} material request${n === 1 ? '' : 's'} added.` : 'They could not be added — check your connection, then import again.'); refresh();
-          }} />
-          <Muted>Pick a material order spreadsheet — each item and quantity becomes its own request. You&apos;re shown the list to confirm first.</Muted>
-        </View>
       )}
       {mgr && <Muted style={{ marginTop: space.m }}>New yard items are added in Finance › Yard.</Muted>}
     </ScrollView>
   );
 }
 
+const lbl = { fontSize: 11, fontWeight: '800' as const, letterSpacing: 0.5, color: base.slate, marginBottom: 4 };
 const rowStyle = { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 8, backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, padding: 12, marginBottom: 8 };
 const doneTag = (m: Mat) => (m.status === 'cancelled' ? 'Cancelled' : m.merchant === 'Yard stock' ? 'Yard stock' : m.email_sent_at ? `Emailed ${long(m.email_sent_at)}` : wasOrdered(m) ? 'Ordered' : 'Closed');
 
@@ -327,14 +323,19 @@ function Chip({ text, tone }: { text: string; tone?: 'due' }) {
   return <Text style={{ fontSize: 11.5, color: tone === 'due' ? base.warn : base.slate, backgroundColor: base.paper, borderRadius: 8, paddingHorizontal: 7, paddingVertical: 2, overflow: 'hidden' }}>{text}</Text>;
 }
 
-function RequestBox({ addrs, busy, autoFocus, onSubmit }: { addrs: SubAddr[] | null; busy: boolean; autoFocus: boolean; onSubmit: (f: { item: string; qty: string; requiredBy: string | null; sub: SubAddr | null }) => Promise<boolean> }) {
+function RequestBox({ siteId, shop, addrs, busy, autoFocus, extra, onSubmit }: { siteId: string; shop: boolean; addrs: SubAddr[] | null; busy: boolean; autoFocus: boolean; extra?: ReactNode; onSubmit: (f: { item: string; qty: string; requiredBy: string | null; sub: SubAddr | null; shopItemId?: string | null }) => Promise<boolean> }) {
   const toast = useToast();
   const [item, setItem] = useState('');
   const [qty, setQty] = useState('');
   const [by, setBy] = useState('');
   const [sub, setSub] = useState<SubAddr | null>(null);
+  const [picking, setPicking] = useState(false);
+  const [pick, setPick] = useState<ShopItem | null>(null);
+  // The picked quote item counts only while the wording is left as it was.
+  const shopItemId = pick && pick.description.trim() === item.trim() ? pick.id : null;
   return (
     <Card style={{ marginTop: 18 }}>
+      {picking && <ShopPicker siteId={siteId} onClose={() => setPicking(false)} onPick={(i) => { setPick(i); setItem(i.description); setPicking(false); }} />}
       <SectionTitle>Request material</SectionTitle>
       {addrs && (
         <View style={{ marginBottom: 8 }}>
@@ -345,9 +346,23 @@ function RequestBox({ addrs, busy, autoFocus, onSubmit }: { addrs: SubAddr[] | n
         </View>
       )}
       <TextInput autoFocus={autoFocus} value={item} onChangeText={setItem} placeholder="Item" style={box} />
+      {shop && (
+        <View style={{ marginBottom: 8 }}>
+          <Button kind="ghost" title="📋 Pick from a project quote" onPress={() => setPicking(true)} />
+          {!!shopItemId && pick && (
+            <Text style={{ fontSize: 12, color: base.slate, marginTop: 4 }}>From a project quote{pick.supplier_name ? ` · ${pick.supplier_name}` : ''}{pick.rate != null ? ` · £${Number(pick.rate).toFixed(2)}${pick.unit ? `/${pick.unit}` : ''}` : ''}  <Text onPress={() => setPick(null)} style={{ color: base.blue, fontWeight: '700' }}>clear</Text></Text>
+          )}
+        </View>
+      )}
       <View style={{ flexDirection: 'row', gap: 8 }}>
-        <TextInput value={qty} onChangeText={setQty} placeholder="Quantity" style={[box, { flex: 1 }]} />
-        <TextInput value={by} onChangeText={setBy} placeholder="Required by (YYYY-MM-DD)" autoCapitalize="none" style={[box, { flex: 1 }]} />
+        <View style={{ flex: 1 }}>
+          <Text style={lbl}>QUANTITY</Text>
+          <TextInput value={qty} onChangeText={setQty} placeholder={shopItemId && pick?.unit ? `Quantity (${pick.unit})` : 'Quantity'} style={box} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={lbl}>REQUIRED BY (OPTIONAL)</Text>
+          <TextInput value={by} onChangeText={setBy} placeholder="YYYY-MM-DD" autoCapitalize="none" style={box} />
+        </View>
       </View>
       <Button busy={busy} title="Request Material Order" onPress={async () => {
         if (!item.trim()) return;
@@ -355,8 +370,9 @@ function RequestBox({ addrs, busy, autoFocus, onSubmit }: { addrs: SubAddr[] | n
         const d = readIsoDate(by);
         if (d === 'bad') { toast('Enter the date as YYYY-MM-DD, e.g. 2026-11-03'); return; }
         if (d && d < localISODate(new Date())) { toast('The required-by date has passed.'); return; }
-        if (await onSubmit({ item: item.trim(), qty: qty.trim(), requiredBy: d, sub })) { setItem(''); setQty(''); setBy(''); setSub(null); }
+        if (await onSubmit({ item: item.trim(), qty: qty.trim(), requiredBy: d, sub, shopItemId })) { setItem(''); setQty(''); setBy(''); setSub(null); setPick(null); }
       }} />
+      {extra}
     </Card>
   );
 }

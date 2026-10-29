@@ -119,9 +119,9 @@ export function Check({ label, value, onChange }: { label: string; value: boolea
 // Green "On site since 07:42" / grey "Not checked in" pill.
 export function Pill({ on, text }: { on: boolean; text: string }) {
   return (
-    <View style={[s.pill, { backgroundColor: on ? base.okBg : base.paper }]}>
-      <View style={[s.dot, { backgroundColor: on ? base.ok : base.slateLight }]} />
-      <Text style={{ color: on ? base.ok : base.slate, fontWeight: '700', fontSize: 12.5 }}>{text}</Text>
+    <View style={[s.pill, { backgroundColor: on ? base.okBg : base.line }]}>
+      <View style={[s.dot, { width: 6, height: 6, backgroundColor: on ? base.ok : base.slate }]} />
+      <Text style={{ color: on ? base.ok : base.slate, fontWeight: '800', fontSize: 11, letterSpacing: 0.5, textTransform: 'uppercase' }}>{text}</Text>
     </View>
   );
 }
@@ -199,11 +199,11 @@ export function Tile({ icon, ic, tint, fg, title, sub, onPress, badge, onMenu, d
   const cols = useContext(GridCtx);
   if (cols === -1) return (
     <Pressable onPress={onPress} accessibilityRole="button"
-      style={({ pressed }) => [s.jbox, pressed && { opacity: 0.7 }]}>
+      style={({ pressed }) => [s.jbox, dim && { backgroundColor: '#F3F3F1' }, pressed && { opacity: 0.7 }]}>
       <View style={[{ width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: tint }, dim && { opacity: 0.45 }]}>
         {ic ? <OphIcon name={ic} size={20} color={fg || base.ink} /> : <Text style={{ fontSize: 18 }}>{icon}</Text>}
       </View>
-      <Text numberOfLines={2} style={[heading(700), { fontSize: 13.2, color: base.ink, textAlign: 'center' }, dim && { opacity: 0.45 }]}>{title}</Text>
+      <Text numberOfLines={2} style={[heading(700), { fontSize: sub ? 13.2 : 15, color: base.ink, textAlign: 'center' }, dim && { opacity: 0.45 }]}>{title}</Text>
       {!!sub && <Text numberOfLines={1} style={[{ fontSize: 11.1, color: base.slateLight, textAlign: 'center' }, dim && { opacity: 0.45 }]}>{sub}</Text>}
       {!!badge && <Text style={[s.badge, { top: 8, right: onMenu ? 34 : 8 }]}>{badge}</Text>}
       {onMenu && (

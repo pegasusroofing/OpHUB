@@ -11,6 +11,7 @@ import { GrnForm } from '@/components/Grn';
 import { useToast } from '@/components/toast';
 import { Button, Card, Empty, JobGrid, Muted, SectionTitle, Tile } from '@/components/ui';
 import { collectPickups, useCollectionsOpenCount, useMaterialRequests, useOfficeOrders, useOpMaterials } from '@/data/materials';
+import { HowTo } from '@/components/HowTo';
 import { useSite } from '@/data/sites';
 import { tileRoles, tileVisMenu } from '@/data/tileVis';
 import { useAuth } from '@/lib/auth';
@@ -42,14 +43,15 @@ function ManagerTiles({ siteId, vis, role, me, site }: { siteId: string; vis: Pa
   const { data: collectN } = useCollectionsOpenCount(siteId, true);
   const { data: office } = useOfficeOrders(siteId, true);
   const go = (p: string) => () => router.push(`/sites/${siteId}/${p}` as never);
-  const sub = [pending?.length ? `${pending.length} to action` : '', collectN ? `${collectN} to collect` : ''].filter(Boolean).join(' · ') || 'Requests from operatives';
+  const sub = [pending?.length ? `${pending.length} to action` : '', collectN ? `${collectN} to collect` : ''].filter(Boolean).join(' · ');
   return (
     <ScrollView contentContainerStyle={page(720)}>
+      <HowTo k="materials" />
       <JobGrid>
       <Tile icon="🙋" tint="#F1E4FA" title="Material Requests" sub={sub} badge={pending?.length || undefined} onPress={go('materials/requests')} />
-      <Tile icon="📄" tint="#FBEFE0" title="Material PO's" sub="Order files for this job" onPress={go('materials/pos')} />
-      {canSeeMatTile(vis, 'plant', role) && <Tile icon="🏗" tint="#EAF3EC" title="Plant" sub="Check in / out" onPress={go('plant')} {...visProps('plant', 'Plant')} />}
-      {canSeeMatTile(vis, 'expenses', role) && <Tile icon="🧾" tint="#FDF1DE" title="Expenses" sub="Send receipts" onPress={go('expenses')} {...visProps('expenses', 'Expenses')} />}
+      <Tile icon="📄" tint="#FBEFE0" title="Material PO's" sub="" onPress={go('materials/pos')} />
+      {canSeeMatTile(vis, 'plant', role) && <Tile icon="🏗" tint="#EAF3EC" title="Plant" sub="" onPress={go('plant')} {...visProps('plant', 'Plant')} />}
+      {canSeeMatTile(vis, 'expenses', role) && <Tile icon="🧾" tint="#FDF1DE" title="Expenses" sub="" onPress={go('expenses')} {...visProps('expenses', 'Expenses')} />}
       </JobGrid>
       {!!office?.length && (
         <Card style={{ marginTop: space.m }}>

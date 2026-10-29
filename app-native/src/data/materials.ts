@@ -85,10 +85,10 @@ export function useCollectionsOpenCount(siteId: string | undefined, enabled: boo
   });
 }
 
-export async function addMaterial(me: Profile, siteId: string, f: { item: string; qty: string; requiredBy: string | null; sub: SubAddr | null }): Promise<boolean> {
+export async function addMaterial(me: Profile, siteId: string, f: { item: string; qty: string; requiredBy: string | null; sub: SubAddr | null; shopItemId?: string | null }): Promise<boolean> {
   const r = await db.from('materials').insert({
     site_id: siteId, item: f.item, qty: f.qty || '1', required_by_date: f.requiredBy, requested_by: me.id, status: 'pending',
-    sub_site_id: f.sub?.id ?? null, sub_site_label: f.sub ? subAddrLabel(f.sub) : null,
+    sub_site_id: f.sub?.id ?? null, sub_site_label: f.sub ? subAddrLabel(f.sub) : null, ...(f.shopItemId ? { shop_item_id: f.shopItemId } : {}),
   } as never);
   if (r.error) return false;
   tellManagers(me, siteId, 'material_request', `${me.name} requested material: ${f.item} (qty ${f.qty || '1'})${f.requiredBy ? ` — required by ${f.requiredBy}` : ''}`);
