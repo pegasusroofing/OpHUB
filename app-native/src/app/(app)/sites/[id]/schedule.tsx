@@ -38,7 +38,7 @@ import { csvRows, readXlsx } from '@/lib/rules/xlsxRead';
 import { supabase } from '@/lib/supabase';
 import { VisibilityEditor } from '@/components/VisibilityEditor';
 import { HowTo } from '@/components/HowTo';
-import { onQueueChange, onUploadsSent, pendingUploads, type UploadJob } from '@/lib/uploadQueue';
+import { onQueueChange, onUploadsSent, pendingJobs, type PatchJob, type UploadJob } from '@/lib/uploadQueue';
 import { base, page, space, useTheme } from '@/theme/theme';
 
 export default function Schedule() {
@@ -52,6 +52,8 @@ export default function Schedule() {
   const [vis, setVis] = useState<string | null>(null);
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [pending, setPending] = useState<UploadJob[]>([]);
+  // Status changes still waiting for their photos to upload (481 sowPendingForRender) — shown straight away.
+  const [waiting, setWaiting] = useState<PatchJob[]>([]);
   const [pctPrompt, setPctPrompt] = useState<string | null>(null);
   const [selecting, setSelecting] = useState<Set<string> | null>(null);
   const [adding, setAdding] = useState<string | null>(null); // group key with the add-task box open
@@ -60,8 +62,12 @@ export default function Schedule() {
   const { data: subCos = [] } = useQuery({ queryKey: ['sowSubCos', site?.id], enabled: !!site?.acting_as_main_contractor, queryFn: async () => (((await supabase.from('subcontractor_companies' as never).select('id,name').eq('site_id', site?.id as string)).data as { id: string; name: string }[] | null) ?? []) });
 
   useEffect(() => {
-    pendingUploads().then(setPending);
-    const a = onQueueChange((jobs) => setPending(jobs.filter((j): j is UploadJob => j.kind === 'upload')));
+    const split = (jobs: Awaited<ReturnType<typeof pendingJobs>>) => {
+      setPending(jobs.filter((j): j is UploadJob => j.kind === 'upload'));
+      setWaiting(jobs.filter((j): j is PatchJob => j.kind === 'patch' && j.table === 'schedule_tasks'));
+    };
+    void pendingJobs().then(split);
+    const a = onQueueChange(split);
     const b = onUploadsSent((n) => { toast(`✓ ${n} photo${n === 1 ? '' : 's'} uploaded`); void refetch(); });
     return () => { a(); b(); };
   }, [refetch, toast]);
@@ -72,7 +78,8 @@ export default function Schedule() {
   const view = useMemo(() => {
     if (!data) return null;
     const here = data.hereSubId ? data.addresses.find((a) => a.id === data.hereSubId) ?? null : null;
-    const allTasks = tasksForAddress(data.tasks, here?.id ?? null, showAll);
+    const patched = waiting.length ? data.tasks.map((t) => { const w = waiting.filter((j) => j.rowId === t.id); return w.length ? ({ ...t, ...Object.assign({}, ...w.map((j) => j.patch)) } as Task) : t; }) : data.tasks;
+    const allTasks = tasksForAddress(patched, here?.id ?? null, showAll);
     const tasks = filterTasks(allTasks, filter);
     const bySectionAll: Record<string, Task[]> = {};
     const bySection: Record<string, Task[]> = {};
@@ -90,7 +97,7 @@ export default function Schedule() {
       docs: data.docs.filter((d) => manager || d.visibility !== 'managers'),
       addrById: Object.fromEntries(data.addresses.map((a) => [a.id, a])),
     };
-  }, [data, filter, showAll, manager]);
+  }, [data, filter, showAll, manager, waiting]);
 
   if (!site || !me) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   const changed = () => { void refetch(); };
@@ -274,7 +281,7 @@ export default function Schedule() {
                 changed();
               }} />
           )}
-          {manager && !!view?.allTasks.length && <View style={{ marginTop: space.m }}><SowExport site={site} tab={filter} /></View>}
+          {!!view?.allTasks.length && <View style={{ marginTop: space.m }}><SowExport site={site} tab={filter} /></View>}
         </>
       )}
       {pdfText !== null && (

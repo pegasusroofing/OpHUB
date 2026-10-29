@@ -11,6 +11,7 @@ import { getPosition } from '@/data/checkinAction';
 import { checkinsForExport, setFencePoint, setFenceRadius, usePmLogins, useTeamCheckins } from '@/data/checkinManager';
 import { nameOf, usePeople } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
+import { isManager } from '@/lib/roles';
 import { exportTableExcel } from '@/lib/tableExport';
 import { buildCheckinSessions, checkinDayLabel, timeHM } from '@/lib/rules/checkin';
 import { parseCoordToken, radiusOptions, splitCoordPair, validLatLon } from '@/lib/rules/geo';
@@ -125,7 +126,8 @@ export function CheckinManager({ site, sub }: { site: Site; sub?: SubAddress }) 
           )) : <Empty>{site.responsible_pm_id ? 'No check-ins yet.' : 'No project manager assigned to this project yet.'}</Empty>)}
         </>
       )}
-      {admin && !sub && (
+      {/* Every manager can export, as the current app (440). */}
+      {!!me && isManager(me) && !sub && (
         <>
           <SectionTitle>Reports</SectionTitle>
           <View style={{ flexDirection: 'row', gap: 8 }}>

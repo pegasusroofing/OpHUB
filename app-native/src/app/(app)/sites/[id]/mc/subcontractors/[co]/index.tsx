@@ -1,9 +1,12 @@
-// One subcontractor company's hub (550 renderSubcontractorHub).
+// One subcontractor company's hub (550 renderSubcontractorHub). Like the current
+// app's router, only managers, clients and that company's own people get in.
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { ScrollView } from 'react-native';
 
 import { Muted, Tile } from '@/components/ui';
-import { useSubco } from '@/data/subcontractors';
+import { useSite } from '@/data/sites';
+import { useSubco, useSubcos } from '@/data/subcontractors';
+import { isManager } from '@/lib/roles';
 import { useAuth } from '@/lib/auth';
 import { page, space } from '@/theme/theme';
 
@@ -11,6 +14,10 @@ export default function SubcoHub() {
   const { id, co } = useLocalSearchParams<{ id: string; co: string }>();
   const { me } = useAuth();
   const { data, isLoading } = useSubco(co, me);
+  const { data: site } = useSite(id);
+  const { data: list } = useSubcos(site, me);
+  const allowed = !!me && (isManager(me) || me.role === 'client' || list?.myCompany === co);
+  if (me && !allowed) return <Muted style={{ padding: space.l }}>{list ? "You don't have access to this subcontractor." : 'Loading…'}</Muted>;
   if (isLoading || !data) return <Muted style={{ padding: space.l }}>{isLoading ? 'Loading…' : 'Subcontractor not found.'}</Muted>;
   const n = data.counts;
   const go = (p: string) => () => router.push(`/sites/${id}/mc/subcontractors/${co}/${p}` as never);
