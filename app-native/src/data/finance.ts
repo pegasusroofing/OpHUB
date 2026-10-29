@@ -14,8 +14,10 @@ type Q = ReturnType<ReturnType<typeof supabase.from>['select']>;
 /** Every row (1000 at a time), so big companies never lose rows past the first page. */
 export async function selectAll<T>(table: string, cols: string, filter: (q: Q) => Q): Promise<T[]> {
   let out: T[] = [];
+  // job_finance has one row per project and no id column — paging by id there failed, so it came back empty.
+  const key = table === 'job_finance' ? 'site_id' : 'id';
   for (let off = 0; off < 500000; off += 1000) {
-    const r = await filter(fdb.from(table).select(cols) as Q).order('id').range(off, off + 999);
+    const r = await filter(fdb.from(table).select(cols) as Q).order(key).range(off, off + 999);
     const page = (r.data as T[] | null) ?? [];
     out = out.concat(page);
     if (page.length < 1000) break;

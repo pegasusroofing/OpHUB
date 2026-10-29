@@ -38,6 +38,7 @@ export function useSiteHome(site: Site | undefined) {
         db.from('site_calendar_events').select('title').eq('site_id', s.id).eq('event_date', iso).order('created_at', { ascending: true }),
         canSeePrice(p, s),
       ]);
+      const mine = await db.from('checkins').select('type').eq('site_id', s.id).eq('user_id', p.id).order('ts', { ascending: false }).limit(1);
       const ramsDocs = orThrow(rams) as Doc[];
       const signed = new Set(currentCycleSigs((orThrow(myRams) as { rams_id: string; signed_at: string; user_id: string }[]), ramsDocs, 'rams_id', s).map((x) => x.rams_id));
       const latest: Record<string, string> = {};
@@ -74,6 +75,7 @@ export function useSiteHome(site: Site | undefined) {
         canSeePrice: price,
         hsGap,
         assignedCount,
+        meOnSite: ((mine.data as { type: string }[] | null) ?? [])[0]?.type === 'in',
       };
     }),
   });

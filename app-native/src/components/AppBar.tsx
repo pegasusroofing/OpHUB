@@ -23,7 +23,8 @@ export function AppBar({ title, onBack, home }: { title?: string; onBack?: () =>
   const { data: sites } = useSites();
   const siteId = (path.match(/^\/sites\/([0-9a-f-]{36})/) || [])[1];
   const site = siteId ? sites?.find((s) => s.id === siteId) : undefined;
-  const sub = home ? 'OpHUB' : site ? [site.name, fullSiteAddress(site)].filter((x, i, a) => x && a.indexOf(x) === i).join(' · ') : org?.name || 'OpHUB';
+  // A job's own home page already has its name as the title, so just the address under it.
+  const sub = home ? 'OpHUB' : site ? [title === site.name ? '' : site.name, fullSiteAddress(site)].filter((x, i, a) => x && a.indexOf(x) === i).join(' · ') : org?.name || 'OpHUB';
   const main = home ? org?.name || 'OpHUB' : title || '';
   return (
     <View style={{ backgroundColor: base.card, borderBottomWidth: 1, borderBottomColor: desk ? '#E5E8ED' : base.line, paddingTop: insets.top + (desk ? 14 : 10), paddingBottom: desk ? 14 : 10, paddingHorizontal: desk ? 40 : 14 }}>
