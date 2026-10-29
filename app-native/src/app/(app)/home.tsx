@@ -38,6 +38,7 @@ export default function Home() {
   const kind = homeKind(me, org);
   if (kind === 'operative') return <OperativeHome />;
   if (kind === 'driver') return <DriverHome />;
+  if (kind === 'finance') return <Redirect href={'/fin' as never} />;
   // PMs and admins get the PM home; site managers go straight to the projects list (as today).
   if (kind === 'manager') return me?.role === 'site_manager' ? <Redirect href="/sites" /> : <PmHome />;
   const today = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
