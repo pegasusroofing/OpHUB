@@ -1,5 +1,5 @@
 // Operative home. Ported from renderOpHome (185-pm-home.js).
-// Still to come: the subcontractor form tile.
+// The Subcontractor form tile shows until the operative has sent it (867).
 import { router } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 
@@ -8,6 +8,7 @@ import { outstandingCount, useOutstanding } from '@/data/inbox';
 import { useOpUnreadCount } from '@/data/messages';
 import { useOnboarding } from '@/data/onboarding';
 import { useSites } from '@/data/sites';
+import { useSubformNeeded } from '@/data/subform';
 import { useAuth } from '@/lib/auth';
 import { greeting, siteStatusKey } from '@/lib/rules/checkin';
 import { roleLabel } from '@/lib/roles';
@@ -24,6 +25,7 @@ export function OperativeHome() {
   const { data: outRows } = useOutstanding(sites);
   const todo = outstandingCount(outRows);
   const { data: onboarding } = useOnboarding(sites);
+  const { data: subform } = useSubformNeeded(me);
   const first = (me?.name || '').trim().split(/\s+/)[0] || '';
   const dateTxt = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
 
@@ -47,6 +49,7 @@ export function OperativeHome() {
         <Text style={{ color: t.brand1Text, fontSize: 20, fontWeight: '800' }}>My projects</Text>
         <Text style={{ color: t.brand1Text, opacity: 0.85, marginTop: 4 }}>{live.length} live{upcoming.length ? ` · ${upcoming.length} upcoming` : ''}</Text>
       </Pressable>
+      {subform?.needed && <Tile icon="📝" tint={base.warnBg} title="Subcontractor form" sub="Please fill in — takes about 5 minutes" badge={1} onPress={() => router.push('/subform' as never)} />}
       <Tile icon="💬" tint={base.blueBg} title="Messages & tasks" badge={todo + unread}
         sub={[todo ? `${todo} to sign or do` : 'Nothing to sign', unread ? `${unread} new message${unread === 1 ? '' : 's'}` : 'no new messages'].join(' · ')}
         onPress={() => router.push('/inbox')} />

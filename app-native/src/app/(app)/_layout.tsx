@@ -50,6 +50,7 @@ export default function AppLayout() {
       <Tabs.Screen name="inbox" options={{ ...hidden, title: 'Messages & tasks' }} />
       <Tabs.Screen name="getting-started" options={{ ...hidden, title: 'Getting Started' }} />
       <Tabs.Screen name="signature" options={{ ...hidden, title: 'My Signature' }} />
+      <Tabs.Screen name="subform" options={{ ...hidden, title: 'Subcontractor form' }} />
       <Tabs.Screen name="pm" options={{ ...hidden, title: 'Manager' }} />
       <Tabs.Screen name="fin" options={{ ...hidden, title: 'Finance' }} />
     </Tabs>

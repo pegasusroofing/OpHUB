@@ -1,7 +1,7 @@
 // One operative (320 renderOperativeDetail): name and phone (editable), sites
 // assigned / live now, their certificates and their tools.
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { ScrollView, Text, View } from 'react-native';
 
 import { CertsPanel } from '@/components/CertsPanel';
@@ -10,6 +10,7 @@ import { OperativeOneDrive } from '@/components/OperativeOneDrive';
 import { promptText, useToast } from '@/components/toast';
 import { Button, Card, Muted, SectionTitle } from '@/components/ui';
 import { saveOperativeField, useOperativeList } from '@/data/certs';
+import { useOperativeSubform } from '@/data/subform';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { siteStatusKey } from '@/lib/rules/checkin';
@@ -24,6 +25,7 @@ export default function OperativeDetail() {
   const qc = useQueryClient();
   const { data: ops = [] } = useOperativeList(me?.org_id);
   const { data: sites = [] } = useSites();
+  const { data: sub } = useOperativeSubform(op);
   const { data: siteIds = [] } = useQuery({
     queryKey: ['opSites', op], enabled: !!op,
     queryFn: async () => [...new Set((((await supabase.from('site_assignments').select('site_id').eq('user_id', op)).data ?? []) as { site_id: string }[]).map((r) => r.site_id))],
@@ -66,6 +68,12 @@ export default function OperativeDetail() {
       <SectionTitle>Certificates</SectionTitle>
       <Muted style={{ marginBottom: 6 }}>This is {o.name}&apos;s record in the company Training Matrix — it also shows on their own My Dashboard.</Muted>
       <CertsPanel userId={o.id} />
+      <SectionTitle>Subcontractor form</SectionTitle>
+      <Card>
+        <Text style={{ fontWeight: '700', color: sub?.sent ? base.ok : sub?.off ? base.slate : base.warn }}>{sub?.sent ? `Sent ${new Date(sub.sent.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : sub?.off ? 'Turned off' : 'Not sent yet'}</Text>
+        {sub?.sent ? <Button kind="ghost" title="View form" onPress={() => router.push(`/pm/admin/subapps/${sub.sent?.id}` as never)} />
+          : <Muted>{sub?.off ? 'Not asked for — switch it on from Admin Centre › Invites & Users.' : 'It’s on their Home screen until they send it.'}</Muted>}
+      </Card>
       <SectionTitle>Tools</SectionTitle>
       <MyToolsList userId={o.id} name={o.name} />
       <View style={{ height: space.xl }} />
