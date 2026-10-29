@@ -4,7 +4,7 @@
 // moved or deleted, and new ones added. Saves as you go. Export the PDF (with
 // the data sheets, guarantees, COSHH, drawings and appendix attached behind it)
 // or email it. The Scope of Works has to be filled in first.
-// Word export is still in the current app.
+// Or a Word file to carry on editing.
 import { useQuery } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -18,6 +18,7 @@ import { jobPhotos, loadManual, saveManual } from '@/data/omManual';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { buildOmPdf } from '@/lib/omPdf';
+import { buildOmWord, deliverDocx } from '@/lib/omWord';
 import { deliverPdf, emailPdf } from '@/lib/pdf';
 import { HO_MAINT, omUid, scopeEmpty, type OmData, type OmPhoto, type OmSection } from '@/lib/rules/omManual';
 import { isManager } from '@/lib/roles';
@@ -100,6 +101,12 @@ function Editor({ me, org, site, manualId, name0, data0 }: { me: Profile; org: O
           setStatus('Sending…'); const err = await emailPdf(b.bytes, b.filename, `${site.id}/om-exports`, { site_id: site.id, recipient_email: to, doc_title: `O&M Manual — ${site.name}` }); setStatus('');
           toast(err || `Emailed to ${to}`);
         }} />
+        <Button kind="ghost" title="📝 Word" disabled={!!status} onPress={async () => {
+          if (scopeEmpty(d)) { toast('Describe the Scope of Works first — it has to be filled in'); return; }
+          await flush(); setStatus('Building the Word file…');
+          try { const w = await buildOmWord(d, site, org); if (!(await deliverDocx(w.bytes, w.filename))) toast('Could not save the Word file.'); }
+          catch { toast('Could not build the Word file — try again'); } finally { setStatus(''); }
+        }} />
       </View>
 
       <Card>
@@ -175,7 +182,7 @@ function Editor({ me, org, site, manualId, name0, data0 }: { me: Profile; org: O
         </Card>
       ))}
       <Button kind="ghost" title="+ Add a section" onPress={() => void addSec()} />
-      <Muted style={{ marginTop: 8, marginBottom: space.xl }}>Saves as you type. Word export is still in the current app for now.</Muted>
+      <Muted style={{ marginTop: 8, marginBottom: space.xl }}>Saves as you type.</Muted>
       {picker && <PhotoPicker siteId={site.id} single={picker.sec === null} onClose={() => setPicker(null)} onPick={(ps) => {
         if (picker.sec === null) up((x) => { x.cover.coverPhoto = ps[0] ? { bucket: ps[0].bucket, path: ps[0].path } : x.cover.coverPhoto; });
         else { const sid = picker.sec; up((x) => { const t = sec(x, sid); t.photos = [...(t.photos || []), ...ps]; }); }
