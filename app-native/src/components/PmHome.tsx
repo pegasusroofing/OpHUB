@@ -15,6 +15,7 @@ import { useHub } from '@/data/hub';
 import { useDeliveryRequests } from '@/data/deliveries';
 import { useOnSiteNow, usePmReports, usePmTodos } from '@/data/pmHome';
 import { useSites } from '@/data/sites';
+import { useToBook } from '@/data/toBook';
 import { useAuth } from '@/lib/auth';
 import { heading } from '@/lib/fonts';
 import { greeting, siteStatusKey } from '@/lib/rules/checkin';
@@ -34,6 +35,9 @@ export function PmHome() {
   // Managers: the HUB feed count, as the current app (130 computeMyOutstandingCount).
   const hubN = hub?.items.length ?? 0;
   const dlvN = dlvReqs?.length ?? 0;
+  // Things the office has sent you to book (9219b pmToBookCounts).
+  const { data: toBook } = useToBook(sites);
+  const tbInv = toBook?.inv.length ?? 0, tbWages = toBook?.wages.length ?? 0;
   const live = (sites ?? []).filter((s) => siteStatusKey(s) === 'live');
   const upcoming = (sites ?? []).filter((s) => siteStatusKey(s) === 'upcoming');
   const open = reports.filter((r) => r.status === 'in_progress');
@@ -49,6 +53,16 @@ export function PmHome() {
       {!desk && <SearchButton />}
       <HowTo k="home" />
       <HomePrompts />
+      {(tbInv > 0 || tbWages > 0) && (
+        <Pressable onPress={go('/pm/tobook')} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: base.warnBg, borderRadius: 16, padding: 14, marginBottom: space.m }}>
+          <Text style={{ fontSize: 18, fontWeight: '800', color: base.warn }}>£</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontWeight: '800', color: base.ink }}>Needs you</Text>
+            <Text style={{ fontSize: 12.5, color: base.slate }}>{[tbInv ? `${tbInv} purchase invoice${tbInv === 1 ? '' : 's'} to book to a job` : '', tbWages ? `${tbWages} wage${tbWages === 1 ? '' : 's'} to book to a price` : ''].filter(Boolean).join(' · ')}</Text>
+          </View>
+          <OphIcon name="chevron" size={18} color={base.slate} stroke={2.2} />
+        </Pressable>
+      )}
       <View style={{ flexDirection: 'row', gap: desk ? 14 : 8, marginBottom: space.m }}>
         <Stat n={live.length} label="Live jobs" onPress={go('/sites')} />
         <Stat n={onSite.length} label="On site now" onPress={go('/onsite')} />
