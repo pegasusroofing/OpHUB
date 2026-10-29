@@ -178,7 +178,7 @@ export default function SiteHome() {
     { key: 'dwg', ic: 'pencil', bg: '#E7EFEA', fg: '#2F6B4A', title: "Drawings, Spec's & Programme", sub: 'View & upload', onPress: go('drawings') },
     { key: 'mat', ic: 'box', bg: base.okBg, fg: base.ok, title: 'Materials', sub: h ? `${h.pendingMaterials} pending` : '…', onPress: go('materials') },
     { key: 'rep', ic: 'reports', bg: base.warnBg, fg: base.warn, title: mgr ? 'Inspections & Reports' : 'Snagging & Variations', sub: h ? `${snags} open` : '…', badge: snags || undefined, onPress: go('snagging') },
-    ...(h?.canSeePrice ? [{ key: 'price', emoji: '💷', bg: '#FFF3D9', fg: '#8A6300', title: 'Price', sub: 'Pricing elements', onPress: go('price') }] : []),
+    ...(h?.canSeePrice ? [{ key: 'price', emoji: '💷', bg: '#FFF3D9', fg: '#8A6300', title: 'Price', sub: h.priceWages ? `${h.priceWages} wage${h.priceWages > 1 ? 's' : ''} to book` : h.priceVars ? `${h.priceVars} variation${h.priceVars > 1 ? 's' : ''} pending` : 'Pricing elements', badge: h.priceVars + h.priceWages || undefined, onPress: go('price') }] : []),
     ...(fin ? [{ key: 'fin', ic: 'pound', bg: '#E6F2EC', fg: '#1E6B45', title: 'Finance', sub: site.job_number ? `Job ${site.job_number}` : 'OpHUB Finance', onPress: () => router.push(`/fin/job/${site.id}` as never) }] : []),
     // Messages is in the left menu on a computer.
     ...(!desk ? [{ key: 'msg', ic: 'chat', bg: TINTS.blue[0], fg: TINTS.blue[1], title: 'Messages', sub: 'Team messages', onPress: go('messages') }] : []),

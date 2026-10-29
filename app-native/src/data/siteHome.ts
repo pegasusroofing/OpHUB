@@ -63,6 +63,15 @@ export function useSiteHome(site: Site | undefined) {
         };
         hsGap = (await gap('rams_signatures', 'rams_id', ramsDocs)) || (await gap('coshh_signatures', 'coshh_id', (coshh.data as Doc[] | null) ?? []));
       }
+      // Price tile (330): variations waiting to be priced and wages to book, for managers who can see prices.
+      let priceVars = 0, priceWages = 0;
+      if (mgr && price) {
+        const [aw, wp] = await Promise.all([
+          db.from('additional_works_requests').select('id').eq('site_id', s.id).eq('status', 'pending'),
+          db.from('wage_pushes').select('id').eq('site_id', s.id).eq('status', 'pending'),
+        ]);
+        priceVars = ((aw.data as unknown[] | null) ?? []).length; priceWages = ((wp.data as unknown[] | null) ?? []).length;
+      }
       const t = orThrow(tasks) as { status: string; percent_complete: number | null }[];
       return {
         tasks: t,
@@ -73,6 +82,7 @@ export function useSiteHome(site: Site | undefined) {
         onSiteCount: Object.values(latest).filter((x) => x === 'in').length,
         todayEvents: ((cal.data as { title: string }[] | null) ?? []).map((e) => e.title),
         canSeePrice: price,
+        priceVars, priceWages,
         hsGap,
         assignedCount,
         meOnSite: ((mine.data as { type: string }[] | null) ?? [])[0]?.type === 'in',

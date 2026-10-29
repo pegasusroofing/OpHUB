@@ -6,7 +6,7 @@
 import * as DocumentPicker from 'expo-document-picker';
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { AppState, Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { StorageImage, useStorageUrl } from '@/components/StorageImage';
@@ -19,6 +19,7 @@ import { exportRepairReport } from '@/lib/repairReportPdf';
 import { addRepairPhotos, deleteRepairJob, hasRepairPhoto, hideRepairPhoto, notifyPmOfRepairNotes, patchRepairJob, syncRepairEvent, uploadWorkOrder, useRepairJob, type RepairPhoto } from '@/data/repairs';
 import { useAuth } from '@/lib/auth';
 import { pickPhotos } from '@/lib/photos';
+import { useFlushOnLeave } from '@/lib/useFlushOnLeave';
 import { readIsoDate } from '@/lib/rules/materials';
 import { approveStatus, needsScaffold, progressMove, REPAIR_ACCESS, REPAIR_STATUSES, scaffoldMove, surveyStatusMove, type RepairJob } from '@/lib/rules/repairs';
 import { isManager } from '@/lib/roles';
@@ -56,6 +57,9 @@ export default function RepairJobPage() {
   const [surveyEdit, setSurveyEdit] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [odNote, setOdNote] = useState('');
+  // Notes typed but not saved are saved (and the PM emailed) when you leave the page or the app (340 flushRepairJobUnsavedNotes).
+  const flushNotes = useRef<(() => Promise<unknown>) | null>(null);
+  useFlushOnLeave(flushNotes);
   // Photos not yet in OneDrive go when the job opens and when the app comes back to the front (e.g. after the camera).
   useEffect(() => {
     if (!jobId) return;
@@ -137,6 +141,8 @@ export default function RepairJobPage() {
       if (section) notifyPmOfRepairNotes(job.id, job.site_id, section, v);
     }
   };
+  // eslint-disable-next-line react-hooks/refs
+  flushNotes.current = async () => { for (const k of ['survey_notes', 'progress_notes', 'works_notes', 'priced_schedule_of_works'] as const) if (draft[k] != null && draft[k] !== (job[k] || '')) await saveNotes(k); };
   const notesBox = (k: 'survey_notes' | 'progress_notes' | 'works_notes' | 'priced_schedule_of_works', placeholder: string) => (
     <>
       <TextInput value={val(k)} onChangeText={setVal(k)} placeholder={placeholder} multiline style={[box, { minHeight: 70 }]} />

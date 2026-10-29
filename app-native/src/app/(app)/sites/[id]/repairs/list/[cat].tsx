@@ -12,8 +12,9 @@ import { Button, Empty, Muted } from '@/components/ui';
 import { patchRepairJob, patchRepairJobs, useRepairHiddenTiles, useRepairJobs } from '@/data/repairs';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
+import { localISODate } from '@/lib/rules/driver';
 import { exportRepairRoute, exportRepairsByApproved, lastRepairRoute, REPAIR_ROUTE_CATEGORIES, viewLastRepairRoute } from '@/lib/repairExports';
-import { approveStatus, matchesRepairSearch, REPAIR_CATEGORIES, REPAIR_SORT_LABELS, sortRepairs, type RepairSort } from '@/lib/rules/repairs';
+import { approveStatus, matchesRepairSearch, REPAIR_CATEGORIES, REPAIR_SORT_LABELS, sortRepairs, type RepairSort, scaffoldMove } from '@/lib/rules/repairs';
 import { isManager } from '@/lib/roles';
 import { base, page, radius, space } from '@/theme/theme';
 
@@ -37,14 +38,20 @@ export default function RepairList() {
   const sorts = (Object.keys(REPAIR_SORT_LABELS) as RepairSort[]).filter((k) => k !== 'approved_asc' || key === 'approved');
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['repairJobs', id] }); setSel(new Set()); setSelecting(false); };
   const chosen = jobs.filter((j) => sel.has(j.id));
-  const bulk = async (what: 'approve' | 'complete' | 'close') => {
+  const bulk = async (what: 'approve' | 'scaffold' | 'complete' | 'invoiced' | 'close') => {
     if (!chosen.length) { toast('Select some jobs first.'); return; }
-    const label = { approve: 'Approve', complete: 'Mark completed', close: 'Close (subject to invoice)' }[what];
+    const label = { approve: 'Approve', scaffold: 'Mark scaffold erected on', complete: 'Mark completed', invoiced: 'Mark invoiced', close: 'Close (subject to invoice)' }[what];
     if (!(await confirmAsk(`${label} ${chosen.length} job${chosen.length === 1 ? '' : 's'}?`, label))) return;
     const now = new Date().toISOString();
     let ok = true;
     if (what === 'approve') {
       for (const j of chosen) ok = (await patchRepairJob(j.id, { quote_approved: true, approved_by: me.id, self_authorized: false, job_status: approveStatus(j), ...(j.quote_approved_at ? {} : { quote_approved_at: now }) })) && ok;
+    } else if (what === 'scaffold') {
+      // Erected today; a job waiting for scaffold moves on to To Do (340 bulkMarkScaffoldErected).
+      const day = localISODate(new Date());
+      for (const j of chosen) { const n = scaffoldMove(j, day); ok = (await patchRepairJob(j.id, { scaffold_erection_date: day, ...(n ? { job_status: n } : {}) })) && ok; }
+    } else if (what === 'invoiced') {
+      ok = await patchRepairJobs(chosen.map((j) => j.id), { invoiced: true });
     } else if (what === 'complete') {
       for (const j of chosen) ok = (await patchRepairJob(j.id, { works_completed: true, works_completed_date: now, ...(j.closed ? {} : { job_status: 'Awaiting Sign-off' }) })) && ok;
     } else {
@@ -62,10 +69,12 @@ export default function RepairList() {
         {mgr && <Pressable onPress={() => { setSelecting(!selecting); setSel(new Set()); }}><Text style={{ color: base.blue, fontWeight: '700' }}>{selecting ? 'Cancel' : 'Select'}</Text></Pressable>}
       </View>
       {selecting && (
-        <View style={{ flexDirection: 'row', gap: 6, marginBottom: 10 }}>
-          <View style={{ flex: 1 }}><Button title="Approve" onPress={() => void bulk('approve')} /></View>
-          <View style={{ flex: 1 }}><Button kind="ghost" title="Completed" onPress={() => void bulk('complete')} /></View>
-          <View style={{ flex: 1 }}><Button kind="ghost" title="Close" onPress={() => void bulk('close')} /></View>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+          <View style={{ flexGrow: 1, flexBasis: 140 }}><Button title="Approve" onPress={() => void bulk('approve')} /></View>
+          <View style={{ flexGrow: 1, flexBasis: 140 }}><Button kind="ghost" title="Scaffold erected" onPress={() => void bulk('scaffold')} /></View>
+          <View style={{ flexGrow: 1, flexBasis: 140 }}><Button kind="ghost" title="Completed" onPress={() => void bulk('complete')} /></View>
+          <View style={{ flexGrow: 1, flexBasis: 140 }}><Button kind="ghost" title="Invoiced" onPress={() => void bulk('invoiced')} /></View>
+          <View style={{ flexGrow: 1, flexBasis: 140 }}><Button kind="ghost" title="Close" onPress={() => void bulk('close')} /></View>
         </View>
       )}
       {mgr && (REPAIR_ROUTE_CATEGORIES.includes(key) || key === 'approved') && <RouteExports siteId={id} cat={key} jobs={jobs} />}

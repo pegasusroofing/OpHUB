@@ -20,9 +20,9 @@ HIGH = money, data, permissions, safety or a daily job. MED = noticeable. LOW = 
 - MED FIXED — Change a certificate's type (Other asks for a description).
 - MED FIXED — Certificates for people not on the app (certification_manual_people): add person, upload, remove; shown on the job's operatives dashboard.
 - MED FIXED — Operatives' "Needs your signature" pop-up when opening a job (RAMS, COSHH, TBT, Sign now).
-- MED OPEN — Price tile badge: variations to price + pending wage pushes.
-- MED OPEN — Repair job notes saved when leaving the page (and the PM email).
-- MED OPEN — Repair bulk actions: Mark Scaffold Erected, Mark Invoiced.
+- MED FIXED — Price tile badge: variations to price + pending wage pushes.
+- MED FIXED — Repair job notes saved when leaving the page (and the PM email).
+- MED FIXED — Repair bulk actions: Mark Scaffold Erected, Mark Invoiced.
 - MED OPEN — Photo on a variation to price.
 - MED OPEN — Email selected reports from a project's reports list.
 - MED OPEN — Exported report PDF also saved to the site's OneDrive folder.
