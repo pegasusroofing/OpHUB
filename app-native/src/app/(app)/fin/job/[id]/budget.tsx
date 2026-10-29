@@ -6,7 +6,7 @@ import { Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, Text, TextInput, View } from 'react-native';
 
-import { useToast } from '@/components/toast';
+import { confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Muted } from '@/components/ui';
 import { fdb } from '@/data/finance';
 import { useBook } from '@/data/finBook';
@@ -86,7 +86,16 @@ export default function FinBudget() {
           </Card>
         );
       })}
-      <Card><Text style={{ color: base.ink }}>Expected final value {money(fc.ffa, 0)} · expected final cost {money(fc.forecastCost, 0)} · <Text style={{ fontWeight: '800' }}>expected profit {money(fc.forecastMargin, 0)}</Text></Text>{fc.budgetSource === 'schedule' && <Muted>No heading budgets yet — the budget is taken from the schedule&apos;s cost prices.</Muted>}</Card>
+      <Card><Text style={{ color: base.ink }}>Expected final value {money(fc.ffa, 0)} · expected final cost {money(fc.forecastCost, 0)} · <Text style={{ fontWeight: '800' }}>expected profit {money(fc.forecastMargin, 0)}</Text></Text>{fc.budgetSource === 'schedule' && <Muted>No heading budgets yet — the budget is taken from the schedule&apos;s cost prices.</Muted>}
+        {/* The starting point the job is measured against (911 finSetOriginal). */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+          <Muted style={{ flex: 1 }}>{fc.jf.original_value == null ? 'Save today’s value and budget as the starting point, so you can see how the job moves.' : `Starting point saved${fc.jf.original_at ? ` ${new Date(fc.jf.original_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}` : ''}: value ${money(fc.jf.original_value, 0)}${fc.jf.original_cost != null ? ` · budget ${money(fc.jf.original_cost, 0)}` : ''}.`}</Muted>
+          <Button kind="ghost" title={fc.jf.original_value == null ? 'Save starting point' : 'Update to today’s figures'} onPress={async () => {
+            if (!(await confirmAsk(`Set the original to today’s figures?\n\nValue ${money(fc.ffa)} · budget ${fc.budgetTotal != null ? money(fc.budgetTotal) : 'none'}`, 'Set'))) return;
+            const r = await fdb.from('job_finance').upsert({ site_id: id, org_id: me.org_id, original_value: fc.ffa, original_cost: fc.budgetTotal, original_at: new Date().toISOString(), updated_at: new Date().toISOString(), updated_by: me.id } as never, { onConflict: 'site_id' });
+            toast(r.error ? 'Could not save — try again.' : 'Original set'); void qc.invalidateQueries({ queryKey: ['finBook'] });
+          }} />
+        </View></Card>
       <Button busy={busy} title="Save budget & forecast" onPress={async () => {
         const rows = [];
         for (const k of fc.cats) {
