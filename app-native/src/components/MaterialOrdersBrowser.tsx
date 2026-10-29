@@ -58,7 +58,7 @@ export function MaterialOrdersBrowser({ siteId, folderId }: { siteId: string; fo
               <Text style={{ color: base.ok }}>📁 Synced daily from "{s?.material_orders_folder_name || ''}" into this main folder{syncing ? ' — syncing…' : ''}</Text>
               <Button kind="ghost" busy={syncing} title="🔄 Sync Now" onPress={async () => { setSyncing(true); toast(await syncMaterialOrders(siteId)); setSyncing(false); refresh(); }} />
             </>
-          ) : <Muted>Link a OneDrive folder (from the current app for now) and any files placed in it sync here once a day.</Muted>}
+          ) : <><Muted>Link a OneDrive folder and any files placed in it sync here once a day.</Muted><Button kind="ghost" title="☁️ Link OneDrive folder" onPress={() => router.push({ pathname: '/pm/onedrive-pick', params: { target: 'materials', id: siteId } } as never)} /></>}
         </Card>
       )}
       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>

@@ -337,7 +337,8 @@ export default function RepairJobPage() {
           )}
         </>
       )}
-      <Muted style={{ marginBottom: space.xl }}>Survey / completion report PDFs and OneDrive sync for this job are still in the current app for now.</Muted>
+      <Button kind="ghost" title="☁️ Link this job's OneDrive folder" onPress={() => router.push({ pathname: '/pm/onedrive-pick', params: { target: 'repairjob', id: jobId } } as never)} />
+      <Muted style={{ marginBottom: space.xl }}>Survey / completion report PDFs are still in the current app for now.</Muted>
     </ScrollView>
   );
 }

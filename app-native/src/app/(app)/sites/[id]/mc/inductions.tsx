@@ -100,7 +100,8 @@ export default function Inductions() {
             </View>
           );
         }) : <Empty>{tab === 'completed' ? 'No completed inductions yet.' : 'No outstanding operatives — everyone on the roster has completed their induction.'}</Empty>}
-        {mgr && <Muted style={{ marginTop: space.m }}>Exporting or emailing several inductions at once and linking the OneDrive inductions folder are still in the current app for now.</Muted>}
+        {mgr && <Button kind="ghost" title="☁️ Link OneDrive inductions folder" onPress={() => router.push({ pathname: '/pm/onedrive-pick', params: { target: 'siteinductions', id: id } } as never)} />}
+        {mgr && <Muted style={{ marginTop: space.m }}>Exporting or emailing several inductions at once is still in the current app for now.</Muted>}
       </ScrollView>
     );
   }

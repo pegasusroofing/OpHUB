@@ -155,7 +155,7 @@ export default function SiteAdmin() {
               <Muted style={{ marginTop: 8 }}>{site.multi_site ? 'Turn off Multi-site first — a project is one or the other, not both.' : "When on, this project's Home page becomes its repair jobs list."}</Muted>
             </Card>
           )}
-          <Muted style={{ marginTop: 10 }}>The OneDrive sync folder is set from the current app for now.</Muted>
+          <Card style={{ marginTop: 10 }}><Text style={{ fontWeight: '700', color: base.ink }}>☁️ OneDrive sync folder</Text><Muted style={{ marginVertical: 6 }}>{(site as { onedrive_folder_name?: string | null }).onedrive_folder_name ? `📁 ${(site as { onedrive_folder_name?: string | null }).onedrive_folder_name} — photos, drawings and exports sync there` : "Not linked — link the job's real OneDrive folder so photos and exports sync there."}</Muted><Button kind="ghost" title={(site as { onedrive_folder_name?: string | null }).onedrive_folder_name ? 'Change folder' : 'Link folder'} onPress={() => router.push({ pathname: '/pm/onedrive-pick', params: { target: 'progress', id: site.id } } as never)} /></Card>
         </View>
       )}
 
