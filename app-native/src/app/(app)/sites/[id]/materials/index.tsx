@@ -1,6 +1,7 @@
 // A job's Materials. Operatives (725): their collection list as a tick list, what's
 // coming to site, their waiting requests and "Request materials". Managers (720):
-// tiles for Material Requests, Material PO's, Plant and Expenses.
+// tiles for Material Requests, Material PO's, Plant and Expenses (PMs / admins choose
+// who else sees Plant and Expenses on this job from the tile's ⋮).
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
@@ -11,9 +12,11 @@ import { useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle, Tile } from '@/components/ui';
 import { collectPickups, useCollectionsOpenCount, useMaterialRequests, useOfficeOrders, useOpMaterials } from '@/data/materials';
 import { useSite } from '@/data/sites';
+import { tileRoles, tileVisMenu } from '@/data/tileVis';
 import { useAuth } from '@/lib/auth';
 import { canSeeMatTile, groupPickups } from '@/lib/rules/materials';
-import { isManager } from '@/lib/roles';
+import { isFullManager, isManager } from '@/lib/roles';
+import type { Profile, Site } from '@/lib/types';
 import { base, space } from '@/theme/theme';
 
 const fmt = (d: string | null | undefined) => (d ? new Date(d.length === 10 ? `${d}T00:00:00` : d).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) : '');
@@ -26,13 +29,15 @@ export default function Materials() {
   return (
     <>
       <Stack.Screen options={{ title: 'Materials' }} />
-      {isManager(me) ? <ManagerTiles siteId={id} vis={site.materials_visibility} role={me.role} /> : <OperativeMaterials siteId={id} vis={site.materials_visibility} />}
+      {isManager(me) ? <ManagerTiles siteId={id} vis={site.materials_visibility} role={me.role} me={me} site={site} /> : <OperativeMaterials siteId={id} vis={site.materials_visibility} />}
     </>
   );
 }
 
-function ManagerTiles({ siteId, vis, role }: { siteId: string; vis: Parameters<typeof canSeeMatTile>[0]; role: string }) {
+function ManagerTiles({ siteId, vis, role, me, site }: { siteId: string; vis: Parameters<typeof canSeeMatTile>[0]; role: string; me: Profile; site: Site }) {
   const toast = useToast();
+  const qc = useQueryClient();
+  const visProps = (key: 'plant' | 'expenses', label: string) => (isFullManager(me) ? { dim: !tileRoles(site, key, 'mat').includes('operative'), onMenu: async () => { const m = await tileVisMenu(me, site, key, label, 'mat'); if (m) { toast(m); void qc.invalidateQueries({ queryKey: ['sites'] }); } } } : {});
   const { data: pending } = useMaterialRequests(siteId, 'pending');
   const { data: collectN } = useCollectionsOpenCount(siteId, true);
   const { data: office } = useOfficeOrders(siteId, true);
@@ -42,8 +47,8 @@ function ManagerTiles({ siteId, vis, role }: { siteId: string; vis: Parameters<t
     <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
       <Tile icon="🙋" tint="#F1E4FA" title="Material Requests" sub={sub} badge={pending?.length || undefined} onPress={go('materials/requests')} />
       <Tile icon="📄" tint="#FBEFE0" title="Material PO's" sub="Order files for this job" onPress={go('materials/pos')} />
-      {canSeeMatTile(vis, 'plant', role) && <Tile icon="🏗" tint="#EAF3EC" title="Plant" sub="Check in / out" onPress={go('plant')} />}
-      {canSeeMatTile(vis, 'expenses', role) && <Tile icon="🧾" tint="#FDF1DE" title="Expenses" sub="Send receipts" onPress={go('expenses')} />}
+      {canSeeMatTile(vis, 'plant', role) && <Tile icon="🏗" tint="#EAF3EC" title="Plant" sub="Check in / out" onPress={go('plant')} {...visProps('plant', 'Plant')} />}
+      {canSeeMatTile(vis, 'expenses', role) && <Tile icon="🧾" tint="#FDF1DE" title="Expenses" sub="Send receipts" onPress={go('expenses')} {...visProps('expenses', 'Expenses')} />}
       {!!office?.length && (
         <Card style={{ marginTop: space.m }}>
           <SectionTitle>Ordered By The Office</SectionTitle>

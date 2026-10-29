@@ -143,9 +143,9 @@ export function Stat({ n, label, hot, onPress }: { n: number | string; label: st
 }
 
 // Home tile: coloured icon square + title + subtitle.
-export function Tile({ icon, tint, title, sub, onPress, badge }: { icon: string; tint: string; title: string; sub: string; onPress: () => void; badge?: number }) {
+export function Tile({ icon, tint, title, sub, onPress, badge, onMenu, dim }: { icon: string; tint: string; title: string; sub: string; onPress: () => void; badge?: number; onMenu?: () => void; dim?: boolean }) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [s.tile, pressed && { opacity: 0.7 }]} accessibilityRole="button">
+    <Pressable onPress={onPress} style={({ pressed }) => [s.tile, dim && { opacity: 0.55 }, pressed && { opacity: 0.7 }]} accessibilityRole="button">
       <View style={[s.tileIc, { backgroundColor: tint }]}>
         <Text style={{ fontSize: 20 }}>{icon}</Text>
         {!!badge && <Text style={s.badge}>{badge}</Text>}
@@ -154,6 +154,7 @@ export function Tile({ icon, tint, title, sub, onPress, badge }: { icon: string;
         <Text style={s.rowTitle}>{title}</Text>
         <Text style={s.rowSub}>{sub}</Text>
       </View>
+      {onMenu && <Pressable onPress={onMenu} hitSlop={10} accessibilityLabel={`Who sees ${title}`}><Text style={{ fontSize: 18, color: base.slate, paddingHorizontal: 4 }}>⋮</Text></Pressable>}
     </Pressable>
   );
 }

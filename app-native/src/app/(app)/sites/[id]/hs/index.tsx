@@ -1,6 +1,8 @@
 // Health & Safety folder for a job. Ported from renderHealthSafety (630).
-// Tiles follow the job's per-role visibility (629). Operatives: managers see the
+// Tiles follow the job's per-role visibility (629); PMs / admins change it from each
+// tile's ⋮ (a tile hidden from operatives is dimmed for them). Operatives: managers see the
 // people on this job and their certificates; operatives see their own dashboard.
+import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { ScrollView } from 'react-native';
 
@@ -8,15 +10,17 @@ import { useToast } from '@/components/toast';
 import { Muted, Tile } from '@/components/ui';
 import { useHsSummary } from '@/data/hs';
 import { useSite } from '@/data/sites';
+import { tileRoles, tileVisMenu } from '@/data/tileVis';
 import { useAuth } from '@/lib/auth';
 import { canSeeTile } from '@/lib/rules/hs';
-import { isManager } from '@/lib/roles';
+import { isFullManager, isManager } from '@/lib/roles';
 import { base, space } from '@/theme/theme';
 
 export default function HealthSafety() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { me } = useAuth();
   const toast = useToast();
+  const qc = useQueryClient();
   const { data: site } = useSite(id);
   const { data: sum } = useHsSummary(site);
   if (!site || !me) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
@@ -38,6 +42,8 @@ export default function HealthSafety() {
       <Stack.Screen options={{ title: 'Health & Safety' }} />
       {visible.length ? visible.map((t) => (
         <Tile key={t.key} icon={t.icon} tint={t.tint} title={t.title} sub={t.sub} badge={t.badge || undefined}
+          dim={isFullManager(me) && !tileRoles(site, t.key).includes('operative')}
+          onMenu={isFullManager(me) ? async () => { const m = await tileVisMenu(me, site, t.key, t.title); if (m) { toast(m); void qc.invalidateQueries({ queryKey: ['sites'] }); } } : undefined}
           onPress={() => (t.go ? router.push(t.go.startsWith('/') ? (t.go as never) : t.go.startsWith('../') ? `/sites/${site.id}/${t.go.slice(3)}` : `/sites/${site.id}/hs/${t.go}`) : toast('This part is still being built in the new app.'))} />
       )) : <Muted>Nothing here for you on this job.</Muted>}
     </ScrollView>
