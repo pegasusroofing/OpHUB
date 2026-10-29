@@ -4,10 +4,11 @@ import * as DocumentPicker from 'expo-document-picker';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import { useState } from 'react';
-import { Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted } from '@/components/ui';
+import { viewDoc } from '@/components/DocViewer';
 import { openDocLink } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
@@ -37,7 +38,7 @@ export default function TbtTemplates() {
       {isLoading ? <Muted>Loading…</Muted> : list.length ? list.map((t) => (
         <Card key={t.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <Text style={{ fontSize: 20 }}>🗣</Text>
-          <Pressable style={{ flex: 1 }} onPress={async () => { const u = await openDocLink('rams-docs', t.storage_path); if (u) void Linking.openURL(u); else toast('Could not open the file.'); }}>
+          <Pressable style={{ flex: 1 }} onPress={async () => { const u = await openDocLink('rams-docs', t.storage_path); if (u) viewDoc(u); else toast('Could not open the file.'); }}>
             <Text style={{ fontWeight: '700', color: base.ink }}>{t.title}</Text>
             <Muted>Added {new Date(t.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</Muted>
           </Pressable>

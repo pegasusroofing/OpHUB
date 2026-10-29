@@ -3,12 +3,13 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack } from 'expo-router';
 import { useState } from 'react';
-import { Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { pickJob } from '@/components/FinSales';
 import { FinRow } from '@/components/FinNav';
 import { promptText, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
+import { viewDoc } from '@/components/DocViewer';
 import { openDocLink } from '@/data/hs';
 import { useSites } from '@/data/sites';
 import { bookToJob, sendBack, useToBook } from '@/data/toBook';
@@ -49,7 +50,7 @@ export default function ToBook() {
               {ex.total != null && <Text style={{ fontWeight: '800', color: base.ink }}>{money(ex.total)}</Text>}
             </View>
             {!!last && <Text style={{ marginTop: 6, color: base.ink }}><Text style={{ fontWeight: '700' }}>{last.name || 'Office'}:</Text> {last.text || ''}</Text>}
-            {!!it.file_path && <Button kind="ghost" title="View the invoice" onPress={async () => { const u = await openDocLink('finance-docs', it.file_path); if (u) void Linking.openURL(u); else toast('Could not open the file.'); }} />}
+            {!!it.file_path && <Button kind="ghost" title="View the invoice" onPress={async () => { const u = await openDocLink('finance-docs', it.file_path); if (u) viewDoc(u); else toast('Could not open the file.'); }} />}
             <Pressable onPress={async () => { const s = await pickJob('Which job is it for', open); if (s) setPick({ ...pick, [it.id]: s }); }} style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, marginTop: 8, backgroundColor: base.card }}>
               <Text style={{ color: site ? base.ink : base.slate }}>{site ? jobTag(site) : 'Which job is it for? ▾'}</Text>
             </Pressable>

@@ -6,11 +6,12 @@ import * as DocumentPicker from 'expo-document-picker';
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack } from 'expo-router';
 import { useState } from 'react';
-import { Image, Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Image, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { CoshhFolderPicker } from '@/components/CoshhFolderPicker';
 import { chooseAction, confirmAsk, promptText, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
+import { viewDoc } from '@/components/DocViewer';
 import { alsoIn, deleteFile, deleteFolder, deleteProductFull, moveFiles, newProduct, packPdf, removeDuplicates, renameFile, renameFolder, saveAssessment, uploadFiles, useAssessMap, useFolderView, useProducts, createFolder } from '@/data/coshhLib';
 import { openDocLink } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
@@ -75,7 +76,7 @@ function Folders({ setPick }: { setPick: (p: Pick | null) => void }) {
               <Card key={f.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, borderColor: on ? base.ink : base.cardLine }}>
                 <Pressable onPress={() => setSel(on ? sel.filter((x) => x !== f.id) : [...sel, f.id])} hitSlop={6} style={{ width: 22, height: 22, borderRadius: 5, borderWidth: 1.5, borderColor: on ? base.ink : base.line, backgroundColor: on ? base.ink : base.card, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff', fontWeight: '800' }}>{on ? '✓' : ''}</Text></Pressable>
                 <Text style={{ flex: 1, fontWeight: '700', color: base.ink }}>{f.name}</Text>
-                <Pressable onPress={async () => { const u = await openDocLink('coshh-library', f.storage_path); if (u) void Linking.openURL(u); else toast('Could not open the file.'); }}><Text style={{ color: base.blue, fontWeight: '700' }}>View</Text></Pressable>
+                <Pressable onPress={async () => { const u = await openDocLink('coshh-library', f.storage_path); if (u) viewDoc(u); else toast('Could not open the file.'); }}><Text style={{ color: base.blue, fontWeight: '700' }}>View</Text></Pressable>
                 <Pressable hitSlop={8} onPress={async () => { const n = await promptText('Rename document', f.name); if (n && n.trim() && n.trim() !== f.name) { toast((await renameFile(f.id, n.trim())) ? 'Document renamed' : 'Could not rename'); refresh(); } }}><Text>✏️</Text></Pressable>
                 <Pressable hitSlop={8} onPress={async () => { if (await confirmAsk("Delete this document from the library? This can't be undone.", 'Delete')) { toast((await deleteFile(f)) ? 'Document deleted' : 'Could not delete'); refresh(); } }}><Text>🗑</Text></Pressable>
               </Card>

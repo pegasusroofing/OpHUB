@@ -6,11 +6,14 @@
 // a OneDrive folder linked — Import from OneDrive and a copy of each upload.
 import * as DocumentPicker from 'expo-document-picker';
 import { useQueryClient } from '@tanstack/react-query';
-import { router, Stack } from 'expo-router';
+import { router, Stack, usePathname } from 'expo-router';
 import { useState } from 'react';
-import { Linking, Pressable, Text, TextInput, View } from 'react-native';
+import { Pressable, Text, TextInput, View } from 'react-native';
 
+import { usePageCrumbs } from '@/components/Crumbs';
+import { pdfFirstPageImage, viewDoc } from '@/components/DocViewer';
 import { HowTo } from '@/components/HowTo';
+import { MarkupEditor } from '@/components/MarkupEditor';
 import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import {
@@ -42,6 +45,11 @@ export function DrawingsBrowser({ siteId, folderId }: { siteId: string; folderId
   const [vis, setVis] = useState<string | null>(null);
   const { data: site } = useSite(siteId);
   const linked = !!(site as { onedrive_folder_id?: string | null } | undefined)?.onedrive_folder_id;
+  const [markup, setMarkup] = useState<{ src: string; name: string } | null>(null);
+  const path = usePathname();
+  // Trail: Drawings, Spec's & Programme › parent folders › this folder — each step goes back up.
+  const top = `/sites/${siteId}/drawings`;
+  usePageCrumbs(path, folderId && data?.folder ? [["Drawings, Spec's & Programme", top], ...(data.parents || []).map((p) => [p.name, `${top}/${p.id}`] as [string, string]), [data.folder.name, null]] : null);
   if (!me) return null;
   const mgr = isManager(me);
   const folder = data?.folder ?? null;
@@ -51,7 +59,25 @@ export function DrawingsBrowser({ siteId, folderId }: { siteId: string; folderId
 
   const view = async (f: DFile) => {
     const u = await fileUrl(f);
-    if (u) void Linking.openURL(u); else toast('Could not open the file — check your signal.');
+    if (!u) { toast('Could not open the file — check your signal.'); return; }
+    const canMark = mgr && /.(pdf|jpe?g|png)$/i.test(f.name || f.storage_path);
+    viewDoc(u, f.name, canMark ? { onMarkup: (src) => void startMarkup(src, f) } : {});
+  };
+  // Mark up a drawing: page 1 of a PDF (or the picture) opens in the mark-up tool; the marked-up copy is
+  // saved in this folder as a new drawing, so the original stays as it was.
+  const startMarkup = async (src: string, f: DFile) => {
+    const isPdfFile = /.pdf$/i.test(f.name || f.storage_path);
+    const img = isPdfFile ? await pdfFirstPageImage(src) : src;
+    if (!img) { toast('Marking up a PDF needs the office laptop — on a phone, mark up a photo or image of the drawing.'); return; }
+    setMarkup({ src: img, name: f.name });
+  };
+  const saveMarkup = async (image: string) => {
+    const nm = `${markup?.name.replace(/.[a-z0-9]+$/i, '') || 'Drawing'} (marked up ${new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}).jpg`;
+    setMarkup(null);
+    const res = await uploadFiles(me, siteId, folderId, [{ uri: image, name: nm, mimeType: 'image/jpeg' }], null, setBusy);
+    setBusy(null);
+    if (!res.uploaded) toast('Could not save the marked-up drawing — try again.');
+    refresh();
   };
   const upload = async () => {
     const r = await DocumentPicker.getDocumentAsync({ type: drawingsOnly ? ['application/pdf', 'image/jpeg', 'image/png'] : '*/*', multiple: true, copyToCacheDirectory: true });
@@ -85,9 +111,12 @@ export function DrawingsBrowser({ siteId, folderId }: { siteId: string; folderId
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
           <Text style={{ flex: 1, fontWeight: '700', color: base.slate }}>Folder/File Name</Text>
           <Pressable onPress={async () => {
-            const k = await chooseAction('What would you like to add?', [{ key: 'folder', label: '📁 Add Folder' }, { key: 'upload', label: '📄 Add Document' }, ...(linked ? [{ key: 'od', label: '☁️ Import from OneDrive' }] : [])]);
+            const k = await chooseAction('What would you like to add?', [{ key: 'folder', label: '📁 Add Folder' }, { key: 'upload', label: '📄 Add Document' }, { key: 'od', label: '☁️ Sync from OneDrive' }]);
             if (k === 'folder' || k === 'upload') setMode(k);
-            else if (k === 'od') router.push(`/sites/${siteId}/drawings/import${folderId ? `?folder=${folderId}` : ''}` as never);
+            else if (k === 'od') {
+              if (linked) router.push(`/sites/${siteId}/drawings/import${folderId ? `?folder=${folderId}` : ''}` as never);
+              else if (await confirmAsk('This project isn’t linked to a OneDrive folder yet. Link one now? New uploads then copy to OneDrive, and you can bring files in from it.', 'Link a folder')) router.push({ pathname: '/pm/onedrive-pick', params: { target: 'progress', id: siteId } } as never);
+            }
           }} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: base.ink, alignItems: 'center', justifyContent: 'center' }}>
             <Text style={{ color: '#fff', fontSize: 22, lineHeight: 24 }}>+</Text>
           </Pressable>
@@ -195,6 +224,7 @@ export function DrawingsBrowser({ siteId, folderId }: { siteId: string; folderId
         </>
       ) : <Empty>Nothing here yet.</Empty>}
 
+      {markup && <MarkupEditor src={markup.src} onClose={(out) => { if (out) void saveMarkup(out.image); else setMarkup(null); }} />}
       {!!data?.superseded.length && (
         <>
           <Pressable onPress={() => setShowOld(!showOld)} style={{ marginTop: space.m }}><Text style={{ fontWeight: '700', color: base.ink }}>{showOld ? '▼' : '▶'} Superseded Documents ({data.superseded.length})</Text></Pressable>

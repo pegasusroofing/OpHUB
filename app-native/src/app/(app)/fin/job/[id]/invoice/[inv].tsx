@@ -5,12 +5,13 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { FinForm } from '@/components/FinForm';
 import { FinRow, FinStat } from '@/components/FinNav';
 import { chooseAction, confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Muted, SectionTitle } from '@/components/ui';
+import { viewDoc } from '@/components/DocViewer';
 import { openDocLink } from '@/data/hs';
 import { addPayment, deleteDraft, deletePayment, draftRow, issue, loadInvoice, newInvoice, saveDraft, storePdf, voidInvoice } from '@/data/finInvoice';
 import { useSite } from '@/data/sites';
@@ -131,7 +132,7 @@ function Issued({ inv, pays, site }: { inv: Row; pays: Row[]; site: Row | undefi
       </Card>
       <Button title="View PDF" onPress={async () => {
         let p = inv.pdf_path; if (!p) p = await storePdf(me, org, inv, site);
-        const u = p ? await openDocLink('finance-docs', p) : null; if (u) void Linking.openURL(u); else toast('Could not build the PDF.');
+        const u = p ? await openDocLink('finance-docs', p) : null; if (u) viewDoc(u); else toast('Could not build the PDF.');
       }} />
       <Muted style={{ marginVertical: 6 }}>Emailing invoices and reminders is switched off while Finance is on trial.</Muted>
       {inv.status !== 'void' ? (

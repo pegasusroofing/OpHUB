@@ -5,10 +5,11 @@ import * as DocumentPicker from 'expo-document-picker';
 import { useQueryClient } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, Toggle } from '@/components/ui';
+import { viewDoc } from '@/components/DocViewer';
 import { nameOf, openDocLink, usePeople } from '@/data/hs';
 import { deleteMcDoc, MC_DOC_LABEL, renameMcDoc, uploadMcDoc, useMcDocs } from '@/data/mc';
 import { useAuth } from '@/lib/auth';
@@ -42,7 +43,7 @@ export default function McDocs() {
             {mgr && <Pressable hitSlop={6} onPress={async () => { if (await confirmAsk('Delete this document?', 'Delete') && await deleteMcDoc(d)) { toast('Deleted'); refresh(); } }}><Text>🗑</Text></Pressable>}
           </View>
           <Muted>Uploaded by {nameOf(people, d.uploaded_by)} · {new Date(d.uploaded_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</Muted>
-          <Button title="📄 View Document" onPress={async () => { const u = await openDocLink('mc-documents', d.storage_path); if (u) void Linking.openURL(u); else toast('Could not open the document.'); }} />
+          <Button title="📄 View Document" onPress={async () => { const u = await openDocLink('mc-documents', d.storage_path); if (u) viewDoc(u); else toast('Could not open the document.'); }} />
         </Card>
       )) : <Empty>No documents uploaded.</Empty>}
       {mgr && (

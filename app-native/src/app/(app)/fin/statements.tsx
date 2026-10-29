@@ -6,12 +6,13 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as DocumentPicker from 'expo-document-picker';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Linking, Text, TextInput, View } from 'react-native';
+import { Text, TextInput, View } from 'react-native';
 
 import { FinForm } from '@/components/FinForm';
 import { FinPage, FinRow, FinStat } from '@/components/FinNav';
 import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
+import { viewDoc } from '@/components/DocViewer';
 import { fdb, selectAll } from '@/data/finance';
 import { openDocLink } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
@@ -158,7 +159,7 @@ function Statement({ id }: { id: string }) {
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
         <Button kind="ghost" title="+ Add a line" onPress={() => void addLine()} />
         <Button kind="ghost" title="Match again" onPress={async () => { if (await save({ lines: autoMatch(lines, cands) })) toast('Matched again'); }} />
-        {s.file_path && <Button kind="ghost" title="📄 Open the statement" onPress={async () => { const u = await openDocLink('finance-docs', s.file_path); if (u) void Linking.openURL(u); }} />}
+        {s.file_path && <Button kind="ghost" title="📄 Open the statement" onPress={async () => { const u = await openDocLink('finance-docs', s.file_path); if (u) viewDoc(u); }} />}
         {s.status === 'reconciled' ? <Button kind="ghost" title="Reopen" onPress={async () => { if (await save({ status: 'open', reconciled_at: null, reconciled_by: null })) toast('Reopened'); }} />
           : <Button title="Mark reconciled" onPress={async () => { const miss = counts.missing || 0; if (miss && !(await confirmAsk(`${miss} line${miss === 1 ? ' isn’t' : 's aren’t'} matched to an invoice. Mark the statement reconciled anyway?`, 'Mark reconciled'))) return; if (await save({ status: 'reconciled', reconciled_at: new Date().toISOString(), reconciled_by: me.id })) toast('Statement reconciled'); }} />}
       </View>

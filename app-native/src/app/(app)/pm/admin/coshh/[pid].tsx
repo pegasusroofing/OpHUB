@@ -6,11 +6,12 @@ import * as DocumentPicker from 'expo-document-picker';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Image, Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Image, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { CoshhFolderPicker } from '@/components/CoshhFolderPicker';
 import { confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Muted, SectionTitle } from '@/components/ui';
+import { viewDoc } from '@/components/DocViewer';
 import { assessMap, deleteProductFull, loadProduct, previewAssessment, saveAssessment, saveProduct, uploadSds } from '@/data/coshhLib';
 import { openDocLink } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
@@ -90,7 +91,7 @@ function Editor({ initial }: { initial: CoshhItem }) {
             }} /></View>
             <View style={{ flex: 1 }}><Button kind="ghost" title="Preview" onPress={async () => { setBusy('Building preview…'); try { await deliverPdf(await previewAssessment(it, org, me), `COSHH preview - ${(it.title || 'product').replace(/[\\/:*?"<>|]+/g, '-')}.pdf`); } finally { setBusy(''); } }} /></View>
           </View>
-          {a && <Pressable onPress={async () => { const u = await openDocLink('coshh-library', a.files[0].storage_path); if (u) void Linking.openURL(u); }} style={{ marginTop: 8 }}><Text style={{ color: base.blue, fontWeight: '700' }}>View the current assessment</Text></Pressable>}
+          {a && <Pressable onPress={async () => { const u = await openDocLink('coshh-library', a.files[0].storage_path); if (u) viewDoc(u); }} style={{ marginTop: 8 }}><Text style={{ color: base.blue, fontWeight: '700' }}>View the current assessment</Text></Pressable>}
         </Card>
         <Card>
           <Muted style={{ fontWeight: '700' }}>Product name <Text style={{ color: '#C0392B' }}>*</Text></Muted>
@@ -102,7 +103,7 @@ function Editor({ initial }: { initial: CoshhItem }) {
         </Card>
         <Card>
           <SectionTitle>Safety Data Sheet (optional)</SectionTitle>
-          {!!d.sdsPath && <Pressable onPress={async () => { const u = await openDocLink('coshh-library', d.sdsPath); if (u) void Linking.openURL(u); else toast('Could not open the file.'); }} style={{ marginBottom: 8 }}><Text style={{ color: base.blue, fontWeight: '700' }}>📄 {d.sdsName || 'Safety Data Sheet'}</Text></Pressable>}
+          {!!d.sdsPath && <Pressable onPress={async () => { const u = await openDocLink('coshh-library', d.sdsPath); if (u) viewDoc(u); else toast('Could not open the file.'); }} style={{ marginBottom: 8 }}><Text style={{ color: base.blue, fontWeight: '700' }}>📄 {d.sdsName || 'Safety Data Sheet'}</Text></Pressable>}
           <Button kind="ghost" busy={busy === 'sds'} title={d.sdsPath ? 'Replace data sheet (PDF)' : 'Add data sheet (PDF)'} onPress={async () => {
             const r = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true }); if (r.canceled || !r.assets[0]) return;
             setBusy('sds');

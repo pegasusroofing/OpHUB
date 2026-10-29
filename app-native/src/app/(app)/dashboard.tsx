@@ -5,11 +5,12 @@ import { useQueryClient } from '@tanstack/react-query';
 import * as DocumentPicker from 'expo-document-picker';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Linking, Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import { MyToolsList } from '@/components/MyToolsList';
 import { promptText, useToast } from '@/components/toast';
 import { Button, Card, Field, Muted, Screen, SectionTitle, Toggle } from '@/components/ui';
+import { viewDoc } from '@/components/DocViewer';
 import { uploadCert, useMyCerts } from '@/data/certs';
 import { buildCertBundlePdf } from '@/lib/certBundlePdf';
 import { deliverPdf, emailPdf } from '@/lib/pdf';
@@ -122,7 +123,7 @@ export default function Dashboard() {
               <View key={c.key}>
                 <Muted style={{ fontWeight: '700', marginTop: 10, marginBottom: 4 }}>{c.label} ({list.length})</Muted>
                 {list.map((f) => (
-                  <Pressable key={f.id} onPress={async () => { const u = await openDocLink('certifications', f.storage_path); if (u) void Linking.openURL(u); else toast('Could not open the file.'); }}>
+                  <Pressable key={f.id} onPress={async () => { const u = await openDocLink('certifications', f.storage_path); if (u) viewDoc(u); else toast('Could not open the file.'); }}>
                     <Card style={{ paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                       <View style={{ flex: 1 }}>
                         <Text style={{ fontWeight: '600', color: base.ink }} numberOfLines={1}>{certDisplayName(f)}</Text>

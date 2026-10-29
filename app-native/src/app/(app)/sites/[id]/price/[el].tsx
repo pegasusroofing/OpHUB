@@ -5,13 +5,14 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Card, Check, Empty, Muted, SectionTitle } from '@/components/ui';
 import { PriceFiles } from '@/components/PriceFiles';
 import { PriceWeeks } from '@/components/PriceWeeks';
 import { StorageImage } from '@/components/StorageImage';
+import { viewDoc } from '@/components/DocViewer';
 import { nameOf, openDocLink, usePeople } from '@/data/hs';
 import { addVariationPhoto, decideVariation, deleteElement, patchElement, removeVariation, requestVariation, reviseVariation, usePriceTile, type PriceVariation } from '@/data/price';
 import { useSite } from '@/data/sites';
@@ -109,7 +110,7 @@ export default function PriceElementPage() {
                 <View style={{ flex: 1 }}>
                   <Text style={{ fontWeight: '700', color: base.ink }}>{money(v.amount)} · {v.note || ''}</Text>
                   <Muted>{v.requested_by ? `${nameOf(people, v.requested_by)} · ` : ''}{new Date(v.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}{v.rejection_reason ? ` · Reason: ${v.rejection_reason}` : ''}</Muted>
-                  {!!v.photo_path && <Pressable onPress={async () => { const u = await openDocLink('site-photos', v.photo_path as string); if (u) void Linking.openURL(u); }}><StorageImage bucket="site-photos" path={v.photo_path} style={{ width: 64, height: 64, borderRadius: 8, marginTop: 6 }} /></Pressable>}
+                  {!!v.photo_path && <Pressable onPress={async () => { const u = await openDocLink('site-photos', v.photo_path as string); if (u) viewDoc(u); }}><StorageImage bucket="site-photos" path={v.photo_path} style={{ width: 64, height: 64, borderRadius: 8, marginTop: 6 }} /></Pressable>}
                 </View>
                 {!v.photo_path && (mgr || v.requested_by === me.id) && (
                   <Pressable hitSlop={6} onPress={async () => {

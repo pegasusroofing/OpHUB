@@ -10,6 +10,7 @@ import type { ReactNode } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useTrail } from '@/components/Crumbs';
 import { OphIcon } from '@/components/OphIcon';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
@@ -18,6 +19,8 @@ import { fullSiteAddress } from '@/lib/rules/checkin';
 import { base, useDesk, useTheme } from '@/theme/theme';
 
 const FIN_SUB: Record<string, string> = { '': 'Overview', jobs: 'Projects', sales: 'Sales', purchases: 'Purchases', subs: 'Subcontractors & Labour', reports: 'Reports', settings: 'Settings', directory: 'Directory', statements: 'Statements', yard: 'Yard stock', inbox: 'Inbox', newjob: 'New project' };
+// A job's sections, so a page further in can step back to its section from the trail.
+const SECTION: Record<string, string> = { schedule: 'Schedule Of Works', drawings: "Drawings, Spec's & Programme", materials: 'Materials', hs: 'Health & Safety', snagging: 'Snagging', checkin: 'Check In / Out', price: 'Price', repairs: 'Repairs', om: 'O&M Manual', mc: 'Main Contractor', handover: 'Handover', todos: 'To Do List' };
 const titleCase = (x: string) => x.replace(/[A-Za-z][A-Za-z'’.]*/g, (w) => w.charAt(0).toUpperCase() + w.slice(1));
 
 export function AppBar({ title, onBack, home, right }: { title?: string; onBack?: () => void; home?: boolean; right?: ReactNode }) {
@@ -45,8 +48,13 @@ export function AppBar({ title, onBack, home, right }: { title?: string; onBack?
   const finCrumbs: [string, string | null][] = path === '/fin' ? []
     : finJob ? [['Finance', '/fin'], ['Projects', '/fin/jobs'], [fJob ? [fJob.job_number, fJob.name].filter(Boolean).join(' ') : 'Project', null]]
       : [['Finance', '/fin'], [finSub, null]];
+  // A page can give its own steps after the job (e.g. Drawings › Roof plans); otherwise a page inside a
+  // section (Materials › Requests) gets the section as a step back.
+  const pageTrail = useTrail(path);
+  const secKey = site ? (path.split('/')[3] || '') : '';
+  const secStep: [string, string][] = site && SECTION[secKey] && path.split('/').filter(Boolean).length > 3 && titleCase(title || '') !== SECTION[secKey] ? [[SECTION[secKey], `/sites/${site.id}/${secKey}`]] : [];
   const crumbs: [string, string | null][] = fin ? finCrumbs : site
-    ?[['Projects', '/sites'], [sName, jobHome ? null : `/sites/${site.id}`], ...(jobHome || !title ? [] : [[titleCase(title), null] as [string, null]])]
+    ? [['Projects', '/sites'], [sName, jobHome ? null : `/sites/${site.id}`], ...(jobHome ? [] : pageTrail ?? [...secStep, ...(!title ? [] : [[titleCase(title), null] as [string, null]])])]
     : [];
   const cfs = desk ? 12.5 : 11.5;
   const roundBtn = { width: 38, height: 38, borderRadius: 19, backgroundColor: base.paper, alignItems: 'center', justifyContent: 'center' } as const;

@@ -5,10 +5,11 @@ import * as DocumentPicker from 'expo-document-picker';
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack } from 'expo-router';
 import { useState } from 'react';
-import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { confirmAsk, promptText, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
+import { viewDoc } from '@/components/DocViewer';
 import { archivePolicy, buildPolicyPdf, signPolicies, uploadPolicies, usePolicies, useHr, type Policy } from '@/data/hr';
 import { openDocLink } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
@@ -39,7 +40,7 @@ export default function Policies() {
     if (await confirmAsk("You need to adopt your signature first (once — it's reused everywhere). Do that now?", 'Adopt signature')) router.push('/signature');
     return false;
   };
-  const view = async (p: Policy) => { const u = await openDocLink('mc-documents', p.storage_path); if (u) void Linking.openURL(u); else toast('Could not open the file.'); };
+  const view = async (p: Policy) => { const u = await openDocLink('mc-documents', p.storage_path); if (u) viewDoc(u); else toast('Could not open the file.'); };
   const upload = async (kind: 'policy' | 'handbook') => {
     const r = await DocumentPicker.getDocumentAsync({ type: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'], multiple: kind === 'policy', copyToCacheDirectory: true });
     if (r.canceled || !r.assets.length) return;

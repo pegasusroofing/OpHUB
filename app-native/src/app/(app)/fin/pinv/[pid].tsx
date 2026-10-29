@@ -5,13 +5,14 @@ import * as DocumentPicker from 'expo-document-picker';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { FinForm } from '@/components/FinForm';
 import { AllocRow } from '@/components/FinSplit';
 import { FinRow, FinStat } from '@/components/FinNav';
 import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Card, Check, Muted } from '@/components/ui';
+import { viewDoc } from '@/components/DocViewer';
 import { openDocLink } from '@/data/hs';
 import { addPinv, duplicateOf, isInXero, loadPinv, setPinvCostCode, setPinvPaid, setPinvStatus } from '@/data/finPurchase';
 import { useSites } from '@/data/sites';
@@ -103,7 +104,7 @@ function ViewPinv({ id }: { id: string }) {
         {i.due_date && <FinRow title="Due" right={fdate(i.due_date)} />}{i.description && <FinRow title="Description" right={i.description} />}
         {i.paid_on && <FinRow title="Paid" right={fdate(i.paid_on)} />}
       </Card>
-      {i.file_path && <Button kind="ghost" title={`📄 ${i.file_name || 'Open the invoice'}`} onPress={async () => { const u = await openDocLink('finance-docs', i.file_path); if (u) void Linking.openURL(u); else toast('Could not open the file.'); }} />}
+      {i.file_path && <Button kind="ghost" title={`📄 ${i.file_name || 'Open the invoice'}`} onPress={async () => { const u = await openDocLink('finance-docs', i.file_path); if (u) viewDoc(u); else toast('Could not open the file.'); }} />}
       <View style={{ gap: 8, marginTop: 10 }}>
         {i.status !== 'approved' && i.status !== 'rejected' && <Button title="✓ Approve" onPress={() => void status('approved', 'Approve')} />}
         {i.status !== 'query' && i.status !== 'rejected' && <Button kind="ghost" title="Query" onPress={async () => { const n = await promptText('What needs checking?', ''); if (n !== null) void status('query', 'Mark this purchase invoice as a query', n.trim() || 'Query'); }} />}

@@ -7,6 +7,7 @@ import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
+import { viewDoc } from '@/components/DocViewer';
 import { useTeam } from '@/data/admin';
 import { openDocLink } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
@@ -77,7 +78,7 @@ export default function SubApp() {
         {(r.files || []).length ? (r.files || []).map((f, i) => (
           <Pressable key={i} onPress={async () => {
             const u = await openDocLink(f.bucket === 'subcontractor-apps' ? 'subcontractor-apps' : 'mc-documents', f.path);
-            if (u) void Linking.openURL(u); else toast('Could not open that document.');
+            if (u) viewDoc(u); else toast('Could not open that document.');
           }} style={{ paddingVertical: 6 }}>
             <Text style={{ color: base.ink }}>📎 <Text style={{ fontWeight: '700' }}>{f.label || 'Document'}</Text>  <Muted>{f.name || ''}</Muted></Text>
           </Pressable>

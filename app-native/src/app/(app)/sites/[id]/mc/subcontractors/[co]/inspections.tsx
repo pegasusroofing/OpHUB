@@ -5,10 +5,11 @@ import * as DocumentPicker from 'expo-document-picker';
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Empty, Muted } from '@/components/ui';
+import { viewDoc } from '@/components/DocViewer';
 import { nameOf, openDocLink, usePeople } from '@/data/hs';
 import { addSubInspection, addSubInspFolder, deleteSubInspection, renameSubInspFolder, useSubco, useSubInspections } from '@/data/subcontractors';
 import { useAuth } from '@/lib/auth';
@@ -53,7 +54,7 @@ export default function SubInspections() {
             <Text style={{ fontWeight: '700', color: base.ink }}>{f.file_name}</Text>
             <Muted>{nameOf(people, f.uploaded_by)} · {new Date(f.uploaded_at).toLocaleString('en-GB')}</Muted>
           </View>
-          <Button kind="ghost" title="View" onPress={async () => { const u = await openDocLink('mc-documents', f.storage_path); if (u) void Linking.openURL(u); else toast('Could not open the file.'); }} />
+          <Button kind="ghost" title="View" onPress={async () => { const u = await openDocLink('mc-documents', f.storage_path); if (u) viewDoc(u); else toast('Could not open the file.'); }} />
           {mgr && <Pressable hitSlop={6} onPress={async () => { if (await confirmAsk('Delete this inspection file?', 'Delete') && await deleteSubInspection(f.id, f.storage_path)) { toast('Deleted'); refresh(); } }}><Text>🗑</Text></Pressable>}
         </View>
       )) : <Empty>No inspection files {folder ? 'in this folder' : 'uploaded'} yet.</Empty>}

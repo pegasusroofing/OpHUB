@@ -5,13 +5,14 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Linking, Pressable, ScrollView, Text } from 'react-native';
+import { Pressable, ScrollView, Text } from 'react-native';
 
 import { FinForm } from '@/components/FinForm';
 import { FinRow } from '@/components/FinNav';
 import { pickJob } from '@/components/FinSales';
 import { chooseAction, confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Muted } from '@/components/ui';
+import { viewDoc } from '@/components/DocViewer';
 import { fdb } from '@/data/finance';
 import { openDocLink } from '@/data/hs';
 import { useSites } from '@/data/sites';
@@ -51,7 +52,7 @@ export default function FinInboxItem() {
         {it.query_reason && <Text style={{ color: '#D98A00', marginTop: 6 }}>Why it&apos;s unallocated: {it.query_reason}</Text>}
         {(it.comments || []).map((c: Row, k: number) => <Muted key={k}>{c.name}: {c.text}</Muted>)}
       </Card>
-      {it.file_path && <Button kind="ghost" title={`📄 ${it.file_name || 'Open the invoice'}`} onPress={async () => { const u = await openDocLink('finance-docs', it.file_path); if (u) void Linking.openURL(u); else toast('Could not open the file.'); }} />}
+      {it.file_path && <Button kind="ghost" title={`📄 ${it.file_name || 'Open the invoice'}`} onPress={async () => { const u = await openDocLink('finance-docs', it.file_path); if (u) viewDoc(u); else toast('Could not open the file.'); }} />}
       <Card>
         <Muted style={{ fontWeight: '700' }}>Project</Muted>
         <Pressable onPress={async () => { const s = await pickJob('Which project is it for?', sites); if (s) { setSiteId(s); setPoId(null); } }} style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 9, marginBottom: 8 }}><Text style={{ color: base.ink }}>{sid ? jobTag(sites.find((s) => s.id === sid)) : 'Choose the project ▾'}</Text></Pressable>

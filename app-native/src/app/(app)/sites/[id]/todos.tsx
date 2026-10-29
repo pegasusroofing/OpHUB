@@ -5,10 +5,11 @@ import * as DocumentPicker from 'expo-document-picker';
 import { useQueryClient } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { chooseAction, confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Check, Empty, Muted, SectionTitle, Toggle } from '@/components/ui';
+import { viewDoc } from '@/components/DocViewer';
 import { nameOf, usePeople } from '@/data/hs';
 import { useSite } from '@/data/sites';
 import {
@@ -120,7 +121,7 @@ export default function TodoList() {
         <View style={{ marginTop: 10, paddingTop: 8, borderTopWidth: 1, borderTopColor: base.line }}>
           {files.map((f) => (
             <View key={f.id} style={{ flexDirection: 'row', gap: 8, marginBottom: 6 }}>
-              <Pressable style={{ flex: 1 }} onPress={async () => { const u = await todoFileUrl(f); if (u) void Linking.openURL(u); else toast('Could not open file.'); }}>
+              <Pressable style={{ flex: 1 }} onPress={async () => { const u = await todoFileUrl(f); if (u) viewDoc(u); else toast('Could not open file.'); }}>
                 <Text style={{ color: base.ink, textDecorationLine: 'underline' }} numberOfLines={1}>📎 {f.name}</Text>
               </Pressable>
               <Pressable onPress={async () => { if (await confirmAsk("Delete this attachment? This can't be undone.", 'Delete') && await deleteTodoFile(f)) { toast('Attachment deleted'); refresh(); } }}><Text style={{ color: base.warn }}>🗑</Text></Pressable>

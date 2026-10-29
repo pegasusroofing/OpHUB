@@ -5,10 +5,11 @@ import * as DocumentPicker from 'expo-document-picker';
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Linking, Pressable, Text, TextInput, View } from 'react-native';
+import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted } from '@/components/ui';
+import { viewDoc } from '@/components/DocViewer';
 import {
   createMOFolder, deleteMOFile, deleteMOFolder, folderPath, moveMOFileTo, moveSibling, renameMOFolder, setDeliveryDate,
   syncMaterialOrders, uploadMOFiles, useMaterialOrders, viewMOFile,
@@ -130,7 +131,7 @@ export function MaterialOrdersBrowser({ siteId, folderId }: { siteId: string; fo
                 <View style={{ flex: 1 }}><Button title="View document" onPress={async () => {
                   if (!f.storage_path) { toast('Could not open file.'); return; }
                   const u = await viewMOFile(siteId, f.storage_path);
-                  if (u) void Linking.openURL(u); else toast('Could not open file.');
+                  if (u) viewDoc(u); else toast('Could not open file.');
                 }} /></View>
                 <Pressable hitSlop={8} onPress={async () => {
                   const k = await chooseAction(f.name, [

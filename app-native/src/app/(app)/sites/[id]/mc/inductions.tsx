@@ -5,12 +5,13 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { promptEmail } from '@/components/EmailPrompt';
 import { StorageImage } from '@/components/StorageImage';
 import { chooseAction, confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle, Toggle } from '@/components/ui';
+import { viewDoc } from '@/components/DocViewer';
 import { nameOf, openDocLink, usePeople } from '@/data/hs';
 import { deleteCompletion, HEALTH_ITEMS, inductionItems, setInductionQuestions, submitInduction, useInductions } from '@/data/inductions';
 import { useSite } from '@/data/sites';
@@ -45,7 +46,7 @@ export default function Inductions() {
   if (!me || !site) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   const items = inductionItems(org);
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['inductions', id] }); void qc.invalidateQueries({ queryKey: ['mcTiles', id] }); };
-  const view = async (path: string | null) => { if (!path) { toast('PDF not available.'); return; } const u = await openDocLink('mc-documents', path); if (u) void Linking.openURL(u); else toast('Could not open the PDF.'); };
+  const view = async (path: string | null) => { if (!path) { toast('PDF not available.'); return; } const u = await openDocLink('mc-documents', path); if (u) viewDoc(u); else toast('Could not open the PDF.'); };
 
   if (isManager(me) || me.role === 'client') {
     const mgr = isManager(me);

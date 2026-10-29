@@ -6,12 +6,13 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as DocumentPicker from 'expo-document-picker';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { FinForm } from '@/components/FinForm';
 import { FinRow, FinStat } from '@/components/FinNav';
 import { confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Muted, SectionTitle } from '@/components/ui';
+import { viewDoc } from '@/components/DocViewer';
 import { fdb, insertNumbered, loadSettings } from '@/data/finance';
 import { openDocLink } from '@/data/hs';
 import { useSites } from '@/data/sites';
@@ -156,7 +157,7 @@ function AppForm({ sc, a, ctx, nextNo, onClose, onSaved, onPaid }: { sc: Row; a:
       <Muted>Contra / reason for paying less (shown on the notice)</Muted>
       <TextInput editable={!locked} value={v.reason} onChangeText={(x) => setV({ ...v, reason: x })} multiline style={[box, { minHeight: 50, marginBottom: 8 }]} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 8 }}>
-        {!!a?.file_path && <Pressable onPress={async () => { const u = await openDocLink('finance-docs', a.file_path); if (u) void Linking.openURL(u); }}><Text style={{ color: base.blue, fontWeight: '700' }}>📄 View {a.file_name || 'their application'}</Text></Pressable>}
+        {!!a?.file_path && <Pressable onPress={async () => { const u = await openDocLink('finance-docs', a.file_path); if (u) viewDoc(u); }}><Text style={{ color: base.blue, fontWeight: '700' }}>📄 View {a.file_name || 'their application'}</Text></Pressable>}
         {!locked && <Pressable onPress={async () => { const r = await DocumentPicker.getDocumentAsync({ type: ['application/pdf', 'image/*'], copyToCacheDirectory: true }); if (!r.canceled && r.assets[0]) setFile({ uri: r.assets[0].uri, name: r.assets[0].name || 'application.pdf', mimeType: r.assets[0].mimeType }); }}><Text style={{ color: base.blue }}>📎 {file ? file.name : a?.file_path ? 'Replace their application' : 'Attach their application (PDF / photo)'}</Text></Pressable>}
       </View>
       {c.cert === null || !('net' in c) ? <Muted>Enter the certified amount to see what to pay.</Muted> : (

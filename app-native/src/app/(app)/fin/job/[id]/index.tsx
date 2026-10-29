@@ -5,7 +5,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { FinForm } from '@/components/FinForm';
 import { FinChip, FinRow } from '@/components/FinNav';
@@ -15,6 +15,7 @@ import { SalesLists } from '@/components/FinSales';
 import { SubsLists } from '@/components/FinSubs';
 import { chooseAction, confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Muted, SectionTitle } from '@/components/ui';
+import { viewDoc } from '@/components/DocViewer';
 import { applyRetention, raiseRetentionInvoice } from '@/data/finApp';
 import { deleteClientPo, finBookedOn, saveClientPo, saveJobFinance, saveJobNumber, useBook } from '@/data/finBook';
 import { deleteSite, setSiteStatus, siteIsEmpty } from '@/data/siteList';
@@ -311,7 +312,7 @@ function Setup({ id, site, jf, cpos, settings }: { id: string; site: Row | undef
         <View style={{ marginTop: 8 }}>
           <Pressable onPress={async () => { const r = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true }); if (!r.canceled && r.assets[0]) { setFile({ uri: r.assets[0].uri, name: r.assets[0].name, mimeType: r.assets[0].mimeType }); toast('File attached — Save to keep it'); } }}><Text style={{ color: base.blue }}>📎 {file ? file.name : 'Attach the PO file'}</Text></Pressable>
           {po && (Array.isArray(po.files) ? po.files : po.file_path ? [{ path: po.file_path, name: po.file_name }] : []).map((f: Row) => (
-            <Pressable key={f.path} onPress={async () => { const u = await openDocLink('finance-docs', f.path); if (u) void Linking.openURL(u); }}><Text style={{ color: base.blue }}>📄 {f.name}</Text></Pressable>
+            <Pressable key={f.path} onPress={async () => { const u = await openDocLink('finance-docs', f.path); if (u) viewDoc(u); }}><Text style={{ color: base.blue }}>📄 {f.name}</Text></Pressable>
           ))}
         </View>
       )}

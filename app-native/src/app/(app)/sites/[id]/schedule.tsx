@@ -10,7 +10,7 @@ import { useQuery } from '@tanstack/react-query';
 import * as DocumentPicker from 'expo-document-picker';
 import { Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Linking, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { FinForm } from '@/components/FinForm';
 import { SowTaskRow } from '@/components/SowTaskRow';
@@ -38,6 +38,7 @@ import { csvRows, readXlsx } from '@/lib/rules/xlsxRead';
 import { supabase } from '@/lib/supabase';
 import { VisibilityEditor } from '@/components/VisibilityEditor';
 import { HowTo } from '@/components/HowTo';
+import { viewDoc } from '@/components/DocViewer';
 import { onQueueChange, onUploadsSent, pendingJobs, type PatchJob, type UploadJob } from '@/lib/uploadQueue';
 import { base, page, radius, space, useTheme } from '@/theme/theme';
 
@@ -238,7 +239,7 @@ export default function Schedule() {
               <SectionTitle>Schedule of Works Document</SectionTitle>
               {view.docs.map((d) => (
                 <View key={d.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <Pressable onPress={async () => { const u = await documentLink(d); if (u) void Linking.openURL(u); else toast('Could not open the document.'); }} style={{ paddingVertical: 6, flex: 1 }}>
+                  <Pressable onPress={async () => { const u = await documentLink(d); if (u) viewDoc(u); else toast('Could not open the document.'); }} style={{ paddingVertical: 6, flex: 1 }}>
                     <Text style={{ color: base.blue, fontWeight: '600', textDecorationLine: 'underline' }} numberOfLines={1}>📎 {d.name}{d.visibility === 'managers' ? '  🔒' : ''}</Text>
                   </Pressable>
                   {manager && <Pressable hitSlop={8} onPress={async () => {

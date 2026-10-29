@@ -3,10 +3,11 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Linking, Pressable, Text } from 'react-native';
+import { Pressable, Text } from 'react-native';
 
 import { useToast } from '@/components/toast';
 import { Button, Card, Muted, Toggle } from '@/components/ui';
+import { viewDoc } from '@/components/DocViewer';
 import { openDocLink } from '@/data/hs';
 import { signHsPolicy, useHsPolicy } from '@/data/hsPolicy';
 import { useAuth } from '@/lib/auth';
@@ -32,7 +33,7 @@ export function PolicyCard() {
         <Card>
           <Text style={{ fontWeight: '800', fontSize: 14, color: base.ink }}>{doc.name}</Text>
           <Muted>Uploaded {longDate(doc.uploaded_at)}{doc.expiry_date ? ` · Expires ${longDate(`${doc.expiry_date}T00:00:00`)}` : ''}</Muted>
-          <Pressable onPress={async () => { const u = await openDocLink('rams-docs', doc.storage_path); if (u) void Linking.openURL(u); }}>
+          <Pressable onPress={async () => { const u = await openDocLink('rams-docs', doc.storage_path); if (u) viewDoc(u); }}>
             <Text style={{ color: base.blue, marginTop: 6 }}>View document ↗</Text>
           </Pressable>
           {mine ? (

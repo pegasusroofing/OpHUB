@@ -5,10 +5,11 @@ import * as DocumentPicker from 'expo-document-picker';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import { useState } from 'react';
-import { Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { useToast } from '@/components/toast';
 import { Button, Card, Muted, Toggle } from '@/components/ui';
+import { viewDoc } from '@/components/DocViewer';
 import { useTeam } from '@/data/admin';
 import { openDocLink } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
@@ -46,7 +47,7 @@ export default function HsPolicyAdmin() {
   const [busy, setBusy] = useState(false);
   if (!me) return null;
   if (!isFullManager(me)) return <Muted style={{ padding: space.l }}>Project Managers and admins only.</Muted>;
-  const view = async (p: string) => { const u = await openDocLink('rams-docs', p); if (u) void Linking.openURL(u); else toast('Could not open the file.'); };
+  const view = async (p: string) => { const u = await openDocLink('rams-docs', p); if (u) viewDoc(u); else toast('Could not open the file.'); };
   const doc = data?.doc;
   const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, marginBottom: 8 };
   return (

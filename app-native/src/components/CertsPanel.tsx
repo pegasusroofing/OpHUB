@@ -5,10 +5,11 @@
 import { useQueryClient } from '@tanstack/react-query';
 import * as DocumentPicker from 'expo-document-picker';
 import { useState } from 'react';
-import { Linking, Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Card, Field, Muted } from '@/components/ui';
+import { viewDoc } from '@/components/DocViewer';
 import { deleteCert, renameCert, setCertCategory, setCertExpiry, uploadCert, useMyCerts } from '@/data/certs';
 import { openDocLink } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
@@ -64,7 +65,7 @@ export function CertsPanel({ userId, manual = false }: { userId: string; manual?
   };
   const menu = async (c: Cert) => {
     const k = await chooseAction(certDisplayName(c), [{ key: 'open', label: 'Open' }, { key: 'rename', label: 'Rename' }, { key: 'type', label: 'Change type' }, { key: 'expiry', label: 'Set expiry date' }, { key: 'delete', label: 'Delete' }]);
-    if (k === 'open') { const u = await openDocLink('certifications', c.storage_path); if (u) void Linking.openURL(u); else toast('Could not open the file.'); }
+    if (k === 'open') { const u = await openDocLink('certifications', c.storage_path); if (u) viewDoc(u); else toast('Could not open the file.'); }
     else if (k === 'rename') {
       const n = await promptText('Rename certificate', certDisplayName(c)); if (n === null) return;
       if (!n.trim()) { toast('Name cannot be blank.'); return; }

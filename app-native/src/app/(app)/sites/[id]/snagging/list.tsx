@@ -4,13 +4,14 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Image, Linking, Pressable, ScrollView, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { MarkupEditor } from '@/components/MarkupEditor';
 import { StorageImage } from '@/components/StorageImage';
 import { chooseAction, confirmAsk, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Empty, Field, Muted, SectionTitle } from '@/components/ui';
 import { HowTo } from '@/components/HowTo';
+import { viewDoc } from '@/components/DocViewer';
 import { nameOf, openDocLink, usePeople } from '@/data/hs';
 import { useSite } from '@/data/sites';
 import { addSnag, closeSnag, emailSnagPdf, replaceSnagPhoto, snagPhotos, snagsForPdf, useSnags, type Snag } from '@/data/snags';
@@ -73,7 +74,7 @@ export default function SnagList() {
         </View>
       )}
       {!!s.pdf_path && (
-        <Button kind="ghost" title="📄 View attachment" onPress={async () => { const u = await openDocLink('site-photos', s.pdf_path as string); if (u) void Linking.openURL(u); }} />
+        <Button kind="ghost" title="📄 View attachment" onPress={async () => { const u = await openDocLink('site-photos', s.pdf_path as string); if (u) viewDoc(u); }} />
       )}
       {s.status === 'closed' ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10 }}>

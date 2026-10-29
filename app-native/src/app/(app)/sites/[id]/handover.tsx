@@ -5,10 +5,11 @@ import * as DocumentPicker from 'expo-document-picker';
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted } from '@/components/ui';
+import { viewDoc } from '@/components/DocViewer';
 import { addBlankGuarantee, attachToDoc, deleteHoDoc, renameManual, setHoField, uploadHoDocs, useHandover, type HoDoc } from '@/data/handover';
 import { nameOf, openDocLink, usePeople } from '@/data/hs';
 import { deleteManual, duplicateManual, newManual } from '@/data/omManual';
@@ -49,7 +50,7 @@ export default function Handover() {
     if (key === 'expiry_date') { const x = readIsoDate(v); if (x === 'bad') { toast('Enter the date as YYYY-MM-DD.'); return; } v = x || ''; }
     if (!(await setHoField(d.id, key, v.trim()))) toast('Could not save — try again.'); else refresh();
   };
-  const view = async (d: HoDoc) => { const u = d.storage_path ? await openDocLink('mc-documents', d.storage_path) : null; if (u) void Linking.openURL(u); else toast('Could not open the file.'); };
+  const view = async (d: HoDoc) => { const u = d.storage_path ? await openDocLink('mc-documents', d.storage_path) : null; if (u) viewDoc(u); else toast('Could not open the file.'); };
   const del = async (d: HoDoc) => { if (!(await confirmAsk('Delete this document from the handover?', 'Delete'))) return; toast((await deleteHoDoc(d)) ? 'Deleted' : 'Could not delete — try again.'); refresh(); };
   const upload = async (kind: HoDoc['kind']) => {
     const files = await pick(true); if (!files.length) return;

@@ -4,7 +4,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { SignerList } from '@/components/HsDocList';
 import { StorageImage } from '@/components/StorageImage';
@@ -14,6 +14,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { promptEmail, type EmailTo } from '@/components/EmailPrompt';
 import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Card, Muted } from '@/components/ui';
+import { viewDoc } from '@/components/DocViewer';
 import { buildSignedTbtPdf } from '@/data/hsPdf';
 import { useSites } from '@/data/sites';
 import { deliverPdf, emailPdf } from '@/lib/pdf';
@@ -103,7 +104,7 @@ export default function TbtView() {
             {mgr && <Pressable hitSlop={8} disabled={busy} onPress={() => void menu()}><Text style={{ fontSize: 18, color: base.slate, paddingHorizontal: 4 }}>⋮</Text></Pressable>}
           </View>
           {mgr && talk.status === 'bank' && <Button busy={busy} title="✍ Issue for Signing" onPress={async () => { setBusy(true); const r = await issueTbt(me, id, talk); setBusy(false); toast(r.msg); refresh(); if (r.id && r.id !== talk.id) router.replace(`/sites/${id}/hs/tbt/${r.id}`); }} />}
-          <Pressable onPress={async () => { const u = await openDocLink('rams-docs', talk.storage_path); if (u) void Linking.openURL(u); else toast('Could not open the document.'); }}>
+          <Pressable onPress={async () => { const u = await openDocLink('rams-docs', talk.storage_path); if (u) viewDoc(u); else toast('Could not open the document.'); }}>
             <Text style={{ color: base.blue, marginTop: 6 }}>View document ↗</Text>
           </Pressable>
           <Pressable disabled={!!mine || !live || busy} onPress={sign}

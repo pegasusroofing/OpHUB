@@ -7,12 +7,13 @@ import * as DocumentPicker from 'expo-document-picker';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { FinChip, FinRow, FinStat } from '@/components/FinNav';
 import { confirmAsk, showAlert, useToast } from '@/components/toast';
 import { FinForm } from '@/components/FinForm';
 import { Button, Card, Check, Muted, SectionTitle } from '@/components/ui';
+import { viewDoc } from '@/components/DocViewer';
 import { addBoqLines, addBoqSection, clearCertificate, deleteApplication, deleteApplicationAny, exportApplication, loadApplication, newApplication, raiseInvoiceFromCert, saveApplication, saveCertificate, setStatus } from '@/data/finApp';
 import { openDocLink } from '@/data/hs';
 import { useSite } from '@/data/sites';
@@ -314,7 +315,7 @@ function Editor({ a0, jf, previousLive, prevPct, siteProgress }: { a0: Row; jf: 
           <FinRow title="Net due" right={money(a0.cert_net)} />
           {round2(Number(a0.cert_net) - Number(a0.net_due)) !== 0 && <Text style={{ color: Number(a0.cert_net) < Number(a0.net_due) ? '#C0392B' : '#1E7A3C', fontWeight: '700' }}>{Number(a0.cert_net) < Number(a0.net_due) ? 'Short by' : 'Over by'} {money(Math.abs(Number(a0.cert_net) - Number(a0.net_due)))} compared with the {money(a0.net_due)} applied for.</Text>}
           {a0.cert_notes ? <Muted>{a0.cert_notes}</Muted> : null}
-          {a0.cert_file_path && <Pressable onPress={async () => { const u = await openDocLink('finance-docs', a0.cert_file_path); if (u) void Linking.openURL(u); }}><Text style={{ color: base.blue, marginTop: 6 }}>📄 Certificate</Text></Pressable>}
+          {a0.cert_file_path && <Pressable onPress={async () => { const u = await openDocLink('finance-docs', a0.cert_file_path); if (u) viewDoc(u); }}><Text style={{ color: base.blue, marginTop: 6 }}>📄 Certificate</Text></Pressable>}
           <View style={{ marginTop: 8, gap: 8 }}>
             {a0.invoice_id ? <Button title="🧾 Open invoice" onPress={() => router.push(`/fin/job/${a0.site_id}/invoice/${a0.invoice_id}` as never)} />
               : <Button busy={busy === 'inv'} title="🧾 Raise invoice" onPress={async () => { setBusy('inv'); const r = await raiseInvoiceFromCert(me, org, a0, site as never, false); setBusy(''); if (r.error) toast(r.error); if (r.id) { refresh(); router.push(`/fin/job/${a0.site_id}/invoice/${r.id}` as never); } }} />}

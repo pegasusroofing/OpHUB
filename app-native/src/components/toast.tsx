@@ -2,6 +2,7 @@
 // tapped (components/Popup), with an ✕ to close. "Saved" / "Added" style messages aren't shown —
 // only the ones you need to act on (could not…, enter…, choose…).
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { DocViewerHost } from '@/components/DocViewer';
 import { EmailPromptHost } from '@/components/EmailPrompt';
 import { noteTap, Popup, PopupButtons } from '@/components/Popup';
 import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -27,6 +28,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       <View style={{ flex: 1 }} onTouchStart={Platform.OS === 'web' ? undefined : (e) => noteTap(e.nativeEvent.pageX, e.nativeEvent.pageY)}>
         {children}
       </View>
+      <DocViewerHost />
       <PromptHost />
       <MenuHost />
       <ConfirmHost />

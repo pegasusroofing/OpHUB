@@ -4,10 +4,11 @@ import * as DocumentPicker from 'expo-document-picker';
 import { useQueryClient } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Linking, Pressable, ScrollView, Text, TextInput } from 'react-native';
+import { Pressable, ScrollView, Text, TextInput } from 'react-native';
 
 import { confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
+import { viewDoc } from '@/components/DocViewer';
 import { nameOf, openDocLink, usePeople } from '@/data/hs';
 import { addSubBriefing, deleteSubBriefing, useSubBriefings, useSubco } from '@/data/subcontractors';
 import { useAuth } from '@/lib/auth';
@@ -35,7 +36,7 @@ export default function SubBriefings() {
         <Card key={b.id}>
           <Text style={{ fontWeight: '700', color: base.ink }}>{b.title}</Text>
           <Muted>{nameOf(people, b.submitted_by)} · {new Date(b.submitted_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</Muted>
-          {!!b.storage_path && <Pressable onPress={async () => { const u = await openDocLink('rams-docs', b.storage_path as string); if (u) void Linking.openURL(u); }}><Text style={{ color: base.blue }}>View document ↗</Text></Pressable>}
+          {!!b.storage_path && <Pressable onPress={async () => { const u = await openDocLink('rams-docs', b.storage_path as string); if (u) viewDoc(u); }}><Text style={{ color: base.blue }}>View document ↗</Text></Pressable>}
           {manage && <Pressable onPress={async () => { if (await confirmAsk('Delete this briefing?', 'Delete') && await deleteSubBriefing(b.id)) { toast('Deleted'); refresh(); } }}><Text style={{ marginTop: 6 }}>🗑</Text></Pressable>}
         </Card>
       )) : <Empty>No daily briefings logged yet.</Empty>}

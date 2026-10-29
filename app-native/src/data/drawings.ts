@@ -21,14 +21,21 @@ export function useDrawings(siteId: string | undefined, folderId: string | null)
     queryFn: () => cachedQuery(`drawings:${siteId}:${folderId ?? 'root'}`, async () => {
       const f = db.from('drawing_folders').select('*').eq('site_id', siteId as string);
       const d = db.from('drawing_files').select('*').eq('site_id', siteId as string);
-      const [folders, files, current] = await Promise.all([
+      const [folders, files, current, every] = await Promise.all([
         (folderId ? f.eq('parent_id', folderId) : f.is('parent_id', null)).order('position', { ascending: true, nullsFirst: false }).order('name'),
         (folderId ? d.eq('folder_id', folderId) : d.is('folder_id', null)).order('name'),
         folderId ? db.from('drawing_folders').select('*').eq('id', folderId) : Promise.resolve({ data: [], error: null }),
+        folderId ? db.from('drawing_folders').select('id,name,parent_id').eq('site_id', siteId as string) : Promise.resolve({ data: [], error: null }),
       ]);
+      // The folders above this one, top first (for the trail under the header).
+      const byId: Record<string, { id: string; name: string; parent_id: string | null }> = {};
+      (((every.data as { id: string; name: string; parent_id: string | null }[] | null) ?? [])).forEach((x) => { byId[x.id] = x; });
+      const parents: { id: string; name: string }[] = [];
+      for (let p = folderId ? byId[folderId]?.parent_id : null, n = 0; p && byId[p] && n < 20; p = byId[p].parent_id, n++) parents.unshift({ id: p, name: byId[p].name });
       const all = orThrow(files) as DFile[];
       return {
         folder: ((current.data as DFolder[] | null) ?? [])[0] ?? null,
+        parents,
         folders: orThrow(folders) as DFolder[],
         files: all.filter((x) => x.status === 'current'),
         superseded: all.filter((x) => x.status === 'superseded').sort((a, b) => String(b.uploaded_at).localeCompare(String(a.uploaded_at))),

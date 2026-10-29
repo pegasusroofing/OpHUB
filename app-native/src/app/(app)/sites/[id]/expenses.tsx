@@ -3,10 +3,11 @@ import { useQueryClient } from '@tanstack/react-query';
 import * as DocumentPicker from 'expo-document-picker';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Image, Linking, Pressable, ScrollView, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { confirmAsk, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Check, Empty, Field, Muted, Row, SectionTitle } from '@/components/ui';
+import { viewDoc } from '@/components/DocViewer';
 import { deleteExpense, expProblem, newGroup, saveExpenses, sendExpenses, useRecentExpenses, type ExpGroup, type ExpenseRow } from '@/data/expenses';
 import { nameOf, openDocLink, usePeople } from '@/data/hs';
 import { useSites } from '@/data/sites';
@@ -130,7 +131,7 @@ export default function Expenses() {
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                   {(r.file_paths || []).map((p, k) => (
                     <Button key={p} kind="ghost" title={`${/\.pdf$/i.test(p) ? '📄' : '🖼'} ${(r.file_names || [])[k] || 'Receipt'}`}
-                      onPress={async () => { const u = await openDocLink('site-photos', p); if (u) void Linking.openURL(u); }} />
+                      onPress={async () => { const u = await openDocLink('site-photos', p); if (u) viewDoc(u); }} />
                   ))}
                   {(r.created_by === me.id || full) && (
                     <Button kind="ghost" title="✉️ Resend" onPress={async () => {

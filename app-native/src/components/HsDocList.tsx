@@ -11,7 +11,7 @@ import { router } from 'expo-router';
 import { testFill } from '@/data/signTemplates';
 import { supabase } from '@/lib/supabase';
 import { useState } from 'react';
-import { Linking, Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import { ClientSignLines } from '@/components/ClientSignLines';
 import { promptEmail } from '@/components/EmailPrompt';
@@ -20,6 +20,7 @@ import * as DocumentPicker from 'expo-document-picker';
 
 import { chooseAction, confirmAsk, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, Toggle } from '@/components/ui';
+import { viewDoc } from '@/components/DocViewer';
 import { DOC_LABEL, docBucket, nameOf, openDocLink, sigDocId, signDocs, useHsDocs, usePeople, type DocKind, type HsDoc, type HsSig } from '@/data/hs';
 import { deleteHsDoc, replaceCoshh } from '@/data/hsManager';
 import { buildSignedHsPdf, buildSignedLayoutPdf } from '@/data/hsPdf';
@@ -93,7 +94,7 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
   };
   const view = async (doc: HsDoc) => {
     const u = await openDocLink(docBucket(kind), doc.storage_path);
-    if (u) void Linking.openURL(u); else toast('Could not open the document.');
+    if (u) viewDoc(u); else toast('Could not open the document.');
   };
 
   const ordered = (ids: Set<string>) => data.docs.filter((x) => ids.has(x.id)).map((x) => x.id);

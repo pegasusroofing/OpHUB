@@ -5,10 +5,11 @@ import * as DocumentPicker from 'expo-document-picker';
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack } from 'expo-router';
 import { useState } from 'react';
-import { Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
+import { viewDoc } from '@/components/DocViewer';
 import { openDocLink } from '@/data/hs';
 import { addTemplate, deleteTemplate, layoutSummary, renameTemplate, useSignTemplates } from '@/data/signTemplates';
 import { useAuth } from '@/lib/auth';
@@ -62,7 +63,7 @@ export default function SignTemplates() {
             <Pressable hitSlop={8} onPress={async () => {
               const k = await chooseAction(tp.name, [...(tp.storage_path ? [{ key: 'boxes', label: '✍ Set / edit boxes' }, { key: 'view', label: '👁 View sample' }] : []), { key: 'rename', label: '✎ Rename' }, { key: 'del', label: '🗑 Delete', danger: true }]);
               if (k === 'boxes') router.push(`/pm/admin/signtemplates/${tp.id}` as never);
-              else if (k === 'view' && tp.storage_path) { const u = await openDocLink('rams-docs', tp.storage_path); if (u) void Linking.openURL(u); }
+              else if (k === 'view' && tp.storage_path) { const u = await openDocLink('rams-docs', tp.storage_path); if (u) viewDoc(u); }
               else if (k === 'rename') { const n = await promptText('Template name:', tp.name); if (n && n.trim()) { await renameTemplate(tp.id, n.trim()); refresh(); } }
               else if (k === 'del') { if (await confirmAsk('Delete this template? Documents already uploaded with it keep their boxes.', 'Delete')) { await deleteTemplate(tp.id); refresh(); } }
             }}><Text style={{ fontSize: 18, color: base.slate }}>⋯</Text></Pressable>

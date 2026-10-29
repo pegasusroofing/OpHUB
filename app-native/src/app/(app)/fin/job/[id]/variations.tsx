@@ -4,12 +4,13 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import { useEffect, useState } from 'react';
-import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { FinForm } from '@/components/FinForm';
 import { FinChip, FinRow, FinStat } from '@/components/FinNav';
 import { promptText, useToast } from '@/components/toast';
 import { Button, Empty, Muted } from '@/components/ui';
+import { viewDoc } from '@/components/DocViewer';
 import { fdb, insertNumbered } from '@/data/finance';
 import { useBook } from '@/data/finBook';
 import { importSiteVariations, setVarGroup, varToSow } from '@/data/finVar';
@@ -114,7 +115,7 @@ export default function FinVariations() {
         <FinForm title={cur ? `Variation ${cur.number}` : 'New variation'} initial={cur ? { ...cur, status: g(cur) } : { status: 'submitted' }} onClose={() => { setEdit(null); setVfile(null); }}
           extra={(
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 8 }}>
-              {!!cur?.file_path && <Pressable onPress={async () => { const u = await openDocLink('finance-docs', cur.file_path); if (u) void Linking.openURL(u); }}><Text style={{ color: base.blue, fontWeight: '700' }}>📄 {cur.file_name || 'Instruction / quote document'}</Text></Pressable>}
+              {!!cur?.file_path && <Pressable onPress={async () => { const u = await openDocLink('finance-docs', cur.file_path); if (u) viewDoc(u); }}><Text style={{ color: base.blue, fontWeight: '700' }}>📄 {cur.file_name || 'Instruction / quote document'}</Text></Pressable>}
               <Pressable onPress={async () => { const r = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true }); if (!r.canceled && r.assets[0]) setVfile({ uri: r.assets[0].uri, name: r.assets[0].name || 'document', mimeType: r.assets[0].mimeType }); }}><Text style={{ color: base.blue }}>📎 {vfile ? vfile.name : cur?.file_path ? 'Replace the document' : 'Attach the instruction / quote document'}</Text></Pressable>
             </View>
           )}

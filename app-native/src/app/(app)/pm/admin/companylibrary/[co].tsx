@@ -5,10 +5,11 @@ import * as DocumentPicker from 'expo-document-picker';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { chooseAction, confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted } from '@/components/ui';
+import { viewDoc } from '@/components/DocViewer';
 import { useTeam } from '@/data/admin';
 import { openDocLink } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
@@ -69,7 +70,7 @@ export default function CompanyLibraryDocs() {
             <Text style={{ fontWeight: '700', color: base.ink }}>{d.name}</Text>
             <Muted>{CATS.find((c) => c.key === d.category)?.label || 'Other'} · {team.find((p) => p.id === d.uploaded_by)?.name || 'Unknown'} · {new Date(d.uploaded_at).toLocaleDateString('en-GB')}{d.expiry_date ? ` · expires ${new Date(`${d.expiry_date}T00:00:00`).toLocaleDateString('en-GB')}` : ''}</Muted>
           </View>
-          <Pressable onPress={async () => { const u = await openDocLink('mc-documents', d.storage_path); if (u) void Linking.openURL(u); else toast('Could not open the file.'); }}><Text style={{ color: base.blue, fontWeight: '700' }}>View</Text></Pressable>
+          <Pressable onPress={async () => { const u = await openDocLink('mc-documents', d.storage_path); if (u) viewDoc(u); else toast('Could not open the file.'); }}><Text style={{ color: base.blue, fontWeight: '700' }}>View</Text></Pressable>
           <Pressable hitSlop={8} onPress={async () => {
             if (!(await confirmAsk("Delete this document? This can't be undone.", 'Delete'))) return;
             if ((await db.from('subcontractor_company_documents').delete().eq('id', d.id)).error) { toast('Could not delete — try again.'); return; }
