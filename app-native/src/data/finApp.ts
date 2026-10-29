@@ -5,14 +5,15 @@
 import { issue } from '@/data/finInvoice';
 import { fdb, loadSettings } from '@/data/finance';
 import { buildAppPdf } from '@/lib/finAppPdf';
-import { deliverPdf, deliverXlsx } from '@/lib/pdf';
+import { deliverPdf, deliverXlsx, PDFDocument } from '@/lib/pdf';
+import { buildSowPdf, sowPeriod } from '@/lib/sowPdf';
 import { appCalc, certInvoiceLines, isItem, pct, previousCertified } from '@/lib/rules/finApp';
 import { appDoc, appExcelSheets, appFilename, type NewBoqLine } from '@/lib/rules/finAppExcel';
 import { makeXlsx } from '@/lib/rules/xlsx';
 import { addDays, appDateFor, fdate, retentionHeld, retentionReleased, retHalf, round2, today } from '@/lib/rules/finance';
 import { invTotals, vatFromTreatment } from '@/lib/rules/finInvoice';
 import { supabase } from '@/lib/supabase';
-import type { Organization, Profile } from '@/lib/types';
+import type { Organization, Profile, Site } from '@/lib/types';
 
 type Row = Record<string, any>;
 const rows = async (q: PromiseLike<{ data: unknown }>) => ((await q).data as Row[] | null) ?? [];
@@ -174,7 +175,21 @@ export async function applyRetention(me: Profile, siteId: string, n: 1 | 2): Pro
 
 /** The application as the client document (9219p): Excel (summary sheet + a sheet per header, with a hidden
  *  key column so a valued copy can come back) or PDF, handed over to save or share. */
-export async function exportApplication(me: Profile, org: Organization | null, a: Row, kind: 'xlsx' | 'pdf'): Promise<boolean> {
+/** The Schedule of Works report to send with an application as proof of works (9219zo): the whole schedule, or
+ *  only the photos since the last application (from the day after its valuation date to this one). */
+export type AppSow = { mode: 'full' } | { mode: 'since'; from: string; to: string } | null;
+export async function appSowChoice(a: Row): Promise<{ has: boolean; since: { from: string; to: string } | null }> {
+  const [t, prev] = await Promise.all([
+    fdb.from('schedule_tasks').select('id').eq('site_id', a.site_id).limit(1),
+    fdb.from('fin_applications').select('valuation_date').eq('site_id', a.site_id).lt('number', a.number).not('status', 'in', '(draft,void)').order('number', { ascending: false }).limit(1),
+  ]);
+  const has = ((t.data as Row[] | null) ?? []).length > 0;
+  const p = ((prev.data as Row[] | null) ?? [])[0]?.valuation_date as string | undefined;
+  const to = String(a.valuation_date || today()).slice(0, 10);
+  const from = p ? addDays(String(p).slice(0, 10), 1) : null;
+  return { has, since: from && from <= to ? { from, to } : null };
+}
+export async function exportApplication(me: Profile, org: Organization | null, a: Row, kind: 'xlsx' | 'pdf', sow: AppSow = null): Promise<boolean> {
   const [jfR, apps, siteR, st] = await Promise.all([
     rows(fdb.from('job_finance').select('*').eq('site_id', a.site_id)),
     rows(fdb.from('fin_applications').select('number,status,lines,cert_lines,variations').eq('site_id', a.site_id)),
@@ -184,8 +199,24 @@ export async function exportApplication(me: Profile, org: Organization | null, a
   const jf = jfR[0] || {}, site = siteR[0] || {};
   const D = appDoc(a, jf, apps, (st as Row).default_vat);
   const info = { company: org?.name || '', client: jf.billing_name || site.client_name || '', project: site.name || '', jobNo: site.job_number || '', valDate: a.valuation_date ? fdate(a.valuation_date) : '' };
-  if (kind === 'xlsx') return deliverXlsx(makeXlsx(appExcelSheets(a, D, info)), appFilename(a, site, 'xlsx'));
-  return deliverPdf(await buildAppPdf(a, D, { ...info, brand: org?.color_primary }), appFilename(a, site, 'pdf'));
+  // The Schedule of Works report: added to the end of the PDF, or downloaded beside the Excel.
+  let sowBytes: Uint8Array | null = null, sowName = '';
+  if (sow) {
+    const full = ((await fdb.from('sites').select('*').eq('id', a.site_id).maybeSingle()).data as Site | null);
+    const period = sow.mode === 'since' ? sowPeriod('custom', sow.from, sow.to) : null;
+    const r = full && period !== 'bad' ? await buildSowPdf(full, org, 'all', period) : null;
+    if (r && typeof r !== 'string') { sowBytes = r.bytes; sowName = r.filename; }
+  }
+  if (kind === 'xlsx') {
+    const ok = await deliverXlsx(makeXlsx(appExcelSheets(a, D, info)), appFilename(a, site, 'xlsx'));
+    if (ok && sowBytes) await deliverPdf(sowBytes, sowName);
+    return ok;
+  }
+  const appBytes = await buildAppPdf(a, D, { ...info, brand: org?.color_primary });
+  if (!sowBytes) return deliverPdf(appBytes, appFilename(a, site, 'pdf'));
+  const out = await PDFDocument.load(appBytes), add = await PDFDocument.load(sowBytes);
+  (await out.copyPages(add, add.getPageIndices())).forEach((p) => out.addPage(p));
+  return deliverPdf(await out.save(), appFilename(a, site, 'pdf'));
 }
 
 /** New Bill of Quantities lines from an uploaded Excel (9219n finAppAddLineCore): each goes in under its

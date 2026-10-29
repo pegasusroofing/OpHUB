@@ -10,12 +10,12 @@ import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { FinChip, FinRow, FinStat } from '@/components/FinNav';
-import { confirmAsk, showAlert, useToast } from '@/components/toast';
+import { chooseAction, confirmAsk, showAlert, useToast } from '@/components/toast';
 import { FinForm } from '@/components/FinForm';
 import { Button, Card, Check, Muted, SectionTitle } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
 import { DateBox } from '@/components/DateField';
-import { addBoqLines, addBoqSection, clearCertificate, deleteApplication, deleteApplicationAny, exportApplication, loadApplication, newApplication, raiseInvoiceFromCert, saveApplication, saveCertificate, setStatus } from '@/data/finApp';
+import { addBoqLines, addBoqSection, clearCertificate, deleteApplication, deleteApplicationAny, exportApplication, appSowChoice, type AppSow, loadApplication, newApplication, raiseInvoiceFromCert, saveApplication, saveCertificate, setStatus } from '@/data/finApp';
 import { openDocLink } from '@/data/hs';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
@@ -110,8 +110,17 @@ function Editor({ a0, jf, previousLive, prevPct, siteProgress }: { a0: Row; jf: 
   const exportAs = async (kind: 'xlsx' | 'pdf') => {
     if (!me) return;
     if (isDraft && JSON.stringify(a) !== savedSnap.current && !(await save(true))) return;
+    // Proof of works (9219zo): ask whether to include the Schedule of Works report.
+    const doc = isDraft ? { ...a0, ...a } : a0;
+    let sow: AppSow = null;
+    const ch = await appSowChoice(doc).catch(() => ({ has: false, since: null }));
+    if (ch.has) {
+      const k = await chooseAction(`Include the Schedule of Works report as proof of works?${kind === 'pdf' ? ' It goes at the end of the PDF.' : ' It downloads as a PDF beside the Excel.'}`, [{ key: 'full', label: '📋 Yes — the whole Schedule of Works' }, ...(ch.since ? [{ key: 'since', label: `📷 Yes — photos since the last application (${fdate(ch.since.from)} – ${fdate(ch.since.to)})` }] : []), { key: 'no', label: 'No — just the application' }]);
+      if (!k) return;
+      sow = k === 'full' ? { mode: 'full' } : k === 'since' && ch.since ? { mode: 'since', ...ch.since } : null;
+    }
     setBusy(kind);
-    const ok = await exportApplication(me, org, isDraft ? { ...a0, ...a } : a0, kind).catch(() => false);
+    const ok = await exportApplication(me, org, doc, kind, sow).catch(() => false);
     setBusy(''); if (!ok) toast(kind === 'pdf' ? 'Could not make the PDF — try again.' : 'Could not make the Excel — try again.');
   };
   // A valued copy back (9219p uploadFinAppExcel): the Applied % column updates this draft; new rows become
