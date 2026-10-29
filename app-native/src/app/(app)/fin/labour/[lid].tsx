@@ -17,6 +17,7 @@ import { fdb, selectAll } from '@/data/finance';
 import { openDocLink } from '@/data/hs';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
+import { cisStatement } from '@/lib/finCisPdf';
 import { addDays, fdate, jobTag, money, num, round2, today } from '@/lib/rules/finance';
 import { opCalc } from '@/lib/rules/finSubs';
 import { supabase } from '@/lib/supabase';
@@ -43,7 +44,7 @@ export default function FinOpInvoice() {
 }
 
 function Editor({ p, rateBy, who }: { p: Row | null; rateBy: Record<string, Row>; who: { key: string; name: string }[] }) {
-  const { me } = useAuth();
+  const { me, org } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
   const { data: sites = [] } = useSites();
@@ -118,6 +119,7 @@ function Editor({ p, rateBy, who }: { p: Row | null; rateBy: Record<string, Row>
       {!locked && <Pressable onPress={async () => { const x = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true }); if (!x.canceled && x.assets[0]) setFile({ uri: x.assets[0].uri, name: x.assets[0].name, mimeType: x.assets[0].mimeType }); }}><Text style={{ color: base.blue, marginBottom: 8 }}>📎 {file ? file.name : 'Attach their invoice'}</Text></Pressable>}
       {p?.file_path && <FinRow title={`📄 ${p.file_name || 'Their invoice'}`} onPress={async () => { const u = await openDocLink('finance-docs', p.file_path); if (u) void Linking.openURL(u); }} />}
       {!locked && <Button busy={busy} title="Save — ready for the pay run" onPress={() => void save()} />}
+      {p && p.status !== 'void' && me && <View style={{ marginTop: 8 }}><Button kind="ghost" title="CIS payment statement" onPress={async () => { if (!(await cisStatement(me, org, p))) toast('Could not make the statement — try again.'); }} /></View>}
       {p && !locked && <View style={{ marginTop: 8 }}><Button kind="ghost" title="Void this invoice" onPress={async () => { if (await confirmAsk('Void this operative invoice? It comes off the pay run.', 'Void')) { if (!(await fdb.from('fin_sub_payments').update({ status: 'void' } as never).eq('id', p.id)).error) { toast('Voided'); refresh(); router.back(); } } }} /></View>}
     </ScrollView>
   );

@@ -14,6 +14,7 @@ import { Button, Card, Muted, SectionTitle } from '@/components/ui';
 import { fdb, insertNumbered, loadSettings } from '@/data/finance';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
+import { cisStatement } from '@/lib/finCisPdf';
 import { buildSubNoticePdf } from '@/lib/finSubNoticePdf';
 import { deliverPdf } from '@/lib/pdf';
 import { addDays, fdate, jobTag, money, num, round2, today } from '@/lib/rules/finance';
@@ -110,7 +111,7 @@ export default function FinSubcontract() {
 }
 
 function AppForm({ sc, a, ctx, nextNo, onClose, onSaved, onPaid }: { sc: Row; a: Row | null; ctx: { prevNet: number; prevM: number; prevContra: number; prevApplied: number }; nextNo: number; onClose: () => void; onSaved: () => void; onPaid: (a: Row) => Promise<void> }) {
-  const { me } = useAuth();
+  const { me, org } = useAuth();
   const toast = useToast();
   const [v, setV] = useState<Row>({ app_date: a?.app_date || today(), final_date: a?.final_date || addDays(a?.app_date || today(), 30), applied: String(a?.applied_gross ?? ''), mat: String(a?.materials_part ?? ctx.prevM ?? 0), cert: a?.certified_gross != null ? String(a.certified_gross) : '', contra: String(a?.contra ?? ctx.prevContra ?? 0), reason: a?.payless_reason || a?.contra_note || '' });
   const [busy, setBusy] = useState(false);
@@ -157,6 +158,7 @@ function AppForm({ sc, a, ctx, nextNo, onClose, onSaved, onPaid }: { sc: Row; a:
         {!locked && <View style={{ flexDirection: 'row', gap: 8 }}><View style={{ flex: 1 }}><Button kind="ghost" busy={busy} title="Save as received" onPress={() => void save(false)} /></View><View style={{ flex: 1 }}><Button busy={busy} title="Certify" onPress={() => void save(true)} /></View></View>}
         {a?.status === 'certified' && <Button title="Mark paid today" onPress={async () => { if (await confirmAsk(`Mark application ${a.number} paid (${money(a.pay_amount)})? It's added to the CIS return.`, 'Mark paid')) await onPaid(a); }} />}
         {a?.status === 'received' && <Button kind="ghost" title="Delete" onPress={async () => { if (await confirmAsk('Delete this application?', 'Delete')) { if (!(await fdb.from('fin_sub_apps').delete().eq('id', a.id)).error) { toast('Deleted'); onSaved(); onClose(); } } }} />}
+        {locked && <Button kind="ghost" title="CIS payment statement" onPress={async () => { const p = (await fdb.from('fin_sub_payments').select('*').eq('sub_app_id', a!.id).neq('status', 'void').limit(1)).data as Row[] | null; if (!p?.[0]) { toast('No CIS payment record for this application.'); return; } if (!(await cisStatement(me, org, p[0]))) toast('Could not make the statement — try again.'); }} />}
         <Button kind="ghost" title="Close" onPress={onClose} />
       </View>
     </Card>
