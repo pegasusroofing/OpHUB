@@ -7,12 +7,12 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
+import { ListGroup, ListRow } from '@/components/ListRows';
 import { OphIcon } from '@/components/OphIcon';
 import { useToast } from '@/components/toast';
 import { Muted, TINTS } from '@/components/ui';
 import { ADMIN_PAGES, searchItems, visibleItems, type AdminItem, type AdminPage } from '@/lib/adminItems';
 import { useAuth } from '@/lib/auth';
-import { heading } from '@/lib/fonts';
 import { isManager } from '@/lib/roles';
 import { base, page as pageStyle, radius, space } from '@/theme/theme';
 
@@ -20,25 +20,8 @@ import { base, page as pageStyle, radius, space } from '@/theme/theme';
 const ICON: Record<string, string> = { finance: 'pound', subapplications: 'building', branding: 'brush', expensesemail: 'mail', onedrive: 'cloud', reporttemplates: 'reports', signtemplates: 'pen', sowlibrary: 'layers', ratecard: 'pound', suppliers: 'store', maincontractor: 'building', hspolicy: 'book', havstools: 'wrench', ramslibrary: 'shield', coshhbuilder: 'flask', tbt: 'chat', ppelog: 'shield', invites: 'mail', users: 'users', devicelocks: 'phone', checkinlogs: 'pin', drivercheckins: 'truck' };
 const TINT: Record<AdminPage, keyof typeof TINTS> = { company: 'grey', libraries: 'green', people: 'blue' };
 
-function Row({ icon, tint, label, sub, onPress, last }: { icon: string; tint: keyof typeof TINTS; label: string; sub?: string; onPress: () => void; last?: boolean }) {
-  return (
-    <Pressable onPress={onPress} accessibilityRole="button"
-      style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 14, borderBottomWidth: last ? 0 : 1, borderBottomColor: '#F0F1F4' }, pressed && { backgroundColor: '#F8F9FB' }]}>
-      <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: TINTS[tint][0], alignItems: 'center', justifyContent: 'center' }}><OphIcon name={icon} size={19} color={TINTS[tint][1]} /></View>
-      <View style={{ flex: 1, minWidth: 0 }}>
-        <Text style={{ fontWeight: '700', fontSize: 14, color: base.ink }}>{label}</Text>
-        {!!sub && <Text style={{ fontSize: 12, color: base.slate, marginTop: 1 }}>{sub}</Text>}
-      </View>
-      <OphIcon name="chevron" size={18} color={base.slateLight} stroke={2.2} />
-    </Pressable>
-  );
-}
-const Group = ({ title, children, first }: { title?: string; children: React.ReactNode; first?: boolean }) => (
-  <View style={{ marginTop: first ? 0 : 14 }}>
-    {!!title && <Text style={[heading(700), { fontSize: 11, letterSpacing: 0.9, textTransform: 'uppercase', color: base.slate, marginBottom: 8 }]}>{title}</Text>}
-    <View style={{ backgroundColor: base.card, borderRadius: 16, borderWidth: 1, borderColor: '#ECEEF2', overflow: 'hidden' }}>{children}</View>
-  </View>
-);
+const Row = ListRow;
+const Group = ListGroup;
 
 export default function AdminCentre() {
   const { me, org } = useAuth();

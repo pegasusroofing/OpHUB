@@ -1,23 +1,46 @@
 // Operatives (320 renderOperativesList): every operative with their site and
 // certificate counts; search; tap one for their full record. Opened from a job's
-// H&S › Operatives tile with ?site= it lists just the people on that job.
+// H&S › Operatives tile with ?site= it lists just the people on that job. Training
+// Matrix Excel / PDF at the top, Operative Tools (everyone's tools) underneath.
 import { useQuery } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
-import { Button, Card, Empty, Muted } from '@/components/ui';
+import { MyToolsList } from '@/components/MyToolsList';
+import { useToast } from '@/components/toast';
+import { Button, Empty, Muted, Toggle } from '@/components/ui';
 import { useOperativeList } from '@/data/certs';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
+import { exportTrainingMatrixExcel, exportTrainingMatrixPdf, loadTrainingMatrix } from '@/lib/trainingMatrix';
 import { isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
 import { base, page, radius, space } from '@/theme/theme';
 
 export default function Operatives() {
   const { site } = useLocalSearchParams<{ site?: string }>();
-  const { me } = useAuth();
+  const { me, org } = useAuth();
+  const toast = useToast();
   const [q, setQ] = useState('');
+  const [busy, setBusy] = useState('');
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const [openFor, setOpenFor] = useState<Set<string>>(new Set());
+  const { data: toolCount } = useQuery({
+    queryKey: ['opToolCounts', me?.org_id], enabled: toolsOpen && !!me?.org_id,
+    queryFn: async () => {
+      const n: Record<string, number> = {};
+      (((await supabase.from('operative_tools').select('user_id').eq('org_id', me?.org_id as string)).data ?? []) as { user_id: string }[]).forEach((t) => { n[t.user_id] = (n[t.user_id] || 0) + 1; });
+      return n;
+    },
+  });
+  const matrix = async (k: 'x' | 'p') => {
+    if (!me?.org_id) return;
+    setBusy(k);
+    try { const m = await loadTrainingMatrix(me.org_id); await (k === 'x' ? exportTrainingMatrixExcel(m, org) : exportTrainingMatrixPdf(m, org)); }
+    catch { toast('Could not make the Training Matrix — try again.'); }
+    setBusy('');
+  };
   const { data: ops = [], isLoading } = useOperativeList(me?.org_id);
   const { data: sites = [] } = useSites();
   const { data: onSite } = useQuery({
@@ -32,6 +55,13 @@ export default function Operatives() {
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: siteName ? `Operatives · ${siteName}` : 'Operatives' }} />
       <TextInput value={q} onChangeText={setQ} placeholder="Search operatives…" style={{ borderWidth: 1.5, borderColor: base.line, borderRadius: radius.input, padding: 12, color: base.ink, backgroundColor: base.card, marginBottom: 14 }} />
+      {!site && (
+        <View style={{ gap: 10, marginBottom: 14 }}>
+          <Button kind="ghost" busy={busy === 'x'} title="📊 Export Training Matrix (Excel)" onPress={() => void matrix('x')} />
+          <Button kind="ghost" busy={busy === 'p'} title="📄 Export Training Matrix (PDF)" onPress={() => void matrix('p')} />
+          <Pressable onPress={() => router.push('/pm/operatives/matrix' as never)} style={{ alignSelf: 'center' }}><Text style={{ fontSize: 12, color: base.blue }}>View the matrix on screen ›</Text></Pressable>
+        </View>
+      )}
       {isLoading ? <Muted>Loading…</Muted> : shown.length ? shown.map((o) => (
         <Pressable key={o.id} onPress={() => router.push(`/pm/operatives/${o.id}` as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 8, backgroundColor: base.card }}>
           <View style={{ width: 38, height: 38, borderRadius: 10, backgroundColor: base.blueBg, alignItems: 'center', justifyContent: 'center' }}>
@@ -44,10 +74,23 @@ export default function Operatives() {
           <Text style={{ color: base.slate, fontSize: 18 }}>›</Text>
         </Pressable>
       )) : <Empty>{site ? 'No operatives assigned to this job yet.' : 'No operatives found.'}</Empty>}
-      <Card style={{ marginTop: space.m }}>
-        <Button kind="ghost" title="📊 Training Matrix (view, Excel, PDF)" onPress={() => router.push('/pm/operatives/matrix' as never)} />
-        <Muted style={{ marginTop: 6 }}>OneDrive certificate sync is on each operative&apos;s page.</Muted>
-      </Card>
+      {!site && (
+        <>
+          <Toggle title="Operative Tools" open={toolsOpen} onPress={() => setToolsOpen(!toolsOpen)} />
+          {toolsOpen && (ops.length ? ops.map((o) => {
+            const on = openFor.has(o.id);
+            return (
+              <View key={o.id}>
+                <Pressable onPress={() => setOpenFor((x) => { const n = new Set(x); if (n.has(o.id)) n.delete(o.id); else n.add(o.id); return n; })} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 4 }}>
+                  <Text style={{ color: base.slate, marginRight: 8 }}>{on ? '▼' : '▶'}</Text>
+                  <Text style={{ fontWeight: '700', color: base.ink }}>{o.name} ({toolCount?.[o.id] ?? 0})</Text>
+                </Pressable>
+                {on && <View style={{ backgroundColor: base.card, borderRadius: 14, borderWidth: 1, borderColor: base.cardLine, padding: 12, marginBottom: 10 }}><MyToolsList userId={o.id} name={o.name} /></View>}
+              </View>
+            );
+          }) : <Empty>No operatives yet.</Empty>)}
+        </>
+      )}
     </ScrollView>
   );
 }
