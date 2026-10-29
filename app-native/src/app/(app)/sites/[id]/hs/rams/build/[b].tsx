@@ -334,7 +334,10 @@ function Picker({ kind, part, have, onClose, onAdd }: { kind: 'hazard' | 'sectio
     <Modal transparent animationType="fade" onRequestClose={onClose}>
       <Pressable onPress={onClose} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 16 }}>
         <Pressable onPress={() => {}} style={{ backgroundColor: base.card, borderRadius: 14, padding: 14, maxHeight: '85%', maxWidth: 640, width: '100%', alignSelf: 'center' }}>
-          <Text style={{ fontWeight: '800', fontSize: 16, color: base.ink, marginBottom: 8 }}>Add {label} from the library</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8 }}>
+            <Text style={{ flex: 1, fontWeight: '800', fontSize: 16, color: base.ink,  }}>Add {label} from the library</Text>
+            <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" hitSlop={10} style={{ paddingLeft: 10 }}><Text style={{ fontSize: 18, color: base.slate, fontWeight: '700' }}>✕</Text></Pressable>
+          </View>
           <TextInput value={q} onChangeText={setQ} placeholder="Search…" style={box} />
           {fresh.length > 1 && <Check label={`Select all (${fresh.length})`} value={fresh.every((i) => sel.includes(i.id))} onChange={(v) => setSel(v ? Array.from(new Set([...sel, ...fresh.map((i) => i.id)])) : sel.filter((x) => !fresh.some((i) => i.id === x)))} />}
           <ScrollView style={{ flexGrow: 0 }}>

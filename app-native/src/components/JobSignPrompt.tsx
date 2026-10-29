@@ -33,7 +33,10 @@ export function JobSignPrompt({ siteId }: { siteId: string }) {
     <Modal transparent animationType="fade" onRequestClose={close}>
       <Pressable onPress={close} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', padding: 16 }}>
         <Pressable onPress={() => {}} style={{ backgroundColor: base.card, borderRadius: 14, padding: 16, width: '100%', maxWidth: 440, alignSelf: 'center' }}>
-          <Text style={{ fontWeight: '800', fontSize: 17, color: base.ink, marginBottom: 4 }}>✍️ Needs your signature</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 4 }}>
+            <Text style={{ flex: 1, fontWeight: '800', fontSize: 17, color: base.ink,  }}>✍️ Needs your signature</Text>
+            <Pressable onPress={close} accessibilityRole="button" accessibilityLabel="Close" hitSlop={10} style={{ paddingLeft: 10 }}><Text style={{ fontSize: 18, color: base.slate, fontWeight: '700' }}>✕</Text></Pressable>
+          </View>
           <Muted style={{ marginBottom: 12 }}>Please read and sign before starting work on this job.</Muted>
           {items.map((i) => (
             <Pressable key={i.href} onPress={() => { close(); router.push(i.href as never); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderWidth: 1, borderColor: base.line, borderRadius: 10, marginBottom: 8 }}>

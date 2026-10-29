@@ -47,7 +47,10 @@ export function ShopPicker({ siteId, onPick, onClose }: { siteId: string; onPick
     <Modal transparent animationType="fade" onRequestClose={onClose}>
       <Pressable onPress={onClose} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 20 }}>
         <Pressable onPress={() => {}} style={{ backgroundColor: base.card, borderRadius: radius.card, padding: 16, maxWidth: 560, width: '100%', alignSelf: 'center', maxHeight: '90%' }}>
-          <Text style={{ fontSize: 17, fontWeight: '800', color: base.ink, marginBottom: 10 }}>Project quotes</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 10 }}>
+            <Text style={{ flex: 1, fontSize: 17, fontWeight: '800', color: base.ink,  }}>Project quotes</Text>
+            <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" hitSlop={10} style={{ paddingLeft: 10 }}><Text style={{ fontSize: 18, color: base.slate, fontWeight: '700' }}>✕</Text></Pressable>
+          </View>
           {isLoading ? <Text style={{ color: base.slate }}>Loading…</Text> : !items?.length ? (
             <Text style={{ color: base.slate, marginBottom: 10 }}>There are no project quotes for this project yet. Finance can add them from a supplier quote.</Text>
           ) : (

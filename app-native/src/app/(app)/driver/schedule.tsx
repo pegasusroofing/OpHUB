@@ -263,7 +263,10 @@ function ReopenModal({ task, onClose, onDone }: { task: Delivery | null; onClose
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
       <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,.45)', justifyContent: 'center', padding: 16 }}>
         <View style={{ backgroundColor: base.card, borderRadius: radius.card, padding: 16, maxWidth: 460, width: '100%', alignSelf: 'center' }}>
-          <Text style={{ fontWeight: '800', color: base.ink, marginBottom: 12 }}>Re-open this delivery</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12 }}>
+            <Text style={{ flex: 1, fontWeight: '800', color: base.ink,  }}>Re-open this delivery</Text>
+            <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" hitSlop={10} style={{ paddingLeft: 10 }}><Text style={{ fontSize: 18, color: base.slate, fontWeight: '700' }}>✕</Text></Pressable>
+          </View>
           <Button title={`Same date & time — ${new Date(`${task.scheduled_date}T00:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' })}, ${slotLabel(task.time_slot)}`}
             onPress={() => onDone({ date: task.scheduled_date, slot: task.time_slot })} />
           {isPast && <Text style={{ color: base.warn, marginTop: 4 }}>That date has already passed.</Text>}

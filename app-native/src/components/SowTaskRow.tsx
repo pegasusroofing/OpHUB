@@ -260,6 +260,7 @@ function PhotoViewer({ path, onClose }: { path: string | null; onClose: () => vo
   return (
     <Modal visible={!!path} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={s.viewer} onPress={onClose}>
+        <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" hitSlop={10} style={{ position: 'absolute', top: 40, right: 20, width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,.15)', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff', fontSize: 20, fontWeight: '800' }}>✕</Text></Pressable>
         {url ? <Image source={{ uri: url }} style={{ width: '100%', height: '80%' }} resizeMode="contain" /> : <Text style={{ color: '#fff' }}>Loading…</Text>}
         {url && <Text style={{ color: '#fff', marginTop: 12 }} onPress={() => Linking.openURL(url)}>Open full size ↗</Text>}
       </Pressable>

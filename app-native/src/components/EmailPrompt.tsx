@@ -2,7 +2,9 @@
 // (110 customPromptWithCc / resolvePromptEmailTo). CC me with nobody typed means just send it to me.
 // Resolves the recipients, or null if cancelled. EmailPromptHost sits in the app shell.
 import { useEffect, useState } from 'react';
-import { Modal, Pressable, Text, TextInput, View } from 'react-native';
+import { Text, TextInput } from 'react-native';
+
+import { Popup, PopupButtons } from '@/components/Popup';
 
 import { Check } from '@/components/ui';
 import { base } from '@/theme/theme';
@@ -37,20 +39,11 @@ export function EmailPromptHost() {
     else setErr('Enter who to send it to (or tick CC me).');
   };
   return (
-    <Modal transparent visible animationType="fade" onRequestClose={() => done(null)}>
-      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,.45)', justifyContent: 'center', padding: 16 }}>
-        <View style={{ backgroundColor: '#fff', borderRadius: 18, padding: 16, width: '100%', maxWidth: 460, alignSelf: 'center' }}>
-          <Text style={{ fontWeight: '700', marginBottom: 8, color: base.ink }}>{req.message}</Text>
-          <TextInput value={to} onChangeText={(v) => { setTo(v); setErr(''); }} autoFocus autoCapitalize="none" keyboardType="email-address" placeholder="name@company.co.uk" style={{ borderWidth: 1, borderColor: '#E6E8EC', borderRadius: 12, padding: 10, marginBottom: 8 }} />
-          {!!req.myEmail && <Check label={`CC me a copy (${req.myEmail})`} value={ccMe} onChange={setCcMe} />}
-          {!!req.clientEmail && <Check label={`CC the client (${req.clientEmail})`} value={ccClient} onChange={setCcClient} />}
-          {!!err && <Text style={{ color: '#C0392B', marginTop: 4 }}>{err}</Text>}
-          <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 16, marginTop: 12 }}>
-            <Pressable onPress={() => done(null)}><Text style={{ fontWeight: '700' }}>Cancel</Text></Pressable>
-            <Pressable onPress={send}><Text style={{ fontWeight: '700', color: base.blue }}>Send</Text></Pressable>
-          </View>
-        </View>
-      </View>
-    </Modal>
+    <Popup title={req.message} onClose={() => done(null)} width={460} footer={<PopupButtons yes="Send" onYes={send} />}>
+      <TextInput value={to} onChangeText={(v) => { setTo(v); setErr(''); }} autoFocus autoCapitalize="none" keyboardType="email-address" placeholder="name@company.co.uk" placeholderTextColor="#9AA1AB" style={{ borderWidth: 1, borderColor: '#D5D9DF', borderRadius: 10, padding: 10, fontSize: 15, marginBottom: 8, color: base.ink }} />
+      {!!req.myEmail && <Check label={`CC me a copy (${req.myEmail})`} value={ccMe} onChange={setCcMe} />}
+      {!!req.clientEmail && <Check label={`CC the client (${req.clientEmail})`} value={ccClient} onChange={setCcClient} />}
+      {!!err && <Text style={{ color: '#C0392B', marginTop: 4 }}>{err}</Text>}
+    </Popup>
   );
 }

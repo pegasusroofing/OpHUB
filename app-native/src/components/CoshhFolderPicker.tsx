@@ -32,9 +32,12 @@ export function CoshhFolderPicker({ title, multi, onDone, onCancel }: { title: s
   };
   return (
     <Modal transparent animationType="fade" onRequestClose={onCancel}>
-      <Pressable onPress={onCancel} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}>
-        <Pressable onPress={() => {}} style={{ backgroundColor: base.card, borderTopLeftRadius: 18, borderTopRightRadius: 18, maxHeight: '80%', width: '100%', maxWidth: 560, alignSelf: 'center', padding: 16 }}>
-          <Text style={{ fontWeight: '800', fontSize: 15, color: base.ink, marginBottom: 10 }}>{title}</Text>
+      <Pressable onPress={onCancel} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', padding: 16 }}>
+        <Pressable onPress={() => {}} style={{ backgroundColor: base.card, borderRadius: 16, maxHeight: '80%', width: '100%', maxWidth: 560, alignSelf: 'center', padding: 16 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 10 }}>
+            <Text style={{ flex: 1, fontWeight: '800', fontSize: 15, color: base.ink,  }}>{title}</Text>
+            <Pressable onPress={onCancel} accessibilityRole="button" accessibilityLabel="Close" hitSlop={10} style={{ paddingLeft: 10 }}><Text style={{ fontSize: 18, color: base.slate, fontWeight: '700' }}>✕</Text></Pressable>
+          </View>
           <ScrollView style={{ flexGrow: 0 }}>
             {row(null, '📂 Top level', 0)}
             {rows.map(({ f, depth }) => row(f.id, `📁 ${f.name}`, depth))}

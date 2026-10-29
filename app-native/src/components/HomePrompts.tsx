@@ -53,7 +53,10 @@ export function HomePrompts() {
     <Modal transparent animationType="fade" onRequestClose={() => setLeft(null)}>
       <Pressable onPress={() => setLeft(null)} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', padding: 16 }}>
         <Pressable onPress={() => {}} style={{ backgroundColor: base.card, borderRadius: 14, padding: 16, width: '100%', maxWidth: 440, alignSelf: 'center' }}>
-          <Text style={{ fontWeight: '800', fontSize: 17, color: base.ink, marginBottom: 4 }}>✍️ Needs your signature</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 4 }}>
+            <Text style={{ flex: 1, fontWeight: '800', fontSize: 17, color: base.ink,  }}>✍️ Needs your signature</Text>
+            <Pressable onPress={() => setLeft(null)} accessibilityRole="button" accessibilityLabel="Close" hitSlop={10} style={{ paddingLeft: 10 }}><Text style={{ fontSize: 18, color: base.slate, fontWeight: '700' }}>✕</Text></Pressable>
+          </View>
           <Muted style={{ marginBottom: 12 }}>Please read and sign these.</Muted>
           {left.pol > 0 && row('📄', `Company policies${left.pol > 1 ? ` ×${left.pol}` : ''}`)}
           {left.hb > 0 && row('📘', 'Company handbook')}
