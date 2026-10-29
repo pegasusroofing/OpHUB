@@ -1,25 +1,44 @@
-// A subcontractor's Schedule of Works (550 renderSubSchedule): the main schedule's
-// items assigned to this company — the same rows, so progress shows on both.
-// Open the main Schedule of Works to update one.
-import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+// A subcontractor's Schedule of Works (550 renderSubSchedule): the main schedule's items assigned to
+// this company, as full rows — status, % complete and photos, the same as on the main Schedule of
+// Works (they're the same tasks, so progress shows on both). Subcontractor operatives work from here.
+import { Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
-import { Button, Empty, Muted } from '@/components/ui';
-import { useSubco, useSubSchedule } from '@/data/subcontractors';
+import { SowTaskRow } from '@/components/SowTaskRow';
+import { useToast } from '@/components/toast';
+import { Empty, Muted } from '@/components/ui';
+import { useSite } from '@/data/sites';
+import { useSchedule } from '@/data/sow';
+import { useSubco } from '@/data/subcontractors';
 import { useAuth } from '@/lib/auth';
-import { base, page, radius, space } from '@/theme/theme';
-
-const LABEL: Record<string, string> = { todo: 'To Do', progress: 'In Progress', done: 'Complete' };
+import { onQueueChange, onUploadsSent, pendingJobs, type UploadJob } from '@/lib/uploadQueue';
+import { base, page, space } from '@/theme/theme';
 
 export default function SubSchedule() {
   const { id, co } = useLocalSearchParams<{ id: string; co: string }>();
   const { me } = useAuth();
+  const toast = useToast();
   const { data: sub } = useSubco(co, me);
-  const { data: tasks, isLoading } = useSubSchedule(id, co);
+  const { data: site } = useSite(id);
+  const { data, isLoading, refetch } = useSchedule(site);
   const [f, setF] = useState<'all' | 'todo' | 'progress'>('all');
-  if (!sub) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
-  const shown = (tasks ?? []).filter((t) => f === 'all' || (f === 'todo' ? t.status === 'todo' : t.status !== 'todo'));
+  const [pending, setPending] = useState<UploadJob[]>([]);
+  const [pctPrompt, setPctPrompt] = useState<string | null>(null);
+  useEffect(() => {
+    const split = (jobs: Awaited<ReturnType<typeof pendingJobs>>) => setPending(jobs.filter((j): j is UploadJob => j.kind === 'upload'));
+    void pendingJobs().then(split);
+    const a = onQueueChange(split);
+    const b = onUploadsSent((n) => { toast(`✓ ${n} photo${n === 1 ? '' : 's'} uploaded`); void refetch(); });
+    return () => { a(); b(); };
+  }, [refetch, toast]);
+  useFocusEffect(useCallback(() => { void refetch(); }, [refetch]));
+  if (!sub || !site || !me) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
+  const mine = (data?.tasks ?? []).filter((t) => t.subcontractor_company_id === co);
+  const shown = mine.filter((t) => f === 'all' || (f === 'todo' ? (t.status || 'todo') === 'todo' : (t.status || 'todo') !== 'todo'));
+  const photos: Record<string, NonNullable<typeof data>['photos']> = {};
+  (data?.photos ?? []).forEach((p) => { (photos[p.task_id] ||= []).push(p); });
+  const addrById = Object.fromEntries((data?.addresses ?? []).map((a) => [a.id, a]));
   return (
     <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: `${sub.company.name} — Schedule of Works` }} />
@@ -32,12 +51,10 @@ export default function SubSchedule() {
         ))}
       </View>
       {isLoading ? <Muted>Loading…</Muted> : shown.length ? shown.map((t) => (
-        <View key={t.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 6, backgroundColor: base.card }}>
-          <Text style={{ flex: 1, color: base.ink, fontWeight: '600' }}>{t.name}</Text>
-          <Text style={{ fontWeight: '700', color: t.status === 'done' ? base.ok : t.status === 'progress' ? base.blue : base.slate }}>{LABEL[t.status] || t.status}{t.status === 'progress' && t.percent_complete ? ` ${t.percent_complete}%` : ''}</Text>
-        </View>
+        <SowTaskRow key={t.id} me={me} site={site} task={t} photos={photos[t.id] ?? []} pending={pending.filter((j) => j.waitKey === t.id)}
+          address={t.sub_site_id ? addrById[t.sub_site_id] : null} addresses={data?.addresses ?? []} onChanged={() => { void refetch(); }}
+          percentPrompt={pctPrompt === t.id} setPercentPrompt={(on) => setPctPrompt(on ? t.id : null)} />
       )) : <Empty>No work items assigned to {sub.company.name} yet.</Empty>}
-      <Button kind="ghost" title="Open the Schedule of Works" onPress={() => router.push(`/sites/${id}/schedule`)} />
     </ScrollView>
   );
 }
