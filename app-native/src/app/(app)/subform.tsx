@@ -10,6 +10,7 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { useToast } from '@/components/toast';
 import { Button, Card, Muted } from '@/components/ui';
+import { DateBox } from '@/components/DateField';
 import { loadSubDraft, saveSubDraft, sendSubform, uploadSubFile, useSubformNeeded } from '@/data/subform';
 import { useAuth } from '@/lib/auth';
 import { SUBFORM_SECTIONS, subformMissing, subQShown, type SubDraft, type SubQ } from '@/lib/rules/subform';
@@ -73,8 +74,9 @@ export default function SubForm() {
           }} />}
         </View>
       );
-    } else body = (
-      <TextInput value={String(v ?? '')} onChangeText={(t) => set(q.k as string, t)} placeholder={q.ph || (q.type === 'date' ? 'YYYY-MM-DD' : 'Your answer')} multiline={q.type === 'textarea'}
+    } else if (q.type === 'date') body = <DateBox value={String(v ?? '')} onChange={(t) => set(q.k as string, t)} title="Date" style={{ marginBottom: 8 }} />;
+    else body = (
+      <TextInput value={String(v ?? '')} onChangeText={(t) => set(q.k as string, t)} placeholder={q.ph || 'Your answer'} multiline={q.type === 'textarea'}
         keyboardType={q.type === 'email' ? 'email-address' : q.type === 'tel' ? 'phone-pad' : 'default'} autoCapitalize={q.type === 'email' ? 'none' : 'sentences'}
         style={[box, q.type === 'textarea' ? { minHeight: 70 } : null]} />
     );

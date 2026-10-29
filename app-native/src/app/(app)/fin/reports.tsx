@@ -11,6 +11,7 @@ import { pickJob } from '@/components/FinSales';
 import { useToast } from '@/components/toast';
 import { OphIcon } from '@/components/OphIcon';
 import { Button, Card, Empty, Muted, TINTS } from '@/components/ui';
+import { DateBox } from '@/components/DateField';
 import { finStatus, loadSettings, selectAll } from '@/data/finance';
 import { loadBook } from '@/data/finBook';
 import { useSites } from '@/data/sites';
@@ -88,7 +89,7 @@ function Report({ id }: { id: string }) {
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10, alignItems: 'center' }}>
         {has('status') && ['live', 'upcoming', 'closed', 'all'].map((k) => <FinChip key={k} on={f.status === k} label={k[0].toUpperCase() + k.slice(1)} onPress={() => setF({ ...f, status: k })} />)}
         {has('job') && <Pressable onPress={async () => { const k = await pickJob('Project', sites); setF({ ...f, job: k || '' }); }} style={box}><Text style={{ color: base.ink }}>{f.job ? jobTag(sites.find((s) => s.id === f.job)) : 'All projects'} ▾</Text></Pressable>}
-        {has('dates') && <><TextInput value={f.from} onChangeText={(v) => setF({ ...f, from: v })} placeholder="From YYYY-MM-DD" style={[box, { width: 140 }]} /><TextInput value={f.to} onChangeText={(v) => setF({ ...f, to: v })} placeholder="To YYYY-MM-DD" style={[box, { width: 140 }]} /></>}
+        {has('dates') && <><DateBox value={f.from} onChange={(v) => setF({ ...f, from: v })} placeholder="From" title="From" style={{ width: 160 }} /><DateBox value={f.to} onChange={(v) => setF({ ...f, to: v })} placeholder="To" title="To" style={{ width: 160 }} /></>}
         {has('opening') && <TextInput value={f.opening} onChangeText={(v) => setF({ ...f, opening: v })} placeholder="Opening bank balance £" keyboardType="decimal-pad" style={[box, { width: 180 }]} />}
         {has('varstatus') && ['', 'instructed', 'priced', 'submitted', 'agreed', 'rejected'].map((k) => <FinChip key={k || 'all'} on={f.varstatus === k} label={k ? k[0].toUpperCase() + k.slice(1) : 'Any status'} onPress={() => setF({ ...f, varstatus: k })} />)}
         {has('postatus') && ['', 'open', 'invoiced', 'cancelled'].map((k) => <FinChip key={k || 'allpo'} on={f.postatus === k} label={k ? k[0].toUpperCase() + k.slice(1) : 'Any PO'} onPress={() => setF({ ...f, postatus: k })} />)}

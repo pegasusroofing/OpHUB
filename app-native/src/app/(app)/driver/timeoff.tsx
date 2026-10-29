@@ -7,6 +7,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { useToast } from '@/components/toast';
 import { Button, Card, Empty, Field, Muted, SectionTitle } from '@/components/ui';
+import { DateField, todayIso } from '@/components/DateField';
 import { bookTimeOff, removeTimeOff, useTimeOff } from '@/data/driver';
 import { useAuth } from '@/lib/auth';
 import { dtoDays, dtoProblem, dtoRange, localISODate } from '@/lib/rules/driver';
@@ -48,8 +49,8 @@ export default function TimeOff() {
             </Pressable>
           ))}
         </View>
-        <Field label={mode === 'range' ? 'From (YYYY-MM-DD)' : 'Date (YYYY-MM-DD)'} value={from} onChangeText={setFrom} autoCapitalize="none" />
-        {mode === 'range' && <Field label="To (YYYY-MM-DD)" value={to} onChangeText={setTo} autoCapitalize="none" />}
+        <DateField label={mode === 'range' ? 'From' : 'Date'} value={from} onChange={setFrom} min={todayIso()} />
+        {mode === 'range' && <DateField label="To" value={to} onChange={setTo} min={from || todayIso()} />}
         <Field label="Note (optional)" value={note} onChangeText={setNote} maxLength={200} placeholder="e.g. Holiday, appointment" />
         <Button title={busy ? 'Saving…' : 'Book Time Off'} busy={busy} onPress={save} />
       </Card>

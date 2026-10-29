@@ -13,6 +13,7 @@ import { StorageImage, useStorageUrl } from '@/components/StorageImage';
 import { chooseAction, confirmAsk, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Muted, SectionTitle } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
+import { DateBox } from '@/components/DateField';
 import { nameOf, openDocLink, usePeople } from '@/data/hs';
 import { useSite } from '@/data/sites';
 import { repairReportsAfter, scheduleRepairReport, syncRepairPhotos } from '@/data/repairOneDrive';
@@ -194,7 +195,7 @@ export default function RepairJobPage() {
           <>
             <Label>Survey booking</Label>
             <View style={{ flexDirection: 'row', gap: 8 }}>
-              <TextInput value={val('survey_booking_date')} onChangeText={setVal('survey_booking_date')} placeholder="Date (YYYY-MM-DD)" autoCapitalize="none" style={[box, { flex: 1 }]} />
+              <DateBox value={val('survey_booking_date')} onChange={setVal('survey_booking_date')} placeholder="Date" title="Survey date" style={{ flex: 1, marginBottom: 8 }} />
               <Pressable onPress={async () => { const k = await pickPerson('Assign survey to'); if (k !== null) setDraft({ ...draft, survey_booking_assigned_to: k }); }} style={[box, { flex: 1, justifyContent: 'center' }]}>
                 <Text style={{ color: base.ink }} numberOfLines={1}>▼ {val('survey_booking_assigned_to') ? nameOf(people, val('survey_booking_assigned_to')) : 'Unassigned'}</Text>
               </Pressable>
@@ -267,13 +268,13 @@ export default function RepairJobPage() {
             <Card>
               <SectionTitle>Scaffold</SectionTitle>
               <Label>Scaffold booking date</Label>
-              <TextInput value={val('scaffold_booking_date')} onChangeText={setVal('scaffold_booking_date')} placeholder="YYYY-MM-DD" autoCapitalize="none" style={box} />
+              <DateBox value={val('scaffold_booking_date')} onChange={setVal('scaffold_booking_date')} title="Scaffold booking date" style={{ marginBottom: 8 }} />
               <Label>Assign booking to</Label>
               <Pressable onPress={async () => { const k = await pickPerson('Assign booking to'); if (k !== null) setDraft({ ...draft, scaffold_booking_assigned_to: k }); }} style={[box, { paddingVertical: 12 }]}>
                 <Text style={{ color: base.ink }}>▼ {val('scaffold_booking_assigned_to') ? nameOf(people, val('scaffold_booking_assigned_to')) : 'Unassigned'}</Text>
               </Pressable>
               <Label>Scaffold erection date</Label>
-              <TextInput value={val('scaffold_erection_date')} onChangeText={setVal('scaffold_erection_date')} placeholder="YYYY-MM-DD" autoCapitalize="none" style={box} />
+              <DateBox value={val('scaffold_erection_date')} onChange={setVal('scaffold_erection_date')} title="Scaffold erection date" style={{ marginBottom: 8 }} />
               <Button kind="ghost" title="Save" onPress={async () => {
                 const b = pickDate(val('scaffold_booking_date')), e = pickDate(val('scaffold_erection_date')); if (b === undefined || e === undefined) return;
                 const who = val('scaffold_booking_assigned_to') || null;

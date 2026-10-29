@@ -14,6 +14,7 @@ import { confirmAsk, showAlert, useToast } from '@/components/toast';
 import { FinForm } from '@/components/FinForm';
 import { Button, Card, Check, Muted, SectionTitle } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
+import { DateBox } from '@/components/DateField';
 import { addBoqLines, addBoqSection, clearCertificate, deleteApplication, deleteApplicationAny, exportApplication, loadApplication, newApplication, raiseInvoiceFromCert, saveApplication, saveCertificate, setStatus } from '@/data/finApp';
 import { openDocLink } from '@/data/hs';
 import { useSite } from '@/data/sites';
@@ -155,7 +156,7 @@ function Editor({ a0, jf, previousLive, prevPct, siteProgress }: { a0: Row; jf: 
       {!locked && (
         <Card>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-            {[['valuation_date', 'Valuation date'], ['due_date', 'Due date'], ['final_date', 'Final date']].map(([k, l]) => <View key={k} style={{ flexGrow: 1 }}><Muted>{l}</Muted><TextInput value={a[k] || ''} onChangeText={(v) => setA({ ...a, [k]: v })} placeholder="YYYY-MM-DD" style={box} /></View>)}
+            {[['valuation_date', 'Valuation date'], ['due_date', 'Due date'], ['final_date', 'Final date']].map(([k, l]) => <View key={k} style={{ flexGrow: 1 }}><Muted>{l}</Muted><DateBox value={a[k] || ''} onChange={(v) => setA({ ...a, [k]: v })} title={l} style={{ marginBottom: 8 }} /></View>)}
           </View>
         </Card>
       )}

@@ -9,6 +9,7 @@ import { PpeManager } from '@/components/PpeManager';
 import { useToast } from '@/components/toast';
 import { useSite } from '@/data/sites';
 import { Button, Card, Empty, Field, Muted, SectionTitle } from '@/components/ui';
+import { DateField, todayIso } from '@/components/DateField';
 import { nameOf, usePeople } from '@/data/hs';
 import { requestPpe, signPpe, useMyPpe } from '@/data/ppe';
 import { useAuth } from '@/lib/auth';
@@ -88,7 +89,7 @@ export default function Ppe() {
                 ))}
               </View>
               {item === '__other' && <Field label="Item name" value={custom} onChangeText={setCustom} />}
-              <Field label="Date needed (YYYY-MM-DD, optional)" value={date} onChangeText={setDate} autoCapitalize="none" />
+              <DateField label="Date needed (optional)" value={date} onChange={setDate} min={todayIso()} />
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 <View style={{ flex: 1 }}><Button busy={busy} title="Submit Request" onPress={submit} /></View>
                 <View style={{ flex: 1 }}><Button kind="ghost" title="Cancel" onPress={() => setOpen(false)} /></View>

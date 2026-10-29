@@ -11,8 +11,9 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 import { FinRow, FinSeg, FinStat } from '@/components/FinNav';
 import { Cell, FinTable, FootText } from '@/components/FinTable';
 import { pickJob } from '@/components/FinSales';
-import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
+import { chooseAction, confirmAsk, useToast } from '@/components/toast';
 import { Button, Empty, Muted } from '@/components/ui';
+import { askDate } from '@/components/DateField';
 import * as DocumentPicker from 'expo-document-picker';
 import { fdb, selectAll } from '@/data/finance';
 import { supabase } from '@/lib/supabase';
@@ -174,8 +175,8 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
                 toast(ok === rows.length ? `${ok} approved` : `${ok} of ${rows.length} approved`); refresh();
               };
               const paidAll = async () => {
-                const d = await promptText(`Paid on which date? (${picked.length} invoice${picked.length === 1 ? '' : 's'}, YYYY-MM-DD)`, today()); if (d == null) return;
-                const date = d.trim() || today(); if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { toast(`Use the date as YYYY-MM-DD, e.g. ${today()}`); return; }
+                const d = await askDate(`Paid on which date? (${picked.length} invoice${picked.length === 1 ? '' : 's'})`); if (d == null) return;
+                const date = d || today();
                 const rows = picked.filter((i) => i.status === 'approved'); if (!rows.length) { toast('Only approved invoices can be marked paid.'); return; }
                 let ok = 0; for (const i of rows) if (await setPinvPaid(i.id, date)) ok++;
                 toast(`${ok} marked paid`); refresh();

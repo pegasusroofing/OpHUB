@@ -12,6 +12,7 @@ import { FinRow, FinStat } from '@/components/FinNav';
 import { chooseAction, confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Muted, SectionTitle } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
+import { DateBox } from '@/components/DateField';
 import { openDocLink } from '@/data/hs';
 import { addPayment, deleteDraft, deletePayment, draftRow, issue, loadInvoice, newInvoice, saveDraft, storePdf, voidInvoice } from '@/data/finInvoice';
 import { useSite } from '@/data/sites';
@@ -50,8 +51,8 @@ function Draft({ inv, site }: { inv: Row; site: Row | undefined }) {
   const t = invTotals(d.lines, d.vat_treatment, d.vat_rate);
   const set = (k: string, v: unknown) => setD({ ...d, [k]: v });
   const setLine = (i: number, k: string, v: unknown) => setD({ ...d, lines: d.lines.map((l: Row, j: number) => (j === i ? { ...l, [k]: v } : l)) });
-  const field = (k: string, label: string, o: { multiline?: boolean; half?: boolean; ph?: string } = {}) => (
-    <View style={{ flexBasis: o.half ? '47%' : '100%', flexGrow: 1, marginBottom: 8 }}><Muted style={{ fontWeight: '700' }}>{label}</Muted><TextInput value={String(d[k] ?? '')} onChangeText={(v) => set(k, v)} multiline={o.multiline} placeholder={o.ph} style={[box, o.multiline ? { minHeight: 60 } : null]} /></View>
+  const field = (k: string, label: string, o: { multiline?: boolean; half?: boolean; ph?: string; date?: boolean } = {}) => (
+    <View style={{ flexBasis: o.half ? '47%' : '100%', flexGrow: 1, marginBottom: 8 }}><Muted style={{ fontWeight: '700' }}>{label}</Muted>{o.date ? <DateBox value={String(d[k] ?? '')} onChange={(v) => set(k, v)} title={label} /> : <TextInput value={String(d[k] ?? '')} onChangeText={(v) => set(k, v)} multiline={o.multiline} placeholder={o.ph} style={[box, o.multiline ? { minHeight: 60 } : null]} />}</View>
   );
   const refresh = () => { ['finInvoice', 'finSales', 'finBook', 'finOverview', 'finJobs'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] })); };
   return (
@@ -60,7 +61,7 @@ function Draft({ inv, site }: { inv: Row; site: Row | undefined }) {
       <Card>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 8 }}>
           {field('bill_name', 'Bill to')}{field('bill_address', 'Billing address', { multiline: true })}{field('bill_email', 'Accounts email', { half: true })}
-          {field('client_po', 'Client PO', { half: true })}{field('issue_date', 'Invoice date', { half: true, ph: 'YYYY-MM-DD' })}{field('due_date', 'Due date', { half: true, ph: 'YYYY-MM-DD' })}
+          {field('client_po', 'Client PO', { half: true })}{field('issue_date', 'Invoice date', { half: true, date: true })}{field('due_date', 'Due date', { half: true, date: true })}
         </View>
       </Card>
       <SectionTitle>Lines</SectionTitle>

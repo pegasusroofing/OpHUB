@@ -10,6 +10,7 @@ import { Pressable, Text, View } from 'react-native';
 import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Card, Field, Muted } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
+import { askDate, DateField } from '@/components/DateField';
 import { deleteCert, renameCert, setCertCategory, setCertExpiry, uploadCert, useMyCerts } from '@/data/certs';
 import { openDocLink } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
@@ -76,7 +77,7 @@ export function CertsPanel({ userId, manual = false }: { userId: string; manual?
       if (t === 'other') { const d = await promptText('What type of card / certificate is it?', c.other_type_description || ''); if (d === null) return; desc = d.trim() || null; }
       toast((await setCertCategory(c.id, t, desc)) ? `Moved to ${t === 'other' && desc ? desc : certCategoryLabel(t)}` : 'Could not save — try again.'); refresh();
     } else if (k === 'expiry') {
-      const v = await promptText('Expiry date (YYYY-MM-DD) — leave blank for none', c.expiry_date || ''); if (v === null) return;
+      const v = await askDate('Expiry date (Clear for none)'); if (v === null) return;
       const d = readIsoDate(v); if (d === 'bad') { toast('Enter the date as YYYY-MM-DD.'); return; }
       toast((await setCertExpiry(c.id, d || null)) ? 'Expiry saved' : 'Could not save — try again.'); refresh();
     } else if (k === 'delete') {
@@ -109,7 +110,7 @@ export function CertsPanel({ userId, manual = false }: { userId: string; manual?
             ))}
           </View>
           {cat === 'other' && <Field label="Describe the certificate type" value={other} onChangeText={setOther} />}
-          <Field label="Expiry date (optional, YYYY-MM-DD)" value={expiry} onChangeText={setExpiry} autoCapitalize="none" />
+          <DateField label="Expiry date (optional)" value={expiry} onChange={setExpiry} />
           <Button kind="ghost" title={file ? `📎 ${file.name}` : 'Choose file…'} onPress={async () => {
             const r = await DocumentPicker.getDocumentAsync({ type: ['image/*', 'application/pdf'], copyToCacheDirectory: true });
             if (!r.canceled && r.assets[0]) setFile(r.assets[0]);

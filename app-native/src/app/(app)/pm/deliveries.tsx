@@ -6,8 +6,9 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, Text, TextInput, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 
+import { DateBox } from '@/components/DateField';
 import { StorageImage } from '@/components/StorageImage';
 import { chooseAction, confirmAsk, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
@@ -19,7 +20,6 @@ import { useAuth } from '@/lib/auth';
 import { exportDeliverySchedule } from '@/lib/deliveryExport';
 import { fullSiteAddress } from '@/lib/rules/checkin';
 import { blockedSlots, bySlotOrder, collectionLine, dayTotals, DELIVERY_TIME_SLOTS, fullSlots, localISODate, minsLabel, slotLabel } from '@/lib/rules/driver';
-import { readIsoDate } from '@/lib/rules/materials';
 import { isManager } from '@/lib/roles';
 import { base, page, radius, space, useTheme } from '@/theme/theme';
 
@@ -32,7 +32,6 @@ export default function DeliverySchedule() {
   const qc = useQueryClient();
   const today = localISODate(new Date());
   const [iso, setIso] = useState(today);
-  const [jump, setJump] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
   const [hoursOpen, setHoursOpen] = useState(false);
   const [week, setWeek] = useState(0);
@@ -81,8 +80,7 @@ export default function DeliverySchedule() {
       </View>
       <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12, alignItems: 'center' }}>
         <Text style={{ fontSize: 11, fontWeight: '800', letterSpacing: 0.6, color: base.ink }}>JUMP TO</Text>
-        <TextInput value={jump} onChangeText={setJump} placeholder="YYYY-MM-DD" autoCapitalize="none" onSubmitEditing={() => { const d = readIsoDate(jump); if (d && d !== 'bad') { setIso(d); setJump(''); } else toast('Enter the date as YYYY-MM-DD.'); }}
-          style={{ flex: 1, borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card }} />
+        <DateBox value={iso} onChange={(d) => { if (d) setIso(d); }} clearable={false} title="Jump to" style={{ flex: 1 }} />
         {iso !== today && <Pressable onPress={() => setIso(today)} style={{ padding: 10 }}><Text style={{ color: base.blue, fontWeight: '700' }}>Today</Text></Pressable>}
       </View>
 

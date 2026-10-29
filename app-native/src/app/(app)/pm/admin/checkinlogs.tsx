@@ -4,10 +4,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { chooseAction, useToast } from '@/components/toast';
 import { Card, Empty, Muted } from '@/components/ui';
+import { DateBox } from '@/components/DateField';
 import { useTeam } from '@/data/admin';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
@@ -15,7 +16,7 @@ import { byDay, logRange, pairSessions, type LogRow } from '@/lib/rules/checkinL
 import { readIsoDate } from '@/lib/rules/materials';
 import { isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
-import { base, page, radius, space } from '@/theme/theme';
+import { base, page, space } from '@/theme/theme';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 
@@ -49,7 +50,7 @@ export default function CheckinLogs() {
   const mine = rows.filter((c) => (c.site_id && siteIds.has(c.site_id)) || teamIds.has(c.user_id));
   const operatives = team.filter((p) => p.role === 'operative' && (!ops.length || ops.includes(p.id)));
   const chip = (on: boolean, l: string, onPress: () => void) => <Pressable onPress={onPress} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: on ? base.ink : base.line, backgroundColor: on ? base.ink : base.card }}><Text style={{ fontWeight: '700', fontSize: 12, color: on ? '#fff' : base.ink }}>{l}</Text></Pressable>;
-  const dateBox = (v: string, set: (s: string) => void, ph: string) => <TextInput value={v} onChangeText={set} placeholder={ph} autoCapitalize="none" style={{ flex: 1, borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 8, fontSize: 12, color: base.ink, backgroundColor: base.card }} />;
+  const dateBox = (v: string, set: (s: string) => void, ph: string) => <DateBox value={v} onChange={set} placeholder={ph} title={ph} style={{ flex: 1, paddingVertical: 7 }} />;
   return (
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Check-In Logs' }} />
@@ -69,7 +70,7 @@ export default function CheckinLogs() {
         <Pressable disabled={custom || offset >= 0} onPress={() => setOffset(offset + 1)} style={{ opacity: custom || offset >= 0 ? 0.35 : 1, padding: 8 }}><Text style={{ fontSize: 18 }}>›</Text></Pressable>
       </View>
       <View style={{ flexDirection: 'row', gap: 6, marginBottom: 12, alignItems: 'center' }}>
-        {dateBox(from, setFrom, 'From YYYY-MM-DD')}{dateBox(to, setTo, 'To YYYY-MM-DD')}
+        {dateBox(from, setFrom, 'From')}{dateBox(to, setTo, 'To')}
         {(!!from || !!to) && <Pressable onPress={() => { setFrom(''); setTo(''); }}><Text style={{ color: base.blue }}>Clear</Text></Pressable>}
       </View>
       {(f === 'bad' || t === 'bad') && <Text style={{ color: base.warn, marginBottom: 8 }} onPress={() => toast('Enter the dates as YYYY-MM-DD.')}>Enter the dates as YYYY-MM-DD.</Text>}

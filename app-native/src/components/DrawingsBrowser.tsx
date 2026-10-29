@@ -21,6 +21,7 @@ import {
   uploadFiles, useDrawings, type DFile,
 } from '@/data/drawings';
 import { VisibilityEditor } from '@/components/VisibilityEditor';
+import { DateBox } from '@/components/DateField';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { programmeDates } from '@/lib/rules/programmeDates';
@@ -161,7 +162,7 @@ export function DrawingsBrowser({ siteId, folderId }: { siteId: string; folderId
               </View>
             ))}
           </View> : <>
-          <TextInput value={keyDate.date} onChangeText={(t) => setKeyDate({ ...keyDate, date: t })} placeholder="Date (YYYY-MM-DD)" autoCapitalize="none" style={[box, { marginTop: 8 }]} />
+          <DateBox value={keyDate.date} onChange={(t) => setKeyDate({ ...keyDate, date: t })} title="Key date" style={{ marginTop: 8, marginBottom: 8 }} />
           <TextInput value={keyDate.label} onChangeText={(t) => setKeyDate({ ...keyDate, label: t })} style={box} />
           </>}
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
@@ -176,7 +177,7 @@ export function DrawingsBrowser({ siteId, folderId }: { siteId: string; folderId
                 return;
               }
               const d = readIsoDate(keyDate.date);
-              if (!d || d === 'bad') { toast('Enter the date as YYYY-MM-DD.'); return; }
+              if (!d || d === 'bad') { toast('Choose the date.'); return; }
               if (await addKeyDate(me, siteId, d, keyDate.label.trim() || `Programme: ${keyDate.name}`, keyDate.fileId)) { toast('Added to the Calendar'); setKeyDate(null); } else toast('Could not save — try again.');
             }} /></View>
             <View style={{ flex: 1 }}><Button kind="ghost" title="Skip" onPress={() => setKeyDate(null)} /></View>

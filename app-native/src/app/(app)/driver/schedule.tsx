@@ -6,12 +6,13 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Linking, Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Linking, Modal, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { StorageImage } from '@/components/StorageImage';
 import { useStoredPhotoMarkup } from '@/components/StoredPhotoMarkup';
 import { confirmAsk, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
+import { DateBox, todayIso } from '@/components/DateField';
 import {
   addCompletionPhotos, completeDelivery, completionPhotos, deliveryPhotos, driverBreak, planPush, pushDelivery,
   removeCompletionPhoto, replaceCompletionPhoto, reopenDelivery, siteHeading, useDriverDay, useDriverStatus, type Delivery,
@@ -267,8 +268,7 @@ function ReopenModal({ task, onClose, onDone }: { task: Delivery | null; onClose
             onPress={() => onDone({ date: task.scheduled_date, slot: task.time_slot })} />
           {isPast && <Text style={{ color: base.warn, marginTop: 4 }}>That date has already passed.</Text>}
           <Muted style={{ marginTop: 12, fontWeight: '700' }}>Or choose a new date</Muted>
-          <TextInput value={d} onChangeText={setDate} placeholder="YYYY-MM-DD" autoCapitalize="none"
-            style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, marginVertical: 8, color: base.ink }} />
+          <DateBox value={d} onChange={setDate} min={todayIso()} title="New date" style={{ marginVertical: 8 }} />
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
             {DELIVERY_TIME_SLOTS.map((s) => (
               <Pressable key={s.key} onPress={() => setSlot(s.key)} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 14, borderWidth: 1, borderColor: sl === s.key ? base.ink : base.line, backgroundColor: sl === s.key ? base.ink : base.card }}>
@@ -277,7 +277,7 @@ function ReopenModal({ task, onClose, onDone }: { task: Delivery | null; onClose
             ))}
           </View>
           <Button title="Re-open on this date" onPress={() => {
-            if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) { showAlert('Choose a date first (YYYY-MM-DD).'); return; }
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) { showAlert('Choose a date first.'); return; }
             onDone({ date: d, slot: sl });
           }} />
           <Button kind="ghost" title="Cancel" onPress={onClose} />

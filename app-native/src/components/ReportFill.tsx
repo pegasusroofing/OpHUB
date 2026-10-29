@@ -21,6 +21,7 @@ import { park, parkedFor, unpark } from '@/lib/reportOffline';
 import { pdfPageImages } from '@/lib/pdfjs';
 import { refreshKeyColours, type MarkOp } from '@/lib/rules/markup';
 import { Button, Card, Muted, SectionTitle } from '@/components/ui';
+import { DateBox } from '@/components/DateField';
 import { completeReport, defaultOperatives, pendingPhotos, saveAnswers, uploadPhotos, type Sub } from '@/data/reports';
 import { useAuth } from '@/lib/auth';
 import { compressOne, pickPhotos } from '@/lib/photos';
@@ -239,7 +240,7 @@ export function ReportFill({ sub, siteId, editingCompleted, isBriefing, onDone }
     switch (it.type) {
       case 'instruction': return <Text style={{ fontWeight: '800', color: base.ink, marginBottom: 10 }}>{it.label}</Text>;
       case 'text': case 'number': case 'date': case 'textarea':
-        return (<>{label}<TextInput value={val == null ? '' : String(val)} onChangeText={(t) => set(it.id, t)} multiline={it.type === 'textarea'} keyboardType={it.type === 'number' ? 'decimal-pad' : 'default'} autoCapitalize={it.type === 'date' ? 'none' : 'sentences'} placeholder={it.type === 'date' ? 'YYYY-MM-DD' : ''} style={[box, it.type === 'textarea' ? { minHeight: 70 } : {}]} />{extras(it)}</>);
+        return (<>{label}{it.type === 'date' ? <DateBox value={val == null ? '' : String(val)} onChange={(t) => set(it.id, t)} style={{ marginBottom: 8 }} /> : <TextInput value={val == null ? '' : String(val)} onChangeText={(t) => set(it.id, t)} multiline={it.type === 'textarea'} keyboardType={it.type === 'number' ? 'decimal-pad' : 'default'} style={[box, it.type === 'textarea' ? { minHeight: 70 } : {}]} />}{extras(it)}</>);
       case 'checkbox':
         return (<>{label}{choices(it, ['Yes', 'No'], val === true ? 'Yes' : val === false ? 'No' : null, (o) => set(it.id, o === 'Yes'))}{extras(it)}</>);
       case 'passfail': {

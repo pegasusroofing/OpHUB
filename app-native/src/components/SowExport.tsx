@@ -6,6 +6,7 @@ import { View } from 'react-native';
 
 import { chooseAction, confirmAsk, promptText, showAlert, useToast } from '@/components/toast';
 import { Button } from '@/components/ui';
+import { askDate } from '@/components/DateField';
 import { useAuth } from '@/lib/auth';
 import { deliverPdf } from '@/lib/pdf';
 import { localISODate } from '@/lib/rules/driver';
@@ -27,9 +28,9 @@ export function SowExport({ site, tab }: { site: Site; tab: SowTab }) {
     let from: string | undefined, to: string | undefined;
     if (k === 'custom') {
       const today = localISODate(new Date());
-      const f = await promptText('From (YYYY-MM-DD)', today); if (f === null) return undefined;
-      const t = await promptText('To (YYYY-MM-DD)', f.trim() || today); if (t === null) return undefined;
-      from = f.trim(); to = t.trim();
+      const f = await askDate('From'); if (f === null) return undefined;
+      const t = await askDate('To', { min: f || undefined }); if (t === null) return undefined;
+      from = f || today; to = t || from;
     }
     const p = sowPeriod(k, from, to);
     if (p === 'bad') { toast('Pick a valid from and to date.'); return undefined; }

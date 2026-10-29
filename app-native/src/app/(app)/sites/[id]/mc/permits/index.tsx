@@ -8,6 +8,7 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
+import { DateBox } from '@/components/DateField';
 import { issuePermit, PERMIT_ICON, PERMIT_LABEL, permitRoster, usePermits } from '@/data/mc';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
@@ -95,8 +96,8 @@ export default function Permits() {
           <TextInput value={desc} onChangeText={setDesc} placeholder="e.g. Hot works to re-felt the plant room roof" style={box} />
           <Muted style={{ fontWeight: '700' }}>Location</Muted>
           <Text style={[box, { backgroundColor: base.paper }]}>{fullSiteAddress(site)}</Text>
-          <Muted style={{ fontWeight: '700' }}>Date (YYYY-MM-DD)</Muted>
-          <TextInput value={date} onChangeText={setDate} autoCapitalize="none" style={box} />
+          <Muted style={{ fontWeight: '700' }}>Date</Muted>
+          <DateBox value={date} onChange={setDate} title="Date" style={{ marginBottom: 8 }} />
           {!sig && <Pressable onPress={() => router.push('/signature')}><Text style={{ color: base.warn, marginBottom: 8 }}>You haven't adopted a signature yet — tap to set one up before issuing.</Text></Pressable>}
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <View style={{ flex: 1 }}><Button kind="ghost" title="Cancel" onPress={() => setIssuing(false)} /></View>
@@ -104,7 +105,7 @@ export default function Permits() {
               if (!sig) { toast('Adopt your signature first.'); router.push('/signature'); return; }
               if (!desc.trim()) { toast('Add a description of the works.'); return; }
               if (!who.size) { toast('Select at least one employee to sign this permit.'); return; }
-              const d = readIsoDate(date); if (d === 'bad') { toast('Enter the date as YYYY-MM-DD.'); return; }
+              const d = readIsoDate(date); if (d === 'bad') { toast('Choose the date.'); return; }
               setBusy(true);
               const ok = await issuePermit(me, site, { type, companyId: co, assignees: [...who], description: desc.trim(), date: d, location: fullSiteAddress(site) || '' });
               setBusy(false);

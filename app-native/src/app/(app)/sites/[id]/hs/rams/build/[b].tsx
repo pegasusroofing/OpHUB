@@ -9,6 +9,7 @@ import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-nativ
 
 import { chooseAction, confirmAsk, promptText, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Check, Empty, Muted, SectionTitle } from '@/components/ui';
+import { DateBox } from '@/components/DateField';
 import { deleteBuild, issueBuild, loadBuild, previewPdf, saveAsTemplate, saveBuild, saveItemToLibrary, useLibrary } from '@/data/ramsBuilder';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
@@ -100,12 +101,12 @@ function Editor({ initial, siteId }: { initial: RamsBuild; siteId: string }) {
   const setS = (sid: string, patch: Partial<RSection>) => change((x) => ({ ...x, sections: x.sections.map((s) => (s.id === sid ? { ...s, ...patch } : s)) }));
 
   // ----- tabs -----
-  const field = (label: string, k: keyof RamsDetails, o: { multiline?: boolean; kb?: 'phone-pad'; ph?: string } = {}) => {
+  const field = (label: string, k: keyof RamsDetails, o: { multiline?: boolean; kb?: 'phone-pad'; ph?: string; date?: boolean } = {}) => {
     const req = RAMS_REQUIRED.some(([r]) => r === k), v = String(b.details[k] ?? ''), bad = req && !v.trim();
     return (
       <View style={{ flex: 1 }}>
         <Muted style={{ fontWeight: '700' }}>{label}{req ? <Text style={{ color: '#C0392B' }}> *</Text> : null}</Muted>
-        <TextInput value={v} onChangeText={(t) => setD(k, t)} multiline={o.multiline} keyboardType={o.kb} placeholder={o.ph || (req ? 'Required' : undefined)} style={[box, o.multiline ? { minHeight: 70 } : null, bad ? { borderColor: '#C0392B' } : null]} />
+        {o.date ? <DateBox value={v} onChange={(t) => setD(k, t)} title={label} placeholder={req ? 'Required' : 'Choose a date'} style={[{ marginBottom: 8 }, bad ? { borderColor: '#C0392B' } : null]} /> : <TextInput value={v} onChangeText={(t) => setD(k, t)} multiline={o.multiline} keyboardType={o.kb} placeholder={o.ph || (req ? 'Required' : undefined)} style={[box, o.multiline ? { minHeight: 70 } : null, bad ? { borderColor: '#C0392B' } : null]} />}
       </View>
     );
   };
@@ -117,10 +118,10 @@ function Editor({ initial, siteId }: { initial: RamsBuild; siteId: string }) {
         <Card>
           <SectionTitle>Document details</SectionTitle>
           {row(field('Risk Assessment no.', 'raNumber'), field('Method Statement no.', 'msNumber'))}
-          {row(field('Date', 'date', { ph: 'YYYY-MM-DD' }), field('Review date', 'reviewDate', { ph: 'YYYY-MM-DD' }))}
+          {row(field('Date', 'date', { date: true }), field('Review date', 'reviewDate', { date: true }))}
           {field('Author', 'author')}
           {field('Project / contract', 'project')}
-          {row(field('Start date', 'startDate', { ph: 'YYYY-MM-DD' }), field('Expected duration', 'duration'))}
+          {row(field('Start date', 'startDate', { date: true }), field('Expected duration', 'duration'))}
           {field('Client contact (from the Client Info tab)', 'clientContact')}
           {field('Description of works', 'description')}
           {field('Site address', 'address')}

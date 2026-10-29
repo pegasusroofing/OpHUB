@@ -10,6 +10,7 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { chooseAction, confirmAsk, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Check, Empty, Muted, SectionTitle } from '@/components/ui';
+import { DateBox } from '@/components/DateField';
 import { bookLeave, cancelLeave, decideLeave, hrAllowance, hrCode, hrColour, saveHrSettings, useHr } from '@/data/hr';
 import { useAuth } from '@/lib/auth';
 import { monthGrid } from '@/lib/rules/calendar';
@@ -69,7 +70,7 @@ export default function Holidays() {
   const save = async () => {
     if (!d) return;
     const s = readIsoDate(d.start), e = readIsoDate(d.end);
-    if (!s || !e || s === 'bad' || e === 'bad') { toast('Enter the dates as YYYY-MM-DD.'); return; }
+    if (!s || !e || s === 'bad' || e === 'bad') { toast('Choose both dates.'); return; }
     if (e < s) { toast('The end date is before the start date.'); return; }
     const parts = bookingParts(s, e, d.part, d.startPart, d.endPart);
     const days = leaveDays({ start_date: s, end_date: e, ...parts });
@@ -130,8 +131,8 @@ export default function Holidays() {
           <Muted style={{ fontWeight: '700', marginBottom: 4 }}>Type</Muted>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>{Object.keys(HR_TYPES).map((k) => <Chip key={k} on={d.type === k} label={`${HR_TYPES[k]} (${hrCode(hr, k)})`} onPress={() => setD({ ...d, type: k })} />)}</View>
           <View style={{ flexDirection: 'row', gap: 8 }}>
-            <View style={{ flex: 1 }}><Muted style={{ fontWeight: '700' }}>From</Muted><TextInput value={d.start} onChangeText={(v) => setD({ ...d, start: v, end: d.end < v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : d.end })} autoCapitalize="none" style={box} /></View>
-            <View style={{ flex: 1 }}><Muted style={{ fontWeight: '700' }}>To</Muted><TextInput value={d.end} onChangeText={(v) => setD({ ...d, end: v })} autoCapitalize="none" style={box} /></View>
+            <View style={{ flex: 1 }}><Muted style={{ fontWeight: '700' }}>From</Muted><DateBox value={d.start} onChange={(v) => setD({ ...d, start: v, end: !d.end || d.end < v ? v : d.end })} clearable={false} title="From" style={{ marginBottom: 8 }} /></View>
+            <View style={{ flex: 1 }}><Muted style={{ fontWeight: '700' }}>To</Muted><DateBox value={d.end} onChange={(v) => setD({ ...d, end: v })} min={d.start || undefined} clearable={false} title="To" style={{ marginBottom: 8 }} /></View>
           </View>
           {d.start === d.end ? (
             <View style={{ flexDirection: 'row', gap: 6, marginBottom: 10 }}>{[['full', 'Full day'], ['am', 'Morning'], ['pm', 'Afternoon']].map(([k, l]) => <Chip key={k} on={d.part === k} label={l} onPress={() => setD({ ...d, part: k })} />)}</View>

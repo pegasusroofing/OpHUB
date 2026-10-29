@@ -13,6 +13,7 @@ import { FinRow, FinStat } from '@/components/FinNav';
 import { confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Muted, SectionTitle } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
+import { DateBox } from '@/components/DateField';
 import { fdb, insertNumbered, loadSettings } from '@/data/finance';
 import { openDocLink } from '@/data/hs';
 import { useSites } from '@/data/sites';
@@ -144,7 +145,7 @@ function AppForm({ sc, a, ctx, nextNo, onClose, onSaved, onPaid }: { sc: Row; a:
   };
   const box = { borderWidth: 1, borderColor: base.line, borderRadius: 8, padding: 8, color: base.ink, backgroundColor: base.card };
   const f = (k: string, l: string) => (
-    <View key={k} style={{ flexBasis: '47%', flexGrow: 1, marginBottom: 6 }}><Muted>{l}</Muted><TextInput editable={!locked} value={String(v[k] ?? '')} onChangeText={(x) => setV({ ...v, [k]: x })} keyboardType={k.includes('date') ? 'default' : 'decimal-pad'} placeholder={k.includes('date') ? 'YYYY-MM-DD' : '£'} style={box} /></View>
+    <View key={k} style={{ flexBasis: '47%', flexGrow: 1, marginBottom: 6 }}><Muted>{l}</Muted>{k.includes('date') ? <DateBox disabled={locked} value={String(v[k] ?? '')} onChange={(x) => setV({ ...v, [k]: x })} title={l} style={{ marginBottom: 8 }} /> : <TextInput editable={!locked} value={String(v[k] ?? '')} onChangeText={(x) => setV({ ...v, [k]: x })} keyboardType="decimal-pad" placeholder="£" style={box} />}</View>
   );
   return (
     <Card style={{ borderColor: base.ink, marginTop: 10 }}>

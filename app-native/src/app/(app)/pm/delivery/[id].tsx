@@ -12,6 +12,7 @@ import { StorageImage } from '@/components/StorageImage';
 import { useStoredPhotoMarkup } from '@/components/StoredPhotoMarkup';
 import { chooseAction, confirmAsk, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Check, Muted } from '@/components/ui';
+import { DateBox } from '@/components/DateField';
 import { blankDraft, deleteDelivery, draftFrom, existingFirstDrop, loadDelivery, saveDelivery, uploadDraftPhotos, useDeliveryRequests, useStaff, type Draft, type FullDelivery, type Orig } from '@/data/deliveries';
 import { completionPhotos, dayList, placeOf, reopenDelivery, siteLabel } from '@/data/driver';
 import { useSuppliers } from '@/data/materials';
@@ -144,7 +145,7 @@ export default function DeliveryForm() {
     else if (!d.site_id) { toast('Choose a site.'); return; }
     if (site?.multi_site && addrs.length && !d.sub_site_id) { toast('Choose which address on this job.'); return; }
     if (!d.description.trim()) { toast('Add a description.'); return; }
-    const dt = readIsoDate(d.scheduled_date); if (!dt || dt === 'bad') { toast('Enter the date as YYYY-MM-DD.'); return; }
+    const dt = readIsoDate(d.scheduled_date); if (!dt || dt === 'bad') { toast('Choose the date.'); return; }
     if (d.collection_type === 'manual' && !d.collection_address_manual.trim()) { toast('Enter a collection address.'); return; }
     if (d.collection_type === 'supplier' && !d.supplier_id) { toast('Choose a supplier.'); return; }
     if (drivers.length > 1 && !d.driver_id) { toast('Choose a driver, or pick Unassigned.'); return; }
@@ -232,8 +233,8 @@ export default function DeliveryForm() {
       <Pick value={contactLabel()} placeholder="None" onPress={() => void pickContact()} />
       {d.site_contact_id === '__typed' && <TextInput value={d.site_contact_manual} onChangeText={(v) => set({ site_contact_manual: v })} placeholder="e.g. Dave (foreman) 07123 456789" style={box} />}
       {!!d.site_id && !siteOps.length && <Muted style={{ marginBottom: 10 }}>No operatives assigned to this site yet.</Muted>}
-      <Label>Date (YYYY-MM-DD)</Label>
-      <TextInput value={d.scheduled_date} onChangeText={(v) => set({ scheduled_date: v })} autoCapitalize="none" style={box} />
+      <Label>Date</Label>
+      <DateBox value={d.scheduled_date} onChange={(v) => set({ scheduled_date: v })} clearable={false} title="Delivery date" style={{ marginBottom: 8 }} />
       <Label>Drop</Label>
       <Pick value={slotLabel(d.time_slot)} placeholder="" onPress={() => void pickDrop()} />
       {why ? <Text style={{ color: base.warn, marginTop: -6, marginBottom: 10 }}>{why}</Text> : d.double_slot && nextSlotKey(d.time_slot) ? <Muted style={{ marginTop: -6, marginBottom: 10 }}>Also takes the {slotLabel(nextSlotKey(d.time_slot) as string)}.</Muted> : null}

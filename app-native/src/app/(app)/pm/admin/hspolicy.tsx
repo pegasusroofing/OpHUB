@@ -10,6 +10,7 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useToast } from '@/components/toast';
 import { Button, Card, Muted, Toggle } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
+import { DateBox, todayIso } from '@/components/DateField';
 import { useTeam } from '@/data/admin';
 import { openDocLink } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
@@ -77,8 +78,8 @@ export default function HsPolicyAdmin() {
       {upOpen && (
         <Card>
           <TextInput value={name} onChangeText={setName} placeholder="Document name, e.g. Health & Safety Policy 2026" style={box} />
-          <Muted style={{ fontWeight: '700' }}>Expiry date (everyone must re-sign once reached), YYYY-MM-DD</Muted>
-          <TextInput value={expiry} onChangeText={setExpiry} autoCapitalize="none" style={box} />
+          <Muted style={{ fontWeight: '700' }}>Expiry date (everyone must re-sign once reached)</Muted>
+          <DateBox value={expiry} onChange={setExpiry} min={todayIso()} title="Expiry date" style={{ marginBottom: 8 }} />
           <Button kind="ghost" title={file ? `📎 ${file.name}` : 'Choose PDF'} onPress={async () => { const r = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true }); if (!r.canceled && r.assets[0]) setFile(r.assets[0]); }} />
           <Button busy={busy} title={doc ? 'Upload New Version' : 'Upload'} onPress={async () => {
             if (!name.trim() || !file) { toast('Add a name and choose a PDF.'); return; }

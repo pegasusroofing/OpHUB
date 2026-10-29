@@ -10,6 +10,7 @@ import { Image, Pressable, ScrollView, Text, TextInput, View } from 'react-nativ
 import { StorageImage } from '@/components/StorageImage';
 import { chooseAction, confirmAsk, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle, Toggle } from '@/components/ui';
+import { DateBox } from '@/components/DateField';
 import { nameOf, usePeople } from '@/data/hs';
 import {
   addPlantItem, bringHere, declineCheckin, declineCheckout, removePlant, requestCheckin, requestCheckout, setOutOfService, signOffCheckin, signOffCheckout, usePlant,
@@ -182,14 +183,14 @@ export default function Plant() {
                   </Pressable>
                 ))}
               </View>
-              <TextInput value={adding.nextDue} onChangeText={(t) => setAdding({ ...adding, nextDue: t })} placeholder="Next inspection due (YYYY-MM-DD)" autoCapitalize="none" style={box} />
+              <DateBox value={adding.nextDue} onChange={(t) => setAdding({ ...adding, nextDue: t })} placeholder="Next inspection due" title="Next inspection due" style={{ marginBottom: 8 }} />
               {adding.photo && <Image source={{ uri: adding.photo.uri }} style={{ width: 100, height: 100, borderRadius: 8, marginBottom: 8 }} />}
               <Button kind="ghost" title={adding.photo ? 'Change photo' : 'Choose Photo (required)'} onPress={async () => { const p = await photo(); if (p) setAdding({ ...adding, photo: p }); }} />
               <Button busy={busy} title="Save Item" onPress={async () => {
                 if (!adding.name.trim()) { toast('Enter an item name.'); return; }
                 if (!adding.photo) { toast('A photo is required to add a plant item.'); return; }
                 const d = readIsoDate(adding.nextDue);
-                if (!d || d === 'bad') { toast('Set the next inspection due date (YYYY-MM-DD).'); return; }
+                if (!d || d === 'bad') { toast('Choose the next inspection due date.'); return; }
                 setBusy(true);
                 const err = await addPlantItem(me, id, { ...adding, name: adding.name.trim(), serial: adding.serial.trim(), description: adding.description.trim(), nextDue: d, photo: adding.photo });
                 setBusy(false);

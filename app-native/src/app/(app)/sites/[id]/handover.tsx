@@ -10,6 +10,7 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
+import { DateBox } from '@/components/DateField';
 import { addBlankGuarantee, attachToDoc, deleteHoDoc, renameManual, setHoField, uploadHoDocs, useHandover, type HoDoc } from '@/data/handover';
 import { nameOf, openDocLink, usePeople } from '@/data/hs';
 import { deleteManual, duplicateManual, newManual } from '@/data/omManual';
@@ -128,7 +129,7 @@ export default function Handover() {
                 <View style={{ flex: 1 }}><SaveField value={x.provider || ''} placeholder="Manufacturer / provider" onSave={(v) => void save(x, 'provider', v)} /></View>
                 <View style={{ flex: 1 }}><SaveField value={x.ref || ''} placeholder="Guarantee ref" onSave={(v) => void save(x, 'ref', v)} /></View>
               </View>
-              <SaveField value={x.expiry_date || ''} placeholder="Expiry date (YYYY-MM-DD)" onSave={(v) => void save(x, 'expiry_date', v)} />
+              <DateBox value={x.expiry_date || ''} placeholder="Expiry date" title="Expiry date" onChange={(v) => void save(x, 'expiry_date', v)} style={{ marginBottom: 8 }} />
               <SaveField value={x.maintenance || ''} multiline placeholder="Maintenance required to keep the guarantee (e.g. outlets cleared every 3 months)" onSave={(v) => void save(x, 'maintenance', v)} />
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4 }}>
                 {x.storage_path ? <Pressable onPress={() => void view(x)}><Text style={{ color: base.blue, fontWeight: '700' }}>View</Text></Pressable>

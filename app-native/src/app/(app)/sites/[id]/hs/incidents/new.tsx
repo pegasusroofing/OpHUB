@@ -9,6 +9,7 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { StorageImage } from '@/components/StorageImage';
 import { chooseAction, showAlert, useToast } from '@/components/toast';
 import { Button, Muted, SectionTitle } from '@/components/ui';
+import { DateBox, todayIso } from '@/components/DateField';
 import { incidentProblem, submitIncident, uploadIncidentPhoto, type IncidentDraft } from '@/data/incidents';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
@@ -93,7 +94,8 @@ export default function NewIncident() {
       {toggle('type', '* What type of report is this?', [['incident', 'Incident'], ['accident', 'Accident'], ['near_miss', 'Near Miss']])}
       {text('siteAddress', 'Site of accident / incident / near miss')}
       {text('location', 'Location of incident')}
-      {text('date', 'Date of incident (YYYY-MM-DD)')}
+      <Text style={{ fontWeight: '700', color: base.ink, marginBottom: 4 }}>Date of incident</Text>
+      <DateBox value={v.date as string} onChange={(t) => set('date', t)} max={todayIso()} clearable={false} title="Date of incident" style={{ marginBottom: 10 }} />
       <Text style={{ fontWeight: '700', color: base.ink, marginBottom: 6 }}>Operatives involved</Text>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
         {(ops ?? []).map((o) => (

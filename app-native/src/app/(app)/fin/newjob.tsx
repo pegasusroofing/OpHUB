@@ -14,6 +14,7 @@ import { ScrollView, Text, View } from 'react-native';
 import { FinChip } from '@/components/FinNav';
 import { useToast } from '@/components/toast';
 import { Button, Card, Field, Muted } from '@/components/ui';
+import { DateField } from '@/components/DateField';
 import { useTeam } from '@/data/admin';
 import { fdb } from '@/data/finance';
 import { useAuth } from '@/lib/auth';
@@ -121,7 +122,7 @@ export default function FinNewJob() {
         {matches.map((c) => <Text key={c.id} onPress={() => set('client')(c.name)} style={{ color: base.blue, paddingVertical: 4 }}>→ {c.name}</Text>)}
         <Field label="Site address" value={v.addr || ''} onChangeText={set('addr')} multiline />
         <Field label="Postcode" value={v.pc || ''} onChangeText={set('pc')} autoCapitalize="characters" />
-        <Field label="Start date" value={v.start || ''} onChangeText={set('start')} placeholder="YYYY-MM-DD" />
+        <DateField label="Start date" value={v.start || ''} onChange={set('start')} />
       </Card>
       <Button busy={busy} title="Create project" onPress={() => void save()} />
     </ScrollView>

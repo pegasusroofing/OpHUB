@@ -9,6 +9,7 @@ import { ScrollView, Text, TextInput, View } from 'react-native';
 import { FinChip, FinRow } from '@/components/FinNav';
 import { useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
+import { DateBox } from '@/components/DateField';
 import { useBook } from '@/data/finBook';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
@@ -121,8 +122,8 @@ export default function FinDetail() {
         <Text style={{ fontWeight: '800', color: base.ink }}>{s?.job_number || '—'} · {s?.name} · {s?.client_name || 'No client'}</Text>
         <View style={{ flexDirection: 'row', gap: 8, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           <Muted>Only items dated</Muted>
-          <TextInput value={from} onChangeText={setFrom} placeholder="From YYYY-MM-DD" style={[box, { width: 150 }]} />
-          <TextInput value={to} onChangeText={setTo} placeholder="To YYYY-MM-DD" style={[box, { width: 150 }]} />
+          <DateBox value={from} onChange={setFrom} placeholder="From" title="From" style={{ width: 170 }} />
+          <DateBox value={to} onChange={setTo} placeholder="To" title="To" style={{ width: 170 }} />
         </View>
         <Muted style={{ marginTop: 4 }}>{from || to ? `Showing ${from ? `from ${fdate(from)}` : ''}${to ? ` to ${fdate(to)}` : ''} — every tab and total only counts items in these dates.` : 'Showing the whole job. Pick dates to see one period (e.g. a month).'}</Muted>
       </Card>

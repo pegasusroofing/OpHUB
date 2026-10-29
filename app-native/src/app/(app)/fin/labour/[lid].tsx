@@ -14,6 +14,7 @@ import { monday } from '@/components/FinSubs';
 import { chooseAction, confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Muted, SectionTitle } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
+import { DateBox } from '@/components/DateField';
 import { fdb, selectAll } from '@/data/finance';
 import { openDocLink } from '@/data/hs';
 import { useSites } from '@/data/sites';
@@ -98,7 +99,7 @@ function Editor({ p, rateBy, who }: { p: Row | null; rateBy: Record<string, Row>
         {key ? <Muted style={{ marginBottom: 8 }}>{r.utr ? `UTR ${r.utr}` : 'No UTR saved'} · CIS {r.cis_rate ?? 20}%{r.pay_type ? ` · ${r.pay_type}` : ''}</Muted> : null}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           {([['no', 'Their invoice no.'], ['date', 'Invoice date'], ['week', 'Week commencing (Monday)'], ['materials', 'Materials £ (no CIS)'], ['cis', `CIS % (blank = ${r.cis_rate ?? 20}%)`]] as const).map(([k, l]) => (
-            <View key={k} style={{ flexBasis: '47%', flexGrow: 1 }}><Muted>{l}</Muted><TextInput editable={!locked} value={inv[k]} onChangeText={(v) => setInv({ ...inv, [k]: v })} placeholder={k === 'date' || k === 'week' ? 'YYYY-MM-DD' : ''} style={box} /></View>
+            <View key={k} style={{ flexBasis: '47%', flexGrow: 1 }}><Muted>{l}</Muted>{k === 'date' || k === 'week' ? <DateBox disabled={locked} value={inv[k]} onChange={(v) => setInv({ ...inv, [k]: v })} title={l} style={{ marginBottom: 8 }} /> : <TextInput editable={!locked} value={inv[k]} onChangeText={(v) => setInv({ ...inv, [k]: v })} style={box} />}</View>
           ))}
         </View>
       </Card>

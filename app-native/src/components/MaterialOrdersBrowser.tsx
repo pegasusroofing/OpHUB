@@ -10,13 +10,13 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
+import { askDate } from '@/components/DateField';
 import {
   createMOFolder, deleteMOFile, deleteMOFolder, folderPath, moveMOFileTo, moveSibling, renameMOFolder, setDeliveryDate,
   syncMaterialOrders, uploadMOFiles, useMaterialOrders, viewMOFile,
 } from '@/data/materialOrders';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
-import { readIsoDate } from '@/lib/rules/materials';
 import { isManager } from '@/lib/roles';
 import { base, radius } from '@/theme/theme';
 
@@ -113,10 +113,9 @@ export function MaterialOrdersBrowser({ siteId, folderId }: { siteId: string; fo
                   {!!f.synced_at && <Muted>Synced {new Date(f.synced_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</Muted>}
                 </View>
                 <Pressable onPress={async () => {
-                  const t = await promptText(`Scheduled delivery — ${f.name} (YYYY-MM-DD, blank to clear)`, f.scheduled_delivery_date || '');
+                  const t = await askDate(`Scheduled delivery — ${f.name} (Clear to remove it)`);
                   if (t === null) return;
-                  const d = readIsoDate(t);
-                  if (d === 'bad') { toast('Enter the date as YYYY-MM-DD.'); return; }
+                  const d = t || null;
                   if (await setDeliveryDate(me, siteId, f, d)) { toast(d ? 'Delivery date set — added to the Calendar' : 'Delivery date cleared'); refresh(); } else toast('Could not save — try again.');
                 }} style={{ alignItems: 'center', padding: 6, borderRadius: 8, borderWidth: f.scheduled_delivery_date ? 1.5 : 0, borderColor: base.warn, backgroundColor: f.scheduled_delivery_date ? base.warnBg : 'transparent' }}>
                   {f.scheduled_delivery_date ? (

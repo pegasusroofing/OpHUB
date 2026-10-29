@@ -10,6 +10,7 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { CalTools, MonthGrid, type GridItem } from '@/components/MonthGrid';
 import { chooseAction, confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Check, Muted } from '@/components/ui';
+import { DateBox } from '@/components/DateField';
 import { addEvent, addToDeliverySchedule, deleteEvent, saveEvent, useCalendar, useRecipients, type CalEvent, type CalLine, type Draft } from '@/data/calendar';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
@@ -56,8 +57,8 @@ export default function SiteCalendar() {
     const d = form.d;
     if (!d.title.trim()) { toast('Enter what this date is for.'); return; }
     const date = readIsoDate(d.date);
-    if (!date || date === 'bad') { toast('Pick a date (YYYY-MM-DD).'); return; }
-    if (mgr && d.remind && d.timing === 'custom' && readIsoDate(d.custom) === 'bad') { toast('Pick a custom reminder date (YYYY-MM-DD).'); return; }
+    if (!date || date === 'bad') { toast('Pick a date.'); return; }
+    if (mgr && d.remind && d.timing === 'custom' && readIsoDate(d.custom) === 'bad') { toast('Pick a reminder date.'); return; }
     if (mgr && d.remind && d.timing === 'custom' && !d.custom.trim()) { toast('Pick a custom reminder date.'); return; }
     setBusy(true);
     const clean = { ...d, title: d.title.trim(), date };
@@ -71,8 +72,8 @@ export default function SiteCalendar() {
     <Card style={{ marginTop: 6, borderColor: base.ink, borderWidth: 1.5 }}>
       <Muted style={{ fontWeight: '700' }}>What&apos;s happening</Muted>
       <TextInput value={form.d.title} onChangeText={(t) => setForm({ ...form, d: { ...form.d, title: t } })} placeholder="e.g. Scaffold delivery" style={box} />
-      <Muted style={{ fontWeight: '700' }}>Date (YYYY-MM-DD)</Muted>
-      <TextInput value={form.d.date} onChangeText={(t) => setForm({ ...form, d: { ...form.d, date: t } })} autoCapitalize="none" style={box} />
+      <Muted style={{ fontWeight: '700' }}>Date</Muted>
+      <DateBox value={form.d.date} onChange={(t) => setForm({ ...form, d: { ...form.d, date: t } })} clearable={false} title="Date" style={{ marginBottom: 8 }} />
       {mgr && !form.editId && (
         <>
           <Muted style={{ fontWeight: '700' }}>Repeats</Muted>
@@ -93,7 +94,7 @@ export default function SiteCalendar() {
               <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8 }}>
                 {([['day_before', 'Day before'], ['day_of', 'Day of'], ['custom', 'Custom date']] as const).map(([k, l]) => <Chip key={k} on={form.d.timing === k} label={l} onPress={() => setForm({ ...form, d: { ...form.d, timing: k } })} />)}
               </View>
-              {form.d.timing === 'custom' && <TextInput value={form.d.custom} onChangeText={(t) => setForm({ ...form, d: { ...form.d, custom: t } })} placeholder="Reminder date (YYYY-MM-DD)" autoCapitalize="none" style={box} />}
+              {form.d.timing === 'custom' && <DateBox value={form.d.custom} onChange={(t) => setForm({ ...form, d: { ...form.d, custom: t } })} placeholder="Reminder date" title="Reminder date" style={{ marginBottom: 8 }} />}
               <Muted style={{ fontWeight: '700' }}>Send it to</Muted>
               {recipients.map((p) => {
                 const on = form.d.recipients.includes(p.id);

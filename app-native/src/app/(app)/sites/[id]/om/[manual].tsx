@@ -13,6 +13,7 @@ import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-nativ
 import { StorageImage } from '@/components/StorageImage';
 import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Card, Check, Muted, SectionTitle } from '@/components/ui';
+import { DateBox } from '@/components/DateField';
 import { nameOf, usePeople } from '@/data/hs';
 import { jobPhotos, loadManual, saveManual } from '@/data/omManual';
 import { useSite } from '@/data/sites';
@@ -116,7 +117,7 @@ function Editor({ me, org, site, manualId, name0, data0 }: { me: Profile; org: O
         <TextInput value={c.address || ''} onChangeText={(v) => cover('address', v)} placeholder="Address" style={box} />
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <TextInput value={c.revision || ''} onChangeText={(v) => cover('revision', v)} placeholder="Revision" style={[box, { flex: 1 }]} />
-          <TextInput value={c.date || ''} onChangeText={(v) => cover('date', v)} placeholder="Date YYYY-MM-DD" style={[box, { flex: 2 }]} />
+          <DateBox value={c.date || ''} onChange={(v) => cover('date', v)} placeholder="Date" title="Date" style={{ flex: 2, marginBottom: 8 }} />
         </View>
         <TextInput value={c.header || ''} onChangeText={(v) => cover('header', v)} placeholder="Heading" style={box} />
         <TextInput value={c.volume || ''} onChangeText={(v) => cover('volume', v)} placeholder="Volume line" style={box} />

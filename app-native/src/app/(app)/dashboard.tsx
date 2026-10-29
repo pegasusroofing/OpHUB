@@ -11,6 +11,7 @@ import { MyToolsList } from '@/components/MyToolsList';
 import { promptText, useToast } from '@/components/toast';
 import { Button, Card, Field, Muted, Screen, SectionTitle, Toggle } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
+import { DateField } from '@/components/DateField';
 import { uploadCert, useMyCerts } from '@/data/certs';
 import { buildCertBundlePdf } from '@/lib/certBundlePdf';
 import { deliverPdf, emailPdf } from '@/lib/pdf';
@@ -108,7 +109,7 @@ export default function Dashboard() {
                 ))}
               </View>
               {cat === 'other' && <Field label="Describe the certificate type" value={other} onChangeText={setOther} />}
-              <Field label="Expiry date (optional, YYYY-MM-DD)" value={expiry} onChangeText={setExpiry} autoCapitalize="none" />
+              <DateField label="Expiry date (optional)" value={expiry} onChange={setExpiry} />
               <Button kind="ghost" title={file ? `📎 ${file.name}` : 'Choose file…'} onPress={async () => {
                 const r = await DocumentPicker.getDocumentAsync({ type: ['image/*', 'application/pdf'], copyToCacheDirectory: true });
                 if (!r.canceled && r.assets[0]) setFile(r.assets[0]);
