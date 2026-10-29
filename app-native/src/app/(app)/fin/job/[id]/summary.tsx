@@ -1,17 +1,20 @@
 // Detailed Summary for one project (9219v renderFinDetail): Cost Summary,
 // Purchases, Labour & Subcontractors, Applications & Invoices, Plant — every
 // figure from the same cost lines, excl. VAT, optionally limited to dates.
+// Excel download has one sheet per tab.
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, Text, TextInput, View } from 'react-native';
 
 import { FinChip, FinRow } from '@/components/FinNav';
-import { Card, Empty, Muted, SectionTitle } from '@/components/ui';
+import { useToast } from '@/components/toast';
+import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import { useBook } from '@/data/finBook';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { forecast, poInvoiced, type CostLine } from '@/lib/rules/finBook';
 import { fdate, invOutstandingNet, money, retentionStillHeld, round2 } from '@/lib/rules/finance';
+import { exportTableExcel, type Table } from '@/lib/tableExport';
 import { base, radius, space } from '@/theme/theme';
 
 type Row = Record<string, any>;
@@ -20,7 +23,8 @@ const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input
 
 export default function FinDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { me } = useAuth();
+  const { me, org } = useAuth();
+  const toast = useToast();
   const { data: site } = useSite(id);
   const { data } = useBook(me?.org_id, id);
   const [tab, setTab] = useState('summary');
@@ -55,6 +59,18 @@ export default function FinDetail() {
     ) : <Empty>{empty}</Empty>;
   };
   const kv = (l: string, v: number, o: { minus?: boolean; t?: string } = {}) => <FinRow key={l} title={l} right={`${o.minus ? '−' : ''}${money(v)}`} tone={o.t} />;
+  const lineTable = (title: string, list: CostLine[]): Table => ({ title, cols: [{ l: 'Date' }, { l: 'Description', w: 220 }, { l: 'Type' }, { l: 'Who' }, { l: 'Ref' }, { l: 'Status' }, { l: 'Net £', money: true }], rows: list.slice().sort((a, b) => String(a.date || '').localeCompare(String(b.date || ''))).map((l) => [l.date ? fdate(l.date) : '', l.desc, l.cat === 'committed' ? 'Ordered' : l.cat, l.who || '', l.ref || '', l.status || '', round2(l.net)]), totals: ['Total', '', '', '', '', '', round2(list.reduce((t, l) => t + l.net, 0))] });
+  const exportAll = async () => {
+    const sum: [string, number][] = [['Applied to date (gross)', last ? Number(last.gross || 0) : 0], ['Certified to date (gross)', lastCert ? Number(lastCert.cert_gross) : 0], ['Invoiced', invoiced], ['Received', received], ['Outstanding', outstanding], ['Sales value', salesValue], ['Purchases (materials)', byCat('materials')], ['Plant', byCat('plant')], ['Labour', byCat('labour')], ['Subcontractors', byCat('subcontract')], ['Prelims & site costs', byCat('overheads')], ['Other', byCat('other')], ['Total cost', totalCost], ['Profit before overheads', profit], ...(fc.ohpPct ? [[`Company overheads (OHP) ${fc.ohpPct}%`, -ohp], ['Profit after overheads', round2(profit - ohp)]] as [string, number][] : []), ['Ordered, not invoiced yet', committedTot]];
+    const period = from || to ? `${from ? fdate(from) : 'start'} to ${to ? fdate(to) : 'today'}` : 'whole job';
+    const first: Table = { title: 'Cost Summary', site: s?.name, sub: `${s?.job_number || ''} ${s?.name || ''} · ${period} · excl. VAT`, cols: [{ l: '', w: 220 }, { l: '£', money: true }], rows: sum };
+    const ok = await exportTableExcel(first, org, [
+      lineTable('Purchases', cost.filter((l) => ['materials', 'overheads', 'other'].includes(l.cat))), lineTable('Labour', cost.filter((l) => l.cat === 'labour')), lineTable('Subcontractors', cost.filter((l) => l.cat === 'subcontract')), lineTable('Plant', cost.filter((l) => l.cat === 'plant')), lineTable('Ordered not invoiced', committed),
+      { title: 'Applications', cols: [{ l: 'No.', num: true }, { l: 'Valuation date' }, { l: 'Status' }, { l: 'Applied gross', money: true }, { l: 'Certified gross', money: true }], rows: apps.filter((a) => inD(a.valuation_date)).sort((x, y) => x.number - y.number).map((a) => [a.number, fdate(a.valuation_date), a.status, Number(a.gross || 0), a.cert_gross != null ? Number(a.cert_gross) : null]) },
+      { title: 'Sales invoices', cols: [{ l: 'Number' }, { l: 'Date' }, { l: 'Status' }, { l: 'Net', money: true }, { l: 'Total', money: true }, { l: 'Paid', money: true }], rows: invsAll.filter((i) => inD(i.issue_date)).map((i) => [i.number || 'Draft', i.issue_date ? fdate(i.issue_date) : '', i.status, Number(i.net || 0), Number(i.total || 0), Number(i.paid || 0)]) },
+    ]).catch(() => false);
+    if (!ok) toast('Could not make the file — try again.');
+  };
   let body;
   if (tab === 'summary') body = (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
@@ -113,7 +129,7 @@ export default function FinDetail() {
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>{TABS.map(([k, l]) => <FinChip key={k} on={tab === k} label={l} onPress={() => { setTab(k); setQ(''); }} />)}</View>
       {tab !== 'summary' && <TextInput value={q} onChangeText={setQ} placeholder="Search this tab — supplier, PO, invoice no., description…" style={[box, { marginBottom: 10 }]} />}
       <Card>{body}</Card>
-      <Muted>Excel download of a tab is still in the current app.</Muted>
+      <Button kind="ghost" title="📊 Excel (every tab)" onPress={exportAll} />
     </ScrollView>
   );
 }

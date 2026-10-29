@@ -1,6 +1,6 @@
 // Finance › Reports (913): pick a report, set the projects, project and
 // dates; shown as a table on a computer and as cards on a phone, with totals.
-// Excel / PDF downloads of reports are still in the current app.
+// Excel / PDF downloads of each report (finExportExcel / report PDF).
 import { useQuery } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
@@ -8,13 +8,15 @@ import { Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } fro
 
 import { FinChip, FinPage } from '@/components/FinNav';
 import { pickJob } from '@/components/FinSales';
-import { Card, Empty, Muted, SectionTitle } from '@/components/ui';
+import { useToast } from '@/components/toast';
+import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import { finStatus, loadSettings, selectAll } from '@/data/finance';
 import { loadBook } from '@/data/finBook';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { REPORT_GROUPS, REPORTS, type Col, type Filters } from '@/lib/finReports';
 import { fdate, jobTag, money } from '@/lib/rules/finance';
+import { exportTableExcel, exportTablePdf, type Table } from '@/lib/tableExport';
 import { base, radius } from '@/theme/theme';
 
 type Row = Record<string, any>;
@@ -46,7 +48,9 @@ export default function FinReports() {
 
 function Report({ id }: { id: string }) {
   const rep = REPORTS.find((r) => r.id === id)!;
-  const { me } = useAuth();
+  const { me, org } = useAuth();
+  const toast = useToast();
+  const [busy, setBusy] = useState('');
   const { data: sites = [] } = useSites();
   const { width } = useWindowDimensions();
   const [f, setF] = useState<Filters>({ job: '', from: '', to: '', status: 'live', opening: '', varstatus: '', postatus: '' });
@@ -62,10 +66,13 @@ function Report({ id }: { id: string }) {
   const res = data ? rep.run({ b: data.b, settings: data.settings, sites: sites as Row[], status: (s) => finStatus(s as never), cisPays: data.cisPays }, f) : null;
   const tot = (c: Col) => (res?.totals === true ? c.money : Array.isArray(res?.totals) && res.totals.includes(c.k)) ? res!.rows.reduce((t, r) => t + (Number(r[c.k]) || 0), 0) : null;
   const wide = width >= 900;
+  const table = (): Table | null => (res ? { title: rep.title, sub: [f.job ? jobTag(sites.find((s) => s.id === f.job)) : rep.filters.includes('status') ? `${f.status} projects` : '', f.from || f.to ? `${f.from ? fdate(f.from) : 'start'} to ${f.to ? fdate(f.to) : 'today'}` : ''].filter(Boolean).join(' · '), cols: res.cols.map((c) => ({ l: c.l, money: c.money, num: c.num || c.pct })), rows: res.rows.map((r) => res.cols.map((c) => (c.money ? Number(r[c.k]) || 0 : c.pct ? (r[c.k] == null ? null : Math.round(Number(r[c.k]) * 10) / 10) : c.date ? (r[c.k] ? fdate(String(r[c.k])) : '') : r[c.k] == null ? '' : String(r[c.k])))), totals: res.totals ? res.cols.map((c, i) => (i === 0 ? 'Total' : tot(c))) : undefined } : null);
+  const download = async (k: 'x' | 'p') => { const t = table(); if (!t || !t.rows.length) { toast('Nothing to export.'); return; } setBusy(k); const ok = await (k === 'x' ? exportTableExcel(t, org) : exportTablePdf(t, org)).catch(() => false); setBusy(''); if (!ok) toast('Could not make the file — try again.'); };
   return (
     <FinPage title={rep.title} section="reports" wide>
       <Pressable onPress={() => router.setParams({ id: '' })}><Text style={{ color: base.blue, marginBottom: 6 }}>‹ All reports</Text></Pressable>
       <Muted style={{ marginBottom: 8 }}>{rep.desc}</Muted>
+      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}><Button kind="ghost" title={busy === 'x' ? 'Making…' : '📊 Excel'} onPress={() => download('x')} /><Button kind="ghost" title={busy === 'p' ? 'Making…' : '📄 PDF'} onPress={() => download('p')} /></View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10, alignItems: 'center' }}>
         {has('status') && ['live', 'upcoming', 'closed', 'all'].map((k) => <FinChip key={k} on={f.status === k} label={k[0].toUpperCase() + k.slice(1)} onPress={() => setF({ ...f, status: k })} />)}
         {has('job') && <Pressable onPress={async () => { const k = await pickJob('Project', sites); setF({ ...f, job: k || '' }); }} style={box}><Text style={{ color: base.ink }}>{f.job ? jobTag(sites.find((s) => s.id === f.job)) : 'All projects'} ▾</Text></Pressable>}
@@ -100,7 +107,6 @@ function Report({ id }: { id: string }) {
         </View>
       )}
       {res?.note ? <Muted style={{ marginTop: 8 }}>{res.note}</Muted> : null}
-      <Muted style={{ marginTop: 6 }}>Excel and PDF downloads of reports are still in the current app.</Muted>
     </FinPage>
   );
 }
