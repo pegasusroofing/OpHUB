@@ -23,8 +23,11 @@ export function Screen({ children, center }: { children: ReactNode; center?: boo
   );
 }
 
+/** Inside Finance (FinMode), cards are flat: thin grey border, no shadow (html.finmode .card). */
+export const FinMode = createContext(false);
 export function Card({ children, style }: { children: ReactNode; style?: ViewStyle }) {
-  return <View style={[s.card, style]}>{children}</View>;
+  const fin = useContext(FinMode);
+  return <View style={[s.card, fin && { borderColor: '#e5e7eb', shadowOpacity: 0, elevation: 0, borderRadius: 10, padding: 18 }, style]}>{children}</View>;
 }
 
 export function Title({ children }: { children: ReactNode }) {

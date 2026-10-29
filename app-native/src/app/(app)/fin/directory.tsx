@@ -90,7 +90,7 @@ export default function FinDirectory() {
     const list = rows.filter(F[ppl]).filter((x) => !ql || `${x.name} ${x.r.name || ''} ${x.r.utr || ''}`.toLowerCase().includes(ql));
     const cur = edit;
     return (
-      <FinPage title="Directory" section="settings">
+      <FinPage title="Directory" section="directory">
         {tabs}
         <Muted style={{ marginBottom: 8 }}>Subcontractors who invoice you under CIS, and PAYE staff. Check each subbie&apos;s CIS status with HMRC before you pay them.</Muted>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
@@ -170,7 +170,7 @@ export default function FinDirectory() {
   const sup = kind === 'supplier', tbl = sup ? 'fin_suppliers' : 'fin_clients';
   const list = ((data as Row[]) || []).filter((c) => !ql || `${c.name} ${c.email || ''} ${c.category || ''}`.toLowerCase().includes(ql));
   return (
-    <FinPage title="Directory" section="settings">
+    <FinPage title="Directory" section="directory">
       {tabs}
       <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
         <View style={{ flex: 1 }}><Button kind="ghost" busy={busy} title="⟳ Pull from Xero" onPress={() => void pull()} /></View>

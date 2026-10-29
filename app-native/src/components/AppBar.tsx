@@ -17,6 +17,7 @@ import { heading, mono } from '@/lib/fonts';
 import { fullSiteAddress } from '@/lib/rules/checkin';
 import { base, useDesk, useTheme } from '@/theme/theme';
 
+const FIN_SUB: Record<string, string> = { '': 'Overview', jobs: 'Projects', sales: 'Sales', purchases: 'Purchases', subs: 'Subcontractors & Labour', reports: 'Reports', settings: 'Settings', directory: 'Directory', statements: 'Statements', yard: 'Yard stock', inbox: 'Inbox', newjob: 'New project' };
 const titleCase = (x: string) => x.replace(/[A-Za-z][A-Za-z'’.]*/g, (w) => w.charAt(0).toUpperCase() + w.slice(1));
 
 export function AppBar({ title, onBack, home, right }: { title?: string; onBack?: () => void; home?: boolean; right?: ReactNode }) {
@@ -30,17 +31,26 @@ export function AppBar({ title, onBack, home, right }: { title?: string; onBack?
   const siteId = (path.match(/^\/sites\/([0-9a-f-]{36})/) || [])[1];
   const site = siteId ? sites?.find((s) => s.id === siteId) : undefined;
   const jobHome = !!site && path.replace(/\/$/, '') === `/sites/${site.id}`;
-  const sub = home ? 'OpHUB' : site ? fullSiteAddress(site) || site.name : org?.name || 'OpHUB';
+  // OpHUB Finance: title on the left, the section under it.
+  const fin = /^\/fin(\/|$)/.test(path);
+  const finSub = FIN_SUB[(path.split('/')[2] || '')] || 'OpHUB Finance';
+  const sub = home ? 'OpHUB' : fin ? (title === 'OpHUB Finance' ? finSub : 'OpHUB Finance') : site ? fullSiteAddress(site) || site.name : org?.name || 'OpHUB';
   const main = home ? org?.name || 'OpHUB' : title || '';
   const sName = site ? [site.job_number, site.name].filter(Boolean).join(' ') : '';
-  const crumbs: [string, string | null][] = site
-    ? [['Projects', '/sites'], [sName, jobHome ? null : `/sites/${site.id}`], ...(jobHome || !title ? [] : [[titleCase(title), null] as [string, null]])]
+  // Finance trail: Finance › Projects (› SBX-107 Andy House on a project's Finance).
+  const finJob = fin ? (path.match(/^\/fin\/job\/([0-9a-f-]{36})/) || [])[1] : undefined;
+  const fJob = finJob ? sites?.find((s) => s.id === finJob) : undefined;
+  const finCrumbs: [string, string | null][] = path === '/fin' ? []
+    : finJob ? [['Finance', '/fin'], ['Projects', '/fin/jobs'], [fJob ? [fJob.job_number, fJob.name].filter(Boolean).join(' ') : 'Project', null]]
+      : [['Finance', '/fin'], [finSub, null]];
+  const crumbs: [string, string | null][] = fin ? finCrumbs : site
+    ?[['Projects', '/sites'], [sName, jobHome ? null : `/sites/${site.id}`], ...(jobHome || !title ? [] : [[titleCase(title), null] as [string, null]])]
     : [];
   const cfs = desk ? 12.5 : 11.5;
   const roundBtn = { width: 38, height: 38, borderRadius: 19, backgroundColor: base.paper, alignItems: 'center', justifyContent: 'center' } as const;
   return (
     <View>
-      <View style={{ backgroundColor: base.card, borderBottomWidth: 1, borderBottomColor: desk ? '#E5E8ED' : base.line, paddingTop: insets.top + (desk ? 14 : 10), paddingBottom: desk ? 14 : 10, paddingHorizontal: desk ? 40 : 14 }}>
+      <View style={{ backgroundColor: base.card, borderBottomWidth: 1, borderBottomColor: fin ? '#e5e7eb' : desk ? '#E5E8ED' : base.line, paddingTop: insets.top + (desk ? 14 : 10), paddingBottom: desk ? 14 : 10, paddingHorizontal: desk ? 40 : 14 }}>
         <View style={{ minHeight: desk ? 52 : 44, flexDirection: 'row', alignItems: 'center' }}>
           <View style={{ width: 44 }}>
             {onBack && (
@@ -50,9 +60,9 @@ export function AppBar({ title, onBack, home, right }: { title?: string; onBack?
               </Pressable>
             )}
           </View>
-          <View style={{ flex: 1, alignItems: 'center', minWidth: 0 }}>
-            <Text numberOfLines={1} style={[heading(home ? 800 : 700), { fontSize: desk ? 22.8 : 19, color: home ? t.brand1 : base.ink, letterSpacing: -0.2 }]}>{main}</Text>
-            {!!sub && <Text numberOfLines={1} style={[home ? heading(700) : mono(500), { fontSize: home ? 11 : 12, color: base.slate, marginTop: 3, letterSpacing: home ? 1 : 0, textTransform: home ? 'uppercase' : 'none' }]}>{sub}</Text>}
+          <View style={{ flex: 1, alignItems: fin ? 'flex-start' : 'center', minWidth: 0 }}>
+            <Text numberOfLines={1} style={[heading(home ? 800 : 700), { fontSize: fin ? 21 : desk ? 22.8 : 19, color: home ? t.brand1 : fin ? '#111827' : base.ink, letterSpacing: -0.2 }]}>{main}</Text>
+            {!!sub && <Text numberOfLines={1} style={[home ? heading(700) : fin ? {} : mono(500), { fontSize: home ? 11 : fin ? 12.5 : 12, color: fin ? '#6b7280' : base.slate, marginTop: 3, letterSpacing: home ? 1 : 0, textTransform: home ? 'uppercase' : 'none' }]}>{sub}</Text>}
           </View>
           <View style={{ minWidth: 44, alignItems: 'flex-end' }}>
             {right ?? (site && !jobHome && (

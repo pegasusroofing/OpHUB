@@ -4,14 +4,15 @@ import { router, Stack } from 'expo-router';
 import type { ReactNode } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
-import { Muted } from '@/components/ui';
+import { FinMode, Muted } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
+import { heading } from '@/lib/fonts';
 import { isFinanceUser } from '@/lib/roles';
-import { base, radius, space } from '@/theme/theme';
+import { base, page, radius, useTheme } from '@/theme/theme';
 
 export const FIN_SECTIONS = [
   { k: 'overview', l: 'Overview', go: '/fin' }, { k: 'jobs', l: 'Projects', go: '/fin/jobs' }, { k: 'sales', l: 'Sales', go: '/fin/sales' },
-  { k: 'purchases', l: 'Purchases', go: '/fin/purchases' }, { k: 'subs', l: 'Subcontractors & Labour', go: '/fin/subs' }, { k: 'reports', l: 'Reports', go: '/fin/reports' }, { k: 'settings', l: 'Settings', go: '/fin/settings' },
+  { k: 'purchases', l: 'Purchases', go: '/fin/purchases' }, { k: 'subs', l: 'Subcontractors & Labour', go: '/fin/subs' }, { k: 'reports', l: 'Reports', go: '/fin/reports' }, { k: 'directory', l: 'Directory', go: '/fin/directory' }, { k: 'settings', l: 'Settings', go: '/fin/settings' },
 ];
 export const FIN_SUBS: Record<string, [string, string][]> = {
   jobs: [['list', 'Projects'], ['clients', 'Clients']],
@@ -29,32 +30,39 @@ export { Chip as FinChip };
 
 export function FinPage({ title, section, sub, onSub, badges, children, wide }: { title: string; section: string; sub?: string; onSub?: (k: string) => void; badges?: Record<string, number>; children: ReactNode; wide?: boolean }) {
   const { me, org } = useAuth();
+  const t = useTheme();
   const subs = FIN_SUBS[section] || [];
   return (
-    <ScrollView contentContainerStyle={{ padding: space.l, maxWidth: wide ? 1200 : 900, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={[page(wide ? 1200 : 900), { paddingTop: 0 }]} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title }} />
       {!me ? null : !isFinanceUser(me, org) ? <Muted>OpHUB Finance isn&apos;t switched on for your account.</Muted> : (
         <>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, marginBottom: 8 }}>
-            {FIN_SECTIONS.map((s) => <Chip key={s.k} on={s.k === section} label={s.l} onPress={() => router.replace(s.go as never)} />)}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ borderBottomWidth: 1, borderBottomColor: '#e5e7eb', marginBottom: 14, flexGrow: 0 }} contentContainerStyle={{ gap: 2 }}>
+            {FIN_SECTIONS.map((s) => (
+              <Pressable key={s.k} onPress={() => router.replace(s.go as never)} style={{ paddingVertical: 12, paddingHorizontal: 14, borderBottomWidth: 2, borderBottomColor: s.k === section ? t.brand1 : 'transparent' }}>
+                <Text style={{ fontSize: 13, fontWeight: s.k === section ? '700' : '600', color: s.k === section ? '#111827' : '#6b7280' }}>{s.l}</Text>
+              </Pressable>
+            ))}
           </ScrollView>
           {subs.length > 1 && onSub && (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, marginBottom: 12 }}>
               {subs.map(([k, l]) => <Pressable key={k} onPress={() => onSub(k)} style={{ paddingHorizontal: 10, paddingVertical: 6, borderBottomWidth: 2, borderColor: k === sub ? base.ink : 'transparent' }}><Text style={{ fontWeight: k === sub ? '800' : '600', color: k === sub ? base.ink : base.slate }}>{l}{badges?.[k] ? ` · ${badges[k]}` : ''}</Text></Pressable>)}
             </ScrollView>
           )}
-          <View style={{ backgroundColor: '#FFF6DB', borderRadius: radius.row, padding: 8, marginBottom: 10 }}><Text style={{ color: '#7A5A00', fontSize: 12.5 }}>🔒 Finance trial — nothing is sent from Finance (no emails, no Xero, no pushes to PMs) while it&apos;s being tested.</Text></View>
-          {children}
+          <View style={{ backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 12, marginBottom: 14 }}><Text style={{ color: '#111827', fontSize: 12 }}>🔒 Finance trial — nothing is sent from Finance (no emails, no Xero, no pushes to PMs) while it&apos;s being tested.</Text></View>
+          <FinMode.Provider value>{children}</FinMode.Provider>
         </>
       )}
     </ScrollView>
   );
 }
-export function FinStat({ v, label, hot, onPress }: { v: string; label: string; hot?: boolean; onPress?: () => void }) {
+const STAT_TONE = { blue: ['#f3f7ff', '#dbe6ff', '#1d4ed8'], green: ['#f1fbf5', '#d3f0de', '#15803d'], red: ['#fff5f4', '#fbdcd9', '#c81e1e'], amber: ['#fffaf0', '#f8e7c2', '#b45309'] } as const;
+export function FinStat({ v, label, hot, onPress, tone }: { v: string; label: string; hot?: boolean; onPress?: () => void; tone?: keyof typeof STAT_TONE }) {
+  const c = tone ? STAT_TONE[tone] : null;
   return (
-    <Pressable onPress={onPress} style={{ flexGrow: 1, flexBasis: 160, backgroundColor: base.card, borderRadius: radius.row, borderWidth: 1, borderColor: base.cardLine, padding: 12 }}>
-      <Text style={{ fontSize: 19, fontWeight: '800', color: hot ? '#C0392B' : base.ink }}>{v}</Text>
-      <Text style={{ fontSize: 12, color: base.slate }}>{label}</Text>
+    <Pressable onPress={onPress} style={{ flexGrow: 1, flexBasis: 160, backgroundColor: c ? c[0] : base.card, borderRadius: 10, borderWidth: 1, borderColor: c ? c[1] : '#e5e7eb', paddingVertical: 16, paddingHorizontal: 18, gap: 4 }}>
+      <Text style={[heading(700), { fontSize: 22, color: c ? c[2] : hot ? '#C0392B' : base.ink }]}>{v}</Text>
+      <Text style={{ fontSize: 12.5, color: '#6b7280', fontWeight: '500' }}>{label}</Text>
     </Pressable>
   );
 }

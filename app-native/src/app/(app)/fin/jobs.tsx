@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { FinChip, FinPage, FinRow } from '@/components/FinNav';
+import { Cell, FinTable, FootText } from '@/components/FinTable';
 import { chooseAction } from '@/components/toast';
 import { Button, Card, Empty, Muted } from '@/components/ui';
 import { finStatus, selectAll } from '@/data/finance';
@@ -17,7 +18,7 @@ import { useAuth } from '@/lib/auth';
 import { byJobNoDesc, invOutstandingNet, invOverdue, jobTag, money, type FinInv } from '@/lib/rules/finance';
 import { isFullManager } from '@/lib/roles';
 import type { Site } from '@/lib/types';
-import { base, radius } from '@/theme/theme';
+import { base, radius, useDesk, useTheme } from '@/theme/theme';
 
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 9, color: base.ink, backgroundColor: base.card };
 type JF = { site_id: string; contract_value: number | null; billing_name: string | null; billing_email: string | null };
@@ -45,6 +46,8 @@ export function useJobsData(orgId: string | null | undefined) {
 export default function FinJobs() {
   const { tab = 'list' } = useLocalSearchParams<{ tab?: string }>();
   const { me } = useAuth();
+  const desk = useDesk();
+  const t = useTheme();
   const { data: sitesRaw } = useSites();
   const { data: people = [] } = usePeople();
   const { data } = useJobsData(me?.org_id);
@@ -79,16 +82,29 @@ export default function FinJobs() {
         <Pressable onPress={async () => { const k = await chooseAction('PM', [{ key: '*', label: 'All PMs' }, ...pms.map((id) => ({ key: id, label: pmName(id) })), { key: 'none', label: 'No PM' }]); if (k) setPm(k === '*' ? '' : k); }} style={box}><Text style={{ color: base.ink }}>PM: {pm ? (pm === 'none' ? 'No PM' : pmName(pm)) : 'All'} ▾</Text></Pressable>
         <TextInput value={cli} onChangeText={setCli} placeholder="Client name" style={[box, { minWidth: 140 }]} />
         <Pressable onPress={async () => { const k = await chooseAction('Sort', [['noza', 'Project no. (newest first)'], ['noaz', 'Project no. (A–Z)'], ['az', 'Name A–Z'], ['za', 'Name Z–A'], ['start', 'Start date (newest)']].map(([key, label]) => ({ key, label }))); if (k) setSort(k); }} style={box}><Text style={{ color: base.ink }}>Sort ▾</Text></Pressable>
-        {(pm || cli) && <Pressable onPress={() => { setPm(''); setCli(''); }} style={{ justifyContent: 'center' }}><Text style={{ color: base.blue }}>Clear</Text></Pressable>}
+        {!!(pm || cli) && <Pressable onPress={() => { setPm(''); setCli(''); }} style={{ justifyContent: 'center' }}><Text style={{ color: base.blue }}>Clear</Text></Pressable>}
       </View>
       <TextInput value={q} onChangeText={setQ} placeholder="Search project no., name, client or PO" style={[box, { marginBottom: 10 }]} />
-      {!data ? <Muted>Loading…</Muted> : shown.length ? shown.map((s) => {
+      {!data ? <Muted>Loading…</Muted> : desk && shown.length ? (
+        <FinTable rows={shown} keyOf={(s) => s.id} onRow={(s) => router.push(`/fin/job/${s.id}` as never)}
+          cols={[
+            { k: 'no', l: 'Job No', min: 90, flex: 0.8, render: (s) => <Text style={{ fontSize: 11, fontWeight: '800', color: t.brand1, borderWidth: 1.5, borderColor: t.brand1, borderRadius: 8, paddingVertical: 4, paddingHorizontal: 10, overflow: 'hidden' }}>{s.job_number || '—'}</Text> },
+            { k: 'name', l: 'Project', flex: 1.6, min: 160, render: (s) => <Cell bold>{s.name}</Cell> },
+            { k: 'cli', l: 'Client', flex: 1.5, min: 150, render: (s) => <Cell bold>{cliOf(s) || '—'}</Cell> },
+            { k: 'po', l: 'Client PO', render: (s) => { const po = (data.posBy[s.id] || []).join(', '); return po ? <Cell>{po}</Cell> : <Cell tone="#D97706">No PO</Cell>; } },
+            { k: 'pm', l: 'PM', render: (s) => <Cell>{pmName(s.responsible_pm_id) || '—'}</Cell> },
+            { k: 'st', l: 'Status', render: (s) => { const k = finStatus(s); const c = k === 'live' ? ['#E7F6EC', '#1E7A43'] : k === 'upcoming' ? ['#FDF1E6', '#B35A00'] : ['#EEF0F2', '#6b7280']; return <Text style={{ fontSize: 10.5, fontWeight: '800', color: c[1], backgroundColor: c[0], borderRadius: 999, paddingVertical: 3, paddingHorizontal: 9, overflow: 'hidden' }}>● {k[0].toUpperCase() + k.slice(1)}</Text>; } },
+            { k: 'start', l: 'Start', render: (s) => { const d = s.start_date || (s as { created_at?: string }).created_at; return <Cell>{d ? new Date(String(d).slice(0, 10) + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</Cell>; } },
+            { k: 'v', l: 'Value', render: (s) => { const v = Number(data.jfBy[s.id]?.contract_value || 0), m = data.m[s.id]; return <Cell tone={m?.overdue ? '#C0392B' : undefined}>{v ? money(v, 0) : '—'}</Cell>; } },
+          ]}
+          foot={<><FootText bold>{shown.length} project{shown.length === 1 ? '' : 's'}</FootText><FootText>Value {money(tot.v, 0)}</FootText><FootText>Invoiced {money(tot.inv, 0)}</FootText><FootText>Owed {money(tot.owed, 0)}</FootText>{tot.od ? <FootText>Overdue {money(tot.od, 0)}</FootText> : null}</>} />
+      ) : shown.length ? shown.map((s) => {
         const m = data.m[s.id], v = Number(data.jfBy[s.id]?.contract_value || 0), po = (data.posBy[s.id] || []).join(', ');
         return <FinRow key={s.id} left={s.job_number || 'No no.'} title={s.name} onPress={() => router.push(`/fin/job/${s.id}` as never)}
           sub={[cliOf(s) || 'No client', po ? `PO ${po}` : 'No PO', pmName(s.responsible_pm_id), m?.owed ? `owed ${money(m.owed, 0)}` : '', m?.overdue ? `${money(m.overdue, 0)} overdue` : ''].filter(Boolean).join(' · ')}
           right={v ? money(v, 0) : 'No value'} tone={m?.overdue ? '#C0392B' : undefined} />;
       }) : <Empty>No projects here.</Empty>}
-      {shown.length > 0 && <Card><Text style={{ color: base.ink, fontWeight: '700' }}>{shown.length} project{shown.length === 1 ? '' : 's'} · Value {money(tot.v, 0)} · Invoiced {money(tot.inv, 0)} · Owed {money(tot.owed, 0)}{tot.od ? ` · Overdue ${money(tot.od, 0)}` : ''}</Text></Card>}
+      {!desk && shown.length > 0 && <Card><Text style={{ color: base.ink, fontWeight: '700' }}>{shown.length} project{shown.length === 1 ? '' : 's'} · Value {money(tot.v, 0)} · Invoiced {money(tot.inv, 0)} · Owed {money(tot.owed, 0)}{tot.od ? ` · Overdue ${money(tot.od, 0)}` : ''}</Text></Card>}
     </FinPage>
   );
 }
