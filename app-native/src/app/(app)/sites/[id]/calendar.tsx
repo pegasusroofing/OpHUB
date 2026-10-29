@@ -119,8 +119,8 @@ export default function SiteCalendar() {
 
   const line = (l: CalLine) => (
     <View key={l.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 3 }}>
-      <Text style={{ flex: 1, color: l.kind === 'delivery' ? base.blue : l.is_private ? base.slate : base.ink }}>
-        {l.kind === 'event' && l.is_private ? '🔒 ' : ''}{l.kind === 'event' && l.recurrence_group_id ? '🔁 ' : ''}{l.title}
+      <Text style={{ flex: 1, color: l.kind === 'delivery' ? base.blue : l.kind === 'leave' ? '#7B3FB5' : l.kind === 'event' && l.is_private ? base.slate : base.ink, fontStyle: l.kind === 'leave' ? 'italic' : 'normal' }}>
+        {l.kind === 'leave' ? '🏖 ' : ''}{l.kind === 'event' && l.is_private ? '🔒 ' : ''}{l.kind === 'event' && l.recurrence_group_id ? '🔁 ' : ''}{l.title}
       </Text>
       {mgr && l.kind === 'event' && (
         <Pressable hitSlop={6} onPress={async () => {
@@ -207,7 +207,6 @@ export default function SiteCalendar() {
         const ok = await deliverFile(new TextEncoder().encode(buildIcs(evs, site?.name || '')), exportFilename(site?.name || '', 'Key Dates', 'ics'), 'text/calendar', 'com.apple.ical.ics');
         toast(ok ? 'Calendar file ready — open it to add these to your phone calendar' : 'Could not build the calendar file — please try again.');
       }} />
-      <Muted style={{ marginTop: space.m }}>Still in the current app for now: the PM&apos;s time off shown on the job calendar.</Muted>
     </ScrollView>
   );
 }

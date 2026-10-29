@@ -1,10 +1,12 @@
 // The job calendar (780): key dates for everyone on the job (private ones managers
 // only — RLS too), repeating dates, email reminders (sent by the daily
-// send-calendar-reminders cron), and the job's delivery dates (9219zr).
+// send-calendar-reminders cron), the job's delivery dates (9219zr), and the
+// project PM's approved time off when they've linked it to project calendars (186).
 import { useQuery } from '@tanstack/react-query';
 
 import { cachedQuery, orThrow } from '@/lib/offlineCache';
 import { DELIVERY_TIME_SLOTS, slotProblem } from '@/lib/rules/driver';
+import { eachDay, isWorkingDay } from '@/lib/rules/hr';
 import { deliveryLines, recurrenceDates, reminderDate, type Repeat, type Timing } from '@/lib/rules/calendar';
 import { supabase } from '@/lib/supabase';
 import type { Profile, Site } from '@/lib/types';
@@ -17,7 +19,7 @@ export type CalEvent = {
   id: string; site_id: string; title: string; event_date: string; is_private: boolean; recurrence_group_id: string | null;
   reminder_recipient_ids: string[] | null; reminder_timing: Timing | null; reminder_date: string | null;
 };
-export type CalLine = (CalEvent & { kind: 'event' }) | { kind: 'delivery'; id: string; event_date: string; title: string };
+export type CalLine = (CalEvent & { kind: 'event' }) | { kind: 'delivery' | 'leave'; id: string; event_date: string; title: string };
 
 export function useCalendar(siteId: string | undefined, from: string, to: string) {
   return useQuery({
@@ -25,12 +27,17 @@ export function useCalendar(siteId: string | undefined, from: string, to: string
     enabled: !!siteId,
     queryFn: () => cachedQuery(`calendar:${siteId}:${from}:${to}`, async () => {
       const rpc = supabase.rpc as unknown as (n: string, a: object) => Promise<{ data: unknown; error: unknown }>;
-      const [ev, dl] = await Promise.all([
+      const [ev, dl, lv] = await Promise.all([
         db.from('site_calendar_events').select('*').eq('site_id', siteId as string).gte('event_date', from).lte('event_date', to).order('event_date').order('created_at'),
         rpc('site_delivery_dates', { p_site: siteId, p_from: from, p_to: to }).catch(() => ({ data: [], error: null })),
+        rpc('site_pm_leave', { p_site: siteId, p_from: from, p_to: to }).catch(() => ({ data: [], error: null })),
       ]);
       const lines: CalLine[] = (orThrow(ev) as CalEvent[]).map((e) => ({ ...e, kind: 'event' as const }));
       deliveryLines(Array.isArray(dl.data) ? (dl.data as Record<string, unknown>[]) : []).forEach((d, i) => lines.push({ kind: 'delivery', id: `dlv-${d.date}-${i}`, event_date: d.date, title: d.title }));
+      (Array.isArray(lv.data) ? (lv.data as { user_id: string; name: string; code: string | null; half: boolean | null; start_date: string; end_date: string }[]) : []).forEach((l) => eachDay(l.start_date, l.end_date, (ds) => {
+        if (ds < from || ds > to || !isWorkingDay(ds)) return;
+        lines.push({ kind: 'leave', id: `lv${ds}${l.user_id}`, event_date: ds, title: `${l.name} off (${(l.code || '').toUpperCase()}${l.half ? ' ½ day' : ''})` });
+      }));
       const byDate: Record<string, CalLine[]> = {};
       lines.forEach((l) => { (byDate[l.event_date] ||= []).push(l); });
       return byDate;
