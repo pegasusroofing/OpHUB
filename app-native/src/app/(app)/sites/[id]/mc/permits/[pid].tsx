@@ -14,6 +14,7 @@ import { nameOf, usePeople } from '@/data/hs';
 import { closePermit, PERMIT_ICON, PERMIT_LABEL, signPermit, usePermit } from '@/data/mc';
 import { useAuth } from '@/lib/auth';
 import { pickPhotos, type Picked } from '@/lib/photos';
+import { useIsSubAdmin } from '@/data/subcontractors';
 import { isManager } from '@/lib/roles';
 import { base, page, radius, space } from '@/theme/theme';
 
@@ -30,6 +31,8 @@ export default function PermitView() {
   const [p2, setP2] = useState<Picked | null>(null);
   const [notes, setNotes] = useState('');
   const [busy, setBusy] = useState(false);
+  // The permit's subcontractor admin manages it as a PM would (520), override included.
+  const { data: subAdmin } = useIsSubAdmin(data?.permit?.subcontractor_company_id, me);
   if (!me) return null;
   const permit = data?.permit;
   if (isLoading || !permit) return <Muted style={{ padding: space.l }}>{isLoading ? 'Loading…' : 'Permit not found.'}</Muted>;
@@ -37,7 +40,7 @@ export default function PermitView() {
   const signed = Object.fromEntries((data?.signoffs ?? []).map((s) => [s.user_id, s]));
   const assigned = permit.assigned_user_ids ?? [];
   const mine = assigned.includes(me.id);
-  const mgr = isManager(me);
+  const mgr = isManager(me) || !!subAdmin;
   const canClose = permit.status === 'open' && (mgr || mine);
   const hot = permit.permit_type === 'hot_works';
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['permit', pid] }); void qc.invalidateQueries({ queryKey: ['permits', id] }); void qc.invalidateQueries({ queryKey: ['mcTiles', id] }); };

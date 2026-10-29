@@ -14,6 +14,7 @@ import { useAuth } from '@/lib/auth';
 import { fullSiteAddress } from '@/lib/rules/checkin';
 import { localISODate } from '@/lib/rules/driver';
 import { readIsoDate } from '@/lib/rules/materials';
+import { useIsSubAdmin } from '@/data/subcontractors';
 import { isManager } from '@/lib/roles';
 import { base, page, radius, space } from '@/theme/theme';
 
@@ -39,9 +40,11 @@ export default function Permits() {
   const [desc, setDesc] = useState('');
   const [date, setDate] = useState(localISODate(new Date()));
   const [busy, setBusy] = useState(false);
+  // A subcontractor company's own admin issues its permits too (520).
+  const { data: subAdmin } = useIsSubAdmin(fixedCo, me);
   const { data: roster } = useQuery({ queryKey: ['permitRoster', id, co], enabled: issuing, queryFn: () => permitRoster(id, co) });
   if (!me || !site) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
-  const mgr = isManager(me);
+  const mgr = isManager(me) || !!subAdmin;
   const names = Object.fromEntries((data?.companies ?? []).map((c) => [c.id, c.name]));
   const shown = (roster ?? []).filter((p) => !q.trim() || p.name.toLowerCase().includes(q.trim().toLowerCase()));
   const sig = (me as { signature_path?: string | null }).signature_path;

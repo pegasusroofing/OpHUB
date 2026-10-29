@@ -179,3 +179,11 @@ export function useSubSchedule(siteId: string | undefined, companyId: string | u
     queryFn: async () => orThrow(await db.from('schedule_tasks').select('id,name,status,percent_complete').eq('site_id', siteId as string).eq('subcontractor_company_id', companyId as string).order('position', { ascending: true, nullsFirst: false }).order('created_at')) as { id: string; name: string; status: string; percent_complete: number | null }[],
   });
 }
+
+/** Am I an admin of this subcontractor company (550 isSubcontractorAdmin)? They issue and close its permits. */
+export function useIsSubAdmin(companyId: string | null | undefined, me: Profile | null) {
+  return useQuery({
+    queryKey: ['subAdmin', companyId, me?.id], enabled: !!companyId && !!me && me.role !== 'client',
+    queryFn: async () => (((await db.from('subcontractor_operatives').select('id').eq('subcontractor_company_id', companyId as string).eq('user_id', (me as Profile).id).eq('is_admin', true).limit(1)).data as unknown[] | null) ?? []).length > 0,
+  });
+}
