@@ -10,6 +10,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
+import { heading } from '@/lib/fonts';
 import { siteStatusKey } from '@/lib/rules/checkin';
 import { currentCycleSigs } from '@/lib/rules/hs';
 import { overallPct } from '@/lib/rules/sow';
@@ -81,11 +82,11 @@ export default function CompanyDashboard() {
   const sum = (m: Record<string, number> | undefined) => Object.values(m ?? {}).reduce((a, b) => a + b, 0);
   const stat = (label: string, value: string | number, sub: string | null, onPress?: () => void) => (
     <Pressable onPress={onPress} disabled={!onPress} style={{ flex: 1, minWidth: 100 }}>
-      <Card style={{ alignItems: 'center' }}>
-        <Text style={{ fontSize: 26, fontWeight: '800', color: base.ink }}>{value}</Text>
-        <Muted style={{ textAlign: 'center' }}>{label}</Muted>
-        {!!sub && <Muted style={{ fontSize: 11, textAlign: 'center' }}>{sub}</Muted>}
-        {!!onPress && <Text style={{ fontSize: 11, color: base.blue, marginTop: 2 }}>Tap to open ›</Text>}
+      <Card style={{ alignItems: 'center', paddingVertical: 16, borderRadius: 18, marginBottom: 0 }}>
+        <Text style={[heading(800), { fontSize: 22, color: base.ink }]}>{value}</Text>
+        <Text style={{ fontSize: 13, color: base.ink, textAlign: 'center', marginTop: 2 }}>{label}</Text>
+        {!!sub && <Text style={{ fontSize: 10.5, color: base.slateLight, fontStyle: 'italic', textAlign: 'center' }}>{sub}</Text>}
+        {!!onPress && <Text style={{ fontSize: 10.5, color: base.slateLight, fontStyle: 'italic', marginTop: 4 }}>Tap to open ›</Text>}
       </Card>
     </Pressable>
   );
@@ -97,38 +98,41 @@ export default function CompanyDashboard() {
   };
   const toggle = (k: string) => () => setShow(show === k ? null : k);
   const sel = show && lists[show];
-  const ranked = sel ? live.map((s) => ({ s, n: sel.map?.[s.id] || 0 })).filter((x) => x.n > 0).sort((a, b) => b.n - a.n) : [];
   return (
     <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'Company Dashboard' }} />
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 14, marginBottom: 14 }}>
         {stat('Live Projects', live.length, null, () => router.push('/sites'))}
         {stat('Upcoming', count('upcoming'), null, () => router.push('/sites'))}
         {stat('Closed', count('closed'), null, () => router.push('/sites'))}
       </View>
       {isLoading || !data ? <Muted>Loading…</Muted> : (
         <>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 14, marginBottom: 14 }}>
             {stat('Open Snags', sum(data.snagBy), 'across live projects', toggle('snags'))}
             {stat('RAMS Outstanding', sum(data.ramsBy), 'signatures needed', toggle('rams'))}
             {stat('COSHH Outstanding', sum(data.coshhBy), 'signatures needed', toggle('coshh'))}
           </View>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 14, marginBottom: 14 }}>
             {stat('Schedule Complete', `${data.pct}%`, `${data.tasks} tasks across live projects`)}
             {stat('Incidents', data.incidents.length, 'most recent 500 reports', toggle('incidents'))}
             {stat('Outstanding TBT', sum(data.tbtBy), 'signatures needed', toggle('tbt'))}
           </View>
-          {sel && (
-            <>
-              <SectionTitle>{sel.title}</SectionTitle>
+          {(sel ? [show as string] : show ? [] : Object.keys(lists)).map((k) => {
+            const l = lists[k];
+            const ranked = live.map((s) => ({ s, n: l.map?.[s.id] || 0 })).filter((x) => x.n > 0).sort((a, b) => b.n - a.n);
+            return (
+            <View key={k}>
+              <SectionTitle>{l.title}</SectionTitle>
               {ranked.length ? ranked.map(({ s, n }) => (
-                <Pressable key={s.id} onPress={() => router.push(sel.go(s.id) as never)} style={{ flexDirection: 'row', alignItems: 'center', padding: 12, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 6, backgroundColor: base.card }}>
+                <Pressable key={s.id} onPress={() => router.push(l.go(s.id) as never)} style={{ flexDirection: 'row', alignItems: 'center', padding: 12, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 6, backgroundColor: base.card }}>
                   <Text style={{ flex: 1, fontWeight: '700', color: base.ink }}>{s.name}</Text>
                   <Text style={{ fontWeight: '800', color: base.warn }}>{n}</Text>
                 </Pressable>
               )) : <Empty>Nothing outstanding.</Empty>}
-            </>
-          )}
+            </View>
+            );
+          })}
           {(show === 'incidents' || !show) && (
             <>
               <SectionTitle>Recent Accident / Incident Reports</SectionTitle>
