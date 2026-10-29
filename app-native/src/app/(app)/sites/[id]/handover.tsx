@@ -1,16 +1,17 @@
 // Handover (857, managers): O&M manuals on this job, the products' data sheets
 // and the guarantees (provider, reference, expiry, maintenance to keep it valid).
-// Building and exporting the O&M manual itself is still in the current app.
+// Tap a manual to edit and export it; start a new one built from the job.
 import * as DocumentPicker from 'expo-document-picker';
 import { useQueryClient } from '@tanstack/react-query';
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
-import { confirmAsk, promptText, useToast } from '@/components/toast';
+import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted } from '@/components/ui';
 import { addBlankGuarantee, attachToDoc, deleteHoDoc, renameManual, setHoField, uploadHoDocs, useHandover, type HoDoc } from '@/data/handover';
 import { nameOf, openDocLink, usePeople } from '@/data/hs';
+import { deleteManual, duplicateManual, newManual } from '@/data/omManual';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { readIsoDate } from '@/lib/rules/materials';
@@ -31,7 +32,7 @@ function SaveField({ value, placeholder, onSave, multiline, bold }: { value: str
 
 export default function Handover() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { me } = useAuth();
+  const { me, org } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
   const { data: site } = useSite(id);
@@ -71,16 +72,27 @@ export default function Handover() {
         <>
           <Muted style={{ marginBottom: 12 }}>Operation &amp; Maintenance manuals for this job.</Muted>
           {data?.manuals.length ? data.manuals.map((m) => (
-            <Card key={m.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <Pressable key={m.id} onPress={() => router.push(`/sites/${site.id}/om/${m.id}` as never)}><Card style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <Text style={{ fontSize: 24 }}>📘</Text>
               <View style={{ flex: 1 }}>
                 <Text style={{ fontWeight: '700', color: base.ink }}>{m.name || 'O&M Manual'}</Text>
                 <Muted>Updated {when(m.updated_at || m.created_at)}{m.updated_by ? ` by ${nameOf(people, m.updated_by)}` : ''}</Muted>
               </View>
               <Pressable onPress={async () => { const n = await promptText('Rename this O&M manual', m.name || 'O&M Manual'); if (!n || !n.trim()) return; toast((await renameManual(me, m.id, n.trim())) ? 'Renamed' : 'Could not save — try again.'); refresh(); }}><Text style={{ color: base.blue }}>Rename</Text></Pressable>
-            </Card>
+              <Pressable hitSlop={8} onPress={async () => {
+                const k = await chooseAction(m.name || 'O&M Manual', [{ key: 'dup', label: '⧉ Duplicate' }, { key: 'del', label: '🗑 Delete' }]);
+                if (k === 'dup') { toast((await duplicateManual(me, m.id)) ? 'Copied' : 'Could not copy — try again.'); refresh(); }
+                if (k === 'del' && (await confirmAsk(`Delete "${m.name || 'O&M Manual'}"? This can't be undone.`, 'Yes — delete'))) { toast((await deleteManual(m.id)) ? 'Deleted' : 'Could not delete — try again.'); refresh(); }
+              }}><Text style={{ fontSize: 18, color: base.slate, paddingHorizontal: 4 }}>⋮</Text></Pressable>
+            </Card></Pressable>
           )) : <Empty>No O&amp;M manuals yet.</Empty>}
-          <Card style={{ marginTop: space.m }}><Muted>Starting, editing and exporting an O&amp;M manual (PDF or Word) is still in the current app for now. The data sheets and guarantees you add here feed straight into it.</Muted></Card>
+          <Button title="+ New O&M manual" onPress={async () => {
+            const n = await promptText('Name for the new O&M manual', `O&M Manual${data?.manuals.length ? ` ${data.manuals.length + 1}` : ''}`); if (n === null) return;
+            setBusy('Building from the job…'); const mid = await newManual(me, org, site, n); setBusy('');
+            if (!mid) { toast('Could not create the manual — try again.'); return; }
+            refresh(); router.push(`/sites/${site.id}/om/${mid}` as never);
+          }} />
+          <Muted style={{ marginTop: 8 }}>A new manual is built from the job — Schedule of Works, data sheets, COSHH, guarantees, drawings and photos. The data sheets and guarantees you add here feed straight into it.</Muted>
         </>
       ) : tab === 'sheets' ? (
         <>

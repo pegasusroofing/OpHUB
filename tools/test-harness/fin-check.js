@@ -12,6 +12,7 @@ const seed = require('./fresh/seed');
     db.ppe_issuances = [{id:'pp1', org_id:org, user_id:uid, site_id:S1, items:['Gloves','Hard Hat'], status:'signed', issued_at:new Date().toISOString(), issued_by:uid}];
     db.fin_sub_apps = [{id:'sa1', org_id:org, site_id:S1, subcontract_id:'sc1', number:1, app_date:d, final_date:d, applied_gross:5000, certified_gross:4500, retention:225, contra:0, previous:0, net_due:4275, cis_deduction:855, pay_amount:3420, payless:true, payless_reason:'Snagging not finished on plots 3-4', status:'certified'}];
     db.todos = [{id:'td1', org_id:org, site_id:S1, text:'Chase scaffold handover cert', done:false, assigned_to:uid, date_required_by:d, created_at:new Date().toISOString()}];
+    db.handover_om_manuals = [{id:'om1', site_id:S1, org_id:org, name:'O&M Manual', data:null, created_at:new Date().toISOString()}];
     db.repair_jobs = [{id:'rj1', site_id:S1, org_id:org, job_number:'R1', address:'1 High St', description:'Leak', created_at:new Date().toISOString(), job_status:'Approved - To Do', quote_approved:true, quote_approved_at:new Date().toISOString(), closed:false, works_completed:false}]; }
   db.profiles[0].finance_enabled = true; db.profiles[0].howto_dismissed = ['*'];
   await ctx.route(/supabase\.co\/rest\/v1\/(?!rpc)/, async route=>{
@@ -30,8 +31,9 @@ const seed = require('./fresh/seed');
     const [r, click] = r0.split('>>');
     errs.length = 0;
     await page.goto(BASE+r.replace('SID0', S1)); await page.waitForTimeout(6000);
-    const txt = (await page.evaluate(()=>document.body.innerText)).replace(/\s+/g,' ').slice(0,160);
+    const txt = (await page.evaluate(()=>document.body.innerText)).replace(/\s+/g,' ').slice(0, Number(process.env.TXT||160));
     let dl = '';
+    if(process.env.FILL){ const [ph, val] = process.env.FILL.split('|'); await page.getByPlaceholder(ph).first().fill(val); await page.waitForTimeout(1500); }
     if(click){ try{ const [d] = await Promise.all([page.waitForEvent('download', {timeout:20000}), page.getByText(click, {exact:true}).first().click()]); const p = await d.path(); dl = ' | download '+d.suggestedFilename()+' '+require('fs').statSync(p).size+' bytes'; if(process.env.SAVE) await d.saveAs(require('path').join(process.env.SAVE, d.suggestedFilename())); }catch(e){ dl = ' | NO DOWNLOAD: '+e.message.slice(0,120); } }
     console.log(r+(click?' ['+click+']':'')+dl, '|', errs.length ? 'ERRORS: '+errs.join(' / ').slice(0,300) : 'ok', '|', txt);
   }

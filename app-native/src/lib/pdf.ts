@@ -58,7 +58,7 @@ export function drawFit(page: PDFPage, text: string, o: { x: number; y: number; 
 
 /** Standard fonts only encode WinAnsi — swap anything else rather than crash. */
 export function safe(t: string): string {
-  return String(t ?? '').replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/[–—]/g, '-').replace(/…/g, '...').replace(/[^\x20-\x7E\xA0-\xFF\n]/g, '');
+  return String(t ?? '').replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/[–—]/g, '-').replace(/…/g, '...').replace(/[^\x20-\x7E\xA0-\xFF\n•€™]/g, '');
 }
 
 export function wrap(text: string, font: PDFFont, size: number, maxWidth: number): string[] {
