@@ -101,10 +101,13 @@ export async function embedImage(doc: PDFDocument, bytes: Uint8Array | null): Pr
 export const storageImage = async (doc: PDFDocument, bucket: string, path: string | null | undefined) => (path ? embedImage(doc, await fetchBytes(publicUrl(bucket, path))) : null);
 
 /** Hands the PDF to the person: share sheet on a phone, a download on the web. */
-export async function deliverPdf(bytes: Uint8Array, filename: string): Promise<boolean> {
+export const deliverPdf = (bytes: Uint8Array, filename: string) => deliverFile(bytes, filename, 'application/pdf', 'com.adobe.pdf');
+/** An Excel file made with lib/rules/xlsx, handed over the same way. */
+export const deliverXlsx = (bytes: Uint8Array, filename: string) => deliverFile(bytes, filename, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'org.openxmlformats.spreadsheetml.sheet');
+export async function deliverFile(bytes: Uint8Array, filename: string, mime: string, uti?: string): Promise<boolean> {
   try {
     if (Platform.OS === 'web') {
-      const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: 'application/pdf' }));
+      const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: mime }));
       const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 60000);
       return true;
@@ -112,7 +115,7 @@ export async function deliverPdf(bytes: Uint8Array, filename: string): Promise<b
     const f = new File(Paths.cache, filename);
     if (f.exists) f.delete();
     f.create(); f.write(bytes);
-    if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(f.uri, { mimeType: 'application/pdf', dialogTitle: filename, UTI: 'com.adobe.pdf' });
+    if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(f.uri, { mimeType: mime, dialogTitle: filename, UTI: uti });
     return true;
   } catch { return false; }
 }

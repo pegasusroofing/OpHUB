@@ -6,7 +6,7 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
-import { Card, Empty, Muted } from '@/components/ui';
+import { Button, Card, Empty, Muted } from '@/components/ui';
 import { useOperativeList } from '@/data/certs';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
@@ -45,7 +45,8 @@ export default function Operatives() {
         </Pressable>
       )) : <Empty>{site ? 'No operatives assigned to this job yet.' : 'No operatives found.'}</Empty>}
       <Card style={{ marginTop: space.m }}>
-        <Muted>The Training Matrix exports (Excel / PDF) and OneDrive certificate sync are still in the current app for now.</Muted>
+        <Button kind="ghost" title="📊 Training Matrix (view, Excel, PDF)" onPress={() => router.push('/pm/operatives/matrix' as never)} />
+        <Muted style={{ marginTop: 6 }}>OneDrive certificate sync is still in the current app for now.</Muted>
       </Card>
     </ScrollView>
   );

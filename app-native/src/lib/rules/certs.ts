@@ -42,3 +42,23 @@ export function certDisplayName(c: Pick<Cert, 'name' | 'storage_path'>): string 
 /** Storage path: <org>/<operative>/<id>-<safe file name>. */
 export const certPath = (orgId: string, operativeId: string, id: string, fileName: string) =>
   `${orgId}/${operativeId}/${id}-${fileName.replace(/[^a-z0-9.-]+/gi, '_')}`;
+
+/** Training Matrix (320 trainingMatrixData): per operative and category, how many certificates and the soonest expiry. */
+export type MatrixCell = { count: number; expiry: string | null };
+export function trainingMatrix(certs: { operative_id: string; category: string; expiry_date: string | null }[]) {
+  const by: Record<string, Record<string, MatrixCell>> = {};
+  certs.forEach((c) => {
+    const e = ((by[c.operative_id] ||= {})[c.category] ||= { count: 0, expiry: null });
+    e.count += 1;
+    if (c.expiry_date && (!e.expiry || c.expiry_date < e.expiry)) e.expiry = c.expiry_date;
+  });
+  return by;
+}
+/** "ok" / "soon" (within 30 days) / "expired" for a matrix cell. */
+export function matrixState(e: MatrixCell | undefined, now: Date = new Date()): 'none' | 'ok' | 'soon' | 'expired' {
+  if (!e) return 'none';
+  if (!e.expiry) return 'ok';
+  const today = new Date(now); today.setHours(0, 0, 0, 0);
+  const d = new Date(`${e.expiry}T00:00:00`), in30 = new Date(today); in30.setDate(in30.getDate() + 30);
+  return d < today ? 'expired' : d <= in30 ? 'soon' : 'ok';
+}
