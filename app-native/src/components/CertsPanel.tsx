@@ -1,6 +1,7 @@
 // One operative's certificates, office side (320 operativeCertListHtml): summary
 // counts, add a certificate for them, and per certificate open / rename / set
-// expiry / delete. Feeds the company Training Matrix.
+// expiry / delete; Select to export the ticked ones as one PDF or email them.
+// Feeds the company Training Matrix.
 import { useQueryClient } from '@tanstack/react-query';
 import * as DocumentPicker from 'expo-document-picker';
 import { useState } from 'react';
@@ -11,6 +12,8 @@ import { Button, Card, Field, Muted } from '@/components/ui';
 import { deleteCert, renameCert, setCertExpiry, uploadCert, useMyCerts } from '@/data/certs';
 import { openDocLink } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
+import { buildCertBundlePdf } from '@/lib/certBundlePdf';
+import { deliverPdf, emailPdf } from '@/lib/pdf';
 import { CERT_CATEGORIES_AZ, certCategoryLabel, certDisplayName, certStats, type Cert } from '@/lib/rules/certs';
 import { readIsoDate } from '@/lib/rules/materials';
 import { base } from '@/theme/theme';
@@ -27,7 +30,21 @@ export function CertsPanel({ userId }: { userId: string }) {
   const [expiry, setExpiry] = useState('');
   const [file, setFile] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
   const [busy, setBusy] = useState(false);
+  const [sel, setSel] = useState<Set<string> | null>(null); // ticked certificates (Select mode)
+  const [bulk, setBulk] = useState<'pdf' | 'email' | null>(null);
   if (!me) return null;
+  const picked = certs.filter((c) => sel?.has(c.id));
+  // Ticked certificates as one PDF — saved, or emailed (to you, or an address you type).
+  const bundle = async (k: 'pdf' | 'email') => {
+    let to: string | null = me.email || '';
+    if (k === 'email') { to = await promptText('Email the certificates to', me.email || ''); if (!to) return; if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to.trim())) { toast('Enter a valid email address.'); return; } }
+    setBulk(k);
+    try {
+      const b = await buildCertBundlePdf(picked);
+      if (k === 'pdf') { if (!(await deliverPdf(b.bytes, b.filename))) toast('Could not save the PDF.'); else setSel(null); }
+      else { const err = await emailPdf(b.bytes, b.filename, `cert-exports/${me.org_id}`, { general_label: 'Certificates', recipient_email: (to as string).trim(), doc_title: `Certificates (${picked.length})` }); toast(err || `Certificates emailed to ${(to as string).trim()}`); if (!err) setSel(null); }
+    } catch { toast('Could not build the combined PDF.'); } finally { setBulk(null); }
+  };
   const s = certStats(certs);
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['myCerts', userId] }); void qc.invalidateQueries({ queryKey: ['operativeList'] }); };
   const stat = (v: number, label: string, colour: string, onPress?: () => void) => (
@@ -94,6 +111,13 @@ export function CertsPanel({ userId }: { userId: string }) {
           <Button busy={busy} title="Upload" onPress={upload} />
         </Card>
       )}
+      {certs.length > 0 && (sel ? (
+        <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
+          <View style={{ flex: 1 }}><Button busy={bulk === 'pdf'} disabled={!picked.length} title={`Export ${picked.length} (PDF)`} onPress={() => void bundle('pdf')} /></View>
+          <View style={{ flex: 1 }}><Button kind="ghost" busy={bulk === 'email'} disabled={!picked.length} title={`Email ${picked.length}`} onPress={() => void bundle('email')} /></View>
+          <View style={{ flex: 1 }}><Button kind="ghost" title="Cancel" onPress={() => setSel(null)} /></View>
+        </View>
+      ) : <Button kind="ghost" title="☑ Select to export or email" onPress={() => setSel(new Set())} />)}
       {isLoading ? <Muted>Loading…</Muted> : !certs.length ? <Muted>No certificates yet.</Muted> : CERT_CATEGORIES_AZ.map((c) => {
         const list = certs.filter((x) => x.category === c.key);
         if (!list.length) return null;
@@ -103,8 +127,9 @@ export function CertsPanel({ userId }: { userId: string }) {
             {list.map((f) => {
               const expired = !!f.expiry_date && f.expiry_date < new Date().toISOString().slice(0, 10);
               return (
-                <Pressable key={f.id} onPress={() => void menu(f)}>
+                <Pressable key={f.id} onPress={() => { if (!sel) { void menu(f); return; } const n = new Set(sel); if (n.has(f.id)) n.delete(f.id); else n.add(f.id); setSel(n); }}>
                   <Card style={{ paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    {sel && <Text style={{ fontSize: 17, color: base.ink }}>{sel.has(f.id) ? '☑' : '☐'}</Text>}
                     <View style={{ flex: 1 }}>
                       <Text style={{ fontWeight: '600', color: base.ink }} numberOfLines={1}>{certDisplayName(f)}</Text>
                       <Muted style={expired ? { color: base.red } : undefined}>{f.category === 'other' && f.other_type_description ? `${f.other_type_description} · ` : ''}{f.expiry_date ? `${expired ? 'Expired' : 'Expires'} ${new Date(`${f.expiry_date}T00:00:00`).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}` : 'No expiry'}</Muted>

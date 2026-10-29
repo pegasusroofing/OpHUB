@@ -1,6 +1,6 @@
 // My dashboard (operatives). Ported from renderOperativeDashboard (670, operative view):
 // Outstanding Items, certificate summary, my certificates (view, add), My Tools.
-// Exporting/emailing selected certificates comes with the PDF work in phase 2.
+// Export or email all my certificates as one PDF.
 import { useQueryClient } from '@tanstack/react-query';
 import * as DocumentPicker from 'expo-document-picker';
 import { router } from 'expo-router';
@@ -8,9 +8,11 @@ import { useState } from 'react';
 import { Linking, Pressable, Text, View } from 'react-native';
 
 import { MyToolsList } from '@/components/MyToolsList';
-import { useToast } from '@/components/toast';
+import { promptText, useToast } from '@/components/toast';
 import { Button, Card, Field, Muted, Screen, SectionTitle, Toggle } from '@/components/ui';
 import { uploadCert, useMyCerts } from '@/data/certs';
+import { buildCertBundlePdf } from '@/lib/certBundlePdf';
+import { deliverPdf, emailPdf } from '@/lib/pdf';
 import { openDocLink } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
 import { CERT_CATEGORIES_AZ, certCategoryLabel, certDisplayName, certStats } from '@/lib/rules/certs';
@@ -29,7 +31,18 @@ export default function Dashboard() {
   const [expiry, setExpiry] = useState('');
   const [file, setFile] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
   const [busy, setBusy] = useState(false);
+  const [bulk, setBulk] = useState<'pdf' | 'email' | null>(null);
   if (!me) return null;
+  const bundle = async (k: 'pdf' | 'email') => {
+    let to = me.email || '';
+    if (k === 'email') { to = ((await promptText('Email my certificates to', me.email || '')) || '').trim(); if (!to) return; if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) { toast('Enter a valid email address.'); return; } }
+    setBulk(k);
+    try {
+      const b = await buildCertBundlePdf(certs);
+      if (k === 'pdf') { if (!(await deliverPdf(b.bytes, b.filename))) toast('Could not save the PDF.'); }
+      else toast((await emailPdf(b.bytes, b.filename, `cert-exports/${me.org_id}`, { general_label: 'Certificates', recipient_email: to, doc_title: `${me.name} — certificates` })) || `Certificates emailed to ${to}`);
+    } catch { toast('Could not build the combined PDF.'); } finally { setBulk(null); }
+  };
   const s = certStats(certs);
 
   const stat = (v: number, label: string, colour: string, onPress?: () => void) => (
@@ -73,6 +86,12 @@ export default function Dashboard() {
       <Toggle title={`Certifications (${certs.length})`} open={open} onPress={() => setOpen(!open)} />
       {open && (
         <View style={{ marginTop: 8 }}>
+          {certs.length > 0 && (
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 6 }}>
+              <View style={{ flex: 1 }}><Button kind="ghost" busy={bulk === 'pdf'} title="📄 Export all (PDF)" onPress={() => void bundle('pdf')} /></View>
+              <View style={{ flex: 1 }}><Button kind="ghost" busy={bulk === 'email'} title="✉️ Email all" onPress={() => void bundle('email')} /></View>
+            </View>
+          )}
           <Pressable onPress={() => setAdding(!adding)} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8 }}>
             <Text style={{ fontWeight: '700', color: base.ink }}>Add a certificate</Text>
             <Text style={{ fontSize: 20, color: base.ink }}>{adding ? '−' : '+'}</Text>
