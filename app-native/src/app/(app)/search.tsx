@@ -63,7 +63,7 @@ export default function Search() {
       <TextInput value={q} onChangeText={setQ} autoFocus placeholder="🔍 Search projects, people, reports, documents…" autoCapitalize="none"
         onSubmitEditing={() => { if (items[0]) router.push(items[0].go as never); }}
         style={{ borderWidth: 1, borderColor: base.line, borderRadius: 22, paddingHorizontal: 14, paddingVertical: 11, color: base.ink, backgroundColor: base.card, marginBottom: 12, fontSize: 15 }} />
-      {query && !local.length && !(query.length >= 2 && remote.length) && <Muted style={{ marginBottom: 8 }}>Nothing found for “{q.trim()}”.</Muted>}
+      {!!query && !local.length && !(query.length >= 2 && remote.length) && <Muted style={{ marginBottom: 8 }}>Nothing found for “{q.trim()}”.</Muted>}
       {items.map((it, i) => {
         const head = it.g !== last; last = it.g;
         return (

@@ -9,14 +9,14 @@
 import { useQuery } from '@tanstack/react-query';
 import * as DocumentPicker from 'expo-document-picker';
 import { Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Linking, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Linking, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { FinForm } from '@/components/FinForm';
 import { SowTaskRow } from '@/components/SowTaskRow';
 import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { SowExport } from '@/components/SowExport';
-import { Button, Card, Empty, Field, FilterRow, Muted, SectionTitle } from '@/components/ui';
+import { Button, Card, Empty, FilterRow, Muted, SectionTitle } from '@/components/ui';
 import { heading } from '@/lib/fonts';
 import {
   addLeftoverPhoto, closeOutSiteCondition, documentLink, markViewedOnce, saveFlag, useSchedule, type Flag, type Task,
@@ -39,7 +39,7 @@ import { supabase } from '@/lib/supabase';
 import { VisibilityEditor } from '@/components/VisibilityEditor';
 import { HowTo } from '@/components/HowTo';
 import { onQueueChange, onUploadsSent, pendingJobs, type PatchJob, type UploadJob } from '@/lib/uploadQueue';
-import { base, page, space, useTheme } from '@/theme/theme';
+import { base, page, radius, space, useTheme } from '@/theme/theme';
 
 export default function Schedule() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -72,7 +72,9 @@ export default function Schedule() {
     return () => { a(); b(); };
   }, [refetch, toast]);
   useEffect(() => { if (me && site) { void markViewedOnce(me); if (isManager(me)) void markSowViewed(me, site.id); } }, [me, site]);
-  useFocusEffect(useCallback(() => { void refetch(); }, [refetch]));
+  // Coming back to the page refreshes it (the first visit already loads it).
+  const seen = useRef(false);
+  useFocusEffect(useCallback(() => { if (seen.current) void refetch(); seen.current = true; }, [refetch]));
 
   const manager = isManager(me);
   const view = useMemo(() => {
@@ -109,9 +111,11 @@ export default function Schedule() {
       onToggleSelect={() => { const n = new Set(selecting ?? []); if (n.has(t.id)) n.delete(t.id); else n.add(t.id); setSelecting(n); }}
       onSelectMode={() => setSelecting(new Set([t.id]))} />
   );
-  const addBox = (key: string, sectionId: string | null) => manager && (adding === key
+  // No adding tasks on the Complete tab.
+  const canAdd = manager && filter !== 'done';
+  const addBox = (key: string, sectionId: string | null) => canAdd && (adding === key
     ? <AddTaskBox addresses={site.multi_site ? data?.addresses ?? [] : []} onCancel={() => setAdding(null)}
-        onAdd={async (name, subId) => { if (await addTask(site.id, name, sectionId, subId)) { toast('Task added'); changed(); return true; } toast('Could not save — try again.'); return false; }} />
+        onAdd={async (name, subId) => { if (await addTask(site.id, name, sectionId, subId)) { changed(); return true; } toast('Could not save — try again.'); return false; }} />
     : <Button kind="ghost" title="➕ Add task" onPress={() => setAdding(key)} />);
   const sectionMenu = async (sec: { id: string; name: string }) => {
     const k = await chooseAction(sec.name, [{ key: 'dup', label: '⧉ Duplicate section' }, { key: 'ren', label: '✎ Rename' }, { key: 'vis', label: '🔒 Who can see this' }, { key: 'del', label: '🗑 Delete', danger: true }]);
@@ -174,7 +178,7 @@ export default function Schedule() {
       toast(`Copied ${r.secs} section${r.secs === 1 ? '' : 's'} and ${r.tasks} task${r.tasks === 1 ? '' : 's'} into the schedule`); changed(); return;
     }
     if (k === 'sec') {
-      const n = await promptText('Section name (e.g. Roof Level 1)', '');
+      const n = await promptText('Add a section', '', { placeholder: 'Section name, e.g. Roof Level 1', ok: 'Add section' });
       if (n?.trim()) { if (await addSection(me, site.id, n.trim())) { toast('Section added'); changed(); } }
     } else if (k === 'var') {
       const n = await promptText('What is the variation work? (e.g. Additional lead flashing to bay window)', '');
@@ -250,7 +254,7 @@ export default function Schedule() {
           {(manager ? true : filter === 'all' ? view.allUngrouped.length > 0 : view.ungrouped.length > 0) && (
             <Group title="Schedule of Works" count={view.allUngrouped.length ? doneCount(view.allUngrouped) : ''}
               open={isOpen('__ungrouped__', view.ungrouped.length > 0)} onToggle={() => toggle('__ungrouped__', view.ungrouped.length > 0)}
-              onAdd={manager ? () => { setAdding(adding === '__ungrouped__' ? null : '__ungrouped__'); setOpen((o) => ({ ...o, __ungrouped__: true })); } : undefined}
+              onAdd={canAdd ? () => { setAdding(adding === '__ungrouped__' ? null : '__ungrouped__'); setOpen((o) => ({ ...o, __ungrouped__: true })); } : undefined}
               onMore={manager ? more : undefined}>
               {adding === '__ungrouped__' && addBox('__ungrouped__', null)}
               {view.ungrouped.length ? view.ungrouped.map(row) : <Empty>{`No tasks${filter !== 'all' ? ' for this filter' : ''}.`}</Empty>}
@@ -301,24 +305,30 @@ export default function Schedule() {
 function AddTaskBox({ addresses, onAdd, onCancel }: { addresses: { id: string; name: string }[]; onAdd: (name: string, subId: string | null) => Promise<boolean>; onCancel: () => void }) {
   const [name, setName] = useState('');
   const [sub, setSub] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const add = async () => { if (!name.trim() || busy) return; setBusy(true); try { if (await onAdd(name.trim(), sub)) setName(''); } finally { setBusy(false); } };
   return (
-    <Card style={{ backgroundColor: base.paper }}>
-      <Field label="Add Task" value={name} onChangeText={setName} placeholder="e.g. Fit lead flashing" />
+    <View style={{ marginBottom: 10 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        <TextInput value={name} onChangeText={setName} placeholder="New task, e.g. Fit lead flashing" autoFocus onSubmitEditing={() => void add()} placeholderTextColor={base.slateLight}
+          style={{ flex: 1, borderWidth: 1, borderColor: base.line, borderRadius: radius.input, paddingHorizontal: 12, paddingVertical: 9, fontSize: 15, color: base.ink, backgroundColor: base.card }} />
+        <Pressable accessibilityRole="button" onPress={() => void add()} disabled={busy || !name.trim()} style={{ paddingHorizontal: 14, paddingVertical: 9, borderRadius: radius.input, backgroundColor: base.blue, opacity: busy || !name.trim() ? 0.5 : 1 }}>
+          <Text style={{ color: '#fff', fontWeight: '800' }}>Add</Text>
+        </Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={onCancel} hitSlop={8} style={{ paddingHorizontal: 6 }}>
+          <Text style={{ fontSize: 16, color: base.slate, fontWeight: '700' }}>✕</Text>
+        </Pressable>
+      </View>
       {addresses.length > 0 && (
-        <>
-          <Muted style={{ fontWeight: '700', marginBottom: 6 }}>Address</Muted>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
-            {[{ id: '', name: 'Not on the list' }, ...addresses].map((a) => (
-              <Pressable key={a.id} onPress={() => setSub(a.id || null)} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 14, borderWidth: 1, borderColor: (sub || '') === a.id ? base.ink : base.line, backgroundColor: (sub || '') === a.id ? base.ink : base.card }}>
-                <Text style={{ fontSize: 12, fontWeight: '700', color: (sub || '') === a.id ? '#fff' : base.ink }}>{a.name}</Text>
-              </Pressable>
-            ))}
-          </View>
-        </>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+          {[{ id: '', name: 'Not on the list' }, ...addresses].map((a) => (
+            <Pressable key={a.id} onPress={() => setSub(a.id || null)} style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14, borderWidth: 1, borderColor: (sub || '') === a.id ? base.ink : base.line, backgroundColor: (sub || '') === a.id ? base.ink : base.card }}>
+              <Text style={{ fontSize: 12, fontWeight: '700', color: (sub || '') === a.id ? '#fff' : base.ink }}>{a.name}</Text>
+            </Pressable>
+          ))}
+        </View>
       )}
-      <Button title="Add" onPress={async () => { if (name.trim() && (await onAdd(name.trim(), sub))) setName(''); }} />
-      <Button kind="ghost" title="Close" onPress={onCancel} />
-    </Card>
+    </View>
   );
 }
 

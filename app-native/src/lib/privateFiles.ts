@@ -61,11 +61,42 @@ export async function resolveStorageUrl(u: string): Promise<string | null> {
   const c = await cache();
   const hit = c[p.key];
   if (hit && hit.e - Date.now() > MIN_LEFT_MS) return withExtras(hit.u, p);
-  const { data, error } = await supabase.storage.from(p.bucket).createSignedUrl(p.path, TTL_S);
-  if (error || !data?.signedUrl) return hit ? withExtras(hit.u, p) : null;
-  c[p.key] = { u: data.signedUrl, e: Date.now() + TTL_S * 1000 };
-  plainSet(CACHE_KEY, c);
-  return withExtras(data.signedUrl, p);
+  const got = await signBatched(p.bucket, p.path);
+  if (!got) return hit ? withExtras(hit.u, p) : null;
+  c[p.key] = { u: got, e: Date.now() + TTL_S * 1000 };
+  saveSoon();
+  return withExtras(got, p);
+}
+
+// A screen full of photos asks for its links together: one request per bucket, not one per photo.
+const waiting: Record<string, Map<string, ((u: string | null) => void)[]>> = {};
+let flushTimer: ReturnType<typeof setTimeout> | null = null;
+function signBatched(bucket: string, path: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    const m = (waiting[bucket] ||= new Map());
+    m.set(path, [...(m.get(path) || []), resolve]);
+    if (!flushTimer) flushTimer = setTimeout(flush, 25);
+  });
+}
+function flush() {
+  flushTimer = null;
+  Object.keys(waiting).forEach((bucket) => {
+    const m = waiting[bucket]; delete waiting[bucket];
+    const paths = [...m.keys()];
+    for (let i = 0; i < paths.length; i += 100) {
+      const chunk = paths.slice(i, i + 100);
+      supabase.storage.from(bucket).createSignedUrls(chunk, TTL_S).then(({ data }) => {
+        const by: Record<string, string> = {};
+        (data || []).forEach((d) => { if (d.path && d.signedUrl && !d.error) by[d.path] = d.signedUrl; });
+        chunk.forEach((p) => (m.get(p) || []).forEach((r) => r(by[p] || null)));
+      }, () => chunk.forEach((p) => (m.get(p) || []).forEach((r) => r(null))));
+    }
+  });
+}
+let saveTimer: ReturnType<typeof setTimeout> | null = null;
+function saveSoon() {
+  if (saveTimer) return;
+  saveTimer = setTimeout(() => { saveTimer = null; if (signed) void plainSet(CACHE_KEY, signed); }, 500);
 }
 
 export async function clearSignedCache(): Promise<void> {

@@ -48,10 +48,11 @@ export const useToast = () => useContext(Ctx);
 const box = { borderWidth: 1, borderColor: '#D5D9DF', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 9, fontSize: 15, color: '#1E2124', backgroundColor: '#fff' };
 
 // Ask for a line of text (rename etc.). Resolves null if closed.
-type PromptReq = { message: string; initial: string; resolve: (v: string | null) => void };
+type PromptOpts = { placeholder?: string; ok?: string };
+type PromptReq = { message: string; initial: string; opts: PromptOpts; resolve: (v: string | null) => void };
 const promptListeners = new Set<(r: PromptReq) => void>();
-export function promptText(message: string, initial = ''): Promise<string | null> {
-  return new Promise((resolve) => { promptListeners.forEach((l) => l({ message, initial, resolve })); });
+export function promptText(message: string, initial = '', opts: PromptOpts = {}): Promise<string | null> {
+  return new Promise((resolve) => { promptListeners.forEach((l) => l({ message, initial, opts, resolve })); });
 }
 export function PromptHost() {
   const [req, setReq] = useState<PromptReq | null>(null);
@@ -64,8 +65,8 @@ export function PromptHost() {
   if (!req) return null;
   const done = (v: string | null) => { req.resolve(v); setReq(null); };
   return (
-    <Popup title={req.message} onClose={() => done(null)} footer={<PopupButtons yes="OK" onYes={() => done(val)} />}>
-      <TextInput value={val} onChangeText={setVal} autoFocus onSubmitEditing={() => done(val)} style={box} />
+    <Popup title={req.message} onClose={() => done(null)} footer={<PopupButtons yes={req.opts.ok || 'OK'} onYes={() => done(val)} />}>
+      <TextInput value={val} onChangeText={setVal} autoFocus onSubmitEditing={() => done(val)} placeholder={req.opts.placeholder} placeholderTextColor="#9AA1AB" style={box} />
     </Popup>
   );
 }

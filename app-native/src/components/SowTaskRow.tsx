@@ -1,15 +1,17 @@
-// One Schedule of Works task: name, photos (sent and still waiting), Add photo,
-// the three status buttons, the "complete needs a photo" card and the % chooser.
+// One Schedule of Works task: name, photos (sent and still waiting), Add pre-start photos / Add photos,
+// the three status buttons, the "complete needs a photo" card and the progress slider.
+// After completion photos are picked it asks "Mark this task as complete?" (Yes / No).
 // Ported from taskRowHtml (480). Managers also get a ⋮ menu (edit, link address, move,
 // delete, select multiple) and can complete by ticking photos already on the task.
 // A task outside any section can be limited to chosen people (Who can see this);
 // tasks in a section follow the section. On main-contractor jobs a task can be tagged
 // to one of the job's subcontractors (shown as a label to everyone).
 import { useState } from 'react';
-import { Image, Linking, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Linking, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { StorageImage, useStorageUrl } from '@/components/StorageImage';
 import { chooseAction, confirmAsk, promptText, showAlert, useToast } from '@/components/toast';
+import { Slider } from '@/components/Slider';
 import { Button } from '@/components/ui';
 import { VisibilityEditor } from '@/components/VisibilityEditor';
 import {
@@ -32,7 +34,6 @@ export function SowTaskRow({ me, site, task, subCos = [], photos, pending, addre
 }) {
   const toast = useToast();
   const [completing, setCompleting] = useState(false);
-  const [choose, setChoose] = useState<null | 'add' | 'complete'>(null);
   const [busy, setBusy] = useState(false);
   const [vis, setVis] = useState(false);
   const [viewing, setViewing] = useState<string | null>(null);
@@ -102,7 +103,6 @@ export function SowTaskRow({ me, site, task, subCos = [], photos, pending, addre
   }
 
   const take = async (source: 'camera' | 'library', mode: 'add' | 'complete') => {
-    setChoose(null);
     const picked = await pickPhotos(source);
     if ('error' in picked) { showAlert(picked.error); return; }
     if (!picked.length) return;
@@ -110,18 +110,14 @@ export function SowTaskRow({ me, site, task, subCos = [], photos, pending, addre
     try {
       if (mode === 'complete') {
         setCompleting(false);
-        const n = await completeWithPhotos(me, site, task, picked);
-        toast(`Task marked complete — ${n} photo${n === 1 ? '' : 's'} uploading`);
-      } else {
-        let stage = photoStage(task.status);
-        let moved = false;
-        if (status === 'todo' && await confirmAsk('Has this task started?', 'Yes — move to In Progress', 'No — still To Do')) {
-          stage = 'progress'; moved = true;
+        if (await confirmAsk('Mark this task as complete?')) await completeWithPhotos(me, site, task, picked);
+        else {
+          await addPhotos(me, site, task, picked, 'progress');
+          if (status === 'todo') await moveToProgressAfterPhotos(task);
         }
-        const n = await addPhotos(me, site, task, picked, stage);
-        if (moved) await moveToProgressAfterPhotos(task);
-        if (stage === 'progress') setPercentPrompt(true);
-        toast(`${n === 1 ? 'Photo added' : `${n} photos added`}${moved ? ' — moved to In Progress' : ''}`);
+      } else {
+        // To Commence: pre-start photos. In progress / complete: progress photos.
+        await addPhotos(me, site, task, picked, photoStage(task.status));
       }
     } catch {
       toast('One photo could not be read — please try that one again.');
@@ -139,8 +135,8 @@ export function SowTaskRow({ me, site, task, subCos = [], photos, pending, addre
   const pickPct = async (v: number) => {
     const pct = snapPct(v);
     setPercentPrompt(false);
-    if (pct >= 100) { toast('Upload a completed photo to finish this task'); setCompleting(true); return; }
-    if (await setPercent(task, pct)) { toast(`Progress set to ${pct}%`); onChanged(); }
+    if (pct >= 100) { setCompleting(true); return; }
+    if (await setPercent(task, pct)) onChanged(); else toast('Could not save the progress — check your signal and try again.');
   };
 
   const removePhoto = async (p: Photo) => {
@@ -155,12 +151,12 @@ export function SowTaskRow({ me, site, task, subCos = [], photos, pending, addre
   };
 
   const pct = task.percent_complete || 0;
-  const chooser = (mode: 'add' | 'complete') => (
-    <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-      <View style={{ flex: 1 }}><Button kind="ghost" title="📸 Take photo" onPress={() => take('camera', mode)} /></View>
-      <View style={{ flex: 1 }}><Button kind="ghost" title="🖼 Choose photos" onPress={() => take('library', mode)} /></View>
-    </View>
-  );
+  // On the laptop it goes straight to choosing files; on a phone: camera or the photo library.
+  const addPhotosNow = async (mode: 'add' | 'complete') => {
+    if (Platform.OS === 'web') { void take('library', mode); return; }
+    const k = await chooseAction(mode === 'complete' ? 'Completed photos' : status === 'todo' ? 'Pre-start photos' : 'Add photos', [{ key: 'camera', label: '📸 Take a photo' }, { key: 'library', label: '🖼 Choose from your photos' }]);
+    if (k === 'camera' || k === 'library') void take(k, mode);
+  };
 
   return (
     <View style={s.task}>
@@ -204,7 +200,7 @@ export function SowTaskRow({ me, site, task, subCos = [], photos, pending, addre
       {completing ? (
         <View style={s.completeCard}>
           <Text style={{ color: '#7A1F1F', marginBottom: 4 }}>Upload at least one completed photo to mark this task complete.</Text>
-          {chooser('complete')}
+          <View style={{ marginTop: 6 }}><Button kind="ghost" busy={busy} title="📷 Add completed photos" onPress={() => void addPhotosNow('complete')} /></View>
           {mgr && (
             <View style={{ marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderStyle: 'dashed', borderTopColor: '#E8B4B4' }}>
               <Text style={{ color: '#7A1F1F', fontWeight: '700', marginBottom: 6 }}>PM: or tick photos already uploaded to use as Completed photos</Text>
@@ -229,10 +225,9 @@ export function SowTaskRow({ me, site, task, subCos = [], photos, pending, addre
         </View>
       ) : (
         <>
-          <Pressable onPress={() => setChoose(choose === 'add' ? null : 'add')} disabled={busy} style={s.addPhoto}>
-            <Text style={{ fontWeight: '700', color: base.ink }}>{busy ? 'Preparing photos…' : '📷 Add photo'}</Text>
+          <Pressable onPress={() => void addPhotosNow('add')} disabled={busy} style={s.addPhoto}>
+            <Text style={{ fontWeight: '700', color: base.ink }}>{busy ? 'Preparing photos…' : status === 'todo' ? '📷 Add pre-start photos' : '📷 Add photos'}</Text>
           </Pressable>
-          {choose === 'add' && chooser('add')}
         </>
       )}
 
@@ -250,18 +245,7 @@ export function SowTaskRow({ me, site, task, subCos = [], photos, pending, addre
 
       {status === 'progress' && !completing && (
         <View style={[s.pct, percentPrompt && { borderColor: base.warn, backgroundColor: base.warnBg }]}>
-          {percentPrompt && <Text style={{ fontWeight: '700', color: base.warn, marginBottom: 6 }}>Photo added — how far along is this task now?</Text>}
-          <View style={s.pctBar}><View style={{ width: `${pct}%`, height: '100%', backgroundColor: '#16A34A' }} /></View>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
-            {[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map((v) => (
-              <Pressable key={v} onPress={() => pickPct(v)} style={[s.chip, v === pct && { backgroundColor: base.ink, borderColor: base.ink }]}>
-                <Text style={{ fontSize: 11.5, fontWeight: '700', color: v === pct ? '#fff' : base.ink }}>{v}%</Text>
-              </Pressable>
-            ))}
-          </View>
-          {percentPrompt && (
-            <Pressable onPress={() => setPercentPrompt(false)} style={{ marginTop: 6 }}><Text style={{ color: base.slate }}>Skip — leave at {pct}%</Text></Pressable>
-          )}
+          <Slider value={pct} onDone={(v) => void pickPct(v)} />
         </View>
       )}
 
@@ -302,7 +286,5 @@ const s = StyleSheet.create({
   statusTodo: { backgroundColor: '#fff', shadowColor: '#14161C', shadowOpacity: 0.12, shadowRadius: 3, shadowOffset: { width: 0, height: 1 } },
   statusTxt: { fontSize: 11, fontWeight: '700', color: base.slate },
   pct: { marginTop: 10, padding: 10, borderRadius: 10, borderWidth: 1, borderColor: base.line },
-  pctBar: { height: 8, borderRadius: 5, backgroundColor: base.line, overflow: 'hidden' },
-  chip: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: 14, borderWidth: 1, borderColor: base.line },
   viewer: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', alignItems: 'center', justifyContent: 'center', padding: 16 },
 });
