@@ -39,7 +39,7 @@ HIGH = money, data, permissions, safety or a daily job. MED = noticeable. LOW = 
 - MED OPEN — Site Rules & Layout: Export Signed PDF.
 - MED OPEN — Inductions: email/export one or a ticked selection, with CC me / CC client.
 - MED OPEN — Subcontractor's Schedule of Works tile: full task rows (status, photos) not read-only.
-- MED OPEN — RAMS: tick several and export / email as one pack.
+- MED FIXED — RAMS: tick several and export / email as one pack.
 - LOW OPEN — close/reopen address from the list; SoW email recipient tick list; library template preview; Excel import template download; multi-site address carry-over on add; old photo size backfill; leftover-photo view; photo mark-up select tool; snag closing photo from library; MC inspections listed per company; inspection templates from the job; client sees sign box on site layout; OneDrive inductions folder show/unlink; sub company library in the hub; subcontractor RAMS per company on the RAMS page; delete superseded RAMS; RAMS multi-page signing tick.
 
 ## H&S, materials, plant (584–760)
@@ -49,8 +49,8 @@ HIGH = money, data, permissions, safety or a daily job. MED = noticeable. LOW = 
 - MED FIXED — Client's Operatives tile: read-only list of the job's operatives and certificates.
 - MED OPEN — HAVS: manager adds an operative not assigned to the job.
 - MED OPEN — COSHH products in bulk from many data sheets.
-- MED OPEN — COSHH on a job: tick several / select all → one PDF or email; "Email all signed COSHH".
-- MED OPEN — CC me / CC client on RAMS, COSHH and TBT emails.
+- MED FIXED — COSHH on a job: tick several / select all → one PDF or email; "Email all signed COSHH".
+- MED FIXED (RAMS, COSHH) — CC me / CC client on RAMS, COSHH and TBT emails. TBT still to do.
 - MED OPEN — Daily briefings: tick several → one PDF or email.
 - LOW OPEN — HAVS/PUWER export a ticked set; bring old COSHH PDFs in as products; product ↔ job shortcuts; expenses "Send now" for the sender; PPE requests tick/export/email; certificate email to a team member; briefing delete logged; TBT "needs signing" wording; manual TBT "Email to PM"; import suppliers from Excel.
 

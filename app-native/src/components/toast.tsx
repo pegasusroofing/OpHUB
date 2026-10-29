@@ -1,6 +1,7 @@
 // Short message at the bottom of the screen (like the current app's toast()),
 // plus a simple alert that works on phones and on the web.
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { EmailPromptHost } from '@/components/EmailPrompt';
 import { Alert, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 const Ctx = createContext<(msg: string) => void>(() => undefined);
@@ -18,6 +19,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {children}
       <PromptHost />
       <MenuHost />
+      <EmailPromptHost />
       {msg && (
         <View pointerEvents="none" style={s.wrap}>
           <Text style={s.toast}>{msg}</Text>
