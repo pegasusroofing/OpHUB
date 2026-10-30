@@ -4,8 +4,10 @@
 import { useState } from 'react';
 import { View } from 'react-native';
 
-import { chooseAction, confirmAsk, promptText, showAlert, useToast } from '@/components/toast';
+import { chooseAction, showAlert, useToast } from '@/components/toast';
 import { Button } from '@/components/ui';
+import { promptEmail } from '@/components/EmailPrompt';
+import { useTeam } from '@/data/admin';
 import { askDate } from '@/components/DateField';
 import { useAuth } from '@/lib/auth';
 import { deliverPdf } from '@/lib/pdf';
@@ -15,6 +17,7 @@ import type { Site } from '@/lib/types';
 
 export function SowExport({ site, tab }: { site: Site; tab: SowTab }) {
   const { me, org } = useAuth();
+  const { data: people } = useTeam(me?.org_id);
   const toast = useToast();
   const [busy, setBusy] = useState<'pdf' | 'email' | null>(null);
   if (!me) return null;
@@ -48,13 +51,13 @@ export function SowExport({ site, tab }: { site: Site; tab: SowTab }) {
         setBusy('pdf'); const b = await build(p); if (b && !(await deliverPdf(b.bytes, b.filename))) toast('Could not save the PDF.'); setBusy(null);
       }} /></View>
       <View style={{ flex: 1 }}><Button kind="ghost" busy={busy === 'email'} title="✉ Email Report" onPress={async () => {
-        const to = await promptText('Email the report to (separate several addresses with commas):', me.email || ''); if (to === null) return;
-        const list = [...new Set(to.split(/[,;\s]+/).map((x) => x.trim()).filter(Boolean))];
-        if (!list.length) { toast('Tick or enter at least one recipient.'); return; }
-        if (list.some((e) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e))) { toast('Enter a valid email address.'); return; }
+        // 500 openScheduleEmailPrompt: tick PMs / admins (you're ticked), or add any address; CC the client.
+        const pick = (people ?? []).filter((p) => (p.role === 'pm' || p.role === 'admin') && p.email && !(p.role === 'pm' && p.is_estimator)).map((p) => ({ name: p.name || p.email as string, email: p.email as string }));
+        const r = await promptEmail('Email Schedule of Works Report', { pick, ticked: me.email && pick.some((p) => p.email === me.email) ? [me.email] : [], clientEmail: site.client_email });
+        if (!r) return;
+        const list = r.to.split(',');
         const p = await askPeriod(); if (p === undefined) return;
-        let cc: string | null = null;
-        if (site.client_email && (await confirmAsk(`CC client contact${site.client_contact_name || site.client_name ? ` (${site.client_contact_name || site.client_name})` : ''} on this email?`, 'Yes, CC them'))) cc = site.client_email;
+        const cc: string | null = r.clientCc ?? null;
         setBusy('email');
         const b = await build(p);
         if (b) { const err = await emailSowPdf(site.id, b.bytes, b.filename, list, cc); if (err) showAlert(err); else toast(`Emailed to ${list.length} recipient${list.length > 1 ? 's' : ''}`); }
