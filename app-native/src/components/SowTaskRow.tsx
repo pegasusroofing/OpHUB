@@ -118,6 +118,8 @@ export function SowTaskRow({ me, site, task, subCos = [], photos, pending, addre
       } else {
         // To Commence: pre-start photos. In progress / complete: progress photos.
         await addPhotos(me, site, task, picked, photoStage(task.status));
+        // 480: a progress photo asks for the new % complete (skippable).
+        if (task.status === 'progress') setPercentPrompt(true);
       }
     } catch {
       toast('One photo could not be read — please try that one again.');
@@ -245,7 +247,9 @@ export function SowTaskRow({ me, site, task, subCos = [], photos, pending, addre
 
       {status === 'progress' && !completing && (
         <View style={[s.pct, percentPrompt && { borderColor: base.warn, backgroundColor: base.warnBg }]}>
+          {percentPrompt && <Text style={{ fontWeight: '700', color: base.warn, marginBottom: 6 }}>Photo added — how far along is this task now?</Text>}
           <Slider value={pct} onDone={(v) => void pickPct(v)} />
+          {percentPrompt && <Pressable onPress={() => setPercentPrompt(false)} style={{ marginTop: 6 }}><Text style={{ color: base.slate, fontWeight: '700' }}>Skip — leave at {pct}%</Text></Pressable>}
         </View>
       )}
 
