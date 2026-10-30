@@ -52,7 +52,8 @@ export default function AppLayout() {
   // A Finance-only company (908 finOnlyRoute): just the Finance app; someone without Finance is told who switches it on.
   if (me && org && isFinanceOnlyOrg(org) && me.role !== 'superadmin') {
     if (!isFinanceUser(me, org)) return <FinNoAccess />;
-    if (!/^\/(fin|account|signature|home)(\/|$)/.test(path)) return <Redirect href={'/fin' as never} />;
+    // 160 company setup (logo) comes first, else the two redirects bounce off each other.
+    if (!(needsSetup && path === '/pm/admin/branding') && !/^\/(fin|account|signature|home)(\/|$)/.test(path)) return <Redirect href={'/fin' as never} />;
   }
   return (
     <View style={{ flex: 1 }}>
