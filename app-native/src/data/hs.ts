@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/lib/auth';
 import { cachedQuery, orThrow } from '@/lib/offlineCache';
 import { currentCycleSigs, tbtAllSigned } from '@/lib/rules/hs';
+import { isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
 import type { Profile, Site } from '@/lib/types';
 
@@ -189,7 +190,30 @@ export function useHsSummary(site: Site | undefined) {
         return docs.length - new Set(valid.map((x) => x[key])).size;
       };
       const [ramsTodo, coshhTodo] = await Promise.all([pending('rams_signatures', 'rams_id', ramsDocs), pending('coshh_signatures', 'coshh_id', coshhDocs)]);
-      return { rams: ramsDocs.length, coshh: coshhDocs.length, liveTbts: (orThrow(tbts) as unknown[]).length, ramsTodo, coshhTodo, ppeToSign: ((ppe.data as unknown[] | null) ?? []).length };
+      // 630 for managers: "!" when an operative on the job still has to sign; PPE requests waiting; briefings and incidents counted.
+      let mgr: { ramsGap: boolean; coshhGap: boolean; ppeRequests: number; briefings: number; incidents: number } | null = null;
+      if (isManager(me)) {
+        const [asg, ops, reqs, inc, tpls] = await Promise.all([
+          db.from('site_assignments').select('user_id').eq('site_id', s.id),
+          db.from('profiles').select('id').eq('role', 'operative'),
+          db.from('ppe_requests').select('id').eq('site_id', s.id).eq('status', 'pending'),
+          db.from('incident_reports').select('id').eq('site_id', s.id),
+          db.from('report_templates').select('id').eq('org_id', (me as Profile).org_id as string).eq('is_daily_briefing', true).eq('archived', false),
+        ]);
+        const opSet = new Set(((ops.data as { id: string }[] | null) ?? []).map((o) => o.id));
+        const roster = [...new Set(((asg.data as { user_id: string }[] | null) ?? []).map((a) => a.user_id).filter((u) => opSet.has(u)))];
+        const gap = async (table: string, key: 'rams_id' | 'coshh_id', docs: HsDoc[]) => {
+          if (!docs.length || !roster.length) return false;
+          const r = await db.from(table).select(`${key},signed_at,user_id`).in(key, docs.map((d) => d.id)).in('user_id', roster);
+          const valid = currentCycleSigs((r.data as HsSig[] | null) ?? [], docs, key, s);
+          return docs.some((d) => roster.some((u) => !valid.some((x) => x[key] === d.id && (x as { user_id?: string }).user_id === u)));
+        };
+        const tIds = ((tpls.data as { id: string }[] | null) ?? []).map((t) => t.id);
+        const [ramsGap, coshhGap, br] = await Promise.all([gap('rams_signatures', 'rams_id', ramsDocs), gap('coshh_signatures', 'coshh_id', coshhDocs),
+          tIds.length ? db.from('report_submissions').select('id').eq('site_id', s.id).in('template_id', tIds) : Promise.resolve({ data: [] })]);
+        mgr = { ramsGap, coshhGap, ppeRequests: ((reqs.data as unknown[] | null) ?? []).length, briefings: ((br.data as unknown[] | null) ?? []).length, incidents: ((inc.data as unknown[] | null) ?? []).length };
+      }
+      return { rams: ramsDocs.length, coshh: coshhDocs.length, liveTbts: (orThrow(tbts) as unknown[]).length, ramsTodo, coshhTodo, ppeToSign: ((ppe.data as unknown[] | null) ?? []).length, mgr };
     }),
   });
 }

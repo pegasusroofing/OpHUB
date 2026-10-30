@@ -27,14 +27,14 @@ export default function HealthSafety() {
   if (!site || !me) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   const mgr = isManager(me);
   const plural = (n: number) => `${n} document${n === 1 ? '' : 's'}`;
-  const tiles: { key: string; icon: string; tint: string; title: string; sub: string; badge?: number; go?: string }[] = [
-    { key: 'hs_rams', icon: '📄', tint: '#E7E9EE', title: 'RAMS', sub: sum ? plural(sum.rams) : '…', badge: mgr ? 0 : sum?.ramsTodo, go: 'rams' },
-    { key: 'hs_coshh', icon: '🧪', tint: '#E7E9EE', title: 'COSHH', sub: sum ? plural(sum.coshh) : '…', badge: mgr ? 0 : sum?.coshhTodo, go: 'coshh' },
+  const tiles: { key: string; icon: string; tint: string; title: string; sub: string; badge?: number | string; go?: string }[] = [
+    { key: 'hs_rams', icon: '📄', tint: '#E7E9EE', title: 'RAMS', sub: sum ? plural(sum.rams) : '…', badge: mgr ? (sum?.mgr?.ramsGap ? '!' : 0) : sum?.ramsTodo, go: 'rams' },
+    { key: 'hs_coshh', icon: '🧪', tint: '#E7E9EE', title: 'COSHH', sub: sum ? plural(sum.coshh) : '…', badge: mgr ? (sum?.mgr?.coshhGap ? '!' : 0) : sum?.coshhTodo, go: 'coshh' },
     { key: 'hs_tbt', icon: '🗣', tint: base.blueBg, title: 'TBT', sub: sum ? (sum.liveTbts ? 'Live now' : 'None live') : '…', go: 'tbt' },
-    { key: 'hs_briefings', icon: '📣', tint: '#FDECEA', title: 'Daily Briefings', sub: 'Read and sign', go: 'briefings' },
+    { key: 'hs_briefings', icon: '📣', tint: '#FDECEA', title: 'Daily Briefings', sub: mgr && sum?.mgr ? (sum.mgr.briefings ? `${sum.mgr.briefings} briefing${sum.mgr.briefings === 1 ? '' : 's'}` : 'None yet') : 'Read and sign', go: 'briefings' },
     { key: 'hs_havspuwer', icon: '🖐', tint: '#FFF3E0', title: 'Tools, HAVS & PUWER', sub: 'Tools, vibration & tool checks', go: 'havspuwer' },
-    { key: 'hs_ppe', icon: '🦺', tint: '#FDECEA', title: 'PPE', sub: mgr ? 'Issue & track PPE' : sum?.ppeToSign ? `${sum.ppeToSign} to sign` : 'My PPE', badge: mgr ? 0 : sum?.ppeToSign, go: '../ppe' },
-    { key: 'hs_incidents', icon: '⚠️', tint: '#FDECEA', title: 'Accident / Incident', sub: 'Report & view', go: 'incidents' },
+    { key: 'hs_ppe', icon: '🦺', tint: '#FDECEA', title: 'PPE', sub: mgr ? (sum?.mgr?.ppeRequests ? `${sum.mgr.ppeRequests} request${sum.mgr.ppeRequests === 1 ? '' : 's'}` : 'Issue & track PPE') : sum?.ppeToSign ? `${sum.ppeToSign} to sign` : 'My PPE', badge: mgr ? sum?.mgr?.ppeRequests : sum?.ppeToSign, go: '../ppe' },
+    { key: 'hs_incidents', icon: '⚠️', tint: '#FDECEA', title: 'Accident / Incident', sub: mgr && sum?.mgr ? (sum.mgr.incidents ? `${sum.mgr.incidents} filed` : 'Report near miss') : 'Report & view', go: 'incidents' },
     { key: 'hs_operatives', icon: '🪪', tint: '#E8F0FE', title: 'Operatives', sub: mgr ? 'Certificates & tools' : 'My certificates & tools', go: mgr || me.role === 'client' ? `/pm/operatives?site=${site.id}` : '/dashboard' },
   ];
   const visible = tiles.filter((t) => canSeeTile(site, t.key, me.role));

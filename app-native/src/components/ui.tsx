@@ -217,7 +217,7 @@ export const TINTS = {
 } as const;
 
 // Home tile: coloured icon square (a line icon via ic, else the emoji) + title + subtitle.
-export function Tile({ icon, ic, tint, fg, title, sub, onPress, badge, onMenu, dim }: { icon?: string; ic?: string; tint: string; fg?: string; title: string; sub: string; onPress: () => void; badge?: number; onMenu?: () => void; dim?: boolean }) {
+export function Tile({ icon, ic, tint, fg, title, sub, onPress, badge, onMenu, dim }: { icon?: string; ic?: string; tint: string; fg?: string; title: string; sub: string; onPress: () => void; badge?: number | string; onMenu?: () => void; dim?: boolean }) {
   const cols = useContext(GridCtx);
   if (cols === -1) return (
     <Pressable onPress={onPress} accessibilityRole="button"
