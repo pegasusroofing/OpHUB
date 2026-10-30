@@ -89,8 +89,19 @@ export async function approveDevice(deviceId: string): Promise<string | null> {
 }
 
 /** Switch OpHUB Finance on / off for someone (900 toggleFinanceAccess). Off: if they were only made a manager for Finance, their old role goes back. */
-export async function toggleFinance(p: TeamMember): Promise<string> {
+export async function toggleFinance(p: TeamMember, makeManager = false): Promise<string> {
   const next = !p.finance_enabled;
+  // 908 finTeamToggle (Finance › Team): Finance users need the manager role to make jobs, suppliers and POs —
+  // Finance goes on first with their old role saved, then they're made a manager; if that fails Finance goes back off.
+  if (next && makeManager && !['pm', 'admin'].includes(p.role)) {
+    const on = (await db.from('profiles').update({ finance_enabled: true, finance_prev_role: p.role } as never).eq('id', p.id).select('finance_enabled,finance_prev_role').maybeSingle()).data as { finance_enabled: boolean; finance_prev_role: string | null } | null;
+    if (!on) return 'Could not save — try again.';
+    if (on.finance_enabled !== true) { if (on.finance_prev_role) await db.from('profiles').update({ finance_prev_role: null } as never).eq('id', p.id); return 'Only an admin with Finance switched on can change this.'; }
+    const r = (await db.from('profiles').update({ role: 'pm' } as never).eq('id', p.id).select('role').maybeSingle()).data as { role: string } | null;
+    if (r?.role === 'pm') return `OpHUB Finance switched on for ${p.name} — they're a manager now`;
+    const off = (await db.from('profiles').update({ finance_enabled: false, finance_prev_role: null } as never).eq('id', p.id).select('finance_enabled').maybeSingle()).data as { finance_enabled: boolean } | null;
+    return off?.finance_enabled === false ? `Couldn’t make ${p.name} a manager, so Finance was left off.` : `Finance is on for ${p.name} but they couldn’t be made a manager — change their role in Admin Centre › Users.`;
+  }
   const r = await db.from('profiles').update({ finance_enabled: next } as never).eq('id', p.id).select('finance_enabled,role,finance_prev_role').maybeSingle();
   const row = r.data as { finance_enabled: boolean; role: string; finance_prev_role: string | null } | null;
   if (r.error || !row) return 'Could not save — try again.';

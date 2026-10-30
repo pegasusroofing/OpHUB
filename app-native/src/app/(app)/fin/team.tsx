@@ -40,7 +40,7 @@ export default function FinTeam() {
             <Text style={{ fontSize: 11.5, fontWeight: '800', color: p.finance_enabled ? '#1E7A3C' : base.slate, backgroundColor: p.finance_enabled ? '#E6F4EA' : '#F1F2F4', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3, overflow: 'hidden' }}>{p.finance_enabled ? 'Finance on' : 'No Finance'}</Text>
             {canFin && p.id !== me.id && <Button small kind="ghost" title={p.finance_enabled ? 'Switch off' : 'Give Finance'} onPress={async () => {
               if (!p.finance_enabled && !['pm', 'admin'].includes(p.role) && !(await confirmAsk(`Give ${p.name} Finance? This also makes them a manager. Switching Finance off later puts their old role back.`, 'Give Finance'))) return;
-              toast(await toggleFinance(p)); refresh();
+              toast(await toggleFinance(p, true)); refresh();
             }} />}
             {me.role === 'admin' && p.id !== me.id && p.role !== 'admin' && p.finance_enabled && <Button small kind="ghost" title="Make admin" onPress={async () => {
               if (!(await confirmAsk(`Make ${p.name} an admin? Admins can give and remove Finance for others.`, 'Make admin'))) return;

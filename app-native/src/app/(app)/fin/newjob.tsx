@@ -75,8 +75,9 @@ export default function FinNewJob() {
       // Plain insert (the "return the row" form can be refused by the policy).
       const r = await fdb.from('sites').insert(row as never);
       if (r.error) { toast(`Could not create the project — ${r.error.message}`); return; }
-      await fdb.from('job_finance').upsert({ site_id: id, org_id: me.org_id, billing_type: bt, billing_name: row.client_name, billing_email: row.client_email, billing_address: cli ? [cli.address, cli.postcode].filter(Boolean).join('\n') || null : null, vat_treatment: vatOf(cli), contract_value: cv, original_value: cv, contract_value_manual: cv, contract_value_source: cv != null ? 'manual' : null, updated_at: new Date().toISOString(), updated_by: me.id } as never, { onConflict: 'site_id' });
-      let warn = '';
+      const jf = await fdb.from('job_finance').upsert({ site_id: id, org_id: me.org_id, billing_type: bt, billing_name: row.client_name, billing_email: row.client_email, billing_address: cli ? [cli.address, cli.postcode].filter(Boolean).join('\n') || null : null, vat_treatment: vatOf(cli), contract_value: cv, original_value: cv, contract_value_manual: cv, contract_value_source: cv != null ? 'manual' : null, updated_at: new Date().toISOString(), updated_by: me.id } as never, { onConflict: 'site_id' });
+      // 908: the finance details are part of making the job — say so if they didn't save.
+      let warn = jf.error ? 'Project created, but its finance details (billing, contract value, VAT) didn’t save — set them in Project Admin.' : '';
       if (poNo) {
         const up: { path: string; name: string }[] = [];
         for (const f of files) {
@@ -85,8 +86,8 @@ export default function FinNewJob() {
           if (!s.error) up.push({ path: s.data.path, name: f.name });
         }
         const p = await fdb.from('client_pos').insert({ org_id: me.org_id, site_id: id, created_by: me.id, po_number: poNo, is_primary: true, file_path: up[0]?.path ?? null, file_name: up[0]?.name ?? null, files: up } as never);
-        if (p.error) warn = 'Project created, but the client PO didn’t save — add it in Project Admin.';
-        else if (up.length < files.length) warn = 'Project created. Some PO files didn’t upload — add them from Project Admin.';
+        if (p.error) warn = warn || 'Project created, but the client PO didn’t save — add it in Project Admin.';
+        else if (up.length < files.length) warn = warn || 'Project created. Some PO files didn’t upload — add them from Project Admin.';
       }
       const made = ((await fdb.from('sites').select('job_number').eq('id', id).maybeSingle()).data as Row | null) ?? row;
       void qc.invalidateQueries();

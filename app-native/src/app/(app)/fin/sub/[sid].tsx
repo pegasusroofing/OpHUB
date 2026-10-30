@@ -101,7 +101,7 @@ export default function FinSubcontract() {
         </>
       )}
       {edit && (
-        <FinForm key={pre?.id || 'none'} title={sc ? `Edit ${sc.number}` : 'New subcontractor PO'} initial={sc || (pre ? { name: pre.trading_name || pre.name, email: pre.email, utr: pre.utr, cis_rate: String(pre.cis_rate ?? 20), vat_registered: !!pre.vat_registered, retention_pct: 0, order_value: linesTotal(lines) ?? '' } : { retention_pct: 0, cis_rate: 20 })} onClose={() => { setEdit(false); if (!sc) router.back(); }}
+        <FinForm key={pre?.id || 'none'} title={sc ? `Edit ${sc.number}` : 'New subcontractor PO'} initial={sc || (pre ? { name: pre.trading_name || pre.name, email: pre.email, utr: pre.utr, cis_rate: String(pre.cis_rate ?? 20), vat_registered: !!pre.vat_registered, retention_pct: 5, order_value: linesTotal(lines) ?? '' } : { retention_pct: 5, cis_rate: 20 })} onClose={() => { setEdit(false); if (!sc) router.back(); }}
           extra={sc ? undefined : (
             <View style={{ marginBottom: 8 }}>
               {workers.length > 0 && <SelectBox label="From your workers list (optional)" value={pre?.id || ''} options={[['', '—'], ...workers.map((w) => [w.id, w.trading_name || w.name || 'Worker'] as [string, string])]} onChange={(k) => setPre(workers.find((w) => w.id === k) || null)} />}
@@ -133,7 +133,7 @@ export default function FinSubcontract() {
           ]}
           onSave={async (v) => {
             const name = String(v.name).trim(); if (!name) return 'Enter the subcontractor’s name.';
-            const ret = num(v.retention_pct) ?? 0; if (isNaN(ret) || ret < 0 || ret > 20) return 'Retention should be between 0 and 20%.';
+            const ret = num(v.retention_pct); if (ret === null || isNaN(ret) || ret < 0 || ret > 20) return 'Retention should be between 0 and 20%.';
             const lt = sc ? null : linesTotal(lines);
             const val = lt != null ? lt : num(v.order_value);
             const row: Row = { name, email: String(v.email).trim() || null, description: String(v.description).trim() || null, order_value: val === null || isNaN(val) ? null : round2(val), retention_pct: ret, cis_rate: Number(v.cis_rate || 20), utr: String(v.utr).trim() || null, vat_registered: !!v.vat_registered, ...(!sc && pre ? { worker_id: pre.id } : {}) };
@@ -165,7 +165,7 @@ function AppForm({ sc, a, ctx, nextNo, onClose, onSaved, onPaid }: { sc: Row; a:
     if (!c.applied) { toast('Enter the amount applied for.'); return; }
     if (certify && c.cert === null) { toast('Enter the certified amount.'); return; }
     const row: Row = { app_date: v.app_date || today(), final_date: v.final_date || null, applied_gross: round2(c.applied), materials_part: round2(c.mat) };
-    if (certify && 'net' in c) Object.assign(row, { certified_gross: round2(c.cert as number), retention: c.retention, contra: round2(c.contra as number), contra_note: v.reason || null, previous: ctx.prevNet, net_due: c.net, cis_deduction: c.cis, pay_amount: c.pay, status: 'certified', payless: !!c.payless, payless_reason: c.payless ? v.reason || null : null });
+    if (certify && 'net' in c) Object.assign(row, { certified_gross: round2(c.cert as number), retention: c.retention, contra: round2(c.contra as number), contra_note: v.reason || null, previous: ctx.prevNet, net_due: c.net, cis_deduction: c.cis, pay_amount: c.pay, status: 'certified', payless: !!c.payless, payless_reason: c.payless ? v.reason || null : null, notice_on: today() }); // 912: the notice is dated when certified
     setBusy(true);
     try {
       if (file) {
