@@ -1,10 +1,15 @@
 // Manager pages reached from the PM / admin home (185 …): all-projects reports,
 // to-dos, calendar, the HUB, deliveries, operatives, HR and the Admin Centre.
-import { Stack } from 'expo-router';
+// Managers only (PMs, admins, site managers): anyone else typing an address here goes Home.
+import { Redirect, Stack } from 'expo-router';
 
 import { stackHeader } from '@/components/AppBar';
+import { useAuth } from '@/lib/auth';
+import { isManager } from '@/lib/roles';
 
 export default function PmLayout() {
+  const { me } = useAuth();
+  if (me && !isManager(me) && me.role !== 'superadmin') return <Redirect href={'/home' as never} />;
   return (
     <Stack screenOptions={stackHeader} />
   );

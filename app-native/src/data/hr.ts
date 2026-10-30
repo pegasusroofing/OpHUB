@@ -30,7 +30,7 @@ export function useHr(orgId: string | null | undefined) {
       const [s, hp, p] = await Promise.all([
         db.from('hr_settings').select('*').eq('org_id', orgId as string).limit(1),
         db.from('hr_people').select('*').eq('org_id', orgId as string),
-        db.from('profiles').select('id,name,role').in('role', ['pm', 'admin', 'site_manager']),
+        db.from('profiles').select('id,name,role').eq('org_id', orgId as string).in('role', ['pm', 'admin', 'site_manager']),
       ]);
       const leave: Leave[] = [];
       for (let from = 0; ; from += 1000) {

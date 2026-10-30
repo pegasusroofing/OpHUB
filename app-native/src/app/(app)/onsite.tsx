@@ -1,17 +1,20 @@
 // Who's on site right now, by job. Ported from renderOnSiteNow (185).
-import { router } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 
 import { Card, Empty, Muted, Title } from '@/components/ui';
 import { nameOf, usePeople } from '@/data/hs';
 import { useOnSiteNow } from '@/data/pmHome';
 import { useSites } from '@/data/sites';
+import { useAuth } from '@/lib/auth';
 import { fullSiteAddress, timeHM } from '@/lib/rules/checkin';
+import { isManager } from '@/lib/roles';
 import { base, page, space } from '@/theme/theme';
 
 const ROLE: Record<string, string> = { site_manager: 'Site manager', pm: 'PM', admin: 'Admin', subcontractor: 'Subcontractor' };
 
 export default function OnSiteNow() {
+  const { me } = useAuth();
   const { data: sites = [] } = useSites();
   const { data: rows = [], refetch, isRefetching } = useOnSiteNow(sites);
   const { data: people } = usePeople();
@@ -19,6 +22,7 @@ export default function OnSiteNow() {
   rows.forEach((r) => { (bySite[r.site_id] ||= []).push(r); });
   const list = Object.keys(bySite).map((id) => sites.find((s) => s.id === id)).filter((s): s is NonNullable<typeof s> => !!s)
     .sort((a, b) => bySite[b.id].length - bySite[a.id].length || a.name.localeCompare(b.name));
+  if (me && !isManager(me)) return <Redirect href={'/home' as never} />; // managers only
   return (
     <ScrollView contentContainerStyle={page(720)}
       refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => { void refetch(); }} />}>

@@ -7,11 +7,12 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { router, usePathname } from 'expo-router';
 import type { ReactNode } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Platform, Pressable, Share, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTrail } from '@/components/Crumbs';
 import { OphIcon } from '@/components/OphIcon';
+import { showAlert } from '@/components/toast';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { heading, mono } from '@/lib/fonts';
@@ -21,6 +22,11 @@ import { base, useDesk, useTheme } from '@/theme/theme';
 const FIN_SUB: Record<string, string> = { '': 'Overview', jobs: 'Projects', sales: 'Sales', purchases: 'Purchases', subs: 'Subcontractors & Labour', reports: 'Reports', settings: 'Settings', directory: 'Directory', statements: 'Statements', yard: 'Yard stock', inbox: 'Inbox', newjob: 'New project' };
 // A job's sections, so a page further in can step back to its section from the trail.
 const SECTION: Record<string, string> = { schedule: 'Schedule Of Works', drawings: "Drawings, Spec's & Programme", materials: 'Materials', hs: 'Health & Safety', snagging: 'Snagging', checkin: 'Check In / Out', price: 'Price', repairs: 'Repairs', om: 'O&M Manual', mc: 'Main Contractor', handover: 'Handover', todos: 'To Do List' };
+// Tapping a job's address under the title copies it (or shares it on a phone) — 130 shell.
+async function copyAddress(a: string) {
+  try { if (Platform.OS === 'web' && globalThis.navigator?.clipboard) { await globalThis.navigator.clipboard.writeText(a); showAlert(`Address copied:
+${a}`); } else await Share.share({ message: a }); } catch { /* nothing to do */ }
+}
 const titleCase = (x: string) => x.replace(/[A-Za-z][A-Za-z'’.]*/g, (w) => w.charAt(0).toUpperCase() + w.slice(1));
 
 export function AppBar({ title, onBack, home, right }: { title?: string; onBack?: () => void; home?: boolean; right?: ReactNode }) {
@@ -72,7 +78,7 @@ export function AppBar({ title, onBack, home, right }: { title?: string; onBack?
           </View>
           <View style={{ flex: 1, alignItems: fin ? 'flex-start' : 'center', minWidth: 0 }}>
             <Text numberOfLines={1} style={[heading(home ? 800 : 700), { fontSize: fin ? 21 : desk ? 22.8 : 19, color: home ? t.brand1 : fin ? '#111827' : base.ink, letterSpacing: -0.2 }]}>{main}</Text>
-            {!!sub && <Text numberOfLines={1} style={[home ? heading(700) : fin ? {} : mono(500), { fontSize: home ? 11 : fin ? 12.5 : 12, color: fin ? '#6b7280' : base.slate, marginTop: 3, letterSpacing: home ? 1 : 0, textTransform: home ? 'uppercase' : 'none' }]}>{sub}</Text>}
+            {!!sub && <Text numberOfLines={1} onPress={site && !fin && !home ? () => void copyAddress(sub) : undefined} accessibilityHint={site && !fin && !home ? 'Copies the address' : undefined} style={[home ? heading(700) : fin ? {} : mono(500), { fontSize: home ? 11 : fin ? 12.5 : 12, color: fin ? '#6b7280' : base.slate, marginTop: 3, letterSpacing: home ? 1 : 0, textTransform: home ? 'uppercase' : 'none' }]}>{sub}</Text>}
           </View>
           <View style={{ minWidth: 44, alignItems: 'flex-end' }}>
             {right ?? (site && !jobHome && (

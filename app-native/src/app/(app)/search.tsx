@@ -11,6 +11,7 @@ import { Muted } from '@/components/ui';
 import { useTeam } from '@/data/admin';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
+import { searchItems } from '@/lib/adminItems';
 import { isManager, roleLabel } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/lib/types';
@@ -20,7 +21,7 @@ type Hit = { g: string; ic: string; t: string; s?: string; go: string };
 const has = (v: unknown, q: string) => String(v ?? '').toLowerCase().includes(q);
 
 export default function Search() {
-  const { me } = useAuth();
+  const { me, org } = useAuth();
   const { data: sites = [] } = useSites();
   const mgr = isManager(me);
   const { data: team = [] } = useTeam(mgr ? me?.org_id : null);
@@ -31,13 +32,21 @@ export default function Search() {
   const { data: remote = [] } = useQuery({
     queryKey: ['qs', query], enabled: query.length >= 2, staleTime: 30000,
     queryFn: async () => {
-      const [reps, docs] = await Promise.all([
+      const ids = sites.map((x) => x.id);
+      const [reps, docs, mats, todos, snags] = await Promise.all([
         mgr ? supabase.from('report_submissions' as never).select('id,site_id,template_name,general_label,status,submitted_at').eq('org_id', me?.org_id as string).or(`template_name.ilike.${like},general_label.ilike.${like}`).order('submitted_at', { ascending: false, nullsFirst: false }).limit(5) : Promise.resolve({ data: [] }),
         supabase.from('drawing_files' as never).select('id,site_id,name,storage_path,folder_id').ilike('name', like).eq('status', 'current').limit(6),
+        // Deeper search (136): material requests, to-dos and snags on your jobs.
+        ids.length ? supabase.from('materials' as never).select('id,site_id,item,qty,status').in('site_id', ids).ilike('item', like).order('created_at', { ascending: false }).limit(6) : Promise.resolve({ data: [] }),
+        mgr ? supabase.from('todos' as never).select('id,site_id,text,done').eq('org_id', me?.org_id as string).ilike('text', like).order('created_at', { ascending: false }).limit(6) : Promise.resolve({ data: [] }),
+        ids.length ? supabase.from('snags' as never).select('id,site_id,title,location,status').in('site_id', ids).or(`title.ilike.${like},location.ilike.${like}`).order('created_at', { ascending: false }).limit(6) : Promise.resolve({ data: [] }),
       ]);
       const out: Hit[] = [];
       (((reps.data ?? []) as { id: string; site_id: string | null; template_name: string | null; general_label: string | null; status: string }[])).filter((r) => r.site_id).forEach((r) => out.push({ g: 'Reports', ic: '📋', t: r.general_label || r.template_name || 'Report', s: [siteName(r.site_id as string), r.status === 'in_progress' ? 'Draft' : ''].filter(Boolean).join(' · '), go: `/sites/${r.site_id}/snagging/reports/${r.status === 'in_progress' ? 'fill' : 'view'}/${r.id}` }));
       (((docs.data ?? []) as { id: string; site_id: string; name: string; storage_path: string | null; folder_id: string | null }[])).filter((d) => sites.some((s) => s.id === d.site_id)).forEach((d) => out.push({ g: 'Documents', ic: /\.(jpe?g|png)$/i.test(d.storage_path || '') ? '🖼' : /\.docx?$/i.test(d.name || '') ? '📝' : '📐', t: d.name, s: siteName(d.site_id), go: `/sites/${d.site_id}/drawings${d.folder_id ? `/${d.folder_id}` : ''}` }));
+      (((mats.data ?? []) as { id: string; site_id: string; item: string; qty: string | null; status: string }[])).forEach((m) => out.push({ g: 'Materials', ic: '📦', t: `${m.item}${m.qty ? ` × ${m.qty}` : ''}`, s: [siteName(m.site_id), m.status].filter(Boolean).join(' · '), go: `/sites/${m.site_id}/materials/requests` }));
+      (((todos.data ?? []) as { id: string; site_id: string | null; text: string; done: boolean }[])).forEach((t) => out.push({ g: 'To-dos', ic: '✅', t: t.text, s: [t.site_id ? siteName(t.site_id) : 'General', t.done ? 'done' : ''].filter(Boolean).join(' · '), go: t.site_id && t.site_id !== 'general' ? `/sites/${t.site_id}/todos` : '/pm/todos' }));
+      (((snags.data ?? []) as { id: string; site_id: string; title: string; location: string | null; status: string }[])).forEach((n) => out.push({ g: 'Snags', ic: '🔧', t: n.title, s: [siteName(n.site_id), n.location, n.status].filter(Boolean).join(' · '), go: `/sites/${n.site_id}/snagging/list` }));
       return out;
     },
   });
@@ -52,6 +61,8 @@ export default function Search() {
   if (query) {
     sites.filter((s) => [s.name, s.job_number, s.address, s.postcode, s.client_name].some((x) => has(x, query))).slice(0, 6)
       .forEach((s) => local.push({ g: 'Projects', ic: '🏗', t: `${s.job_number ? `${s.job_number} · ` : ''}${s.name || ''}`, s: [s.client_name, s.postcode].filter(Boolean).join(' · '), go: `/sites/${s.id}` }));
+    // Admin Centre sections (260 ADMIN_ITEMS) by name or what they hold.
+    searchItems(me, org, query).slice(0, 5).forEach((i) => local.push({ g: 'Admin Centre', ic: i.icon, t: i.label, s: i.sub, go: i.route || '/pm/admin' }));
     if (mgr) team.filter((p) => [p.name, p.email, p.phone].some((x) => has(x, query))).slice(0, 5)
       .forEach((p) => local.push({ g: 'People', ic: '👷', t: p.name || p.email || '', s: [roleLabel(p as unknown as Profile), p.phone].filter(Boolean).join(' · '), go: p.role === 'operative' ? `/pm/operatives/${p.id}` : '/pm/admin/users' }));
   }

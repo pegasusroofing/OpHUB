@@ -13,7 +13,7 @@ HIGH = money, data, permissions, safety or a daily job. MED = noticeable. LOW = 
 - MED FIXED — Refresh data when the app comes back from the background (role changes, removal, finance switch).
 - MED FIXED — Clients can type the address of non-client job pages (old router allowed home, schedule, hs, snagging only). Also found and fixed: non-managers kept out of closed jobs, and operatives allocated to a subcontractor company kept to the Main Contractor pages.
 - MED FIXED — "Save to OneDrive" on exported PDFs. After any PDF export a bar offers it (managers); the job you're on (Projects or Finance) decides the folder, otherwise Company Exports.
-- LOW OPEN — "Add your mobile number" prompt; manager-only pages with no role check (onsite, todos, hub, sitemap); search depth (materials, to-dos, snags, admin items); HR people query not company-filtered; copy the address by tapping the header; "CC me" on emails.
+- LOW FIXED — "Add your mobile number" prompt (home); manager-only pages now need a manager (all of /pm and On site now); search finds material requests, to-dos, snags and Admin Centre items; HR people list filtered to the company; tap a job's address under the title to copy it; "CC me" on emails.
 
 ## Repairs, pricing, reports (290–435)
 - HIGH FIXED — Repair jobs to OneDrive: photos (each marked once sent, retried when the job opens or the app comes back), work order, Survey and Completed Works PDFs (rebuilt automatically on changes), job's own folder or a job-number subfolder, "Send everything" re-sync, existing items sent after linking.

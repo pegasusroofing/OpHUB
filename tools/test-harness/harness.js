@@ -31,7 +31,7 @@ function seed(role){
 function parseVal(v){ if(v==='null') return null; if(v==='true') return true; if(v==='false') return false; return v; }
 function match(row, k, expr){
   let neg = false; if(expr.startsWith('not.')){ neg = true; expr = expr.slice(4); }
-  const i = expr.indexOf('.'); const op = expr.slice(0,i); const raw = decodeURIComponent(expr.slice(i+1));
+  const i = expr.indexOf('.'); const op = expr.slice(0,i); let raw = expr.slice(i+1); try { raw = decodeURIComponent(raw); } catch(e) { /* a literal % in a like pattern */ }
   const v = row[k]; let r;
   switch(op){
     case 'eq': r = String(v) === raw; break;
