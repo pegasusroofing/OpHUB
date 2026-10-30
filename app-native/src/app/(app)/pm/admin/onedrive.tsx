@@ -9,6 +9,7 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import { connectOneDrive, disconnectOneDrive, setQuickLinks, unlinkFolder, useOdSites, useOneDriveStatus, useQuickLinks, type OdTarget } from '@/data/onedrive';
+import { syncSiteFolder } from '@/data/drawings';
 import { useAuth } from '@/lib/auth';
 import { base, page, radius, space } from '@/theme/theme';
 
@@ -21,6 +22,7 @@ export default function OneDriveAdmin() {
   const { data: sites = [] } = useOdSites(me?.org_id);
   const [busy, setBusy] = useState(false);
   const [q, setQ] = useState('');
+  const [syncing, setSyncing] = useState('');
   const [open, setOpen] = useState<string | null>(null);
   if (!me) return null;
   if (me.role !== 'admin') return <Muted style={{ padding: space.l }}>Admins only.</Muted>;
@@ -67,13 +69,15 @@ export default function OneDriveAdmin() {
       {shown.length ? shown.map((s) => {
         const links: [OdTarget, string, string | null, string | null][] = [['progress', 'Photos, drawings & exports', s.onedrive_folder_id, s.onedrive_folder_name], ['materials', "Material PO's", s.material_orders_folder_id, s.material_orders_folder_name], ['siteinductions', 'Signed site inductions', s.site_inductions_folder_id, s.site_inductions_folder_name]];
         const n = links.filter((l) => l[2]).length;
+        const mc = (s as { acting_as_main_contractor?: boolean }).acting_as_main_contractor;
         return (
           <Card key={s.id} style={{ padding: 10 }}>
             <Pressable onPress={() => setOpen(open === s.id ? null : s.id)} style={{ flexDirection: 'row', alignItems: 'center' }}>
               <Text style={{ flex: 1, fontWeight: '700', color: base.ink }}>{s.name}</Text>
               <Muted>{n ? `${n} linked` : 'Not linked'} {open === s.id ? '▾' : '▸'}</Muted>
             </Pressable>
-            {open === s.id && links.map(([t, label, fid, fname]) => (
+            {open === s.id && !!s.onedrive_folder_id && <Button small kind="ghost" busy={syncing === s.id} title="🔄 Sync now" onPress={async () => { setSyncing(s.id); toast(await syncSiteFolder(me, s as never, () => undefined)); setSyncing(''); refresh(); }} />}
+            {open === s.id && links.filter(([t]) => t !== 'siteinductions' || mc).map(([t, label, fid, fname]) => (
               <View key={t} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 }}>
                 <View style={{ flex: 1 }}><Text style={{ color: base.ink }}>{label}</Text><Muted>{fid ? `📁 ${fname || 'Linked folder'}` : 'Not linked'}</Muted></View>
                 <Pressable onPress={() => pick(t, s.id)} style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, paddingHorizontal: 10, paddingVertical: 5 }}><Text style={{ color: base.ink, fontWeight: '700', fontSize: 12 }}>{fid ? 'Change' : 'Link'}</Text></Pressable>

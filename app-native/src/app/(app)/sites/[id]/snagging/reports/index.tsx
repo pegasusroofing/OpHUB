@@ -50,8 +50,8 @@ export default function Reports() {
 
   // The ticked (submitted) reports as one PDF.
   const merged = async () => {
-    const ids = list.filter((x) => sel.has(x.id) && x.status !== 'in_progress').map((x) => x.id);
-    if (!ids.length) { toast('Only submitted reports can be exported.'); return null; }
+    const ids = list.filter((x) => sel.has(x.id)).map((x) => x.id);
+    if (!ids.length) { toast('Tick at least one report.'); return null; }
     const rows = ((await supabase.from('report_submissions').select('*').in('id', ids)).data ?? []) as unknown as PdfSub[];
     const out = await PDFDocument.create(); let fails = 0;
     for (const id2 of ids) { const r = rows.find((x) => x.id === id2); if (!r) continue; toast(`Building ${r.template_name}…`); const b = await buildReportPdf(r, site, org, (u) => nameOf(people, u)).catch(() => null); if (!b) { fails++; continue; } const d = await PDFDocument.load(b.bytes); (await out.copyPages(d, d.getPageIndices())).forEach((p) => out.addPage(p)); }

@@ -18,9 +18,8 @@ import {
   useSiteAddresses, useTeamData, type FullSubAddr,
 } from '@/data/siteAdmin';
 import { useSite } from '@/data/sites';
-import { importFromOneDrive, listOneDriveLevel } from '@/data/drawings';
+import { syncSiteFolder } from '@/data/drawings';
 import { unlinkFolder, useOneDriveStatus } from '@/data/onedrive';
-import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { siteStatusKey } from '@/lib/rules/checkin';
 import { isFullManager, isManager } from '@/lib/roles';
@@ -257,12 +256,7 @@ function SyncFolderCard({ site, full }: { site: SyncSite; full: boolean }) {
     if (!me || !site.onedrive_folder_id) return;
     setBusy('Syncing…');
     try {
-      const lvl = await listOneDriveLevel({ id: site.onedrive_folder_id, driveId: site.onedrive_drive_id });
-      if (lvl.error) { toast(`Sync failed — ${lvl.error}`); return; }
-      const have = new Set((((await supabase.from('drawing_files').select('name').eq('site_id', site.id).is('folder_id', null)).data as { name: string }[] | null) ?? []).map((f) => f.name));
-      const r = await importFromOneDrive(me, site.id, null, lvl.files.filter((f) => !have.has(f.name)), (m) => setBusy(m));
-      await supabase.from('sites').update({ onedrive_last_synced_at: new Date().toISOString() } as never).eq('id', site.id);
-      toast(`Synced — ${r.imported} pulled in${r.failed ? `, ${r.failed} failed` : ''}. Uploads here already push out automatically.`);
+      toast(await syncSiteFolder(me, site, (m) => setBusy(m)));
       refresh(); void qc.invalidateQueries({ queryKey: ['drawings'] });
     } finally { setBusy(''); }
   };

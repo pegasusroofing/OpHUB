@@ -83,8 +83,8 @@ export default function AllReports() {
     </Pressable>
   );
   const merged = async () => {
-    const ids = rows.filter((r) => sel.has(r.id) && r.status !== 'in_progress').map((r) => r.id);
-    if (!ids.length) { toast('Only completed reports can be exported.'); return null; }
+    const ids = rows.filter((r) => sel.has(r.id)).map((r) => r.id);
+    if (!ids.length) { toast('Tick at least one report.'); return null; }
     const full = ((await supabase.from('report_submissions').select('*').in('id', ids)).data ?? []) as unknown as PdfSub[];
     const out = await PDFDocument.create(); let n = 0;
     for (const id of ids) { const r = full.find((x) => x.id === id); if (!r) continue; const site = r.site_id ? (sites ?? []).find((x) => x.id === r.site_id) ?? null : null; const b = await buildReportPdf(r, site, null, (u) => nameOf(people, u)).catch(() => null); if (!b) continue; const d = await PDFDocument.load(b.bytes); (await out.copyPages(d, d.getPageIndices())).forEach((p) => out.addPage(p)); n++; }
@@ -123,6 +123,7 @@ export default function AllReports() {
           <Text style={{ fontSize: 11.5, fontWeight: '700', color: base.ink }}>{tpl || by ? `Filter (${(tpl ? 1 : 0) + (by ? 1 : 0)})` : 'Filter'} ▾</Text>
         </Pressable>
       </View>
+      {shown.length > 0 && <Pressable style={{ marginBottom: 6 }} onPress={() => setSel(sel.size === shown.length ? new Set() : new Set(shown.map((r) => r.id)))}><Text style={{ color: base.blue, fontWeight: '700' }}>{sel.size === shown.length ? 'Clear all' : 'Select all'}</Text></Pressable>}
       {sel.size > 0 && (
         <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <Text style={{ flex: 1, fontWeight: '700', color: base.ink }}>{sel.size} selected</Text>
@@ -139,7 +140,7 @@ export default function AllReports() {
       )}
       {isLoading ? <Muted>Loading…</Muted> : shown.length ? shown.map((r) => (
         <Pressable key={r.id} onPress={() => open(r)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderWidth: 1, borderColor: sel.has(r.id) ? base.blue : base.cardLine, borderRadius: radius.row, marginBottom: 8, backgroundColor: base.card }}>
-          {r.status !== 'in_progress' && <Pressable hitSlop={8} onPress={() => setSel((x) => { const n = new Set(x); if (n.has(r.id)) n.delete(r.id); else n.add(r.id); return n; })}><Text style={{ fontSize: 20 }}>{sel.has(r.id) ? '☑' : '☐'}</Text></Pressable>}
+          {<Pressable hitSlop={8} onPress={() => setSel((x) => { const n = new Set(x); if (n.has(r.id)) n.delete(r.id); else n.add(r.id); return n; })}><Text style={{ fontSize: 20 }}>{sel.has(r.id) ? '☑' : '☐'}</Text></Pressable>}
           <View style={{ flex: 1 }}>
             <Text style={{ fontWeight: '700', color: base.ink }}>{r.template_name || 'Report'}</Text>
             <Muted>{where(r)} · {nameOf(people, r.submitted_by)}{r.status === 'in_progress' || !r.submitted_at ? '' : ` · ${new Date(r.submitted_at).toLocaleDateString('en-GB')}`}</Muted>

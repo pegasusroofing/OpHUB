@@ -185,7 +185,17 @@ function Statement({ id }: { id: string }) {
       {notOnStmt.length > 0 && (
         <Card>
           <SectionTitle>In OpHUB but not on this statement</SectionTitle>
-          {notOnStmt.map((c) => <FinRow key={c.id} title={`${c.invoice_no || 'No number'}${c.kind === 'inbox' ? ' (unallocated)' : ''}`} sub={`${fdate(c.date)} · ${c.status}`} right={money(c.total)} onPress={c.kind === 'pi' ? () => router.push(`/fin/pinv/${c.id}` as never) : () => router.push(`/fin/inbox/${c.id.slice(3)}` as never)} />)}
+          {notOnStmt.map((c) => (
+            <View key={c.id}>
+              <FinRow title={`${c.invoice_no || 'No number'}${c.kind === 'inbox' ? ' (unallocated)' : ''}`} sub={`${fdate(c.date)} · ${c.status}`} right={money(c.total)} onPress={c.kind === 'pi' ? () => router.push(`/fin/pinv/${c.id}` as never) : () => router.push(`/fin/inbox/${c.id.slice(3)}` as never)} />
+              <Text style={{ color: base.blue, marginBottom: 6 }} onPress={async () => {
+                const free = lines.filter((l) => !l.match && !l.ignore && l.type !== 'payment');
+                if (!free.length) { toast('Every line is already matched.'); return; }
+                const k = await chooseAction('Match to a line', free.map((l) => ({ key: l.id, label: `${l.ref || 'Line'} · ${money(l.amount)}` })));
+                if (k) void setLine(k, { match: c.id, how: 'manual', ignore: false });
+              }}>Match to a line ▾</Text>
+            </View>
+          ))}
         </Card>
       )}
       <Text style={{ color: base.slate, marginTop: 6 }}>Tap a line to change its match or ignore it.</Text>

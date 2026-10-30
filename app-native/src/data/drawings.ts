@@ -157,3 +157,14 @@ export async function importFromOneDrive(me: Profile, siteId: string, folderId: 
   }
   return { imported, failed };
 }
+
+/** Manual Sync (310): new top-level files in the job's linked folder come into Drawings; last-synced stamped. */
+export async function syncSiteFolder(me: Profile, site: { id: string; onedrive_folder_id?: string | null; onedrive_drive_id?: string | null }, onStep: (s: string) => void): Promise<string> {
+  if (!site.onedrive_folder_id) return 'No folder linked.';
+  const lvl = await listOneDriveLevel({ id: site.onedrive_folder_id, driveId: site.onedrive_drive_id });
+  if (lvl.error) return `Sync failed — ${lvl.error}`;
+  const have = new Set((((await db.from('drawing_files').select('name').eq('site_id', site.id).is('folder_id', null)).data as { name: string }[] | null) ?? []).map((f) => f.name));
+  const r = await importFromOneDrive(me, site.id, null, lvl.files.filter((f) => !have.has(f.name)), onStep);
+  await db.from('sites').update({ onedrive_last_synced_at: new Date().toISOString() } as never).eq('id', site.id);
+  return `Synced — ${r.imported} pulled in${r.failed ? `, ${r.failed} failed` : ''}. Uploads here already push out automatically.`;
+}
