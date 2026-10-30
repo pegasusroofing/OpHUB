@@ -502,7 +502,7 @@ export async function yardMove(me: Profile, f: { kind: 'issue' | 'return'; stock
   return null;
 }
 
-export async function yardBookIn(me: Profile, f: { stock: YardItem; qty: number; supplier: string; ref: string; note: string; photo: Picked | null }): Promise<string | null> {
+export async function yardBookIn(me: Profile, f: { stock: YardItem; qty: number; supplier: string; ref: string; note: string; photo: Picked | null; poId?: string | null }): Promise<string | null> {
   let photo: string | null = null;
   if (f.photo) {
     try {
@@ -513,7 +513,7 @@ export async function yardBookIn(me: Profile, f: { stock: YardItem; qty: number;
       photo = up.data.path;
     } catch { return 'Could not upload the photo — check your signal and try again.'; }
   }
-  const r = await db.from('yard_moves').insert({ org_id: me.org_id, stock_id: f.stock.id, kind: 'in', qty: f.qty, site_id: null, note: f.note || null, created_by: me.id, ref: f.ref || null, supplier_name: f.supplier || null, po_id: null, photo_path: photo } as never);
+  const r = await db.from('yard_moves').insert({ org_id: me.org_id, stock_id: f.stock.id, kind: 'in', qty: f.qty, site_id: null, note: f.note || null, created_by: me.id, ref: f.ref || null, supplier_name: f.supplier || null, po_id: f.poId || null, photo_path: photo } as never);
   return r.error ? 'Could not save — try again.' : null;
 }
 

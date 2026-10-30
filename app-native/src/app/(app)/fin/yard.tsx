@@ -93,6 +93,8 @@ export default function FinYard() {
 
   const openMove = (kind: Kind, stockId = '') => {
     if (!items.some((s) => s.active !== false)) { toast('Add a yard stock item first.'); setEdit('new'); return; }
+    // 9219zq: booking in uses the full form (supplier, PO, delivery note number and photo).
+    if (kind === 'in') { router.push((stockId ? `/fin/yardin?stock=${stockId}` : '/fin/yardin') as never); return; }
     setMove({ kind, stockId });
   };
   const forms = (
