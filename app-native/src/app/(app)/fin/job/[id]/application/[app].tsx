@@ -4,6 +4,7 @@
 // Applied: locked. Then enter the client's certificate (or pay-less notice)
 // and raise the invoice from it. Emailing it is off during the Finance trial.
 import * as DocumentPicker from 'expo-document-picker';
+import { pdfLines } from '@/lib/pdfjs';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -397,6 +398,27 @@ function Certificate({ a, jf, previous, onSaved }: { a: Row; jf: Row; previous: 
         setXlNote(`Read from the client’s Excel. ${r.diffs.length ? `${r.diffs.length} line${r.diffs.length === 1 ? ' differs' : 's differ'} from what you applied for:\n${r.diffs.slice(0, 8).join('\n')}${r.diffs.length > 8 ? `\n…and ${r.diffs.length - 8} more` : ''}` : 'Every line matches what you applied for.'} Check the figures, then save.`);
         toast('Certificate filled in from the Excel');
       }} style={{ marginBottom: 6 }}><Text style={{ color: base.blue, fontWeight: '700' }}>📥 Fill in from the client&apos;s Excel</Text></Pressable>
+      <Pressable onPress={async () => {
+        // 9219p finCertFromPdf: each line's certified % read from the client's PDF (the last % on the matching row);
+        // the PDF is kept as the certificate copy. Needs the PDF's text, so not a scan.
+        const r = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true }); if (r.canceled || !r.assets[0]) return;
+        const asset = r.assets[0];
+        const rows = await pdfLines(new Uint8Array(await (await fetch(asset.uri)).arrayBuffer()));
+        setFile({ uri: asset.uri, name: asset.name || 'certificate.pdf', mimeType: 'application/pdf' });
+        if (!rows) { toast('Couldn’t read any text in that PDF (a scan, or on a phone) — enter the Certified % on each line. The PDF is kept with the certificate.'); setByLine(true); return; }
+        const norm = (x: unknown) => String(x || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+        const next: Record<string, string> = {}; let found = 0;
+        (a.lines || []).forEach((l: Row, i: number) => {
+          if (!isItem(l)) return; const dsc = norm(l.description); if (!dsc) return;
+          const row = rows.find((x) => norm(x).includes(dsc.slice(0, 40))); if (!row) return;
+          const pcts = (row.match(/(\d{1,3}(?:\.\d+)?)\s?%/g) || []).map((x) => Number(x.replace(/[^\d.]/g, ''))).filter((n) => n <= 100);
+          if (pcts.length) { next[`l${i}`] = String(pcts[pcts.length - 1]); found++; }
+        });
+        setByLine(true);
+        if (!found) { toast('Read the PDF but couldn’t match any lines — enter the Certified % on each line. The PDF is kept with the certificate.'); return; }
+        applyLines({ ...cp, ...next });
+        toast(`Read ${found} line${found === 1 ? '' : 's'} from the PDF — check them, then Certify`);
+      }} style={{ marginBottom: 6 }}><Text style={{ color: base.blue, fontWeight: '700' }}>📥 Fill in from the client&apos;s PDF</Text></Pressable>
       {!!xlNote && <Card style={{ backgroundColor: '#f4f8fd' }}><Text style={{ color: base.ink, fontSize: 12.5 }}>{xlNote}</Text></Card>}
       <Pressable onPress={() => setByLine(!byLine)} style={{ marginBottom: 6 }}><Text style={{ color: base.blue, fontWeight: '700' }}>{byLine ? '▼' : '▶'} Certify line by line</Text></Pressable>
       {byLine && (
