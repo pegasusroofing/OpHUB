@@ -68,9 +68,13 @@ export default function SnagList() {
       {snagPhotos(s).length > 0 && (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
           {snagPhotos(s).map((p) => (
-            <Pressable key={p} disabled={client || s.status === 'closed'} onPress={async () => {
-              if ((await chooseAction('Photo', [{ key: 'mk', label: '✏️ Mark up (draw / add text)' }])) !== 'mk') return;
+            <Pressable key={p} onPress={async () => {
+              // 500 viewImage: anyone can see a snag photo full size; mark-up stays for live snags (not clients).
               const src = await resolveStorageUrl(publicUrl('site-photos', p)); if (!src) { toast('Could not open the photo — check your signal.'); return; }
+              const canMark = !client && s.status !== 'closed';
+              const k = canMark ? await chooseAction('Photo', [{ key: 'view', label: '🔍 View full size' }, { key: 'mk', label: '✏️ Mark up (draw / add text)' }]) : 'view';
+              if (k === 'view') { viewDoc(src, 'photo.jpg'); return; }
+              if (k !== 'mk') return;
               setMarking({ src, done: async (uri) => { setBusy(s.id); const ok = await replaceSnagPhoto(site, s, p, uri); setBusy(null); toast(ok ? '✓ Photo marked up' : 'Could not save the marked-up photo — check your connection.'); refresh(); } });
             }}><StorageImage bucket="site-photos" path={p} style={{ width: 72, height: 72, borderRadius: 8 }} /></Pressable>
           ))}
@@ -81,7 +85,7 @@ export default function SnagList() {
       )}
       {s.status === 'closed' ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10 }}>
-          {!!s.closed_photo_path && <StorageImage bucket="site-photos" path={s.closed_photo_path} style={{ width: 56, height: 56, borderRadius: 8 }} />}
+          {!!s.closed_photo_path && <StorageImage zoom bucket="site-photos" path={s.closed_photo_path} style={{ width: 56, height: 56, borderRadius: 8 }} />}
           <Muted>Closed by {nameOf(people, s.closed_by)} · {d(s.closed_at)}</Muted>
         </View>
       ) : !client && (

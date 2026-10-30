@@ -5,11 +5,12 @@ import { useState } from 'react';
 import { Image, Pressable, Text, View } from 'react-native';
 
 import { StorageImage } from '@/components/StorageImage';
+import { pickCameraOrLibrary } from '@/components/pickSource';
 import { confirmAsk, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Empty, Field, Muted, SectionTitle } from '@/components/ui';
 import { addTool, deleteTool, setToolPhoto, useMyTools } from '@/data/myTools';
 import { useAuth } from '@/lib/auth';
-import { pickPhotos, type Picked } from '@/lib/photos';
+import type { Picked } from '@/lib/photos';
 import { base } from '@/theme/theme';
 
 export function MyToolsList({ userId, name: who }: { userId?: string; name?: string } = {}) {
@@ -24,7 +25,7 @@ export function MyToolsList({ userId, name: who }: { userId?: string; name?: str
   const [busy, setBusy] = useState<string | null>(null);
   if (!me) return null;
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['myTools'] }); void qc.invalidateQueries({ queryKey: ['onboarding'] }); };
-  const take = async () => { const p = await pickPhotos('camera', false); if ('error' in p) { showAlert(p.error); return null; } return p[0] ?? null; };
+  const take = async () => { const p = await pickCameraOrLibrary(false); if ('error' in p) { showAlert(p.error); return null; } return p[0] ?? null; };
 
   return (
     <View>

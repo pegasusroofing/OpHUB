@@ -4,11 +4,12 @@ import { useState } from 'react';
 import { Image, Pressable, Text, TextInput, View } from 'react-native';
 
 import { StorageImage } from '@/components/StorageImage';
+import { pickCameraOrLibrary } from '@/components/pickSource';
 import { showAlert, useToast } from '@/components/toast';
 import { Button, Muted } from '@/components/ui';
 import { saveGrn } from '@/data/materials';
 import { useAuth } from '@/lib/auth';
-import { pickPhotos, type Picked } from '@/lib/photos';
+import type { Picked } from '@/lib/photos';
 import type { Mat } from '@/lib/rules/materials';
 import { isManager } from '@/lib/roles';
 import { base, radius } from '@/theme/theme';
@@ -38,7 +39,7 @@ export function GrnForm({ siteId, m, onDone, onCancel }: { siteId: string; m: Ma
         </View>
       )}
       <Button kind="ghost" title="📷 Add photos" onPress={async () => {
-        const p = await pickPhotos('camera', true);
+        const p = await pickCameraOrLibrary(true);
         if ('error' in p) showAlert(p.error); else setPhotos([...photos, ...p]);
       }} />
       <View style={{ flexDirection: 'row', gap: 8 }}>

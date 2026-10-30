@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { Image, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { StorageImage } from '@/components/StorageImage';
+import { pickCameraOrLibrary } from '@/components/pickSource';
 import { showAlert, useToast } from '@/components/toast';
 import { VariationManagerActions } from '@/components/VariationManagerActions';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
@@ -15,7 +16,7 @@ import { useSite } from '@/data/sites';
 import { approvalLabel, raiseVariation, useManagerVariations } from '@/data/variations';
 import { useAuth } from '@/lib/auth';
 import { deliverPdf } from '@/lib/pdf';
-import { pickPhotos, type Picked } from '@/lib/photos';
+import type { Picked } from '@/lib/photos';
 import { buildVariationsPdf, type SnagScope } from '@/lib/snagPdf';
 import { supabase } from '@/lib/supabase';
 import { money, readMoney, valueOf } from '@/lib/rules/variations';
@@ -82,7 +83,7 @@ export default function Variations() {
             </Pressable>
             {isOpen && (
               <Card>
-                {!!v.photo_path && <StorageImage bucket="site-photos" path={v.photo_path} style={{ width: 120, height: 120, borderRadius: 8 }} />}
+                {!!v.photo_path && <StorageImage zoom bucket="site-photos" path={v.photo_path} style={{ width: 120, height: 120, borderRadius: 8 }} />}
                 {v.approval_status === 'declined' && !!v.decline_reason && <Text style={{ color: base.red, marginTop: 6 }}>Reason: {v.decline_reason}</Text>}
                 {v.status === 'closed' && <Muted style={{ marginTop: 6 }}>Closed{v.closed_at ? ` · ${d(v.closed_at)}` : ''}</Muted>}
                 {mgr && <VariationManagerActions v={v} siteId={id} onChanged={() => { void qc.invalidateQueries({ queryKey: ['variations', id] }); void qc.invalidateQueries({ queryKey: ['sow', id] }); }} />}
@@ -96,7 +97,7 @@ export default function Variations() {
         <Card style={{ marginTop: 14 }}>
           <SectionTitle>Raise a variation</SectionTitle>
           <Muted style={{ fontWeight: '700', marginBottom: 6 }}>Photo evidence</Muted>
-          <Pressable onPress={async () => { const p = await pickPhotos('camera', false); if ('error' in p) showAlert(p.error); else if (p[0]) setPhoto(p[0]); }}
+          <Pressable onPress={async () => { const p = await pickCameraOrLibrary(false); if ('error' in p) showAlert(p.error); else if (p[0]) setPhoto(p[0]); }}
             style={{ borderWidth: 1.5, borderStyle: 'dashed', borderColor: base.line, borderRadius: radius.input, minHeight: 90, alignItems: 'center', justifyContent: 'center', marginBottom: 10, overflow: 'hidden' }}>
             {photo ? <Image source={{ uri: photo.uri }} style={{ width: '100%', height: 160 }} resizeMode="cover" /> : <Text style={{ color: base.slate }}>📷 Tap to add a photo</Text>}
           </Pressable>

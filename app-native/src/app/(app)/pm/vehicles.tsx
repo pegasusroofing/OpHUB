@@ -58,7 +58,7 @@ export default function Vehicles() {
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           {VEHICLE_PHOTOS.map((p) => (
             <View key={p.key} style={{ width: '48%' }}>
-              {by[p.key]?.photo_path ? <StorageImage bucket="site-photos" path={by[p.key].photo_path} style={{ width: '100%', height: 120, borderRadius: radius.row }} /> : <View style={{ height: 120, borderRadius: radius.row, backgroundColor: base.line, alignItems: 'center', justifyContent: 'center' }}><Muted>No photo</Muted></View>}
+              {by[p.key]?.photo_path ? <StorageImage zoom bucket="site-photos" path={by[p.key].photo_path} style={{ width: '100%', height: 120, borderRadius: radius.row }} /> : <View style={{ height: 120, borderRadius: radius.row, backgroundColor: base.line, alignItems: 'center', justifyContent: 'center' }}><Muted>No photo</Muted></View>}
               <Muted style={{ textAlign: 'center' }}>{p.label}</Muted>
             </View>
           ))}
@@ -73,7 +73,7 @@ export default function Vehicles() {
                   <Text style={{ color: base.ink }}>{item.label}</Text>
                   <Text style={{ fontWeight: '700', color: a.result === 'fail' ? base.warn : base.ok }}>{a.result === 'fail' ? '✕ Fail' : a.result === 'pass' ? '✓ Pass' : '— Not answered'}</Text>
                   {a.result === 'fail' && !!a.note && <Muted>{a.note}</Muted>}
-                  {a.result === 'fail' && !!a.photo_path && <StorageImage bucket="site-photos" path={a.photo_path} style={{ width: 80, height: 80, borderRadius: 8, marginTop: 6 }} />}
+                  {a.result === 'fail' && !!a.photo_path && <StorageImage zoom bucket="site-photos" path={a.photo_path} style={{ width: 80, height: 80, borderRadius: 8, marginTop: 6 }} />}
                 </Card>
               );
             })}

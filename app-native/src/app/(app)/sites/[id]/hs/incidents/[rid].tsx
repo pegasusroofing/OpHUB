@@ -40,7 +40,7 @@ export default function IncidentView() {
   const pics = (label: string, list: string[] | null) => (list?.length ? (
     <View style={{ marginBottom: 10 }}>
       <Muted style={{ fontWeight: '700' }}>{label}</Muted>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>{list.map((p) => <StorageImage key={p} bucket="incident-photos" path={p} style={{ width: 70, height: 70, borderRadius: 6 }} />)}</View>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>{list.map((p) => <StorageImage zoom key={p} bucket="incident-photos" path={p} style={{ width: 70, height: 70, borderRadius: 6 }} />)}</View>
     </View>
   ) : null);
   return (
