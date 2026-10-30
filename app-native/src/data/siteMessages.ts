@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { useAuth } from '@/lib/auth';
 import { cachedQuery, orThrow } from '@/lib/offlineCache';
+import { pushRoute } from '@/lib/push';
 import { supabase } from '@/lib/supabase';
 import type { Message, Profile } from '@/lib/types';
 
@@ -19,6 +20,11 @@ export const KIND_LABEL: Record<string, string> = {
 };
 // Tapping a message goes to the matching page (only the ones built so far are linked).
 export const KIND_ROUTE: Record<string, string> = { snag_closed: 'snagging/list', schedule_flag: 'schedule' };
+/** Where tapping a message goes: delivery problems and invoice queries open like their push (9219zr msgExtraClick), others by kind. */
+export function msgDest(m: Pick<Message, 'kind' | 'site_id'> & { related_id?: string | null }, me: Profile | null): string | null {
+  if (m.kind === 'grn_problem' || m.kind === 'pi_query' || m.kind === 'pi_query_reply') return pushRoute({ kind: m.kind, site_id: m.site_id || undefined, related_id: m.related_id || undefined }, me);
+  return m.site_id && KIND_ROUTE[m.kind] ? `/sites/${m.site_id}/${KIND_ROUTE[m.kind]}` : null;
+}
 
 export function useSiteMessages(siteId: string | undefined) {
   const { me } = useAuth();

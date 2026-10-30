@@ -10,7 +10,7 @@ import { Button, Card, Empty, Muted } from '@/components/ui';
 import { HowTo } from '@/components/HowTo';
 import { nameOf, usePeople } from '@/data/hs';
 import { markMessagesRead } from '@/data/inbox';
-import { KIND_LABEL, KIND_ROUTE, sendReply, useSiteMessages } from '@/data/siteMessages';
+import { KIND_LABEL, msgDest, sendReply, useSiteMessages } from '@/data/siteMessages';
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
 import type { Message } from '@/lib/types';
@@ -54,7 +54,7 @@ export default function SiteMessages() {
   const row = (m: Message) => {
     const replies = (data?.replies ?? []).filter((r) => r.parent_id === m.id);
     const isNew = shownNew.has(m.id);
-    const dest = m.site_id && KIND_ROUTE[m.kind] ? `/sites/${m.site_id}/${KIND_ROUTE[m.kind]}` : null;
+    const dest = msgDest(m, me);
     return (
       <Card key={m.id} style={{ paddingVertical: 10, ...(isNew ? { borderLeftWidth: 4, borderLeftColor: t.brand1 } : {}) }}>
         <Pressable disabled={!dest} onPress={() => dest && router.push(dest as never)}>

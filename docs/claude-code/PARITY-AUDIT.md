@@ -63,7 +63,7 @@ HIGH = money, data, permissions, safety or a daily job. MED = noticeable. LOW = 
 - MED FIXED — O&M manual: attach files to table rows; choose data sheets from the COSHH library; add documents added since the manual started.
 - MED FIXED — COSHH library: drop several data sheets into a folder → an assessment each.
 - MED FIXED — PM's "Things the office has sent you" page (#/to-book).
-- LOW OPEN — message taps for delivery problem / invoice query; uploaded SoW PDF as appendix; wipe COSHH library; pick PO when booking stock in. FIXED since: O&M cover photo taken or uploaded from the phone; delete a subcontractor application — checked, PMs and admins only, the same as the current app; delivery form — managers only now that every PM page needs a manager; 📚 Company Library button on the job's Settings & Admin › Main Contractor.
+- LOW OPEN — uploaded SoW PDF as appendix; wipe COSHH library; pick PO when booking stock in. FIXED since: tapping a Delivery problem / Invoice query message opens Materials / the query, like the push; O&M cover photo taken or uploaded from the phone; delete a subcontractor application — checked, PMs and admins only, the same as the current app; delivery form — managers only now that every PM page needs a manager; 📚 Company Library button on the job's Settings & Admin › Main Contractor.
 
 ## Finance part 1 (900–9219j)
 The money calculations themselves (invoice VAT rounding, application maths, retention, CIS, plant cost, forecast/OHP, reports) were checked line by line and match. The gaps are missing actions:

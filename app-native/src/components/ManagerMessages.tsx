@@ -11,7 +11,7 @@ import { confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import { nameOf, usePeople } from '@/data/hs';
 import { markMessagesRead } from '@/data/inbox';
-import { deleteMessages, KIND_LABEL, KIND_ROUTE, sendBroadcast, sendReply, useManagerMessages } from '@/data/siteMessages';
+import { deleteMessages, KIND_LABEL, msgDest, sendBroadcast, sendReply, useManagerMessages } from '@/data/siteMessages';
 import { useAuth } from '@/lib/auth';
 import type { Message } from '@/lib/types';
 import { base, radius, useTheme } from '@/theme/theme';
@@ -46,7 +46,7 @@ export function ManagerMessages({ siteId }: { siteId: string }) {
 
   const row = (m: Message) => {
     const replies = (data?.replies ?? []).filter((r) => r.parent_id === m.id);
-    const dest = m.site_id && KIND_ROUTE[m.kind] ? `/sites/${m.site_id}/${KIND_ROUTE[m.kind]}` : null;
+    const dest = msgDest(m, me);
     const rc = data?.receipts[m.id];
     const fresh = shownNew.has(m.id);
     const ticked = sel.has(m.id);
