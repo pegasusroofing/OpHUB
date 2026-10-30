@@ -187,7 +187,7 @@ function VatRates({ s, canEdit, onSaved }: { s: Row; canEdit: boolean; onSaved: 
       {list.map((r, i) => (
         <View key={r.code} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 5, opacity: r.active ? 1 : 0.5 }}>
           <TextInput editable={canEdit} value={r.name} onChangeText={(v) => set(i, { name: v })} style={[box, { flex: 1 }]} />
-          <TextInput editable={canEdit && !!r.custom} value={String(r.rate)} onChangeText={(v) => set(i, { rate: Math.max(0, Math.min(100, Number(v) || 0)) })} keyboardType="decimal-pad" style={[box, { width: 56 }]} />
+          <TextInput editable={canEdit && !!r.custom} value={String(r.rate)} onChangeText={(v) => set(i, { rate: v.replace(/[^0-9.]/g, '') as never })} keyboardType="decimal-pad" style={[box, { width: 56 }]} />
           <Text style={{ color: base.slate }}>%</Text>
           <Pressable disabled={!canEdit || !r.custom} onPress={() => set(i, { rc: !r.rc })}><Text style={{ color: base.ink }}>{r.rc ? '☑' : '☐'} RC</Text></Pressable>
           <Pressable disabled={!canEdit} onPress={() => set(i, { active: !r.active })}><Text style={{ color: base.ink }}>{r.active ? '☑' : '☐'} In use</Text></Pressable>
@@ -197,10 +197,11 @@ function VatRates({ s, canEdit, onSaved }: { s: Row; canEdit: boolean; onSaved: 
         <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
           <Button kind="ghost" title="+ Add VAT rate" onPress={() => { setList([...list, { code: `c${Date.now().toString(36)}`, name: '', rate: 0, rc: false, active: true, custom: true }]); setDirty(true); }} />
           {dirty && <Button title="Save VAT rates" onPress={async () => {
-            const out = list.filter((r) => r.name.trim() || !r.custom).map((r) => ({ ...r, name: r.name.trim() || r.code }));
+            const out = list.filter((r) => r.name.trim() || !r.custom).map((r) => ({ ...r, name: r.name.trim() || r.code, rate: Math.max(0, Math.min(100, Number(r.rate) || 0)) }));
             if (!out.some((r) => r.active)) { toast('Keep at least one VAT rate switched on.'); return; }
-            const res = await fdb.from('fin_settings').update({ vat_rates: out } as never).eq('org_id', me?.org_id as string);
-            if (res.error) { toast('VAT rates not saved — try again.'); return; }
+            let res = await fdb.from('fin_settings').update({ vat_rates: out } as never).eq('org_id', me?.org_id as string).select('org_id');
+            if (!res.error && !res.data?.length) res = await fdb.from('fin_settings').insert({ org_id: me?.org_id, vat_rates: out } as never).select('org_id');
+            if (res.error || !res.data?.length) { toast('VAT rates not saved — try again.'); return; }
             toast('VAT rates saved'); setDirty(false); onSaved();
           }} />}
         </View>

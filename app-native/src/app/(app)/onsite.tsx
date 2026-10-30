@@ -8,7 +8,7 @@ import { useOnSiteNow } from '@/data/pmHome';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { fullSiteAddress, timeHM } from '@/lib/rules/checkin';
-import { isManager } from '@/lib/roles';
+import { isFullManager } from '@/lib/roles';
 import { base, page, space } from '@/theme/theme';
 
 const ROLE: Record<string, string> = { site_manager: 'Site manager', pm: 'PM', admin: 'Admin', subcontractor: 'Subcontractor' };
@@ -22,7 +22,7 @@ export default function OnSiteNow() {
   rows.forEach((r) => { (bySite[r.site_id] ||= []).push(r); });
   const list = Object.keys(bySite).map((id) => sites.find((s) => s.id === id)).filter((s): s is NonNullable<typeof s> => !!s)
     .sort((a, b) => bySite[b.id].length - bySite[a.id].length || a.name.localeCompare(b.name));
-  if (me && !isManager(me)) return <Redirect href={'/home' as never} />; // managers only
+  if (me && !isFullManager(me)) return <Redirect href={'/home' as never} />; // 890 usesPmHome: PMs and admins
   return (
     <ScrollView contentContainerStyle={page(720)}
       refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => { void refetch(); }} />}>

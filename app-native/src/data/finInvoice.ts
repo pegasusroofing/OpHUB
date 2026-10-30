@@ -4,7 +4,7 @@
 // emailing the invoice are switched off while Finance is on trial.
 import { fdb, finInvoke, loadSettings, xeroAutoOk } from '@/data/finance';
 import { buildInvoicePdf } from '@/lib/finInvoicePdf';
-import { addDays, round2, today } from '@/lib/rules/finance';
+import { daysOr, addDays, round2, today } from '@/lib/rules/finance';
 import { cleanLines, invTotals, treatmentOf, type InvLine, INV_VAT } from '@/lib/rules/finInvoice';
 import { supabase } from '@/lib/supabase';
 import type { Organization, Profile } from '@/lib/types';
@@ -26,7 +26,7 @@ export async function newInvoice(me: Profile, site: Row): Promise<string | null>
   const firstLine = code && INV_VAT[code] ? { description: '', amount: null, vat: code } : { description: '', amount: null };
   const d = today(), due = j.due_days != null ? j.due_days : st.default_due_days;
   const r = await fdb.from('fin_invoices').insert({
-    org_id: me.org_id, site_id: site.id, status: 'draft', issue_date: d, due_date: addDays(d, Number(due) || 30),
+    org_id: me.org_id, site_id: site.id, status: 'draft', issue_date: d, due_date: addDays(d, daysOr(due, 30)),
     client_po: ((pos.data as Row[] | null) || [])[0]?.po_number || null, bill_name: j.billing_name || site.client_name || null, bill_address: j.billing_address || null,
     bill_email: j.billing_email || site.client_email || null, vat_treatment: j.vat_treatment || st.default_vat || 'standard', lines: [firstLine], created_by: me.id, source: 'manual',
   } as never).select('id').single();

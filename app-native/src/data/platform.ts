@@ -3,6 +3,7 @@
 // change a person's role, reset a password, delete a user or a company. The
 // platform owner only — the server functions check that too.
 import { useQuery } from '@tanstack/react-query';
+import { clearOfflineCache } from '@/lib/offlineCache';
 
 import { supabase } from '@/lib/supabase';
 
@@ -57,5 +58,7 @@ export const deleteCompany = (org_id: string) => fn<{ deleted?: string }>('admin
 export async function viewAsOrg(orgId: string | null): Promise<string | null> {
   const r = await rpc('superadmin_view_org', { p_org_id: orgId });
   const d = r.data as { ok?: boolean; error?: string } | null;
-  return r.error || !d?.ok ? (d?.error || r.error?.message || 'Could not switch.') : null;
+  if (r.error || !d?.ok) return d?.error || r.error?.message || 'Could not switch.';
+  await clearOfflineCache();
+  return null;
 }

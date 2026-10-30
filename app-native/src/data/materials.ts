@@ -395,7 +395,7 @@ export function useManagerEmails(enabled: boolean) {
   return useQuery({
     queryKey: ['managerEmails'],
     enabled,
-    queryFn: async () => ((await db.from('profiles').select('id,name,email,role').in('role', ['pm', 'admin'])).data as { id: string; name: string; email: string | null }[] | null ?? []).filter((p) => !!p.email),
+    queryFn: async () => ((await db.from('profiles').select('id,name,email,role,is_estimator').in('role', ['pm', 'admin'])).data as { id: string; name: string; email: string | null; is_estimator?: boolean | null }[] | null ?? []).filter((p) => !!p.email && !p.is_estimator),
   });
 }
 

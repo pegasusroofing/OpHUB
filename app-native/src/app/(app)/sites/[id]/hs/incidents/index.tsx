@@ -5,6 +5,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { confirmAsk, useToast } from '@/components/toast';
 import { Button, Empty, Muted } from '@/components/ui';
+import { nameOf, usePeople } from '@/data/hs';
 import { deleteIncident, useIncidents } from '@/data/incidents';
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
@@ -18,6 +19,7 @@ export default function Incidents() {
   const toast = useToast();
   const qc = useQueryClient();
   const { data, isLoading } = useIncidents(id);
+  const { data: people } = usePeople();
   if (!me) return null;
   return (
     <ScrollView contentContainerStyle={page(720)}>
@@ -29,7 +31,7 @@ export default function Incidents() {
           <Text style={{ fontSize: 20 }}>⚠️</Text>
           <View style={{ flex: 1 }}>
             <Text style={{ fontWeight: '700', color: base.ink }}>{r.location || 'Location not given'}</Text>
-            <Muted>{new Date(r.incident_date ? `${r.incident_date}T00:00:00` : r.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} · Filed by {r.filed_by_name || ''}</Muted>
+            <Muted>{new Date(r.incident_date ? `${r.incident_date}T00:00:00` : r.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} · Filed by {r.filed_by_name || (r.created_by ? nameOf(people, r.created_by) : '')}</Muted>
             <View style={{ flexDirection: 'row', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
               {r.riddor_reportable && chip('RIDDOR', true)}{r.injury_occurred && chip('Injury')}{r.damage_occurred && chip('Damage')}
               {!r.injury_occurred && !r.damage_occurred && !r.riddor_reportable && chip('Near miss')}

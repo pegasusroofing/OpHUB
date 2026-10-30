@@ -8,7 +8,7 @@ import { Pressable, Text, View } from 'react-native';
 
 import { useToast } from '@/components/toast';
 import { Button, Card, Field, Muted, Screen, SectionTitle, Title } from '@/components/ui';
-import { savePhone } from '@/data/onboarding';
+import { saveMyPhone } from '@/data/onboarding';
 import { resetHowTo } from '@/lib/howto';
 import { useAuth } from '@/lib/auth';
 import { getDeviceId } from '@/lib/deviceId';
@@ -48,7 +48,7 @@ export default function Account() {
         <Field label="Phone number" value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="e.g. 07123 456789" />
         <Muted style={{ marginBottom: 8 }}>Shown to delivery drivers when you&apos;re the site contact for a delivery.</Muted>
         <Button kind="ghost" busy={busy === 'phone'} title="Save Phone Number" onPress={async () => {
-          setBusy('phone'); const err = await savePhone(me, phone.trim()); setBusy('');
+          setBusy('phone'); const err = await saveMyPhone(me, phone.trim()); setBusy('');
           if (err) { toast(err); return; } toast('Phone number saved'); void refresh();
         }} />
         <Button kind="ghost" title={me.signature_path ? '✍ My signature' : '✍ Adopt my signature'} onPress={() => router.push('/signature')} />

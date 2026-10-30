@@ -26,7 +26,7 @@ const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input
 /** A box that saves when you leave it (blank is put back). */
 function Cell({ value, onSave, money, style }: { value: string; onSave: (v: string) => Promise<void>; money?: boolean; style?: object }) {
   const [v, setV] = useState(value);
-  return <TextInput value={v} onChangeText={setV} keyboardType={money ? 'decimal-pad' : 'default'} onEndEditing={() => { if (v.trim() !== value) void onSave(v.trim()).catch(() => setV(value)); }} onBlur={() => { if (v.trim() !== value) void onSave(v.trim()).catch(() => setV(value)); }} style={[box, style]} />;
+  return <TextInput value={v} onChangeText={setV} keyboardType={money ? 'decimal-pad' : 'default'} onBlur={() => { if (v.trim() !== value) void onSave(v.trim()).catch(() => setV(value)); }} style={[box, style]} />;
 }
 
 export default function RateCard() {

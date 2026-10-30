@@ -51,7 +51,7 @@ const seed = require('./fresh/seed');
   // 4. issue the draft: name the tile, confirm; check the tile, access and Schedule of Works tasks
   page.on('dialog', d => d.type()==='prompt' ? d.accept('Pitched roof') : d.accept());
   page.on('response', async r => { if(r.request().method()!=='GET' && /pricing_elements|schedule_sections/.test(r.url())) console.log('net:', r.request().method(), r.url().split('/rest/v1/')[1], r.status(), (await r.text().catch(()=>'')).slice(0,160)); });
-  await page.getByText('Issue', {exact:true}).click(); await page.waitForTimeout(5000);
+  await page.getByText('Issue', {exact:true}).first().click(); await page.waitForTimeout(1000); await page.locator('input >> visible=true').last().fill('Pitched roof'); await page.locator('text="OK" >> visible=true').last().click(); await page.waitForTimeout(1000); await page.locator('text="Issue" >> visible=true').last().click(); await page.waitForTimeout(5000);
   const ps1 = db.price_builder_sheets.find(x=>x.id==='ps1');
   const tile = (db.pricing_elements||[]).find(e=>e.id===ps1.pricing_element_id);
   console.log('issue:', ps1.status, '| tile', tile && tile.name, tile && tile.price_total, '| SOW tasks', JSON.stringify((db.schedule_tasks||[]).filter(t=>t.section_id===ps1.schedule_section_id).map(t=>t.name)));

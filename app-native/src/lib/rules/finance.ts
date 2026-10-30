@@ -141,3 +141,6 @@ const VAT_DEFAULTS = [
 ];
 export type VatRate = { code: string; name: string; rate: number; rc: boolean; active: boolean; custom?: boolean };
 export const vatList = (s: Record<string, any> | null | undefined): VatRate[] => (Array.isArray(s?.vat_rates) && s.vat_rates.length ? s.vat_rates : VAT_DEFAULTS).map((r: VatRate) => ({ ...r }));
+
+/** Days from a setting: 0 is a real answer (due straight away); only blank falls back. */
+export const daysOr = (v: unknown, dflt: number) => { if (v === null || v === undefined || v === '') return dflt; const n = Number(v); return isNaN(n) ? dflt : n; };

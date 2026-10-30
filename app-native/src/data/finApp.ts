@@ -11,7 +11,7 @@ import { buildSowPdf, sowPeriod } from '@/lib/sowPdf';
 import { appCalc, certInvoiceLines, isItem, pct, previousCertified } from '@/lib/rules/finApp';
 import { appDoc, appExcelSheets, appFilename, type NewBoqLine } from '@/lib/rules/finAppExcel';
 import { makeXlsx } from '@/lib/rules/xlsx';
-import { addDays, appDateFor, fdate, retentionHeld, retentionReleased, retHalf, round2, today } from '@/lib/rules/finance';
+import { daysOr, addDays, appDateFor, fdate, retentionHeld, retentionReleased, retHalf, round2, today } from '@/lib/rules/finance';
 import { invTotals, vatFromTreatment } from '@/lib/rules/finInvoice';
 import { supabase } from '@/lib/supabase';
 import type { Organization, Profile, Site } from '@/lib/types';
@@ -52,10 +52,10 @@ export async function newApplication(me: Profile, siteId: string): Promise<{ id?
   const jf = jfR[0] || {}, last = apps.find((a) => a.status !== 'void');
   const lastPct: Row = {}; (last?.lines || []).forEach((l: Row) => { if (isItem(l)) lastPct[l.item_id] = l.pct; });
   const val = appDateFor(jf, st, today().slice(0, 7)) || today();
-  const due = addDays(val, Number(jf.due_days ?? st.default_due_days) || 30);
+  const due = addDays(val, daysOr(jf.due_days ?? st.default_due_days, 30));
   const { varRows, dayRows } = registerRows(last, vars, fvars, fdays);
   const row: Row = {
-    org_id: me.org_id, site_id: siteId, status: 'draft', valuation_date: val, due_date: due, final_date: addDays(due, Number(jf.final_days ?? st.default_final_days) || 14), client_po: pos[0]?.po_number || null,
+    org_id: me.org_id, site_id: siteId, status: 'draft', valuation_date: val, due_date: due, final_date: addDays(due, daysOr(jf.final_days ?? st.default_final_days, 14)), client_po: pos[0]?.po_number || null,
     lines: items.map((i) => (isItem(i) ? { kind: 'item', item_id: i.id, ref: i.ref || '', description: i.description, qty: i.qty != null ? Number(i.qty) : null, unit: i.unit || '', rate: i.rate != null ? Number(i.rate) : null, value: Number(i.value), pct: lastPct[i.id] != null ? lastPct[i.id] : 0 } : { kind: i.kind, item_id: i.id, ref: i.ref || '', description: i.description })),
     variations: varRows,
     dayworks: dayRows,
@@ -119,7 +119,7 @@ export async function raiseInvoiceFromCert(me: Profile, org: Organization | null
   const lines = certInvoiceLines(a, fdate).map((l) => ({ ...l, vat: (c && map[c.sales_vat]) || vatFromTreatment(treat, 20) }));
   const t = invTotals(lines, treat, 20);
   const r = await fdb.from('fin_invoices').insert({
-    org_id: me.org_id, site_id: a.site_id, status: 'draft', issue_date: today(), due_date: a.final_date || addDays(today(), Number(jf.due_days ?? st.default_due_days) || 30),
+    org_id: me.org_id, site_id: a.site_id, status: 'draft', issue_date: today(), due_date: a.final_date || addDays(today(), daysOr(jf.due_days ?? st.default_due_days, 30)),
     client_po: a.client_po || null, bill_name: billName, bill_address: jf.billing_address || null, bill_email: jf.billing_email || site?.client_email || null,
     vat_treatment: treat, lines, net: t.net, vat: t.vat, rc_vat: t.vatDue, total: t.total, source: 'certificate', source_id: a.id, created_by: me.id, notes: `Net due: £${Number(a.cert_net).toLocaleString('en-GB', { minimumFractionDigits: 2 })} (excl. VAT) as certified.`,
   } as never).select('*').single();
@@ -148,7 +148,7 @@ export async function raiseRetentionInvoice(me: Profile, siteId: string, n: 1 | 
   const map: Record<string, string> = { '20': '20', '5': '5', rc20: 'rc20', rc5: 'rc5', '0': '0', ex: 'ex', none: 'ex' };
   const lines = [{ description: `Release of retention — ${n === 1 ? `first half (practical completion${jf.pc_date ? ` ${fdate(jf.pc_date)}` : ''})` : 'second half (end of defects period)'}`, amount: amt, vat: (c && map[c.sales_vat]) || vatFromTreatment(treat, 20) }];
   const t = invTotals(lines, treat, 20);
-  const r = await fdb.from('fin_invoices').insert({ org_id: me.org_id, site_id: siteId, status: 'draft', issue_date: today(), due_date: addDays(today(), Number(jf.due_days ?? st.default_due_days) || 30), client_po: pos[0]?.po_number || null, bill_name: billName, bill_address: jf.billing_address || null, bill_email: jf.billing_email || site?.client_email || null, vat_treatment: treat, lines, net: t.net, vat: t.vat, rc_vat: t.vatDue, total: t.total, source: 'retention', created_by: me.id } as never).select('id').single();
+  const r = await fdb.from('fin_invoices').insert({ org_id: me.org_id, site_id: siteId, status: 'draft', issue_date: today(), due_date: addDays(today(), daysOr(jf.due_days ?? st.default_due_days, 30)), client_po: pos[0]?.po_number || null, bill_name: billName, bill_address: jf.billing_address || null, bill_email: jf.billing_email || site?.client_email || null, vat_treatment: treat, lines, net: t.net, vat: t.vat, rc_vat: t.vatDue, total: t.total, source: 'retention', created_by: me.id } as never).select('id').single();
   const id = (r.data as Row | null)?.id; if (!id) return { error: 'Could not raise the invoice.' };
   const lk = await fdb.from('job_finance').upsert({ site_id: siteId, org_id: me.org_id, updated_at: new Date().toISOString(), [n === 1 ? 'ret1_invoice_id' : 'ret2_invoice_id']: id } as never, { onConflict: 'site_id' });
   return lk.error ? { id, error: 'Invoice made, but it couldn’t be linked to the retention.' } : { id };

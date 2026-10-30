@@ -61,7 +61,7 @@ export default function PmTodos() {
           </Pressable>
           <TextInput value={text} onChangeText={setText} placeholder="What needs doing?" style={box} />
           <View style={{ flexDirection: 'row', gap: 8 }}>
-            <DateBox value={date} onChange={setDate} min={todayIso()} placeholder="Required by (optional)" title="Required by" style={{ flex: 1, marginBottom: 8 }} />
+            <DateBox value={date} onChange={setDate} placeholder="Required by (optional)" title="Required by" style={{ flex: 1, marginBottom: 8 }} />
             <Pressable onPress={async () => { const k = await chooseAction('Assign to a PM', [{ key: '', label: 'Unassigned' }, ...(pms ?? []).map((p) => ({ key: p.id, label: p.name }))]); if (k !== null) setPm((pms ?? []).find((p) => p.id === k) ?? null); }} style={[box, { flex: 1, justifyContent: 'center' }]}>
               <Text style={{ color: base.ink }}>▶ {pm ? pm.name : 'Assign to a PM'}</Text>
             </Pressable>

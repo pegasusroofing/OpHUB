@@ -77,7 +77,7 @@ export default function TodoList() {
             {edit?.id === t.id ? (
               <View>
                 <TextInput value={edit.text} onChangeText={(x) => setEdit({ ...edit, text: x })} style={box} />
-                <DateBox value={edit.date} onChange={(x) => setEdit({ ...edit, date: x })} min={todayIso()} placeholder="Required by (optional)" title="Required by" style={{ marginBottom: 8 }} />
+                <DateBox value={edit.date} onChange={(x) => setEdit({ ...edit, date: x })} placeholder="Required by (optional)" title="Required by" style={{ marginBottom: 8 }} />
                 <View style={{ flexDirection: 'row', gap: 8 }}>
                   <View style={{ flex: 1 }}><Button title="Save" onPress={async () => {
                     if (!edit.text.trim()) { toast("To-do text can't be empty."); return; }
@@ -223,7 +223,7 @@ function AddBox({ choosePm, onAdd }: { pms: Pm[]; choosePm: (c: string | null) =
       <Muted style={{ fontWeight: '700' }}>Comments (optional)</Muted>
       <TextInput value={note} onChangeText={setNote} multiline placeholder="Add any notes…" style={[box, { minHeight: 56 }]} />
       <View style={{ flexDirection: 'row', gap: 8 }}>
-        <DateBox value={date} onChange={setDate} min={todayIso()} placeholder="Required by (optional)" title="Required by" style={{ flex: 1, marginBottom: 8 }} />
+        <DateBox value={date} onChange={setDate} placeholder="Required by (optional)" title="Required by" style={{ flex: 1, marginBottom: 8 }} />
         <Pressable onPress={async () => { const p = await choosePm(pm?.id ?? null); if (p !== undefined) setPm(p); }} style={[box, { flex: 1, justifyContent: 'center' }]}>
           <Text style={{ color: base.ink }}>▶ {pm ? pm.name : 'Assign to a PM (optional)'}</Text>
         </Pressable>

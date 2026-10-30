@@ -52,6 +52,10 @@ export function useOnboarding(sites: Site[] | undefined) {
   });
 }
 
+export async function saveMyPhone(me: Profile, phone: string): Promise<string | null> {
+  const r = await db.from('profiles').update({ phone: phone.trim() || null } as never).eq('id', me.id).select('id');
+  return r.error || !r.data?.length ? 'Could not save — try again.' : null;
+}
 export async function savePhone(me: Profile, phone: string): Promise<string | null> {
   if (phone.replace(/[^0-9]/g, '').length < 10) return 'Enter a full phone number.';
   const r = await db.from('profiles').update({ phone } as never).eq('id', me.id);
