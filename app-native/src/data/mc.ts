@@ -195,3 +195,25 @@ export function useMcInspections(siteId: string | undefined, orgId: string | nul
     },
   });
 }
+
+/** Subcontractors' own inspection files, grouped per company for the site's Inspections page (530). Managers only. */
+export type SubInspFile = { id: string; file_name: string; storage_path: string; folder_id: string | null; uploaded_by: string | null; uploaded_at: string; subcontractor_company_id: string };
+export function useSubInspectionsByCompany(siteId: string | undefined, enabled: boolean) {
+  return useQuery({
+    queryKey: ['mcSubInsp', siteId],
+    enabled: !!siteId && enabled,
+    queryFn: async () => {
+      const cos = ((await db.from('subcontractor_companies').select('id,name').eq('site_id', siteId as string).order('name')).data as { id: string; name: string }[] | null) ?? [];
+      if (!cos.length) return [];
+      const ids = cos.map((c) => c.id);
+      const [files, folders] = await Promise.all([
+        db.from('subcontractor_inspections').select('id,file_name,storage_path,folder_id,uploaded_by,uploaded_at,subcontractor_company_id').in('subcontractor_company_id', ids).order('uploaded_at', { ascending: false }),
+        db.from('subcontractor_inspection_folders').select('id,name').in('subcontractor_company_id', ids),
+      ]);
+      const all = (files.data as SubInspFile[] | null) ?? [];
+      const folderName: Record<string, string> = {};
+      ((folders.data as { id: string; name: string }[] | null) ?? []).forEach((f) => { folderName[f.id] = f.name; });
+      return cos.map((c) => ({ ...c, files: all.filter((f) => f.subcontractor_company_id === c.id), folderName })).filter((c) => c.files.length);
+    },
+  });
+}

@@ -46,7 +46,10 @@ export default function SnagList() {
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['snags', id] }); void qc.invalidateQueries({ queryKey: ['snagFolder', id] }); };
 
   const close = async (s: Snag) => {
-    const p = await pickPhotos('camera', false);
+    // 520: the fix photo from the camera or one already taken.
+    const src = await chooseAction('Photo of the fix', [{ key: 'camera', label: '📷 Take a photo' }, { key: 'library', label: '🖼 Choose from library' }]);
+    if (!src) return;
+    const p = await pickPhotos(src as 'camera' | 'library', false);
     if ('error' in p) { showAlert(p.error); return; }
     if (!p[0]) return;
     setBusy(s.id);

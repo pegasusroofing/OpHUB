@@ -35,6 +35,8 @@ import { pdfLines } from '@/lib/pdfjs';
 import { isManager } from '@/lib/roles';
 import { columnTasks, pdfTaskLines, sheetColumns } from '@/lib/rules/sowImport';
 import { csvRows, readXlsx } from '@/lib/rules/xlsxRead';
+import { makeXlsx } from '@/lib/rules/xlsx';
+import { deliverXlsx } from '@/lib/pdf';
 import { supabase } from '@/lib/supabase';
 import { VisibilityEditor } from '@/components/VisibilityEditor';
 import { HowTo } from '@/components/HowTo';
@@ -141,7 +143,12 @@ export default function Schedule() {
   };
   const more = async () => {
     const k = await chooseAction('Schedule of Works', [{ key: 'sec', label: '📁 Add Section' }, { key: 'lib', label: '📚 From Library' }, { key: 'var', label: '📐 Add Variation Work' },
-      { key: 'xls', label: '📊 Import tasks from Excel / CSV' }, { key: 'pdf', label: '📄 Import tasks from a PDF' }, { key: 'doc', label: '📎 Add the Schedule of Works document' }]);
+      { key: 'xls', label: '📊 Import tasks from Excel / CSV' }, { key: 'tpl', label: '⬇️ Download the Excel import template' }, { key: 'pdf', label: '📄 Import tasks from a PDF' }, { key: 'doc', label: '📎 Add the Schedule of Works document' }]);
+    if (k === 'tpl') {
+      // 480 downloadScheduleTemplate: one Task column with two examples.
+      await deliverXlsx(makeXlsx([{ name: 'Schedule', rows: [['Task'], ['e.g. Strip and dispose of existing roof covering'], ['e.g. Fit new lead flashing to chimney'], ['']], widths: [60] }]), 'Schedule of Works - Upload Template.xlsx');
+      return;
+    }
     if (k === 'xls') {
       const r = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true }); if (r.canceled || !r.assets[0]) return;
       const a = r.assets[0];

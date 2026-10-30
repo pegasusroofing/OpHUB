@@ -1,0 +1,36 @@
+// MC Inspections: Manage Templates from the job, subcontractor inspections per company;
+// snag close asks camera or library; SoW import template in the menu.
+const {chromium, makeContext, S1} = require('./harness');
+(async()=>{
+  const BASE = 'http://localhost:8081';
+  const browser = await chromium.launch(); const errs = [];
+  const {ctx, db} = await makeContext(browser, 'admin', [], {viewport:{width:1300, height:900}});
+  db.profiles[0].howto_dismissed = ['*'];
+  const st = db.sites.find(s=>s.id===S1); st.acting_as_main_contractor = true;
+  const org = db.profiles[0].org_id;
+  db.report_templates = [{id:'rt1', org_id:org, name:'Daily site inspection', description:'Fencing, extinguishers', sections:[], is_mc_inspection:true, archived:false}];
+  db.subcontractor_companies = [{id:'sc1', site_id:S1, org_id:org, name:'Brothers Scaffold'}];
+  db.subcontractor_inspections = [{id:'si1', subcontractor_company_id:'sc1', site_id:S1, file_name:'Scaffold tag check.pdf', storage_path:'x/y.pdf', folder_id:null, uploaded_by:db.profiles[0].id, uploaded_at:'2026-10-29T09:00:00Z'}];
+  db.subcontractor_inspection_folders = [];
+  db.snags = [{id:'sn1', site_id:S1, title:'Loose tile', location:'Front', status:'open', created_at:'2026-10-29T09:00:00Z', created_by:db.profiles[0].id}];
+  const page = await ctx.newPage(); page.on('pageerror', e=>errs.push(e.message));
+  await page.goto(BASE+'/login'); await page.waitForTimeout(5000);
+  await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
+  await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
+  await page.goto(BASE+'/sites/'+S1+'/mc/inspections'); await page.waitForTimeout(5000);
+  await page.getByText('Manage Templates').click(); await page.waitForTimeout(500);
+  await page.getByText(/Brothers Scaffold \(1 file\)/).click(); await page.waitForTimeout(500);
+  console.log('template listed:', await page.getByText('Daily site inspection').count(), '| sub file:', await page.getByText('Scaffold tag check.pdf').count());
+  await page.screenshot({path:'shots/mcinsp.png', fullPage:true});
+  await page.goto(BASE+'/sites/'+S1+'/snagging/list'); await page.waitForTimeout(5000);
+  await page.getByText(/Close snag/).first().click(); await page.waitForTimeout(600);
+  console.log('snag close asks:', await page.getByText('🖼 Choose from library').count());
+  await page.screenshot({path:'shots/snagclose.png'});
+  await page.goto(BASE+'/sites/'+S1+'/schedule'); await page.waitForTimeout(5000);
+  await page.getByLabel('More').first().click(); await page.waitForTimeout(400);
+  const dl = page.waitForEvent('download', {timeout:8000}).catch(()=>null);
+  await page.getByText(/Download the Excel import template/).click();
+  const d = await dl; console.log('template download:', d ? d.suggestedFilename() : 'none');
+  console.log('errors', errs.join(' / ').slice(0,400) || 'none');
+  await browser.close(); process.exit(0);
+})();
