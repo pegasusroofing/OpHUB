@@ -2,7 +2,7 @@
 // under H&S), "+ New Report" from a template, filter by template, tick to delete.
 // Managers only. Templates are built in the Admin Centre. Tick several to export
 // them as one PDF (430 exportSelectedReports).
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
@@ -13,6 +13,7 @@ import { nameOf, usePeople } from '@/data/hs';
 import { deleteReports, startReport, useSiteReports, useTemplates } from '@/data/reports';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
+import { newReportsAll, parkedAll, sendParked } from '@/lib/reportOffline';
 import { deliverPdf, emailPdf, exportFilename, PDFDocument } from '@/lib/pdf';
 import { buildReportPdf, type PdfSub } from '@/lib/reportPdf';
 import { supabase } from '@/lib/supabase';
@@ -33,6 +34,14 @@ export default function Reports() {
   const [filter, setFilter] = useState('');
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
+  // Reports kept on this phone with no signal (435): shown here, with Send now.
+  const { data: waiting = [], refetch: refetchWaiting } = useQuery({ queryKey: ['reportsWaiting', me?.id, id], enabled: !!me, refetchInterval: 15000, queryFn: async () => {
+    const [parked, fresh] = await Promise.all([parkedAll(me?.id as string), newReportsAll()]);
+    const names: Record<string, string> = {};
+    Object.values(parked).filter((p) => p.siteId === id && p.action !== 'keep').forEach((p) => { names[p.sub.id] = p.sub.template_name; });
+    Object.values(fresh).filter((r) => r.site_id === id).forEach((r) => { names[String(r.id)] = String(r.template_name || 'Report'); });
+    return Object.entries(names).map(([k, n]) => ({ id: k, name: n }));
+  } });
   if (!me || !site) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
   const startable = (tpls ?? []).filter((t) => !t.is_daily_briefing && !t.is_mc_inspection && !t.is_loler_inspection);
@@ -53,6 +62,12 @@ export default function Reports() {
     <ScrollView contentContainerStyle={page(720)}
       refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => { void refetch(); }} />}>
       <Stack.Screen options={{ title: 'Reports' }} />
+      {waiting.length > 0 && (
+        <Card style={{ borderColor: base.warn, borderWidth: 1.5, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <Text style={{ flex: 1, color: base.ink }}><Text style={{ fontWeight: '800' }}>⏳ {waiting.length} report{waiting.length === 1 ? '' : 's'} waiting to send</Text> — {waiting.map((w) => w.name).join(', ')}. They send by themselves when there’s signal.</Text>
+          <Button small busy={busy} title="Send now" onPress={async () => { setBusy(true); const n = await sendParked(me); setBusy(false); void refetchWaiting(); void qc.invalidateQueries({ queryKey: ['reports', id] }); if (!n) toast('Still no signal — they’re kept on this phone and will send later.'); }} />
+        </Card>
+      )}
       <Button title={picker ? 'Cancel' : '+ New Report'} onPress={() => setPicker(!picker)} />
       {picker && (
         <Card>

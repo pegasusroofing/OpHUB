@@ -27,7 +27,7 @@ HIGH = money, data, permissions, safety or a daily job. MED = noticeable. LOW = 
 - MED FIXED — Email selected reports from a project's reports list.
 - MED FIXED — Exported report PDF also saved to the site's OneDrive folder.
 - MED FIXED — Start a new report with no signal.
-- LOW OPEN — re-sync after linking a repair folder; OneDrive/phone source icon on certificates; repair-contract money strip and assign prompt; folder prompt after adding a repair job; Invoiced tick before sign-off; job number hidden from operatives; work order file name; close several pricing elements; price sheet Excel weekly booked-in and wages sections; quick-create Daily Briefing / MC Inspection templates; add a condition while filling a report; "Waiting to send" reports shown with manual send.
+- LOW OPEN — OneDrive/phone source icon on certificates; repair-contract money strip and assign prompt; folder prompt after adding a repair job; Invoiced tick before sign-off; work order file name; close several pricing elements; price sheet Excel weekly booked-in and wages sections; quick-create Daily Briefing / MC Inspection templates; add a condition while filling a report. FIXED since: re-sync after linking a repair folder; repair job numbers shown to managers only; reports waiting to send shown on the Reports page with Send now.
 
 ## Schedule of Works, snags, RAMS (440–580)
 - HIGH FIXED — Status change waiting for photos now shows straight away (481 sowPendingForRender).

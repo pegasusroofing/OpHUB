@@ -84,7 +84,7 @@ export default function RepairList() {
           style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderWidth: 1, borderColor: sel.has(j.id) ? base.ink : base.cardLine, borderRadius: radius.row, marginBottom: 8, backgroundColor: base.card }}>
           {selecting && <Text style={{ fontSize: 18 }}>{sel.has(j.id) ? '☑' : '☐'}</Text>}
           <View style={{ flex: 1 }}>
-            <Text style={{ fontWeight: '700', color: base.ink }}>{j.job_number ? `${j.job_number} · ` : ''}{j.address || 'No address'}</Text>
+            <Text style={{ fontWeight: '700', color: base.ink }}>{mgr && j.job_number ? `${j.job_number} · ` : ''}{j.address || 'No address'}</Text>
             {!!j.description && <Text style={{ color: base.slate, fontSize: 13 }} numberOfLines={2}>{j.description}</Text>}
             <Muted style={{ fontSize: 11 }}>{j.job_status || 'To Survey'}{j.closed ? (j.invoiced ? ' · Invoiced' : ' · Subject to invoice') : ''}</Muted>
           </View>

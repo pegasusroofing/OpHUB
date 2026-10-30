@@ -180,7 +180,7 @@ export default function RepairJobPage() {
           </View>
         ) : (
           <>
-            {!!job.job_number && <Muted>Job #{job.job_number}</Muted>}
+            {mgr && !!job.job_number && <Muted>Job #{job.job_number}</Muted>}
             {!!job.description && <Muted>{job.description}</Muted>}
           </>
         )}
