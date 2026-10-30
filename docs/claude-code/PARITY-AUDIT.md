@@ -40,7 +40,7 @@ HIGH = money, data, permissions, safety or a daily job. MED = noticeable. LOW = 
 - MED FIXED — Inductions: email/export one or a ticked selection, with CC me / CC client.
 - MED FIXED — Subcontractor's Schedule of Works tile: full task rows (status, photos) not read-only.
 - MED FIXED — RAMS: tick several and export / email as one pack.
-- LOW OPEN — multi-site address carry-over on add; old photo size backfill; photo mark-up select tool; sub company library in the hub. FIXED since: clients see who has signed and Export Signed PDF on RAMS / COSHH / Site Rules, with no sign box; Site Inductions shows its OneDrive folder with Change / Unlink; subcontractor RAMS per company on the RAMS page; delete a superseded RAMS; Multi-page sign required tick; Schedule of Works email: tick PMs / admins or add an address; Excel import template download; snag closing photo from camera or library; subcontractor inspections per company on the Inspections page; Manage Templates from the job; close / reopen a multi-site address from its ⋮ menu; library template preview before copying; tap the leftover photo to see it.
+- LOW OPEN — multi-site address carry-over on add; old photo size backfill; photo mark-up select tool. FIXED since: Subcontractor Company Library in the Admin Centre (Libraries › Main Contractor); clients see who has signed and Export Signed PDF on RAMS / COSHH / Site Rules, with no sign box; Site Inductions shows its OneDrive folder with Change / Unlink; subcontractor RAMS per company on the RAMS page; delete a superseded RAMS; Multi-page sign required tick; Schedule of Works email: tick PMs / admins or add an address; Excel import template download; snag closing photo from camera or library; subcontractor inspections per company on the Inspections page; Manage Templates from the job; close / reopen a multi-site address from its ⋮ menu; library template preview before copying; tap the leftover photo to see it.
 
 ## H&S, materials, plant (584–760)
 - HIGH FIXED — Clients' H&S folder shows only RAMS, COSHH, TBT, Completed Inspections (PUWER) and Operative Dashboard (new shows all 8).
@@ -63,7 +63,7 @@ HIGH = money, data, permissions, safety or a daily job. MED = noticeable. LOW = 
 - MED FIXED — O&M manual: attach files to table rows; choose data sheets from the COSHH library; add documents added since the manual started.
 - MED FIXED — COSHH library: drop several data sheets into a folder → an assessment each.
 - MED FIXED — PM's "Things the office has sent you" page (#/to-book).
-- LOW OPEN — message taps for delivery problem / invoice query; delivery form role check; cover photo from camera; uploaded SoW PDF as appendix; wipe COSHH library; sub company library from the job; delete sub application (any manager); pick PO when booking stock in.
+- LOW OPEN — message taps for delivery problem / invoice query; delivery form role check; cover photo from camera; uploaded SoW PDF as appendix; wipe COSHH library; delete sub application (any manager); pick PO when booking stock in. FIXED since: 📚 Company Library button on the job's Settings & Admin › Main Contractor.
 
 ## Finance part 1 (900–9219j)
 The money calculations themselves (invoice VAT rounding, application maths, retention, CIS, plant cost, forecast/OHP, reports) were checked line by line and match. The gaps are missing actions:

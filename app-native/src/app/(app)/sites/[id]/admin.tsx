@@ -95,6 +95,8 @@ export default function SiteAdmin() {
               {full ? <Check label="Acting as a Main Contractor?" value={mc} onChange={(v) => void flag({ acting_as_main_contractor: v }, v ? 'Main Contractor tiles enabled' : 'Main Contractor tiles disabled')} />
                 : <Muted>{mc ? '✓ Acting as a Main Contractor' : 'Not acting as a Main Contractor'}</Muted>}
               <Muted style={{ marginTop: 8 }}>When on, a single "Main Contractor" tile appears on this site's home page, leading to the Construction Phase Plan, Site Rules & Layout, Inductions, Subcontractors, Permits, Inspections, Asbestos Register and F10.</Muted>
+              {/* 380: every subcontractor company's own library (insurance, accreditations, RAMS templates), shared across jobs. */}
+              <View style={{ marginTop: 10 }}><Button kind="ghost" title="📚 Company Library" onPress={() => router.push('/pm/admin/companylibrary' as never)} /></View>
             </Card>
           )}
 
