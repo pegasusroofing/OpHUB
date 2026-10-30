@@ -63,6 +63,8 @@ export default function DeliverySchedule() {
     setBusy(t.id);
     const plan = await planPush(me, t, sites);
     if ('error' in plan) { setBusy(null); showAlert(plan.error); return; }
+    // 840 pushDeliveryToTomorrow asks first, from the PM's schedule too.
+    if (!(await confirmAsk(`Push this delivery to ${plan.label} (${slotLabel(plan.slot)})?`, 'Yes — push it', 'No'))) { setBusy(null); return; }
     const msg = await pushDelivery(me, t, plan, sites);
     setBusy(null); toast(msg); refresh();
   };

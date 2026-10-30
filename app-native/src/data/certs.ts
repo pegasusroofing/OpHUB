@@ -19,7 +19,7 @@ export function useMyCerts(userId?: string, manual = false) {
     queryKey: ['myCerts', who],
     enabled: !!who,
     queryFn: () => cachedQuery(`myCerts:${who}`, async () =>
-      orThrow(await db.from('operative_certifications').select('id,category,name,storage_path,expiry_date,other_type_description').eq(manual ? 'manual_person_id' : 'operative_id', who as string).order('created_at', { ascending: false })) as Cert[]),
+      orThrow(await db.from('operative_certifications').select('id,category,name,storage_path,expiry_date,other_type_description,source,pushed_to_onedrive_at').eq(manual ? 'manual_person_id' : 'operative_id', who as string).order('created_at', { ascending: false })) as Cert[]),
   });
 }
 
