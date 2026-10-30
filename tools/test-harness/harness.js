@@ -90,7 +90,7 @@ async function makeContext(browser, role, log, opts){
         for(const r0 of (Array.isArray(body)?body:[body])){
           const ex = merge && keys.every(k=>r0[k]!=null) ? (db[table]||[]).find(x=>keys.every(k=>String(x[k])===String(r0[k]))) : null;
           if(ex){ Object.assign(ex, r0); out.push(ex); continue; }
-          const r = Object.assign({id:'new-'+table+'-'+Date.now()+'-'+(idn++), created_at:new Date().toISOString()}, r0);
+          const r = Object.assign({id:'new-'+table+'-'+Date.now()+'-'+(idn++), created_at:new Date().toISOString()}, /checkins$/.test(table) ? {ts:new Date().toISOString()} : {}, r0);
           (db[table] = db[table]||[]).push(r); out.push(r);
         }
         return reply(out, 201);

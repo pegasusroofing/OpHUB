@@ -57,7 +57,7 @@ export default function PpeLog() {
     return exportTableExcel({ title: 'PPE Register', sub: 'Items each operative currently holds (latest signed issue)', cols: [{ l: 'Operative' }, ...items.map((x) => ({ l: x, w: 70 }))], rows: opsAll.map((p) => { const cur = new Set(currentPpe(all, p.id)); return [p.name, ...items.map((x) => (cur.has(x) ? 'Issued' : ''))]; }) }, org);
   };
   const run = async (k: string, fn: () => Promise<boolean>) => { if (k !== 'r' && !shown.length) { toast('No PPE issued in that range.'); return; } setBusy(k); const ok = await fn().catch(() => false); setBusy(''); if (!ok) toast('Could not make the file — try again.'); };
-  const chip = (on: boolean, l: string, onPress: () => void) => <Pressable onPress={onPress} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: on ? base.ink : base.line, backgroundColor: on ? base.ink : base.card }}><Text style={{ fontWeight: '700', fontSize: 12, color: on ? '#fff' : base.ink }}>{l}</Text></Pressable>;
+  const chip = (on: boolean, l: string, onPress: () => void) => <Pressable key={l} onPress={onPress} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: on ? base.ink : base.line, backgroundColor: on ? base.ink : base.card }}><Text style={{ fontWeight: '700', fontSize: 12, color: on ? '#fff' : base.ink }}>{l}</Text></Pressable>;
   return (
     <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'PPE Log' }} />

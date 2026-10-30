@@ -37,7 +37,7 @@ export default function Activity() {
           </Pressable>
         ))}
       </View>
-      {(ids.length > 1 || person) && (
+      {(ids.length > 1 || !!person) && (
         <View style={{ marginBottom: 8 }}>
           <Pressable onPress={() => setPickPerson(!pickPerson)}><Text style={{ color: base.ink, fontWeight: '700' }}>{pickPerson ? '▼' : '▶'} Person: {person ? nameOf(people, person) : 'Everyone'}</Text></Pressable>
           {pickPerson && [''].concat(ids).map((u) => (
