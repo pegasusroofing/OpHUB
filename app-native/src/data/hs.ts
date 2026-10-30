@@ -26,7 +26,7 @@ export function usePeople() {
     queryKey: ['people', me?.org_id],
     enabled: !!me,
     staleTime: 300000,
-    queryFn: () => cachedQuery(`people:${me?.org_id}`, async () => orThrow(await db.from('profiles').select('id,name,role')) as Person[]),
+    queryFn: () => cachedQuery(`people:${me?.org_id}`, async () => orThrow(await db.from('profiles').select('id,name,role,finance_enabled')) as Person[]),
   });
 }
 export const nameOf = (people: Person[] | undefined, id: string | null | undefined) =>

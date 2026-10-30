@@ -157,8 +157,8 @@ export function MarkupEditor({ src, ops: initial, keys = [], photo = false, onCl
       let image: string | null = null;
       if (Platform.OS === 'web') image = await renderMarked(src, ops);
       else {
-        // The phone snapshots what's on screen: back to the whole drawing first.
-        if (z !== 1) { setZ(1); await new Promise((r) => setTimeout(r, 350)); }
+        // The phone snapshots what's on screen: no selection outline, and back to the whole drawing first.
+        if (sel != null || z !== 1) { setSel(null); setZ(1); await new Promise((r) => setTimeout(r, 350)); }
         image = await captureRef(view, { format: 'jpg', quality: 0.86, result: 'tmpfile' });
       }
       if (!image) { toast('Could not save the marked-up drawing.'); return; }

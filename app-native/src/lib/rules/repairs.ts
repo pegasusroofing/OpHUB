@@ -1,7 +1,7 @@
 // Maintenance / repair contract rules (340): job_status drives which tile a job
 // sits in; each action moves it on. Pure functions only.
 
-export type RepairJob = {
+export type RepairJob = { closed_at?: string | null; closed_by?: string | null;
   id: string; site_id: string; job_number: string | null; address: string | null; description: string | null; created_at: string;
   job_status: string | null; closed: boolean | null; invoiced: boolean | null; survey_required: string | null; access_requirement: string | null; access_notes: string | null;
   survey_notes: string | null; survey_date: string | null; surveyed_by: string | null; survey_booking_date: string | null; survey_booking_assigned_to: string | null;

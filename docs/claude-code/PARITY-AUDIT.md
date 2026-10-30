@@ -4,6 +4,8 @@ Seven read-only checks went through every old file in `src/js/` and compared eac
 
 HIGH = money, data, permissions, safety or a daily job. MED = noticeable. LOW = rarely used or minor.
 
+**Later check:** a second, button-by-button check on 30 Oct 2026 is in `DEEP-DIVE-2026-10-30.md`, with its own tick list.
+
 ## Core, Home, Admin (000–270)
 - HIGH FIXED — Phone tabs for site managers, clients and subcontractor logins: no way to HR, HUB, Inbox or My Dashboard on a phone (old bottom bar). Site managers had an HR row on Projects.
 - MED FIXED — Tapping a push notification doesn't open the right page (no tap listener; route map uses old paths).

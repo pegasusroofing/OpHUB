@@ -346,7 +346,7 @@ export default function RepairJobPage() {
               {!job.closed && <Check label="Invoiced" value={!!job.invoiced} onChange={(v) => void save({ invoiced: v }, v ? 'Marked invoiced' : 'Invoiced removed')} />}
               {job.closed ? (
                 <>
-                  <Muted style={{ marginBottom: 8 }}>✅ Signed off — {job.invoiced ? 'invoiced, fully closed' : 'closed subject to invoice'}.</Muted>
+                  <Muted style={{ marginBottom: 8 }}>✅ Signed off{job.closed_at ? ` ${new Date(job.closed_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}` : ''}{job.closed_by ? ` by ${nameOf(people, job.closed_by)}` : ''} — {job.invoiced ? 'invoiced, fully closed' : 'closed subject to invoice'}.</Muted>
                   {job.invoiced ? <Button kind="ghost" title="Undo invoiced (back to subject to invoice)" onPress={() => void save({ invoiced: false }, 'Back to closed subject to invoice')} />
                     : <Button title="🧾 Mark as Invoiced — fully close" onPress={async () => { if (await confirmAsk('Mark this job as invoiced? It will be fully closed.', 'Mark invoiced')) void save({ invoiced: true }, 'Invoiced — job fully closed'); }} />}
                   <Button kind="ghost" title="Reopen Job" onPress={() => void save({ closed: false, closed_by: null, closed_at: null, job_status: 'Awaiting Sign-off' })} />

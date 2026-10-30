@@ -234,7 +234,7 @@ export default function MaterialRequests() {
           <Button title={done ? `Send Again (${picked.length})` : picked.length > 1 ? `Send as one grouped order (${picked.length} items)` : 'Send Order (1 item)'} onPress={() => void startOrder(picked, done)} />
           {done && (
             <View style={{ flexDirection: 'row', gap: 8 }}>
-              <View style={{ flex: 1 }}><Button kind="ghost" title="Reopen selected" onPress={() => void act(() => reopenMaterials(picked), 'Reopened')} /></View>
+              <View style={{ flex: 1 }}><Button kind="ghost" title="Reopen selected" onPress={async () => { if (await confirmAsk(`Reopen ${picked.length} closed order${picked.length === 1 ? '' : 's'}? They go back to the Live/Pending tab.`, 'Reopen')) void act(() => reopenMaterials(picked), 'Reopened'); }} /></View>
               <View style={{ flex: 1 }}><Button kind="ghost" title="Delete selected" onPress={() => void del(picked)} /></View>
             </View>
           )}

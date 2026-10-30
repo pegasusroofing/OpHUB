@@ -8,7 +8,7 @@ import { ScrollView } from 'react-native';
 import { FinForm } from '@/components/FinForm';
 import { AllocRow } from '@/components/FinSplit';
 import { useToast } from '@/components/toast';
-import { Muted } from '@/components/ui';
+import { Button, Muted } from '@/components/ui';
 import { fdb } from '@/data/finance';
 import { useAuth } from '@/lib/auth';
 import { fdate, num, plantCost, round2, today } from '@/lib/rules/finance';
@@ -30,7 +30,11 @@ export default function FinPlant() {
     <ScrollView contentContainerStyle={{ padding: space.l }}>
       <Stack.Screen options={{ title: h ? h.item : 'Plant hire' }} />
       {c && <Muted style={{ marginBottom: 8 }}>{h?.off_hire ? `Off hire ${fdate(h.off_hire)}` : `On hire ${c.weeks} wk`} · cost so far £{c.cost.toLocaleString('en-GB', { minimumFractionDigits: 2 })}</Muted>}
-      <FinForm title={h ? 'Plant hire' : 'Add plant hire'} initial={h || { on_hire: today(), rate_period: 'week', cost_from: 'rate' }} onClose={() => router.back()}
+      <FinForm title={h ? 'Plant hire' : 'Add plant hire'}
+        extra={h ? <>{!h.off_hire && <Button kind="ghost" title="Off-hire today" onPress={async () => {
+        if (!(await fdb.from('fin_plant_hires').update({ off_hire: today() } as never).eq('id', h.id).select('id')).data?.length) { toast('Could not save — try again.'); return; }
+        toast('Off hire from today'); ['finPlant', 'finPurchases', 'finBook'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] })); router.back();
+      }} />}<AllocRow table="fin_plant_hires" row={h} /></> : null} initial={h || { on_hire: today(), rate_period: 'week', cost_from: 'rate' }} onClose={() => router.back()}
         fields={[
           { k: 'item', label: 'What’s on hire' }, { k: 'supplier_name', label: 'Supplier', half: true }, { k: 'hire_ref', label: 'Hire ref', half: true },
           { k: 'on_hire', label: 'On hire', kind: 'date', half: true }, { k: 'off_hire', label: 'Off hire (blank = still on hire)', kind: 'date', half: true },
@@ -50,7 +54,6 @@ export default function FinPlant() {
           ['finPlant', 'finPurchases', 'finBook'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] }));
           return null;
         }}
-        extra={h ? <AllocRow table="fin_plant_hires" row={h} /> : null}
         onDelete={h ? async () => { if (!(await fdb.from('fin_plant_hires').delete().eq('id', h.id).select('id')).data?.length) return 'Could not remove.'; toast('Removed'); ['finPurchases', 'finBook'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] })); return null; } : undefined} />
     </ScrollView>
   );

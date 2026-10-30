@@ -218,3 +218,9 @@ export async function quickTemplate(me: Profile, kind: 'briefing' | 'mc'): Promi
   const r = await db.from('report_templates').insert(row as never).select('id').single();
   return (r.data as { id: string } | null)?.id ?? null;
 }
+
+/** True / false once known: is this submission on a LOLER template? (750 isLolerSubmissionFor) */
+export const useIsLoler = (templateId: string | null | undefined) => useQuery({
+  queryKey: ['isLolerTpl', templateId], enabled: !!templateId,
+  queryFn: async () => !!((await db.from('report_templates').select('is_loler_inspection').eq('id', templateId as string).maybeSingle()).data as { is_loler_inspection?: boolean } | null)?.is_loler_inspection,
+});

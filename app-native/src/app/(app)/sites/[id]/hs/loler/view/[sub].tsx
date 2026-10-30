@@ -7,7 +7,7 @@ import { ReportAnswers } from '@/components/ReportAnswers';
 import { ReportPdfActions } from '@/components/ReportPdfActions';
 import { Button, Muted, SectionTitle } from '@/components/ui';
 import { nameOf, usePeople } from '@/data/hs';
-import { useSubmission } from '@/data/reports';
+import { useIsLoler, useSubmission } from '@/data/reports';
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
 import { page, space } from '@/theme/theme';
@@ -17,9 +17,10 @@ export default function LolerView() {
   const { me } = useAuth();
   const { data, isLoading } = useSubmission(subId);
   const { data: people } = usePeople();
+  const { data: isLoler } = useIsLoler(data?.sub?.template_id as string | null | undefined);
   if (!me) return null;
   const sub = data?.sub;
-  if (isLoading || !sub || sub.site_id !== id) return <Muted style={{ padding: space.l }}>{isLoading ? 'Loading…' : 'Inspection not found.'}</Muted>;
+  if (isLoading || !sub || sub.site_id !== id || isLoler === false) return <Muted style={{ padding: space.l }}>{isLoading ? 'Loading…' : 'Inspection not found.'}</Muted>;
   return (
     <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'LOLER Inspection' }} />

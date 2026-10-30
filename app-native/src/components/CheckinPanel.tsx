@@ -41,6 +41,7 @@ export function CheckinPanel({ site, sub }: { site: Site; sub?: SubAddress }) {
     else if (r.toast) toast(r.toast);
     else if (r.error) setError(r.error);
     qc.invalidateQueries({ queryKey: ['myCheckins', site.id] });
+    void qc.invalidateQueries({ queryKey: ['teamCheckins'] }); void qc.invalidateQueries({ queryKey: ['onSiteNow'] });
   };
 
   return (

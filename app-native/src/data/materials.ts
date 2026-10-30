@@ -143,12 +143,15 @@ export async function reopenMaterials(items: Mat[]): Promise<boolean> {
 }
 
 export async function deleteMaterials(me: Profile, siteId: string, items: Mat[], isManager: boolean): Promise<string | null> {
+  let done = 0, first: string | null = null;
   for (const m of items) {
     const r = mustHit(await db.from('materials').delete().eq('id', m.id).select('id'));
-    if (r.error) return dbMsg(r.error, isManager);
+    if (r.error) { first = first || dbMsg(r.error, isManager); continue; }
+    done++;
     log(me, siteId, 'material_request_deleted', `Deleted material request "${m.item || ''}"`);
   }
-  return null;
+  if (!first) return null;
+  return items.length > 1 ? `${done} of ${items.length} deleted. ${first}` : first;
 }
 
 export async function groupMaterials(items: Mat[]): Promise<boolean> {

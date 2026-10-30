@@ -302,7 +302,7 @@ function Setup({ id, site, jf, cpos, settings }: { id: string; site: Row | undef
             { k: 'billing_name', label: 'Bill to (client)', kind: 'choice', options: [['', 'Not set'], ...dirClients.map((c) => [c.name, c.name] as [string, string]), ...(jf.billing_name && !dirClients.some((c) => c.name === jf.billing_name) ? [[jf.billing_name, `${jf.billing_name} (not in the Directory)`] as [string, string]] : [])], note: 'From the Directory — the billing address and accounts email follow the client’s Directory record.' }, { k: 'billing_address', label: 'Billing address', kind: 'multiline' }, { k: 'billing_email', label: 'Accounts email', kind: 'email' },
             { k: 'pc_date', label: 'Practical completion date', kind: 'date', half: true }, { k: 'defects_months', label: 'Defects period (months)', kind: 'number', half: true },
             { k: 'final_release_date', label: 'Final retention release (blank = end of defects period)', kind: 'date', half: true },
-            { k: 'qs_id', label: 'QS', kind: 'choice', half: true, options: [['', 'None yet'], ...(people ?? []).filter((p) => ['pm', 'admin'].includes(p.role)).sort((a, b) => a.name.localeCompare(b.name)).map((p) => [p.id, p.name] as [string, string])] },
+            { k: 'qs_id', label: 'QS', kind: 'choice', half: true, options: [['', 'None yet'], ...(people ?? []).filter((p) => ['pm', 'admin', 'site_manager'].includes(p.role) || (p as { finance_enabled?: boolean }).finance_enabled).sort((a, b) => a.name.localeCompare(b.name)).map((p) => [p.id, p.name] as [string, string])] },
             { k: 'notes', label: 'Notes', kind: 'multiline' },
           ]}
           onSave={async (v) => {

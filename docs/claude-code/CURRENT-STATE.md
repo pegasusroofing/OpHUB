@@ -116,6 +116,12 @@
 - **Still in the current app for now:** PDF drawings in reports on phones (photo instead, or the office laptop).
 - **Android test build:** `b979c2f7…` was queued on Expo's free plan when last checked.
 
+## Button-by-button deep dive (30 Oct 2026)
+- Eight checks compared every old file with the new app, button by button. The list and its ticks are in `DEEP-DIVE-2026-10-30.md`.
+- All HIGH and MED items are done, except that one HIGH needed no change (the database already marks collected goods as received).
+- The small LOW items still open are listed there. Trial items stay parked.
+- Not yet tested on real phones: everything so far was tested in the browser against the fake database in `tools/test-harness`. `run-all.sh` runs all the checks.
+
 ## Andy's own to-dos
 - Press **Push origin** for the handoff pack.
 - Turn on leaked-password protection (Supabase › Authentication).
