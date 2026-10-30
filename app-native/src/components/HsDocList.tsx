@@ -19,7 +19,7 @@ import { StorageImage } from '@/components/StorageImage';
 import * as DocumentPicker from 'expo-document-picker';
 
 import { chooseAction, confirmAsk, showAlert, useToast } from '@/components/toast';
-import { Button, Card, Empty, Muted, Toggle } from '@/components/ui';
+import { Button, Card, Empty, Muted, Toggle, SectionTitle } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
 import { DOC_LABEL, docBucket, nameOf, openDocLink, sigDocId, signDocs, useHsDocs, usePeople, type DocKind, type HsDoc, type HsSig } from '@/data/hs';
 import { deleteHsDoc, replaceCoshh } from '@/data/hsManager';
@@ -34,30 +34,57 @@ import { base, radius } from '@/theme/theme';
 
 const d = (t: string | null) => (t ? new Date(t).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '');
 
-function SubRamsByCompany({ siteId }: { siteId: string }) {
+// 580 / 620: each subcontractor's current RAMS or COSHH by company on the job's page — view, export or email the
+// signed PDF, or open that company's own page.
+function SubDocsByCompany({ site, kind }: { site: Site; kind: 'rams' | 'coshh' }) {
+  const { me } = useAuth();
+  const toast = useToast();
   const [openFor, setOpenFor] = useState<Record<string, boolean>>({});
+  const siteId = site.id, table = kind === 'rams' ? 'rams_docs' : 'coshh_docs', word = kind === 'rams' ? 'RAMS' : 'COSHH';
   const { data } = useQuery({
-    queryKey: ['subRamsByCo', siteId],
+    queryKey: ['subDocsByCo', kind, siteId],
     queryFn: async () => {
       const cos = ((await supabase.from('subcontractor_companies').select('id,name').eq('site_id', siteId).order('name')).data as { id: string; name: string }[] | null) ?? [];
       if (!cos.length) return [];
-      const docs = ((await supabase.from('rams_docs').select('id,name,storage_path,uploaded_at,subcontractor_company_id,doc_type').in('subcontractor_company_id', cos.map((c) => c.id)).eq('status', 'current').order('uploaded_at', { ascending: false })).data as { id: string; name: string; storage_path: string; uploaded_at: string; subcontractor_company_id: string; doc_type: string | null }[] | null) ?? [];
-      return cos.map((c) => ({ ...c, docs: docs.filter((d) => d.subcontractor_company_id === c.id) })).filter((c) => c.docs.length);
+      let q = supabase.from(table).select('*').in('subcontractor_company_id', cos.map((c) => c.id));
+      if (kind === 'rams') q = q.eq('status', 'current');
+      const docs = ((await q.order('uploaded_at', { ascending: false })).data as { id: string; name: string; storage_path: string; uploaded_at: string; subcontractor_company_id: string; doc_type?: string | null }[] | null) ?? [];
+      return cos.map((c) => ({ ...c, docs: docs.filter((x) => x.subcontractor_company_id === c.id) })).filter((c) => c.docs.length);
     },
   });
-  if (!data?.length) return null;
+  if (!data?.length || !me) return null;
+  const signed = async (id: string, how: 'pdf' | 'email') => {
+    let to: Awaited<ReturnType<typeof promptEmail>> = null;
+    if (how === 'email') { to = await promptEmail(`Email this signed ${word} PDF to:`, { myEmail: me.email, clientEmail: site.client_email }); if (!to) return; }
+    toast('Building signed PDF…');
+    const b = await buildSignedHsPdf(kind, id, site).catch(() => 'Could not build the signed PDF.');
+    if (typeof b === 'string') { toast(b); return; }
+    if (how === 'pdf') { if (!(await deliverPdf(b.bytes, b.filename))) toast('Could not save the PDF.'); return; }
+    const err = await emailPdf(b.bytes, b.filename, `${siteId}/${kind}-exports`, { site_id: siteId, recipient_email: to?.to || '', cc_email: to?.cc, client_cc_email: to?.clientCc, doc_title: `${word} (Signed ${word})` });
+    if (err) showAlert(err); else toast('Emailed');
+  };
   return (
     <View style={{ marginTop: 14 }}>
+      {kind === 'coshh' && <SectionTitle>Subcontractor COSHH</SectionTitle>}
       {data.map((c) => (
         <View key={c.id} style={{ marginBottom: 8 }}>
-          <Toggle title={`${c.name} — RAMS (${c.docs.length})`} open={!!openFor[c.id]} onPress={() => setOpenFor({ ...openFor, [c.id]: !openFor[c.id] })} />
-          {openFor[c.id] && c.docs.map((d) => (
-            <Pressable key={d.id} onPress={async () => { const u = await openDocLink('rams-docs', d.storage_path); if (u) viewDoc(u, /\.pdf$/i.test(d.name) ? d.name : `${d.name}.pdf`); }}
-              style={{ padding: 10, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginTop: 6, backgroundColor: base.card }}>
-              <Text style={{ fontWeight: '700', color: base.ink }}>{d.name}</Text>
-              <Muted>{d.doc_type || 'RAMS'} · uploaded {new Date(d.uploaded_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</Muted>
-            </Pressable>
-          ))}
+          <Toggle title={`${c.name} — ${word} (${c.docs.length})`} open={!!openFor[c.id]} onPress={() => setOpenFor({ ...openFor, [c.id]: !openFor[c.id] })} />
+          {openFor[c.id] && (
+            <View>
+              {c.docs.map((x) => (
+                <View key={x.id} style={{ padding: 10, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginTop: 6, backgroundColor: base.card }}>
+                  <Text style={{ fontWeight: '700', color: base.ink }}>{x.name}</Text>
+                  <Muted>{x.doc_type || word} · uploaded {new Date(x.uploaded_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</Muted>
+                  <View style={{ flexDirection: 'row', gap: 14, marginTop: 4 }}>
+                    <Text style={{ color: base.blue }} onPress={async () => { const u = await openDocLink(kind === 'rams' ? 'rams-docs' : 'coshh-docs', x.storage_path); if (u) viewDoc(u, /\.pdf$/i.test(x.name) ? x.name : `${x.name}.pdf`); }}>View document ↗</Text>
+                    <Text style={{ color: base.blue }} onPress={() => void signed(x.id, 'pdf')}>⬇ Export</Text>
+                    <Text style={{ color: base.blue }} onPress={() => void signed(x.id, 'email')}>✉️ Email</Text>
+                  </View>
+                </View>
+              ))}
+              <Button kind="ghost" title={`Open ${c.name}'s ${word}`} onPress={() => router.push(`/sites/${siteId}/mc/subcontractors/${c.id}/docs?kind=${kind}` as never)} />
+            </View>
+          )}
         </View>
       ))}
     </View>
@@ -245,7 +272,7 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
           ))}
         </>
       )}
-      {kind === 'rams' && manager && !companyId && <SubRamsByCompany siteId={site.id} />}
+      {(kind === 'rams' || kind === 'coshh') && manager && !companyId && <SubDocsByCompany site={site} kind={kind} />}
     </View>
   );
 }
