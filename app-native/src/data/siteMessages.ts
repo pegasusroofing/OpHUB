@@ -18,8 +18,13 @@ export const KIND_LABEL: Record<string, string> = {
   material_pickup: 'Material pickup assigned', delivery_assigned: 'Delivery assigned', delivery_complete: 'Delivery done',
   price_sheet_issued: 'Price sheet issued', grn_problem: 'Delivery problem', pi_query: 'Invoice query', pi_query_reply: 'Invoice query reply',
 };
-// Tapping a message goes to the matching page (only the ones built so far are linked).
-export const KIND_ROUTE: Record<string, string> = { snag_closed: 'snagging/list', schedule_flag: 'schedule' };
+// Tapping a message goes to the matching page (830 kindRoute).
+export const KIND_ROUTE: Record<string, string> = {
+  snag_closed: 'snagging/list', schedule_flag: 'schedule', material_request: 'materials', variation: 'snagging/variations',
+  todo_assigned: 'todos', price_overbooked: 'price', additional_works_requested: 'price', material_pickup: 'materials/collections',
+};
+/** 9219zr MPL_KIND_LABEL: the tag shown on one-person messages that open somewhere special. */
+export const SPECIAL_LABEL: Record<string, string> = { grn_problem: 'Delivery problem', pi_query: 'Invoice query', pi_query_reply: 'Invoice query reply' };
 /** Where tapping a message goes: delivery problems and invoice queries open like their push (9219zr msgExtraClick), others by kind. */
 export function msgDest(m: Pick<Message, 'kind' | 'site_id'> & { related_id?: string | null }, me: Profile | null): string | null {
   if (m.kind === 'grn_problem' || m.kind === 'pi_query' || m.kind === 'pi_query_reply') return pushRoute({ kind: m.kind, site_id: m.site_id || undefined, related_id: m.related_id || undefined }, me);

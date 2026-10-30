@@ -5,6 +5,7 @@
 // run (or are assigned to); can switch to all PMs or one colleague.
 import { useQuery } from '@tanstack/react-query';
 
+import { msgDest, SPECIAL_LABEL } from '@/data/siteMessages';
 import { siteStatusKey } from '@/lib/rules/checkin';
 import { currentCycleSigs } from '@/lib/rules/hs';
 import { supabase } from '@/lib/supabase';
@@ -30,7 +31,20 @@ export function useHub(me: Profile | null, allSites: Site[] | undefined, pmId: s
         sites = open.filter((s) => s.responsible_pm_id === who || mine.has(s.id));
       }
       const ids = sites.map((s) => s.id);
-      if (!ids.length) return { items: [] as HubItem[], sites };
+      // 9219zr (PB-07): unread messages sent to me alone (delivery problems, invoice queries, time off,
+      // delivery assigned, sub form…) — on my own HUB (or All), not when looking at a colleague's.
+      const direct: HubItem[] = [];
+      if (pmId === '' || pmId === p.id || pmId === 'all') {
+        const since0 = new Date(Date.now() - 180 * 864e5).toISOString();
+        const dm = rows<{ id: string; site_id: string | null; kind: string; body: string | null; related_id: string | null; created_at: string }>(await db.from('messages').select('id,site_id,kind,body,related_id,created_at').eq('audience', 'single').eq('recipient_id', p.id).neq('sender_id', p.id).is('parent_id', null).gte('created_at', since0).order('created_at', { ascending: false }).limit(50));
+        const read = dm.length ? new Set(rows<{ message_id: string }>(await db.from('message_reads').select('message_id').eq('user_id', p.id).in('message_id', dm.map((m) => m.id))).map((r) => r.message_id)) : new Set<string>();
+        dm.filter((m) => !read.has(m.id)).forEach((m) => {
+          const s = m.site_id ? (allSites ?? []).find((x) => x.id === m.site_id) : null;
+          const lbl = SPECIAL_LABEL[m.kind];
+          direct.push({ key: `dm-${m.id}`, type: 'message', typeLbl: lbl || 'Message', label: String(m.body || lbl || 'New message').slice(0, 120), siteId: m.site_id, siteName: s ? s.name : lbl ? 'Finance' : 'All sites', due: null, at: new Date(m.created_at), route: msgDest(m, p) || (s ? `/sites/${s.id}/messages` : '/inbox') });
+        });
+      }
+      if (!ids.length) return { items: direct, sites };
       const rpc = supabase.rpc.bind(supabase) as unknown as (n: string, a: object) => Promise<{ data: unknown; error: unknown }>;
       const since = new Date(Date.now() - 180 * 864e5).toISOString();
       const [rams, coshh, talks, snags, tasks, assigned, todos, msgs, ops, alerts] = await Promise.all([
@@ -99,6 +113,7 @@ export function useHub(me: Profile | null, allSites: Site[] | undefined, pmId: s
         const s = m.site_id ? sites.find((x) => x.id === m.site_id) : null;
         items.push({ key: `msg-${m.id}`, type: 'message', typeLbl: 'Message', label: s ? 'New message' : 'New message (all sites)', siteId: m.site_id, siteName: s ? s.name : 'All sites', due: null, at: new Date(m.created_at), route: s ? `/sites/${s.id}/messages` : '/inbox' });
       });
+      items.push(...direct);
       items.sort((a, b) => (a.due && b.due ? +a.due - +b.due : a.due ? -1 : b.due ? 1 : a.at && b.at ? +b.at - +a.at : a.at ? -1 : b.at ? 1 : 0));
       return { items, sites };
     },

@@ -9,6 +9,7 @@ import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native'
 import { Card, Empty, Muted, Row, SectionTitle, Title } from '@/components/ui';
 import { nameOf, usePeople } from '@/data/hs';
 import { markMessagesRead, outstandingCount, useMyMessages, useOutstanding } from '@/data/inbox';
+import { KIND_LABEL, msgDest } from '@/data/siteMessages';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { base, page, space, useTheme } from '@/theme/theme';
@@ -81,13 +82,18 @@ export default function Inbox() {
           <Muted style={{ marginBottom: 10 }}>Messages and notifications from your team across all your assigned sites, most recent first.</Muted>
           {msgs.isLoading ? <Muted>Loading…</Muted> : msgs.data?.rows.length ? msgs.data.rows.map((m) => {
             const isNew = shownUnread.has(m.id);
+            // 830 renderMyMessages: a message opens its page (kind route, else the job's messages; a driver's delivery → schedule).
+            const dest = msgDest(m as never, me) || (m.kind === 'delivery_assigned' && me?.role === 'driver' ? '/driver/schedule' : m.site_id ? `/sites/${m.site_id}/messages` : null);
             return (
-              <Card key={m.id} style={{ paddingVertical: 10, ...(isNew ? { borderLeftWidth: 4, borderLeftColor: t.brand1 } : {}) }}>
+              <Pressable key={m.id} disabled={!dest} onPress={() => dest && router.push(dest as never)}>
+              <Card style={{ paddingVertical: 10, ...(isNew ? { borderLeftWidth: 4, borderLeftColor: t.brand1 } : {}) }}>
                 <Text style={{ fontSize: 12, color: base.slate, marginBottom: 4 }}>
                   {isNew ? '● ' : ''}{nameOf(people, m.sender_id)} · {siteName(m.site_id)} · {new Date(m.created_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                  {KIND_LABEL[m.kind] ? <Text style={{ color: base.blue }}> · {KIND_LABEL[m.kind]}</Text> : null}
                 </Text>
                 <Text style={{ fontSize: 13.5, color: base.ink, fontWeight: isNew ? '700' : '400' }}>{m.body}</Text>
               </Card>
+              </Pressable>
             );
           }) : <Empty>No messages yet.</Empty>}
         </>
