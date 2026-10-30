@@ -14,6 +14,7 @@ import { Button, Card, Empty, Muted, SectionTitle, Toggle } from '@/components/u
 import { viewDoc } from '@/components/DocViewer';
 import { nameOf, openDocLink, usePeople } from '@/data/hs';
 import { deleteCompletion, HEALTH_ITEMS, inductionItems, setInductionQuestions, submitInduction, useInductions } from '@/data/inductions';
+import { unlinkFolder } from '@/data/onedrive';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { deliverPdf, emailPdf, exportFilename, fetchBytes, PDFDocument } from '@/lib/pdf';
@@ -50,6 +51,7 @@ export default function Inductions() {
 
   if (isManager(me) || me.role === 'client') {
     const mgr = isManager(me);
+    const odFolder = (site as { site_inductions_folder_id?: string | null; site_inductions_folder_name?: string | null } | undefined)?.site_inductions_folder_id ? ((site as { site_inductions_folder_name?: string | null }).site_inductions_folder_name || 'the linked folder') : null;
     const roster = data?.roster ?? [];
     const byOp = data?.byOp ?? {};
     const shown = tab === 'completed' ? roster.filter((u) => byOp[u]).sort((a, b) => byOp[b].completed_at.localeCompare(byOp[a].completed_at)) : roster.filter((u) => !byOp[u]);
@@ -106,7 +108,16 @@ export default function Inductions() {
             </View>
           );
         }) : <Empty>{tab === 'completed' ? 'No completed inductions yet.' : 'No outstanding operatives — everyone on the roster has completed their induction.'}</Empty>}
-        {mgr && <Button kind="ghost" title="☁️ Link OneDrive inductions folder" onPress={() => router.push({ pathname: '/pm/onedrive-pick', params: { target: 'siteinductions', id: id } } as never)} />}
+        {/* 550: once linked, say where signed inductions go, with Change Folder / Unlink. */}
+        {mgr && tab === 'completed' && (odFolder ? (
+          <Pressable onPress={async () => {
+            const k = await chooseAction('OneDrive folder', [{ key: 'change', label: '📁 Change Folder' }, { key: 'unlink', label: '🗑 Unlink', danger: true }]);
+            if (k === 'change') router.push({ pathname: '/pm/onedrive-pick', params: { target: 'siteinductions', id } } as never);
+            else if (k === 'unlink' && await confirmAsk('Unlink this OneDrive folder? Signed inductions already there stay put; new ones won’t be pushed.', 'Unlink')) {
+              if (await unlinkFolder('siteinductions', id)) void qc.invalidateQueries(); else toast('Could not unlink — try again.');
+            }
+          }} style={{ marginTop: space.m }}><Text style={{ color: base.ok }}>📁 Signed inductions are pushed to “<Text style={{ textDecorationLine: 'underline' }}>{odFolder}</Text>”</Text></Pressable>
+        ) : <Button kind="ghost" title="☁️ Link OneDrive inductions folder" onPress={() => router.push({ pathname: '/pm/onedrive-pick', params: { target: 'siteinductions', id } } as never)} />)}
         {mgr && roster.some((u) => byOp[u]?.pdf_path) && (
           <View style={{ flexDirection: 'row', gap: 8, marginTop: space.m }}>
             {([['pdf', sel.size ? `📄 Export ${sel.size} selected` : '📄 Export all completed'], ['email', sel.size ? `✉ Email ${sel.size} selected` : '✉ Email all completed']] as const).map(([k, l]) => <View key={k} style={{ flex: 1 }}><Button kind="ghost" title={l} onPress={async () => {
