@@ -82,9 +82,10 @@ export function VariationManagerActions({ v, siteId, onChanged }: { v: V; siteId
                 void run(() => decideVariation(me, siteId, v, { approve: true, value: n, financeUser: fin }), 'Variation approved');
               }} />
               <Button kind="ghost" title="Decline" onPress={() => setMode('decline')} />
-              <Button kind="ghost" title="Modify then Approve" onPress={() => setMode('modify')} />
             </>
           )}
+          {/* 800: Modify & Approve is on every open variation, so a decline can be reversed. */}
+          <Button kind="ghost" title="Modify then Approve" onPress={() => setMode('modify')} />
           {v.approval_status === 'approved' && (v.schedule_section_id
             ? <Text style={{ color: base.ok, marginVertical: 6 }}>✓ In Schedule of Works</Text>
             : <Button kind="ghost" title="Add to Schedule of Works" onPress={() => void run(() => addVariationToSchedule(me, siteId, v), '')} />)}
