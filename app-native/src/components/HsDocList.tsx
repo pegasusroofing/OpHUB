@@ -168,7 +168,16 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
               <Pressable onPress={() => setSel(new Set())}><Text style={{ color: base.slate }}>Clear</Text></Pressable>
             </>
           ) : <Pressable onPress={() => setSel(new Set(data.docs.map((x) => x.id)))}><Text style={{ color: base.blue, fontWeight: '700' }}>☐ Select all</Text></Pressable>}
-          {kind === 'coshh' && sel.size === 0 && <Pressable onPress={() => void emailIds(data.docs.map((x) => x.id))}><Text style={{ color: base.blue, fontWeight: '700' }}>✉ Email all signed COSHH</Text></Pressable>}
+          {kind === 'coshh' && sel.size === 0 && data.docs.some((x) => sigsFor(x.id).length) && <Pressable onPress={async () => {
+            const ids = data.docs.filter((x) => sigsFor(x.id).length).map((x) => x.id);
+            const cc = site.client_email && (await confirmAsk(`CC client contact (${site.client_name || site.client_email}) on this email?`, 'Yes', 'No')) ? site.client_email : null;
+            setBusy(true); toast('Building PDFs…');
+            try {
+              const b = await pack(ids); if (!b) return;
+              const err = await emailPdf(b.bytes, b.filename, `${site.id}/coshh-exports`, { site_id: site.id, recipient_email: me.email || '', client_cc_email: cc, doc_title: `${b.title} (Signed COSHH)` });
+              if (err) showAlert(err); else toast(`Signed COSHH emailed to ${me.email}`);
+            } finally { setBusy(false); }
+          }}><Text style={{ color: base.blue, fontWeight: '700' }}>✉ Email all signed COSHH</Text></Pressable>}
         </View>
       )}
       {data.docs.length ? data.docs.map((r) => {

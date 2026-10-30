@@ -3,6 +3,7 @@
 // "Add a to-do" for any live project or General (not a project). Tap one to open that job's To Do List;
 // a General one can be ticked off, changed or deleted here.
 import { useQueryClient } from '@tanstack/react-query';
+import * as DocumentPicker from 'expo-document-picker';
 import { router, Stack } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
@@ -33,6 +34,8 @@ export default function PmTodos() {
   const [siteId, setSiteId] = useState<string | null>(null);
   const [text, setText] = useState('');
   const [date, setDate] = useState('');
+  const [comment, setComment] = useState('');
+  const [files, setFiles] = useState<{ uri: string; name: string; mimeType?: string | null; size?: number | null }[]>([]);
   const [pm, setPm] = useState<Pm | null>(null);
   const [busy, setBusy] = useState(false);
   if (!me) return null;
@@ -66,14 +69,20 @@ export default function PmTodos() {
               <Text style={{ color: base.ink }}>▶ {pm ? pm.name : 'Assign to a PM'}</Text>
             </Pressable>
           </View>
+          <TextInput value={comment} onChangeText={setComment} placeholder="Comments (optional)" multiline style={[box, { minHeight: 60 }]} />
+          {siteId !== 'general' && (
+            <Pressable style={{ marginBottom: 8 }} onPress={async () => { const r = await DocumentPicker.getDocumentAsync({ multiple: true, copyToCacheDirectory: true }); if (!r.canceled) setFiles([...files, ...r.assets.map((a) => ({ uri: a.uri, name: a.name, mimeType: a.mimeType, size: a.size }))]); }}>
+              <Text style={{ color: base.blue, fontWeight: '700' }}>📎 Photos / documents{files.length ? ` (${files.length})` : ''}</Text>
+            </Pressable>
+          )}
           <Button busy={busy} title="Add To Do" onPress={async () => {
             if (!siteId) { toast('Choose which project it is for, or General.'); return; }
             if (!text.trim()) { toast('Enter what needs doing first.'); return; }
             const d = date || null;
             setBusy(true);
-            const ok = await addTodo(me, siteId, siteId === 'general' ? '' : live.find((s) => s.id === siteId)?.name || '', { text: text.trim(), comment: '', date: d, pm, files: [] });
+            const ok = await addTodo(me, siteId, siteId === 'general' ? '' : live.find((s) => s.id === siteId)?.name || '', { text: text.trim(), comment: comment.trim(), date: d, pm, files: siteId === 'general' ? [] : files });
             setBusy(false);
-            if (ok) { toast('Added to the to-do list'); setText(''); setDate(''); setPm(null); void qc.invalidateQueries({ queryKey: ['pmTodos'] }); } else toast('Could not save — try again.');
+            if (ok) { toast('Added to the to-do list'); setText(''); setDate(''); setPm(null); setComment(''); setFiles([]); void qc.invalidateQueries({ queryKey: ['pmTodos'] }); } else toast('Could not save — try again.');
           }} />
         </Card>
       )}

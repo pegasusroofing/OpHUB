@@ -122,7 +122,7 @@ export default function Schedule() {
       onSelectMode={() => setSelecting(new Set([t.id]))} />
   );
   // No adding tasks on the Complete tab.
-  const canAdd = manager && filter !== 'done';
+  const canAdd = manager;
   const addBox = (key: string, sectionId: string | null) => canAdd && (adding === key
     ? <AddTaskBox addresses={site.multi_site ? data?.addresses ?? [] : []} onCancel={() => setAdding(null)}
         onAdd={async (name, subId) => { if (await addTask(site.id, name, sectionId, subId)) { changed(); return true; } toast('Could not save — try again.'); return false; }} />

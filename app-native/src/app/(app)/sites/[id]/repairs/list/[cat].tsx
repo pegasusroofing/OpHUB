@@ -62,6 +62,12 @@ export default function RepairList() {
   return (
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: def.label }} />
+      {mgr && (
+        <Pressable style={{ marginBottom: 8 }} onPress={async () => {
+          const k = await chooseAction('Which list?', Object.entries(REPAIR_CATEGORIES).map(([c, d]) => ({ key: c, label: `${d.icon} ${d.label} (${jobs.filter(d.match).length})` })));
+          if (k && k !== key) router.replace(`/sites/${id}/repairs/list/${k}` as never);
+        }}><Text style={{ color: base.ink, fontWeight: '700' }}>▾ {def.label}</Text></Pressable>
+      )}
       <TextInput value={q} onChangeText={setQ} placeholder="Search address, description or job number" style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card, marginBottom: 8 }} />
       <View style={{ flexDirection: 'row', gap: 12, marginBottom: 10, alignItems: 'center' }}>
         <Pressable onPress={async () => { const k = await chooseAction('Sort by', sorts.map((s) => ({ key: s, label: REPAIR_SORT_LABELS[s] }))); if (k) setSort(k as RepairSort); }}><Text style={{ color: base.blue }}>⇅ {REPAIR_SORT_LABELS[sort]}</Text></Pressable>

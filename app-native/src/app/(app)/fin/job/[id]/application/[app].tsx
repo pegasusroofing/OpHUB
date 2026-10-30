@@ -360,6 +360,7 @@ function Certificate({ a, jf, previous, onSaved }: { a: Row; jf: Row; previous: 
   const toast = useToast();
   const [v, setV] = useState<Row>({ cert_date: today(), cert_gross: String(round2(a.gross)), cert_retention: String(round2(a.retention)), cert_previous: String(round2(previous)), cert_discount: String(round2(a.discount != null ? Number(a.discount) : (Number(a.gross || 0) * Number(a.discount_pct || 0)) / 100)), cert_notes: '', cert_is_payless: false, invoiceNow: false });
   const [file, setFile] = useState<{ uri: string; name: string; mimeType?: string | null } | null>(null);
+  const [netTyped, setNetTyped] = useState('');
   const [busy, setBusy] = useState(false);
   // Certify line by line (9219p finCertTotals): a Certified % for each line and variation and an amount for each
   // day work; the totals (with discount, retention and its limit) are worked out from them.
@@ -385,7 +386,8 @@ function Certificate({ a, jf, previous, onSaved }: { a: Row; jf: Row; previous: 
   };
   if (!me) return null;
   const n = (k: string) => num(v[k]) || 0;
-  const net = round2(n('cert_gross') - n('cert_retention') - n('cert_previous') - n('cert_discount'));
+  const netWorked = round2(n('cert_gross') - n('cert_retention') - n('cert_previous') - n('cert_discount'));
+  const net = netTyped.trim() !== '' && num(netTyped) !== null && !isNaN(num(netTyped) as number) ? round2(num(netTyped) as number) : netWorked;
   const diff = round2(net - Number(a.net_due));
   const f = (k: string, l: string) => <View key={k} style={{ flexBasis: '47%', flexGrow: 1, marginBottom: 6 }}><Muted>{l}</Muted>{k === 'cert_date'
     ? <DateBox value={String(v[k] ?? '')} onChange={(x) => setV({ ...v, [k]: x })} title={l} placeholder="Choose a date" style={{ paddingVertical: 8 }} />
@@ -454,7 +456,10 @@ function Certificate({ a, jf, previous, onSaved }: { a: Row; jf: Row; previous: 
           ))}
         </View>
       )}
-      <FinRow title="Net due" right={money(net)} />
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+        <Text style={{ flex: 1, fontWeight: '700', color: base.ink }}>Net due</Text>
+        <TextInput value={netTyped} onChangeText={setNetTyped} placeholder={String(netWorked)} keyboardType="decimal-pad" style={[box, { width: 120, marginBottom: 0, textAlign: 'right' }]} />
+      </View>
       <Text style={{ color: diff < 0 ? '#C0392B' : diff > 0 ? '#1E7A3C' : base.slate, marginBottom: 6 }}>{diff ? `${diff < 0 ? 'Short by' : 'Over by'} ${money(Math.abs(diff))} compared with the ${money(a.net_due)} applied for.` : 'Matches what was applied for.'}</Text>
       <Check label="This is a pay-less notice" value={!!v.cert_is_payless} onChange={(x) => setV({ ...v, cert_is_payless: x })} />
       <TextInput value={v.cert_notes} onChangeText={(x) => setV({ ...v, cert_notes: x })} placeholder="Notes, e.g. reason for any shortfall" style={[box, { marginVertical: 6 }]} />

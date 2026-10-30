@@ -50,11 +50,12 @@ export function SowTaskRow({ updateOnly, me, site, task, subCos = [], photos, pe
       ...(site.multi_site ? [{ key: 'addr', label: '📍 Link Address' }] : []),
       { key: 'up', label: '▲ Move up' }, { key: 'down', label: '▼ Move down' },
       ...(!task.section_id ? [{ key: 'vis', label: '🔒 Who can see this' }] : []),
-      ...(subCos.length ? [{ key: 'sub', label: '🏗 Assign to subcontractor' }] : []),
+      ...(subCos.length || site.acting_as_main_contractor ? [{ key: 'sub', label: '🏗 Assign to subcontractor' }] : []),
       { key: 'del', label: '🗑 Delete', danger: true }, { key: 'multi', label: '☑ Select Multiple' },
     ];
     const k = await chooseAction(task.name, items);
     if (k === 'vis') setVis(true);
+    else if (k === 'sub' && !subCos.length) toast('No subcontractors added for this site yet.');
     else if (k === 'sub') {
       const c = await chooseAction('Assign to subcontractor', [{ key: '-', label: `${subCo ? '' : '✓ '}Our own team / no subcontractor` }, ...subCos.map((x) => ({ key: x.id, label: `${subCo?.id === x.id ? '✓ ' : ''}${x.name}` }))]);
       if (!c) return;

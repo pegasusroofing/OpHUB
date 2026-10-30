@@ -108,7 +108,10 @@ export async function addMaterial(me: Profile, siteId: string, f: { item: string
 export async function poLock(ids: string[], isManager: boolean): Promise<string | null> {
   if (!ids.length) return null;
   const rows = ((await db.from('materials').select('*').in('id', ids)).data as Mat[] | null) ?? [];
-  const hit = rows.find(onSentPo);
+  const on = rows.filter(onSentPo);
+  const poIds = [...new Set(on.map((m) => m.po_id).filter(Boolean))] as string[];
+  const dead = new Set(poIds.length ? (((await db.from('purchase_orders').select('id,status').in('id', poIds)).data as { id: string; status: string }[] | null) ?? []).filter((p) => p.status === 'cancelled').map((p) => p.id) : []);
+  const hit = on.find((m) => !m.po_id || !dead.has(m.po_id));
   return hit ? poLockText(hit, ids.length > 1, isManager) : null;
 }
 

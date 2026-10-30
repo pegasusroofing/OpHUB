@@ -62,6 +62,7 @@ export function useHsDocs(kind: DocKind, site: Site | undefined, companyId: stri
   return useQuery({
     queryKey: ['hsDocs', kind, site?.id, me?.id, companyId],
     enabled: !!site && !!me,
+    refetchInterval: 7000,
     queryFn: () => cachedQuery(`hsDocs:${kind}:${site?.id}:${me?.id}:${companyId ?? ''}`, async () => {
       const s = site as Site, t = T[kind];
       let cur = db.from(t.docs).select('*').eq('site_id', s.id);

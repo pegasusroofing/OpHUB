@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Redirect, Stack, useGlobalSearchParams, useSegments } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 import { stackHeader } from '@/components/AppBar';
 import { useToast } from '@/components/toast';
@@ -24,13 +24,24 @@ function useJobGuard(): { to: string; why?: string } | null {
   const { id } = useGlobalSearchParams<{ id?: string }>();
   const at = seg.indexOf('[id]'), onJob = at >= 0 && !!id && id !== 'new';
   const page = onJob ? seg[at + 1] || '' : '';
-  const { data: site } = useSite(onJob ? id : undefined);
+  const sq = useSite(onJob ? id : undefined);
+  const site = sq.data;
+  const [missing, setMissing] = useState<string | null>(null);
+  const { isSuccess, refetch } = sq;
+  useEffect(() => {
+    // Not in the list: look again first, as a project made a moment ago may not be in the saved copy.
+    if (!onJob || !me || site || !isSuccess || missing === id) return;
+    let alive = true;
+    void refetch().then((r) => { if (alive && !(r.data ?? []).some((x) => x.id === id)) setMissing(id as string); });
+    return () => { alive = false; };
+  }, [onJob, me, site, isSuccess, missing, id, refetch]);
   const op = !!me && !isManager(me) && me.role !== 'client';
   const { data: subCo } = useQuery({
     queryKey: ['mySubCo', id, me?.id], enabled: onJob && op,
     queryFn: async () => (((await supabase.from('subcontractor_operatives').select('subcontractor_company_id').eq('site_id', id as string).eq('user_id', me!.id).limit(1)).data as { subcontractor_company_id: string }[] | null) ?? [])[0]?.subcontractor_company_id ?? null,
   });
   if (!onJob || !me) return null;
+  if (missing === id && !site) return { to: '/sites', why: 'That job couldn’t be found.' };
   if (!isManager(me) && site && siteStatusKey(site) === 'closed') return { to: '/sites', why: 'This job is closed.' };
   if (me.role === 'client' && page && page !== 'index' && !CLIENT_PAGES.includes(page)) return { to: `/sites/${id}` };
   const sub = seg[at + 2] || '';
