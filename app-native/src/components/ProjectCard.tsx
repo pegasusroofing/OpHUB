@@ -13,7 +13,7 @@ import { base, useTheme } from '@/theme/theme';
 const initials = (n: string) => n.split(' ').slice(0, 2).map((w) => w[0] || '').join('').toUpperCase();
 const PILL = { live: { bg: base.okBg, fg: base.ok }, upcoming: { bg: base.warnBg, fg: base.warn }, closed: { bg: base.line, fg: base.slate } } as const;
 
-export function ProjectCard({ s, pmName, onPm, onStatus }: { s: Site; pmName?: string; onPm?: () => void; onStatus?: () => void }) {
+export function ProjectCard({ s, pmName, onPm, onStatus, onStart }: { s: Site; pmName?: string; onPm?: () => void; onStatus?: () => void; onStart?: () => void }) {
   const t = useTheme();
   const st = siteStatusKey(s) as 'live' | 'upcoming' | 'closed';
   const sw = s.job_number || initials(s.name || '');
@@ -29,7 +29,7 @@ export function ProjectCard({ s, pmName, onPm, onStatus }: { s: Site; pmName?: s
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text numberOfLines={1} style={[heading(800), { fontSize: 14.5, color: base.ink }]}>{s.name}</Text>
         <Text numberOfLines={1} style={{ fontSize: 11.5, color: base.slate, marginTop: 1 }}>{fullSiteAddress(s) || '—'}</Text>
-        {(!!s.client_name || !!startLine) && <Text numberOfLines={1} style={{ fontSize: 11.5, color: base.slate, fontWeight: '500' }}>{[startLine, s.client_name].filter(Boolean).join(' · ')}</Text>}
+        {(!!s.client_name || !!startLine || (st === 'upcoming' && !!onStart)) && <Text numberOfLines={1} style={{ fontSize: 11.5, color: base.slate, fontWeight: '500' }}>{st === 'upcoming' && onStart ? <Text onPress={onStart} style={{ color: base.blue }}>{startLine || 'Set start date'}</Text> : startLine}{(st === 'upcoming' && onStart) || startLine ? (s.client_name ? ' · ' : '') : ''}{s.client_name || ''}</Text>}
       </View>
       <Pressable onPress={onPm} disabled={!onPm} hitSlop={8} accessibilityLabel={s.responsible_pm_id ? `Responsible PM ${pmName || ''}` : 'Choose the responsible PM'}
         style={{ width: 24, height: 16.8, borderRadius: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: s.responsible_pm_id ? t.brand1 : base.line }}>

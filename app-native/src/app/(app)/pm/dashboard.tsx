@@ -103,8 +103,8 @@ export default function CompanyDashboard() {
       <Stack.Screen options={{ title: 'Company Dashboard' }} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 14, marginBottom: 14 }}>
         {stat('Live Projects', live.length, null, () => router.push('/sites'))}
-        {stat('Upcoming', count('upcoming'), null, () => router.push('/sites'))}
-        {stat('Closed', count('closed'), null, () => router.push('/sites'))}
+        {stat('Upcoming', count('upcoming'), null, () => router.push('/sites?tab=upcoming' as never))}
+        {stat('Closed', count('closed'), null, () => router.push('/sites?tab=closed' as never))}
       </View>
       {isLoading || !data ? <Muted>Loading…</Muted> : (
         <>

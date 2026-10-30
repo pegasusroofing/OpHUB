@@ -4,11 +4,12 @@
 // on each card the responsible PM (tap to set — locks once set; admins can
 // change it) and the status (tap: Active / Upcoming / Close / Delete).
 import { useQueryClient } from '@tanstack/react-query';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { HomePrompts } from '@/components/HomePrompts';
+import { askDate } from '@/components/DateField';
 import { HowTo } from '@/components/HowTo';
 import { OphIcon } from '@/components/OphIcon';
 import { ProjectCard } from '@/components/ProjectCard';
@@ -18,6 +19,7 @@ import { useTeam } from '@/data/admin';
 import { deleteSite, setResponsiblePm, setSiteStatus, siteIsEmpty } from '@/data/siteList';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
+import { supabase } from '@/lib/supabase';
 import { siteStatusKey } from '@/lib/rules/checkin';
 import { isFullManager } from '@/lib/roles';
 import type { Site } from '@/lib/types';
@@ -36,7 +38,8 @@ export default function Sites() {
   const full = isFullManager(me);
   const { data: team = [] } = useTeam(full ? me?.org_id : null);
   const [q, setQ] = useState('');
-  const [tab, setTab] = useState<'all' | 'live' | 'upcoming' | 'closed'>('all');
+  const { tab: tab0 } = useLocalSearchParams<{ tab?: 'all' | 'live' | 'upcoming' | 'closed' }>();
+  const [tab, setTab] = useState<'all' | 'live' | 'upcoming' | 'closed'>(tab0 || 'all');
   const [pmIds, setPmIds] = useState<string[]>([]);
   const [grp, setGrp] = useState<Record<string, boolean>>({ live: true, upcoming: false, closed: false });
   const sites = data ?? [];
@@ -126,7 +129,7 @@ export default function Sites() {
     if (!(await confirmAsk(`Set ${p.name} as the responsible project manager for this site? A project manager can only be selected once — are you sure?`, 'Set PM'))) return;
     toast((await setResponsiblePm(s.id, p.id)) ? 'Project manager set' : 'Could not save — try again.'); refresh();
   };
-  const card = (x: Site) => <ProjectCard s={x} pmName={pmName(x.responsible_pm_id)} onPm={() => void pmMenu(x)} onStatus={() => void statusMenu(x)} />;
+  const card = (x: Site) => <ProjectCard s={x} pmName={pmName(x.responsible_pm_id)} onPm={() => void pmMenu(x)} onStart={full ? async () => { const d = await askDate(`Start date for ${x.name}`); if (!d) return; if (!(await supabase.from('sites').update({ start_date: d } as never).eq('id', x.id).select('id')).data?.length) { toast('Could not save — try again.'); return; } toast('Start date updated'); void qc.invalidateQueries({ queryKey: ['sites'] }); } : undefined} onStatus={() => void statusMenu(x)} />;
   const group = (k: 'live' | 'upcoming' | 'closed', label: string) => lists[k].length ? (
     <View key={k}>
       {head(k, label, lists[k].length, !!grp[k], () => setGrp({ ...grp, [k]: !grp[k] }))}

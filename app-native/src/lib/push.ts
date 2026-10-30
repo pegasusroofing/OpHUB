@@ -13,6 +13,7 @@ import { supabase } from './supabase';
 import type { Profile } from './types';
 
 let tokenValue: string | null = null;
+let tokenListening = false;
 
 export async function registerPush(me: Profile | null): Promise<void> {
   try {
@@ -27,6 +28,10 @@ export async function registerPush(me: Profile | null): Promise<void> {
     const t = await Notifications.getDevicePushTokenAsync();
     tokenValue = typeof t.data === 'string' ? t.data : null;
     if (!tokenValue) return;
+    if (!tokenListening) {
+      tokenListening = true;
+      Notifications.addPushTokenListener((next) => { if (typeof next.data === 'string' && next.data !== tokenValue) { tokenValue = next.data; void supabase.rpc('claim_push_token', { p_token: next.data, p_platform: Platform.OS }); } });
+    }
     const { error } = await supabase.rpc('claim_push_token', { p_token: tokenValue, p_platform: Platform.OS });
     if (error) {
       await supabase.from('push_tokens').upsert(

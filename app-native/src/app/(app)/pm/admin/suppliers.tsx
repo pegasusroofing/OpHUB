@@ -10,7 +10,7 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SelectBox } from '@/components/SelectBox';
 import { confirmAsk, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted } from '@/components/ui';
-import { useSuppliers, type FullSupplier } from '@/data/materials';
+import { toggleFavourite, useSuppliers, type FullSupplier } from '@/data/materials';
 import { useAuth } from '@/lib/auth';
 import { type Branch } from '@/lib/rules/materials';
 import { supplierConflict, supplierImportRows } from '@/lib/rules/suppliers';
@@ -86,7 +86,8 @@ export default function Suppliers() {
           <Card key={s.id} style={{ padding: 0, overflow: 'hidden' }}>
             <Pressable onPress={() => setOpen(isOpen ? null : s.id)} style={{ flexDirection: 'row', alignItems: 'center', padding: 12 }}>
               <Text style={{ color: base.slate, width: 18 }}>{isOpen ? '▼' : '▶'}</Text>
-              <Text style={{ flex: 1, fontWeight: '800', color: base.ink }}>{s.name}{s.favourite ? ' ★' : ''}</Text>
+              <Text style={{ flex: 1, fontWeight: '800', color: base.ink }}>{s.name}</Text>
+              <Pressable hitSlop={8} accessibilityLabel={`Favourite ${s.name}`} style={{ paddingHorizontal: 8 }} onPress={async () => { const err = await toggleFavourite(me.org_id as string, s); if (err) toast(err); refresh(); }}><Text style={{ fontSize: 17, color: s.favourite ? '#D98A00' : base.slate }}>{s.favourite ? '★' : '☆'}</Text></Pressable>
               <Muted>{brs.length} branch{brs.length === 1 ? '' : 'es'}</Muted>
             </Pressable>
             {isOpen && (

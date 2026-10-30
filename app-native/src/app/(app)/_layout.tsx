@@ -5,6 +5,9 @@ import { useEffect } from 'react';
 import { Platform, Pressable, Text, useWindowDimensions, View } from 'react-native';
 
 import { OneDriveSaveBar } from '@/components/OneDriveSaveBar';
+import { useHub } from '@/data/hub';
+import { outstandingCount, useOutstanding } from '@/data/inbox';
+import { useSites } from '@/data/sites';
 import { OfflineBar } from '@/components/OfflineBar';
 import { AppBar } from '@/components/AppBar';
 import { DeskNav } from '@/components/DeskNav';
@@ -14,7 +17,7 @@ import { PolicyGate } from '@/components/PolicyGate';
 import { useHsPolicy } from '@/data/hsPolicy';
 import { useAuth } from '@/lib/auth';
 import { usePushTaps } from '@/lib/push';
-import { homeKind, isFinanceOnlyOrg, isFinanceUser } from '@/lib/roles';
+import { isManager, homeKind, isFinanceOnlyOrg, isFinanceUser } from '@/lib/roles';
 import { base, useTheme } from '@/theme/theme';
 
 const icon = (name: string) => function TabIcon({ color }: { color: unknown }) { return <OphIcon name={name} size={22} color={String(color)} />; };
@@ -34,6 +37,10 @@ export default function AppLayout() {
   // Inbox and My Dashboard (and HUB for site managers), as the current app's bottom bar.
   const extra = !!me && (me.role === 'site_manager' || ['client', 'subcontractor'].includes(homeKind(me, org)));
   const siteMgr = me?.role === 'site_manager';
+  const { data: allSites } = useSites();
+  const { data: hubBadge } = useHub(siteMgr ? me : null, allSites, '');
+  const { data: ownBadge } = useOutstanding(me && !siteMgr && !isManager(me) && hasSites ? allSites : undefined);
+  const inboxN = siteMgr ? (hubBadge?.items.length ?? 0) : outstandingCount(ownBadge);
   const { width } = useWindowDimensions();
   const desk = Platform.OS === 'web' && width >= 1100;
   // Compulsory H&S Policy: until it's signed, nothing but the signature page (640).
@@ -80,12 +87,12 @@ export default function AppLayout() {
       <Tabs.Screen name="onsite" options={{ ...hidden, title: 'On site now' }} />
       <Tabs.Screen name="dashboard" options={{ ...(extra && !desk ? { tabBarIcon: icon('reports') } : hidden), title: 'My Dashboard' }} />
       <Tabs.Screen name="driver" options={{ ...hidden, title: 'Driver', headerShown: false }} />
-      <Tabs.Screen name="inbox" options={{ ...(extra && !desk ? { tabBarIcon: icon('chat'), tabBarLabel: 'Inbox' } : hidden), title: 'Messages & tasks' }} />
+      <Tabs.Screen name="inbox" options={{ ...(extra && !desk ? { tabBarIcon: icon('chat'), tabBarLabel: 'Inbox', tabBarBadge: inboxN || undefined } : hidden), title: 'Messages & tasks' }} />
       <Tabs.Screen name="getting-started" options={{ ...hidden, title: 'Getting Started' }} />
       <Tabs.Screen name="signature" options={{ ...hidden, title: 'My Signature' }} />
       <Tabs.Screen name="search" options={{ ...hidden, title: 'Search' }} />
       <Tabs.Screen name="subform" options={{ ...hidden, title: 'Subcontractor form' }} />
-      <Tabs.Screen name="pm" options={{ ...(siteMgr && !desk ? { tabBarIcon: icon('bell'), tabBarLabel: 'HUB', href: '/pm/hub' as never } : hidden), title: 'Manager', headerShown: false }} />
+      <Tabs.Screen name="pm" options={{ ...(siteMgr && !desk ? { tabBarIcon: icon('bell'), tabBarLabel: 'HUB', href: '/pm/hub' as never, tabBarBadge: inboxN || undefined } : hidden), title: 'Manager', headerShown: false }} />
       <Tabs.Screen name="fin" options={{ ...hidden, title: 'Finance', headerShown: false }} />
     </Tabs>
     <OneDriveSaveBar />

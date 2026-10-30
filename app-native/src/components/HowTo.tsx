@@ -20,7 +20,7 @@ export function HowTo({ k }: { k: string }) {
   // Counted as shown the first time this page draws it in this session.
   const [first] = useState(() => !shownThisSession.has(k));
   useEffect(() => { shownThisSession.add(k); }, [k]);
-  if (!me || gone || !first || ['client', 'driver', 'superadmin'].includes(me.role)) return null;
+  if (!me || gone || !first || me._support || ['client', 'driver', 'superadmin'].includes(me.role)) return null;
   const done = howtoDismissed(me);
   const h = HOWTO[k], steps = h && (isManager(me) ? h.pm : h.op);
   if (!steps?.length || done.includes('*') || done.includes(k)) return null;
@@ -35,7 +35,7 @@ export function HowTo({ k }: { k: string }) {
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8 }}>
         <Text style={{ fontSize: 15 }}>💡</Text>
         <Pressable onPress={() => setOpen(!open)} style={{ flex: 1, marginLeft: 8 }}><Text style={{ fontWeight: '700', color: base.ink }}>How {h.title} works {open ? '▴' : '▾'}</Text></Pressable>
-        <Pressable onPress={() => void close(null)} hitSlop={8} accessibilityLabel="Close tip"><Text style={{ color: base.slate, fontSize: 16 }}>✕</Text></Pressable>
+        <Pressable onPress={() => void close(k)} hitSlop={8} accessibilityLabel="Close tip"><Text style={{ color: base.slate, fontSize: 16 }}>✕</Text></Pressable>
       </View>
       {open && (
         <View style={{ paddingHorizontal: 12, paddingBottom: 10 }}>

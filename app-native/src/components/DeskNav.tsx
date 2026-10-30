@@ -53,7 +53,7 @@ export function DeskNav() {
     : [
       ...(me.role === 'operative' ? [{ k: 'home', ic: 'home', lbl: 'Home', go: '/home' }] : []),
       { k: 'sites', ic: 'projects', lbl: 'My projects', go: '/sites' },
-      ...(me.role !== 'client' ? [{ k: 'inbox', ic: 'chat', lbl: 'Inbox', go: '/inbox' }, { k: 'dashboard', ic: 'tools', lbl: 'My Dashboard', go: '/dashboard' }] : []),
+      ...(me.role !== 'client' ? [{ k: 'inbox', ic: 'chat', lbl: 'Inbox', go: '/inbox', badge: hubN || undefined }, { k: 'dashboard', ic: 'tools', lbl: 'My Dashboard', go: '/dashboard' }] : []),
       { k: 'account', ic: 'gear', lbl: 'Settings', go: '/account' },
     ];
   // Which item is "on": the longest matching path.

@@ -51,12 +51,13 @@ export default function Branding() {
         </Pressable>
         {logo ? (
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
-            <View style={{ flex: 1 }}><Button busy={busy === 'logo'} title="Save New Logo" onPress={async () => {
+            <View style={{ flex: 1 }}><Button busy={busy === 'logo'} title={(org as { logo_path?: string | null }).logo_path ? 'Save New Logo' : 'Save & Continue'} onPress={async () => {
               setBusy('logo');
               try {
                 const up = await supabase.storage.from('org-logos').upload(`${me.org_id}/logo-${Date.now()}.jpg`, await (await fetch(logo)).arrayBuffer(), { contentType: 'image/jpeg' });
                 if (up.error) { toast('Logo upload failed — try again.'); return; }
-                if (!(await db.from('organizations').update({ logo_path: up.data.path } as never).eq('id', org.id).select('id')).data?.length) { toast('Could not save — try again.'); return; }
+                const setup = !(org as { logo_path?: string | null }).logo_path && HEX.test(c1.trim()) && HEX.test(c2.trim());
+                if (!(await db.from('organizations').update({ logo_path: up.data.path, ...(setup ? { color_primary: c1.trim(), color_secondary: c2.trim() } : {}) } as never).eq('id', org.id).select('id')).data?.length) { toast('Could not save — try again.'); return; }
                 await refresh(); setLogo(null); toast('Logo updated');
               } catch { toast('Something went wrong saving that — check your connection and try again.'); } finally { setBusy(null); }
             }} /></View>
