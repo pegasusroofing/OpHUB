@@ -46,7 +46,7 @@ export default function TodoList() {
   const [addOpen, setAddOpen] = useState(true);
   const [email, setEmail] = useState<null | { ids: string[] | null }>(null);
   if (!me || !site) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
-  if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
+  if (!isManager(me) && !site.repair_contract) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
   const refresh = () => void qc.invalidateQueries({ queryKey: ['todos', id] });
   const all = data?.todos ?? [];
   const list = all.filter((t) => (tab === 'live' ? !t.done : t.done));

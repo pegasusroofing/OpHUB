@@ -33,6 +33,16 @@ function useJobGuard(): { to: string; why?: string } | null {
   if (!onJob || !me) return null;
   if (!isManager(me) && site && siteStatusKey(site) === 'closed') return { to: '/sites', why: 'This job is closed.' };
   if (me.role === 'client' && page && page !== 'index' && !CLIENT_PAGES.includes(page)) return { to: `/sites/${id}` };
+  const sub = seg[at + 2] || '';
+  // 890 snagging: a client only gets the snag list (no variations, reports or templates by link).
+  if (me.role === 'client' && page === 'snagging' && sub && sub !== 'index' && sub !== 'list') return { to: `/sites/${id}/snagging/list` };
+  // 890 todos: managers only, except on a repair contract job (its home has a To Do List tile for everyone).
+  if (page === 'todos' && !isManager(me) && site && !site.repair_contract) return { to: `/sites/${id}`, why: 'Project managers and admins only.' };
+  // 890 mc: everything but Site Rules & Layout needs the job switched on as Main Contractor, and a tile hidden
+  // from operatives can't be opened by link (a subcontractor operative still reaches their own company's folder).
+  if (page === 'mc' && sub && sub !== 'index' && sub !== 'layout' && site && !site.acting_as_main_contractor) return { to: `/sites/${id}` };
+  const mcKey = page === 'mc' ? (sub === 'docs' ? seg[at + 3] || '' : ({ layout: 'site_layout', inductions: 'site_inductions' } as Record<string, string>)[sub] || sub) : '';
+  if (mcKey && mcKey !== 'index' && !isManager(me) && site && (site.mc_hidden_tiles ?? []).includes(mcKey) && !(mcKey === 'subcontractors' && subCo)) return { to: `/sites/${id}`, why: 'That page isn’t available on this job.' };
   const hsKey = page === 'ppe' ? 'hs_ppe' : page === 'hs' ? HS_KEY[seg[at + 2] || ''] : undefined;
   // 629 TILE_VIS_DEFAULTS: HAVS and LOLER start as site managers only.
   if (hsKey && site && !canSeeTile(site, hsKey, me.role, hsKey === 'hs_havs' || hsKey === 'hs_loler' ? ['site_manager'] : undefined)) return { to: `/sites/${id}/hs`, why: 'That isn’t available to you on this job.' };
