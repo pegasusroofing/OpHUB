@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import { Platform, Pressable, Text, useWindowDimensions, View } from 'react-native';
 
 import { OneDriveSaveBar } from '@/components/OneDriveSaveBar';
+import { OfflineBar } from '@/components/OfflineBar';
 import { AppBar } from '@/components/AppBar';
 import { DeskNav } from '@/components/DeskNav';
 import { OphIcon } from '@/components/OphIcon';
@@ -58,6 +59,7 @@ export default function AppLayout() {
   return (
     <View style={{ flex: 1 }}>
     <SupportBar />
+    <OfflineBar />
     <Tabs
       tabBar={desk ? () => <DeskNav /> : undefined}
       screenOptions={{
