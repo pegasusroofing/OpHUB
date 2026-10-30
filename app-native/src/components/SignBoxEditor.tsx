@@ -2,12 +2,13 @@
 // and lets a manager draw every box where someone signs — who it's for
 // (Operative 1…, Project Manager, Client 1…) and what goes in it (signature,
 // name, date). Tap boxes to select, drag to move, align, delete, and copy one
-// operative's row to the next with one tap. Web (office laptop) only: phones
-// can't show the PDF page to draw on.
+// operative's row to the next with one tap. The drawing layer is the same on the
+// laptop and phones; phones get the page as a picture (NativePdfPage).
 /* eslint-disable react-hooks/refs, react-hooks/immutability -- the canvas is drawn in an effect and the pointer handlers only run on touch, never during render */
-import { createElement as h, useEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
-import { Platform, Pressable, Text, View } from 'react-native';
+import { createElement as h, useEffect, useRef, useState } from 'react';
+import { PanResponder, Platform, Pressable, Text, View, type GestureResponderEvent } from 'react-native';
 
+import { NativePdfPage } from '@/components/NativePdfPage';
 import { useToast } from '@/components/toast';
 import { Button, Card, Muted } from '@/components/ui';
 import { fetchBytes } from '@/lib/pdf';
@@ -37,8 +38,24 @@ export function SignBoxEditor({ storagePath, initial, intro, saveLabel, onSave, 
   const [drag, setDrag] = useState<number[] | null>(null);
   const [moveBy, setMoveBy] = useState<{ group: number[]; dx: number; dy: number } | null>(null);
   const [busy, setBusy] = useState(false);
-  const [canvasEl, setCanvasEl] = useState<HTMLCanvasElement | null>(null), [ovEl, setOvEl] = useState<HTMLDivElement | null>(null);
-  const gesture = useRef<{ kind: 'draw' | 'move'; x0: number; y0: number; sx: number; sy: number; i?: number; group?: number[]; start?: number[][]; moved?: boolean } | null>(null);
+  const [canvasEl, setCanvasEl] = useState<HTMLCanvasElement | null>(null);
+  const [nativePages, setNativePages] = useState(0);
+  const size = useRef({ w: 1, h: 1 });
+  const start = useRef({ x: 0, y: 0 });
+  const handlers = useRef({ want: (_x: number, _y: number) => false as boolean, down: (_x: number, _y: number) => {}, move: (_x: number, _y: number, _dx: number, _dy: number) => {}, up: (_x: number, _y: number) => {}, cancel: () => {} });
+  const [pan] = useState(() => {
+    const clamp = (n: number) => Math.min(1, Math.max(0, n));
+    const at = (e: GestureResponderEvent) => ({ x: clamp(e.nativeEvent.locationX / size.current.w), y: clamp(e.nativeEvent.locationY / size.current.h) });
+    return PanResponder.create({
+      onStartShouldSetPanResponder: (e) => { const p = at(e); return handlers.current.want(p.x, p.y); },
+      onPanResponderTerminationRequest: () => false,
+      onPanResponderGrant: (e) => { start.current = at(e); handlers.current.down(start.current.x, start.current.y); },
+      onPanResponderMove: (_, g) => handlers.current.move(clamp(start.current.x + g.dx / size.current.w), clamp(start.current.y + g.dy / size.current.h), g.dx, g.dy),
+      onPanResponderRelease: (_, g) => handlers.current.up(clamp(start.current.x + g.dx / size.current.w), clamp(start.current.y + g.dy / size.current.h)),
+      onPanResponderTerminate: () => handlers.current.cancel(),
+    });
+  });
+  const gesture = useRef<{ kind: 'draw' | 'move'; x0: number; y0: number; i?: number; group?: number[]; start?: number[][]; moved?: boolean } | null>(null);
   const web = Platform.OS === 'web';
 
   useEffect(() => {
@@ -65,8 +82,7 @@ export function SignBoxEditor({ storagePath, initial, intro, saveLabel, onSave, 
     return () => { off = true; };
   }, [pdf, page, canvasEl]);
 
-  if (!web) return <Card><Muted>Setting signature boxes needs a bigger screen — open OpHUB on the office laptop (web) to mark the boxes. Everything else works here.</Muted></Card>;
-  const numPages = pdf?.numPages || 0;
+  const numPages = (web ? pdf?.numPages : nativePages) || 0;
   const on = opNum(who), cn = clientNum(who);
   const minePage = boxes.filter((b) => b.w === who && b.p === page);
   const selNow = sels.filter((i) => boxes[i] && boxes[i].p === page);
@@ -74,39 +90,34 @@ export function SignBoxEditor({ storagePath, initial, intro, saveLabel, onSave, 
   const pagesWith = Array.from(new Set(boxes.map((b) => b.p))).sort((a, b) => a - b);
   const pick = (w: string) => { if (opNum(who)) setLastOp(opNum(who)); if (clientNum(who)) setLastClient(clientNum(who)); setWho(w); setMode(null); setSels([]); };
   const goPage = (p: number) => { if (!numPages) return; const n = Math.min(numPages, Math.max(1, p)); if (n !== page) { setPage(n); setMode(null); setSels([]); } };
-  const frac = (e: RPointerEvent<HTMLDivElement>) => { const rc = ovEl!.getBoundingClientRect(); return [Math.min(1, Math.max(0, (e.clientX - rc.left) / rc.width)), Math.min(1, Math.max(0, (e.clientY - rc.top) / rc.height))]; };
+  // The box under a finger, top one first, with a little give for fingers.
+  const hitAt = (x: number, y: number) => { for (let i = boxes.length - 1; i >= 0; i--) { const b = boxes[i]; if (b.p === page && x >= b.r[0] - 0.012 && x <= b.r[0] + b.r[2] + 0.012 && y >= b.r[1] - 0.012 && y <= b.r[1] + b.r[3] + 0.012) return i; } return -1; };
   const doRepeat = (bx: SBox[], w: string, off: { dx: number; dy: number }) => {
     const r = repeatBoxes(bx, w, page, off);
     if (!r) { toast(opNum(w) >= MAX_OPS ? "That's the most operatives a document can have." : `That would put ${whoLabel(`op${opNum(w) + 1}`)}'s boxes off the page. Draw theirs by hand, or go to the next page.`); setMode(null); return; }
     setBoxes(r.boxes); setWho(r.next); setLastOp(opNum(r.next)); setSels([]); setMode(null);
   };
-  const down = (e: RPointerEvent<HTMLDivElement>) => {
-    const [x, y] = frac(e);
+  const down = (x: number, y: number) => {
     if (mode === 'repeat') {
       const off = repeatOffset(minePage, x, y);
       if (!off) { toast("Tap on the next person's space, not the same one."); return; }
       setOffset(off); doRepeat(boxes, who, off); return;
     }
-    if (mode) { e.preventDefault(); gesture.current = { kind: 'draw', x0: x, y0: y, sx: e.clientX, sy: e.clientY }; try { ovEl?.setPointerCapture(e.pointerId); } catch { /* fine */ } return; }
-    const el = (e.target as HTMLElement).closest?.('[data-i]'); if (!el) return;
-    const i = parseInt(el.getAttribute('data-i') || '-1', 10); if (!boxes[i]) return;
-    e.preventDefault();
+    if (mode) { gesture.current = { kind: 'draw', x0: x, y0: y }; return; }
+    const i = hitAt(x, y); if (i < 0) return;
     const group = selNow.includes(i) ? selNow.slice() : [i];
-    gesture.current = { kind: 'move', x0: x, y0: y, sx: e.clientX, sy: e.clientY, i, group, start: group.map((k) => boxes[k].r.slice()) };
-    try { ovEl?.setPointerCapture(e.pointerId); } catch { /* fine */ }
+    gesture.current = { kind: 'move', x0: x, y0: y, i, group, start: group.map((k) => boxes[k].r.slice()) };
   };
-  const move = (e: RPointerEvent<HTMLDivElement>) => {
+  const move = (x: number, y: number, dx: number, dy: number) => {
     const g = gesture.current; if (!g) return;
-    const [x, y] = frac(e);
     if (g.kind === 'draw') { setDrag([Math.min(g.x0, x), Math.min(g.y0, y), Math.abs(x - g.x0), Math.abs(y - g.y0)]); return; }
-    if (!g.moved && Math.abs(e.clientX - g.sx) < 5 && Math.abs(e.clientY - g.sy) < 5) return;
+    if (!g.moved && Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
     g.moved = true;
     const st = g.start!, minX = Math.min(...st.map((r) => r[0])), minY = Math.min(...st.map((r) => r[1])), maxX = Math.max(...st.map((r) => r[0] + r[2])), maxY = Math.max(...st.map((r) => r[1] + r[3]));
     setMoveBy({ group: g.group!, dx: Math.max(-minX, Math.min(1 - maxX, x - g.x0)), dy: Math.max(-minY, Math.min(1 - maxY, y - g.y0)) });
   };
-  const up = (e: RPointerEvent<HTMLDivElement>) => {
+  const up = (x: number, y: number) => {
     const g = gesture.current; gesture.current = null; if (!g) return;
-    const [x, y] = frac(e);
     if (g.kind === 'draw') {
       setDrag(null);
       const w = Math.abs(x - g.x0), hh = Math.abs(y - g.y0);
@@ -127,6 +138,7 @@ export function SignBoxEditor({ storagePath, initial, intro, saveLabel, onSave, 
       else { setSels(selNow.concat([i])); if (opNum(b.w)) setLastOp(opNum(b.w)); if (clientNum(b.w)) setLastClient(clientNum(b.w)); setWho(b.w); }
     }
   };
+  handlers.current = { want: (x, y) => !!mode || hitAt(x, y) >= 0, down, move, up, cancel: () => { gesture.current = null; setDrag(null); setMoveBy(null); } };
   const chip = (active: boolean, color: string, label: string, onPress: () => void) => (
     <Pressable onPress={onPress} style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, borderWidth: 1.5, borderColor: color, backgroundColor: active ? color : 'transparent' }}><Text style={{ fontWeight: '700', fontSize: 12.5, color: active ? '#fff' : color }}>{label}</Text></Pressable>
   );
@@ -182,18 +194,25 @@ export function SignBoxEditor({ storagePath, initial, intro, saveLabel, onSave, 
           </View>
         ) : pageCount > 1 && !mode ? <Pressable onPress={() => setSels(boxes.map((b, i) => (b.p === page ? i : -1)).filter((i) => i >= 0))} style={{ marginTop: 8 }}><Text style={{ color: base.blue }}>Select all {pageCount} boxes on this page</Text></Pressable> : null}
       </Card>
-      {h('div', { style: { position: 'relative', margin: '10px 0', border: `1px solid ${base.line}`, borderRadius: radius.row, overflow: 'hidden', background: '#fff' } },
-        h('canvas', { ref: setCanvasEl, style: { display: 'block', width: '100%', height: 'auto' } }),
-        h('div', { ref: setOvEl, onPointerDown: down, onPointerMove: move, onPointerUp: up, onPointerCancel: up, style: { position: 'absolute', inset: 0, touchAction: mode ? 'none' : 'auto', cursor: mode ? 'crosshair' : 'default' } },
-          ...boxes.map((b, i) => {
+      <View style={{ position: 'relative', marginVertical: 10, borderWidth: 1, borderColor: base.line, borderRadius: radius.row, overflow: 'hidden', backgroundColor: '#fff' }}>
+        {web
+          ? h('canvas', { ref: setCanvasEl, style: { display: 'block', width: '100%', height: 'auto' } })
+          : <NativePdfPage url={publicUrl('rams-docs', storagePath)} page={page} onPages={(n) => { setNativePages(n); setPage((p) => (p > n ? 1 : p)); }} onError={setErr} />}
+        <View {...pan.panHandlers} testID="sign-overlay" onLayout={(e) => { size.current = { w: e.nativeEvent.layout.width || 1, h: e.nativeEvent.layout.height || 1 }; }}
+          style={[{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }, web ? ({ touchAction: mode || selNow.length ? 'none' : 'auto', cursor: mode ? 'crosshair' : 'default', userSelect: 'none' } as never) : null]}>
+          {boxes.map((b, i) => {
             if (b.p !== page) return null;
             const color = whoColor(b.w), sel = selNow.includes(i), first = selNow[0] === i, mine = b.w === who;
             const mv = moveBy && moveBy.group.includes(i) ? moveBy : null;
-            return h('div', { key: i, 'data-i': i, style: { touchAction: 'none', position: 'absolute', left: `${(b.r[0] + (mv?.dx || 0)) * 100}%`, top: `${(b.r[1] + (mv?.dy || 0)) * 100}%`, width: `${b.r[2] * 100}%`, height: `${b.r[3] * 100}%`, border: `${first ? 4 : sel ? 2.5 : mine ? 2 : 1.5}px ${b.t === 'sig' ? 'solid' : 'dashed'} ${sel ? '#111' : color}`, background: `${color}${mine ? '38' : '1c'}`, borderRadius: 3, boxSizing: 'border-box', pointerEvents: mode ? 'none' : 'auto', cursor: sel ? 'move' : 'pointer', fontSize: 9, fontWeight: 800, color, lineHeight: 1.05, padding: '1px 2px', overflow: 'hidden', whiteSpace: 'nowrap', userSelect: 'none' } }, `${whoLabel(b.w, true)} ${b.t === 'sig' ? 'sign' : b.t}`);
-          }),
-          drag ? h('div', { style: { position: 'absolute', left: `${drag[0] * 100}%`, top: `${drag[1] * 100}%`, width: `${drag[2] * 100}%`, height: `${drag[3] * 100}%`, border: '2px solid #111', background: 'rgba(17,17,17,.12)', borderRadius: 3, pointerEvents: 'none' } }) : null,
-        ),
-      )}
+            return (
+              <View key={i} pointerEvents="none" style={{ position: 'absolute', left: `${(b.r[0] + (mv?.dx || 0)) * 100}%`, top: `${(b.r[1] + (mv?.dy || 0)) * 100}%`, width: `${b.r[2] * 100}%`, height: `${b.r[3] * 100}%`, borderWidth: first ? 4 : sel ? 2.5 : mine ? 2 : 1.5, borderStyle: b.t === 'sig' ? 'solid' : 'dashed', borderColor: sel ? '#111' : color, backgroundColor: `${color}${mine ? '38' : '1c'}`, borderRadius: 3, paddingHorizontal: 2, overflow: 'hidden' }}>
+                <Text numberOfLines={1} style={{ fontSize: 9, fontWeight: '800', color, lineHeight: 10 }}>{`${whoLabel(b.w, true)} ${b.t === 'sig' ? 'sign' : b.t}`}</Text>
+              </View>
+            );
+          })}
+          {drag ? <View pointerEvents="none" style={{ position: 'absolute', left: `${drag[0] * 100}%`, top: `${drag[1] * 100}%`, width: `${drag[2] * 100}%`, height: `${drag[3] * 100}%`, borderWidth: 2, borderColor: '#111', backgroundColor: 'rgba(17,17,17,.12)', borderRadius: 3 }} /> : null}
+        </View>
+      </View>
       <Button busy={busy} title={saveLabel} onPress={async () => { setBusy(true); try { await onSave(boxes, numPages); } finally { setBusy(false); } }} />
       {extra?.({ boxes, numPages, setBoxes: (b) => { setBoxes(b); setSels([]); setMode(null); if (b[0]) setPage(b[0].p); }, setPage })}
     </View>
