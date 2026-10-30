@@ -86,10 +86,18 @@ export function useCollectionsOpenCount(siteId: string | undefined, enabled: boo
   });
 }
 
-export async function addMaterial(me: Profile, siteId: string, f: { item: string; qty: string; requiredBy: string | null; sub: SubAddr | null; shopItemId?: string | null }): Promise<boolean> {
+/** Open repair jobs on a repair-contract job, for "Which repair job?" on a material request (727 loadRepairPick). */
+export const useRepairPick = (siteId: string | undefined, enabled: boolean) => useQuery({
+  queryKey: ['repairPick', siteId], enabled: !!siteId && enabled,
+  queryFn: async () => (((await db.from('repair_jobs').select('id,job_number,address').eq('site_id', siteId as string).eq('closed', false).order('created_at', { ascending: false }).limit(2000)).data as { id: string; job_number: string | null; address: string | null }[] | null) ?? [])
+    .map((j) => ({ id: j.id, label: [j.job_number, j.address].filter(Boolean).join(' — ') || 'Repair job' })),
+});
+export async function addMaterial(me: Profile, siteId: string, f: { item: string; qty: string; requiredBy: string | null; sub: SubAddr | null; shopItemId?: string | null; repairJob?: { id: string; label: string } | null }): Promise<boolean> {
   const r = await db.from('materials').insert({
     site_id: siteId, item: f.item, qty: f.qty || '1', required_by_date: f.requiredBy, requested_by: me.id, status: 'pending',
     sub_site_id: f.sub?.id ?? null, sub_site_label: f.sub ? subAddrLabel(f.sub) : null, ...(f.shopItemId ? { shop_item_id: f.shopItemId } : {}),
+    // 727 readRepairJob: Finance books the cost to that repair job.
+    ...(f.repairJob ? { repair_job_id: f.repairJob.id, sub_site_label: f.repairJob.label } : {}),
   } as never);
   if (r.error) return false;
   tellManagers(me, siteId, 'material_request', `${me.name} requested material: ${f.item} (qty ${f.qty || '1'})${f.requiredBy ? ` — required by ${f.requiredBy}` : ''}`);

@@ -19,7 +19,7 @@ import { Button, Card, Empty, FilterRow, Muted, SectionTitle } from '@/component
 import { nameOf, usePeople } from '@/data/hs';
 import {
   addMaterial, cancelMaterial, deleteMaterials, importMaterials, editMaterial, groupMaterials, poLock, reopenMaterials,
-  reemailOrder, setMaterialsStatus, yardCanEdit, ungroupMaterials, useYardIssues, useCollectionsOpenCount, useMaterialRequests, useSubAddresses, useSuppliers, type MatTab, type SubAddr,
+  reemailOrder, useRepairPick, setMaterialsStatus, yardCanEdit, ungroupMaterials, useYardIssues, useCollectionsOpenCount, useMaterialRequests, useSubAddresses, useSuppliers, type MatTab, type SubAddr,
 } from '@/data/materials';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
@@ -40,6 +40,7 @@ export default function MaterialRequests() {
   const { data: site } = useSite(id);
   const mgr = !!me && isManager(me);
   const fin = isFinanceUser(me, org);
+  const { data: repairJobs } = useRepairPick(id, fin && !!site?.repair_contract);
   const [tab, setTab] = useState<MatTab>(mgr ? 'pending' : 'live');
   const { data: list, isLoading, refetch, isRefetching } = useMaterialRequests(id, tab);
   const { data: collectN } = useCollectionsOpenCount(id, mgr);
@@ -301,7 +302,7 @@ export default function MaterialRequests() {
         toast('Request updated'); setEditing(null); refresh();
       }} />}
       {(tab === 'live' || tab === 'pending') && !editing && (
-        <RequestBox siteId={id} shop={fin && !!org?.has_finance} autoFocus={add === '1'} addrs={site.multi_site ? addrs ?? [] : null} busy={busy} extra={me && isFullManager(me) ? importBtn : null} onSubmit={async (f) => {
+        <RequestBox siteId={id} repairJobs={fin && site.repair_contract ? repairJobs ?? [] : null} shop={fin && !!org?.has_finance} autoFocus={add === '1'} addrs={site.multi_site ? addrs ?? [] : null} busy={busy} extra={me && isFullManager(me) ? importBtn : null} onSubmit={async (f) => {
           setBusy(true); const ok = await addMaterial(me, id, f); setBusy(false);
           if (!ok) { toast('Could not save — try again.'); return false; }
           toast('Request added'); refresh(); return true;
@@ -321,7 +322,7 @@ function Chip({ text, tone }: { text: string; tone?: 'due' }) {
   return <Text style={{ fontSize: 11.5, color: tone === 'due' ? base.warn : base.slate, backgroundColor: base.paper, borderRadius: 8, paddingHorizontal: 7, paddingVertical: 2, overflow: 'hidden' }}>{text}</Text>;
 }
 
-function RequestBox({ siteId, shop, addrs, busy, autoFocus, extra, onSubmit }: { siteId: string; shop: boolean; addrs: SubAddr[] | null; busy: boolean; autoFocus: boolean; extra?: ReactNode; onSubmit: (f: { item: string; qty: string; requiredBy: string | null; sub: SubAddr | null; shopItemId?: string | null }) => Promise<boolean> }) {
+function RequestBox({ siteId, repairJobs, shop, addrs, busy, autoFocus, extra, onSubmit }: { siteId: string; repairJobs: { id: string; label: string }[] | null; shop: boolean; addrs: SubAddr[] | null; busy: boolean; autoFocus: boolean; extra?: ReactNode; onSubmit: (f: { repairJob?: { id: string; label: string } | null; item: string; qty: string; requiredBy: string | null; sub: SubAddr | null; shopItemId?: string | null }) => Promise<boolean> }) {
   const toast = useToast();
   const [item, setItem] = useState('');
   const [qty, setQty] = useState('');
@@ -329,6 +330,7 @@ function RequestBox({ siteId, shop, addrs, busy, autoFocus, extra, onSubmit }: {
   const [sub, setSub] = useState<SubAddr | null>(null);
   const [picking, setPicking] = useState(false);
   const [pick, setPick] = useState<ShopItem | null>(null);
+  const [rj, setRj] = useState<{ id: string; label: string } | null>(null);
   // The picked quote item counts only while the wording is left as it was.
   const shopItemId = pick && pick.description.trim() === item.trim() ? pick.id : null;
   return (
@@ -341,6 +343,14 @@ function RequestBox({ siteId, shop, addrs, busy, autoFocus, extra, onSubmit }: {
           {addrs.length ? addrs.map((a) => (
             <Pressable key={a.id} onPress={() => setSub(a)}><Text style={{ paddingVertical: 6, color: base.ink, fontWeight: sub?.id === a.id ? '700' : '400' }}>{sub?.id === a.id ? '◉' : '○'} {subAddrLabel(a)}</Text></Pressable>
           )) : <Muted>No addresses added to this job yet — add them in the job&apos;s Settings › Multi-Site.</Muted>}
+        </View>
+      )}
+      {!!repairJobs?.length && (
+        <View style={{ marginBottom: 8 }}>
+          <Muted style={{ fontWeight: '700', marginBottom: 4 }}>Which repair job? (optional)</Muted>
+          <Pressable onPress={async () => { const k = await chooseAction('Which repair job?', [{ key: '', label: '— General / not for one job —' }, ...repairJobs.map((j) => ({ key: j.id, label: j.label }))]); if (k === null || k === undefined) return; setRj(repairJobs.find((j) => j.id === k) ?? null); }}>
+            <Text style={{ paddingVertical: 6, color: base.ink }}>{rj ? rj.label : '— General / not for one job —'} ▾</Text>
+          </Pressable>
         </View>
       )}
       <TextInput autoFocus={autoFocus} value={item} onChangeText={setItem} placeholder="Item" style={[box, { fontSize: 16 }]} />
@@ -366,7 +376,7 @@ function RequestBox({ siteId, shop, addrs, busy, autoFocus, extra, onSubmit }: {
         if (!item.trim()) return;
         if (addrs && addrs.length && !sub) { toast('Choose which address on this job.'); return; }
         const d = by || null;
-        if (await onSubmit({ item: item.trim(), qty: qty.trim(), requiredBy: d, sub, shopItemId })) { setItem(''); setQty(''); setBy(''); setSub(null); setPick(null); }
+        if (await onSubmit({ item: item.trim(), qty: qty.trim(), requiredBy: d, sub, shopItemId, repairJob: rj })) { setItem(''); setQty(''); setBy(''); setSub(null); setPick(null); setRj(null); }
       }} />
       {extra}
     </Card>
