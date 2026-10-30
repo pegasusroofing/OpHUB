@@ -10,7 +10,7 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { FinChip } from '@/components/FinNav';
 import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
-import { Button, Card, Empty, Muted, Toggle } from '@/components/ui';
+import { Button, Card, Check, Empty, Muted, Toggle } from '@/components/ui';
 import {
   addHavsEntryFor, addHavsTool, closeHavsWeek, deleteHavsEntry, editHavsEntry, reopenHavsWeek, setSiteHavsTool, useHavsCompleted, useHavsManagerWeek, type HavsOp, type HavsTool,
 } from '@/data/havs';
@@ -44,6 +44,7 @@ export function HavsManager({ site }: { site: Site }) {
   useFlushOnLeave(flushRef);
   const [, force] = useState(0);
   const [busy, setBusy] = useState<string | null>(null);
+  const [pick, setPick] = useState<string[] | null>(null); // operatives ticked for Export Selected (660)
   // "+ Add operative" for the odd person not assigned to this job (660 extraUserIds), per day and tool.
   const [extra, setExtra] = useState<Record<string, string[]>>({});
   const { data: everyone } = usePeople();
@@ -207,14 +208,20 @@ export function HavsManager({ site }: { site: Site }) {
                   toast(ok ? 'Week saved & closed — inputs locked' : 'Could not close the week — try again.'); refresh();
                 }} />
               )}
+              {pick && (
+                <Card style={{ marginTop: space.m }}>
+                  <Muted style={{ marginBottom: 6 }}>Tick the operatives to include, then export.</Muted>
+                  {data.ops.map((o) => <Check key={o.id} label={o.name} value={pick.includes(o.id)} onChange={(v) => setPick(v ? [...pick, o.id] : pick.filter((x) => x !== o.id))} />)}
+                  <Button busy={busy === 'sel'} disabled={!pick.length} title={`Export Selected (${pick.length})`} onPress={async () => {
+                    const ops = data.ops.filter((o) => pick.includes(o.id)).sort((x, y) => x.name.localeCompare(y.name)); setBusy('sel');
+                    try { const b = await buildHavsPdf(site, org, days, weekLabel(days), ops, ops.length === 1 ? ops[0].name : 'Selected Operatives'); if (!(await deliverPdf(b.bytes, b.filename))) toast('Could not save the PDF.'); } catch { toast('Export failed — try again.'); } finally { setBusy(null); }
+                  }} />
+                </Card>
+              )}
               <View style={{ flexDirection: 'row', gap: 8, marginTop: space.m }}>
                 <View style={{ flex: 1 }}><Button kind="ghost" busy={busy === 'wp'} title="Export All" onPress={() => void pdf('pdf', days, 'wp')} /></View>
                 <View style={{ flex: 1 }}><Button kind="ghost" busy={busy === 'we'} title="Email All" onPress={() => void pdf('email', days, 'we')} /></View>
-                <View style={{ flex: 1 }}><Button kind="ghost" title="One operative" onPress={async () => {
-                  const id = await chooseAction('Export for…', data.ops.map((o) => ({ key: o.id, label: o.name }))); if (!id) return;
-                  const op = opById[id]; setBusy('one');
-                  try { const b = await buildHavsPdf(site, org, days, weekLabel(days), [op], op.name); if (!(await deliverPdf(b.bytes, b.filename))) toast('Could not save the PDF.'); } catch { toast('Export failed — try again.'); } finally { setBusy(null); }
-                }} /></View>
+                <View style={{ flex: 1 }}><Button kind={pick ? 'primary' : 'ghost'} title={pick ? 'Cancel' : 'Choose…'} onPress={() => setPick(pick ? null : [])} /></View>
               </View>
             </>
           )}

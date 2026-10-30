@@ -12,12 +12,12 @@ import { deliverPdf } from '@/lib/pdf';
 import { buildPuwerPdf, emailPuwerPdf } from '@/lib/puwerPdf';
 import { supabase } from '@/lib/supabase';
 
-export function PuwerPdfButtons({ siteId, weekStart, one }: { siteId: string; weekStart: string; one?: { id: string; name: string } }) {
+export function PuwerPdfButtons({ siteId, weekStart, one, picked = [] }: { siteId: string; weekStart: string; one?: { id: string; name: string }; picked?: { id: string; name: string }[] }) {
   const { org } = useAuth();
   const toast = useToast();
   const { data: site } = useSite(siteId);
   const { data: people } = usePeople();
-  const [busy, setBusy] = useState<'pdf' | 'email' | null>(null);
+  const [busy, setBusy] = useState<'pdf' | 'email' | 'sel' | null>(null);
   if (!site) return null;
   const run = async (k: 'pdf' | 'email') => {
     let cc: string | null = null;
@@ -35,10 +35,22 @@ export function PuwerPdfButtons({ siteId, weekStart, one }: { siteId: string; we
       else toast(await emailPuwerPdf(siteId, b.bytes, b.filename, b.weekLabel, one ? one.name : 'All Operatives', cc));
     } catch { toast(k === 'pdf' ? 'Export failed — try again.' : 'Email failed — try again.'); } finally { setBusy(null); }
   };
+  const exportPicked = async () => {
+    // 680 exportPuwerSelected: the ticked operatives in one PDF.
+    setBusy('sel'); toast('Building PDF…');
+    try {
+      const ops = [...picked].sort((x, y) => x.name.localeCompare(y.name));
+      const b = await buildPuwerPdf(site, org, weekStart, ops, ops.length === 1 ? ops[0].name : 'Selected Operatives', (u) => nameOf(people, u));
+      if (!(await deliverPdf(b.bytes, b.filename))) toast('Could not save the PDF.');
+    } catch { toast('Export failed — try again.'); } finally { setBusy(null); }
+  };
   return (
+    <View>
+    {!one && picked.length > 0 && <View style={{ marginTop: 10 }}><Button busy={busy === 'sel'} title={`Export Selected (${picked.length})`} onPress={() => void exportPicked()} /></View>}
     <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
       <View style={{ flex: 1 }}><Button kind="ghost" busy={busy === 'pdf'} title={one ? 'Export PDF' : 'Export All'} onPress={() => void run('pdf')} /></View>
       <View style={{ flex: 1 }}><Button kind="ghost" busy={busy === 'email'} title={one ? 'Email PUWER Report' : 'Email All'} onPress={() => void run('email')} /></View>
+    </View>
     </View>
   );
 }

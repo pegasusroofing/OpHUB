@@ -3,6 +3,7 @@
 // inspect on their behalf; Mark This Week As Complete / Reopen.
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack } from 'expo-router';
+import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { PuwerPdfButtons } from '@/components/PuwerPdfButtons';
@@ -23,6 +24,7 @@ export function PuwerRoster({ siteId, offset, setOffset }: { siteId: string; off
   const ws = localISODate(days[0]);
   const { data, isLoading } = usePuwerRoster(siteId, ws, true);
   const { data: people } = usePeople();
+  const [sel, setSel] = useState<string[]>([]); // ticked for Export Selected (680)
   if (!me) return null;
   const refresh = () => void qc.invalidateQueries({ queryKey: ['puwerRoster', siteId] });
 
@@ -41,6 +43,7 @@ export function PuwerRoster({ siteId, offset, setOffset }: { siteId: string; off
         return (
           <Pressable key={op.id} onPress={() => router.push(`/sites/${siteId}/hs/puwer?user=${op.id}` as never)}
             style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 8, backgroundColor: base.card }}>
+            <Pressable hitSlop={8} accessibilityLabel={`Tick ${op.name}`} onPress={() => setSel(sel.includes(op.id) ? sel.filter((x) => x !== op.id) : [...sel, op.id])}><Text style={{ fontSize: 18 }}>{sel.includes(op.id) ? '☑' : '☐'}</Text></Pressable>
             <View style={{ flex: 1 }}>
               <Text style={{ fontWeight: '700', color: base.ink }}>{op.name}{op.id === me.id ? ' (you)' : ''}</Text>
               <Muted>{done ? 'Inspection recorded' : 'Not yet inspected'} · {n} tool{n === 1 ? '' : 's'}</Muted>
@@ -55,7 +58,7 @@ export function PuwerRoster({ siteId, offset, setOffset }: { siteId: string; off
         }} />
       )}
       {data?.completion && <Button kind="ghost" title="Reopen This Week" onPress={async () => { if (await reopenPuwerWeek(data.completion!.id)) { toast('Week reopened'); refresh(); } }} />}
-      <PuwerPdfButtons siteId={siteId} weekStart={ws} />
+      <PuwerPdfButtons siteId={siteId} weekStart={ws} picked={(data?.ops ?? []).filter((o) => sel.includes(o.id))} />
     </ScrollView>
   );
 }
