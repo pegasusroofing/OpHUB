@@ -12,7 +12,7 @@ import { CoshhFolderPicker } from '@/components/CoshhFolderPicker';
 import { chooseAction, confirmAsk, promptText, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
-import { alsoIn, deleteFile, deleteFolder, deleteProductFull, moveFiles, newProduct, packPdf, productsFromSds, removeDuplicates, renameFile, renameFolder, saveAssessment, uploadFiles, useAssessMap, useFolderView, useProducts, createFolder } from '@/data/coshhLib';
+import { alsoIn, wipeLibrary, deleteFile, deleteFolder, deleteProductFull, moveFiles, newProduct, packPdf, productsFromSds, removeDuplicates, renameFile, renameFolder, saveAssessment, uploadFiles, useAssessMap, useFolderView, useProducts, createFolder } from '@/data/coshhLib';
 import { openDocLink } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
 import { COSHH_PICTO_IMG } from '@/lib/coshhPictoImages';
@@ -101,6 +101,18 @@ function Folders({ setPick }: { setPick: (p: Pick | null) => void }) {
         ].filter(Boolean).join('\n\n') || 'Nothing was added.');
       }} />
       <Muted style={{ marginTop: 6 }}>Pick several Safety Data Sheets at once: each becomes a product with its own COSHH assessment in this folder. On the office laptop the codes are read off each sheet for you — always check them.</Muted>
+      {!folderId && me.role === 'admin' && !!(data?.subfolders.length || data?.files.length) && (
+        <View style={{ marginTop: 18 }}>
+          <Button kind="ghost" title="🗑 Delete all folders and documents" onPress={async () => {
+            if (!(await confirmAsk("Delete EVERY folder and document in the COSHH assessment library? Products stay. This can't be undone.", 'Delete all'))) return;
+            if (!(await confirmAsk('Are you sure? Jobs keep the COSHH already added to them.', 'Delete all'))) return;
+            setBusy('Deleting…'); setSel([]);
+            const ok = await wipeLibrary(me.org_id as string);
+            setBusy(''); refresh();
+            toast(ok ? 'COSHH assessment library cleared' : 'Some items could not be deleted — try again.');
+          }} />
+        </View>
+      )}
     </View>
   );
 }

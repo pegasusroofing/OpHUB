@@ -85,6 +85,21 @@ export async function createFolder(me: Me, parentId: string | null, name: string
 export const renameFolder = async (id: string, name: string) => !(await db.from('coshh_library_folders').update({ name } as never).eq('id', id)).error;
 export const deleteFolder = async (id: string) => !(await db.from('coshh_library_folders').delete().eq('id', id)).error;
 export const renameFile = async (id: string, name: string) => !(await db.from('coshh_library_files').update({ name } as never).eq('id', id)).error;
+/** 820 coshhLibWipe: every folder and document in the company's assessment library (products stay;
+ *  jobs keep the COSHH already added to them). Deepest folders go first so parents are empty. */
+export async function wipeLibrary(orgId: string): Promise<boolean> {
+  const [fr, dr] = await Promise.all([db.from('coshh_library_files').select('id,storage_path').eq('org_id', orgId), db.from('coshh_library_folders').select('id,parent_id').eq('org_id', orgId)]);
+  if (fr.error || dr.error) return false;
+  const files = (fr.data as { id: string; storage_path: string }[] | null) ?? [], folders = (dr.data as { id: string; parent_id: string | null }[] | null) ?? [];
+  let ok = true;
+  for (const f of files) {
+    if ((await db.from('coshh_library_files').delete().eq('id', f.id)).error) { ok = false; continue; }
+    try { await supabase.storage.from('coshh-library').remove([f.storage_path]); } catch { /* non-fatal */ }
+  }
+  const depth = (id: string) => { let d = 0, cur = folders.find((x) => x.id === id); while (cur?.parent_id && d < 20) { d++; const p = cur.parent_id; cur = folders.find((x) => x.id === p); } return d; };
+  for (const f of [...folders].sort((a, b) => depth(b.id) - depth(a.id))) if ((await db.from('coshh_library_folders').delete().eq('id', f.id)).error) ok = false;
+  return ok;
+}
 /** Deletes a library entry; the PDF itself goes only once no folder lists it any more. */
 export async function deleteFile(f: { id: string; storage_path: string }): Promise<boolean> {
   if ((await db.from('coshh_library_files').delete().eq('id', f.id)).error) return false;
