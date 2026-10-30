@@ -6,9 +6,9 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, TextInput } from 'react-native';
 
-import { showAlert, useToast } from '@/components/toast';
+import { promptText, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Check, Empty, Muted } from '@/components/ui';
-import { issueToSite, useProducts } from '@/data/coshhLib';
+import { issueToSite, newProduct, useProducts } from '@/data/coshhLib';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { isFullManager, isManager } from '@/lib/roles';
@@ -41,7 +41,12 @@ export default function CoshhNew() {
         {isLoading ? <Muted>Loading…</Muted> : shown.length ? shown.map((it) => <Check key={it.id} label={`${it.title}${it.data.manufacturer ? ` · ${it.data.manufacturer}` : ''}${it.data.sdsPath ? '' : ' · no data sheet'}`} value={sel.includes(it.id)} onChange={(v) => setSel(v ? [...sel, it.id] : sel.filter((x) => x !== it.id))} />)
           : <Empty>{lib.length ? 'Nothing matches.' : 'No products in the COSHH Library yet.'}</Empty>}
       </Card>
-      {isFullManager(me) && <Button kind="ghost" title="+ Product not listed? Add it in the COSHH Library" onPress={() => router.push('/pm/admin/coshh' as never)} />}
+      {isFullManager(me) && <Button kind="ghost" title="+ Product not listed? Add it in the COSHH Library" onPress={async () => {
+        const n = (await promptText('New product name', ''))?.trim(); if (!n) return;
+        const pid = await newProduct(me, n); if (!pid) { toast('Could not create it — try again.'); return; }
+        void qc.invalidateQueries({ queryKey: ['coshhProducts'] });
+        router.push(`/pm/admin/coshh/${pid}` as never);
+      }} />}
       {lib.length > 0 && (
         <>
           <Card>

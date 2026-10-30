@@ -16,7 +16,7 @@ import { type Branch } from '@/lib/rules/materials';
 import { supplierConflict, supplierImportRows } from '@/lib/rules/suppliers';
 import { csvRows, readXlsx } from '@/lib/rules/xlsxRead';
 import * as DocumentPicker from 'expo-document-picker';
-import { isFinanceUser, isFullManager } from '@/lib/roles';
+import { isFinanceUser, isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
 import { base, page, radius, space } from '@/theme/theme';
 
@@ -57,13 +57,13 @@ export default function Suppliers() {
   const fin = isFinanceUser(me, org);
   const { data: dir = [], refetch: refetchDir } = useQuery({ queryKey: ['finDirSups', me?.org_id], enabled: !!me && fin, queryFn: async () => ((await db.from('fin_suppliers').select('id,name,supplier_id').eq('org_id', me?.org_id as string).order('name')).data as { id: string; name: string; supplier_id: string | null }[] | null) ?? [] });
   const [open, setOpen] = useState<string | null>(null);
+  const [gen, setGen] = useState(0);
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState(''), [email, setEmail] = useState('');
   if (!me) return null;
-  if (!isFullManager(me)) return <Muted style={{ padding: space.l }}>Project Managers and admins only.</Muted>;
+  if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
   const sups = list as Sup[];
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['suppliers'] }); };
-  const [gen, setGen] = useState(0);
   const saveField = async (s: Sup, field: 'name' | 'email', v: string) => {
     const back = () => { setGen((g) => g + 1); refresh(); };
     if (!v) { toast(`${field === 'name' ? 'Supplier name' : 'Email'} can't be empty.`); back(); return; }

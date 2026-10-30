@@ -127,7 +127,7 @@ export default function AllCalendar() {
         );
       }
       return (
-        <Pressable key={e.id} onPress={() => tap(e)} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 5, borderRadius: radius.row }}>
+        <Pressable key={e.id} onPress={() => (e.kind === 'driver' ? router.push(`/pm/delivery/${e.id.replace(/^drv-/, '')}` as never) : tap(e))} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 5, borderRadius: radius.row }}>
           <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: e.colour }} />
           <View style={{ flex: 1 }}>
             <Text style={{ fontWeight: '600', color: e.is_private ? base.slate : base.ink }}>{e.is_private ? '🔒 ' : ''}{e.title}</Text>

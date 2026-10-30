@@ -58,6 +58,14 @@ export default function OneDrivePick() {
       <Text style={{ fontWeight: '800', color: base.ink, marginBottom: 8 }}>{['OneDrive', ...stack.map((s) => s.name)].join(' › ')}</Text>
       {stack.length > 0 && <View style={{ marginBottom: 8 }}><Button kind="ghost" title="‹ Up one level" onPress={() => setStack(stack.slice(0, -1))} /></View>}
       {canUse && <View style={{ marginBottom: 10 }}><Button busy={busy} title={target === 'quicklink' ? `⭐ Pin "${cur.name}" as a Quick Link` : `Use "${cur.name}"`} onPress={() => void use(cur)} /></View>}
+      {canUse && target !== 'quicklink' && (
+        <View style={{ marginBottom: 10 }}><Button kind="ghost" title={quick.some((q) => q.id === cur.id) ? '⭐ Unpin this Quick Link' : '☆ Pin as a Quick Link'} onPress={async () => {
+          const on = quick.some((q) => q.id === cur.id);
+          const ok = await setQuickLinks(me.org_id as string, on ? quick.filter((q) => q.id !== cur.id) : [...quick, { id: cur.id, name: cur.name, driveId: cur.driveId || null }]);
+          toast(ok ? (on ? 'Removed Quick Link' : `Added Quick Link — "${cur.name}"`) : 'Could not save — try again.');
+          void qc.invalidateQueries({ queryKey: ['odQuick'] });
+        }} /></View>
+      )}
       {!stack.length && quick.length > 0 && target !== 'quicklink' && (
         <>
           <SectionTitle>⭐ Quick Links</SectionTitle>

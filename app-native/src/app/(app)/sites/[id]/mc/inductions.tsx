@@ -101,8 +101,18 @@ export default function Inductions() {
               </View>
               {c && <Pressable onPress={() => void view(c.pdf_path)}><Text>👁</Text></Pressable>}
               {c && mgr && <Pressable hitSlop={8} onPress={async () => {
-                const k = await chooseAction(nameOf(people, u), [{ key: 'view', label: '⬇️ View PDF' }, { key: 'del', label: "🗑 Delete — they'll need to redo it", danger: true }]);
+                const k = await chooseAction(nameOf(people, u), [{ key: 'view', label: '⬇️ View PDF' }, { key: 'pdf', label: '📄 Export PDF' }, { key: 'email', label: '✉ Email PDF' }, { key: 'del', label: "🗑 Delete — they'll need to redo it", danger: true }]);
                 if (k === 'view') void view(c.pdf_path);
+                else if (k === 'pdf' || k === 'email') {
+                  const url = c.pdf_path ? await openDocLink('mc-documents', c.pdf_path) : null;
+                  const bytes = url ? await fetchBytes(url) : null;
+                  if (!bytes) { toast('PDF not available.'); return; }
+                  const filename = exportFilename(site?.name || '', `Site Induction - ${nameOf(people, u)}`, 'pdf');
+                  if (k === 'pdf') { if (!(await deliverPdf(bytes, filename))) toast('Could not save the PDF.'); return; }
+                  const to = await promptEmail('Email this signed induction to:', { myEmail: me?.email, clientEmail: site?.client_email }); if (!to) return;
+                  const err = await emailPdf(bytes, filename, `${id}/induction-exports`, { site_id: id, recipient_email: to.to, cc_email: to.cc, client_cc_email: to.clientCc, doc_title: `Site Induction — ${nameOf(people, u)}` });
+                  toast(err || 'Emailed');
+                }
                 else if (k === 'del' && await confirmAsk('Delete this completed induction? The operative will need to complete it again.', 'Delete') && await deleteCompletion(c.id)) { toast('Deleted — they can now redo their induction'); refresh(); }
               }}><Text style={{ fontSize: 18, color: base.slate, paddingHorizontal: 4 }}>⋮</Text></Pressable>}
             </View>

@@ -217,9 +217,10 @@ export default function MaterialRequests() {
         if (k === 'collect') { router.push(`/sites/${id}/materials/collections` as never); return; }
         if (k === 'yard') { router.push(`/sites/${id}/materials/yard` as never); return; }
         if (k === 'bookin') { router.push('/driver/yard' as never); return; }
+        if (k === 'suppliers') { router.push('/pm/admin/suppliers' as never); return; }
         setSel(new Set()); setTab(k as MatTab);
       }} options={(mgr
-        ? [['pending', 'Material Requests'], ['collect', `Collections${collectN ? ` (${collectN})` : ''}`], ['done', 'Completed'], ...(yardCanEdit(me, fin) ? [['yard', '📦 Yard Stock'], ['bookin', '⬇ Book into yard']] : [])]
+        ? [['pending', 'Material Requests'], ['collect', `Collections${collectN ? ` (${collectN})` : ''}`], ['done', 'Completed'], ['suppliers', '🏪 Suppliers'], ...(yardCanEdit(me, fin) ? [['yard', '📦 Yard Stock'], ['bookin', '⬇ Book into yard']] : [])]
         : [['live', 'Live/Pending'], ['closed', 'Closed']]) as [string, string][]} />
 
       {ordering && (

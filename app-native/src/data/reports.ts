@@ -203,8 +203,16 @@ export async function startGeneralReport(me: Profile, t: Template, label: string
   const answers: Answers = {};
   const ctx = { siteAddress: label || '', today: localISODate(new Date()), me: me.name || '' };
   (t.sections || []).forEach((s) => (s.items || []).forEach((it) => { if (!it.autofill) return; const v = autofillValue(it.autofill, ctx); if (v !== undefined) answers[it.id] = v; }));
-  const r = await db.from('report_submissions').insert({ template_id: t.id, org_id: me.org_id, site_id: null, general_label: label, template_name: t.name, sections: t.sections, answers, submitted_by: me.id, status: 'in_progress' } as never).select('id').single();
-  return (r.data as { id: string } | null)?.id ?? null;
+  const id = globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : null;
+  const row = { ...(id ? { id } : {}), ...{ template_id: t.id, org_id: me.org_id, site_id: null, general_label: label, template_name: t.name, sections: t.sections, answers, submitted_by: me.id, status: 'in_progress' } };
+  try {
+    const r = await db.from('report_submissions').insert(row as never).select('id').single();
+    if (r.data) return (r.data as { id: string }).id;
+    if (!id || !isOffline(r.error)) return null;
+  } catch { if (!id) return null; }
+  const { keepNewReport } = await import('@/lib/reportOffline');
+  await keepNewReport({ ...row, created_at: new Date().toISOString() } as never);
+  return id;
 }
 export const renameGeneral = async (id: string, label: string | null) => !!(await db.from('report_submissions').update({ general_label: label } as never).eq('id', id).select('id')).data?.length;
 

@@ -4,7 +4,7 @@
 // then the tiles — 2 across on a phone, 4 on a computer, centred icon and
 // label; an odd last tile fills its row. Clients get a cut-down view.
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, type ReactNode } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { HowTo } from '@/components/HowTo';
@@ -12,7 +12,11 @@ import { MoneyStrip } from '@/components/MoneyStrip';
 import { JobSignPrompt } from '@/components/JobSignPrompt';
 import { OphIcon } from '@/components/OphIcon';
 import { Card, Muted, TINTS } from '@/components/ui';
+import { AssignList } from '@/components/AssignList';
+import { assignToSite, removeFromSite, useTeamData } from '@/data/siteAdmin';
 import { useSiteHome } from '@/data/siteHome';
+import { useToast } from '@/components/toast';
+import { useQueryClient } from '@tanstack/react-query';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { heading, mono } from '@/lib/fonts';
@@ -60,6 +64,7 @@ const statL = { fontSize: 10, color: base.slateLight, textTransform: 'uppercase'
 
 
 export default function SiteHome() {
+  const [assignOpen, setAssignOpen] = useState(false);
   const { id } = useLocalSearchParams<{ id: string }>();
   const { me, org } = useAuth();
   const desk = useDesk();
@@ -164,9 +169,10 @@ export default function SiteHome() {
       {fin && !client && <MoneyStrip site={site} />}
       <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>{stats}</View>
       {mgr && siteStatusKey(site) === 'live' && h?.assignedCount === 0 && (
-        <Pressable onPress={go('admin')}>
+        <Pressable onPress={() => setAssignOpen(!assignOpen)}>
           <Card style={{ backgroundColor: base.warnBg, paddingVertical: 10 }}>
             <Text style={{ color: base.ink, fontSize: 13 }}><Text style={{ fontWeight: '700' }}>Nobody is assigned to this job yet.</Text> Tap to assign operatives so they can check in.</Text>
+            {assignOpen && <QuickAssign siteId={site.id} />}
           </Card>
         </Pressable>
       )}
@@ -181,5 +187,22 @@ export default function SiteHome() {
       <JobTiles cols={cols} tiles={tiles} />
       {footer}
     </ScrollView>
+  );
+}
+
+function QuickAssign({ siteId }: { siteId: string }) {
+  const { me } = useAuth();
+  const toast = useToast();
+  const qc = useQueryClient();
+  const { data: team, refetch } = useTeamData(siteId, false);
+  const [busy, setBusy] = useState<string | null>(null);
+  if (!me) return null;
+  return (
+    <View style={{ marginTop: 8 }}>
+      <AssignList people={team?.operatives ?? []} isOn={(u) => !!team?.assigned.has(u)} busyId={busy} empty="No operatives yet — they need to sign up first." onToggle={async (u, on) => {
+        setBusy(u); const err = on ? await removeFromSite(siteId, u) : await assignToSite(me, siteId, u); setBusy(null);
+        toast(err ?? (on ? 'Removed from site' : 'Assigned to site')); void refetch(); void qc.invalidateQueries({ queryKey: ['siteHome', siteId] });
+      }} />
+    </View>
   );
 }

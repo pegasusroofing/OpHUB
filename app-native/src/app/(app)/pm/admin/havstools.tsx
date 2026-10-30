@@ -37,6 +37,7 @@ function ToolRow({ t, onSave, onRemove }: { t: Tool; onSave: (field: 'name' | 'v
 }
 
 export default function HavsTools() {
+  const [gen, setGen] = useState(0);
   const { me } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
@@ -49,7 +50,6 @@ export default function HavsTools() {
   if (!me) return null;
   if (!isFullManager(me)) return <Muted style={{ padding: space.l }}>Project Managers and admins only.</Muted>;
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['havsToolsAdmin'] }); void qc.invalidateQueries({ queryKey: ['havs'] }); };
-  const [gen, setGen] = useState(0);
   const save = async (t: Tool, field: 'name' | 'vibration_magnitude', raw: string) => {
     const back = () => { setGen((g) => g + 1); refresh(); };
     const v = raw.trim();
