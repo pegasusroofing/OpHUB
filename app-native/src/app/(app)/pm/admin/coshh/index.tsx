@@ -12,7 +12,7 @@ import { CoshhFolderPicker } from '@/components/CoshhFolderPicker';
 import { chooseAction, confirmAsk, promptText, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
-import { alsoIn, useAllFolders, productFromSds, wipeLibrary, deleteFile, deleteFolder, deleteProductFull, moveFiles, newProduct, packPdf, productsFromSds, removeDuplicates, renameFile, renameFolder, saveAssessment, uploadFiles, useAssessMap, useFolderView, useProducts, createFolder } from '@/data/coshhLib';
+import { alsoIn, loadProducts, useAllFolders, productFromSds, wipeLibrary, deleteFile, deleteFolder, deleteProductFull, moveFiles, newProduct, packPdf, productsFromSds, removeDuplicates, renameFile, renameFolder, saveAssessment, uploadFiles, useAssessMap, useFolderView, useProducts, createFolder } from '@/data/coshhLib';
 import { openDocLink } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
 import { COSHH_PICTO_IMG } from '@/lib/coshhPictoImages';
@@ -94,6 +94,16 @@ function Folders({ setPick }: { setPick: (p: Pick | null) => void }) {
       }} />
       <Button kind="ghost" title={`📥 Make assessments from data sheets into ${cur ? `"${cur.name}"` : 'the top level'}`} onPress={async () => {
         const r = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', multiple: true, copyToCacheDirectory: true }); if (r.canceled || !r.assets.length) return;
+        if (r.assets.length === 1) {
+          const a = r.assets[0]; setBusy('Reading the data sheet…');
+          let p: Awaited<ReturnType<typeof productFromSds>> = null;
+          try { p = await productFromSds(me, { uri: a.uri, name: a.name || 'data-sheet.pdf', mimeType: a.mimeType }, await loadProducts(me.org_id)); } catch { /* told below */ }
+          setBusy(''); void qc.invalidateQueries({ queryKey: ['coshhProducts'] });
+          if (!p) { toast('Could not read that file — try again'); return; }
+          toast(p.n ? 'Filled in from the data sheet — check it, then tap Create COSHH assessment' : "Couldn't read much (it may be a scan) — fill it in, then tap Create COSHH assessment");
+          router.push(`/pm/admin/coshh/${p.item.id}?folder=${folderId || 'top'}` as never);
+          return;
+        }
         const res = await productsFromSds(me, org, folderId, r.assets.map((a) => ({ uri: a.uri, name: a.name || 'data-sheet.pdf', mimeType: a.mimeType })), (i) => setBusy(`Reading data sheet ${i + 1} of ${r.assets.length}…`));
         setBusy(''); refresh(); void qc.invalidateQueries({ queryKey: ['coshhProducts'] });
         showAlert([
@@ -102,7 +112,7 @@ function Folders({ setPick }: { setPick: (p: Pick | null) => void }) {
           res.failed.length ? `Could not upload: ${res.failed.join(', ')} — try those again.` : '',
         ].filter(Boolean).join('\n\n') || 'Nothing was added.');
       }} />
-      <Muted style={{ marginTop: 6 }}>Pick several Safety Data Sheets at once: each becomes a product with its own COSHH assessment in this folder. On the office laptop the codes are read off each sheet for you — always check them.</Muted>
+      <Muted style={{ marginTop: 6 }}>Pick one Safety Data Sheet to check it first, or several at once: each becomes a product with its own COSHH assessment in this folder. On the office laptop the codes are read off each sheet for you — always check them.</Muted>
       {!folderId && me.role === 'admin' && !!(data?.subfolders.length || data?.files.length) && (
         <View style={{ marginTop: 18 }}>
           <Button kind="ghost" title="🗑 Delete all folders and documents" onPress={async () => {

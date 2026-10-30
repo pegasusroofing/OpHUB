@@ -43,6 +43,7 @@ function Codes({ codes }: { codes: string[] }) {
 }
 
 function Editor({ initial }: { initial: CoshhItem }) {
+  const { folder } = useLocalSearchParams<{ folder?: string }>();
   const { me, org } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
@@ -58,6 +59,14 @@ function Editor({ initial }: { initial: CoshhItem }) {
   const set = (patch: Partial<CoshhData>) => setIt((x) => ({ ...x, data: { ...x.data, ...patch } }));
   const toggle = (k: 'pictos' | 'routes' | 'ppe', v: string) => set({ [k]: d[k].includes(v) ? d[k].filter((x) => x !== v) : k === 'pictos' ? COSHH_PICTOS.map((p) => p.key).filter((x) => x === v || d.pictos.includes(x)) : [...d[k], v] });
   const refresh = () => { ['coshhProducts', 'coshhAssess', 'coshhFolder'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] })); };
+  const saveTo = async (ids: (string | null)[]) => {
+    setBusy('Building the COSHH assessment…');
+    try {
+      const ok = await saveAssessment(me, org, it, ids);
+      toast(ok ? 'Saved to the COSHH Library — add it to jobs from there' : 'Could not build or save it — try again');
+      if (ok) { refresh(); router.back(); }
+    } finally { setBusy(''); }
+  };
   const saveFirst = async () => {
     if (!it.title.trim()) { toast('Give the product a name first'); return false; }
     if (!(await saveProduct(it))) { toast('Could not save — try again'); return false; }
@@ -84,7 +93,7 @@ function Editor({ initial }: { initial: CoshhItem }) {
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <View style={{ flex: 2 }}><Button busy={!!busy} title={a ? '⟳ Update assessment' : 'Create COSHH assessment'} onPress={async () => {
               if (!(await saveFirst())) return;
-              if (!a) { setPicking(true); return; }
+              if (!a) { if (folder) void saveTo([folder === 'top' ? null : folder]); else setPicking(true); return; }
               if (!(await confirmAsk(`Update the COSHH assessment for "${it.title}"? It's rebuilt from the product details and dated today, replacing the old one in ${a.folder}. Jobs keep the copy they already have.`, 'Update'))) return;
               setBusy('Updating…');
               try { toast((await saveAssessment(me, org, it, [], a.files)) ? 'Assessment updated — dated today' : 'Could not update — try again'); refresh(); } finally { setBusy(''); }
@@ -172,14 +181,7 @@ function Editor({ initial }: { initial: CoshhItem }) {
           if (await deleteProductFull(it, a)) { toast('Deleted'); refresh(); router.back(); } else toast('Could not delete — try again.');
         }} /></View>
       </ScrollView>
-      {picking && <CoshhFolderPicker title="Save the assessment in which folder(s)? Tick one or more." multi onCancel={() => setPicking(false)} onDone={async (ids) => {
-        setPicking(false); setBusy('Building the COSHH assessment…');
-        try {
-          const ok = await saveAssessment(me, org, it, ids);
-          toast(ok ? 'Saved to the COSHH Library — add it to jobs from there' : 'Could not build or save it — try again');
-          if (ok) { refresh(); router.back(); }
-        } finally { setBusy(''); }
-      }} />}
+      {picking && <CoshhFolderPicker title="Save the assessment in which folder(s)? Tick one or more." multi onCancel={() => setPicking(false)} onDone={(ids) => { setPicking(false); void saveTo(ids); }} />}
     </View>
   );
 }

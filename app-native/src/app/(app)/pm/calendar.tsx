@@ -19,14 +19,14 @@ import { usePmList } from '@/data/todos';
 import { useAuth } from '@/lib/auth';
 import { heading } from '@/lib/fonts';
 import { monthGrid } from '@/lib/rules/calendar';
-import { siteStatusKey } from '@/lib/rules/checkin';
+import { fullSiteAddress, siteStatusKey } from '@/lib/rules/checkin';
 import { localISODate, slotLabel } from '@/lib/rules/driver';
 import { isFinanceUser, isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
 import { base, page, radius, space, useDesk, useTheme } from '@/theme/theme';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
-type Ev = { id: string; site_id: string | null; title: string; event_date: string; is_private?: boolean; recurrence_group_id?: string | null; created_by?: string | null; kind: 'event' | 'start' | 'driver' | 'app' | 'delivery'; colour: string; where?: string };
+type Ev = { id: string; site_id: string | null; title: string; event_date: string; is_private?: boolean; recurrence_group_id?: string | null; created_by?: string | null; reminder_recipient_ids?: string[] | null; reminder_timing?: string | null; reminder_date?: string | null; kind: 'event' | 'start' | 'driver' | 'app' | 'delivery'; colour: string; where?: string };
 const addDays = (iso: string, n: number) => { const d = new Date(`${iso}T00:00:00`); d.setDate(d.getDate() + n); return localISODate(d); };
 
 /** The small uppercase filter buttons (Filter by PM ▼ …). */
@@ -117,10 +117,13 @@ export default function AllCalendar() {
       if (openId === e.id && e.kind === 'event') {
         return (
           <Card key={e.id}>
-            <Pressable onPress={() => e.site_id && router.push(`/sites/${e.site_id}/calendar` as never)}><Text style={{ fontWeight: '800', color: base.blue }}>{e.is_private ? '🔒 ' : ''}{e.recurrence_group_id ? '🔁 ' : ''}{e.title} ›</Text></Pressable>
+            <Pressable onPress={() => e.site_id && router.push(`/sites/${e.site_id}/calendar?date=${e.event_date}` as never)}><Text style={{ fontWeight: '800', color: base.blue }}>{e.is_private ? '🔒 ' : ''}{e.recurrence_group_id ? '🔁 ' : ''}{e.title} ›</Text></Pressable>
             <Muted>Project: {s?.name ?? 'Unknown site'}</Muted>
+            {!!s && !!fullSiteAddress(s) && <Muted>Address: {fullSiteAddress(s)}</Muted>}
             <Muted>Date: {d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</Muted>
             {e.is_private && <Muted>Visibility: Private — PMs/admins only</Muted>}
+            {!!e.recurrence_group_id && <Muted>Repeats: Yes</Muted>}
+            {!!e.reminder_recipient_ids?.length && <Muted>Reminder: {e.reminder_timing === 'day_of' ? 'Day of' : e.reminder_timing === 'custom' && e.reminder_date ? new Date(`${e.reminder_date}T00:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : 'Day before'} → {e.reminder_recipient_ids.map((u) => nameOf(people, u)).filter(Boolean).join(', ')}</Muted>}
             {!!e.created_by && <Muted>Added by {nameOf(people, e.created_by)}</Muted>}
             <Pressable onPress={() => setOpenId(null)}><Text style={{ color: base.slate, marginTop: 6 }}>Close</Text></Pressable>
           </Card>

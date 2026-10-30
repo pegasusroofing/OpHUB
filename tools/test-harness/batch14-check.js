@@ -1,0 +1,32 @@
+// Home calendar card: Address / Repeats / Reminder, title opens that day. COSHH: one data sheet opens the product with its folder.
+const {chromium, makeContext, S1} = require('./harness');
+const login = async (page) => { await page.goto('http://localhost:8081/login'); await page.waitForTimeout(5000);
+  await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
+  await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000); };
+(async()=>{
+  const browser = await chromium.launch(); const errs = [];
+  const {ctx, db} = await makeContext(browser, 'admin', [], {viewport:{width:1300, height:900}});
+  db.profiles[0].howto_dismissed = ['*'];
+  const d = new Date(); d.setDate(d.getDate()+1); const day = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  db.site_calendar_events = [{id:'ev1', site_id:S1, org_id:db.profiles[0].org_id, title:'Scaffold up', event_date:day, recurrence_group_id:'g1', reminder_recipient_ids:['me'], reminder_timing:'day_of', created_by:'me', created_at:new Date().toISOString()}];
+  db.coshh_library_folders = [{id:'cf1', org_id:db.profiles[0].org_id, parent_id:null, name:'Adhesives', position:0}];
+  db.coshh_library_files = []; db.rams_library_items = [];
+  const page = await ctx.newPage(); page.on('pageerror', e=>errs.push(e.message)); await login(page);
+  await page.goto('http://localhost:8081/pm/calendar'); await page.waitForTimeout(5000);
+  await page.getByText(/Scaffold up/).first().click(); await page.waitForTimeout(800); await page.getByText(/Scaffold up/).last().click(); await page.waitForTimeout(1200);
+  const txt = await page.locator('body').innerText();
+  console.log('rows', /Address:/.test(txt), /Repeats: Yes/.test(txt), (txt.match(/Reminder: [^\n]*/)||[''])[0]);
+  await page.screenshot({path:'shots/cal-card.png'});
+  await page.getByText(/Scaffold up.*›/).first().click(); await page.waitForTimeout(4000);
+  console.log('title →', page.url().replace('http://localhost:8081',''), '| shows event', await page.getByText(/Scaffold up/).count());
+  await page.goto('http://localhost:8081/pm/admin/coshh?folder=cf1'); await page.waitForTimeout(5000);
+  await page.getByText(/Adhesives/).first().click(); await page.waitForTimeout(2500);
+  const [fc] = await Promise.all([page.waitForEvent('filechooser', {timeout:15000}), page.getByText(/^📥 Make assessments from data sheets/).click()]);
+  await fc.setFiles('shots/samples/sds.pdf'); await page.waitForTimeout(6000);
+  console.log('one sheet →', page.url().replace('http://localhost:8081',''), '| products', db.rams_library_items.length, '| assessments', db.coshh_library_files.length);
+  await page.screenshot({path:'shots/sds-one.png'});
+  await page.getByText(/Create COSHH assessment/).last().click(); await page.waitForTimeout(8000);
+  console.log('saved into', JSON.stringify((db.coshh_library_files||[]).map(f=>[f.name, f.folder_id])), '| picker shown', await page.getByText(/Save the assessment in which folder/).count());
+  console.log('errors', errs.join(' / ').slice(0,300) || 'none');
+  await browser.close(); process.exit(0);
+})();

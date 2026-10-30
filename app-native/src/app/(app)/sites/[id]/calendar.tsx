@@ -30,7 +30,7 @@ const blank = (date: string): Draft => ({ title: '', date, private: false, remin
 const addDays = (iso: string, n: number) => { const d = new Date(`${iso}T00:00:00`); d.setDate(d.getDate() + n); return localISODate(d); };
 
 export default function SiteCalendar() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, date } = useLocalSearchParams<{ id: string; date?: string }>();
   const { me, org } = useAuth();
   const th = useTheme();
   const toast = useToast();
@@ -38,9 +38,9 @@ export default function SiteCalendar() {
   const { data: site } = useSite(id);
   const mgr = !!me && isManager(me);
   const today = localISODate(new Date());
-  const [view, setView] = useState<View_>(mgr ? 'month' : 'twoweek');
-  const [month, setMonth] = useState(() => { const t = new Date(); return { y: t.getFullYear(), m: t.getMonth() }; });
-  const [sel, setSel] = useState(today);
+  const [view, setView] = useState<View_>(mgr || date ? 'month' : 'twoweek');
+  const [month, setMonth] = useState(() => { const t = date ? new Date(`${date}T00:00:00`) : new Date(); return { y: t.getFullYear(), m: t.getMonth() }; });
+  const [sel, setSel] = useState(date || today);
   const grid = monthGrid(month.y, month.m);
   const days = view === 'month' ? [sel] : Array.from({ length: view === 'week' ? 7 : 14 }, (_, i) => addDays(today, i));
   const from = view === 'month' ? grid[0] : today;
