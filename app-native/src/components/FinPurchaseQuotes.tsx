@@ -88,7 +88,10 @@ export function PurchaseQuotes({ siteId }: { siteId?: string }) {
   };
   const raise = () => {
     if (!siteId) return;
+    // 9219z finPqRaisePo: a PO goes to one supplier, so the ticked items must all be theirs.
+    if (new Set(ticked.map((i) => String(i.supplier_name || '').trim().toLowerCase())).size > 1) { toast('Tick items from one supplier at a time.'); return; }
     router.push(`/fin/po/new?site=${siteId}&items=${ticked.map((i) => i.id).join(',')}` as never);
+    setSel(new Set());
   };
 
   return (
