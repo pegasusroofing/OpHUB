@@ -42,7 +42,7 @@ export function HavsManager({ site }: { site: Site }) {
   // Typed minutes save when you leave the page or the app goes to the background (660).
   const flushRef = useRef<(() => Promise<unknown>) | null>(null);
   useFlushOnLeave(flushRef);
-  const [, force] = useState(0);
+  const [gen, force] = useState(0); // gen remounts the minutes boxes after a save, so saved ones show empty (660)
   const [busy, setBusy] = useState<string | null>(null);
   const [pick, setPick] = useState<string[] | null>(null); // operatives ticked for Export Selected (660)
   // "+ Add operative" for the odd person not assigned to this job (660 extraUserIds), per day and tool.
@@ -173,7 +173,7 @@ export function HavsManager({ site }: { site: Site }) {
                                 return (
                                   <View key={o.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 }}>
                                     <Text style={{ flex: 1, fontSize: 12, color: base.ink }} numberOfLines={1}>{o.name}</Text>
-                                    <TextInput placeholder="Mins" keyboardType="number-pad" defaultValue={drafts.current[key] ?? ''} onChangeText={(v) => { drafts.current[key] = v; }} style={minsBox} />
+                                    <TextInput key={`${key}#${gen}`} placeholder="Mins" keyboardType="number-pad" defaultValue={drafts.current[key] ?? ''} onChangeText={(v) => { drafts.current[key] = v; }} style={minsBox} />
                                     {o.added && <Pressable hitSlop={6} onPress={() => { delete drafts.current[key]; setExtra((x) => ({ ...x, [`${di}|${tool.id}`]: (x[`${di}|${tool.id}`] || []).filter((u) => u !== o.id) })); }}><Text style={{ color: base.slate }}>✕</Text></Pressable>}
                                   </View>
                                 );

@@ -41,7 +41,7 @@ export default function Havs() {
   // Typed minutes save when you leave the page or the app goes to the background (660).
   const flushRef = useRef<(() => Promise<unknown>) | null>(null);
   useFlushOnLeave(flushRef);
-  const [, force] = useState(0);
+  const [gen, force] = useState(0); // gen remounts the minutes boxes after a save, so saved ones show empty (660)
   const [editing, setEditing] = useState<{ id: string; v: string } | null>(null);
   if (!me || !site) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   if (isManager(me)) return <><Stack.Screen options={{ title: 'HAVS' }} /><HavsManager site={site} /></>;
@@ -142,7 +142,7 @@ export default function Havs() {
                               </View>
                             ))}
                             {data.locked ? <Muted style={{ marginTop: 6 }}>🔒 Week locked</Muted> : (
-                              <TextInput placeholder="Mins" keyboardType="number-pad" defaultValue={drafts.current[key] ?? ''}
+                              <TextInput key={`${key}#${gen}`} placeholder="Mins" keyboardType="number-pad" defaultValue={drafts.current[key] ?? ''}
                                 onChangeText={(v) => { drafts.current[key] = v; }} style={[minsBox, { marginTop: 8 }]} />
                             )}
                           </View>

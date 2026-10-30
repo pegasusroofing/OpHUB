@@ -17,7 +17,7 @@ import { supabase } from '@/lib/supabase';
 // documents, permits, their company's folder) — the rest of the job goes to their company's folder.
 const CLIENT_PAGES = ['schedule', 'hs', 'snagging'];
 // An H&S screen hidden from your role (the H&S tile's who-can-see setting) doesn't open by link either.
-const HS_KEY: Record<string, string> = { rams: 'hs_rams', coshh: 'hs_coshh', tbt: 'hs_tbt', briefings: 'hs_briefings', havspuwer: 'hs_havspuwer', havs: 'hs_havspuwer', puwer: 'hs_havspuwer', mytools: 'hs_havspuwer', loler: 'hs_havspuwer', incidents: 'hs_incidents' };
+const HS_KEY: Record<string, string> = { rams: 'hs_rams', coshh: 'hs_coshh', tbt: 'hs_tbt', briefings: 'hs_briefings', havspuwer: 'hs_havspuwer', havs: 'hs_havs', puwer: 'hs_havspuwer', mytools: 'hs_havspuwer', loler: 'hs_loler', incidents: 'hs_incidents' };
 function useJobGuard(): { to: string; why?: string } | null {
   const { me } = useAuth();
   const seg = useSegments() as string[];
@@ -34,7 +34,8 @@ function useJobGuard(): { to: string; why?: string } | null {
   if (!isManager(me) && site && siteStatusKey(site) === 'closed') return { to: '/sites', why: 'This job is closed.' };
   if (me.role === 'client' && page && page !== 'index' && !CLIENT_PAGES.includes(page)) return { to: `/sites/${id}` };
   const hsKey = page === 'ppe' ? 'hs_ppe' : page === 'hs' ? HS_KEY[seg[at + 2] || ''] : undefined;
-  if (hsKey && site && !canSeeTile(site, hsKey, me.role)) return { to: `/sites/${id}/hs`, why: 'That isn’t available to you on this job.' };
+  // 629 TILE_VIS_DEFAULTS: HAVS and LOLER start as site managers only.
+  if (hsKey && site && !canSeeTile(site, hsKey, me.role, hsKey === 'hs_havs' || hsKey === 'hs_loler' ? ['site_manager'] : undefined)) return { to: `/sites/${id}/hs`, why: 'That isn’t available to you on this job.' };
   if (op && subCo && page !== 'mc') return { to: `/sites/${id}/mc/subcontractors/${subCo}` };
   return null;
 }
