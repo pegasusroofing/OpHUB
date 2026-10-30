@@ -101,10 +101,17 @@ function Overview({ id, fc, settings, invs, apps }: { id: string; fc: ReturnType
   // One tap at a time: a double tap could otherwise raise two release invoices (922).
   const [retBusy, setRetBusy] = useState(false);
   // Release a half either way (9219zn): Apply puts it through the next application, or Raise invoice bills it now.
+  const retAppFor = (n: 1 | 2) => { const aid = n === 1 ? fc.jf.ret1_app_id : fc.jf.ret2_app_id; const a = aid ? apps.find((x) => x.id === aid) : null; return a && a.status !== 'void' ? a : null; };
   const retInv = async (n: 1 | 2) => {
     if (!me || retBusy) return;
+    // 9219zn: invoiced → view the invoice; applied for → that application (never applied for twice);
+    // Raise invoice only once the release date (practical completion / end of defects) is set.
     const done = n === 1 ? fc.jf.ret1_invoice_id : fc.jf.ret2_invoice_id;
-    const k = done ? 'inv' : await chooseAction(n === 1 ? 'First half of the retention' : 'Final retention release', [{ key: 'app', label: 'Apply — through the next application (the client certifies it)' }, { key: 'inv', label: 'Raise invoice — bill it straight away' }]);
+    if (done) { router.push(`/fin/job/${id}/invoice/${done}` as never); return; }
+    const inApp = retAppFor(n);
+    if (inApp) { router.push(`/fin/job/${id}/application/${inApp.id}` as never); return; }
+    const date = n === 1 ? d.first : d.second;
+    const k = await chooseAction(n === 1 ? 'First half of the retention' : 'Final retention release', [{ key: 'app', label: 'Apply — through the next application (the client certifies it)' }, ...(date ? [{ key: 'inv', label: 'Raise invoice — bill it straight away' }] : [])]);
     if (!k) return;
     setRetBusy(true);
     if (k === 'app') {
@@ -178,8 +185,8 @@ function Overview({ id, fc, settings, invs, apps }: { id: string; fc: ReturnType
           <Card>
             {alerts.map((a) => <Text key={a.half} style={{ color: '#D98A00', fontWeight: '700' }}>{a.half === 1 ? 'First' : 'Second'} half due {fdate(a.date)}</Text>)}
             <FinRow title="Held to date" right={money(fc.retHeld)} />
-            <FinRow title="First half — at practical completion" sub={`${d.first ? fdate(d.first) : 'Set the practical completion date in Set-up'}${fc.jf.ret1_invoice_id ? ' · invoiced' : ''}`} right={money(retHalfAmt(heldCert, 1, fc.jf, invs, apps))} onPress={() => void retInv(1)} />
-            <FinRow title="Second half — end of defects period" sub={`${d.second ? fdate(d.second) : '—'}${fc.jf.ret2_invoice_id ? ' · invoiced' : ''}`} right={money(retHalfAmt(heldCert, 2, fc.jf, invs, apps))} onPress={() => void retInv(2)} />
+            <FinRow title="First half — at practical completion" sub={`${d.first ? fdate(d.first) : 'Set the practical completion date in Set-up'}${fc.jf.ret1_invoice_id ? ' · invoiced' : retAppFor(1) ? ` · In Application ${retAppFor(1)?.number}` : ''}`} right={money(retHalfAmt(heldCert, 1, fc.jf, invs, apps))} onPress={() => void retInv(1)} />
+            <FinRow title="Second half — end of defects period" sub={`${d.second ? fdate(d.second) : '—'}${fc.jf.ret2_invoice_id ? ' · invoiced' : retAppFor(2) ? ` · In Application ${retAppFor(2)?.number}` : ''}`} right={money(retHalfAmt(heldCert, 2, fc.jf, invs, apps))} onPress={() => void retInv(2)} />
             <Muted>Tap a half to release it: Apply puts it through your next application (the client certifies it), or Raise invoice bills it straight away.</Muted>
           </Card>
         </>
@@ -245,7 +252,16 @@ function Setup({ id, site, jf, cpos, settings }: { id: string; site: Row | undef
             const p: Row = { name, client_name: String(v.client_name || '').trim() || null, address: String(v.address || '').trim() || null, postcode: String(v.postcode || '').trim().toUpperCase() || null, start_date: String(v.start_date || '') || null };
             const cur = site.status === 'closed' ? 'closed' : site.status === 'upcoming' ? 'upcoming' : 'live', st = String(v.status || cur);
             if (st !== cur) { p.status = st === 'live' ? 'active' : st; if (st === 'closed') { p.closed_at = new Date().toISOString(); p.closed_by = me.id; } else { p.closed_at = null; p.closed_by = null; } }
+            // 9219n saveSiteFinance: a changed client is named in the Directory (added if new) and becomes who's billed.
+            let cli: Row | null = null;
+            if (p.client_name && p.client_name !== (site.client_name || '')) {
+              const all = ((await fdb.from('fin_clients').select('*').eq('org_id', me.org_id as string)).data as Row[] | null) ?? [];
+              cli = all.find((c) => String(c.name || '').trim().toLowerCase() === String(p.client_name).toLowerCase()) || null;
+              if (!cli) cli = ((await fdb.from('fin_clients').insert({ org_id: me.org_id, name: p.client_name, created_by: me.id } as never).select('*').single()).data as Row | null) ?? null;
+              if (cli) p.client_name = cli.name;
+            }
             if (!(await fdb.from('sites').update(p as never).eq('id', id).select('id')).data?.length) return 'Could not save — try again.';
+            if (cli) await fdb.from('job_finance').update({ billing_name: cli.name, billing_address: [cli.address, cli.postcode].filter(Boolean).join('\n') || null, billing_email: cli.email || null } as never).eq('site_id', id);
             refresh(); return null;
           }} />
       )}
