@@ -7,11 +7,12 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
-import { chooseAction, promptText, useToast } from '@/components/toast';
+import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted } from '@/components/ui';
 import { addElement, GROUP_COLOURS, newGroupFor, setElementGroup, updateGroup, usePriceTile } from '@/data/price';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
+import { supabase } from '@/lib/supabase';
 import { money, type PriceElement } from '@/lib/rules/price';
 import { base, page, radius, space } from '@/theme/theme';
 
@@ -24,6 +25,7 @@ export default function PriceTile() {
   const { data, isLoading } = usePriceTile(me, site);
   const [sub, setSub] = useState<string | null>(null);
   const [showClosed, setShowClosed] = useState(false);
+  const [sel, setSel] = useState<Set<string> | null>(null); // ticking tiles to close together (390 closeSelectedPricingElements)
   if (!me || !site) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   if (isLoading || !data) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   const multi = !!site.multi_site;
@@ -55,10 +57,10 @@ export default function PriceTile() {
       toast(ok ? msg : 'Could not save — try again.'); void qc.invalidateQueries({ queryKey: ['priceTile', site.id] });
     };
     return (
-      <Pressable key={el.id} onPress={() => router.push(`/sites/${site.id}/price/${el.id}` as never)} onLongPress={data.mgr && !el.closed ? () => void groupMenu() : undefined}
+      <Pressable key={el.id} onPress={() => (sel && !el.closed ? setSel((x) => { const n = new Set(x ?? []); if (n.has(el.id)) n.delete(el.id); else n.add(el.id); return n; }) : router.push(`/sites/${site.id}/price/${el.id}` as never))} onLongPress={data.mgr && !el.closed ? () => void groupMenu() : undefined}
         style={{ padding: 12, borderWidth: f.balance < 0 ? 2 : g ? 2 : 1, borderColor: f.balance < 0 ? base.warn : g ? g.color : base.cardLine, borderRadius: radius.row, marginBottom: 8, backgroundColor: base.card, opacity: el.closed ? 0.7 : 1 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <Text style={{ flex: 1, fontWeight: '800', color: base.ink }}>🧾 {el.name}{el.closed ? '  · CLOSED' : ''}</Text>
+          <Text style={{ flex: 1, fontWeight: '800', color: base.ink }}>{sel && !el.closed ? (sel.has(el.id) ? '☑ ' : '☐ ') : '🧾 '}{el.name}{el.closed ? '  · CLOSED' : ''}</Text>
           {data.mgr && !el.closed && <Pressable hitSlop={10} accessibilityLabel="Group this tile" onPress={() => void groupMenu()}><Text style={{ fontSize: 18, color: base.slate, paddingHorizontal: 4 }}>⋮</Text></Pressable>}
         </View>
         <Muted>{money(f.priceTotal)} · {money(f.bookedIn)} booked</Muted>
@@ -84,6 +86,19 @@ export default function PriceTile() {
         const n = await promptText('Name for the new price (e.g. Flat Roofing)', ''); if (!n || !n.trim()) { if (n !== null) toast('Enter a name for the Pricing Element'); return; }
         if (await addElement(me, site.id, subId, n.trim())) { toast('Pricing Element added'); void qc.invalidateQueries({ queryKey: ['priceTile', site.id] }); } else toast('Could not save — try again.');
       }} />}
+      {data.mgr && open.length > 1 && (sel ? (
+        <Card style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, borderColor: base.ink, borderWidth: 1.5 }}>
+          <Text style={{ flex: 1, fontWeight: '700', color: base.ink }}>{sel.size ? `${sel.size} ticked` : 'Tap the prices to close'}</Text>
+          <Button small title={`Close ${sel.size || ''} selected`} disabled={!sel.size} onPress={async () => {
+            if (!(await confirmAsk(`Close ${sel.size} price${sel.size === 1 ? '' : 's'}? They move to Closed and can be reopened.`, 'Close'))) return;
+            const at = new Date().toISOString();
+            const res = await Promise.all([...sel].map((eid) => supabase.from('pricing_elements').update({ closed: true, closed_by: me.id, closed_at: at } as never).eq('id', eid)));
+            if (res.some((r) => r.error)) toast('Some could not be closed — try again.');
+            setSel(null); void qc.invalidateQueries({ queryKey: ['priceTile'] });
+          }} />
+          <Button small kind="ghost" title="Cancel" onPress={() => setSel(null)} />
+        </Card>
+      ) : <View style={{ alignItems: 'flex-end', marginBottom: 6 }}><Button small kind="ghost" title="☑ Close several…" onPress={() => setSel(new Set())} /></View>)}
       {!open.length && <Empty>{multi && !subId ? 'Choose an address above first.' : data.mgr ? 'No prices on this job yet. Tap + Add price to start one.' : 'Nothing priced here for you yet.'}</Empty>}
       {groups.map((g) => { const fg = data.groupFigs[g.id]; return (
         <View key={g.id}>
