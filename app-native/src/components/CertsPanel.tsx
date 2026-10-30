@@ -138,7 +138,7 @@ export function CertsPanel({ userId, manual = false }: { userId: string; manual?
                   <Card style={{ paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                     {sel && <Text style={{ fontSize: 17, color: base.ink }}>{sel.has(f.id) ? '☑' : '☐'}</Text>}
                     <View style={{ flex: 1 }}>
-                      <Text style={{ fontWeight: '600', color: base.ink }} numberOfLines={1}>{certDisplayName(f)}</Text>
+                      <Text style={{ fontWeight: '600', color: base.ink }} numberOfLines={1}>{(f as { source?: string; pushed_to_onedrive_at?: string | null }).source === 'onedrive' || (f as { pushed_to_onedrive_at?: string | null }).pushed_to_onedrive_at ? '☁️ ' : '📱 '}{certDisplayName(f)}</Text>
                       <Muted style={expired ? { color: base.red } : undefined}>{f.category === 'other' && f.other_type_description ? `${f.other_type_description} · ` : ''}{f.expiry_date ? `${expired ? 'Expired' : 'Expires'} ${new Date(`${f.expiry_date}T00:00:00`).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}` : 'No expiry'}</Muted>
                     </View>
                     <Text style={{ color: base.slate }}>⋮</Text>

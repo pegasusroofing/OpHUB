@@ -3,22 +3,25 @@
 // open All Jobs and choose which tiles operatives can see. A work order PDF fills
 // in the new job's number, address and description (read from its own text —
 // office laptop); Bulk add makes a job from each of many work orders.
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as DocumentPicker from 'expo-document-picker';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { ScrollView, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
-import { useToast } from '@/components/toast';
+import { MoneyStrip } from '@/components/MoneyStrip';
+import { confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Check, JobGrid, Muted, SectionTitle, Tile } from '@/components/ui';
 import { addRepairJob, setRepairHiddenTiles, uploadWorkOrder, useRepairHiddenTiles, useRepairJobs } from '@/data/repairs';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
+import { siteStatusKey } from '@/lib/rules/checkin';
+import { supabase } from '@/lib/supabase';
 import { pdfLines } from '@/lib/pdfjs';
 import { exportRepairTracker } from '@/lib/repairExports';
 import { parseWorkOrder } from '@/lib/rules/workOrder';
 import { REPAIR_CATEGORIES, REPAIR_TILES, type RepairJob } from '@/lib/rules/repairs';
-import { isManager } from '@/lib/roles';
+import { isFinanceUser, isManager } from '@/lib/roles';
 import { base, page, radius, space } from '@/theme/theme';
 
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card, marginBottom: 8 };
@@ -31,10 +34,12 @@ const titleCase = (s: string) => s.replace(/\b([a-z])/g, (m) => m.toUpperCase())
 
 export default function RepairsHub() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { me } = useAuth();
+  const { me, org } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
   const { data: site } = useSite(id);
+  // Nobody assigned yet: the same "assign operatives" prompt as a normal job's home (340).
+  const { data: assigned } = useQuery({ queryKey: ['repairAssigned', id], enabled: !!id, queryFn: async () => (((await supabase.from('site_assignments').select('user_id').eq('site_id', id).limit(1)).data ?? []) as unknown[]).length });
   const { data: jobs = [] } = useRepairJobs(id);
   const { data: hidden = [] } = useRepairHiddenTiles(me?.org_id);
   const [adding, setAdding] = useState(false);
@@ -56,14 +61,24 @@ export default function RepairsHub() {
     if (jid && wo) woFailed = !(await uploadWorkOrder(me, { id: jid } as RepairJob, { uri: wo.uri, name: wo.name || 'work-order.pdf', mimeType: wo.mimeType }));
     setBusy(false);
     if (!jid) { toast('Could not save — try again.'); return; }
-    toast(woFailed ? 'Job added — but the work order failed to upload. Add it from the job later.' : 'Job added');
+    if (woFailed) toast('Job added — but the work order failed to upload. Add it from the job later.');
     setAdding(false); setNum(''); setAddr(''); setDesc(''); setWo(null);
     void qc.invalidateQueries({ queryKey: ['repairJobs', id] });
     router.push(`/sites/${site.id}/repairs/job/${jid}` as never);
+    // Then straight into choosing the job's OneDrive folder (340) — back out to link it later from the job.
+    if (await confirmAsk('Job added. Choose a OneDrive folder for it now? Photos, the work order and notes all go there once it’s linked.', 'Choose folder', 'Later')) router.push({ pathname: '/pm/onedrive-pick', params: { target: 'repairjob', id: jid } } as never);
   };
   return (
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Live Jobs' }} />
+      {isFinanceUser(me, org) && org?.has_finance && <MoneyStrip site={site} />}
+      {mgr && siteStatusKey(site) === 'live' && assigned === 0 && (
+        <Pressable onPress={() => router.push(`/sites/${site.id}/admin` as never)}>
+          <Card style={{ backgroundColor: base.warnBg, paddingVertical: 10 }}>
+            <Text style={{ color: base.ink, fontSize: 13 }}><Text style={{ fontWeight: '700' }}>Nobody is assigned to this contract yet.</Text> Tap to assign operatives so they see its jobs and can check in.</Text>
+          </Card>
+        </Pressable>
+      )}
       {mgr && (adding ? (
         <Card style={{ backgroundColor: base.paper }}>
           <SectionTitle>Add Repair Job</SectionTitle>

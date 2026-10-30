@@ -11,7 +11,7 @@ import { AppState, Linking, Pressable, ScrollView, Text, TextInput, View } from 
 
 import { StorageImage, useStorageUrl } from '@/components/StorageImage';
 import { chooseAction, confirmAsk, showAlert, useToast } from '@/components/toast';
-import { Button, Card, Muted, SectionTitle } from '@/components/ui';
+import { Button, Card, Check, Muted, SectionTitle } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
 import { DateBox } from '@/components/DateField';
 import { nameOf, openDocLink, usePeople } from '@/data/hs';
@@ -185,7 +185,7 @@ export default function RepairJobPage() {
           </>
         )}
         <Label>Work Order</Label>
-        {job.work_order_path ? <Pressable onPress={async () => { const u = await openDocLink('site-photos', job.work_order_path as string); if (u) viewDoc(u); else toast('Could not open the file.'); }}><Text style={{ fontWeight: '600', textDecorationLine: 'underline', color: base.ink }}>📄 View work order</Text></Pressable> : <Muted>None attached.</Muted>}
+        {job.work_order_path ? <Pressable onPress={async () => { const u = await openDocLink('site-photos', job.work_order_path as string); if (u) viewDoc(u); else toast('Could not open the file.'); }}><Text style={{ fontWeight: '600', textDecorationLine: 'underline', color: base.ink }}>📄 {(job as { work_order_name?: string | null }).work_order_name || 'View work order'}</Text></Pressable> : <Muted>None attached.</Muted>}
         {mgr && <Button kind="ghost" busy={busy === 'wo'} title={job.work_order_path ? 'Replace File' : '+ Upload Work Order'} onPress={async () => {
           const r = await DocumentPicker.getDocumentAsync({ type: ['application/pdf', 'image/*'], copyToCacheDirectory: true }); if (r.canceled || !r.assets[0]) return;
           setBusy('wo'); const ok = await uploadWorkOrder(me, job, { uri: r.assets[0].uri, name: r.assets[0].name || 'work-order.pdf', mimeType: r.assets[0].mimeType }); setBusy(null);
@@ -343,6 +343,7 @@ export default function RepairJobPage() {
           {mgr && (
             <Card>
               <SectionTitle>Admin</SectionTitle>
+              {!job.closed && <Check label="Invoiced" value={!!job.invoiced} onChange={(v) => void save({ invoiced: v }, v ? 'Marked invoiced' : 'Invoiced removed')} />}
               {job.closed ? (
                 <>
                   <Muted style={{ marginBottom: 8 }}>✅ Signed off — {job.invoiced ? 'invoiced, fully closed' : 'closed subject to invoice'}.</Muted>
