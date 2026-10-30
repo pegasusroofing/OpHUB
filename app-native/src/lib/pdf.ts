@@ -137,6 +137,25 @@ export async function emailPdf(bytes: Uint8Array, filename: string, folder: stri
   return r.error ? 'Could not send the email — try again.' : null;
 }
 
+/** Several PDFs in one email, each its own attachment (700 emailPdfsSeparately): uploaded first, then
+ *  send-document-email gets the list (it falls back to links if they're too big to attach). */
+export async function emailPdfsSeparately(parts: { bytes: Uint8Array; name: string }[], folder: string, body: { site_id?: string | null; general_label?: string; recipient_email: string; cc_email?: string; client_cc_email?: string | null; doc_title: string }): Promise<string | null> {
+  const { supabase } = await import('@/lib/supabase');
+  const used = new Set<string>(), files: { url: string; name: string; path: string }[] = [];
+  for (const p of parts) {
+    const base = String(p.name || 'Document').replace(/\.pdf$/i, '').replace(/[\\/:*?"<>|]+/g, ' ').trim().slice(0, 100) || 'Document';
+    let nm = base, k = 2; while (used.has(nm.toLowerCase())) nm = `${base} (${k++})`;
+    used.add(nm.toLowerCase());
+    const id = globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}-${k}`;
+    const up = await supabase.storage.from('mc-documents').upload(`${folder}/${id}-${nm.replace(/[^a-z0-9.-]+/gi, '_')}.pdf`, p.bytes, { contentType: 'application/pdf' });
+    if (up.error) return 'Could not upload the PDFs — try again.';
+    files.push({ url: publicUrl('mc-documents', up.data.path), name: `${nm}.pdf`, path: up.data.path });
+  }
+  const r = await supabase.functions.invoke('send-document-email', { body: { ...body, files } });
+  const d = r.data as { error?: string } | null;
+  return r.error || d?.error ? 'Could not send the email — try again.' : null;
+}
+
 /** "Media summary" pages: every photo, four to a page, numbered (500 appendMediaSummaryPages). */
 export async function appendMediaSummary(doc: PDFDocument, refs: { bucket?: string; path: string; caption?: string }[], o: { maxDim?: number; quality?: number } = {}) {
   if (!refs.length) return;

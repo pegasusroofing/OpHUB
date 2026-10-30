@@ -11,14 +11,14 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { promptEmail } from '@/components/EmailPrompt';
 import { buildReportWithSigs } from '@/components/ReportPdfActions';
-import { confirmAsk, showAlert, useToast } from '@/components/toast';
+import { chooseAction, confirmAsk, showAlert, useToast } from '@/components/toast';
 import { Button, Empty, Muted, Row, Toggle } from '@/components/ui';
 import { briefingTemplate, deleteBriefing, signBriefing, useBriefings, type Submission } from '@/data/briefings';
 import { nameOf, usePeople } from '@/data/hs';
 import { quickTemplate, startReport } from '@/data/reports';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
-import { deliverPdf, emailPdf, exportFilename, PDFDocument } from '@/lib/pdf';
+import { deliverPdf, emailPdf, exportFilename, PDFDocument, emailPdfsSeparately } from '@/lib/pdf';
 import type { PdfSub } from '@/lib/reportPdf';
 import { supabase } from '@/lib/supabase';
 import { REPORT_STATUS_LABEL, weekKeyOf, weekLabelOf } from '@/lib/rules/reports';
@@ -78,9 +78,22 @@ export default function Briefings() {
           <Button kind="ghost" busy={busy} title="📄 Export as one PDF" onPress={async () => { setBusy(true); try { const m = await merged(); if (m && !(await deliverPdf(m.bytes, m.filename))) toast('Could not save the PDF.'); } finally { setBusy(false); } }} />
           <Button kind="ghost" busy={busy} title="✉ Email" onPress={async () => {
             if (!site) return;
-            const to = await promptEmail(`Email the selected briefings (${sel.size}) as one PDF to:`, { myEmail: me.email, clientEmail: site.client_email }); if (!to) return;
+            // 700 askPdfMode: several briefings go as separate attachments or one combined PDF.
+            const mode = sel.size > 1 ? await chooseAction(`Email ${sel.size} briefings`, [{ key: 'separate', label: `📎 Separate PDFs (${sel.size} attachments)` }, { key: 'one', label: '📄 One combined PDF' }]) : 'one';
+            if (!mode) return;
+            const to = await promptEmail(`Email the selected briefings (${sel.size}) to:`, { myEmail: me.email, clientEmail: site.client_email }); if (!to) return;
             setBusy(true);
             try {
+              if (mode === 'separate') {
+                const ids = (data?.subs ?? []).filter((x) => sel.has(x.id) && x.status === 'completed').map((x) => x.id);
+                const rows = ((await supabase.from('report_submissions').select('*').in('id', ids)).data ?? []) as unknown as PdfSub[];
+                const parts: { bytes: Uint8Array; name: string }[] = [];
+                for (const r of rows) { const b = await buildReportWithSigs(r, site, org, (u) => nameOf(people, u), true); if (b) parts.push({ bytes: b.bytes, name: `${r.template_name || 'Daily Briefing'}${r.submitted_at ? ` - ${new Date(r.submitted_at).toLocaleDateString('en-GB').split('/').join('-')}` : ''}` }); }
+                if (!parts.length) { toast('Only completed briefings can be emailed.'); return; }
+                const err = await emailPdfsSeparately(parts, `${id}/briefing-exports`, { site_id: id, recipient_email: to.to, cc_email: to.cc, client_cc_email: to.clientCc, doc_title: `Daily Briefings (${parts.length})` });
+                if (err) showAlert(err); else { toast(`${parts.length} briefings emailed as separate PDFs`); setSel(new Set()); }
+                return;
+              }
               const m = await merged(); if (!m) return;
               const err = await emailPdf(m.bytes, m.filename, `${id}/briefing-exports`, { site_id: id, recipient_email: to.to, cc_email: to.cc, client_cc_email: to.clientCc, doc_title: `Daily Briefings (${m.n})` });
               if (err) showAlert(err); else { toast('Emailed'); setSel(new Set()); }

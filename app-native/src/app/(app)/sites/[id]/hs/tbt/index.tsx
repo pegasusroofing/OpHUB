@@ -18,7 +18,7 @@ import { useSite } from '@/data/sites';
 import { syncTbtBank, tbtDue, uploadTbt } from '@/data/tbtManager';
 import { buildSignedTbtPdf } from '@/data/hsPdf';
 import { useAuth } from '@/lib/auth';
-import { deliverPdf, emailPdf, exportFilename, PDFDocument } from '@/lib/pdf';
+import { deliverPdf, emailPdf, exportFilename, PDFDocument, emailPdfsSeparately } from '@/lib/pdf';
 import { isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
 import { base, page, radius, space } from '@/theme/theme';
@@ -134,11 +134,16 @@ export default function Tbts() {
           <Button kind="ghost" title={sel.size === shown.length ? 'Clear all' : 'Tick all'} onPress={() => setSel(sel.size === shown.length ? new Set() : new Set(shown.map((t) => t.id)))} />
           {sel.size > 0 && <Button kind="ghost" busy={busy} title={`📄 Signed PDF of ${sel.size}`} onPress={async () => { setBusy(true); toast('Building signed PDF…'); const b = await combined().catch(() => null); setBusy(false); if (!b) { toast('Nothing to export.'); return; } if (!(await deliverPdf(b.bytes, b.filename))) toast('Could not save the PDF.'); }} />}
           {sel.size > 0 && <Button kind="ghost" busy={busy} title={`✉ Email ${sel.size}`} onPress={async () => {
-            const to = (await promptText('Email the signed toolbox talks to:', ''))?.trim(); if (!to) return;
+            // 710: one email, each talk its own signed PDF; the address starts as the job's responsible PM (else you).
+            const pmEmail = site?.responsible_pm_id ? (((await supabase.from('profiles').select('email').eq('id', site.responsible_pm_id).maybeSingle()).data as { email: string | null } | null)?.email || '') : '';
+            const to = (await promptText(`Email ${sel.size} toolbox talk${sel.size > 1 ? 's' : ''} (each as its own signed PDF) to:`, pmEmail || me.email || ''))?.trim(); if (!to) return;
             if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) { toast('Enter a valid email address.'); return; }
-            setBusy(true); const b = await combined().catch(() => null);
-            const err = b ? await emailPdf(b.bytes, b.filename, `${id}/tbt-exports`, { site_id: id, recipient_email: to, doc_title: `Toolbox Talks (signed) — ${site?.name || ''}` }) : 'Nothing to email.';
-            setBusy(false); toast(err || 'Emailed'); if (!err) setSel(new Set());
+            if (!site) return;
+            setBusy(true); toast('Building signed PDFs…');
+            const parts: { bytes: Uint8Array; name: string }[] = []; let skipped = 0;
+            for (const t of shown.filter((x) => sel.has(x.id))) { const b = await buildSignedTbtPdf(t.id, site).catch(() => 'x'); if (typeof b === 'string') skipped++; else parts.push({ bytes: b.bytes, name: b.name || t.title }); }
+            const err = parts.length ? await emailPdfsSeparately(parts, `${id}/tbt-exports`, { site_id: id, recipient_email: to, doc_title: `Toolbox Talks (signed) — ${site.name}` }) : 'Nothing to email — none of those talks has signatures yet.';
+            setBusy(false); toast(err || `${parts.length} signed toolbox talk${parts.length > 1 ? 's' : ''} emailed${skipped ? ` (${skipped} left out — no signatures)` : ''}`); if (!err) setSel(new Set());
           }} />}
         </View>
       )}
