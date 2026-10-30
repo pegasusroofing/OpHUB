@@ -90,6 +90,6 @@ export const reopenPuwerWeek = async (id: string) => !(await db.from('puwer_week
 export async function deletePuwer(me: Profile, siteId: string, inspectionId: string, name: string) {
   await db.from('puwer_inspection_tools').delete().eq('inspection_id', inspectionId);
   const r = await db.from('puwer_inspections').delete().eq('id', inspectionId);
-  if (!r.error && me.org_id) void db.from('site_activity_log').insert({ site_id: siteId, org_id: me.org_id, actor_id: me.id, action: 'puwer_inspection_deleted', description: `Deleted PUWER inspection for ${name}` } as never);
+  if (!r.error && me.org_id) void db.from('site_activity_log').insert({ site_id: siteId, org_id: me.org_id, actor_id: me.id, action: 'puwer_inspection_deleted', description: `Deleted PUWER inspection for ${name}` } as never).then(undefined, () => undefined);
   return !r.error;
 }

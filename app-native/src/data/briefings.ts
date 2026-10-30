@@ -73,6 +73,9 @@ export async function issueBriefing(me: Profile, subId: string) {
   return !(await db.from('report_submissions').update({ issued_at: new Date().toISOString(), issued_by: me.id } as never).eq('id', subId)).error;
 }
 /** Admins can remove a briefing that was started but never completed. */
-export async function deleteBriefing(subId: string) {
-  return !(await db.from('report_submissions').delete().eq('id', subId).eq('status', 'in_progress')).error;
+/** An unfinished briefing deleted by an admin, written to the job's Activity History (700 deleteBriefingSubmission). */
+export async function deleteBriefing(subId: string, me?: Profile, siteId?: string, name?: string | null) {
+  const ok = !(await db.from('report_submissions').delete().eq('id', subId).eq('status', 'in_progress')).error;
+  if (ok && me?.org_id && siteId) void db.from('site_activity_log').insert({ site_id: siteId, org_id: me.org_id, actor_id: me.id, action: 'briefing_submission_deleted', description: `Deleted daily briefing "${name || ''}"` } as never).then(undefined, () => undefined);
+  return ok;
 }

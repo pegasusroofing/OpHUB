@@ -205,7 +205,7 @@ export async function saveFlag(me: Profile, site: Site, sectionId: string | null
     void db.from('messages').insert({
       org_id: me.org_id, site_id: site.id, sender_id: me.id, audience: 'managers', kind: 'schedule_flag',
       body: `${me.name} flagged "${label}" on ${sectionLabel} at ${site.name} — it's waiting in Deliveries › To schedule.`,
-    } as never);
+    } as never).then(undefined, () => undefined);
   }
   return true;
 }

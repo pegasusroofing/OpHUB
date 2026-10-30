@@ -143,8 +143,8 @@ export async function permitRoster(siteId: string, companyId: string | null) {
 
 const say = (me: Profile, siteId: string, kind: string, body: string, action: string, desc: string) => {
   if (!me.org_id) return;
-  void db.from('messages').insert({ org_id: me.org_id, site_id: siteId, sender_id: me.id, audience: 'managers', kind, body } as never);
-  void db.from('site_activity_log').insert({ site_id: siteId, org_id: me.org_id, actor_id: me.id, action, description: desc } as never);
+  void db.from('messages').insert({ org_id: me.org_id, site_id: siteId, sender_id: me.id, audience: 'managers', kind, body } as never).then(undefined, () => undefined);
+  void db.from('site_activity_log').insert({ site_id: siteId, org_id: me.org_id, actor_id: me.id, action, description: desc } as never).then(undefined, () => undefined);
 };
 
 export async function issuePermit(me: Me, site: Site, f: { type: string; companyId: string | null; assignees: string[]; description: string; date: string | null; location: string }): Promise<boolean> {

@@ -23,10 +23,10 @@ async function put(kind: DocKind, siteId: string, a: Asset): Promise<string | nu
   } catch { return null; }
 }
 export const tellOperatives = (me: Profile, siteId: string, body: string) => {
-  if (me.org_id) void db.from('messages').insert({ org_id: me.org_id, site_id: siteId, sender_id: me.id, audience: 'operatives', kind: 'doc_needs_signing', body } as never);
+  if (me.org_id) void db.from('messages').insert({ org_id: me.org_id, site_id: siteId, sender_id: me.id, audience: 'operatives', kind: 'doc_needs_signing', body } as never).then(undefined, () => undefined);
 };
 export const log = (me: Profile, siteId: string, action: string, description: string) => {
-  if (me.org_id) void db.from('site_activity_log').insert({ site_id: siteId, org_id: me.org_id, actor_id: me.id, action, description } as never);
+  if (me.org_id) void db.from('site_activity_log').insert({ site_id: siteId, org_id: me.org_id, actor_id: me.id, action, description } as never).then(undefined, () => undefined);
 };
 
 export async function uploadHsDoc(me: Profile & { signature_path?: string | null }, kind: DocKind, siteId: string, f: { name: string; docType: string; supersedesId: string | null; file: Asset; companyId?: string | null; signLayout?: object | null }): Promise<string | null> {

@@ -18,10 +18,10 @@ export type SubAddr = { id: string; name: string; address: string | null; postco
 export type Supplier = { id: string; name: string; email: string | null; favourite?: boolean | null; branches?: unknown };
 
 function log(me: Profile, siteId: string, action: string, description: string) {
-  if (me.org_id) void db.from('site_activity_log').insert({ site_id: siteId, org_id: me.org_id, actor_id: me.id, action, description } as never);
+  if (me.org_id) void db.from('site_activity_log').insert({ site_id: siteId, org_id: me.org_id, actor_id: me.id, action, description } as never).then(undefined, () => undefined);
 }
 function tellManagers(me: Profile, siteId: string, kind: string, body: string) {
-  if (me.org_id) void db.from('messages').insert({ org_id: me.org_id, site_id: siteId, sender_id: me.id, audience: 'managers', kind, body } as never);
+  if (me.org_id) void db.from('messages').insert({ org_id: me.org_id, site_id: siteId, sender_id: me.id, audience: 'managers', kind, body } as never).then(undefined, () => undefined);
 }
 
 export function useSubAddresses(siteId: string | undefined, multi: boolean) {
@@ -236,14 +236,14 @@ async function bookCollection(me: Profile, siteId: string, f: Fulfil, supplier: 
       const saved = r.data as { id: string } | null;
       if (!saved) return ' — but it could not be added to the Delivery Schedule, add it by hand';
       // Link the collection to the requests (and PO) so the driver completing it marks them received (9219zr).
-      void db.from('delivery_tasks').update({ material_ids: mats.map((m) => m.id), ...(poId ? { po_id: poId } : {}) } as never).eq('id', saved.id);
+      void db.from('delivery_tasks').update({ material_ids: mats.map((m) => m.id), ...(poId ? { po_id: poId } : {}) } as never).eq('id', saved.id).then(undefined, () => undefined);
       try {
         await resequenceSlot(me.org_id as string, f.date, payload.time_slot as string);
         const ev = await db.from('site_calendar_events').insert({ org_id: me.org_id, site_id: siteId, title: `Delivery: ${payload.description as string}`, event_date: f.date, is_private: false, reminder_recipient_ids: [], created_by: me.id } as never).select('id').single();
         const evId = (ev.data as { id: string } | null)?.id;
         if (evId) await db.from('delivery_tasks').update({ calendar_event_id: evId } as never).eq('id', saved.id);
       } catch { /* best effort */ }
-      if (f.collectorId !== me.id) void db.from('messages').insert({ org_id: me.org_id, site_id: siteId, sender_id: me.id, audience: 'single', recipient_id: f.collectorId, kind: 'delivery_assigned', body: `You've been assigned a collection for ${dateLabel}: ${itemsText}${f.note ? ` — Note: ${f.note}` : ''}`, related_id: saved.id } as never);
+      if (f.collectorId !== me.id) void db.from('messages').insert({ org_id: me.org_id, site_id: siteId, sender_id: me.id, audience: 'single', recipient_id: f.collectorId, kind: 'delivery_assigned', body: `You've been assigned a collection for ${dateLabel}: ${itemsText}${f.note ? ` — Note: ${f.note}` : ''}`, related_id: saved.id } as never).then(undefined, () => undefined);
       return ` — added to the Delivery Schedule for ${whoName}, ${dateLabel}`;
     }
     const now = new Date().toISOString(), grp = collGroup(mats);
@@ -253,7 +253,7 @@ async function bookCollection(me: Profile, siteId: string, f: Fulfil, supplier: 
       status: 'assigned', assigned_to: f.collectorId, assigned_at: now, created_by: me.id, ...(grp ? { group_id: grp } : {}),
     })) as never);
     if (ins.error) return ' — but it could not be added to Collections, add it by hand';
-    if (f.collectorId !== me.id) void db.from('messages').insert({ org_id: me.org_id, site_id: siteId, sender_id: me.id, audience: 'single', recipient_id: f.collectorId, kind: 'message', body: `Material to collect on ${dateLabel}${toMe ? '' : ` from ${supplier?.name ?? ''}`}: ${itemsText}${f.note ? ` — Note: ${f.note}` : ''}` } as never);
+    if (f.collectorId !== me.id) void db.from('messages').insert({ org_id: me.org_id, site_id: siteId, sender_id: me.id, audience: 'single', recipient_id: f.collectorId, kind: 'message', body: `Material to collect on ${dateLabel}${toMe ? '' : ` from ${supplier?.name ?? ''}`}: ${itemsText}${f.note ? ` — Note: ${f.note}` : ''}` } as never).then(undefined, () => undefined);
     return ` — added to Collections for ${whoName} to collect ${dateLabel}`;
   } catch { return ' — but the collection could not be booked, add it by hand'; }
 }
@@ -354,7 +354,7 @@ export async function assignCollections(me: Profile, siteId: string, siteName: s
   if (n) {
     const label = items.length === 1 ? items[0].item : `${n} items`;
     void supabase.functions.invoke('notify-material-pickup', { body: { site_id: siteId, user_id: userId, item_label: label } }).catch(() => undefined);
-    if (me.org_id) void db.from('messages').insert({ org_id: me.org_id, site_id: siteId, sender_id: me.id, audience: 'operatives', kind: 'material_pickup', body: items.length === 1 ? `${userName} was asked to collect "${label}" for ${siteName}.` : `${userName} was asked to collect ${n} item${n > 1 ? 's' : ''} for ${siteName}.` } as never);
+    if (me.org_id) void db.from('messages').insert({ org_id: me.org_id, site_id: siteId, sender_id: me.id, audience: 'operatives', kind: 'material_pickup', body: items.length === 1 ? `${userName} was asked to collect "${label}" for ${siteName}.` : `${userName} was asked to collect ${n} item${n > 1 ? 's' : ''} for ${siteName}.` } as never).then(undefined, () => undefined);
   }
   return n;
 }

@@ -65,7 +65,7 @@ export async function editHavsEntry(id: string, minutes: number): Promise<boolea
 export async function deleteHavsEntry(me: Profile, site: Site, e: HavsEntry): Promise<boolean> {
   const r = await db.from('havs_entries').delete().eq('id', e.id);
   if (r.error) return false;
-  if (me.org_id) void db.from('site_activity_log').insert({ site_id: site.id, org_id: me.org_id, actor_id: me.id, action: 'havs_entry_deleted', description: `Deleted HAVS entry for ${me.name} (${e.entry_date})` } as never);
+  if (me.org_id) void db.from('site_activity_log').insert({ site_id: site.id, org_id: me.org_id, actor_id: me.id, action: 'havs_entry_deleted', description: `Deleted HAVS entry for ${me.name} (${e.entry_date})` } as never).then(undefined, () => undefined);
   return true;
 }
 

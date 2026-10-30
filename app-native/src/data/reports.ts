@@ -166,7 +166,7 @@ export async function completeReport(me: Profile & { signature_path?: string | n
 export async function deleteReports(me: Profile, siteId: string, ids: string[]): Promise<number> {
   let n = 0;
   for (const id of ids) if (!(await db.from('report_submissions').delete().eq('id', id)).error) n++;
-  if (n && me.org_id) void db.from('site_activity_log').insert({ site_id: siteId, org_id: me.org_id, actor_id: me.id, action: 'reports_deleted', description: `Deleted ${n} report${n > 1 ? 's' : ''} / inspection${n > 1 ? 's' : ''}` } as never);
+  if (n && me.org_id) void db.from('site_activity_log').insert({ site_id: siteId, org_id: me.org_id, actor_id: me.id, action: 'reports_deleted', description: `Deleted ${n} report${n > 1 ? 's' : ''} / inspection${n > 1 ? 's' : ''}` } as never).then(undefined, () => undefined);
   return n;
 }
 

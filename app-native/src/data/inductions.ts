@@ -145,7 +145,7 @@ export async function submitInduction(me: Profile & { signature_path?: string | 
   if (s.site_inductions_folder_id) {
     let bin = ''; for (let i = 0; i < built.bytes.length; i += 0x8000) bin += String.fromCharCode(...built.bytes.subarray(i, i + 0x8000));
     void invokeAsUser<{ ok?: boolean }>('onedrive-upload', { filename: built.filename, content_base64: btoa(bin), folder_id: s.site_inductions_folder_id, drive_id: s.site_inductions_drive_id || undefined })
-      .then((x) => { if (x.data?.ok) void db.from('site_induction_completions').update({ pushed_to_onedrive_at: new Date().toISOString() } as never).eq('id', (r.data as { id: string }).id); });
+      .then((x) => { if (x.data?.ok) void db.from('site_induction_completions').update({ pushed_to_onedrive_at: new Date().toISOString() } as never).eq('id', (r.data as { id: string }).id).then(undefined, () => undefined); });
   }
   return null;
 }

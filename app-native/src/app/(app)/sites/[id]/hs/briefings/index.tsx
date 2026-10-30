@@ -126,7 +126,7 @@ export default function Briefings() {
                     ) : s.status === 'in_progress' && me.role === 'admin' ? (
                       <Pressable hitSlop={8} onPress={async () => {
                         if (!(await confirmAsk('Delete this unfinished briefing? This cannot be undone.', 'Delete'))) return;
-                        if (await deleteBriefing(s.id)) { toast('Briefing deleted'); refresh(); } else toast('Could not delete — try again.');
+                        if (await deleteBriefing(s.id, me, id, s.template_name)) { toast('Briefing deleted'); refresh(); } else toast('Could not delete — try again.');
                       }}><Text style={{ color: base.red }}>🗑</Text></Pressable>
                     ) : undefined} />
                   {needsMe && (

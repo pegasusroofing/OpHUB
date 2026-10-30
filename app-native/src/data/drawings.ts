@@ -46,7 +46,7 @@ export function useDrawings(siteId: string | undefined, folderId: string | null)
 }
 
 function log(me: Profile, siteId: string, action: string, description: string) {
-  if (me.org_id) void db.from('site_activity_log').insert({ site_id: siteId, org_id: me.org_id, actor_id: me.id, action, description } as never);
+  if (me.org_id) void db.from('site_activity_log').insert({ site_id: siteId, org_id: me.org_id, actor_id: me.id, action, description } as never).then(undefined, () => undefined);
 }
 
 export async function createFolder(me: Profile, siteId: string, parentId: string | null, name: string) {

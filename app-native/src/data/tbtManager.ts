@@ -12,7 +12,7 @@ const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supab
 type Me = Profile & { signature_path?: string | null };
 
 const tellOperatives = (me: Profile, siteId: string, title: string) => {
-  if (me.org_id) void db.from('messages').insert({ org_id: me.org_id, site_id: siteId, sender_id: me.id, audience: 'operatives', kind: 'doc_needs_signing', body: `New TBT published and needs signing: "${title}"` } as never);
+  if (me.org_id) void db.from('messages').insert({ org_id: me.org_id, site_id: siteId, sender_id: me.id, audience: 'operatives', kind: 'doc_needs_signing', body: `New TBT published and needs signing: "${title}"` } as never).then(undefined, () => undefined);
 };
 
 export async function uploadTbt(me: Profile, siteId: string, title: string, file: { uri: string; name: string }): Promise<string | null> {
@@ -90,7 +90,7 @@ export const completeTbt = async (id: string) => !(await db.from('toolbox_talks'
 export async function deleteTbt(me: Profile, siteId: string, talk: Tbt): Promise<boolean> {
   const r = await db.from('toolbox_talks').delete().eq('id', talk.id);
   if (r.error) return false;
-  if (me.org_id) void db.from('site_activity_log').insert({ site_id: siteId, org_id: me.org_id, actor_id: me.id, action: 'toolbox_talk_deleted', description: `Deleted toolbox talk "${talk.title || ''}"` } as never);
+  if (me.org_id) void db.from('site_activity_log').insert({ site_id: siteId, org_id: me.org_id, actor_id: me.id, action: 'toolbox_talk_deleted', description: `Deleted toolbox talk "${talk.title || ''}"` } as never).then(undefined, () => undefined);
   try {
     const [a, b] = await Promise.all([db.from('toolbox_talks').select('id').eq('storage_path', talk.storage_path).limit(1), db.from('tbt_templates').select('id').eq('storage_path', talk.storage_path).limit(1)]);
     if (!(a.data ?? []).length && !(b.data ?? []).length) void supabase.storage.from('rams-docs').remove([talk.storage_path]);

@@ -92,7 +92,7 @@ export async function saveEvent(id: string, d: Draft): Promise<boolean> {
 }
 
 function log(me: Profile, siteId: string, description: string) {
-  if (me.org_id) void db.from('site_activity_log').insert({ site_id: siteId, org_id: me.org_id, actor_id: me.id, action: 'calendar_event_deleted', description } as never);
+  if (me.org_id) void db.from('site_activity_log').insert({ site_id: siteId, org_id: me.org_id, actor_id: me.id, action: 'calendar_event_deleted', description } as never).then(undefined, () => undefined);
 }
 /** whole = this and every later date in the series. */
 export async function deleteEvent(me: Profile, siteId: string, e: CalEvent, whole: boolean): Promise<boolean> {

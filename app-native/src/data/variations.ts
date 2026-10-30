@@ -39,7 +39,7 @@ export async function raiseVariation(me: Profile, site: Site, photo: Picked, des
   if (up.error) return 'Could not upload the photo — check your signal and try again.';
   const r = await db.from('variations').insert({ site_id: site.id, photo_path: up.data.path, description: desc || '—', created_by: me.id, status: 'live', approval_status: 'pending', ...(value != null ? { cost_impact: value.toFixed(2) } : {}) } as never);
   if (r.error) return 'Could not save — try again.';
-  if (me.org_id) void db.from('messages').insert({ org_id: me.org_id, site_id: site.id, sender_id: me.id, audience: 'managers', kind: 'variation', body: `${me.name} raised a variation: ${desc || '(no description)'}` } as never);
+  if (me.org_id) void db.from('messages').insert({ org_id: me.org_id, site_id: site.id, sender_id: me.id, audience: 'managers', kind: 'variation', body: `${me.name} raised a variation: ${desc || '(no description)'}` } as never).then(undefined, () => undefined);
   return null;
 }
 
@@ -55,10 +55,10 @@ export function useManagerVariations(siteId: string | undefined, status: 'live' 
 }
 
 function log(me: Profile, siteId: string, action: string, description: string) {
-  if (me.org_id) void db.from('site_activity_log').insert({ site_id: siteId, org_id: me.org_id, actor_id: me.id, action, description } as never);
+  if (me.org_id) void db.from('site_activity_log').insert({ site_id: siteId, org_id: me.org_id, actor_id: me.id, action, description } as never).then(undefined, () => undefined);
 }
 function tellManagers(me: Profile, siteId: string, body: string) {
-  if (me.org_id) void db.from('messages').insert({ org_id: me.org_id, site_id: siteId, sender_id: me.id, audience: 'managers', kind: 'variation', body } as never);
+  if (me.org_id) void db.from('messages').insert({ org_id: me.org_id, site_id: siteId, sender_id: me.id, audience: 'managers', kind: 'variation', body } as never).then(undefined, () => undefined);
 }
 
 /** Copies a changed site value to Finance's register where Finance hasn't typed its own (finance users only, as today). */

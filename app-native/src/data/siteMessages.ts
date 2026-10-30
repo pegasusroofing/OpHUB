@@ -117,7 +117,7 @@ export async function deleteMessages(me: Profile, siteId: string, ids: string[],
   if (r.error) return false;
   if (me.org_id) {
     const description = ids.length === 1 && body != null ? `Deleted message "${body.slice(0, 80)}"` : `Deleted ${ids.length} message${ids.length > 1 ? 's' : ''}`;
-    void db.from('site_activity_log').insert({ site_id: siteId, org_id: me.org_id, actor_id: me.id, action: ids.length === 1 ? 'message_deleted' : 'messages_deleted', description } as never);
+    void db.from('site_activity_log').insert({ site_id: siteId, org_id: me.org_id, actor_id: me.id, action: ids.length === 1 ? 'message_deleted' : 'messages_deleted', description } as never).then(undefined, () => undefined);
   }
   return true;
 }

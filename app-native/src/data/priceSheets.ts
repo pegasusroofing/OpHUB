@@ -223,7 +223,7 @@ export async function addEntry(me: Profile, elementId: string, siteId: string, w
 }
 export async function setEntryAmount(me: Profile, elementId: string, siteId: string, wk: number, id: string, amount: number | null, rollUp: boolean) {
   const ok = amount === null ? !(await db.from('price_week_operative_entries').delete().eq('id', id)).error : !(await db.from('price_week_operative_entries').update({ amount, updated_at: now() } as never).eq('id', id)).error;
-  if (ok && amount === null && me.org_id) void db.from('site_activity_log').insert({ org_id: me.org_id, site_id: siteId, actor_id: me.id, action: 'price_week_entry_deleted', description: `Deleted price entry for Week ${wk}` } as never);
+  if (ok && amount === null && me.org_id) void db.from('site_activity_log').insert({ org_id: me.org_id, site_id: siteId, actor_id: me.id, action: 'price_week_entry_deleted', description: `Deleted price entry for Week ${wk}` } as never).then(undefined, () => undefined);
   if (ok && rollUp) await rollUpWeek(elementId, siteId, wk);
   return ok;
 }

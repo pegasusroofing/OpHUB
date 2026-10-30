@@ -68,7 +68,7 @@ const notifyDecision = (siteId: string, userId: string | null, decision: string,
 export async function requestVariation(me: Profile, site: Site, elementId: string, amount: number, note: string, money: string): Promise<boolean> {
   const r = await db.from('additional_works_requests').insert({ site_id: site.id, element_id: elementId, amount, note, requested_by: me.id } as never);
   if (r.error) return false;
-  if (me.org_id) void db.from('messages').insert({ org_id: me.org_id, site_id: site.id, sender_id: me.id, audience: 'managers', kind: 'additional_works_requested', body: `${site.name}: Variation to price requested for ${money} — needs approval.` } as never);
+  if (me.org_id) void db.from('messages').insert({ org_id: me.org_id, site_id: site.id, sender_id: me.id, audience: 'managers', kind: 'additional_works_requested', body: `${site.name}: Variation to price requested for ${money} — needs approval.` } as never).then(undefined, () => undefined);
   return true;
 }
 export async function decideVariation(me: Profile, site: Site, v: PriceVariation, ok: boolean, reason?: string): Promise<boolean> {
@@ -88,7 +88,7 @@ export async function reviseVariation(me: Profile, site: Site, v: PriceVariation
 }
 export async function removeVariation(me: Profile, siteId: string, v: PriceVariation): Promise<boolean> {
   if ((await db.from('additional_works_requests').delete().eq('id', v.id)).error) return false;
-  if (me.org_id) void db.from('site_activity_log').insert({ org_id: me.org_id, site_id: siteId, actor_id: me.id, action: 'variation_to_price_deleted', description: `Deleted variation to price request "${v.note || ''}"` } as never);
+  if (me.org_id) void db.from('site_activity_log').insert({ org_id: me.org_id, site_id: siteId, actor_id: me.id, action: 'variation_to_price_deleted', description: `Deleted variation to price request "${v.note || ''}"` } as never).then(undefined, () => undefined);
   return true;
 }
 

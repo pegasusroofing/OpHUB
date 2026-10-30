@@ -147,7 +147,7 @@ export function PpeManager({ site }: { site: Site }) {
                         if (!(await confirmAsk('Delete this PPE issuance record? This cannot be undone.', 'Delete'))) return;
                         if (!(await db.from('ppe_issuances').delete().eq('id', i.id)).error) {
                           toast('Record deleted');
-                          if (me.org_id) void db.from('site_activity_log').insert({ site_id: site.id, org_id: me.org_id, actor_id: me.id, action: 'ppe_issuance_deleted', description: `Deleted PPE issuance record for ${p.name}` } as never);
+                          if (me.org_id) void db.from('site_activity_log').insert({ site_id: site.id, org_id: me.org_id, actor_id: me.id, action: 'ppe_issuance_deleted', description: `Deleted PPE issuance record for ${p.name}` } as never).then(undefined, () => undefined);
                           refresh();
                         }
                       }}><Text style={{ color: base.red }}>🗑</Text></Pressable>

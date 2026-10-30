@@ -49,7 +49,7 @@ export async function setAddressClosed(me: Profile, siteId: string, subId: strin
   const patch = closed ? { closed: true, closed_by: me.id, closed_at: new Date().toISOString() } : { closed: false, closed_by: null, closed_at: null };
   const r = await db.from('site_sub_addresses').update(patch as never).eq('id', subId);
   if (r.error) return false;
-  if (closed && me.org_id) void db.from('site_activity_log').insert({ site_id: siteId, org_id: me.org_id, actor_id: me.id, action: 'sub_address_closed', description: `Closed address "${name}"` } as never);
+  if (closed && me.org_id) void db.from('site_activity_log').insert({ site_id: siteId, org_id: me.org_id, actor_id: me.id, action: 'sub_address_closed', description: `Closed address "${name}"` } as never).then(undefined, () => undefined);
   return true;
 }
 

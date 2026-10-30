@@ -15,7 +15,7 @@ async function nextPos(table: 'schedule_sections' | 'schedule_tasks', siteId: st
   return (((r.data as { position: number | null }[] | null) ?? [])[0]?.position || 0) + 1;
 }
 function log(me: Profile, siteId: string, action: string, description: string) {
-  if (me.org_id) void db.from('site_activity_log').insert({ site_id: siteId, org_id: me.org_id, actor_id: me.id, action, description } as never);
+  if (me.org_id) void db.from('site_activity_log').insert({ site_id: siteId, org_id: me.org_id, actor_id: me.id, action, description } as never).then(undefined, () => undefined);
 }
 
 export async function addSection(me: Profile, siteId: string, name: string): Promise<string | null> {

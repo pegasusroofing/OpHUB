@@ -40,7 +40,7 @@ export function folderPath(all: MOFolder[], id: string): string {
 }
 
 function log(me: Profile, siteId: string, action: string, description: string) {
-  if (me.org_id) void db.from('site_activity_log').insert({ site_id: siteId, org_id: me.org_id, actor_id: me.id, action, description } as never);
+  if (me.org_id) void db.from('site_activity_log').insert({ site_id: siteId, org_id: me.org_id, actor_id: me.id, action, description } as never).then(undefined, () => undefined);
 }
 
 export const createMOFolder = async (me: Profile, siteId: string, parentId: string | null, name: string) =>
@@ -109,7 +109,7 @@ export async function viewMOFile(siteId: string, path: string) {
 export async function syncMaterialOrders(siteId: string): Promise<string> {
   const r = await invokeAsUser<{ synced?: number; dupSkipped?: number }>('sync-material-orders', { site_id: siteId });
   if (r.error) return `Sync failed — ${r.error}`;
-  void db.from('sites').update({ material_orders_last_synced_at: new Date().toISOString() } as never).eq('id', siteId);
+  void db.from('sites').update({ material_orders_last_synced_at: new Date().toISOString() } as never).eq('id', siteId).then(undefined, () => undefined);
   const d = r.data ?? {};
   return d.synced ? `Synced ${d.synced} new file${d.synced === 1 ? '' : 's'}${d.dupSkipped ? ` (${d.dupSkipped} duplicate${d.dupSkipped === 1 ? '' : 's'} skipped)` : ''}`
     : d.dupSkipped ? `Already up to date — ${d.dupSkipped} duplicate${d.dupSkipped === 1 ? '' : 's'} skipped.` : 'Already up to date.';

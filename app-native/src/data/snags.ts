@@ -53,8 +53,8 @@ export async function closeSnag(me: Profile, site: Site, snag: Snag, p: Picked):
   const r = await db.from('snags').update({ status: 'closed', closed_photo_path: path, closed_by: me.id, closed_at: new Date().toISOString() } as never).eq('id', snag.id);
   if (r.error) return 'Could not save — try again.';
   if (me.org_id) {
-    void db.from('messages').insert({ org_id: me.org_id, site_id: site.id, sender_id: me.id, audience: 'managers', kind: 'snag_closed', body: `${me.name} closed a snag: "${snag.title || 'Untitled'}"` } as never);
-    void db.from('site_activity_log').insert({ site_id: site.id, org_id: me.org_id, actor_id: me.id, action: 'snag_closed', description: `Closed snag "${snag.title || 'Untitled'}"` } as never);
+    void db.from('messages').insert({ org_id: me.org_id, site_id: site.id, sender_id: me.id, audience: 'managers', kind: 'snag_closed', body: `${me.name} closed a snag: "${snag.title || 'Untitled'}"` } as never).then(undefined, () => undefined);
+    void db.from('site_activity_log').insert({ site_id: site.id, org_id: me.org_id, actor_id: me.id, action: 'snag_closed', description: `Closed snag "${snag.title || 'Untitled'}"` } as never).then(undefined, () => undefined);
   }
   return 'Snag closed';
 }
@@ -66,7 +66,7 @@ export async function addSnag(me: Profile, site: Site, title: string, location: 
   const r = await db.from('snags').insert({ site_id: site.id, title, location, photo_path: paths[0] || null, photo_paths: paths.length ? paths : null, status: 'open', created_by: me.id } as never);
   if (r.error) return 'Could not save — try again.';
   if (failed) return `Snag added, but ${failed} photo${failed > 1 ? 's' : ''} failed to upload — check your connection.`;
-  if (me.org_id) void db.from('messages').insert({ org_id: me.org_id, site_id: site.id, sender_id: me.id, audience: 'operatives', kind: 'snag_raised', body: `New snag raised: "${title}"` } as never);
+  if (me.org_id) void db.from('messages').insert({ org_id: me.org_id, site_id: site.id, sender_id: me.id, audience: 'operatives', kind: 'snag_raised', body: `New snag raised: "${title}"` } as never).then(undefined, () => undefined);
   return 'Snag added';
 }
 

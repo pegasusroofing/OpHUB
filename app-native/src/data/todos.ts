@@ -40,7 +40,7 @@ export function usePmList() {
 }
 
 const tellManagers = (me: Profile, siteId: string, body: string) => {
-  if (me.org_id) void db.from('messages').insert({ org_id: me.org_id, site_id: siteId, sender_id: me.id, audience: 'managers', kind: 'todo_assigned', body } as never);
+  if (me.org_id) void db.from('messages').insert({ org_id: me.org_id, site_id: siteId, sender_id: me.id, audience: 'managers', kind: 'todo_assigned', body } as never).then(undefined, () => undefined);
 };
 
 async function uploadOne(me: Profile, todoId: string, a: { uri: string; name: string; mimeType?: string | null; size?: number | null }) {
@@ -80,7 +80,7 @@ export async function assignTodo(me: Profile, siteId: string, siteName: string, 
 export const addComment = async (me: Profile, todoId: string, body: string) => !(await db.from('todo_comments').insert({ todo_id: todoId, body, created_by: me.id } as never)).error;
 export async function deleteTodo(me: Profile, siteId: string, t: Todo) {
   const r = await db.from('todos').delete().eq('id', t.id);
-  if (!r.error && me.org_id && siteId !== 'general') void db.from('site_activity_log').insert({ site_id: siteId, org_id: me.org_id, actor_id: me.id, action: 'todo_deleted', description: `Deleted to-do "${t.text || ''}"` } as never);
+  if (!r.error && me.org_id && siteId !== 'general') void db.from('site_activity_log').insert({ site_id: siteId, org_id: me.org_id, actor_id: me.id, action: 'todo_deleted', description: `Deleted to-do "${t.text || ''}"` } as never).then(undefined, () => undefined);
   return !r.error;
 }
 export async function deleteTodoFile(f: TodoFile) {
