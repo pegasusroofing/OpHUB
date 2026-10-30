@@ -47,6 +47,19 @@ export default function NewIncident() {
     potentialOutcome: '', reoccurrence: '', riddor: '',
   };
   const set = (k: K, val: string | string[]) => setD({ ...v, [k]: val });
+  const dateTime = (k: K, label: string) => {
+    const raw = String(v[k] || ''), onlyTime = raw.includes(':') && !raw.includes(' ');
+    const [d = '', tm = ''] = onlyTime ? ['', raw] : raw.split(' ');
+    return (
+      <View style={{ marginBottom: 10 }}>
+        <Text style={{ fontWeight: '700', color: base.ink, marginBottom: 6 }}>{label}</Text>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <View style={{ flex: 2 }}><DateBox value={d} onChange={(x) => set(k, `${x} ${tm}`.trim())} max={todayIso()} title={label} placeholder="Date" /></View>
+          <TextInput value={tm} onChangeText={(x) => set(k, `${d} ${x.replace(/[^0-9:]/g, '').slice(0, 5)}`.trim())} placeholder="Time, e.g. 14:30" keyboardType="numbers-and-punctuation" style={[box, { flex: 1, marginBottom: 0 }]} />
+        </View>
+      </View>
+    );
+  };
   const text = (k: K, label: string, opts: { multi?: boolean; ph?: string } = {}) => (
     <View>
       <Text style={{ fontWeight: '700', color: base.ink, marginBottom: 4 }}>{label}</Text>
@@ -69,7 +82,7 @@ export default function NewIncident() {
     <View style={{ marginBottom: 12 }}>
       <Text style={{ fontWeight: '700', color: base.ink, marginBottom: 6 }}>{label}</Text>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
-        {v[k].map((p, i) => <Pressable key={p} onPress={() => set(k, v[k].filter((_, j) => j !== i))}><StorageImage bucket="incident-photos" path={p} style={{ width: 60, height: 60, borderRadius: 6 }} /></Pressable>)}
+        {v[k].map((p, i) => <View key={p}><StorageImage zoom bucket="incident-photos" path={p} style={{ width: 60, height: 60, borderRadius: 6 }} /><Pressable hitSlop={6} accessibilityLabel="Remove photo" onPress={() => set(k, v[k].filter((_, j) => j !== i))} style={{ position: 'absolute', top: -6, right: -6, width: 20, height: 20, borderRadius: 10, backgroundColor: base.ink, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff', fontSize: 11 }}>✕</Text></Pressable></View>)}
       </View>
       <Button kind="ghost" busy={busy === k} title="📷 Add Photo(s)" onPress={async () => {
         const src = await chooseAction('Add photo', [{ key: 'camera', label: '📷 Take a photo' }, { key: 'library', label: '🖼 Choose from library' }]);
@@ -109,8 +122,8 @@ export default function NewIncident() {
       {text('filedBy', 'Form filed by')}
       {text('detail', '* Detail of the incident', { multi: true })}
       {photos('areaPhotos', 'Photo of area of incident')}
-      {text('dateTime', 'Date and time of incident', { ph: '2026-10-28 14:30' })}
-      {text('reportedDateTime', 'Date and time incident was reported', { ph: '2026-10-28 15:00' })}
+      {dateTime('dateTime', 'Date and time of incident')}
+      {dateTime('reportedDateTime', 'Date and time incident was reported')}
       {text('reportedTo', 'To whom was the incident reported?')}
       {toggle('witnesses', 'Was there any witness(es)?', [['yes', 'Yes'], ['no', 'No'], ['na', 'N/A']])}
       {v.witnesses === 'yes' && text('witnessNames', 'Witness name(s)')}

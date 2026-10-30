@@ -10,6 +10,7 @@ import { JobGrid, Muted, Tile } from '@/components/ui';
 import { setMcTileHidden, useMcTiles } from '@/data/mc';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
+import { supabase } from '@/lib/supabase';
 import { isManager } from '@/lib/roles';
 import { page, space } from '@/theme/theme';
 
@@ -32,8 +33,15 @@ export default function McHome() {
   const tiles = (data?.tiles ?? []).filter((t) => mgr || !hidden.includes(t.key));
   const open = (key: string) => {
     if (key === 'programme') {
-      if (data?.progFolderId) router.push(`/sites/${id}/drawings/${data.progFolderId}` as never);
-      else toast('No "Main Contractor Programme" folder yet — a manager can add it in Drawings.');
+      if (data?.progFolderId) { router.push(`/sites/${id}/drawings/${data.progFolderId}` as never); return; }
+      if (!mgr) { toast('No programme has been added yet.'); return; }
+      void (async () => {
+        const r = await supabase.from('drawing_folders').insert({ site_id: id, parent_id: null, name: 'Main Contractor Programme', position: 99, created_by: me.id } as never).select('id').single();
+        const fid = (r.data as unknown as { id: string } | null)?.id;
+        if (r.error || !fid) { toast('Could not open the programme folder — try again.'); return; }
+        void qc.invalidateQueries({ queryKey: ['mcTiles'] });
+        router.push(`/sites/${id}/drawings/${fid}` as never);
+      })();
       return;
     }
     router.push(`/sites/${id}/${ROUTE[key]}` as never);

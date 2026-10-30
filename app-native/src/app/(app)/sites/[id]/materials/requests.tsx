@@ -19,7 +19,7 @@ import { Button, Card, Empty, FilterRow, Muted, SectionTitle } from '@/component
 import { nameOf, usePeople } from '@/data/hs';
 import {
   addMaterial, cancelMaterial, deleteMaterials, importMaterials, editMaterial, groupMaterials, poLock, reopenMaterials,
-  reemailOrder, useRepairPick, setMaterialsStatus, yardCanEdit, ungroupMaterials, useYardIssues, useCollectionsOpenCount, useMaterialRequests, useSubAddresses, useSuppliers, type MatTab, type SubAddr,
+  reemailOrder, toCollections, useRepairPick, setMaterialsStatus, yardCanEdit, ungroupMaterials, useYardIssues, useCollectionsOpenCount, useMaterialRequests, useSubAddresses, useSuppliers, type MatTab, type SubAddr,
 } from '@/data/materials';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
@@ -146,6 +146,11 @@ export default function MaterialRequests() {
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
           <Button small title="🚚 Order from Merchant" onPress={() => void startOrder([m], false)} />
           {yardCanEdit(me, fin) && <Button small kind="ghost" title="🏗 Yard Stock" onPress={() => router.push(`/sites/${id}/materials/yard?mat=${m.id}` as never)} />}
+          <Button small kind="ghost" title="📦 Add to collections" onPress={async () => {
+            if (await locked([m])) return;
+            if (!(await confirmAsk('Add this to Collections?\n\nYou can then choose who collects it.', 'Add'))) return;
+            void act(async () => ((await toCollections(me, id, [m])) ? null : 'Could not add to Collections'), 'Added to Collections');
+          }} />
           <Button small kind="ghost" title="Close Request" onPress={() => void close([m])} />
         </View>
       )}

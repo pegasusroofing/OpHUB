@@ -10,12 +10,12 @@ import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { TbtStatusTag } from '@/components/TbtStatusTag';
-import { promptText, useToast } from '@/components/toast';
+import { confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import { HowTo } from '@/components/HowTo';
 import { nameOf, usePeople, useTbts } from '@/data/hs';
 import { useSite } from '@/data/sites';
-import { syncTbtBank, tbtDue, uploadTbt } from '@/data/tbtManager';
+import { deleteTbt, syncTbtBank, tbtDue, uploadTbt } from '@/data/tbtManager';
 import { buildSignedTbtPdf } from '@/data/hsPdf';
 import { useAuth } from '@/lib/auth';
 import { deliverPdf, emailPdf, exportFilename, PDFDocument, emailPdfsSeparately } from '@/lib/pdf';
@@ -94,6 +94,13 @@ export default function Tbts() {
           <Pressable key={t.id} onPress={() => (mgr && cur === 'completed' && sel.size ? setSel((x) => { const n = new Set(x); if (n.has(t.id)) n.delete(t.id); else n.add(t.id); return n; }) : router.push(`/sites/${site.id}/hs/tbt/${t.id}`))} onLongPress={mgr && cur === 'completed' ? () => setSel((x) => new Set(x).add(t.id)) : undefined}>
             <Card>
               <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                {mgr && t.status === 'live' && (
+                  <Pressable hitSlop={8} accessibilityLabel={`Delete ${t.title}`} onPress={async () => {
+                    const n = signed.length;
+                    if (!(await confirmAsk(n ? `Delete this toolbox talk? ${n} ${n === 1 ? 'person has' : 'people have'} already signed it — their signatures will be deleted too. This cannot be undone.` : 'Delete this toolbox talk and all its signatures? This cannot be undone.', 'Delete'))) return;
+                    if (await deleteTbt(me, id, t)) { toast('Toolbox talk deleted'); refresh(); } else toast('Could not delete — try again.');
+                  }}><Text style={{ color: base.red }}>🗑</Text></Pressable>
+                )}
                 <View style={{ flex: 1 }}>
                   <Text style={{ fontWeight: '800', color: base.ink }}>{mgr && cur === 'completed' ? <Text onPress={() => setSel((x) => { const n = new Set(x); if (n.has(t.id)) n.delete(t.id); else n.add(t.id); return n; })}>{sel.has(t.id) ? '☑ ' : '☐ '}</Text> : null}{t.title}</Text>
                   <Muted>{new Date(t.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</Muted>

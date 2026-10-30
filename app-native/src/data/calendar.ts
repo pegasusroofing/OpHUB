@@ -104,14 +104,14 @@ export async function deleteEvent(me: Profile, siteId: string, e: CalEvent, whol
 }
 
 /** "Also Add to Delivery Schedule": a stub delivery flagged needs_completing, first free drop. */
-export async function addToDeliverySchedule(me: Profile, siteId: string, title: string, date: string): Promise<boolean> {
-  if (await dayOffBlock(me.org_id as string, date, null)) return false;
+export async function addToDeliverySchedule(me: Profile, siteId: string, title: string, date: string): Promise<{ id?: string; error?: string }> {
+  const off = await dayOffBlock(me.org_id as string, date, null); if (off) return { error: off };
   const list = await dayList(me.org_id as string, date);
   const slot = DELIVERY_TIME_SLOTS.map((s) => s.key).find((k) => !slotProblem(list, { id: 'new', double_slot: false }, k, () => 'Site')) || '7am';
-  const r = await db.from('delivery_tasks').insert({ org_id: me.org_id, site_id: siteId, created_by: me.id, description: title, scheduled_date: date, time_slot: slot, collection_type: 'yard', high_priority: false, needs_completing: true } as never);
-  if (r.error) return false;
+  const r = await db.from('delivery_tasks').insert({ org_id: me.org_id, site_id: siteId, created_by: me.id, description: title, scheduled_date: date, time_slot: slot, collection_type: 'yard', high_priority: false, needs_completing: true } as never).select('id').single();
+  if (r.error || !r.data) return { error: 'Could not add — check your connection and try again.' };
   await resequenceSlot(me.org_id as string, date, slot);
-  return true;
+  return { id: (r.data as { id: string }).id };
 }
 
 // ---------- items the calendars add from elsewhere ----------

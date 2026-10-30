@@ -164,6 +164,7 @@ export async function pushDelivery(me: Profile, t: Delivery, plan: { date: strin
 export async function reopenDelivery(me: Profile, t: Delivery, choice: { date: string; slot: string }, sites: Site[]): Promise<{ ok: boolean; msg: string }> {
   const same = choice.date === t.scheduled_date && choice.slot === t.time_slot;
   if (!same) {
+    const off = await dayOffBlock(me.org_id as string, choice.date, t.driver_id ?? null); if (off) return { ok: false, msg: off };
     const why = slotProblem(await dayList(me.org_id as string, choice.date), t, choice.slot, placeOf(sites));
     if (why) return { ok: false, msg: why };
   }

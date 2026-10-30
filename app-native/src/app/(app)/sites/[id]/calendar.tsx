@@ -3,7 +3,7 @@
 // a plain key date; managers also get private, repeating, email reminders, edit,
 // delete (one date or the rest of a series) and "Also Add to Delivery Schedule".
 import { useQueryClient } from '@tanstack/react-query';
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
@@ -115,8 +115,10 @@ export default function SiteCalendar() {
         const date = readIsoDate(form.d.date);
         if (!form.d.title.trim()) { toast('Enter what this date is for first.'); return; }
         if (!date || date === 'bad') { toast('Pick a date first.'); return; }
-        if (await addToDeliverySchedule(me, id, form.d.title.trim(), date)) toast('Added to Delivery Schedule — open it there to fill in collection details, which drop and site contact.');
-        else toast('Could not add — check your connection and try again.');
+        const added = await addToDeliverySchedule(me, id, form.d.title.trim(), date);
+        if (added.error) { toast(added.error); return; }
+        toast('Added to Delivery Schedule — fill in collection details, which drop and site contact.');
+        router.push(`/pm/delivery/${added.id}` as never);
       }} />}
     </Card>
   );
