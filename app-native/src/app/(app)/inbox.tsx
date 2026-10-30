@@ -8,7 +8,9 @@ import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native'
 
 import { Card, Empty, Muted, Row, SectionTitle, Title } from '@/components/ui';
 import { nameOf, usePeople } from '@/data/hs';
-import { markMessagesRead, outstandingCount, useMyMessages, useOutstanding } from '@/data/inbox';
+import { useHub } from '@/data/hub';
+import { markMessagesRead, outstandingCount, useMyMessages, useOutstanding, type OutstandingRow } from '@/data/inbox';
+import { isManager } from '@/lib/roles';
 import { KIND_LABEL, msgDest } from '@/data/siteMessages';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
@@ -24,7 +26,18 @@ export default function Inbox() {
   const qc = useQueryClient();
   const { data: sites } = useSites();
   const siteIds = (sites ?? []).map((s) => s.id);
-  const out = useOutstanding(sites);
+  // 190: a manager's (site manager's) list is the manager feed — Toolbox Talks due, snags, RAMS / COSHH not
+  // signed by operatives, messages, open to-dos — not their own signatures (COSHH can't be signed by a manager).
+  const mgr = isManager(me);
+  const own = useOutstanding(mgr ? undefined : sites);
+  const hub = useHub(mgr ? me : null, sites, '');
+  const hubRows: OutstandingRow[] = [];
+  for (const it of hub.data?.items ?? []) {
+    const site = (sites ?? []).find((x) => x.id === it.siteId) ?? ({ id: it.siteId || 'all', name: it.siteName } as never);
+    let r = hubRows.find((x) => x.site.id === site.id); if (!r) { r = { site, items: [] }; hubRows.push(r); }
+    r.items.push({ label: `${it.typeLbl}: ${it.label}`, href: it.route, type: it.type as never });
+  }
+  const out = mgr ? { data: hubRows, isLoading: hub.isLoading, isRefetching: hub.isRefetching, refetch: hub.refetch } : own;
   const msgs = useMyMessages(siteIds);
   const { data: people } = usePeople();
   const todoN = outstandingCount(out.data);
@@ -73,7 +86,7 @@ export default function Inbox() {
           {out.isLoading ? <Muted>Loading…</Muted> : rows.length ? rows.map((r) => (
             <View key={r.site.id}>
               <SectionTitle>{r.site.name}</SectionTitle>
-              {r.items.map((it) => <Row key={it.href} title={`! ${it.label}`} onPress={() => router.push(it.href as never)} />)}
+              {r.items.map((it, i) => <Row key={`${it.href}-${i}`} title={`! ${it.label}`} onPress={() => router.push(it.href as never)} />)}
             </View>
           )) : <Empty>Nothing outstanding — nice work.</Empty>}
         </>
