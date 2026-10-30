@@ -13,7 +13,7 @@ const seed = require('./fresh/seed');
   await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(6000);
   const t = async()=> (await page.evaluate(()=>document.body.innerText)).replace(/\s+/g,' ');
   console.log('home:', (await t()).slice(0, 300));
-  const name = (db.organizations[0]||{}).name; if(name){ await page.getByText(name, {exact:true}).first().click(); await page.waitForTimeout(1000); const s = await t(); const i = s.indexOf('Package'); console.log('expanded:', s.slice(i, i+260)); }
+  const name = (db.organizations[0]||{}).name; if(name){ await page.getByText(name, {exact:true}).last().click(); await page.waitForTimeout(1000); const s = await t(); const i = s.indexOf('Package'); console.log('expanded:', s.slice(i, i+260)); }
   await page.getByText('OpHUB Pro', {exact:true}).first().click(); await page.waitForTimeout(1500);
   console.log('plan now:', db.organizations[0].plan_tier, '|', errs.join(' / ') || 'no errors');
   await browser.close(); process.exit(0);

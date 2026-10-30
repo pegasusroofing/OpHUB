@@ -119,8 +119,10 @@
 ## Button-by-button deep dive (30 Oct 2026)
 - Eight checks compared every old file with the new app, button by button. The list and its ticks are in `DEEP-DIVE-2026-10-30.md`.
 - All HIGH and MED items are done, except that one HIGH needed no change (the database already marks collected goods as received).
-- The small LOW items still open are listed there. Trial items stay parked.
-- Not yet tested on real phones: everything so far was tested in the browser against the fake database in `tools/test-harness`. `run-all.sh` runs all the checks.
+- Every item on that list is now done, including the last small ones (30 Oct 2026). Trial items stay parked.
+- Added on the way: `react-native-webview`, for signature boxes on phones (`components/NativePdfPage.tsx`). The phone apps need a rebuild to include it.
+- Not yet tested on real phones: everything so far was tested in the browser against the fake database in `tools/test-harness`. `run-all.sh` runs all the checks. First things to try on a phone: camera, signing, GPS, push, and signature boxes (the page picture and dragging inside a scrolling page have never run on a phone).
+- Seen but not exercised by any test: repair job "Signed off by" line, separate PDFs for briefings, over-PO flag on inbox filing, one supplier per PO from quotes, bulk reopen question, PPE Export link, Open Inspections button. The price sheet email still uses send-document-email, not send-price-builder-email.
 
 ## Andy's own to-dos
 - Press **Push origin** for the handoff pack.

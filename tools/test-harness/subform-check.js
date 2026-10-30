@@ -27,7 +27,7 @@ const fs = require('fs'), path = require('path');
   const no = page.getByText('No', {exact:true}); await no.nth(2).click(); await no.nth(3).click(); // RIDDOR, notices
   const inputs = page.locator('input, textarea');
   await page.locator('textarea').first().fill('1 Road, Town');
-  await page.getByPlaceholder('YYYY-MM-DD').first().fill('2027-03-01');
+  await page.getByText('Choose a date', {exact:true}).first().click(); await page.waitForTimeout(600); await page.getByText('Today', {exact:true}).last().click(); await page.waitForTimeout(400);
   const all = await inputs.evaluateAll(els=>els.map((e,i)=>[i,e.placeholder,e.value]));
   const pcIdx = all.findIndex(([i,ph,v],k)=>k>2 && ph==='Your answer' && !v); await inputs.nth(all[pcIdx][0]).fill('AB1 2CD');
   const [fc] = await Promise.all([page.waitForEvent('filechooser'), page.getByText('⬆ Add file', {exact:true}).first().click()]); await fc.setFiles(pl); await page.waitForTimeout(2500);

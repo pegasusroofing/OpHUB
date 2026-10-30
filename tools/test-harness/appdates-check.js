@@ -15,6 +15,6 @@ const seed = require('./fresh/seed');
   await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
   await page.goto('http://localhost:8081/fin/job/'+S1+'?tab=setup'); await page.waitForTimeout(5000);
   const st = ()=>JSON.stringify(db.materials.filter(m=>['m1','m2','m3'].includes(m.id)).map(m=>m.status));
-  await page.getByText('📅 Monthly application dates').click(); await page.waitForTimeout(1500); await page.screenshot({path:'shots/native_appdates-1300.png'}); const inp = page.locator('input').nth(3); await inp.fill('2026-12-03'); await page.getByText('Save', {exact:true}).last().click(); await page.waitForTimeout(2500); console.log('app_dates', JSON.stringify(db.job_finance.find(j=>j.site_id===S1).app_dates));
+  await page.getByText('📅 Monthly application dates').click(); await page.waitForTimeout(1500); await page.screenshot({path:'shots/native_appdates-1300.png'}); await page.getByText('No usual day set', {exact:true}).nth(2).click(); await page.waitForTimeout(600); await page.getByText('Today', {exact:true}).last().click(); await page.waitForTimeout(400); await page.getByText('Save', {exact:true}).last().click(); await page.waitForTimeout(2500); console.log('app_dates', JSON.stringify(db.job_finance.find(j=>j.site_id===S1).app_dates));
   console.log('errors', errs.join(' | ')||'none'); await browser.close(); process.exit(0);
 })();
