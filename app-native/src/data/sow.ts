@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { useAuth } from '@/lib/auth';
 import { cachedQuery, orThrow } from '@/lib/offlineCache';
-import { compressOne, makeSizes, type Picked } from '@/lib/photos';
+import { compressOne, makeSizes, type Picked, smallSizes } from '@/lib/photos';
 import { allDone, completePatch, oneDriveName, photoPaths, statusPatch, type TaskStatus } from '@/lib/rules/sow';
 import { supabase } from '@/lib/supabase';
 import { cancelUpload, dropPatch, enqueuePatch, enqueueUpload, registerAfterHook } from '@/lib/uploadQueue';
@@ -82,6 +82,35 @@ registerAfterHook('sowVariationClose', async (args, { row }) => {
 });
 
 const newId = () => (globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}${Math.random().toString(16).slice(2)}`);
+
+/** Photos from before the three sizes existed get their small copies made quietly, one at a time,
+ *  the next time someone opens the job (480 backfillSchedulePhotoRenditions). Returns how many were done. */
+let backfilling = false;
+const triedRenditions = new Set<string>(); // each photo is tried once per session, so a failed one never loops
+export async function backfillRenditions(photos: Photo[]): Promise<number> {
+  const todo = photos.filter((p) => p.storage_path && !p.thumb_path && !triedRenditions.has(p.id)).slice(0, 60);
+  if (backfilling || !todo.length) return 0;
+  backfilling = true;
+  let n = 0;
+  const up = async (path: string, uri: string) => {
+    const r = await supabase.storage.from('site-photos').upload(path, await (await fetch(uri)).arrayBuffer(), { contentType: 'image/jpeg', upsert: true });
+    return r.error ? null : r.data.path;
+  };
+  try {
+    for (const p of todo) {
+      triedRenditions.add(p.id);
+      try {
+        const url = (await supabase.storage.from('site-photos').createSignedUrl(p.storage_path, 600)).data?.signedUrl;
+        const s = url ? await smallSizes(url) : null;
+        if (!s) continue;
+        const base = p.storage_path.replace(/\.[a-z0-9]+$/i, '');
+        const [m, t] = await Promise.all([up(`${base}_m.jpg`, s.mid), up(`${base}_t.jpg`, s.thumb)]);
+        if (m && t && !(await supabase.rpc('set_schedule_photo_renditions' as never, { p_id: p.id, p_mid: m, p_thumb: t } as never)).error) n++;
+      } catch { /* best effort — try the next one */ }
+    }
+  } finally { backfilling = false; }
+  return n;
+}
 
 /** Queues photos for a task. Each is resized to three sizes, uploaded, then recorded. */
 export async function addPhotos(me: Profile, site: Site, task: Task, picked: Picked[], stage: TaskStatus): Promise<number> {

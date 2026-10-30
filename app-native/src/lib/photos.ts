@@ -42,6 +42,16 @@ export async function makeSizes(p: Picked): Promise<{ full: string; mid: string 
   return { full: full.uri, mid, thumb };
 }
 
+/** Mid and thumb copies of a photo already uploaded (older photos made before the three sizes existed). */
+export async function smallSizes(uri: string): Promise<{ mid: string; thumb: string } | null> {
+  try {
+    const src = await (await ImageManipulator.manipulate(uri).renderAsync()).saveAsync({ format: SaveFormat.JPEG, compress: 1 });
+    const m = await shrink(src.uri, src.width, src.height, null, SOW_PHOTO.mid.max, SOW_PHOTO.mid.q);
+    const t = await shrink(m.uri, m.width, m.height, null, SOW_PHOTO.thumb.max, SOW_PHOTO.thumb.q);
+    return { mid: m.uri, thumb: t.uri };
+  } catch { return null; }
+}
+
 /** Single smaller photo for things like the leftover-material picture. */
 export async function compressOne(p: Picked): Promise<string> {
   return (await shrink(p.uri, p.width, p.height, SOW_PHOTO.full.maxW, null, SOW_PHOTO.full.q)).uri;

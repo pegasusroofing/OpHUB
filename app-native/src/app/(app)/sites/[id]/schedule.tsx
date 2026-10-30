@@ -19,7 +19,7 @@ import { SowExport } from '@/components/SowExport';
 import { Button, Card, Empty, FilterRow, Muted, SectionTitle } from '@/components/ui';
 import { heading } from '@/lib/fonts';
 import {
-  addLeftoverPhoto, closeOutSiteCondition, documentLink, markViewedOnce, saveFlag, useSchedule, type Flag, type Task,
+  addLeftoverPhoto, backfillRenditions, closeOutSiteCondition, documentLink, markViewedOnce, saveFlag, useSchedule, type Flag, type Task,
 } from '@/data/sow';
 import { useSite } from '@/data/sites';
 import {
@@ -75,6 +75,12 @@ export default function Schedule() {
     const b = onUploadsSent((n) => { toast(`✓ ${n} photo${n === 1 ? '' : 's'} uploaded`); void refetch(); });
     return () => { a(); b(); };
   }, [refetch, toast]);
+  // Older photos without small copies get them made in the background (480), then the page refreshes.
+  useEffect(() => {
+    if (!data?.photos.some((p) => !p.thumb_path)) return;
+    const t = setTimeout(() => { void backfillRenditions(data.photos).then((n) => { if (n) void refetch(); }); }, 1500);
+    return () => clearTimeout(t);
+  }, [data?.photos, refetch]);
   useEffect(() => { if (me && site) { void markViewedOnce(me); if (isManager(me)) void markSowViewed(me, site.id); } }, [me, site]);
   // Coming back to the page refreshes it (the first visit already loads it).
   const seen = useRef(false);
