@@ -12,7 +12,7 @@ import { CoshhFolderPicker } from '@/components/CoshhFolderPicker';
 import { chooseAction, confirmAsk, promptText, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
-import { alsoIn, productFromSds, wipeLibrary, deleteFile, deleteFolder, deleteProductFull, moveFiles, newProduct, packPdf, productsFromSds, removeDuplicates, renameFile, renameFolder, saveAssessment, uploadFiles, useAssessMap, useFolderView, useProducts, createFolder } from '@/data/coshhLib';
+import { alsoIn, useAllFolders, productFromSds, wipeLibrary, deleteFile, deleteFolder, deleteProductFull, moveFiles, newProduct, packPdf, productsFromSds, removeDuplicates, renameFile, renameFolder, saveAssessment, uploadFiles, useAssessMap, useFolderView, useProducts, createFolder } from '@/data/coshhLib';
 import { openDocLink } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
 import { COSHH_PICTO_IMG } from '@/lib/coshhPictoImages';
@@ -33,6 +33,7 @@ function Folders({ setPick }: { setPick: (p: Pick | null) => void }) {
   const [sel, setSel] = useState<string[]>([]);
   const [busy, setBusy] = useState('');
   const { data, isLoading } = useFolderView(me?.org_id, folderId);
+  const { data: allFolders } = useAllFolders(me?.org_id);
   if (!me) return null;
   const refresh = () => { ['coshhFolder', 'coshhFolders', 'coshhAssess'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] })); };
   const cur = data?.current ?? null;
@@ -58,6 +59,7 @@ function Folders({ setPick }: { setPick: (p: Pick | null) => void }) {
       {!!busy && <Card><Muted>{busy}</Muted></Card>}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
         {cur && <Pressable onPress={() => setFolderId(cur.parent_id)} style={[box, { paddingVertical: 5 }]}><Text style={{ color: base.ink }}>‹ Up</Text></Pressable>}
+        {(allFolders ?? []).some((f) => !f.parent_id) && <Pressable onPress={async () => { const k = await chooseAction('Jump to a folder', [{ key: '-', label: 'Top level' }, ...(allFolders ?? []).filter((f) => !f.parent_id).sort((a, b) => a.name.localeCompare(b.name)).map((f) => ({ key: f.id, label: f.name }))]); if (k) setFolderId(k === '-' ? null : k); }} style={[box, { paddingVertical: 5 }]}><Text style={{ color: base.ink }}>Jump to… ▾</Text></Pressable>}
         <Text style={{ flex: 1, fontWeight: '800', color: base.ink }}>{cur ? cur.name : 'Folders'}</Text>
         <Pressable onPress={async () => { const n = await promptText('New folder name', ''); if (!n || !n.trim()) return; toast((await createFolder(me, folderId, n.trim())) ? 'Folder created' : 'Could not create the folder'); refresh(); }} style={[box, { paddingVertical: 5 }]}><Text style={{ color: base.ink, fontWeight: '700' }}>+ Folder</Text></Pressable>
       </View>

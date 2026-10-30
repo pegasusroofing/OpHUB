@@ -49,19 +49,22 @@ export default function HavsTools() {
   if (!me) return null;
   if (!isFullManager(me)) return <Muted style={{ padding: space.l }}>Project Managers and admins only.</Muted>;
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['havsToolsAdmin'] }); void qc.invalidateQueries({ queryKey: ['havs'] }); };
+  const [gen, setGen] = useState(0);
   const save = async (t: Tool, field: 'name' | 'vibration_magnitude', raw: string) => {
+    const back = () => { setGen((g) => g + 1); refresh(); };
     const v = raw.trim();
-    if (!v) { toast(`${field === 'name' ? 'Tool name' : 'Magnitude'} can't be empty.`); refresh(); return; }
+    if (!v) { toast(`${field === 'name' ? 'Tool name' : 'Magnitude'} can't be empty.`); back(); return; }
     const val = field === 'vibration_magnitude' ? parseFloat(v) : titleCaseWords(v);
-    if (field === 'vibration_magnitude' && (!isFinite(val as number) || (val as number) <= 0)) { toast('Enter a magnitude greater than 0.'); refresh(); return; }
-    toast(!(await db.from('havs_tools').update({ [field]: val } as never).eq('id', t.id).select('id')).data?.length ? 'Could not save — try again.' : 'Tool updated'); refresh();
+    if (field === 'vibration_magnitude' && (!isFinite(val as number) || (val as number) <= 0)) { toast('Enter a magnitude greater than 0.'); back(); return; }
+    const ok = !!(await db.from('havs_tools').update({ [field]: val } as never).eq('id', t.id).select('id')).data?.length;
+    toast(ok ? 'Tool updated' : 'Could not save — try again.'); if (ok) refresh(); else back();
   };
   return (
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'HAVS Tools' }} />
       <Muted style={{ marginBottom: 10 }}>The vibration magnitude (m/s²) used to calculate everyone&apos;s HAVS exposure points. These are sensible starting defaults — update them if you have proper manufacturer or measured figures.</Muted>
       {isLoading ? <Muted>Loading…</Muted> : tools.length ? tools.map((t) => (
-        <ToolRow key={t.id} t={t} onSave={(f, v) => void save(t, f, v)} onRemove={async () => {
+        <ToolRow key={`${t.id}#${gen}`} t={t} onSave={(f, v) => void save(t, f, v)} onRemove={async () => {
           if (!(await confirmAsk(`Remove "${t.name}"? Past HAVS entries using it are kept, but it won't be selectable for new entries.`, 'Remove'))) return;
           toast(!(await db.from('havs_tools').update({ active: false } as never).eq('id', t.id).select('id')).data?.length ? 'Could not remove — try again.' : 'Tool removed'); refresh();
         }} />

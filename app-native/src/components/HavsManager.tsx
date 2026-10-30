@@ -44,6 +44,7 @@ export function HavsManager({ site }: { site: Site }) {
   useFlushOnLeave(flushRef);
   const [gen, force] = useState(0); // gen remounts the minutes boxes after a save, so saved ones show empty (660)
   const [busy, setBusy] = useState<string | null>(null);
+  const [summaryOpen, setSummaryOpen] = useState(true);
   const [pick, setPick] = useState<string[] | null>(null); // operatives ticked for Export Selected (660)
   // "+ Add operative" for the odd person not assigned to this job (660 extraUserIds), per day and tool.
   const [extra, setExtra] = useState<Record<string, string[]>>({});
@@ -194,6 +195,24 @@ export function HavsManager({ site }: { site: Site }) {
               {!tools.length && <Text style={{ color: base.red, marginBottom: 12 }}>No HAVS tools on this site yet — tap the tools above to add them.</Text>}
               {tools.length > 0 && !data.locked && (
                 <Button kind="ghost" title="Save Minutes" onPress={async () => { const n = await flush(); toast(n ? 'Minutes saved' : 'Nothing new to save — type minutes in the boxes first.'); refresh(); }} />
+              )}
+              {data.locked && (
+                <>
+                  <Toggle title="Weekly Summary" open={summaryOpen} onPress={() => setSummaryOpen(!summaryOpen)} />
+                  {summaryOpen && <Card>{data.ops.map((o) => {
+                    const by = days.map((dd) => data.entries.filter((e) => e.user_id === o.id && e.entry_date === localISODate(dd)).reduce((t, e) => t + points(toolById[e.tool_id]?.vibration_magnitude || 0, e.minutes), 0));
+                    return (
+                      <View key={o.id} style={{ paddingVertical: 6, borderTopWidth: 1, borderTopColor: base.line }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                          <Text style={{ flex: 1, fontWeight: '700', color: base.ink }}>{o.name}</Text>
+                          <Muted>Week {by.reduce((t, x) => t + x, 0).toFixed(0)} pts</Muted>
+                          <Text style={{ color: base.blue }} onPress={async () => { setBusy('sel'); try { const b = await buildHavsPdf(site, org, days, weekLabel(days), [o], o.name); if (!(await deliverPdf(b.bytes, b.filename))) toast('Could not save the PDF.'); } catch { toast('Could not build the PDF.'); } finally { setBusy(''); } }}>Export</Text>
+                        </View>
+                        <Muted>{by.map((x, i) => `${HAVS_DAY_LABELS[i]} ${x.toFixed(0)}`).join(' · ')}</Muted>
+                      </View>
+                    );
+                  })}</Card>}
+                </>
               )}
               {data.locked ? (
                 <View style={{ flexDirection: 'row', gap: 8 }}>

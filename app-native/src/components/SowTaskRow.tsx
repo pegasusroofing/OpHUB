@@ -44,7 +44,7 @@ export function SowTaskRow({ updateOnly, me, site, task, subCos = [], photos, pe
   const [pick, setPick] = useState<Set<string> | null>(null);
   const picked = pick ?? new Set(photos.filter((p) => p.stage === 'done').map((p) => p.id));
 
-  const menu = async () => {
+  const menu = async (only?: string) => {
     const items = [
       { key: 'edit', label: '✎ Edit' },
       ...(site.multi_site ? [{ key: 'addr', label: '📍 Link Address' }] : []),
@@ -53,7 +53,7 @@ export function SowTaskRow({ updateOnly, me, site, task, subCos = [], photos, pe
       ...(subCos.length || site.acting_as_main_contractor ? [{ key: 'sub', label: '🏗 Assign to subcontractor' }] : []),
       { key: 'del', label: '🗑 Delete', danger: true }, { key: 'multi', label: '☑ Select Multiple' },
     ];
-    const k = await chooseAction(task.name, items);
+    const k = only ?? await chooseAction(task.name, items);
     if (k === 'vis') setVis(true);
     else if (k === 'sub' && !subCos.length) toast('No subcontractors added for this site yet.');
     else if (k === 'sub') {
@@ -169,15 +169,15 @@ export function SowTaskRow({ updateOnly, me, site, task, subCos = [], photos, pe
           <Text style={[s.name, done && s.nameDone]}>
             {!task.section_id && task.visibility_mode === 'assigned' ? '🔒 ' : ''}{task.name}{done ? '  ✓' : ''}
           </Text>
-          {!!subCo && <Text style={{ alignSelf: 'flex-start', fontSize: 10.5, fontWeight: '700', color: base.ink, backgroundColor: '#E7E9EE', borderWidth: 1, borderColor: base.line, borderRadius: 20, paddingHorizontal: 8, paddingVertical: 1, marginTop: 3, overflow: 'hidden' }}>{subCo.name.toUpperCase()}</Text>}
+          {!!subCo && <Text onPress={mgr && !updateOnly ? () => void menu('sub') : undefined} style={{ alignSelf: 'flex-start', fontSize: 10.5, fontWeight: '700', color: base.ink, backgroundColor: '#E7E9EE', borderWidth: 1, borderColor: base.line, borderRadius: 20, paddingHorizontal: 8, paddingVertical: 1, marginTop: 3, overflow: 'hidden' }}>{subCo.name.toUpperCase()}</Text>}
           {done && task.completed_at && (
             <Text style={s.meta}>Completed {new Date(task.completed_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</Text>
           )}
         </View>
         {site.multi_site && (
-          <Text style={[s.addrPill, !task.sub_site_id && { color: base.warn, backgroundColor: base.warnBg }]}>{address?.name || 'No address'}</Text>
+          <Text onPress={mgr && !updateOnly ? () => void menu('addr') : undefined} style={[s.addrPill, !task.sub_site_id && { color: base.warn, backgroundColor: base.warnBg }]}>{address?.name || (mgr && !updateOnly ? 'Unlinked — tap to link' : 'No address')}</Text>
         )}
-        {mgr && !updateOnly && <Pressable onPress={menu} hitSlop={8} style={{ paddingHorizontal: 6 }}><Text style={{ fontSize: 18, color: base.slate }}>⋮</Text></Pressable>}
+        {mgr && !updateOnly && <Pressable onPress={() => void menu()} hitSlop={8} style={{ paddingHorizontal: 6 }}><Text style={{ fontSize: 18, color: base.slate }}>⋮</Text></Pressable>}
       </View>
 
       {(photos.length > 0 || pending.length > 0) && (
