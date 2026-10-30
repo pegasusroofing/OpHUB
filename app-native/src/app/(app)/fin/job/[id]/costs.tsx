@@ -3,7 +3,11 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { ScrollView, TextInput, View } from 'react-native';
+
+import { DateBox } from '@/components/DateField';
+import { useSites } from '@/data/sites';
+import { exportTableExcel, exportTablePdf } from '@/lib/tableExport';
 
 import { FinForm } from '@/components/FinForm';
 import { AllocRow } from '@/components/FinSplit';
@@ -15,20 +19,34 @@ import { fdb } from '@/data/finance';
 import { useAuth } from '@/lib/auth';
 import { COST_CATS, forecast } from '@/lib/rules/finBook';
 import { fdate, money, num, round2, today } from '@/lib/rules/finance';
-import { page, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 import { mustHit } from '@/lib/mustHit';
 
 export default function FinCosts() {
   const { id, sub } = useLocalSearchParams<{ id: string; sub?: string }>();
-  const { me } = useAuth();
+  const { me, org } = useAuth();
   const { data } = useBook(me?.org_id, id);
   const [cat, setCat] = useState('all');
+  // 910: search, a date range and sorting, then Excel / PDF of what's shown.
+  const [q, setQ] = useState('');
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+  const [sort, setSort] = useState<'new' | 'old' | 'big' | 'az'>('new');
+  const { data: sites } = useSites();
   const [edit, setEdit] = useState<Record<string, any> | 'new' | null>(null);
   const toast = useToast();
   const qc = useQueryClient();
   if (!data || !me) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   const fc = forecast(data.book, id, data.settings);
-  const list = fc.lines.filter((l) => (cat === 'all' || l.cat === cat) && (!sub || (sub === 'none' ? !l.sub : l.sub === sub))).sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+  const ql = q.trim().toLowerCase();
+  const list = fc.lines.filter((l) => (cat === 'all' || l.cat === cat) && (!sub || (sub === 'none' ? !l.sub : l.sub === sub))
+    && (!ql || [l.desc, l.who, l.ref].filter(Boolean).join(' ').toLowerCase().includes(ql))
+    && (!from || String(l.date || '') >= from) && (!to || String(l.date || '').slice(0, 10) <= to))
+    .sort((a, b) => (sort === 'old' ? String(a.date || '').localeCompare(String(b.date || '')) : sort === 'big' ? b.net - a.net : sort === 'az' ? String(a.desc || '').localeCompare(String(b.desc || '')) : String(b.date || '').localeCompare(String(a.date || ''))));
+  const shownTotal = list.reduce((t, l) => t + l.net, 0);
+  const site = (sites ?? []).find((x) => x.id === id);
+  const table = () => ({ title: 'Costs ledger', site: site?.name || '', sub: site?.name || '', cols: [{ l: 'Date', w: 70 }, { l: 'Type', w: 90 }, { l: 'Description', w: 240 }, { l: 'Supplier / who', w: 130 }, { l: 'Ref', w: 90 }, { l: 'Net £', w: 80, money: true }],
+    rows: [...list.map((l) => [l.date ? fdate(l.date) : '', COST_CATS[l.cat] || (l.cat === 'committed' ? 'Ordered' : l.cat), l.desc || '', l.who || '', l.ref || '', round2(l.net)]), ['', '', 'Total', '', '', round2(shownTotal)]] });
   const tot = (k: string) => fc.lines.filter((l) => l.cat === k).reduce((t, l) => t + l.net, 0);
   const refresh = () => void qc.invalidateQueries({ queryKey: ['finBook'] });
   // A line from fin_job_costs ("jc:<id>:…") opens the form; a yard-stock cost is changed from the stock.
@@ -47,6 +65,17 @@ export default function FinCosts() {
         {Object.entries(COST_CATS).map(([k, l]) => <FinChip key={k} on={cat === k} label={`${l} ${money(tot(k), 0)}`} onPress={() => setCat(k)} />)}
         <FinChip on={cat === 'committed'} label={`Ordered ${money(fc.committedTotal, 0)}`} onPress={() => setCat('committed')} />
         <View style={{ marginLeft: 'auto' }}><Button title="+ Add cost" onPress={() => setEdit('new')} /></View>
+      </View>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 10 }}>
+        <TextInput value={q} onChangeText={setQ} placeholder="Search description, supplier or ref" style={{ flexGrow: 1, minWidth: 200, borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 9, color: base.ink, backgroundColor: base.card }} />
+        <View style={{ width: 150 }}><DateBox value={from} onChange={setFrom} placeholder="From" title="From" /></View>
+        <View style={{ width: 150 }}><DateBox value={to} onChange={setTo} placeholder="To" title="To" /></View>
+        {(['new', 'old', 'big', 'az'] as const).map((k) => <FinChip key={k} on={sort === k} label={{ new: 'Newest', old: 'Oldest', big: 'Biggest', az: 'A–Z' }[k]} onPress={() => setSort(k)} />)}
+      </View>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+        <Muted>{list.length} line{list.length === 1 ? '' : 's'} · {money(shownTotal)}</Muted>
+        {list.length > 0 && <Button small kind="ghost" title="📊 Excel" onPress={() => void exportTableExcel(table(), org)} />}
+        {list.length > 0 && <Button small kind="ghost" title="📄 PDF" onPress={async () => { if (!(await exportTablePdf(table(), org).catch(() => false))) toast('Could not build the PDF.'); }} />}
       </View>
       {list.length ? list.map((l) => <FinRow key={l.key} title={l.desc} sub={[l.date ? fdate(l.date) : '', COST_CATS[l.cat] || (l.cat === 'committed' ? `Ordered (${COST_CATS[l.ccat || 'materials']})` : l.cat), l.who, l.ref, l.status].filter(Boolean).join(' · ')} right={money(l.net)} onPress={l.go ? () => router.push(l.go as never) : l.key.startsWith('jc:') ? () => openCost(l.key) : undefined} />) : <Empty>No costs yet.</Empty>}
       {edit && (
