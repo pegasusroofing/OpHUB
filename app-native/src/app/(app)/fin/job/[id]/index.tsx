@@ -26,9 +26,10 @@ import { importSiteVariations } from '@/data/finVar';
 import { openDocLink, usePeople } from '@/data/hs';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
+import { siteStatusKey } from '@/lib/rules/checkin';
 import { forecast, pctTxt } from '@/lib/rules/finBook';
 import { heading } from '@/lib/fonts';
-import { appDateFor, FIN_VAT_LABEL, fdate, invOutstandingNet, invOverdue, money, num, retentionAlerts, retentionDates, retentionHeld, retHalfAmt, type FinApp, type FinInv } from '@/lib/rules/finance';
+import { appDueThisMonth, plantCost, today, appDateFor, FIN_VAT_LABEL, fdate, invOutstandingNet, invOverdue, money, num, retentionAlerts, retentionDates, retentionHeld, retHalfAmt, type FinApp, type FinInv } from '@/lib/rules/finance';
 import { isFinanceOnlyOrg, isFinanceUser, isFullManager } from '@/lib/roles';
 import { base, page, space, useTheme } from '@/theme/theme';
 
@@ -82,7 +83,7 @@ export default function FinJob() {
           </Pressable>
         ))}
       </ScrollView>
-      {isLoading || !fc || !data ? <Muted>Loading…</Muted> : tab === 'overview' ? <Overview id={id} fc={fc} settings={data.settings} invs={data.book.invs.filter((i) => i.site_id === id)} apps={data.book.apps.filter((a) => a.site_id === id)} />
+      {isLoading || !fc || !data ? <Muted>Loading…</Muted> : tab === 'overview' ? <Overview id={id} fc={fc} settings={data.settings} invs={data.book.invs.filter((i) => i.site_id === id)} apps={data.book.apps.filter((a) => a.site_id === id)} book={data.book as unknown as Row} />
         : tab === 'sales' ? <>{subTabs('sales', [['invoices', 'Invoices'], ['apps', 'Applications & Certificates'], ['retention', 'Retention']])}<SalesLists key={sub.sales} tab={sub.sales as 'invoices'} siteId={id} /></>
         : tab === 'purchases' ? <>{subTabs('purchases', [['orders', 'Purchase orders'], ['invoices', 'Purchase invoices'], ['plant', 'Plant hire'], ['quotes', 'Purchase Quotes']])}{sub.purchases === 'quotes' ? <PurchaseQuotes siteId={id} /> : <PurchasesLists key={sub.purchases} tab={sub.purchases as 'orders'} siteId={id} />}</>
         : tab === 'subs' ? <>{subTabs('subs', [['orders', 'Subcontractor POs'], ['apps', 'Applications'], ['opinv', 'Operative invoices']])}<SubsLists key={sub.subs} tab={sub.subs as 'orders'} siteId={id} /></>
@@ -91,7 +92,7 @@ export default function FinJob() {
   );
 }
 
-function Overview({ id, fc, settings, invs, apps }: { id: string; fc: ReturnType<typeof forecast>; settings: Row; invs: FinInv[]; apps: FinApp[] }) {
+function Overview({ id, fc, settings, invs, apps, book }: { id: string; fc: ReturnType<typeof forecast>; settings: Row; invs: FinInv[]; apps: FinApp[]; book: Row }) {
   // Each half is worked out from what the latest certificate holds (903), not what's still held.
   const heldCert = retentionHeld(apps);
   const d = retentionDates(fc.jf, settings), alerts = retentionAlerts(fc.jf, settings, fc.retHeld);
@@ -179,6 +180,7 @@ function Overview({ id, fc, settings, invs, apps }: { id: string; fc: ReturnType
         <View style={{ flex: 1 }} />
         {ghost('Monthly Report', `/fin/job/${id}/monthly`)}{ghost('Day Works', `/fin/job/${id}/dayworks`)}{ghost('Budgets', `/fin/job/${id}/budget`)}{ghost('Project Quotes', `/fin/job/${id}/quotes`)}
       </View>
+      <NeedsAttention id={id} site={site as Row | undefined} fc={fc} settings={settings} invs={invs} apps={apps} book={book} />
       {!fc.isInvoiceJob && (
         <>
           <SectionTitle>Retention</SectionTitle>
@@ -352,5 +354,45 @@ function Setup({ id, site, jf, cpos, settings }: { id: string; site: Row | undef
         </View>
       )}
     </View>
+  );
+}
+
+// 9219n "Needs attention" at the foot of the project Overview: each row goes straight to where it's dealt with.
+function NeedsAttention({ id, site, fc, settings, invs, apps, book }: { id: string; site: Row | undefined; fc: ReturnType<typeof forecast>; settings: Row; invs: FinInv[]; apps: FinApp[]; book: Row }) {
+  const { me } = useAuth();
+  const { data: clients = [] } = useQuery({ queryKey: ['finClientsAttn', me?.org_id], enabled: !!me?.org_id, queryFn: async () => ((await fdb.from('fin_clients').select('id,name,email').eq('org_id', me?.org_id as string)).data as Row[] | null) ?? [] });
+  if (!site) return null;
+  const at = (rows: unknown) => ((rows as Row[] | undefined) ?? []).filter((x) => !x.site_id || x.site_id === id);
+  const live = invs.filter((i) => i.status !== 'void'), od = live.filter((i) => invOverdue(i)), overdue = od.reduce((t, i) => t + invOutstandingNet(i), 0);
+  const isLive = siteStatusKey(site as never) === 'live';
+  const items: { tone: 'bad' | 'warn' | 'blue' | 'grey'; t: string; s: string; n: number; go: string }[] = [];
+  if (od.length) items.push({ tone: 'bad', t: 'Overdue invoices', s: `${money(overdue, 0)} to chase`, n: od.length, go: `/fin/job/${id}?tab=sales` });
+  if (!fc.isInvoiceJob && isLive && appDueThisMonth(apps, appDateFor(fc.jf as never, settings, today().slice(0, 7)))) items.push({ tone: 'warn', t: 'Application due this month', s: 'Value the work and send it to the client', n: 1, go: `/fin/job/${id}?tab=sales` });
+  const drafts = invs.filter((i) => i.status === 'draft').length + apps.filter((a) => a.status === 'draft').length;
+  if (drafts) items.push({ tone: 'blue', t: 'Drafts not sent yet', s: 'Invoices or applications still in draft', n: drafts, go: `/fin/job/${id}?tab=sales` });
+  const toApp = at(book.pinvs).filter((p) => ['to_approve', 'query'].includes(p.status));
+  if (toApp.length) items.push({ tone: 'warn', t: 'Purchase invoices to approve', s: `${money(toApp.reduce((t, p) => t + Number(p.net || 0), 0), 0)} excl. VAT`, n: toApp.length, go: `/fin/job/${id}?tab=purchases` });
+  const longHire = at(book.hires).filter((h) => !h.off_hire && h.on_hire && plantCost(h as never).days > 28);
+  if (longHire.length) items.push({ tone: 'warn', t: 'Plant on hire over 4 weeks', s: longHire.map((h) => h.item).join(', '), n: longHire.length, go: `/fin/job/${id}?tab=purchases` });
+  if (!at(book.cpos).length && isLive) items.push({ tone: 'grey', t: 'No client PO', s: 'It goes on every invoice and application', n: 1, go: `/fin/job/${id}?tab=setup` });
+  if (!Number(fc.jf?.contract_value) && isLive) items.push({ tone: 'grey', t: 'No contract value', s: fc.isInvoiceJob ? 'Add it in Project Admin' : 'Set up the Bill of Quantities', n: 1, go: fc.isInvoiceJob ? `/fin/job/${id}?tab=setup` : `/fin/job/${id}/boq` });
+  const c = site.client_name ? clients.find((x) => String(x.name || '').trim().toLowerCase() === String(site.client_name).trim().toLowerCase()) : null;
+  if (site.client_name && !c) items.push({ tone: 'grey', t: 'Client not in the Directory', s: site.client_name, n: 1, go: '/fin/directory?kind=client' });
+  else if (c && !c.email) items.push({ tone: 'grey', t: 'No accounts email for the client', s: `${c.name} — invoices need somewhere to go`, n: 1, go: '/fin/directory?kind=client' });
+  if (!items.length) return null;
+  const tone = { bad: base.red, warn: '#D98A00', blue: base.blue, grey: base.slate };
+  return (
+    <>
+      <SectionTitle>Needs attention</SectionTitle>
+      <Card>
+        {items.map((x, k) => (
+          <Pressable key={x.t} onPress={() => router.push(x.go as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderTopWidth: k ? 1 : 0, borderTopColor: base.line }}>
+            <Text style={{ minWidth: 26, textAlign: 'center', fontWeight: '800', color: '#fff', backgroundColor: tone[x.tone], borderRadius: 13, paddingVertical: 2, overflow: 'hidden' }}>{x.n}</Text>
+            <View style={{ flex: 1 }}><Text style={{ fontWeight: '700', color: base.ink }}>{x.t}</Text><Muted>{x.s}</Muted></View>
+            <Text style={{ color: base.slate }}>›</Text>
+          </Pressable>
+        ))}
+      </Card>
+    </>
   );
 }
