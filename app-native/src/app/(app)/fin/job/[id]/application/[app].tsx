@@ -370,7 +370,9 @@ function Certificate({ a, jf, previous, onSaved }: { a: Row; jf: Row; previous: 
   const n = (k: string) => num(v[k]) || 0;
   const net = round2(n('cert_gross') - n('cert_retention') - n('cert_previous') - n('cert_discount'));
   const diff = round2(net - Number(a.net_due));
-  const f = (k: string, l: string) => <View key={k} style={{ flexBasis: '47%', flexGrow: 1, marginBottom: 6 }}><Muted>{l}</Muted><TextInput value={String(v[k])} onChangeText={(x) => setV({ ...v, [k]: x })} keyboardType={k === 'cert_date' ? 'default' : 'decimal-pad'} style={box} /></View>;
+  const f = (k: string, l: string) => <View key={k} style={{ flexBasis: '47%', flexGrow: 1, marginBottom: 6 }}><Muted>{l}</Muted>{k === 'cert_date'
+    ? <DateBox value={String(v[k] ?? '')} onChange={(x) => setV({ ...v, [k]: x })} title={l} placeholder="Choose a date" style={{ paddingVertical: 8 }} />
+    : <TextInput value={String(v[k])} onChangeText={(x) => setV({ ...v, [k]: x })} keyboardType="decimal-pad" style={box} />}</View>;
   return (
     <Card>
       <SectionTitle>Client&apos;s certificate</SectionTitle>

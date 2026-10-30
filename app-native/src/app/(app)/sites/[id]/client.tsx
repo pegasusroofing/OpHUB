@@ -17,7 +17,8 @@ import { isManager } from '@/lib/roles';
 import { base, page, radius, space } from '@/theme/theme';
 
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card, marginBottom: 8 };
-const titleCase = (t: string) => t.replace(/\b([a-z])/g, (c) => c.toUpperCase());
+// 030 applyTitleCase: capitals only at the start or after a space (Andy's House, not Andy'S House).
+const titleCase = (t: string) => t.replace(/(^|\s)([a-z])/g, (_m, a: string, c: string) => a + c.toUpperCase());
 
 export default function ClientInfo() {
   const { id } = useLocalSearchParams<{ id: string }>();

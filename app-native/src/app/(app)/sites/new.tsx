@@ -20,7 +20,8 @@ import { isFullManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
 import { base, page, space } from '@/theme/theme';
 
-const titleCase = (t: string) => t.replace(/\b([a-z])/g, (c) => c.toUpperCase());
+// 030 applyTitleCase: capitals only at the start or after a space (Andy's House, not Andy'S House).
+const titleCase = (t: string) => t.replace(/(^|\s)([a-z])/g, (_m, a: string, c: string) => a + c.toUpperCase());
 const EMPTY: NewSite = { name: '', address: '', postcode: '', job_number: '', client_name: '', client_phone: '', client_email: '', multi_site: false, repair_contract: false, status: 'active', start_date: '' };
 
 export default function NewProject() {

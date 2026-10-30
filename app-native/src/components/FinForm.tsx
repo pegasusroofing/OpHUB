@@ -33,7 +33,7 @@ export function FinForm({ title, fields, initial, onSave, onClose, onDelete, sav
           <DateBox value={String(v[f.k] ?? '')} onChange={(x) => set(f.k, x)} title={f.label} placeholder={f.ph || 'Choose a date'} style={{ paddingVertical: 8 }} />
         ) : (
           <TextInput value={String(v[f.k] ?? '')} onChangeText={(x) => set(f.k, x)} placeholder={f.ph || (f.kind === 'money' ? '£0.00' : '')} multiline={f.kind === 'multiline'}
-            keyboardType={f.kind === 'money' ? 'decimal-pad' : f.kind === 'number' ? 'numeric' : f.kind === 'email' ? 'email-address' : 'default'} autoCapitalize={f.kind === 'email' ? 'none' : 'sentences'}
+            keyboardType={f.kind === 'money' ? 'decimal-pad' : f.kind === 'number' ? 'decimal-pad' : f.kind === 'email' ? 'email-address' : 'default'} autoCapitalize={f.kind === 'email' ? 'none' : 'sentences'}
             style={[box, f.kind === 'multiline' ? { minHeight: 80 } : null]} />
         )}
         {f.note ? <Muted style={{ fontSize: 11.5 }}>{f.note}</Muted> : null}

@@ -30,7 +30,8 @@ async function readWo(uri: string, name?: string | null) {
   if (!/\.pdf$/i.test(name || '')) return {};
   try { const rows = await pdfLines(new Uint8Array(await (await fetch(uri)).arrayBuffer())); return rows ? parseWorkOrder(rows) : {}; } catch { return {}; }
 }
-const titleCase = (s: string) => s.replace(/\b([a-z])/g, (m) => m.toUpperCase());
+// 030 applyTitleCase: capitals only at the start or after a space (Andy's House, not Andy'S House).
+const titleCase = (t: string) => t.replace(/(^|\s)([a-z])/g, (_m, a: string, c: string) => a + c.toUpperCase());
 
 export default function RepairsHub() {
   const { id } = useLocalSearchParams<{ id: string }>();

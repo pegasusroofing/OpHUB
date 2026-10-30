@@ -117,6 +117,7 @@ function CompanyDetails({ me, orgName }: { me: { org_id: string | null }; orgNam
 
 function CompanyForm({ me, data, orgName, toast }: { me: { org_id: string | null }; data: Partial<RamsSettings> | null; orgName: string; toast: (m: string) => void }) {
   const [st, setSt] = useState<RamsSettings>(() => ramsSettings(data, orgName));
+  const [loaded] = useState<RamsSettings>(() => ramsSettings(data, orgName)); // what the number boxes started at
   return (
     <View>
       <Muted style={{ marginBottom: 8 }}>Printed at the top of every Risk Assessment and Method Statement made in the RAMS Builder.</Muted>
@@ -131,7 +132,11 @@ function CompanyForm({ me, data, orgName, toast }: { me: { org_id: string | null
         <View style={{ flex: 1 }}><Muted style={{ fontWeight: '700' }}>Next MS number</Muted><TextInput value={String(st.nextMs)} onChangeText={(v) => setSt({ ...st, nextMs: Number(v) || 0 })} keyboardType="number-pad" style={box} /></View>
       </View>
       <Button title="Save company details" onPress={async () => {
-        const next = { ...(data || {}), address: st.address, phone: st.phone, dataProtection: st.dataProtection, ...(st.nextRa > 0 ? { nextRa: Math.floor(st.nextRa) } : {}), ...(st.nextMs > 0 ? { nextMs: Math.floor(st.nextMs) } : {}) };
+        // 588: the counters move on every time a RAMS is made, so read the live settings now and only
+        // change a next number the person actually retyped (never write an old one back — duplicate RA / MS numbers).
+        const live = ((await db.from('organizations').select('rams_settings').eq('id', me.org_id as string).maybeSingle()).data as { rams_settings: Partial<RamsSettings> | null } | null)?.rams_settings || data || {};
+        const ra = st.nextRa !== loaded.nextRa && st.nextRa > 0 ? { nextRa: Math.floor(st.nextRa) } : {}, ms = st.nextMs !== loaded.nextMs && st.nextMs > 0 ? { nextMs: Math.floor(st.nextMs) } : {};
+        const next = { ...live, address: st.address, phone: st.phone, dataProtection: st.dataProtection, ...ra, ...ms };
         toast(!(await db.from('organizations').update({ rams_settings: next } as never).eq('id', me.org_id as string).select('id')).data?.length ? 'Could not save — admins only' : 'Saved');
       }} />
     </View>
