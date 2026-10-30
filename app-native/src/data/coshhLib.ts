@@ -10,7 +10,7 @@ import { buildCoshhPdf } from '@/lib/coshhPdf';
 import { fetchBytes, PDFDocument } from '@/lib/pdf';
 import { publicUrl } from '@/lib/privateFiles';
 import { pdfPageTexts } from '@/lib/pdfjs';
-import { assessName, cleanMaker, coshhBlank, coshhItem, duplicates, titleKey, type CoshhItem } from '@/lib/rules/coshh';
+import { assessName, cleanMaker, COSHH_DEFAULTS, coshhBlank, coshhItem, duplicates, titleKey, type CoshhItem } from '@/lib/rules/coshh';
 import { applySds, dropRepeats, readSds } from '@/lib/rules/sdsRead';
 import { supabase } from '@/lib/supabase';
 import type { Organization, Profile, Site } from '@/lib/types';
@@ -261,6 +261,38 @@ export async function saveSiteDocToLibrary(me: Me, doc: { name: string; storage_
 export { titleKey };
 
 /**
+ * One Safety Data Sheet → a product (589 coshhProductFromSds). The same product already in the library (same name and
+ * same maker, or no maker on the sheet) only has its blanks filled and the sheet attached — anything worked on by
+ * hand is kept. New or changed products are flagged needsCheck ("Check" in the list).
+ */
+export async function productFromSds(me: Me, a: Asset, lib: CoshhItem[]): Promise<{ item: CoshhItem; n: number; updated: boolean } | null> {
+  const fileTitle = (a.name || 'Product').replace(/\.pdf$/i, '').replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim() || 'Product';
+  let title = fileTitle, data = coshhBlank(), n = 0;
+  try {
+    const pages = await pdfPageTexts(new Uint8Array(await (await fetch(a.uri)).arrayBuffer()));
+    if (pages) { const got = applySds(fileTitle, data, readSds(dropRepeats(pages))); title = got.title || fileTitle; data = got.d; n = got.n; }
+  } catch { /* attached; filled in by hand */ }
+  const maker = titleKey(data.manufacturer || '');
+  const existing = lib.find((i) => titleKey(i.title) === titleKey(title) && (!maker || maker === titleKey(i.data.manufacturer || '')));
+  if (existing) {
+    const cur = { ...coshhBlank(), ...existing.data } as Record<string, unknown>, got = data as unknown as Record<string, unknown>;
+    const dflt = COSHH_DEFAULTS as Record<string, string>;
+    const blank = (k: string, v: unknown) => v == null || (Array.isArray(v) ? !v.length : !String(v).trim()) || (dflt[k] !== undefined && v === dflt[k]);
+    let filled = 0;
+    ['manufacturer', 'use', 'pictos', 'signal', 'h', 'p', 'wel', 'controls', 'firstAid', 'fire', 'spill', 'storage', 'disposal'].forEach((k) => { if (blank(k, cur[k]) && !blank(k, got[k])) { cur[k] = got[k]; filled++; } });
+    if (!cur.sdsPath) { const path = await uploadSds(me, a); if (path) { cur.sdsPath = path; cur.sdsName = a.name; filled++; } }
+    if (filled) cur.needsCheck = true;
+    if (!(await db.from('rams_library_items').update({ data: cur, updated_at: new Date().toISOString() } as never).eq('id', existing.id).select('id')).data?.length) return null;
+    return { item: { ...existing, data: cur as never }, n: filled, updated: true };
+  }
+  const path = await uploadSds(me, a);
+  if (!path) return null;
+  const r = await db.from('rams_library_items').insert({ org_id: me.org_id, kind: 'coshh', title: title.slice(0, 140), data: { ...data, sdsPath: path, sdsName: a.name, needsCheck: true }, sort_order: 0, created_by: me.id } as never).select('*').single();
+  if (r.error || !r.data) return null;
+  return { item: coshhItem(r.data as CoshhItem), n, updated: false };
+}
+
+/**
  * Several Safety Data Sheets dropped into a folder: each becomes a product (named from what the sheet
  * says, else its file name), with the sheet attached and its codes and sections read off it (office
  * laptop), and — when something was read — its COSHH assessment made straight into the folder.
@@ -268,21 +300,17 @@ export { titleKey };
  */
 export async function productsFromSds(me: Me, org: Org, folderId: string | null, assets: Asset[], onStep?: (i: number) => void): Promise<{ made: number; assessed: number; failed: string[]; toFinish: string[] }> {
   const out = { made: 0, assessed: 0, failed: [] as string[], toFinish: [] as string[] };
+  const lib = await loadProducts(me.org_id);
   for (let i = 0; i < assets.length; i++) {
     const a = assets[i]; onStep?.(i);
     const fileTitle = (a.name || 'Product').replace(/\.pdf$/i, '').replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim() || 'Product';
     try {
-      const path = await uploadSds(me, a);
-      if (!path) { out.failed.push(a.name); continue; }
-      let title = fileTitle, data = { ...coshhBlank(), sdsPath: path, sdsName: a.name }, n = 0;
-      try {
-        const pages = await pdfPageTexts(new Uint8Array(await (await fetch(a.uri)).arrayBuffer()));
-        if (pages) { const got = applySds(fileTitle, data, readSds(dropRepeats(pages))); title = got.title || fileTitle; data = got.d; n = got.n; }
-      } catch { /* attached; filled in by hand */ }
-      const r = await db.from('rams_library_items').insert({ org_id: me.org_id, kind: 'coshh', title, data, sort_order: 0, created_by: me.id } as never).select('*').single();
-      if (r.error || !r.data) { out.failed.push(a.name); continue; }
+      const made = await productFromSds(me, a, lib);
+      if (!made) { out.failed.push(a.name); continue; }
+      const title = made.item.title, n = made.n;
       out.made++;
-      const it = coshhItem(r.data as CoshhItem);
+      const it = made.item;
+      if (!made.updated) lib.push(it);
       if (n && (it.data.h.length || it.data.pictos.length)) { if (await saveAssessment(me, org, it, [folderId])) out.assessed++; else out.toFinish.push(title); }
       else out.toFinish.push(title);
     } catch { out.failed.push(a.name); }

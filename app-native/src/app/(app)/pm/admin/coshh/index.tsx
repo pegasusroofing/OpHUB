@@ -12,7 +12,7 @@ import { CoshhFolderPicker } from '@/components/CoshhFolderPicker';
 import { chooseAction, confirmAsk, promptText, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
-import { alsoIn, wipeLibrary, deleteFile, deleteFolder, deleteProductFull, moveFiles, newProduct, packPdf, productsFromSds, removeDuplicates, renameFile, renameFolder, saveAssessment, uploadFiles, useAssessMap, useFolderView, useProducts, createFolder } from '@/data/coshhLib';
+import { alsoIn, productFromSds, wipeLibrary, deleteFile, deleteFolder, deleteProductFull, moveFiles, newProduct, packPdf, productsFromSds, removeDuplicates, renameFile, renameFolder, saveAssessment, uploadFiles, useAssessMap, useFolderView, useProducts, createFolder } from '@/data/coshhLib';
 import { openDocLink } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
 import { COSHH_PICTO_IMG } from '@/lib/coshhPictoImages';
@@ -118,6 +118,7 @@ function Folders({ setPick }: { setPick: (p: Pick | null) => void }) {
 }
 
 function Products({ setPick }: { setPick: (p: Pick | null) => void }) {
+  const [sdsBusy, setSdsBusy] = useState('');
   const { me, org } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
@@ -147,6 +148,18 @@ function Products({ setPick }: { setPick: (p: Pick | null) => void }) {
         <TextInput value={q} onChangeText={setQ} placeholder="Search products…" style={[box, { flex: 2 }]} />
         <Pressable onPress={async () => { const k = await chooseAction('Manufacturer', [{ key: '*', label: `All manufacturers (${all.length})` }, ...brands.map((b) => ({ key: b, label: `${b} (${all.filter((i) => of(i) === b).length})` }))]); if (k) setMfr(k === '*' ? '' : k); }} style={[box, { flex: 1, justifyContent: 'center' }]}><Text numberOfLines={1} style={{ color: base.ink }}>{mfr || 'All makers'}</Text></Pressable>
       </View>
+      <Button kind="ghost" title={sdsBusy || '📥 Add products from data sheets (PDF)'} busy={!!sdsBusy} onPress={async () => {
+        // 589 coshhBulkFromSds: products only, to check first; one sheet opens its product.
+        const r = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', multiple: true, copyToCacheDirectory: true }); if (r.canceled || !r.assets.length) return;
+        const lib = [...all]; let made = 0, firstId = '';
+        for (let i = 0; i < r.assets.length; i++) {
+          const a = r.assets[i]; setSdsBusy(`Reading data sheet ${i + 1} of ${r.assets.length}…`);
+          try { const p = await productFromSds(me, { uri: a.uri, name: a.name || 'data-sheet.pdf', mimeType: a.mimeType }, lib); if (p) { made++; firstId = firstId || p.item.id; if (!p.updated) lib.push(p.item); } } catch { /* counted below */ }
+        }
+        setSdsBusy(''); void qc.invalidateQueries({ queryKey: ['coshhProducts'] });
+        if (made === 1 && firstId) { toast('Product set up from the data sheet — please check it'); router.push(`/pm/admin/coshh/${firstId}` as never); return; }
+        toast(made ? `${made} products set up — open each to check` : 'Could not read those files — try again');
+      }} />
       {dupN > 0 && (
         <Card style={{ backgroundColor: '#FDECEA', borderColor: '#F5C2BD', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <Text style={{ flex: 1, color: '#8E2B20' }}><Text style={{ fontWeight: '800' }}>{dupN} duplicate{dupN === 1 ? '' : 's'}</Text> — marked in red below</Text>
