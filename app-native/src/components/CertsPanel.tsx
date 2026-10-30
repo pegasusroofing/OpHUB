@@ -16,6 +16,8 @@ import { askDate, DateField } from '@/components/DateField';
 import { deleteCert, renameCert, setCertCategory, setCertExpiry, uploadCert, useMyCerts } from '@/data/certs';
 import { openDocLink } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
+import { isManager } from '@/lib/roles';
+import { supabase } from '@/lib/supabase';
 import { buildCertBundlePdf } from '@/lib/certBundlePdf';
 import { deliverPdf, emailPdf } from '@/lib/pdf';
 import { CERT_CATEGORIES_AZ, certCategoryLabel, certDisplayName, certStats, type Cert } from '@/lib/rules/certs';
@@ -36,7 +38,7 @@ export function CertsPanel({ userId, manual = false }: { userId: string; manual?
   const [file, setFile] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
   const [busy, setBusy] = useState(false);
   const [sel, setSel] = useState<Set<string> | null>(null); // ticked certificates (Select mode)
-  const [bulk, setBulk] = useState<'pdf' | 'email' | null>(null);
+  const [bulk, setBulk] = useState<'pdf' | 'email' | 'od' | null>(null);
   if (!me) return null;
   const picked = certs.filter((c) => sel?.has(c.id));
   // Ticked certificates as one PDF — saved, or emailed (to you, a PM / admin, or an address you type).
@@ -125,6 +127,17 @@ export function CertsPanel({ userId, manual = false }: { userId: string; manual?
         <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
           <View style={{ flex: 1 }}><Button busy={bulk === 'pdf'} disabled={!picked.length} title={`Export ${picked.length} (PDF)`} onPress={() => void bundle('pdf')} /></View>
           <View style={{ flex: 1 }}><Button kind="ghost" busy={bulk === 'email'} disabled={!picked.length} title={`Email ${picked.length}`} onPress={() => void bundle('email')} /></View>
+          {/* 320 pushSelectedCertsToOneDrive: managers send just the ticked phone-only certificates to the operative's OneDrive folder */}
+          {!manual && isManager(me) && <View style={{ flex: 1 }}><Button kind="ghost" busy={bulk === 'od'} disabled={!picked.length} title={`☁ Upload ${picked.length} to OneDrive`} onPress={async () => {
+            const ids = picked.filter((c) => (c as { source?: string }).source !== 'onedrive' && !(c as { pushed_to_onedrive_at?: string | null }).pushed_to_onedrive_at).map((c) => c.id);
+            if (!ids.length) { toast('Nothing to upload — those are already on OneDrive.'); return; }
+            setBulk('od');
+            try {
+              const r = await supabase.functions.invoke('sync-operative-certification', { body: { operative_id: userId, cert_ids: ids } });
+              const d = (r.data ?? {}) as { error?: string; pushed?: number };
+              if (r.error || d.error) toast(`Upload to OneDrive failed — ${d.error || 'try again'}`); else { toast(d.pushed ? `Uploaded ${d.pushed} to OneDrive.` : 'Nothing to upload — already on OneDrive.'); setSel(null); }
+            } catch { toast('Could not reach the server.'); } finally { setBulk(null); void qc.invalidateQueries({ queryKey: ['myCerts'] }); void qc.invalidateQueries({ queryKey: ['opOneDrive', userId] }); }
+          }} /></View>}
           <View style={{ flex: 1 }}><Button kind="ghost" title="Cancel" onPress={() => setSel(null)} /></View>
         </View>
       ) : <Button kind="ghost" title="☑ Select to export or email" onPress={() => setSel(new Set())} />)}
