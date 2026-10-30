@@ -18,6 +18,9 @@ import {
   useSiteAddresses, useTeamData, type FullSubAddr,
 } from '@/data/siteAdmin';
 import { useSite } from '@/data/sites';
+import { importFromOneDrive, listOneDriveLevel } from '@/data/drawings';
+import { unlinkFolder, useOneDriveStatus } from '@/data/onedrive';
+import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { siteStatusKey } from '@/lib/rules/checkin';
 import { isFullManager, isManager } from '@/lib/roles';
@@ -159,7 +162,7 @@ export default function SiteAdmin() {
               <Muted style={{ marginTop: 8 }}>{site.multi_site ? 'Turn off Multi-site first — a project is one or the other, not both.' : "When on, this project's Home page becomes its repair jobs list."}</Muted>
             </Card>
           )}
-          <Card style={{ marginTop: 10 }}><Text style={{ fontWeight: '700', color: base.ink }}>☁️ OneDrive sync folder</Text><Muted style={{ marginVertical: 6 }}>{(site as { onedrive_folder_name?: string | null }).onedrive_folder_name ? `📁 ${(site as { onedrive_folder_name?: string | null }).onedrive_folder_name} — photos, drawings and exports sync there` : "Not linked — link the job's real OneDrive folder so photos and exports sync there."}</Muted><Button kind="ghost" title={(site as { onedrive_folder_name?: string | null }).onedrive_folder_name ? 'Change folder' : 'Link folder'} onPress={() => router.push({ pathname: '/pm/onedrive-pick', params: { target: 'progress', id: site.id } } as never)} /></Card>
+          <SyncFolderCard site={site as never} full={!!me && isFullManager(me)} />
         </View>
       )}
 
@@ -236,5 +239,49 @@ export default function SiteAdmin() {
         {site.status === 'closed' && <Muted>Closed {long(site.closed_at)}{site.closed_by ? ` by ${nameOf(people, site.closed_by)}` : ''}</Muted>}
       </Card>
     </ScrollView>
+  );
+}
+
+// 380 / 310 "Sync Folder": the job's linked OneDrive folder — Change / Unlink, 🔄 Manual Sync (new top-level files
+// pulled into Drawings; uploads here already push out), when it last synced, and a warning when the company's
+// connection needs reconnecting.
+type SyncSite = { id: string; onedrive_folder_id?: string | null; onedrive_folder_name?: string | null; onedrive_drive_id?: string | null; onedrive_last_synced_at?: string | null };
+function SyncFolderCard({ site, full }: { site: SyncSite; full: boolean }) {
+  const { me } = useAuth();
+  const toast = useToast();
+  const qc = useQueryClient();
+  const { data: od } = useOneDriveStatus(me?.org_id);
+  const [busy, setBusy] = useState('');
+  const refresh = () => void qc.invalidateQueries({ queryKey: ['sites'] });
+  const sync = async () => {
+    if (!me || !site.onedrive_folder_id) return;
+    setBusy('Syncing…');
+    try {
+      const lvl = await listOneDriveLevel({ id: site.onedrive_folder_id, driveId: site.onedrive_drive_id });
+      if (lvl.error) { toast(`Sync failed — ${lvl.error}`); return; }
+      const have = new Set((((await supabase.from('drawing_files').select('name').eq('site_id', site.id).is('folder_id', null)).data as { name: string }[] | null) ?? []).map((f) => f.name));
+      const r = await importFromOneDrive(me, site.id, null, lvl.files.filter((f) => !have.has(f.name)), (m) => setBusy(m));
+      await supabase.from('sites').update({ onedrive_last_synced_at: new Date().toISOString() } as never).eq('id', site.id);
+      toast(`Synced — ${r.imported} pulled in${r.failed ? `, ${r.failed} failed` : ''}. Uploads here already push out automatically.`);
+      refresh(); void qc.invalidateQueries({ queryKey: ['drawings'] });
+    } finally { setBusy(''); }
+  };
+  return (
+    <Card style={{ marginTop: 10 }}>
+      <Text style={{ fontWeight: '700', color: base.ink }}>☁️ OneDrive sync folder</Text>
+      {od?.needs_reconnect && <Muted style={{ color: base.warn, marginTop: 6 }}>OneDrive isn&apos;t syncing at the moment — the company connection needs reconnecting by an admin (Admin Centre › Integrations).</Muted>}
+      <Muted style={{ marginVertical: 6 }}>{site.onedrive_folder_name ? `📁 ${site.onedrive_folder_name} — photos, drawings and exports sync there` : "Not linked — link the job's real OneDrive folder so photos and exports sync there."}</Muted>
+      {full && <Button kind="ghost" title={site.onedrive_folder_name ? 'Change folder' : 'Link folder'} onPress={() => router.push({ pathname: '/pm/onedrive-pick', params: { target: 'progress', id: site.id } } as never)} />}
+      {full && !!site.onedrive_folder_id && (
+        <>
+          <Button kind="ghost" title="Unlink folder" onPress={async () => {
+            if (!(await confirmAsk(`Unlink "${site.onedrive_folder_name || 'this folder'}"? Nothing is deleted — new photos and files just stop syncing there.`, 'Unlink'))) return;
+            toast((await unlinkFolder('progress', site.id)) ? 'Folder unlinked' : 'Could not unlink — try again.'); refresh();
+          }} />
+          <Button kind="ghost" busy={!!busy} title={busy || '🔄 Manual Sync (pull new files in, push local files out)'} onPress={() => void sync()} />
+        </>
+      )}
+      {!!site.onedrive_last_synced_at && <Muted style={{ marginTop: 4 }}>Last synced {new Date(site.onedrive_last_synced_at).toLocaleString('en-GB')}</Muted>}
+    </Card>
   );
 }
