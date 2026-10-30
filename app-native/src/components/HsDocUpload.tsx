@@ -8,7 +8,7 @@ import { useState, type ReactNode } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { chooseAction, confirmAsk, useToast } from '@/components/toast';
-import { Button, Card, Muted, SectionTitle, Toggle } from '@/components/ui';
+import { Button, Card, Check, Muted, SectionTitle, Toggle } from '@/components/ui';
 import { DOC_LABEL, useHsDocs, type DocKind } from '@/data/hs';
 import { outstanding, RAMS_DOC_TYPES, sendSignReminder, uploadHsDoc } from '@/data/hsManager';
 import { boxesOf, layoutSummary, useSignTemplates } from '@/data/signTemplates';
@@ -30,6 +30,7 @@ export function HsDocUpload({ kind, site, companyId = null, create, createLabel 
   const [file, setFile] = useState<{ uri: string; name: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [tpl, setTpl] = useState<string | null>(null);
+  const [multi, setMulti] = useState(false);
   const { data: tplsAll = [] } = useSignTemplates(kind === 'rams' && !companyId && open);
   const tpls = tplsAll.filter((t) => boxesOf(t.layout).length);
   if (!me) return null;
@@ -79,7 +80,8 @@ export function HsDocUpload({ kind, site, companyId = null, create, createLabel 
               )}
             </>
           )}
-          {kind === 'rams' && !companyId && (
+          {kind === 'rams' && !companyId && <Check label="Multi-page sign required" value={multi} onChange={(v) => { setMulti(v); if (!v) setTpl(null); }} />}
+          {kind === 'rams' && !companyId && multi && (
             <Pressable onPress={async () => {
               if (!tpls.length) { toast('No signing templates yet — set one up in Admin Centre → Signing Templates.'); return; }
               const k = await chooseAction('Signing template', [{ key: '-', label: '— None (signatures listed on a page at the end) —' }, ...tpls.map((t) => ({ key: t.id, label: `${t.name} · ${layoutSummary(t.layout)}` }))]);

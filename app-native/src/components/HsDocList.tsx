@@ -6,7 +6,7 @@
 // read the document before signing — the current operative row has none.
 // Managers can tick several RAMS / COSHH and export or email them as one signed PDF (580 exportSelectedRams,
 // 620 COSHH), with CC me / CC the client.
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { testFill } from '@/data/signTemplates';
 import { supabase } from '@/lib/supabase';
@@ -33,6 +33,36 @@ import type { Site } from '@/lib/types';
 import { base, radius } from '@/theme/theme';
 
 const d = (t: string | null) => (t ? new Date(t).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '');
+
+function SubRamsByCompany({ siteId }: { siteId: string }) {
+  const [openFor, setOpenFor] = useState<Record<string, boolean>>({});
+  const { data } = useQuery({
+    queryKey: ['subRamsByCo', siteId],
+    queryFn: async () => {
+      const cos = ((await supabase.from('subcontractor_companies').select('id,name').eq('site_id', siteId).order('name')).data as { id: string; name: string }[] | null) ?? [];
+      if (!cos.length) return [];
+      const docs = ((await supabase.from('rams_docs').select('id,name,storage_path,uploaded_at,subcontractor_company_id,doc_type').in('subcontractor_company_id', cos.map((c) => c.id)).eq('status', 'current').order('uploaded_at', { ascending: false })).data as { id: string; name: string; storage_path: string; uploaded_at: string; subcontractor_company_id: string; doc_type: string | null }[] | null) ?? [];
+      return cos.map((c) => ({ ...c, docs: docs.filter((d) => d.subcontractor_company_id === c.id) })).filter((c) => c.docs.length);
+    },
+  });
+  if (!data?.length) return null;
+  return (
+    <View style={{ marginTop: 14 }}>
+      {data.map((c) => (
+        <View key={c.id} style={{ marginBottom: 8 }}>
+          <Toggle title={`${c.name} — RAMS (${c.docs.length})`} open={!!openFor[c.id]} onPress={() => setOpenFor({ ...openFor, [c.id]: !openFor[c.id] })} />
+          {openFor[c.id] && c.docs.map((d) => (
+            <Pressable key={d.id} onPress={async () => { const u = await openDocLink('rams-docs', d.storage_path); if (u) viewDoc(u, /\.pdf$/i.test(d.name) ? d.name : `${d.name}.pdf`); }}
+              style={{ padding: 10, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginTop: 6, backgroundColor: base.card }}>
+              <Text style={{ fontWeight: '700', color: base.ink }}>{d.name}</Text>
+              <Muted>{d.doc_type || 'RAMS'} · uploaded {new Date(d.uploaded_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</Muted>
+            </Pressable>
+          ))}
+        </View>
+      ))}
+    </View>
+  );
+}
 
 export function HsDocList({ kind, site, companyId = null, canManage }: { kind: DocKind; site: Site; companyId?: string | null; canManage?: boolean }) {
   const { me } = useAuth();
@@ -195,11 +225,18 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
             <Card key={r.id} style={{ padding: 12 }}>
               <Text style={{ fontWeight: '700', color: base.ink }}>{r.name}</Text>
               <Muted>Uploaded {r.uploaded_at ? new Date(r.uploaded_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : ''} · superseded{r.superseded_by ? ` by "${nameById[r.superseded_by] || 'a newer version'}"` : ''}</Muted>
-              <Pressable onPress={() => view(r)}><Text style={{ color: base.blue, marginTop: 4 }}>View document ↗</Text></Pressable>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                <Pressable onPress={() => view(r)} style={{ flex: 1 }}><Text style={{ color: base.blue }}>View document ↗</Text></Pressable>
+                {manager && <Pressable hitSlop={8} accessibilityLabel="Delete superseded version" onPress={async () => {
+                  if (!(await confirmAsk(`Delete the superseded "${r.name}" and its signatures? The current version isn't affected. This cannot be undone.`, 'Delete'))) return;
+                  if (await deleteHsDoc(me, kind, site.id, r)) void qc.invalidateQueries({ queryKey: ['hsDocs', kind, site.id] }); else toast('Could not delete — try again.');
+                }}><Text style={{ fontSize: 16, color: base.red }}>🗑</Text></Pressable>}
+              </View>
             </Card>
           ))}
         </>
       )}
+      {kind === 'rams' && manager && !companyId && <SubRamsByCompany siteId={site.id} />}
     </View>
   );
 }
