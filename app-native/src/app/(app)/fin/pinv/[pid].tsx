@@ -42,6 +42,11 @@ function NewPinv({ siteId, poId, receipt }: { siteId: string; poId: string; rece
   const [file, setFile] = useState<{ uri: string; name: string; mimeType?: string | null } | null>(null);
   const [dupOk, setDupOk] = useState('');
   const [isReceipt, setIsReceipt] = useState(receipt);
+  // 904:186 — link a typed invoice to one of the project's open POs, so the over-PO / nothing-received checks run.
+  const { data: sitePos = [] } = useQuery({
+    queryKey: ['finSitePos', siteId], enabled: !!siteId && !poId,
+    queryFn: async () => ((await fdb.from('purchase_orders').select('id,number,supplier_name').eq('site_id', siteId).not('status', 'in', '(cancelled)').order('created_at', { ascending: false })).data as Row[] | null) ?? [],
+  });
   if (!me) return null;
   return (
     <ScrollView contentContainerStyle={page(700)}>
@@ -51,18 +56,24 @@ function NewPinv({ siteId, poId, receipt }: { siteId: string; poId: string; rece
       <Pressable onPress={async () => { const r = await DocumentPicker.getDocumentAsync({ type: ['application/pdf', 'image/*'], copyToCacheDirectory: true }); if (!r.canceled && r.assets[0]) setFile({ uri: r.assets[0].uri, name: r.assets[0].name, mimeType: r.assets[0].mimeType }); }} style={{ marginVertical: 8 }}><Text style={{ color: base.blue }}>📎 {file ? file.name : 'Attach the invoice (PDF or photo)'}</Text></Pressable>
       <FinForm title={isReceipt ? 'Receipt' : 'Purchase invoice'} initial={{ invoice_date: today(), cost_code: 'materials', po_id: poId }} onClose={() => router.back()} saveLabel="Save"
         fields={[
+          ...(!poId && !isReceipt && sitePos.length ? [{ k: 'po_pick', label: 'Purchase order (optional)', kind: 'choice', options: [['', 'None'], ...sitePos.map((p): [string, string] => [p.id, `${p.number || 'PO'} · ${p.supplier_name || ''}`])] }] as never[] : []),
           { k: 'supplier', label: 'Supplier' }, ...(isReceipt ? [] : [{ k: 'invoice_no', label: 'Invoice number', half: true }] as never[]), { k: 'invoice_date', label: 'Date', kind: 'date', half: true },
-          { k: 'net', label: 'Net £', kind: 'money', half: true }, { k: 'vat', label: 'VAT £', kind: 'money', half: true }, { k: 'total', label: 'Total £ (blank = net + VAT)', kind: 'money', half: true }, { k: 'due_date', label: 'Due date', kind: 'date', half: true },
+          { k: 'net', label: 'Net £ (blank = worked out from the total)', kind: 'money', half: true }, { k: 'vat', label: 'VAT £ (blank = 20%)', kind: 'money', half: true }, { k: 'total', label: 'Total £ (blank = net + VAT)', kind: 'money', half: true }, { k: 'due_date', label: 'Due date', kind: 'date', half: true },
           { k: 'cost_code', label: 'Cost type', kind: 'choice', options: Object.entries(COST_CATS) }, { k: 'description', label: 'Description' },
         ]}
         onSave={async (v) => {
-          const supplier = String(v.supplier).trim(), no = String(v.invoice_no || '').trim(), net = num(v.net), vat = num(v.vat) || 0, total = num(v.total);
+          const supplier = String(v.supplier).trim(), no = String(v.invoice_no || '').trim(), total = num(v.total);
+          // 904 finPiCalc: a net fills VAT at 20% (and the total); a total on its own backs out the net and VAT.
+          const typedVat = String(v.vat ?? '').trim() !== '' ? num(v.vat) : null;
+          let net = num(v.net), vat = typedVat ?? 0;
+          if ((net === null || isNaN(net)) && total !== null && !isNaN(total)) { net = typedVat !== null && !isNaN(typedVat) ? round2(total - typedVat) : round2(total / 1.2); if (typedVat === null) vat = round2(total - net); }
+          else if (net !== null && !isNaN(net) && typedVat === null) vat = total !== null && !isNaN(total) ? round2(total - net) : round2(net * 0.2);
           if (!supplier) return 'Enter the supplier.';
           if (!isReceipt && !no) return 'Enter the invoice number.';
           if (net === null || isNaN(net)) return 'Enter the net amount.';
           const key = `${supplier.toLowerCase()}|${no.toLowerCase()}`;
           if (no && dupOk !== key) { const d = await duplicateOf(supplier, no); if (d) { setDupOk(key); return `Possible duplicate: ${supplier} invoice ${no} is already on ${jobTag(sites.find((s) => s.id === d.site_id)) || 'another project'} (${fdate(d.invoice_date)}). Save again to add it anyway.`; } }
-          const r = await addPinv(me, siteId, { supplier, invoice_no: no, invoice_date: String(v.invoice_date), net, vat, total: total === null || isNaN(total) ? null : total, due_date: String(v.due_date).trim() || null, description: String(v.description).trim(), cost_code: v.cost_code, po_id: poId || null, receipt: isReceipt }, file);
+          const r = await addPinv(me, siteId, { supplier, invoice_no: no, invoice_date: String(v.invoice_date), net, vat, total: total === null || isNaN(total) ? null : total, due_date: String(v.due_date).trim() || null, description: String(v.description).trim(), cost_code: v.cost_code, po_id: poId || v.po_pick || null, receipt: isReceipt }, file);
           if (r.error) return r.error;
           toast(r.flags.length ? `Saved and flagged: ${r.flags[0]}` : 'Saved — waiting for approval');
           ['finPurchases', 'finBook', 'finPo'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] }));
