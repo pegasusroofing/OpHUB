@@ -271,7 +271,16 @@ function Editor({ a0, jf, previousLive, prevPct, siteProgress }: { a0: Row; jf: 
         </View>
       ))}
       {!locked && <Button kind="ghost" title="+ Variation line" onPress={() => setA({ ...a, variations: [...(a.variations || []), { variation_id: null, description: '', value: null, pct: 100 }] })} />}
-      {c.dayworks.length > 0 && <><SectionTitle>Day works</SectionTitle>{c.dayworks.map((d: Row, i: number) => <FinRow key={i} title={d.description} right={money(d.gross)} />)}</>}
+      {/* 902: typed day works can be added and changed on a draft; ones from the Day works register stay as they are. */}
+      {(c.dayworks.length > 0 || !locked) && <SectionTitle>Day works</SectionTitle>}
+      {c.dayworks.map((d: Row, i: number) => (locked || d.fin_daywork_id) ? <FinRow key={i} title={d.description} right={money(d.gross)} /> : (
+        <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6 }}>
+          <TextInput value={d.description || ''} onChangeText={(x) => setA({ ...a, dayworks: a.dayworks.map((y: Row, j: number) => (j === i ? { ...y, description: x } : y)) })} placeholder="Description" style={[box, { flex: 1 }]} />
+          <TextInput defaultValue={d.value != null ? String(d.value) : ''} onChangeText={(x) => setA({ ...a, dayworks: a.dayworks.map((y: Row, j: number) => (j === i ? { ...y, value: num(x) } : y)) })} placeholder="£ value" keyboardType="decimal-pad" style={[box, { width: 100 }]} />
+          <Text style={{ width: 90, textAlign: 'right', fontWeight: '700', color: base.ink }}>{money(d.gross)}</Text>
+        </View>
+      ))}
+      {!locked && <Button kind="ghost" title="+ Add daywork" onPress={() => setA({ ...a, dayworks: [...(a.dayworks || []), { description: '', value: null }] })} />}
       <SectionTitle>Summary</SectionTitle>
       <Card>
         <FinRow title={`Contract works to date${contractTotal ? ` (${Math.round((contractDone / contractTotal) * 1000) / 10}% of ${money(contractTotal)})` : ''}`} right={money(contractDone)} />
