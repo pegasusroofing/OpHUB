@@ -98,6 +98,12 @@ export async function saveSubAddress(me: Profile, siteId: string, editId: string
     : await db.from('site_sub_addresses').insert({ ...row, site_id: siteId, org_id: me.org_id, created_by: me.id } as never);
   return !r.error;
 }
+/** Close an address that's finished (no more check-ins there) or reopen it (385 toggleSubAddressClosed). */
+export async function setSubAddressClosed(me: Profile, siteId: string, a: FullSubAddr, closed: boolean): Promise<boolean> {
+  const r = await db.from('site_sub_addresses').update({ closed } as never).eq('id', a.id);
+  if (!r.error && me.org_id) void db.from('site_activity_log').insert({ site_id: siteId, org_id: me.org_id, actor_id: me.id, action: closed ? 'sub_address_closed' : 'sub_address_reopened', description: `${closed ? 'Closed' : 'Reopened'} address "${a.name || ''}"` } as never);
+  return !r.error;
+}
 export async function deleteSubAddress(me: Profile, siteId: string, a: FullSubAddr): Promise<boolean> {
   const r = await db.from('site_sub_addresses').delete().eq('id', a.id);
   if (!r.error && me.org_id) void db.from('site_activity_log').insert({ site_id: siteId, org_id: me.org_id, actor_id: me.id, action: 'sub_address_deleted', description: `Deleted address "${a.name || ''}"` } as never);

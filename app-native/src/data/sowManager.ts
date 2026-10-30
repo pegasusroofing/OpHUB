@@ -136,6 +136,20 @@ export async function markSowViewed(me: Profile, siteId: string): Promise<void> 
 export async function libraryTemplates(orgId: string) {
   return ((await db.from('sow_library_templates').select('id,name').eq('org_id', orgId).order('name')).data as { id: string; name: string }[] | null) ?? [];
 }
+/** What a library template holds, as short lines for a preview before copying (480 previewLibraryTemplate). */
+export async function libraryPreview(templateId: string): Promise<string> {
+  const [s, t] = await Promise.all([
+    db.from('sow_library_sections').select('id,name').eq('template_id', templateId).order('position', { ascending: true, nullsFirst: false }).order('created_at'),
+    db.from('sow_library_tasks').select('name,section_id').eq('template_id', templateId).order('position', { ascending: true, nullsFirst: false }).order('created_at'),
+  ]);
+  const secs = (s.data as { id: string; name: string }[] | null) ?? [], tasks = (t.data as { name: string; section_id: string | null }[] | null) ?? [];
+  if (!secs.length && !tasks.length) return 'This template is empty.';
+  const block = (title: string, list: string[]) => `${title} (${list.length})${list.slice(0, 4).map((n) => `\n  • ${n}`).join('')}${list.length > 4 ? `\n  … and ${list.length - 4} more` : ''}`;
+  const out = secs.map((x) => block(x.name, tasks.filter((k) => k.section_id === x.id).map((k) => k.name)));
+  const loose = tasks.filter((k) => !k.section_id || !secs.some((x) => x.id === k.section_id)).map((k) => k.name);
+  if (loose.length) out.push(block('Ungrouped', loose));
+  return out.slice(0, 8).join('\n') + (out.length > 8 ? `\n… and ${out.length - 8} more sections` : '');
+}
 /** A one-time copy of a library template's sections and tasks into this job (all To Do). */
 export async function copyLibraryTemplate(me: Profile, siteId: string, templateId: string): Promise<{ secs: number; tasks: number }> {
   const [s, t] = await Promise.all([

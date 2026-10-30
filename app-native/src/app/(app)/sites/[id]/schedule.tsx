@@ -23,7 +23,7 @@ import {
 } from '@/data/sow';
 import { useSite } from '@/data/sites';
 import {
-  addSection, addTask, addVariationWork, copyLibraryTemplate, deleteSection, deleteSowDoc, deleteTasks, duplicateSection, importTasks, libraryTemplates, markSowViewed, renameSection,
+  addSection, addTask, addVariationWork, copyLibraryTemplate, deleteSection, libraryPreview, deleteSowDoc, deleteTasks, duplicateSection, importTasks, libraryTemplates, markSowViewed, renameSection,
   setSowDocVisibility, uploadSowDocs,
 } from '@/data/sowManager';
 import { useAuth } from '@/lib/auth';
@@ -39,6 +39,7 @@ import { supabase } from '@/lib/supabase';
 import { VisibilityEditor } from '@/components/VisibilityEditor';
 import { HowTo } from '@/components/HowTo';
 import { viewDoc } from '@/components/DocViewer';
+import { openDocLink } from '@/data/hs';
 import { onQueueChange, onUploadsSent, pendingJobs, type PatchJob, type UploadJob } from '@/lib/uploadQueue';
 import { base, page, radius, space, useTheme } from '@/theme/theme';
 
@@ -174,7 +175,9 @@ export default function Schedule() {
       const tpls = await libraryTemplates(me.org_id as string);
       if (!tpls.length) { toast('No library templates yet — build one in Admin Centre › Schedule of Works Library.'); return; }
       const id = await chooseAction('Copy from the library', tpls.map((t) => ({ key: t.id, label: t.name })));
-      if (!id || !(await confirmAsk('Copy this template into the Schedule of Works for this site? Nothing in the library itself changes, and every copied line can be edited or deleted afterwards like any other task.', 'Copy'))) return;
+      if (!id) return;
+      const preview = await libraryPreview(id);
+      if (!(await confirmAsk(`${tpls.find((t) => t.id === id)?.name ?? 'Template'}\n\n${preview}\n\nCopy this into the Schedule of Works for this site? Nothing in the library itself changes, and every copied line can be edited or deleted afterwards.`, 'Copy'))) return;
       const r = await copyLibraryTemplate(me, site.id, id);
       toast(`Copied ${r.secs} section${r.secs === 1 ? '' : 's'} and ${r.tasks} task${r.tasks === 1 ? '' : 's'} into the schedule`); changed(); return;
     }
@@ -390,7 +393,7 @@ function SiteCondition({ flag, tasks, filter, onSave, onReopen, onAnswer }: {
       <SectionTitle>Site condition</SectionTitle>
       {q('🗑 Is there waste to clear?', !!flag?.waste_to_clear, 'waste_to_clear')}
       {q('📦 Any leftover material?', !!flag?.leftover_material, 'leftover_material')}
-      {flag?.leftover_material && flag.leftover_photo_path && <Muted>📷 Leftover photo added</Muted>}
+      {flag?.leftover_material && flag.leftover_photo_path && <Pressable onPress={async () => { const u = await openDocLink('site-photos', flag.leftover_photo_path as string); if (u) viewDoc(u); }}><Muted style={{ color: base.blue, fontWeight: '700' }}>📷 Leftover photo added — tap to view</Muted></Pressable>}
       <Button title="Save — close out" onPress={onSave} />
     </Card>
   );

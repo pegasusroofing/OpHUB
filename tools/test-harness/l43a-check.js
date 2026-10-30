@@ -1,0 +1,33 @@
+// Library template preview before copying; close / reopen a multi-site address from the list.
+const {chromium, makeContext, S1} = require('./harness');
+(async()=>{
+  const BASE = 'http://localhost:8081';
+  const browser = await chromium.launch(); const errs = [];
+  const {ctx, db} = await makeContext(browser, 'admin', [], {viewport:{width:1300, height:900}});
+  db.profiles[0].howto_dismissed = ['*'];
+  const st = db.sites.find(s=>s.id===S1); st.multi_site = true;
+  db.site_sub_addresses = [{id:'sa1', site_id:S1, name:'12 High Street', address:null, postcode:null, closed:false}];
+  db.sow_library_templates = [{id:'lt1', org_id:db.profiles[0].org_id, name:'Flat roof strip'}];
+  db.sow_library_sections = [{id:'ls1', template_id:'lt1', name:'Prep', position:0}];
+  db.sow_library_tasks = [{id:'lk1', template_id:'lt1', section_id:'ls1', name:'Strip old felt', position:0},{id:'lk2', template_id:'lt1', section_id:'ls1', name:'Check deck', position:1}];
+  const page = await ctx.newPage(); page.on('pageerror', e=>errs.push(e.message));
+  await page.goto(BASE+'/login'); await page.waitForTimeout(5000);
+  await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
+  await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
+  await page.goto(BASE+'/sites/'+S1+'/schedule'); await page.waitForTimeout(5000);
+  await page.getByLabel('More').first().click(); await page.waitForTimeout(400);
+  await page.getByText('📚 From Library').click(); await page.waitForTimeout(600);
+  await page.getByText('Flat roof strip').last().click(); await page.waitForTimeout(1200);
+  await page.screenshot({path:'shots/lib-preview.png'});
+  console.log('preview shows tasks:', await page.getByText(/Strip old felt/).count() > 0);
+  await page.getByText('No', {exact:true}).last().click(); await page.waitForTimeout(400);
+  await page.goto(BASE+'/sites/'+S1+'/admin'); await page.waitForTimeout(5000);
+  await page.getByText(/Site set up/).click(); await page.waitForTimeout(600); await page.getByText(/^Multi-Site$/i).first().click(); await page.waitForTimeout(600);
+  const dots = page.getByText('⋮');
+  await dots.last().click(); await page.waitForTimeout(500);
+  await page.getByText(/Close this address/).click(); await page.waitForTimeout(1500);
+  console.log('closed:', db.site_sub_addresses[0].closed, '| list shows:', await page.getByText('12 High Street (closed)').count());
+  await page.screenshot({path:'shots/addr-closed.png'});
+  console.log('errors', errs.join(' / ').slice(0,400) || 'none');
+  await browser.close(); process.exit(0);
+})();

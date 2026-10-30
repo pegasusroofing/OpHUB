@@ -14,7 +14,7 @@ import { chooseAction, confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Check, Empty, Muted, SectionTitle, Toggle } from '@/components/ui';
 import { nameOf, usePeople } from '@/data/hs';
 import {
-  assignToSite, deleteSubAddress, removeFromSite, saveSubAddress, setSiteStatus, toggleSubOperative, updateSite,
+  assignToSite, deleteSubAddress, removeFromSite, setSubAddressClosed, saveSubAddress, setSiteStatus, toggleSubOperative, updateSite,
   useSiteAddresses, useTeamData, type FullSubAddr,
 } from '@/data/siteAdmin';
 import { useSite } from '@/data/sites';
@@ -117,9 +117,10 @@ export default function SiteAdmin() {
                         <Muted>{a.geofence_lat != null ? `📍 Geofence set — ${a.geofence_radius_m || 100}m radius` : 'No geofence set yet — set it from the address on Check In'}</Muted>
                       </View>
                       <Pressable hitSlop={8} onPress={async () => {
-                        const k = await chooseAction(a.name, [{ key: 'edit', label: '✎ Edit' }, { key: 'geo', label: '📍 Geofence (on Check In)' }, { key: 'del', label: '🗑 Delete', danger: true }]);
+                        const k = await chooseAction(a.name, [{ key: 'edit', label: '✎ Edit' }, { key: 'geo', label: '📍 Geofence (on Check In)' }, { key: 'close', label: a.closed ? '🔓 Reopen this address' : '🔒 Close this address (finished)' }, { key: 'del', label: '🗑 Delete', danger: true }]);
                         if (k === 'edit') setAddrForm({ id: a.id, name: a.name, address: a.address || '', postcode: a.postcode || '' });
                         else if (k === 'geo') router.push(`/sites/${id}/checkin/${a.id}` as never);
+                        else if (k === 'close') { if (await setSubAddressClosed(me, id, a, !a.closed)) void refetchAddrs(); else toast('Could not save — try again.'); }
                         else if (k === 'del' && await confirmAsk("Delete this address? Any tasks or check-ins already linked to it keep their history but will show as unlinked. This can't be undone.", 'Delete')) {
                           if (await deleteSubAddress(me, id, a)) { toast('Address deleted'); void refetchAddrs(); } else toast('Could not delete — try again.');
                         }
