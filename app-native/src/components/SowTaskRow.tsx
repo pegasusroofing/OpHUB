@@ -27,8 +27,8 @@ import type { UploadJob } from '@/lib/uploadQueue';
 import { base } from '@/theme/theme';
 
 
-export function SowTaskRow({ me, site, task, subCos = [], photos, pending, address, addresses = [], onChanged, percentPrompt, setPercentPrompt, selectMode, selected, onToggleSelect, onSelectMode }: {
-  me: Profile; site: Site; task: Task; subCos?: { id: string; name: string }[]; photos: Photo[]; pending: UploadJob[]; address?: SubAddress | null; addresses?: SubAddress[];
+export function SowTaskRow({ updateOnly, me, site, task, subCos = [], photos, pending, address, addresses = [], onChanged, percentPrompt, setPercentPrompt, selectMode, selected, onToggleSelect, onSelectMode }: {
+  updateOnly?: boolean; me: Profile; site: Site; task: Task; subCos?: { id: string; name: string }[]; photos: Photo[]; pending: UploadJob[]; address?: SubAddress | null; addresses?: SubAddress[];
   onChanged: () => void; percentPrompt: boolean; setPercentPrompt: (on: boolean) => void;
   selectMode?: boolean; selected?: boolean; onToggleSelect?: () => void; onSelectMode?: () => void;
 }) {
@@ -176,7 +176,7 @@ export function SowTaskRow({ me, site, task, subCos = [], photos, pending, addre
         {site.multi_site && (
           <Text style={[s.addrPill, !task.sub_site_id && { color: base.warn, backgroundColor: base.warnBg }]}>{address?.name || 'No address'}</Text>
         )}
-        {mgr && <Pressable onPress={menu} hitSlop={8} style={{ paddingHorizontal: 6 }}><Text style={{ fontSize: 18, color: base.slate }}>⋮</Text></Pressable>}
+        {mgr && !updateOnly && <Pressable onPress={menu} hitSlop={8} style={{ paddingHorizontal: 6 }}><Text style={{ fontSize: 18, color: base.slate }}>⋮</Text></Pressable>}
       </View>
 
       {(photos.length > 0 || pending.length > 0) && (

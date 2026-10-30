@@ -43,15 +43,13 @@ export default function McHome() {
       <Stack.Screen options={{ title: 'Main Contractor' }} />
       {!data ? <Muted>Loading…</Muted> : <JobGrid>{tiles.map((t) => (
         <Tile key={t.key} icon={t.icon} tint="#E7E9EE" title={t.title} sub={`${t.sub}${mgr && hidden.includes(t.key) ? ' · hidden from operatives' : ''}`}
-          onPress={async () => {
-            if (!mgr) { open(t.key); return; }
-            const k = await chooseAction(t.title, [{ key: 'open', label: 'Open' }, { key: 'hide', label: hidden.includes(t.key) ? '👁 Show to operatives' : '🙈 Hide from operatives' }]);
-            if (k === 'open') open(t.key);
-            else if (k === 'hide') {
-              const hide = !hidden.includes(t.key);
-              if (await setMcTileHidden(id, hidden, t.key, hide)) { toast(hide ? 'Hidden from operatives' : 'Now visible to everyone'); void qc.invalidateQueries({ queryKey: ['sites'] }); }
-            }
-          }} />
+          onPress={() => open(t.key)}
+          onMenu={mgr ? async () => {
+            const k = await chooseAction(t.title, [{ key: 'hide', label: hidden.includes(t.key) ? '👁 Show to operatives' : '🙈 Hide from operatives' }]);
+            if (k !== 'hide') return;
+            const hide = !hidden.includes(t.key);
+            if (await setMcTileHidden(id, hidden, t.key, hide)) { toast(hide ? 'Hidden from operatives' : 'Now visible to everyone'); void qc.invalidateQueries({ queryKey: ['sites'] }); }
+          } : undefined} />
       ))}</JobGrid>}
     </ScrollView>
   );

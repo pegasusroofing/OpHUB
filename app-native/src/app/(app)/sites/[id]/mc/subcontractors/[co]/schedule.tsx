@@ -51,7 +51,7 @@ export default function SubSchedule() {
         ))}
       </View>
       {isLoading ? <Muted>Loading…</Muted> : shown.length ? shown.map((t) => (
-        <SowTaskRow key={t.id} me={me} site={site} task={t} photos={photos[t.id] ?? []} pending={pending.filter((j) => j.waitKey === t.id)}
+        <SowTaskRow key={t.id} updateOnly me={me} site={site} task={t} photos={photos[t.id] ?? []} pending={pending.filter((j) => j.waitKey === t.id)}
           address={t.sub_site_id ? addrById[t.sub_site_id] : null} addresses={data?.addresses ?? []} onChanged={() => { void refetch(); }}
           percentPrompt={pctPrompt === t.id} setPercentPrompt={(on) => setPctPrompt(on ? t.id : null)} />
       )) : <Empty>No work items assigned to {sub.company.name} yet.</Empty>}

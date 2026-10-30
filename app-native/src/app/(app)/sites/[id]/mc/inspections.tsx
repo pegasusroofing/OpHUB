@@ -97,6 +97,7 @@ export default function McInspections() {
                   <Muted>{f.folder_id && c.folderName[f.folder_id] ? `📁 ${c.folderName[f.folder_id]} · ` : ''}{nameOf(people, f.uploaded_by)} · {new Date(f.uploaded_at).toLocaleDateString('en-GB')}</Muted>
                 </Pressable>
               ))}
+              {subOpen[c.id] && <Button kind="ghost" title={`Open ${c.name}'s Inspections`} onPress={() => router.push(`/sites/${id}/mc/subcontractors/${c.id}/inspections` as never)} />}
             </View>
           ))}
         </View>

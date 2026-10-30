@@ -167,6 +167,12 @@ export function PpeManager({ site }: { site: Site }) {
                         <Text style={{ fontSize: 17, color: base.ink }}>{picked.has(i.id) ? '☑' : '☐'}</Text>
                       </Pressable>
                     )}
+                    {i.kind === 'issuance' && i.status === 'signed' && (
+                      <Pressable hitSlop={6} onPress={async () => {
+                        toast('Building PDF…');
+                        try { const b = await ppeExportPdf([i.id], site, org, (u) => nameOf(people, u)); if (!b || !(await deliverPdf(b.bytes, b.filename))) toast('Could not build the PDF.'); } catch { toast('Could not build the PDF.'); }
+                      }}><Text style={{ color: base.blue, fontSize: 12 }}>Export signed PDF ↗</Text></Pressable>
+                    )}
                     {i.kind === 'issuance' && (
                       <Pressable hitSlop={6} onPress={async () => {
                         if (!(await confirmAsk('Delete this PPE issuance record? This cannot be undone.', 'Delete'))) return;

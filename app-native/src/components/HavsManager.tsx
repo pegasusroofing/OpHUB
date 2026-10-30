@@ -136,7 +136,7 @@ export function HavsManager({ site }: { site: Site }) {
               {tools.length > 0 && days.map((d, di) => {
                 const ds = localISODate(d);
                 const dayEntries = data.entries.filter((e) => e.entry_date === ds);
-                const isOpen = open[di] ?? false;
+                const isOpen = open[di] ?? true;
                 const people = [...new Set([...data.ops.map((o) => o.id), ...dayEntries.map((e) => e.user_id)])];
                 const worst = people.map((u) => dayStatus(dayEntries.filter((e) => e.user_id === u).reduce((t, e) => t + points(toolById[e.tool_id]?.vibration_magnitude || 0, e.minutes), 0))).reduce<'elv' | 'eav' | 'ok' | null>((w, st) => (st === 'elv' || w === 'elv' ? 'elv' : st === 'eav' || w === 'eav' ? 'eav' : st || w), null);
                 return (
