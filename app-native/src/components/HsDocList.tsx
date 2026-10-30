@@ -75,6 +75,7 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
   const [sel, setSel] = useState<Set<string>>(new Set());
   if (!me) return null;
   const manager = canManage ?? isManager(me);
+  const client = me.role === 'client';
   if (isLoading || !data) return <Muted>Loading…</Muted>;
 
   const sigsFor = (id: string) => data.sigs.filter((s) => sigDocId(kind, s) === id);
@@ -149,7 +150,7 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
         const { signed, waiting } = signers(data.roster, sigs);
         const issued = sigs.filter((s) => s.issued);
         const due = resignDue(r, site);
-        const canTap = !(manager && (issued.length || mine)) && !(kind !== 'rams' && manager);
+        const canTap = !client && !(manager && (issued.length || mine)) && !(kind !== 'rams' && manager);
         return (
           <Card key={r.id} style={{ padding: 12 }}>
             <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
@@ -202,6 +203,14 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
                 ) : <Text style={{ color: base.ink, fontWeight: '700' }}>✍ Tap to {kind === 'rams' && manager ? 'mark as issued' : 'sign'}</Text>}
               </Pressable>
             )}
+            {client && sigsFor(r.id).length > 0 && (
+              <View style={{ marginTop: 8 }}><Button small kind="ghost" title="📄 Export Signed PDF" onPress={async () => {
+                toast('Building signed PDF…');
+                const b = await (kind === 'layout' ? buildSignedLayoutPdf(r.id, site) : buildSignedHsPdf(kind, r.id, site)).catch(() => 'Could not build the signed PDF.');
+                if (typeof b === 'string') { toast(b); return; }
+                if (!(await deliverPdf(b.bytes, b.filename))) toast('Could not save the PDF.');
+              }} /></View>
+            )}
             {issued.map((s) => (
               <Text key={s.id} style={{ marginTop: 6, color: base.ink }}><Text style={{ fontWeight: '800' }}>ISSUED BY:</Text> {nameOf(people, s.user_id)} · {d(s.signed_at)}</Text>
             ))}
@@ -211,7 +220,7 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
         );
       }) : <Empty>No {label} uploaded.</Empty>}
 
-      {data.docs.length > 0 && !(manager && (kind !== 'rams' || !toSign.length)) && (
+      {data.docs.length > 0 && !client && !(manager && (kind !== 'rams' || !toSign.length)) && (
         <Button busy={busy} disabled={!toSign.length} onPress={() => sign(toSign.map((x) => x.id))}
           title={manager
             ? (toSign.length ? `Mark All RAMS as Issued (${toSign.length})` : 'All RAMS documents marked as issued')
