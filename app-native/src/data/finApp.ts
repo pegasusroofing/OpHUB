@@ -4,6 +4,7 @@
 // and the invoice raised from it.
 import { issue } from '@/data/finInvoice';
 import { fdb, loadSettings } from '@/data/finance';
+import { syncSiteVariationValues } from '@/data/finVar';
 import { buildAppPdf } from '@/lib/finAppPdf';
 import { deliverPdf, deliverXlsx, PDFDocument } from '@/lib/pdf';
 import { buildSowPdf, sowPeriod } from '@/lib/sowPdf';
@@ -40,6 +41,7 @@ const loadRegisters = (siteId: string) => Promise.all([
 ]);
 
 export async function newApplication(me: Profile, siteId: string): Promise<{ id?: string; error?: string }> {
+  await syncSiteVariationValues(siteId).catch(() => 0); // 9219zzb: PM's variation values first
   const [st, jfR, pos, items, apps, vars, fvars, fdays] = await Promise.all([
     loadSettings(me.org_id), rows(fdb.from('job_finance').select('*').eq('site_id', siteId)), rows(fdb.from('client_pos').select('po_number').eq('site_id', siteId).order('is_primary', { ascending: false }).order('created_at')),
     rows(fdb.from('fin_contract_items').select('*').eq('site_id', siteId).order('position')), rows(fdb.from('fin_applications').select('*').eq('site_id', siteId).order('number', { ascending: false })),

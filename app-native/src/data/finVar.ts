@@ -15,7 +15,7 @@ let busy = false;
  *  the site variations (to show which are on the Schedule of Works) and how many came in. */
 export async function importSiteVariations(me: Profile, siteId: string): Promise<{ site: Row[]; added: number }> {
   const [fv, sv] = await Promise.all([
-    fdb.from('fin_variations').select('variation_id').eq('site_id', siteId),
+    fdb.from('fin_variations').select('id,variation_id,status,quoted,agreed_value').eq('site_id', siteId),
     fdb.from('variations').select('*').eq('site_id', siteId).order('created_at'),
   ]);
   const site = (sv.data as Row[] | null) || [];
@@ -36,7 +36,33 @@ export async function importSiteVariations(me: Profile, siteId: string): Promise
       }
     } finally { busy = false; }
   }
+  // 9219zzb: a PM's value on a site variation fills Finance's quoted (and agreed value once agreed)
+  // wherever Finance left it empty — never over a typed price.
+  if (!fv.error) added += await fillSiteValues((fv.data as Row[] | null) || [], site);
   return { site, added };
+}
+async function fillSiteValues(fvs: Row[], site: Row[]): Promise<number> {
+  const val: Record<string, number> = {};
+  for (const v of site) { const n = num(v.cost_impact); if (n !== null && !isNaN(n)) val[v.id] = n; }
+  let n = 0;
+  for (const f of fvs) {
+    const v = f.variation_id ? val[f.variation_id] : undefined; if (v == null) continue;
+    const patch: Row = {};
+    if (f.quoted == null) patch.quoted = v;
+    if (f.status === 'agreed' && f.agreed_value == null) patch.agreed_value = v;
+    if (!Object.keys(patch).length) continue;
+    if ((await fdb.from('fin_variations').update(patch as never).eq('id', f.id).eq('variation_id', f.variation_id).select('id')).data?.length) n++;
+  }
+  return n;
+}
+/** Before a new application: bring the PM's variation values across first (9219zzb newFinApplication). */
+export async function syncSiteVariationValues(siteId: string): Promise<number> {
+  const [fv, sv] = await Promise.all([
+    fdb.from('fin_variations').select('id,variation_id,status,quoted,agreed_value').eq('site_id', siteId).not('variation_id', 'is', null),
+    fdb.from('variations').select('id,cost_impact').eq('site_id', siteId).not('cost_impact', 'is', null),
+  ]);
+  if (fv.error || sv.error) return 0;
+  return fillSiteValues((fv.data as Row[] | null) || [], (sv.data as Row[] | null) || []);
 }
 
 /** Puts a Finance variation on the Schedule of Works as its own section (no prices). Off during the trial. */
