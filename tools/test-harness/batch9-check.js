@@ -1,0 +1,31 @@
+// Finance small items: day work quick Approve asks the value; application Add a line under a New section with a cost rate.
+const {chromium, makeContext, S1} = require('./harness');
+const seed = require('./fresh/seed');
+(async()=>{
+  const browser = await chromium.launch(); const errs = [];
+  const {ctx, db} = await makeContext(browser, 'admin', [], {viewport:{width:1300, height:900}});
+  seed(db); db.profiles[0].finance_enabled = true; db.profiles[0].howto_dismissed = ['*']; db.organizations[0].has_pm = true;
+  require('./seeds/ex4')(db);
+  const org = db.profiles[0].org_id;
+  db.fin_dayworks = [{id:'dwx', org_id:org, site_id:S1, seq:9, number:'DW09', title:'Clear gutters', status:'issued', value:100, work_date:'2026-10-20'}];
+  const ap = db.fin_applications.find((a) => a.status === 'draft' && a.site_id === S1) || db.fin_applications.find((a) => a.site_id === S1); ap.status = 'draft'; ap.submitted_at = null; ap.cert_net = null; ap.invoice_id = null;
+  const page = await ctx.newPage(); page.on('pageerror', e=>errs.push(e.message));
+  await page.goto('http://localhost:8081/login'); await page.waitForTimeout(4000);
+  await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
+  await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
+  await page.goto('http://localhost:8081/fin/job/'+S1+'/dayworks'); await page.waitForTimeout(5000);
+  await page.getByText('Approve', {exact:true}).first().click(); await page.waitForTimeout(800);
+  await page.locator('input >> visible=true').last().fill('150'); await page.locator('text="OK" >> visible=true').last().click(); await page.waitForTimeout(2500);
+  console.log('day work', db.fin_dayworks[0].status, db.fin_dayworks[0].value);
+  await page.goto('http://localhost:8081/fin/job/'+S1+'/application/'+ap.id); await page.waitForTimeout(6000);
+  await page.getByText('+ Add a line').click(); await page.waitForTimeout(800);
+  const box = (label) => page.locator(`text="${label}"`).locator('xpath=following::input[1]');
+  await page.locator('text=/^Choose…|^New section…|^At the end/ >> visible=true').first().click(); await page.waitForTimeout(400);
+  await page.locator('text="New section…" >> visible=true').last().click(); await page.waitForTimeout(400);
+  await box('New section name (if New section…)').fill('Extras');
+  await box('Description').fill('Lead flashing'); await box('Qty').fill('2'); await box('Rate £').fill('100'); await box('Cost rate £ (optional)').fill('60');
+  await page.locator('text="Save" >> visible=true').last().click(); await page.waitForTimeout(3000);
+  console.log('boq', JSON.stringify((db.fin_contract_items||[]).filter(b=>['Extras','Lead flashing'].includes(b.description)).map(b=>[b.kind,b.description,b.value,b.cost])));
+  console.log('errors', errs.join(' / ').slice(0,300) || 'none');
+  await browser.close(); process.exit(0);
+})();

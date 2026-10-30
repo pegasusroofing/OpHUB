@@ -228,7 +228,7 @@ export async function addBoqLines(me: Profile, siteId: string, adds: NewBoqLine[
   let boq = await rows(fdb.from('fin_contract_items').select('*').eq('site_id', siteId).order('position'));
   const out: { under: string; line: Row }[] = [];
   for (const e of adds) {
-    const ins = await fdb.from('fin_contract_items').insert({ org_id: me.org_id, site_id: siteId, position: 0, kind: 'item', ref: e.ref, description: e.desc, qty: e.qty, unit: e.unit, rate: e.rate, value: e.value, cost: null } as never).select('*').single();
+    const ins = await fdb.from('fin_contract_items').insert({ org_id: me.org_id, site_id: siteId, position: 0, kind: 'item', ref: e.ref, description: e.desc, qty: e.qty, unit: e.unit, rate: e.rate, value: e.value, cost: e.cost ?? null } as never).select('*').single();
     if (ins.error || !ins.data) return out.length ? out : null;
     const b = ins.data as Row;
     let at = boq.length;

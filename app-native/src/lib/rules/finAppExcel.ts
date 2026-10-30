@@ -148,7 +148,7 @@ export function parseAppBook(book: { name: string; rows: unknown[][] }[]): AppXl
   return items;
 }
 const sameLine = (list: Row[], desc: string, value: number) => { const d = desc.trim().toLowerCase(); return list.some((l) => String(l.description || '').trim().toLowerCase() === d && Math.abs(Number(l.value || 0) - value) < 0.005); };
-export type NewBoqLine = { under: string; ref: string | null; desc: string; qty: number | null; unit: string | null; rate: number | null; value: number; pct: number };
+export type NewBoqLine = { cost?: number | null; under: string; ref: string | null; desc: string; qty: number | null; unit: string | null; rate: number | null; value: number; pct: number };
 
 /** A draft updated from the Applied % column (and changed variations / day works). New rows with no key
  *  become new variation / day-work rows, or new Bill of Quantities lines (`newLines`, added by the caller).

@@ -237,11 +237,12 @@ function Editor({ a0, jf, previousLive, prevPct, siteProgress }: { a0: Row; jf: 
           note={adding === 'line' ? 'It goes into the Bill of Quantities too, so it carries on to later applications.' : 'A new header at the end of the Bill of Quantities.'}
           initial={{ under: '', pct: '0' }}
           fields={adding === 'line' ? [
-            { k: 'under', label: 'Under', kind: 'choice', options: [['', 'At the end'], ...(a.lines || []).filter((l: Row) => !isItem(l)).map((l: Row) => [l.item_id, `${l.ref ? `${l.ref} ` : ''}${l.description}`] as [string, string])] },
+            { k: 'under', label: 'Under', kind: 'choice', options: [['__new', 'New section…'], ['', 'At the end'], ...(a.lines || []).filter((l: Row) => !isItem(l)).map((l: Row) => [l.item_id, `${l.ref ? `${l.ref} ` : ''}${l.description}`] as [string, string])] },
             { k: 'ref', label: 'Ref', half: true }, { k: 'description', label: 'Description', half: true },
             { k: 'qty', label: 'Qty', kind: 'number', half: true }, { k: 'unit', label: 'Unit', half: true },
             { k: 'rate', label: 'Rate £', kind: 'money', half: true }, { k: 'value', label: 'Or a lump sum £', kind: 'money', half: true },
-            { k: 'pct', label: 'Applied % this time', kind: 'number', half: true },
+            { k: 'pct', label: 'Applied % this time', kind: 'number', half: true }, { k: 'cost', label: 'Cost rate £ (optional)', kind: 'money', half: true },
+            { k: 'newHead', label: 'New section name (if New section…)', ph: 'e.g. Extras' },
           ] : [{ k: 'ref', label: 'Ref', half: true }, { k: 'description', label: 'Header', half: true }]}
           onSave={async (v) => {
             const desc = String(v.description ?? '').trim(); if (!desc) return adding === 'line' ? 'Enter the description.' : 'Enter the header.';
@@ -253,9 +254,16 @@ function Editor({ a0, jf, previousLive, prevPct, siteProgress }: { a0: Row; jf: 
             const n = (k: string) => { const x = num(v[k]); return x === null || isNaN(x) ? null : x; };
             const qty = n('qty'), rate = n('rate'), value = qty != null && rate != null ? round2(qty * rate) : n('value');
             if (value == null) return 'Enter qty × rate, or a lump sum.';
-            const made = await addBoqLines(me, a0.site_id, [{ under: String(v.under || ''), ref, desc, qty, unit: String(v.unit ?? '').trim() || null, rate, value, pct: n('pct') || 0 }]);
+            let under = String(v.under || ''); let lines0: Row[] = a.lines || [];
+            if (under === '__new') {
+              const head = String(v.newHead ?? '').trim(); if (!head) return 'Enter the new section name.';
+              const sec = await addBoqSection(me, a0.site_id, null, head); if (!sec) return 'Could not save — try again.';
+              under = sec.item_id; lines0 = [...lines0, sec];
+            }
+            const costRate = n('cost');
+            const made = await addBoqLines(me, a0.site_id, [{ under, ref, desc, qty, unit: String(v.unit ?? '').trim() || null, rate, value, pct: n('pct') || 0, cost: costRate != null ? round2(costRate * (qty ?? 1)) : null }]);
             if (!made?.length) return 'Could not save — try again.';
-            const L: Row[] = [...(a.lines || [])];
+            const L: Row[] = [...lines0];
             made.forEach(({ under, line }) => {
               const hi = under ? L.findIndex((l) => l.item_id === under) : -1;
               let at = L.length;

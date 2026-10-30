@@ -10,13 +10,16 @@ import { useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { DateBox } from '@/components/DateField';
+import { viewDoc } from '@/components/DocViewer';
 import { FinChip } from '@/components/FinNav';
 import { SelectBox } from '@/components/SelectBox';
 import { SuggestField } from '@/components/SuggestField';
 import { confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import { fdb } from '@/data/finance';
+import { openDocLink } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
+import { supabase } from '@/lib/supabase';
 import { bestSheet, guessColumns, importRows } from '@/lib/rules/boqImport';
 import { fdate, money, num } from '@/lib/rules/finance';
 import { csvRows, readXlsx } from '@/lib/rules/xlsxRead';
@@ -76,7 +79,7 @@ export function PurchaseQuotes({ siteId }: { siteId?: string }) {
         const lines = importRows(sheet.rows, g.header, g.cols).filter((l) => l.kind === 'item' && l.description);
         if (!lines.length) { skipped.push(nm); continue; }
         const qid = rid();
-        const ins = await fdb.from('fin_quotes').insert({ id: qid, org_id: me.org_id, site_id: all ? null : siteId, purpose: 'pquote', supplier_name: sup.trim() || null, file_name: nm, created_by: me.id } as never);
+        const ins = await fdb.from('fin_quotes').insert({ id: qid, org_id: me.org_id, site_id: all ? null : siteId, purpose: 'pquote', supplier_name: sup.trim() || null, file_name: nm, file_path: (await supabase.storage.from('finance-docs').upload(`${me.org_id}/${all ? 'all' : siteId}/quotes/${qid}-${nm.replace(/[^a-z0-9.-]+/gi, '_').slice(-80)}`, bytes, { contentType: a.mimeType || 'application/octet-stream' })).data?.path ?? null, created_by: me.id } as never);
         if (ins.error) { skipped.push(nm); continue; }
         await fdb.from('fin_quote_items').insert(lines.map((l, i) => ({ org_id: me.org_id, quote_id: qid, site_id: all ? null : siteId, supplier_name: sup.trim() || null, code: l.ref ? String(l.ref).slice(0, 60) : null, description: String(l.description).slice(0, 300), unit: l.unit || null, rate: l.rate ?? null, position: i, active: true, created_by: me.id })) as never);
         added++;
@@ -114,9 +117,10 @@ export function PurchaseQuotes({ siteId }: { siteId?: string }) {
       {!!filter && qBy[filter] && (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
           <Button small kind="ghost" title="✎ Edit this list" onPress={() => setEdit(filter)} />
+          {!!qBy[filter].file_path && <Button small kind="ghost" title={`📄 View ${qBy[filter].file_name || 'the quote'}`} onPress={async () => { const u = await openDocLink('finance-docs', qBy[filter].file_path); if (u) viewDoc(u, qBy[filter].file_name || ''); else toast('Could not open the file.'); }} />}
           <Button small kind="ghost" title="⧉ Duplicate" onPress={async () => {
             const src = qBy[filter], nid = rid();
-            const ins = await fdb.from('fin_quotes').insert({ id: nid, org_id: me.org_id, site_id: src.site_id, purpose: 'pquote', supplier_id: src.supplier_id, supplier_name: src.supplier_name, quote_no: src.quote_no ? `${src.quote_no} (copy)` : 'Copy', quote_date: null, file_name: src.file_name, created_by: me.id } as never);
+            const ins = await fdb.from('fin_quotes').insert({ id: nid, org_id: me.org_id, site_id: src.site_id, purpose: 'pquote', supplier_id: src.supplier_id, supplier_name: src.supplier_name, file_path: src.file_path ?? null, quote_no: src.quote_no ? `${src.quote_no} (copy)` : 'Copy', quote_date: null, file_name: src.file_name, created_by: me.id } as never);
             if (ins.error) { toast('Could not duplicate it.'); return; }
             const its = ((await fdb.from('fin_quote_items').select('*').eq('quote_id', filter).order('position')).data as Row[] | null) ?? [];
             if (its.length) await fdb.from('fin_quote_items').insert(its.map((i) => ({ org_id: me.org_id, quote_id: nid, site_id: src.site_id, supplier_name: i.supplier_name, code: i.code, description: i.description, unit: i.unit, rate: i.rate, position: i.position, active: true, created_by: me.id })) as never);

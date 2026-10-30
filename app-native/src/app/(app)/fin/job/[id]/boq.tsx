@@ -12,6 +12,9 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as DocumentPicker from 'expo-document-picker';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
+
+import { viewDoc } from '@/components/DocViewer';
+import { openDocLink } from '@/data/hs';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { FinRow } from '@/components/FinNav';
@@ -22,6 +25,7 @@ import { fdb } from '@/data/finance';
 import { useSubJobs } from '@/data/finSubJobs';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
+import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/lib/types';
 import { pdfPageTexts } from '@/lib/pdfjs';
 import { costFromPct, groupRange, insertAt, marginText } from '@/lib/rules/boqCost';
@@ -52,6 +56,8 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
   const [rows, setRows] = useState<Row[]>(() => initial.map((r) => ({ ...r, _k: r.id || key(), sub: r.sub_job_id || '', qty: r.qty ?? '', rate: r.rate ?? '', value: r.value ?? '', cost: r.cost ?? '' })));
   const [busy, setBusy] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [lastUp, setLastUp] = useState<{ path: string; name: string } | null>(null);
+  useEffect(() => { void fdb.from('job_finance').select('contract_file_path,contract_file_name').eq('site_id', id).maybeSingle().then((r: { data: unknown }) => { const j = r.data as Row | null; if (j?.contract_file_path) setLastUp({ path: j.contract_file_path, name: j.contract_file_name || 'BoQ' }); }); }, [id]);
   const [imp, setImp] = useState<Imp | null>(null);
   const [pct, setPct] = useState('');
   const [basis, setBasis] = useState<'margin' | 'markup'>('margin');
@@ -195,6 +201,7 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
             }
             toast(added || updated ? `Operatives' schedule: ${added} task${added === 1 ? '' : 's'} added${updated ? `, ${updated} updated` : ''}` : 'The operatives’ schedule is already up to date');
           }} />
+          {!!lastUp?.path && <Button small kind="ghost" title="📄 Last Upload" onPress={async () => { const u = await openDocLink('finance-docs', lastUp.path); if (u) viewDoc(u, lastUp.name); else toast('Could not open the file.'); }} />}
           <Button small kind="ghost" busy={importing} title="📥 Import a breakdown (Excel, CSV or PDF)" onPress={async () => {
             const r = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true }); if (r.canceled || !r.assets[0]) return;
             const a = r.assets[0];
@@ -202,6 +209,8 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
             setImporting(true);
             try {
               const bytes = new Uint8Array(await (await fetch(a.uri)).arrayBuffer());
+              const kept = await supabase.storage.from('finance-docs').upload(`${me.org_id}/${id}/contract/${Date.now()}-${(a.name || 'boq').replace(/[^a-z0-9.-]+/gi, '_').slice(-80)}`, bytes, { contentType: a.mimeType || 'application/octet-stream' });
+              if (!kept.error) { await fdb.from('job_finance').update({ contract_file_path: kept.data.path, contract_file_name: a.name || 'BoQ' } as never).eq('site_id', id); setLastUp({ path: kept.data.path, name: a.name || 'BoQ' }); }
               if (/\.pdf$/i.test(a.name || '') || a.mimeType === 'application/pdf') {
                 const pages = await pdfPageTexts(bytes, 40);
                 setImp({ sheets: [], sheet: '', lines: importPdfLines((pages ?? []).join('\n').split('\n')) });

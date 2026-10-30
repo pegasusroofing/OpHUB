@@ -1,6 +1,8 @@
 // Sales lists (9219 renderFinSales): applications & certificates, invoices,
 // retention — for the whole company or one project (siteId).
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+
+import { askDate } from '@/components/DateField';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Text, TextInput, View } from 'react-native';
@@ -8,9 +10,9 @@ import { Text, TextInput, View } from 'react-native';
 import { FinRow, FinSeg, FinStat } from '@/components/FinNav';
 import { Cell, FinTable, FootText } from '@/components/FinTable';
 import { SelectBox } from '@/components/SelectBox';
-import { chooseAction } from '@/components/toast';
+import { chooseAction, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, Toggle } from '@/components/ui';
-import { selectAll, useFinSettings } from '@/data/finance';
+import { fdb, selectAll, useFinSettings } from '@/data/finance';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { byJobNoDesc, fdate, INV_STATUS, invOutstanding, invOutstandingNet, invOverdue, jobTag, money, retentionDates, retentionStillHeld, round2, type FinApp, type FinInv, type JobFin } from '@/lib/rules/finance';
@@ -51,6 +53,19 @@ export async function pickJob(title: string, sites: { id: string; name: string; 
 }
 
 export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 'retention'; siteId?: string; f?: string }) {
+  const qcRet = useQueryClient();
+  const setRetDate = async (sid: string, n: 1 | 2, jf: JobFin) => {
+    const v = await askDate(n === 1 ? 'Practical completion date' : 'Final retention release date'); if (!v) return;
+    const patch: Record<string, unknown> = n === 1 ? { pc_date: v } : { final_release_date: v };
+    const pc = (jf as { pc_date?: string | null }).pc_date;
+    // Keep the project's defects period in step, so Project Admin shows the same final date.
+    if (n === 2 && pc) { const m = Math.round((new Date(`${v}T12:00:00`).getTime() - new Date(`${pc}T12:00:00`).getTime()) / (864e5 * 30.44)); if (m >= 0 && m <= 120) patch.defects_months = m; }
+    const r = await fdb.from('job_finance').upsert({ site_id: sid, org_id: me?.org_id, updated_at: new Date().toISOString(), updated_by: me?.id, ...patch } as never, { onConflict: 'site_id' });
+    if (r.error) { toastRet('Not saved — try again.'); return; }
+    toastRet(`${n === 1 ? 'Practical completion' : 'Final retention release'} date saved to the project`);
+    ['finSales', 'finBook', 'finOverview'].forEach((k) => void qcRet.invalidateQueries({ queryKey: [k] }));
+  };
+  const toastRet = useToast();
   const { me } = useAuth();
   const { data: sitesRaw = [] } = useSites();
   const { data: st } = useFinSettings(me?.org_id);
@@ -163,8 +178,8 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
           cols={[
             { k: 'p', l: 'Project', flex: 1.8, min: 180, render: (x) => <Cell bold>{jobTag(x.s)}</Cell> },
             { k: 'c', l: 'Client', flex: 1.4, min: 140, render: (x) => <Cell>{x.s.client_name || '—'}</Cell> },
-            { k: 'f', l: '1st Release', render: (x) => { const d = retentionDates(x.jf, st || {}); return <Cell>{d.first ? fdate(d.first) : 'Not set'}{x.jf.ret1_invoice_id || x.jf.ret1_app_id ? ' (claimed)' : ''}</Cell>; } },
-            { k: 's', l: 'Final Release', render: (x) => { const d = retentionDates(x.jf, st || {}); return <Cell>{d.second ? fdate(d.second) : 'Not set'}{x.jf.ret2_invoice_id || x.jf.ret2_app_id ? ' (claimed)' : ''}</Cell>; } },
+            { k: 'f', l: '1st Release', render: (x) => { const d = retentionDates(x.jf, st || {}); return <Cell><Text style={{ color: base.blue }} onPress={() => void setRetDate(x.s.id, 1, x.jf)}>{d.first ? fdate(d.first) : 'Not set'}</Text>{x.jf.ret1_invoice_id || x.jf.ret1_app_id ? ' (claimed)' : ''}</Cell>; } },
+            { k: 's', l: 'Final Release', render: (x) => { const d = retentionDates(x.jf, st || {}); return <Cell><Text style={{ color: base.blue }} onPress={() => void setRetDate(x.s.id, 2, x.jf)}>{d.second ? fdate(d.second) : 'Not set'}</Text>{x.jf.ret2_invoice_id || x.jf.ret2_app_id ? ' (claimed)' : ''}</Cell>; } },
             { k: 'h', l: 'Held', render: (x) => <Cell bold>{money(x.held)}</Cell> },
           ]}
           foot={<><FootText bold>{rows.length} job{rows.length === 1 ? '' : 's'}</FootText><FootText>{money(total)} still held</FootText></>} />
