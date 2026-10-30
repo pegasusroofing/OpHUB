@@ -194,9 +194,14 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
               <Text style={{ flex: 1, fontSize: 16.5, fontWeight: '800', color: base.ink }}>{r.name}</Text>
               {manager && (
                 <Pressable hitSlop={8} onPress={async () => {
-                  const k = await chooseAction(r.name, [{ key: 'view', label: '👁 View document' }, ...(kind !== 'layout' ? [{ key: 'pdf', label: '📄 Export signed PDF' }, { key: 'email', label: '✉ Email signed PDF' }] : sigsFor(r.id).length ? [{ key: 'pdf', label: '📄 Export signed PDF' }] : []), ...(kind === 'rams' ? [{ key: 'boxes', label: '✍ Signature boxes' }, { key: 'testfill', label: '🧪 Test fill the boxes' }] : []), ...(kind === 'coshh' ? [{ key: 'replace', label: '🔁 Replace file (resets signatures)' }, { key: 'tolib', label: '📚 Save to COSHH Library' }] : []), { key: 'del', label: '🗑 Delete', danger: true }]);
+                  const k = await chooseAction(r.name, [{ key: 'view', label: '👁 View document' }, ...(kind !== 'layout' ? [{ key: 'pdf', label: '📄 Export signed PDF' }, { key: 'email', label: '✉ Email signed PDF' }] : sigsFor(r.id).length ? [{ key: 'pdf', label: '📄 Export signed PDF' }] : []), ...(kind === 'rams' ? [{ key: 'multi', label: `${(r as { sign_layout?: { multi?: boolean } | null }).sign_layout?.multi ? '☑' : '☐'} Multi-page sign required` }, ...((r as { sign_layout?: { multi?: boolean } | null }).sign_layout?.multi ? [{ key: 'boxes', label: '✍ Signature boxes' }, { key: 'testfill', label: '🧪 Test fill the boxes' }] : [])] : []), ...(kind === 'coshh' ? [{ key: 'replace', label: '🔁 Replace file (resets signatures)' }, { key: 'tolib', label: '📚 Save to COSHH Library' }] : []), { key: 'del', label: '🗑 Delete', danger: true }]);
                   const refresh = () => { void qc.invalidateQueries({ queryKey: ['hsDocs', kind, site.id] }); void qc.invalidateQueries({ queryKey: ['hsSummary', site.id] }); };
                   if (k === 'view') void view(r);
+                  else if (k === 'multi') {
+                    const cur = (r as { sign_layout?: { multi?: boolean } | null }).sign_layout;
+                    const ok = !!(await supabase.from('rams_docs').update({ sign_layout: { v: 2, boxes: [], ...(cur || {}), multi: !cur?.multi } } as never).eq('id', r.id).select('id')).data?.length;
+                    toast(ok ? (cur?.multi ? 'Multi-page signing off' : 'Multi-page signing on') : 'Could not save — try again.'); refresh();
+                  }
                   else if (k === 'email') void emailIds([r.id]);
                   else if (k === 'pdf') {
                     toast('Building signed PDF…');
@@ -251,7 +256,7 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
               <Text key={s.id} style={{ marginTop: 6, color: base.ink }}><Text style={{ fontWeight: '800' }}>ISSUED BY:</Text> {nameOf(people, s.user_id)} · {d(s.signed_at)}</Text>
             ))}
             <SignerList headline={signedHeadline(data.roster.length, waiting.length)} signed={signed} waiting={waiting} people={people} />
-            {kind === 'rams' && manager && !companyId && <ClientSignLines ramsId={r.id} site={site} />}
+            {kind === 'rams' && manager && !companyId && (r as { sign_layout?: { multi?: boolean } | null }).sign_layout?.multi && <ClientSignLines ramsId={r.id} site={site} />}
           </Card>
         );
       }) : <Empty>No {label} uploaded.</Empty>}

@@ -126,12 +126,12 @@ export async function deliverFile(bytes: Uint8Array, filename: string, mime: str
 }
 
 /** Uploads a finished PDF and emails a link to it (send-document-email), as the current app does. */
-export async function emailPdf(bytes: Uint8Array, filename: string, folder: string, body: { site_id?: string | null; general_label?: string; recipient_email: string; cc_email?: string; client_cc_email?: string | null; doc_title: string }): Promise<string | null> {
+export async function emailPdf(bytes: Uint8Array, filename: string, folder: string, body: { site_id?: string | null; general_label?: string; recipient_email: string; cc_email?: string; client_cc_email?: string | null; doc_title: string }, contentType = 'application/pdf'): Promise<string | null> {
   if (bytes.length > 49 * 1024 * 1024) return `This PDF is ${Math.round(bytes.length / 1048576)}MB — too big to email (50MB max). Use Export PDF to save it instead.`;
   const id = globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}`;
   const path = `${folder}/${id}-${filename.replace(/[^a-z0-9.-]+/gi, '_')}`;
   const { supabase } = await import('@/lib/supabase');
-  const up = await supabase.storage.from('mc-documents').upload(path, bytes, { contentType: 'application/pdf' });
+  const up = await supabase.storage.from('mc-documents').upload(path, bytes, { contentType });
   if (up.error) return 'Could not upload the PDF — try again.';
   const r = await supabase.functions.invoke('send-document-email', { body: { ...body, file_url: publicUrl('mc-documents', up.data.path), storage_bucket: 'mc-documents', storage_path: up.data.path } });
   return r.error ? 'Could not send the email — try again.' : null;

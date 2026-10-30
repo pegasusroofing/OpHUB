@@ -12,6 +12,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { AssignChips } from '@/components/AssignChips';
+import { promptEmail } from '@/components/EmailPrompt';
 import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Card, Check, Muted, SectionTitle } from '@/components/ui';
 import { deleteSheet, issueSheet, loadRateCard, loadSheet, renameSheet, saveDraft, saveIssuedEdits, sheetDeleteBlock, sheetFigures, siteOperatives, unissueSheet, type Sheet } from '@/data/priceSheets';
@@ -62,12 +63,12 @@ function View_({ me, org, site, sheet, items, can }: { me: Profile; org: Organiz
     const k = await chooseAction(sheet.title, [{ key: 'xl', label: '⬇ Export to Excel' }, { key: 'email', label: '✉️ Email PDF' }, ...(can ? [{ key: 'edit', label: '✏️ Edit' }, { key: 'un', label: '↩️ Un-issue' }, { key: 'del', label: '🗑 Delete' }] : [])]);
     if (k === 'xl') { if (!(await exportTableExcel(sheetTable(sheet, items, site, fig), org).catch(() => false))) toast('Could not make the file — try again.'); }
     else if (k === 'email') {
-      const to = (await promptText('Email this price sheet PDF to:', ''))?.trim(); if (!to) return;
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) { toast('Enter a valid email address.'); return; }
+      const ask = await promptEmail('Email this price sheet PDF to:', { myEmail: me.email }); if (!ask) return;
+      const to = ask.to;
       toast('Building the PDF…');
       let bytes: Uint8Array | null = null;
       await exportTablePdf(sheetTable(sheet, items, site, fig), org, async (b) => { bytes = b; return true; }).catch(() => false);
-      const e = bytes ? await emailPdf(bytes, `${(sheet.title || 'Price Sheet').replace(/[^a-z0-9 -]+/gi, '')}.pdf`, `${site.id}/price-sheets`, { site_id: site.id, recipient_email: to, doc_title: `Price Sheet — ${sheet.title}` }) : 'Could not build the PDF.';
+      const e = bytes ? await emailPdf(bytes, `${(sheet.title || 'Price Sheet').replace(/[^a-z0-9 -]+/gi, '')}.pdf`, `${site.id}/price-sheets`, { site_id: site.id, recipient_email: to, cc_email: ask.cc, doc_title: `Price Sheet — ${sheet.title}` }) : 'Could not build the PDF.';
       toast(e || `Emailed to ${to}`);
     } else if (k === 'edit') router.setParams({ edit: '1' });
     else if (k === 'un') { if (!(await confirmAsk('Un-issue this sheet? It goes back to draft and stops being visible to whoever it was issued to, until it\'s issued again.', 'Un-issue'))) return; toast((await unissueSheet(sheet.id)) ? 'Sheet un-issued — back to draft' : 'Could not save — try again.'); refresh(); }

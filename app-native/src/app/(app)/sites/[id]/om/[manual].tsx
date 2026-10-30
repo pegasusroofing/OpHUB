@@ -119,6 +119,16 @@ function Editor({ me, org, site, manualId, name0, data0 }: { me: Profile; org: O
           setStatus('Sending…'); const err = await emailPdf(b.bytes, b.filename, `${site.id}/om-exports`, { site_id: site.id, recipient_email: to, doc_title: `O&M Manual — ${site.name}` }); setStatus('');
           toast(err || `Emailed to ${to}`);
         }} />
+        <Button kind="ghost" title="✉ Email Word" disabled={!!status} onPress={async () => {
+          const to = (await promptText('Email the O&M manual (Word) to:', site.client_email || ''))?.trim(); if (!to) return;
+          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) { toast('Enter a valid email address.'); return; }
+          await flush(); setStatus('Building the Word file…');
+          try {
+            const w = await buildOmWord(d, site, org); setStatus('Sending…');
+            const err = await emailPdf(w.bytes, w.filename, `${site.id}/om-exports`, { site_id: site.id, recipient_email: to, doc_title: `O&M Manual — ${site.name}` }, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+            toast(err || `Emailed to ${to}`);
+          } catch { toast('Could not build the Word file.'); } finally { setStatus(''); }
+        }} />
         <Button kind="ghost" title="📝 Word" disabled={!!status} onPress={async () => {
           if (scopeEmpty(d)) { toast('Describe the Scope of Works first — it has to be filled in'); return; }
           await flush(); setStatus('Building the Word file…');

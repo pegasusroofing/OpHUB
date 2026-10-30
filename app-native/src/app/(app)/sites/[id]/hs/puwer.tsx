@@ -8,11 +8,12 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
-import { showAlert, useToast } from '@/components/toast';
+import { promptText, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import { PuwerPdfButtons } from '@/components/PuwerPdfButtons';
 import { PuwerRoster } from '@/components/PuwerRoster';
 import { confirmAsk } from '@/components/toast';
+import { addTool } from '@/data/myTools';
 import { nameOf, usePeople } from '@/data/hs';
 import { deletePuwer, savePuwer, usePuwer } from '@/data/puwer';
 import { useAuth } from '@/lib/auth';
@@ -71,6 +72,14 @@ export default function Puwer() {
         <Pressable disabled={offset >= 0} onPress={() => setOffset(offset + 1)} style={[nav, offset >= 0 && { opacity: 0.35 }]}><Text style={{ fontSize: 20 }}>›</Text></Pressable>
       </View>
       {data?.weekDone && <Card style={{ backgroundColor: base.okBg }}><Text style={{ color: base.ok, fontWeight: '700' }}>✓ Week marked complete</Text></Card>}
+      {mgr && !locked && who !== me.id && (
+        <Button kind="ghost" title={`+ Add Tool for ${whoName}`} onPress={async () => {
+          const n = (await promptText(`Tool for ${whoName}`, '', { placeholder: 'Tool name, e.g. Makita drill' }))?.trim(); if (!n) return;
+          const err = await addTool(me, n, '', null, who);
+          if (err) { toast(err); return; }
+          toast('Tool added'); void qc.invalidateQueries({ queryKey: ['puwer', id] });
+        }} />
+      )}
       {isLoading || !data ? <Muted>Loading…</Muted> : (
         <>
           <Card>

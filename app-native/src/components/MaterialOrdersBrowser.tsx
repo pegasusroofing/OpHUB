@@ -16,6 +16,7 @@ import {
   syncMaterialOrders, uploadMOFiles, useMaterialOrders, viewMOFile,
 } from '@/data/materialOrders';
 import { useSite } from '@/data/sites';
+import { unlinkFolder } from '@/data/onedrive';
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
 import { base, radius } from '@/theme/theme';
@@ -58,6 +59,11 @@ export function MaterialOrdersBrowser({ siteId, folderId }: { siteId: string; fo
             <>
               <Text style={{ color: base.ok }}>📁 Synced daily from "{s?.material_orders_folder_name || ''}" into this main folder{syncing ? ' — syncing…' : ''}</Text>
               <Button kind="ghost" busy={syncing} title="🔄 Sync Now" onPress={async () => { setSyncing(true); toast(await syncMaterialOrders(siteId)); setSyncing(false); refresh(); }} />
+              <Button kind="ghost" title="Change folder" onPress={() => router.push({ pathname: '/pm/onedrive-pick', params: { target: 'materials', id: siteId } } as never)} />
+              <Button kind="ghost" title="Unlink folder" onPress={async () => {
+                if (!(await confirmAsk('Unlink this folder? Nothing is deleted — new files just stop syncing here.', 'Unlink'))) return;
+                toast((await unlinkFolder('materials', siteId)) ? 'Folder unlinked' : 'Could not unlink — try again.'); void qc.invalidateQueries({ queryKey: ['sites'] }); refresh();
+              }} />
             </>
           ) : <><Muted>Link a OneDrive folder and any files placed in it sync here once a day.</Muted><Button kind="ghost" title="☁️ Link OneDrive folder" onPress={() => router.push({ pathname: '/pm/onedrive-pick', params: { target: 'materials', id: siteId } } as never)} /></>}
         </Card>
