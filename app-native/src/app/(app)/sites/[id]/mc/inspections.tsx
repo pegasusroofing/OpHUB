@@ -10,11 +10,11 @@ import { useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted } from '@/components/ui';
 import { nameOf, usePeople } from '@/data/hs';
 import { useMcInspections } from '@/data/mc';
-import { startReport, type Template } from '@/data/reports';
+import { quickTemplate, startReport, type Template } from '@/data/reports';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { REPORT_STATUS_LABEL } from '@/lib/rules/reports';
-import { isManager } from '@/lib/roles';
+import { isFullManager, isManager } from '@/lib/roles';
 import { base, page, radius, space } from '@/theme/theme';
 
 export default function McInspections() {
@@ -46,7 +46,7 @@ export default function McInspections() {
                 router.push(`/sites/${id}/snagging/reports/fill/${sid}` as never);
               }} />
             </View>
-          )) : <Empty>No inspection templates yet — an admin can set them up in the Admin Centre.</Empty>}
+          )) : <View><Empty>No inspection templates yet.</Empty>{isFullManager(me) && <Button small title="+ Create an inspection template" onPress={async () => { const tid = await quickTemplate(me, 'mc'); if (tid) router.push(`/pm/admin/templates/${tid}` as never); }} />}</View>}
         </Card>
       )}
       {!mgr && !!data?.subs.length && <Muted style={{ marginBottom: 8 }}>Ask a project manager if you need to see a full inspection report.</Muted>}

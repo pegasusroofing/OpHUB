@@ -15,14 +15,14 @@ import { confirmAsk, showAlert, useToast } from '@/components/toast';
 import { Button, Empty, Muted, Row, Toggle } from '@/components/ui';
 import { briefingTemplate, deleteBriefing, signBriefing, useBriefings, type Submission } from '@/data/briefings';
 import { nameOf, usePeople } from '@/data/hs';
-import { startReport } from '@/data/reports';
+import { quickTemplate, startReport } from '@/data/reports';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { deliverPdf, emailPdf, exportFilename, PDFDocument } from '@/lib/pdf';
 import type { PdfSub } from '@/lib/reportPdf';
 import { supabase } from '@/lib/supabase';
 import { REPORT_STATUS_LABEL, weekKeyOf, weekLabelOf } from '@/lib/rules/reports';
-import { isManager } from '@/lib/roles';
+import { isFullManager, isManager } from '@/lib/roles';
 import { base, page, radius } from '@/theme/theme';
 
 export default function Briefings() {
@@ -101,7 +101,8 @@ export default function Briefings() {
             toast('Briefing started'); refresh();
             router.push(`/sites/${id}/hs/briefings/fill/${sid}` as never);
           }} />
-          {data?.hasTemplate === false && <Muted style={{ marginBottom: 10 }}>No Daily Briefing template set up yet — an admin can flag one in Admin Centre › Report Templates.</Muted>}
+          {data?.hasTemplate === false && <Muted style={{ marginBottom: 6 }}>No Daily Briefing template set up yet.</Muted>}
+          {data?.hasTemplate === false && isFullManager(me) && <View style={{ marginBottom: 10 }}><Button small title="+ Create a Daily Briefing template" onPress={async () => { const tid = await quickTemplate(me, 'briefing'); if (tid) router.push(`/pm/admin/templates/${tid}` as never); else toast('Could not create it — try again.'); }} /></View>}
         </>
       )}
       {isLoading ? <Muted>Loading…</Muted> : keys.length ? keys.map((k) => {

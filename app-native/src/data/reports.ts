@@ -207,3 +207,14 @@ export async function startGeneralReport(me: Profile, t: Template, label: string
   return (r.data as { id: string } | null)?.id ?? null;
 }
 export const renameGeneral = async (id: string, label: string | null) => !(await db.from('report_submissions').update({ general_label: label } as never).eq('id', id)).error;
+
+/** A new template already flagged as a Daily Briefing (with "Operatives On Site") or a Main Contractor
+ *  Inspection (420 createDailyBriefingTemplate / createMcInspectionTemplate). Returns its id to edit. */
+export async function quickTemplate(me: Profile, kind: 'briefing' | 'mc'): Promise<string | null> {
+  const uid = () => globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
+  const row = kind === 'briefing'
+    ? { org_id: me.org_id, name: 'Daily Briefing', created_by: me.id, is_daily_briefing: true, sections: [{ id: uid(), title: 'Section 1', items: [{ id: uid(), type: 'operatives', label: 'Operatives On Site', required: false }] }] }
+    : { org_id: me.org_id, name: 'Main Contractor Inspection', created_by: me.id, is_mc_inspection: true, sections: [{ id: uid(), title: 'Section 1', items: [] }] };
+  const r = await db.from('report_templates').insert(row as never).select('id').single();
+  return (r.data as { id: string } | null)?.id ?? null;
+}
