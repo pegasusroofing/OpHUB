@@ -81,7 +81,8 @@ export default function FinJobs() {
   if (vt) shown = shown.filter((s) => vt(Number(data?.jfBy[s.id]?.contract_value || 0)));
   shown = shown.slice().sort(cmp[sort]);
   const pms = Array.from(new Set(sites.map((s) => s.responsible_pm_id).filter(Boolean))) as string[];
-  const tot = shown.reduce((t, s) => { const m = data?.m[s.id]; return { v: t.v + Number(data?.jfBy[s.id]?.contract_value || 0), inv: t.inv + (m?.inv || 0), owed: t.owed + (m?.owed || 0), od: t.od + (m?.overdue || 0) }; }, { v: 0, inv: 0, owed: 0, od: 0 });
+  const totalOf = (list: typeof shown) => list.reduce((t, s) => { const m = data?.m[s.id]; return { v: t.v + Number(data?.jfBy[s.id]?.contract_value || 0), inv: t.inv + (m?.inv || 0), owed: t.owed + (m?.owed || 0), od: t.od + (m?.overdue || 0) }; }, { v: 0, inv: 0, owed: 0, od: 0 });
+  const tot = totalOf(shown);
   return (
     <FinPage title="Projects" section="jobs" sub="list" onSub={go}>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
@@ -112,7 +113,7 @@ export default function FinJobs() {
             { k: 'start', l: 'Start', render: (s) => { const d = s.start_date || (s as { created_at?: string }).created_at; return <Cell>{d ? new Date(String(d).slice(0, 10) + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</Cell>; } },
             { k: 'v', l: 'Value', render: (s) => { const v = Number(data.jfBy[s.id]?.contract_value || 0), m = data.m[s.id]; return <Cell tone={m?.overdue ? '#C0392B' : undefined}>{v ? money(v, 0) : '—'}</Cell>; } },
           ]}
-          foot={<><FootText bold>{shown.length} project{shown.length === 1 ? '' : 's'}</FootText><FootText>Value {money(tot.v, 0)}</FootText><FootText>Invoiced {money(tot.inv, 0)}</FootText><FootText>Owed {money(tot.owed, 0)}</FootText>{tot.od ? <FootText>Overdue {money(tot.od, 0)}</FootText> : null}</>} />
+          foot={(left) => { const tot = totalOf(left); return <><FootText bold>{left.length} project{left.length === 1 ? '' : 's'}</FootText><FootText>Value {money(tot.v, 0)}</FootText><FootText>Invoiced {money(tot.inv, 0)}</FootText><FootText>Owed {money(tot.owed, 0)}</FootText>{tot.od ? <FootText>Overdue {money(tot.od, 0)}</FootText> : null}</>; }} />
       ) : shown.length ? shown.map((s) => {
         const m = data.m[s.id], v = Number(data.jfBy[s.id]?.contract_value || 0), po = (data.posBy[s.id] || []).join(', ');
         return <FinRow key={s.id} left={s.job_number || 'No no.'} title={s.name} onPress={() => router.push(`/fin/job/${s.id}` as never)}

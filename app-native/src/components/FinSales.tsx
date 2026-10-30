@@ -112,7 +112,7 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
               { k: 'st', l: 'Stage', render: (a: App) => { const s = appStage(a); return <Text style={{ fontSize: 10.5, fontWeight: '800', color: s.c, backgroundColor: `${s.c}1A`, borderRadius: 999, paddingVertical: 3, paddingHorizontal: 9, overflow: 'hidden', textAlign: 'center' }}>● {s.l}</Text>; } },
               { k: 'inv', l: 'Invoice', render: (a: App) => <Cell>{a.invoice_id ? data.invs.find((i) => i.id === a.invoice_id)?.number || 'Invoiced' : '—'}</Cell> },
             ]}
-            foot={<><FootText bold>{list.length} application{list.length === 1 ? '' : 's'}</FootText><FootText>Applied {money(list.reduce((t, a) => t + Number(a.net_due || 0), 0))}</FootText><FootText>Certified {money(list.reduce((t, a) => t + Number(a.cert_net || 0), 0))}</FootText></>} />
+            foot={(list) => <><FootText bold>{list.length} application{list.length === 1 ? '' : 's'}</FootText><FootText>Applied {money(list.reduce((t, a) => t + Number(a.net_due || 0), 0))}</FootText><FootText>Certified {money(list.reduce((t, a) => t + Number(a.cert_net || 0), 0))}</FootText></>} />
         ) : list.length ? list.map((a) => { const s = appStage(a); return (
           <FinRow key={a.id} left={`App ${a.number}`} title={siteId ? fdate(a.valuation_date) : jobTag(site(a.site_id))} sub={[siteId ? '' : fdate(a.valuation_date), s.l, a.cert_net != null ? `certified ${money(a.cert_net)}` : ''].filter(Boolean).join(' · ')} right={money(a.cert_net ?? a.net_due)} tone={s.c} onPress={() => router.push(`/fin/job/${a.site_id}/application/${a.id}` as never)} />
         ); }) : <Empty>Nothing here.</Empty>}
@@ -144,7 +144,7 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
               { k: 'o', l: 'Owed', render: (i: Inv) => { const o = invOutstanding(i); return <Cell tone={invOverdue(i) ? '#C0392B' : undefined}>{o ? money(o) : '—'}</Cell>; } },
               { k: 's', l: 'Status', render: (i: Inv) => <Cell tone={invOverdue(i) ? '#C0392B' : undefined}>{invOverdue(i) ? 'Overdue' : INV_STATUS[i.status] || i.status}</Cell> },
             ]}
-            foot={<><FootText bold>{list.length} invoice{list.length === 1 ? '' : 's'}</FootText><FootText>Total {money(list.reduce((t, i) => t + Number(i.total || 0), 0))}</FootText><FootText>Owed {money(list.reduce((t, i) => t + invOutstanding(i), 0))}</FootText></>} />
+            foot={(list) => <><FootText bold>{list.length} invoice{list.length === 1 ? '' : 's'}</FootText><FootText>Total {money(list.reduce((t, i) => t + Number(i.total || 0), 0))}</FootText><FootText>Owed {money(list.reduce((t, i) => t + invOutstanding(i), 0))}</FootText></>} />
         ) : list.length ? list.map((i) => {
           const od = invOverdue(i), o = invOutstanding(i);
           return <FinRow key={i.id} left={i.number || 'Draft'} title={siteId ? (i.client_name || '—') : jobTag(site(i.site_id))} sub={[siteId ? '' : i.client_name, i.issue_date ? fdate(i.issue_date) : '', INV_STATUS[i.status] || i.status, o ? `${money(o)} owed${od ? ' — overdue' : ''}` : ''].filter(Boolean).join(' · ')} right={money(i.total)} tone={od ? '#C0392B' : undefined} onPress={() => router.push(`/fin/job/${i.site_id}/invoice/${i.id}` as never)} />;
@@ -182,7 +182,7 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
             { k: 's', l: 'Final Release', render: (x) => { const d = retentionDates(x.jf, st || {}); return <Cell><Text style={{ color: base.blue }} onPress={() => void setRetDate(x.s.id, 2, x.jf)}>{d.second ? fdate(d.second) : 'Not set'}</Text>{x.jf.ret2_invoice_id || x.jf.ret2_app_id ? ' (claimed)' : ''}</Cell>; } },
             { k: 'h', l: 'Held', render: (x) => <Cell bold>{money(x.held)}</Cell> },
           ]}
-          foot={<><FootText bold>{rows.length} job{rows.length === 1 ? '' : 's'}</FootText><FootText>{money(total)} still held</FootText></>} />
+          foot={(left) => <><FootText bold>{left.length} job{left.length === 1 ? '' : 's'}</FootText><FootText>{money(round2(left.reduce((t, x) => t + x.held, 0)))} still held</FootText></>} />
       ) : rows.length ? rows.map((x) => { const d = retentionDates(x.jf, st || {}); return (
         <FinRow key={x.s.id} title={jobTag(x.s)} sub={[x.s.client_name, `1st release ${d.first ? fdate(d.first) : 'not set'}${x.jf.ret1_invoice_id || x.jf.ret1_app_id ? ' (claimed)' : ''}`, `final ${d.second ? fdate(d.second) : 'not set'}${x.jf.ret2_invoice_id || x.jf.ret2_app_id ? ' (claimed)' : ''}`].filter(Boolean).join(' · ')} right={money(x.held)} onPress={() => router.push(`/fin/job/${x.s.id}?tab=setup` as never)} />
       ); }) : <Empty>No retention held.</Empty>}

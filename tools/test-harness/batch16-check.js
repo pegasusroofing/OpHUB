@@ -1,0 +1,35 @@
+// Finance tables: filter boxes under the column titles narrow the rows; the totals bar adds up what's left.
+const {chromium, makeContext, S1} = require('./harness');
+const seed = require('./fresh/seed');
+const B = 'http://localhost:8081';
+(async()=>{
+  const browser = await chromium.launch(); const errs = [];
+  const {ctx, db} = await makeContext(browser, 'admin', [], {viewport:{width:1300, height:900}});
+  seed(db); db.profiles[0].finance_enabled = true; db.profiles[0].howto_dismissed = ['*']; db.organizations[0].has_pm = true;
+  require('./seeds/ex4')(db);
+  const page = await ctx.newPage(); page.on('pageerror', e=>errs.push(e.message));
+  await page.goto(B+'/login'); await page.waitForTimeout(4000);
+  await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
+  await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
+  const foot = async () => (await page.locator('body').innerText()).split('\n').filter(l=>/shown|invoices?$|^Total £|^Owed £|^\d+ invoice/.test(l)).join(' | ');
+  await page.goto(B+'/fin/job/'+S1+'?tab=sales'); await page.waitForTimeout(6000);
+  console.log('boxes', await page.getByLabel(/^Filter /).count(), '| before:', await foot());
+  const box = page.getByLabel(/^Filter /).first();
+  await page.screenshot({path:'shots/filters-before.png'});
+  await box.fill('zzzz'); await page.waitForTimeout(800);
+  console.log('no match msg', await page.getByText('Nothing matches those filters.').count(), '| foot:', await foot());
+  await box.fill(''); await page.waitForTimeout(500);
+  const num = (await page.getByLabel(/^Filter /).first().getAttribute('placeholder'));
+  console.log('first box', num);
+  const inv = (db.fin_invoices||[]).filter(i=>i.site_id===S1 && i.status!=='draft');
+  console.log('invoices', inv.map(i=>[i.number,i.total]).join(' ; '));
+  await box.fill(String(inv[0].number)); await page.waitForTimeout(800);
+  console.log('filtered:', await foot());
+  await page.screenshot({path:'shots/filters-after.png'});
+  await page.goto(B+'/fin/jobs'); await page.waitForTimeout(5000);
+  console.log('jobs boxes', await page.getByLabel(/^Filter /).count());
+  await page.getByLabel('Filter Project').fill('zzzz'); await page.waitForTimeout(800);
+  console.log('jobs foot', (await page.locator('body').innerText()).match(/\d+ projects?/)?.[0]);
+  console.log('errors', errs.join(' / ').slice(0,300) || 'none');
+  await browser.close(); process.exit(0);
+})();

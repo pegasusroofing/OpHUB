@@ -235,7 +235,7 @@ export default function FinDirectory() {
               { k: 'x', l: 'Xero', render: (c: Row) => c.xero_contact_id ? <Cell>In Xero</Cell> : <Text style={{ fontSize: 12, fontWeight: '700', color: base.ink, borderWidth: 1, borderColor: '#d1d5db', borderRadius: 6, paddingVertical: 5, paddingHorizontal: 10, overflow: 'hidden' }}>Add to Xero</Text> },
               ...(sup ? [] : [{ k: 'o', l: 'Owed', render: (c: Row) => { const o = owedOf(c); return <View style={{ alignItems: 'center' }}><Cell>{o.o ? money(o.o, 0) : '—'}</Cell>{o.od ? <Text style={{ fontSize: 11, color: '#c81e1e', fontWeight: '700' }}>{money(o.od, 0)} overdue</Text> : null}</View>; } }]),
             ]}
-            foot={<><FootText bold>{list.length} shown</FootText>{!sup && <FootText>Owed {money(list.reduce((t, c) => t + owedOf(c).o, 0))}</FootText>}</>} />
+            foot={(list) => <><FootText bold>{list.length} shown</FootText>{!sup && <FootText>Owed {money(list.reduce((t, c) => t + owedOf(c).o, 0))}</FootText>}</>} />
         );
       })() : list.length ? list.map((c) => <FinRow key={c.id} title={c.name} sub={[sup ? c.category : '', c.email, termsText(c), c.sales_vat ? `VAT ${VAT_SHOW.find(([k]) => k === c.sales_vat)?.[1]}` : '', c.cis_registered ? 'CIS' : '', c.xero_contact_id ? 'In Xero' : 'Not in Xero'].filter(Boolean).join(' · ')} onPress={() => setEdit(c)} />) : <Empty>Nothing here yet.</Empty>}
       {edit && (

@@ -129,7 +129,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
               { k: 'l', l: 'Left To Invoice', render: (p: Row) => <Cell>{p.value != null ? money(Math.max(0, round2(Number(p.value) - poInvoiced(p, live)))) : '—'}</Cell> },
               { k: 's', l: 'Status', render: (p: Row) => <Text style={{ fontSize: 10.5, fontWeight: '800', color: p.status === 'open' ? '#1d4ed8' : '#6b7280', backgroundColor: p.status === 'open' ? '#EEF3FD' : '#EEF0F2', borderRadius: 999, paddingVertical: 3, paddingHorizontal: 9, overflow: 'hidden' }}>● {PO_STATUS[p.status] || p.status}</Text> },
             ]}
-            foot={<><FootText bold>{list.length} shown</FootText><FootText>Value {money(list.reduce((t, p) => t + Number(p.value || 0), 0))}</FootText><FootText>Invoiced {money(list.reduce((t, p) => t + poInvoiced(p, live), 0))}</FootText></>} />
+            foot={(list) => <><FootText bold>{list.length} shown</FootText><FootText>Value {money(list.reduce((t, p) => t + Number(p.value || 0), 0))}</FootText><FootText>Invoiced {money(list.reduce((t, p) => t + poInvoiced(p, live), 0))}</FootText></>} />
         ) : list.length ? list.map((p) => { const inv = poInvoiced(p, live), left = p.value != null ? Math.max(0, round2(Number(p.value) - inv)) : null; return (
           <FinRow key={p.id} left={p.number} title={p.supplier_name || '—'} sub={[siteId ? '' : jobTag(site(p.site_id)), fdate(String(p.issue_date || p.created_at || '').slice(0, 10)), PO_STATUS[p.status] || p.status, `invoiced ${money(inv)}`, left != null && p.status === 'open' ? `${money(left)} left` : ''].filter(Boolean).join(' · ')} right={p.value != null ? money(p.value) : 'No value'} onPress={() => router.push(`/fin/po/${p.id}` as never)} />
         ); }) : <Empty>No purchase orders here.</Empty>}
@@ -208,7 +208,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
                     { k: 't', l: 'Total', render: (i: Row) => <Cell bold>{money(i.total)}</Cell> },
                     { k: 's', l: 'Status', render: (i: Row) => <Cell tone={i.status === 'query' ? '#C0392B' : undefined}>{i.paid_on ? 'Paid' : PI_STATUS[i.status] || i.status}</Cell> },
                   ]}
-                  foot={<><FootText bold>{list.length} shown</FootText><FootText>Net {money(list.reduce((t, i) => t + Number(i.net || 0), 0))}</FootText><FootText>VAT {money(list.reduce((t, i) => t + Number(i.vat || 0), 0))}</FootText><FootText>Gross {money(list.reduce((t, i) => t + Number(i.total || 0), 0))}</FootText></>} /></>
+                  foot={(list) => <><FootText bold>{list.length} shown</FootText><FootText>Net {money(list.reduce((t, i) => t + Number(i.net || 0), 0))}</FootText><FootText>VAT {money(list.reduce((t, i) => t + Number(i.vat || 0), 0))}</FootText><FootText>Gross {money(list.reduce((t, i) => t + Number(i.total || 0), 0))}</FootText></>} /></>
               );
               return list.length ? (
                 <>
