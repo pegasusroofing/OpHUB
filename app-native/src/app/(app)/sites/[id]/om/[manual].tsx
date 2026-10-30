@@ -28,6 +28,7 @@ import { buildOmPdf } from '@/lib/omPdf';
 import { buildOmWord, deliverDocx } from '@/lib/omWord';
 import { deliverPdf, emailPdf } from '@/lib/pdf';
 import { addOmProducts, HO_MAINT, omUid, scopeEmpty, type OmData, type OmPhoto, type OmSection } from '@/lib/rules/omManual';
+import { compressOne, pickPhotos } from '@/lib/photos';
 import { isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
 import type { Organization, Profile, Site } from '@/lib/types';
@@ -140,7 +141,14 @@ function Editor({ me, org, site, manualId, name0, data0 }: { me: Profile; org: O
         <TextInput value={c.subtitle || ''} onChangeText={(v) => cover('subtitle', v)} placeholder="Page 2 wording" multiline style={[box, { minHeight: 70 }]} />
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           {c.coverPhoto ? <StorageImage bucket={c.coverPhoto.bucket} path={c.coverPhoto.path} style={{ width: 120, height: 60, borderRadius: 6 }} /> : <Muted>No cover photo</Muted>}
-          <Text style={small} onPress={() => setPicker({ sec: null })}>{c.coverPhoto ? 'Change' : 'Choose'} photo</Text>
+          <Text style={small} onPress={() => setPicker({ sec: null })}>{c.coverPhoto ? 'Change' : 'Choose'} from the job</Text>
+          <Text style={small} onPress={async () => {
+            // 857: the cover photo can also be taken now or picked from the phone.
+            const src = await chooseAction('Cover photo', [{ key: 'camera', label: '📷 Take a photo' }, { key: 'library', label: '🖼 Choose from library' }]); if (!src) return;
+            const p = await pickPhotos(src as 'camera' | 'library', false); if ('error' in p) { toast(p.error); return; } if (!p[0]) return;
+            const f = await uploadRowFile(me, site, { uri: await compressOne(p[0]), name: 'cover.jpg', mimeType: 'image/jpeg' });
+            if (f) up((x) => { x.cover.coverPhoto = { bucket: f.bucket, path: f.path }; }); else toast('Could not upload — check your signal and try again.');
+          }}>📷 Take / upload</Text>
           {c.coverPhoto && <Text style={small} onPress={() => up((x) => { x.cover.coverPhoto = null; })}>Remove</Text>}
         </View>
       </Card>
