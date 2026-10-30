@@ -58,11 +58,12 @@ export default function PriceElementPage() {
     }
   };
   const vMenu = async (v: PriceVariation) => {
-    const opts = [
+    // 390:1295 — someone who asked for it can still withdraw their own pending request; the rest is for managers.
+    const opts = mgr ? [
       ...(v.status === 'pending' ? [{ key: 'approve', label: 'Approve' }, { key: 'reject', label: 'Reject…' }] : []),
       { key: 'revise', label: v.status === 'pending' ? 'Revise and approve…' : v.status === 'rejected' ? 'Revisit (resubmit)…' : 'Edit…' },
       { key: 'remove', label: 'Remove' },
-    ];
+    ] : [{ key: 'remove', label: 'Remove my request' }];
     const k = await chooseAction(money(v.amount), opts);
     if (k === 'approve') { toast((await decideVariation(me, site, v, true)) ? 'Approved' : 'Could not save — try again.'); refresh(); }
     else if (k === 'reject') { const r = await promptText('Reason for rejecting', ''); if (r === null) return; if (!r.trim()) { toast('Enter a reason for rejecting.'); return; } toast((await decideVariation(me, site, v, false, r.trim())) ? 'Rejected' : 'Could not save — try again.'); refresh(); }
@@ -105,7 +106,7 @@ export default function PriceElementPage() {
         <>
           <SectionTitle>Variations to Price</SectionTitle>
           {vs.length ? vs.map((v) => (
-            <Pressable key={v.id} disabled={!mgr} onPress={() => void vMenu(v)}>
+            <Pressable key={v.id} disabled={!mgr && !(v.requested_by === me.id && v.status === 'pending')} onPress={() => void vMenu(v)}>
               <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <View style={{ flex: 1 }}>
                   <Text style={{ fontWeight: '700', color: base.ink }}>{money(v.amount)} · {v.note || ''}</Text>

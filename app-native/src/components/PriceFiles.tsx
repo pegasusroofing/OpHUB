@@ -86,7 +86,7 @@ export function PriceFiles({ me, site, el, mgr, canPrice, canLabour }: { me: Pro
         <Text style={{ color: base.blue, fontWeight: '600' }}>{f.filename}{kind === 'price' && !f.element_id ? '  (all prices)' : ''}</Text>
         <Muted style={{ fontSize: 11 }}>{f.uploaded_by ? nameOf(people, f.uploaded_by) : ''}{f.uploaded_at ? ` · ${new Date(f.uploaded_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}` : ''}</Muted>
       </Pressable>
-      {(mgr || f.uploaded_by === me.id) && <Pressable hitSlop={6} onPress={() => void del(kind, f)}><Text style={{ color: base.red }}>✕</Text></Pressable>}
+      {mgr && <Pressable hitSlop={6} onPress={() => void del(kind, f)}><Text style={{ color: base.red }}>✕</Text></Pressable>}
     </View>
   );
   if (!data) return null;
@@ -106,7 +106,8 @@ export function PriceFiles({ me, site, el, mgr, canPrice, canLabour }: { me: Pro
           <SectionTitle>Labour invoices</SectionTitle>
           <Card>
             {data.labour.length ? data.labour.map((f) => row('labour', f)) : <Muted>No labour invoices yet.</Muted>}
-            <Button kind="ghost" busy={busy === 'labour'} title="⬆ Upload labour invoices" onPress={() => void upload('labour')} />
+            {/* 390: upload and delete are for managers; others with access just view them */}
+            {mgr && <Button kind="ghost" busy={busy === 'labour'} title="⬆ Upload labour invoices" onPress={() => void upload('labour')} />}
           </Card>
         </>
       )}
