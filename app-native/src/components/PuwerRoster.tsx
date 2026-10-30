@@ -16,7 +16,7 @@ import { localISODate } from '@/lib/rules/driver';
 import { weekDates, weekLabel } from '@/lib/rules/havs';
 import { base, page, radius, space } from '@/theme/theme';
 
-export function PuwerRoster({ siteId, offset, setOffset }: { siteId: string; offset: number; setOffset: (n: number) => void }) {
+export function PuwerRoster({ siteId, offset, setOffset, readOnly }: { siteId: string; offset: number; setOffset: (n: number) => void; readOnly?: boolean }) {
   const { me } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
@@ -41,7 +41,7 @@ export function PuwerRoster({ siteId, offset, setOffset }: { siteId: string; off
         const done = data.done.has(op.id);
         const n = data.toolCount[op.id] || 0;
         return (
-          <Pressable key={op.id} onPress={() => router.push(`/sites/${siteId}/hs/puwer?user=${op.id}` as never)}
+          <Pressable key={op.id} disabled={readOnly} onPress={() => router.push(`/sites/${siteId}/hs/puwer?user=${op.id}` as never)}
             style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 8, backgroundColor: base.card }}>
             <Pressable hitSlop={8} accessibilityLabel={`Tick ${op.name}`} onPress={() => setSel(sel.includes(op.id) ? sel.filter((x) => x !== op.id) : [...sel, op.id])}><Text style={{ fontSize: 18 }}>{sel.includes(op.id) ? '☑' : '☐'}</Text></Pressable>
             <View style={{ flex: 1 }}>
@@ -52,12 +52,12 @@ export function PuwerRoster({ siteId, offset, setOffset }: { siteId: string; off
           </Pressable>
         );
       }) : <Empty>No operatives assigned to this site.</Empty>}
-      {data && !data.completion && (
+      {data && !data.completion && !readOnly && (
         <Button title="Mark This Week As Complete" onPress={async () => {
           if (await markPuwerWeek(me, siteId, ws)) { toast('Week marked complete'); refresh(); setOffset(offset + 1); } else toast('Could not save — try again.');
         }} />
       )}
-      {data?.completion && <Button kind="ghost" title="Reopen This Week" onPress={async () => { if (await reopenPuwerWeek(data.completion!.id)) { toast('Week reopened'); refresh(); } }} />}
+      {data?.completion && !readOnly && <Button kind="ghost" title="Reopen This Week" onPress={async () => { if (await reopenPuwerWeek(data.completion!.id)) { toast('Week reopened'); refresh(); } }} />}
       <PuwerPdfButtons siteId={siteId} weekStart={ws} picked={(data?.ops ?? []).filter((o) => sel.includes(o.id))} />
     </ScrollView>
   );

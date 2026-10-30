@@ -8,12 +8,13 @@ import { Button } from '@/components/ui';
 import { nameOf, usePeople } from '@/data/hs';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
+import { isManager } from '@/lib/roles';
 import { deliverPdf } from '@/lib/pdf';
 import { buildPuwerPdf, emailPuwerPdf } from '@/lib/puwerPdf';
 import { supabase } from '@/lib/supabase';
 
 export function PuwerPdfButtons({ siteId, weekStart, one, picked = [] }: { siteId: string; weekStart: string; one?: { id: string; name: string }; picked?: { id: string; name: string }[] }) {
-  const { org } = useAuth();
+  const { org, me } = useAuth();
   const toast = useToast();
   const { data: site } = useSite(siteId);
   const { data: people } = usePeople();
@@ -49,7 +50,8 @@ export function PuwerPdfButtons({ siteId, weekStart, one, picked = [] }: { siteI
     {!one && picked.length > 0 && <View style={{ marginTop: 10 }}><Button busy={busy === 'sel'} title={`Export Selected (${picked.length})`} onPress={() => void exportPicked()} /></View>}
     <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
       <View style={{ flex: 1 }}><Button kind="ghost" busy={busy === 'pdf'} title={one ? 'Export PDF' : 'Export All'} onPress={() => void run('pdf')} /></View>
-      <View style={{ flex: 1 }}><Button kind="ghost" busy={busy === 'email'} title={one ? 'Email PUWER Report' : 'Email All'} onPress={() => void run('email')} /></View>
+      {/* 680: emailing the report is for managers */}
+      {isManager(me) && <View style={{ flex: 1 }}><Button kind="ghost" busy={busy === 'email'} title={one ? 'Email PUWER Report' : 'Email All'} onPress={() => void run('email')} /></View>}
     </View>
     </View>
   );

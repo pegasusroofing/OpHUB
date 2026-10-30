@@ -2,7 +2,7 @@
 // per tool (unticked until you confirm each), a warning when you untick one, an
 // Acceptable / Can't be used line per tool, comments, Save. Locked once saved (as today).
 // Managers get the weekly roster (PuwerRoster) and can fill one in for any
-// operative (?user=…), edit it after saving and delete it. Ported from 680.
+// operative (?user=…) and delete it. Ported from 680.
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -40,9 +40,12 @@ export default function Puwer() {
   if (!me) return null;
   const mgr = isManager(me);
   if (mgr && !user) return <PuwerRoster siteId={id} offset={offset} setOffset={setOffset} />;
+  // 680 isClientView: a client sees who's done this week's inspection and can export them, nothing to fill in.
+  if (me.role === 'client') return <PuwerRoster siteId={id} offset={offset} setOffset={setOffset} readOnly />;
   const who = user ?? me.id;
   const whoName = who === me.id ? me.name : nameOf(people, who);
-  const locked = !mgr && !!data?.inspectionId && !retry;
+  // 680 #255: a saved inspection is locked for everyone (managers can still export, email or delete it).
+  const locked = !!data?.inspectionId && !retry;
 
   const toggle = (i: number, k: PuwerKey) => {
     const next = tools.map((t, j) => (j === i ? { ...t, [k]: !t[k] } : t));

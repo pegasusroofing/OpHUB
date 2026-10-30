@@ -30,7 +30,7 @@ export default function HavsPuwer() {
     <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'Tools, HAVS & PUWER' }} />
       <JobGrid>
-      {!isManager(me) && (
+      {!isManager(me) && me.role !== 'client' && (
         <Tile icon="🔧" tint="#E8F0FE" title="My Tools" sub={n ? `${n} tool${n === 1 ? '' : 's'}` : 'Add your tools'} badge={n ? undefined : 1}
           onPress={() => router.push(`/sites/${site.id}/hs/mytools`)} />
       )}
