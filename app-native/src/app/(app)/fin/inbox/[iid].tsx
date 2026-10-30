@@ -81,6 +81,12 @@ export default function FinInboxItem() {
             const flags: string[] = [];
             const no = String(v.invoice_no).trim(), sup = String(v.supplier).trim() || 'Supplier';
             if (no) { const dup = ((await fdb.from('purchase_invoices').select('supplier_name').eq('invoice_no', no)).data as Row[] | null) ?? []; if (dup.some((d) => String(d.supplier_name || '').trim().toLowerCase() === sup.toLowerCase())) flags.push('possible duplicate of an invoice already entered'); }
+            // 9219b finInboxFileCore: invoices on a PO adding up to more than its value go in as a query.
+            if (po) {
+              const pr = ((await fdb.from('purchase_orders').select('value').eq('id', po).maybeSingle()).data as Row | null);
+              const sofar = (((await fdb.from('purchase_invoices').select('net').eq('po_id', po).neq('status', 'rejected')).data as Row[] | null) ?? []).reduce((t, x) => t + Number(x.net || 0), 0) + net;
+              if (pr?.value != null && sofar > Number(pr.value) + 0.005) flags.push(`${money(sofar - Number(pr.value))} over the PO value of ${money(pr.value)}`);
+            }
             const r = await rpc('fin_inbox_file', { p_id: it.id, p_pi: { site_id: sid, po_id: po || null, supplier_name: sup, invoice_no: no || null, invoice_date: String(v.date) || today(), net: round2(net), vat: round2(vat), total: round2(total), status: flags.length ? 'query' : 'to_approve', query_note: flags.length ? flags.join('; ') : null } });
             if (r.error) return r.error.code === 'PGRST202' ? 'Filing isn’t available yet on the server — file it in the current app.' : `Couldn’t file it — ${r.error.message}. It’s still in the inbox.`;
             const d = r.data as Row | null;
