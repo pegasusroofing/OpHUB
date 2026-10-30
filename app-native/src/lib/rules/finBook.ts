@@ -196,8 +196,12 @@ export function forecast(b: Book, siteId: string, settings: Row | null) {
 export type Forecast = ReturnType<typeof forecast>;
 export const pctTxt = (p: number | null | undefined) => (p == null ? '—' : `${Math.round(p * 10) / 10}%`);
 /** What "profit to date" is measured on: certified, else applied, else invoiced. */
-export function marginOn(fc: Forecast) {
-  if (fc.certified) return { value: fc.certified, label: 'certified' };
-  if (fc.applied) return { value: fc.applied, label: 'applied' };
-  return { value: fc.invoiced || 0, label: 'invoiced' };
+export type MarginBasis = 'auto' | 'applied' | 'certified' | 'invoiced';
+export function marginOn(fc: Forecast, basis: MarginBasis = 'auto') {
+  if (basis === 'applied') return { value: fc.applied || 0, label: 'applied', basis };
+  if (basis === 'certified') return { value: fc.certified || 0, label: 'certified', basis };
+  if (basis === 'invoiced') return { value: fc.invoiced || 0, label: 'invoiced', basis };
+  if (fc.certified) return { value: fc.certified, label: 'certified', basis };
+  if (fc.applied) return { value: fc.applied, label: 'applied', basis };
+  return { value: fc.invoiced || 0, label: 'invoiced', basis };
 }

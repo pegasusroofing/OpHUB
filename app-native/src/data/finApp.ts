@@ -78,7 +78,7 @@ export async function loadApplication(id: string) {
   const j = (jf.data as Row | null) || {}, previousLive = previousCertified(apps, a.number);
   // Each line's % on the last certificate, for the Previous / This time figures (9219r).
   const prevPct = appDoc(a, j, apps).prevPct;
-  const siteProgress = await loadSiteProgress(a.site_id);
+  const [siteProgress, varProgress] = await Promise.all([loadSiteProgress(a.site_id), loadVarProgress(a.site_id)]);
   if (a.status === 'draft') {
     const [vars, fvars, fdays] = await loadRegisters(a.site_id);
     const { varRows, dayRows } = registerRows(a, vars, fvars, fdays);
@@ -86,10 +86,10 @@ export async function loadApplication(id: string) {
     if (key(varRows) !== key(a.variations || []) || key(dayRows) !== key(a.dayworks || [])) {
       const next = { ...a, variations: varRows, dayworks: dayRows };
       const saved = rowForSave(next, j, previousLive);
-      if (!(await fdb.from('fin_applications').update(saved as never).eq('id', a.id).eq('status', 'draft')).error) return { a: { ...next, ...saved }, jf: j, previousLive, prevPct, siteProgress, synced: true };
+      if (!(await fdb.from('fin_applications').update(saved as never).eq('id', a.id).eq('status', 'draft')).error) return { a: { ...next, ...saved }, jf: j, previousLive, prevPct, siteProgress, varProgress, synced: true };
     }
   }
-  return { a, jf: j, previousLive, prevPct, siteProgress, synced: false };
+  return { a, jf: j, previousLive, prevPct, siteProgress, varProgress, synced: false };
 }
 export function rowForSave(a: Row, jf: Row, previous: number) {
   const c = appCalc(a, jf.contract_value, jf.retention_limit_pct, previous);
@@ -264,6 +264,21 @@ export async function deleteApplicationAny(a: Row): Promise<string | null> {
 
 /** Each Bill of Quantities line's progress on site (918 finSiteProgress): the average of the operatives'
  *  Schedule of Works tasks linked to it (done = 100%). */
+/** {fin_variation_id | variation_id: %} from the Schedule of Works section each variation was pushed to (9219w finSiteVarProgress). */
+export async function loadVarProgress(siteId: string): Promise<Record<string, number>> {
+  const [fv, sv, tasks] = await Promise.all([
+    rows(fdb.from('fin_variations').select('id,variation_id,schedule_section_id').eq('site_id', siteId).not('schedule_section_id', 'is', null)),
+    rows(fdb.from('variations').select('id,schedule_section_id').eq('site_id', siteId).not('schedule_section_id', 'is', null)),
+    rows(fdb.from('schedule_tasks').select('section_id,status,percent_complete').eq('site_id', siteId)),
+  ]);
+  const bySec: Record<string, number[]> = {};
+  tasks.forEach((t) => { if (t.section_id) (bySec[t.section_id] ||= []).push(t.status === 'done' ? 100 : Math.max(0, Math.min(100, Number(t.percent_complete || 0)))); });
+  const avg = (sid: string) => (bySec[sid]?.length ? round2(bySec[sid].reduce((x, y) => x + y, 0) / bySec[sid].length) : null);
+  const out: Record<string, number> = {};
+  fv.forEach((v) => { const p = avg(v.schedule_section_id); if (p != null) { out[v.id] = p; if (v.variation_id) out[v.variation_id] = p; } });
+  sv.forEach((v) => { const p = avg(v.schedule_section_id); if (p != null && out[v.id] == null) out[v.id] = p; });
+  return out;
+}
 export async function loadSiteProgress(siteId: string): Promise<Record<string, number>> {
   const tasks = await rows(fdb.from('schedule_tasks').select('contract_item_id,status,percent_complete').eq('site_id', siteId).not('contract_item_id', 'is', null));
   const acc: Record<string, number[]> = {};

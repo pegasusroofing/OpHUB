@@ -27,15 +27,26 @@ import { openDocLink, usePeople } from '@/data/hs';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { siteStatusKey } from '@/lib/rules/checkin';
+import { plainGet, plainSet } from '@/lib/kv';
 import { forecast, pctTxt } from '@/lib/rules/finBook';
 import { heading } from '@/lib/fonts';
-import { appDueThisMonth, plantCost, today, appDateFor, FIN_VAT_LABEL, fdate, invOutstandingNet, invOverdue, money, num, retentionAlerts, retentionDates, retentionHeld, retHalfAmt, type FinApp, type FinInv } from '@/lib/rules/finance';
+import { appDueThisMonth, plantCost, today, appDateFor, FIN_VAT_LABEL, fdate, invOutstanding, invOutstandingNet, invOverdue, money, num, retentionAlerts, retentionDates, retentionHeld, retHalfAmt, type FinApp, type FinInv } from '@/lib/rules/finance';
 import { isFinanceOnlyOrg, isFinanceUser, isFullManager } from '@/lib/roles';
 import { base, page, space, useTheme } from '@/theme/theme';
 
 type Row = Record<string, any>;
 const TABS: [string, string][] = [['overview', 'Overview'], ['sales', 'Sales'], ['purchases', 'Purchases'], ['subs', 'Subcontractors & Labour'], ['setup', 'Project Admin']];
 // £10.0k, as the current app's tiles (finK).
+const OV_OPTS: Record<string, [string, string][]> = {
+  cv: [['contract', 'Contract Value'], ['cva', 'Contract + Approved Variations'], ['ffa', 'Forecasted Final Account']],
+  var: [['va', 'Approved Variations'], ['vu', 'Unapproved Variations'], ['v', 'All Variations'], ['da', 'Approved Day Works'], ['d', 'All Day Works']],
+  cost: [['all', 'All Costs To Date'], ['materials', 'Materials'], ['labour', 'Labour'], ['plant', 'Plant'], ['subcontract', 'Subcontract'], ['overheads', 'Prelims & Site Costs'], ['other', 'Other'], ['committed', 'Ordered, Not Invoiced']],
+  pr: [['td', 'Profit To Date'], ['fc', 'Forecast Profit'], ['gross', 'Profit Before Overheads']],
+  ap: [['applied', 'Applied To Date'], ['certified', 'Certified To Date'], ['valued', 'Valued To Date']],
+  inv: [['invoiced', 'Invoiced To Date'], ['owed', 'Owed To You'], ['received', 'Paid To Date']],
+  od: [['net', 'Overdue (excl. VAT)'], ['gross', 'Overdue (incl. VAT)']],
+  ret: [['held', 'Held By Client'], ['released', 'Released To Date'], ['taken', 'Total Retention Taken']],
+};
 const k = (n: number | null | undefined) => (n == null ? '…' : Math.abs(n) >= 1000 ? `${n < 0 ? '−' : ''}£${(Math.abs(n) / 1000).toFixed(1)}k` : money(n, 0));
 
 export default function FinJob() {
@@ -93,6 +104,9 @@ export default function FinJob() {
 }
 
 function Overview({ id, fc, settings, invs, apps, book }: { id: string; fc: ReturnType<typeof forecast>; settings: Row; invs: FinInv[]; apps: FinApp[]; book: Row }) {
+  const qcOv = useQueryClient();
+  const { data: ovPick = {} } = useQuery({ queryKey: ['finOvPick'], queryFn: () => plainGet<Record<string, string>>('ophub.finOv2', {}) });
+  const { data: ovDws = [] } = useQuery({ queryKey: ['finOvDws', id], queryFn: async () => ((await fdb.from('fin_dayworks').select('status,value').eq('site_id', id)).data as Row[] | null) ?? [] });
   // Each half is worked out from what the latest certificate holds (903), not what's still held.
   const heldCert = retentionHeld(apps);
   const d = retentionDates(fc.jf, settings), alerts = retentionAlerts(fc.jf, settings, fc.retHeld);
@@ -131,17 +145,31 @@ function Overview({ id, fc, settings, invs, apps, book }: { id: string; fc: Retu
   const live = invs.filter((i) => i.status !== 'void'), od = live.filter((i) => invOverdue(i));
   const odV = od.reduce((tt, i) => tt + invOutstandingNet(i), 0);
   const inv = live.filter((i) => i.status !== 'draft').reduce((tt, i) => tt + Number(i.net || 0), 0);
-  const prof = fc.sales ? fc.profitToDatePct : null;
+  const taken = heldCert, still = fc.retHeld;
+  const certs = apps.filter((a) => (a as Row).cert_retention != null && a.status !== 'void').map((a) => Number((a as Row).cert_retention || 0));
+  const retPeak = certs.length ? Math.max(0, Math.max(...certs) - taken) : 0;
+  const vd = (v: string) => {
+    const isVar = v[0] === 'v', list = (isVar ? ((book.vars as Row[]) || []).filter((x) => x.site_id === id) : ovDws).filter((x) => x.status !== 'rejected' && x.status !== 'void');
+    const ok = (x: Row) => (isVar ? x.status === 'agreed' : x.status === 'approved');
+    const pick = v.length === 1 ? list : list.filter((x) => (v[1] === 'a' ? ok(x) : !ok(x)));
+    const val = (x: Row) => (isVar ? Number(ok(x) ? (x.agreed_value != null ? x.agreed_value : x.quoted) : (x.quoted != null ? x.quoted : x.agreed_value)) || 0 : Number(x.value || 0));
+    return { n: pick.length, v: pick.reduce((tt, x) => tt + val(x), 0) };
+  };
+  const pc = (a: number, b: number) => (b ? `${Math.round((a / b) * 1000) / 10}%` : '');
+  const choice = (slot: string, def: string) => { const c = ovPick[slot]; return OV_OPTS[slot].some((o) => o[0] === c) ? (c as string) : def; };
+  const prK = choice('pr', 'td');
+  const prM = prK === 'fc' ? fc.forecastMargin : prK === 'gross' ? fc.grossProfitToDate : fc.profitToDate;
+  const prof = prK === 'fc' ? (fc.budgetTotal == null ? null : fc.forecastMarginPct) : !fc.sales ? null : prK === 'gross' ? (fc.grossProfitToDate / fc.sales) * 100 : fc.profitToDatePct;
   const TINT = { blue: ['#f3f7ff', '#dbe6ff', '#1d4ed8'], green: ['#f1fbf5', '#d3f0de', '#15803d'], red: ['#fff5f4', '#fbdcd9', '#c81e1e'], amber: ['#fffaf0', '#f8e7c2', '#b45309'], grey: ['#fff', '#e5e7eb', '#111827'] } as const;
-  const tiles: { t: string; v: string; sub: string; tone: keyof typeof TINT; go: string }[] = [
-    { t: 'Contract Value', v: k(fc.contract), sub: 'excl. VAT', tone: 'blue', go: `/fin/job/${id}?tab=setup` },
-    { t: 'Variations', v: k(fc.vAgreed), sub: fc.vPending ? `+ ${k(fc.vPending)} waiting for approval` : 'approved variations', tone: 'blue', go: `/fin/job/${id}/variations` },
-    { t: 'Costs', v: k(fc.costToDate), sub: fc.budgetTotal ? `${pctTxt((fc.costToDate / fc.budgetTotal) * 100)} of budget` : 'No budget yet', tone: 'grey', go: `/fin/job/${id}/costs` },
-    { t: 'Profit', v: prof == null ? '—' : pctTxt(prof), sub: prof == null ? 'Nothing valued yet' : `${money(fc.profitToDate, 0)}${fc.ohpPct ? ` after ${fc.ohpPct}% OHP` : ' to date'}`, tone: prof == null ? 'grey' : prof < 0 ? 'red' : 'green', go: `/fin/job/${id}/budget` },
-    ...(fc.isInvoiceJob ? [] : [{ t: 'Applied', v: k(fc.applied), sub: fc.ffa ? `${pctTxt((fc.applied / fc.ffa) * 100)} of final account` : '', tone: 'blue' as const, go: `/fin/job/${id}?tab=sales` }]),
-    { t: 'Invoiced', v: k(inv), sub: 'excl. VAT', tone: 'green', go: `/fin/job/${id}?tab=sales` },
-    { t: 'Overdue', v: k(odV), sub: od.length ? `${od.length} invoice${od.length === 1 ? '' : 's'}` : 'excl. VAT', tone: odV > 0 ? 'red' : 'grey', go: `/fin/job/${id}?tab=sales` },
-    ...(fc.isInvoiceJob ? [] : [{ t: 'Retention', v: k(fc.retHeld), sub: 'still with the client', tone: 'amber' as const, go: `/fin/job/${id}?tab=sales` }]),
+  const tiles: { t: string; v: string; sub: string; tone: keyof typeof TINT; go: string; slot?: string; cur?: string }[] = [
+    (() => { const c = choice('cv', 'contract'); return { slot: 'cv', cur: c, t: c === 'contract' ? 'Contract Value' : c === 'cva' ? 'Contract + Variations' : 'Final Account', v: k(c === 'contract' ? fc.contract : c === 'cva' ? fc.contract + (fc.vAgreed || 0) : fc.ffa), sub: c === 'ffa' ? 'incl. submitted variations' : 'excl. VAT', tone: 'blue' as const, go: `/fin/job/${id}?tab=setup` }; })(),
+    (() => { const c = choice('var', 'va'), r = vd(c); return { slot: 'var', cur: c, t: c === 'va' ? 'Variations' : ({ vu: 'Unapproved', v: 'Variations', da: 'Day Works', d: 'Day Works' } as Record<string, string>)[c], v: k(r.v), sub: `${r.n} ${c[0] === 'v' ? (r.n === 1 ? 'variation' : 'variations') : (r.n === 1 ? 'day work' : 'day works')}${c.length === 1 ? '' : c[1] === 'a' ? ' approved' : ' not approved'}`, tone: (c[1] === 'u' ? 'amber' : 'blue') as 'amber' | 'blue', go: `/fin/job/${id}/variations` }; })(),
+    (() => { const c = choice('cost', 'all'); const v = c === 'all' ? fc.costToDate : c === 'committed' ? fc.committedTotal : fc.actual[c] || 0; const bud = c === 'all' || c === 'committed' ? null : fc.budget[c]; return { slot: 'cost', cur: c, t: c === 'all' ? 'Costs' : c === 'committed' ? 'Ordered' : c === 'overheads' ? 'Prelims' : c === 'other' ? 'Other Costs' : c[0].toUpperCase() + c.slice(1), v: k(v), sub: c === 'all' ? (fc.budgetTotal ? `${pctTxt((fc.costToDate / fc.budgetTotal) * 100)} of budget` : 'No budget yet') : c === 'committed' ? 'on POs, no invoice yet' : bud ? `${pc(v, bud)} of ${k(bud)} budget` : fc.costToDate ? `${pc(v, fc.costToDate)} of all costs` : 'to date', tone: 'grey' as const, go: `/fin/job/${id}/costs` }; })(),
+    { slot: 'pr', cur: prK, t: prK === 'td' ? 'Profit' : prK === 'fc' ? 'Forecast Profit' : 'Profit (pre-OHP)', v: prof == null ? '—' : pctTxt(prof), sub: prof == null ? (prK === 'fc' ? 'Needs a budget' : 'Nothing valued yet') : `${money(prM, 0)}${prK === 'td' && fc.ohpPct ? ` after ${fc.ohpPct}% OHP` : prK === 'gross' ? ' before OHP' : prK === 'fc' ? ' forecast' : ' to date'}`, tone: prof == null ? 'grey' : prof < 0 ? 'red' : 'green', go: `/fin/job/${id}/budget` },
+    ...(fc.isInvoiceJob ? [] : [(() => { const c = choice('ap', 'applied'); const v = c === 'applied' ? fc.applied : c === 'certified' ? fc.certified : fc.sales; return { slot: 'ap', cur: c, t: c === 'applied' ? 'Applied' : c === 'certified' ? 'Certified' : 'Valued', v: k(v), sub: fc.ffa ? `${pctTxt(((v || 0) / fc.ffa) * 100)} of final account` : '', tone: 'blue' as const, go: `/fin/job/${id}?tab=sales` }; })()]),
+    (() => { const c = choice('inv', 'invoiced'); const v = c === 'invoiced' ? inv : c === 'owed' ? live.reduce((tt, i) => tt + invOutstandingNet(i), 0) : live.reduce((tt, i) => { const total = Number(i.total || 0); return tt + (total ? (Math.min(Number(i.paid || 0), total) * Number(i.net || 0)) / total : 0); }, 0); return { slot: 'inv', cur: c, t: c === 'invoiced' ? 'Invoiced' : c === 'owed' ? 'Owed' : 'Paid', v: k(v), sub: 'excl. VAT', tone: 'green' as const, go: `/fin/job/${id}?tab=sales` }; })(),
+    (() => { const c = choice('od', 'net'); const v = c === 'gross' ? od.reduce((tt, i) => tt + invOutstanding(i), 0) : odV; return { slot: 'od', cur: c, t: 'Overdue', v: k(v), sub: od.length ? `${od.length} invoice${od.length === 1 ? '' : 's'}` : c === 'gross' ? 'incl. VAT' : 'excl. VAT', tone: (v > 0 ? 'red' : 'grey') as 'red' | 'grey', go: `/fin/job/${id}?tab=sales` }; })(),
+    ...(fc.isInvoiceJob ? [] : [(() => { const c = choice('ret', 'held'); return { slot: 'ret', cur: c, t: c === 'held' ? 'Retention' : c === 'released' ? 'Released' : 'Retention Taken', v: k(c === 'held' ? still : c === 'taken' ? taken : Math.max(0, taken - still) + retPeak), sub: c === 'held' ? 'still with the client' : c === 'taken' ? 'on the latest certificate' : 'invoiced or applied for', tone: 'amber' as const, go: `/fin/job/${id}?tab=sales` }; })()]),
   ];
   const ghost = (l: string, p: string) => <Pressable key={l} onPress={() => router.push(p as never)} style={{ borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 8, paddingVertical: 7, paddingHorizontal: 12, backgroundColor: '#fff' }}><Text style={{ fontSize: 12, fontWeight: '700', color: base.ink }}>{l}</Text></Pressable>;
   return (
@@ -167,7 +195,13 @@ function Overview({ id, fc, settings, invs, apps, book }: { id: string; fc: Retu
         {tiles.map((x) => (
           <View key={x.t} style={{ width: tiles.length > 6 ? '25%' : '33.333%', minWidth: 150, padding: 4, flexGrow: 1 }}>
             <Pressable onPress={() => router.push(x.go as never)} style={{ backgroundColor: TINT[x.tone][0], borderWidth: 1, borderColor: TINT[x.tone][1], borderRadius: 10, paddingVertical: 10, paddingHorizontal: 12, minHeight: 72 }}>
-              <Text style={{ fontSize: 11, fontWeight: '700', color: '#111827' }}>{x.t}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <Text style={{ flex: 1, fontSize: 11, fontWeight: '700', color: '#111827' }}>{x.t}</Text>
+                {!!x.slot && <Pressable hitSlop={8} accessibilityLabel={`${x.t} options`} onPress={async () => {
+                  const c = await chooseAction(x.t, OV_OPTS[x.slot as string].map(([key, label]) => ({ key, label: x.cur === key ? `✓ ${label}` : label }))); if (!c) return;
+                  const next = { ...ovPick, [x.slot as string]: c }; qcOv.setQueryData(['finOvPick'], next); await plainSet('ophub.finOv2', next);
+                }}><Text style={{ color: base.slate, fontWeight: '800' }}>⋯</Text></Pressable>}
+              </View>
               <Text style={[heading(800), { fontSize: 19, color: TINT[x.tone][2], marginTop: 2 }]}>{x.v}</Text>
               <Text style={{ fontSize: 11, color: '#6b7280' }}>{x.sub}</Text>
             </Pressable>

@@ -56,10 +56,10 @@ export default function FinApplication() {
   const { data, isLoading } = useQuery({ queryKey: ['finApp', app], enabled: app !== 'new', gcTime: 0, queryFn: () => loadApplication(app) });
   if (app === 'new' || isLoading) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   if (!data) return <Muted style={{ padding: space.l }}>Application not found.</Muted>;
-  return <Editor key={`${data.a.id}${data.a.updated_at}`} a0={data.a} jf={data.jf} previousLive={data.previousLive} prevPct={data.prevPct} siteProgress={data.siteProgress} />;
+  return <Editor key={`${data.a.id}${data.a.updated_at}`} a0={data.a} jf={data.jf} previousLive={data.previousLive} prevPct={data.prevPct} siteProgress={data.siteProgress} varProgress={data.varProgress} />;
 }
 
-function Editor({ a0, jf, previousLive, prevPct, siteProgress }: { a0: Row; jf: Row; previousLive: number; prevPct: Record<string, number>; siteProgress: Record<string, number> }) {
+function Editor({ a0, jf, previousLive, prevPct, siteProgress, varProgress }: { a0: Row; jf: Row; previousLive: number; prevPct: Record<string, number>; siteProgress: Record<string, number>; varProgress: Record<string, number> }) {
   const { me, org } = useAuth();
   const { data: site } = useSite(a0.site_id);
   const toast = useToast();
@@ -182,16 +182,21 @@ function Editor({ a0, jf, previousLive, prevPct, siteProgress }: { a0: Row; jf: 
         <Check label="Hide 0% lines" value={hideZero} onChange={setHideZero} />
       </View>
       <SectionTitle>Bill of Quantities</SectionTitle>
-      {!locked && Object.keys(siteProgress).length > 0 && (() => {
-        // Site progress from the operatives' Schedule of Works (918): lines where site is ahead can be brought up to it.
-        const ahead = (a.lines || []).filter((l: Row) => isItem(l) && siteProgress[l.item_id] != null && siteProgress[l.item_id] > pct(l.pct)).length;
+      {!locked && (Object.keys(siteProgress).length > 0 || Object.keys(varProgress).length > 0) && (() => {
+        // Site progress from the operatives' Schedule of Works (9219w): lists what would change, nothing moves unless you say.
+        const ch: { what: string; from: number; to: number; i: number; isVar: boolean }[] = [];
+        (a.lines || []).forEach((l: Row, i: number) => { if (isItem(l) && siteProgress[l.item_id] != null && siteProgress[l.item_id] > pct(l.pct)) ch.push({ what: l.description || 'Line', from: pct(l.pct), to: pct(siteProgress[l.item_id]), i, isVar: false }); });
+        (a.variations || []).forEach((v: Row, i: number) => { const key = v.fin_variation_id || v.variation_id; if (key && varProgress[key] != null && varProgress[key] > pct(v.pct)) ch.push({ what: v.description || 'Line', from: pct(v.pct), to: pct(varProgress[key]), i, isVar: true }); });
+        const ahead = ch.length;
         return (
           <Card style={{ backgroundColor: ahead ? '#fffaf0' : '#f1fbf5' }}>
             <Text style={{ color: base.ink }}>{ahead ? `Site progress is ahead on ${ahead} line${ahead === 1 ? '' : 's'} (from the operatives’ Schedule of Works).` : 'Matches site progress from the operatives’ Schedule of Works.'}</Text>
-            {ahead > 0 && <View style={{ marginTop: 6 }}><Button kind="ghost" title="Use site progress" onPress={() => {
-              let n = 0;
-              const lines = (a.lines || []).map((l: Row) => { if (isItem(l) && siteProgress[l.item_id] != null && siteProgress[l.item_id] > pct(l.pct)) { n++; return { ...l, pct: pct(siteProgress[l.item_id]) }; } return l; });
-              setA({ ...a, lines }); setGen((g) => g + 1); toast(n ? `${n} line${n === 1 ? '' : 's'} updated from site progress — check them` : 'Already matches site progress');
+            {ahead > 0 && <View style={{ marginTop: 6 }}><Button kind="ghost" title="Use site progress" onPress={async () => {
+              const list = ch.slice(0, 25).map((x) => `• ${x.what}: ${x.from}% → ${x.to}%`).join('\n') + (ahead > 25 ? `\n…and ${ahead - 25} more` : '');
+              if (!(await confirmAsk(`Use site progress on ${ahead} line${ahead === 1 ? '' : 's'}?\n\n${list}\n\nLines where you've already put more than site are left alone. You can still change any of them before saving.`, 'Use site progress'))) return;
+              const lines = (a.lines || []).map((l: Row, i: number) => { const x = ch.find((y) => !y.isVar && y.i === i); return x ? { ...l, pct: x.to } : l; });
+              const variations = (a.variations || []).map((v: Row, i: number) => { const x = ch.find((y) => y.isVar && y.i === i); return x ? { ...v, pct: x.to } : v; });
+              setA({ ...a, lines, variations }); setGen((g) => g + 1); toast(`${ahead} line${ahead === 1 ? '' : 's'} updated from site progress — check, then Save`);
             }} /></View>}
           </Card>
         );
@@ -215,7 +220,7 @@ function Editor({ a0, jf, previousLive, prevPct, siteProgress }: { a0: Row; jf: 
           <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 7, borderBottomWidth: 1, borderColor: base.line }}>
             <View style={{ flex: 1 }}>
               <Text style={{ color: base.ink }}>{l.ref ? `${l.ref} · ` : ''}{l.description}</Text>
-              <Muted>{hasQty ? `${l.qty} ${l.unit || ''} × ${money(l.rate)} = ` : 'Value '}{money(l.value)}{siteProgress[l.item_id] != null ? <Text style={{ color: siteProgress[l.item_id] > pct(l.pct) ? '#b45309' : base.slate, fontWeight: '700' }}>{`  · Site ${siteProgress[l.item_id]}%`}</Text> : null}</Muted>
+              <Muted>{hasQty ? `${l.qty} ${l.unit || ''} × ${money(l.rate)} = ` : 'Value '}{money(l.value)}{siteProgress[l.item_id] != null ? <Text style={{ color: siteProgress[l.item_id] > pct(l.pct) ? '#b45309' : base.slate, fontWeight: '700' }}>{`  · Site ${siteProgress[l.item_id]}%`}</Text> : null}{siteProgress[l.item_id] != null && !locked && siteProgress[l.item_id] !== pct(l.pct) ? <Text onPress={() => { const was = pct(l.pct), to = pct(siteProgress[l.item_id]); setLine(i, { pct: to }); setGen((g) => g + 1); toast(`${l.description}: ${was}% → ${to}% from site — check, then Save`); }} style={{ color: base.blue, fontWeight: '800', textDecorationLine: 'underline' }}> Use</Text> : null}{siteProgress[l.item_id] == null && Object.keys(siteProgress).length > 0 ? <Text style={{ fontSize: 10.5, fontWeight: '600', color: base.slate }}>  · Not on site schedule</Text> : null}</Muted>
               {/* Previous = certified on this line last time; This time = to date less previous (9219r). */}
               {(() => { const prev = round2((Number(l.value || 0) * (prevPct[l.item_id] || 0)) / 100); return prev || l.gross ? <Muted style={{ fontSize: 11.5 }}>Previous {money(prev)} · This time {money(round2(l.gross - prev))}</Muted> : null; })()}
             </View>
@@ -280,9 +285,15 @@ function Editor({ a0, jf, previousLive, prevPct, siteProgress }: { a0: Row; jf: 
           {locked ? <Text style={{ color: base.slate }}>{money(v.value)} @ {pct(v.pct)}%</Text> : (
             <>
               <TextInput defaultValue={v.value != null ? String(v.value) : ''} onChangeText={(x) => setA({ ...a, variations: a.variations.map((y: Row, j: number) => (j === i ? { ...y, value: num(x) } : y)) })} placeholder="£ value" keyboardType="decimal-pad" style={[box, { width: 90 }]} />
-              <TextInput defaultValue={String(pct(v.pct))} onChangeText={(x) => setA({ ...a, variations: a.variations.map((y: Row, j: number) => (j === i ? { ...y, pct: pct(x) } : y)) })} keyboardType="decimal-pad" style={[box, { width: 56 }]} />
+              <TextInput key={`vp${i}-${gen}`} defaultValue={String(pct(v.pct))} onChangeText={(x) => setA({ ...a, variations: a.variations.map((y: Row, j: number) => (j === i ? { ...y, pct: pct(x) } : y)) })} keyboardType="decimal-pad" style={[box, { width: 56 }]} />
             </>
           )}
+          {(() => {
+            const sp = varProgress[v.fin_variation_id || v.variation_id || ''];
+            if (sp == null) return null;
+            const can = !locked && sp !== pct(v.pct);
+            return <Text onPress={can ? () => { const was = pct(v.pct), to = pct(sp); setA({ ...a, variations: a.variations.map((y: Row, j: number) => (j === i ? { ...y, pct: to } : y)) }); setGen((g) => g + 1); toast(`${v.description || 'Variation'}: ${was}% → ${to}% from site`); } : undefined} style={{ fontSize: 11.5, fontWeight: '700', color: sp > pct(v.pct) ? '#b45309' : base.slate }}>Site {sp}%{can ? <Text style={{ color: base.blue, fontWeight: '800', textDecorationLine: 'underline' }}> Use</Text> : null}</Text>;
+          })()}
           <Text style={{ width: 90, textAlign: 'right', fontWeight: '700', color: base.ink }}>{money(v.gross)}</Text>
         </View>
       ))}
