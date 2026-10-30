@@ -63,6 +63,8 @@ export default function FinDirectory() {
     if (kind === 'codes') return (await selectAll<Row>('fin_cost_codes', '*', (x) => x.eq('org_id', org))).sort((a, b) => `${a.grp} ${a.name}`.localeCompare(`${b.grp} ${b.name}`));
     return (await selectAll<Row>(kind === 'client' ? 'fin_clients' : 'fin_suppliers', '*', (x) => x.eq('org_id', org))).sort((a, b) => String(a.name).localeCompare(String(b.name)));
   } });
+  // 9219j: people who filled in the sub-contractor sign-up form but aren't in the Labour directory yet.
+  const { data: apps = [] } = useQuery({ queryKey: ['finDir', me?.org_id, 'apps'], enabled: !!me && kind === 'labour', queryFn: async () => ((await fdb.from('subcontractor_applications').select('id,user_id,company_name,contact_name,email,phone,status,created_at,data').eq('org_id', me?.org_id as string).neq('status', 'rejected').order('created_at', { ascending: false }).limit(300)).data as Row[] | null) ?? [] });
   // Projects suppliers (ordering), to link a Directory supplier to (9219zc) — two records, neither changes the other.
   const { data: mats = [] } = useQuery({ queryKey: ['finDir', me?.org_id, 'mats'], enabled: !!me && kind === 'supplier', queryFn: async () => ((await fdb.from('suppliers').select('id,name').eq('org_id', me?.org_id as string).order('name')).data as Row[] | null) ?? [] });
   const { data: codes = [] } = useQuery({ queryKey: ['finDir', me?.org_id, 'codes'], enabled: !!me && kind !== 'codes', queryFn: async () => selectAll<Row>('fin_cost_codes', '*', (x) => x.eq('org_id', me?.org_id as string)) });
@@ -97,9 +99,39 @@ export default function FinDirectory() {
     const F: Record<string, (x: Row) => boolean> = { subs: (x) => x.r.active !== false && x.r.pay_type !== 'paye', unver: (x) => x.r.active !== false && x.r.pay_type !== 'paye' && !x.r.cis_verified_at, paye: (x) => x.r.active !== false && x.r.pay_type === 'paye', left: (x) => x.r.active === false, all: () => true };
     const list = rows.filter(F[ppl]).filter((x) => !ql || `${x.name} ${x.r.name || ''} ${x.r.utr || ''}`.toLowerCase().includes(ql));
     const cur = edit;
+    const linkedApps = new Set(rows.map((x) => x.r.application_id).filter(Boolean));
+    const waiting = apps.filter((a) => !linkedApps.has(a.id));
+    const addFromApp = async (a: Row) => {
+      const d = (a.data || {}) as Row;
+      const val = (v: unknown) => (Array.isArray(v) ? v.map((x) => (x && typeof x === 'object' ? Object.values(x).filter(Boolean).join(' · ') : String(x))).join('\n') : String(v ?? ''));
+      const reg = (t: unknown) => { const x = String(t || ''); return /limited|ltd|company/i.test(x) ? 'company' : /partner/i.test(x) ? 'partnership' : /trust/i.test(x) ? 'trust' : /sole|self/i.test(x) ? 'sole_trader' : null; };
+      let utr: string | null = String(d.utr || '').replace(/\s/g, '') || null; if (utr && !/^\d{10}$/.test(utr)) utr = null;
+      const row: Row = { org_id: me?.org_id, user_id: a.user_id || null, active: true, pay_type: 'subcontractor', application_id: a.id,
+        name: a.contact_name || a.company_name || 'Subcontractor', trading_name: d.trading_name || a.company_name || null, email: a.email || null, phone: a.phone || d.phone || null,
+        utr, cis_rate: /gross/i.test(String(d.cis_status || '')) ? 0 : /30/.test(String(d.cis_status || '')) ? 30 : 20, vat_number: d.vat_number || null, vat_registered: !!d.vat_number,
+        company_number: d.company_number || null, address: d.address || null, postcode: d.postcode || null, cis_reg_type: reg(d.company_type), cis_sub_type: reg(d.company_type),
+        notes: [d.trades ? `Trades: ${val(d.trades)}` : '', d.areas ? `Areas: ${val(d.areas)}` : ''].filter(Boolean).join('\n') || null, updated_at: new Date().toISOString() };
+      const r = row.user_id ? await fdb.from('fin_labour_rates').upsert(row as never, { onConflict: 'org_id,user_id' }) : await fdb.from('fin_labour_rates').insert(row as never);
+      if (r.error) { toast('Save failed — try again.'); return; }
+      toast('Added from the sign-up form — check their CIS status with HMRC'); refresh();
+    };
     return (
       <FinPage title="Directory" section="directory" sub={kind} onSub={onSub}>
         <Muted style={{ marginBottom: 8 }}>Subcontractors who invoice you under CIS, and PAYE staff. Check each subbie&apos;s CIS status with HMRC before you pay them.</Muted>
+        {waiting.length > 0 && (
+          <View style={{ borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, padding: 10, marginBottom: 10, backgroundColor: base.card }}>
+            <Text style={{ fontWeight: '800', color: base.ink, marginBottom: 6 }}>{waiting.length} from the sub-contractor sign-up form, not in the directory yet</Text>
+            {waiting.map((a) => (
+              <View key={a.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6, borderTopWidth: 1, borderTopColor: base.line }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontWeight: '700', color: base.ink }}>{a.company_name || (a.data as Row | null)?.trading_name || a.contact_name || 'Applicant'} <Text style={{ color: a.status === 'approved' ? base.ok : base.slate, fontWeight: '400' }}>· {a.status === 'approved' ? 'Approved' : 'New'}</Text></Text>
+                  <Muted>{[a.contact_name, a.email, a.phone].filter(Boolean).join(' · ')}</Muted>
+                </View>
+                <Button small kind="ghost" title="Add to directory" onPress={() => void addFromApp(a)} />
+              </View>
+            ))}
+          </View>
+        )}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
           {[['subs', 'CIS subcontractors'], ['unver', 'Not verified'], ['paye', 'PAYE staff'], ['left', 'No longer working for us'], ['all', 'All']].map(([k, l]) => <FinChip key={k} on={ppl === k} label={l} n={rows.filter(F[k]).length} onPress={() => setPpl(k)} />)}
           <View style={{ marginLeft: 'auto' }}><Button title="+ Add a person" onPress={() => setEdit({ key: '', name: '', r: { pay_type: 'subcontractor', cis_rate: 20 }, app: false })} /></View>
