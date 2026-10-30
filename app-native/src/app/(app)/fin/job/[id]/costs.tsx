@@ -39,7 +39,7 @@ export default function FinCosts() {
   if (!data || !me) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   const fc = forecast(data.book, id, data.settings);
   const ql = q.trim().toLowerCase();
-  const list = fc.lines.filter((l) => (cat === 'all' || l.cat === cat) && (!sub || (sub === 'none' ? !l.sub : l.sub === sub))
+  const list = fc.lines.filter((l) => (cat === 'all' ? l.cat !== 'committed' : l.cat === cat) && (!sub || (sub === 'none' ? !l.sub : l.sub === sub))
     && (!ql || [l.desc, l.who, l.ref].filter(Boolean).join(' ').toLowerCase().includes(ql))
     && (!from || String(l.date || '') >= from) && (!to || String(l.date || '').slice(0, 10) <= to))
     .sort((a, b) => (sort === 'old' ? String(a.date || '').localeCompare(String(b.date || '')) : sort === 'big' ? b.net - a.net : sort === 'az' ? String(a.desc || '').localeCompare(String(b.desc || '')) : String(b.date || '').localeCompare(String(a.date || ''))));
@@ -48,6 +48,8 @@ export default function FinCosts() {
   const table = () => ({ title: 'Costs ledger', site: site?.name || '', sub: site?.name || '', cols: [{ l: 'Date', w: 70 }, { l: 'Type', w: 90 }, { l: 'Description', w: 240 }, { l: 'Supplier / who', w: 130 }, { l: 'Ref', w: 90 }, { l: 'Net £', w: 80, money: true }],
     rows: [...list.map((l) => [l.date ? fdate(l.date) : '', COST_CATS[l.cat] || (l.cat === 'committed' ? 'Ordered' : l.cat), l.desc || '', l.who || '', l.ref || '', round2(l.net)]), ['', '', 'Total', '', '', round2(shownTotal)]] });
   const tot = (k: string) => fc.lines.filter((l) => l.cat === k).reduce((t, l) => t + l.net, 0);
+  const howMany = (n: number) => `${n} line${n === 1 ? '' : 's'}`;
+  const waiting = list.filter((l) => l.waiting).reduce((t, l) => t + l.net, 0);
   const refresh = () => void qc.invalidateQueries({ queryKey: ['finBook'] });
   // A line from fin_job_costs ("jc:<id>:…") opens the form; a yard-stock cost is changed from the stock.
   const openCost = (key: string) => {
@@ -61,9 +63,9 @@ export default function FinCosts() {
       <Stack.Screen options={{ title: 'Costs ledger' }} />
       {!!sub && <View style={{ flexDirection: 'row', marginBottom: 8 }}><FinChip on label={`${sub === 'none' ? 'Not allocated to a plot' : 'One plot / repair job'} ✕`} onPress={() => router.setParams({ sub: '' })} /></View>}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
-        <FinChip on={cat === 'all'} label={`All ${money(fc.costToDate + fc.committedTotal, 0)}`} onPress={() => setCat('all')} />
-        {Object.entries(COST_CATS).map(([k, l]) => <FinChip key={k} on={cat === k} label={`${l} ${money(tot(k), 0)}`} onPress={() => setCat(k)} />)}
-        <FinChip on={cat === 'committed'} label={`Ordered ${money(fc.committedTotal, 0)}`} onPress={() => setCat('committed')} />
+        <FinChip on={cat === 'all'} label={`All ${money(fc.costToDate, 0)} · ${howMany(fc.lines.filter((l) => l.cat !== 'committed').length)}`} onPress={() => setCat('all')} />
+        {Object.entries(COST_CATS).map(([k, l]) => <FinChip key={k} on={cat === k} label={`${l} ${money(tot(k), 0)} · ${howMany(fc.lines.filter((x) => x.cat === k).length)}`} onPress={() => setCat(k)} />)}
+        <FinChip on={cat === 'committed'} label={`Ordered ${money(fc.committedTotal, 0)} · ${howMany(fc.lines.filter((x) => x.cat === 'committed').length)}`} onPress={() => setCat('committed')} />
         <View style={{ marginLeft: 'auto' }}><Button title="+ Add cost" onPress={() => setEdit('new')} /></View>
       </View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 10 }}>
@@ -73,7 +75,7 @@ export default function FinCosts() {
         {(['new', 'old', 'big', 'az'] as const).map((k) => <FinChip key={k} on={sort === k} label={{ new: 'Newest', old: 'Oldest', big: 'Biggest', az: 'A–Z' }[k]} onPress={() => setSort(k)} />)}
       </View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 8 }}>
-        <Muted>{list.length} line{list.length === 1 ? '' : 's'} · {money(shownTotal)}</Muted>
+        <Muted>{howMany(list.length)} · {money(shownTotal)}{waiting ? ` · ${money(waiting)} waiting approval` : ''}</Muted>
         {list.length > 0 && <Button small kind="ghost" title="📊 Excel" onPress={() => void exportTableExcel(table(), org)} />}
         {list.length > 0 && <Button small kind="ghost" title="📄 PDF" onPress={async () => { if (!(await exportTablePdf(table(), org).catch(() => false))) toast('Could not build the PDF.'); }} />}
       </View>
