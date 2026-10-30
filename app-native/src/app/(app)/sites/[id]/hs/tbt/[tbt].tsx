@@ -61,7 +61,9 @@ export default function TbtView() {
       ...(talk.status === 'bank' ? [{ key: 'wide', label: '📢 Issue company-wide' }] : []),
       ...(talk.status === 'live' ? [{ key: 'remind', label: '🔔 Ask Outstanding to Sign' }, { key: 'complete', label: '✓ Mark as Completed' }] : []),
       ...((data?.sigs ?? []).length ? [{ key: 'pdf', label: '📄 Export signed PDF' }, { key: 'email', label: '✉ Email signed PDF' }] : []),
-      { key: 'rename', label: '✏️ Rename' }, { key: 'replace', label: '🔁 Replace file' }, { key: 'del', label: '🗑 Delete', danger: true },
+      // 710: once anyone has signed, the title and file are locked; a signed talk can only be deleted while live.
+      ...(!(data?.sigs ?? []).length ? [{ key: 'rename', label: '✏️ Rename' }, { key: 'replace', label: '🔁 Replace file' }] : []),
+      ...(!(data?.sigs ?? []).length || talk.status === 'live' ? [{ key: 'del', label: '🗑 Delete', danger: true }] : []),
     ]);
     if ((k === 'pdf' || k === 'email') && site) {
       let to: EmailTo | null = null;
@@ -107,6 +109,17 @@ export default function TbtView() {
           <Pressable onPress={async () => { const u = await openDocLink('rams-docs', talk.storage_path); if (u) viewDoc(u); else toast('Could not open the document.'); }}>
             <Text style={{ color: base.blue, marginTop: 6 }}>View document ↗</Text>
           </Pressable>
+          {me.role === 'client' ? (
+            // 710:333 client view: who has signed and the signed PDF, no sign box.
+            <View style={{ marginTop: 10 }}>
+              <Muted>{(data?.sigs ?? []).length} signed</Muted>
+              {!!(data?.sigs ?? []).length && site && <Button kind="ghost" title="📄 Export Signed TBT" onPress={async () => {
+                toast('Building signed PDF…');
+                const b = await buildSignedTbtPdf(talk.id, site).catch(() => 'Could not build the signed PDF.');
+                if (typeof b === 'string') toast(b); else if (!(await deliverPdf(b.bytes, b.filename))) toast('Could not save the PDF.');
+              }} />}
+            </View>
+          ) : (<>
           <Pressable disabled={!!mine || !live || busy} onPress={sign}
             style={{ marginTop: 14, borderWidth: 1.5, borderStyle: mine ? 'solid' : 'dashed', borderColor: mine ? base.ok : base.line, backgroundColor: mine ? base.okBg : base.card, borderRadius: radius.input, padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             {mine ? (
@@ -119,6 +132,7 @@ export default function TbtView() {
             ) : <Text style={{ fontWeight: '700', color: live ? base.ink : base.slate }}>{live ? (busy ? 'Signing…' : '✍ Tap to sign') : 'This talk is not live for signing'}</Text>}
           </Pressable>
           <SignerList headline={signedHeadline(data?.roster.length ?? 0, waiting.length)} signed={signed} waiting={waiting} people={people} />
+          </>)}
         </Card>
       )}
     </ScrollView>
