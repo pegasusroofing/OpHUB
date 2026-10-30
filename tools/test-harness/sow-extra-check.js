@@ -19,7 +19,7 @@ const fs = require('fs'), path = require('path');
   await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
   await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
   await page.goto(BASE+'/sites/'+S1+'/schedule'); await page.waitForTimeout(6000);
-  const more = ()=>page.getByText('⋯ More: add section or variation work', {exact:true}).click();
+  const more = ()=>page.getByLabel('More').first().click();
   await more(); await page.waitForTimeout(500);
   let [fc] = await Promise.all([page.waitForEvent('filechooser'), page.getByText('📊 Import tasks from Excel / CSV', {exact:true}).click()]);
   await fc.setFiles(csv); await page.waitForTimeout(2500);
