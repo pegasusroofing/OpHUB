@@ -78,6 +78,12 @@ function Editor({ a0, jf, previousLive, prevPct, siteProgress }: { a0: Row; jf: 
   const [autoNote, setAutoNote] = useState('');
   const autoSave = useRef<(() => Promise<unknown>) | null>(null);
   useFlushOnLeave(autoSave);
+  const retryT = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    const on = () => { void autoSave.current?.(); };
+    if (typeof window !== 'undefined' && window.addEventListener) window.addEventListener('online', on);
+    return () => { if (retryT.current) clearTimeout(retryT.current); if (typeof window !== 'undefined' && window.removeEventListener) window.removeEventListener('online', on); };
+  }, []);
   useEffect(() => {
     if (!isDraft) return;
     void plainGet<{ at: string; a: Row } | null>(KEY, null).then((c) => {
@@ -90,10 +96,11 @@ function Editor({ a0, jf, previousLive, prevPct, siteProgress }: { a0: Row; jf: 
     if (!isDraft || now === savedSnap.current) return;
     void plainSet(KEY, { at: new Date().toISOString(), a });
     setAutoNote('Saving…');
+    if (retryT.current) clearTimeout(retryT.current);
     const run = async () => {
       if (JSON.stringify(a) === savedSnap.current) return;
       const ok = await saveApplication(a, jf, previousLive);
-      if (ok) { savedSnap.current = now; void plainSet(KEY, null); setAutoNote('All changes saved'); } else setAutoNote('Not saved yet — kept on this device');
+      if (ok) { savedSnap.current = now; void plainSet(KEY, null); setAutoNote('All changes saved'); } else { setAutoNote('No signal — saved on this device, will send when back'); retryT.current = setTimeout(() => { void autoSave.current?.(); }, 15000); }
     };
     autoSave.current = run;
     const t = setTimeout(() => { void run(); }, 2000);
@@ -464,7 +471,7 @@ function Certificate({ a, jf, previous, onSaved }: { a: Row; jf: Row; previous: 
           if (e) { toast(e); return; }
           if (v.invoiceNow && net > 0) {
             const r = await raiseInvoiceFromCert(me, org, { ...a, cert_gross: vals[0], cert_retention: vals[1], cert_previous: vals[2], cert_discount: vals[3], cert_net: net, cert_date: v.cert_date }, site as never, true);
-            if (r.error) showAlert(r.error);
+            if (r.error) showAlert(r.error); else if (r.needsBill) toast('Certificate saved — add who the invoice is to, then issue it.');
             onSaved(); if (r.id) router.push(`/fin/job/${a.site_id}/invoice/${r.id}` as never); return;
           }
           toast('Certificate saved'); onSaved();

@@ -20,7 +20,7 @@ import { pdfPageTexts } from '@/lib/pdfjs';
 import { guessSupplier, parseStmtText, stmtAmt, stmtBalance, stmtDate, stmtFromRows } from '@/lib/rules/finStatementRead';
 import { csvRows, readXlsx } from '@/lib/rules/xlsxRead';
 import { supabase } from '@/lib/supabase';
-import { fdate, money, round2 } from '@/lib/rules/finance';
+import { fdate, money, num, round2 } from '@/lib/rules/finance';
 import { autoMatch, lineState, sameSupplier, STMT_TYPES, supKey, type Cand, type SLine } from '@/lib/rules/finStatements';
 import { base, radius } from '@/theme/theme';
 
@@ -100,7 +100,7 @@ function List() {
             const up = await supabase.storage.from('finance-docs').upload(`${me.org_id}/statements/${Date.now()}-${safeName}`, await (await fetch(nw.file.uri)).arrayBuffer(), { contentType: nw.file.mimeType || 'application/octet-stream' });
             const lines = autoMatch(nw.lines, cands);
             const m = nw.mat.find((x) => supKey(x.name) === supKey(sup));
-            const bal = String(v.balance ?? '').trim() === '' ? null : Number(v.balance);
+            const bal = String(v.balance ?? '').trim() === '' ? null : num(v.balance);
             const ins = await fdb.from('fin_statements').insert({ org_id: me.org_id, created_by: me.id, supplier_name: sup, supplier_id: m ? m.id : null, statement_date: String(v.date || '') || null, closing_balance: bal == null || Number.isNaN(bal) ? null : bal, lines, file_path: up.error ? null : up.data.path, file_name: nw.file.name } as never).select('id').single();
             if (ins.error) return 'Could not save — try again.';
             toast(`${lines.filter((l) => l.match).length} of ${lines.filter((l) => l.type !== 'payment').length} lines matched`);

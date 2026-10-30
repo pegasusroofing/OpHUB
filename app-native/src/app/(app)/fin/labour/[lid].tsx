@@ -38,7 +38,8 @@ export default function FinOpInvoice() {
       selectAll<Row>('profiles', 'id,name,role', (q) => q.eq('org_id', me?.org_id as string)),
     ]);
     const rateBy: Record<string, Row> = {}; rates.forEach((r) => { rateBy[r.user_id || `w:${r.id}`] = r; });
-    const who = [...people.filter((x) => ['operative', 'site_manager', 'driver'].includes(x.role)).map((x) => ({ key: x.id, name: x.name })), ...rates.filter((r) => !r.user_id).map((r) => ({ key: `w:${r.id}`, name: r.trading_name || r.name || 'Worker' }))].sort((a, b) => a.name.localeCompare(b.name));
+    const canInvoice = (r?: Row) => !!r && r.pay_type !== 'paye' && r.active !== false;
+    const who = [...people.filter((x) => canInvoice(rateBy[x.id]) || x.id === p?.user_id).map((x) => ({ key: x.id, name: x.name })), ...rates.filter((r) => !r.user_id && (canInvoice(r) || r.id === p?.worker_id)).map((r) => ({ key: `w:${r.id}`, name: r.trading_name || r.name || 'Worker' }))].sort((a, b) => a.name.localeCompare(b.name));
     return { p, rateBy, who };
   } });
   if (isLoading || !data) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
@@ -99,7 +100,7 @@ function Editor({ p, rateBy, who }: { p: Row | null; rateBy: Record<string, Row>
         {key ? <Muted style={{ marginBottom: 8 }}>{r.utr ? `UTR ${r.utr}` : 'No UTR saved'} · CIS {r.cis_rate ?? 20}%{r.pay_type ? ` · ${r.pay_type}` : ''}</Muted> : null}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           {([['no', 'Their invoice no.'], ['date', 'Invoice date'], ['week', 'Week commencing (Monday)'], ['materials', 'Materials £ (no CIS)'], ['cis', `CIS % (blank = ${r.cis_rate ?? 20}%)`]] as const).map(([k, l]) => (
-            <View key={k} style={{ flexBasis: '47%', flexGrow: 1 }}><Muted>{l}</Muted>{k === 'date' || k === 'week' ? <DateBox disabled={locked} value={inv[k]} onChange={(v) => setInv({ ...inv, [k]: v })} title={l} style={{ marginBottom: 8 }} /> : <TextInput editable={!locked} value={inv[k]} onChangeText={(v) => setInv({ ...inv, [k]: v })} style={box} />}</View>
+            <View key={k} style={{ flexBasis: '47%', flexGrow: 1 }}><Muted>{l}</Muted>{k === 'date' || k === 'week' ? <DateBox disabled={locked} value={inv[k]} onChange={(v) => setInv({ ...inv, [k]: k === 'week' && v ? monday(v) : v })} title={l} style={{ marginBottom: 8 }} /> : <TextInput editable={!locked} value={inv[k]} onChangeText={(v) => setInv({ ...inv, [k]: v })} style={box} />}</View>
           ))}
         </View>
       </Card>
@@ -122,7 +123,7 @@ function Editor({ p, rateBy, who }: { p: Row | null; rateBy: Record<string, Row>
       {p?.file_path && <FinRow title={`📄 ${p.file_name || 'Their invoice'}`} onPress={async () => { const u = await openDocLink('finance-docs', p.file_path); if (u) viewDoc(u); }} />}
       {!locked && <Button busy={busy} title="Save — ready for the pay run" onPress={() => void save()} />}
       {p && p.status !== 'void' && me && <View style={{ marginTop: 8 }}><Button kind="ghost" title="CIS payment statement" onPress={async () => { if (!(await cisStatement(me, org, p))) toast('Could not make the statement — try again.'); }} /></View>}
-      {p && !locked && <View style={{ marginTop: 8 }}><Button kind="ghost" title="Void this invoice" onPress={async () => { if (await confirmAsk('Void this operative invoice? It comes off the pay run.', 'Void')) { if (!!(await fdb.from('fin_sub_payments').update({ status: 'void' } as never).eq('id', p.id).select('id')).data?.length) { toast('Voided'); refresh(); router.back(); } } }} /></View>}
+      {p && !locked && <View style={{ marginTop: 8 }}><Button kind="ghost" title="Void this invoice" onPress={async () => { if (await confirmAsk(p.xero_id ? 'Cancel this invoice? It comes off the job’s costs and out of the pay run.\n\nIt’s already in Xero. Cancelling it here won’t change Xero — void the bill in Xero too, or the two won’t match.' : 'Void this operative invoice? It comes off the pay run.', 'Void')) { if (!!(await fdb.from('fin_sub_payments').update({ status: 'void' } as never).eq('id', p.id).select('id')).data?.length) { toast('Voided'); refresh(); router.back(); } } }} /></View>}
     </ScrollView>
   );
 }

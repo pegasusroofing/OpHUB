@@ -34,6 +34,8 @@ export function termsText(r: Row) {
   return `${d} ${t}`;
 }
 
+const CIS_REG: [string, string][] = [['', 'Choose…'], ['sole_trader', 'Sole trader'], ['company', 'Company'], ['partnership', 'Partnership'], ['trust', 'Trust']];
+
 export default function FinDirectory() {
   const { kind = 'client' } = useLocalSearchParams<{ kind?: Kind }>();
   const { me } = useAuth();
@@ -148,6 +150,7 @@ export default function FinDirectory() {
               { k: 'trading_name', label: 'Trading / company name' }, { k: 'pay_type', label: 'How they’re paid', kind: 'choice', options: [['subcontractor', 'They invoice us (CIS)'], ['paye', 'PAYE (payroll)']] },
               { k: 'day_rate', label: 'Day rate £', kind: 'money', half: true }, { k: 'postcode', label: 'Postcode', half: true }, { k: 'address', label: 'Address', kind: 'multiline' },
               { k: 'cis_rate', label: 'CIS rate', kind: 'choice', options: CIS, half: true }, { k: 'utr', label: 'UTR (10 digits)', half: true },
+              { k: 'cis_reg_type', label: 'Registration type', kind: 'choice', options: CIS_REG, half: true }, { k: 'cis_sub_type', label: 'Subcontractor type', kind: 'choice', options: CIS_REG, half: true },
               { k: 'company_number', label: 'Company number', half: true }, { k: 'vat_number', label: 'VAT number', half: true }, { k: 'vat_registered', label: 'VAT registered (reverse charge)', kind: 'check' },
               { k: 'cis_verification_no', label: 'HMRC verification number', half: true }, { k: 'cis_verified_at', label: 'Verified date', kind: 'date', half: true },
               { k: 'bank_account_name', label: 'Bank account name' }, { k: 'bank_sort_code', label: 'Sort code', half: true }, { k: 'bank_account_no', label: 'Account number', half: true },
@@ -162,7 +165,7 @@ export default function FinDirectory() {
               const n = (x: unknown) => String(x ?? '').trim() || null;
               const pay = String(v.pay_type || 'subcontractor');
               const row: Row = { pay_type: pay, day_rate: rate, trading_name: n(v.trading_name), address: n(v.address), postcode: n(v.postcode)?.toUpperCase() || null, notes: n(v.notes), updated_at: new Date().toISOString() };
-              if (pay !== 'paye') Object.assign(row, { cis_rate: Number(v.cis_rate || 20), utr: utr || null, vat_registered: !!v.vat_registered, vat_number: n(v.vat_number), company_number: n(v.company_number), cis_verification_no: n(v.cis_verification_no), cis_verified_at: n(v.cis_verified_at), bank_account_name: n(v.bank_account_name), bank_sort_code: sc || null, bank_account_no: an || null });
+              if (pay !== 'paye') Object.assign(row, { cis_reg_type: v.cis_reg_type || null, cis_sub_type: v.cis_sub_type || null, cis_rate: Number(v.cis_rate || 20), utr: utr || null, vat_registered: !!v.vat_registered, vat_number: n(v.vat_number), company_number: n(v.company_number), cis_verification_no: n(v.cis_verification_no), cis_verified_at: n(v.cis_verified_at), bank_account_name: n(v.bank_account_name), bank_sort_code: sc || null, bank_account_no: an || null });
               if (!cur.app) {
                 const nm = n(v.name); if (!nm) return 'Enter their name.';
                 const em = n(v.email); if (em && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) return 'Check the email address.';

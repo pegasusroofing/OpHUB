@@ -16,7 +16,7 @@ import { viewDoc } from '@/components/DocViewer';
 import { DateBox } from '@/components/DateField';
 import { openDocLink } from '@/data/hs';
 import { addPayment, deleteDraft, deletePayment, draftRow, issue, loadInvoice, newInvoice, saveDraft, storePdf, voidInvoice } from '@/data/finInvoice';
-import { finInvoke } from '@/data/finance';
+import { fdb, finInvoke } from '@/data/finance';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { fdate, INV_STATUS, invOutstanding, invOverdue, money, num, today } from '@/lib/rules/finance';
@@ -62,6 +62,12 @@ function Draft({ inv, site }: { inv: Row; site: Row | undefined }) {
       <Stack.Screen options={{ title: 'Draft invoice' }} />
       <Card>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 8 }}>
+          <Text style={{ color: base.blue, fontWeight: '700', marginBottom: 4 }} onPress={async () => {
+            const cs = ((await fdb.from('fin_clients').select('id,name,address,postcode,email').eq('org_id', me.org_id as string).order('name')).data as Row[] | null) ?? [];
+            if (!cs.length) { toast('No clients in the Directory yet.'); return; }
+            const k = await chooseAction('Bill to', cs.map((c) => ({ key: c.id, label: c.name }))); const c = cs.find((x) => x.id === k); if (!c) return;
+            setD({ ...d, bill_name: c.name, bill_address: [c.address, c.postcode].filter(Boolean).join('\n') || d.bill_address, bill_email: c.email || d.bill_email });
+          }}>Choose from the Directory ▾</Text>
           {field('bill_name', 'Bill to')}{field('bill_address', 'Billing address', { multiline: true })}{field('bill_email', 'Accounts email', { half: true })}
           {field('client_po', 'Client PO', { half: true })}{field('issue_date', 'Invoice date', { half: true, date: true })}{field('due_date', 'Due date', { half: true, date: true })}
         </View>

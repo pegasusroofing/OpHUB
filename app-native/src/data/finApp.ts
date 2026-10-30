@@ -109,7 +109,7 @@ export async function saveCertificate(me: Profile, a: Row, v: Row, file?: { uri:
 }
 export const clearCertificate = (id: string) => setStatus(id, { cert_net: null, cert_gross: null, cert_retention: null, cert_previous: null, cert_discount: null, cert_lines: null, status: 'submitted' });
 /** The invoice for a certificate: its lines ARE the certificate breakdown. Issued straight away when asked. */
-export async function raiseInvoiceFromCert(me: Profile, org: Organization | null, a: Row, site: Row | undefined, issueNow: boolean): Promise<{ id?: string; error?: string }> {
+export async function raiseInvoiceFromCert(me: Profile, org: Organization | null, a: Row, site: Row | undefined, issueNow: boolean): Promise<{ id?: string; error?: string; needsBill?: boolean }> {
   if (a.invoice_id) return { id: a.invoice_id };
   const [st, jfR, cliR] = await Promise.all([loadSettings(me.org_id), rows(fdb.from('job_finance').select('*').eq('site_id', a.site_id)), rows(fdb.from('fin_clients').select('name,sales_vat').eq('org_id', me.org_id as string))]);
   const jf = jfR[0] || {}, billName = jf.billing_name || site?.client_name || null;
@@ -127,7 +127,7 @@ export async function raiseInvoiceFromCert(me: Profile, org: Organization | null
   if (!inv) return { error: 'Could not raise the invoice.' };
   await setStatus(a.id, { invoice_id: inv.id, status: 'invoiced' });
   if (issueNow && inv.bill_name) { const x = await issue(me, org, inv.id, site); if (x.error) return { id: inv.id, error: x.error }; }
-  return { id: inv.id };
+  return { id: inv.id, needsBill: issueNow && !inv.bill_name };
 }
 
 /** The invoice that releases one half of the retention (903 raiseRetentionInvoice). Second half = held now less what the first-half invoice released. */

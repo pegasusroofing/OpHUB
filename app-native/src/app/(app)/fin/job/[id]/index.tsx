@@ -180,6 +180,8 @@ function Overview({ id, fc, settings, invs, apps, book }: { id: string; fc: Retu
         <View style={{ flex: 1 }} />
         {ghost('Monthly Report', `/fin/job/${id}/monthly`)}{ghost('Day Works', `/fin/job/${id}/dayworks`)}{ghost('Budgets', `/fin/job/${id}/budget`)}{ghost('Project Quotes', `/fin/job/${id}/quotes`)}
       </View>
+      {fc.ffaFromInvoiced && <Text style={{ color: '#D98A00', fontWeight: '700', marginBottom: 8 }}>Invoiced to date is more than the contract and variations, so the forecast uses the invoiced total.</Text>}
+      {fc.budgetSource === 'schedule' && fc.schedCostedN < fc.schedItemsN && <Text onPress={() => router.push(`/fin/job/${id}/boq` as never)} style={{ color: '#D98A00', fontWeight: '700', marginBottom: 8 }}>{fc.schedItemsN - fc.schedCostedN} Bill of Quantities line{fc.schedItemsN - fc.schedCostedN === 1 ? ' has' : 's have'} no cost price yet, so the budget is low. ›</Text>}
       <NeedsAttention id={id} site={site as Row | undefined} fc={fc} settings={settings} invs={invs} apps={apps} book={book} />
       {!fc.isInvoiceJob && (
         <>
