@@ -52,7 +52,7 @@ HIGH = money, data, permissions, safety or a daily job. MED = noticeable. LOW = 
 - MED FIXED — COSHH on a job: tick several / select all → one PDF or email; "Email all signed COSHH".
 - MED FIXED — CC me / CC client on RAMS, COSHH and TBT emails.
 - MED FIXED — Daily briefings: tick several → one PDF or email.
-- LOW OPEN — bring old COSHH PDFs in as products; product ↔ job shortcuts; PPE requests tick/export/email; certificate email to a team member; import suppliers from Excel. FIXED since: HAVS and PUWER: tick operatives and Export Selected; expenses "Send now" — already there as ✉️ Resend for the sender; TBT "Email to PM" — not reachable in the current app either, so not copied; deleting an unfinished briefing is logged; TBT "Still to sign" wording checked — already the same.
+- LOW OPEN — bring old COSHH PDFs in as products; product ↔ job shortcuts; PPE requests tick/export/email; import suppliers from Excel. FIXED since: certificates: email to me, a PM / admin or another address, with CC me; HAVS and PUWER: tick operatives and Export Selected; expenses "Send now" — already there as ✉️ Resend for the sender; TBT "Email to PM" — not reachable in the current app either, so not copied; deleting an unfinished briefing is logged; TBT "Still to sign" wording checked — already the same.
 
 ## Drawings, calendar, driver, deliveries (770–890, 9219zr/zq/m/zz)
 - HIGH FIXED — Tapping a push notification opens the right screen (same as above).

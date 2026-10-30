@@ -8,6 +8,8 @@ import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
+import { pickRecipient } from '@/components/pickRecipient';
+import { useTeam } from '@/data/admin';
 import { Button, Card, Field, Muted } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
 import { askDate, DateField } from '@/components/DateField';
@@ -22,6 +24,7 @@ import { base } from '@/theme/theme';
 
 export function CertsPanel({ userId, manual = false }: { userId: string; manual?: boolean }) {
   const { me } = useAuth();
+  const { data: team } = useTeam(me?.org_id);
   const toast = useToast();
   const qc = useQueryClient();
   const { data: certs = [], isLoading } = useMyCerts(userId, manual);
@@ -36,15 +39,15 @@ export function CertsPanel({ userId, manual = false }: { userId: string; manual?
   const [bulk, setBulk] = useState<'pdf' | 'email' | null>(null);
   if (!me) return null;
   const picked = certs.filter((c) => sel?.has(c.id));
-  // Ticked certificates as one PDF — saved, or emailed (to you, or an address you type).
+  // Ticked certificates as one PDF — saved, or emailed (to you, a PM / admin, or an address you type).
   const bundle = async (k: 'pdf' | 'email') => {
-    let to: string | null = me.email || '';
-    if (k === 'email') { to = await promptText('Email the certificates to', me.email || ''); if (!to) return; if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to.trim())) { toast('Enter a valid email address.'); return; } }
+    let to: string | null = me.email || '', cc: string | undefined;
+    if (k === 'email') { const r = await pickRecipient('Email the certificates to', team ?? [], me.email); if (!r) return; if (r === 'bad') { toast('Enter a valid email address.'); return; } to = r.to; cc = r.cc; }
     setBulk(k);
     try {
       const b = await buildCertBundlePdf(picked);
       if (k === 'pdf') { if (!(await deliverPdf(b.bytes, b.filename))) toast('Could not save the PDF.'); else setSel(null); }
-      else { const err = await emailPdf(b.bytes, b.filename, `cert-exports/${me.org_id}`, { general_label: 'Certificates', recipient_email: (to as string).trim(), doc_title: `Certificates (${picked.length})` }); toast(err || `Certificates emailed to ${(to as string).trim()}`); if (!err) setSel(null); }
+      else { const err = await emailPdf(b.bytes, b.filename, `cert-exports/${me.org_id}`, { general_label: 'Certificates', recipient_email: (to as string).trim(), cc_email: cc, doc_title: `Certificates (${picked.length})` }); toast(err || `Certificates emailed to ${(to as string).trim()}`); if (!err) setSel(null); }
     } catch { toast('Could not build the combined PDF.'); } finally { setBulk(null); }
   };
   const s = certStats(certs);

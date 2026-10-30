@@ -8,7 +8,9 @@ import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { MyToolsList } from '@/components/MyToolsList';
-import { promptText, useToast } from '@/components/toast';
+import { useToast } from '@/components/toast';
+import { pickRecipient } from '@/components/pickRecipient';
+import { useTeam } from '@/data/admin';
 import { Button, Card, Field, Muted, Screen, SectionTitle, Toggle } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
 import { DateField } from '@/components/DateField';
@@ -22,6 +24,7 @@ import { base, space } from '@/theme/theme';
 
 export default function Dashboard() {
   const { me } = useAuth();
+  const { data: team } = useTeam(me?.org_id);
   const toast = useToast();
   const qc = useQueryClient();
   const { data: certs = [], isLoading } = useMyCerts();
@@ -36,13 +39,13 @@ export default function Dashboard() {
   const [bulk, setBulk] = useState<'pdf' | 'email' | null>(null);
   if (!me) return null;
   const bundle = async (k: 'pdf' | 'email') => {
-    let to = me.email || '';
-    if (k === 'email') { to = ((await promptText('Email my certificates to', me.email || '')) || '').trim(); if (!to) return; if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) { toast('Enter a valid email address.'); return; } }
+    let to = me.email || '', cc: string | undefined;
+    if (k === 'email') { const r = await pickRecipient('Email my certificates to', team ?? [], me.email); if (!r) return; if (r === 'bad') { toast('Enter a valid email address.'); return; } to = r.to; cc = r.cc; }
     setBulk(k);
     try {
       const b = await buildCertBundlePdf(certs);
       if (k === 'pdf') { if (!(await deliverPdf(b.bytes, b.filename))) toast('Could not save the PDF.'); }
-      else toast((await emailPdf(b.bytes, b.filename, `cert-exports/${me.org_id}`, { general_label: 'Certificates', recipient_email: to, doc_title: `${me.name} — certificates` })) || `Certificates emailed to ${to}`);
+      else toast((await emailPdf(b.bytes, b.filename, `cert-exports/${me.org_id}`, { general_label: 'Certificates', recipient_email: to, cc_email: cc, doc_title: `${me.name} — certificates` })) || `Certificates emailed to ${to}`);
     } catch { toast('Could not build the combined PDF.'); } finally { setBulk(null); }
   };
   const s = certStats(certs);
