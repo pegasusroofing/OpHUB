@@ -20,7 +20,7 @@ const seed = require('./fresh/seed');
   await page.getByText('Save Minutes', {exact:true}).click(); await page.waitForTimeout(2500);
   console.log('site tools', JSON.stringify(db.site_havs_tools), '| entries', JSON.stringify(db.havs_entries.map(e=>[e.user_id, e.minutes, e.entry_date])));
   const t = (await page.evaluate(()=>document.body.innerText)).replace(/\s+/g,' '); const i = t.indexOf(' pts'); console.log('day:', t.slice(Math.max(0,i-40), i+30));
-  await page.getByText('Save & Close for the Week', {exact:true}).click(); await page.waitForTimeout(2500);
+  await page.getByText('Save & Close for the Week', {exact:true}).click(); await page.waitForTimeout(800); await page.locator('text="Save & Close" >> visible=true').last().click(); await page.waitForTimeout(2500);
   await page.getByText('Completed HAVS', {exact:true}).click(); await page.waitForTimeout(2500);
   const t2 = (await page.evaluate(()=>document.body.innerText)).replace(/\s+/g,' '); const j = t2.indexOf('Completed HAVS');
   console.log('completions', db.havs_weekly_completions.length, '|', t2.slice(j, j+120), '|', errs.join(' / ') || 'no errors');
