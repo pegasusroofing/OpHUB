@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { markCanvas, markRadius, nearestOp, nextFree, refreshKeyColours, type MarkOp, hitMark, scaleMark } from './markup.ts';
+import { markCanvas, markRadius, nearestOp, nextFree, refreshKeyColours, type MarkOp, hitMark, hitStroke, scaleMark, shiftMark } from './markup.ts';
 
 test('mark-up: canvas size, radius, numbering after keys, eraser reach, key colours follow the condition', () => {
   assert.deepEqual(markCanvas(7200, 3600), { W: 3600, H: 1800 });
@@ -33,4 +33,17 @@ test('scaleMark grows and shrinks within limits', () => {
   assert.equal((scaleMark({ t: 'num', n: 1, c: '#f00', r: 20, x: 0, y: 0 }, 1.2, 1000) as { r: number }).r, 24);
   assert.equal((scaleMark({ t: 'num', n: 1, c: '#f00', r: 7, x: 0, y: 0 }, 0.5, 1000) as { r: number }).r, 6);
   assert.equal((scaleMark({ t: 'text', c: '#f00', fs: 20, s: 'a', x: 0, y: 0 }, 1.5, 1000) as { fs: number }).fs, 30);
+});
+
+test('hitStroke picks the pen line or arrow under a point; shiftMark moves any mark', () => {
+  const ops = [
+    { t: 'pen', c: '#f00', w: 4, pts: [{ x: 0, y: 0 }, { x: 100, y: 0 }] },
+    { t: 'arrow', c: '#f00', w: 4, pts: [{ x: 0, y: 50 }, { x: 100, y: 50 }] },
+    { t: 'num', c: '#f00', n: 1, x: 10, y: 10, r: 8 },
+  ] as MarkOp[];
+  assert.equal(hitStroke(ops, { x: 50, y: 3 }, 10), 0);
+  assert.equal(hitStroke(ops, { x: 50, y: 47 }, 10), 1);
+  assert.equal(hitStroke(ops, { x: 50, y: 25 }, 10), -1);
+  assert.deepEqual((shiftMark(ops[1], 5, 5) as { pts: { x: number; y: number }[] }).pts[0], { x: 5, y: 55 });
+  assert.deepEqual([(shiftMark(ops[2], 2, 3) as { x: number }).x, (shiftMark(ops[2], 2, 3) as { y: number }).y], [12, 13]);
 });

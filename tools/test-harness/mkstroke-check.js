@@ -1,0 +1,33 @@
+// Mark-up Select tool: draw a pen line, pick it up with ☝ Select, then delete it.
+const {chromium, makeContext, S1} = require('./harness');
+const { PDFDocument, StandardFonts } = require('pdf-lib');
+(async()=>{
+  const BASE = 'http://localhost:8081';
+  const browser = await chromium.launch(); const errs = [];
+  const {ctx, db} = await makeContext(browser, 'admin', [], {viewport:{width:1300, height:900}});
+  db.profiles[0].howto_dismissed = ['*'];
+  db.drawing_folders = [{id:'f1', site_id:S1, parent_id:null, name:'Drawings', position:0},{id:'f2', site_id:S1, parent_id:'f1', name:'Roof plans', position:0}];
+  db.drawing_files = [{id:'d1', site_id:S1, folder_id:'f2', name:'Roof plan A.pdf', storage_path:S1+'/f2/x-Roof_plan_A.pdf', status:'current', uploaded_at:new Date().toISOString()}];
+  const pdf = await PDFDocument.create(); const pg = pdf.addPage([842, 595]); pg.drawText('ROOF PLAN A — test drawing', {x:60, y:500, size:30, font: await pdf.embedFont(StandardFonts.Helvetica)}); pg.drawRectangle({x:100,y:100,width:600,height:300,borderWidth:3}); const bytes = Buffer.from(await pdf.save());
+  await ctx.route(/\/object\/sign\/drawings\/.*\.pdf|\/object\/drawings\/.*\.pdf/, r => r.fulfill({status:200, contentType:'application/pdf', body: bytes}));
+  const page = await ctx.newPage(); page.on('pageerror', e=>errs.push(e.message));
+  await page.goto(BASE+'/login'); await page.waitForTimeout(5000);
+  await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
+  await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
+  await page.goto(BASE+'/sites/'+S1+'/drawings/f2'); await page.waitForTimeout(5000);
+  await page.screenshot({path:'shots/dw-1-folder.png'});
+  await page.getByText('View', {exact:true}).first().click(); await page.waitForTimeout(5000);
+  await page.getByText('✏️ Mark up').click(); await page.waitForTimeout(4000);
+  await page.getByText('✎ Pen').click(); await page.waitForTimeout(300);
+  await page.mouse.move(450, 450); await page.mouse.down(); await page.mouse.move(550, 450, {steps:8}); await page.mouse.move(650, 450, {steps:8}); await page.mouse.up(); await page.waitForTimeout(400);
+  await page.getByText('☝ Select').click(); await page.waitForTimeout(300);
+  await page.mouse.move(550, 452); await page.mouse.down(); await page.mouse.move(560, 500, {steps:6}); await page.mouse.up(); await page.waitForTimeout(400);
+  console.log('pen line selected:', await page.getByText('Selected pen').count());
+  await page.screenshot({path:'shots/mk-stroke.png'});
+  await page.getByText('🗑 Delete').click(); await page.waitForTimeout(300);
+  console.log('after delete, selected bar gone:', await page.getByText('Selected pen').count() === 0);
+  await page.mouse.click(300, 300); await page.waitForTimeout(300);
+  console.log('select tool on empty space draws nothing:', await page.getByText(/^Selected/).count() === 0);
+  console.log('errors', errs.join(' / ').slice(0,400) || 'none');
+  await browser.close(); process.exit(0);
+})();

@@ -84,6 +84,32 @@ export function hitMark(ops: MarkOp[], p: Pt, minReach: number): number {
   return best;
 }
 /** A mark made bigger / smaller (498 plmScaleSel), kept within sensible limits for a drawing W wide. */
+/** The pen line, arrow or circle nearest a point (within reach), or -1 — for the Select tool. */
+export function hitStroke(ops: MarkOp[], p: Pt, reach: number): number {
+  const seg = (a: Pt, b: Pt) => {
+    const dx = b.x - a.x, dy = b.y - a.y, l = dx * dx + dy * dy;
+    const t = l ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / l)) : 0;
+    return Math.hypot(a.x + t * dx - p.x, a.y + t * dy - p.y);
+  };
+  let best = -1, bd = Infinity;
+  ops.forEach((o, i) => {
+    if (!('pts' in o) || !o.pts.length) return;
+    let d = o.pts.length === 1 ? Math.hypot(o.pts[0].x - p.x, o.pts[0].y - p.y) : Infinity;
+    for (let j = 1; j < o.pts.length; j++) d = Math.min(d, seg(o.pts[j - 1], o.pts[j]));
+    if (o.t === 'ring' && o.pts.length > 1) {
+      // A circle fills the box between its first and last points; pressing on or inside it counts.
+      const b = ringBox(o.pts[0], o.pts[o.pts.length - 1]);
+      if (Math.abs(p.x - b.cx) <= b.rx + reach && Math.abs(p.y - b.cy) <= b.ry + reach) d = 0;
+    }
+    if (d <= Math.max(reach, o.w) && d < bd) { bd = d; best = i; }
+  });
+  return best;
+}
+/** A mark moved by (dx, dy). */
+export function shiftMark(o: MarkOp, dx: number, dy: number): MarkOp {
+  if ('pts' in o) return { ...o, pts: o.pts.map((q) => ({ x: q.x + dx, y: q.y + dy })) };
+  return { ...o, x: o.x + dx, y: o.y + dy };
+}
 export function scaleMark(o: MarkOp, f: number, W: number): MarkOp {
   if (o.t === 'text') return { ...o, fs: Math.max(8, Math.min(W / 4, o.fs * f)) };
   if ('r' in o) return { ...o, r: Math.max(6, Math.min(W / 6, o.r * f)) };

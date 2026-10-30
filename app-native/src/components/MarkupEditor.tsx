@@ -15,16 +15,16 @@ import { captureRef } from 'react-native-view-shot';
 
 import { confirmAsk, promptText, useToast } from '@/components/toast';
 import {
-  arrowParts, hitMark, scaleMark, PHOTO_COLOURS, ringBox, crossPath, haloOf, isLight, MARK_COLOURS, MARK_SIZES, markCanvas, markRadius, nearestOp, nextFree, numFont, penPath, refreshKeyColours, tickPath, warnPath,
+  arrowParts, hitMark, hitStroke, scaleMark, shiftMark, PHOTO_COLOURS, ringBox, crossPath, haloOf, isLight, MARK_COLOURS, MARK_SIZES, markCanvas, markRadius, nearestOp, nextFree, numFont, penPath, refreshKeyColours, tickPath, warnPath,
   type MarkKey, type MarkOp, type MarkSize, type Pt,
 } from '@/lib/rules/markup';
 import { renderMarked } from '@/lib/markupRender';
 import { base } from '@/theme/theme';
 
-type Tool = 'num' | 'key' | 'cross' | 'tick' | 'warn' | 'arrow' | 'ring' | 'pen' | 'text' | 'erase';
-const TOOLS: [Tool, string][] = [['num', '① Number'], ['cross', '✕ Cross'], ['tick', '✓ Tick'], ['warn', '⚠ Warning'], ['arrow', '➜ Arrow'], ['pen', '✎ Pen'], ['text', 'T Text'], ['erase', '⌫ Eraser']];
+type Tool = 'num' | 'key' | 'cross' | 'tick' | 'warn' | 'arrow' | 'ring' | 'pen' | 'text' | 'erase' | 'select';
+const TOOLS: [Tool, string][] = [['num', '① Number'], ['cross', '✕ Cross'], ['tick', '✓ Tick'], ['warn', '⚠ Warning'], ['arrow', '➜ Arrow'], ['pen', '✎ Pen'], ['text', 'T Text'], ['erase', '⌫ Eraser'], ['select', '☝ Select']];
 // Photos (snags, deliveries — 499 photoMarkup): pen, arrow, circle and text.
-const PHOTO_TOOLS: [Tool, string][] = [['pen', '✎ Pen'], ['arrow', '➜ Arrow'], ['ring', '◯ Circle'], ['text', 'T Text'], ['erase', '⌫ Eraser']];
+const PHOTO_TOOLS: [Tool, string][] = [['pen', '✎ Pen'], ['arrow', '➜ Arrow'], ['ring', '◯ Circle'], ['text', 'T Text'], ['erase', '⌫ Eraser'], ['select', '☝ Select']];
 
 export function MarkOps({ ops }: { ops: MarkOp[] }) {
   return <>{ops.map((o, i) => <MarkShape key={i} o={o} />)}</>;
@@ -60,7 +60,7 @@ export function MarkupEditor({ src, ops: initial, keys = [], photo = false, onCl
   const [sel, setSel] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const view = useRef<ComponentRef<typeof View>>(null);
-  const st = useRef({ ops, tool, colour, picked, sz, keyPick, k: 1, size, cur: null as MarkOp | null, nextNum: 0, moving: false, z: 1, pinch: null as { d0: number; z0: number } | null, sel: null as number | null, drag: null as { i: number; dx: number; dy: number } | null });
+  const st = useRef({ ops, tool, colour, picked, sz, keyPick, k: 1, size, cur: null as MarkOp | null, nextNum: 0, moving: false, z: 1, pinch: null as { d0: number; z0: number } | null, sel: null as number | null, drag: null as { i: number; dx: number; dy: number; lx: number; ly: number } | null });
   useEffect(() => { Object.assign(st.current, { ops, tool, colour, picked, sz, keyPick, size, moving, z, sel }); }, [ops, tool, colour, picked, sz, keyPick, size, moving, z, sel]);
 
   useEffect(() => { Image.getSize(src, (w, h) => setSize(markCanvas(w, h)), () => { toast('Could not open that drawing.'); onClose(null); }); }, [src]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -79,7 +79,11 @@ export function MarkupEditor({ src, ops: initial, keys = [], photo = false, onCl
       // Pressing on a mark already placed picks it up (select, and drag to move).
       if (s.tool !== 'erase') {
         const hit = hitMark(s.ops, p, 14 / s.k);
-        if (hit >= 0) { const o = s.ops[hit] as { x: number; y: number }; s.drag = { i: hit, dx: o.x - p.x, dy: o.y - p.y }; s.sel = hit; setSel(hit); s.cur = null; (s as unknown as { tap: Pt | null }).tap = null; return; }
+        // The Select tool also picks up pen lines, arrows and circles (499 photo mark-up select).
+        const any = hit >= 0 ? hit : s.tool === 'select' ? hitStroke(s.ops, p, 14 / s.k) : -1;
+        if (s.tool === 'select' && any < 0) { s.sel = null; setSel(null); s.cur = null; (s as unknown as { tap: Pt | null }).tap = null; return; }
+        if (any >= 0 && hit < 0) { s.drag = { i: any, dx: 0, dy: 0, lx: p.x, ly: p.y }; s.sel = any; setSel(any); s.cur = null; (s as unknown as { tap: Pt | null }).tap = null; return; }
+        if (hit >= 0) { const o = s.ops[hit] as { x: number; y: number }; s.drag = { i: hit, dx: o.x - p.x, dy: o.y - p.y, lx: p.x, ly: p.y }; s.sel = hit; setSel(hit); s.cur = null; (s as unknown as { tap: Pt | null }).tap = null; return; }
       }
       if (s.tool === 'pen' || s.tool === 'arrow' || s.tool === 'ring') { s.cur = { t: s.tool, c: s.colour, w: Math.max(4, Math.round(markRadius(s.size.W, s.size.H, s.sz) / 4)), pts: [p] }; setCur({ ...s.cur }); }
       else s.cur = null;
@@ -97,7 +101,8 @@ export function MarkupEditor({ src, ops: initial, keys = [], photo = false, onCl
       }
       if (s.drag && s.k && !s.pinch) {
         const q = { x: e.nativeEvent.locationX / s.k, y: e.nativeEvent.locationY / s.k }, d = s.drag;
-        setOps((x) => x.map((o, j) => (j === d.i && !('pts' in o) ? { ...o, x: q.x + d.dx, y: q.y + d.dy } : o)));
+        const mx = q.x - d.lx, my = q.y - d.ly; d.lx = q.x; d.ly = q.y;
+        setOps((x) => x.map((o, j) => (j !== d.i ? o : 'pts' in o ? shiftMark(o, mx, my) : { ...o, x: q.x + d.dx, y: q.y + d.dy })));
         return;
       }
       if (s.pinch || !s.cur || !('pts' in s.cur) || !s.k) return;
