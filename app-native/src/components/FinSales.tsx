@@ -9,7 +9,7 @@ import { FinRow, FinSeg, FinStat } from '@/components/FinNav';
 import { Cell, FinTable, FootText } from '@/components/FinTable';
 import { SelectBox } from '@/components/SelectBox';
 import { chooseAction } from '@/components/toast';
-import { Button, Card, Empty, Muted } from '@/components/ui';
+import { Button, Card, Empty, Muted, Toggle } from '@/components/ui';
 import { selectAll, useFinSettings } from '@/data/finance';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
@@ -59,6 +59,7 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
   const [mon, setMon] = useState(''); // month picker (9219t): the list and its totals follow it
   const [inf, setInf] = useState(f0 || 'outstanding');
   const [q, setQ] = useState('');
+  const [voidOpen, setVoidOpen] = useState(false); // voided invoices sit in a closed drop-down (9219zn)
   const desk = useDesk();
   const sites = sitesRaw as (typeof sitesRaw[number] & { job_number?: string | null; client_name?: string | null })[];
   const site = (id: string) => sites.find((s) => s.id === id);
@@ -106,13 +107,13 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
   if (tab === 'invoices') {
     const F: Record<string, (i: Inv) => boolean> = { outstanding: (i) => invOutstanding(i) > 0, overdue: (i) => invOverdue(i), draft: (i) => i.status === 'draft', paid: (i) => i.status === 'paid', all: () => true };
     const iMonth = (i: Inv) => monthOf(i.issue_date || i.created_at);
-    const base0 = (inf === 'all' ? data.invs : live).filter(F[inf] || F.outstanding);
+    const base0 = live.filter(F[inf] || F.outstanding);
     const list = base0.filter((i) => !mon || iMonth(i) === mon).filter((i) => !ql || `${i.number || ''} ${i.client_name || ''} ${jobTag(site(i.site_id))}`.toLowerCase().includes(ql));
     const months = monthsIn(base0, iMonth);
     return (
       <View>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 10 }}>
-          <FinSeg value={inf} onChange={setInf} items={[['outstanding', 'Owed'], ['overdue', 'Overdue'], ['draft', 'Drafts'], ['paid', 'Paid'], ['all', 'All']].map(([k, l]) => [k, l, (k === 'all' ? data.invs : live).filter(F[k]).length] as [string, string, number])} />
+          <FinSeg value={inf} onChange={setInf} items={[['outstanding', 'Owed'], ['overdue', 'Overdue'], ['draft', 'Drafts'], ['paid', 'Paid'], ['all', 'All']].map(([k, l]) => [k, l, live.filter(F[k]).length] as [string, string, number])} />
           <SelectBox value={mon} title="Month" options={[['', 'All months'], ...(mon && !months.includes(mon) ? [mon, ...months] : months).map((m) => [m, monthLabel(m)] as [string, string])]} onChange={setMon} style={{ marginBottom: 0, width: 150 }} />
           <View style={{ marginLeft: 'auto' }}><Button title="+ New invoice" onPress={() => void newFor('invoice')} /></View>
         </View>
@@ -133,6 +134,16 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
           const od = invOverdue(i), o = invOutstanding(i);
           return <FinRow key={i.id} left={i.number || 'Draft'} title={siteId ? (i.client_name || '—') : jobTag(site(i.site_id))} sub={[siteId ? '' : i.client_name, i.issue_date ? fdate(i.issue_date) : '', INV_STATUS[i.status] || i.status, o ? `${money(o)} owed${od ? ' — overdue' : ''}` : ''].filter(Boolean).join(' · ')} right={money(i.total)} tone={od ? '#C0392B' : undefined} onPress={() => router.push(`/fin/job/${i.site_id}/invoice/${i.id}` as never)} />;
         }) : <Empty>No invoices here.</Empty>}
+        {(() => {
+          const voided = data.invs.filter((i) => i.status === 'void' && (!mon || iMonth(i) === mon) && (!ql || `${i.number || ''} ${i.client_name || ''} ${jobTag(site(i.site_id))}`.toLowerCase().includes(ql)));
+          if (!voided.length) return null;
+          return (
+            <View style={{ marginTop: 10 }}>
+              <Toggle title={`Voided invoices (${voided.length})`} open={voidOpen} onPress={() => setVoidOpen(!voidOpen)} />
+              {voidOpen && voided.map((i) => <FinRow key={i.id} left={i.number || 'Draft'} title={siteId ? (i.client_name || '—') : jobTag(site(i.site_id))} sub={[siteId ? '' : i.client_name, i.issue_date ? fdate(i.issue_date) : '', 'Void'].filter(Boolean).join(' · ')} right={money(i.total)} onPress={() => router.push(`/fin/job/${i.site_id}/invoice/${i.id}` as never)} />)}
+            </View>
+          );
+        })()}
         <Muted style={{ marginTop: 8 }}>Record money received on the invoice itself.</Muted>
       </View>
     );
