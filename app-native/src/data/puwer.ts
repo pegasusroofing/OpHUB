@@ -8,6 +8,7 @@ import { buildPuwerTools, type PuwerTool } from '@/lib/rules/puwer';
 import { isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/lib/types';
+import { mustHit } from '@/lib/mustHit';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 
@@ -86,10 +87,10 @@ export function usePuwerRoster(siteId: string | undefined, weekStart: string, en
 export async function markPuwerWeek(me: Profile, siteId: string, weekStart: string) {
   return !(await db.from('puwer_weekly_completions').insert({ org_id: me.org_id, site_id: siteId, week_start: weekStart, completed_by: me.id } as never)).error;
 }
-export const reopenPuwerWeek = async (id: string) => !(await db.from('puwer_weekly_completions').delete().eq('id', id)).error;
+export const reopenPuwerWeek = async (id: string) => !!(await db.from('puwer_weekly_completions').delete().eq('id', id).select('id')).data?.length;
 export async function deletePuwer(me: Profile, siteId: string, inspectionId: string, name: string) {
   await db.from('puwer_inspection_tools').delete().eq('inspection_id', inspectionId);
-  const r = await db.from('puwer_inspections').delete().eq('id', inspectionId);
+  const r = mustHit(await db.from('puwer_inspections').delete().eq('id', inspectionId).select('id'));
   if (!r.error && me.org_id) void db.from('site_activity_log').insert({ site_id: siteId, org_id: me.org_id, actor_id: me.id, action: 'puwer_inspection_deleted', description: `Deleted PUWER inspection for ${name}` } as never).then(undefined, () => undefined);
   return !r.error;
 }

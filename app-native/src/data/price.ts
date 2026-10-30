@@ -55,11 +55,11 @@ export async function addElement(me: Profile, siteId: string, subId: string | nu
   return !(await db.from('pricing_elements').insert({ site_id: siteId, sub_site_id: subId, name, sort_order: last ? Number(last.sort_order || 0) + 1 : 0, created_by: me.id } as never)).error;
 }
 export async function patchElement(id: string, patch: Partial<PriceElement> & Record<string, unknown>): Promise<boolean> {
-  return !(await db.from('pricing_elements').update(patch as never).eq('id', id)).error;
+  return !!(await db.from('pricing_elements').update(patch as never).eq('id', id).select('id')).data?.length;
 }
 /** Deletes the element and everything under it (build-up, sheet, invoices, variations). */
 export async function deleteElement(id: string): Promise<boolean> {
-  return !(await db.from('pricing_elements').delete().eq('id', id)).error;
+  return !!(await db.from('pricing_elements').delete().eq('id', id).select('id')).data?.length;
 }
 
 const notifyDecision = (siteId: string, userId: string | null, decision: string, siteName: string) => {
@@ -82,12 +82,12 @@ export async function reviseVariation(me: Profile, site: Site, v: PriceVariation
   const patch = v.status === 'rejected' ? { amount, note, status: 'pending', approved_by: null, approved_at: null, rejection_reason: null }
     : v.status === 'approved' ? { amount, note }
     : { amount, note, status: 'approved', approved_by: me.id, approved_at: new Date().toISOString(), rejection_reason: null };
-  if ((await db.from('additional_works_requests').update(patch as never).eq('id', v.id)).error) return null;
+  if (!(await db.from('additional_works_requests').update(patch as never).eq('id', v.id).select('id')).data?.length) return null;
   if (v.status !== 'approved') notifyDecision(site.id, v.requested_by, v.status === 'rejected' ? 'reopened' : 'revised_approved', site.name);
   return v.status === 'rejected' ? 'Revised — resubmitted for approval' : v.status === 'approved' ? 'Variation updated' : 'Revised and approved';
 }
 export async function removeVariation(me: Profile, siteId: string, v: PriceVariation): Promise<boolean> {
-  if ((await db.from('additional_works_requests').delete().eq('id', v.id)).error) return false;
+  if (!(await db.from('additional_works_requests').delete().eq('id', v.id).select('id')).data?.length) return false;
   if (me.org_id) void db.from('site_activity_log').insert({ org_id: me.org_id, site_id: siteId, actor_id: me.id, action: 'variation_to_price_deleted', description: `Deleted variation to price request "${v.note || ''}"` } as never).then(undefined, () => undefined);
   return true;
 }
@@ -100,13 +100,13 @@ export const GROUP_COLOURS = [
 export async function newGroupFor(me: Profile, siteId: string, subId: string | null, elementId: string, name: string, existing: number): Promise<boolean> {
   const r = await db.from('pricing_element_groups').insert({ site_id: siteId, sub_site_id: subId, name, color: GROUP_COLOURS[existing % GROUP_COLOURS.length].hex, created_by: me.id } as never).select('id').single();
   if (r.error) return false;
-  return !(await db.from('pricing_elements').update({ group_id: (r.data as { id: string }).id } as never).eq('id', elementId)).error;
+  return !!(await db.from('pricing_elements').update({ group_id: (r.data as { id: string }).id } as never).eq('id', elementId).select('id')).data?.length;
 }
 export async function setElementGroup(elementId: string, groupId: string | null): Promise<boolean> {
-  return !(await db.from('pricing_elements').update({ group_id: groupId } as never).eq('id', elementId)).error;
+  return !!(await db.from('pricing_elements').update({ group_id: groupId } as never).eq('id', elementId).select('id')).data?.length;
 }
 export async function updateGroup(groupId: string, patch: { name?: string; color?: string }): Promise<boolean> {
-  return !(await db.from('pricing_element_groups').update(patch as never).eq('id', groupId)).error;
+  return !!(await db.from('pricing_element_groups').update(patch as never).eq('id', groupId).select('id')).data?.length;
 }
 
 /** One quick photo on a variation to price (390 uploadAwPhoto). */
@@ -115,6 +115,6 @@ export async function addVariationPhoto(siteId: string, v: PriceVariation, p: Pi
     const rid = globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}`;
     const up = await supabase.storage.from('site-photos').upload(`${siteId}/variations-to-price/${v.id}-${rid}.jpg`, await (await fetch(await compressOne(p))).arrayBuffer(), { contentType: 'image/jpeg' });
     if (up.error) return false;
-    return !(await db.from('additional_works_requests').update({ photo_path: up.data.path } as never).eq('id', v.id)).error;
+    return !!(await db.from('additional_works_requests').update({ photo_path: up.data.path } as never).eq('id', v.id).select('id')).data?.length;
   } catch { return false; }
 }

@@ -52,11 +52,11 @@ export default function SowLibrary() {
   const rename = async (table: string, r: { id: string; name: string }, label: string) => {
     const n = await promptText(label, r.name); if (n === null) return;
     if (!n.trim()) { toast("Name can't be empty."); return; }
-    toast((await db.from(table).update({ name: n.trim() } as never).eq('id', r.id)).error ? 'Could not save — try again.' : 'Renamed'); refresh();
+    toast(!(await db.from(table).update({ name: n.trim() } as never).eq('id', r.id).select('id')).data?.length ? 'Could not save — try again.' : 'Renamed'); refresh();
   };
   const del = async (table: string, id: string, q: string, done: string) => {
     if (!(await confirmAsk(q, 'Delete'))) return;
-    toast((await db.from(table).delete().eq('id', id)).error ? 'Could not delete — try again.' : done); if (table === 'sow_library_templates' && open === id) setOpen(null); refresh();
+    toast(!(await db.from(table).delete().eq('id', id).select('id')).data?.length ? 'Could not delete — try again.' : done); if (table === 'sow_library_templates' && open === id) setOpen(null); refresh();
   };
   const addTask = async (tid: string, sectionId: string | null, name: string) => {
     toast((await db.from('sow_library_tasks').insert({ template_id: tid, name, position: nextPos(body?.tasks ?? []), ...(sectionId ? { section_id: sectionId } : {}) } as never)).error ? 'Could not save — try again.' : 'Task added'); refresh();

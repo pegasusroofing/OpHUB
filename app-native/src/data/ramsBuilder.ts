@@ -41,7 +41,7 @@ export async function loadBuild(me: Me, org: Org, site: Site | undefined, id: st
   return normaliseBuild(raw, defaultsFor(me, site, await loadSettings(org)), siteClientContact(site as never));
 }
 export async function saveBuild(b: RamsBuild): Promise<boolean> {
-  return !(await db.from('rams_builds').update({ title: b.title, details: b.details, hazards: b.hazards, sections: b.sections, ppe: b.ppe, updated_at: new Date().toISOString() } as never).eq('id', b.id)).error;
+  return !!(await db.from('rams_builds').update({ title: b.title, details: b.details, hazards: b.hazards, sections: b.sections, ppe: b.ppe, updated_at: new Date().toISOString() } as never).eq('id', b.id).select('id')).data?.length;
 }
 
 /** The database hands out the next RA / MS numbers, so two PMs never get the same one. */
@@ -69,7 +69,7 @@ export async function createBuild(me: Me, org: Org, site: Site | undefined, site
   return { id, missing: out.missing };
 }
 export async function deleteBuild(id: string): Promise<boolean> {
-  return !(await db.from('rams_builds').delete().eq('id', id)).error;
+  return !!(await db.from('rams_builds').delete().eq('id', id).select('id')).data?.length;
 }
 
 /** Saves a job's hazard or section back to the library (replacing a copy with the same id or name). */
@@ -79,7 +79,7 @@ export async function saveItemToLibrary(me: Me, kind: 'hazard' | 'section', it: 
   const data = kind === 'hazard' ? (({ harm, p, s, rp, rs, controls }) => ({ harm, p, s, rp, rs, controls }))(it as Hazard) : (({ part, body, steps }) => ({ part, body, steps }))(it as RSection);
   if (existing) {
     if (!(await replace(existing.title))) return null;
-    return (await db.from('rams_library_items').update({ title: it.title, data, updated_at: new Date().toISOString() } as never).eq('id', existing.id)).error ? 'Could not save' : existing.id;
+    return !(await db.from('rams_library_items').update({ title: it.title, data, updated_at: new Date().toISOString() } as never).eq('id', existing.id).select('id')).data?.length ? 'Could not save' : existing.id;
   }
   const r = await db.from('rams_library_items').insert({ org_id: me.org_id, kind, title: it.title, data, sort_order: 999, created_by: me.id } as never).select('id').single();
   return (r.data as { id: string } | null)?.id ?? 'Could not save';
@@ -112,7 +112,7 @@ export async function issueBuild(me: Me, org: Org, siteId: string, b: RamsBuild)
     if (prevId) await db.from('rams_docs').update({ status: 'superseded', superseded_by: id } as never).eq('id', prevId);
     // Remember the new document straight away, so a failure on the next one never leaves two "current".
     const key = isRA ? 'ra_doc_id' : 'ms_doc_id';
-    if (!(await db.from('rams_builds').update({ [key]: id } as never).eq('id', b.id)).error) b[key] = id;
+    if (!!(await db.from('rams_builds').update({ [key]: id } as never).eq('id', b.id).select('id')).data?.length) b[key] = id;
     // Issuing it marks it issued straight away — by whoever issued it, with their signature.
     await db.from('rams_signatures').insert({ rams_id: id, user_id: me.id, issued: true, signature_image_path: me.signature_path || null } as never);
     made.push([which, id, name]);

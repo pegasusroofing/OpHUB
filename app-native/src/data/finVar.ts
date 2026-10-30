@@ -62,5 +62,5 @@ export async function varToSow(me: Profile, siteId: string, v: Row, site: Row[])
 export async function setVarGroup(v: Row, g: 'approved' | 'rejected', value?: number): Promise<boolean> {
   const row: Row = { status: g === 'approved' ? 'agreed' : 'rejected', updated_at: new Date().toISOString() };
   if (g === 'approved') { row.agreed_value = round2(value || 0); row.agreed_on = today(); }
-  return !(await fdb.from('fin_variations').update(row as never).eq('id', v.id)).error;
+  return !!(await fdb.from('fin_variations').update(row as never).eq('id', v.id).select('id')).data?.length;
 }

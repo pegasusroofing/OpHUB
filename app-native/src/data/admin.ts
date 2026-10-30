@@ -22,13 +22,13 @@ export function useTeam(orgId: string | null | undefined) {
   });
 }
 export async function setRole(id: string, role: string): Promise<boolean> {
-  return !(await db.from('profiles').update(rolePatch(role) as never).eq('id', id)).error;
+  return !!(await db.from('profiles').update(rolePatch(role) as never).eq('id', id).select('id')).data?.length;
 }
 export async function setPhone(id: string, phone: string | null): Promise<boolean> {
-  return !(await db.from('profiles').update({ phone } as never).eq('id', id)).error;
+  return !!(await db.from('profiles').update({ phone } as never).eq('id', id).select('id')).data?.length;
 }
 export async function setSubform(id: string, on: boolean): Promise<boolean> {
-  return !(await db.from('profiles').update({ subform_required: on } as never).eq('id', id)).error;
+  return !!(await db.from('profiles').update({ subform_required: on } as never).eq('id', id).select('id')).data?.length;
 }
 /** Through the server, so the login itself goes too and the email is free again. */
 export async function removeMember(id: string): Promise<{ ok: boolean; msg: string }> {
@@ -61,7 +61,7 @@ export async function createPermanentInvite(me: Profile): Promise<boolean> {
   return !(await db.from('invites').insert({ org_id: me.org_id, role: 'operative', created_by: me.id, is_reusable: true, expires_at: new Date(Date.now() + 1000 * 60 * 60 * 24 * 365 * 10).toISOString() } as never)).error;
 }
 export async function revokeInvite(id: string): Promise<boolean> {
-  return !(await db.from('invites').delete().eq('id', id)).error;
+  return !!(await db.from('invites').delete().eq('id', id).select('id')).data?.length;
 }
 export async function emailInvite(inviteId: string, email: string): Promise<string> {
   const r = await supabase.functions.invoke('send-invite-email', { body: { invite_id: inviteId, email } });

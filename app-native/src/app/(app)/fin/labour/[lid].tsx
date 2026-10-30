@@ -77,7 +77,7 @@ function Editor({ p, rateBy, who }: { p: Row | null; rateBy: Record<string, Row>
         const up = await supabase.storage.from('finance-docs').upload(`${me.org_id}/operative-invoices/${rid}-${file.name.replace(/[^a-z0-9.-]+/gi, '_').slice(-80)}`, await (await fetch(file.uri)).arrayBuffer(), { contentType: file.mimeType || 'application/octet-stream' });
         if (!up.error) { row.file_path = up.data.path; row.file_name = file.name; }
       }
-      if (p) { if ((await fdb.from('fin_sub_payments').update(row as never).eq('id', p.id)).error) { toast('Could not save — try again.'); return; } }
+      if (p) { if (!(await fdb.from('fin_sub_payments').update(row as never).eq('id', p.id).select('id')).data?.length) { toast('Could not save — try again.'); return; } }
       else {
         if (row.invoice_no) {
           const q = fdb.from('fin_sub_payments').select('id').eq('org_id', me.org_id as string).is('sub_app_id', null).neq('status', 'void').eq('invoice_no', row.invoice_no);
@@ -122,7 +122,7 @@ function Editor({ p, rateBy, who }: { p: Row | null; rateBy: Record<string, Row>
       {p?.file_path && <FinRow title={`📄 ${p.file_name || 'Their invoice'}`} onPress={async () => { const u = await openDocLink('finance-docs', p.file_path); if (u) viewDoc(u); }} />}
       {!locked && <Button busy={busy} title="Save — ready for the pay run" onPress={() => void save()} />}
       {p && p.status !== 'void' && me && <View style={{ marginTop: 8 }}><Button kind="ghost" title="CIS payment statement" onPress={async () => { if (!(await cisStatement(me, org, p))) toast('Could not make the statement — try again.'); }} /></View>}
-      {p && !locked && <View style={{ marginTop: 8 }}><Button kind="ghost" title="Void this invoice" onPress={async () => { if (await confirmAsk('Void this operative invoice? It comes off the pay run.', 'Void')) { if (!(await fdb.from('fin_sub_payments').update({ status: 'void' } as never).eq('id', p.id)).error) { toast('Voided'); refresh(); router.back(); } } }} /></View>}
+      {p && !locked && <View style={{ marginTop: 8 }}><Button kind="ghost" title="Void this invoice" onPress={async () => { if (await confirmAsk('Void this operative invoice? It comes off the pay run.', 'Void')) { if (!!(await fdb.from('fin_sub_payments').update({ status: 'void' } as never).eq('id', p.id).select('id')).data?.length) { toast('Voided'); refresh(); router.back(); } } }} /></View>}
     </ScrollView>
   );
 }

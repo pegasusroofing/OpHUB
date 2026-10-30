@@ -43,7 +43,7 @@ export async function saveJobFinance(me: Profile, siteId: string, patch: Row): P
   return r.error ? `Save failed — ${r.error.message}` : null;
 }
 export async function saveJobNumber(siteId: string, jobNo: string): Promise<boolean> {
-  return !(await fdb.from('sites').update({ job_number: jobNo } as never).eq('id', siteId)).error;
+  return !!(await fdb.from('sites').update({ job_number: jobNo } as never).eq('id', siteId).select('id')).data?.length;
 }
 /** Client PO add / edit; only one main PO per project. */
 export async function saveClientPo(me: Profile, siteId: string, poId: string | null, row: { po_number: string; po_date: string | null; description: string | null; is_primary: boolean }, file?: { uri: string; name: string; mimeType?: string | null } | null): Promise<string | null> {
@@ -63,7 +63,7 @@ export async function saveClientPo(me: Profile, siteId: string, poId: string | n
   if (row.is_primary) await fdb.from('client_pos').update({ is_primary: false } as never).eq('site_id', siteId).eq('is_primary', true).neq('id', id);
   return null;
 }
-export const deleteClientPo = async (id: string) => !(await fdb.from('client_pos').delete().eq('id', id)).error;
+export const deleteClientPo = async (id: string) => !!(await fdb.from('client_pos').delete().eq('id', id).select('id')).data?.length;
 
 /** What's booked to a project in Finance (9219u finDeleteJob), so it isn't deleted with financial records
  *  on it. null = couldn't check (no signal) — then nothing is deleted. */

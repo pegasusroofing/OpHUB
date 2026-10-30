@@ -46,7 +46,7 @@ export function PriceBook() {
             if (r.error) return 'Could not save — try again.';
             toast('Price saved'); void qc.invalidateQueries({ queryKey: ['finPriceBook'] }); return null;
           }}
-          onDelete={cur ? async () => { if ((await fdb.from('fin_price_book').delete().eq('id', cur.id)).error) return 'Could not remove.'; toast('Removed'); void qc.invalidateQueries({ queryKey: ['finPriceBook'] }); return null; } : undefined} />
+          onDelete={cur ? async () => { if (!(await fdb.from('fin_price_book').delete().eq('id', cur.id).select('id')).data?.length) return 'Could not remove.'; toast('Removed'); void qc.invalidateQueries({ queryKey: ['finPriceBook'] }); return null; } : undefined} />
       )}
     </View>
   );

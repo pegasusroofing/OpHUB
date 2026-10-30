@@ -165,7 +165,7 @@ export async function completeReport(me: Profile & { signature_path?: string | n
 
 export async function deleteReports(me: Profile, siteId: string, ids: string[]): Promise<number> {
   let n = 0;
-  for (const id of ids) if (!(await db.from('report_submissions').delete().eq('id', id)).error) n++;
+  for (const id of ids) if (!!(await db.from('report_submissions').delete().eq('id', id).select('id')).data?.length) n++;
   if (n && me.org_id) void db.from('site_activity_log').insert({ site_id: siteId, org_id: me.org_id, actor_id: me.id, action: 'reports_deleted', description: `Deleted ${n} report${n > 1 ? 's' : ''} / inspection${n > 1 ? 's' : ''}` } as never).then(undefined, () => undefined);
   return n;
 }
@@ -206,7 +206,7 @@ export async function startGeneralReport(me: Profile, t: Template, label: string
   const r = await db.from('report_submissions').insert({ template_id: t.id, org_id: me.org_id, site_id: null, general_label: label, template_name: t.name, sections: t.sections, answers, submitted_by: me.id, status: 'in_progress' } as never).select('id').single();
   return (r.data as { id: string } | null)?.id ?? null;
 }
-export const renameGeneral = async (id: string, label: string | null) => !(await db.from('report_submissions').update({ general_label: label } as never).eq('id', id)).error;
+export const renameGeneral = async (id: string, label: string | null) => !!(await db.from('report_submissions').update({ general_label: label } as never).eq('id', id).select('id')).data?.length;
 
 /** A new template already flagged as a Daily Briefing (with "Operatives On Site") or a Main Contractor
  *  Inspection (420 createDailyBriefingTemplate / createMcInspectionTemplate). Returns its id to edit. */

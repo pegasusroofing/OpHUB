@@ -75,7 +75,7 @@ export default function FinSubcontract() {
       const ins = await fdb.from('fin_sub_payments').insert({ org_id: me.org_id, worker_id: sc!.worker_id || null, name: sc!.name, utr: sc!.utr || null, sub_app_id: a.id, period_start: a.app_date, period_end: a.app_date, lines: [{ site_id: a.site_id, description: `${sc!.number} application ${a.number}`, days: 1, rate: labour, amount: labour }], labour, materials, gross, cis_rate: sc!.cis_rate, cis_deduction: Number(a.cis_deduction), net_pay: Number(a.pay_amount), status: 'paid', paid_on: paidOn, created_by: me.id, contra: contraNow || 0 } as never);
       if (ins.error) { toast('Not marked paid — the CIS record didn’t save. Please try again.'); return; }
     }
-    if (a.status !== 'paid' && (await fdb.from('fin_sub_apps').update({ status: 'paid', paid_on: paidOn } as never).eq('id', a.id)).error) { toast('The CIS record is saved, but the application couldn’t be marked paid — try again.'); return; }
+    if (a.status !== 'paid' && !(await fdb.from('fin_sub_apps').update({ status: 'paid', paid_on: paidOn } as never).eq('id', a.id).select('id')).data?.length) { toast('The CIS record is saved, but the application couldn’t be marked paid — try again.'); return; }
     toast('Marked paid — added to the CIS return'); setAppEdit(null); refresh();
   };
   return (
@@ -138,7 +138,7 @@ export default function FinSubcontract() {
             const val = lt != null ? lt : num(v.order_value);
             const row: Row = { name, email: String(v.email).trim() || null, description: String(v.description).trim() || null, order_value: val === null || isNaN(val) ? null : round2(val), retention_pct: ret, cis_rate: Number(v.cis_rate || 20), utr: String(v.utr).trim() || null, vat_registered: !!v.vat_registered, ...(!sc && pre ? { worker_id: pre.id } : {}) };
             if (sc && v.status) row.status = v.status;
-            if (sc) { if ((await fdb.from('fin_subcontracts').update(row as never).eq('id', sc.id)).error) return 'Could not save.'; toast('Subcontractor PO saved'); refresh(); return null; }
+            if (sc) { if (!(await fdb.from('fin_subcontracts').update(row as never).eq('id', sc.id).select('id')).data?.length) return 'Could not save.'; toast('Subcontractor PO saved'); refresh(); return null; }
             const r = await insertNumbered('fin_subcontracts', { col: 'site_id', val: site || '' }, (s) => `SC-${String(s).padStart(3, '0')}`, { ...row, org_id: me.org_id, site_id: site, created_by: me.id });
             if (!r) return 'Could not save — try again.';
             if (toSheet && site) { const e = await orderToSheet(me, site, { ...row, id: r.id }, lines, tile, pre); if (e) toast(e); }
@@ -173,7 +173,7 @@ function AppForm({ sc, a, ctx, nextNo, onClose, onSaved, onPaid }: { sc: Row; a:
         const up = await supabase.storage.from('finance-docs').upload(`${me.org_id}/${sc.site_id}/subcontract/${rid}-${file.name.replace(/[^a-z0-9.-]+/gi, '_').slice(-80)}`, await (await fetch(file.uri)).arrayBuffer(), { contentType: file.mimeType || 'application/octet-stream' });
         if (!up.error) { row.file_path = up.data.path; row.file_name = file.name; }
       }
-      const ok = a ? !(await fdb.from('fin_sub_apps').update(row as never).eq('id', a.id)).error : !(await fdb.from('fin_sub_apps').insert({ ...row, org_id: me.org_id, site_id: sc.site_id, subcontract_id: sc.id, number: nextNo, status: certify ? 'certified' : 'received', created_by: me.id } as never)).error;
+      const ok = a ? !!(await fdb.from('fin_sub_apps').update(row as never).eq('id', a.id).select('id')).data?.length : !(await fdb.from('fin_sub_apps').insert({ ...row, org_id: me.org_id, site_id: sc.site_id, subcontract_id: sc.id, number: nextNo, status: certify ? 'certified' : 'received', created_by: me.id } as never)).error;
       if (!ok) { toast('Could not save — try again.'); return; }
       toast(certify && 'pay' in c ? `Certified — ${money(c.pay)} to pay` : 'Application saved'); onSaved(); onClose();
     } finally { setBusy(false); }
@@ -208,7 +208,7 @@ function AppForm({ sc, a, ctx, nextNo, onClose, onSaved, onPaid }: { sc: Row; a:
       <View style={{ gap: 8, marginTop: 10 }}>
         {!locked && <View style={{ flexDirection: 'row', gap: 8 }}><View style={{ flex: 1 }}><Button kind="ghost" busy={busy} title="Save as received" onPress={() => void save(false)} /></View><View style={{ flex: 1 }}><Button busy={busy} title="Certify" onPress={() => void save(true)} /></View></View>}
         {a?.status === 'certified' && <Button title="Mark paid today" onPress={async () => { if (await confirmAsk(`Mark application ${a.number} paid (${money(a.pay_amount)})? It's added to the CIS return.`, 'Mark paid')) await onPaid(a); }} />}
-        {a?.status === 'received' && <Button kind="ghost" title="Delete" onPress={async () => { if (await confirmAsk('Delete this application?', 'Delete')) { if (!(await fdb.from('fin_sub_apps').delete().eq('id', a.id)).error) { toast('Deleted'); onSaved(); onClose(); } } }} />}
+        {a?.status === 'received' && <Button kind="ghost" title="Delete" onPress={async () => { if (await confirmAsk('Delete this application?', 'Delete')) { if (!!(await fdb.from('fin_sub_apps').delete().eq('id', a.id).select('id')).data?.length) { toast('Deleted'); onSaved(); onClose(); } } }} />}
         {locked && <Button kind="ghost" title="CIS payment statement" onPress={async () => { const p = (await fdb.from('fin_sub_payments').select('*').eq('sub_app_id', a!.id).neq('status', 'void').limit(1)).data as Row[] | null; if (!p?.[0]) { toast('No CIS payment record for this application.'); return; } if (!(await cisStatement(me, org, p[0]))) toast('Could not make the statement — try again.'); }} />}
         <Button kind="ghost" title="Close" onPress={onClose} />
       </View>

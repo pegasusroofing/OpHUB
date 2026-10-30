@@ -41,7 +41,7 @@ export function useRepairHiddenTiles(orgId: string | null | undefined) {
   });
 }
 export async function setRepairHiddenTiles(orgId: string, keys: string[]): Promise<boolean> {
-  return !(await db.from('organizations').update({ repair_hidden_tiles: keys } as never).eq('id', orgId)).error;
+  return !!(await db.from('organizations').update({ repair_hidden_tiles: keys } as never).eq('id', orgId).select('id')).data?.length;
 }
 
 export async function addRepairJob(me: Profile, siteId: string, f: { address: string; job_number: string; description: string }): Promise<string | null> {
@@ -49,7 +49,7 @@ export async function addRepairJob(me: Profile, siteId: string, f: { address: st
   return r.error || !r.data ? null : (r.data as { id: string }).id;
 }
 export async function patchRepairJob(id: string, patch: Partial<RepairJob> & Record<string, unknown>): Promise<boolean> {
-  return !(await db.from('repair_jobs').update(patch as never).eq('id', id)).error;
+  return !!(await db.from('repair_jobs').update(patch as never).eq('id', id).select('id')).data?.length;
 }
 export async function patchRepairJobs(ids: string[], patch: Record<string, unknown>): Promise<boolean> {
   return !(await db.from('repair_jobs').update(patch as never).in('id', ids)).error;
@@ -96,7 +96,7 @@ export async function addRepairPhotos(me: Profile, jobId: string, category: stri
 }
 /** Hidden, not deleted — it can be restored from "Deleted photos". */
 export async function hideRepairPhoto(me: Profile, id: string, restore = false): Promise<boolean> {
-  return !(await db.from('repair_job_photos').update((restore ? { deleted_at: null, deleted_by: null } : { deleted_at: new Date().toISOString(), deleted_by: me.id }) as never).eq('id', id)).error;
+  return !!(await db.from('repair_job_photos').update((restore ? { deleted_at: null, deleted_by: null } : { deleted_at: new Date().toISOString(), deleted_by: me.id }) as never).eq('id', id).select('id')).data?.length;
 }
 export async function uploadWorkOrder(me: Profile, job: RepairJob, f: { uri: string; name: string; mimeType?: string | null }): Promise<boolean> {
   const path = `${me.org_id}/repairjobs/${job.id}/workorder/${rid()}-${f.name.replace(/[^a-z0-9.-]+/gi, '_')}`;
@@ -108,7 +108,7 @@ export async function uploadWorkOrder(me: Profile, job: RepairJob, f: { uri: str
 /** Managers only. Permanent: the job and its photo records go. */
 export async function deleteRepairJob(job: RepairJob): Promise<boolean> {
   const photos = ((await db.from('repair_job_photos').select('storage_path,hires_path').eq('repair_job_id', job.id)).data as { storage_path: string; hires_path: string | null }[] | null) ?? [];
-  if ((await db.from('repair_jobs').delete().eq('id', job.id)).error) return false;
+  if (!(await db.from('repair_jobs').delete().eq('id', job.id).select('id')).data?.length) return false;
   const paths = photos.flatMap((p) => [p.storage_path, p.hires_path]).concat(job.work_order_path).filter((x): x is string => !!x);
   if (paths.length) { try { await supabase.storage.from('site-photos').remove(paths); } catch { /* harmless */ } }
   return true;

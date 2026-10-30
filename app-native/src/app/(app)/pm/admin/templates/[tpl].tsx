@@ -183,7 +183,7 @@ export default function TemplateEditor() {
   const save = async () => {
     if (!t.name.trim()) { toast('Give the template a name.'); return; }
     setBusy(true);
-    const ok = !(await db.from('report_templates').update({ name: t.name.trim(), description: t.description || null, sections: cleanForSave(secs), is_daily_briefing: !!t.is_daily_briefing, is_mc_inspection: !!t.is_mc_inspection, is_loler_inspection: !!t.is_loler_inspection, updated_at: new Date().toISOString() } as never).eq('id', t.id)).error;
+    const ok = !!(await db.from('report_templates').update({ name: t.name.trim(), description: t.description || null, sections: cleanForSave(secs), is_daily_briefing: !!t.is_daily_briefing, is_mc_inspection: !!t.is_mc_inspection, is_loler_inspection: !!t.is_loler_inspection, updated_at: new Date().toISOString() } as never).eq('id', t.id).select('id')).data?.length;
     setBusy(false);
     if (!ok) { toast('Could not save — try again.'); return; }
     toast('Template saved');
@@ -254,7 +254,7 @@ export default function TemplateEditor() {
             <View style={{ flex: 1 }}><Button title="Save answer types" onPress={async () => {
               const clean = cleanAnswerSets(setsDraft);
               if (!clean) { toast('Each answer type needs at least one answer.'); return; }
-              if ((await db.from('organizations').update({ report_answer_sets: clean } as never).eq('id', me.org_id as string)).error) { toast('Could not save — only a Project Manager or Admin can change this.'); return; }
+              if (!(await db.from('organizations').update({ report_answer_sets: clean } as never).eq('id', me.org_id as string).select('id')).data?.length) { toast('Could not save — only a Project Manager or Admin can change this.'); return; }
               setT({ ...t, sections: applyAnswerSets(secs, clean) }); setSetsDraft(null); void refetchSets(); toast('Answer types saved');
             }} /></View>
           </View>

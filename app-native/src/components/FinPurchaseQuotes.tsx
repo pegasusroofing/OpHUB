@@ -123,7 +123,7 @@ export function PurchaseQuotes({ siteId }: { siteId?: string }) {
             const src = qBy[filter];
             if (!(await confirmAsk(`Remove this quote${src.site_id ? '' : ' from every project'}? Its items come off the list. POs already raised aren't changed.`, 'Remove'))) return;
             await fdb.from('fin_quote_items').update({ active: false } as never).eq('quote_id', filter);
-            if ((await fdb.from('fin_quotes').delete().eq('id', filter)).error) toast('Could not remove it.');
+            if (!(await fdb.from('fin_quotes').delete().eq('id', filter).select('id')).data?.length) toast('Could not remove it.');
             setFilter(''); refresh();
           }} />
         </View>

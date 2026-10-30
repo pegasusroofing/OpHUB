@@ -137,7 +137,7 @@ export default function ProjectQuotes() {
             const n = num(e.nativeEvent.text), rate = n === null || isNaN(n) ? null : Math.round(n * 10000) / 10000;
             toast((await fdb.from('fin_shop_prices').upsert({ item_id: i.id, org_id: me.org_id, rate } as never, { onConflict: 'item_id' })).error ? 'Could not save the rate' : 'Rate saved');
           }} />
-          <Pressable onPress={async () => { if (!(await fdb.from('fin_shop_items').update({ active: !i.active } as never).eq('id', i.id)).error) refresh(); }}><Text style={{ color: base.blue, fontWeight: '700' }}>{i.active ? 'Hide' : 'Show'}</Text></Pressable>
+          <Pressable onPress={async () => { if (!!(await fdb.from('fin_shop_items').update({ active: !i.active } as never).eq('id', i.id).select('id')).data?.length) refresh(); }}><Text style={{ color: base.blue, fontWeight: '700' }}>{i.active ? 'Hide' : 'Show'}</Text></Pressable>
         </View>
       )) : <Empty>No items yet — upload a quote or add items by hand.</Empty>}
     </ScrollView>

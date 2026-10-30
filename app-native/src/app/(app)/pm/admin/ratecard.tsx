@@ -50,7 +50,7 @@ export default function RateCard() {
   if (me.role !== 'admin') return <Muted style={{ padding: space.l }}>Admins only.</Muted>;
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['rateCard'] }); };
   const upd = async (table: string, id: string, patch: object, ok: string) => {
-    if ((await db.from(table).update(patch as never).eq('id', id)).error) { toast('Could not save — try again.'); throw new Error('save'); }
+    if (!(await db.from(table).update(patch as never).eq('id', id).select('id')).data?.length) { toast('Could not save — try again.'); throw new Error('save'); }
     toast(ok); refresh();
   };
   const field = (it: RateItem | RateOption, table: string, key: string, label: string) => async (v: string) => {
@@ -97,7 +97,7 @@ export default function RateCard() {
         <SectionTitle>Terms &amp; Conditions</SectionTitle>
         <Muted style={{ marginBottom: 6 }}>Shown as its own page 1 on every Price Sheet PDF export, before the priced items — paste your subcontractor T&amp;Cs in here word for word.</Muted>
         <TextInput value={t} onChangeText={setTerms} multiline placeholder="Paste your subcontractor terms & conditions here…" style={[box, { minHeight: 120, marginBottom: 8 }]} />
-        <Button kind="ghost" title="Save Terms" onPress={async () => { toast((await db.from('organizations').update({ price_builder_terms: t || null } as never).eq('id', org?.id || (me.org_id as string))).error ? 'Could not save — admins only' : 'Terms saved'); refresh(); }} />
+        <Button kind="ghost" title="Save Terms" onPress={async () => { toast(!(await db.from('organizations').update({ price_builder_terms: t || null } as never).eq('id', org?.id || (me.org_id as string)).select('id')).data?.length ? 'Could not save — admins only' : 'Terms saved'); refresh(); }} />
       </Card>
       {isLoading ? <Muted>Loading…</Muted> : cats.length ? cats.map((c) => (
         <View key={c.name}>
@@ -110,7 +110,7 @@ export default function RateCard() {
                   {!it.is_dropdown && <><Text style={{ color: base.ink }}>£</Text><Cell money value={it.rate != null ? String(it.rate) : ''} onSave={field(it, 'price_rate_items', 'rate', 'Rate')} style={{ width: 80 }} /></>}
                   <Pressable hitSlop={8} onPress={async () => {
                     if (!(await confirmAsk(`Remove "${it.name}" from the rate card? This can't be undone — it won't affect any sheet that's already been issued, since those keep their own snapshot of the rates used.`, 'Remove'))) return;
-                    toast((await db.from('price_rate_items').delete().eq('id', it.id)).error ? 'Could not remove — try again.' : 'Rate item removed'); refresh();
+                    toast(!(await db.from('price_rate_items').delete().eq('id', it.id).select('id')).data?.length ? 'Could not remove — try again.' : 'Rate item removed'); refresh();
                   }}><Text>🗑</Text></Pressable>
                 </View>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 }}>
@@ -127,7 +127,7 @@ export default function RateCard() {
                       <Cell value={o.label} onSave={field(o, 'price_rate_options', 'label', 'Option name')} style={{ flex: 1 }} />
                       <Text style={{ color: base.ink }}>£</Text>
                       <Cell money value={String(o.rate)} onSave={field(o, 'price_rate_options', 'rate', 'Rate')} style={{ width: 72 }} />
-                      <Pressable hitSlop={8} onPress={async () => { if (await confirmAsk('Remove this option?', 'Remove')) { toast((await db.from('price_rate_options').delete().eq('id', o.id)).error ? 'Could not remove — try again.' : 'Option removed'); refresh(); } }}><Text>🗑</Text></Pressable>
+                      <Pressable hitSlop={8} onPress={async () => { if (await confirmAsk('Remove this option?', 'Remove')) { toast(!(await db.from('price_rate_options').delete().eq('id', o.id).select('id')).data?.length ? 'Could not remove — try again.' : 'Option removed'); refresh(); } }}><Text>🗑</Text></Pressable>
                     </View>
                   )) : <Muted>No options yet.</Muted>}
                   <Pressable onPress={async () => {

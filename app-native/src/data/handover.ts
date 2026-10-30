@@ -51,16 +51,16 @@ export async function addBlankGuarantee(me: Profile, site: Site): Promise<boolea
 }
 export async function attachToDoc(me: Profile, site: Site, id: string, f: { uri: string; name: string; mimeType?: string | null }): Promise<boolean> {
   const stored = await store(site, me, f).catch(() => null);
-  return !!stored && !(await db.from('handover_docs').update({ storage_path: stored } as never).eq('id', id)).error;
+  return !!stored && !!(await db.from('handover_docs').update({ storage_path: stored } as never).eq('id', id).select('id')).data?.length;
 }
 export async function setHoField(id: string, key: 'name' | 'provider' | 'ref' | 'expiry_date' | 'maintenance', val: string): Promise<boolean> {
-  return !(await db.from('handover_docs').update({ [key]: val === '' ? null : val } as never).eq('id', id)).error;
+  return !!(await db.from('handover_docs').update({ [key]: val === '' ? null : val } as never).eq('id', id).select('id')).data?.length;
 }
 export async function deleteHoDoc(d: HoDoc): Promise<boolean> {
-  if ((await db.from('handover_docs').delete().eq('id', d.id)).error) return false;
+  if (!(await db.from('handover_docs').delete().eq('id', d.id).select('id')).data?.length) return false;
   if (d.storage_path) { try { await supabase.storage.from('mc-documents').remove([d.storage_path]); } catch { /* non-fatal */ } }
   return true;
 }
 export async function renameManual(me: Profile, id: string, name: string): Promise<boolean> {
-  return !(await db.from('handover_om_manuals').update({ name, updated_by: me.id } as never).eq('id', id)).error;
+  return !!(await db.from('handover_om_manuals').update({ name, updated_by: me.id } as never).eq('id', id).select('id')).data?.length;
 }

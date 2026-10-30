@@ -54,7 +54,7 @@ export default function HavsTools() {
     if (!v) { toast(`${field === 'name' ? 'Tool name' : 'Magnitude'} can't be empty.`); refresh(); return; }
     const val = field === 'vibration_magnitude' ? parseFloat(v) : titleCaseWords(v);
     if (field === 'vibration_magnitude' && (!isFinite(val as number) || (val as number) <= 0)) { toast('Enter a magnitude greater than 0.'); refresh(); return; }
-    toast((await db.from('havs_tools').update({ [field]: val } as never).eq('id', t.id)).error ? 'Could not save — try again.' : 'Tool updated'); refresh();
+    toast(!(await db.from('havs_tools').update({ [field]: val } as never).eq('id', t.id).select('id')).data?.length ? 'Could not save — try again.' : 'Tool updated'); refresh();
   };
   return (
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
@@ -63,7 +63,7 @@ export default function HavsTools() {
       {isLoading ? <Muted>Loading…</Muted> : tools.length ? tools.map((t) => (
         <ToolRow key={t.id} t={t} onSave={(f, v) => void save(t, f, v)} onRemove={async () => {
           if (!(await confirmAsk(`Remove "${t.name}"? Past HAVS entries using it are kept, but it won't be selectable for new entries.`, 'Remove'))) return;
-          toast((await db.from('havs_tools').update({ active: false } as never).eq('id', t.id)).error ? 'Could not remove — try again.' : 'Tool removed'); refresh();
+          toast(!(await db.from('havs_tools').update({ active: false } as never).eq('id', t.id).select('id')).data?.length ? 'Could not remove — try again.' : 'Tool removed'); refresh();
         }} />
       )) : <Empty>No tools yet — add your first one below.</Empty>}
       {adding ? (

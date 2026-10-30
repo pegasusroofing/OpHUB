@@ -48,11 +48,11 @@ export default function FinDayworks() {
             if (status === 'approved' && n('value') == null) return 'Add the approved value.';
             const row: Row = { title, description: String(v.description || '').trim() || null, work_date: String(v.work_date || '').trim() || null, ref: String(v.ref || '').trim() || null, value: n('value'), cost_estimate: n('cost_estimate'), status, notes: String(v.notes || '').trim() || null, updated_at: new Date().toISOString() };
             if (status === 'approved' && edit.status !== 'approved') row.approved_on = today();
-            const ok = edit.id ? !(await fdb.from('fin_dayworks').update(row as never).eq('id', edit.id)).error : !!(await insertNumbered('fin_dayworks', { col: 'site_id', val: id }, (s) => `DW${String(s).padStart(3, '0')}`, { ...row, org_id: me.org_id, site_id: id, created_by: me.id }));
+            const ok = edit.id ? !!(await fdb.from('fin_dayworks').update(row as never).eq('id', edit.id).select('id')).data?.length : !!(await insertNumbered('fin_dayworks', { col: 'site_id', val: id }, (s) => `DW${String(s).padStart(3, '0')}`, { ...row, org_id: me.org_id, site_id: id, created_by: me.id }));
             if (!ok) return 'Could not save — try again.';
             toast(status === 'approved' ? 'Approved — it goes onto the next application' : 'Saved'); void qc.invalidateQueries({ queryKey: ['finDw'] }); return null;
           }}
-          onDelete={edit.id ? async () => { if ((await fdb.from('fin_dayworks').delete().eq('id', edit.id)).error) return 'Could not delete.'; toast('Deleted'); void qc.invalidateQueries({ queryKey: ['finDw'] }); return null; } : undefined} />
+          onDelete={edit.id ? async () => { if (!(await fdb.from('fin_dayworks').delete().eq('id', edit.id).select('id')).data?.length) return 'Could not delete.'; toast('Deleted'); void qc.invalidateQueries({ queryKey: ['finDw'] }); return null; } : undefined} />
       )}
     </ScrollView>
   );

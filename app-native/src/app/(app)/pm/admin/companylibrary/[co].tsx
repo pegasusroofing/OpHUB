@@ -73,7 +73,7 @@ export default function CompanyLibraryDocs() {
           <Pressable onPress={async () => { const u = await openDocLink('mc-documents', d.storage_path); if (u) viewDoc(u); else toast('Could not open the file.'); }}><Text style={{ color: base.blue, fontWeight: '700' }}>View</Text></Pressable>
           <Pressable hitSlop={8} onPress={async () => {
             if (!(await confirmAsk("Delete this document? This can't be undone.", 'Delete'))) return;
-            if ((await db.from('subcontractor_company_documents').delete().eq('id', d.id)).error) { toast('Could not delete — try again.'); return; }
+            if (!(await db.from('subcontractor_company_documents').delete().eq('id', d.id).select('id')).data?.length) { toast('Could not delete — try again.'); return; }
             try { await supabase.storage.from('mc-documents').remove([d.storage_path]); } catch { /* non-fatal */ }
             toast('Deleted'); refresh();
           }}><Text>🗑</Text></Pressable>

@@ -63,7 +63,7 @@ export async function loadManual(me: Profile, org: Organization | null, site: Si
   return { name: row.name || 'O&M Manual', data };
 }
 export async function saveManual(me: Profile, id: string, name: string, data: OmData): Promise<boolean> {
-  return !(await db.from('handover_om_manuals').update({ data, name, updated_at: new Date().toISOString(), updated_by: me.id } as never).eq('id', id)).error;
+  return !!(await db.from('handover_om_manuals').update({ data, name, updated_at: new Date().toISOString(), updated_by: me.id } as never).eq('id', id).select('id')).data?.length;
 }
 export async function duplicateManual(me: Profile, id: string): Promise<boolean> {
   const m = (await db.from('handover_om_manuals').select('*').eq('id', id).maybeSingle()).data as Row | null;
@@ -71,7 +71,7 @@ export async function duplicateManual(me: Profile, id: string): Promise<boolean>
   return !(await db.from('handover_om_manuals').insert({ site_id: m.site_id, org_id: m.org_id, name: `${m.name || 'O&M Manual'} (copy)`, data: m.data, created_by: me.id, updated_by: me.id } as never)).error;
 }
 export async function deleteManual(id: string): Promise<boolean> {
-  return !(await db.from('handover_om_manuals').delete().eq('id', id)).error;
+  return !!(await db.from('handover_om_manuals').delete().eq('id', id).select('id')).data?.length;
 }
 
 export type OmAttach = { bucket?: string; path?: string; name: string; gen?: { kind: string; reportId?: string } };

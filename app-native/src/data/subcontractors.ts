@@ -8,6 +8,7 @@ import { useQuery } from '@tanstack/react-query';
 import { orThrow } from '@/lib/offlineCache';
 import { supabase } from '@/lib/supabase';
 import type { Profile, Site } from '@/lib/types';
+import { mustHit } from '@/lib/mustHit';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 type Asset = { uri: string; name: string; mimeType?: string | null };
@@ -50,11 +51,11 @@ export async function addSubco(me: Profile, site: Site, name: string): Promise<b
 }
 /** Only when its library profile isn't shared with another job (renaming would rename it everywhere). */
 export async function renameSubco(c: Subco, name: string) {
-  if ((await db.from('subcontractor_companies').update({ name } as never).eq('id', c.id)).error) return false;
+  if (!(await db.from('subcontractor_companies').update({ name } as never).eq('id', c.id).select('id')).data?.length) return false;
   if (c.master_company_id) await db.from('subcontractor_company_profiles').update({ name } as never).eq('id', c.master_company_id);
   return true;
 }
-export const deleteSubco = async (id: string) => !(await db.from('subcontractor_companies').delete().eq('id', id)).error;
+export const deleteSubco = async (id: string) => !!(await db.from('subcontractor_companies').delete().eq('id', id).select('id')).data?.length;
 
 export function useSubco(companyId: string | undefined, me: Profile | null) {
   return useQuery({
@@ -111,7 +112,7 @@ export async function addSubBriefing(me: Profile, siteId: string, companyId: str
   if (f) { path = await put('rams-docs', `${siteId}/subcontractor-briefings/${companyId}/${rid()}-${clean(f.name)}`, f); if (!path) return false; }
   return !(await db.from('subcontractor_briefings').insert({ subcontractor_company_id: companyId, site_id: siteId, title, storage_path: path, submitted_by: me.id } as never)).error;
 }
-export const deleteSubBriefing = async (id: string) => !(await db.from('subcontractor_briefings').delete().eq('id', id)).error;
+export const deleteSubBriefing = async (id: string) => !!(await db.from('subcontractor_briefings').delete().eq('id', id).select('id')).data?.length;
 
 /* Operatives: one subcontractor company per operative per job. */
 export function useSubOperatives(siteId: string | undefined, companyId: string | undefined) {
@@ -136,8 +137,8 @@ export function useSubOperatives(siteId: string | undefined, companyId: string |
 }
 export const allocateSubOp = async (me: Profile, siteId: string, companyId: string, userId: string, admin: boolean) =>
   !(await db.from('subcontractor_operatives').insert({ site_id: siteId, subcontractor_company_id: companyId, user_id: userId, assigned_by: me.id, is_admin: admin } as never)).error;
-export const setSubOpAdmin = async (id: string, admin: boolean) => !(await db.from('subcontractor_operatives').update({ is_admin: admin } as never).eq('id', id)).error;
-export const removeSubOp = async (id: string) => !(await db.from('subcontractor_operatives').delete().eq('id', id)).error;
+export const setSubOpAdmin = async (id: string, admin: boolean) => !!(await db.from('subcontractor_operatives').update({ is_admin: admin } as never).eq('id', id).select('id')).data?.length;
+export const removeSubOp = async (id: string) => !!(await db.from('subcontractor_operatives').delete().eq('id', id).select('id')).data?.length;
 
 /* Inspections: files kept exactly as chosen (never compressed); the PM is emailed each upload. */
 export function useSubInspections(companyId: string | undefined, folderId: string | null) {
@@ -156,7 +157,7 @@ export function useSubInspections(companyId: string | undefined, folderId: strin
 }
 export const addSubInspFolder = async (me: Profile, siteId: string, companyId: string, name: string) =>
   !(await db.from('subcontractor_inspection_folders').insert({ org_id: me.org_id, site_id: siteId, subcontractor_company_id: companyId, name, created_by: me.id } as never)).error;
-export const renameSubInspFolder = async (id: string, name: string) => !(await db.from('subcontractor_inspection_folders').update({ name } as never).eq('id', id)).error;
+export const renameSubInspFolder = async (id: string, name: string) => !!(await db.from('subcontractor_inspection_folders').update({ name } as never).eq('id', id).select('id')).data?.length;
 export async function addSubInspection(me: Profile, siteId: string, company: Subco, folderId: string | null, f: Asset): Promise<boolean> {
   const path = await put('mc-documents', `${siteId}/subcontractor-inspections/${company.id}/${rid()}-${clean(f.name)}`, f, 'application/octet-stream');
   if (!path) return false;
@@ -166,7 +167,7 @@ export async function addSubInspection(me: Profile, siteId: string, company: Sub
   return true;
 }
 export async function deleteSubInspection(id: string, path: string) {
-  const r = await db.from('subcontractor_inspections').delete().eq('id', id);
+  const r = mustHit(await db.from('subcontractor_inspections').delete().eq('id', id).select('id'));
   if (!r.error) void supabase.storage.from('mc-documents').remove([path]).catch(() => undefined);
   return !r.error;
 }

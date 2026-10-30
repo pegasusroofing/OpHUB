@@ -85,7 +85,7 @@ export default function FinDirectory() {
         if (x.vat_number) { patch.vat_number = x.vat_number; patch.vat_registered = true; }
         if (x.terms_type) { patch.terms_type = x.terms_type; patch.terms_days = x.terms_days; }
         const ex = saved.find((c) => c.xero_contact_id === x.id) || saved.find((c) => String(c.name).trim().toLowerCase() === String(x.name).trim().toLowerCase());
-        if (ex) { if (!(await fdb.from(tbl).update(patch as never).eq('id', ex.id)).error) linked++; }
+        if (ex) { if (!!(await fdb.from(tbl).update(patch as never).eq('id', ex.id).select('id')).data?.length) linked++; }
         else if (!(await fdb.from(tbl).insert({ ...patch, org_id: me.org_id, created_by: me.id } as never)).error) added++;
       }
       toast(`From Xero: ${added} added, ${linked} updated`); refresh();

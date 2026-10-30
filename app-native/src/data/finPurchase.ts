@@ -67,8 +67,8 @@ export async function poMaybeClose(poId: string): Promise<void> {
   } catch { /* the invoice is saved either way */ }
 }
 /** Change a saved purchase invoice's cost type (904 setFinPiCostCode). */
-export const setPinvCostCode = async (id: string, code: string) => !(await fdb.from('purchase_invoices').update({ cost_code: code } as never).eq('id', id)).error;
-export const setPinvPaid = async (id: string, date: string | null) => !(await fdb.from('purchase_invoices').update({ paid_on: date } as never).eq('id', id)).error;
+export const setPinvCostCode = async (id: string, code: string) => !!(await fdb.from('purchase_invoices').update({ cost_code: code } as never).eq('id', id).select('id')).data?.length;
+export const setPinvPaid = async (id: string, date: string | null) => !!(await fdb.from('purchase_invoices').update({ paid_on: date } as never).eq('id', id).select('id')).data?.length;
 export const isInXero = async (table: string, id: string) => !!(((await fdb.from(table).select('xero_id').eq('id', id).maybeSingle()).data as Row | null)?.xero_id);
 
 export async function loadPo(id: string) {
@@ -83,9 +83,9 @@ export async function loadPo(id: string) {
 export async function savePoValue(po: Row, v: number | null): Promise<boolean> {
   const patch: Row = { value: v === null ? null : round2(v) };
   if (po.vat != null) { const ratio = po.value ? Number(po.vat) / Number(po.value) : 0.2; patch.vat = v === null ? null : round2(v * ratio); patch.total = v === null ? null : round2(v + patch.vat); }
-  return !(await fdb.from('purchase_orders').update(patch as never).eq('id', po.id)).error;
+  return !!(await fdb.from('purchase_orders').update(patch as never).eq('id', po.id).select('id')).data?.length;
 }
-export const setPoStatus = async (id: string, status: string) => !(await fdb.from('purchase_orders').update({ status } as never).eq('id', id)).error;
+export const setPoStatus = async (id: string, status: string) => !!(await fdb.from('purchase_orders').update({ status } as never).eq('id', id).select('id')).data?.length;
 
 /* ---------- a PO's site requests (9219zr): cancel, reopen, remove lines ---------- */
 type PoRow = { id: string; number?: string | null; status?: string; items?: Record<string, any>[] | null; material_ids?: string[] | null; value?: number | null; vat?: number | null };
@@ -106,10 +106,10 @@ export async function setPoStatusWithRequests(me: Profile, id: string, status: '
     const was: Record<string, string> = {};
     if (ids.length) (((await fdb.from('materials').select('id,status').in('id', ids).neq('status', 'cancelled')).data as { id: string; status: string }[] | null) ?? []).forEach((m) => { if (REQ_STATUSES.includes(m.status)) was[m.id] = m.status; });
     const items = (po.items ?? []).map((l) => (l?.material_id && was[l.material_id] ? { ...l, was_status: was[l.material_id] } : l));
-    if ((await fdb.from('purchase_orders').update({ status, items } as never).eq('id', id)).error) return null;
+    if (!(await fdb.from('purchase_orders').update({ status, items } as never).eq('id', id).select('id')).data?.length) return null;
     return cancelRequests(me, ids, po.number);
   }
-  if ((await fdb.from('purchase_orders').update({ status } as never).eq('id', id)).error) return null;
+  if (!(await fdb.from('purchase_orders').update({ status } as never).eq('id', id).select('id')).data?.length) return null;
   if (!ids.length) return 0;
   const mine = (((await fdb.from('materials').select('id,cancel_reason').in('id', ids).eq('status', 'cancelled')).data as { id: string; cancel_reason: string | null }[] | null) ?? []).filter((m) => m.cancel_reason === cancelReason(po.number));
   const was: Record<string, string> = {}; (po.items ?? []).forEach((l) => { if (l?.material_id && REQ_STATUSES.includes(l.was_status)) was[l.material_id] = l.was_status; });
@@ -140,7 +140,7 @@ export async function removePoLines(me: Profile, id: string, idx: number[]): Pro
       patch.vat = r2(Math.max(0, Number(po.vat) - goneVat)); patch.total = r2((patch.value as number) + (patch.vat as number));
     }
   }
-  if ((await fdb.from('purchase_orders').update(patch as never).eq('id', id)).error) return { error: 'Could not save — try again.' };
+  if (!(await fdb.from('purchase_orders').update(patch as never).eq('id', id).select('id')).data?.length) return { error: 'Could not save — try again.' };
   return { removed: gone.length, cancelled: await cancelRequests(me, goneMats, po.number) };
 }
 

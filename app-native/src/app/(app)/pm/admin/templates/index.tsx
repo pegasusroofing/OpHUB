@@ -45,7 +45,7 @@ export default function Templates() {
             else if (k === 'dup') { toast((await db.from('report_templates').insert({ org_id: me.org_id, name: `${t.name} (Copy)`, description: t.description, sections: t.sections, created_by: me.id } as never)).error ? 'Could not duplicate — try again.' : 'Template duplicated'); refresh(); }
             else if (k === 'del') {
               if (!(await confirmAsk(`Delete template "${t.name}"? Reports already submitted from it are kept.`, 'Delete'))) return;
-              toast((await db.from('report_templates').delete().eq('id', t.id)).error ? 'Could not delete — try again.' : 'Template deleted'); refresh();
+              toast(!(await db.from('report_templates').delete().eq('id', t.id).select('id')).data?.length ? 'Could not delete — try again.' : 'Template deleted'); refresh();
             }
           }}><Text style={{ fontSize: 18, color: base.slate, paddingHorizontal: 4 }}>⋮</Text></Pressable>
         </Pressable>

@@ -76,10 +76,10 @@ export async function bookLeave(me: Profile, uid: string, b: { type: string; sta
   return { ok: true, pending: status === 'pending' };
 }
 export async function decideLeave(me: Profile, id: string, ok: boolean, overrode: boolean): Promise<boolean> {
-  return !(await db.from('hr_leave').update({ status: ok ? 'approved' : 'rejected', decided_by: me.id, decided_at: new Date().toISOString(), ...(ok && overrode ? { override_limit: true } : {}) } as never).eq('id', id)).error;
+  return !!(await db.from('hr_leave').update({ status: ok ? 'approved' : 'rejected', decided_by: me.id, decided_at: new Date().toISOString(), ...(ok && overrode ? { override_limit: true } : {}) } as never).eq('id', id).select('id')).data?.length;
 }
 export async function cancelLeave(id: string): Promise<boolean> {
-  return !(await db.from('hr_leave').update({ status: 'cancelled' } as never).eq('id', id)).error;
+  return !!(await db.from('hr_leave').update({ status: 'cancelled' } as never).eq('id', id).select('id')).data?.length;
 }
 export async function saveHrSettings(me: Profile, max: number, codes: Record<string, string>, people: { user_id: string; allowance_days: number; colour: string }[]): Promise<boolean> {
   const now = new Date().toISOString();
@@ -117,7 +117,7 @@ export async function uploadPolicies(me: Profile, files: { uri: string; name: st
 }
 /** Hides it from the list; signatures already collected stay on record. */
 export async function archivePolicy(id: string): Promise<boolean> {
-  return !(await db.from('company_policies').update({ archived: true } as never).eq('id', id)).error;
+  return !!(await db.from('company_policies').update({ archived: true } as never).eq('id', id).select('id')).data?.length;
 }
 export async function signPolicies(me: Profile & { signature_path?: string | null }, ids: string[]): Promise<number> {
   const at = new Date().toISOString();

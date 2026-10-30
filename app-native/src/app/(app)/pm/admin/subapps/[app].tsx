@@ -45,7 +45,7 @@ export default function SubApp() {
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['subApp', id] }); void qc.invalidateQueries({ queryKey: ['subApps'] }); };
   const decide = async (status: 'approved' | 'rejected') => {
     const note = await promptText(status === 'approved' ? 'Approve — add a note (optional)' : 'Reject — reason (optional)', ''); if (note === null) return;
-    toast((await db.from('subcontractor_applications').update({ status, reviewed_by: me.id, reviewed_at: new Date().toISOString(), review_note: note.trim() || null } as never).eq('id', r.id)).error ? 'Could not save — try again.' : status === 'approved' ? 'Approved' : 'Rejected');
+    toast(!(await db.from('subcontractor_applications').update({ status, reviewed_by: me.id, reviewed_at: new Date().toISOString(), review_note: note.trim() || null } as never).eq('id', r.id).select('id')).data?.length ? 'Could not save — try again.' : status === 'approved' ? 'Approved' : 'Rejected');
     refresh();
   };
   return (
@@ -90,7 +90,7 @@ export default function SubApp() {
       </View>
       {isFullManager(me) && <Button kind="ghost" title="🗑 Delete application" onPress={async () => {
         if (!(await confirmAsk("Delete this application? This can't be undone.", 'Delete'))) return;
-        if (!(await db.from('subcontractor_applications').delete().eq('id', r.id)).error) { toast('Deleted'); void qc.invalidateQueries({ queryKey: ['subApps'] }); router.back(); } else toast('Could not delete — try again.');
+        if (!!(await db.from('subcontractor_applications').delete().eq('id', r.id).select('id')).data?.length) { toast('Deleted'); void qc.invalidateQueries({ queryKey: ['subApps'] }); router.back(); } else toast('Could not delete — try again.');
       }} />}
     </ScrollView>
   );

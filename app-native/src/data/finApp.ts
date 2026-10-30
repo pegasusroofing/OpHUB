@@ -93,8 +93,8 @@ export function rowForSave(a: Row, jf: Row, previous: number) {
   const c = appCalc(a, jf.contract_value, jf.retention_limit_pct, previous);
   return { valuation_date: a.valuation_date || null, due_date: a.due_date || null, final_date: a.final_date || null, lines: c.lines, variations: c.variations.map((v: Row) => ({ ...v, description: String(v.description || '').trim() })), dayworks: c.dayworks, gross: c.gross, discount_pct: Number(a.discount_pct || 0), discount: c.discount, retention_pct: Number(a.retention_pct || 0), retention: c.retention, previous: c.previous, net_due: c.net_due, updated_at: new Date().toISOString() };
 }
-export const saveApplication = async (a: Row, jf: Row, previous: number) => !(await fdb.from('fin_applications').update(rowForSave(a, jf, previous) as never).eq('id', a.id)).error;
-export const setStatus = async (id: string, patch: Row) => !(await fdb.from('fin_applications').update({ ...patch, updated_at: new Date().toISOString() } as never).eq('id', id)).error;
+export const saveApplication = async (a: Row, jf: Row, previous: number) => !!(await fdb.from('fin_applications').update(rowForSave(a, jf, previous) as never).eq('id', a.id).select('id')).data?.length;
+export const setStatus = async (id: string, patch: Row) => !!(await fdb.from('fin_applications').update({ ...patch, updated_at: new Date().toISOString() } as never).eq('id', id).select('id')).data?.length;
 export const deleteApplication = async (id: string) => !(await fdb.from('fin_applications').delete().eq('id', id).eq('status', 'draft')).error;
 export async function saveCertificate(me: Profile, a: Row, v: Row, file?: { uri: string; name: string; mimeType?: string | null } | null): Promise<string | null> {
   const row: Row = { cert_gross: round2(v.cert_gross), cert_retention: round2(v.cert_retention), cert_previous: round2(v.cert_previous), cert_discount: round2(v.cert_discount || 0), cert_net: round2(v.cert_net), cert_date: v.cert_date || today(), cert_is_payless: !!v.cert_is_payless, cert_notes: v.cert_notes || null, status: 'certified', updated_at: new Date().toISOString(), ...(v.cert_lines ? { cert_lines: v.cert_lines } : {}) };
@@ -103,7 +103,7 @@ export async function saveCertificate(me: Profile, a: Row, v: Row, file?: { uri:
     const up = await supabase.storage.from('finance-docs').upload(`${me.org_id}/${a.site_id}/certificates/${rid}-${file.name.replace(/[^a-z0-9.-]+/gi, '_').slice(-80)}`, await (await fetch(file.uri)).arrayBuffer(), { contentType: file.mimeType || 'application/octet-stream' });
     if (!up.error) { row.cert_file_path = up.data.path; row.cert_file_name = file.name; }
   }
-  return (await fdb.from('fin_applications').update(row as never).eq('id', a.id)).error ? 'Could not save the certificate.' : null;
+  return !(await fdb.from('fin_applications').update(row as never).eq('id', a.id).select('id')).data?.length ? 'Could not save the certificate.' : null;
 }
 export const clearCertificate = (id: string) => setStatus(id, { cert_net: null, cert_gross: null, cert_retention: null, cert_previous: null, cert_discount: null, cert_lines: null, status: 'submitted' });
 /** The invoice for a certificate: its lines ARE the certificate breakdown. Issued straight away when asked. */
@@ -257,7 +257,7 @@ export async function deleteApplicationAny(a: Row): Promise<string | null> {
   if (a.invoice_id) return 'This application has an invoice — void the invoice first, then delete it.';
   const later = (await rows(fdb.from('fin_applications').select('id,number,status').eq('site_id', a.site_id).gt('number', a.number))).filter((x) => x.status !== 'void');
   if (later.length) return `Delete the later application${later.length > 1 ? 's' : ''} first (No. ${later.map((x) => x.number).sort((p, q) => q - p).join(', ')}) — each one builds on the last.`;
-  return (await fdb.from('fin_applications').delete().eq('id', a.id)).error ? 'Could not delete — try again.' : null;
+  return !(await fdb.from('fin_applications').delete().eq('id', a.id).select('id')).data?.length ? 'Could not delete — try again.' : null;
 }
 
 /** Each Bill of Quantities line's progress on site (918 finSiteProgress): the average of the operatives'

@@ -95,5 +95,5 @@ export async function sendExpenses(body: Record<string, unknown>): Promise<{ ok:
 }
 
 export async function deleteExpense(id: string): Promise<boolean> {
-  return !(await db.from('expenses').delete().eq('id', id)).error;
+  return !!(await db.from('expenses').delete().eq('id', id).select('id')).data?.length;
 }

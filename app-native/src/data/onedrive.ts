@@ -47,20 +47,20 @@ export async function listFolders(at: OdFolder | null): Promise<{ folders: OdFol
 /** Links the chosen folder to whatever the picker was opened for. */
 export async function linkFolder(target: OdTarget, id: string, f: { id: string; name: string; driveId?: string | null }): Promise<boolean> {
   const d = f.driveId || null;
-  if (target === 'repairjob') return !(await db.from('repair_jobs').update({ onedrive_folder_id: f.id, onedrive_folder_name: f.name, onedrive_drive_id: d } as never).eq('id', id)).error;
-  if (target === 'operative') return !(await db.from('profiles').update({ onedrive_folder_id: f.id, onedrive_folder_name: f.name, onedrive_drive_id: d, onedrive_last_synced_at: null } as never).eq('id', id)).error;
+  if (target === 'repairjob') return !!(await db.from('repair_jobs').update({ onedrive_folder_id: f.id, onedrive_folder_name: f.name, onedrive_drive_id: d } as never).eq('id', id).select('id')).data?.length;
+  if (target === 'operative') return !!(await db.from('profiles').update({ onedrive_folder_id: f.id, onedrive_folder_name: f.name, onedrive_drive_id: d, onedrive_last_synced_at: null } as never).eq('id', id).select('id')).data?.length;
   const patch = target === 'materials' ? { material_orders_folder_id: f.id, material_orders_folder_name: f.name, material_orders_drive_id: d }
     : target === 'siteinductions' ? { site_inductions_folder_id: f.id, site_inductions_folder_name: f.name, site_inductions_drive_id: d }
     : { onedrive_folder_id: f.id, onedrive_folder_name: f.name, onedrive_drive_id: d };
-  return !(await db.from('sites').update(patch as never).eq('id', id)).error;
+  return !!(await db.from('sites').update(patch as never).eq('id', id).select('id')).data?.length;
 }
 export async function unlinkFolder(target: OdTarget, id: string): Promise<boolean> {
-  if (target === 'operative') return !(await db.from('profiles').update({ onedrive_folder_id: null, onedrive_folder_name: null, onedrive_drive_id: null } as never).eq('id', id)).error;
-  if (target === 'repairjob') return !(await db.from('repair_jobs').update({ onedrive_folder_id: null, onedrive_folder_name: null, onedrive_drive_id: null } as never).eq('id', id)).error;
+  if (target === 'operative') return !!(await db.from('profiles').update({ onedrive_folder_id: null, onedrive_folder_name: null, onedrive_drive_id: null } as never).eq('id', id).select('id')).data?.length;
+  if (target === 'repairjob') return !!(await db.from('repair_jobs').update({ onedrive_folder_id: null, onedrive_folder_name: null, onedrive_drive_id: null } as never).eq('id', id).select('id')).data?.length;
   const patch = target === 'materials' ? { material_orders_folder_id: null, material_orders_folder_name: null, material_orders_drive_id: null }
     : target === 'siteinductions' ? { site_inductions_folder_id: null, site_inductions_folder_name: null, site_inductions_drive_id: null }
     : { onedrive_folder_id: null, onedrive_folder_name: null, onedrive_drive_id: null };
-  return !(await db.from('sites').update(patch as never).eq('id', id)).error;
+  return !!(await db.from('sites').update(patch as never).eq('id', id).select('id')).data?.length;
 }
 export type QuickLink = { id: string; name: string; driveId: string | null };
 export async function loadQuickLinks(orgId: string): Promise<QuickLink[]> {
@@ -68,7 +68,7 @@ export async function loadQuickLinks(orgId: string): Promise<QuickLink[]> {
 }
 export const useQuickLinks = (orgId: string | null | undefined) => useQuery({ queryKey: ['odQuick', orgId], enabled: !!orgId, queryFn: () => loadQuickLinks(orgId as string) });
 export async function setQuickLinks(orgId: string, next: QuickLink[]): Promise<boolean> {
-  return !(await db.from('organizations').update({ onedrive_pinned_folders: next } as never).eq('id', orgId)).error;
+  return !!(await db.from('organizations').update({ onedrive_pinned_folders: next } as never).eq('id', orgId).select('id')).data?.length;
 }
 export type OdSite = { id: string; name: string; onedrive_folder_id: string | null; onedrive_folder_name: string | null; material_orders_folder_id: string | null; material_orders_folder_name: string | null; site_inductions_folder_id: string | null; site_inductions_folder_name: string | null; onedrive_last_synced_at: string | null };
 export const useOdSites = (orgId: string | null | undefined) => useQuery({ queryKey: ['odSites', orgId], enabled: !!orgId, queryFn: async () => ((await db.from('sites').select('id,name,onedrive_folder_id,onedrive_folder_name,material_orders_folder_id,material_orders_folder_name,site_inductions_folder_id,site_inductions_folder_name,onedrive_last_synced_at').eq('org_id', orgId as string).order('name')).data as OdSite[] | null) ?? [] });

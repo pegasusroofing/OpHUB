@@ -132,7 +132,7 @@ function Statement({ id }: { id: string }) {
   if (!data) return <FinPage title="Statement" section="purchases"><Muted>Statement not found.</Muted></FinPage>;
   const { s, cands } = data;
   const lines = (s.lines || []) as SLine[];
-  const save = async (patch: Row) => { if ((await fdb.from('fin_statements').update({ ...patch, updated_at: new Date().toISOString() } as never).eq('id', id)).error) { toast('Could not save — try again.'); return false; } void qc.invalidateQueries({ queryKey: ['finStmt'] }); void qc.invalidateQueries({ queryKey: ['finStmts'] }); return true; };
+  const save = async (patch: Row) => { if (!(await fdb.from('fin_statements').update({ ...patch, updated_at: new Date().toISOString() } as never).eq('id', id).select('id')).data?.length) { toast('Could not save — try again.'); return false; } void qc.invalidateQueries({ queryKey: ['finStmt'] }); void qc.invalidateQueries({ queryKey: ['finStmts'] }); return true; };
   const setLine = (lid: string, p: Partial<SLine>) => save({ lines: lines.map((l) => (l.id === lid ? { ...l, ...p } : l)) });
   const used = new Set(lines.map((l) => l.match).filter(Boolean));
   const notOnStmt = cands.filter((c) => !used.has(c.id) && c.status !== 'paid' && (!s.statement_date || !c.date || c.date <= s.statement_date));

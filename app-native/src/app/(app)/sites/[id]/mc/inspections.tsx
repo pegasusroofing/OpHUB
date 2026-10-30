@@ -48,7 +48,7 @@ export default function McInspections() {
               <Button small kind="ghost" title="Edit" onPress={() => router.push(`/pm/admin/templates/${t.id}` as never)} />
               <Button small kind="ghost" title="Delete" onPress={async () => {
                 if (!(await confirmAsk(`Delete template "${t.name}"? Inspections already done from it are kept.`, 'Delete'))) return;
-                if ((await supabase.from('report_templates').delete().eq('id', t.id)).error) toast('Could not delete — try again.');
+                if (!(await supabase.from('report_templates').delete().eq('id', t.id).select('id')).data?.length) toast('Could not delete — try again.');
                 void qc.invalidateQueries({ queryKey: ['mcInspections', id] });
               }} />
             </View>

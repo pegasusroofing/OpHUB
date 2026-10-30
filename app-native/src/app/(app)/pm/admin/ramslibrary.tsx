@@ -132,7 +132,7 @@ function CompanyForm({ me, data, orgName, toast }: { me: { org_id: string | null
       </View>
       <Button title="Save company details" onPress={async () => {
         const next = { ...(data || {}), address: st.address, phone: st.phone, dataProtection: st.dataProtection, ...(st.nextRa > 0 ? { nextRa: Math.floor(st.nextRa) } : {}), ...(st.nextMs > 0 ? { nextMs: Math.floor(st.nextMs) } : {}) };
-        toast((await db.from('organizations').update({ rams_settings: next } as never).eq('id', me.org_id as string)).error ? 'Could not save — admins only' : 'Saved');
+        toast(!(await db.from('organizations').update({ rams_settings: next } as never).eq('id', me.org_id as string).select('id')).data?.length ? 'Could not save — admins only' : 'Saved');
       }} />
     </View>
   );
@@ -163,13 +163,13 @@ export default function RamsLibrary() {
     : sortBy === 'used' ? ofTab.slice().sort((a, b) => (countUses(b).jobs - countUses(a).jobs) || (countUses(b).tpls - countUses(a).tpls) || a.title.localeCompare(b.title)) : ofTab;
   const shown = items.filter((i) => !q.trim() || i.title.toLowerCase().includes(q.trim().toLowerCase()));
   const save = async (it: LibItem, title: string, data: Record<string, unknown>) => {
-    if ((await db.from('rams_library_items').update({ title, data, updated_at: new Date().toISOString() } as never).eq('id', it.id)).error) { toast('Could not save — try again.'); return; }
+    if (!(await db.from('rams_library_items').update({ title, data, updated_at: new Date().toISOString() } as never).eq('id', it.id).select('id')).data?.length) { toast('Could not save — try again.'); return; }
     let changed = 0, failed = 0;
     if (title !== it.title && (it.kind === 'hazard' || it.kind === 'section')) {
       for (const tp of lib.filter((x) => x.kind === 'template')) {
         const d2 = renameInTemplate(tp.data || {}, it.kind === 'hazard' ? 'hazards' : 'sections', it.title, title);
         if (!d2) continue;
-        if ((await db.from('rams_library_items').update({ data: d2, updated_at: new Date().toISOString() } as never).eq('id', tp.id)).error) failed++; else changed++;
+        if (!(await db.from('rams_library_items').update({ data: d2, updated_at: new Date().toISOString() } as never).eq('id', tp.id).select('id')).data?.length) failed++; else changed++;
       }
     }
     setEditId(null); refresh();

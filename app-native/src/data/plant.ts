@@ -76,15 +76,15 @@ export async function signOffCheckin(me: Me, c: Checkout): Promise<string> {
   await db.from('plant_items').update({ current_status: 'available' } as never).eq('id', c.plant_item_id);
   return 'Check-in signed off';
 }
-export const declineCheckout = async (id: string) => !(await db.from('plant_checkouts').update({ checkout_status: 'declined' } as never).eq('id', id)).error;
-export const declineCheckin = async (id: string) => !(await db.from('plant_checkouts').update({ checkin_status: 'declined' } as never).eq('id', id)).error;
-export const setOutOfService = async (id: string, out: boolean) => !(await db.from('plant_items').update({ current_status: out ? 'out_of_service' : 'available' } as never).eq('id', id)).error;
-export const removePlant = async (id: string) => !(await db.from('plant_items').delete().eq('id', id)).error;
+export const declineCheckout = async (id: string) => !!(await db.from('plant_checkouts').update({ checkout_status: 'declined' } as never).eq('id', id).select('id')).data?.length;
+export const declineCheckin = async (id: string) => !!(await db.from('plant_checkouts').update({ checkin_status: 'declined' } as never).eq('id', id).select('id')).data?.length;
+export const setOutOfService = async (id: string, out: boolean) => !!(await db.from('plant_items').update({ current_status: out ? 'out_of_service' : 'available' } as never).eq('id', id).select('id')).data?.length;
+export const removePlant = async (id: string) => !!(await db.from('plant_items').delete().eq('id', id).select('id')).data?.length;
 
 export async function bringHere(me: Profile, siteId: string, item: PlantItem): Promise<string> {
   const cur = ((await db.from('plant_items').select('current_status,current_site_id').eq('id', item.id).limit(1)).data as { current_status: string; current_site_id: string | null }[] | null)?.[0];
   if (!cur) return 'Item not found';
   if (cur.current_status !== 'available') return "This item is currently checked out or out of service — it can't be transferred right now.";
   await db.from('plant_transfers').insert({ org_id: me.org_id, plant_item_id: item.id, from_site_id: cur.current_site_id, to_site_id: siteId, transferred_by: me.id } as never);
-  return (await db.from('plant_items').update({ current_site_id: siteId } as never).eq('id', item.id)).error ? 'Could not save — try again.' : 'Item transferred here';
+  return !(await db.from('plant_items').update({ current_site_id: siteId } as never).eq('id', item.id).select('id')).data?.length ? 'Could not save — try again.' : 'Item transferred here';
 }

@@ -70,7 +70,7 @@ export async function briefingTemplate(orgId: string) {
   return ((r.data as Template[] | null) ?? [])[0] ?? null;
 }
 export async function issueBriefing(me: Profile, subId: string) {
-  return !(await db.from('report_submissions').update({ issued_at: new Date().toISOString(), issued_by: me.id } as never).eq('id', subId)).error;
+  return !!(await db.from('report_submissions').update({ issued_at: new Date().toISOString(), issued_by: me.id } as never).eq('id', subId).select('id')).data?.length;
 }
 /** Admins can remove a briefing that was started but never completed. */
 /** An unfinished briefing deleted by an admin, written to the job's Activity History (700 deleteBriefingSubmission). */

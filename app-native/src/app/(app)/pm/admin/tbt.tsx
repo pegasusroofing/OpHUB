@@ -44,7 +44,7 @@ export default function TbtTemplates() {
           </Pressable>
           <Pressable hitSlop={8} onPress={async () => {
             if (!(await confirmAsk('Remove this template? Sites already created keep their copy — this only affects sites created from now on.', 'Remove'))) return;
-            toast((await db.from('tbt_templates').delete().eq('id', t.id)).error ? 'Could not remove — try again.' : 'Template removed'); refresh();
+            toast(!(await db.from('tbt_templates').delete().eq('id', t.id).select('id')).data?.length ? 'Could not remove — try again.' : 'Template removed'); refresh();
           }}><Text>🗑</Text></Pressable>
         </Card>
       )) : <Empty>No templates yet — anything you upload here will be pre-loaded into every future site&apos;s Bank TBT.</Empty>}

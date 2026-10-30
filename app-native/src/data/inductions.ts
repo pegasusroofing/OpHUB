@@ -150,7 +150,7 @@ export async function submitInduction(me: Profile & { signature_path?: string | 
   return null;
 }
 
-export const deleteCompletion = async (id: string) => !(await db.from('site_induction_completions').delete().eq('id', id)).error;
+export const deleteCompletion = async (id: string) => !!(await db.from('site_induction_completions').delete().eq('id', id).select('id')).data?.length;
 export async function setInductionQuestions(orgId: string, list: string[]) {
-  return !(await db.from('organizations').update({ site_induction_questions: list } as never).eq('id', orgId)).error;
+  return !!(await db.from('organizations').update({ site_induction_questions: list } as never).eq('id', orgId).select('id')).data?.length;
 }

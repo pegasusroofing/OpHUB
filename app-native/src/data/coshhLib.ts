@@ -42,7 +42,7 @@ export async function newProduct(me: Me, name: string): Promise<string | null> {
 }
 export async function saveProduct(it: CoshhItem): Promise<boolean> {
   const data = { ...it.data }; delete data.needsCheck;
-  return !(await db.from('rams_library_items').update({ title: it.title.trim(), data, updated_at: now() } as never).eq('id', it.id)).error;
+  return !!(await db.from('rams_library_items').update({ title: it.title.trim(), data, updated_at: now() } as never).eq('id', it.id).select('id')).data?.length;
 }
 /** Uploads a Safety Data Sheet for a product (attached to the back of its assessments). */
 export async function uploadSds(me: Me, a: Asset): Promise<string | null> {
@@ -54,7 +54,7 @@ export async function uploadSds(me: Me, a: Asset): Promise<string | null> {
 /** Removes extra copies of the same product (the first is kept) and tidies manufacturer names. */
 export async function removeDuplicates(lib: CoshhItem[]): Promise<number> {
   const extra = duplicates(lib); let n = 0;
-  for (const it of extra) if (!(await db.from('rams_library_items').delete().eq('id', it.id)).error) n++;
+  for (const it of extra) if (!!(await db.from('rams_library_items').delete().eq('id', it.id).select('id')).data?.length) n++;
   for (const it of lib.filter((x) => !extra.includes(x))) {
     const m = cleanMaker(it.data.manufacturer);
     if (m !== it.data.manufacturer) await db.from('rams_library_items').update({ data: { ...it.data, manufacturer: m } } as never).eq('id', it.id);
@@ -82,9 +82,9 @@ export async function createFolder(me: Me, parentId: string | null, name: string
   const r = await db.from('coshh_library_folders').insert({ org_id: me.org_id, parent_id: parentId, name, created_by: me.id } as never).select('id').single();
   return (r.data as { id: string } | null)?.id ?? null;
 }
-export const renameFolder = async (id: string, name: string) => !(await db.from('coshh_library_folders').update({ name } as never).eq('id', id)).error;
-export const deleteFolder = async (id: string) => !(await db.from('coshh_library_folders').delete().eq('id', id)).error;
-export const renameFile = async (id: string, name: string) => !(await db.from('coshh_library_files').update({ name } as never).eq('id', id)).error;
+export const renameFolder = async (id: string, name: string) => !!(await db.from('coshh_library_folders').update({ name } as never).eq('id', id).select('id')).data?.length;
+export const deleteFolder = async (id: string) => !!(await db.from('coshh_library_folders').delete().eq('id', id).select('id')).data?.length;
+export const renameFile = async (id: string, name: string) => !!(await db.from('coshh_library_files').update({ name } as never).eq('id', id).select('id')).data?.length;
 /** 820 coshhLibWipe: every folder and document in the company's assessment library (products stay;
  *  jobs keep the COSHH already added to them). Deepest folders go first so parents are empty. */
 export async function wipeLibrary(orgId: string): Promise<boolean> {
@@ -93,16 +93,16 @@ export async function wipeLibrary(orgId: string): Promise<boolean> {
   const files = (fr.data as { id: string; storage_path: string }[] | null) ?? [], folders = (dr.data as { id: string; parent_id: string | null }[] | null) ?? [];
   let ok = true;
   for (const f of files) {
-    if ((await db.from('coshh_library_files').delete().eq('id', f.id)).error) { ok = false; continue; }
+    if (!(await db.from('coshh_library_files').delete().eq('id', f.id).select('id')).data?.length) { ok = false; continue; }
     try { await supabase.storage.from('coshh-library').remove([f.storage_path]); } catch { /* non-fatal */ }
   }
   const depth = (id: string) => { let d = 0, cur = folders.find((x) => x.id === id); while (cur?.parent_id && d < 20) { d++; const p = cur.parent_id; cur = folders.find((x) => x.id === p); } return d; };
-  for (const f of [...folders].sort((a, b) => depth(b.id) - depth(a.id))) if ((await db.from('coshh_library_folders').delete().eq('id', f.id)).error) ok = false;
+  for (const f of [...folders].sort((a, b) => depth(b.id) - depth(a.id))) if (!(await db.from('coshh_library_folders').delete().eq('id', f.id).select('id')).data?.length) ok = false;
   return ok;
 }
 /** Deletes a library entry; the PDF itself goes only once no folder lists it any more. */
 export async function deleteFile(f: { id: string; storage_path: string }): Promise<boolean> {
-  if ((await db.from('coshh_library_files').delete().eq('id', f.id)).error) return false;
+  if (!(await db.from('coshh_library_files').delete().eq('id', f.id).select('id')).data?.length) return false;
   try {
     const still = (await db.from('coshh_library_files').select('id').eq('storage_path', f.storage_path).limit(1)).data as unknown[] | null;
     if (!still?.length) await supabase.storage.from('coshh-library').remove([f.storage_path]);
@@ -123,7 +123,7 @@ export async function uploadFiles(me: Me, folderId: string | null, assets: Asset
   return n;
 }
 export async function moveFiles(ids: string[], dest: string | null): Promise<number> {
-  let n = 0; for (const id of ids) if (!(await db.from('coshh_library_files').update({ folder_id: dest } as never).eq('id', id)).error) n++;
+  let n = 0; for (const id of ids) if (!!(await db.from('coshh_library_files').update({ folder_id: dest } as never).eq('id', id).select('id')).data?.length) n++;
   return n;
 }
 /** Lists the ticked assessments in more folders too (same PDF, an entry in each). */
@@ -190,7 +190,7 @@ export async function saveAssessment(me: Me, org: Org, it: CoshhItem, folderIds:
   if (up.error) return false;
   const stored = up.data.path, ids: string[] = [];
   if (olds.length) {
-    for (const o of olds) if (!(await db.from('coshh_library_files').update({ name: fileName, storage_path: stored, uploaded_by: me.id, uploaded_at: now() } as never).eq('id', o.id)).error) ids.push(o.id);
+    for (const o of olds) if (!!(await db.from('coshh_library_files').update({ name: fileName, storage_path: stored, uploaded_by: me.id, uploaded_at: now() } as never).eq('id', o.id).select('id')).data?.length) ids.push(o.id);
     if (!ids.length) return false;
     const gone = Array.from(new Set(olds.map((o) => o.storage_path).filter((x) => x && x !== stored)));
     if (gone.length) void supabase.storage.from('coshh-library').remove(gone);
@@ -212,7 +212,7 @@ export async function deleteProductFull(it: CoshhItem, a: Assessed | undefined):
     const paths = Array.from(new Set(a.files.map((f) => f.storage_path)));
     if (paths.length) void supabase.storage.from('coshh-library').remove(paths);
   }
-  return !(await db.from('rams_library_items').delete().eq('id', it.id)).error;
+  return !!(await db.from('rams_library_items').delete().eq('id', it.id).select('id')).data?.length;
 }
 
 // ---------- onto a job ----------

@@ -56,7 +56,7 @@ export default function Branding() {
               try {
                 const up = await supabase.storage.from('org-logos').upload(`${me.org_id}/logo-${Date.now()}.jpg`, await (await fetch(logo)).arrayBuffer(), { contentType: 'image/jpeg' });
                 if (up.error) { toast('Logo upload failed — try again.'); return; }
-                if ((await db.from('organizations').update({ logo_path: up.data.path } as never).eq('id', org.id)).error) { toast('Could not save — try again.'); return; }
+                if (!(await db.from('organizations').update({ logo_path: up.data.path } as never).eq('id', org.id).select('id')).data?.length) { toast('Could not save — try again.'); return; }
                 await refresh(); setLogo(null); toast('Logo updated');
               } catch { toast('Something went wrong saving that — check your connection and try again.'); } finally { setBusy(null); }
             }} /></View>
@@ -80,7 +80,7 @@ export default function Branding() {
           <View style={{ flex: 1 }}><Button busy={busy === 'theme'} title="Save Theme" onPress={async () => {
             if (!HEX.test(c1.trim()) || !HEX.test(c2.trim())) { toast('Enter both colours as a code like #4E8FD1.'); return; }
             setBusy('theme');
-            const ok = !(await db.from('organizations').update({ color_primary: c1.trim(), color_secondary: c2.trim() } as never).eq('id', org.id)).error;
+            const ok = !!(await db.from('organizations').update({ color_primary: c1.trim(), color_secondary: c2.trim() } as never).eq('id', org.id).select('id')).data?.length;
             setBusy(null);
             if (!ok) { toast('Could not save theme — try again.'); return; }
             await refresh(); toast('Company theme saved.');
@@ -88,7 +88,7 @@ export default function Branding() {
           <View style={{ flex: 1 }}><Button kind="ghost" title="Reset to default" onPress={async () => {
             if (!(await confirmAsk('Reset the company colours to the OpHUB defaults?', 'Reset'))) return;
             setBusy('theme');
-            const ok = !(await db.from('organizations').update({ color_primary: null, color_secondary: null } as never).eq('id', org.id)).error;
+            const ok = !!(await db.from('organizations').update({ color_primary: null, color_secondary: null } as never).eq('id', org.id).select('id')).data?.length;
             setBusy(null);
             if (!ok) { toast('Could not reset theme — try again.'); return; }
             setC1(DEFAULT_BRAND1); setC2(DEFAULT_BRAND2); await refresh(); toast('Company theme reset to default.');

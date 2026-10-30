@@ -45,7 +45,7 @@ export function useDeliveryRequests(orgId: string | null | undefined) {
   });
 }
 export async function dismissRequest(id: string): Promise<boolean> {
-  return !(await db.from('delivery_requests').update({ status: 'dismissed', updated_at: new Date().toISOString() } as never).eq('id', id)).error;
+  return !!(await db.from('delivery_requests').update({ status: 'dismissed', updated_at: new Date().toISOString() } as never).eq('id', id).select('id')).data?.length;
 }
 
 /** ▲/▼ on the schedule. Returns a message to show, or null when moved. */
@@ -57,7 +57,7 @@ export async function moveToSlot(me: Profile, t: FullDelivery, toSlot: string, s
   if (why) return why;
   const patch: Record<string, unknown> = { time_slot: toSlot, sub_priority: 999 };
   if (t.high_priority && toSlot !== DELIVERY_TIME_SLOTS[0].key) patch.high_priority = false;
-  if ((await db.from('delivery_tasks').update(patch as never).eq('id', t.id)).error) return 'Could not save — try again.';
+  if (!(await db.from('delivery_tasks').update(patch as never).eq('id', t.id).select('id')).data?.length) return 'Could not save — try again.';
   await resequenceSlot(org, t.scheduled_date, t.time_slot);
   await resequenceSlot(org, t.scheduled_date, toSlot);
   return null;
@@ -158,7 +158,7 @@ export async function saveDelivery(me: Profile, d: Draft, orig: Orig, sites: Sit
   };
   let savedId = d.id;
   if (d.id) {
-    if ((await db.from('delivery_tasks').update(payload as never).eq('id', d.id)).error) return { ok: false, msg: 'Could not save — check your connection and try again.' };
+    if (!(await db.from('delivery_tasks').update(payload as never).eq('id', d.id).select('id')).data?.length) return { ok: false, msg: 'Could not save — check your connection and try again.' };
   } else {
     const r = await db.from('delivery_tasks').insert({ ...payload, created_by: me.id } as never).select('id').single();
     if (r.error || !r.data) return { ok: false, msg: 'Could not save — check your connection and try again.' };
@@ -194,7 +194,7 @@ export async function saveDelivery(me: Profile, d: Draft, orig: Orig, sites: Sit
 }
 
 export async function deleteDelivery(me: Profile, t: FullDelivery): Promise<boolean> {
-  if ((await db.from('delivery_tasks').delete().eq('id', t.id)).error) return false;
+  if (!(await db.from('delivery_tasks').delete().eq('id', t.id).select('id')).data?.length) return false;
   try {
     await resequenceSlot(me.org_id as string, t.scheduled_date, t.time_slot);
     if (t.calendar_event_id) await db.from('site_calendar_events').delete().eq('id', t.calendar_event_id);

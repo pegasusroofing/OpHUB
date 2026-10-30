@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase';
 import type { Profile, Site } from '@/lib/types';
 
 import type { Tbt } from './hs';
+import { mustHit } from '@/lib/mustHit';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 type Me = Profile & { signature_path?: string | null };
@@ -30,7 +31,7 @@ export async function replaceTbtFile(siteId: string, tbtId: string, file: { uri:
   try {
     const up = await supabase.storage.from('rams-docs').upload(`${siteId}/tbt/${rid}-${file.name.replace(/[^a-z0-9.\-]+/gi, '_')}`, await (await fetch(file.uri)).arrayBuffer(), { contentType: 'application/pdf' });
     if (up.error) return false;
-    return !(await db.from('toolbox_talks').update({ storage_path: up.data.path } as never).eq('id', tbtId)).error;
+    return !!(await db.from('toolbox_talks').update({ storage_path: up.data.path } as never).eq('id', tbtId).select('id')).data?.length;
   } catch { return false; }
 }
 
@@ -63,7 +64,7 @@ export async function issueTbt(me: Me, siteId: string, talk: Tbt): Promise<{ id:
     const id = (r.data as { id: string } | null)?.id;
     if (!id) return { id: null, msg: 'Could not issue — try again.' };
     liveId = id;
-  } else if ((await db.from('toolbox_talks').update({ status: 'live' } as never).eq('id', talk.id)).error) return { id: null, msg: 'Could not issue — try again.' };
+  } else if (!(await db.from('toolbox_talks').update({ status: 'live' } as never).eq('id', talk.id).select('id')).data?.length) return { id: null, msg: 'Could not issue — try again.' };
   const signed = await autoSignIssuer(me, liveId);
   tellOperatives(me, siteId, talk.title);
   return { id: liveId, msg: `Issued for signing${signed ? ' and signed by you' : ''}${talk.status === 'bank' ? ' — original kept in Bank TBT for reuse' : ''}${!me.signature_path ? '. Adopt your signature to have it signed automatically next time.' : ''}` };
@@ -83,12 +84,12 @@ export async function issueTbtCompanyWide(me: Me, talk: Tbt, sites: Site[]): Pro
   return `Issued for signing at ${n} live site${n === 1 ? '' : 's'} — original kept in Bank TBT`;
 }
 
-export const renameTbt = async (id: string, title: string) => !(await db.from('toolbox_talks').update({ title } as never).eq('id', id)).error;
-export const completeTbt = async (id: string) => !(await db.from('toolbox_talks').update({ status: 'completed' } as never).eq('id', id)).error;
+export const renameTbt = async (id: string, title: string) => !!(await db.from('toolbox_talks').update({ title } as never).eq('id', id).select('id')).data?.length;
+export const completeTbt = async (id: string) => !!(await db.from('toolbox_talks').update({ status: 'completed' } as never).eq('id', id).select('id')).data?.length;
 
 /** The same file can be shared by bank, live and other jobs' copies — only remove it when nothing uses it. */
 export async function deleteTbt(me: Profile, siteId: string, talk: Tbt): Promise<boolean> {
-  const r = await db.from('toolbox_talks').delete().eq('id', talk.id);
+  const r = mustHit(await db.from('toolbox_talks').delete().eq('id', talk.id).select('id'));
   if (r.error) return false;
   if (me.org_id) void db.from('site_activity_log').insert({ site_id: siteId, org_id: me.org_id, actor_id: me.id, action: 'toolbox_talk_deleted', description: `Deleted toolbox talk "${talk.title || ''}"` } as never).then(undefined, () => undefined);
   try {

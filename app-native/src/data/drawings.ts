@@ -8,6 +8,7 @@ import { publicUrl, resolveStorageUrl } from '@/lib/privateFiles';
 import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/lib/types';
 import { invokeAsUser } from '@/lib/userFunctions';
+import { mustHit } from '@/lib/mustHit';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 
@@ -52,9 +53,9 @@ function log(me: Profile, siteId: string, action: string, description: string) {
 export async function createFolder(me: Profile, siteId: string, parentId: string | null, name: string) {
   return !(await db.from('drawing_folders').insert({ site_id: siteId, parent_id: parentId, name, created_by: me.id } as never)).error;
 }
-export async function renameFolder(id: string, name: string) { return !(await db.from('drawing_folders').update({ name } as never).eq('id', id)).error; }
+export async function renameFolder(id: string, name: string) { return !!(await db.from('drawing_folders').update({ name } as never).eq('id', id).select('id')).data?.length; }
 export async function deleteFolder(me: Profile, f: DFolder) {
-  const r = await db.from('drawing_folders').delete().eq('id', f.id);
+  const r = mustHit(await db.from('drawing_folders').delete().eq('id', f.id).select('id'));
   if (!r.error) log(me, f.site_id, 'drawing_folder_deleted', `Deleted drawings folder "${f.name || ''}"`);
   return !r.error;
 }
@@ -104,9 +105,9 @@ export async function uploadFiles(me: Profile, siteId: string, folderId: string 
   return { uploaded, last };
 }
 
-export async function renameFile(id: string, name: string) { return !(await db.from('drawing_files').update({ name } as never).eq('id', id)).error; }
+export async function renameFile(id: string, name: string) { return !!(await db.from('drawing_files').update({ name } as never).eq('id', id).select('id')).data?.length; }
 export async function deleteFile(me: Profile, f: DFile) {
-  const r = await db.from('drawing_files').delete().eq('id', f.id);
+  const r = mustHit(await db.from('drawing_files').delete().eq('id', f.id).select('id'));
   if (r.error) return false;
   void supabase.storage.from('drawings').remove([f.storage_path]).catch(() => undefined);
   log(me, f.site_id, 'drawing_file_deleted', `Deleted drawing "${f.name || ''}"`);

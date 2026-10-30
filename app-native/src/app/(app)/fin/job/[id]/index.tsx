@@ -245,7 +245,7 @@ function Setup({ id, site, jf, cpos, settings }: { id: string; site: Row | undef
             const p: Row = { name, client_name: String(v.client_name || '').trim() || null, address: String(v.address || '').trim() || null, postcode: String(v.postcode || '').trim().toUpperCase() || null, start_date: String(v.start_date || '') || null };
             const cur = site.status === 'closed' ? 'closed' : site.status === 'upcoming' ? 'upcoming' : 'live', st = String(v.status || cur);
             if (st !== cur) { p.status = st === 'live' ? 'active' : st; if (st === 'closed') { p.closed_at = new Date().toISOString(); p.closed_by = me.id; } else { p.closed_at = null; p.closed_by = null; } }
-            if ((await fdb.from('sites').update(p as never).eq('id', id)).error) return 'Could not save — try again.';
+            if (!(await fdb.from('sites').update(p as never).eq('id', id).select('id')).data?.length) return 'Could not save — try again.';
             refresh(); return null;
           }} />
       )}

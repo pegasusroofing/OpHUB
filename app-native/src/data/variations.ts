@@ -11,6 +11,7 @@ import { supabase } from '@/lib/supabase';
 import type { Profile, Site } from '@/lib/types';
 
 import { addVariationWork } from './sowManager';
+import { mustHit } from '@/lib/mustHit';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 
@@ -126,7 +127,7 @@ export async function closeVariation(me: Profile, siteId: string, v: Variation):
 }
 
 export async function deleteVariation(me: Profile, siteId: string, v: Variation): Promise<boolean> {
-  const r = await db.from('variations').delete().eq('id', v.id);
+  const r = mustHit(await db.from('variations').delete().eq('id', v.id).select('id'));
   if (r.error) return false;
   log(me, siteId, 'variation_deleted', `Deleted variation "${v.description || ''}"`);
   return true;

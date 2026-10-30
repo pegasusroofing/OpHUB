@@ -68,8 +68,8 @@ export async function issue(me: Profile, org: Organization | null, id: string, s
   const x = (await xeroAutoOk(me.org_id, 'fin_invoices', inv.id)) ? await finInvoke(me, 'xero', { action: 'post_invoice', invoice_id: inv.id }) : { error: null };
   return { inv, error: null, xero: x.error };
 }
-export const voidInvoice = async (id: string) => !(await fdb.from('fin_invoices').update({ status: 'void', updated_at: new Date().toISOString() } as never).eq('id', id)).error;
+export const voidInvoice = async (id: string) => !!(await fdb.from('fin_invoices').update({ status: 'void', updated_at: new Date().toISOString() } as never).eq('id', id).select('id')).data?.length;
 export async function addPayment(me: Profile, invId: string, amount: number, paidOn: string, note: string): Promise<boolean> {
   return !(await fdb.from('fin_payments').insert({ org_id: me.org_id, invoice_id: invId, amount: round2(amount), paid_on: paidOn || today(), note: note || null, created_by: me.id } as never)).error;
 }
-export const deletePayment = async (id: string) => !(await fdb.from('fin_payments').delete().eq('id', id)).error;
+export const deletePayment = async (id: string) => !!(await fdb.from('fin_payments').delete().eq('id', id).select('id')).data?.length;

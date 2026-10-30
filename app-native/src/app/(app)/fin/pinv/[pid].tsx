@@ -152,7 +152,7 @@ function CodeLines({ i, sites, onSaved }: { i: Row; sites: { id: string; job_num
           const r = codePatch(i, lines); if ('error' in r) { toast(r.error); return; }
           const before = Array.from(new Set(Array.isArray(i.split) && i.split.length ? i.split.map((e: Row) => e.site_id) : [i.site_id])).sort().join(), after = Array.from(new Set(r.patch.split ? r.patch.split.map((e: Row) => e.site_id) : [i.site_id])).sort().join();
           if (before !== after && (await isInXero('purchase_invoices', i.id)) && !(await confirmAsk(`Save this coding? It moves cost between projects.\n\n${XERO_Q}`, 'I’ll change Xero too'))) return;
-          if ((await fdb.from('purchase_invoices').update(r.patch as never).eq('id', i.id)).error) { toast('Could not save the coding.'); return; }
+          if (!(await fdb.from('purchase_invoices').update(r.patch as never).eq('id', i.id).select('id')).data?.length) { toast('Could not save the coding.'); return; }
           setLines(null); onSaved();
         }} />
         <Button small kind="ghost" title="Cancel" onPress={() => setLines(null)} />

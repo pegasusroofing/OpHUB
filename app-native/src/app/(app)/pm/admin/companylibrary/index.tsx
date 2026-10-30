@@ -39,7 +39,7 @@ export default function CompanyLibrary() {
           <Text style={{ flex: 1, fontWeight: '700', color: base.ink }}>{p.name}</Text>
           <Pressable hitSlop={8} onPress={async () => {
             const n = await promptText('Rename company', p.name); if (!n || !n.trim() || n.trim() === p.name) return;
-            if ((await db.from('subcontractor_company_profiles').update({ name: n.trim() } as never).eq('id', p.id)).error) { toast('Could not rename — try again.'); return; }
+            if (!(await db.from('subcontractor_company_profiles').update({ name: n.trim() } as never).eq('id', p.id).select('id')).data?.length) { toast('Could not rename — try again.'); return; }
             const jobs = !(await db.from('subcontractor_companies').update({ name: n.trim() } as never).eq('master_company_id', p.id)).error;
             toast(jobs ? 'Renamed' : 'Renamed in the library, but not on every job — try again.'); refresh();
           }}><Text>✏️</Text></Pressable>

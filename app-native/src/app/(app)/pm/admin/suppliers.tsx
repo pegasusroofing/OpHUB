@@ -43,7 +43,7 @@ function updateBranches(id: string, fn: (b: Branch[]) => Branch[]): Promise<bool
     const before = Array.isArray(s.branches) ? s.branches : [];
     const after = fn(before.map((b) => ({ ...b })));
     if (JSON.stringify(after) === JSON.stringify(before)) return true;
-    return !(await db.from('suppliers').update({ branches: after } as never).eq('id', id)).error;
+    return !!(await db.from('suppliers').update({ branches: after } as never).eq('id', id).select('id')).data?.length;
   });
   queue = run.catch(() => null);
   return run;
@@ -70,7 +70,7 @@ export default function Suppliers() {
       if (c.blocked) { toast(`"${c.blocked.name}" already exists — not saved.`); refresh(); return; }
       if (c.warn && !(await confirmAsk(`This looks similar to an existing supplier, "${c.warn.name}" — rename to "${v}" anyway?`, 'Rename'))) { refresh(); return; }
     }
-    toast((await db.from('suppliers').update({ [field]: v } as never).eq('id', s.id)).error ? 'Could not save — try again.' : 'Supplier updated'); refresh();
+    toast(!(await db.from('suppliers').update({ [field]: v } as never).eq('id', s.id).select('id')).data?.length ? 'Could not save — try again.' : 'Supplier updated'); refresh();
   };
   const saveBranch = async (s: Sup, bid: string, field: keyof Branch, v: string) => {
     toast((await updateBranches(s.id, (bs) => bs.map((b) => (b.id === bid ? { ...b, [field]: v } : b)))) ? 'Saved' : 'Could not save — try again.'); refresh();
@@ -103,7 +103,7 @@ export default function Suppliers() {
                 <Field label="Order email" value={s.email || ''} keyboard="email-address" onSave={(v) => void saveField(s, 'email', v)} />
                 <Field label="Our account number" value={s.account_number || ''} placeholder="e.g. RTB001 — added to every order email to them" onSave={async (v) => {
                   const val = v.slice(0, 60);
-                  toast((await db.from('suppliers').update({ account_number: val || null } as never).eq('id', s.id)).error ? 'Could not save — try again.' : val ? 'Account number saved — it goes on order emails' : 'Account number removed'); refresh();
+                  toast(!(await db.from('suppliers').update({ account_number: val || null } as never).eq('id', s.id).select('id')).data?.length ? 'Could not save — try again.' : val ? 'Account number saved — it goes on order emails' : 'Account number removed'); refresh();
                 }} />
                 <Text style={{ fontWeight: '800', color: base.ink, marginTop: 6, marginBottom: 4 }}>Branches</Text>
                 {brs.length ? brs.map((b) => (
@@ -121,7 +121,7 @@ export default function Suppliers() {
                   <View style={{ flex: 1 }}><Button kind="ghost" title="+ Add branch" onPress={async () => { if (await updateBranches(s.id, (bs) => bs.concat([{ id: `b${Math.random().toString(36).slice(2, 9)}`, name: '', address: '', phone: '', email: '' }]))) refresh(); }} /></View>
                   <View style={{ flex: 1 }}><Button kind="ghost" title="Delete supplier" onPress={async () => {
                     if (!(await confirmAsk('Remove this supplier?', 'Remove'))) return;
-                    toast((await db.from('suppliers').delete().eq('id', s.id)).error ? 'Could not remove — try again.' : 'Supplier removed'); refresh();
+                    toast(!(await db.from('suppliers').delete().eq('id', s.id).select('id')).data?.length ? 'Could not remove — try again.' : 'Supplier removed'); refresh();
                   }} /></View>
                 </View>
               </View>

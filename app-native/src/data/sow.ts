@@ -8,6 +8,7 @@ import { allDone, completePatch, oneDriveName, photoPaths, statusPatch, type Tas
 import { supabase } from '@/lib/supabase';
 import { cancelUpload, dropPatch, enqueuePatch, enqueueUpload, registerAfterHook } from '@/lib/uploadQueue';
 import type { Profile, Site, SubAddress } from '@/lib/types';
+import { mustHit } from '@/lib/mustHit';
 
 export type Task = {
   id: string; site_id: string; name: string; status: string | null; section_id: string | null; sub_site_id: string | null;
@@ -171,7 +172,7 @@ export async function setPercent(task: Task, pct: number): Promise<boolean> {
 }
 
 export async function deletePhoto(p: Photo): Promise<boolean> {
-  const r = await db.from('schedule_photos').delete().eq('id', p.id);
+  const r = mustHit(await db.from('schedule_photos').delete().eq('id', p.id).select('id'));
   if (r.error) return false;
   const base = p.storage_path.replace(/\.[a-z0-9]+$/i, '');
   try { await supabase.storage.from('site-photos').remove([p.storage_path, `${base}_m.jpg`, `${base}_t.jpg`]); } catch { /* non-fatal */ }

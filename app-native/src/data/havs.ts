@@ -9,6 +9,7 @@ import { localISODate } from '@/lib/rules/driver';
 import { points, thresholdMessage } from '@/lib/rules/havs';
 import { supabase } from '@/lib/supabase';
 import type { Profile, Site } from '@/lib/types';
+import { mustHit } from '@/lib/mustHit';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 
@@ -59,11 +60,11 @@ export async function addHavsEntry(me: Profile, site: Site, date: Date, tool: Ha
 }
 
 export async function editHavsEntry(id: string, minutes: number): Promise<boolean> {
-  return !(await db.from('havs_entries').update({ minutes } as never).eq('id', id)).error;
+  return !!(await db.from('havs_entries').update({ minutes } as never).eq('id', id).select('id')).data?.length;
 }
 
 export async function deleteHavsEntry(me: Profile, site: Site, e: HavsEntry): Promise<boolean> {
-  const r = await db.from('havs_entries').delete().eq('id', e.id);
+  const r = mustHit(await db.from('havs_entries').delete().eq('id', e.id).select('id'));
   if (r.error) return false;
   if (me.org_id) void db.from('site_activity_log').insert({ site_id: site.id, org_id: me.org_id, actor_id: me.id, action: 'havs_entry_deleted', description: `Deleted HAVS entry for ${me.name} (${e.entry_date})` } as never).then(undefined, () => undefined);
   return true;
@@ -127,7 +128,7 @@ export async function closeHavsWeek(me: Profile, siteId: string, weekStart: stri
   return !(await db.from('havs_weekly_completions').insert({ org_id: me.org_id, site_id: siteId, week_start: weekStart, completed_by: me.id } as never)).error;
 }
 export async function reopenHavsWeek(id: string): Promise<boolean> {
-  return !(await db.from('havs_weekly_completions').delete().eq('id', id)).error;
+  return !!(await db.from('havs_weekly_completions').delete().eq('id', id).select('id')).data?.length;
 }
 export function useHavsCompleted(siteId: string | undefined, enabled: boolean) {
   return useQuery({

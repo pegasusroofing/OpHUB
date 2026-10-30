@@ -37,7 +37,7 @@ export function VisibilityEditor({ table, id, siteId, orgId, onClose }: { table:
   const save = async () => {
     setBusy(true);
     const patch = cur.all ? { visibility_mode: 'all', assigned_pm_ids: [], assigned_operative_ids: [] } : { visibility_mode: 'assigned', assigned_pm_ids: cur.pmOn ? cur.pm : [], assigned_operative_ids: cur.opOn ? cur.op : [] };
-    const e = (await db.from(table).update(patch as never).eq('id', id)).error;
+    const e = !(await db.from(table).update(patch as never).eq('id', id).select('id')).data?.length;
     setBusy(false);
     if (e) { toast('Could not save — try again.'); return; }
     toast('Visibility updated'); onClose(true);

@@ -113,7 +113,7 @@ export function SubsLists({ tab, siteId }: { tab: 'opinv' | 'payrun' | 'orders' 
         </View>
         <Button title={`Mark ${due.length || ''} paid once you’ve sent the money`} disabled={!due.length} onPress={async () => {
           if (!(await confirmAsk(`Mark ${due.length} operative invoice${due.length === 1 ? '' : 's'} (${money(tot('net_pay'))}) as paid on ${fdate(day)}?`, 'Mark paid'))) return;
-          let n = 0; for (const p of due) if (!(await fdb.from('fin_sub_payments').update({ status: 'paid', paid_on: day, pay_date: day } as never).eq('id', p.id)).error) n++;
+          let n = 0; for (const p of due) if (!!(await fdb.from('fin_sub_payments').update({ status: 'paid', paid_on: day, pay_date: day } as never).eq('id', p.id).select('id')).data?.length) n++;
           toast(`${n} marked paid`); refresh();
         }} />
         {noBank > 0 && <Text style={{ color: '#C0392B', marginVertical: 8 }}>{noBank} {noBank === 1 ? 'person has' : 'people have'} no bank details saved — add them in People &amp; rates.</Text>}

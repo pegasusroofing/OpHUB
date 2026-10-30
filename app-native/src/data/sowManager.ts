@@ -7,6 +7,7 @@
 import { supabase } from '@/lib/supabase';
 import { moveTask, nextVariationName } from '@/lib/rules/sow';
 import type { Profile } from '@/lib/types';
+import { mustHit } from '@/lib/mustHit';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 
@@ -34,12 +35,12 @@ export async function addVariationWork(me: Profile, siteId: string, taskName: st
 }
 
 export async function renameSection(id: string, name: string): Promise<boolean> {
-  return !(await db.from('schedule_sections').update({ name } as never).eq('id', id)).error;
+  return !!(await db.from('schedule_sections').update({ name } as never).eq('id', id).select('id')).data?.length;
 }
 
 /** Deleting a section moves its tasks back to the ungrouped list (they aren't deleted). */
 export async function deleteSection(me: Profile, siteId: string, id: string, name: string): Promise<boolean> {
-  const r = await db.from('schedule_sections').delete().eq('id', id);
+  const r = mustHit(await db.from('schedule_sections').delete().eq('id', id).select('id'));
   if (r.error) return false;
   log(me, siteId, 'schedule_section_deleted', `Deleted Schedule of Works section "${name}"`);
   return true;
@@ -66,11 +67,11 @@ export async function addTask(siteId: string, name: string, sectionId: string | 
 }
 
 export async function renameTask(id: string, name: string): Promise<boolean> {
-  return !(await db.from('schedule_tasks').update({ name } as never).eq('id', id)).error;
+  return !!(await db.from('schedule_tasks').update({ name } as never).eq('id', id).select('id')).data?.length;
 }
 
 export async function setTaskAddress(id: string, subId: string | null): Promise<boolean> {
-  return !(await db.from('schedule_tasks').update({ sub_site_id: subId } as never).eq('id', id)).error;
+  return !!(await db.from('schedule_tasks').update({ sub_site_id: subId } as never).eq('id', id).select('id')).data?.length;
 }
 
 export async function moveScheduleTask(siteId: string, taskId: string, dir: -1 | 1): Promise<string | null> {
@@ -189,10 +190,10 @@ export async function uploadSowDocs(me: Profile, siteId: string, files: { uri: s
   return added;
 }
 export async function setSowDocVisibility(id: string, managersOnly: boolean): Promise<boolean> {
-  return !(await db.from('schedule_documents').update({ visibility: managersOnly ? 'managers' : 'all' } as never).eq('id', id)).error;
+  return !!(await db.from('schedule_documents').update({ visibility: managersOnly ? 'managers' : 'all' } as never).eq('id', id).select('id')).data?.length;
 }
 export async function deleteSowDoc(me: Profile, siteId: string, doc: { id: string; name: string; storage_path: string }): Promise<boolean> {
-  if ((await db.from('schedule_documents').delete().eq('id', doc.id)).error) return false;
+  if (!(await db.from('schedule_documents').delete().eq('id', doc.id).select('id')).data?.length) return false;
   void supabase.storage.from('schedule-docs').remove([doc.storage_path]).catch(() => undefined);
   log(me, siteId, 'schedule_document_deleted', `Removed Schedule of Works document "${doc.name}"`);
   return true;
@@ -200,5 +201,5 @@ export async function deleteSowDoc(me: Profile, siteId: string, doc: { id: strin
 
 /** Main-contractor jobs: tag a task to one of the job's subcontractors (460 setTaskSubcontractor). Visibility is untouched. */
 export async function setTaskSubcontractor(taskId: string, companyId: string | null): Promise<boolean> {
-  return !(await db.from('schedule_tasks').update({ subcontractor_company_id: companyId } as never).eq('id', taskId)).error;
+  return !!(await db.from('schedule_tasks').update({ subcontractor_company_id: companyId } as never).eq('id', taskId).select('id')).data?.length;
 }

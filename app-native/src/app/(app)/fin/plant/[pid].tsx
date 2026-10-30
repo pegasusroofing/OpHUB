@@ -51,7 +51,7 @@ export default function FinPlant() {
           return null;
         }}
         extra={h ? <AllocRow table="fin_plant_hires" row={h} /> : null}
-        onDelete={h ? async () => { if ((await fdb.from('fin_plant_hires').delete().eq('id', h.id)).error) return 'Could not remove.'; toast('Removed'); ['finPurchases', 'finBook'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] })); return null; } : undefined} />
+        onDelete={h ? async () => { if (!(await fdb.from('fin_plant_hires').delete().eq('id', h.id).select('id')).data?.length) return 'Could not remove.'; toast('Removed'); ['finPurchases', 'finBook'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] })); return null; } : undefined} />
     </ScrollView>
   );
 }

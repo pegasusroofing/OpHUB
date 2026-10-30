@@ -7,6 +7,7 @@ import { cachedQuery, orThrow } from '@/lib/offlineCache';
 import { compressOne, type Picked } from '@/lib/photos';
 import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/lib/types';
+import { mustHit } from '@/lib/mustHit';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 
@@ -77,7 +78,7 @@ export async function submitIncident(me: Profile & { signature_path?: string | n
 }
 
 export async function deleteIncident(me: Profile, r: Incident): Promise<boolean> {
-  const x = await db.from('incident_reports').delete().eq('id', r.id);
+  const x = mustHit(await db.from('incident_reports').delete().eq('id', r.id).select('id'));
   if (!x.error && me.org_id) void db.from('site_activity_log').insert({ site_id: r.site_id, org_id: me.org_id, actor_id: me.id, action: 'incident_report_deleted', description: `Deleted ${r.incident_type || 'incident'} report${r.incident_date ? ` (${r.incident_date})` : ''}` } as never).then(undefined, () => undefined);
   return !x.error;
 }

@@ -11,6 +11,7 @@ import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/lib/types';
 
 import { dayList, dayOffBlock, resequenceSlot } from './driver';
+import { mustHit } from '@/lib/mustHit';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 
@@ -135,7 +136,7 @@ export async function reopenMaterials(items: Mat[]): Promise<boolean> {
 
 export async function deleteMaterials(me: Profile, siteId: string, items: Mat[], isManager: boolean): Promise<string | null> {
   for (const m of items) {
-    const r = await db.from('materials').delete().eq('id', m.id);
+    const r = mustHit(await db.from('materials').delete().eq('id', m.id).select('id'));
     if (r.error) return dbMsg(r.error, isManager);
     log(me, siteId, 'material_request_deleted', `Deleted material request "${m.item || ''}"`);
   }
@@ -182,7 +183,7 @@ export async function toggleFavourite(orgId: string, s: FullSupplier): Promise<s
     const n = ((await db.from('suppliers').select('id').eq('org_id', orgId).eq('favourite', true)).data ?? []).length;
     if (n >= 3) return 'You can only favourite up to 3 suppliers — unfavourite one first.';
   }
-  return (await db.from('suppliers').update({ favourite: !s.favourite } as never).eq('id', s.id)).error ? 'Could not save — try again.' : null;
+  return !(await db.from('suppliers').update({ favourite: !s.favourite } as never).eq('id', s.id).select('id')).data?.length ? 'Could not save — try again.' : null;
 }
 
 export type OrderPerson = { id: string; name: string; role: string; email: string | null };
@@ -360,7 +361,7 @@ export async function assignCollections(me: Profile, siteId: string, siteName: s
 }
 
 export async function collectWithQty(me: Profile, id: string, qty: string): Promise<boolean> {
-  return !(await db.from('material_required_items').update({ status: 'collected', qty_collected: qty || null, collected_by: me.id, collected_at: new Date().toISOString() } as never).eq('id', id)).error;
+  return !!(await db.from('material_required_items').update({ status: 'collected', qty_collected: qty || null, collected_by: me.id, collected_at: new Date().toISOString() } as never).eq('id', id).select('id')).data?.length;
 }
 
 /** "✓ Collected" in the app; the stored value is 'closed'. */
@@ -372,13 +373,13 @@ export async function closeCollections(me: Profile, siteId: string, items: CollI
 }
 
 export async function deleteCollection(me: Profile, siteId: string, m: CollItem): Promise<boolean> {
-  const r = await db.from('material_required_items').delete().eq('id', m.id);
+  const r = mustHit(await db.from('material_required_items').delete().eq('id', m.id).select('id'));
   if (!r.error) log(me, siteId, 'material_required_item_deleted', `Deleted material required item "${m.item || ''}"`);
   return !r.error;
 }
 
 export async function editCollection(id: string, patch: { item: string; qty: string | null; supplier_id: string | null; supplier_branch: Branch | null }): Promise<boolean> {
-  return !(await db.from('material_required_items').update(patch as never).eq('id', id)).error;
+  return !!(await db.from('material_required_items').update(patch as never).eq('id', id).select('id')).data?.length;
 }
 
 /** PMs/admins with an email, for "Email Selected". */

@@ -6,6 +6,7 @@ import { orThrow } from '@/lib/offlineCache';
 import { localISODate } from '@/lib/rules/driver';
 import { supabase } from '@/lib/supabase';
 import type { Profile, Site } from '@/lib/types';
+import { mustHit } from '@/lib/mustHit';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 
@@ -58,7 +59,7 @@ export async function removeFromSite(siteId: string, userId: string): Promise<st
 
 /** Allocate an operative to a subcontractor company on this job (one company per job); that also gives them the job. */
 export async function toggleSubOperative(me: Profile, siteId: string, companyId: string, userId: string, allocId: string | null): Promise<string | null> {
-  if (allocId) return (await db.from('subcontractor_operatives').delete().eq('id', allocId)).error ? 'Could not save — try again.' : null;
+  if (allocId) return !(await db.from('subcontractor_operatives').delete().eq('id', allocId).select('id')).data?.length ? 'Could not save — try again.' : null;
   const ex = ((await db.from('subcontractor_operatives').select('id,subcontractor_company_id').eq('site_id', siteId).eq('user_id', userId)).data as { subcontractor_company_id: string }[] | null) ?? [];
   if (ex.length && ex[0].subcontractor_company_id !== companyId) return 'Already allocated to a different subcontractor on this site — remove them there first.';
   const r = await db.from('subcontractor_operatives').insert({ site_id: siteId, subcontractor_company_id: companyId, user_id: userId, assigned_by: me.id, is_admin: false } as never);
@@ -105,7 +106,7 @@ export async function setSubAddressClosed(me: Profile, siteId: string, a: FullSu
   return !r.error;
 }
 export async function deleteSubAddress(me: Profile, siteId: string, a: FullSubAddr): Promise<boolean> {
-  const r = await db.from('site_sub_addresses').delete().eq('id', a.id);
+  const r = mustHit(await db.from('site_sub_addresses').delete().eq('id', a.id).select('id'));
   if (!r.error && me.org_id) void db.from('site_activity_log').insert({ site_id: siteId, org_id: me.org_id, actor_id: me.id, action: 'sub_address_deleted', description: `Deleted address "${a.name || ''}"` } as never).then(undefined, () => undefined);
   return !r.error;
 }

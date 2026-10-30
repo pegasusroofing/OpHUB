@@ -8,6 +8,7 @@ import { cachedQuery, orThrow } from '@/lib/offlineCache';
 import { compressOne, type Picked } from '@/lib/photos';
 import { supabase } from '@/lib/supabase';
 import type { Profile, Site } from '@/lib/types';
+import { mustHit } from '@/lib/mustHit';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 type Me = Profile & { signature_path?: string | null };
@@ -70,7 +71,7 @@ export function useMcTiles(site: Site | undefined, orgId: string | null | undefi
 
 export async function setMcTileHidden(siteId: string, current: string[], key: string, hide: boolean) {
   const next = hide ? [...new Set([...current, key])] : current.filter((k) => k !== key);
-  return !(await db.from('sites').update({ mc_hidden_tiles: next } as never).eq('id', siteId)).error;
+  return !!(await db.from('sites').update({ mc_hidden_tiles: next } as never).eq('id', siteId).select('id')).data?.length;
 }
 
 /* ---------- document folders (CPP / Asbestos / F10) ---------- */
@@ -90,9 +91,9 @@ export async function uploadMcDoc(me: Profile, siteId: string, category: string,
     return !(await db.from('mc_documents').insert({ org_id: me.org_id, site_id: siteId, category, name, storage_path: up.data.path, uploaded_by: me.id } as never)).error;
   } catch { return false; }
 }
-export const renameMcDoc = async (id: string, name: string) => !(await db.from('mc_documents').update({ name } as never).eq('id', id)).error;
+export const renameMcDoc = async (id: string, name: string) => !!(await db.from('mc_documents').update({ name } as never).eq('id', id).select('id')).data?.length;
 export async function deleteMcDoc(d: McDoc) {
-  const r = await db.from('mc_documents').delete().eq('id', d.id);
+  const r = mustHit(await db.from('mc_documents').delete().eq('id', d.id).select('id'));
   if (!r.error) void supabase.storage.from('mc-documents').remove([d.storage_path]).catch(() => undefined);
   return !r.error;
 }

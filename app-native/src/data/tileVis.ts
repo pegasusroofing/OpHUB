@@ -27,7 +27,7 @@ export async function tileVisMenu(me: Profile, site: S, key: string, label: stri
   const roles = on ? Array.from(new Set([...cur, k])) : cur.filter((x) => x !== k);
   const col = kind === 'mat' ? 'materials_visibility' : 'tile_visibility';
   const next = { ...((kind === 'mat' ? site.materials_visibility : site.tile_visibility) || {}), [key]: roles };
-  if ((await db.from('sites').update({ [col]: next } as never).eq('id', site.id)).error) return 'Could not save — try again.';
+  if (!(await db.from('sites').update({ [col]: next } as never).eq('id', site.id).select('id')).data?.length) return 'Could not save — try again.';
   const who = VIS_ROLES.find((r) => r.role === k)?.label || k;
   if (me.org_id) void db.from('site_activity_log').insert({ site_id: site.id, org_id: me.org_id, actor_id: me.id, action: col, description: `${label} ${on ? 'shown to' : 'hidden from'} ${who}` } as never).then(undefined, () => undefined);
   return `${on ? 'Now shown to' : 'Hidden from'} ${who}`;

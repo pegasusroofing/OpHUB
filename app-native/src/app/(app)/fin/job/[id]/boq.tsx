@@ -94,13 +94,13 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
       if (ex.error) { if (!quiet) toast('Couldn’t reach the server, so nothing was saved — try again.'); else setAutoNote('Not saved — no signal'); return; }
       const keep = new Set(clean.filter((r) => r.id).map((r) => r.id));
       let failed = 0;
-      for (const e of (ex.data as Row[]) || []) if (!keep.has(e.id) && (await fdb.from('fin_contract_items').delete().eq('id', e.id)).error) failed++;
+      for (const e of (ex.data as Row[]) || []) if (!keep.has(e.id) && !(await fdb.from('fin_contract_items').delete().eq('id', e.id).select('id')).data?.length) failed++;
       const got: Record<string, Row> = {};
       for (let i = 0; i < clean.length; i++) {
         const r = clean[i], item = isItem(r);
         const d = { kind: r.kind, ref: r.ref, description: r.description, qty: r.qty, unit: r.unit, rate: r.rate, value: item ? r.value : 0, position: i, cost: item ? r.cost : null, sub_job_id: item ? r.sub : null, cost_basis: item ? r.cost_basis : null, cost_pct: item ? r.cost_pct : null };
         let savedId = r.id as string | undefined;
-        if (r.id) { if ((await fdb.from('fin_contract_items').update(d as never).eq('id', r.id)).error) failed++; }
+        if (r.id) { if (!(await fdb.from('fin_contract_items').update(d as never).eq('id', r.id).select('id')).data?.length) failed++; }
         else { const ins = await fdb.from('fin_contract_items').insert({ ...d, org_id: me.org_id, site_id: id } as never).select('id').single(); if (ins.data) { savedId = (ins.data as Row).id; got[r._k] = { id: savedId }; } else failed++; }
         // Copied in from the site schedule: link the task / section to this line.
         if (savedId && r._task_id) { await fdb.from('schedule_tasks').update({ contract_item_id: savedId } as never).eq('id', r._task_id); got[r._k] = { ...(got[r._k] || {}), _task_id: null }; }

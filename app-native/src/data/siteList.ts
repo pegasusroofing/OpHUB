@@ -41,13 +41,13 @@ export async function createSite(me: Profile, d: NewSite, autoNumbers: boolean):
 /** Active / Upcoming / Closed. Closing stamps who and when, and clears future repeats of key dates. */
 export async function setSiteStatus(me: Profile, siteId: string, status: 'active' | 'upcoming' | 'closed'): Promise<boolean> {
   const patch = status === 'closed' ? { status, closed_at: new Date().toISOString(), closed_by: me.id } : { status, closed_at: null, closed_by: null };
-  if ((await db.from('sites').update(patch as never).eq('id', siteId)).error) return false;
+  if (!(await db.from('sites').update(patch as never).eq('id', siteId).select('id')).data?.length) return false;
   if (status === 'closed') { try { await db.from('site_calendar_events').delete().eq('site_id', siteId).not('recurrence_group_id', 'is', null).gt('event_date', localISODate(new Date())); } catch { /* non-fatal */ } }
   return true;
 }
 
 export async function setResponsiblePm(siteId: string, pmId: string): Promise<boolean> {
-  const ok = !(await db.from('sites').update({ responsible_pm_id: pmId } as never).eq('id', siteId)).error;
+  const ok = !!(await db.from('sites').update({ responsible_pm_id: pmId } as never).eq('id', siteId).select('id')).data?.length;
   // The PM is told (push + email), best-effort, as when someone is added to a site.
   if (ok) void supabase.functions.invoke('notify-site-assignment', { body: { site_id: siteId, user_id: pmId } }).catch(() => undefined);
   return ok;
@@ -58,5 +58,5 @@ export async function siteIsEmpty(siteId: string): Promise<boolean> {
   try { const r = await rpc('site_is_empty', { p_site_id: siteId }); return !r.error && !!r.data; } catch { return false; }
 }
 export async function deleteSite(siteId: string): Promise<boolean> {
-  return !(await db.from('sites').delete().eq('id', siteId)).error;
+  return !!(await db.from('sites').delete().eq('id', siteId).select('id')).data?.length;
 }

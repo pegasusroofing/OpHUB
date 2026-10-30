@@ -107,8 +107,8 @@ export function PpeManager({ site }: { site: Site }) {
               </View>
               {r.status === 'pending' ? (
                 <>
-                  <Button title="Fulfil" onPress={async () => { if (!(await db.from('ppe_requests').update({ status: 'fulfilled', fulfilled_at: new Date().toISOString(), fulfilled_by: me.id } as never).eq('id', r.id)).error) { toast('Marked fulfilled'); refresh(); } }} />
-                  <Button kind="ghost" title="Cancel" onPress={async () => { if (!(await db.from('ppe_requests').update({ status: 'cancelled', fulfilled_at: new Date().toISOString(), fulfilled_by: me.id } as never).eq('id', r.id)).error) { toast('Request cancelled'); refresh(); } }} />
+                  <Button title="Fulfil" onPress={async () => { if (!!(await db.from('ppe_requests').update({ status: 'fulfilled', fulfilled_at: new Date().toISOString(), fulfilled_by: me.id } as never).eq('id', r.id).select('id')).data?.length) { toast('Marked fulfilled'); refresh(); } }} />
+                  <Button kind="ghost" title="Cancel" onPress={async () => { if (!!(await db.from('ppe_requests').update({ status: 'cancelled', fulfilled_at: new Date().toISOString(), fulfilled_by: me.id } as never).eq('id', r.id).select('id')).data?.length) { toast('Request cancelled'); refresh(); } }} />
                 </>
               ) : <Text style={{ color: base.slate }}>{cap1(r.status)}</Text>}
             </View>
@@ -170,7 +170,7 @@ export function PpeManager({ site }: { site: Site }) {
                     {i.kind === 'issuance' && (
                       <Pressable hitSlop={6} onPress={async () => {
                         if (!(await confirmAsk('Delete this PPE issuance record? This cannot be undone.', 'Delete'))) return;
-                        if (!(await db.from('ppe_issuances').delete().eq('id', i.id)).error) {
+                        if (!!(await db.from('ppe_issuances').delete().eq('id', i.id).select('id')).data?.length) {
                           toast('Record deleted');
                           if (me.org_id) void db.from('site_activity_log').insert({ site_id: site.id, org_id: me.org_id, actor_id: me.id, action: 'ppe_issuance_deleted', description: `Deleted PPE issuance record for ${p.name}` } as never).then(undefined, () => undefined);
                           refresh();

@@ -38,16 +38,16 @@ export async function uploadCert(me: Profile, f: { uri: string; name: string; mi
 /* ---------- office side (320): rename, expiry, delete ---------- */
 /** A certificate moved to another type; "Other" keeps a description of what it is (320 changeOperativeCertCategory). */
 export async function setCertCategory(id: string, category: string, otherDesc: string | null): Promise<boolean> {
-  return !(await db.from('operative_certifications').update({ category, other_type_description: category === 'other' ? otherDesc : null } as never).eq('id', id)).error;
+  return !!(await db.from('operative_certifications').update({ category, other_type_description: category === 'other' ? otherDesc : null } as never).eq('id', id).select('id')).data?.length;
 }
 export async function renameCert(id: string, name: string): Promise<boolean> {
-  return !(await db.from('operative_certifications').update({ name } as never).eq('id', id)).error;
+  return !!(await db.from('operative_certifications').update({ name } as never).eq('id', id).select('id')).data?.length;
 }
 export async function setCertExpiry(id: string, expiry: string | null): Promise<boolean> {
-  return !(await db.from('operative_certifications').update({ expiry_date: expiry } as never).eq('id', id)).error;
+  return !!(await db.from('operative_certifications').update({ expiry_date: expiry } as never).eq('id', id).select('id')).data?.length;
 }
 export async function deleteCert(c: Cert): Promise<boolean> {
-  if ((await db.from('operative_certifications').delete().eq('id', c.id)).error) return false;
+  if (!(await db.from('operative_certifications').delete().eq('id', c.id).select('id')).data?.length) return false;
   if (c.storage_path) { try { await supabase.storage.from('certifications').remove([c.storage_path]); } catch { /* non-fatal */ } }
   return true;
 }
@@ -74,7 +74,7 @@ export function useOperativeList(orgId: string | null | undefined) {
   });
 }
 export async function saveOperativeField(id: string, patch: { name?: string; phone?: string | null }): Promise<boolean> {
-  return !(await db.from('profiles').update(patch as never).eq('id', id)).error;
+  return !!(await db.from('profiles').update(patch as never).eq('id', id).select('id')).data?.length;
 }
 
 /* ---------- other people on a job, not on the app (320 addManualCertPerson) ---------- */
@@ -95,7 +95,7 @@ export async function addManualPerson(me: Profile, siteId: string, name: string)
 /** Removes them and their certificates (asked first — it can't be undone). */
 export async function removeManualPerson(id: string): Promise<boolean> {
   const certs = ((await db.from('operative_certifications').select('storage_path').eq('manual_person_id', id)).data as { storage_path: string | null }[] | null) ?? [];
-  if ((await db.from('certification_manual_people').delete().eq('id', id)).error) return false;
+  if (!(await db.from('certification_manual_people').delete().eq('id', id).select('id')).data?.length) return false;
   const paths = certs.map((c) => c.storage_path).filter(Boolean) as string[];
   if (paths.length) void supabase.storage.from('certifications').remove(paths).catch(() => undefined);
   return true;

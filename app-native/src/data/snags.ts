@@ -93,5 +93,5 @@ export async function replaceSnagPhoto(site: Site, snag: Snag, oldPath: string, 
   const cur = ((await db.from('snags').select('photo_path,photo_paths').eq('id', snag.id).limit(1)).data as Snag[] | null)?.[0] ?? snag;
   const paths = [...snagPhotos(cur)]; const i = paths.indexOf(oldPath);
   if (i >= 0) paths[i] = up.data.path; else paths.push(up.data.path);
-  return !(await db.from('snags').update({ photo_paths: paths, photo_path: paths[0] || null } as never).eq('id', snag.id)).error;
+  return !!(await db.from('snags').update({ photo_paths: paths, photo_path: paths[0] || null } as never).eq('id', snag.id).select('id')).data?.length;
 }

@@ -7,6 +7,7 @@ import { cachedQuery, orThrow } from '@/lib/offlineCache';
 import { compressOne, type Picked } from '@/lib/photos';
 import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/lib/types';
+import { mustHit } from '@/lib/mustHit';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 
@@ -44,11 +45,11 @@ export async function addTool(me: Profile, name: string, serial: string, photo: 
 export async function setToolPhoto(me: Profile, toolId: string, p: Picked, userId: string = me.id): Promise<boolean> {
   const path = await upload(me, p, userId).catch(() => null);
   if (!path) return false;
-  return !(await db.from('operative_tools').update({ photo_path: path } as never).eq('id', toolId)).error;
+  return !!(await db.from('operative_tools').update({ photo_path: path } as never).eq('id', toolId).select('id')).data?.length;
 }
 
 export async function deleteTool(t: OpTool): Promise<boolean> {
-  const r = await db.from('operative_tools').delete().eq('id', t.id);
+  const r = mustHit(await db.from('operative_tools').delete().eq('id', t.id).select('id'));
   if (r.error) return false;
   if (t.photo_path) { try { await supabase.storage.from('operative-tools').remove([t.photo_path]); } catch { /* non-fatal */ } }
   return true;

@@ -6,6 +6,7 @@ import { cachedQuery, orThrow } from '@/lib/offlineCache';
 import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/lib/types';
 import { invokeAsUser } from '@/lib/userFunctions';
+import { mustHit } from '@/lib/mustHit';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 
@@ -70,21 +71,21 @@ export async function addTodo(me: Profile, siteId: string, siteName: string, f: 
   return true;
 }
 
-export const setTodoDone = async (id: string, done: boolean) => !(await db.from('todos').update({ done } as never).eq('id', id)).error;
-export const editTodo = async (id: string, text: string, date: string | null) => !(await db.from('todos').update({ text, date_required_by: date } as never).eq('id', id)).error;
+export const setTodoDone = async (id: string, done: boolean) => !!(await db.from('todos').update({ done } as never).eq('id', id).select('id')).data?.length;
+export const editTodo = async (id: string, text: string, date: string | null) => !!(await db.from('todos').update({ text, date_required_by: date } as never).eq('id', id).select('id')).data?.length;
 export async function assignTodo(me: Profile, siteId: string, siteName: string, t: Todo, pm: Pm | null) {
-  const ok = !(await db.from('todos').update({ assigned_to: pm?.id ?? null } as never).eq('id', t.id)).error;
+  const ok = !!(await db.from('todos').update({ assigned_to: pm?.id ?? null } as never).eq('id', t.id).select('id')).data?.length;
   if (ok && pm) tellManagers(me, siteId, `${siteName}: To-do assigned to ${pm.name}: ${t.text}`);
   return ok;
 }
 export const addComment = async (me: Profile, todoId: string, body: string) => !(await db.from('todo_comments').insert({ todo_id: todoId, body, created_by: me.id } as never)).error;
 export async function deleteTodo(me: Profile, siteId: string, t: Todo) {
-  const r = await db.from('todos').delete().eq('id', t.id);
+  const r = mustHit(await db.from('todos').delete().eq('id', t.id).select('id'));
   if (!r.error && me.org_id && siteId !== 'general') void db.from('site_activity_log').insert({ site_id: siteId, org_id: me.org_id, actor_id: me.id, action: 'todo_deleted', description: `Deleted to-do "${t.text || ''}"` } as never).then(undefined, () => undefined);
   return !r.error;
 }
 export async function deleteTodoFile(f: TodoFile) {
-  const r = await db.from('todo_attachments').delete().eq('id', f.id);
+  const r = mustHit(await db.from('todo_attachments').delete().eq('id', f.id).select('id'));
   if (!r.error) void supabase.storage.from('todo-attachments').remove([f.storage_path]).catch(() => undefined);
   return !r.error;
 }

@@ -65,7 +65,7 @@ export default function FinInboxItem() {
       {!filed && <Button kind="ghost" title="Not an invoice — ignore it" onPress={async () => {
         // 9219b finInboxIgnore: it leaves the inbox lists.
         if (!(await confirmAsk('Ignore this? It isn’t an invoice, so it comes off the list.', 'Ignore'))) return;
-        if ((await fdb.from('fin_inbox').update({ status: 'ignored', stage: 'ignored' } as never).eq('id', it.id)).error) { toast('Could not save — try again.'); return; }
+        if (!(await fdb.from('fin_inbox').update({ status: 'ignored', stage: 'ignored' } as never).eq('id', it.id).select('id')).data?.length) { toast('Could not save — try again.'); return; }
         toast('Ignored'); void qc.invalidateQueries({ queryKey: ['finPurchases'] }); router.back();
       }} />}
       <Muted style={{ marginTop: 8 }}>Sending it to a PM to book is switched off while Finance is on trial.</Muted>

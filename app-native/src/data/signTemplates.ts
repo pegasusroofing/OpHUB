@@ -24,15 +24,15 @@ export async function addTemplate(me: Profile, name: string, a: { uri: string; n
     return (r.data as { id: string } | null)?.id ?? null;
   } catch { return null; }
 }
-export const renameTemplate = async (id: string, name: string) => !(await db.from('sign_layout_templates').update({ name: name.slice(0, 80) } as never).eq('id', id)).error;
-export const deleteTemplate = async (id: string) => !(await db.from('sign_layout_templates').delete().eq('id', id)).error;
-export const saveTemplateBoxes = async (id: string, boxes: SBox[], pages: number) => !(await db.from('sign_layout_templates').update({ layout: { v: 2, boxes }, page_count: pages || null } as never).eq('id', id)).error;
+export const renameTemplate = async (id: string, name: string) => !!(await db.from('sign_layout_templates').update({ name: name.slice(0, 80) } as never).eq('id', id).select('id')).data?.length;
+export const deleteTemplate = async (id: string) => !!(await db.from('sign_layout_templates').delete().eq('id', id).select('id')).data?.length;
+export const saveTemplateBoxes = async (id: string, boxes: SBox[], pages: number) => !!(await db.from('sign_layout_templates').update({ layout: { v: 2, boxes }, page_count: pages || null } as never).eq('id', id).select('id')).data?.length;
 export async function saveAsTemplate(name: string, boxes: SBox[], pages: number, storagePath: string | null): Promise<boolean> {
   return !(await db.from('sign_layout_templates').insert({ name: name.slice(0, 80), page_count: pages || null, layout: { v: 2, boxes }, storage_path: storagePath } as never)).error;
 }
 /** Boxes set by hand on a document make it a multi-page signing one. */
 export async function saveDocBoxes(docId: string, boxes: SBox[]): Promise<boolean> {
-  return !(await db.from('rams_docs').update({ sign_layout: { v: 2, boxes, multi: true } } as never).eq('id', docId)).error;
+  return !!(await db.from('rams_docs').update({ sign_layout: { v: 2, boxes, multi: true } } as never).eq('id', docId).select('id')).data?.length;
 }
 export const boxesOf = (l: SignLayout) => layoutBoxes(l) as SBox[];
 export function layoutSummary(l: SignLayout) {

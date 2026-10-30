@@ -140,7 +140,7 @@ export default function FinVariations() {
               if (!up.error) { fileCols.file_path = up.data.path; fileCols.file_name = vfile.name; }
             }
             const row = { ...fileCols, title, description: String(x.description).trim() || null, instructed_by: String(x.instructed_by).trim() || null, instruction_ref: String(x.instruction_ref).trim() || null, instructed_on: String(x.instructed_on).trim() || null, status, cost_estimate: n('cost_estimate'), quoted: n('quoted'), submitted_on: String(x.submitted_on).trim() || null, agreed_value: agreed, agreed_on: String(x.agreed_on).trim() || (status === 'agreed' ? today() : null), notes: String(x.notes).trim() || null, updated_at: new Date().toISOString() };
-            const ok = cur ? !(await fdb.from('fin_variations').update(row as never).eq('id', cur.id)).error : !!(await insertNumbered('fin_variations', { col: 'site_id', val: id }, (s) => `V${String(s).padStart(3, '0')}`, { ...row, org_id: me.org_id, site_id: id, created_by: me.id }));
+            const ok = cur ? !!(await fdb.from('fin_variations').update(row as never).eq('id', cur.id).select('id')).data?.length : !!(await insertNumbered('fin_variations', { col: 'site_id', val: id }, (s) => `V${String(s).padStart(3, '0')}`, { ...row, org_id: me.org_id, site_id: id, created_by: me.id }));
             if (!ok) return 'Could not save — try again.';
             toast('Variation saved'); setVfile(null); refresh(); return null;
           }} />

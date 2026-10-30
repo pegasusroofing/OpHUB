@@ -59,7 +59,7 @@ async function persist(me: Profile, sheetId: string, w: PbWorking, rateItems: Ra
   for (const e of existing) {
     if (kept.has(e.id)) continue;
     if ((alloc[e.id] || 0) > 0) { blocked++; continue; } // never orphan a booking
-    if (!(await db.from('price_builder_sheet_items').delete().eq('id', e.id)).error) removedIds.push(e.id);
+    if (!!(await db.from('price_builder_sheet_items').delete().eq('id', e.id).select('id')).data?.length) removedIds.push(e.id);
   }
   const clean = (r: PbRow) => { const { id: _i, key: _k, customIdx: _c, ...rest } = r; return { ...rest, sheet_id: sheetId }; };
   let failed = false;
@@ -154,8 +154,8 @@ export async function saveIssuedEdits(me: Profile, site: Site, sheet: Sheet, w: 
   await syncSow(site.id, sheet.schedule_section_id, p);
   return p.blocked ? `Sheet updated — ${p.blocked} item(s) kept because they already have bookings against them.` : 'Sheet updated';
 }
-export const unissueSheet = async (id: string) => !(await db.from('price_builder_sheets').update({ status: 'draft' } as never).eq('id', id)).error;
-export const renameSheet = async (id: string, title: string) => !(await db.from('price_builder_sheets').update({ title } as never).eq('id', id)).error;
+export const unissueSheet = async (id: string) => !!(await db.from('price_builder_sheets').update({ status: 'draft' } as never).eq('id', id).select('id')).data?.length;
+export const renameSheet = async (id: string, title: string) => !!(await db.from('price_builder_sheets').update({ title } as never).eq('id', id).select('id')).data?.length;
 /** Returns null when it can go, or why it can't. */
 export async function sheetDeleteBlock(sheet: Sheet): Promise<string | null> {
   if (sheet.status !== 'issued' && !sheet.pricing_element_id) return null;
@@ -167,7 +167,7 @@ export async function sheetDeleteBlock(sheet: Sheet): Promise<string | null> {
 export async function deleteSheet(sheet: Sheet): Promise<boolean> {
   if (sheet.schedule_section_id) { await db.from('schedule_tasks').delete().eq('section_id', sheet.schedule_section_id); await db.from('schedule_sections').delete().eq('id', sheet.schedule_section_id); }
   if (sheet.pricing_element_id) await db.from('pricing_elements').delete().eq('id', sheet.pricing_element_id);
-  return !(await db.from('price_builder_sheets').delete().eq('id', sheet.id)).error;
+  return !!(await db.from('price_builder_sheets').delete().eq('id', sheet.id).select('id')).data?.length;
 }
 /** Total / Taken / Balance, live from the Pricing Element the sheet feeds. */
 export async function sheetFigures(sheet: Sheet) {
@@ -211,7 +211,7 @@ export async function setOperativeEntry(me: Profile, elementId: string, siteId: 
   const ex = rows<{ id: string }>(await db.from('price_week_operative_entries').select('id').eq('element_id', elementId).eq('week_number', wk).eq('operative_id', operativeId).eq('kind', kind));
   let ok: boolean;
   if (amount === null) ok = !(await db.from('price_week_operative_entries').delete().eq('element_id', elementId).eq('week_number', wk).eq('operative_id', operativeId).eq('kind', kind)).error;
-  else if (ex.length) ok = !(await db.from('price_week_operative_entries').update({ amount, entered_by: me.id, updated_at: now() } as never).eq('id', ex[0].id)).error;
+  else if (ex.length) ok = !!(await db.from('price_week_operative_entries').update({ amount, entered_by: me.id, updated_at: now() } as never).eq('id', ex[0].id).select('id')).data?.length;
   else ok = !(await db.from('price_week_operative_entries').insert({ site_id: siteId, element_id: elementId, week_number: wk, operative_id: operativeId, amount, kind, entered_by: me.id, updated_at: now() } as never)).error;
   if (ok && rollUp) await rollUpWeek(elementId, siteId, wk);
   return ok;
@@ -222,7 +222,7 @@ export async function addEntry(me: Profile, elementId: string, siteId: string, w
   return ok;
 }
 export async function setEntryAmount(me: Profile, elementId: string, siteId: string, wk: number, id: string, amount: number | null, rollUp: boolean) {
-  const ok = amount === null ? !(await db.from('price_week_operative_entries').delete().eq('id', id)).error : !(await db.from('price_week_operative_entries').update({ amount, updated_at: now() } as never).eq('id', id)).error;
+  const ok = amount === null ? !!(await db.from('price_week_operative_entries').delete().eq('id', id).select('id')).data?.length : !!(await db.from('price_week_operative_entries').update({ amount, updated_at: now() } as never).eq('id', id).select('id')).data?.length;
   if (ok && amount === null && me.org_id) void db.from('site_activity_log').insert({ org_id: me.org_id, site_id: siteId, actor_id: me.id, action: 'price_week_entry_deleted', description: `Deleted price entry for Week ${wk}` } as never).then(undefined, () => undefined);
   if (ok && rollUp) await rollUpWeek(elementId, siteId, wk);
   return ok;

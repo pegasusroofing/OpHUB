@@ -46,7 +46,7 @@ export default function ExpensesEmail() {
           const v = email.trim();
           if (v && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) { toast('Enter a valid email address.'); return; }
           setBusy(true);
-          const ok = !(await db.from('organizations').update({ expenses_email: v || null, expenses_retention_months: months } as never).eq('id', me.org_id as string)).error;
+          const ok = !!(await db.from('organizations').update({ expenses_email: v || null, expenses_retention_months: months } as never).eq('id', me.org_id as string).select('id')).data?.length;
           setBusy(false);
           toast(ok ? (v ? 'Expenses settings saved' : 'Saved — no expenses email set') : 'Could not save — only a Project Manager or Admin can change this.');
           if (ok) { void refetch(); void refresh(); }

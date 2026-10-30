@@ -74,7 +74,7 @@ export function PriceFiles({ me, site, el, mgr, canPrice, canLabour }: { me: Pro
   };
   const del = async (kind: 'price' | 'labour', f: F) => {
     if (!(await confirmAsk(kind === 'price' ? 'Delete this price file? This can’t be undone. If it was applied to all elements, it will be removed from all of them.' : 'Delete this invoice? This can’t be undone.', 'Delete'))) return;
-    const ok = !(await db.from(kind === 'price' ? 'price_files' : 'labour_invoices').delete().eq('id', f.id)).error;
+    const ok = !!(await db.from(kind === 'price' ? 'price_files' : 'labour_invoices').delete().eq('id', f.id).select('id')).data?.length;
     if (!ok) { toast('Could not delete — try again.'); return; }
     try { await supabase.storage.from(kind === 'price' ? 'price-files' : 'labour-invoices').remove([f.storage_path]); } catch { /* row gone */ }
     if (me.org_id) void db.from('site_activity_log').insert({ org_id: me.org_id, site_id: site.id, actor_id: me.id, action: kind === 'price' ? 'price_file_deleted' : 'labour_invoice_deleted', description: `Deleted ${kind === 'price' ? 'price file' : 'labour invoice'} "${f.filename}"` } as never).then(undefined, () => undefined);

@@ -16,6 +16,7 @@ import { useAuth } from '@/lib/auth';
 import { COST_CATS, forecast } from '@/lib/rules/finBook';
 import { fdate, money, num, round2, today } from '@/lib/rules/finance';
 import { page, space } from '@/theme/theme';
+import { mustHit } from '@/lib/mustHit';
 
 export default function FinCosts() {
   const { id, sub } = useLocalSearchParams<{ id: string; sub?: string }>();
@@ -67,7 +68,7 @@ export default function FinCosts() {
             toast('Saved'); refresh(); return null;
           }}
           extra={cur ? <AllocRow table="fin_job_costs" row={cur} onSaved={() => setEdit(null)} /> : null}
-          onDelete={cur ? async () => { const r = await fdb.from('fin_job_costs').delete().eq('id', cur.id); if (r.error) return 'Could not remove — try again.'; toast('Removed'); refresh(); return null; } : undefined} />
+          onDelete={cur ? async () => { const r = mustHit(await fdb.from('fin_job_costs').delete().eq('id', cur.id).select('id')); if (r.error) return 'Could not remove — try again.'; toast('Removed'); refresh(); return null; } : undefined} />
       )}
       <Muted style={{ marginTop: 8 }}>All excl. VAT. Labour from sign-ins is only costed for PAYE staff with a day rate (People &amp; rates).</Muted>
     </ScrollView>

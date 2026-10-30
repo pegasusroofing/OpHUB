@@ -258,7 +258,7 @@ export async function bookTimeOff(me: Profile, from: string, to: string, note: s
   return clash.length ? `Booked. You had ${clash.length} deliver${clash.length === 1 ? 'y' : 'ies'} on those days — the office has been told.` : 'Time off booked';
 }
 export async function removeTimeOff(id: string): Promise<boolean> {
-  return !(await db.from('driver_time_off').delete().eq('id', id)).error;
+  return !!(await db.from('driver_time_off').delete().eq('id', id).select('id')).data?.length;
 }
 
 /* ---------- vehicle checklist ---------- */
@@ -321,7 +321,7 @@ export async function replaceCompletionPhoto(t: Delivery, oldPath: string, newPa
   const cur = await db.from('delivery_tasks').select('completion_photo_paths,completion_photo_path').eq('id', t.id);
   const all = completionPhotos(((cur.data as Delivery[] | null) ?? [])[0] ?? t); const i = all.indexOf(oldPath);
   if (i >= 0) all[i] = newPath; else all.push(newPath);
-  return !(await db.from('delivery_tasks').update({ completion_photo_paths: all, completion_photo_path: all[0] } as never).eq('id', t.id)).error;
+  return !!(await db.from('delivery_tasks').update({ completion_photo_paths: all, completion_photo_path: all[0] } as never).eq('id', t.id).select('id')).data?.length;
 }
 
 /** Why a delivery can't go on this day (9219zz dtoBlockFor): the chosen driver is off, or (no driver

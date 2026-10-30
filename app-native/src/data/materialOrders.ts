@@ -7,6 +7,7 @@ import { orThrow } from '@/lib/offlineCache';
 import { supabase } from '@/lib/supabase';
 import { invokeAsUser } from '@/lib/userFunctions';
 import type { Profile } from '@/lib/types';
+import { mustHit } from '@/lib/mustHit';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 
@@ -45,12 +46,12 @@ function log(me: Profile, siteId: string, action: string, description: string) {
 
 export const createMOFolder = async (me: Profile, siteId: string, parentId: string | null, name: string) =>
   !(await db.from('material_order_folders').insert({ site_id: siteId, parent_id: parentId, name, created_by: me.id } as never)).error;
-export const renameMOFolder = async (id: string, name: string) => !(await db.from('material_order_folders').update({ name } as never).eq('id', id)).error;
+export const renameMOFolder = async (id: string, name: string) => !!(await db.from('material_order_folders').update({ name } as never).eq('id', id).select('id')).data?.length;
 
 /** Deleting a folder moves its documents back to the main folder — nothing is deleted. */
 export async function deleteMOFolder(me: Profile, f: MOFolder) {
   await db.from('material_order_files').update({ folder_id: null } as never).eq('folder_id', f.id);
-  const r = await db.from('material_order_folders').delete().eq('id', f.id);
+  const r = mustHit(await db.from('material_order_folders').delete().eq('id', f.id).select('id'));
   if (!r.error) log(me, f.site_id, 'material_order_folder_deleted', `Deleted Material PO folder "${f.name || ''}"`);
   return !r.error;
 }
@@ -62,10 +63,10 @@ export async function moveSibling(table: 'material_order_folders' | 'material_or
   return res.every((r) => !r.error);
 }
 
-export const moveMOFileTo = async (fileId: string, folderId: string | null) => !(await db.from('material_order_files').update({ folder_id: folderId } as never).eq('id', fileId)).error;
+export const moveMOFileTo = async (fileId: string, folderId: string | null) => !!(await db.from('material_order_files').update({ folder_id: folderId } as never).eq('id', fileId).select('id')).data?.length;
 
 export async function deleteMOFile(me: Profile, f: MOFile) {
-  const r = await db.from('material_order_files').delete().eq('id', f.id);
+  const r = mustHit(await db.from('material_order_files').delete().eq('id', f.id).select('id'));
   if (r.error) return false;
   if (f.storage_path) void supabase.storage.from('material-orders').remove([f.storage_path]).catch(() => undefined);
   if (f.calendar_event_id) await db.from('site_calendar_events').delete().eq('id', f.calendar_event_id);
@@ -98,7 +99,7 @@ export async function setDeliveryDate(me: Profile, siteId: string, f: MOFile, da
     const r = await db.from('site_calendar_events').insert({ site_id: siteId, org_id: me.org_id, title: `Delivery: ${f.name}`, event_date: date, is_private: false, reminder_recipient_ids: [], created_by: me.id } as never).select('id').single();
     ev = (r.data as { id: string } | null)?.id ?? null;
   }
-  return !(await db.from('material_order_files').update({ scheduled_delivery_date: date, calendar_event_id: ev } as never).eq('id', f.id)).error;
+  return !!(await db.from('material_order_files').update({ scheduled_delivery_date: date, calendar_event_id: ev } as never).eq('id', f.id).select('id')).data?.length;
 }
 
 export async function viewMOFile(siteId: string, path: string) {
