@@ -13,7 +13,9 @@ import { Button, Card, Empty, Muted } from '@/components/ui';
 import { useSuppliers, type FullSupplier } from '@/data/materials';
 import { useAuth } from '@/lib/auth';
 import { type Branch } from '@/lib/rules/materials';
-import { supplierConflict } from '@/lib/rules/suppliers';
+import { supplierConflict, supplierImportRows } from '@/lib/rules/suppliers';
+import { csvRows, readXlsx } from '@/lib/rules/xlsxRead';
+import * as DocumentPicker from 'expo-document-picker';
 import { isFinanceUser, isFullManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
 import { base, page, radius, space } from '@/theme/theme';
@@ -143,6 +145,22 @@ export default function Suppliers() {
             }} /></View>
             <View style={{ flex: 1 }}><Button kind="ghost" title="Cancel" onPress={() => setAdding(false)} /></View>
           </View>
+          <Muted style={{ marginTop: 12, marginBottom: 6 }}>Or import a list — Excel / CSV with Name and Email columns (or name in column A, email in column B). Anything that looks like an existing supplier is skipped.</Muted>
+          <Button kind="ghost" title="📊 Choose Excel / CSV file" onPress={async () => {
+            const r = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true }); if (r.canceled || !r.assets[0]) return;
+            const a = r.assets[0];
+            if (/\.xls$/i.test(a.name || '')) { toast('Save it as .xlsx or .csv first — old .xls files can’t be read.'); return; }
+            try {
+              const bytes = new Uint8Array(await (await fetch(a.uri)).arrayBuffer());
+              const rows = /\.csv$/i.test(a.name || '') ? csvRows(new TextDecoder().decode(bytes)) : (await readXlsx(bytes))[0]?.rows ?? [];
+              if (!rows.length) { toast('No rows found in that file.'); return; }
+              const imp = supplierImportRows(rows as unknown[][], sups);
+              if (!imp.found.length) { toast(imp.dupes || imp.similar.length ? 'Nothing new to import — every row matched an existing (or similar) supplier.' : 'Could not find any name + email pairs — check the file has Name / Email columns.'); return; }
+              if ((await db.from('suppliers').insert(imp.found.map((f) => ({ org_id: me.org_id, name: f.name, email: f.email, created_by: me.id })) as never)).error) { toast('Could not import — try again.'); return; }
+              showAlert(`${imp.found.length} supplier${imp.found.length === 1 ? '' : 's'} imported${imp.dupes ? `, ${imp.dupes} skipped (already on file)` : ''}${imp.similar.length ? `. Skipped as possible duplicates — add them by hand if they really are different companies: ${imp.similar.join(', ')}` : '.'}`);
+              setAdding(false); refresh();
+            } catch { toast('Could not read that file — check it’s a valid .xlsx or .csv.'); }
+          }} />
         </Card>
       ) : <Button title="+ Add Supplier" onPress={() => setAdding(true)} />}
     </ScrollView>

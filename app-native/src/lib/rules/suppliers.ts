@@ -30,3 +30,28 @@ export function supplierConflict<S extends { id: string; name: string }>(name: s
   }
   return { blocked: null, warn };
 }
+
+/** Suppliers from a spreadsheet (730 importSuppliersExcel): Name / Email columns from a header row,
+ *  else column A = name and B = email. Rows clashing with a supplier on file (or earlier in the same
+ *  file) are skipped — blocked ones counted, similar ones listed. */
+export function supplierImportRows<S extends { id: string; name: string }>(rows: unknown[][], existing: S[]): { found: { name: string; email: string }[]; dupes: number; similar: string[] } {
+  const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const header = (rows[0] || []).map((c) => String(c ?? '').trim().toLowerCase());
+  const ni = header.findIndex((h) => h.includes('name')), ei = header.findIndex((h) => h.includes('email'));
+  const hasHead = ni > -1 || ei > -1;
+  const nameCol = ni > -1 ? ni : 0, emailCol = ei > -1 ? ei : 1;
+  const seen: { id: string; name: string }[] = [...existing];
+  const found: { name: string; email: string }[] = [], similar: string[] = [];
+  let dupes = 0;
+  for (let i = hasHead ? 1 : 0; i < rows.length; i++) {
+    const r = rows[i]; if (!r) continue;
+    const name = String(r[nameCol] ?? '').trim(), email = String(r[emailCol] ?? '').trim();
+    if (!name || !EMAIL.test(email)) continue;
+    const c = supplierConflict(name, seen);
+    if (c.blocked) { dupes++; continue; }
+    if (c.warn) { similar.push(`${name} (like "${c.warn.name}")`); continue; }
+    found.push({ name, email });
+    seen.push({ id: `new${i}`, name });
+  }
+  return { found, dupes, similar };
+}
