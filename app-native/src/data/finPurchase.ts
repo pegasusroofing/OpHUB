@@ -55,6 +55,24 @@ export async function setPinvStatus(me: Profile, id: string, status: string, not
   const poId = (r.data as Row | null)?.po_id; if (poId) void poMaybeClose(poId);
   return { ok: true, xero: x.error };
 }
+/** 9219zr mplTellPm: a message to the job's responsible PM about a supplier invoice (kind pi_query, opens their reply page). */
+export async function tellPmOfPi(me: Profile, pi: Row, body: string): Promise<{ sent: boolean; pm?: string; why?: 'nopm' | 'me' }> {
+  const pm = ((await fdb.from('sites').select('responsible_pm_id').eq('id', pi.site_id).maybeSingle()).data as Row | null)?.responsible_pm_id as string | undefined;
+  if (!pm) return { sent: false, why: 'nopm' };
+  if (pm === me.id) return { sent: false, why: 'me' };
+  const r = await fdb.from('messages').insert({ org_id: me.org_id, site_id: pi.site_id, sender_id: me.id, audience: 'single', recipient_id: pm, kind: 'pi_query', body: body.slice(0, 1000), related_id: pi.id } as never);
+  return { sent: !r.error, pm };
+}
+export const piLabel = (pi: Row) => `${pi.supplier_name || 'supplier'} invoice${pi.invoice_no ? ` ${pi.invoice_no}` : ''}`;
+/** Finance's reply in the conversation with the PM (9219zr mplPiThreadSend): added to query_thread and the PM told. */
+export async function addPiThreadReply(me: Profile, id: string, text: string): Promise<{ ok: boolean; sent?: boolean; pm?: string }> {
+  const pi = (await fdb.from('purchase_invoices').select('id,site_id,supplier_name,invoice_no,query_thread').eq('id', id).maybeSingle()).data as Row | null;
+  if (!pi) return { ok: false };
+  const thread = [...(Array.isArray(pi.query_thread) ? pi.query_thread : []), { by: me.id, name: me.name || '', at: new Date().toISOString(), text: text.slice(0, 2000) }];
+  if (!(await fdb.from('purchase_invoices').update({ query_thread: thread } as never).eq('id', id).select('id')).data?.length) return { ok: false };
+  const t = await tellPmOfPi(me, pi, `Reply on ${piLabel(pi)}: ${text.slice(0, 300)}`);
+  return { ok: true, sent: t.sent, pm: t.pm };
+}
 /** A PO whose value is fully covered by approved invoices is closed as Invoiced; reopened when it no longer is (9219b finPoMaybeClose). */
 export async function poMaybeClose(poId: string): Promise<void> {
   try {

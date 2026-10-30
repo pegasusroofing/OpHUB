@@ -5,7 +5,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View, TextInput } from 'react-native';
 
 import { SelectBox } from '@/components/SelectBox';
 import { FinForm } from '@/components/FinForm';
@@ -16,14 +16,14 @@ import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toa
 import { Button, Card, Check, Muted, SectionTitle } from '@/components/ui';
 import { fdb } from '@/data/finance';
 import { viewDoc } from '@/components/DocViewer';
-import { openDocLink } from '@/data/hs';
-import { addPinv, duplicateOf, isInXero, loadPinv, setPinvCostCode, setPinvPaid, setPinvStatus } from '@/data/finPurchase';
+import { nameOf, openDocLink, usePeople } from '@/data/hs';
+import { addPiThreadReply, piLabel, tellPmOfPi, addPinv, duplicateOf, isInXero, loadPinv, setPinvCostCode, setPinvPaid, setPinvStatus } from '@/data/finPurchase';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { COST_CATS, PI_STATUS } from '@/lib/rules/finBook';
 import { codePatch, codeStart, type CodeLine } from '@/lib/rules/piCode';
 import { fdate, jobTag, money, num, round2, today } from '@/lib/rules/finance';
-import { base, page, space } from '@/theme/theme';
+import { base, page, radius, space } from '@/theme/theme';
 
 const XERO_Q = 'This is already in Xero. Changing it here won’t change Xero — change it in Xero too, or the two won’t match.';
 
@@ -89,6 +89,9 @@ function ViewPinv({ id }: { id: string }) {
   const qc = useQueryClient();
   const { data: sites = [] } = useSites();
   const { data, isLoading } = useQuery({ queryKey: ['finPinv', id], queryFn: () => loadPinv(id) });
+  const { data: people } = usePeople();
+  const [reply, setReply] = useState('');
+  const [sending, setSending] = useState(false);
   if (!me) return null;
   if (isLoading) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   const i = data?.i; if (!i) return <Muted style={{ padding: space.l }}>Purchase invoice not found.</Muted>;
@@ -97,7 +100,13 @@ function ViewPinv({ id }: { id: string }) {
     if ((s === 'rejected' || s === 'query') && (await isInXero('purchase_invoices', id)) && !(await confirmAsk(`${label}?\n\n${XERO_Q}`, 'I’ll change Xero too'))) return;
     const r = await setPinvStatus(me, id, s, note);
     if (!r.ok) { toast('Could not update — try again.'); return; }
-    toast(s === 'approved' ? `Approved${r.xero ? ' — not posted to Xero (Finance trial)' : ''}` : s === 'rejected' ? 'Rejected' : 'Marked as query'); refresh();
+    if (s === 'query') {
+      // 9219zr: the job's PM is asked to answer it (a message that opens their reply page).
+      const t = await tellPmOfPi(me, i, `Query on ${piLabel(i)}: ${note || 'Query'}`);
+      toast(t.sent ? `Marked as query — sent to ${nameOf(people, t.pm as string)} to answer` : t.why === 'nopm' ? 'Marked as query — this project has no PM set, so nobody on site was asked.' : 'Marked as query');
+      refresh(); return;
+    }
+    toast(s === 'approved' ? `Approved${r.xero ? ' — not posted to Xero (Finance trial)' : ''}` : 'Rejected'); refresh();
   };
   return (
     <ScrollView contentContainerStyle={page(800)}>
@@ -106,6 +115,34 @@ function ViewPinv({ id }: { id: string }) {
         <FinStat v={i.paid_on ? 'Paid' : PI_STATUS[i.status] || i.status} label="Status" hot={i.status === 'query'} /><FinStat v={money(i.net)} label="Net" /><FinStat v={money(i.total)} label="Gross" />
       </View>
       {i.query_note && i.status === 'query' && <Card style={{ backgroundColor: '#FDECEA' }}><Text style={{ color: '#8E2B20' }}>⚠ {i.query_note}</Text></Card>}
+      {(() => {
+        // 9219zr: the conversation with the job's PM about a queried invoice, with a reply box while it's a query.
+        const thread = (Array.isArray(i.query_thread) ? i.query_thread : []).filter((x: Row) => x && x.text) as Row[];
+        if (i.status !== 'query' && !thread.length) return null;
+        const pm = sites.find((x) => x.id === i.site_id)?.responsible_pm_id;
+        return (
+          <Card>
+            <SectionTitle>Conversation With The PM{pm ? ` (${nameOf(people, pm)})` : ''}</SectionTitle>
+            {thread.length ? thread.map((x, k) => (
+              <View key={k} style={{ paddingVertical: 6, borderTopWidth: k ? 1 : 0, borderTopColor: base.line, alignSelf: x.by === me.id ? 'flex-end' : 'flex-start', maxWidth: '90%' }}>
+                <Muted>{x.name || nameOf(people, x.by)} · {x.at ? new Date(x.at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}</Muted>
+                <Text style={{ color: base.ink }}>{x.text}</Text>
+              </View>
+            )) : <Muted>No replies yet.</Muted>}
+            {i.status === 'query' && (pm ? (
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+                <TextInput value={reply} onChangeText={setReply} placeholder="Reply to the PM…" style={{ flex: 1, borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card }} />
+                <Button busy={sending} title="Send" onPress={async () => {
+                  if (!reply.trim()) { toast('Write a reply first.'); return; }
+                  setSending(true); const r = await addPiThreadReply(me, i.id, reply.trim()); setSending(false);
+                  if (!r.ok) { toast('Couldn’t save the reply — try again.'); return; }
+                  toast(r.sent ? `Reply sent to ${nameOf(people, r.pm as string)}` : 'Reply saved'); setReply(''); refresh();
+                }} />
+              </View>
+            ) : <Muted style={{ marginTop: 6 }}>This project has no PM set, so nobody on site can be asked.</Muted>)}
+          </Card>
+        );
+      })()}
       <Card>
         <FinRow title="Supplier" right={i.supplier_name || '—'} /><FinRow title={i.kind === 'receipt' ? 'Receipt' : 'Invoice no.'} right={i.invoice_no || '—'} /><FinRow title="Date" right={fdate(i.invoice_date)} />
         <FinRow title="Project" right={jobTag(sites.find((s) => s.id === i.site_id))} onPress={() => router.push(`/fin/job/${i.site_id}` as never)} />
@@ -124,8 +161,8 @@ function ViewPinv({ id }: { id: string }) {
       <CodeLines i={i} sites={sites} onSaved={refresh} />
       {i.file_path && <Button kind="ghost" title={`📄 ${i.file_name || 'Open the invoice'}`} onPress={async () => { const u = await openDocLink('finance-docs', i.file_path); if (u) viewDoc(u); else toast('Could not open the file.'); }} />}
       <View style={{ gap: 8, marginTop: 10 }}>
-        {i.status !== 'approved' && i.status !== 'rejected' && <Button title="✓ Approve" onPress={() => void status('approved', 'Approve')} />}
-        {i.status !== 'query' && i.status !== 'rejected' && <Button kind="ghost" title="Query" onPress={async () => { const n = await promptText('What needs checking?', ''); if (n !== null) void status('query', 'Mark this purchase invoice as a query', n.trim() || 'Query'); }} />}
+        {i.status !== 'approved' && <Button title="✓ Approve" onPress={() => void status('approved', 'Approve')} />}
+        {i.status !== 'query' && <Button kind="ghost" title="Query" onPress={async () => { const n = await promptText('What needs checking?', ''); if (n !== null) void status('query', 'Mark this purchase invoice as a query', n.trim() || 'Query'); }} />}
         {i.status === 'approved' && <Button kind="ghost" title={i.paid_on ? 'Remove paid date' : 'Mark paid today'} onPress={async () => { if (await setPinvPaid(id, i.paid_on ? null : today())) { toast(i.paid_on ? 'Paid date removed' : 'Marked paid'); refresh(); } }} />}
         {i.status !== 'rejected' && <Button kind="ghost" title="Reject" onPress={async () => { if (await confirmAsk('Reject this purchase invoice?', 'Reject')) void status('rejected', 'Reject this purchase invoice'); }} />}
       </View>
