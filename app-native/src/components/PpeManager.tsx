@@ -51,6 +51,7 @@ export function PpeManager({ site }: { site: Site }) {
   const [items, setItems] = useState<string[]>([]);
   const [custom, setCustom] = useState('');
   const [reqOpen, setReqOpen] = useState(false);
+  const [reqPick, setReqPick] = useState<Set<string>>(new Set()); // 650 #263: tick requests to export / email them
   const [openFor, setOpenFor] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
   if (!me) return null;
@@ -94,9 +95,12 @@ export function PpeManager({ site }: { site: Site }) {
       <Toggle title={`PPE Requests${pendingReqs.length ? ` (${pendingReqs.length} pending)` : ''}`} open={reqOpen} onPress={() => setReqOpen(!reqOpen)} />
       {reqOpen && (
         <Card>
-          <Muted style={{ marginBottom: 8 }}>Fulfilled requests move into Site Issued PPE below, under the operative&apos;s name.</Muted>
+          <Muted style={{ marginBottom: 8 }}>Fulfilled requests move into Site Issued PPE below, under the operative&apos;s name. Tick requests to export / email them, same as issued PPE.</Muted>
           {data.requests.filter((r) => r.status !== 'fulfilled').length ? data.requests.filter((r) => r.status !== 'fulfilled').map((r) => (
             <View key={r.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, borderTopWidth: 1, borderTopColor: base.line }}>
+              <Pressable hitSlop={6} onPress={() => setReqPick((x) => { const n = new Set(x); if (n.has(r.id)) n.delete(r.id); else n.add(r.id); return n; })}>
+                <Text style={{ fontSize: 17, color: base.ink }}>{reqPick.has(r.id) ? '☑' : '☐'}</Text>
+              </Pressable>
               <View style={{ flex: 1 }}>
                 <Text style={{ fontWeight: '700', color: base.ink }}>{data.ops.find((o) => o.id === r.user_id)?.name ?? 'Operative'} — {r.item_name}</Text>
                 <Muted>{r.date_needed ? `Needed by ${long(`${r.date_needed}T00:00:00`)}` : 'No date given'}</Muted>
@@ -109,11 +113,32 @@ export function PpeManager({ site }: { site: Site }) {
               ) : <Text style={{ color: base.slate }}>{cap1(r.status)}</Text>}
             </View>
           )) : <Empty>No requests yet.</Empty>}
-          {data.requests.some((r) => r.status !== 'fulfilled') && <Button kind="ghost" title="📄 Requested PPE — PDF" onPress={async () => {
-            const list = data.requests.filter((r) => r.status !== 'fulfilled');
-            const ok = await exportTablePdf({ title: `Requested PPE (${list.length})`, site: site.name, sub: site.name, cols: [{ l: 'Operative', w: 140 }, { l: 'Item', w: 160 }, { l: 'Status', w: 80 }, { l: 'Needed by', w: 80 }, { l: 'Requested', w: 80 }], rows: list.map((r) => [nameOf(people, r.user_id), r.item_name, cap1(r.status), r.date_needed ? new Date(`${r.date_needed}T00:00:00`).toLocaleDateString('en-GB') : '', new Date(r.created_at).toLocaleDateString('en-GB')]) }, org).catch(() => false);
-            if (!ok) toast('Could not build the PDF.');
-          }} />}
+          {reqPick.size > 0 && (() => {
+            const build = async () => {
+              const list = data.requests.filter((r) => reqPick.has(r.id));
+              let out: { bytes: Uint8Array; filename: string } | null = null;
+              const ok = await exportTablePdf({ title: `Requested PPE (${list.length})`, site: site.name, sub: site.name, cols: [{ l: 'Operative', w: 140 }, { l: 'Item', w: 160 }, { l: 'Status', w: 80 }, { l: 'Needed by', w: 80 }, { l: 'Requested', w: 80 }], rows: list.map((r) => [nameOf(people, r.user_id), r.item_name, cap1(r.status), r.date_needed ? new Date(`${r.date_needed}T00:00:00`).toLocaleDateString('en-GB') : '', new Date(r.created_at).toLocaleDateString('en-GB')]) }, org, async (bytes, filename) => { out = { bytes, filename }; return true; });
+              return ok ? out as { bytes: Uint8Array; filename: string } | null : null;
+            };
+            return (
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+                <View style={{ flex: 1 }}><Button kind="ghost" busy={pdfBusy === 'pdf'} title={`Export ${reqPick.size} (PDF)`} onPress={async () => {
+                  setPdfBusy('pdf');
+                  try { const b = await build(); if (!b) toast('Could not build the PDF.'); else if (await deliverPdf(b.bytes, b.filename)) setReqPick(new Set()); } catch { toast('Could not build the PDF.'); } finally { setPdfBusy(null); }
+                }} /></View>
+                <View style={{ flex: 1 }}><Button kind="ghost" busy={pdfBusy === 'email'} title={`Email ${reqPick.size}`} onPress={async () => {
+                  setPdfBusy('email');
+                  try {
+                    const b = await build(); if (!b) { toast('Could not build the PDF.'); return; }
+                    let bin = ''; for (let k = 0; k < b.bytes.length; k += 0x8000) bin += String.fromCharCode(...b.bytes.subarray(k, k + 0x8000));
+                    const r = await supabase.functions.invoke('send-report-email', { body: { attachments: [{ filename: b.filename, content_base64: btoa(bin) }] } });
+                    const d = r.data as { error?: string } | null;
+                    if (r.error || d?.error) toast(`Email failed — ${d?.error || 'try again'}`); else { toast(`Requested PPE emailed to ${me.email || 'you'}`); setReqPick(new Set()); }
+                  } catch { toast('Email failed — could not reach the server.'); } finally { setPdfBusy(null); }
+                }} /></View>
+              </View>
+            );
+          })()}
         </Card>
       )}
 
