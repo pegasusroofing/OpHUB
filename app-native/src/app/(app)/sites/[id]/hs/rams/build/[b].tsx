@@ -104,7 +104,7 @@ function Editor({ initial, siteId }: { initial: RamsBuild; siteId: string }) {
   const field = (label: string, k: keyof RamsDetails, o: { multiline?: boolean; kb?: 'phone-pad'; ph?: string; date?: boolean } = {}) => {
     const req = RAMS_REQUIRED.some(([r]) => r === k), v = String(b.details[k] ?? ''), bad = req && !v.trim();
     return (
-      <View style={{ flex: 1 }}>
+      <View key={k} style={{ flex: 1 }}>
         <Muted style={{ fontWeight: '700' }}>{label}{req ? <Text style={{ color: '#C0392B' }}> *</Text> : null}</Muted>
         {o.date ? <DateBox value={v} onChange={(t) => setD(k, t)} title={label} placeholder={req ? 'Required' : 'Choose a date'} style={[{ marginBottom: 8 }, bad ? { borderColor: '#C0392B' } : null]} /> : <TextInput value={v} onChangeText={(t) => setD(k, t)} multiline={o.multiline} keyboardType={o.kb} placeholder={o.ph || (req ? 'Required' : undefined)} style={[box, o.multiline ? { minHeight: 70 } : null, bad ? { borderColor: '#C0392B' } : null]} />}
       </View>

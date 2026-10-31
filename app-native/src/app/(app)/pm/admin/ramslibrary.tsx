@@ -207,7 +207,7 @@ export default function RamsLibrary() {
     await Promise.all(next.map((x, k) => (x.sort_order === k ? null : db.from('rams_library_items').update({ sort_order: k } as never).eq('id', x.id))));
     refresh();
   };
-  const chip = (on: boolean, l: string, onPress: () => void) => <Pressable onPress={onPress} style={{ flexBasis: '48%', flexGrow: 1, padding: 8, borderRadius: 16, borderWidth: 1, borderColor: on ? base.ink : base.line, backgroundColor: on ? base.ink : base.card }}><Text style={{ textAlign: 'center', fontWeight: '700', fontSize: 12, color: on ? '#fff' : base.ink }}>{l}</Text></Pressable>;
+  const chip = (on: boolean, l: string, onPress: () => void) => <Pressable key={l} onPress={onPress} style={{ flexBasis: '48%', flexGrow: 1, padding: 8, borderRadius: 16, borderWidth: 1, borderColor: on ? base.ink : base.line, backgroundColor: on ? base.ink : base.card }}><Text style={{ textAlign: 'center', fontWeight: '700', fontSize: 12, color: on ? '#fff' : base.ink }}>{l}</Text></Pressable>;
   return (
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'RAMS Library' }} />
