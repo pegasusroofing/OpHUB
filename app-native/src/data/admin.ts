@@ -3,7 +3,7 @@
 // email can sign up again), invite links, and device locks.
 import { useQuery } from '@tanstack/react-query';
 
-import { rolePatch } from '@/lib/rules/users';
+import { roleChangePatch } from '@/lib/rules/users';
 import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/lib/types';
 
@@ -22,7 +22,7 @@ export function useTeam(orgId: string | null | undefined) {
   });
 }
 export async function setRole(id: string, role: string): Promise<boolean> {
-  return !!(await db.from('profiles').update(rolePatch(role) as never).eq('id', id).select('id')).data?.length;
+  return !!(await db.from('profiles').update(roleChangePatch(role) as never).eq('id', id).select('id')).data?.length;
 }
 export async function setPhone(id: string, phone: string | null): Promise<boolean> {
   return !!(await db.from('profiles').update({ phone } as never).eq('id', id).select('id')).data?.length;
