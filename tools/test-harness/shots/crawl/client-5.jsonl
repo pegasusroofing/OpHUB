@@ -1,0 +1,125 @@
+{"route":"/onsite","role":"client","load":true,"land":"/sites","blocked":false,"buttons":4,"words":322,"problems":[],"did":[]}
+{"route":"/driver/timeoff","role":"client","load":true,"land":"/driver/timeoff","blocked":false,"buttons":4,"words":294,"problems":[],"did":[]}
+{"route":"/driver/timeoff","role":"client","label":"One day","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/driver/timeoff","role":"client","label":"Several days","trail":[],"did":["changed","said: From / To"],"problems":[]}
+{"route":"/driver/timeoff","role":"client","label":"Several days","trail":["(reopen)"],"did":["changed","said: From / To"],"problems":[]}
+{"route":"/driver/timeoff","role":"client","label":"From","trail":["Several days"],"did":["changed","said: ✕ / October 2026 / ›"],"problems":[]}
+{"route":"/driver/timeoff","role":"client","label":"Close","trail":["Several days","From"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/driver/timeoff","role":"client","label":"Several days","trail":["(reopen)"],"did":["changed","said: From / To"],"problems":[]}
+{"route":"/driver/timeoff","role":"client","label":"To","trail":["Several days"],"did":["changed","said: ✕ / October 2026 / ›"],"problems":[]}
+{"route":"/driver/timeoff","role":"client","label":"Close","trail":["Several days","To"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/driver/timeoff","role":"client","label":"Date","trail":[],"did":["changed","said: ✕ / October 2026 / ›"],"problems":[]}
+{"route":"/driver/timeoff","role":"client","label":"Date","trail":["(reopen)"],"did":["changed","said: ✕ / October 2026 / ›"],"problems":[]}
+{"route":"/driver/timeoff","role":"client","label":"Close","trail":["Date"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/driver/timeoff","role":"client","label":"Date","trail":["(reopen)"],"did":["changed","said: ✕ / October 2026 / ›"],"problems":[]}
+{"route":"/driver/timeoff","role":"client","label":"Previous month","trail":["Date"],"did":["changed","said: September 2026"],"problems":[]}
+{"route":"/driver/timeoff","role":"client","label":"Close","trail":["Date","Previous month"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/driver/timeoff","role":"client","label":"Date","trail":["(reopen)"],"did":["changed","said: ✕ / October 2026 / ›"],"problems":[]}
+{"route":"/driver/timeoff","role":"client","label":"Next month","trail":["Date"],"did":["changed","said: November 2026"],"problems":[]}
+{"route":"/driver/timeoff","role":"client","label":"Close","trail":["Date","Next month"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/driver/timeoff","role":"client","label":"Date","trail":["(reopen)"],"did":["changed","said: ✕ / October 2026 / ›"],"problems":[]}
+{"route":"/driver/timeoff","role":"client","label":"1 Oct 2026","trail":["Date"],"did":[],"problems":["could not press"]}
+{"route":"/driver/timeoff","role":"client","label":"BOOK TIME OFF","trail":[],"did":["changed","filled 1","said: Sat, 31 Oct 2026 / 1 day · Test / Remove","wrote POST driver_time_off"],"problems":[]}
+{"route":"/driver/timeoff","role":"client","label":"BOOK TIME OFF","trail":["(reopen)"],"did":["changed","filled 1","said: Sat, 31 Oct 2026 / 1 day · Test / Remove","wrote POST driver_time_off"],"problems":[]}
+{"route":"/driver/timeoff","role":"client","label":"Remove","trail":["BOOK TIME OFF"],"did":["changed","said: Tap again to remove"],"problems":[]}
+{"route":"/fin/jobs","role":"client","load":true,"land":"/sites","blocked":true,"buttons":5,"words":344,"problems":[],"did":[]}
+{"route":"/fin/statements","role":"client","load":true,"land":"/sites","blocked":true,"buttons":5,"words":344,"problems":[],"did":[]}
+{"route":"/fin/pinv/pi1","role":"client","load":true,"land":"/sites","blocked":true,"buttons":5,"words":344,"problems":[],"did":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/budget","role":"client","load":true,"land":"/sites","blocked":true,"buttons":5,"words":344,"problems":[],"did":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"client","load":true,"land":"/sites","blocked":true,"buttons":5,"words":344,"problems":[],"did":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111?tab=subs","role":"client","load":true,"land":"/sites","blocked":true,"buttons":5,"words":344,"problems":[],"did":[]}
+{"route":"/pm/admin/companylibrary/cp1","role":"client","load":true,"land":"/sites","blocked":false,"buttons":4,"words":292,"problems":[],"did":[]}
+{"route":"/pm/admin/havstools","role":"client","load":true,"land":"/sites","blocked":false,"buttons":4,"words":292,"problems":[],"did":[]}
+{"route":"/pm/admin/ratecard","role":"client","load":true,"land":"/sites","blocked":false,"buttons":4,"words":292,"problems":[],"did":[]}
+{"route":"/pm/admin/suppliers","role":"client","load":true,"land":"/sites","blocked":false,"buttons":4,"words":292,"problems":[],"did":[]}
+{"route":"/pm/dashboard","role":"client","load":true,"land":"/sites","blocked":false,"buttons":4,"words":292,"problems":[],"did":[]}
+{"route":"/pm/hub","role":"client","load":true,"land":"/sites","blocked":false,"buttons":4,"words":292,"problems":[],"did":[]}
+{"route":"/pm/reports","role":"client","load":true,"land":"/sites","blocked":false,"buttons":4,"words":292,"problems":[],"did":[]}
+{"route":"/pm/vehicles","role":"client","load":true,"land":"/sites","blocked":false,"buttons":4,"words":292,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/calendar","role":"client","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111","blocked":false,"buttons":7,"words":427,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/expenses","role":"client","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111","blocked":false,"buttons":7,"words":427,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/schedule","role":"client","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/schedule","blocked":false,"buttons":17,"words":535,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/schedule","role":"client","note":"17 buttons, 14 distinct pressed","problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/schedule","role":"client","label":"Projects","trail":[],"did":["nav /sites","changed","said: LIVE / (2) / ▾"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/schedule","role":"client","label":"J101 Studley Rd","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111","changed","said: Job No: J101 / NOT CHECKED IN / 0/2"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/schedule","role":"client","label":"To Do / In Progress","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/schedule","role":"client","label":"Complete","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/schedule","role":"client","label":"All","trail":[],"did":["changed","said: Fit battens / 📷 Add photos"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/schedule","role":"client","label":"All","trail":["(reopen)"],"did":["changed","said: Fit battens / 📷 Add photos"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/schedule","role":"client","label":"▼\nSchedule of Works\n0/1 done","trail":["All"],"did":["changed","said: ▶"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/schedule","role":"client","label":"All","trail":["(reopen)"],"did":["changed","said: Fit battens / 📷 Add photos"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/schedule","role":"client","label":"📷 Add photos","trail":["All"],"did":["changed","file picker"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/schedule","role":"client","label":"▼\nMain roof\n0/1 done","trail":[],"did":["changed","said: ▶"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/schedule","role":"client","label":"▼\nMain roof\n0/1 done","trail":["(reopen)"],"did":["changed","said: ▶"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/schedule","role":"client","label":"▶\nMain roof\n0/1 done","trail":["▼\nMain roof\n0/1 done"],"did":["changed","said: ▼ / Strip roof / 📷 Add pre-start photos"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/schedule","role":"client","label":"📷 Add pre-start photos","trail":[],"did":["changed","file picker"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/schedule","role":"client","label":"To Commence","trail":[],"did":["wrote PATCH schedule_tasks"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/schedule","role":"client","label":"In Progress","trail":[],"did":["changed","said: 📷 Add photos","wrote PATCH schedule_tasks"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/schedule","role":"client","label":"In Progress","trail":["(reopen)"],"did":["changed","said: 📷 Add photos","wrote PATCH schedule_tasks"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/schedule","role":"client","label":"📷 Add photos","trail":["In Progress"],"did":["changed","file picker"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/schedule","role":"client","label":"No","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/schedule","role":"client","label":"Yes","trail":[],"did":["changed","wrote POST schedule_section_flags,POST messages"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/schedule","role":"client","label":"SAVE — CLOSE OUT","trail":[],"did":["changed","wrote POST schedule_section_flags,PATCH schedule_section_flags"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/schedule","role":"client","label":"📄 EXPORT PDF","trail":[],"did":["changed","said: What to include / ✕ / Full project — every photo"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/schedule","role":"client","label":"📄 EXPORT PDF","trail":["(reopen)"],"did":["changed","said: What to include / ✕ / Full project — every photo"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/schedule","role":"client","label":"Close","trail":["📄 EXPORT PDF"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/schedule","role":"client","label":"📄 EXPORT PDF","trail":["(reopen)"],"did":["changed","said: What to include / ✕ / Full project — every photo"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/schedule","role":"client","label":"Full project — every photo","trail":["📄 EXPORT PDF"],"did":["changed","said: Adding 0 photos…","download"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/schedule","role":"client","label":"📄 EXPORT PDF","trail":["(reopen)"],"did":["changed","said: What to include / ✕ / Full project — every photo"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/schedule","role":"client","label":"Today only","trail":["📄 EXPORT PDF"],"did":["changed","said: Nothing was uploaded or completed in that period (Today 31 Oct)."],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/schedule","role":"client","label":"📄 EXPORT PDF","trail":["(reopen)"],"did":["changed","said: What to include / ✕ / Full project — every photo"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/schedule","role":"client","label":"This week (Mon–Sun)","trail":["📄 EXPORT PDF"],"did":["changed","said: Nothing was uploaded or completed in that period (Week 26 Oct – 1 Nov)."],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/schedule","role":"client","label":"📄 EXPORT PDF","trail":["(reopen)"],"did":["changed","said: What to include / ✕ / Full project — every photo"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/schedule","role":"client","label":"Last week","trail":["📄 EXPORT PDF"],"did":["changed","said: Nothing was uploaded or completed in that period (Week 19 Oct – 25 Oct)."],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/schedule","role":"client","label":"📄 EXPORT PDF","trail":["(reopen)"],"did":["changed","said: What to include / ✕ / Full project — every photo"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/schedule","role":"client","label":"Choose dates…","trail":["📄 EXPORT PDF"],"did":["changed","said: From / October 2026 / Mo"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/schedule","role":"client","label":"Close","trail":["📄 EXPORT PDF","Choose dates…"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/schedule","role":"client","label":"✉ EMAIL REPORT","trail":[],"did":["changed","said: Email Schedule of Works Report / ✕ / Dave Price (dave@rtb.example)"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/schedule","role":"client","label":"✉ EMAIL REPORT","trail":["(reopen)"],"did":["changed","said: Email Schedule of Works Report / ✕ / Dave Price (dave@rtb.example)"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/schedule","role":"client","label":"Close","trail":["✉ EMAIL REPORT"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/schedule","role":"client","label":"✉ EMAIL REPORT","trail":["(reopen)"],"did":["changed","said: Email Schedule of Works Report / ✕ / Dave Price (dave@rtb.example)"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/schedule","role":"client","label":"Dave Price (dave@rtb.example)","trail":["✉ EMAIL REPORT"],"did":["changed","said: ✓"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/schedule","role":"client","label":"Close","trail":["✉ EMAIL REPORT","Dave Price (dave@rtb.example)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/schedule","role":"client","label":"✉ EMAIL REPORT","trail":["(reopen)"],"did":["changed","said: Email Schedule of Works Report / ✕ / Dave Price (dave@rtb.example)"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/schedule","role":"client","label":"CC the client (client@x.co)","trail":["✉ EMAIL REPORT"],"did":["changed","said: ✓"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/schedule","role":"client","label":"Close","trail":["✉ EMAIL REPORT","CC the client (client@x.co)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/schedule","role":"client","label":"✉ EMAIL REPORT","trail":["(reopen)"],"did":["changed","said: Email Schedule of Works Report / ✕ / Dave Price (dave@rtb.example)"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/schedule","role":"client","label":"Send","trail":["✉ EMAIL REPORT"],"did":["changed","filled 1","said: What to include / Full project — every photo / Today only"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/schedule","role":"client","label":"Close","trail":["✉ EMAIL REPORT","Send"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh","role":"client","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh","blocked":false,"buttons":4,"words":388,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh","role":"client","label":"Projects","trail":[],"did":["nav /sites","changed","said: LIVE / (2) / ▾"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh","role":"client","label":"J101 Studley Rd","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111","changed","said: Job No: J101 / NOT CHECKED IN / 0/2"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh","role":"client","label":"Health & Safety","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/hs","changed","said: 📄 / RAMS / 0 documents"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh","role":"client","label":"View document ↗","trail":[],"did":["changed","said: c1.pdf / ⬇ / ✕"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh","role":"client","label":"View document ↗","trail":["(reopen)"],"did":["changed","said: c1.pdf / ⬇ / ✕"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh","role":"client","label":"Zoom in","trail":["View document ↗"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh","role":"client","label":"View document ↗","trail":["(reopen)"],"did":["changed","said: c1.pdf / ⬇ / ✕"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh","role":"client","label":"Zoom out","trail":["View document ↗"],"did":[],"problems":["nothing happened"]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/incidents","role":"client","load":true,"land":"/sites","blocked":false,"buttons":5,"words":311,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/mytools","role":"client","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/hs/mytools","blocked":false,"buttons":4,"words":403,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/mytools","role":"client","label":"Projects","trail":[],"did":["nav /sites","changed","said: LIVE / (2) / ▾"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/mytools","role":"client","label":"J101 Studley Rd","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111","changed","said: Job No: J101 / NOT CHECKED IN / 0/2"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/mytools","role":"client","label":"Health & Safety","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/hs","changed","said: 📄 / RAMS / 0 documents"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/mytools","role":"client","label":"+ ADD TOOL","trail":[],"did":["changed","said: ADD A TOOL / Tool name / Serial / item number"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/mytools","role":"client","label":"+ ADD TOOL","trail":["(reopen)"],"did":["changed","said: ADD A TOOL / Tool name / Serial / item number"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/mytools","role":"client","label":"TAKE PHOTO","trail":["+ ADD TOOL"],"did":["changed","said: Add a photo / ✕ / 📷 Take a photo"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/mytools","role":"client","label":"SAVE TOOL","trail":["+ ADD TOOL","TAKE PHOTO"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/mytools","role":"client","label":"+ ADD TOOL","trail":["(reopen)"],"did":["changed","said: ADD A TOOL / Tool name / Serial / item number"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/mytools","role":"client","label":"SAVE TOOL","trail":["+ ADD TOOL"],"did":["changed","filled 2","said: 🔧 / Test / Serial: Test","wrote POST operative_tools"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/mytools","role":"client","label":"+ ADD TOOL","trail":["(reopen)"],"did":["changed","said: ADD A TOOL / Tool name / Serial / item number"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/mytools","role":"client","label":"CANCEL","trail":["+ ADD TOOL"],"did":["changed","said: + ADD TOOL"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/tbt","role":"client","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/hs/tbt","blocked":false,"buttons":5,"words":337,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/tbt","role":"client","label":"Projects","trail":[],"did":["nav /sites","changed","said: (2) / ▾ / J101"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/tbt","role":"client","label":"J101 Studley Rd","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111","changed","said: Job No: J101 / NOT CHECKED IN / 0/2"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/tbt","role":"client","label":"Health & Safety","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/hs","changed","said: 📄 / RAMS / 0 documents"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/tbt","role":"client","label":"Ladders\n31 Oct 2026\nLIVE","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/hs/tbt/tb1","changed","said: View document ↗ / 0 signed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/tbt","role":"client","label":"Manual handling\n31 Oct 2026\nCOMPLETED","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/hs/tbt/tb2","changed","said: Manual Handling / View document ↗ / 0 signed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials/requests","role":"client","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111","blocked":false,"buttons":7,"words":427,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/layout","role":"client","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111","blocked":false,"buttons":7,"words":427,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/docs","role":"client","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111","blocked":false,"buttons":7,"words":427,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/e1","role":"client","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111","blocked":false,"buttons":7,"words":427,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging","role":"client","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/snagging","blocked":false,"buttons":4,"words":285,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging","role":"client","label":"Projects","trail":[],"did":["nav /sites","changed","said: LIVE / (2) / ▾"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging","role":"client","label":"J101 Studley Rd","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111","changed","said: Job No: J101 / NOT CHECKED IN / 0/2"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging","role":"client","label":"🏷\nSnagging\n1 open","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/snagging/list","changed","said: Live / Closed / Cracked tile"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging","role":"client","label":"✎\nVariations\n0 live","trail":[],"did":["nav /sites","changed","said: LIVE / (2) / ▾"],"problems":[]}

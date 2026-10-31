@@ -1,0 +1,101 @@
+RTB Roofing Ltd
+OPHUB
+🔍
+Search
+Ctrl K
+Home
+Projects
+Deliveries
+Calendar
+Hub
+4
+Dashboard
+OpHUB Finance
+Admin
+THIS PROJECT
+Studley Rd
+Project Home
+Schedule of Works
+Health & Safety
+Check In
+Inbox
+Finance
+Project Settings
+Andy Admin
+Company Admin
+Sign out
+Budget & forecast
+J101 · Studley Rd
+🏠
+Finance
+›
+Projects
+›
+J101 Studley Rd
+›
+Budget
+←
+Back
+Overview
+J101 Studley Rd
++ New
+Application
+Sales invoice
+Variation
+Purchase order
+Purchase invoice
+Subcontractor PO
+Plant hire
+Cost
+FORECAST PROFIT (AFTER 10% OVERHEADS)
+£8,451
+16.4%
+Final account (incl. submitted variations)
+£51,500
+Forecast final cost
+£37,899
+Budget
+£31,500
+Spent £14,549
+Ordered £6,000
+Left £10,951
+Forecast to go £6,399 over budget
+Set budgets from a target margin
+Type the margin you want; it works out what you can spend and splits it across the headings.
+
+Cost By Heading
+
+Set a budget for each heading. Cost to complete is what you expect still to spend — leave it blank and it’s worked out as budget less spent and ordered.
+
+HEADING	BUDGET £	SPENT	ORDERED	TO COMPLETE £	FORECAST FINAL	OVER / UNDER	USED
+Materials		£11,650.00	£0.00		£20,000.00	under £0.00	
+
+Labour		£0.00	£0.00		£9,000.00	under £0.00	
+
+Plant		£2,578.57	£0.00		£2,578.57	over £78.57	
+
+Subcontract		£0.00	£6,000.00		£6,000.00	—	
+
+Prelims & site costs		£320.00	£0.00		£320.00	—	
+
+Other		£0.00	£0.00		£0.00	—	
+
+Total	£31,500.00	£14,548.57	£6,000.00	£17,350.00	£37,898.57	over £6,398.57	
+Save budget & forecast
+
+Value
+
+Contract Value
+£48,000.00
+Variations Agreed
+£1,000.00
+Variations Priced Or Submitted (Not Agreed)
+£2,500.00
+Forecast Final Account (Incl. Submitted Variations)
+£51,500.00
+Company Overheads (OHP) 10% Of The Final Account
+−£5,150.00
+Valuation To Date (Last Application)
+£21,000.00
+Invoiced
+£17,000.00

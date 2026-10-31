@@ -1,0 +1,469 @@
+{"route":"/onsite","role":"pm","load":true,"land":"/onsite","blocked":false,"buttons":0,"words":307,"problems":[],"did":[]}
+{"route":"/driver/timeoff","role":"pm","load":true,"land":"/driver/timeoff","blocked":false,"buttons":4,"words":350,"problems":[],"did":[]}
+{"route":"/driver/timeoff","role":"pm","label":"One day","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/driver/timeoff","role":"pm","label":"Several days","trail":[],"did":["changed","said: From / To"],"problems":[]}
+{"route":"/driver/timeoff","role":"pm","label":"Several days","trail":["(reopen)"],"did":["changed","said: From / To"],"problems":[]}
+{"route":"/driver/timeoff","role":"pm","label":"From","trail":["Several days"],"did":["changed","said: ✕ / October 2026 / ›"],"problems":[]}
+{"route":"/driver/timeoff","role":"pm","label":"Close","trail":["Several days","From"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/driver/timeoff","role":"pm","label":"Several days","trail":["(reopen)"],"did":["changed","said: From / To"],"problems":[]}
+{"route":"/driver/timeoff","role":"pm","label":"To","trail":["Several days"],"did":["changed","said: ✕ / October 2026 / ›"],"problems":[]}
+{"route":"/driver/timeoff","role":"pm","label":"Close","trail":["Several days","To"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/driver/timeoff","role":"pm","label":"Date","trail":[],"did":["changed","said: ✕ / October 2026 / ›"],"problems":[]}
+{"route":"/driver/timeoff","role":"pm","label":"Date","trail":["(reopen)"],"did":["changed","said: ✕ / October 2026 / ›"],"problems":[]}
+{"route":"/driver/timeoff","role":"pm","label":"Close","trail":["Date"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/driver/timeoff","role":"pm","label":"Date","trail":["(reopen)"],"did":["changed","said: ✕ / October 2026 / ›"],"problems":[]}
+{"route":"/driver/timeoff","role":"pm","label":"Previous month","trail":["Date"],"did":["changed","said: September 2026"],"problems":[]}
+{"route":"/driver/timeoff","role":"pm","label":"Close","trail":["Date","Previous month"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/driver/timeoff","role":"pm","label":"Date","trail":["(reopen)"],"did":["changed","said: ✕ / October 2026 / ›"],"problems":[]}
+{"route":"/driver/timeoff","role":"pm","label":"Next month","trail":["Date"],"did":["changed","said: November 2026"],"problems":[]}
+{"route":"/driver/timeoff","role":"pm","label":"Close","trail":["Date","Next month"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/driver/timeoff","role":"pm","label":"Date","trail":["(reopen)"],"did":["changed","said: ✕ / October 2026 / ›"],"problems":[]}
+{"route":"/driver/timeoff","role":"pm","label":"1 Oct 2026","trail":["Date"],"did":[],"problems":["could not press"]}
+{"route":"/driver/timeoff","role":"pm","label":"BOOK TIME OFF","trail":[],"did":["changed","filled 1","said: Fri, 30 Oct 2026 / 1 day · Test / Remove","wrote POST driver_time_off"],"problems":[]}
+{"route":"/driver/timeoff","role":"pm","label":"BOOK TIME OFF","trail":["(reopen)"],"did":["changed","filled 1","said: Fri, 30 Oct 2026 / 1 day · Test / Remove","wrote POST driver_time_off"],"problems":[]}
+{"route":"/driver/timeoff","role":"pm","label":"Remove","trail":["BOOK TIME OFF"],"did":["changed","said: Tap again to remove"],"problems":[]}
+{"route":"/fin/jobs","role":"pm","load":true,"land":"/fin/jobs","blocked":false,"buttons":21,"words":645,"problems":[],"did":[]}
+{"route":"/fin/jobs","role":"pm","note":"21 buttons, 20 distinct pressed","problems":[],"did":[]}
+{"route":"/fin/jobs","role":"pm","label":"Finance","trail":[],"did":["nav /fin","changed","said: £174,500 / Live Contract Value · 2 Jobs / £29,000"],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"Overview","trail":[],"did":["nav /fin","changed","said: £174,500 / Live Contract Value · 2 Jobs / £29,000"],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"Projects","trail":[],"did":["changed"],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"Sales","trail":[],"did":["nav /fin/sales","changed","said: £9,800 / Applied Value · this month / £15,000"],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"Purchases","trail":[],"did":["nav /fin/purchases","changed","said: 2 / Unallocated Invoices · all time / £0"],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"Subcontractors & Labour","trail":[],"did":["nav /fin/subs","changed","said: £0 / Operative Invoices To Pay / 30 Oct 2026"],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"Reports","trail":[],"did":["nav /fin/reports","changed","said: Pick a report, set the project and dates, then download it as Excel or PDF. / Commercial / QS · 8 reports / ▼"],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"Directory","trail":[],"did":["nav /fin/directory","changed","said: Suppliers / Labour (CIS) / Cost codes"],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"Settings","trail":[],"did":["nav /fin/settings","changed","said: Finance settings / Cost Codes / Team","fn xero"],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"Clients","trail":[],"did":["nav /fin/jobs?tab=clients","changed","said: DIRECTORY (EDIT CLIENTS, XERO) / 3 clients · 0 in Xero. / a@bellway.example · 1 job · 1 live · £2,000 overdue"],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"Live (2)","trail":[],"did":["changed"],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"Upcoming (1)","trail":[],"did":["changed","said: J103 / Simon De Senlis / Forma London"],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"Upcoming (1)","trail":["(reopen)"],"did":["changed","said: J103 / Simon De Senlis / Forma London"],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"J103\nSimon De Senlis\nForma London\nNo PO\nPaula PM\n● Upcoming\n2 Nov 2026\n—","trail":["Upcoming (1)"],"did":["nav /fin/job/33333333-3333-3333-3333-333333333333","changed","said: J103 · Simon De Senlis / Finance · Forma London / J103 Simon De Senlis"],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"Closed","trail":[],"did":["changed","said: No projects here."],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"All (3)","trail":[],"did":["changed","said: J103 / Simon De Senlis / Forma London"],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"All (3)","trail":["(reopen)"],"did":["changed","said: J103 / Simon De Senlis / Forma London"],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"J103\nSimon De Senlis\nForma London\nNo PO\nPaula PM\n● Upcoming\n2 Nov 2026\n—","trail":["All (3)"],"did":["nav /fin/job/33333333-3333-3333-3333-333333333333","changed","said: J103 · Simon De Senlis / Finance · Forma London / J103 Simon De Senlis"],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"+ NEW PROJECT","trail":[],"did":["nav /fin/newjob","changed","said: New project / New project / GO TO PROJECTS"],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"PM: All ▾","trail":[],"did":["changed","said: ✕ / All PMs / No PM"],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"PM: All ▾","trail":["(reopen)"],"did":["changed","said: ✕ / All PMs / No PM"],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"Close","trail":["PM: All ▾"],"did":["changed"],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"PM: All ▾","trail":["(reopen)"],"did":["changed","said: ✕ / All PMs / No PM"],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"All PMs","trail":["PM: All ▾"],"did":["changed"],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"PM: All ▾","trail":["(reopen)"],"did":["changed","said: ✕ / All PMs / No PM"],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"Paula PM","trail":["PM: All ▾"],"did":["changed","said: PM: Paula PM ▾ / Clear"],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"PM: All ▾","trail":["(reopen)"],"did":["changed","said: ✕ / All PMs / No PM"],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"No PM","trail":["PM: All ▾"],"did":["changed","said: PM: No PM ▾ / Clear / No projects here."],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"Sort ▾","trail":[],"did":["changed","said: Sort / ✕ / Project no. (newest first)"],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"Sort ▾","trail":["(reopen)"],"did":["changed","said: Sort / ✕ / Project no. (newest first)"],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"Close","trail":["Sort ▾"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/jobs","role":"pm","label":"Sort ▾","trail":["(reopen)"],"did":["changed","said: Sort / ✕ / Project no. (newest first)"],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"Project no. (newest first)","trail":["Sort ▾"],"did":["changed"],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"Sort ▾","trail":["(reopen)"],"did":["changed","said: Sort / ✕ / Project no. (newest first)"],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"Project no. (A–Z)","trail":["Sort ▾"],"did":["changed"],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"Sort ▾","trail":["(reopen)"],"did":["changed","said: Sort / ✕ / Project no. (newest first)"],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"Name A–Z","trail":["Sort ▾"],"did":["changed"],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"Sort ▾","trail":["(reopen)"],"did":["changed","said: Sort / ✕ / Project no. (newest first)"],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"Name Z–A","trail":["Sort ▾"],"did":["changed"],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"Sort ▾","trail":["(reopen)"],"did":["changed","said: Sort / ✕ / Project no. (newest first)"],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"Start date (newest)","trail":["Sort ▾"],"did":["changed"],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"Start date","trail":[],"did":["changed","said: Start date / ✕ / ✓ Any date"],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"Start date","trail":["(reopen)"],"did":["changed","said: Start date / ✕ / ✓ Any date"],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"Close","trail":["Start date"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/jobs","role":"pm","label":"Start date","trail":["(reopen)"],"did":["changed","said: Start date / ✕ / ✓ Any date"],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"✓ Any date","trail":["Start date"],"did":["changed"],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"Start date","trail":["(reopen)"],"did":["changed","said: Start date / ✕ / ✓ Any date"],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"This month","trail":["Start date"],"did":["changed","said: Clear / No projects here."],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"Start date","trail":["(reopen)"],"did":["changed","said: Start date / ✕ / ✓ Any date"],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"Last month","trail":["Start date"],"did":["changed","said: Clear / 1 project / Value £126,500"],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"Start date","trail":["(reopen)"],"did":["changed","said: Start date / ✕ / ✓ Any date"],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"Next month","trail":["Start date"],"did":["changed","said: Clear / No projects here."],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"Start date","trail":["(reopen)"],"did":["changed","said: Start date / ✕ / ✓ Any date"],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"This quarter","trail":["Start date"],"did":["changed","said: Clear / No projects here."],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"Start date","trail":["(reopen)"],"did":["changed","said: Start date / ✕ / ✓ Any date"],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"This year","trail":["Start date"],"did":["changed","said: Clear"],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"Start date","trail":["(reopen)"],"did":["changed","said: Start date / ✕ / ✓ Any date"],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"Last 12 months","trail":["Start date"],"did":["changed","said: Clear"],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"Start date","trail":["(reopen)"],"did":["changed","said: Start date / ✕ / ✓ Any date"],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"Choose dates…","trail":["Start date"],"did":["changed","said: Start dates from / October 2026 / Mo"],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"Close","trail":["Start date","Choose dates…"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/jobs","role":"pm","label":"J102\nCleveland Primary School\nPersimmon\nNo PO\nPaula PM\n● Live\n14 Sept 2026\n£126,500","trail":[],"did":["nav /fin/job/22222222-2222-2222-2222-222222222222","changed","said: J102 · Cleveland Primary School / Finance · Persimmon / J102 Cleveland Primary School"],"problems":[]}
+{"route":"/fin/jobs","role":"pm","label":"J101\nStudley Rd\nBellway Homes\nNo PO\nPaula PM\n● Live\n3 Aug 2026\n£48,000","trail":[],"did":["nav /fin/job/11111111-1111-1111-1111-111111111111","changed","said: J101 · Studley Rd / Finance · Bellway Homes / J101 Studley Rd"],"problems":[]}
+{"route":"/fin/statements","role":"pm","load":true,"land":"/fin/statements","blocked":false,"buttons":11,"words":546,"problems":[],"did":[]}
+{"route":"/fin/statements","role":"pm","label":"Finance","trail":[],"did":["nav /fin","changed","said: £174,500 / Live Contract Value · 2 Jobs / £29,000"],"problems":[]}
+{"route":"/fin/statements","role":"pm","label":"Overview","trail":[],"did":["nav /fin","changed","said: £174,500 / Live Contract Value · 2 Jobs / £29,000"],"problems":[]}
+{"route":"/fin/statements","role":"pm","label":"Projects","trail":[],"did":["nav /fin/jobs","changed","said: Clients / Live (2) / Upcoming (1)"],"problems":[]}
+{"route":"/fin/statements","role":"pm","label":"Sales","trail":[],"did":["nav /fin/sales","changed","said: £9,800 / Applied Value · this month / £15,000"],"problems":[]}
+{"route":"/fin/statements","role":"pm","label":"Purchases","trail":[],"did":["nav /fin/purchases","changed","said: 2 / Unallocated Invoices · all time / £0"],"problems":[]}
+{"route":"/fin/statements","role":"pm","label":"Subcontractors & Labour","trail":[],"did":["nav /fin/subs","changed","said: £0 / Operative Invoices To Pay / 30 Oct 2026"],"problems":[]}
+{"route":"/fin/statements","role":"pm","label":"Reports","trail":[],"did":["nav /fin/reports","changed","said: Pick a report, set the project and dates, then download it as Excel or PDF. / Commercial / QS · 8 reports / ▼"],"problems":[]}
+{"route":"/fin/statements","role":"pm","label":"Directory","trail":[],"did":["nav /fin/directory","changed","said: Clients / Suppliers / Labour (CIS)"],"problems":[]}
+{"route":"/fin/statements","role":"pm","label":"Settings","trail":[],"did":["nav /fin/settings","changed","said: Finance settings / Cost Codes / Team","fn xero"],"problems":[]}
+{"route":"/fin/statements","role":"pm","label":"⬆ UPLOAD A STATEMENT","trail":[],"did":["changed","file picker"],"problems":[]}
+{"route":"/fin/statements","role":"pm","label":"SIG\n25 Oct 2026 · 0 lines · 0 matched · To check\n—\n›","trail":[],"did":["nav /fin/statements?id=st1","changed","said: 25 Oct 2026 / Statement date / Balance"],"problems":[]}
+{"route":"/fin/pinv/pi1","role":"pm","load":true,"land":"/fin/pinv/pi1","blocked":false,"buttons":15,"words":463,"problems":[],"did":[]}
+{"route":"/fin/pinv/pi1","role":"pm","label":"Finance","trail":[],"did":["nav /fin","changed","said: Overview / Overview / Sales"],"problems":[]}
+{"route":"/fin/pinv/pi1","role":"pm","label":"To approve\nStatus","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/pinv/pi1","role":"pm","label":"£1,800.00\nNet","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/pinv/pi1","role":"pm","label":"£2,160.00\nGross","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/pinv/pi1","role":"pm","label":"Supplier\nSIG Roofing","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/pinv/pi1","role":"pm","label":"Invoice no.\nSIG-88231","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/pinv/pi1","role":"pm","label":"Date\n12 Oct 2026","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/pinv/pi1","role":"pm","label":"Project\nJ101 · Studley Rd\n›","trail":[],"did":["nav /fin/job/11111111-1111-1111-1111-111111111111","changed","said: Finance · Bellway Homes / J101 Studley Rd / J101 Studley Rd"],"problems":[]}
+{"route":"/fin/pinv/pi1","role":"pm","label":"PO\nJ101-PO-001\n›","trail":[],"did":["nav /fin/po/po1","changed","said: J101-PO-001 · open / PO value / Invoiced"],"problems":[]}
+{"route":"/fin/pinv/pi1","role":"pm","label":"Cost type\nMaterials\n›","trail":[],"did":["changed","said: ✕ / Plant / Subcontract"],"problems":[]}
+{"route":"/fin/pinv/pi1","role":"pm","label":"Cost type\nMaterials\n›","trail":["(reopen)"],"did":["changed","said: ✕ / Plant / Subcontract"],"problems":[]}
+{"route":"/fin/pinv/pi1","role":"pm","label":"Close","trail":["Cost type\nMaterials\n›"],"did":["changed"],"problems":[]}
+{"route":"/fin/pinv/pi1","role":"pm","label":"Cost type\nMaterials\n›","trail":["(reopen)"],"did":["changed","said: ✕ / Plant / Subcontract"],"problems":[]}
+{"route":"/fin/pinv/pi1","role":"pm","label":"Materials","trail":["Cost type\nMaterials\n›"],"did":["changed"],"problems":[]}
+{"route":"/fin/pinv/pi1","role":"pm","label":"Cost type\nMaterials\n›","trail":["(reopen)"],"did":["changed","said: ✕ / Plant / Subcontract"],"problems":[]}
+{"route":"/fin/pinv/pi1","role":"pm","label":"Plant","trail":["Cost type\nMaterials\n›"],"did":["changed","said: Cost type: Plant","wrote PATCH purchase_invoices"],"problems":[]}
+{"route":"/fin/pinv/pi1","role":"pm","label":"Cost type\nMaterials\n›","trail":["(reopen)"],"did":["changed","said: ✕ / Plant / Subcontract"],"problems":[]}
+{"route":"/fin/pinv/pi1","role":"pm","label":"Subcontract","trail":["Cost type\nMaterials\n›"],"did":["changed","said: Cost type: Subcontract","wrote PATCH purchase_invoices"],"problems":[]}
+{"route":"/fin/pinv/pi1","role":"pm","label":"Cost type\nMaterials\n›","trail":["(reopen)"],"did":["changed","said: ✕ / Plant / Subcontract"],"problems":[]}
+{"route":"/fin/pinv/pi1","role":"pm","label":"Prelims & site costs","trail":["Cost type\nMaterials\n›"],"did":["changed","said: Cost type: Prelims & site costs","wrote PATCH purchase_invoices"],"problems":[]}
+{"route":"/fin/pinv/pi1","role":"pm","label":"Cost type\nMaterials\n›","trail":["(reopen)"],"did":["changed","said: ✕ / Plant / Subcontract"],"problems":[]}
+{"route":"/fin/pinv/pi1","role":"pm","label":"Other","trail":["Cost type\nMaterials\n›"],"did":["changed","said: Cost type: Other","wrote PATCH purchase_invoices"],"problems":[]}
+{"route":"/fin/pinv/pi1","role":"pm","label":"VAT\n£360.00","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/pinv/pi1","role":"pm","label":"Due\n12 Nov 2026","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/pinv/pi1","role":"pm","label":"✓ APPROVE","trail":[],"did":["changed","said: Approved / MARK PAID TODAY","wrote PATCH purchase_invoices,PATCH purchase_orders"],"problems":[]}
+{"route":"/fin/pinv/pi1","role":"pm","label":"✓ APPROVE","trail":["(reopen)"],"did":["changed","said: Approved / MARK PAID TODAY","wrote PATCH purchase_invoices,PATCH purchase_orders"],"problems":[]}
+{"route":"/fin/pinv/pi1","role":"pm","label":"Approved\nStatus","trail":["✓ APPROVE"],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/pinv/pi1","role":"pm","label":"✓ APPROVE","trail":["(reopen)"],"did":["changed","said: Approved / MARK PAID TODAY","wrote PATCH purchase_invoices,PATCH purchase_orders"],"problems":[]}
+{"route":"/fin/pinv/pi1","role":"pm","label":"MARK PAID TODAY","trail":["✓ APPROVE"],"did":["changed","said: Paid / Paid / 30 Oct 2026","wrote PATCH purchase_invoices"],"problems":[]}
+{"route":"/fin/pinv/pi1","role":"pm","label":"REMOVE PAID DATE","trail":["✓ APPROVE","MARK PAID TODAY"],"did":["changed","said: Approved / MARK PAID TODAY","wrote PATCH purchase_invoices"],"problems":[]}
+{"route":"/fin/pinv/pi1","role":"pm","label":"QUERY","trail":[],"did":["changed","said: What needs checking? / ✕ / OK"],"problems":[]}
+{"route":"/fin/pinv/pi1","role":"pm","label":"QUERY","trail":["(reopen)"],"did":["changed","said: What needs checking? / ✕ / OK"],"problems":[]}
+{"route":"/fin/pinv/pi1","role":"pm","label":"Close","trail":["QUERY"],"did":["changed"],"problems":[]}
+{"route":"/fin/pinv/pi1","role":"pm","label":"QUERY","trail":["(reopen)"],"did":["changed","said: What needs checking? / ✕ / OK"],"problems":[]}
+{"route":"/fin/pinv/pi1","role":"pm","label":"OK","trail":["QUERY"],"did":["changed","said: Query / ⚠ Query / CONVERSATION WITH THE PM (PAULA PM)","wrote PATCH purchase_invoices"],"problems":[]}
+{"route":"/fin/pinv/pi1","role":"pm","label":"SEND","trail":["QUERY","OK"],"did":["changed","filled 1","said: Paula PM · 30 Oct, 16:37 / Test","wrote PATCH purchase_invoices"],"problems":[]}
+{"route":"/fin/pinv/pi1","role":"pm","label":"REJECT","trail":[],"did":["changed","said: ✕ / Reject this purchase invoice? / No"],"problems":[]}
+{"route":"/fin/pinv/pi1","role":"pm","label":"REJECT","trail":["(reopen)"],"did":["changed","said: ✕ / Reject this purchase invoice? / No"],"problems":[]}
+{"route":"/fin/pinv/pi1","role":"pm","label":"Close","trail":["REJECT"],"did":["changed"],"problems":[]}
+{"route":"/fin/pinv/pi1","role":"pm","label":"REJECT","trail":["(reopen)"],"did":["changed","said: ✕ / Reject this purchase invoice? / No"],"problems":[]}
+{"route":"/fin/pinv/pi1","role":"pm","label":"No","trail":["REJECT"],"did":["changed"],"problems":[]}
+{"route":"/fin/pinv/pi1","role":"pm","label":"REJECT","trail":["(reopen)"],"did":["changed","said: ✕ / Reject this purchase invoice? / No"],"problems":[]}
+{"route":"/fin/pinv/pi1","role":"pm","label":"Reject","trail":["REJECT"],"did":["changed","said: Rejected","wrote PATCH purchase_invoices"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/budget","role":"pm","load":true,"land":"/fin/job/11111111-1111-1111-1111-111111111111/budget","blocked":false,"buttons":4,"words":1848,"problems":[],"did":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/budget","role":"pm","label":"Finance","trail":[],"did":["nav /fin","changed","said: Overview / Overview / Sales"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/budget","role":"pm","label":"Projects","trail":[],"did":["nav /fin/jobs","changed","said: Overview / Sales / Purchases"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/budget","role":"pm","label":"UPDATE TO TODAY’S FIGURES","trail":[],"did":["changed","filled 9","said: £25,741 / 50% / £20,609"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/budget","role":"pm","label":"UPDATE TO TODAY’S FIGURES","trail":["(reopen)"],"did":["changed","filled 9","said: £25,741 / 50% / £20,609"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/budget","role":"pm","label":"Close","trail":["UPDATE TO TODAY’S FIGURES"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/budget","role":"pm","label":"UPDATE TO TODAY’S FIGURES","trail":["(reopen)"],"did":["changed","filled 9","said: £25,741 / 50% / £20,609"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/budget","role":"pm","label":"No","trail":["UPDATE TO TODAY’S FIGURES"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/budget","role":"pm","label":"UPDATE TO TODAY’S FIGURES","trail":["(reopen)"],"did":["changed","filled 9","said: £25,741 / 50% / £20,609"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/budget","role":"pm","label":"Set","trail":["UPDATE TO TODAY’S FIGURES"],"did":["changed","said: Starting point saved 30 Oct 2026: value £51,500 · budget £31,500. / Original set","wrote POST job_finance"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/budget","role":"pm","label":"SAVE BUDGET & FORECAST","trail":[],"did":["changed","filled 9","said: £25,741 / 50% / £20,609","wrote POST fin_job_budgets,POST job_finance"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","load":true,"land":"/fin/job/11111111-1111-1111-1111-111111111111/summary","blocked":false,"buttons":31,"words":1202,"problems":[],"did":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","note":"31 buttons, 30 distinct pressed","problems":[],"did":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"Finance","trail":[],"did":["nav /fin","changed","said: Overview / Overview / Sales"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"Projects","trail":[],"did":["nav /fin/jobs","changed","said: Overview / Sales / Subcontractors & Labour"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"From","trail":[],"did":["changed","said: ✕ / October 2026 / Mo"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"From","trail":["(reopen)"],"did":["changed","said: ✕ / October 2026 / Mo"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"Close","trail":["From"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"From","trail":["(reopen)"],"did":["changed","said: ✕ / October 2026 / Mo"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"Previous month","trail":["From"],"did":["changed","said: September 2026"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"Close","trail":["From","Previous month"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"From","trail":["(reopen)"],"did":["changed","said: ✕ / October 2026 / Mo"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"Next month","trail":["From"],"did":["changed","said: November 2026"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"Close","trail":["From","Next month"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"From","trail":["(reopen)"],"did":["changed","said: ✕ / October 2026 / Mo"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"1 Oct 2026","trail":["From"],"did":["changed","said: 1 Oct 2026 / Showing from 1 Oct 2026 — every tab and total only counts items in these dates. / £15,000.00"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"To","trail":[],"did":["changed","said: ✕ / October 2026 / Mo"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"To","trail":["(reopen)"],"did":["changed","said: ✕ / October 2026 / Mo"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"Close","trail":["To"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"To","trail":["(reopen)"],"did":["changed","said: ✕ / October 2026 / Mo"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"Previous month","trail":["To"],"did":["changed","said: September 2026"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"Close","trail":["To","Previous month"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"To","trail":["(reopen)"],"did":["changed","said: ✕ / October 2026 / Mo"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"Next month","trail":["To"],"did":["changed","said: November 2026"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"Close","trail":["To","Next month"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"To","trail":["(reopen)"],"did":["changed","said: ✕ / October 2026 / Mo"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"1 Oct 2026","trail":["To"],"did":["changed","said: 1 Oct 2026 / Showing  to 1 Oct 2026 — every tab and total only counts items in these dates. / £1,328.57"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"Cost Summary","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"Purchases","trail":[],"did":["changed","said: PURCHASE INVOICES & OTHER COSTS / Purchase invoice / 12 Oct 2026 · materials · SIG Roofing · SIG-88231 · J101-PO-001 · To approve"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"Purchases","trail":["(reopen)"],"did":["changed","said: PURCHASE INVOICES & OTHER COSTS / Purchase invoice / 12 Oct 2026 · materials · SIG Roofing · SIG-88231 · J101-PO-001 · To approve"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"Purchase invoice\n12 Oct 2026 · materials · SIG Roofing · SIG-88231 · J101-PO-001 · To approve\n£1,800.00\n›","trail":["Purchases"],"did":["nav /fin/pinv/pi1","changed","said: To approve / Status / Net","fn xero"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"Purchases","trail":["(reopen)"],"did":["changed","said: PURCHASE INVOICES & OTHER COSTS / Purchase invoice / 12 Oct 2026 · materials · SIG Roofing · SIG-88231 · J101-PO-001 · To approve"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"Skip\n3 Oct 2026 · overheads\n£320.00","trail":["Purchases"],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"Purchases","trail":["(reopen)"],"did":["changed","said: PURCHASE INVOICES & OTHER COSTS / Purchase invoice / 12 Oct 2026 · materials · SIG Roofing · SIG-88231 · J101-PO-001 · To approve"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"Slates\n2 Oct 2026 · materials\n£9,850.00","trail":["Purchases"],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"Purchases","trail":["(reopen)"],"did":["changed","said: PURCHASE INVOICES & OTHER COSTS / Purchase invoice / 12 Oct 2026 · materials · SIG Roofing · SIG-88231 · J101-PO-001 · To approve"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"J101-PO-001\nSIG Roofing\ninvoiced £1,800.00 · left £0.00 · open\n£1,800.00\n›","trail":["Purchases"],"did":["nav /fin/po/po1","changed","said: J101-PO-001 · open / PO / Supplier"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"Labour & Subcontractors","trail":[],"did":["changed","said: LABOUR / No labour costs. / SUBCONTRACTORS"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"Labour & Subcontractors","trail":["(reopen)"],"did":["changed","said: LABOUR / No labour costs. / SUBCONTRACTORS"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"Subcontractor PO not yet certified\nOrdered · Lead Co · SC-001 · Committed\n£6,000.00\n›","trail":["Labour & Subcontractors"],"did":["nav /fin/sub/sc1","changed","said: SC-001 · Lead Co / Order value / £0.00"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"Applications & Invoices","trail":[],"did":["changed","said: APPLICATIONS & CERTIFICATES / App 2 / 15 Oct 2026"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"Applications & Invoices","trail":["(reopen)"],"did":["changed","said: APPLICATIONS & CERTIFICATES / App 2 / 15 Oct 2026"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"App 2\n15 Oct 2026\napplied £21,500.00 · certified £21,000.00\n£9,500.00\n›","trail":["Applications & Invoices"],"did":["nav /fin/job/11111111-1111-1111-1111-111111111111/application/a1","changed","said: Application 2 / Certified / Stage"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"Applications & Invoices","trail":["(reopen)"],"did":["changed","said: APPLICATIONS & CERTIFICATES / App 2 / 15 Oct 2026"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"App 2\n25 Oct 2026\napplied —\n—\n›","trail":["Applications & Invoices"],"did":["nav /fin/job/11111111-1111-1111-1111-111111111111/application/ap2","changed","said: Application 2 / Draft / Stage"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"Applications & Invoices","trail":["(reopen)"],"did":["changed","said: APPLICATIONS & CERTIFICATES / App 2 / 15 Oct 2026"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"INV-1001\n1 Oct 2026\nsent\n£15,000.00\n›","trail":["Applications & Invoices"],"did":["nav /fin/job/11111111-1111-1111-1111-111111111111/invoice/v1","changed","said: Invoice / Sent / Status","fn xero"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"Applications & Invoices","trail":["(reopen)"],"did":["changed","said: APPLICATIONS & CERTIFICATES / App 2 / 15 Oct 2026"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"INV-0980\n1 Aug 2026\nsent\n£2,000.00\n›","trail":["Applications & Invoices"],"did":["nav /fin/job/11111111-1111-1111-1111-111111111111/invoice/v8","changed","said: Invoice / Overdue / Status","fn xero"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"Applications & Invoices","trail":["(reopen)"],"did":["changed","said: APPLICATIONS & CERTIFICATES / App 2 / 15 Oct 2026"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"INV-0990\n1 Sept 2026\nvoid\n£500.00\n›","trail":["Applications & Invoices"],"did":["nav /fin/job/11111111-1111-1111-1111-111111111111/invoice/v9","changed","said: Invoice / Void / Status","fn xero"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"Plant","trail":[],"did":["changed","said: PLANT / Scaffold hire / 5 Oct 2026 · plant"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"Plant","trail":["(reopen)"],"did":["changed","said: PLANT / Scaffold hire / 5 Oct 2026 · plant"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"Scaffold hire\n5 Oct 2026 · plant\n£1,250.00","trail":["Plant"],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"Plant","trail":["(reopen)"],"did":["changed","said: PLANT / Scaffold hire / 5 Oct 2026 · plant"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"Cherry picker (on hire 4.4 wk)\n30 Sept 2026 · plant · On hire\n£1,328.57\n›","trail":["Plant"],"did":["nav /fin/plant/h1","changed","said: Cherry picker / On hire 4.4 wk · cost so far £1,328.57 / Plant hire"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"Applied to date (gross)\n£21,500.00","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"Application discount\n−£0.00","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"Applied net of discount\n£21,500.00","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"Certified to date (gross)\n£21,000.00","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"Invoiced\n£17,000.00","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"Received\n£0.00","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"Outstanding\n£17,000.00","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"Retention held by client\n£1,050.00","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"Sales value\n£21,000.00","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"Purchases (materials)\n£11,650.00","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"Plant\n£2,578.57","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"Labour\n£0.00","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"Subcontractors\n£0.00","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"Prelims & site costs\n£320.00","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"Other\n£0.00","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"Total cost\n£14,548.57","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"Profit before overheads\n£6,451.43","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"Company overheads (OHP) 10%\n−£2,100.00","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"Profit after overheads\n£4,351.43","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"% profit (after overheads)\n20.7%","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"pm","label":"Ordered, not invoiced yet\n£6,000.00","trail":[],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111?tab=subs","role":"pm","load":true,"land":"/fin/job/11111111-1111-1111-1111-111111111111?tab=subs","blocked":false,"buttons":18,"words":575,"problems":[],"did":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111?tab=subs","role":"pm","label":"Finance","trail":[],"did":["nav /fin","changed","said: Reports / Directory / Settings"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111?tab=subs","role":"pm","label":"Projects","trail":[],"did":["nav /fin/jobs","changed","said: Reports / Directory / Settings"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111?tab=subs","role":"pm","label":"Home","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111","changed","said: THIS PROJECT / Studley Rd / Project Home"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111?tab=subs","role":"pm","label":"+ New\n▾","trail":[],"did":["changed","said: New / ✕ / Invoice"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111?tab=subs","role":"pm","label":"+ New\n▾","trail":["(reopen)"],"did":["changed","said: New / ✕ / Invoice"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111?tab=subs","role":"pm","label":"Close","trail":["+ New\n▾"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111?tab=subs","role":"pm","label":"+ New\n▾","trail":["(reopen)"],"did":["changed","said: New / ✕ / Invoice"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111?tab=subs","role":"pm","label":"Invoice","trail":["+ New\n▾"],"did":["nav /fin/job/11111111-1111-1111-1111-111111111111/invoice/new-fin_invoices-1793378571108-5","changed","said: Draft invoice / Choose from the Directory ▾ / Bill to","wrote POST fin_invoices"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111?tab=subs","role":"pm","label":"+ New\n▾","trail":["(reopen)"],"did":["changed","said: New / ✕ / Invoice"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111?tab=subs","role":"pm","label":"Application","trail":["+ New\n▾"],"did":["nav /fin/job/11111111-1111-1111-1111-111111111111/application/new-fin_applications-1793378576378-6","changed","said: Application 3 / Draft / Stage","wrote POST fin_applications"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111?tab=subs","role":"pm","label":"+ New\n▾","trail":["(reopen)"],"did":["changed","said: New / ✕ / Invoice"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111?tab=subs","role":"pm","label":"Purchase order","trail":["+ New\n▾"],"did":["nav /fin/po/new?site=11111111-1111-1111-1111-111111111111","changed","said: New purchase order / NEW PURCHASE ORDER · J101 · STUDLEY RD / Supplier"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111?tab=subs","role":"pm","label":"+ New\n▾","trail":["(reopen)"],"did":["changed","said: New / ✕ / Invoice"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111?tab=subs","role":"pm","label":"Purchase invoice","trail":["+ New\n▾"],"did":["nav /fin/pinv/new?site=11111111-1111-1111-1111-111111111111","changed","said: Add a purchase invoice / This is a receipt (no invoice number) / 📎 Attach the invoice (PDF or photo)"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111?tab=subs","role":"pm","label":"+ New\n▾","trail":["(reopen)"],"did":["changed","said: New / ✕ / Invoice"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111?tab=subs","role":"pm","label":"Plant hire","trail":["+ New\n▾"],"did":["nav /fin/plant/new?site=11111111-1111-1111-1111-111111111111","changed","said: Add plant hire / What’s on hire / Supplier"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111?tab=subs","role":"pm","label":"+ New\n▾","trail":["(reopen)"],"did":["changed","said: New / ✕ / Invoice"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111?tab=subs","role":"pm","label":"Subcontract","trail":["+ New\n▾"],"did":["nav /fin/sub/new?site=11111111-1111-1111-1111-111111111111","changed","said: New subcontractor PO / New subcontractor PO / Subcontractor"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111?tab=subs","role":"pm","label":"Overview","trail":[],"did":["nav /fin/job/11111111-1111-1111-1111-111111111111?tab=overview","changed","said: FORECASTED FINAL ACCOUNT / £51,500 / 16.4% margin"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111?tab=subs","role":"pm","label":"Sales","trail":[],"did":["nav /fin/job/11111111-1111-1111-1111-111111111111?tab=sales","changed","said: Invoices / Applications & Certificates / Retention"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111?tab=subs","role":"pm","label":"Purchases","trail":[],"did":["nav /fin/job/11111111-1111-1111-1111-111111111111?tab=purchases","changed","said: Purchase orders / Purchase invoices / Plant hire"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111?tab=subs","role":"pm","label":"Subcontractors & Labour","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111?tab=subs","role":"pm","label":"Project Admin","trail":[],"did":["nav /fin/job/11111111-1111-1111-1111-111111111111?tab=setup","changed","said: PROJECT DETAILS / Project number / J101"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111?tab=subs","role":"pm","label":"Bill of Quantities","trail":[],"did":["nav /fin/job/11111111-1111-1111-1111-111111111111/boq","changed","said: Total £48,000.00 · budget cost £32,000.00 · Margin 33.3% · mark-up 50% / The operatives' Schedule of Works can be brought in to price, or sent out from here (without prices). / Copy in tasks from the site schedule"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111?tab=subs","role":"pm","label":"Subcontractor POs","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111?tab=subs","role":"pm","label":"Applications","trail":[],"did":["changed","said: To Certify / Certified — To Pay / Paid"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111?tab=subs","role":"pm","label":"Applications","trail":["(reopen)"],"did":["changed","said: To Certify / Certified — To Pay / Paid"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111?tab=subs","role":"pm","label":"To Certify","trail":["Applications"],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111?tab=subs","role":"pm","label":"Applications","trail":["(reopen)"],"did":["changed","said: To Certify / Certified — To Pay / Paid"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111?tab=subs","role":"pm","label":"Certified — To Pay","trail":["Applications"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111?tab=subs","role":"pm","label":"Applications","trail":["(reopen)"],"did":["changed","said: To Certify / Certified — To Pay / Paid"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111?tab=subs","role":"pm","label":"Paid","trail":["Applications"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111?tab=subs","role":"pm","label":"Operative invoices","trail":[],"did":["changed","said: To Pay / Paid / + OPERATIVE INVOICE"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111?tab=subs","role":"pm","label":"Operative invoices","trail":["(reopen)"],"did":["changed","said: To Pay / Paid / + OPERATIVE INVOICE"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111?tab=subs","role":"pm","label":"To Pay","trail":["Operative invoices"],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111?tab=subs","role":"pm","label":"Operative invoices","trail":["(reopen)"],"did":["changed","said: To Pay / Paid / + OPERATIVE INVOICE"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111?tab=subs","role":"pm","label":"Paid","trail":["Operative invoices"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111?tab=subs","role":"pm","label":"Operative invoices","trail":["(reopen)"],"did":["changed","said: To Pay / Paid / + OPERATIVE INVOICE"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111?tab=subs","role":"pm","label":"All","trail":["Operative invoices"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111?tab=subs","role":"pm","label":"Operative invoices","trail":["(reopen)"],"did":["changed","said: To Pay / Paid / + OPERATIVE INVOICE"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111?tab=subs","role":"pm","label":"+ OPERATIVE INVOICE","trail":["Operative invoices"],"did":["nav /fin/labour/new","changed","said: Operative invoice / From / Choose who ▾"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111?tab=subs","role":"pm","label":"Active\n1","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111?tab=subs","role":"pm","label":"Complete","trail":[],"did":["changed","said: No subcontract orders here."],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111?tab=subs","role":"pm","label":"All\n1","trail":[],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111?tab=subs","role":"pm","label":"+ SUBCONTRACTOR PO","trail":[],"did":["nav /fin/sub/new?site=11111111-1111-1111-1111-111111111111","changed","said: New subcontractor PO / New subcontractor PO / ✕"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111?tab=subs","role":"pm","label":"SC-001\nLead Co\nLeadwork · certified £0.00 · Active\n£6,000.00\n›","trail":[],"did":["nav /fin/sub/sc1","changed","said: SC-001 · Lead Co / Order value / £0.00"],"problems":[]}
+{"route":"/pm/admin/companylibrary/cp1","role":"pm","load":true,"land":"/pm/admin/companylibrary/cp1","blocked":false,"buttons":1,"words":391,"problems":[],"did":[]}
+{"route":"/pm/admin/companylibrary/cp1","role":"pm","label":"+ ADD TO LIBRARY","trail":[],"did":["changed","said: What is it? / ✕ / Public Liability Insurance"],"problems":[]}
+{"route":"/pm/admin/companylibrary/cp1","role":"pm","label":"+ ADD TO LIBRARY","trail":["(reopen)"],"did":["changed","said: What is it? / ✕ / Public Liability Insurance"],"problems":[]}
+{"route":"/pm/admin/companylibrary/cp1","role":"pm","label":"Close","trail":["+ ADD TO LIBRARY"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/pm/admin/companylibrary/cp1","role":"pm","label":"+ ADD TO LIBRARY","trail":["(reopen)"],"did":["changed","said: What is it? / ✕ / Public Liability Insurance"],"problems":[]}
+{"route":"/pm/admin/companylibrary/cp1","role":"pm","label":"Public Liability Insurance","trail":["+ ADD TO LIBRARY"],"did":["changed","file picker"],"problems":[]}
+{"route":"/pm/admin/companylibrary/cp1","role":"pm","label":"+ ADD TO LIBRARY","trail":["(reopen)"],"did":["changed","said: What is it? / ✕ / Public Liability Insurance"],"problems":[]}
+{"route":"/pm/admin/companylibrary/cp1","role":"pm","label":"Employer's Liability Insurance","trail":["+ ADD TO LIBRARY"],"did":["changed","file picker"],"problems":[]}
+{"route":"/pm/admin/companylibrary/cp1","role":"pm","label":"+ ADD TO LIBRARY","trail":["(reopen)"],"did":["changed","said: What is it? / ✕ / Public Liability Insurance"],"problems":[]}
+{"route":"/pm/admin/companylibrary/cp1","role":"pm","label":"Accreditation / Certification","trail":["+ ADD TO LIBRARY"],"did":["changed","file picker"],"problems":[]}
+{"route":"/pm/admin/companylibrary/cp1","role":"pm","label":"+ ADD TO LIBRARY","trail":["(reopen)"],"did":["changed","said: What is it? / ✕ / Public Liability Insurance"],"problems":[]}
+{"route":"/pm/admin/companylibrary/cp1","role":"pm","label":"RAMS / Method Statement Template","trail":["+ ADD TO LIBRARY"],"did":["changed","file picker"],"problems":[]}
+{"route":"/pm/admin/companylibrary/cp1","role":"pm","label":"+ ADD TO LIBRARY","trail":["(reopen)"],"did":["changed","said: What is it? / ✕ / Public Liability Insurance"],"problems":[]}
+{"route":"/pm/admin/companylibrary/cp1","role":"pm","label":"Operative Certificate","trail":["+ ADD TO LIBRARY"],"did":["changed","file picker"],"problems":[]}
+{"route":"/pm/admin/companylibrary/cp1","role":"pm","label":"+ ADD TO LIBRARY","trail":["(reopen)"],"did":["changed","said: What is it? / ✕ / Public Liability Insurance"],"problems":[]}
+{"route":"/pm/admin/companylibrary/cp1","role":"pm","label":"Other","trail":["+ ADD TO LIBRARY"],"did":["changed","file picker"],"problems":[]}
+{"route":"/pm/admin/havstools","role":"pm","load":true,"land":"/pm/admin/havstools","blocked":false,"buttons":2,"words":383,"problems":[],"did":[]}
+{"route":"/pm/admin/havstools","role":"pm","label":"🗑","trail":[],"did":["changed","said: ✕ / Remove \"Breaker\"? Past HAVS entries using it are kept, but it won't be selectable for new entries. / No"],"problems":[]}
+{"route":"/pm/admin/havstools","role":"pm","label":"🗑","trail":["(reopen)"],"did":["changed","said: ✕ / Remove \"Breaker\"? Past HAVS entries using it are kept, but it won't be selectable for new entries. / No"],"problems":[]}
+{"route":"/pm/admin/havstools","role":"pm","label":"Close","trail":["🗑"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/havstools","role":"pm","label":"🗑","trail":["(reopen)"],"did":["changed","said: ✕ / Remove \"Breaker\"? Past HAVS entries using it are kept, but it won't be selectable for new entries. / No"],"problems":[]}
+{"route":"/pm/admin/havstools","role":"pm","label":"No","trail":["🗑"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/havstools","role":"pm","label":"🗑","trail":["(reopen)"],"did":["changed","said: ✕ / Remove \"Breaker\"? Past HAVS entries using it are kept, but it won't be selectable for new entries. / No"],"problems":[]}
+{"route":"/pm/admin/havstools","role":"pm","label":"Remove","trail":["🗑"],"did":["changed","said: No tools yet — add your first one below.","wrote PATCH havs_tools"],"problems":[]}
+{"route":"/pm/admin/havstools","role":"pm","label":"+ ADD TOOL","trail":[],"did":["changed","said: ADD TOOL / CANCEL"],"problems":[]}
+{"route":"/pm/admin/havstools","role":"pm","label":"+ ADD TOOL","trail":["(reopen)"],"did":["changed","said: ADD TOOL / CANCEL"],"problems":[]}
+{"route":"/pm/admin/havstools","role":"pm","label":"ADD TOOL","trail":["+ ADD TOOL"],"did":["changed","filled 2","said: + ADD TOOL","wrote POST havs_tools"],"problems":[]}
+{"route":"/pm/admin/havstools","role":"pm","label":"+ ADD TOOL","trail":["(reopen)"],"did":["changed","said: ADD TOOL / CANCEL"],"problems":[]}
+{"route":"/pm/admin/havstools","role":"pm","label":"CANCEL","trail":["+ ADD TOOL"],"did":["changed","said: + ADD TOOL"],"problems":[]}
+{"route":"/pm/admin/ratecard","role":"pm","load":true,"land":"/pm/admin/ratecard","blocked":true,"buttons":0,"words":185,"problems":[],"did":[]}
+{"route":"/pm/admin/suppliers","role":"pm","load":true,"land":"/pm/admin/suppliers","blocked":false,"buttons":5,"words":364,"problems":[],"did":[]}
+{"route":"/pm/admin/suppliers","role":"pm","label":"▶\nSIG Roofing\n☆\n0 branches","trail":[],"did":["changed","said: ▼ / Name / Finance Directory (accounts)"],"problems":[]}
+{"route":"/pm/admin/suppliers","role":"pm","label":"▶\nSIG Roofing\n☆\n0 branches","trail":["(reopen)"],"did":["changed","said: ▼ / Name / Finance Directory (accounts)"],"problems":[]}
+{"route":"/pm/admin/suppliers","role":"pm","label":"▼\nSIG Roofing\n☆\n0 branches","trail":["▶\nSIG Roofing\n☆\n0 branches"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/suppliers","role":"pm","label":"▶\nSIG Roofing\n☆\n0 branches","trail":["(reopen)"],"did":["changed","said: ▼ / Name / Finance Directory (accounts)"],"problems":[]}
+{"route":"/pm/admin/suppliers","role":"pm","label":"Finance Directory (accounts)","trail":["▶\nSIG Roofing\n☆\n0 branches"],"did":["changed","said: ✕ / ✓ Not linked / SIG"],"problems":[]}
+{"route":"/pm/admin/suppliers","role":"pm","label":"DELETE SUPPLIER","trail":["▶\nSIG Roofing\n☆\n0 branches","Finance Directory (accounts)"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/pm/admin/suppliers","role":"pm","label":"▶\nSIG Roofing\n☆\n0 branches","trail":["(reopen)"],"did":["changed","said: ▼ / Name / Finance Directory (accounts)"],"problems":[]}
+{"route":"/pm/admin/suppliers","role":"pm","label":"+ ADD BRANCH","trail":["▶\nSIG Roofing\n☆\n0 branches"],"did":["changed","said: 1 branch / Delete","wrote PATCH suppliers"],"problems":[]}
+{"route":"/pm/admin/suppliers","role":"pm","label":"Delete","trail":["▶\nSIG Roofing\n☆\n0 branches","+ ADD BRANCH"],"did":["changed","said: ✕ / Delete this branch? / No"],"problems":[]}
+{"route":"/pm/admin/suppliers","role":"pm","label":"▶\nSIG Roofing\n☆\n0 branches","trail":["(reopen)"],"did":["changed","said: ▼ / Name / Finance Directory (accounts)"],"problems":[]}
+{"route":"/pm/admin/suppliers","role":"pm","label":"DELETE SUPPLIER","trail":["▶\nSIG Roofing\n☆\n0 branches"],"did":["changed","said: ✕ / Remove this supplier? / No"],"problems":[]}
+{"route":"/pm/admin/suppliers","role":"pm","label":"Close","trail":["▶\nSIG Roofing\n☆\n0 branches","DELETE SUPPLIER"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/suppliers","role":"pm","label":"Favourite SIG Roofing","trail":[],"did":["changed","said: ★","wrote PATCH suppliers"],"problems":[]}
+{"route":"/pm/admin/suppliers","role":"pm","label":"Favourite SIG Roofing","trail":["(reopen)"],"did":["changed","said: ★","wrote PATCH suppliers"],"problems":[]}
+{"route":"/pm/admin/suppliers","role":"pm","label":"▶\nSIG Roofing\n★\n0 branches","trail":["Favourite SIG Roofing"],"did":["changed","said: ▼ / Name / Finance Directory (accounts)"],"problems":[]}
+{"route":"/pm/admin/suppliers","role":"pm","label":"DELETE SUPPLIER","trail":["Favourite SIG Roofing","▶\nSIG Roofing\n★\n0 branches"],"did":["changed","said: ✕ / Remove this supplier? / No"],"problems":[]}
+{"route":"/pm/admin/suppliers","role":"pm","label":"▶\nTravis Perkins\n☆\n0 branches","trail":[],"did":["changed","said: ▼ / Name / Finance Directory (accounts)"],"problems":[]}
+{"route":"/pm/admin/suppliers","role":"pm","label":"▶\nTravis Perkins\n☆\n0 branches","trail":["(reopen)"],"did":["changed","said: ▼ / Name / Finance Directory (accounts)"],"problems":[]}
+{"route":"/pm/admin/suppliers","role":"pm","label":"▼\nTravis Perkins\n☆\n0 branches","trail":["▶\nTravis Perkins\n☆\n0 branches"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/suppliers","role":"pm","label":"▶\nTravis Perkins\n☆\n0 branches","trail":["(reopen)"],"did":["changed","said: ▼ / Name / Finance Directory (accounts)"],"problems":[]}
+{"route":"/pm/admin/suppliers","role":"pm","label":"Finance Directory (accounts)","trail":["▶\nTravis Perkins\n☆\n0 branches"],"did":["changed","said: ✕ / ✓ Not linked / SIG"],"problems":[]}
+{"route":"/pm/admin/suppliers","role":"pm","label":"DELETE SUPPLIER","trail":["▶\nTravis Perkins\n☆\n0 branches","Finance Directory (accounts)"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/pm/admin/suppliers","role":"pm","label":"▶\nTravis Perkins\n☆\n0 branches","trail":["(reopen)"],"did":["changed","said: ▼ / Name / Finance Directory (accounts)"],"problems":[]}
+{"route":"/pm/admin/suppliers","role":"pm","label":"+ ADD BRANCH","trail":["▶\nTravis Perkins\n☆\n0 branches"],"did":["changed","said: 1 branch / Delete","wrote PATCH suppliers"],"problems":[]}
+{"route":"/pm/admin/suppliers","role":"pm","label":"Delete","trail":["▶\nTravis Perkins\n☆\n0 branches","+ ADD BRANCH"],"did":["changed","said: ✕ / Delete this branch? / No"],"problems":[]}
+{"route":"/pm/admin/suppliers","role":"pm","label":"▶\nTravis Perkins\n☆\n0 branches","trail":["(reopen)"],"did":["changed","said: ▼ / Name / Finance Directory (accounts)"],"problems":[]}
+{"route":"/pm/admin/suppliers","role":"pm","label":"DELETE SUPPLIER","trail":["▶\nTravis Perkins\n☆\n0 branches"],"did":["changed","said: ✕ / Remove this supplier? / No"],"problems":[]}
+{"route":"/pm/admin/suppliers","role":"pm","label":"Close","trail":["▶\nTravis Perkins\n☆\n0 branches","DELETE SUPPLIER"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/suppliers","role":"pm","label":"Favourite Travis Perkins","trail":[],"did":["changed","said: ★","wrote PATCH suppliers"],"problems":[]}
+{"route":"/pm/admin/suppliers","role":"pm","label":"Favourite Travis Perkins","trail":["(reopen)"],"did":["changed","said: ★","wrote PATCH suppliers"],"problems":[]}
+{"route":"/pm/admin/suppliers","role":"pm","label":"▶\nTravis Perkins\n★\n0 branches","trail":["Favourite Travis Perkins"],"did":["changed","said: ▼ / Name / Finance Directory (accounts)"],"problems":[]}
+{"route":"/pm/admin/suppliers","role":"pm","label":"DELETE SUPPLIER","trail":["Favourite Travis Perkins","▶\nTravis Perkins\n★\n0 branches"],"did":["changed","said: ✕ / Remove this supplier? / No"],"problems":[]}
+{"route":"/pm/admin/suppliers","role":"pm","label":"+ ADD SUPPLIER","trail":[],"did":["changed","said: ADD SUPPLIER / CANCEL / 📊 CHOOSE EXCEL / CSV FILE"],"problems":[]}
+{"route":"/pm/admin/suppliers","role":"pm","label":"+ ADD SUPPLIER","trail":["(reopen)"],"did":["changed","said: ADD SUPPLIER / CANCEL / 📊 CHOOSE EXCEL / CSV FILE"],"problems":[]}
+{"route":"/pm/admin/suppliers","role":"pm","label":"ADD SUPPLIER","trail":["+ ADD SUPPLIER"],"did":["changed","filled 2","said: Test / + ADD SUPPLIER","wrote POST suppliers"],"problems":[]}
+{"route":"/pm/admin/suppliers","role":"pm","label":"+ ADD SUPPLIER","trail":["(reopen)"],"did":["changed","said: ADD SUPPLIER / CANCEL / 📊 CHOOSE EXCEL / CSV FILE"],"problems":[]}
+{"route":"/pm/admin/suppliers","role":"pm","label":"CANCEL","trail":["+ ADD SUPPLIER"],"did":["changed","said: + ADD SUPPLIER"],"problems":[]}
+{"route":"/pm/admin/suppliers","role":"pm","label":"+ ADD SUPPLIER","trail":["(reopen)"],"did":["changed","said: ADD SUPPLIER / CANCEL / 📊 CHOOSE EXCEL / CSV FILE"],"problems":[]}
+{"route":"/pm/admin/suppliers","role":"pm","label":"📊 CHOOSE EXCEL / CSV FILE","trail":["+ ADD SUPPLIER"],"did":["changed","file picker"],"problems":[]}
+{"route":"/pm/dashboard","role":"pm","load":true,"land":"/pm/dashboard","blocked":false,"buttons":12,"words":810,"problems":[],"did":[]}
+{"route":"/pm/dashboard","role":"pm","note":"12 buttons, 10 distinct pressed","problems":[],"did":[]}
+{"route":"/pm/dashboard","role":"pm","label":"2\nLive Projects\nTap to open ›","trail":[],"did":["nav /sites","changed","said: All (3) / Live (2) / Upcoming (1)"],"problems":[]}
+{"route":"/pm/dashboard","role":"pm","label":"1\nUpcoming\nTap to open ›","trail":[],"did":["nav /sites?tab=upcoming","changed","said: All (3) / Live (2) / Upcoming (1)"],"problems":[]}
+{"route":"/pm/dashboard","role":"pm","label":"0\nClosed\nTap to open ›","trail":[],"did":["nav /sites?tab=closed","changed","said: All (3) / Live (2) / Upcoming (1)"],"problems":[]}
+{"route":"/pm/dashboard","role":"pm","label":"1\nOpen Snags\nacross live projects\nTap to open ›","trail":[],"did":["changed"],"problems":[]}
+{"route":"/pm/dashboard","role":"pm","label":"0\nRAMS Outstanding\nsignatures needed\nTap to open ›","trail":[],"did":["changed"],"problems":[]}
+{"route":"/pm/dashboard","role":"pm","label":"1\nCOSHH Outstanding\nsignatures needed\nTap to open ›","trail":[],"did":["changed"],"problems":[]}
+{"route":"/pm/dashboard","role":"pm","label":"1\nIncidents\nmost recent 500 reports\nTap to open ›","trail":[],"did":["changed","said: · 30 Oct"],"problems":[]}
+{"route":"/pm/dashboard","role":"pm","label":"1\nOutstanding TBT\nsignatures needed\nTap to open ›","trail":[],"did":["changed"],"problems":[]}
+{"route":"/pm/dashboard","role":"pm","label":"Studley Rd\n1","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/snagging","changed","said: THIS PROJECT / Project Home / Schedule of Works"],"problems":[]}
+{"route":"/pm/dashboard","role":"pm","label":"⚠️\nStudley Rd\n · 30 Oct","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/hs/incidents/i1","changed","said: THIS PROJECT / Project Home / Schedule of Works"],"problems":[]}
+{"route":"/pm/hub","role":"pm","load":true,"land":"/pm/hub","blocked":false,"buttons":15,"words":655,"problems":[],"did":[]}
+{"route":"/pm/hub","role":"pm","label":"ALL","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/pm/hub","role":"pm","label":"TBT","trail":[],"did":["changed"],"problems":[]}
+{"route":"/pm/hub","role":"pm","label":"SNAGS","trail":[],"did":["changed"],"problems":[]}
+{"route":"/pm/hub","role":"pm","label":"RAMS","trail":[],"did":["changed","said: Nothing matches these filters right now."],"problems":[]}
+{"route":"/pm/hub","role":"pm","label":"COSHH","trail":[],"did":["changed"],"problems":[]}
+{"route":"/pm/hub","role":"pm","label":"MESSAGES","trail":[],"did":["changed","said: Nothing matches these filters right now."],"problems":[]}
+{"route":"/pm/hub","role":"pm","label":"TASKS","trail":[],"did":["changed"],"problems":[]}
+{"route":"/pm/hub","role":"pm","label":"PHOTOS","trail":[],"did":["changed","said: Nothing matches these filters right now."],"problems":[]}
+{"route":"/pm/hub","role":"pm","label":"All sites\n▾","trail":[],"did":["changed","said: Site / ✕ / Studley Rd"],"problems":[]}
+{"route":"/pm/hub","role":"pm","label":"All sites\n▾","trail":["(reopen)"],"did":["changed","said: Site / ✕ / Studley Rd"],"problems":[]}
+{"route":"/pm/hub","role":"pm","label":"Close","trail":["All sites\n▾"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/pm/hub","role":"pm","label":"All sites\n▾","trail":["(reopen)"],"did":["changed","said: Site / ✕ / Studley Rd"],"problems":[]}
+{"route":"/pm/hub","role":"pm","label":"All sites","trail":["All sites\n▾"],"did":["changed"],"problems":[]}
+{"route":"/pm/hub","role":"pm","label":"All sites\n▾","trail":["(reopen)"],"did":["changed","said: Site / ✕ / Studley Rd"],"problems":[]}
+{"route":"/pm/hub","role":"pm","label":"Studley Rd","trail":["All sites\n▾"],"did":["changed"],"problems":[]}
+{"route":"/pm/hub","role":"pm","label":"All sites\n▾","trail":["(reopen)"],"did":["changed","said: Site / ✕ / Studley Rd"],"problems":[]}
+{"route":"/pm/hub","role":"pm","label":"Cleveland Primary School","trail":["All sites\n▾"],"did":["changed"],"problems":[]}
+{"route":"/pm/hub","role":"pm","label":"All sites\n▾","trail":["(reopen)"],"did":["changed","said: Site / ✕ / Studley Rd"],"problems":[]}
+{"route":"/pm/hub","role":"pm","label":"Simon De Senlis","trail":["All sites\n▾"],"did":["changed","said: Nothing matches these filters right now."],"problems":[]}
+{"route":"/pm/hub","role":"pm","label":"Any time\n▾","trail":[],"did":["changed","said: Due date / ✕ / Overdue"],"problems":[]}
+{"route":"/pm/hub","role":"pm","label":"Any time\n▾","trail":["(reopen)"],"did":["changed","said: Due date / ✕ / Overdue"],"problems":[]}
+{"route":"/pm/hub","role":"pm","label":"Close","trail":["Any time\n▾"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/pm/hub","role":"pm","label":"Any time\n▾","trail":["(reopen)"],"did":["changed","said: Due date / ✕ / Overdue"],"problems":[]}
+{"route":"/pm/hub","role":"pm","label":"Any time","trail":["Any time\n▾"],"did":["changed"],"problems":[]}
+{"route":"/pm/hub","role":"pm","label":"Any time\n▾","trail":["(reopen)"],"did":["changed","said: Due date / ✕ / Overdue"],"problems":[]}
+{"route":"/pm/hub","role":"pm","label":"Overdue","trail":["Any time\n▾"],"did":["changed"],"problems":[]}
+{"route":"/pm/hub","role":"pm","label":"Any time\n▾","trail":["(reopen)"],"did":["changed","said: Due date / ✕ / Overdue"],"problems":[]}
+{"route":"/pm/hub","role":"pm","label":"Due within 7 days","trail":["Any time\n▾"],"did":["changed"],"problems":[]}
+{"route":"/pm/hub","role":"pm","label":"Any time\n▾","trail":["(reopen)"],"did":["changed","said: Due date / ✕ / Overdue"],"problems":[]}
+{"route":"/pm/hub","role":"pm","label":"No due date","trail":["Any time\n▾"],"did":["changed"],"problems":[]}
+{"route":"/pm/hub","role":"pm","label":"Me (Paula PM)\n▾","trail":[],"did":["changed","said: Viewing / ✕ / All PMs"],"problems":[]}
+{"route":"/pm/hub","role":"pm","label":"Me (Paula PM)\n▾","trail":["(reopen)"],"did":["changed","said: Viewing / ✕ / All PMs"],"problems":[]}
+{"route":"/pm/hub","role":"pm","label":"Close","trail":["Me (Paula PM)\n▾"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/pm/hub","role":"pm","label":"Me (Paula PM)\n▾","trail":["(reopen)"],"did":["changed","said: Viewing / ✕ / All PMs"],"problems":[]}
+{"route":"/pm/hub","role":"pm","label":"Me (Paula PM)","trail":["Me (Paula PM)\n▾"],"did":["changed"],"problems":[]}
+{"route":"/pm/hub","role":"pm","label":"Me (Paula PM)\n▾","trail":["(reopen)"],"did":["changed","said: Viewing / ✕ / All PMs"],"problems":[]}
+{"route":"/pm/hub","role":"pm","label":"All PMs","trail":["Me (Paula PM)\n▾"],"did":["changed","wrote rpc sow_photo_alerts"],"problems":[]}
+{"route":"/pm/hub","role":"pm","label":"Me (Paula PM)\n▾","trail":["(reopen)"],"did":["changed","said: Viewing / ✕ / All PMs"],"problems":[]}
+{"route":"/pm/hub","role":"pm","label":"Dave Price","trail":["Me (Paula PM)\n▾"],"did":["changed","said: Nothing matches these filters right now."],"problems":[]}
+{"route":"/pm/hub","role":"pm","label":"!\nToolbox Talk — none ever completed at this site\nToolbox Talk · Cleveland Primary School · Due 07 Oct 2026","trail":[],"did":["nav /sites/22222222-2222-2222-2222-222222222222/hs/tbt","changed","said: THIS PROJECT / Cleveland Primary School / Project Home"],"problems":[]}
+{"route":"/pm/hub","role":"pm","label":"!\nChase scaffold\nTask · Studley Rd · Due 02 Nov 2026","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/todos","changed","said: THIS PROJECT / Studley Rd / Project Home"],"problems":[]}
+{"route":"/pm/hub","role":"pm","label":"!\nOpen snag\nSnag · Studley Rd","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/snagging/list","changed","said: THIS PROJECT / Studley Rd / Project Home"],"problems":[]}
+{"route":"/pm/hub","role":"pm","label":"!\nCOSHH not signed by operatives (1)\nCOSHH · Studley Rd","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/hs/coshh","changed","said: THIS PROJECT / Studley Rd / Project Home"],"problems":[]}
+{"route":"/pm/reports","role":"pm","load":true,"land":"/pm/reports","blocked":false,"buttons":10,"words":427,"problems":[],"did":[]}
+{"route":"/pm/reports","role":"pm","label":"Start a report","trail":[],"did":["changed","said: Which project is it for? / ✕ / General survey — not linked to a project"],"problems":[]}
+{"route":"/pm/reports","role":"pm","label":"Start a report","trail":["(reopen)"],"did":["changed","said: Which project is it for? / ✕ / General survey — not linked to a project"],"problems":[]}
+{"route":"/pm/reports","role":"pm","label":"Close","trail":["Start a report"],"did":["changed"],"problems":[]}
+{"route":"/pm/reports","role":"pm","label":"Start a report","trail":["(reopen)"],"did":["changed","said: Which project is it for? / ✕ / General survey — not linked to a project"],"problems":[]}
+{"route":"/pm/reports","role":"pm","label":"General survey — not linked to a project","trail":["Start a report"],"did":["changed","said: Pick a template"],"problems":[]}
+{"route":"/pm/reports","role":"pm","label":"Close","trail":["Start a report","General survey — not linked to a project"],"did":["changed"],"problems":[]}
+{"route":"/pm/reports","role":"pm","label":"Start a report","trail":["(reopen)"],"did":["changed","said: Which project is it for? / ✕ / General survey — not linked to a project"],"problems":[]}
+{"route":"/pm/reports","role":"pm","label":"Cleveland Primary School","trail":["Start a report"],"did":["changed","said: Pick a template"],"problems":[]}
+{"route":"/pm/reports","role":"pm","label":"Close","trail":["Start a report","Cleveland Primary School"],"did":["changed"],"problems":[]}
+{"route":"/pm/reports","role":"pm","label":"Start a report","trail":["(reopen)"],"did":["changed","said: Which project is it for? / ✕ / General survey — not linked to a project"],"problems":[]}
+{"route":"/pm/reports","role":"pm","label":"Simon De Senlis","trail":["Start a report"],"did":["changed","said: Pick a template"],"problems":[]}
+{"route":"/pm/reports","role":"pm","label":"Close","trail":["Start a report","Simon De Senlis"],"did":["changed"],"problems":[]}
+{"route":"/pm/reports","role":"pm","label":"Start a report","trail":["(reopen)"],"did":["changed","said: Which project is it for? / ✕ / General survey — not linked to a project"],"problems":[]}
+{"route":"/pm/reports","role":"pm","label":"Studley Rd","trail":["Start a report"],"did":["changed","said: Pick a template"],"problems":[]}
+{"route":"/pm/reports","role":"pm","label":"Close","trail":["Start a report","Studley Rd"],"did":["changed"],"problems":[]}
+{"route":"/pm/reports","role":"pm","label":"In progress (1)","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/pm/reports","role":"pm","label":"Completed (2)","trail":[],"did":["changed","said: Studley Rd · Paula PM · 30/10/2026 / Completed / Yard survey · Paula PM · 30/10/2026"],"problems":[]}
+{"route":"/pm/reports","role":"pm","label":"Completed (2)","trail":["(reopen)"],"did":["changed","said: Studley Rd · Paula PM · 30/10/2026 / Completed / Yard survey · Paula PM · 30/10/2026"],"problems":[]}
+{"route":"/pm/reports","role":"pm","label":"☐\nDaily report\nStudley Rd · Paula PM · 30/10/2026\nCompleted","trail":["Completed (2)"],"did":["nav /sites/11111111-1111-1111-1111-111111111111/snagging/reports/view/rs1","changed","said: THIS PROJECT / Studley Rd / Project Home"],"problems":[]}
+{"route":"/pm/reports","role":"pm","label":"Completed (2)","trail":["(reopen)"],"did":["changed","said: Studley Rd · Paula PM · 30/10/2026 / Completed / Yard survey · Paula PM · 30/10/2026"],"problems":[]}
+{"route":"/pm/reports","role":"pm","label":"☐\nDaily report\nYard survey · Paula PM · 30/10/2026\nCompleted","trail":["Completed (2)"],"did":["nav /pm/survey/rs4?mode=view","changed","said: Yard survey  · rename / DAILY REPORT / Submitted 30/10/2026, 16:29:17 by Paula PM"],"problems":[]}
+{"route":"/pm/reports","role":"pm","label":"All (3)","trail":[],"did":["changed","said: Studley Rd · Paula PM · 30/10/2026 / Completed / Yard survey · Paula PM · 30/10/2026"],"problems":[]}
+{"route":"/pm/reports","role":"pm","label":"All (3)","trail":["(reopen)"],"did":["changed","said: Studley Rd · Paula PM · 30/10/2026 / Completed / Yard survey · Paula PM · 30/10/2026"],"problems":[]}
+{"route":"/pm/reports","role":"pm","label":"☐\nDaily report\nStudley Rd · Paula PM · 30/10/2026\nCompleted","trail":["All (3)"],"did":["nav /sites/11111111-1111-1111-1111-111111111111/snagging/reports/view/rs1","changed","said: THIS PROJECT / Studley Rd / Project Home"],"problems":[]}
+{"route":"/pm/reports","role":"pm","label":"All (3)","trail":["(reopen)"],"did":["changed","said: Studley Rd · Paula PM · 30/10/2026 / Completed / Yard survey · Paula PM · 30/10/2026"],"problems":[]}
+{"route":"/pm/reports","role":"pm","label":"☐\nDaily report\nYard survey · Paula PM · 30/10/2026\nCompleted","trail":["All (3)"],"did":["nav /pm/survey/rs4?mode=view","changed","said: Yard survey  · rename / DAILY REPORT / Submitted 30/10/2026, 16:29:17 by Paula PM"],"problems":[]}
+{"route":"/pm/reports","role":"pm","label":"Filter ▾","trail":[],"did":["changed","said: Filter / ✕ / Template: All templates"],"problems":[]}
+{"route":"/pm/reports","role":"pm","label":"Filter ▾","trail":["(reopen)"],"did":["changed","said: Filter / ✕ / Template: All templates"],"problems":[]}
+{"route":"/pm/reports","role":"pm","label":"Close","trail":["Filter ▾"],"did":["changed"],"problems":[]}
+{"route":"/pm/reports","role":"pm","label":"Filter ▾","trail":["(reopen)"],"did":["changed","said: Filter / ✕ / Template: All templates"],"problems":[]}
+{"route":"/pm/reports","role":"pm","label":"Template: All templates","trail":["Filter ▾"],"did":["changed","said: Template / All templates"],"problems":[]}
+{"route":"/pm/reports","role":"pm","label":"Close","trail":["Filter ▾","Template: All templates"],"did":["changed"],"problems":[]}
+{"route":"/pm/reports","role":"pm","label":"Filter ▾","trail":["(reopen)"],"did":["changed","said: Filter / ✕ / Template: All templates"],"problems":[]}
+{"route":"/pm/reports","role":"pm","label":"Surveyor: Everyone","trail":["Filter ▾"],"did":["changed","said: Surveyor / Everyone"],"problems":[]}
+{"route":"/pm/reports","role":"pm","label":"Close","trail":["Filter ▾","Surveyor: Everyone"],"did":["changed"],"problems":[]}
+{"route":"/pm/reports","role":"pm","label":"Select all","trail":[],"did":["changed","said: Clear all / 1 selected / EXPORT PDF"],"problems":[]}
+{"route":"/pm/reports","role":"pm","label":"Select all","trail":["(reopen)"],"did":["changed","said: Clear all / 1 selected / EXPORT PDF"],"problems":[]}
+{"route":"/pm/reports","role":"pm","label":"Clear all","trail":["Select all"],"did":["changed","said: Select all / ☐"],"problems":[]}
+{"route":"/pm/reports","role":"pm","label":"Select all","trail":["(reopen)"],"did":["changed","said: Clear all / 1 selected / EXPORT PDF"],"problems":[]}
+{"route":"/pm/reports","role":"pm","label":"EXPORT PDF","trail":["Select all"],"did":["changed","said: Reports (1) - 30-10-2026.pdf / ☁️ Save to OneDrive / Building PDF…","download"],"problems":[]}
+{"route":"/pm/reports","role":"pm","label":"Select all","trail":["(reopen)"],"did":["changed","said: Clear all / 1 selected / EXPORT PDF"],"problems":[]}
+{"route":"/pm/reports","role":"pm","label":"EMAIL","trail":["Select all"],"did":["changed","said: Email the 1 ticked report (one PDF) to: / OK"],"problems":[]}
+{"route":"/pm/reports","role":"pm","label":"Close","trail":["Select all","EMAIL"],"did":["changed"],"problems":[]}
+{"route":"/pm/reports","role":"pm","label":"Select all","trail":["(reopen)"],"did":[],"problems":["could not press"]}
+{"route":"/pm/reports","role":"pm","crash":"page.goto: net::ERR_NETWORK_IO_SUSPENDED at http://localhost:8081/pm/reports\nCall log:\n\u001b[2m  - navigating to \"http://localhost:8081/pm/reports\", waiting until \"domcontentloaded\"\u001b[22m\n","problems":["crawler stopped on this screen"],"did":[]}
+{"route":"/pm/vehicles","role":"pm","crash":"page.goto: net::ERR_NETWORK_IO_SUSPENDED at http://localhost:8081/pm/vehicles\nCall log:\n\u001b[2m  - navigating to \"http://localhost:8081/pm/vehicles\", waiting until \"domcontentloaded\"\u001b[22m\n","problems":["crawler stopped on this screen"],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/calendar","role":"pm","crash":"page.goto: net::ERR_NETWORK_IO_SUSPENDED at http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/calendar\nCall log:\n\u001b[2m  - navigating to \"http://localhost:8081/sites/11111111-1111-1111-11","problems":["crawler stopped on this screen"],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/expenses","role":"pm","crash":"page.goto: net::ERR_NETWORK_IO_SUSPENDED at http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/expenses\nCall log:\n\u001b[2m  - navigating to \"http://localhost:8081/sites/11111111-1111-1111-11","problems":["crawler stopped on this screen"],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/schedule","role":"pm","crash":"page.goto: net::ERR_NETWORK_IO_SUSPENDED at http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/schedule\nCall log:\n\u001b[2m  - navigating to \"http://localhost:8081/sites/11111111-1111-1111-11","problems":["crawler stopped on this screen"],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh","role":"pm","crash":"page.goto: net::ERR_NETWORK_IO_SUSPENDED at http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/hs/coshh\nCall log:\n\u001b[2m  - navigating to \"http://localhost:8081/sites/11111111-1111-1111-11","problems":["crawler stopped on this screen"],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/incidents","role":"pm","crash":"page.goto: net::ERR_NETWORK_IO_SUSPENDED at http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/hs/incidents\nCall log:\n\u001b[2m  - navigating to \"http://localhost:8081/sites/11111111-1111-111","problems":["crawler stopped on this screen"],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/mytools","role":"pm","crash":"page.goto: net::ERR_NETWORK_IO_SUSPENDED at http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/hs/mytools\nCall log:\n\u001b[2m  - navigating to \"http://localhost:8081/sites/11111111-1111-1111-","problems":["crawler stopped on this screen"],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/tbt","role":"pm","crash":"page.goto: net::ERR_NETWORK_IO_SUSPENDED at http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/hs/tbt\nCall log:\n\u001b[2m  - navigating to \"http://localhost:8081/sites/11111111-1111-1111-1111","problems":["crawler stopped on this screen"],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials/requests","role":"pm","crash":"page.goto: Timeout 4000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/materials/requests\", waiting until \"domcontentloaded\"\u001b[22m\n","problems":["crawler stopped on this screen"],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/layout","role":"pm","crash":"page.goto: net::ERR_NETWORK_CHANGED at http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/mc/layout\nCall log:\n\u001b[2m  - navigating to \"http://localhost:8081/sites/11111111-1111-1111-1111-1","problems":["crawler stopped on this screen"],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/docs","role":"pm","crash":"page.goto: Timeout 4000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/docs\", waiting until \"domcontentloaded\"\u001b[22m","problems":["crawler stopped on this screen"],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/e1","role":"pm","crash":"page.goto: Timeout 4000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/price/e1\", waiting until \"domcontentloaded\"\u001b[22m\n","problems":["crawler stopped on this screen"],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging","role":"pm","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/snagging","blocked":false,"buttons":5,"words":415,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging","role":"pm","label":"Projects","trail":[],"did":["nav /sites","changed","said: All (3) / Live (2) / Upcoming (1)"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging","role":"pm","label":"J101 Studley Rd","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111","changed","said: Job No: J101 / NOT CHECKED IN / COSTS TO DATE"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging","role":"pm","label":"🏷\nSnagging\n1 open","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/snagging/list","changed","said: Live / Closed / Cracked tile"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging","role":"pm","label":"✎\nVariations\n0 live","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/snagging/variations","changed","said: Live / Closed / No live variations."],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging","role":"pm","label":"📊\nReports\n2 templates","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/snagging/reports","changed","said: + NEW REPORT / ▼ All templates / ☐"],"problems":[]}

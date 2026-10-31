@@ -1,0 +1,52 @@
+RTB Roofing Ltd
+OPHUB
+Search
+Ctrl K
+Home
+Projects
+Deliveries
+Calendar
+Hub
+4
+Dashboard
+OpHUB Finance
+Admin
+Andy Admin
+Company Admin
+Sign out
+‹
+Purchases
+OpHUB Finance
+Finance
+›
+Yard stock
+Overview
+Projects
+Sales
+Purchases
+Subcontractors & Labour
+Reports
+Directory
+Settings
+Purchase orders
+Purchase invoices
+Statements
+Plant hire
+Suppliers
+Price book
+Price lists
+Yard stock
+Materials held in the yard. Issue them to a job and the cost goes on that job (qty × rate). PMs can see the list and issue to their projects from Material Requests, but don’t see rates.
+£0.00
+Stock value (items with a rate)
+0
+Low stock
++ NEW ITEM
+⬇ BOOK STOCK IN
+⬆ ISSUE TO A JOB
+↩ RETURN FROM A JOB
+ADJUST A COUNT
+In use
+Low stock
+Not stocked
+No yard stock yet — add the first item.

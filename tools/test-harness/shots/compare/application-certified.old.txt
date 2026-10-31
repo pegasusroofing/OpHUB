@@ -1,0 +1,131 @@
+RTB Roofing Ltd
+OPHUB
+🔍
+Search
+Ctrl K
+Home
+Projects
+Deliveries
+Calendar
+Hub
+4
+Dashboard
+OpHUB Finance
+Admin
+THIS PROJECT
+Studley Rd
+Project Home
+Schedule of Works
+Health & Safety
+Check In
+Inbox
+Finance
+Project Settings
+Andy Admin
+Company Admin
+Sign out
+Application 2
+Studley Rd
+🏠
+Finance
+›
+Projects
+›
+J101 Studley Rd
+›
+Application 2
+←
+Back
+Overview
+J101 Studley Rd
++ New
+Application
+Sales invoice
+Variation
+Purchase order
+Purchase invoice
+Subcontractor PO
+Plant hire
+Cost
+Application
+No. 2 Certified
+Valuation Date
+15 Oct 2026
+Client PO
+—
+Due This Application
+£0.00
+This application has been certified, so it can’t be changed.
+
+Contract Works
+
+Hide 0% lines
+Item
+Total
+Applied %
+Applied
+Cumulative
+Applied
+Previous
+Applied
+Current
+Cert %
+Cert
+Cumulative
+Cert
+Previous
+Cert
+Current
+No lines.
+Variations & Day Works
+▾
+
+Certificate Summary
+
+APPLIED
+CERTIFIED
+Contract Works To Date
+£0.00
+—
+Gross Valuation To Date
+£0.00
+£21,000.00
+Less Discount
+−£0.00
+−£0.00
+Less Retention @ 0%
+−£0.00
+−£1,050.00
+Less Previously Certified
+−£0.00
+−£10,450.00
+Amount Due This Application
+£0.00
+£9,500.00
+
+Short by £300.00 against what you applied for.
+
+Payment Certificate
+
+18 Oct 2026
+Net Due
+£9,500.00
+
+Short by £300.00 compared with the £9,800.00 applied for.
+
+🧾 Raise invoice
+Change the certificate figures
+Status
+Draft
+Applied
+Certified
+Invoiced
+✓ Draft
+›
+✓ Applied
+›
+Certified
+›
+Invoiced
+
+Press Raise invoice in the certificate box: certified total, less discount, less retention, less previously certified, with VAT on the total.

@@ -1,0 +1,123 @@
+RTB Roofing Ltd
+OPHUB
+🔍
+Search
+Ctrl K
+Home
+Projects
+Deliveries
+Calendar
+Hub
+4
+Dashboard
+OpHUB Finance
+Admin
+THIS PROJECT
+Studley Rd
+Project Home
+Schedule of Works
+Health & Safety
+Check In
+Inbox
+Finance
+Project Settings
+Andy Admin
+Company Admin
+Sign out
+Detailed Summary
+J101 · Studley Rd
+🏠
+Finance
+›
+Projects
+›
+J101 Studley Rd
+›
+Detailed Summary
+←
+Back
+Overview
+J101 Studley Rd
++ New
+Application
+Sales invoice
+Variation
+Purchase order
+Purchase invoice
+Subcontractor PO
+Plant hire
+Cost
+Overview
+Sales
+Purchases
+Subcontractors & Labour
+Bill Of Quantities
+Project Admin
+Job No
+J101
+Customer
+Bellway Homes
+Contract Name
+Studley Rd
+ONLY SHOW ITEMS DATED
+From
+To
+Showing the whole job. Pick dates to see one period (e.g. a month) on every tab.
+Cost Summary
+Purchases
+Labour & Subcontractors
+Applications & Invoices
+Plant
+Excel
+
+Sales
+
+Applied To Date (Gross)
+£21,500.00
+Application Discount
+−£0.00
+Applied Net Of Discount
+£21,500.00
+Certified To Date (Gross)
+£21,000.00
+Invoiced
+£17,000.00
+Received
+£0.00
+Outstanding
+£17,000.00
+Retention Held By Client
+£1,050.00
+Sales Value
+£21,000.00
+
+Sales value = latest certified (or applied) to date, less discount. All excl. VAT.
+
+Cost
+
+Purchases (Materials)
+£11,650.00
+Plant
+£2,578.57
+Labour
+£0.00
+Subcontractors
+£0.00
+Prelims & Site Costs
+£320.00
+Other
+£0.00
+Total Cost
+£14,548.57
+Profit Before Overheads
+£6,451.43
+Company Overheads (OHP) 10%
+−£2,100.00
+Profit After Overheads
+£4,351.43
+% Profit (After Overheads)
+20.7%
+Ordered, Not Invoiced Yet
+£6,000.00
+
+Ordered (open POs and subcontract orders) isn't in Total Cost until it's invoiced or certified.

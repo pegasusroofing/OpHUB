@@ -1,0 +1,139 @@
+{"route":"/fin/sales","role":"admin","load":true,"land":"/fin/sales","blocked":false,"buttons":31,"words":634,"problems":[],"did":[]}
+{"route":"/fin/sales","role":"admin","note":"31 buttons, 29 distinct pressed","problems":[],"did":[]}
+{"route":"/fin/sales","role":"admin","label":"Finance","trail":[],"did":["nav /fin","changed","said: £174,500 / Live Contract Value · 2 Jobs / £29,000"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Overview","trail":[],"did":["nav /fin","changed","said: £174,500 / Live Contract Value · 2 Jobs / £29,000"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Projects","trail":[],"did":["nav /fin/jobs","changed","said: Clients / Live (2) / Upcoming (1)"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Sales","trail":[],"did":["changed"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Purchases","trail":[],"did":["nav /fin/purchases","changed","said: Unallocated Invoices · all time / To Pay Suppliers (Incl. VAT) · all time / To Approve · all time"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Subcontractors & Labour","trail":[],"did":["nav /fin/subs","changed","said: Operative Invoices To Pay / 6 Nov 2026 / Next Pay Day"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Reports","trail":[],"did":["nav /fin/reports","changed","said: Pick a report, set the project and dates, then download it as Excel or PDF. / Commercial / QS · 8 reports / ▼"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Directory","trail":[],"did":["nav /fin/directory","changed","said: Clients / Suppliers / Labour (CIS)"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Settings","trail":[],"did":["nav /fin/settings","changed","said: Finance settings / Cost Codes / Team","fn xero"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"⋯\n£9,800\nApplied Value · this month","trail":[],"did":["nav /fin/sales?tab=apps&f=all","changed","said: 15 Oct 2026 · Certified · certified £9,500.00 / £9,500.00"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Change dates: Applied Value · this month","trail":[],"did":["changed","said: Change dates / ✕ / ✓ This month"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Change dates: Applied Value · this month","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / ✓ This month"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Close","trail":["Change dates: Applied Value · this month"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/sales","role":"admin","label":"Change dates: Applied Value · this month","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / ✓ This month"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"✓ This month","trail":["Change dates: Applied Value · this month"],"did":["changed"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Change dates: Applied Value · this month","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / ✓ This month"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Last month","trail":["Change dates: Applied Value · this month"],"did":["changed","said: Applied Value · last month"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Change dates: Applied Value · this month","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"This quarter","trail":["Change dates: Applied Value · this month"],"did":["changed","said: £9,800 / Applied Value · this quarter"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Change dates: Applied Value · this month","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"This year","trail":["Change dates: Applied Value · this month"],"did":["changed","said: Applied Value · this year"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Change dates: Applied Value · this month","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"All time","trail":["Change dates: Applied Value · this month"],"did":["changed","said: Applied Value · all time"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Change dates: Applied Value · this month","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Pick dates…","trail":["Change dates: Applied Value · this month"],"did":["changed","said: From date / October 2026 / Mo"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Close","trail":["Change dates: Applied Value · this month","Pick dates…"],"did":["changed"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"⋯\n£15,000\nInvoiced Value · this month","trail":[],"did":["nav /fin/sales?tab=invoices&f=all","changed","said: Owed / 3 / Overdue"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Change dates: Invoiced Value · this month","trail":[],"did":["changed","said: Change dates / ✕ / ✓ This month"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Change dates: Invoiced Value · this month","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / ✓ This month"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"⋯\n£9,800\nApplied Value · all time","trail":["Change dates: Invoiced Value · this month"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/sales","role":"admin","label":"Change dates: Invoiced Value · this month","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / ✓ This month"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Change dates: Applied Value · all time","trail":["Change dates: Invoiced Value · this month"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/sales","role":"admin","label":"Change dates: Invoiced Value · this month","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / ✓ This month"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Close","trail":["Change dates: Invoiced Value · this month"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/sales","role":"admin","label":"Change dates: Invoiced Value · this month","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / ✓ This month"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"✓ This month","trail":["Change dates: Invoiced Value · this month"],"did":["changed"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Change dates: Invoiced Value · this month","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / ✓ This month"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Last month","trail":["Change dates: Invoiced Value · this month"],"did":["changed","said: £54,000 / Invoiced Value · last month"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Change dates: Invoiced Value · this month","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"This quarter","trail":["Change dates: Invoiced Value · this month"],"did":["changed","said: £15,000 / Invoiced Value · this quarter"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Change dates: Invoiced Value · this month","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"This year","trail":["Change dates: Invoiced Value · this month"],"did":["changed","said: £71,000 / Invoiced Value · this year"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Change dates: Invoiced Value · this month","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"All time","trail":["Change dates: Invoiced Value · this month"],"did":["changed","said: Invoiced Value · all time"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Change dates: Invoiced Value · this month","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Pick dates…","trail":["Change dates: Invoiced Value · this month"],"did":["changed","said: From date / October 2026 / Mo"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Close","trail":["Change dates: Invoiced Value · this month","Pick dates…"],"did":["changed"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"⋯\n£14,000\nOverdue · all time","trail":[],"did":["nav /fin/sales?tab=invoices&f=overdue","changed","said: Owed / 3 / Overdue"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Change dates: Overdue · all time","trail":[],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Change dates: Overdue · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"⋯\n£9,800\nApplied Value · all time","trail":["Change dates: Overdue · all time"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/sales","role":"admin","label":"Change dates: Overdue · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Change dates: Applied Value · all time","trail":["Change dates: Overdue · all time"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/sales","role":"admin","label":"Change dates: Overdue · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"⋯\n£71,000\nInvoiced Value · all time","trail":["Change dates: Overdue · all time"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/sales","role":"admin","label":"Change dates: Overdue · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Change dates: Invoiced Value · all time","trail":["Change dates: Overdue · all time"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/sales","role":"admin","label":"Change dates: Overdue · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Close","trail":["Change dates: Overdue · all time"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/sales","role":"admin","label":"Change dates: Overdue · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"This month","trail":["Change dates: Overdue · all time"],"did":["changed","said: £12,000 / Overdue · this month"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Change dates: Overdue · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / ✓ This month"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Last month","trail":["Change dates: Overdue · all time"],"did":["changed","said: Overdue · last month"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Change dates: Overdue · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"This quarter","trail":["Change dates: Overdue · all time"],"did":["changed","said: £12,000 / Overdue · this quarter"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Change dates: Overdue · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"This year","trail":["Change dates: Overdue · all time"],"did":["changed","said: £14,000 / Overdue · this year"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Change dates: Overdue · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Change dates: Overdue · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Pick dates…","trail":["Change dates: Overdue · all time"],"did":["changed","said: From date / October 2026 / Mo"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Close","trail":["Change dates: Overdue · all time","Pick dates…"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/sales","role":"admin","label":"⋯\n£0\nApplied, Not Certified Or Invoiced · all time","trail":[],"did":["nav /fin/sales?tab=apps&f=open","changed"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Change dates: Applied, Not Certified Or Invoiced · all time","trail":[],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Change dates: Applied, Not Certified Or Invoiced · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"⋯\n£9,800\nApplied Value · all time","trail":["Change dates: Applied, Not Certified Or Invoiced · all time"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/sales","role":"admin","label":"Change dates: Applied, Not Certified Or Invoiced · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Change dates: Applied Value · all time","trail":["Change dates: Applied, Not Certified Or Invoiced · all time"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/sales","role":"admin","label":"Change dates: Applied, Not Certified Or Invoiced · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"⋯\n£71,000\nInvoiced Value · all time","trail":["Change dates: Applied, Not Certified Or Invoiced · all time"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/sales","role":"admin","label":"Change dates: Applied, Not Certified Or Invoiced · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Change dates: Invoiced Value · all time","trail":["Change dates: Applied, Not Certified Or Invoiced · all time"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/sales","role":"admin","label":"Change dates: Applied, Not Certified Or Invoiced · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"⋯\n£14,000\nOverdue · this year","trail":["Change dates: Applied, Not Certified Or Invoiced · all time"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/sales","role":"admin","label":"Change dates: Applied, Not Certified Or Invoiced · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Change dates: Overdue · this year","trail":["Change dates: Applied, Not Certified Or Invoiced · all time"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/sales","role":"admin","label":"Change dates: Applied, Not Certified Or Invoiced · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Close","trail":["Change dates: Applied, Not Certified Or Invoiced · all time"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/sales","role":"admin","label":"Change dates: Applied, Not Certified Or Invoiced · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"This month","trail":["Change dates: Applied, Not Certified Or Invoiced · all time"],"did":["changed","said: Applied, Not Certified Or Invoiced · this month"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Change dates: Applied, Not Certified Or Invoiced · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / ✓ This month"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Last month","trail":["Change dates: Applied, Not Certified Or Invoiced · all time"],"did":["changed","said: Applied, Not Certified Or Invoiced · last month"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Change dates: Applied, Not Certified Or Invoiced · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"This quarter","trail":["Change dates: Applied, Not Certified Or Invoiced · all time"],"did":["changed","said: Applied, Not Certified Or Invoiced · this quarter"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Change dates: Applied, Not Certified Or Invoiced · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"This year","trail":["Change dates: Applied, Not Certified Or Invoiced · all time"],"did":["changed","said: Applied, Not Certified Or Invoiced · this year"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Applications & Certificates","trail":[],"did":["nav /fin/sales?tab=apps"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Invoices","trail":[],"did":["nav /fin/sales?tab=invoices","changed","said: Owed / 3 / Overdue"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Retention","trail":[],"did":["nav /fin/sales?tab=retention","changed","said: Bellway Homes · 1st release 10 Oct 2026 · final 10 Oct 2027 / £1,050.00 / 1 job · £1,050.00 still held"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"In Progress\n1","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/sales","role":"admin","label":"Certified — To Invoice\n1","trail":[],"did":["changed","said: 15 Oct 2026 · Certified · certified £9,500.00 / £9,500.00"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Certified — To Invoice\n1","trail":["(reopen)"],"did":["changed","said: 15 Oct 2026 · Certified · certified £9,500.00 / £9,500.00"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"⋯\n£9,800\nApplied Value · all time","trail":["Certified — To Invoice\n1"],"did":["nav /fin/sales?tab=apps&f=all","changed","said: 25 Oct 2026 · Draft / —"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Certified — To Invoice\n1","trail":["(reopen)"],"did":["changed","said: 15 Oct 2026 · Certified · certified £9,500.00 / £9,500.00"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Change dates: Applied Value · all time","trail":["Certified — To Invoice\n1"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Close","trail":["Certified — To Invoice\n1","Change dates: Applied Value · all time"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/sales","role":"admin","label":"Certified — To Invoice\n1","trail":["(reopen)"],"did":["changed","said: 15 Oct 2026 · Certified · certified £9,500.00 / £9,500.00"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"⋯\n£71,000\nInvoiced Value · all time","trail":["Certified — To Invoice\n1"],"did":["nav /fin/sales?tab=invoices&f=all","changed","said: Owed / 3 / Overdue"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Certified — To Invoice\n1","trail":["(reopen)"],"did":["changed","said: 15 Oct 2026 · Certified · certified £9,500.00 / £9,500.00"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Change dates: Invoiced Value · all time","trail":["Certified — To Invoice\n1"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/sales","role":"admin","label":"Close","trail":["Certified — To Invoice\n1","Change dates: Invoiced Value · all time"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/sales","role":"admin","note":"ran out of time on this screen","problems":[],"did":[]}
+{"route":"/fin/subs","role":"admin","load":true,"land":"/fin/subs","blocked":false,"buttons":26,"words":640,"problems":[],"did":[]}
+{"route":"/fin/subs","role":"admin","note":"26 buttons, 24 distinct pressed","problems":[],"did":[]}
+{"route":"/fin/subs","role":"admin","label":"Finance","trail":[],"did":["nav /fin","changed","said: £174,500 / Live Contract Value · 2 Jobs / £29,000"],"problems":[]}
+{"route":"/fin/subs","role":"admin","label":"Overview","trail":[],"did":["nav /fin","changed","said: £174,500 / Live Contract Value · 2 Jobs / £29,000"],"problems":[]}
+{"route":"/fin/subs","role":"admin","label":"Projects","trail":[],"did":["nav /fin/jobs","changed","said: Clients / Live (2) / Upcoming (1)"],"problems":[]}
+{"route":"/fin/subs","role":"admin","label":"Sales","trail":[],"did":["nav /fin/sales","changed","said: ⋯ / £9,800 / Applied Value · all time"],"problems":[]}
+{"route":"/fin/subs","role":"admin","label":"Purchases","trail":[],"did":["nav /fin/purchases","changed","said: ⋯ / 2 / Unallocated Invoices · all time"],"problems":[]}
+{"route":"/fin/subs","role":"admin","label":"Subcontractors & Labour","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/subs","role":"admin","label":"Reports","trail":[],"did":["nav /fin/reports","changed","said: Pick a report, set the project and dates, then download it as Excel or PDF. / Commercial / QS · 8 reports / ▼"],"problems":[]}
+{"route":"/fin/subs","role":"admin","label":"Directory","trail":[],"did":["nav /fin/directory","changed","said: Clients / Suppliers / Labour (CIS)"],"problems":[]}
+{"route":"/fin/subs","role":"admin","label":"Settings","trail":[],"did":["nav /fin/settings","changed","said: Finance settings / Cost Codes / Team","fn xero"],"problems":[]}
+{"route":"/fin/subs","role":"admin","label":"£0\nOperative Invoices To Pay","trail":[],"did":["nav /fin/subs?tab=opinv&f="],"problems":[]}
+{"route":"/fin/subs","role":"admin","label":"6 Nov 2026\nNext Pay Day","trail":[],"did":["nav /fin/subs?tab=payrun&f=","changed","said: Pay day / Fri 6 Nov / Pays operative invoices for work up to Sun 1 Nov"],"problems":[]}
+{"route":"/fin/subs","role":"admin","label":"0\nApplications To Certify","trail":[],"did":["nav /fin/subs?tab=apps&f=open","changed","said: To Certify / Certified — To Pay / 1"],"problems":[]}
+{"route":"/fin/subs","role":"admin","label":"£0\nCertified, To Pay","trail":[],"did":["nav /fin/subs?tab=apps&f=certified","changed","said: To Certify / Certified — To Pay / 1"],"problems":[]}
+{"route":"/fin/subs","role":"admin","label":"Operative invoices","trail":[],"did":["nav /fin/subs?tab=opinv"],"problems":[]}
+{"route":"/fin/subs","role":"admin","label":"Pay run","trail":[],"did":["nav /fin/subs?tab=payrun","changed","said: Pay day / Fri 6 Nov / Pays operative invoices for work up to Sun 1 Nov"],"problems":[]}
+{"route":"/fin/subs","role":"admin","label":"Subcontractor POs","trail":[],"did":["nav /fin/subs?tab=orders","changed","said: For subcontractors on a fixed price who apply for payment (e.g. leadwork, scaffolding). / Active / 1"],"problems":[]}
+{"route":"/fin/subs","role":"admin","label":"Applications & Certificates","trail":[],"did":["nav /fin/subs?tab=apps","changed","said: To Certify / Certified — To Pay / 1"],"problems":[]}
+{"route":"/fin/subs","role":"admin","label":"CIS","trail":[],"did":["nav /fin/subs?tab=cis","changed","said: Tax month / 6 Sept 2026 – 5 Oct 2026 / £0.00"],"problems":[]}
+{"route":"/fin/subs","role":"admin","label":"People & rates","trail":[],"did":["nav /fin/directory?kind=labour","changed","said: Clients / Suppliers / Labour (CIS)"],"problems":[]}
+{"route":"/fin/subs","role":"admin","label":"To Pay","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/subs","role":"admin","label":"Paid","trail":[],"did":["changed"],"problems":[]}
+{"route":"/fin/subs","role":"admin","label":"All","trail":[],"did":["changed"],"problems":[]}
+{"route":"/fin/subs","role":"admin","label":"+ OPERATIVE INVOICE","trail":[],"did":["nav /fin/labour/new","changed","said: Operative invoice / From / Choose who ▾"],"problems":[]}
+{"route":"/fin/subs","role":"admin","label":"Home","trail":[],"did":["nav /home","changed","said: RTB Roofing Ltd / OPHUB / ↻","wrote rpc sow_photo_alerts"],"problems":[]}

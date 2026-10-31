@@ -1,0 +1,105 @@
+RTB Roofing Ltd
+OPHUB
+Search
+Ctrl K
+Home
+Projects
+Deliveries
+Calendar
+Hub
+4
+Dashboard
+OpHUB Finance
+Admin
+Andy Admin
+Company Admin
+Sign out
+‹
+Budget & forecast
+OpHUB Finance
+Finance
+›
+Projects
+›
+J101 Studley Rd
+Budget per heading, and (optional) what's left to spend. Blank "to complete" = budget less spent and ordered. Expected final cost = spent + ordered + to complete.
+FORECAST PROFIT (AFTER 10% OVERHEADS)
+£8,451
+16.4%
+Final account (incl. submitted variations)
+£51,500
+Forecast final cost
+£37,899
+Budget
+£31,500
+Spent £14,549
+Ordered £6,000
+Left £10,951
+Forecast to go £6,399 over budget
+▶ Set budgets from a target margin
+Type the margin you want; it works out what you can spend and splits it across the headings.
+Materials
+Budget £
+To complete £
+Spent £11,650 · ordered £0
+Expected final £20,000.00
+under £0.00
+Labour
+Budget £
+To complete £
+Spent £0 · ordered £0
+Expected final £9,000.00
+under £0.00
+Plant
+Budget £
+To complete £
+Spent £2,579 · ordered £0
+Expected final £2,578.57
+over £78.57
+Subcontract
+Budget £
+To complete £
+Spent £0 · ordered £6,000
+Expected final £6,000.00
+Prelims & site costs
+Budget £
+To complete £
+Spent £320 · ordered £0
+Expected final £320.00
+Other
+Budget £
+To complete £
+Spent £0 · ordered £0
+Expected final £0.00
+Total
+Budget
+£31,500.00
+Spent
+£14,548.57
+Ordered
+£6,000.00
+To complete
+£17,350.00
+Forecast final
+£37,898.57
+Over
+£6,398.57
+VALUE
+Contract value
+£48,000.00
+Variations agreed
+£1,000.00
+Variations priced or submitted (not agreed)
+£2,500.00
+Forecast final account (incl. submitted variations)
+£51,500.00
+Company overheads (OHP) 10% of the final account
+−£5,150.00
+Valuation to date (last application)
+£21,000.00
+Invoiced
+£17,000.00
+Expected final value £51,500 · expected final cost £37,899 · expected profit £8,451
+Starting point saved: value £46,000.
+UPDATE TO TODAY’S FIGURES
+SAVE BUDGET & FORECAST

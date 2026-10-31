@@ -1,0 +1,78 @@
+RTB Roofing Ltd
+OPHUB
+🔍
+Search
+Ctrl K
+Home
+Projects
+Deliveries
+Calendar
+Hub
+4
+Dashboard
+OpHUB Finance
+Admin
+Andy Admin
+Company Admin
+Sign out
+Purchases
+OpHUB Finance · money out
+Finance
+›
+Purchases
+›
+Invoices
+Overview
+Projects
+Sales
+Purchases
+Subcontractors & Labour
+Reports
+Directory
+Settings
+⋯
+2
+Unallocated Invoices all time
+⋯
+£0
+To Pay Suppliers (Incl. VAT) all time
+⋯
+1
+To Approve all time
+⋯
+£0
+Ordered, Not Invoiced all time
+Purchase Invoices
+3
+Purchase Orders
+Statements
+Yard Stock
+Plant Hire
+Price List
++ Add invoices
+
+Purchase invoices emailed to your invoice address (or added here) are read for you. If we can tell the job — from our PO number, the job number, or the site postcode or address — they’re filed to it. If not, they wait in Unallocated: allocate it yourself or send it to a PM.
+
+Unallocated
+2
+With A PM
+0
+To Approve
+1
+Approved, Not Paid
+0
+Paid
+0
+All Filed
+1
+SUPPLIER	INVOICE NO.	PROJECT	DATE	NET	VAT	GROSS	PO	CHECKS	STATUS
+									
+SIG Roofing	SIG-88231	J101 · Studley Rd	12 Oct 2026	£1,800.00	£360.00	£2,160.00	J101-PO-001	
+PO linked
+	To approve
+1 shown
+£1,800.00
+£360.00
+£2,160.00
+
+Type one in by hand instead

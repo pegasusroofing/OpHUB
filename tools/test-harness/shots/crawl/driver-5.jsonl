@@ -1,0 +1,50 @@
+{"route":"/onsite","role":"driver","load":true,"land":"/home","blocked":false,"buttons":5,"words":381,"problems":[],"did":[]}
+{"route":"/driver/timeoff","role":"driver","load":true,"land":"/driver/timeoff","blocked":false,"buttons":4,"words":308,"problems":[],"did":[]}
+{"route":"/driver/timeoff","role":"driver","label":"One day","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/driver/timeoff","role":"driver","label":"Several days","trail":[],"did":["changed","said: From / To"],"problems":[]}
+{"route":"/driver/timeoff","role":"driver","label":"Several days","trail":["(reopen)"],"did":["changed","said: From / To"],"problems":[]}
+{"route":"/driver/timeoff","role":"driver","label":"From","trail":["Several days"],"did":["changed","said: ✕ / October 2026 / ›"],"problems":[]}
+{"route":"/driver/timeoff","role":"driver","label":"Close","trail":["Several days","From"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/driver/timeoff","role":"driver","label":"Several days","trail":["(reopen)"],"did":["changed","said: From / To"],"problems":[]}
+{"route":"/driver/timeoff","role":"driver","label":"To","trail":["Several days"],"did":["changed","said: ✕ / October 2026 / ›"],"problems":[]}
+{"route":"/driver/timeoff","role":"driver","label":"Close","trail":["Several days","To"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/driver/timeoff","role":"driver","label":"Date","trail":[],"did":["changed","said: ✕ / October 2026 / ›"],"problems":[]}
+{"route":"/driver/timeoff","role":"driver","label":"Date","trail":["(reopen)"],"did":["changed","said: ✕ / October 2026 / ›"],"problems":[]}
+{"route":"/driver/timeoff","role":"driver","label":"Close","trail":["Date"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/driver/timeoff","role":"driver","label":"Date","trail":["(reopen)"],"did":["changed","said: ✕ / October 2026 / ›"],"problems":[]}
+{"route":"/driver/timeoff","role":"driver","label":"Previous month","trail":["Date"],"did":["changed","said: September 2026"],"problems":[]}
+{"route":"/driver/timeoff","role":"driver","label":"Close","trail":["Date","Previous month"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/driver/timeoff","role":"driver","label":"Date","trail":["(reopen)"],"did":["changed","said: ✕ / October 2026 / ›"],"problems":[]}
+{"route":"/driver/timeoff","role":"driver","label":"Next month","trail":["Date"],"did":["changed","said: November 2026"],"problems":[]}
+{"route":"/driver/timeoff","role":"driver","label":"Close","trail":["Date","Next month"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/driver/timeoff","role":"driver","label":"Date","trail":["(reopen)"],"did":["changed","said: ✕ / October 2026 / ›"],"problems":[]}
+{"route":"/driver/timeoff","role":"driver","label":"1 Oct 2026","trail":["Date"],"did":[],"problems":["could not press"]}
+{"route":"/driver/timeoff","role":"driver","label":"BOOK TIME OFF","trail":[],"did":["changed","filled 1","said: Sat, 31 Oct 2026 / 1 day · Test / Remove","wrote POST driver_time_off"],"problems":[]}
+{"route":"/driver/timeoff","role":"driver","label":"BOOK TIME OFF","trail":["(reopen)"],"did":["changed","filled 1","said: Sat, 31 Oct 2026 / 1 day · Test / Remove","wrote POST driver_time_off"],"problems":[]}
+{"route":"/driver/timeoff","role":"driver","label":"Remove","trail":["BOOK TIME OFF"],"did":["changed","said: Tap again to remove"],"problems":[]}
+{"route":"/fin/jobs","role":"driver","load":true,"land":"/home","blocked":true,"buttons":6,"words":403,"problems":[],"did":[]}
+{"route":"/fin/statements","role":"driver","load":true,"land":"/home","blocked":true,"buttons":6,"words":403,"problems":[],"did":[]}
+{"route":"/fin/pinv/pi1","role":"driver","load":true,"land":"/home","blocked":true,"buttons":6,"words":403,"problems":[],"did":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/budget","role":"driver","load":true,"land":"/home","blocked":true,"buttons":6,"words":403,"problems":[],"did":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"driver","load":true,"land":"/home","blocked":true,"buttons":6,"words":403,"problems":[],"did":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111?tab=subs","role":"driver","load":true,"land":"/home","blocked":true,"buttons":6,"words":403,"problems":[],"did":[]}
+{"route":"/pm/admin/companylibrary/cp1","role":"driver","load":true,"land":"/home","blocked":false,"buttons":5,"words":351,"problems":[],"did":[]}
+{"route":"/pm/admin/havstools","role":"driver","load":true,"land":"/home","blocked":false,"buttons":5,"words":351,"problems":[],"did":[]}
+{"route":"/pm/admin/ratecard","role":"driver","load":true,"land":"/home","blocked":false,"buttons":5,"words":351,"problems":[],"did":[]}
+{"route":"/pm/admin/suppliers","role":"driver","load":true,"land":"/home","blocked":false,"buttons":5,"words":351,"problems":[],"did":[]}
+{"route":"/pm/dashboard","role":"driver","load":true,"land":"/home","blocked":false,"buttons":5,"words":351,"problems":[],"did":[]}
+{"route":"/pm/hub","role":"driver","load":true,"land":"/home","blocked":false,"buttons":5,"words":351,"problems":[],"did":[]}
+{"route":"/pm/reports","role":"driver","load":true,"land":"/home","blocked":false,"buttons":5,"words":351,"problems":[],"did":[]}
+{"route":"/pm/vehicles","role":"driver","load":true,"land":"/home","blocked":false,"buttons":5,"words":351,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/calendar","role":"driver","load":true,"land":"/home?id=11111111-1111-1111-1111-111111111111","blocked":false,"buttons":5,"words":351,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/expenses","role":"driver","load":true,"land":"/home?id=11111111-1111-1111-1111-111111111111","blocked":false,"buttons":5,"words":351,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/schedule","role":"driver","load":true,"land":"/home?id=11111111-1111-1111-1111-111111111111","blocked":false,"buttons":5,"words":351,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh","role":"driver","load":true,"land":"/home?id=11111111-1111-1111-1111-111111111111","blocked":false,"buttons":5,"words":351,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/incidents","role":"driver","load":true,"land":"/home?id=11111111-1111-1111-1111-111111111111","blocked":false,"buttons":5,"words":351,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/mytools","role":"driver","load":true,"land":"/home?id=11111111-1111-1111-1111-111111111111","blocked":false,"buttons":5,"words":351,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/tbt","role":"driver","load":true,"land":"/home?id=11111111-1111-1111-1111-111111111111","blocked":false,"buttons":5,"words":351,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials/requests","role":"driver","load":true,"land":"/home?id=11111111-1111-1111-1111-111111111111","blocked":false,"buttons":5,"words":351,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/layout","role":"driver","load":true,"land":"/home?id=11111111-1111-1111-1111-111111111111","blocked":false,"buttons":5,"words":351,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/docs","role":"driver","load":true,"land":"/home?id=11111111-1111-1111-1111-111111111111&co=sc1","blocked":false,"buttons":5,"words":351,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/e1","role":"driver","load":true,"land":"/home?id=11111111-1111-1111-1111-111111111111&el=e1","blocked":false,"buttons":5,"words":351,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging","role":"driver","load":true,"land":"/home?id=11111111-1111-1111-1111-111111111111","blocked":false,"buttons":5,"words":351,"problems":[],"did":[]}

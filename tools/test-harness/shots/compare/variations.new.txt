@@ -1,0 +1,52 @@
+RTB Roofing Ltd
+OPHUB
+Search
+Ctrl K
+Home
+Projects
+Deliveries
+Calendar
+Hub
+4
+Dashboard
+OpHUB Finance
+Admin
+Andy Admin
+Company Admin
+Sign out
+‹
+Variations
+OpHUB Finance
+Finance
+›
+Projects
+›
+J101 Studley Rd
+£1,000
+Approved
+£2,500
+Issued, waiting for approval
+£0
+Rejected
+Only approved variations go onto applications, at their approved value. Variations raised on site (Projects › Variations) come in here on their own.
+All (2)
+Issued (1)
+Approved (1)
+Rejected
+EXCEL
+PDF
++ VARIATION
+V01
+Extra flashing
+Approved
++ Schedule of Works
+£1,000.00
+›
+V02
+Gutter swap
+Issued
+Approve
+Reject
++ Schedule of Works
+£2,500.00
+›

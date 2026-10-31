@@ -1,0 +1,85 @@
+RTB Roofing Ltd
+OPHUB
+🔍
+Search
+Ctrl K
+Home
+Projects
+Deliveries
+Calendar
+Hub
+4
+Dashboard
+OpHUB Finance
+Admin
+THIS PROJECT
+Studley Rd
+Project Home
+Schedule of Works
+Health & Safety
+Check In
+Inbox
+Finance
+Project Settings
+Andy Admin
+Company Admin
+Sign out
+Bill of Quantities
+Studley Rd
+🏠
+Finance
+›
+Projects
+›
+J101 Studley Rd
+›
+Variations
+←
+Back
+Overview
+J101 Studley Rd
++ New
+Application
+Sales invoice
+Variation
+Purchase order
+Purchase invoice
+Subcontractor PO
+Plant hire
+Cost
+Overview
+Sales
+Purchases
+Subcontractors & Labour
+Bill Of Quantities
+Project Admin
+Bill Of Quantities
+Variations
+Day Works
+
+Variations
+
++ Add Variation
+Issued
+£2,500.00
+Approved
+£1,000.00
+Rejected
+£0.00
+
+Only approved variations go onto applications, at their approved value. Variations raised on site (Projects › Variations) come in here on their own.
+
+All (2)
+Issued (1)
+Approved (1)
+Rejected (0)
+NO.	TITLE	STATUS	VALUE	BUDGET COST		SCHEDULE OF WORKS
+						
+V01	Extra flashing	Approved	£1,000.00	—		+ Schedule of Works
+V02	Gutter swap	Issued	£2,500.00	—	Approve Reject	+ Schedule of Works
+2 shown
+£3,500.00
+Export:
+Export:
+Excel
+PDF

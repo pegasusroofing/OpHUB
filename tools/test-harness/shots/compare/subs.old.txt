@@ -1,0 +1,53 @@
+RTB Roofing Ltd
+OPHUB
+🔍
+Search
+Ctrl K
+Home
+Projects
+Deliveries
+Calendar
+Hub
+4
+Dashboard
+OpHUB Finance
+Admin
+Andy Admin
+Company Admin
+Sign out
+Subcontractors & Labour
+OpHUB Finance
+Finance
+›
+Subcontractors & Labour
+Overview
+Projects
+Sales
+Purchases
+Subcontractors & Labour
+Reports
+Directory
+Settings
+£0
+Operative Invoices To Pay
+30 Oct 2026
+Next Pay Day
+0
+Applications To Certify
+£0
+Certified, To Pay
+Operative Invoices
+Subcontractor POs
+Applications & Certificates
+CIS
++ Operative invoice
+
+When an operative sends you their invoice, put it in here with the amount for each job. CIS is worked out for you, it goes to that job’s PM to book against the price, and it’s paid in the Friday pay run.
+
+To Pay
+0
+Paid
+0
+All
+0
+No operative invoices here.

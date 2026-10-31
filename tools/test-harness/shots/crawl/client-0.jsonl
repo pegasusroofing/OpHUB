@@ -1,0 +1,87 @@
+{"route":"/home","role":"client","load":true,"land":"/sites","blocked":false,"buttons":4,"words":292,"problems":[],"did":[]}
+{"route":"/search","role":"client","load":true,"land":"/search","blocked":false,"buttons":2,"words":156,"problems":[],"did":[]}
+{"route":"/search","role":"client","label":"🏗\nProjects\nAll your projects","trail":[],"did":["nav /sites","changed","said: LIVE / (2) / ▾"],"problems":[]}
+{"route":"/search","role":"client","label":"⚙️\nSettings","trail":[],"did":["nav /account","changed","said: YOUR ACCOUNT / Andy Admin · a@x.co / Client · RTB Roofing Ltd"],"problems":[]}
+{"route":"/driver/vehicle","role":"client","load":true,"land":"/driver/vehicle","blocked":false,"buttons":45,"words":1686,"problems":[],"did":[]}
+{"route":"/driver/vehicle","role":"client","note":"45 buttons, 4 distinct pressed","problems":[],"did":[]}
+{"route":"/driver/vehicle","role":"client","label":"📷 TAKE PHOTO","trail":[],"did":["changed","file picker"],"problems":[]}
+{"route":"/driver/vehicle","role":"client","label":"✓ Pass","trail":[],"did":["changed","said: 1 of 20 checked","wrote POST vehicle_checklists"],"problems":[]}
+{"route":"/driver/vehicle","role":"client","label":"✕ Fail","trail":[],"did":["changed","said: 1 of 20 checked / 📷 ADD PHOTO (REQUIRED) / Photo required for a failed item","wrote POST vehicle_checklists","message: failed item"],"problems":[]}
+{"route":"/driver/vehicle","role":"client","label":"✕ Fail","trail":["(reopen)"],"did":["changed","said: 1 of 20 checked / 📷 ADD PHOTO (REQUIRED) / Photo required for a failed item","wrote POST vehicle_checklists","message: failed item"],"problems":[]}
+{"route":"/driver/vehicle","role":"client","label":"📷 ADD PHOTO (REQUIRED)","trail":["✕ Fail"],"did":["changed","file picker","message: failed item"],"problems":[]}
+{"route":"/driver/vehicle","role":"client","label":"SUBMIT CHECKLIST","trail":[],"did":["changed","filled 2","said: Every item needs a Pass or Fail before you can submit. / ✕","wrote POST vehicle_checklists,PATCH vehicle_checklists"],"problems":[]}
+{"route":"/driver/vehicle","role":"client","label":"SUBMIT CHECKLIST","trail":["(reopen)"],"did":["changed","filled 2","said: Every item needs a Pass or Fail before you can submit. / ✕","wrote POST vehicle_checklists,PATCH vehicle_checklists"],"problems":[]}
+{"route":"/driver/vehicle","role":"client","label":"Every item needs a Pass or Fail before you can submit.\n✕","trail":["SUBMIT CHECKLIST"],"did":["changed","said: 1 of 20 checked / 📷 ADD PHOTO (REQUIRED) / Photo required for a failed item","wrote PATCH vehicle_checklists","message: failed item"],"problems":[]}
+{"route":"/fin/newjob","role":"client","load":true,"land":"/sites","blocked":true,"buttons":5,"words":344,"problems":[],"did":[]}
+{"route":"/fin/subs","role":"client","load":true,"land":"/sites","blocked":true,"buttons":5,"words":344,"problems":[],"did":[]}
+{"route":"/fin/plant/h1","role":"client","load":true,"land":"/sites","blocked":true,"buttons":5,"words":344,"problems":[],"did":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/costs","role":"client","load":true,"land":"/sites","blocked":true,"buttons":5,"words":344,"problems":[],"did":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/variations","role":"client","load":true,"land":"/sites","blocked":true,"buttons":5,"words":344,"problems":[],"did":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111?tab=setup","role":"client","load":true,"land":"/sites","blocked":true,"buttons":5,"words":344,"problems":[],"did":[]}
+{"route":"/pm/admin/coshh","role":"client","load":true,"land":"/sites","blocked":false,"buttons":4,"words":292,"problems":[],"did":[]}
+{"route":"/pm/admin/hspolicy","role":"client","load":true,"land":"/sites","blocked":false,"buttons":4,"words":292,"problems":[],"did":[]}
+{"route":"/pm/admin/signtemplates","role":"client","load":true,"land":"/sites","blocked":false,"buttons":4,"words":292,"problems":[],"did":[]}
+{"route":"/pm/admin/tbt","role":"client","load":true,"land":"/sites","blocked":false,"buttons":4,"words":292,"problems":[],"did":[]}
+{"route":"/pm/deliveries","role":"client","load":true,"land":"/sites","blocked":false,"buttons":4,"words":292,"problems":[],"did":[]}
+{"route":"/pm/onedrive-pick","role":"client","load":true,"land":"/sites","blocked":false,"buttons":4,"words":292,"problems":[],"did":[]}
+{"route":"/pm/sitemap","role":"client","load":true,"land":"/sites","blocked":false,"buttons":4,"words":292,"problems":[],"did":[]}
+{"route":"/sites","role":"client","load":true,"land":"/sites","blocked":false,"buttons":4,"words":268,"problems":[],"did":[]}
+{"route":"/sites","role":"client","label":"LIVE\n(2)\n▾","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites","role":"client","label":"J101\nStudley Rd\nStudley Rd, London, SW4 6RZ\nBellway Homes\n?","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111","changed","said: THIS PROJECT / Project Home / Schedule of Works"],"problems":[]}
+{"route":"/sites","role":"client","label":"J102\nCleveland Primary School\nCleveland Rd, Ilford, IG1 2EW\nPersimmon\n?","trail":[],"did":["nav /sites/22222222-2222-2222-2222-222222222222","changed","said: THIS PROJECT / Project Home / Schedule of Works"],"problems":[]}
+{"route":"/sites","role":"client","label":"UPCOMING\n(1)\n▾","trail":[],"did":["changed","said: J103 / Simon De Senlis / Robert Street, Northampton NN1 3AE"],"problems":[]}
+{"route":"/sites","role":"client","label":"UPCOMING\n(1)\n▾","trail":["(reopen)"],"did":["changed","said: J103 / Simon De Senlis / Robert Street, Northampton NN1 3AE"],"problems":[]}
+{"route":"/sites","role":"client","label":"J103\nSimon De Senlis\nRobert Street, Northampton NN1 3AE\nStarts 2 Nov · Forma London\n?\n🕐","trail":["UPCOMING\n(1)\n▾"],"did":["nav /sites/33333333-3333-3333-3333-333333333333","changed","said: THIS PROJECT / Project Home / Schedule of Works"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/checkin","role":"client","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111","blocked":false,"buttons":7,"words":427,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/handover","role":"client","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111","blocked":false,"buttons":7,"words":427,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/todos","role":"client","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111","blocked":false,"buttons":7,"words":427,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh/new","role":"client","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh/new","blocked":true,"buttons":3,"words":297,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/incidents/new","role":"client","load":true,"land":"/sites","blocked":false,"buttons":5,"words":311,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/puwer","role":"client","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/hs/puwer","blocked":false,"buttons":6,"words":375,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/puwer","role":"client","label":"Projects","trail":[],"did":["nav /sites","changed","said: LIVE / (2) / ▾"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/puwer","role":"client","label":"J101 Studley Rd","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111","changed","said: Job No: J101 / NOT CHECKED IN / 0/2"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/puwer","role":"client","label":"Health & Safety","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/hs","changed","said: 📄 / RAMS / 0 documents"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/puwer","role":"client","label":"‹","trail":[],"did":["changed","said: 19 Oct – 23 Oct 2026"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/puwer","role":"client","label":"‹","trail":["(reopen)"],"did":["changed","said: 19 Oct – 23 Oct 2026"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/puwer","role":"client","label":"›","trail":["‹"],"did":["changed","said: 26 Oct – 30 Oct 2026"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/puwer","role":"client","label":"Tick Jake Morris","trail":[],"did":["changed","said: ☑ / EXPORT SELECTED (1)"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/puwer","role":"client","label":"Tick Jake Morris","trail":["(reopen)"],"did":["changed","said: ☑ / EXPORT SELECTED (1)"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/puwer","role":"client","label":"EXPORT SELECTED (1)","trail":["Tick Jake Morris"],"did":["changed","said: Building PDF… / ✕","download"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/puwer","role":"client","label":"EXPORT ALL","trail":[],"did":["changed","said: Building PDF… / ✕","download"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/puwer","role":"client","label":"EXPORT ALL","trail":["(reopen)"],"did":["changed","said: Building PDF… / ✕","download"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/puwer","role":"client","label":"Building PDF…\n✕","trail":["EXPORT ALL"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/tbt/tb1","role":"client","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/hs/tbt/tb1","blocked":false,"buttons":4,"words":300,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/tbt/tb1","role":"client","label":"Projects","trail":[],"did":["nav /sites","changed","said: (2) / ▾ / J101"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/tbt/tb1","role":"client","label":"J101 Studley Rd","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111","changed","said: Job No: J101 / NOT CHECKED IN / 0/2"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/tbt/tb1","role":"client","label":"Health & Safety","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/hs","changed","said: 📄 / RAMS / 0 documents"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/tbt/tb1","role":"client","label":"View document ↗","trail":[],"did":["changed","said: t.pdf / ⬇ / ✕"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/tbt/tb1","role":"client","label":"View document ↗","trail":["(reopen)"],"did":["changed","said: t.pdf / ⬇ / ✕"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/tbt/tb1","role":"client","label":"Zoom in","trail":["View document ↗"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/tbt/tb1","role":"client","label":"View document ↗","trail":["(reopen)"],"did":["changed","said: t.pdf / ⬇ / ✕"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/tbt/tb1","role":"client","label":"Zoom out","trail":["View document ↗"],"did":[],"problems":["nothing happened"]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials/yard","role":"client","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111","blocked":false,"buttons":7,"words":427,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/permits","role":"client","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111","blocked":false,"buttons":7,"words":427,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/inspections","role":"client","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111","blocked":false,"buttons":7,"words":427,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets","role":"client","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111","blocked":false,"buttons":7,"words":427,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/list","role":"client","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/snagging/list","blocked":false,"buttons":6,"words":317,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/list","role":"client","label":"Projects","trail":[],"did":["nav /sites","changed","said: LIVE / (2) / ▾"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/list","role":"client","label":"J101 Studley Rd","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111","changed","said: Job No: J101 / NOT CHECKED IN / 0/2"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/list","role":"client","label":"Live","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/list","role":"client","label":"Closed","trail":[],"did":["changed","said: No closed snags. / EXPORT CLOSED / EMAIL CLOSED"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/list","role":"client","label":"Closed","trail":["(reopen)"],"did":["changed","said: No closed snags. / EXPORT CLOSED / EMAIL CLOSED"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/list","role":"client","label":"EXPORT CLOSED","trail":["Closed"],"did":["changed","said: No snags to export for that filter. / ✕"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/list","role":"client","label":"Closed","trail":["(reopen)"],"did":["changed","said: No closed snags. / EXPORT CLOSED / EMAIL CLOSED"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/list","role":"client","label":"EMAIL CLOSED","trail":["Closed"],"did":["changed","said: ✕ / CC client contact (Bellway Homes) on this email? / No"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/list","role":"client","label":"Close","trail":["Closed","EMAIL CLOSED"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/list","role":"client","label":"Closed","trail":["(reopen)"],"did":["changed","said: No closed snags. / EXPORT CLOSED / EMAIL CLOSED"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/list","role":"client","label":"EXPORT ALL","trail":["Closed"],"did":["changed","said: Building PDF… / ✕","download"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/list","role":"client","label":"EXPORT LIVE","trail":[],"did":["changed","said: Building PDF… / ✕","download"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/list","role":"client","label":"EXPORT LIVE","trail":["(reopen)"],"did":["changed","said: Building PDF… / ✕","download"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/list","role":"client","label":"Building PDF…\n✕","trail":["EXPORT LIVE"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/list","role":"client","label":"EMAIL LIVE SNAGS","trail":[],"did":["changed","said: ✕ / CC client contact (Bellway Homes) on this email? / No"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/list","role":"client","label":"EMAIL LIVE SNAGS","trail":["(reopen)"],"did":["changed","said: ✕ / CC client contact (Bellway Homes) on this email? / No"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/list","role":"client","label":"Close","trail":["EMAIL LIVE SNAGS"],"did":["changed","said: Building PDF…","wrote upload","fn send-snags-email"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/list","role":"client","label":"EMAIL LIVE SNAGS","trail":["(reopen)"],"did":["changed","said: ✕ / CC client contact (Bellway Homes) on this email? / No"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/list","role":"client","label":"No","trail":["EMAIL LIVE SNAGS"],"did":["changed","said: Building PDF…","wrote upload","fn send-snags-email"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/list","role":"client","label":"EMAIL LIVE SNAGS","trail":["(reopen)"],"did":["changed","said: ✕ / CC client contact (Bellway Homes) on this email? / No"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/list","role":"client","label":"Yes, CC them","trail":["EMAIL LIVE SNAGS"],"did":["changed","said: Building PDF…","wrote upload","fn send-snags-email"],"problems":[]}

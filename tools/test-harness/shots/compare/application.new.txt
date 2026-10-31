@@ -1,0 +1,89 @@
+RTB Roofing Ltd
+OPHUB
+Search
+Ctrl K
+Home
+Projects
+Deliveries
+Calendar
+Hub
+4
+Dashboard
+OpHUB Finance
+Admin
+Andy Admin
+Company Admin
+Sign out
+‹
+Application 2
+OpHUB Finance
+Finance
+›
+Projects
+›
+J101 Studley Rd
+Draft
+Stage
+£18,658.00
+Amount due this application
+25 Oct 2026
+Valuation date
+—
+Final date for payment
+⬇ DOWNLOAD EXCEL
+⬇ DOWNLOAD PDF
+⬆ UPLOAD EDITED EXCEL
+Valuation date
+25 Oct 2026
+📅
+Due date
+Choose a date
+📅
+Final date
+Choose a date
+📅
+Enter %
+Enter £
+Hide 0% lines
+BILL OF QUANTITIES
+Main Roof
+£18,000.00 of £48,000.00
+Set all to 100%
+Set all to 0%
+Tiling
+300 m2 × £120.00 = £36,000.00
+Previous £0.00 · This time £18,000.00
+£18,000.00
+Ridge
+60 m × £200.00 = £12,000.00
+£0.00
++ ADD A LINE
++ ADD A SECTION
+VARIATIONS
+£1,000.00
++ VARIATION LINE
+DAY WORKS
+DW01 Storm repairs
+£640.00
++ ADD DAYWORK
+SUMMARY
+Contract works to date (37.5% of £48,000.00)
+£18,000.00
+Variations
+£1,000.00
+Day works
+£640.00
+Gross valuation to date
+£19,640.00
+Less discount %
+−£0.00
+Less retention %
+−£982.00
+Less previously certified
+−£0.00
+Amount due this application
+£18,658.00
+Excl. VAT. An application isn't a VAT invoice; the invoice follows the certificate.
+SAVE
+MARK AS APPLIED (LOCKS IT)
+DELETE DRAFT

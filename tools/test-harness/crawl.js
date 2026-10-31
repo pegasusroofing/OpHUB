@@ -31,10 +31,12 @@ const norm = (s) => (s || '').replace(/\s+/g, ' ').trim().replace(/£?[\d,.]+%?/
 
 (async () => {
   const browser = await chromium.launch();
-  const {ctx, db} = await makeContext(browser, role, [], {viewport: {width: WIDTH, height: HEIGHT}});
-  const pristine = (() => { require('./seeds/world')(db); const me = db.profiles.find((p) => p.id === 'me'); me.role = role; if (role === 'pm') me.name = 'Paula PM'; me.finance_enabled = ['admin', 'pm'].includes(role); return JSON.stringify(db); })();
-  const reset = () => { const fresh = JSON.parse(pristine); Object.keys(db).forEach((k) => delete db[k]); Object.assign(db, fresh); };
-  await ctx.route(/storage\/v1\/object\/(public\/|sign\/)?[a-z-]+\/.*\.pdf/, (r) => (r.request().method() === 'GET' ? r.fulfill({status: 200, contentType: 'application/pdf', body: fs.readFileSync(path.join(__dirname, 'shots/samples/sds.pdf'))}) : r.fallback()));
+  // REAL=1: the real database, Sandbox Roofing only, behind sandbox-guard.js.
+  const real = process.env.REAL ? require('./sandbox-guard') : null;
+  const {ctx, db} = real ? await real.open(browser, {viewport: {width: WIDTH, height: HEIGHT}}) : await makeContext(browser, role, [], {viewport: {width: WIDTH, height: HEIGHT}});
+  const pristine = real ? '{}' : (() => { require('./seeds/world')(db); const me = db.profiles.find((p) => p.id === 'me'); me.role = role; if (role === 'pm') me.name = 'Paula PM'; me.finance_enabled = ['admin', 'pm'].includes(role); return JSON.stringify(db); })();
+  const reset = () => { if (real) return; const fresh = JSON.parse(pristine); Object.keys(db).forEach((k) => delete db[k]); Object.assign(db, fresh); };
+  if (!real) await ctx.route(/storage\/v1\/object\/(public\/|sign\/)?[a-z-]+\/.*\.pdf/, (r) => (r.request().method() === 'GET' ? r.fulfill({status: 200, contentType: 'application/pdf', body: fs.readFileSync(path.join(__dirname, 'shots/samples/sds.pdf'))}) : r.fallback()));
   await ctx.grantPermissions(['geolocation']); await ctx.setGeolocation({latitude: 51.46, longitude: -0.13});
   const page = await ctx.newPage(); page.setDefaultTimeout(4000);
   let ev = {errors: [], writes: [], fns: [], dialogs: [], files: 0, downloads: 0, popups: 0};
@@ -47,9 +49,9 @@ const norm = (s) => (s || '').replace(/\s+/g, ' ').trim().replace(/£?[\d,.]+%?/
   ctx.on('page', (p) => { ev.popups++; p.close().catch(() => {}); });
   page.on('request', (r) => { const u = r.url(), m = r.method(); if (!/supabase\.co/.test(u)) return; if (/\/functions\/v1\//.test(u)) ev.fns.push(u.split('/functions/v1/')[1].split('?')[0]); else if (/\/rest\/v1\/rpc\//.test(u)) ev.writes.push('rpc ' + u.split('/rpc/')[1].split('?')[0]); else if (m !== 'GET' && m !== 'HEAD' && /\/rest\/v1\//.test(u)) ev.writes.push(m + ' ' + u.split('/rest/v1/')[1].split('?')[0]); else if (m === 'POST' && /\/storage\//.test(u) && !/\/sign\//.test(u)) ev.writes.push('upload'); });
 
-  await page.goto(B + '/login'); await page.waitForTimeout(5000);
+  if (!real) { await page.goto(B + '/login'); await page.waitForTimeout(5000);
   await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
-  await page.getByText('Sign In', {exact: true}).click(); await page.waitForTimeout(5000);
+  await page.getByText('Sign In', {exact: true}).click(); await page.waitForTimeout(5000); }
 
   // Everything tappable that's on show, in the page itself (not the side menu or the top bar).
   const scan = () => page.evaluate((width) => {
@@ -99,7 +101,7 @@ const norm = (s) => (s || '').replace(/\s+/g, ' ').trim().replace(/£?[\d,.]+%?/
     if (SAVEISH.test((c.label || '').trim())) {
       const boxes = page.locator('input:visible:not([type=checkbox]):not([type=file]):not([type=password]), textarea:visible');
       const n = Math.min(await boxes.count().catch(() => 0), 15);
-      for (let i = 0; i < n; i++) { const b = boxes.nth(i); const a = await b.evaluate((x) => ({v: x.value, ph: x.placeholder || '', m: x.inputMode || '', ro: x.readOnly})).catch(() => null); if (!a || a.v || a.ro || /search|filter/i.test(a.ph)) continue; await b.fill(/decimal|numeric/.test(a.m) ? '10' : /email|@/i.test(a.ph) || a.m === 'email' ? 'test@x.co' : 'Test').catch(() => {}); filled++; }
+      for (let i = 0; i < n; i++) { const b = boxes.nth(i); const a = await b.evaluate((x) => ({v: x.value, ph: x.placeholder || '', m: x.inputMode || '', ro: x.readOnly})).catch(() => null); if (!a || a.v || a.ro || /search|filter/i.test(a.ph)) continue; await b.fill(/decimal|numeric/.test(a.m) ? '10' : /email|@/i.test(a.ph) || a.m === 'email' ? (real ? 'test@example.com' : 'test@x.co') : 'Test').catch(() => {}); filled++; }
       if (filled) await page.waitForTimeout(150);
     }
     const el = page.locator(`[data-crawl="${c.i}"]`).first();
@@ -129,7 +131,7 @@ const norm = (s) => (s || '').replace(/\s+/g, ' ').trim().replace(/£?[\d,.]+%?/
     return {kind: u1 !== u0 ? 'nav' : (after !== before ? 'changed' : picChanged ? 'look' : 'none'), u1};
   };
 
-  for (const route of ROUTES) {
+  for (const route of real ? await real.routes(ROUTES) : ROUTES) {
     const t0 = Date.now(); reset(); clear();
     try {
       await fresh(route);

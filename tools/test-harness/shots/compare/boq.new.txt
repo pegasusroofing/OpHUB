@@ -1,0 +1,62 @@
+RTB Roofing Ltd
+OPHUB
+Search
+Ctrl K
+Home
+Projects
+Deliveries
+Calendar
+Hub
+4
+Dashboard
+OpHUB Finance
+Admin
+Andy Admin
+Company Admin
+Sign out
+‹
+Bill of Quantities
+OpHUB Finance
+Finance
+›
+Projects
+›
+J101 Studley Rd
+Total £48,000.00 · budget cost £32,000.00 · Margin 33.3% (£16,000.00) · mark-up 50%
+The operatives' Schedule of Works can be brought in to price, or sent out from here (without prices).
+Copy in tasks from the site schedule
+Send to the operatives' schedule
+📥 Import a breakdown (Excel, CSV or PDF)
+Budget cost:
+% margin
+▾
+Apply to ticked
+Apply to all lines
+Tick all 2 lines
+Tick lines (or a heading) to change them together.
+☐
+⋯
+£48,000.00
+☐
+⋯
+or
+£36,000.00
+Cost rate
+Budget cost
+Margin 33.3% (£12,000.00) · mark-up 50%
+☐
+⋯
+or
+£12,000.00
+Cost rate
+Budget cost
+Margin 33.3% (£4,000.00) · mark-up 50%
++ Item
++ Section
++ Sub-section
+Save Bill of Quantities
++ New application from this BoQ
+Export:
+📊 Excel
+📄 PDF
+Saves by itself a few seconds after a change once every line has a description and a value.

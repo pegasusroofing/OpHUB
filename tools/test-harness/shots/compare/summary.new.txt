@@ -1,0 +1,83 @@
+RTB Roofing Ltd
+OPHUB
+Search
+Ctrl K
+Home
+Projects
+Deliveries
+Calendar
+Hub
+4
+Dashboard
+OpHUB Finance
+Admin
+Andy Admin
+Company Admin
+Sign out
+‹
+Detailed Summary
+OpHUB Finance
+Finance
+›
+Projects
+›
+J101 Studley Rd
+J101 · Studley Rd · Bellway Homes
+Only items dated
+From
+📅
+To
+📅
+Showing the whole job. Pick dates to see one period (e.g. a month).
+Cost Summary
+Purchases
+Labour & Subcontractors
+Applications & Invoices
+Plant
+SALES
+Applied to date (gross)
+£21,500.00
+Application discount
+−£0.00
+Applied net of discount
+£21,500.00
+Certified to date (gross)
+£21,000.00
+Invoiced
+£17,000.00
+Received
+£0.00
+Outstanding
+£17,000.00
+Retention held by client
+£1,050.00
+Sales value
+£21,000.00
+Sales value = latest certified (or applied) to date, less discount. All excl. VAT.
+COST
+Purchases (materials)
+£11,650.00
+Plant
+£2,578.57
+Labour
+£0.00
+Subcontractors
+£0.00
+Prelims & site costs
+£320.00
+Other
+£0.00
+Total cost
+£14,548.57
+Profit before overheads
+£6,451.43
+Company overheads (OHP) 10%
+−£2,100.00
+Profit after overheads
+£4,351.43
+% profit (after overheads)
+20.7%
+Ordered, not invoiced yet
+£6,000.00
+Ordered (open POs and subcontract orders) isn't in total cost until it's invoiced or certified.
+📊 EXCEL (EVERY TAB)

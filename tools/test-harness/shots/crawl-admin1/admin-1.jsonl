@@ -1,0 +1,920 @@
+{"route":"/account","role":"admin","load":true,"land":"/account","blocked":false,"buttons":6,"words":719,"problems":[],"did":[]}
+{"route":"/account","role":"admin","note":"6 buttons, 5 distinct pressed","problems":[],"did":[]}
+{"route":"/account","role":"admin","label":"OPEN ADMIN CENTRE","trail":[],"did":["nav /pm/admin","changed"],"problems":[]}
+{"route":"/account","role":"admin","label":"SAVE PHONE NUMBER","trail":[],"did":["wrote PATCH profiles"],"problems":[]}
+{"route":"/account","role":"admin","label":"✍ ADOPT MY SIGNATURE","trail":[],"did":["nav /signature","changed"],"problems":[]}
+{"route":"/account","role":"admin","label":"Show Finance\nTurn off to hide Finance and money figures from your projects. Nothing is deleted — switch it back on any time.\n☑","trail":[],"did":["changed","wrote PATCH profiles"],"problems":[]}
+{"route":"/account","role":"admin","label":"💡 SHOW THE HOW-TO TIPS AGAIN","trail":[],"did":["changed","wrote PATCH profiles"],"problems":[]}
+{"route":"/account","role":"admin","label":"💡 SHOW THE HOW-TO TIPS AGAIN","trail":["(reopen)"],"did":["changed","wrote PATCH profiles"],"problems":[]}
+{"route":"/account","role":"admin","label":"The how-to tips will show again as you open each page\n✕","trail":["💡 SHOW THE HOW-TO TIPS AGAIN"],"did":["changed"],"problems":[]}
+{"route":"/signature","role":"admin","load":true,"land":"/signature","blocked":false,"buttons":2,"words":336,"problems":[],"did":[]}
+{"route":"/signature","role":"admin","label":"CLEAR","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/signature","role":"admin","label":"SAVE SIGNATURE","trail":[],"did":["changed"],"problems":[]}
+{"route":"/signature","role":"admin","label":"SAVE SIGNATURE","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/signature","role":"admin","label":"Draw your signature first.\n✕","trail":["SAVE SIGNATURE"],"did":["changed"],"problems":[]}
+{"route":"/driver/yard","role":"admin","load":true,"land":"/driver/yard","blocked":false,"buttons":0,"words":373,"problems":[],"did":[]}
+{"route":"/fin/purchases","role":"admin","load":true,"land":"/fin/purchases","blocked":false,"buttons":31,"words":904,"problems":[],"did":[]}
+{"route":"/fin/purchases","role":"admin","note":"31 buttons, 30 distinct pressed","problems":[],"did":[]}
+{"route":"/fin/purchases","role":"admin","label":"Finance","trail":[],"did":["nav /fin","changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Overview","trail":[],"did":["nav /fin","changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Projects","trail":[],"did":["nav /fin/jobs","changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Sales","trail":[],"did":["nav /fin/sales","changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Purchases","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/purchases","role":"admin","label":"Subcontractors & Labour","trail":[],"did":["nav /fin/subs","changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Reports","trail":[],"did":["nav /fin/reports","changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Directory","trail":[],"did":["nav /fin/directory","changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Settings","trail":[],"did":["nav /fin/settings","changed","fn xero"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"2\nUnallocated Invoices · all time","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/purchases","role":"admin","label":"£0\nTo Pay Suppliers (Incl. VAT) · all time","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/purchases","role":"admin","label":"1\nTo Approve · all time","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/purchases","role":"admin","label":"£0\nOrdered, Not Invoiced · all time","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/purchases","role":"admin","label":"Purchase orders","trail":[],"did":["nav /fin/purchases?tab=orders"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Purchase invoices","trail":[],"did":["nav /fin/purchases?tab=invoices","changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Statements","trail":[],"did":["nav /fin/statements","changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Plant hire","trail":[],"did":["nav /fin/purchases?tab=plant","changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Suppliers","trail":[],"did":["nav /fin/purchases?tab=suppliers","changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Price book","trail":[],"did":["nav /fin/purchases?tab=pricebook","changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Price lists","trail":[],"did":["nav /fin/purchases?tab=pricelists","changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Yard stock","trail":[],"did":["nav /fin/yard","changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Open\n1","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/purchases","role":"admin","label":"Invoiced","trail":[],"did":["changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Cancelled","trail":[],"did":["changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"All\n1","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/purchases","role":"admin","label":"+ NEW PO","trail":[],"did":["changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"+ NEW PO","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Close","trail":["+ NEW PO"],"did":["changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"+ NEW PO","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"J103 · Simon De Senlis","trail":["+ NEW PO"],"did":["nav /fin/po/new?site=33333333-3333-3333-3333-333333333333","changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"+ NEW PO","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"J102 · Cleveland Primary School","trail":["+ NEW PO"],"did":["nav /fin/po/new?site=22222222-2222-2222-2222-222222222222","changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"+ NEW PO","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"J101 · Studley Rd","trail":["+ NEW PO"],"did":["nav /fin/po/new?site=11111111-1111-1111-1111-111111111111","changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Supplier: All ▾","trail":[],"did":["changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Supplier: All ▾","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Close","trail":["Supplier: All ▾"],"did":["changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Supplier: All ▾","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"All suppliers","trail":["Supplier: All ▾"],"did":["changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Supplier: All ▾","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"SIG Roofing","trail":["Supplier: All ▾"],"did":["changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Project: All ▾","trail":[],"did":["changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Project: All ▾","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Close","trail":["Project: All ▾"],"did":["changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Project: All ▾","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"All projects","trail":["Project: All ▾"],"did":["changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Project: All ▾","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"J101 · Studley Rd","trail":["Project: All ▾"],"did":["changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Sort ▾","trail":[],"did":["changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Sort ▾","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Close","trail":["Sort ▾"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/purchases","role":"admin","label":"Sort ▾","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Newest first","trail":["Sort ▾"],"did":["changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Sort ▾","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Oldest first","trail":["Sort ▾"],"did":["changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Sort ▾","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Biggest first","trail":["Sort ▾"],"did":["changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Sort ▾","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Supplier A–Z","trail":["Sort ▾"],"did":["changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Month","trail":[],"did":["changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Month","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Close","trail":["Month"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/purchases","role":"admin","label":"Month","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"✓ All months","trail":["Month"],"did":["changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Month","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Oct 2026","trail":["Month"],"did":["changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Month","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Sept 2026","trail":["Month"],"did":["changed"],"problems":[]}
+{"route":"/fin/team","role":"admin","load":true,"land":"/fin/team","blocked":false,"buttons":14,"words":690,"problems":[],"did":[]}
+{"route":"/fin/team","role":"admin","note":"14 buttons, 11 distinct pressed","problems":[],"did":[]}
+{"route":"/fin/team","role":"admin","label":"Finance","trail":[],"did":["nav /fin","changed"],"problems":[]}
+{"route":"/fin/team","role":"admin","label":"Overview","trail":[],"did":["nav /fin","changed"],"problems":[]}
+{"route":"/fin/team","role":"admin","label":"Projects","trail":[],"did":["nav /fin/jobs","changed"],"problems":[]}
+{"route":"/fin/team","role":"admin","label":"Sales","trail":[],"did":["nav /fin/sales","changed"],"problems":[]}
+{"route":"/fin/team","role":"admin","label":"Purchases","trail":[],"did":["nav /fin/purchases","changed"],"problems":[]}
+{"route":"/fin/team","role":"admin","label":"Subcontractors & Labour","trail":[],"did":["nav /fin/subs","changed"],"problems":[]}
+{"route":"/fin/team","role":"admin","label":"Reports","trail":[],"did":["nav /fin/reports","changed"],"problems":[]}
+{"route":"/fin/team","role":"admin","label":"Directory","trail":[],"did":["nav /fin/directory","changed"],"problems":[]}
+{"route":"/fin/team","role":"admin","label":"Settings","trail":[],"did":["nav /fin/settings","changed","fn xero"],"problems":[]}
+{"route":"/fin/team","role":"admin","label":"Give Finance","trail":[],"did":["changed"],"problems":[]}
+{"route":"/fin/team","role":"admin","label":"Give Finance","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/team","role":"admin","label":"Close","trail":["Give Finance"],"did":["changed"],"problems":[]}
+{"route":"/fin/team","role":"admin","label":"Give Finance","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/team","role":"admin","label":"No","trail":["Give Finance"],"did":["changed"],"problems":[]}
+{"route":"/fin/team","role":"admin","label":"Make an invite link","trail":[],"did":["changed","wrote POST invites"],"problems":[]}
+{"route":"/fin/team","role":"admin","label":"Make an invite link","trail":["(reopen)"],"did":["changed","wrote POST invites"],"problems":[]}
+{"route":"/fin/team","role":"admin","label":"Copy link","trail":["Make an invite link"],"did":["changed"],"problems":[]}
+{"route":"/fin/team","role":"admin","label":"Send","trail":["Make an invite link","Copy link"],"did":["changed"],"problems":[]}
+{"route":"/fin/team","role":"admin","label":"Make an invite link","trail":["(reopen)"],"did":["changed","wrote POST invites"],"problems":[]}
+{"route":"/fin/team","role":"admin","label":"Send","trail":["Make an invite link"],"did":["changed"],"problems":[]}
+{"route":"/fin/po/po1","role":"admin","load":true,"land":"/fin/po/po1","blocked":false,"buttons":15,"words":628,"problems":["junk on screen: undefined · 100 m × £18.00"],"did":[]}
+{"route":"/fin/po/po1","role":"admin","label":"Finance","trail":[],"did":["nav /fin","changed"],"problems":[]}
+{"route":"/fin/po/po1","role":"admin","label":"J101-PO-001 · open\nPO","trail":[],"did":[],"problems":["nothing happened","junk on screen: undefined · 100 m × £18.00"]}
+{"route":"/fin/po/po1","role":"admin","label":"SIG Roofing\nSupplier","trail":[],"did":[],"problems":["nothing happened","junk on screen: undefined · 100 m × £18.00"]}
+{"route":"/fin/po/po1","role":"admin","label":"£1,800.00\nPO value","trail":[],"did":[],"problems":["nothing happened","junk on screen: undefined · 100 m × £18.00"]}
+{"route":"/fin/po/po1","role":"admin","label":"£1,800.00\nInvoiced","trail":[],"did":[],"problems":["nothing happened","junk on screen: undefined · 100 m × £18.00"]}
+{"route":"/fin/po/po1","role":"admin","label":"Project\nJ101 · Studley Rd\n›","trail":[],"did":["nav /fin/job/11111111-1111-1111-1111-111111111111","changed"],"problems":[]}
+{"route":"/fin/po/po1","role":"admin","label":"Ordered\n5 Oct 2026 by —","trail":[],"did":[],"problems":["nothing happened","junk on screen: undefined · 100 m × £18.00"]}
+{"route":"/fin/po/po1","role":"admin","label":"undefined · 100 m × £18.00","trail":[],"did":[],"problems":["nothing happened","junk on screen: undefined · 100 m × £18.00"]}
+{"route":"/fin/po/po1","role":"admin","label":"SAVE","trail":[],"did":["changed","wrote PATCH purchase_orders"],"problems":["junk on screen: undefined · 100 m × £18.00"]}
+{"route":"/fin/po/po1","role":"admin","label":"SAVE","trail":["(reopen)"],"did":["changed","wrote PATCH purchase_orders"],"problems":["junk on screen: undefined · 100 m × £18.00"]}
+{"route":"/fin/po/po1","role":"admin","label":"—\nPO value","trail":["SAVE"],"did":[],"problems":["nothing happened","junk on screen: undefined · 100 m × £18.00"]}
+{"route":"/fin/po/po1","role":"admin","label":"SIG-88231\n12 Oct 2026\nTo approve\n£1,800.00\n›","trail":[],"did":["nav /fin/pinv/pi1","changed","fn xero"],"problems":[]}
+{"route":"/fin/po/po1","role":"admin","label":"+ ADD INVOICE","trail":[],"did":["nav /fin/pinv/new?site=11111111-1111-1111-1111-111111111111&po=po1","changed"],"problems":[]}
+{"route":"/fin/po/po1","role":"admin","label":"MARK FULLY INVOICED","trail":[],"did":["changed","wrote PATCH purchase_orders"],"problems":["junk on screen: undefined · 100 m × £18.00"]}
+{"route":"/fin/po/po1","role":"admin","label":"MARK FULLY INVOICED","trail":["(reopen)"],"did":["changed","wrote PATCH purchase_orders"],"problems":["junk on screen: undefined · 100 m × £18.00"]}
+{"route":"/fin/po/po1","role":"admin","label":"J101-PO-001 · invoiced\nPO","trail":["MARK FULLY INVOICED"],"did":[],"problems":["nothing happened","junk on screen: undefined · 100 m × £18.00"]}
+{"route":"/fin/po/po1","role":"admin","label":"MARK FULLY INVOICED","trail":["(reopen)"],"did":["changed","wrote PATCH purchase_orders"],"problems":["junk on screen: undefined · 100 m × £18.00"]}
+{"route":"/fin/po/po1","role":"admin","label":"REOPEN PO","trail":["MARK FULLY INVOICED"],"did":["changed","wrote PATCH purchase_orders"],"problems":["junk on screen: undefined · 100 m × £18.00"]}
+{"route":"/fin/po/po1","role":"admin","label":"CANCEL PO","trail":[],"did":["changed"],"problems":["junk on screen: undefined · 100 m × £18.00"]}
+{"route":"/fin/po/po1","role":"admin","label":"CANCEL PO","trail":["(reopen)"],"did":["changed"],"problems":["junk on screen: undefined · 100 m × £18.00"]}
+{"route":"/fin/po/po1","role":"admin","label":"Close","trail":["CANCEL PO"],"did":["changed"],"problems":["junk on screen: undefined · 100 m × £18.00"]}
+{"route":"/fin/po/po1","role":"admin","label":"CANCEL PO","trail":["(reopen)"],"did":["changed"],"problems":["junk on screen: undefined · 100 m × £18.00"]}
+{"route":"/fin/po/po1","role":"admin","label":"No","trail":["CANCEL PO"],"did":["changed"],"problems":["junk on screen: undefined · 100 m × £18.00"]}
+{"route":"/fin/po/po1","role":"admin","label":"CANCEL PO","trail":["(reopen)"],"did":["changed"],"problems":["junk on screen: undefined · 100 m × £18.00"]}
+{"route":"/fin/po/po1","role":"admin","label":"Cancel PO","trail":["CANCEL PO"],"did":["changed","wrote PATCH purchase_orders"],"problems":["junk on screen: undefined · 100 m × £18.00"]}
+{"route":"/fin/po/po1","role":"admin","label":"REOPEN PO","trail":["CANCEL PO","Cancel PO"],"did":["changed","wrote PATCH purchase_orders"],"problems":["junk on screen: undefined · 100 m × £18.00"]}
+{"route":"/fin/po/po1","role":"admin","label":"📄 DOWNLOAD THE PO PDF","trail":[],"did":["changed","wrote upload,PATCH purchase_orders,POST material_order_folders,POST material_order_files","download"],"problems":["junk on screen: undefined · 100 m × £18.00"]}
+{"route":"/fin/po/po1","role":"admin","label":"📄 DOWNLOAD THE PO PDF","trail":["(reopen)"],"did":["changed","wrote upload,PATCH purchase_orders,POST material_order_folders,POST material_order_files","download"],"problems":["junk on screen: undefined · 100 m × £18.00"]}
+{"route":"/fin/po/po1","role":"admin","label":"☁️ Save to OneDrive","trail":["📄 DOWNLOAD THE PO PDF"],"did":["changed","fn onedrive-upload"],"problems":["junk on screen: undefined · 100 m × £18.00"]}
+{"route":"/fin/po/po1","role":"admin","label":"📄 DOWNLOAD THE PO PDF","trail":["(reopen)"],"did":["changed","wrote upload,PATCH purchase_orders,POST material_order_folders,POST material_order_files","download"],"problems":["junk on screen: undefined · 100 m × £18.00"]}
+{"route":"/fin/po/po1","role":"admin","label":"✕","trail":["📄 DOWNLOAD THE PO PDF"],"did":["changed"],"problems":["junk on screen: undefined · 100 m × £18.00"]}
+{"route":"/fin/po/po1","role":"admin","label":"💷 PRICE FROM A QUOTE FILE (PDF, EXCEL OR CSV)","trail":[],"did":["changed","file picker"],"problems":["junk on screen: undefined · 100 m × £18.00"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/dayworks","role":"admin","load":true,"land":"/fin/job/11111111-1111-1111-1111-111111111111/dayworks","blocked":false,"buttons":11,"words":394,"problems":[],"did":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/dayworks","role":"admin","label":"Finance","trail":[],"did":["nav /fin","changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/dayworks","role":"admin","label":"Projects","trail":[],"did":["nav /fin/jobs","changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/dayworks","role":"admin","label":"£640\nApproved","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/dayworks","role":"admin","label":"£0\nIssued, waiting","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/dayworks","role":"admin","label":"£0\nRejected","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/dayworks","role":"admin","label":"All (1)","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/dayworks","role":"admin","label":"Issued","trail":[],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/dayworks","role":"admin","label":"Approved (1)","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/dayworks","role":"admin","label":"Rejected","trail":[],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/dayworks","role":"admin","label":"+ DAY WORK","trail":[],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/dayworks","role":"admin","label":"+ DAY WORK","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/dayworks","role":"admin","label":"New day work\n✕\nTitle\nDescription\nDate of the work\n30 Oct 2026\n📅\nDay work sheet ref\nValue £\nOur cost £\nStatus\nIssued ▾\nNotes\n📎 Signed day work sheet\nSAVE\nCANCEL","trail":["+ DAY WORK"],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/dayworks","role":"admin","label":"+ DAY WORK","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/dayworks","role":"admin","label":"Close","trail":["+ DAY WORK"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/dayworks","role":"admin","label":"+ DAY WORK","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/dayworks","role":"admin","label":"Date of the work","trail":["+ DAY WORK"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/dayworks","role":"admin","label":"Close","trail":["+ DAY WORK","Date of the work"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/dayworks","role":"admin","label":"+ DAY WORK","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/dayworks","role":"admin","label":"Issued ▾","trail":["+ DAY WORK"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/dayworks","role":"admin","label":"Close","trail":["+ DAY WORK","Issued ▾"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/dayworks","role":"admin","label":"+ DAY WORK","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/dayworks","role":"admin","label":"📎 Signed day work sheet","trail":["+ DAY WORK"],"did":["changed","file picker"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/dayworks","role":"admin","label":"Close","trail":["+ DAY WORK","📎 Signed day work sheet"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/dayworks","role":"admin","label":"+ DAY WORK","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/dayworks","role":"admin","label":"SAVE","trail":["+ DAY WORK"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/dayworks","role":"admin","label":"Close","trail":["+ DAY WORK","SAVE"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/dayworks","role":"admin","label":"+ DAY WORK","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/dayworks","role":"admin","label":"CANCEL","trail":["+ DAY WORK"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/dayworks","role":"admin","label":"DW01\nStorm repairs\nApproved\n£640.00\n›","trail":[],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/dayworks","role":"admin","label":"DW01\nStorm repairs\nApproved\n£640.00\n›","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/dayworks","role":"admin","label":"DW01 · day work\n✕\nTitle\nDescription\nDate of the work\nChoose a date\n📅\nDay work sheet ref\nValue £\nOur cost £\nStatus\nApproved ▾\nNotes\n📎 Signed day work sheet\nSAVE\nREMOVE\nCANCEL","trail":["DW01\nStorm repairs\nApproved\n£640.00\n›"],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/dayworks","role":"admin","label":"DW01\nStorm repairs\nApproved\n£640.00\n›","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/dayworks","role":"admin","label":"Close","trail":["DW01\nStorm repairs\nApproved\n£640.00\n›"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/dayworks","role":"admin","label":"DW01\nStorm repairs\nApproved\n£640.00\n›","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/dayworks","role":"admin","label":"Date of the work","trail":["DW01\nStorm repairs\nApproved\n£640.00\n›"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/dayworks","role":"admin","label":"Close","trail":["DW01\nStorm repairs\nApproved\n£640.00\n›","Date of the work"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/dayworks","role":"admin","label":"DW01\nStorm repairs\nApproved\n£640.00\n›","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/dayworks","role":"admin","label":"Approved ▾","trail":["DW01\nStorm repairs\nApproved\n£640.00\n›"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/dayworks","role":"admin","label":"Close","trail":["DW01\nStorm repairs\nApproved\n£640.00\n›","Approved ▾"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/dayworks","role":"admin","label":"DW01\nStorm repairs\nApproved\n£640.00\n›","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/dayworks","role":"admin","label":"📎 Signed day work sheet","trail":["DW01\nStorm repairs\nApproved\n£640.00\n›"],"did":["changed","file picker"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/dayworks","role":"admin","label":"Close","trail":["DW01\nStorm repairs\nApproved\n£640.00\n›","📎 Signed day work sheet"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/dayworks","role":"admin","label":"DW01\nStorm repairs\nApproved\n£640.00\n›","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/dayworks","role":"admin","label":"SAVE","trail":["DW01\nStorm repairs\nApproved\n£640.00\n›"],"did":["changed","wrote PATCH fin_dayworks"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/dayworks","role":"admin","label":"DW01\nStorm repairs\nApproved\n£640.00\n›","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/dayworks","role":"admin","label":"REMOVE","trail":["DW01\nStorm repairs\nApproved\n£640.00\n›"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/dayworks","role":"admin","label":"Close","trail":["DW01\nStorm repairs\nApproved\n£640.00\n›","REMOVE"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/dayworks","role":"admin","label":"DW01\nStorm repairs\nApproved\n£640.00\n›","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/dayworks","role":"admin","label":"CANCEL","trail":["DW01\nStorm repairs\nApproved\n£640.00\n›"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","load":true,"land":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","blocked":false,"buttons":31,"words":1193,"problems":[],"did":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","note":"31 buttons, 30 distinct pressed","problems":[],"did":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Finance","trail":[],"did":["nav /fin","changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Projects","trail":[],"did":["nav /fin/jobs","changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Draft\nStage","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"£18,658.00\nAmount due this application","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"25 Oct 2026\nValuation date","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"—\nFinal date for payment","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"⬇ DOWNLOAD EXCEL","trail":[],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"⬇ DOWNLOAD EXCEL","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Close","trail":["⬇ DOWNLOAD EXCEL"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"⬇ DOWNLOAD EXCEL","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"📋 Yes — the whole Schedule of Works","trail":["⬇ DOWNLOAD EXCEL"],"did":["changed","download"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"⬇ DOWNLOAD EXCEL","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"No — just the application","trail":["⬇ DOWNLOAD EXCEL"],"did":["changed","download"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"⬇ DOWNLOAD PDF","trail":[],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"⬇ DOWNLOAD PDF","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Close","trail":["⬇ DOWNLOAD PDF"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"⬇ DOWNLOAD PDF","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"📋 Yes — the whole Schedule of Works","trail":["⬇ DOWNLOAD PDF"],"did":["changed","download"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"⬇ DOWNLOAD PDF","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"No — just the application","trail":["⬇ DOWNLOAD PDF"],"did":["changed","download"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"⬆ UPLOAD EDITED EXCEL","trail":[],"did":["changed","file picker"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Valuation date","trail":[],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Valuation date","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Close","trail":["Valuation date"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Valuation date","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Previous month","trail":["Valuation date"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Close","trail":["Valuation date","Previous month"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Valuation date","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Next month","trail":["Valuation date"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Close","trail":["Valuation date","Next month"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Valuation date","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"1 Oct 2026","trail":["Valuation date"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Due date","trail":[],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Due date","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Due date","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Close","trail":["Due date"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Due date","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Previous month","trail":["Due date"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Close","trail":["Due date","Previous month"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Due date","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Next month","trail":["Due date"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Close","trail":["Due date","Next month"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Due date","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"1 Oct 2026","trail":["Due date"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Final date","trail":[],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Final date","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Final date","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Close","trail":["Final date"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Final date","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Previous month","trail":["Final date"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Close","trail":["Final date","Previous month"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Final date","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Next month","trail":["Final date"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Close","trail":["Final date","Next month"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Final date","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"1 Oct 2026","trail":["Final date"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Enter %","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Enter £","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Hide 0% lines","trail":[],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Hide 0% lines","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"✓\nHide 0% lines","trail":["Hide 0% lines"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Set all to 100%","trail":[],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"+ ADD A LINE","trail":[],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"+ ADD A LINE","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"+ ADD A LINE","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Add a line\n✕\nIt goes into the Bill of Quantities too, so it carries on to later applications.\nUnder\nAt the end ▾\nRef\nDescription\nQty\nUnit\nRate £\nOr a lump sum £\nApplied % this time\nCost rate £ (optional)\nNew section name (if New section…)\nSAVE\nCANCEL","trail":["+ ADD A LINE"],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"+ ADD A LINE","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Close","trail":["+ ADD A LINE"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"+ ADD A LINE","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"At the end ▾","trail":["+ ADD A LINE"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Close","trail":["+ ADD A LINE","At the end ▾"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"+ ADD A LINE","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"CANCEL","trail":["+ ADD A LINE"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"+ ADD A SECTION","trail":[],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"+ ADD A SECTION","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Add a section\n✕\nA new header at the end of the Bill of Quantities.\nRef\nHeader\nSAVE\nCANCEL","trail":["+ ADD A SECTION"],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"+ ADD A SECTION","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Close","trail":["+ ADD A SECTION"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"+ ADD A SECTION","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"CANCEL","trail":["+ ADD A SECTION"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"+ VARIATION LINE","trail":[],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"DW01 Storm repairs\n£640.00","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"+ ADD DAYWORK","trail":[],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Contract works to date (37.5% of £48,000.00)\n£18,000.00","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Variations\n£1,000.00","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Day works\n£640.00","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Gross valuation to date\n£19,640.00","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Less previously certified\n−£0.00","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Amount due this application\n£18,658.00","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"SAVE","trail":[],"did":["wrote PATCH fin_applications"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"MARK AS APPLIED (LOCKS IT)","trail":[],"did":["changed","wrote PATCH fin_applications"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"MARK AS APPLIED (LOCKS IT)","trail":["(reopen)"],"did":["changed","wrote PATCH fin_applications"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Close","trail":["MARK AS APPLIED (LOCKS IT)"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"MARK AS APPLIED (LOCKS IT)","trail":["(reopen)"],"did":["changed","wrote PATCH fin_applications"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"No","trail":["MARK AS APPLIED (LOCKS IT)"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"MARK AS APPLIED (LOCKS IT)","trail":["(reopen)"],"did":["changed","wrote PATCH fin_applications"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Mark applied","trail":["MARK AS APPLIED (LOCKS IT)"],"did":["changed","wrote PATCH fin_applications"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"SAVE CERTIFICATE","trail":["MARK AS APPLIED (LOCKS IT)","Mark applied"],"did":["changed","wrote PATCH fin_applications"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"DELETE DRAFT","trail":[],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"DELETE DRAFT","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Close","trail":["DELETE DRAFT"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"DELETE DRAFT","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"No","trail":["DELETE DRAFT"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"DELETE DRAFT","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","label":"Delete","trail":["DELETE DRAFT"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/pm/admin","role":"admin","load":true,"land":"/pm/admin","blocked":false,"buttons":6,"words":474,"problems":[],"did":[]}
+{"route":"/pm/admin","role":"admin","label":"Search","trail":[],"did":["changed"],"problems":[]}
+{"route":"/pm/admin","role":"admin","label":"Search","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin","role":"admin","label":"Close search","trail":["Search"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin","role":"admin","label":"Users & invites\nInvites, roles, device locks, check-in logs","trail":[],"did":["nav /pm/admin?page=people","changed"],"problems":[]}
+{"route":"/pm/admin","role":"admin","label":"Libraries\nReport templates, RAMS, COSHH, SOW, rates, suppliers","trail":[],"did":["nav /pm/admin?page=libraries","changed"],"problems":[]}
+{"route":"/pm/admin","role":"admin","label":"Main Contractor\nSubcontractors and inspection templates","trail":[],"did":["nav /pm/admin/companylibrary","changed"],"problems":[]}
+{"route":"/pm/admin","role":"admin","label":"Company\nLogo, theme, integrations","trail":[],"did":["nav /pm/admin?page=company","changed"],"problems":[]}
+{"route":"/pm/admin","role":"admin","label":"Integrations by project\nWhat each project can sync, and set it up","trail":[],"did":["nav /pm/admin/onedrive","changed","wrote rpc onedrive_status"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","load":true,"land":"/pm/admin/coshh/c1","blocked":false,"buttons":38,"words":1679,"problems":[],"did":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","note":"38 buttons, 30 distinct pressed","problems":[],"did":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"⟳ UPDATE ASSESSMENT","trail":[],"did":["changed","wrote PATCH rams_library_items"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"⟳ UPDATE ASSESSMENT","trail":["(reopen)"],"did":["changed","wrote PATCH rams_library_items"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"Close","trail":["⟳ UPDATE ASSESSMENT"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"⟳ UPDATE ASSESSMENT","trail":["(reopen)"],"did":["changed","wrote PATCH rams_library_items"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"No","trail":["⟳ UPDATE ASSESSMENT"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"⟳ UPDATE ASSESSMENT","trail":["(reopen)"],"did":["changed","wrote PATCH rams_library_items"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"Update","trail":["⟳ UPDATE ASSESSMENT"],"did":["changed","wrote upload,PATCH coshh_library_files,PATCH rams_library_items"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"PREVIEW","trail":[],"did":["changed","download"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"PREVIEW","trail":["(reopen)"],"did":["changed","download"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"☁️ Save to OneDrive","trail":["PREVIEW"],"did":["changed","fn onedrive-upload"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"PREVIEW","trail":["(reopen)"],"did":["changed","download"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"✕","trail":["PREVIEW"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"View the current assessment","trail":[],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"View the current assessment","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"Zoom in","trail":["View the current assessment"],"did":[],"problems":["nothing happened"]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"View the current assessment","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"Zoom out","trail":["View the current assessment"],"did":[],"problems":["nothing happened"]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"📄 Safety Data Sheet","trail":[],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"📄 Safety Data Sheet","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"Zoom in","trail":["📄 Safety Data Sheet"],"did":[],"problems":["nothing happened"]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"📄 Safety Data Sheet","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"Zoom out","trail":["📄 Safety Data Sheet"],"did":[],"problems":["nothing happened"]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"REPLACE DATA SHEET (PDF)","trail":[],"did":["changed","file picker"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"Explosive","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"Flammable","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"Oxidising","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"Gas under pressure","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"Corrosive","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"Toxic","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"Harmful / irritant","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"Serious health hazard","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"Environment","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"None","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"Warning","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"Danger","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"Breathing in","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"Skin contact","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"Eyes","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"Swallowing","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"😷 Dust Mask","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"🎧 Ear Protection","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"🥽 Eye Protection","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"😷 FFP3 Mask","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"⛑️ First Aid Kit","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"🧤 Hand Protection","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"⛑️ Hard Hat","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"🦺 Hi Visibility Vest","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"🥾 Safety Footwear","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/pm/admin/invites","role":"admin","load":true,"land":"/pm/admin/invites","blocked":false,"buttons":3,"words":641,"problems":[],"did":[]}
+{"route":"/pm/admin/invites","role":"admin","label":"CREATE PERMANENT INVITE LINK","trail":[],"did":["changed","wrote POST invites"],"problems":[]}
+{"route":"/pm/admin/invites","role":"admin","label":"CREATE PERMANENT INVITE LINK","trail":["(reopen)"],"did":["changed","wrote POST invites"],"problems":[]}
+{"route":"/pm/admin/invites","role":"admin","label":"COPY LINK","trail":["CREATE PERMANENT INVITE LINK"],"did":["changed","message: Could not copy — select and copy the link manually"],"problems":[]}
+{"route":"/pm/admin/invites","role":"admin","label":"CREATE PERMANENT INVITE LINK","trail":["(reopen)"],"did":["changed","wrote POST invites"],"problems":[]}
+{"route":"/pm/admin/invites","role":"admin","label":"REVOKE & CREATE NEW LINK","trail":["CREATE PERMANENT INVITE LINK"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/invites","role":"admin","label":"Close","trail":["CREATE PERMANENT INVITE LINK","REVOKE & CREATE NEW LINK"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/pm/admin/invites","role":"admin","label":"▼ Invite as: Operative","trail":[],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/invites","role":"admin","label":"▼ Invite as: Operative","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/invites","role":"admin","label":"Close","trail":["▼ Invite as: Operative"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/pm/admin/invites","role":"admin","label":"▼ Invite as: Operative","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/invites","role":"admin","label":"Operative","trail":["▼ Invite as: Operative"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/invites","role":"admin","label":"▼ Invite as: Operative","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/invites","role":"admin","label":"Delivery Driver","trail":["▼ Invite as: Operative"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/invites","role":"admin","label":"▼ Invite as: Operative","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/invites","role":"admin","label":"Client (view-only)","trail":["▼ Invite as: Operative"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/invites","role":"admin","label":"GENERATE ONE-TIME INVITE LINK","trail":[],"did":["changed","wrote POST invites"],"problems":[]}
+{"route":"/pm/admin/invites","role":"admin","label":"GENERATE ONE-TIME INVITE LINK","trail":["(reopen)"],"did":["changed","wrote POST invites"],"problems":[]}
+{"route":"/pm/admin/invites","role":"admin","label":"COPY LINK","trail":["GENERATE ONE-TIME INVITE LINK"],"did":["changed","message: Could not copy — select and copy the link manually"],"problems":[]}
+{"route":"/pm/admin/invites","role":"admin","label":"SEND INVITE EMAIL","trail":["GENERATE ONE-TIME INVITE LINK","COPY LINK"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/invites","role":"admin","label":"GENERATE ONE-TIME INVITE LINK","trail":["(reopen)"],"did":["changed","wrote POST invites"],"problems":[]}
+{"route":"/pm/admin/invites","role":"admin","label":"SEND INVITE EMAIL","trail":["GENERATE ONE-TIME INVITE LINK"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/invites","role":"admin","label":"GENERATE ONE-TIME INVITE LINK","trail":["(reopen)"],"did":["changed","wrote POST invites"],"problems":[]}
+{"route":"/pm/admin/invites","role":"admin","label":"Make another link","trail":["GENERATE ONE-TIME INVITE LINK"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/signtemplates/lt1","role":"admin","load":true,"land":"/pm/admin/signtemplates/lt1","blocked":false,"buttons":13,"words":675,"problems":[],"did":[]}
+{"route":"/pm/admin/signtemplates/lt1","role":"admin","note":"13 buttons, 11 distinct pressed","problems":[],"did":[]}
+{"route":"/pm/admin/signtemplates/lt1","role":"admin","label":"‹","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/pm/admin/signtemplates/lt1","role":"admin","label":"›","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/pm/admin/signtemplates/lt1","role":"admin","label":"Operative 1","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/pm/admin/signtemplates/lt1","role":"admin","label":"−","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/pm/admin/signtemplates/lt1","role":"admin","label":"+","trail":[],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/signtemplates/lt1","role":"admin","label":"Client 1","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/pm/admin/signtemplates/lt1","role":"admin","label":"Project Manager","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/pm/admin/signtemplates/lt1","role":"admin","label":"SIGNATURE","trail":[],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/signtemplates/lt1","role":"admin","label":"NAME","trail":[],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/signtemplates/lt1","role":"admin","label":"DATE","trail":[],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/signtemplates/lt1","role":"admin","label":"SAVE TEMPLATE","trail":[],"did":["nav /home","changed","wrote PATCH sign_layout_templates"],"problems":[]}
+{"route":"/pm/admin/templates","role":"admin","load":true,"land":"/pm/admin/templates","blocked":false,"buttons":5,"words":475,"problems":[],"did":[]}
+{"route":"/pm/admin/templates","role":"admin","note":"5 buttons, 4 distinct pressed","problems":[],"did":[]}
+{"route":"/pm/admin/templates","role":"admin","label":"📋\nDaily report\n1 section · Report / survey\n⋮","trail":[],"did":["nav /pm/admin/templates/tp1","changed"],"problems":[]}
+{"route":"/pm/admin/templates","role":"admin","label":"⋮","trail":[],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/templates","role":"admin","label":"⋮","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/templates","role":"admin","label":"Close","trail":["⋮"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/templates","role":"admin","label":"⋮","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/templates","role":"admin","label":"✎ Edit","trail":["⋮"],"did":["nav /pm/admin/templates/tp1","changed"],"problems":[]}
+{"route":"/pm/admin/templates","role":"admin","label":"⋮","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/templates","role":"admin","label":"⧉ Duplicate","trail":["⋮"],"did":["changed","wrote POST report_templates"],"problems":[]}
+{"route":"/pm/admin/templates","role":"admin","label":"⋮","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/templates","role":"admin","label":"🗑 Delete","trail":["⋮"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/templates","role":"admin","label":"Close","trail":["⋮","🗑 Delete"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/templates","role":"admin","label":"📋\nLOLER check\n0 sections · LOLER inspection\n⋮","trail":[],"did":["nav /pm/admin/templates/tp2","changed"],"problems":[]}
+{"route":"/pm/admin/templates","role":"admin","label":"+ NEW TEMPLATE","trail":[],"did":["nav /pm/admin/templates/new-report_templates-1793372667799-17","changed","wrote POST report_templates"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","load":true,"land":"/pm/delivery/dt1","blocked":false,"buttons":12,"words":660,"problems":[],"did":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"▼ Studley Rd","trail":[],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"▼ Studley Rd","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"Close","trail":["▼ Studley Rd"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"▼ Studley Rd","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"✏️ Not on the app — type the address","trail":["▼ Studley Rd"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"▼ Studley Rd","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"Cleveland Primary School","trail":["▼ Studley Rd"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"▼ Studley Rd","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"Studley Rd","trail":["▼ Studley Rd"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"▼ Studley Rd","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"Upcoming · Simon De Senlis","trail":["▼ Studley Rd"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"▼ YARD","trail":[],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"▼ YARD","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"Close","trail":["▼ YARD"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"▼ YARD","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"YARD","trail":["▼ YARD"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"▼ YARD","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"SIG Roofing","trail":["▼ YARD"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"▼ YARD","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"Travis Perkins","trail":["▼ YARD"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"▼ YARD","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"Other (type address)","trail":["▼ YARD"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"▼ YARD","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"No collection","trail":["▼ YARD"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"▼ YARD","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"Clear site","trail":["▼ YARD"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"1 drop\nNormal","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"2 drops\nExtra time","trail":[],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"▼ None","trail":[],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"▼ None","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"Close","trail":["▼ None"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"▼ None","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"None","trail":["▼ None"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"▼ None","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"✏️ Type a name & number…","trail":["▼ None"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"▼ None","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"Admin · Andy Admin — 07000 000000","trail":["▼ None"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"▼ None","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"PM · Dave Price (no phone saved)","trail":["▼ None"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"▼ None","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"On this site · Jake Morris (no phone saved)","trail":["▼ None"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"▼ None","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"Operative · Tom Hughes (no phone saved)","trail":["▼ None"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"Delivery date","trail":[],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"Delivery date","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"Close","trail":["Delivery date"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"Delivery date","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"Previous month","trail":["Delivery date"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"Close","trail":["Delivery date","Previous month"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"Delivery date","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"Next month","trail":["Delivery date"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"Close","trail":["Delivery date","Next month"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"Delivery date","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"1 Oct 2026","trail":["Delivery date"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"▼ 1st drop","trail":[],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"▼ 1st drop","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"Close","trail":["▼ 1st drop"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"▼ 1st drop","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"1st drop","trail":["▼ 1st drop"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"▼ 1st drop","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"2nd drop","trail":["▼ 1st drop"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"▼ 1st drop","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"3rd drop","trail":["▼ 1st drop"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"▼ 1st drop","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"4th drop","trail":["▼ 1st drop"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"▼ Dave Driver","trail":[],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"▼ Dave Driver","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"Close","trail":["▼ Dave Driver"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"▼ Dave Driver","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"Dave Driver","trail":["▼ Dave Driver"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"▼ Dave Driver","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"Unassigned — no driver yet","trail":["▼ Dave Driver"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"📷 ADD PHOTOS","trail":[],"did":["changed","file picker"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"1st DROP","trail":[],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"1st DROP","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"✓\n1st DROP","trail":["1st DROP"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"SAVE CHANGES","trail":[],"did":["nav /home","changed","wrote PATCH delivery_tasks,POST site_calendar_events"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"DELETE DELIVERY","trail":[],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"DELETE DELIVERY","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"Close","trail":["DELETE DELIVERY"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"DELETE DELIVERY","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"No","trail":["DELETE DELIVERY"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"DELETE DELIVERY","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/pm/delivery/dt1","role":"admin","label":"Delete","trail":["DELETE DELIVERY"],"did":["nav /home","changed","wrote DELETE delivery_tasks"],"problems":[]}
+{"route":"/pm/operatives","role":"admin","load":true,"land":"/pm/operatives","blocked":false,"buttons":6,"words":383,"problems":[],"did":[]}
+{"route":"/pm/operatives","role":"admin","label":"📊 EXPORT TRAINING MATRIX (EXCEL)","trail":[],"did":["download"],"problems":[]}
+{"route":"/pm/operatives","role":"admin","label":"📄 EXPORT TRAINING MATRIX (PDF)","trail":[],"did":["changed","download"],"problems":[]}
+{"route":"/pm/operatives","role":"admin","label":"📄 EXPORT TRAINING MATRIX (PDF)","trail":["(reopen)"],"did":["changed","download"],"problems":[]}
+{"route":"/pm/operatives","role":"admin","label":"☁️ Save to OneDrive","trail":["📄 EXPORT TRAINING MATRIX (PDF)"],"did":["changed","fn onedrive-upload"],"problems":[]}
+{"route":"/pm/operatives","role":"admin","label":"📄 EXPORT TRAINING MATRIX (PDF)","trail":["(reopen)"],"did":["changed","download"],"problems":[]}
+{"route":"/pm/operatives","role":"admin","label":"✕","trail":["📄 EXPORT TRAINING MATRIX (PDF)"],"did":["changed"],"problems":[]}
+{"route":"/pm/operatives","role":"admin","label":"View the matrix on screen ›","trail":[],"did":["nav /pm/operatives/matrix","changed"],"problems":[]}
+{"route":"/pm/operatives","role":"admin","label":"JM\nJake Morris\n1 site · 0 certificates\n›","trail":[],"did":["nav /pm/operatives/o1","changed","wrote rpc onedrive_status"],"problems":[]}
+{"route":"/pm/operatives","role":"admin","label":"TH\nTom Hughes\n1 site · 0 certificates\n›","trail":[],"did":["nav /pm/operatives/o2","changed","wrote rpc onedrive_status"],"problems":[]}
+{"route":"/pm/operatives","role":"admin","label":"Operative Tools\n▼","trail":[],"did":["changed"],"problems":[]}
+{"route":"/pm/operatives","role":"admin","label":"Operative Tools\n▼","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/pm/operatives","role":"admin","label":"Operative Tools\n▲","trail":["Operative Tools\n▼"],"did":["changed"],"problems":[]}
+{"route":"/pm/operatives","role":"admin","label":"Operative Tools\n▼","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/pm/operatives","role":"admin","label":"▶\nJake Morris (1)","trail":["Operative Tools\n▼"],"did":["changed"],"problems":[]}
+{"route":"/pm/operatives","role":"admin","label":"Operative Tools\n▼","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/pm/operatives","role":"admin","label":"▶\nTom Hughes (0)","trail":["Operative Tools\n▼"],"did":["changed"],"problems":[]}
+{"route":"/pm/survey/rs4","role":"admin","load":true,"land":"/pm/survey/rs4","blocked":false,"buttons":4,"words":290,"problems":[],"did":[]}
+{"route":"/pm/survey/rs4","role":"admin","label":"Yard survey  · rename","trail":[],"did":["changed"],"problems":[]}
+{"route":"/pm/survey/rs4","role":"admin","label":"Yard survey  · rename","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/pm/survey/rs4","role":"admin","label":"Close","trail":["Yard survey  · rename"],"did":["changed"],"problems":[]}
+{"route":"/pm/survey/rs4","role":"admin","label":"Yard survey  · rename","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/pm/survey/rs4","role":"admin","label":"OK","trail":["Yard survey  · rename"],"did":["changed","wrote PATCH report_submissions"],"problems":[]}
+{"route":"/pm/survey/rs4","role":"admin","label":"EDIT REPORT","trail":[],"did":["nav /pm/survey/rs4?mode=fill","changed"],"problems":[]}
+{"route":"/pm/survey/rs4","role":"admin","label":"📄 EXPORT PDF","trail":[],"did":["changed","download"],"problems":[]}
+{"route":"/pm/survey/rs4","role":"admin","label":"📄 EXPORT PDF","trail":["(reopen)"],"did":["changed","download"],"problems":[]}
+{"route":"/pm/survey/rs4","role":"admin","label":"☁️ Save to OneDrive","trail":["📄 EXPORT PDF"],"did":["changed","fn onedrive-upload"],"problems":[]}
+{"route":"/pm/survey/rs4","role":"admin","label":"📄 EXPORT PDF","trail":["(reopen)"],"did":["changed","download"],"problems":[]}
+{"route":"/pm/survey/rs4","role":"admin","label":"✕","trail":["📄 EXPORT PDF"],"did":["changed"],"problems":[]}
+{"route":"/pm/survey/rs4","role":"admin","label":"📄 EXPORT PDF","trail":["(reopen)"],"did":["changed","download"],"problems":[]}
+{"route":"/pm/survey/rs4","role":"admin","label":"Building PDF…\n✕","trail":["📄 EXPORT PDF"],"did":["changed"],"problems":[]}
+{"route":"/pm/survey/rs4","role":"admin","label":"✉ EMAIL REPORT","trail":[],"did":["changed"],"problems":[]}
+{"route":"/pm/survey/rs4","role":"admin","label":"✉ EMAIL REPORT","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/pm/survey/rs4","role":"admin","label":"Close","trail":["✉ EMAIL REPORT"],"did":["changed"],"problems":[]}
+{"route":"/pm/survey/rs4","role":"admin","label":"✉ EMAIL REPORT","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/pm/survey/rs4","role":"admin","label":"OK","trail":["✉ EMAIL REPORT"],"did":["changed","wrote upload","fn send-document-email"],"problems":[]}
+{"route":"/sites/new","role":"admin","load":true,"land":"/sites/new","blocked":false,"buttons":7,"words":399,"problems":[],"did":[]}
+{"route":"/sites/new","role":"admin","label":"Multi-site job (several addresses / plots)","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/new","role":"admin","label":"Multi-site job (several addresses / plots)","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/new","role":"admin","label":"✓\nMulti-site job (several addresses / plots)","trail":["Multi-site job (several addresses / plots)"],"did":["changed"],"problems":[]}
+{"route":"/sites/new","role":"admin","label":"Repair / maintenance contract","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/new","role":"admin","label":"Repair / maintenance contract","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/new","role":"admin","label":"✓\nRepair / maintenance contract","trail":["Repair / maintenance contract"],"did":["changed"],"problems":[]}
+{"route":"/sites/new","role":"admin","label":"Active","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/sites/new","role":"admin","label":"Upcoming","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/sites/new","role":"admin","label":"Start date *","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/new","role":"admin","label":"Start date *","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/new","role":"admin","label":"Close","trail":["Start date *"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/sites/new","role":"admin","label":"Start date *","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/new","role":"admin","label":"Previous month","trail":["Start date *"],"did":["changed"],"problems":[]}
+{"route":"/sites/new","role":"admin","label":"Close","trail":["Start date *","Previous month"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/sites/new","role":"admin","label":"Start date *","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/new","role":"admin","label":"Next month","trail":["Start date *"],"did":["changed"],"problems":[]}
+{"route":"/sites/new","role":"admin","label":"Close","trail":["Start date *","Next month"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/sites/new","role":"admin","label":"Start date *","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/new","role":"admin","label":"1 Oct 2026","trail":["Start date *"],"did":["changed"],"problems":[]}
+{"route":"/sites/new","role":"admin","label":"CREATE PROJECT","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/new","role":"admin","label":"CREATE PROJECT","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/new","role":"admin","label":"Enter a site name.\n✕","trail":["CREATE PROJECT"],"did":["changed"],"problems":[]}
+{"route":"/sites/new","role":"admin","label":"CANCEL","trail":[],"did":["nav /home","changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/client","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/client","blocked":false,"buttons":4,"words":592,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/client","role":"admin","label":"Projects","trail":[],"did":["nav /sites","changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/client","role":"admin","label":"J101 Studley Rd","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111","changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/client","role":"admin","label":"📇 CHOOSE A SAVED CLIENT (3)","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/client","role":"admin","label":"📇 CHOOSE A SAVED CLIENT (3)","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/client","role":"admin","label":"Close","trail":["📇 CHOOSE A SAVED CLIENT (3)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/client","role":"admin","label":"📇 CHOOSE A SAVED CLIENT (3)","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/client","role":"admin","label":"Bellway Homes","trail":["📇 CHOOSE A SAVED CLIENT (3)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/client","role":"admin","label":"📇 CHOOSE A SAVED CLIENT (3)","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/client","role":"admin","label":"Forma London","trail":["📇 CHOOSE A SAVED CLIENT (3)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/client","role":"admin","label":"📇 CHOOSE A SAVED CLIENT (3)","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/client","role":"admin","label":"Persimmon","trail":["📇 CHOOSE A SAVED CLIENT (3)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/client","role":"admin","label":"SAVE","trail":[],"did":["nav /home","changed","wrote PATCH sites"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/messages","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/messages","blocked":false,"buttons":7,"words":465,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/messages","role":"admin","label":"Projects","trail":[],"did":["nav /sites","changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/messages","role":"admin","label":"J101 Studley Rd","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111","changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/messages","role":"admin","label":"This site's operatives","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/messages","role":"admin","label":"All operatives (whole company)","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/messages","role":"admin","label":"SEND","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/messages","role":"admin","label":"SEND","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/messages","role":"admin","label":"Write a message first.\n✕","trail":["SEND"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/messages","role":"admin","label":"From Team","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/messages","role":"admin","label":"Sent to Operatives","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/hs","blocked":false,"buttons":18,"words":582,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"Projects","trail":[],"did":["nav /sites","changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"J101 Studley Rd","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111","changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"📄\nRAMS\n0 documents\n▾","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/hs/rams","changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"Who sees RAMS","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"Who sees RAMS","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"Close","trail":["Who sees RAMS"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"Who sees RAMS","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"🙈 Hide from Site Managers","trail":["Who sees RAMS"],"did":["changed","wrote PATCH sites,POST site_activity_log"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"Who sees RAMS","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"🙈 Hide from Operatives","trail":["Who sees RAMS"],"did":["changed","wrote PATCH sites,POST site_activity_log"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"Who sees RAMS","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"🙈 Hide from Delivery Drivers","trail":["Who sees RAMS"],"did":["changed","wrote PATCH sites,POST site_activity_log"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"🧪\nCOSHH\n1 document\n!\n▾","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/hs/coshh","changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"Who sees COSHH","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"Who sees COSHH","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"Close","trail":["Who sees COSHH"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"Who sees COSHH","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"🙈 Hide from Site Managers","trail":["Who sees COSHH"],"did":["changed","wrote PATCH sites,POST site_activity_log"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"Who sees COSHH","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"🙈 Hide from Operatives","trail":["Who sees COSHH"],"did":["changed","wrote PATCH sites,POST site_activity_log"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"Who sees COSHH","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"🙈 Hide from Delivery Drivers","trail":["Who sees COSHH"],"did":["changed","wrote PATCH sites,POST site_activity_log"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"🗣\nTBT\nLive now\n▾","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/hs/tbt","changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"Who sees TBT","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"Who sees TBT","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"Close","trail":["Who sees TBT"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"Who sees TBT","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"🙈 Hide from Site Managers","trail":["Who sees TBT"],"did":["changed","wrote PATCH sites,POST site_activity_log"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"Who sees TBT","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"🙈 Hide from Operatives","trail":["Who sees TBT"],"did":["changed","wrote PATCH sites,POST site_activity_log"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"Who sees TBT","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"🙈 Hide from Delivery Drivers","trail":["Who sees TBT"],"did":["changed","wrote PATCH sites,POST site_activity_log"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"📣\nDaily Briefings\nNone yet\n▾","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/hs/briefings","changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"Who sees Daily Briefings","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"Who sees Daily Briefings","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"Close","trail":["Who sees Daily Briefings"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"Who sees Daily Briefings","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"🙈 Hide from Site Managers","trail":["Who sees Daily Briefings"],"did":["changed","wrote PATCH sites,POST site_activity_log"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"Who sees Daily Briefings","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"🙈 Hide from Operatives","trail":["Who sees Daily Briefings"],"did":["changed","wrote PATCH sites,POST site_activity_log"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"Who sees Daily Briefings","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"🙈 Hide from Delivery Drivers","trail":["Who sees Daily Briefings"],"did":["changed","wrote PATCH sites,POST site_activity_log"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"🖐\nTools, HAVS & PUWER\nTools, vibration & tool checks\n▾","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/hs/havspuwer","changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"Who sees Tools, HAVS & PUWER","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"Who sees Tools, HAVS & PUWER","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"Close","trail":["Who sees Tools, HAVS & PUWER"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"Who sees Tools, HAVS & PUWER","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"🙈 Hide from Site Managers","trail":["Who sees Tools, HAVS & PUWER"],"did":["changed","wrote PATCH sites,POST site_activity_log"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"Who sees Tools, HAVS & PUWER","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"🙈 Hide from Operatives","trail":["Who sees Tools, HAVS & PUWER"],"did":["changed","wrote PATCH sites,POST site_activity_log"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"Who sees Tools, HAVS & PUWER","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"🙈 Hide from Delivery Drivers","trail":["Who sees Tools, HAVS & PUWER"],"did":["changed","wrote PATCH sites,POST site_activity_log"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"🦺\nPPE\n1 request\n1\n▾","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/ppe","changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"Who sees PPE","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"Who sees PPE","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"Close","trail":["Who sees PPE"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"Who sees PPE","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"🙈 Hide from Site Managers","trail":["Who sees PPE"],"did":["changed","wrote PATCH sites,POST site_activity_log"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"Who sees PPE","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"🙈 Hide from Operatives","trail":["Who sees PPE"],"did":["changed","wrote PATCH sites,POST site_activity_log"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"Who sees PPE","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"🙈 Hide from Delivery Drivers","trail":["Who sees PPE"],"did":["changed","wrote PATCH sites,POST site_activity_log"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"⚠️\nAccident / Incident\n1 filed\n▾","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/hs/incidents","changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"Who sees Accident / Incident","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"Who sees Accident / Incident","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"Close","trail":["Who sees Accident / Incident"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"Who sees Accident / Incident","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"🙈 Hide from Site Managers","trail":["Who sees Accident / Incident"],"did":["changed","wrote PATCH sites,POST site_activity_log"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"Who sees Accident / Incident","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"🙈 Hide from Operatives","trail":["Who sees Accident / Incident"],"did":["changed","wrote PATCH sites,POST site_activity_log"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"Who sees Accident / Incident","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"🙈 Hide from Delivery Drivers","trail":["Who sees Accident / Incident"],"did":["changed","wrote PATCH sites,POST site_activity_log"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"🪪\nOperatives\nCertificates & tools\n▾","trail":[],"did":["nav /pm/operatives?site=11111111-1111-1111-1111-111111111111","changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"Who sees Operatives","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"Who sees Operatives","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"Close","trail":["Who sees Operatives"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"Who sees Operatives","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"🙈 Hide from Site Managers","trail":["Who sees Operatives"],"did":["changed","wrote PATCH sites,POST site_activity_log"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"Who sees Operatives","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"🙈 Hide from Operatives","trail":["Who sees Operatives"],"did":["changed","wrote PATCH sites,POST site_activity_log"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"Who sees Operatives","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","label":"🙈 Hide from Delivery Drivers","trail":["Who sees Operatives"],"did":["changed","wrote PATCH sites,POST site_activity_log"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh/pick","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh/pick","blocked":false,"buttons":7,"words":552,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh/pick","role":"admin","note":"7 buttons, 6 distinct pressed","problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh/pick","role":"admin","label":"Projects","trail":[],"did":["nav /sites","changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh/pick","role":"admin","label":"J101 Studley Rd","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111","changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh/pick","role":"admin","label":"Health & Safety","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/hs","changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh/pick","role":"admin","label":"📁 Flat Roofing\nSelect Folder","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh/pick","role":"admin","label":"📁 Flat Roofing\nSelect Folder","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh/pick","role":"admin","label":"‹ UP ONE LEVEL","trail":["📁 Flat Roofing\nSelect Folder"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh/pick","role":"admin","label":"📁 Flat Roofing\nSelect Folder","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh/pick","role":"admin","label":"📄 COSHH Assessment - Bauder Primer.pdf","trail":["📁 Flat Roofing\nSelect Folder"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh/pick","role":"admin","label":"Select Folder","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh/pick","role":"admin","label":"Select Folder","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh/pick","role":"admin","label":"ADD 1 SELECTED","trail":["Select Folder"],"did":["nav /home","changed","wrote upload,POST coshh_docs,POST messages"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh/pick","role":"admin","label":"Select Folder","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh/pick","role":"admin","label":"1 document selected from \"Flat Roofing\"\n✕","trail":["Select Folder"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh/pick","role":"admin","label":"📁 Pitched Roofing\nSelect Folder","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh/pick","role":"admin","label":"📁 Pitched Roofing\nSelect Folder","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh/pick","role":"admin","label":"‹ UP ONE LEVEL","trail":["📁 Pitched Roofing\nSelect Folder"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/incidents/i1","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/hs/incidents/i1","blocked":false,"buttons":6,"words":414,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/incidents/i1","role":"admin","label":"Projects","trail":[],"did":["nav /sites","changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/incidents/i1","role":"admin","label":"J101 Studley Rd","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111","changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/incidents/i1","role":"admin","label":"Health & Safety","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/hs","changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/incidents/i1","role":"admin","label":"DELETE REPORT","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/incidents/i1","role":"admin","label":"DELETE REPORT","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/incidents/i1","role":"admin","label":"Close","trail":["DELETE REPORT"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/incidents/i1","role":"admin","label":"DELETE REPORT","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/incidents/i1","role":"admin","label":"No","trail":["DELETE REPORT"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/incidents/i1","role":"admin","label":"DELETE REPORT","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/incidents/i1","role":"admin","label":"Delete","trail":["DELETE REPORT"],"did":["nav /home","changed","wrote DELETE incident_reports,POST site_activity_log"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/incidents/i1","role":"admin","label":"EXPORT PDF","trail":[],"did":["changed","download"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/incidents/i1","role":"admin","label":"EXPORT PDF","trail":["(reopen)"],"did":["changed","download"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/incidents/i1","role":"admin","label":"☁️ Save to OneDrive","trail":["EXPORT PDF"],"did":["changed","fn onedrive-upload"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/incidents/i1","role":"admin","label":"EXPORT PDF","trail":["(reopen)"],"did":["changed","download"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/incidents/i1","role":"admin","label":"✕","trail":["EXPORT PDF"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/incidents/i1","role":"admin","label":"EXPORT PDF","trail":["(reopen)"],"did":["changed","download"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/incidents/i1","role":"admin","label":"Building PDF…\n✕","trail":["EXPORT PDF"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/incidents/i1","role":"admin","label":"EMAIL PDF","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/incidents/i1","role":"admin","label":"EMAIL PDF","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/incidents/i1","role":"admin","label":"Close","trail":["EMAIL PDF"],"did":["changed","fn send-incident-email"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/incidents/i1","role":"admin","label":"EMAIL PDF","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/incidents/i1","role":"admin","label":"No","trail":["EMAIL PDF"],"did":["changed","fn send-incident-email"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/incidents/i1","role":"admin","label":"EMAIL PDF","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/incidents/i1","role":"admin","label":"Yes, CC them","trail":["EMAIL PDF"],"did":["changed","fn send-incident-email"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/hs/rams","blocked":false,"buttons":6,"words":419,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams","role":"admin","label":"Projects","trail":[],"did":["nav /sites","changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams","role":"admin","label":"J101 Studley Rd","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111","changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams","role":"admin","label":"Health & Safety","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/hs","changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams","role":"admin","label":"H&S Policy\n▼","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams","role":"admin","label":"H&S Policy\n▼","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams","role":"admin","label":"H&S Policy\n▲","trail":["H&S Policy\n▼"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams","role":"admin","label":"H&S Policy\n▼","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams","role":"admin","label":"View document ↗","trail":["H&S Policy\n▼"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams","role":"admin","label":"H&S Policy\n▼","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams","role":"admin","label":"Signed (1 of 5)\n▼","trail":["H&S Policy\n▼"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams","role":"admin","label":"🦺 CREATE RAMS","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams","role":"admin","label":"🦺 CREATE RAMS","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams","role":"admin","label":"Studley Rd — Roof Renewal\nDraft\n🗑\n›","trail":["🦺 CREATE RAMS"],"did":["nav /sites/11111111-1111-1111-1111-111111111111/hs/rams/build/b1","changed"],"problems":["error: console: Each child in a list should have a unique \"key\" prop.%s%s See https://react.dev/link/warning-keys for more information. \n\nCheck the render method of `View`.  It"]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams","role":"admin","label":"🦺 CREATE RAMS","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams","role":"admin","label":"🗑","trail":["🦺 CREATE RAMS"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams","role":"admin","label":"Close","trail":["🦺 CREATE RAMS","🗑"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams","role":"admin","label":"🦺 CREATE RAMS","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams","role":"admin","label":"+ START NEW RAMS","trail":["🦺 CREATE RAMS"],"did":["nav /sites/11111111-1111-1111-1111-111111111111/hs/rams/new","changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams","role":"admin","label":"📄 UPLOAD RAMS","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams","role":"admin","label":"📄 UPLOAD RAMS","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams","role":"admin","label":"Risk Assessment","trail":["📄 UPLOAD RAMS"],"did":[],"problems":["nothing happened"]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams","role":"admin","label":"📄 UPLOAD RAMS","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams","role":"admin","label":"Method Statement","trail":["📄 UPLOAD RAMS"],"did":[],"problems":["nothing happened"]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams","role":"admin","label":"📄 UPLOAD RAMS","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams","role":"admin","label":"RAMS","trail":["📄 UPLOAD RAMS"],"did":[],"problems":["nothing happened"]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams","role":"admin","label":"📄 UPLOAD RAMS","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams","role":"admin","label":"Multi-page sign required","trail":["📄 UPLOAD RAMS"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams","role":"admin","label":"📄 UPLOAD RAMS","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams","role":"admin","label":"CHOOSE PDF","trail":["📄 UPLOAD RAMS"],"did":["changed","file picker"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams","role":"admin","label":"📄 UPLOAD RAMS","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams","role":"admin","label":"UPLOAD RAMS","trail":["📄 UPLOAD RAMS"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/materials","blocked":false,"buttons":8,"words":400,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials","role":"admin","label":"Projects","trail":[],"did":["nav /sites","changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials","role":"admin","label":"J101 Studley Rd","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111","changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials","role":"admin","label":"🙋\nMaterial Requests\n1 new\n1","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/materials/requests","changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials","role":"admin","label":"📄\nMaterial PO's","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/materials/pos","changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials","role":"admin","label":"🏗\nPlant\n▾","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/plant","changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials","role":"admin","label":"Who sees Plant","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials","role":"admin","label":"Who sees Plant","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials","role":"admin","label":"Close","trail":["Who sees Plant"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials","role":"admin","label":"Who sees Plant","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials","role":"admin","label":"🙈 Hide from Site Managers","trail":["Who sees Plant"],"did":["changed","wrote PATCH sites,POST site_activity_log"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials","role":"admin","label":"Who sees Plant","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials","role":"admin","label":"👁 Show to Operatives","trail":["Who sees Plant"],"did":["changed","wrote PATCH sites,POST site_activity_log"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials","role":"admin","label":"Who sees Plant","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials","role":"admin","label":"👁 Show to Delivery Drivers","trail":["Who sees Plant"],"did":["changed","wrote PATCH sites,POST site_activity_log"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials","role":"admin","label":"🧾\nExpenses\n▾","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/expenses","changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials","role":"admin","label":"Who sees Expenses","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials","role":"admin","label":"Who sees Expenses","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials","role":"admin","label":"Close","trail":["Who sees Expenses"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials","role":"admin","label":"Who sees Expenses","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials","role":"admin","label":"🙈 Hide from Site Managers","trail":["Who sees Expenses"],"did":["changed","wrote PATCH sites,POST site_activity_log"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials","role":"admin","label":"Who sees Expenses","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials","role":"admin","label":"👁 Show to Operatives","trail":["Who sees Expenses"],"did":["changed","wrote PATCH sites,POST site_activity_log"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials","role":"admin","label":"Who sees Expenses","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials","role":"admin","label":"👁 Show to Delivery Drivers","trail":["Who sees Expenses"],"did":["changed","wrote PATCH sites,POST site_activity_log"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/mc","blocked":false,"buttons":20,"words":646,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","label":"Projects","trail":[],"did":["nav /sites","changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","label":"J101 Studley Rd","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111","changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","label":"📘\nConstruction Phase Plan\n0 documents\n▾","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/mc/docs/cpp","changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","label":"Who sees Construction Phase Plan","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","label":"Who sees Construction Phase Plan","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","label":"Close","trail":["Who sees Construction Phase Plan"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","label":"Who sees Construction Phase Plan","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","label":"🙈 Hide from operatives","trail":["Who sees Construction Phase Plan"],"did":["changed","wrote PATCH sites"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","label":"🗺\nSite Rules & Layout\n1 document\n▾","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/mc/layout","changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","label":"Who sees Site Rules & Layout","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","label":"Who sees Site Rules & Layout","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","label":"Close","trail":["Who sees Site Rules & Layout"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","label":"Who sees Site Rules & Layout","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","label":"🙈 Hide from operatives","trail":["Who sees Site Rules & Layout"],"did":["changed","wrote PATCH sites"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","label":"🪪\nSite Inductions\n0 of 1 inducted\n▾","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/mc/inductions","changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","label":"Who sees Site Inductions","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","label":"Who sees Site Inductions","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","label":"Close","trail":["Who sees Site Inductions"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","label":"Who sees Site Inductions","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","label":"🙈 Hide from operatives","trail":["Who sees Site Inductions"],"did":["changed","wrote PATCH sites"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","label":"👷\nSubcontractors\n1 company\n▾","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/mc/subcontractors","changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","label":"Who sees Subcontractors","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","label":"Who sees Subcontractors","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","label":"Close","trail":["Who sees Subcontractors"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","label":"Who sees Subcontractors","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","label":"🙈 Hide from operatives","trail":["Who sees Subcontractors"],"did":["changed","wrote PATCH sites"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","label":"🧾\nPermits To Work\nNone open\n▾","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/mc/permits","changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","label":"Who sees Permits To Work","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","label":"Who sees Permits To Work","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","label":"Close","trail":["Who sees Permits To Work"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","label":"Who sees Permits To Work","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","label":"🙈 Hide from operatives","trail":["Who sees Permits To Work"],"did":["changed","wrote PATCH sites"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","label":"🔍\nInspections\nSet up templates\n▾","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/mc/inspections","changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","label":"Who sees Inspections","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","label":"Who sees Inspections","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","label":"Close","trail":["Who sees Inspections"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","label":"Who sees Inspections","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","label":"🙈 Hide from operatives","trail":["Who sees Inspections"],"did":["changed","wrote PATCH sites"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","label":"☣️\nAsbestos Register\n0 documents\n▾","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/mc/docs/asbestos","changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","label":"Who sees Asbestos Register","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","label":"Who sees Asbestos Register","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","label":"Close","trail":["Who sees Asbestos Register"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","label":"Who sees Asbestos Register","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","label":"🙈 Hide from operatives","trail":["Who sees Asbestos Register"],"did":["changed","wrote PATCH sites"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","label":"📮\nF10 Notification\n0 documents\n▾","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/mc/docs/f10","changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","label":"Who sees F10 Notification","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","label":"Who sees F10 Notification","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","label":"Close","trail":["Who sees F10 Notification"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","label":"Who sees F10 Notification","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","label":"🙈 Hide from operatives","trail":["Who sees F10 Notification"],"did":["changed","wrote PATCH sites"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","label":"📅\nProgramme\n0 documents\n▾","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/drawings/new-drawing_folders-1793373792180-52","changed","wrote POST drawing_folders"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","label":"Who sees Programme","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","label":"Who sees Programme","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","label":"Close","trail":["Who sees Programme"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","label":"Who sees Programme","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","label":"🙈 Hide from operatives","trail":["Who sees Programme"],"did":["changed","wrote PATCH sites"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/permits/pm1","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/mc/permits/pm1","blocked":false,"buttons":3,"words":460,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/permits/pm1","role":"admin","label":"Projects","trail":[],"did":["nav /sites","changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/permits/pm1","role":"admin","label":"J101 Studley Rd","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111","changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/permits/pm1","role":"admin","label":"Main Contractor","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/mc","changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/operatives","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/operatives","blocked":false,"buttons":8,"words":789,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/operatives","role":"admin","label":"Projects","trail":[],"did":["nav /sites","changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/operatives","role":"admin","label":"J101 Studley Rd","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111","changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/operatives","role":"admin","label":"Main Contractor","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/mc","changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/operatives","role":"admin","label":"MAKE ADMIN","trail":[],"did":["changed","wrote PATCH subcontractor_operatives"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/operatives","role":"admin","label":"MAKE ADMIN","trail":["(reopen)"],"did":["changed","wrote PATCH subcontractor_operatives"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/operatives","role":"admin","label":"REMOVE ADMIN","trail":["MAKE ADMIN"],"did":["changed","wrote PATCH subcontractor_operatives"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/operatives","role":"admin","label":"MAKE ADMIN","trail":["(reopen)"],"did":["changed","wrote PATCH subcontractor_operatives"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/operatives","role":"admin","label":"Now the subcontractor admin\n✕","trail":["MAKE ADMIN"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/operatives","role":"admin","label":"REMOVE ADMIN","trail":["MAKE ADMIN","Now the subcontractor admin\n✕"],"did":["changed","wrote PATCH subcontractor_operatives"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/operatives","role":"admin","label":"REMOVE","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/operatives","role":"admin","label":"REMOVE","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/operatives","role":"admin","label":"Close","trail":["REMOVE"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/operatives","role":"admin","label":"REMOVE","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/operatives","role":"admin","label":"No","trail":["REMOVE"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/operatives","role":"admin","label":"REMOVE","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/operatives","role":"admin","label":"Remove","trail":["REMOVE"],"did":["changed","wrote DELETE subcontractor_operatives"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/operatives","role":"admin","label":"○ Jake Morris","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/operatives","role":"admin","label":"○ Jake Morris","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/operatives","role":"admin","label":"◉ Jake Morris","trail":["○ Jake Morris"],"did":[],"problems":["nothing happened"]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/operatives","role":"admin","label":"Make this their subcontractor admin (upload rights)","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/operatives","role":"admin","label":"Make this their subcontractor admin (upload rights)","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/operatives","role":"admin","label":"✓\nMake this their subcontractor admin (upload rights)","trail":["Make this their subcontractor admin (upload rights)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/operatives","role":"admin","label":"ALLOCATE","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/operatives","role":"admin","label":"ALLOCATE","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/operatives","role":"admin","label":"Choose an operative.\n✕","trail":["ALLOCATE"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","blocked":false,"buttons":16,"words":770,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","role":"admin","label":"Projects","trail":[],"did":["nav /sites","changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","role":"admin","label":"J101 Studley Rd","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111","changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","role":"admin","label":"Price","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/price","changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","role":"admin","label":"Jake Morris","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","role":"admin","label":"Jake Morris","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","role":"admin","label":"✓ Jake Morris","trail":["Jake Morris"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","role":"admin","label":"✓\nAdd these lines to the Schedule of Works when issued","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","role":"admin","label":"✓\nAdd these lines to the Schedule of Works when issued","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","role":"admin","label":"Add these lines to the Schedule of Works when issued","trail":["✓\nAdd these lines to the Schedule of Works when issued"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","role":"admin","label":"1. Tick items","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","role":"admin","label":"2. Quantities (0)","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","role":"admin","label":"2. Quantities (0)","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","role":"admin","label":"+ ADD YOUR OWN LINE","trail":["2. Quantities (0)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","role":"admin","label":"▼ Pitched Roofing","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","role":"admin","label":"▼ Pitched Roofing","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","role":"admin","label":"▶ Pitched Roofing","trail":["▼ Pitched Roofing"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","role":"admin","label":"Strip and re-tile — £38.50 / m²","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","role":"admin","label":"Strip and re-tile — £38.50 / m²","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","role":"admin","label":"▼ Pitched Roofing (1 ticked)","trail":["Strip and re-tile — £38.50 / m²"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","role":"admin","label":"Strip and re-tile — £38.50 / m²","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","role":"admin","label":"✓\nStrip and re-tile — £38.50 / m²","trail":["Strip and re-tile — £38.50 / m²"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","role":"admin","label":"Marley Eternit Concrete Tile — £12.75 / m²","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","role":"admin","label":"Marley Eternit Concrete Tile — £12.75 / m²","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","role":"admin","label":"▼ Pitched Roofing (1 ticked)","trail":["Marley Eternit Concrete Tile — £12.75 / m²"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","role":"admin","label":"Marley Eternit Concrete Tile — £12.75 / m²","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","role":"admin","label":"✓\nMarley Eternit Concrete Tile — £12.75 / m²","trail":["Marley Eternit Concrete Tile — £12.75 / m²"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","role":"admin","label":"Natural slate — £31.00 / m²","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","role":"admin","label":"Natural slate — £31.00 / m²","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","role":"admin","label":"▼ Pitched Roofing (1 ticked)","trail":["Natural slate — £31.00 / m²"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","role":"admin","label":"Natural slate — £31.00 / m²","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","role":"admin","label":"✓\nNatural slate — £31.00 / m²","trail":["Natural slate — £31.00 / m²"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","role":"admin","label":"▶ Roofline","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","role":"admin","label":"▶ Roofline","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","role":"admin","label":"▼ Roofline","trail":["▶ Roofline"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","role":"admin","label":"▶ Roofline","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","role":"admin","label":"Fascia and soffit — £24.00 / lm","trail":["▶ Roofline"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","role":"admin","label":"NEXT — ENTER QUANTITIES","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","role":"admin","label":"NEXT — ENTER QUANTITIES","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","role":"admin","label":"+ ADD YOUR OWN LINE","trail":["NEXT — ENTER QUANTITIES"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","role":"admin","label":"SAVE DRAFT","trail":[],"did":["wrote PATCH price_builder_sheets"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","role":"admin","label":"ISSUE","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","role":"admin","label":"ISSUE","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","role":"admin","label":"Tick at least one item, or add a custom row, before issuing.\n✕","trail":["ISSUE"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","role":"admin","label":"🗑 DELETE DRAFT","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","role":"admin","label":"🗑 DELETE DRAFT","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","role":"admin","label":"Close","trail":["🗑 DELETE DRAFT"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","role":"admin","label":"🗑 DELETE DRAFT","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","role":"admin","label":"No","trail":["🗑 DELETE DRAFT"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","role":"admin","label":"🗑 DELETE DRAFT","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","role":"admin","label":"Delete","trail":["🗑 DELETE DRAFT"],"did":["nav /sites/11111111-1111-1111-1111-111111111111/price/sheets","changed","wrote DELETE price_builder_sheets"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/variations","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/snagging/variations","blocked":false,"buttons":10,"words":545,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/variations","role":"admin","label":"Projects","trail":[],"did":["nav /sites","changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/variations","role":"admin","label":"J101 Studley Rd","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111","changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/variations","role":"admin","label":"Snagging","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/snagging","changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/variations","role":"admin","label":"Live","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/variations","role":"admin","label":"Closed","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/variations","role":"admin","label":"📷 Tap to add a photo","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/variations","role":"admin","label":"📷 Tap to add a photo","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/variations","role":"admin","label":"Close","trail":["📷 Tap to add a photo"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/variations","role":"admin","label":"📷 Tap to add a photo","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/variations","role":"admin","label":"📷 Take a photo","trail":["📷 Tap to add a photo"],"did":["changed","file picker"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/variations","role":"admin","label":"📷 Tap to add a photo","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/variations","role":"admin","label":"🖼 Choose from library","trail":["📷 Tap to add a photo"],"did":["changed","file picker"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/variations","role":"admin","label":"SUBMIT VARIATION","trail":[],"did":[],"problems":["could not press"]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/variations","role":"admin","label":"EXPORT LIVE","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/variations","role":"admin","label":"EXPORT LIVE","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/variations","role":"admin","label":"No variations to export for that filter.\n✕","trail":["EXPORT LIVE"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/variations","role":"admin","label":"EXPORT CLOSED","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/variations","role":"admin","label":"EXPORT CLOSED","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/variations","role":"admin","label":"No variations to export for that filter.\n✕","trail":["EXPORT CLOSED"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/variations","role":"admin","label":"EXPORT ALL","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/variations","role":"admin","label":"EXPORT ALL","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/variations","role":"admin","label":"No variations to export for that filter.\n✕","trail":["EXPORT ALL"],"did":["changed"],"problems":[]}

@@ -1,0 +1,91 @@
+RTB Roofing Ltd
+OPHUB
+Search
+Ctrl K
+Home
+Projects
+Deliveries
+Calendar
+Hub
+4
+Dashboard
+OpHUB Finance
+Admin
+Andy Admin
+Company Admin
+Sign out
+‹
+Purchases
+OpHUB Finance
+Finance
+›
+Purchases
+Overview
+Projects
+Sales
+Purchases
+Subcontractors & Labour
+Reports
+Directory
+Settings
+⋯
+2
+Unallocated Invoices · all time
+⋯
+£0
+To Pay Suppliers (Incl. VAT) · all time
+⋯
+1
+To Approve · all time
+⋯
+£0
+Ordered, Not Invoiced · all time
+Purchase orders
+Purchase invoices
+Statements
+Plant hire
+Suppliers
+Price book
+Price lists
+Yard stock
+Purchase invoices emailed to your invoice address are read and filed to the job when we can tell which one. While Finance is on trial they are not read or filed automatically — allocate them by hand.
+Unallocated
+2
+With a PM
+To approve
+1
+Approved, not paid
+Paid
+All filed
+1
++ ADD INVOICES
++ TYPE ONE IN
+Supplier: All ▾
+Project: All ▾
+Sort ▾
+All months
+▾
+SUPPLIER
+INVOICE NO.
+PROJECT
+DATE
+NET
+VAT
+GROSS
+PO
+CHECKS
+STATUS
+SIG Roofing
+SIG-88231
+J101 · Studley Rd
+12 Oct 2026
+£1,800.00
+£360.00
+£2,160.00
+J101-PO-001
+PO linked
+To approve
+1 shown
+Net £1,800.00
+VAT £360.00
+Gross £2,160.00

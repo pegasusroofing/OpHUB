@@ -1,0 +1,86 @@
+{"route":"/account","role":"admin","load":true,"land":"/account","blocked":false,"buttons":6,"words":719,"problems":[],"did":[]}
+{"route":"/getting-started","role":"admin","load":true,"land":"/getting-started","blocked":false,"buttons":0,"words":203,"problems":[],"did":[]}
+{"route":"/onsite","role":"admin","load":true,"land":"/onsite","blocked":false,"buttons":0,"words":307,"problems":[],"did":[]}
+{"route":"/signature","role":"admin","load":true,"land":"/signature","blocked":false,"buttons":2,"words":336,"problems":[],"did":[]}
+{"route":"/driver/checkin","role":"admin","load":true,"land":"/driver/checkin","blocked":false,"buttons":1,"words":337,"problems":[],"did":[]}
+{"route":"/driver/timeoff","role":"admin","load":true,"land":"/driver/timeoff","blocked":false,"buttons":4,"words":350,"problems":[],"did":[]}
+{"route":"/driver/yard","role":"admin","load":true,"land":"/driver/yard","blocked":false,"buttons":0,"words":373,"problems":[],"did":[]}
+{"route":"/fin/directory","role":"admin","load":true,"land":"/fin/directory","blocked":false,"buttons":16,"words":535,"problems":[],"did":[]}
+{"route":"/fin/jobs","role":"admin","load":true,"land":"/fin/jobs","blocked":false,"buttons":21,"words":649,"problems":[],"did":[]}
+{"route":"/fin/purchases","role":"admin","load":true,"land":"/fin/purchases","blocked":false,"buttons":31,"words":904,"problems":[],"did":[]}
+{"route":"/fin/sales","role":"admin","load":true,"land":"/fin/sales","blocked":false,"buttons":23,"words":864,"problems":[],"did":[]}
+{"route":"/fin/statements","role":"admin","load":true,"land":"/fin/statements","blocked":false,"buttons":11,"words":546,"problems":[],"did":[]}
+{"route":"/fin/team","role":"admin","load":true,"land":"/fin/team","blocked":false,"buttons":14,"words":690,"problems":[],"did":[]}
+{"route":"/fin/yardin","role":"admin","load":true,"land":"/fin/yardin","blocked":false,"buttons":1,"words":395,"problems":[],"did":[]}
+{"route":"/fin/pinv/pi1","role":"admin","load":true,"land":"/fin/pinv/pi1","blocked":false,"buttons":15,"words":463,"problems":[],"did":[]}
+{"route":"/fin/po/po1","role":"admin","load":true,"land":"/fin/po/po1","blocked":false,"buttons":15,"words":628,"problems":["junk on screen: undefined · 100 m × £18.00"],"did":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111","role":"admin","load":true,"land":"/fin/job/11111111-1111-1111-1111-111111111111","blocked":false,"buttons":40,"words":1422,"problems":[],"did":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/budget","role":"admin","load":true,"land":"/fin/job/11111111-1111-1111-1111-111111111111/budget","blocked":false,"buttons":4,"words":1145,"problems":[],"did":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/dayworks","role":"admin","load":true,"land":"/fin/job/11111111-1111-1111-1111-111111111111/dayworks","blocked":false,"buttons":11,"words":394,"problems":[],"did":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/parts","role":"admin","load":true,"land":"/fin/job/11111111-1111-1111-1111-111111111111/parts","blocked":false,"buttons":7,"words":938,"problems":[],"did":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/summary","role":"admin","load":true,"land":"/fin/job/11111111-1111-1111-1111-111111111111/summary","blocked":false,"buttons":31,"words":1202,"problems":[],"did":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"admin","load":true,"land":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","blocked":false,"buttons":31,"words":1193,"problems":[],"did":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111?tab=sales","role":"admin","load":true,"land":"/fin/job/11111111-1111-1111-1111-111111111111?tab=sales","blocked":false,"buttons":24,"words":738,"problems":["error: console: Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause chi"],"did":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111?tab=subs","role":"admin","load":true,"land":"/fin/job/11111111-1111-1111-1111-111111111111?tab=subs","blocked":false,"buttons":18,"words":575,"problems":[],"did":[]}
+{"route":"/pm/admin","role":"admin","load":true,"land":"/pm/admin","blocked":false,"buttons":6,"words":474,"problems":[],"did":[]}
+{"route":"/pm/admin/checkinlogs","role":"admin","load":true,"land":"/pm/admin/checkinlogs","blocked":false,"buttons":6,"words":384,"problems":[],"did":[]}
+{"route":"/pm/admin/companylibrary/cp1","role":"admin","load":true,"land":"/pm/admin/companylibrary/cp1","blocked":false,"buttons":1,"words":391,"problems":[],"did":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","load":true,"land":"/pm/admin/coshh/c1","blocked":false,"buttons":38,"words":1679,"problems":[],"did":[]}
+{"route":"/pm/admin/drivercheckins","role":"admin","load":true,"land":"/pm/admin/drivercheckins","blocked":false,"buttons":3,"words":282,"problems":[],"did":[]}
+{"route":"/pm/admin/havstools","role":"admin","load":true,"land":"/pm/admin/havstools","blocked":false,"buttons":2,"words":383,"problems":[],"did":[]}
+{"route":"/pm/admin/invites","role":"admin","load":true,"land":"/pm/admin/invites","blocked":false,"buttons":3,"words":641,"problems":[],"did":[]}
+{"route":"/pm/admin/ppelog","role":"admin","load":true,"land":"/pm/admin/ppelog","blocked":false,"buttons":8,"words":413,"problems":["error: console: Each child in a list should have a unique \"key\" prop.%s%s See https://react.dev/link/warning-keys for more information. \n\nCheck the render method of `div`.  It "],"did":[]}
+{"route":"/pm/admin/ratecard","role":"admin","load":true,"land":"/pm/admin/ratecard","blocked":false,"buttons":13,"words":683,"problems":[],"did":[]}
+{"route":"/pm/admin/signtemplates/lt1","role":"admin","load":true,"land":"/pm/admin/signtemplates/lt1","blocked":false,"buttons":13,"words":675,"problems":[],"did":[]}
+{"route":"/pm/admin/subapps","role":"admin","load":true,"land":"/pm/admin/subapps","blocked":false,"buttons":6,"words":563,"problems":[],"did":[]}
+{"route":"/pm/admin/suppliers","role":"admin","load":true,"land":"/pm/admin/suppliers","blocked":false,"buttons":5,"words":364,"problems":[],"did":[]}
+{"route":"/pm/admin/templates","role":"admin","load":true,"land":"/pm/admin/templates","blocked":false,"buttons":5,"words":475,"problems":[],"did":[]}
+{"route":"/pm/admin/users","role":"admin","load":true,"land":"/pm/admin/users","blocked":false,"buttons":5,"words":566,"problems":[],"did":[]}
+{"route":"/pm/dashboard","role":"admin","load":true,"land":"/pm/dashboard","blocked":false,"buttons":12,"words":810,"problems":[],"did":[]}
+{"route":"/pm/delivery/dt1","role":"admin","load":true,"land":"/pm/delivery/dt1","blocked":false,"buttons":12,"words":660,"problems":[],"did":[]}
+{"route":"/pm/hr/holidays","role":"admin","load":true,"land":"/pm/hr/holidays","blocked":false,"buttons":43,"words":745,"problems":[],"did":[]}
+{"route":"/pm/hub","role":"admin","load":true,"land":"/pm/hub","blocked":false,"buttons":15,"words":698,"problems":[],"did":[]}
+{"route":"/pm/operatives","role":"admin","load":true,"land":"/pm/operatives","blocked":false,"buttons":6,"words":383,"problems":[],"did":[]}
+{"route":"/pm/operatives/o1","role":"admin","load":true,"land":"/pm/operatives/o1","blocked":false,"buttons":7,"words":755,"problems":[],"did":[]}
+{"route":"/pm/reports","role":"admin","load":true,"land":"/pm/reports","blocked":false,"buttons":10,"words":429,"problems":[],"did":[]}
+{"route":"/pm/survey/rs4","role":"admin","load":true,"land":"/pm/survey/rs4","blocked":false,"buttons":4,"words":281,"problems":[],"did":[]}
+{"route":"/pm/tobook","role":"admin","load":true,"land":"/pm/tobook","blocked":false,"buttons":0,"words":312,"problems":[],"did":[]}
+{"route":"/pm/vehicles","role":"admin","load":true,"land":"/pm/vehicles","blocked":false,"buttons":2,"words":347,"problems":[],"did":[]}
+{"route":"/sites/new","role":"admin","load":true,"land":"/sites/new","blocked":false,"buttons":7,"words":399,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/activity","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/activity","blocked":false,"buttons":5,"words":551,"problems":["error: console: Unexpected text node: . A text node cannot be a child of a <View>."],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/calendar","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/calendar","blocked":false,"buttons":42,"words":553,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/client","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/client","blocked":false,"buttons":4,"words":592,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/drawings/import","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/drawings/import","blocked":false,"buttons":3,"words":463,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/expenses","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/expenses","blocked":false,"buttons":10,"words":785,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/messages","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/messages","blocked":false,"buttons":7,"words":465,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/plant","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/plant","blocked":false,"buttons":4,"words":519,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/schedule","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/schedule","blocked":false,"buttons":23,"words":673,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/hs","blocked":false,"buttons":18,"words":582,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/briefings/rs1","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/hs/briefings/rs1","blocked":false,"buttons":7,"words":500,"problems":["junk on screen: Completed Invalid Date by Andy Admin"],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh","blocked":false,"buttons":9,"words":567,"problems":["error: console: Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause chi"],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh/pick","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh/pick","blocked":false,"buttons":7,"words":552,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/havs","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/hs/havs","blocked":false,"buttons":11,"words":665,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/incidents","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/hs/incidents","blocked":false,"buttons":6,"words":467,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/incidents/i1","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/hs/incidents/i1","blocked":false,"buttons":6,"words":414,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/loler/fill/rs2","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/hs/loler/view/rs2","blocked":false,"buttons":3,"words":399,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/mytools","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/hs/mytools","blocked":false,"buttons":4,"words":484,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/hs/rams","blocked":false,"buttons":5,"words":406,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams/boxes/rd1","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/hs/rams/boxes/rd1","blocked":false,"buttons":18,"words":996,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/tbt","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/hs/tbt","blocked":false,"buttons":8,"words":608,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/materials","blocked":false,"buttons":8,"words":400,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials/pos","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/materials/pos","blocked":false,"buttons":7,"words":476,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials/requests","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/materials/requests","blocked":false,"buttons":19,"words":1003,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/mc","blocked":false,"buttons":20,"words":646,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/inductions","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/mc/inductions","blocked":false,"buttons":6,"words":503,"problems":["error: console: Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause chi"],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/layout","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/mc/layout","blocked":false,"buttons":6,"words":530,"problems":["error: console: Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause chi"],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/permits/pm1","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/mc/permits/pm1","blocked":false,"buttons":3,"words":460,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1","blocked":false,"buttons":11,"words":559,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/docs","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/docs","blocked":false,"buttons":4,"words":407,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/operatives","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/operatives","blocked":false,"buttons":8,"words":789,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/tbt","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/tbt","blocked":false,"buttons":5,"words":453,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/e1","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/price/e1","blocked":false,"buttons":11,"words":985,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","blocked":false,"buttons":16,"words":770,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/repairs/job/rj1","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/repairs/job/rj1","blocked":false,"buttons":19,"words":859,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/snagging","blocked":false,"buttons":5,"words":415,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/variations","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/snagging/variations","blocked":false,"buttons":10,"words":545,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/reports/fill/rs2","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/snagging/reports/fill/rs2","blocked":false,"buttons":5,"words":515,"problems":[],"did":[]}

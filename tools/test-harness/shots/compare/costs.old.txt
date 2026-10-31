@@ -1,0 +1,87 @@
+RTB Roofing Ltd
+OPHUB
+🔍
+Search
+Ctrl K
+Home
+Projects
+Deliveries
+Calendar
+Hub
+4
+Dashboard
+OpHUB Finance
+Admin
+THIS PROJECT
+Studley Rd
+Project Home
+Schedule of Works
+Health & Safety
+Check In
+Inbox
+Finance
+Project Settings
+Andy Admin
+Company Admin
+Sign out
+Project costs
+J101 · Studley Rd
+🏠
+Finance
+›
+Projects
+›
+J101 Studley Rd
+›
+All Costs
+←
+Back
+Overview
+J101 Studley Rd
++ New
+Application
+Sales invoice
+Variation
+Purchase order
+Purchase invoice
+Subcontractor PO
+Plant hire
+Cost
+ALL COSTS
+£14,549
+5 lines
+MATERIALS
+£11,650
+2 lines
+LABOUR
+£0
+0 lines
+PLANT
+£2,579
+2 lines
+SUBCONTRACT
+£0
+0 lines
+PRELIMS & SITE COSTS
+£320
+1 line
+OTHER
+£0
+0 lines
+COMMITTED
+£6,000
+1 line
+From
+To
+Excel
+PDF
++ Add cost
+DATE ▼	TYPE	DESCRIPTION	SUPPLIER / PERSON	REF	STATUS	NET £
+12 Oct 2026	Materials	Purchase invoice	SIG Roofing	SIG-88231 · J101-PO-001	To approve	£1,800.00
+5 Oct 2026	Plant	Scaffold hire				£1,250.00
+3 Oct 2026	Prelims & site costs	Skip				£320.00
+2 Oct 2026	Materials	Slates				£9,850.00
+30 Sept 2026	Plant	Cherry picker (on hire 4.4 wk)			On hire	£1,328.57
+5 lines · £1,800.00 waiting approval	£14,548.57
+
+Excl. VAT. “All costs” is what’s been spent or invoiced; purchase invoices still waiting for approval are included and marked. Committed = ordered on a PO but not invoiced yet. Labour from sign-in is priced at each person’s day rate.

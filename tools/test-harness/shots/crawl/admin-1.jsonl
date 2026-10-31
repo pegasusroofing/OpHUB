@@ -1,0 +1,181 @@
+{"route":"/fin/purchases","role":"admin","load":true,"land":"/fin/purchases","blocked":false,"buttons":35,"words":912,"problems":[],"did":[]}
+{"route":"/fin/purchases","role":"admin","note":"35 buttons, 30 distinct pressed","problems":[],"did":[]}
+{"route":"/fin/purchases","role":"admin","label":"Finance","trail":[],"did":["nav /fin","changed","said: £174,500 / Live Contract Value · 2 Jobs / £29,000"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Overview","trail":[],"did":["nav /fin","changed","said: £174,500 / Live Contract Value · 2 Jobs / £29,000"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Projects","trail":[],"did":["nav /fin/jobs","changed","said: Clients / Live (2) / Upcoming (1)"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Sales","trail":[],"did":["nav /fin/sales","changed","said: £9,800 / Applied Value · this month / £15,000"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Purchases","trail":[],"did":["changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Subcontractors & Labour","trail":[],"did":["nav /fin/subs","changed","said: Operative Invoices To Pay / 6 Nov 2026 / Next Pay Day"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Reports","trail":[],"did":["nav /fin/reports","changed","said: Pick a report, set the project and dates, then download it as Excel or PDF. / Commercial / QS · 8 reports / ▼"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Directory","trail":[],"did":["nav /fin/directory","changed","said: Clients / Labour (CIS) / Cost codes"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Settings","trail":[],"did":["nav /fin/settings","changed","said: Finance settings / Cost Codes / Team","fn xero"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"⋯\n2\nUnallocated Invoices · all time","trail":[],"did":["nav /fin/purchases?tab=invoices&f=job","changed","said: Unallocated / With a PM / To approve"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Change dates: Unallocated Invoices · all time","trail":[],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Change dates: Unallocated Invoices · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Close","trail":["Change dates: Unallocated Invoices · all time"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/purchases","role":"admin","label":"Change dates: Unallocated Invoices · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"This month","trail":["Change dates: Unallocated Invoices · all time"],"did":["changed","said: Unallocated Invoices · this month"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Change dates: Unallocated Invoices · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / ✓ This month"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Last month","trail":["Change dates: Unallocated Invoices · all time"],"did":["changed","said: 0 / Unallocated Invoices · last month"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Change dates: Unallocated Invoices · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"This quarter","trail":["Change dates: Unallocated Invoices · all time"],"did":["changed","said: 2 / Unallocated Invoices · this quarter"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Change dates: Unallocated Invoices · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"This year","trail":["Change dates: Unallocated Invoices · all time"],"did":["changed","said: Unallocated Invoices · this year"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Change dates: Unallocated Invoices · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Change dates: Unallocated Invoices · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Pick dates…","trail":["Change dates: Unallocated Invoices · all time"],"did":["changed","said: From date / October 2026 / Mo"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Close","trail":["Change dates: Unallocated Invoices · all time","Pick dates…"],"did":["changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"⋯\n£0\nTo Pay Suppliers (Incl. VAT) · all time","trail":[],"did":["nav /fin/purchases?tab=invoices&f=unpaid","changed","said: Unallocated / With a PM / To approve"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Change dates: To Pay Suppliers (Incl. VAT) · all time","trail":[],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Change dates: To Pay Suppliers (Incl. VAT) · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"⋯\n2\nUnallocated Invoices · this year","trail":["Change dates: To Pay Suppliers (Incl. VAT) · all time"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/purchases","role":"admin","label":"Change dates: To Pay Suppliers (Incl. VAT) · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Change dates: Unallocated Invoices · this year","trail":["Change dates: To Pay Suppliers (Incl. VAT) · all time"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/purchases","role":"admin","label":"Change dates: To Pay Suppliers (Incl. VAT) · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Close","trail":["Change dates: To Pay Suppliers (Incl. VAT) · all time"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/purchases","role":"admin","label":"Change dates: To Pay Suppliers (Incl. VAT) · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"This month","trail":["Change dates: To Pay Suppliers (Incl. VAT) · all time"],"did":["changed","said: To Pay Suppliers (Incl. VAT) · this month"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Change dates: To Pay Suppliers (Incl. VAT) · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / ✓ This month"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Last month","trail":["Change dates: To Pay Suppliers (Incl. VAT) · all time"],"did":["changed","said: To Pay Suppliers (Incl. VAT) · last month"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Change dates: To Pay Suppliers (Incl. VAT) · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"This quarter","trail":["Change dates: To Pay Suppliers (Incl. VAT) · all time"],"did":["changed","said: To Pay Suppliers (Incl. VAT) · this quarter"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Change dates: To Pay Suppliers (Incl. VAT) · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"This year","trail":["Change dates: To Pay Suppliers (Incl. VAT) · all time"],"did":["changed","said: To Pay Suppliers (Incl. VAT) · this year"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Change dates: To Pay Suppliers (Incl. VAT) · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Change dates: To Pay Suppliers (Incl. VAT) · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Pick dates…","trail":["Change dates: To Pay Suppliers (Incl. VAT) · all time"],"did":["changed","said: From date / October 2026 / Mo"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Close","trail":["Change dates: To Pay Suppliers (Incl. VAT) · all time","Pick dates…"],"did":["changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"⋯\n1\nTo Approve · all time","trail":[],"did":["nav /fin/purchases?tab=invoices&f=approve","changed","said: Unallocated / With a PM / To approve"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Change dates: To Approve · all time","trail":[],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Change dates: To Approve · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"⋯\n2\nUnallocated Invoices · this year","trail":["Change dates: To Approve · all time"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/purchases","role":"admin","label":"Change dates: To Approve · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Change dates: Unallocated Invoices · this year","trail":["Change dates: To Approve · all time"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/purchases","role":"admin","label":"Change dates: To Approve · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"⋯\n£0\nTo Pay Suppliers (Incl. VAT) · this year","trail":["Change dates: To Approve · all time"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/purchases","role":"admin","label":"Change dates: To Approve · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Change dates: To Pay Suppliers (Incl. VAT) · this year","trail":["Change dates: To Approve · all time"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/purchases","role":"admin","label":"Change dates: To Approve · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Close","trail":["Change dates: To Approve · all time"],"did":["changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Change dates: To Approve · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"This month","trail":["Change dates: To Approve · all time"],"did":["changed","said: To Approve · this month"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Change dates: To Approve · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / ✓ This month"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Last month","trail":["Change dates: To Approve · all time"],"did":["changed","said: 0 / To Approve · last month"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Change dates: To Approve · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"This quarter","trail":["Change dates: To Approve · all time"],"did":["changed","said: To Approve · this quarter"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Change dates: To Approve · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"This year","trail":["Change dates: To Approve · all time"],"did":["changed","said: To Approve · this year"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Change dates: To Approve · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Change dates: To Approve · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Pick dates…","trail":["Change dates: To Approve · all time"],"did":["changed","said: From date / October 2026 / Mo"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Close","trail":["Change dates: To Approve · all time","Pick dates…"],"did":["changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"⋯\n£0\nOrdered, Not Invoiced · all time","trail":[],"did":["nav /fin/purchases?tab=orders&f=open","changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Change dates: Ordered, Not Invoiced · all time","trail":[],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Change dates: Ordered, Not Invoiced · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"⋯\n2\nUnallocated Invoices · this year","trail":["Change dates: Ordered, Not Invoiced · all time"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/purchases","role":"admin","label":"Change dates: Ordered, Not Invoiced · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Change dates: Unallocated Invoices · this year","trail":["Change dates: Ordered, Not Invoiced · all time"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/purchases","role":"admin","label":"Change dates: Ordered, Not Invoiced · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"⋯\n£0\nTo Pay Suppliers (Incl. VAT) · this year","trail":["Change dates: Ordered, Not Invoiced · all time"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/purchases","role":"admin","label":"Change dates: Ordered, Not Invoiced · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Change dates: To Pay Suppliers (Incl. VAT) · this year","trail":["Change dates: Ordered, Not Invoiced · all time"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/purchases","role":"admin","label":"Change dates: Ordered, Not Invoiced · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"⋯\n1\nTo Approve · this year","trail":["Change dates: Ordered, Not Invoiced · all time"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/purchases","role":"admin","label":"Change dates: Ordered, Not Invoiced · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Change dates: To Approve · this year","trail":["Change dates: Ordered, Not Invoiced · all time"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/purchases","role":"admin","label":"Change dates: Ordered, Not Invoiced · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Close","trail":["Change dates: Ordered, Not Invoiced · all time"],"did":["changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Change dates: Ordered, Not Invoiced · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"This month","trail":["Change dates: Ordered, Not Invoiced · all time"],"did":["changed","said: Ordered, Not Invoiced · this month"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Change dates: Ordered, Not Invoiced · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / ✓ This month"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Last month","trail":["Change dates: Ordered, Not Invoiced · all time"],"did":["changed","said: Ordered, Not Invoiced · last month"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Change dates: Ordered, Not Invoiced · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"This quarter","trail":["Change dates: Ordered, Not Invoiced · all time"],"did":["changed","said: Ordered, Not Invoiced · this quarter"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Change dates: Ordered, Not Invoiced · all time","trail":["(reopen)"],"did":["changed","said: Change dates / ✕ / This month"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"This year","trail":["Change dates: Ordered, Not Invoiced · all time"],"did":["changed","said: Ordered, Not Invoiced · this year"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Purchase orders","trail":[],"did":["nav /fin/purchases?tab=orders","changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Purchase invoices","trail":[],"did":["nav /fin/purchases?tab=invoices","changed","said: Unallocated / With a PM / To approve"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Statements","trail":[],"did":["nav /fin/statements","changed","said: ⬆ UPLOAD A STATEMENT / SIG / 26 Oct 2026 · 0 lines · 0 matched · To check"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Plant hire","trail":[],"did":["nav /fin/purchases?tab=plant","changed","said: + PLANT HIRE / Cherry picker / J101 · Studley Rd · on 1 Oct 2026 · on hire 4.4 wk — over 4 weeks"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Suppliers","trail":[],"did":["nav /fin/purchases?tab=suppliers","changed","said: EDIT SUPPLIERS (DIRECTORY) / orders@sig.example · 1 invoice · spent £0 net / —"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Price book","trail":[],"did":["nav /fin/purchases?tab=pricebook","changed","said: + ADD A PRICE / No prices yet — they're added as quotes and invoices are read."],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Price lists","trail":[],"did":["nav /fin/purchases?tab=pricelists","changed","said: PRICE LISTS (EVERY PROJECT) / Your main suppliers’ yearly price lists. Their items show under every project’s Purchase Quotes. / 📥 Upload quotes (Excel / CSV)"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Yard stock","trail":[],"did":["nav /fin/yard","changed","said: Stock value (items with a rate) / 0 / Low stock"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Open\n1","trail":[],"did":["changed"],"problems":[]}
+{"route":"/fin/purchases","role":"admin","label":"Invoiced","trail":[],"did":["changed","said: No purchase orders here."],"problems":[]}
+{"route":"/fin/purchases","role":"admin","note":"ran out of time on this screen","problems":[],"did":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","load":true,"land":"/fin/job/11111111-1111-1111-1111-111111111111/boq","blocked":false,"buttons":22,"words":1013,"problems":[],"did":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","note":"22 buttons, 18 distinct pressed","problems":[],"did":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"Finance","trail":[],"did":["nav /fin","changed","said: Overview / Overview / Sales"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"Projects","trail":[],"did":["nav /fin/jobs","changed","said: Overview / Sales / Purchases"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"Copy in tasks from the site schedule","trail":[],"did":["changed","said: Tick all 4 lines / £0.00 / Cost"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"Send to the operatives' schedule","trail":[],"did":["changed","filled 4","wrote POST schedule_sections,POST schedule_tasks"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"📥 Import a breakdown (Excel, CSV or PDF)","trail":[],"did":["changed","file picker"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"Margin or mark-up","trail":[],"did":["changed","said: Margin or mark-up / ✕ / ✓ % margin"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"Margin or mark-up","trail":["(reopen)"],"did":["changed","said: Margin or mark-up / ✕ / ✓ % margin"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"Close","trail":["Margin or mark-up"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"Margin or mark-up","trail":["(reopen)"],"did":["changed","said: Margin or mark-up / ✕ / ✓ % margin"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"✓ % margin","trail":["Margin or mark-up"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"Margin or mark-up","trail":["(reopen)"],"did":["changed","said: Margin or mark-up / ✕ / ✓ % margin"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"% mark-up","trail":["Margin or mark-up"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"Apply to ticked","trail":[],"did":[],"problems":["could not press"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"Apply to all lines","trail":[],"did":["changed","filled 4","said: Total £48,000.00 · budget cost £43,200.00 · Margin 10% (£4,800.00) · mark-up 11.1% / Margin 10% (£3,600.00) · mark-up 11.1% (set at 10% margin) / Margin 10% (£1,200.00) · mark-up 11.1% (set at 10% margin)"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"Tick all 2 lines","trail":[],"did":["changed","said: Apply to 2 ticked / 2 ticked / Set unit"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"Tick all 2 lines","trail":["(reopen)"],"did":["changed","said: Apply to 2 ticked / 2 ticked / Set unit"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"Apply to 2 ticked","trail":["Tick all 2 lines"],"did":["changed","filled 4","said: Total £48,000.00 · budget cost £43,200.00 · Margin 10% (£4,800.00) · mark-up 11.1% / Margin 10% (£3,600.00) · mark-up 11.1% (set at 10% margin) / Margin 10% (£1,200.00) · mark-up 11.1% (set at 10% margin)"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"Remove","trail":["Tick all 2 lines","Apply to 2 ticked"],"did":["changed","said: ✕ / Remove 2 ticked lines? / No"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"Tick all 2 lines","trail":["(reopen)"],"did":["changed","said: Apply to 2 ticked / 2 ticked / Set unit"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"Set unit","trail":["Tick all 2 lines"],"did":["changed","said: Unit for the ticked lines (e.g. m², nr, item) / ✕ / OK"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"Remove","trail":["Tick all 2 lines","Set unit"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"Tick all 2 lines","trail":["(reopen)"],"did":["changed","said: Apply to 2 ticked / 2 ticked / Set unit"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"Clear costs","trail":["Tick all 2 lines"],"did":["changed","said: Total £48,000.00"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"Remove","trail":["Tick all 2 lines","Clear costs"],"did":["changed","said: ✕ / Remove 2 ticked lines? / No"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"Tick all 2 lines","trail":["(reopen)"],"did":["changed","said: Apply to 2 ticked / 2 ticked / Set unit"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"Remove","trail":["Tick all 2 lines"],"did":["changed","said: ✕ / Remove 2 ticked lines? / No"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"Close","trail":["Tick all 2 lines","Remove"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"Tick all 2 lines","trail":["(reopen)"],"did":["changed","said: Apply to 2 ticked / 2 ticked / Set unit"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"Untick all","trail":["Tick all 2 lines"],"did":["changed","said: Apply to ticked / Tick all 2 lines / Tick lines (or a heading) to change them together."],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"Tick","trail":[],"did":["changed","said: Apply to 2 ticked / 2 ticked / Set unit"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"Tick","trail":["(reopen)"],"did":["changed","said: Apply to 2 ticked / 2 ticked / Set unit"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"Apply to 2 ticked","trail":["Tick"],"did":["changed","filled 4","said: Total £48,000.00 · budget cost £43,200.00 · Margin 10% (£4,800.00) · mark-up 11.1% / Margin 10% (£3,600.00) · mark-up 11.1% (set at 10% margin) / Margin 10% (£1,200.00) · mark-up 11.1% (set at 10% margin)"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"Remove","trail":["Tick","Apply to 2 ticked"],"did":["changed","said: ✕ / Remove 2 ticked lines? / No"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"Tick","trail":["(reopen)"],"did":["changed","said: Apply to 2 ticked / 2 ticked / Set unit"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"Set unit","trail":["Tick"],"did":["changed","said: Unit for the ticked lines (e.g. m², nr, item) / ✕ / OK"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"Remove","trail":["Tick","Set unit"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"Tick","trail":["(reopen)"],"did":["changed","said: Apply to 2 ticked / 2 ticked / Set unit"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"Clear costs","trail":["Tick"],"did":["changed","said: Total £48,000.00"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"Remove","trail":["Tick","Clear costs"],"did":["changed","said: ✕ / Remove 2 ticked lines? / No"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"Tick","trail":["(reopen)"],"did":["changed","said: Apply to 2 ticked / 2 ticked / Set unit"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"Remove","trail":["Tick"],"did":["changed","said: ✕ / Remove 2 ticked lines? / No"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"Close","trail":["Tick","Remove"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"Tick","trail":["(reopen)"],"did":["changed","said: Apply to 2 ticked / 2 ticked / Set unit"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"Untick all","trail":["Tick"],"did":["changed","said: Apply to ticked / Tick all 2 lines / Tick lines (or a heading) to change them together."],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"⋯","trail":[],"did":["changed","said: Line / ✕ / + Item under this heading"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"⋯","trail":["(reopen)"],"did":["changed","said: Line / ✕ / + Item under this heading"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"Close","trail":["⋯"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"⋯","trail":["(reopen)"],"did":["changed","said: Line / ✕ / + Item under this heading"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"+ Item under this heading","trail":["⋯"],"did":["changed","said: Tick all 3 lines / £0.00 / Cost"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"⋯","trail":["(reopen)"],"did":["changed","said: Line / ✕ / + Item under this heading"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"+ Sub-section in this section","trail":["⋯"],"did":["changed","said: £0.00"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"⋯","trail":["(reopen)"],"did":["changed","said: Line / ✕ / + Item under this heading"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"+ Section after this","trail":["⋯"],"did":["changed","said: £0.00"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"⋯","trail":["(reopen)"],"did":["changed","said: Line / ✕ / + Item under this heading"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"↑ Move up","trail":["⋯"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"⋯","trail":["(reopen)"],"did":["changed","said: Line / ✕ / + Item under this heading"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"↓ Move down","trail":["⋯"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"⋯","trail":["(reopen)"],"did":["changed","said: Line / ✕ / + Item under this heading"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"Change type","trail":["⋯"],"did":["changed","said: Type / Item / Section heading"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"Close","trail":["⋯","Change type"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"⋯","trail":["(reopen)"],"did":["changed","said: Line / ✕ / + Item under this heading"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"🗑 Remove","trail":["⋯"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"+ Item","trail":[],"did":["changed","said: Tick all 3 lines / £0.00 / Cost"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"+ Section","trail":[],"did":["changed","said: £0.00"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"+ Sub-section","trail":[],"did":["changed","said: £0.00"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"Save Bill of Quantities","trail":[],"did":["changed","filled 4","wrote PATCH fin_contract_items,POST job_finance"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"+ New application from this BoQ","trail":[],"did":["nav /fin/job/11111111-1111-1111-1111-111111111111/application/new-fin_applications-1793414068064-3","changed","said: Application 3 / Draft / Stage","wrote POST fin_applications"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"📊 Excel","trail":[],"did":["changed","download"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"📄 PDF","trail":[],"did":["changed","said: Studley Rd - Bill of Quantities — J101 · Studley Rd - 31-10-26.pdf / ☁️ Save to OneDrive / ✕","download"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"📄 PDF","trail":["(reopen)"],"did":["changed","said: Studley Rd - Bill of Quantities — J101 · Studley Rd - 31-10-26.pdf / ☁️ Save to OneDrive / ✕","download"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"☁️ Save to OneDrive","trail":["📄 PDF"],"did":["changed","said: Saving to OneDrive…","fn onedrive-upload"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"📄 PDF","trail":["(reopen)"],"did":["changed","said: Studley Rd - Bill of Quantities — J101 · Studley Rd - 31-10-26.pdf / ☁️ Save to OneDrive / ✕","download"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/boq","role":"admin","label":"✕","trail":["📄 PDF"],"did":["changed"],"problems":[]}

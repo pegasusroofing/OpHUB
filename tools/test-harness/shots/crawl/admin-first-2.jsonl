@@ -1,0 +1,760 @@
+{"route":"/dashboard","role":"admin","load":true,"land":"/dashboard","blocked":false,"buttons":4,"words":580,"problems":[],"did":[]}
+{"route":"/dashboard","role":"admin","label":"Outstanding Items\nRAMS, COSHH and Toolbox Talks awaiting your signature\n›","trail":[],"did":["nav /inbox?tab=todo","changed","said: Messages & tasks / Messages & tasks / To sign / do (4)"],"problems":[]}
+{"route":"/dashboard","role":"admin","label":"4\nMissing Types","trail":[],"did":["changed","said: Missing: Working at Height, Asbestos Awareness, Manual Handling, CSCS Card"],"problems":[]}
+{"route":"/dashboard","role":"admin","label":"Certifications (0)\n▼","trail":[],"did":["changed","said: ▲ / Add a certificate / +"],"problems":[]}
+{"route":"/dashboard","role":"admin","label":"Certifications (0)\n▼","trail":["(reopen)"],"did":["changed","said: ▲ / Add a certificate / +"],"problems":[]}
+{"route":"/dashboard","role":"admin","label":"Certifications (0)\n▲","trail":["Certifications (0)\n▼"],"did":["changed","said: ▼"],"problems":[]}
+{"route":"/dashboard","role":"admin","label":"Certifications (0)\n▼","trail":["(reopen)"],"did":["changed","said: ▲ / Add a certificate / +"],"problems":[]}
+{"route":"/dashboard","role":"admin","label":"Add a certificate\n+","trail":["Certifications (0)\n▼"],"did":["changed","said: − / Type / Asbestos Awareness"],"problems":[]}
+{"route":"/dashboard","role":"admin","label":"+ ADD TOOL","trail":[],"did":["changed","said: ADD A TOOL / Tool name / Serial / item number"],"problems":[]}
+{"route":"/dashboard","role":"admin","label":"+ ADD TOOL","trail":["(reopen)"],"did":["changed","said: ADD A TOOL / Tool name / Serial / item number"],"problems":[]}
+{"route":"/dashboard","role":"admin","label":"TAKE PHOTO","trail":["+ ADD TOOL"],"did":["changed","said: Add a photo / ✕ / 📷 Take a photo"],"problems":[]}
+{"route":"/dashboard","role":"admin","label":"SAVE TOOL","trail":["+ ADD TOOL","TAKE PHOTO"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/dashboard","role":"admin","label":"+ ADD TOOL","trail":["(reopen)"],"did":["changed","said: ADD A TOOL / Tool name / Serial / item number"],"problems":[]}
+{"route":"/dashboard","role":"admin","label":"SAVE TOOL","trail":["+ ADD TOOL"],"did":["changed","filled 2","said: 🔧 / Test / Serial: Test","wrote POST operative_tools"],"problems":[]}
+{"route":"/dashboard","role":"admin","label":"+ ADD TOOL","trail":["(reopen)"],"did":["changed","said: ADD A TOOL / Tool name / Serial / item number"],"problems":[]}
+{"route":"/dashboard","role":"admin","label":"CANCEL","trail":["+ ADD TOOL"],"did":["changed","said: + ADD TOOL"],"problems":[]}
+{"route":"/subform","role":"admin","load":true,"land":"/subform","blocked":false,"buttons":57,"words":2423,"problems":[],"did":[]}
+{"route":"/subform","role":"admin","note":"57 buttons, 30 distinct pressed","problems":[],"did":[]}
+{"route":"/subform","role":"admin","label":"○\nLimited company","trail":[],"did":["changed","said: ◉"],"problems":[]}
+{"route":"/subform","role":"admin","label":"○\nLimited company","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"◉\nLimited company","trail":["○\nLimited company"],"did":[],"problems":["nothing happened"]}
+{"route":"/subform","role":"admin","label":"○\nSole trader","trail":[],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"○\nSole trader","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"◉\nSole trader","trail":["○\nSole trader"],"did":[],"problems":["nothing happened"]}
+{"route":"/subform","role":"admin","label":"○\nPartnership","trail":[],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"○\nPartnership","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"◉\nPartnership","trail":["○\nPartnership"],"did":[],"problems":["nothing happened"]}
+{"route":"/subform","role":"admin","label":"○\nLLP","trail":[],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"○\nLLP","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"◉\nLLP","trail":["○\nLLP"],"did":[],"problems":["nothing happened"]}
+{"route":"/subform","role":"admin","label":"○\nGross payment","trail":[],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"○\nGross payment","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"◉\nLLP","trail":["○\nGross payment"],"did":[],"problems":["nothing happened"]}
+{"route":"/subform","role":"admin","label":"○\nGross payment","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"◉\nGross payment","trail":["○\nGross payment"],"did":[],"problems":["nothing happened"]}
+{"route":"/subform","role":"admin","label":"○\n20% deduction","trail":[],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"○\n20% deduction","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"◉\nLLP","trail":["○\n20% deduction"],"did":[],"problems":["nothing happened"]}
+{"route":"/subform","role":"admin","label":"○\n20% deduction","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"◉\n20% deduction","trail":["○\n20% deduction"],"did":[],"problems":["nothing happened"]}
+{"route":"/subform","role":"admin","label":"○\n30% deduction (not registered)","trail":[],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"○\n30% deduction (not registered)","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"◉\nLLP","trail":["○\n30% deduction (not registered)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"○\n30% deduction (not registered)","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"◉\n30% deduction (not registered)","trail":["○\n30% deduction (not registered)"],"did":[],"problems":["nothing happened"]}
+{"route":"/subform","role":"admin","label":"☐\nFlat roofing — felt","trail":[],"did":["changed","said: ☑"],"problems":[]}
+{"route":"/subform","role":"admin","label":"☐\nFlat roofing — felt","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"☐\nSingle ply / EPDM","trail":[],"did":["changed","said: ☑"],"problems":[]}
+{"route":"/subform","role":"admin","label":"☐\nSingle ply / EPDM","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"☐\nLiquid roofing","trail":[],"did":["changed","said: ☑"],"problems":[]}
+{"route":"/subform","role":"admin","label":"☐\nLiquid roofing","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"☐\nPitched roofing — tiling / slating","trail":[],"did":["changed","said: ☑"],"problems":[]}
+{"route":"/subform","role":"admin","label":"☐\nPitched roofing — tiling / slating","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"☐\nLeadwork","trail":[],"did":["changed","said: ☑"],"problems":[]}
+{"route":"/subform","role":"admin","label":"☐\nLeadwork","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"☐\nRoof carpentry","trail":[],"did":["changed","said: ☑"],"problems":[]}
+{"route":"/subform","role":"admin","label":"☐\nRoof carpentry","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"☐\nCladding","trail":[],"did":["changed","said: ☑"],"problems":[]}
+{"route":"/subform","role":"admin","label":"☐\nCladding","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"☐\nFascias, soffits & gutters","trail":[],"did":["changed","said: ☑"],"problems":[]}
+{"route":"/subform","role":"admin","label":"☐\nFascias, soffits & gutters","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"☐\nGreen roofs","trail":[],"did":["changed","said: ☑"],"problems":[]}
+{"route":"/subform","role":"admin","label":"☐\nGreen roofs","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"☐\nScaffolding","trail":[],"did":["changed","said: ☑"],"problems":[]}
+{"route":"/subform","role":"admin","label":"☐\nScaffolding","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"☐\nLabour only","trail":[],"did":["changed","said: ☑"],"problems":[]}
+{"route":"/subform","role":"admin","label":"☐\nLabour only","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"☐\nOther","trail":[],"did":["changed","said: ☑"],"problems":[]}
+{"route":"/subform","role":"admin","label":"☐\nOther","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"○\nYes","trail":[],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"○\nYes","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"◉\nYes","trail":["○\nYes"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"○\nNo","trail":[],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"○\nNo","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"◉\nNo","trail":["○\nNo"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"○\n£1 million","trail":[],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"○\n£1 million","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"◉\nNo","trail":["○\n£1 million"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"○\n£1 million","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"◉\n£1 million","trail":["○\n£1 million"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"○\nOther","trail":[],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"○\nOther","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"◉\nNo","trail":["○\nOther"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"○\nOther","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"◉\nOther","trail":["○\nOther"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"Date","trail":[],"did":["changed","said: Date / ✕ / October 2026"],"problems":[]}
+{"route":"/subform","role":"admin","label":"Date","trail":["(reopen)"],"did":["changed","said: Date / ✕ / October 2026"],"problems":[]}
+{"route":"/subform","role":"admin","label":"◉\nOther","trail":["Date"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/subform","role":"admin","label":"Date","trail":["(reopen)"],"did":["changed","said: Date / ✕ / October 2026"],"problems":[]}
+{"route":"/subform","role":"admin","label":"Close","trail":["Date"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"Date","trail":["(reopen)"],"did":["changed","said: Date / ✕ / October 2026"],"problems":[]}
+{"route":"/subform","role":"admin","label":"Previous month","trail":["Date"],"did":["changed","said: September 2026"],"problems":[]}
+{"route":"/subform","role":"admin","label":"Close","trail":["Date","Previous month"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"Date","trail":["(reopen)"],"did":["changed","said: Date / ✕ / October 2026"],"problems":[]}
+{"route":"/subform","role":"admin","label":"Next month","trail":["Date"],"did":["changed","said: November 2026"],"problems":[]}
+{"route":"/subform","role":"admin","label":"Close","trail":["Date","Next month"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"Date","trail":["(reopen)"],"did":["changed","said: Date / ✕ / October 2026"],"problems":[]}
+{"route":"/subform","role":"admin","label":"1 Oct 2026","trail":["Date"],"did":["changed","said: 1 Oct 2026"],"problems":[]}
+{"route":"/subform","role":"admin","label":"○\nNot applicable (no employees)","trail":[],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"○\nNot applicable (no employees)","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"◉\nOther","trail":["○\nNot applicable (no employees)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"○\nNot applicable (no employees)","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"◉\nNot applicable (no employees)","trail":["○\nNot applicable (no employees)"],"did":["changed","said: ☑"],"problems":[]}
+{"route":"/subform","role":"admin","label":"⬆ ADD FILE","trail":[],"did":["changed","file picker"],"problems":[]}
+{"route":"/subform","role":"admin","label":"⬆ ADD FILE","trail":["(reopen)"],"did":["changed","file picker"],"problems":[]}
+{"route":"/subform","role":"admin","label":"◉\nOther","trail":["⬆ ADD FILE"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"⬆ ADD FILE","trail":["(reopen)"],"did":["changed","file picker"],"problems":[]}
+{"route":"/subform","role":"admin","label":"◉\nNot applicable (no employees)","trail":["⬆ ADD FILE"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"☐\nCHAS","trail":[],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"☐\nCHAS","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"◉\nNot applicable (no employees)","trail":["☐\nCHAS"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"☐\nCHAS","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","label":"☑\nCHAS","trail":["☐\nCHAS"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"admin","note":"ran out of time on this screen","problems":[],"did":[]}
+{"route":"/fin","role":"admin","load":true,"land":"/fin","blocked":false,"buttons":18,"words":841,"problems":[],"did":[]}
+{"route":"/fin","role":"admin","label":"Overview","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin","role":"admin","label":"Projects","trail":[],"did":["nav /fin/jobs","changed","said: Finance / Clients / Live (2)"],"problems":[]}
+{"route":"/fin","role":"admin","label":"Sales","trail":[],"did":["nav /fin/sales","changed","said: Finance / £9,800 / Applied Value · this month"],"problems":[]}
+{"route":"/fin","role":"admin","label":"Purchases","trail":[],"did":["nav /fin/purchases","changed","said: Finance / Unallocated Invoices · all time / £0"],"problems":[]}
+{"route":"/fin","role":"admin","label":"Subcontractors & Labour","trail":[],"did":["nav /fin/subs","changed","said: Finance / £0 / Operative Invoices To Pay"],"problems":[]}
+{"route":"/fin","role":"admin","label":"Reports","trail":[],"did":["nav /fin/reports","changed","said: Finance / Pick a report, set the project and dates, then download it as Excel or PDF. / Commercial / QS · 8 reports"],"problems":[]}
+{"route":"/fin","role":"admin","label":"Directory","trail":[],"did":["nav /fin/directory","changed","said: Finance / Clients / Suppliers"],"problems":[]}
+{"route":"/fin","role":"admin","label":"Settings","trail":[],"did":["nav /fin/settings","changed","said: Finance settings / Finance / Cost Codes","fn xero"],"problems":[]}
+{"route":"/fin","role":"admin","label":"£174,500\nLive Contract Value · 2 Jobs","trail":[],"did":["nav /fin/jobs","changed","said: Finance / Clients / Live (2)"],"problems":[]}
+{"route":"/fin","role":"admin","label":"£29,000\nOwed To You","trail":[],"did":["nav /fin/sales?tab=invoices","changed","said: Finance / £9,800 / Applied Value · this month"],"problems":[]}
+{"route":"/fin","role":"admin","label":"£14,000\nOverdue","trail":[],"did":["nav /fin/sales?tab=invoices&f=overdue","changed","said: Finance / £9,800 / Applied Value · this month"],"problems":[]}
+{"route":"/fin","role":"admin","label":"£1,050\nRetention Held By Clients","trail":[],"did":["nav /fin/sales?tab=retention","changed","said: Finance / £9,800 / Applied Value · this month"],"problems":[]}
+{"route":"/fin","role":"admin","label":"2\nOverdue Invoices\n£14,000 to chase\n›","trail":[],"did":["nav /fin/sales?tab=invoices&f=overdue","changed","said: Finance / £9,800 / Applied Value · this month"],"problems":[]}
+{"route":"/fin","role":"admin","label":"1\nPurchase Invoices To Approve\n£1,800 excl. VAT\n›","trail":[],"did":["nav /fin/purchases?tab=invoices&f=approve","changed","said: Finance / Unallocated Invoices · all time / £0"],"problems":[]}
+{"route":"/fin","role":"admin","label":"2\nUnallocated Purchase Invoices\nWe couldn’t tell the job — allocate them or send to a PM\n›","trail":[],"did":["nav /fin/purchases?tab=invoices&f=job","changed","said: Finance / Unallocated Invoices · all time / £0"],"problems":[]}
+{"route":"/fin","role":"admin","label":"1\nRetention To Claim Back\nJ101 · Studley Rd\n›","trail":[],"did":["nav /fin/sales?tab=retention","changed","said: Finance / £9,800 / Applied Value · this month"],"problems":[]}
+{"route":"/fin","role":"admin","label":"1\nPlant On Hire Over 4 Weeks\nCherry picker\n›","trail":[],"did":["nav /fin/purchases?tab=plant","changed","said: Finance / Unallocated Invoices · all time / £0"],"problems":[]}
+{"route":"/fin","role":"admin","label":"2\nLive Projects With No Client PO\nJ101 · Studley Rd, J102 · Cleveland Primary School\n›","trail":[],"did":["nav /fin/jobs","changed","said: Finance / Clients / Live (2)"],"problems":[]}
+{"route":"/fin/reports","role":"admin","load":true,"land":"/fin/reports","blocked":false,"buttons":20,"words":1221,"problems":[],"did":[]}
+{"route":"/fin/reports","role":"admin","label":"Finance","trail":[],"did":["nav /fin","changed","said: £174,500 / Live Contract Value · 2 Jobs / £29,000"],"problems":[]}
+{"route":"/fin/reports","role":"admin","label":"Overview","trail":[],"did":["nav /fin","changed","said: £174,500 / Live Contract Value · 2 Jobs / £29,000"],"problems":[]}
+{"route":"/fin/reports","role":"admin","label":"Projects","trail":[],"did":["nav /fin/jobs","changed","said: Clients / Live (2) / Upcoming (1)"],"problems":[]}
+{"route":"/fin/reports","role":"admin","label":"Sales","trail":[],"did":["nav /fin/sales","changed","said: £9,800 / Applied Value · this month / £15,000"],"problems":[]}
+{"route":"/fin/reports","role":"admin","label":"Purchases","trail":[],"did":["nav /fin/purchases","changed","said: 2 / Unallocated Invoices · all time / £0"],"problems":[]}
+{"route":"/fin/reports","role":"admin","label":"Subcontractors & Labour","trail":[],"did":["nav /fin/subs","changed","said: £0 / Operative Invoices To Pay / 30 Oct 2026"],"problems":[]}
+{"route":"/fin/reports","role":"admin","label":"Reports","trail":[],"did":["changed"],"problems":[]}
+{"route":"/fin/reports","role":"admin","label":"Directory","trail":[],"did":["nav /fin/directory","changed","said: Clients / Suppliers / Labour (CIS)"],"problems":[]}
+{"route":"/fin/reports","role":"admin","label":"Settings","trail":[],"did":["nav /fin/settings","changed","said: Finance settings / Cost Codes / Team","fn xero"],"problems":[]}
+{"route":"/fin/reports","role":"admin","label":"Commercial / QS · 8 reports\n▼","trail":[],"did":["changed"],"problems":[]}
+{"route":"/fin/reports","role":"admin","label":"Commercial / QS · 8 reports\n▼","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/fin/reports","role":"admin","label":"Commercial / QS · 8 reports\n▶","trail":["Commercial / QS · 8 reports\n▼"],"did":["changed","said: ▼ / Company overview / Every project: contract, final account, invoiced, owed, costs, forecast margin."],"problems":[]}
+{"route":"/fin/reports","role":"admin","label":"Company overview\nEvery project: contract, final account, invoiced, owed, costs, forecast margin.","trail":[],"did":["nav /fin/reports?id=overview","changed","said: ‹ All reports / 📊 EXCEL / 📄 PDF"],"problems":[]}
+{"route":"/fin/reports","role":"admin","label":"Cost value reconciliation (CVR)\nValue to date against cost to date, and the forecast at completion, project by project.","trail":[],"did":["nav /fin/reports?id=cvr","changed","said: ‹ All reports / 📊 EXCEL / 📄 PDF"],"problems":[]}
+{"route":"/fin/reports","role":"admin","label":"Forecast final account\nContract sum plus variations agreed, submitted and instructed, by project.","trail":[],"did":["nav /fin/reports?id=ffa","changed","said: ‹ All reports / 📊 EXCEL / 📄 PDF"],"problems":[]}
+{"route":"/fin/reports","role":"admin","label":"Budget vs actual\nBudget, spent, committed and forecast by heading, for one project or all.","trail":[],"did":["nav /fin/reports?id=budget","changed","said: ‹ All reports / 📊 EXCEL / 📄 PDF"],"problems":[]}
+{"route":"/fin/reports","role":"admin","label":"Costs by project and type\nMaterials, labour, plant, subcontract, prelims and other costs per project.","trail":[],"did":["nav /fin/reports?id=costs","changed","said: ‹ All reports / 📊 EXCEL / 📄 PDF"],"problems":[]}
+{"route":"/fin/reports","role":"admin","label":"Variations register\nEvery variation on every project with its status and values.","trail":[],"did":["nav /fin/reports?id=variations","changed","said: ‹ All reports / 📊 EXCEL / 📄 PDF"],"problems":[]}
+{"route":"/fin/reports","role":"admin","label":"Applications & Certificates\nApplied, certified, shortfall and invoice for every application.","trail":[],"did":["nav /fin/reports?id=apps","changed","said: ‹ All reports / 📊 EXCEL / 📄 PDF"],"problems":[]}
+{"route":"/fin/reports","role":"admin","label":"Retention ledger\nRetention held by your clients, release dates, and retention you hold on subcontractors.","trail":[],"did":["nav /fin/reports?id=retention","changed","said: ‹ All reports / 📊 EXCEL / 📄 PDF"],"problems":[]}
+{"route":"/fin/reports","role":"admin","label":"Money in & out · 4 reports\n▶","trail":[],"did":["changed","said: Aged debtors / Who owes you money and how overdue it is. / Aged creditors"],"problems":[]}
+{"route":"/fin/reports","role":"admin","label":"Money in & out · 4 reports\n▶","trail":["(reopen)"],"did":["changed","said: Aged debtors / Who owes you money and how overdue it is. / Aged creditors"],"problems":[]}
+{"route":"/fin/reports","role":"admin","label":"Money in & out · 4 reports\n▼","trail":["Money in & out · 4 reports\n▶"],"did":["changed"],"problems":[]}
+{"route":"/fin/reports","role":"admin","label":"Money in & out · 4 reports\n▶","trail":["(reopen)"],"did":["changed","said: Aged debtors / Who owes you money and how overdue it is. / Aged creditors"],"problems":[]}
+{"route":"/fin/reports","role":"admin","label":"Aged debtors\nWho owes you money and how overdue it is.","trail":["Money in & out · 4 reports\n▶"],"did":["nav /fin/reports?id=debtors","changed","said: ‹ All reports / 📊 EXCEL / 📄 PDF"],"problems":[]}
+{"route":"/fin/reports","role":"admin","label":"Money in & out · 4 reports\n▶","trail":["(reopen)"],"did":["changed","said: Aged debtors / Who owes you money and how overdue it is. / Aged creditors"],"problems":[]}
+{"route":"/fin/reports","role":"admin","label":"Aged creditors\nPurchase invoices and subcontractor payments you still have to pay.","trail":["Money in & out · 4 reports\n▶"],"did":["nav /fin/reports?id=creditors","changed","said: ‹ All reports / 📊 EXCEL / 📄 PDF"],"problems":[]}
+{"route":"/fin/reports","role":"admin","label":"Money in & out · 4 reports\n▶","trail":["(reopen)"],"did":["changed","said: Aged debtors / Who owes you money and how overdue it is. / Aged creditors"],"problems":[]}
+{"route":"/fin/reports","role":"admin","label":"Cash flow forecast\nMoney due in and out over the next 12 weeks, week by week.","trail":["Money in & out · 4 reports\n▶"],"did":["nav /fin/reports?id=cashflow","changed","said: ‹ All reports / 📊 EXCEL / 📄 PDF"],"problems":[]}
+{"route":"/fin/reports","role":"admin","label":"Money in & out · 4 reports\n▶","trail":["(reopen)"],"did":["changed","said: Aged debtors / Who owes you money and how overdue it is. / Aged creditors"],"problems":[]}
+{"route":"/fin/reports","role":"admin","label":"Purchase order register\nEvery PO with its value, what’s been invoiced and what’s left.","trail":["Money in & out · 4 reports\n▶"],"did":["nav /fin/reports?id=pos","changed","said: ‹ All reports / 📊 EXCEL / 📄 PDF"],"problems":[]}
+{"route":"/fin/reports","role":"admin","label":"Labour, CIS & VAT · 3 reports\n▶","trail":[],"did":["changed","said: Labour by person / Days and cost per person per project. / CIS payments"],"problems":[]}
+{"route":"/fin/reports","role":"admin","label":"Labour, CIS & VAT · 3 reports\n▶","trail":["(reopen)"],"did":["changed","said: Labour by person / Days and cost per person per project. / CIS payments"],"problems":[]}
+{"route":"/fin/reports","role":"admin","label":"Labour, CIS & VAT · 3 reports\n▼","trail":["Labour, CIS & VAT · 3 reports\n▶"],"did":["changed"],"problems":[]}
+{"route":"/fin/reports","role":"admin","label":"Labour, CIS & VAT · 3 reports\n▶","trail":["(reopen)"],"did":["changed","said: Labour by person / Days and cost per person per project. / CIS payments"],"problems":[]}
+{"route":"/fin/reports","role":"admin","label":"Labour by person\nDays and cost per person per project.","trail":["Labour, CIS & VAT · 3 reports\n▶"],"did":["nav /fin/reports?id=labour","changed","said: ‹ All reports / 📊 EXCEL / 📄 PDF"],"problems":[]}
+{"route":"/fin/reports","role":"admin","label":"Labour, CIS & VAT · 3 reports\n▶","trail":["(reopen)"],"did":["changed","said: Labour by person / Days and cost per person per project. / CIS payments"],"problems":[]}
+{"route":"/fin/reports","role":"admin","label":"CIS payments\nSubcontractor payments, materials and CIS deducted, for your return.","trail":["Labour, CIS & VAT · 3 reports\n▶"],"did":["nav /fin/reports?id=cis","changed","said: ‹ All reports / 📊 EXCEL / 📄 PDF"],"problems":[]}
+{"route":"/fin/reports","role":"admin","label":"Labour, CIS & VAT · 3 reports\n▶","trail":["(reopen)"],"did":["changed","said: Labour by person / Days and cost per person per project. / CIS payments"],"problems":[]}
+{"route":"/fin/reports","role":"admin","label":"VAT listing\nSales and purchase invoices in a period with net and VAT, incl. reverse charge.","trail":["Labour, CIS & VAT · 3 reports\n▶"],"did":["nav /fin/reports?id=vat","changed","said: ‹ All reports / 📊 EXCEL / 📄 PDF"],"problems":[]}
+{"route":"/fin/yard","role":"admin","load":true,"land":"/fin/yard","blocked":false,"buttons":27,"words":755,"problems":[],"did":[]}
+{"route":"/fin/yard","role":"admin","label":"Finance","trail":[],"did":["nav /fin","changed","said: £174,500 / Live Contract Value · 2 Jobs / £29,000"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"Overview","trail":[],"did":["nav /fin","changed","said: £174,500 / Live Contract Value · 2 Jobs / £29,000"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"Projects","trail":[],"did":["nav /fin/jobs","changed","said: Clients / Live (2) / Upcoming (1)"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"Sales","trail":[],"did":["nav /fin/sales","changed","said: £9,800 / Applied Value · this month / £15,000"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"Purchases","trail":[],"did":["nav /fin/purchases","changed","said: 2 / Unallocated Invoices · all time / £0"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"Subcontractors & Labour","trail":[],"did":["nav /fin/subs","changed","said: £0 / Operative Invoices To Pay / 30 Oct 2026"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"Reports","trail":[],"did":["nav /fin/reports","changed","said: Pick a report, set the project and dates, then download it as Excel or PDF. / Commercial / QS · 8 reports / ▼"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"Directory","trail":[],"did":["nav /fin/directory","changed","said: Clients / Labour (CIS) / Cost codes"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"Settings","trail":[],"did":["nav /fin/settings","changed","said: Finance settings / Cost Codes / Team","fn xero"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"Purchase orders","trail":[],"did":["nav /fin/purchases?tab=orders","changed","said: 2 / Unallocated Invoices · all time / £0"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"Purchase invoices","trail":[],"did":["nav /fin/purchases?tab=invoices","changed","said: 2 / Unallocated Invoices · all time / £0"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"Statements","trail":[],"did":["nav /fin/statements","changed","said: ⬆ UPLOAD A STATEMENT / SIG / 25 Oct 2026 · 0 lines · 0 matched · To check"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"Plant hire","trail":[],"did":["nav /fin/purchases?tab=plant","changed","said: 2 / Unallocated Invoices · all time / £0"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"Suppliers","trail":[],"did":["nav /fin/purchases?tab=suppliers","changed","said: 2 / Unallocated Invoices · all time / £0"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"Price book","trail":[],"did":["nav /fin/purchases?tab=pricebook","changed","said: 2 / Unallocated Invoices · all time / £0"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"Price lists","trail":[],"did":["nav /fin/purchases?tab=pricelists","changed","said: 2 / Unallocated Invoices · all time / £0"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"Yard stock","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/yard","role":"admin","label":"£0.00\nStock value (items with a rate)","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/yard","role":"admin","label":"0\nLow stock","trail":[],"did":["changed","said: Nothing is below its minimum level."],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"+ NEW ITEM","trail":[],"did":["changed","said: New yard stock item / ✕ / Item *"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"+ NEW ITEM","trail":["(reopen)"],"did":["changed","said: New yard stock item / ✕ / Item *"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"New yard stock item\n✕\nItem *\nUnit\nCategory\nNone ▾\nLocation in the yard\nQty in the yard now\nMinimum level (low-stock alert)\nRate £ per unit (Finance only)\nNotes\nADD ITEM\nCANCEL","trail":["+ NEW ITEM"],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/yard","role":"admin","label":"+ NEW ITEM","trail":["(reopen)"],"did":["changed","said: New yard stock item / ✕ / Item *"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"Close","trail":["+ NEW ITEM"],"did":["changed"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"+ NEW ITEM","trail":["(reopen)"],"did":["changed","said: New yard stock item / ✕ / Item *"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"None ▾","trail":["+ NEW ITEM"],"did":["changed","said: None / Slates & tiles / Membranes & felt"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"Close","trail":["+ NEW ITEM","None ▾"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/yard","role":"admin","label":"+ NEW ITEM","trail":["(reopen)"],"did":["changed","said: New yard stock item / ✕ / Item *"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"ADD ITEM","trail":["+ NEW ITEM"],"did":["changed","filled 7","said: 1 / In use (1) / Low stock (1)","wrote POST yard_stock,POST yard_stock_rates,POST yard_moves"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"+ NEW ITEM","trail":["(reopen)"],"did":["changed","said: New yard stock item / ✕ / Item *"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"CANCEL","trail":["+ NEW ITEM"],"did":["changed"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"⬇ BOOK STOCK IN","trail":[],"did":["changed","said: Add a yard stock item first. / ✕ / New yard stock item"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"⬇ BOOK STOCK IN","trail":["(reopen)"],"did":["changed","said: Add a yard stock item first. / ✕ / New yard stock item"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"Add a yard stock item first.\n✕","trail":["⬇ BOOK STOCK IN"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/yard","role":"admin","label":"⬇ BOOK STOCK IN","trail":["(reopen)"],"did":["changed","said: Add a yard stock item first. / ✕ / New yard stock item"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"New yard stock item\n✕\nItem *\nUnit\nCategory\nNone ▾\nLocation in the yard\nQty in the yard now\nMinimum level (low-stock alert)\nRate £ per unit (Finance only)\nNotes\nADD ITEM\nCANCEL","trail":["⬇ BOOK STOCK IN"],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/yard","role":"admin","label":"⬇ BOOK STOCK IN","trail":["(reopen)"],"did":["changed","said: Add a yard stock item first. / ✕ / New yard stock item"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"Close","trail":["⬇ BOOK STOCK IN"],"did":["changed"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"⬇ BOOK STOCK IN","trail":["(reopen)"],"did":["changed","said: Add a yard stock item first. / ✕ / New yard stock item"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"None ▾","trail":["⬇ BOOK STOCK IN"],"did":["changed","said: None / Slates & tiles / Membranes & felt"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"Close","trail":["⬇ BOOK STOCK IN","None ▾"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/yard","role":"admin","label":"⬇ BOOK STOCK IN","trail":["(reopen)"],"did":["changed","said: Add a yard stock item first. / ✕ / New yard stock item"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"ADD ITEM","trail":["⬇ BOOK STOCK IN"],"did":["changed","filled 7","said: 1 / In use (1) / Low stock (1)","wrote POST yard_stock,POST yard_stock_rates,POST yard_moves"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"⬇ BOOK STOCK IN","trail":["(reopen)"],"did":["changed","said: Add a yard stock item first. / ✕ / New yard stock item"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"CANCEL","trail":["⬇ BOOK STOCK IN"],"did":["changed"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"⬆ ISSUE TO A JOB","trail":[],"did":["changed","said: Add a yard stock item first. / ✕ / New yard stock item"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"⬆ ISSUE TO A JOB","trail":["(reopen)"],"did":["changed","said: Add a yard stock item first. / ✕ / New yard stock item"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"Add a yard stock item first.\n✕","trail":["⬆ ISSUE TO A JOB"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/yard","role":"admin","label":"⬆ ISSUE TO A JOB","trail":["(reopen)"],"did":["changed","said: Add a yard stock item first. / ✕ / New yard stock item"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"New yard stock item\n✕\nItem *\nUnit\nCategory\nNone ▾\nLocation in the yard\nQty in the yard now\nMinimum level (low-stock alert)\nRate £ per unit (Finance only)\nNotes\nADD ITEM\nCANCEL","trail":["⬆ ISSUE TO A JOB"],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/yard","role":"admin","label":"⬆ ISSUE TO A JOB","trail":["(reopen)"],"did":["changed","said: Add a yard stock item first. / ✕ / New yard stock item"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"Close","trail":["⬆ ISSUE TO A JOB"],"did":["changed"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"⬆ ISSUE TO A JOB","trail":["(reopen)"],"did":["changed","said: Add a yard stock item first. / ✕ / New yard stock item"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"None ▾","trail":["⬆ ISSUE TO A JOB"],"did":["changed","said: None / Slates & tiles / Membranes & felt"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"Close","trail":["⬆ ISSUE TO A JOB","None ▾"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/yard","role":"admin","label":"⬆ ISSUE TO A JOB","trail":["(reopen)"],"did":["changed","said: Add a yard stock item first. / ✕ / New yard stock item"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"ADD ITEM","trail":["⬆ ISSUE TO A JOB"],"did":["changed","filled 7","said: 1 / In use (1) / Low stock (1)","wrote POST yard_stock,POST yard_stock_rates,POST yard_moves"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"⬆ ISSUE TO A JOB","trail":["(reopen)"],"did":["changed","said: Add a yard stock item first. / ✕ / New yard stock item"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"CANCEL","trail":["⬆ ISSUE TO A JOB"],"did":["changed"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"↩ RETURN FROM A JOB","trail":[],"did":["changed","said: Add a yard stock item first. / ✕ / New yard stock item"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"↩ RETURN FROM A JOB","trail":["(reopen)"],"did":["changed","said: Add a yard stock item first. / ✕ / New yard stock item"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"Add a yard stock item first.\n✕","trail":["↩ RETURN FROM A JOB"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/yard","role":"admin","label":"↩ RETURN FROM A JOB","trail":["(reopen)"],"did":["changed","said: Add a yard stock item first. / ✕ / New yard stock item"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"New yard stock item\n✕\nItem *\nUnit\nCategory\nNone ▾\nLocation in the yard\nQty in the yard now\nMinimum level (low-stock alert)\nRate £ per unit (Finance only)\nNotes\nADD ITEM\nCANCEL","trail":["↩ RETURN FROM A JOB"],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/yard","role":"admin","label":"↩ RETURN FROM A JOB","trail":["(reopen)"],"did":["changed","said: Add a yard stock item first. / ✕ / New yard stock item"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"Close","trail":["↩ RETURN FROM A JOB"],"did":["changed"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"↩ RETURN FROM A JOB","trail":["(reopen)"],"did":["changed","said: Add a yard stock item first. / ✕ / New yard stock item"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"None ▾","trail":["↩ RETURN FROM A JOB"],"did":["changed","said: None / Slates & tiles / Membranes & felt"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"Close","trail":["↩ RETURN FROM A JOB","None ▾"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/yard","role":"admin","label":"↩ RETURN FROM A JOB","trail":["(reopen)"],"did":["changed","said: Add a yard stock item first. / ✕ / New yard stock item"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"ADD ITEM","trail":["↩ RETURN FROM A JOB"],"did":["changed","filled 7","said: 1 / In use (1) / Low stock (1)","wrote POST yard_stock,POST yard_stock_rates,POST yard_moves"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"↩ RETURN FROM A JOB","trail":["(reopen)"],"did":["changed","said: Add a yard stock item first. / ✕ / New yard stock item"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"CANCEL","trail":["↩ RETURN FROM A JOB"],"did":["changed"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"ADJUST A COUNT","trail":[],"did":["changed","said: Add a yard stock item first. / ✕ / New yard stock item"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"ADJUST A COUNT","trail":["(reopen)"],"did":["changed","said: Add a yard stock item first. / ✕ / New yard stock item"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"Add a yard stock item first.\n✕","trail":["ADJUST A COUNT"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/yard","role":"admin","label":"ADJUST A COUNT","trail":["(reopen)"],"did":["changed","said: Add a yard stock item first. / ✕ / New yard stock item"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"New yard stock item\n✕\nItem *\nUnit\nCategory\nNone ▾\nLocation in the yard\nQty in the yard now\nMinimum level (low-stock alert)\nRate £ per unit (Finance only)\nNotes\nADD ITEM\nCANCEL","trail":["ADJUST A COUNT"],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/yard","role":"admin","label":"ADJUST A COUNT","trail":["(reopen)"],"did":["changed","said: Add a yard stock item first. / ✕ / New yard stock item"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"Close","trail":["ADJUST A COUNT"],"did":["changed"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"ADJUST A COUNT","trail":["(reopen)"],"did":["changed","said: Add a yard stock item first. / ✕ / New yard stock item"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"None ▾","trail":["ADJUST A COUNT"],"did":["changed","said: None / Slates & tiles / Membranes & felt"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"Close","trail":["ADJUST A COUNT","None ▾"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/yard","role":"admin","label":"ADJUST A COUNT","trail":["(reopen)"],"did":["changed","said: Add a yard stock item first. / ✕ / New yard stock item"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"ADD ITEM","trail":["ADJUST A COUNT"],"did":["changed","filled 7","said: 1 / In use (1) / Low stock (1)","wrote POST yard_stock,POST yard_stock_rates,POST yard_moves"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"ADJUST A COUNT","trail":["(reopen)"],"did":["changed","said: Add a yard stock item first. / ✕ / New yard stock item"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"CANCEL","trail":["ADJUST A COUNT"],"did":["changed"],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"In use","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/yard","role":"admin","label":"Low stock","trail":[],"did":["changed","said: Nothing is below its minimum level."],"problems":[]}
+{"route":"/fin/yard","role":"admin","label":"Not stocked","trail":[],"did":["changed"],"problems":[]}
+{"route":"/fin/sub/sc1","role":"admin","load":true,"land":"/fin/sub/sc1","blocked":false,"buttons":12,"words":479,"problems":[],"did":[]}
+{"route":"/fin/sub/sc1","role":"admin","label":"Finance","trail":[],"did":["nav /fin","changed","said: Overview / Overview / Sales"],"problems":[]}
+{"route":"/fin/sub/sc1","role":"admin","label":"£6,000.00\nOrder value","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/sub/sc1","role":"admin","label":"£0.00\nCertified to date","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/sub/sc1","role":"admin","label":"£0.00\nCertified, to pay","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/sub/sc1","role":"admin","label":"Active\nStatus","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/sub/sc1","role":"admin","label":"Project\nJ101 · Studley Rd\n›","trail":[],"did":["nav /fin/job/11111111-1111-1111-1111-111111111111","changed","said: Finance · Bellway Homes / J101 Studley Rd / J101 Studley Rd"],"problems":[]}
+{"route":"/fin/sub/sc1","role":"admin","label":"Work\nLeadwork","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/sub/sc1","role":"admin","label":"Retention\n5%","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/sub/sc1","role":"admin","label":"CIS\n20%","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/sub/sc1","role":"admin","label":"EDIT ORDER","trail":[],"did":["changed","said: Edit SC-001 / ✕ / Subcontractor"],"problems":[]}
+{"route":"/fin/sub/sc1","role":"admin","label":"EDIT ORDER","trail":["(reopen)"],"did":["changed","said: Edit SC-001 / ✕ / Subcontractor"],"problems":[]}
+{"route":"/fin/sub/sc1","role":"admin","label":"Edit SC-001\n✕\nSubcontractor\nEmail\nWork\nOrder value £\nRetention %\nCIS rate\n20% (registered) ▾\nUTR\nVAT registered\nStatus\nActive ▾\nSAVE\nCANCEL","trail":["EDIT ORDER"],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/sub/sc1","role":"admin","label":"EDIT ORDER","trail":["(reopen)"],"did":["changed","said: Edit SC-001 / ✕ / Subcontractor"],"problems":[]}
+{"route":"/fin/sub/sc1","role":"admin","label":"Close","trail":["EDIT ORDER"],"did":["changed"],"problems":[]}
+{"route":"/fin/sub/sc1","role":"admin","label":"EDIT ORDER","trail":["(reopen)"],"did":["changed","said: Edit SC-001 / ✕ / Subcontractor"],"problems":[]}
+{"route":"/fin/sub/sc1","role":"admin","label":"20% (registered) ▾","trail":["EDIT ORDER"],"did":["changed","said: 0% (gross) / 20% (registered) / 30% (not registered)"],"problems":[]}
+{"route":"/fin/sub/sc1","role":"admin","label":"Close","trail":["EDIT ORDER","20% (registered) ▾"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/sub/sc1","role":"admin","crash":"page.goto: Timeout 4000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"http://localhost:8081/fin/sub/sc1\", waiting until \"domcontentloaded\"\u001b[22m\n","problems":["crawler stopped on this screen"],"did":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/monthly","role":"admin","crash":"page.goto: Timeout 4000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"http://localhost:8081/fin/job/11111111-1111-1111-1111-111111111111/monthly\", waiting until \"domcontentloaded\"\u001b[22m\n","problems":["crawler stopped on this screen"],"did":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/invoice/v1","role":"admin","load":true,"land":"/fin/job/11111111-1111-1111-1111-111111111111/invoice/v1","blocked":false,"buttons":17,"words":712,"problems":[],"did":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/invoice/v1","role":"admin","label":"Finance","trail":[],"did":["nav /fin","changed","said: Overview / Overview / Sales"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/invoice/v1","role":"admin","label":"Projects","trail":[],"did":["nav /fin/jobs","changed","said: Overview / Sales / Purchases"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/invoice/v1","role":"admin","label":"INV-1001\nInvoice","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/invoice/v1","role":"admin","label":"Sent\nStatus","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/invoice/v1","role":"admin","label":"£15,000.00\nTotal","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/invoice/v1","role":"admin","label":"£15,000.00\nOutstanding","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/invoice/v1","role":"admin","label":"Bill to\nBellway Homes","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/invoice/v1","role":"admin","label":"Issued\n1 Oct 2026","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/invoice/v1","role":"admin","label":"Due\n31 Oct 2026","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/invoice/v1","role":"admin","label":"Sent\nNot emailed yet","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/invoice/v1","role":"admin","label":"Application 1\n£15,000.00","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/invoice/v1","role":"admin","label":"Net\n£15,000.00","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/invoice/v1","role":"admin","label":"VAT\n£0.00","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/invoice/v1","role":"admin","label":"Total\n£15,000.00","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/invoice/v1","role":"admin","label":"VIEW PDF","trail":[],"did":["changed","said: INV-1001-1793375788625.pdf / ⬇ / ✕","wrote upload,PATCH fin_invoices"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/invoice/v1","role":"admin","label":"VIEW PDF","trail":["(reopen)"],"did":["changed","said: INV-1001-1793375792686.pdf / ⬇ / ✕","wrote upload,PATCH fin_invoices"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/invoice/v1","role":"admin","label":"Zoom in","trail":["VIEW PDF"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/invoice/v1","role":"admin","label":"VIEW PDF","trail":["(reopen)"],"did":["changed","said: INV-1001-1793375797472.pdf / ⬇ / ✕","wrote upload,PATCH fin_invoices"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/invoice/v1","role":"admin","label":"Zoom out","trail":["VIEW PDF"],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/invoice/v1","role":"admin","label":"+ RECORD PAYMENT","trail":[],"did":["changed","said: Record payment / ✕ / Amount received (£)"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/invoice/v1","role":"admin","label":"+ RECORD PAYMENT","trail":["(reopen)"],"did":["changed","said: Record payment / ✕ / Amount received (£)"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/invoice/v1","role":"admin","label":"Record payment\n✕\nAmount received (£)\nDate received\n30 Oct 2026\n📅\nNote (optional)\nSAVE\nCANCEL","trail":["+ RECORD PAYMENT"],"did":["changed","filled 1"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/invoice/v1","role":"admin","label":"+ RECORD PAYMENT","trail":["(reopen)"],"did":["changed","said: Record payment / ✕ / Amount received (£)"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/invoice/v1","role":"admin","label":"Close","trail":["+ RECORD PAYMENT"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/invoice/v1","role":"admin","label":"+ RECORD PAYMENT","trail":["(reopen)"],"did":["changed","said: Record payment / ✕ / Amount received (£)"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/invoice/v1","role":"admin","label":"Date received","trail":["+ RECORD PAYMENT"],"did":["changed","said: October 2026 / Mo / Tu"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/invoice/v1","role":"admin","label":"Close","trail":["+ RECORD PAYMENT","Date received"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/invoice/v1","role":"admin","label":"+ RECORD PAYMENT","trail":["(reopen)"],"did":["changed","said: Record payment / ✕ / Amount received (£)"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/invoice/v1","role":"admin","label":"SAVE","trail":["+ RECORD PAYMENT"],"did":["changed","filled 1","said: 30 Oct 2026 · Test","wrote POST fin_payments"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/invoice/v1","role":"admin","label":"+ RECORD PAYMENT","trail":["(reopen)"],"did":["changed","said: Record payment / ✕ / Amount received (£)"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/invoice/v1","role":"admin","label":"CANCEL","trail":["+ RECORD PAYMENT"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/invoice/v1","role":"admin","label":"VOID THIS INVOICE","trail":[],"did":["changed","said: ✕ / Void this invoice? This can’t be undone. / No"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/invoice/v1","role":"admin","label":"VOID THIS INVOICE","trail":["(reopen)"],"did":["changed","said: ✕ / Void this invoice? This can’t be undone. / No"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/invoice/v1","role":"admin","label":"Close","trail":["VOID THIS INVOICE"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/invoice/v1","role":"admin","label":"VOID THIS INVOICE","trail":["(reopen)"],"did":["changed","said: ✕ / Void this invoice? This can’t be undone. / No"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/invoice/v1","role":"admin","label":"No","trail":["VOID THIS INVOICE"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/invoice/v1","role":"admin","label":"VOID THIS INVOICE","trail":["(reopen)"],"did":["changed","said: ✕ / Void this invoice? This can’t be undone. / No"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/invoice/v1","role":"admin","label":"Void","trail":["VOID THIS INVOICE"],"did":["changed","said: This invoice was voided.","wrote PATCH fin_invoices"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/invoice/v1","role":"admin","label":"Void\nStatus","trail":["VOID THIS INVOICE","Void"],"did":[],"problems":["nothing happened"]}
+{"route":"/pm/admin/branding","role":"admin","load":true,"land":"/pm/admin/branding","blocked":false,"buttons":3,"words":491,"problems":[],"did":[]}
+{"route":"/pm/admin/branding","role":"admin","label":"","trail":[],"did":["changed","file picker"],"problems":[]}
+{"route":"/pm/admin/branding","role":"admin","label":"SAVE THEME","trail":[],"did":["wrote PATCH organizations"],"problems":[]}
+{"route":"/pm/admin/branding","role":"admin","label":"RESET TO DEFAULT","trail":[],"did":["changed","said: ✕ / Reset the company colours to the OpHUB defaults? / No"],"problems":[]}
+{"route":"/pm/admin/branding","role":"admin","label":"RESET TO DEFAULT","trail":["(reopen)"],"did":["changed","said: ✕ / Reset the company colours to the OpHUB defaults? / No"],"problems":[]}
+{"route":"/pm/admin/branding","role":"admin","label":"Close","trail":["RESET TO DEFAULT"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/branding","role":"admin","label":"RESET TO DEFAULT","trail":["(reopen)"],"did":["changed","said: ✕ / Reset the company colours to the OpHUB defaults? / No"],"problems":[]}
+{"route":"/pm/admin/branding","role":"admin","label":"No","trail":["RESET TO DEFAULT"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/branding","role":"admin","label":"RESET TO DEFAULT","trail":["(reopen)"],"did":["changed","said: ✕ / Reset the company colours to the OpHUB defaults? / No"],"problems":[]}
+{"route":"/pm/admin/branding","role":"admin","label":"Reset","trail":["RESET TO DEFAULT"],"did":["changed","said: Company theme reset to default.","wrote PATCH organizations"],"problems":[]}
+{"route":"/pm/admin/devicelocks","role":"admin","load":true,"land":"/pm/admin/devicelocks","blocked":false,"buttons":1,"words":443,"problems":[],"did":[]}
+{"route":"/pm/admin/devicelocks","role":"admin","label":"UNLOCK","trail":[],"did":["changed","said: ✕ / Unlock this device? Whoever next signs in on it will lock it to themselves. / No"],"problems":[]}
+{"route":"/pm/admin/devicelocks","role":"admin","label":"UNLOCK","trail":["(reopen)"],"did":["changed","said: ✕ / Unlock this device? Whoever next signs in on it will lock it to themselves. / No"],"problems":[]}
+{"route":"/pm/admin/devicelocks","role":"admin","label":"Close","trail":["UNLOCK"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/devicelocks","role":"admin","label":"UNLOCK","trail":["(reopen)"],"did":["changed","said: ✕ / Unlock this device? Whoever next signs in on it will lock it to themselves. / No"],"problems":[]}
+{"route":"/pm/admin/devicelocks","role":"admin","label":"No","trail":["UNLOCK"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/devicelocks","role":"admin","label":"UNLOCK","trail":["(reopen)"],"did":["changed","said: ✕ / Unlock this device? Whoever next signs in on it will lock it to themselves. / No"],"problems":[]}
+{"route":"/pm/admin/devicelocks","role":"admin","label":"Unlock","trail":["UNLOCK"],"did":["changed","said: No devices locked yet. / Device unlocked","wrote DELETE device_locks"],"problems":[]}
+{"route":"/pm/admin/onedrive","role":"admin","load":true,"land":"/pm/admin/onedrive","blocked":false,"buttons":5,"words":679,"problems":[],"did":[]}
+{"route":"/pm/admin/onedrive","role":"admin","label":"CONNECT ONEDRIVE","trail":[],"did":["changed","said: Could not start OneDrive connection. / ✕","fn onedrive-oauth-start","message: Could not start OneDrive connection"],"problems":[]}
+{"route":"/pm/admin/onedrive","role":"admin","label":"CONNECT ONEDRIVE","trail":["(reopen)"],"did":["changed","said: Could not start OneDrive connection. / ✕","fn onedrive-oauth-start","message: Could not start OneDrive connection"],"problems":[]}
+{"route":"/pm/admin/onedrive","role":"admin","label":"Could not start OneDrive connection.\n✕","trail":["CONNECT ONEDRIVE"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/onedrive","role":"admin","label":"+ ADD A QUICK LINK","trail":[],"did":["nav /pm/onedrive-pick?target=quicklink&id=","changed","said: Choose OneDrive folder / 🔗 Shared with me / 🏢 Company Sites","fn onedrive-list-folders"],"problems":[]}
+{"route":"/pm/admin/onedrive","role":"admin","label":"Cleveland Primary School\nNot linked ▸","trail":[],"did":["changed","said: Not linked ▾ / Photos, drawings & exports / Not linked"],"problems":[]}
+{"route":"/pm/admin/onedrive","role":"admin","label":"Cleveland Primary School\nNot linked ▸","trail":["(reopen)"],"did":["changed","said: Not linked ▾ / Photos, drawings & exports / Not linked"],"problems":[]}
+{"route":"/pm/admin/onedrive","role":"admin","label":"Cleveland Primary School\nNot linked ▾","trail":["Cleveland Primary School\nNot linked ▸"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/onedrive","role":"admin","label":"Cleveland Primary School\nNot linked ▸","trail":["(reopen)"],"did":["changed","said: Not linked ▾ / Photos, drawings & exports / Not linked"],"problems":[]}
+{"route":"/pm/admin/onedrive","role":"admin","label":"Link","trail":["Cleveland Primary School\nNot linked ▸"],"did":["nav /pm/onedrive-pick?target=progress&id=22222222-2222-2222-2222-222222222222","changed","said: Choose OneDrive folder / 🔗 Shared with me / 🏢 Company Sites","fn onedrive-list-folders"],"problems":[]}
+{"route":"/pm/admin/onedrive","role":"admin","label":"Simon De Senlis\nNot linked ▸","trail":[],"did":["changed","said: Not linked ▾ / Photos, drawings & exports / Not linked"],"problems":[]}
+{"route":"/pm/admin/onedrive","role":"admin","label":"Simon De Senlis\nNot linked ▸","trail":["(reopen)"],"did":["changed","said: Not linked ▾ / Photos, drawings & exports / Not linked"],"problems":[]}
+{"route":"/pm/admin/onedrive","role":"admin","label":"Simon De Senlis\nNot linked ▾","trail":["Simon De Senlis\nNot linked ▸"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/onedrive","role":"admin","label":"Simon De Senlis\nNot linked ▸","trail":["(reopen)"],"did":["changed","said: Not linked ▾ / Photos, drawings & exports / Not linked"],"problems":[]}
+{"route":"/pm/admin/onedrive","role":"admin","label":"Link","trail":["Simon De Senlis\nNot linked ▸"],"did":["nav /pm/onedrive-pick?target=progress&id=33333333-3333-3333-3333-333333333333","changed","said: Choose OneDrive folder / 🔗 Shared with me / 🏢 Company Sites","fn onedrive-list-folders"],"problems":[]}
+{"route":"/pm/admin/onedrive","role":"admin","label":"Studley Rd\nNot linked ▸","trail":[],"did":["changed","said: Not linked ▾ / Photos, drawings & exports / Not linked"],"problems":[]}
+{"route":"/pm/admin/onedrive","role":"admin","label":"Studley Rd\nNot linked ▸","trail":["(reopen)"],"did":["changed","said: Not linked ▾ / Photos, drawings & exports / Not linked"],"problems":[]}
+{"route":"/pm/admin/onedrive","role":"admin","label":"Studley Rd\nNot linked ▾","trail":["Studley Rd\nNot linked ▸"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/onedrive","role":"admin","label":"Studley Rd\nNot linked ▸","trail":["(reopen)"],"did":["changed","said: Not linked ▾ / Photos, drawings & exports / Not linked"],"problems":[]}
+{"route":"/pm/admin/onedrive","role":"admin","label":"Link","trail":["Studley Rd\nNot linked ▸"],"did":["nav /pm/onedrive-pick?target=progress&id=11111111-1111-1111-1111-111111111111","changed","said: Choose OneDrive folder / 🔗 Shared with me / 🏢 Company Sites","fn onedrive-list-folders"],"problems":[]}
+{"route":"/pm/admin/sowlibrary","role":"admin","load":true,"land":"/pm/admin/sowlibrary","blocked":false,"buttons":2,"words":452,"problems":[],"did":[]}
+{"route":"/pm/admin/sowlibrary","role":"admin","label":"▶\nFlat roof strip","trail":[],"did":["changed","said: ▼ / ✎ RENAME / 🗑 DELETE TEMPLATE"],"problems":[]}
+{"route":"/pm/admin/sowlibrary","role":"admin","label":"▶\nFlat roof strip","trail":["(reopen)"],"did":["changed","said: ▼ / ✎ RENAME / 🗑 DELETE TEMPLATE"],"problems":[]}
+{"route":"/pm/admin/sowlibrary","role":"admin","label":"▼\nFlat roof strip","trail":["▶\nFlat roof strip"],"did":["changed","said: ▶"],"problems":[]}
+{"route":"/pm/admin/sowlibrary","role":"admin","label":"▶\nFlat roof strip","trail":["(reopen)"],"did":["changed","said: ▼ / ✎ RENAME / 🗑 DELETE TEMPLATE"],"problems":[]}
+{"route":"/pm/admin/sowlibrary","role":"admin","label":"✎ RENAME","trail":["▶\nFlat roof strip"],"did":["changed","said: Template name / ✕ / OK"],"problems":[]}
+{"route":"/pm/admin/sowlibrary","role":"admin","label":"Close","trail":["▶\nFlat roof strip","✎ RENAME"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/sowlibrary","role":"admin","label":"▶\nFlat roof strip","trail":["(reopen)"],"did":["changed","said: ▼ / ✎ RENAME / 🗑 DELETE TEMPLATE"],"problems":[]}
+{"route":"/pm/admin/sowlibrary","role":"admin","label":"🗑 DELETE TEMPLATE","trail":["▶\nFlat roof strip"],"did":["changed","said: ✕ / Delete this library template? This can't be undone (sites that already used it keep their own copied tasks). / No"],"problems":[]}
+{"route":"/pm/admin/sowlibrary","role":"admin","label":"Close","trail":["▶\nFlat roof strip","🗑 DELETE TEMPLATE"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/sowlibrary","role":"admin","label":"▶\nFlat roof strip","trail":["(reopen)"],"did":["changed","said: ▼ / ✎ RENAME / 🗑 DELETE TEMPLATE"],"problems":[]}
+{"route":"/pm/admin/sowlibrary","role":"admin","label":"+","trail":["▶\nFlat roof strip"],"did":[],"problems":["nothing happened"]}
+{"route":"/pm/admin/sowlibrary","role":"admin","label":"+ NEW TEMPLATE","trail":[],"did":["changed","said: Template name / ✕ / OK"],"problems":[]}
+{"route":"/pm/admin/sowlibrary","role":"admin","label":"+ NEW TEMPLATE","trail":["(reopen)"],"did":["changed","said: Template name / ✕ / OK"],"problems":[]}
+{"route":"/pm/admin/sowlibrary","role":"admin","label":"Close","trail":["+ NEW TEMPLATE"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/sowlibrary","role":"admin","label":"+ NEW TEMPLATE","trail":["(reopen)"],"did":["changed","said: Template name / ✕ / OK"],"problems":[]}
+{"route":"/pm/admin/sowlibrary","role":"admin","label":"OK","trail":["+ NEW TEMPLATE"],"did":["changed","said: Enter a name."],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","load":true,"land":"/pm/admin/templates/tp1","blocked":false,"buttons":11,"words":515,"problems":[],"did":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"Where this template is used · Reports\n▼","trail":[],"did":["changed","said: Leave all three unticked for a normal report or survey. / Use as a Daily Briefing template (Health & Safety › Daily Briefings) / Use as a Main Contractor Inspection template (Main Contractor › Inspections)"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"Where this template is used · Reports\n▼","trail":["(reopen)"],"did":["changed","said: Leave all three unticked for a normal report or survey. / Use as a Daily Briefing template (Health & Safety › Daily Briefings) / Use as a Main Contractor Inspection template (Main Contractor › Inspections)"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"Where this template is used · Reports\n▲","trail":["Where this template is used · Reports\n▼"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"Where this template is used · Reports\n▼","trail":["(reopen)"],"did":["changed","said: Leave all three unticked for a normal report or survey. / Use as a Daily Briefing template (Health & Safety › Daily Briefings) / Use as a Main Contractor Inspection template (Main Contractor › Inspections)"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"Use as a Daily Briefing template (Health & Safety › Daily Briefings)","trail":["Where this template is used · Reports\n▼"],"did":["changed","said: Where this template is used · Daily Briefing"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"Where this template is used · Reports\n▼","trail":["(reopen)"],"did":["changed","said: Leave all three unticked for a normal report or survey. / Use as a Daily Briefing template (Health & Safety › Daily Briefings) / Use as a Main Contractor Inspection template (Main Contractor › Inspections)"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"Use as a Main Contractor Inspection template (Main Contractor › Inspections)","trail":["Where this template is used · Reports\n▼"],"did":["changed","said: Where this template is used · Main Contractor inspection"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"Where this template is used · Reports\n▼","trail":["(reopen)"],"did":["changed","said: Leave all three unticked for a normal report or survey. / Use as a Daily Briefing template (Health & Safety › Daily Briefings) / Use as a Main Contractor Inspection template (Main Contractor › Inspections)"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"Use as a LOLER Inspection template (Health & Safety › LOLER, can be linked to plant)","trail":["Where this template is used · Reports\n▼"],"did":["changed","said: Where this template is used · LOLER inspection"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"Traffic light system · Off\n▼","trail":[],"did":["changed","said: Use a traffic light system on this template"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"Traffic light system · Off\n▼","trail":["(reopen)"],"did":["changed","said: Use a traffic light system on this template"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"Traffic light system · Off\n▲","trail":["Traffic light system · Off\n▼"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"Traffic light system · Off\n▼","trail":["(reopen)"],"did":["changed","said: Use a traffic light system on this template"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"Use a traffic light system on this template","trail":["Traffic light system · Off\n▼"],"did":["changed","said: Traffic light system · On — 4 colours / + Add colour / Notes allowed · Traffic light"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"Your answer types · add your own, e.g. Good / Fair / Poor\n▼","trail":[],"did":["changed","said: Make your own sets of answers. They appear in the answer-type list on every question, in every template. / + NEW ANSWER TYPE / SAVE ANSWER TYPES"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"Your answer types · add your own, e.g. Good / Fair / Poor\n▼","trail":["(reopen)"],"did":["changed","said: Make your own sets of answers. They appear in the answer-type list on every question, in every template. / + NEW ANSWER TYPE / SAVE ANSWER TYPES"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"Your answer types · add your own, e.g. Good / Fair / Poor\n▲","trail":["Your answer types · add your own, e.g. Good / Fair / Poor\n▼"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"Your answer types · add your own, e.g. Good / Fair / Poor\n▼","trail":["(reopen)"],"did":["changed","said: Make your own sets of answers. They appear in the answer-type list on every question, in every template. / + NEW ANSWER TYPE / SAVE ANSWER TYPES"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"+ NEW ANSWER TYPE","trail":["Your answer types · add your own, e.g. Good / Fair / Poor\n▼"],"did":["changed","said: + Add answer / More than one answer can be ticked"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"SAVE ANSWER TYPES","trail":["Your answer types · add your own, e.g. Good / Fair / Poor\n▼","+ NEW ANSWER TYPE"],"did":["changed","filled 4","said: Your answer types · 1 saved","wrote PATCH organizations"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"Your answer types · add your own, e.g. Good / Fair / Poor\n▼","trail":["(reopen)"],"did":["changed","said: Make your own sets of answers. They appear in the answer-type list on every question, in every template. / + NEW ANSWER TYPE / SAVE ANSWER TYPES"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"SAVE ANSWER TYPES","trail":["Your answer types · add your own, e.g. Good / Fair / Poor\n▼"],"did":["changed","filled 1","wrote PATCH organizations"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"▼ yesno","trail":[],"did":["changed","said: Kind of answer / Short Text / Notes Box (long text)"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"▼ yesno","trail":["(reopen)"],"did":["changed","said: Kind of answer / Short Text / Notes Box (long text)"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"Close","trail":["▼ yesno"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"▼ yesno","trail":["(reopen)"],"did":["changed","said: Kind of answer / Short Text / Notes Box (long text)"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"Short Text","trail":["▼ yesno"],"did":["changed","said: ▼ Short Text"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"▼ yesno","trail":["(reopen)"],"did":["changed","said: Kind of answer / Short Text / Notes Box (long text)"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"Notes Box (long text)","trail":["▼ yesno"],"did":["changed","said: ▼ Notes Box (long text)"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"▼ yesno","trail":["(reopen)"],"did":["changed","said: Kind of answer / Short Text / Notes Box (long text)"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"Number","trail":["▼ yesno"],"did":["changed","said: ▼ Number"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"▼ yesno","trail":["(reopen)"],"did":["changed","said: Kind of answer / Short Text / Notes Box (long text)"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"Yes / No / N-A","trail":["▼ yesno"],"did":["changed","said: ▼ Yes / No / N-A / Ask a follow-up question if the answer is… / + Yes"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"▼ yesno","trail":["(reopen)"],"did":["changed","said: Kind of answer / Short Text / Notes Box (long text)"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"Pass / Fail / N-A","trail":["▼ yesno"],"did":["changed","said: ▼ Pass / Fail / N-A / Ask a follow-up question if the answer is… / + Pass"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"▼ yesno","trail":["(reopen)"],"did":["changed","said: Kind of answer / Short Text / Notes Box (long text)"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"Yes / No / N-A / Not Visible","trail":["▼ yesno"],"did":["changed","said: ▼ Yes / No / N-A / Not Visible / Ask a follow-up question if the answer is… / + Yes"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"▼ yesno","trail":["(reopen)"],"did":["changed","said: Kind of answer / Short Text / Notes Box (long text)"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"Multiple Choice (pick one)","trail":["▼ yesno"],"did":["changed","said: ▼ Multiple Choice (pick one) / Answers to pick from / + Add answer"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"▼ yesno","trail":["(reopen)"],"did":["changed","said: Kind of answer / Short Text / Notes Box (long text)"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"Multiple Choice (tick many)","trail":["▼ yesno"],"did":["changed","said: ▼ Multiple Choice (tick many) / Answers to pick from (more than one can be ticked) / + Add answer"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"▼ yesno","trail":["(reopen)"],"did":["changed","said: Kind of answer / Short Text / Notes Box (long text)"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"Yes / No","trail":["▼ yesno"],"did":["changed","said: ▼ Yes / No / Ask a follow-up question if the answer is… / + Yes"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"▼ yesno","trail":["(reopen)"],"did":["changed","said: Kind of answer / Short Text / Notes Box (long text)"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"Photo(s)","trail":["▼ yesno"],"did":["changed","said: ▼ Photo(s)"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"✕","trail":[],"did":["changed","said: No questions in this section yet."],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"▶ More options\nNotes allowed","trail":[],"did":["changed","said: ▼ Hide options / Must be answered / Allow a note"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"▶ More options\nNotes allowed","trail":["(reopen)"],"did":["changed","said: ▼ Hide options / Must be answered / Allow a note"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"▼ Hide options","trail":["▶ More options\nNotes allowed"],"did":["changed","said: ▶ More options / Notes allowed"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"▶ More options\nNotes allowed","trail":["(reopen)"],"did":["changed","said: ▼ Hide options / Must be answered / Allow a note"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"Must be answered","trail":["▶ More options\nNotes allowed"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"▶ More options\nNotes allowed","trail":["(reopen)"],"did":["changed","said: ▼ Hide options / Must be answered / Allow a note"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"✓\nAllow a note","trail":["▶ More options\nNotes allowed"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"▶ More options\nNotes allowed","trail":["(reopen)"],"did":["changed","said: ▼ Hide options / Must be answered / Allow a note"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"✓\nLet a photo be added to this answer","trail":["▶ More options\nNotes allowed"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"▶ More options\nNotes allowed","trail":["(reopen)"],"did":["changed","said: ▼ Hide options / Must be answered / Allow a note"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"Photo required whenever this is answered","trail":["▶ More options\nNotes allowed"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"+ ADD QUESTION","trail":[],"did":["changed","said: 2. / ▼ Short Text"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"+ ADD QUESTION","trail":["(reopen)"],"did":["changed","said: 2. / ▼ Short Text"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"▼","trail":["+ ADD QUESTION"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"+ ADD QUESTION","trail":["(reopen)"],"did":["changed","said: 2. / ▼ Short Text"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"▼ Short Text","trail":["+ ADD QUESTION"],"did":["changed","said: Kind of answer / Short Text / Notes Box (long text)"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"Close","trail":["+ ADD QUESTION","▼ Short Text"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"+ ADD QUESTION","trail":["(reopen)"],"did":["changed","said: 2. / ▼ Short Text"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"▲","trail":["+ ADD QUESTION"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"+ ADD NOTES BOX","trail":[],"did":["changed","said: 2. / ▼ Notes Box (long text)"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"+ ADD NOTES BOX","trail":["(reopen)"],"did":["changed","said: 2. / ▼ Notes Box (long text)"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"▼","trail":["+ ADD NOTES BOX"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"+ ADD NOTES BOX","trail":["(reopen)"],"did":["changed","said: 2. / ▼ Notes Box (long text)"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"▼ Notes Box (long text)","trail":["+ ADD NOTES BOX"],"did":["changed","said: Kind of answer / Short Text / Notes Box (long text)"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"Close","trail":["+ ADD NOTES BOX","▼ Notes Box (long text)"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"+ ADD NOTES BOX","trail":["(reopen)"],"did":["changed","said: 2. / ▼ Notes Box (long text)"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"▲","trail":["+ ADD NOTES BOX"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"+ ADD SECTION","trail":[],"did":["changed","said: REMOVE SECTION / No questions in this section yet. / REMOVE SECTION"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"+ ADD SECTION","trail":["(reopen)"],"did":["changed","said: REMOVE SECTION / No questions in this section yet. / REMOVE SECTION"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"REMOVE SECTION","trail":["+ ADD SECTION"],"did":["changed","said: Remove this section and all its questions? / No / Remove"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"Close","trail":["+ ADD SECTION","REMOVE SECTION"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"✓\nShow unanswered questions on the finished report and PDF","trail":[],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"✓\nShow unanswered questions on the finished report and PDF","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"Show unanswered questions on the finished report and PDF","trail":["✓\nShow unanswered questions on the finished report and PDF"],"did":["changed","said: ✓"],"problems":[]}
+{"route":"/pm/admin/templates/tp1","role":"admin","label":"SAVE TEMPLATE","trail":[],"did":["nav /home","changed","filled 1","said: ↻ / Friday 30 October / Good afternoon, Andy","wrote PATCH report_templates"],"problems":[]}
+{"route":"/pm/hr","role":"admin","load":true,"land":"/pm/hr","blocked":false,"buttons":2,"words":278,"problems":[],"did":[]}
+{"route":"/pm/hr","role":"admin","label":"Holiday calendar\n28 days left this year · 1 to approve\n1","trail":[],"did":["nav /pm/hr/holidays","changed","said: 28 / Days left 2026 / 0"],"problems":[]}
+{"route":"/pm/hr","role":"admin","label":"Company policies & handbook\nAll signed","trail":[],"did":["nav /pm/hr/policies","changed","said: Policies & handbook / COMPANY POLICIES / No policies uploaded yet."],"problems":[]}
+{"route":"/pm/operatives/matrix","role":"admin","load":true,"land":"/pm/operatives/matrix","blocked":false,"buttons":4,"words":485,"problems":[],"did":[]}
+{"route":"/pm/operatives/matrix","role":"admin","label":"📊 EXPORT EXCEL","trail":[],"did":["download"],"problems":[]}
+{"route":"/pm/operatives/matrix","role":"admin","label":"📄 EXPORT PDF","trail":[],"did":["changed","said: Training Matrix - 30-10-26.pdf / ☁️ Save to OneDrive / ✕","download"],"problems":[]}
+{"route":"/pm/operatives/matrix","role":"admin","label":"📄 EXPORT PDF","trail":["(reopen)"],"did":["changed","said: Training Matrix - 30-10-26.pdf / ☁️ Save to OneDrive / ✕","download"],"problems":[]}
+{"route":"/pm/operatives/matrix","role":"admin","label":"☁️ Save to OneDrive","trail":["📄 EXPORT PDF"],"did":["changed","said: Saving to OneDrive…","fn onedrive-upload"],"problems":[]}
+{"route":"/pm/operatives/matrix","role":"admin","label":"📄 EXPORT PDF","trail":["(reopen)"],"did":["changed","said: Training Matrix - 30-10-26.pdf / ☁️ Save to OneDrive / ✕","download"],"problems":[]}
+{"route":"/pm/operatives/matrix","role":"admin","label":"✕","trail":["📄 EXPORT PDF"],"did":["changed"],"problems":[]}
+{"route":"/pm/operatives/matrix","role":"admin","label":"Jake Morris","trail":[],"did":["nav /pm/operatives/o1","changed","said: DETAILS / Name / EDIT","wrote rpc onedrive_status"],"problems":[]}
+{"route":"/pm/operatives/matrix","role":"admin","label":"Tom Hughes","trail":[],"did":["nav /pm/operatives/o2","changed","said: DETAILS / Name / EDIT","wrote rpc onedrive_status"],"problems":[]}
+{"route":"/pm/tbts","role":"admin","load":true,"land":"/pm/tbts","blocked":false,"buttons":0,"words":201,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111","blocked":false,"buttons":16,"words":855,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111","role":"admin","label":"Projects","trail":[],"did":["nav /sites","changed","said: All (3) / Live (2) / Upcoming (1)"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111","role":"admin","label":"Open project finance","trail":[],"did":["nav /fin/job/11111111-1111-1111-1111-111111111111","changed","said: Finance · Bellway Homes / J101 · Studley Rd / Finance · Bellway Homes"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111","role":"admin","label":"Measure margin against","trail":[],"did":["changed","said: Measure margin against / ✕ / ✓ Latest (certified, else applied)"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111","role":"admin","label":"Measure margin against","trail":["(reopen)"],"did":["changed","said: Measure margin against / ✕ / ✓ Latest (certified, else applied)"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111","role":"admin","label":"Close","trail":["Measure margin against"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111","role":"admin","label":"Measure margin against","trail":["(reopen)"],"did":["changed","said: Measure margin against / ✕ / ✓ Latest (certified, else applied)"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111","role":"admin","label":"✓ Latest (certified, else applied)","trail":["Measure margin against"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111","role":"admin","label":"Measure margin against","trail":["(reopen)"],"did":["changed","said: Measure margin against / ✕ / ✓ Latest (certified, else applied)"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111","role":"admin","label":"Applied","trail":["Measure margin against"],"did":["changed","said: £6,951 32.3% / on £21,500 applied"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111","role":"admin","label":"Measure margin against","trail":["(reopen)"],"did":["changed","said: Measure margin against / ✕ / Latest (certified, else applied)"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111","role":"admin","label":"Certified","trail":["Measure margin against"],"did":["changed","said: £6,451 30.7% / on £21,000 certified"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111","role":"admin","label":"Measure margin against","trail":["(reopen)"],"did":["changed","said: Measure margin against / ✕ / Latest (certified, else applied)"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111","role":"admin","label":"Invoiced","trail":["Measure margin against"],"did":["changed","said: £2,451 14.4% / on £17,000 invoiced / Margin measured against invoiced"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111","role":"admin","label":"Client: Bellway Homes\nContact: —","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/client","changed","said: Client Info / Client Info / 📇 CHOOSE A SAVED CLIENT (3)"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111","role":"admin","label":"30 Oct\nScaffold up","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/calendar","changed","said: Month view / Options ▾ / October 2026"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111","role":"admin","label":"1\nOPEN SNAGS","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/snagging/list","changed","said: Snagging / Snagging / Live"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111","role":"admin","label":"Check In / Out\nTap to log time","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/checkin","changed","said: STATUS / CHECK IN / SITE GEOFENCE"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111","role":"admin","label":"Schedule of Works\n0 of 2 done · 0%","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/schedule","changed","said: Schedule Of Works / Overall progress / 0%","wrote POST sow_views"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111","role":"admin","label":"Main Contractor\nAreas and subcontractors","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/mc","changed","said: 📘 / Construction Phase Plan / 0 documents"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111","role":"admin","label":"Health & Safety\n0 to sign\n!","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/hs","changed","said: 📄 / RAMS / 0 documents"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111","role":"admin","label":"Drawings, Spec's & Programme\nView & upload","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/drawings","changed","said: Folder/File Name / + / 📁"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111","role":"admin","label":"Materials\n1 pending","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/materials","changed","said: 🙋 / Material Requests / 1 new","wrote rpc site_office_orders"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111","role":"admin","label":"Inspections & Reports\n1 open\n1","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/snagging","changed","said: 🏷 / Snagging / ✎"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111","role":"admin","label":"Finance\nJob J101","trail":[],"did":["nav /fin/job/11111111-1111-1111-1111-111111111111","changed","said: Finance · Bellway Homes / J101 · Studley Rd / Finance · Bellway Homes"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111","role":"admin","label":"Calendar\nKey dates","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/calendar","changed","said: Month view / Options ▾ / October 2026"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111","role":"admin","label":"To Do List\n1 open","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/todos","changed","said: Live / Closed / ☐"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/drawings","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/drawings","blocked":false,"buttons":5,"words":407,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/drawings","role":"admin","label":"Projects","trail":[],"did":["nav /sites","changed","said: All (3) / Live (2) / Upcoming (1)"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/drawings","role":"admin","label":"J101 Studley Rd","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111","changed","said: Job No: J101 / NOT CHECKED IN / COSTS TO DATE"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/drawings","role":"admin","label":"+","trail":[],"did":["changed","said: What would you like to add? / ✕ / 📁 Add Folder"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/drawings","role":"admin","label":"+","trail":["(reopen)"],"did":["changed","said: What would you like to add? / ✕ / 📁 Add Folder"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/drawings","role":"admin","label":"Close","trail":["+"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/drawings","role":"admin","label":"+","trail":["(reopen)"],"did":["changed","said: What would you like to add? / ✕ / 📁 Add Folder"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/drawings","role":"admin","label":"📁 Add Folder","trail":["+"],"did":["changed","said: CREATE FOLDER / CANCEL"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/drawings","role":"admin","label":"+","trail":["(reopen)"],"did":["changed","said: What would you like to add? / ✕ / 📁 Add Folder"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/drawings","role":"admin","label":"📄 Add Document","trail":["+"],"did":["changed","said: UPLOAD FILES (ANY TYPE — PDF, WORD, EXCEL, PHOTOS…) / Uploads into the top level. You can pick more than one file — each is saved separately. / CHOOSE FILE(S)"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/drawings","role":"admin","label":"+","trail":["(reopen)"],"did":["changed","said: What would you like to add? / ✕ / 📁 Add Folder"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/drawings","role":"admin","label":"☁️ Sync from OneDrive","trail":["+"],"did":["changed","said: No / Link a folder"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/drawings","role":"admin","label":"Close","trail":["+","☁️ Sync from OneDrive"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/drawings","role":"admin","label":"📁\nDrawings\nFolder\n⋮","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/drawings/df1","changed","said: 📐 / Roof plan.pdf / View"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/drawings","role":"admin","label":"⋮","trail":[],"did":["changed","said: ✕ / ✏️ Rename / 🔒 Who can see this"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/drawings","role":"admin","label":"⋮","trail":["(reopen)"],"did":["changed","said: ✕ / ✏️ Rename / 🔒 Who can see this"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/drawings","role":"admin","label":"Close","trail":["⋮"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/drawings","role":"admin","label":"⋮","trail":["(reopen)"],"did":["changed","said: ✕ / ✏️ Rename / 🔒 Who can see this"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/drawings","role":"admin","label":"✏️ Rename","trail":["⋮"],"did":["changed","said: Rename folder / OK"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/drawings","role":"admin","label":"Close","trail":["⋮","✏️ Rename"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/drawings","role":"admin","label":"⋮","trail":["(reopen)"],"did":["changed","said: ✕ / ✏️ Rename / 🔒 Who can see this"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/drawings","role":"admin","label":"🔒 Who can see this","trail":["⋮"],"did":["changed","said: WHO CAN SEE THIS / All / Only the people ticked"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/drawings","role":"admin","label":"SAVE","trail":["⋮","🔒 Who can see this"],"did":["changed","wrote PATCH drawing_folders"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/drawings","role":"admin","label":"⋮","trail":["(reopen)"],"did":["changed","said: ✕ / ✏️ Rename / 🔒 Who can see this"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/drawings","role":"admin","label":"🗑 Delete","trail":["⋮"],"did":["changed","said: Delete this folder and everything inside it? This can't be undone. / No / Delete"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/drawings","role":"admin","label":"Close","trail":["⋮","🗑 Delete"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/om/om1","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/om/om1","blocked":false,"buttons":12,"words":1802,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/om/om1","role":"admin","label":"Projects","trail":[],"did":["nav /sites","changed","said: All (3) / Live (2) / Upcoming (1)"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/om/om1","role":"admin","label":"J101 Studley Rd","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111","changed","said: Job No: J101 / NOT CHECKED IN / COSTS TO DATE"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/om/om1","role":"admin","label":"📄 EXPORT PDF","trail":[],"did":["changed","said: O&M Manual - Studley Rd.pdf / ☁️ Save to OneDrive","download"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/om/om1","role":"admin","label":"📄 EXPORT PDF","trail":["(reopen)"],"did":["changed","said: O&M Manual - Studley Rd.pdf / ☁️ Save to OneDrive","download"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/om/om1","role":"admin","label":"☁️ Save to OneDrive","trail":["📄 EXPORT PDF"],"did":["changed","said: Saving to OneDrive…","fn onedrive-upload"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/om/om1","role":"admin","label":"📄 EXPORT PDF","trail":["(reopen)"],"did":["changed","said: O&M Manual - Studley Rd.pdf / ☁️ Save to OneDrive","download"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/om/om1","role":"admin","label":"✕","trail":["📄 EXPORT PDF"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/om/om1","role":"admin","label":"✉ EMAIL PDF","trail":[],"did":["changed","said: Email the O&M manual to: / OK"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/om/om1","role":"admin","label":"✉ EMAIL PDF","trail":["(reopen)"],"did":["changed","said: Email the O&M manual to: / OK"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/om/om1","role":"admin","label":"Close","trail":["✉ EMAIL PDF"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/om/om1","role":"admin","label":"✉ EMAIL PDF","trail":["(reopen)"],"did":["changed","said: Email the O&M manual to: / OK"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/om/om1","role":"admin","label":"OK","trail":["✉ EMAIL PDF"],"did":["changed","wrote upload","fn send-document-email"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/om/om1","role":"admin","label":"✉ EMAIL WORD","trail":[],"did":["changed","said: Email the O&M manual (Word) to: / OK"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/om/om1","role":"admin","label":"✉ EMAIL WORD","trail":["(reopen)"],"did":["changed","said: Email the O&M manual (Word) to: / OK"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/om/om1","role":"admin","label":"Close","trail":["✉ EMAIL WORD"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/om/om1","role":"admin","label":"✉ EMAIL WORD","trail":["(reopen)"],"did":["changed","said: Email the O&M manual (Word) to: / OK"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/om/om1","role":"admin","label":"OK","trail":["✉ EMAIL WORD"],"did":["changed","wrote upload","fn send-document-email"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/om/om1","role":"admin","label":"📝 WORD","trail":[],"did":["changed","download"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/om/om1","role":"admin","label":"Date","trail":[],"did":["changed","said: Date / October 2026 / Mo"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/om/om1","role":"admin","label":"Date","trail":["(reopen)"],"did":["changed","said: Date / October 2026 / Mo"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/om/om1","role":"admin","label":"Close","trail":["Date"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/om/om1","role":"admin","label":"Date","trail":["(reopen)"],"did":["changed","said: Date / October 2026 / Mo"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/om/om1","role":"admin","label":"Previous month","trail":["Date"],"did":["changed","said: September 2026"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/om/om1","role":"admin","label":"Close","trail":["Date","Previous month"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/om/om1","role":"admin","label":"Date","trail":["(reopen)"],"did":["changed","said: Date / October 2026 / Mo"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/om/om1","role":"admin","label":"Next month","trail":["Date"],"did":["changed","said: November 2026"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/om/om1","role":"admin","label":"Close","trail":["Date","Next month"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/om/om1","role":"admin","label":"Date","trail":["(reopen)"],"did":["changed","said: Date / October 2026 / Mo"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/om/om1","role":"admin","label":"1 Oct 2026","trail":["Date"],"did":["changed","said: 1 Oct 2026","wrote PATCH handover_om_manuals"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/om/om1","role":"admin","label":"✓\nData sheets","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/om/om1","role":"admin","label":"✓\nData sheets","trail":["(reopen)"],"did":["changed","wrote PATCH handover_om_manuals"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/om/om1","role":"admin","label":"Data sheets","trail":["✓\nData sheets"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/om/om1","role":"admin","label":"✓\nGuarantees","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/om/om1","role":"admin","label":"✓\nGuarantees","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/om/om1","role":"admin","label":"✓\nThe job’s COSHH assessments","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/om/om1","role":"admin","label":"✓\nThe job’s COSHH assessments","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/om/om1","role":"admin","label":"The job’s COSHH assessments","trail":["✓\nThe job’s COSHH assessments"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/om/om1","role":"admin","label":"Drawings","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/om/om1","role":"admin","label":"Drawings","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/om/om1","role":"admin","label":"+ ADD A SECTION","trail":[],"did":["changed","said: Add a section / Text / Table"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/om/om1","role":"admin","label":"+ ADD A SECTION","trail":["(reopen)"],"did":["changed","said: Add a section / Text / Table"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/om/om1","role":"admin","label":"Close","trail":["+ ADD A SECTION"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/om/om1","role":"admin","label":"+ ADD A SECTION","trail":["(reopen)"],"did":["changed","said: Add a section / Text / Table"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/om/om1","role":"admin","label":"Text","trail":["+ ADD A SECTION"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/om/om1","role":"admin","label":"+ ADD A SECTION","trail":["(reopen)"],"did":["changed","said: Add a section / Text / Table"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/om/om1","role":"admin","label":"Table","trail":["+ ADD A SECTION"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/om/om1","role":"admin","label":"+ ADD A SECTION","trail":["(reopen)"],"did":["changed","said: Add a section / Text / Table"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/om/om1","role":"admin","label":"Photos","trail":["+ ADD A SECTION"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/om/om1","role":"admin","label":"+ ADD A SECTION","trail":["(reopen)"],"did":["changed","said: Add a section / Text / Table"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/om/om1","role":"admin","label":"Maintenance procedures","trail":["+ ADD A SECTION"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/briefings","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/hs/briefings","blocked":false,"buttons":5,"words":513,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/briefings","role":"admin","label":"Projects","trail":[],"did":["nav /sites","changed","said: All (3) / Live (2) / Upcoming (1)"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/briefings","role":"admin","label":"J101 Studley Rd","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111","changed","said: Job No: J101 / NOT CHECKED IN / COSTS TO DATE"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/briefings","role":"admin","label":"Health & Safety","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/hs","changed","said: 📄 / RAMS / 0 documents"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/briefings","role":"admin","label":"+ NEW BRIEFING","trail":[],"did":[],"problems":["could not press"]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/briefings","role":"admin","label":"+ Create a Daily Briefing template","trail":[],"did":["nav /pm/admin/templates/new-report_templates-1793376629550-18","changed","said: Edit Template / Template Name / Description (optional)","wrote POST report_templates"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh/save","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh/save","blocked":false,"buttons":3,"words":382,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh/save","role":"admin","label":"Projects","trail":[],"did":["nav /sites","changed","said: All (3) / Live (2) / Upcoming (1)"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh/save","role":"admin","label":"J101 Studley Rd","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111","changed","said: Job No: J101 / NOT CHECKED IN / COSTS TO DATE"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh/save","role":"admin","label":"Health & Safety","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/hs","changed","said: 📄 / RAMS / 0 documents"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/loler","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/hs/loler","blocked":false,"buttons":5,"words":452,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/loler","role":"admin","label":"Projects","trail":[],"did":["nav /sites","changed","said: All (3) / Live (2) / Upcoming (1)"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/loler","role":"admin","label":"J101 Studley Rd","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111","changed","said: Job No: J101 / NOT CHECKED IN / COSTS TO DATE"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/loler","role":"admin","label":"Health & Safety","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/hs","changed","said: 📄 / RAMS / 0 documents"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/loler","role":"admin","label":"+ NEW LOLER INSPECTION","trail":[],"did":["changed","said: CANCEL / Pick the plant item this inspection is for: / CHOOSE FROM PLANT REGISTER"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/loler","role":"admin","label":"+ NEW LOLER INSPECTION","trail":["(reopen)"],"did":["changed","said: CANCEL / Pick the plant item this inspection is for: / CHOOSE FROM PLANT REGISTER"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/loler","role":"admin","label":"CANCEL","trail":["+ NEW LOLER INSPECTION"],"did":["changed","said: + NEW LOLER INSPECTION"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/loler","role":"admin","label":"+ NEW LOLER INSPECTION","trail":["(reopen)"],"did":["changed","said: CANCEL / Pick the plant item this inspection is for: / CHOOSE FROM PLANT REGISTER"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/loler","role":"admin","label":"CHOOSE FROM PLANT REGISTER","trail":["+ NEW LOLER INSPECTION"],"did":["changed","said: Select an item: / Hoist / BACK"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/loler","role":"admin","label":"+ NEW LOLER INSPECTION","trail":["(reopen)"],"did":["changed","said: CANCEL / Pick the plant item this inspection is for: / CHOOSE FROM PLANT REGISTER"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/loler","role":"admin","label":"START INSPECTION WITH THIS NAME","trail":["+ NEW LOLER INSPECTION"],"did":["changed","said: Type an item name first, or choose from the Plant Register. / ✕"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/loler","role":"admin","label":"LOLER check\nSubmitted 30/10/2026, 15:40:07 · Andy Admin\nCompleted","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/hs/loler/view/rs3","changed","said: LOLER Inspection / LOLER Inspection / LOLER CHECK"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams/new","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/hs/rams/new","blocked":false,"buttons":6,"words":1006,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams/new","role":"admin","label":"Projects","trail":[],"did":["nav /sites","changed","said: All (3) / Live (2) / Upcoming (1)"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams/new","role":"admin","label":"J101 Studley Rd","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111","changed","said: Job No: J101 / NOT CHECKED IN / COSTS TO DATE"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams/new","role":"admin","label":"Health & Safety","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/hs","changed","said: 📄 / RAMS / 0 documents"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams/new","role":"admin","label":"📋 Pitched Roof Renewal · 2 hazards · 2 sections","trail":[],"did":["changed","said: ✓"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams/new","role":"admin","label":"📋 Pitched Roof Renewal · 2 hazards · 2 sections","trail":["(reopen)"],"did":["changed","said: ✓"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams/new","role":"admin","label":"✓\n📋 Pitched Roof Renewal · 2 hazards · 2 sections","trail":["📋 Pitched Roof Renewal · 2 hazards · 2 sections"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams/new","role":"admin","label":"— Choose a job (1) —","trail":[],"did":["changed","said: Choose a job / ✕ / Studley Rd (1)"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams/new","role":"admin","label":"— Choose a job (1) —","trail":["(reopen)"],"did":["changed","said: Choose a job / ✕ / Studley Rd (1)"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams/new","role":"admin","label":"Close","trail":["— Choose a job (1) —"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams/new","role":"admin","label":"— Choose a job (1) —","trail":["(reopen)"],"did":["changed","said: Choose a job / ✕ / Studley Rd (1)"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams/new","role":"admin","label":"Studley Rd (1)","trail":["— Choose a job (1) —"],"did":["changed","said: Studley Rd — Roof Renewal · Draft · 30 Oct 2026"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams/new","role":"admin","label":"CREATE RAMS","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/hs/rams/build/new-rams_builds-1793376734173-19","changed","said: RAMS Builder / RAMS Builder / Draft · saves automatically","wrote rpc rams_take_numbers,POST rams_builds,PATCH organizations,POST site_activity_log"],"problems":["error: console: Each child in a list should have a unique \"key\" prop.%s%s See https://react.dev/link/warning-keys for more information. \n\nCheck the render method of `View`.  It"]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials/collections","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/materials/collections","blocked":false,"buttons":8,"words":570,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials/collections","role":"admin","label":"Projects","trail":[],"did":["nav /sites","changed","said: All (3) / Live (2) / Upcoming (1)"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials/collections","role":"admin","label":"J101 Studley Rd","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111","changed","said: Job No: J101 / NOT CHECKED IN / COSTS TO DATE"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials/collections","role":"admin","label":"Materials","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/materials","changed","said: 🙋 / Material Requests / 1 new","wrote rpc site_office_orders"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials/collections","role":"admin","label":"To collect","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials/collections","role":"admin","label":"Collected","trail":[],"did":["changed","said: Nothing collected yet."],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials/collections","role":"admin","label":"▶ Supplier (optional)","trail":[],"did":["changed","said: ▼ Supplier (optional) / — No supplier — / SIG Roofing"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials/collections","role":"admin","label":"▶ Supplier (optional)","trail":["(reopen)"],"did":["changed","said: ▼ Supplier (optional) / — No supplier — / SIG Roofing"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials/collections","role":"admin","label":"▼ Supplier (optional)","trail":["▶ Supplier (optional)"],"did":["changed","said: ▶ Supplier (optional)"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials/collections","role":"admin","label":"▶ Supplier (optional)","trail":["(reopen)"],"did":["changed","said: ▼ Supplier (optional) / — No supplier — / SIG Roofing"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials/collections","role":"admin","label":"— No supplier —","trail":["▶ Supplier (optional)"],"did":["changed","said: ▶ Supplier (optional)"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials/collections","role":"admin","label":"▶ Supplier (optional)","trail":["(reopen)"],"did":["changed","said: ▼ Supplier (optional) / — No supplier — / SIG Roofing"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials/collections","role":"admin","label":"SIG Roofing","trail":["▶ Supplier (optional)"],"did":["changed","said: ▶ SIG Roofing"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials/collections","role":"admin","label":"▶ Supplier (optional)","trail":["(reopen)"],"did":["changed","said: ▼ Supplier (optional) / — No supplier — / SIG Roofing"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials/collections","role":"admin","label":"Travis Perkins","trail":["▶ Supplier (optional)"],"did":["changed","said: ▶ Travis Perkins"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials/collections","role":"admin","label":"ADD MORE","trail":[],"did":["changed","filled 2","said: 1 row queued — not saved yet: / Test — qty 10 / 🗑"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials/collections","role":"admin","label":"ADD MORE","trail":["(reopen)"],"did":["changed","filled 2","said: 1 row queued — not saved yet: / Test — qty 10 / 🗑"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials/collections","role":"admin","label":"🗑","trail":["ADD MORE"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials/collections","role":"admin","label":"COMPLETE LIST","trail":[],"did":["changed","said: Enter at least one item. / ✕"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials/collections","role":"admin","label":"COMPLETE LIST","trail":["(reopen)"],"did":["changed","said: Enter at least one item. / ✕"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials/collections","role":"admin","label":"Enter at least one item.\n✕","trail":["COMPLETE LIST"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/docs/general","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/mc/docs/general","blocked":false,"buttons":7,"words":438,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/docs/general","role":"admin","label":"Projects","trail":[],"did":["nav /sites","changed","said: All (3) / Live (2) / Upcoming (1)"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/docs/general","role":"admin","label":"J101 Studley Rd","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111","changed","said: Job No: J101 / NOT CHECKED IN / COSTS TO DATE"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/docs/general","role":"admin","label":"Main Contractor","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/mc","changed","said: 📘 / Construction Phase Plan / 0 documents"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/docs/general","role":"admin","label":"✏️","trail":[],"did":["changed","said: Rename document / ✕ / OK"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/docs/general","role":"admin","label":"✏️","trail":["(reopen)"],"did":["changed","said: Rename document / ✕ / OK"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/docs/general","role":"admin","label":"Close","trail":["✏️"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/docs/general","role":"admin","label":"✏️","trail":["(reopen)"],"did":["changed","said: Rename document / ✕ / OK"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/docs/general","role":"admin","label":"OK","trail":["✏️"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/docs/general","role":"admin","label":"🗑","trail":[],"did":["changed","said: ✕ / Delete this document? / No"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/docs/general","role":"admin","label":"🗑","trail":["(reopen)"],"did":["changed","said: ✕ / Delete this document? / No"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/docs/general","role":"admin","label":"Close","trail":["🗑"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/docs/general","role":"admin","label":"🗑","trail":["(reopen)"],"did":["changed","said: ✕ / Delete this document? / No"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/docs/general","role":"admin","label":"No","trail":["🗑"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/docs/general","role":"admin","label":"🗑","trail":["(reopen)"],"did":["changed","said: ✕ / Delete this document? / No"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/docs/general","role":"admin","label":"Delete","trail":["🗑"],"did":["changed","said: No documents uploaded. / ▲ / CHOOSE PDF","wrote DELETE mc_documents"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/docs/general","role":"admin","label":"📄 VIEW DOCUMENT","trail":[],"did":["changed","said: s.pdf / ⬇ / ✕"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/docs/general","role":"admin","label":"📄 VIEW DOCUMENT","trail":["(reopen)"],"did":["changed","said: s.pdf / ⬇ / ✕"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/docs/general","role":"admin","label":"Zoom in","trail":["📄 VIEW DOCUMENT"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/docs/general","role":"admin","label":"📄 VIEW DOCUMENT","trail":["(reopen)"],"did":["changed","said: s.pdf / ⬇ / ✕"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/docs/general","role":"admin","label":"Zoom out","trail":["📄 VIEW DOCUMENT"],"did":[],"problems":["nothing happened"]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/docs/general","role":"admin","label":"Upload Documents\n▼","trail":[],"did":["changed","said: ▲ / CHOOSE PDF / UPLOAD"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/docs/general","role":"admin","label":"Upload Documents\n▼","trail":["(reopen)"],"did":["changed","said: ▲ / CHOOSE PDF / UPLOAD"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/docs/general","role":"admin","label":"Upload Documents\n▲","trail":["Upload Documents\n▼"],"did":["changed","filled 1","said: ▼"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/docs/general","role":"admin","label":"Upload Documents\n▼","trail":["(reopen)"],"did":["changed","said: ▲ / CHOOSE PDF / UPLOAD"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/docs/general","role":"admin","label":"CHOOSE PDF","trail":["Upload Documents\n▼"],"did":["changed","file picker"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/docs/general","role":"admin","label":"Upload Documents\n▼","trail":["(reopen)"],"did":["changed","said: ▲ / CHOOSE PDF / UPLOAD"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/docs/general","role":"admin","label":"UPLOAD","trail":["Upload Documents\n▼"],"did":["changed","filled 1","said: Add a name and choose a PDF. / ✕"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors","blocked":false,"buttons":7,"words":584,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors","role":"admin","label":"Projects","trail":[],"did":["nav /sites","changed","said: All (3) / Live (2) / Upcoming (1)"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors","role":"admin","label":"J101 Studley Rd","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111","changed","said: Job No: J101 / NOT CHECKED IN / COSTS TO DATE"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors","role":"admin","label":"Main Contractor","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/mc","changed","said: 📘 / Construction Phase Plan / 0 documents"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors","role":"admin","label":"Acme Scaffolding\n✏️\n🗑","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1","changed","said: 📄 / RAMS / 0 documents"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors","role":"admin","label":"✏️","trail":[],"did":["changed","said: Rename subcontractor / ✕ / OK"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors","role":"admin","label":"✏️","trail":["(reopen)"],"did":["changed","said: Rename subcontractor / ✕ / OK"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors","role":"admin","label":"Close","trail":["✏️"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors","role":"admin","label":"✏️","trail":["(reopen)"],"did":["changed","said: Rename subcontractor / ✕ / OK"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors","role":"admin","label":"OK","trail":["✏️"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors","role":"admin","label":"🗑","trail":[],"did":["changed","said: ✕ / Remove \"Acme Scaffolding\" and everything in their folder? This cannot be undone. / No"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors","role":"admin","label":"🗑","trail":["(reopen)"],"did":["changed","said: ✕ / Remove \"Acme Scaffolding\" and everything in their folder? This cannot be undone. / No"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors","role":"admin","label":"Close","trail":["🗑"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors","role":"admin","label":"🗑","trail":["(reopen)"],"did":["changed","said: ✕ / Remove \"Acme Scaffolding\" and everything in their folder? This cannot be undone. / No"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors","role":"admin","label":"No","trail":["🗑"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors","role":"admin","label":"🗑","trail":["(reopen)"],"did":["changed","said: ✕ / Remove \"Acme Scaffolding\" and everything in their folder? This cannot be undone. / No"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors","role":"admin","label":"Remove","trail":["🗑"],"did":["changed","said: No subcontractors added yet.","wrote DELETE subcontractor_companies"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors","role":"admin","label":"+ ADD SUBCONTRACTOR","trail":[],"did":["changed","said: CANCEL / ADD"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors","role":"admin","label":"+ ADD SUBCONTRACTOR","trail":["(reopen)"],"did":["changed","said: CANCEL / ADD"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors","role":"admin","label":"CANCEL","trail":["+ ADD SUBCONTRACTOR"],"did":["changed","said: + ADD SUBCONTRACTOR"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors","role":"admin","label":"+ ADD SUBCONTRACTOR","trail":["(reopen)"],"did":["changed","said: CANCEL / ADD"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors","role":"admin","label":"ADD","trail":["+ ADD SUBCONTRACTOR"],"did":["changed","filled 1","said: Test / + ADD SUBCONTRACTOR","wrote POST subcontractor_company_profiles,POST subcontractor_companies"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/schedule","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/schedule","blocked":false,"buttons":6,"words":591,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/schedule","role":"admin","label":"Projects","trail":[],"did":["nav /sites","changed","said: All (3) / Live (2) / Upcoming (1)"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/schedule","role":"admin","label":"J101 Studley Rd","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111","changed","said: Job No: J101 / NOT CHECKED IN / COSTS TO DATE"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/schedule","role":"admin","label":"Main Contractor","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/mc","changed","said: 📘 / Construction Phase Plan / 0 documents"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/schedule","role":"admin","label":"All","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/schedule","role":"admin","label":"To Do","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/schedule","role":"admin","label":"In Progress / Complete","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/repairs","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/repairs","blocked":false,"buttons":17,"words":995,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/repairs","role":"admin","label":"Projects","trail":[],"did":["nav /sites","changed","said: All (3) / Live (2) / Upcoming (1)"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/repairs","role":"admin","label":"J101 Studley Rd","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111","changed","said: Job No: J101 / NOT CHECKED IN / Client: Bellway Homes"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/repairs","role":"admin","label":"Open project finance","trail":[],"did":["nav /fin/job/11111111-1111-1111-1111-111111111111","changed","said: Finance · Bellway Homes / J101 · Studley Rd / Finance · Bellway Homes"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/repairs","role":"admin","label":"Measure margin against","trail":[],"did":["changed","said: Measure margin against / Latest (certified, else applied) / Applied"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/repairs","role":"admin","label":"Measure margin against","trail":["(reopen)"],"did":["changed","said: Measure margin against / Latest (certified, else applied) / Applied"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/repairs","role":"admin","label":"Close","trail":["Measure margin against"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/repairs","role":"admin","label":"Measure margin against","trail":["(reopen)"],"did":["changed","said: Measure margin against / Latest (certified, else applied) / Applied"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/repairs","role":"admin","label":"Latest (certified, else applied)","trail":["Measure margin against"],"did":["changed","said: £6,451 30.7% / on £21,000 certified"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/repairs","role":"admin","label":"Measure margin against","trail":["(reopen)"],"did":["changed","said: Measure margin against / ✓ Latest (certified, else applied) / Applied"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/repairs","role":"admin","label":"Applied","trail":["Measure margin against"],"did":["changed","said: £6,951 32.3% / on £21,500 applied"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/repairs","role":"admin","label":"Measure margin against","trail":["(reopen)"],"did":["changed","said: Measure margin against / Latest (certified, else applied) / ✓ Applied"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/repairs","role":"admin","label":"Certified","trail":["Measure margin against"],"did":["changed","said: £6,451 30.7% / on £21,000 certified"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/repairs","role":"admin","label":"Measure margin against","trail":["(reopen)"],"did":["changed","said: Measure margin against / Latest (certified, else applied) / Applied"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/repairs","role":"admin","label":"+ ADD JOB","trail":[],"did":["changed","said: ADD REPAIR JOB / WORK ORDER (OPTIONAL)… / ADD JOB"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/repairs","role":"admin","label":"+ ADD JOB","trail":["(reopen)"],"did":["changed","said: ADD REPAIR JOB / WORK ORDER (OPTIONAL)… / ADD JOB"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/repairs","role":"admin","label":"WORK ORDER (OPTIONAL)…","trail":["+ ADD JOB"],"did":["changed","file picker"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/repairs","role":"admin","label":"+ ADD JOB","trail":["(reopen)"],"did":["changed","said: ADD REPAIR JOB / WORK ORDER (OPTIONAL)… / ADD JOB"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/repairs","role":"admin","label":"ADD JOB","trail":["+ ADD JOB"],"did":["nav /sites/11111111-1111-1111-1111-111111111111/repairs/job/new-repair_jobs-1793377058365-23","changed","filled 3","said: Test / Repairs / Test","wrote POST repair_jobs"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/repairs","role":"admin","label":"+ ADD JOB","trail":["(reopen)"],"did":["changed","said: ADD REPAIR JOB / WORK ORDER (OPTIONAL)… / ADD JOB"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/repairs","role":"admin","label":"CANCEL","trail":["+ ADD JOB"],"did":["changed","said: + ADD JOB"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/repairs","role":"admin","label":"🔍\nJobs to Survey\n1","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/repairs/list/survey","changed","said: Repairs / Jobs To Survey / ▾ Jobs to Survey"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/repairs","role":"admin","label":"💷\nSurveyed — Awaiting Cost\n0","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/repairs/list/awaiting_cost","changed","said: Repairs / ▾ Surveyed — Awaiting Cost / ⇅ Date Added (Newest First)"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/repairs","role":"admin","label":"⏳\nVariation Issued\n0","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/repairs/list/variation_issued","changed","said: Repairs / ▾ Variation Issued / ⇅ Date Added (Newest First)"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/repairs","role":"admin","label":"🪜\nApproved — Awaiting Scaffold\n0","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/repairs/list/scaffold","changed","said: Repairs / ▾ Approved — Awaiting Scaffold / ⇅ Date Added (Newest First)"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/repairs","role":"admin","label":"✅\nApproved — To Do\n0","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/repairs/list/approved","changed","said: Repairs / ▾ Approved — To Do / ⇅ Date Added (Newest First)"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/repairs","role":"admin","label":"🔧\nIn Progress\n0","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/repairs/list/in_progress","changed","said: Repairs / ▾ In Progress / ⇅ Date Added (Newest First)"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/repairs","role":"admin","label":"🖊️\nAwaiting Sign-off\n0","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/repairs/list/awaiting_signoff","changed","said: Repairs / Awaiting Sign-Off / ▾ Awaiting Sign-off"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/repairs","role":"admin","label":"✕\nRejected\n0","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/repairs/list/rejected","changed","said: Repairs / ▾ Rejected / ⇅ Date Added (Newest First)"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/repairs","role":"admin","label":"🧾\nClosed — Subject to Invoice\n0","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/repairs/list/to_invoice","changed","said: Repairs / Closed — Subject To Invoice / ▾ Closed — Subject to Invoice"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/repairs","role":"admin","label":"VIEW ALL JOBS (1)","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/repairs/list/all","changed","said: All Jobs / Repairs / All Jobs"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/repairs","role":"admin","label":"📥 BULK ADD FROM WORK ORDERS","trail":[],"did":["changed","file picker"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/repairs","role":"admin","label":"⬇ EXPORT EXCEL (REPAIR TRACKER)","trail":[],"did":["download"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/reports","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/snagging/reports","blocked":false,"buttons":11,"words":638,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/reports","role":"admin","note":"11 buttons, 9 distinct pressed","problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/reports","role":"admin","label":"Projects","trail":[],"did":["nav /sites","changed","said: All (3) / Live (2) / Upcoming (1)"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/reports","role":"admin","label":"J101 Studley Rd","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111","changed","said: Job No: J101 / NOT CHECKED IN / COSTS TO DATE"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/reports","role":"admin","label":"Snagging","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/snagging","changed","said: Inspections & Reports / Inspections & Reports / 🏷"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/reports","role":"admin","label":"+ NEW REPORT","trail":[],"did":["changed","said: CANCEL / Pick a template to start a new inspection: / START"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/reports","role":"admin","label":"+ NEW REPORT","trail":["(reopen)"],"did":["changed","said: CANCEL / Pick a template to start a new inspection: / START"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/reports","role":"admin","label":"CANCEL","trail":["+ NEW REPORT"],"did":["changed","said: + NEW REPORT"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/reports","role":"admin","label":"+ NEW REPORT","trail":["(reopen)"],"did":["changed","said: CANCEL / Pick a template to start a new inspection: / START"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/reports","role":"admin","label":"START","trail":["+ NEW REPORT"],"did":["nav /sites/11111111-1111-1111-1111-111111111111/snagging/reports/fill/005226e6-bd6f-4677-896f-63f15f53f495","changed","said: Daily Report / DAILY REPORT / CHECKS","wrote POST report_submissions"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/reports","role":"admin","label":"▼ All templates","trail":[],"did":["changed","said: Filter by template / ✕ / All templates"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/reports","role":"admin","label":"▼ All templates","trail":["(reopen)"],"did":["changed","said: Filter by template / ✕ / All templates"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/reports","role":"admin","label":"Close","trail":["▼ All templates"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/reports","role":"admin","label":"▼ All templates","trail":["(reopen)"],"did":["changed","said: Filter by template / ✕ / All templates"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/reports","role":"admin","label":"All templates","trail":["▼ All templates"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/reports","role":"admin","label":"▼ All templates","trail":["(reopen)"],"did":["changed","said: Filter by template / ✕ / All templates"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/reports","role":"admin","label":"Daily report","trail":["▼ All templates"],"did":["changed","said: ▼ Daily report"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/reports","role":"admin","label":"▼ All templates","trail":["(reopen)"],"did":["changed","said: Filter by template / ✕ / All templates"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/reports","role":"admin","label":"LOLER check","trail":["▼ All templates"],"did":["changed","said: ▼ LOLER check"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/reports","role":"admin","label":"☐","trail":[],"did":["changed","said: DELETE 1 SELECTED / PDF OF 1 / EMAIL"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/reports","role":"admin","label":"☐","trail":["(reopen)"],"did":["changed","said: DELETE 1 SELECTED / PDF OF 1 / EMAIL"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/reports","role":"admin","label":"DELETE 1 SELECTED","trail":["☐"],"did":["changed","said: ✕ / Delete 1 report? This cannot be undone. / No"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/reports","role":"admin","label":"Close","trail":["☐","DELETE 1 SELECTED"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/reports","role":"admin","label":"☐","trail":["(reopen)"],"did":["changed","said: DELETE 1 SELECTED / PDF OF 1 / EMAIL"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/reports","role":"admin","label":"PDF OF 1","trail":["☐"],"did":["changed","said: Studley Rd - Reports (1) - 30-10-26.pdf / ☁️ Save to OneDrive / ✕","download"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/reports","role":"admin","label":"☐","trail":["(reopen)"],"did":["changed","said: DELETE 1 SELECTED / PDF OF 1 / EMAIL"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/reports","role":"admin","label":"EMAIL","trail":["☐"],"did":["changed","said: Email the selected reports to: / ✕ / OK"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/reports","role":"admin","label":"DELETE 1 SELECTED","trail":["☐","EMAIL"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/reports","role":"admin","label":"☐","trail":["(reopen)"],"did":["changed","said: DELETE 1 SELECTED / PDF OF 1 / EMAIL"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/reports","role":"admin","label":"CLEAR","trail":["☐"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/reports","role":"admin","label":"☐","trail":["(reopen)"],"did":["changed","said: DELETE 1 SELECTED / PDF OF 1 / EMAIL"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/reports","role":"admin","label":"☑","trail":["☐"],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/reports","role":"admin","label":"Daily report\nSubmitted 30/10/2026, 15:40:07 · Andy Admin","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/snagging/reports/view/rs1","changed","said: Daily Report / DAILY REPORT / Submitted 30/10/2026, 15:40:07 by Andy Admin"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/reports","role":"admin","label":"LOLER check\nSubmitted 30/10/2026, 15:40:07 · Andy Admin","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/snagging/reports/view/rs3","changed","said: LOLER Check / LOLER CHECK / Submitted 30/10/2026, 15:40:07 by Andy Admin"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/reports","role":"admin","label":"Daily report\nStarted · Andy Admin","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/snagging/reports/fill/rs2","changed","said: Daily Report / DAILY REPORT / SAVE & EXIT"],"problems":[]}

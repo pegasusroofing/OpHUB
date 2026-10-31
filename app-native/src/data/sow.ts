@@ -157,7 +157,7 @@ export async function moveToProgressAfterPhotos(task: Task): Promise<void> {
 
 export async function setStatus(task: Task, next: 'todo' | 'progress'): Promise<boolean> {
   await dropPatch('schedule_tasks', task.id);
-  const r = await db.from('schedule_tasks').update(statusPatch(next) as never).eq('id', task.id).select();
+  const r = mustHit(await db.from('schedule_tasks').update(statusPatch(next) as never).eq('id', task.id).select());
   if (r.error) return false;
   const row = (r.data as Task[] | null)?.[0];
   if (row && next === 'progress' && row.percent_complete === 100) {
@@ -167,7 +167,7 @@ export async function setStatus(task: Task, next: 'todo' | 'progress'): Promise<
 }
 
 export async function setPercent(task: Task, pct: number): Promise<boolean> {
-  const r = await db.from('schedule_tasks').update({ percent_complete: pct } as never).eq('id', task.id);
+  const r = mustHit(await db.from('schedule_tasks').update({ percent_complete: pct } as never).eq('id', task.id).select('id'));
   return !r.error;
 }
 

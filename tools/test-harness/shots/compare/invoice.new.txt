@@ -1,0 +1,57 @@
+RTB Roofing Ltd
+OPHUB
+Search
+Ctrl K
+Home
+Projects
+Deliveries
+Calendar
+Hub
+4
+Dashboard
+OpHUB Finance
+Admin
+Andy Admin
+Company Admin
+Sign out
+‹
+INV-1001
+OpHUB Finance
+Finance
+›
+Projects
+›
+J101 Studley Rd
+INV-1001
+Invoice
+Sent
+Status
+£15,000.00
+Total
+£15,000.00
+Outstanding
+Bill to
+Bellway Homes
+Issued
+1 Oct 2026
+Due
+31 Oct 2026
+Sent
+Not emailed yet
+LINES
+Application 1
+£15,000.00
+Net
+£15,000.00
+VAT
+£0.00
+Total
+£15,000.00
+Reverse charge VAT £3,000.00 — paid by the client to HMRC.
+VIEW PDF
+Emailing invoices and reminders is switched off while Finance is on trial.
+PAYMENTS
+No payments recorded yet.
++ RECORD PAYMENT
+VOID THIS INVOICE
+Issued invoices can't be changed. To correct one, void it and raise a new one.

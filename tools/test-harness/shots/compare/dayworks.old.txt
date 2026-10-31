@@ -1,0 +1,80 @@
+RTB Roofing Ltd
+OPHUB
+🔍
+Search
+Ctrl K
+Home
+Projects
+Deliveries
+Calendar
+Hub
+4
+Dashboard
+OpHUB Finance
+Admin
+THIS PROJECT
+Studley Rd
+Project Home
+Schedule of Works
+Health & Safety
+Check In
+Inbox
+Finance
+Project Settings
+Andy Admin
+Company Admin
+Sign out
+Bill of Quantities
+Studley Rd
+🏠
+Finance
+›
+Projects
+›
+J101 Studley Rd
+›
+Bill of Quantities
+←
+Back
+Overview
+J101 Studley Rd
++ New
+Application
+Sales invoice
+Variation
+Purchase order
+Purchase invoice
+Subcontractor PO
+Plant hire
+Cost
+Overview
+Sales
+Purchases
+Subcontractors & Labour
+Bill Of Quantities
+Project Admin
+Bill Of Quantities
+Variations
+Day Works
+
+Day Works
+
++ Add Day Work
+Issued
+£0.00
+Approved
+£640.00
+Rejected
+£0.00
+
+Only approved day works go onto applications, at their approved value.
+
+All (1)
+Issued (0)
+Approved (1)
+Rejected (0)
+NO.	DAY WORK	DATE	REF	STATUS	VALUE	
+						
+DW01	Storm repairs	—	—	Approved	£640.00	
+1 shown
+£640.00

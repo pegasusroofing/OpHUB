@@ -1,0 +1,108 @@
+RTB Roofing Ltd
+OPHUB
+🔍
+Search
+Ctrl K
+Home
+Projects
+Deliveries
+Calendar
+Hub
+4
+Dashboard
+OpHUB Finance
+Admin
+THIS PROJECT
+Studley Rd
+Project Home
+Schedule of Works
+Health & Safety
+Check In
+Inbox
+Finance
+Project Settings
+Andy Admin
+Company Admin
+Sign out
+Bill of Quantities
+Studley Rd
+🏠
+Finance
+›
+Projects
+›
+J101 Studley Rd
+›
+Bill of Quantities
+←
+Back
+Overview
+J101 Studley Rd
++ New
+Application
+Sales invoice
+Variation
+Purchase order
+Purchase invoice
+Subcontractor PO
+Plant hire
+Cost
+Overview
+Sales
+Purchases
+Subcontractors & Labour
+Bill Of Quantities
+Project Admin
+Bill Of Quantities
+Variations
+Day Works
+⇪ Upload Client’s Bill
+This project already has applications. Changes here apply to new applications; existing ones keep the lines they were made with.
+
+Lines
+
+Budgets
+▾
++ Add
+▾
++
+⋮
+£48,000.00
+⋮
+Quantity
+Unit
+Cost rate £
+Cost price £
+Sell rate £
+Sell price £
+Margin
+33.3%
+£12,000.00
+⋮
+Quantity
+Unit
+Cost rate £
+Cost price £
+Sell rate £
+Sell price £
+Margin
+33.3%
+£4,000.00
+Lines
+1 section · 2 items
+Sell Total
+£48,000.00
+Budget Cost
+£32,000.00
+Margin
+33.3%£16,000.00
+Issue as SOW to Operatives
+0 of 2 lines are on the SoW
+Save Bill of Quantities
+Copy In 2 Tasks From The Site Schedule
+
+Totals are quantity × rate, so you type the rates. For a lump sum, leave the quantity empty and type the total. Saving sets the project’s contract value to the total of the items.
+
+Export:
+Excel
+PDF

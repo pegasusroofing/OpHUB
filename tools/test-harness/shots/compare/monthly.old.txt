@@ -1,0 +1,64 @@
+RTB Roofing Ltd
+OPHUB
+🔍
+Search
+Ctrl K
+Home
+Projects
+Deliveries
+Calendar
+Hub
+4
+Dashboard
+OpHUB Finance
+Admin
+THIS PROJECT
+Studley Rd
+Project Home
+Schedule of Works
+Health & Safety
+Check In
+Inbox
+Finance
+Project Settings
+Andy Admin
+Company Admin
+Sign out
+Monthly report
+J101 · Studley Rd
+🏠
+Finance
+›
+Projects
+›
+J101 Studley Rd
+›
+Monthly Report
+←
+Back
+Overview
+J101 Studley Rd
++ New
+Application
+Sales invoice
+Variation
+Purchase order
+Purchase invoice
+Subcontractor PO
+Plant hire
+Cost
+In the month
+Running total
+Excel
+PDF
+COST REPORT	AUG 2026	SEPT 2026	OCT 2026	TOTAL
+▼ Total
+Applied	£0.00	£0.00	£21,500.00	£21,500.00
+Certified	£0.00	£0.00	£21,000.00	£21,000.00
+Invoiced	£2,000.00	£0.00	£15,000.00	£17,000.00
+Actual costs	£0.00	£1,328.57	£13,220.00	£14,548.57
+Forecast value				£51,500.00
+Forecast budget				£31,500.00
+Forecast final cost				£37,898.57
+
+Excl. VAT. Applied and certified = the change from the last application. Actual costs are by invoice / work date. Forecast value, budget and final cost are in the total column.

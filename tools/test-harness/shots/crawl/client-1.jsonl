@@ -1,0 +1,54 @@
+{"route":"/account","role":"client","load":true,"land":"/account","blocked":false,"buttons":4,"words":423,"problems":[],"did":[]}
+{"route":"/account","role":"client","note":"4 buttons, 3 distinct pressed","problems":[],"did":[]}
+{"route":"/account","role":"client","label":"SAVE PHONE NUMBER","trail":[],"did":["changed","wrote PATCH profiles"],"problems":[]}
+{"route":"/account","role":"client","label":"✍ ADOPT MY SIGNATURE","trail":[],"did":["nav /signature","changed","said: My Signature / My Signature / YOUR SIGNATURE"],"problems":[]}
+{"route":"/account","role":"client","label":"💡 SHOW THE HOW-TO TIPS AGAIN","trail":[],"did":["changed","said: The how-to tips will show again as you open each page / ✕","wrote PATCH profiles"],"problems":[]}
+{"route":"/account","role":"client","label":"💡 SHOW THE HOW-TO TIPS AGAIN","trail":["(reopen)"],"did":["changed","said: The how-to tips will show again as you open each page / ✕","wrote PATCH profiles"],"problems":[]}
+{"route":"/account","role":"client","label":"The how-to tips will show again as you open each page\n✕","trail":["💡 SHOW THE HOW-TO TIPS AGAIN"],"did":["changed"],"problems":[]}
+{"route":"/signature","role":"client","load":true,"land":"/signature","blocked":false,"buttons":2,"words":280,"problems":[],"did":[]}
+{"route":"/signature","role":"client","label":"CLEAR","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/signature","role":"client","label":"SAVE SIGNATURE","trail":[],"did":["changed","said: Draw your signature first. / ✕"],"problems":[]}
+{"route":"/signature","role":"client","label":"SAVE SIGNATURE","trail":["(reopen)"],"did":["changed","said: Draw your signature first. / ✕"],"problems":[]}
+{"route":"/signature","role":"client","label":"Draw your signature first.\n✕","trail":["SAVE SIGNATURE"],"did":["changed"],"problems":[]}
+{"route":"/driver/yard","role":"client","load":true,"land":"/driver/yard","blocked":false,"buttons":0,"words":263,"problems":[],"did":[]}
+{"route":"/fin/purchases","role":"client","load":true,"land":"/sites","blocked":true,"buttons":5,"words":344,"problems":[],"did":[]}
+{"route":"/fin/team","role":"client","load":true,"land":"/sites","blocked":true,"buttons":5,"words":344,"problems":[],"did":[]}
+{"route":"/fin/po/po1","role":"client","load":true,"land":"/sites","blocked":true,"buttons":5,"words":344,"problems":[],"did":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/dayworks","role":"client","load":true,"land":"/sites","blocked":true,"buttons":5,"words":344,"problems":[],"did":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"client","load":true,"land":"/sites","blocked":true,"buttons":5,"words":344,"problems":[],"did":[]}
+{"route":"/pm/admin","role":"client","load":true,"land":"/sites","blocked":false,"buttons":4,"words":292,"problems":[],"did":[]}
+{"route":"/pm/admin/coshh/c1","role":"client","load":true,"land":"/sites","blocked":false,"buttons":4,"words":292,"problems":[],"did":[]}
+{"route":"/pm/admin/invites","role":"client","load":true,"land":"/sites","blocked":false,"buttons":4,"words":292,"problems":[],"did":[]}
+{"route":"/pm/admin/signtemplates/lt1","role":"client","load":true,"land":"/sites","blocked":false,"buttons":4,"words":292,"problems":[],"did":[]}
+{"route":"/pm/admin/templates","role":"client","load":true,"land":"/sites","blocked":false,"buttons":4,"words":292,"problems":[],"did":[]}
+{"route":"/pm/delivery/dt1","role":"client","load":true,"land":"/sites","blocked":false,"buttons":4,"words":292,"problems":[],"did":[]}
+{"route":"/pm/operatives","role":"client","load":true,"land":"/sites","blocked":false,"buttons":4,"words":292,"problems":[],"did":[]}
+{"route":"/pm/survey/rs4","role":"client","load":true,"land":"/sites","blocked":false,"buttons":4,"words":292,"problems":[],"did":[]}
+{"route":"/sites/new","role":"client","load":true,"land":"/sites/new","blocked":true,"buttons":0,"words":139,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/client","role":"client","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111","blocked":false,"buttons":7,"words":427,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/messages","role":"client","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111","blocked":false,"buttons":7,"words":427,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"client","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/hs","blocked":false,"buttons":7,"words":410,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"client","label":"Projects","trail":[],"did":["nav /sites","changed","said: LIVE / (2) / ▾"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"client","label":"J101 Studley Rd","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111","changed","said: Job No: J101 / NOT CHECKED IN / 0/2"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"client","label":"📄\nRAMS\n0 documents","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/hs/rams","changed","said: H&S Policy / ▼ / No RAMS uploaded."],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"client","label":"🧪\nCOSHH\n1 document\n1","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/hs/coshh","changed","said: Paint / Uploaded by Unknown · 31 Oct · Re-sign due 31 Oct 2027 / View document ↗"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"client","label":"🗣\nTBT\nLive now","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/hs/tbt","changed","said: Toolbox Talks / Toolbox Talks / Ladders"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"client","label":"🖐\nTools, HAVS & PUWER\nTools, vibration & tool checks","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/hs/havspuwer","changed","said: 🛠 / PUWER Tool Inspection / Weekly tool checks"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"client","label":"🪪\nOperatives\nMy certificates & tools","trail":[],"did":["nav /sites","changed","said: ↻ / LIVE / (2)"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh/pick","role":"client","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh/pick","blocked":true,"buttons":3,"words":299,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/incidents/i1","role":"client","load":true,"land":"/sites","blocked":false,"buttons":5,"words":311,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams","role":"client","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/hs/rams","blocked":false,"buttons":4,"words":287,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams","role":"client","label":"Projects","trail":[],"did":["nav /sites","changed","said: LIVE / (2) / ▾"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams","role":"client","label":"J101 Studley Rd","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111","changed","said: Job No: J101 / NOT CHECKED IN / 0/2"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams","role":"client","label":"Health & Safety","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/hs","changed","said: 📄 / 0 documents / 🧪"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams","role":"client","label":"H&S Policy\n▼","trail":[],"did":["changed","said: ▲ / Uploaded 31 Oct 2026 / View document ↗"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams","role":"client","label":"H&S Policy\n▼","trail":["(reopen)"],"did":["changed","said: ▲ / Uploaded 31 Oct 2026 / View document ↗"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams","role":"client","label":"H&S Policy\n▲","trail":["H&S Policy\n▼"],"did":["changed","said: ▼"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams","role":"client","label":"H&S Policy\n▼","trail":["(reopen)"],"did":["changed","said: ▲ / Uploaded 31 Oct 2026 / View document ↗"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams","role":"client","label":"View document ↗","trail":["H&S Policy\n▼"],"did":["changed","said: p.pdf / ⬇ / ✕"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials","role":"client","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111","blocked":false,"buttons":7,"words":427,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"client","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111","blocked":false,"buttons":7,"words":427,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/permits/pm1","role":"client","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111","blocked":false,"buttons":7,"words":427,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/operatives","role":"client","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111","blocked":false,"buttons":7,"words":427,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","role":"client","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111","blocked":false,"buttons":7,"words":427,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/variations","role":"client","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/snagging/list","blocked":false,"buttons":6,"words":317,"problems":[],"did":[]}

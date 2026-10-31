@@ -1,0 +1,39 @@
+{"route":"/account","role":"driver","load":true,"land":"/account","blocked":false,"buttons":4,"words":446,"problems":[],"did":[]}
+{"route":"/account","role":"driver","note":"4 buttons, 3 distinct pressed","problems":[],"did":[]}
+{"route":"/account","role":"driver","label":"SAVE PHONE NUMBER","trail":[],"did":["changed","wrote PATCH profiles"],"problems":[]}
+{"route":"/account","role":"driver","label":"✍ ADOPT MY SIGNATURE","trail":[],"did":["nav /signature","changed","said: My Signature / My Signature / YOUR SIGNATURE"],"problems":[]}
+{"route":"/account","role":"driver","label":"💡 SHOW THE HOW-TO TIPS AGAIN","trail":[],"did":["changed","said: The how-to tips will show again as you open each page / ✕","wrote PATCH profiles"],"problems":[]}
+{"route":"/account","role":"driver","label":"💡 SHOW THE HOW-TO TIPS AGAIN","trail":["(reopen)"],"did":["changed","said: The how-to tips will show again as you open each page / ✕","wrote PATCH profiles"],"problems":[]}
+{"route":"/account","role":"driver","label":"The how-to tips will show again as you open each page\n✕","trail":["💡 SHOW THE HOW-TO TIPS AGAIN"],"did":["changed"],"problems":[]}
+{"route":"/signature","role":"driver","load":true,"land":"/signature","blocked":false,"buttons":2,"words":294,"problems":[],"did":[]}
+{"route":"/signature","role":"driver","label":"CLEAR","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/signature","role":"driver","label":"SAVE SIGNATURE","trail":[],"did":["changed","said: Draw your signature first. / ✕"],"problems":[]}
+{"route":"/signature","role":"driver","label":"SAVE SIGNATURE","trail":["(reopen)"],"did":["changed","said: Draw your signature first. / ✕"],"problems":[]}
+{"route":"/signature","role":"driver","label":"Draw your signature first.\n✕","trail":["SAVE SIGNATURE"],"did":["changed"],"problems":[]}
+{"route":"/driver/yard","role":"driver","load":true,"land":"/driver/yard","blocked":false,"buttons":0,"words":277,"problems":[],"did":[]}
+{"route":"/fin/purchases","role":"driver","load":true,"land":"/home","blocked":true,"buttons":6,"words":403,"problems":[],"did":[]}
+{"route":"/fin/team","role":"driver","load":true,"land":"/home","blocked":true,"buttons":6,"words":403,"problems":[],"did":[]}
+{"route":"/fin/po/po1","role":"driver","load":true,"land":"/home","blocked":true,"buttons":6,"words":403,"problems":[],"did":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/dayworks","role":"driver","load":true,"land":"/home","blocked":true,"buttons":6,"words":403,"problems":[],"did":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/application/ap2","role":"driver","load":true,"land":"/home","blocked":true,"buttons":6,"words":403,"problems":[],"did":[]}
+{"route":"/pm/admin","role":"driver","load":true,"land":"/home","blocked":false,"buttons":5,"words":351,"problems":[],"did":[]}
+{"route":"/pm/admin/coshh/c1","role":"driver","load":true,"land":"/home","blocked":false,"buttons":5,"words":351,"problems":[],"did":[]}
+{"route":"/pm/admin/invites","role":"driver","load":true,"land":"/home","blocked":false,"buttons":5,"words":351,"problems":[],"did":[]}
+{"route":"/pm/admin/signtemplates/lt1","role":"driver","load":true,"land":"/home","blocked":false,"buttons":5,"words":351,"problems":[],"did":[]}
+{"route":"/pm/admin/templates","role":"driver","load":true,"land":"/home","blocked":false,"buttons":5,"words":351,"problems":[],"did":[]}
+{"route":"/pm/delivery/dt1","role":"driver","load":true,"land":"/home","blocked":false,"buttons":5,"words":351,"problems":[],"did":[]}
+{"route":"/pm/operatives","role":"driver","load":true,"land":"/home","blocked":false,"buttons":5,"words":351,"problems":[],"did":[]}
+{"route":"/pm/survey/rs4","role":"driver","load":true,"land":"/home","blocked":false,"buttons":5,"words":351,"problems":[],"did":[]}
+{"route":"/sites/new","role":"driver","load":true,"land":"/home","blocked":false,"buttons":5,"words":351,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/client","role":"driver","load":true,"land":"/home?id=11111111-1111-1111-1111-111111111111","blocked":false,"buttons":5,"words":351,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/messages","role":"driver","load":true,"land":"/home?id=11111111-1111-1111-1111-111111111111","blocked":false,"buttons":5,"words":351,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs","role":"driver","load":true,"land":"/home?id=11111111-1111-1111-1111-111111111111","blocked":false,"buttons":5,"words":351,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh/pick","role":"driver","load":true,"land":"/home?id=11111111-1111-1111-1111-111111111111","blocked":false,"buttons":5,"words":351,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/incidents/i1","role":"driver","load":true,"land":"/home?id=11111111-1111-1111-1111-111111111111&rid=i1","blocked":false,"buttons":5,"words":351,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams","role":"driver","load":true,"land":"/home?id=11111111-1111-1111-1111-111111111111","blocked":false,"buttons":5,"words":351,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials","role":"driver","load":true,"land":"/home?id=11111111-1111-1111-1111-111111111111","blocked":false,"buttons":5,"words":351,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc","role":"driver","load":true,"land":"/home?id=11111111-1111-1111-1111-111111111111","blocked":false,"buttons":5,"words":351,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/permits/pm1","role":"driver","load":true,"land":"/home?id=11111111-1111-1111-1111-111111111111&pid=pm1","blocked":false,"buttons":5,"words":351,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/operatives","role":"driver","load":true,"land":"/home?id=11111111-1111-1111-1111-111111111111&co=sc1","blocked":false,"buttons":5,"words":351,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1","role":"driver","load":true,"land":"/home?id=11111111-1111-1111-1111-111111111111&sheet=ps1","blocked":false,"buttons":5,"words":351,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/variations","role":"driver","load":true,"land":"/home?id=11111111-1111-1111-1111-111111111111","blocked":false,"buttons":5,"words":351,"problems":[],"did":[]}

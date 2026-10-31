@@ -1,0 +1,76 @@
+{"route":"/fin/sub/sc1","role":"admin","load":true,"land":"/fin/sub/sc1","blocked":false,"buttons":12,"words":479,"problems":[],"did":[]}
+{"route":"/fin/sub/sc1","role":"admin","label":"Finance","trail":[],"did":["nav /fin","changed","said: Overview / Overview / Sales"],"problems":[]}
+{"route":"/fin/sub/sc1","role":"admin","label":"£6,000.00\nOrder value","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/sub/sc1","role":"admin","label":"£0.00\nCertified to date","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/sub/sc1","role":"admin","label":"£0.00\nCertified, to pay","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/sub/sc1","role":"admin","label":"Active\nStatus","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/sub/sc1","role":"admin","label":"Project\nJ101 · Studley Rd\n›","trail":[],"did":["nav /fin/job/11111111-1111-1111-1111-111111111111","changed","said: Finance · Bellway Homes / J101 Studley Rd / J101 Studley Rd"],"problems":[]}
+{"route":"/fin/sub/sc1","role":"admin","label":"Work\nLeadwork","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/sub/sc1","role":"admin","label":"Retention\n5%","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/sub/sc1","role":"admin","label":"CIS\n20%","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/sub/sc1","role":"admin","label":"EDIT ORDER","trail":[],"did":["changed","said: Edit SC-001 / ✕ / Subcontractor"],"problems":[]}
+{"route":"/fin/sub/sc1","role":"admin","label":"EDIT ORDER","trail":["(reopen)"],"did":["changed","said: Edit SC-001 / ✕ / Subcontractor"],"problems":[]}
+{"route":"/fin/sub/sc1","role":"admin","label":"Edit SC-001\n✕\nSubcontractor\nEmail\nWork\nOrder value £\nRetention %\nCIS rate\n20% (registered) ▾\nUTR\nVAT registered\nStatus\nActive ▾\nSAVE\nCANCEL","trail":["EDIT ORDER"],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/sub/sc1","role":"admin","label":"EDIT ORDER","trail":["(reopen)"],"did":["changed","said: Edit SC-001 / ✕ / Subcontractor"],"problems":[]}
+{"route":"/fin/sub/sc1","role":"admin","label":"Close","trail":["EDIT ORDER"],"did":["changed"],"problems":[]}
+{"route":"/fin/sub/sc1","role":"admin","label":"EDIT ORDER","trail":["(reopen)"],"did":["changed","said: Edit SC-001 / ✕ / Subcontractor"],"problems":[]}
+{"route":"/fin/sub/sc1","role":"admin","label":"20% (registered) ▾","trail":["EDIT ORDER"],"did":["changed","said: 0% (gross) / 20% (registered) / 30% (not registered)"],"problems":[]}
+{"route":"/fin/sub/sc1","role":"admin","label":"Close","trail":["EDIT ORDER","20% (registered) ▾"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/sub/sc1","role":"admin","label":"EDIT ORDER","trail":["(reopen)"],"did":["changed","said: Edit SC-001 / ✕ / Subcontractor"],"problems":[]}
+{"route":"/fin/sub/sc1","role":"admin","label":"VAT registered","trail":["EDIT ORDER"],"did":["changed","said: ✓"],"problems":[]}
+{"route":"/fin/sub/sc1","role":"admin","label":"Close","trail":["EDIT ORDER","VAT registered"],"did":["changed"],"problems":[]}
+{"route":"/fin/sub/sc1","role":"admin","label":"EDIT ORDER","trail":["(reopen)"],"did":["changed","said: Edit SC-001 / ✕ / Subcontractor"],"problems":[]}
+{"route":"/fin/sub/sc1","role":"admin","label":"Active ▾","trail":["EDIT ORDER"],"did":["changed","said: Complete"],"problems":[]}
+{"route":"/fin/sub/sc1","role":"admin","label":"Close","trail":["EDIT ORDER","Active ▾"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/sub/sc1","role":"admin","label":"EDIT ORDER","trail":["(reopen)"],"did":["changed","said: Edit SC-001 / ✕ / Subcontractor"],"problems":[]}
+{"route":"/fin/sub/sc1","role":"admin","label":"SAVE","trail":["EDIT ORDER"],"did":["changed","filled 2","said: 20% · UTR Test / Test","wrote PATCH fin_subcontracts"],"problems":[]}
+{"route":"/fin/sub/sc1","role":"admin","label":"EDIT ORDER","trail":["(reopen)"],"did":["changed","said: Edit SC-001 / ✕ / Subcontractor"],"problems":[]}
+{"route":"/fin/sub/sc1","role":"admin","label":"CANCEL","trail":["EDIT ORDER"],"did":["changed"],"problems":[]}
+{"route":"/fin/sub/sc1","role":"admin","label":"No. 1\n—\napplied — · To certify\n—\n›","trail":[],"did":["changed","said: Lead Co · application 1 / All figures are to date (cumulative), excl. VAT. Last application: £0.00 applied. / Application date"],"problems":[]}
+{"route":"/fin/sub/sc1","role":"admin","label":"No. 1\n—\napplied — · To certify\n—\n›","trail":["(reopen)"],"did":["changed","said: Lead Co · application 1 / All figures are to date (cumulative), excl. VAT. Last application: £0.00 applied. / Application date"],"problems":[]}
+{"route":"/fin/sub/sc1","role":"admin","label":"Application date","trail":["No. 1\n—\napplied — · To certify\n—\n›"],"did":["changed","said: ✕ / October 2026 / Mo"],"problems":[]}
+{"route":"/fin/sub/sc1","role":"admin","label":"SAVE AS RECEIVED","trail":["No. 1\n—\napplied — · To certify\n—\n›","Application date"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/sub/sc1","role":"admin","label":"No. 1\n—\napplied — · To certify\n—\n›","trail":["(reopen)"],"did":["changed","said: Lead Co · application 1 / All figures are to date (cumulative), excl. VAT. Last application: £0.00 applied. / Application date"],"problems":[]}
+{"route":"/fin/sub/sc1","role":"admin","label":"Final date for payment","trail":["No. 1\n—\napplied — · To certify\n—\n›"],"did":["changed","said: ✕ / November 2026 / Mo"],"problems":[]}
+{"route":"/fin/sub/sc1","role":"admin","label":"SAVE AS RECEIVED","trail":["No. 1\n—\napplied — · To certify\n—\n›","Final date for payment"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/sub/sc1","role":"admin","label":"No. 1\n—\napplied — · To certify\n—\n›","trail":["(reopen)"],"did":["changed","said: Lead Co · application 1 / All figures are to date (cumulative), excl. VAT. Last application: £0.00 applied. / Application date"],"problems":[]}
+{"route":"/fin/sub/sc1","role":"admin","label":"📎 Attach their application (PDF / photo)","trail":["No. 1\n—\napplied — · To certify\n—\n›"],"did":["changed","file picker"],"problems":[]}
+{"route":"/fin/sub/sc1","role":"admin","label":"SAVE AS RECEIVED","trail":["No. 1\n—\napplied — · To certify\n—\n›","📎 Attach their application (PDF / photo)"],"did":["changed","filled 3","said: applied £10.00 · pay by 30 Nov 2026 · To certify","wrote PATCH fin_sub_apps"],"problems":[]}
+{"route":"/fin/sub/sc1","role":"admin","label":"No. 1\n—\napplied — · To certify\n—\n›","trail":["(reopen)"],"did":["changed","said: Lead Co · application 1 / All figures are to date (cumulative), excl. VAT. Last application: £0.00 applied. / Application date"],"problems":[]}
+{"route":"/fin/sub/sc1","role":"admin","label":"SAVE AS RECEIVED","trail":["No. 1\n—\napplied — · To certify\n—\n›"],"did":["changed","filled 3","said: applied £10.00 · pay by 30 Nov 2026 · To certify","wrote PATCH fin_sub_apps"],"problems":[]}
+{"route":"/fin/sub/sc1","role":"admin","label":"No. 1\n—\napplied — · To certify\n—\n›","trail":["(reopen)"],"did":["changed","said: Lead Co · application 1 / All figures are to date (cumulative), excl. VAT. Last application: £0.00 applied. / Application date"],"problems":[]}
+{"route":"/fin/sub/sc1","role":"admin","label":"CERTIFY","trail":["No. 1\n—\napplied — · To certify\n—\n›"],"did":["changed","said: Enter the amount applied for. / ✕"],"problems":[]}
+{"route":"/fin/sub/sc1","role":"admin","label":"SAVE AS RECEIVED","trail":["No. 1\n—\napplied — · To certify\n—\n›","CERTIFY"],"did":["changed","filled 3","said: applied £10.00 · pay by 30 Nov 2026 · To certify","wrote PATCH fin_sub_apps"],"problems":[]}
+{"route":"/fin/sub/sc1","role":"admin","label":"No. 1\n—\napplied — · To certify\n—\n›","trail":["(reopen)"],"did":["changed","said: Lead Co · application 1 / All figures are to date (cumulative), excl. VAT. Last application: £0.00 applied. / Application date"],"problems":[]}
+{"route":"/fin/sub/sc1","role":"admin","label":"CLOSE","trail":["No. 1\n—\napplied — · To certify\n—\n›"],"did":["changed"],"problems":[]}
+{"route":"/fin/sub/sc1","role":"admin","label":"+ RECORD AN APPLICATION","trail":[],"did":["changed","said: Lead Co · application 2 / All figures are to date (cumulative), excl. VAT. Last application: £0.00 applied. / Application date"],"problems":[]}
+{"route":"/fin/sub/sc1","role":"admin","label":"+ RECORD AN APPLICATION","trail":["(reopen)"],"did":["changed","said: Lead Co · application 2 / All figures are to date (cumulative), excl. VAT. Last application: £0.00 applied. / Application date"],"problems":[]}
+{"route":"/fin/sub/sc1","role":"admin","label":"Application date","trail":["+ RECORD AN APPLICATION"],"did":["changed","said: ✕ / October 2026 / Mo"],"problems":[]}
+{"route":"/fin/sub/sc1","role":"admin","label":"SAVE AS RECEIVED","trail":["+ RECORD AN APPLICATION","Application date"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/sub/sc1","role":"admin","label":"+ RECORD AN APPLICATION","trail":["(reopen)"],"did":["changed","said: Lead Co · application 2 / All figures are to date (cumulative), excl. VAT. Last application: £0.00 applied. / Application date"],"problems":[]}
+{"route":"/fin/sub/sc1","role":"admin","label":"Final date for payment","trail":["+ RECORD AN APPLICATION"],"did":["changed","said: ✕ / November 2026 / Mo"],"problems":[]}
+{"route":"/fin/sub/sc1","role":"admin","label":"SAVE AS RECEIVED","trail":["+ RECORD AN APPLICATION","Final date for payment"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/fin/sub/sc1","role":"admin","label":"+ RECORD AN APPLICATION","trail":["(reopen)"],"did":["changed","said: Lead Co · application 2 / All figures are to date (cumulative), excl. VAT. Last application: £0.00 applied. / Application date"],"problems":[]}
+{"route":"/fin/sub/sc1","role":"admin","label":"📎 Attach their application (PDF / photo)","trail":["+ RECORD AN APPLICATION"],"did":["changed","file picker"],"problems":[]}
+{"route":"/fin/sub/sc1","role":"admin","label":"SAVE AS RECEIVED","trail":["+ RECORD AN APPLICATION","📎 Attach their application (PDF / photo)"],"did":["changed","filled 3","said: No. 2 / applied £10.00 · pay by 30 Nov 2026 · To certify","wrote POST fin_sub_apps"],"problems":[]}
+{"route":"/fin/sub/sc1","role":"admin","label":"+ RECORD AN APPLICATION","trail":["(reopen)"],"did":["changed","said: Lead Co · application 2 / All figures are to date (cumulative), excl. VAT. Last application: £0.00 applied. / Application date"],"problems":[]}
+{"route":"/fin/sub/sc1","role":"admin","label":"SAVE AS RECEIVED","trail":["+ RECORD AN APPLICATION"],"did":["changed","filled 3","said: No. 2 / applied £10.00 · pay by 30 Nov 2026 · To certify","wrote POST fin_sub_apps"],"problems":[]}
+{"route":"/fin/sub/sc1","role":"admin","label":"+ RECORD AN APPLICATION","trail":["(reopen)"],"did":["changed","said: Lead Co · application 2 / All figures are to date (cumulative), excl. VAT. Last application: £0.00 applied. / Application date"],"problems":[]}
+{"route":"/fin/sub/sc1","role":"admin","label":"CERTIFY","trail":["+ RECORD AN APPLICATION"],"did":["changed","said: Enter the amount applied for. / ✕"],"problems":[]}
+{"route":"/fin/sub/sc1","role":"admin","label":"SAVE AS RECEIVED","trail":["+ RECORD AN APPLICATION","CERTIFY"],"did":["changed","filled 3","said: No. 2 / applied £10.00 · pay by 30 Nov 2026 · To certify","wrote POST fin_sub_apps"],"problems":[]}
+{"route":"/fin/sub/sc1","role":"admin","label":"+ RECORD AN APPLICATION","trail":["(reopen)"],"did":["changed","said: Lead Co · application 2 / All figures are to date (cumulative), excl. VAT. Last application: £0.00 applied. / Application date"],"problems":[]}
+{"route":"/fin/sub/sc1","role":"admin","label":"CLOSE","trail":["+ RECORD AN APPLICATION"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/monthly","role":"admin","load":true,"land":"/fin/job/11111111-1111-1111-1111-111111111111/monthly","blocked":false,"buttons":7,"words":681,"problems":[],"did":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/monthly","role":"admin","label":"Finance","trail":[],"did":["nav /fin","changed","said: Overview / Overview / Sales"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/monthly","role":"admin","label":"Projects","trail":[],"did":["nav /fin/jobs","changed","said: Overview / Sales / Purchases"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/monthly","role":"admin","label":"In the month","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/monthly","role":"admin","label":"Running total","trail":[],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/monthly","role":"admin","label":"📊 EXCEL","trail":[],"did":["download"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/monthly","role":"admin","label":"📄 PDF","trail":[],"did":["changed","said: Monthly report — J101 Studley Rd - 31-10-26.pdf / ☁️ Save to OneDrive / ✕","download"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/monthly","role":"admin","label":"📄 PDF","trail":["(reopen)"],"did":["changed","said: Monthly report — J101 Studley Rd - 31-10-26.pdf / ☁️ Save to OneDrive / ✕","download"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/monthly","role":"admin","label":"☁️ Save to OneDrive","trail":["📄 PDF"],"did":["changed","said: Saving to OneDrive…","fn onedrive-upload"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/monthly","role":"admin","label":"📄 PDF","trail":["(reopen)"],"did":["changed","said: Monthly report — J101 Studley Rd - 31-10-26.pdf / ☁️ Save to OneDrive / ✕","download"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/monthly","role":"admin","label":"✕","trail":["📄 PDF"],"did":["changed"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/monthly","role":"admin","label":"▼ Total","trail":[],"did":["changed","said: ▶ Total"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/monthly","role":"admin","label":"▼ Total","trail":["(reopen)"],"did":["changed","said: ▶ Total"],"problems":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/monthly","role":"admin","label":"▶ Total","trail":["▼ Total"],"did":["changed","said: ▼ Total / Applied / —"],"problems":[]}

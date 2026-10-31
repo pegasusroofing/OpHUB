@@ -1,0 +1,51 @@
+RTB Roofing Ltd
+OPHUB
+Search
+Ctrl K
+Home
+Projects
+Deliveries
+Calendar
+Hub
+4
+Dashboard
+OpHUB Finance
+Admin
+Andy Admin
+Company Admin
+Sign out
+‹
+SIG Roofing
+OpHUB Finance
+Finance
+›
+OpHUB Finance
+To approve
+Status
+£1,800.00
+Net
+£2,160.00
+Gross
+Supplier
+SIG Roofing
+Invoice no.
+SIG-88231
+Date
+12 Oct 2026
+Project
+J101 · Studley Rd
+›
+PO
+J101-PO-001
+›
+Cost type
+Materials
+›
+VAT
+£360.00
+Due
+12 Nov 2026
+✓ APPROVE
+QUERY
+REJECT
+Net £1,800.00 · VAT £360.00 · gross £2,160.00

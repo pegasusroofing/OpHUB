@@ -1,0 +1,78 @@
+RTB Roofing Ltd
+OPHUB
+Search
+Ctrl K
+Home
+Projects
+Deliveries
+Calendar
+Hub
+4
+Dashboard
+OpHUB Finance
+Admin
+Andy Admin
+Company Admin
+Sign out
+‹
+Purchases
+OpHUB Finance
+Finance
+›
+Purchases
+Overview
+Projects
+Sales
+Purchases
+Subcontractors & Labour
+Reports
+Directory
+Settings
+2
+Unallocated Invoices · all time
+£0
+To Pay Suppliers (Incl. VAT) · all time
+1
+To Approve · all time
+£0
+Ordered, Not Invoiced · all time
+Purchase orders
+Purchase invoices
+Statements
+Plant hire
+Suppliers
+Price book
+Price lists
+Yard stock
+Open
+1
+Invoiced
+Cancelled
+All
+1
++ NEW PO
+Supplier: All ▾
+Project: All ▾
+Sort ▾
+All months
+▾
+PO
+SUPPLIER
+PROJECT
+DATE
+VALUE
+INVOICED
+LEFT TO INVOICE
+STATUS
+J101-PO-001
+SIG Roofing
+J101 · Studley Rd
+5 Oct 2026
+£1,800.00
+£1,800.00
+£0.00
+● Open
+1 shown
+Value £1,800.00
+Invoiced £1,800.00
+1 open · £0 ordered but not invoiced yet. Orders sent from a project's Materials tile appear here by themselves.

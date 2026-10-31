@@ -1,0 +1,95 @@
+RTB Roofing Ltd
+OPHUB
+🔍
+Search
+Ctrl K
+Home
+Projects
+Deliveries
+Calendar
+Hub
+4
+Dashboard
+OpHUB Finance
+Admin
+THIS PROJECT
+Studley Rd
+Project Home
+Schedule of Works
+Health & Safety
+Check In
+Inbox
+Finance
+Project Settings
+Andy Admin
+Company Admin
+Sign out
+INV-1001
+Studley Rd
+🏠
+Finance
+›
+Projects
+›
+J101 Studley Rd
+›
+INV-1001
+←
+Back
+Overview
+J101 Studley Rd
++ New
+Application
+Sales invoice
+Variation
+Purchase order
+Purchase invoice
+Subcontractor PO
+Plant hire
+Cost
+Invoice
+INV-1001
+Status
+Sent
+Total
+£15,000.00
+Outstanding
+£15,000.00
+Bill To
+Bellway Homes
+Issued
+1 Oct 2026
+Due
+31 Oct 2026
+Sent
+Not emailed yet
+
+Lines
+
+Application 1
+£15,000.00
+Net
+£15,000.00
+VAT
+£0.00
+Total
+£15,000.00
+Reverse Charge VAT ? client pays HMRC
+£3,000.00
+
+Domestic reverse charge on £15,000.00 — not added to the total; printed on the invoice and sent to Xero.
+
+View PDF
+Email
+Not posted to Xero yet
+Post to Xero
+
+Payments
+
++ Record payment
+
+No payments recorded.
+
+Void this invoice
+
+Issued invoices can’t be changed. To correct one, void it and raise a new one.

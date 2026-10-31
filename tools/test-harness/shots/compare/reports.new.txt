@@ -1,0 +1,53 @@
+RTB Roofing Ltd
+OPHUB
+Search
+Ctrl K
+Home
+Projects
+Deliveries
+Calendar
+Hub
+4
+Dashboard
+OpHUB Finance
+Admin
+Andy Admin
+Company Admin
+Sign out
+‹
+Reports
+OpHUB Finance
+Finance
+›
+Reports
+Overview
+Projects
+Sales
+Purchases
+Subcontractors & Labour
+Reports
+Directory
+Settings
+Pick a report, set the project and dates, then download it as Excel or PDF.
+Commercial / QS · 8 reports
+▼
+Company overview
+Every project: contract, final account, invoiced, owed, costs, forecast margin.
+Cost value reconciliation (CVR)
+Value to date against cost to date, and the forecast at completion, project by project.
+Forecast final account
+Contract sum plus variations agreed, submitted and instructed, by project.
+Budget vs actual
+Budget, spent, committed and forecast by heading, for one project or all.
+Costs by project and type
+Materials, labour, plant, subcontract, prelims and other costs per project.
+Variations register
+Every variation on every project with its status and values.
+Applications & Certificates
+Applied, certified, shortfall and invoice for every application.
+Retention ledger
+Retention held by your clients, release dates, and retention you hold on subcontractors.
+Money in & out · 4 reports
+▶
+Labour, CIS & VAT · 3 reports
+▶

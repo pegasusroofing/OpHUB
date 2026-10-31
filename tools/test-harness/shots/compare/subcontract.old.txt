@@ -1,0 +1,74 @@
+RTB Roofing Ltd
+OPHUB
+🔍
+Search
+Ctrl K
+Home
+Projects
+Deliveries
+Calendar
+Hub
+4
+Dashboard
+OpHUB Finance
+Admin
+THIS PROJECT
+Studley Rd
+Project Home
+Schedule of Works
+Health & Safety
+Check In
+Inbox
+Finance
+Project Settings
+Andy Admin
+Company Admin
+Sign out
+Lead Co
+SC-001 · Studley Rd
+🏠
+Finance
+›
+Projects
+›
+J101 Studley Rd
+›
+Lead Co
+←
+Back
+Overview
+J101 Studley Rd
++ New
+Application
+Sales invoice
+Variation
+Purchase order
+Purchase invoice
+Subcontractor PO
+Plant hire
+Cost
+Order
+SC-001
+Order Value
+£6,000.00
+Certified To Date
+£0.00
+Retention Held
+£0.00
+Work
+Leadwork
+Retention · CIS
+5% · Standard (20%)
+UTR
+—
+Contra Charges To Date
+£0.00
+Paid To Date (Before CIS)
+£0.00
+Edit order
+
+Applications
+
++ Record application
+NO.	DATE	APPLIED	CERTIFIED	NET DUE	PAY (AFTER CIS)	STATUS
+Application 1	—	—	—	—	—	submitted

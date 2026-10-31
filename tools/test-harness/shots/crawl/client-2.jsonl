@@ -1,0 +1,157 @@
+{"route":"/dashboard","role":"client","load":true,"land":"/dashboard","blocked":false,"buttons":4,"words":524,"problems":[],"did":[]}
+{"route":"/dashboard","role":"client","label":"Outstanding Items\nRAMS, COSHH and Toolbox Talks awaiting your signature\n›","trail":[],"did":["nav /inbox?tab=todo","changed","said: Messages & tasks / Messages & tasks / To sign / do"],"problems":[]}
+{"route":"/dashboard","role":"client","label":"4\nMissing Types","trail":[],"did":["changed","said: Missing: Working at Height, Asbestos Awareness, Manual Handling, CSCS Card"],"problems":[]}
+{"route":"/dashboard","role":"client","label":"Certifications (0)\n▼","trail":[],"did":["changed","said: ▲ / Add a certificate / +"],"problems":[]}
+{"route":"/dashboard","role":"client","label":"Certifications (0)\n▼","trail":["(reopen)"],"did":["changed","said: ▲ / Add a certificate / +"],"problems":[]}
+{"route":"/dashboard","role":"client","label":"Certifications (0)\n▲","trail":["Certifications (0)\n▼"],"did":["changed","said: ▼"],"problems":[]}
+{"route":"/dashboard","role":"client","label":"Certifications (0)\n▼","trail":["(reopen)"],"did":["changed","said: ▲ / Add a certificate / +"],"problems":[]}
+{"route":"/dashboard","role":"client","label":"Add a certificate\n+","trail":["Certifications (0)\n▼"],"did":["changed","said: − / Type / Asbestos Awareness"],"problems":[]}
+{"route":"/dashboard","role":"client","label":"+ ADD TOOL","trail":[],"did":["changed","said: ADD A TOOL / Tool name / Serial / item number"],"problems":[]}
+{"route":"/dashboard","role":"client","label":"+ ADD TOOL","trail":["(reopen)"],"did":["changed","said: ADD A TOOL / Tool name / Serial / item number"],"problems":[]}
+{"route":"/dashboard","role":"client","label":"TAKE PHOTO","trail":["+ ADD TOOL"],"did":["changed","said: Add a photo / ✕ / 📷 Take a photo"],"problems":[]}
+{"route":"/dashboard","role":"client","label":"SAVE TOOL","trail":["+ ADD TOOL","TAKE PHOTO"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/dashboard","role":"client","label":"+ ADD TOOL","trail":["(reopen)"],"did":["changed","said: ADD A TOOL / Tool name / Serial / item number"],"problems":[]}
+{"route":"/dashboard","role":"client","label":"SAVE TOOL","trail":["+ ADD TOOL"],"did":["changed","filled 2","said: 🔧 / Test / Serial: Test","wrote POST operative_tools"],"problems":[]}
+{"route":"/dashboard","role":"client","label":"+ ADD TOOL","trail":["(reopen)"],"did":["changed","said: ADD A TOOL / Tool name / Serial / item number"],"problems":[]}
+{"route":"/dashboard","role":"client","label":"CANCEL","trail":["+ ADD TOOL"],"did":["changed","said: + ADD TOOL"],"problems":[]}
+{"route":"/subform","role":"client","load":true,"land":"/subform","blocked":false,"buttons":57,"words":2367,"problems":[],"did":[]}
+{"route":"/subform","role":"client","note":"57 buttons, 30 distinct pressed","problems":[],"did":[]}
+{"route":"/subform","role":"client","label":"○\nLimited company","trail":[],"did":["changed","said: ◉"],"problems":[]}
+{"route":"/subform","role":"client","label":"○\nLimited company","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"◉\nLimited company","trail":["○\nLimited company"],"did":[],"problems":["nothing happened"]}
+{"route":"/subform","role":"client","label":"○\nSole trader","trail":[],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"○\nSole trader","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"◉\nSole trader","trail":["○\nSole trader"],"did":[],"problems":["nothing happened"]}
+{"route":"/subform","role":"client","label":"○\nPartnership","trail":[],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"○\nPartnership","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"◉\nPartnership","trail":["○\nPartnership"],"did":[],"problems":["nothing happened"]}
+{"route":"/subform","role":"client","label":"○\nLLP","trail":[],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"○\nLLP","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"◉\nLLP","trail":["○\nLLP"],"did":[],"problems":["nothing happened"]}
+{"route":"/subform","role":"client","label":"○\nGross payment","trail":[],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"○\nGross payment","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"◉\nLLP","trail":["○\nGross payment"],"did":[],"problems":["nothing happened"]}
+{"route":"/subform","role":"client","label":"○\nGross payment","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"◉\nGross payment","trail":["○\nGross payment"],"did":[],"problems":["nothing happened"]}
+{"route":"/subform","role":"client","label":"○\n20% deduction","trail":[],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"○\n20% deduction","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"◉\nLLP","trail":["○\n20% deduction"],"did":[],"problems":["nothing happened"]}
+{"route":"/subform","role":"client","label":"○\n20% deduction","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"◉\n20% deduction","trail":["○\n20% deduction"],"did":[],"problems":["nothing happened"]}
+{"route":"/subform","role":"client","label":"○\n30% deduction (not registered)","trail":[],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"○\n30% deduction (not registered)","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"◉\nLLP","trail":["○\n30% deduction (not registered)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"○\n30% deduction (not registered)","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"◉\n30% deduction (not registered)","trail":["○\n30% deduction (not registered)"],"did":[],"problems":["nothing happened"]}
+{"route":"/subform","role":"client","label":"☐\nFlat roofing — felt","trail":[],"did":["changed","said: ☑"],"problems":[]}
+{"route":"/subform","role":"client","label":"☐\nFlat roofing — felt","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"☐\nSingle ply / EPDM","trail":[],"did":["changed","said: ☑"],"problems":[]}
+{"route":"/subform","role":"client","label":"☐\nSingle ply / EPDM","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"☐\nLiquid roofing","trail":[],"did":["changed","said: ☑"],"problems":[]}
+{"route":"/subform","role":"client","label":"☐\nLiquid roofing","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"☐\nPitched roofing — tiling / slating","trail":[],"did":["changed","said: ☑"],"problems":[]}
+{"route":"/subform","role":"client","label":"☐\nPitched roofing — tiling / slating","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"☐\nLeadwork","trail":[],"did":["changed","said: ☑"],"problems":[]}
+{"route":"/subform","role":"client","label":"☐\nLeadwork","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"☐\nRoof carpentry","trail":[],"did":["changed","said: ☑"],"problems":[]}
+{"route":"/subform","role":"client","label":"☐\nRoof carpentry","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"☐\nCladding","trail":[],"did":["changed","said: ☑"],"problems":[]}
+{"route":"/subform","role":"client","label":"☐\nCladding","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"☐\nFascias, soffits & gutters","trail":[],"did":["changed","said: ☑"],"problems":[]}
+{"route":"/subform","role":"client","label":"☐\nFascias, soffits & gutters","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"☐\nGreen roofs","trail":[],"did":["changed","said: ☑"],"problems":[]}
+{"route":"/subform","role":"client","label":"☐\nGreen roofs","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"☐\nScaffolding","trail":[],"did":["changed","said: ☑"],"problems":[]}
+{"route":"/subform","role":"client","label":"☐\nScaffolding","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"☐\nLabour only","trail":[],"did":["changed","said: ☑"],"problems":[]}
+{"route":"/subform","role":"client","label":"☐\nLabour only","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"☐\nOther","trail":[],"did":["changed","said: ☑"],"problems":[]}
+{"route":"/subform","role":"client","label":"☐\nOther","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"○\nYes","trail":[],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"○\nYes","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"◉\nYes","trail":["○\nYes"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"○\nNo","trail":[],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"○\nNo","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"◉\nNo","trail":["○\nNo"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"○\n£1 million","trail":[],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"○\n£1 million","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"◉\nNo","trail":["○\n£1 million"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"○\n£1 million","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"◉\n£1 million","trail":["○\n£1 million"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"○\nOther","trail":[],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"○\nOther","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"◉\nNo","trail":["○\nOther"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"○\nOther","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"◉\nOther","trail":["○\nOther"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"Date","trail":[],"did":["changed","said: Date / ✕ / October 2026"],"problems":[]}
+{"route":"/subform","role":"client","label":"Date","trail":["(reopen)"],"did":["changed","said: Date / ✕ / October 2026"],"problems":[]}
+{"route":"/subform","role":"client","label":"◉\nOther","trail":["Date"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/subform","role":"client","label":"Date","trail":["(reopen)"],"did":["changed","said: Date / ✕ / October 2026"],"problems":[]}
+{"route":"/subform","role":"client","label":"Close","trail":["Date"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"Date","trail":["(reopen)"],"did":["changed","said: Date / ✕ / October 2026"],"problems":[]}
+{"route":"/subform","role":"client","label":"Previous month","trail":["Date"],"did":["changed","said: September 2026"],"problems":[]}
+{"route":"/subform","role":"client","label":"Close","trail":["Date","Previous month"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"Date","trail":["(reopen)"],"did":["changed","said: Date / ✕ / October 2026"],"problems":[]}
+{"route":"/subform","role":"client","label":"Next month","trail":["Date"],"did":["changed","said: November 2026"],"problems":[]}
+{"route":"/subform","role":"client","label":"Close","trail":["Date","Next month"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"Date","trail":["(reopen)"],"did":["changed","said: Date / ✕ / October 2026"],"problems":[]}
+{"route":"/subform","role":"client","label":"1 Oct 2026","trail":["Date"],"did":["changed","said: 1 Oct 2026"],"problems":[]}
+{"route":"/subform","role":"client","label":"○\nNot applicable (no employees)","trail":[],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"○\nNot applicable (no employees)","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"◉\nOther","trail":["○\nNot applicable (no employees)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"○\nNot applicable (no employees)","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"◉\nNot applicable (no employees)","trail":["○\nNot applicable (no employees)"],"did":["changed","said: ☑"],"problems":[]}
+{"route":"/subform","role":"client","label":"⬆ ADD FILE","trail":[],"did":["changed","file picker"],"problems":[]}
+{"route":"/subform","role":"client","label":"⬆ ADD FILE","trail":["(reopen)"],"did":["changed","file picker"],"problems":[]}
+{"route":"/subform","role":"client","label":"◉\nOther","trail":["⬆ ADD FILE"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"⬆ ADD FILE","trail":["(reopen)"],"did":["changed","file picker"],"problems":[]}
+{"route":"/subform","role":"client","label":"◉\nNot applicable (no employees)","trail":["⬆ ADD FILE"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"☐\nCHAS","trail":[],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"☐\nCHAS","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"◉\nNot applicable (no employees)","trail":["☐\nCHAS"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"☐\nCHAS","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"☑\nCHAS","trail":["☐\nCHAS"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"☐\nSMAS Worksafe","trail":[],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"☐\nSMAS Worksafe","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"☑\nCHAS","trail":["☐\nSMAS Worksafe"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"☐\nSMAS Worksafe","trail":["(reopen)"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"☑\nSMAS Worksafe","trail":["☐\nSMAS Worksafe"],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","label":"☐\nConstructionline","trail":[],"did":["changed"],"problems":[]}
+{"route":"/subform","role":"client","note":"ran out of time on this screen","problems":[],"did":[]}
+{"route":"/fin","role":"client","load":true,"land":"/sites","blocked":true,"buttons":5,"words":344,"problems":[],"did":[]}
+{"route":"/fin/reports","role":"client","load":true,"land":"/sites","blocked":true,"buttons":5,"words":344,"problems":[],"did":[]}
+{"route":"/fin/yard","role":"client","load":true,"land":"/sites","blocked":true,"buttons":5,"words":344,"problems":[],"did":[]}
+{"route":"/fin/sub/sc1","role":"client","load":true,"land":"/sites","blocked":true,"buttons":5,"words":344,"problems":[],"did":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/monthly","role":"client","load":true,"land":"/sites","blocked":true,"buttons":5,"words":344,"problems":[],"did":[]}
+{"route":"/fin/job/11111111-1111-1111-1111-111111111111/invoice/v1","role":"client","load":true,"land":"/sites","blocked":true,"buttons":5,"words":344,"problems":[],"did":[]}
+{"route":"/pm/admin/branding","role":"client","load":true,"land":"/sites","blocked":false,"buttons":4,"words":292,"problems":[],"did":[]}
+{"route":"/pm/admin/devicelocks","role":"client","load":true,"land":"/sites","blocked":false,"buttons":4,"words":292,"problems":[],"did":[]}
+{"route":"/pm/admin/onedrive","role":"client","load":true,"land":"/sites","blocked":false,"buttons":4,"words":292,"problems":[],"did":[]}
+{"route":"/pm/admin/sowlibrary","role":"client","load":true,"land":"/sites","blocked":false,"buttons":4,"words":292,"problems":[],"did":[]}
+{"route":"/pm/admin/templates/tp1","role":"client","load":true,"land":"/sites","blocked":false,"buttons":4,"words":292,"problems":[],"did":[]}
+{"route":"/pm/hr","role":"client","load":true,"land":"/sites","blocked":false,"buttons":4,"words":292,"problems":[],"did":[]}
+{"route":"/pm/operatives/matrix","role":"client","load":true,"land":"/sites","blocked":false,"buttons":4,"words":292,"problems":[],"did":[]}
+{"route":"/pm/tbts","role":"client","load":true,"land":"/sites","blocked":false,"buttons":4,"words":292,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111","role":"client","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111","blocked":false,"buttons":7,"words":427,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111","role":"client","label":"Projects","trail":[],"did":["nav /sites","changed","said: LIVE / (2) / ▾"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111","role":"client","label":"0/2\nTASKS DONE","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/schedule","changed","said: Schedule Of Works / Overall progress / 0%","wrote PATCH profiles"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111","role":"client","label":"31 Oct\nScaffold up","trail":[],"did":["nav /sites","changed","said: LIVE / (2) / ▾"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111","role":"client","label":"1\nOPEN SNAGS","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/snagging/list","changed","said: Live / Closed / Cracked tile"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111","role":"client","label":"Schedule of Works\n0 of 2 done · 0%","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/schedule","changed","said: Schedule Of Works / Overall progress / 0%","wrote PATCH profiles"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111","role":"client","label":"Health & Safety\nRAMS · COSHH · TBT","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/hs","changed","said: 📄 / RAMS / 0 documents"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111","role":"client","label":"Snagging\n1 open","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/snagging/list","changed","said: Live / Closed / Cracked tile"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/drawings","role":"client","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111","blocked":false,"buttons":7,"words":427,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/om/om1","role":"client","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111","blocked":false,"buttons":7,"words":427,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/briefings","role":"client","load":true,"land":"/sites","blocked":false,"buttons":5,"words":311,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh/save","role":"client","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh/save","blocked":false,"buttons":3,"words":301,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh/save","role":"client","label":"Projects","trail":[],"did":["nav /sites","changed","said: LIVE / (2) / ▾"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh/save","role":"client","label":"J101 Studley Rd","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111","changed","said: Job No: J101 / NOT CHECKED IN / 0/2"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/coshh/save","role":"client","label":"Health & Safety","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111/hs","changed","said: 📄 / RAMS / 0 documents"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/loler","role":"client","load":true,"land":"/sites","blocked":false,"buttons":5,"words":311,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/hs/rams/new","role":"client","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/hs/rams/new","blocked":true,"buttons":3,"words":314,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/materials/collections","role":"client","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111","blocked":false,"buttons":7,"words":427,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/docs/general","role":"client","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111","blocked":false,"buttons":7,"words":427,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors","role":"client","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111","blocked":false,"buttons":7,"words":427,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/schedule","role":"client","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111","blocked":false,"buttons":7,"words":427,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/repairs","role":"client","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111","blocked":false,"buttons":7,"words":427,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/snagging/reports","role":"client","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/snagging/list","blocked":false,"buttons":6,"words":317,"problems":[],"did":[]}

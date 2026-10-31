@@ -1,0 +1,86 @@
+RTB Roofing Ltd
+OPHUB
+🔍
+Search
+Ctrl K
+Home
+Projects
+Deliveries
+Calendar
+Hub
+4
+Dashboard
+OpHUB Finance
+Admin
+Andy Admin
+Company Admin
+Sign out
+Sales
+OpHUB Finance · money in
+Finance
+›
+Sales
+›
+Invoices
+Overview
+Projects
+Sales
+Purchases
+Subcontractors & Labour
+Reports
+Directory
+Settings
+⋯
+£9,800
+Applied Value this month
+⋯
+£15,000
+Invoiced Value this month
+⋯
+£14,000
+Overdue all time
+⋯
+£0
+Applied, Not Certified Or Invoiced all time
+Applications & Certificates
+1
+Invoices
+Retention
++ New invoice
+Owed
+3
+Overdue
+2
+Drafts
+0
+Paid
+1
+All
+5
+INVOICE	CLIENT	PROJECT	DATE	DUE	NET	VAT	GROSS	STATUS	
+									
+INV-1001	
+Bellway Homes
+	J101 · Studley Rd	1 Oct 2026	31 Oct 2026	£15,000.00	£0.00	£15,000.00	Sent To post	⋯
+INV-1002	
+Persimmon
+	J102 · Cleveland Primary School	1 Sept 2026	30 Sept 2026	£42,000.00	£8,400.00	£50,400.00	Paid To post	⋯
+INV-1003	
+Persimmon
+	J102 · Cleveland Primary School	15 Sept 2026	10 Oct 2026	£12,000.00	£2,400.00	£14,400.00	Overdue To post	⋯
+INV-0980	
+Bellway Homes
+	J101 · Studley Rd	1 Aug 2026	31 Aug 2026	£2,000.00	£0.00	£2,000.00	Overdue To post	⋯
+4 invoices
+£71,000.00
+£10,800.00
+£81,800.00
+Owed £29,000.00
+All months
+Oct 2026
+Sept 2026
+Aug 2026
+Voided invoices
+1
+
+Record money received on the invoice itself (payments made in Xero come across on their own).

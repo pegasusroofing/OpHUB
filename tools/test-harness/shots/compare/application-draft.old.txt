@@ -1,0 +1,149 @@
+RTB Roofing Ltd
+OPHUB
+🔍
+Search
+Ctrl K
+Home
+Projects
+Deliveries
+Calendar
+Hub
+4
+Dashboard
+OpHUB Finance
+Admin
+THIS PROJECT
+Studley Rd
+Project Home
+Schedule of Works
+Health & Safety
+Check In
+Inbox
+Finance
+Project Settings
+Andy Admin
+Company Admin
+Sign out
+Application 2
+Studley Rd
+🏠
+Finance
+›
+Projects
+›
+J101 Studley Rd
+›
+Application 2
+←
+Back
+Overview
+J101 Studley Rd
++ New
+Application
+Sales invoice
+Variation
+Purchase order
+Purchase invoice
+Subcontractor PO
+Plant hire
+Cost
+Application
+No. 2 Draft
+Valuation Date
+25 Oct 2026
+Client PO
+—
+Due This Application
+£18,658.00
+📅 Dates & retention
+Valuation 25 Oct 2026 · Due — · Final — · Retention 5%
+▾
+
+Contract Works
+
+%
+£
+Qty
+Hide 0% lines
+Collapse all
+ITEM
+MEASURE
+UNIT
+RATE
+TOTAL
+APPLIED %
+APPLIED
+CUMULATIVE
+APPLIED
+PREVIOUS
+APPLIED
+CURRENT
+▼Main Roof
+£18,000.00
+Set all to 100%
+Set all to 0%
+Tiling
+300
+m2
+£120.00
+£36,000.00
+£18,000.00
+£0.00
+£18,000.00
+Ridge
+60
+m
+£200.00
+£12,000.00
+£0.00
+£0.00
+£0.00
++ Add a line
++ Add a section
+
+New lines are added to the project’s Bill of Quantities too, so they carry on to the next application.
+
+Variations & Day Works 2
+£1,640.00
+▾
+
+Application Summary
+
+Contract Works To Date (37.5% Of £48,000.00)
+£18,000.00
+Variations
+£1,000.00
+Dayworks
+£640.00
+Gross valuation to date
+£19,640.00
+Less Discount 
+%
+−£0.00
+Less Retention @ 5%
+−£982.00
+Less Previously Certified
+−£0.00
+Amount Due This Application
+£18,658.00
+
+Excl. VAT. An application isn’t a VAT invoice; the invoice follows the certificate.
+
+Save
+Apply ›
+Send & export ▾
+Delete draft
+Status
+Draft
+Applied
+Certified
+Invoiced
+Draft
+›
+Applied
+›
+Certified
+›
+Invoiced
+
+Fill in the % done, then press Apply. That locks it — you can still email it to the client.

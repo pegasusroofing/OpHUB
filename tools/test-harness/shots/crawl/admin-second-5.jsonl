@@ -1,0 +1,13 @@
+{"route":"/pm/admin/havstools","role":"admin","load":true,"land":"/pm/admin/havstools","blocked":false,"buttons":2,"words":383,"problems":[],"did":[]}
+{"route":"/pm/admin/havstools","role":"admin","label":"🗑","trail":[],"did":["changed","said: ✕ / Remove \"Breaker\"? Past HAVS entries using it are kept, but it won't be selectable for new entries. / No"],"problems":[]}
+{"route":"/pm/admin/havstools","role":"admin","label":"🗑","trail":["(reopen)"],"did":["changed","said: ✕ / Remove \"Breaker\"? Past HAVS entries using it are kept, but it won't be selectable for new entries. / No"],"problems":[]}
+{"route":"/pm/admin/havstools","role":"admin","label":"Close","trail":["🗑"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/havstools","role":"admin","label":"🗑","trail":["(reopen)"],"did":["changed","said: ✕ / Remove \"Breaker\"? Past HAVS entries using it are kept, but it won't be selectable for new entries. / No"],"problems":[]}
+{"route":"/pm/admin/havstools","role":"admin","label":"No","trail":["🗑"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/havstools","role":"admin","label":"🗑","trail":["(reopen)"],"did":["changed","said: ✕ / Remove \"Breaker\"? Past HAVS entries using it are kept, but it won't be selectable for new entries. / No"],"problems":[]}
+{"route":"/pm/admin/havstools","role":"admin","label":"Remove","trail":["🗑"],"did":["changed","said: No tools yet — add your first one below.","wrote PATCH havs_tools"],"problems":[]}
+{"route":"/pm/admin/havstools","role":"admin","label":"+ ADD TOOL","trail":[],"did":["changed","said: ADD TOOL / CANCEL"],"problems":[]}
+{"route":"/pm/admin/havstools","role":"admin","label":"+ ADD TOOL","trail":["(reopen)"],"did":["changed","said: ADD TOOL / CANCEL"],"problems":[]}
+{"route":"/pm/admin/havstools","role":"admin","label":"ADD TOOL","trail":["+ ADD TOOL"],"did":["changed","filled 2","said: + ADD TOOL","wrote POST havs_tools"],"problems":[]}
+{"route":"/pm/admin/havstools","role":"admin","label":"+ ADD TOOL","trail":["(reopen)"],"did":["changed","said: ADD TOOL / CANCEL"],"problems":[]}
+{"route":"/pm/admin/havstools","role":"admin","label":"CANCEL","trail":["+ ADD TOOL"],"did":["changed","said: + ADD TOOL"],"problems":[]}

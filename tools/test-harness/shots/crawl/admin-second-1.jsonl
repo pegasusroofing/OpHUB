@@ -1,0 +1,83 @@
+{"route":"/pm/admin","role":"admin","load":true,"land":"/pm/admin","blocked":false,"buttons":6,"words":474,"problems":[],"did":[]}
+{"route":"/pm/admin","role":"admin","label":"Search","trail":[],"did":["changed","said: ✕"],"problems":[]}
+{"route":"/pm/admin","role":"admin","label":"Search","trail":["(reopen)"],"did":["changed","said: ✕"],"problems":[]}
+{"route":"/pm/admin","role":"admin","label":"Close search","trail":["Search"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin","role":"admin","label":"Users & invites\nInvites, roles, device locks, check-in logs","trail":[],"did":["nav /pm/admin?page=people","changed","said: People / TEAM / Invites"],"problems":[]}
+{"route":"/pm/admin","role":"admin","label":"Libraries\nReport templates, RAMS, COSHH, SOW, rates, suppliers","trail":[],"did":["nav /pm/admin?page=libraries","changed","said: REPORTS & DOCUMENTS / Report Templates / Inspections, surveys, briefings"],"problems":[]}
+{"route":"/pm/admin","role":"admin","label":"Main Contractor\nSubcontractors and inspection templates","trail":[],"did":["nav /pm/admin/companylibrary","changed","said: Subcontractor Library / Every subcontractor company's own document library — shared across every site that company is added to. / BS"],"problems":[]}
+{"route":"/pm/admin","role":"admin","label":"Company\nLogo, theme, integrations","trail":[],"did":["nav /pm/admin?page=company","changed","said: BRANDING / Company Logo & Theme / Logo and colours"],"problems":[]}
+{"route":"/pm/admin","role":"admin","label":"Integrations by project\nWhat each project can sync, and set it up","trail":[],"did":["nav /pm/admin/onedrive","changed","said: OneDrive / CONNECTION / Connect your company's OneDrive so schedule progress photos, drawings and exports upload there automatically.","wrote rpc onedrive_status"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","load":true,"land":"/pm/admin/coshh/c1","blocked":false,"buttons":38,"words":1679,"problems":[],"did":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","note":"38 buttons, 30 distinct pressed","problems":[],"did":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"⟳ UPDATE ASSESSMENT","trail":[],"did":["changed","said: ✕ / No / Update","wrote PATCH rams_library_items"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"⟳ UPDATE ASSESSMENT","trail":["(reopen)"],"did":["changed","said: ✕ / No / Update","wrote PATCH rams_library_items"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"Close","trail":["⟳ UPDATE ASSESSMENT"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"⟳ UPDATE ASSESSMENT","trail":["(reopen)"],"did":["changed","said: ✕ / No / Update","wrote PATCH rams_library_items"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"No","trail":["⟳ UPDATE ASSESSMENT"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"⟳ UPDATE ASSESSMENT","trail":["(reopen)"],"did":["changed","said: ✕ / No / Update","wrote PATCH rams_library_items"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"Update","trail":["⟳ UPDATE ASSESSMENT"],"did":["changed","filled 2","wrote upload,PATCH coshh_library_files,PATCH rams_library_items"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"PREVIEW","trail":[],"did":["changed","said: COSHH preview - Bauder Primer.pdf / ☁️ Save to OneDrive / ✕","download"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"PREVIEW","trail":["(reopen)"],"did":["changed","said: COSHH preview - Bauder Primer.pdf / ☁️ Save to OneDrive / ✕","download"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"☁️ Save to OneDrive","trail":["PREVIEW"],"did":["changed","said: Saving to OneDrive…","fn onedrive-upload"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"PREVIEW","trail":["(reopen)"],"did":["changed","said: COSHH preview - Bauder Primer.pdf / ☁️ Save to OneDrive / ✕","download"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"✕","trail":["PREVIEW"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"View the current assessment","trail":[],"did":["changed","said: a.pdf / ⬇ / ✕"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"View the current assessment","trail":["(reopen)"],"did":["changed","said: a.pdf / ⬇ / ✕"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"Zoom in","trail":["View the current assessment"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"View the current assessment","trail":["(reopen)"],"did":["changed","said: a.pdf / ⬇ / ✕"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"Zoom out","trail":["View the current assessment"],"did":[],"problems":["nothing happened"]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"📄 Safety Data Sheet","trail":[],"did":["changed","said: x.pdf / ⬇ / ✕"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"📄 Safety Data Sheet","trail":["(reopen)"],"did":["changed","said: x.pdf / ⬇ / ✕"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"Zoom in","trail":["📄 Safety Data Sheet"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"📄 Safety Data Sheet","trail":["(reopen)"],"did":["changed","said: x.pdf / ⬇ / ✕"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"Zoom out","trail":["📄 Safety Data Sheet"],"did":[],"problems":["nothing happened"]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"REPLACE DATA SHEET (PDF)","trail":[],"did":["changed","file picker"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"Explosive","trail":[],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"Flammable","trail":[],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"Oxidising","trail":[],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"Gas under pressure","trail":[],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"Corrosive","trail":[],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"Toxic","trail":[],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"Harmful / irritant","trail":[],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"Serious health hazard","trail":[],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"Environment","trail":[],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"None","trail":[],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"Warning","trail":[],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"Danger","trail":[],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"Breathing in","trail":[],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"Skin contact","trail":[],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"Eyes","trail":[],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"Swallowing","trail":[],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"😷 Dust Mask","trail":[],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"🎧 Ear Protection","trail":[],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"🥽 Eye Protection","trail":[],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"😷 FFP3 Mask","trail":[],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"⛑️ First Aid Kit","trail":[],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"🧤 Hand Protection","trail":[],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"⛑️ Hard Hat","trail":[],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"🦺 Hi Visibility Vest","trail":[],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/coshh/c1","role":"admin","label":"🥾 Safety Footwear","trail":[],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/invites","role":"admin","load":true,"land":"/pm/admin/invites","blocked":false,"buttons":3,"words":641,"problems":[],"did":[]}
+{"route":"/pm/admin/invites","role":"admin","label":"CREATE PERMANENT INVITE LINK","trail":[],"did":["changed","said: COPY LINK / REVOKE & CREATE NEW LINK","wrote POST invites"],"problems":[]}
+{"route":"/pm/admin/invites","role":"admin","label":"CREATE PERMANENT INVITE LINK","trail":["(reopen)"],"did":["changed","said: COPY LINK / REVOKE & CREATE NEW LINK","wrote POST invites"],"problems":[]}
+{"route":"/pm/admin/invites","role":"admin","label":"COPY LINK","trail":["CREATE PERMANENT INVITE LINK"],"did":["changed","said: Could not copy — select and copy the link manually. / ✕","message: Could not copy — select and copy the link manually"],"problems":[]}
+{"route":"/pm/admin/invites","role":"admin","label":"CREATE PERMANENT INVITE LINK","trail":["(reopen)"],"did":["changed","said: COPY LINK / REVOKE & CREATE NEW LINK","wrote POST invites"],"problems":[]}
+{"route":"/pm/admin/invites","role":"admin","label":"REVOKE & CREATE NEW LINK","trail":["CREATE PERMANENT INVITE LINK"],"did":["changed","said: ✕ / No / Revoke"],"problems":[]}
+{"route":"/pm/admin/invites","role":"admin","label":"Close","trail":["CREATE PERMANENT INVITE LINK","REVOKE & CREATE NEW LINK"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/pm/admin/invites","role":"admin","label":"▼ Invite as: Operative","trail":[],"did":["changed","said: Invite as / ✕ / Operative"],"problems":[]}
+{"route":"/pm/admin/invites","role":"admin","label":"▼ Invite as: Operative","trail":["(reopen)"],"did":["changed","said: Invite as / ✕ / Operative"],"problems":[]}
+{"route":"/pm/admin/invites","role":"admin","label":"Close","trail":["▼ Invite as: Operative"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/pm/admin/invites","role":"admin","label":"▼ Invite as: Operative","trail":["(reopen)"],"did":["changed","said: Invite as / ✕ / Operative"],"problems":[]}
+{"route":"/pm/admin/invites","role":"admin","label":"Operative","trail":["▼ Invite as: Operative"],"did":["changed"],"problems":[]}
+{"route":"/pm/admin/invites","role":"admin","label":"▼ Invite as: Operative","trail":["(reopen)"],"did":["changed","said: Invite as / ✕ / Operative"],"problems":[]}
+{"route":"/pm/admin/invites","role":"admin","label":"Delivery Driver","trail":["▼ Invite as: Operative"],"did":["changed","said: ▼ Invite as: Delivery Driver"],"problems":[]}
+{"route":"/pm/admin/invites","role":"admin","label":"▼ Invite as: Operative","trail":["(reopen)"],"did":["changed","said: Invite as / ✕ / Operative"],"problems":[]}
+{"route":"/pm/admin/invites","role":"admin","label":"Client (view-only)","trail":["▼ Invite as: Operative"],"did":["changed","said: ▼ Invite as: Client (view-only)"],"problems":[]}
+{"route":"/pm/admin/invites","role":"admin","label":"GENERATE ONE-TIME INVITE LINK","trail":[],"did":["changed","said: Share this link — it works once, for the next 14 days: / COPY LINK / Or email it to them — a branded invite email with a button that takes them straight to sign-up.","wrote POST invites"],"problems":[]}
+{"route":"/pm/admin/invites","role":"admin","label":"GENERATE ONE-TIME INVITE LINK","trail":["(reopen)"],"did":["changed","said: Share this link — it works once, for the next 14 days: / COPY LINK / Or email it to them — a branded invite email with a button that takes them straight to sign-up.","wrote POST invites"],"problems":[]}
+{"route":"/pm/admin/invites","role":"admin","label":"COPY LINK","trail":["GENERATE ONE-TIME INVITE LINK"],"did":["changed","said: Could not copy — select and copy the link manually. / ✕","message: Could not copy — select and copy the link manually"],"problems":[]}
+{"route":"/pm/admin/invites","role":"admin","label":"SEND INVITE EMAIL","trail":["GENERATE ONE-TIME INVITE LINK","COPY LINK"],"did":["changed","filled 1","fn send-invite-email","message: Could not copy — select and copy the link manually"],"problems":[]}
+{"route":"/pm/admin/invites","role":"admin","label":"GENERATE ONE-TIME INVITE LINK","trail":["(reopen)"],"did":["changed","said: Share this link — it works once, for the next 14 days: / COPY LINK / Or email it to them — a branded invite email with a button that takes them straight to sign-up.","wrote POST invites"],"problems":[]}
+{"route":"/pm/admin/invites","role":"admin","label":"SEND INVITE EMAIL","trail":["GENERATE ONE-TIME INVITE LINK"],"did":["changed","filled 1","fn send-invite-email"],"problems":[]}
+{"route":"/pm/admin/invites","role":"admin","label":"GENERATE ONE-TIME INVITE LINK","trail":["(reopen)"],"did":["changed","said: Share this link — it works once, for the next 14 days: / COPY LINK / Or email it to them — a branded invite email with a button that takes them straight to sign-up.","wrote POST invites"],"problems":[]}
+{"route":"/pm/admin/invites","role":"admin","label":"Make another link","trail":["GENERATE ONE-TIME INVITE LINK"],"did":["changed","said: Prefer a single-use link for one person instead of the permanent link above? / ▼ Invite as: Operative / GENERATE ONE-TIME INVITE LINK"],"problems":[]}
