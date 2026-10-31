@@ -27,8 +27,8 @@ export function OneDriveSaveBar() {
   const site = siteId ? (sites ?? []).find((s) => s.id === siteId) : null;
   return (
     <View style={{ position: 'absolute', left: 12, right: 12, bottom: 84, alignItems: 'center' }} pointerEvents="box-none">
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: base.ink, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14, maxWidth: 520 }}>
-        <Text numberOfLines={1} style={{ color: '#fff', flexShrink: 1, fontSize: 13 }}>{offer.filename}</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: base.ink, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14, width: '100%', maxWidth: 520 }}>
+        <Text numberOfLines={1} style={{ color: '#fff', flex: 1, fontSize: 13 }}>{offer.filename}</Text>
         <Pressable disabled={busy} onPress={async () => {
           setBusy(true); toast('Saving to OneDrive…');
           const err = await saveToOneDrive(me.org_id, offer.bytes, offer.filename, siteId);
