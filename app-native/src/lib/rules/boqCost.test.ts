@@ -8,7 +8,7 @@ test('BoQ cost from a margin or mark-up, and the margin text', () => {
   assert.equal(costFromPct(1000, 'margin', 25), 750);
   assert.equal(costFromPct(1000, 'markup', 25), 800);
   assert.equal(costFromPct(null, 'margin', 25), null);
-  assert.equal(marginText(1000, 750), 'Margin 25% · mark-up 33.3%');
+  assert.equal(marginText(1000, 750), 'Margin 25% (£250.00) · mark-up 33.3%');
   assert.equal(marginText(1000, null), '');
 });
 

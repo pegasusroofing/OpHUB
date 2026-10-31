@@ -10,8 +10,8 @@ const PAGES = [
   ['costs', `${O}/costs`, `${J}/costs`],
   ['budget', `${O}/budget`, `${J}/budget`],
   ['variations', `${O}/variations`, `${J}/variations`],
-  ['dayworks', `${O}/dayworks`, `${J}/dayworks`],
-  ['boq', `${O}/contract`, `${J}/boq`],
+  ['dayworks', `${O}/contract`, `${J}/dayworks`, `finBoqSub['${S1}']='dw'`],
+  ['boq', `${O}/contract`, `${J}/boq`, `finBoqSub['${S1}']='boq'`],
   ['summary', `${O}/summary`, `${J}/summary`],
   ['monthly', `${O}/monthly`, `${J}/monthly`],
   ['application-draft', `${O}/application/ap2`, `${J}/application/ap2`],
@@ -20,12 +20,12 @@ const PAGES = [
   ['po', `${O}/po/po1`, '/fin/po/po1'],
   ['subcontract', `${O}/sub/sc1`, '/fin/sub/sc1'],
   ['jobs', '#/finance/jobs', '/fin/jobs'],
-  ['sales-invoices', '#/finance/sales/invoices', '/fin/sales'],
+  ['sales-invoices', '#/finance/sales/invoices', '/fin/sales?tab=invoices&f=all', "finInvFilter='all'"],
   ['sales-apps', '#/finance/sales/apps', '/fin/sales?tab=apps'],
   ['purchases-orders', '#/finance/purchases/orders', '/fin/purchases'],
-  ['purchases-invoices', '#/finance/purchases/invoices', '/fin/purchases?tab=invoices'],
+  ['purchases-invoices', '#/finance/purchases/invoices', '/fin/purchases?tab=invoices&f=all', "finPiF='all';finPiPicked=true"],
   ['subs', '#/finance/subs', '/fin/subs'],
-  ['yard', '#/finance/yard', '/fin/yard'],
+  ['yard', '#/finance/purchases/yard', '/fin/yard'],
 ];
 const figures = (t) => new Set((t.match(/[−-]?£\s?[\d,]+(?:\.\d{1,2})?k?|-?\d+(?:\.\d+)?%/g) || []).map((x) => x.replace(/\s/g, '').replace('−', '-').replace(/\.00$/, '')));
 const prep = (db) => { world(db); db.profiles.find((p) => p.id === 'me').role = 'admin'; };
@@ -40,7 +40,10 @@ const prep = (db) => { world(db); db.profiles.find((p) => p.id === 'me').role = 
   await newP.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await newP.fill('input[type="password"]', 'pw123456');
   await newP.getByText('Sign In', {exact: true}).click(); await newP.waitForTimeout(5000);
   let same = 0, diffs = 0;
-  for (const [name, oldR, newR] of PAGES) {
+  const only = process.env.ONLY ? new RegExp(process.env.ONLY) : null;
+  for (const [name, oldR, newR, pre] of PAGES) {
+    if (only && !only.test(name)) continue;
+    if (pre) await oldP.evaluate(pre).catch((e) => console.log('pre failed', name, e.message));
     const was = await oldP.evaluate(() => document.body.innerText);
     await oldP.evaluate((h) => go(h), oldR).catch(() => {});
     for (let i = 0; i < 16; i++) { await oldP.waitForTimeout(500); if ((await oldP.evaluate(() => document.body.innerText)) !== was) break; }

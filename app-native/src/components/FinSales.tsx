@@ -11,8 +11,9 @@ import { FinRow, FinSeg, FinStat } from '@/components/FinNav';
 import { useFinRowMenu } from '@/components/FinRowMenu';
 import { Cell, FinTable, FootText } from '@/components/FinTable';
 import { SelectBox } from '@/components/SelectBox';
-import { chooseAction, useToast } from '@/components/toast';
+import { chooseAction, confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, Toggle } from '@/components/ui';
+import { raiseInvoiceFromCert } from '@/data/finApp';
 import { fdb, selectAll, useFinSettings } from '@/data/finance';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
@@ -23,7 +24,7 @@ import { base, radius, useDesk } from '@/theme/theme';
 
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 9, color: base.ink, backgroundColor: base.card, marginBottom: 10 };
 export type App = FinApp & { id: string; site_id: string; due_date?: string | null; gross?: number | null; net_due?: number | null; cert_gross?: number | null; cert_net?: number | null; cert_is_payless?: boolean | null; invoice_id?: string | null; submitted_at?: string | null; created_at?: string };
-export type Inv = FinInv & { client_name?: string | null; created_at?: string; kind?: string | null; lines?: { description?: string; amount?: number | string | null }[] | null; created_by?: string | null; updated_at?: string };
+export type Inv = FinInv & { bill_name?: string | null; bill_address?: string | null; net?: number | null; vat?: number | null; rc_vat?: number | null; xero_id?: string | null; xero_post?: boolean | null; created_at?: string; kind?: string | null; lines?: { description?: string; amount?: number | string | null }[] | null; created_by?: string | null; updated_at?: string };
 export function appStage(a: App) {
   if (a.status === 'void') return { k: 'void', l: 'Void', c: '#7A7F87' };
   if (a.invoice_id) return { k: 'invoiced', l: 'Invoiced', c: '#1E7A3C' };
@@ -68,7 +69,7 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
     ['finSales', 'finBook', 'finOverview'].forEach((k) => void qcRet.invalidateQueries({ queryKey: [k] }));
   };
   const toastRet = useToast();
-  const { me } = useAuth();
+  const { me, org } = useAuth();
   const { data: sitesRaw = [] } = useSites();
   const { data: st } = useFinSettings(me?.org_id);
   const { data } = useSales(me?.org_id, siteId);
@@ -81,6 +82,17 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
   const desk = useDesk();
   const sites = sitesRaw as (typeof sitesRaw[number] & { job_number?: string | null; client_name?: string | null })[];
   const site = (id: string) => sites.find((s) => s.id === id);
+  const billTo = (i: Inv) => i.bill_name || site(i.site_id)?.client_name || '';
+  const addr1 = (i: Inv) => String(i.bill_address || '').split(/\n|,/).map((x) => x.trim()).filter(Boolean).slice(0, 2).join(', ');
+  const xeroOn = !!(st as { xero_tenant_name?: string | null } | null | undefined)?.xero_tenant_name;
+  const xeroTag = (i: Inv) => i.status === 'draft' || i.status === 'void' ? '' : i.xero_id ? 'Xero ✓' : i.xero_post === false ? 'Not for Xero' : xeroOn ? 'To post' : '';
+  const raise = async (a: App) => {
+    if (!me || !(await confirmAsk(`Raise and issue the invoice for this certificate (${money(a.cert_net)} net)?\n\nIt gets the next invoice number and is saved as a PDF ready to email.`, 'Raise and issue'))) return;
+    const r = await raiseInvoiceFromCert(me, org, a, site(a.site_id) as never, true);
+    if (r.error) { toastRet(r.error); return; }
+    ['finSales', 'finBook', 'finOverview'].forEach((k) => void qcRet.invalidateQueries({ queryKey: [k] }));
+    if (r.id) router.push(`/fin/job/${a.site_id}/invoice/${r.id}` as never);
+  };
   const ql = q.trim().toLowerCase();
   if (!data) return <Muted>Loading…</Muted>;
   const live = data.invs.filter((i) => i.status !== 'void');
@@ -108,12 +120,12 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
           <FinTable rows={list} keyOf={(a) => a.id} onMenu={(a) => void rowMenu.appMenu(a, stage(a))} onRow={(a) => router.push(`/fin/job/${a.site_id}/application/${a.id}` as never)}
             cols={[
               ...(siteId ? [] : [{ k: 'p', l: 'Project', flex: 1.8, min: 180, render: (a: App) => <Cell bold>{jobTag(site(a.site_id))}</Cell> }]),
-              { k: 'n', l: 'Application', render: (a: App) => <Cell>Application {a.number}</Cell> },
+              { k: 'n', l: 'Application', render: (a: App) => <Cell>{a.cert_net != null || a.invoice_id ? 'Certificate' : 'Application'} {a.number}</Cell> },
               { k: 'd', l: 'Date', render: (a: App) => <Cell>{fdate(a.valuation_date)}</Cell> },
               { k: 'ap', l: 'Applied (Net)', render: (a: App) => <Cell>{money(a.net_due)}</Cell> },
-              { k: 'ce', l: 'Certified (Net)', render: (a: App) => <Cell>{a.cert_net != null ? money(a.cert_net) : '—'}</Cell> },
+              { k: 'ce', l: 'Certified (Net)', render: (a: App) => { const short = a.cert_net != null ? round2(Number(a.cert_net) - Number(a.net_due || 0)) : 0; return <View style={{ alignItems: 'center' }}><Cell>{a.cert_net != null ? money(a.cert_net) : '—'}</Cell>{short < -0.009 ? <Text style={{ fontSize: 11, color: '#C0392B' }}>{money(-short)} short</Text> : null}</View>; } },
               { k: 'st', l: 'Stage', render: (a: App) => { const s = appStage(a); return <Text style={{ fontSize: 10.5, fontWeight: '800', color: s.c, backgroundColor: `${s.c}1A`, borderRadius: 999, paddingVertical: 3, paddingHorizontal: 9, overflow: 'hidden', textAlign: 'center' }}>● {s.l}</Text>; } },
-              { k: 'inv', l: 'Invoice', render: (a: App) => <Cell>{a.invoice_id ? data.invs.find((i) => i.id === a.invoice_id)?.number || 'Invoiced' : '—'}</Cell> },
+              { k: 'inv', l: 'Invoice', render: (a: App) => { const inv = data.invs.find((i) => i.id === a.invoice_id); return inv ? <Text accessibilityRole="link" onPress={() => router.push(`/fin/job/${a.site_id}/invoice/${inv.id}` as never)} style={{ fontSize: 12.5, fontWeight: '700', color: base.blue }}>{inv.number || 'Draft'}</Text> : appStage(a).k === 'certified' ? <Button small kind="ghost" title="Raise invoice" onPress={() => void raise(a)} /> : <Cell>—</Cell>; } },
             ]}
             foot={(list) => <><FootText bold>{list.length} application{list.length === 1 ? '' : 's'}</FootText><FootText>Applied {money(list.reduce((t, a) => t + Number(a.net_due || 0), 0))}</FootText><FootText>Certified {money(list.reduce((t, a) => t + Number(a.cert_net || 0), 0))}</FootText></>} />
         ) : list.length ? list.map((a) => { const s = appStage(a); return (
@@ -127,7 +139,7 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
     const F: Record<string, (i: Inv) => boolean> = { outstanding: (i) => invOutstanding(i) > 0, overdue: (i) => invOverdue(i), draft: (i) => i.status === 'draft', paid: (i) => i.status === 'paid', all: () => true };
     const iMonth = (i: Inv) => monthOf(i.issue_date || i.created_at);
     const base0 = live.filter(F[inf] || F.outstanding);
-    const list = base0.filter((i) => !mon || iMonth(i) === mon).filter((i) => !ql || `${i.number || ''} ${i.client_name || ''} ${jobTag(site(i.site_id))}`.toLowerCase().includes(ql));
+    const list = base0.filter((i) => !mon || iMonth(i) === mon).filter((i) => !ql || `${i.number || ''} ${billTo(i)} ${i.bill_address || ''} ${jobTag(site(i.site_id))}`.toLowerCase().includes(ql));
     const months = monthsIn(base0, iMonth);
     return (
       <View>
@@ -141,26 +153,28 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
           <FinTable rows={list} keyOf={(i) => i.id} onMenu={(i) => void rowMenu.invMenu(i)} onRow={(i) => router.push(`/fin/job/${i.site_id}/invoice/${i.id}` as never)}
             cols={[
               { k: 'no', l: 'Invoice', render: (i: Inv) => <Cell bold>{i.number || 'Draft'}</Cell> },
-              ...(siteId ? [] : [{ k: 'p', l: 'Project', flex: 1.8, min: 180, render: (i: Inv) => <Cell bold>{jobTag(site(i.site_id))}</Cell> }]),
-              { k: 'c', l: 'Client', flex: 1.4, min: 140, render: (i: Inv) => <Cell>{i.client_name || '—'}</Cell> },
-              { k: 'd', l: 'Date', render: (i: Inv) => <Cell>{i.issue_date ? fdate(i.issue_date) : '—'}</Cell> },
-              { k: 't', l: 'Total', render: (i: Inv) => <Cell>{money(i.total)}</Cell> },
-              { k: 'o', l: 'Owed', render: (i: Inv) => { const o = invOutstanding(i); return <Cell tone={invOverdue(i) ? '#C0392B' : undefined}>{o ? money(o) : '—'}</Cell>; } },
-              { k: 's', l: 'Status', render: (i: Inv) => <Cell tone={invOverdue(i) ? '#C0392B' : undefined}>{invOverdue(i) ? 'Overdue' : INV_STATUS[i.status] || i.status}</Cell> },
+              { k: 'c', l: 'Client', flex: 1.4, min: 130, render: (i: Inv) => <View style={{ alignItems: 'center' }}><Cell>{billTo(i) || '—'}</Cell>{addr1(i) ? <Text numberOfLines={1} style={{ fontSize: 11, color: base.slate }}>{addr1(i)}</Text> : null}</View> },
+              ...(siteId ? [] : [{ k: 'p', l: 'Project', flex: 1.6, min: 150, render: (i: Inv) => <Cell>{jobTag(site(i.site_id))}</Cell> }]),
+              { k: 'd', l: 'Date', min: 76, render: (i: Inv) => <Cell>{i.status === 'draft' ? 'Not issued' : i.issue_date ? fdate(i.issue_date) : '—'}</Cell> },
+              { k: 'du', l: 'Due', min: 76, render: (i: Inv) => <Cell tone={invOverdue(i) ? '#C0392B' : undefined}>{i.status === 'draft' || !i.due_date ? '—' : fdate(i.due_date)}</Cell> },
+              { k: 'n', l: 'Net', min: 76, render: (i: Inv) => <Cell>{money(i.net)}</Cell> },
+              { k: 'v', l: 'VAT', min: 70, render: (i: Inv) => <View style={{ alignItems: 'center' }}><Cell>{money(i.vat)}</Cell>{Number(i.rc_vat || 0) ? <Text style={{ fontSize: 11, color: base.slate }}>RC {money(i.rc_vat)}</Text> : null}</View> },
+              { k: 't', l: 'Gross', min: 80, render: (i: Inv) => { const o = invOutstanding(i); return <View style={{ alignItems: 'center' }}><Cell bold>{money(i.total)}</Cell>{o > 0 && o < Number(i.total) ? <Text style={{ fontSize: 11, color: base.slate }}>{money(o)} owed</Text> : null}</View>; } },
+              { k: 's', l: 'Status', min: 76, render: (i: Inv) => <View style={{ alignItems: 'center' }}><Cell tone={invOverdue(i) ? '#C0392B' : undefined}>{invOverdue(i) ? 'Overdue' : INV_STATUS[i.status] || i.status}</Cell>{xeroTag(i) ? <Text style={{ fontSize: 10.5, color: base.slate }}>{xeroTag(i)}</Text> : null}</View> },
             ]}
-            foot={(list) => <><FootText bold>{list.length} invoice{list.length === 1 ? '' : 's'}</FootText><FootText>Total {money(list.reduce((t, i) => t + Number(i.total || 0), 0))}</FootText><FootText>Owed {money(list.reduce((t, i) => t + invOutstanding(i), 0))}</FootText></>} />
+            foot={(list) => <><FootText bold>{list.length} invoice{list.length === 1 ? '' : 's'}</FootText><FootText>Net {money(list.reduce((t, i) => t + Number(i.net || 0), 0))}</FootText><FootText>VAT {money(list.reduce((t, i) => t + Number(i.vat || 0), 0))}</FootText><FootText>Gross {money(list.reduce((t, i) => t + Number(i.total || 0), 0))}</FootText><FootText>Owed {money(list.reduce((t, i) => t + invOutstandingNet(i), 0))}</FootText></>} />
         ) : list.length ? list.map((i) => {
           const od = invOverdue(i), o = invOutstanding(i);
-          return <FinRow key={i.id} left={i.number || 'Draft'} title={siteId ? (i.client_name || '—') : jobTag(site(i.site_id))} sub={[siteId ? '' : i.client_name, i.issue_date ? fdate(i.issue_date) : '', INV_STATUS[i.status] || i.status, o ? `${money(o)} owed${od ? ' — overdue' : ''}` : ''].filter(Boolean).join(' · ')} right={money(i.total)} tone={od ? '#C0392B' : undefined} onMenu={() => void rowMenu.invMenu(i)} onPress={() => router.push(`/fin/job/${i.site_id}/invoice/${i.id}` as never)} />;
+          return <FinRow key={i.id} left={i.number || 'Draft'} title={siteId ? (billTo(i) || '—') : jobTag(site(i.site_id))} sub={[siteId ? '' : billTo(i), i.issue_date ? fdate(i.issue_date) : '', INV_STATUS[i.status] || i.status, o ? `${money(o)} owed${od ? ' — overdue' : ''}` : ''].filter(Boolean).join(' · ')} right={money(i.total)} tone={od ? '#C0392B' : undefined} onMenu={() => void rowMenu.invMenu(i)} onPress={() => router.push(`/fin/job/${i.site_id}/invoice/${i.id}` as never)} />;
         }) : <Empty>No invoices here.</Empty>}
         {rowMenu.form}
         {(() => {
-          const voided = data.invs.filter((i) => i.status === 'void' && (!mon || iMonth(i) === mon) && (!ql || `${i.number || ''} ${i.client_name || ''} ${jobTag(site(i.site_id))}`.toLowerCase().includes(ql)));
+          const voided = data.invs.filter((i) => i.status === 'void' && (!mon || iMonth(i) === mon) && (!ql || `${i.number || ''} ${billTo(i)} ${i.bill_address || ''} ${jobTag(site(i.site_id))}`.toLowerCase().includes(ql)));
           if (!voided.length) return null;
           return (
             <View style={{ marginTop: 10 }}>
               <Toggle title={`Voided invoices (${voided.length})`} open={voidOpen} onPress={() => setVoidOpen(!voidOpen)} />
-              {voidOpen && voided.map((i) => <FinRow key={i.id} left={i.number || 'Draft'} title={siteId ? (i.client_name || '—') : jobTag(site(i.site_id))} sub={[siteId ? '' : i.client_name, i.issue_date ? fdate(i.issue_date) : '', 'Void'].filter(Boolean).join(' · ')} right={money(i.total)} onPress={() => router.push(`/fin/job/${i.site_id}/invoice/${i.id}` as never)} />)}
+              {voidOpen && voided.map((i) => <FinRow key={i.id} left={i.number || 'Draft'} title={siteId ? (billTo(i) || '—') : jobTag(site(i.site_id))} sub={[siteId ? '' : billTo(i), i.issue_date ? fdate(i.issue_date) : '', 'Void'].filter(Boolean).join(' · ')} right={money(i.total)} onPress={() => router.push(`/fin/job/${i.site_id}/invoice/${i.id}` as never)} />)}
             </View>
           );
         })()}

@@ -59,6 +59,21 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
   const [mon, setMon] = useState(''); // month and value filters (9219t)
   const [val, setVal] = useState('');
   const [q, setQ] = useState('');
+  const { data: grn = {} } = useQuery({
+    queryKey: ['finPoGrn', me?.org_id], enabled: !!me && tab === 'invoices',
+    queryFn: async () => {
+      const pos = await selectAll<Row>('purchase_orders', 'id,material_ids', (q) => q.eq('org_id', me?.org_id as string));
+      const ids = [...new Set(pos.flatMap((p) => (p.material_ids as string[] | null) || []))];
+      const mats: Record<string, Row> = {};
+      for (let k = 0; k < ids.length; k += 150) ((await fdb.from('materials').select('id,grn').in('id', ids.slice(k, k + 150))).data as Row[] | null)?.forEach((m) => { mats[m.id] = m; });
+      const next: Record<string, string> = {};
+      pos.forEach((p) => {
+        const ms = ((p.material_ids as string[] | null) || []).map((id) => mats[id]).filter(Boolean);
+        next[p.id] = !ms.length ? 'na' : ms.some((m) => m.grn && m.grn.ok === false) ? 'problem' : ms.every((m) => m.grn) ? 'all' : ms.some((m) => m.grn) ? 'some' : 'none';
+      });
+      return next;
+    },
+  });
   const desk = useDesk();
   // Tick several to approve, or to mark paid (9219g finPiBulkApprove / finPiBulkPaid).
   const [sel, setSel] = useState<Set<string>>(new Set());
@@ -148,6 +163,15 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
     const cur = pif || ['job', 'approve', 'pm', 'unpaid'].find((k) => cnt[k]) || 'all';
     const chips: [string, string, number][] = [['job', 'Unallocated', needJob.length], ['pm', 'With a PM', withPm.length], ['approve', 'To approve', toApprove.length], ['unpaid', 'Approved, not paid', unpaid.length], ['paid', 'Paid', data.pinvs.filter(F.paid).length], ['all', 'All filed', data.pinvs.length]];
     const posBy: Record<string, Row> = {}; data.pos.forEach((p) => { posBy[p.id] = p; });
+    const checks = (i: Row): [string, string][] => {
+      const po = posBy[i.po_id], out: [string, string][] = [];
+      if (!po) out.push(['No PO', base.slate]);
+      else if (i.match_notes) out.push(['Differs from PO', '#D97706']);
+      else out.push(i.lines?.length ? ['Matches PO', '#1E7A3C'] : ['PO linked', '#2F6FB3']);
+      if (po) { const g = grn[po.id]; if (g === 'all') out.push(['Received', '#1E7A3C']); else if (g === 'some') out.push(['Part received', '#D97706']); else if (g === 'none') out.push(['Not received', '#D97706']); else if (g === 'problem') out.push(['Delivery problem', '#C0392B']); }
+      if (Array.isArray(i.split) && i.split.length > 1) out.push([`Split ${i.split.length} ways`, '#2F6FB3']);
+      return out;
+    };
     return (
       <View>
         <Muted style={{ marginBottom: 8 }}>Purchase invoices emailed to your invoice address are read and filed to the job when we can tell which one. While Finance is on trial they are not read or filed automatically — allocate them by hand.</Muted>
@@ -201,14 +225,16 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
                 <>{bulkBar}<FinTable rows={list} keyOf={(i) => i.id} onRow={(i) => router.push(`/fin/pinv/${i.id}` as never)}
                   cols={[
                     ...(bulk ? [{ k: 'tick', l: '', flex: 0.3, min: 36, render: (i: Row) => tick(i) }] : []),
-                    { k: 'no', l: 'Invoice', render: (i: Row) => <Cell bold>{i.invoice_no || '—'}</Cell> },
-                    { k: 'sup', l: 'Supplier', flex: 1.3, min: 130, render: (i: Row) => <Cell>{i.supplier_name || 'Supplier'}</Cell> },
-                    ...(siteId ? [] : [{ k: 'p', l: 'Project', flex: 1.6, min: 160, render: (i: Row) => <Cell>{jobTag(site(i.site_id))}</Cell> }]),
-                    { k: 'd', l: 'Date', render: (i: Row) => <Cell>{fdate(i.invoice_date)}</Cell> },
-                    { k: 'po', l: 'PO', render: (i: Row) => posBy[i.po_id] ? <Cell>{posBy[i.po_id].number}</Cell> : <Cell tone="#D97706">No PO</Cell> },
-                    { k: 'n', l: 'Net', render: (i: Row) => <Cell>{money(i.net)}</Cell> },
-                    { k: 't', l: 'Total', render: (i: Row) => <Cell bold>{money(i.total)}</Cell> },
-                    { k: 's', l: 'Status', render: (i: Row) => <Cell tone={i.status === 'query' ? '#C0392B' : undefined}>{i.paid_on ? 'Paid' : PI_STATUS[i.status] || i.status}</Cell> },
+                    { k: 'sup', l: 'Supplier', flex: 1.3, min: 110, render: (i: Row) => <Cell bold>{i.supplier_name || 'Supplier'}</Cell> },
+                    { k: 'no', l: 'Invoice No.', min: 76, render: (i: Row) => <Cell>{i.invoice_no || '—'}</Cell> },
+                    ...(siteId ? [] : [{ k: 'p', l: 'Project', flex: 1.5, min: 120, render: (i: Row) => <Cell>{jobTag(site(i.site_id))}</Cell> }]),
+                    { k: 'd', l: 'Date', min: 72, render: (i: Row) => <Cell>{fdate(i.invoice_date)}</Cell> },
+                    { k: 'n', l: 'Net', min: 72, render: (i: Row) => <Cell>{money(i.net)}</Cell> },
+                    { k: 'v', l: 'VAT', min: 64, render: (i: Row) => <Cell>{money(i.vat)}</Cell> },
+                    { k: 't', l: 'Gross', min: 72, render: (i: Row) => <Cell bold>{money(i.total)}</Cell> },
+                    { k: 'po', l: 'PO', min: 70, render: (i: Row) => <Cell>{posBy[i.po_id] ? posBy[i.po_id].number : 'No PO'}</Cell> },
+                    { k: 'ch', l: 'Checks', flex: 1.2, min: 92, render: (i: Row) => <View style={{ alignItems: 'center', gap: 2 }}>{checks(i).map(([t, c]) => <Text key={t} style={{ fontSize: 10.5, fontWeight: '700', color: c, textAlign: 'center' }}>{t}</Text>)}</View> },
+                    { k: 's', l: 'Status', min: 72, render: (i: Row) => <Cell tone={i.status === 'query' ? '#C0392B' : undefined}>{i.paid_on ? 'Paid' : PI_STATUS[i.status] || i.status}</Cell> },
                   ]}
                   foot={(list) => <><FootText bold>{list.length} shown</FootText><FootText>Net {money(list.reduce((t, i) => t + Number(i.net || 0), 0))}</FootText><FootText>VAT {money(list.reduce((t, i) => t + Number(i.vat || 0), 0))}</FootText><FootText>Gross {money(list.reduce((t, i) => t + Number(i.total || 0), 0))}</FootText></>} /></>
               );

@@ -1,6 +1,8 @@
 // Bill of Quantities costing (902 finCostFromPct / finContractGroupRange, 9219zs finBqdInsertAt):
 // a line's budget cost from a margin or mark-up %, the margin shown on a line, which item lines sit
 // under a section, and where a new line goes when added under a heading.
+import { money } from './finance.ts';
+
 export type BoqKind = 'item' | 'section' | 'subsection' | string;
 
 /** Margin m% of the sale price: cost = sale × (1 − m/100). Mark-up k% on cost: cost = sale ÷ (1 + k/100). */
@@ -15,7 +17,7 @@ export function marginText(value: number | null | undefined, cost: number | null
   if (cost == null || value == null || isNaN(c) || !v) return '';
   const m = ((v - c) / v) * 100, k = c ? ((v - c) / c) * 100 : null;
   const pct = (n: number) => `${Math.round(n * 10) / 10}%`;
-  return `Margin ${pct(m)}${k != null ? ` · mark-up ${pct(k)}` : ''}`;
+  return `Margin ${pct(m)} (${money(v - c)})${k != null ? ` · mark-up ${pct(k)}` : ''}`;
 }
 /** The item lines under a section (to the next section) or sub-section (to the next heading). */
 export function groupRange(rows: { kind?: BoqKind }[], i: number): number[] {
