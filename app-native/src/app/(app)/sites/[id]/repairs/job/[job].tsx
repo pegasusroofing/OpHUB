@@ -110,7 +110,7 @@ export default function RepairJobPage() {
           toast(failed ? `${failed} photo${failed === 1 ? '' : 's'} failed to upload — try again.` : 'Photo(s) added'); refresh(); reportsAfter(job, { photoCategory: category });
         }} />
         {hiddenOnes.length > 0 && <Pressable onPress={async () => {
-          const k = await chooseAction('Deleted photos — tap one to restore', hiddenOnes.map((p, i) => ({ key: p.id, label: `Photo ${i + 1}${p.uploaded_at ? ` · ${fmt(p.uploaded_at)}` : ''}` })));
+          const k = await chooseAction('Deleted photos — tap one to restore', hiddenOnes.map((p, i) => ({ key: p.id, label: `Photo ${i + 1}${p.created_at ? ` · ${fmt(p.created_at)}` : ''}` })));
           if (k) { toast((await hideRepairPhoto(me, k, true)) ? 'Photo restored' : 'Could not restore — try again.'); refresh(); reportsAfter(job, { photoCategory: category }); }
         }}><Muted style={{ textDecorationLine: 'underline' }}>Deleted photos ({hiddenOnes.length})</Muted></Pressable>}
       </View>

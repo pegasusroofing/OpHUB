@@ -198,7 +198,7 @@ export async function saveFlag(me: Profile, site: Site, sectionId: string | null
   if (field === 'waste_to_clear' && value) { patch.waste_flagged_by = me.id; patch.waste_flagged_at = now; }
   if (field === 'leftover_material' && value) { patch.leftover_flagged_by = me.id; patch.leftover_flagged_at = now; if (photoPath) patch.leftover_photo_path = photoPath; }
   const r = row
-    ? await db.from('schedule_section_flags').update(patch as never).eq('id', row.id)
+    ? mustHit(await db.from('schedule_section_flags').update(patch as never).eq('id', row.id).select('id'))
     : await db.from('schedule_section_flags').insert({ site_id: site.id, section_id: sectionId, ...patch } as never);
   if (r.error) return false;
   if (!wasOn && value && me.org_id) {
@@ -219,7 +219,7 @@ export async function addLeftoverPhoto(site: Site, sectionId: string | null, p: 
   if (up.error) return false;
   const row = await flagRow(site.id, sectionId);
   if (!row) return false;
-  const r = await db.from('schedule_section_flags').update({ leftover_photo_path: up.data.path, updated_at: new Date().toISOString() } as never).eq('id', row.id);
+  const r = mustHit(await db.from('schedule_section_flags').update({ leftover_photo_path: up.data.path, updated_at: new Date().toISOString() } as never).eq('id', row.id).select('id'));
   return !r.error;
 }
 
@@ -230,9 +230,9 @@ export async function closeOutSiteCondition(me: Profile, siteId: string, reopen 
     row = ((ins.data as Flag[] | null) ?? [])[0] ?? null;
   }
   if (!row) return false;
-  const r = await db.from('schedule_section_flags').update((reopen
+  const r = mustHit(await db.from('schedule_section_flags').update((reopen
     ? { closeout_saved_at: null, closeout_saved_by: null }
-    : { closeout_saved_at: new Date().toISOString(), closeout_saved_by: me.id }) as never).eq('id', row.id);
+    : { closeout_saved_at: new Date().toISOString(), closeout_saved_by: me.id }) as never).eq('id', row.id).select('id'));
   return !r.error;
 }
 

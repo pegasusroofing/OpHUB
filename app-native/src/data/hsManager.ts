@@ -2,6 +2,7 @@
 // supersede an older one and is recorded as issued by the uploader), replace a
 // COSHH file (everyone signs again), delete, and "Ask Outstanding to Sign".
 import { supabase } from '@/lib/supabase';
+import { mustHit } from '@/lib/mustHit';
 import type { Profile } from '@/lib/types';
 
 import type { DocKind, HsDoc, HsSig } from './hs';
@@ -54,7 +55,7 @@ export async function replaceCoshh(me: Profile, siteId: string, doc: HsDoc, file
   const path = await put('coshh', siteId, file);
   if (!path) return 'Could not upload — check your signal and try again.';
   const now = new Date().toISOString();
-  const r = await db.from('coshh_docs').update({ storage_path: path, uploaded_by: me.id, uploaded_at: now, resign_cycle_start: now, last_resign_notified_at: null } as never).eq('id', doc.id);
+  const r = mustHit(await db.from('coshh_docs').update({ storage_path: path, uploaded_by: me.id, uploaded_at: now, resign_cycle_start: now, last_resign_notified_at: null } as never).eq('id', doc.id).select('id'));
   if (r.error) return 'Could not save — try again.';
   await db.from('coshh_signatures').delete().eq('coshh_id', doc.id);
   if (doc.storage_path && doc.storage_path !== path) void supabase.storage.from('coshh-docs').remove([doc.storage_path]).catch(() => undefined);

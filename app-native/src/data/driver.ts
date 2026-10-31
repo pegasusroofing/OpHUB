@@ -1,5 +1,6 @@
 // Driver data and actions. Ported from 840-delivery-driver.js and 9219zz-driver-time-off.js.
 import { useQuery } from '@tanstack/react-query';
+import { mustHit } from '@/lib/mustHit';
 
 import { useAuth } from '@/lib/auth';
 import { checkinDeviceField } from '@/lib/deviceLock';
@@ -175,7 +176,7 @@ export async function reopenDelivery(me: Profile, t: Delivery, choice: { date: s
   }
   const patch: Record<string, unknown> = { status: 'pending', completed_at: null, completed_by: null, completion_photo_path: null, completion_photo_paths: [], high_priority: keepHigh };
   if (!same) Object.assign(patch, { scheduled_date: choice.date, time_slot: choice.slot, sub_priority: 999 });
-  const r = await db.from('delivery_tasks').update(patch as never).eq('id', t.id);
+  const r = mustHit(await db.from('delivery_tasks').update(patch as never).eq('id', t.id).select('id'));
   if (r.error) return { ok: false, msg: 'Could not re-open it — try again.' };
   if (!same) {
     try {
@@ -221,7 +222,7 @@ export async function completeDelivery(me: Profile, t: Delivery, sites: Site[]):
   const photos = completionPhotos(t);
   if (!photos.length) return 'Add at least one photo before marking this complete.';
   const now = new Date().toISOString();
-  const r = await db.from('delivery_tasks').update({ status: 'completed', completed_at: now, completed_by: me.id, completion_photo_paths: photos, completion_photo_path: photos[0] } as never).eq('id', t.id);
+  const r = mustHit(await db.from('delivery_tasks').update({ status: 'completed', completed_at: now, completed_by: me.id, completion_photo_paths: photos, completion_photo_path: photos[0] } as never).eq('id', t.id).select('id'));
   if (r.error) return 'Could not save — try again.';
   // Tell the people the database says should know (site contact, PM…).
   try {
@@ -293,7 +294,7 @@ export async function saveChecklist(me: Profile, d: Checklist, submit = false): 
     id = ((ex.data as { id: string }[] | null) ?? [])[0]?.id ?? null;
   }
   if (id) {
-    const r = await db.from('vehicle_checklists').update(fields as never).eq('id', id);
+    const r = mustHit(await db.from('vehicle_checklists').update(fields as never).eq('id', id).select('id'));
     return r.error ? null : id;
   }
   const r = await db.from('vehicle_checklists').insert({ org_id: me.org_id, driver_id: me.id, week_start: d.week_start, status: submit ? 'submitted' : 'in_progress', ...fields } as never).select('id');

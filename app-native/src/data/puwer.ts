@@ -46,7 +46,7 @@ export async function savePuwer(me: Profile, siteId: string, weekStart: string, 
     if (r.error) return { id: null, failed: 0, error: 'Inspection NOT saved — check your signal and try again.' };
     id = ((r.data as { id: string }[] | null) ?? [])[0]?.id ?? null;
   } else {
-    const r = await db.from('puwer_inspections').update({ comments: comments || null, updated_at: new Date().toISOString() } as never).eq('id', id);
+    const r = mustHit(await db.from('puwer_inspections').update({ comments: comments || null, updated_at: new Date().toISOString() } as never).eq('id', id).select('id'));
     if (r.error) return { id, failed: 0, error: 'Inspection NOT saved — check your signal and try again.' };
   }
   let failed = 0;

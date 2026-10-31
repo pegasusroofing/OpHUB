@@ -76,7 +76,7 @@ export async function finBookedOn(orgId: string, siteId: string): Promise<string
   const db = fdb as unknown as { from: (t: string) => { select: (c: string) => { eq: (k: string, v: string) => { limit: (n: number) => PromiseLike<{ data: unknown[] | null; error: unknown }> }; contains: (k: string, v: unknown) => { eq: (k: string, v: string) => { limit: (n: number) => PromiseLike<{ data: unknown[] | null; error: unknown }> } } } } };
   const got = await Promise.all([
     ...tabs.map(([t]) => db.from(t).select('id').eq('site_id', siteId).limit(1)),
-    db.from('fin_sub_payments').select('id').contains('lines', [{ site_id: siteId }]).eq('org_id', orgId).limit(1),
+    db.from('fin_sub_payments').select('id').contains('lines', JSON.stringify([{ site_id: siteId }])).eq('org_id', orgId).limit(1),
   ]);
   if (got.some((g) => g.error)) return null;
   return [...tabs.map(([, l]) => l), 'operative invoices'].filter((_, i) => (got[i].data ?? []).length);

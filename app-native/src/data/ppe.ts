@@ -2,6 +2,7 @@
 // Ported from 650-ppe-issuance-requests-log.js. The PM/admin side (issue, fulfil,
 // site log, exports) comes with the PM screens.
 import { useQuery } from '@tanstack/react-query';
+import { mustHit } from '@/lib/mustHit';
 
 import { useAuth } from '@/lib/auth';
 import { cachedQuery, orThrow } from '@/lib/offlineCache';
@@ -32,7 +33,7 @@ export function useMyPpe() {
 
 export async function signPpe(me: Profile & { signature_path?: string | null }, id: string): Promise<{ ok: boolean; needSignature?: boolean; msg: string }> {
   if (!me.signature_path) return { ok: false, needSignature: true, msg: "Adopt your signature first — one tap and it's used everywhere." };
-  const r = await db.from('ppe_issuances').update({ status: 'signed', signed_at: new Date().toISOString(), signature_image_path: me.signature_path } as never).eq('id', id);
+  const r = mustHit(await db.from('ppe_issuances').update({ status: 'signed', signed_at: new Date().toISOString(), signature_image_path: me.signature_path } as never).eq('id', id).select('id'));
   return r.error ? { ok: false, msg: 'Could not save — check your signal and try again.' } : { ok: true, msg: 'Signed — thank you' };
 }
 

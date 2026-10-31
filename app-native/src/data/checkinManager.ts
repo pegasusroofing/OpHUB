@@ -3,6 +3,7 @@
 // address's) GPS point and check-in distance, the team's live status, the
 // day-by-day history, the PM's own log for admins, and adding/closing addresses.
 import { useQuery } from '@tanstack/react-query';
+import { mustHit } from '@/lib/mustHit';
 
 import { cachedQuery, orThrow } from '@/lib/offlineCache';
 import { supabase } from '@/lib/supabase';
@@ -47,7 +48,7 @@ export async function addAddress(me: Profile, siteId: string, name: string, addr
 
 export async function setAddressClosed(me: Profile, siteId: string, subId: string, name: string, closed: boolean): Promise<boolean> {
   const patch = closed ? { closed: true, closed_by: me.id, closed_at: new Date().toISOString() } : { closed: false, closed_by: null, closed_at: null };
-  const r = await db.from('site_sub_addresses').update(patch as never).eq('id', subId);
+  const r = mustHit(await db.from('site_sub_addresses').update(patch as never).eq('id', subId).select('id'));
   if (r.error) return false;
   if (closed && me.org_id) void db.from('site_activity_log').insert({ site_id: siteId, org_id: me.org_id, actor_id: me.id, action: 'sub_address_closed', description: `Closed address "${name}"` } as never).then(undefined, () => undefined);
   return true;

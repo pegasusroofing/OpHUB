@@ -3,6 +3,32 @@
 All of this ran on the laptop against a fake database, in a web browser at computer size and phone size.
 Nothing here touched the real database, real phones, real emails, Xero or OneDrive.
 
+The Sandbox section below is the exception: it ran against the real database.
+
+## Sandbox run on the real database (31 Oct 2026)
+`crawl.js` with `REAL=1` behind `tools/test-harness/sandbox-guard.js`. Admin login, computer size, 3 hours 25 minutes. 138 screens opened, 4,423 presses, no crashes.
+
+**What stopped it doing harm:**
+- Every server function was refused (148 Xero calls, 25 OneDrive and 1 driver check-in notice among them). The Sandbox email log still has the same 3 rows, all from before today.
+- 309 changes to existing records were held back and answered as if they worked. Every column they named exists in the database.
+- Rows changed today in Sandbox are only the ones the test added. This could only be checked on tables that record a change date.
+
+**Faults found and fixed:**
+- Repair job photos never loaded: the list asked for a column that doesn't exist.
+- Finance "Delete this project" could never work: its check on operative invoices was badly formed, so it always said it couldn't check.
+- Finance yard stock rates never loaded.
+- Saves refused by the database looked as if they worked (0 rows, no error). Client Schedule of Works presses were one. About 25 more saves that a person presses directly now report the failure: snags, materials, plant, PPE, variations, permits, PUWER, section flags, repairs, calendar, addresses, driver jobs, vehicle checks, COSHH.
+
+**Not covered:**
+- Other roles have no Sandbox login. They were checked by a database rules test that was undone afterwards. It showed no role can see or change another company's data, and that site managers, operatives, drivers and clients can't see or edit invoices or POs.
+- 35 screens were skipped because Sandbox has no matching record: subcontractor pages, briefings, permits, RAMS builder, incidents, O&M, drawing files, operative detail and others.
+- 51 busy screens reached 30 or more presses. Each view stops at 30 different buttons, so some buttons on them weren't pressed here.
+- 433 presses were flagged. 205 "nothing happened": the ones checked were information rows, tabs already open and the backgrounds of pop-ups. 222 "covered" and 6 "could not press": mostly a pop-up in the way or a greyed-out button, so those buttons were not pressed on the real database. They include Schedule of Works close-out and export, and HAVS save and close for the week.
+- The fixes above were not rerun on the real database, because the sign-in had expired. They were rerun on the fake database.
+- Saves that happen behind the scenes (positions, links, synced dates) were left without the new check, as a failure there isn't something a person acts on.
+
+Test rows are removed by `docs/claude-code/sql/5 - Sandbox test tidy-up (31 Oct).sql`.
+
 ## Pressed by the crawler
 `tools/test-harness/crawl.js` opens each of 173 screens as a role and presses each different button, then the menu items and the yes / delete / save that follow. About 14,000 presses in all.
 

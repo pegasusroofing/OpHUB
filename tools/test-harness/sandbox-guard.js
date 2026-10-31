@@ -17,7 +17,7 @@ const STATE = process.env.SB_STATE;
 const OUT = path.join(__dirname, 'shots', 'crawl');
 const LOG = path.join(OUT, 'sandbox-log.jsonl'), CREATED = path.join(OUT, 'sandbox-created.jsonl');
 const TEST_JOB = 'ZZ TEST JOB - safe to delete';
-const READ_RPC = /^(check_device_lock_v2|get_invite_info)$/;
+const READ_RPC = /^(check_device_lock_v2|get_invite_info|sow_photo_alerts|site_delivery_dates|onedrive_status|site_application_dates|site_office_orders)$/;
 const NEVER_WRITE = /^(messages|profiles|invites|organizations|org_settings|device_locks|push_tokens|edge_email_log)$/;
 const created = new Map();
 let testSite = null;
@@ -59,14 +59,24 @@ async function guard(route) {
     if (/resolution=merge|on_conflict/.test(prefer + url)) return held('upsert');
     if (rows.some((r) => r.site_id && r.site_id !== testSite)) return held('other job');
     if (rows.some((r) => r.org_id && r.org_id !== SANDBOX)) return held('other company');
-    const res = await route.fetch({headers: {...q.headers(), prefer: 'return=representation'}});
-    const text = await res.text();
+    // A new row hung on an existing record (a payment on a real invoice, say) would change that record's figures.
+    const mine = (v) => v === testSite || [...created.values()].some((set) => set.has(String(v)));
+    if (rows.some((r) => Object.entries(r).some(([k, v]) => /_id$/.test(k) && !/^(org_id|site_id|sub_site_id)$/.test(k) && typeof v === 'string' && !mine(v)))) return held('linked to existing');
+    // Keep each new row's id for the tidy-up. Asking for the row back can be refused by some policies, so fall back to what the app asked for.
+    const haveIds = rows.length && rows.every((r) => r.id);
+    let res = await route.fetch(haveIds || /representation/.test(prefer) ? {} : {headers: {...q.headers(), prefer: 'return=representation'}});
+    let text = await res.text(), asked = haveIds || /representation/.test(prefer);
+    if (res.status() >= 400 && !asked && /row-level security/.test(text)) { res = await route.fetch(); text = await res.text(); asked = true; if (res.status() < 400) log({untracked: table}); }
     if (res.status() >= 400) log({writeFailed: table, method: m, status: res.status(), keys, message: text.slice(0, 240)});
-    else { log({wrote: table, method: m, keys}); try { JSON.parse(text).forEach((r) => r.id && remember(table, r.id)); } catch (e) { log({untracked: table}); } }
+    else {
+      log({wrote: table, method: m, keys});
+      if (haveIds) rows.forEach((r) => remember(table, r.id));
+      else try { JSON.parse(text).forEach((r) => r.id && remember(table, r.id)); } catch (e) { log({untracked: table}); }
+    }
     return route.fulfill({response: res, body: text});
   }
   const id = (url.match(/[?&]id=eq\.([^&]+)/) || [])[1];
-  if (id && created.get(table)?.has(id)) {
+  if (id && created.get(table)?.has(id) && !(table === 'sites' && id === testSite)) {
     const res = await route.fetch(), text = await res.text();
     if (res.status() >= 400) log({writeFailed: table, method: m, status: res.status(), keys, message: text.slice(0, 240)}); else log({wrote: table, method: m, keys});
     return route.fulfill({response: res, body: text});
@@ -100,11 +110,14 @@ async function routes(list) {
   const one = async (t, extra = '') => ((await get(`${t}?select=id&org_id=eq.${SANDBOX}${extra}&limit=1`))[0] || {}).id;
   let site = (await get(`sites?select=id&org_id=eq.${SANDBOX}&name=eq.${encodeURIComponent(TEST_JOB)}`))[0];
   if (!site) {
-    const res = await ctx.request.post(`${API}/rest/v1/sites`, {headers: h, data: {name: TEST_JOB, org_id: SANDBOX}});
+    site = {id: crypto.randomUUID()};
+    const res = await ctx.request.post(`${API}/rest/v1/sites`, {headers: {...h, Prefer: 'return=minimal'}, data: {id: site.id, name: TEST_JOB, org_id: SANDBOX}});
     if (!res.ok()) throw new Error('Could not add the test job: ' + (await res.text()).slice(0, 200));
-    site = (await res.json())[0]; remember('sites', site.id); log({wrote: 'sites', method: 'POST', keys: ['name', 'org_id']});
+    remember('sites', site.id); log({wrote: 'sites', method: 'POST', keys: ['id', 'name', 'org_id']});
   }
   testSite = site.id;
+  // The main-contractor pages only open on a job flagged as such.
+  await ctx.request.patch(`${API}/rest/v1/sites?id=eq.${testSite}`, {headers: {...h, Prefer: 'return=minimal'}, data: {acting_as_main_contractor: true}});
   const job = ((await get(`fin_applications?select=site_id&org_id=eq.${SANDBOX}&limit=1`))[0] || {}).site_id;
   const inJob = job ? `&site_id=eq.${job}` : '';
   const ids = {po1: await one('purchase_orders'), pi1: await one('purchase_invoices'), h1: await one('fin_plant_hires'), sc1: await one('fin_subcontracts'), ap2: await one('fin_applications', inJob), v1: await one('fin_invoices', inJob)};

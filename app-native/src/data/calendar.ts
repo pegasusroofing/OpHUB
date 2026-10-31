@@ -3,6 +3,7 @@
 // send-calendar-reminders cron), the job's delivery dates (9219zr), and the
 // project PM's approved time off when they've linked it to project calendars (186).
 import { useQuery } from '@tanstack/react-query';
+import { mustHit } from '@/lib/mustHit';
 
 import { cachedQuery, orThrow } from '@/lib/offlineCache';
 import { DELIVERY_TIME_SLOTS, slotProblem } from '@/lib/rules/driver';
@@ -85,10 +86,10 @@ export async function addEvent(me: Profile, site: Site & { closed_at?: string | 
 
 export async function saveEvent(id: string, d: Draft): Promise<boolean> {
   const remind = d.remind && d.recipients.length > 0;
-  return !(await db.from('site_calendar_events').update({
+  return !mustHit(await db.from('site_calendar_events').update({
     title: d.title, event_date: d.date, is_private: d.private, reminder_recipient_ids: remind ? d.recipients : [],
     reminder_timing: remind ? d.timing : null, reminder_date: remind ? reminderDate(d.date, d.timing, d.custom) : null, reminder_sent: false,
-  } as never).eq('id', id)).error;
+  } as never).eq('id', id).select('id')).error;
 }
 
 function log(me: Profile, siteId: string, description: string) {

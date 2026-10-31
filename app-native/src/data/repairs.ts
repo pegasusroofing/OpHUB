@@ -2,6 +2,7 @@
 // every save. Key dates go on the job's site Calendar (same linked-event idea
 // as the old app); notes saves email the PM through the existing function.
 import { useQuery } from '@tanstack/react-query';
+import { mustHit } from '@/lib/mustHit';
 
 import { compressOne, type Picked } from '@/lib/photos';
 import type { RepairJob } from '@/lib/rules/repairs';
@@ -11,7 +12,7 @@ import type { Profile } from '@/lib/types';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 
-export type RepairPhoto = { id: string; category: string; storage_path: string; hires_path: string | null; deleted_at: string | null; uploaded_at?: string };
+export type RepairPhoto = { id: string; category: string; storage_path: string; hires_path: string | null; deleted_at: string | null; created_at?: string };
 
 export function useRepairJobs(siteId: string | undefined) {
   return useQuery({
@@ -27,7 +28,7 @@ export function useRepairJob(jobId: string | undefined) {
     queryFn: async () => {
       const [j, p] = await Promise.all([
         db.from('repair_jobs').select('*').eq('id', jobId as string).maybeSingle(),
-        db.from('repair_job_photos').select('*').eq('repair_job_id', jobId as string).order('uploaded_at'),
+        db.from('repair_job_photos').select('*').eq('repair_job_id', jobId as string).order('created_at'),
       ]);
       return { job: (j.data as RepairJob | null) ?? null, photos: (p.data as RepairPhoto[] | null) ?? [] };
     },
@@ -52,7 +53,7 @@ export async function patchRepairJob(id: string, patch: Partial<RepairJob> & Rec
   return !!(await db.from('repair_jobs').update(patch as never).eq('id', id).select('id')).data?.length;
 }
 export async function patchRepairJobs(ids: string[], patch: Record<string, unknown>): Promise<boolean> {
-  return !(await db.from('repair_jobs').update(patch as never).in('id', ids)).error;
+  return !mustHit(await db.from('repair_jobs').update(patch as never).in('id', ids).select('id')).error;
 }
 
 /** Keeps a key date on the site Calendar; returns the event id to store (null when cleared). */

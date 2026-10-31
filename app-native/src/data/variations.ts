@@ -89,7 +89,7 @@ export async function decideVariation(me: Profile, siteId: string, v: Variation,
   const patch: Record<string, unknown> = opts.approve
     ? { approval_status: 'approved', decided_by: me.id, decided_at: now, decline_reason: null, ...vp.patch, ...(opts.description ? { description: opts.description } : {}) }
     : { approval_status: 'declined', decided_by: me.id, decided_at: now, decline_reason: opts.reason };
-  const r = await db.from('variations').update(patch as never).eq('id', v.id);
+  const r = mustHit(await db.from('variations').update(patch as never).eq('id', v.id).select('id'));
   if (r.error) return false;
   if ('cost_impact' in vp.patch) await syncToFinance(v.id, vp.oldVal, opts.value ?? null, opts.financeUser);
   if (opts.approve && !opts.description) tellManagers(me, siteId, `${me.name} approved a variation: ${v.description || ''}`);
@@ -120,7 +120,7 @@ export async function addVariationToSchedule(me: Profile, siteId: string, v: Var
 }
 
 export async function closeVariation(me: Profile, siteId: string, v: Variation): Promise<boolean> {
-  const r = await db.from('variations').update({ status: 'closed', closed_at: new Date().toISOString() } as never).eq('id', v.id);
+  const r = mustHit(await db.from('variations').update({ status: 'closed', closed_at: new Date().toISOString() } as never).eq('id', v.id).select('id'));
   if (r.error) return false;
   log(me, siteId, 'variation_closed', `Closed variation "${v.description || ''}"`);
   return true;

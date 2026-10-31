@@ -1,6 +1,7 @@
 // Operative "Getting Started" checklist. Ported from computeOnboardingChecklist (210).
 // Only for operatives with at least one live job they're assigned to.
 import { useQuery } from '@tanstack/react-query';
+import { mustHit } from '@/lib/mustHit';
 
 import { useAuth } from '@/lib/auth';
 import { siteStatusKey } from '@/lib/rules/checkin';
@@ -58,6 +59,6 @@ export async function saveMyPhone(me: Profile, phone: string): Promise<string | 
 }
 export async function savePhone(me: Profile, phone: string): Promise<string | null> {
   if (phone.replace(/[^0-9]/g, '').length < 10) return 'Enter a full phone number.';
-  const r = await db.from('profiles').update({ phone } as never).eq('id', me.id);
+  const r = mustHit(await db.from('profiles').update({ phone } as never).eq('id', me.id).select('id'));
   return r.error ? 'Could not save — try again.' : null;
 }

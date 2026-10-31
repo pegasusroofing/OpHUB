@@ -129,14 +129,14 @@ export async function editMaterial(me: Profile, siteId: string, id: string, f: {
 }
 
 export async function cancelMaterial(me: Profile, id: string, reason: string, isManager: boolean): Promise<string | null> {
-  const r = await db.from('materials').update({ status: 'cancelled', cancel_reason: reason, cancelled_by: me.id } as never).eq('id', id);
+  const r = mustHit(await db.from('materials').update({ status: 'cancelled', cancel_reason: reason, cancelled_by: me.id } as never).eq('id', id).select('id'));
   return r.error ? dbMsg(r.error, isManager) : null;
 }
 
 export async function setMaterialsStatus(me: Profile, siteId: string, items: Mat[], status: 'closed'): Promise<boolean> {
-  const res = await Promise.all(items.map((m) => db.from('materials').update({ status } as never).eq('id', m.id)));
+  const res = await Promise.all(items.map((m) => db.from('materials').update({ status } as never).eq('id', m.id).select('id')));
   items.forEach((m) => log(me, siteId, 'material_request_closed', `Closed material request "${m.item || ''}"`));
-  return res.every((r) => !r.error);
+  return res.every((r) => !mustHit(r).error);
 }
 
 /** Back to 'sent' when it had been ordered (keeps the history), else 'pending'. */
@@ -430,7 +430,7 @@ export async function saveGrn(me: Profile, siteId: string, m: Mat, ok: boolean, 
   }
   if (paths.length < photos.length) return { ok: false, msg: 'Some photos could not upload — check signal and try again.' };
   const grn: Grn = { at: new Date().toISOString(), by: me.id, byName: me.name || '', ok, notes: notes.trim(), photos: paths };
-  const r = await db.from('materials').update({ grn } as never).eq('id', m.id);
+  const r = mustHit(await db.from('materials').update({ grn } as never).eq('id', m.id).select('id'));
   if (r.error) return { ok: false, msg: dbMsg(r.error, isManager) };
   const item = m.item + (m.qty ? ` × ${m.qty}` : '');
   log(me, siteId, 'material_grn', `Goods received: ${item}${grn.ok ? '' : ` — PROBLEM: ${grn.notes}`}`);

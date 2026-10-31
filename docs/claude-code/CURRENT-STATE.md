@@ -127,7 +127,10 @@
 ## Press-every-button run (31 Oct 2026)
 About 14,000 presses across 173 screens, every role, computer and phone size, on the fake database. No crashes. What it found, what was fixed and what still can't be tested: `TEST-COVERAGE-2026-10-31.md`.
 
+Then the same run on Sandbox Roofing against the real database, admin only: 138 screens, 4,423 presses, no crashes, nothing sent out. Found repair photos not loading, Finance project delete never working, yard rates not loading, and refused saves looking successful; all fixed. Same file has the details and what it didn't cover.
+
 ## Andy's own to-dos
+- Paste `sql/5 - Sandbox test tidy-up (31 Oct).sql` into Supabase to remove the test job and test rows.
 - Press **Push origin** for the handoff pack.
 - Turn on leaked-password protection (Supabase › Authentication).
 - Reconnect OneDrive, and revoke the old Microsoft sessions.

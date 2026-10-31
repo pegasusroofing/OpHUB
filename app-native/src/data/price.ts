@@ -3,6 +3,7 @@
 // total and booked-in override, and Variations to Price (request, approve,
 // reject with a reason, remove).
 import { useQuery } from '@tanstack/react-query';
+import { mustHit } from '@/lib/mustHit';
 
 import { elementFigures, groupFigures, type Figures, type PriceElement, type PriceWeek } from '@/lib/rules/price';
 import { compressOne, type Picked } from '@/lib/photos';
@@ -72,7 +73,7 @@ export async function requestVariation(me: Profile, site: Site, elementId: strin
   return true;
 }
 export async function decideVariation(me: Profile, site: Site, v: PriceVariation, ok: boolean, reason?: string): Promise<boolean> {
-  const r = await db.from('additional_works_requests').update({ status: ok ? 'approved' : 'rejected', approved_by: me.id, approved_at: new Date().toISOString(), rejection_reason: ok ? null : reason } as never).eq('id', v.id);
+  const r = mustHit(await db.from('additional_works_requests').update({ status: ok ? 'approved' : 'rejected', approved_by: me.id, approved_at: new Date().toISOString(), rejection_reason: ok ? null : reason } as never).eq('id', v.id).select('id'));
   if (r.error) return false;
   notifyDecision(site.id, v.requested_by, ok ? 'approved' : 'rejected', site.name);
   return true;

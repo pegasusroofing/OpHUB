@@ -1,6 +1,7 @@
 // Snags. Ported from 500-snagging.js (operative side: list and close with a photo;
 // managers also add snags). PDF export/email come with the PM screens.
 import { useQuery } from '@tanstack/react-query';
+import { mustHit } from '@/lib/mustHit';
 
 import { cachedQuery, orThrow } from '@/lib/offlineCache';
 import { compressOne, type Picked } from '@/lib/photos';
@@ -50,7 +51,7 @@ async function upload(path: string, p: Picked): Promise<string | null> {
 export async function closeSnag(me: Profile, site: Site, snag: Snag, p: Picked): Promise<string> {
   const path = await upload(`${site.id}/snags/${snag.id}-closed-${rid()}.jpg`, p);
   if (!path) return 'Could not upload the photo — check your signal and try again.';
-  const r = await db.from('snags').update({ status: 'closed', closed_photo_path: path, closed_by: me.id, closed_at: new Date().toISOString() } as never).eq('id', snag.id);
+  const r = mustHit(await db.from('snags').update({ status: 'closed', closed_photo_path: path, closed_by: me.id, closed_at: new Date().toISOString() } as never).eq('id', snag.id).select('id'));
   if (r.error) return 'Could not save — try again.';
   if (me.org_id) {
     void db.from('messages').insert({ org_id: me.org_id, site_id: site.id, sender_id: me.id, audience: 'managers', kind: 'snag_closed', body: `${me.name} closed a snag: "${snag.title || 'Untitled'}"` } as never).then(undefined, () => undefined);

@@ -5,6 +5,7 @@
 // service, remove, and bring items here from another job. RLS limits item changes
 // to managers.
 import { useQuery } from '@tanstack/react-query';
+import { mustHit } from '@/lib/mustHit';
 
 import { cachedQuery, orThrow } from '@/lib/offlineCache';
 import { compressOne, type Picked } from '@/lib/photos';
@@ -57,21 +58,21 @@ export async function requestCheckout(me: Profile, siteId: string, itemId: strin
 export async function requestCheckin(me: Profile, checkoutId: string, photo: Picked, notes: string): Promise<string | null> {
   const path = await upPhoto(me, photo);
   if (!path) return 'Photo failed to upload — check your connection and try again.';
-  const r = await db.from('plant_checkouts').update({ checkin_requested_at: new Date().toISOString(), checkin_photo_path: path, checkin_notes: notes || null, checkin_status: 'pending_signoff' } as never).eq('id', checkoutId);
+  const r = mustHit(await db.from('plant_checkouts').update({ checkin_requested_at: new Date().toISOString(), checkin_photo_path: path, checkin_notes: notes || null, checkin_status: 'pending_signoff' } as never).eq('id', checkoutId).select('id'));
   return r.error ? 'Could not save — try again.' : null;
 }
 
 const NEED_SIG = "Adopt your signature first — one tap and it's used everywhere.";
 export async function signOffCheckout(me: Me, c: Checkout): Promise<string> {
   if (!me.signature_path) return NEED_SIG;
-  const r = await db.from('plant_checkouts').update({ checkout_status: 'checked_out', checkout_signed_by: me.id, checkout_signed_at: new Date().toISOString(), checkout_signature_path: me.signature_path } as never).eq('id', c.id);
+  const r = mustHit(await db.from('plant_checkouts').update({ checkout_status: 'checked_out', checkout_signed_by: me.id, checkout_signed_at: new Date().toISOString(), checkout_signature_path: me.signature_path } as never).eq('id', c.id).select('id'));
   if (r.error) return 'Could not save — try again.';
   await db.from('plant_items').update({ current_status: 'checked_out' } as never).eq('id', c.plant_item_id);
   return 'Check-out signed off';
 }
 export async function signOffCheckin(me: Me, c: Checkout): Promise<string> {
   if (!me.signature_path) return NEED_SIG;
-  const r = await db.from('plant_checkouts').update({ checkin_status: 'returned', checkin_signed_by: me.id, checkin_signed_at: new Date().toISOString(), checkin_signature_path: me.signature_path } as never).eq('id', c.id);
+  const r = mustHit(await db.from('plant_checkouts').update({ checkin_status: 'returned', checkin_signed_by: me.id, checkin_signed_at: new Date().toISOString(), checkin_signature_path: me.signature_path } as never).eq('id', c.id).select('id'));
   if (r.error) return 'Could not save — try again.';
   await db.from('plant_items').update({ current_status: 'available' } as never).eq('id', c.plant_item_id);
   return 'Check-in signed off';

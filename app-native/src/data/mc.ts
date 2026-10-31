@@ -175,10 +175,10 @@ export async function closePermit(me: Me, p: Permit, f: { photo1: Picked | null;
   const ph1 = f.photo1 ? await upPhoto(p.site_id, p.id, 1, f.photo1) : null;
   const ph2 = f.photo2 ? await upPhoto(p.site_id, p.id, 2, f.photo2) : null;
   if (hot && (!ph1 || !ph2)) return 'One or both fire-extinguisher photos failed to upload — check your connection and try again before closing.';
-  const r = await db.from('permits').update({
+  const r = mustHit(await db.from('permits').update({
     status: 'closed', closed_by: me.id, closed_at: new Date().toISOString(), closed_notes: [f.notes, f.overrideNote].filter(Boolean).join('\n') || null,
     closer_signature_path: me.signature_path, closedown_photo_path_1: ph1, closedown_photo_path_2: ph2,
-  } as never).eq('id', p.id);
+  } as never).eq('id', p.id).select('id'));
   if (r.error) return 'Could not close — try again.';
   say(me, p.site_id, 'permit_closed', `${me.name} closed a permit`, 'permit_closed', `Closed a ${PERMIT_LABEL[p.permit_type] || ''} permit${f.overrideNote ? ` — ${f.overrideNote}` : ''}`);
   return null;
