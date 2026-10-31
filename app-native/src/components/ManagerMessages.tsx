@@ -7,11 +7,12 @@ import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
-import { confirmAsk, useToast } from '@/components/toast';
+import { chooseAction, confirmAsk, useToast } from '@/components/toast';
+import { MentionBox, mentionedIn } from '@/components/MentionBox';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import { nameOf, usePeople } from '@/data/hs';
 import { markMessagesRead } from '@/data/inbox';
-import { deleteMessages, KIND_LABEL, msgDest, sendBroadcast, sendReply, useManagerMessages } from '@/data/siteMessages';
+import { deleteMessages, KIND_LABEL, msgDest, sendBroadcast, sendMentions, sendReply, useManagerMessages } from '@/data/siteMessages';
 import { useAuth } from '@/lib/auth';
 import type { Message } from '@/lib/types';
 import { base, radius, useTheme } from '@/theme/theme';
@@ -27,10 +28,10 @@ export function ManagerMessages({ siteId }: { siteId: string }) {
   const { data: people } = usePeople();
   const [tab, setTab] = useState<'fromTeam' | 'sent'>('fromTeam');
   const [draft, setDraft] = useState('');
-  const [whole, setWhole] = useState(false);
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [reply, setReply] = useState('');
+  const [threads, setThreads] = useState<Set<string>>(new Set());
   const [receiptsFor, setReceiptsFor] = useState<string | null>(null);
   const [shownNew, setShownNew] = useState<Set<string>>(new Set());
 
@@ -83,7 +84,8 @@ export function ManagerMessages({ siteId }: { siteId: string }) {
             )}
           </>
         )}
-        {replies.length > 0 && (
+        {replies.length > 0 && <Pressable onPress={() => { const n = new Set(threads); if (n.has(m.id)) n.delete(m.id); else n.add(m.id); setThreads(n); }} style={{ marginTop: 8 }}><Text style={{ color: base.blue, fontWeight: '700' }}>💬 {replies.length} repl{replies.length === 1 ? 'y' : 'ies'} {threads.has(m.id) ? '▼' : '▶'}</Text></Pressable>}
+        {replies.length > 0 && threads.has(m.id) && (
           <View style={{ marginTop: 8, marginLeft: 14, paddingLeft: 10, borderLeftWidth: 2, borderLeftColor: base.line }}>
             {replies.map((r) => (
               <View key={r.id} style={{ marginBottom: 6 }}>
@@ -95,11 +97,11 @@ export function ManagerMessages({ siteId }: { siteId: string }) {
         )}
         {m.audience !== 'single' && (replyTo === m.id ? (
           <View style={{ marginTop: 8 }}>
-            <TextInput multiline value={reply} onChangeText={setReply} placeholder="Write a reply..." style={box} />
+            <MentionBox value={reply} onChangeText={setReply} people={people ?? []} placeholder="Write a reply... type @ to mention someone" style={box} />
             <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
               <View style={{ flex: 1 }}><Button title="Send Reply" onPress={async () => {
                 if (!reply.trim()) { toast('Write a reply first.'); return; }
-                if (await sendReply(me, m, siteId, reply.trim())) { toast('Reply sent'); setReplyTo(null); setReply(''); void refetch(); }
+                if (await sendReply(me, m, siteId, reply.trim())) { void sendMentions(me, siteId, reply.trim(), mentionedIn(reply, people ?? [])); toast('Reply sent'); setReplyTo(null); setReply(''); setThreads(new Set([...threads, m.id])); void refetch(); }
               }} /></View>
               <View style={{ flex: 1 }}><Button kind="ghost" title="Cancel" onPress={() => { setReplyTo(null); setReply(''); }} /></View>
             </View>
@@ -113,18 +115,13 @@ export function ManagerMessages({ siteId }: { siteId: string }) {
     <View>
       <Card>
         <SectionTitle>Send a message</SectionTitle>
-        <TextInput multiline value={draft} onChangeText={setDraft} placeholder="Message to operatives..." style={box} />
-        <Muted style={{ fontWeight: '700', marginTop: 8, marginBottom: 6 }}>Send to</Muted>
-        <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8 }}>
-          {([[false, "This site's operatives"], [true, 'All operatives (whole company)']] as const).map(([v, l]) => (
-            <Pressable key={l} onPress={() => setWhole(v)} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 14, borderWidth: 1, borderColor: whole === v ? base.ink : base.line, backgroundColor: whole === v ? base.ink : base.card }}>
-              <Text style={{ fontSize: 12, fontWeight: '700', color: whole === v ? '#fff' : base.ink }}>{l}</Text>
-            </Pressable>
-          ))}
-        </View>
+        <MentionBox value={draft} onChangeText={setDraft} people={people ?? []} placeholder="Message to operatives... type @ to mention someone" style={[box, { marginBottom: 8 }]} />
         <Button title="Send" onPress={async () => {
           if (!draft.trim()) { toast('Write a message first.'); return; }
-          if (await sendBroadcast(me, siteId, draft.trim(), whole)) { setDraft(''); toast(whole ? 'Sent to all operatives' : "Sent to this site's operatives"); void qc.invalidateQueries({ queryKey: ['mgrMessages', siteId] }); }
+          const to = await chooseAction('Send to', [{ key: 'site', label: 'Project operatives' }, { key: 'all', label: 'All company operatives' }]);
+          if (!to) return;
+          const whole = to === 'all';
+          if (await sendBroadcast(me, siteId, draft.trim(), whole)) { void sendMentions(me, siteId, draft.trim(), mentionedIn(draft, people ?? [])); setDraft(''); toast(whole ? 'Sent to all operatives' : "Sent to this site's operatives"); void qc.invalidateQueries({ queryKey: ['mgrMessages', siteId] }); }
           else toast('Could not send — check your signal and try again.');
         }} />
       </Card>
@@ -134,12 +131,13 @@ export function ManagerMessages({ siteId }: { siteId: string }) {
           if (await deleteMessages(me, siteId, [...sel])) { toast('Messages deleted'); setSel(new Set()); void refetch(); }
         }} />
       )}
-      <View style={{ flexDirection: 'row', gap: 8, marginVertical: 12 }}>
-        {([['fromTeam', `From Team${data && unreadIn(data.fromTeam) ? ` (${unreadIn(data.fromTeam)})` : ''}`], ['sent', `Sent to Operatives${data && unreadIn(data.sent) ? ` (${unreadIn(data.sent)})` : ''}`]] as const).map(([k, l]) => (
-          <Pressable key={k} onPress={() => setTab(k)} style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 18, borderWidth: 1, borderColor: tab === k ? base.ink : base.line, backgroundColor: tab === k ? base.ink : base.card }}>
-            <Text style={{ fontWeight: '700', color: tab === k ? '#fff' : base.ink }}>{l}</Text>
-          </Pressable>
-        ))}
+      <View style={{ flexDirection: 'row', marginVertical: 12 }}>
+        <Pressable onPress={async () => {
+          const k = await chooseAction('Show', [{ key: 'fromTeam', label: `From Team${data && unreadIn(data.fromTeam) ? ` (${unreadIn(data.fromTeam)})` : ''}` }, { key: 'sent', label: `Sent to Operatives${data && unreadIn(data.sent) ? ` (${unreadIn(data.sent)})` : ''}` }]);
+          if (k) setTab(k as typeof tab);
+        }} style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 18, borderWidth: 1, borderColor: base.line, backgroundColor: base.card }}>
+          <Text style={{ fontWeight: '700', color: base.ink }}>{tab === 'fromTeam' ? 'From Team' : 'Sent to Operatives'}{data && unreadIn(tab === 'fromTeam' ? data.fromTeam : data.sent) ? ` (${unreadIn(tab === 'fromTeam' ? data.fromTeam : data.sent)})` : ''} ▼</Text>
+        </Pressable>
       </View>
       {isLoading ? <Muted>Loading…</Muted> : tab === 'fromTeam'
         ? (data?.fromTeam.length ? data.fromTeam.map(row) : <Empty>Nothing from the crew yet.</Empty>)

@@ -108,6 +108,7 @@ export function SowTaskRow({ updateOnly, me, site, task, subCos = [], photos, pe
     if ('error' in picked) { showAlert(picked.error); return; }
     if (!picked.length) return;
     setBusy(true);
+    toast(`Getting ${picked.length === 1 ? 'your photo' : `${picked.length} photos`} ready…`);
     try {
       if (mode === 'complete') {
         setCompleting(false);
@@ -193,7 +194,7 @@ export function SowTaskRow({ updateOnly, me, site, task, subCos = [], photos, pe
           {pending.map((j) => (
             <View key={j.id}>
               <Image source={{ uri: j.files[j.files.length - 1].localUri }} style={[s.thumb, { opacity: 0.55 }]} />
-              <Text style={s.waiting}>{j.tries ? 'waiting' : '…'}</Text>
+              <Text style={[s.waiting, j.tries ? { color: '#B3261E', fontWeight: '700' } : null]}>{j.tries ? 'Not sent yet — retrying' : 'Uploading…'}</Text>
               <Pressable onPress={() => removePending(j)} style={s.del} hitSlop={8}><Text style={s.delX}>×</Text></Pressable>
             </View>
           ))}

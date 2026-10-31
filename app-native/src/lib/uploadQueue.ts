@@ -13,6 +13,7 @@ import { Directory, File, Paths } from 'expo-file-system';
 import { AppState, Platform } from 'react-native';
 
 import { plainGet, plainSet } from './kv';
+import { isUuid, makeUuid } from './uuidPolyfill';
 import { supabase } from './supabase';
 
 const KEY = 'ophub-upload-queue-v2';
@@ -140,27 +141,30 @@ async function readBytes(uri: string): Promise<ArrayBuffer> {
 }
 
 async function runUpload(job: UploadJob): Promise<void> {
-  const paths: (string | null)[] = [];
-  for (const f of job.files) {
+  // All the sizes at once: quicker than one after the other.
+  const paths = await Promise.all(job.files.map(async (f): Promise<string | null> => {
     try {
       const up = await supabase.storage.from(f.bucket).upload(f.path, await readBytes(f.localUri), { contentType: f.contentType, upsert: true });
       if (up.error) throw up.error;
-      paths.push(up.data.path);
+      return up.data.path;
     } catch (e) {
       if (!f.optional) throw e;
-      paths.push(null);
+      return null;
     }
-  }
+  }));
   let row: Record<string, unknown> | undefined;
   if (job.insert) {
     row = { ...job.insert.row };
+    // A photo queued before ids were fixed: its id would be refused for good.
+    if ('id' in row && !isUuid(row.id)) row.id = makeUuid();
     for (const [col, idx] of Object.entries(job.insert.pathFields ?? {})) row[col] = paths[idx] ?? null;
     // Table names come from our own code, never from the server.
     const ins = await supabase.from(job.insert.table as 'profiles').insert(row as never);
     // 23505 = already there (a retry after the row went in): that's fine.
     if (ins.error && ins.error.code !== '23505') throw ins.error;
   }
-  if (job.after && hooks[job.after.name]) { try { await hooks[job.after.name](job.after.args, { paths, row }); } catch { /* best effort */ } }
+  // Copying to OneDrive and the like carries on behind: the photo is in, so it isn't "uploading" any more.
+  if (job.after && hooks[job.after.name]) void Promise.resolve().then(() => hooks[(job.after as AfterHook).name]((job.after as AfterHook).args, { paths, row })).catch(() => undefined);
 }
 
 async function runPatch(job: PatchJob): Promise<void> {

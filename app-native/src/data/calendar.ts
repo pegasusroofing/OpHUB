@@ -20,6 +20,7 @@ const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supab
 export type CalEvent = {
   id: string; site_id: string; title: string; event_date: string; is_private: boolean; recurrence_group_id: string | null;
   reminder_recipient_ids: string[] | null; reminder_timing: Timing | null; reminder_date: string | null;
+  visible_roles?: string[] | null; hidden_user_ids?: string[] | null;
 };
 export type CalLine = (CalEvent & { kind: 'event' }) | { kind: 'delivery' | 'leave' | 'app'; id: string; event_date: string; title: string; colour?: string };
 
@@ -32,8 +33,8 @@ export function useCalendar(siteId: string | undefined, from: string, to: string
       const rpc = supabase.rpc.bind(supabase) as unknown as (n: string, a: object) => Promise<{ data: unknown; error: unknown }>;
       const [ev, dl, lv, ap] = await Promise.all([
         db.from('site_calendar_events').select('*').eq('site_id', siteId as string).gte('event_date', from).lte('event_date', to).order('event_date').order('created_at'),
-        rpc('site_delivery_dates', { p_site: siteId, p_from: from, p_to: to }).catch(() => ({ data: [], error: null })),
-        rpc('site_pm_leave', { p_site: siteId, p_from: from, p_to: to }).catch(() => ({ data: [], error: null })),
+        Promise.resolve(rpc('site_delivery_dates', { p_site: siteId, p_from: from, p_to: to })).catch(() => ({ data: [], error: null })),
+        Promise.resolve(rpc('site_pm_leave', { p_site: siteId, p_from: from, p_to: to })).catch(() => ({ data: [], error: null })),
         apps ? appDateLines(siteId as string, from, to) : Promise.resolve([] as ExtraLine[]),
       ]);
       const lines: CalLine[] = (orThrow(ev) as CalEvent[]).map((e) => ({ ...e, kind: 'event' as const }));
@@ -65,7 +66,9 @@ export function useRecipients(siteId: string | undefined, enabled: boolean) {
   });
 }
 
-export type Draft = { title: string; date: string; private: boolean; remind: boolean; timing: Timing; custom: string; recipients: string[]; repeat: Repeat };
+export type Draft = { title: string; date: string; private: boolean; remind: boolean; timing: Timing; custom: string; recipients: string[]; repeat: Repeat; roles: string[] | null; hidden: string[] };
+/** The old app's private flag stays true to the new setting: on when nobody but managers can see it. */
+const isPrivate = (d: Pick<Draft, 'roles'>) => !!d.roles && !d.roles.some((r) => ['operative', 'driver', 'client'].includes(r));
 
 /** Operatives add a plain key date only (no private / repeat / reminder) — the RLS policy insists. */
 export async function addEvent(me: Profile, site: Site & { closed_at?: string | null }, d: Draft, mgr: boolean): Promise<string | null> {
@@ -74,7 +77,7 @@ export async function addEvent(me: Profile, site: Site & { closed_at?: string | 
   const dates = recurrenceDates(d.date, repeat, site.closed_at ?? null, site.status === 'closed');
   const group = repeat !== 'none' && dates.length > 1 ? (globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}`) : null;
   const rows = dates.map((date) => ({
-    site_id: site.id, org_id: me.org_id, title: d.title, event_date: date, is_private: mgr ? d.private : false,
+    site_id: site.id, org_id: me.org_id, title: d.title, event_date: date, is_private: mgr ? isPrivate(d) : false, visible_roles: mgr ? d.roles : null, hidden_user_ids: mgr && d.hidden.length ? d.hidden : null,
     reminder_recipient_ids: remind ? d.recipients : [], reminder_timing: remind ? d.timing : null,
     reminder_date: remind ? reminderDate(date, d.timing, d.custom) : null, reminder_sent: false, created_by: me.id,
     repeat_freq: repeat !== 'none' ? repeat : null, recurrence_group_id: group,
@@ -87,7 +90,7 @@ export async function addEvent(me: Profile, site: Site & { closed_at?: string | 
 export async function saveEvent(id: string, d: Draft): Promise<boolean> {
   const remind = d.remind && d.recipients.length > 0;
   return !mustHit(await db.from('site_calendar_events').update({
-    title: d.title, event_date: d.date, is_private: d.private, reminder_recipient_ids: remind ? d.recipients : [],
+    title: d.title, event_date: d.date, is_private: isPrivate(d), visible_roles: d.roles, hidden_user_ids: d.hidden.length ? d.hidden : null, reminder_recipient_ids: remind ? d.recipients : [],
     reminder_timing: remind ? d.timing : null, reminder_date: remind ? reminderDate(d.date, d.timing, d.custom) : null, reminder_sent: false,
   } as never).eq('id', id).select('id')).error;
 }

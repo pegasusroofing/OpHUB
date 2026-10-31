@@ -1,3 +1,4 @@
+import '@/lib/uuidPolyfill';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
@@ -5,6 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import '@/lib/webShell';
 import { ToastProvider } from '@/components/toast';
 import { AuthProvider, useAuth } from '@/lib/auth';
 import { useAppFonts } from '@/lib/fonts';

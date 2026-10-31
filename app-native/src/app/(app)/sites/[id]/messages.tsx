@@ -44,7 +44,7 @@ export default function SiteMessages() {
   if (isManager(me)) {
     return (
       <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
-        <Stack.Screen options={{ title: 'Messages' }} />
+        <Stack.Screen options={{ title: 'HUB' }} />
         <HowTo k="messages" />
         <ManagerMessages siteId={id} />
       </ScrollView>
@@ -97,7 +97,7 @@ export default function SiteMessages() {
   return (
     <ScrollView contentContainerStyle={page(720)}
       refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => { void refetch(); }} />} keyboardShouldPersistTaps="handled">
-      <Stack.Screen options={{ title: 'Messages' }} />
+      <Stack.Screen options={{ title: 'HUB' }} />
       {isLoading ? <Muted>Loading…</Muted> : data?.top.length ? data.top.map(row) : <Empty>No messages yet.</Empty>}
     </ScrollView>
   );

@@ -4,12 +4,12 @@ import { Redirect, router, Tabs, usePathname } from 'expo-router';
 import { useEffect } from 'react';
 import { Platform, Pressable, Text, useWindowDimensions, View } from 'react-native';
 
-import { OneDriveSaveBar } from '@/components/OneDriveSaveBar';
 import { useHub } from '@/data/hub';
 import { outstandingCount, useOutstanding } from '@/data/inbox';
 import { useSites } from '@/data/sites';
 import { OfflineBar } from '@/components/OfflineBar';
 import { AppBar } from '@/components/AppBar';
+import { PhoneBar, usesPhoneBar } from '@/components/PhoneBar';
 import { DeskNav } from '@/components/DeskNav';
 import { OphIcon } from '@/components/OphIcon';
 import { SupportBar } from '@/components/PlatformAdmin';
@@ -17,7 +17,9 @@ import { PolicyGate } from '@/components/PolicyGate';
 import { useHsPolicy } from '@/data/hsPolicy';
 import { useAuth } from '@/lib/auth';
 import { usePushTaps } from '@/lib/push';
-import { isManager, homeKind, isFinanceOnlyOrg, isFinanceUser } from '@/lib/roles';
+import { isFullManager, isManager, homeKind, isFinanceOnlyOrg, isFinanceUser } from '@/lib/roles';
+import { recordPath } from '@/lib/navBack';
+import { setOneDriveSaver } from '@/lib/oneDriveSave';
 import { base, useTheme } from '@/theme/theme';
 
 const icon = (name: string) => function TabIcon({ color }: { color: unknown }) { return <OphIcon name={name} size={22} color={String(color)} />; };
@@ -38,14 +40,17 @@ export default function AppLayout() {
   const extra = !!me && (me.role === 'site_manager' || ['client', 'subcontractor'].includes(homeKind(me, org)));
   const siteMgr = me?.role === 'site_manager';
   const { data: allSites } = useSites();
-  const { data: hubBadge } = useHub(siteMgr ? me : null, allSites, '');
+  const path = usePathname();
+  const projBar = usesPhoneBar(path.replace(/\/$/, ''), isFullManager(me));
+  const { data: hubBadge } = useHub(siteMgr || (projBar && isFullManager(me) && !/^\/sites\/[0-9a-f-]{36}/.test(path)) ? me : null, allSites, '');
   const { data: ownBadge } = useOutstanding(me && !siteMgr && !isManager(me) && hasSites ? allSites : undefined);
   const inboxN = siteMgr ? (hubBadge?.items.length ?? 0) : outstandingCount(ownBadge);
   const { width } = useWindowDimensions();
   const desk = Platform.OS === 'web' && width >= 1100;
   // Compulsory H&S Policy: until it's signed, nothing but the signature page (640).
   const policy = useHsPolicy();
-  const path = usePathname();
+  useEffect(() => { recordPath(path); }, [path]);
+  useEffect(() => { setOneDriveSaver(me && isManager(me) ? me.org_id ?? null : null); }, [me]);
   // Ctrl / ⌘ K opens Search on the office laptop (136).
   useEffect(() => {
     if (Platform.OS !== 'web' || !me || homeKind(me, org) === 'finance') return;
@@ -68,7 +73,7 @@ export default function AppLayout() {
     <SupportBar />
     <OfflineBar />
     <Tabs
-      tabBar={desk ? () => <DeskNav /> : undefined}
+      tabBar={desk ? () => <DeskNav /> : projBar ? () => null : undefined}
       screenOptions={{
         // Pages straight under the tabs get the shared top bar; the sections with their own Stack draw it themselves.
         header: (p) => <AppBar title={p.options.title} home={p.route.name === 'home'} onBack={p.route.name === 'home' ? undefined : () => router.navigate('/home' as never)} />,
@@ -95,7 +100,7 @@ export default function AppLayout() {
       <Tabs.Screen name="pm" options={{ ...(siteMgr && !desk ? { tabBarIcon: icon('bell'), tabBarLabel: 'HUB', href: '/pm/hub' as never, tabBarBadge: inboxN || undefined } : hidden), title: 'Manager', headerShown: false }} />
       <Tabs.Screen name="fin" options={{ ...hidden, title: 'Finance', headerShown: false }} />
     </Tabs>
-    <OneDriveSaveBar />
+    {!desk && projBar && <PhoneBar hubCount={hubBadge?.items.length} />}
     </View>
   );
 }

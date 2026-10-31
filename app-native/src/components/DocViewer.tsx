@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Image, Linking, Modal, Platform, Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 
 import { loadPdfJs } from '@/lib/pdfjs';
+import { deliverFile } from '@/lib/pdf';
 
 export type DocReq = { url: string; name: string; onMarkup?: (src: string) => void };
 const listeners = new Set<(r: DocReq | null) => void>();
@@ -49,6 +50,12 @@ export function DocViewerHost() {
   const [req, setReq] = useState<DocReq | null>(null);
   const [zoom, setZoom] = useState(1);
   const { width: W, height: H } = useWindowDimensions();
+  const bytes = useRef<Promise<{ data: Uint8Array; mime: string } | null>>(Promise.resolve(null));
+  // Got ready as soon as the file opens (030 sharePdfViewerDoc): phones want the share to start from the press.
+  useEffect(() => {
+    if (!req) return;
+    bytes.current = fetch(req.url).then(async (r) => (r.ok ? { data: new Uint8Array(await r.arrayBuffer()), mime: r.headers.get('content-type') || 'application/octet-stream' } : null)).catch(() => null);
+  }, [req]);
   useEffect(() => {
     const l = (r: DocReq | null) => { setZoom(1); setReq(r); };
     listeners.add(l);
@@ -57,14 +64,18 @@ export function DocViewerHost() {
   if (!req) return null;
   const close = () => setReq(null);
   const btn = { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 8, backgroundColor: 'rgba(255,255,255,.12)' };
-  const download = () => { const u = req.url; void Linking.openURL(u + (u.includes('?') ? '&' : '?') + 'download=' + encodeURIComponent(req.name)); };
+  const exportFile = async () => {
+    const ready = await bytes.current;
+    if (!ready) { const u = req.url; void Linking.openURL(u + (u.includes('?') ? '&' : '?') + 'download=' + encodeURIComponent(req.name)); return; }
+    await deliverFile(ready.data, req.name, ready.mime);
+  };
   return (
     <Modal visible transparent={false} animationType="fade" onRequestClose={close}>
       <View style={{ flex: 1, backgroundColor: '#1c1f24' }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingTop: Platform.OS === 'ios' ? 50 : 10, paddingBottom: 10, backgroundColor: '#111317' }}>
           <Text numberOfLines={1} style={{ flex: 1, color: '#fff', fontWeight: '700', fontSize: 15 }}>{req.name}</Text>
           {!!req.onMarkup && <Pressable accessibilityRole="button" onPress={() => { const m = req.onMarkup; close(); m?.(req.url); }} style={btn}><Text style={{ color: '#fff', fontWeight: '700' }}>✏️ Mark up</Text></Pressable>}
-          <Pressable accessibilityRole="button" accessibilityLabel="Download" onPress={download} style={btn}><Text style={{ color: '#fff', fontWeight: '700' }}>⬇</Text></Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="Export" onPress={() => void exportFile()} style={btn}><Text style={{ color: '#fff', fontWeight: '700' }}>📤 Export</Text></Pressable>
           <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={close} style={btn}><Text style={{ color: '#fff', fontWeight: '800' }}>✕</Text></Pressable>
         </View>
         {isPdf(req) && Platform.OS === 'web' ? <PdfPages url={req.url} zoom={zoom} /> : (

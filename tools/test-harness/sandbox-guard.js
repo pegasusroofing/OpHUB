@@ -159,6 +159,8 @@ if (require.main === module && process.argv[2] === 'login') (async () => {
   const ctx = await browser.newContext({viewport: {width: 1100, height: 800}});
   await ctx.route(/supabase\.co/, guard);
   const page = await ctx.newPage(); await page.goto('http://localhost:8081/login');
+  // Whose window this is, when several people are being signed in one after another. Andy types the password.
+  if (process.env.SB_EMAIL) await page.fill('input[placeholder="you@yourcompany.co.uk"]', process.env.SB_EMAIL, {timeout: 60000}).catch(() => {});
   const until = Date.now() + 45 * 60000;
   while (Date.now() < until) {
     await new Promise((r) => setTimeout(r, 2000));

@@ -67,6 +67,12 @@ export async function sendReply(me: Profile, parent: Message, siteId: string, bo
   return !r.error;
 }
 
+/** Each person @mentioned gets the message as their own, so it reaches their inbox and phone. */
+export async function sendMentions(me: Profile, siteId: string, body: string, ids: string[]): Promise<void> {
+  const to = [...new Set(ids)].filter((x) => x !== me.id);
+  if (to.length) await db.from('messages').insert(to.map((recipient_id) => ({ org_id: me.org_id, site_id: siteId, sender_id: me.id, audience: 'single', kind: 'message', recipient_id, body: `Mentioned you: ${body}` })) as never);
+}
+
 /* ---------- manager side ---------- */
 export type Receipts = { read: { id: string; at: string }[]; unread: string[] };
 

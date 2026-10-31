@@ -13,6 +13,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTrail } from '@/components/Crumbs';
 import { OphIcon } from '@/components/OphIcon';
 import { showAlert } from '@/components/toast';
+import { isManager } from '@/lib/roles';
+import { takeJump } from '@/lib/navBack';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { heading, mono } from '@/lib/fonts';
@@ -24,13 +26,21 @@ const FIN_SUB: Record<string, string> = { '': 'Overview', jobs: 'Projects', sale
 const SECTION: Record<string, string> = { schedule: 'Schedule Of Works', drawings: "Drawings, Spec's & Programme", materials: 'Materials', hs: 'Health & Safety', snagging: 'Snagging', checkin: 'Check In / Out', price: 'Price', repairs: 'Repairs', om: 'O&M Manual', mc: 'Main Contractor', handover: 'Handover', todos: 'To Do List' };
 // Tapping a job's address under the title copies it (or shares it on a phone) — 130 shell.
 async function copyAddress(a: string) {
-  try { if (Platform.OS === 'web' && globalThis.navigator?.clipboard) { await globalThis.navigator.clipboard.writeText(a); showAlert(`Address copied:
-${a}`); } else await Share.share({ message: a }); } catch { /* nothing to do */ }
+  try {
+    if (Platform.OS !== 'web') { await Share.share({ message: a }); return; }
+    if (globalThis.navigator?.clipboard) await globalThis.navigator.clipboard.writeText(a);
+    else {
+      // No clipboard on a page without https: copy the old way.
+      const box = document.createElement('textarea'); box.value = a; document.body.appendChild(box); box.select(); document.execCommand('copy'); box.remove();
+    }
+    showAlert(`Address copied:
+${a}`);
+  } catch { /* nothing to do */ }
 }
 const titleCase = (x: string) => x.replace(/[A-Za-z][A-Za-z'’.]*/g, (w) => w.charAt(0).toUpperCase() + w.slice(1));
 
 export function AppBar({ title, onBack, home, right }: { title?: string; onBack?: () => void; home?: boolean; right?: ReactNode }) {
-  const { org } = useAuth();
+  const { org, me } = useAuth();
   const t = useTheme();
   const desk = useDesk();
   const qc = useQueryClient();
@@ -63,6 +73,13 @@ export function AppBar({ title, onBack, home, right }: { title?: string; onBack?
     ? [['Projects', '/sites'], [sName, jobHome ? null : `/sites/${site.id}`], ...(jobHome ? [] : pageTrail ?? [...secStep, ...(!title ? [] : [[titleCase(title), null] as [string, null]])])]
     : [];
   const cfs = desk ? 12.5 : 11.5;
+  const pressBack = () => {
+    const from = takeJump(path.replace(/\/$/, '') || path);
+    if (from) { router.navigate(from as never); return; }
+    // A manager on a job goes up one level; a page further in than the trail shows, and everyone else, keeps its own back.
+    const up = site && isManager(me) && (pageTrail || path.split('/').filter(Boolean).length <= 4) ? [...crumbs].reverse().find((c) => c[1])?.[1] : null;
+    if (up) router.navigate(up as never); else onBack?.();
+  };
   const roundBtn = { width: 38, height: 38, borderRadius: 19, backgroundColor: base.paper, alignItems: 'center', justifyContent: 'center' } as const;
   return (
     <View>
@@ -70,14 +87,14 @@ export function AppBar({ title, onBack, home, right }: { title?: string; onBack?
         <View style={{ minHeight: desk ? 52 : 44, flexDirection: 'row', alignItems: 'center' }}>
           <View style={{ width: 44 }}>
             {onBack && (
-              <Pressable onPress={onBack} hitSlop={10} accessibilityRole="button" accessibilityLabel="Back"
+              <Pressable onPress={pressBack} hitSlop={10} accessibilityRole="button" accessibilityLabel="Back"
                 style={{ width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' }}>
                 <Text style={{ fontSize: 30, lineHeight: 32, color: base.ink, marginTop: -3 }}>‹</Text>
               </Pressable>
             )}
           </View>
           <View style={{ flex: 1, alignItems: fin ? 'flex-start' : 'center', minWidth: 0 }}>
-            <Text numberOfLines={1} style={[heading(home ? 800 : 700), { fontSize: fin ? 21 : desk ? 22.8 : 19, color: home ? t.brand1 : fin ? '#111827' : base.ink, letterSpacing: -0.2 }]}>{main}</Text>
+            <Text numberOfLines={1} onPress={site && !jobHome && !fin ? () => router.navigate(`/sites/${site.id}` as never) : undefined} style={[heading(home ? 800 : 700), { fontSize: fin ? 21 : desk ? 22.8 : 19, color: home ? t.brand1 : fin ? '#111827' : base.ink, letterSpacing: -0.2 }]}>{main}</Text>
             {!!sub && <Text numberOfLines={1} onPress={site && !fin && !home ? () => void copyAddress(sub) : undefined} accessibilityHint={site && !fin && !home ? 'Copies the address' : undefined} style={[home ? heading(700) : fin ? {} : mono(500), { fontSize: home ? 11 : fin ? 12.5 : 12, color: fin ? '#6b7280' : base.slate, marginTop: 3, letterSpacing: home ? 1 : 0, textTransform: home ? 'uppercase' : 'none' }]}>{sub}</Text>}
           </View>
           <View style={{ minWidth: 44, alignItems: 'flex-end' }}>
@@ -95,7 +112,7 @@ export function AppBar({ title, onBack, home, right }: { title?: string; onBack?
         </View>
       </View>
       {crumbs.length > 1 && (
-        <View style={{ backgroundColor: base.paper, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, paddingHorizontal: desk ? 40 : 16, paddingTop: desk ? 14 : 10 }}>
+        <View style={{ backgroundColor: base.paper, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, paddingHorizontal: desk ? 40 : 16, paddingTop: desk ? 14 : 10, paddingBottom: desk ? 6 : 8 }}>
           {crumbs.map(([l, href], i) => (
             <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, maxWidth: '100%' }}>
               {i > 0 && <Text style={{ color: '#B8BDC6', fontSize: cfs }}>›</Text>}

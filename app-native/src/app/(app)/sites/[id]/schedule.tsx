@@ -32,7 +32,7 @@ import {
   doneCount, filterTasks, overallPct, sectionVisible, siteConditionSaved, SOW_FILTER_LABEL, SOW_FILTERS, tasksForAddress, type SowFilter,
 } from '@/lib/rules/sow';
 import { pdfLines } from '@/lib/pdfjs';
-import { isManager } from '@/lib/roles';
+import { isFullManager, isManager } from '@/lib/roles';
 import { columnTasks, pdfTaskLines, sheetColumns } from '@/lib/rules/sowImport';
 import { csvRows, readXlsx } from '@/lib/rules/xlsxRead';
 import { makeXlsx } from '@/lib/rules/xlsx';
@@ -87,6 +87,7 @@ export default function Schedule() {
   useFocusEffect(useCallback(() => { if (seen.current) void refetch(); seen.current = true; }, [refetch]));
 
   const manager = isManager(me);
+  const t = useTheme();
   const view = useMemo(() => {
     if (!data) return null;
     const here = data.hereSubId ? data.addresses.find((a) => a.id === data.hereSubId) ?? null : null;
@@ -126,7 +127,7 @@ export default function Schedule() {
   const addBox = (key: string, sectionId: string | null) => canAdd && (adding === key
     ? <AddTaskBox addresses={site.multi_site ? data?.addresses ?? [] : []} onCancel={() => setAdding(null)}
         onAdd={async (name, subId) => { if (await addTask(site.id, name, sectionId, subId)) { changed(); return true; } toast('Could not save — try again.'); return false; }} />
-    : <Button kind="ghost" title="➕ Add task" onPress={() => setAdding(key)} />);
+    : <Pressable onPress={() => setAdding(key)} accessibilityRole="button" style={{ alignSelf: 'flex-start', marginTop: 4, borderWidth: 1.5, borderColor: t.brand1, borderRadius: 999, paddingVertical: 5, paddingHorizontal: 10 }}><Text style={{ fontSize: 10, fontWeight: '800', letterSpacing: 0.4, color: t.brand1 }}>+ ADD TASK</Text></Pressable>);
   const sectionMenu = async (sec: { id: string; name: string }) => {
     const k = await chooseAction(sec.name, [{ key: 'dup', label: '⧉ Duplicate section' }, { key: 'ren', label: '✎ Rename' }, { key: 'vis', label: '🔒 Who can see this' }, { key: 'del', label: '🗑 Delete', danger: true }]);
     if (k === 'vis') { setVis(sec.id); setOpen((o) => ({ ...o, [sec.id]: true })); }
@@ -147,9 +148,12 @@ export default function Schedule() {
       else { toast(`"${n.trim()}" created with ${c} task${c === 1 ? '' : 's'} — fresh, nothing carried over`); changed(); }
     }
   };
+  // Andy, 31 Oct 2026: three choices, the rest one level under Add Section and Import.
   const more = async () => {
-    const k = await chooseAction('Schedule of Works', [{ key: 'sec', label: '📁 Add Section' }, { key: 'lib', label: '📚 From Library' }, { key: 'var', label: '📐 Add Variation Work' },
-      { key: 'xls', label: '📊 Import tasks from Excel / CSV' }, { key: 'tpl', label: '⬇️ Download the Excel import template' }, { key: 'pdf', label: '📄 Import tasks from a PDF' }, { key: 'doc', label: '📎 Add the Schedule of Works document' }]);
+    const top = await chooseAction('Schedule of Works', [{ key: 'sec', label: '📁 Add Section' }, { key: 'imp', label: '📊 Import schedule (Excel, CSV or PDF)' }, { key: 'var', label: '📐 Add Variation' }]);
+    let k = top;
+    if (top === 'sec') k = await chooseAction('Add Section', [{ key: 'sec', label: '➕ New section' }, { key: 'lib', label: '📚 From the library' }]);
+    if (top === 'imp') k = await chooseAction('Import schedule', [{ key: 'xls', label: '📊 From Excel or CSV' }, { key: 'pdf', label: '📄 From a PDF' }, { key: 'tpl', label: '⬇️ Download the Excel template' }, { key: 'doc', label: '📎 Add the Schedule of Works document' }]);
     if (k === 'tpl') {
       // 480 downloadScheduleTemplate: one Task column with two examples.
       await deliverXlsx(makeXlsx([{ name: 'Schedule', rows: [['Task'], ['e.g. Strip and dispose of existing roof covering'], ['e.g. Fit new lead flashing to chimney'], ['']], widths: [60] }]), 'Schedule of Works - Upload Template.xlsx');
@@ -289,8 +293,8 @@ export default function Schedule() {
           {!view.allTasks.length && !manager && <Empty>No tasks yet.</Empty>}
 
           {view.allTasks.length > 0 && (
-            <SiteCondition flag={view.flags.__ungrouped__} tasks={view.allTasks} filter={filter}
-              onSave={async () => { if (await closeOutSiteCondition(me, site.id)) { toast('Site condition saved'); changed(); } else toast('Could not save — try again.'); }}
+            <SiteCondition flag={view.flags.__ungrouped__} tasks={view.allTasks} filter={filter} canChange={isFullManager(me)}
+              onSave={async () => { if (!(await confirmAsk('You can only submit this once. Are you sure?', 'Yes', 'No'))) return; if (await closeOutSiteCondition(me, site.id)) { toast('Site condition submitted'); changed(); } else toast('Could not save — try again.'); }}
               onReopen={async () => { if (await closeOutSiteCondition(me, site.id, true)) { setFilter('active'); changed(); } }}
               onAnswer={async (field, value) => {
                 if (!(await saveFlag(me, site, null, 'the ungrouped tasks', field, value))) { toast('Could not save — try again.'); return; }
@@ -370,8 +374,8 @@ function Group({ title, count, open, onToggle, onMenu, onAdd, onMore, children }
   );
 }
 
-function SiteCondition({ flag, tasks, filter, onSave, onReopen, onAnswer }: {
-  flag: Flag | undefined; tasks: Task[]; filter: SowFilter;
+function SiteCondition({ flag, tasks, filter, canChange, onSave, onReopen, onAnswer }: {
+  flag: Flag | undefined; tasks: Task[]; filter: SowFilter; canChange: boolean;
   onSave: () => void; onReopen: () => void; onAnswer: (field: 'waste_to_clear' | 'leftover_material', v: boolean) => void;
 }) {
   if (siteConditionSaved(flag, tasks)) {
@@ -383,7 +387,7 @@ function SiteCondition({ flag, tasks, filter, onSave, onReopen, onAnswer }: {
           <Text style={{ fontWeight: '800', color: base.ink }}>Site condition ✓ closed out</Text>
           <Muted>🗑 Waste to clear: {yn(flag?.waste_to_clear)} · 📦 Leftover material: {yn(flag?.leftover_material)}</Muted>
         </View>
-        <Pressable onPress={onReopen}><Text style={{ color: base.blue, fontWeight: '700' }}>Change</Text></Pressable>
+        {canChange && <Pressable onPress={onReopen}><Text style={{ color: base.blue, fontWeight: '700' }}>Change</Text></Pressable>}
       </Card>
     );
   }
@@ -407,7 +411,7 @@ function SiteCondition({ flag, tasks, filter, onSave, onReopen, onAnswer }: {
       {q('🗑 Is there waste to clear?', !!flag?.waste_to_clear, 'waste_to_clear')}
       {q('📦 Any leftover material?', !!flag?.leftover_material, 'leftover_material')}
       {flag?.leftover_material && flag.leftover_photo_path && <Pressable onPress={async () => { const u = await openDocLink('site-photos', flag.leftover_photo_path as string); if (u) viewDoc(u); }}><Muted style={{ color: base.blue, fontWeight: '700' }}>📷 Leftover photo added — tap to view</Muted></Pressable>}
-      <Button title="Save — close out" onPress={onSave} />
+      <Button title="Submit" onPress={onSave} />
     </Card>
   );
 }

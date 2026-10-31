@@ -1,4 +1,5 @@
 // Sign-in page. Ported from 140-login.js.
+import { useTheme } from '@/theme/theme';
 import { useEffect, useState } from 'react';
 import { Image, Platform, Text } from 'react-native';
 
@@ -7,6 +8,7 @@ import { sendPasswordReset, useAuth } from '@/lib/auth';
 import { loadRemembered } from '@/lib/remember';
 
 export default function Login() {
+  const t = useTheme();
   const { signIn, notice, setNotice } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -40,7 +42,7 @@ export default function Login() {
 
   return (
     <Screen center>
-      <Text style={{ fontSize: 24, fontWeight: '800', textAlign: 'center', marginBottom: 16, color: '#1E2124' }}>OpHUB</Text>
+      <Text style={{ fontSize: 24, fontWeight: '800', textAlign: 'center', marginBottom: 16, color: t.brand1 }}>OpHUB</Text>
       <Card>
         {notice && <Notice kind={notice.kind} text={notice.text} />}
         <Field label="Email" value={email} onChangeText={setEmail} placeholder="you@yourcompany.co.uk"

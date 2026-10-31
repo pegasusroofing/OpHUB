@@ -65,6 +65,7 @@ export default function Sites() {
       <Text style={{ color: base.ink, transform: [{ rotate: on ? '0deg' : '-90deg' }] }}>▾</Text>
     </Pressable>
   );
+  const tabLabel = { all: 'All', live: 'Live', upcoming: 'Upcoming', closed: 'Closed' };
   const chip = (on: boolean, label: string, onPress: () => void, key?: string) => (
     <Pressable key={key ?? label} onPress={onPress} style={{ height: 32, paddingHorizontal: 10, borderRadius: 999, borderWidth: 1, borderColor: on ? base.ink : base.line, backgroundColor: on ? base.ink : '#fff', justifyContent: 'center' }}>
       <Text style={{ fontSize: 11.5, fontWeight: '700', color: on ? '#fff' : base.ink }}>{label}</Text>
@@ -143,18 +144,19 @@ export default function Sites() {
       {me?.role === 'site_manager' && <HomePrompts />}
       {searchBar}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 4, marginBottom: 12 }}>
-        {([['all', 'All', filtered.length], ['live', 'Live', lists.live.length], ['upcoming', 'Upcoming', lists.upcoming.length], ['closed', 'Closed', lists.closed.length]] as const).map(([k, l, n]) => (
-          chip(tab === k, `${l} (${n})`, () => setTab(k), k)
-        ))}
+        {chip(false, `${tabLabel[tab]} (${tab === 'all' ? filtered.length : lists[tab].length}) ▼`, async () => {
+          const k = await chooseAction('Show', ([['all', filtered.length], ['live', lists.live.length], ['upcoming', lists.upcoming.length], ['closed', lists.closed.length]] as const).map(([x, n]) => ({ key: x, label: `${tabLabel[x]} (${n})` })));
+          if (k) setTab(k as typeof tab);
+        }, 'show')}
         <View style={{ flex: 1 }} />
         {pms.length > 0 && chip(!!pmIds.length, pmIds.length ? (pmIds.length === 1 ? pmName(pmIds[0]) : `${pmIds.length} selected`) : 'PM ▼', async () => {
           const k = await chooseAction('Show projects for', [...pms.map((p) => ({ key: p.id, label: `${pmIds.includes(p.id) ? '☑' : '☐'} ${p.name}` })), ...(pmIds.length ? [{ key: '__clear', label: 'Clear' }] : [])]);
           if (!k) return; if (k === '__clear') { setPmIds([]); return; }
           setPmIds(pmIds.includes(k) ? pmIds.filter((x) => x !== k) : [...pmIds, k]);
         }, 'pm')}
-        <Pressable onPress={() => router.push('/sites/new' as never)} accessibilityLabel="Add a new project" style={{ height: 32, paddingHorizontal: 14, borderRadius: 20, borderWidth: 1, borderColor: t.brand1, justifyContent: 'center', marginLeft: 4 }}>
+        {desk && <Pressable onPress={() => router.push('/sites/new' as never)} accessibilityLabel="Add a new project" style={{ height: 32, paddingHorizontal: 14, borderRadius: 20, borderWidth: 1, borderColor: t.brand1, justifyContent: 'center', marginLeft: 4 }}>
           <Text style={[heading(700), { fontSize: 12.5, color: t.brand1 }]}>+ New project</Text>
-        </Pressable>
+        </Pressable>}
       </View>
       {isLoading && <ActivityIndicator style={{ marginTop: 24 }} />}
       {!isLoading && error && !data && <Muted>Couldn&apos;t load your projects — check your signal and pull down to try again.</Muted>}

@@ -46,7 +46,7 @@ export function SowExport({ site, tab }: { site: Site; tab: SowTab }) {
   };
   return (
     <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
-      <View style={{ flex: 1 }}><Button kind="ghost" busy={busy === 'pdf'} title="📄 Export PDF" onPress={async () => {
+      <View style={{ flex: 1 }}><Button kind="ghost" busy={busy === 'pdf'} title="📄 Export" onPress={async () => {
         const p = await askPeriod(); if (p === undefined) return;
         setBusy('pdf'); const b = await build(p); if (b && !(await deliverPdf(b.bytes, b.filename))) toast('Could not save the PDF.'); setBusy(null);
       }} /></View>

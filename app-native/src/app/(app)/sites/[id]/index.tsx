@@ -37,7 +37,7 @@ function JobTiles({ tiles, cols }: { tiles: T[]; cols: number }) {
       {tiles.map((x, i) => (
         <View key={x.key} style={{ width: tiles.length % 2 === 1 && i === tiles.length - 1 ? '100%' : `${100 / cols}%`, padding: 5 }}>
           <Pressable onPress={x.onPress} accessibilityRole="button"
-            style={({ pressed }) => [cardBox, { borderRadius: 18, height: 106, alignItems: 'center', justifyContent: 'center', gap: 6.6, paddingHorizontal: 10 }, pressed && { opacity: 0.7 }]}>
+            style={({ pressed }) => [cardBox, { borderRadius: 18, height: 122, alignItems: 'center', justifyContent: 'center', gap: 6.6, paddingHorizontal: 10 }, pressed && { opacity: 0.7 }]}>
             <View style={{ width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: x.bg }}>
               {x.ic ? <OphIcon name={x.ic} size={20} color={x.fg} /> : <Text style={{ fontSize: 18 }}>{x.emoji}</Text>}
             </View>
@@ -147,7 +147,7 @@ export default function SiteHome() {
     ...(h?.canSeePrice ? [{ key: 'price', emoji: '💷', bg: '#FFF3D9', fg: '#8A6300', title: 'Price', sub: h.priceWages ? `${h.priceWages} wage${h.priceWages > 1 ? 's' : ''} to book` : h.priceVars ? `${h.priceVars} variation${h.priceVars > 1 ? 's' : ''} pending` : 'Pricing elements', badge: h.priceVars + h.priceWages || undefined, onPress: go('price') }] : []),
     ...(fin ? [{ key: 'fin', ic: 'pound', bg: '#E6F2EC', fg: '#1E6B45', title: 'Finance', sub: site.job_number ? `Job ${site.job_number}` : 'OpHUB Finance', onPress: () => router.push(`/fin/job/${site.id}` as never) }] : []),
     // Messages is in the left menu on a computer.
-    ...(!desk ? [{ key: 'msg', ic: 'chat', bg: TINTS.blue[0], fg: TINTS.blue[1], title: 'Messages', sub: 'Team messages', onPress: go('messages') }] : []),
+    ...(!desk ? [{ key: 'msg', ic: 'chat', bg: TINTS.blue[0], fg: TINTS.blue[1], title: 'HUB', sub: 'Team messages', onPress: go('messages') }] : []),
     ...(mgr && siteStatusKey(site) === 'closed' ? [{ key: 'ho', emoji: '📘', bg: '#E3F4EA', fg: '#1E7A46', title: 'Handover', sub: 'O&M manual · data sheets · guarantees', onPress: go('handover') }]
       : mgr ? [{ key: 'todo', ic: 'check', bg: '#EFEAFB', fg: '#5B3FA6', title: 'To Do List', sub: h ? (h.openTodos ? `${h.openTodos} open` : 'Nothing outstanding') : '…', onPress: go('todos') }] : []),
   ];

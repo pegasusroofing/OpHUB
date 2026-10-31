@@ -106,3 +106,12 @@ Andy's own hands-on review of the new app. This is separate from the automatic t
 ### To Do list
 37. Make it look better.
 38. Change the export to the thin style from Finance that sits at the bottom of the page.
+
+### Sharing
+40. Copy the old app's share button to the new app's website version (`shareFile` in 060, `sharePdfViewerDoc` in 030): hand the file to the phone's share menu, so WhatsApp and the like appear. It currently only downloads. Needs an https address, so it can't work on the laptop test link. To do tonight, with item 24. Andy says the old empty-file fault on his iPhone went away when the OneDrive cloud button was added, reason unknown. So copy the old viewer's order of steps exactly, including how it gets the file ready before the button is pressed, and don't assume the fault still exists.
+
+### New job pack (new feature, checked as possible, not started)
+39. Setting up a new job makes its OneDrive folder from `RTB Roofing Ltd/Live Projects/- New Job Pack - Template`, and links areas of the app to the right sub-folders. Needs a new server function and more folder links on each job. Not to run for RTB without Andy's say-so while Finance is in trial.
+   - **Andy, 31 Oct 2026:** loves it, to be done on 1 Nov, not before. Work out how to do it without OneDrive holding documents the app doesn't use. OneDrive currently has loads of files that aren't relevant.
+   - **What he wants synced:** only issued toolbox talks go to OneDrive. RAMS sync. Schedule of Works syncs into weekly folders.
+   - **What stays in the app:** data sheets. They get selected as part of the O&Ms.

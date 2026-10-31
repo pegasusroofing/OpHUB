@@ -22,8 +22,7 @@ export async function saveToOneDrive(orgId: string | null | undefined, bytes: Ui
   } catch (e) { return (e as Error)?.message || 'check your connection and try again'; }
 }
 
-// The last PDF handed over, so the "Save to OneDrive" bar can offer it (deliverPdf calls offerOneDrive).
-type Offer = { bytes: Uint8Array; filename: string };
-const listeners = new Set<(o: Offer) => void>();
-export function offerOneDrive(o: Offer) { listeners.forEach((l) => l(o)); }
-export function onOneDriveOffer(l: (o: Offer) => void) { listeners.add(l); return () => { listeners.delete(l); }; }
+// Who may save an export to OneDrive: managers only. Set when the signed-in shell opens.
+let saver: string | null = null;
+export const setOneDriveSaver = (orgId: string | null) => { saver = orgId; };
+export const oneDriveSaver = () => saver;

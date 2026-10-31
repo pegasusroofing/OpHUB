@@ -22,8 +22,8 @@ export function MonthGrid({ year, month, sel, today, items, onSelect, onShift, o
   const max = desk ? 5 : 2;
   const navBtn = (n: number, label: string) => (
     <Pressable onPress={() => onShift(n)} accessibilityLabel={n < 0 ? 'Previous month' : 'Next month'}
-      style={{ width: desk ? 42 : 36, height: desk ? 42 : 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: desk ? 1 : 0, borderColor: '#ECEEF2' }}>
-      <Text style={{ fontSize: desk ? 26 : 24, lineHeight: desk ? 28 : 26, color: t.brand1 }}>{label}</Text>
+      style={{ width: desk ? 50 : 43, height: desk ? 50 : 43, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: desk ? 1 : 0, borderColor: '#ECEEF2' }}>
+      <Text style={{ fontSize: desk ? 31 : 29, lineHeight: desk ? 33 : 31, color: t.brand1 }}>{label}</Text>
     </Pressable>
   );
   return (
@@ -82,14 +82,14 @@ export function CalTools({ view, onView, label = 'View', extra = [] }: { view: C
   const t = useTheme();
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-      <Text style={{ fontSize: 12, fontWeight: '700', color: base.slate }}>{VIEW_LABEL[view]} view</Text>
+      <Text style={{ fontSize: 10.5, fontWeight: '700', color: base.slate }}>{VIEW_LABEL[view]} view</Text>
       <Pressable onPress={async () => {
         const k = await chooseAction(label, [...extra.map((x) => ({ key: x.key, label: x.label })),
           ...(['week', 'twoweek', 'month'] as CalView[]).map((v) => ({ key: `v:${v}`, label: `${view === v ? '✓ ' : ''}${VIEW_LABEL[v]}` }))]);
         if (!k) return;
         if (k.startsWith('v:')) onView(k.slice(2) as CalView); else extra.find((x) => x.key === k)?.run();
-      }} style={{ backgroundColor: t.brand1, borderRadius: 12, paddingVertical: 9, paddingHorizontal: 14 }}>
-        <Text style={{ color: t.brand1Text, fontSize: 13, fontWeight: '800' }}>{label} ▾</Text>
+      }} style={{ backgroundColor: t.brand1, borderRadius: 10, paddingVertical: 5, paddingHorizontal: 10 }}>
+        <Text style={{ color: t.brand1Text, fontSize: 11, fontWeight: '800' }}>{label} ▾</Text>
       </Pressable>
     </View>
   );

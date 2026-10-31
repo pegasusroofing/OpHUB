@@ -8,7 +8,9 @@ import * as Sharing from 'expo-sharing';
 import { PDFDocument, rgb, StandardFonts, type PDFFont, type PDFImage, type PDFPage } from 'pdf-lib';
 import { Platform } from 'react-native';
 
-import { offerOneDrive } from '@/lib/oneDriveSave';
+import { chooseAction, showAlert } from '@/components/toast';
+import { currentJobId } from '@/lib/navBack';
+import { oneDriveSaver, saveToOneDrive } from '@/lib/oneDriveSave';
 import { publicUrl, resolveStorageUrl } from '@/lib/privateFiles';
 import { fullSiteAddress } from '@/lib/rules/checkin';
 
@@ -102,15 +104,35 @@ export async function embedImage(doc: PDFDocument, bytes: Uint8Array | null): Pr
 export const storageImage = async (doc: PDFDocument, bucket: string, path: string | null | undefined) => (path ? embedImage(doc, await fetchBytes(publicUrl(bucket, path))) : null);
 
 /** Hands the PDF to the person: share sheet on a phone, a download on the web; then offers a copy to OneDrive. */
-export const deliverPdf = async (bytes: Uint8Array, filename: string) => {
-  const ok = await deliverFile(bytes, filename, 'application/pdf', 'com.adobe.pdf');
-  if (ok) offerOneDrive({ bytes, filename });
-  return ok;
-};
+export const deliverPdf = (bytes: Uint8Array, filename: string) => deliverFile(bytes, filename, 'application/pdf', 'com.adobe.pdf');
 /** An Excel file made with lib/rules/xlsx, handed over the same way. */
 export const deliverXlsx = (bytes: Uint8Array, filename: string) => deliverFile(bytes, filename, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'org.openxmlformats.spreadsheetml.sheet');
+/**
+ * Hands a finished file over, asking how when there's a choice: save it, share it (WhatsApp, email and the
+ * rest of the phone's share menu, as 060 shareFile) or put it in OneDrive. The file is already made, so the
+ * share call runs straight from the press, which phones insist on.
+ */
 export async function deliverFile(bytes: Uint8Array, filename: string, mime: string, uti?: string): Promise<boolean> {
   try {
+    const orgId = oneDriveSaver();
+    const webFile = Platform.OS === 'web' ? new globalThis.File([bytes as BlobPart], filename, { type: mime }) : null;
+    const canShareWeb = !!webFile && !!globalThis.navigator?.canShare?.({ files: [webFile] });
+    const items = [
+      ...(Platform.OS === 'web' ? [{ key: 'save', label: mime === 'application/pdf' ? '📄 PDF' : '⬇️ Download' }] : []),
+      ...(Platform.OS !== 'web' || canShareWeb ? [{ key: 'share', label: '📤 Share (WhatsApp, email…)' }] : []),
+      ...(orgId ? [{ key: 'od', label: '☁️ OneDrive' }] : []),
+    ];
+    const how = items.length > 1 ? await chooseAction(filename, items) : items[0]?.key;
+    if (!how) return true;
+    if (how === 'od') {
+      const err = await saveToOneDrive(orgId, bytes, filename, currentJobId());
+      showAlert(err ? `Could not save to OneDrive — ${err}` : 'Saved to OneDrive.');
+      return !err;
+    }
+    if (webFile && how === 'share') {
+      // Files only, no title: a title alongside has made iPhones drop the file for some apps (060 files-share-no-title).
+      try { await globalThis.navigator.share({ files: [webFile] }); return true; } catch (e) { return (e as Error)?.name === 'AbortError'; }
+    }
     if (Platform.OS === 'web') {
       const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: mime }));
       const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();

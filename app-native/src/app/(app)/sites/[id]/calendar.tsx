@@ -26,7 +26,9 @@ import { base, page, radius, space, useTheme } from '@/theme/theme';
 
 type View_ = 'week' | 'twoweek' | 'month';
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card, marginBottom: 8 };
-const blank = (date: string): Draft => ({ title: '', date, private: false, remind: false, timing: 'day_before', custom: '', recipients: [], repeat: 'none' });
+const blank = (date: string): Draft => ({ title: '', date, private: false, remind: false, timing: 'day_before', custom: '', recipients: [], repeat: 'none', roles: null, hidden: [] });
+// Who a key date can be limited to. A company admin and whoever added it always see it.
+const VIS_ROLES: [string, string][] = [['pm', 'Project managers'], ['site_manager', 'Site managers'], ['operative', 'Operatives'], ['driver', 'Drivers'], ['client', 'Clients']];
 const addDays = (iso: string, n: number) => { const d = new Date(`${iso}T00:00:00`); d.setDate(d.getDate() + n); return localISODate(d); };
 
 export default function SiteCalendar() {
@@ -49,6 +51,7 @@ export default function SiteCalendar() {
   const { data: recipients } = useRecipients(id, mgr);
   const [form, setForm] = useState<{ at: string; editId: string | null; d: Draft } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [visOpen, setVisOpen] = useState(false);
   if (!me || !site) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   const refresh = () => void qc.invalidateQueries({ queryKey: ['calendar', id] });
 
@@ -83,7 +86,28 @@ export default function SiteCalendar() {
           {form.d.repeat !== 'none' && <Muted style={{ marginBottom: 8 }}>Creates this key date on a repeating basis (up to a year ahead) and stops automatically once the site is closed.</Muted>}
         </>
       )}
-      {mgr ? <Check label="Private — only PMs/admins can see this" value={form.d.private} onChange={(v) => setForm({ ...form, d: { ...form.d, private: v } })} />
+      {mgr ? (
+        <View style={{ marginBottom: 8 }}>
+          <Muted style={{ fontWeight: '700' }}>Visibility</Muted>
+          <Pressable onPress={() => setVisOpen(!visOpen)} style={[box, { marginBottom: 4, flexDirection: 'row' }]}>
+            <Text style={{ flex: 1, color: base.ink }}>{form.d.roles ? (form.d.roles.length ? VIS_ROLES.filter(([k]) => form.d.roles?.includes(k)).map(([, l]) => l).join(', ') : 'Only admins and me') : 'Everyone on the job'}{form.d.hidden.length ? ` · ${form.d.hidden.length} excluded` : ''}</Text>
+            <Text style={{ color: base.slate }}>{visOpen ? '▲' : '▼'}</Text>
+          </Pressable>
+          {visOpen && (
+            <View>
+              {VIS_ROLES.map(([k, l]) => {
+                const on = !form.d.roles || form.d.roles.includes(k);
+                return <Pressable key={k} onPress={() => { const cur = form.d.roles ?? VIS_ROLES.map(([x]) => x); const next = on ? cur.filter((x) => x !== k) : [...cur, k]; setForm({ ...form, d: { ...form.d, roles: next.length === VIS_ROLES.length ? null : next } }); }}><Text style={{ paddingVertical: 5, color: base.ink }}>{on ? '☑' : '☐'} {l}</Text></Pressable>;
+              })}
+              {!!recipients?.length && <Muted style={{ fontWeight: '700', marginTop: 6 }}>Leave these people out</Muted>}
+              {(recipients ?? []).filter((p) => p.id !== me.id && p.role !== 'admin' && (!form.d.roles || form.d.roles.includes(p.role))).map((p) => {
+                const out = form.d.hidden.includes(p.id);
+                return <Pressable key={p.id} onPress={() => setForm({ ...form, d: { ...form.d, hidden: out ? form.d.hidden.filter((x) => x !== p.id) : [...form.d.hidden, p.id] } })}><Text style={{ paddingVertical: 5, color: base.ink }}>{out ? '☑' : '☐'} {p.name}</Text></Pressable>;
+              })}
+            </View>
+          )}
+        </View>
+      )
         : <Muted style={{ marginBottom: 8 }}>A PM/admin can open it afterwards to make it private, repeat it or add a reminder.</Muted>}
       {mgr && !!recipients?.length && (
         <>
@@ -126,13 +150,13 @@ export default function SiteCalendar() {
   const line = (l: CalLine) => (
     <View key={l.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 3 }}>
       <Text style={{ flex: 1, color: l.kind === 'app' ? l.colour : l.kind === 'delivery' ? base.blue : l.kind === 'leave' ? '#7B3FB5' : l.kind === 'event' && l.is_private ? base.slate : base.ink, fontStyle: l.kind === 'leave' ? 'italic' : 'normal' }}>
-        {l.kind === 'leave' ? '🏖 ' : ''}{l.kind === 'event' && l.is_private ? '🔒 ' : ''}{l.kind === 'event' && l.recurrence_group_id ? '🔁 ' : ''}{l.title}
+        {l.kind === 'leave' ? '🏖 ' : ''}{l.kind === 'event' && (l.is_private || l.visible_roles || l.hidden_user_ids) ? '🔒 ' : ''}{l.kind === 'event' && l.recurrence_group_id ? '🔁 ' : ''}{l.title}
       </Text>
       {mgr && l.kind === 'event' && (
         <Pressable hitSlop={6} onPress={async () => {
           const e = l as CalEvent;
           const k = await chooseAction(e.title, [{ key: 'edit', label: '✎ Edit' }, { key: 'del', label: '🗑 Delete', danger: true }]);
-          if (k === 'edit') setForm({ at: e.event_date, editId: e.id, d: { title: e.title, date: e.event_date, private: e.is_private, remind: !!e.reminder_recipient_ids?.length, timing: e.reminder_timing || 'day_before', custom: e.reminder_timing === 'custom' ? e.reminder_date || '' : '', recipients: e.reminder_recipient_ids || [], repeat: 'none' } });
+          if (k === 'edit') setForm({ at: e.event_date, editId: e.id, d: { title: e.title, date: e.event_date, private: e.is_private, roles: e.visible_roles ?? (e.is_private ? ['pm', 'site_manager'] : null), hidden: e.hidden_user_ids ?? [], remind: !!e.reminder_recipient_ids?.length, timing: e.reminder_timing || 'day_before', custom: e.reminder_timing === 'custom' ? e.reminder_date || '' : '', recipients: e.reminder_recipient_ids || [], repeat: 'none' } });
           else if (k === 'del') {
             let whole = false;
             if (e.recurrence_group_id) {
@@ -182,16 +206,16 @@ export default function SiteCalendar() {
         const weekend = d.getDay() === 0 || d.getDay() === 6;
         return (
           <View key={ds} style={{ borderBottomWidth: 1, borderBottomColor: base.line, paddingVertical: 8 }}>
-            <View style={{ flexDirection: 'row', gap: 12 }}>
-              <View style={{ width: 64, alignItems: 'center' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <View style={{ width: 64, alignItems: 'flex-start' }}>
                 <Text style={{ fontSize: 10, fontWeight: '800', color: weekend ? base.red : base.slate }}>{d.toLocaleDateString('en-GB', { weekday: 'short' }).toUpperCase()}</Text>
-                <Text style={{ fontWeight: '800', color: base.ink, borderWidth: ds === today ? 2 : 0, borderColor: th.brand1, borderRadius: 12, paddingHorizontal: 5 }}>
+                <Text style={{ fontWeight: '800', color: base.ink, borderBottomWidth: ds === today ? 2 : 0, borderBottomColor: th.brand1 }}>
                   {d.getDate()}{ordinal(d.getDate())}{d.getMonth() !== anchorMonth ? ` ${d.toLocaleDateString('en-GB', { month: 'short' })}` : ''}
                 </Text>
               </View>
               <View style={{ flex: 1 }}>{list.length ? list.map(line) : <Text style={{ color: base.line }}>{view === 'month' ? 'Nothing booked — tap + to add' : '—'}</Text>}</View>
               <Pressable hitSlop={8} onPress={() => setForm(form?.at === ds && !form.editId ? null : { at: ds, editId: null, d: blank(ds) })}>
-                <Text style={{ fontSize: 18, color: base.slate, paddingHorizontal: 6 }}>{form?.at === ds && !form.editId ? '−' : '+'}</Text>
+                <Text style={{ fontSize: 22.5, lineHeight: 26, color: base.slate, paddingHorizontal: 6 }}>{form?.at === ds && !form.editId ? '−' : '+'}</Text>
               </Pressable>
             </View>
             {editor(ds)}

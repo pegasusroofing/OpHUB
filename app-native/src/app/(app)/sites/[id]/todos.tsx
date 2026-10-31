@@ -68,7 +68,7 @@ export default function TodoList() {
   const row = (t: Todo) => {
     const files = (data?.files ?? []).filter((f) => f.todo_id === t.id);
     const comments = (data?.comments ?? []).filter((c) => c.todo_id === t.id);
-    const showComments = !t.done || openComments.has(t.id);
+    const showComments = openComments.has(t.id);
     return (
       <Card key={t.id}>
         <View style={{ flexDirection: 'row', gap: 9 }}>
@@ -90,11 +90,11 @@ export default function TodoList() {
             ) : (
               <>
                 <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
-                  <Text style={{ flex: 1, fontSize: 18, fontWeight: '600', color: t.done ? base.slate : base.ink, textDecorationLine: t.done ? 'line-through' : 'none' }}>{t.text}</Text>
+                  <Text style={{ flex: 1, fontSize: 15.5, fontWeight: '700', color: t.done ? base.slate : base.ink, textDecorationLine: t.done ? 'line-through' : 'none' }}>{t.text}</Text>
                   {!!t.date_required_by && (
                     <Pressable disabled={t.done} onPress={() => setEdit({ id: t.id, text: t.text, date: t.date_required_by || '' })} style={{ alignItems: 'flex-end' }}>
-                      <Text style={{ fontSize: 11.5, color: base.slate }}>Required by</Text>
-                      <Text style={{ fontSize: 14, fontWeight: '700', color: base.ink }}>{new Date(`${t.date_required_by}T00:00:00`).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</Text>
+                      <Text style={{ fontSize: 10, fontWeight: '700', letterSpacing: 0.4, color: base.slate }}>REQUIRED BY</Text>
+                      <Text style={{ fontSize: 12.5, fontWeight: '700', color: base.ink }}>{new Date(`${t.date_required_by}T00:00:00`).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</Text>
                     </Pressable>
                   )}
                 </View>
@@ -104,7 +104,7 @@ export default function TodoList() {
               const pm = await choosePm(t.assigned_to); if (pm === undefined) return;
               if (await assignTodo(me, id, site.name, t, pm)) { toast(pm ? 'Project manager updated' : 'Project manager removed'); refresh(); }
             }} style={{ marginTop: 6 }}>
-              <Text style={{ fontSize: 13.5, fontStyle: 'italic', color: base.slate }}>{t.assigned_to ? <>Assigned to <Text style={{ fontWeight: '700', fontStyle: 'normal' }}>{nameOf(people, t.assigned_to)}</Text>{t.done ? '' : ' — tap to change'}</> : t.done ? 'Unassigned' : 'Tap to assign a project manager'}</Text>
+              <Text style={{ fontSize: 12.5, color: base.slate }}>{t.assigned_to ? <>Assigned to <Text style={{ fontWeight: '700', fontStyle: 'normal' }}>{nameOf(people, t.assigned_to)}</Text>{t.done ? '' : ' — tap to change'}</> : t.done ? 'Unassigned' : 'Tap to assign a project manager'}</Text>
             </Pressable>
           </View>
         </View>
@@ -133,11 +133,11 @@ export default function TodoList() {
           </Pressable>
         </View>
         <View style={{ marginTop: 10, paddingTop: 8, borderTopWidth: 1, borderTopColor: base.line }}>
-          {t.done ? (
+          {(
             <Pressable onPress={() => { const n = new Set(openComments); if (n.has(t.id)) n.delete(t.id); else n.add(t.id); setOpenComments(n); }}>
               <Text style={{ fontWeight: '700', color: base.ink }}>{showComments ? '▼' : '▶'} Comments{comments.length ? ` (${comments.length})` : ''}</Text>
             </Pressable>
-          ) : <Muted style={{ fontSize: 12, fontWeight: '700' }}>COMMENTS</Muted>}
+          )}
           {showComments && (
             <>
               {comments.length ? comments.map((c) => (
@@ -193,9 +193,9 @@ export default function TodoList() {
         </>
       )}
       {list.length > 0 && (
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 }}>
-          {tab === 'live' && <Button small kind="ghost" title="✉ Email To Do List" onPress={() => setEmail({ ids: null })} />}
-          <Button small kind="ghost" title={`📄 Export PDF (${tab === 'live' ? 'live' : 'closed'} list)`} onPress={() => void exportPdf(list.map((t) => t.id))} />
+        <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
+          {tab === 'live' && <Button small kind="ghost" title="✉ Email" onPress={() => setEmail({ ids: null })} />}
+          <Button small kind="ghost" title="📄 Export" onPress={() => void exportPdf(list.map((t) => t.id))} />
         </View>
       )}
     </ScrollView>
