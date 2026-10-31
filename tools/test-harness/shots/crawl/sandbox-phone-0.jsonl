@@ -5700,3 +5700,5 @@
 {"route":"/sites/f4bda52b-7428-4652-926a-7da5ad5ef4d1/price/a0000000-0000-4000-8000-00000000000b","role":"sandbox","label":"⬆ UPLOAD PRICE FILES","trail":[],"did":["changed","file picker"],"problems":[]}
 {"route":"/sites/f4bda52b-7428-4652-926a-7da5ad5ef4d1/price/a0000000-0000-4000-8000-00000000000b","role":"sandbox","label":"⬆ UPLOAD LABOUR INVOICES","trail":[],"did":["changed","file picker"],"problems":[]}
 {"route":"/sites/f4bda52b-7428-4652-926a-7da5ad5ef4d1/price/a0000000-0000-4000-8000-00000000000b","role":"sandbox","label":"▼\nWeek 1 (next)\n£0.00","trail":[],"did":["changed","said: ▶"],"problems":[]}
+{"route":"/sites/f4bda52b-7428-4652-926a-7da5ad5ef4d1/price/a0000000-0000-4000-8000-00000000000b","role":"sandbox","label":"▼\nWeek 1 (next)\n£0.00","trail":["(reopen)"],"did":["changed","said: ▶"],"problems":[]}
+{"route":"/sites/f4bda52b-7428-4652-926a-7da5ad5ef4d1/price/a0000000-0000-4000-8000-00000000000b","role":"sandbox","label":"▶\nWeek 1 (next)\n£0.00","trail":["▼\nWeek 1 (next)\n£0.00"],"did":["changed","said: ▼ / Week figure (adds up the build-up below, or type it) / ↻"],"problems":[]}
