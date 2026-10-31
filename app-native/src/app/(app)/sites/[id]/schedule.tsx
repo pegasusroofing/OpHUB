@@ -96,16 +96,19 @@ export default function Schedule() {
     const tasks = filterTasks(allTasks, filter);
     const bySectionAll: Record<string, Task[]> = {};
     const bySection: Record<string, Task[]> = {};
-    allTasks.forEach((t) => { if (t.section_id) (bySectionAll[t.section_id] ||= []).push(t); });
-    tasks.forEach((t) => { if (t.section_id) (bySection[t.section_id] ||= []).push(t); });
+    // A task whose section this person can't read (clients, until SQL file 6 is in) still shows, in the plain list.
+    const known = new Set(data.sections.map((s) => s.id));
+    const inSection = (t: Task) => !!t.section_id && known.has(t.section_id);
+    allTasks.forEach((t) => { if (inSection(t)) (bySectionAll[t.section_id as string] ||= []).push(t); });
+    tasks.forEach((t) => { if (inSection(t)) (bySection[t.section_id as string] ||= []).push(t); });
     const photosByTask: Record<string, typeof data.photos> = {};
     data.photos.forEach((p) => { (photosByTask[p.task_id] ||= []).push(p); });
     const flags: Record<string, Flag> = {};
     data.flags.forEach((f) => { flags[f.section_id || '__ungrouped__'] = f; });
     return {
       here, allTasks, tasks, bySectionAll, bySection, photosByTask, flags,
-      allUngrouped: allTasks.filter((t) => !t.section_id),
-      ungrouped: tasks.filter((t) => !t.section_id),
+      allUngrouped: allTasks.filter((t) => !inSection(t)),
+      ungrouped: tasks.filter((t) => !inSection(t)),
       sections: data.sections.filter((sec) => sectionVisible(filter, (bySection[sec.id] || []).length, (bySectionAll[sec.id] || []).length, manager)),
       docs: data.docs.filter((d) => manager || d.visibility !== 'managers'),
       addrById: Object.fromEntries(data.addresses.map((a) => [a.id, a])),

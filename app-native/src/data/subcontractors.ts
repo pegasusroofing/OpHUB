@@ -46,7 +46,8 @@ export async function addSubco(me: Profile, site: Site, name: string): Promise<b
       if (p[0]?.name) rowName = p[0].name;
     }
   }
-  if (!masterId) masterId = ((await db.from('subcontractor_company_profiles').insert({ org_id: site.org_id, name, created_by: me.id } as never).select('id').single()).data as { id: string } | null)?.id ?? null;
+  // The id is made here: asking for the new row back is refused, as nobody can read a profile until a job links to it.
+  if (!masterId) { const id = globalThis.crypto.randomUUID(); if (!(await db.from('subcontractor_company_profiles').insert({ id, org_id: site.org_id, name, created_by: me.id } as never)).error) masterId = id; }
   return !(await db.from('subcontractor_companies').insert({ org_id: site.org_id, site_id: site.id, name: rowName, created_by: me.id, master_company_id: masterId } as never)).error;
 }
 /** Only when its library profile isn't shared with another job (renaming would rename it everywhere). */

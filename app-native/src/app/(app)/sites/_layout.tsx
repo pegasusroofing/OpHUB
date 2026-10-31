@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
-import { Redirect, Stack, useGlobalSearchParams, useSegments } from 'expo-router';
+import { router, Stack, useGlobalSearchParams, useSegments } from 'expo-router';
 import { useEffect, useState } from 'react';
+import { View } from 'react-native';
 
 import { stackHeader } from '@/components/AppBar';
 import { useToast } from '@/components/toast';
@@ -10,6 +11,7 @@ import { siteStatusKey } from '@/lib/rules/checkin';
 import { canSeeTile } from '@/lib/rules/hs';
 import { isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
+import { base } from '@/theme/theme';
 
 // Which job pages someone may open, whatever address they type (890 router):
 // clients only get the job home, Schedule of Works, H&S and Snagging; non-managers can't open a closed
@@ -69,10 +71,16 @@ export default function SitesLayout() {
   const toast = useToast();
   const why = g?.why;
   useEffect(() => { if (why) toast(why); }, [why, toast]);
-  if (g) return <Redirect href={g.to as never} />;
+  // The list of pages stays in place while it moves: taking it away for a moment dropped anyone sent deep into a job
+  // (a subcontractor to their company's folder) back on Projects.
+  const to = g?.to;
+  useEffect(() => { if (to) router.replace(to as never); }, [to]);
   return (
-    <Stack screenOptions={stackHeader}>
-      <Stack.Screen name="index" options={{ title: 'Projects' }} />
-    </Stack>
+    <View style={{ flex: 1 }}>
+      <Stack screenOptions={stackHeader}>
+        <Stack.Screen name="index" options={{ title: 'Projects' }} />
+      </Stack>
+      {!!g && <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: base.paper }} />}
+    </View>
   );
 }
