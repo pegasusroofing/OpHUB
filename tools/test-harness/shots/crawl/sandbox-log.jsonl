@@ -1,1 +1,824 @@
 {"blocked":"rpc","fn":"sow_photo_alerts"}
+{"wrote":"sites","method":"POST","keys":["id","name","org_id"]}
+{"skipped":"/fin/inbox/fi1"}
+{"skipped":"/fin/labour/w1"}
+{"skipped":"/pm/admin/companylibrary/cp1"}
+{"skipped":"/pm/admin/coshh/c1"}
+{"skipped":"/pm/admin/signtemplates/lt1"}
+{"skipped":"/pm/admin/subapps/ap1"}
+{"skipped":"/pm/admin/templates/tp1"}
+{"skipped":"/pm/delivery/dt1"}
+{"skipped":"/pm/operatives/o1"}
+{"skipped":"/pm/piquery/pi1"}
+{"skipped":"/pm/survey/rs4"}
+{"skipped":"/sites/11111111-1111-1111-1111-111111111111/drawings/df1"}
+{"skipped":"/sites/11111111-1111-1111-1111-111111111111/om/om1"}
+{"skipped":"/sites/11111111-1111-1111-1111-111111111111/hs/briefings/rs1"}
+{"skipped":"/sites/11111111-1111-1111-1111-111111111111/hs/briefings/fill/rs2"}
+{"skipped":"/sites/11111111-1111-1111-1111-111111111111/hs/incidents/i1"}
+{"skipped":"/sites/11111111-1111-1111-1111-111111111111/hs/loler/fill/rs2"}
+{"skipped":"/sites/11111111-1111-1111-1111-111111111111/hs/loler/view/rs3"}
+{"skipped":"/sites/11111111-1111-1111-1111-111111111111/hs/rams/boxes/rd1"}
+{"skipped":"/sites/11111111-1111-1111-1111-111111111111/hs/rams/build/b1"}
+{"skipped":"/sites/11111111-1111-1111-1111-111111111111/hs/tbt/tb1"}
+{"skipped":"/sites/11111111-1111-1111-1111-111111111111/materials/pos/mf1"}
+{"skipped":"/sites/11111111-1111-1111-1111-111111111111/mc/permits/pm1"}
+{"skipped":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1"}
+{"skipped":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/briefings"}
+{"skipped":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/docs"}
+{"skipped":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/inspections"}
+{"skipped":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/operatives"}
+{"skipped":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/schedule"}
+{"skipped":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/tbt"}
+{"skipped":"/sites/11111111-1111-1111-1111-111111111111/price/e1"}
+{"skipped":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1"}
+{"skipped":"/sites/11111111-1111-1111-1111-111111111111/repairs/job/rj1"}
+{"skipped":"/sites/11111111-1111-1111-1111-111111111111/snagging/reports/fill/rs2"}
+{"skipped":"/sites/11111111-1111-1111-1111-111111111111/snagging/reports/view/rs1"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"readFailed":"yard_stock_rates","status":400,"message":"{\"code\":\"42703\",\"details\":null,\"hint\":null,\"message\":\"column yard_stock_rates.id does not exist\"}","url":"yard_stock_rates?select=stock_id%2Crate&org_id=eq.2eb072b7-2704-48c0-8110-62e45e621ded&order=id.asc&offset=0&limit=1000"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"onedrive_status"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"site_application_dates"}
+{"blocked":"rpc","fn":"site_delivery_dates"}
+{"blocked":"rpc","fn":"site_delivery_dates"}
+{"blocked":"rpc","fn":"site_delivery_dates"}
+{"blocked":"rpc","fn":"site_delivery_dates"}
+{"blocked":"rpc","fn":"site_delivery_dates"}
+{"blocked":"rpc","fn":"site_delivery_dates"}
+{"blocked":"rpc","fn":"site_delivery_dates"}
+{"blocked":"rpc","fn":"site_delivery_dates"}
+{"blocked":"rpc","fn":"site_delivery_dates"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"function","fn":"onedrive-list-folders"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"held":"upsert","table":"sow_views","method":"POST","keys":["user_id","site_id","viewed_at"]}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"site_office_orders"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"blocked":"rpc","fn":"sow_photo_alerts"}
+{"skipped":"/fin/inbox/fi1"}
+{"skipped":"/fin/labour/w1"}
+{"skipped":"/pm/admin/companylibrary/cp1"}
+{"skipped":"/pm/admin/coshh/c1"}
+{"skipped":"/pm/admin/signtemplates/lt1"}
+{"skipped":"/pm/admin/subapps/ap1"}
+{"skipped":"/pm/admin/templates/tp1"}
+{"skipped":"/pm/delivery/dt1"}
+{"skipped":"/pm/operatives/o1"}
+{"skipped":"/pm/piquery/pi1"}
+{"skipped":"/pm/survey/rs4"}
+{"skipped":"/sites/11111111-1111-1111-1111-111111111111/drawings/df1"}
+{"skipped":"/sites/11111111-1111-1111-1111-111111111111/om/om1"}
+{"skipped":"/sites/11111111-1111-1111-1111-111111111111/hs/briefings/rs1"}
+{"skipped":"/sites/11111111-1111-1111-1111-111111111111/hs/briefings/fill/rs2"}
+{"skipped":"/sites/11111111-1111-1111-1111-111111111111/hs/incidents/i1"}
+{"skipped":"/sites/11111111-1111-1111-1111-111111111111/hs/loler/fill/rs2"}
+{"skipped":"/sites/11111111-1111-1111-1111-111111111111/hs/loler/view/rs3"}
+{"skipped":"/sites/11111111-1111-1111-1111-111111111111/hs/rams/boxes/rd1"}
+{"skipped":"/sites/11111111-1111-1111-1111-111111111111/hs/rams/build/b1"}
+{"skipped":"/sites/11111111-1111-1111-1111-111111111111/hs/tbt/tb1"}
+{"skipped":"/sites/11111111-1111-1111-1111-111111111111/materials/pos/mf1"}
+{"skipped":"/sites/11111111-1111-1111-1111-111111111111/mc/permits/pm1"}
+{"skipped":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1"}
+{"skipped":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/briefings"}
+{"skipped":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/docs"}
+{"skipped":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/inspections"}
+{"skipped":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/operatives"}
+{"skipped":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/schedule"}
+{"skipped":"/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1/tbt"}
+{"skipped":"/sites/11111111-1111-1111-1111-111111111111/price/e1"}
+{"skipped":"/sites/11111111-1111-1111-1111-111111111111/price/sheets/ps1"}
+{"skipped":"/sites/11111111-1111-1111-1111-111111111111/repairs/job/rj1"}
+{"skipped":"/sites/11111111-1111-1111-1111-111111111111/snagging/reports/fill/rs2"}
+{"skipped":"/sites/11111111-1111-1111-1111-111111111111/snagging/reports/view/rs1"}
+{"held":"never written","table":"profiles","method":"PATCH","keys":["howto_dismissed"]}
+{"held":"never written","table":"profiles","method":"PATCH","keys":["howto_dismissed"]}
+{"held":"never written","table":"profiles","method":"PATCH","keys":["howto_dismissed"]}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"held":"never written","table":"profiles","method":"PATCH","keys":["phone"]}
+{"held":"never written","table":"profiles","method":"PATCH","keys":["finance_hidden"]}
+{"held":"never written","table":"profiles","method":"PATCH","keys":["howto_dismissed"]}
+{"held":"never written","table":"profiles","method":"PATCH","keys":["howto_dismissed"]}
+{"held":"linked to existing","table":"operative_tools","method":"POST","keys":["org_id","user_id","name","serial_number","photo_path","created_by"]}
+{"held":"linked to existing","table":"driver_checkins","method":"POST","keys":["org_id","user_id","type"]}
+{"blocked":"function","fn":"notify-driver-checkin"}
+{"held":"linked to existing","table":"driver_time_off","method":"POST","keys":["org_id","user_id","start_date","end_date","note","created_by"]}
+{"held":"linked to existing","table":"vehicle_checklists","method":"POST","keys":["org_id","driver_id","week_start","status","vehicle_reg","mileage","items","has_fails"]}
+{"held":"linked to existing","table":"vehicle_checklists","method":"POST","keys":["org_id","driver_id","week_start","status","vehicle_reg","mileage","items","has_fails"]}
+{"held":"linked to existing","table":"vehicle_checklists","method":"POST","keys":["org_id","driver_id","week_start","status","vehicle_reg","mileage","items","has_fails"]}
+{"held":"linked to existing","table":"vehicle_checklists","method":"POST","keys":["org_id","driver_id","week_start","status","vehicle_reg","mileage","items","has_fails"]}
+{"held":"existing record","table":"vehicle_checklists","method":"PATCH","keys":["vehicle_reg","mileage","items","has_fails"]}
+{"held":"linked to existing","table":"vehicle_checklists","method":"POST","keys":["org_id","driver_id","week_start","status","vehicle_reg","mileage","items","has_fails"]}
+{"held":"existing record","table":"vehicle_checklists","method":"PATCH","keys":["vehicle_reg","mileage","items","has_fails"]}
+{"held":"existing record","table":"vehicle_checklists","method":"PATCH","keys":["vehicle_reg","mileage","items","has_fails"]}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"held":"existing record","table":"fin_clients","method":"PATCH","keys":["name","email","address","postcode","phone","vat_registered","vat_number","sales_vat","terms_days","terms_type","terms_agreed","cost_code_id","company_number","cis_registered","cis_rate","notes"]}
+{"held":"existing record","table":"job_finance","method":"PATCH","keys":["billing_email","billing_address"]}
+{"blocked":"function","fn":"xero"}
+{"held":"existing record","table":"fin_clients","method":"PATCH","keys":["name","email","address","postcode","phone","vat_registered","vat_number","sales_vat","terms_days","terms_type","terms_agreed","cost_code_id","company_number","cis_registered","cis_rate","notes"]}
+{"held":"existing record","table":"job_finance","method":"PATCH","keys":["billing_email","billing_address"]}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"held":"existing record","table":"fin_settings","method":"PATCH","keys":["vat_rates"]}
+{"blocked":"function","fn":"xero"}
+{"held":"existing record","table":"fin_settings","method":"PATCH","keys":["vat_rates"]}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"held":"upsert","table":"fin_settings","method":"POST","keys":["org_id","inbox_key","updated_at","updated_by"]}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"held":"upsert","table":"fin_settings","method":"POST","keys":["org_id","invoice_prefix","default_retention_pct","default_due_days","default_final_days","default_vat","app_reminder_day","updated_at","updated_by","contractor_utr","employer_ref","company_address","company_vat_no","company_reg_no","bank_name","bank_account_name","bank_sort_code","bank_account_no","invoice_footer","ohp_pct"]}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"held":"never written","table":"invites","method":"POST","keys":["org_id","role","created_by"]}
+{"held":"never written","table":"invites","method":"POST","keys":["org_id","role","created_by"]}
+{"blocked":"function","fn":"xero"}
+{"wrote":"yard_stock","method":"POST","keys":["org_id","created_by","qty","item","unit","category","location","min_qty","notes","updated_at"]}
+{"untracked":"yard_stock"}
+{"held":"upsert","table":"yard_stock_rates","method":"POST","keys":["stock_id","org_id","rate","updated_at","updated_by"]}
+{"held":"linked to existing","table":"yard_moves","method":"POST","keys":["org_id","stock_id","kind","qty","note","created_by"]}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"held":"existing record","table":"purchase_invoices","method":"PATCH","keys":["cost_code"]}
+{"blocked":"function","fn":"xero"}
+{"held":"existing record","table":"purchase_invoices","method":"PATCH","keys":["cost_code"]}
+{"blocked":"function","fn":"xero"}
+{"held":"existing record","table":"purchase_invoices","method":"PATCH","keys":["cost_code"]}
+{"blocked":"function","fn":"xero"}
+{"held":"existing record","table":"purchase_invoices","method":"PATCH","keys":["cost_code"]}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"held":"existing record","table":"purchase_invoices","method":"PATCH","keys":["status","query_note"]}
+{"blocked":"function","fn":"xero"}
+{"held":"existing record","table":"purchase_invoices","method":"PATCH","keys":["paid_on"]}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"held":"existing record","table":"purchase_invoices","method":"PATCH","keys":["status"]}
+{"held":"existing record","table":"fin_plant_hires","method":"PATCH","keys":["off_hire"]}
+{"held":"existing record","table":"fin_plant_hires","method":"PATCH","keys":["item","supplier_name","hire_ref","on_hire","off_hire","rate","rate_period","notes","cost_from"]}
+{"held":"existing record","table":"fin_plant_hires","method":"DELETE","keys":[]}
+{"held":"existing record","table":"purchase_orders","method":"PATCH","keys":["value","vat","total"]}
+{"blocked":"function","fn":"xero"}
+{"held":"existing record","table":"purchase_orders","method":"PATCH","keys":["status"]}
+{"blocked":"file","method":"POST"}
+{"held":"other job","table":"material_order_folders","method":"POST","keys":["site_id","parent_id","name","created_by"]}
+{"blocked":"file","method":"POST"}
+{"blocked":"file","method":"POST"}
+{"held":"other job","table":"material_order_folders","method":"POST","keys":["site_id","parent_id","name","created_by"]}
+{"blocked":"file","method":"POST"}
+{"blocked":"function","fn":"onedrive-upload"}
+{"blocked":"file","method":"POST"}
+{"held":"other job","table":"material_order_folders","method":"POST","keys":["site_id","parent_id","name","created_by"]}
+{"blocked":"file","method":"POST"}
+{"held":"existing record","table":"fin_subcontracts","method":"PATCH","keys":["name","email","description","order_value","retention_pct","cis_rate","utr","vat_registered","status"]}
+{"held":"other job","table":"fin_sub_apps","method":"POST","keys":["app_date","final_date","applied_gross","materials_part","org_id","site_id","subcontract_id","number","status","created_by"]}
+{"held":"other job","table":"fin_invoices","method":"POST","keys":["org_id","site_id","status","issue_date","due_date","client_po","bill_name","bill_address","bill_email","vat_treatment","lines","created_by","source"]}
+{"held":"other job","table":"fin_applications","method":"POST","keys":["org_id","site_id","status","valuation_date","due_date","final_date","client_po","lines","variations","dayworks","retention_pct","created_by","number"]}
+{"held":"other job","table":"schedule_tasks","method":"POST","keys":["site_id","name","status","position","contract_item_id"]}
+{"held":"other job","table":"schedule_tasks","method":"POST","keys":["site_id","name","status","position","contract_item_id"]}
+{"held":"other job","table":"schedule_tasks","method":"POST","keys":["site_id","name","status","position","contract_item_id"]}
+{"held":"other job","table":"schedule_tasks","method":"POST","keys":["site_id","name","status","position","contract_item_id"]}
+{"held":"other job","table":"schedule_tasks","method":"POST","keys":["site_id","name","status","position","contract_item_id"]}
+{"held":"other job","table":"schedule_tasks","method":"POST","keys":["site_id","name","status","position","contract_item_id"]}
+{"held":"existing record","table":"fin_contract_items","method":"PATCH","keys":["kind","ref","description","qty","unit","rate","value","position","cost","sub_job_id","cost_basis","cost_pct"]}
+{"held":"existing record","table":"fin_contract_items","method":"PATCH","keys":["kind","ref","description","qty","unit","rate","value","position","cost","sub_job_id","cost_basis","cost_pct"]}
+{"held":"existing record","table":"fin_contract_items","method":"PATCH","keys":["kind","ref","description","qty","unit","rate","value","position","cost","sub_job_id","cost_basis","cost_pct"]}
+{"held":"existing record","table":"fin_contract_items","method":"PATCH","keys":["kind","ref","description","qty","unit","rate","value","position","cost","sub_job_id","cost_basis","cost_pct"]}
+{"held":"existing record","table":"fin_contract_items","method":"PATCH","keys":["kind","ref","description","qty","unit","rate","value","position","cost","sub_job_id","cost_basis","cost_pct"]}
+{"held":"existing record","table":"fin_contract_items","method":"PATCH","keys":["kind","ref","description","qty","unit","rate","value","position","cost","sub_job_id","cost_basis","cost_pct"]}
+{"held":"upsert","table":"job_finance","method":"POST","keys":["site_id","org_id","billing_type","updated_at","updated_by","contract_value"]}
+{"held":"other job","table":"fin_applications","method":"POST","keys":["org_id","site_id","status","valuation_date","due_date","final_date","client_po","lines","variations","dayworks","retention_pct","created_by","number"]}
+{"blocked":"function","fn":"onedrive-upload"}
+{"held":"upsert","table":"job_finance","method":"POST","keys":["site_id","org_id","original_value","original_cost","original_at","updated_at","updated_by"]}
+{"held":"upsert","table":"fin_job_budgets","method":"POST","keys":["org_id","site_id","category","budget","to_complete","updated_at","updated_by"]}
+{"held":"other job","table":"fin_job_costs","method":"POST","keys":["category","cost_date","description","supplier","ref","net","vat","org_id","site_id","created_by"]}
+{"blocked":"function","fn":"onedrive-upload"}
+{"held":"existing record","table":"fin_job_costs","method":"PATCH","keys":["category","cost_date","description","supplier","ref","net","vat"]}
+{"held":"existing record","table":"fin_job_costs","method":"PATCH","keys":["category","cost_date","description","supplier","ref","net","vat"]}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"held":"existing record","table":"fin_job_costs","method":"PATCH","keys":["category","cost_date","description","supplier","ref","net","vat"]}
+{"held":"other job","table":"fin_dayworks","method":"POST","keys":["title","description","work_date","ref","value","cost_estimate","status","notes","updated_at","org_id","site_id","created_by","seq","number"]}
+{"blocked":"function","fn":"onedrive-upload"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"held":"existing record","table":"fin_applications","method":"PATCH","keys":["valuation_date","due_date","final_date","lines","variations","dayworks","gross","discount_pct","discount","retention_pct","retention","previous","net_due","updated_at"]}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"onedrive-upload"}
+{"held":"other job","table":"fin_variations","method":"POST","keys":["title","description","instructed_by","instruction_ref","instructed_on","status","cost_estimate","quoted","submitted_on","agreed_value","agreed_on","notes","updated_at","org_id","site_id","created_by","seq","number"]}
+{"held":"existing record","table":"fin_variations","method":"PATCH","keys":["title","description","instructed_by","instruction_ref","instructed_on","status","cost_estimate","quoted","submitted_on","agreed_value","agreed_on","notes","updated_at"]}
+{"held":"other job","table":"schedule_sections","method":"POST","keys":["site_id","name","position","created_by"]}
+{"held":"other job","table":"schedule_tasks","method":"POST","keys":["site_id","section_id","name","status","position"]}
+{"held":"existing record","table":"fin_variations","method":"PATCH","keys":["schedule_section_id"]}
+{"held":"existing record","table":"fin_variations","method":"PATCH","keys":["title","description","instructed_by","instruction_ref","instructed_on","status","cost_estimate","quoted","submitted_on","agreed_value","agreed_on","notes","updated_at"]}
+{"held":"existing record","table":"fin_variations","method":"PATCH","keys":["status","updated_at","agreed_value","agreed_on"]}
+{"held":"existing record","table":"fin_variations","method":"PATCH","keys":["status","updated_at"]}
+{"blocked":"function","fn":"onedrive-upload"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"file","method":"POST"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"file","method":"POST"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"held":"existing record","table":"fin_payments","method":"DELETE","keys":[]}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"held":"existing record","table":"fin_invoices","method":"PATCH","keys":["status","updated_at"]}
+{"held":"other job","table":"fin_invoices","method":"POST","keys":["org_id","site_id","status","issue_date","due_date","client_po","bill_name","bill_address","bill_email","vat_treatment","lines","created_by","source"]}
+{"held":"other job","table":"fin_applications","method":"POST","keys":["org_id","site_id","status","valuation_date","due_date","final_date","client_po","lines","variations","dayworks","retention_pct","created_by","number"]}
+{"held":"other job","table":"fin_applications","method":"POST","keys":["org_id","site_id","status","valuation_date","due_date","final_date","client_po","lines","variations","dayworks","retention_pct","created_by","number"]}
+{"held":"existing record","table":"fin_applications","method":"PATCH","keys":["valuation_date","due_date","final_date","lines","variations","dayworks","gross","discount_pct","discount","retention_pct","retention","previous","net_due","updated_at"]}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"held":"other job","table":"fin_invoices","method":"POST","keys":["org_id","site_id","status","issue_date","due_date","client_po","bill_name","bill_address","bill_email","vat_treatment","lines","created_by","source"]}
+{"held":"other job","table":"fin_invoices","method":"POST","keys":["org_id","site_id","status","issue_date","due_date","client_po","bill_name","bill_address","bill_email","vat_treatment","lines","created_by","source"]}
+{"held":"other job","table":"fin_applications","method":"POST","keys":["org_id","site_id","status","valuation_date","due_date","final_date","client_po","lines","variations","dayworks","retention_pct","created_by","number"]}
+{"blocked":"function","fn":"xero"}
+{"held":"other job","table":"fin_invoices","method":"POST","keys":["org_id","site_id","status","issue_date","due_date","client_po","bill_name","bill_address","bill_email","vat_treatment","lines","created_by","source"]}
+{"held":"other job","table":"fin_applications","method":"POST","keys":["org_id","site_id","status","valuation_date","due_date","final_date","client_po","lines","variations","dayworks","retention_pct","created_by","number"]}
+{"held":"other job","table":"fin_invoices","method":"POST","keys":["org_id","site_id","status","issue_date","due_date","client_po","bill_name","bill_address","bill_email","vat_treatment","lines","created_by","source"]}
+{"held":"other job","table":"fin_applications","method":"POST","keys":["org_id","site_id","status","valuation_date","due_date","final_date","client_po","lines","variations","dayworks","retention_pct","created_by","number"]}
+{"held":"existing record","table":"sites","method":"PATCH","keys":["name","client_name","address","postcode","start_date"]}
+{"held":"upsert","table":"job_finance","method":"POST","keys":["contract_value","retention_pct","retention_limit_pct","due_days","final_days","app_reminder_day","vat_treatment","billing_type","billing_name","billing_address","billing_email","pc_date","defects_months","notes","final_release_date","qs_id","ohp_pct","site_id","org_id","updated_at","updated_by","setup_checked_at"]}
+{"readFailed":"fin_sub_payments","status":400,"message":"{\"code\":\"22P02\",\"details\":\"Expected string or \\\"}\\\", but found \\\"[\\\".\",\"hint\":null,\"message\":\"invalid input syntax for type json\"}","url":"fin_sub_payments?select=id&lines=cs.%7B%5Bobject+Object%5D%7D&org_id=eq.2eb072b7-2704-48c0-8110-62e45e621ded&limit=1"}
+{"readFailed":"fin_sub_payments","status":400,"message":"{\"code\":\"22P02\",\"details\":\"Expected string or \\\"}\\\", but found \\\"[\\\".\",\"hint\":null,\"message\":\"invalid input syntax for type json\"}","url":"fin_sub_payments?select=id&lines=cs.%7B%5Bobject+Object%5D%7D&org_id=eq.2eb072b7-2704-48c0-8110-62e45e621ded&limit=1"}
+{"held":"never written","table":"organizations","method":"PATCH","keys":["color_primary","color_secondary"]}
+{"held":"never written","table":"organizations","method":"PATCH","keys":["color_primary","color_secondary"]}
+{"untracked":"subcontractor_company_profiles"}
+{"wrote":"subcontractor_company_profiles","method":"POST","keys":["org_id","name","created_by"]}
+{"untracked":"subcontractor_company_profiles"}
+{"held":"never written","table":"organizations","method":"PATCH","keys":["expenses_email","expenses_retention_months"]}
+{"wrote":"havs_tools","method":"POST","keys":["org_id","name","vibration_magnitude","sort_order"]}
+{"held":"never written","table":"invites","method":"POST","keys":["org_id","role","created_by","is_reusable","expires_at"]}
+{"held":"never written","table":"invites","method":"POST","keys":["org_id","role","created_by"]}
+{"held":"never written","table":"invites","method":"POST","keys":["org_id","role","created_by"]}
+{"blocked":"function","fn":"onedrive-oauth-start"}
+{"blocked":"function","fn":"onedrive-oauth-start"}
+{"blocked":"function","fn":"onedrive-list-folders"}
+{"blocked":"function","fn":"onedrive-list-folders"}
+{"blocked":"function","fn":"onedrive-list-folders"}
+{"blocked":"function","fn":"onedrive-list-folders"}
+{"blocked":"function","fn":"onedrive-list-folders"}
+{"blocked":"function","fn":"onedrive-list-folders"}
+{"blocked":"function","fn":"onedrive-list-folders"}
+{"blocked":"function","fn":"onedrive-list-folders"}
+{"blocked":"function","fn":"onedrive-list-folders"}
+{"blocked":"function","fn":"onedrive-list-folders"}
+{"wrote":"rams_library_items","method":"POST","keys":["org_id","kind","title","data","sort_order","created_by"]}
+{"untracked":"rams_library_items"}
+{"held":"existing record","table":"rams_library_items","method":"PATCH","keys":["title","data","updated_at"]}
+{"wrote":"rams_library_items","method":"POST","keys":["org_id","kind","title","data","sort_order","created_by"]}
+{"untracked":"rams_library_items"}
+{"held":"existing record","table":"rams_library_items","method":"PATCH","keys":["title","data","updated_at"]}
+{"held":"never written","table":"organizations","method":"PATCH","keys":["rams_settings"]}
+{"blocked":"rpc","fn":"rams_library_usage"}
+{"wrote":"rams_library_items","method":"POST","keys":["org_id","kind","title","data","sort_order","created_by"]}
+{"untracked":"rams_library_items"}
+{"wrote":"rams_library_items","method":"POST","keys":["org_id","kind","title","data","sort_order","created_by"]}
+{"untracked":"rams_library_items"}
+{"held":"never written","table":"organizations","method":"PATCH","keys":["price_builder_terms"]}
+{"wrote":"price_rate_items","method":"POST","keys":["org_id","category","name","unit","is_dropdown","rate","created_by"]}
+{"held":"existing record","table":"suppliers","method":"PATCH","keys":["branches"]}
+{"held":"existing record","table":"suppliers","method":"PATCH","keys":["branches"]}
+{"held":"existing record","table":"suppliers","method":"PATCH","keys":["favourite"]}
+{"held":"existing record","table":"suppliers","method":"PATCH","keys":["branches"]}
+{"held":"existing record","table":"suppliers","method":"PATCH","keys":["favourite"]}
+{"held":"existing record","table":"suppliers","method":"PATCH","keys":["branches"]}
+{"held":"existing record","table":"suppliers","method":"PATCH","keys":["favourite"]}
+{"held":"existing record","table":"suppliers","method":"PATCH","keys":["branches"]}
+{"held":"existing record","table":"suppliers","method":"PATCH","keys":["favourite"]}
+{"held":"existing record","table":"suppliers","method":"PATCH","keys":["branches"]}
+{"held":"existing record","table":"suppliers","method":"PATCH","keys":["favourite"]}
+{"held":"existing record","table":"suppliers","method":"PATCH","keys":["branches"]}
+{"held":"existing record","table":"suppliers","method":"PATCH","keys":["favourite"]}
+{"wrote":"suppliers","method":"POST","keys":["org_id","name","email","created_by"]}
+{"wrote":"report_templates","method":"POST","keys":["org_id","name","created_by","sections"]}
+{"untracked":"report_templates"}
+{"held":"never written","table":"profiles","method":"PATCH","keys":["finance_hidden"]}
+{"held":"never written","table":"profiles","method":"PATCH","keys":["howto_dismissed"]}
+{"held":"never written","table":"profiles","method":"PATCH","keys":["howto_dismissed"]}
+{"held":"never written","table":"profiles","method":"PATCH","keys":["howto_dismissed"]}
+{"held":"never written","table":"profiles","method":"PATCH","keys":["howto_dismissed"]}
+{"held":"never written","table":"profiles","method":"PATCH","keys":["howto_dismissed"]}
+{"held":"never written","table":"profiles","method":"PATCH","keys":["howto_dismissed"]}
+{"held":"existing record","table":"delivery_requests","method":"PATCH","keys":["status","updated_at"]}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"held":"never written","table":"profiles","method":"PATCH","keys":["howto_dismissed"]}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"held":"never written","table":"profiles","method":"PATCH","keys":["howto_dismissed"]}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"held":"never written","table":"profiles","method":"PATCH","keys":["howto_dismissed"]}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"blocked":"rpc","fn":"hr_ensure_bank_holidays"}
+{"held":"never written","table":"profiles","method":"PATCH","keys":["howto_dismissed"]}
+{"held":"never written","table":"profiles","method":"PATCH","keys":["howto_dismissed"]}
+{"held":"never written","table":"profiles","method":"PATCH","keys":["howto_dismissed"]}
+{"blocked":"function","fn":"onedrive-list-folders"}
+{"blocked":"function","fn":"onedrive-upload"}
+{"held":"never written","table":"profiles","method":"PATCH","keys":["howto_dismissed"]}
+{"held":"never written","table":"profiles","method":"PATCH","keys":["howto_dismissed"]}
+{"held":"never written","table":"profiles","method":"PATCH","keys":["howto_dismissed"]}
+{"held":"never written","table":"profiles","method":"PATCH","keys":["howto_dismissed"]}
+{"held":"never written","table":"profiles","method":"PATCH","keys":["howto_dismissed"]}
+{"held":"never written","table":"profiles","method":"PATCH","keys":["howto_dismissed"]}
+{"held":"existing record","table":"sites","method":"PATCH","keys":["status","closed_at","closed_by"]}
+{"held":"never written","table":"profiles","method":"PATCH","keys":["howto_dismissed"]}
+{"held":"never written","table":"profiles","method":"PATCH","keys":["howto_dismissed"]}
+{"held":"never written","table":"profiles","method":"PATCH","keys":["howto_dismissed"]}
+{"held":"upsert","table":"sow_views","method":"POST","keys":["user_id","site_id","viewed_at"]}
+{"held":"existing record","table":"sites","method":"PATCH","keys":["name","address","postcode","job_number","start_date"]}
+{"blocked":"function","fn":"onedrive-list-folders"}
+{"held":"existing record","table":"sites","method":"PATCH","keys":["status","closed_at","closed_by"]}
+{"held":"existing record","table":"sites","method":"PATCH","keys":["price_enabled"]}
+{"wrote":"site_calendar_events","method":"POST","keys":["site_id","org_id","title","event_date","is_private","reminder_recipient_ids","reminder_timing","reminder_date","reminder_sent","created_by","repeat_freq","recurrence_group_id"]}
+{"held":"linked to existing","table":"checkins","method":"POST","keys":["site_id","user_id","type"]}
+{"held":"existing record","table":"sites","method":"PATCH","keys":["geofence_lat","geofence_lon"]}
+{"held":"existing record","table":"sites","method":"PATCH","keys":["geofence_radius_m"]}
+{"held":"never written","table":"profiles","method":"PATCH","keys":["howto_dismissed"]}
+{"held":"never written","table":"profiles","method":"PATCH","keys":["howto_dismissed"]}
+{"held":"never written","table":"profiles","method":"PATCH","keys":["howto_dismissed"]}
+{"wrote":"handover_docs","method":"POST","keys":["org_id","site_id","kind","name","uploaded_by"]}
+{"wrote":"handover_om_manuals","method":"POST","keys":["site_id","org_id","name","data","created_by","updated_by"]}
+{"untracked":"handover_om_manuals"}
+{"held":"existing record","table":"handover_om_manuals","method":"PATCH","keys":["data","name","updated_at","updated_by"]}
+{"held":"never written","table":"profiles","method":"PATCH","keys":["howto_dismissed"]}
+{"held":"never written","table":"profiles","method":"PATCH","keys":["howto_dismissed"]}
+{"held":"never written","table":"profiles","method":"PATCH","keys":["howto_dismissed"]}
+{"held":"never written","table":"messages","method":"POST","keys":["org_id","site_id","sender_id","audience","kind","body"]}
+{"held":"upsert","table":"sow_views","method":"POST","keys":["user_id","site_id","viewed_at"]}
+{"held":"upsert","table":"sow_views","method":"POST","keys":["user_id","site_id","viewed_at"]}
+{"held":"upsert","table":"sow_views","method":"POST","keys":["user_id","site_id","viewed_at"]}
+{"held":"upsert","table":"sow_views","method":"POST","keys":["user_id","site_id","viewed_at"]}
+{"held":"upsert","table":"sow_views","method":"POST","keys":["user_id","site_id","viewed_at"]}
+{"held":"upsert","table":"sow_views","method":"POST","keys":["user_id","site_id","viewed_at"]}
+{"held":"never written","table":"profiles","method":"PATCH","keys":["howto_dismissed"]}
+{"held":"upsert","table":"sow_views","method":"POST","keys":["user_id","site_id","viewed_at"]}
+{"held":"upsert","table":"sow_views","method":"POST","keys":["user_id","site_id","viewed_at"]}
+{"held":"never written","table":"profiles","method":"PATCH","keys":["howto_dismissed"]}
+{"held":"upsert","table":"sow_views","method":"POST","keys":["user_id","site_id","viewed_at"]}
+{"held":"upsert","table":"sow_views","method":"POST","keys":["user_id","site_id","viewed_at"]}
+{"held":"never written","table":"profiles","method":"PATCH","keys":["howto_dismissed"]}
+{"held":"upsert","table":"sow_views","method":"POST","keys":["user_id","site_id","viewed_at"]}
+{"held":"upsert","table":"sow_views","method":"POST","keys":["user_id","site_id","viewed_at"]}
+{"held":"upsert","table":"sow_views","method":"POST","keys":["user_id","site_id","viewed_at"]}
+{"held":"upsert","table":"sow_views","method":"POST","keys":["user_id","site_id","viewed_at"]}
+{"held":"upsert","table":"sow_views","method":"POST","keys":["user_id","site_id","viewed_at"]}
+{"held":"upsert","table":"sow_views","method":"POST","keys":["user_id","site_id","viewed_at"]}
+{"held":"upsert","table":"sow_views","method":"POST","keys":["user_id","site_id","viewed_at"]}
+{"held":"upsert","table":"sow_views","method":"POST","keys":["user_id","site_id","viewed_at"]}
+{"held":"upsert","table":"sow_views","method":"POST","keys":["user_id","site_id","viewed_at"]}
+{"wrote":"schedule_tasks","method":"POST","keys":["site_id","name","status","position"]}
+{"held":"upsert","table":"sow_views","method":"POST","keys":["user_id","site_id","viewed_at"]}
+{"wrote":"schedule_section_flags","method":"POST","keys":["site_id","section_id","waste_to_clear","updated_at","waste_flagged_by","waste_flagged_at"]}
+{"held":"never written","table":"messages","method":"POST","keys":["org_id","site_id","sender_id","audience","kind","body"]}
+{"held":"upsert","table":"sow_views","method":"POST","keys":["user_id","site_id","viewed_at"]}
+{"held":"upsert","table":"sow_views","method":"POST","keys":["user_id","site_id","viewed_at"]}
+{"held":"upsert","table":"sow_views","method":"POST","keys":["user_id","site_id","viewed_at"]}
+{"held":"upsert","table":"sow_views","method":"POST","keys":["user_id","site_id","viewed_at"]}
+{"held":"upsert","table":"sow_views","method":"POST","keys":["user_id","site_id","viewed_at"]}
+{"held":"upsert","table":"sow_views","method":"POST","keys":["user_id","site_id","viewed_at"]}
+{"held":"upsert","table":"sow_views","method":"POST","keys":["user_id","site_id","viewed_at"]}
+{"held":"upsert","table":"sow_views","method":"POST","keys":["user_id","site_id","viewed_at"]}
+{"held":"upsert","table":"sow_views","method":"POST","keys":["user_id","site_id","viewed_at"]}
+{"held":"upsert","table":"sow_views","method":"POST","keys":["user_id","site_id","viewed_at"]}
+{"held":"upsert","table":"sow_views","method":"POST","keys":["user_id","site_id","viewed_at"]}
+{"wrote":"todos","method":"POST","keys":["site_id","org_id","text","assigned_to","date_required_by","created_by"]}
+{"untracked":"todos"}
+{"held":"linked to existing","table":"todo_comments","method":"POST","keys":["todo_id","body","created_by"]}
+{"held":"existing record","table":"todos","method":"PATCH","keys":["done"]}
+{"held":"linked to existing","table":"todo_comments","method":"POST","keys":["todo_id","body","created_by"]}
+{"held":"never written","table":"profiles","method":"PATCH","keys":["howto_dismissed"]}
+{"held":"never written","table":"profiles","method":"PATCH","keys":["howto_dismissed"]}
+{"held":"never written","table":"profiles","method":"PATCH","keys":["howto_dismissed"]}
+{"held":"existing record","table":"sites","method":"PATCH","keys":["tile_visibility"]}
+{"held":"linked to existing","table":"site_activity_log","method":"POST","keys":["site_id","org_id","actor_id","action","description"]}
+{"held":"existing record","table":"sites","method":"PATCH","keys":["tile_visibility"]}
+{"held":"linked to existing","table":"site_activity_log","method":"POST","keys":["site_id","org_id","actor_id","action","description"]}
+{"held":"existing record","table":"sites","method":"PATCH","keys":["tile_visibility"]}
+{"held":"linked to existing","table":"site_activity_log","method":"POST","keys":["site_id","org_id","actor_id","action","description"]}
+{"held":"existing record","table":"sites","method":"PATCH","keys":["tile_visibility"]}
+{"held":"linked to existing","table":"site_activity_log","method":"POST","keys":["site_id","org_id","actor_id","action","description"]}
+{"held":"existing record","table":"sites","method":"PATCH","keys":["tile_visibility"]}
+{"held":"linked to existing","table":"site_activity_log","method":"POST","keys":["site_id","org_id","actor_id","action","description"]}
+{"held":"existing record","table":"sites","method":"PATCH","keys":["tile_visibility"]}
+{"held":"linked to existing","table":"site_activity_log","method":"POST","keys":["site_id","org_id","actor_id","action","description"]}
+{"held":"existing record","table":"sites","method":"PATCH","keys":["tile_visibility"]}
+{"held":"linked to existing","table":"site_activity_log","method":"POST","keys":["site_id","org_id","actor_id","action","description"]}
+{"held":"existing record","table":"sites","method":"PATCH","keys":["tile_visibility"]}
+{"held":"linked to existing","table":"site_activity_log","method":"POST","keys":["site_id","org_id","actor_id","action","description"]}
+{"held":"existing record","table":"sites","method":"PATCH","keys":["tile_visibility"]}
+{"held":"linked to existing","table":"site_activity_log","method":"POST","keys":["site_id","org_id","actor_id","action","description"]}
+{"held":"existing record","table":"sites","method":"PATCH","keys":["tile_visibility"]}
+{"held":"linked to existing","table":"site_activity_log","method":"POST","keys":["site_id","org_id","actor_id","action","description"]}
+{"held":"existing record","table":"sites","method":"PATCH","keys":["tile_visibility"]}
+{"held":"linked to existing","table":"site_activity_log","method":"POST","keys":["site_id","org_id","actor_id","action","description"]}
+{"held":"existing record","table":"sites","method":"PATCH","keys":["tile_visibility"]}
+{"held":"linked to existing","table":"site_activity_log","method":"POST","keys":["site_id","org_id","actor_id","action","description"]}
+{"held":"existing record","table":"sites","method":"PATCH","keys":["tile_visibility"]}
+{"held":"linked to existing","table":"site_activity_log","method":"POST","keys":["site_id","org_id","actor_id","action","description"]}
+{"held":"existing record","table":"sites","method":"PATCH","keys":["tile_visibility"]}
+{"held":"linked to existing","table":"site_activity_log","method":"POST","keys":["site_id","org_id","actor_id","action","description"]}
+{"held":"existing record","table":"sites","method":"PATCH","keys":["tile_visibility"]}
+{"held":"linked to existing","table":"site_activity_log","method":"POST","keys":["site_id","org_id","actor_id","action","description"]}
+{"held":"existing record","table":"sites","method":"PATCH","keys":["tile_visibility"]}
+{"held":"linked to existing","table":"site_activity_log","method":"POST","keys":["site_id","org_id","actor_id","action","description"]}
+{"held":"existing record","table":"sites","method":"PATCH","keys":["tile_visibility"]}
+{"held":"linked to existing","table":"site_activity_log","method":"POST","keys":["site_id","org_id","actor_id","action","description"]}
+{"held":"existing record","table":"sites","method":"PATCH","keys":["tile_visibility"]}
+{"held":"linked to existing","table":"site_activity_log","method":"POST","keys":["site_id","org_id","actor_id","action","description"]}
+{"held":"existing record","table":"sites","method":"PATCH","keys":["tile_visibility"]}
+{"held":"linked to existing","table":"site_activity_log","method":"POST","keys":["site_id","org_id","actor_id","action","description"]}
+{"held":"existing record","table":"sites","method":"PATCH","keys":["tile_visibility"]}
+{"held":"linked to existing","table":"site_activity_log","method":"POST","keys":["site_id","org_id","actor_id","action","description"]}
+{"held":"existing record","table":"sites","method":"PATCH","keys":["tile_visibility"]}
+{"held":"linked to existing","table":"site_activity_log","method":"POST","keys":["site_id","org_id","actor_id","action","description"]}
+{"held":"existing record","table":"sites","method":"PATCH","keys":["tile_visibility"]}
+{"held":"linked to existing","table":"site_activity_log","method":"POST","keys":["site_id","org_id","actor_id","action","description"]}
+{"held":"existing record","table":"sites","method":"PATCH","keys":["tile_visibility"]}
+{"held":"linked to existing","table":"site_activity_log","method":"POST","keys":["site_id","org_id","actor_id","action","description"]}
+{"held":"existing record","table":"sites","method":"PATCH","keys":["tile_visibility"]}
+{"held":"linked to existing","table":"site_activity_log","method":"POST","keys":["site_id","org_id","actor_id","action","description"]}
+{"wrote":"report_templates","method":"POST","keys":["org_id","name","created_by","is_daily_briefing","sections"]}
+{"untracked":"report_templates"}
+{"held":"never written","table":"profiles","method":"PATCH","keys":["howto_dismissed"]}
+{"held":"never written","table":"profiles","method":"PATCH","keys":["howto_dismissed"]}
+{"held":"never written","table":"profiles","method":"PATCH","keys":["howto_dismissed"]}
+{"wrote":"site_havs_tools","method":"POST","keys":["site_id","tool_id"]}
+{"held":"existing record","table":"site_havs_tools","method":"DELETE","keys":[]}
+{"held":"existing record","table":"site_havs_tools","method":"DELETE","keys":[]}
+{"held":"existing record","table":"site_havs_tools","method":"DELETE","keys":[]}
+{"held":"existing record","table":"site_havs_tools","method":"DELETE","keys":[]}
+{"held":"existing record","table":"site_havs_tools","method":"DELETE","keys":[]}
+{"held":"existing record","table":"site_havs_tools","method":"DELETE","keys":[]}
+{"held":"existing record","table":"site_havs_tools","method":"DELETE","keys":[]}
+{"held":"existing record","table":"sites","method":"PATCH","keys":["tile_visibility"]}
+{"held":"linked to existing","table":"site_activity_log","method":"POST","keys":["site_id","org_id","actor_id","action","description"]}
+{"held":"existing record","table":"sites","method":"PATCH","keys":["tile_visibility"]}
+{"held":"linked to existing","table":"site_activity_log","method":"POST","keys":["site_id","org_id","actor_id","action","description"]}
+{"held":"existing record","table":"sites","method":"PATCH","keys":["tile_visibility"]}
+{"held":"linked to existing","table":"site_activity_log","method":"POST","keys":["site_id","org_id","actor_id","action","description"]}
+{"held":"existing record","table":"sites","method":"PATCH","keys":["tile_visibility"]}
+{"held":"linked to existing","table":"site_activity_log","method":"POST","keys":["site_id","org_id","actor_id","action","description"]}
+{"held":"existing record","table":"sites","method":"PATCH","keys":["tile_visibility"]}
+{"held":"linked to existing","table":"site_activity_log","method":"POST","keys":["site_id","org_id","actor_id","action","description"]}
+{"held":"existing record","table":"sites","method":"PATCH","keys":["tile_visibility"]}
+{"held":"linked to existing","table":"site_activity_log","method":"POST","keys":["site_id","org_id","actor_id","action","description"]}
+{"held":"linked to existing","table":"operative_tools","method":"POST","keys":["org_id","user_id","name","serial_number","photo_path","created_by"]}
+{"wrote":"puwer_weekly_completions","method":"POST","keys":["org_id","site_id","week_start","completed_by"]}
+{"wrote":"puwer_weekly_completions","method":"DELETE","keys":[]}
+{"held":"never written","table":"profiles","method":"PATCH","keys":["howto_dismissed"]}
+{"held":"never written","table":"profiles","method":"PATCH","keys":["howto_dismissed"]}
+{"held":"never written","table":"profiles","method":"PATCH","keys":["howto_dismissed"]}
+{"blocked":"rpc","fn":"rams_take_numbers"}
+{"wrote":"rams_builds","method":"POST","keys":["org_id","site_id","title","details","hazards","sections","ppe","created_by"]}
+{"untracked":"rams_builds"}
+{"held":"never written","table":"organizations","method":"PATCH","keys":["rams_settings"]}
+{"held":"linked to existing","table":"site_activity_log","method":"POST","keys":["site_id","org_id","actor_id","action","description"]}
+{"held":"never written","table":"profiles","method":"PATCH","keys":["howto_dismissed"]}
+{"held":"never written","table":"profiles","method":"PATCH","keys":["howto_dismissed"]}
+{"held":"never written","table":"profiles","method":"PATCH","keys":["howto_dismissed"]}
+{"held":"never written","table":"profiles","method":"PATCH","keys":["howto_dismissed"]}
+{"held":"never written","table":"profiles","method":"PATCH","keys":["howto_dismissed"]}
+{"held":"never written","table":"profiles","method":"PATCH","keys":["howto_dismissed"]}
+{"held":"existing record","table":"sites","method":"PATCH","keys":["materials_visibility"]}
+{"held":"linked to existing","table":"site_activity_log","method":"POST","keys":["site_id","org_id","actor_id","action","description"]}
+{"held":"existing record","table":"sites","method":"PATCH","keys":["materials_visibility"]}
+{"held":"linked to existing","table":"site_activity_log","method":"POST","keys":["site_id","org_id","actor_id","action","description"]}
+{"held":"existing record","table":"sites","method":"PATCH","keys":["materials_visibility"]}
+{"held":"linked to existing","table":"site_activity_log","method":"POST","keys":["site_id","org_id","actor_id","action","description"]}
+{"held":"existing record","table":"sites","method":"PATCH","keys":["materials_visibility"]}
+{"held":"linked to existing","table":"site_activity_log","method":"POST","keys":["site_id","org_id","actor_id","action","description"]}
+{"held":"existing record","table":"sites","method":"PATCH","keys":["materials_visibility"]}
+{"held":"linked to existing","table":"site_activity_log","method":"POST","keys":["site_id","org_id","actor_id","action","description"]}
+{"held":"existing record","table":"sites","method":"PATCH","keys":["materials_visibility"]}
+{"held":"linked to existing","table":"site_activity_log","method":"POST","keys":["site_id","org_id","actor_id","action","description"]}
+{"blocked":"function","fn":"onedrive-list-folders"}
+{"held":"linked to existing","table":"yard_moves","method":"POST","keys":["org_id","stock_id","kind","qty","site_id","material_id","note","created_by"]}
+{"held":"existing record","table":"sites","method":"PATCH","keys":["mc_hidden_tiles"]}
+{"held":"existing record","table":"sites","method":"PATCH","keys":["mc_hidden_tiles"]}
+{"held":"existing record","table":"sites","method":"PATCH","keys":["mc_hidden_tiles"]}
+{"held":"existing record","table":"sites","method":"PATCH","keys":["mc_hidden_tiles"]}
+{"held":"existing record","table":"sites","method":"PATCH","keys":["mc_hidden_tiles"]}
+{"held":"existing record","table":"sites","method":"PATCH","keys":["mc_hidden_tiles"]}
+{"held":"existing record","table":"sites","method":"PATCH","keys":["mc_hidden_tiles"]}
+{"held":"existing record","table":"sites","method":"PATCH","keys":["mc_hidden_tiles"]}
+{"wrote":"drawing_folders","method":"POST","keys":["site_id","parent_id","name","position","created_by"]}
+{"untracked":"drawing_folders"}
+{"held":"existing record","table":"sites","method":"PATCH","keys":["mc_hidden_tiles"]}
+{"blocked":"function","fn":"onedrive-list-folders"}
+{"wrote":"report_templates","method":"POST","keys":["org_id","name","created_by","is_mc_inspection","sections"]}
+{"untracked":"report_templates"}
+{"held":"linked to existing","table":"report_submissions","method":"POST","keys":["id","template_id","org_id","site_id","template_name","sections","answers","submitted_by","status"]}
+{"held":"linked to existing","table":"subcontractor_companies","method":"POST","keys":["org_id","site_id","name","created_by","master_company_id"]}
+{"wrote":"price_builder_sheets","method":"POST","keys":["org_id","site_id","title","subcontractor_name","assigned_user_ids","created_by"]}
+{"untracked":"price_builder_sheets"}
+{"wrote":"repair_jobs","method":"POST","keys":["site_id","org_id","address","job_number","description","survey_required","job_status","created_by"]}
+{"untracked":"repair_jobs"}
+{"readFailed":"repair_job_photos","status":400,"message":"{\"code\":\"42703\",\"details\":null,\"hint\":\"Perhaps you meant to reference the column \\\"repair_job_photos.uploaded_by\\\".\",\"message\":\"column repair_job_photos.uploaded_at does not exist\"}","url":"repair_job_photos?select=*&repair_job_id=eq.4c527a24-b353-4f84-aaa9-d0ddc7a8cfc6&order=uploaded_at.asc"}
+{"readFailed":"repair_job_photos","status":400,"message":"{\"code\":\"42703\",\"details\":null,\"hint\":\"Perhaps you meant to reference the column \\\"repair_job_photos.uploaded_by\\\".\",\"message\":\"column repair_job_photos.uploaded_at does not exist\"}","url":"repair_job_photos?select=*&repair_job_id=eq.4c527a24-b353-4f84-aaa9-d0ddc7a8cfc6&order=uploaded_at.asc"}
+{"held":"never written","table":"profiles","method":"PATCH","keys":["howto_dismissed"]}
+{"held":"never written","table":"profiles","method":"PATCH","keys":["howto_dismissed"]}
+{"held":"never written","table":"profiles","method":"PATCH","keys":["howto_dismissed"]}
+{"wrote":"snags","method":"POST","keys":["site_id","title","location","photo_path","photo_paths","status","created_by"]}
+{"held":"never written","table":"messages","method":"POST","keys":["org_id","site_id","sender_id","audience","kind","body"]}
+{"blocked":"function","fn":"onedrive-upload"}
+{"held":"linked to existing","table":"report_submissions","method":"POST","keys":["id","template_id","org_id","site_id","template_name","sections","answers","submitted_by","status"]}
