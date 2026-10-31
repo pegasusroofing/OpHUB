@@ -14,7 +14,7 @@ const {chromium, makeContext, S1} = require('./harness');
   await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
   await page.goto(BASE+'/fin/sales?tab=invoices'); await page.waitForTimeout(5000);
   const before = (await page.evaluate(()=>document.body.innerText)).includes('INV-1');
-  await page.getByLabel('Month').click(); await page.waitForTimeout(400); await page.getByText('Oct 2026', {exact:true}).last().click(); await page.waitForTimeout(800);
+  await page.getByLabel('Month', {exact: true}).click(); await page.waitForTimeout(400); await page.getByText('Oct 2026', {exact:true}).last().click(); await page.waitForTimeout(800);
   const t = await page.evaluate(()=>document.body.innerText);
   console.log('sales month: before INV-1', before, '| after Oct: INV-1', t.includes('INV-1'), 'INV-2', t.includes('INV-2'));
   await page.screenshot({path:'shots/fin-sales-month.png'});

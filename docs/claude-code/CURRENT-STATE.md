@@ -124,6 +124,9 @@
 - Not yet tested on real phones: everything so far was tested in the browser against the fake database in `tools/test-harness`. `run-all.sh` runs all the checks. First things to try on a phone: camera, signing, GPS, push, and signature boxes (the page picture and dragging inside a scrolling page have never run on a phone).
 - Seen but not exercised by any test: repair job "Signed off by" line, separate PDFs for briefings, over-PO flag on inbox filing, one supplier per PO from quotes, bulk reopen question, PPE Export link, Open Inspections button. The price sheet email still uses send-document-email, not send-price-builder-email.
 
+## Press-every-button run (31 Oct 2026)
+About 14,000 presses across 173 screens, every role, computer and phone size, on the fake database. No crashes. What it found, what was fixed and what still can't be tested: `TEST-COVERAGE-2026-10-31.md`.
+
 ## Andy's own to-dos
 - Press **Push origin** for the handoff pack.
 - Turn on leaked-password protection (Supabase › Authentication).
