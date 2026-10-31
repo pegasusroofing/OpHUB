@@ -2,7 +2,7 @@
 // "other" costs with no purchase invoice (skips, fuel, travel, site set-up — fin_job_costs).
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ScrollView, TextInput, View } from 'react-native';
 
 import { DateBox } from '@/components/DateField';
@@ -23,7 +23,7 @@ import { base, page, radius, space } from '@/theme/theme';
 import { mustHit } from '@/lib/mustHit';
 
 export default function FinCosts() {
-  const { id, sub } = useLocalSearchParams<{ id: string; sub?: string }>();
+  const { id, sub, open } = useLocalSearchParams<{ id: string; sub?: string; open?: string }>();
   const { me, org } = useAuth();
   const { data } = useBook(me?.org_id, id);
   const [cat, setCat] = useState('all');
@@ -36,6 +36,9 @@ export default function FinCosts() {
   const [edit, setEdit] = useState<Record<string, any> | 'new' | null>(null);
   const toast = useToast();
   const qc = useQueryClient();
+  // Arriving from a cost line on the Summary: open that line once the data is here.
+  const openRef = useRef<((key: string) => void) | null>(null), opened = useRef(false);
+  useEffect(() => { if (open && data && !opened.current) { opened.current = true; openRef.current?.(open); } }, [open, data]);
   if (!data || !me) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   const fc = forecast(data.book, id, data.settings);
   const ql = q.trim().toLowerCase();
@@ -57,6 +60,7 @@ export default function FinCosts() {
     if (x.supplier === 'Yard' && x.ref === 'YARD') { void confirmAsk(`This cost came from yard stock (${x.description || ''}). To change it, issue or return the stock in Yard stock (or the project’s Material Requests) — the cost updates itself.`, 'Open Yard stock', 'Close').then((go) => { if (go) router.push('/fin/yard' as never); }); return; }
     setEdit(x);
   };
+  openRef.current = openCost;
   const cur = edit && edit !== 'new' ? edit : null;
   return (
     <ScrollView contentContainerStyle={page(1000)}>

@@ -57,7 +57,7 @@ export default function FinDetail() {
     const shown = list.filter(hit).sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
     return shown.length ? (
       <View>
-        {shown.map((l) => <FinRow key={l.key} title={l.desc} sub={[l.date ? fdate(l.date) : '', l.cat === 'committed' ? 'Ordered' : l.cat, l.who, l.ref, l.status].filter(Boolean).join(' · ')} right={money(l.net)} onPress={l.go ? () => router.push(l.go as never) : undefined} />)}
+        {shown.map((l) => <FinRow key={l.key} title={l.desc} sub={[l.date ? fdate(l.date) : '', l.cat === 'committed' ? 'Ordered' : l.cat, l.who, l.ref, l.status].filter(Boolean).join(' · ')} right={money(l.net)} onPress={l.go ? () => router.push(l.go as never) : l.key.startsWith('jc:') ? () => router.push(`/fin/job/${id}/costs?open=${encodeURIComponent(l.key)}` as never) : undefined} />)}
         <Muted>{shown.length} line{shown.length === 1 ? '' : 's'} · total {money(shown.reduce((t, l) => t + l.net, 0))}</Muted>
       </View>
     ) : <Empty>{empty}</Empty>;
