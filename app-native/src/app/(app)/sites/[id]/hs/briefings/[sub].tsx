@@ -35,7 +35,7 @@ export default function BriefingView() {
     <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: sub.template_name || 'Daily Briefing' }} />
       <SectionTitle>{sub.template_name}</SectionTitle>
-      <Muted>Completed {new Date(sub.submitted_at).toLocaleString('en-GB')} by {nameOf(people, sub.submitted_by)}</Muted>
+      <Muted>{sub.submitted_at ? `Completed ${new Date(sub.submitted_at).toLocaleString('en-GB')} by ${nameOf(people, sub.submitted_by)}` : `Not completed yet · started by ${nameOf(people, sub.submitted_by)}`}</Muted>
       <ReportAnswers sections={sub.sections || []} answers={sub.answers || {}} nameOf={(u) => nameOf(people, u)} />
       <Card>
         <SectionTitle>Signing</SectionTitle>

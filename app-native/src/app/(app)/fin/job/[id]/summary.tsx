@@ -7,6 +7,8 @@ import { useState } from 'react';
 import { ScrollView, Text, TextInput, View } from 'react-native';
 
 import { FinChip, FinRow } from '@/components/FinNav';
+import { appStage, type App } from '@/components/FinSales';
+import { useFinRowMenu } from '@/components/FinRowMenu';
 import { useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import { DateBox } from '@/components/DateField';
@@ -28,6 +30,7 @@ export default function FinDetail() {
   const toast = useToast();
   const { data: site } = useSite(id);
   const { data } = useBook(me?.org_id, id);
+  const rowMenu = useFinRowMenu(data?.book.invs);
   const [tab, setTab] = useState('summary');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
@@ -100,9 +103,10 @@ export default function FinDetail() {
   else if (tab === 'sales') body = (
     <>
       <SectionTitle>Applications &amp; Certificates</SectionTitle>
-      {apps.filter((a) => inD(a.valuation_date)).sort((x, y) => y.number - x.number).map((a) => <FinRow key={a.id} left={`App ${a.number}`} title={fdate(a.valuation_date)} sub={`applied ${money(a.gross)}${a.cert_gross != null ? ` · certified ${money(a.cert_gross)}` : ''}`} right={money(a.cert_net ?? a.net_due)} onPress={() => router.push(`/fin/job/${id}/application/${a.id}` as never)} />)}
+      {apps.filter((a) => inD(a.valuation_date)).sort((x, y) => y.number - x.number).map((a) => <FinRow key={a.id} left={`App ${a.number}`} title={fdate(a.valuation_date)} sub={`applied ${money(a.gross)}${a.cert_gross != null ? ` · certified ${money(a.cert_gross)}` : ''}`} right={money(a.cert_net ?? a.net_due)} onMenu={() => void rowMenu.appMenu(a, appStage(a as App).k)} onPress={() => router.push(`/fin/job/${id}/application/${a.id}` as never)} />)}
       <SectionTitle>Sales invoices</SectionTitle>
-      {invsAll.filter((i) => inD(i.issue_date)).map((i) => <FinRow key={i.id} left={i.number || 'Draft'} title={fdate(i.issue_date)} sub={i.status} right={money(i.total)} onPress={() => router.push(`/fin/job/${id}/invoice/${i.id}` as never)} />)}
+      {rowMenu.form}
+      {invsAll.filter((i) => inD(i.issue_date)).map((i) => <FinRow key={i.id} left={i.number || 'Draft'} title={fdate(i.issue_date)} sub={i.status} right={money(i.total)} onMenu={() => void rowMenu.invMenu(i)} onPress={() => router.push(`/fin/job/${id}/invoice/${i.id}` as never)} />)}
     </>
   );
   else {

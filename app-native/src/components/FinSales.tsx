@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { Text, TextInput, View } from 'react-native';
 
 import { FinRow, FinSeg, FinStat } from '@/components/FinNav';
+import { useFinRowMenu } from '@/components/FinRowMenu';
 import { Cell, FinTable, FootText } from '@/components/FinTable';
 import { SelectBox } from '@/components/SelectBox';
 import { chooseAction, useToast } from '@/components/toast';
@@ -17,6 +18,7 @@ import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { byJobNoDesc, fdate, INV_STATUS, invOutstanding, invOutstandingNet, invOverdue, jobTag, money, retentionDates, retentionStillHeld, round2, type FinApp, type FinInv, type JobFin } from '@/lib/rules/finance';
 import { monthLabel, monthOf, monthsIn } from '@/lib/rules/finFilters';
+import { inPeriod, useStatPeriods } from '@/lib/useStatPeriods';
 import { base, radius, useDesk } from '@/theme/theme';
 
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 9, color: base.ink, backgroundColor: base.card, marginBottom: 10 };
@@ -70,10 +72,11 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
   const { data: sitesRaw = [] } = useSites();
   const { data: st } = useFinSettings(me?.org_id);
   const { data } = useSales(me?.org_id, siteId);
-  const [af, setAf] = useState<string | null>(null);
+  const [af, setAf] = useState<string | null>(tab === 'apps' ? f0 || null : null);
   const [mon, setMon] = useState(''); // month picker (9219t): the list and its totals follow it
   const [inf, setInf] = useState(f0 || 'outstanding');
   const [q, setQ] = useState('');
+  const rowMenu = useFinRowMenu(data?.invs);
   const [voidOpen, setVoidOpen] = useState(false); // voided invoices sit in a closed drop-down (9219zn)
   const desk = useDesk();
   const sites = sitesRaw as (typeof sitesRaw[number] & { job_number?: string | null; client_name?: string | null })[];
@@ -102,7 +105,7 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
         </View>
         <TextInput value={q} onChangeText={setQ} placeholder="Search application no., project or client" style={box} />
         {desk && list.length ? (
-          <FinTable rows={list} keyOf={(a) => a.id} onRow={(a) => router.push(`/fin/job/${a.site_id}/application/${a.id}` as never)}
+          <FinTable rows={list} keyOf={(a) => a.id} onMenu={(a) => void rowMenu.appMenu(a, stage(a))} onRow={(a) => router.push(`/fin/job/${a.site_id}/application/${a.id}` as never)}
             cols={[
               ...(siteId ? [] : [{ k: 'p', l: 'Project', flex: 1.8, min: 180, render: (a: App) => <Cell bold>{jobTag(site(a.site_id))}</Cell> }]),
               { k: 'n', l: 'Application', render: (a: App) => <Cell>Application {a.number}</Cell> },
@@ -114,8 +117,9 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
             ]}
             foot={(list) => <><FootText bold>{list.length} application{list.length === 1 ? '' : 's'}</FootText><FootText>Applied {money(list.reduce((t, a) => t + Number(a.net_due || 0), 0))}</FootText><FootText>Certified {money(list.reduce((t, a) => t + Number(a.cert_net || 0), 0))}</FootText></>} />
         ) : list.length ? list.map((a) => { const s = appStage(a); return (
-          <FinRow key={a.id} left={`App ${a.number}`} title={siteId ? fdate(a.valuation_date) : jobTag(site(a.site_id))} sub={[siteId ? '' : fdate(a.valuation_date), s.l, a.cert_net != null ? `certified ${money(a.cert_net)}` : ''].filter(Boolean).join(' · ')} right={money(a.cert_net ?? a.net_due)} tone={s.c} onPress={() => router.push(`/fin/job/${a.site_id}/application/${a.id}` as never)} />
+          <FinRow key={a.id} left={`App ${a.number}`} title={siteId ? fdate(a.valuation_date) : jobTag(site(a.site_id))} sub={[siteId ? '' : fdate(a.valuation_date), s.l, a.cert_net != null ? `certified ${money(a.cert_net)}` : ''].filter(Boolean).join(' · ')} right={money(a.cert_net ?? a.net_due)} tone={s.c} onMenu={() => void rowMenu.appMenu(a, s.k)} onPress={() => router.push(`/fin/job/${a.site_id}/application/${a.id}` as never)} />
         ); }) : <Empty>Nothing here.</Empty>}
+        {rowMenu.form}
       </View>
     );
   }
@@ -134,7 +138,7 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
         </View>
         <TextInput value={q} onChangeText={setQ} placeholder="Search invoice no., client or project" style={box} />
         {desk && list.length ? (
-          <FinTable rows={list} keyOf={(i) => i.id} onRow={(i) => router.push(`/fin/job/${i.site_id}/invoice/${i.id}` as never)}
+          <FinTable rows={list} keyOf={(i) => i.id} onMenu={(i) => void rowMenu.invMenu(i)} onRow={(i) => router.push(`/fin/job/${i.site_id}/invoice/${i.id}` as never)}
             cols={[
               { k: 'no', l: 'Invoice', render: (i: Inv) => <Cell bold>{i.number || 'Draft'}</Cell> },
               ...(siteId ? [] : [{ k: 'p', l: 'Project', flex: 1.8, min: 180, render: (i: Inv) => <Cell bold>{jobTag(site(i.site_id))}</Cell> }]),
@@ -147,8 +151,9 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
             foot={(list) => <><FootText bold>{list.length} invoice{list.length === 1 ? '' : 's'}</FootText><FootText>Total {money(list.reduce((t, i) => t + Number(i.total || 0), 0))}</FootText><FootText>Owed {money(list.reduce((t, i) => t + invOutstanding(i), 0))}</FootText></>} />
         ) : list.length ? list.map((i) => {
           const od = invOverdue(i), o = invOutstanding(i);
-          return <FinRow key={i.id} left={i.number || 'Draft'} title={siteId ? (i.client_name || '—') : jobTag(site(i.site_id))} sub={[siteId ? '' : i.client_name, i.issue_date ? fdate(i.issue_date) : '', INV_STATUS[i.status] || i.status, o ? `${money(o)} owed${od ? ' — overdue' : ''}` : ''].filter(Boolean).join(' · ')} right={money(i.total)} tone={od ? '#C0392B' : undefined} onPress={() => router.push(`/fin/job/${i.site_id}/invoice/${i.id}` as never)} />;
+          return <FinRow key={i.id} left={i.number || 'Draft'} title={siteId ? (i.client_name || '—') : jobTag(site(i.site_id))} sub={[siteId ? '' : i.client_name, i.issue_date ? fdate(i.issue_date) : '', INV_STATUS[i.status] || i.status, o ? `${money(o)} owed${od ? ' — overdue' : ''}` : ''].filter(Boolean).join(' · ')} right={money(i.total)} tone={od ? '#C0392B' : undefined} onMenu={() => void rowMenu.invMenu(i)} onPress={() => router.push(`/fin/job/${i.site_id}/invoice/${i.id}` as never)} />;
         }) : <Empty>No invoices here.</Empty>}
+        {rowMenu.form}
         {(() => {
           const voided = data.invs.filter((i) => i.status === 'void' && (!mon || iMonth(i) === mon) && (!ql || `${i.number || ''} ${i.client_name || ''} ${jobTag(site(i.site_id))}`.toLowerCase().includes(ql)));
           if (!voided.length) return null;
@@ -191,22 +196,24 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
   );
 }
 
-/** Sales headline figures (this month): applied value, invoiced value, overdue, applied but not certified. */
+/** Sales headline figures, each with its own date range (9219h): applied value, invoiced value, overdue, applied but not certified. */
 export function SalesStats() {
   const { me } = useAuth();
   const { data } = useSales(me?.org_id);
+  const { period, pick } = useStatPeriods();
   if (!data) return null;
-  const ym = new Date().toISOString().slice(0, 7);
+  const pA = period('s_appv', 'month'), pI = period('s_invv', 'month'), pD = period('s_over', 'all'), pN = period('s_anc', 'all');
   const aDate = (a: App) => a.valuation_date || String(a.submitted_at || a.created_at || '').slice(0, 10);
   const live = data.invs.filter((i) => i.status !== 'void');
-  const applied = data.apps.filter((a) => !['draft', 'void'].includes(a.status) && aDate(a).startsWith(ym)).reduce((t, a) => t + Number(a.net_due || 0), 0);
-  const invoiced = live.filter((i) => i.status !== 'draft' && String(i.issue_date || '').startsWith(ym)).reduce((t, i) => t + Number(i.net || 0), 0);
-  const overdue = live.filter((i) => invOverdue(i)).reduce((t, i) => t + invOutstandingNet(i), 0);
-  const waiting = data.apps.filter((a) => appStage(a).k === 'submitted').reduce((t, a) => t + Number(a.net_due || 0), 0);
+  const applied = data.apps.filter((a) => !['draft', 'void'].includes(a.status) && inPeriod(aDate(a), pA)).reduce((t, a) => t + Number(a.net_due || 0), 0);
+  const invoiced = live.filter((i) => i.status !== 'draft' && inPeriod(i.issue_date, pI)).reduce((t, i) => t + Number(i.net || 0), 0);
+  const overdue = live.filter((i) => invOverdue(i) && inPeriod(i.due_date, pD)).reduce((t, i) => t + invOutstandingNet(i), 0);
+  const waiting = data.apps.filter((a) => appStage(a).k === 'submitted' && inPeriod(aDate(a), pN)).reduce((t, a) => t + Number(a.net_due || 0), 0);
+  const to = (tab: string, f: string) => () => router.setParams({ tab, f });
   return (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
-      <FinStat tone="blue" v={money(applied, 0)} label="Applied Value · this month" /><FinStat tone="green" v={money(invoiced, 0)} label="Invoiced Value · this month" />
-      <FinStat tone="red" v={money(overdue, 0)} label="Overdue · all time" /><FinStat tone="amber" v={money(waiting, 0)} label="Applied, Not Certified Or Invoiced · all time" />
+      <FinStat tone="blue" v={money(applied, 0)} label={`Applied Value · ${pA.label}`} onPress={to('apps', 'all')} onMenu={() => void pick('s_appv', 'month')} /><FinStat tone="green" v={money(invoiced, 0)} label={`Invoiced Value · ${pI.label}`} onPress={to('invoices', 'all')} onMenu={() => void pick('s_invv', 'month')} />
+      <FinStat tone="red" v={money(overdue, 0)} label={`Overdue · ${pD.label}`} onPress={to('invoices', 'overdue')} onMenu={() => void pick('s_over', 'all')} /><FinStat tone="amber" v={money(waiting, 0)} label={`Applied, Not Certified Or Invoiced · ${pN.label}`} onPress={to('apps', 'open')} onMenu={() => void pick('s_anc', 'all')} />
     </View>
   );
 }

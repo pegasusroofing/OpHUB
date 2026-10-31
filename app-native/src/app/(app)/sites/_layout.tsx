@@ -47,6 +47,9 @@ function useJobGuard(): { to: string; why?: string } | null {
   const sub = seg[at + 2] || '';
   // 890 snagging: a client only gets the snag list (no variations, reports or templates by link).
   if (me.role === 'client' && page === 'snagging' && sub && sub !== 'index' && sub !== 'list') return { to: `/sites/${id}/snagging/list` };
+  // 890: a client's H&S is RAMS, COSHH, TBT and Completed Inspections, nothing else by link.
+  if (me.role === 'client' && page === 'hs' && sub && !['index', 'rams', 'coshh', 'tbt', 'puwer'].includes(sub)) return { to: `/sites/${id}/hs` };
+  if (me.role === 'client' && page === 'hs' && sub === 'coshh' && ['pick', 'save', 'new'].includes(seg[at + 3] || '')) return { to: `/sites/${id}/hs/coshh` };
   // 890 todos: managers only, except on a repair contract job (its home has a To Do List tile for everyone).
   if (page === 'todos' && !isManager(me) && site && !site.repair_contract) return { to: `/sites/${id}`, why: 'Project managers and admins only.' };
   // 890 mc: everything but Site Rules & Layout needs the job switched on as Main Contractor, and a tile hidden

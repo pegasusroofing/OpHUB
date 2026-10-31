@@ -43,7 +43,7 @@ export function useSubsData(orgId: string | null | undefined, siteId?: string) {
   });
 }
 
-export function SubsLists({ tab, siteId }: { tab: 'opinv' | 'payrun' | 'orders' | 'apps' | 'cis'; siteId?: string }) {
+export function SubsLists({ tab, siteId, f }: { tab: 'opinv' | 'payrun' | 'orders' | 'apps' | 'cis'; siteId?: string; f?: string }) {
   const { me } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
@@ -52,7 +52,7 @@ export function SubsLists({ tab, siteId }: { tab: 'opinv' | 'payrun' | 'orders' 
   const { data } = useSubsData(me?.org_id, siteId);
   const [opf, setOpf] = useState('topay');
   const [scf, setScf] = useState('active');
-  const [saf, setSaf] = useState('open');
+  const [saf, setSaf] = useState(f || 'open');
   const [q, setQ] = useState('');
   const [runDay, setRunDay] = useState<string | null>(null);
   const [cisMonth, setCisMonth] = useState(() => taxMonthStart(addDays(today(), -30)));
@@ -191,10 +191,10 @@ export function SubsStats() {
   if (!data) return null;
   return (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
-      <FinStat tone="blue" v={money(data.ops.filter((p) => p.status === 'approved').reduce((t, p) => t + Number(p.net_pay || 0), 0), 0)} label="Operative Invoices To Pay" />
-      <FinStat tone="green" v={fdate(nextPayDay(st))} label="Next Pay Day" />
-      <FinStat tone="red" v={String(data.sapps.filter((a) => a.status === 'received').length)} label="Applications To Certify" />
-      <FinStat tone="amber" v={money(data.sapps.filter((a) => a.status === 'certified').reduce((t, a) => t + Number(a.pay_amount || 0), 0), 0)} label="Certified, To Pay" />
+      <FinStat tone="blue" v={money(data.ops.filter((p) => p.status === 'approved').reduce((t, p) => t + Number(p.net_pay || 0), 0), 0)} label="Operative Invoices To Pay" onPress={() => router.setParams({ tab: 'opinv', f: '' })} />
+      <FinStat tone="green" v={fdate(nextPayDay(st))} label="Next Pay Day" onPress={() => router.setParams({ tab: 'payrun', f: '' })} />
+      <FinStat tone="red" v={String(data.sapps.filter((a) => a.status === 'received').length)} label="Applications To Certify" onPress={() => router.setParams({ tab: 'apps', f: 'open' })} />
+      <FinStat tone="amber" v={money(data.sapps.filter((a) => a.status === 'certified').reduce((t, a) => t + Number(a.pay_amount || 0), 0), 0)} label="Certified, To Pay" onPress={() => router.setParams({ tab: 'apps', f: 'certified' })} />
     </View>
   );
 }

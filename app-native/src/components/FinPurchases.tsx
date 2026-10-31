@@ -6,6 +6,8 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useState } from 'react';
+
+import { inPeriod, useStatPeriods } from '@/lib/useStatPeriods';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { FinRow, FinSeg, FinStat } from '@/components/FinNav';
@@ -253,16 +255,19 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
 export function PurchasesStats() {
   const { me } = useAuth();
   const { data } = usePurchases(me?.org_id);
+  const { period, pick } = useStatPeriods();
   if (!data) return null;
+  const pJ = period('p_job', 'all'), pU = period('p_pay', 'all'), pA = period('p_appr', 'all'), pC = period('p_ord', 'all');
   const live = data.pinvs.filter((i) => i.status !== 'rejected');
-  const needJob = data.inbox.filter((i) => i.extracted && i.stage !== 'with_pm').length;
-  const unpaid = data.pinvs.filter((i) => i.status === 'approved' && !i.paid_on).reduce((t, i) => t + Number(i.total || 0), 0);
-  const toApprove = data.pinvs.filter((i) => ['to_approve', 'query'].includes(i.status)).length;
-  const ordered = round2(data.pos.filter((p) => p.status === 'open' && p.value != null).reduce((t, p) => t + Math.max(0, Number(p.value) - poInvoiced(p, live)), 0));
+  const needJob = data.inbox.filter((i) => i.extracted && i.stage !== 'with_pm' && inPeriod(i.received_at, pJ)).length;
+  const unpaid = data.pinvs.filter((i) => i.status === 'approved' && !i.paid_on && inPeriod(i.invoice_date, pU)).reduce((t, i) => t + Number(i.total || 0), 0);
+  const toApprove = data.pinvs.filter((i) => ['to_approve', 'query'].includes(i.status) && inPeriod(i.invoice_date, pA)).length;
+  const ordered = round2(data.pos.filter((p) => p.status === 'open' && p.value != null && inPeriod(p.created_at, pC)).reduce((t, p) => t + Math.max(0, Number(p.value) - poInvoiced(p, live)), 0));
+  const to = (tab: string, f: string) => () => router.setParams({ tab, f });
   return (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
-      <FinStat tone="blue" v={String(needJob)} label="Unallocated Invoices · all time" /><FinStat tone="green" v={money(unpaid, 0)} label="To Pay Suppliers (Incl. VAT) · all time" />
-      <FinStat tone="red" v={String(toApprove)} label="To Approve · all time" /><FinStat tone="amber" v={money(ordered, 0)} label="Ordered, Not Invoiced · all time" />
+      <FinStat tone="blue" v={String(needJob)} label={`Unallocated Invoices · ${pJ.label}`} onPress={to('invoices', 'job')} onMenu={() => void pick('p_job', 'all')} /><FinStat tone="green" v={money(unpaid, 0)} label={`To Pay Suppliers (Incl. VAT) · ${pU.label}`} onPress={to('invoices', 'unpaid')} onMenu={() => void pick('p_pay', 'all')} />
+      <FinStat tone="red" v={String(toApprove)} label={`To Approve · ${pA.label}`} onPress={to('invoices', 'approve')} onMenu={() => void pick('p_appr', 'all')} /><FinStat tone="amber" v={money(ordered, 0)} label={`Ordered, Not Invoiced · ${pC.label}`} onPress={to('orders', 'open')} onMenu={() => void pick('p_ord', 'all')} />
     </View>
   );
 }

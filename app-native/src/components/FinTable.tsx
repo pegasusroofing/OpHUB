@@ -18,7 +18,7 @@ function nodeText(n: ReactNode): string {
   return '';
 }
 
-export function FinTable<T>({ cols, rows, keyOf, onRow, foot }: { cols: FinCol<T>[]; rows: T[]; keyOf: (r: T) => string; onRow?: (r: T) => void; foot?: ReactNode | ((shown: T[]) => ReactNode) }) {
+export function FinTable<T>({ cols, rows, keyOf, onRow, foot, onMenu }: { cols: FinCol<T>[]; rows: T[]; keyOf: (r: T) => string; onRow?: (r: T) => void; foot?: ReactNode | ((shown: T[]) => ReactNode); onMenu?: (r: T) => void }) {
   const t = useTheme();
   const [q, setQ] = useState<Record<string, string>>({});
   const on = cols.filter((c) => q[c.k]?.trim()).map((c) => ({ c, q: q[c.k].trim().toLowerCase() }));
@@ -31,10 +31,12 @@ export function FinTable<T>({ cols, rows, keyOf, onRow, foot }: { cols: FinCol<T
         <View style={{ flex: 1, minWidth: '100%' }}>
           <View style={{ flexDirection: 'row', paddingVertical: 10, paddingHorizontal: 8 }}>
             {cols.map((c) => <View key={c.k} style={cell(c)}><Text style={{ fontSize: 10.5, fontWeight: '800', letterSpacing: 0.7, color: base.ink, textDecorationLine: 'underline', textTransform: 'uppercase' }}>{c.l}</Text></View>)}
+              {onMenu ? <View style={{ width: 32 }} /> : null}
           </View>
           {!!foot && (
             <View style={{ flexDirection: 'row', paddingBottom: 8, paddingHorizontal: 8 }}>
-              {cols.map((c) => <View key={c.k} style={cell(c)}>{!!c.l && <TextInput value={q[c.k] || ''} onChangeText={(v) => setQ({ ...q, [c.k]: v })} placeholder={c.l} accessibilityLabel={`Filter ${c.l}`} placeholderTextColor={base.slateLight} style={{ alignSelf: 'stretch', height: 28, paddingHorizontal: 6, fontSize: 11.5, textAlign: 'center', color: base.ink, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 7, minWidth: 0 }} />}</View>)}
+              {cols.map((c) => <View key={c.k} style={cell(c)}>{!!c.l && <TextInput value={q[c.k] || ''} onChangeText={(v) => setQ({ ...q, [c.k]: v })} placeholder={c.l} accessibilityLabel={`Filter ${c.l}`} placeholderTextColor={base.slateLight} style={{ width: 0, minWidth: '100%', alignSelf: 'stretch', height: 28, paddingHorizontal: 6, fontSize: 11.5, textAlign: 'center', color: base.ink, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 7 }} />}</View>)}
+              {onMenu ? <View style={{ width: 32 }} /> : null}
             </View>
           )}
           <View style={{ backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10, overflow: 'hidden' }}>
@@ -43,6 +45,7 @@ export function FinTable<T>({ cols, rows, keyOf, onRow, foot }: { cols: FinCol<T
               <Pressable key={keyOf(r)} onPress={onRow ? () => onRow(r) : undefined}
                 style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', minHeight: 52, paddingVertical: 8, paddingHorizontal: 8, borderTopWidth: i ? 1 : 0, borderTopColor: '#F0F1F4' }, pressed && { backgroundColor: '#F8F9FB' }]}>
                 {cols.map((c) => <View key={c.k} style={cell(c)}>{c.render(r)}</View>)}
+                {onMenu ? <Pressable onPress={() => onMenu(r)} hitSlop={8} accessibilityLabel="More" style={{ width: 32, alignItems: 'center' }}><Text style={{ fontSize: 16, fontWeight: '800', color: base.slate }}>⋯</Text></Pressable> : null}
               </Pressable>
             ))}
           </View>
