@@ -822,3 +822,18 @@
 {"held":"never written","table":"messages","method":"POST","keys":["org_id","site_id","sender_id","audience","kind","body"]}
 {"blocked":"function","fn":"onedrive-upload"}
 {"held":"linked to existing","table":"report_submissions","method":"POST","keys":["id","template_id","org_id","site_id","template_name","sections","answers","submitted_by","status"]}
+{"held":"upsert","table":"sow_views","method":"POST","keys":["user_id","site_id","viewed_at"]}
+{"wrote":"schedule_tasks","method":"PATCH","keys":["status","completed_at","percent_complete"]}
+{"held":"upsert","table":"sow_views","method":"POST","keys":["user_id","site_id","viewed_at"]}
+{"held":"upsert","table":"sow_views","method":"POST","keys":["user_id","site_id","viewed_at"]}
+{"held":"upsert","table":"sow_views","method":"POST","keys":["user_id","site_id","viewed_at"]}
+{"held":"upsert","table":"sow_views","method":"POST","keys":["user_id","site_id","viewed_at"]}
+{"held":"upsert","table":"sow_views","method":"POST","keys":["user_id","site_id","viewed_at"]}
+{"wrote":"schedule_section_flags","method":"PATCH","keys":["closeout_saved_at","closeout_saved_by"]}
+{"blocked":"function","fn":"xero"}
+{"held":"upsert","table":"sow_views","method":"POST","keys":["user_id","site_id","viewed_at"]}
+{"wrote":"schedule_tasks","method":"PATCH","keys":["status","completed_at"]}
+{"held":"upsert","table":"sow_views","method":"POST","keys":["user_id","site_id","viewed_at"]}
+{"wrote":"havs_weekly_completions","method":"POST","keys":["org_id","site_id","week_start","completed_by"]}
+{"held":"existing record","table":"rams_library_items","method":"PATCH","keys":["sort_order"]}
+{"held":"existing record","table":"rams_library_items","method":"PATCH","keys":["sort_order"]}
