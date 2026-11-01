@@ -125,6 +125,8 @@ Items 1 to 38 and 40 were done on the night of 31 Oct and checked at phone size,
 
 49. The estimator's flow (Andy, 1 Nov): New Enquiry with documents makes the OneDrive folder; he works in OneDrive; Send & submit records how it went, value and date, and files the folder to Estimating {year}. Won moves it on to the job. Sending from the app and filing were tested on Sandbox; "I've emailed it" wasn't pressed. List is compact, table on a laptop, with Filter (multi-select), Sort and View drop-downs.
 
+50. Purchase invoices (Andy, 1 Nov): emailed or uploaded, AI reads each line with project, VAT and summary, checks prices against the most recent of project quote or yearly price list, allocates to the job; unclear ones go to an unassigned tab for admin or PMs; split by %, amend line by line. Checked 1 Nov: AI reader not configured (no API key) and the new app never calls it; no line-by-line project reading; no check against quotes or price lists; no real email has ever arrived. Unallocated list, split by % and manual line coding exist. Not built yet.
+
 ### New job pack (built 1 Nov; on for Sandbox only)
 Rules are edited in the app, Admin Centre › OneDrive › New job pack (Andy, 1 Nov: no working off Excel). The editor was checked against the fake data; saving on the real database needs an admin login. The Excel in this folder was the first draft and nothing reads it now.
 39. Setting up a new job makes its OneDrive folder from `RTB Roofing Ltd/Live Projects/- New Job Pack - Template`, and links areas of the app to the right sub-folders. Needs a new server function and more folder links on each job. Not to run for RTB without Andy's say-so while Finance is in trial.
