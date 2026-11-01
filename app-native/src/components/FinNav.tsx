@@ -93,10 +93,10 @@ export function FinPage({ title, section, sub, onSub, badges, children, wide, to
   );
 }
 const STAT_TONE = { blue: ['#f3f7ff', '#dbe6ff', '#1d4ed8'], green: ['#f1fbf5', '#d3f0de', '#15803d'], red: ['#fff5f4', '#fbdcd9', '#c81e1e'], amber: ['#fffaf0', '#f8e7c2', '#b45309'] } as const;
-export function FinStat({ v, label, hot, onPress, tone, onMenu }: { v: string; label: string; hot?: boolean; onPress?: () => void; tone?: keyof typeof STAT_TONE; onMenu?: () => void }) {
+export function FinStat({ v, label, hot, onPress, tone, onMenu, basis = 160 }: { v: string; label: string; hot?: boolean; onPress?: () => void; tone?: keyof typeof STAT_TONE; onMenu?: () => void; basis?: number | `${number}%` }) {
   const c = tone ? STAT_TONE[tone] : null;
   return (
-    <Pressable onPress={onPress} style={{ flexGrow: 1, flexBasis: 160, backgroundColor: c ? c[0] : base.card, borderRadius: 10, borderWidth: 1, borderColor: c ? c[1] : '#e5e7eb', paddingVertical: 16, paddingHorizontal: 18, gap: 4 }}>
+    <Pressable onPress={onPress} style={{ flexGrow: 1, flexBasis: basis, backgroundColor: c ? c[0] : base.card, borderRadius: 10, borderWidth: 1, borderColor: c ? c[1] : '#e5e7eb', paddingVertical: 16, paddingHorizontal: 18, gap: 4 }}>
       {onMenu ? <Pressable onPress={onMenu} hitSlop={8} accessibilityLabel={`Change dates: ${label}`} style={{ position: 'absolute', top: 6, right: 8, paddingHorizontal: 6, paddingVertical: 2, zIndex: 1 }}><Text style={{ fontSize: 16, fontWeight: '800', color: base.slate }}>⋯</Text></Pressable> : null}
       <Text style={[heading(700), { fontSize: 22, color: c ? c[2] : hot ? '#C0392B' : base.ink }]}>{v}</Text>
       <Text style={{ fontSize: 12.5, color: '#6b7280', fontWeight: '500' }}>{label}</Text>

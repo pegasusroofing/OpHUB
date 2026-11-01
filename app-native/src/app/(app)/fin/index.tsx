@@ -1,4 +1,4 @@
-// Finance › Overview (914 renderFinanceHome): live contract value, owed,
+// Finance › Overview (914 renderFinanceHome): live contract value and jobs, still to invoice, owed,
 // overdue, retention held, and what needs attention.
 import { router } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
@@ -10,7 +10,7 @@ import { useFinOverview } from '@/data/finance';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { money } from '@/lib/rules/finance';
-import { base } from '@/theme/theme';
+import { base, useDesk } from '@/theme/theme';
 
 // Finance labels in Title Case, as the current app (9219x finTitleCase).
 const KEEP = new Set(['PO', 'POs', 'VAT', 'CIS']);
@@ -20,15 +20,19 @@ export default function FinOverview() {
   const { me } = useAuth();
   const { data: sites } = useSites();
   const { data, isLoading } = useFinOverview(me, sites);
+  // Two rows of three on a laptop, three rows of two on a phone.
+  const basis = useDesk() ? '31%' : '45%';
   return (
     <FinPage title="OpHUB Finance" section="overview">
       {isLoading || !data ? <Muted>Loading…</Muted> : (
         <>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 10 }}>
-            <FinStat v={money(data.liveValue, 0)} tone="blue" label={`Live Contract Value · ${data.liveCount} Job${data.liveCount === 1 ? '' : 's'}`} onPress={() => router.push('/fin/jobs' as never)} />
-            <FinStat v={money(data.owed, 0)} tone="green" label="Owed To You" onPress={() => router.push('/fin/sales?tab=invoices' as never)} />
-            <FinStat v={money(data.overdue, 0)} tone="red" label="Overdue" onPress={() => router.push('/fin/sales?tab=invoices&f=overdue' as never)} />
-            <FinStat v={money(data.retHeld, 0)} tone="amber" label="Retention Held By Clients" onPress={() => router.push('/fin/sales?tab=retention' as never)} />
+            <FinStat basis={basis} v={money(data.liveValue, 0)} tone="blue" label="Live Contract Value" onPress={() => router.push('/fin/jobs' as never)} />
+            <FinStat basis={basis} v={String(data.liveCount)} tone="blue" label="Total Live Jobs" onPress={() => router.push('/fin/jobs' as never)} />
+            <FinStat basis={basis} v={money(data.toInvoice, 0)} tone="blue" label="Still To Invoice" onPress={() => router.push('/fin/sales?tab=invoices' as never)} />
+            <FinStat basis={basis} v={money(data.owed, 0)} tone="green" label="Owed To You" onPress={() => router.push('/fin/sales?tab=invoices' as never)} />
+            <FinStat basis={basis} v={money(data.overdue, 0)} tone="red" label="Overdue" onPress={() => router.push('/fin/sales?tab=invoices&f=overdue' as never)} />
+            <FinStat basis={basis} v={money(data.retHeld, 0)} tone="amber" label="Retention Held By Clients" onPress={() => router.push('/fin/sales?tab=retention' as never)} />
           </View>
           {data.todo.length > 0 ? (
             <Card>

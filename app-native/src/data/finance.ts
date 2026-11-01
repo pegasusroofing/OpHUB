@@ -67,6 +67,8 @@ export function useFinOverview(me: Profile | null, sites: Site[] | undefined) {
       const hasPo = new Set(pos.map((p) => p.site_id));
       const live = S.filter((s) => finStatus(s) === 'live');
       const liveValue = live.reduce((t, s) => t + Number(jfBy[s.id]?.contract_value || 0), 0);
+      // Work on live jobs not billed yet: each job's contract value less what's been invoiced on it, never below nothing.
+      const toInvoice = live.reduce((t, s) => t + Math.max(0, Number(jfBy[s.id]?.contract_value || 0) - (invsBy[s.id] || []).reduce((n, i) => n + Number(i.net || 0), 0)), 0);
       const owed = invs.reduce((t, i) => t + invOutstandingNet(i), 0);
       const overdueInv = invs.filter((i) => invOverdue(i)), overdue = overdueInv.reduce((t, i) => t + invOutstandingNet(i), 0);
       const still = (s: Site) => retentionStillHeld(appsBy[s.id] || [], jfBy[s.id], invsBy[s.id] || []);
@@ -86,7 +88,7 @@ export function useFinOverview(me: Profile | null, sites: Site[] | undefined) {
       if (longHire.length) todo.push({ tone: 'warn', t: 'Plant on hire over 4 weeks', s: longHire.map((h) => h.item).join(', '), n: longHire.length, go: '/fin/purchases?tab=plant' });
       if (noPo.length) todo.push({ tone: 'grey', t: 'Live projects with no client PO', s: noPo.map(jobTag).join(', '), n: noPo.length, go: one(noPo, '/fin/jobs') });
       if (noValue.length) todo.push({ tone: 'grey', t: 'Live projects with no contract value', s: noValue.map(jobTag).join(', '), n: noValue.length, go: one(noValue, '/fin/jobs') });
-      return { liveValue, liveCount: live.length, owed, overdue, retHeld, todo };
+      return { liveValue, liveCount: live.length, toInvoice, owed, overdue, retHeld, todo };
     },
   });
 }
