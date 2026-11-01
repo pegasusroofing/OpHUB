@@ -248,7 +248,7 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
       </View>
       ))}
       <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginTop: 8, marginBottom: 24 }}>
-        <Button small kind="ghost" title="+ Item" onPress={() => add('item')} /><Button small kind="ghost" title="+ Section" onPress={() => add('section')} />
+        <Button small kind="ghost" title="+ Add" onPress={async () => { const k = await chooseAction('Add', [{ key: 'section', label: 'Section' }, { key: 'item', label: 'Item' }]); if (k) add(k); }} />
       </View>
       {/* Budget cost: margin / mark-up for all or the ticked lines, and changes to the ticked lines together (902). */}
       <Card style={{ paddingVertical: 5, paddingHorizontal: 10 }}>
