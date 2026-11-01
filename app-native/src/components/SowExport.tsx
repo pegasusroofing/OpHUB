@@ -15,7 +15,7 @@ import { localISODate } from '@/lib/rules/driver';
 import { buildSowPdf, emailSowPdf, sowPeriod, type SowPeriod, type SowTab } from '@/lib/sowPdf';
 import type { Site } from '@/lib/types';
 
-export function SowExport({ site, tab }: { site: Site; tab: SowTab }) {
+export function SowExport({ site }: { site: Site; tab: SowTab }) {
   const { me, org } = useAuth();
   const { data: people } = useTeam(me?.org_id);
   const toast = useToast();
@@ -40,7 +40,8 @@ export function SowExport({ site, tab }: { site: Site; tab: SowTab }) {
     return p;
   };
   const build = async (period: SowPeriod) => {
-    const r = await buildSowPdf(site, org, tab, period, toast).catch(() => 'Could not build the PDF.');
+    // Always every task, whichever tab is showing: a report from the To Do tab left out finished work and its photos (Andy, 1 Nov).
+    const r = await buildSowPdf(site, org, 'all', period, toast).catch(() => 'Could not build the PDF.');
     if (typeof r === 'string') { toast(r); return null; }
     return r;
   };

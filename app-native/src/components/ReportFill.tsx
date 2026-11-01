@@ -6,6 +6,10 @@
 // site and signature; plus traffic-light colour, note and photo under each
 // answer, and "+ Add another item" on a section. Photos upload in the
 // background and answers save as you go.
+import { hasJobPack, packPut } from '@/data/jobPack';
+import { buildReportPdf } from '@/lib/reportPdf';
+import { useSite } from '@/data/sites';
+import { nameOf, usePeople } from '@/data/hs';
 import { useQueryClient } from '@tanstack/react-query';
 import * as DocumentPicker from 'expo-document-picker';
 import { router } from 'expo-router';
@@ -35,7 +39,9 @@ const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input
 type Op = { id: string; userId: string | null; name: string; role: string; included: boolean };
 
 export function ReportFill({ sub, siteId, editingCompleted, isBriefing, onDone }: { sub: Sub; siteId: string; editingCompleted: boolean; isBriefing: boolean; onDone: (subId: string, completed: boolean) => void }) {
-  const { me } = useAuth();
+  const { me, org } = useAuth();
+  const { data: site } = useSite(siteId.startsWith('general') ? undefined : siteId);
+  const { data: people } = usePeople();
   const toast = useToast();
   const qc = useQueryClient();
   const [answers, setAnswers] = useState<Answers>(() => ({ ...(sub.answers || {}) }));
@@ -363,6 +369,7 @@ export function ReportFill({ sub, siteId, editingCompleted, isBriefing, onDone }
     if (!ok) { await parkComplete(); return; }
     await unpark(me.id, sub.id);
     toast(isBriefing ? 'Briefing completed' : editingCompleted ? 'Report updated' : 'Report submitted');
+    if (!editingCompleted && site) void hasJobPack(siteId).then((has) => { if (has) void buildReportPdf({ ...sub, answers: live.current, sections, status: 'completed', submitted_at: new Date().toISOString() } as never, site as never, org, (u) => nameOf(people, u), { fromBriefing: isBriefing }).then((b) => (b ? packPut(siteId, isBriefing ? 'briefing' : 'report', b.filename, { bytes: b.bytes }) : false)).catch(() => undefined); });
     void qc.invalidateQueries({ queryKey: ['reports'] }); void qc.invalidateQueries({ queryKey: ['reportSub', sub.id] }); void qc.invalidateQueries({ queryKey: ['briefings'] });
     onDone(sub.id, true);
   };

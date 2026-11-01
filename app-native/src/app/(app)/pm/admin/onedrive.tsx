@@ -1,6 +1,7 @@
 // Admin Centre › OneDrive (260 integrations): the company connection
 // (connect / reconnect / disconnect), the pinned Quick Links, and every
 // project's linked folders (photos & exports, Material PO's, site inductions).
+import { JobPackCard } from '@/components/JobPackCard';
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack } from 'expo-router';
 import { useState } from 'react';
@@ -53,6 +54,7 @@ export default function OneDriveAdmin() {
         }} /></View>}
         <Muted style={{ marginTop: 8 }}>After signing in to Microsoft, come back here — the status updates when the page is opened again.</Muted>
       </Card>
+      <JobPackCard />
       <Card>
         <SectionTitle>Quick Links</SectionTitle>
         <Muted style={{ marginBottom: 8 }}>Pin a folder here — e.g. your Live Projects folder — so it shows as a one-tap shortcut wherever someone chooses a OneDrive folder.</Muted>

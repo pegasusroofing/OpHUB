@@ -9,7 +9,7 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { DateBox, todayIso } from '@/components/DateField';
 import { chooseAction, confirmAsk, useToast } from '@/components/toast';
-import { Button, Card, Check, Empty, Muted, SectionTitle, Toggle } from '@/components/ui';
+import { Button, Card, Check, Empty, Muted, SectionTitle } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
 import { nameOf, usePeople } from '@/data/hs';
 import { useSite } from '@/data/sites';
@@ -39,17 +39,24 @@ export default function TodoList() {
   const { data: pms } = usePmList();
   const { data: people } = usePeople();
   const [tab, setTab] = useState<'live' | 'closed'>('live');
+  const [when, setWhen] = useState<'all' | 'overdue' | 'week'>('all');
+  const [openRows, setOpenRows] = useState<Set<string>>(new Set());
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [edit, setEdit] = useState<{ id: string; text: string; date: string } | null>(null);
   const [comment, setComment] = useState<Record<string, string>>({});
   const [openComments, setOpenComments] = useState<Set<string>>(new Set());
-  const [addOpen, setAddOpen] = useState(true);
+  const [addOpen, setAddOpen] = useState(false);
   const [email, setEmail] = useState<null | { ids: string[] | null }>(null);
   if (!me || !site) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   if (!isManager(me) && !site.repair_contract) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
   const refresh = () => void qc.invalidateQueries({ queryKey: ['todos', id] });
   const all = data?.todos ?? [];
-  const list = all.filter((t) => (tab === 'live' ? !t.done : t.done));
+  const today = todayIso();
+  const weekEnd = (() => { const d = new Date(`${today}T12:00:00`); d.setDate(d.getDate() + 7); return d.toISOString().slice(0, 10); })();
+  const isOverdue = (t: Todo) => !t.done && !!t.date_required_by && t.date_required_by < today;
+  const isThisWeek = (t: Todo) => !t.done && !!t.date_required_by && t.date_required_by >= today && t.date_required_by <= weekEnd;
+  const live = all.filter((t) => !t.done);
+  const list = all.filter((t) => (tab === 'live' ? !t.done : t.done)).filter((t) => (tab === 'closed' || when === 'all' ? true : when === 'overdue' ? isOverdue(t) : isThisWeek(t)));
   const picked = list.filter((t) => sel.has(t.id)).map((t) => t.id);
   const ukd = (d: string) => new Date(`${d.slice(0, 10)}T12:00:00`).toLocaleDateString('en-GB');
   const exportPdf = async (ids: string[]) => {
@@ -68,12 +75,17 @@ export default function TodoList() {
   const row = (t: Todo) => {
     const files = (data?.files ?? []).filter((f) => f.todo_id === t.id);
     const comments = (data?.comments ?? []).filter((c) => c.todo_id === t.id);
-    const showComments = openComments.has(t.id);
+    const showComments = true;
+    const isOpen = openRows.has(t.id) || edit?.id === t.id;
+    const dateLabel = t.date_required_by ? new Date(`${t.date_required_by}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '';
     return (
-      <Card key={t.id}>
-        <View style={{ flexDirection: 'row', gap: 9 }}>
-          <Pressable hitSlop={8} onPress={() => { const n = new Set(sel); if (n.has(t.id)) n.delete(t.id); else n.add(t.id); setSel(n); }}><Text style={{ fontSize: 18 }}>{sel.has(t.id) ? '☑' : '☐'}</Text></Pressable>
-          <View style={{ flex: 1 }}>
+      <View key={t.id} style={{ backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, padding: 12, marginBottom: 8 }}>
+        <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
+          <Pressable hitSlop={8} accessibilityLabel="Select" onPress={() => { const n = new Set(sel); if (n.has(t.id)) n.delete(t.id); else n.add(t.id); setSel(n); }}
+            style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: sel.has(t.id) ? base.ink : base.slateLight, backgroundColor: sel.has(t.id) ? base.ink : 'transparent', alignItems: 'center', justifyContent: 'center', marginTop: 1 }}>
+            {sel.has(t.id) && <Text style={{ color: '#fff', fontSize: 12, fontWeight: '800' }}>✓</Text>}
+          </Pressable>
+          <Pressable style={{ flex: 1 }} onPress={() => { const n = new Set(openRows); if (n.has(t.id)) n.delete(t.id); else n.add(t.id); setOpenRows(n); }}>
             {edit?.id === t.id ? (
               <View>
                 <TextInput value={edit.text} onChangeText={(x) => setEdit({ ...edit, text: x })} style={box} />
@@ -89,37 +101,28 @@ export default function TodoList() {
               </View>
             ) : (
               <>
-                <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
-                  <Text style={{ flex: 1, fontSize: 15.5, fontWeight: '700', color: t.done ? base.slate : base.ink, textDecorationLine: t.done ? 'line-through' : 'none' }}>{t.text}</Text>
-                  {!!t.date_required_by && (
-                    <Pressable disabled={t.done} onPress={() => setEdit({ id: t.id, text: t.text, date: t.date_required_by || '' })} style={{ alignItems: 'flex-end' }}>
-                      <Text style={{ fontSize: 10, fontWeight: '700', letterSpacing: 0.4, color: base.slate }}>REQUIRED BY</Text>
-                      <Text style={{ fontSize: 12.5, fontWeight: '700', color: base.ink }}>{new Date(`${t.date_required_by}T00:00:00`).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</Text>
-                    </Pressable>
-                  )}
-                </View>
+                <Text style={{ fontSize: 15, fontWeight: '700', color: t.done ? base.slate : base.ink, textDecorationLine: t.done ? 'line-through' : 'none' }}>{t.text}</Text>
+                <Text style={{ fontSize: 12.5, color: base.slate, marginTop: 3 }}>
+                  {isOverdue(t) ? <Text style={{ color: base.red, fontWeight: '700' }}>Overdue {dateLabel}</Text> : isThisWeek(t) ? <Text style={{ color: base.warn, fontWeight: '700' }}>Due {dateLabel}</Text> : dateLabel ? `Due ${dateLabel}` : 'No date'}
+                  {' · '}{t.assigned_to ? nameOf(people, t.assigned_to) : 'Unassigned'}{comments.length ? ` · 💬 ${comments.length}` : ''}{files.length ? ` · 📎 ${files.length}` : ''}
+                </Text>
               </>
             )}
-            <Pressable disabled={t.done} onPress={async () => {
-              const pm = await choosePm(t.assigned_to); if (pm === undefined) return;
-              if (await assignTodo(me, id, site.name, t, pm)) { toast(pm ? 'Project manager updated' : 'Project manager removed'); refresh(); }
-            }} style={{ marginTop: 6 }}>
-              <Text style={{ fontSize: 12.5, color: base.slate }}>{t.assigned_to ? <>Assigned to <Text style={{ fontWeight: '700', fontStyle: 'normal' }}>{nameOf(people, t.assigned_to)}</Text>{t.done ? '' : ' — tap to change'}</> : t.done ? 'Unassigned' : 'Tap to assign a project manager'}</Text>
-            </Pressable>
-          </View>
-        </View>
-        <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 8, alignItems: 'center' }}>
-          <Pressable onPress={async () => { if (await setTodoDone(t.id, !t.done)) { toast(t.done ? 'Reopened' : 'Closed'); refresh(); } }}
-            style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, borderWidth: 1, borderColor: base.ok, backgroundColor: base.okBg }}>
-            <Text style={{ fontWeight: '800', fontSize: 11, color: base.ok }}>{t.done ? '✓ Completed' : 'Mark Complete'}</Text>
           </Pressable>
-          <Pressable hitSlop={8} onPress={async () => {
+          <Pressable hitSlop={8} accessibilityLabel="More" onPress={async () => {
             const k = await chooseAction(t.text, [...(!t.done ? [{ key: 'edit', label: '✎ Edit' }] : []), { key: 'del', label: '🗑 Delete', danger: true }]);
             if (k === 'edit') setEdit({ id: t.id, text: t.text, date: t.date_required_by || '' });
             else if (k === 'del' && await confirmAsk("Delete this to-do item? This can't be undone.", 'Delete')) { if (await deleteTodo(me, id, t)) { toast('To-do deleted'); refresh(); } }
           }}><Text style={{ fontSize: 18, color: base.slate, paddingHorizontal: 4 }}>⋮</Text></Pressable>
         </View>
-        <View style={{ marginTop: 10, paddingTop: 8, borderTopWidth: 1, borderTopColor: base.line }}>
+        {isOpen && edit?.id !== t.id && (
+          <View style={{ marginTop: 10, paddingTop: 9, borderTopWidth: 1, borderTopColor: base.line, marginLeft: 32 }}>
+            <Pressable disabled={t.done} onPress={async () => {
+              const pm = await choosePm(t.assigned_to); if (pm === undefined) return;
+              if (await assignTodo(me, id, site.name, t, pm)) { toast(pm ? 'Project manager updated' : 'Project manager removed'); refresh(); }
+            }} style={{ marginBottom: 8 }}>
+              <Text style={{ fontSize: 12.5, color: base.slate }}>{t.assigned_to ? <>Assigned to <Text style={{ fontWeight: '700' }}>{nameOf(people, t.assigned_to)}</Text>{t.done ? '' : ', press to change'}</> : t.done ? 'Unassigned' : 'Press to assign a project manager'}</Text>
+            </Pressable>
           {files.map((f) => (
             <View key={f.id} style={{ flexDirection: 'row', gap: 8, marginBottom: 6 }}>
               <Pressable style={{ flex: 1 }} onPress={async () => { const u = await todoFileUrl(f); if (u) viewDoc(u); else toast('Could not open file.'); }}>
@@ -131,13 +134,6 @@ export default function TodoList() {
           <Pressable onPress={async () => { const a = await pickFiles(); if (!a.length) return; const n = await uploadTodoFiles(me, t.id, a); toast(n ? (n === 1 ? 'Attachment added' : `${n} attachments added`) : 'Could not upload — try again.'); refresh(); }}>
             <Text style={{ fontSize: 13.5, color: base.slate, textDecorationLine: 'underline' }}>+ Add photo/document</Text>
           </Pressable>
-        </View>
-        <View style={{ marginTop: 10, paddingTop: 8, borderTopWidth: 1, borderTopColor: base.line }}>
-          {(
-            <Pressable onPress={() => { const n = new Set(openComments); if (n.has(t.id)) n.delete(t.id); else n.add(t.id); setOpenComments(n); }}>
-              <Text style={{ fontWeight: '700', color: base.ink }}>{showComments ? '▼' : '▶'} Comments{comments.length ? ` (${comments.length})` : ''}</Text>
-            </Pressable>
-          )}
           {showComments && (
             <>
               {comments.length ? comments.map((c) => (
@@ -155,21 +151,41 @@ export default function TodoList() {
               </View>
             </>
           )}
-        </View>
-      </Card>
+
+            <View style={{ flexDirection: 'row', marginTop: 10 }}>
+              <Pressable onPress={async () => { if (await setTodoDone(t.id, !t.done)) { toast(t.done ? 'Reopened' : 'Closed'); refresh(); } }}
+                style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: 9, borderWidth: 1, borderColor: base.ok, backgroundColor: base.okBg }}>
+                <Text style={{ fontWeight: '800', fontSize: 12, color: base.ok }}>{t.done ? '✓ Completed: reopen' : 'Mark Complete'}</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
+      </View>
     );
   };
 
+
+  const stat = (key: string, n: number, label: string, on: boolean, press: () => void, red = false) => (
+    <Pressable key={key} onPress={press} accessibilityLabel={label} style={{ flex: 1, backgroundColor: base.card, borderWidth: on ? 2 : 1, borderColor: on ? base.ink : base.cardLine, borderRadius: radius.row, paddingVertical: 8, alignItems: 'center' }}>
+      <Text style={{ fontSize: 21, fontWeight: '800', color: red && n ? base.red : base.ink }}>{n}</Text>
+      <Text style={{ fontSize: 11.5, fontWeight: '600', color: base.slate }}>{label}</Text>
+    </Pressable>
+  );
   return (
-    <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
+    <View style={{ flex: 1 }}>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'To Do List' }} />
-      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
-        {(['live', 'closed'] as const).map((k) => (
-          <Pressable key={k} onPress={() => { setTab(k); setSel(new Set()); }} style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 16, borderWidth: 1, borderColor: tab === k ? base.ink : base.line, backgroundColor: tab === k ? base.ink : base.card }}>
-            <Text style={{ fontWeight: '700', color: tab === k ? '#fff' : base.ink }}>{k === 'live' ? 'Live' : 'Closed'}</Text>
-          </Pressable>
-        ))}
+      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
+        {stat('o', live.filter(isOverdue).length, 'Overdue', tab === 'live' && when === 'overdue', () => { setTab('live'); setWhen('overdue'); setSel(new Set()); }, true)}
+        {stat('w', live.filter(isThisWeek).length, 'This week', tab === 'live' && when === 'week', () => { setTab('live'); setWhen('week'); setSel(new Set()); })}
+        {stat('l', live.length, 'Live', tab === 'live' && when === 'all', () => { setTab('live'); setWhen('all'); setSel(new Set()); })}
+        {stat('c', all.length - live.length, 'Closed', tab === 'closed', () => { setTab('closed'); setWhen('all'); setSel(new Set()); })}
       </View>
+      <View style={{ marginBottom: 10 }}><Button title={addOpen ? 'Close' : '+ Add To Do'} kind={addOpen ? 'ghost' : undefined} onPress={() => setAddOpen(!addOpen)} /></View>
+      {addOpen && <AddBox pms={pms ?? []} choosePm={choosePm} onAdd={async (f) => {
+            if (await addTodo(me, id, site.name, f)) { toast('Added to the to-do list'); refresh(); return true; }
+            toast('Could not save — try again.'); return false;
+          }} />}
       {picked.length > 0 && (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
           <Button small title={`Email ${picked.length}`} onPress={() => setEmail({ ids: picked })} />
@@ -182,23 +198,15 @@ export default function TodoList() {
         if (err) { toast(err); return; }
         toast('To-do list emailed'); setEmail(null); setSel(new Set());
       }} />}
-      {isLoading ? <Muted>Loading…</Muted> : list.length ? list.map(row) : <Empty>No {tab} to-dos.</Empty>}
-      {tab === 'live' && (
-        <>
-          <Toggle title="Add To Do" open={all.length === 0 || addOpen} onPress={() => setAddOpen(!addOpen)} />
-          {(all.length === 0 || addOpen) && <AddBox pms={pms ?? []} choosePm={choosePm} onAdd={async (f) => {
-            if (await addTodo(me, id, site.name, f)) { toast('Added to the to-do list'); refresh(); return true; }
-            toast('Could not save — try again.'); return false;
-          }} />}
-        </>
-      )}
-      {list.length > 0 && (
-        <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
-          {tab === 'live' && <Button small kind="ghost" title="✉ Email" onPress={() => setEmail({ ids: null })} />}
-          <Button small kind="ghost" title="📄 Export" onPress={() => void exportPdf(list.map((t) => t.id))} />
-        </View>
-      )}
+      {isLoading ? <Muted>Loading…</Muted> : list.length ? list.map(row) : <Empty>{tab === 'closed' ? 'No closed to-dos.' : when === 'overdue' ? 'Nothing overdue.' : when === 'week' ? 'Nothing due this week.' : 'No live to-dos.'}</Empty>}
     </ScrollView>
+    {list.length > 0 && (
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', backgroundColor: base.card, borderTopWidth: 1, borderTopColor: base.line, paddingHorizontal: 16, paddingVertical: 9 }}>
+        {tab === 'live' ? <Pressable onPress={() => setEmail({ ids: list.map((t) => t.id) })}><Text style={{ fontSize: 13, fontWeight: '700', color: base.blue }}>✉ Email</Text></Pressable> : <View />}
+        <Pressable onPress={() => void exportPdf(list.map((t) => t.id))}><Text style={{ fontSize: 13, fontWeight: '700', color: base.blue }}>📄 Export</Text></Pressable>
+      </View>
+    )}
+    </View>
   );
 }
 

@@ -92,6 +92,7 @@ export async function enqueueUpload(job: {
   after?: AfterHook;
 }): Promise<string> {
   const id = job.id ?? newId();
+  await Promise.all(job.files.map((f) => keepWebBytes(f.uri).catch(() => undefined)));
   const files = job.files.map((f, i) => ({ bucket: f.bucket, path: f.path, contentType: f.contentType, optional: f.optional, localUri: keepLocal(f.uri, `${id}-${i}`) }));
   await update((jobs) => [...jobs, { kind: 'upload', id, files, insert: job.insert, waitKey: job.waitKey, label: job.label, after: job.after, tries: 0, at: Date.now() }]);
   void processQueue();
@@ -129,13 +130,28 @@ export async function cancelUpload(id: string): Promise<{ revertedComplete: bool
   return { revertedComplete };
 }
 
+// On the website a picked photo is only a browser link, gone when the page closes and sometimes sooner. So the
+// photo itself is kept as soon as it's queued: in memory, and in the browser's own store so a reload doesn't lose it.
+const webBytes = new Map<string, ArrayBuffer>();
+const GONE = 'The photo is no longer on this device: add it again.';
+const webStore = (): Promise<IDBDatabase> => new Promise((ok, bad) => { const r = indexedDB.open('ophub-upload-files', 1); r.onupgradeneeded = () => r.result.createObjectStore('files'); r.onsuccess = () => ok(r.result); r.onerror = () => bad(r.error); });
+const webDo = async <T,>(mode: IDBTransactionMode, run: (s: IDBObjectStore) => IDBRequest<T>): Promise<T | undefined> => {
+  try { const db = await webStore(); return await new Promise<T>((ok, bad) => { const q = run(db.transaction('files', mode).objectStore('files')); q.onsuccess = () => ok(q.result); q.onerror = () => bad(q.error); }); } catch { return undefined; }
+};
+async function keepWebBytes(uri: string) {
+  if (Platform.OS !== 'web' || webBytes.has(uri)) return;
+  const bytes = await (await fetch(uri)).arrayBuffer();
+  webBytes.set(uri, bytes);
+  await webDo('readwrite', (st) => st.put(bytes, uri));
+}
+
 function deleteLocal(job: UploadJob) {
-  if (Platform.OS === 'web') return;
+  if (Platform.OS === 'web') { for (const f of job.files) { webBytes.delete(f.localUri); void webDo('readwrite', (st) => st.delete(f.localUri)); } return; }
   for (const f of job.files) { try { new File(f.localUri).delete(); } catch { /* already gone */ } }
 }
 
 async function readBytes(uri: string): Promise<ArrayBuffer> {
-  if (Platform.OS === 'web') return (await fetch(uri)).arrayBuffer();
+  if (Platform.OS === 'web') return webBytes.get(uri) ?? (await webDo<ArrayBuffer>('readonly', (st) => st.get(uri))) ?? (await fetch(uri).then((r) => r.arrayBuffer()).catch(() => { throw new Error(GONE); }));
   const bytes = await new File(uri).bytes();
   return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
 }
@@ -185,7 +201,9 @@ export async function processQueue(): Promise<void> {
     // Uploads first.
     for (const job of (await load()).filter((j): j is UploadJob => j.kind === 'upload')) {
       try {
-        await runUpload(job);
+        // Several photos at once can trip a request on a poor signal: try again straight away before saying it hasn't gone.
+        const again = (ms: number) => async (e: unknown) => { if (String((e as Error)?.message).includes(GONE)) throw e; await new Promise((r) => setTimeout(r, ms)); return runUpload(job); };
+        await runUpload(job).catch(again(1500)).catch(again(4000));
         await update((jobs) => jobs.filter((j) => j.id !== job.id));
         deleteLocal(job);
         sent++;

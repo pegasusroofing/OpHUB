@@ -15,14 +15,18 @@ import { closePermit, PERMIT_ICON, PERMIT_LABEL, signPermit, usePermit } from '@
 import { useAuth } from '@/lib/auth';
 import { pickPhotos, type Picked } from '@/lib/photos';
 import { useIsSubAdmin } from '@/data/subcontractors';
+import { buildPermitPdf } from '@/lib/permitPdf';
+import { deliverPdf } from '@/lib/pdf';
 import { isManager } from '@/lib/roles';
+import { useSite } from '@/data/sites';
 import { base, page, radius, space } from '@/theme/theme';
 
 const d = (s: string | null) => (s ? new Date(s.length === 10 ? `${s}T00:00:00` : s).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—');
 
 export default function PermitView() {
   const { id, pid } = useLocalSearchParams<{ id: string; pid: string }>();
-  const { me } = useAuth();
+  const { me, org } = useAuth();
+  const { data: site } = useSite(id);
   const toast = useToast();
   const qc = useQueryClient();
   const { data, isLoading } = usePermit(pid);
@@ -43,6 +47,7 @@ export default function PermitView() {
   const mgr = isManager(me) || !!subAdmin;
   const canClose = permit.status === 'open' && (mgr || mine);
   const hot = permit.permit_type === 'hot_works';
+  const exportIt = async () => { if (!site) return; try { const b = await buildPermitPdf(permit as never, PERMIT_LABEL[permit.permit_type] || 'Permit', site, org); if (!(await deliverPdf(b.bytes, b.filename))) toast('Could not save the PDF.'); } catch { toast('Could not build the PDF.'); } };
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['permit', pid] }); void qc.invalidateQueries({ queryKey: ['permits', id] }); void qc.invalidateQueries({ queryKey: ['mcTiles', id] }); };
   const photo = async (set: (p: Picked) => void) => {
     const k = await chooseAction('Fire extinguisher photo', [{ key: 'camera', label: '📷 Take a photo' }, { key: 'library', label: '🖼 Choose from library' }]);
@@ -54,6 +59,7 @@ export default function PermitView() {
   return (
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: PERMIT_LABEL[permit.permit_type] || 'Permit' }} />
+      <View style={{ alignItems: 'flex-end', marginBottom: 8 }}><Button small kind="ghost" title="📄 Export" onPress={() => void exportIt()} /></View>
       <Card>
         <SectionTitle>{PERMIT_ICON[permit.permit_type] || '🧾'} {PERMIT_LABEL[permit.permit_type] || permit.permit_type}</SectionTitle>
         <Text style={{ color: base.ink, marginBottom: 6 }}>{permit.description}</Text>

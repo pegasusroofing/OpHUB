@@ -2,6 +2,7 @@
 // job number/start date, Main Contractor, Multi-Site and its addresses, Repair
 // Contract. Team: operatives, site managers, subcontractor crews, clients. Job
 // status, Price switch, Activity History and Site Info. Managers only.
+import { setupJobPack, useJobPackSettings } from '@/data/jobPack';
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
@@ -250,6 +251,7 @@ function SyncFolderCard({ site, full }: { site: SyncSite; full: boolean }) {
   const toast = useToast();
   const qc = useQueryClient();
   const { data: od } = useOneDriveStatus(me?.org_id);
+  const { data: packSettings } = useJobPackSettings(me?.org_id);
   const [busy, setBusy] = useState('');
   const refresh = () => void qc.invalidateQueries({ queryKey: ['sites'] });
   const sync = async () => {
@@ -265,6 +267,11 @@ function SyncFolderCard({ site, full }: { site: SyncSite; full: boolean }) {
       <Text style={{ fontWeight: '700', color: base.ink }}>☁️ OneDrive sync folder</Text>
       {od?.needs_reconnect && <Muted style={{ color: base.warn, marginTop: 6 }}>OneDrive isn&apos;t syncing at the moment — the company connection needs reconnecting by an admin (Admin Centre › Integrations).</Muted>}
       <Muted style={{ marginVertical: 6 }}>{site.onedrive_folder_name ? `📁 ${site.onedrive_folder_name} — photos, drawings and exports sync there` : "Not linked — link the job's real OneDrive folder so photos and exports sync there."}</Muted>
+      {full && !!packSettings?.enabled && (!site.onedrive_folder_id || !!(site as { job_pack?: unknown }).job_pack) && <Button kind={site.onedrive_folder_id ? 'ghost' : undefined} title={site.onedrive_folder_id ? '📦 Fill in anything missing from the job pack' : '📦 Set up job pack folder'} onPress={async () => {
+        const r = await setupJobPack(site.id);
+        if ('error' in r) { toast(r.error); return; }
+        toast(r.failed.length ? `Folder made, but these didn’t go across: ${r.failed.join(', ')}` : `Job pack made: ${r.made} folders, ${r.copied} documents`); refresh();
+      }} />}
       {full && <Button kind="ghost" title={site.onedrive_folder_name ? 'Change folder' : 'Link folder'} onPress={() => router.push({ pathname: '/pm/onedrive-pick', params: { target: 'progress', id: site.id } } as never)} />}
       {full && !!site.onedrive_folder_id && (
         <>

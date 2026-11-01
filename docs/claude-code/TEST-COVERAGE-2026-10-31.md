@@ -5,6 +5,29 @@ Nothing here touched the real database, real phones, real emails, Xero or OneDri
 
 The Sandbox section below is the exception: it ran against the real database.
 
+## Second pass on Sandbox (1 Nov 2026)
+Parts `hs1` to `hs6`, `pack1` to `pack4`, `sowdays` in `tools/test-harness/jobtest-parts/`. Phone size, real database.
+
+**Worked to the end:** daily briefing (start, complete, issue, operative signs, Edit goes after the first signature, PDF); induction (all three stages by an operative, PDF stored, manager sees it under Completed); incident (operative signs and submits, manager reads it); HAVS (manager adds a tool, site manager logs minutes; operatives only see HAVS when it's switched on for the job); inspection (start and complete); expense (receipt saved; email blocked by the test rule, and Sandbox has no expenses address); subcontractor as their company's admin (made admin, uploads RAMS to their folder, sees only their tasks, opens their briefings).
+
+**To Do:** option A with counts across the top. Counts filter, press to open, comment, Mark Complete, + Add To Do all worked.
+
+**Variations:** the mark-up screen opens on the chosen photo and the marked-up photo saves.
+
+**Permits:** new PDF (the old app has none). Made and stored on issue and close, Export gives a real PDF.
+
+**Schedule of Works PDF:** now always covers every task. Photos, date tag and the line between days checked by eye on a drawn page.
+
+**Fault found and fixed:** on the website version a queued photo was only a browser link, dead after a reload, so it stayed on "Not sent yet" for good. The photo itself is now kept when queued. Five at once: all arrive, nothing stuck, 27 seconds. A photo still being prepared at the moment of a reload can be lost (one of five in the reload test): the rest arrive.
+
+**Job pack, real OneDrive, test folder `OpHUB Progress Reports/ZZ Job Packs`:** making a job built all 38 folders; the 6 template documents copied (through RTB's shortcut, which needed a fix); RAMS landed in 1. RAMS; pre-start photo in 1. Pre Start; progress photo in 2. Week 1; with the job moved on two weeks, a new 4. Week 3 appeared by itself; Documents tile lists the folder and adds a file.
+
+**Job pack rules not run for real:** toolbox talk issued, COSHH added, permit closed, variation approved, briefing or report completed, drawing added, O&M, hand exports. The code is in; the rule behind them is the one tested. Not run on the real Live Projects folder. Not switched on for RTB.
+
+**Emails, not tested:** the new material table, variation photo and permit attachment were not sent, as test emails to the managers are blocked. The HTML hasn't been seen in an inbox.
+
+**A correction to the night's report:** `messages` rows for managers email every PM and admin through a database trigger (`messages_push_notify` to `send-message-push`), which the browser guard can't see. Test runs did email Sandbox's manager logins (+demo seen by Andy). Nothing goes beyond that company's own managers. The guard now holds those rows, so HUB and notices to managers aren't sent in tests.
+
 ## Real jobs worked on Sandbox (night of 31 Oct to 1 Nov 2026)
 `tools/test-harness/jobtest.js` with `FULL=1`, parts in `jobtest-parts/`. Phone size, real database, real file uploads, as the project manager, site manager, operative, driver, client and subcontractor logins. Andy's admin login had expired, so the project manager led. Each step checks what the database holds afterwards.
 

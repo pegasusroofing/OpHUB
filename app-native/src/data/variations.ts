@@ -2,6 +2,7 @@
 // workflow (approve/decline/modify, value, add to SoW, close, delete). Ported from
 // 800-variations.js. Operatives and site managers never see or type money: the value
 // column (cost_impact) isn't even downloaded for them, as today. PDFs come later.
+import { packPut } from '@/data/jobPack';
 import { useQuery } from '@tanstack/react-query';
 
 import { cachedQuery, orThrow } from '@/lib/offlineCache';
@@ -40,7 +41,7 @@ export async function raiseVariation(me: Profile, site: Site, photo: Picked, des
   if (up.error) return 'Could not upload the photo — check your signal and try again.';
   const r = await db.from('variations').insert({ site_id: site.id, photo_path: up.data.path, description: desc || '—', created_by: me.id, status: 'live', approval_status: 'pending', ...(value != null ? { cost_impact: value.toFixed(2) } : {}) } as never);
   if (r.error) return 'Could not save — try again.';
-  if (me.org_id) void db.from('messages').insert({ org_id: me.org_id, site_id: site.id, sender_id: me.id, audience: 'managers', kind: 'variation', body: `${me.name} raised a variation: ${desc || '(no description)'}` } as never).then(undefined, () => undefined);
+  if (me.org_id) void db.from('messages').insert({ org_id: me.org_id, site_id: site.id, sender_id: me.id, audience: 'managers', kind: 'variation', body: `${me.name} raised a variation: ${desc || '(no description)'}`, email_details: { rows: [['Variation', desc || '(no description)'], ['Raised by', me.name]], photos: [{ bucket: 'site-photos', path: up.data.path }] } } as never).then(undefined, () => undefined);
   return null;
 }
 
@@ -92,6 +93,7 @@ export async function decideVariation(me: Profile, siteId: string, v: Variation,
   const r = mustHit(await db.from('variations').update(patch as never).eq('id', v.id).select('id'));
   if (r.error) return false;
   if ('cost_impact' in vp.patch) await syncToFinance(v.id, vp.oldVal, opts.value ?? null, opts.financeUser);
+  if (opts.approve && v.photo_path) void packPut(siteId, 'variation_approved', `${(opts.description || v.description || 'Variation').replace(/[^a-z0-9 ]+/gi, '').trim().slice(0, 80) || 'Variation'} ${now.slice(0, 10)}.jpg`, { photo_path: v.photo_path }).catch(() => undefined);
   if (opts.approve && !opts.description) tellManagers(me, siteId, `${me.name} approved a variation: ${v.description || ''}`);
   return true;
 }

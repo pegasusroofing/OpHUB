@@ -21,8 +21,8 @@ export type Supplier = { id: string; name: string; email: string | null; favouri
 function log(me: Profile, siteId: string, action: string, description: string) {
   if (me.org_id) void db.from('site_activity_log').insert({ site_id: siteId, org_id: me.org_id, actor_id: me.id, action, description } as never).then(undefined, () => undefined);
 }
-function tellManagers(me: Profile, siteId: string, kind: string, body: string) {
-  if (me.org_id) void db.from('messages').insert({ org_id: me.org_id, site_id: siteId, sender_id: me.id, audience: 'managers', kind, body } as never).then(undefined, () => undefined);
+function tellManagers(me: Profile, siteId: string, kind: string, body: string, details?: object) {
+  if (me.org_id) void db.from('messages').insert({ org_id: me.org_id, site_id: siteId, sender_id: me.id, audience: 'managers', kind, body, ...(details ? { email_details: details } : {}) } as never).then(undefined, () => undefined);
 }
 
 export function useSubAddresses(siteId: string | undefined, multi: boolean) {
@@ -100,7 +100,9 @@ export async function addMaterial(me: Profile, siteId: string, f: { item: string
     ...(f.repairJob ? { repair_job_id: f.repairJob.id, sub_site_label: f.repairJob.label } : {}),
   } as never);
   if (r.error) return false;
-  tellManagers(me, siteId, 'material_request', `${me.name} requested material: ${f.item} (qty ${f.qty || '1'})${f.requiredBy ? ` — required by ${f.requiredBy}` : ''}`);
+  tellManagers(me, siteId, 'material_request', `${me.name} requested material: ${f.item} (qty ${f.qty || '1'})${f.requiredBy ? ` — required by ${f.requiredBy}` : ''}`, {
+    rows: [['Item', f.item], ['Quantity', f.qty || '1'], ['Required by', f.requiredBy ? new Date(`${f.requiredBy}T00:00:00`).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Not given'], ['For', f.repairJob?.label || (f.sub ? subAddrLabel(f.sub) : '')], ['Requested by', me.name]],
+  });
   return true;
 }
 

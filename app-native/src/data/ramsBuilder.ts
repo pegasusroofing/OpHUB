@@ -1,6 +1,7 @@
 // RAMS Builder data (586 / 587): a job's editable RAMS drafts, starting one
 // from templates or other jobs, saving, saving items back to the library,
 // and issuing the Risk Assessment and Method Statement as two signable docs.
+import { packDoc } from '@/data/jobPack';
 import { useQuery } from '@tanstack/react-query';
 
 import { log, tellOperatives } from '@/data/hsManager';
@@ -110,6 +111,7 @@ export async function issueBuild(me: Me, org: Org, siteId: string, b: RamsBuild)
     const id = (r.data as { id: string } | null)?.id;
     if (!id) return 'Could not save the document.';
     if (prevId) await db.from('rams_docs').update({ status: 'superseded', superseded_by: id } as never).eq('id', prevId);
+    packDoc(siteId, prevId ? 'rams_superseded' : 'rams_issued', name, 'rams-docs', up.data.path);
     // Remember the new document straight away, so a failure on the next one never leaves two "current".
     const key = isRA ? 'ra_doc_id' : 'ms_doc_id';
     if (!!(await db.from('rams_builds').update({ [key]: id } as never).eq('id', b.id).select('id')).data?.length) b[key] = id;

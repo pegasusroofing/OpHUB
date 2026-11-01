@@ -1,5 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { GoogleAuth } from 'npm:google-auth-library@9';
+import { encodeBase64 } from 'jsr:@std/encoding@1/base64';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -42,6 +43,13 @@ const corsHeaders = {
 // / Admins it is pushed to, so it is seen even with the phone app closed.
 // Estimators are left out (they receive no notifications), and the routine
 // "operative checked in" notice is not emailed (far too frequent).
+//
+// 1 Nov 2026: messages.email_details (new app only; empty from the current app,
+// whose emails stay as they were) can add to the managers' email: `rows`
+// ([label, value]) replaces the one line of text with a table, `photos` show in
+// the email and come as attachments, `attachments` are files such as a permit
+// PDF. Files must be in site-photos / mc-documents under this message's own
+// site, and that site must be in this message's company.
 // ---- OpHUB standard email layout (identical in every function — do not edit per function) ----
 // One look for every email OpHUB sends: a header band in the company's
 // colour with its logo, a short heading, the content, an optional button,
@@ -85,6 +93,7 @@ function ophubRows(rows: [string, unknown][]): string {
 // ---- end OpHUB standard email layout ----
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const NO_EMAIL_KINDS = ['operative_checked_in'];
+const MAX_ATTACH_BYTES = 20 * 1024 * 1024;
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -183,7 +192,7 @@ Deno.serve(async (req) => {
           const [{ data: people }, { data: org }, { data: siteRow }, { data: sender }] = await Promise.all([
             admin.from('profiles').select('id, name, email').in('id', recipientIds).eq('org_id', orgId).in('role', ['pm', 'admin']).eq('is_estimator', false), // estimators receive no notifications
             admin.from('organizations').select('name, logo_path, color_primary').eq('id', orgId).maybeSingle(),
-            siteId ? admin.from('sites').select('name').eq('id', siteId).maybeSingle() : Promise.resolve({ data: null }),
+            siteId ? admin.from('sites').select('name, org_id').eq('id', siteId).maybeSingle() : Promise.resolve({ data: null }),
             senderId ? admin.from('profiles').select('name').eq('id', senderId).maybeSingle() : Promise.resolve({ data: null }),
           ]);
           const toList = (people || []).map((p: { email: string | null }) => String(p.email || '').trim()).filter((e: string) => EMAIL_RE.test(e));
@@ -200,8 +209,37 @@ Deno.serve(async (req) => {
             });
             const intro = senderName ? `${senderName} sent this from the app.` : 'This came in from the app.';
             const noteLine = 'You are getting this because you are a Project Manager or Admin for this job.';
+            const details = message.email_details && typeof message.email_details === 'object' ? message.email_details : {};
+            const detailRows: [string, unknown][] = (Array.isArray(details.rows) ? details.rows : []).filter((r: unknown) => Array.isArray(r) && r[1] != null && String(r[1]) !== '').slice(0, 20).map((r: unknown[]) => [String(r[0]), String(r[1])]);
+            const attachments: { filename: string; content: string; content_id?: string }[] = [];
+            let photoHtml = '', leftOut = 0, attachBytes = 0;
+            const fileOk = (f: { bucket?: unknown; path?: unknown }) => siteId && siteRow?.org_id === orgId && ['site-photos', 'mc-documents'].includes(String(f?.bucket)) && typeof f?.path === 'string' && f.path.startsWith(`${siteId}/`) && !f.path.includes('..');
+            const fetchFile = async (f: { bucket: string; path: string }) => {
+              const { data: blob } = await admin.storage.from(f.bucket).download(f.path);
+              if (!blob) return null;
+              if (attachBytes + blob.size > MAX_ATTACH_BYTES) { leftOut++; return null; }
+              attachBytes += blob.size;
+              return encodeBase64(new Uint8Array(await blob.arrayBuffer()));
+            };
+            for (const [i, f] of (Array.isArray(details.photos) ? details.photos : []).slice(0, 10).entries()) {
+              if (!fileOk(f)) continue;
+              const content = await fetchFile(f);
+              if (!content) continue;
+              const cid = `photo${i + 1}`;
+              attachments.push({ filename: `Photo ${i + 1}.jpg`, content, content_id: cid });
+              photoHtml += `<img src="cid:${cid}" alt="Photo ${i + 1}" width="500" style="display:block;width:100%;max-width:500px;height:auto;border-radius:10px;margin:0 0 10px;">`;
+            }
+            for (const f of (Array.isArray(details.attachments) ? details.attachments : []).slice(0, 10)) {
+              if (!fileOk(f)) continue;
+              const content = await fetchFile(f);
+              if (content) attachments.push({ filename: String(f.name || 'Document.pdf').replace(/[\r\n"\\/:*?<>|]+/g, '_').slice(0, 120), content });
+            }
+            const tableHtml = detailRows.length ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:0 0 12px;border:1px solid #E3E7EE;">${detailRows.map((r) => `<tr><td style="padding:9px 12px;border:1px solid #E3E7EE;background:#F7F8FA;color:#5B6472;font-size:12px;font-weight:800;vertical-align:top;white-space:nowrap;">${ophubEsc(r[0])}</td><td style="padding:9px 12px;border:1px solid #E3E7EE;font-size:15px;font-weight:600;color:#101114;">${ophubEsc(r[1])}</td></tr>`).join('')}</table>` : '';
+            const filesHtml = attachments.some((a) => !a.content_id) ? `<p style="margin:0 0 12px;font-size:14px;color:#3A3B3E;">Attached: ${attachments.filter((a) => !a.content_id).map((a) => ophubEsc(a.filename)).join(', ')}</p>` : '';
+            const tooBig = leftOut ? `<p style="margin:0 0 12px;font-size:13px;color:#8A8D93;">${leftOut} file${leftOut === 1 ? ' was' : 's were'} too big to attach: open the job in OpHUB to see ${leftOut === 1 ? 'it' : 'them'}.</p>` : '';
             const bodyHtml = ophubRows([['Job', siteName || 'Not linked to a job'], ['From', senderName]])
-              + `<div style="border:1px solid #E3E7EE;border-radius:10px;padding:14px 16px;margin:0 0 12px;font-size:15px;line-height:1.5;color:#101114;white-space:pre-wrap;">${ophubEsc(fullBody)}</div>`;
+              + (tableHtml || `<div style="border:1px solid #E3E7EE;border-radius:10px;padding:14px 16px;margin:0 0 12px;font-size:15px;line-height:1.5;color:#101114;white-space:pre-wrap;">${ophubEsc(fullBody)}</div>`)
+              + photoHtml + filesHtml + tooBig;
             const subject = `${title}${siteName ? ' — ' + siteName : ''}`.slice(0, 200);
             // One email each, so nobody sees the others' addresses.
             for (const to of toList) {
@@ -222,7 +260,7 @@ Deno.serve(async (req) => {
               const res = await fetch('https://api.resend.com/emails', {
                 method: 'POST',
                 headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ from: fromHeader, to: [to], subject, html, text }),
+                body: JSON.stringify({ from: fromHeader, to: [to], subject, html, text, ...(attachments.length ? { attachments } : {}) }),
               });
               if (res.ok) emailed++; else console.error('manager email failed', await res.text());
             }

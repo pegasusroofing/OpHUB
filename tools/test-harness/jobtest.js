@@ -11,6 +11,8 @@ const FILES = {admin: process.env.MAIN === 'pm' ? 'sb-pm.json' : 'sb-session.jso
 const anon = (fs.readFileSync(path.join(__dirname, '../../app-native/src/lib/supabase.ts'), 'utf8').match(/SUPABASE_ANON_KEY\s*=\s*'([^']+)'/) || [])[1];
 fs.mkdirSync(OUT, {recursive: true});
 const RESULTS = path.join(OUT, 'results.jsonl');
+// A request still going when a page reloads or closes is not a fault in the app.
+process.on('unhandledRejection', (e) => { if (!/disposed|closed/i.test(String(e && e.message))) console.log('unhandled', String(e).slice(0, 200)); });
 
 (async () => {
   const part = process.argv[2];

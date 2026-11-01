@@ -1,4 +1,5 @@
 // Schedule of Works data and actions. Ported from 480/481.
+import { packPut } from '@/data/jobPack';
 import { useQuery } from '@tanstack/react-query';
 
 import { useAuth } from '@/lib/auth';
@@ -61,6 +62,7 @@ export function useSchedule(site: Site | undefined) {
 // After a photo is in: copy it to the job's OneDrive folder (best effort, same as today).
 registerAfterHook('sowOneDrive', async (args, { paths }) => {
   if (!paths[0]) return;
+  if (await packPut(args.siteId as string, args.stage === 'todo' ? 'sow_prestart' : 'sow_progress', args.filename as string, { photo_path: paths[0] })) return;
   await supabase.functions.invoke('onedrive-upload', { body: { filename: args.filename, photo_path: paths[0], site_id: args.siteId } });
 });
 
@@ -131,7 +133,7 @@ export async function addPhotos(me: Profile, site: Site, task: Task, picked: Pic
     await enqueueUpload({
       id, files, waitKey: task.id, label: task.name,
       insert: { table: 'schedule_photos', row: { id, task_id: task.id, uploaded_by: me.id, stage }, pathFields },
-      after: { name: 'sowOneDrive', args: { siteId: site.id, filename: oneDriveName(task.name, new Date(), id) } },
+      after: { name: 'sowOneDrive', args: { siteId: site.id, stage, filename: oneDriveName(task.name, new Date(), id) } },
     });
     n++;
   }

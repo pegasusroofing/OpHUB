@@ -5,6 +5,7 @@
 // Projects. Lands on the job's Finance page. During the Finance trial this is
 // only for Finance-only companies and the sandbox (9219e) — RTB sets new jobs
 // up in Projects.
+import { setupNewJobPack } from '@/data/jobPack';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import * as DocumentPicker from 'expo-document-picker';
 import { router, Stack } from 'expo-router';
@@ -90,6 +91,7 @@ export default function FinNewJob() {
         else if (up.length < files.length) warn = warn || 'Project created. Some PO files didn’t upload — add them from Project Admin.';
       }
       const made = ((await fdb.from('sites').select('job_number').eq('id', id).maybeSingle()).data as Row | null) ?? row;
+      void setupNewJobPack(me.org_id, id);
       void qc.invalidateQueries();
       toast(warn || `Project ${made.job_number || ''} created`);
       router.replace(`/fin/job/${id}` as never);

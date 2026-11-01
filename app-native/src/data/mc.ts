@@ -2,6 +2,8 @@
 // (and the per-job "hide from operatives" list), the document folders (CPP,
 // Asbestos Register, F10), and Permits To Work — issue → sign-off → close down
 // (hot works needs two fire-extinguisher photos to close).
+import { packDoc } from '@/data/jobPack';
+import { permitAttachment } from '@/lib/permitPdf';
 import { useQuery } from '@tanstack/react-query';
 
 import { cachedQuery, orThrow } from '@/lib/offlineCache';
@@ -142,9 +144,9 @@ export async function permitRoster(siteId: string, companyId: string | null) {
   return p.filter((x) => ids.has(x.id) && x.role === 'operative');
 }
 
-const say = (me: Profile, siteId: string, kind: string, body: string, action: string, desc: string) => {
+const say = (me: Profile, siteId: string, kind: string, body: string, action: string, desc: string, details?: object | null) => {
   if (!me.org_id) return;
-  void db.from('messages').insert({ org_id: me.org_id, site_id: siteId, sender_id: me.id, audience: 'managers', kind, body } as never).then(undefined, () => undefined);
+  void db.from('messages').insert({ org_id: me.org_id, site_id: siteId, sender_id: me.id, audience: 'managers', kind, body, ...(details ? { email_details: details } : {}) } as never).then(undefined, () => undefined);
   void db.from('site_activity_log').insert({ site_id: siteId, org_id: me.org_id, actor_id: me.id, action, description: desc } as never).then(undefined, () => undefined);
 };
 
@@ -152,9 +154,10 @@ export async function issuePermit(me: Me, site: Site, f: { type: string; company
   const r = await db.from('permits').insert({
     org_id: site.org_id, site_id: site.id, subcontractor_company_id: f.companyId, permit_type: f.type, description: f.description, location: f.location,
     work_date: f.date, assigned_user_ids: f.assignees, issued_by: me.id, issuer_signature_path: me.signature_path,
-  } as never);
+  } as never).select('id').single();
   if (r.error) return false;
-  say(me, site.id, 'permit_issued', `${me.name} issued a ${PERMIT_LABEL[f.type]} permit`, 'permit_issued', `Issued a ${PERMIT_LABEL[f.type]} permit`);
+  const file = await permitAttachment((r.data as { id: string }).id, PERMIT_LABEL[f.type]);
+  say(me, site.id, 'permit_issued', `${me.name} issued a ${PERMIT_LABEL[f.type]} permit`, 'permit_issued', `Issued a ${PERMIT_LABEL[f.type]} permit`, file ? { attachments: [file] } : null);
   return true;
 }
 export async function signPermit(me: Me, permitId: string) {
@@ -180,7 +183,9 @@ export async function closePermit(me: Me, p: Permit, f: { photo1: Picked | null;
     closer_signature_path: me.signature_path, closedown_photo_path_1: ph1, closedown_photo_path_2: ph2,
   } as never).eq('id', p.id).select('id'));
   if (r.error) return 'Could not close — try again.';
-  say(me, p.site_id, 'permit_closed', `${me.name} closed a permit`, 'permit_closed', `Closed a ${PERMIT_LABEL[p.permit_type] || ''} permit${f.overrideNote ? ` — ${f.overrideNote}` : ''}`);
+  const file = await permitAttachment(p.id, PERMIT_LABEL[p.permit_type] || 'Permit');
+  say(me, p.site_id, 'permit_closed', `${me.name} closed a permit`, 'permit_closed', `Closed a ${PERMIT_LABEL[p.permit_type] || ''} permit${f.overrideNote ? ` — ${f.overrideNote}` : ''}`, file ? { attachments: [file] } : null);
+  if (file) packDoc(p.site_id, 'permit_closed', file.name, file.bucket, file.path);
   return null;
 }
 

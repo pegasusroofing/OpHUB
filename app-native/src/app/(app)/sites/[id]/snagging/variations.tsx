@@ -6,6 +6,7 @@ import { Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Image, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
+import { MarkupEditor } from '@/components/MarkupEditor';
 import { StorageImage } from '@/components/StorageImage';
 import { pickCameraOrLibrary } from '@/components/pickSource';
 import { showAlert, useToast } from '@/components/toast';
@@ -42,6 +43,7 @@ export default function Variations() {
   const [desc, setDesc] = useState('');
   const [value, setValue] = useState('');
   const [busy, setBusy] = useState(false);
+  const [marking, setMarking] = useState(false);
   if (!me || !site) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
 
   const submit = async () => {
@@ -97,10 +99,11 @@ export default function Variations() {
         <Card style={{ marginTop: 14 }}>
           <SectionTitle>Raise a variation</SectionTitle>
           <Muted style={{ fontWeight: '700', marginBottom: 6 }}>Photo evidence</Muted>
-          <Pressable onPress={async () => { const p = await pickCameraOrLibrary(false); if ('error' in p) showAlert(p.error); else if (p[0]) setPhoto(p[0]); }}
+          <Pressable onPress={async () => { const p = await pickCameraOrLibrary(false); if ('error' in p) showAlert(p.error); else if (p[0]) { setPhoto(p[0]); setMarking(true); } }}
             style={{ borderWidth: 1.5, borderStyle: 'dashed', borderColor: base.line, borderRadius: radius.input, minHeight: 90, alignItems: 'center', justifyContent: 'center', marginBottom: 10, overflow: 'hidden' }}>
             {photo ? <Image source={{ uri: photo.uri }} style={{ width: '100%', height: 160 }} resizeMode="cover" /> : <Text style={{ color: base.slate }}>📷 Tap to add a photo</Text>}
           </Pressable>
+          {!!photo && <View style={{ marginBottom: 10 }}><Button kind="ghost" small title="✏️ Mark up photo" onPress={() => setMarking(true)} /></View>}
           <Muted style={{ fontWeight: '700', marginBottom: 6 }}>Description</Muted>
           <TextInput multiline value={desc} onChangeText={setDesc} placeholder="What's changed and why..."
             style={{ minHeight: 70, borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, marginBottom: 6 }} />
@@ -112,6 +115,7 @@ export default function Variations() {
           <Button disabled={!photo} busy={busy} title="Submit Variation" onPress={submit} />
         </Card>
       )}
+      {marking && !!photo && <MarkupEditor photo src={photo.uri} onClose={(out) => { setMarking(false); if (out) setPhoto({ ...photo, uri: out.image }); }} />}
       <SectionTitle>Export</SectionTitle>
       <View style={{ flexDirection: 'row', gap: 6 }}>
         {([['live', 'Export live'], ['closed', 'Export closed'], ['all', 'Export all']] as [SnagScope, string][]).map(([sc, label]) => (

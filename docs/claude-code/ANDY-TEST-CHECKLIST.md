@@ -111,7 +111,17 @@ Items 1 to 38 and 40 were done on the night of 31 Oct and checked at phone size,
 ### Sharing
 40. Copy the old app's share button to the new app's website version (`shareFile` in 060, `sharePdfViewerDoc` in 030): hand the file to the phone's share menu, so WhatsApp and the like appear. It currently only downloads. Needs an https address, so it can't work on the laptop test link. To do tonight, with item 24. Andy says the old empty-file fault on his iPhone went away when the OneDrive cloud button was added, reason unknown. So copy the old viewer's order of steps exactly, including how it gets the file ready before the button is pressed, and don't assume the fault still exists.
 
-### New job pack (new feature, checked as possible, not started)
+### Raised 1 Nov 2026
+41. To Do: option A with the counts header from option C. Done.
+42. Schedule of Works report had no photos: the export followed the tab showing, so the To Do tab left out finished work. Now always every task. Date tag and line between days confirmed.
+43. Material requested email as a table. Built; see 46.
+44. Variation email to carry the photos, and mark up photos on upload. Mark-up done; email see 46.
+45. Permit email to carry the permit as an attachment. New permit PDF built; email see 46.
+46. Any email with a link to a file should attach it. Audit: subcontractor inspection and site induction emails were links; the rest attach, some falling back to a link only when too big. Live functions need deploying.
+47. Documents tile for PMs and admins showing the job's OneDrive folder. Done. Nothing is copied into the app, so tiles aren't duplicated. Site managers don't get it, as the OneDrive functions are PM and admin only.
+
+### New job pack (built 1 Nov; on for Sandbox only)
+Rules: `docs/claude-code/New Job Pack - what goes where.xlsx`. Andy edits it and loads it in Admin Centre › OneDrive › New job pack. Results in `TEST-COVERAGE-2026-10-31.md`.
 39. Setting up a new job makes its OneDrive folder from `RTB Roofing Ltd/Live Projects/- New Job Pack - Template`, and links areas of the app to the right sub-folders. Needs a new server function and more folder links on each job. Not to run for RTB without Andy's say-so while Finance is in trial.
    - **Andy, 31 Oct 2026:** loves it, to be done on 1 Nov, not before. Work out how to do it without OneDrive holding documents the app doesn't use. OneDrive currently has loads of files that aren't relevant.
    - **What he wants synced:** only issued toolbox talks go to OneDrive. RAMS sync. Schedule of Works syncs into weekly folders.

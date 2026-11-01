@@ -1,6 +1,7 @@
 // Drawings, Spec's & Programme (810): per-job folders of files. Everyone on the job
 // can view (RLS hides folders set to "assigned" people only); managers add folders,
 // upload, supersede, rename, reorder and delete.
+import { packPut } from '@/data/jobPack';
 import { useQuery } from '@tanstack/react-query';
 
 import { cachedQuery, orThrow } from '@/lib/offlineCache';
@@ -129,7 +130,7 @@ export async function addKeyDate(me: Profile, siteId: string, date: string, titl
 const b64 = (u: Uint8Array) => { let s = ''; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode(...u.subarray(i, i + 0x8000)); return btoa(s); };
 /** Push half: a copy of an uploaded file into the job's linked folder. Best-effort and silent, as today. */
 export async function pushDrawingToOneDrive(siteId: string, name: string, uri: string) {
-  try { const bytes = new Uint8Array(await (await fetch(uri)).arrayBuffer()); await invokeAsUser('onedrive-upload', { filename: name, content_base64: b64(bytes), site_id: siteId }); } catch { /* OneDrive sync is opportunistic */ }
+  try { const bytes = new Uint8Array(await (await fetch(uri)).arrayBuffer()); if (await packPut(siteId, 'drawing_out', name, { bytes })) return; await invokeAsUser('onedrive-upload', { filename: name, content_base64: b64(bytes), site_id: siteId }); } catch { /* OneDrive sync is opportunistic */ }
 }
 export type OdItem = { id: string; name: string; driveId?: string | null };
 /** One level of the linked folder: sub-folders and files. */
@@ -161,7 +162,8 @@ export async function importFromOneDrive(me: Profile, siteId: string, folderId: 
 /** Manual Sync (310): new top-level files in the job's linked folder come into Drawings; last-synced stamped. */
 export async function syncSiteFolder(me: Profile, site: { id: string; onedrive_folder_id?: string | null; onedrive_drive_id?: string | null }, onStep: (s: string) => void): Promise<string> {
   if (!site.onedrive_folder_id) return 'No folder linked.';
-  const lvl = await listOneDriveLevel({ id: site.onedrive_folder_id, driveId: site.onedrive_drive_id });
+  // A job pack's drawings are in their own sub-folder; a job linked by hand uses its whole folder, as before.
+  const lvl = await listOneDriveLevel({ id: (site as { job_pack?: { drawings_folder_id?: string | null } | null }).job_pack?.drawings_folder_id || site.onedrive_folder_id, driveId: site.onedrive_drive_id });
   if (lvl.error) return `Sync failed — ${lvl.error}`;
   const have = new Set((((await db.from('drawing_files').select('name').eq('site_id', site.id).is('folder_id', null)).data as { name: string }[] | null) ?? []).map((f) => f.name));
   const r = await importFromOneDrive(me, site.id, null, lvl.files.filter((f) => !have.has(f.name)), onStep);

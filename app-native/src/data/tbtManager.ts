@@ -2,6 +2,7 @@
 // Admin Centre library, issue for signing (a live copy; only one live talk per job;
 // the issuer signs it there and then), issue company-wide, rename, replace the
 // file, mark completed, delete, and remind whoever hasn't signed.
+import { packDoc } from '@/data/jobPack';
 import { siteStatusKey } from '@/lib/rules/checkin';
 import { supabase } from '@/lib/supabase';
 import type { Profile, Site } from '@/lib/types';
@@ -67,6 +68,7 @@ export async function issueTbt(me: Me, siteId: string, talk: Tbt): Promise<{ id:
   } else if (!(await db.from('toolbox_talks').update({ status: 'live' } as never).eq('id', talk.id).select('id')).data?.length) return { id: null, msg: 'Could not issue — try again.' };
   const signed = await autoSignIssuer(me, liveId);
   tellOperatives(me, siteId, talk.title);
+  if (talk.storage_path) packDoc(siteId, 'tbt_issued', talk.title, 'rams-docs', talk.storage_path);
   return { id: liveId, msg: `Issued for signing${signed ? ' and signed by you' : ''}${talk.status === 'bank' ? ' — original kept in Bank TBT for reuse' : ''}${!me.signature_path ? '. Adopt your signature to have it signed automatically next time.' : ''}` };
 }
 

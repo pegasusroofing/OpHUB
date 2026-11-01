@@ -2,6 +2,7 @@
 // automatic one), client (typing suggests Directory clients and past clients; free text is fine),
 // contact number and email, multi-site or repair contract, Active or Upcoming, and a start date.
 // Client, address and start date are required (Andy). PMs / admins only.
+import { setupNewJobPack } from '@/data/jobPack';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, Stack } from 'expo-router';
 import { useState } from 'react';
@@ -58,6 +59,7 @@ export default function NewProject() {
     const r = await createSite(me, { ...d, name: d.name.trim(), address: d.address.trim(), postcode: d.postcode.trim(), job_number: d.job_number.trim(), client_name: d.client_name.trim(), client_phone: d.client_phone.trim(), client_email: d.client_email.trim(), start_date: d.start_date }, auto);
     setBusy(false);
     if ('error' in r) { toast(r.error); return; }
+    void setupNewJobPack(me.org_id, r.id);
     await qc.invalidateQueries({ queryKey: ['sites'] });
     router.replace(`/sites/${r.id}` as never);
   };

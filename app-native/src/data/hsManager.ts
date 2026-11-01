@@ -1,6 +1,7 @@
 // Manager tools for RAMS and COSHH (580 / 610 / 620): upload a PDF (RAMS can
 // supersede an older one and is recorded as issued by the uploader), replace a
 // COSHH file (everyone signs again), delete, and "Ask Outstanding to Sign".
+import { packDoc } from '@/data/jobPack';
 import { supabase } from '@/lib/supabase';
 import { mustHit } from '@/lib/mustHit';
 import type { Profile } from '@/lib/types';
@@ -41,6 +42,7 @@ export async function uploadHsDoc(me: Profile & { signature_path?: string | null
   const id = (r.data as { id: string } | null)?.id;
   if (r.error || !id) return 'Could not save — try again.';
   if (f.companyId) return null; // a subcontractor's own folder: no issued record or job-wide notice
+  packDoc(siteId, kind === 'coshh' || f.docType === 'COSHH' ? 'coshh_added' : f.supersedesId ? 'rams_superseded' : 'rams_issued', f.name, T[kind].bucket, path);
   if (kind === 'rams') {
     if (f.supersedesId) await db.from('rams_docs').update({ status: 'superseded', superseded_by: id } as never).eq('id', f.supersedesId);
     // Uploading it is issuing it: recorded straight away as issued by the uploader.
