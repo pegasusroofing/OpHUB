@@ -841,3 +841,4 @@
 {"part":"bq1","step":"+ Add under a section offers Item and Sub-section; no main + Sub-section","ok":true,"note":"main 0, offered 1","ms":1544}
 {"part":"bq2","step":"Heading and closed line rows match","ok":true,"note":"34,34,34,34,34,34","ms":10192}
 {"part":"bq3","step":"Bottom + Add","ok":true,"note":"old 0, section 1, item 1","ms":10823}
+{"part":"bq3","step":"Left edges line up; Import / Export offers the options","ok":true,"note":"in border 288, add 288, save 288, import 288","ms":10768}

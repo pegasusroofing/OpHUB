@@ -162,6 +162,66 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
     if (!ok) toast('Could not make the file — try again.');
   };
 
+  const bqCopy = async () => {
+          const [secs, tasks] = await Promise.all([
+            fdb.from('schedule_sections').select('id,name,contract_item_id').eq('site_id', id).order('position', { ascending: true, nullsFirst: false }).order('created_at'),
+            fdb.from('schedule_tasks').select('id,name,section_id,contract_item_id').eq('site_id', id).order('position', { ascending: true, nullsFirst: false }).order('created_at'),
+          ]);
+          const have = new Set(rows.map((r) => r._task_id).filter(Boolean));
+          const free = ((tasks.data as Row[] | null) ?? []).filter((t) => !t.contract_item_id && !have.has(t.id));
+          if (!free.length) { toast('Everything on the site schedule is already in here.'); return; }
+          const addRows: Row[] = free.filter((t) => !t.section_id).map((t) => ({ ...blank('item'), description: t.name, _task_id: t.id }));
+          ((secs.data as Row[] | null) ?? []).forEach((s) => {
+            const ts = free.filter((t) => t.section_id === s.id); if (!ts.length) return;
+            addRows.push({ ...blank('section'), description: s.name, _sec_id: s.contract_item_id ? null : s.id }, ...ts.map((t) => ({ ...blank('item'), description: t.name, _task_id: t.id })));
+          });
+          setRows([...rows, ...addRows]);
+          toast(`${free.length} task${free.length === 1 ? '' : 's'} copied in — add a price to each`);
+        };
+  const bqSend = async () => {
+          if (rows.some((r) => !r.id)) { toast('Save the schedule first.'); return; }
+          const [secs, tasks] = await Promise.all([fdb.from('schedule_sections').select('id,contract_item_id,name,position').eq('site_id', id), fdb.from('schedule_tasks').select('id,contract_item_id,name,section_id,position').eq('site_id', id)]);
+          const sl = (secs.data as Row[] | null) ?? [], tl = (tasks.data as Row[] | null) ?? [];
+          const secBy: Record<string, Row> = {}, taskBy: Record<string, Row> = {};
+          sl.forEach((s) => { if (s.contract_item_id) secBy[s.contract_item_id] = s; }); tl.forEach((t) => { if (t.contract_item_id) taskBy[t.contract_item_id] = t; });
+          let secPos = sl.reduce((m, s) => Math.max(m, Number(s.position || 0)), 0) + 1, taskPos = tl.reduce((m, t) => Math.max(m, Number(t.position || 0)), 0) + 1;
+          let cur: string | null = null, head = '', added = 0, updated = 0;
+          const nm = (i: Row) => `${i.ref ? `${i.ref} ` : ''}${String(i.description || '').trim()}`;
+          for (const i of rows) {
+            if (i.kind === 'section' || i.kind === 'subsection') {
+              const name = i.kind === 'section' ? nm(i) : `${head ? `${head} — ` : ''}${nm(i)}`; if (i.kind === 'section') head = nm(i);
+              const ex = secBy[i.id];
+              if (ex) { if (ex.name !== name) await fdb.from('schedule_sections').update({ name } as never).eq('id', ex.id); cur = ex.id; }
+              else { const r = await fdb.from('schedule_sections').insert({ site_id: id, name, position: secPos++, created_by: me.id, contract_item_id: i.id } as never).select('id').single(); cur = r.data ? (r.data as Row).id : null; }
+              continue;
+            }
+            const name = nm(i) || 'Item', ex = taskBy[i.id];
+            if (ex) { const p: Row = {}; if (ex.name !== name) p.name = name; if ((ex.section_id || null) !== (cur || null)) p.section_id = cur; if (Object.keys(p).length) { await fdb.from('schedule_tasks').update(p as never).eq('id', ex.id); updated++; } }
+            else if (!(await fdb.from('schedule_tasks').insert({ site_id: id, name, status: 'todo', position: taskPos++, contract_item_id: i.id, ...(cur ? { section_id: cur } : {}) } as never)).error) added++;
+          }
+          toast(added || updated ? `Operatives' schedule: ${added} task${added === 1 ? '' : 's'} added${updated ? `, ${updated} updated` : ''}` : 'The operatives’ schedule is already up to date');
+        };
+  const bqImport = async () => {
+          const r = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true }); if (r.canceled || !r.assets[0]) return;
+          const a = r.assets[0];
+          if (/\.xls$/i.test(a.name || '')) { toast('Save it as .xlsx or .csv first — old .xls files can’t be read.'); return; }
+          setImporting(true);
+          try {
+            const bytes = new Uint8Array(await (await fetch(a.uri)).arrayBuffer());
+            const kept = await supabase.storage.from('finance-docs').upload(`${me.org_id}/${id}/contract/${Date.now()}-${(a.name || 'boq').replace(/[^a-z0-9.-]+/gi, '_').slice(-80)}`, bytes, { contentType: a.mimeType || 'application/octet-stream' });
+            if (!kept.error) { await fdb.from('job_finance').update({ contract_file_path: kept.data.path, contract_file_name: a.name || 'BoQ' } as never).eq('site_id', id); setLastUp({ path: kept.data.path, name: a.name || 'BoQ' }); }
+            if (/\.pdf$/i.test(a.name || '') || a.mimeType === 'application/pdf') {
+              const pages = await pdfPageTexts(bytes, 40);
+              setImp({ sheets: [], sheet: '', lines: importPdfLines((pages ?? []).join('\n').split('\n')) });
+            } else {
+              const sheets = /\.csv$/i.test(a.name || '') ? [{ name: 'CSV', rows: csvRows(new TextDecoder().decode(bytes)) }] : await readXlsx(bytes);
+              const best = bestSheet(sheets); if (!best) { toast('Nothing found in that file.'); return; }
+              const g = guessColumns(best.rows);
+              setImp({ sheets, sheet: best.name, lines: importRows(best.rows, g.header, g.cols) });
+            }
+          } catch { toast('Could not read that file.'); } finally { setImporting(false); }
+        };
+  const bqLast = async () => { const u = await openDocLink('finance-docs', lastUp.path); if (u) viewDoc(u, lastUp.name); else toast('Could not open the file.'); };
   return (
     <View style={{ flex: 1 }}>
     <ScrollView style={{ flex: 1 }} contentContainerStyle={page(1100)} keyboardShouldPersistTaps="handled">
@@ -175,7 +235,7 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
 
       {/* Each section sits in its own border (Andy, 1 Nov 2026); lines before any section don't. */}
       {rows.reduce<number[][]>((gs, r, i) => { if (r.kind === 'section' || !gs.length) gs.push([i]); else gs[gs.length - 1].push(i); return gs; }, []).map((g) => (
-      <View key={rows[g[0]]._k} style={rows[g[0]].kind === 'section' ? { borderWidth: 1.5, borderColor: t.brand1, borderRadius: 10, padding: 6, paddingBottom: 0, marginBottom: 12 } : undefined}>
+      <View key={rows[g[0]]._k} style={rows[g[0]].kind === 'section' ? { borderWidth: 1.5, borderColor: t.brand1, borderRadius: 10, padding: 6, paddingBottom: 0, marginBottom: 12, marginHorizontal: -7.5 } : undefined}>
       {g.map((i) => {
         const r = rows[i];
         const head = r.kind === 'section' || r.kind === 'subsection';
@@ -272,65 +332,9 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
       </Card>
 
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
-        <Button small kind="ghost" title="Copy in tasks from the site schedule" onPress={async () => {
-          const [secs, tasks] = await Promise.all([
-            fdb.from('schedule_sections').select('id,name,contract_item_id').eq('site_id', id).order('position', { ascending: true, nullsFirst: false }).order('created_at'),
-            fdb.from('schedule_tasks').select('id,name,section_id,contract_item_id').eq('site_id', id).order('position', { ascending: true, nullsFirst: false }).order('created_at'),
-          ]);
-          const have = new Set(rows.map((r) => r._task_id).filter(Boolean));
-          const free = ((tasks.data as Row[] | null) ?? []).filter((t) => !t.contract_item_id && !have.has(t.id));
-          if (!free.length) { toast('Everything on the site schedule is already in here.'); return; }
-          const addRows: Row[] = free.filter((t) => !t.section_id).map((t) => ({ ...blank('item'), description: t.name, _task_id: t.id }));
-          ((secs.data as Row[] | null) ?? []).forEach((s) => {
-            const ts = free.filter((t) => t.section_id === s.id); if (!ts.length) return;
-            addRows.push({ ...blank('section'), description: s.name, _sec_id: s.contract_item_id ? null : s.id }, ...ts.map((t) => ({ ...blank('item'), description: t.name, _task_id: t.id })));
-          });
-          setRows([...rows, ...addRows]);
-          toast(`${free.length} task${free.length === 1 ? '' : 's'} copied in — add a price to each`);
-        }} />
-        <Button small kind="ghost" title="Send to the operatives' schedule" onPress={async () => {
-          if (rows.some((r) => !r.id)) { toast('Save the schedule first.'); return; }
-          const [secs, tasks] = await Promise.all([fdb.from('schedule_sections').select('id,contract_item_id,name,position').eq('site_id', id), fdb.from('schedule_tasks').select('id,contract_item_id,name,section_id,position').eq('site_id', id)]);
-          const sl = (secs.data as Row[] | null) ?? [], tl = (tasks.data as Row[] | null) ?? [];
-          const secBy: Record<string, Row> = {}, taskBy: Record<string, Row> = {};
-          sl.forEach((s) => { if (s.contract_item_id) secBy[s.contract_item_id] = s; }); tl.forEach((t) => { if (t.contract_item_id) taskBy[t.contract_item_id] = t; });
-          let secPos = sl.reduce((m, s) => Math.max(m, Number(s.position || 0)), 0) + 1, taskPos = tl.reduce((m, t) => Math.max(m, Number(t.position || 0)), 0) + 1;
-          let cur: string | null = null, head = '', added = 0, updated = 0;
-          const nm = (i: Row) => `${i.ref ? `${i.ref} ` : ''}${String(i.description || '').trim()}`;
-          for (const i of rows) {
-            if (i.kind === 'section' || i.kind === 'subsection') {
-              const name = i.kind === 'section' ? nm(i) : `${head ? `${head} — ` : ''}${nm(i)}`; if (i.kind === 'section') head = nm(i);
-              const ex = secBy[i.id];
-              if (ex) { if (ex.name !== name) await fdb.from('schedule_sections').update({ name } as never).eq('id', ex.id); cur = ex.id; }
-              else { const r = await fdb.from('schedule_sections').insert({ site_id: id, name, position: secPos++, created_by: me.id, contract_item_id: i.id } as never).select('id').single(); cur = r.data ? (r.data as Row).id : null; }
-              continue;
-            }
-            const name = nm(i) || 'Item', ex = taskBy[i.id];
-            if (ex) { const p: Row = {}; if (ex.name !== name) p.name = name; if ((ex.section_id || null) !== (cur || null)) p.section_id = cur; if (Object.keys(p).length) { await fdb.from('schedule_tasks').update(p as never).eq('id', ex.id); updated++; } }
-            else if (!(await fdb.from('schedule_tasks').insert({ site_id: id, name, status: 'todo', position: taskPos++, contract_item_id: i.id, ...(cur ? { section_id: cur } : {}) } as never)).error) added++;
-          }
-          toast(added || updated ? `Operatives' schedule: ${added} task${added === 1 ? '' : 's'} added${updated ? `, ${updated} updated` : ''}` : 'The operatives’ schedule is already up to date');
-        }} />
-        {!!lastUp?.path && <Button small kind="ghost" title="📄 Last Upload" onPress={async () => { const u = await openDocLink('finance-docs', lastUp.path); if (u) viewDoc(u, lastUp.name); else toast('Could not open the file.'); }} />}
-        <Button small kind="ghost" busy={importing} title="📥 Import a breakdown (Excel, CSV or PDF)" onPress={async () => {
-          const r = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true }); if (r.canceled || !r.assets[0]) return;
-          const a = r.assets[0];
-          if (/\.xls$/i.test(a.name || '')) { toast('Save it as .xlsx or .csv first — old .xls files can’t be read.'); return; }
-          setImporting(true);
-          try {
-            const bytes = new Uint8Array(await (await fetch(a.uri)).arrayBuffer());
-            const kept = await supabase.storage.from('finance-docs').upload(`${me.org_id}/${id}/contract/${Date.now()}-${(a.name || 'boq').replace(/[^a-z0-9.-]+/gi, '_').slice(-80)}`, bytes, { contentType: a.mimeType || 'application/octet-stream' });
-            if (!kept.error) { await fdb.from('job_finance').update({ contract_file_path: kept.data.path, contract_file_name: a.name || 'BoQ' } as never).eq('site_id', id); setLastUp({ path: kept.data.path, name: a.name || 'BoQ' }); }
-            if (/\.pdf$/i.test(a.name || '') || a.mimeType === 'application/pdf') {
-              const pages = await pdfPageTexts(bytes, 40);
-              setImp({ sheets: [], sheet: '', lines: importPdfLines((pages ?? []).join('\n').split('\n')) });
-            } else {
-              const sheets = /\.csv$/i.test(a.name || '') ? [{ name: 'CSV', rows: csvRows(new TextDecoder().decode(bytes)) }] : await readXlsx(bytes);
-              const best = bestSheet(sheets); if (!best) { toast('Nothing found in that file.'); return; }
-              const g = guessColumns(best.rows);
-              setImp({ sheets, sheet: best.name, lines: importRows(best.rows, g.header, g.cols) });
-            }
-          } catch { toast('Could not read that file.'); } finally { setImporting(false); }
+        <Button small kind="ghost" busy={importing} title="Import / Export" onPress={async () => {
+          const k = await chooseAction('Import / Export', [{ key: 'copy', label: 'Copy in tasks from the site schedule' }, { key: 'send', label: "Send to the operatives' schedule" }, { key: 'imp', label: 'Import a breakdown (Excel, CSV or PDF)' }, ...(lastUp?.path ? [{ key: 'last', label: 'Last Upload' }] : [])]);
+          if (k === 'copy') await bqCopy(); else if (k === 'send') await bqSend(); else if (k === 'imp') await bqImport(); else if (k === 'last') await bqLast();
         }} />
       </View>
       <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
