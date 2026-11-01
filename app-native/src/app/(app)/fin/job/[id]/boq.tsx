@@ -221,7 +221,7 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
             }
           } catch { toast('Could not read that file.'); } finally { setImporting(false); }
         };
-  const bqLast = async () => { const u = await openDocLink('finance-docs', lastUp.path); if (u) viewDoc(u, lastUp.name); else toast('Could not open the file.'); };
+  const bqLast = async () => { const u = await openDocLink('finance-docs', (lastUp?.path as string)); if (u) viewDoc(u, lastUp?.name); else toast('Could not open the file.'); };
   return (
     <View style={{ flex: 1 }}>
     <ScrollView style={{ flex: 1 }} contentContainerStyle={page(1100)} keyboardShouldPersistTaps="handled">
@@ -235,7 +235,7 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
 
       {/* Each section sits in its own border (Andy, 1 Nov 2026); lines before any section don't. */}
       {rows.reduce<number[][]>((gs, r, i) => { if (r.kind === 'section' || !gs.length) gs.push([i]); else gs[gs.length - 1].push(i); return gs; }, []).map((g) => (
-      <View key={rows[g[0]]._k} style={rows[g[0]].kind === 'section' ? { borderWidth: 1.5, borderColor: t.brand1, borderRadius: 10, padding: 6, paddingBottom: 0, marginBottom: 12, marginHorizontal: -7.5 } : undefined}>
+      <View key={rows[g[0]]._k} style={rows[g[0]].kind === 'section' ? { borderWidth: 1.5, borderColor: t.brand1, borderRadius: 10, overflow: 'hidden', backgroundColor: base.card, marginBottom: 12 } : undefined}>
       {g.map((i) => {
         const r = rows[i];
         const head = r.kind === 'section' || r.kind === 'subsection';
@@ -257,7 +257,7 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
         };
         return (
           <Fragment key={r._k}>
-          <View style={{ borderWidth: 1, borderColor: sec ? t.brand1 : r.kind === 'subsection' ? '#DFE3EA' : isOpen ? t.brand1 : base.cardLine, borderRadius: 8, paddingVertical: !head && isOpen ? 8 : 2, paddingHorizontal: 8, marginBottom: 6, backgroundColor: sec ? t.brand1 : r.kind === 'subsection' ? '#DFE3EA' : base.card, marginLeft: r.kind === 'subsection' ? 10 : 0 }}>
+          <View style={{ borderWidth: 1, borderColor: sec ? t.brand1 : r.kind === 'subsection' ? '#DFE3EA' : isOpen ? t.brand1 : base.cardLine, borderRadius: 8, paddingVertical: !head && isOpen ? 8 : 2, paddingHorizontal: 8, marginBottom: 6, backgroundColor: sec ? t.brand1 : r.kind === 'subsection' ? '#DFE3EA' : base.card, marginLeft: r.kind === 'subsection' ? 10 : 0, ...(rows[g[0]].kind === 'section' ? { marginBottom: 0, marginLeft: 0, borderRadius: 0, borderWidth: 0, borderBottomWidth: 1, borderBottomColor: isOpen ? t.brand1 : base.cardLine } : null) }}>
             <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
               <Pressable hitSlop={6} focusable={!isOpen} accessibilityLabel="Tick" onPress={() => (head ? tick(grp, !on) : set(i, '_sel', !on))}><Text style={{ fontSize: 17, color: head ? ink : base.ink }}>{on ? '☑' : '☐'}</Text></Pressable>
               {isOpen ? <>
@@ -301,7 +301,7 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
               </>
             )}
           </View>
-          {h >= 0 && nextHead && <View style={{ marginBottom: 8, marginLeft: rows[h].kind === 'subsection' ? 10 : 0 }}><Button small kind="ghost" title="+ Add" onPress={() => void addHere()} /></View>}
+          {h >= 0 && nextHead && <View style={{ marginVertical: 6, marginLeft: 8 }}><Button small kind="ghost" title="+ Add" onPress={() => void addHere()} /></View>}
           </Fragment>
         );
       })}

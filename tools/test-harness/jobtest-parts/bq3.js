@@ -10,6 +10,6 @@ module.exports = async ({as, step}) => {
     const first = await a.page.getByText(/^\+ Add$/).locator('visible=true').first().locator('..').boundingBox();
     await a.page.getByText(/^Import \/ Export$/).locator('visible=true').first().click({timeout: 6000}); await a.page.waitForTimeout(500); await a.shot('menu');
     const t = await a.text();
-    return {ok: /Copy in tasks/.test(t) && /Send to the operatives/.test(t) && /Import a breakdown/.test(t) && Math.abs(first.x - save) <= 1 && Math.abs(io - save) <= 1, note: `in border ${Math.round(first.x)}, add ${inner}, save ${save}, import ${io}`};
+    return {ok: /Copy in tasks/.test(t) && /Send to the operatives/.test(t) && /Import a breakdown/.test(t) && Math.abs(inner - save) <= 1 && Math.abs(io - save) <= 1, note: `in border ${Math.round(first.x)}, add ${inner}, save ${save}, import ${io}`};
   });
 };
