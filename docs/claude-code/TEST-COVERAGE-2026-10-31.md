@@ -5,6 +5,23 @@ Nothing here touched the real database, real phones, real emails, Xero or OneDri
 
 The Sandbox section below is the exception: it ran against the real database.
 
+## Finance and company admin worked for real (1 Nov 2026)
+Parts `fin1`-`fin9`, `adm1`-`adm11`, `held1`, as Sandbox's admin at phone size.
+
+**Sums checked by hand:** application 4,300 less 5% = 4,085; certificate 4,200 less 210 = 3,990; retention capped at 3%; first half of retention 105; CIS 2,000, contra 100, net 1,800, CIS 280, pay 1,520; operative invoice 850; forecast and to-date profit; variation 1,000 issued, 900 approved, final account 10,900; Excel upload 8,200; client's Excel certificate net 2,910 short 1,000; PDF BOQ 3,250.
+
+**Also used for real:** PO, purchase invoice, quotes, plant, BOQ import, day works, monthly report, 15 reports (Excel and PDF are real files, only CIS figures checked), statements, Directory, plots, pay run, price book, cost codes, Team switch, Finance settings; SoW, RAMS and COSHH libraries, report and signing templates, signing boxes, COSHH assessment, HR settings and leave, sub applications, Main Contractor add, PPE export, H&S upload and gate, branding, expenses.
+
+**Faults fixed:** supplier with no email blocked its PO; invoice jobs offered applications and retention; VAT shown on reverse-charge applications; trail wrong on Finance pages; a drawing pushed out came back as a second copy on sync. Test runner counted a step with no result as a pass: one real false pass found (closing a snag), retested and fine.
+
+**Layout:** Finance lists use Filter and Sort drop-downs and compact rows; thin export bar on BOQ, Reports, PPE, costs; tabs show they scroll.
+
+**Job pack rules all run on real OneDrive:** toolbox talk, COSHH, approved variation, closed permit, briefing, drawing out and in, material orders in, Schedule of Works and O&M exports. Folder picker links a folder. "I've emailed it" files with no email. PM's new subcontractor reaches the library.
+
+**Not proven:** VAT rates save (guard needs a row id); HR "None uploaded yet" seen only with a stubbed list; an admin's own H&S sign-off (Demo has no signature); Make admin, Unlock, role change, remove, sending invites (left alone on purpose); emails, Xero, inbox (blocked); inspection and induction emails; automatic chaser firing; real Estimating and Live Projects folders; real phones. Sub application review only on an existing one. Statement "Balance" line isn't read: it can be typed in.
+
+**Browser crash:** at phone size the test browser crashed three times after long runs, on different screens. Each screen passed alone. Thought to be the test browser's memory on the development build, not proven.
+
 ## Quote tracker on Sandbox (1 Nov 2026)
 Parts `quote1`, `quote2`. New quote and client into the Directory, client search, folder from the real template (read only) into a test folder, upload, Returned dates the chaser +30, Chase now (one real email to Andy, logged), Tender stage turns the chaser off, Won makes the job and moves the folder into its pack, Lost filed to `- Estimating 2026`, view by customer, Excel and PDF, import with chaser off, second import adds nothing. Real tracker read as a dry run, not loaded.
 
