@@ -78,7 +78,7 @@ export function AppBar({ title, onBack, home, right, noHistory }: { title?: stri
     : [];
   const cfs = desk ? 12.5 : 11.5;
   // The bold line: to this part's home page. The small line under it copies, rather than selecting the text.
-  const titleGo = home ? null : fin ? (path.replace(/\/$/, '') === '/fin' ? null : '/fin') : site ? (jobHome ? null : `/sites/${site.id}`) : '/home';
+  const titleGo = home ? null : fin ? (path.replace(/\/$/, '') === '/fin' ? null : '/fin') : site ? (jobHome ? '/sites' : `/sites/${site.id}`) : '/home';
   const copyable = !home && !!sub;
   const [copied, setCopied] = useState(false);
   const settingsBtn = home && isFullManager(me);

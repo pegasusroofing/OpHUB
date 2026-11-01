@@ -137,6 +137,7 @@ Then the same run on Sandbox Roofing against the real database, admin only: 138 
 - Change the finance inbox mail forwarder to send the `x-inbox-key` header instead of the key in the link.
 - Check that the API "max rows" setting is 1,000 or more.
 - Rebuild the phone apps.
+- Change the cron secret: follow `sql/8 - Change the cron secret (1 Nov).sql`, then tell Claude to check the jobs.
 
 ## Still open (carry into the native app, or fix in the old one if urgent)
 - **Finance go-live switches:** the trial stubs, and POs for every PM order (proposals P01, P02; map links L28, L51, L52, L59, L73). Finance stays in **TRIAL** until Andy says otherwise.
