@@ -73,7 +73,7 @@ export default function AppLayout() {
     <SupportBar />
     <OfflineBar />
     <Tabs
-      tabBar={desk ? () => <DeskNav /> : projBar ? () => null : undefined}
+      tabBar={desk ? () => <DeskNav /> : projBar || isFullManager(me) ? () => null : undefined}
       screenOptions={{
         // Pages straight under the tabs get the shared top bar; the sections with their own Stack draw it themselves.
         header: (p) => <AppBar title={p.options.title} home={p.route.name === 'home'} onBack={p.route.name === 'home' ? undefined : () => router.navigate('/home' as never)} />,

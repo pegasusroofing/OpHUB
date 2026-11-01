@@ -874,3 +874,8 @@
 {"part":"bq4","step":"All lines open, with labels and £","ok":true,"note":"4 lines open","ms":9900}
 {"part":"bq4","step":"Tab goes description to Qty, and clicking about never closes","ok":true,"note":"landed on Qty","ms":1032}
 {"part":"bq4","step":"Unit: type filters, down arrow and Tab takes it, Edit at the bottom","ok":true,"note":"value nr","ms":1418}
+{"part":"bar1","step":"Home none","ok":true,"note":"/home bar 0","ms":7086}
+{"part":"bar1","step":"Finance none","ok":true,"note":"/fin bar 0","ms":7067}
+{"part":"bar1","step":"Deliveries none","ok":true,"note":"/pm/deliveries bar 0","ms":7061}
+{"part":"bar1","step":"Projects has it","ok":false,"note":"/sites bar 0","ms":7063}
+{"part":"bar1","step":"Job has it","ok":false,"note":"/sites/96807f70-a7ac-4b20-b401-e3e83fe66e60 bar 0","ms":7058}
