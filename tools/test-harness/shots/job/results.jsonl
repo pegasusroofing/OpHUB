@@ -835,3 +835,4 @@
 {"part":"bq1","step":"Lines start closed, one click opens one","ok":true,"note":"boxes 1 then 9","ms":11633}
 {"part":"bq1","step":"Tab through the line closes it","ok":true,"note":"boxes 9 then 1","ms":255}
 {"part":"bq1","step":"+ Add under a section offers Item and Sub-section; no main + Sub-section","ok":true,"note":"main 0, offered 1","ms":1530}
+{"part":"bq2","step":"Heading and closed line rows match","ok":true,"note":"34,34,34,34,34,34","ms":10474}

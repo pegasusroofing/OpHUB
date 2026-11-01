@@ -181,7 +181,7 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
         const isOpen = openK === r._k;
         const leave = { onFocus: () => { if (closing.current) clearTimeout(closing.current); }, onBlur: () => { closing.current = setTimeout(() => setOpenK((k) => (k === r._k ? null : k)), 150); } } as { onFocus: () => void; onBlur: () => void };
         const sec = r.kind === 'section', ink = sec ? t.brand1Text : base.ink;
-        const headBox = { flex: 0, height: 30, paddingVertical: 0, paddingHorizontal: 6, borderWidth: 0, backgroundColor: 'transparent', color: ink, fontWeight: '800' as const };
+        const headBox = { flex: 0, height: 28, paddingVertical: 0, paddingHorizontal: 6, borderWidth: 0, backgroundColor: 'transparent', color: ink, fontWeight: '800' as const };
         // The Add button sits at the end of each section or sub-section: an item, or a sub-section (only ever inside a section).
         let h = i; while (h >= 0 && rows[h].kind !== 'section' && rows[h].kind !== 'subsection') h--;
         const next = rows[i + 1]?.kind, nextHead = next === 'section' || next === 'subsection' || i === rows.length - 1;
@@ -193,16 +193,16 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
         };
         return (
           <Fragment key={r._k}>
-          <View style={{ borderWidth: head ? 0 : 1, borderColor: isOpen && !head ? t.brand1 : base.cardLine, borderRadius: head ? 8 : 10, paddingVertical: head ? 3 : isOpen ? 8 : 5, paddingHorizontal: 8, marginBottom: 6, backgroundColor: sec ? t.brand1 : r.kind === 'subsection' ? '#DFE3EA' : base.card, marginLeft: r.kind === 'subsection' ? 10 : 0 }}>
+          <View style={{ borderWidth: 1, borderColor: sec ? t.brand1 : r.kind === 'subsection' ? '#DFE3EA' : isOpen ? t.brand1 : base.cardLine, borderRadius: 8, paddingVertical: !head && isOpen ? 8 : 2, paddingHorizontal: 8, marginBottom: 6, backgroundColor: sec ? t.brand1 : r.kind === 'subsection' ? '#DFE3EA' : base.card, marginLeft: r.kind === 'subsection' ? 10 : 0 }}>
             <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
               <Pressable hitSlop={6} focusable={!isOpen} accessibilityLabel="Tick" onPress={() => (head ? tick(grp, !on) : set(i, '_sel', !on))}><Text style={{ fontSize: 17, color: head ? ink : base.ink }}>{on ? '☑' : '☐'}</Text></Pressable>
               {isOpen ? <>
               <TextInput {...leave} value={r.ref || ''} onChangeText={(v) => set(i, 'ref', v)} placeholder="Ref" placeholderTextColor={head ? ink : undefined} style={[box, { width: 64 }, head && headBox]} />
               <TextInput {...leave} value={r.description || ''} onChangeText={(v) => set(i, 'description', v)} placeholder={head ? (r.kind === 'section' ? 'Section heading' : 'Sub-section heading') : 'Description'} placeholderTextColor={head ? ink : undefined} autoFocus multiline={!head} style={[box, { flex: 1 }, head && { ...headBox, flex: 1 }]} />
               </> : (
-                <Pressable accessibilityRole="button" accessibilityLabel={`Open ${r.description || 'line'}`} onPress={() => setOpenK(r._k)} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 30 }}>
+                <Pressable accessibilityRole="button" accessibilityLabel={`Open ${r.description || 'line'}`} onPress={() => setOpenK(r._k)} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 28 }}>
                   <Text numberOfLines={1} style={{ width: 52, fontSize: 13, fontWeight: head ? '800' : '500', color: head ? ink : base.slate }}>{r.ref || ''}</Text>
-                  <Text numberOfLines={1} style={{ flex: 1, fontSize: 13.5, fontWeight: head ? '800' : '400', color: head ? ink : r.description ? base.ink : base.slateLight }}>{r.description || (head ? 'Heading' : 'Description')}</Text>
+                  <Text style={{ flex: 1, fontSize: 13.5, fontWeight: head ? '800' : '400', color: head ? ink : r.description ? base.ink : base.slateLight }}>{r.description || (head ? 'Heading' : 'Description')}</Text>
                   {!head && <Text numberOfLines={1} style={{ width: 150, fontSize: 12, color: base.slate, textAlign: 'right' }}>{num(r.qty) !== null ? `${r.qty} ${r.unit || ''} @ ${money(Number(num(r.rate)) || 0)}` : ''}</Text>}
                   {!head && <Text numberOfLines={1} style={{ width: 210, fontSize: 11.5, color: num(r.cost) !== null && vals[i] && (num(r.cost) as number) > vals[i] ? base.red : base.slate, textAlign: 'right' }}>{num(r.cost) !== null ? marginText(vals[i], num(r.cost)) : ''}</Text>}
                   {!head && <Text style={{ width: 90, fontWeight: '800', fontSize: 13, color: base.ink, textAlign: 'right' }}>{money(vals[i])}</Text>}
