@@ -59,7 +59,7 @@ export function Button({ title, onPress, busy, kind = 'primary', disabled, small
 }) {
   const t = useTheme();
   const primary = kind === 'primary';
-  const danger = kind === 'danger' || (kind === 'ghost' && /^(delete|remove|void)/i.test(title));
+  const danger = kind === 'danger' || (kind === 'ghost' && /^[^a-z]*(delete|remove|void)/i.test(title));
   const fg = primary ? t.brand1Text : danger ? BTN_DANGER[1] : base.ink;
   const held = useRef(false);
   const press = () => {
