@@ -98,12 +98,25 @@ test('vehicle checklist: week start and submit checks in the old order', () => {
   assert.equal(hasFails(items), true);
 });
 
+test('one delivery per driver per drop', () => {
+  const day = [T('A', '7am', { driver_id: 'd1' })];
+  assert.match(slotProblem(day, { id: 'n' }, '7am', place, 1), /full: A is in it, and you have 1 driver/);
+  assert.equal(slotProblem(day, { id: 'n' }, '7am', place, 2), '');
+  assert.match(slotProblem(day, { id: 'n', driver_id: 'd1' }, '7am', place, 2), /driver already has/);
+  assert.equal(slotProblem(day, { id: 'n', driver_id: 'd2' }, '7am', place, 2), '');
+  assert.match(slotProblem([...day, T('B', '7am')], { id: 'n' }, '7am', place, 2), /full/);
+  assert.equal(slotProblem([T('C', '7am', { double_slot: true })], { id: 'n' }, '8am', place, 2), '');
+});
 test('fullSlots marks a 2-drop booking and the drop after it', () => {
   const list = [{ id: 'a', site_id: 's', time_slot: '8am', status: 'pending', double_slot: true }, { id: 'b', site_id: 's', time_slot: '7am', status: 'pending' }] as DTask[];
   const f = fullSlots(list);
   assert.equal(f['8am']?.id, 'a');
   assert.equal(f['9am']?.id, 'a');
-  assert.equal(f['7am'], undefined);
+  assert.equal(f['7am']?.id, 'b');
+  assert.equal(f['10am'], undefined);
+  const two = fullSlots(list, 2);
+  assert.equal(two['7am'], undefined);
+  assert.equal(two['8am'], undefined);
 });
 
 test('bySlotOrder puts the 1st drop first, then order number', () => {

@@ -13,7 +13,7 @@ const XERO_CLIENT_OK = ['status', 'customers', 'suppliers', 'contact', 'create_c
 export function finBlocked(fn: string, action: string | undefined, orgId: string | null | undefined): boolean {
   if (!FIN_TRIAL || (orgId && FIN_SANDBOX_ORGS.includes(orgId))) return false;
   if (fn === 'xero' && XERO_CLIENT_OK.includes(action || '')) return false;
-  return ['send-finance-email', 'xero', 'finance-inbox', 'finance-ai-read'].includes(fn);
+  return ['send-finance-email', 'xero', 'finance-inbox', 'finance-ai-read', 'wage-push'].includes(fn);
 }
 
 // ---------- money and dates ----------

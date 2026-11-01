@@ -1,4 +1,5 @@
 // Driver data and actions. Ported from 840-delivery-driver.js and 9219zz-driver-time-off.js.
+import { driverCount } from '@/data/deliveries';
 import { useQuery } from '@tanstack/react-query';
 import { mustHit } from '@/lib/mustHit';
 
@@ -137,8 +138,9 @@ export async function planPush(me: Profile, t: Delivery, sites: Site[]): Promise
   const list = await dayList(me.org_id as string, nextISO);
   let keepHigh = !!t.high_priority;
   if (keepHigh && list.some((x) => x.high_priority && x.status === 'pending' && x.id !== t.id)) keepHigh = false;
-  const slot = pushSlot(list, t, keepHigh, placeOf(sites));
-  if (!slot) return { error: `No free drop on ${label} — ${slotProblem(list, t, '2pm', placeOf(sites))}` };
+  const cap = await driverCount(me.org_id as string);
+  const slot = pushSlot(list, t, keepHigh, placeOf(sites), cap);
+  if (!slot) return { error: `No free drop on ${label} — ${slotProblem(list, t, '2pm', placeOf(sites), cap)}` };
   return { date: nextISO, slot, keepHigh, label };
 }
 
@@ -166,7 +168,7 @@ export async function reopenDelivery(me: Profile, t: Delivery, choice: { date: s
   const same = choice.date === t.scheduled_date && choice.slot === t.time_slot;
   if (!same) {
     const off = await dayOffBlock(me.org_id as string, choice.date, t.driver_id ?? null); if (off) return { ok: false, msg: off };
-    const why = slotProblem(await dayList(me.org_id as string, choice.date), t, choice.slot, placeOf(sites));
+    const why = slotProblem(await dayList(me.org_id as string, choice.date), t, choice.slot, placeOf(sites), await driverCount(me.org_id as string));
     if (why) return { ok: false, msg: why };
   }
   let keepHigh = !!t.high_priority;

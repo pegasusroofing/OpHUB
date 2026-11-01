@@ -35,7 +35,7 @@ export default function Hub() {
   const fmt = (d: Date) => d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   const pick = (label: string, value: string, onPress: () => void) => (
     <View style={{ marginBottom: 10 }}>
-      <Text style={{ fontSize: 11, fontWeight: '800', letterSpacing: 0.5, color: base.ink, marginBottom: 6 }}>{label}</Text>
+      <Text style={{ fontSize: 11, fontWeight: '800', letterSpacing: 0.5, color: base.ink, marginBottom: 10 }}>{label}</Text>
       <Pressable onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 11, borderWidth: 1, borderColor: base.line, borderRadius: radius.input, backgroundColor: base.card }}>
         <Text style={{ flex: 1, color: base.ink }} numberOfLines={1}>{value}</Text>
         <Text style={{ color: base.ink, fontSize: 11 }}>▾</Text>
@@ -58,7 +58,7 @@ export default function Hub() {
         if (k !== null) { setPm(k); setSite(''); }
       })}</View>}
       {isLoading ? <Muted>Loading…</Muted> : shown.length ? shown.map((it) => (
-        <Pressable key={it.key} onPress={() => router.push(it.route as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 14, borderWidth: 1, borderColor: '#ECEEF2', borderRadius: 16, marginBottom: 8, backgroundColor: base.card }}>
+        <Pressable key={it.key} onPress={() => router.push(it.route as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 14, borderWidth: 1, borderColor: '#ECEEF2', borderRadius: 16, marginBottom: 10, backgroundColor: base.card }}>
           <Text style={{ width: 34, height: 34, borderRadius: 10, borderWidth: 1.5, borderColor: '#E7C9A6', backgroundColor: '#FBF1E6', color: base.warn, textAlign: 'center', lineHeight: 31, fontWeight: '800', overflow: 'hidden' }}>!</Text>
           <View style={{ flex: 1 }}>
             <Text style={[heading(700), { fontSize: 14, color: base.ink }]}>{it.label}</Text>

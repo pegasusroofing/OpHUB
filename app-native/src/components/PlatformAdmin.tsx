@@ -15,7 +15,7 @@ import { useAuth } from '@/lib/auth';
 import { base, page, space } from '@/theme/theme';
 
 const PLAN_LABEL: Record<string, string> = { starter: 'OpHUB Basic', growth: 'OpHUB Pro', enterprise: 'OpHUB Enterprise' };
-const ROLES: [string, string][] = [['operative', 'Operative'], ['site_manager', 'Site Manager'], ['pm', 'Project Manager'], ['estimator', 'Estimator'], ['driver', 'Delivery Driver'], ['client', 'Client'], ['admin', 'Admin']];
+const ROLES: [string, string][] = [['operative', 'Operative'], ['site_manager', 'Site Manager'], ['pm', 'Project Manager'], ['estimator', 'Estimator'], ['finance_controller', 'Finance Controller'], ['driver', 'Delivery Driver'], ['client', 'Client'], ['admin', 'Admin']];
 type Row = Record<string, any>;
 
 export function PlatformAdmin() {

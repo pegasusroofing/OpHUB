@@ -3,6 +3,7 @@
 // today's calendar, snags / on site / tasks), the wide Check In / Out tile,
 // then the tiles — 2 across on a phone, 4 on a computer, centred icon and
 // label; an odd last tile fills its row. Clients get a cut-down view.
+import { WeatherSwap } from '@/components/WeatherSwap';
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
@@ -131,7 +132,8 @@ export default function SiteHome() {
   const tasksBox = <StatBox key="tasks" onPress={go('schedule')}><Text style={statN}>{done}/{h?.tasks.length ?? 0}</Text><Text style={statL}>Tasks done</Text></StatBox>;
   const snagBox = <StatBox key="snags" onPress={go('snagging/list')}><Text style={[statN, !!snags && { color: base.warn }]}>{snags}</Text><Text style={statL}>Open snags</Text></StatBox>;
   const onSiteBox = <StatBox key="on" onPress={go('checkin')}><Text style={[statN, !!h?.onSiteCount && { color: base.ok }]}>{h?.onSiteCount ?? 0}</Text><Text style={statL}>On site now</Text></StatBox>;
-  const stats = mgr ? [clientBox, calBox, snags ? snagBox : onSiteBox] : client ? [tasksBox, calBox, snagBox] : [clientBox, calBox, tasksBox];
+  const swapBox = <WeatherSwap key="swap" me={me} site={site} company={org?.name || ''} style={cardBox} tiles={snags ? [onSiteBox, snagBox] : [onSiteBox]} />;
+  const stats = mgr ? [clientBox, calBox, swapBox] : client ? [tasksBox, calBox, snagBox] : [clientBox, calBox, tasksBox];
 
   const tiles: T[] = client ? [
     { key: 'sow', ic: 'clipboard', bg: TINTS.blue[0], fg: TINTS.blue[1], title: 'Schedule of Works', sub: sowSub, onPress: go('schedule') },
@@ -146,7 +148,6 @@ export default function SiteHome() {
     { key: 'mat', ic: 'box', bg: base.okBg, fg: base.ok, title: 'Materials', sub: h ? `${h.pendingMaterials} pending` : '…', onPress: go('materials') },
     { key: 'rep', ic: 'reports', bg: base.warnBg, fg: base.warn, title: mgr ? 'Inspections & Reports' : 'Snagging & Variations', sub: h ? `${snags} open` : '…', badge: snags || undefined, onPress: go('snagging') },
     ...(h?.canSeePrice ? [{ key: 'price', emoji: '💷', bg: '#FFF3D9', fg: '#8A6300', title: 'Price', sub: h.priceWages ? `${h.priceWages} wage${h.priceWages > 1 ? 's' : ''} to book` : h.priceVars ? `${h.priceVars} variation${h.priceVars > 1 ? 's' : ''} pending` : 'Pricing elements', badge: h.priceVars + h.priceWages || undefined, onPress: go('price') }] : []),
-    ...(fin ? [{ key: 'fin', ic: 'pound', bg: '#E6F2EC', fg: '#1E6B45', title: 'Finance', sub: site.job_number ? `Job ${site.job_number}` : 'OpHUB Finance', onPress: () => router.push(`/fin/job/${site.id}` as never) }] : []),
     // Messages is in the left menu on a computer.
     ...(!desk ? [{ key: 'msg', ic: 'chat', bg: TINTS.blue[0], fg: TINTS.blue[1], title: 'HUB', sub: 'Team messages', onPress: go('messages') }] : []),
     ...(mgr && siteStatusKey(site) === 'closed' ? [{ key: 'ho', emoji: '📘', bg: '#E3F4EA', fg: '#1E7A46', title: 'Handover', sub: 'O&M manual · data sheets · guarantees', onPress: go('handover') }]
@@ -160,7 +161,7 @@ export default function SiteHome() {
       {header}
       <HowTo k="site_home" />
       <JobSignPrompt siteId={site.id} />
-      <View style={[cardBox, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderColor: base.line, borderRadius: 16, paddingVertical: 10.8, paddingHorizontal: 12.6, marginBottom: 12.6, shadowOpacity: 0 }]}>
+      <View style={[cardBox, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderColor: base.line, borderRadius: 16, paddingVertical: 10.8, paddingHorizontal: 12.6, marginBottom: 10.6, shadowOpacity: 0 }]}>
         <Text style={{ fontSize: 12.6, color: base.ink }}>{site.job_number ? <><Text style={{ fontWeight: '800' }}>Job No:</Text> {site.job_number}</> : ' '}</Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 999, paddingVertical: 4.5, paddingHorizontal: 8, backgroundColor: h?.meOnSite ? base.okBg : base.line }}>
           <View style={{ width: 5.4, height: 5.4, borderRadius: 3, backgroundColor: h?.meOnSite ? base.ok : base.slate }} />
@@ -168,7 +169,7 @@ export default function SiteHome() {
         </View>
       </View>
       {fin && !client && <MoneyStrip site={site} />}
-      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>{stats}</View>
+      <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>{stats}</View>
       {mgr && siteStatusKey(site) === 'live' && h?.assignedCount === 0 && (
         <Pressable onPress={() => setAssignOpen(!assignOpen)}>
           <Card style={{ backgroundColor: base.warnBg, paddingVertical: 10 }}>
@@ -199,7 +200,7 @@ function QuickAssign({ siteId }: { siteId: string }) {
   const [busy, setBusy] = useState<string | null>(null);
   if (!me) return null;
   return (
-    <View style={{ marginTop: 8 }}>
+    <View style={{ marginTop: 10 }}>
       <AssignList people={team?.operatives ?? []} isOn={(u) => !!team?.assigned.has(u)} busyId={busy} empty="No operatives yet — they need to sign up first." onToggle={async (u, on) => {
         setBusy(u); const err = on ? await removeFromSite(siteId, u) : await assignToSite(me, siteId, u); setBusy(null);
         toast(err ?? (on ? 'Removed from site' : 'Assigned to site')); void refetch(); void qc.invalidateQueries({ queryKey: ['siteHome', siteId] });

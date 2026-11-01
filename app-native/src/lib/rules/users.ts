@@ -1,10 +1,10 @@
 // Who can change whose role, or remove them (100 roleActionsFor). Pure.
 
-export type Person = { id: string; role: string; is_estimator?: boolean | null };
+export type Person = { id: string; role: string; is_estimator?: boolean | null; finance_only?: boolean | null };
 export type RoleOption = { value: string; label: string };
 
 export const ROLE_LABEL: Record<string, string> = {
-  admin: 'Company Admin', pm: 'Project Manager', estimator: 'Estimator (no notifications)', site_manager: 'Site Manager',
+  admin: 'Company Admin', finance_controller: 'Finance Controller (Finance only)', pm: 'Project Manager', estimator: 'Estimator (no notifications)', site_manager: 'Site Manager',
   operative: 'Operative', driver: 'Delivery Driver', client: 'Client',
 };
 
@@ -15,7 +15,7 @@ export function roleActionsFor(me: Person, p: Person, all: Person[]): { options:
   // A company admin can set anyone to any role (Andy, 31 Oct 2026), so a sign-up off the wrong link can be put right. The last admin stays an admin.
   if (iAmAdmin) {
     if (p.role === 'admin' && all.filter((x) => x.role === 'admin').length <= 1) return { options: o('admin'), canRemove: true };
-    return { options: o('admin', 'pm', 'estimator', 'site_manager', 'operative', 'driver', 'client'), canRemove: true };
+    return { options: o('admin', 'finance_controller', 'pm', 'estimator', 'site_manager', 'operative', 'driver', 'client'), canRemove: true };
   }
   if (p.role === 'admin') return { options: null, canRemove: false };
   if (p.role === 'pm') {
@@ -33,7 +33,7 @@ export function roleActionsFor(me: Person, p: Person, all: Person[]): { options:
 }
 
 /** 'estimator' is a Project Manager with the no-notifications flag on. */
-export const rolePatch = (role: string) => ({ role: role === 'estimator' ? 'pm' : role, is_estimator: role === 'estimator' });
+export const rolePatch = (role: string) => (role === 'finance_controller' ? { role: 'pm', is_estimator: true, finance_only: true, finance_enabled: true } : { role: role === 'estimator' ? 'pm' : role, is_estimator: role === 'estimator', finance_only: false });
 /** Finance access follows finance_enabled, whatever the role, so anyone moved off admin / PM loses it. */
-export const roleChangePatch = (role: string) => ({ ...rolePatch(role), ...(['admin', 'pm', 'estimator'].includes(role) ? {} : { finance_enabled: false, see_costs: false }) });
-export const shownRole = (p: Person) => (p.role === 'pm' && p.is_estimator ? 'estimator' : p.role);
+export const roleChangePatch = (role: string) => ({ ...rolePatch(role), ...(['admin', 'pm', 'estimator', 'finance_controller'].includes(role) ? {} : { finance_enabled: false, see_costs: false }) });
+export const shownRole = (p: Person) => (p.role === 'pm' && p.finance_only ? 'finance_controller' : p.role === 'pm' && p.is_estimator ? 'estimator' : p.role);

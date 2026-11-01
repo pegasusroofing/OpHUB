@@ -3,7 +3,9 @@ import type { Organization, Profile } from './types';
 
 export const isManager = (u: Profile | null) => !!u && ['pm', 'admin', 'site_manager'].includes(u.role);
 export const isFullManager = (u: Profile | null) => !!u && (u.role === 'pm' || u.role === 'admin');
-export const isEstimator = (u: Profile | null) => !!u && u.role === 'pm' && !!u.is_estimator;
+export const isEstimator = (u: Profile | null) => !!u && u.role === 'pm' && !!u.is_estimator && !u.finance_only;
+/** A Finance Controller: a PM login with Finance on, kept to Finance. Like an estimator, left out of PM lists and notifications. */
+export const isFinanceController = (u: Profile | null) => !!u && u.role === 'pm' && u.finance_only === true;
 
 // One-phone rule applies to everyone except PMs, admins and the super admin.
 export const deviceLockApplies = (u: Profile | null) => !!u && !['pm', 'admin', 'superadmin'].includes(u.role);
@@ -19,7 +21,7 @@ export type HomeKind = 'superadmin' | 'finance' | 'manager' | 'operative' | 'dri
 export function homeKind(u: Profile | null, org: Organization | null): HomeKind {
   if (!u) return 'other';
   if (u.role === 'superadmin') return 'superadmin';
-  if (isFinanceOnlyOrg(org)) return 'finance';
+  if (isFinanceOnlyOrg(org) || isFinanceController(u)) return 'finance';
   if (isManager(u)) return 'manager';
   if (u.role === 'operative') return 'operative';
   if (u.role === 'driver') return 'driver';
@@ -30,6 +32,7 @@ export function homeKind(u: Profile | null, org: Organization | null): HomeKind 
 
 export function roleLabel(u: Profile | null): string {
   if (!u) return '';
+  if (isFinanceController(u)) return 'Finance Controller';
   if (isEstimator(u)) return 'Estimator';
   switch (u.role) {
     case 'admin': return 'Company Admin';

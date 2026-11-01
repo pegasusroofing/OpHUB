@@ -121,10 +121,10 @@ export default function FinDirectory() {
     };
     return (
       <FinPage title="Directory" section="directory" sub={kind} onSub={onSub}>
-        <Muted style={{ marginBottom: 8 }}>Subcontractors who invoice you under CIS, and PAYE staff. Check each subbie&apos;s CIS status with HMRC before you pay them.</Muted>
+        <Muted style={{ marginBottom: 10 }}>Subcontractors who invoice you under CIS, and PAYE staff. Check each subbie&apos;s CIS status with HMRC before you pay them.</Muted>
         {waiting.length > 0 && (
           <View style={{ borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, padding: 10, marginBottom: 10, backgroundColor: base.card }}>
-            <Text style={{ fontWeight: '800', color: base.ink, marginBottom: 6 }}>{waiting.length} from the sub-contractor sign-up form, not in the directory yet</Text>
+            <Text style={{ fontWeight: '800', color: base.ink, marginBottom: 10 }}>{waiting.length} from the sub-contractor sign-up form, not in the directory yet</Text>
             {waiting.map((a) => (
               <View key={a.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6, borderTopWidth: 1, borderTopColor: base.line }}>
                 <View style={{ flex: 1 }}>
@@ -136,7 +136,7 @@ export default function FinDirectory() {
             ))}
           </View>
         )}
-        <View style={{ marginBottom: 8 }}><Button title="+ Add a person" onPress={() => setEdit({ key: '', name: '', r: { pay_type: 'subcontractor', cis_rate: 20 }, app: false })} /></View>
+        <View style={{ marginBottom: 10 }}><Button title="+ Add a person" onPress={() => setEdit({ key: '', name: '', r: { pay_type: 'subcontractor', cis_rate: 20 }, app: false })} /></View>
         <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search name or UTR' }} sel={pplSel} onChange={setPplSel} onClear={() => setPplSel({ show: [] })} sorts={[['az', 'Name A to Z'], ['za', 'Name Z to A']]} sort={pplSort} onSort={setPplSort}
           parts={[{ key: 'show', label: 'Show', items: [['subs', 'CIS subcontractors'], ['unver', 'Not verified'], ['paye', 'PAYE staff'], ['left', 'No longer working for us']].map(([v, l]) => ({ v, l, n: rows.filter(F[v]).length })) }]} />
         {isLoading ? <Muted>Loading…</Muted> : list.length ? list.map((x) => (
@@ -187,7 +187,7 @@ export default function FinDirectory() {
     const groups: Record<string, Row[]> = {}; list.forEach((c) => { (groups[c.grp || 'No group'] = groups[c.grp || 'No group'] || []).push(c); });
     return (
       <FinPage title="Cost codes" section="directory" sub={kind} onSub={onSub}>
-        <View style={{ flexDirection: 'row', marginBottom: 8 }}><Muted style={{ flex: 1 }}>The ID is the Xero account code each cost goes to. The type decides which column it adds up in on job costs and reports.</Muted><Button title="+ Add cost code" onPress={() => setEdit({ category: 'materials', grp: list[0]?.grp || '' })} /></View>
+        <View style={{ flexDirection: 'row', marginBottom: 10 }}><Muted style={{ flex: 1 }}>The ID is the Xero account code each cost goes to. The type decides which column it adds up in on job costs and reports.</Muted><Button title="+ Add cost code" onPress={() => setEdit({ category: 'materials', grp: list[0]?.grp || '' })} /></View>
         <TextInput value={q} onChangeText={setQ} placeholder="Search cost codes" style={box} />
         {Object.keys(groups).sort().map((g) => (
           <View key={g}><SectionTitle>{g} · {groups[g].length}</SectionTitle>{groups[g].map((c) => <FinRow key={c.id} left={c.code || '—'} title={`${c.name}${c.active === false ? ' (hidden)' : ''}`} sub={[c.description, COST_CATS[c.category]].filter(Boolean).join(' · ')} onPress={() => setEdit(c)} />)}</View>

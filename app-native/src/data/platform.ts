@@ -2,6 +2,7 @@
 // invite a new company; open a company as its admin (support mode) and exit;
 // change a person's role, reset a password, delete a user or a company. The
 // platform owner only — the server functions check that too.
+import { rolePatch } from '@/lib/rules/users';
 import { useQuery } from '@tanstack/react-query';
 import { clearOfflineCache } from '@/lib/offlineCache';
 
@@ -47,8 +48,7 @@ export async function setOrgModules(orgId: string, key: 'has_pm' | 'has_finance'
 export const setOrgPlan = async (orgId: string, tier: string) => !!(await db.from('organizations').update({ plan_tier: tier } as never).eq('id', orgId).select('id')).data?.length;
 /** "estimator" is a PM with the no-notifications flag. */
 export async function setUserRole(userId: string, role: string): Promise<boolean> {
-  const est = role === 'estimator';
-  return !!(await db.from('profiles').update({ role: est ? 'pm' : role, is_estimator: est } as never).eq('id', userId).select('id')).data?.length;
+  return !!(await db.from('profiles').update(rolePatch(role) as never).eq('id', userId).select('id')).data?.length;
 }
 export const createCompany = (company_name: string, email: string | null) => fn<{ invite_id: string }>('admin-create-company', { company_name, email: email || undefined });
 export const resetPassword = (target_email: string, new_password: string | null) => fn<{ email: string; new_password: string }>('admin-reset-password', { target_email, new_password: new_password || undefined });

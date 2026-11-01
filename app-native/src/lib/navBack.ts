@@ -25,3 +25,26 @@ export function takeJump(p: string): string | null {
   backing = true;
   return j;
 }
+
+/** One level up, by the page's address: what back does when the page has no history, as after a refresh or a Finance tab change. */
+export function parentOf(rawPath: string): string {
+  const p = rawPath.split('?')[0].replace(/\/$/, ''), s = p.split('/').filter(Boolean);
+  if (s[0] === 'fin') {
+    if (s[1] === 'job') return s.length > 3 ? `/fin/job/${s[2]}` : '/fin/jobs';
+    const list = FIN_LIST[s[1] || ''];
+    if (s.length === 1) return '/home';
+    if (s[1] === 'yardin') return '/fin/yard';
+    if (list && s.length > 2) return list;
+    return s.length > 2 ? `/fin/${s[1]}` : '/fin';
+  }
+  if (s[0] === 'pm' && PM_LIST[s[1] || '']) return PM_LIST[s[1] || ''];
+  if (s[0] === 'pm') return s.length > 2 ? `/${s.slice(0, s.length - 1).join('/')}` : '/home';
+  if (s[0] === 'sites') {
+    if (s.length === 1 || s[1] === 'new') return s.length === 1 ? '/home' : '/sites';
+    return s.length > 2 ? `/${s.slice(0, s.length - 1).join('/')}` : '/sites';
+  }
+  return '/home';
+}
+const PM_LIST: Record<string, string> = { delivery: '/pm/deliveries', piquery: '/pm/hub', survey: '/pm/reports' };
+// Finance pages for one record belong to the list they're picked from.
+const FIN_LIST: Record<string, string> = { po: '/fin/purchases', pinv: '/fin/purchases?tab=invoices', plant: '/fin/purchases?tab=plant', inbox: '/fin/purchases?tab=invoices', labour: '/fin/subs', sub: '/fin/subs?tab=orders', sapp: '/fin/subs?tab=apps' };

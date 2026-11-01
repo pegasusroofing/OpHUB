@@ -148,7 +148,7 @@ export default function DriverSchedule() {
               <Card>
                 {pl.tasks.map((t, i) => (
                   <View key={t.id} style={{ paddingVertical: 8, borderTopWidth: i ? 1 : 0, borderTopColor: base.line, opacity: t.status === 'completed' ? 0.55 : 1 }}>
-                    <Text style={{ fontWeight: '700', color: base.ink }}>{t.high_priority ? <Text style={{ color: th.brand1, fontWeight: '800' }}>1st DROP · </Text> : null}{siteHeading(t as Delivery, sites).join('\n')}</Text>
+                    <Text style={{ fontWeight: '700', color: base.ink }}>{t.high_priority ? <Text style={{ color: th.brand1, fontWeight: '800' }}>! 1st DROP · </Text> : null}{siteHeading(t as Delivery, sites).join('\n')}</Text>
                     {!!(t as Delivery).description && <Text style={{ color: base.ink }}>{(t as Delivery).description}</Text>}
                     <Muted>{slotLabel(t.time_slot)}{t.status === 'completed' ? ' · ✓ Completed' : ''}</Muted>
                   </View>

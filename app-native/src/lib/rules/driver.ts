@@ -9,7 +9,7 @@ export const DELIVERY_TIME_SLOTS = [
 ];
 
 export type DTask = {
-  id: string; site_id: string | null; time_slot: string; double_slot?: boolean | null; status: string;
+  id: string; site_id: string | null; time_slot: string; double_slot?: boolean | null; status: string; driver_id?: string | null;
   high_priority?: boolean | null; sub_priority?: number | null; created_at?: string;
   manual_site_name?: string | null; manual_site_address?: string | null;
   collection_type?: string | null; collection_address_manual?: string | null; supplier_id?: string | null;
@@ -39,21 +39,24 @@ export function continuations<T extends DTask>(list: T[], slot: string): T[] {
   return list.filter((t) => t.double_slot && nextSlotKey(t.time_slot) === slot);
 }
 
-/** Why `task` can't go in `slot`, or '' if it can. `place` names a delivery in messages. */
-export function slotProblem(list: DTask[], task: Pick<DTask, 'id' | 'double_slot'>, slot: string, place: (t: DTask) => string): string {
+/** Why `task` can't go in `slot`, or '' if it can. A drop holds one delivery per driver (Andy, 1 Nov 2026): 2 drivers, 2 deliveries. `place` names a delivery in messages. */
+export function slotProblem(list: DTask[], task: Pick<DTask, 'id' | 'double_slot'> & { driver_id?: string | null }, slot: string, place: (t: DTask) => string, drivers = 1): string {
+  const cap = Math.max(1, drivers);
   const others = list.filter((x) => x.id !== task.id && x.status !== 'cancelled');
-  const blocker = blockedSlots(others)[slot];
-  if (blocker) return `The ${slotLabel(slot)} is taken by ${place(blocker)} (extra time from the ${slotLabel(blocker.time_slot)}).`;
-  const holder = others.find((x) => x.double_slot && x.time_slot === slot);
-  if (holder) return `The ${slotLabel(slot)} is taken by ${place(holder)} (needs extra time — 2 drops).`;
+  const inSlot = (k: string) => others.filter((x) => x.time_slot === k);
+  const busy = (k: string) => [...inSlot(k), ...continuations(others, k)];
+  const carried = continuations(others, slot);
+  if (carried.length >= cap) return `The ${slotLabel(slot)} is taken by ${place(carried[0])} (extra time from the ${slotLabel(carried[0].time_slot)}).`;
+  const holder = inSlot(slot).find((x) => x.double_slot);
+  if (holder && busy(slot).length >= cap) return `The ${slotLabel(slot)} is taken by ${place(holder)} (needs extra time — 2 drops).`;
   if (task.double_slot) {
-    const same = others.filter((x) => x.time_slot === slot);
-    if (same.length) return `It needs extra time, so it needs the ${slotLabel(slot)} to itself — ${place(same[0])} is already in it.`;
+    if (busy(slot).length >= cap) return `It needs extra time, so it needs the ${slotLabel(slot)} to itself — ${place(busy(slot)[0])} is already in it.`;
     const nx = nextSlotKey(slot);
     if (!nx) return "A delivery needing extra time can't go in the last drop of the day.";
-    const inNext = others.filter((x) => x.time_slot === nx);
-    if (inNext.length) return `It needs extra time, so it also takes the ${slotLabel(nx)} — move ${place(inNext[0])} out of the ${slotLabel(nx)} first.`;
+    if (busy(nx).length >= cap) return `It needs extra time, so it also takes the ${slotLabel(nx)} — move ${place(busy(nx)[0])} out of the ${slotLabel(nx)} first.`;
   }
+  if (busy(slot).length >= cap) return `The ${slotLabel(slot)} is full: ${place(busy(slot)[0])} is in it, and you have ${cap} driver${cap === 1 ? '' : 's'}.`;
+  if (task.driver_id && task.driver_id !== 'none' && busy(slot).some((x) => x.driver_id === task.driver_id)) return `That driver already has a delivery in the ${slotLabel(slot)}.`;
   return '';
 }
 
@@ -75,8 +78,8 @@ export function nextWorkingDay(scheduledISO: string, todayISO: string): string {
  * 1st-drop job and nobody else has that day's 1st drop; otherwise the first free
  * drop from 2pm on; otherwise the first free drop at all. null = the day is full.
  */
-export function pushSlot(dayList: DTask[], task: DTask, keepHigh: boolean, place: (t: DTask) => string): string | null {
-  const free = (k: string) => !slotProblem(dayList, task, k, place);
+export function pushSlot(dayList: DTask[], task: DTask, keepHigh: boolean, place: (t: DTask) => string, drivers = 1): string | null {
+  const free = (k: string) => !slotProblem(dayList, task, k, place, drivers);
   if (keepHigh && free(DELIVERY_TIME_SLOTS[0].key)) return DELIVERY_TIME_SLOTS[0].key;
   const from2 = DELIVERY_TIME_SLOTS.slice(DELIVERY_TIME_SLOTS.findIndex((s) => s.key === '2pm'));
   return (from2.find((s) => free(s.key)) || DELIVERY_TIME_SLOTS.find((s) => free(s.key)))?.key ?? null;
@@ -238,9 +241,9 @@ export function vehicleSubmitProblem(reg: string, mileage: string | number | nul
 }
 
 /** Drops that can't take another delivery: carried-on extra time, or held by a 2-drop booking. */
-export function fullSlots<T extends DTask>(list: T[]): Record<string, T> {
-  const out: Record<string, T> = { ...blockedSlots(list) };
-  list.forEach((t) => { if (t.double_slot && t.status !== 'cancelled' && !out[t.time_slot]) out[t.time_slot] = t; });
+export function fullSlots<T extends DTask>(list: T[], drivers = 1): Record<string, T> {
+  const out: Record<string, T> = {}, live = list.filter((t) => t.status !== 'cancelled');
+  DELIVERY_TIME_SLOTS.forEach((s) => { const b = [...live.filter((t) => t.time_slot === s.key), ...continuations(live, s.key)]; if (b.length >= Math.max(1, drivers)) out[s.key] = b[0]; });
   return out;
 }
 

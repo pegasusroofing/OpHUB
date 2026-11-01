@@ -2,6 +2,9 @@
 // grouped by supplier. Managers add items (queue several, then Complete List),
 // assign who collects, mark collected, edit, delete and email the list. Items moved here
 // together (a grouped request) stay grouped, on To collect and once Collected.
+import { MatTabs } from '@/components/MatTabs';
+import { useCollectionsOpenCount, yardCanEdit } from '@/data/materials';
+import { isFinanceUser } from '@/lib/roles';
 import { useQueryClient } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
@@ -28,7 +31,8 @@ const branchesOf = (s: FullSupplier | undefined) => (Array.isArray(s?.branches) 
 
 export default function Collections() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { me } = useAuth();
+  const { me, org } = useAuth();
+  const { data: collectN } = useCollectionsOpenCount(id, true);
   const toast = useToast();
   const qc = useQueryClient();
   const { data: site } = useSite(id);
@@ -138,6 +142,7 @@ export default function Collections() {
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled"
       refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => { void refetch(); }} />}>
       <Stack.Screen options={{ title: 'Collections' }} />
+      {!!me && isManager(me) && <MatTabs siteId={id} on="collect" collectN={collectN ?? 0} yard={yardCanEdit(me, isFinanceUser(me, org))} />}
       <Card style={{ backgroundColor: '#FCEFD2' }}><Text style={{ color: '#5E3D00' }}><Text style={{ fontWeight: '700' }}>Items for an operative to pick up.</Text> Assign who collects each one — it shows on their Materials screen as a tick list.</Text></Card>
       <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
         {([['live', 'To collect'], ['closed', 'Collected']] as const).map(([k, l]) => (

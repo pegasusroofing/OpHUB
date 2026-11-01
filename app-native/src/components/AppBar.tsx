@@ -6,7 +6,7 @@
 // (9219x navCrumbs): Projects › SBX-109 Andy House 2 › Schedule Of Works.
 import { useQueryClient } from '@tanstack/react-query';
 import { router, usePathname } from 'expo-router';
-import type { ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
 import { Platform, Pressable, Share, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -14,7 +14,8 @@ import { useTrail } from '@/components/Crumbs';
 import { OphIcon } from '@/components/OphIcon';
 import { showAlert } from '@/components/toast';
 import { isManager } from '@/lib/roles';
-import { takeJump } from '@/lib/navBack';
+import { parentOf, takeJump } from '@/lib/navBack';
+import { isFullManager } from '@/lib/roles';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { heading, mono } from '@/lib/fonts';
@@ -27,21 +28,21 @@ const FIN_SUB: Record<string, string> = { '': 'Overview', jobs: 'Projects', sale
 // A job's sections, so a page further in can step back to its section from the trail.
 const SECTION: Record<string, string> = { schedule: 'Schedule Of Works', drawings: "Drawings, Spec's & Programme", materials: 'Materials', hs: 'Health & Safety', snagging: 'Snagging', checkin: 'Check In / Out', price: 'Price', repairs: 'Repairs', om: 'O&M Manual', mc: 'Main Contractor', handover: 'Handover', todos: 'To Do List' };
 // Tapping a job's address under the title copies it (or shares it on a phone) — 130 shell.
-async function copyAddress(a: string) {
+async function copyAddress(a: string): Promise<boolean> {
   try {
-    if (Platform.OS !== 'web') { await Share.share({ message: a }); return; }
+    if (Platform.OS !== 'web') { await Share.share({ message: a }); return false; }
     if (globalThis.navigator?.clipboard) await globalThis.navigator.clipboard.writeText(a);
     else {
       // No clipboard on a page without https: copy the old way.
       const box = document.createElement('textarea'); box.value = a; document.body.appendChild(box); box.select(); document.execCommand('copy'); box.remove();
     }
-    showAlert(`Address copied:
-${a}`);
+    return true;
   } catch { /* nothing to do */ }
+  return false;
 }
 const titleCase = (x: string) => x.replace(/[A-Za-z][A-Za-z'’.]*/g, (w) => w.charAt(0).toUpperCase() + w.slice(1));
 
-export function AppBar({ title, onBack, home, right }: { title?: string; onBack?: () => void; home?: boolean; right?: ReactNode }) {
+export function AppBar({ title, onBack, home, right, noHistory }: { title?: string; onBack?: () => void; home?: boolean; right?: ReactNode; noHistory?: boolean }) {
   const { org, me } = useAuth();
   const t = useTheme();
   const desk = useDesk();
@@ -76,12 +77,23 @@ export function AppBar({ title, onBack, home, right }: { title?: string; onBack?
     ? [['Projects', '/sites'], [sName, jobHome ? null : `/sites/${site.id}`], ...(jobHome ? [] : pageTrail ?? [...secStep, ...(!title ? [] : [[titleCase(title), null] as [string, null]])])]
     : [];
   const cfs = desk ? 12.5 : 11.5;
+  // The bold line: to this part's home page. The small line under it copies, rather than selecting the text.
+  const titleGo = home ? null : fin ? (path.replace(/\/$/, '') === '/fin' ? null : '/fin') : site ? (jobHome ? null : `/sites/${site.id}`) : '/home';
+  const copyable = !home && !!sub;
+  const [copied, setCopied] = useState(false);
+  const settingsBtn = home && isFullManager(me);
+  const noSelect = { userSelect: 'none' } as never;
   const pressBack = () => {
     const from = takeJump(path.replace(/\/$/, '') || path);
     if (from) { router.navigate(from as never); return; }
     // A manager on a job goes up one level; a page further in than the trail shows, and everyone else, keeps its own back.
     const up = site && isManager(me) && (pageTrail || path.split('/').filter(Boolean).length <= 4) ? [...crumbs].reverse().find((c) => c[1])?.[1] : null;
-    if (up) router.navigate(up as never); else onBack?.();
+    if (up) { router.navigate(up as never); return; }
+    // Finance and manager pages one level in always go up: the section keeps old pages behind them, so history could land anywhere.
+    // A page with no history at all, as after a refresh, goes up too rather than to Home.
+    const clean = path.replace(/\/$/, '');
+    if (noHistory || /^\/(pm|fin)(\/[^/]+)?$/.test(clean)) { router.navigate(parentOf(clean) as never); return; }
+    onBack?.();
   };
   const roundBtn = { width: 38, height: 38, borderRadius: 19, backgroundColor: base.paper, alignItems: 'center', justifyContent: 'center' } as const;
   return (
@@ -89,6 +101,11 @@ export function AppBar({ title, onBack, home, right }: { title?: string; onBack?
       <View style={{ backgroundColor: base.card, borderBottomWidth: 1, borderBottomColor: fin ? '#e5e7eb' : desk ? '#E5E8ED' : base.line, paddingTop: insets.top + (desk ? 14 : 10), paddingBottom: desk ? 14 : 10, paddingHorizontal: desk ? 40 : 14 }}>
         <View style={{ minHeight: desk ? 52 : 44, flexDirection: 'row', alignItems: 'center' }}>
           <View style={{ width: 44 }}>
+            {settingsBtn && (
+              <Pressable onPress={() => router.navigate('/account' as never)} hitSlop={10} accessibilityLabel="Settings" style={roundBtn}>
+                <OphIcon name="gear" size={18} color={base.ink} />
+              </Pressable>
+            )}
             {onBack && (
               <Pressable onPress={pressBack} hitSlop={10} accessibilityRole="button" accessibilityLabel="Back"
                 style={{ width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' }}>
@@ -97,8 +114,9 @@ export function AppBar({ title, onBack, home, right }: { title?: string; onBack?
             )}
           </View>
           <View style={{ flex: 1, alignItems: fin ? 'flex-start' : 'center', minWidth: 0 }}>
-            <Text numberOfLines={1} onPress={site && !jobHome && !fin ? () => router.navigate(`/sites/${site.id}` as never) : undefined} style={[heading(home ? 800 : 700), { fontSize: fin ? 21 : desk ? 22.8 : 19, color: home ? t.brand1 : fin ? '#111827' : base.ink, letterSpacing: -0.2 }]}>{main}</Text>
-            {!!sub && <Text numberOfLines={1} onPress={site && !fin && !home ? () => void copyAddress(sub) : undefined} accessibilityHint={site && !fin && !home ? 'Copies the address' : undefined} style={[home ? heading(700) : fin ? {} : mono(500), { fontSize: home ? 11 : fin ? 12.5 : 12, color: fin ? '#6b7280' : base.slate, marginTop: 3, letterSpacing: home ? 1 : 0, textTransform: home ? 'uppercase' : 'none' }]}>{sub}</Text>}
+            <Pressable disabled={!titleGo} onPress={() => { if (titleGo) router.navigate(titleGo as never); }} accessibilityRole={titleGo ? 'link' : undefined} style={noSelect}><Text numberOfLines={1} style={[heading(home ? 800 : 700), { fontSize: fin ? 21 : desk ? 22.8 : 19, color: home ? t.brand1 : fin ? '#111827' : base.ink, letterSpacing: -0.2 }]}>{main}</Text></Pressable>
+            {!!sub && <Pressable disabled={!copyable} onPress={async () => { if (await copyAddress(sub)) { setCopied(true); setTimeout(() => setCopied(false), 1300); } }} accessibilityRole={copyable ? 'button' : undefined} accessibilityHint={copyable ? 'Copies this text' : undefined} style={noSelect}><Text numberOfLines={1} style={[home ? heading(700) : fin ? {} : mono(500), { fontSize: home ? 11 : fin ? 12.5 : 12, color: fin ? '#6b7280' : base.slate, marginTop: 3, letterSpacing: home ? 1 : 0, textTransform: home ? 'uppercase' : 'none' }]}>{sub}</Text></Pressable>}
+            {copied && <View pointerEvents="none" style={{ position: 'absolute', bottom: -8, alignSelf: 'center', backgroundColor: base.ink, borderRadius: 10, paddingHorizontal: 9, paddingVertical: 2, zIndex: 5 }}><Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>Copied</Text></View>}
           </View>
           <View style={{ minWidth: 44, alignItems: 'flex-end' }}>
             {right ?? (site && !jobHome && (
@@ -136,7 +154,7 @@ export const stackHeader = {
   // First page of a section (opened from the menu): back goes Home, as the current app's back arrow did.
   header: (p: HeaderProps) => (
     <AppBar title={p.options.title ?? p.route.name} right={p.options.headerRight?.({ canGoBack: !!p.back })}
-      onBack={p.back ? () => p.navigation.goBack() : () => router.navigate('/home' as never)} />
+      noHistory={!p.back} onBack={p.back ? () => p.navigation.goBack() : () => router.navigate('/home' as never)} />
   ),
   contentStyle: { backgroundColor: base.paper },
 };

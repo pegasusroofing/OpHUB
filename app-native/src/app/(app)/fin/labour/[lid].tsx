@@ -1,7 +1,7 @@
 // An operative's invoice (9219c openFinOpInvoice / saveFinOpInvoice): who
 // it's from, their invoice no. and date, the week, the amount for each job,
 // materials, and CIS worked out from their rate. Saved ready for the pay run.
-// (Sending it to the job's PM is off during the Finance trial.)
+// Each job's amount then waits to be booked to a price sheet (off during the Finance trial).
 import * as DocumentPicker from 'expo-document-picker';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
@@ -18,6 +18,8 @@ import { DateBox } from '@/components/DateField';
 import { fdb, selectAll } from '@/data/finance';
 import { openDocLink } from '@/data/hs';
 import { useSites } from '@/data/sites';
+import { syncOpInvoice, wagesOff, withdrawOpInvoice } from '@/data/wageBook';
+import { WagesToBook } from '@/components/WagesToBook';
 import { useAuth } from '@/lib/auth';
 import { cisStatement } from '@/lib/finCisPdf';
 import { addDays, fdate, jobTag, money, num, round2, today } from '@/lib/rules/finance';
@@ -78,6 +80,7 @@ function Editor({ p, rateBy, who }: { p: Row | null; rateBy: Record<string, Row>
         const up = await supabase.storage.from('finance-docs').upload(`${me.org_id}/operative-invoices/${rid}-${file.name.replace(/[^a-z0-9.-]+/gi, '_').slice(-80)}`, await (await fetch(file.uri)).arrayBuffer(), { contentType: file.mimeType || 'application/octet-stream' });
         if (!up.error) { row.file_path = up.data.path; row.file_name = file.name; }
       }
+      let savedId = p?.id as string | undefined;
       if (p) { if (!(await fdb.from('fin_sub_payments').update(row as never).eq('id', p.id).select('id')).data?.length) { toast('Could not save — try again.'); return; } }
       else {
         if (row.invoice_no) {
@@ -85,7 +88,17 @@ function Editor({ p, rateBy, who }: { p: Row | null; rateBy: Record<string, Row>
           const dup = ((await (key.startsWith('w:') ? q.eq('worker_id', key.slice(2)) : q.eq('user_id', key))).data as Row[] | null) ?? [];
           if (dup.length && !(await confirmAsk(`You already have invoice ${row.invoice_no} from ${row.name}. Add it again?`, 'Add again'))) return;
         }
-        if ((await fdb.from('fin_sub_payments').insert({ ...row, org_id: me.org_id, user_id: key.startsWith('w:') ? null : key, worker_id: key.startsWith('w:') ? key.slice(2) : null, status: 'approved', created_by: me.id } as never)).error) { toast('Could not save — try again.'); return; }
+        const made = await fdb.from('fin_sub_payments').insert({ ...row, org_id: me.org_id, user_id: key.startsWith('w:') ? null : key, worker_id: key.startsWith('w:') ? key.slice(2) : null, status: 'approved', created_by: me.id } as never).select('id').single();
+        savedId = (made.data as Row | null)?.id;
+        if (made.error || !savedId) { toast('Could not save — try again.'); return; }
+      }
+      // With wages going across, stay here so each job can be booked to a price sheet straight away.
+      if (!wagesOff(me.org_id) && savedId) {
+        await syncOpInvoice(me, { ...row, id: savedId }, key);
+        void qc.invalidateQueries({ queryKey: ['wagePushes'] });
+        toast(`Saved — ${money(row.net_pay)} to pay in the pay run. Book each job to a price sheet below, or leave it for the PM.`); refresh();
+        if (!p) router.replace(`/fin/labour/${savedId}` as never);
+        return;
       }
       toast(`Saved — ${money(row.net_pay)} to pay in the pay run`); refresh(); router.back();
     } finally { setBusy(false); }
@@ -120,10 +133,11 @@ function Editor({ p, rateBy, who }: { p: Row | null; rateBy: Record<string, Row>
         <FinStat v={money(c.gross)} label="Gross" /><FinStat v={`−${money(c.cis_deduction)}`} label={`CIS @ ${c.cis_rate}% on labour`} /><FinStat v={money(c.net_pay)} label="To pay" />
       </View>
       {!locked && <Pressable onPress={async () => { const x = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true }); if (!x.canceled && x.assets[0]) setFile({ uri: x.assets[0].uri, name: x.assets[0].name, mimeType: x.assets[0].mimeType }); }}><Text style={{ color: base.blue, marginBottom: 8 }}>📎 {file ? file.name : 'Attach their invoice'}</Text></Pressable>}
+      {!!p && !wagesOff(me.org_id) && <WagesToBook me={me} invoiceId={p.id} title="Book to a price sheet" />}
       {p?.file_path && <FinRow title={`📄 ${p.file_name || 'Their invoice'}`} onPress={async () => { const u = await openDocLink('finance-docs', p.file_path); if (u) viewDoc(u); }} />}
       {!locked && <Button busy={busy} title="Save — ready for the pay run" onPress={() => void save()} />}
       {p && p.status !== 'void' && me && <View style={{ marginTop: 8 }}><Button kind="ghost" title="CIS payment statement" onPress={async () => { if (!(await cisStatement(me, org, p))) toast('Could not make the statement — try again.'); }} /></View>}
-      {p && !locked && <View style={{ marginTop: 8 }}><Button kind="ghost" title="Void this invoice" onPress={async () => { if (await confirmAsk(p.xero_id ? 'Cancel this invoice? It comes off the job’s costs and out of the pay run.\n\nIt’s already in Xero. Cancelling it here won’t change Xero — void the bill in Xero too, or the two won’t match.' : 'Void this operative invoice? It comes off the pay run.', 'Void')) { if (!!(await fdb.from('fin_sub_payments').update({ status: 'void' } as never).eq('id', p.id).select('id')).data?.length) { toast('Voided'); refresh(); router.back(); } } }} /></View>}
+      {p && !locked && <View style={{ marginTop: 8 }}><Button kind="ghost" title="Void this invoice" onPress={async () => { if (await confirmAsk(p.xero_id ? 'Cancel this invoice? It comes off the job’s costs and out of the pay run.\n\nIt’s already in Xero. Cancelling it here won’t change Xero — void the bill in Xero too, or the two won’t match.' : 'Void this operative invoice? It comes off the pay run.', 'Void')) { if (!!(await fdb.from('fin_sub_payments').update({ status: 'void' } as never).eq('id', p.id).select('id')).data?.length) { await withdrawOpInvoice(me, p.id); toast('Voided'); refresh(); void qc.invalidateQueries({ queryKey: ['wagePushes'] }); router.back(); } } }} /></View>}
     </ScrollView>
   );
 }

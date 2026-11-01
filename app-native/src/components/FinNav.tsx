@@ -18,7 +18,7 @@ export const FIN_SUBS: Record<string, [string, string][]> = {
   jobs: [['list', 'Projects'], ['clients', 'Clients']],
   sales: [['apps', 'Applications & Certificates'], ['invoices', 'Invoices'], ['retention', 'Retention']],
   purchases: [['orders', 'Purchase orders'], ['invoices', 'Purchase invoices'], ['statements', 'Statements'], ['plant', 'Plant hire'], ['suppliers', 'Suppliers'], ['pricebook', 'Price book'], ['pricelists', 'Price lists'], ['yard', 'Yard stock']],
-  subs: [['opinv', 'Operative invoices'], ['payrun', 'Pay run'], ['orders', 'Subcontractor POs'], ['apps', 'Applications & Certificates'], ['cis', 'CIS'], ['rates', 'People & rates']],
+  subs: [['opinv', 'Operative invoices'], ['wages', 'Wages to book'], ['payrun', 'Pay run'], ['orders', 'Subcontractor POs'], ['apps', 'Applications & Certificates'], ['cis', 'CIS'], ['rates', 'People & rates']],
   settings: [['general', 'Settings'], ['codes', 'Cost Codes'], ['team', 'Team']],
   directory: [['client', 'Clients'], ['supplier', 'Suppliers'], ['labour', 'Labour (CIS)'], ['codes', 'Cost codes']],
 };
@@ -34,7 +34,7 @@ export function FinTabRow({ children, style }: { children: ReactNode; style?: ob
   const update = (n: Partial<typeof box>) => setBox((b) => ({ ...b, ...n }));
   const more = box.c - box.w - box.x > 4;
   return (
-    <View style={[{ borderBottomWidth: 1, borderBottomColor: '#e5e7eb', marginBottom: 14 }, style]}>
+    <View style={[{ borderBottomWidth: 1, borderBottomColor: '#e5e7eb', marginBottom: 10 }, style]}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} scrollEventThrottle={32} style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 2 }}
         onLayout={(e) => update({ w: e.nativeEvent.layout.width })} onContentSizeChange={(w) => update({ c: w })} onScroll={(e) => update({ x: e.nativeEvent.contentOffset.x })}>
         {children}
@@ -77,10 +77,10 @@ export function FinPage({ title, section, sub, onSub, badges, children, wide, to
               </Pressable>
             ))}
           </FinTabRow>
-          {section === 'overview' && <View style={{ backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 12, marginBottom: 14 }}><Text style={{ color: '#111827', fontSize: 12 }}>🔒 Finance trial — nothing is sent from Finance (no emails, no Xero, no pushes to PMs) while it&apos;s being tested.</Text></View>}
+          {section === 'overview' && <View style={{ backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 12, marginBottom: 10 }}><Text style={{ color: '#111827', fontSize: 12 }}>🔒 Finance trial — nothing is sent from Finance (no emails, no Xero, no pushes to PMs) while it&apos;s being tested.</Text></View>}
           {!!top && <FinMode.Provider value>{top}</FinMode.Provider>}
           {subs.length > 1 && onSub && (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, marginBottom: 12 }}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, marginBottom: 10 }}>
               {subs.map(([k, l]) => <Pressable key={k} onPress={() => onSub(k)} style={{ paddingHorizontal: 10, paddingVertical: 6, borderBottomWidth: 2, borderColor: k === sub ? base.ink : 'transparent' }}><Text style={{ fontWeight: k === sub ? '800' : '600', color: k === sub ? base.ink : base.slate }}>{l}{badges?.[k] ? ` · ${badges[k]}` : ''}</Text></Pressable>)}
             </ScrollView>
           )}
@@ -118,7 +118,7 @@ export function FinRow({ left, title, sub, right, onPress, tone, children, onMen
     </Pressable>
   );
   return (
-    <Pressable onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 11, backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 6 }}>
+    <Pressable onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 11, backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 10 }}>
       {left ? <Text style={{ fontWeight: '800', color: base.slate, minWidth: 54 }}>{left}</Text> : null}
       <View style={{ flex: 1 }}>
         <Text style={{ fontWeight: '700', color: base.ink }}>{title}</Text>

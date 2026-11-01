@@ -39,6 +39,7 @@ export default function DeliveryForm() {
   const qc = useQueryClient();
   const { data: sites = [] } = useSites();
   const { data: people = [] } = useStaff();
+  const cap = Math.max(1, people.filter((p) => p.role === 'driver').length);
   const { data: suppliers = [] } = useSuppliers(me?.org_id);
   const { data: reqs } = useDeliveryRequests(me?.org_id);
   const [d, setD] = useState<Draft | null>(null);
@@ -66,8 +67,8 @@ export default function DeliveryForm() {
   // New: start on the first free drop; one driver: assign them.
   useEffect(() => {
     if (!d || !isNew) return;
-    if (!slot && slotProblem(dayTasks, { id: 'new', double_slot: d.double_slot }, d.time_slot, placeOf(sites))) {
-      const free = DELIVERY_TIME_SLOTS.find((s) => !slotProblem(dayTasks, { id: 'new', double_slot: d.double_slot }, s.key, placeOf(sites)));
+    if (!slot && slotProblem(dayTasks, { id: 'new', double_slot: d.double_slot }, d.time_slot, placeOf(sites), cap)) {
+      const free = DELIVERY_TIME_SLOTS.find((s) => !slotProblem(dayTasks, { id: 'new', double_slot: d.double_slot }, s.key, placeOf(sites), cap));
       if (free && free.key !== d.time_slot) setD({ ...d, time_slot: free.key });
     }
     if (drivers.length === 1 && !d.driver_id) setD({ ...d, driver_id: drivers[0].id });
@@ -117,10 +118,10 @@ export default function DeliveryForm() {
     if (k !== null) set({ site_contact_id: k });
   };
   const others = blockedSlots(dayTasks.filter((x) => x.id !== d.id));
-  const why = slotProblem(dayTasks, { id: d.id || 'new', double_slot: d.double_slot }, d.time_slot, placeOf(sites));
+  const why = slotProblem(dayTasks, { id: d.id || 'new', double_slot: d.double_slot, driver_id: d.driver_id }, d.time_slot, placeOf(sites), cap);
   const pickDrop = async () => {
     const opts = DELIVERY_TIME_SLOTS.map((s) => {
-      const w = slotProblem(dayTasks, { id: d.id || 'new', double_slot: d.double_slot }, s.key, placeOf(sites));
+      const w = slotProblem(dayTasks, { id: d.id || 'new', double_slot: d.double_slot, driver_id: d.driver_id }, s.key, placeOf(sites), cap);
       return { key: s.key, label: `${s.label}${others[s.key] ? ' — taken (extra time)' : w ? ' — not free' : ''}`, w };
     });
     const k = await chooseAction('Drop', opts.map((o) => ({ key: o.key, label: o.label })));

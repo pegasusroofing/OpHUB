@@ -8,7 +8,7 @@ import { router } from 'expo-router';
 import { useEffect } from 'react';
 import { Platform } from 'react-native';
 
-import { isEstimator, isManager } from './roles';
+import { isManager } from './roles';
 import { supabase } from './supabase';
 import type { Profile } from './types';
 
@@ -18,7 +18,7 @@ let tokenListening = false;
 export async function registerPush(me: Profile | null): Promise<void> {
   try {
     if (!me || Platform.OS === 'web' || !Device.isDevice) return;
-    if (isEstimator(me)) return; // estimators get no notifications
+    if (me?.is_estimator) return; // estimators get no notifications
     let perm = await Notifications.getPermissionsAsync();
     if (perm.status !== 'granted') perm = await Notifications.requestPermissionsAsync();
     if (perm.status !== 'granted') return;

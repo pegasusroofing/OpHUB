@@ -71,7 +71,7 @@ export default function Login() {
           New team member? You'll need an invite link from your Project Manager to create an account — sign-up isn't open to the public.
         </Muted>
       </Card>
-      <Image source={require('../../assets/images/icon.png')} style={{ width: 120, height: 120, borderRadius: 24, alignSelf: 'center', marginTop: 16 }} />
+      <Image source={require('../../assets/images/logo-light.png')} style={{ width: 120, height: 120, borderRadius: 24, alignSelf: 'center', marginTop: 16 }} />
     </Screen>
   );
 }

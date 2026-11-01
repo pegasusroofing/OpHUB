@@ -19,6 +19,7 @@ export type Profile = {
   viewed_schedule_at?: string | null;
   phone: string | null;
   is_estimator: boolean;
+  finance_only?: boolean;
   view_as_org_id: string | null;
   /** Platform owner inside a company as its admin (support mode); the real company id is kept here. */
   _support?: boolean; _realOrgId?: string | null;

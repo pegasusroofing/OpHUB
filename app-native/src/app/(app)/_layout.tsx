@@ -17,7 +17,7 @@ import { PolicyGate } from '@/components/PolicyGate';
 import { useHsPolicy } from '@/data/hsPolicy';
 import { useAuth } from '@/lib/auth';
 import { usePushTaps } from '@/lib/push';
-import { isFullManager, isManager, homeKind, isFinanceOnlyOrg, isFinanceUser } from '@/lib/roles';
+import { isFinanceController, isFullManager, isManager, homeKind, isFinanceOnlyOrg, isFinanceUser } from '@/lib/roles';
 import { recordPath } from '@/lib/navBack';
 import { setOneDriveSaver } from '@/lib/oneDriveSave';
 import { base, useTheme } from '@/theme/theme';
@@ -37,11 +37,11 @@ export default function AppLayout() {
   const hasSites = !['driver', 'finance', 'superadmin'].includes(homeKind(me, org));
   // Site managers, clients and subcontractor logins land on Projects; on a phone their bar also has
   // Inbox and My Dashboard (and HUB for site managers), as the current app's bottom bar.
-  const extra = !!me && (me.role === 'site_manager' || ['client', 'subcontractor'].includes(homeKind(me, org)));
+  const extra = !!me && (me.role === 'site_manager' || ['client', 'subcontractor', 'operative'].includes(homeKind(me, org)));
   const siteMgr = me?.role === 'site_manager';
   const { data: allSites } = useSites();
   const path = usePathname();
-  const projBar = usesPhoneBar(path.replace(/\/$/, ''), isFullManager(me));
+  const projBar = usesPhoneBar(path.replace(/\/$/, ''), isFullManager(me) && !isFinanceController(me) && !isFinanceOnlyOrg(org));
   const { data: hubBadge } = useHub(siteMgr || (projBar && isFullManager(me) && !/^\/sites\/[0-9a-f-]{36}/.test(path)) ? me : null, allSites, '');
   const { data: ownBadge } = useOutstanding(me && !siteMgr && !isManager(me) && hasSites ? allSites : undefined);
   const inboxN = siteMgr ? (hubBadge?.items.length ?? 0) : outstandingCount(ownBadge);
@@ -62,8 +62,8 @@ export default function AppLayout() {
   const needsSetup = me?.role === 'admin' && !me._support && !!org && !org.logo_path;
   useEffect(() => { if (needsSetup && path !== '/pm/admin/branding') router.replace('/pm/admin/branding' as never); }, [needsSetup, path]);
   if (policy.data?.pending && policy.data.doc && path !== '/signature' && !me?._support) return <PolicyGate doc={policy.data.doc} />;
-  // A Finance-only company (908 finOnlyRoute): just the Finance app; someone without Finance is told who switches it on.
-  if (me && org && isFinanceOnlyOrg(org) && me.role !== 'superadmin') {
+  // A Finance-only company (908 finOnlyRoute) or a Finance Controller: just the Finance app; someone without Finance is told who switches it on.
+  if (me && org && (isFinanceOnlyOrg(org) || isFinanceController(me)) && me.role !== 'superadmin') {
     if (!isFinanceUser(me, org)) return <FinNoAccess />;
     // 160 company setup (logo) comes first, else the two redirects bounce off each other.
     if (!(needsSetup && path === '/pm/admin/branding') && !/^\/(fin|account|signature|home)(\/|$)/.test(path)) return <Redirect href={'/fin' as never} />;

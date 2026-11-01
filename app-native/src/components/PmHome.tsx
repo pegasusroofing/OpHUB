@@ -49,7 +49,7 @@ export function PmHome() {
   return (
     <Screen>
       <Text style={{ fontSize: 12.5, color: base.slate, fontWeight: '600' }}>{new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}</Text>
-      <Text style={[heading(800), { fontSize: 21, color: base.ink, marginBottom: 14, letterSpacing: -0.2 }]}>{greeting()}{first ? `, ${first}` : ''}</Text>
+      <Text style={[heading(800), { fontSize: 21, color: base.ink, marginBottom: 10, letterSpacing: -0.2 }]}>{greeting()}{first ? `, ${first}` : ''}</Text>
       {!desk && <SearchButton />}
       <HowTo k="home" />
       <HomePrompts />
@@ -63,7 +63,7 @@ export function PmHome() {
           <OphIcon name="chevron" size={18} color={base.slate} stroke={2.2} />
         </Pressable>
       )}
-      <View style={{ flexDirection: 'row', gap: desk ? 14 : 8, marginBottom: space.m }}>
+      <View style={{ flexDirection: 'row', gap: 10, marginBottom: space.m }}>
         <Stat n={live.length} label="Live jobs" onPress={go('/sites')} />
         <Stat n={onSite.length} label="On site now" onPress={go('/onsite')} />
         <Stat n={todos.length} label="To do" onPress={go('/pm/todos')} />
@@ -82,12 +82,10 @@ export function PmHome() {
       <TileGrid cols={desk ? 4 : 2}>
         {isFinanceUser(me, org) && <Tile ic="pound" tint={TINTS.green[0]} fg={TINTS.green[1]} title="OpHUB Finance" sub="Money in & out" onPress={go('/fin')} />}
         <Tile ic="reports" tint={TINTS.orange[0]} fg={TINTS.orange[1]} title="Quotes" sub="Tender tracker" onPress={go('/pm/quotes')} />
-        <Tile ic="chart" tint={TINTS.teal[0]} fg={TINTS.teal[1]} title="Dashboard" sub="Company overview" onPress={go('/pm/dashboard')} />
+        <Tile ic="chart" tint={TINTS.teal[0]} fg={TINTS.teal[1]} title="Dashboard" sub="Company & operatives" onPress={go('/pm/dashboard')} />
         <Tile ic="calendar" tint={TINTS.green[0]} fg={TINTS.green[1]} title="Calendar" sub="All projects" onPress={go('/pm/calendar')} />
-        <Tile ic="bell" tint={TINTS.orange[0]} fg={TINTS.orange[1]} title="HUB" sub={hubN ? `${hubN} notification${hubN === 1 ? '' : 's'}` : 'Notifications & messages'} badge={hubN || undefined} onPress={go('/pm/hub')} />
         <Tile ic="truck" tint={TINTS.purple[0]} fg={TINTS.purple[1]} title="Deliveries" sub={dlvN ? `${dlvN} to schedule` : 'Delivery schedule'} badge={dlvN || undefined} onPress={go('/pm/deliveries')} />
         <Tile ic="reports" tint={TINTS.blue[0]} fg={TINTS.blue[1]} title="Reports & surveys" sub={open.length ? `${open.length} in progress` : 'All projects'} onPress={go('/pm/reports')} />
-        <Tile ic="admin" tint={TINTS.blue[0]} fg={TINTS.blue[1]} title="Operatives" sub="Certifications, training, tools" onPress={go('/pm/operatives')} />
         <Tile ic="users" tint={TINTS.purple[0]} fg={TINTS.purple[1]} title="HR" sub="Holidays, policies & handbook" onPress={go('/pm/hr')} />
         <Tile ic="gear" tint={TINTS.grey[0]} fg={TINTS.grey[1]} title="Admin" sub="Team, libraries, settings" onPress={go('/pm/admin')} />
       </TileGrid>
@@ -95,7 +93,7 @@ export function PmHome() {
         <>
           <SectionTitle>Pick up where you left off</SectionTitle>
           {mine.map((r) => (
-            <Pressable key={r.id} onPress={go(r.site_id ? `/sites/${r.site_id}/snagging/reports/fill/${r.id}` : `/pm/survey/${r.id}?mode=fill`)} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 16, paddingVertical: 13, paddingHorizontal: 14, marginBottom: 8 }}>
+            <Pressable key={r.id} onPress={go(r.site_id ? `/sites/${r.site_id}/snagging/reports/fill/${r.id}` : `/pm/survey/${r.id}?mode=fill`)} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 16, paddingVertical: 13, paddingHorizontal: 14, marginBottom: 10 }}>
               <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: base.warn }} />
               <View style={{ flex: 1 }}>
                 <Text style={{ fontWeight: '700', color: base.ink, fontSize: 14 }}>{r.template_name || 'Report'}</Text>
@@ -110,7 +108,7 @@ export function PmHome() {
         <Text style={{ fontSize: 11, color: base.slateLight, fontStyle: 'italic' }}>{me?.name}</Text>
         <Text style={{ fontSize: 11, color: base.slateLight, fontStyle: 'italic' }}>{roleLabel(me)}</Text>
       </View>
-      <Pressable onPress={signOut} style={{ alignSelf: 'center', marginTop: 8 }}>
+      <Pressable onPress={signOut} style={{ alignSelf: 'center', marginTop: 10 }}>
         <Text style={{ color: base.warn, textDecorationLine: 'underline', fontSize: 11, fontStyle: 'italic' }}>Sign out</Text>
       </Pressable>
     </Screen>

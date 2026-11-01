@@ -2,6 +2,7 @@
 // booked in and balance (red when over-booked); colour groups get a combined
 // card (managers group tiles from each tile's ⋮); closed ones fold away.
 // Multi-address jobs pick an address first.
+import { WagesToBook } from '@/components/WagesToBook';
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
@@ -72,6 +73,7 @@ export default function PriceTile() {
   return (
     <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'Price' }} />
+      {!!me && data.mgr && <WagesToBook me={me} siteId={id} />}
       {multi && (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
           {data.subs.length ? data.subs.map((a) => (

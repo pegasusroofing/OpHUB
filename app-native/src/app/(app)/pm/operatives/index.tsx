@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { CertsPanel } from '@/components/CertsPanel';
+import { DashTabs } from '@/components/DashTabs';
 import { MyToolsList } from '@/components/MyToolsList';
 import { confirmAsk, useToast } from '@/components/toast';
 import { Button, Empty, Muted, SectionTitle, Toggle } from '@/components/ui';
@@ -58,17 +59,18 @@ export default function Operatives() {
   const shown = ops.filter((o) => (!site || onSite?.has(o.id)) && (!q.trim() || (o.name || '').toLowerCase().includes(q.trim().toLowerCase())));
   return (
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
-      <Stack.Screen options={{ title: siteName ? `Operatives · ${siteName}` : 'Operatives' }} />
-      <TextInput value={q} onChangeText={setQ} placeholder="Search operatives…" style={{ borderWidth: 1.5, borderColor: base.line, borderRadius: radius.input, padding: 12, color: base.ink, backgroundColor: base.card, marginBottom: 14 }} />
+      <Stack.Screen options={{ title: siteName ? `Operatives · ${siteName}` : 'Dashboard' }} />
+      {!site && <DashTabs on="operatives" />}
+      <TextInput value={q} onChangeText={setQ} placeholder="Search operatives…" style={{ borderWidth: 1.5, borderColor: base.line, borderRadius: radius.input, padding: 12, color: base.ink, backgroundColor: base.card, marginBottom: 10 }} />
       {!site && (
-        <View style={{ gap: 10, marginBottom: 14 }}>
+        <View style={{ gap: 10, marginBottom: 10 }}>
           <Button kind="ghost" busy={busy === 'x'} title="📊 Export Training Matrix (Excel)" onPress={() => void matrix('x')} />
           <Button kind="ghost" busy={busy === 'p'} title="📄 Export Training Matrix (PDF)" onPress={() => void matrix('p')} />
           <Pressable onPress={() => router.push('/pm/operatives/matrix' as never)} style={{ alignSelf: 'center' }}><Text style={{ fontSize: 12, color: base.blue }}>View the matrix on screen ›</Text></Pressable>
         </View>
       )}
       {isLoading ? <Muted>Loading…</Muted> : shown.length ? shown.map((o) => (
-        <Pressable key={o.id} onPress={() => router.push(`/pm/operatives/${o.id}` as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 8, backgroundColor: base.card }}>
+        <Pressable key={o.id} onPress={() => router.push(`/pm/operatives/${o.id}` as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 10, backgroundColor: base.card }}>
           <View style={{ width: 38, height: 38, borderRadius: 10, backgroundColor: base.blueBg, alignItems: 'center', justifyContent: 'center' }}>
             <Text style={{ fontWeight: '800', color: base.blue }}>{(o.name || '?').split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase()}</Text>
           </View>
@@ -82,10 +84,10 @@ export default function Operatives() {
       {!!site && (
         <>
           <SectionTitle>Other People ({manual.length})</SectionTitle>
-          <Muted style={{ marginBottom: 8 }}>For someone with certificates to track who isn&apos;t a registered operative — a subcontractor, for example. No account or login is created for them.</Muted>
+          <Muted style={{ marginBottom: 10 }}>For someone with certificates to track who isn&apos;t a registered operative — a subcontractor, for example. No account or login is created for them.</Muted>
           {manual.map((p) => (
             <View key={p.id}>
-              <Pressable disabled={!isManager(me)} onPress={() => setOpenFor((x) => { const n = new Set(x); if (n.has(p.id)) n.delete(p.id); else n.add(p.id); return n; })} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 8, backgroundColor: base.card }}>
+              <Pressable disabled={!isManager(me)} onPress={() => setOpenFor((x) => { const n = new Set(x); if (n.has(p.id)) n.delete(p.id); else n.add(p.id); return n; })} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 10, backgroundColor: base.card }}>
                 <View style={{ flex: 1 }}><Text style={{ fontWeight: '700', color: base.ink }}>{p.name}</Text><Muted>{p.certs} certificate{p.certs === 1 ? '' : 's'}</Muted></View>
                 {isManager(me) && <Pressable hitSlop={8} onPress={async () => { if (!(await confirmAsk("Remove this person? Their certificates will be deleted too — this can't be undone.", 'Remove'))) return; toast((await removeManualPerson(p.id)) ? 'Removed' : 'Could not remove — try again.'); void qc.invalidateQueries({ queryKey: ['manualPeople', site] }); }}><Text>🗑</Text></Pressable>}
               </Pressable>
@@ -93,7 +95,7 @@ export default function Operatives() {
             </View>
           ))}
           {isManager(me) && (
-            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
+            <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
               <TextInput value={newName} onChangeText={setNewName} placeholder="Name" style={{ flex: 1, borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card }} />
               <Button title="+ Add person" onPress={async () => { if (!newName.trim()) { toast('Enter a name.'); return; } if (await addManualPerson(me, site, newName.trim())) { toast('Added — you can now upload certificates for them.'); setNewName(''); void qc.invalidateQueries({ queryKey: ['manualPeople', site] }); } else toast('Could not save — try again.'); }} />
             </View>

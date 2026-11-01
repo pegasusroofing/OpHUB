@@ -4,6 +4,7 @@
 // and Close Request; edit, delete, group several into one request. Yard stock booked to the
 // job shows under Completed (internal — no PO). Dates come from a calendar; qty is numbers only.
 // A request on a sent PO is locked here (changes are made in Finance) — 9219zr.
+import { MatTabs, type MatTabKey } from '@/components/MatTabs';
 import { useQueryClient } from '@tanstack/react-query';
 import * as DocumentPicker from 'expo-document-picker';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
@@ -33,7 +34,7 @@ const long = (d: string) => new Date(d).toLocaleDateString('en-GB', { day: '2-di
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card, marginBottom: 8 };
 
 export default function MaterialRequests() {
-  const { id, add } = useLocalSearchParams<{ id: string; add?: string }>();
+  const { id, add, tab: startTab } = useLocalSearchParams<{ id: string; add?: string; tab?: string }>();
   const { me, org } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
@@ -41,7 +42,7 @@ export default function MaterialRequests() {
   const mgr = !!me && isManager(me);
   const fin = isFinanceUser(me, org);
   const { data: repairJobs } = useRepairPick(id, fin && !!site?.repair_contract);
-  const [tab, setTab] = useState<MatTab>(mgr ? 'pending' : 'live');
+  const [tab, setTab] = useState<MatTab>(mgr ? (startTab === 'done' ? 'done' : 'pending') : 'live');
   const { data: list, isLoading, refetch, isRefetching } = useMaterialRequests(id, tab);
   const { data: collectN } = useCollectionsOpenCount(id, mgr);
   const { data: addrs } = useSubAddresses(id, !!site?.multi_site);
@@ -213,15 +214,9 @@ export default function MaterialRequests() {
       refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => { void refetch(); }} />}>
       <Stack.Screen options={{ title: 'Material Requests' }} />
       {mgr && <Card style={{ backgroundColor: '#F1E4FA', flexDirection: 'row', gap: 10, alignItems: 'flex-start', shadowOpacity: 0 }}><Text style={{ fontSize: 16 }}>🙋</Text><Text style={{ flex: 1, color: '#4E1F6E' }}><Text style={{ fontWeight: '700' }}>Requests from operatives.</Text> Order them from a merchant, or give them to an operative to collect — those move to the <Text style={{ fontWeight: '700' }}>Collections</Text> tab. Tick several to group them into one request.</Text></Card>}
-      <FilterRow value={tab as string} onChange={(k) => {
-        if (k === 'collect') { router.push(`/sites/${id}/materials/collections` as never); return; }
-        if (k === 'yard') { router.push(`/sites/${id}/materials/yard` as never); return; }
-        if (k === 'bookin') { router.push('/driver/yard' as never); return; }
-        if (k === 'suppliers') { router.push('/pm/admin/suppliers' as never); return; }
-        setSel(new Set()); setTab(k as MatTab);
-      }} options={(mgr
-        ? [['pending', 'Material Requests'], ['collect', `Collections${collectN ? ` (${collectN})` : ''}`], ['done', 'Completed'], ['suppliers', '🏪 Suppliers'], ...(yardCanEdit(me, fin) ? [['yard', '📦 Yard Stock'], ['bookin', '⬇ Book into yard']] : [])]
-        : [['live', 'Live/Pending'], ['closed', 'Closed']]) as [string, string][]} />
+      {mgr
+        ? <MatTabs siteId={id} on={tab as MatTabKey} collectN={collectN} yard={yardCanEdit(me, fin)} onPick={(k) => { setSel(new Set()); setTab(k as MatTab); }} />
+        : <FilterRow value={tab as string} onChange={(k) => { setSel(new Set()); setTab(k as MatTab); }} options={[['live', 'Live/Pending'], ['closed', 'Closed']] as [string, string][]} />}
 
       {ordering && (
         <Card style={{ borderColor: base.ink, borderWidth: 1.5 }}>

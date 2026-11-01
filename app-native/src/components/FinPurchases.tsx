@@ -135,7 +135,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
     const committed = round2(openPos.filter((p) => p.value != null).reduce((t, p) => t + Math.max(0, Number(p.value) - poInvoiced(p, live)), 0));
     return (
       <View>
-        <View style={{ marginBottom: 8 }}><Button title="+ New PO" onPress={() => void withJob('New purchase order', (sid) => `/fin/po/new?site=${sid}`)} /></View>
+        <View style={{ marginBottom: 10 }}><Button title="+ New PO" onPress={() => void withJob('New purchase order', (sid) => `/fin/po/new?site=${sid}`)} /></View>
         {bar('Search PO, supplier or project', [{ key: 'status', label: 'Status', items: [['open', 'Open'], ['invoiced', 'Invoiced'], ['cancelled', 'Cancelled']].map(([v, l]) => ({ v, l, n: data.pos.filter(F[v]).filter(fOK).length })) }])}
         {desk && list.length ? (
           <FinTable rows={list} keyOf={(p) => p.id} onRow={(p) => router.push(`/fin/po/${p.id}` as never)}
@@ -153,7 +153,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
         ) : list.length ? list.map((p) => { const inv = poInvoiced(p, live), left = p.value != null ? Math.max(0, round2(Number(p.value) - inv)) : null; return (
           <FinRow compact key={p.id} left={p.number} title={p.supplier_name || '—'} sub={[siteId ? '' : jobTag(site(p.site_id)), fdate(String(p.issue_date || p.created_at || '').slice(0, 10)), PO_STATUS[p.status] || p.status, `invoiced ${money(inv)}`, left != null && p.status === 'open' ? `${money(left)} left` : ''].filter(Boolean).join(' · ')} right={p.value != null ? money(p.value) : 'No value'} onPress={() => router.push(`/fin/po/${p.id}` as never)} />
         ); }) : <Empty>No purchase orders here.</Empty>}
-        <Muted style={{ marginTop: 8 }}>{openPos.length} open · {money(committed, 0)} ordered but not invoiced yet. Orders sent from a project&apos;s Materials tile appear here by themselves.</Muted>
+        <Muted style={{ marginTop: 10 }}>{openPos.length} open · {money(committed, 0)} ordered but not invoiced yet. Orders sent from a project&apos;s Materials tile appear here by themselves.</Muted>
       </View>
     );
   }
@@ -177,8 +177,8 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
     };
     return (
       <View>
-        <Muted style={{ marginBottom: 8 }}>Invoices emailed in or added here are read, checked against your newest quote or price list, and filed to the job when it’s clear which one. Anything unclear stays in Unallocated with the reason. While Finance is on trial they aren’t read: allocate them by hand.</Muted>
-        <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8 }}>
+        <Muted style={{ marginBottom: 10 }}>Invoices emailed in or added here are read, checked against your newest quote or price list, and filed to the job when it’s clear which one. Anything unclear stays in Unallocated with the reason. While Finance is on trial they aren’t read: allocate them by hand.</Muted>
+        <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
           <View style={{ flex: 1 }}><Button kind="ghost" busy={upBusy} title="+ Add invoices" onPress={() => void uploadInvoices()} /></View>
           <View style={{ flex: 1 }}><Button title="+ Type one in" onPress={() => void withJob('Add a purchase invoice', (sid) => `/fin/pinv/new?site=${sid}`)} /></View>
         </View>
@@ -213,12 +213,12 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
                 toast(`${ok} marked paid`); refresh();
               };
               const bulkBar = bulk && picked.length > 0 ? (
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                   <Text style={{ fontWeight: '800', color: base.ink }}>{picked.length} selected · {money(picked.reduce((t, i) => t + Number(i.total || 0), 0))}</Text>
                   {cur === 'approve' ? <Button title={`✓ Approve ${picked.length}`} onPress={() => void approveAll()} /> : <Button title={`Mark ${picked.length} paid`} onPress={() => void paidAll()} />}
                   <Pressable onPress={() => setSel(new Set())}><Text style={{ color: base.slate }}>Clear</Text></Pressable>
                 </View>
-              ) : bulk && list.length > 1 ? <Pressable onPress={() => setSel(new Set(list.map((i) => i.id)))} style={{ marginBottom: 8 }}><Text style={{ color: base.blue, fontWeight: '700' }}>☐ Tick all</Text></Pressable> : null;
+              ) : bulk && list.length > 1 ? <Pressable onPress={() => setSel(new Set(list.map((i) => i.id)))} style={{ marginBottom: 10 }}><Text style={{ color: base.blue, fontWeight: '700' }}>☐ Tick all</Text></Pressable> : null;
               if (desk && list.length) return (
                 <>{bulkBar}<FinTable rows={list} keyOf={(i) => i.id} onRow={(i) => router.push(`/fin/pinv/${i.id}` as never)}
                   cols={[
@@ -254,12 +254,12 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
     const onHire = data.hires.filter((h) => !h.off_hire);
     return (
       <View>
-        <View style={{ flexDirection: 'row', marginBottom: 8 }}><View style={{ marginLeft: 'auto' }}><Button title="+ Plant hire" onPress={() => void withJob('Add plant hire', (sid) => `/fin/plant/new?site=${sid}`)} /></View></View>
+        <View style={{ flexDirection: 'row', marginBottom: 10 }}><View style={{ marginLeft: 'auto' }}><Button title="+ Plant hire" onPress={() => void withJob('Add plant hire', (sid) => `/fin/plant/new?site=${sid}`)} /></View></View>
         {bar('Search item, supplier or project')}
         {list.length ? list.map((h) => { const c = plantCost(h as never), long = !h.off_hire && c.days > 28; return (
           <FinRow compact key={h.id} title={h.item} sub={[h.supplier_name, siteId ? '' : jobTag(site(h.site_id)), `on ${fdate(h.on_hire)}`, h.off_hire ? `off ${fdate(h.off_hire)}` : `on hire ${c.weeks} wk${long ? ' — over 4 weeks' : ''}`].filter(Boolean).join(' · ')} right={money(c.cost)} tone={long ? '#D98A00' : undefined} onPress={() => router.push(`/fin/plant/${h.id}` as never)} />
         ); }) : <Empty>No plant hire.</Empty>}
-        <Muted style={{ marginTop: 8 }}>{onHire.length} on hire · {money(onHire.reduce((t, h) => t + plantCost(h as never).cost, 0), 0)} so far. Tap one to off-hire it.</Muted>
+        <Muted style={{ marginTop: 10 }}>{onHire.length} on hire · {money(onHire.reduce((t, h) => t + plantCost(h as never).cost, 0), 0)} so far. Tap one to off-hire it.</Muted>
       </View>
     );
   }
@@ -269,7 +269,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
   const list = Object.values(by).sort((a, b) => b.spend - a.spend || a.name.localeCompare(b.name)).filter((r) => hit(r.name, r.email));
   return (
     <View>
-      <View style={{ flexDirection: 'row', marginBottom: 8 }}><View style={{ marginLeft: 'auto' }}><Button kind="ghost" title="Edit suppliers (Directory)" onPress={() => router.push('/fin/directory?kind=supplier' as never)} /></View></View>
+      <View style={{ flexDirection: 'row', marginBottom: 10 }}><View style={{ marginLeft: 'auto' }}><Button kind="ghost" title="Edit suppliers (Directory)" onPress={() => router.push('/fin/directory?kind=supplier' as never)} /></View></View>
       <TextInput value={q} onChangeText={setQ} placeholder="Search suppliers" style={[box, { marginBottom: 10 }]} />
       {list.length ? list.map((r) => <FinRow compact key={r.name} title={r.name} sub={[r.email, `${r.n} invoice${r.n === 1 ? '' : 's'}`, `spent ${money(r.spend, 0)} net`].filter(Boolean).join(' · ')} right={r.owed ? `${money(r.owed, 0)} to pay` : '—'} />) : <Empty>No suppliers yet.</Empty>}
     </View>
@@ -289,7 +289,7 @@ export function PurchasesStats() {
   const ordered = round2(data.pos.filter((p) => p.status === 'open' && p.value != null && inPeriod(p.created_at, pC)).reduce((t, p) => t + Math.max(0, Number(p.value) - poInvoiced(p, live)), 0));
   const to = (tab: string, f: string) => () => router.setParams({ tab, f });
   return (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 10 }}>
       <FinStat tone="blue" v={String(needJob)} label={`Unallocated Invoices · ${pJ.label}`} onPress={to('invoices', 'job')} onMenu={() => void pick('p_job', 'all')} /><FinStat tone="green" v={money(unpaid, 0)} label={`To Pay Suppliers (Incl. VAT) · ${pU.label}`} onPress={to('invoices', 'unpaid')} onMenu={() => void pick('p_pay', 'all')} />
       <FinStat tone="red" v={String(toApprove)} label={`To Approve · ${pA.label}`} onPress={to('invoices', 'approve')} onMenu={() => void pick('p_appr', 'all')} /><FinStat tone="amber" v={money(ordered, 0)} label={`Ordered, Not Invoiced · ${pC.label}`} onPress={to('orders', 'open')} onMenu={() => void pick('p_ord', 'all')} />
     </View>

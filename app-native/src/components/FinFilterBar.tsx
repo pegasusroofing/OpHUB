@@ -34,15 +34,15 @@ export function FinFilterBar({ search, parts, sel, onChange, onClear, sorts, sor
       <Text style={{ flex: 1, fontSize: 13.5, color: base.ink, fontWeight: on ? '700' : '400' }}>{text}</Text>
     </Pressable>
   );
-  const panel = { backgroundColor: base.card, borderWidth: 1, borderColor: base.line, borderRadius: radius.input, marginBottom: 8, overflow: 'hidden' as const };
+  const panel = { backgroundColor: base.card, borderWidth: 1, borderColor: base.line, borderRadius: radius.input, marginBottom: 10, overflow: 'hidden' as const };
   const tick = (p: FilterPart, v: string) => {
     const cur = sel[p.key] || [];
     onChange({ ...sel, [p.key]: p.single ? (cur.includes(v) ? [] : [v]) : cur.includes(v) ? cur.filter((x) => x !== v) : [...cur, v] });
   };
   return (
     <View>
-      {search && <TextInput value={search.value} onChangeText={search.onChange} placeholder={search.placeholder} style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, paddingHorizontal: 10, paddingVertical: 8, backgroundColor: base.card, color: base.ink, marginBottom: 8, fontSize: 16 }} />}
-      <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8 }}>
+      {search && <TextInput value={search.value} onChangeText={search.onChange} placeholder={search.placeholder} style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, paddingHorizontal: 10, paddingVertical: 8, backgroundColor: base.card, color: base.ink, marginBottom: 10, fontSize: 16 }} />}
+      <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
         {drop('filter', label, count > 0)}
         {!!sorts?.length && drop('sort', sorts.find(([k]) => k === sort)?.[1] || 'Sort', false)}
       </View>

@@ -27,7 +27,7 @@ export const base = {
 };
 
 export const radius = { card: 18, tile: 18, input: 12, button: 12, row: 14 };
-export const space = { xs: 4, s: 8, m: 12, l: 16, xl: 24 };
+export const space = { xs: 4, s: 8, m: 10, l: 16, xl: 24 };
 
 function luminance(hex: string): number | null {
   const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -70,5 +70,5 @@ export function useDesk(): boolean {
 }
 /** A page's scroll content: full width beside the menu on a computer (padding 26 / 40 as app.css), else centred up to maxWidth. */
 export function page(maxWidth = 720): ViewStyle {
-  return isDesk() ? { paddingHorizontal: 40, paddingTop: 26, paddingBottom: 40, width: '100%' } : { padding: space.l, maxWidth, width: '100%', alignSelf: 'center' };
+  return isDesk() ? { paddingHorizontal: 40, paddingTop: space.m, paddingBottom: 40, width: '100%' } : { paddingHorizontal: space.l, paddingTop: space.m, paddingBottom: space.l, maxWidth, width: '100%', alignSelf: 'center' };
 }

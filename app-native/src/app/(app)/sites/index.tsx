@@ -49,7 +49,7 @@ export default function Sites() {
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['sites'] }); };
   // The .pmsearch bar, and cards 2+ across on a computer (.projgrp-body grid).
   const searchBar = (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#fff', borderWidth: 1, borderColor: base.line, borderRadius: 14, paddingHorizontal: 14, height: 46, marginBottom: 12 }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#fff', borderWidth: 1, borderColor: base.line, borderRadius: 14, paddingHorizontal: 14, height: 46, marginBottom: 10 }}>
       <OphIcon name="search" size={18} color={base.slate} />
       <TextInput value={q} onChangeText={setQ} placeholder="Search projects" placeholderTextColor={base.slateLight} style={{ flex: 1, fontSize: 14, color: base.ink, height: 44 }} />
     </View>
@@ -58,7 +58,7 @@ export default function Sites() {
     ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -6 }}>{list.map((x) => <View key={x.id} style={{ width: '50%', paddingHorizontal: 6 }}>{card(x)}</View>)}</View>
     : <>{list.map((x) => <View key={x.id}>{card(x)}</View>)}</>;
   const head = (k: string, label: string, n: number, on: boolean, toggle: () => void) => (
-    <Pressable key={`h${k}`} onPress={toggle} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10, marginBottom: 8, paddingVertical: 12, paddingHorizontal: 14, backgroundColor: base.card, borderWidth: 1, borderColor: base.line, borderRadius: 12 }}>
+    <Pressable key={`h${k}`} onPress={toggle} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10, marginBottom: 10, paddingVertical: 12, paddingHorizontal: 14, backgroundColor: base.card, borderWidth: 1, borderColor: base.line, borderRadius: 12 }}>
       <Text style={{ fontWeight: '800', fontSize: 13, letterSpacing: 0.8, color: base.ink }}>{label.toUpperCase()}</Text>
       <Text style={{ fontWeight: '600', fontSize: 13, color: base.slate }}>({n})</Text>
       <View style={{ flex: 1 }} />
@@ -81,7 +81,7 @@ export default function Sites() {
         <HowTo k="sites" />
         {me?.role === 'site_manager' && <HomePrompts />}
         {me?.role === 'site_manager' && (
-          <Pressable onPress={() => router.push('/pm/hr' as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 14, padding: 12, marginBottom: 12 }}>
+          <Pressable onPress={() => router.push('/pm/hr' as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 14, padding: 12, marginBottom: 10 }}>
             <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: '#F3EEFA', alignItems: 'center', justifyContent: 'center' }}><OphIcon name="users" size={18} color="#6B3FA8" /></View>
             <View style={{ flex: 1 }}><Text style={{ fontWeight: '700', color: base.ink }}>HR</Text><Muted>Holidays, policies &amp; handbook</Muted></View>
             <OphIcon name="chevron" size={18} color={base.slateLight} stroke={2.2} />
@@ -143,7 +143,7 @@ export default function Sites() {
       <HowTo k="sites" />
       {me?.role === 'site_manager' && <HomePrompts />}
       {searchBar}
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 4, marginBottom: 12 }}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 4, marginBottom: 10 }}>
         {chip(false, `${tabLabel[tab]} (${tab === 'all' ? filtered.length : lists[tab].length}) ▼`, async () => {
           const k = await chooseAction('Show', ([['all', filtered.length], ['live', lists.live.length], ['upcoming', lists.upcoming.length], ['closed', lists.closed.length]] as const).map(([x, n]) => ({ key: x, label: `${tabLabel[x]} (${n})` })));
           if (k) setTab(k as typeof tab);

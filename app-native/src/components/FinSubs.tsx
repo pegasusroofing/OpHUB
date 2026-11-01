@@ -1,6 +1,10 @@
 // Subcontractors & Labour (9219c / 905 / 9218): operative invoices, the
 // Friday pay run, subcontractor POs, their applications & certificates, and
 // the CIS month — for the company or one project (siteId).
+import { DateBox } from '@/components/DateField';
+import { WagesToBook } from '@/components/WagesToBook';
+import { bringInPayeWeek, lastMonday, wagesOff } from '@/data/wageBook';
+import type { Profile } from '@/lib/types';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useState } from 'react';
@@ -44,7 +48,7 @@ export function useSubsData(orgId: string | null | undefined, siteId?: string) {
   });
 }
 
-export function SubsLists({ tab, siteId, f }: { tab: 'opinv' | 'payrun' | 'orders' | 'apps' | 'cis'; siteId?: string; f?: string }) {
+export function SubsLists({ tab, siteId, f }: { tab: 'opinv' | 'wages' | 'payrun' | 'orders' | 'apps' | 'cis'; siteId?: string; f?: string }) {
   const { me } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
@@ -68,13 +72,14 @@ export function SubsLists({ tab, siteId, f }: { tab: 'opinv' | 'payrun' | 'order
   const has = <T,>(F: Record<string, (x: T) => boolean>, x: T) => !sel.show.length || sel.show.some((k) => F[k](x));
   const num = (x: Row, k: string) => Number(x[k] || 0);
 
+  if (tab === 'wages') return <WagesTab me={me} siteId={siteId} />;
   if (tab === 'opinv') {
     const F: Record<string, (p: Row) => boolean> = { topay: (p) => p.status === 'approved' || p.status === 'draft', paid: (p) => p.status === 'paid', all: () => true };
     const list = data.ops.filter((p) => has(F, p)).filter((p) => hit(p.name, p.invoice_no, opJobs(p))).slice().sort(sort === 'old' ? (a, b) => String(a.period_start || '').localeCompare(String(b.period_start || '')) : sort === 'big' ? (a, b) => num(b, 'gross') - num(a, 'gross') : sort === 'name' ? (a, b) => String(a.name || '').localeCompare(String(b.name || '')) : (a, b) => String(b.period_start || '').localeCompare(String(a.period_start || '')));
     return (
       <View>
-        <Muted style={{ marginBottom: 8 }}>When an operative sends their invoice, put it in here with the amount for each job. CIS is worked out for you and it&apos;s paid in the pay run. (Sending it to the job&apos;s PM is off while Finance is on trial.)</Muted>
-        <View style={{ marginBottom: 8 }}><Button title="+ Operative invoice" onPress={() => router.push('/fin/labour/new' as never)} /></View>
+        <Muted style={{ marginBottom: 10 }}>When an operative sends their invoice, put it in here with the amount for each job. CIS is worked out for you and it&apos;s paid in the pay run. (Booking it to a price sheet is off while Finance is on trial.)</Muted>
+        <View style={{ marginBottom: 10 }}><Button title="+ Operative invoice" onPress={() => router.push('/fin/labour/new' as never)} /></View>
         <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search name, invoice no. or job' }} sel={sel} onChange={setSel} onClear={() => setSel({ show: [] })} sorts={[['new', 'Newest first'], ['old', 'Oldest first'], ['big', 'Biggest first'], ['name', 'Name A to Z']]} sort={sort} onSort={setSort}
           parts={[{ key: 'show', label: 'Show', items: [['topay', 'To pay'], ['paid', 'Paid']].map(([v, l]) => ({ v, l, n: data.ops.filter(F[v]).length })) }]} />
         {list.length ? list.map((p) => <FinRow compact key={p.id} title={p.name || 'Operative'} sub={[p.invoice_no ? `inv ${p.invoice_no}` : '', `w/c ${fdate(p.period_start)}`, opJobs(p), `gross ${money(p.gross)} · CIS −${money(p.cis_deduction)}`, p.status === 'paid' ? `Paid ${fdate(p.paid_on)}` : p.status === 'approved' ? 'To pay' : 'Draft'].filter(Boolean).join(' · ')} right={money(p.net_pay)} onPress={() => router.push(`/fin/labour/${p.id}` as never)} />)
@@ -100,14 +105,14 @@ export function SubsLists({ tab, siteId, f }: { tab: 'opinv' | 'payrun' | 'order
             <View style={{ flex: 1, alignItems: 'center' }}><Muted>Pay day</Muted><Text style={{ fontWeight: '800', fontSize: 17, color: base.ink }}>{fmt(day)}</Text><Muted>Pays operative invoices for work up to {fmt(upTo)}</Muted></View>
             <Button kind="ghost" title="›" onPress={() => setRunDay(addDays(day, 7))} />
           </View>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
             {WEEKDAYS.map((n, i) => <FinChip key={n} on={payCfg(st).wd === i} label={`${n.slice(0, 3)}s`} onPress={() => void cfgSave('pay_weekday', i)} />)}
           </View>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
             {[[0, 'Same week'], [1, 'A week in hand'], [2, 'Two weeks behind']].map(([n, l]) => <FinChip key={l as string} on={payCfg(st).wih === n} label={l as string} onPress={() => void cfgSave('pay_weeks_in_hand', n as number)} />)}
           </View>
         </Card>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 10 }}>
           <FinStat v={money(tot('gross'))} label="Invoices" /><FinStat v={money(tot('cis_deduction'))} label="CIS to pay HMRC" /><FinStat v={money(tot('net_pay'))} label="To transfer" />
         </View>
         <Button title={`Mark ${due.length || ''} paid once you’ve sent the money`} disabled={!due.length} onPress={async () => {
@@ -116,12 +121,12 @@ export function SubsLists({ tab, siteId, f }: { tab: 'opinv' | 'payrun' | 'order
           toast(`${n} marked paid`); refresh();
         }} />
         {noBank > 0 && <Text style={{ color: '#C0392B', marginVertical: 8 }}>{noBank} {noBank === 1 ? 'person has' : 'people have'} no bank details saved — add them in People &amp; rates.</Text>}
-        <View style={{ marginTop: 8 }}>
+        <View style={{ marginTop: 10 }}>
           {due.concat(paidHere).length ? due.concat(paidHere).map((p) => { const r = data.rateBy[keyOf(p)]; return (
             <FinRow key={p.id} title={p.name || 'Operative'} sub={[p.invoice_no ? `inv ${p.invoice_no}` : '', `w/c ${fdate(p.period_start)}`, `gross ${money(p.gross)} · CIS −${money(p.cis_deduction)}`, bankOk(r) ? `${r.bank_account_name || ''} ${sortCode(r.bank_sort_code)} · ${String(r.bank_account_no).replace(/\D/g, '')}` : 'No bank details', p.status === 'paid' ? 'Paid' : 'To pay'].filter(Boolean).join(' · ')} right={money(p.net_pay)} onPress={() => router.push(`/fin/labour/${p.id}` as never)} />
           ); }) : <Empty>Nothing to pay on this day.</Empty>}
         </View>
-        {later.length > 0 && <Muted style={{ marginTop: 8 }}>{later.length} later invoice{later.length === 1 ? '' : 's'} ({money(later.reduce((t, p) => t + Number(p.net_pay || 0), 0))}) will be in a later pay run.</Muted>}
+        {later.length > 0 && <Muted style={{ marginTop: 10 }}>{later.length} later invoice{later.length === 1 ? '' : 's'} ({money(later.reduce((t, p) => t + Number(p.net_pay || 0), 0))}) will be in a later pay run.</Muted>}
       </View>
     );
   }
@@ -131,8 +136,8 @@ export function SubsLists({ tab, siteId, f }: { tab: 'opinv' | 'payrun' | 'order
     const list = data.scs.filter((s) => has(F, s)).filter((sc) => hit(sc.name, sc.number, sc.description, jobTag(site(sc.site_id)))).slice().sort(sort === 'old' ? (a, b) => String(a.created_at || '').localeCompare(String(b.created_at || '')) : sort === 'big' ? (a, b) => num(b, 'order_value') - num(a, 'order_value') : sort === 'name' ? (a, b) => String(a.name || '').localeCompare(String(b.name || '')) : (a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
     return (
       <View>
-        <Muted style={{ marginBottom: 8 }}>For subcontractors on a fixed price who apply for payment (e.g. leadwork, scaffolding).</Muted>
-        <View style={{ marginBottom: 8 }}><Button title="+ Subcontractor PO" onPress={async () => { const sid = siteId || (await pickJob('New subcontractor PO', sites.filter((s) => s.status !== 'closed'))); if (sid) router.push(`/fin/sub/new?site=${sid}` as never); }} /></View>
+        <Muted style={{ marginBottom: 10 }}>For subcontractors on a fixed price who apply for payment (e.g. leadwork, scaffolding).</Muted>
+        <View style={{ marginBottom: 10 }}><Button title="+ Subcontractor PO" onPress={async () => { const sid = siteId || (await pickJob('New subcontractor PO', sites.filter((s) => s.status !== 'closed'))); if (sid) router.push(`/fin/sub/new?site=${sid}` as never); }} /></View>
         <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search subcontractor or project' }} sel={sel} onChange={setSel} onClear={() => setSel({ show: [] })} sorts={[['new', 'Newest first'], ['old', 'Oldest first'], ['big', 'Biggest first'], ['name', 'Name A to Z']]} sort={sort} onSort={setSort}
           parts={[{ key: 'show', label: 'Show', items: [['active', 'Active'], ['complete', 'Complete']].map(([v, l]) => ({ v, l, n: data.scs.filter(F[v]).length })) }]} />
         {list.length ? list.map((sc) => <FinRow compact key={sc.id} left={sc.number} title={sc.name} sub={[siteId ? '' : jobTag(site(sc.site_id)), sc.description, `certified ${money(lastCert(sc.id)?.certified_gross || 0)}`, sc.status === 'complete' ? 'Complete' : 'Active'].filter(Boolean).join(' · ')} right={sc.order_value != null ? money(sc.order_value) : '—'} onPress={() => router.push(`/fin/sub/${sc.id}` as never)} />)
@@ -146,7 +151,7 @@ export function SubsLists({ tab, siteId, f }: { tab: 'opinv' | 'payrun' | 'order
     const list = data.sapps.filter((a) => has(F, a)).filter((a) => hit(scBy[a.subcontract_id]?.name, scBy[a.subcontract_id]?.number, jobTag(site(a.site_id)))).slice().sort(sort === 'old' ? (a, b) => String(a.app_date || '').localeCompare(String(b.app_date || '')) : sort === 'big' ? (a, b) => num(b, 'applied_gross') - num(a, 'applied_gross') : (a, b) => String(b.app_date || '').localeCompare(String(a.app_date || '')));
     return (
       <View>
-        <Muted style={{ marginBottom: 8 }}>A subcontractor applies → you certify it and send the payment or pay-less notice before the final date → mark it paid.</Muted>
+        <Muted style={{ marginBottom: 10 }}>A subcontractor applies → you certify it and send the payment or pay-less notice before the final date → mark it paid.</Muted>
         <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search subcontractor or project' }} sel={sel} onChange={setSel} onClear={() => setSel({ show: [] })} sorts={[['new', 'Newest first'], ['old', 'Oldest first'], ['big', 'Biggest first']]} sort={sort} onSort={setSort}
           parts={[{ key: 'show', label: 'Show', items: [['open', 'To certify'], ['certified', 'Certified, to pay'], ['paid', 'Paid']].map(([v, l]) => ({ v, l, n: data.sapps.filter(F[v]).length })) }]} />
         {list.length ? list.map((a) => { const sc = scBy[a.subcontract_id] || {}, late = a.status !== 'paid' && a.final_date && a.final_date < today(); return (
@@ -170,11 +175,35 @@ export function SubsLists({ tab, siteId, f }: { tab: 'opinv' | 'payrun' | 'order
           <Button kind="ghost" title="›" onPress={() => shift(1)} />
         </View>
       </Card>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}><FinStat v={money(tg)} label="Paid to subcontractors" /><FinStat v={money(tc)} label="CIS deducted (to pay HMRC)" /></View>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 10 }}><FinStat v={money(tg)} label="Paid to subcontractors" /><FinStat v={money(tc)} label="CIS deducted (to pay HMRC)" /></View>
       <SectionTitle>For the monthly CIS return</SectionTitle>
       {rows.length ? rows.map((r) => <FinRow key={r.key} title={r.name} sub={`UTR ${data.rateBy[r.key]?.utr || r.utr || 'missing'} · ${r.n} payment${r.n === 1 ? '' : 's'} · materials ${money(r.materials)} · CIS ${money(r.cis)}`} right={money(r.gross)} />) : <Empty>No subcontractor payments marked paid in this tax month.</Empty>}
-      <Muted style={{ marginTop: 8 }}>When Xero is linked, the CIS return is made from Xero. Until then use these figures; the HMRC deadline is the 19th.</Muted>
-      <Pressable onPress={() => router.push('/fin/directory?kind=labour' as never)} style={{ marginTop: 8 }}><Text style={{ color: base.blue }}>People &amp; rates (UTRs, CIS rates, bank details) ›</Text></Pressable>
+      <Muted style={{ marginTop: 10 }}>When Xero is linked, the CIS return is made from Xero. Until then use these figures; the HMRC deadline is the 19th.</Muted>
+      <Pressable onPress={() => router.push('/fin/directory?kind=labour' as never)} style={{ marginTop: 10 }}><Text style={{ color: base.blue }}>People &amp; rates (UTRs, CIS rates, bank details) ›</Text></Pressable>
+    </View>
+  );
+}
+
+// PAYE wages come from sign-ins, a week at a time; operative invoices arrive here when they're saved.
+function WagesTab({ me, siteId }: { me: Profile; siteId?: string }) {
+  const toast = useToast();
+  const qc = useQueryClient();
+  const [week, setWeek] = useState(lastMonday());
+  const [busy, setBusy] = useState(false);
+  return (
+    <View>
+      <Muted style={{ marginBottom: 10 }}>Labour from operative invoices and PAYE wages from sign-ins wait here. Book each to a price sheet and it updates that week’s booked-in amount, or to other job costs. PMs see their own jobs’ in the Price tile.</Muted>
+      {!siteId && !wagesOff(me.org_id) && (
+        <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', marginBottom: 10 }}>
+          <View style={{ flex: 1 }}><DateBox value={week} onChange={(v) => setWeek(monday(v))} /></View>
+          <View style={{ flex: 1 }}><Button small busy={busy} title="Bring in PAYE wages" onPress={async () => {
+            setBusy(true); const r = await bringInPayeWeek(me, week); setBusy(false);
+            toast(`${r.made ? `${r.made} wage line${r.made === 1 ? '' : 's'} brought in` : 'Nothing new for that week'}${r.noRate.length ? `. No day rate for ${r.noRate.join(', ')}` : ''}`);
+            void qc.invalidateQueries({ queryKey: ['wagePushes'] });
+          }} /></View>
+        </View>
+      )}
+      <WagesToBook me={me} siteId={siteId} showEmpty />
     </View>
   );
 }
@@ -185,7 +214,7 @@ export function SubsStats() {
   const { data } = useSubsData(me?.org_id);
   if (!data) return null;
   return (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 10 }}>
       <FinStat tone="blue" v={money(data.ops.filter((p) => p.status === 'approved').reduce((t, p) => t + Number(p.net_pay || 0), 0), 0)} label="Operative Invoices To Pay" onPress={() => router.setParams({ tab: 'opinv', f: '' })} />
       <FinStat tone="green" v={fdate(nextPayDay(st))} label="Next Pay Day" onPress={() => router.setParams({ tab: 'payrun', f: '' })} />
       <FinStat tone="red" v={String(data.sapps.filter((a) => a.status === 'received').length)} label="Applications To Certify" onPress={() => router.setParams({ tab: 'apps', f: 'open' })} />

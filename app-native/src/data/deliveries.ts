@@ -50,10 +50,14 @@ export async function dismissRequest(id: string): Promise<boolean> {
 
 /** ▲/▼ on the schedule. Returns a message to show, or null when moved. */
 /** Move a delivery straight into another drop the same day, at the end of it (870 dlvSaveOrder — the drag-and-drop). Returns why not, or null. */
+/** How many drivers the company has: a drop holds one delivery for each. */
+export async function driverCount(orgId: string): Promise<number> {
+  return (((await db.from('profiles').select('id').eq('org_id', orgId).eq('role', 'driver')).data as unknown[] | null) ?? []).length || 1;
+}
 export async function moveToSlot(me: Profile, t: FullDelivery, toSlot: string, sites: Site[]): Promise<string | null> {
   if (toSlot === t.time_slot) return null;
   const org = me.org_id as string;
-  const why = slotProblem(await dayList(org, t.scheduled_date), t, toSlot, placeOf(sites));
+  const why = slotProblem(await dayList(org, t.scheduled_date), t, toSlot, placeOf(sites), await driverCount(org));
   if (why) return why;
   const patch: Record<string, unknown> = { time_slot: toSlot, sub_priority: 999 };
   if (t.high_priority && toSlot !== DELIVERY_TIME_SLOTS[0].key) patch.high_priority = false;
@@ -80,7 +84,7 @@ export async function moveDelivery(me: Profile, t: FullDelivery, dir: 'up' | 'do
   if ((dir === 'up' && idx <= 0) || (dir === 'down' && idx >= DELIVERY_TIME_SLOTS.length - 1)) return dir === 'up' ? 'Already the earliest slot of the day.' : 'Already the last slot of the day.';
   let firstWhy = '', dest = '';
   for (let j = idx + step; j >= 0 && j < DELIVERY_TIME_SLOTS.length; j += step) {
-    const why = slotProblem(list, t, DELIVERY_TIME_SLOTS[j].key, placeOf(sites));
+    const why = slotProblem(list, t, DELIVERY_TIME_SLOTS[j].key, placeOf(sites), await driverCount(org));
     if (!why) { dest = DELIVERY_TIME_SLOTS[j].key; break; }
     if (!firstWhy) firstWhy = why;
   }
@@ -139,7 +143,7 @@ export async function existingFirstDrop(me: Profile, d: Draft) {
 
 export async function saveDelivery(me: Profile, d: Draft, orig: Orig, sites: Site[], clearHigh: FullDelivery[]): Promise<{ ok: boolean; msg: string }> {
   const org = me.org_id as string;
-  const why = slotProblem(await dayList(org, d.scheduled_date), { id: d.id || 'new', double_slot: d.double_slot }, d.time_slot, placeOf(sites));
+  const why = slotProblem(await dayList(org, d.scheduled_date), { id: d.id || 'new', double_slot: d.double_slot, driver_id: d.driver_id }, d.time_slot, placeOf(sites), await driverCount(org));
   if (why) return { ok: false, msg: why };
   // Only a new delivery, or a change of day or driver, is checked against days off.
   const drv = d.driver_id && d.driver_id !== 'none' ? d.driver_id : null;

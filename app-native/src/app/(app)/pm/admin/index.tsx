@@ -71,7 +71,7 @@ export default function AdminCentre() {
       )}
       {q.trim() ? (
         <>
-          <Muted style={{ marginBottom: 8 }}>{hits.length} result{hits.length === 1 ? '' : 's'}</Muted>
+          <Muted style={{ marginBottom: 10 }}>{hits.length} result{hits.length === 1 ? '' : 's'}</Muted>
           {hits.length ? <Group first>{hits.map((i, n) => itemRow(i, n, hits, `${ADMIN_PAGES[i.page].label}${i.group ? ` › ${i.group}` : ''}`))}</Group> : <Muted>Nothing matches &quot;{q.trim()}&quot;.</Muted>}
         </>
       ) : (

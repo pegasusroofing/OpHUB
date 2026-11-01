@@ -81,20 +81,20 @@ export function Button({ title, onPress, busy, kind = 'primary', disabled, small
   );
 }
 
-/** The .filterrow tabs: equal-width boxes, the chosen one outlined in the company colour.
+/** The .filterrow tabs: pills as wide as their words, wrapping onto a second line if needed, the chosen one outlined in the company colour.
  *  seg = the grey sliding bar used on Schedule of Works (.sowpage .filterrow). */
 export function FilterRow<K extends string>({ options, value, onChange, seg, cols }: { options: [K, string][]; value: K; onChange: (k: K) => void; seg?: boolean; cols?: number }) {
   const t = useTheme();
   return (
-    <View style={[{ flexDirection: 'row', gap: seg ? 4 : 8, marginBottom: 12 }, seg && { backgroundColor: '#ECEDF0', borderRadius: 14, padding: 4 }, !!cols && { flexWrap: 'wrap', gap: 0, marginHorizontal: -4 }]}>
+    <View style={[{ flexDirection: 'row', gap: seg ? 4 : space.s, marginBottom: space.m }, !seg && !cols && { flexWrap: 'wrap' }, seg && { backgroundColor: '#ECEDF0', borderRadius: 14, padding: 4 }, !!cols && { flexWrap: 'wrap', gap: 0, marginHorizontal: -4 }]}>
       {options.map(([k, l]) => {
         const on = k === value;
         const box = (
           <Pressable key={k} onPress={() => onChange(k)} accessibilityRole="tab" accessibilityState={{ selected: on }}
-            style={[{ flex: 1, minWidth: 0, minHeight: 34, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8, paddingVertical: seg ? 6 : 8 },
+            style={[seg || cols ? { flex: 1, minWidth: 0 } : null, { minHeight: 34, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8, paddingVertical: seg ? 6 : 8 },
               seg ? [{ borderRadius: 10 }, on && { backgroundColor: '#fff', ...shadowSm }]
-                : { borderRadius: 8, backgroundColor: '#fff', borderWidth: on ? 2 : 1.5, borderColor: on ? t.brand1 : base.line }]}>
-            <Text numberOfLines={2} style={{ textAlign: 'center', fontSize: 12, fontWeight: seg ? '700' : '800', letterSpacing: seg ? 0 : 0.4, textTransform: seg ? 'none' : 'uppercase', color: on ? base.ink : base.slate }}>{l}</Text>
+                : { borderRadius: cols ? 8 : 17, paddingHorizontal: cols ? 8 : 14, backgroundColor: '#fff', borderWidth: on ? 2 : 1.5, borderColor: on ? t.brand1 : base.line }]}>
+            <Text numberOfLines={seg || cols ? 2 : 1} style={{ textAlign: 'center', fontSize: seg || cols ? 12 : 13, fontWeight: seg ? '700' : on ? '800' : '600', color: on ? base.ink : base.slate }}>{l}</Text>
           </Pressable>
         );
         // cols: a grid of boxes (e.g. the HUB's two rows of four).
@@ -278,7 +278,7 @@ const s = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 16, paddingHorizontal: 14, paddingVertical: 13, marginBottom: space.s },
   rowTitle: { fontSize: 14, fontWeight: '700', color: base.ink },
   rowSub: { fontSize: 12, color: base.slate, marginTop: 2 },
-  section: { ...heading(700), fontSize: 11, letterSpacing: 0.9, textTransform: 'uppercase', color: base.slate, marginTop: 14, marginBottom: 10 },
+  section: { ...heading(700), fontSize: 11, letterSpacing: 0.9, textTransform: 'uppercase', color: base.slate, marginTop: 0, marginBottom: space.m },
   empty: { color: base.slateLight, textAlign: 'center', paddingVertical: 26, paddingHorizontal: 10, fontSize: 13 },
   stat: { flex: 1, backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 16, paddingVertical: 11, paddingHorizontal: 10 },
   statN: { ...heading(800), fontSize: 21, color: base.ink, lineHeight: 24 },

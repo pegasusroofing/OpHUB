@@ -7,6 +7,7 @@ import { router, Stack } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
+import { DashTabs } from '@/components/DashTabs';
 import { Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
@@ -100,20 +101,21 @@ export default function CompanyDashboard() {
   const sel = show && lists[show];
   return (
     <ScrollView contentContainerStyle={page(720)}>
-      <Stack.Screen options={{ title: 'Company Dashboard' }} />
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 14, marginBottom: 14 }}>
+      <Stack.Screen options={{ title: 'Dashboard' }} />
+      <DashTabs on="company" />
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 10 }}>
         {stat('Live Projects', live.length, null, () => router.push('/sites'))}
         {stat('Upcoming', count('upcoming'), null, () => router.push('/sites?tab=upcoming' as never))}
         {stat('Closed', count('closed'), null, () => router.push('/sites?tab=closed' as never))}
       </View>
       {isLoading || !data ? <Muted>Loading…</Muted> : (
         <>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 14, marginBottom: 14 }}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 10 }}>
             {stat('Open Snags', sum(data.snagBy), 'across live projects', toggle('snags'))}
             {stat('RAMS Outstanding', sum(data.ramsBy), 'signatures needed', toggle('rams'))}
             {stat('COSHH Outstanding', sum(data.coshhBy), 'signatures needed', toggle('coshh'))}
           </View>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 14, marginBottom: 14 }}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 10 }}>
             {stat('Schedule Complete', `${data.pct}%`, `${data.tasks} tasks across live projects`)}
             {stat('Incidents', data.incidents.length, 'most recent 500 reports', toggle('incidents'))}
             {stat('Outstanding TBT', sum(data.tbtBy), 'signatures needed', toggle('tbt'))}
@@ -125,7 +127,7 @@ export default function CompanyDashboard() {
             <View key={k}>
               <SectionTitle>{l.title}</SectionTitle>
               {ranked.length ? ranked.map(({ s, n }) => (
-                <Pressable key={s.id} onPress={() => router.push(l.go(s.id) as never)} style={{ flexDirection: 'row', alignItems: 'center', padding: 12, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 6, backgroundColor: base.card }}>
+                <Pressable key={s.id} onPress={() => router.push(l.go(s.id) as never)} style={{ flexDirection: 'row', alignItems: 'center', padding: 12, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 10, backgroundColor: base.card }}>
                   <Text style={{ flex: 1, fontWeight: '700', color: base.ink }}>{s.name}</Text>
                   <Text style={{ fontWeight: '800', color: base.warn }}>{n}</Text>
                 </Pressable>
@@ -137,7 +139,7 @@ export default function CompanyDashboard() {
             <>
               <SectionTitle>Recent Accident / Incident Reports</SectionTitle>
               {data.incidents.slice(0, 8).length ? data.incidents.slice(0, 8).map((r) => (
-                <Pressable key={r.id} onPress={() => router.push(`/sites/${r.site_id}/hs/incidents/${r.id}` as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 6, backgroundColor: base.card }}>
+                <Pressable key={r.id} onPress={() => router.push(`/sites/${r.site_id}/hs/incidents/${r.id}` as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 10, backgroundColor: base.card }}>
                   <Text>⚠️</Text>
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontWeight: '700', color: base.ink }}>{all.find((x) => x.id === r.site_id)?.name || 'Unknown project'}</Text>

@@ -23,18 +23,20 @@ test('PMs manage operatives; only admins remove PMs and site managers', () => {
 });
 
 test('a company admin can set anyone to any role, but not themselves or the last admin', () => {
-  const every = ['admin', 'pm', 'estimator', 'site_manager', 'operative', 'driver', 'client'];
+  const every = ['admin', 'finance_controller', 'pm', 'estimator', 'site_manager', 'operative', 'driver', 'client'];
   for (const role of ['client', 'driver', 'operative', 'site_manager', 'pm']) assert.deepEqual(roleActionsFor(admin, { id: 'x', role }, [admin]).options?.map((x) => x.value), every);
   assert.deepEqual(roleActionsFor(admin, { id: 'a2', role: 'admin' }, [admin, { id: 'a2', role: 'admin' }]).options?.map((x) => x.value), every);
   assert.equal(roleActionsFor(pm, { id: 'c', role: 'client' }, [admin]).options, null);
 });
 
 test('moving someone off admin / PM takes their Finance access away', () => {
-  assert.deepEqual(roleChangePatch('client'), { role: 'client', is_estimator: false, finance_enabled: false, see_costs: false });
-  assert.deepEqual(roleChangePatch('pm'), { role: 'pm', is_estimator: false });
+  assert.deepEqual(roleChangePatch('client'), { role: 'client', is_estimator: false, finance_only: false, finance_enabled: false, see_costs: false });
+  assert.deepEqual(roleChangePatch('pm'), { role: 'pm', is_estimator: false, finance_only: false });
+  assert.deepEqual(roleChangePatch('finance_controller'), { role: 'pm', is_estimator: true, finance_only: true, finance_enabled: true });
 });
 
 test('estimator is a PM flag', () => {
-  assert.deepEqual(rolePatch('estimator'), { role: 'pm', is_estimator: true });
+  assert.deepEqual(rolePatch('estimator'), { role: 'pm', is_estimator: true, finance_only: false });
+  assert.equal(shownRole({ id: 'x', role: 'pm', is_estimator: true, finance_only: true }), 'finance_controller');
   assert.equal(shownRole({ id: 'x', role: 'pm', is_estimator: true }), 'estimator');
 });

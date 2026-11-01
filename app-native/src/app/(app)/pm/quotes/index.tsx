@@ -69,7 +69,7 @@ export default function Quotes() {
       <Text style={{ fontSize: 11, color: base.slate }}>{menu === key ? '▲' : '▼'}</Text>
     </Pressable>
   );
-  const panel = (kids: ReactNode) => <View style={{ backgroundColor: base.card, borderWidth: 1, borderColor: base.line, borderRadius: radius.input, marginBottom: 8, overflow: 'hidden' }}>{kids}</View>;
+  const panel = (kids: ReactNode) => <View style={{ backgroundColor: base.card, borderWidth: 1, borderColor: base.line, borderRadius: radius.input, marginBottom: 10, overflow: 'hidden' }}>{kids}</View>;
   const option = (label: string, on: boolean, press: () => void, box = false) => (
     <Pressable key={label} accessibilityRole={box ? 'checkbox' : 'button'} accessibilityLabel={label} onPress={press} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 8, borderTopWidth: 1, borderTopColor: base.cardLine }}>
       <Text style={{ width: 18, fontSize: 15, color: base.ink }}>{box ? (on ? '☑' : '☐') : on ? '✓' : ''}</Text>
@@ -93,7 +93,7 @@ export default function Quotes() {
     <View style={{ flex: 1 }}>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={page(1100)} keyboardShouldPersistTaps="handled">
         <Stack.Screen options={{ title: 'Quotes' }} />
-        <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8 }}>
+        <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
           {[{ l: 'Showing', v: String(list.length) }, { l: 'Value', v: money(total?.value) || '£0' }, { l: 'Won', v: String(total?.won ?? 0) }, { l: 'Win rate', v: total?.rate == null ? '–' : `${total.rate}%` }].map((c) => (
             <View key={c.l} style={{ flex: 1, backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.input, paddingVertical: 5, alignItems: 'center' }}>
               <Text numberOfLines={1} adjustsFontSizeToFit style={{ fontSize: 14.5, fontWeight: '800', color: base.ink }}>{c.v}</Text>
@@ -101,9 +101,9 @@ export default function Quotes() {
             </View>
           ))}
         </View>
-        <View style={{ marginBottom: 8 }}><Button title="+ New Enquiry" onPress={() => router.push('/pm/quotes/new' as never)} /></View>
-        <TextInput value={q} onChangeText={(t) => { setQ(t); setShown(100); }} placeholder="Search customer, project, address…" style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, paddingHorizontal: 10, paddingVertical: 8, backgroundColor: base.card, color: base.ink, marginBottom: 8, fontSize: 16 }} />
-        <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8 }}>
+        <View style={{ marginBottom: 10 }}><Button title="+ New Enquiry" onPress={() => router.push('/pm/quotes/new' as never)} /></View>
+        <TextInput value={q} onChangeText={(t) => { setQ(t); setShown(100); }} placeholder="Search customer, project, address…" style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, paddingHorizontal: 10, paddingVertical: 8, backgroundColor: base.card, color: base.ink, marginBottom: 10, fontSize: 16 }} />
+        <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
           {drop('filter', `Filter${applied ? ` (${applied})` : isLiveOnly ? ': Live' : ''}`, applied > 0)}
           {drop('sort', SORTS.find((o) => o.key === sort)?.label ?? 'Sort')}
           {drop('view', VIEWS.find((v) => v.key === view)?.label ?? 'List', view !== 'list')}
@@ -166,10 +166,10 @@ export default function Quotes() {
                 <Text numberOfLines={1} style={{ fontSize: 11.5, color: base.slate, marginTop: 1 }}>{[x.client_name, money(x.value), x.discipline, x.priced_by_name, ukd(x.return_date)].filter(Boolean).join(' · ')}</Text>
               </Pressable>
             ))}
-            {list.length > shown && <View style={{ marginTop: 6 }}><Button kind="ghost" title={`Show more (${list.length - shown} left)`} onPress={() => setShown(shown + 100)} /></View>}
+            {list.length > shown && <View style={{ marginTop: 10 }}><Button kind="ghost" title={`Show more (${list.length - shown} left)`} onPress={() => setShown(shown + 100)} /></View>}
           </>
         ) : <Empty>{all.length ? 'No quotes match.' : 'No quotes yet. Press + New Enquiry to add one.'}</Empty>}
-        {me.role === 'admin' && <View style={{ marginTop: 14 }}><Button kind="ghost" small title="⚙️ Quote settings" onPress={() => router.push('/pm/quotes/settings' as never)} /></View>}
+        {me.role === 'admin' && <View style={{ marginTop: 10 }}><Button kind="ghost" small title="⚙️ Quote settings" onPress={() => router.push('/pm/quotes/settings' as never)} /></View>}
       </ScrollView>
       {list.length > 0 && (
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', backgroundColor: base.card, borderTopWidth: 1, borderTopColor: base.line, paddingHorizontal: 16, paddingVertical: 9 }}>

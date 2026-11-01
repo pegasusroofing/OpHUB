@@ -111,8 +111,8 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
     const months = monthsIn(data.apps.filter(F.all), aMonth);
     return (
       <View>
-        <Muted style={{ marginBottom: 8, fontSize: 12 }}>Apply → the client certifies it (enter their figures on the application) → the invoice is raised for you. A certificate is just a certified application.</Muted>
-        <View style={{ marginBottom: 8 }}><Button title="+ New application" onPress={() => void newFor('application')} /></View>
+        <Muted style={{ marginBottom: 10, fontSize: 12 }}>Apply → the client certifies it (enter their figures on the application) → the invoice is raised for you. A certificate is just a certified application.</Muted>
+        <View style={{ marginBottom: 10 }}><Button title="+ New application" onPress={() => void newFor('application')} /></View>
         <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search application no., project or client' }} sel={sel} onChange={setSel} onClear={() => setSel({ status: [], mon: [], job: [] })}
           sorts={[['new', 'Newest first'], ['old', 'Oldest first'], ['big', 'Biggest first'], ...(siteId ? [] : [['job', 'Project'] as [string, string]])]} sort={sort} onSort={setSort}
           parts={[
@@ -148,7 +148,7 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
     const months = monthsIn(live, iMonth);
     return (
       <View>
-        <View style={{ marginBottom: 8 }}><Button title="+ New invoice" onPress={() => void newFor('invoice')} /></View>
+        <View style={{ marginBottom: 10 }}><Button title="+ New invoice" onPress={() => void newFor('invoice')} /></View>
         <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search invoice no., client or project' }} sel={sel} onChange={setSel} onClear={() => setSel({ status: [], mon: [], job: [] })}
           sorts={[['new', 'Newest first'], ['old', 'Oldest first'], ['big', 'Biggest first'], ['client', 'Client A to Z']]} sort={sort} onSort={setSort}
           parts={[
@@ -185,7 +185,7 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
             </View>
           );
         })()}
-        <Muted style={{ marginTop: 8 }}>Record money received on the invoice itself.</Muted>
+        <Muted style={{ marginTop: 10 }}>Record money received on the invoice itself.</Muted>
       </View>
     );
   }
@@ -197,7 +197,7 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
   const total = round2(rows.reduce((t, x) => t + x.held, 0));
   return (
     <View>
-      <Muted style={{ marginBottom: 8 }}>Money your clients are holding back until the work is signed off: {money(total)} across {rows.length} job{rows.length === 1 ? '' : 's'}. Half usually comes back at practical completion and half at the end of the defects period — set the dates on each project.</Muted>
+      <Muted style={{ marginBottom: 10 }}>Money your clients are holding back until the work is signed off: {money(total)} across {rows.length} job{rows.length === 1 ? '' : 's'}. Half usually comes back at practical completion and half at the end of the defects period — set the dates on each project.</Muted>
       {!siteId && <TextInput value={q} onChangeText={setQ} placeholder="Search project, client" style={box} />}
       {desk && rows.length ? (
         <FinTable rows={rows} keyOf={(x) => x.s.id} onRow={(x) => router.push(`/fin/job/${x.s.id}?tab=setup` as never)}
@@ -232,7 +232,7 @@ export function SalesStats() {
   const waiting = data.apps.filter((a) => appStage(a).k === 'submitted' && inPeriod(aDate(a), pN)).reduce((t, a) => t + Number(a.net_due || 0), 0);
   const to = (tab: string, f: string) => () => router.setParams({ tab, f });
   return (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 10 }}>
       <FinStat tone="blue" v={money(applied, 0)} label={`Applied Value · ${pA.label}`} onPress={to('apps', 'all')} onMenu={() => void pick('s_appv', 'month')} /><FinStat tone="green" v={money(invoiced, 0)} label={`Invoiced Value · ${pI.label}`} onPress={to('invoices', 'all')} onMenu={() => void pick('s_invv', 'month')} />
       <FinStat tone="red" v={money(overdue, 0)} label={`Overdue · ${pD.label}`} onPress={to('invoices', 'overdue')} onMenu={() => void pick('s_over', 'all')} /><FinStat tone="amber" v={money(waiting, 0)} label={`Applied, Not Certified Or Invoiced · ${pN.label}`} onPress={to('apps', 'open')} onMenu={() => void pick('s_anc', 'all')} />
     </View>

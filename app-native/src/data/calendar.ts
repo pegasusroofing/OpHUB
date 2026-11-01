@@ -2,6 +2,7 @@
 // only — RLS too), repeating dates, email reminders (sent by the daily
 // send-calendar-reminders cron), the job's delivery dates (9219zr), and the
 // project PM's approved time off when they've linked it to project calendars (186).
+import { driverCount } from '@/data/deliveries';
 import { useQuery } from '@tanstack/react-query';
 import { mustHit } from '@/lib/mustHit';
 
@@ -111,7 +112,8 @@ export async function deleteEvent(me: Profile, siteId: string, e: CalEvent, whol
 export async function addToDeliverySchedule(me: Profile, siteId: string, title: string, date: string): Promise<{ id?: string; error?: string }> {
   const off = await dayOffBlock(me.org_id as string, date, null); if (off) return { error: off };
   const list = await dayList(me.org_id as string, date);
-  const slot = DELIVERY_TIME_SLOTS.map((s) => s.key).find((k) => !slotProblem(list, { id: 'new', double_slot: false }, k, () => 'Site')) || '7am';
+  const cap = await driverCount(me.org_id as string);
+  const slot = DELIVERY_TIME_SLOTS.map((s) => s.key).find((k) => !slotProblem(list, { id: 'new', double_slot: false }, k, () => 'Site', cap)) || '7am';
   const r = await db.from('delivery_tasks').insert({ org_id: me.org_id, site_id: siteId, created_by: me.id, description: title, scheduled_date: date, time_slot: slot, collection_type: 'yard', high_priority: false, needs_completing: true } as never).select('id').single();
   if (r.error || !r.data) return { error: 'Could not add — check your connection and try again.' };
   await resequenceSlot(me.org_id as string, date, slot);

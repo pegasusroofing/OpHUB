@@ -82,7 +82,7 @@ export default function FinJobs() {
   const tot = totalOf(shown);
   return (
     <FinPage title="Projects" section="jobs" sub="list" onSub={go}>
-      {me && isFullManager(me) && <View style={{ marginBottom: 8 }}><Button title="+ New project" onPress={() => router.push('/fin/newjob' as never)} /></View>}
+      {me && isFullManager(me) && <View style={{ marginBottom: 10 }}><Button title="+ New project" onPress={() => router.push('/fin/newjob' as never)} /></View>}
       <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search project no., name, client or PO' }} sel={sel} moreOn={!!val}
         onClear={() => { setSel({ status: [], pm: [], client: [], start: [] }); setVal(''); }}
         onChange={async (next) => {
@@ -132,15 +132,15 @@ function Clients({ sites, data, cliOf, go }: { sites: SiteX[]; data: ReturnType<
   const noClient = sites.filter((s) => !cliOf(s));
   return (
     <FinPage title="Clients" section="jobs" sub="clients" onSub={go}>
-      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
+      <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
         <View style={{ flex: 1 }}><Button kind="ghost" title="Directory (edit clients, Xero)" onPress={() => router.push('/fin/directory?kind=client' as never)} /></View>
       </View>
-      <Muted style={{ marginBottom: 8 }}>{list.length} client{list.length === 1 ? '' : 's'} · {list.filter((c) => c.xero).length} in Xero.</Muted>
+      <Muted style={{ marginBottom: 10 }}>{list.length} client{list.length === 1 ? '' : 's'} · {list.filter((c) => c.xero).length} in Xero.</Muted>
       <TextInput value={q} onChangeText={setQ} placeholder="Search clients" style={[box, { marginBottom: 10 }]} />
       {!data ? <Muted>Loading…</Muted> : list.length ? list.map((c) => (
         <View key={c.name}>
           <FinRow title={c.name} sub={[c.email, `${c.jobs.length} job${c.jobs.length === 1 ? '' : 's'} · ${c.live} live`, c.xero ? 'In Xero' : '', c.overdue ? `${money(c.overdue, 0)} overdue` : ''].filter(Boolean).join(' · ')} right={c.owed ? money(c.owed, 0) : '—'} tone={c.overdue ? '#C0392B' : undefined} onPress={() => setOpen(open === c.name ? null : c.name)} />
-          {open === c.name && <View style={{ marginLeft: 14, marginBottom: 8 }}>{c.jobs.map((j) => <Pressable key={j.id} onPress={() => router.push(`/fin/job/${j.id}` as never)}><Text style={{ color: base.blue, paddingVertical: 3 }}>{jobTag(j)}</Text></Pressable>)}</View>}
+          {open === c.name && <View style={{ marginLeft: 14, marginBottom: 10 }}>{c.jobs.map((j) => <Pressable key={j.id} onPress={() => router.push(`/fin/job/${j.id}` as never)}><Text style={{ color: base.blue, paddingVertical: 3 }}>{jobTag(j)}</Text></Pressable>)}</View>}
         </View>
       )) : <Empty>No clients yet.</Empty>}
       {noClient.length > 0 && <Muted style={{ marginTop: 10 }}>{noClient.length} job{noClient.length === 1 ? '' : 's'} with no client set: {noClient.map(jobTag).join(', ')}</Muted>}

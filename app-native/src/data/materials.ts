@@ -1,6 +1,7 @@
 // Material requests (720/725/760/9219zr): operatives raise, edit and cancel their
 // requests and tick off what they've collected; managers close, reopen, delete,
 // group them and move them to Collections. Sending orders to suppliers is separate.
+import { driverCount } from '@/data/deliveries';
 import { useQuery } from '@tanstack/react-query';
 
 import { cachedQuery, orThrow } from '@/lib/offlineCache';
@@ -225,7 +226,8 @@ async function firstFreeSlot(orgId: string, dateISO: string, prefer: string): Pr
   const keys = DELIVERY_TIME_SLOTS.map((s) => s.key);
   const start = Math.max(0, keys.indexOf(prefer));
   const order = keys.slice(start).concat(keys.slice(0, start));
-  return order.find((k) => !slotProblem(list, { id: 'new', double_slot: false }, k, () => 'Site')) || prefer || keys[0];
+  const cap = await driverCount(orgId);
+  return order.find((k) => !slotProblem(list, { id: 'new', double_slot: false }, k, () => 'Site', cap)) || prefer || keys[0];
 }
 
 /** A collection goes on the driver's Delivery Schedule (one job for the order) or the operative's Collections. */

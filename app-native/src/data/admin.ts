@@ -13,12 +13,12 @@ const rpc = supabase.rpc.bind(supabase) as unknown as (n: string, a: object) => 
 export const OPHUB_WEB_URL = 'https://operativehub.co.uk/app.html';
 export const joinLink = (inviteId: string) => `${OPHUB_WEB_URL}#/join/${inviteId}`;
 
-export type TeamMember = { id: string; name: string; email: string | null; role: string; is_estimator: boolean | null; phone: string | null; subform_required: boolean | null; finance_enabled?: boolean | null; finance_prev_role?: string | null };
+export type TeamMember = { id: string; name: string; email: string | null; role: string; is_estimator: boolean | null; phone: string | null; subform_required: boolean | null; finance_enabled?: boolean | null; finance_only?: boolean | null; finance_prev_role?: string | null };
 export function useTeam(orgId: string | null | undefined) {
   return useQuery({
     queryKey: ['team', orgId],
     enabled: !!orgId,
-    queryFn: async () => (((await db.from('profiles').select('id,name,email,role,is_estimator,phone,subform_required,finance_enabled,finance_prev_role').eq('org_id', orgId as string)).data as TeamMember[] | null) ?? []).sort((a, b) => (a.name || '').localeCompare(b.name || '')),
+    queryFn: async () => (((await db.from('profiles').select('id,name,email,role,is_estimator,finance_only,phone,subform_required,finance_enabled,finance_prev_role').eq('org_id', orgId as string)).data as TeamMember[] | null) ?? []).sort((a, b) => (a.name || '').localeCompare(b.name || '')),
   });
 }
 export async function setRole(id: string, role: string): Promise<boolean> {

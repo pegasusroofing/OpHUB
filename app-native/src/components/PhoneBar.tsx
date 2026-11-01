@@ -14,7 +14,7 @@ type Item = { k: string; icon: string; label: string; href: string; emph?: boole
 
 const JOB = /^\/sites\/([0-9a-f-]{36})(?:\/(.*))?$/;
 /** Whether this path has the Projects bar, not the general one. */
-export const usesPhoneBar = (path: string, fullManager: boolean) => JOB.test(path) || (fullManager && (path === '/sites' || path === '/sites/new'));
+export const usesPhoneBar = (path: string, fullManager: boolean) => JOB.test(path) || fullManager;
 
 export function PhoneBar({ hubCount, inboxCount }: { hubCount?: number; inboxCount?: number }) {
   const { me } = useAuth();
@@ -34,11 +34,11 @@ export function PhoneBar({ hubCount, inboxCount }: { hubCount?: number; inboxCou
     ];
   } else if (isFullManager(me)) {
     items = [
-      { k: 'home', icon: 'home', label: 'Home', href: '/home' },
-      { k: 'deliveries', icon: 'truck', label: 'Deliveries', href: '/pm/deliveries' },
+      { k: 'home', icon: 'home', label: 'Home', href: '/home', on: path === '/home' },
+      { k: 'deliveries', icon: 'truck', label: 'Deliveries', href: '/pm/deliveries', on: path.startsWith('/pm/deliver') },
       { k: 'add', icon: 'plus', label: 'Add', href: '/sites/new', emph: true, branded: true, on: path === '/sites/new' },
-      { k: 'hub', icon: 'bell', label: 'HUB', href: '/pm/hub', badge: hubCount },
-      { k: 'calendar', icon: 'calendar', label: 'Calendar', href: '/pm/calendar' },
+      { k: 'hub', icon: 'bell', label: 'HUB', href: '/pm/hub', badge: hubCount, on: path === '/pm/hub' },
+      { k: 'calendar', icon: 'calendar', label: 'Calendar', href: '/pm/calendar', on: path === '/pm/calendar' },
     ];
   } else return null;
   return (

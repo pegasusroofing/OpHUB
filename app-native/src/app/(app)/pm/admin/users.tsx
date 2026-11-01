@@ -16,8 +16,9 @@ import { base, page, radius, space } from '@/theme/theme';
 
 const GROUPS: { title: string; match: (p: TeamMember) => boolean; empty: string }[] = [
   { title: 'Company Admins', match: (p) => p.role === 'admin', empty: 'No other admins yet.' },
+  { title: 'Finance Controllers', match: (p) => p.role === 'pm' && !!p.finance_only, empty: '' },
   { title: 'Project Managers', match: (p) => p.role === 'pm' && !p.is_estimator, empty: 'No project managers yet.' },
-  { title: 'Estimators', match: (p) => p.role === 'pm' && !!p.is_estimator, empty: '' },
+  { title: 'Estimators', match: (p) => p.role === 'pm' && !!p.is_estimator && !p.finance_only, empty: '' },
   { title: 'Site Managers', match: (p) => p.role === 'site_manager', empty: 'No site managers yet.' },
   { title: 'Operatives', match: (p) => p.role === 'operative', empty: 'No operatives yet.' },
   { title: 'Delivery Drivers', match: (p) => p.role === 'driver', empty: 'No delivery drivers yet.' },

@@ -19,7 +19,7 @@ import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { exportDeliverySchedule } from '@/lib/deliveryExport';
 import { fullSiteAddress } from '@/lib/rules/checkin';
-import { blockedSlots, bySlotOrder, collectionLine, dayTotals, DELIVERY_TIME_SLOTS, fullSlots, localISODate, minsLabel, slotLabel } from '@/lib/rules/driver';
+import { bySlotOrder, collectionLine, continuations, dayTotals, DELIVERY_TIME_SLOTS, fullSlots, localISODate, minsLabel, nextSlotKey, slotLabel } from '@/lib/rules/driver';
 import { isManager } from '@/lib/roles';
 import { base, page, radius, space, useTheme } from '@/theme/theme';
 
@@ -44,7 +44,9 @@ export default function DeliverySchedule() {
   if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
   const tasks = data?.tasks ?? [];
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['scheduleDay'] }); void qc.invalidateQueries({ queryKey: ['deliveryRequests'] }); };
-  const blocked = blockedSlots(tasks), full = fullSlots(tasks);
+  const cap = Math.max(1, people.filter((p) => p.role === 'driver').length);
+  const live = tasks.filter((t) => t.status !== 'cancelled');
+  const full = fullSlots(tasks, cap);
   const name = (id: string | null | undefined) => people.find((p) => p.id === id)?.name || '';
   const day = new Date(`${iso}T12:00:00`);
   const dayLabel = day.toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'short' }) + (iso === today ? ' (Today)' : day.getFullYear() !== new Date().getFullYear() ? ` ${day.getFullYear()}` : '');
@@ -80,7 +82,7 @@ export default function DeliverySchedule() {
         <Text style={{ flex: 1, textAlign: 'center', fontWeight: '700', fontSize: 15, color: base.ink }} numberOfLines={1}>{dayLabel} <Text style={{ color: base.slate, fontWeight: '400' }}>({tasks.length})</Text></Text>
         <Pressable onPress={() => setIso(addDays(iso, 1))} style={{ width: 52, height: 52, borderRadius: 14, backgroundColor: th.brand1, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: th.brand1Text, fontSize: 30, fontWeight: '800' }}>›</Text></Pressable>
       </View>
-      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12, alignItems: 'center' }}>
+      <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10, alignItems: 'center' }}>
         <Text style={{ fontSize: 11, fontWeight: '800', letterSpacing: 0.6, color: base.ink }}>JUMP TO</Text>
         <DateBox value={iso} onChange={(d) => { if (d) setIso(d); }} clearable={false} title="Jump to" style={{ flex: 1 }} />
         {iso !== today && <Pressable onPress={() => setIso(today)} style={{ padding: 10 }}><Text style={{ color: base.blue, fontWeight: '700' }}>Today</Text></Pressable>}
@@ -89,17 +91,17 @@ export default function DeliverySchedule() {
       {reqs.length > 0 && (
         <Card>
           <Text style={{ fontWeight: '800', color: base.ink }}>📥 To schedule ({reqs.length})</Text>
-          <Muted style={{ marginBottom: 8 }}>Waste and leftover material flagged on site — book a collection for each.</Muted>
+          <Muted style={{ marginBottom: 10 }}>Waste and leftover material flagged on site — book a collection for each.</Muted>
           {reqs.map((r) => {
             const s = sites.find((x) => x.id === r.site_id);
             return (
-              <View key={r.id} style={{ borderTopWidth: 1, borderTopColor: base.line, paddingTop: 8, marginTop: 8 }}>
+              <View key={r.id} style={{ borderTopWidth: 1, borderTopColor: base.line, paddingTop: 8, marginTop: 10 }}>
                 <Text style={{ fontWeight: '800', color: base.ink }}>{r.waste ? '🗑 ' : ''}{r.leftover ? '📦 ' : ''}{s?.name || 'Project'}</Text>
                 {!!s && !!fullSiteAddress(s) && <Muted>{fullSiteAddress(s)}</Muted>}
                 <Text style={{ color: base.ink }}>{r.description}</Text>
                 <Muted>{r.flagged_by ? `Flagged by ${name(r.flagged_by)} · ` : ''}{new Date(r.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</Muted>
-                {!!r.photo_paths?.length && <View style={{ flexDirection: 'row', gap: 6, marginTop: 6 }}>{r.photo_paths.map((p) => <StorageImage key={p} bucket="site-photos" path={p} style={{ width: 54, height: 54, borderRadius: 8 }} />)}</View>}
-                <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+                {!!r.photo_paths?.length && <View style={{ flexDirection: 'row', gap: 6, marginTop: 10 }}>{r.photo_paths.map((p) => <StorageImage key={p} bucket="site-photos" path={p} style={{ width: 54, height: 54, borderRadius: 8 }} />)}</View>}
+                <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
                   <View style={{ flex: 1 }}><Button title="Schedule" onPress={() => router.push(`/pm/delivery/new?date=${iso}&req=${r.id}` as never)} /></View>
                   <View style={{ flex: 1 }}><Button kind="ghost" title="Dismiss" onPress={async () => {
                     if (!(await confirmAsk('Remove this from the "To schedule" list without booking it?', 'Remove'))) return;
@@ -113,23 +115,27 @@ export default function DeliverySchedule() {
       )}
 
       <Button title="+ Add Delivery" onPress={() => add()} />
-      <View style={{ marginTop: 8 }}><Button kind="ghost" title="👁 Driver view" onPress={() => router.push(`/driver/schedule?preview=1&date=${iso}` as never)} /></View>
-      <Text style={{ textAlign: 'center', fontSize: 10.5, fontStyle: 'italic', color: base.slateLight, marginTop: 4, marginBottom: 8 }}>Tip: tap ⇄ on a delivery to move it to another drop.</Text>
+      <View style={{ marginTop: 10 }}><Button kind="ghost" title="👁 Driver view" onPress={() => router.push(`/driver/schedule?preview=1&date=${iso}` as never)} /></View>
+      <Text style={{ textAlign: 'center', fontSize: 10.5, fontStyle: 'italic', color: base.slateLight, marginTop: 4, marginBottom: 10 }}>Tip: tap ⇄ on a delivery to move it to another drop.</Text>
       {DELIVERY_TIME_SLOTS.map((slot) => {
         const list = tasks.filter((t) => t.time_slot === slot.key).sort(bySlotOrder);
-        const carry = blocked[slot.key];
+        const carried = continuations(live, slot.key), carry = carried[0];
+        // A 2-drop job is one white box over both drops: no second heading unless another driver can still use it.
+        if (carried.length >= cap && !list.length) return null;
+        const nx = nextSlotKey(slot.key);
+        const spans = !!nx && list.some((t) => t.double_slot) && continuations(live, nx).length >= cap && !live.some((t) => t.time_slot === nx);
         return (
           <View key={slot.key}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <View style={{ flex: 1 }}><SectionTitle>{slot.label}</SectionTitle></View>
-              {!full[slot.key] && <Pressable hitSlop={8} onPress={() => add(slot.key)} style={{ width: 28, height: 28, borderRadius: 8, borderWidth: 1, borderColor: base.line, alignItems: 'center', justifyContent: 'center', marginTop: 8 }}><Text style={{ fontWeight: '800', fontSize: 16, color: base.ink }}>+</Text></Pressable>}
+              <View style={{ flex: 1 }}><SectionTitle>{spans && nx ? `${slot.label} & ${slotLabel(nx)}` : slot.label}</SectionTitle></View>
+              {!full[slot.key] && <Pressable hitSlop={8} onPress={() => add(slot.key)} style={{ width: 28, height: 28, borderRadius: 8, borderWidth: 1, borderColor: base.line, alignItems: 'center', justifyContent: 'center', marginTop: 10 }}><Text style={{ fontWeight: '800', fontSize: 16, color: base.ink }}>+</Text></Pressable>}
             </View>
-            {!!carry && <Muted style={{ marginBottom: 6 }}>⏱ Taken — {place(carry)} needs extra time (carries on from the {slotLabel(carry.time_slot)})</Muted>}
+            {!!carry && <Muted style={{ marginBottom: 10 }}>{place(carry)} carries on here from the {slotLabel(carry.time_slot)}</Muted>}
             {list.length ? list.map((t) => (
-              <View key={t.id} style={{ flexDirection: 'row', gap: 8, padding: 12, borderWidth: 1, borderColor: t.double_slot ? base.blue : base.cardLine, borderRadius: radius.row, marginBottom: 8, backgroundColor: base.card, opacity: t.status === 'completed' ? 0.6 : 1 }}>
+              <View key={t.id} style={{ flexDirection: 'row', gap: 8, padding: 12, borderWidth: 1, borderColor: t.double_slot ? base.blue : base.cardLine, minHeight: t.double_slot ? 260 : undefined, borderRadius: radius.row, marginBottom: 10, backgroundColor: base.card, opacity: t.status === 'completed' ? 0.6 : 1 }}>
                 <Pressable style={{ flex: 1 }} onPress={() => router.push(`/pm/delivery/${t.id}` as never)}>
                   <Text style={{ fontWeight: '700', color: base.ink }}>
-                    {t.high_priority ? <Text style={{ color: base.red, fontWeight: '800' }}>1st DROP · </Text> : null}
+                    {t.high_priority ? <Text style={{ color: base.red, fontWeight: '800' }}>! 1st DROP · </Text> : null}
                     {place(t)}{!t.site_id ? ' (not on app)' : ''}{list.length > 1 ? ` (order ${t.sub_priority || '?'})` : ''}
                     {t.needs_completing ? <Text style={{ color: base.warn }}> ⚠ Needs completing</Text> : null}
                     {t.double_slot ? <Text style={{ color: base.blue }}> · 2 drops</Text> : null}
@@ -140,7 +146,7 @@ export default function DeliverySchedule() {
                   <Text style={{ fontWeight: '700', color: base.ink, fontSize: 12.5 }}>{collectionLine(t, t.supplier_id ? data?.suppliers[t.supplier_id] : undefined)}</Text>
                   <Text style={{ fontSize: 12.5, color: t.driver_id ? base.slate : base.warn }}>🚐 {t.driver_id ? name(t.driver_id) || 'Driver' : 'Unassigned'}</Text>
                   {t.status !== 'completed' && (
-                    <Pressable disabled={busy === t.id} onPress={() => void push(t)} style={{ alignSelf: 'flex-start', marginTop: 6, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: base.line }}>
+                    <Pressable disabled={busy === t.id} onPress={() => void push(t)} style={{ alignSelf: 'flex-start', marginTop: 10, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: base.line }}>
                       <Text style={{ fontSize: 11, color: base.ink }}>{busy === t.id ? 'Moving…' : '⏭ Push to next day'}</Text>
                     </Pressable>
                   )}
@@ -163,7 +169,7 @@ export default function DeliverySchedule() {
         );
       })}
 
-      <Pressable onPress={() => setHoursOpen(!hoursOpen)} style={{ marginTop: 18, padding: 14, borderWidth: 1, borderColor: base.cardLine, borderRadius: 16, backgroundColor: base.card, flexDirection: 'row', alignItems: 'center' }}>
+      <Pressable onPress={() => setHoursOpen(!hoursOpen)} style={{ marginTop: 10, padding: 14, borderWidth: 1, borderColor: base.cardLine, borderRadius: 16, backgroundColor: base.card, flexDirection: 'row', alignItems: 'center' }}>
         <View style={{ flex: 1 }}>
           <Text style={{ fontWeight: '700', color: base.ink }}>🕒 Driver hours</Text>
           <Muted>Each driver&apos;s hours for the week, breaks taken off</Muted>
@@ -171,8 +177,8 @@ export default function DeliverySchedule() {
         <Text style={{ color: base.slate }}>{hoursOpen ? '▾' : '▸'}</Text>
       </Pressable>
       {hoursOpen && (
-        <Card style={{ marginTop: 8 }}>
-          <View style={{ flexDirection: 'row', gap: 6, marginBottom: 10 }}>
+        <Card style={{ marginTop: 10 }}>
+          <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
             {[[0, 'This week'], [-1, 'Last week']].map(([n, l]) => (
               <Pressable key={n} onPress={() => setWeek(n as number)} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: week === n ? base.ink : base.line, backgroundColor: week === n ? base.ink : base.card }}>
                 <Text style={{ fontWeight: '700', color: week === n ? '#fff' : base.ink }}>{l}</Text>
@@ -202,11 +208,11 @@ export default function DeliverySchedule() {
               </View>
             </ScrollView>
           ) : <Empty>No drivers set up.</Empty>}
-          <Muted style={{ marginTop: 8 }}>Check-in to check-out, with breaks taken off.</Muted>
+          <Muted style={{ marginTop: 10 }}>Check-in to check-out, with breaks taken off.</Muted>
         </Card>
       )}
       <Card style={{ marginTop: space.m }}>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 10 }}>
           {([['x', '📊 Export Excel'], ['p', '📄 Export PDF']] as const).map(([k, l]) => <Button key={k} kind="ghost" title={busy === `exp${k}` ? 'Building…' : l} onPress={async () => { setBusy(`exp${k}`); const why = await exportDeliverySchedule(k, me.org_id as string, Array.from({ length: 7 }, (_, i) => addDays(iso, i)), sites, people, org); setBusy(null); if (why) toast(why); }} />)}
         </View>
         <Button kind="ghost" title="🚐 Vehicle health checks" onPress={() => router.push('/pm/vehicles' as never)} />
