@@ -879,3 +879,8 @@
 {"part":"bar1","step":"Deliveries none","ok":true,"note":"/pm/deliveries bar 0","ms":7061}
 {"part":"bar1","step":"Projects has it","ok":false,"note":"/sites bar 0","ms":7063}
 {"part":"bar1","step":"Job has it","ok":false,"note":"/sites/96807f70-a7ac-4b20-b401-e3e83fe66e60 bar 0","ms":7058}
+{"part":"bar1","step":"Home none","ok":true,"note":"/home bar 0","ms":7579}
+{"part":"bar1","step":"Finance none","ok":true,"note":"/fin bar 0","ms":7433}
+{"part":"bar1","step":"Deliveries none","ok":true,"note":"/pm/deliveries bar 0","ms":7440}
+{"part":"bar1","step":"Projects has it","ok":true,"note":"/sites bar 1","ms":7455}
+{"part":"bar1","step":"Job has it","ok":true,"note":"/sites/96807f70-a7ac-4b20-b401-e3e83fe66e60 bar 1","ms":7366}

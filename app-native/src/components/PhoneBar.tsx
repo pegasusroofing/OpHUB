@@ -15,7 +15,7 @@ type Item = { k: string; icon: string; label: string; href: string; emph?: boole
 const JOB = /^\/sites\/([0-9a-f-]{36})(?:\/(.*))?$/;
 /** Whether this path has the Projects bar, not the general one. */
 // Managers only have it inside Projects (Andy, 1 Nov 2026): not on Home, Finance or anywhere else.
-export const usesPhoneBar = (path: string, fullManager: boolean) => JOB.test(path) || (fullManager && /^/sites(/|$)/.test(path));
+export const usesPhoneBar = (path: string, fullManager: boolean) => JOB.test(path) || (fullManager && (path === '/sites' || path.startsWith('/sites/')));
 
 export function PhoneBar({ hubCount, inboxCount }: { hubCount?: number; inboxCount?: number }) {
   const { me } = useAuth();
