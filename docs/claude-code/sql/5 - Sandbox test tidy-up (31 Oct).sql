@@ -50,3 +50,6 @@ delete from price_rate_items where org_id = '2eb072b7-2704-48c0-8110-62e45e621de
 delete from quotes where org_id = '2eb072b7-2704-48c0-8110-62e45e621ded' and (client_name like 'ZZ %' or title like 'ZZ %');
 
 commit;
+-- Added 1 Nov (evening): the real AI reader test. Its files are named zza-*, and the AI read the supplier without the SUPPLIER prefix.
+delete from purchase_invoices where org_id = '2eb072b7-2704-48c0-8110-62e45e621ded' and supplier_name = 'ZZ Reader Roofing Ltd';
+delete from fin_inbox where org_id = '2eb072b7-2704-48c0-8110-62e45e621ded' and file_name like 'zza-%';
