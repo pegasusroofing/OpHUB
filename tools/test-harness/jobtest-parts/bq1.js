@@ -20,7 +20,7 @@ module.exports = async ({as, step}) => {
   await step('+ Add under a section offers Item and Sub-section; no main + Sub-section', async () => {
     await a.page.mouse.move(800, 500); await a.page.mouse.wheel(0, 5000); await a.page.waitForTimeout(600); await a.shot('bottom');
     const main = await a.page.getByText(/^\+ Sub-section$/).locator('visible=true').count();
-    await a.page.getByText(/^\+ Add$/).locator('visible=true').last().click({timeout: 6000}); await a.page.waitForTimeout(500); await a.shot('add');
+    await a.page.getByText(/^\+ Add$/).locator('visible=true').first().click({timeout: 6000}); await a.page.waitForTimeout(500); await a.shot('add');
     const ok = await a.page.getByText(/^Sub-section$/).locator('visible=true').count();
     await a.page.locator('[aria-label="Close"]').locator('visible=true').last().click({timeout: 3000}).catch(() => {});
     return {ok: main === 0 && ok > 0, note: `main ${main}, offered ${ok}`};

@@ -846,3 +846,20 @@
 {"part":"bq1","step":"Lines start closed, one click opens one","ok":true,"note":"boxes 1 then 9","ms":10937}
 {"part":"bq1","step":"Tab through the line closes it","ok":true,"note":"boxes 9 then 1","ms":268}
 {"part":"bq1","step":"+ Add under a section offers Item and Sub-section; no main + Sub-section","ok":false,"note":"main 0, offered 0","ms":1542}
+{"part":"bq4","step":"Open line is slim","ok":false,"note":"locator.click: Timeout 6000ms exceeded.","ms":16235}
+{"part":"bq4","step":"Clicking inside the line keeps it open; no Lump sum box","ok":false,"note":"locator.click: Timeout 30000ms exceeded.","ms":30013}
+{"part":"bq4","step":"Unit: type filters, down arrow and Tab takes it, list has Edit at the bottom","ok":false,"note":"locator.click: Timeout 30000ms exceeded.","ms":30012}
+{"part":"bq4","step":"Clicking outside closes it","ok":true,"note":"closed","ms":530}
+{"part":"bq4","step":"Open line is slim","ok":true,"note":"row height 77","ms":10918}
+{"part":"bq4","step":"Tab from the description goes to Qty","ok":false,"note":"landed on null","ms":339}
+{"part":"bq4","step":"Clicking inside the line keeps it open; no Lump sum box","ok":true,"note":"still open","ms":809}
+{"part":"bq4","step":"Unit: type filters, down arrow and Tab takes it, list has Edit at the bottom","ok":true,"note":"edit 1, roll 1, value nr","ms":1749}
+{"part":"bq4","step":"Clicking outside closes it","ok":true,"note":"closed","ms":568}
+{"part":"bq4","step":"Open line is slim","ok":true,"note":"row height 77","ms":10756}
+{"part":"bq4","step":"Tab from the description goes to Qty","ok":true,"note":"landed on Qty","ms":325}
+{"part":"bq4","step":"Clicking inside the line keeps it open; no Lump sum box","ok":true,"note":"still open","ms":765}
+{"part":"bq4","step":"Unit: type filters, down arrow and Tab takes it, list has Edit at the bottom","ok":true,"note":"edit 1, roll 1, value nr","ms":1506}
+{"part":"bq4","step":"Clicking outside closes it","ok":true,"note":"closed","ms":540}
+{"part":"bq1","step":"Lines start closed, one click opens one","ok":true,"note":"boxes 1 then 8","ms":10990}
+{"part":"bq1","step":"Tab through the line closes it","ok":true,"note":"boxes 8 then 1","ms":759}
+{"part":"bq1","step":"+ Add under a section offers Item and Sub-section; no main + Sub-section","ok":true,"note":"main 0, offered 1","ms":1537}
