@@ -19,7 +19,7 @@ module.exports = async ({as, step}) => {
   });
   await step('Bottom of the page', async () => {
     await a.page.mouse.move(180, 400); await a.page.mouse.wheel(0, 6000); await a.page.waitForTimeout(600); await a.shot('bottom');
-    const inA = await a.page.getByText(/^+ Add$/).locator('visible=true').last().locator('..').boundingBox(), outA = await a.page.getByText(/^+ Add Works$/).locator('visible=true').first().locator('..').boundingBox();
+    const inA = await a.page.getByText('+ Add', {exact: true}).locator('visible=true').last().locator('..').boundingBox(), outA = await a.page.getByText('+ Add Works', {exact: true}).locator('visible=true').first().locator('..').boundingBox();
     return {ok: await a.page.getByText(/^Budget cost tools/).locator('visible=true').count() === 1 && Math.abs(inA.height - outA.height) < 1, note: 'heights ' + inA.height + ' and ' + outA.height};
   });
 };
