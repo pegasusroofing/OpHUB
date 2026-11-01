@@ -163,96 +163,11 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
     <ScrollView style={{ flex: 1 }} contentContainerStyle={page(1100)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Bill of Quantities' }} />
       <Card><Text style={{ fontWeight: '800', color: base.ink }}>Total {money(total)}{costTotal ? ` · budget cost ${money(costTotal)} · ${marginText(total, costTotal) || `margin ${money(total - costTotal)}`}` : ''}</Text><Muted>The operatives&apos; Schedule of Works can be brought in to price, or sent out from here (without prices).{autoNote ? ` · ${autoNote}` : ''}</Muted>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 }}>
-          <Button small kind="ghost" title="Copy in tasks from the site schedule" onPress={async () => {
-            const [secs, tasks] = await Promise.all([
-              fdb.from('schedule_sections').select('id,name,contract_item_id').eq('site_id', id).order('position', { ascending: true, nullsFirst: false }).order('created_at'),
-              fdb.from('schedule_tasks').select('id,name,section_id,contract_item_id').eq('site_id', id).order('position', { ascending: true, nullsFirst: false }).order('created_at'),
-            ]);
-            const have = new Set(rows.map((r) => r._task_id).filter(Boolean));
-            const free = ((tasks.data as Row[] | null) ?? []).filter((t) => !t.contract_item_id && !have.has(t.id));
-            if (!free.length) { toast('Everything on the site schedule is already in here.'); return; }
-            const addRows: Row[] = free.filter((t) => !t.section_id).map((t) => ({ ...blank('item'), description: t.name, _task_id: t.id }));
-            ((secs.data as Row[] | null) ?? []).forEach((s) => {
-              const ts = free.filter((t) => t.section_id === s.id); if (!ts.length) return;
-              addRows.push({ ...blank('section'), description: s.name, _sec_id: s.contract_item_id ? null : s.id }, ...ts.map((t) => ({ ...blank('item'), description: t.name, _task_id: t.id })));
-            });
-            setRows([...rows, ...addRows]);
-            toast(`${free.length} task${free.length === 1 ? '' : 's'} copied in — add a price to each`);
-          }} />
-          <Button small kind="ghost" title="Send to the operatives' schedule" onPress={async () => {
-            if (rows.some((r) => !r.id)) { toast('Save the schedule first.'); return; }
-            const [secs, tasks] = await Promise.all([fdb.from('schedule_sections').select('id,contract_item_id,name,position').eq('site_id', id), fdb.from('schedule_tasks').select('id,contract_item_id,name,section_id,position').eq('site_id', id)]);
-            const sl = (secs.data as Row[] | null) ?? [], tl = (tasks.data as Row[] | null) ?? [];
-            const secBy: Record<string, Row> = {}, taskBy: Record<string, Row> = {};
-            sl.forEach((s) => { if (s.contract_item_id) secBy[s.contract_item_id] = s; }); tl.forEach((t) => { if (t.contract_item_id) taskBy[t.contract_item_id] = t; });
-            let secPos = sl.reduce((m, s) => Math.max(m, Number(s.position || 0)), 0) + 1, taskPos = tl.reduce((m, t) => Math.max(m, Number(t.position || 0)), 0) + 1;
-            let cur: string | null = null, head = '', added = 0, updated = 0;
-            const nm = (i: Row) => `${i.ref ? `${i.ref} ` : ''}${String(i.description || '').trim()}`;
-            for (const i of rows) {
-              if (i.kind === 'section' || i.kind === 'subsection') {
-                const name = i.kind === 'section' ? nm(i) : `${head ? `${head} — ` : ''}${nm(i)}`; if (i.kind === 'section') head = nm(i);
-                const ex = secBy[i.id];
-                if (ex) { if (ex.name !== name) await fdb.from('schedule_sections').update({ name } as never).eq('id', ex.id); cur = ex.id; }
-                else { const r = await fdb.from('schedule_sections').insert({ site_id: id, name, position: secPos++, created_by: me.id, contract_item_id: i.id } as never).select('id').single(); cur = r.data ? (r.data as Row).id : null; }
-                continue;
-              }
-              const name = nm(i) || 'Item', ex = taskBy[i.id];
-              if (ex) { const p: Row = {}; if (ex.name !== name) p.name = name; if ((ex.section_id || null) !== (cur || null)) p.section_id = cur; if (Object.keys(p).length) { await fdb.from('schedule_tasks').update(p as never).eq('id', ex.id); updated++; } }
-              else if (!(await fdb.from('schedule_tasks').insert({ site_id: id, name, status: 'todo', position: taskPos++, contract_item_id: i.id, ...(cur ? { section_id: cur } : {}) } as never)).error) added++;
-            }
-            toast(added || updated ? `Operatives' schedule: ${added} task${added === 1 ? '' : 's'} added${updated ? `, ${updated} updated` : ''}` : 'The operatives’ schedule is already up to date');
-          }} />
-          {!!lastUp?.path && <Button small kind="ghost" title="📄 Last Upload" onPress={async () => { const u = await openDocLink('finance-docs', lastUp.path); if (u) viewDoc(u, lastUp.name); else toast('Could not open the file.'); }} />}
-          <Button small kind="ghost" busy={importing} title="📥 Import a breakdown (Excel, CSV or PDF)" onPress={async () => {
-            const r = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true }); if (r.canceled || !r.assets[0]) return;
-            const a = r.assets[0];
-            if (/\.xls$/i.test(a.name || '')) { toast('Save it as .xlsx or .csv first — old .xls files can’t be read.'); return; }
-            setImporting(true);
-            try {
-              const bytes = new Uint8Array(await (await fetch(a.uri)).arrayBuffer());
-              const kept = await supabase.storage.from('finance-docs').upload(`${me.org_id}/${id}/contract/${Date.now()}-${(a.name || 'boq').replace(/[^a-z0-9.-]+/gi, '_').slice(-80)}`, bytes, { contentType: a.mimeType || 'application/octet-stream' });
-              if (!kept.error) { await fdb.from('job_finance').update({ contract_file_path: kept.data.path, contract_file_name: a.name || 'BoQ' } as never).eq('site_id', id); setLastUp({ path: kept.data.path, name: a.name || 'BoQ' }); }
-              if (/\.pdf$/i.test(a.name || '') || a.mimeType === 'application/pdf') {
-                const pages = await pdfPageTexts(bytes, 40);
-                setImp({ sheets: [], sheet: '', lines: importPdfLines((pages ?? []).join('\n').split('\n')) });
-              } else {
-                const sheets = /\.csv$/i.test(a.name || '') ? [{ name: 'CSV', rows: csvRows(new TextDecoder().decode(bytes)) }] : await readXlsx(bytes);
-                const best = bestSheet(sheets); if (!best) { toast('Nothing found in that file.'); return; }
-                const g = guessColumns(best.rows);
-                setImp({ sheets, sheet: best.name, lines: importRows(best.rows, g.header, g.cols) });
-              }
-            } catch { toast('Could not read that file.'); } finally { setImporting(false); }
-          }} />
-        </View>
       </Card>
       {imp && <ImportPreview imp={imp} setImp={setImp} onUse={async (lines) => {
         if (rows.some((x) => String(x.description || '').trim()) && !(await confirmAsk('Replace the lines here with the imported breakdown?', 'Replace'))) return;
         setRows(boqRows(lines).map((r) => ({ ...r, _k: key(), sub: '' }))); setImp(null);
       }} />}
-
-      {/* Budget cost: margin / mark-up for all or the ticked lines, and changes to the ticked lines together (902). */}
-      <Card style={{ paddingVertical: 5, paddingHorizontal: 10 }}>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
-          <Text style={{ fontWeight: '700', fontSize: 12, color: base.ink }}>Budget cost:</Text>
-          <TextInput value={pct} onChangeText={(v) => setPct(v.replace(/[^0-9.]/g, ''))} placeholder="%" keyboardType="decimal-pad" style={[box, { width: 48, height: 26, paddingVertical: 2, paddingHorizontal: 6, fontSize: 12 }]} />
-          <SelectBox value={basis} options={[['margin', '% margin'], ['markup', '% mark-up']]} onChange={setBasis} compact style={{ marginBottom: 0, width: 110 }} title="Margin or mark-up" />
-          <Button small kind="ghost" title={ticked.length ? `Apply to ${ticked.length} ticked` : 'Apply to ticked'} disabled={!ticked.length} onPress={() => applyPct(true)} />
-          <Button small kind="ghost" title="Apply to all lines" onPress={() => applyPct(false)} />
-        </View>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginTop: 8 }}>
-          {ticked.length ? (
-            <>
-              <Text style={{ fontWeight: '700', color: base.ink }}>{ticked.length} ticked</Text>
-              {subs.length > 0 && <SelectBox value="" placeholder="Set plot…" title="Plot for the ticked lines" options={[['-', 'No plot'], ...subs.map((s) => [s.id, s.short] as [string, string])]} onChange={(k) => setRows((rs) => rs.map((r, j) => (ticked.includes(j) ? { ...r, sub: k === '-' ? '' : k } : r)))} style={{ marginBottom: 0, width: 170 }} />}
-              <Button small kind="ghost" title="Set unit" onPress={async () => { const u = await promptText('Unit for the ticked lines (e.g. m², nr, item)', ''); if (u !== null) setRows((rs) => rs.map((r, j) => (ticked.includes(j) ? { ...r, unit: u.trim() } : r))); }} />
-              <Button small kind="ghost" title="Clear costs" onPress={() => setRows((rs) => rs.map((r, j) => (ticked.includes(j) ? { ...r, cost: '', cost_basis: null, cost_pct: null } : r)))} />
-              <Button small kind="ghost" title="Remove" onPress={async () => { if (await confirmAsk(`Remove ${ticked.length} ticked line${ticked.length === 1 ? '' : 's'}?`, 'Remove')) setRows((rs) => rs.filter((_, j) => !ticked.includes(j))); }} />
-              <Button small kind="ghost" title="Untick all" onPress={() => tick(itemIdx, false)} />
-            </>
-          ) : itemIdx.length ? <><Button small kind="ghost" title={`Tick all ${itemIdx.length} lines`} onPress={() => tick(itemIdx, true)} /><Muted>Tick lines (or a heading) to change them together.</Muted></> : null}
-        </View>
-      </Card>
 
       {rows.map((r, i) => {
         const head = r.kind === 'section' || r.kind === 'subsection';
@@ -296,6 +211,89 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
       })}
       <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginTop: 8, marginBottom: 24 }}>
         <Button small kind="ghost" title="+ Item" onPress={() => add('item')} /><Button small kind="ghost" title="+ Section" onPress={() => add('section')} /><Button small kind="ghost" title="+ Sub-section" onPress={() => add('subsection')} />
+      </View>
+      {/* Budget cost: margin / mark-up for all or the ticked lines, and changes to the ticked lines together (902). */}
+      <Card style={{ paddingVertical: 5, paddingHorizontal: 10 }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+          <Text style={{ fontWeight: '700', fontSize: 12, color: base.ink }}>Budget cost:</Text>
+          <TextInput value={pct} onChangeText={(v) => setPct(v.replace(/[^0-9.]/g, ''))} placeholder="%" keyboardType="decimal-pad" style={[box, { width: 48, height: 26, paddingVertical: 2, paddingHorizontal: 6, fontSize: 12 }]} />
+          <SelectBox value={basis} options={[['margin', '% margin'], ['markup', '% mark-up']]} onChange={setBasis} compact style={{ marginBottom: 0, width: 110 }} title="Margin or mark-up" />
+          <Button small kind="ghost" title={ticked.length ? `Apply to ${ticked.length} ticked` : 'Apply to ticked'} disabled={!ticked.length} onPress={() => applyPct(true)} />
+          <Button small kind="ghost" title="Apply to all lines" onPress={() => applyPct(false)} />
+          {ticked.length ? (
+            <>
+              <Text style={{ fontWeight: '700', color: base.ink }}>{ticked.length} ticked</Text>
+              {subs.length > 0 && <SelectBox value="" placeholder="Set plot…" title="Plot for the ticked lines" options={[['-', 'No plot'], ...subs.map((s) => [s.id, s.short] as [string, string])]} onChange={(k) => setRows((rs) => rs.map((r, j) => (ticked.includes(j) ? { ...r, sub: k === '-' ? '' : k } : r)))} style={{ marginBottom: 0, width: 170 }} />}
+              <Button small kind="ghost" title="Set unit" onPress={async () => { const u = await promptText('Unit for the ticked lines (e.g. m², nr, item)', ''); if (u !== null) setRows((rs) => rs.map((r, j) => (ticked.includes(j) ? { ...r, unit: u.trim() } : r))); }} />
+              <Button small kind="ghost" title="Clear costs" onPress={() => setRows((rs) => rs.map((r, j) => (ticked.includes(j) ? { ...r, cost: '', cost_basis: null, cost_pct: null } : r)))} />
+              <Button small kind="ghost" title="Remove" onPress={async () => { if (await confirmAsk(`Remove ${ticked.length} ticked line${ticked.length === 1 ? '' : 's'}?`, 'Remove')) setRows((rs) => rs.filter((_, j) => !ticked.includes(j))); }} />
+              <Button small kind="ghost" title="Untick all" onPress={() => tick(itemIdx, false)} />
+            </>
+          ) : itemIdx.length ? <><Button small kind="ghost" title={`Tick all ${itemIdx.length} lines`} onPress={() => tick(itemIdx, true)} /><Muted>Tick lines (or a heading) to change them together.</Muted></> : null}
+        </View>
+      </Card>
+
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+        <Button small kind="ghost" title="Copy in tasks from the site schedule" onPress={async () => {
+          const [secs, tasks] = await Promise.all([
+            fdb.from('schedule_sections').select('id,name,contract_item_id').eq('site_id', id).order('position', { ascending: true, nullsFirst: false }).order('created_at'),
+            fdb.from('schedule_tasks').select('id,name,section_id,contract_item_id').eq('site_id', id).order('position', { ascending: true, nullsFirst: false }).order('created_at'),
+          ]);
+          const have = new Set(rows.map((r) => r._task_id).filter(Boolean));
+          const free = ((tasks.data as Row[] | null) ?? []).filter((t) => !t.contract_item_id && !have.has(t.id));
+          if (!free.length) { toast('Everything on the site schedule is already in here.'); return; }
+          const addRows: Row[] = free.filter((t) => !t.section_id).map((t) => ({ ...blank('item'), description: t.name, _task_id: t.id }));
+          ((secs.data as Row[] | null) ?? []).forEach((s) => {
+            const ts = free.filter((t) => t.section_id === s.id); if (!ts.length) return;
+            addRows.push({ ...blank('section'), description: s.name, _sec_id: s.contract_item_id ? null : s.id }, ...ts.map((t) => ({ ...blank('item'), description: t.name, _task_id: t.id })));
+          });
+          setRows([...rows, ...addRows]);
+          toast(`${free.length} task${free.length === 1 ? '' : 's'} copied in — add a price to each`);
+        }} />
+        <Button small kind="ghost" title="Send to the operatives' schedule" onPress={async () => {
+          if (rows.some((r) => !r.id)) { toast('Save the schedule first.'); return; }
+          const [secs, tasks] = await Promise.all([fdb.from('schedule_sections').select('id,contract_item_id,name,position').eq('site_id', id), fdb.from('schedule_tasks').select('id,contract_item_id,name,section_id,position').eq('site_id', id)]);
+          const sl = (secs.data as Row[] | null) ?? [], tl = (tasks.data as Row[] | null) ?? [];
+          const secBy: Record<string, Row> = {}, taskBy: Record<string, Row> = {};
+          sl.forEach((s) => { if (s.contract_item_id) secBy[s.contract_item_id] = s; }); tl.forEach((t) => { if (t.contract_item_id) taskBy[t.contract_item_id] = t; });
+          let secPos = sl.reduce((m, s) => Math.max(m, Number(s.position || 0)), 0) + 1, taskPos = tl.reduce((m, t) => Math.max(m, Number(t.position || 0)), 0) + 1;
+          let cur: string | null = null, head = '', added = 0, updated = 0;
+          const nm = (i: Row) => `${i.ref ? `${i.ref} ` : ''}${String(i.description || '').trim()}`;
+          for (const i of rows) {
+            if (i.kind === 'section' || i.kind === 'subsection') {
+              const name = i.kind === 'section' ? nm(i) : `${head ? `${head} — ` : ''}${nm(i)}`; if (i.kind === 'section') head = nm(i);
+              const ex = secBy[i.id];
+              if (ex) { if (ex.name !== name) await fdb.from('schedule_sections').update({ name } as never).eq('id', ex.id); cur = ex.id; }
+              else { const r = await fdb.from('schedule_sections').insert({ site_id: id, name, position: secPos++, created_by: me.id, contract_item_id: i.id } as never).select('id').single(); cur = r.data ? (r.data as Row).id : null; }
+              continue;
+            }
+            const name = nm(i) || 'Item', ex = taskBy[i.id];
+            if (ex) { const p: Row = {}; if (ex.name !== name) p.name = name; if ((ex.section_id || null) !== (cur || null)) p.section_id = cur; if (Object.keys(p).length) { await fdb.from('schedule_tasks').update(p as never).eq('id', ex.id); updated++; } }
+            else if (!(await fdb.from('schedule_tasks').insert({ site_id: id, name, status: 'todo', position: taskPos++, contract_item_id: i.id, ...(cur ? { section_id: cur } : {}) } as never)).error) added++;
+          }
+          toast(added || updated ? `Operatives' schedule: ${added} task${added === 1 ? '' : 's'} added${updated ? `, ${updated} updated` : ''}` : 'The operatives’ schedule is already up to date');
+        }} />
+        {!!lastUp?.path && <Button small kind="ghost" title="📄 Last Upload" onPress={async () => { const u = await openDocLink('finance-docs', lastUp.path); if (u) viewDoc(u, lastUp.name); else toast('Could not open the file.'); }} />}
+        <Button small kind="ghost" busy={importing} title="📥 Import a breakdown (Excel, CSV or PDF)" onPress={async () => {
+          const r = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true }); if (r.canceled || !r.assets[0]) return;
+          const a = r.assets[0];
+          if (/\.xls$/i.test(a.name || '')) { toast('Save it as .xlsx or .csv first — old .xls files can’t be read.'); return; }
+          setImporting(true);
+          try {
+            const bytes = new Uint8Array(await (await fetch(a.uri)).arrayBuffer());
+            const kept = await supabase.storage.from('finance-docs').upload(`${me.org_id}/${id}/contract/${Date.now()}-${(a.name || 'boq').replace(/[^a-z0-9.-]+/gi, '_').slice(-80)}`, bytes, { contentType: a.mimeType || 'application/octet-stream' });
+            if (!kept.error) { await fdb.from('job_finance').update({ contract_file_path: kept.data.path, contract_file_name: a.name || 'BoQ' } as never).eq('site_id', id); setLastUp({ path: kept.data.path, name: a.name || 'BoQ' }); }
+            if (/\.pdf$/i.test(a.name || '') || a.mimeType === 'application/pdf') {
+              const pages = await pdfPageTexts(bytes, 40);
+              setImp({ sheets: [], sheet: '', lines: importPdfLines((pages ?? []).join('\n').split('\n')) });
+            } else {
+              const sheets = /\.csv$/i.test(a.name || '') ? [{ name: 'CSV', rows: csvRows(new TextDecoder().decode(bytes)) }] : await readXlsx(bytes);
+              const best = bestSheet(sheets); if (!best) { toast('Nothing found in that file.'); return; }
+              const g = guessColumns(best.rows);
+              setImp({ sheets, sheet: best.name, lines: importRows(best.rows, g.header, g.cols) });
+            }
+          } catch { toast('Could not read that file.'); } finally { setImporting(false); }
+        }} />
       </View>
       <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
         <Button small busy={busy} title="Save Bill of Quantities" onPress={() => void save()} />
