@@ -1,12 +1,13 @@
 // Quote settings (admins): the automatic chaser, its wording, and where enquiry folders live.
+import * as DocumentPicker from 'expo-document-picker';
 import { useQueryClient } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ScrollView, Switch, Text, View } from 'react-native';
 
-import { confirmAsk, useToast } from '@/components/toast';
+import { confirmAsk, promptText, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Field, Muted, SectionTitle } from '@/components/ui';
-import { saveQuoteSettings, useQuoteSettings } from '@/data/quotes';
+import { importTenderLog, saveQuoteSettings, useQuoteSettings } from '@/data/quotes';
 import { useAuth } from '@/lib/auth';
 import { base, page, space } from '@/theme/theme';
 
@@ -18,6 +19,7 @@ export default function QuoteSettingsPage() {
   const toast = useToast();
   const qc = useQueryClient();
   const { data } = useQuoteSettings(me?.org_id);
+  const [busy, setBusy] = useState(false);
   const [v, setV] = useState({ first: '30', every: '14', max: '3', subject: SUBJECT, body: BODY, open: '', template: '', archive: '', won: '1. Contract & Commercial/2. Estimating' });
   useEffect(() => {
     if (data) setV({ first: String(data.chase_first_days), every: String(data.chase_every_days), max: String(data.chase_max), subject: data.chase_subject || SUBJECT, body: data.chase_body || BODY, open: data.open_path || '', template: data.template_path || '', archive: data.archive_path || '', won: data.won_folder || '1. Contract & Commercial/2. Estimating' });
@@ -26,6 +28,19 @@ export default function QuoteSettingsPage() {
   if (me.role !== 'admin') return <Muted style={{ padding: space.l }}>Admins only.</Muted>;
   const orgId = me.org_id;
   const set = (k: keyof typeof v) => (t: string) => setV((f) => ({ ...f, [k]: t }));
+  // Once only, to bring the years of quotes across. After that everything is done in the app.
+  const bringIn = async () => {
+    const r = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true });
+    if (r.canceled || !r.assets[0]) return;
+    const names = await promptText('Who prices quotes? Put the names as they’re written in the Feedback column, split by commas. Those go in Priced by.', 'Andy C, Neil');
+    if (names === null) return;
+    setBusy(true);
+    try {
+      const out = await importTenderLog(me, new Uint8Array(await (await fetch(r.assets[0].uri)).arrayBuffer()), names.split(',').map((x) => x.trim()).filter(Boolean));
+      showAlert('error' in out ? out.error : `${out.added} quotes brought in. ${out.already} were already here. ${out.skipped} rows skipped as they had no client or project. The chaser is off on all of them.`);
+      void qc.invalidateQueries({ queryKey: ['quotes', orgId] });
+    } catch { toast('Could not read that file.'); } finally { setBusy(false); }
+  };
   const fields = () => ({ org_id: orgId, chase_first_days: Number(v.first) || 30, chase_every_days: Number(v.every) || 14, chase_max: Number(v.max) || 3, chase_subject: v.subject, chase_body: v.body, open_path: v.open.trim() || null, template_path: v.template.trim() || null, archive_path: v.archive.trim() || null, won_folder: v.won.trim() || null });
   const save = async (extra: { chase_enabled?: boolean } = {}) => {
     const ok = await saveQuoteSettings({ ...fields(), ...extra });
@@ -60,6 +75,11 @@ export default function QuoteSettingsPage() {
         <Field label="When won, documents go in this folder of the job" value={v.won} onChangeText={set('won')} />
       </Card>
       <Button title="Save" onPress={() => void save()} />
+      <Card style={{ marginTop: 14 }}>
+        <SectionTitle>Old quotes</SectionTitle>
+        <Muted style={{ marginBottom: 8 }}>Brings your old Tender Tracker’s history in, once. You don’t need Excel after that.</Muted>
+        <Button kind="ghost" busy={busy} title="Bring in the old tracker" onPress={() => void bringIn()} />
+      </Card>
     </ScrollView>
   );
 }

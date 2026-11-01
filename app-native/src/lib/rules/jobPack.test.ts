@@ -1,32 +1,30 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { parseJobPack, RULE_KEYS } from './jobPack.ts';
+import { cleanFolder, PACK_RULES, packProblem, startingPack, weekExample } from './jobPack.ts';
 
-const where = { parent_path: 'Live Projects', template_path: 'Live Projects/- Template' };
-const book = (over: Record<string, (string | number)[][]> = {}) => [
-  { name: 'Read me', rows: [['New Job Pack']] },
-  { name: 'Folders', rows: [['Folders'], ['intro'], [], ['Folder', 'Make it?'], ['1. Contract', 'Yes'], ['2. Skip', 'No']] },
-  { name: 'Template files', rows: [['t'], ['i'], [], ['In folder', 'File', 'Copy to new job?'], ['(top of the job folder)', 'Check.xlsx', 'Yes'], ['2. H&S/TBT', 'Talk.pdf', 'No']] },
-  { name: 'Auto sync', rows: [['t'], ['i'], [], ['App area', 'When', 'What is sent', 'To this folder', 'File name', 'On?'], ['RAMS', 'RAMS issued', 'x', '2. H&S/1. RAMS', 'y', 'Yes'], ['Incidents', 'Incident submitted', 'x', 'Near Miss', 'y', 'No']] },
-  { name: 'Weekly folders', rows: [['t'], ['i'], [], ['Rule', 'Setting'], ['Name of each week folder', '{order}. Week {n}'], ['Add the date to the name?', 'No'], ['Week starts on', 'Monday'], ['Week 1 starts', 'Job start date']] },
-  ...Object.entries(over).map(([name, rows]) => ({ name, rows })),
-];
-
-test('reads the folders, files, rules and weekly settings marked Yes', () => {
-  const r = parseJobPack(book(), where);
-  assert.ok('config' in r);
-  assert.deepEqual(r.config.folders, ['1. Contract']);
-  assert.deepEqual(r.config.files, [{ folder: '', name: 'Check.xlsx' }]);
-  assert.deepEqual(r.config.rules.rams_issued, { on: true, folder: '2. H&S/1. RAMS' });
-  assert.equal(r.config.rules.incident.on, false);
-  assert.deepEqual(r.config.weekly, { name: '{order}. Week {n}', addDate: false, weekStart: 1, week1: 'start' });
+test('the starting set has every rule once, each pointing at a folder it makes', () => {
+  const c = startingPack();
+  assert.equal(new Set(PACK_RULES.map((r) => r.key)).size, PACK_RULES.length);
+  assert.equal(Object.keys(c.rules).length, PACK_RULES.length);
+  for (const r of PACK_RULES) {
+    const f = r.folder.replace('/{week folder}', '');
+    assert.ok(c.folders.includes(f), f);
+  }
 });
-test('says what is wrong rather than half-loading', () => {
-  const a = parseJobPack([{ name: 'Sheet1', rows: [] }], where);
-  assert.ok('error' in a && a.error.includes('Auto sync'));
-  const b = book(); b[3] = { name: 'Auto sync', rows: [['App area', 'When', 'To this folder', 'On?'], ['RAMS', 'Reworded', 'x', 'Yes']] };
-  const c = parseJobPack(b, where);
-  assert.ok('error' in c && c.error.includes('RAMS: Reworded'));
+test('incidents start off, as they can hold personal details', () => { assert.equal(startingPack().rules.incident.on, false); });
+test('week names match the template: Week 1 is folder 2', () => {
+  const w = startingPack().weekly;
+  assert.equal(weekExample(w, 1), '2. Week 1');
+  assert.equal(weekExample(w, 5), '6. Week 5');
+  assert.equal(weekExample({ ...w, addDate: true }, 1), '2. Week 1 (w-c 02 Nov 2026)');
 });
-test('every rule has its own name', () => { assert.equal(new Set(Object.values(RULE_KEYS)).size, Object.keys(RULE_KEYS).length); });
+test('typed folders are tidied', () => { assert.equal(cleanFolder(' A\\ B //C/ '), 'A/B/C'); });
+test('says what stops the pack working', () => {
+  assert.equal(packProblem(startingPack()), null);
+  assert.match(packProblem({ ...startingPack(), parent_path: ' ' }) ?? '', /new job folders/);
+  assert.match(packProblem({ ...startingPack(), template_path: '' }) ?? '', /template/);
+  assert.equal(packProblem({ ...startingPack(), template_path: '', files: [] }), null);
+  const c = startingPack(); c.weekly.name = 'Week';
+  assert.match(packProblem(c) ?? '', /\{n\}/);
+});

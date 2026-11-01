@@ -1,5 +1,5 @@
-// New job pack: reads the rules out of Andy's Excel, "New Job Pack - what goes where". The tab and column names are
-// his sheet's; a rule is known by its App area and When, so he can reword anything else.
+// New job pack: the rules a company keeps in Admin Centre › OneDrive › New job pack. A starting set, taken from RTB's
+// "- New Job Pack - Template", is offered the first time, and everything in it can be changed in the app.
 export type PackRule = { on: boolean; folder: string };
 export type PackConfig = {
   parent_path: string; template_path: string;
@@ -8,66 +8,65 @@ export type PackConfig = {
   rules: Record<string, PackRule>;
   weekly: { name: string; addDate: boolean; weekStart: number; week1: 'start' | 'first' };
 };
-type Sheet = { name: string; rows: (string | number)[][] };
 
-/** "App area|When" as written in the Auto sync tab, and the name the app knows that rule by. */
-export const RULE_KEYS: Record<string, string> = {
-  'schedule of works|pre-start photo saved': 'sow_prestart',
-  'schedule of works|progress or completed photo saved': 'sow_progress',
-  'schedule of works|export pressed, then onedrive': 'sow_export',
-  'rams|rams issued': 'rams_issued',
-  'rams|rams superseded': 'rams_superseded',
-  'toolbox talks|talk issued on this job': 'tbt_issued',
-  'coshh|coshh sheet added to this job': 'coshh_added',
-  'data sheets|selected in the o&m': 'om_manual',
-  'inductions|induction completed': 'induction',
-  'permits|permit closed': 'permit_closed',
-  'incidents|incident submitted': 'incident',
-  'daily briefings|briefing submitted': 'briefing',
-  'inspections and reports|report submitted': 'report',
-  'variations|variation approved': 'variation_approved',
-  'drawings|file added in the app': 'drawing_out',
-  'drawings|file added in onedrive': 'drawing_in',
-  'material orders|file added in onedrive': 'material_orders_in',
-};
-const DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-const txt = (c: unknown) => String(c ?? '').trim();
-const yes = (c: unknown) => /^y/i.test(txt(c));
-// Rows under a tab's header row, picked out by the header's words so an added column doesn't matter.
-function table(sheets: Sheet[], tab: string, first: string): { col: (h: string) => number; rows: (string | number)[][] } | null {
-  const s = sheets.find((x) => x.name.trim().toLowerCase() === tab);
-  if (!s) return null;
-  const at = s.rows.findIndex((r) => txt(r[0]).toLowerCase() === first);
-  if (at < 0) return null;
-  const head = s.rows[at].map((h) => txt(h).toLowerCase());
-  return { col: (h) => head.findIndex((x) => x.startsWith(h)), rows: s.rows.slice(at + 1).filter((r) => txt(r[0])) };
-}
+const PROG = '5. OpHUB x Photos & Inspections/1. Progress Reports (Safety Culture)';
+const WEEK = `${PROG}/{week folder}`;
+const HS = '2. Health & Safety';
+const MC = `${HS}/4. Main Contractor Docs`;
+const IND = `${MC}/2. Induction Forms & Competency Certs`;
+export const WEEK_MARK = '{week folder}';
 
-/** The rules, or what's wrong in plain words. */
-export function parseJobPack(sheets: Sheet[], where: { parent_path: string; template_path: string }): { config: PackConfig } | { error: string } {
-  const folders = table(sheets, 'folders', 'folder'), files = table(sheets, 'template files', 'in folder'), sync = table(sheets, 'auto sync', 'app area'), weekly = table(sheets, 'weekly folders', 'rule');
-  const missing = [!folders && 'Folders', !files && 'Template files', !sync && 'Auto sync', !weekly && 'Weekly folders'].filter(Boolean);
-  if (!folders || !files || !sync || !weekly) return { error: `This isn't the job pack Excel: can't find the ${missing.join(', ')} tab.` };
-  const rules: Record<string, PackRule> = {};
-  const unknown: string[] = [];
-  for (const r of sync.rows) {
-    const k = RULE_KEYS[`${txt(r[sync.col('app area')]).toLowerCase()}|${txt(r[sync.col('when')]).toLowerCase()}`];
-    if (!k) { unknown.push(`${txt(r[sync.col('app area')])}: ${txt(r[sync.col('when')])}`); continue; }
-    rules[k] = { on: yes(r[sync.col('on?')]), folder: txt(r[sync.col('to this folder')]).replace(/\\/g, '/') };
-  }
-  if (unknown.length) return { error: `The app doesn't know these Auto sync rows, so leave their first two columns as they were: ${unknown.join('; ')}` };
-  const setting = (name: string) => { const row = weekly.rows.find((r) => txt(r[0]).toLowerCase() === name); return row ? txt(row[1]) : ''; };
-  const day = DAYS.indexOf(setting('week starts on').toLowerCase());
-  return { config: {
-    ...where,
-    folders: folders.rows.filter((r) => yes(r[folders.col('make it?')])).map((r) => txt(r[0]).replace(/\\/g, '/')),
-    files: files.rows.filter((r) => yes(r[files.col('copy to new job?')])).map((r) => ({ folder: txt(r[0]).startsWith('(') ? '' : txt(r[0]).replace(/\\/g, '/'), name: txt(r[files.col('file')]) })),
-    rules,
-    weekly: {
-      name: setting('name of each week folder') || '{order}. Week {n}',
-      addDate: yes(setting('add the date to the name?')),
-      weekStart: day < 0 ? 1 : day,
-      week1: /first/i.test(setting('week 1 starts')) ? 'first' : 'start',
-    },
-  } };
+/** What each rule is, in the order the page lists them. */
+export const PACK_RULES: { key: string; area: string; when: string; folder: string; on: boolean }[] = [
+  { key: 'sow_prestart', area: 'Schedule of Works', when: 'Pre-start photo saved', folder: `${PROG}/1. Pre Start`, on: true },
+  { key: 'sow_progress', area: 'Schedule of Works', when: 'Progress or completed photo saved', folder: WEEK, on: true },
+  { key: 'sow_export', area: 'Schedule of Works', when: 'Export pressed, then OneDrive', folder: WEEK, on: true },
+  { key: 'rams_issued', area: 'RAMS', when: 'RAMS issued', folder: `${HS}/1. RAMS`, on: true },
+  { key: 'rams_superseded', area: 'RAMS', when: 'RAMS superseded (the old file stays)', folder: `${HS}/1. RAMS`, on: true },
+  { key: 'tbt_issued', area: 'Toolbox talks', when: 'Talk issued on this job', folder: `${HS}/3. Toolbox Talks`, on: true },
+  { key: 'coshh_added', area: 'COSHH', when: 'COSHH sheet added to this job', folder: `${HS}/2. COSHH`, on: true },
+  { key: 'om_manual', area: 'O&M', when: 'O&M manual exported to OneDrive', folder: '8. Handover/2. Warranties & Inspections', on: true },
+  { key: 'induction', area: 'Inductions', when: 'Induction completed', folder: `${IND}/1. Completed Inductions`, on: true },
+  { key: 'permit_closed', area: 'Permits', when: 'Permit closed', folder: `${MC}/3. Permits to Work`, on: true },
+  { key: 'incident', area: 'Incidents', when: 'Incident submitted', folder: `${MC}/4. Accident  Near Miss Reports`, on: false },
+  { key: 'briefing', area: 'Daily briefings', when: 'Briefing completed', folder: WEEK, on: true },
+  { key: 'report', area: 'Inspections and reports', when: 'Report completed', folder: WEEK, on: true },
+  { key: 'variation_approved', area: 'Variations', when: 'Variation approved (its photo)', folder: '1. Contract & Commercial/3. Variations', on: true },
+  { key: 'drawing_out', area: 'Drawings', when: 'File added in the app', folder: '3. Drawings & Technical/1. Project Drawings & Generic Spec', on: true },
+  { key: 'drawing_in', area: 'Drawings', when: 'File added in OneDrive comes into the app', folder: '3. Drawings & Technical/1. Project Drawings & Generic Spec', on: true },
+  { key: 'material_orders_in', area: 'Material orders', when: 'File added in OneDrive comes into the app', folder: '4. Subcontractors & Suppliers/4. Supplier Material Orders', on: true },
+];
+
+const FOLDERS = [
+  '1. Contract & Commercial', '1. Contract & Commercial/1. Contract-Order', '1. Contract & Commercial/2. Estimating', '1. Contract & Commercial/3. Variations', '1. Contract & Commercial/4. Applications for Payment & Certificates',
+  HS, `${HS}/1. RAMS`, `${HS}/2. COSHH`, `${HS}/3. Toolbox Talks`, MC, `${MC}/1. Construction Phase Plan`, IND, `${IND}/1. Completed Inductions`, `${IND}/2. Competency Certs`, `${IND}/3. Signing In Sheet`, `${MC}/3. Permits to Work`, `${MC}/4. Accident  Near Miss Reports`,
+  '3. Drawings & Technical', '3. Drawings & Technical/1. Project Drawings & Generic Spec', '3. Drawings & Technical/2.  Manufacturers Specification', '3. Drawings & Technical/2.  Manufacturers Specification/1. U-Value Condensation Risk Calculations',
+  '4. Subcontractors & Suppliers', '4. Subcontractors & Suppliers/1. Subcontractor Quotes & Orders', '4. Subcontractors & Suppliers/1. Subcontractor Quotes & Orders/1. Quotes', '4. Subcontractors & Suppliers/1. Subcontractor Quotes & Orders/2. Orders', '4. Subcontractors & Suppliers/3. Supplier Price Lists', '4. Subcontractors & Suppliers/4. Supplier Material Orders',
+  '5. OpHUB x Photos & Inspections', PROG, `${PROG}/1. Pre Start`, '5. OpHUB x Photos & Inspections/2. Additional Photos',
+  '6. Programme', '6. Programme/1. Programme', '7. Main Contractor Docs', '8. Handover', '8. Handover/2. Warranties & Inspections', '8. Handover/3. Defects  Snagging', '8. Handover/4. Practical Completion Certificate',
+];
+const FILES = [
+  { folder: '1. Contract & Commercial/4. Applications for Payment & Certificates', name: 'RTB Roofing - Application for Payment.xlsx' },
+  { folder: '3. Drawings & Technical', name: 'RTB_Drawing_Submittal_Tracker.xlsx' },
+  { folder: '4. Subcontractors & Suppliers/1. Subcontractor Quotes & Orders', name: 'Sub Contractor Price.xlsx' },
+  { folder: '6. Programme/1. Programme', name: 'RTB Programme Template.xlsx' },
+  { folder: '6. Programme', name: 'RTB_Delivery_Schedule.xlsx' },
+  { folder: '', name: 'RTB Handover Checklist.xlsx' },
+];
+export const startingPack = (): PackConfig => ({
+  parent_path: 'RTB Roofing Ltd/Live Projects', template_path: 'RTB Roofing Ltd/Live Projects/- New Job Pack - Template',
+  folders: [...FOLDERS], files: FILES.map((f) => ({ ...f })),
+  rules: Object.fromEntries(PACK_RULES.map((r) => [r.key, { on: r.on, folder: r.folder }])),
+  weekly: { name: '{order}. Week {n}', addDate: false, weekStart: 1, week1: 'start' },
+});
+/** What a week folder will be called, shown on the page as it's edited. */
+export const weekExample = (w: PackConfig['weekly'], n: number) => `${w.name.replace('{order}', String(n + 1)).replace('{n}', String(n))}${w.addDate ? ' (w-c 02 Nov 2026)' : ''}`;
+/** A folder path from what's typed: no empty levels, spaces trimmed, and a backslash treated as a level. */
+export const cleanFolder = (s: string) => s.replace(/\\/g, '/').split('/').map((x) => x.trim()).filter(Boolean).join('/');
+/** Anything that would stop the pack working, in plain words, or null. */
+export function packProblem(c: PackConfig): string | null {
+  if (!cleanFolder(c.parent_path)) return 'Say where new job folders go.';
+  if (c.files.length && !cleanFolder(c.template_path)) return 'Say where the template folder is, as documents are copied from it.';
+  if (!/\{n\}/.test(c.weekly.name)) return 'The week folder’s name needs {n} in it, so each week has its own folder.';
+  return null;
 }

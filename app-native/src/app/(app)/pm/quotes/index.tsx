@@ -1,14 +1,12 @@
 // Quote tracker: every enquiry, searched and filtered by customer, discipline, who priced it, outcome and year, with
 // figures for each and exports of whatever is showing. Replaces Andy's Tender Tracker.xlsm. PMs and admins only.
-import * as DocumentPicker from 'expo-document-picker';
-import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
-import { chooseAction, promptText, showAlert, useToast } from '@/components/toast';
+import { chooseAction, useToast } from '@/components/toast';
 import { Button, Empty, Muted } from '@/components/ui';
-import { importTenderLog, useQuotes, type Quote } from '@/data/quotes';
+import { useQuotes, type Quote } from '@/data/quotes';
 import { useAuth } from '@/lib/auth';
 import { groupQuotes, isClosed, QUOTE_STATUS, statusLabel, type GroupBy } from '@/lib/rules/quotes';
 import { exportTableExcel, exportTablePdf, type Table } from '@/lib/tableExport';
@@ -27,7 +25,6 @@ const SORTS: { key: string; label: string; f: (a: Quote, b: Quote) => number }[]
 export default function Quotes() {
   const { me, org } = useAuth();
   const toast = useToast();
-  const qc = useQueryClient();
   const { data, isLoading } = useQuotes(me?.org_id);
   const [q, setQ] = useState('');
   const [status, setStatus] = useState('live');
@@ -38,7 +35,6 @@ export default function Quotes() {
   const [view, setView] = useState<'list' | GroupBy>('list');
   const [sort, setSort] = useState('date');
   const [shown, setShown] = useState(100);
-  const [busy, setBusy] = useState(false);
   const all = useMemo(() => data ?? [], [data]);
   const distinct = (f: (x: Quote) => string | null) => [...new Set(all.map(f).filter(Boolean) as string[])].sort();
   const yearOf = (x: Quote) => (x.completed_at || x.return_date || '').slice(0, 4);
@@ -71,20 +67,6 @@ export default function Quotes() {
     cols: [{ l: VIEWS.find((v) => v.key === view)?.label.replace('By ', '') ?? '', w: 170 }, { l: 'Quotes', num: true, w: 50 }, { l: 'Value', money: true, w: 90 }, { l: 'Won', num: true, w: 45 }, { l: 'Won value', money: true, w: 90 }, { l: 'Not won', num: true, w: 50 }, { l: 'Win rate %', num: true, w: 60 }],
     rows: groups.map((g) => [g.key, g.count, g.value, g.won, g.wonValue, g.lost, g.rate]),
   });
-  const load = async () => {
-    const r = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true });
-    if (r.canceled || !r.assets[0]) return;
-    const names = await promptText('Who prices quotes? Put the names as they’re written in the Feedback column, split by commas. Those go in Priced by.', 'Andy C, Neil');
-    if (names === null) return;
-    setBusy(true);
-    try {
-      const out = await importTenderLog(me, new Uint8Array(await (await fetch(r.assets[0].uri)).arrayBuffer()), names.split(',').map((x) => x.trim()).filter(Boolean));
-      if ('error' in out) showAlert(out.error);
-      else showAlert(`${out.added} quotes loaded. ${out.already} were already here. ${out.skipped} rows skipped as they had no client or project. The chaser is off on all of them.`);
-      void qc.invalidateQueries({ queryKey: ['quotes', me.org_id] });
-    } catch { toast('Could not read that file: is it the Excel tracker?'); } finally { setBusy(false); }
-  };
-
   return (
     <View style={{ flex: 1 }}>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={page(960)} keyboardShouldPersistTaps="handled">
@@ -130,11 +112,8 @@ export default function Quotes() {
             ))}
             {list.length > shown && <Button kind="ghost" title={`Show more (${list.length - shown} left)`} onPress={() => setShown(shown + 100)} />}
           </>
-        ) : <Empty>{all.length ? 'No quotes match.' : 'No quotes yet. Add one, or load your Excel tracker below.'}</Empty>}
-        <View style={{ flexDirection: 'row', gap: 8, marginTop: 14 }}>
-          <View style={{ flex: 1 }}><Button kind="ghost" small busy={busy} title="📊 Load Excel tracker" onPress={() => void load()} /></View>
-          {me.role === 'admin' && <View style={{ flex: 1 }}><Button kind="ghost" small title="⚙️ Quote settings" onPress={() => router.push('/pm/quotes/settings' as never)} /></View>}
-        </View>
+        ) : <Empty>{all.length ? 'No quotes match.' : 'No quotes yet. Press + New Quote to add one.'}</Empty>}
+        {me.role === 'admin' && <View style={{ marginTop: 14 }}><Button kind="ghost" small title="⚙️ Quote settings" onPress={() => router.push('/pm/quotes/settings' as never)} /></View>}
       </ScrollView>
       {list.length > 0 && (
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', backgroundColor: base.card, borderTopWidth: 1, borderTopColor: base.line, paddingHorizontal: 16, paddingVertical: 9 }}>
