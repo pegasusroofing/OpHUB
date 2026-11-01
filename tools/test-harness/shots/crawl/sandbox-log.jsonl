@@ -2349,3 +2349,53 @@
 {"file":"POST"}
 {"wrote":"messages","method":"POST","keys":["org_id","site_id","sender_id","audience","kind","body","email_details"]}
 {"wrote":"site_activity_log","method":"POST","keys":["site_id","org_id","actor_id","action","description"]}
+{"rpc":"quote_client_search"}
+{"rpc":"quote_add_client"}
+{"wrote":"quotes","method":"POST","keys":["client_id","client_name","contact_name","contact_email","contact_phone","title","address","postcode","discipline","value","profit_pct","priced_by","priced_by_name","received_date","return_date","notes","updated_at","org_id","created_by"]}
+{"rpc":"quote_client_search"}
+{"blocked":"function","fn":"quote-tracker"}
+{"held":"existing record","table":"quotes","method":"PATCH","keys":["status","completed_at","returned_at","next_chase_date","updated_at"]}
+{"blocked":"function","fn":"quote-tracker"}
+{"held":"existing record","table":"quotes","method":"PATCH","keys":["status","completed_at","next_chase_date","chase_on","updated_at"]}
+{"wrote":"sites","method":"POST","keys":["id","name","address","postcode","job_number","status","start_date","multi_site","repair_contract","client_name","client_phone","client_email","org_id","created_by"]}
+{"wrote":"drawing_folders","method":"POST","keys":["site_id","parent_id","name","position","created_by"]}
+{"sent":"onedrive-job-pack"}
+{"held":"existing record","table":"quotes","method":"PATCH","keys":["status","completed_at","next_chase_date","chase_on","site_id","updated_at"]}
+{"rpc":"quote_client_search"}
+{"rpc":"quote_add_client"}
+{"wrote":"quotes","method":"POST","keys":["client_id","client_name","contact_name","contact_email","contact_phone","title","address","postcode","discipline","value","profit_pct","priced_by","priced_by_name","received_date","return_date","notes","updated_at","org_id","created_by"]}
+{"blocked":"function","fn":"quote-tracker"}
+{"held":"existing record","table":"quotes","method":"PATCH","keys":["status","completed_at","next_chase_date","chase_on","updated_at"]}
+{"wrote":"quotes","method":"POST","keys":["client_name","title","discipline","value","profit_pct","return_date","returned_at","status","notes","priced_by_name","chase_count","completed_at","org_id","created_by","imported","chase_on"]}
+{"rpc":"quote_client_search"}
+{"rpc":"quote_add_client"}
+{"wrote":"quotes","method":"POST","keys":["client_id","client_name","contact_name","contact_email","contact_phone","title","address","postcode","discipline","value","profit_pct","priced_by","priced_by_name","received_date","return_date","notes","updated_at","org_id","created_by"]}
+{"rpc":"quote_client_search"}
+{"sent":"quote-tracker"}
+{"sent":"onedrive-list-folders"}
+{"sent":"onedrive-list-folders"}
+{"sent":"onedrive-list-folders"}
+{"sent":"onedrive-upload"}
+{"sent":"onedrive-list-folders"}
+{"sent":"onedrive-list-folders"}
+{"wrote":"quotes","method":"PATCH","keys":["status","completed_at","returned_at","next_chase_date","updated_at"]}
+{"sent":"onedrive-list-folders"}
+{"sent":"quote-tracker"}
+{"sent":"onedrive-list-folders"}
+{"wrote":"quotes","method":"PATCH","keys":["status","completed_at","next_chase_date","chase_on","updated_at"]}
+{"sent":"onedrive-list-folders"}
+{"wrote":"sites","method":"POST","keys":["id","name","address","postcode","job_number","status","start_date","multi_site","repair_contract","client_name","client_phone","client_email","org_id","created_by"]}
+{"wrote":"drawing_folders","method":"POST","keys":["site_id","parent_id","name","position","created_by"]}
+{"sent":"onedrive-job-pack"}
+{"sent":"quote-tracker"}
+{"wrote":"quotes","method":"PATCH","keys":["status","completed_at","next_chase_date","chase_on","site_id","updated_at"]}
+{"rpc":"quote_client_search"}
+{"rpc":"quote_add_client"}
+{"wrote":"quotes","method":"POST","keys":["client_id","client_name","contact_name","contact_email","contact_phone","title","address","postcode","discipline","value","profit_pct","priced_by","priced_by_name","received_date","return_date","notes","updated_at","org_id","created_by"]}
+{"sent":"quote-tracker"}
+{"sent":"onedrive-list-folders"}
+{"sent":"onedrive-list-folders"}
+{"wrote":"quotes","method":"PATCH","keys":["status","completed_at","next_chase_date","chase_on","updated_at"]}
+{"sent":"quote-tracker"}
+{"sent":"onedrive-list-folders"}
+{"sent":"onedrive-list-folders"}
