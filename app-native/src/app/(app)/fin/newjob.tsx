@@ -13,6 +13,7 @@ import { useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 
 import { FinChip } from '@/components/FinNav';
+import { SelectBox } from '@/components/SelectBox';
 import { useToast } from '@/components/toast';
 import { Button, Card, Field, Muted } from '@/components/ui';
 import { DateField } from '@/components/DateField';
@@ -102,30 +103,36 @@ export default function FinNewJob() {
     <ScrollView contentContainerStyle={page(700)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'New project' }} />
       <Card>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <View style={{ flex: 1 }}><Field label="Project number *" value={auto ? `${nums?.job_number_prefix || ''}${nums?.next_job_number ?? ''} (automatic)` : v.no || ''} onChangeText={set('no')} editable={!auto} /></View>
+          <View style={{ flex: 1 }}><DateField label="Start date" value={v.start || ''} onChange={set('start')} /></View>
+        </View>
         <Field label="Project name *" value={v.name || ''} onChangeText={set('name')} />
-        <Field label="Project number *" value={auto ? `${nums?.job_number_prefix || ''}${nums?.next_job_number ?? ''} (automatic)` : v.no || ''} onChangeText={set('no')} editable={!auto} />
-        <Muted style={{ fontWeight: '700', marginTop: 4 }}>Status</Muted>
-        <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginVertical: 4 }}>{[['upcoming', 'Upcoming'], ['live', 'Live'], ['closed', 'Closed']].map(([k, l]) => <FinChip key={k} on={v.status === k} label={l} onPress={() => set('status')(k)} />)}</View>
-        <Muted style={{ fontWeight: '700', marginTop: 4 }}>Payment Procedure *</Muted>
-        <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginVertical: 4 }}>{[['invoice', 'Invoice'], ['application', 'Application for payment']].map(([k, l]) => <FinChip key={k} on={v.bt === k} label={l} onPress={() => set('bt')(k)} />)}</View>
+        <Field label="Site address" value={v.addr || ''} onChangeText={set('addr')} multiline />
+        <Field label="Postcode" value={v.pc || ''} onChangeText={set('pc')} autoCapitalize="characters" />
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <View style={{ flex: 1 }}>
+            <Muted style={{ fontWeight: '700', marginTop: 4 }}>Status</Muted>
+            <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginVertical: 4 }}>{[['upcoming', 'Upcoming'], ['live', 'Live'], ['closed', 'Closed']].map(([k, l]) => <FinChip key={k} on={v.status === k} label={l} onPress={() => set('status')(k)} />)}</View>
+          </View>
+          {!finOnly && <View style={{ flex: 1 }}><SelectBox label="Project manager" title="Project manager" value={v.pm || ''} options={pms.map((p) => [p.id, p.name] as [string, string])} onChange={set('pm')} /></View>}
+        </View>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <View style={{ flex: 1 }}>
+            <Muted style={{ fontWeight: '700', marginTop: 4 }}>Payment Procedure *</Muted>
+            <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginVertical: 4 }}>{[['invoice', 'Invoice'], ['application', 'Application for payment']].map(([k, l]) => <FinChip key={k} on={v.bt === k} label={l} onPress={() => set('bt')(k)} />)}</View>
+          </View>
+          {!finOnly && <View style={{ flex: 1 }}><SelectBox label="Project Type" title="Project Type" value={v.kind || 'single'} options={[['single', 'Single site'], ['multi', 'Multi-site (plots / addresses)'], ['repair', 'Repair contract']]} onChange={set('kind')} /></View>}
+        </View>
         <Muted style={{ fontSize: 11.5, marginBottom: 6 }}>Invoice jobs have no applications or retention.</Muted>
         <Field label="Contract value (excl. VAT)" value={v.cv || ''} onChangeText={set('cv')} keyboardType="decimal-pad" placeholder="£0.00" />
+        <Field label="Client" value={v.client || ''} onChangeText={set('client')} placeholder="From the Directory — a new name is added" />
+        {matches.map((c) => <Text key={c.id} onPress={() => set('client')(c.name)} style={{ color: base.blue, paddingVertical: 4 }}>→ {c.name}</Text>)}
         <Field label="Client PO number" value={v.po || ''} onChangeText={set('po')} />
         <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 8 }}>
           <Button kind="ghost" title="📎 Add PO files" onPress={async () => { const r = await DocumentPicker.getDocumentAsync({ type: '*/*', multiple: true, copyToCacheDirectory: true }); if (r.canceled) return; setFiles((o) => [...o, ...r.assets.map((a) => ({ uri: a.uri, name: a.name || 'po', mime: a.mimeType || '', size: a.size || 0 }))]); }} />
           {files.map((f, i) => <FinChip key={i} on label={`${f.name} ✕`} onPress={() => setFiles((o) => o.filter((_, j) => j !== i))} />)}
         </View>
-        {!finOnly && <>
-          <Muted style={{ fontWeight: '700' }}>Project manager</Muted>
-          <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginVertical: 4 }}>{pms.map((p) => <FinChip key={p.id} on={v.pm === p.id} label={p.name} onPress={() => set('pm')(p.id)} />)}</View>
-          <Muted style={{ fontWeight: '700' }}>Type</Muted>
-          <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginVertical: 4 }}>{[['single', 'Single site'], ['multi', 'Multi-site (plots / addresses)'], ['repair', 'Repair contract']].map(([k, l]) => <FinChip key={k} on={v.kind === k} label={l} onPress={() => set('kind')(k)} />)}</View>
-        </>}
-        <Field label="Client" value={v.client || ''} onChangeText={set('client')} placeholder="From the Directory — a new name is added" />
-        {matches.map((c) => <Text key={c.id} onPress={() => set('client')(c.name)} style={{ color: base.blue, paddingVertical: 4 }}>→ {c.name}</Text>)}
-        <Field label="Site address" value={v.addr || ''} onChangeText={set('addr')} multiline />
-        <Field label="Postcode" value={v.pc || ''} onChangeText={set('pc')} autoCapitalize="characters" />
-        <DateField label="Start date" value={v.start || ''} onChange={set('start')} />
       </Card>
       <Button busy={busy} title="Create project" onPress={() => void save()} />
     </ScrollView>

@@ -35,7 +35,7 @@ import { isFinanceOnlyOrg, isFinanceUser, isFullManager } from '@/lib/roles';
 import { base, page, space, useTheme } from '@/theme/theme';
 
 type Row = Record<string, any>;
-const TABS: [string, string][] = [['overview', 'Overview'], ['sales', 'Sales'], ['purchases', 'Purchases'], ['subs', 'Subcontractors & Labour'], ['setup', 'Project Admin'], ['docs', 'Documents']];
+const TABS: [string, string][] = [['overview', 'Overview'], ['sales', 'Sales'], ['purchases', 'Purchases'], ['subs', 'Subcontractors & Labour']];
 // £10.0k, as the current app's tiles (finK).
 const OV_OPTS: Record<string, [string, string][]> = {
   cv: [['contract', 'Contract Value'], ['cva', 'Contract + Approved Variations'], ['ffa', 'Forecasted Final Account']],
@@ -86,7 +86,7 @@ export default function FinJob() {
         </Pressable>
       </View>
       <FinTabRow>
-        {[...TABS, ...(fc && !fc.isInvoiceJob ? [['boq', 'Bill of Quantities'] as [string, string]] : [])].map(([key, l]) => (
+        {[...TABS, ...(fc && !fc.isInvoiceJob ? [['boq', 'Bill of Quantities'] as [string, string]] : []), ['docs', 'Documents'] as [string, string], ['setup', 'Project Admin'] as [string, string]].map(([key, l]) => (
           <Pressable key={key} onPress={() => (key === 'boq' ? router.push(`/fin/job/${id}/boq` as never) : router.setParams({ tab: key }))} style={{ paddingVertical: 12, paddingHorizontal: 14, borderBottomWidth: 2, borderBottomColor: tab === key ? t.brand1 : 'transparent' }}>
             <Text style={{ fontSize: 13, fontWeight: tab === key ? '700' : '600', color: tab === key ? '#111827' : '#6b7280' }}>{l}</Text>
           </Pressable>
@@ -290,9 +290,9 @@ function Setup({ id, site, jf, cpos, settings }: { id: string; site: Row | undef
         {!byInv && kv('Final retention release', jf.final_release_date ? `${fdate(jf.final_release_date)} (set by hand)` : 'End of the defects period')}
         {kv('QS', jf.qs_id ? (people ?? []).find((p) => p.id === jf.qs_id)?.name || '—' : 'None yet')}
         {kv('Company overheads', jf.ohp_pct != null ? `${jf.ohp_pct}%` : `${settings.ohp_pct ?? 0}% (company)`)}
-        <View style={{ marginTop: 8, gap: 8 }}>{isFullManager(me) && <Button kind="ghost" title="✎ Project — name, client, address, status" onPress={() => setEdit('site')} />}<Button title="Edit project details" onPress={() => setEdit('job')} />{!byInv && <Button kind="ghost" title="📅 Monthly application dates" onPress={() => setEdit('dates')} />}</View>
+        <View style={{ marginTop: 8, gap: 8 }}>{isFullManager(me) && <Button kind="ghost" title="✎ Project — name, client, address, status" onPress={() => setEdit('site')} />}<Button title="Edit Project Financials" onPress={() => setEdit('job')} />{!byInv && <Button kind="ghost" title="📅 Monthly application dates" onPress={() => setEdit('dates')} />}</View>
       </Card>
-      {isFullManager(me) && <View style={{ marginBottom: 8 }}><Button kind="ghost" title="🗑 Delete this project" onPress={() => void delJob()} /></View>}
+      {isFullManager(me) && <View style={{ marginBottom: 8 }}><Button kind="danger" title="🗑 Delete this project" onPress={() => void delJob()} /></View>}
       <SectionTitle>Client POs</SectionTitle>
       {cpos.length ? cpos.map((p) => (
         <FinRow key={p.id} title={`PO ${p.po_number}${p.is_primary ? ' (main)' : ''}`} sub={[p.po_date ? fdate(p.po_date) : '', p.description, Array.isArray(p.files) && p.files.length ? `${p.files.length} file${p.files.length === 1 ? '' : 's'}` : p.file_name ? '1 file' : ''].filter(Boolean).join(' · ')} onPress={() => { setPo(p); setFile(null); setEdit('po'); }} />

@@ -21,11 +21,14 @@ export const FIN_SUBS: Record<string, [string, string][]> = {
   settings: [['general', 'Settings'], ['codes', 'Cost Codes'], ['team', 'Team']],
   directory: [['client', 'Clients'], ['supplier', 'Suppliers'], ['labour', 'Labour (CIS)'], ['codes', 'Cost codes']],
 };
-const Chip = ({ on, label, onPress, n }: { on: boolean; label: string; onPress: () => void; n?: number }) => (
-  <Pressable onPress={onPress} style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, borderWidth: 1, borderColor: on ? base.ink : base.line, backgroundColor: on ? base.ink : base.card }}>
-    <Text style={{ fontWeight: '700', fontSize: 12.5, color: on ? '#fff' : base.ink }}>{label}{n ? ` (${n})` : ''}</Text>
-  </Pressable>
-);
+const Chip = ({ on, label, onPress, n }: { on: boolean; label: string; onPress: () => void; n?: number }) => {
+  const t = useTheme();
+  return (
+    <Pressable onPress={onPress} style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, borderWidth: 1, borderColor: on ? t.brand1 : base.line, backgroundColor: on ? t.brand1 : base.card }}>
+      <Text style={{ fontWeight: '700', fontSize: 12.5, color: on ? t.brand1Text : base.ink }}>{label}{n ? ` (${n})` : ''}</Text>
+    </Pressable>
+  );
+};
 export { Chip as FinChip };
 /** A row of tabs that scrolls sideways, with a fade and arrow on the right while there are more to see. */
 export function FinTabRow({ children, style }: { children: ReactNode; style?: object }) {
