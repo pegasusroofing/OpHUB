@@ -35,6 +35,7 @@ const SCHEMA = {
           unit_price: { type: 'number', description: 'Price per unit excluding VAT, after any line discount' },
           amount: { type: 'number', description: 'Line total excluding VAT' },
           kind: { type: 'string', enum: ['item', 'delivery', 'discount', 'other'] },
+          site_reference: { type: 'string', description: 'Only if this line shows its own delivery address, site, job or order reference, different from the rest of the document' },
         },
         required: ['description'],
       },
@@ -73,7 +74,7 @@ Deno.serve(async (req) => {
     } else if (body.text) {
       content.push({ type: 'text', text: 'Document contents (from a spreadsheet):\n' + String(body.text).slice(0, 60000) });
     } else return json({ error: 'Nothing to read' }, 400);
-    content.push({ type: 'text', text: `This is a UK construction ${kind === 'quote' ? 'supplier quotation / price list' : 'supplier invoice'} for a roofing contractor. Record it with the record_document tool. List every priced line in order, exactly as written (keep product codes and sizes in the description). Use numbers without currency symbols or thousands separators. Unit prices exclude VAT. Put delivery charges and discounts in their own lines with kind set. Leave out anything you cannot read rather than guessing.` });
+    content.push({ type: 'text', text: `This is a UK construction ${kind === 'quote' ? 'supplier quotation / price list' : 'supplier invoice'} for a roofing contractor. Record it with the record_document tool. List every priced line in order, exactly as written (keep product codes and sizes in the description). Use numbers without currency symbols or thousands separators. Unit prices exclude VAT. Put delivery charges and discounts in their own lines with kind set. Where an invoice covers more than one delivery or site, give each line its own site_reference, and copy any PO or job reference shown for that delivery into it. Leave out anything you cannot read rather than guessing.` });
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'x-api-key': API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },

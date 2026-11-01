@@ -7,6 +7,10 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text } from 'react-native';
 
+import { InvoiceLines } from '@/components/InvoiceLines';
+import { checkAll, loadReadContext, readOne, saveLinesOnInvoice } from '@/data/invoiceRead';
+import { decide, type RLine } from '@/lib/rules/invoiceRead';
+
 import { FinForm } from '@/components/FinForm';
 import { FinRow } from '@/components/FinNav';
 import { pickJob } from '@/components/FinSales';
@@ -34,8 +38,15 @@ export default function FinInboxItem() {
   const [siteId, setSiteId] = useState<string | null>(null);
   const [poId, setPoId] = useState<string | null>(null);
   const [filing, setFiling] = useState(false);
+  const [reading, setReading] = useState(false);
+  const [edited, setLines] = useState<RLine[] | null>(null);
   const { data: it, isLoading } = useQuery({ queryKey: ['finInbox', iid], queryFn: async () => (await fdb.from('fin_inbox').select('*').eq('id', iid).maybeSingle()).data as Row | null });
-  const sid = siteId ?? it?.site_id ?? null;
+  const { data: ctx } = useQuery({ queryKey: ['finReadCtx', me?.org_id], enabled: !!me?.org_id, queryFn: () => loadReadContext(me?.org_id as string) });
+  const lines = edited ?? (it?.extracted?.lines as RLine[] | undefined) ?? null;
+  // With lines, the job is whichever has most of the invoice; the rest goes on as a split when it's filed.
+  const checks = lines && ctx ? checkAll(lines, it?.extracted?.supplier, ctx) : [];
+  const verdict = lines && it?.extracted ? decide(it.extracted, lines, checks) : null;
+  const sid = siteId ?? verdict?.mainSite ?? it?.site_id ?? null;
   const { data: pos = [] } = useQuery({ queryKey: ['finInboxPos', sid], enabled: !!sid, queryFn: async () => ((await fdb.from('purchase_orders').select('id,number,supplier_name,value,status').eq('site_id', sid as string).neq('status', 'cancelled')).data as Row[] | null) ?? [] });
   if (!me) return null;
   if (isLoading) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
@@ -52,6 +63,9 @@ export default function FinInboxItem() {
         {it.query_reason && <Text style={{ color: '#D98A00', marginTop: 6 }}>Why it&apos;s unallocated: {it.query_reason}</Text>}
         {(it.comments || []).map((c: Row, k: number) => <Muted key={k}>{c.name}: {c.text}</Muted>)}
       </Card>
+      {!filed && !it.extracted?.lines && !!it.file_path && <Button busy={reading} title="🤖 Read it" onPress={async () => { setReading(true); const e = await readOne(me, it); setReading(false); if (e) toast(e); void qc.invalidateQueries({ queryKey: ['finInbox', iid] }); }} />}
+      {!!lines && lines.length > 0 && <InvoiceLines lines={lines} checks={checks} sites={sites as never} read={it.extracted} readOnly={!!filed} onChange={setLines} />}
+      {!filed && !!verdict?.flags.length && <Card>{verdict.flags.map((x) => <Text key={x} style={{ color: base.red, fontWeight: '600', marginBottom: 3 }}>{x}</Text>)}<Muted>It files as a query, for someone to approve.</Muted></Card>}
       {it.file_path && <Button kind="ghost" title={`📄 ${it.file_name || 'Open the invoice'}`} onPress={async () => { const u = await openDocLink('finance-docs', it.file_path); if (u) viewDoc(u); else toast('Could not open the file.'); }} />}
       <Card>
         <Muted style={{ fontWeight: '700' }}>Project</Muted>
@@ -61,7 +75,7 @@ export default function FinInboxItem() {
           <Pressable onPress={async () => { const k = await chooseAction('PO', [{ key: '-', label: 'No PO' }, ...pos.map((p) => ({ key: p.id, label: `${p.number} · ${p.supplier_name || ''}${p.value != null ? ` · ${money(p.value)}` : ''}` }))]); if (k) setPoId(k === '-' ? '' : k); }} style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 9 }}><Text style={{ color: base.ink }}>{po ? pos.find((p) => p.id === po)?.number || 'PO' : 'No PO ▾'}</Text></Pressable>
         </>}
       </Card>
-      {!filed && <Button title="File to this project…" onPress={() => { if (!sid) { toast('Choose the project first.'); return; } setFiling(true); }} />}
+      {!filed && <Button title="File to this project…" onPress={() => { if (!sid) { toast('Choose the project first.'); return; } if (lines?.some((l) => !l.site_id)) { toast('Choose the job for every line first.'); return; } setFiling(true); }} />}
       {!filed && <Button kind="ghost" title="Not an invoice — ignore it" onPress={async () => {
         // 9219b finInboxIgnore: it leaves the inbox lists.
         if (!(await confirmAsk('Ignore this? It isn’t an invoice, so it comes off the list.', 'Ignore'))) return;
@@ -78,7 +92,7 @@ export default function FinInboxItem() {
             if (net === null || isNaN(net)) return 'Enter the net amount (or the total).';
             if (vat === null || isNaN(vat)) vat = 0;
             if (total === null || isNaN(total)) total = round2(net + vat);
-            const flags: string[] = [];
+            const flags: string[] = [...(verdict?.flags ?? [])];
             const no = String(v.invoice_no).trim(), sup = String(v.supplier).trim() || 'Supplier';
             if (no) { const dup = ((await fdb.from('purchase_invoices').select('supplier_name').eq('invoice_no', no)).data as Row[] | null) ?? []; if (dup.some((d) => String(d.supplier_name || '').trim().toLowerCase() === sup.toLowerCase())) flags.push('possible duplicate of an invoice already entered'); }
             // 9219b finInboxFileCore: invoices on a PO adding up to more than its value go in as a query.
@@ -93,6 +107,7 @@ export default function FinInboxItem() {
             if (!d?.ok) return d?.why === 'busy' ? 'Someone started filing this a moment ago. If it’s still here in 5 minutes, file it again.' : d?.why === 'taken' ? 'This one has just been filed by someone else.' : `Couldn’t file it — ${WHY[d?.why] || 'please try again'}.`;
             toast(flags.length ? `Filed and flagged: ${flags[0]}` : 'Filed — waiting for approval');
             ['finInbox', 'finPurchases', 'finOverview', 'finBook'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] }));
+            if (d.pi && lines?.length) await saveLinesOnInvoice(d.pi as Row, lines, flags);
             if (d.pi?.id) router.replace(`/fin/pinv/${d.pi.id}` as never);
             return null;
           }} />

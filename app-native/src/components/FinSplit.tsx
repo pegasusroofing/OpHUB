@@ -37,7 +37,9 @@ export function AllocRow({ table, row, po, onSaved }: { table: SplitTable; row: 
   }, [siteIds, sites]);
   if (!row.site_id || (!subKind(home) && !split)) return null;
   const a = allocs(row, { poBy: po ? { [po.id]: po } : {} });
-  const nm = (x: { site_id: string; sub: string | null }) => `${x.site_id !== row.site_id ? `${jobTag(sites.find((s) => s.id === x.site_id))}${x.sub ? ' › ' : ''}` : ''}${x.sub ? (subs[x.site_id] || []).find((j) => j.id === x.sub)?.short || 'Plot' : x.site_id !== row.site_id ? '' : 'Whole project'}`;
+  // Across jobs, every part names its job; "Whole project" alone only makes sense when they're all on this one.
+  const named = (x: { site_id: string }) => x.site_id !== row.site_id || a.some((y) => y.site_id !== row.site_id);
+  const nm = (x: { site_id: string; sub: string | null }) => `${named(x) ? `${jobTag(sites.find((s) => s.id === x.site_id))}${x.sub ? ' › ' : ''}` : ''}${x.sub ? (subs[x.site_id] || []).find((j) => j.id === x.sub)?.short || 'Plot' : named(x) ? '' : 'Whole project'}`;
   let txt = a.length === 1 ? (a[0].sub || a[0].site_id !== row.site_id ? nm(a[0]) : `${jobTag(home)} — whole job`) : `Split: ${a.map((x) => `${nm(x)} ${round2(x.share * 100)}%`).join(' · ')}`;
   if (table === 'purchase_invoices' && row.po_id && !row.sub_job_id && !split && a.some((x) => x.sub)) txt += ' (same as the PO)';
   return (

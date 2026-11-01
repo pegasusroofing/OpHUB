@@ -3,9 +3,10 @@
 // plant hire and suppliers — for the company or one project (siteId).
 // Inbox items are NOT read or filed automatically here while the Finance
 // trial is on (no inbox processing).
+import { readNewInvoices } from '@/data/invoiceRead';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { inPeriod, useStatPeriods } from '@/lib/useStatPeriods';
 import { Pressable, Text, TextInput, View } from 'react-native';
@@ -77,6 +78,13 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
   const toast = useToast();
   const qc = useQueryClient();
   const [upBusy, setUpBusy] = useState(false);
+  // Anything new goes through the reader when this list opens, and after an upload.
+  const runReader = async () => {
+    if (!me) return;
+    const r = await readNewInvoices(me);
+    if (r.read || r.filed) { toast(`${r.read} invoice${r.read === 1 ? '' : 's'} read, ${r.filed} filed by itself`); ['finPurchases', 'finBook', 'finOverview'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] })); }
+  };
+  useEffect(() => { if (tab === 'invoices') void runReader(); }, [tab, me?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   // Add invoices by hand (9219b finInboxUpload): each PDF / photo goes into the inbox to be read or filed.
   const uploadInvoices = async () => {
     if (!me) return;
@@ -93,6 +101,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
       }
     } finally { setUpBusy(false); }
     toast(`${n} invoice${n === 1 ? '' : 's'} added`); setFilt({ ...sel, status: ['job'] }); void qc.invalidateQueries({ queryKey: ['finPurchases'] });
+    void runReader();
   };
   if (!data) return <Muted>Loading…</Muted>;
   const site = (id: string) => sites.find((s) => s.id === id);
@@ -168,7 +177,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
     };
     return (
       <View>
-        <Muted style={{ marginBottom: 8 }}>Purchase invoices emailed to your invoice address are read and filed to the job when we can tell which one. While Finance is on trial they are not read or filed automatically — allocate them by hand.</Muted>
+        <Muted style={{ marginBottom: 8 }}>Invoices emailed in or added here are read, checked against your newest quote or price list, and filed to the job when it’s clear which one. Anything unclear stays in Unallocated with the reason. While Finance is on trial they aren’t read: allocate them by hand.</Muted>
         <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8 }}>
           <View style={{ flex: 1 }}><Button kind="ghost" busy={upBusy} title="+ Add invoices" onPress={() => void uploadInvoices()} /></View>
           <View style={{ flex: 1 }}><Button title="+ Type one in" onPress={() => void withJob('Add a purchase invoice', (sid) => `/fin/pinv/new?site=${sid}`)} /></View>
