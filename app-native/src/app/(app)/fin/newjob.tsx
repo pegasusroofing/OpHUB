@@ -95,7 +95,7 @@ export default function FinNewJob() {
       void setupNewJobPack(me.org_id, id);
       void qc.invalidateQueries();
       toast(warn || `Project ${made.job_number || ''} created`);
-      router.replace(`/fin/job/${id}` as never);
+      router.replace(`/fin/job/${id}?setup=1` as never);
     } finally { setBusy(false); }
   };
 

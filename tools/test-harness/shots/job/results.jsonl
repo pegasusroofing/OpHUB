@@ -820,3 +820,11 @@
 {"part":"pop1","step":"Table: Status pop-up opens beside its arrow, ticks filter, click away closes","ok":true,"note":"{\"arrow\":[1058.625,253],\"item\":[1008,349],\"left\":0}","ms":11277}
 {"part":"pop1","step":"New project: Status drop-down picks a choice","ok":true,"note":"picked","ms":9887}
 {"part":"pay1","step":"Starts unchosen, picks Invoice","ok":true,"note":"unchosen 1 then 0","ms":10962}
+{"part":"fset1","step":"Creating a project opens the financials pop-up","ok":false,"note":"/fin/newjob Sandbox Roofing Ltd\nOPHUB\nSearch\nCtrl K\nHome\nProjects\nDelive","ms":16315}
+{"part":"fset1","step":"Closing it leaves the prompt on the Overview","ok":false,"note":"prompt","ms":7073}
+{"part":"fset1","step":"Set up, save: prompt goes","ok":false,"note":"locator.click: Timeout 6000ms exceeded.","ms":6006}
+{"part":"fset1","step":"Creating a project opens the financials pop-up","ok":true,"note":"/fin/job/c4316767-7047-45e8-976c-eb4ad7ecb86b Sandbox Roofing Ltd\nOPHUB\nSearch\nCtrl K\nHome\nProjects\nDelive","ms":16806}
+{"part":"fset1","step":"Closing it leaves the prompt on the Overview","ok":true,"note":"prompt","ms":1176}
+{"part":"fset1","step":"Set up, save: prompt goes","ok":true,"note":"after save","ms":4567}
+{"part":"bq1","step":"Top and bottom","ok":true,"note":"shot","ms":11365}
+{"part":"bq1","step":"Top and bottom","ok":true,"note":"shot","ms":11459}

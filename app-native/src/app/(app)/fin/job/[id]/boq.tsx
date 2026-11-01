@@ -232,11 +232,11 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
       }} />}
 
       {/* Budget cost: margin / mark-up for all or the ticked lines, and changes to the ticked lines together (902). */}
-      <Card style={{ paddingVertical: 10 }}>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-          <Text style={{ fontWeight: '700', color: base.ink }}>Budget cost:</Text>
-          <TextInput value={pct} onChangeText={(v) => setPct(v.replace(/[^0-9.]/g, ''))} placeholder="%" keyboardType="decimal-pad" style={[box, { width: 64 }]} />
-          <SelectBox value={basis} options={[['margin', '% margin'], ['markup', '% mark-up']]} onChange={setBasis} style={{ marginBottom: 0, width: 140 }} title="Margin or mark-up" />
+      <Card style={{ paddingVertical: 5, paddingHorizontal: 10 }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+          <Text style={{ fontWeight: '700', fontSize: 12, color: base.ink }}>Budget cost:</Text>
+          <TextInput value={pct} onChangeText={(v) => setPct(v.replace(/[^0-9.]/g, ''))} placeholder="%" keyboardType="decimal-pad" style={[box, { width: 48, height: 26, paddingVertical: 2, paddingHorizontal: 6, fontSize: 12 }]} />
+          <SelectBox value={basis} options={[['margin', '% margin'], ['markup', '% mark-up']]} onChange={setBasis} compact style={{ marginBottom: 0, width: 110 }} title="Margin or mark-up" />
           <Button small kind="ghost" title={ticked.length ? `Apply to ${ticked.length} ticked` : 'Apply to ticked'} disabled={!ticked.length} onPress={() => applyPct(true)} />
           <Button small kind="ghost" title="Apply to all lines" onPress={() => applyPct(false)} />
         </View>
@@ -273,7 +273,7 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
             </View>
             {head ? <Text style={{ textAlign: 'right', color: base.slate, marginTop: 4 }}>{money(tots[i]?.value || 0)}</Text> : (
               <>
-                <View style={{ flexDirection: 'row', gap: 6, marginTop: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                <View style={{ flexDirection: 'row', gap: 6, marginTop: 4, flexWrap: 'wrap', alignItems: 'center' }}>
                   <TextInput value={String(r.qty ?? '')} onChangeText={(v) => set(i, 'qty', v)} placeholder="Qty" keyboardType="decimal-pad" style={[box, { width: 70 }]} />
                   <TextInput value={r.unit || ''} onChangeText={(v) => set(i, 'unit', v)} placeholder="Unit" style={[box, { width: 60 }]} />
                   <TextInput value={String(r.rate ?? '')} onChangeText={(v) => set(i, 'rate', v)} placeholder="Rate £" keyboardType="decimal-pad" style={[box, { width: 80 }]} />
@@ -283,9 +283,9 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
                 </View>
                 <View style={{ flexDirection: 'row', gap: 6, marginTop: 6, flexWrap: 'wrap', alignItems: 'center' }}>
                   <Text style={{ fontSize: 11.5, color: base.slate }}>{num(r.qty) ? 'Cost rate' : 'Cost'}</Text>
-                  <TextInput value={costRate(r)} onChangeText={(v) => { const n = num(v), q = num(r.qty); setRows((rs) => rs.map((x, j) => (j === i ? { ...x, cost: n === null || isNaN(n) ? '' : q ? round2(n * q) : n, cost_basis: null, cost_pct: null } : x))); }} placeholder="£" keyboardType="decimal-pad" style={[box, { width: 96 }]} />
+                  <TextInput value={costRate(r)} onChangeText={(v) => { const n = num(v), q = num(r.qty); setRows((rs) => rs.map((x, j) => (j === i ? { ...x, cost: n === null || isNaN(n) ? '' : q ? round2(n * q) : n, cost_basis: null, cost_pct: null } : x))); }} placeholder="£" keyboardType="decimal-pad" style={[box, { width: 80, height: 26, paddingVertical: 2, paddingHorizontal: 6, fontSize: 12 }]} />
                   <Text style={{ fontSize: 11.5, color: base.slate }}>Budget cost</Text>
-                  <TextInput value={String(r.cost ?? '')} onChangeText={(v) => setRows((rs) => rs.map((x, j) => (j === i ? { ...x, cost: v, cost_basis: null, cost_pct: null } : x)))} placeholder="£" keyboardType="decimal-pad" style={[box, { width: 110 }]} />
+                  <TextInput value={String(r.cost ?? '')} onChangeText={(v) => setRows((rs) => rs.map((x, j) => (j === i ? { ...x, cost: v, cost_basis: null, cost_pct: null } : x)))} placeholder="£" keyboardType="decimal-pad" style={[box, { width: 80, height: 26, paddingVertical: 2, paddingHorizontal: 6, fontSize: 12 }]} />
                   {subs.length > 0 && <SelectBox value={r.sub || '-'} options={[['-', 'No plot'], ...subs.map((s) => [s.id, s.short] as [string, string])]} onChange={(k) => set(i, 'sub', k === '-' ? '' : k)} title="Plot" style={{ marginBottom: 0, width: 150 }} />}
                   <Text style={{ fontSize: 12, color: num(r.cost) !== null && vals[i] && (num(r.cost) as number) > vals[i] ? base.red : base.slate }}>{marginText(vals[i], num(r.cost))}{r.cost_basis && r.cost_pct != null ? ` (set at ${r.cost_pct}% ${r.cost_basis === 'markup' ? 'mark-up' : 'margin'})` : ''}</Text>
                 </View>
@@ -294,7 +294,7 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
           </View>
         );
       })}
-      <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginVertical: 8 }}>
+      <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginTop: 8, marginBottom: 24 }}>
         <Button small kind="ghost" title="+ Item" onPress={() => add('item')} /><Button small kind="ghost" title="+ Section" onPress={() => add('section')} /><Button small kind="ghost" title="+ Sub-section" onPress={() => add('subsection')} />
       </View>
       <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>

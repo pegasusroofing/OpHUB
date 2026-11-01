@@ -50,7 +50,7 @@ const OV_OPTS: Record<string, [string, string][]> = {
 const k = (n: number | null | undefined) => (n == null ? '…' : Math.abs(n) >= 1000 ? `${n < 0 ? '−' : ''}£${(Math.abs(n) / 1000).toFixed(1)}k` : money(n, 0));
 
 export default function FinJob() {
-  const { id, tab = 'overview', sub: qSub } = useLocalSearchParams<{ id: string; tab?: string; sub?: string }>();
+  const { id, tab = 'overview', sub: qSub, setup: qSetup } = useLocalSearchParams<{ id: string; tab?: string; sub?: string; setup?: string }>();
   const { me, org } = useAuth();
   const { data: site } = useSite(id);
   const { data, isLoading } = useBook(me?.org_id, id);
@@ -92,7 +92,7 @@ export default function FinJob() {
           </Pressable>
         ))}
       </FinTabRow>
-      {isLoading || !fc || !data ? <Muted>Loading…</Muted> : tab === 'overview' ? <Overview id={id} fc={fc} settings={data.settings} invs={data.book.invs.filter((i) => i.site_id === id)} apps={data.book.apps.filter((a) => a.site_id === id)} book={data.book as unknown as Row} />
+      {isLoading || !fc || !data ? <Muted>Loading…</Muted> : tab === 'overview' ? <Overview askFinancials={qSetup === '1'} id={id} fc={fc} settings={data.settings} invs={data.book.invs.filter((i) => i.site_id === id)} apps={data.book.apps.filter((a) => a.site_id === id)} book={data.book as unknown as Row} />
         : tab === 'sales' ? <>{subTabs('sales', [['invoices', 'Invoices'], ...(fc.isInvoiceJob && !data.book.apps.some((a) => a.site_id === id) ? [] : [['apps', 'Applications & Certificates'], ['retention', 'Retention']] as [string, string][])])}{sub.sales === 'retention' && !fc.isInvoiceJob && <RetentionPanel id={id} fc={fc} settings={data.settings} invs={data.book.invs.filter((i) => i.site_id === id)} apps={data.book.apps.filter((a) => a.site_id === id)} />}<SalesLists key={sub.sales} tab={sub.sales as 'invoices'} siteId={id} /></>
         : tab === 'purchases' ? <>{subTabs('purchases', [['orders', 'Purchase orders'], ['invoices', 'Purchase invoices'], ['plant', 'Plant hire'], ['quotes', 'Purchase Quotes']])}{sub.purchases === 'quotes' ? <PurchaseQuotes siteId={id} /> : <PurchasesLists key={sub.purchases} tab={sub.purchases as 'orders'} siteId={id} />}</>
         : tab === 'docs' ? <FinDocs site={s as Record<string, unknown> | undefined} />
@@ -102,8 +102,13 @@ export default function FinJob() {
   );
 }
 
-function Overview({ id, fc, settings, invs, apps, book }: { id: string; fc: ReturnType<typeof forecast>; settings: Row; invs: FinInv[]; apps: FinApp[]; book: Row }) {
+function Overview({ id, fc, settings, invs, apps, book, askFinancials }: { id: string; fc: ReturnType<typeof forecast>; settings: Row; invs: FinInv[]; apps: FinApp[]; book: Row; askFinancials?: boolean }) {
   const qcOv = useQueryClient();
+  const { me } = useAuth();
+  // A new project is asked for its financials (Andy, 1 Nov 2026): a pop-up on creating it, and this prompt until they're saved or
+  // someone says they're fine. Not on a job that's already invoicing (9219zi).
+  const [finOpen, setFinOpen] = useState(!!askFinancials);
+  const needsFin = !fc.jf.setup_checked_at && !invs.length && !apps.length;
   const { data: ovPick = {} } = useQuery({ queryKey: ['finOvPick'], queryFn: () => plainGet<Record<string, string>>('ophub.finOv2', {}) });
   const { data: ovDws = [] } = useQuery({ queryKey: ['finOvDws', id], queryFn: async () => ((await fdb.from('fin_dayworks').select('status,value').eq('site_id', id)).data as Row[] | null) ?? [] });
   // Each half is worked out from what the latest certificate holds (903), not what's still held.
@@ -144,6 +149,17 @@ function Overview({ id, fc, settings, invs, apps, book }: { id: string; fc: Retu
   const ghost = (l: string, p: string) => <Pressable key={l} onPress={() => router.push(p as never)} style={{ borderRadius: 8, paddingVertical: 6, paddingHorizontal: 12, backgroundColor: '#DFE3EA' }}><Text style={{ fontSize: 12.5, fontWeight: '600', color: base.ink }}>{l}</Text></Pressable>;
   return (
     <View>
+      {needsFin && (
+        <View style={{ backgroundColor: '#fffaf0', borderWidth: 1, borderColor: '#f8e7c2', borderRadius: 10, padding: 12, marginBottom: 10, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
+          <View style={{ flex: 1, minWidth: 220 }}>
+            <Text style={{ fontWeight: '700', color: '#111827' }}>Set up the project financials</Text>
+            <Text style={{ fontSize: 12, color: base.slate }}>Contract value, payment terms, retention, VAT and application date.</Text>
+          </View>
+          <Button small title="Set up" onPress={() => setFinOpen(true)} />
+          <Button small kind="ghost" title="Company defaults are fine" onPress={async () => { if (!me) return; await saveJobFinance(me, id, {}); void qcOv.invalidateQueries({ queryKey: ['finBook'] }); }} />
+        </View>
+      )}
+      {finOpen && <Setup formOnly id={id} site={site as Row | undefined} jf={fc.jf} cpos={((book.cpos as Row[]) || []).filter((p) => p.site_id === id)} settings={settings} onDone={() => setFinOpen(false)} />}
       <Pressable onPress={() => router.setParams({ tab: 'setup' })}>
         <Card>
           <Text style={{ fontSize: 10.5, fontWeight: '800', letterSpacing: 0.6, color: '#6b7280', textTransform: 'uppercase' }}>Forecasted final account</Text>
@@ -246,11 +262,11 @@ function RetentionPanel({ id, fc, settings, invs, apps }: { id: string; fc: Retu
   );
 }
 
-function Setup({ id, site, jf, cpos, settings }: { id: string; site: Row | undefined; jf: Row; cpos: Row[]; settings: Row }) {
+function Setup({ id, site, jf, cpos, settings, formOnly, onDone }: { id: string; site: Row | undefined; jf: Row; cpos: Row[]; settings: Row; formOnly?: boolean; onDone?: () => void }) {
   const { me } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
-  const [edit, setEdit] = useState<'job' | 'po' | 'dates' | 'site' | null>(null);
+  const [edit, setEdit] = useState<'job' | 'po' | 'dates' | 'site' | null>(formOnly ? 'job' : null);
   const { data: people } = usePeople();
   // Directory clients: the bill-to follows the client's Directory record (9219u — it lives on the client).
   const { data: dirClients = [] } = useQuery({ queryKey: ['finDirClients', me?.org_id], enabled: !!me, queryFn: async () => ((await fdb.from('fin_clients').select('id,name,email,address,postcode').eq('org_id', me?.org_id as string).order('name')).data as Row[] | null) ?? [] });
@@ -272,6 +288,50 @@ function Setup({ id, site, jf, cpos, settings }: { id: string; site: Row | undef
     if (!(await confirmAsk(`Delete “${site.name}”? This permanently removes the project. This can’t be undone.`, 'Delete'))) return;
     if (await deleteSite(id)) { toast('Project deleted'); void qc.invalidateQueries({ queryKey: ['sites'] }); router.replace('/fin/jobs' as never); } else toast('Could not delete — try again.');
   };
+  const jobForm = edit === 'job' && (
+        <FinForm title="Project Financials" initial={{ ...jf, job_number: site?.job_number || '', billing_type: jf.billing_type || '' }} onClose={() => { setEdit(null); onDone?.(); }}
+          fields={[
+            { k: 'job_number', label: 'Project number', half: true }, { k: 'contract_value', label: 'Contract value £ (excl. VAT)', kind: 'money', half: true },
+            { k: 'billing_type', label: 'Billed by', kind: 'choice', options: [['invoice', 'Invoice'], ['application', 'Application (with retention)']], note: 'Invoice jobs have no applications or retention.' },
+            ...(byInv ? [] : [{ k: 'retention_pct', label: 'Retention %', kind: 'number' as const, half: true, ph: String(settings.default_retention_pct) }, { k: 'retention_limit_pct', label: 'Retention limit %', kind: 'number' as const, half: true }]),
+            { k: 'due_days', label: 'Payment due (days)', kind: 'number', half: true, ph: String(settings.default_due_days) }, { k: 'final_days', label: 'Final date (days)', kind: 'number', half: true, ph: String(settings.default_final_days) },
+            { k: 'vat_treatment', label: 'VAT', kind: 'choice', options: [['', 'Company default'], ...Object.entries(FIN_VAT_LABEL)] as [string, string][] },
+            { k: 'app_reminder_day', label: 'Application date (day of month)', kind: 'number', half: true }, { k: 'ohp_pct', label: `Company overheads % (blank = ${settings.ohp_pct ?? 0}%)`, kind: 'number', half: true, note: me.role === 'admin' ? undefined : 'Only a company admin can change this.' },
+            { k: 'billing_name', label: 'Bill to (client)', kind: 'choice', options: [['', 'Not set'], ...dirClients.map((c) => [c.name, c.name] as [string, string]), ...(jf.billing_name && !dirClients.some((c) => c.name === jf.billing_name) ? [[jf.billing_name, `${jf.billing_name} (not in the Directory)`] as [string, string]] : [])], note: 'From the Directory — the billing address and accounts email follow the client’s Directory record.' }, { k: 'billing_address', label: 'Billing address', kind: 'multiline' }, { k: 'billing_email', label: 'Accounts email', kind: 'email' },
+            { k: 'pc_date', label: 'Practical completion date', kind: 'date', half: true }, { k: 'defects_months', label: 'Defects period (months)', kind: 'number', half: true },
+            ...(byInv ? [] : [{ k: 'final_release_date', label: 'Final retention release (blank = end of defects period)', kind: 'date' as const, half: true }]),
+            { k: 'qs_id', label: 'QS', kind: 'choice', half: true, options: [['', 'None yet'], ...(people ?? []).filter((p) => ['pm', 'admin', 'site_manager'].includes(p.role) || (p as { finance_enabled?: boolean }).finance_enabled).sort((a, b) => a.name.localeCompare(b.name)).map((p) => [p.id, p.name] as [string, string])] },
+            { k: 'notes', label: 'Notes', kind: 'multiline' },
+          ]}
+          onSave={async (v) => {
+            const n = (k: string) => { const x = num(v[k]); return x === null ? null : x; };
+            const contract = n('contract_value'), ret = n('retention_pct'), retLim = n('retention_limit_pct'), appDay = n('app_reminder_day');
+            if (contract !== null && (isNaN(contract) || contract < 0)) return 'Enter the contract value as a number.';
+            if (ret !== null && (isNaN(ret) || ret < 0 || ret > 100)) return 'Retention must be between 0 and 100%.';
+            if (retLim !== null && (isNaN(retLim) || retLim < 0 || retLim > 100)) return 'Retention limit must be between 0 and 100%.';
+            if (appDay !== null && (isNaN(appDay) || appDay < 1 || appDay > 31)) return 'Application date must be a day of the month, 1 to 31.';
+            // The bill-to follows the Directory: address and accounts email come from the client's record.
+            const dc = dirClients.find((c) => c.name === String(v.billing_name || ''));
+            if (dc) { v.billing_address = [dc.address, dc.postcode].filter(Boolean).join('\n') || String(v.billing_address || ''); v.billing_email = dc.email || String(v.billing_email || ''); }
+            const email = String(v.billing_email).trim();
+            if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return 'Enter a valid accounts email.';
+            const jobNo = String(v.job_number).trim();
+            if (jobNo !== String(site?.job_number || '')) { if (!jobNo) return 'A project needs a project number.'; if (!(await saveJobNumber(id, jobNo))) return 'Could not save the project number.'; }
+            const patch: Row = {
+              contract_value: contract, retention_pct: ret, retention_limit_pct: retLim, due_days: n('due_days'), final_days: n('final_days'), app_reminder_day: appDay,
+              vat_treatment: v.vat_treatment || null, billing_type: v.billing_type || null, billing_name: String(v.billing_name).trim() || null, billing_address: String(v.billing_address).trim() || null, billing_email: email || null,
+              pc_date: String(v.pc_date).trim() || null, defects_months: n('defects_months'), notes: String(v.notes).trim() || null,
+              final_release_date: String(v.final_release_date ?? '').trim() || null, qs_id: String(v.qs_id ?? '') || null,
+            };
+            if (contract !== null && contract !== Number(jf.contract_value)) patch.contract_value_source = 'manual';
+            if (jf.original_value == null && contract && contract > 0) { patch.original_value = contract; patch.original_at = jf.original_at || new Date().toISOString(); }
+            if (me.role === 'admin') { const o = n('ohp_pct'); patch.ohp_pct = o === null || isNaN(o) || o < 0 || o > 100 ? null : o; }
+            const e = await saveJobFinance(me, id, patch);
+            if (e) return e;
+            toast('Project financials saved'); refresh(); return null;
+          }} />
+  );
+  if (formOnly) return jobForm || null;
   return (
     <View>
       <SectionTitle>Project details</SectionTitle>
@@ -342,49 +402,7 @@ function Setup({ id, site, jf, cpos, settings }: { id: string; site: Row | undef
             }} />
         );
       })()}
-      {edit === 'job' && (
-        <FinForm title="Project details" initial={{ ...jf, job_number: site?.job_number || '', billing_type: jf.billing_type || '' }} onClose={() => setEdit(null)}
-          fields={[
-            { k: 'job_number', label: 'Project number', half: true }, { k: 'contract_value', label: 'Contract value £ (excl. VAT)', kind: 'money', half: true },
-            { k: 'billing_type', label: 'Billed by', kind: 'choice', options: [['invoice', 'Invoice'], ['application', 'Application (with retention)']], note: 'Invoice jobs have no applications or retention.' },
-            ...(byInv ? [] : [{ k: 'retention_pct', label: 'Retention %', kind: 'number' as const, half: true, ph: String(settings.default_retention_pct) }, { k: 'retention_limit_pct', label: 'Retention limit %', kind: 'number' as const, half: true }]),
-            { k: 'due_days', label: 'Payment due (days)', kind: 'number', half: true, ph: String(settings.default_due_days) }, { k: 'final_days', label: 'Final date (days)', kind: 'number', half: true, ph: String(settings.default_final_days) },
-            { k: 'vat_treatment', label: 'VAT', kind: 'choice', options: [['', 'Company default'], ...Object.entries(FIN_VAT_LABEL)] as [string, string][] },
-            { k: 'app_reminder_day', label: 'Application date (day of month)', kind: 'number', half: true }, { k: 'ohp_pct', label: `Company overheads % (blank = ${settings.ohp_pct ?? 0}%)`, kind: 'number', half: true, note: me.role === 'admin' ? undefined : 'Only a company admin can change this.' },
-            { k: 'billing_name', label: 'Bill to (client)', kind: 'choice', options: [['', 'Not set'], ...dirClients.map((c) => [c.name, c.name] as [string, string]), ...(jf.billing_name && !dirClients.some((c) => c.name === jf.billing_name) ? [[jf.billing_name, `${jf.billing_name} (not in the Directory)`] as [string, string]] : [])], note: 'From the Directory — the billing address and accounts email follow the client’s Directory record.' }, { k: 'billing_address', label: 'Billing address', kind: 'multiline' }, { k: 'billing_email', label: 'Accounts email', kind: 'email' },
-            { k: 'pc_date', label: 'Practical completion date', kind: 'date', half: true }, { k: 'defects_months', label: 'Defects period (months)', kind: 'number', half: true },
-            ...(byInv ? [] : [{ k: 'final_release_date', label: 'Final retention release (blank = end of defects period)', kind: 'date' as const, half: true }]),
-            { k: 'qs_id', label: 'QS', kind: 'choice', half: true, options: [['', 'None yet'], ...(people ?? []).filter((p) => ['pm', 'admin', 'site_manager'].includes(p.role) || (p as { finance_enabled?: boolean }).finance_enabled).sort((a, b) => a.name.localeCompare(b.name)).map((p) => [p.id, p.name] as [string, string])] },
-            { k: 'notes', label: 'Notes', kind: 'multiline' },
-          ]}
-          onSave={async (v) => {
-            const n = (k: string) => { const x = num(v[k]); return x === null ? null : x; };
-            const contract = n('contract_value'), ret = n('retention_pct'), retLim = n('retention_limit_pct'), appDay = n('app_reminder_day');
-            if (contract !== null && (isNaN(contract) || contract < 0)) return 'Enter the contract value as a number.';
-            if (ret !== null && (isNaN(ret) || ret < 0 || ret > 100)) return 'Retention must be between 0 and 100%.';
-            if (retLim !== null && (isNaN(retLim) || retLim < 0 || retLim > 100)) return 'Retention limit must be between 0 and 100%.';
-            if (appDay !== null && (isNaN(appDay) || appDay < 1 || appDay > 31)) return 'Application date must be a day of the month, 1 to 31.';
-            // The bill-to follows the Directory: address and accounts email come from the client's record.
-            const dc = dirClients.find((c) => c.name === String(v.billing_name || ''));
-            if (dc) { v.billing_address = [dc.address, dc.postcode].filter(Boolean).join('\n') || String(v.billing_address || ''); v.billing_email = dc.email || String(v.billing_email || ''); }
-            const email = String(v.billing_email).trim();
-            if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return 'Enter a valid accounts email.';
-            const jobNo = String(v.job_number).trim();
-            if (jobNo !== String(site?.job_number || '')) { if (!jobNo) return 'A project needs a project number.'; if (!(await saveJobNumber(id, jobNo))) return 'Could not save the project number.'; }
-            const patch: Row = {
-              contract_value: contract, retention_pct: ret, retention_limit_pct: retLim, due_days: n('due_days'), final_days: n('final_days'), app_reminder_day: appDay,
-              vat_treatment: v.vat_treatment || null, billing_type: v.billing_type || null, billing_name: String(v.billing_name).trim() || null, billing_address: String(v.billing_address).trim() || null, billing_email: email || null,
-              pc_date: String(v.pc_date).trim() || null, defects_months: n('defects_months'), notes: String(v.notes).trim() || null,
-              final_release_date: String(v.final_release_date ?? '').trim() || null, qs_id: String(v.qs_id ?? '') || null,
-            };
-            if (contract !== null && contract !== Number(jf.contract_value)) patch.contract_value_source = 'manual';
-            if (jf.original_value == null && contract && contract > 0) { patch.original_value = contract; patch.original_at = jf.original_at || new Date().toISOString(); }
-            if (me.role === 'admin') { const o = n('ohp_pct'); patch.ohp_pct = o === null || isNaN(o) || o < 0 || o > 100 ? null : o; }
-            const e = await saveJobFinance(me, id, patch);
-            if (e) return e;
-            toast('Project details saved'); refresh(); return null;
-          }} />
-      )}
+      {jobForm}
       {edit === 'po' && (
         <FinForm title={po ? `Client PO ${po.po_number}` : 'Client PO'} initial={po || { is_primary: !cpos.length }} onClose={() => setEdit(null)}
           note="No value on a client PO: the contract value lives in Project details."

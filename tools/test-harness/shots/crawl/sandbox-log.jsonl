@@ -3007,3 +3007,7 @@
 {"wrote":"fin_inbox","method":"PATCH","keys":["extracted","site_id","po_id","stage","query_reason"]}
 {"sent":"onedrive-list-folders"}
 {"sent":"onedrive-list-folders"}
+{"wrote":"sites","method":"POST","keys":["id","org_id","name","address","postcode","job_number","status","start_date","client_name","client_email","created_by","responsible_pm_id","multi_site","repair_contract"]}
+{"wrote":"job_finance","method":"POST","keys":["site_id","org_id","billing_type","billing_name","billing_email","billing_address","vat_treatment","contract_value","original_value","contract_value_manual","contract_value_source","updated_at","updated_by"]}
+{"sent":"onedrive-job-pack"}
+{"wrote":"job_finance","method":"POST","keys":["contract_value","retention_pct","retention_limit_pct","due_days","final_days","app_reminder_day","vat_treatment","billing_type","billing_name","billing_address","billing_email","pc_date","defects_months","notes","final_release_date","qs_id","ohp_pct","site_id","org_id","updated_at","updated_by","setup_checked_at"]}
