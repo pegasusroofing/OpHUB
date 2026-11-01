@@ -14,7 +14,7 @@ import { useTrail } from '@/components/Crumbs';
 import { OphIcon } from '@/components/OphIcon';
 import { showAlert } from '@/components/toast';
 import { isManager } from '@/lib/roles';
-import { parentOf, takeJump } from '@/lib/navBack';
+import { areaHome, parentOf, takeJump } from '@/lib/navBack';
 import { isFullManager } from '@/lib/roles';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
@@ -77,8 +77,9 @@ export function AppBar({ title, onBack, home, right, noHistory }: { title?: stri
     ? [['Projects', '/sites'], [sName, jobHome ? null : `/sites/${site.id}`], ...(jobHome ? [] : pageTrail ?? [...secStep, ...(!title ? [] : [[titleCase(title), null] as [string, null]])])]
     : [];
   const cfs = desk ? 12.5 : 11.5;
-  // The bold line: to this part's home page. The small line under it copies, rather than selecting the text.
-  const titleGo = home ? null : fin ? (path.replace(/\/$/, '') === '/fin' ? null : '/fin') : site ? (jobHome ? '/sites' : `/sites/${site.id}`) : '/home';
+  // The bold line: to the first page of this part of the app. The small line under it copies, rather than selecting the text.
+  const area = areaHome(path);
+  const titleGo = home || path.split('?')[0].replace(/\/$/, '') === area ? null : area;
   const copyable = !home && !!sub;
   const [copied, setCopied] = useState(false);
   const settingsBtn = home && isFullManager(me);

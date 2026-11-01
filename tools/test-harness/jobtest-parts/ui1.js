@@ -10,13 +10,13 @@ module.exports = async ({as, step, state}) => {
     const t = await a.text();
     return {ok: /Material Requests/.test(t) && /Completed/.test(t) && !/Suppliers/.test(t.slice(0, 500)), note: url()};
   });
-  await step('Header: bold line goes to the job home, small line shows Copied with no pop-up', async () => {
+  await step('Header: bold line goes to Projects, small line shows Copied with no pop-up', async () => {
     await a.go(`/sites/${site}/materials`, 5000); await clear();
     await a.page.getByText(/test street/i).locator('visible=true').first().click({timeout: 6000}); await a.page.waitForTimeout(400); await a.shot('copied');
     const c = /Copied/.test(await a.text());
     await a.page.waitForTimeout(1500);
     await a.page.getByText(/^Materials$/).locator('visible=true').first().click({timeout: 6000}); await a.page.waitForTimeout(2500);
-    return {ok: c && url().endsWith(site), note: url()};
+    return {ok: c && url() === '/sites', note: url()};
   });
   await step('Finance header: bold line goes to Finance home', async () => {
     await a.go('/fin/purchases', 5000); await clear();

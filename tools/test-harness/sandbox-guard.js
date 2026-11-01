@@ -39,6 +39,8 @@ const FN_SEND = {'send-schedule-email': 'recipients', 'send-document-email': 're
 const FN_PUSH = /^(send-sign-reminder|notify-variation-decision|notify-material-pickup)$/;
 function fnAllowed(fn, body) {
   if (FN_READ.test(fn)) return true;
+  // The real AI reader, on Sandbox's own files only (AI_TEST). It reads a file and answers; it sends nothing.
+  if (fn === 'finance-ai-read' && process.env.AI_TEST === '1') return String(body?.path || '').startsWith(SANDBOX + '/');
   const text = JSON.stringify(body || {});
   // The Documents test adds a file to a test job pack's own folder (PACK_TEST), nothing else.
   if (fn === 'onedrive-upload' && process.env.PACK_TEST === '1' && body?.folder_id && !body?.subfolder) return true;

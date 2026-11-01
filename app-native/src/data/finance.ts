@@ -28,6 +28,9 @@ export async function selectAll<T>(table: string, cols: string, filter: (q: Q) =
 export async function finInvoke<T = unknown>(me: Profile, fn: string, body: Record<string, unknown>): Promise<{ data: T | null; error: string | null }> {
   if (finBlocked(fn, body.action as string | undefined, me.org_id)) return { data: null, error: FIN_TRIAL_MSG };
   const r = await supabase.functions.invoke(fn, { body });
+  // A refusal from the function comes back as an error with its answer inside: say what it said, not 'can't reach the server'.
+  const said = r.error ? ((await (r.error as { context?: Response }).context?.json?.().catch(() => null)) as { error?: string } | null)?.error : undefined;
+  if (said) return { data: null, error: said };
   const d = r.data as (T & { error?: string }) | null;
   return r.error || d?.error ? { data: null, error: d?.error || 'Could not reach the server — try again.' } : { data: d, error: null };
 }
