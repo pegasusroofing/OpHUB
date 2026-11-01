@@ -1,0 +1,235 @@
+{"part":"regular1","step":"New job: fill in the form and create it","ok":false,"note":"locator.click: Timeout 5000ms exceeded.","ms":20391}
+{"part":"regular1","step":"New job: fill in the form and create it","ok":true,"note":"active","ms":20582}
+{"part":"regular1","step":"New job gets Drawings, Specification and Programme folders","ok":true,"note":"Drawings, Specification, Programme","ms":90}
+{"part":"regular1","step":"Team: assign the operative and site manager","ok":true,"note":"2 assigned","ms":12816}
+{"part":"regular1","step":"Schedule of Works: add a section","ok":true,"note":"","ms":11485}
+{"part":"regular1","step":"Schedule of Works: add two tasks to the section","ok":true,"note":"2 tasks","ms":10801}
+{"part":"regular1","step":"Pre-start photo: real upload, three sizes, and how long it takes","ok":true,"note":"3s, stage todo, says uploading: true","ms":8704}
+{"part":"regular1","step":"Photo shows on the task after a reload","ok":true,"note":"1 loaded","ms":6344}
+{"part":"regular1","step":"Task to In Progress","ok":true,"note":"progress","ms":2931}
+{"part":"regular1","step":"Progress photo is saved as a progress photo and asks for %","ok":true,"note":"2 photos; asked for %: true","ms":3469}
+{"part":"regular1","step":"Set progress to 50%","ok":false,"note":"locator.click: Timeout 7000ms exceeded.","ms":7003}
+{"part":"regular1","step":"Back to To Commence and forward again","ok":true,"note":"todo then progress","ms":5752}
+{"part":"regular1","step":"Complete needs a completed photo, then the task is done","ok":false,"note":"locator.click: Timeout 7000ms exceeded.","ms":8256}
+{"part":"regular1","step":"Site condition: Submit asks are you sure, No keeps it open, Yes closes it","ok":false,"note":"submitted","ms":11641}
+{"part":"regular1","step":"Schedule of Works: Export gives a real PDF with the task in it","ok":false,"note":"page.waitForEvent: Timeout 40000ms exceeded while waiting for event \"download\"","ms":47452}
+{"part":"regular2","step":"Slider: drag to 50% saves 50%","ok":true,"note":"50%","ms":2298}
+{"part":"regular2","step":"Complete asks for a completed photo, then the task is done","ok":true,"note":"done, 100%, 3 photos","ms":9772}
+{"part":"regular2","step":"Site condition really saved as submitted","ok":true,"note":"{\"id\":\"51c4f770-dd18-4559-af2b-f7a24e67ceee\",\"site_id\":\"4defa781-f15f-485d-9a3a-6e908598e0de\",\"section_id\":null,\"waste_to_clear\":false,\"wast","ms":68}
+{"part":"regular2","step":"Export: asks PDF or OneDrive, and the PDF is real","ok":true,"note":"ZZ JOB Regular - Schedule of Works - 31-10-26.pdf 131KB","ms":14392}
+{"part":"regular2","step":"Export: on a phone that can share, it hands over the file to the share menu","ok":true,"note":"{\"n\":1,\"name\":\"ZZ JOB Regular - Schedule of Works - 31-10-26.pdf\",\"size\":134583,\"title\":false}","ms":8433}
+{"part":"regular2","step":"Email Report: real email to Andy only","ok":false,"note":"","ms":16885}
+{"part":"regular2","step":"Drawings tile is tall enough; folder opens","ok":true,"note":"","ms":4946}
+{"part":"regular2","step":"Upload a file is first in Add; a PDF goes into the folder","ok":true,"note":"1 file(s), top option: true","ms":7083}
+{"part":"regular2","step":"Any file type: a CSV goes in the Drawings folder too","ok":true,"note":"wo.pdf, boq.csv","ms":7086}
+{"part":"regular2","step":"File menu: rename through the drop-down","ok":true,"note":"","ms":9538}
+{"part":"regular2","step":"Viewing a file: Export hands over the same file","ok":false,"note":"locator.click: Timeout 7000ms exceeded.","ms":11048}
+{"part":"regular2","step":"Supersede: the new file replaces the old, old moves to Superseded","ok":false,"note":"current","ms":12028}
+{"part":"regular2","step":"File menu: delete asks first and removes it","ok":true,"note":"","ms":5087}
+{"part":"regular2","step":"Add a folder inside a folder, trail shows it, back goes up one","ok":true,"note":"drawings/fa721db6-d65d-4b14-9c6b-49a40a446f9f","ms":8706}
+{"part":"regular3","step":"Email Report: real email to Andy only","ok":true,"note":"","ms":17909}
+{"part":"regular3","step":"Viewing a PDF: Export hands over the same file","ok":true,"note":"Roof plan A.pdf","ms":19371}
+{"part":"regular3","step":"Drawing supersede: new replaces old, old moves to Superseded","ok":true,"note":"superseded","ms":16118}
+{"part":"regular3","step":"RAMS: upload a real PDF","ok":false,"note":"locator.click: Timeout 7000ms exceeded.","ms":12672}
+{"part":"regular3","step":"RAMS: open the file from the menu","ok":false,"note":"locator.click: Timeout 7000ms exceeded.","ms":11824}
+{"part":"regular3","step":"RAMS: issue it for signing","ok":false,"note":"locator.click: Timeout 7000ms exceeded.","ms":11796}
+{"part":"regular3","step":"Operative opens the job (assigned, phone lock passes)","ok":false,"note":"‹ Projects Sandbox Roofing Ltd 💡 How Projects works ▾ ✕ LIVE (0) ▾ No live projects. Home Projects Settings","ms":6475}
+{"part":"regular3","step":"Operative draws and saves a signature","ok":true,"note":"saved","ms":9692}
+{"part":"regular3","step":"Operative sees the RAMS to sign and signs it","ok":false,"note":"locator.click: Timeout 7000ms exceeded.","ms":12339}
+{"part":"regular3","step":"Manager: signed PDF exports with the signature","ok":false,"note":"locator.click: Timeout 7000ms exceeded.","ms":11821}
+{"part":"regular3","step":"RAMS supersede: a new version replaces it and signatures start again","ok":false,"note":"no supersede option on the form","ms":6475}
+{"part":"regular3","step":"Toolbox talk: upload a real PDF into the bank","ok":true,"note":"bank","ms":9654}
+{"part":"regular3","step":"Toolbox talk: issue for signing","ok":false,"note":"bank","ms":7500}
+{"part":"regular3","step":"Operative signs the toolbox talk","ok":false,"note":"locator.click: Timeout 7000ms exceeded.","ms":12339}
+{"part":"regular3","step":"Toolbox talk: signed PDF exports","ok":false,"note":"locator.click: Timeout 7000ms exceeded.","ms":11831}
+{"part":"regular4","step":"Team: the operative is on the job","ok":true,"note":"3 assigned","ms":9638}
+{"part":"regular4","step":"RAMS: upload a real PDF","ok":false,"note":"undefined undefined","ms":11309}
+{"part":"regular4","step":"RAMS: open the file from the menu","ok":true,"note":"","ms":10944}
+{"part":"regular4","step":"RAMS: issue it for signing","ok":false,"note":"locator.click: Timeout 7000ms exceeded.","ms":11838}
+{"part":"regular4","step":"Operative opens the job (assigned, phone lock passes)","ok":true,"note":"‹ ZZ JOB Regular 1 Test Street, London, SW1A 1AA Projects › SBX-113 ZZ JOB Regular 💡 How The job works ▾ ✕ Job No: SBX-","ms":6517}
+{"part":"regular4","step":"Operative draws and saves a signature","ok":true,"note":"saved","ms":9729}
+{"part":"regular4","step":"Operative sees the RAMS to sign and signs it","ok":false,"note":"0 signature(s)","ms":9792}
+{"part":"regular4","step":"Manager: signed PDF exports with the signature","ok":true,"note":"ZZ JOB Regular - ZZ RAMS Roof Works (Signed) - 31-10-26.pdf 4KB (original 1KB)","ms":11825}
+{"part":"regular4","step":"RAMS supersede: a new version replaces it and signatures start again","ok":true,"note":"Supersedes (optional)","ms":6639}
+{"part":"regular4","step":"Operative signs the toolbox talk","ok":false,"note":"0 signature(s), talk now live","ms":8745}
+{"part":"regular4","step":"Toolbox talk: signed PDF exports","ok":false,"note":"locator.click: Timeout 7000ms exceeded.","ms":12018}
+{"part":"regular5","step":"Email Report: goes through to the sending function, to Andy only","ok":true,"note":"sent; ","ms":20358}
+{"part":"regular5","step":"Toolbox talk: signed PDF exports from the menu","ok":true,"note":"ZZ JOB Regular - ZZ TBT Working at Height (Signed) - 31-10-26.pdf","ms":10910}
+{"part":"regular5","step":"Snag: raise with a photo","ok":false,"note":"{}","ms":27870}
+{"part":"regular5","step":"Snag: close it, and the list moves it","ok":true,"note":"","ms":9085}
+{"part":"regular5","step":"Variation: raise with a photo","ok":false,"note":"page.waitForEvent: Timeout 15000ms exceeded while waiting for event \"filechooser\"","ms":20507}
+{"part":"regular5","step":"Variation: approve it","ok":false,"note":"locator.click: Timeout 7000ms exceeded.","ms":11835}
+{"part":"regular5","step":"Material request: raise a line","ok":false,"note":"{}","ms":8368}
+{"part":"regular5","step":"Calendar: a date added shows straight away","ok":true,"note":"1 in database","ms":8959}
+{"part":"regular5","step":"Calendar: Visibility hides a date from the operative for real","ok":true,"note":"operative sees: ZZ Scaffold","ms":6192}
+{"part":"regular5","step":"To Do: add, comment, complete","ok":true,"note":"1, done true","ms":13742}
+{"part":"regular5","step":"HUB: send to project operatives with an @ mention; the operative gets both","ok":true,"note":"both","ms":15092}
+{"part":"regular5","step":"HUB: the operative replies, the manager sees a thread","ok":true,"note":"","ms":11144}
+{"part":"regular5","step":"Operative checks in and out at the job","ok":false,"note":"{}","ms":12526}
+{"part":"regular5","step":"PPE: operative requests an item","ok":false,"note":"locator.fill: Timeout 30000ms exceeded.","ms":43631}
+{"part":"regular5","step":"Plant: add an item","ok":false,"note":"","ms":9579}
+{"part":"regular5","step":"Incident: operative reports one","ok":true,"note":"","ms":7382}
+{"part":"others","step":"Variation: raise with a photo","ok":true,"note":"{\"id\":\"45b119d8-3d5d-44bf-8e31-e95885a27437\",\"status\":\"live\",\"approval_status\":\"pending\",\"cost_impact\":\"850.00\",\"photo_p","ms":14596}
+{"part":"others","step":"Variation: approve it","ok":false,"note":"locator.click: Timeout 7000ms exceeded.","ms":11892}
+{"part":"others","step":"Operative checks in, and the record has the place and phone","ok":true,"note":"{\"type\":\"in\",\"device_id\":\"dv_36c08b12-f2f8-4a39-b647-877f54351899\",\"lat\":51.5}","ms":9603}
+{"part":"others","step":"Operative checks out","ok":true,"note":"out","ms":4625}
+{"part":"others","step":"PPE: operative requests gloves, manager sees it","ok":false,"note":"locator.click: Timeout 7000ms exceeded.","ms":12386}
+{"part":"others","step":"Plant: add an item to the job","ok":false,"note":"{}","ms":9514}
+{"part":"others","step":"Repair contract: job created as a repair contract","ok":true,"note":"","ms":110}
+{"part":"others","step":"Repair: add a job","ok":false,"note":"{}","ms":10040}
+{"part":"others","step":"Repair: work through the job stages","ok":false,"note":"","ms":1}
+{"part":"others","step":"Repair: add a photo to the job","ok":false,"note":"locator.click: Timeout 7000ms exceeded.","ms":11822}
+{"part":"others","step":"Repair: Excel export is real","ok":true,"note":"ZZ JOB Repair - Repair Tracker - 31-10-26.xlsx","ms":8118}
+{"part":"others","step":"Multi-site: add two addresses","ok":true,"note":"Plot 1, Plot 2","ms":14918}
+{"part":"others","step":"Multi-site: task linked to Plot 1, seen under that address","ok":true,"note":"{\"id\":\"a8a026be-f7c2-40db-975e-72d5dca93fc6\",\"sub_site_id\":\"23ce51bb-d9fe-4af1-88c3-47d9b907f9c5\"}","ms":9029}
+{"part":"others","step":"Multi-site: operative checks in at Plot 1","ok":true,"note":"{\"type\":\"in\",\"sub_site_id\":\"23ce51bb-d9fe-4af1-88c3-47d9b907f9c5\"}","ms":21369}
+{"part":"others","step":"Main contractor: switch on and open the tile","ok":true,"note":"tractor 📘 Construction Phase Plan 0 documents ▾ 🗺 Site Rules & Layout 0 documents ▾ 🪪 Site Inductions 0 completed ▾ 👷 Subcontractors 0 companies ▾ 🧾 Permits To Work None open ▾ 🔍 Inspe","ms":14802}
+{"part":"others","step":"Main contractor: add a subcontractor company","ok":true,"note":"ZZ Subbie Ltd","ms":9485}
+{"part":"others","step":"Main contractor: subcontractor person attached to the company","ok":true,"note":"{\"id\":\"ca3011e5-f670-4719-b858-d8119f374f0b\",\"is_admin\":false,\"subcontractor_company_id\":\"2c23c0b7-f525-48b1-b3b7-be1418","ms":10027}
+{"part":"others","step":"Subcontractor: logs in and lands on their company folder","ok":false,"note":"","ms":6466}
+{"part":"others","step":"Subcontractor: cannot open the main job pages","ok":false,"note":"","ms":5338}
+{"part":"others","step":"Main contractor: issue RAMS to the subcontractor folder","ok":true,"note":"1","ms":11151}
+{"part":"others","step":"Subcontractor: sees the RAMS and signs it","ok":true,"note":"1 signature(s)","ms":18696}
+{"part":"others","step":"Main contractor: permit to work issued to the subcontractor","ok":false,"note":"","ms":6140}
+{"part":"others2","step":"Subcontractor: where they land, step by step","ok":false,"note":"/sites/C → /sites/C → /sites/C → /sites/C → /sites | ‹ Projects Sandbox Roofing Ltd 💡 How Projects works ▾ ✕ LIVE (2) ▾ SBX-113 ZZ JOB Regular 1 Test Street, London, SW1A 1","ms":7477}
+{"part":"others2","step":"Variation: open it, then approve","ok":true,"note":"approved","ms":9925}
+{"part":"others2","step":"PPE: operative requests gloves, manager sees it","ok":true,"note":"{\"item_name\":\"Gloves\",\"status\":\"pending\"}","ms":11078}
+{"part":"others2","step":"Plant: add an item with its photo","ok":false,"note":"{}","ms":14506}
+{"part":"others2","step":"Repair: add a job","ok":false,"note":"","ms":10258}
+{"part":"others2","step":"Repair: stages from survey to closed","ok":false,"note":"","ms":4885}
+{"part":"others2","step":"Repair: add a photo to the job","ok":false,"note":"locator.click: Timeout 7000ms exceeded.","ms":11878}
+{"part":"others2","step":"Permit: issue a hot works permit to the subcontractor","ok":false,"note":"{}","ms":9804}
+{"part":"others2","step":"Client: sees the job, Schedule of Works, no edit buttons","ok":false,"note":"no tasks shown","ms":16977}
+{"part":"others2","step":"Client: Finance and prices are refused","ok":true,"note":"/sites/J","ms":5436}
+{"part":"others2","step":"Site manager: can open the job, schedule and add a snag","ok":false,"note":"locator.click: Timeout 7000ms exceeded.","ms":14145}
+{"part":"others2","step":"Driver: their day opens; no project pages","ok":true,"note":"/home?id=J","ms":12570}
+{"part":"others3","step":"Subcontractor: trace where they land","ok":false,"note":": | sees own row: 1 | site {\"id\":\"96807f70-a7ac-4b20-b401-e3e83fe66e60\",\"status\":\"active\",\"acting_as_main_contractor\":true,\"mc_hidden_til","ms":8862}
+{"part":"others3","step":"Client: what the database lets them read on the schedule","ok":false,"note":"sections 0, tasks 2","ms":172}
+{"part":"others3","step":"Plant: add an item with photo and inspection date","ok":true,"note":"{\"name\":\"ZZ Scissor lift\",\"current_site_id\":\"4defa781-f15f-485d-9a3a-6e908598e0de\",\"photo_path\":\"2eb","ms":16608}
+{"part":"others3","step":"Repair: stages from survey to closed","ok":true,"note":"Mark Survey as Completed→To Survey | Mark Survey as Completed→To Survey | Mark Survey as Completed→To Survey | Mark Survey as Completed→To Survey | Mark Survey as Completed→To Survey | Mark Survey as Completed→To Survey | Mark Survey as Com; closed false","ms":38430}
+{"part":"others3","step":"Repair: add a photo to the job","ok":false,"note":"0; Survey / before photos/📷 ADD PHOTOS","ms":11779}
+{"part":"others3","step":"Project manager adopts a signature, then issues a hot works permit","ok":false,"note":"‹ Permits To Work 2 Test Road, London Projects › SBX-116 ZZ JOB Main Contractor › Main Contractor › Permits To Work Open Closed No open permits. ISSUE A PERMIT ","ms":18915}
+{"part":"others3","step":"Site manager: adds a snag","ok":false,"note":"locator.click: Timeout 7000ms exceeded.","ms":13453}
+{"part":"others4","step":"Subcontractor: goes straight to their company folder","ok":true,"note":"‹ ZZ Subbie Ltd 2 Test Road, London Projects › SBX-116 ZZ JOB Main Contractor › Main Contractor › ZZ Subbie Ltd 📄 RAMS 1 document","ms":7538}
+{"part":"others4","step":"Subcontractor: main job pages send them back to the folder","ok":true,"note":"/mc/subcontractors/2c23c0b7-f525-48b1-b3b7-be1418731fe","ms":6335}
+{"part":"others4","step":"Subcontractor: sees only tasks given to their company","ok":true,"note":"ZZ Sub task on screen: true/false","ms":27235}
+{"part":"others4","step":"Client: now sees the tasks, cannot add","ok":true,"note":"tasks show","ms":7548}
+{"part":"others4","step":"Repair: survey with notes and a photo completes it","ok":true,"note":"Surveyed - Awaiting Cost, 2 photo(s)","ms":15255}
+{"part":"others4","step":"Repair: self-authorise through to works done and closed","ok":true,"note":"Approve→Approved - To Do | Approve→Approved - To Do; closed false","ms":17187}
+{"part":"others4","step":"Permit: issue hot works to the subcontractor; they see it","ok":true,"note":"open","ms":12030}
+{"part":"others4","step":"Site manager: adds a snag","ok":true,"note":"2 snags","ms":11160}
+{"part":"others4","step":"RAMS builder: start a new RAMS","ok":true,"note":"{\"id\":\"c069a876-5df9-41e0-a1c0-3f8a3b3f6a44\",\"title\":\"ZZ Built RAMS\",\"status\":\"draft\"}","ms":10028}
+{"part":"others4","step":"RAMS builder: draft is deleted cleanly","ok":false,"note":"locator.click: Timeout 7000ms exceeded.","ms":11890}
+{"part":"others4","step":"COSHH: upload a data sheet document to the job","ok":false,"note":"locator.click: Timeout 7000ms exceeded.","ms":12677}
+{"part":"others4","step":"Operative signs the COSHH","ok":false,"note":"locator.click: Timeout 7000ms exceeded.","ms":12485}
+{"part":"others4","step":"Handover: new O&M manual, add a section, real PDF","ok":false,"note":"{}","ms":8064}
+{"part":"others4","step":"Expenses: operative adds a receipt photo","ok":true,"note":"","ms":9719}
+{"part":"others4","step":"Finance side: the job appears for a finance user","ok":true,"note":"Sandbox Roofing Ltd OPHUB ↻ Saturday 31 October Good evening, andy 🔍 Search projects, people, reports… 💡 How Home work","ms":6356}
+{"part":"others5","step":"Repair: works completed with notes and a photo","ok":false,"note":"In Progress","ms":18062}
+{"part":"others5","step":"Repair: sign off and close","ok":false,"note":"locator.click: Timeout 7000ms exceeded.","ms":11811}
+{"part":"others5","step":"Repair: survey and works PDFs are real","ok":true,"note":"10 Repair Lane - Survey Report - 31-10-26.pdf 89KB","ms":11168}
+{"part":"others5","step":"O&M: new manual built from the job, PDF is real","ok":true,"note":"O&M Manual - ZZ JOB Regular.pdf 162KB","ms":27180}
+{"part":"others5","step":"COSHH: upload a real document","ok":true,"note":"ZZ Primer","ms":11170}
+{"part":"others5","step":"Operative signs the COSHH","ok":true,"note":"1 signature(s)","ms":9087}
+{"part":"others5","step":"RAMS builder: Issue tab says what is missing, then issues to the job","ok":false,"note":"{\"status\":\"draft\",\"revision\":0}; ","ms":13994}
+{"part":"others5","step":"Report: start one from a template and submit it","ok":true,"note":"{\"id\":\"f879dc83-c412-4fe1-8343-9da0a1f33a4a\",\"status\":\"in_progress\"}","ms":10867}
+{"part":"others5","step":"Export to OneDrive: the file really lands in OneDrive","ok":true,"note":"said saved: true; PDFs synced to this laptop: 1","ms":36178}
+{"part":"others5","step":"Uploading a drawing does not fail when the job has no linked folder","ok":true,"note":"","ms":11330}
+{"part":"others6","step":"Repair: works completed","ok":true,"note":"Awaiting Sign-off","ms":8926}
+{"part":"others6","step":"Repair: sign off and close","ok":true,"note":"Closed","ms":8990}
+{"part":"others6","step":"RAMS builder: fill in Info, issue, two documents go on the job","ok":false,"note":"{\"status\":\"draft\",\"revision\":0}; docs 1→1; ‹ RAMS Builder 1 Test Street, London, SW1A 1AA Projects › SBX-113 ZZ JOB Regular › Health ","ms":34537}
+{"part":"others6","step":"RAMS supersede: new version replaces the signed one; operative is asked again","ok":true,"note":"old is superseded; operative: SIGN ALL RAMS DOCUMENTS (1 UNSIGNED)","ms":17873}
+{"part":"others7","step":"RAMS builder: fill in Info, issue, documents go on the job","ok":false,"note":"{\"status\":\"draft\",\"revision\":0}; current docs 1→1","ms":24626}
+{"part":"others7","step":"Operative is asked to sign the issued RAMS","ok":true,"note":"SIGN ALL RAMS DOCUMENTS (1 UNSIGNED)","ms":5492}
+{"part":"others7","step":"Schedule of Works: how long it takes to show (development build, slower than the real app)","ok":true,"note":"1.7s, 1.7s, 1.7s","ms":5150}
+{"part":"others7","step":"RAMS builder: fill in Info, issue, documents go on the job","ok":false,"note":"locator.click: Timeout 7000ms exceeded.","ms":12667}
+{"part":"others7","step":"Operative is asked to sign the issued RAMS","ok":true,"note":"SIGN ALL RAMS DOCUMENTS (1 UNSIGNED)","ms":5474}
+{"part":"others7","step":"Schedule of Works: how long it takes to show (development build, slower than the real app)","ok":true,"note":"1.7s, 1.7s, 1.7s","ms":5109}
+{"part":"others8","step":"RAMS builder: add a hazard, issue, it goes on the job","ok":false,"note":"locator.click: Timeout 7000ms exceeded.","ms":17181}
+{"part":"others8","step":"RAMS builder: add a hazard, issue, it goes on the job","ok":false,"note":"locator.click: Timeout 7000ms exceeded.","ms":22212}
+{"part":"others9","step":"RAMS builder: add a hazard, issue, it goes on the job","ok":true,"note":"issued rev 1, 1 hazard(s); RAMS, Risk Assessment","ms":25942}
+{"part":"last","step":"Schedule: import tasks from a CSV","ok":true,"note":"2→4","ms":13800}
+{"part":"last","step":"Daily briefing: start one, or says a template is needed","ok":true,"note":"2 submissions","ms":9040}
+{"part":"last","step":"HAVS: page opens for a site manager role job and shows the week","ok":true,"note":"","ms":4855}
+{"part":"last","step":"Price: add a price line for the job","ok":false,"note":"locator.click: Timeout 7000ms exceeded.","ms":13172}
+{"part":"last","step":"Delivery: office books one for today","ok":false,"note":"{}","ms":20170}
+{"part":"last","step":"Driver: checks in and sees the delivery","ok":false,"note":"‹ Delivery Schedule Sandbox Roofing Ltd ☕ Breaks — check in first ‹ Sunday 01 Nov (Today) › To do (0) ✓ Completed (0) No deliveries booked f","ms":13857}
+{"part":"last","step":"Driver: completes the delivery with a photo","ok":false,"note":"locator.click: Timeout 7000ms exceeded.","ms":15230}
+{"part":"last","step":"Induction: operative on the main contractor job can start it","ok":true,"note":"","ms":14906}
+{"part":"last2","step":"Price: start a price for the job","ok":true,"note":"1 price(s); lar › Price 💷 PRICE SHEETS + ADD PRICE 🧾 ZZ Flat Roofing ⋮ £0.00 · £0.00 booked Bal: £0.00 Home De","ms":9700}
+{"part":"last2","step":"Delivery: office books one for today with the driver","ok":false,"note":"locator.click: Timeout 7000ms exceeded.","ms":23282}
+{"part":"last2","step":"Driver: checks in, sees the delivery, completes it with a photo","ok":false,"note":"‹ Delivery Schedule Sandbox Roofing Ltd ☕ START BREAK ‹ Sunday 01 Nov (Today) › To do (0) ✓ Completed (0) No deliveries booked for today. Home Settings","ms":14458}
+{"part":"last3","step":"Delivery: office books one for today with the driver","ok":false,"note":"locator.click: Timeout 7000ms exceeded.","ms":23357}
+{"part":"last3","step":"Driver: sees the delivery and completes it with a photo","ok":false,"note":"‹ Delivery Schedule Sandbox Roofing Ltd ☕ START BREAK ‹ Sunday 01 Nov (Today) › To do (0) ✓ Completed (0) No deliveries booked for today. Home Settings","ms":7281}
+{"part":"last3","step":"Delivery: office books one for today with the driver","ok":true,"note":"pending, driver set: true","ms":13925}
+{"part":"last3","step":"Driver: sees the delivery and completes it with a photo","ok":true,"note":"completed","ms":17715}
+{"part":"hs1","step":"Briefing: manager starts one and it opens to fill in","ok":true,"note":"briefings/fill/ad68f542-9513-4d12-9926-4f2ce4b78c79 | ‹ Daily Briefing 1 Test Street, London, SW1A 1AA Projects › SBX-113 ZZ JOB Regular › Health & Safety › Daily Briefing DAILY BRIEFING SECTION 1 Operatives On Site ☑ andy op ☑ andy subbie + ADD OPERATIVE SAVE & EXIT COMPLE","ms":10206}
+{"part":"hs1","step":"Briefing: manager completes the one started","ok":true,"note":"completed | ‹ Daily Briefing 1 Test Street, London, SW1A 1AA Projects › SBX-113 ZZ JOB Regular › Health & Safety › Daily Briefing DAILY BRIEFING Completed 01/11/2026, 07:36:36 by andy pm SECTION 1 Operatives On Site andy op andy subbie SIGNING Not issued for signing yet. ","ms":10793}
+{"part":"hs1","step":"Briefing: manager issues it for signing","ok":true,"note":"2026-11-01T07:36:47.935+00:00","ms":9767}
+{"part":"hs1","step":"Briefing: operative sees it and signs","ok":true,"note":"1 signature(s) | ‹ Daily Briefing 1 Test Street, London, SW1A 1AA Projects › SBX-113 ZZ JOB Regular › Health & Safety › Daily Briefing DAILY BRIEFING Completed 01/11/2026, 07:36:36 by andy pm SECTION 1 Operatives On Site andy op andy subbie SIGNING Issued for signing 01/11/202","ms":13985}
+{"part":"hs1","step":"Briefing: Edit goes away after the first signature","ok":true,"note":"manager view","ms":4885}
+{"part":"hs1","step":"Briefing: export is a real PDF","ok":true,"note":"ZZ JOB Regular - Daily Briefing - 01-11-26.pdf","ms":6682}
+{"part":"hs1","step":"Induction: operative completes all three stages","ok":true,"note":"8 items, 6 health answers, 1 on record | ‹ Site Inductions 2 Test Road, London Projects › SBX-116 ZZ JOB Main Contractor › Main Contractor › Site Inductions ✅ INDUCTION COMPLETED You completed this site's induction on 01 Nov 2026. VIEW MY INDUCTION Home SOW Check In Inbox Settings","ms":17128}
+{"part":"hs1","step":"Induction: manager sees it and exports it","ok":false,"note":"JOB Main Contractor › Main Contractor › Site Inductions Outstanding Completed Inductions Induction Form ▼ 2 on the roster · 1 completed andy subbie ○ Not yet completed 📄 EXPORT AL","ms":5389}
+{"part":"hs1","step":"Incident: operative fills it in and signs it","ok":false,"note":"0 on record | ‹ Incident Report 1 Test Street, London, SW1A 1AA Projects › SBX-113 ZZ JOB Regular › Health & Safety › Incident Report Type Near miss Site of accident / incident / near miss ZZ JOB Regular, 1 Test Street, London, SW1A 1AA Date of incident 01 Nov 2026 Form fil","ms":11609}
+{"part":"hs1","step":"Incident: manager reads it","ok":false,"note":"‹ [id]/hs/incidents/[rid] 1 Test Street, London, SW1A 1AA Projects › SBX-113 ZZ JOB Regular › Health & Safety › [Id]/Hs/Incidents/[Rid] Report not found. Home Deliveries Check In Inbox Settings","ms":9768}
+{"part":"hs1","step":"Expense: operative saves a receipt. The email is blocked by the test rule","ok":true,"note":"1 row | ‹ Expenses 1 Test Street, London, SW1A 1AA Projects › SBX-113 ZZ JOB Regular › Expenses 🧾 Send receipts to the office Add a photo or file of each receipt and say which job it's for. No expenses email is set up yet — receipts are saved and the office can see t","ms":15772}
+{"part":"hs2","step":"Induction: manager finds it under Completed","ok":true,"note":"‹ Site Inductions 2 Test Road, London Projects › SBX-116 ZZ JOB Main Contractor › Main Contractor › Site Inductions Outstanding Completed Inductions 2 on the roster · 1 completed ☐ andy op ✓ Completed 01 Nov 2026 👁 ⋮ ☁️ LINK ONEDRIVE INDUCTIONS FOLDER 📄 EXPORT ALL COMPLETED ✉ EMAIL ALL COMPLETED H","ms":7100}
+{"part":"hs2","step":"Incident: manager reads what the operative sent","ok":true,"note":"near_miss, signed true","ms":5036}
+{"part":"hs2","step":"HAVS: manager opens it and turns on a tool for the job","ok":true,"note":"‹ HAVS 1 Test Street, London, SW1A 1AA Projects › SBX-113 ZZ JOB Regular › Health & Safety › HAVS This Week Completed HAVS ‹ 26 Oct – 30 Oct 2026 › Daily EAV (action value) = 100 points · Daily ELV (limit value) = 400 points Tools On This Site (0) Tap a tool to add it to, or take it off, this site (","ms":5389}
+{"part":"hs2","step":"Report: manager sees the list of report types","ok":true,"note":"‹ ZZ JOB Regular 1 Test Street, London, SW1A 1AA Projects › SBX-113 ZZ JOB Regular 💡 How The job works ▾ ✕ Job No: SBX-113 NOT CHECKED IN Client: ZZ Test Client Contact: — 01 Nov Delivery: ZZ pallet of felt 2 OPEN SNAGS Check In / Out Tap to log time Schedule of Works 1 of 4 done · 25% Health & Saf","ms":5388}
+{"part":"hs2","step":"Subcontractor: manager makes them their company admin","ok":true,"note":"[true] | ‹ ZZ Subbie Ltd — Operatives 2 Test Road, London Projects › SBX-116 ZZ JOB Main Contractor › Main Contractor › ZZ Subbie Ltd — Operatives RTB's PM/admin and the subcontractor admin can upload RAMS, COSHH, Toolbox Talks and Daily Briefings into this folder — everyone else allocated here just views an","ms":8478}
+{"part":"hs2","step":"Subcontractor admin: what they see on their own folder","ok":true,"note":"‹ ZZ Subbie Ltd 2 Test Road, London Projects › SBX-116 ZZ JOB Main Contractor › Main Contractor › ZZ Subbie Ltd 📄 RAMS 1 document 🧪 COSHH 0 documents 📢 TBT 0 live 📋 Schedule of Works 0 of 1 complete 🧾 Permits To Work 1 open 🔍 Inspections 0 files 📝 Daily Briefings 0 logged 👷 Operatives 1 allo","ms":6475}
+{"part":"hs3","step":"To Do: counts across the top filter the list","ok":true,"note":" Regular › To Do List 1 Overdue 1 This week 3 Live 1 Closed + ADD TO DO ZZ Chase scaffold handover certificate Overdue 29 Oct · andy pm ⋮ ZZ Order lead for chimney flashing Due 4 Nov · andy pm ⋮ ZZ Send updated programme to client Due 12 Nov · Unassigned ⋮ ✉ E","ms":7338}
+{"part":"hs3","step":"To Do: press one to open, comment, then Mark Complete","ok":true,"note":"{\"done\":true}","ms":5851}
+{"part":"hs3","step":"To Do: + Add To Do makes a new one","ok":true,"note":"‹ To Do List 1 Test Street, London, SW1A 1AA Projects › SBX-113 ZZ JOB Regular › To Do List 1 Overdue 0 This week 3 Live 2 Closed CLOSE Comments (optional) Requ","ms":3700}
+{"part":"hs3","step":"Variation: photo opens for marking up, then saves","ok":true,"note":"editor true, 1→2","ms":17982}
+{"part":"hs3","step":"Permit: a PDF is made and stored when one is issued, and Export gives a PDF","ok":false,"note":"locator.click: Timeout 7000ms exceeded.","ms":43468}
+{"part":"hs3","step":"Schedule: a photo added today, so the report has two days","ok":false,"note":"3→3","ms":21587}
+{"part":"hs3","step":"Schedule: export from the To Do tab still has every photo","ok":true,"note":"9 images, 179172 bytes","ms":15532}
+{"part":"hs3","step":"HAVS: manager adds a tool to the job","ok":false,"note":"0 tools | ‹ HAVS 1 Test Street, London, SW1A 1AA Projects › SBX-113 ZZ JOB Regular › Health & Safety › HAVS This Week Completed HAVS ‹ 26 Oct – 30 Oct 2026 › Daily EAV (action value) = 100 points · Daily ELV (l","ms":14209}
+{"part":"hs3","step":"HAVS: operative logs minutes and they save","ok":false,"note":"locator.fill: Timeout 30000ms exceeded.","ms":42310}
+{"part":"hs3","step":"Inspection: manager starts one and completes it","ok":true,"note":"{\"status\":\"completed\",\"template_name\":\"Main Contractor Inspection\"} | ‹ Main Contractor Inspection 2 Test Road, London Projects › SBX-116 ZZ JOB Main Contractor › Snagging › Main Contractor Inspection MAIN CONTRACTOR INSPECTION Submitted 01/11/2026, ","ms":17074}
+{"part":"hs3","step":"Subcontractor admin: uploads RAMS into their company folder","ok":false,"note":"locator.click: Timeout 7000ms exceeded.","ms":12581}
+{"part":"hs3","step":"Subcontractor admin: Operatives page and other tiles","ok":true,"note":"‹ ZZ Subbie Ltd — Operatives 2 Test Road, London Projects › SBX-116 ZZ JOB Main Contractor › Main Contractor › ZZ Subbie Ltd — Operatives RTB's PM/admin and the subcontractor admin can upload RAMS, COSHH, Toolbox Talks and Daily Briefings into this folder — everyone else allocated here just views and signs. andy subbie ⭐ Subcontractor admin Home SOW Check In Inbox Settings","ms":10657}
+{"part":"hs4","step":"Permit: issue one; its PDF is stored; Export gives a real PDF","ok":false,"note":"locator.click: Timeout 30000ms exceeded.","ms":37384}
+{"part":"hs4","step":"Schedule: photos added today on a finished task, so the report has two days","ok":false,"note":"3→3","ms":20746}
+{"part":"hs4","step":"Schedule: export has every photo","ok":true,"note":"11 images, 222980 bytes","ms":17429}
+{"part":"hs4","step":"HAVS: manager adds a new tool to the job","ok":true,"note":"1 tools | ‹ HAVS 1 Test Street, London, SW1A 1AA Projects › SBX-113 ZZ JOB Regular › Health & Safety › HAVS This Week Completed HAVS ‹ 26 Oct – 30 Oct 2026 › Daily EAV (action value) = 100 points · Daily ELV (limit value) = 400 po","ms":10038}
+{"part":"hs4","step":"HAVS: operative logs minutes, points show and they save","ok":false,"note":"locator.click: Timeout 6000ms exceeded.","ms":16311}
+{"part":"hs4","step":"Subcontractor admin: uploads RAMS into their company folder","ok":true,"note":"1→2","ms":12718}
+{"part":"hs4","step":"Subcontractor admin: Schedule of Works shows only their tasks","ok":true,"note":"‹ ZZ Subbie Ltd — Schedule of Works 2 Test Road, London Projects › SBX-116 ZZ JOB Main Contractor › Main Contractor › ZZ Subbie Ltd — Schedule Of Works Only the work items assigned to ZZ Subbie Ltd — updates show straight away on the main Schedule of Works. Al","ms":5350}
+{"part":"hs4","step":"Subcontractor admin: can open their own company Permits and Daily Briefings","ok":true,"note":"‹ ZZ Subbie Ltd — Daily Briefings 2 Test Road, London Projects › SBX-116 ZZ JOB Main Contractor › Main Contractor › ZZ Subbie Ltd — Daily Briefings No daily briefings logged yet. LOG A BRIEFING CHOOSE PDF (OPTIONAL) LOG ","ms":5503}
+{"part":"hs5","step":"Schedule: five photos at once on a task all arrive, none left stuck","ok":false,"note":"0→5 in 37s, stuck message: true, errors: [\"\\\"lastError\\\":\\\"Failed to fetch\",\"\\\"lastError\\\":\\\"Failed to fetch\"]","ms":43941}
+{"part":"hs5","step":"Permit: issue one; its PDF is stored; Export gives a real PDF","ok":true,"note":"hot_works, ZZ JOB Main Contractor - Hot Works Permit - 01-11-26.pdf 4552 bytes","ms":22767}
+{"part":"hs5","step":"HAVS: site manager logs an operative’s minutes and they save","ok":true,"note":"1 entries | ‹ HAVS 1 Test Street, London, SW1A 1AA Projects › SBX-113 ZZ JOB Regular › Health & Safety › HAVS This Week Completed HAVS ‹ 26 Oct – 30 Oct 2026 › Daily EAV (action value) = 100 points · Daily ELV (l","ms":9695}
+{"part":"hs6","step":"Schedule: five photos at once on a task all arrive, none left stuck","ok":false,"note":"2→7 in 39s, stuck message: true, errors: [\"\\\"lastError\\\":\\\"Failed to fetch\",\"\\\"lastError\\\":\\\"Failed to fetch\"]","ms":46211}
+{"part":"hs6","step":"Schedule: five photos at once on a task all arrive, none left stuck","ok":false,"note":"7→12 in 33s, stuck message: true, errors: [\"\\\"lastError\\\":\\\"Failed to fetch\",\"\\\"lastError\\\":\\\"Failed to fetch\"]","ms":39194}
+{"part":"hs6","step":"Schedule: five photos at once on a task all arrive, none left stuck","ok":false,"note":"12→17 in 42s, stuck message: true, failed: [\"GET blob:http://localhost:8081/73f816d6-cf6a-4986-9eda-7977abd63a04 net::ERR_FILE_NOT_FOUND\",\"GET blob:http://localhost:8081/8f39182b-908a-4811-9742-416834e885e6 net::ERR_FILE_NOT_FOUND\",\"GET blob:http://localhost:8081/bc2f8e1c-1577-4f09-a6ab-8b80cf162889 net::ERR_FILE_NOT_FOUND\",\"GET blob:http://localhost:8081/bc2f8e1c-1577-4f09-a6ab-8b80cf162889 net::ERR_FILE_NOT_FOUND\",\"GET blob:http://localhost:8081/a6360d4c-8ee5-4729-bcaf-472f5777af5f net::ERR_FILE_NOT_FOUND\",\"GET blob:http://localhost:8081/bc2f8e1c-1577-4f09-a6ab-8b80cf162889 net::ERR_FILE_NOT_FOUND\",\"GET blob:http://localhost:8081/a6360d4c-8ee5-4729-bcaf-472f5777af5f net::ERR_FILE_NOT_FOUND\",\"GET blob:http://localhost:8081/73f816d6-","ms":60264}
+{"part":"hs6","step":"Schedule: five photos at once on a task all arrive, none left stuck","ok":false,"note":"17→22 in 42s, stuck message: true, failed: [\"GET blob:http://localhost:8081/73f816d6-cf6a-4986-9eda-7977abd63a04 net::ERR_FILE_NOT_FOUND\",\"GET blob:http://localhost:8081/8f39182b-908a-4811-9742-416834e885e6 net::ERR_FILE_NOT_FOUND\",\"GET blob:http://localhost:8081/bc2f8e1c-1577-4f09-a6ab-8b80cf162889 net::ERR_FILE_NOT_FOUND\",\"GET blob:http://localhost:8081/bc2f8e1c-1577-4f09-a6ab-8b80cf162889 net::ERR_FILE_NOT_FOUND\",\"GET blob:http://localhost:8081/a6360d4c-8ee5-4729-bcaf-472f5777af5f net::ERR_FILE_NOT_FOUND\",\"GET blob:http://localhost:8081/bc2f8e1c-1577-4f09-a6ab-8b80cf162889 net::ERR_FILE_NOT_FOUND\",\"GET blob:http://localhost:8081/a6360d4c-8ee5-4729-bcaf-472f5777af5f net::ERR_FILE_NOT_FOUND\",\"GET blob:http://localhost:8081/73f816d6-","ms":60701}
+{"part":"hs6","step":"Schedule: five photos at once on a task all arrive, none left stuck","ok":false,"note":"22→22 in 52s, stuck message: true, failed: [\"GET blob:http://localhost:8081/73f816d6-cf6a-4986-9eda-7977abd63a04 net::ERR_FILE_NOT_FOUND\",\"GET blob:http://localhost:8081/8f39182b-908a-4811-9742-416834e885e6 net::ERR_FILE_NOT_FOUND\",\"GET blob:http://localhost:8081/bc2f8e1c-1577-4f09-a6ab-8b80cf162889 net::ERR_FILE_NOT_FOUND\",\"GET blob:http://localhost:8081/73f816d6-cf6a-4986-9eda-7977abd63a04 net::ERR_FILE_NOT_FOUND\",\"GET blob:http://localhost:8081/8f39182b-908a-4811-9742-416834e885e6 net::ERR_FILE_NOT_FOUND\",\"GET blob:http://localhost:8081/bc2f8e1c-1577-4f09-a6ab-8b80cf162889 net::ERR_FILE_NOT_FOUND\",\"GET blob:http://localhost:8081/e7b94555-1d91-4cc9-baca-9b5df9586293 net::ERR_FILE_NOT_FOUND\",\"GET blob:http://localhost:8081/e6e7fdec-","ms":78282}
+{"part":"hs6","step":"Schedule: five photos at once on a task all arrive, none left stuck","ok":false,"note":"23→27 in 45s, stuck message: true, failed: [\"GET blob:http://localhost:8081/f1e17af3-e54a-45cc-9f8d-84a6ba5943f4 net::ERR_FILE_NOT_FOUND\",\"GET blob:http://localhost:8081/51491722-4a4b-4655-9f07-85b8346c96f1 net::ERR_FILE_NOT_FOUND\",\"GET blob:http://localhost:8081/e7b94555-1d91-4cc9-baca-9b5df9586293 net::ERR_FILE_NOT_FOUND\",\"GET blob:http://localhost:8081/2e5c12ad-705f-40cb-a937-b629982c4ef2 net::ERR_FILE_NOT_FOUND\",\"GET blob:http://localhost:8081/a6e107e8-774f-43d0-a75c-5a502108c974 net::ERR_FILE_NOT_FOUND\",\"GET blob:http://localhost:8081/e6e7fdec-8cfd-4d7b-98be-3adde9146fdb net::ERR_FILE_NOT_FOUND\",\"GET blob:http://localhost:8081/e7b94555-1d91-4cc9-baca-9b5df9586293 net::ERR_FILE_NOT_FOUND\",\"GET blob:http://localhost:8081/e6e7fdec-","ms":68792}
+{"part":"hs6","step":"Schedule: five photos at once on a task all arrive, none left stuck","ok":true,"note":"27→32 in 27s, stuck message: false, failed: [\"GET blob:http://localhost:8081/787ee543-5683-4c91-9d47-a934a04a71fb net::ERR_FILE_NOT_FOUND\",\"GET blob:http://localhost:8081/40dad435-ac48-4dd1-a371-9555f2f7b771 net::ERR_FILE_NOT_FOUND\",\"GET blob:http://localhost:8081/d28015ec-aed6-49e0-956a-c00ec797197e net::ERR_FILE_NOT_FOUND\",\"GET blob:http://localhost:8081/d28015ec-aed6-49e0-956a-c00ec797197e net::ERR_FILE_NOT_FOUND\",\"GET blob:http://localhost:8081/d28015ec-aed6-49e0-956a-c00ec797197e net::ERR_FILE_NOT_FOUND\"]","ms":49679}
+{"part":"pack1","step":"New job: making it sets up its OneDrive folder by itself","ok":false,"note":"http://localhost:8081/sites/new ‹ Add a Project Sandbox Roofing Ltd Site name * Address * Postcode Job number Client * Contact number Contact email Multi-site job (several addresses / plots) Repair / maintenance contract Status Active Upcoming Start date * Choose a date 📅 CREATE PROJECT CANCEL Home Deliveries HUB 1 Calendar","ms":12360}
+{"part":"pack1","step":"Schedule: a section, a task and a pre-start photo goes to 1. Pre Start","ok":true,"note":"‹ Projects Sandbox Roofing Ltd 💡 How Projects works ▾ ✕ All (14) ▼ PM ▼ LIVE (11) ▾ SBX-107 Andy House Andy House, BN1 2HJ RTB Roofing – ▾ SBX-111 Andy House 123, 123 Ashcroft Estates Ltd D ▾ SBX-106","ms":5553}
+{"part":"pack1","step":"New job: making it sets up its OneDrive folder by itself","ok":true,"note":"OpHUB Progress Reports/ZZ Job Packs/ZZ JOB Pack Test, week 1 from 2026-10-26","ms":48409}
+{"part":"pack1","step":"Documents tile: shows the folder for a project manager","ok":false,"note":"ck Test › Documents ZZ JOB Pack Test ⬆️ ADD A FILE HERE 📁 1. Contract & Commercial › 📁 2. Health & Safety › 📁 3. Drawings & Technical › 📁 4. Subcontractors & Suppliers › 📁 5. OpHUB x Photos & Inspections › 📁 6. Programme › 📁 7. Main Contractor Docs › 📁 8. Handov","ms":13037}
+{"part":"pack1","step":"Documents tile: goes into a folder and adds a file","ok":false,"note":"‹ Documents 9 Pack Road, London Projects › SBX-117 ZZ JOB Pack Test › Documents ZZ JOB Pack Test › 7. Main Contractor Docs ⬆️ ADD A FILE HERE This folder is empty. Home Deliveries Check In Inbox Settings","ms":13246}
+{"part":"pack2","step":"Project Admin: fill in anything missing copies the template documents","ok":false,"note":"locator.click: Timeout 7000ms exceeded.","ms":12664}
+{"part":"pack2","step":"Documents: the template documents are there","ok":false,"note":"ck Test › Documents ZZ JOB Pack Test ⬆️ ADD A FILE HERE 📁 1. Contract & Commercial › 📁 2. Health & Safety › 📁 3. Drawings & Technical › 📁 4. Subcontractors & Suppliers › 📁 5. OpHUB x Photos & Inspections › 📁 6. Programme › 📁 7. Main Contractor Docs › 📁 8. Handover › Home Deliveries Check In Inbox Settings","ms":9518}
+{"part":"pack2","step":"Documents: adds a file to a folder","ok":false,"note":"‹ Documents 9 Pack Road, London Projects › SBX-117 ZZ JOB Pack Test › Documents ZZ JOB Pack Test › 7. Main Contractor Docs ⬆️ ADD A FILE HERE This folder is empty. Home Deliveries Check In Inbox Settings","ms":13324}
+{"part":"pack2","step":"RAMS: uploading issues it and it lands in 1. RAMS","ok":true,"note":"1 on the job","ms":18312}
+{"part":"pack3","step":"Project Admin: fill in anything missing copies the template documents","ok":false,"note":"locator.click: Timeout 7000ms exceeded.","ms":12663}
+{"part":"pack3","step":"Documents: the template documents are there","ok":false,"note":"ck Test › Documents ZZ JOB Pack Test ⬆️ ADD A FILE HERE 📁 1. Contract & Commercial › 📁 2. Health & Safety › 📁 3. Drawings & Technical › 📁 4. Subcontractors & Suppliers › 📁 5. OpHUB x Photos & Inspections › 📁 6. Programme › 📁 7. Main Contractor Docs › 📁 8. Handover › Home Deliveries Check In Inbox Settings","ms":17421}
+{"part":"pack3","step":"Documents: adds a file to a folder","ok":true,"note":"‹ Documents 9 Pack Road, London Projects › SBX-117 ZZ JOB Pack Test › Documents ZZ JOB Pack Test › 7. Main Contractor Docs ⬆️ ADD A FILE HERE 📄 sds.pdf Home Deliveries Check In Inbox Settings","ms":14248}
+{"part":"pack3","step":"Schedule: a pre-start photo is sent","ok":true,"note":"1 photos","ms":20121}
+{"part":"pack3","step":"Schedule: an in-progress photo is sent","ok":false,"note":"page.waitForEvent: Timeout 12000ms exceeded while waiting for event \"filechooser\"","ms":15395}
+{"part":"pack4","step":"Project Admin: fill in anything missing copies the template documents","ok":true,"note":"Job pack made: 38 folders, 6 documents","ms":26062}
+{"part":"pack4","step":"Schedule: an in-progress photo is sent","ok":true,"note":"1→2","ms":22175}
+{"part":"pack4","step":"Schedule: an in-progress photo is sent","ok":true,"note":"2→3","ms":23356}
+{"part":"sowdays","step":"Schedule: export with two days of photos","ok":false,"note":"page.waitForEvent: Timeout 40000ms exceeded while waiting for event \"download\"","ms":45528}
+{"part":"sowdays","step":"Schedule: export with two days of photos","ok":true,"note":"1746923 bytes","ms":30716}
+{"part":"email1","step":"Email: material requested","ok":true,"note":" › SBX-113 ZZ JOB Regular › Materials › Material Requests 🙋 Requests from operatives. Order them from a merchant, or give them to an operative to collect — those move to the Collections tab. Tick several to group them into one request. MATERIAL REQUESTS COLLE","ms":7429}
+{"part":"email1","step":"Email: material requested","ok":true,"note":"{\"rows\":[[\"Item\",\"ZZ email test: 20 rolls of underlay\"],[\"Quantity\",\"1\"],[\"Required by\",\"Not given\"],[\"For\",\"\"],[\"Requested by\",\"andy pm\"]]}","ms":10047}
+{"part":"email1","step":"Email: variation raised, with its marked-up photo","ok":true,"note":"{\"rows\":[[\"Variation\",\"ZZ email test: extra lead to the chimney\"],[\"Raised by\",\"andy pm\"]],\"photos\":[{\"path\":\"4defa781-f15f-485d-9a3a-6e908598e0de/variations/4a9dc07c-9374-4891-92a8-e814b072cc22.jpg\",\"bucket\":\"site-photo","ms":18341}
+{"part":"email1","step":"Email: permit issued, with the permit attached","ok":true,"note":"{\"attachments\":[{\"name\":\"ZZ JOB Main Contractor - Hot Works Permit - 01-11-26.pdf\",\"path\":\"96807f70-a7ac-4b20-b401-e3e83fe66e60/permits/b57ddc23-6267-4418-9436-767e581e2343-open.pdf\",\"bucket\":\"mc-documents\"}]}","ms":17581}
