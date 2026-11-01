@@ -22,5 +22,43 @@
  "pack": "bf520c3d-8bae-449c-aaf5-8ca4b2e66dac",
  "q1": "77f708d5-134d-4e55-8107-9073b241b665",
  "q2": "26fb573b-4935-4535-a4d6-66cffd2d9e5b",
- "q3": "7cfef468-7383-483b-a121-ba8fc044eaa2"
+ "q3": "7cfef468-7383-483b-a121-ba8fc044eaa2",
+ "finA": "527dea1d-25b1-4022-87bc-a9ff28ffa960",
+ "finB": "29cc7c5a-69fa-4d2c-948a-51eae571f968",
+ "app1": "83d4b0cd-10f3-40cf-824d-355d7ad7e3e2",
+ "appPdf": "C:\\Users\\AndyCramp\\OneDrive - RTB Roofing Ltd\\RTB Roofing Ltd\\Andy's Documents\\Operative Hub App\\GitHub\\OpHUB\\tools\\test-harness\\shots\\job\\Application 1 - ZZ JOB Fin A (SBX-121).pdf",
+ "appInv": "68d195b6-0451-46f0-af60-0389fa31e096",
+ "app2": "325f801d-3a36-410e-9814-cbdd8666c5eb",
+ "bInv": "3c29e4b1-b41c-45ea-aa9d-7b49a163b289",
+ "hire": "d8309f51-7c3d-4984-9080-16a0f041bbc8",
+ "pq": "c561aa52-2223-4bde-86a5-23399172fc71",
+ "sub": "adc1a663-56ed-4912-831b-26f224d9d0d9",
+ "subApp": "b91f7072-342e-4c5e-84c2-4a721d91842d",
+ "po": "4733e24b-e486-4d05-a4e7-287e1cd6abff",
+ "pi": "83ecb145-2737-404b-aae6-f6833f358307",
+ "dirClient": "52bd07b5-18d6-4bb7-9158-05a4dca2fa35",
+ "dirSup": "cfd47ca6-cb65-4a3c-951a-154a8b97dcd6",
+ "dirLab": "3ee94c91-63cf-421a-a2ae-a97ff27935d7",
+ "opInv": "eae64ef0-a664-4001-89af-b048b17f437a",
+ "retInv": "9d4d936c-4f8a-4c2b-a1ee-4b7dd65e701f",
+ "pi2": "d64b095a-9dc8-4273-8bc6-01385e71ec5d",
+ "stmt": "26347d02-4c56-42a5-9581-f237d129404c",
+ "yard": "863fed38-078b-429b-a503-b29a6af02800",
+ "rep_debtors": "SANDBOX ROOFING LTD Aged debtors Generated via OpHUB · 01/11/2026 · page 1 Client Project Invoice Due Not due 1-30 days 31-60 61-90 90+ Total owed Hollin Developments Ltd SBX-106 · Harbour Mill -  SBX-INV-1008 8 Nov 2026 £40,755.00 £0.00 £0.00 £0.00 £0.00 £40,755.00 Kestrel Facilities Management SBX-103 · Kestrel House  SBX-INV-1005 8 Nov 2026 £18,750.00 £0.00 £0.00 £0.00 £0.00 £18,750.00 Kestrel Facilities Management SBX-103 · Kestrel House  SBX-INV-1004 18 Oct 2026 £0.00 £2,375.00 £0.00 £0.",
+ "rep_cis": "SANDBOX ROOFING LTD CIS payments Generated via OpHUB · 01/11/2026 · page 1 Subcontractor UTR Payments Gross Materials CIS deducted Paid ZZ Sub Ltd 1 £1,900.00 £500.00 £280.00 £1,520.00 Total £1,900.00 £500.00 £280.00 £1,520.00   ",
+ "rep_vat": "SANDBOX ROOFING LTD VAT listing Generated via OpHUB · 01/11/2026 · page 1 Type Date Ref Client / supplier Project VAT Net VAT £ Purchase 16 Aug 2026 DEMO-5007 Pennine Roofing Suppli SBX-101 · Riverside Ap Standard £17,100.00 £3,420.00 Purchase 22 Aug 2026 DEMO-5014 FlatLine Membranes Ltd SBX-101 · Riverside Ap Standard £11,460.00 £2,292.00 Purchase 3 Sept 2026 DEMO-5028 Northern Slate & Tile SBX-102 · Oakfield Pri Standard £25,650.00 £5,130.00 Purchase 9 Sept 2026 DEMO-5035 Scaffold Pro Nort",
+ "leave": "487a1d9e-d3c3-48ab-bb51-d102ff24c80e",
+ "vari": "1eeb1425-fe22-44c3-a78d-9958e58d09ac",
+ "dw": "157b9f84-3a95-418e-b1ff-0c24d5b1f71c",
+ "app3": "376adcc3-6517-4385-9392-b262de2dc610",
+ "app4": "de302788-6645-47a4-9142-b4c9dd2041e7",
+ "finC": "065e90e3-a980-4386-bba9-c6eaee02c617",
+ "hsDoc": "9b6c9f21-c7dc-495d-b971-18eff33221a6",
+ "lab2": "ZZ Labour 78786",
+ "lostItem": "4f34cf2a-23c2-404d-9b8b-0a4d2913a343",
+ "wageEl": "25e344e3-e106-49f6-bc7d-cbbe8373b7e2",
+ "wageInv": "70c78491-0603-4c57-bdb9-39cd69f06b65",
+ "wageBefore": 0,
+ "wagePush": "cd6ec25a-74e9-4238-8c56-205dfd53d894",
+ "wageSite": "527dea1d-25b1-4022-87bc-a9ff28ffa960"
 }

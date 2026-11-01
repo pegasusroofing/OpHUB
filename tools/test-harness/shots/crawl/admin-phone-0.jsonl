@@ -1,19 +1,23 @@
-{"route":"/pm/admin/onedrive","role":"admin","load":true,"land":"/pm/admin/onedrive","blocked":false,"buttons":9,"words":794,"problems":[],"did":[]}
-{"route":"/pm/admin/onedrive","role":"admin","label":"CONNECT ONEDRIVE","trail":[],"did":["changed","said: Could not start OneDrive connection. / ✕","fn onedrive-oauth-start","message: Could not start OneDrive connection"],"problems":[]}
-{"route":"/pm/admin/onedrive","role":"admin","label":"CONNECT ONEDRIVE","trail":["(reopen)"],"did":["changed","said: Could not start OneDrive connection. / ✕","fn onedrive-oauth-start","message: Could not start OneDrive connection"],"problems":[]}
-{"route":"/pm/admin/onedrive","role":"admin","label":"Could not start OneDrive connection.\n✕","trail":["CONNECT ONEDRIVE"],"did":["changed"],"problems":[]}
-{"route":"/pm/admin/onedrive","role":"admin","label":"📊 LOAD THE RULES FROM EXCEL","trail":[],"did":["changed","said: Say where new jobs go and where the template is first. / ✕"],"problems":[]}
-{"route":"/pm/admin/onedrive","role":"admin","label":"📊 LOAD THE RULES FROM EXCEL","trail":["(reopen)"],"did":["changed","said: Say where new jobs go and where the template is first. / ✕"],"problems":[]}
-{"route":"/pm/admin/onedrive","role":"admin","label":"Say where new jobs go and where the template is first.\n✕","trail":["📊 LOAD THE RULES FROM EXCEL"],"did":["changed"],"problems":[]}
-{"route":"/pm/admin/onedrive","role":"admin","label":"+ ADD A QUICK LINK","trail":[],"did":["nav /pm/onedrive-pick?target=quicklink&id=","changed","said: Choose OneDrive folder / 🔗 Shared with me / 🏢 Company Sites","fn onedrive-list-folders"],"problems":[]}
-{"route":"/pm/admin/onedrive","role":"admin","label":"Cleveland Primary School\nNot linked ▸","trail":[],"did":["changed","said: Not linked ▾ / Photos, drawings & exports / Not linked"],"problems":[]}
-{"route":"/pm/admin/onedrive","role":"admin","label":"Cleveland Primary School\nNot linked ▸","trail":["(reopen)"],"did":["changed","said: Not linked ▾ / Photos, drawings & exports / Not linked"],"problems":[]}
-{"route":"/pm/admin/onedrive","role":"admin","label":"Cleveland Primary School\nNot linked ▾","trail":["Cleveland Primary School\nNot linked ▸"],"did":["changed"],"problems":[]}
-{"route":"/pm/admin/onedrive","role":"admin","label":"Cleveland Primary School\nNot linked ▸","trail":["(reopen)"],"did":["changed","said: Not linked ▾ / Photos, drawings & exports / Not linked"],"problems":[]}
-{"route":"/pm/admin/onedrive","role":"admin","label":"Link","trail":["Cleveland Primary School\nNot linked ▸"],"did":["nav /pm/onedrive-pick?target=progress&id=22222222-2222-2222-2222-222222222222","changed","said: Choose OneDrive folder / 🔗 Shared with me / 🏢 Company Sites","fn onedrive-list-folders"],"problems":[]}
-{"route":"/pm/admin/onedrive","role":"admin","label":"Simon De Senlis\nNot linked ▸","trail":[],"did":["changed","said: Not linked ▾ / Photos, drawings & exports / Not linked"],"problems":[]}
-{"route":"/pm/admin/onedrive","role":"admin","label":"Simon De Senlis\nNot linked ▸","trail":["(reopen)"],"did":["changed","said: Not linked ▾ / Photos, drawings & exports / Not linked"],"problems":[]}
-{"route":"/pm/admin/onedrive","role":"admin","label":"Simon De Senlis\nNot linked ▾","trail":["Simon De Senlis\nNot linked ▸"],"did":["changed"],"problems":[]}
-{"route":"/pm/admin/onedrive","role":"admin","label":"Simon De Senlis\nNot linked ▸","trail":["(reopen)"],"did":["changed","said: Not linked ▾ / Photos, drawings & exports / Not linked"],"problems":[]}
-{"route":"/pm/admin/onedrive","role":"admin","label":"Link","trail":["Simon De Senlis\nNot linked ▸"],"did":["nav /pm/onedrive-pick?target=progress&id=33333333-3333-3333-3333-333333333333","changed","said: Choose OneDrive folder / 🔗 Shared with me / 🏢 Company Sites","fn onedrive-list-folders"],"problems":[]}
-{"route":"/pm/admin/onedrive","role":"admin","note":"ran out of time on this screen","problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/todos","role":"admin","load":true,"land":"/sites/11111111-1111-1111-1111-111111111111/todos","blocked":false,"buttons":17,"words":228,"problems":[],"did":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/todos","role":"admin","label":"Projects","trail":[],"did":["nav /sites","changed","said: RTB Roofing Ltd / All (3) ▼ / PM ▼","wrote rpc sow_photo_alerts"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/todos","role":"admin","label":"J101 Studley Rd","trail":[],"did":["nav /sites/11111111-1111-1111-1111-111111111111","changed","said: Studley Rd / Job No: J101 / NOT CHECKED IN"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/todos","role":"admin","label":"Overdue","trail":[],"did":["changed","said: Nothing overdue."],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/todos","role":"admin","label":"This week","trail":[],"did":["changed"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/todos","role":"admin","label":"Live","trail":[],"did":[],"problems":["nothing happened"]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/todos","role":"admin","label":"Closed","trail":[],"did":["changed","said: No closed to-dos."],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/todos","role":"admin","label":"+ ADD TO DO","trail":[],"did":["changed","said: CLOSE / Comments (optional) / Required by (optional)"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/todos","role":"admin","label":"+ ADD TO DO","trail":["(reopen)"],"did":["changed","said: CLOSE / Comments (optional) / Required by (optional)"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/todos","role":"admin","label":"CLOSE","trail":["+ ADD TO DO"],"did":["changed","said: + ADD TO DO"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/todos","role":"admin","label":"+ ADD TO DO","trail":["(reopen)"],"did":["changed","said: CLOSE / Comments (optional) / Required by (optional)"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/todos","role":"admin","label":"Required by","trail":["+ ADD TO DO"],"did":["changed","said: Required by / ✕ / November 2026"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/todos","role":"admin","label":"CLOSE","trail":["+ ADD TO DO","Required by"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/todos","role":"admin","label":"+ ADD TO DO","trail":["(reopen)"],"did":["changed","said: CLOSE / Comments (optional) / Required by (optional)"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/todos","role":"admin","label":"▶ Assign to a PM (optional)","trail":["+ ADD TO DO"],"did":["changed","said: Assign to a project manager / ✕ / Unassigned"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/todos","role":"admin","label":"CLOSE","trail":["+ ADD TO DO","▶ Assign to a PM (optional)"],"did":[],"problems":["covered: something sits on top of it"]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/todos","role":"admin","label":"+ ADD TO DO","trail":["(reopen)"],"did":["changed","said: CLOSE / Comments (optional) / Required by (optional)"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/todos","role":"admin","label":"📎 Photos / documents (optional)","trail":["+ ADD TO DO"],"did":["changed","file picker"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/todos","role":"admin","label":"CLOSE","trail":["+ ADD TO DO","📎 Photos / documents (optional)"],"did":["changed","said: + ADD TO DO"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/todos","role":"admin","label":"+ ADD TO DO","trail":["(reopen)"],"did":["changed","said: CLOSE / Comments (optional) / Required by (optional)"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/todos","role":"admin","label":"Add To Do","trail":["+ ADD TO DO"],"did":["changed","filled 2","said: 2 / Test / No date · Unassigned · 💬 1","wrote POST todos,POST todo_comments"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/todos","role":"admin","label":"CLOSE","trail":["+ ADD TO DO","Add To Do"],"did":["changed","said: + ADD TO DO"],"problems":[]}
+{"route":"/sites/11111111-1111-1111-1111-111111111111/todos","role":"admin","note":"ran out of time on this screen","problems":[],"did":[]}
