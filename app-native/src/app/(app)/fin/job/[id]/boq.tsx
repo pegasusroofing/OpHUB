@@ -351,7 +351,7 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
         <Button small busy={busy} title="Save Bill of Quantities" onPress={() => void save()} />
         <Button small kind="ghost" title="+ New application from this BoQ" onPress={() => router.push(`/fin/job/${id}/application/new` as never)} />
       </View>
-      <Muted style={{ marginTop: 6, fontSize: 12 }}>Saves by itself a few seconds after a change once every line has a description and a value.</Muted>
+      <Muted style={{ marginTop: 6, fontSize: 12 }}>Saves by itself a few seconds after a change once every line has a description and a value.{autoNote ? ` ${autoNote}` : ''}</Muted>
       {rows.length === 0 && <FinRow title="No lines yet" sub="Add sections and items, then save." />}
     </ScrollView>
     {rows.length > 0 && <ThinExportBar onExcel={() => void exportBoq('x')} onPdf={() => void exportBoq('p')} />}
