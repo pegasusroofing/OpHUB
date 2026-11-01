@@ -244,6 +244,20 @@ export async function saveSheetWeek(me: Profile, elementId: string, siteId: stri
   await db.from('price_weeks').update((reason ? { wage_mismatch_override_reason: reason, wage_mismatch_override_by: me.id, wage_mismatch_override_at: now() } : { wage_mismatch_override_reason: null, wage_mismatch_override_by: null, wage_mismatch_override_at: null }) as never).eq('element_id', elementId).eq('week_number', wk);
   return true;
 }
+/** Wages booked from Finance move a price sheet's week straight away (Andy, 1 Nov 2026): they're shared over its lines, so booked-in
+ *  follows and still matches the wages. Lines given a £ override are left alone. Returns a note if the sheet can't take it all. */
+export async function followWages(me: Profile, elementId: string, siteId: string, sheetId: string, wk: number): Promise<string | null> {
+  const items = rows<SheetItem>(await db.from('price_builder_sheet_items').select('*').eq('sheet_id', sheetId).order('sort_order'));
+  if (!items.length) { await rollUpWeek(elementId, siteId, wk); return null; }
+  if ((await weekWages(elementId, wk)) <= 0) {
+    const auto = rows<ItemWeek>(await db.from('price_builder_sheet_item_weeks').select('*').in('sheet_item_id', items.map((i) => i.id)).eq('week_number', wk).eq('is_manual', false));
+    for (const r of auto) await upsertItemWeek(me, r.sheet_item_id, wk, null, 0, false);
+    await rollUpFromItems(elementId, siteId, items, wk);
+    return null;
+  }
+  const said = await allocateWages(me, elementId, siteId, items, wk);
+  return /couldn.t be matched/.test(said) ? said : null;
+}
 export async function allocateWages(me: Profile, elementId: string, siteId: string, items: SheetItem[], wk: number): Promise<string> {
   const wages = await weekWages(elementId, wk);
   if (wages <= 0) return 'Enter at least one labour wage amount first.';

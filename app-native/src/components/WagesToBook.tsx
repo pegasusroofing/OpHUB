@@ -20,7 +20,7 @@ export function WagesToBook({ me, siteId, invoiceId, title = 'Wages to book', sh
   const { data } = useWagePushes(me, { siteId, invoiceId });
   const [busy, setBusy] = useState('');
   if (!data) return null;
-  const refresh = () => ['wagePushes', 'toBook', 'priceTile', 'finSubs', 'siteHome'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] }));
+  const refresh = () => ['wagePushes', 'toBook', 'priceTile', 'priceWeeks', 'finSubs', 'siteHome'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] }));
   const run = async (id: string, f: () => Promise<string | null>, done: string) => { setBusy(id); const e = await f(); setBusy(''); toast(e || done); refresh(); };
   const toPrice = async (p: Record<string, any>) => {
     const els = data.prices.filter((x) => x.site_id === p.site_id);
@@ -60,7 +60,7 @@ export function WagesToBook({ me, siteId, invoiceId, title = 'Wages to book', sh
               ) : (
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
                   <Text style={{ color: base.ok, fontWeight: '700', flex: 1 }}>{PUSH_LABEL[p.status] || p.status}{p.status === 'price' ? `${el ? `: ${el.name}` : ''}, week ${p.week_number}` : ''}</Text>
-                  <Button small kind="ghost" title="Change" onPress={() => void run(p.id, () => unbookWage(p.id), 'Back to be booked')} />
+                  <Button small kind="ghost" title="Change" onPress={() => void run(p.id, () => unbookWage(me, p.id), 'Back to be booked')} />
                 </View>
               )}
             </View>

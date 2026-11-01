@@ -45,7 +45,8 @@ module.exports = async ({as, step, state, keep}) => {
     state.wageBefore = before; state.wagePush = p?.id; state.wageSite = p?.site_id; keep();
     const eid = p?.element_id, sheet = eid ? (await a.get(`price_builder_sheets?select=id&pricing_element_id=eq.${eid}&limit=1`)).length : 0;
     const e = p?.price_entry_id ? (await a.get(`price_week_operative_entries?select=amount,kind,week_number&id=eq.${p.price_entry_id}`))[0] : null;
-    return {ok: !!p && Number(e?.amount) === Number(p.amount) && (sheet || Number(await week(eid, 1)) >= Number(p.amount)), note: `${JSON.stringify(e)} week now ${await week(eid, 1)} sheet ${sheet}`};
+    const now = Number(await week(eid, 1) || 0);
+    return {ok: !!p && Number(e?.amount) === Number(p.amount) && now >= Number(p.amount) && now > before, note: `${JSON.stringify(e)} week now ${await week(eid, 1)} sheet ${sheet}`};
   });
   await step('Other job costs: the second job goes there', async () => {
     await a.page.getByText(/^Other job costs$/).locator('visible=true').first().click({timeout: 6000}); await a.page.waitForTimeout(2500);
@@ -64,6 +65,6 @@ module.exports = async ({as, step, state, keep}) => {
     await a.page.getByText(/^Void$/i).locator('visible=true').last().click({timeout: 6000}); await a.page.waitForTimeout(4000);
     const r = await pushes(state.wageInv);
     const w = await week(el.id, 1);
-    return {ok: r.every((x) => x.status === 'withdrawn' || x.status === 'general' || x.amount === 0) && r.filter((x) => x.price_entry_id).length === 0, note: `${JSON.stringify(r.map((x) => [x.status, x.amount]))} week ${w} before ${state.wageBefore}`};
+    return {ok: r.every((x) => x.status === 'withdrawn' || x.status === 'general' || x.amount === 0) && r.filter((x) => x.price_entry_id).length === 0 && Number(w || 0) === Number(state.wageBefore || 0), note: `${JSON.stringify(r.map((x) => [x.status, x.amount]))} week ${w} before ${state.wageBefore}`};
   });
 };

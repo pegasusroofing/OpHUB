@@ -192,7 +192,7 @@ function WagesTab({ me, siteId }: { me: Profile; siteId?: string }) {
   const [busy, setBusy] = useState(false);
   return (
     <View>
-      <Muted style={{ marginBottom: 10 }}>Labour from operative invoices and PAYE wages from sign-ins wait here. Book each to a price sheet and it updates that week’s booked-in amount, or to other job costs. PMs see their own jobs’ in the Price tile.</Muted>
+      <Muted style={{ marginBottom: 10 }}>Labour from operative invoices and PAYE wages from sign-ins wait here. Book each to a price sheet and that week’s booked-in amount updates straight away, or send it to other job costs. PMs see their own jobs’ in the Price tile.</Muted>
       {!siteId && !wagesOff(me.org_id) && (
         <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', marginBottom: 10 }}>
           <View style={{ flex: 1 }}><DateBox value={week} onChange={(v) => setWeek(monday(v))} /></View>

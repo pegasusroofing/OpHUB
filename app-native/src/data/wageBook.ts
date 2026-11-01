@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { fdb, selectAll } from '@/data/finance';
-import { rollUpWeek } from '@/data/priceSheets';
+import { followWages, rollUpWeek } from '@/data/priceSheets';
 import { addDays, finBlocked, today } from '@/lib/rules/finance';
 import { opInvoicePushes, payeWeekPushes, priceEntry, pushChanges, type PushRow } from '@/lib/rules/wageBook';
 import type { Profile } from '@/lib/types';
@@ -11,34 +11,38 @@ import type { Profile } from '@/lib/types';
 type Row = Record<string, any>;
 export const wagesOff = (orgId: string | null | undefined) => finBlocked('wage-push', undefined, orgId);
 
-const hasSheet = async (elementId: string) => !!((await fdb.from('price_builder_sheets').select('id').eq('pricing_element_id', elementId).limit(1)).data as Row[] | null)?.length;
-// Elements with a price sheet get their weekly figure from the sheet's lines; the rest add up their wage lines.
-const rollUp = async (elementId: string, siteId: string, week: number) => { if (!(await hasSheet(elementId))) await rollUpWeek(elementId, siteId, week); };
+// The week's booked-in follows the wages: a price sheet shares them over its lines, any other price adds up its wage lines.
+const rollUp = async (me: Profile, elementId: string, siteId: string, week: number): Promise<string | null> => {
+  const sheet = ((await fdb.from('price_builder_sheets').select('id').eq('pricing_element_id', elementId).limit(1)).data as Row[] | null)?.[0];
+  if (sheet) return followWages(me, elementId, siteId, sheet.id, week);
+  await rollUpWeek(elementId, siteId, week);
+  return null;
+};
 
 /** Off a price: the line goes, so booking again later can't count it twice. */
-async function takeOffPrice(e: Row) {
+async function takeOffPrice(me: Profile, e: Row) {
   if (!e.price_entry_id) return;
   await fdb.from('price_week_operative_entries').delete().eq('id', e.price_entry_id);
-  if (e.element_id && e.week_number) await rollUp(e.element_id, e.site_id, e.week_number);
+  if (e.element_id && e.week_number) await rollUp(me, e.element_id, e.site_id, e.week_number);
 }
-async function applyPushes(existing: Row[], rows: PushRow[]) {
+async function applyPushes(me: Profile, existing: Row[], rows: PushRow[]) {
   const c = pushChanges(existing, rows);
   if (c.add.length) await fdb.from('wage_pushes').insert(c.add as never);
   for (const { row, was } of c.change) {
     await fdb.from('wage_pushes').update({ amount: row.amount, days: row.days, description: row.description, status: was.status === 'withdrawn' ? 'pending' : was.status } as never).eq('id', was.id);
     if (was.status === 'price' && was.price_entry_id) {
       await fdb.from('price_week_operative_entries').update({ amount: row.amount, updated_at: new Date().toISOString() } as never).eq('id', was.price_entry_id);
-      if (was.element_id && was.week_number) await rollUp(was.element_id, was.site_id, was.week_number);
+      if (was.element_id && was.week_number) await rollUp(me, was.element_id, was.site_id, was.week_number);
     }
   }
   return c;
 }
-async function withdraw(gone: Row[]) {
+async function withdraw(me: Profile, gone: Row[]) {
   for (const e of gone) {
     if (e.status === 'pending') { await fdb.from('wage_pushes').delete().eq('id', e.id); continue; }
     if (e.status === 'withdrawn') continue;
     await fdb.from('wage_pushes').update({ status: 'withdrawn', amount: 0, price_entry_id: null } as never).eq('id', e.id);
-    await takeOffPrice(e);
+    await takeOffPrice(me, e);
   }
 }
 
@@ -46,13 +50,13 @@ async function withdraw(gone: Row[]) {
 export async function syncOpInvoice(me: Profile, p: Row, key: string): Promise<void> {
   if (!me.org_id || wagesOff(me.org_id)) return;
   const existing = ((await fdb.from('wage_pushes').select('*').eq('org_id', me.org_id).like('src_key', `pay|${p.id}|%`)).data as Row[] | null) ?? [];
-  const c = await applyPushes(existing, opInvoicePushes(p, key, me.org_id, me.id));
-  await withdraw(c.gone);
+  const c = await applyPushes(me, existing, opInvoicePushes(p, key, me.org_id, me.id));
+  await withdraw(me, c.gone);
 }
 /** A voided invoice comes off the prices too. */
 export async function withdrawOpInvoice(me: Profile, id: string): Promise<void> {
   if (!me.org_id || wagesOff(me.org_id)) return;
-  await withdraw(((await fdb.from('wage_pushes').select('*').eq('org_id', me.org_id).like('src_key', `pay|${id}|%`)).data as Row[] | null) ?? []);
+  await withdraw(me, ((await fdb.from('wage_pushes').select('*').eq('org_id', me.org_id).like('src_key', `pay|${id}|%`)).data as Row[] | null) ?? []);
 }
 /** A week's PAYE wages from sign-ins. Safe to press again: it only changes what's changed. */
 export async function bringInPayeWeek(me: Profile, week: string): Promise<{ made: number; noRate: string[]; off?: boolean }> {
@@ -66,11 +70,11 @@ export async function bringInPayeWeek(me: Profile, week: string): Promise<{ made
   ]);
   const names: Record<string, string> = {}; people.forEach((x) => { names[x.id] = x.name; });
   const { rows, noRate } = payeWeekPushes(cks, rates, names, week, orgId, me.id);
-  const c = await applyPushes(existing, rows);
+  const c = await applyPushes(me, existing, rows);
   return { made: c.add.length + c.change.length, noRate };
 }
 
-/** Put one against a price for a week, or to other job costs. Returns why not, or null. */
+/** Put one against a price for a week, or to other job costs. Returns anything to say (why not, or that a sheet couldn't take it all), or null. */
 export async function bookWage(me: Profile, id: string, how: 'price' | 'general', elementId?: string, week?: number): Promise<string | null> {
   const p = ((await fdb.from('wage_pushes').select('*').eq('id', id).maybeSingle()).data as Row | null);
   if (!p || p.status !== 'pending') return 'Someone has already booked this one.';
@@ -80,18 +84,17 @@ export async function bookWage(me: Profile, id: string, how: 'price' | 'general'
     const made = await fdb.from('price_week_operative_entries').insert(priceEntry(p, elementId, week, me.id) as never).select('id').single();
     if (made.error) return made.error.message || 'Not booked. Try again.';
     Object.assign(patch, { element_id: elementId, week_number: week, price_entry_id: (made.data as Row).id });
-    await rollUp(elementId, p.site_id, week);
   }
   const ok = await fdb.from('wage_pushes').update(patch as never).eq('id', id).eq('status', 'pending').select('id');
-  if (ok.data?.length) return null;
-  if (patch.price_entry_id) await takeOffPrice({ ...p, ...patch });
+  if (ok.data?.length) return how === 'price' ? rollUp(me, elementId as string, p.site_id, week as number) : null;
+  if (patch.price_entry_id) await takeOffPrice(me, { ...p, ...patch });
   return 'Someone has already booked this one.';
 }
 /** Change your mind: it goes back to being booked. */
-export async function unbookWage(id: string): Promise<string | null> {
+export async function unbookWage(me: Profile, id: string): Promise<string | null> {
   const p = ((await fdb.from('wage_pushes').select('*').eq('id', id).maybeSingle()).data as Row | null);
   if (!p) return 'Not found.';
-  await takeOffPrice(p);
+  await takeOffPrice(me, p);
   const ok = await fdb.from('wage_pushes').update({ status: 'pending', element_id: null, week_number: null, price_entry_id: null, decided_by: null, decided_at: null } as never).eq('id', id).select('id');
   return ok.data?.length ? null : 'Could not change it. Try again.';
 }
