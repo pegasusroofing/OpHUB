@@ -162,7 +162,8 @@ async function fullWrite(route, {q, url, m, table, rows, keys, prefer, held}) {
     if (rows.some((r) => r.site_id && !sites.has(r.site_id))) return held('other job');
     if (table === 'messages' && rows.some((r) => !r.site_id)) return held('company-wide message');
     // send-message-push emails every PM and admin from a database trigger, which this guard can't see from the browser.
-    if (table === 'messages' && rows.some((r) => r.audience === 'managers')) return held('would email the managers');
+    // EMAIL_TEST: Andy agreed (1 Nov) to manager test emails going to his +demo login. The PM sends, so only the admin gets them.
+    if (table === 'messages' && rows.some((r) => r.audience === 'managers') && process.env.EMAIL_TEST !== '1') return held('would email the managers');
     return pass(true);
   }
   const id = (url.match(/[?&]id=eq\.([^&]+)/) || [])[1], ids = (url.match(/[?&]id=in\.\(([^)]+)\)/) || [])[1];
