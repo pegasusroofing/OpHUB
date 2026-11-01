@@ -18,6 +18,11 @@ delete from fin_inbox
 delete from plant_items
  where org_id = '2eb072b7-2704-48c0-8110-62e45e621ded' and created_at >= '2026-10-31';
 
+-- Added 1 Nov: the invoice reader test: its invoices and price list.
+delete from fin_inbox where org_id = '2eb072b7-2704-48c0-8110-62e45e621ded' and extracted->>'supplier' = 'SUPPLIER ZZ Reader Roofing Ltd';
+delete from purchase_invoices where org_id = '2eb072b7-2704-48c0-8110-62e45e621ded' and supplier_name = 'SUPPLIER ZZ Reader Roofing Ltd';
+delete from fin_quote_items where org_id = '2eb072b7-2704-48c0-8110-62e45e621ded' and supplier_name = 'SUPPLIER ZZ Reader Roofing Ltd';
+delete from fin_quotes where org_id = '2eb072b7-2704-48c0-8110-62e45e621ded' and supplier_name = 'SUPPLIER ZZ Reader Roofing Ltd';
 -- The jobs. Their tasks, photos, snags, variations, RAMS, toolbox talks, COSHH, check-ins, calendar dates, repair jobs,
 -- permits, messages and subcontractor records all go with them.
 delete from sites
