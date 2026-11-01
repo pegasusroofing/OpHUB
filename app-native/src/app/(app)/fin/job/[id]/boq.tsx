@@ -386,7 +386,7 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
       {desk && <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>{ioBtn}</View>}
             <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
         <Button small busy={busy} title="Save Bill of Quantities" onPress={() => void save()} />
-        <Button small kind="ghost" title="+ New application from this BoQ" onPress={() => router.push(`/fin/job/${id}/application/new` as never)} />
+        <Button small kind="ghost" title="Publish to Application for Payment" onPress={async () => { await save(); if (snap(latest.current) !== saved.current) return; router.push(`/fin/job/${id}/application/new` as never); }} />
       </View>
       <Muted style={{ marginTop: 6, fontSize: 12 }}>Saves by itself a few seconds after a change once every line has a description and a value.{autoNote ? ` ${autoNote}` : ''}</Muted>
       {rows.length === 0 && <FinRow title="No lines yet" sub="Add sections and items, then save." />}
