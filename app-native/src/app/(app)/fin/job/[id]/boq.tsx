@@ -41,7 +41,7 @@ import { base, page, radius, space, useDesk, useTheme } from '@/theme/theme';
 
 type Row = Record<string, any>;
 const slim = { height: 28, paddingVertical: 2, paddingHorizontal: 8, fontSize: 13, borderRadius: 7 };
-const lab = { fontSize: 11.5, color: base.slate };
+const lab = { fontSize: 11.5, fontWeight: '700' as const, color: base.slate };
 const Pound = ({ width, children }: { width: number | '100%'; children: ReactNode }) => (
   <View style={{ flexDirection: 'row', alignItems: 'center', width, height: 28, paddingHorizontal: 8, borderWidth: 1, borderColor: base.line, borderRadius: 7, backgroundColor: base.card, gap: 3 }}><Text style={{ fontSize: 13, color: base.slate }}>£</Text>{children}</View>
 );
@@ -64,6 +64,7 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
   const [costOpen, setCostOpen] = useState<Record<string, boolean>>({}); // phone: a line's budget cost drop-down
   // The tick boxes stay hidden until Select is chosen from a line's ⋯ menu (Andy, 1 Nov 2026).
   const [selectMode, setSelectMode] = useState(false);
+  const [editRefs, setEditRefs] = useState(false); // refs are fixed text until Edit ref numbers is chosen from a ⋯ menu
   const [bulkOpen, setBulkOpen] = useState(false); // phone: the budget cost tools
   // Every line stays open (Andy, 1 Nov 2026). This is only the new line that takes the cursor.
   const [openK, setOpenK] = useState<string | null>(null);
@@ -192,6 +193,12 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
     if (!ok) toast('Could not make the file — try again.');
   };
 
+  const ioBtn = (
+        <Button small kind="ghost" busy={importing} title="Import / Export" onPress={async () => {
+          const k = await chooseAction('Import / Export', [{ key: 'copy', label: 'Copy in tasks from the site schedule' }, { key: 'send', label: "Send to the operatives' schedule" }, { key: 'imp', label: 'Import a breakdown (Excel, CSV or PDF)' }, ...(lastUp?.path ? [{ key: 'last', label: 'Last Upload' }] : [])]);
+          if (k === 'copy') await bqCopy(); else if (k === 'send') await bqSend(); else if (k === 'imp') await bqImport(); else if (k === 'last') await bqLast();
+        }} />
+  );
   const bqCopy = async () => {
           const [secs, tasks] = await Promise.all([
             fdb.from('schedule_sections').select('id,name,contract_item_id').eq('site_id', id).order('position', { ascending: true, nullsFirst: false }).order('created_at'),
@@ -286,12 +293,12 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
           <View style={{ borderWidth: 1, borderColor: sec ? t.brand1 : r.kind === 'subsection' ? '#DFE3EA' : base.cardLine, borderRadius: 8, paddingVertical: head ? (desk ? 2 : 4) : desk ? 6 : 10, paddingHorizontal: 8, marginBottom: 6, backgroundColor: sec ? t.brand1 : r.kind === 'subsection' ? '#DFE3EA' : base.card, marginLeft: r.kind === 'subsection' ? 10 : 0, ...(rows[g[0]].kind === 'section' ? { marginBottom: 0, marginLeft: 0, borderRadius: 0, borderWidth: 0, borderBottomWidth: 1, borderBottomColor: base.cardLine, ...(sec ? { borderTopLeftRadius: 8, borderTopRightRadius: 8 } : null) } : null), zIndex: rows.length - i }}>
             <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
               {selecting && <Pressable hitSlop={6} focusable={false} accessibilityLabel="Tick" onPress={() => (head ? tick(grp, !on) : set(i, '_sel', !on))}><Text style={{ fontSize: 17, color: head ? ink : base.ink }}>{on ? '☑' : '☐'}</Text></Pressable>}
-              <TextInput value={refs[i]} onChangeText={(v) => set(i, 'ref', v)} placeholder="Ref" placeholderTextColor={head ? ink : undefined} style={[box, slim, { width: desk ? 64 : head ? 30 : 40 }, head && headBox, !desk && { fontSize: 11 }]} />
+              {editRefs ? <TextInput value={refs[i]} onChangeText={(v) => set(i, 'ref', v)} placeholder="Ref" placeholderTextColor={head ? ink : undefined} style={[box, slim, { width: desk ? 64 : head ? 30 : 40 }, head && headBox, !desk && { fontSize: 11 }]} /> : <Text numberOfLines={1} accessibilityLabel="Ref" style={{ width: desk ? 64 : head ? 30 : 40, fontSize: desk ? 13 : 11, fontWeight: '700', color: head ? ink : base.slate, paddingHorizontal: 2 }}>{refs[i]}</Text>}
               <TextInput value={r.description || ''} onChangeText={(v) => set(i, 'description', v)} placeholder={head ? (r.kind === 'section' ? 'Section heading' : 'Sub-section heading') : 'Description'} placeholderTextColor={head ? ink : undefined} autoFocus={openK === r._k} multiline={!head} onContentSizeChange={head ? undefined : (e) => { const h = Math.ceil(e.nativeEvent.contentSize.height); setDescH((o) => (o[r._k] === h ? o : { ...o, [r._k]: h })); }} onKeyPress={head ? undefined : (e) => { const n = e.nativeEvent as unknown as { key: string; shiftKey?: boolean }; if (n.key === 'Tab' && !n.shiftKey) { (e as unknown as { preventDefault: () => void }).preventDefault(); qtyBox.current[r._k]?.focus(); } }} style={[box, slim, { flex: 1, minWidth: 0, height: Math.max(28, descH[r._k] || 0), paddingVertical: 4, lineHeight: 18, fontWeight: desk ? '400' : '700', paddingLeft: desk ? 8 : 16 }, head && { ...headBox, flex: 1, minWidth: 0 }]} />
               {head && <Text style={{ fontWeight: '800', color: ink, minWidth: desk ? 90 : 0, fontSize: desk ? 14 : 12.5, textAlign: 'right' }}>{money(tots[i]?.value || 0)}</Text>}
               <Pressable hitSlop={6} focusable={false} onPress={async () => {
-                const k = await chooseAction('Line', [selecting ? { key: 'unsel', label: 'Stop selecting' } : { key: 'sel', label: 'Select' }, { key: 'ai', label: head ? '+ Item under this heading' : '+ Item below' }, ...(r.kind === 'section' ? [{ key: 'as', label: '+ Sub-section in this section' }] : []), { key: 'asec', label: '+ Section after this' }, { key: 'up', label: '↑ Move up' }, { key: 'down', label: '↓ Move down' }, { key: 'kind', label: 'Change type' }, { key: 'del', label: '🗑 Remove', danger: true }]);
-                if (k === 'sel') { setSelectMode(true); setBulkOpen(true); if (head) tick(grp, true); else set(i, '_sel', true); } else if (k === 'unsel') { setSelectMode(false); setRows((rs) => rs.map((x) => (x._sel ? { ...x, _sel: false } : x))); } else if (k === 'ai') addAt(i, 'item'); else if (k === 'as') addAt(i, 'subsection'); else if (k === 'asec') { const x = rows.slice(); let at = i + 1; while (at < x.length && x[at].kind !== 'section') at++; const n = blank('section'); x.splice(at, 0, n); setRows(x); setOpenK(n._k); }
+                const k = await chooseAction('Line', [selecting ? { key: 'unsel', label: 'Stop selecting' } : { key: 'sel', label: 'Select' }, { key: 'refs', label: editRefs ? 'Finish editing ref numbers' : 'Edit ref numbers' }, { key: 'ai', label: head ? '+ Item under this heading' : '+ Item below' }, ...(r.kind === 'section' ? [{ key: 'as', label: '+ Sub-section in this section' }] : []), { key: 'asec', label: '+ Section after this' }, { key: 'up', label: '↑ Move up' }, { key: 'down', label: '↓ Move down' }, { key: 'kind', label: 'Change type' }, { key: 'del', label: '🗑 Remove', danger: true }]);
+                if (k === 'refs') setEditRefs(!editRefs); else if (k === 'sel') { setSelectMode(true); setBulkOpen(true); if (head) tick(grp, true); else set(i, '_sel', true); } else if (k === 'unsel') { setSelectMode(false); setRows((rs) => rs.map((x) => (x._sel ? { ...x, _sel: false } : x))); } else if (k === 'ai') addAt(i, 'item'); else if (k === 'as') addAt(i, 'subsection'); else if (k === 'asec') { const x = rows.slice(); let at = i + 1; while (at < x.length && x[at].kind !== 'section') at++; const n = blank('section'); x.splice(at, 0, n); setRows(x); setOpenK(n._k); }
                 else if (k === 'up') move(i, -1); else if (k === 'down') move(i, 1); else if (k === 'del') setRows(rows.filter((_, j) => j !== i));
                 else if (k === 'kind') { const t = await chooseAction('Type', [{ key: 'item', label: 'Item' }, { key: 'section', label: 'Section heading' }, { key: 'subsection', label: 'Sub-section heading' }]); if (t) set(i, 'kind', t); }
               }}><Text style={{ fontSize: 18, color: head ? ink : base.slate }}>⋯</Text></Pressable>
@@ -353,7 +360,7 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
           ))}
         </View>
       {/* Budget cost: margin / mark-up for all or the ticked lines, and changes to the ticked lines together (902). */}
-      {!desk && <View style={{ marginBottom: 8 }}><Button small kind="ghost" title={`Budget cost tools ${bulkOpen ? '▴' : '▾'}`} onPress={() => setBulkOpen(!bulkOpen)} /></View>}
+      {!desk && <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8 }}><Button small kind="ghost" title={`Budget cost tools ${bulkOpen ? '▴' : '▾'}`} onPress={() => setBulkOpen(!bulkOpen)} />{ioBtn}</View>}
       {(desk || bulkOpen) && (
       <Card style={{ paddingVertical: 5, paddingHorizontal: 10 }}>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
@@ -376,13 +383,8 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
       </Card>
       )}
 
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
-        <Button small kind="ghost" busy={importing} title="Import / Export" onPress={async () => {
-          const k = await chooseAction('Import / Export', [{ key: 'copy', label: 'Copy in tasks from the site schedule' }, { key: 'send', label: "Send to the operatives' schedule" }, { key: 'imp', label: 'Import a breakdown (Excel, CSV or PDF)' }, ...(lastUp?.path ? [{ key: 'last', label: 'Last Upload' }] : [])]);
-          if (k === 'copy') await bqCopy(); else if (k === 'send') await bqSend(); else if (k === 'imp') await bqImport(); else if (k === 'last') await bqLast();
-        }} />
-      </View>
-      <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+      {desk && <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>{ioBtn}</View>}
+            <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
         <Button small busy={busy} title="Save Bill of Quantities" onPress={() => void save()} />
         <Button small kind="ghost" title="+ New application from this BoQ" onPress={() => router.push(`/fin/job/${id}/application/new` as never)} />
       </View>
