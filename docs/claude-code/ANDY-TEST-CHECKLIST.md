@@ -114,10 +114,10 @@ Items 1 to 38 and 40 were done on the night of 31 Oct and checked at phone size,
 ### Raised 1 Nov 2026
 41. To Do: option A with the counts header from option C. Done.
 42. Schedule of Works report had no photos: the export followed the tab showing, so the To Do tab left out finished work. Now always every task. Date tag and line between days confirmed.
-43. Material requested email as a table. Built; see 46.
+43. Material requested email as a table. Built and live; see 46.
 44. Variation email to carry the photos, and mark up photos on upload. Mark-up done; email see 46.
 45. Permit email to carry the permit as an attachment. New permit PDF built; email see 46.
-46. Any email with a link to a file should attach it. Audit: subcontractor inspection and site induction emails were links; the rest attach, some falling back to a link only when too big. Live functions need deploying.
+46. Any email with a link to a file should attach it. Audit: subcontractor inspection and site induction emails were links; the rest attach, some falling back to a link only when too big. The live functions were updated on 1 Nov with Andy's go-ahead (send-message-push v13, inspection v8, induction v9), but none has sent a real email yet.
 47. Documents tile for PMs and admins showing the job's OneDrive folder. Done. Nothing is copied into the app, so tiles aren't duplicated. Site managers don't get it, as the OneDrive functions are PM and admin only.
 
 ### New job pack (built 1 Nov; on for Sandbox only)
