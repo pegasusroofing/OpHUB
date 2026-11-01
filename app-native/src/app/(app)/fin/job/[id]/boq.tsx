@@ -59,7 +59,7 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
   const closing = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [descH, setDescH] = useState<Record<string, number>>({});
   const clickedInside = useRef(false);
-  const qtyBox = useRef<Record<string, TextInput | null>>({});
+  const qtyBox = useRef<Record<string, { focus: () => void } | null>>({});
   useEffect(() => {
     if (Platform.OS !== 'web' || !openK) return;
     const down = (e: MouseEvent) => {
@@ -314,7 +314,7 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
             {head || !isOpen ? null : (
               <>
                 <View style={{ flexDirection: 'row', gap: 6, marginTop: 4, flexWrap: 'wrap', alignItems: 'center' }}>
-                  <TextInput {...leave} ref={(el) => { qtyBox.current[r._k] = el; }} value={String(r.qty ?? '')} onChangeText={(v) => set(i, 'qty', v)} placeholder="Qty" keyboardType="decimal-pad" style={[box, slim, { width: 70 }]} />
+                  <TextInput {...leave} ref={(el) => { qtyBox.current[r._k] = el as unknown as { focus: () => void } | null; }} value={String(r.qty ?? '')} onChangeText={(v) => set(i, 'qty', v)} placeholder="Qty" keyboardType="decimal-pad" style={[box, slim, { width: 70 }]} />
                   <UnitField value={r.unit || ''} onChangeText={(v) => set(i, 'unit', v)} units={units} onEdit={() => void editUnits()} onFocus={leave.onFocus} onBlur={leave.onBlur} style={[box, slim, { width: 60 }]} />
                   <TextInput {...leave} value={String(r.rate ?? '')} onChangeText={(v) => set(i, 'rate', v)} placeholder="Rate £" keyboardType="decimal-pad" style={[box, slim, { width: 80 }]} />
                   {num(r.value) !== null && num(r.qty) === null && num(r.rate) === null && <TextInput {...leave} value={String(r.value ?? '')} onChangeText={(v) => set(i, 'value', v)} placeholder="Value £" keyboardType="decimal-pad" style={[box, slim, { width: 100 }]} />}
