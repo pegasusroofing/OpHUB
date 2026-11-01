@@ -13,11 +13,11 @@ import * as DocumentPicker from 'expo-document-picker';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { DEFAULT_UNITS, UnitField } from '@/components/UnitField';
 import { autoRefs } from '@/lib/rules/boqRefs';
-import { Fragment, useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 
 import { viewDoc } from '@/components/DocViewer';
 import { openDocLink } from '@/data/hs';
-import { Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { ThinExportBar } from '@/components/FinFilterBar';
 import { FinRow } from '@/components/FinNav';
@@ -41,6 +41,11 @@ import { base, page, radius, space, useTheme } from '@/theme/theme';
 
 type Row = Record<string, any>;
 const slim = { height: 28, paddingVertical: 2, paddingHorizontal: 8, fontSize: 13, borderRadius: 7 };
+const lab = { fontSize: 11.5, color: base.slate };
+const Pound = ({ width, children }: { width: number; children: ReactNode }) => (
+  <View style={{ flexDirection: 'row', alignItems: 'center', width, height: 28, paddingHorizontal: 8, borderWidth: 1, borderColor: base.line, borderRadius: 7, backgroundColor: base.card, gap: 3 }}><Text style={{ fontSize: 13, color: base.slate }}>£</Text>{children}</View>
+);
+const inPound = { flex: 1, minWidth: 0, fontSize: 13, color: base.ink, padding: 0, outlineStyle: 'none' as 'solid' };
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 7, color: base.ink, backgroundColor: base.card };
 
 export default function FinBoq() {
@@ -54,23 +59,10 @@ export default function FinBoq() {
 function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }) {
   const { org } = useAuth();
   const t = useTheme();
-  // One line open at a time (Andy, 1 Nov 2026): click to open, tab out or click away to close.
+  // Every line stays open (Andy, 1 Nov 2026). This is only the new line that takes the cursor.
   const [openK, setOpenK] = useState<string | null>(null);
-  const closing = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [descH, setDescH] = useState<Record<string, number>>({});
-  const clickedInside = useRef(false);
   const qtyBox = useRef<Record<string, { focus: () => void } | null>>({});
-  useEffect(() => {
-    if (Platform.OS !== 'web' || !openK) return;
-    const down = (e: MouseEvent) => {
-      const inside = !!document.getElementById('boq-open-line')?.contains(e.target as Node);
-      clickedInside.current = inside;
-      if (!inside) setOpenK(null);
-    };
-    const key = () => { clickedInside.current = false; };
-    document.addEventListener('mousedown', down); document.addEventListener('keydown', key);
-    return () => { document.removeEventListener('mousedown', down); document.removeEventListener('keydown', key); };
-  }, [openK]);
   const qcUnits = useQueryClient();
   const { data: finSt } = useFinSettings(me.org_id);
   const savedUnits = (finSt as { unit_presets?: string[] | null } | undefined)?.unit_presets;
@@ -257,8 +249,6 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
     <View style={{ flex: 1 }}>
     <ScrollView style={{ flex: 1 }} contentContainerStyle={page(1100)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Bill of Quantities' }} />
-      <Card><Text style={{ fontWeight: '800', color: base.ink }}>Total {money(total)}{costTotal ? ` · budget cost ${money(costTotal)} · ${marginText(total, costTotal) || `margin ${money(total - costTotal)}`}` : ''}</Text><Muted>The operatives&apos; Schedule of Works can be brought in to price, or sent out from here (without prices).{autoNote ? ` · ${autoNote}` : ''}</Muted>
-      </Card>
       {imp && <ImportPreview imp={imp} setImp={setImp} onUse={async (lines) => {
         if (rows.some((x) => String(x.description || '').trim()) && !(await confirmAsk('Replace the lines here with the imported breakdown?', 'Replace'))) return;
         setRows(boqRows(lines).map((r) => ({ ...r, _k: key(), sub: '' }))); setImp(null);
@@ -266,15 +256,13 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
 
       {/* Each section sits in its own border (Andy, 1 Nov 2026); lines before any section don't. */}
       {rows.reduce<number[][]>((gs, r, i) => { if (r.kind === 'section' || !gs.length) gs.push([i]); else gs[gs.length - 1].push(i); return gs; }, []).map((g) => (
-      <View key={rows[g[0]]._k} style={rows[g[0]].kind === 'section' ? { borderWidth: 1.5, borderColor: t.brand1, borderRadius: 10, backgroundColor: base.card, marginBottom: 12, zIndex: g.some((j) => rows[j]._k === openK) ? 40 : 0 } : undefined}>
+      <View key={rows[g[0]]._k} style={rows[g[0]].kind === 'section' ? { borderWidth: 1.5, borderColor: t.brand1, borderRadius: 10, backgroundColor: base.card, marginBottom: 12, zIndex: rows.length - g[0] } : undefined}>
       {g.map((i) => {
         const r = rows[i];
         const head = r.kind === 'section' || r.kind === 'subsection';
         const grp = head ? groupRange(rows, i) : [];
         const on = head ? grp.length > 0 && grp.every((j) => rows[j]._sel) : !!r._sel;
         // Headings are one aligned line in a deeper colour: a section in the company colour, a sub-section in grey (Andy, 1 Nov 2026).
-        const isOpen = openK === r._k;
-        const leave = { onFocus: () => { if (closing.current) clearTimeout(closing.current); }, onBlur: () => { closing.current = setTimeout(() => { if (!clickedInside.current) setOpenK((k) => (k === r._k ? null : k)); }, 150); } } as { onFocus: () => void; onBlur: () => void };
         const sec = r.kind === 'section', ink = sec ? t.brand1Text : base.ink;
         const headBox = { flex: 0, height: 28, paddingVertical: 0, paddingHorizontal: 6, borderWidth: 0, backgroundColor: 'transparent', color: ink, fontWeight: '800' as const };
         // The Add button sits at the end of each section or sub-section: an item, or a sub-section (only ever inside a section).
@@ -288,40 +276,32 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
         };
         return (
           <Fragment key={r._k}>
-          <View nativeID={isOpen ? 'boq-open-line' : undefined} style={{ borderWidth: 1, borderColor: sec ? t.brand1 : r.kind === 'subsection' ? '#DFE3EA' : isOpen ? t.brand1 : base.cardLine, borderRadius: 8, paddingVertical: !head && isOpen ? 8 : 2, paddingHorizontal: 8, marginBottom: 6, backgroundColor: sec ? t.brand1 : r.kind === 'subsection' ? '#DFE3EA' : base.card, marginLeft: r.kind === 'subsection' ? 10 : 0, ...(rows[g[0]].kind === 'section' ? { marginBottom: 0, marginLeft: 0, borderRadius: 0, borderWidth: 0, borderBottomWidth: 1, borderBottomColor: isOpen ? t.brand1 : base.cardLine, ...(sec ? { borderTopLeftRadius: 8, borderTopRightRadius: 8 } : null) } : null), zIndex: isOpen ? 40 : 0 }}>
+          <View style={{ borderWidth: 1, borderColor: sec ? t.brand1 : r.kind === 'subsection' ? '#DFE3EA' : base.cardLine, borderRadius: 8, paddingVertical: head ? 2 : 6, paddingHorizontal: 8, marginBottom: 6, backgroundColor: sec ? t.brand1 : r.kind === 'subsection' ? '#DFE3EA' : base.card, marginLeft: r.kind === 'subsection' ? 10 : 0, ...(rows[g[0]].kind === 'section' ? { marginBottom: 0, marginLeft: 0, borderRadius: 0, borderWidth: 0, borderBottomWidth: 1, borderBottomColor: base.cardLine, ...(sec ? { borderTopLeftRadius: 8, borderTopRightRadius: 8 } : null) } : null), zIndex: rows.length - i }}>
             <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
-              <Pressable hitSlop={6} focusable={!isOpen} accessibilityLabel="Tick" onPress={() => (head ? tick(grp, !on) : set(i, '_sel', !on))}><Text style={{ fontSize: 17, color: head ? ink : base.ink }}>{on ? '☑' : '☐'}</Text></Pressable>
-              {isOpen ? <>
-              <TextInput {...leave} value={refs[i]} onChangeText={(v) => set(i, 'ref', v)} placeholder="Ref" placeholderTextColor={head ? ink : undefined} style={[box, slim, { width: 64 }, head && headBox]} />
-              <TextInput {...leave} value={r.description || ''} onChangeText={(v) => set(i, 'description', v)} placeholder={head ? (r.kind === 'section' ? 'Section heading' : 'Sub-section heading') : 'Description'} placeholderTextColor={head ? ink : undefined} autoFocus multiline={!head} onContentSizeChange={head ? undefined : (e) => { const h = Math.ceil(e.nativeEvent.contentSize.height); setDescH((o) => (o[r._k] === h ? o : { ...o, [r._k]: h })); }} onKeyPress={head ? undefined : (e) => { const n = e.nativeEvent as unknown as { key: string; shiftKey?: boolean }; if (n.key === 'Tab' && !n.shiftKey) { (e as unknown as { preventDefault: () => void }).preventDefault(); qtyBox.current[r._k]?.focus(); } }} style={[box, slim, { flex: 1, height: Math.max(28, descH[r._k] || 0), paddingVertical: 4, lineHeight: 18 }, head && { ...headBox, flex: 1 }]} />
-              </> : (
-                <Pressable accessibilityRole="button" accessibilityLabel={`Open ${r.description || 'line'}`} onPress={() => setOpenK(r._k)} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 28 }}>
-                  <Text numberOfLines={1} style={{ width: 52, fontSize: 13, fontWeight: head ? '800' : '500', color: head ? ink : base.slate }}>{refs[i]}</Text>
-                  <Text style={{ flex: 1, fontSize: 13.5, fontWeight: head ? '800' : '400', color: head ? ink : r.description ? base.ink : base.slateLight }}>{r.description || (head ? 'Heading' : 'Description')}</Text>
-                  {!head && <Text numberOfLines={1} style={{ width: 150, fontSize: 12, color: base.slate, textAlign: 'right' }}>{num(r.qty) !== null ? `${r.qty} ${r.unit || ''} @ ${money(Number(num(r.rate)) || 0)}` : ''}</Text>}
-                  {!head && <Text numberOfLines={1} style={{ width: 210, fontSize: 11.5, color: num(r.cost) !== null && vals[i] && (num(r.cost) as number) > vals[i] ? base.red : base.slate, textAlign: 'right' }}>{num(r.cost) !== null ? marginText(vals[i], num(r.cost)) : ''}</Text>}
-                  {!head && <Text style={{ width: 90, fontWeight: '800', fontSize: 13, color: base.ink, textAlign: 'right' }}>{money(vals[i])}</Text>}
-                </Pressable>
-              )}
+              <Pressable hitSlop={6} focusable={false} accessibilityLabel="Tick" onPress={() => (head ? tick(grp, !on) : set(i, '_sel', !on))}><Text style={{ fontSize: 17, color: head ? ink : base.ink }}>{on ? '☑' : '☐'}</Text></Pressable>
+              <TextInput value={refs[i]} onChangeText={(v) => set(i, 'ref', v)} placeholder="Ref" placeholderTextColor={head ? ink : undefined} style={[box, slim, { width: 64 }, head && headBox]} />
+              <TextInput value={r.description || ''} onChangeText={(v) => set(i, 'description', v)} placeholder={head ? (r.kind === 'section' ? 'Section heading' : 'Sub-section heading') : 'Description'} placeholderTextColor={head ? ink : undefined} autoFocus={openK === r._k} multiline={!head} onContentSizeChange={head ? undefined : (e) => { const h = Math.ceil(e.nativeEvent.contentSize.height); setDescH((o) => (o[r._k] === h ? o : { ...o, [r._k]: h })); }} onKeyPress={head ? undefined : (e) => { const n = e.nativeEvent as unknown as { key: string; shiftKey?: boolean }; if (n.key === 'Tab' && !n.shiftKey) { (e as unknown as { preventDefault: () => void }).preventDefault(); qtyBox.current[r._k]?.focus(); } }} style={[box, slim, { flex: 1, height: Math.max(28, descH[r._k] || 0), paddingVertical: 4, lineHeight: 18 }, head && { ...headBox, flex: 1 }]} />
               {head && <Text style={{ fontWeight: '800', color: ink, minWidth: 90, textAlign: 'right' }}>{money(tots[i]?.value || 0)}</Text>}
-              <Pressable hitSlop={6} focusable={!isOpen} onPress={async () => {
+              <Pressable hitSlop={6} focusable={false} onPress={async () => {
                 const k = await chooseAction('Line', [{ key: 'ai', label: head ? '+ Item under this heading' : '+ Item below' }, ...(r.kind === 'section' ? [{ key: 'as', label: '+ Sub-section in this section' }] : []), { key: 'asec', label: '+ Section after this' }, { key: 'up', label: '↑ Move up' }, { key: 'down', label: '↓ Move down' }, { key: 'kind', label: 'Change type' }, { key: 'del', label: '🗑 Remove', danger: true }]);
                 if (k === 'ai') addAt(i, 'item'); else if (k === 'as') addAt(i, 'subsection'); else if (k === 'asec') { const x = rows.slice(); let at = i + 1; while (at < x.length && x[at].kind !== 'section') at++; const n = blank('section'); x.splice(at, 0, n); setRows(x); setOpenK(n._k); }
                 else if (k === 'up') move(i, -1); else if (k === 'down') move(i, 1); else if (k === 'del') setRows(rows.filter((_, j) => j !== i));
                 else if (k === 'kind') { const t = await chooseAction('Type', [{ key: 'item', label: 'Item' }, { key: 'section', label: 'Section heading' }, { key: 'subsection', label: 'Sub-section heading' }]); if (t) set(i, 'kind', t); }
               }}><Text style={{ fontSize: 18, color: head ? ink : base.slate }}>⋯</Text></Pressable>
             </View>
-            {head || !isOpen ? null : (
+            {head ? null : (
               <>
                 <View style={{ flexDirection: 'row', gap: 6, marginTop: 4, flexWrap: 'wrap', alignItems: 'center' }}>
-                  <TextInput {...leave} ref={(el) => { qtyBox.current[r._k] = el as unknown as { focus: () => void } | null; }} value={String(r.qty ?? '')} onChangeText={(v) => set(i, 'qty', v)} placeholder="Qty" keyboardType="decimal-pad" style={[box, slim, { width: 70 }]} />
-                  <UnitField value={r.unit || ''} onChangeText={(v) => set(i, 'unit', v)} units={units} onEdit={() => void editUnits()} onFocus={leave.onFocus} onBlur={leave.onBlur} style={[box, slim, { width: 60 }]} />
-                  <TextInput {...leave} value={String(r.rate ?? '')} onChangeText={(v) => set(i, 'rate', v)} placeholder="Rate £" keyboardType="decimal-pad" style={[box, slim, { width: 80 }]} />
-                  {num(r.value) !== null && num(r.qty) === null && num(r.rate) === null && <TextInput {...leave} value={String(r.value ?? '')} onChangeText={(v) => set(i, 'value', v)} placeholder="Value £" keyboardType="decimal-pad" style={[box, slim, { width: 100 }]} />}
+                  <Text style={lab}>Qty</Text>
+                  <TextInput ref={(el) => { qtyBox.current[r._k] = el as unknown as { focus: () => void } | null; }} value={String(r.qty ?? '')} onChangeText={(v) => set(i, 'qty', v)} accessibilityLabel="Qty" keyboardType="decimal-pad" style={[box, slim, { width: 70 }]} />
+                  <Text style={lab}>Unit</Text>
+                  <UnitField value={r.unit || ''} onChangeText={(v) => set(i, 'unit', v)} units={units} onEdit={() => void editUnits()} style={[box, slim, { width: 60 }]} />
+                  <Text style={lab}>Sell rate</Text><Pound width={90}><TextInput accessibilityLabel="Rate £" value={String(r.rate ?? '')} onChangeText={(v) => set(i, 'rate', v)} keyboardType="decimal-pad" style={inPound} /></Pound>
+                  {num(r.value) !== null && num(r.qty) === null && num(r.rate) === null && <Pound width={90}><TextInput accessibilityLabel="Amount" value={String(r.value ?? '')} onChangeText={(v) => set(i, 'value', v)} keyboardType="decimal-pad" style={inPound} /></Pound>}
                   <Text style={{ fontSize: 11.5, color: base.slate }}>{num(r.qty) ? 'Cost rate' : 'Cost'}</Text>
-                  <TextInput {...leave} value={costRate(r)} onChangeText={(v) => { const n = num(v), q = num(r.qty); setRows((rs) => rs.map((x, j) => (j === i ? { ...x, cost: n === null || isNaN(n) ? '' : q ? round2(n * q) : n, cost_basis: null, cost_pct: null } : x))); }} placeholder="£" keyboardType="decimal-pad" style={[box, slim, { width: 80 }]} />
+                  <Pound width={90}><TextInput accessibilityLabel="Amount" value={costRate(r)} onChangeText={(v) => { const n = num(v), q = num(r.qty); setRows((rs) => rs.map((x, j) => (j === i ? { ...x, cost: n === null || isNaN(n) ? '' : q ? round2(n * q) : n, cost_basis: null, cost_pct: null } : x))); }} keyboardType="decimal-pad" style={inPound} /></Pound>
                   <Text style={{ fontSize: 11.5, color: base.slate }}>Budget cost</Text>
-                  <TextInput {...leave} value={String(r.cost ?? '')} onChangeText={(v) => setRows((rs) => rs.map((x, j) => (j === i ? { ...x, cost: v, cost_basis: null, cost_pct: null } : x)))} placeholder="£" keyboardType="decimal-pad" style={[box, slim, { width: 80 }]} />
+                  <Pound width={90}><TextInput accessibilityLabel="Amount" value={String(r.cost ?? '')} onChangeText={(v) => setRows((rs) => rs.map((x, j) => (j === i ? { ...x, cost: v, cost_basis: null, cost_pct: null } : x)))} keyboardType="decimal-pad" style={inPound} /></Pound>
                   {subs.length > 0 && <SelectBox value={r.sub || '-'} options={[['-', 'No plot'], ...subs.map((s) => [s.id, s.short] as [string, string])]} onChange={(k) => set(i, 'sub', k === '-' ? '' : k)} title="Plot" compact style={{ marginBottom: 0, width: 130 }} />}
                   <Text style={{ fontSize: 12, color: num(r.cost) !== null && vals[i] && (num(r.cost) as number) > vals[i] ? base.red : base.slate }}>{marginText(vals[i], num(r.cost))}{r.cost_basis && r.cost_pct != null ? ` (set at ${r.cost_pct}% ${r.cost_basis === 'markup' ? 'mark-up' : 'margin'})` : ''}</Text>
                   <Text style={{ marginLeft: 'auto', fontWeight: '800', color: base.ink }}>{money(vals[i])}</Text>
@@ -338,6 +318,8 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
       <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginTop: 8, marginBottom: 24 }}>
         <Button small kind="ghost" title="+ Add" onPress={async () => { const k = await chooseAction('Add', [{ key: 'section', label: 'Section' }, { key: 'item', label: 'Item' }]); if (k) add(k); }} />
       </View>
+      {/* The Bill's summary sits at the bottom; each section's total is on its heading (Andy, 1 Nov 2026). */}
+      <Card style={{ paddingVertical: 8, paddingHorizontal: 12, marginBottom: 10 }}><Text style={{ fontWeight: '800', color: base.ink }}>Total {money(total)}{costTotal ? ` · budget cost ${money(costTotal)} · ${marginText(total, costTotal) || `margin ${money(total - costTotal)}`}` : ''}</Text></Card>
       {/* Budget cost: margin / mark-up for all or the ticked lines, and changes to the ticked lines together (902). */}
       <Card style={{ paddingVertical: 5, paddingHorizontal: 10 }}>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>

@@ -863,3 +863,14 @@
 {"part":"bq1","step":"Lines start closed, one click opens one","ok":true,"note":"boxes 1 then 8","ms":10990}
 {"part":"bq1","step":"Tab through the line closes it","ok":true,"note":"boxes 8 then 1","ms":759}
 {"part":"bq1","step":"+ Add under a section offers Item and Sub-section; no main + Sub-section","ok":true,"note":"main 0, offered 1","ms":1537}
+{"part":"bq4","step":"Open line is slim","ok":true,"note":"row height 77","ms":11506}
+{"part":"bq4","step":"Tab from the description goes to Qty","ok":true,"note":"landed on Qty","ms":456}
+{"part":"bq4","step":"Clicking inside the line keeps it open; no Lump sum box","ok":true,"note":"still open","ms":770}
+{"part":"bq4","step":"Unit: type filters, down arrow and Tab takes it, list has Edit at the bottom","ok":true,"note":"edit 1, roll 1, value nr","ms":1733}
+{"part":"bq4","step":"Clicking outside closes it","ok":true,"note":"closed","ms":573}
+{"part":"bq4","step":"All lines open, with labels and £","ok":true,"note":"4 lines open","ms":9874}
+{"part":"bq4","step":"Tab goes description to Qty, and clicking about never closes","ok":true,"note":"landed on Qty","ms":1038}
+{"part":"bq4","step":"Unit: type filters, down arrow and Tab takes it, Edit at the bottom","ok":true,"note":"value nr","ms":1418}
+{"part":"bq4","step":"All lines open, with labels and £","ok":true,"note":"4 lines open","ms":9900}
+{"part":"bq4","step":"Tab goes description to Qty, and clicking about never closes","ok":true,"note":"landed on Qty","ms":1032}
+{"part":"bq4","step":"Unit: type filters, down arrow and Tab takes it, Edit at the bottom","ok":true,"note":"value nr","ms":1418}
