@@ -81,6 +81,7 @@ export function PmHome() {
       {!!sites?.length && <SitesMapCard sites={sites} />}
       <TileGrid cols={desk ? 4 : 2}>
         {isFinanceUser(me, org) && <Tile ic="pound" tint={TINTS.green[0]} fg={TINTS.green[1]} title="OpHUB Finance" sub="Money in & out" onPress={go('/fin')} />}
+        <Tile ic="reports" tint={TINTS.orange[0]} fg={TINTS.orange[1]} title="Quotes" sub="Tender tracker" onPress={go('/pm/quotes')} />
         <Tile ic="chart" tint={TINTS.teal[0]} fg={TINTS.teal[1]} title="Dashboard" sub="Company overview" onPress={go('/pm/dashboard')} />
         <Tile ic="calendar" tint={TINTS.green[0]} fg={TINTS.green[1]} title="Calendar" sub="All projects" onPress={go('/pm/calendar')} />
         <Tile ic="bell" tint={TINTS.orange[0]} fg={TINTS.orange[1]} title="HUB" sub={hubN ? `${hubN} notification${hubN === 1 ? '' : 's'}` : 'Notifications & messages'} badge={hubN || undefined} onPress={go('/pm/hub')} />

@@ -11,7 +11,7 @@ const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supab
 const rpc = supabase.rpc.bind(supabase) as unknown as (n: string, a: object) => Promise<{ data: unknown; error: unknown }>;
 export type OdStatus = { exists: boolean; connected: boolean; needs_reconnect: boolean; reason?: string; account_email?: string; folder_path?: string } | null;
 export type OdFolder = { id: string; name: string; driveId?: string | null; virtual?: boolean; isSite?: boolean };
-export type OdTarget = 'progress' | 'materials' | 'siteinductions' | 'repairjob' | 'operative' | 'quicklink';
+export type OdTarget = 'progress' | 'materials' | 'siteinductions' | 'repairjob' | 'operative' | 'quicklink' | 'quote';
 export const SHARED_ROOT = '__SHARED__', SITES_ROOT = '__SITES__';
 
 export async function oneDriveStatus(orgId: string | null): Promise<OdStatus> {
@@ -47,6 +47,7 @@ export async function listFolders(at: OdFolder | null): Promise<{ folders: OdFol
 /** Links the chosen folder to whatever the picker was opened for. */
 export async function linkFolder(target: OdTarget, id: string, f: { id: string; name: string; driveId?: string | null }): Promise<boolean> {
   const d = f.driveId || null;
+  if (target === 'quote') return !!(await db.from('quotes').update({ folder_id: f.id, folder_name: f.name, folder_drive_id: d } as never).eq('id', id).select('id')).data?.length;
   if (target === 'repairjob') return !!(await db.from('repair_jobs').update({ onedrive_folder_id: f.id, onedrive_folder_name: f.name, onedrive_drive_id: d } as never).eq('id', id).select('id')).data?.length;
   if (target === 'operative') return !!(await db.from('profiles').update({ onedrive_folder_id: f.id, onedrive_folder_name: f.name, onedrive_drive_id: d, onedrive_last_synced_at: null } as never).eq('id', id).select('id')).data?.length;
   const patch = target === 'materials' ? { material_orders_folder_id: f.id, material_orders_folder_name: f.name, material_orders_drive_id: d }

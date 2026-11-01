@@ -5,6 +5,11 @@ Nothing here touched the real database, real phones, real emails, Xero or OneDri
 
 The Sandbox section below is the exception: it ran against the real database.
 
+## Quote tracker on Sandbox (1 Nov 2026)
+Parts `quote1`, `quote2`. New quote and client into the Directory, client search, folder from the real template (read only) into a test folder, upload, Returned dates the chaser +30, Chase now (one real email to Andy, logged), Tender stage turns the chaser off, Won makes the job and moves the folder into its pack, Lost filed to `- Estimating 2026`, view by customer, Excel and PDF, import with chaser off, second import adds nothing. Real tracker read as a dry run, not loaded.
+
+**Not tested:** the automatic weekday chaser firing (switch off, cron not run); moving between different libraries (copies and leaves the original); linking an existing folder; real Estimating or Live Projects folders; site manager or other roles being refused beyond the code and database rule.
+
 ## Second pass on Sandbox (1 Nov 2026)
 Parts `hs1` to `hs6`, `pack1` to `pack4`, `sowdays` in `tools/test-harness/jobtest-parts/`. Phone size, real database.
 

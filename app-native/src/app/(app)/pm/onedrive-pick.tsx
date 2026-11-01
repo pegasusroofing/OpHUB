@@ -17,6 +17,7 @@ import { isManager } from '@/lib/roles';
 import { base, page, radius, space } from '@/theme/theme';
 
 const DONE: Record<OdTarget, string> = {
+  quote: 'Folder linked to this quote',
   progress: 'Folder linked — photos for this site will sync there from now on', materials: "Folder linked — Material PO's will sync from there daily",
   siteinductions: 'Folder linked — signed inductions will be pushed there from now on', repairjob: 'Folder linked — sending what’s already on the job', operative: 'Folder linked', quicklink: 'Added Quick Link',
 };

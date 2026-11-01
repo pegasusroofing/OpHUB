@@ -45,6 +45,8 @@ function fnAllowed(fn, body) {
   if (fn === 'onedrive-upload') return !!body && !body.subfolder && testSites().has(body.site_id);
   if (FN_PUSH.test(fn)) return !body?.site_id || testSites().has(body.site_id);
   if (fn === 'onedrive-job-pack') return testSites().has(body?.site_id);
+  // Quotes made in this test only. Chase now emails the quote's contact, so it needs CHASE_TEST, and the test's contact is Andy's address.
+  if (fn === 'quote-tracker') return !!created.get('quotes')?.has(body?.quote_id) && (body?.action !== 'chase' || process.env.CHASE_TEST === '1');
   if (!FN_SEND[fn] || !body || !body[FN_SEND[fn]]) return false;
   if (body.site_id && !testSites().has(body.site_id)) return false;
   if (body.client_cc_email) return false;
@@ -119,7 +121,7 @@ async function guard(route) {
     else {
       log({wrote: table, method: m, keys});
       if (haveIds) rows.forEach((r) => remember(table, r.id));
-      else try { JSON.parse(text).forEach((r) => r.id && remember(table, r.id)); } catch (e) { log({untracked: table}); }
+      else try { [].concat(JSON.parse(text)).forEach((r) => r.id && remember(table, r.id)); } catch (e) { log({untracked: table}); }
     }
     return route.fulfill({response: res, body: text});
   }
@@ -151,7 +153,7 @@ async function fullWrite(route, {q, url, m, table, rows, keys, prefer, held}) {
     if (res.status() >= 400) log({writeFailed: table, method: m, status: res.status(), keys, message: text.slice(0, 240)});
     else {
       log({wrote: table, method: m, keys});
-      if (rememberRows) { try { JSON.parse(text).forEach((r) => r.id && remember(table, r.id)); } catch (e) { rows.forEach((r) => r.id && remember(table, r.id)); } if (!/representation/.test(prefer)) rows.forEach((r) => r.id && remember(table, r.id)); }
+      if (rememberRows) { try { [].concat(JSON.parse(text)).forEach((r) => r.id && remember(table, r.id)); } catch (e) { rows.forEach((r) => r.id && remember(table, r.id)); } if (!/representation/.test(prefer)) rows.forEach((r) => r.id && remember(table, r.id)); }
     }
     return route.fulfill({response: res, body: text});
   };

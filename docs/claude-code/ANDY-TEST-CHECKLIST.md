@@ -120,6 +120,9 @@ Items 1 to 38 and 40 were done on the night of 31 Oct and checked at phone size,
 46. Any email with a link to a file should attach it. Audit: subcontractor inspection and site induction emails were links; the rest attach, some falling back to a link only when too big. The live functions were updated on 1 Nov with Andy's go-ahead (send-message-push v13, inspection v8, induction v9), but none has sent a real email yet.
 47. Documents tile for PMs and admins showing the job's OneDrive folder. Done. Nothing is copied into the app, so tiles aren't duplicated. Site managers don't get it, as the OneDrive functions are PM and admin only.
 
+### Quote tracker (built 1 Nov; for Andy to load)
+48. Replaces `Estimating/Open Tenders/Tender Tracker.xlsm`. Home › Quotes. Client from the Directory, filters and views by customer, discipline, who priced it, year and outcome; Excel and PDF exports; folder from the New Enquiry template; filed by year when finished; Won makes the job and moves the folder into its pack; chaser per quote, off at Tender stage, company switch off by default. Settings need the real paths before folders work for RTB. Real tracker not loaded yet: dry run read 500-odd quotes.
+
 ### New job pack (built 1 Nov; on for Sandbox only)
 Rules: `docs/claude-code/New Job Pack - what goes where.xlsx`. Andy edits it and loads it in Admin Centre › OneDrive › New job pack. Results in `TEST-COVERAGE-2026-10-31.md`.
 39. Setting up a new job makes its OneDrive folder from `RTB Roofing Ltd/Live Projects/- New Job Pack - Template`, and links areas of the app to the right sub-folders. Needs a new server function and more folder links on each job. Not to run for RTB without Andy's say-so while Finance is in trial.
