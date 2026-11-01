@@ -897,3 +897,4 @@
 {"part":"bq5","step":"Budget cost opens and closes per line","ok":true,"note":"0 then 1","ms":622}
 {"part":"bq5","step":"Bottom of the page","ok":true,"note":"heights 26 and 26","ms":695}
 {"part":"bq6","step":"Three tiles","ok":true,"note":"Total £10,000.00 Budget cost £3,150.00 Margin 68.5% Budge","ms":10446}
+{"part":"bq7","step":"Hidden, Select shows them, Stop selecting hides them","ok":true,"note":"0, 6, 0","ms":12341}
