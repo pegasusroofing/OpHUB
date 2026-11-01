@@ -40,8 +40,8 @@ delete from suppliers where org_id = '2eb072b7-2704-48c0-8110-62e45e621ded' and 
 delete from havs_tools where org_id = '2eb072b7-2704-48c0-8110-62e45e621ded' and created_at >= '2026-10-31';
 delete from price_rate_items where org_id = '2eb072b7-2704-48c0-8110-62e45e621ded' and created_at >= '2026-10-31';
 
-commit;
-
 -- Added 1 Nov: test quotes on Sandbox (their chaser log goes with them). Other "ZZ ..." library rows from the Finance and
 -- admin test are left: they're Sandbox only, and harmless.
 delete from quotes where org_id = '2eb072b7-2704-48c0-8110-62e45e621ded' and (client_name like 'ZZ %' or title like 'ZZ %');
+
+commit;

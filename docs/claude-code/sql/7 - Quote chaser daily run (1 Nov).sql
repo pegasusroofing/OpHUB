@@ -1,3 +1,4 @@
+-- DONE 1 Nov 2026: applied at Andy's request. Do not paste again.
 -- Quote chaser: the weekday 8am run (UTC) that sends chasers automatically.
 -- Paste into Supabase > SQL Editor when you want automatic chasing available.
 -- It copies the settings from the calendar reminders job, so the secret isn't written here. If you change the cron
