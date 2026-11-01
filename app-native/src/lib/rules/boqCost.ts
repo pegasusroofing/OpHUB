@@ -15,9 +15,9 @@ export function costFromPct(sale: number | null | undefined, basis: 'margin' | '
 export function marginText(value: number | null | undefined, cost: number | null | undefined): string {
   const v = Number(value), c = Number(cost);
   if (cost == null || value == null || isNaN(c) || !v) return '';
-  const m = ((v - c) / v) * 100, k = c ? ((v - c) / c) * 100 : null;
+  const m = ((v - c) / v) * 100;
   const pct = (n: number) => `${Math.round(n * 10) / 10}%`;
-  return `Margin ${pct(m)} (${money(v - c)})${k != null ? ` · mark-up ${pct(k)}` : ''}`;
+  return `Margin ${pct(m)} (${money(v - c)})`;
 }
 /** The item lines under a section (to the next section) or sub-section (to the next heading). */
 export function groupRange(rows: { kind?: BoqKind }[], i: number): number[] {

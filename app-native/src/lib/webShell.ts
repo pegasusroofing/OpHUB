@@ -4,7 +4,10 @@
 import { LogBox, Platform } from 'react-native';
 
 // react-native-web's touch handling reports these in development only. Neither stops the press working.
-LogBox.ignoreLogs(['Cannot find single active touch', "ScrollView doesn't take rejection well"]);
+const HUSH = ['Cannot find single active touch', "ScrollView doesn't take rejection well"];
+LogBox.ignoreLogs(HUSH);
+const consoleError = console.error;
+console.error = (...args: unknown[]) => { if (typeof args[0] === 'string' && HUSH.some((h) => (args[0] as string).includes(h))) return; consoleError(...args); };
 
 if (Platform.OS === 'web' && typeof document !== 'undefined') {
   let meta = document.querySelector('meta[name="viewport"]');

@@ -884,3 +884,6 @@
 {"part":"bar1","step":"Deliveries none","ok":true,"note":"/pm/deliveries bar 0","ms":7440}
 {"part":"bar1","step":"Projects has it","ok":true,"note":"/sites bar 1","ms":7455}
 {"part":"bar1","step":"Job has it","ok":true,"note":"/sites/96807f70-a7ac-4b20-b401-e3e83fe66e60 bar 1","ms":7366}
+{"part":"bq5","step":"Headings fit; description bold; no mark-up","ok":true,"note":"total right edge 329, weight 700","ms":10188}
+{"part":"bq5","step":"Budget cost opens and closes per line","ok":true,"note":"0 then 1","ms":572}
+{"part":"bq5","step":"Bottom of the page","ok":true,"note":"tools button","ms":667}
