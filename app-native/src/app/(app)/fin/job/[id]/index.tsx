@@ -180,7 +180,6 @@ function Overview({ id, fc, settings, invs, apps, book }: { id: string; fc: Retu
       </View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
         {ghost('Full Summary', `/fin/job/${id}/summary`)}
-        {!fc.isInvoiceJob && ghost('Bill of Quantities', `/fin/job/${id}/boq`)}
         {!!subKind(site) && ghost(subKind(site) === 'repair' ? 'Costs by repair job' : 'Costs by plot', `/fin/job/${id}/parts`)}
         <View style={{ flex: 1 }} />
         {ghost('Monthly Report', `/fin/job/${id}/monthly`)}{ghost('Day Works', `/fin/job/${id}/dayworks`)}{ghost('Budgets', `/fin/job/${id}/budget`)}{ghost('Project Quotes', `/fin/job/${id}/quotes`)}
