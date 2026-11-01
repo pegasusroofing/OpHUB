@@ -31,8 +31,8 @@ const SECTION: Record<string, string> = { schedule: 'Schedule Of Works', drawing
 async function copyAddress(a: string): Promise<boolean> {
   try {
     if (Platform.OS !== 'web') { await Share.share({ message: a }); return false; }
-    if (globalThis.navigator?.clipboard) await globalThis.navigator.clipboard.writeText(a);
-    else {
+    const done = await globalThis.navigator?.clipboard?.writeText(a).then(() => true).catch(() => false);
+    if (!done) {
       // No clipboard on a page without https: copy the old way.
       const box = document.createElement('textarea'); box.value = a; document.body.appendChild(box); box.select(); document.execCommand('copy'); box.remove();
     }

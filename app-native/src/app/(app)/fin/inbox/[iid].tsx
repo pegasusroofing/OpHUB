@@ -1,11 +1,12 @@
 // An emailed purchase invoice waiting in the inbox (906 openFinInboxItem):
 // open the file, check what was read, choose the job (and PO), and file it
 // as a purchase invoice — one server step (fin_inbox_file) so two people can
-// never file it twice. Sending it to a PM is off during the Finance trial.
+// never file it twice. Sending it to a PM to book is off during the Finance trial.
+import { finBlocked } from '@/lib/rules/finance';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, Text } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { InvoiceLines } from '@/components/InvoiceLines';
 import { checkAll, loadReadContext, readOne, saveLinesOnInvoice } from '@/data/invoiceRead';
@@ -82,7 +83,13 @@ export default function FinInboxItem() {
         if (!(await fdb.from('fin_inbox').update({ status: 'ignored', stage: 'ignored' } as never).eq('id', it.id).select('id')).data?.length) { toast('Could not save — try again.'); return; }
         toast('Ignored'); void qc.invalidateQueries({ queryKey: ['finPurchases'] }); router.back();
       }} />}
-      <Muted style={{ marginTop: 8 }}>Sending it to a PM to book is switched off while Finance is on trial.</Muted>
+      {!filed && !finBlocked('wage-push', undefined, me.org_id) && <View style={{ marginTop: space.m }}><Button kind="ghost" title={it.assigned_pm ? 'With a PM: send to someone else…' : 'Send to a PM to book…'} onPress={async () => {
+        const pms = ((await fdb.from('profiles').select('id,name,role,finance_only').eq('org_id', me.org_id as string).in('role', ['pm', 'admin'])).data as { id: string; name: string; finance_only?: boolean }[] | null ?? []).filter((x) => !x.finance_only);
+        const k = await chooseAction('Which PM?', pms.map((x) => ({ key: x.id, label: x.name }))); if (!k) return;
+        const ok = await fdb.from('fin_inbox').update({ stage: 'with_pm', assigned_pm: k, assigned_at: new Date().toISOString() } as never).eq('id', it.id).select('id');
+        toast(ok.data?.length ? `Sent to ${pms.find((x) => x.id === k)?.name}` : 'Not sent. Try again.'); void qc.invalidateQueries({ queryKey: ['finInbox', iid] }); void qc.invalidateQueries({ queryKey: ['finPurchases'] });
+      }} /></View>}
+      {!filed && finBlocked('wage-push', undefined, me.org_id) && <Muted style={{ marginTop: 8 }}>Sending it to a PM to book is switched off while Finance is on trial.</Muted>}
       {filing && sid && (
         <FinForm title="File as a purchase invoice" initial={{ supplier: ex.supplier || '', invoice_no: ex.invoice_no || '', date: ex.date || today(), net: ex.net ?? '', vat: ex.vat ?? '', total: ex.total ?? '' }} onClose={() => setFiling(false)} saveLabel="File it"
           fields={[{ k: 'supplier', label: 'Supplier' }, { k: 'invoice_no', label: 'Invoice no.', half: true }, { k: 'date', label: 'Invoice date', kind: 'date', half: true }, { k: 'net', label: 'Net £', kind: 'money', half: true }, { k: 'vat', label: 'VAT £', kind: 'money', half: true }, { k: 'total', label: 'Total £', kind: 'money' }]}

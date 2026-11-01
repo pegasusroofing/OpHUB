@@ -6,7 +6,7 @@ module.exports = async ({as, step, state}) => {
   const url = () => new URL(a.page.url()).pathname;
   await step('Tabs: full words, and they stay on Collections', async () => {
     await a.go(`/sites/${site}/materials/requests`, 5000); await clear(); await a.shot('tabs1');
-    await a.page.getByText(/^Collections/).locator('visible=true').first().click({timeout: 6000}); await a.page.waitForTimeout(2500); await a.shot('tabs2');
+    await a.page.locator('[role=tab]').filter({hasText: /^Collections/}).first().click({timeout: 6000}); await a.page.waitForTimeout(2500); await a.shot('tabs2');
     const t = await a.text();
     return {ok: /Material Requests/.test(t) && /Completed/.test(t) && !/Suppliers/.test(t.slice(0, 500)), note: url()};
   });

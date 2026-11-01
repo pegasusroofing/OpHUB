@@ -286,8 +286,8 @@ function Setup({ id, site, jf, cpos, settings }: { id: string; site: Row | undef
       )) : <Muted style={{ marginBottom: 8 }}>No client PO yet.</Muted>}
       <Button kind="ghost" title="+ Client PO" onPress={() => { setPo(null); setFile(null); setEdit('po'); }} />
       {edit === 'site' && site && (
-        <FinForm title="Project" note="The same details as on the project itself — change them here or there and both update." initial={{ name: site.name || '', status: site.status === 'closed' ? 'closed' : site.status === 'upcoming' ? 'upcoming' : 'live', start_date: site.start_date || '', client_name: site.client_name || '', address: site.address || '', postcode: site.postcode || '' }} onClose={() => setEdit(null)}
-          fields={[{ k: 'name', label: 'Project name' }, { k: 'status', label: 'Status', kind: 'choice', options: [['upcoming', 'Upcoming'], ['live', 'Live'], ['closed', 'Closed']], half: true }, { k: 'start_date', label: 'Start date', kind: 'date', half: true }, { k: 'client_name', label: 'Client' }, { k: 'address', label: 'Site address' }, { k: 'postcode', label: 'Postcode', half: true }]}
+        <FinForm title="Project" note="The same details as on the project itself — change them here or there and both update." initial={{ name: site.name || '', status: site.status === 'closed' ? 'closed' : site.status === 'upcoming' ? 'upcoming' : 'live', start_date: site.start_date || '', client_name: site.client_name || '', address: site.address || '', postcode: site.postcode || '', pm: (site as { responsible_pm_id?: string | null }).responsible_pm_id || '' }} onClose={() => setEdit(null)}
+          fields={[{ k: 'name', label: 'Project name' }, { k: 'status', label: 'Status', kind: 'choice', options: [['upcoming', 'Upcoming'], ['live', 'Live'], ['closed', 'Closed']], half: true }, { k: 'start_date', label: 'Start date', kind: 'date', half: true }, ...(!people?.length ? [] : [{ k: 'pm', label: 'Project manager', kind: 'choice' as const, options: [['', 'None yet'], ...(people ?? []).filter((x) => ['pm', 'admin'].includes(x.role) && !(x as { finance_only?: boolean }).finance_only).sort((a, b) => a.name.localeCompare(b.name)).map((x) => [x.id, x.name])] as [string, string][] }]), { k: 'client_name', label: 'Client' }, { k: 'address', label: 'Site address' }, { k: 'postcode', label: 'Postcode', half: true }]}
           onSave={async (v) => {
             const name = String(v.name || '').trim(); if (!name) return 'A project needs a name.';
             const p: Row = { name, client_name: String(v.client_name || '').trim() || null, address: String(v.address || '').trim() || null, postcode: String(v.postcode || '').trim().toUpperCase() || null, start_date: String(v.start_date || '') || null };
@@ -301,6 +301,7 @@ function Setup({ id, site, jf, cpos, settings }: { id: string; site: Row | undef
               if (!cli) cli = ((await fdb.from('fin_clients').insert({ org_id: me.org_id, name: p.client_name, created_by: me.id } as never).select('*').single()).data as Row | null) ?? null;
               if (cli) p.client_name = cli.name;
             }
+            if ((v as { pm?: string }).pm !== undefined) (p as Record<string, unknown>).responsible_pm_id = (v as { pm?: string }).pm || null;
             if (!(await fdb.from('sites').update(p as never).eq('id', id).select('id')).data?.length) return 'Could not save — try again.';
             if (cli) await fdb.from('job_finance').update({ billing_name: cli.name, billing_address: [cli.address, cli.postcode].filter(Boolean).join('\n') || null, billing_email: cli.email || null } as never).eq('site_id', id);
             refresh(); return null;

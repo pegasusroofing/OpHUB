@@ -53,6 +53,7 @@ export default function FinSubcontract() {
   if (!me) return null;
   if (sid !== 'new' && isLoading) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   const sc = data?.sc || null, apps = data?.apps || [];
+  const { data: sheet } = useQuery({ queryKey: ['finSubSheet', sc?.price_sheet_id], enabled: !!sc?.price_sheet_id, queryFn: async () => (await fdb.from('price_builder_sheets').select('id,title,status,total,site_id,pricing_element_id').eq('id', sc?.price_sheet_id).maybeSingle()).data as Record<string, any> | null });
   if (sid !== 'new' && !sc) return <Muted style={{ padding: space.l }}>Subcontractor PO not found.</Muted>;
   const refresh = () => ['finSub', 'finSubs', 'finBook'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] }));
   const lastCert = apps.filter((a) => a.certified_gross != null).pop();
@@ -81,6 +82,7 @@ export default function FinSubcontract() {
   return (
     <ScrollView contentContainerStyle={page(900)}>
       <Stack.Screen options={{ title: sc ? `${sc.number} · ${sc.name}` : 'New subcontractor PO' }} />
+      {!!sheet && <Card><Muted style={{ fontWeight: '700' }}>Price sheet</Muted><Text style={{ color: base.ink, fontWeight: '700' }}>{sheet.title || 'Price sheet'} · {sheet.status === 'issued' ? 'Issued' : 'Draft'} · {money(Number(sheet.total || 0))}</Text></Card>}
       {sc && (
         <>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>

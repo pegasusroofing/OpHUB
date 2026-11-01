@@ -42,6 +42,16 @@ export function FinNewPo({ site, itemIds = [] }: { site: Site; itemIds?: string[
   const [req, setReq] = useState('');
   const [ref, setRef] = useState('');
   const [note, setNote] = useState('');
+  const [contact, setContact] = useState('');
+  const [contactPh, setContactPh] = useState('');
+  const { data: team } = useQuery({ queryKey: ['finPoTeam', site.id], queryFn: async () => {
+    const a = ((await fdb.from('site_assignments').select('user_id').eq('site_id', site.id)).data as { user_id: string }[] | null) ?? [];
+    const ids = [...a.map((x) => x.user_id), (site as { responsible_pm_id?: string | null }).responsible_pm_id].filter(Boolean) as string[];
+    return ids.length ? ((await fdb.from('profiles').select('id,name,phone,role').in('id', ids)).data as { id: string; name: string; phone: string | null; role: string }[] | null) ?? [] : [];
+  } });
+  const { data: finSups } = useQuery({ queryKey: ['finPoSupVat', me?.org_id], enabled: !!me, queryFn: async () => ((await fdb.from('fin_suppliers').select('supplier_id,name,purchase_vat').eq('org_id', me?.org_id as string)).data as { supplier_id: string | null; name: string; purchase_vat: string | null }[] | null) ?? [] });
+  // A supplier's default VAT from the Directory goes on every line.
+  const useSupVat = (id: string, name: string) => { const v = finSups?.find((x) => x.supplier_id === id || x.name.trim().toLowerCase() === name.trim().toLowerCase())?.purchase_vat; if (v && vats.some((x) => x.code === v)) setLines((ls) => ls.map((l) => ({ ...l, vat: v }))); };
   const [busy, setBusy] = useState(false);
   // Ticked on Purchase Quotes (9219z finPqRaisePo): those items become the lines, the supplier filled in.
   const [filled, setFilled] = useState(false);
@@ -61,6 +71,7 @@ export function FinNewPo({ site, itemIds = [] }: { site: Site; itemIds?: string[
 
   const raise = async () => {
     if (!supId && !supText.trim()) { toast('Choose the supplier.'); return; }
+    if (contact.trim() && !contactPh.trim()) { toast(`Add a contact number for ${contact.trim()}.`); return; }
     if (isNew && newEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail.trim())) { toast('Check the supplier’s email.'); return; }
     const items = lines.filter((l) => l.description.trim()).map((l) => ({ item: l.description.trim(), qty: num(l.qty), unit: l.unit.trim() || null, rate: num(l.rate), amount: amt(l), cost_code: l.cost_code || 'materials', vat_rate: l.vat, vat: r2(amt(l) * rateOf(l.vat)) }));
     if (!items.length) { toast('Add at least one item.'); return; }
@@ -72,10 +83,10 @@ export function FinNewPo({ site, itemIds = [] }: { site: Site; itemIds?: string[
         if (!made.data) { toast('Could not add the supplier.'); return; }
         id = (made.data as { id: string }).id; name = supText.trim();
       }
-      const res = await supabase.rpc('fin_new_po' as never, { p_site: site.id, p_supplier_id: id, p_supplier_name: name, p_items: items, p_required: req || null, p_note: note.trim() || null, p_delivery: delivery } as never);
+      const res = await supabase.rpc('fin_new_po' as never, { p_site: site.id, p_supplier_id: id, p_supplier_name: name, p_items: items, p_required: req || null, p_note: [contact.trim() ? `Site contact: ${contact.trim()} – ${contactPh.trim()}` : '', note.trim()].filter(Boolean).join('\n') || null, p_delivery: delivery } as never);
       const d = res.data as { id: string; number: string } | null;
       if (res.error || !d?.id) { toast(`Could not raise the PO — ${res.error?.message || 'try again'}`); return; }
-      await fdb.from('purchase_orders').update({ vat, total: r2(net + vat), reference: ref.trim() || null, issue_date: todayIso(), ...(sub ? { sub_job_id: sub } : {}) } as never).eq('id', d.id);
+      await fdb.from('purchase_orders').update({ vat, total: r2(net + vat), reference: ref.trim() || null, issue_date: todayIso(), site_contact: contact.trim() || null, site_contact_phone: contactPh.trim() || null, ...(sub ? { sub_job_id: sub } : {}) } as never).eq('id', d.id);
       router.replace(`/fin/po/${d.id}` as never);
     } finally { setBusy(false); }
   };
@@ -85,7 +96,7 @@ export function FinNewPo({ site, itemIds = [] }: { site: Site; itemIds?: string[
       <Card>
         <SectionTitle>New purchase order · {jobTag(site)}</SectionTitle>
         <SuggestField label="Supplier" value={supText} onChangeText={(t) => { setSupText(t); setSupId(null); }} placeholder="Type to find a supplier, or a new name" showAllOnFocus max={12}
-          items={(setup?.sups || []).map((s) => ({ key: s.id, label: s.name, sub: s.email || '' }))} onPick={(s) => { setSupId(s.key); setSupText(s.label); }} />
+          items={(setup?.sups || []).map((s) => ({ key: s.id, label: s.name, sub: s.email || '' }))} onPick={(s) => { setSupId(s.key); setSupText(s.label); useSupVat(s.key, s.label); }} />
         {isNew && <><Muted style={{ marginTop: -6, marginBottom: 6 }}>New supplier — added to your suppliers when the PO is raised.</Muted><TextInput value={newEmail} onChangeText={setNewEmail} placeholder="Supplier's orders email (optional)" autoCapitalize="none" keyboardType="email-address" style={[box, { marginBottom: 8 }]} /></>}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           {subs.length > 0 && <SelectBox label="Plot / address" value={sub || '-'} options={[['-', 'Whole job'], ...subs.map((s) => [s.id, s.short] as [string, string])]} onChange={(k) => setSub(k === '-' ? '' : k)} style={{ minWidth: 180, flexGrow: 1 }} />}
@@ -95,6 +106,8 @@ export function FinNewPo({ site, itemIds = [] }: { site: Site; itemIds?: string[
             <DateBox value={req} onChange={setReq} min={todayIso()} title="Required by" />
           </View>
         </View>
+        <SuggestField label="Site contact" value={contact} onChangeText={setContact} placeholder="Start typing a name" showAllOnFocus max={12} items={(team || []).map((p) => ({ key: p.id, label: p.name, sub: p.phone || '' }))} onPick={(s) => { setContact(s.label); const ph = team?.find((p) => p.id === s.key)?.phone; if (ph) setContactPh(ph); }} />
+        <TextInput accessibilityLabel="Contact number" value={contactPh} onChangeText={setContactPh} keyboardType="phone-pad" placeholder="Contact number" style={[box, { marginBottom: 8 }]} />
         <TextInput value={ref} onChangeText={setRef} placeholder="Your reference (optional), e.g. Quote Q-5521" style={[box, { marginBottom: 8 }]} />
         <TextInput value={note} onChangeText={setNote} placeholder="Notes for the supplier (optional)" multiline style={[box, { minHeight: 52 }]} />
       </Card>
