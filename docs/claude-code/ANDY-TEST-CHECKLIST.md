@@ -53,7 +53,8 @@ Andy's own hands-on review of the new app. This is separate from the automatic t
 - Statements
 - Yard stock
 
-## Faults and changes Andy has raised (31 Oct 2026, phone view). All still to do.
+## Faults and changes Andy has raised (31 Oct 2026, phone view)
+Items 1 to 38 and 40 were done on the night of 31 Oct and checked at phone size, with these limits: 3 and 40 need a check on a real iPhone over https. 13: now 1.7 seconds on the test server. 14: the AI reader for PDF imports isn't built; it reads text only, as before. 9 and 17: development-only messages, hidden and the press works. 20: Change stays for PMs and admins. 39 is for 1 Nov.
 
 ### Login and projects list
 1. The OpHUB title on the login page is black.

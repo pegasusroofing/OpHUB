@@ -5,6 +5,23 @@ Nothing here touched the real database, real phones, real emails, Xero or OneDri
 
 The Sandbox section below is the exception: it ran against the real database.
 
+## Real jobs worked on Sandbox (night of 31 Oct to 1 Nov 2026)
+`tools/test-harness/jobtest.js` with `FULL=1`, parts in `jobtest-parts/`. Phone size, real database, real file uploads, as the project manager, site manager, operative, driver, client and subcontractor logins. Andy's admin login had expired, so the project manager led. Each step checks what the database holds afterwards.
+
+**Used for real and worked:** new job; team; Schedule of Works sections, tasks, pre-start, progress and completed photos (3 seconds, three sizes), slider, status changes, site condition Submit, CSV import; Export to PDF (opened and checked as a PDF), hand-off to a stand-in share menu, OneDrive (file arrived on this laptop); one real email (to Andy only, no copies, confirmed in the email log); Drawings upload, any file type, rename, supersede, delete, sub-folder, Export; RAMS upload, issue, operative signature, signed PDF, supersede with re-sign, RAMS builder through to issued; toolbox talk upload, issue, operative signature, signed PDF; COSHH upload and signature; snag with photo and close; variation with photo and approval; material request; calendar date and Visibility (operative really can't read a managers-only date); To Do; HUB @ mention, Send choice, thread; check-in and out with location and phone id; PPE request; plant item; repair job from survey to sign-off and closed, survey PDF, tracker Excel; multi-site addresses, task on a plot, check-in at a plot; main contractor switch, subcontractor company, person attached, their folder, only their tasks, their RAMS signed, hot works permit; O&M manual and PDF; price started; delivery from office to driver, completed with a photo; site manager snag; client read-only view.
+
+**Faults found and fixed:** photo records refused for good where phones or non-https pages couldn't make a proper id (every record id, whole app); calendar never showed its dates; the trail kept a folder's steps on other pages; a subcontractor landed on Projects, not their folder; clients saw no tasks that sit in a section (see SQL file 6); a project manager's new subcontractor lost its library profile (fix not rerun).
+
+**Started or opened only, not finished:** daily briefing and reports (started, not submitted); HAVS and induction (page opened); incident form (opened); expenses (receipt added, not sent).
+
+**Not tested:**
+- Finance on real jobs: the admin login had expired and the project manager has no Finance access.
+- Company admin pages: same reason.
+- OneDrive folder picker and sync from OneDrive. Uploads went to the automatic folder for the job.
+- Emails other than the Schedule of Works report. Those that copy the sender or pick people from the database were blocked, as the only allowed address was Andy's.
+- Real phones: camera, GPS, push, finger signing, the real WhatsApp share menu, and the taskbar against a real iPhone address bar.
+- The phone-size button run wasn't rerun for the moment the app reloaded (about 22:12). It had no crashes.
+
 ## Sandbox run on the real database (31 Oct 2026)
 `crawl.js` with `REAL=1` behind `tools/test-harness/sandbox-guard.js`. Admin login, computer size, 3 hours 25 minutes. 138 screens opened, 4,423 presses, no crashes.
 
@@ -21,12 +38,16 @@ The Sandbox section below is the exception: it ran against the real database.
 
 **Not covered:**
 - Other roles have no Sandbox login. They were checked by a database rules test that was undone afterwards. It showed no role can see or change another company's data, and that site managers, operatives, drivers and clients can't see or edit invoices or POs.
-- 35 screens were skipped because Sandbox has no matching record: subcontractor pages, briefings, permits, RAMS builder, incidents, O&M, drawing files, operative detail and others.
+- 35 screens were skipped at first because Sandbox had no matching record. Test records were added and all 35 were then opened and pressed (929 presses, no crashes).
 - 51 busy screens reached 30 or more presses. Each view stops at 30 different buttons, so some buttons on them weren't pressed here.
 - 433 presses were flagged. 205 "nothing happened": the ones checked were information rows, tabs already open and the backgrounds of pop-ups. 222 "covered" and 6 "could not press" came to 94 different buttons, 46 of which were pressed fine another time in the run. The rest were pressed one at a time by `sandbox-recheck.js` on a fresh screen, except those under "Still not pressed" below.
 - **Recheck on the real database:** yard rates and repair photos load with no database error. Delete project lists what's booked to a job with records, and asks to confirm on an empty job (not confirmed). Schedule task To Commence and In Progress, section close-out, and HAVS save and close all saved. Schedule export and email open their forms (not sent). Change dates and the library buttons open or save. The Final Account, Day Works and Prelims menus on the job page are the Contract Value, Variations and Costs cards after a different figure is chosen, and those menus opened fine.
 - **Still not pressed on the real database:** New Briefing, Add a receipt, Submit Variation and Apply to ticked (greyed out until filled in), and date picks in driver time off and material requests. Also the pop-up Close buttons (those pop-ups closed other ways) and plant "Finance".
 - Saves that happen behind the scenes (positions, links, synced dates) were left without the new check, as a failure there isn't something a person acts on.
+
+**Phone size (31 Oct):** all 173 screens, 5,846 presses, no crashes, no failed reads. One save refused: a duplicate company name in the test data.
+
+**Dead-looking buttons:** 177 checked against the old app, 2 real gaps, both fixed.
 
 Test rows are removed by `docs/claude-code/sql/5 - Sandbox test tidy-up (31 Oct).sql`.
 
