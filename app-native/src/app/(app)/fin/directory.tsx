@@ -8,7 +8,8 @@ import { useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { FinForm, type Field } from '@/components/FinForm';
-import { FinChip, FinPage, FinRow } from '@/components/FinNav';
+import { FinFilterBar } from '@/components/FinFilterBar';
+import { FinPage, FinRow } from '@/components/FinNav';
 import { Cell, FinTable, FootText } from '@/components/FinTable';
 import { bankOk, sortCode } from '@/components/FinSubs';
 import { useToast } from '@/components/toast';
@@ -47,7 +48,8 @@ export default function FinDirectory() {
   const qc = useQueryClient();
   const [q, setQ] = useState('');
   const [edit, setEdit] = useState<Row | null>(null);
-  const [ppl, setPpl] = useState('subs');
+  const [pplSel, setPplSel] = useState<Record<string, string[]>>({ show: ['subs'] });
+  const [pplSort, setPplSort] = useState('az');
   const [busy, setBusy] = useState(false);
   const desk = useDesk();
   const th = useTheme();
@@ -99,7 +101,7 @@ export default function FinDirectory() {
   if (kind === 'labour') {
     const rows = (data as Row[]) || [];
     const F: Record<string, (x: Row) => boolean> = { subs: (x) => x.r.active !== false && x.r.pay_type !== 'paye', unver: (x) => x.r.active !== false && x.r.pay_type !== 'paye' && !x.r.cis_verified_at, paye: (x) => x.r.active !== false && x.r.pay_type === 'paye', left: (x) => x.r.active === false, all: () => true };
-    const list = rows.filter(F[ppl]).filter((x) => !ql || `${x.name} ${x.r.name || ''} ${x.r.utr || ''}`.toLowerCase().includes(ql));
+    const list = rows.filter((x) => !pplSel.show.length || pplSel.show.some((k) => F[k](x))).filter((x) => !ql || `${x.name} ${x.r.name || ''} ${x.r.utr || ''}`.toLowerCase().includes(ql)).slice().sort((a, b) => (pplSort === 'za' ? -1 : 1) * String(a.name || '').localeCompare(String(b.name || '')));
     const cur = edit;
     const linkedApps = new Set(rows.map((x) => x.r.application_id).filter(Boolean));
     const waiting = apps.filter((a) => !linkedApps.has(a.id));
@@ -134,13 +136,11 @@ export default function FinDirectory() {
             ))}
           </View>
         )}
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
-          {[['subs', 'CIS subcontractors'], ['unver', 'Not verified'], ['paye', 'PAYE staff'], ['left', 'No longer working for us'], ['all', 'All']].map(([k, l]) => <FinChip key={k} on={ppl === k} label={l} n={rows.filter(F[k]).length} onPress={() => setPpl(k)} />)}
-          <View style={{ marginLeft: 'auto' }}><Button title="+ Add a person" onPress={() => setEdit({ key: '', name: '', r: { pay_type: 'subcontractor', cis_rate: 20 }, app: false })} /></View>
-        </View>
-        <TextInput value={q} onChangeText={setQ} placeholder="Search name or UTR" style={box} />
+        <View style={{ marginBottom: 8 }}><Button title="+ Add a person" onPress={() => setEdit({ key: '', name: '', r: { pay_type: 'subcontractor', cis_rate: 20 }, app: false })} /></View>
+        <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search name or UTR' }} sel={pplSel} onChange={setPplSel} onClear={() => setPplSel({ show: [] })} sorts={[['az', 'Name A to Z'], ['za', 'Name Z to A']]} sort={pplSort} onSort={setPplSort}
+          parts={[{ key: 'show', label: 'Show', items: [['subs', 'CIS subcontractors'], ['unver', 'Not verified'], ['paye', 'PAYE staff'], ['left', 'No longer working for us']].map(([v, l]) => ({ v, l, n: rows.filter(F[v]).length })) }]} />
         {isLoading ? <Muted>Loading…</Muted> : list.length ? list.map((x) => (
-          <FinRow key={x.key} title={x.name} sub={[x.app ? 'Has the app' : '', x.r.pay_type === 'paye' ? 'PAYE' : CIS.find(([k]) => Number(k) === Number(x.r.cis_rate ?? 20))?.[1], x.r.pay_type === 'paye' ? '' : x.r.utr ? `UTR ${x.r.utr}` : 'UTR missing', x.r.pay_type === 'paye' ? '' : x.r.cis_verified_at ? `verified ${fdate(x.r.cis_verified_at)}` : 'unverified', bankOk(x.r) ? `${sortCode(x.r.bank_sort_code)} · ••${String(x.r.bank_account_no).replace(/\D/g, '').slice(-4)}` : x.r.pay_type === 'paye' ? 'payroll' : 'bank not saved'].filter(Boolean).join(' · ')} right={x.r.day_rate != null ? `${money(x.r.day_rate)}/day` : ''} onPress={() => setEdit(x)} />
+          <FinRow compact key={x.key} title={x.name} sub={[x.app ? 'Has the app' : '', x.r.pay_type === 'paye' ? 'PAYE' : CIS.find(([k]) => Number(k) === Number(x.r.cis_rate ?? 20))?.[1], x.r.pay_type === 'paye' ? '' : x.r.utr ? `UTR ${x.r.utr}` : 'UTR missing', x.r.pay_type === 'paye' ? '' : x.r.cis_verified_at ? `verified ${fdate(x.r.cis_verified_at)}` : 'unverified', bankOk(x.r) ? `${sortCode(x.r.bank_sort_code)} · ••${String(x.r.bank_account_no).replace(/\D/g, '').slice(-4)}` : x.r.pay_type === 'paye' ? 'payroll' : 'bank not saved'].filter(Boolean).join(' · ')} right={x.r.day_rate != null ? `${money(x.r.day_rate)}/day` : ''} onPress={() => setEdit(x)} />
         )) : <Empty>No one here yet.</Empty>}
         {cur && (
           <FinForm title={cur.key ? cur.name : 'Add a person'} initial={{ ...cur.r, name: cur.r.name || (cur.app ? cur.name : ''), cis_rate: String(cur.r.cis_rate ?? 20), pay_type: cur.r.pay_type || 'subcontractor', active: cur.r.active !== false }} onClose={() => setEdit(null)}

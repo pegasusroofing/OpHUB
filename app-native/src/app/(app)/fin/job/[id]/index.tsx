@@ -8,7 +8,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { FinForm } from '@/components/FinForm';
-import { FinChip, FinRow } from '@/components/FinNav';
+import { FinChip, FinRow, FinTabRow } from '@/components/FinNav';
 import { OphIcon } from '@/components/OphIcon';
 import { PurchaseQuotes } from '@/components/FinPurchaseQuotes';
 import { PurchasesLists } from '@/components/FinPurchases';
@@ -87,13 +87,13 @@ export default function FinJob() {
           <Text style={{ color: t.brand1Text, fontSize: 12.5, fontWeight: '800' }}>+ New</Text><Text style={{ color: t.brand1Text, fontSize: 11 }}>▾</Text>
         </Pressable>
       </View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ borderBottomWidth: 1, borderBottomColor: '#e5e7eb', marginBottom: 14, flexGrow: 0 }} contentContainerStyle={{ gap: 2 }}>
+      <FinTabRow>
         {[...TABS, ...(fc && !fc.isInvoiceJob ? [['boq', 'Bill of Quantities'] as [string, string]] : [])].map(([key, l]) => (
           <Pressable key={key} onPress={() => (key === 'boq' ? router.push(`/fin/job/${id}/boq` as never) : router.setParams({ tab: key }))} style={{ paddingVertical: 12, paddingHorizontal: 14, borderBottomWidth: 2, borderBottomColor: tab === key ? t.brand1 : 'transparent' }}>
             <Text style={{ fontSize: 13, fontWeight: tab === key ? '700' : '600', color: tab === key ? '#111827' : '#6b7280' }}>{l}</Text>
           </Pressable>
         ))}
-      </ScrollView>
+      </FinTabRow>
       {isLoading || !fc || !data ? <Muted>Loading…</Muted> : tab === 'overview' ? <Overview id={id} fc={fc} settings={data.settings} invs={data.book.invs.filter((i) => i.site_id === id)} apps={data.book.apps.filter((a) => a.site_id === id)} book={data.book as unknown as Row} />
         : tab === 'sales' ? <>{subTabs('sales', [['invoices', 'Invoices'], ...(fc.isInvoiceJob && !data.book.apps.some((a) => a.site_id === id) ? [] : [['apps', 'Applications & Certificates'], ['retention', 'Retention']] as [string, string][])])}<SalesLists key={sub.sales} tab={sub.sales as 'invoices'} siteId={id} /></>
         : tab === 'purchases' ? <>{subTabs('purchases', [['orders', 'Purchase orders'], ['invoices', 'Purchase invoices'], ['plant', 'Plant hire'], ['quotes', 'Purchase Quotes']])}{sub.purchases === 'quotes' ? <PurchaseQuotes siteId={id} /> : <PurchasesLists key={sub.purchases} tab={sub.purchases as 'orders'} siteId={id} />}</>
@@ -210,6 +210,7 @@ function Overview({ id, fc, settings, invs, apps, book }: { id: string; fc: Retu
       </View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
         {ghost('Full Summary', `/fin/job/${id}/summary`)}
+        {!fc.isInvoiceJob && ghost('Bill of Quantities', `/fin/job/${id}/boq`)}
         {!!subKind(site) && ghost(subKind(site) === 'repair' ? 'Costs by repair job' : 'Costs by plot', `/fin/job/${id}/parts`)}
         <View style={{ flex: 1 }} />
         {ghost('Monthly Report', `/fin/job/${id}/monthly`)}{ghost('Day Works', `/fin/job/${id}/dayworks`)}{ghost('Budgets', `/fin/job/${id}/budget`)}{ghost('Project Quotes', `/fin/job/${id}/quotes`)}

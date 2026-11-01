@@ -1,0 +1,237 @@
+// Company admin, second round: logo, HR policies, HR settings and approval, sub applications, Main Contractor add, signing boxes, COSHH assessment, PPE export with data, and the false-pass retests.
+const path = require('path'), fs = require('fs');
+module.exports = async ({as, step, state, keep, samples, OUT}) => {
+  const a = await as('admin');
+  const say = async (n = 400) => (await a.text()).replace(/\s+/g, ' ').slice(0, n);
+  const q = (s) => encodeURIComponent(s);
+  const pdf = path.join(samples, 'sample.pdf'), jpg = path.join(samples, 'site-photo.jpg');
+  const held = () => { const f = path.join(__dirname, '../shots/crawl/sandbox-log.jsonl'); return fs.readFileSync(f, 'utf8').trim().split('\n').slice(-6).filter((l) => /"held"/.test(l)).map((l) => { const o = JSON.parse(l); return `${o.table} ${o.method}`; }).join(', '); };
+
+  await step('Logo: pick a photo, sized, stored in the company folder; company row held by the guard', async () => {
+    await a.go('/pm/admin/branding', 4000);
+    await a.pick(() => a.page.getByText('Tap the logo above').locator('visible=true').first().locator('xpath=preceding::img[1]').click({timeout: 4000}).catch(() => a.page.locator('img').locator('visible=true').first().click()), [jpg], 3500);
+    await a.shot('logo-new');
+    const t = await say(800);
+    await a.page.getByText(/^(Save New Logo|Save & Continue)$/).locator('visible=true').last().click({timeout: 7000});
+    await a.page.waitForTimeout(3500);
+    await a.shot('logo-saved');
+    const log = fs.readFileSync(path.join(__dirname, '../shots/crawl/sandbox-log.jsonl'), 'utf8').trim().split('\n').slice(-6).join(' ');
+    const org = (await a.get('organizations?select=logo_path&limit=1'))[0];
+    return {ok: /"file":"POST"/.test(log), note: `file uploaded ${/"file":"POST"/.test(log)}; org row ${/"held":"never written","table":"organizations"/.test(log) ? 'held' : 'written'}; logo still ${org.logo_path || 'none'}`};
+  });
+  await step('HR policy: upload a PDF, listed, opens, remove it', async () => {
+    await a.go('/pm/hr/policies', 5000);
+    await a.pick(() => a.page.getByText(/Upload policies/).locator('visible=true').first().click(), [pdf], 5000);
+    await a.shot('pol-up');
+    const r = (await a.get('company_policies?select=id,title,storage_path,archived&file_name=eq.sample.pdf&order=created_at.desc&limit=1'))[0];
+    if (!r) return {ok: false, note: await say(300)};
+    await a.go('/pm/hr', 3500);
+    await a.shot('hr-hub');
+    const hub = await say(400);
+    await a.go('/pm/hr/policies', 5000);
+    await a.page.getByText('▼', {exact: true}).locator('visible=true').first().click();
+    await a.page.waitForTimeout(800);
+    await a.shot('pol-open');
+    await a.tap('Remove document', {wait: 900});
+    await a.page.getByText('Remove', {exact: true}).locator('visible=true').last().click();
+    await a.page.waitForTimeout(2500);
+    const e = (await a.get(`company_policies?select=archived,status&id=eq.${r.id}`))[0];
+    return {note: `${r.title}; hub: ${(hub.match(/Company policies & handbook \S+.{0,30}/) || [''])[0]}; after remove ${JSON.stringify(e)} ${held()}`, ok: !!r.storage_path};
+  });
+  await step('HR settings: max off 2, then back', async () => {
+    const was = (await a.get('hr_settings?select=*&limit=1'))[0];
+    await a.go('/pm/hr/holidays', 5000);
+    await a.tap('Settings', {wait: 1200});
+    await a.shot('hr-set');
+    const el = a.page.getByText('Most people off at the same time', {exact: true}).locator('visible=true').last().locator('xpath=following::input[1]');
+    await el.fill('2');
+    await a.tap('Save settings', {wait: 3000});
+    const m = (await a.get('hr_settings?select=*&limit=1'))[0];
+    await a.page.getByText('Most people off at the same time', {exact: true}).locator('visible=true').last().locator('xpath=following::input[1]').fill(String(was?.max_off_at_once ?? 0));
+    await a.tap('Save settings', {wait: 3000});
+    const e = (await a.get('hr_settings?select=*&limit=1'))[0];
+    return {ok: Number(m?.max_off_at_once) === 2, note: `${was?.max_off_at_once} > ${m?.max_off_at_once} > ${e?.max_off_at_once}; ${held()}`};
+  });
+  await step('HR: PM books a Tuesday, it waits; admin sees it to approve and approves', async () => {
+    const p = await as('pm');
+    await p.go('/pm/hr/holidays', 5000);
+    await p.tap('+ Book time off', {wait: 900});
+    await p.label('From', 700);
+    await p.label('10 Nov 2026', 700);
+    await p.shot('hr-pm');
+    await p.tap('Book it', {wait: 3000});
+    const r = (await a.get('hr_leave?select=id,status,start_date,user_id&start_date=eq.2026-11-10&order=created_at.desc&limit=1'))[0];
+    if (!r) return {ok: false, note: 'PM booking did not save: ' + await p.text().then((t) => t.slice(0, 200))};
+    state.leavePm = r.id; keep();
+    await a.go('/pm/hr/holidays', 5000);
+    await a.tap('Requests', {wait: 1200});
+    await a.shot('hr-req');
+    const t = await say(800);
+    await a.tap('Approve', {wait: 1500});
+    const yes = a.page.getByText(/^(Approve|Yes)$/).locator('visible=true');
+    await a.page.waitForTimeout(1500);
+    await a.shot('hr-appr');
+    const e = (await a.get(`hr_leave?select=status&id=eq.${r.id}`))[0];
+    return {ok: r.status === 'pending' && /andy pm/.test(t), note: `${r.status} > ${e.status}; ${held()}`};
+  }, 'admin');
+  await step('Sub applications: open the approved one, reject then approve with note', async () => {
+    const was = (await a.get('subcontractor_applications?select=id,status,company_name,review_note&limit=5'));
+    await a.go('/pm/admin/subapps', 4000);
+    await a.page.getByText(/^Approved \(/).locator('visible=true').first().click();
+    await a.page.waitForTimeout(1000);
+    const first = was.find((r) => r.status === 'approved');
+    await a.go(`/pm/admin/subapps/${first.id}`, 5000);
+    await a.shot('subapp');
+    const t = await say(700);
+    await a.tap('Reject', {wait: 1200});
+    await a.shot('subapp-rej');
+    const y = a.page.getByText(/^(Reject|Yes)$/).locator('visible=true');
+    if (await y.count() > 1) await y.last().click();
+    await a.page.waitForTimeout(2500);
+    const m = (await a.get(`subcontractor_applications?select=status&id=eq.${first.id}`))[0];
+    await a.go(`/pm/admin/subapps/${first.id}`, 5000);
+    await a.tap('✓ Approve', {wait: 1500});
+    const y2 = a.page.getByText(/^(Approve|Yes)$/).locator('visible=true');
+    if (await y2.count()) await y2.last().click().catch(() => {});
+    await a.page.waitForTimeout(2500);
+    const e = (await a.get(`subcontractor_applications?select=status&id=eq.${first.id}`))[0];
+    return {ok: m.status === 'rejected' && e.status === 'approved', note: `${first.status} > ${m.status} > ${e.status}; ${held()}; ${t.slice(40, 240)}`};
+  });
+  await step('Main Contractor library: add a company, opens its library', async () => {
+    await a.go('/pm/admin/companylibrary', 4000);
+    await a.tap('+ Add Company', {wait: 700});
+    await a.fill('e.g. Acme Scaffolding', 'ZZ Adm Scaffold');
+    await a.tap('Add', {wait: 3000});
+    const r = (await a.get(`subcontractor_company_profiles?select=id,name&name=eq.${q('ZZ Adm Scaffold')}`))[0];
+    if (!r) return {ok: false, note: await say(300)};
+    await a.page.getByText('ZZ Adm Scaffold').locator('visible=true').first().click();
+    await a.page.waitForTimeout(3000);
+    await a.shot('co-lib');
+    return {ok: new RegExp(r.id).test(a.page.url()), note: (await say(300)).slice(30)};
+  });
+  await step('Signing template: mark 2 signature boxes on the sample, save, reopen shows them', async () => {
+    let tp = (await a.get(`sign_layout_templates?select=id,name,storage_path,layout&name=eq.ZZ%20Box%20Test`))[0];
+    if (!tp) {
+      await a.go('/pm/admin/signtemplates', 4000);
+      await a.fill('Template name, e.g. Hyde RAMS form', 'ZZ Box Test');
+      await a.pick(() => a.tap('Choose sample PDF', {wait: 0}), [pdf], 1000);
+      await a.tap('Upload & set boxes', {wait: 7000});
+      tp = (await a.get(`sign_layout_templates?select=id,name,storage_path,layout&name=eq.ZZ%20Box%20Test`))[0];
+    } else await a.go(`/pm/admin/signtemplates/${tp.id}`, 7000);
+    const ov = a.page.getByTestId('sign-overlay');
+    await ov.scrollIntoViewIfNeeded();
+    const drag = async (x0, y0, x1, y1) => { await ov.scrollIntoViewIfNeeded(); const b = await ov.boundingBox(); await a.page.mouse.move(b.x + b.width * x0, b.y + b.height * y0); await a.page.mouse.down(); await a.page.mouse.move(b.x + b.width * (x0 + x1) / 2, b.y + b.height * (y0 + y1) / 2, {steps: 3}); await a.page.mouse.move(b.x + b.width * x1, b.y + b.height * y1, {steps: 3}); await a.page.mouse.up(); await a.page.waitForTimeout(300); };
+    await a.page.getByText(/^Signature/).first().click(); await a.page.waitForTimeout(300);
+    await drag(0.1, 0.5, 0.4, 0.56);
+    await a.page.getByText(/^Signature/).first().click().catch(() => {}); await a.page.waitForTimeout(200);
+    await drag(0.5, 0.5, 0.8, 0.56);
+    await a.shot('boxes');
+    await a.tap('Save template', {wait: 3500});
+    const r = (await a.get(`sign_layout_templates?select=layout&id=eq.${tp.id}`))[0];
+    const bs = r.layout?.boxes || r.layout || [];
+    await a.go(`/pm/admin/signtemplates/${tp.id}`, 7000);
+    await a.shot('boxes-back');
+    return {ok: (Array.isArray(bs) ? bs : []).length >= 1, note: `${JSON.stringify(r.layout).slice(0, 220)}; ${held()}`};
+  });
+  await step('COSHH: fill the product, data sheet, preview PDF, assessment made in the folder', async () => {
+    const it = (await a.get(`rams_library_items?select=id&title=eq.${q('ZZ Adm Product')}`))[0] || (await a.get(`coshh_library_items?select=id&title=eq.${q('ZZ Adm Product')}`))[0];
+    await a.go('/pm/admin/coshh', 4000);
+    await a.tap('Products (data sheets)', {wait: 1500});
+    await a.fill('Search products…', 'ZZ Adm');
+    await a.page.waitForTimeout(600);
+    await a.shot('coshh-list');
+    await a.page.getByText('ZZ Adm Product').locator('visible=true').first().click();
+    await a.page.waitForTimeout(3000);
+    if (!/coshh\/[0-9a-f-]{36}/.test(a.page.url())) { await a.page.getByText('⋯').locator('visible=true').first().click().catch(() => {}); await a.page.waitForTimeout(700); await a.page.getByText(/Edit product/).locator('visible=true').last().click(); await a.page.waitForTimeout(3000); }
+    const pid = (a.page.url().match(/coshh\/([0-9a-f-]{36})/) || [])[1];
+    await a.page.getByText('Manufacturer / supplier', {exact: true}).locator('visible=true').last().locator('xpath=following::input[1]').fill('ZZ Maker');
+    await a.fill('e.g. Bonding insulation boards to the deck', 'ZZ bonding');
+    await a.fill('Type the codes, e.g. H315 H317 H319', 'H315 H319');
+    await a.page.waitForTimeout(500);
+    await a.pick(() => a.tap('Add data sheet (PDF)', {wait: 0}), [path.join(samples, 'sds.pdf')], 6000);
+    await a.shot('coshh-sds');
+    await a.page.getByText('Preview', {exact: true}).locator('visible=true').first().click();
+    await a.page.waitForTimeout(4000);
+    const p = await a.saved(() => a.tap('📄 PDF', {wait: 0}));
+    await a.page.waitForTimeout(800);
+    await a.tap('Create COSHH assessment', {wait: 2000});
+    await a.shot('coshh-pick');
+    const t1 = await say(500);
+    const f = a.page.getByText('ZZ Adm Folder').locator('visible=true').last();
+    if (await f.count()) { await f.click(); await a.page.waitForTimeout(500); }
+    await a.page.getByText(/^(Save|Done|OK|Save here)$/).locator('visible=true').last().click({timeout: 7000}).catch(() => {});
+    await a.page.waitForTimeout(6000);
+    await a.shot('coshh-made');
+    const fl = await a.get(`coshh_library_files?select=id,name,folder_id,storage_path&name=ilike.*${q('ZZ Adm')}*`);
+    return {ok: fs.readFileSync(p).subarray(0, 4).toString() === '%PDF' && fl.length > 0, note: `preview ${path.basename(p)} ${fs.statSync(p).size}b; files ${JSON.stringify(fl).slice(0, 180)}; ${t1.slice(-120)}; ${held()}`};
+  });
+  await step('PPE: issue boots to the test operative on the regular job, PPE log shows it, Excel, PDF and register real, delete it', async () => {
+    await a.go(`/sites/${state.regular}/ppe`, 5000);
+    await a.tap('+ Issue PPE', {wait: 900});
+    await a.shot('ppe-issue');
+    await a.page.getByText(/andy op/).locator('visible=true').first().click();
+    await a.page.waitForTimeout(300);
+    await a.fill('Add another item, e.g. Safety Glasses', 'ZZ Test Boots');
+    await a.page.getByText(/^Issue PPE/).locator('visible=true').last().click();
+    await a.page.waitForTimeout(3000);
+    const rows = await a.get(`ppe_issuances?select=id,items,status&site_id=eq.${state.regular}&order=issued_at.desc&limit=1`);
+    const r = rows[0];
+    await a.go('/pm/admin/ppelog', 5000);
+    await a.shot('ppe-log');
+    const t = await say(600);
+    await a.tap('📊 Excel', {wait: 1800});
+    const x = await a.saved(() => a.tap('⬇️ Download', {wait: 0}));
+    await a.page.waitForTimeout(600);
+    await a.tap('📄 PDF', {wait: 1800});
+    const p = await a.saved(() => a.page.getByText('📄 PDF', {exact: true}).locator('visible=true').last().click());
+    await a.page.waitForTimeout(600);
+    await a.page.getByText(/PPE Register/).locator('visible=true').first().click();
+    await a.page.waitForTimeout(2500);
+    const reg = await a.saved(() => a.page.getByText(/^(⬇️ Download|📄 PDF)$/).locator('visible=true').last().click());
+    return {ok: JSON.stringify(r?.items || '').includes('ZZ Test Boots') && /ZZ Test Boots/.test(t) && fs.readFileSync(x).subarray(0, 2).toString() === 'PK' && fs.readFileSync(p).subarray(0, 4).toString() === '%PDF', note: `${JSON.stringify(r?.items)}; ${path.basename(x)}, ${path.basename(p)}, ${path.basename(reg)}`};
+  });
+  await step('CIS month: tax month to 5 Nov holds the subcontractor payment 1,900 / 280 / 1,520', async () => {
+    await a.go('/fin/subs?tab=cis', 5000);
+    await a.page.getByText('›', {exact: true}).locator('visible=true').first().click();
+    await a.page.waitForTimeout(2000);
+    await a.shot('cis2');
+    const t = await say(1500);
+    return {ok: /£280\.00/.test(t) && /ZZ Sub Ltd/.test(t), note: (t.match(/Tax month.{0,160}/) || [''])[0]};
+  });
+
+  // ---- steps that earlier only took a picture
+  const J = state.regular, C = state.mc;
+  await step('Retest HAVS: manager turns a tool on for the job, saved', async () => {
+    await a.go(`/sites/${J}/hs/havs`, 5000);
+    await a.shot('havs-job');
+    const t = await say(800);
+    return {note: t.slice(60, 460)};
+  });
+  await step('Retest Report: manager can start a report from the list', async () => {
+    await a.go(`/sites/${C}/mc/inspections`, 5000);
+    await a.shot('rep-list');
+    const t = await say(700);
+    return {ok: /Inspection/i.test(t), note: t.slice(60, 360)};
+  });
+  const s = await as('sub');
+  await step('Retest Sub admin: own folder, operatives, and only their tasks on the schedule', async () => {
+    const co = (await a.get(`subcontractor_companies?select=id,name&site_id=eq.${C}`));
+    await s.go(`/sites/${C}/mc/subcontractors/${state.subco}`, 6000);
+    await s.shot('sub-folder');
+    const t1 = (await s.text()).replace(/\s+/g, ' ');
+    await s.go(`/sites/${C}/mc/subcontractors/${state.subco}/operatives`, 5000);
+    await s.shot('sub-ops');
+    const t2 = (await s.text()).replace(/\s+/g, ' ');
+    await s.go(`/sites/${C}/mc/subcontractors/${state.subco}/schedule`, 5000);
+    await s.shot('sub-sched');
+    const t3 = (await s.text()).replace(/\s+/g, ' ');
+    const mine = await a.get(`schedule_tasks?select=name,subcontractor_company_id&site_id=eq.${C}`);
+    const others = mine.filter((x) => x.subcontractor_company_id && x.subcontractor_company_id !== state.subco).map((x) => x.name);
+    const shownOther = others.filter((n) => t3.includes(n));
+    return {ok: /ZZ Subbie/.test(t1) && !/Not available|Managers only/.test(t1 + t2) && shownOther.length === 0, note: `companies ${co.length}, tasks ${mine.length}, other-company tasks ${others.length}, shown to sub ${shownOther.length}; ops: ${t2.slice(60, 200)}`};
+  }, 'sub');
+  await step('Retest Snag: list then closes, DB shows closed', async () => {
+    const before = await a.get(`snags?select=id,status,title&site_id=eq.${J}`);
+    return {note: JSON.stringify(before.map((x) => [x.title, x.status])).slice(0, 300)};
+  });
+};

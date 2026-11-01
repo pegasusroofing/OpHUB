@@ -6,6 +6,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native';
 
+import { ThinExportBar } from '@/components/FinFilterBar';
 import { FinChip, FinPage } from '@/components/FinNav';
 import { pickJob } from '@/components/FinSales';
 import { useToast } from '@/components/toast';
@@ -82,10 +83,9 @@ function Report({ id }: { id: string }) {
   const table = (): Table | null => (res ? { title: rep.title, sub: [f.job ? jobTag(sites.find((s) => s.id === f.job)) : rep.filters.includes('status') ? `${f.status} projects` : '', f.from || f.to ? `${f.from ? fdate(f.from) : 'start'} to ${f.to ? fdate(f.to) : 'today'}` : ''].filter(Boolean).join(' · '), cols: res.cols.map((c) => ({ l: c.l, money: c.money, num: c.num || c.pct })), rows: res.rows.map((r) => res.cols.map((c) => (c.money ? Number(r[c.k]) || 0 : c.pct ? (r[c.k] == null ? null : Math.round(Number(r[c.k]) * 10) / 10) : c.date ? (r[c.k] ? fdate(String(r[c.k])) : '') : r[c.k] == null ? '' : String(r[c.k])))), totals: res.totals ? res.cols.map((c, i) => (i === 0 ? 'Total' : tot(c))) : undefined } : null);
   const download = async (k: 'x' | 'p') => { const t = table(); if (!t || !t.rows.length) { toast('Nothing to export.'); return; } setBusy(k); const ok = await (k === 'x' ? exportTableExcel(t, org) : exportTablePdf(t, org)).catch(() => false); setBusy(''); if (!ok) toast('Could not make the file — try again.'); };
   return (
-    <FinPage title={rep.title} section="reports" wide>
+    <FinPage title={rep.title} section="reports" wide foot={res?.rows.length ? <ThinExportBar busy={busy} onExcel={() => download('x')} onPdf={() => download('p')} /> : null}>
       <Pressable onPress={() => router.setParams({ id: '' })}><Text style={{ color: base.blue, marginBottom: 6 }}>‹ All reports</Text></Pressable>
       <Muted style={{ marginBottom: 8 }}>{rep.desc}</Muted>
-      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}><Button kind="ghost" title={busy === 'x' ? 'Making…' : '📊 Excel'} onPress={() => download('x')} /><Button kind="ghost" title={busy === 'p' ? 'Making…' : '📄 PDF'} onPress={() => download('p')} /></View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10, alignItems: 'center' }}>
         {has('status') && ['live', 'upcoming', 'closed', 'all'].map((k) => <FinChip key={k} on={f.status === k} label={k[0].toUpperCase() + k.slice(1)} onPress={() => setF({ ...f, status: k })} />)}
         {has('job') && <Pressable onPress={async () => { const k = await pickJob('Project', sites); setF({ ...f, job: k || '' }); }} style={box}><Text style={{ color: base.ink }}>{f.job ? jobTag(sites.find((s) => s.id === f.job)) : 'All projects'} ▾</Text></Pressable>}

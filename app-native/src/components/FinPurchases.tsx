@@ -10,10 +10,10 @@ import { useState } from 'react';
 import { inPeriod, useStatPeriods } from '@/lib/useStatPeriods';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
-import { FinRow, FinSeg, FinStat } from '@/components/FinNav';
+import { FinFilterBar, type FilterPart, type FilterSel } from '@/components/FinFilterBar';
+import { FinRow, FinStat } from '@/components/FinNav';
 import { Cell, FinTable, FootText } from '@/components/FinTable';
 import { pickJob } from '@/components/FinSales';
-import { SelectBox } from '@/components/SelectBox';
 import { chooseAction, confirmAsk, useToast } from '@/components/toast';
 import { Button, Empty, Muted } from '@/components/ui';
 import { askDate } from '@/components/DateField';
@@ -51,12 +51,9 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
   const { me } = useAuth();
   const { data: sites = [] } = useSites();
   const { data } = usePurchases(me?.org_id, siteId);
-  const [pof, setPof] = useState('open');
-  const [pif, setPif] = useState<string | null>(f0 || null);
-  const [sup, setSup] = useState('');
-  const [job, setJob] = useState('');
+  // Filter: status, supplier, project and month, tick as many as you like. Purchase invoices keep one view at a time, as each shows a different list.
+  const [sel, setFilt] = useState<FilterSel>({ status: tab === 'orders' ? ['open'] : tab === 'invoices' && f0 ? [f0] : [], sup: [], job: [], mon: [] });
   const [sort, setSort] = useState('new');
-  const [mon, setMon] = useState(''); // month and value filters (9219t)
   const [val, setVal] = useState('');
   const [q, setQ] = useState('');
   const { data: grn = {} } = useQuery({
@@ -76,7 +73,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
   });
   const desk = useDesk();
   // Tick several to approve, or to mark paid (9219g finPiBulkApprove / finPiBulkPaid).
-  const [sel, setSel] = useState<Set<string>>(new Set());
+  const [picks, setSel] = useState<Set<string>>(new Set());
   const toast = useToast();
   const qc = useQueryClient();
   const [upBusy, setUpBusy] = useState(false);
@@ -95,45 +92,42 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
         if (!ins.error) n++;
       }
     } finally { setUpBusy(false); }
-    toast(`${n} invoice${n === 1 ? '' : 's'} added`); setPif('job'); void qc.invalidateQueries({ queryKey: ['finPurchases'] });
+    toast(`${n} invoice${n === 1 ? '' : 's'} added`); setFilt({ ...sel, status: ['job'] }); void qc.invalidateQueries({ queryKey: ['finPurchases'] });
   };
   if (!data) return <Muted>Loading…</Muted>;
   const site = (id: string) => sites.find((s) => s.id === id);
   const live = data.pinvs.filter((i) => i.status !== 'rejected');
   const supKey = (n: unknown) => String(n || '').trim().toLowerCase();
   const mOf = (x: Row) => monthOf(x.invoice_date || x.on_hire || x.created_at), vt = valueTest(val);
-  const fOK = (x: Row) => (!sup || supKey(x.supplier_name) === sup) && (!job || x.site_id === job) && (!mon || mOf(x) === mon) && (!vt || vt(Number(x.total ?? x.value ?? x.rate ?? 0)));
+  const fOK = (x: Row) => (!sel.sup.length || sel.sup.includes(supKey(x.supplier_name))) && (!sel.job.length || sel.job.includes(x.site_id)) && (!sel.mon.length || sel.mon.includes(mOf(x))) && (!vt || vt(Number(x.total ?? x.value ?? x.rate ?? 0)));
   const ql = q.trim().toLowerCase();
   const hit = (...v: unknown[]) => !ql || v.join(' ').toLowerCase().includes(ql);
   const sortBy = (list: Row[], dk: string, vk: string) => list.slice().sort({ new: (a: Row, b: Row) => String(b[dk] || '').localeCompare(String(a[dk] || '')), old: (a: Row, b: Row) => String(a[dk] || '').localeCompare(String(b[dk] || '')), big: (a: Row, b: Row) => Number(b[vk] || 0) - Number(a[vk] || 0), sup: (a: Row, b: Row) => String(a.supplier_name || '').localeCompare(String(b.supplier_name || '')) }[sort]);
   const supNames: Record<string, string> = {};
   [...data.pos, ...data.pinvs, ...data.hires].forEach((x) => { const n = String(x.supplier_name || '').trim(); if (n) supNames[supKey(n)] = supNames[supKey(n)] || n; });
   const jobIds = Array.from(new Set([...data.pos, ...data.pinvs, ...data.hires].map((x) => x.site_id).filter(Boolean))) as string[];
-  const bar = (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
-      <Pressable onPress={async () => { const k = await chooseAction('Supplier', [{ key: '*', label: 'All suppliers' }, ...Object.keys(supNames).sort().map((k2) => ({ key: k2, label: supNames[k2] }))]); if (k) setSup(k === '*' ? '' : k); }} style={box}><Text style={{ color: base.ink }}>Supplier: {sup ? supNames[sup] : 'All'} ▾</Text></Pressable>
-      {!siteId && <Pressable onPress={async () => { const k = await chooseAction('Project', [{ key: '*', label: 'All projects' }, ...jobIds.map((id) => ({ key: id, label: jobTag(site(id)) }))]); if (k) setJob(k === '*' ? '' : k); }} style={box}><Text style={{ color: base.ink }}>Project: {job ? jobTag(site(job)) : 'All'} ▾</Text></Pressable>}
-      <Pressable onPress={async () => { const k = await chooseAction('Sort', [['new', 'Newest first'], ['old', 'Oldest first'], ['big', 'Biggest first'], ['sup', 'Supplier A–Z']].map(([key, label]) => ({ key, label }))); if (k) setSort(k); }} style={box}><Text style={{ color: base.ink }}>Sort ▾</Text></Pressable>
-      <SelectBox value={mon} title="Month" options={[['', 'All months'], ...monthsIn([...data.pos, ...data.pinvs, ...data.hires], mOf).map((m) => [m, monthLabel(m)] as [string, string])]} onChange={setMon} style={{ marginBottom: 0, width: 150 }} />
-      <TextInput value={val} onChangeText={setVal} placeholder="Value e.g. >1k" style={[box, { width: 130 }, val && !vt ? { borderColor: '#C0392B' } : null]} />
-      {!!(sup || job || mon || val) && <Pressable onPress={() => { setSup(''); setJob(''); setMon(''); setVal(''); }} style={{ justifyContent: 'center' }}><Text style={{ color: base.blue }}>Clear</Text></Pressable>}
-    </View>
+  const commonParts: FilterPart[] = [
+    { key: 'sup', label: 'Supplier', items: Object.keys(supNames).sort().map((k) => ({ v: k, l: supNames[k] })) },
+    ...(siteId ? [] : [{ key: 'job', label: 'Project', items: jobIds.map((id) => ({ v: id, l: jobTag(site(id)) })) }]),
+    { key: 'mon', label: 'Month', items: monthsIn([...data.pos, ...data.pinvs, ...data.hires], mOf).map((m) => ({ v: m, l: monthLabel(m) })) },
+  ];
+  const bar = (ph: string, parts: FilterPart[] = [], cur?: FilterSel) => (
+    <FinFilterBar search={{ value: q, onChange: setQ, placeholder: ph }} parts={[...parts, ...commonParts]} sel={cur || sel} onChange={setFilt} moreOn={!!val}
+      onClear={() => { setFilt({ status: tab === 'invoices' ? ['all'] : [], sup: [], job: [], mon: [] }); setVal(''); }}
+      sorts={[['new', 'Newest first'], ['old', 'Oldest first'], ['big', 'Biggest first'], ['sup', 'Supplier A to Z']]} sort={sort} onSort={setSort}
+      more={<TextInput value={val} onChangeText={setVal} placeholder="Value e.g. >1k" style={[box, { fontSize: 16, marginBottom: 0 }, val && !vt ? { borderColor: '#C0392B' } : null]} />} />
   );
-  const search = (ph: string) => <TextInput value={q} onChangeText={setQ} placeholder={ph} style={[box, { marginBottom: 10 }]} />;
   const withJob = async (title: string, path: (sid: string) => string) => { const sid = siteId || (await pickJob(title, sites.filter((s) => s.status !== 'closed'))); if (sid) router.push(path(sid) as never); };
 
   if (tab === 'orders') {
     const F: Record<string, (p: Row) => boolean> = { open: (p) => p.status === 'open', invoiced: (p) => p.status === 'invoiced', cancelled: (p) => p.status === 'cancelled', all: () => true };
-    const list = sortBy(data.pos.filter(F[pof]).filter(fOK).filter((p) => hit(p.number, p.supplier_name, jobTag(site(p.site_id)))), 'created_at', 'value');
+    const list = sortBy(data.pos.filter((p) => !sel.status.length || sel.status.some((k) => F[k](p))).filter(fOK).filter((p) => hit(p.number, p.supplier_name, jobTag(site(p.site_id)))), 'created_at', 'value');
     const openPos = data.pos.filter((p) => p.status === 'open');
     const committed = round2(openPos.filter((p) => p.value != null).reduce((t, p) => t + Math.max(0, Number(p.value) - poInvoiced(p, live)), 0));
     return (
       <View>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 10 }}>
-          <FinSeg value={pof} onChange={setPof} items={[['open', 'Open'], ['invoiced', 'Invoiced'], ['cancelled', 'Cancelled'], ['all', 'All']].map(([k, l]) => [k, l, data.pos.filter(F[k]).filter(fOK).length] as [string, string, number])} />
-          <View style={{ marginLeft: 'auto' }}><Button title="+ New PO" onPress={() => void withJob('New purchase order', (sid) => `/fin/po/new?site=${sid}`)} /></View>
-        </View>
-        {bar}{search('Search PO, supplier or project')}
+        <View style={{ marginBottom: 8 }}><Button title="+ New PO" onPress={() => void withJob('New purchase order', (sid) => `/fin/po/new?site=${sid}`)} /></View>
+        {bar('Search PO, supplier or project', [{ key: 'status', label: 'Status', items: [['open', 'Open'], ['invoiced', 'Invoiced'], ['cancelled', 'Cancelled']].map(([v, l]) => ({ v, l, n: data.pos.filter(F[v]).filter(fOK).length })) }])}
         {desk && list.length ? (
           <FinTable rows={list} keyOf={(p) => p.id} onRow={(p) => router.push(`/fin/po/${p.id}` as never)}
             cols={[
@@ -148,7 +142,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
             ]}
             foot={(list) => <><FootText bold>{list.length} shown</FootText><FootText>Value {money(list.reduce((t, p) => t + Number(p.value || 0), 0))}</FootText><FootText>Invoiced {money(list.reduce((t, p) => t + poInvoiced(p, live), 0))}</FootText></>} />
         ) : list.length ? list.map((p) => { const inv = poInvoiced(p, live), left = p.value != null ? Math.max(0, round2(Number(p.value) - inv)) : null; return (
-          <FinRow key={p.id} left={p.number} title={p.supplier_name || '—'} sub={[siteId ? '' : jobTag(site(p.site_id)), fdate(String(p.issue_date || p.created_at || '').slice(0, 10)), PO_STATUS[p.status] || p.status, `invoiced ${money(inv)}`, left != null && p.status === 'open' ? `${money(left)} left` : ''].filter(Boolean).join(' · ')} right={p.value != null ? money(p.value) : 'No value'} onPress={() => router.push(`/fin/po/${p.id}` as never)} />
+          <FinRow compact key={p.id} left={p.number} title={p.supplier_name || '—'} sub={[siteId ? '' : jobTag(site(p.site_id)), fdate(String(p.issue_date || p.created_at || '').slice(0, 10)), PO_STATUS[p.status] || p.status, `invoiced ${money(inv)}`, left != null && p.status === 'open' ? `${money(left)} left` : ''].filter(Boolean).join(' · ')} right={p.value != null ? money(p.value) : 'No value'} onPress={() => router.push(`/fin/po/${p.id}` as never)} />
         ); }) : <Empty>No purchase orders here.</Empty>}
         <Muted style={{ marginTop: 8 }}>{openPos.length} open · {money(committed, 0)} ordered but not invoiced yet. Orders sent from a project&apos;s Materials tile appear here by themselves.</Muted>
       </View>
@@ -160,7 +154,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
     const toApprove = data.pinvs.filter((i) => ['to_approve', 'query'].includes(i.status)), unpaid = data.pinvs.filter((i) => i.status === 'approved' && !i.paid_on);
     const F: Record<string, (i: Row) => boolean> = { approve: (i) => ['to_approve', 'query'].includes(i.status), unpaid: (i) => i.status === 'approved' && !i.paid_on, paid: (i) => !!i.paid_on, all: () => true };
     const cnt: Record<string, number> = { job: needJob.length, pm: withPm.length, approve: toApprove.length, unpaid: unpaid.length };
-    const cur = pif || ['job', 'approve', 'pm', 'unpaid'].find((k) => cnt[k]) || 'all';
+    const cur = sel.status[0] || ['job', 'approve', 'pm', 'unpaid'].find((k) => cnt[k]) || 'all';
     const chips: [string, string, number][] = [['job', 'Unallocated', needJob.length], ['pm', 'With a PM', withPm.length], ['approve', 'To approve', toApprove.length], ['unpaid', 'Approved, not paid', unpaid.length], ['paid', 'Paid', data.pinvs.filter(F.paid).length], ['all', 'All filed', data.pinvs.length]];
     const posBy: Record<string, Row> = {}; data.pos.forEach((p) => { posBy[p.id] = p; });
     const checks = (i: Row): [string, string][] => {
@@ -175,18 +169,14 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
     return (
       <View>
         <Muted style={{ marginBottom: 8 }}>Purchase invoices emailed to your invoice address are read and filed to the job when we can tell which one. While Finance is on trial they are not read or filed automatically — allocate them by hand.</Muted>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
-          <FinSeg value={cur} onChange={setPif} items={chips.map(([k, l, n]) => [k, l, n] as [string, string, number])} />
-          <View style={{ marginLeft: 'auto', flexDirection: 'row', gap: 6 }}>
-            <Button kind="ghost" busy={upBusy} title="+ Add invoices" onPress={() => void uploadInvoices()} />
-            <Button title="+ Type one in" onPress={() => void withJob('Add a purchase invoice', (sid) => `/fin/pinv/new?site=${sid}`)} />
-          </View>
+        <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8 }}>
+          <View style={{ flex: 1 }}><Button kind="ghost" busy={upBusy} title="+ Add invoices" onPress={() => void uploadInvoices()} /></View>
+          <View style={{ flex: 1 }}><Button title="+ Type one in" onPress={() => void withJob('Add a purchase invoice', (sid) => `/fin/pinv/new?site=${sid}`)} /></View>
         </View>
-        {bar}
+        {bar(cur === 'job' || cur === 'pm' ? 'Search supplier, email or invoice no.' : 'Search supplier, invoice no. or project', [{ key: 'status', label: 'Show', single: true, items: chips.map(([v, l, n]) => ({ v, l, n })) }], { ...sel, status: [cur] })}
         {cur === 'job' || cur === 'pm' ? (
           <>
-            {search('Search supplier, email or invoice no.')}
-            {(cur === 'job' ? needJob : withPm).filter((it) => (!sup || supKey(it.extracted?.supplier) === sup) && (!job || it.site_id === job) && hit(it.extracted?.supplier, it.from_email, it.extracted?.invoice_no, it.subject)).map((it) => {
+            {(cur === 'job' ? needJob : withPm).filter((it) => (!sel.sup.length || sel.sup.includes(supKey(it.extracted?.supplier))) && (!sel.job.length || sel.job.includes(it.site_id)) && hit(it.extracted?.supplier, it.from_email, it.extracted?.invoice_no, it.subject)).map((it) => {
               const ex = it.extracted || {}, last = (it.comments || []).slice(-1)[0];
               return <FinRow key={it.id} title={ex.supplier || it.from_email || it.file_name || 'Purchase invoice'} sub={[ex.invoice_no, `received ${fdate(String(it.received_at).slice(0, 10))}`, cur === 'job' ? (!it.extracted ? 'Not read yet — open it to file by hand' : it.stage === 'pm_replied' && last ? `PM replied — ${last.name}: ${last.text}` : it.query_reason) : 'Sent to a PM'].filter(Boolean).join(' · ')} right={ex.total != null ? money(ex.total) : '—'} onPress={() => router.push(`/fin/inbox/${it.id}` as never)} />;
             })}
@@ -194,11 +184,10 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
           </>
         ) : (
           <>
-            {search('Search supplier, invoice no. or project')}
             {(() => {
               const list = sortBy(data.pinvs.filter(F[cur]).filter(fOK).filter((i) => hit(i.supplier_name, i.invoice_no, jobTag(site(i.site_id)), posBy[i.po_id]?.number)), 'invoice_date', 'total');
-              const bulk = cur === 'approve' || cur === 'unpaid', picked = list.filter((i) => sel.has(i.id));
-              const tick = (i: Row) => <Pressable hitSlop={8} onPress={() => setSel((x) => { const n = new Set(x); if (n.has(i.id)) n.delete(i.id); else n.add(i.id); return n; })}><Text style={{ fontSize: 18 }}>{sel.has(i.id) ? '☑' : '☐'}</Text></Pressable>;
+              const bulk = cur === 'approve' || cur === 'unpaid', picked = list.filter((i) => picks.has(i.id));
+              const tick = (i: Row) => <Pressable hitSlop={8} onPress={() => setSel((x) => { const n = new Set(x); if (n.has(i.id)) n.delete(i.id); else n.add(i.id); return n; })}><Text style={{ fontSize: 18 }}>{picks.has(i.id) ? '☑' : '☐'}</Text></Pressable>;
               const refresh = () => { setSel(new Set()); ['finPurchases', 'finBook', 'finOverview', 'finPo'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] })); };
               const approveAll = async () => {
                 const rows = picked.filter((i) => ['to_approve', 'query'].includes(i.status)); if (!rows.length || !me) { toast('None of those are waiting for approval.'); return; }
@@ -241,7 +230,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
               return list.length ? (
                 <>
                   {bulkBar}
-                  {list.map((i) => <View key={i.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>{bulk && tick(i)}<View style={{ flex: 1 }}><FinRow left={i.invoice_no || '—'} title={i.supplier_name || 'Supplier'} sub={[siteId ? '' : jobTag(site(i.site_id)), fdate(i.invoice_date), `net ${money(i.net)}`, posBy[i.po_id] ? `PO ${posBy[i.po_id].number}` : 'No PO', i.paid_on ? 'Paid' : PI_STATUS[i.status] || i.status, i.query_note ? `⚠ ${i.query_note}` : ''].filter(Boolean).join(' · ')} right={money(i.total)} tone={i.status === 'query' ? '#C0392B' : undefined} onPress={() => router.push(`/fin/pinv/${i.id}` as never)} /></View></View>)}
+                  {list.map((i) => <View key={i.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>{bulk && tick(i)}<View style={{ flex: 1 }}><FinRow compact left={i.invoice_no || '—'} title={i.supplier_name || 'Supplier'} sub={[siteId ? '' : jobTag(site(i.site_id)), fdate(i.invoice_date), `net ${money(i.net)}`, posBy[i.po_id] ? `PO ${posBy[i.po_id].number}` : 'No PO', i.paid_on ? 'Paid' : PI_STATUS[i.status] || i.status, i.query_note ? `⚠ ${i.query_note}` : ''].filter(Boolean).join(' · ')} right={money(i.total)} tone={i.status === 'query' ? '#C0392B' : undefined} onPress={() => router.push(`/fin/pinv/${i.id}` as never)} /></View></View>)}
                   {list.length > 1 && <Muted>Total ({list.length}): net {money(list.reduce((t, i) => t + Number(i.net || 0), 0))} · VAT {money(list.reduce((t, i) => t + Number(i.vat || 0), 0))} · gross {money(list.reduce((t, i) => t + Number(i.total || 0), 0))}</Muted>}
                 </>
               ) : <Empty>Nothing here.</Empty>;
@@ -257,9 +246,9 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
     return (
       <View>
         <View style={{ flexDirection: 'row', marginBottom: 8 }}><View style={{ marginLeft: 'auto' }}><Button title="+ Plant hire" onPress={() => void withJob('Add plant hire', (sid) => `/fin/plant/new?site=${sid}`)} /></View></View>
-        {bar}{search('Search item, supplier or project')}
+        {bar('Search item, supplier or project')}
         {list.length ? list.map((h) => { const c = plantCost(h as never), long = !h.off_hire && c.days > 28; return (
-          <FinRow key={h.id} title={h.item} sub={[h.supplier_name, siteId ? '' : jobTag(site(h.site_id)), `on ${fdate(h.on_hire)}`, h.off_hire ? `off ${fdate(h.off_hire)}` : `on hire ${c.weeks} wk${long ? ' — over 4 weeks' : ''}`].filter(Boolean).join(' · ')} right={money(c.cost)} tone={long ? '#D98A00' : undefined} onPress={() => router.push(`/fin/plant/${h.id}` as never)} />
+          <FinRow compact key={h.id} title={h.item} sub={[h.supplier_name, siteId ? '' : jobTag(site(h.site_id)), `on ${fdate(h.on_hire)}`, h.off_hire ? `off ${fdate(h.off_hire)}` : `on hire ${c.weeks} wk${long ? ' — over 4 weeks' : ''}`].filter(Boolean).join(' · ')} right={money(c.cost)} tone={long ? '#D98A00' : undefined} onPress={() => router.push(`/fin/plant/${h.id}` as never)} />
         ); }) : <Empty>No plant hire.</Empty>}
         <Muted style={{ marginTop: 8 }}>{onHire.length} on hire · {money(onHire.reduce((t, h) => t + plantCost(h as never).cost, 0), 0)} so far. Tap one to off-hire it.</Muted>
       </View>
@@ -272,8 +261,8 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
   return (
     <View>
       <View style={{ flexDirection: 'row', marginBottom: 8 }}><View style={{ marginLeft: 'auto' }}><Button kind="ghost" title="Edit suppliers (Directory)" onPress={() => router.push('/fin/directory?kind=supplier' as never)} /></View></View>
-      {search('Search suppliers')}
-      {list.length ? list.map((r) => <FinRow key={r.name} title={r.name} sub={[r.email, `${r.n} invoice${r.n === 1 ? '' : 's'}`, `spent ${money(r.spend, 0)} net`].filter(Boolean).join(' · ')} right={r.owed ? `${money(r.owed, 0)} to pay` : '—'} />) : <Empty>No suppliers yet.</Empty>}
+      <TextInput value={q} onChangeText={setQ} placeholder="Search suppliers" style={[box, { marginBottom: 10 }]} />
+      {list.length ? list.map((r) => <FinRow compact key={r.name} title={r.name} sub={[r.email, `${r.n} invoice${r.n === 1 ? '' : 's'}`, `spent ${money(r.spend, 0)} net`].filter(Boolean).join(' · ')} right={r.owed ? `${money(r.owed, 0)} to pay` : '—'} />) : <Empty>No suppliers yet.</Empty>}
     </View>
   );
 }

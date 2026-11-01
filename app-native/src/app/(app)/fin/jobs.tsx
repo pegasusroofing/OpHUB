@@ -7,11 +7,10 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
-import { FinChip, FinPage, FinRow } from '@/components/FinNav';
+import { FinFilterBar, type FilterSel } from '@/components/FinFilterBar';
+import { FinPage, FinRow } from '@/components/FinNav';
 import { Cell, FinTable, FootText } from '@/components/FinTable';
 import { askDate } from '@/components/DateField';
-import { SelectBox } from '@/components/SelectBox';
-import { chooseAction } from '@/components/toast';
 import { Button, Card, Empty, Muted } from '@/components/ui';
 import { finStatus, selectAll } from '@/data/finance';
 import { usePeople } from '@/data/hs';
@@ -54,12 +53,10 @@ export default function FinJobs() {
   const { data: sitesRaw } = useSites();
   const { data: people = [] } = usePeople();
   const { data } = useJobsData(me?.org_id);
-  const [st, setSt] = useState<'live' | 'upcoming' | 'closed' | 'all'>('live');
-  const [pm, setPm] = useState('');
-  const [cli, setCli] = useState('');
+  const [sel, setSel] = useState<FilterSel>({ status: ['live'], pm: [], client: [], start: [] });
   const [q, setQ] = useState('');
   const [sort, setSort] = useState('noza');
-  const [dr, setDr] = useState(''); // Start: a date range (9219t)
+  const dr = sel.start[0] || ''; // Start: a date range (9219t)
   const [custom, setCustom] = useState<{ from?: string; to?: string }>({});
   const [val, setVal] = useState(''); // Value: 50k, >100k, <25k, 25k-100k
   const sites = ((sitesRaw || []) as SiteX[]).slice().sort(byJobNoDesc);
@@ -69,9 +66,9 @@ export default function FinJobs() {
   if (tab === 'clients') return <Clients sites={sites} data={data} cliOf={cliOf} go={go} />;
   const counts: Record<string, number> = { live: 0, upcoming: 0, closed: 0, all: sites.length };
   sites.forEach((s) => { counts[finStatus(s)] = (counts[finStatus(s)] || 0) + 1; });
-  const ql = q.trim().toLowerCase(), cl = cli.trim().toLowerCase();
-  let shown = sites.filter((s) => (st === 'all' || finStatus(s) === st) && (!pm || (pm === 'none' ? !s.responsible_pm_id : s.responsible_pm_id === pm))
-    && (!cl || `${cliOf(s)} ${s.client_name || ''}`.toLowerCase().includes(cl))
+  const ql = q.trim().toLowerCase();
+  let shown = sites.filter((s) => (!sel.status.length || sel.status.includes(finStatus(s))) && (!sel.pm.length || sel.pm.includes(s.responsible_pm_id || 'none'))
+    && (!sel.client.length || sel.client.includes(cliOf(s)))
     && (!ql || [s.job_number, s.name, cliOf(s), s.client_name, (data?.posBy[s.id] || []).join(' '), pmName(s.responsible_pm_id), s.postcode].join(' ').toLowerCase().includes(ql)));
   const num = (s: SiteX) => String(s.job_number || ''), nm = (s: SiteX) => String(s.name || '');
   const cmp: Record<string, (a: SiteX, b: SiteX) => number> = { az: (a, b) => nm(a).localeCompare(nm(b)), za: (a, b) => nm(b).localeCompare(nm(a)), noaz: (a, b) => num(a).localeCompare(num(b), undefined, { numeric: true }), noza: byJobNoDesc, start: (a, b) => String(b.start_date || '').localeCompare(String(a.start_date || '')) };
@@ -85,22 +82,21 @@ export default function FinJobs() {
   const tot = totalOf(shown);
   return (
     <FinPage title="Projects" section="jobs" sub="list" onSub={go}>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
-        {(['live', 'upcoming', 'closed', 'all'] as const).map((k) => <FinChip key={k} on={st === k} label={k[0].toUpperCase() + k.slice(1)} n={counts[k]} onPress={() => setSt(k)} />)}
-        {me && isFullManager(me) && <View style={{ marginLeft: 'auto' }}><Button title="+ New project" onPress={() => router.push('/fin/newjob' as never)} /></View>}
-      </View>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
-        <Pressable onPress={async () => { const k = await chooseAction('PM', [{ key: '*', label: 'All PMs' }, ...pms.map((id) => ({ key: id, label: pmName(id) })), { key: 'none', label: 'No PM' }]); if (k) setPm(k === '*' ? '' : k); }} style={box}><Text style={{ color: base.ink }}>PM: {pm ? (pm === 'none' ? 'No PM' : pmName(pm)) : 'All'} ▾</Text></Pressable>
-        <TextInput value={cli} onChangeText={setCli} placeholder="Client name" style={[box, { minWidth: 140 }]} />
-        <Pressable onPress={async () => { const k = await chooseAction('Sort', [['noza', 'Project no. (newest first)'], ['noaz', 'Project no. (A–Z)'], ['az', 'Name A–Z'], ['za', 'Name Z–A'], ['start', 'Start date (newest)']].map(([key, label]) => ({ key, label }))); if (k) setSort(k); }} style={box}><Text style={{ color: base.ink }}>Sort ▾</Text></Pressable>
-        <SelectBox value={dr} title="Start date" options={DATE_RANGES.map(([k, l]) => [k, k === 'custom' && dr === 'custom' && (custom.from || custom.to) ? `${custom.from ? fdate(custom.from) : '…'} – ${custom.to ? fdate(custom.to) : '…'}` : l] as [string, string])} style={{ marginBottom: 0, width: 190 }} onChange={async (k) => {
-          if (k === 'custom') { const from = await askDate('Start dates from'); if (from === null) return; const to = await askDate('Start dates to', { min: from || undefined }); if (to === null) return; setCustom({ from: from || undefined, to: to || undefined }); }
-          setDr(k);
-        }} />
-        <TextInput value={val} onChangeText={setVal} placeholder="Value e.g. >50k, 25k-100k" style={[box, { minWidth: 170 }, val && !vt ? { borderColor: '#C0392B' } : null]} />
-        {!!(pm || cli || dr || val) && <Pressable onPress={() => { setPm(''); setCli(''); setDr(''); setVal(''); }} style={{ justifyContent: 'center' }}><Text style={{ color: base.blue }}>Clear</Text></Pressable>}
-      </View>
-      <TextInput value={q} onChangeText={setQ} placeholder="Search project no., name, client or PO" style={[box, { marginBottom: 10 }]} />
+      {me && isFullManager(me) && <View style={{ marginBottom: 8 }}><Button title="+ New project" onPress={() => router.push('/fin/newjob' as never)} /></View>}
+      <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search project no., name, client or PO' }} sel={sel} moreOn={!!val}
+        onClear={() => { setSel({ status: [], pm: [], client: [], start: [] }); setVal(''); }}
+        onChange={async (next) => {
+          if (next.start[0] === 'custom' && dr !== 'custom') { const from = await askDate('Start dates from'); if (from === null) return; const to = await askDate('Start dates to', { min: from || undefined }); if (to === null) return; setCustom({ from: from || undefined, to: to || undefined }); }
+          setSel(next);
+        }}
+        sorts={[['noza', 'Project no., newest'], ['noaz', 'Project no., oldest'], ['az', 'Name A to Z'], ['za', 'Name Z to A'], ['start', 'Start date, newest']]} sort={sort} onSort={setSort}
+        parts={[
+          { key: 'status', label: 'Status', items: (['live', 'upcoming', 'closed'] as const).map((k) => ({ v: k, l: k[0].toUpperCase() + k.slice(1), n: counts[k] })) },
+          { key: 'pm', label: 'PM', items: [...pms.map((id) => ({ v: id, l: pmName(id) })), { v: 'none', l: 'No PM' }] },
+          { key: 'client', label: 'Client', items: [...new Set(sites.map(cliOf).filter(Boolean))].sort().map((v) => ({ v, l: v })) },
+          { key: 'start', label: 'Start date', single: true, items: DATE_RANGES.filter(([k]) => k).map(([k, l]) => ({ v: k, l: k === 'custom' && dr === 'custom' && (custom.from || custom.to) ? `${custom.from ? fdate(custom.from) : '…'} – ${custom.to ? fdate(custom.to) : '…'}` : l })) },
+        ]}
+        more={<TextInput value={val} onChangeText={setVal} placeholder="Value e.g. >50k, 25k-100k" style={[box, { fontSize: 16 }, val && !vt ? { borderColor: '#C0392B' } : null]} />} />
       {!data ? <Muted>Loading…</Muted> : desk && shown.length ? (
         <FinTable rows={shown} keyOf={(s) => s.id} onRow={(s) => router.push(`/fin/job/${s.id}` as never)}
           cols={[
@@ -116,7 +112,7 @@ export default function FinJobs() {
           foot={(left) => { const tot = totalOf(left); return <><FootText bold>{left.length} project{left.length === 1 ? '' : 's'}</FootText><FootText>Value {money(tot.v, 0)}</FootText><FootText>Invoiced {money(tot.inv, 0)}</FootText><FootText>Owed {money(tot.owed, 0)}</FootText>{tot.od ? <FootText>Overdue {money(tot.od, 0)}</FootText> : null}</>; }} />
       ) : shown.length ? shown.map((s) => {
         const m = data.m[s.id], v = Number(data.jfBy[s.id]?.contract_value || 0), po = (data.posBy[s.id] || []).join(', ');
-        return <FinRow key={s.id} left={s.job_number || 'No no.'} title={s.name} onPress={() => router.push(`/fin/job/${s.id}` as never)}
+        return <FinRow compact key={s.id} left={s.job_number || 'No no.'} title={s.name} onPress={() => router.push(`/fin/job/${s.id}` as never)}
           sub={[cliOf(s) || 'No client', po ? `PO ${po}` : 'No PO', pmName(s.responsible_pm_id), m?.owed ? `owed ${money(m.owed, 0)}` : '', m?.overdue ? `${money(m.overdue, 0)} overdue` : ''].filter(Boolean).join(' · ')}
           right={v ? money(v, 0) : 'No value'} tone={m?.overdue ? '#C0392B' : undefined} />;
       }) : <Empty>No projects here.</Empty>}

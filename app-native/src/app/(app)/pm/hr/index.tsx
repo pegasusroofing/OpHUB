@@ -29,7 +29,7 @@ export default function HrHub() {
       <HowTo k="hr" />
       <ListGroup first>
         <ListRow icon="calendar" tint="green" label="Holiday calendar" sub={left == null ? '…' : `${left} day${left === 1 ? '' : 's'} left this year${me.role === 'admin' && pending ? ` · ${pending} to approve` : ''}`} badge={me.role === 'admin' ? pending || undefined : undefined} onPress={() => router.push('/pm/hr/holidays' as never)} />
-        <ListRow icon="book" tint="blue" label="Company policies & handbook" sub={pol ? (toSign ? `${toSign} to read and sign` : 'All signed') : '…'} badge={toSign || undefined} onPress={() => router.push('/pm/hr/policies' as never)} last />
+        <ListRow icon="book" tint="blue" label="Company policies & handbook" sub={pol ? (toSign ? `${toSign} to read and sign` : (pol.pols ?? []).length ? 'All signed' : 'None uploaded yet') : '…'} badge={toSign || undefined} onPress={() => router.push('/pm/hr/policies' as never)} last />
       </ListGroup>
     </ScrollView>
   );

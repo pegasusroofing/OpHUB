@@ -7,10 +7,10 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Text, TextInput, View } from 'react-native';
 
-import { FinRow, FinSeg, FinStat } from '@/components/FinNav';
+import { FinFilterBar, type FilterSel } from '@/components/FinFilterBar';
+import { FinRow, FinStat } from '@/components/FinNav';
 import { useFinRowMenu } from '@/components/FinRowMenu';
 import { Cell, FinTable, FootText } from '@/components/FinTable';
-import { SelectBox } from '@/components/SelectBox';
 import { chooseAction, confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, Toggle } from '@/components/ui';
 import { raiseInvoiceFromCert } from '@/data/finApp';
@@ -73,9 +73,9 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
   const { data: sitesRaw = [] } = useSites();
   const { data: st } = useFinSettings(me?.org_id);
   const { data } = useSales(me?.org_id, siteId);
-  const [af, setAf] = useState<string | null>(tab === 'apps' ? f0 || null : null);
-  const [mon, setMon] = useState(''); // month picker (9219t): the list and its totals follow it
-  const [inf, setInf] = useState(f0 || 'outstanding');
+  // Filter: status, month and project, tick as many as you like. An application list with nothing chosen yet starts on the first group with anything in it.
+  const [sel0, setSel] = useState<FilterSel | null>(tab === 'apps' ? (f0 ? { status: f0 === 'all' ? [] : [f0], mon: [], job: [] } : null) : { status: f0 === 'all' ? [] : [f0 || 'outstanding'], mon: [], job: [] });
+  const [sort, setSort] = useState('new');
   const [q, setQ] = useState('');
   const rowMenu = useFinRowMenu(data?.invs);
   const [voidOpen, setVoidOpen] = useState(false); // voided invoices sit in a closed drop-down (9219zn)
@@ -103,19 +103,23 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
   };
   if (tab === 'apps') {
     const F: Record<string, (a: App) => boolean> = { open: (a) => ['draft', 'submitted'].includes(stage(a)), certified: (a) => stage(a) === 'certified', invoiced: (a) => stage(a) === 'invoiced', all: (a) => stage(a) !== 'void' };
-    const cur = af || ['open', 'certified', 'invoiced'].find((k) => data.apps.filter(F[k]).length) || 'all';
+    const first = ['open', 'certified', 'invoiced'].find((k) => data.apps.filter(F[k]).length);
+    const sel = sel0 || { status: first ? [first] : [], mon: [], job: [] };
     const aMonth = (a: App) => monthOf(a.valuation_date);
-    const list = data.apps.filter(F[cur]).filter((a) => !mon || aMonth(a) === mon).filter((a) => !ql || `${a.number} ${jobTag(site(a.site_id))} ${site(a.site_id)?.client_name || ''}`.toLowerCase().includes(ql));
-    const months = monthsIn(data.apps.filter(F[cur]), aMonth);
+    const sorter: Record<string, (x: App, y: App) => number> = { new: (x, y) => String(y.valuation_date || '').localeCompare(String(x.valuation_date || '')), old: (x, y) => String(x.valuation_date || '').localeCompare(String(y.valuation_date || '')), big: (x, y) => Number(y.cert_net ?? y.net_due ?? 0) - Number(x.cert_net ?? x.net_due ?? 0), job: (x, y) => jobTag(site(x.site_id)).localeCompare(jobTag(site(y.site_id))) };
+    const list = data.apps.filter(F.all).filter((a) => !sel.status.length || sel.status.some((k) => F[k](a))).filter((a) => !sel.mon.length || sel.mon.includes(aMonth(a))).filter((a) => !sel.job.length || sel.job.includes(a.site_id)).filter((a) => !ql || `${a.number} ${jobTag(site(a.site_id))} ${site(a.site_id)?.client_name || ''}`.toLowerCase().includes(ql)).slice().sort(sorter[sort]);
+    const months = monthsIn(data.apps.filter(F.all), aMonth);
     return (
       <View>
         <Muted style={{ marginBottom: 8, fontSize: 12 }}>Apply → the client certifies it (enter their figures on the application) → the invoice is raised for you. A certificate is just a certified application.</Muted>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 10 }}>
-          <FinSeg value={cur} onChange={setAf} items={[['open', 'In Progress'], ['certified', 'Certified — To Invoice'], ['invoiced', 'Invoiced'], ['all', 'All']].map(([k, l]) => [k, l, data.apps.filter(F[k]).length] as [string, string, number])} />
-          <SelectBox value={mon} title="Month" options={[['', 'All months'], ...(mon && !months.includes(mon) ? [mon, ...months] : months).map((m) => [m, monthLabel(m)] as [string, string])]} onChange={setMon} style={{ marginBottom: 0, width: 150 }} />
-          <View style={{ marginLeft: 'auto' }}><Button title="+ New application" onPress={() => void newFor('application')} /></View>
-        </View>
-        <TextInput value={q} onChangeText={setQ} placeholder="Search application no., project or client" style={box} />
+        <View style={{ marginBottom: 8 }}><Button title="+ New application" onPress={() => void newFor('application')} /></View>
+        <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search application no., project or client' }} sel={sel} onChange={setSel} onClear={() => setSel({ status: [], mon: [], job: [] })}
+          sorts={[['new', 'Newest first'], ['old', 'Oldest first'], ['big', 'Biggest first'], ...(siteId ? [] : [['job', 'Project'] as [string, string]])]} sort={sort} onSort={setSort}
+          parts={[
+            { key: 'status', label: 'Status', items: [['open', 'In progress'], ['certified', 'Certified, to invoice'], ['invoiced', 'Invoiced']].map(([v, l]) => ({ v, l, n: data.apps.filter(F[v]).length })) },
+            { key: 'mon', label: 'Month', items: months.map((m) => ({ v: m, l: monthLabel(m) })) },
+            ...(siteId ? [] : [{ key: 'job', label: 'Project', items: [...new Set(data.apps.map((a) => a.site_id))].map((id) => ({ v: id, l: jobTag(site(id)) })) }]),
+          ]} />
         {desk && list.length ? (
           <FinTable rows={list} keyOf={(a) => a.id} onMenu={(a) => void rowMenu.appMenu(a, stage(a))} onRow={(a) => router.push(`/fin/job/${a.site_id}/application/${a.id}` as never)}
             cols={[
@@ -129,7 +133,7 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
             ]}
             foot={(list) => <><FootText bold>{list.length} application{list.length === 1 ? '' : 's'}</FootText><FootText>Applied {money(list.reduce((t, a) => t + Number(a.net_due || 0), 0))}</FootText><FootText>Certified {money(list.reduce((t, a) => t + Number(a.cert_net || 0), 0))}</FootText></>} />
         ) : list.length ? list.map((a) => { const s = appStage(a); return (
-          <FinRow key={a.id} left={`App ${a.number}`} title={siteId ? fdate(a.valuation_date) : jobTag(site(a.site_id))} sub={[siteId ? '' : fdate(a.valuation_date), s.l, a.cert_net != null ? `certified ${money(a.cert_net)}` : ''].filter(Boolean).join(' · ')} right={money(a.cert_net ?? a.net_due)} tone={s.c} onMenu={() => void rowMenu.appMenu(a, s.k)} onPress={() => router.push(`/fin/job/${a.site_id}/application/${a.id}` as never)} />
+          <FinRow compact key={a.id} left={`App ${a.number}`} title={siteId ? fdate(a.valuation_date) : jobTag(site(a.site_id))} sub={[siteId ? '' : fdate(a.valuation_date), s.l, a.cert_net != null ? `certified ${money(a.cert_net)}` : ''].filter(Boolean).join(' · ')} right={money(a.cert_net ?? a.net_due)} tone={s.c} onMenu={() => void rowMenu.appMenu(a, s.k)} onPress={() => router.push(`/fin/job/${a.site_id}/application/${a.id}` as never)} />
         ); }) : <Empty>Nothing here.</Empty>}
         {rowMenu.form}
       </View>
@@ -138,17 +142,20 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
   if (tab === 'invoices') {
     const F: Record<string, (i: Inv) => boolean> = { outstanding: (i) => invOutstanding(i) > 0, overdue: (i) => invOverdue(i), draft: (i) => i.status === 'draft', paid: (i) => i.status === 'paid', all: () => true };
     const iMonth = (i: Inv) => monthOf(i.issue_date || i.created_at);
-    const base0 = live.filter(F[inf] || F.outstanding);
-    const list = base0.filter((i) => !mon || iMonth(i) === mon).filter((i) => !ql || `${i.number || ''} ${billTo(i)} ${i.bill_address || ''} ${jobTag(site(i.site_id))}`.toLowerCase().includes(ql));
-    const months = monthsIn(base0, iMonth);
+    const sel = sel0 || { status: ['outstanding'], mon: [], job: [] };
+    const sorter: Record<string, (x: Inv, y: Inv) => number> = { new: () => 0, old: (x, y) => String(x.created_at || '').localeCompare(String(y.created_at || '')), big: (x, y) => Number(y.total || 0) - Number(x.total || 0), client: (x, y) => billTo(x).localeCompare(billTo(y)) };
+    const list = live.filter((i) => !sel.status.length || sel.status.some((k) => (F[k] || F.outstanding)(i))).filter((i) => !sel.mon.length || sel.mon.includes(iMonth(i))).filter((i) => !sel.job.length || sel.job.includes(i.site_id)).filter((i) => !ql || `${i.number || ''} ${billTo(i)} ${i.bill_address || ''} ${jobTag(site(i.site_id))}`.toLowerCase().includes(ql)).slice().sort(sorter[sort]);
+    const months = monthsIn(live, iMonth);
     return (
       <View>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 10 }}>
-          <FinSeg value={inf} onChange={setInf} items={[['outstanding', 'Owed'], ['overdue', 'Overdue'], ['draft', 'Drafts'], ['paid', 'Paid'], ['all', 'All']].map(([k, l]) => [k, l, live.filter(F[k]).length] as [string, string, number])} />
-          <SelectBox value={mon} title="Month" options={[['', 'All months'], ...(mon && !months.includes(mon) ? [mon, ...months] : months).map((m) => [m, monthLabel(m)] as [string, string])]} onChange={setMon} style={{ marginBottom: 0, width: 150 }} />
-          <View style={{ marginLeft: 'auto' }}><Button title="+ New invoice" onPress={() => void newFor('invoice')} /></View>
-        </View>
-        <TextInput value={q} onChangeText={setQ} placeholder="Search invoice no., client or project" style={box} />
+        <View style={{ marginBottom: 8 }}><Button title="+ New invoice" onPress={() => void newFor('invoice')} /></View>
+        <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search invoice no., client or project' }} sel={sel} onChange={setSel} onClear={() => setSel({ status: [], mon: [], job: [] })}
+          sorts={[['new', 'Newest first'], ['old', 'Oldest first'], ['big', 'Biggest first'], ['client', 'Client A to Z']]} sort={sort} onSort={setSort}
+          parts={[
+            { key: 'status', label: 'Status', items: [['outstanding', 'Owed'], ['overdue', 'Overdue'], ['draft', 'Drafts'], ['paid', 'Paid']].map(([v, l]) => ({ v, l, n: live.filter(F[v]).length })) },
+            { key: 'mon', label: 'Month', items: months.map((m) => ({ v: m, l: monthLabel(m) })) },
+            ...(siteId ? [] : [{ key: 'job', label: 'Project', items: [...new Set(live.map((i) => i.site_id))].map((id) => ({ v: id, l: jobTag(site(id)) })) }]),
+          ]} />
         {desk && list.length ? (
           <FinTable rows={list} keyOf={(i) => i.id} onMenu={(i) => void rowMenu.invMenu(i)} onRow={(i) => router.push(`/fin/job/${i.site_id}/invoice/${i.id}` as never)}
             cols={[
@@ -165,11 +172,11 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
             foot={(list) => <><FootText bold>{list.length} invoice{list.length === 1 ? '' : 's'}</FootText><FootText>Net {money(list.reduce((t, i) => t + Number(i.net || 0), 0))}</FootText><FootText>VAT {money(list.reduce((t, i) => t + Number(i.vat || 0), 0))}</FootText><FootText>Gross {money(list.reduce((t, i) => t + Number(i.total || 0), 0))}</FootText><FootText>Owed {money(list.reduce((t, i) => t + invOutstandingNet(i), 0))}</FootText></>} />
         ) : list.length ? list.map((i) => {
           const od = invOverdue(i), o = invOutstanding(i);
-          return <FinRow key={i.id} left={i.number || 'Draft'} title={siteId ? (billTo(i) || '—') : jobTag(site(i.site_id))} sub={[siteId ? '' : billTo(i), i.issue_date ? fdate(i.issue_date) : '', INV_STATUS[i.status] || i.status, o ? `${money(o)} owed${od ? ' — overdue' : ''}` : ''].filter(Boolean).join(' · ')} right={money(i.total)} tone={od ? '#C0392B' : undefined} onMenu={() => void rowMenu.invMenu(i)} onPress={() => router.push(`/fin/job/${i.site_id}/invoice/${i.id}` as never)} />;
+          return <FinRow compact key={i.id} left={i.number || 'Draft'} title={siteId ? (billTo(i) || '—') : jobTag(site(i.site_id))} sub={[siteId ? '' : billTo(i), i.issue_date ? fdate(i.issue_date) : '', INV_STATUS[i.status] || i.status, o ? `${money(o)} owed${od ? ' — overdue' : ''}` : ''].filter(Boolean).join(' · ')} right={money(i.total)} tone={od ? '#C0392B' : undefined} onMenu={() => void rowMenu.invMenu(i)} onPress={() => router.push(`/fin/job/${i.site_id}/invoice/${i.id}` as never)} />;
         }) : <Empty>No invoices here.</Empty>}
         {rowMenu.form}
         {(() => {
-          const voided = data.invs.filter((i) => i.status === 'void' && (!mon || iMonth(i) === mon) && (!ql || `${i.number || ''} ${billTo(i)} ${i.bill_address || ''} ${jobTag(site(i.site_id))}`.toLowerCase().includes(ql)));
+          const voided = data.invs.filter((i) => i.status === 'void' && (!sel.mon.length || sel.mon.includes(iMonth(i))) && (!ql || `${i.number || ''} ${billTo(i)} ${i.bill_address || ''} ${jobTag(site(i.site_id))}`.toLowerCase().includes(ql)));
           if (!voided.length) return null;
           return (
             <View style={{ marginTop: 10 }}>

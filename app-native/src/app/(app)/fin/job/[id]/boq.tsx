@@ -17,6 +17,7 @@ import { viewDoc } from '@/components/DocViewer';
 import { openDocLink } from '@/data/hs';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
+import { ThinExportBar } from '@/components/FinFilterBar';
 import { FinRow } from '@/components/FinNav';
 import { SelectBox } from '@/components/SelectBox';
 import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
@@ -158,7 +159,8 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
   };
 
   return (
-    <ScrollView contentContainerStyle={page(1100)} keyboardShouldPersistTaps="handled">
+    <View style={{ flex: 1 }}>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={page(1100)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Bill of Quantities' }} />
       <Card><Text style={{ fontWeight: '800', color: base.ink }}>Total {money(total)}{costTotal ? ` · budget cost ${money(costTotal)} · ${marginText(total, costTotal) || `margin ${money(total - costTotal)}`}` : ''}</Text><Muted>The operatives&apos; Schedule of Works can be brought in to price, or sent out from here (without prices).{autoNote ? ` · ${autoNote}` : ''}</Muted>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 }}>
@@ -298,13 +300,12 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
       <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
         <Button small busy={busy} title="Save Bill of Quantities" onPress={() => void save()} />
         <Button small kind="ghost" title="+ New application from this BoQ" onPress={() => router.push(`/fin/job/${id}/application/new` as never)} />
-        <Muted style={{ fontSize: 12 }}>Export:</Muted>
-        <Button small kind="ghost" title="📊 Excel" onPress={() => void exportBoq('x')} />
-        <Button small kind="ghost" title="📄 PDF" onPress={() => void exportBoq('p')} />
       </View>
       <Muted style={{ marginTop: 6, fontSize: 12 }}>Saves by itself a few seconds after a change once every line has a description and a value.</Muted>
       {rows.length === 0 && <FinRow title="No lines yet" sub="Add sections and items, then save." />}
     </ScrollView>
+    {rows.length > 0 && <ThinExportBar onExcel={() => void exportBoq('x')} onPdf={() => void exportBoq('p')} />}
+    </View>
   );
 }
 

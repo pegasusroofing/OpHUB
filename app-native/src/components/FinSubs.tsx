@@ -6,7 +6,8 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
-import { FinChip, FinRow, FinSeg, FinStat } from '@/components/FinNav';
+import { FinFilterBar } from '@/components/FinFilterBar';
+import { FinChip, FinRow, FinStat } from '@/components/FinNav';
 import { pickJob } from '@/components/FinSales';
 import { confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
@@ -50,9 +51,8 @@ export function SubsLists({ tab, siteId, f }: { tab: 'opinv' | 'payrun' | 'order
   const { data: sites = [] } = useSites();
   const { data: st } = useFinSettings(me?.org_id);
   const { data } = useSubsData(me?.org_id, siteId);
-  const [opf, setOpf] = useState('topay');
-  const [scf, setScf] = useState('active');
-  const [saf, setSaf] = useState(f || 'open');
+  const [sel, setSel] = useState<Record<string, string[]>>({ show: tab === 'opinv' ? ['topay'] : tab === 'orders' ? ['active'] : tab === 'apps' ? [f && f !== 'all' ? f : 'open'] : [] });
+  const [sort, setSort] = useState('new');
   const [q, setQ] = useState('');
   const [runDay, setRunDay] = useState<string | null>(null);
   const [cisMonth, setCisMonth] = useState(() => taxMonthStart(addDays(today(), -30)));
@@ -65,20 +65,19 @@ export function SubsLists({ tab, siteId, f }: { tab: 'opinv' | 'payrun' | 'order
   const ql = q.trim().toLowerCase(), hit = (...v: unknown[]) => !ql || v.join(' ').toLowerCase().includes(ql);
   const opJobs = (p: Row) => Array.from(new Set((p.lines || []).map((l: Row) => l.site_id).filter(Boolean) as string[])).map((id) => jobTag(site(id))).join(', ');
   const refresh = () => void qc.invalidateQueries({ queryKey: ['finSubs'] });
-  const search = (ph: string) => <TextInput value={q} onChangeText={setQ} placeholder={ph} style={box} />;
+  const has = <T,>(F: Record<string, (x: T) => boolean>, x: T) => !sel.show.length || sel.show.some((k) => F[k](x));
+  const num = (x: Row, k: string) => Number(x[k] || 0);
 
   if (tab === 'opinv') {
     const F: Record<string, (p: Row) => boolean> = { topay: (p) => p.status === 'approved' || p.status === 'draft', paid: (p) => p.status === 'paid', all: () => true };
-    const list = data.ops.filter(F[opf]).filter((p) => hit(p.name, p.invoice_no, opJobs(p)));
+    const list = data.ops.filter((p) => has(F, p)).filter((p) => hit(p.name, p.invoice_no, opJobs(p))).slice().sort(sort === 'old' ? (a, b) => String(a.period_start || '').localeCompare(String(b.period_start || '')) : sort === 'big' ? (a, b) => num(b, 'gross') - num(a, 'gross') : sort === 'name' ? (a, b) => String(a.name || '').localeCompare(String(b.name || '')) : (a, b) => String(b.period_start || '').localeCompare(String(a.period_start || '')));
     return (
       <View>
         <Muted style={{ marginBottom: 8 }}>When an operative sends their invoice, put it in here with the amount for each job. CIS is worked out for you and it&apos;s paid in the pay run. (Sending it to the job&apos;s PM is off while Finance is on trial.)</Muted>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
-          <FinSeg value={opf} onChange={setOpf} items={[['topay', 'To Pay'], ['paid', 'Paid'], ['all', 'All']].map(([k, l]) => [k, l, data.ops.filter(F[k]).length] as [string, string, number])} />
-          <View style={{ marginLeft: 'auto' }}><Button title="+ Operative invoice" onPress={() => router.push('/fin/labour/new' as never)} /></View>
-        </View>
-        {search('Search name, invoice no. or job')}
-        {list.length ? list.map((p) => <FinRow key={p.id} title={p.name || 'Operative'} sub={[p.invoice_no ? `inv ${p.invoice_no}` : '', `w/c ${fdate(p.period_start)}`, opJobs(p), `gross ${money(p.gross)} · CIS −${money(p.cis_deduction)}`, p.status === 'paid' ? `Paid ${fdate(p.paid_on)}` : p.status === 'approved' ? 'To pay' : 'Draft'].filter(Boolean).join(' · ')} right={money(p.net_pay)} onPress={() => router.push(`/fin/labour/${p.id}` as never)} />)
+        <View style={{ marginBottom: 8 }}><Button title="+ Operative invoice" onPress={() => router.push('/fin/labour/new' as never)} /></View>
+        <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search name, invoice no. or job' }} sel={sel} onChange={setSel} onClear={() => setSel({ show: [] })} sorts={[['new', 'Newest first'], ['old', 'Oldest first'], ['big', 'Biggest first'], ['name', 'Name A to Z']]} sort={sort} onSort={setSort}
+          parts={[{ key: 'show', label: 'Show', items: [['topay', 'To pay'], ['paid', 'Paid']].map(([v, l]) => ({ v, l, n: data.ops.filter(F[v]).length })) }]} />
+        {list.length ? list.map((p) => <FinRow compact key={p.id} title={p.name || 'Operative'} sub={[p.invoice_no ? `inv ${p.invoice_no}` : '', `w/c ${fdate(p.period_start)}`, opJobs(p), `gross ${money(p.gross)} · CIS −${money(p.cis_deduction)}`, p.status === 'paid' ? `Paid ${fdate(p.paid_on)}` : p.status === 'approved' ? 'To pay' : 'Draft'].filter(Boolean).join(' · ')} right={money(p.net_pay)} onPress={() => router.push(`/fin/labour/${p.id}` as never)} />)
           : <Empty>No operative invoices here.</Empty>}
       </View>
     );
@@ -129,16 +128,14 @@ export function SubsLists({ tab, siteId, f }: { tab: 'opinv' | 'payrun' | 'order
   if (tab === 'orders') {
     const F: Record<string, (s: Row) => boolean> = { active: (s) => s.status !== 'complete', complete: (s) => s.status === 'complete', all: () => true };
     const lastCert = (id: string) => data.sapps.filter((a) => a.subcontract_id === id && a.certified_gross != null).sort((x, y) => y.number - x.number)[0];
-    const list = data.scs.filter(F[scf]).filter((sc) => hit(sc.name, sc.number, sc.description, jobTag(site(sc.site_id))));
+    const list = data.scs.filter((s) => has(F, s)).filter((sc) => hit(sc.name, sc.number, sc.description, jobTag(site(sc.site_id)))).slice().sort(sort === 'old' ? (a, b) => String(a.created_at || '').localeCompare(String(b.created_at || '')) : sort === 'big' ? (a, b) => num(b, 'order_value') - num(a, 'order_value') : sort === 'name' ? (a, b) => String(a.name || '').localeCompare(String(b.name || '')) : (a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
     return (
       <View>
         <Muted style={{ marginBottom: 8 }}>For subcontractors on a fixed price who apply for payment (e.g. leadwork, scaffolding).</Muted>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
-          <FinSeg value={scf} onChange={setScf} items={[['active', 'Active'], ['complete', 'Complete'], ['all', 'All']].map(([k, l]) => [k, l, data.scs.filter(F[k]).length] as [string, string, number])} />
-          <View style={{ marginLeft: 'auto' }}><Button title="+ Subcontractor PO" onPress={async () => { const sid = siteId || (await pickJob('New subcontractor PO', sites.filter((s) => s.status !== 'closed'))); if (sid) router.push(`/fin/sub/new?site=${sid}` as never); }} /></View>
-        </View>
-        {search('Search subcontractor or project')}
-        {list.length ? list.map((sc) => <FinRow key={sc.id} left={sc.number} title={sc.name} sub={[siteId ? '' : jobTag(site(sc.site_id)), sc.description, `certified ${money(lastCert(sc.id)?.certified_gross || 0)}`, sc.status === 'complete' ? 'Complete' : 'Active'].filter(Boolean).join(' · ')} right={sc.order_value != null ? money(sc.order_value) : '—'} onPress={() => router.push(`/fin/sub/${sc.id}` as never)} />)
+        <View style={{ marginBottom: 8 }}><Button title="+ Subcontractor PO" onPress={async () => { const sid = siteId || (await pickJob('New subcontractor PO', sites.filter((s) => s.status !== 'closed'))); if (sid) router.push(`/fin/sub/new?site=${sid}` as never); }} /></View>
+        <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search subcontractor or project' }} sel={sel} onChange={setSel} onClear={() => setSel({ show: [] })} sorts={[['new', 'Newest first'], ['old', 'Oldest first'], ['big', 'Biggest first'], ['name', 'Name A to Z']]} sort={sort} onSort={setSort}
+          parts={[{ key: 'show', label: 'Show', items: [['active', 'Active'], ['complete', 'Complete']].map(([v, l]) => ({ v, l, n: data.scs.filter(F[v]).length })) }]} />
+        {list.length ? list.map((sc) => <FinRow compact key={sc.id} left={sc.number} title={sc.name} sub={[siteId ? '' : jobTag(site(sc.site_id)), sc.description, `certified ${money(lastCert(sc.id)?.certified_gross || 0)}`, sc.status === 'complete' ? 'Complete' : 'Active'].filter(Boolean).join(' · ')} right={sc.order_value != null ? money(sc.order_value) : '—'} onPress={() => router.push(`/fin/sub/${sc.id}` as never)} />)
           : <Empty>No subcontract orders here.</Empty>}
       </View>
     );
@@ -146,16 +143,14 @@ export function SubsLists({ tab, siteId, f }: { tab: 'opinv' | 'payrun' | 'order
   if (tab === 'apps') {
     const scBy: Record<string, Row> = {}; data.scs.forEach((s) => { scBy[s.id] = s; });
     const F: Record<string, (a: Row) => boolean> = { open: (a) => a.status === 'received', certified: (a) => a.status === 'certified', paid: (a) => a.status === 'paid', all: () => true };
-    const list = data.sapps.filter(F[saf]).filter((a) => hit(scBy[a.subcontract_id]?.name, scBy[a.subcontract_id]?.number, jobTag(site(a.site_id))));
+    const list = data.sapps.filter((a) => has(F, a)).filter((a) => hit(scBy[a.subcontract_id]?.name, scBy[a.subcontract_id]?.number, jobTag(site(a.site_id)))).slice().sort(sort === 'old' ? (a, b) => String(a.app_date || '').localeCompare(String(b.app_date || '')) : sort === 'big' ? (a, b) => num(b, 'applied_gross') - num(a, 'applied_gross') : (a, b) => String(b.app_date || '').localeCompare(String(a.app_date || '')));
     return (
       <View>
         <Muted style={{ marginBottom: 8 }}>A subcontractor applies → you certify it and send the payment or pay-less notice before the final date → mark it paid.</Muted>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
-          <FinSeg value={saf} onChange={setSaf} items={[['open', 'To Certify'], ['certified', 'Certified — To Pay'], ['paid', 'Paid'], ['all', 'All']].map(([k, l]) => [k, l, data.sapps.filter(F[k]).length] as [string, string, number])} />
-        </View>
-        {search('Search subcontractor or project')}
+        <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search subcontractor or project' }} sel={sel} onChange={setSel} onClear={() => setSel({ show: [] })} sorts={[['new', 'Newest first'], ['old', 'Oldest first'], ['big', 'Biggest first']]} sort={sort} onSort={setSort}
+          parts={[{ key: 'show', label: 'Show', items: [['open', 'To certify'], ['certified', 'Certified, to pay'], ['paid', 'Paid']].map(([v, l]) => ({ v, l, n: data.sapps.filter(F[v]).length })) }]} />
         {list.length ? list.map((a) => { const sc = scBy[a.subcontract_id] || {}, late = a.status !== 'paid' && a.final_date && a.final_date < today(); return (
-          <FinRow key={a.id} title={`${sc.name || ''} — application ${a.number}`} sub={[sc.number, siteId ? '' : jobTag(site(a.site_id)), fdate(a.app_date), a.final_date ? `pay by ${fdate(a.final_date)}` : '', `applied ${money(a.applied_gross)}`, a.certified_gross != null ? `certified ${money(a.certified_gross)}` : '', a.status === 'paid' ? 'Paid' : a.status === 'certified' ? 'Certified' : 'To certify', a.payless ? 'Pay less' : ''].filter(Boolean).join(' · ')} right={a.certified_gross != null ? money(a.pay_amount) : '—'} tone={late ? '#C0392B' : undefined} onPress={() => router.push(`/fin/sub/${a.subcontract_id}?app=${a.id}` as never)} />
+          <FinRow compact key={a.id} title={`${sc.name || ''} — application ${a.number}`} sub={[sc.number, siteId ? '' : jobTag(site(a.site_id)), fdate(a.app_date), a.final_date ? `pay by ${fdate(a.final_date)}` : '', `applied ${money(a.applied_gross)}`, a.certified_gross != null ? `certified ${money(a.certified_gross)}` : '', a.status === 'paid' ? 'Paid' : a.status === 'certified' ? 'Certified' : 'To certify', a.payless ? 'Pay less' : ''].filter(Boolean).join(' · ')} right={a.certified_gross != null ? money(a.pay_amount) : '—'} tone={late ? '#C0392B' : undefined} onPress={() => router.push(`/fin/sub/${a.subcontract_id}?app=${a.id}` as never)} />
         ); }) : <Empty>Nothing here.</Empty>}
       </View>
     );

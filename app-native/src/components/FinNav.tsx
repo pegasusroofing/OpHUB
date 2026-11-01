@@ -1,7 +1,7 @@
 // Finance section bar and sub-tabs (914 finSectionNav / finSubTabs), the page
 // wrapper with the access check, and small shared bits (stat tile, row, chip).
 import { router, Stack } from 'expo-router';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { FinMode, Muted } from '@/components/ui';
@@ -28,6 +28,21 @@ const Chip = ({ on, label, onPress, n }: { on: boolean; label: string; onPress: 
   </Pressable>
 );
 export { Chip as FinChip };
+/** A row of tabs that scrolls sideways, with a fade and arrow on the right while there are more to see. */
+export function FinTabRow({ children, style }: { children: ReactNode; style?: object }) {
+  const [box, setBox] = useState({ w: 0, c: 0, x: 0 });
+  const update = (n: Partial<typeof box>) => setBox((b) => ({ ...b, ...n }));
+  const more = box.c - box.w - box.x > 4;
+  return (
+    <View style={[{ borderBottomWidth: 1, borderBottomColor: '#e5e7eb', marginBottom: 14 }, style]}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} scrollEventThrottle={32} style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 2 }}
+        onLayout={(e) => update({ w: e.nativeEvent.layout.width })} onContentSizeChange={(w) => update({ c: w })} onScroll={(e) => update({ x: e.nativeEvent.contentOffset.x })}>
+        {children}
+      </ScrollView>
+      {more && <View pointerEvents="none" style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 34, alignItems: 'flex-end', justifyContent: 'center', backgroundColor: 'rgba(238,240,242,0.92)' }}><Text style={{ fontSize: 18, fontWeight: '800', color: base.slate, paddingRight: 6 }}>›</Text></View>}
+    </View>
+  );
+}
 /** The grey filter bar with counts (finsubtabs): the chosen one white. */
 export function FinSeg({ items, value, onChange }: { items: [string, string, number?][]; value: string; onChange: (k: string) => void }) {
   return (
@@ -45,22 +60,23 @@ export function FinSeg({ items, value, onChange }: { items: [string, string, num
   );
 }
 
-export function FinPage({ title, section, sub, onSub, badges, children, wide, top }: { title: string; section: string; sub?: string; onSub?: (k: string) => void; badges?: Record<string, number>; children: ReactNode; wide?: boolean; top?: ReactNode }) {
+export function FinPage({ title, section, sub, onSub, badges, children, wide, top, foot }: { title: string; section: string; sub?: string; onSub?: (k: string) => void; badges?: Record<string, number>; children: ReactNode; wide?: boolean; top?: ReactNode; foot?: ReactNode }) {
   const { me, org } = useAuth();
   const t = useTheme();
   const subs = FIN_SUBS[section] || [];
   return (
-    <ScrollView contentContainerStyle={[page(wide ? 1200 : 900), { paddingTop: 0 }]} keyboardShouldPersistTaps="handled">
+    <View style={{ flex: 1 }}>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={[page(wide ? 1200 : 900), { paddingTop: 0 }]} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title }} />
       {!me ? null : !isFinanceUser(me, org) ? <Muted>OpHUB Finance isn&apos;t switched on for your account.</Muted> : (
         <>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ borderBottomWidth: 1, borderBottomColor: '#e5e7eb', marginBottom: 14, flexGrow: 0 }} contentContainerStyle={{ gap: 2 }}>
+          <FinTabRow>
             {FIN_SECTIONS.map((s) => (
               <Pressable key={s.k} onPress={() => router.replace(s.go as never)} style={{ paddingVertical: 12, paddingHorizontal: 14, borderBottomWidth: 2, borderBottomColor: s.k === section ? t.brand1 : 'transparent' }}>
                 <Text style={{ fontSize: 13, fontWeight: s.k === section ? '700' : '600', color: s.k === section ? '#111827' : '#6b7280' }}>{s.l}</Text>
               </Pressable>
             ))}
-          </ScrollView>
+          </FinTabRow>
           {section === 'overview' && <View style={{ backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 12, marginBottom: 14 }}><Text style={{ color: '#111827', fontSize: 12 }}>🔒 Finance trial — nothing is sent from Finance (no emails, no Xero, no pushes to PMs) while it&apos;s being tested.</Text></View>}
           {!!top && <FinMode.Provider value>{top}</FinMode.Provider>}
           {subs.length > 1 && onSub && (
@@ -72,6 +88,8 @@ export function FinPage({ title, section, sub, onSub, badges, children, wide, to
         </>
       )}
     </ScrollView>
+    {foot}
+    </View>
   );
 }
 const STAT_TONE = { blue: ['#f3f7ff', '#dbe6ff', '#1d4ed8'], green: ['#f1fbf5', '#d3f0de', '#15803d'], red: ['#fff5f4', '#fbdcd9', '#c81e1e'], amber: ['#fffaf0', '#f8e7c2', '#b45309'] } as const;
@@ -85,7 +103,20 @@ export function FinStat({ v, label, hot, onPress, tone, onMenu }: { v: string; l
     </Pressable>
   );
 }
-export function FinRow({ left, title, sub, right, onPress, tone, children, onMenu }: { left?: string; title: string; sub?: string; right?: string; onPress?: () => void; tone?: string; children?: ReactNode; onMenu?: () => void }) {
+export function FinRow({ left, title, sub, right, onPress, tone, children, onMenu, compact }: { left?: string; title: string; sub?: string; right?: string; onPress?: () => void; tone?: string; children?: ReactNode; onMenu?: () => void; compact?: boolean }) {
+  if (compact) return (
+    <Pressable onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.input, paddingHorizontal: 10, paddingVertical: 6, marginBottom: 4 }}>
+      <View style={{ flex: 1 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>
+          <Text numberOfLines={1} style={{ flex: 1, fontWeight: '700', fontSize: 13.5, color: base.ink }}>{left ? `${left} · ` : ''}{title}</Text>
+          {right ? <Text style={{ fontWeight: '800', fontSize: 13, color: tone || base.ink }}>{right}</Text> : null}
+        </View>
+        {sub ? <Text numberOfLines={2} style={{ fontSize: 11.5, color: base.slate, marginTop: 1 }}>{sub}</Text> : null}
+        {children}
+      </View>
+      {onMenu ? <Pressable onPress={onMenu} hitSlop={8} accessibilityLabel={`More: ${left || title}`} style={{ paddingHorizontal: 4 }}><Text style={{ fontSize: 16, fontWeight: '800', color: base.slate }}>⋯</Text></Pressable> : null}
+    </Pressable>
+  );
   return (
     <Pressable onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 11, backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 6 }}>
       {left ? <Text style={{ fontWeight: '800', color: base.slate, minWidth: 54 }}>{left}</Text> : null}

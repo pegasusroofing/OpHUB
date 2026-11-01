@@ -7,7 +7,8 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { TextInput, View } from 'react-native';
 
-import { FinChip, FinPage, FinRow, FinStat } from '@/components/FinNav';
+import { FinFilterBar, type FilterSel } from '@/components/FinFilterBar';
+import { FinPage, FinRow, FinStat } from '@/components/FinNav';
 import { FinForm, type Field } from '@/components/FinForm';
 import { confirmAsk, useToast } from '@/components/toast';
 import { Button, Empty, Muted, SectionTitle } from '@/components/ui';
@@ -145,15 +146,18 @@ export default function FinYard() {
 }
 
 function YardList({ items, rateBy, loading, onNew, onMove }: { items: Item[]; rateBy: Record<string, number>; loading: boolean; onNew: () => void; onMove: (k: Kind, id?: string) => void }) {
-  const [f, setF] = useState<'all' | 'low' | 'off'>('all');
-  const [cat, setCat] = useState('');
+  const [sel, setSel] = useState<FilterSel>({ show: ['all'], cat: [] });
+  const [sort, setSort] = useState('as');
+  const f = (sel.show[0] || 'all') as 'all' | 'low' | 'off';
+  const setF = (k: 'all' | 'low' | 'off') => setSel({ ...sel, show: [k] });
   const [q, setQ] = useState('');
   const F = { all: (s: Item) => s.active !== false, low: (s: Item) => s.active !== false && yardLow(s), off: (s: Item) => s.active === false };
   const val = (s: Item) => (rateBy[s.id] != null ? rateBy[s.id] * Number(s.qty || 0) : 0);
   const total = items.filter(F.all).reduce((t, s) => t + val(s), 0);
   const cats = Array.from(new Set(items.map((s) => s.category).filter(Boolean) as string[])).sort();
   const t = q.trim().toLowerCase();
-  const list = items.filter(F[f]).filter((s) => !cat || s.category === cat).filter((s) => !t || [s.item, s.category, s.location].join(' ').toLowerCase().includes(t));
+  const sorter: Record<string, (a: Item, b: Item) => number> = { as: () => 0, az: (a, b) => a.item.localeCompare(b.item), qty: (a, b) => Number(b.qty || 0) - Number(a.qty || 0), val: (a, b) => val(b) - val(a) };
+  const list = items.filter(F[f]).filter((s) => !sel.cat.length || sel.cat.includes(s.category || '')).filter((s) => !t || [s.item, s.category, s.location].join(' ').toLowerCase().includes(t)).slice().sort(sorter[sort]);
   return (
     <>
       <Muted style={{ marginBottom: 8 }}>Materials held in the yard. Issue them to a job and the cost goes on that job (qty × rate). PMs can see the list and issue to their projects from Material Requests, but don’t see rates.</Muted>
@@ -164,13 +168,14 @@ function YardList({ items, rateBy, loading, onNew, onMove }: { items: Item[]; ra
         <Button title="+ New item" onPress={onNew} /><Button kind="ghost" title="⬇ Book stock in" onPress={() => onMove('in')} /><Button kind="ghost" title="⬆ Issue to a job" onPress={() => onMove('issue')} />
         <Button kind="ghost" title="↩ Return from a job" onPress={() => onMove('return')} /><Button kind="ghost" title="Adjust a count" onPress={() => onMove('adjust')} />
       </View>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
-        {([['all', 'In use'], ['low', 'Low stock'], ['off', 'Not stocked']] as const).map(([k, l]) => <FinChip key={k} on={f === k} label={l} n={items.filter(F[k]).length} onPress={() => setF(k)} />)}
-      </View>
-      {cats.length > 0 && <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>{['', ...cats].map((c) => <FinChip key={c || 'all'} on={cat === c} label={c || 'All categories'} onPress={() => setCat(c)} />)}</View>}
-      <TextInput value={q} onChangeText={setQ} placeholder="Search item or location" style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 9, color: base.ink, backgroundColor: base.card, marginBottom: 10 }} />
+      <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search item or location' }} sel={sel} onChange={(n) => setSel({ ...n, show: n.show.length ? n.show : ['all'] })} onClear={() => setSel({ show: ['all'], cat: [] })}
+        sorts={[['as', 'Category order'], ['az', 'Item A to Z'], ['qty', 'Most in the yard'], ['val', 'Highest value']]} sort={sort} onSort={setSort}
+        parts={[
+          { key: 'show', label: 'Show', single: true, items: ([['all', 'In use'], ['low', 'Low stock'], ['off', 'Not stocked']] as const).map(([v, l]) => ({ v, l, n: items.filter(F[v]).length })) },
+          { key: 'cat', label: 'Category', items: cats.map((c) => ({ v: c, l: c })) },
+        ]} />
       {loading ? <Muted>Loading…</Muted> : list.length ? list.map((s) => (
-        <FinRow key={s.id} title={s.item} sub={[`${yardQty(s.qty)} ${s.unit || ''} in yard${yardLow(s) ? ' · LOW' : ''}`, s.min_qty != null ? `min ${yardQty(s.min_qty)}` : '', s.category || '', s.location || '', rateBy[s.id] != null ? `${money(rateBy[s.id])}${s.unit ? ` / ${s.unit}` : ''}` : 'No rate'].filter(Boolean).join(' · ')}
+        <FinRow compact key={s.id} title={s.item} sub={[`${yardQty(s.qty)} ${s.unit || ''} in yard${yardLow(s) ? ' · LOW' : ''}`, s.min_qty != null ? `min ${yardQty(s.min_qty)}` : '', s.category || '', s.location || '', rateBy[s.id] != null ? `${money(rateBy[s.id])}${s.unit ? ` / ${s.unit}` : ''}` : 'No rate'].filter(Boolean).join(' · ')}
           right={val(s) ? money(val(s)) : '—'} tone={yardLow(s) ? '#C0392B' : undefined} onPress={() => router.setParams({ id: s.id })} />
       )) : <Empty>{f === 'low' ? 'Nothing is below its minimum level.' : 'No yard stock yet — add the first item.'}</Empty>}
       {list.length > 0 && <Muted style={{ marginTop: 4 }}>{list.length} item{list.length === 1 ? '' : 's'} · {money(list.reduce((x, s) => x + val(s), 0))}</Muted>}

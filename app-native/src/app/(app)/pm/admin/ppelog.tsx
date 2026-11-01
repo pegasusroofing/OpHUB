@@ -6,6 +6,8 @@ import { Stack } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
+import { ThinExportBar } from '@/components/FinFilterBar';
+
 import { chooseAction, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted } from '@/components/ui';
 import { useTeam } from '@/data/admin';
@@ -59,7 +61,8 @@ export default function PpeLog() {
   const run = async (k: string, fn: () => Promise<boolean>) => { if (k !== 'r' && !shown.length) { toast('No PPE issued in that range.'); return; } setBusy(k); const ok = await fn().catch(() => false); setBusy(''); if (!ok) toast('Could not make the file — try again.'); };
   const chip = (on: boolean, l: string, onPress: () => void) => <Pressable key={l} onPress={onPress} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: on ? base.ink : base.line, backgroundColor: on ? base.ink : base.card }}><Text style={{ fontWeight: '700', fontSize: 12, color: on ? '#fff' : base.ink }}>{l}</Text></Pressable>;
   return (
-    <ScrollView contentContainerStyle={page(720)}>
+    <View style={{ flex: 1 }}>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'PPE Log' }} />
       <Muted style={{ marginBottom: 10 }}>PPE issued across every site, for whichever period and operative(s) you choose.</Muted>
       <View style={{ flexDirection: 'row', gap: 6, marginBottom: 10, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -86,10 +89,10 @@ export default function PpeLog() {
         </Card>
       )) : <Empty>No PPE issued in this period.</Empty>}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
-        <Button kind="ghost" title={busy === 'x' ? 'Making…' : '📊 Export to Excel'} onPress={() => run('x', () => exportTableExcel(logTable(), org))} />
-        <Button kind="ghost" title={busy === 'p' ? 'Making…' : '📄 Export to PDF'} onPress={() => run('p', () => exportTablePdf(logTable(), org))} />
         <Button kind="ghost" title={busy === 'r' ? 'Making…' : '📋 PPE Register (all operatives)'} onPress={() => run('r', register)} />
       </View>
     </ScrollView>
+    {shown.length > 0 && <ThinExportBar busy={busy} onExcel={() => run('x', () => exportTableExcel(logTable(), org))} onPdf={() => run('p', () => exportTablePdf(logTable(), org))} />}
+    </View>
   );
 }

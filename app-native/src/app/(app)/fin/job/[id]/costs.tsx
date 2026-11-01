@@ -11,6 +11,7 @@ import { exportTableExcel, exportTablePdf } from '@/lib/tableExport';
 
 import { FinForm } from '@/components/FinForm';
 import { AllocRow } from '@/components/FinSplit';
+import { ThinExportBar } from '@/components/FinFilterBar';
 import { FinChip, FinRow } from '@/components/FinNav';
 import { SelectBox } from '@/components/SelectBox';
 import { confirmAsk, useToast } from '@/components/toast';
@@ -64,7 +65,8 @@ export default function FinCosts() {
   openRef.current = openCost;
   const cur = edit && edit !== 'new' ? edit : null;
   return (
-    <ScrollView contentContainerStyle={page(1000)}>
+    <View style={{ flex: 1 }}>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={page(1000)}>
       <Stack.Screen options={{ title: 'Costs ledger' }} />
       {!!sub && <View style={{ flexDirection: 'row', marginBottom: 8 }}><FinChip on label={`${sub === 'none' ? 'Not allocated to a plot' : 'One plot / repair job'} ✕`} onPress={() => router.setParams({ sub: '' })} /></View>}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
@@ -79,8 +81,6 @@ export default function FinCosts() {
       </View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 8 }}>
         <Muted>{howMany(list.length)} · {money(shownTotal)}{waiting ? ` · ${money(waiting)} waiting approval` : ''}</Muted>
-        {list.length > 0 && <Button small kind="ghost" title="📊 Excel" onPress={() => void exportTableExcel(table(), org)} />}
-        {list.length > 0 && <Button small kind="ghost" title="📄 PDF" onPress={async () => { if (!(await exportTablePdf(table(), org).catch(() => false))) toast('Could not build the PDF.'); }} />}
       </View>
       {list.length ? list.map((l) => <FinRow key={l.key} title={l.desc} sub={[l.date ? fdate(l.date) : '', COST_CATS[l.cat] || (l.cat === 'committed' ? `Ordered (${COST_CATS[l.ccat || 'materials']})` : l.cat), l.who, l.ref, l.status].filter(Boolean).join(' · ')} right={money(l.net)} onPress={l.go ? () => router.push(l.go as never) : l.key.startsWith('jc:') ? () => openCost(l.key) : undefined} />) : <Empty>No costs yet.</Empty>}
       {edit && (
@@ -106,5 +106,7 @@ export default function FinCosts() {
       )}
       <Muted style={{ marginTop: 8 }}>All excl. VAT. Labour from sign-ins is only costed for PAYE staff with a day rate (People &amp; rates).</Muted>
     </ScrollView>
+    {list.length > 0 && <ThinExportBar onExcel={() => void exportTableExcel(table(), org)} onPdf={async () => { if (!(await exportTablePdf(table(), org).catch(() => false))) toast('Could not build the PDF.'); }} />}
+    </View>
   );
 }

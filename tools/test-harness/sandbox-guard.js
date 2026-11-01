@@ -148,9 +148,19 @@ async function fullWrite(route, {q, url, m, table, rows, keys, prefer, held}) {
     if (/^andy\.cramp\+(pm|sm|op|driver|client|sub)@/.test(em || '')) { const res = await route.fetch(); const text = await res.text(); log({wrote: table, method: m, keys}); return route.fulfill({response: res, body: text}); }
     return held('never written');
   }
+  // ADMIN_TEST: Sandbox's own company row only, for branding and settings saves, which the test puts back.
+  if (process.env.ADMIN_TEST === '1' && table === 'organizations' && m === 'PATCH' && url.includes(`id=eq.${SANDBOX}`)) { const res = await route.fetch(); const text = await res.text(); log({wrote: table, method: m, keys}); return route.fulfill({response: res, body: text}); }
   if (FULL_NEVER.test(table)) return held('never written');
   const pass = async (rememberRows) => {
-    const res = await route.fetch(); const text = await res.text();
+    // Ask for the new row back so its id is known and the test can edit or delete what it made. Not sites: their policy refuses it.
+    let res = null;
+    if (rememberRows && table !== 'sites' && !/representation/.test(prefer)) {
+      const want = [prefer, 'return=representation'].filter(Boolean).join(',').replace(/return=minimal,?/, '');
+      res = await route.fetch({headers: {...q.headers(), prefer: want}});
+      if (res.status() >= 400) res = null;
+    }
+    res = res || await route.fetch();
+    const text = await res.text();
     if (res.status() >= 400) log({writeFailed: table, method: m, status: res.status(), keys, message: text.slice(0, 240)});
     else {
       log({wrote: table, method: m, keys});
