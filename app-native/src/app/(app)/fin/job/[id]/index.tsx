@@ -95,7 +95,7 @@ export default function FinJob() {
         ))}
       </ScrollView>
       {isLoading || !fc || !data ? <Muted>Loading…</Muted> : tab === 'overview' ? <Overview id={id} fc={fc} settings={data.settings} invs={data.book.invs.filter((i) => i.site_id === id)} apps={data.book.apps.filter((a) => a.site_id === id)} book={data.book as unknown as Row} />
-        : tab === 'sales' ? <>{subTabs('sales', [['invoices', 'Invoices'], ['apps', 'Applications & Certificates'], ['retention', 'Retention']])}<SalesLists key={sub.sales} tab={sub.sales as 'invoices'} siteId={id} /></>
+        : tab === 'sales' ? <>{subTabs('sales', [['invoices', 'Invoices'], ...(fc.isInvoiceJob && !data.book.apps.some((a) => a.site_id === id) ? [] : [['apps', 'Applications & Certificates'], ['retention', 'Retention']] as [string, string][])])}<SalesLists key={sub.sales} tab={sub.sales as 'invoices'} siteId={id} /></>
         : tab === 'purchases' ? <>{subTabs('purchases', [['orders', 'Purchase orders'], ['invoices', 'Purchase invoices'], ['plant', 'Plant hire'], ['quotes', 'Purchase Quotes']])}{sub.purchases === 'quotes' ? <PurchaseQuotes siteId={id} /> : <PurchasesLists key={sub.purchases} tab={sub.purchases as 'orders'} siteId={id} />}</>
         : tab === 'subs' ? <>{subTabs('subs', [['orders', 'Subcontractor POs'], ['apps', 'Applications'], ['opinv', 'Operative invoices']])}<SubsLists key={sub.subs} tab={sub.subs as 'orders'} siteId={id} /></>
         : <Setup id={id} site={s} jf={fc.jf} cpos={data.book.cpos.filter((p) => p.site_id === id)} settings={data.settings} />}
@@ -246,6 +246,8 @@ function Setup({ id, site, jf, cpos, settings }: { id: string; site: Row | undef
   if (!me) return null;
   const refresh = () => { ['finBook', 'finJobs', 'finOverview', 'sites'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] })); };
   const kv = (l: string, v: string) => <FinRow key={l} title={l} right={v} />;
+  // Invoice jobs have no applications or retention (9219zv).
+  const byInv = jf.billing_type === 'invoice';
   // Delete from Finance (9219u finDeleteJob): not with anything financial booked to it — then close it instead.
   const delJob = async () => {
     if (!me || !site) return;
@@ -264,17 +266,17 @@ function Setup({ id, site, jf, cpos, settings }: { id: string; site: Row | undef
         {kv('Project number', site?.job_number || '—')}
         {kv('Contract value', jf.contract_value != null ? money(jf.contract_value) : 'Not set')}
         {kv('Billing', jf.billing_type === 'invoice' ? 'By invoice' : jf.billing_type === 'application' ? 'By application' : 'Not chosen yet')}
-        {kv('Retention', jf.retention_pct != null ? `${jf.retention_pct}%${jf.retention_limit_pct != null ? ` (limit ${jf.retention_limit_pct}%)` : ''}` : `${settings.default_retention_pct}% (company)`)}
+        {!byInv && kv('Retention', jf.retention_pct != null ? `${jf.retention_pct}%${jf.retention_limit_pct != null ? ` (limit ${jf.retention_limit_pct}%)` : ''}` : `${settings.default_retention_pct}% (company)`)}
         {kv('Payment terms', `${jf.due_days ?? settings.default_due_days} days · final ${jf.final_days ?? settings.default_final_days} days`)}
         {kv('VAT', FIN_VAT_LABEL[jf.vat_treatment || settings.default_vat] || '—')}
-        {kv('Application date', jf.app_reminder_day ? `${jf.app_reminder_day} of each month` : settings.app_reminder_day ? `${settings.app_reminder_day} (company)` : 'Not set')}
+        {!byInv && kv('Application date', jf.app_reminder_day ? `${jf.app_reminder_day} of each month` : settings.app_reminder_day ? `${settings.app_reminder_day} (company)` : 'Not set')}
         {kv('Bill to', [jf.billing_name, jf.billing_email].filter(Boolean).join(' · ') || '—')}
         {kv('Practical completion', jf.pc_date ? fdate(jf.pc_date) : '—')}
         {kv('Defects period', `${jf.defects_months ?? settings.default_defects_months ?? 12} months`)}
-        {kv('Final retention release', jf.final_release_date ? `${fdate(jf.final_release_date)} (set by hand)` : 'End of the defects period')}
+        {!byInv && kv('Final retention release', jf.final_release_date ? `${fdate(jf.final_release_date)} (set by hand)` : 'End of the defects period')}
         {kv('QS', jf.qs_id ? (people ?? []).find((p) => p.id === jf.qs_id)?.name || '—' : 'None yet')}
         {kv('Company overheads', jf.ohp_pct != null ? `${jf.ohp_pct}%` : `${settings.ohp_pct ?? 0}% (company)`)}
-        <View style={{ marginTop: 8, gap: 8 }}>{isFullManager(me) && <Button kind="ghost" title="✎ Project — name, client, address, status" onPress={() => setEdit('site')} />}<Button title="Edit project details" onPress={() => setEdit('job')} /><Button kind="ghost" title="📅 Monthly application dates" onPress={() => setEdit('dates')} /></View>
+        <View style={{ marginTop: 8, gap: 8 }}>{isFullManager(me) && <Button kind="ghost" title="✎ Project — name, client, address, status" onPress={() => setEdit('site')} />}<Button title="Edit project details" onPress={() => setEdit('job')} />{!byInv && <Button kind="ghost" title="📅 Monthly application dates" onPress={() => setEdit('dates')} />}</View>
       </Card>
       {isFullManager(me) && <View style={{ marginBottom: 8 }}><Button kind="ghost" title="🗑 Delete this project" onPress={() => void delJob()} /></View>}
       <SectionTitle>Client POs</SectionTitle>
@@ -331,13 +333,13 @@ function Setup({ id, site, jf, cpos, settings }: { id: string; site: Row | undef
           fields={[
             { k: 'job_number', label: 'Project number', half: true }, { k: 'contract_value', label: 'Contract value £ (excl. VAT)', kind: 'money', half: true },
             { k: 'billing_type', label: 'Billed by', kind: 'choice', options: [['invoice', 'Invoice'], ['application', 'Application (with retention)']], note: 'Invoice jobs have no applications or retention.' },
-            { k: 'retention_pct', label: 'Retention %', kind: 'number', half: true, ph: String(settings.default_retention_pct) }, { k: 'retention_limit_pct', label: 'Retention limit %', kind: 'number', half: true },
+            ...(byInv ? [] : [{ k: 'retention_pct', label: 'Retention %', kind: 'number' as const, half: true, ph: String(settings.default_retention_pct) }, { k: 'retention_limit_pct', label: 'Retention limit %', kind: 'number' as const, half: true }]),
             { k: 'due_days', label: 'Payment due (days)', kind: 'number', half: true, ph: String(settings.default_due_days) }, { k: 'final_days', label: 'Final date (days)', kind: 'number', half: true, ph: String(settings.default_final_days) },
             { k: 'vat_treatment', label: 'VAT', kind: 'choice', options: [['', 'Company default'], ...Object.entries(FIN_VAT_LABEL)] as [string, string][] },
             { k: 'app_reminder_day', label: 'Application date (day of month)', kind: 'number', half: true }, { k: 'ohp_pct', label: `Company overheads % (blank = ${settings.ohp_pct ?? 0}%)`, kind: 'number', half: true, note: me.role === 'admin' ? undefined : 'Only a company admin can change this.' },
             { k: 'billing_name', label: 'Bill to (client)', kind: 'choice', options: [['', 'Not set'], ...dirClients.map((c) => [c.name, c.name] as [string, string]), ...(jf.billing_name && !dirClients.some((c) => c.name === jf.billing_name) ? [[jf.billing_name, `${jf.billing_name} (not in the Directory)`] as [string, string]] : [])], note: 'From the Directory — the billing address and accounts email follow the client’s Directory record.' }, { k: 'billing_address', label: 'Billing address', kind: 'multiline' }, { k: 'billing_email', label: 'Accounts email', kind: 'email' },
             { k: 'pc_date', label: 'Practical completion date', kind: 'date', half: true }, { k: 'defects_months', label: 'Defects period (months)', kind: 'number', half: true },
-            { k: 'final_release_date', label: 'Final retention release (blank = end of defects period)', kind: 'date', half: true },
+            ...(byInv ? [] : [{ k: 'final_release_date', label: 'Final retention release (blank = end of defects period)', kind: 'date' as const, half: true }]),
             { k: 'qs_id', label: 'QS', kind: 'choice', half: true, options: [['', 'None yet'], ...(people ?? []).filter((p) => ['pm', 'admin', 'site_manager'].includes(p.role) || (p as { finance_enabled?: boolean }).finance_enabled).sort((a, b) => a.name.localeCompare(b.name)).map((p) => [p.id, p.name] as [string, string])] },
             { k: 'notes', label: 'Notes', kind: 'multiline' },
           ]}

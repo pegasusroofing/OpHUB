@@ -21,6 +21,8 @@ import { heading, mono } from '@/lib/fonts';
 import { fullSiteAddress } from '@/lib/rules/checkin';
 import { base, useDesk, useTheme } from '@/theme/theme';
 
+// Pages with no section of their own: the trail takes you back to the list they came from.
+const FIN_PARENT: Record<string, [string, string]> = { po: ['Purchases', '/fin/purchases'], pinv: ['Purchases', '/fin/purchases?tab=invoices'], plant: ['Purchases', '/fin/purchases?tab=plant'], yardin: ['Yard stock', '/fin/yard'], sub: ['Subcontractors', '/fin/subs?tab=orders'], labour: ['Subcontractors', '/fin/subs?tab=opinv'], inbox: ['Purchases', '/fin/purchases?tab=invoices'] };
 const FIN_SUB: Record<string, string> = { '': 'Overview', jobs: 'Projects', sales: 'Sales', purchases: 'Purchases', subs: 'Subcontractors & Labour', reports: 'Reports', settings: 'Settings', directory: 'Directory', statements: 'Statements', yard: 'Yard stock', inbox: 'Inbox', newjob: 'New project' };
 // A job's sections, so a page further in can step back to its section from the trail.
 const SECTION: Record<string, string> = { schedule: 'Schedule Of Works', drawings: "Drawings, Spec's & Programme", materials: 'Materials', hs: 'Health & Safety', snagging: 'Snagging', checkin: 'Check In / Out', price: 'Price', repairs: 'Repairs', om: 'O&M Manual', mc: 'Main Contractor', handover: 'Handover', todos: 'To Do List' };
@@ -63,6 +65,7 @@ export function AppBar({ title, onBack, home, right }: { title?: string; onBack?
   const fJob = finJob ? sites?.find((s) => s.id === finJob) : undefined;
   const finCrumbs: [string, string | null][] = path === '/fin' ? []
     : finJob ? [['Finance', '/fin'], ['Projects', '/fin/jobs'], [fJob ? [fJob.job_number, fJob.name].filter(Boolean).join(' ') : 'Project', null]]
+      : FIN_PARENT[path.split('/')[2] || ''] ? [['Finance', '/fin'], FIN_PARENT[path.split('/')[2] || '']]
       : [['Finance', '/fin'], [finSub, null]];
   // A page can give its own steps after the job (e.g. Drawings › Roof plans); otherwise a page inside a
   // section (Materials › Requests) gets the section as a step back.

@@ -18,6 +18,7 @@ import { viewDoc } from '@/components/DocViewer';
 import { askAppSow } from '@/components/FinRowMenu';
 import { DateBox } from '@/components/DateField';
 import { addBoqLines, addBoqSection, clearCertificate, deleteApplication, deleteApplicationAny, exportApplication, loadApplication, newApplication, raiseInvoiceFromCert, saveApplication, saveCertificate, setStatus } from '@/data/finApp';
+import { useFinSettings } from '@/data/finance';
 import { openDocLink } from '@/data/hs';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
@@ -63,6 +64,7 @@ export default function FinApplication() {
 function Editor({ a0, jf, previousLive, prevPct, siteProgress, varProgress }: { a0: Row; jf: Row; previousLive: number; prevPct: Record<string, number>; siteProgress: Record<string, number>; varProgress: Record<string, number> }) {
   const { me, org } = useAuth();
   const { data: site } = useSite(a0.site_id);
+  const { data: finSt } = useFinSettings(me?.org_id);
   const toast = useToast();
   const qc = useQueryClient();
   const [a, setA] = useState<Row>(() => JSON.parse(JSON.stringify(a0)));
@@ -321,7 +323,7 @@ function Editor({ a0, jf, previousLive, prevPct, siteProgress, varProgress }: { 
         </View>
         <FinRow title="Less previously certified" right={`−${money(c.previous)}`} />
         <FinRow title="Amount due this application" right={money(c.net_due)} />
-        {(jf.vat_treatment || 'standard') === 'standard' && <Muted>VAT @ 20% {money(round2(c.net_due * 0.2))} · total incl. VAT {money(round2(c.net_due * 1.2))}</Muted>}
+        {(jf.vat_treatment || finSt?.default_vat || 'standard') === 'standard' && <Muted>VAT @ 20% {money(round2(c.net_due * 0.2))} · total incl. VAT {money(round2(c.net_due * 1.2))}</Muted>}
         <Muted>Excl. VAT. An application isn&apos;t a VAT invoice; the invoice follows the certificate.</Muted>
       </Card>
       {stage === 'draft' && (

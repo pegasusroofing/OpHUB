@@ -9,7 +9,7 @@ import { Pressable, ScrollView, Switch, Text, View } from 'react-native';
 import { DateBox } from '@/components/DateField';
 import { OneDriveBrowser } from '@/components/OneDriveBrowser';
 import { chooseAction, confirmAsk, showAlert, useToast } from '@/components/toast';
-import { Button, Card, Field, Muted, SectionTitle } from '@/components/ui';
+import { Button, Card, Field, Muted, SectionTitle, Toggle } from '@/components/ui';
 import { useTeam } from '@/data/admin';
 import { chaseNow, chasePatch, clientId, convertToJob, fileQuoteFolder, makeQuoteFolder, saveQuote, searchClients, setQuoteStatus, uploadTenderDocs, useQuote, useQuoteSettings, type ClientHit } from '@/data/quotes';
 import { SubmitQuote } from '@/components/SubmitQuote';
@@ -36,6 +36,7 @@ export default function QuotePage() {
   const [hits, setHits] = useState<ClientHit[]>([]);
   const [busy, setBusy] = useState('');
   const [docs, setDocs] = useState<{ uri: string; name: string }[]>([]);
+  const [showDetails, setShowDetails] = useState(false);
   const q = data?.quote ?? null;
   const firstDays = settings?.chase_first_days ?? 30;
   useEffect(() => {
@@ -125,45 +126,18 @@ export default function QuotePage() {
         </Card>
       )}
       {!!q && !q.returned_at && !q.site_id && <SubmitQuote q={q} firstDays={firstDays} onDone={refresh} />}
-      <Card>
-        <SectionTitle>Customer</SectionTitle>
-        <Field label="Client *" value={v.client} onChangeText={typeClient} placeholder="Start typing to search your Directory" />
-        {hits.filter((h) => h.name.toLowerCase() !== v.client.trim().toLowerCase()).map((h) => (
-          <Pressable key={h.id} onPress={() => { setV((f) => ({ ...f, client: h.name, email: f.email || h.email || '', phone: f.phone || h.phone || '' })); setHits([]); }} style={{ paddingVertical: 8 }}>
-            <Text style={{ color: base.blue, fontWeight: '700' }}>{h.name}</Text>
-          </Pressable>
-        ))}
-        <Field label="Contact name" value={v.contact} onChangeText={set('contact')} />
-        <Field label="Contact email (the chaser goes here)" value={v.email} onChangeText={set('email')} keyboardType="email-address" autoCapitalize="none" />
-        <Field label="Contact number" value={v.phone} onChangeText={set('phone')} keyboardType="phone-pad" />
-      </Card>
-      <Card>
-        <SectionTitle>Project</SectionTitle>
-        <Field label="Project name *" value={v.title} onChangeText={set('title')} />
-        <Field label="Address" value={v.address} onChangeText={set('address')} />
-        <Field label="Postcode" value={v.postcode} onChangeText={set('postcode')} />
-        <Muted style={{ fontWeight: '700', marginBottom: 4 }}>Discipline</Muted>
-        <View style={{ marginBottom: 10 }}><Button kind="ghost" title={v.discipline || 'Choose…'} onPress={async () => { const k = await chooseAction('Discipline', DISCIPLINES.map((d) => ({ key: d, label: d }))); if (k) set('discipline')(k); }} /></View>
-        <Field label="Tender value £" value={v.value} onChangeText={set('value')} keyboardType="decimal-pad" />
-        <Field label="Profit %" value={v.profit} onChangeText={set('profit')} keyboardType="decimal-pad" />
-        <Muted style={{ fontWeight: '700', marginBottom: 4 }}>Priced by</Muted>
-        <View style={{ marginBottom: 10 }}><Button kind="ghost" title={v.pricedName || 'Choose…'} onPress={async () => { const k = await chooseAction('Priced by', people.map((p) => ({ key: p.id, label: p.name || p.email || 'Unknown' }))); const p = people.find((x) => x.id === k); if (p) setV((f) => ({ ...f, pricedBy: p.id, pricedName: p.name || '' })); }} /></View>
-        <Muted style={{ fontWeight: '700', marginBottom: 4 }}>Enquiry received</Muted>
-        <DateBox value={v.received} onChange={set('received')} title="Enquiry received" style={{ marginBottom: 10 }} />
-        <Muted style={{ fontWeight: '700', marginBottom: 4 }}>{q?.returned_at ? 'Date sent' : 'Tender due back'}</Muted>
-        <DateBox value={v.ret} onChange={set('ret')} title={q?.returned_at ? 'Date sent' : 'Tender due back'} style={{ marginBottom: 10 }} />
-        <Field label="Notes and feedback" value={v.notes} onChangeText={set('notes')} multiline />
-        {isNew && (
-          <View style={{ marginBottom: 10 }}>
-            <Muted style={{ fontWeight: '700', marginBottom: 4 }}>Tender documents</Muted>
-            {docs.map((d, i) => <Pressable key={d.uri} onPress={() => setDocs(docs.filter((_, j) => j !== i))}><Text style={{ color: base.ink, paddingVertical: 3 }}>📎 {d.name}  ✕</Text></Pressable>)}
-            <Button kind="ghost" title="📎 Add documents" onPress={async () => { const r = await DocumentPicker.getDocumentAsync({ type: '*/*', multiple: true, copyToCacheDirectory: true }); if (!r.canceled) setDocs([...docs, ...r.assets.map((a) => ({ uri: a.uri, name: a.name || 'file' }))]); }} />
-            <Muted style={{ marginTop: 6 }}>They go in the enquiry’s Tender Documents folder in OneDrive.</Muted>
-          </View>
-        )}
-        {busy && busy !== 'save' && isNew ? <Muted style={{ marginBottom: 8 }}>{busy}</Muted> : null}
-        <Button busy={busy === 'save' || (isNew && !!busy)} title={isNew ? 'Create Enquiry' : 'Save'} onPress={() => void save()} />
-      </Card>
+      {!!q && (
+        <Card>
+          <SectionTitle>Documents</SectionTitle>
+          {q.folder_id ? <OneDriveBrowser root={{ id: q.folder_id, driveId: q.folder_drive_id, name: q.folder_name || 'Enquiry folder' }} /> : (
+            <>
+              <Muted style={{ marginBottom: 8 }}>Makes the enquiry’s folder in OneDrive from your New Enquiry template.</Muted>
+              <Button busy={busy === 'folder'} title="📁 Make the folder" onPress={async () => { setBusy('folder'); const r = await makeQuoteFolder(q.id); setBusy(''); toast(r.error || 'Folder made'); refresh(); }} />
+              <View style={{ marginTop: 8 }}><Button kind="ghost" title="Link a folder already there" onPress={() => router.push({ pathname: '/pm/onedrive-pick', params: { target: 'quote', id: q.id } } as never)} /></View>
+            </>
+          )}
+        </Card>
+      )}
       {!!q && (
         <Card>
           <SectionTitle>Email chaser</SectionTitle>
@@ -183,17 +157,55 @@ export default function QuotePage() {
           {(data?.chases ?? []).map((c) => <Muted key={c.id} style={{ marginTop: 6 }}>{new Date(c.sent_at).toLocaleDateString('en-GB')}: {c.automatic ? 'automatic' : 'by hand'} to {c.sent_to}</Muted>)}
         </Card>
       )}
-      {!!q && (
-        <Card>
-          <SectionTitle>Documents</SectionTitle>
-          {q.folder_id ? <OneDriveBrowser root={{ id: q.folder_id, driveId: q.folder_drive_id, name: q.folder_name || 'Enquiry folder' }} /> : (
-            <>
-              <Muted style={{ marginBottom: 8 }}>Makes the enquiry’s folder in OneDrive from your New Enquiry template.</Muted>
-              <Button busy={busy === 'folder'} title="📁 Make the folder" onPress={async () => { setBusy('folder'); const r = await makeQuoteFolder(q.id); setBusy(''); toast(r.error || 'Folder made'); refresh(); }} />
-              <View style={{ marginTop: 8 }}><Button kind="ghost" title="Link a folder already there" onPress={() => router.push({ pathname: '/pm/onedrive-pick', params: { target: 'quote', id: q.id } } as never)} /></View>
-            </>
-          )}
-        </Card>
+      {!isNew && <Toggle title="Customer and project details" open={showDetails} onPress={() => setShowDetails(!showDetails)} />}
+      {(isNew || showDetails) && (
+        <>
+      <Card>
+        <SectionTitle>Customer</SectionTitle>
+        <Field label="Client *" value={v.client} onChangeText={typeClient} placeholder="Start typing to search your Directory" />
+        {hits.filter((h) => h.name.toLowerCase() !== v.client.trim().toLowerCase()).map((h) => (
+          <Pressable key={h.id} onPress={() => { setV((f) => ({ ...f, client: h.name, email: f.email || h.email || '', phone: f.phone || h.phone || '' })); setHits([]); }} style={{ paddingVertical: 8 }}>
+            <Text style={{ color: base.blue, fontWeight: '700' }}>{h.name}</Text>
+          </Pressable>
+        ))}
+        <Field label="Contact name" value={v.contact} onChangeText={set('contact')} />
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <View style={{ flex: 2 }}><Field label="Contact number" value={v.phone} onChangeText={set('phone')} keyboardType="phone-pad" /></View>
+          <View style={{ flex: 3 }}><Field label="Contact email (the chaser goes here)" value={v.email} onChangeText={set('email')} keyboardType="email-address" autoCapitalize="none" /></View>
+        </View>
+      </Card>
+      <Card>
+        <SectionTitle>Project</SectionTitle>
+        <Field label="Project name *" value={v.title} onChangeText={set('title')} />
+        <Field label="Address" value={v.address} onChangeText={set('address')} />
+        <Field label="Postcode" value={v.postcode} onChangeText={set('postcode')} />
+        <Muted style={{ fontWeight: '700', marginBottom: 4 }}>Discipline</Muted>
+        <View style={{ marginBottom: 10 }}><Button kind="ghost" title={v.discipline || 'Choose…'} onPress={async () => { const k = await chooseAction('Discipline', DISCIPLINES.map((d) => ({ key: d, label: d }))); if (k) set('discipline')(k); }} /></View>
+        {!isNew && (
+          <>
+            <Field label="Tender value £" value={v.value} onChangeText={set('value')} keyboardType="decimal-pad" />
+            <Field label="Profit %" value={v.profit} onChangeText={set('profit')} keyboardType="decimal-pad" />
+            <Muted style={{ fontWeight: '700', marginBottom: 4 }}>Priced by</Muted>
+            <View style={{ marginBottom: 10 }}><Button kind="ghost" title={v.pricedName || 'Choose…'} onPress={async () => { const k = await chooseAction('Priced by', people.map((p) => ({ key: p.id, label: p.name || p.email || 'Unknown' }))); const p = people.find((x) => x.id === k); if (p) setV((f) => ({ ...f, pricedBy: p.id, pricedName: p.name || '' })); }} /></View>
+          </>
+        )}
+        <Muted style={{ fontWeight: '700', marginBottom: 4 }}>Enquiry received</Muted>
+        <DateBox value={v.received} onChange={set('received')} title="Enquiry received" style={{ marginBottom: 10 }} />
+        <Muted style={{ fontWeight: '700', marginBottom: 4 }}>{q?.returned_at ? 'Date sent' : 'Tender due back'}</Muted>
+        <DateBox value={v.ret} onChange={set('ret')} title={q?.returned_at ? 'Date sent' : 'Tender due back'} style={{ marginBottom: 10 }} />
+        <Field label="Notes and feedback" value={v.notes} onChangeText={set('notes')} multiline />
+        {isNew && (
+          <View style={{ marginBottom: 10 }}>
+            <Muted style={{ fontWeight: '700', marginBottom: 4 }}>Tender documents</Muted>
+            {docs.map((d, i) => <Pressable key={d.uri} onPress={() => setDocs(docs.filter((_, j) => j !== i))}><Text style={{ color: base.ink, paddingVertical: 3 }}>📎 {d.name}  ✕</Text></Pressable>)}
+            <Button kind="ghost" title="📎 Add documents" onPress={async () => { const r = await DocumentPicker.getDocumentAsync({ type: '*/*', multiple: true, copyToCacheDirectory: true }); if (!r.canceled) setDocs([...docs, ...r.assets.map((a) => ({ uri: a.uri, name: a.name || 'file' }))]); }} />
+            <Muted style={{ marginTop: 6 }}>They go in the enquiry’s Tender Documents folder in OneDrive.</Muted>
+          </View>
+        )}
+        {busy && busy !== 'save' && isNew ? <Muted style={{ marginBottom: 8 }}>{busy}</Muted> : null}
+        <Button busy={busy === 'save' || (isNew && !!busy)} title={isNew ? 'Create Enquiry' : 'Save'} onPress={() => void save()} />
+      </Card>
+        </>
       )}
     </ScrollView>
   );

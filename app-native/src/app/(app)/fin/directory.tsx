@@ -258,7 +258,7 @@ export default function FinDirectory() {
             const t = (k: string) => String(v[k] ?? '').trim() || null;
             const row: Row = { name, email: email || null, address: t('address'), postcode: t('postcode'), phone: t('phone'), vat_registered: !!v.vat_registered, vat_number: t('vat_number'), sales_vat: t('sales_vat'), terms_days: num(v.terms_days), terms_type: t('terms_type'), terms_agreed: !!v.terms_agreed, cost_code_id: t('cost_code_id'), company_number: t('company_number'), cis_registered: !!v.cis_registered, cis_rate: Number(v.cis_rate || 20), notes: t('notes') };
             let link = sup ? String(v.supplier_id || '') || null : null;
-            if (link === '__new') { const m = await fdb.from('suppliers').insert({ org_id: me.org_id, name, email: email || null, created_by: me.id } as never).select('id').single(); link = (m.data as Row | null)?.id ?? null; if (!link) return 'Could not add it to the Projects suppliers.'; }
+            if (link === '__new') { const m = await fdb.from('suppliers').insert({ org_id: me.org_id, name, email: email || '', created_by: me.id } as never).select('id').single(); link = (m.data as Row | null)?.id ?? null; if (!link) return 'Could not add it to the Projects suppliers.'; }
             if (sup) Object.assign(row, { supplier_id: link, category: t('category'), purchase_vat: t('purchase_vat'), foreign_supplier: !!v.foreign_supplier, no_sync: !!v.no_sync, utr: utr || null, updated_at: new Date().toISOString() });
             const dup = ((data as Row[]) || []).find((x) => x.id !== edit.id && String(x.name).trim().toLowerCase() === name.toLowerCase());
             if (dup) return `“${dup.name}” is already in the directory.`;

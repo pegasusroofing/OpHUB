@@ -56,7 +56,7 @@ process.on('unhandledRejection', (e) => { if (!/disposed|closed/i.test(String(e 
   const step = async (name, fn, who = 'admin') => {
     const t0 = Date.now();
     let ok = false, note = '';
-    try { const r = await fn(); ok = r !== false && !(r && r.ok === false); note = r && r.note ? String(r.note) : (typeof r === 'string' ? r : ''); }
+    try { const r = await fn(); ok = r !== false && !(r && typeof r === 'object' && 'ok' in r && !r.ok); note = r && r.note ? String(r.note) : (typeof r === 'string' ? r : ''); }
     catch (e) { note = e.message.split('\n')[0].slice(0, 200); }
     counts[ok ? 'pass' : 'fail']++;
     const line = {part, step: name, ok, note, ms: Date.now() - t0};

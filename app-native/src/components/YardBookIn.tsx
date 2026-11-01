@@ -67,8 +67,8 @@ export function YardBookIn({ canAddItems, stockId: stock0 = null }: { canAddItem
           )}
           <Muted>{canAddItems ? 'Not on the list? Add new items in Yard stock (Projects › Materials › 📦 Yard Stock, or Finance › Purchases).' : 'Not on the list? Book it with a note and ask the office to add it.'}</Muted>
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-            <TextInput value={qty} onChangeText={setQty} keyboardType="decimal-pad" placeholder="Qty, e.g. 40" style={[box, { flex: 1 }]} />
-            <TextInput value={sup} onChangeText={setSup} placeholder="From (supplier)" style={[box, { flex: 1 }]} />
+            <TextInput value={qty} onChangeText={setQty} keyboardType="decimal-pad" placeholder="Qty, e.g. 40" style={[box, { flex: 1, minWidth: 0 }]} />
+            <TextInput value={sup} onChangeText={setSup} placeholder="From (supplier)" style={[box, { flex: 1, minWidth: 0 }]} />
           </View>
           {!!pos?.length && (() => {
             const po = pos.find((p) => p.id === poId);

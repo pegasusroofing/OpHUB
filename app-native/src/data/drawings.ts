@@ -165,7 +165,8 @@ export async function syncSiteFolder(me: Profile, site: { id: string; onedrive_f
   // A job pack's drawings are in their own sub-folder; a job linked by hand uses its whole folder, as before.
   const lvl = await listOneDriveLevel({ id: (site as { job_pack?: { drawings_folder_id?: string | null } | null }).job_pack?.drawings_folder_id || site.onedrive_folder_id, driveId: site.onedrive_drive_id });
   if (lvl.error) return `Sync failed — ${lvl.error}`;
-  const have = new Set((((await db.from('drawing_files').select('name').eq('site_id', site.id).is('folder_id', null)).data as { name: string }[] | null) ?? []).map((f) => f.name));
+  // Anywhere in the job's Drawings: a file added in a folder here is pushed out, and mustn't come back in as a second copy.
+  const have = new Set((((await db.from('drawing_files').select('name').eq('site_id', site.id)).data as { name: string }[] | null) ?? []).map((f) => f.name));
   const r = await importFromOneDrive(me, site.id, null, lvl.files.filter((f) => !have.has(f.name)), onStep);
   await db.from('sites').update({ onedrive_last_synced_at: new Date().toISOString() } as never).eq('id', site.id);
   return `Synced — ${r.imported} pulled in${r.failed ? `, ${r.failed} failed` : ''}. Uploads here already push out automatically.`;

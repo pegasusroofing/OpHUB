@@ -34,7 +34,7 @@ export default function ExpensesEmail() {
         <Muted style={{ fontWeight: '700' }}>Send expenses to</Muted>
         <TextInput value={email} onChangeText={setEmail} placeholder="e.g. info@yourcompany.co.uk" autoCapitalize="none" keyboardType="email-address" style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, marginBottom: 10 }} />
         <Muted style={{ fontWeight: '700', marginBottom: 4 }}>Keep receipts in the app for</Muted>
-        <View style={{ flexDirection: 'row', gap: 6, marginBottom: 6 }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
           {[3, 6, 9, 12].map((m) => (
             <Pressable key={m} onPress={() => setMonths(m)} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: months === m ? base.ink : base.line, backgroundColor: months === m ? base.ink : base.card }}>
               <Text style={{ fontWeight: '700', color: months === m ? '#fff' : base.ink }}>{m} months</Text>

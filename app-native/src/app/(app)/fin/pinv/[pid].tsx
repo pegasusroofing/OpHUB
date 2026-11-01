@@ -58,7 +58,7 @@ function NewPinv({ siteId, poId, receipt }: { siteId: string; poId: string; rece
         fields={[
           ...(!poId && !isReceipt && sitePos.length ? [{ k: 'po_pick', label: 'Purchase order (optional)', kind: 'choice', options: [['', 'None'], ...sitePos.map((p): [string, string] => [p.id, `${p.number || 'PO'} · ${p.supplier_name || ''}`])] }] as never[] : []),
           { k: 'supplier', label: 'Supplier' }, ...(isReceipt ? [] : [{ k: 'invoice_no', label: 'Invoice number', half: true }] as never[]), { k: 'invoice_date', label: 'Date', kind: 'date', half: true },
-          { k: 'net', label: 'Net £ (blank = worked out from the total)', kind: 'money', half: true }, { k: 'vat', label: 'VAT £ (blank = 20%)', kind: 'money', half: true }, { k: 'total', label: 'Total £ (blank = net + VAT)', kind: 'money', half: true }, { k: 'due_date', label: 'Due date', kind: 'date', half: true },
+          { k: 'net', label: 'Net £ (blank = worked out from the total)', kind: 'money', half: true, ph: 'Worked out' }, { k: 'vat', label: 'VAT £ (blank = 20%)', kind: 'money', half: true, ph: 'Worked out' }, { k: 'total', label: 'Total £ (blank = net + VAT)', kind: 'money', half: true, ph: 'Worked out' }, { k: 'due_date', label: 'Due date', kind: 'date', half: true },
           { k: 'cost_code', label: 'Cost type', kind: 'choice', options: Object.entries(COST_CATS) }, { k: 'description', label: 'Description' },
         ]}
         onSave={async (v) => {

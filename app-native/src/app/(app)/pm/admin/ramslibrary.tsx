@@ -225,7 +225,7 @@ export default function RamsLibrary() {
           {isLoading ? <Muted>Loading…</Muted> : shown.length ? shown.map((it, i) => {
             if (editId === it.id) return <Editor key={it.id} it={it} lib={lib} onSave={(t, d) => void save(it, t, d)} onCancel={() => setEditId(null)} />;
             const d = (it.data || {}) as Record<string, unknown>, u = sortBy === 'used' ? countUses(it) : null;
-            const sub = it.kind === 'hazard' ? `${d.harm || ''} · ${((d.controls as string[]) || []).length} controls` : it.kind === 'section' ? (((d.steps as string[]) || []).length ? `${((d.steps as string[]) || []).length} steps` : 'Text') : `${((d.hazards as unknown[]) || []).length} hazards · ${((d.sections as unknown[]) || []).length} sections`;
+            const sub = it.kind === 'hazard' ? `${d.harm ? `${d.harm} · ` : ''}${((d.controls as string[]) || []).length} controls` : it.kind === 'section' ? (((d.steps as string[]) || []).length ? `${((d.steps as string[]) || []).length} steps` : 'Text') : `${((d.hazards as unknown[]) || []).length} hazards · ${((d.sections as unknown[]) || []).length} sections`;
             return (
               <Card key={it.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <Text style={{ fontWeight: '800', color: base.slate, width: 22 }}>{i + 1}</Text>

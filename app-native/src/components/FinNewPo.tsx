@@ -68,7 +68,7 @@ export function FinNewPo({ site, itemIds = [] }: { site: Site; itemIds?: string[
     try {
       let id = supId, name = setup?.sups.find((s) => s.id === supId)?.name || supText.trim();
       if (!id) {
-        const made = await fdb.from('suppliers').insert({ org_id: me.org_id, name: supText.trim(), email: newEmail.trim() || null, created_by: me.id } as never).select('id,name').single();
+        const made = await fdb.from('suppliers').insert({ org_id: me.org_id, name: supText.trim(), email: newEmail.trim() || '', created_by: me.id } as never).select('id,name').single();
         if (!made.data) { toast('Could not add the supplier.'); return; }
         id = (made.data as { id: string }).id; name = supText.trim();
       }

@@ -12,6 +12,7 @@ import { exportTableExcel, exportTablePdf } from '@/lib/tableExport';
 import { FinForm } from '@/components/FinForm';
 import { AllocRow } from '@/components/FinSplit';
 import { FinChip, FinRow } from '@/components/FinNav';
+import { SelectBox } from '@/components/SelectBox';
 import { confirmAsk, useToast } from '@/components/toast';
 import { Button, Empty, Muted } from '@/components/ui';
 import { useBook } from '@/data/finBook';
@@ -67,16 +68,14 @@ export default function FinCosts() {
       <Stack.Screen options={{ title: 'Costs ledger' }} />
       {!!sub && <View style={{ flexDirection: 'row', marginBottom: 8 }}><FinChip on label={`${sub === 'none' ? 'Not allocated to a plot' : 'One plot / repair job'} ✕`} onPress={() => router.setParams({ sub: '' })} /></View>}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
-        <FinChip on={cat === 'all'} label={`All ${money(fc.costToDate, 0)} · ${howMany(fc.lines.filter((l) => l.cat !== 'committed').length)}`} onPress={() => setCat('all')} />
-        {Object.entries(COST_CATS).map(([k, l]) => <FinChip key={k} on={cat === k} label={`${l} ${money(tot(k), 0)} · ${howMany(fc.lines.filter((x) => x.cat === k).length)}`} onPress={() => setCat(k)} />)}
-        <FinChip on={cat === 'committed'} label={`Ordered ${money(fc.committedTotal, 0)} · ${howMany(fc.lines.filter((x) => x.cat === 'committed').length)}`} onPress={() => setCat('committed')} />
+        <SelectBox value={cat} title="Show" style={{ marginBottom: 0, flexGrow: 1, flexBasis: 200 }} onChange={setCat} options={[['all', `All ${money(fc.costToDate, 0)} · ${howMany(fc.lines.filter((l) => l.cat !== 'committed').length)}`], ...Object.entries(COST_CATS).map(([k, l]): [string, string] => [k, `${l} ${money(tot(k), 0)} · ${howMany(fc.lines.filter((x) => x.cat === k).length)}`]), ['committed', `Ordered ${money(fc.committedTotal, 0)} · ${howMany(fc.lines.filter((x) => x.cat === 'committed').length)}`]]} />
         <View style={{ marginLeft: 'auto' }}><Button title="+ Add cost" onPress={() => setEdit('new')} /></View>
       </View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 10 }}>
         <TextInput value={q} onChangeText={setQ} placeholder="Search description, supplier or ref" style={{ flexGrow: 1, minWidth: 200, borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 9, color: base.ink, backgroundColor: base.card }} />
         <View style={{ width: 150 }}><DateBox value={from} onChange={setFrom} placeholder="From" title="From" /></View>
         <View style={{ width: 150 }}><DateBox value={to} onChange={setTo} placeholder="To" title="To" /></View>
-        {(['new', 'old', 'big', 'az'] as const).map((k) => <FinChip key={k} on={sort === k} label={{ new: 'Newest', old: 'Oldest', big: 'Biggest', az: 'A–Z' }[k]} onPress={() => setSort(k)} />)}
+        <SelectBox value={sort} title="Sort" style={{ marginBottom: 0, width: 130 }} onChange={setSort} options={[['new', 'Newest'], ['old', 'Oldest'], ['big', 'Biggest'], ['az', 'A–Z']]} />
       </View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 8 }}>
         <Muted>{howMany(list.length)} · {money(shownTotal)}{waiting ? ` · ${money(waiting)} waiting approval` : ''}</Muted>
