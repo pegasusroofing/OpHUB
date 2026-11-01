@@ -52,7 +52,7 @@ export function Field({ label, ...props }: TextInputProps & { label: string }) {
  *  finishes; others for a moment. */
 // Style A (Andy, 1 Nov 2026): the main action is filled in the company colour, the rest soft grey, remove-type buttons a soft red.
 // Normal-case words, gentle corners. A ghost button whose title starts Delete, Remove or Void takes the red look by itself.
-const BTN_GREY = '#EEF1F5', BTN_DANGER = ['#FDECEC', '#B42318'] as const;
+const BTN_GREY = '#DFE3EA', BTN_DANGER = ['#FDECEC', '#B42318'] as const;
 const BTN_SHADOW = { shadowColor: '#101828', shadowOpacity: 0.12, shadowRadius: 2, shadowOffset: { width: 0, height: 1 }, elevation: 1 };
 export function Button({ title, onPress, busy, kind = 'primary', disabled, small }: {
   title: string; onPress: () => void | Promise<unknown>; busy?: boolean; kind?: 'primary' | 'ghost' | 'danger'; disabled?: boolean; small?: boolean;

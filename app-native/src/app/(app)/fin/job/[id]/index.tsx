@@ -141,7 +141,7 @@ function Overview({ id, fc, settings, invs, apps, book }: { id: string; fc: Retu
     (() => { const c = choice('od', 'net'); const v = c === 'gross' ? od.reduce((tt, i) => tt + invOutstanding(i), 0) : odV; return { slot: 'od', cur: c, t: 'Overdue', v: k(v), sub: od.length ? `${od.length} invoice${od.length === 1 ? '' : 's'}` : c === 'gross' ? 'incl. VAT' : 'excl. VAT', tone: (v > 0 ? 'red' : 'grey') as 'red' | 'grey', go: `/fin/job/${id}?tab=sales` }; })(),
     ...(fc.isInvoiceJob ? [] : [(() => { const c = choice('ret', 'held'); return { slot: 'ret', cur: c, t: c === 'held' ? 'Retention' : c === 'released' ? 'Released' : 'Retention Taken', v: k(c === 'held' ? still : c === 'taken' ? taken : Math.max(0, taken - still) + retPeak), sub: c === 'held' ? 'still with the client' : c === 'taken' ? 'on the latest certificate' : 'invoiced or applied for', tone: 'amber' as const, go: `/fin/job/${id}?tab=sales&sub=retention` }; })()]),
   ];
-  const ghost = (l: string, p: string) => <Pressable key={l} onPress={() => router.push(p as never)} style={{ borderRadius: 8, paddingVertical: 6, paddingHorizontal: 12, backgroundColor: '#EEF1F5' }}><Text style={{ fontSize: 12.5, fontWeight: '600', color: base.ink }}>{l}</Text></Pressable>;
+  const ghost = (l: string, p: string) => <Pressable key={l} onPress={() => router.push(p as never)} style={{ borderRadius: 8, paddingVertical: 6, paddingHorizontal: 12, backgroundColor: '#DFE3EA' }}><Text style={{ fontSize: 12.5, fontWeight: '600', color: base.ink }}>{l}</Text></Pressable>;
   return (
     <View>
       <Pressable onPress={() => router.setParams({ tab: 'setup' })}>
