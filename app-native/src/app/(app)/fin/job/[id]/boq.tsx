@@ -344,13 +344,11 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
         <Button small kind="ghost" title="+ Add Works" onPress={async () => { const k = await chooseAction('Add Works', [{ key: 'section', label: 'Section' }, { key: 'item', label: 'Item' }]); if (k) add(k); }} />
       </View>
       {/* The Bill's summary sits at the bottom; each section's total is on its heading (Andy, 1 Nov 2026). */}
-      {desk ? <Card style={{ paddingVertical: 8, paddingHorizontal: 12, marginBottom: 10 }}><Text style={{ fontWeight: '800', color: base.ink }}>Total {money(total)}{costTotal ? ` · budget cost ${money(costTotal)} · ${marginText(total, costTotal) || `margin ${money(total - costTotal)}`}` : ''}</Text></Card> : (
         <View style={{ flexDirection: 'row', backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 10, paddingVertical: 8, marginBottom: 10 }}>
           {[['Total', money(total)], ['Budget cost', costTotal ? money(costTotal) : '—'], ['Margin', costTotal && total ? `${Math.round(((total - costTotal) / total) * 1000) / 10}%` : '—']].map(([l, v], n) => (
             <View key={l} style={{ flex: 1, alignItems: 'center', borderLeftWidth: n ? 1 : 0, borderLeftColor: base.cardLine }}><Text style={{ fontSize: 11, color: base.slate }}>{l}</Text><Text style={{ fontSize: 13, fontWeight: '800', color: base.ink }}>{v}</Text></View>
           ))}
         </View>
-      )}
       {/* Budget cost: margin / mark-up for all or the ticked lines, and changes to the ticked lines together (902). */}
       {!desk && <View style={{ marginBottom: 8 }}><Button small kind="ghost" title={`Budget cost tools ${bulkOpen ? '▴' : '▾'}`} onPress={() => setBulkOpen(!bulkOpen)} /></View>}
       {(desk || bulkOpen) && (
