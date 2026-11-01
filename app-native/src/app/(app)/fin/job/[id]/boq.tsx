@@ -173,7 +173,11 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
         setRows(boqRows(lines).map((r) => ({ ...r, _k: key(), sub: '' }))); setImp(null);
       }} />}
 
-      {rows.map((r, i) => {
+      {/* Each section sits in its own border (Andy, 1 Nov 2026); lines before any section don't. */}
+      {rows.reduce<number[][]>((gs, r, i) => { if (r.kind === 'section' || !gs.length) gs.push([i]); else gs[gs.length - 1].push(i); return gs; }, []).map((g) => (
+      <View key={rows[g[0]]._k} style={rows[g[0]].kind === 'section' ? { borderWidth: 1.5, borderColor: t.brand1, borderRadius: 10, padding: 6, paddingBottom: 0, marginBottom: 12 } : undefined}>
+      {g.map((i) => {
+        const r = rows[i];
         const head = r.kind === 'section' || r.kind === 'subsection';
         const grp = head ? groupRange(rows, i) : [];
         const on = head ? grp.length > 0 && grp.every((j) => rows[j]._sel) : !!r._sel;
@@ -241,6 +245,8 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
           </Fragment>
         );
       })}
+      </View>
+      ))}
       <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginTop: 8, marginBottom: 24 }}>
         <Button small kind="ghost" title="+ Item" onPress={() => add('item')} /><Button small kind="ghost" title="+ Section" onPress={() => add('section')} />
       </View>
