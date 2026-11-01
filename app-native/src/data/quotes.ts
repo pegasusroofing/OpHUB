@@ -1,6 +1,7 @@
 // Quote tracker: quotes, their chaser, their OneDrive folder, and turning a won quote into a job.
 import { useQuery } from '@tanstack/react-query';
 
+import { listOneDriveLevel, type OdItem } from '@/data/drawings';
 import { setupJobPack } from '@/data/jobPack';
 import { createSite } from '@/data/siteList';
 import { localISODate } from '@/lib/rules/driver';
@@ -16,7 +17,7 @@ const rpc = supabase.rpc.bind(supabase) as unknown as (n: string, a: object) => 
 export type Quote = QuoteRow & {
   id: string; org_id: string; client_id: string | null; contact_name: string | null; contact_email: string | null; contact_phone: string | null; address: string | null; postcode: string | null;
   profit_pct: number | null; priced_by: string | null; received_date: string | null; returned_at: string | null; notes: string | null; chase_count: number; last_chased_at: string | null;
-  folder_id: string | null; folder_drive_id: string | null; folder_name: string | null; site_id: string | null; created_at: string;
+  folder_id: string | null; folder_drive_id: string | null; folder_name: string | null; filed_at: string | null; site_id: string | null; created_at: string;
 };
 export type QuoteSettings = { org_id: string; chase_enabled: boolean; chase_first_days: number; chase_every_days: number; chase_max: number; chase_subject: string | null; chase_body: string | null; open_path: string | null; template_path: string | null; archive_path: string | null; won_folder: string | null };
 export type ClientHit = { id: string; name: string; email: string | null; phone: string | null };
@@ -73,6 +74,38 @@ const call = (action: string, quoteId: string, more: object = {}) => invokeAsUse
 export const makeQuoteFolder = (id: string) => call('folder', id);
 export const fileQuoteFolder = (id: string) => call('file', id);
 export const chaseNow = (id: string) => call('chase', id);
+export const sendQuote = (id: string, m: { to: string; subject: string; body: string; files: { id: string; driveId?: string | null; name: string }[] }) => call('send', id, m);
+const b64 = (u: Uint8Array) => { let s = ''; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode(...u.subarray(i, i + 0x8000)); return btoa(s); };
+/** The tender documents picked with a new enquiry go in its Tender Documents folder (the top of it, if there isn't one). */
+export async function uploadTenderDocs(folder: { id: string; driveId: string | null }, files: { uri: string; name: string }[]): Promise<number> {
+  const lvl = await listOneDriveLevel(folder);
+  const sub = lvl.folders.find((f) => /tender/i.test(f.name));
+  let n = 0;
+  for (const f of files) {
+    const bytes = new Uint8Array(await (await fetch(f.uri)).arrayBuffer());
+    const u = await invokeAsUser<{ ok?: boolean }>('onedrive-upload', { filename: f.name, content_base64: b64(bytes), folder_id: sub?.id ?? folder.id, drive_id: sub?.driveId || folder.driveId || undefined });
+    if (u.data?.ok) n++;
+  }
+  return n;
+}
+/** The Quotation folder's files, for Send & submit: that's where the finished quote is. */
+export async function quotationFiles(folder: { id: string; driveId: string | null }): Promise<{ files: OdItem[]; error?: string }> {
+  const top = await listOneDriveLevel(folder);
+  if (top.error) return { files: [], error: top.error };
+  const sub = top.folders.find((f) => /quot/i.test(f.name));
+  if (!sub) return { files: top.files };
+  const lvl = await listOneDriveLevel({ id: sub.id, driveId: sub.driveId || folder.driveId });
+  return { files: lvl.files, error: lvl.error };
+}
+/** Send & submit: records it as sent with its value and date, then files the folder to that year's Estimating folder. */
+export async function submitQuote(me: Profile, q: Quote, f: { value: number; profit: number | null; sent: string }, firstDays: number): Promise<{ error?: string; note: string }> {
+  const base = { ...q, return_date: f.sent, returned_at: f.sent };
+  const saved = await saveQuote(me, q.id, { ...(statusPatch('returned', base, localISODate(new Date()), firstDays) as Partial<Quote>), value: f.value, profit_pct: f.profit, return_date: f.sent, returned_at: f.sent, priced_by: q.priced_by || me.id, priced_by_name: q.priced_by_name || me.name });
+  if (!saved) return { error: 'Could not save. Try again.', note: '' };
+  if (!q.folder_id) return { note: '' };
+  const m = await fileQuoteFolder(q.id);
+  return { note: m.error ? `It’s marked as sent, but the folder stayed where it is: ${m.error}` : m.data?.year ? `Folder filed in Estimating ${m.data.year}` : '' };
+}
 
 /** Won: makes the job and its folder, moves the enquiry's documents into it, and marks the quote. Returns the new job, or why not. */
 export async function convertToJob(me: Profile, q: Quote, autoNumbers: boolean, firstDays: number): Promise<{ siteId: string; note: string } | { error: string }> {

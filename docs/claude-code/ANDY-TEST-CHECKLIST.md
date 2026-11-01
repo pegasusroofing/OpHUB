@@ -123,6 +123,8 @@ Items 1 to 38 and 40 were done on the night of 31 Oct and checked at phone size,
 ### Quote tracker (built 1 Nov; for Andy to load)
 48. Replaces `Estimating/Open Tenders/Tender Tracker.xlsm`. Home › Quotes. Client from the Directory, filters and views by customer, discipline, who priced it, year and outcome; Excel and PDF exports; folder from the New Enquiry template; filed by year when finished; Won makes the job and moves the folder into its pack; chaser per quote, off at Tender stage, company switch off by default. Settings need the real paths before folders work for RTB. Day to day there is no Excel. The old tracker comes in once, from Quote settings. Real tracker not loaded yet: dry run read 500-odd quotes.
 
+49. The estimator's flow (Andy, 1 Nov): New Enquiry with documents makes the OneDrive folder; he works in OneDrive; Send & submit records how it went, value and date, and files the folder to Estimating {year}. Won moves it on to the job. Sending from the app and filing were tested on Sandbox; "I've emailed it" wasn't pressed. List is compact, table on a laptop, with Filter (multi-select), Sort and View drop-downs.
+
 ### New job pack (built 1 Nov; on for Sandbox only)
 Rules are edited in the app, Admin Centre › OneDrive › New job pack (Andy, 1 Nov: no working off Excel). The editor was checked against the fake data; saving on the real database needs an admin login. The Excel in this folder was the first draft and nothing reads it now.
 39. Setting up a new job makes its OneDrive folder from `RTB Roofing Ltd/Live Projects/- New Job Pack - Template`, and links areas of the app to the right sub-folders. Needs a new server function and more folder links on each job. Not to run for RTB without Andy's say-so while Finance is in trial.

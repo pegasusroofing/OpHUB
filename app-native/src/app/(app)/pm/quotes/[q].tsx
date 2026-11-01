@@ -1,5 +1,6 @@
 // One quote: client from the Directory, project, value, who priced it, return date; outcome; the email chaser; its
 // folder of documents; and Won, convert to job.
+import * as DocumentPicker from 'expo-document-picker';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -10,7 +11,8 @@ import { OneDriveBrowser } from '@/components/OneDriveBrowser';
 import { chooseAction, confirmAsk, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Field, Muted, SectionTitle } from '@/components/ui';
 import { useTeam } from '@/data/admin';
-import { chaseNow, chasePatch, clientId, convertToJob, fileQuoteFolder, makeQuoteFolder, saveQuote, searchClients, setQuoteStatus, useQuote, useQuoteSettings, type ClientHit } from '@/data/quotes';
+import { chaseNow, chasePatch, clientId, convertToJob, fileQuoteFolder, makeQuoteFolder, saveQuote, searchClients, setQuoteStatus, uploadTenderDocs, useQuote, useQuoteSettings, type ClientHit } from '@/data/quotes';
+import { SubmitQuote } from '@/components/SubmitQuote';
 import { useAuth } from '@/lib/auth';
 import { DISCIPLINES, isClosed, QUOTE_STATUS, statusLabel } from '@/lib/rules/quotes';
 import { supabase } from '@/lib/supabase';
@@ -33,6 +35,7 @@ export default function QuotePage() {
   const [v, setV] = useState<Form>(EMPTY);
   const [hits, setHits] = useState<ClientHit[]>([]);
   const [busy, setBusy] = useState('');
+  const [docs, setDocs] = useState<{ uri: string; name: string }[]>([]);
   const q = data?.quote ?? null;
   const firstDays = settings?.chase_first_days ?? 30;
   useEffect(() => {
@@ -53,27 +56,40 @@ export default function QuotePage() {
     if (email && !EMAIL_OK.test(email)) { toast('That email address doesn’t look right.'); return null; }
     const val = v.value.trim() ? Number(v.value.replace(/[£,\s]/g, '')) : null, pct = v.profit.trim() ? Number(v.profit.replace(/[%\s]/g, '')) : null;
     if ((val != null && !isFinite(val)) || (pct != null && !isFinite(pct))) { toast('Value and profit need to be numbers.'); return null; }
-    setBusy('save');
+    setBusy(isNew ? 'Saving…' : 'save');
     const cid = await clientId(v.client.trim(), email, v.phone.trim());
     const saved = await saveQuote(me, isNew ? null : id, {
       client_id: cid, client_name: v.client.trim(), contact_name: v.contact.trim() || null, contact_email: email || null, contact_phone: v.phone.trim() || null, title: v.title.trim(), address: v.address.trim() || null, postcode: v.postcode.trim() || null,
-      discipline: v.discipline || null, value: val, profit_pct: pct == null ? null : pct / 100, priced_by: v.pricedBy || null, priced_by_name: v.pricedName || null, received_date: v.received || null, return_date: v.ret || null, notes: v.notes.trim() || null,
+      discipline: v.discipline || null, value: val, profit_pct: pct == null ? null : pct / 100, priced_by: v.pricedBy || (isNew ? me.id : null), priced_by_name: v.pricedName || (isNew ? me.name : null), received_date: v.received || null, return_date: v.ret || null, notes: v.notes.trim() || null,
     });
+    if (!saved) { setBusy(''); toast('Could not save. Try again.'); return null; }
+    let done = isNew ? 'Enquiry added' : 'Saved';
+    // A new enquiry gets its OneDrive folder straight away, with the tender documents in it.
+    if (isNew && settings?.open_path && settings?.template_path) {
+      setBusy('Making the OneDrive folder…');
+      const f = await makeQuoteFolder(saved);
+      if (f.error) done = `Enquiry added, but no folder yet: ${f.error}`;
+      else if (docs.length) {
+        setBusy('Adding the documents…');
+        const made = (await supabase.from('quotes' as never).select('folder_id,folder_drive_id').eq('id' as never, saved as never).maybeSingle()).data as { folder_id: string | null; folder_drive_id: string | null } | null;
+        const n = made?.folder_id ? await uploadTenderDocs({ id: made.folder_id, driveId: made.folder_drive_id }, docs) : 0;
+        done = n === docs.length ? 'Enquiry added, with its folder and documents' : `Enquiry added, but only ${n} of ${docs.length} documents went up. Add the rest below.`;
+      } else done = 'Enquiry added, with its folder';
+    }
     setBusy('');
-    if (!saved) { toast('Could not save. Try again.'); return null; }
-    toast(isNew ? 'Quote added' : 'Saved');
+    toast(done);
     refresh();
     if (isNew) router.replace(`/pm/quotes/${saved}` as never);
     return saved;
   };
   const changeStatus = async () => {
     if (!q) return;
-    const k = await chooseAction('Outcome', QUOTE_STATUS.filter((s) => s.key !== 'won').map((s) => ({ key: s.key, label: `${q.status === s.key ? '✓ ' : ''}${s.label}` })));
+    const k = await chooseAction('Outcome', QUOTE_STATUS.filter((s) => s.key !== 'won' && (s.key !== 'returned' || !!q.returned_at)).map((s) => ({ key: s.key, label: `${q.status === s.key ? '✓ ' : ''}${s.label}` })));
     if (!k || k === q.status) return;
     setBusy('status');
     const ok = await setQuoteStatus(me, q, k, firstDays);
     let note = '';
-    if (ok && isClosed(k) && q.folder_id) {
+    if (ok && isClosed(k) && q.folder_id && !q.filed_at) {
       const f = await fileQuoteFolder(q.id);
       note = f.error ? ` The folder stayed where it is: ${f.error}` : f.data?.year ? ` Folder filed in ${f.data.year}.` : '';
     }
@@ -97,7 +113,7 @@ export default function QuotePage() {
 
   return (
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
-      <Stack.Screen options={{ title: isNew ? 'New Quote' : 'Quote' }} />
+      <Stack.Screen options={{ title: isNew ? 'New Enquiry' : 'Quote' }} />
       {!!q && (
         <Card>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -108,6 +124,7 @@ export default function QuotePage() {
             : <View style={{ marginTop: 8 }}><Button busy={busy === 'won'} title="🏆 Won: convert to job" onPress={() => void won()} /></View>}
         </Card>
       )}
+      {!!q && !q.returned_at && !q.site_id && <SubmitQuote q={q} firstDays={firstDays} onDone={refresh} />}
       <Card>
         <SectionTitle>Customer</SectionTitle>
         <Field label="Client *" value={v.client} onChangeText={typeClient} placeholder="Start typing to search your Directory" />
@@ -133,10 +150,19 @@ export default function QuotePage() {
         <View style={{ marginBottom: 10 }}><Button kind="ghost" title={v.pricedName || 'Choose…'} onPress={async () => { const k = await chooseAction('Priced by', people.map((p) => ({ key: p.id, label: p.name || p.email || 'Unknown' }))); const p = people.find((x) => x.id === k); if (p) setV((f) => ({ ...f, pricedBy: p.id, pricedName: p.name || '' })); }} /></View>
         <Muted style={{ fontWeight: '700', marginBottom: 4 }}>Enquiry received</Muted>
         <DateBox value={v.received} onChange={set('received')} title="Enquiry received" style={{ marginBottom: 10 }} />
-        <Muted style={{ fontWeight: '700', marginBottom: 4 }}>Return date</Muted>
-        <DateBox value={v.ret} onChange={set('ret')} title="Return date" style={{ marginBottom: 10 }} />
+        <Muted style={{ fontWeight: '700', marginBottom: 4 }}>{q?.returned_at ? 'Date sent' : 'Tender due back'}</Muted>
+        <DateBox value={v.ret} onChange={set('ret')} title={q?.returned_at ? 'Date sent' : 'Tender due back'} style={{ marginBottom: 10 }} />
         <Field label="Notes and feedback" value={v.notes} onChangeText={set('notes')} multiline />
-        <Button busy={busy === 'save'} title={isNew ? 'Add Quote' : 'Save'} onPress={() => void save()} />
+        {isNew && (
+          <View style={{ marginBottom: 10 }}>
+            <Muted style={{ fontWeight: '700', marginBottom: 4 }}>Tender documents</Muted>
+            {docs.map((d, i) => <Pressable key={d.uri} onPress={() => setDocs(docs.filter((_, j) => j !== i))}><Text style={{ color: base.ink, paddingVertical: 3 }}>📎 {d.name}  ✕</Text></Pressable>)}
+            <Button kind="ghost" title="📎 Add documents" onPress={async () => { const r = await DocumentPicker.getDocumentAsync({ type: '*/*', multiple: true, copyToCacheDirectory: true }); if (!r.canceled) setDocs([...docs, ...r.assets.map((a) => ({ uri: a.uri, name: a.name || 'file' }))]); }} />
+            <Muted style={{ marginTop: 6 }}>They go in the enquiry’s Tender Documents folder in OneDrive.</Muted>
+          </View>
+        )}
+        {busy && busy !== 'save' && isNew ? <Muted style={{ marginBottom: 8 }}>{busy}</Muted> : null}
+        <Button busy={busy === 'save' || (isNew && !!busy)} title={isNew ? 'Create Enquiry' : 'Save'} onPress={() => void save()} />
       </Card>
       {!!q && (
         <Card>

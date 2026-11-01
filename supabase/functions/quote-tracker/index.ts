@@ -1,10 +1,13 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { encodeBase64 } from 'jsr:@std/encoding@1/base64';
 
 // Quote tracker (1 Nov 2026). Called by a PM / admin from the app, or by the daily cron with x-cron-secret.
 //   { action: 'folder', quote_id }  makes the enquiry's OneDrive folder by copying the company's New Enquiry template.
 //   { action: 'file', quote_id }    a finished quote: moves its folder to the Estimating folder for the year it finished.
 //   { action: 'won', quote_id, site_id }  moves the folder into the new job's pack.
 //   { action: 'chase', quote_id }   a PM presses Chase now: one email to the quote's contact.
+//   { action: 'send', quote_id, to, subject, body, files: [{id, driveId, name}] }  sends the quote to the client with
+//     files from its OneDrive folder attached, copying the sender in.
 //   cron: every company with chase_enabled, returned quotes with chase_on whose date has come.
 // Folders are only ever moved or copied, never deleted, and are held by id so a move by hand in OneDrive doesn't lose them.
 const corsHeaders = { 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-user-token, x-cron-secret, cache-control, pragma' };
@@ -153,15 +156,51 @@ Deno.serve(async (req) => {
       await admin.from('quotes').update({ folder_id: made.id, folder_drive_id: made.drive, folder_name: name, updated_at: new Date().toISOString() }).eq('id', q.id);
       return reply(req, { ok: true, name });
     }
+    if (body.action === 'send') {
+      const to = String(body.to || '').trim();
+      if (!EMAIL_OK.test(to)) return reply(req, { error: 'That email address doesn’t look right.' });
+      const list = Array.isArray(body.files) ? body.files.slice(0, 20) : [];
+      if (!list.length) return reply(req, { error: 'Tick the files to send.' });
+      const KEY = Deno.env.get('RESEND_API_KEY');
+      if (!KEY) return reply(req, { error: 'Email sending is not set up.' });
+      const since = new Date(Date.now() - 864e5).toISOString();
+      const { count } = await admin.from('edge_email_log').select('id', { count: 'exact', head: true }).eq('fn', 'quote-tracker').eq('sender_id', me.id).gte('created_at', since);
+      if ((count || 0) >= 100) return reply(req, { error: 'You’ve reached today’s limit of 100 emails.' });
+      const attachments: { filename: string; content: string }[] = [];
+      let total = 0;
+      for (const f of list) {
+        const r = await fetch(`${at({ drive: String(f.driveId || q.folder_drive_id), id: String(f.id) })}/content`, { headers: { Authorization: `Bearer ${graph}` } });
+        if (!r.ok) return reply(req, { error: `Could not read ${seg(f.name)} from OneDrive.` });
+        const bytes = new Uint8Array(await r.arrayBuffer());
+        total += bytes.length;
+        if (total > 25 * 1024 * 1024) return reply(req, { error: 'Those files are over 25MB together, which is too big to email. Send fewer, or email them yourself.' });
+        attachments.push({ filename: seg(f.name) || 'Document', content: encodeBase64(bytes) });
+      }
+      const { data: org } = await admin.from('organizations').select('name').eq('id', me.org_id).maybeSingle();
+      const subject = String(body.subject || `Quotation for ${q.title}`).replace(/[\r\n]+/g, ' ').slice(0, 200);
+      const text = String(body.body || '').slice(0, 5000);
+      const m = /<([^>]+)>/.exec(Deno.env.get('ORDERS_FROM_EMAIL') || '');
+      const address = (m ? m[1] : Deno.env.get('ORDERS_FROM_EMAIL') || 'orders@ophub.app').trim();
+      const res = await fetch('https://api.resend.com/emails', {
+        method: 'POST', headers: { Authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ from: `"${`${me.name || 'Estimating'} - ${org?.name || ''}`.replace(/"/g, "'")}" <${address}>`, to: [to], ...(me.email && me.email.toLowerCase() !== to.toLowerCase() ? { cc: [me.email], reply_to: [me.email] } : {}), subject, text, html: `<div style="font-family:'Segoe UI',Arial,sans-serif;font-size:15px;line-height:1.5;color:#101114;white-space:pre-wrap;">${esc(text)}</div>`, attachments }),
+      });
+      if (!res.ok) { console.error('quote-tracker: send refused', res.status, await res.text()); return reply(req, { error: 'The email service didn’t accept the email.' }); }
+      await admin.from('edge_email_log').insert({ fn: 'quote-tracker', sender_id: me.id, org_id: me.org_id, to_email: to.toLowerCase(), cc: me.email && me.email.toLowerCase() !== to.toLowerCase() ? [me.email.toLowerCase()] : [], subject }).then(undefined, () => undefined);
+      return reply(req, { ok: true });
+    }
     if (!folder) return reply(req, { ok: true, skipped: 'no folder' });
 
     if (body.action === 'file') {
+      if (q.filed_at) return reply(req, { ok: true, skipped: 'already filed' });
       if (!settings?.archive_path) return reply(req, { ok: true, skipped: 'no archive folder set' });
-      const year = String(q.completed_at || new Date().toISOString()).slice(0, 4);
+      const year = String(q.returned_at || q.completed_at || new Date().toISOString()).slice(0, 4);
       const to = await walk(graph, ROOT, cleanPath(String(settings.archive_path).replace('{year}', year)), true);
       if (!to) return reply(req, { error: 'Could not find that year’s estimating folder.' }, 502);
       const how = await moveFolder(graph, folder, to);
-      return reply(req, how === 'failed' ? { error: 'Could not move the folder.' } : { ok: true, how, year });
+      if (how === 'failed') return reply(req, { error: 'Could not move the folder.' });
+      await admin.from('quotes').update({ filed_at: new Date().toISOString() }).eq('id', q.id);
+      return reply(req, { ok: true, how, year });
     }
     if (body.action === 'won') {
       const { data: site } = await admin.from('sites').select('org_id, job_pack').eq('id', String(body.site_id || '')).maybeSingle();
