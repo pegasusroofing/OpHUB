@@ -741,3 +741,82 @@
 {"part":"fjobs1","step":"Old Clients link goes to the Projects list","ok":true,"note":"Sandbox Roofing Ltd OPHUB Search Ctrl K Home Projects Deliveries Calendar Hub 4 Dashboard OpHUB Finance Admin Demo Compa","ms":8202}
 {"part":"fjobs1","step":"Directory: clients with jobs, owed, and jobs with no client","ok":true,"note":"Jobs with no client set: SBX-112 · ZZ TEST JOB - safe to delete, SBX-123 · ZZ JOB Fin C","ms":9960}
 {"part":"fjobs1","step":"Phone: search box back, list rows","ok":true,"note":"search boxes 1","ms":9504}
+{"part":"ftrail1","step":"Project Admin: trail reads Finance › Projects › job › Project Admin, no Home button in the bar","ok":true,"note":"trail true; \"Home\" seen 1 time(s) (the side menu has one)","ms":9056}
+{"part":"ftrail1","step":"Click the job in the trail: back to its Overview","ok":false,"note":"/fin","ms":1616}
+{"part":"ftrail1","step":"Bill of Quantities: trail ends with it, job step is a link","ok":true,"note":"/fin/job/527dea1d-25b1-4022-87bc-a9ff28ffa960","ms":10496}
+{"part":"ftrail1","step":"Purchases › Purchase invoices in the trail, and Purchases is a link","ok":true,"note":"Finance › Purchases › Purchase invoices Overview Projects Sales Purcha","ms":9346}
+{"part":"ftrail1","step":"Documents tab: the job folder or a plain note that there is none","ok":false,"note":"ZZ JOB Fin A Finance ","ms":10926}
+{"part":"fjobs1","step":"Laptop: table, no Clients tab, no search bar","ok":true,"note":"Clients tabs 0, search boxes 0, filter drop-downs 0, Status drop-down 1, 16 live; 15 → 16 with Closed ticked; Status sortable: false","ms":11485}
+{"part":"fjobs1","step":"Headings sort: name A to Z by default, click Value for low to high, again for high to low, again back to name","ok":false,"note":"by name first true (Andy, Andy, Harbour); low to high false (0,0,0,0); high to low false; off true","ms":12200}
+{"part":"fjobs1","step":"Old Clients link goes to the Projects list","ok":true,"note":"Sandbox Roofing Ltd OPHUB Search Ctrl K Home Projects Deliveries Calendar Hub 4 Dashboard OpHUB Finance Admin Demo Compa","ms":8183}
+{"part":"fjobs1","step":"Directory: clients with jobs, owed, and jobs with no client","ok":true,"note":"Jobs with no client set: SBX-112 · ZZ TEST JOB - safe to delete, SBX-123 · ZZ JOB Fin C","ms":10050}
+{"part":"fjobs1","step":"Phone: search box back, list rows","ok":true,"note":"search boxes 1","ms":9949}
+{"part":"ftrail1","step":"Project Admin: trail reads Finance › Projects › job › Project Admin, no Home button in the bar","ok":true,"note":"trail true; \"Home\" seen 1 time(s) (the side menu has one)","ms":9542}
+{"part":"ftrail1","step":"Click the job in the trail: back to its Overview","ok":true,"note":"/fin/job/527dea1d-25b1-4022-87bc-a9ff28ffa960","ms":1550}
+{"part":"ftrail1","step":"Bill of Quantities: trail ends with it, job step is a link","ok":true,"note":"/fin/job/527dea1d-25b1-4022-87bc-a9ff28ffa960","ms":10530}
+{"part":"ftrail1","step":"Purchases › Purchase invoices in the trail, and Purchases is a link","ok":true,"note":"Finance › Purchases › Purchase invoices Overview Projects Sales Purcha","ms":9448}
+{"part":"ftrail1","step":"Documents tab: the job folder or a plain note that there is none","ok":true,"note":"1. Contract & Commercial ","ms":10798}
+{"part":"fin6","step":"Six tiles, in Andy's order","ok":true,"note":"£628,900 Live Contract Value 15 Total Live Jobs £308,174 Still To Invoice £69,126 Owed To You £2,375 Overdue £20,106 Retention Held By Clients Needs Attention 1 Overdue Invoices £2,375 to chase › 15 P","ms":10604}
+{"part":"fin6","step":"Still To Invoice shows a figure","ok":true,"note":"shown £308174","ms":8}
+{"part":"fin6","step":"Phone: two across, nothing cut off","ok":true,"note":"page fits: true","ms":1622}
+{"part":"fjobs1","step":"Laptop: table, no Clients tab, no search bar","ok":true,"note":"Clients tabs 0, search boxes 0, filter drop-downs 0, Status drop-down 1, 16 live; 15 → 16 with Closed ticked; Status sortable: false","ms":11848}
+{"part":"fjobs1","step":"Headings sort: name A to Z by default, click Value for low to high, again for high to low, again back to name","ok":false,"note":"by name first true (Andy, Andy, Harbour); low to high false (0,0,0,0; cells [\"—\",\"£11,000\",\"£96,400\",\"£42,750\",\"£186,000\",\"£10,000\",\"£248,500\",\"£10,000\",\"£2); high to low false; off true","ms":12381}
+{"part":"fjobs1","step":"Old Clients link goes to the Projects list","ok":true,"note":"Sandbox Roofing Ltd OPHUB Search Ctrl K Home Projects Deliveries Calendar Hub 4 Dashboard OpHUB Finance Admin Demo Compa","ms":7773}
+{"part":"fjobs1","step":"Directory: clients with jobs, owed, and jobs with no client","ok":true,"note":"Jobs with no client set: SBX-112 · ZZ TEST JOB - safe to delete, SBX-123 · ZZ JOB Fin C","ms":9723}
+{"part":"fjobs1","step":"Phone: search box back, list rows","ok":true,"note":"search boxes 1","ms":9742}
+{"part":"fjobs1","step":"Laptop: table, no Clients tab, no search bar","ok":true,"note":"Clients tabs 0, search boxes 0, filter drop-downs 0, Status drop-down 1, 16 live; 15 → 16 with Closed ticked; Status sortable: false","ms":11644}
+{"part":"fjobs1","step":"Headings sort: name A to Z by default, click Value for low to high, again for high to low, again back to name","ok":false,"note":"by name first true (Andy, Andy, Harbour); low to high false (0,0,0,0; cells [\"—\",\"£11,000\",\"£96,400\",\"£42,750\",\"£186,000\",\"£10,000\",\"£248,500\",\"£10,000\",\"£2); high to low false; off true","ms":12424}
+{"part":"fjobs1","step":"Old Clients link goes to the Projects list","ok":true,"note":"Sandbox Roofing Ltd OPHUB Search Ctrl K Home Projects Deliveries Calendar Hub 4 Dashboard OpHUB Finance Admin Demo Compa","ms":8286}
+{"part":"fjobs1","step":"Directory: clients with jobs, owed, and jobs with no client","ok":true,"note":"Jobs with no client set: SBX-112 · ZZ TEST JOB - safe to delete, SBX-123 · ZZ JOB Fin C","ms":9826}
+{"part":"fjobs1","step":"Phone: search box back, list rows","ok":true,"note":"search boxes 1","ms":9993}
+{"part":"fret1","step":"Overview: no Retention box below Needs Attention","ok":true,"note":"tile only","ms":9566}
+{"part":"fret1","step":"Retention tile opens Sales › Retention with the box and release rows","ok":true,"note":"/fin/job/31955b0f-520d-4a05-9852-eee81d3935dd?tab=sales&sub=retention","ms":2389}
+{"part":"fret1","step":"Invoices in a project: no search bar or filter row, table with column filters","ok":true,"note":"search 0, filter button 0, Status column filter 1","ms":9763}
+{"part":"fret1","step":"Applications in a project: the same","ok":true,"note":"search 0, filter button 0","ms":9824}
+{"part":"fjobs1","step":"Laptop: table, no Clients tab, no search bar","ok":true,"note":"Clients tabs 0, search boxes 0, filter drop-downs 0, Status drop-down 1, 16 live; 15 → 16 with Closed ticked; Status sortable: false","ms":11591}
+{"part":"fjobs1","step":"Headings sort: name A to Z by default, click Value for low to high, again for high to low, again back to name","ok":false,"note":"by name first true (Andy, Andy, Harbour); low to high false (1000,3250,10000,10000; cells [\"—\",\"£11,000\",\"£96,400\",\"£42,750\",\"£186,000\",\"£10,000\",\"£248,500\",\"£10,000\",\"£2); high to low false; off true","ms":12349}
+{"part":"fjobs1","step":"Old Clients link goes to the Projects list","ok":true,"note":"Sandbox Roofing Ltd OPHUB Search Ctrl K Home Projects Deliveries Calendar Hub 4 Dashboard OpHUB Finance Admin Demo Compa","ms":8381}
+{"part":"fjobs1","step":"Directory: clients with jobs, owed, and jobs with no client","ok":true,"note":"Jobs with no client set: SBX-112 · ZZ TEST JOB - safe to delete, SBX-123 · ZZ JOB Fin C","ms":9824}
+{"part":"fjobs1","step":"Phone: search box back, list rows","ok":true,"note":"search boxes 1","ms":10055}
+{"part":"fjobs1","step":"Laptop: table, no Clients tab, no search bar","ok":true,"note":"Clients tabs 0, search boxes 0, filter drop-downs 0, Status drop-down 1, 16 live; 15 → 16 with Closed ticked; Status sortable: false","ms":11572}
+{"part":"fjobs1","step":"Headings sort: name A to Z by default, click Value for low to high, again for high to low, again back to name","ok":false,"note":"by name first true (Andy, Andy, Harbour); low to high false (arrow false, order true, 1000,3250,10000,10000; cells [\"—\",\"£11,000\",\"£96,400\",\"£42,750\",\"£186,000\",\"£10,000\",\"£248,500\",\"£10,000\",\"£2); high to low false (arrow false, order true); off true","ms":12555}
+{"part":"fjobs1","step":"Old Clients link goes to the Projects list","ok":true,"note":"Sandbox Roofing Ltd OPHUB Search Ctrl K Home Projects Deliveries Calendar Hub 4 Dashboard OpHUB Finance Admin Demo Compa","ms":8371}
+{"part":"fjobs1","step":"Directory: clients with jobs, owed, and jobs with no client","ok":true,"note":"Jobs with no client set: SBX-112 · ZZ TEST JOB - safe to delete, SBX-123 · ZZ JOB Fin C","ms":9888}
+{"part":"fjobs1","step":"Phone: search box back, list rows","ok":true,"note":"search boxes 1","ms":9861}
+{"part":"fjobs1","step":"Laptop: table, no Clients tab, no search bar","ok":true,"note":"Clients tabs 0, search boxes 0, filter drop-downs 0, Status drop-down 1, 16 live; 15 → 16 with Closed ticked; Status sortable: false","ms":11631}
+{"part":"fjobs1","step":"Headings sort: name A to Z by default, click Value for low to high, again for high to low, again back to name","ok":true,"note":"by name first true (Andy, Andy, Harbour); low to high true (arrow true, order true, 1000,3250,10000,10000; cells [\"—\",\"£11,000\",\"£96,400\",\"£42,750\",\"£186,000\",\"£10,000\",\"£248,500\",\"£10,000\",\"£2); high to low true (arrow true, order true); off true","ms":12157}
+{"part":"fjobs1","step":"Old Clients link goes to the Projects list","ok":true,"note":"Sandbox Roofing Ltd OPHUB Search Ctrl K Home Projects Deliveries Calendar Hub 4 Dashboard OpHUB Finance Admin Demo Compa","ms":8291}
+{"part":"fjobs1","step":"Directory: clients with jobs, owed, and jobs with no client","ok":true,"note":"Jobs with no client set: SBX-112 · ZZ TEST JOB - safe to delete, SBX-123 · ZZ JOB Fin C","ms":9821}
+{"part":"fjobs1","step":"Phone: search box back, list rows","ok":true,"note":"search boxes 1","ms":10022}
+{"part":"btn1","step":"Project Admin: buttons short, filled or grey, normal case","ok":true,"note":"[{\"t\":\"Edit project detai\",\"h\":34,\"bg\":\"rgb(78, 143, 209)\",\"tt\":\"none\"}]","ms":9038}
+{"part":"btn1","step":"Projects list: + New project filled in the company colour","ok":true,"note":"[{\"t\":\"+ New project\",\"h\":34,\"bg\":\"rgb(78, 143, 209)\",\"tt\":\"none\"}]","ms":8885}
+{"part":"btn1","step":"A job page in Projects (Materials): same look","ok":true,"note":"[]","ms":9669}
+{"part":"btn2","step":"Project Admin, lower half","ok":true,"note":"shot","ms":9563}
+{"part":"btn2","step":"Project overview: grey buttons row","ok":true,"note":"shot","ms":8884}
+{"part":"btn2","step":"Projects side: material requests","ok":true,"note":"shot","ms":9457}
+{"part":"btn2","step":"Phone: Finance Directory","ok":true,"note":"shot","ms":9401}
+{"part":"btn2","step":"Project Admin, lower half","ok":true,"note":"shot","ms":9779}
+{"part":"btn2","step":"Project overview: grey buttons row","ok":true,"note":"shot","ms":9369}
+{"part":"btn2","step":"Projects side: material requests","ok":true,"note":"shot","ms":9844}
+{"part":"btn2","step":"Phone: Finance Directory","ok":true,"note":"shot","ms":9705}
+{"part":"btn2","step":"Project Admin, lower half","ok":true,"note":"shot","ms":10588}
+{"part":"btn2","step":"Project overview: grey buttons row","ok":true,"note":"shot","ms":9526}
+{"part":"btn2","step":"Projects side: material requests","ok":true,"note":"shot","ms":9905}
+{"part":"btn2","step":"Phone: Finance Directory","ok":true,"note":"shot","ms":9800}
+{"part":"btn2","step":"Project Admin, lower half","ok":true,"note":"shot","ms":9703}
+{"part":"btn2","step":"Project overview: grey buttons row","ok":true,"note":"shot","ms":8865}
+{"part":"btn2","step":"Projects side: material requests","ok":true,"note":"shot","ms":9841}
+{"part":"btn2","step":"Phone: Finance Directory","ok":true,"note":"shot","ms":9727}
+{"part":"btn2","step":"Project Admin, lower half","ok":true,"note":"shot","ms":10283}
+{"part":"btn2","step":"Project overview: grey buttons row","ok":true,"note":"shot","ms":9509}
+{"part":"btn2","step":"Projects side: material requests","ok":true,"note":"shot","ms":9798}
+{"part":"btn2","step":"Phone: Finance Directory","ok":true,"note":"shot","ms":9978}
+{"part":"nj1","step":"Form order, drop-downs, company colour on the chosen chip","ok":true,"note":"chip rgb(78, 143, 209) 188,205,233,248,261,270,298,321,373","ms":9059}
+{"part":"nj1","step":"Project Admin is the last tab","ok":true,"note":"Overview Sales Purchases Subcontractors & Labour Bill of Quantities Documents Project Admin FORECASTED FINAL ACCOUNT £187,18","ms":8460}
+{"part":"btn2","step":"Project Admin, lower half","ok":true,"note":"shot","ms":9795}
+{"part":"btn2","step":"Project overview: grey buttons row","ok":true,"note":"shot","ms":8976}
+{"part":"btn2","step":"Projects side: material requests","ok":true,"note":"shot","ms":9836}
+{"part":"btn2","step":"Phone: Finance Directory","ok":true,"note":"shot","ms":9832}
+{"part":"pop1","step":"Table: Status pop-up opens beside its arrow, ticks filter, click away closes","ok":true,"note":"{\"arrow\":[1058.625,253],\"item\":[1008,349],\"left\":0}","ms":11277}
+{"part":"pop1","step":"New project: Status drop-down picks a choice","ok":true,"note":"picked","ms":9887}
+{"part":"pay1","step":"Starts unchosen, picks Invoice","ok":true,"note":"unchosen 1 then 0","ms":10962}

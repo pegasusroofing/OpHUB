@@ -3005,3 +3005,5 @@
 {"wrote":"fin_inbox","method":"PATCH","keys":["auto_filed","stage","comments"]}
 {"sent":"finance-ai-read"}
 {"wrote":"fin_inbox","method":"PATCH","keys":["extracted","site_id","po_id","stage","query_reason"]}
+{"sent":"onedrive-list-folders"}
+{"sent":"onedrive-list-folders"}
