@@ -3,7 +3,7 @@
 // company-colour totals bar underneath. Phones keep the card list. Click a heading to sort A to Z, again for Z to A,
 // again for off (Andy, 1 Nov 2026); `defaultSort` is the order when nothing is chosen.
 import { isValidElement, useState, type ReactNode } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Modal, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native';
 
 import { heading } from '@/lib/fonts';
 import { type FinSort, nextSort, sortRows } from '@/lib/rules/finTable';
@@ -28,6 +28,8 @@ export function FinTable<T>({ cols, rows, keyOf, onRow, foot, onMenu, defaultSor
   const [q, setQ] = useState<Record<string, string>>(() => Object.fromEntries(Object.entries(startFilter || {}).filter(([, v]) => typeof v === 'string')) as Record<string, string>);
   const [picks, setPicks] = useState<Record<string, string[]>>(() => Object.fromEntries(Object.entries(startFilter || {}).filter(([, v]) => Array.isArray(v))) as Record<string, string[]>);
   const [open, setOpen] = useState('');
+  const [at, setAt] = useState({ x: 0, y: 0 }); // where the drop-down's arrow was clicked; its pop-up opens there
+  const win = useWindowDimensions();
   const [sort, setSort] = useState<FinSort | null>(null);
   const on = cols.filter((c) => !c.choices && q[c.k]?.trim()).map((c) => ({ c, q: q[c.k].trim().toLowerCase() }));
   const onPicks = cols.filter((c) => c.choices && picks[c.k]?.length).map((c) => ({ c, want: picks[c.k].map((x) => x.toLowerCase()) }));
@@ -54,7 +56,7 @@ export function FinTable<T>({ cols, rows, keyOf, onRow, foot, onMenu, defaultSor
           {!!foot && (
             <View style={{ flexDirection: 'row', paddingBottom: 8, paddingHorizontal: 8 }}>
               {cols.map((c) => <View key={c.k} style={cell(c)}>{!!c.l && c.choices ? (
-                <Pressable onPress={() => setOpen(open === c.k ? '' : c.k)} accessibilityRole="button" accessibilityLabel={`Filter ${c.l}`} style={{ width: 0, minWidth: '100%', alignSelf: 'stretch', height: 28, paddingHorizontal: 6, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, backgroundColor: '#fff', borderWidth: 1, borderColor: picks[c.k]?.length ? t.brand1 : '#e5e7eb', borderRadius: 7 }}>
+                <Pressable onPress={(e) => { setAt({ x: e.nativeEvent.pageX, y: e.nativeEvent.pageY }); setOpen(open === c.k ? '' : c.k); }} accessibilityRole="button" accessibilityLabel={`Filter ${c.l}`} style={{ width: 0, minWidth: '100%', alignSelf: 'stretch', height: 28, paddingHorizontal: 6, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, backgroundColor: '#fff', borderWidth: 1, borderColor: picks[c.k]?.length ? t.brand1 : '#e5e7eb', borderRadius: 7 }}>
                   <Text numberOfLines={1} style={{ flexShrink: 1, fontSize: 11.5, fontWeight: picks[c.k]?.length ? '700' : '400', color: base.ink }}>{pickLabel(c)}</Text><Text style={{ fontSize: 9, color: base.slate }}>{open === c.k ? '▲' : '▼'}</Text>
                 </Pressable>
               ) : !!c.l && <TextInput value={q[c.k] || ''} onChangeText={(v) => setQ({ ...q, [c.k]: v })} placeholder={c.l} accessibilityLabel={`Filter ${c.l}`} placeholderTextColor={base.slateLight} style={{ width: 0, minWidth: '100%', alignSelf: 'stretch', height: 28, paddingHorizontal: 6, fontSize: 11.5, textAlign: 'center', color: base.ink, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 7 }} />}</View>)}
@@ -62,7 +64,9 @@ export function FinTable<T>({ cols, rows, keyOf, onRow, foot, onMenu, defaultSor
             </View>
           )}
           {openCol && (
-            <View style={{ alignSelf: 'flex-start', minWidth: 180, marginBottom: 8, marginHorizontal: 8, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
+            <Modal transparent visible animationType="none" onRequestClose={() => setOpen('')}>
+            <Pressable accessibilityLabel="Close" onPress={() => setOpen('')} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+            <View style={{ position: 'absolute', left: Math.max(8, Math.min(at.x - 90, win.width - 200)), top: at.y + 14, width: 180, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 8, overflow: 'hidden', shadowColor: '#101828', shadowOpacity: 0.18, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 6 }}>
               {openCol.choices!.map((v, i) => { const on = (picks[openCol.k] || []).includes(v); return (
                 <Pressable key={v} accessibilityRole="checkbox" accessibilityState={{ checked: on }} accessibilityLabel={v} onPress={() => tick(openCol.k, v)} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 7, borderTopWidth: i ? 1 : 0, borderTopColor: '#F0F1F4' }}>
                   <Text style={{ width: 18, fontSize: 14, color: base.ink }}>{on ? '☑' : '☐'}</Text><Text style={{ fontSize: 13, color: base.ink, fontWeight: on ? '700' : '400' }}>{v}</Text>
@@ -70,6 +74,7 @@ export function FinTable<T>({ cols, rows, keyOf, onRow, foot, onMenu, defaultSor
               ); })}
               <Pressable onPress={() => setOpen('')} style={{ paddingHorizontal: 12, paddingVertical: 7, borderTopWidth: 1, borderTopColor: '#F0F1F4' }}><Text style={{ fontSize: 12.5, fontWeight: '700', color: t.brand1 }}>Done</Text></Pressable>
             </View>
+            </Modal>
           )}
           <View style={{ backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10, overflow: 'hidden' }}>
             {!shown.length && <Text style={{ padding: 14, textAlign: 'center', color: base.slate }}>Nothing matches those filters.</Text>}

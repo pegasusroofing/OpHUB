@@ -111,10 +111,7 @@ export default function FinNewJob() {
         <Field label="Site address" value={v.addr || ''} onChangeText={set('addr')} multiline />
         <Field label="Postcode" value={v.pc || ''} onChangeText={set('pc')} autoCapitalize="characters" />
         <View style={{ flexDirection: 'row', gap: 8 }}>
-          <View style={{ flex: 1 }}>
-            <Muted style={{ fontWeight: '700', marginTop: 4 }}>Status</Muted>
-            <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginVertical: 4 }}>{[['upcoming', 'Upcoming'], ['live', 'Live'], ['closed', 'Closed']].map(([k, l]) => <FinChip key={k} on={v.status === k} label={l} onPress={() => set('status')(k)} />)}</View>
-          </View>
+          <View style={{ flex: 1 }}><SelectBox label="Status" title="Status" value={v.status || 'live'} options={[['upcoming', 'Upcoming'], ['live', 'Live'], ['closed', 'Closed']]} onChange={set('status')} /></View>
           {!finOnly && <View style={{ flex: 1 }}><SelectBox label="Project manager" title="Project manager" value={v.pm || ''} options={pms.map((p) => [p.id, p.name] as [string, string])} onChange={set('pm')} /></View>}
         </View>
         <View style={{ flexDirection: 'row', gap: 8 }}>
