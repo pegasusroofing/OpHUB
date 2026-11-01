@@ -259,3 +259,11 @@
 {"part":"quote1","step":"Import: the tracker’s format loads, chaser off, and a second load adds nothing","ok":true,"note":"[{\"title\":\"ZZ imported lost\",\"status\":\"lost\",\"chase_on\":false,\"priced_by_name\":null,\"imported\":true},{\"title\":\"ZZ imported open\",\"status\":\"pricing\",\"chase_on\":false,\"priced_by_name\":\"Neil\",\"imported\":true},{\"title\":\"ZZ imported won\",\"status","ms":23881}
 {"part":"quote2","step":"Home: Quotes tile opens the tracker","ok":true,"note":"lhost:8081/pm/quotes","ms":10151}
 {"part":"quoteshots","step":"pictures","ok":true,"note":"ok","ms":30260}
+{"part":"quote3","step":"Create Enquiry: with documents, makes the folder and files them","ok":true,"note":"folder ZZ JOB Flow C, priced by andy pm","ms":22891}
+{"part":"quote3","step":"Documents: the tender document is in Tender Documents","ok":true,"note":"","ms":13142}
+{"part":"quote3","step":"Estimator: puts the quote in the Quotation folder","ok":true,"note":"","ms":21231}
+{"part":"quote3","step":"Submit: needs the value","ok":true,"note":"pricing","ms":7104}
+{"part":"quote3","step":"Send from the app: attaches from Quotation, marks sent, files to its year","ok":true,"note":"returned, filed true, next chase 2026-12-01 | ‹ Quote Sandbox Roofing Ltd Returned Change 🏆 WON: CONVERT TO JOB CUSTOMER Client * Contact name Contact email (the cha","ms":11385}
+{"part":"quote3","step":"After filing: the documents still open from the app","ok":true,"note":"folder found by id after the move","ms":8903}
+{"part":"quote3","step":"Filter: multi-select, compact list on the phone","ok":true,"note":"431,000 Value 2 Won 50% Win rate + NEW ENQUIRY Filter (7) ▼ Newest first ▼ List ▼ ZZ imported open Pricing ZZ Import Three · Repairs · Neil · 1 Dec 26 ZZ JOB Flow C Returned ZZ Flo","ms":11990}
+{"part":"quote3","step":"Won from a filed quote: makes the job and moves the folder out of Estimating","ok":true,"note":"won","ms":35930}
