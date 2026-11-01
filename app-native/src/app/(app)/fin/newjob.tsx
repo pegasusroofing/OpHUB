@@ -115,10 +115,7 @@ export default function FinNewJob() {
           {!finOnly && <View style={{ flex: 1 }}><SelectBox label="Project manager" title="Project manager" value={v.pm || ''} options={pms.map((p) => [p.id, p.name] as [string, string])} onChange={set('pm')} /></View>}
         </View>
         <View style={{ flexDirection: 'row', gap: 8 }}>
-          <View style={{ flex: 1 }}>
-            <Muted style={{ fontWeight: '700', marginTop: 4 }}>Payment Procedure *</Muted>
-            <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginVertical: 4 }}>{[['invoice', 'Invoice'], ['application', 'Application for payment']].map(([k, l]) => <FinChip key={k} on={v.bt === k} label={l} onPress={() => set('bt')(k)} />)}</View>
-          </View>
+          <View style={{ flex: 1 }}><SelectBox label="Payment Procedure *" title="Payment Procedure" value={v.bt || ''} options={[['invoice', 'Invoice'], ['application', 'Application for payment']]} onChange={set('bt')} /></View>
           {!finOnly && <View style={{ flex: 1 }}><SelectBox label="Project Type" title="Project Type" value={v.kind || 'single'} options={[['single', 'Single site'], ['multi', 'Multi-site (plots / addresses)'], ['repair', 'Repair contract']]} onChange={set('kind')} /></View>}
         </View>
         <Muted style={{ fontSize: 11.5, marginBottom: 6 }}>Invoice jobs have no applications or retention.</Muted>
