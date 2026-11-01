@@ -829,3 +829,9 @@
 {"part":"bq1","step":"Top and bottom","ok":true,"note":"shot","ms":11365}
 {"part":"bq1","step":"Top and bottom","ok":true,"note":"shot","ms":11459}
 {"part":"bq1","step":"Top and bottom","ok":true,"note":"shot","ms":10957}
+{"part":"bq1","step":"Lines start closed, one click opens one","ok":true,"note":"boxes 1 then 9","ms":11080}
+{"part":"bq1","step":"Tab through the line closes it","ok":false,"note":"boxes 9 then 9","ms":2845}
+{"part":"bq1","step":"+ Add under a section offers Item and Sub-section; no main + Sub-section","ok":true,"note":"main 0, offered 1","ms":1390}
+{"part":"bq1","step":"Lines start closed, one click opens one","ok":true,"note":"boxes 1 then 9","ms":11633}
+{"part":"bq1","step":"Tab through the line closes it","ok":true,"note":"boxes 9 then 1","ms":255}
+{"part":"bq1","step":"+ Add under a section offers Item and Sub-section; no main + Sub-section","ok":true,"note":"main 0, offered 1","ms":1530}
