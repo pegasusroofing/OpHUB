@@ -1,7 +1,7 @@
 // Finance › Projects (914 renderFinJobs + 9219f grid): every project with its client, client PO, PM, value, invoiced,
-// owed and overdue; status, PM and client filters. Click a heading to sort; nothing chosen means name A to Z. Clients are in
-// the Directory, with their jobs and what they owe.
-// A laptop filters by column; a phone has no columns, so it keeps the search box.
+// owed and overdue. Click a heading to sort; nothing chosen means name A to Z. Clients are in the Directory, with their jobs
+// and what they owe. A laptop filters by column (Status starts on Live) and has no filter row; a phone has no columns, so it
+// keeps the search box and the Status, PM, Client and Start date filters.
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useState } from 'react';
@@ -62,14 +62,14 @@ export default function FinJobs() {
   const counts: Record<string, number> = { live: 0, upcoming: 0, closed: 0, all: sites.length };
   sites.forEach((s) => { counts[finStatus(s)] = (counts[finStatus(s)] || 0) + 1; });
   const ql = desk ? '' : q.trim().toLowerCase();
-  let shown = sites.filter((s) => (!sel.status.length || sel.status.includes(finStatus(s))) && (!sel.pm.length || sel.pm.includes(s.responsible_pm_id || 'none'))
-    && (!sel.client.length || sel.client.includes(cliOf(s)))
-    && (!ql || [s.job_number, s.name, cliOf(s), s.client_name, (data?.posBy[s.id] || []).join(' '), pmName(s.responsible_pm_id), s.postcode].join(' ').toLowerCase().includes(ql)));
+  let shown = sites.filter((s) => desk || ((!sel.status.length || sel.status.includes(finStatus(s))) && (!sel.pm.length || sel.pm.includes(s.responsible_pm_id || 'none'))
+    && (!sel.client.length || sel.client.includes(cliOf(s)))))
+    .filter((s) => (!ql || [s.job_number, s.name, cliOf(s), s.client_name, (data?.posBy[s.id] || []).join(' '), pmName(s.responsible_pm_id), s.postcode].join(' ').toLowerCase().includes(ql)));
   const nm = (s: SiteX) => String(s.name || '');
   const range = dateRange(dr, today(), custom), vt = valueTest(val);
   const startOf = (s: SiteX) => String(s.start_date || (s as { created_at?: string }).created_at || '').slice(0, 10);
-  if (range) shown = shown.filter((s) => { const d = startOf(s); return !!d && d >= range[0] && d <= range[1]; });
-  if (vt) shown = shown.filter((s) => vt(Number(data?.jfBy[s.id]?.contract_value || 0)));
+  if (range && !desk) shown = shown.filter((s) => { const d = startOf(s); return !!d && d >= range[0] && d <= range[1]; });
+  if (vt && !desk) shown = shown.filter((s) => vt(Number(data?.jfBy[s.id]?.contract_value || 0)));
   shown = shown.slice().sort((a, b) => nm(a).localeCompare(nm(b), 'en-GB', { sensitivity: 'base' }));
   const pms = Array.from(new Set(sites.map((s) => s.responsible_pm_id).filter(Boolean))) as string[];
   const totalOf = (list: typeof shown) => list.reduce((t, s) => { const m = data?.m[s.id]; return { v: t.v + Number(data?.jfBy[s.id]?.contract_value || 0), inv: t.inv + (m?.inv || 0), owed: t.owed + (m?.owed || 0), od: t.od + (m?.overdue || 0) }; }, { v: 0, inv: 0, owed: 0, od: 0 });
@@ -77,7 +77,7 @@ export default function FinJobs() {
   return (
     <FinPage title="Projects" section="jobs">
       {me && isFullManager(me) && <View style={{ marginBottom: 10 }}><Button title="+ New project" onPress={() => router.push('/fin/newjob' as never)} /></View>}
-      <FinFilterBar search={desk ? undefined : { value: q, onChange: setQ, placeholder: 'Search project no., name, client or PO' }} sel={sel} moreOn={!!val}
+      {!desk && <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search project no., name, client or PO' }} sel={sel} moreOn={!!val}
         onClear={() => { setSel({ status: [], pm: [], client: [], start: [] }); setVal(''); }}
         onChange={async (next) => {
           if (next.start[0] === 'custom' && dr !== 'custom') { const from = await askDate('Start dates from'); if (from === null) return; const to = await askDate('Start dates to', { min: from || undefined }); if (to === null) return; setCustom({ from: from || undefined, to: to || undefined }); }
@@ -89,18 +89,18 @@ export default function FinJobs() {
           { key: 'client', label: 'Client', items: [...new Set(sites.map(cliOf).filter(Boolean))].sort().map((v) => ({ v, l: v })) },
           { key: 'start', label: 'Start date', single: true, items: DATE_RANGES.filter(([k]) => k).map(([k, l]) => ({ v: k, l: k === 'custom' && dr === 'custom' && (custom.from || custom.to) ? `${custom.from ? fdate(custom.from) : '…'} – ${custom.to ? fdate(custom.to) : '…'}` : l })) },
         ]}
-        more={<TextInput value={val} onChangeText={setVal} placeholder="Value e.g. >50k, 25k-100k" style={[box, { fontSize: 16 }, val && !vt ? { borderColor: '#C0392B' } : null]} />} />
+        more={<TextInput value={val} onChangeText={setVal} placeholder="Value e.g. >50k, 25k-100k" style={[box, { fontSize: 16 }, val && !vt ? { borderColor: '#C0392B' } : null]} />} />}
       {!data ? <Muted>Loading…</Muted> : desk && shown.length ? (
-        <FinTable rows={shown} keyOf={(s) => s.id} onRow={(s) => router.push(`/fin/job/${s.id}` as never)} defaultSort={{ k: 'name', dir: 'asc' }}
+        <FinTable rows={shown} keyOf={(s) => s.id} onRow={(s) => router.push(`/fin/job/${s.id}` as never)} defaultSort={{ k: 'name', dir: 'asc' }} startFilter={{ st: ['Live'] }}
           cols={[
             { k: 'no', l: 'Job No', min: 90, flex: 0.8, sort: (s) => s.job_number || '', render: (s) => <Text style={{ fontSize: 11, fontWeight: '800', color: t.brand1, borderWidth: 1.5, borderColor: t.brand1, borderRadius: 8, paddingVertical: 4, paddingHorizontal: 10, overflow: 'hidden' }}>{s.job_number || '—'}</Text> },
-            { k: 'name', l: 'Project', flex: 1.6, min: 160, render: (s) => <Cell bold>{s.name}</Cell> },
+            { k: 'name', l: 'Project', flex: 2.2, min: 200, render: (s) => <Cell bold>{s.name}</Cell> },
             { k: 'cli', l: 'Client', flex: 1.5, min: 150, render: (s) => <Cell bold>{cliOf(s) || '—'}</Cell> },
             { k: 'po', l: 'Client PO', render: (s) => { const po = (data.posBy[s.id] || []).join(', '); return po ? <Cell>{po}</Cell> : <Cell tone="#D97706">No PO</Cell>; } },
-            { k: 'pm', l: 'PM', render: (s) => <Cell>{pmName(s.responsible_pm_id) || '—'}</Cell> },
-            { k: 'st', l: 'Status', sort: (s) => finStatus(s), render: (s) => { const k = finStatus(s); const c = k === 'live' ? ['#E7F6EC', '#1E7A43'] : k === 'upcoming' ? ['#FDF1E6', '#B35A00'] : ['#EEF0F2', '#6b7280']; return <Text style={{ fontSize: 10.5, fontWeight: '800', color: c[1], backgroundColor: c[0], borderRadius: 999, paddingVertical: 3, paddingHorizontal: 9, overflow: 'hidden' }}>● {k[0].toUpperCase() + k.slice(1)}</Text>; } },
+            { k: 'pm', l: 'PM', flex: 0.7, min: 70, render: (s) => <Cell>{pmName(s.responsible_pm_id) || '—'}</Cell> },
+            { k: 'st', l: 'Status', flex: 0.7, min: 84, noSort: true, choices: ['Live', 'Upcoming', 'Closed'], render: (s) => { const k = finStatus(s); const c = k === 'live' ? ['#E7F6EC', '#1E7A43'] : k === 'upcoming' ? ['#FDF1E6', '#B35A00'] : ['#EEF0F2', '#6b7280']; return <Text style={{ fontSize: 10.5, fontWeight: '800', color: c[1], backgroundColor: c[0], borderRadius: 999, paddingVertical: 3, paddingHorizontal: 9, overflow: 'hidden' }}>● {k[0].toUpperCase() + k.slice(1)}</Text>; } },
             { k: 'start', l: 'Start', sort: (s) => String(s.start_date || (s as { created_at?: string }).created_at || '').slice(0, 10), render: (s) => { const d = s.start_date || (s as { created_at?: string }).created_at; return <Cell>{d ? new Date(String(d).slice(0, 10) + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</Cell>; } },
-            { k: 'v', l: 'Value', sort: (s) => Number(data.jfBy[s.id]?.contract_value || 0), render: (s) => { const v = Number(data.jfBy[s.id]?.contract_value || 0), m = data.m[s.id]; return <Cell tone={m?.overdue ? '#C0392B' : undefined}>{v ? money(v, 0) : '—'}</Cell>; } },
+            { k: 'v', l: 'Value', sort: (s) => Number(data.jfBy[s.id]?.contract_value || 0) || null, render: (s) => { const v = Number(data.jfBy[s.id]?.contract_value || 0), m = data.m[s.id]; return <Cell tone={m?.overdue ? '#C0392B' : undefined}>{v ? money(v, 0) : '—'}</Cell>; } },
           ]}
           foot={(left) => { const tot = totalOf(left); return <><FootText bold>{left.length} project{left.length === 1 ? '' : 's'}</FootText><FootText>Value {money(tot.v, 0)}</FootText><FootText>Invoiced {money(tot.inv, 0)}</FootText><FootText>Owed {money(tot.owed, 0)}</FootText>{tot.od ? <FootText>Overdue {money(tot.od, 0)}</FootText> : null}</>; }} />
       ) : shown.length ? shown.map((s) => {

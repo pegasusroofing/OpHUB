@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { nextSort, sortRows } from '../finTable.ts';
+import { nextSort, sortRows } from './finTable.ts';
 
 type R = { name: string; value: string; start: string };
 const rows: R[] = [

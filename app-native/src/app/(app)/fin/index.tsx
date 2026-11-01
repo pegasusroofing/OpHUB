@@ -36,11 +36,11 @@ export default function FinOverview() {
           </View>
           {data.todo.length > 0 ? (
             <Card>
-              <Text style={[heading(700), { fontSize: 15, color: '#111827', marginBottom: 10 }]}>Needs Attention</Text>
+              <Text style={[heading(700), { fontSize: 15, color: '#111827', marginBottom: 4 }]}>Needs Attention</Text>
               {data.todo.map((x) => (
-                <Pressable key={x.t} onPress={() => router.push(x.go as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 11, borderTopWidth: 1, borderColor: '#F0F1F4' }}>
-                  <Text style={{ width: 26, height: 26, lineHeight: 26, textAlign: 'center', fontWeight: '800', fontSize: 13, color: TONE[x.tone], backgroundColor: `${TONE[x.tone]}1F`, borderRadius: 6, overflow: 'hidden' }}>{x.n}</Text>
-                  <View style={{ flex: 1 }}><Text style={{ fontWeight: '700', color: '#111827' }}>{titleCase(x.t)}</Text><Text numberOfLines={2} style={{ fontSize: 12, color: base.slate }}>{x.s}</Text></View>
+                <Pressable key={x.t} onPress={() => router.push(x.go as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6, borderTopWidth: 1, borderColor: '#F0F1F4' }}>
+                  <Text style={{ width: 22, height: 22, lineHeight: 22, textAlign: 'center', fontWeight: '800', fontSize: 12, color: TONE[x.tone], backgroundColor: `${TONE[x.tone]}1F`, borderRadius: 6, overflow: 'hidden' }}>{x.n}</Text>
+                  <View style={{ flex: 1 }}><Text style={{ fontWeight: '700', fontSize: 13.5, color: '#111827' }}>{titleCase(x.t)}</Text><Text numberOfLines={1} style={{ fontSize: 11.5, color: base.slate }}>{x.s}</Text></View>
                   <Text style={{ color: base.slate }}>›</Text>
                 </Pressable>
               ))}

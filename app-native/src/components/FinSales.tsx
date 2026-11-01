@@ -80,6 +80,9 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
   const rowMenu = useFinRowMenu(data?.invs);
   const [voidOpen, setVoidOpen] = useState(false); // voided invoices sit in a closed drop-down (9219zn)
   const desk = useDesk();
+  // Inside a project on a laptop the table filters by column (Andy, 1 Nov 2026), so the search and filter row stay off and
+  // every status shows.
+  const bare = !!siteId && desk;
   const sites = sitesRaw as (typeof sitesRaw[number] & { job_number?: string | null; client_name?: string | null })[];
   const site = (id: string) => sites.find((s) => s.id === id);
   const billTo = (i: Inv) => i.bill_name || site(i.site_id)?.client_name || '';
@@ -104,7 +107,7 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
   if (tab === 'apps') {
     const F: Record<string, (a: App) => boolean> = { open: (a) => ['draft', 'submitted'].includes(stage(a)), certified: (a) => stage(a) === 'certified', invoiced: (a) => stage(a) === 'invoiced', all: (a) => stage(a) !== 'void' };
     const first = ['open', 'certified', 'invoiced'].find((k) => data.apps.filter(F[k]).length);
-    const sel = sel0 || { status: first ? [first] : [], mon: [], job: [] };
+    const sel = bare ? { status: [], mon: [], job: [] } : sel0 || { status: first ? [first] : [], mon: [], job: [] };
     const aMonth = (a: App) => monthOf(a.valuation_date);
     const sorter: Record<string, (x: App, y: App) => number> = { new: (x, y) => String(y.valuation_date || '').localeCompare(String(x.valuation_date || '')), old: (x, y) => String(x.valuation_date || '').localeCompare(String(y.valuation_date || '')), big: (x, y) => Number(y.cert_net ?? y.net_due ?? 0) - Number(x.cert_net ?? x.net_due ?? 0), job: (x, y) => jobTag(site(x.site_id)).localeCompare(jobTag(site(y.site_id))) };
     const list = data.apps.filter(F.all).filter((a) => !sel.status.length || sel.status.some((k) => F[k](a))).filter((a) => !sel.mon.length || sel.mon.includes(aMonth(a))).filter((a) => !sel.job.length || sel.job.includes(a.site_id)).filter((a) => !ql || `${a.number} ${jobTag(site(a.site_id))} ${site(a.site_id)?.client_name || ''}`.toLowerCase().includes(ql)).slice().sort(sorter[sort]);
@@ -113,13 +116,13 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
       <View>
         <Muted style={{ marginBottom: 10, fontSize: 12 }}>Apply → the client certifies it (enter their figures on the application) → the invoice is raised for you. A certificate is just a certified application.</Muted>
         <View style={{ marginBottom: 10 }}><Button title="+ New application" onPress={() => void newFor('application')} /></View>
-        <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search application no., project or client' }} sel={sel} onChange={setSel} onClear={() => setSel({ status: [], mon: [], job: [] })}
+        {!bare && <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search application no., project or client' }} sel={sel} onChange={setSel} onClear={() => setSel({ status: [], mon: [], job: [] })}
           sorts={[['new', 'Newest first'], ['old', 'Oldest first'], ['big', 'Biggest first'], ...(siteId ? [] : [['job', 'Project'] as [string, string]])]} sort={sort} onSort={setSort}
           parts={[
             { key: 'status', label: 'Status', items: [['open', 'In progress'], ['certified', 'Certified, to invoice'], ['invoiced', 'Invoiced']].map(([v, l]) => ({ v, l, n: data.apps.filter(F[v]).length })) },
             { key: 'mon', label: 'Month', items: months.map((m) => ({ v: m, l: monthLabel(m) })) },
             ...(siteId ? [] : [{ key: 'job', label: 'Project', items: [...new Set(data.apps.map((a) => a.site_id))].map((id) => ({ v: id, l: jobTag(site(id)) })) }]),
-          ]} />
+          ]} />}
         {desk && list.length ? (
           <FinTable rows={list} keyOf={(a) => a.id} onMenu={(a) => void rowMenu.appMenu(a, stage(a))} onRow={(a) => router.push(`/fin/job/${a.site_id}/application/${a.id}` as never)}
             cols={[
@@ -128,7 +131,7 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
               { k: 'd', l: 'Date', render: (a: App) => <Cell>{fdate(a.valuation_date)}</Cell> },
               { k: 'ap', l: 'Applied (Net)', render: (a: App) => <Cell>{money(a.net_due)}</Cell> },
               { k: 'ce', l: 'Certified (Net)', render: (a: App) => { const short = a.cert_net != null ? round2(Number(a.cert_net) - Number(a.net_due || 0)) : 0; return <View style={{ alignItems: 'center' }}><Cell>{a.cert_net != null ? money(a.cert_net) : '—'}</Cell>{short < -0.009 ? <Text style={{ fontSize: 11, color: '#C0392B' }}>{money(-short)} short</Text> : null}</View>; } },
-              { k: 'st', l: 'Stage', render: (a: App) => { const s = appStage(a); return <Text style={{ fontSize: 10.5, fontWeight: '800', color: s.c, backgroundColor: `${s.c}1A`, borderRadius: 999, paddingVertical: 3, paddingHorizontal: 9, overflow: 'hidden', textAlign: 'center' }}>● {s.l}</Text>; } },
+              { k: 'st', l: 'Stage', noSort: true, choices: ['Draft', 'Waiting for certificate', 'Certified', 'Invoiced', 'Pay less notice'], render: (a: App) => { const s = appStage(a); return <Text style={{ fontSize: 10.5, fontWeight: '800', color: s.c, backgroundColor: `${s.c}1A`, borderRadius: 999, paddingVertical: 3, paddingHorizontal: 9, overflow: 'hidden', textAlign: 'center' }}>● {s.l}</Text>; } },
               { k: 'inv', l: 'Invoice', render: (a: App) => { const inv = data.invs.find((i) => i.id === a.invoice_id); return inv ? <Text accessibilityRole="link" onPress={() => router.push(`/fin/job/${a.site_id}/invoice/${inv.id}` as never)} style={{ fontSize: 12.5, fontWeight: '700', color: base.blue }}>{inv.number || 'Draft'}</Text> : appStage(a).k === 'certified' ? <Button small kind="ghost" title="Raise invoice" onPress={() => void raise(a)} /> : <Cell>—</Cell>; } },
             ]}
             foot={(list) => <><FootText bold>{list.length} application{list.length === 1 ? '' : 's'}</FootText><FootText>Applied {money(list.reduce((t, a) => t + Number(a.net_due || 0), 0))}</FootText><FootText>Certified {money(list.reduce((t, a) => t + Number(a.cert_net || 0), 0))}</FootText></>} />
@@ -142,20 +145,20 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
   if (tab === 'invoices') {
     const F: Record<string, (i: Inv) => boolean> = { outstanding: (i) => invOutstanding(i) > 0, overdue: (i) => invOverdue(i), draft: (i) => i.status === 'draft', paid: (i) => i.status === 'paid', all: () => true };
     const iMonth = (i: Inv) => monthOf(i.issue_date || i.created_at);
-    const sel = sel0 || { status: ['outstanding'], mon: [], job: [] };
+    const sel = bare ? { status: [], mon: [], job: [] } : sel0 || { status: ['outstanding'], mon: [], job: [] };
     const sorter: Record<string, (x: Inv, y: Inv) => number> = { new: () => 0, old: (x, y) => String(x.created_at || '').localeCompare(String(y.created_at || '')), big: (x, y) => Number(y.total || 0) - Number(x.total || 0), client: (x, y) => billTo(x).localeCompare(billTo(y)) };
     const list = live.filter((i) => !sel.status.length || sel.status.some((k) => (F[k] || F.outstanding)(i))).filter((i) => !sel.mon.length || sel.mon.includes(iMonth(i))).filter((i) => !sel.job.length || sel.job.includes(i.site_id)).filter((i) => !ql || `${i.number || ''} ${billTo(i)} ${i.bill_address || ''} ${jobTag(site(i.site_id))}`.toLowerCase().includes(ql)).slice().sort(sorter[sort]);
     const months = monthsIn(live, iMonth);
     return (
       <View>
         <View style={{ marginBottom: 10 }}><Button title="+ New invoice" onPress={() => void newFor('invoice')} /></View>
-        <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search invoice no., client or project' }} sel={sel} onChange={setSel} onClear={() => setSel({ status: [], mon: [], job: [] })}
+        {!bare && <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search invoice no., client or project' }} sel={sel} onChange={setSel} onClear={() => setSel({ status: [], mon: [], job: [] })}
           sorts={[['new', 'Newest first'], ['old', 'Oldest first'], ['big', 'Biggest first'], ['client', 'Client A to Z']]} sort={sort} onSort={setSort}
           parts={[
             { key: 'status', label: 'Status', items: [['outstanding', 'Owed'], ['overdue', 'Overdue'], ['draft', 'Drafts'], ['paid', 'Paid']].map(([v, l]) => ({ v, l, n: live.filter(F[v]).length })) },
             { key: 'mon', label: 'Month', items: months.map((m) => ({ v: m, l: monthLabel(m) })) },
             ...(siteId ? [] : [{ key: 'job', label: 'Project', items: [...new Set(live.map((i) => i.site_id))].map((id) => ({ v: id, l: jobTag(site(id)) })) }]),
-          ]} />
+          ]} />}
         {desk && list.length ? (
           <FinTable rows={list} keyOf={(i) => i.id} onMenu={(i) => void rowMenu.invMenu(i)} onRow={(i) => router.push(`/fin/job/${i.site_id}/invoice/${i.id}` as never)}
             cols={[
@@ -167,7 +170,7 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
               { k: 'n', l: 'Net', min: 76, render: (i: Inv) => <Cell>{money(i.net)}</Cell> },
               { k: 'v', l: 'VAT', min: 70, render: (i: Inv) => <View style={{ alignItems: 'center' }}><Cell>{money(i.vat)}</Cell>{Number(i.rc_vat || 0) ? <Text style={{ fontSize: 11, color: base.slate }}>RC {money(i.rc_vat)}</Text> : null}</View> },
               { k: 't', l: 'Gross', min: 80, render: (i: Inv) => { const o = invOutstanding(i); return <View style={{ alignItems: 'center' }}><Cell bold>{money(i.total)}</Cell>{o > 0 && o < Number(i.total) ? <Text style={{ fontSize: 11, color: base.slate }}>{money(o)} owed</Text> : null}</View>; } },
-              { k: 's', l: 'Status', min: 76, render: (i: Inv) => <View style={{ alignItems: 'center' }}><Cell tone={invOverdue(i) ? '#C0392B' : undefined}>{invOverdue(i) ? 'Overdue' : INV_STATUS[i.status] || i.status}</Cell>{xeroTag(i) ? <Text style={{ fontSize: 10.5, color: base.slate }}>{xeroTag(i)}</Text> : null}</View> },
+              { k: 's', l: 'Status', min: 76, noSort: true, choices: ['Draft', 'Issued', 'Sent', 'Part paid', 'Paid', 'Overdue'], render: (i: Inv) => <View style={{ alignItems: 'center' }}><Cell tone={invOverdue(i) ? '#C0392B' : undefined}>{invOverdue(i) ? 'Overdue' : INV_STATUS[i.status] || i.status}</Cell>{xeroTag(i) ? <Text style={{ fontSize: 10.5, color: base.slate }}>{xeroTag(i)}</Text> : null}</View> },
             ]}
             foot={(list) => <><FootText bold>{list.length} invoice{list.length === 1 ? '' : 's'}</FootText><FootText>Net {money(list.reduce((t, i) => t + Number(i.net || 0), 0))}</FootText><FootText>VAT {money(list.reduce((t, i) => t + Number(i.vat || 0), 0))}</FootText><FootText>Gross {money(list.reduce((t, i) => t + Number(i.total || 0), 0))}</FootText><FootText>Owed {money(list.reduce((t, i) => t + invOutstandingNet(i), 0))}</FootText></>} />
         ) : list.length ? list.map((i) => {

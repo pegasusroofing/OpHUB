@@ -148,3 +148,9 @@ Then the same run on Sandbox Roofing against the real database, admin only: 138 
 - **Push function:** check it sends the message's own id.
 - **Labour review and repair jobs in Finance:** waiting for Andy.
 - **Andy said no** to the Schedule of Works photo upload speed-up and to general speed work on the old app. The native app covers both.
+
+## Finance snags from Andy's run-through (1 Nov 2026, evening)
+- Done and clicked through on Sandbox: six-tile Finance overview; Projects without the Clients tab, search bar or filter row on a laptop (Status is a tick drop-down starting on Live); click a heading to sort (A to Z, Z to A, off; default name A to Z); PM and Status columns narrower; the trail shows the whole path in Finance and every step is a link; the Home button in a project's bar has gone; a Documents tab on a project's Finance shows its OneDrive folder; the Retention box moved from the Overview to Sales › Retention with its invoices; Sales lists inside a project have no search or filter row on a laptop; Needs Attention is tighter.
+- The AI reader is live with Andy's key (model `claude-opus-5-5`, about 3p an invoice). Real test on Sandbox: three PDFs and a photo read; the photo's invoice number was missed. `finance-inbox` now keeps but doesn't read emailed invoices during the trial, except Sandbox.
+- Xero automatic posting asked for actions Xero doesn't have (`post_invoice`, `post_bill`); fixed to `push_invoice` / `push_bill`. Not tried against real Xero.
+- Waiting on Andy: a button style (A, B or C) to roll out everywhere; the cron secret change (`sql/8`).

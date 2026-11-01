@@ -50,12 +50,13 @@ const OV_OPTS: Record<string, [string, string][]> = {
 const k = (n: number | null | undefined) => (n == null ? '…' : Math.abs(n) >= 1000 ? `${n < 0 ? '−' : ''}£${(Math.abs(n) / 1000).toFixed(1)}k` : money(n, 0));
 
 export default function FinJob() {
-  const { id, tab = 'overview' } = useLocalSearchParams<{ id: string; tab?: string }>();
+  const { id, tab = 'overview', sub: qSub } = useLocalSearchParams<{ id: string; tab?: string; sub?: string }>();
   const { me, org } = useAuth();
   const { data: site } = useSite(id);
   const { data, isLoading } = useBook(me?.org_id, id);
   const t = useTheme();
   const [sub, setSub] = useState<Record<string, string>>({ sales: 'invoices', purchases: 'orders', subs: 'orders' });
+  useEffect(() => { if (typeof qSub === 'string' && qSub) setSub((cur) => (cur[tab] === qSub ? cur : { ...cur, [tab]: qSub })); }, [qSub, tab]);
   // Variations raised on site come into the register (so the forecast and the Variations tile count them).
   const qcJob = useQueryClient();
   const finOnly = isFinanceOnlyOrg(org);
@@ -92,7 +93,7 @@ export default function FinJob() {
         ))}
       </FinTabRow>
       {isLoading || !fc || !data ? <Muted>Loading…</Muted> : tab === 'overview' ? <Overview id={id} fc={fc} settings={data.settings} invs={data.book.invs.filter((i) => i.site_id === id)} apps={data.book.apps.filter((a) => a.site_id === id)} book={data.book as unknown as Row} />
-        : tab === 'sales' ? <>{subTabs('sales', [['invoices', 'Invoices'], ...(fc.isInvoiceJob && !data.book.apps.some((a) => a.site_id === id) ? [] : [['apps', 'Applications & Certificates'], ['retention', 'Retention']] as [string, string][])])}<SalesLists key={sub.sales} tab={sub.sales as 'invoices'} siteId={id} /></>
+        : tab === 'sales' ? <>{subTabs('sales', [['invoices', 'Invoices'], ...(fc.isInvoiceJob && !data.book.apps.some((a) => a.site_id === id) ? [] : [['apps', 'Applications & Certificates'], ['retention', 'Retention']] as [string, string][])])}{sub.sales === 'retention' && !fc.isInvoiceJob && <RetentionPanel id={id} fc={fc} settings={data.settings} invs={data.book.invs.filter((i) => i.site_id === id)} apps={data.book.apps.filter((a) => a.site_id === id)} />}<SalesLists key={sub.sales} tab={sub.sales as 'invoices'} siteId={id} /></>
         : tab === 'purchases' ? <>{subTabs('purchases', [['orders', 'Purchase orders'], ['invoices', 'Purchase invoices'], ['plant', 'Plant hire'], ['quotes', 'Purchase Quotes']])}{sub.purchases === 'quotes' ? <PurchaseQuotes siteId={id} /> : <PurchasesLists key={sub.purchases} tab={sub.purchases as 'orders'} siteId={id} />}</>
         : tab === 'docs' ? <FinDocs site={s as Record<string, unknown> | undefined} />
         : tab === 'subs' ? <>{subTabs('subs', [['orders', 'Subcontractor POs'], ['apps', 'Applications'], ['opinv', 'Operative invoices'], ['wages', 'Wages to book']])}<SubsLists key={sub.subs} tab={sub.subs as 'orders'} siteId={id} /></>
@@ -107,36 +108,7 @@ function Overview({ id, fc, settings, invs, apps, book }: { id: string; fc: Retu
   const { data: ovDws = [] } = useQuery({ queryKey: ['finOvDws', id], queryFn: async () => ((await fdb.from('fin_dayworks').select('status,value').eq('site_id', id)).data as Row[] | null) ?? [] });
   // Each half is worked out from what the latest certificate holds (903), not what's still held.
   const heldCert = retentionHeld(apps);
-  const d = retentionDates(fc.jf, settings), alerts = retentionAlerts(fc.jf, settings, fc.retHeld);
-  const { me } = useAuth();
   const { data: site } = useSite(id);
-  const toast = useToast();
-  // One tap at a time: a double tap could otherwise raise two release invoices (922).
-  const [retBusy, setRetBusy] = useState(false);
-  // Release a half either way (9219zn): Apply puts it through the next application, or Raise invoice bills it now.
-  const retAppFor = (n: 1 | 2) => { const aid = n === 1 ? fc.jf.ret1_app_id : fc.jf.ret2_app_id; const a = aid ? apps.find((x) => x.id === aid) : null; return a && a.status !== 'void' ? a : null; };
-  const retInv = async (n: 1 | 2) => {
-    if (!me || retBusy) return;
-    // 9219zn: invoiced → view the invoice; applied for → that application (never applied for twice);
-    // Raise invoice only once the release date (practical completion / end of defects) is set.
-    const done = n === 1 ? fc.jf.ret1_invoice_id : fc.jf.ret2_invoice_id;
-    if (done) { router.push(`/fin/job/${id}/invoice/${done}` as never); return; }
-    const inApp = retAppFor(n);
-    if (inApp) { router.push(`/fin/job/${id}/application/${inApp.id}` as never); return; }
-    const date = n === 1 ? d.first : d.second;
-    const k = await chooseAction(n === 1 ? 'First half of the retention' : 'Final retention release', [{ key: 'app', label: 'Apply — through the next application (the client certifies it)' }, ...(date ? [{ key: 'inv', label: 'Raise invoice — bill it straight away' }] : [])]);
-    if (!k) return;
-    setRetBusy(true);
-    if (k === 'app') {
-      const a = await applyRetention(me, id, n).finally(() => setRetBusy(false));
-      if (a.error) { toast(a.error); return; }
-      toast(`Application ${a.number}: retention ${a.pct}% — ${n === 1 ? 'first half' : 'final'} release applied for`);
-      router.push(`/fin/job/${id}/application/${a.id}` as never); return;
-    }
-    const r = await raiseRetentionInvoice(me, id, n, site as never).finally(() => setRetBusy(false));
-    if (r.error) toast(r.error);
-    if (r.id) router.push(`/fin/job/${id}/invoice/${r.id}` as never);
-  };
   const valued = fc.sales || 0;
   const pv = fc.ffa ? Math.max(0, Math.min(100, Math.round((valued / fc.ffa) * 100))) : 0;
   const mPct = fc.budgetTotal != null && fc.forecastMarginPct != null ? fc.forecastMarginPct : fc.sales ? fc.profitToDatePct : null;
@@ -167,7 +139,7 @@ function Overview({ id, fc, settings, invs, apps, book }: { id: string; fc: Retu
     ...(fc.isInvoiceJob ? [] : [(() => { const c = choice('ap', 'applied'); const v = c === 'applied' ? fc.applied : c === 'certified' ? fc.certified : fc.sales; return { slot: 'ap', cur: c, t: c === 'applied' ? 'Applied' : c === 'certified' ? 'Certified' : 'Valued', v: k(v), sub: fc.ffa ? `${pctTxt(((v || 0) / fc.ffa) * 100)} of final account` : '', tone: 'blue' as const, go: `/fin/job/${id}?tab=sales` }; })()]),
     (() => { const c = choice('inv', 'invoiced'); const v = c === 'invoiced' ? inv : c === 'owed' ? live.reduce((tt, i) => tt + invOutstandingNet(i), 0) : live.reduce((tt, i) => { const total = Number(i.total || 0); return tt + (total ? (Math.min(Number(i.paid || 0), total) * Number(i.net || 0)) / total : 0); }, 0); return { slot: 'inv', cur: c, t: c === 'invoiced' ? 'Invoiced' : c === 'owed' ? 'Owed' : 'Paid', v: k(v), sub: 'excl. VAT', tone: 'green' as const, go: `/fin/job/${id}?tab=sales` }; })(),
     (() => { const c = choice('od', 'net'); const v = c === 'gross' ? od.reduce((tt, i) => tt + invOutstanding(i), 0) : odV; return { slot: 'od', cur: c, t: 'Overdue', v: k(v), sub: od.length ? `${od.length} invoice${od.length === 1 ? '' : 's'}` : c === 'gross' ? 'incl. VAT' : 'excl. VAT', tone: (v > 0 ? 'red' : 'grey') as 'red' | 'grey', go: `/fin/job/${id}?tab=sales` }; })(),
-    ...(fc.isInvoiceJob ? [] : [(() => { const c = choice('ret', 'held'); return { slot: 'ret', cur: c, t: c === 'held' ? 'Retention' : c === 'released' ? 'Released' : 'Retention Taken', v: k(c === 'held' ? still : c === 'taken' ? taken : Math.max(0, taken - still) + retPeak), sub: c === 'held' ? 'still with the client' : c === 'taken' ? 'on the latest certificate' : 'invoiced or applied for', tone: 'amber' as const, go: `/fin/job/${id}?tab=sales` }; })()]),
+    ...(fc.isInvoiceJob ? [] : [(() => { const c = choice('ret', 'held'); return { slot: 'ret', cur: c, t: c === 'held' ? 'Retention' : c === 'released' ? 'Released' : 'Retention Taken', v: k(c === 'held' ? still : c === 'taken' ? taken : Math.max(0, taken - still) + retPeak), sub: c === 'held' ? 'still with the client' : c === 'taken' ? 'on the latest certificate' : 'invoiced or applied for', tone: 'amber' as const, go: `/fin/job/${id}?tab=sales&sub=retention` }; })()]),
   ];
   const ghost = (l: string, p: string) => <Pressable key={l} onPress={() => router.push(p as never)} style={{ borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 8, paddingVertical: 7, paddingHorizontal: 12, backgroundColor: '#fff' }}><Text style={{ fontSize: 12, fontWeight: '700', color: base.ink }}>{l}</Text></Pressable>;
   return (
@@ -216,16 +188,59 @@ function Overview({ id, fc, settings, invs, apps, book }: { id: string; fc: Retu
       {fc.ffaFromInvoiced && <Text style={{ color: '#D98A00', fontWeight: '700', marginBottom: 8 }}>Invoiced to date is more than the contract and variations, so the forecast uses the invoiced total.</Text>}
       {fc.budgetSource === 'schedule' && fc.schedCostedN < fc.schedItemsN && <Text onPress={() => router.push(`/fin/job/${id}/boq` as never)} style={{ color: '#D98A00', fontWeight: '700', marginBottom: 8 }}>{fc.schedItemsN - fc.schedCostedN} Bill of Quantities line{fc.schedItemsN - fc.schedCostedN === 1 ? ' has' : 's have'} no cost price yet, so the budget is low. ›</Text>}
       <NeedsAttention id={id} site={site as Row | undefined} fc={fc} settings={settings} invs={invs} apps={apps} book={book} />
-      {!fc.isInvoiceJob && (
+    </View>
+  );
+}
+
+/** Sales › Retention on a project (Andy, 1 Nov 2026: off the Overview, on here): what's held, each half with its date and how to
+ *  release it, and the retention invoices raised so far. */
+function RetentionPanel({ id, fc, settings, invs, apps }: { id: string; fc: ReturnType<typeof forecast>; settings: Row; invs: FinInv[]; apps: FinApp[] }) {
+  // Each half is worked out from what the latest certificate holds (903), not what's still held.
+  const heldCert = retentionHeld(apps);
+  const d = retentionDates(fc.jf, settings), alerts = retentionAlerts(fc.jf, settings, fc.retHeld);
+  const { me } = useAuth();
+  const { data: site } = useSite(id);
+  const toast = useToast();
+  // One tap at a time: a double tap could otherwise raise two release invoices (922).
+  const [retBusy, setRetBusy] = useState(false);
+  // Release a half either way (9219zn): Apply puts it through the next application, or Raise invoice bills it now.
+  const retAppFor = (n: 1 | 2) => { const aid = n === 1 ? fc.jf.ret1_app_id : fc.jf.ret2_app_id; const a = aid ? apps.find((x) => x.id === aid) : null; return a && a.status !== 'void' ? a : null; };
+  const retInv = async (n: 1 | 2) => {
+    if (!me || retBusy) return;
+    // 9219zn: invoiced → view the invoice; applied for → that application (never applied for twice);
+    // Raise invoice only once the release date (practical completion / end of defects) is set.
+    const done = n === 1 ? fc.jf.ret1_invoice_id : fc.jf.ret2_invoice_id;
+    if (done) { router.push(`/fin/job/${id}/invoice/${done}` as never); return; }
+    const inApp = retAppFor(n);
+    if (inApp) { router.push(`/fin/job/${id}/application/${inApp.id}` as never); return; }
+    const date = n === 1 ? d.first : d.second;
+    const k = await chooseAction(n === 1 ? 'First half of the retention' : 'Final retention release', [{ key: 'app', label: 'Apply — through the next application (the client certifies it)' }, ...(date ? [{ key: 'inv', label: 'Raise invoice — bill it straight away' }] : [])]);
+    if (!k) return;
+    setRetBusy(true);
+    if (k === 'app') {
+      const a = await applyRetention(me, id, n).finally(() => setRetBusy(false));
+      if (a.error) { toast(a.error); return; }
+      toast(`Application ${a.number}: retention ${a.pct}% — ${n === 1 ? 'first half' : 'final'} release applied for`);
+      router.push(`/fin/job/${id}/application/${a.id}` as never); return;
+    }
+    const r = await raiseRetentionInvoice(me, id, n, site as never).finally(() => setRetBusy(false));
+    if (r.error) toast(r.error);
+    if (r.id) router.push(`/fin/job/${id}/invoice/${r.id}` as never);
+  };
+  const retInvoices = invs.filter((i) => i.status !== 'void' && (i.id === fc.jf.ret1_invoice_id || i.id === fc.jf.ret2_invoice_id));
+  return (
+    <View style={{ marginBottom: 10 }}>
+      <Card>
+        {alerts.map((a) => <Text key={a.half} style={{ color: '#D98A00', fontWeight: '700' }}>{a.half === 1 ? 'First' : 'Second'} half due {fdate(a.date)}</Text>)}
+        <FinRow title="Held to date" right={money(fc.retHeld)} />
+        <FinRow title="First half — at practical completion" sub={`${d.first ? fdate(d.first) : 'Set the practical completion date in Project Admin'}${fc.jf.ret1_invoice_id ? ' · invoiced' : retAppFor(1) ? ` · In Application ${retAppFor(1)?.number}` : ''}`} right={money(retHalfAmt(heldCert, 1, fc.jf, invs, apps))} onPress={() => void retInv(1)} />
+        <FinRow title="Second half — end of defects period" sub={`${d.second ? fdate(d.second) : '—'}${fc.jf.ret2_invoice_id ? ' · invoiced' : retAppFor(2) ? ` · In Application ${retAppFor(2)?.number}` : ''}`} right={money(retHalfAmt(heldCert, 2, fc.jf, invs, apps))} onPress={() => void retInv(2)} />
+        <Muted>Tap a half to release it: Apply puts it through your next application (the client certifies it), or Raise invoice bills it straight away.</Muted>
+      </Card>
+      {retInvoices.length > 0 && (
         <>
-          <SectionTitle>Retention</SectionTitle>
-          <Card>
-            {alerts.map((a) => <Text key={a.half} style={{ color: '#D98A00', fontWeight: '700' }}>{a.half === 1 ? 'First' : 'Second'} half due {fdate(a.date)}</Text>)}
-            <FinRow title="Held to date" right={money(fc.retHeld)} />
-            <FinRow title="First half — at practical completion" sub={`${d.first ? fdate(d.first) : 'Set the practical completion date in Set-up'}${fc.jf.ret1_invoice_id ? ' · invoiced' : retAppFor(1) ? ` · In Application ${retAppFor(1)?.number}` : ''}`} right={money(retHalfAmt(heldCert, 1, fc.jf, invs, apps))} onPress={() => void retInv(1)} />
-            <FinRow title="Second half — end of defects period" sub={`${d.second ? fdate(d.second) : '—'}${fc.jf.ret2_invoice_id ? ' · invoiced' : retAppFor(2) ? ` · In Application ${retAppFor(2)?.number}` : ''}`} right={money(retHalfAmt(heldCert, 2, fc.jf, invs, apps))} onPress={() => void retInv(2)} />
-            <Muted>Tap a half to release it: Apply puts it through your next application (the client certifies it), or Raise invoice bills it straight away.</Muted>
-          </Card>
+          <SectionTitle>Retention invoices</SectionTitle>
+          {retInvoices.map((i) => <FinRow compact key={i.id} left={i.number || 'Draft'} title={i.id === fc.jf.ret1_invoice_id ? 'First half release' : 'Final release'} sub={[i.issue_date ? fdate(i.issue_date) : 'Not issued', invOutstanding(i) > 0 ? `${money(invOutstanding(i))} owed` : i.status === 'paid' ? 'Paid' : ''].filter(Boolean).join(' · ')} right={money(i.total)} onPress={() => router.push(`/fin/job/${id}/invoice/${i.id}` as never)} />)}
         </>
       )}
     </View>

@@ -6,7 +6,7 @@ export type SortCol<T> = { k: string; sort?: (r: T) => string | number | null | 
 /** What a column sorts by: its own rule, else the words in the cell. Money and plain numbers sort as numbers. */
 export function sortKey<T>(c: SortCol<T>, r: T, text: (r: T) => string): string | number {
   const v = c.sort ? c.sort(r) : text(r).trim();
-  if (v == null || v === '') return '';
+  if (v == null || v === '' || v === '—' || v === '-') return ''; // a dash is a blank
   if (typeof v === 'number') return v;
   const n = String(v).replace(/[£,\s]/g, '');
   return /^-?\d+(\.\d+)?$/.test(n) ? Number(n) : String(v);
