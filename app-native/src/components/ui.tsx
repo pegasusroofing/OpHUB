@@ -50,11 +50,17 @@ export function Field({ label, ...props }: TextInputProps & { label: string }) {
 /** A second tap while the first is still running is ignored (922 finance-once), so a slow connection can't
  *  make two payments, invoices, POs or applications. An action that hands back a promise is held until it
  *  finishes; others for a moment. */
+// Style A (Andy, 1 Nov 2026): the main action is filled in the company colour, the rest soft grey, remove-type buttons a soft red.
+// Normal-case words, gentle corners. A ghost button whose title starts Delete, Remove or Void takes the red look by itself.
+const BTN_GREY = '#EEF1F5', BTN_DANGER = ['#FDECEC', '#B42318'] as const;
+const BTN_SHADOW = { shadowColor: '#101828', shadowOpacity: 0.12, shadowRadius: 2, shadowOffset: { width: 0, height: 1 }, elevation: 1 };
 export function Button({ title, onPress, busy, kind = 'primary', disabled, small }: {
-  title: string; onPress: () => void | Promise<unknown>; busy?: boolean; kind?: 'primary' | 'ghost'; disabled?: boolean; small?: boolean;
+  title: string; onPress: () => void | Promise<unknown>; busy?: boolean; kind?: 'primary' | 'ghost' | 'danger'; disabled?: boolean; small?: boolean;
 }) {
   const t = useTheme();
   const primary = kind === 'primary';
+  const danger = kind === 'danger' || (kind === 'ghost' && /^(delete|remove|void)/i.test(title));
+  const fg = primary ? t.brand1Text : danger ? BTN_DANGER[1] : base.ink;
   const held = useRef(false);
   const press = () => {
     if (held.current) return;
@@ -71,12 +77,12 @@ export function Button({ title, onPress, busy, kind = 'primary', disabled, small
       onPress={press}
       style={({ pressed }) => [
         s.btn,
-        primary ? { backgroundColor: base.card, borderColor: t.brand1, borderWidth: 2.5 } : { backgroundColor: base.card, borderColor: base.line },
+        primary ? { backgroundColor: t.brand1, ...BTN_SHADOW } : { backgroundColor: danger ? BTN_DANGER[0] : BTN_GREY },
         small && s.btnSmall,
         (pressed || busy || disabled) && { opacity: 0.7 },
       ]}>
-      {busy && <ActivityIndicator color={primary ? t.brand1 : base.ink} style={{ marginRight: 8 }} />}
-      <Text style={[s.btnText, small && s.btnTextSmall, { color: primary ? t.brand1 : base.ink }]}>{title}</Text>
+      {busy && <ActivityIndicator color={fg} style={{ marginRight: 8 }} />}
+      <Text style={[s.btnText, small && s.btnTextSmall, { color: fg }]}>{title}</Text>
     </Pressable>
   );
 }
@@ -300,10 +306,10 @@ const s = StyleSheet.create({
   muted: { fontSize: 13, color: base.slate, lineHeight: 18 },
   label: { fontSize: 12, fontWeight: '700', color: base.slate, marginBottom: 4 },
   input: { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, paddingHorizontal: 12, paddingVertical: 11, fontSize: 15, color: base.ink, backgroundColor: base.card },
-  btn: { borderWidth: 1, borderRadius: radius.button, paddingVertical: 10, paddingHorizontal: 8, minHeight: 40, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', marginTop: 4 },
-  btnText: { fontSize: 12, fontWeight: '800', letterSpacing: 0.3, textTransform: 'uppercase', textAlign: 'center' },
-  btnSmall: { paddingVertical: 5, paddingHorizontal: 12, minHeight: 30, alignSelf: 'flex-start', borderWidth: 1 },
-  btnTextSmall: { fontSize: 12, fontWeight: '700', letterSpacing: 0, textTransform: 'none' },
+  btn: { borderRadius: 9, paddingVertical: 7, paddingHorizontal: 14, minHeight: 34, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', marginTop: 4 },
+  btnText: { fontSize: 13.5, fontWeight: '600', textAlign: 'center' },
+  btnSmall: { paddingVertical: 4, paddingHorizontal: 10, minHeight: 26, alignSelf: 'flex-start', borderRadius: 7 },
+  btnTextSmall: { fontSize: 12.5, fontWeight: '600' },
   notice: { borderWidth: 1, borderRadius: radius.input, padding: 10, marginBottom: space.m },
   checkRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginVertical: space.s },
   box: { width: 20, height: 20, borderRadius: 5, borderWidth: 1.5, borderColor: base.slateLight, alignItems: 'center', justifyContent: 'center' },
