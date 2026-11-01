@@ -692,3 +692,52 @@
 {"part":"wage1","step":"Other job costs: the second job goes there","ok":true,"note":"[\"price\",\"general\"]","ms":2636}
 {"part":"wage1","step":"Finance > Wages to book: tab shows, PAYE button answers","ok":true,"note":"‹ Subcontractors & Labour OpHUB Finance Finance › Subcontractors & Labour Overview Projects Sales Purchases Subcontractors & Labour Reports Directory Settings › £1,130 Operative Invoices To Pay 6 Nov 2026 Next Pay Day 0 Applications To Certify £0 Certified, To","ms":9665}
 {"part":"wage1","step":"Void the invoice: comes off the price, nothing left counted","ok":true,"note":"[[\"withdrawn\",0],[\"withdrawn\",0]] week 0 before 0","ms":11449}
+{"part":"hdr1","step":"Job home: bold line goes to Projects","ok":true,"note":"/sites","ms":8741}
+{"part":"hdr1","step":"Job page: bold line goes to the job home","ok":true,"note":"/sites/4defa781-f15f-485d-9a3a-6e908598e0de","ms":8703}
+{"part":"hdr1","step":"Finance page: bold line goes to Finance home","ok":true,"note":"/fin","ms":8747}
+{"part":"ai1","step":"Upload three PDFs and a photo: the real AI reads them","ok":false,"note":"0 of 4 read","ms":214058}
+{"part":"ai1","step":"Figures read correctly (clean invoice)","ok":false,"note":"[]","ms":108}
+{"part":"ai1","step":"Clear invoice: filed to its job by itself","ok":false,"note":"","ms":79}
+{"part":"ai1","step":"Two deliveries: each line on its own job, split by value","ok":false,"note":"[] ","ms":98}
+{"part":"ai1","step":"Dearer than the price list: goes on as a query","ok":false,"note":"","ms":141}
+{"part":"ai1","step":"Photo with no job on it: read, stays Unallocated with the reason","ok":false,"note":"undefined, total undefined","ms":152}
+{"part":"ai1","step":"Upload three PDFs and a photo: the real AI reads them","ok":false,"note":"0 of 4 read","ms":212472}
+{"part":"ai1","step":"Figures read correctly (clean invoice)","ok":false,"note":"[]","ms":168}
+{"part":"ai1","step":"Clear invoice: filed to its job by itself","ok":false,"note":"","ms":137}
+{"part":"ai1","step":"Two deliveries: each line on its own job, split by value","ok":false,"note":"[] ","ms":113}
+{"part":"ai1","step":"Dearer than the price list: goes on as a query","ok":false,"note":"","ms":158}
+{"part":"ai1","step":"Photo with no job on it: read, stays Unallocated with the reason","ok":false,"note":"undefined, total undefined","ms":139}
+{"part":"hdr1","step":"Job home: bold line goes to Projects","ok":true,"note":"/sites","ms":9165}
+{"part":"hdr1","step":"Job page: bold line goes to Projects","ok":true,"note":"/sites","ms":8637}
+{"part":"hdr1","step":"Finance job page: bold line goes to Finance home","ok":true,"note":"/fin","ms":8935}
+{"part":"hdr1","step":"Quotes page: bold line goes to the Quotes list","ok":true,"note":"/pm/quotes","ms":8406}
+{"part":"hdr1","step":"Finance page: bold line goes to Finance home","ok":true,"note":"/fin","ms":8814}
+{"part":"fin6","step":"Six tiles, in Andy's order","ok":true,"note":"£628,900 Live Contract Value 15 Total Live Jobs £308,174 Still To Invoice £69,126 Owed To You £2,375 Overdue £20,106 Retention Held By Clients Needs Attention 1 Overdue Invoices £2,375 to chase › 12 P","ms":10092}
+{"part":"fin6","step":"Still To Invoice matches the database","ok":true,"note":"shown £308174","ms":9}
+{"part":"fin6","step":"Phone: two across, nothing cut off","ok":true,"note":"page fits: true","ms":1609}
+{"part":"ai1","step":"Upload three PDFs and a photo: the real AI reads them","ok":false,"note":"0 of 4 read","ms":214113}
+{"part":"ai1","step":"Figures read correctly (clean invoice)","ok":false,"note":"[]","ms":199}
+{"part":"ai1","step":"Clear invoice: filed to its job by itself","ok":false,"note":"","ms":185}
+{"part":"ai1","step":"Two deliveries: each line on its own job, split by value","ok":false,"note":"[] ","ms":124}
+{"part":"ai1","step":"Dearer than the price list: goes on as a query","ok":false,"note":"","ms":114}
+{"part":"ai1","step":"Photo with no job on it: read, stays Unallocated with the reason","ok":false,"note":"undefined, total undefined","ms":89}
+{"part":"fjobs1","step":"Laptop: table, no Clients tab, no search bar","ok":true,"note":"Clients tabs 0, search boxes 0, 15 job numbers","ms":9603}
+{"part":"fjobs1","step":"Old Clients link goes to the Projects list","ok":true,"note":"Sandbox Roofing Ltd OPHUB Search Ctrl K Home Projects Deliveries Calendar Hub 4 Dashboard OpHUB Finance Admin Demo Compa","ms":8023}
+{"part":"fjobs1","step":"Directory: clients with jobs, owed, and jobs with no client","ok":true,"note":"Jobs with no client set: SBX-112 · ZZ TEST JOB - safe to delete, SBX-123 · ZZ JOB Fin C","ms":9660}
+{"part":"fjobs1","step":"Phone: search box back, list rows","ok":true,"note":"search boxes 1","ms":9374}
+{"part":"ai1","step":"Upload three PDFs and a photo: the real AI reads them","ok":false,"note":"3 of 4 read","ms":212393}
+{"part":"ai1","step":"Figures read correctly (clean invoice)","ok":true,"note":"[{\"how\":\"job number SBX-121\",\"qty\":10,\"code\":\"FR10\",\"kind\":\"item\",\"unit\":\"roll\",\"amount\":400,\"site_id\":\"527dea1d-25b1-4022-87bc-a9ff28ffa960\",\"unit_price\":40,\"description\":\"ZZ reader felt roll\"},{\"how\":\"job number SBX-12","ms":94}
+{"part":"ai1","step":"Clear invoice: filed to its job by itself","ok":true,"note":"to_approve, £600","ms":206}
+{"part":"ai1","step":"Two deliveries: each line on its own job, split by value","ok":true,"note":"[{\"pct\":66.6667,\"amount\":200,\"site_id\":\"527dea1d-25b1-4022-87bc-a9ff28ffa960\",\"cost_code\":\"materials\",\"sub_job_id\":null},{\"pct\":33.3333,\"amount\":100,\"site_id\":\"29cc7c5a-69fa-4d2c-948a-51eae571f968\",\"c ","ms":220}
+{"part":"ai1","step":"Dearer than the price list: goes on as a query","ok":true,"note":"query: ZZ reader felt roll: £50.00 a unit, price list ZZ-PL26 says £40.00","ms":208}
+{"part":"ai1","step":"Photo with no job on it: read, stays Unallocated with the reason","ok":false,"note":"undefined, total undefined","ms":85}
+{"part":"fjobs1","step":"Laptop: table, no Clients tab, no search bar","ok":true,"note":"Clients tabs 0, search boxes 0, 15 job numbers","ms":9425}
+{"part":"fjobs1","step":"Headings sort: name A to Z by default, click Value for low to high, again for high to low, again back to name","ok":false,"note":"locator.click: Timeout 6000ms exceeded.","ms":14760}
+{"part":"fjobs1","step":"Old Clients link goes to the Projects list","ok":true,"note":"Sandbox Roofing Ltd OPHUB Search Ctrl K Home Projects Deliveries Calendar Hub 4 Dashboard OpHUB Finance Admin Demo Compa","ms":7751}
+{"part":"fjobs1","step":"Directory: clients with jobs, owed, and jobs with no client","ok":true,"note":"Jobs with no client set: SBX-112 · ZZ TEST JOB - safe to delete, SBX-123 · ZZ JOB Fin C","ms":9968}
+{"part":"fjobs1","step":"Phone: search box back, list rows","ok":true,"note":"search boxes 1","ms":9921}
+{"part":"fjobs1","step":"Laptop: table, no Clients tab, no search bar","ok":true,"note":"Clients tabs 0, search boxes 0, 15 job numbers","ms":9485}
+{"part":"fjobs1","step":"Headings sort: name A to Z by default, click Value for low to high, again for high to low, again back to name","ok":false,"note":"by name first true (Andy, Andy, Harbour); low to high false (0,0,0,0); high to low false; off true","ms":12186}
+{"part":"fjobs1","step":"Old Clients link goes to the Projects list","ok":true,"note":"Sandbox Roofing Ltd OPHUB Search Ctrl K Home Projects Deliveries Calendar Hub 4 Dashboard OpHUB Finance Admin Demo Compa","ms":8202}
+{"part":"fjobs1","step":"Directory: clients with jobs, owed, and jobs with no client","ok":true,"note":"Jobs with no client set: SBX-112 · ZZ TEST JOB - safe to delete, SBX-123 · ZZ JOB Fin C","ms":9960}
+{"part":"fjobs1","step":"Phone: search box back, list rows","ok":true,"note":"search boxes 1","ms":9504}

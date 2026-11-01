@@ -9,7 +9,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { FinForm } from '@/components/FinForm';
 import { FinChip, FinRow, FinTabRow } from '@/components/FinNav';
-import { OphIcon } from '@/components/OphIcon';
+import { OneDriveBrowser } from '@/components/OneDriveBrowser';
 import { PurchaseQuotes } from '@/components/FinPurchaseQuotes';
 import { PurchasesLists } from '@/components/FinPurchases';
 import { SalesLists } from '@/components/FinSales';
@@ -35,7 +35,7 @@ import { isFinanceOnlyOrg, isFinanceUser, isFullManager } from '@/lib/roles';
 import { base, page, space, useTheme } from '@/theme/theme';
 
 type Row = Record<string, any>;
-const TABS: [string, string][] = [['overview', 'Overview'], ['sales', 'Sales'], ['purchases', 'Purchases'], ['subs', 'Subcontractors & Labour'], ['setup', 'Project Admin']];
+const TABS: [string, string][] = [['overview', 'Overview'], ['sales', 'Sales'], ['purchases', 'Purchases'], ['subs', 'Subcontractors & Labour'], ['setup', 'Project Admin'], ['docs', 'Documents']];
 // £10.0k, as the current app's tiles (finK).
 const OV_OPTS: Record<string, [string, string][]> = {
   cv: [['contract', 'Contract Value'], ['cva', 'Contract + Approved Variations'], ['ffa', 'Forecasted Final Account']],
@@ -75,9 +75,6 @@ export default function FinJob() {
     <ScrollView contentContainerStyle={page(1000)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title }} />
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10, padding: 8, marginBottom: 6 }}>
-        <Pressable onPress={() => router.push(`/sites/${id}` as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 8, paddingVertical: 6, paddingHorizontal: 10 }}>
-          <OphIcon name="home" size={14} color={base.ink} /><Text style={{ fontSize: 12, fontWeight: '700', color: base.ink }}>Home</Text>
-        </Pressable>
         <Text numberOfLines={1} style={{ flex: 1, fontSize: 13, color: base.ink }}><Text style={{ fontWeight: '800' }}>{s?.job_number || ''}</Text>  {s?.name || ''}</Text>
         <Pressable onPress={async () => {
           const opts = [['inv', 'Invoice', `/fin/job/${id}/invoice/new`], ...(fc && !fc.isInvoiceJob ? [['app', 'Application', `/fin/job/${id}/application/new`]] : []), ['po', 'Purchase order', `/fin/po/new?site=${id}`], ['pinv', 'Purchase invoice', `/fin/pinv/new?site=${id}`], ['plant', 'Plant hire', `/fin/plant/new?site=${id}`], ['sub', 'Subcontract', `/fin/sub/new?site=${id}`]];
@@ -97,6 +94,7 @@ export default function FinJob() {
       {isLoading || !fc || !data ? <Muted>Loading…</Muted> : tab === 'overview' ? <Overview id={id} fc={fc} settings={data.settings} invs={data.book.invs.filter((i) => i.site_id === id)} apps={data.book.apps.filter((a) => a.site_id === id)} book={data.book as unknown as Row} />
         : tab === 'sales' ? <>{subTabs('sales', [['invoices', 'Invoices'], ...(fc.isInvoiceJob && !data.book.apps.some((a) => a.site_id === id) ? [] : [['apps', 'Applications & Certificates'], ['retention', 'Retention']] as [string, string][])])}<SalesLists key={sub.sales} tab={sub.sales as 'invoices'} siteId={id} /></>
         : tab === 'purchases' ? <>{subTabs('purchases', [['orders', 'Purchase orders'], ['invoices', 'Purchase invoices'], ['plant', 'Plant hire'], ['quotes', 'Purchase Quotes']])}{sub.purchases === 'quotes' ? <PurchaseQuotes siteId={id} /> : <PurchasesLists key={sub.purchases} tab={sub.purchases as 'orders'} siteId={id} />}</>
+        : tab === 'docs' ? <FinDocs site={s as Record<string, unknown> | undefined} />
         : tab === 'subs' ? <>{subTabs('subs', [['orders', 'Subcontractor POs'], ['apps', 'Applications'], ['opinv', 'Operative invoices'], ['wages', 'Wages to book']])}<SubsLists key={sub.subs} tab={sub.subs as 'orders'} siteId={id} /></>
         : <Setup id={id} site={s} jf={fc.jf} cpos={data.book.cpos.filter((p) => p.site_id === id)} settings={data.settings} />}
     </ScrollView>
@@ -435,4 +433,13 @@ function NeedsAttention({ id, site, fc, settings, invs, apps, book }: { id: stri
       </Card>
     </>
   );
+}
+
+/** Documents (Andy, 1 Nov 2026): the job's OneDrive folder, laid out as it is there, for every job whether billed by invoice or
+ *  application. Files open in the viewer; nothing is stored in the app. The same window as Projects › Documents. */
+function FinDocs({ site }: { site: Record<string, unknown> | undefined }) {
+  const folder = site?.onedrive_folder_id as string | null | undefined;
+  if (!site) return <Muted>Loading…</Muted>;
+  if (!folder) return <Muted>This job has no OneDrive folder yet. Set one up or link one in Project Admin.</Muted>;
+  return <OneDriveBrowser root={{ id: folder, driveId: site.onedrive_drive_id as string | null | undefined, name: (site.onedrive_folder_name as string | null | undefined) || 'Job folder' }} />;
 }

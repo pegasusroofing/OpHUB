@@ -1,11 +1,11 @@
-// Finance › Projects (914 renderFinJobs + 9219f grid + 9219i clients): every
-// project with its client, client PO, PM, value, invoiced, owed and overdue;
-// status tabs, PM / client filters, sort and search. Clients tab: each client
-// with its jobs and what they owe.
+// Finance › Projects (914 renderFinJobs + 9219f grid): every project with its client, client PO, PM, value, invoiced,
+// owed and overdue; status, PM and client filters. Click a heading to sort; nothing chosen means name A to Z. Clients are in
+// the Directory, with their jobs and what they owe.
+// A laptop filters by column; a phone has no columns, so it keeps the search box.
 import { useQuery } from '@tanstack/react-query';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, Text, TextInput, View } from 'react-native';
+import { Text, TextInput, View } from 'react-native';
 
 import { FinFilterBar, type FilterSel } from '@/components/FinFilterBar';
 import { FinPage, FinRow } from '@/components/FinNav';
@@ -16,7 +16,7 @@ import { finStatus, selectAll } from '@/data/finance';
 import { usePeople } from '@/data/hs';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
-import { byJobNoDesc, fdate, invOutstandingNet, invOverdue, jobTag, money, today, type FinInv } from '@/lib/rules/finance';
+import { byJobNoDesc, fdate, invOutstandingNet, invOverdue, money, today, type FinInv } from '@/lib/rules/finance';
 import { DATE_RANGES, dateRange, valueTest } from '@/lib/rules/finFilters';
 import { isFullManager } from '@/lib/roles';
 import type { Site } from '@/lib/types';
@@ -30,23 +30,21 @@ export function useJobsData(orgId: string | null | undefined) {
   return useQuery({
     queryKey: ['finJobs', orgId], enabled: !!orgId,
     queryFn: async () => {
-      const [jf, pos, invs, clients] = await Promise.all([
+      const [jf, pos, invs] = await Promise.all([
         selectAll<JF>('job_finance', 'site_id,contract_value,billing_name,billing_email', (q) => q.eq('org_id', orgId as string)),
         selectAll<{ site_id: string; po_number: string }>('client_pos', 'id,site_id,po_number', (q) => q.eq('org_id', orgId as string)),
         selectAll<FinInv>('fin_invoices', 'id,site_id,status,total,paid,net,due_date', (q) => q.eq('org_id', orgId as string).neq('status', 'void')),
-        selectAll<{ id: string; name: string; email: string | null; xero_contact_id: string | null; terms_days: number | null }>('fin_clients', 'id,name,email,xero_contact_id,terms_days', (q) => q.eq('org_id', orgId as string)),
       ]);
       const jfBy: Record<string, JF> = {}; jf.forEach((r) => { jfBy[r.site_id] = r; });
       const posBy: Record<string, string[]> = {}; pos.forEach((p) => { (posBy[p.site_id] = posBy[p.site_id] || []).push(p.po_number); });
       const m: Record<string, { inv: number; owed: number; overdue: number }> = {};
       invs.forEach((i) => { const r = (m[i.site_id] = m[i.site_id] || { inv: 0, owed: 0, overdue: 0 }); if (i.status !== 'draft') { r.inv += Number(i.total || 0); const o = invOutstandingNet(i); r.owed += o; if (invOverdue(i)) r.overdue += o; } });
-      return { jfBy, posBy, m, invs, clients };
+      return { jfBy, posBy, m, invs };
     },
   });
 }
 
 export default function FinJobs() {
-  const { tab = 'list' } = useLocalSearchParams<{ tab?: string }>();
   const { me } = useAuth();
   const desk = useDesk();
   const t = useTheme();
@@ -55,41 +53,36 @@ export default function FinJobs() {
   const { data } = useJobsData(me?.org_id);
   const [sel, setSel] = useState<FilterSel>({ status: ['live'], pm: [], client: [], start: [] });
   const [q, setQ] = useState('');
-  const [sort, setSort] = useState('noza');
   const dr = sel.start[0] || ''; // Start: a date range (9219t)
   const [custom, setCustom] = useState<{ from?: string; to?: string }>({});
   const [val, setVal] = useState(''); // Value: 50k, >100k, <25k, 25k-100k
   const sites = ((sitesRaw || []) as SiteX[]).slice().sort(byJobNoDesc);
-  const go = (k: string) => router.setParams({ tab: k });
   const cliOf = (s: SiteX) => data?.jfBy[s.id]?.billing_name || s.client_name || '';
   const pmName = (id?: string | null) => (id ? people.find((p) => p.id === id)?.name || 'PM' : '');
-  if (tab === 'clients') return <Clients sites={sites} data={data} cliOf={cliOf} go={go} />;
   const counts: Record<string, number> = { live: 0, upcoming: 0, closed: 0, all: sites.length };
   sites.forEach((s) => { counts[finStatus(s)] = (counts[finStatus(s)] || 0) + 1; });
-  const ql = q.trim().toLowerCase();
+  const ql = desk ? '' : q.trim().toLowerCase();
   let shown = sites.filter((s) => (!sel.status.length || sel.status.includes(finStatus(s))) && (!sel.pm.length || sel.pm.includes(s.responsible_pm_id || 'none'))
     && (!sel.client.length || sel.client.includes(cliOf(s)))
     && (!ql || [s.job_number, s.name, cliOf(s), s.client_name, (data?.posBy[s.id] || []).join(' '), pmName(s.responsible_pm_id), s.postcode].join(' ').toLowerCase().includes(ql)));
-  const num = (s: SiteX) => String(s.job_number || ''), nm = (s: SiteX) => String(s.name || '');
-  const cmp: Record<string, (a: SiteX, b: SiteX) => number> = { az: (a, b) => nm(a).localeCompare(nm(b)), za: (a, b) => nm(b).localeCompare(nm(a)), noaz: (a, b) => num(a).localeCompare(num(b), undefined, { numeric: true }), noza: byJobNoDesc, start: (a, b) => String(b.start_date || '').localeCompare(String(a.start_date || '')) };
+  const nm = (s: SiteX) => String(s.name || '');
   const range = dateRange(dr, today(), custom), vt = valueTest(val);
   const startOf = (s: SiteX) => String(s.start_date || (s as { created_at?: string }).created_at || '').slice(0, 10);
   if (range) shown = shown.filter((s) => { const d = startOf(s); return !!d && d >= range[0] && d <= range[1]; });
   if (vt) shown = shown.filter((s) => vt(Number(data?.jfBy[s.id]?.contract_value || 0)));
-  shown = shown.slice().sort(cmp[sort]);
+  shown = shown.slice().sort((a, b) => nm(a).localeCompare(nm(b), 'en-GB', { sensitivity: 'base' }));
   const pms = Array.from(new Set(sites.map((s) => s.responsible_pm_id).filter(Boolean))) as string[];
   const totalOf = (list: typeof shown) => list.reduce((t, s) => { const m = data?.m[s.id]; return { v: t.v + Number(data?.jfBy[s.id]?.contract_value || 0), inv: t.inv + (m?.inv || 0), owed: t.owed + (m?.owed || 0), od: t.od + (m?.overdue || 0) }; }, { v: 0, inv: 0, owed: 0, od: 0 });
   const tot = totalOf(shown);
   return (
-    <FinPage title="Projects" section="jobs" sub="list" onSub={go}>
+    <FinPage title="Projects" section="jobs">
       {me && isFullManager(me) && <View style={{ marginBottom: 10 }}><Button title="+ New project" onPress={() => router.push('/fin/newjob' as never)} /></View>}
-      <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search project no., name, client or PO' }} sel={sel} moreOn={!!val}
+      <FinFilterBar search={desk ? undefined : { value: q, onChange: setQ, placeholder: 'Search project no., name, client or PO' }} sel={sel} moreOn={!!val}
         onClear={() => { setSel({ status: [], pm: [], client: [], start: [] }); setVal(''); }}
         onChange={async (next) => {
           if (next.start[0] === 'custom' && dr !== 'custom') { const from = await askDate('Start dates from'); if (from === null) return; const to = await askDate('Start dates to', { min: from || undefined }); if (to === null) return; setCustom({ from: from || undefined, to: to || undefined }); }
           setSel(next);
         }}
-        sorts={[['noza', 'Project no., newest'], ['noaz', 'Project no., oldest'], ['az', 'Name A to Z'], ['za', 'Name Z to A'], ['start', 'Start date, newest']]} sort={sort} onSort={setSort}
         parts={[
           { key: 'status', label: 'Status', items: (['live', 'upcoming', 'closed'] as const).map((k) => ({ v: k, l: k[0].toUpperCase() + k.slice(1), n: counts[k] })) },
           { key: 'pm', label: 'PM', items: [...pms.map((id) => ({ v: id, l: pmName(id) })), { v: 'none', l: 'No PM' }] },
@@ -98,16 +91,16 @@ export default function FinJobs() {
         ]}
         more={<TextInput value={val} onChangeText={setVal} placeholder="Value e.g. >50k, 25k-100k" style={[box, { fontSize: 16 }, val && !vt ? { borderColor: '#C0392B' } : null]} />} />
       {!data ? <Muted>Loading…</Muted> : desk && shown.length ? (
-        <FinTable rows={shown} keyOf={(s) => s.id} onRow={(s) => router.push(`/fin/job/${s.id}` as never)}
+        <FinTable rows={shown} keyOf={(s) => s.id} onRow={(s) => router.push(`/fin/job/${s.id}` as never)} defaultSort={{ k: 'name', dir: 'asc' }}
           cols={[
-            { k: 'no', l: 'Job No', min: 90, flex: 0.8, render: (s) => <Text style={{ fontSize: 11, fontWeight: '800', color: t.brand1, borderWidth: 1.5, borderColor: t.brand1, borderRadius: 8, paddingVertical: 4, paddingHorizontal: 10, overflow: 'hidden' }}>{s.job_number || '—'}</Text> },
+            { k: 'no', l: 'Job No', min: 90, flex: 0.8, sort: (s) => s.job_number || '', render: (s) => <Text style={{ fontSize: 11, fontWeight: '800', color: t.brand1, borderWidth: 1.5, borderColor: t.brand1, borderRadius: 8, paddingVertical: 4, paddingHorizontal: 10, overflow: 'hidden' }}>{s.job_number || '—'}</Text> },
             { k: 'name', l: 'Project', flex: 1.6, min: 160, render: (s) => <Cell bold>{s.name}</Cell> },
             { k: 'cli', l: 'Client', flex: 1.5, min: 150, render: (s) => <Cell bold>{cliOf(s) || '—'}</Cell> },
             { k: 'po', l: 'Client PO', render: (s) => { const po = (data.posBy[s.id] || []).join(', '); return po ? <Cell>{po}</Cell> : <Cell tone="#D97706">No PO</Cell>; } },
             { k: 'pm', l: 'PM', render: (s) => <Cell>{pmName(s.responsible_pm_id) || '—'}</Cell> },
-            { k: 'st', l: 'Status', render: (s) => { const k = finStatus(s); const c = k === 'live' ? ['#E7F6EC', '#1E7A43'] : k === 'upcoming' ? ['#FDF1E6', '#B35A00'] : ['#EEF0F2', '#6b7280']; return <Text style={{ fontSize: 10.5, fontWeight: '800', color: c[1], backgroundColor: c[0], borderRadius: 999, paddingVertical: 3, paddingHorizontal: 9, overflow: 'hidden' }}>● {k[0].toUpperCase() + k.slice(1)}</Text>; } },
-            { k: 'start', l: 'Start', render: (s) => { const d = s.start_date || (s as { created_at?: string }).created_at; return <Cell>{d ? new Date(String(d).slice(0, 10) + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</Cell>; } },
-            { k: 'v', l: 'Value', render: (s) => { const v = Number(data.jfBy[s.id]?.contract_value || 0), m = data.m[s.id]; return <Cell tone={m?.overdue ? '#C0392B' : undefined}>{v ? money(v, 0) : '—'}</Cell>; } },
+            { k: 'st', l: 'Status', sort: (s) => finStatus(s), render: (s) => { const k = finStatus(s); const c = k === 'live' ? ['#E7F6EC', '#1E7A43'] : k === 'upcoming' ? ['#FDF1E6', '#B35A00'] : ['#EEF0F2', '#6b7280']; return <Text style={{ fontSize: 10.5, fontWeight: '800', color: c[1], backgroundColor: c[0], borderRadius: 999, paddingVertical: 3, paddingHorizontal: 9, overflow: 'hidden' }}>● {k[0].toUpperCase() + k.slice(1)}</Text>; } },
+            { k: 'start', l: 'Start', sort: (s) => String(s.start_date || (s as { created_at?: string }).created_at || '').slice(0, 10), render: (s) => { const d = s.start_date || (s as { created_at?: string }).created_at; return <Cell>{d ? new Date(String(d).slice(0, 10) + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</Cell>; } },
+            { k: 'v', l: 'Value', sort: (s) => Number(data.jfBy[s.id]?.contract_value || 0), render: (s) => { const v = Number(data.jfBy[s.id]?.contract_value || 0), m = data.m[s.id]; return <Cell tone={m?.overdue ? '#C0392B' : undefined}>{v ? money(v, 0) : '—'}</Cell>; } },
           ]}
           foot={(left) => { const tot = totalOf(left); return <><FootText bold>{left.length} project{left.length === 1 ? '' : 's'}</FootText><FootText>Value {money(tot.v, 0)}</FootText><FootText>Invoiced {money(tot.inv, 0)}</FootText><FootText>Owed {money(tot.owed, 0)}</FootText>{tot.od ? <FootText>Overdue {money(tot.od, 0)}</FootText> : null}</>; }} />
       ) : shown.length ? shown.map((s) => {
@@ -117,33 +110,6 @@ export default function FinJobs() {
           right={v ? money(v, 0) : 'No value'} tone={m?.overdue ? '#C0392B' : undefined} />;
       }) : <Empty>No projects here.</Empty>}
       {!desk && shown.length > 0 && <Card><Text style={{ color: base.ink, fontWeight: '700' }}>{shown.length} project{shown.length === 1 ? '' : 's'} · Value {money(tot.v, 0)} · Invoiced {money(tot.inv, 0)} · Owed {money(tot.owed, 0)}{tot.od ? ` · Overdue ${money(tot.od, 0)}` : ''}</Text></Card>}
-    </FinPage>
-  );
-}
-
-function Clients({ sites, data, cliOf, go }: { sites: SiteX[]; data: ReturnType<typeof useJobsData>['data']; cliOf: (s: SiteX) => string; go: (k: string) => void }) {
-  const [q, setQ] = useState('');
-  const [open, setOpen] = useState<string | null>(null);
-  const key = (n: string) => n.trim().toLowerCase();
-  const by: Record<string, { name: string; id: string | null; email: string; xero: boolean; jobs: SiteX[]; live: number; owed: number; overdue: number }> = {};
-  (data?.clients || []).forEach((c) => { by[key(c.name)] = { name: c.name, id: c.id, email: c.email || '', xero: !!c.xero_contact_id, jobs: [], live: 0, owed: 0, overdue: 0 }; });
-  sites.forEach((s) => { const n = cliOf(s); if (!n) return; const c = (by[key(n)] = by[key(n)] || { name: n, id: null, email: data?.jfBy[s.id]?.billing_email || s.client_email || '', xero: false, jobs: [], live: 0, owed: 0, overdue: 0 }); c.jobs.push(s); if (finStatus(s) === 'live') c.live++; c.owed += data?.m[s.id]?.owed || 0; c.overdue += data?.m[s.id]?.overdue || 0; });
-  const list = Object.values(by).sort((a, b) => a.name.localeCompare(b.name)).filter((c) => !q.trim() || `${c.name} ${c.email} ${c.jobs.map((j) => `${j.name} ${j.job_number || ''}`).join(' ')}`.toLowerCase().includes(q.trim().toLowerCase()));
-  const noClient = sites.filter((s) => !cliOf(s));
-  return (
-    <FinPage title="Clients" section="jobs" sub="clients" onSub={go}>
-      <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
-        <View style={{ flex: 1 }}><Button kind="ghost" title="Directory (edit clients, Xero)" onPress={() => router.push('/fin/directory?kind=client' as never)} /></View>
-      </View>
-      <Muted style={{ marginBottom: 10 }}>{list.length} client{list.length === 1 ? '' : 's'} · {list.filter((c) => c.xero).length} in Xero.</Muted>
-      <TextInput value={q} onChangeText={setQ} placeholder="Search clients" style={[box, { marginBottom: 10 }]} />
-      {!data ? <Muted>Loading…</Muted> : list.length ? list.map((c) => (
-        <View key={c.name}>
-          <FinRow title={c.name} sub={[c.email, `${c.jobs.length} job${c.jobs.length === 1 ? '' : 's'} · ${c.live} live`, c.xero ? 'In Xero' : '', c.overdue ? `${money(c.overdue, 0)} overdue` : ''].filter(Boolean).join(' · ')} right={c.owed ? money(c.owed, 0) : '—'} tone={c.overdue ? '#C0392B' : undefined} onPress={() => setOpen(open === c.name ? null : c.name)} />
-          {open === c.name && <View style={{ marginLeft: 14, marginBottom: 10 }}>{c.jobs.map((j) => <Pressable key={j.id} onPress={() => router.push(`/fin/job/${j.id}` as never)}><Text style={{ color: base.blue, paddingVertical: 3 }}>{jobTag(j)}</Text></Pressable>)}</View>}
-        </View>
-      )) : <Empty>No clients yet.</Empty>}
-      {noClient.length > 0 && <Muted style={{ marginTop: 10 }}>{noClient.length} job{noClient.length === 1 ? '' : 's'} with no client set: {noClient.map(jobTag).join(', ')}</Muted>}
     </FinPage>
   );
 }

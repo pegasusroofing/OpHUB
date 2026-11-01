@@ -49,7 +49,11 @@ function withCors(handler: (req: Request) => Response | Promise<Response>) {
 const json = (o: unknown, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
 const OK_TYPES = /^(application\/pdf|image\/(jpeg|png|heic|heif|webp))$/i;
 const API_KEY = Deno.env.get('ANTHROPIC_API_KEY') || '';
-const MODEL = Deno.env.get('ANTHROPIC_MODEL') || 'claude-sonnet-4-5';
+const MODEL = Deno.env.get('ANTHROPIC_MODEL') || 'claude-opus-5-5';
+// Finance is on TRIAL (src/js/9219e-finance-trial.js, app-native lib/rules/finance.ts): while it is, arriving invoices are kept
+// but not read or filed by themselves, except for the sandbox company. Switch off with the app's FIN_TRIAL.
+const FIN_TRIAL = true;
+const FIN_SANDBOX_ORGS = ['2eb072b7-2704-48c0-8110-62e45e621ded'];
 const r2 = (n: unknown) => Math.round((Number(n) || 0) * 100) / 100;
 const norm = (s: unknown) => String(s || '').toUpperCase().replace(/\s+/g, '');
 // L5: supplier names compared loosely ("Jewson Ltd" = "JEWSON LIMITED" = "Jewson").
@@ -74,7 +78,7 @@ async function readDoc(bytes: Uint8Array, type: string) {
     net: { type: 'number' }, vat: { type: 'number' }, total: { type: 'number' } }, required: ['doc_type'] };
   const res = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST',
     headers: { 'x-api-key': API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-    body: JSON.stringify({ model: MODEL, max_tokens: 1500, tools: [{ name: 'record', description: 'Record the invoice header', input_schema: schema }], tool_choice: { type: 'tool', name: 'record' },
+    body: JSON.stringify({ model: MODEL, max_tokens: 1500, tools: [{ name: 'record', description: 'Record the invoice header', input_schema: schema }], tool_choice: { type: 'auto' },
       messages: [{ role: 'user', content: [doc, { type: 'text', text: 'UK supplier invoice to a roofing contractor. Record the header with the record tool. Numbers without £ or commas. Leave out anything you cannot read.' }] }] }) });
   if (!res.ok) return null;
   const j = await res.json().catch(() => ({}));
@@ -100,6 +104,7 @@ async function matchJob(admin: any, orgId: string, ex: any) {
   return { why: byNo.length + byPc.length + byAddr.length > 1 ? 'More than one job matches — choose which' : 'Couldn’t find a PO, job number or site address on it' };
 }
 async function autoProcess(admin: any, orgId: string, inboxId: string, path: string, name: string, bytes: Uint8Array, type: string, from: string) {
+  if (FIN_TRIAL && !FIN_SANDBOX_ORGS.includes(orgId)) return; // the app shows it under Unallocated for someone to deal with
   const ex: any = await readDoc(bytes, type).catch(() => null);
   if (!ex) return; // no reader configured — the app reads it when Finance opens
   const extracted: any = { read: true, ai: true, supplier: ex.supplier || null, invoice_no: ex.invoice_no || null, date: ex.date || null, net: ex.net ?? null, vat: ex.vat ?? null, total: ex.total ?? null, po_number: ex.po_number || null };

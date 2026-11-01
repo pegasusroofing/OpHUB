@@ -28,7 +28,8 @@ module.exports = async ({as, step, state, keep, OUT}) => {
     files.push(p);
   }
   await pg.close();
-  const inbox = (no) => a.get(`fin_inbox?select=id,status,stage,query_reason,site_id,extracted,purchase_invoice_id,auto_filed&order=created_at.desc&limit=25`).then((r) => r.find((x) => x.extracted?.doc_number === no || x.extracted?.invoice_no === no));
+  // The photo's invoice number may not be read, so that one is found by its file name.
+  const inbox = (no) => no === nos.lost ? a.get('fin_inbox?select=id,status,stage,query_reason,site_id,extracted,purchase_invoice_id,auto_filed&file_name=eq.zza-lost.png&order=created_at.desc&limit=1').then((r) => r[0]) : a.get(`fin_inbox?select=id,status,stage,query_reason,site_id,extracted,purchase_invoice_id,auto_filed&order=created_at.desc&limit=25`).then((r) => r.find((x) => x.extracted?.doc_number === no || x.extracted?.invoice_no === no));
   const pinv = async (id) => (await a.get(`purchase_invoices?select=*&id=eq.${id}`))[0];
   const near = (x, y) => Math.abs(Number(x) - y) < 0.01;
 

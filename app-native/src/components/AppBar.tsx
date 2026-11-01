@@ -5,12 +5,13 @@
 // pages also get the job-home button on the right and the trail under the bar
 // (9219x navCrumbs): Projects › SBX-109 Andy House 2 › Schedule Of Works.
 import { useQueryClient } from '@tanstack/react-query';
-import { router, usePathname } from 'expo-router';
+import { router, useGlobalSearchParams, usePathname } from 'expo-router';
 import { type ReactNode, useState } from 'react';
 import { Platform, Pressable, Share, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTrail } from '@/components/Crumbs';
+import { FIN_SUBS } from '@/components/FinNav';
 import { OphIcon } from '@/components/OphIcon';
 import { showAlert } from '@/components/toast';
 import { isManager } from '@/lib/roles';
@@ -25,6 +26,9 @@ import { base, useDesk, useTheme } from '@/theme/theme';
 // Pages with no section of their own: the trail takes you back to the list they came from.
 const FIN_PARENT: Record<string, [string, string]> = { po: ['Purchases', '/fin/purchases'], pinv: ['Purchases', '/fin/purchases?tab=invoices'], plant: ['Purchases', '/fin/purchases?tab=plant'], yardin: ['Yard stock', '/fin/yard'], sub: ['Subcontractors', '/fin/subs?tab=orders'], labour: ['Subcontractors', '/fin/subs?tab=opinv'], inbox: ['Purchases', '/fin/purchases?tab=invoices'] };
 const FIN_SUB: Record<string, string> = { '': 'Overview', jobs: 'Projects', sales: 'Sales', purchases: 'Purchases', subs: 'Subcontractors & Labour', reports: 'Reports', settings: 'Settings', directory: 'Directory', statements: 'Statements', yard: 'Yard stock', inbox: 'Inbox', newjob: 'New project' };
+// A project's Finance tabs and the pages inside it, for the trail.
+const FIN_JOB_TABS: [string, string][] = [['overview', 'Overview'], ['sales', 'Sales'], ['purchases', 'Purchases'], ['subs', 'Subcontractors & Labour'], ['setup', 'Project Admin'], ['docs', 'Documents']];
+const FIN_JOB_PAGES: Record<string, string> = { boq: 'Bill of Quantities', budget: 'Budgets', costs: 'Costs', dayworks: 'Day Works', monthly: 'Monthly Report', parts: 'Parts', quotes: 'Project Quotes', summary: 'Full Summary', variations: 'Variations', invoice: 'Invoice', application: 'Application' };
 // A job's sections, so a page further in can step back to its section from the trail.
 const SECTION: Record<string, string> = { schedule: 'Schedule Of Works', drawings: "Drawings, Spec's & Programme", materials: 'Materials', hs: 'Health & Safety', snagging: 'Snagging', checkin: 'Check In / Out', price: 'Price', repairs: 'Repairs', om: 'O&M Manual', mc: 'Main Contractor', handover: 'Handover', todos: 'To Do List' };
 // Tapping a job's address under the title copies it (or shares it on a phone) — 130 shell.
@@ -49,6 +53,7 @@ export function AppBar({ title, onBack, home, right, noHistory }: { title?: stri
   const qc = useQueryClient();
   const insets = useSafeAreaInsets();
   const path = usePathname();
+  const { tab: qTab, kind: qKind } = useGlobalSearchParams<{ tab?: string; kind?: string }>();
   const { data: sites } = useSites();
   const siteId = (path.match(/^\/sites\/([0-9a-f-]{36})/) || [])[1];
   const site = siteId ? sites?.find((s) => s.id === siteId) : undefined;
@@ -61,12 +66,23 @@ export function AppBar({ title, onBack, home, right, noHistory }: { title?: stri
   const sub = home ? 'OpHUB' : fin ? (finJobSub ? `Finance${finClient ? ` · ${finClient}` : ''}` : title === 'OpHUB Finance' ? finSub : 'OpHUB Finance') : site ? fullSiteAddress(site) || site.name : org?.name || 'OpHUB';
   const main = home ? org?.name || 'OpHUB' : title || '';
   const sName = site ? [site.job_number, site.name].filter(Boolean).join(' ') : '';
-  // Finance trail: Finance › Projects (› SBX-107 Andy House on a project's Finance).
+  // Finance trail, the whole way down (Andy, 1 Nov 2026): Finance › Projects › SBX-107 Andy House › Project Admin, or
+  // Finance › Purchases › Purchase invoices. Every step but the last is a link.
   const finJob = fin ? (path.match(/^\/fin\/job\/([0-9a-f-]{36})/) || [])[1] : undefined;
   const fJob = finJob ? sites?.find((s) => s.id === finJob) : undefined;
+  const finSec = path.split('/')[2] || '', finRest = path.split('/').slice(4);
+  const tabLabel = (list: [string, string][] | undefined, k: string | undefined) => (k ? list?.find(([v]) => v === k)?.[1] : undefined);
+  const jobTab = finJob && !finRest.length ? tabLabel(FIN_JOB_TABS, typeof qTab === 'string' ? qTab : undefined) : undefined;
+  const jobPage = finRest.length ? FIN_JOB_PAGES[finRest[0]] || titleCase(title || '') : undefined;
+  const inside = finRest.length > 1 && finRest[1] !== 'new' ? (title && titleCase(title) !== jobPage ? titleCase(title) : null) : finRest[1] === 'new' ? 'New' : null;
+  const secTab = tabLabel(FIN_SUBS[finSec], finSec === 'directory' ? (typeof qKind === 'string' ? qKind : undefined) : typeof qTab === 'string' ? qTab : undefined);
   const finCrumbs: [string, string | null][] = path === '/fin' ? []
-    : finJob ? [['Finance', '/fin'], ['Projects', '/fin/jobs'], [fJob ? [fJob.job_number, fJob.name].filter(Boolean).join(' ') : 'Project', null]]
-      : FIN_PARENT[path.split('/')[2] || ''] ? [['Finance', '/fin'], FIN_PARENT[path.split('/')[2] || '']]
+    : finJob ? [['Finance', '/fin'], ['Projects', '/fin/jobs'], [fJob ? [fJob.job_number, fJob.name].filter(Boolean).join(' ') : 'Project', jobTab || jobPage ? `/fin/job/${finJob}` : null],
+      ...(jobTab && jobTab !== 'Overview' ? [[jobTab, null] as [string, null]] : []),
+      ...(jobPage ? [[jobPage, inside ? `/fin/job/${finJob}/${finRest[0]}` : null] as [string, string | null]] : []),
+      ...(inside ? [[inside, null] as [string, null]] : [])]
+      : FIN_PARENT[finSec] ? [['Finance', '/fin'], FIN_PARENT[finSec], ...(title && titleCase(title) !== FIN_PARENT[finSec][0] ? [[titleCase(title), null] as [string, null]] : [])]
+      : secTab && secTab !== finSub ? [['Finance', '/fin'], [finSub, `/fin/${finSec}`], [secTab, null]]
       : [['Finance', '/fin'], [finSub, null]];
   // A page can give its own steps after the job (e.g. Drawings › Roof plans); otherwise a page inside a
   // section (Materials › Requests) gets the section as a step back.

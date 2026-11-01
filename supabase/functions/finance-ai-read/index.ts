@@ -10,7 +10,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, cache-control, pragma' };
 const json = (o: unknown, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
 const API_KEY = Deno.env.get('ANTHROPIC_API_KEY') || '';
-const MODEL = Deno.env.get('ANTHROPIC_MODEL') || 'claude-sonnet-4-5';
+const MODEL = Deno.env.get('ANTHROPIC_MODEL') || 'claude-opus-5-5';
 
 const SCHEMA = {
   type: 'object',
@@ -78,7 +78,7 @@ Deno.serve(async (req) => {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'x-api-key': API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-      body: JSON.stringify({ model: MODEL, max_tokens: 8000, tools: [{ name: 'record_document', description: 'Record the document header and lines', input_schema: SCHEMA }], tool_choice: { type: 'tool', name: 'record_document' }, messages: [{ role: 'user', content }] }),
+      body: JSON.stringify({ model: MODEL, max_tokens: 8000, tools: [{ name: 'record_document', description: 'Record the document header and lines', input_schema: SCHEMA }], tool_choice: { type: 'auto' }, messages: [{ role: 'user', content }] }),
     });
     const j = await res.json().catch(() => ({}));
     if (!res.ok) return json({ error: 'Reader error: ' + (j?.error?.message || res.status) }, 502);

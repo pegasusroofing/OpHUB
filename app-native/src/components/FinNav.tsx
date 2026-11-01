@@ -15,7 +15,6 @@ export const FIN_SECTIONS = [
   { k: 'purchases', l: 'Purchases', go: '/fin/purchases' }, { k: 'subs', l: 'Subcontractors & Labour', go: '/fin/subs' }, { k: 'reports', l: 'Reports', go: '/fin/reports' }, { k: 'directory', l: 'Directory', go: '/fin/directory' }, { k: 'settings', l: 'Settings', go: '/fin/settings' },
 ];
 export const FIN_SUBS: Record<string, [string, string][]> = {
-  jobs: [['list', 'Projects'], ['clients', 'Clients']],
   sales: [['apps', 'Applications & Certificates'], ['invoices', 'Invoices'], ['retention', 'Retention']],
   purchases: [['orders', 'Purchase orders'], ['invoices', 'Purchase invoices'], ['statements', 'Statements'], ['plant', 'Plant hire'], ['suppliers', 'Suppliers'], ['pricebook', 'Price book'], ['pricelists', 'Price lists'], ['yard', 'Yard stock']],
   subs: [['opinv', 'Operative invoices'], ['wages', 'Wages to book'], ['payrun', 'Pay run'], ['orders', 'Subcontractor POs'], ['apps', 'Applications & Certificates'], ['cis', 'CIS'], ['rates', 'People & rates']],

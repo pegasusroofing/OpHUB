@@ -2920,3 +2920,88 @@
 {"wrote":"price_builder_sheet_item_weeks","method":"POST","keys":["sheet_item_id","week_number","qty","amount","is_manual","updated_by"]}
 {"wrote":"price_weeks","method":"POST","keys":["site_id","element_id","week_number","amount"]}
 {"wrote":"wage_pushes","method":"PATCH","keys":["status","amount","price_entry_id"]}
+{"file":"POST"}
+{"wrote":"fin_inbox","method":"POST","keys":["org_id","source","status","received_at","file_path","file_name","content_type","created_by"]}
+{"file":"POST"}
+{"wrote":"fin_inbox","method":"POST","keys":["org_id","source","status","received_at","file_path","file_name","content_type","created_by"]}
+{"file":"POST"}
+{"wrote":"fin_inbox","method":"POST","keys":["org_id","source","status","received_at","file_path","file_name","content_type","created_by"]}
+{"file":"POST"}
+{"wrote":"fin_inbox","method":"POST","keys":["org_id","source","status","received_at","file_path","file_name","content_type","created_by"]}
+{"sent":"finance-ai-read"}
+{"fnFailed":"finance-ai-read","status":502,"message":"{\"error\":\"Reader error: This API key is not scoped to a workspace, so this request must include the anthropic-workspace-id header with the ID of the workspace to use. Add the header, or use an API key that is scoped to a workspace.\"}"}
+{"wrote":"fin_inbox","method":"PATCH","keys":["extracted","stage","query_reason"]}
+{"sent":"finance-ai-read"}
+{"fnFailed":"finance-ai-read","status":502,"message":"{\"error\":\"Reader error: This API key is not scoped to a workspace, so this request must include the anthropic-workspace-id header with the ID of the workspace to use. Add the header, or use an API key that is scoped to a workspace.\"}"}
+{"wrote":"fin_inbox","method":"PATCH","keys":["extracted","stage","query_reason"]}
+{"sent":"finance-ai-read"}
+{"fnFailed":"finance-ai-read","status":502,"message":"{\"error\":\"Reader error: This API key is not scoped to a workspace, so this request must include the anthropic-workspace-id header with the ID of the workspace to use. Add the header, or use an API key that is scoped to a workspace.\"}"}
+{"wrote":"fin_inbox","method":"PATCH","keys":["extracted","stage","query_reason"]}
+{"sent":"finance-ai-read"}
+{"fnFailed":"finance-ai-read","status":502,"message":"{\"error\":\"Reader error: This API key is not scoped to a workspace, so this request must include the anthropic-workspace-id header with the ID of the workspace to use. Add the header, or use an API key that is scoped to a workspace.\"}"}
+{"wrote":"fin_inbox","method":"PATCH","keys":["extracted","stage","query_reason"]}
+{"file":"POST"}
+{"wrote":"fin_inbox","method":"POST","keys":["org_id","source","status","received_at","file_path","file_name","content_type","created_by"]}
+{"file":"POST"}
+{"wrote":"fin_inbox","method":"POST","keys":["org_id","source","status","received_at","file_path","file_name","content_type","created_by"]}
+{"file":"POST"}
+{"wrote":"fin_inbox","method":"POST","keys":["org_id","source","status","received_at","file_path","file_name","content_type","created_by"]}
+{"file":"POST"}
+{"wrote":"fin_inbox","method":"POST","keys":["org_id","source","status","received_at","file_path","file_name","content_type","created_by"]}
+{"sent":"finance-ai-read"}
+{"fnFailed":"finance-ai-read","status":502,"message":"{\"error\":\"Reader error: This API key is not scoped to a workspace, so this request must include the anthropic-workspace-id header with the ID of the workspace to use. Add the header, or use an API key that is scoped to a workspace.\"}"}
+{"wrote":"fin_inbox","method":"PATCH","keys":["extracted","stage","query_reason"]}
+{"sent":"finance-ai-read"}
+{"fnFailed":"finance-ai-read","status":502,"message":"{\"error\":\"Reader error: This API key is not scoped to a workspace, so this request must include the anthropic-workspace-id header with the ID of the workspace to use. Add the header, or use an API key that is scoped to a workspace.\"}"}
+{"wrote":"fin_inbox","method":"PATCH","keys":["extracted","stage","query_reason"]}
+{"sent":"finance-ai-read"}
+{"fnFailed":"finance-ai-read","status":502,"message":"{\"error\":\"Reader error: This API key is not scoped to a workspace, so this request must include the anthropic-workspace-id header with the ID of the workspace to use. Add the header, or use an API key that is scoped to a workspace.\"}"}
+{"wrote":"fin_inbox","method":"PATCH","keys":["extracted","stage","query_reason"]}
+{"sent":"finance-ai-read"}
+{"fnFailed":"finance-ai-read","status":502,"message":"{\"error\":\"Reader error: This API key is not scoped to a workspace, so this request must include the anthropic-workspace-id header with the ID of the workspace to use. Add the header, or use an API key that is scoped to a workspace.\"}"}
+{"wrote":"fin_inbox","method":"PATCH","keys":["extracted","stage","query_reason"]}
+{"file":"POST"}
+{"wrote":"fin_inbox","method":"POST","keys":["org_id","source","status","received_at","file_path","file_name","content_type","created_by"]}
+{"file":"POST"}
+{"wrote":"fin_inbox","method":"POST","keys":["org_id","source","status","received_at","file_path","file_name","content_type","created_by"]}
+{"file":"POST"}
+{"wrote":"fin_inbox","method":"POST","keys":["org_id","source","status","received_at","file_path","file_name","content_type","created_by"]}
+{"file":"POST"}
+{"wrote":"fin_inbox","method":"POST","keys":["org_id","source","status","received_at","file_path","file_name","content_type","created_by"]}
+{"sent":"finance-ai-read"}
+{"fnFailed":"finance-ai-read","status":502,"message":"{\"error\":\"Reader error: model: claude-sonnet-4-5\"}"}
+{"wrote":"fin_inbox","method":"PATCH","keys":["extracted","stage","query_reason"]}
+{"sent":"finance-ai-read"}
+{"fnFailed":"finance-ai-read","status":502,"message":"{\"error\":\"Reader error: model: claude-sonnet-4-5\"}"}
+{"wrote":"fin_inbox","method":"PATCH","keys":["extracted","stage","query_reason"]}
+{"sent":"finance-ai-read"}
+{"fnFailed":"finance-ai-read","status":502,"message":"{\"error\":\"Reader error: model: claude-sonnet-4-5\"}"}
+{"wrote":"fin_inbox","method":"PATCH","keys":["extracted","stage","query_reason"]}
+{"sent":"finance-ai-read"}
+{"fnFailed":"finance-ai-read","status":502,"message":"{\"error\":\"Reader error: model: claude-sonnet-4-5\"}"}
+{"wrote":"fin_inbox","method":"PATCH","keys":["extracted","stage","query_reason"]}
+{"file":"POST"}
+{"wrote":"fin_inbox","method":"POST","keys":["org_id","source","status","received_at","file_path","file_name","content_type","created_by"]}
+{"file":"POST"}
+{"wrote":"fin_inbox","method":"POST","keys":["org_id","source","status","received_at","file_path","file_name","content_type","created_by"]}
+{"file":"POST"}
+{"wrote":"fin_inbox","method":"POST","keys":["org_id","source","status","received_at","file_path","file_name","content_type","created_by"]}
+{"file":"POST"}
+{"wrote":"fin_inbox","method":"POST","keys":["org_id","source","status","received_at","file_path","file_name","content_type","created_by"]}
+{"sent":"finance-ai-read"}
+{"wrote":"fin_inbox","method":"PATCH","keys":["extracted","site_id","po_id"]}
+{"rpc":"fin_inbox_file"}
+{"wrote":"purchase_invoices","method":"PATCH","keys":["cost_code","split","lines"]}
+{"wrote":"fin_inbox","method":"PATCH","keys":["auto_filed","stage","comments"]}
+{"sent":"finance-ai-read"}
+{"wrote":"fin_inbox","method":"PATCH","keys":["extracted","site_id","po_id"]}
+{"rpc":"fin_inbox_file"}
+{"wrote":"purchase_invoices","method":"PATCH","keys":["cost_code","split","sub_job_id","lines"]}
+{"wrote":"fin_inbox","method":"PATCH","keys":["auto_filed","stage","comments"]}
+{"sent":"finance-ai-read"}
+{"wrote":"fin_inbox","method":"PATCH","keys":["extracted","site_id","po_id"]}
+{"rpc":"fin_inbox_file"}
+{"wrote":"purchase_invoices","method":"PATCH","keys":["cost_code","split","lines","match_notes"]}
+{"wrote":"fin_inbox","method":"PATCH","keys":["auto_filed","stage","comments"]}
+{"sent":"finance-ai-read"}
+{"wrote":"fin_inbox","method":"PATCH","keys":["extracted","site_id","po_id","stage","query_reason"]}
