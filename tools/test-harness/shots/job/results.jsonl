@@ -893,3 +893,6 @@
 {"part":"bq5","step":"Headings fit; description bold; no mark-up","ok":true,"note":"total right edge 329, weight 700","ms":10327}
 {"part":"bq5","step":"Budget cost opens and closes per line","ok":true,"note":"0 then 1","ms":604}
 {"part":"bq5","step":"Bottom of the page","ok":true,"note":"heights 26 and 26","ms":681}
+{"part":"bq5","step":"Headings fit; description bold; no mark-up","ok":true,"note":"total right edge 329, weight 700","ms":10210}
+{"part":"bq5","step":"Budget cost opens and closes per line","ok":true,"note":"0 then 1","ms":622}
+{"part":"bq5","step":"Bottom of the page","ok":true,"note":"heights 26 and 26","ms":695}
