@@ -3155,3 +3155,10 @@
 {"wrote":"price_builder_sheets","method":"POST","keys":["org_id","site_id","title","subcontractor_name","status","total","created_by","issued_by","issued_at","pricing_element_id","assigned_user_ids","fin_subcontract_id"]}
 {"wrote":"price_builder_sheet_items","method":"POST","keys":["sheet_id","category","sort_order","is_manual_rate","name","unit","quantity","rate","line_total"]}
 {"wrote":"fin_subcontracts","method":"PATCH","keys":["price_sheet_id","source"]}
+{"wrote":"fin_invoices","method":"POST","keys":["org_id","site_id","status","issue_date","due_date","client_po","bill_name","bill_address","bill_email","vat_treatment","lines","created_by","source"]}
+{"wrote":"fin_invoices","method":"PATCH","keys":["sub_job_id"]}
+{"wrote":"fin_invoices","method":"PATCH","keys":["issue_date","due_date","client_po","bill_name","bill_address","bill_email","vat_treatment","lines","net","vat","rc_vat","total","notes","xero_post","updated_at"]}
+{"wrote":"fin_invoices","method":"POST","keys":["org_id","site_id","status","issue_date","due_date","client_po","bill_name","bill_address","bill_email","vat_treatment","lines","created_by","source"]}
+{"wrote":"fin_invoices","method":"PATCH","keys":["sub_job_id"]}
+{"wrote":"fin_invoices","method":"PATCH","keys":["issue_date","due_date","client_po","bill_name","bill_address","bill_email","vat_treatment","lines","net","vat","rc_vat","total","notes","xero_post","updated_at"]}
+{"blocked":"function","fn":"xero"}

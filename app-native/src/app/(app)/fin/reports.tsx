@@ -20,12 +20,15 @@ import { invokeAsUser } from '@/lib/userFunctions';
 import { loadBook } from '@/data/finBook';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
-import { REPORT_GROUPS, REPORTS, type Col, type Filters } from '@/lib/finReports';
+import { REPORT_GROUPS, REPORTS as BOOK_REPORTS, type Col, type Filters } from '@/lib/finReports';
+import { PLOT_REPORT } from '@/lib/finPlotReport';
 import { fdate, jobTag, money } from '@/lib/rules/finance';
 import { exportTableExcel, exportTablePdf, type Table } from '@/lib/tableExport';
 import { base, radius } from '@/theme/theme';
 
 type Row = Record<string, any>;
+// The main reports, with Plot by plot after the retention ledger.
+const REPORTS = (() => { const at = BOOK_REPORTS.findIndex((r) => r.id === 'retention') + 1; return [...BOOK_REPORTS.slice(0, at), PLOT_REPORT, ...BOOK_REPORTS.slice(at)]; })();
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: 7, paddingHorizontal: 8, paddingVertical: 3, color: base.ink, backgroundColor: base.card };
 const cw = (c: Col) => (c.money || c.num || c.pct ? { width: 110 } : { flexGrow: 1, flexBasis: 150, minWidth: 110 });
 const fmt = (c: Col, v: unknown) => (v === null || v === undefined || v === '' ? '—' : c.money ? money(v) : c.pct ? `${Math.round(Number(v) * 10) / 10}%` : c.date ? fdate(String(v)) : String(v));
@@ -71,15 +74,17 @@ function Report({ id }: { id: string }) {
   const { width } = useWindowDimensions();
   const [f, setF] = useState<Filters>({ job: '', from: '', to: '', status: 'live', opening: '', varstatus: '', postatus: '' });
   const { data, isLoading } = useQuery({
-    queryKey: ['finRepCtx', me?.org_id, id === 'cis'], enabled: !!me, staleTime: 15000,
+    queryKey: ['finRepCtx', me?.org_id, id === 'cis', id === 'plots'], enabled: !!me, staleTime: 15000,
     queryFn: async () => {
       const org = me?.org_id as string;
-      const [b, settings, cisPays] = await Promise.all([loadBook(org, null), loadSettings(org), id === 'cis' ? selectAll<Row>('fin_sub_payments', '*', (q) => q.eq('org_id', org).eq('status', 'paid')) : Promise.resolve([])]);
-      return { b, settings, cisPays };
+      const [b, settings, cisPays, addrs, repairs, plotValues] = await Promise.all([loadBook(org, null), loadSettings(org), id === 'cis' ? selectAll<Row>('fin_sub_payments', '*', (q) => q.eq('org_id', org).eq('status', 'paid')) : Promise.resolve([]),
+        id === 'plots' ? selectAll<Row>('site_sub_addresses', 'id,site_id,name', (q) => q.eq('org_id', org)) : Promise.resolve([]), id === 'plots' ? selectAll<Row>('repair_jobs', 'id,site_id,job_number,address', (q) => q.eq('org_id', org)) : Promise.resolve([]), id === 'plots' ? selectAll<Row>('fin_sub_values', 'site_id,sub_job_id,value', (q) => q.eq('org_id', org)) : Promise.resolve([])]);
+      const plots = [...addrs.map((a) => ({ id: a.id, site_id: a.site_id, name: a.name || 'Address' })), ...repairs.map((r) => ({ id: r.id, site_id: r.site_id, name: r.job_number || String(r.address || '').split(',')[0] || 'Repair' }))];
+      return { b, settings, cisPays, plots, plotValues };
     },
   });
   const has = (k: string) => rep.filters.includes(k);
-  const res = data ? rep.run({ b: data.b, settings: data.settings, sites: sites as Row[], status: (s) => finStatus(s as never), cisPays: data.cisPays }, f) : null;
+  const res = data ? rep.run({ b: data.b, settings: data.settings, sites: sites as Row[], status: (s: Row) => finStatus(s as never), cisPays: data.cisPays, plots: data.plots, plotValues: data.plotValues } as never, f) : null;
   const tot = (c: Col) => (res?.totals === true ? c.money : Array.isArray(res?.totals) && res.totals.includes(c.k)) ? res!.rows.reduce((t, r) => t + (Number(r[c.k]) || 0), 0) : null;
   const wide = width >= 900;
   const table = (): Table | null => (res ? { title: rep.title, sub: [f.job ? jobTag(sites.find((s) => s.id === f.job)) : rep.filters.includes('status') ? `${f.status} projects` : '', f.from || f.to ? `${f.from ? fdate(f.from) : 'start'} to ${f.to ? fdate(f.to) : 'today'}` : ''].filter(Boolean).join(' · '), cols: res.cols.map((c) => ({ l: c.l, money: c.money, num: c.num || c.pct })), boldRows: res.rows.flatMap((r, i) => (r._head || r._bold ? [i] : [])), rows: res.rows.map((r) => res.cols.map((c) => (c.money ? ((r._head || r._bold) && r[c.k] == null ? null : Number(r[c.k]) || 0) : c.pct ? (r[c.k] == null ? null : Math.round(Number(r[c.k]) * 10) / 10) : c.date ? (r[c.k] ? fdate(String(r[c.k])) : '') : r[c.k] == null ? '' : String(r[c.k])))), totals: res.totals ? res.cols.map((c, i) => (i === 0 ? 'Total' : tot(c))) : undefined } : null);
@@ -95,7 +100,7 @@ function Report({ id }: { id: string }) {
         {has('opening') && <TextInput value={f.opening} onChangeText={(v) => setF({ ...f, opening: v })} placeholder="Opening bank balance £" keyboardType="decimal-pad" style={[box, { width: 180, fontSize: 12 }]} />}
         {has('varstatus') && <SelectBox compact title="Variation status" value={f.varstatus || 'any'} options={[['any', 'Any status'], ['instructed', 'Instructed'], ['priced', 'Priced'], ['submitted', 'Submitted'], ['agreed', 'Agreed'], ['rejected', 'Rejected']]} onChange={(k) => setF({ ...f, varstatus: k === 'any' ? '' : k })} style={{ width: 130, marginBottom: 0 }} />}
         {has('postatus') && <SelectBox compact title="PO status" value={f.postatus || 'any'} options={[['any', 'Any PO'], ['open', 'Open'], ['invoiced', 'Invoiced'], ['cancelled', 'Cancelled']]} onChange={(k) => setF({ ...f, postatus: k === 'any' ? '' : k })} style={{ width: 130, marginBottom: 0 }} />}
-        <AutoRun id={id} title={rep.title} f={f} dates={has('dates')} />
+        {id !== 'plots' && <AutoRun id={id} title={rep.title} f={f} dates={has('dates')} />}
       </View>
       {isLoading || !res ? <Muted>Working it out…</Muted> : !res.rows.length ? <Empty>Nothing to show.</Empty> : wide ? (
         <ScrollView horizontal contentContainerStyle={{ flexGrow: 1 }}>

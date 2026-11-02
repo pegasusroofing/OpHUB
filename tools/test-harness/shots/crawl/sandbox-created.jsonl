@@ -283,3 +283,5 @@
 {"table":"pricing_elements","id":"e218b598-8063-4a5f-a818-c9e2719d1e06"}
 {"table":"price_builder_sheets","id":"7e19d60f-a592-4f66-b883-bebbd7ac78eb"}
 {"table":"price_builder_sheet_items","id":"c00b3803-65dd-436c-a99d-804ab2c757d5"}
+{"table":"fin_invoices","id":"65eab39e-26a6-4c07-8523-c369a98aaaab"}
+{"table":"fin_invoices","id":"e1445058-1a79-4c9f-a65c-62929a34ade7"}

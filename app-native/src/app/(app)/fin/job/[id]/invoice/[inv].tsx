@@ -16,6 +16,8 @@ import { Button, Card, Muted, SectionTitle } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
 import { DateBox } from '@/components/DateField';
 import { openDocLink } from '@/data/hs';
+import { SelectBox } from '@/components/SelectBox';
+import { subNoun, useSubJobs } from '@/data/finSubJobs';
 import { addPayment, deleteDraft, deletePayment, draftRow, issue, loadInvoice, newInvoice, saveDraft, storePdf, voidInvoice } from '@/data/finInvoice';
 import { fdb, finInvoke } from '@/data/finance';
 import { useSite } from '@/data/sites';
@@ -42,6 +44,22 @@ export default function FinInvoice() {
   if (invId === 'new' || isLoading) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   if (!data?.inv) return <Muted style={{ padding: space.l }}>Invoice not found.</Muted>;
   return data.inv.status === 'draft' ? <Draft key={data.inv.id} inv={data.inv} site={site as Row} /> : <Issued inv={data.inv} pays={data.pays} site={site as Row} />;
+}
+
+/** The plot or repair job an invoice is for, for the plot-by-plot figures (Andy, 2 Nov 2026). Saved straight away, even once issued: it's only for reporting and doesn't appear on the invoice. */
+function InvoicePlot({ inv, site, onSet }: { inv: Row; site: Row | undefined; onSet: (v: string | null) => void }) {
+  const toast = useToast();
+  const { data: subs = [] } = useSubJobs(site as never);
+  if (!subs.length) return null;
+  return (
+    <SelectBox label={subNoun(site as never)} title={subNoun(site as never)} value={inv.sub_job_id || '-'} options={[['-', 'Not booked to one'], ...subs.map((j) => [j.id, j.short] as [string, string])]}
+      onChange={async (k) => {
+        const v = k === '-' ? null : k;
+        const r = await fdb.from('fin_invoices').update({ sub_job_id: v } as never).eq('id', inv.id).select('id');
+        if (!r.data?.length) { toast('Not saved — try again.'); return; }
+        onSet(v);
+      }} style={{ marginTop: 6, marginBottom: 4 }} />
+  );
 }
 
 function Draft({ inv, site }: { inv: Row; site: Row | undefined }) {
@@ -72,6 +90,7 @@ function Draft({ inv, site }: { inv: Row; site: Row | undefined }) {
           {field('bill_name', 'Bill to')}{field('bill_address', 'Billing address', { multiline: true })}{field('bill_email', 'Accounts email', { half: true })}
           {field('client_po', 'Client PO', { half: true })}{field('issue_date', 'Invoice date', { half: true, date: true })}{field('due_date', 'Due date', { half: true, date: true })}
         </View>
+        <InvoicePlot inv={d} site={site} onSet={(v) => set('sub_job_id', v)} />
       </Card>
       <SectionTitle>Lines</SectionTitle>
       {d.lines.map((l: Row, i: number) => (
@@ -135,6 +154,7 @@ function Issued({ inv, pays, site }: { inv: Row; pays: Row[]; site: Row | undefi
         <FinRow title="Bill to" right={inv.bill_name || site?.client_name || '—'} /><FinRow title="Issued" right={fdate(inv.issue_date)} /><FinRow title="Due" right={fdate(inv.due_date)} />
         <FinRow title="Sent" right={inv.sent_at ? `${fdate(String(inv.sent_at).slice(0, 10))}${inv.sent_to ? ` to ${inv.sent_to}` : ''}` : 'Not emailed yet'} />
         <XeroRow kind="invoice" rec={inv} onDone={refresh} />
+        <InvoicePlot inv={inv} site={site} onSet={refresh} />
       </Card>
       <SectionTitle>Lines</SectionTitle>
       <Card>

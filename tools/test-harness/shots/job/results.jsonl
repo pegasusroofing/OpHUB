@@ -1202,3 +1202,20 @@
 {"part":"plots1","step":"Remove it","ok":true,"note":"Plot 1, Plot 2","ms":13294}
 {"part":"scplot1","step":"New order with a plot","ok":true,"note":"{\"name\":\"ZZ Sub 5524\",\"sub_job_id\":\"94c003d5-b37d-4d90-b1cf-d1511d2eca22\"}","ms":16448}
 {"part":"scplot1","step":"No picker on a single-site job","ok":true,"note":"hidden","ms":10981}
+{"part":"plotrep1","step":"New invoice: choose the plot","ok":true,"note":"94c003d5-b37d-4d90-b1cf-d1511d2eca22","ms":15796}
+{"part":"plotrep1","step":"A saved draft keeps it","ok":true,"note":"94c003d5-b37d-4d90-b1cf-d1511d2eca22","ms":2240}
+{"part":"plotrep1","step":"Costs by plot has invoiced columns and export","ok":true,"note":"ok","ms":10989}
+{"part":"plotrep1","step":"Plot by plot report","ok":true,"note":"plot rows 1","ms":11818}
+{"part":"plotrep1","step":"New invoice: choose the plot","ok":true,"note":"94c003d5-b37d-4d90-b1cf-d1511d2eca22","ms":15923}
+{"part":"plotrep1","step":"A saved draft keeps it","ok":true,"note":"94c003d5-b37d-4d90-b1cf-d1511d2eca22","ms":2263}
+{"part":"plotrep1","step":"Costs by plot has invoiced columns and export","ok":true,"note":"ok","ms":10937}
+{"part":"plotrep1","step":"Plot by plot report","ok":true,"note":"plot rows 1","ms":11228}
+{"part":"finexport1","step":"Footer on monthly","ok":true,"note":"2 at y 874, old 0","ms":9748}
+{"part":"finexport1","step":"Footer on summary","ok":true,"note":"1 at y 874, old 0","ms":9744}
+{"part":"finexport1","step":"Footer on variations","ok":true,"note":"2 at y 874, old 0","ms":9629}
+{"part":"finexport1","step":"Footer on costs","ok":true,"note":"2 at y 874, old 0","ms":9483}
+{"part":"finexport1","step":"Footer on boq","ok":true,"note":"2 at y 874, old 0","ms":9494}
+{"part":"finexport1","step":"Footer on application","ok":true,"note":"2 at y 874, old 0","ms":9444}
+{"part":"finexport1","step":"Footer on invoice","ok":true,"note":"1 at y 874, old 0","ms":9273}
+{"part":"finexport1","step":"Footer on po","ok":true,"note":"1 at y 874, old 0","ms":9582}
+{"part":"finexport1","step":"Footer on report","ok":true,"note":"2 at y 874, old 0","ms":9340}
