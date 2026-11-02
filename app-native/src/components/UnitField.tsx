@@ -7,13 +7,17 @@ import { base } from '@/theme/theme';
 
 export const DEFAULT_UNITS = ['nr', 'm', 'm²', 'm³', 'lm', 'item', 'sum', 'hr', 'day', 'wk', 'roll', 'bag', 'box', 'pack', 'load', 't', 'kg', 'ltr'];
 
+// Typing m2 or m3 gives m² or m³ (Andy, 2 Nov 2026); lines imported as m2 show the same way.
+const tidy = (v: string) => (/^m2$/i.test(v.trim()) ? 'm²' : /^m3$/i.test(v.trim()) ? 'm³' : v);
+const plain = (v: string) => v.trim().toLowerCase().replace(/²/g, '2').replace(/³/g, '3');
+
 export function UnitField({ value, onChangeText, units, onEdit, style, onFocus, onBlur }: {
   value: string; onChangeText: (v: string) => void; units: string[]; onEdit: () => void; style?: StyleProp<TextStyle>; onFocus?: () => void; onBlur?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [hi, setHi] = useState(-1);
-  const q = value.trim().toLowerCase();
-  const list = units.filter((u) => !q || (u.toLowerCase().includes(q) && u.toLowerCase() !== q));
+  const q = plain(value);
+  const list = units.filter((u) => !q || (plain(u).includes(q) && plain(u) !== q));
   const count = list.length + 1; // the last row is Edit saved units
   // A click in the list mustn't take focus from the box, or the line would close before the click lands.
   const box = useRef<View>(null);
@@ -30,8 +34,8 @@ export function UnitField({ value, onChangeText, units, onEdit, style, onFocus, 
   };
   return (
     <View style={{ zIndex: open ? 60 : 0 }}>
-      <TextInput value={value} placeholder="Unit" accessibilityLabel="Unit" autoComplete="off" style={style}
-        onChangeText={(v) => { onChangeText(v); setOpen(true); setHi(-1); }}
+      <TextInput value={tidy(value)} placeholder="Unit" accessibilityLabel="Unit" autoComplete="off" style={style}
+        onChangeText={(v) => { onChangeText(tidy(v)); setOpen(true); setHi(-1); }}
         onFocus={() => { setOpen(true); onFocus?.(); }}
         onBlur={() => { setOpen(false); setHi(-1); onBlur?.(); }}
         onKeyPress={(e) => {

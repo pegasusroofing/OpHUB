@@ -128,10 +128,10 @@ export function AppBar({ title, onBack, home, right, noHistory }: { title?: stri
         )}
         </View>
         <Pressable onPress={() => router.navigate('/fin' as never)} accessibilityRole="link" accessibilityLabel="Finance overview" style={{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-          <Text style={[heading(800), { fontSize: 22.5, letterSpacing: -0.3, color: '#111318' }]}><Text style={{ color: '#2B73D4' }}>Op</Text>HUB</Text>
-          <Text style={{ fontSize: 17.5, color: base.slate, fontWeight: '600' }}>×</Text>
-          {org?.logo_path && <StorageImage bucket="org-logos" path={org.logo_path} style={{ width: 35, height: 35, resizeMode: 'contain' }} />}
-          <Text numberOfLines={1} style={[heading(700), { flexShrink: 1, fontSize: 18, color: t.brand1 }]}>{org?.name || ''}</Text>
+          <Text style={[heading(800), { fontSize: desk ? 22.5 : 18, letterSpacing: -0.3, color: '#111318' }]}><Text style={{ color: '#2B73D4' }}>Op</Text>HUB</Text>
+          <Text style={{ fontSize: desk ? 17.5 : 14, color: base.slate, fontWeight: '600' }}>×</Text>
+          {org?.logo_path && <StorageImage bucket="org-logos" path={org.logo_path} style={{ width: desk ? 35 : 26, height: desk ? 35 : 26, resizeMode: 'contain' }} />}
+          <Text numberOfLines={1} style={[heading(700), { flexShrink: 1, fontSize: desk ? 18 : 14, color: t.brand1 }]}>{org?.name || ''}</Text>
         </Pressable>
         <View style={{ minWidth: 34, alignItems: 'flex-end' }}>{right}</View>
       </View>

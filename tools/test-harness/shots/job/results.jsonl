@@ -1047,3 +1047,10 @@
 {"part":"jobvar1","step":"Variations tab, then Day Works","ok":true,"note":"variations then dayworks","ms":5335}
 {"part":"jobvar1","step":"Sales opens on Applications, in the right order","ok":true,"note":"301 < 485 < 565, applications list 1","ms":10573}
 {"part":"boqbtn1","step":"Import / Export beside + Add Works","ok":true,"note":"same row 531/531","ms":11097}
+{"part":"boqbtn1","step":"With lines: header, buttons, footer","ok":true,"note":"footer at 815, add 2, io 1","ms":10631}
+{"part":"boqbtn1","step":"Empty page","ok":true,"note":"empty state","ms":10424}
+{"part":"boqbtn1","step":"Phone","ok":false,"note":"tools button","ms":9946}
+{"part":"boqbtn1","step":"With lines: header, buttons, footer","ok":true,"note":"footer at 815, add 2, io 1","ms":10608}
+{"part":"boqbtn1","step":"Typing m2 gives m²","ok":true,"note":"offered 1, m², m³","ms":1093}
+{"part":"boqbtn1","step":"Empty page","ok":true,"note":"empty state","ms":10388}
+{"part":"boqbtn1","step":"Phone","ok":false,"note":"tools button","ms":9990}

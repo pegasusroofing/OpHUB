@@ -261,10 +261,36 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
           } catch { toast('Could not read that file.'); } finally { setImporting(false); }
         };
   const bqLast = async () => { const u = await openDocLink('finance-docs', (lastUp?.path as string)); if (u) viewDoc(u, lastUp?.name); else toast('Could not open the file.'); };
+  const addWorks = <Button small kind="ghost" title="+ Add Works" onPress={async () => { const k = await chooseAction('Add Works', [{ key: 'section', label: 'Section' }, { key: 'item', label: 'Item' }]); if (k) add(k); }} />;
+  // Budget cost: margin / mark-up for all or the ticked lines, and changes to the ticked lines together (902).
+  const costTools = (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+          <Text style={{ fontWeight: '500', fontSize: 12, color: base.ink }}>Budget cost:</Text>
+          <TextInput value={pct} onChangeText={(v) => setPct(v.replace(/[^0-9.]/g, ''))} placeholder="%" keyboardType="decimal-pad" style={[box, { width: 48, height: 26, paddingVertical: 2, paddingHorizontal: 6, fontSize: 12 }]} />
+          <SelectBox value={basis} options={[['margin', '% margin'], ['markup', '% mark-up']]} onChange={setBasis} compact style={{ marginBottom: 0, width: 110 }} title="Margin or mark-up" />
+          <Button small kind="ghost" title={ticked.length ? `Apply to ${ticked.length} ticked` : 'Apply to ticked'} disabled={!ticked.length} onPress={() => applyPct(true)} />
+          <Button small kind="ghost" title="Apply to all lines" onPress={() => applyPct(false)} />
+          {ticked.length ? (
+            <>
+              <Text style={{ fontWeight: '500', color: base.ink }}>{ticked.length} ticked</Text>
+              {subs.length > 0 && <SelectBox value="" placeholder="Set plot…" title="Plot for the ticked lines" options={[['-', 'No plot'], ...subs.map((s) => [s.id, s.short] as [string, string])]} onChange={(k) => setRows((rs) => rs.map((r, j) => (ticked.includes(j) ? { ...r, sub: k === '-' ? '' : k } : r)))} style={{ marginBottom: 0, width: 170 }} />}
+              <Button small kind="ghost" title="Set unit" onPress={async () => { const u = await promptText('Unit for the ticked lines (e.g. m², nr, item)', ''); if (u !== null) setRows((rs) => rs.map((r, j) => (ticked.includes(j) ? { ...r, unit: u.trim() } : r))); }} />
+              <Button small kind="ghost" title="Clear costs" onPress={() => setRows((rs) => rs.map((r, j) => (ticked.includes(j) ? { ...r, cost: '', cost_basis: null, cost_pct: null } : r)))} />
+              <Button small kind="ghost" title="Remove" onPress={async () => { if (await confirmAsk(`Remove ${ticked.length} ticked line${ticked.length === 1 ? '' : 's'}?`, 'Remove')) setRows((rs) => rs.filter((_, j) => !ticked.includes(j))); }} />
+              <Button small kind="ghost" title="Untick all" onPress={() => tick(itemIdx, false)} />
+            </>
+          ) : itemIdx.length ? <><Button small kind="ghost" title={`Tick all ${itemIdx.length} lines`} onPress={() => tick(itemIdx, true)} /><Muted>Tick lines (or a heading) to change them together.</Muted></> : null}
+        </View>
+  );
   return (
     <View style={{ flex: 1 }}>
     <ScrollView style={{ flex: 1 }} contentContainerStyle={page(1100)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Bill of Quantities' }} />
+      {/* The page's own header (Andy, 2 Nov 2026). */}
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10, marginTop: desk ? 6 : 0, marginBottom: desk ? 18 : 12 }}>
+        <Text style={{ flexGrow: 1, fontSize: desk ? 20 : 17, fontWeight: '600', color: base.ink }}>Bill of Quantities</Text>
+        <View style={{ flexDirection: 'row', gap: 6 }}>{addWorks}{desk && ioBtn}</View>
+      </View>
       {imp && <ImportPreview imp={imp} setImp={setImp} onUse={async (lines) => {
         if (rows.some((x) => String(x.description || '').trim()) && !(await confirmAsk('Replace the lines here with the imported breakdown?', 'Replace'))) return;
         setRows(boqRows(lines).map((r) => ({ ...r, _k: key(), sub: '' }))); setImp(null);
@@ -272,7 +298,7 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
 
       {/* Each section sits in its own border (Andy, 1 Nov 2026); lines before any section don't. */}
       {rows.reduce<number[][]>((gs, r, i) => { if (r.kind === 'section' || !gs.length) gs.push([i]); else gs[gs.length - 1].push(i); return gs; }, []).map((g) => (
-      <View key={rows[g[0]]._k} style={rows[g[0]].kind === 'section' ? { borderWidth: 1.5, borderColor: t.brand1, borderRadius: 10, backgroundColor: base.card, marginBottom: 12, zIndex: rows.length - g[0] } : undefined}>
+      <View key={rows[g[0]]._k} style={rows[g[0]].kind === 'section' ? { borderWidth: 1.5, borderColor: t.brand1, borderRadius: 10, backgroundColor: base.card, marginBottom: desk ? 18 : 12, zIndex: rows.length - g[0] } : undefined}>
       {g.map((i) => {
         const r = rows[i];
         const head = r.kind === 'section' || r.kind === 'subsection';
@@ -292,7 +318,7 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
         };
         return (
           <Fragment key={r._k}>
-          <View style={{ borderWidth: 1, borderColor: sec ? t.brand1 : r.kind === 'subsection' ? '#DFE3EA' : base.cardLine, borderRadius: 8, paddingVertical: head ? (desk ? 2 : 4) : desk ? 6 : 10, paddingHorizontal: 8, marginBottom: 6, backgroundColor: sec ? t.brand1 : r.kind === 'subsection' ? '#DFE3EA' : base.card, marginLeft: r.kind === 'subsection' ? 10 : 0, ...(rows[g[0]].kind === 'section' ? { marginBottom: 0, marginLeft: 0, borderRadius: 0, borderWidth: 0, borderBottomWidth: 1, borderBottomColor: base.cardLine, ...(sec ? { borderTopLeftRadius: 8, borderTopRightRadius: 8 } : null) } : null), zIndex: rows.length - i }}>
+          <View style={{ borderWidth: 1, borderColor: sec ? t.brand1 : r.kind === 'subsection' ? '#DFE3EA' : base.cardLine, borderRadius: 8, paddingVertical: head ? (desk ? 5 : 4) : desk ? 11 : 10, paddingHorizontal: 8, marginBottom: 6, backgroundColor: sec ? t.brand1 : r.kind === 'subsection' ? '#DFE3EA' : base.card, marginLeft: r.kind === 'subsection' ? 10 : 0, ...(rows[g[0]].kind === 'section' ? { marginBottom: 0, marginLeft: 0, borderRadius: 0, borderWidth: 0, borderBottomWidth: 1, borderBottomColor: base.cardLine, ...(sec ? { borderTopLeftRadius: 8, borderTopRightRadius: 8 } : null) } : null), zIndex: rows.length - i }}>
             <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
               {selecting && <Pressable hitSlop={6} focusable={false} accessibilityLabel="Tick" onPress={() => (head ? tick(grp, !on) : set(i, '_sel', !on))}><Text style={{ fontSize: 17, color: head ? ink : base.ink }}>{on ? '☑' : '☐'}</Text></Pressable>}
               {editRefs ? <TextInput value={refs[i]} onChangeText={(v) => set(i, 'ref', v)} placeholder="Ref" placeholderTextColor={head ? ink : undefined} style={[box, slim, { width: desk ? 64 : head ? 30 : 40 }, head && headBox, !desk && { fontSize: 11 }]} /> : <Text numberOfLines={1} accessibilityLabel="Ref" style={{ width: desk ? 64 : head ? 30 : 40, fontSize: desk ? 13 : 11, fontWeight: '500', color: head ? ink : base.slate, paddingHorizontal: 2 }}>{refs[i]}</Text>}
@@ -306,7 +332,7 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
               }}><Text style={{ fontSize: 18, color: head ? ink : base.slate }}>⋯</Text></Pressable>
             </View>
             {head ? null : desk ? (
-              <View style={{ flexDirection: 'row', gap: 6, marginTop: 4, flexWrap: 'wrap', alignItems: 'center' }}>
+              <View style={{ flexDirection: 'row', gap: 6, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                 <Text style={lab}>Qty</Text>
                 <TextInput ref={(el) => { qtyBox.current[r._k] = el as unknown as { focus: () => void } | null; }} value={String(r.qty ?? '')} onChangeText={(v) => set(i, 'qty', v)} accessibilityLabel="Qty" keyboardType="decimal-pad" style={[box, slim, { width: 70 }]} />
                 <Text style={lab}>Unit</Text>
@@ -352,47 +378,36 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
       })}
       </View>
       ))}
-      <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginTop: 8, marginBottom: 24 }}>
-        <Button small kind="ghost" title="+ Add Works" onPress={async () => { const k = await chooseAction('Add Works', [{ key: 'section', label: 'Section' }, { key: 'item', label: 'Item' }]); if (k) add(k); }} />
-        {desk && ioBtn}
-      </View>
+      {rows.length > 0 && <View style={{ flexDirection: 'row', marginTop: 4, marginBottom: 20 }}>{addWorks}</View>}
+      {rows.length === 0 && <FinRow title="No lines yet" sub="Use + Add Works, or Import / Export to bring in a breakdown." />}
+      {/* On a phone the summary and tools stay in the page; on a laptop they're the footer line. */}
+      {!desk && rows.length > 0 && <>
       {/* The Bill's summary sits at the bottom; each section's total is on its heading (Andy, 1 Nov 2026). */}
         <View style={{ flexDirection: 'row', backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 10, paddingVertical: 8, marginBottom: 10 }}>
           {[['Total', money(total)], ['Budget cost', costTotal ? money(costTotal) : '—'], ['Margin', costTotal && total ? `${Math.round(((total - costTotal) / total) * 1000) / 10}%` : '—']].map(([l, v], n) => (
             <View key={l} style={{ flex: 1, alignItems: 'center', borderLeftWidth: n ? 1 : 0, borderLeftColor: base.cardLine }}><Text style={{ fontSize: 11, color: base.slate }}>{l}</Text><Text style={{ fontSize: 13, fontWeight: '600', color: base.ink }}>{v}</Text></View>
           ))}
         </View>
-      {/* Budget cost: margin / mark-up for all or the ticked lines, and changes to the ticked lines together (902). */}
+      </>}
       {!desk && <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8 }}><Button small kind="ghost" title={`Budget cost tools ${bulkOpen ? '▴' : '▾'}`} onPress={() => setBulkOpen(!bulkOpen)} />{ioBtn}</View>}
-      {(desk || bulkOpen) && (
-      <Card style={{ paddingVertical: 5, paddingHorizontal: 10 }}>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
-          <Text style={{ fontWeight: '500', fontSize: 12, color: base.ink }}>Budget cost:</Text>
-          <TextInput value={pct} onChangeText={(v) => setPct(v.replace(/[^0-9.]/g, ''))} placeholder="%" keyboardType="decimal-pad" style={[box, { width: 48, height: 26, paddingVertical: 2, paddingHorizontal: 6, fontSize: 12 }]} />
-          <SelectBox value={basis} options={[['margin', '% margin'], ['markup', '% mark-up']]} onChange={setBasis} compact style={{ marginBottom: 0, width: 110 }} title="Margin or mark-up" />
-          <Button small kind="ghost" title={ticked.length ? `Apply to ${ticked.length} ticked` : 'Apply to ticked'} disabled={!ticked.length} onPress={() => applyPct(true)} />
-          <Button small kind="ghost" title="Apply to all lines" onPress={() => applyPct(false)} />
-          {ticked.length ? (
-            <>
-              <Text style={{ fontWeight: '500', color: base.ink }}>{ticked.length} ticked</Text>
-              {subs.length > 0 && <SelectBox value="" placeholder="Set plot…" title="Plot for the ticked lines" options={[['-', 'No plot'], ...subs.map((s) => [s.id, s.short] as [string, string])]} onChange={(k) => setRows((rs) => rs.map((r, j) => (ticked.includes(j) ? { ...r, sub: k === '-' ? '' : k } : r)))} style={{ marginBottom: 0, width: 170 }} />}
-              <Button small kind="ghost" title="Set unit" onPress={async () => { const u = await promptText('Unit for the ticked lines (e.g. m², nr, item)', ''); if (u !== null) setRows((rs) => rs.map((r, j) => (ticked.includes(j) ? { ...r, unit: u.trim() } : r))); }} />
-              <Button small kind="ghost" title="Clear costs" onPress={() => setRows((rs) => rs.map((r, j) => (ticked.includes(j) ? { ...r, cost: '', cost_basis: null, cost_pct: null } : r)))} />
-              <Button small kind="ghost" title="Remove" onPress={async () => { if (await confirmAsk(`Remove ${ticked.length} ticked line${ticked.length === 1 ? '' : 's'}?`, 'Remove')) setRows((rs) => rs.filter((_, j) => !ticked.includes(j))); }} />
-              <Button small kind="ghost" title="Untick all" onPress={() => tick(itemIdx, false)} />
-            </>
-          ) : itemIdx.length ? <><Button small kind="ghost" title={`Tick all ${itemIdx.length} lines`} onPress={() => tick(itemIdx, true)} /><Muted>Tick lines (or a heading) to change them together.</Muted></> : null}
-        </View>
-      </Card>
-      )}
+      {!desk && bulkOpen && <Card style={{ paddingVertical: 5, paddingHorizontal: 10 }}>{costTools}</Card>}
 
-            <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-        <Button small busy={busy} title="Save Bill of Quantities" onPress={() => void save()} />
-        <Button small kind="ghost" title="Publish to Application for Payment" onPress={async () => { await save(); if (snap(latest.current) !== saved.current) return; router.push(`/fin/job/${id}/application/new` as never); }} />
+            <View style={{ flexDirection: 'row', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+        <View style={{ minWidth: desk ? 240 : 0, flexGrow: desk ? 0 : 1 }}><Button busy={busy} title="Save Bill of Quantities" onPress={() => void save()} /></View>
+        <Button kind="ghost" title="Publish to Application for Payment" onPress={async () => { await save(); if (snap(latest.current) !== saved.current) return; router.push(`/fin/job/${id}/application/new` as never); }} />
       </View>
       <Muted style={{ marginTop: 6, fontSize: 12 }}>Saves by itself a few seconds after a change once every line has a description and a value.{autoNote ? ` ${autoNote}` : ''}</Muted>
-      {rows.length === 0 && <FinRow title="No lines yet" sub="Add sections and items, then save." />}
     </ScrollView>
+    {desk && rows.length > 0 && (
+      <View accessibilityLabel="Budget cost footer" style={{ backgroundColor: base.card, borderTopWidth: 1, borderTopColor: base.line, paddingHorizontal: 40, paddingVertical: 8, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+        <View style={{ flexShrink: 1 }}>{costTools}</View>
+        <View style={{ flexDirection: 'row', gap: 18 }}>
+          {[['Total', money(total)], ['Budget cost', costTotal ? money(costTotal) : '—'], ['Margin', costTotal && total ? `${Math.round(((total - costTotal) / total) * 1000) / 10}%` : '—']].map(([l, v]) => (
+            <View key={l} style={{ alignItems: 'flex-end' }}><Text style={{ fontSize: 11, color: base.slate }}>{l}</Text><Text style={{ fontSize: 13.5, fontWeight: '600', color: base.ink }}>{v}</Text></View>
+          ))}
+        </View>
+      </View>
+    )}
     {rows.length > 0 && <ThinExportBar onExcel={() => void exportBoq('x')} onPdf={() => void exportBoq('p')} />}
     </View>
   );
