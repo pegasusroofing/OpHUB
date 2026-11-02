@@ -986,3 +986,6 @@
 {"part":"jobtiles1","step":"Overdue tile shows only overdue invoices","ok":true,"note":"overdue shown 1, not-due shown 0","ms":13920}
 {"part":"jobtiles1","step":"Invoices tab after that shows them all","ok":true,"note":"f=","ms":2121}
 {"part":"jobtiles1","step":"Applied tile opens Applications","ok":true,"note":"?tab=sales&sub=apps","ms":13632}
+{"part":"jobtally1","step":"Laptop: starts on Live; old totals gone","ok":true,"note":"Value of works £628,900; old totals 0","ms":9402}
+{"part":"jobtally1","step":"Laptop: adding Closed and Upcoming changes the tally","ok":true,"note":"Value of works £944,750","ms":1699}
+{"part":"jobtally1","step":"Phone: tally at the bottom","ok":true,"note":"Value of works £628,900","ms":9189}
