@@ -63,6 +63,7 @@ export default function FinApplication() {
 
 function Editor({ a0, jf, previousLive, prevPct, prevVar, siteProgress, varProgress }: { a0: Row; jf: Row; previousLive: number; prevPct: Record<string, number>; prevVar: Record<string, number>; siteProgress: Record<string, number>; varProgress: Record<string, number> }) {
   const desk = useDesk();
+  const [byQty, setByQty] = useState<Record<string, boolean>>({}); // lines entered by quantity done rather than %
   const { me, org } = useAuth();
   const { data: site } = useSite(a0.site_id);
   const { data: finSt } = useFinSettings(me?.org_id);
@@ -224,8 +225,17 @@ function Editor({ a0, jf, previousLive, prevPct, prevVar, siteProgress, varProgr
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
             {locked ? <Text style={{ color: base.slate }}>{pct(l.pct)}%</Text> : mode === 'pct'
-              ? <TextInput key={`p${i}-${gen}`} defaultValue={String(pct(l.pct))} onChangeText={(v) => setLine(i, { pct: pct(v) })} keyboardType="decimal-pad" style={[box, { width: 70 }]} />
-              : <TextInput key={`g${i}-${gen}`} defaultValue={String(l.gross)} onChangeText={(v) => { const n = num(v), val = Number(l.value || 0); if (val && n !== null && !isNaN(n)) setLine(i, { pct: pct((n / val) * 100) }); }} keyboardType="decimal-pad" style={[box, { width: 100 }]} />}
+              ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  {hasQty && byQty[l.item_id]
+                    ? <TextInput key={`q${i}-${gen}`} accessibilityLabel="Quantity done" defaultValue={String(round2((pct(l.pct) * Number(l.qty)) / 100))} onChangeText={(v) => { const n = num(v); if (n !== null && !isNaN(n)) setLine(i, { pct: pct((n / Number(l.qty)) * 100) }); }} keyboardType="decimal-pad" style={[box, { width: 60, height: 30, paddingVertical: 2, fontSize: 13 }]} />
+                    : <TextInput key={`p${i}-${gen}`} accessibilityLabel="Percent done" defaultValue={String(pct(l.pct))} onChangeText={(v) => setLine(i, { pct: pct(v) })} keyboardType="decimal-pad" style={[box, { width: 52, height: 30, paddingVertical: 2, fontSize: 13 }]} />}
+                  {hasQty
+                    ? <Pressable accessibilityRole="button" accessibilityLabel={byQty[l.item_id] ? 'Enter by percent' : 'Enter by quantity'} hitSlop={8} onPress={() => setByQty((o) => ({ ...o, [l.item_id]: !o[l.item_id] }))} style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: '#DFE3EA', borderRadius: 7, height: 26, paddingHorizontal: 8 }}><Text style={{ fontSize: 12.5, fontWeight: '700', color: base.ink }}>{byQty[l.item_id] ? l.unit || 'qty' : '%'}</Text><Text style={{ fontSize: 9, color: base.slate }}>⇄</Text></Pressable>
+                    : <Text style={{ color: base.slate, fontWeight: '700' }}>%</Text>}
+                </View>
+              )
+              : <TextInput key={`g${i}-${gen}`} defaultValue={String(l.gross)} onChangeText={(v) => { const n = num(v), val = Number(l.value || 0); if (val && n !== null && !isNaN(n)) setLine(i, { pct: pct((n / val) * 100) }); }} keyboardType="decimal-pad" style={[box, { width: 90, height: 30, paddingVertical: 2, fontSize: 13 }]} />}
             <Text style={{ width: 96, textAlign: 'right', fontWeight: '700', color: base.ink }}>{money(l.gross)}</Text>
             </View>
           </View>
@@ -339,9 +349,9 @@ function Editor({ a0, jf, previousLive, prevPct, prevVar, siteProgress, varProgr
           <Button title="Mark as Applied (locks it)" onPress={async () => {
             if (!(await save(true))) return;
             if (!(await confirmAsk('Mark this application as Applied? It will be locked so the figures can’t change. You can return it to draft if you need to edit it.', 'Mark applied'))) return;
-            if (await setStatus(a0.id, { status: 'submitted', submitted_at: new Date().toISOString() })) { toast('Applied — now locked.'); refresh(); }
+            if (await setStatus(a0.id, { status: 'submitted', submitted_at: new Date().toISOString() })) { toast('Applied — now locked.'); refresh(); } else toast('Not saved — check your signal and try again.');
           }} />
-          <Button kind="ghost" title="Delete draft" onPress={async () => { if (await confirmAsk('Delete this draft application?', 'Delete')) { if (await deleteApplication(a0.id)) { toast('Draft deleted'); refresh(); router.back(); } } }} />
+          <Button kind="ghost" title="Delete draft" onPress={async () => { if (await confirmAsk('Delete this draft application?', 'Delete')) { if (await deleteApplication(a0.id)) { toast('Draft deleted'); refresh(); router.back(); } else toast('Not saved — check your signal and try again.'); } }} />
         </View>
       )}
       {stage === 'applied' && (
@@ -369,7 +379,7 @@ function Editor({ a0, jf, previousLive, prevPct, prevVar, siteProgress, varProgr
           <View style={{ marginTop: 8, gap: 8 }}>
             {a0.invoice_id ? <Button title="🧾 Open invoice" onPress={() => router.push(`/fin/job/${a0.site_id}/invoice/${a0.invoice_id}` as never)} />
               : <Button busy={busy === 'inv'} title="🧾 Raise invoice" onPress={async () => { setBusy('inv'); const r = await raiseInvoiceFromCert(me, org, a0, site as never, false); setBusy(''); if (r.error) toast(r.error); if (r.id) { refresh(); router.push(`/fin/job/${a0.site_id}/invoice/${r.id}` as never); } }} />}
-            {!a0.invoice_id && <Button kind="ghost" title="Change the certificate figures" onPress={async () => { if (await confirmAsk('Clear the certificate figures and enter them again?', 'Clear')) { if (await clearCertificate(a0.id)) refresh(); } }} />}
+            {!a0.invoice_id && <Button kind="ghost" title="Change the certificate figures" onPress={async () => { if (await confirmAsk('Clear the certificate figures and enter them again?', 'Clear')) { if (await clearCertificate(a0.id)) refresh(); else toast('Not saved — check your signal and try again.'); } }} />}
           </View>
         </Card>
       )}

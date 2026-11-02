@@ -913,3 +913,6 @@
 {"part":"appdive3","step":"Phone: published draft fits, tall shots","ok":true,"note":"no. 6, boxes off screen 0","ms":17590}
 {"part":"appdive3","step":"Certificate: no boxes to type totals, lines start at last certified, one line short follows through","ok":true,"note":"boxes 7; Net due £0.00 Matches what was; saved net -100","ms":8809}
 {"part":"appdive3","step":"Laptop: Quotes in the left menu opens the tracker","ok":true,"note":"/pm/quotes","ms":9642}
+{"part":"appdive4","step":"Publishing twice keeps one draft","ok":true,"note":"no. 7 then 7","ms":32155}
+{"part":"appdive4","step":"Tap % to enter by quantity; the % follows","ok":true,"note":"qty was 100, line Strip and re-slate now 50%","ms":3927}
+{"part":"appdive4","step":"A variation value changed on the draft survives reopening","ok":true,"note":"value 777 (1 variations)","ms":20093}

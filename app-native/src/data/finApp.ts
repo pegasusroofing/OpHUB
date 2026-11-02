@@ -61,6 +61,11 @@ export async function newApplication(me: Profile, siteId: string): Promise<{ id?
     dayworks: dayRows,
     retention_pct: jf.retention_pct != null ? jf.retention_pct : st.default_retention_pct, created_by: me.id,
   };
+  if (last?.status === 'draft') {
+    const next = { ...last, lines: row.lines };
+    const up = await fdb.from('fin_applications').update(rowForSave(next, jf, previousCertified(apps, last.number)) as never).eq('id', last.id).eq('status', 'draft').select('id');
+    return up.data?.length ? { id: last.id } : { error: 'Could not update the open draft — try again.' };
+  }
   // Two people starting at once would pick the same number: the database refuses the second, so take the next one.
   for (let tries = 0; tries < 4; tries++) {
     const top = await rows(fdb.from('fin_applications').select('number').eq('site_id', siteId).order('number', { ascending: false }).limit(1));
@@ -82,9 +87,10 @@ export async function loadApplication(id: string) {
   if (a.status === 'draft') {
     const [vars, fvars, fdays] = await loadRegisters(a.site_id);
     const { varRows, dayRows } = registerRows(a, vars, fvars, fdays);
-    const key = (x: Row[]) => JSON.stringify(x.map((r) => [r.fin_variation_id || r.variation_id || r.fin_daywork_id || r.description, Number(r.value || 0), r.pct ?? null]));
-    if (key(varRows) !== key(a.variations || []) || key(dayRows) !== key(a.dayworks || [])) {
-      const next = { ...a, variations: varRows, dayworks: dayRows };
+    const haveV = new Set((a.variations || []).flatMap((r: Row) => [r.fin_variation_id, r.variation_id]).filter(Boolean)), haveD = new Set((a.dayworks || []).map((r: Row) => r.fin_daywork_id).filter(Boolean));
+    const newV = varRows.filter((r) => (r.fin_variation_id || r.variation_id) && !haveV.has(r.fin_variation_id) && !haveV.has(r.variation_id)), newD = dayRows.filter((r) => r.fin_daywork_id && !haveD.has(r.fin_daywork_id));
+    if (newV.length || newD.length) {
+      const next = { ...a, variations: [...(a.variations || []), ...newV], dayworks: [...(a.dayworks || []), ...newD] };
       const saved = rowForSave(next, j, previousLive);
       if (!(await fdb.from('fin_applications').update(saved as never).eq('id', a.id).eq('status', 'draft')).error) return { a: { ...next, ...saved }, jf: j, previousLive, prevPct, prevVar, siteProgress, varProgress, synced: true };
     }
@@ -97,7 +103,7 @@ export function rowForSave(a: Row, jf: Row, previous: number) {
 }
 export const saveApplication = async (a: Row, jf: Row, previous: number) => !!(await fdb.from('fin_applications').update(rowForSave(a, jf, previous) as never).eq('id', a.id).select('id')).data?.length;
 export const setStatus = async (id: string, patch: Row) => !!(await fdb.from('fin_applications').update({ ...patch, updated_at: new Date().toISOString() } as never).eq('id', id).select('id')).data?.length;
-export const deleteApplication = async (id: string) => !(await fdb.from('fin_applications').delete().eq('id', id).eq('status', 'draft')).error;
+export const deleteApplication = async (id: string) => !!(await fdb.from('fin_applications').delete().eq('id', id).eq('status', 'draft').select('id')).data?.length;
 export async function saveCertificate(me: Profile, a: Row, v: Row, file?: { uri: string; name: string; mimeType?: string | null } | null): Promise<string | null> {
   const row: Row = { cert_gross: round2(v.cert_gross), cert_retention: round2(v.cert_retention), cert_previous: round2(v.cert_previous), cert_discount: round2(v.cert_discount || 0), cert_net: round2(v.cert_net), cert_date: v.cert_date || today(), cert_is_payless: !!v.cert_is_payless, cert_notes: v.cert_notes || null, status: 'certified', updated_at: new Date().toISOString(), ...(v.cert_lines ? { cert_lines: v.cert_lines } : {}) };
   if (file) {

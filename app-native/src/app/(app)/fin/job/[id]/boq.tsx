@@ -154,7 +154,7 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
       saved.current = snap(now.map((r) => (got[r._k] ? { ...r, ...got[r._k] } : r)));
       if (failed) saved.current = wasSaved;
       const jf = ((await fdb.from('job_finance').select('*').eq('site_id', id).maybeSingle()).data as Row | null) || {};
-      const patch: Row = { site_id: id, org_id: me.org_id, billing_type: 'application', updated_at: new Date().toISOString(), updated_by: me.id };
+      const patch: Row = { site_id: id, org_id: me.org_id, ...(jf.billing_type ? {} : { billing_type: 'application' }), updated_at: new Date().toISOString(), updated_by: me.id };
       if (jf.contract_value_source !== 'manual') patch.contract_value = total;
       if (jf.original_value == null) { patch.original_value = total; patch.original_at = new Date().toISOString(); }
       if (jf.original_cost == null && clean.filter(isItem).every((r) => r.cost != null) && costTotal) patch.original_cost = costTotal;
