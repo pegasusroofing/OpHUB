@@ -1028,3 +1028,4 @@
 {"part":"moneydue3","step":"Server matches the page: vat","ok":false,"note":"status 403","ms":6}
 {"part":"attention1","step":"Company overview: heading only; row still opens","ok":true,"note":"sub lines 0, opened /fin/sales","ms":11672}
 {"part":"attention1","step":"Project overview: heading only","ok":true,"note":"sub lines 0","ms":11012}
+{"part":"finfont1","step":"Bar and buttons","ok":false,"note":"locator.boundingBox: Timeout 30000ms exceeded.","ms":41225}

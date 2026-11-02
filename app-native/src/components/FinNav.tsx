@@ -26,7 +26,7 @@ export const FIN_SUBS: Record<string, [string, string][]> = {
 const Chip = ({ on, label, onPress, n }: { on: boolean; label: string; onPress: () => void; n?: number }) => {
   const t = useTheme();
   return (
-    <Pressable onPress={onPress} style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, borderWidth: 1, borderColor: on ? t.brand1 : base.line, backgroundColor: on ? t.brand1 : base.card }}>
+    <Pressable onPress={onPress} style={{ alignItems: 'center', justifyContent: 'center', alignSelf: 'center', paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, borderWidth: 1, borderColor: on ? t.brand1 : base.line, backgroundColor: on ? t.brand1 : base.card }}>
       <Text style={{ fontWeight: '500', fontSize: 12.5, color: on ? t.brand1Text : base.ink }}>{label}{n ? ` (${n})` : ''}</Text>
     </Pressable>
   );

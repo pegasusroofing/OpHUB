@@ -119,19 +119,21 @@ export function AppBar({ title, onBack, home, right, noHistory }: { title?: stri
   // Finance's bar (Andy, 2 Nov 2026): slim, just the back arrow and OpHUB x the company. The trail under it names the page.
   if (fin) return (
     <View>
-      <View style={{ backgroundColor: base.card, borderBottomWidth: 1, borderBottomColor: '#e5e7eb', flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: insets.top + 6, paddingBottom: 6, paddingHorizontal: desk ? 28 : 10 }}>
+      <View style={{ backgroundColor: base.card, borderBottomWidth: 1, borderBottomColor: '#e5e7eb', flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: insets.top + 8, paddingBottom: 8, paddingHorizontal: desk ? 28 : 10 }}>
+        <View style={{ width: 34 }}>
         {onBack && (
           <Pressable onPress={pressBack} hitSlop={10} accessibilityRole="button" accessibilityLabel="Back" style={{ width: 28, height: 30, alignItems: 'center', justifyContent: 'center' }}>
             <Text style={{ fontSize: 26, lineHeight: 28, color: base.ink, marginTop: -3 }}>‹</Text>
           </Pressable>
         )}
-        <Pressable onPress={() => router.navigate('/fin' as never)} accessibilityRole="link" accessibilityLabel="Finance overview" style={{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Text style={[heading(800), { fontSize: 18, letterSpacing: -0.3, color: '#111318' }]}><Text style={{ color: '#2B73D4' }}>Op</Text>HUB</Text>
-          <Text style={{ fontSize: 14, color: base.slate, fontWeight: '600' }}>×</Text>
-          {org?.logo_path && <StorageImage bucket="org-logos" path={org.logo_path} style={{ width: 28, height: 28, resizeMode: 'contain' }} />}
-          <Text numberOfLines={1} style={[heading(700), { flexShrink: 1, fontSize: 14.5, color: t.brand1 }]}>{org?.name || ''}</Text>
+        </View>
+        <Pressable onPress={() => router.navigate('/fin' as never)} accessibilityRole="link" accessibilityLabel="Finance overview" style={{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+          <Text style={[heading(800), { fontSize: 22.5, letterSpacing: -0.3, color: '#111318' }]}><Text style={{ color: '#2B73D4' }}>Op</Text>HUB</Text>
+          <Text style={{ fontSize: 17.5, color: base.slate, fontWeight: '600' }}>×</Text>
+          {org?.logo_path && <StorageImage bucket="org-logos" path={org.logo_path} style={{ width: 35, height: 35, resizeMode: 'contain' }} />}
+          <Text numberOfLines={1} style={[heading(700), { flexShrink: 1, fontSize: 18, color: t.brand1 }]}>{org?.name || ''}</Text>
         </Pressable>
-        {right}
+        <View style={{ minWidth: 34, alignItems: 'flex-end' }}>{right}</View>
       </View>
       {crumbs.length > 1 && (
         <View style={{ backgroundColor: base.paper, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, paddingHorizontal: desk ? 40 : 16, paddingTop: 8, paddingBottom: 4 }}>
