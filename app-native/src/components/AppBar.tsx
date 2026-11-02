@@ -77,7 +77,7 @@ export function AppBar({ title, onBack, home, right, noHistory }: { title?: stri
   const jobPage = finRest.length ? FIN_JOB_PAGES[finRest[0]] || titleCase(title || '') : undefined;
   const inside = finRest.length > 1 && finRest[1] !== 'new' ? (title && titleCase(title) !== jobPage ? titleCase(title) : null) : finRest[1] === 'new' ? 'New' : null;
   const secTab = tabLabel(FIN_SUBS[finSec], finSec === 'directory' ? (typeof qKind === 'string' ? qKind : undefined) : typeof qTab === 'string' ? qTab : undefined);
-  const finCrumbs: [string, string | null][] = path === '/fin' ? []
+  const finCrumbs: [string, string | null][] = path === '/fin' ? [['Finance', '/fin'], ['Overview', null]]
     : finJob ? [['Finance', '/fin'], ['Projects', '/fin/jobs'], [fJob ? `${[fJob.job_number, fJob.name].filter(Boolean).join(' ')}${finClient ? ` · ${finClient}` : ''}` : 'Project', jobTab || jobPage ? `/fin/job/${finJob}` : null],
       ...(jobTab && jobTab !== 'Overview' ? [[jobTab, null] as [string, null]] : []),
       ...(jobPage ? [[jobPage, inside ? `/fin/job/${finJob}/${finRest[0]}` : null] as [string, string | null]] : []),
