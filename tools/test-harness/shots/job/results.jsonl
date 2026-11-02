@@ -920,3 +920,5 @@
 {"part":"appdive5","step":"Menu and dates","ok":true,"note":"dates on one row","ms":9515}
 {"part":"rams1","step":"Template and own task together","ok":false,"note":"📋 New template · 0 hazards · 0 sections; 0 hazards, 1 sections","ms":14395}
 {"part":"rams1","step":"Library search: not listed writes a new one","ok":false,"note":"locator.click: Timeout 6000ms exceeded.","ms":6004}
+{"part":"rams1","step":"Template and own task together","ok":true,"note":"📋 New template · 0 hazards · 0 sections; 0 hazards, 1 sections","ms":14246}
+{"part":"rams1","step":"Library search: not listed writes a new one","ok":true,"note":"2 sections","ms":4777}

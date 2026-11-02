@@ -26,7 +26,7 @@ const Badge = ({ p, s }: { p: unknown; s: unknown }) => { const n = rr(p, s), b 
 const chipStyle = (on: boolean) => ({ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: on ? base.ink : base.line, backgroundColor: on ? base.ink : base.card });
 
 export default function RamsBuildScreen() {
-  const { id, b: buildId, tab: startTab } = useLocalSearchParams<{ id: string; b: string; tab?: string }>();
+  const { id, b: buildId } = useLocalSearchParams<{ id: string; b: string }>();
   const { me, org } = useAuth();
   const { data: site } = useSite(id);
   const { data, isLoading } = useQuery({ queryKey: ['ramsBuild', buildId], enabled: !!me && !!buildId, gcTime: 0, queryFn: () => loadBuild(me as never, org as never, site, buildId) });
@@ -42,6 +42,7 @@ function Editor({ initial, siteId }: { initial: RamsBuild; siteId: string }) {
   const toast = useToast();
   const qc = useQueryClient();
   const [b, setB] = useState<RamsBuild>(initial);
+  const { tab: startTab } = useLocalSearchParams<{ tab?: string }>();
   const [tab, setTab] = useState<Tab>(startTab === 'ms' ? 'ms' : 'details');
   const [editId, setEditId] = useState<string | null>(null);
   const [picker, setPicker] = useState<{ kind: 'hazard' | 'section'; part: 'general' | 'method' | null } | null>(null);

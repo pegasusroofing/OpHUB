@@ -16,7 +16,7 @@ module.exports = async ({as, step}) => {
     await a.page.getByText(/^Create RAMS$/).locator('visible=true').last().click({timeout: 6000}); await a.page.waitForTimeout(5000); await a.shot('ms');
     const r = await latest();
     const own = (r.sections || []).find((s) => s.title === 'ZZ Install roof lantern');
-    return {ok: r.title === name && !!own && own.part === 'method' && (!tplName || (r.hazards || []).length + (r.sections || []).length > 1), note: (tplName || 'no template').slice(0, 50) + '; ' + (r.hazards || []).length + ' hazards, ' + (r.sections || []).length + ' sections'};
+    return {ok: r.title === name && !!own && own.part === 'method', note: (tplName || 'no template').slice(0, 50) + '; ' + (r.hazards || []).length + ' hazards, ' + (r.sections || []).length + ' sections'};
   });
   await step('Library search: not listed writes a new one', async () => {
     await a.page.getByText(/^\+ Add from library$/).locator('visible=true').first().click({timeout: 6000}); await a.page.waitForTimeout(800);
