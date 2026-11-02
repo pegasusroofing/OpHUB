@@ -105,6 +105,15 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
   const set = (i: number, k: string, v: unknown) => setRows((rs) => rs.map((r, j) => (j === i ? { ...r, [k]: v } : r)));
   const move = (i: number, d: number) => { const j = i + d; if (j < 0 || j >= rows.length) return; const x = rows.slice(); [x[i], x[j]] = [x[j], x[i]]; setRows(x); };
   const blank = (kind: string): Row => ({ _k: key(), kind, ref: '', description: '', qty: '', unit: '', rate: '', value: '', cost: '', sub: '' });
+  // Duplicate (Andy, 2 Nov 2026): a section with all its lines, a sub-section with its lines, or one line, straight after the original. The copies are new lines, and the ref numbers move on by themselves.
+  const duplicate = (i: number) => {
+    const kind = rows[i].kind;
+    let end = i + 1;
+    if (kind === 'section') while (end < rows.length && rows[end].kind !== 'section') end++;
+    else if (kind === 'subsection') while (end < rows.length && rows[end].kind !== 'section' && rows[end].kind !== 'subsection') end++;
+    const copies = rows.slice(i, end).map((r) => { const c: Row = { ...r, _k: key(), ref: '', _sel: false }; delete c.id; delete c._task_id; delete c._sec_id; return c; });
+    const x = rows.slice(); x.splice(end, 0, ...copies); setRows(x);
+  };
   const add = (kind: string) => { const n = blank(kind); setRows([...rows, n]); setOpenK(n._k); };
   const addAt = (i: number, kind: string) => { const at = insertAt(rows, i, kind); const n = blank(kind), x = rows.slice(); x.splice(at, 0, n); setRows(x); setOpenK(n._k); };
   const refs = autoRefs(rows);
@@ -275,7 +284,7 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
           {ticked.length ? (
             <>
               <Text style={{ fontWeight: '500', fontSize: 13.2, color: base.ink }}>{ticked.length} ticked</Text>
-              {subs.length > 0 && <SelectBox value="" placeholder="Set plot…" title="Plot for the ticked lines" options={[['-', 'No plot'], ...subs.map((s) => [s.id, s.short] as [string, string])]} onChange={(k) => setRows((rs) => rs.map((r, j) => (ticked.includes(j) ? { ...r, sub: k === '-' ? '' : k } : r)))} style={{ marginBottom: 0, width: 170 }} />}
+              {subs.length > 0 && <SelectBox value="" placeholder="Set plot…" title="Plot for the ticked lines" options={[['-', 'No plot'], ...subs.map((s) => [s.id, s.short] as [string, string])]} onChange={(k) => setRows((rs) => rs.map((r, j) => (ticked.includes(j) ? { ...r, sub: k === '-' ? '' : k } : r)))} compact textSize={13.2} style={{ marginBottom: 0, width: 130 }} />}
               <Button small kind="ghost" title="Set unit" onPress={async () => { const u = await promptText('Unit for the ticked lines (e.g. m², nr, item)', ''); if (u !== null) setRows((rs) => rs.map((r, j) => (ticked.includes(j) ? { ...r, unit: u.trim() } : r))); }} />
               <Button small kind="ghost" title="Clear costs" onPress={() => setRows((rs) => rs.map((r, j) => (ticked.includes(j) ? { ...r, cost: '', cost_basis: null, cost_pct: null } : r)))} />
               <Button small kind="ghost" title="Remove" onPress={async () => { if (await confirmAsk(`Remove ${ticked.length} ticked line${ticked.length === 1 ? '' : 's'}?`, 'Remove')) setRows((rs) => rs.filter((_, j) => !ticked.includes(j))); }} />
@@ -339,9 +348,9 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
               <TextInput value={r.description || ''} onChangeText={(v) => set(i, 'description', v)} placeholder={head ? (r.kind === 'section' ? 'Section heading' : 'Sub-section heading') : 'Description'} placeholderTextColor={head ? ink : undefined} autoFocus={openK === r._k} multiline={!head} onContentSizeChange={head ? undefined : (e) => { const h = Math.ceil(e.nativeEvent.contentSize.height); setDescH((o) => (o[r._k] === h ? o : { ...o, [r._k]: h })); }} onKeyPress={head ? undefined : (e) => { const n = e.nativeEvent as unknown as { key: string; shiftKey?: boolean }; if (n.key === 'Tab' && !n.shiftKey) { (e as unknown as { preventDefault: () => void }).preventDefault(); qtyBox.current[r._k]?.focus(); } }} style={[box, slim, { flex: 1, minWidth: 0, height: Math.max(desk ? 32 : 28, descH[r._k] || 0), paddingVertical: desk ? 5 : 4, lineHeight: desk ? 20 : 18, fontWeight: desk ? '400' : '500', paddingLeft: desk ? 8 : 16 }, head && { ...headBox, flex: 1, minWidth: 0 }]} />
               {head && <Text style={{ fontWeight: '600', color: ink, minWidth: desk ? 90 : 0, fontSize: desk ? 15 : 12.5, textAlign: 'right' }}>{money(tots[i]?.value || 0)}</Text>}
               <Pressable hitSlop={6} focusable={false} onPress={async () => {
-                const k = await chooseAction('Line', [selecting ? { key: 'unsel', label: 'Stop selecting' } : { key: 'sel', label: 'Select' }, { key: 'refs', label: editRefs ? 'Finish editing ref numbers' : 'Edit ref numbers' }, { key: 'ai', label: head ? '+ Item under this heading' : '+ Item below' }, ...(r.kind === 'section' ? [{ key: 'as', label: '+ Sub-section in this section' }] : []), { key: 'asec', label: '+ Section after this' }, { key: 'up', label: '↑ Move up' }, { key: 'down', label: '↓ Move down' }, { key: 'kind', label: 'Change type' }, { key: 'del', label: '🗑 Remove', danger: true }]);
+                const k = await chooseAction('Line', [selecting ? { key: 'unsel', label: 'Stop selecting' } : { key: 'sel', label: 'Select' }, { key: 'refs', label: editRefs ? 'Finish editing ref numbers' : 'Edit ref numbers' }, { key: 'ai', label: head ? '+ Item under this heading' : '+ Item below' }, ...(r.kind === 'section' ? [{ key: 'as', label: '+ Sub-section in this section' }] : []), { key: 'asec', label: '+ Section after this' }, { key: 'dup', label: r.kind === 'section' ? 'Duplicate section' : r.kind === 'subsection' ? 'Duplicate sub-section' : 'Duplicate line' }, { key: 'up', label: '↑ Move up' }, { key: 'down', label: '↓ Move down' }, { key: 'kind', label: 'Change type' }, { key: 'del', label: '🗑 Remove', danger: true }]);
                 if (k === 'refs') setEditRefs(!editRefs); else if (k === 'sel') { setSelectMode(true); setBulkOpen(true); if (head) tick(grp, true); else set(i, '_sel', true); } else if (k === 'unsel') { setSelectMode(false); setRows((rs) => rs.map((x) => (x._sel ? { ...x, _sel: false } : x))); } else if (k === 'ai') addAt(i, 'item'); else if (k === 'as') addAt(i, 'subsection'); else if (k === 'asec') { const x = rows.slice(); let at = i + 1; while (at < x.length && x[at].kind !== 'section') at++; const n = blank('section'); x.splice(at, 0, n); setRows(x); setOpenK(n._k); }
-                else if (k === 'up') move(i, -1); else if (k === 'down') move(i, 1); else if (k === 'del') setRows(rows.filter((_, j) => j !== i));
+                else if (k === 'dup') duplicate(i); else if (k === 'up') move(i, -1); else if (k === 'down') move(i, 1); else if (k === 'del') setRows(rows.filter((_, j) => j !== i));
                 else if (k === 'kind') { const t = await chooseAction('Type', [{ key: 'item', label: 'Item' }, { key: 'section', label: 'Section heading' }, { key: 'subsection', label: 'Sub-section heading' }]); if (t) set(i, 'kind', t); }
               }}><Text style={{ fontSize: 18, color: head ? ink : base.slate }}>⋯</Text></Pressable>
             </View>
@@ -357,7 +366,7 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
                 <Pound width={90}><TextInput accessibilityLabel="Amount" value={costRate(r)} onChangeText={(v) => { const n = num(v), q = num(r.qty); setRows((rs) => rs.map((x, j) => (j === i ? { ...x, cost: n === null || isNaN(n) ? '' : q ? round2(n * q) : n, cost_basis: null, cost_pct: null } : x))); }} keyboardType="decimal-pad" style={inPound} /></Pound>
                 <Text style={lab}>Budget cost</Text>
                 <Pound width={90}><TextInput accessibilityLabel="Amount" value={String(r.cost ?? '')} onChangeText={(v) => setRows((rs) => rs.map((x, j) => (j === i ? { ...x, cost: v, cost_basis: null, cost_pct: null } : x)))} keyboardType="decimal-pad" style={inPound} /></Pound>
-                {subs.length > 0 && <SelectBox value={r.sub || '-'} options={[['-', 'No plot'], ...subs.map((s) => [s.id, s.short] as [string, string])]} onChange={(k) => set(i, 'sub', k === '-' ? '' : k)} title="Plot" compact style={{ marginBottom: 0, width: 130 }} />}
+                {subs.length > 0 && <><Text style={lab}>Plot</Text><SelectBox value={r.sub || '-'} options={[['-', 'No plot'], ...subs.map((s) => [s.id, s.short] as [string, string])]} onChange={(k) => set(i, 'sub', k === '-' ? '' : k)} title="Plot" compact textSize={13.5} style={{ marginBottom: 0, width: 130 }} /></>}
                 <Text style={{ fontSize: 13.8, color: num(r.cost) !== null && vals[i] && (num(r.cost) as number) > vals[i] ? base.red : base.slate }}>{marginText(vals[i], num(r.cost))}{r.cost_basis && r.cost_pct != null ? ` (set at ${r.cost_pct}% ${r.cost_basis === 'markup' ? 'mark-up' : 'margin'})` : ''}</Text>
                 <Text style={{ marginLeft: 'auto', fontSize: 15, fontWeight: '600', color: base.ink }}>{money(vals[i])}</Text>
               </View>
@@ -424,7 +433,7 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
     {desk && rows.length > 0 && (
       <View accessibilityLabel="Budget cost footer" style={{ backgroundColor: base.card, borderTopWidth: 1, borderTopColor: base.line, paddingHorizontal: 40, paddingVertical: 8, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
         <View style={{ flexShrink: 1 }}>{costTools}</View>
-        <View style={{ flexDirection: 'row', gap: 18 }}>
+        <View style={{ flexDirection: 'row', gap: 18, marginLeft: 'auto' }}>
           {[['Total', money(total)], ['Budget cost', costTotal ? money(costTotal) : '—'], ['Margin', costTotal && total ? `${Math.round(((total - costTotal) / total) * 1000) / 10}%` : '—']].map(([l, v]) => (
             <View key={l} style={{ alignItems: 'flex-end' }}><Text style={{ fontSize: 11, color: base.slate }}>{l}</Text><Text style={{ fontSize: 13.5, fontWeight: '600', color: base.ink }}>{v}</Text></View>
           ))}

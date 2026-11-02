@@ -1148,3 +1148,4 @@
 {"part":"jobvar1","step":"Overview keeps Monthly Report only","ok":true,"note":"monthly 1, others 0","ms":10644}
 {"part":"jobvar1","step":"Variations tab, then Day Works","ok":true,"note":"variations then dayworks","ms":5140}
 {"part":"jobvar1","step":"Sales opens on Applications, in the right order","ok":true,"note":"301 < 485 < 565, applications list 1","ms":10438}
+{"part":"boqdup1","step":"Duplicate section","ok":true,"note":"1,1.1,1.2,1.3 > 1,1.1,1.2,1.3,2,2.1,2.2,2.3","ms":12170}
