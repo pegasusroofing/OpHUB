@@ -1,12 +1,13 @@
 // Finance section bar and sub-tabs (914 finSectionNav / finSubTabs), the page
 // wrapper with the access check, and small shared bits (stat tile, row, chip).
+import { useQuery } from '@tanstack/react-query';
 import { router, Stack } from 'expo-router';
 import { useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { FinMode, Muted } from '@/components/ui';
+import { fdb } from '@/data/finance';
 import { useAuth } from '@/lib/auth';
-import { heading } from '@/lib/fonts';
 import { isFinanceUser } from '@/lib/roles';
 import { base, page, radius, useTheme } from '@/theme/theme';
 
@@ -25,7 +26,7 @@ const Chip = ({ on, label, onPress, n }: { on: boolean; label: string; onPress: 
   const t = useTheme();
   return (
     <Pressable onPress={onPress} style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, borderWidth: 1, borderColor: on ? t.brand1 : base.line, backgroundColor: on ? t.brand1 : base.card }}>
-      <Text style={{ fontWeight: '700', fontSize: 12.5, color: on ? t.brand1Text : base.ink }}>{label}{n ? ` (${n})` : ''}</Text>
+      <Text style={{ fontWeight: '500', fontSize: 12.5, color: on ? t.brand1Text : base.ink }}>{label}{n ? ` (${n})` : ''}</Text>
     </Pressable>
   );
 };
@@ -41,8 +42,23 @@ export function FinTabRow({ children, style }: { children: ReactNode; style?: ob
         onLayout={(e) => update({ w: e.nativeEvent.layout.width })} onContentSizeChange={(w) => update({ c: w })} onScroll={(e) => update({ x: e.nativeEvent.contentOffset.x })}>
         {children}
       </ScrollView>
-      {more && <View pointerEvents="none" style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 34, alignItems: 'flex-end', justifyContent: 'center', backgroundColor: 'rgba(238,240,242,0.92)' }}><Text style={{ fontSize: 18, fontWeight: '800', color: base.slate, paddingRight: 6 }}>›</Text></View>}
+      {more && <View pointerEvents="none" style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 34, alignItems: 'flex-end', justifyContent: 'center', backgroundColor: 'rgba(238,240,242,0.92)' }}><Text style={{ fontSize: 18, fontWeight: '600', color: base.slate, paddingRight: 6 }}>›</Text></View>}
     </View>
+  );
+}
+/** A project's tabs, on the pages inside a project (Andy, 2 Nov 2026: they stay in place all through Finance). Its own overview page draws them itself. */
+export function FinJobTabs({ id, active }: { id: string; active: string }) {
+  const t = useTheme();
+  const { data: billing } = useQuery({ queryKey: ['finJobBilling', id], queryFn: async () => ((await fdb.from('job_finance').select('billing_type').eq('site_id', id).maybeSingle()).data as { billing_type: string | null } | null)?.billing_type ?? null });
+  const tabs: [string, string][] = [['overview', 'Overview'], ['sales', 'Sales'], ['purchases', 'Purchases'], ['subs', 'Subcontractors & Labour'], ...(billing === 'invoice' ? [] : [['boq', 'Bill of Quantities'] as [string, string]]), ['docs', 'Documents'], ['setup', 'Project Admin']];
+  return (
+    <FinTabRow style={{ marginBottom: 0 }}>
+      {tabs.map(([k, l]) => (
+        <Pressable key={k} onPress={() => router.navigate((k === 'boq' ? `/fin/job/${id}/boq` : `/fin/job/${id}?tab=${k}`) as never)} style={{ paddingVertical: 12, paddingHorizontal: 14, borderBottomWidth: 2, borderBottomColor: active === k ? t.brand1 : 'transparent' }}>
+          <Text style={{ fontSize: 13, fontWeight: active === k ? '700' : '600', color: active === k ? '#111827' : '#6b7280' }}>{l}</Text>
+        </Pressable>
+      ))}
+    </FinTabRow>
   );
 }
 /** The grey filter bar with counts (finsubtabs): the chosen one white. */
@@ -53,8 +69,8 @@ export function FinSeg({ items, value, onChange }: { items: [string, string, num
         const on = k === value;
         return (
           <Pressable key={k} onPress={() => onChange(k)} style={[{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8 }, on && { backgroundColor: '#fff', shadowColor: '#14161C', shadowOpacity: 0.1, shadowRadius: 3, shadowOffset: { width: 0, height: 1 } }]}>
-            <Text style={{ fontSize: 12, fontWeight: on ? '700' : '600', color: on ? '#111827' : '#6b7280' }}>{l}</Text>
-            {n != null && n > 0 && <Text style={{ fontSize: 10.5, fontWeight: '800', color: i === 0 ? '#fff' : '#6b7280', backgroundColor: i === 0 ? '#E3262B' : '#E1E4E8', borderRadius: 9, minWidth: 18, textAlign: 'center', paddingHorizontal: 5, overflow: 'hidden' }}>{n}</Text>}
+            <Text style={{ fontSize: 12, fontWeight: on ? '600' : '500', color: on ? '#111827' : '#6b7280' }}>{l}</Text>
+            {n != null && n > 0 && <Text style={{ fontSize: 10.5, fontWeight: '600', color: i === 0 ? '#fff' : '#6b7280', backgroundColor: i === 0 ? '#E3262B' : '#E1E4E8', borderRadius: 9, minWidth: 18, textAlign: 'center', paddingHorizontal: 5, overflow: 'hidden' }}>{n}</Text>}
           </Pressable>
         );
       })}
@@ -100,8 +116,8 @@ export function FinStat({ v, label, hot, onPress, tone, onMenu, basis = 160 }: {
   const c = tone ? STAT_TONE[tone] : null;
   return (
     <Pressable onPress={onPress} style={{ flexGrow: 1, flexBasis: basis, backgroundColor: c ? c[0] : base.card, borderRadius: 10, borderWidth: 1, borderColor: c ? c[1] : '#e5e7eb', paddingVertical: 16, paddingHorizontal: 18, gap: 4 }}>
-      {onMenu ? <Pressable onPress={onMenu} hitSlop={8} accessibilityLabel={`Change dates: ${label}`} style={{ position: 'absolute', top: 6, right: 8, paddingHorizontal: 6, paddingVertical: 2, zIndex: 1 }}><Text style={{ fontSize: 16, fontWeight: '800', color: base.slate }}>⋯</Text></Pressable> : null}
-      <Text style={[heading(700), { fontSize: 22, color: c ? c[2] : hot ? '#C0392B' : base.ink }]}>{v}</Text>
+      {onMenu ? <Pressable onPress={onMenu} hitSlop={8} accessibilityLabel={`Change dates: ${label}`} style={{ position: 'absolute', top: 6, right: 8, paddingHorizontal: 6, paddingVertical: 2, zIndex: 1 }}><Text style={{ fontSize: 16, fontWeight: '600', color: base.slate }}>⋯</Text></Pressable> : null}
+      <Text style={[{ fontWeight: '600' as const }, { fontSize: 22, color: c ? c[2] : hot ? '#C0392B' : base.ink }]}>{v}</Text>
       <Text style={{ fontSize: 12.5, color: '#6b7280', fontWeight: '500' }}>{label}</Text>
     </Pressable>
   );
@@ -111,25 +127,25 @@ export function FinRow({ left, title, sub, right, onPress, tone, children, onMen
     <Pressable onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.input, paddingHorizontal: 10, paddingVertical: 6, marginBottom: 4 }}>
       <View style={{ flex: 1 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>
-          <Text numberOfLines={1} style={{ flex: 1, fontWeight: '700', fontSize: 13.5, color: base.ink }}>{left ? `${left} · ` : ''}{title}</Text>
-          {right ? <Text style={{ fontWeight: '800', fontSize: 13, color: tone || base.ink }}>{right}</Text> : null}
+          <Text numberOfLines={1} style={{ flex: 1, fontWeight: '500', fontSize: 13.5, color: base.ink }}>{left ? `${left} · ` : ''}{title}</Text>
+          {right ? <Text style={{ fontWeight: '600', fontSize: 13, color: tone || base.ink }}>{right}</Text> : null}
         </View>
         {sub ? <Text numberOfLines={2} style={{ fontSize: 11.5, color: base.slate, marginTop: 1 }}>{sub}</Text> : null}
         {children}
       </View>
-      {onMenu ? <Pressable onPress={onMenu} hitSlop={8} accessibilityLabel={`More: ${left || title}`} style={{ paddingHorizontal: 4 }}><Text style={{ fontSize: 16, fontWeight: '800', color: base.slate }}>⋯</Text></Pressable> : null}
+      {onMenu ? <Pressable onPress={onMenu} hitSlop={8} accessibilityLabel={`More: ${left || title}`} style={{ paddingHorizontal: 4 }}><Text style={{ fontSize: 16, fontWeight: '600', color: base.slate }}>⋯</Text></Pressable> : null}
     </Pressable>
   );
   return (
     <Pressable onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 11, backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 10 }}>
-      {left ? <Text style={{ fontWeight: '800', color: base.slate, minWidth: 54 }}>{left}</Text> : null}
+      {left ? <Text style={{ fontWeight: '600', color: base.slate, minWidth: 54 }}>{left}</Text> : null}
       <View style={{ flex: 1 }}>
-        <Text style={{ fontWeight: '700', color: base.ink }}>{title}</Text>
+        <Text style={{ fontWeight: '500', color: base.ink }}>{title}</Text>
         {sub ? <Text style={{ fontSize: 12, color: base.slate }}>{sub}</Text> : null}
         {children}
       </View>
-      {right ? <Text style={{ fontWeight: '800', color: tone || base.ink }}>{right}</Text> : null}
-      {onMenu ? <Pressable onPress={onMenu} hitSlop={8} accessibilityLabel={`More: ${left || title}`} style={{ paddingHorizontal: 6 }}><Text style={{ fontSize: 16, fontWeight: '800', color: base.slate }}>⋯</Text></Pressable> : null}
+      {right ? <Text style={{ fontWeight: '600', color: tone || base.ink }}>{right}</Text> : null}
+      {onMenu ? <Pressable onPress={onMenu} hitSlop={8} accessibilityLabel={`More: ${left || title}`} style={{ paddingHorizontal: 6 }}><Text style={{ fontSize: 16, fontWeight: '600', color: base.slate }}>⋯</Text></Pressable> : null}
       {onPress ? <Text style={{ color: base.slate }}>›</Text> : null}
     </Pressable>
   );

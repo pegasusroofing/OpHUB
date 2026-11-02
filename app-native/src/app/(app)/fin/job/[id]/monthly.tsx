@@ -74,20 +74,20 @@ export default function FinMonthly() {
       <ScrollView horizontal>
         <View>
           <View style={{ flexDirection: 'row', borderBottomWidth: 2, borderColor: base.ink, paddingBottom: 4 }}>
-            <Text style={{ width: 150, fontWeight: '800', color: base.ink }}>Cost report</Text>
-            {rep.months.map((m) => <Text key={m} style={{ width: 96, textAlign: 'right', fontWeight: '800', color: m === cur ? base.blue : base.ink, fontSize: 12 }}>{label(m)}</Text>)}
-            <Text style={{ width: 110, textAlign: 'right', fontWeight: '800', color: base.ink, fontSize: 12 }}>Total</Text>
+            <Text style={{ width: 150, fontWeight: '600', color: base.ink }}>Cost report</Text>
+            {rep.months.map((m) => <Text key={m} style={{ width: 96, textAlign: 'right', fontWeight: '600', color: m === cur ? base.blue : base.ink, fontSize: 12 }}>{label(m)}</Text>)}
+            <Text style={{ width: 110, textAlign: 'right', fontWeight: '600', color: base.ink, fontSize: 12 }}>Total</Text>
           </View>
           {grouped.map(({ g, rows }) => (
             <View key={g.id}>
               <Pressable onPress={() => setOpen({ ...open, [g.id]: !open[g.id] })} style={{ paddingVertical: 6, backgroundColor: '#EEF0F4', paddingHorizontal: 4 }}>
-                <Text style={{ fontWeight: '800', color: base.ink }}>{open[g.id] ? '▼' : '▶'} {g.name}</Text>
+                <Text style={{ fontWeight: '600', color: base.ink }}>{open[g.id] ? '▼' : '▶'} {g.name}</Text>
               </Pressable>
               {open[g.id] && rows.map((r) => (
                 <View key={r.label} style={{ flexDirection: 'row', borderBottomWidth: 1, borderColor: base.line, paddingVertical: 5 }}>
-                  <Text style={{ width: 150, fontWeight: '700', color: base.ink }}>{r.label}</Text>
+                  <Text style={{ width: 150, fontWeight: '500', color: base.ink }}>{r.label}</Text>
                   {rep.months.map((m, i) => <Text key={m} style={{ width: 96, textAlign: 'right', color: base.ink, fontSize: 12.5 }}>{r.vals ? cell(r.vals[i]) : ''}</Text>)}
-                  <Text style={{ width: 110, textAlign: 'right', fontWeight: '800', color: base.ink }}>{r.total == null ? '—' : money(r.total, 0)}</Text>
+                  <Text style={{ width: 110, textAlign: 'right', fontWeight: '600', color: base.ink }}>{r.total == null ? '—' : money(r.total, 0)}</Text>
                 </View>
               ))}
             </View>

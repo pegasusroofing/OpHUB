@@ -106,9 +106,9 @@ function Editor({ p, rateBy, who }: { p: Row | null; rateBy: Record<string, Row>
   return (
     <ScrollView contentContainerStyle={page(800)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: p ? `${p.name || 'Operative'} invoice` : 'Operative invoice' }} />
-      {locked && <Card><Text style={{ color: '#1E7A3C', fontWeight: '700' }}>Paid {fdate(p?.paid_on)} — it can&apos;t be changed.</Text></Card>}
+      {locked && <Card><Text style={{ color: '#1E7A3C', fontWeight: '500' }}>Paid {fdate(p?.paid_on)} — it can&apos;t be changed.</Text></Card>}
       <Card>
-        <Muted style={{ fontWeight: '700' }}>From</Muted>
+        <Muted style={{ fontWeight: '500' }}>From</Muted>
         <Pressable disabled={locked || !!p} onPress={async () => { const k = await chooseAction('Who is the invoice from?', who.map((w) => ({ key: w.key, label: w.name }))); if (k) setKey(k); }} style={[box, { marginBottom: 8 }]}><Text style={{ color: base.ink }}>{key ? name(key) : 'Choose who'} ▾</Text></Pressable>
         {key ? <Muted style={{ marginBottom: 8 }}>{r.utr ? `UTR ${r.utr}` : 'No UTR saved'} · CIS {r.cis_rate ?? 20}%{r.pay_type ? ` · ${r.pay_type}` : ''}</Muted> : null}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>

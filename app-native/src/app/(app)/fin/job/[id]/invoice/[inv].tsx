@@ -54,7 +54,7 @@ function Draft({ inv, site }: { inv: Row; site: Row | undefined }) {
   const set = (k: string, v: unknown) => setD({ ...d, [k]: v });
   const setLine = (i: number, k: string, v: unknown) => setD({ ...d, lines: d.lines.map((l: Row, j: number) => (j === i ? { ...l, [k]: v } : l)) });
   const field = (k: string, label: string, o: { multiline?: boolean; half?: boolean; ph?: string; date?: boolean } = {}) => (
-    <View style={{ flexBasis: o.half ? '47%' : '100%', flexGrow: 1, marginBottom: 8 }}><Muted style={{ fontWeight: '700' }}>{label}</Muted>{o.date ? <DateBox value={String(d[k] ?? '')} onChange={(v) => set(k, v)} title={label} /> : <TextInput value={String(d[k] ?? '')} onChangeText={(v) => set(k, v)} multiline={o.multiline} placeholder={o.ph} style={[box, o.multiline ? { minHeight: 60 } : null]} />}</View>
+    <View style={{ flexBasis: o.half ? '47%' : '100%', flexGrow: 1, marginBottom: 8 }}><Muted style={{ fontWeight: '500' }}>{label}</Muted>{o.date ? <DateBox value={String(d[k] ?? '')} onChange={(v) => set(k, v)} title={label} /> : <TextInput value={String(d[k] ?? '')} onChangeText={(v) => set(k, v)} multiline={o.multiline} placeholder={o.ph} style={[box, o.multiline ? { minHeight: 60 } : null]} />}</View>
   );
   const refresh = () => { ['finInvoice', 'finSales', 'finBook', 'finOverview', 'finJobs'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] })); };
   return (
@@ -62,7 +62,7 @@ function Draft({ inv, site }: { inv: Row; site: Row | undefined }) {
       <Stack.Screen options={{ title: 'Draft invoice' }} />
       <Card>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 8 }}>
-          <Text style={{ color: base.blue, fontWeight: '700', marginBottom: 4 }} onPress={async () => {
+          <Text style={{ color: base.blue, fontWeight: '500', marginBottom: 4 }} onPress={async () => {
             const cs = ((await fdb.from('fin_clients').select('id,name,address,postcode,email').eq('org_id', me.org_id as string).order('name')).data as Row[] | null) ?? [];
             if (!cs.length) { toast('No clients in the Directory yet.'); return; }
             const k = await chooseAction('Bill to', cs.map((c) => ({ key: c.id, label: c.name }))); const c = cs.find((x) => x.id === k); if (!c) return;

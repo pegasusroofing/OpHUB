@@ -82,7 +82,7 @@ export default function FinSubcontract() {
   return (
     <ScrollView contentContainerStyle={page(900)}>
       <Stack.Screen options={{ title: sc ? `${sc.number} · ${sc.name}` : 'New subcontractor PO' }} />
-      {!!sheet && <Card><Muted style={{ fontWeight: '700' }}>Price sheet</Muted><Text style={{ color: base.ink, fontWeight: '700' }}>{sheet.title || 'Price sheet'} · {sheet.status === 'issued' ? 'Issued' : 'Draft'} · {money(Number(sheet.total || 0))}</Text></Card>}
+      {!!sheet && <Card><Muted style={{ fontWeight: '500' }}>Price sheet</Muted><Text style={{ color: base.ink, fontWeight: '500' }}>{sheet.title || 'Price sheet'} · {sheet.status === 'issued' ? 'Issued' : 'Draft'} · {money(Number(sheet.total || 0))}</Text></Card>}
       {sc && (
         <>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
@@ -111,14 +111,14 @@ export default function FinSubcontract() {
               {toSheet && (
                 <View>
                   <SelectBox label="Price tile" value={tile} options={[['', 'New tile named after the work'], ...tiles.map((t) => [t.id, t.name] as [string, string])]} onChange={setTile} />
-                  <Muted style={{ fontWeight: '700', marginBottom: 4 }}>Lines (optional — otherwise one line for the order value)</Muted>
+                  <Muted style={{ fontWeight: '500', marginBottom: 4 }}>Lines (optional — otherwise one line for the order value)</Muted>
                   {lines.map((l, i) => (
                     <View key={i} style={{ flexDirection: 'row', gap: 4, marginBottom: 4, alignItems: 'center' }}>
                       <TextInput value={l.name} onChangeText={(t) => setLines(lines.map((x, j) => (j === i ? { ...x, name: t } : x)))} placeholder="Item" style={[lbox, { flex: 1 }]} />
                       <TextInput value={l.qty} onChangeText={(t) => setLines(lines.map((x, j) => (j === i ? { ...x, qty: t.replace(/[^0-9.]/g, '') } : x)))} placeholder="Qty" keyboardType="decimal-pad" style={[lbox, { width: 54 }]} />
                       <TextInput value={l.unit} onChangeText={(t) => setLines(lines.map((x, j) => (j === i ? { ...x, unit: t } : x)))} placeholder="Unit" style={[lbox, { width: 54 }]} />
                       <TextInput value={l.rate} onChangeText={(t) => setLines(lines.map((x, j) => (j === i ? { ...x, rate: t.replace(/[^0-9.]/g, '') } : x)))} placeholder="Rate £" keyboardType="decimal-pad" style={[lbox, { width: 70 }]} />
-                      <Pressable hitSlop={8} onPress={() => setLines(lines.filter((_, j) => j !== i))}><Text style={{ color: base.slate, fontWeight: '700' }}>✕</Text></Pressable>
+                      <Pressable hitSlop={8} onPress={() => setLines(lines.filter((_, j) => j !== i))}><Text style={{ color: base.slate, fontWeight: '500' }}>✕</Text></Pressable>
                     </View>
                   ))}
                   <Button small kind="ghost" title="+ Add a line" onPress={() => setLines([...lines, { name: '', qty: '1', unit: 'item', rate: '' }])} />
@@ -186,7 +186,7 @@ function AppForm({ sc, a, ctx, nextNo, onClose, onSaved, onPaid }: { sc: Row; a:
   );
   return (
     <Card style={{ borderColor: base.ink, marginTop: 10 }}>
-      <Text style={{ fontWeight: '800', fontSize: 16, color: base.ink }}>{sc.name} · application {a ? a.number : nextNo}</Text>
+      <Text style={{ fontWeight: '600', fontSize: 16, color: base.ink }}>{sc.name} · application {a ? a.number : nextNo}</Text>
       <Muted style={{ marginBottom: 8 }}>All figures are to date (cumulative), excl. VAT. Last application: {money(ctx.prevApplied)} applied.</Muted>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 8 }}>
         {f('app_date', 'Application date')}{f('final_date', 'Final date for payment')}{f('applied', 'Applied for, gross to date £')}{f('mat', 'Of which materials to date £')}
@@ -195,7 +195,7 @@ function AppForm({ sc, a, ctx, nextNo, onClose, onSaved, onPaid }: { sc: Row; a:
       <Muted>Contra / reason for paying less (shown on the notice)</Muted>
       <TextInput editable={!locked} value={v.reason} onChangeText={(x) => setV({ ...v, reason: x })} multiline style={[box, { minHeight: 50, marginBottom: 8 }]} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 8 }}>
-        {!!a?.file_path && <Pressable onPress={async () => { const u = await openDocLink('finance-docs', a.file_path); if (u) viewDoc(u); }}><Text style={{ color: base.blue, fontWeight: '700' }}>📄 View {a.file_name || 'their application'}</Text></Pressable>}
+        {!!a?.file_path && <Pressable onPress={async () => { const u = await openDocLink('finance-docs', a.file_path); if (u) viewDoc(u); }}><Text style={{ color: base.blue, fontWeight: '500' }}>📄 View {a.file_name || 'their application'}</Text></Pressable>}
         {!locked && <Pressable onPress={async () => { const r = await DocumentPicker.getDocumentAsync({ type: ['application/pdf', 'image/*'], copyToCacheDirectory: true }); if (!r.canceled && r.assets[0]) setFile({ uri: r.assets[0].uri, name: r.assets[0].name || 'application.pdf', mimeType: r.assets[0].mimeType }); }}><Text style={{ color: base.blue }}>📎 {file ? file.name : a?.file_path ? 'Replace their application' : 'Attach their application (PDF / photo)'}</Text></Pressable>}
       </View>
       {c.cert === null || !('net' in c) ? <Muted>Enter the certified amount to see what to pay.</Muted> : (

@@ -5,7 +5,6 @@
 import { isValidElement, useState, type ReactNode } from 'react';
 import { Modal, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native';
 
-import { heading } from '@/lib/fonts';
 import { type FinSort, nextSort, sortRows } from '@/lib/rules/finTable';
 import { base, useTheme } from '@/theme/theme';
 
@@ -48,7 +47,7 @@ export function FinTable<T>({ cols, rows, keyOf, onRow, foot, onMenu, defaultSor
           <View style={{ flexDirection: 'row', paddingVertical: 10, paddingHorizontal: 8 }}>
             {cols.map((c) => (
               <Pressable key={c.k} disabled={!c.l || c.noSort} onPress={() => setSort(nextSort(sort, c.k))} accessibilityRole={c.noSort ? undefined : 'button'} accessibilityLabel={c.noSort ? undefined : `Sort by ${c.l}${sort?.k === c.k ? (sort.dir === 'asc' ? ', A to Z' : ', Z to A') : ''}`} style={cell(c)}>
-                <Text style={{ fontSize: 13, fontWeight: '800', letterSpacing: 0.4, color: sort?.k === c.k ? t.brand1 : base.ink, textDecorationLine: 'underline', textTransform: 'uppercase' }}>{c.l}{sort?.k === c.k ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : ''}</Text>
+                <Text style={{ fontSize: 13, fontWeight: '600', letterSpacing: 0.4, color: sort?.k === c.k ? t.brand1 : base.ink, textDecorationLine: 'underline', textTransform: 'uppercase' }}>{c.l}{sort?.k === c.k ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : ''}</Text>
               </Pressable>
             ))}
               {onMenu ? <View style={{ width: 32 }} /> : null}
@@ -57,7 +56,7 @@ export function FinTable<T>({ cols, rows, keyOf, onRow, foot, onMenu, defaultSor
             <View style={{ flexDirection: 'row', paddingBottom: 8, paddingHorizontal: 8 }}>
               {cols.map((c) => <View key={c.k} style={cell(c)}>{!!c.l && c.choices ? (
                 <Pressable onPress={(e) => { setAt({ x: e.nativeEvent.pageX, y: e.nativeEvent.pageY }); setOpen(open === c.k ? '' : c.k); }} accessibilityRole="button" accessibilityLabel={`Filter ${c.l}`} style={{ width: 0, minWidth: '100%', alignSelf: 'stretch', height: 28, paddingHorizontal: 6, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, backgroundColor: '#fff', borderWidth: 1, borderColor: picks[c.k]?.length ? t.brand1 : '#e5e7eb', borderRadius: 7 }}>
-                  <Text numberOfLines={1} style={{ flexShrink: 1, fontSize: 11.5, fontWeight: picks[c.k]?.length ? '700' : '400', color: base.ink }}>{pickLabel(c)}</Text><Text style={{ fontSize: 9, color: base.slate }}>{open === c.k ? '▲' : '▼'}</Text>
+                  <Text numberOfLines={1} style={{ flexShrink: 1, fontSize: 11.5, fontWeight: picks[c.k]?.length ? '500' : '400', color: base.ink }}>{pickLabel(c)}</Text><Text style={{ fontSize: 9, color: base.slate }}>{open === c.k ? '▲' : '▼'}</Text>
                 </Pressable>
               ) : !!c.l && <TextInput value={q[c.k] || ''} onChangeText={(v) => setQ({ ...q, [c.k]: v })} placeholder={c.l} accessibilityLabel={`Filter ${c.l}`} placeholderTextColor={base.slateLight} style={{ width: 0, minWidth: '100%', alignSelf: 'stretch', height: 28, paddingHorizontal: 6, fontSize: 11.5, textAlign: 'center', color: base.ink, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 7 }} />}</View>)}
               {onMenu ? <View style={{ width: 32 }} /> : null}
@@ -69,10 +68,10 @@ export function FinTable<T>({ cols, rows, keyOf, onRow, foot, onMenu, defaultSor
             <View style={{ position: 'absolute', left: Math.max(8, Math.min(at.x - 90, win.width - 200)), top: at.y + 14, width: 180, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 8, overflow: 'hidden', shadowColor: '#101828', shadowOpacity: 0.18, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 6 }}>
               {openCol.choices!.map((v, i) => { const on = (picks[openCol.k] || []).includes(v); return (
                 <Pressable key={v} accessibilityRole="checkbox" accessibilityState={{ checked: on }} accessibilityLabel={v} onPress={() => tick(openCol.k, v)} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 7, borderTopWidth: i ? 1 : 0, borderTopColor: '#F0F1F4' }}>
-                  <Text style={{ width: 18, fontSize: 14, color: base.ink }}>{on ? '☑' : '☐'}</Text><Text style={{ fontSize: 13, color: base.ink, fontWeight: on ? '700' : '400' }}>{v}</Text>
+                  <Text style={{ width: 18, fontSize: 14, color: base.ink }}>{on ? '☑' : '☐'}</Text><Text style={{ fontSize: 13, color: base.ink, fontWeight: on ? '500' : '400' }}>{v}</Text>
                 </Pressable>
               ); })}
-              <Pressable onPress={() => setOpen('')} style={{ paddingHorizontal: 12, paddingVertical: 7, borderTopWidth: 1, borderTopColor: '#F0F1F4' }}><Text style={{ fontSize: 12.5, fontWeight: '700', color: t.brand1 }}>Done</Text></Pressable>
+              <Pressable onPress={() => setOpen('')} style={{ paddingHorizontal: 12, paddingVertical: 7, borderTopWidth: 1, borderTopColor: '#F0F1F4' }}><Text style={{ fontSize: 12.5, fontWeight: '500', color: t.brand1 }}>Done</Text></Pressable>
             </View>
             </Modal>
           )}
@@ -82,7 +81,7 @@ export function FinTable<T>({ cols, rows, keyOf, onRow, foot, onMenu, defaultSor
               <Pressable key={keyOf(r)} onPress={onRow ? () => onRow(r) : undefined}
                 style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', minHeight: 52, paddingVertical: 8, paddingHorizontal: 8, borderTopWidth: i ? 1 : 0, borderTopColor: '#F0F1F4' }, pressed && { backgroundColor: '#F8F9FB' }]}>
                 {cols.map((c) => <View key={c.k} style={cell(c)} testID={`col-${c.k}`}>{c.render(r)}</View>)}
-                {onMenu ? <Pressable onPress={() => onMenu(r)} hitSlop={8} accessibilityLabel="More" style={{ width: 32, alignItems: 'center' }}><Text style={{ fontSize: 16, fontWeight: '800', color: base.slate }}>⋯</Text></Pressable> : null}
+                {onMenu ? <Pressable onPress={() => onMenu(r)} hitSlop={8} accessibilityLabel="More" style={{ width: 32, alignItems: 'center' }}><Text style={{ fontSize: 16, fontWeight: '600', color: base.slate }}>⋯</Text></Pressable> : null}
               </Pressable>
             ))}
           </View>
@@ -97,10 +96,10 @@ export function FinTable<T>({ cols, rows, keyOf, onRow, foot, onMenu, defaultSor
 
 /** A plain centred table cell. */
 export const Cell = ({ children, bold, tone }: { children: ReactNode; bold?: boolean; tone?: string }) => (
-  <Text numberOfLines={2} style={[bold ? heading(700) : {}, { fontSize: 12.5, color: tone || base.ink, textAlign: 'center', fontWeight: bold ? '700' : '400' }]}>{children}</Text>
+  <Text numberOfLines={2} style={[bold ? { fontWeight: '600' as const } : {}, { fontSize: 12.5, color: tone || base.ink, textAlign: 'center', fontWeight: bold ? '500' : '400' }]}>{children}</Text>
 );
 /** Text in the totals bar. */
 export const FootText = ({ children, bold }: { children: ReactNode; bold?: boolean }) => {
   const t = useTheme();
-  return <Text style={{ color: t.brand1Text, fontSize: 12.5, fontWeight: bold ? '800' : '600' }}>{children}</Text>;
+  return <Text style={{ color: t.brand1Text, fontSize: 12.5, fontWeight: bold ? '600' : '500' }}>{children}</Text>;
 };

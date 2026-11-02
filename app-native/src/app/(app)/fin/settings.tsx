@@ -97,7 +97,7 @@ export default function FinSettings() {
           <View key={k} style={{ marginBottom: 4 }}>
             <Pressable onPress={() => setOpenS(on ? openS.filter((x) => x !== k) : [...openS, k])} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 8, paddingVertical: 7, paddingHorizontal: 10 }}>
               <OphIcon name={ic} size={16} color={base.slate} />
-              <Text style={{ flex: 1, fontWeight: '800', color: '#111827', fontSize: 13 }}>{title}</Text>
+              <Text style={{ flex: 1, fontWeight: '600', color: '#111827', fontSize: 13 }}>{title}</Text>
               <View style={{ transform: [{ rotate: on ? '90deg' : '0deg' }] }}><OphIcon name="chevron" size={14} color={base.slate} /></View>
             </Pressable>
             {on && (
@@ -111,9 +111,9 @@ export default function FinSettings() {
                         {canEditCosts
                           ? <Pressable onPress={() => void setSeeCosts(p, !p.see_costs)} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                               <View style={{ width: 36, height: 20, borderRadius: 10, backgroundColor: p.see_costs ? '#15803d' : '#d1d5db', padding: 2, alignItems: p.see_costs ? 'flex-end' : 'flex-start' }}><View style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: '#fff' }} /></View>
-                              <Text style={{ fontWeight: '700', color: base.ink, minWidth: 54 }}>{p.see_costs ? 'Can see' : 'Hidden'}</Text>
+                              <Text style={{ fontWeight: '500', color: base.ink, minWidth: 54 }}>{p.see_costs ? 'Can see' : 'Hidden'}</Text>
                             </Pressable>
-                          : <Text style={{ fontWeight: '700', color: base.ink }}>{p.see_costs ? 'Can see' : 'Hidden'}</Text>}
+                          : <Text style={{ fontWeight: '500', color: base.ink }}>{p.see_costs ? 'Can see' : 'Hidden'}</Text>}
                       </View>
                     )) : <Muted>Nobody else in the team yet.</Muted>}
                     {!canEditCosts && <Muted style={{ marginTop: 6 }}>Only an admin with Finance can change these.</Muted>}

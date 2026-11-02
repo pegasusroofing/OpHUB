@@ -186,7 +186,7 @@ function CodeLines({ i, sites, onSaved }: { i: Row; sites: { id: string; job_num
       <Muted style={{ marginBottom: 6 }}>Pick the project and cost type for each line. One invoice can cover several jobs.</Muted>
       {lines.map((l, k) => (
         <View key={k} style={{ borderTopWidth: k ? 1 : 0, borderTopColor: base.line, paddingVertical: 6 }}>
-          <View style={{ flexDirection: 'row' }}><Text style={{ flex: 1, fontWeight: '700', color: base.ink }}>{l.description || `Line ${k + 1}`}</Text><Text style={{ fontWeight: '700', color: base.ink }}>{money(l.amount)}</Text></View>
+          <View style={{ flexDirection: 'row' }}><Text style={{ flex: 1, fontWeight: '500', color: base.ink }}>{l.description || `Line ${k + 1}`}</Text><Text style={{ fontWeight: '500', color: base.ink }}>{money(l.amount)}</Text></View>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
             <SelectBox value={l.site_id} title="Project" options={pick.map((x) => [x.id, jobTag(x)] as [string, string])} onChange={(v) => setLines(lines.map((y, j) => (j === k ? { ...y, site_id: v } : y)))} style={{ marginBottom: 0, minWidth: 220, flexGrow: 1 }} />
             <SelectBox value={l.cost_code} title="Cost type" options={Object.entries(COST_CATS).filter(([c]) => c !== 'labour')} onChange={(v) => setLines(lines.map((y, j) => (j === k ? { ...y, cost_code: v } : y)))} style={{ marginBottom: 0, minWidth: 170 }} />

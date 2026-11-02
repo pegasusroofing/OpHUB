@@ -24,14 +24,14 @@ export function FinFilterBar({ search, parts, sel, onChange, onClear, sorts, sor
   const label = count === 0 ? 'Filter: everything' : count === 1 && ticked[0] ? `Filter: ${ticked[0]}` : `Filter (${count})`;
   const drop = (key: 'filter' | 'sort', text: string, on: boolean) => (
     <Pressable accessibilityRole="button" accessibilityLabel={key === 'filter' ? 'Filter' : 'Sort'} onPress={() => setMenu(menu === key ? '' : key)} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 6, paddingHorizontal: 10, paddingVertical: 8, borderRadius: radius.input, borderWidth: 1, borderColor: on || menu === key ? base.ink : base.line, backgroundColor: base.card }}>
-      <Text numberOfLines={1} style={{ flexShrink: 1, fontSize: 12.5, fontWeight: '700', color: base.ink }}>{text}</Text>
+      <Text numberOfLines={1} style={{ flexShrink: 1, fontSize: 12.5, fontWeight: '500', color: base.ink }}>{text}</Text>
       <Text style={{ fontSize: 11, color: base.slate }}>{menu === key ? '▲' : '▼'}</Text>
     </Pressable>
   );
   const option = (text: string, on: boolean, press: () => void, box: boolean) => (
     <Pressable key={text} accessibilityRole={box ? 'checkbox' : 'button'} accessibilityLabel={text} onPress={press} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 8, borderTopWidth: 1, borderTopColor: base.cardLine }}>
       <Text style={{ width: 18, fontSize: 15, color: base.ink }}>{box ? (on ? '☑' : '☐') : on ? '✓' : ''}</Text>
-      <Text style={{ flex: 1, fontSize: 13.5, color: base.ink, fontWeight: on ? '700' : '400' }}>{text}</Text>
+      <Text style={{ flex: 1, fontSize: 13.5, color: base.ink, fontWeight: on ? '500' : '400' }}>{text}</Text>
     </Pressable>
   );
   const panel = { backgroundColor: base.card, borderWidth: 1, borderColor: base.line, borderRadius: radius.input, marginBottom: 10, overflow: 'hidden' as const };
@@ -54,7 +54,7 @@ export function FinFilterBar({ search, parts, sel, onChange, onClear, sorts, sor
             return (
               <View key={p.key}>
                 <Pressable accessibilityRole="button" accessibilityLabel={p.label} onPress={() => { setPart(part === p.key ? '' : p.key); setFind(''); }} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 9, borderTopWidth: 1, borderTopColor: base.cardLine }}>
-                  <Text style={{ fontSize: 13.5, fontWeight: '700', color: base.ink }}>{p.label}{on.length ? ` (${on.length})` : ''}</Text>
+                  <Text style={{ fontSize: 13.5, fontWeight: '500', color: base.ink }}>{p.label}{on.length ? ` (${on.length})` : ''}</Text>
                   <Text style={{ fontSize: 11, color: base.slate }}>{part === p.key ? '▲' : '▼'}</Text>
                 </Pressable>
                 {part === p.key && (
@@ -79,7 +79,7 @@ export function FinFilterBar({ search, parts, sel, onChange, onClear, sorts, sor
 
 /** Excel and PDF as links in a thin bar: goes below the page's scrolling part, as on the Quotes list. */
 export function ThinExportBar({ onExcel, onPdf, busy }: { onExcel: () => void; onPdf: () => void; busy?: string }) {
-  const link = (t: string, press: () => void) => <Pressable accessibilityRole="button" onPress={press}><Text style={{ fontSize: 13, fontWeight: '700', color: base.blue }}>{t}</Text></Pressable>;
+  const link = (t: string, press: () => void) => <Pressable accessibilityRole="button" onPress={press}><Text style={{ fontSize: 13, fontWeight: '500', color: base.blue }}>{t}</Text></Pressable>;
   return (
     <View style={{ flexDirection: 'row', justifyContent: 'space-between', backgroundColor: base.card, borderTopWidth: 1, borderTopColor: base.line, paddingHorizontal: 16, paddingVertical: 9 }}>
       {link(busy === 'x' ? 'Making…' : 'Excel', onExcel)}

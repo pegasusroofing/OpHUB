@@ -29,7 +29,6 @@ import { useAuth } from '@/lib/auth';
 import { siteStatusKey } from '@/lib/rules/checkin';
 import { plainGet, plainSet } from '@/lib/kv';
 import { forecast, pctTxt } from '@/lib/rules/finBook';
-import { heading } from '@/lib/fonts';
 import { appDueThisMonth, plantCost, today, appDateFor, FIN_VAT_LABEL, fdate, invOutstanding, invOutstandingNet, invOverdue, money, num, retentionAlerts, retentionDates, retentionHeld, retHalfAmt, type FinApp, type FinInv } from '@/lib/rules/finance';
 import { isFinanceOnlyOrg, isFinanceUser, isFullManager } from '@/lib/roles';
 import { base, page, space, useTheme } from '@/theme/theme';
@@ -76,13 +75,13 @@ export default function FinJob() {
     <ScrollView contentContainerStyle={page(1000)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title }} />
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10, padding: 8, marginBottom: 6 }}>
-        <Text numberOfLines={1} style={{ flex: 1, fontSize: 13, color: base.ink }}><Text style={{ fontWeight: '800' }}>{s?.job_number || ''}</Text>  {s?.name || ''}</Text>
+        <Text numberOfLines={1} style={{ flex: 1, fontSize: 13, color: base.ink }}><Text style={{ fontWeight: '600' }}>{s?.job_number || ''}</Text>  {s?.name || ''}</Text>
         <Pressable onPress={async () => {
           const opts = [['inv', 'Invoice', `/fin/job/${id}/invoice/new`], ...(fc && !fc.isInvoiceJob ? [['app', 'Application', `/fin/job/${id}/application/new`]] : []), ['po', 'Purchase order', `/fin/po/new?site=${id}`], ['pinv', 'Purchase invoice', `/fin/pinv/new?site=${id}`], ['plant', 'Plant hire', `/fin/plant/new?site=${id}`], ['sub', 'Subcontract', `/fin/sub/new?site=${id}`]];
           const k = await chooseAction('New', opts.map(([key, label]) => ({ key, label })));
           const o = opts.find((x) => x[0] === k); if (o) router.push(o[2] as never);
         }} style={{ backgroundColor: t.brand1, borderRadius: 8, paddingVertical: 7, paddingHorizontal: 14, flexDirection: 'row', gap: 18 }}>
-          <Text style={{ color: t.brand1Text, fontSize: 12.5, fontWeight: '800' }}>+ New</Text><Text style={{ color: t.brand1Text, fontSize: 11 }}>▾</Text>
+          <Text style={{ color: t.brand1Text, fontSize: 12.5, fontWeight: '600' }}>+ New</Text><Text style={{ color: t.brand1Text, fontSize: 11 }}>▾</Text>
         </Pressable>
       </View>
       <FinTabRow>
@@ -146,13 +145,13 @@ function Overview({ id, fc, settings, invs, apps, book, askFinancials }: { id: s
     (() => { const c = choice('od', 'net'); const v = c === 'gross' ? od.reduce((tt, i) => tt + invOutstanding(i), 0) : odV; return { slot: 'od', cur: c, t: 'Overdue', v: k(v), sub: od.length ? `${od.length} invoice${od.length === 1 ? '' : 's'}` : c === 'gross' ? 'incl. VAT' : 'excl. VAT', tone: (v > 0 ? 'red' : 'grey') as 'red' | 'grey', go: `/fin/job/${id}?tab=sales` }; })(),
     ...(fc.isInvoiceJob ? [] : [(() => { const c = choice('ret', 'held'); return { slot: 'ret', cur: c, t: c === 'held' ? 'Retention' : c === 'released' ? 'Released' : 'Retention Taken', v: k(c === 'held' ? still : c === 'taken' ? taken : Math.max(0, taken - still) + retPeak), sub: c === 'held' ? 'still with the client' : c === 'taken' ? 'on the latest certificate' : 'invoiced or applied for', tone: 'amber' as const, go: `/fin/job/${id}?tab=sales&sub=retention` }; })()]),
   ];
-  const ghost = (l: string, p: string) => <Pressable key={l} onPress={() => router.push(p as never)} style={{ borderRadius: 8, paddingVertical: 6, paddingHorizontal: 12, backgroundColor: '#DFE3EA' }}><Text style={{ fontSize: 12.5, fontWeight: '600', color: base.ink }}>{l}</Text></Pressable>;
+  const ghost = (l: string, p: string) => <Pressable key={l} onPress={() => router.push(p as never)} style={{ borderRadius: 8, paddingVertical: 6, paddingHorizontal: 12, backgroundColor: '#DFE3EA' }}><Text style={{ fontSize: 12.5, fontWeight: '500', color: base.ink }}>{l}</Text></Pressable>;
   return (
     <View>
       {needsFin && (
         <View style={{ backgroundColor: '#fffaf0', borderWidth: 1, borderColor: '#f8e7c2', borderRadius: 10, padding: 12, marginBottom: 10, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
           <View style={{ flex: 1, minWidth: 220 }}>
-            <Text style={{ fontWeight: '700', color: '#111827' }}>Set up the project financials</Text>
+            <Text style={{ fontWeight: '500', color: '#111827' }}>Set up the project financials</Text>
             <Text style={{ fontSize: 12, color: base.slate }}>Contract value, payment terms, retention, VAT and application date.</Text>
           </View>
           <Button small title="Set up" onPress={() => setFinOpen(true)} />
@@ -162,12 +161,12 @@ function Overview({ id, fc, settings, invs, apps, book, askFinancials }: { id: s
       {finOpen && <Setup formOnly id={id} site={site as Row | undefined} jf={fc.jf} cpos={((book.cpos as Row[]) || []).filter((p) => p.site_id === id)} settings={settings} onDone={() => setFinOpen(false)} />}
       <Pressable onPress={() => router.setParams({ tab: 'setup' })}>
         <Card>
-          <Text style={{ fontSize: 10.5, fontWeight: '800', letterSpacing: 0.6, color: '#6b7280', textTransform: 'uppercase' }}>Forecasted final account</Text>
+          <Text style={{ fontSize: 10.5, fontWeight: '600', letterSpacing: 0.6, color: '#6b7280', textTransform: 'uppercase' }}>Forecasted final account</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-            <Text style={[heading(800), { flex: 1, fontSize: 30, color: '#111827' }]}>{money(fc.ffa, 0)}</Text>
+            <Text style={[{ fontWeight: '600' as const }, { flex: 1, fontSize: 30, color: '#111827' }]}>{money(fc.ffa, 0)}</Text>
             {mPct == null
-              ? <Pressable onPress={() => router.push(`/fin/job/${id}/budget` as never)} style={{ backgroundColor: '#EEF0F2', borderRadius: 999, paddingVertical: 5, paddingHorizontal: 10 }}><Text style={{ fontSize: 11.5, fontWeight: '700', color: base.ink }}>Set a budget</Text></Pressable>
-              : <Text style={{ fontSize: 11.5, fontWeight: '700', color: mPct < 0 ? '#c81e1e' : '#15803d', backgroundColor: mPct < 0 ? '#fff5f4' : '#f1fbf5', borderRadius: 999, paddingVertical: 5, paddingHorizontal: 10, overflow: 'hidden' }}>{pctTxt(mPct)} {fc.budgetTotal != null ? 'margin' : 'margin to date'}</Text>}
+              ? <Pressable onPress={() => router.push(`/fin/job/${id}/budget` as never)} style={{ backgroundColor: '#EEF0F2', borderRadius: 999, paddingVertical: 5, paddingHorizontal: 10 }}><Text style={{ fontSize: 11.5, fontWeight: '500', color: base.ink }}>Set a budget</Text></Pressable>
+              : <Text style={{ fontSize: 11.5, fontWeight: '500', color: mPct < 0 ? '#c81e1e' : '#15803d', backgroundColor: mPct < 0 ? '#fff5f4' : '#f1fbf5', borderRadius: 999, paddingVertical: 5, paddingHorizontal: 10, overflow: 'hidden' }}>{pctTxt(mPct)} {fc.budgetTotal != null ? 'margin' : 'margin to date'}</Text>}
           </View>
           <Text style={{ fontSize: 12.5, color: '#6b7280', marginTop: 2 }}>Contract {money(fc.contract, 0)} + {money(fc.vAgreed, 0)} agreed variations{fc.vPending ? ` + ${money(fc.vPending, 0)} submitted` : ''}{fc.budgetTotal != null ? ` · forecast profit ${money(fc.forecastMargin, 0)}` : ''}</Text>
           <View style={{ height: 6, borderRadius: 3, backgroundColor: '#EEF0F2', marginTop: 14, overflow: 'hidden' }}><View style={{ width: `${pv}%`, height: '100%', backgroundColor: '#15803d' }} /></View>
@@ -182,13 +181,13 @@ function Overview({ id, fc, settings, invs, apps, book, askFinancials }: { id: s
           <View key={x.t} style={{ width: tiles.length > 6 ? '25%' : '33.333%', minWidth: 150, padding: 4, flexGrow: 1 }}>
             <Pressable onPress={() => router.push(x.go as never)} style={{ backgroundColor: TINT[x.tone][0], borderWidth: 1, borderColor: TINT[x.tone][1], borderRadius: 10, paddingVertical: 10, paddingHorizontal: 12, minHeight: 72 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                <Text style={{ flex: 1, fontSize: 11, fontWeight: '700', color: '#111827' }}>{x.t}</Text>
+                <Text style={{ flex: 1, fontSize: 11, fontWeight: '500', color: '#111827' }}>{x.t}</Text>
                 {!!x.slot && <Pressable hitSlop={8} accessibilityLabel={`${x.t} options`} onPress={async () => {
                   const c = await chooseAction(x.t, OV_OPTS[x.slot as string].map(([key, label]) => ({ key, label: x.cur === key ? `✓ ${label}` : label }))); if (!c) return;
                   const next = { ...ovPick, [x.slot as string]: c }; qcOv.setQueryData(['finOvPick'], next); await plainSet('ophub.finOv2', next);
-                }}><Text style={{ color: base.slate, fontWeight: '800' }}>⋯</Text></Pressable>}
+                }}><Text style={{ color: base.slate, fontWeight: '600' }}>⋯</Text></Pressable>}
               </View>
-              <Text style={[heading(800), { fontSize: 19, color: TINT[x.tone][2], marginTop: 2 }]}>{x.v}</Text>
+              <Text style={[{ fontWeight: '600' as const }, { fontSize: 19, color: TINT[x.tone][2], marginTop: 2 }]}>{x.v}</Text>
               <Text style={{ fontSize: 11, color: '#6b7280' }}>{x.sub}</Text>
             </Pressable>
           </View>
@@ -200,8 +199,8 @@ function Overview({ id, fc, settings, invs, apps, book, askFinancials }: { id: s
         <View style={{ flex: 1 }} />
         {ghost('Monthly Report', `/fin/job/${id}/monthly`)}{ghost('Day Works', `/fin/job/${id}/dayworks`)}{ghost('Budgets', `/fin/job/${id}/budget`)}{ghost('Project Quotes', `/fin/job/${id}/quotes`)}
       </View>
-      {fc.ffaFromInvoiced && <Text style={{ color: '#D98A00', fontWeight: '700', marginBottom: 8 }}>Invoiced to date is more than the contract and variations, so the forecast uses the invoiced total.</Text>}
-      {fc.budgetSource === 'schedule' && fc.schedCostedN < fc.schedItemsN && <Text onPress={() => router.push(`/fin/job/${id}/boq` as never)} style={{ color: '#D98A00', fontWeight: '700', marginBottom: 8 }}>{fc.schedItemsN - fc.schedCostedN} Bill of Quantities line{fc.schedItemsN - fc.schedCostedN === 1 ? ' has' : 's have'} no cost price yet, so the budget is low. ›</Text>}
+      {fc.ffaFromInvoiced && <Text style={{ color: '#D98A00', fontWeight: '500', marginBottom: 8 }}>Invoiced to date is more than the contract and variations, so the forecast uses the invoiced total.</Text>}
+      {fc.budgetSource === 'schedule' && fc.schedCostedN < fc.schedItemsN && <Text onPress={() => router.push(`/fin/job/${id}/boq` as never)} style={{ color: '#D98A00', fontWeight: '500', marginBottom: 8 }}>{fc.schedItemsN - fc.schedCostedN} Bill of Quantities line{fc.schedItemsN - fc.schedCostedN === 1 ? ' has' : 's have'} no cost price yet, so the budget is low. ›</Text>}
       <NeedsAttention id={id} site={site as Row | undefined} fc={fc} settings={settings} invs={invs} apps={apps} book={book} />
     </View>
   );
@@ -246,7 +245,7 @@ function RetentionPanel({ id, fc, settings, invs, apps }: { id: string; fc: Retu
   return (
     <View style={{ marginBottom: 10 }}>
       <Card>
-        {alerts.map((a) => <Text key={a.half} style={{ color: '#D98A00', fontWeight: '700' }}>{a.half === 1 ? 'First' : 'Second'} half due {fdate(a.date)}</Text>)}
+        {alerts.map((a) => <Text key={a.half} style={{ color: '#D98A00', fontWeight: '500' }}>{a.half === 1 ? 'First' : 'Second'} half due {fdate(a.date)}</Text>)}
         <FinRow title="Held to date" right={money(fc.retHeld)} />
         <FinRow title="First half — at practical completion" sub={`${d.first ? fdate(d.first) : 'Set the practical completion date in Project Admin'}${fc.jf.ret1_invoice_id ? ' · invoiced' : retAppFor(1) ? ` · In Application ${retAppFor(1)?.number}` : ''}`} right={money(retHalfAmt(heldCert, 1, fc.jf, invs, apps))} onPress={() => void retInv(1)} />
         <FinRow title="Second half — end of defects period" sub={`${d.second ? fdate(d.second) : '—'}${fc.jf.ret2_invoice_id ? ' · invoiced' : retAppFor(2) ? ` · In Application ${retAppFor(2)?.number}` : ''}`} right={money(retHalfAmt(heldCert, 2, fc.jf, invs, apps))} onPress={() => void retInv(2)} />
@@ -457,8 +456,8 @@ function NeedsAttention({ id, site, fc, settings, invs, apps, book }: { id: stri
       <Card>
         {items.map((x, k) => (
           <Pressable key={x.t} onPress={() => router.push(x.go as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderTopWidth: k ? 1 : 0, borderTopColor: base.line }}>
-            <Text style={{ minWidth: 26, textAlign: 'center', fontWeight: '800', color: '#fff', backgroundColor: tone[x.tone], borderRadius: 13, paddingVertical: 2, overflow: 'hidden' }}>{x.n}</Text>
-            <View style={{ flex: 1 }}><Text style={{ fontWeight: '700', color: base.ink }}>{x.t}</Text><Muted>{x.s}</Muted></View>
+            <Text style={{ minWidth: 26, textAlign: 'center', fontWeight: '600', color: '#fff', backgroundColor: tone[x.tone], borderRadius: 13, paddingVertical: 2, overflow: 'hidden' }}>{x.n}</Text>
+            <View style={{ flex: 1 }}><Text style={{ fontWeight: '500', color: base.ink }}>{x.t}</Text><Muted>{x.s}</Muted></View>
             <Text style={{ color: base.slate }}>›</Text>
           </Pressable>
         ))}

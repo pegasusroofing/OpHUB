@@ -130,14 +130,14 @@ export default function ProjectQuotes() {
       {shown.length ? shown.map((i) => (
         <View key={i.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, padding: 10, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 6, backgroundColor: base.card, opacity: i.active ? 1 : 0.5 }}>
           <View style={{ flex: 1 }}>
-            <Text style={{ fontWeight: '700', color: base.ink }}>{i.description}</Text>
+            <Text style={{ fontWeight: '500', color: base.ink }}>{i.description}</Text>
             <Muted>{[sel ? '' : i.quote_label || (i.quote_id ? '' : 'Added by hand'), i.code, i.unit ? `per ${i.unit}` : '', i.qty != null ? `quoted qty ${i.qty}` : ''].filter(Boolean).join(' · ')}</Muted>
           </View>
           <TextInput defaultValue={data.rate[i.id] != null ? String(data.rate[i.id]) : ''} placeholder="£" keyboardType="decimal-pad" style={[box, { width: 90 }]} onEndEditing={async (e) => {
             const n = num(e.nativeEvent.text), rate = n === null || isNaN(n) ? null : Math.round(n * 10000) / 10000;
             toast((await fdb.from('fin_shop_prices').upsert({ item_id: i.id, org_id: me.org_id, rate } as never, { onConflict: 'item_id' })).error ? 'Could not save the rate' : 'Rate saved');
           }} />
-          <Pressable onPress={async () => { if (!!(await fdb.from('fin_shop_items').update({ active: !i.active } as never).eq('id', i.id).select('id')).data?.length) refresh(); }}><Text style={{ color: base.blue, fontWeight: '700' }}>{i.active ? 'Hide' : 'Show'}</Text></Pressable>
+          <Pressable onPress={async () => { if (!!(await fdb.from('fin_shop_items').update({ active: !i.active } as never).eq('id', i.id).select('id')).data?.length) refresh(); }}><Text style={{ color: base.blue, fontWeight: '500' }}>{i.active ? 'Hide' : 'Show'}</Text></Pressable>
         </View>
       )) : <Empty>No items yet — upload a quote or add items by hand.</Empty>}
     </ScrollView>

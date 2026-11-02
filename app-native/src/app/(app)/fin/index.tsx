@@ -5,7 +5,6 @@ import { Pressable, Text, View } from 'react-native';
 
 import { FinPage, FinStat, TONE } from '@/components/FinNav';
 import { Card, Muted } from '@/components/ui';
-import { heading } from '@/lib/fonts';
 import { useFinOverview } from '@/data/finance';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
@@ -36,11 +35,11 @@ export default function FinOverview() {
           </View>
           {data.todo.length > 0 ? (
             <Card>
-              <Text style={[heading(700), { fontSize: 15, color: '#111827', marginBottom: 4 }]}>Needs Attention</Text>
+              <Text style={[{ fontWeight: '600' as const }, { fontSize: 15, color: '#111827', marginBottom: 4 }]}>Needs Attention</Text>
               {data.todo.map((x) => (
                 <Pressable key={x.t} onPress={() => router.push(x.go as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6, borderTopWidth: 1, borderColor: '#F0F1F4' }}>
-                  <Text style={{ width: 22, height: 22, lineHeight: 22, textAlign: 'center', fontWeight: '800', fontSize: 12, color: TONE[x.tone], backgroundColor: `${TONE[x.tone]}1F`, borderRadius: 6, overflow: 'hidden' }}>{x.n}</Text>
-                  <View style={{ flex: 1 }}><Text style={{ fontWeight: '700', fontSize: 13.5, color: '#111827' }}>{titleCase(x.t)}</Text><Text numberOfLines={1} style={{ fontSize: 11.5, color: base.slate }}>{x.s}</Text></View>
+                  <Text style={{ width: 22, height: 22, lineHeight: 22, textAlign: 'center', fontWeight: '600', fontSize: 12, color: TONE[x.tone], backgroundColor: `${TONE[x.tone]}1F`, borderRadius: 6, overflow: 'hidden' }}>{x.n}</Text>
+                  <View style={{ flex: 1 }}><Text style={{ fontWeight: '500', fontSize: 13.5, color: '#111827' }}>{titleCase(x.t)}</Text><Text numberOfLines={1} style={{ fontSize: 11.5, color: base.slate }}>{x.s}</Text></View>
                   <Text style={{ color: base.slate }}>›</Text>
                 </Pressable>
               ))}

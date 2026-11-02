@@ -11,7 +11,7 @@ import { Platform, Pressable, Share, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTrail } from '@/components/Crumbs';
-import { FIN_SUBS } from '@/components/FinNav';
+import { FIN_SUBS, FinJobTabs } from '@/components/FinNav';
 import { OphIcon } from '@/components/OphIcon';
 import { StorageImage } from '@/components/StorageImage';
 import { showAlert } from '@/components/toast';
@@ -145,6 +145,7 @@ export function AppBar({ title, onBack, home, right, noHistory }: { title?: stri
           ))}
         </View>
       )}
+      {!!finJob && finRest.length > 0 && <View style={{ backgroundColor: base.paper, paddingHorizontal: desk ? 40 : 16 }}><FinJobTabs id={finJob} active={finRest[0] === 'boq' ? 'boq' : ['invoice', 'application'].includes(finRest[0]) ? 'sales' : finRest[0] === 'quotes' ? 'purchases' : 'overview'} /></View>}
     </View>
   );
   return (

@@ -33,7 +33,7 @@ export function XeroSettings({ s }: { s: Row }) {
   if (!me) return null;
   const f = (k: keyof typeof v, label: string) => (
     <View style={{ flexBasis: '47%', flexGrow: 1, marginBottom: 8 }}>
-      <Text style={{ fontSize: 12, fontWeight: '700', color: base.slate, marginBottom: 4 }}>{label}</Text>
+      <Text style={{ fontSize: 12, fontWeight: '500', color: base.slate, marginBottom: 4 }}>{label}</Text>
       <TextInput value={String(v[k])} onChangeText={(t) => setV({ ...v, [k]: t })} style={box} />
     </View>
   );
@@ -76,7 +76,7 @@ export function XeroRow({ kind, rec, onDone }: { kind: 'invoice' | 'bill' | 'sub
   if (!can && !rec.xero_id) return null;
   return (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginVertical: 6 }}>
-      <Text style={{ color: rec.xero_id ? '#1E7A3C' : base.slate, fontWeight: '700' }}>{rec.xero_id ? `✓ Posted to Xero${rec.xero_synced_at ? ` · ${fdate(String(rec.xero_synced_at).slice(0, 10))}` : ''}` : rec.xero_post === false ? 'Set not to post to Xero' : 'Not posted to Xero yet'}</Text>
+      <Text style={{ color: rec.xero_id ? '#1E7A3C' : base.slate, fontWeight: '500' }}>{rec.xero_id ? `✓ Posted to Xero${rec.xero_synced_at ? ` · ${fdate(String(rec.xero_synced_at).slice(0, 10))}` : ''}` : rec.xero_post === false ? 'Set not to post to Xero' : 'Not posted to Xero yet'}</Text>
       {can && !rec.xero_id && <Button small kind="ghost" busy={busy} title="Post to Xero" onPress={async () => {
         setBusy(true);
         const r = await finInvoke<Row>(me, 'xero', { action: KIND[kind], id: rec.id });

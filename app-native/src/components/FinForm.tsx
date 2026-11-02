@@ -24,7 +24,7 @@ export function FinForm({ title, fields, initial, onSave, onClose, onDelete, sav
     if (f.kind === 'check') return <Check key={f.k} label={f.label} value={!!v[f.k]} onChange={(x) => set(f.k, x)} />;
     return (
       <View key={f.k} style={{ flexBasis: f.half ? '47%' : '100%', flexGrow: 1, marginBottom: 8 }}>
-        <Muted style={{ fontWeight: '700' }}>{f.label}</Muted>
+        <Muted style={{ fontWeight: '500' }}>{f.label}</Muted>
         {f.kind === 'choice' ? (
           <Pressable onPress={async () => { const k = await chooseAction(f.label, (f.options || []).map(([key, label]) => ({ key, label }))); if (k !== null && k !== undefined) set(f.k, k); }} style={box}>
             <Text style={{ color: base.ink }}>{(f.options || []).find(([k]) => k === v[f.k])?.[1] || f.ph || 'Choose…'} ▾</Text>
@@ -45,8 +45,8 @@ export function FinForm({ title, fields, initial, onSave, onClose, onDelete, sav
       <Pressable onPress={onClose} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', padding: 16 }}>
         <Pressable onPress={() => {}} style={{ backgroundColor: base.card, borderRadius: 14, padding: 16, maxHeight: '90%', width: '100%', maxWidth: 560, alignSelf: 'center' }}>
           <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 10 }}>
-            <Text style={{ flex: 1, fontWeight: '800', fontSize: 16, color: base.ink }}>{title}</Text>
-            <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" hitSlop={10}><Text style={{ fontSize: 18, color: base.slate, fontWeight: '700' }}>✕</Text></Pressable>
+            <Text style={{ flex: 1, fontWeight: '600', fontSize: 16, color: base.ink }}>{title}</Text>
+            <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" hitSlop={10}><Text style={{ fontSize: 18, color: base.slate, fontWeight: '500' }}>✕</Text></Pressable>
           </View>
           <ScrollView style={{ flexGrow: 0 }} keyboardShouldPersistTaps="handled">
             {note ? <Muted style={{ marginBottom: 8 }}>{note}</Muted> : null}

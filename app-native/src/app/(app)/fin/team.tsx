@@ -35,10 +35,10 @@ export default function FinTeam() {
         {people.map((p, i) => (
           <View key={p.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, borderTopWidth: i ? 1 : 0, borderTopColor: base.line }}>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontWeight: '700', color: base.ink, fontSize: 15 }}>{p.name}{p.id === me.id ? <Text style={{ color: base.slate, fontWeight: '400' }}> (you)</Text> : null}</Text>
+              <Text style={{ fontWeight: '500', color: base.ink, fontSize: 15 }}>{p.name}{p.id === me.id ? <Text style={{ color: base.slate, fontWeight: '400' }}> (you)</Text> : null}</Text>
               <Muted>{[p.email, roleWord(p.role)].filter(Boolean).join(' · ')}</Muted>
             </View>
-            <Text style={{ fontSize: 11.5, fontWeight: '800', color: p.finance_enabled ? '#1E7A3C' : base.slate, backgroundColor: p.finance_enabled ? '#E6F4EA' : '#F1F2F4', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3, overflow: 'hidden' }}>{p.finance_enabled ? 'Finance on' : 'No Finance'}</Text>
+            <Text style={{ fontSize: 11.5, fontWeight: '600', color: p.finance_enabled ? '#1E7A3C' : base.slate, backgroundColor: p.finance_enabled ? '#E6F4EA' : '#F1F2F4', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3, overflow: 'hidden' }}>{p.finance_enabled ? 'Finance on' : 'No Finance'}</Text>
             {canFin && p.id !== me.id && <Button small kind="ghost" title={p.finance_enabled ? 'Switch off' : 'Give Finance'} onPress={async () => {
               if (!p.finance_enabled && !['pm', 'admin'].includes(p.role) && !(await confirmAsk(`Give ${p.name} Finance? This also makes them a manager. Switching Finance off later puts their old role back.`, 'Give Finance'))) return;
               toast(await toggleFinance(p, true)); refresh();
@@ -52,7 +52,7 @@ export default function FinTeam() {
       </Card>
       {isManager(me) && (
         <Card>
-          <Text style={{ fontWeight: '800', color: base.ink, marginBottom: 6 }}>Invite someone</Text>
+          <Text style={{ fontWeight: '600', color: base.ink, marginBottom: 6 }}>Invite someone</Text>
           {invite ? (
             <>
               <Text selectable style={{ fontSize: 12, color: base.ink, backgroundColor: '#F6F7F9', borderRadius: 6, padding: 8 }}>{joinLink(invite)}</Text>

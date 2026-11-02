@@ -123,7 +123,7 @@ export default function FinDetail() {
     <ScrollView contentContainerStyle={page(1100)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Detailed Summary' }} />
       <Card>
-        <Text style={{ fontWeight: '800', color: base.ink }}>{s?.job_number || '—'} · {s?.name} · {s?.client_name || 'No client'}</Text>
+        <Text style={{ fontWeight: '600', color: base.ink }}>{s?.job_number || '—'} · {s?.name} · {s?.client_name || 'No client'}</Text>
         <View style={{ flexDirection: 'row', gap: 8, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           <Muted>Only items dated</Muted>
           <DateBox value={from} onChange={setFrom} placeholder="From" title="From" style={{ width: 170 }} />

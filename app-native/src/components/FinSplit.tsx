@@ -45,8 +45,8 @@ export function AllocRow({ table, row, po, onSaved }: { table: SplitTable; row: 
   return (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, paddingVertical: 8, borderTopWidth: 1, borderTopColor: base.line }}>
       <Muted>Booked to</Muted>
-      <Text style={{ flex: 1, fontWeight: '700', color: base.ink }}>{txt}</Text>
-      <Pressable onPress={() => setOpen(true)}><Text style={{ color: base.blue, fontWeight: '700' }}>{a.length > 1 ? 'Change split' : subKind(home) ? 'Allocate / split' : 'Split'}</Text></Pressable>
+      <Text style={{ flex: 1, fontWeight: '500', color: base.ink }}>{txt}</Text>
+      <Pressable onPress={() => setOpen(true)}><Text style={{ color: base.blue, fontWeight: '500' }}>{a.length > 1 ? 'Change split' : subKind(home) ? 'Allocate / split' : 'Split'}</Text></Pressable>
       {open && <SplitBox table={table} row={row} po={po} onClose={() => setOpen(false)} onSaved={onSaved} />}
     </View>
   );
@@ -90,7 +90,7 @@ export function SplitBox({ table, row, po, onClose, onSaved }: { table: SplitTab
     <Modal transparent animationType="fade" onRequestClose={onClose}>
       <Pressable onPress={onClose} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', padding: 16 }}>
         <Pressable onPress={() => {}} style={{ backgroundColor: base.card, borderRadius: 14, padding: 16, maxHeight: '90%', width: '100%', maxWidth: 640, alignSelf: 'center' }}>
-          <Text style={{ fontWeight: '800', fontSize: 16, color: base.ink, marginBottom: 6 }}>Allocate this {NOUN[table]}</Text>
+          <Text style={{ fontWeight: '600', fontSize: 16, color: base.ink, marginBottom: 6 }}>Allocate this {NOUN[table]}</Text>
           <ScrollView style={{ flexGrow: 0 }} keyboardShouldPersistTaps="handled">
             {!!row.xero_id && <Muted style={{ color: '#b45309', marginBottom: 6 }}>Already in Xero. Changing the split here won’t change Xero — change the project tracking on the bill in Xero too.</Muted>}
             <Muted style={{ marginBottom: 8 }}>{`${net != null ? `${money(net)} excl. VAT. ` : table === 'fin_plant_hires' && row.cost_from === 'invoices' ? 'The cost comes from the hire company’s invoices. ' : ''}Book it to one ${homeSubs.length ? subNoun(home).toLowerCase() : 'project'}, or split it across as many projects${homeSubs.length ? ` / ${subNoun(home, true).toLowerCase()}` : ''} as you need. It must add up to ${pct ? '100%' : money(net)}.`}</Muted>
@@ -114,7 +114,7 @@ export function SplitBox({ table, row, po, onClose, onSaved }: { table: SplitTab
               <Button kind="ghost" title="Share evenly" onPress={() => setRows(splitEven(rows, target))} />
               {homeSubs.length > 0 && <Button kind="ghost" title={`Across all ${subNoun(home, true).toLowerCase()}`} onPress={() => setRows(splitAcross(row.site_id, homeSubs.map((j) => j.id), target))} />}
             </View>
-            <Text style={{ fontWeight: '700', color: foot.ok ? '#1E7A3C' : '#C0392B', marginBottom: 6 }}>{foot.text}</Text>
+            <Text style={{ fontWeight: '500', color: foot.ok ? '#1E7A3C' : '#C0392B', marginBottom: 6 }}>{foot.text}</Text>
           </ScrollView>
           <View style={{ gap: 8, marginTop: 6 }}>
             <Button busy={busy} title="Save" onPress={() => void save()} />

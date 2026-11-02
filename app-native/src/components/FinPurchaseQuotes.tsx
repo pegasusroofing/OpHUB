@@ -139,7 +139,7 @@ export function PurchaseQuotes({ siteId }: { siteId?: string }) {
       <TextInput value={q} onChangeText={setQ} placeholder="Search items or codes" style={[box, { marginBottom: 8 }]} />
       {siteId && ticked.length > 0 && (
         <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8 }}>
-          <Text style={{ flex: 1, fontWeight: '700', color: base.ink }}>{ticked.length} item{ticked.length === 1 ? '' : 's'} ticked</Text>
+          <Text style={{ flex: 1, fontWeight: '500', color: base.ink }}>{ticked.length} item{ticked.length === 1 ? '' : 's'} ticked</Text>
           <Button small title="Raise a PO from these" onPress={raise} />
           <Button small kind="ghost" title="Untick" onPress={() => setSel(new Set())} />
         </Card>
@@ -150,10 +150,10 @@ export function PurchaseQuotes({ siteId }: { siteId?: string }) {
           <Pressable key={i.id} disabled={!siteId} onPress={() => setSel((s) => { const n = new Set(s); if (n.has(i.id)) n.delete(i.id); else n.add(i.id); return n; })} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, padding: 9, borderWidth: 1, borderColor: on ? base.ink : base.cardLine, borderRadius: radius.row, marginBottom: 5, backgroundColor: base.card }}>
             {!!siteId && <Text style={{ fontSize: 17 }}>{on ? '☑' : '☐'}</Text>}
             <View style={{ flex: 1 }}>
-              <Text style={{ fontWeight: '700', color: base.ink, fontSize: 15 }}>{i.code ? `${i.code} – ` : ''}{i.description}</Text>
+              <Text style={{ fontWeight: '500', color: base.ink, fontSize: 15 }}>{i.code ? `${i.code} – ` : ''}{i.description}</Text>
               <Muted>{[filter ? '' : qLabel(qBy[i.quote_id] || {}), i.unit ? `per ${i.unit}` : ''].filter(Boolean).join(' · ')}</Muted>
             </View>
-            {i.rate != null && <Text style={{ color: base.ink, fontWeight: '700' }}>{money(i.rate)}</Text>}
+            {i.rate != null && <Text style={{ color: base.ink, fontWeight: '500' }}>{money(i.rate)}</Text>}
           </Pressable>
         );
       }) : <Empty>{data.items.length ? 'Nothing matches.' : 'No quotes yet — upload one above.'}</Empty>}
@@ -206,7 +206,7 @@ function PlForm({ q0, items0, sups, onClose, toast, me }: { q0: Row; items0: Row
     <Card style={{ borderColor: base.ink, borderWidth: 1.5 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
         <SectionTitle>Edit price list</SectionTitle>
-        <Pressable style={{ marginLeft: 'auto' }} onPress={() => onClose(false)} accessibilityLabel="Close" hitSlop={8}><Text style={{ fontSize: 18, color: base.slate, fontWeight: '700' }}>✕</Text></Pressable>
+        <Pressable style={{ marginLeft: 'auto' }} onPress={() => onClose(false)} accessibilityLabel="Close" hitSlop={8}><Text style={{ fontSize: 18, color: base.slate, fontWeight: '500' }}>✕</Text></Pressable>
       </View>
       <SuggestField label="Supplier" value={String(q.supplier_name || '')} onChangeText={(t) => setQ({ ...q, supplier_name: t, supplier_id: null })} items={sups.map((s) => ({ key: s.id, label: s.name }))} onPick={(s) => setQ({ ...q, supplier_name: s.label, supplier_id: s.key })} showAllOnFocus placeholder="Pick from your suppliers or type" />
       <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
@@ -220,7 +220,7 @@ function PlForm({ q0, items0, sups, onClose, toast, me }: { q0: Row; items0: Row
           <TextInput value={String(x.description || '')} onChangeText={(t) => set(i, { description: t })} placeholder="Description" style={[box, { flex: 1, minWidth: 200 }]} />
           <TextInput value={String(x.unit || '')} onChangeText={(t) => set(i, { unit: t })} placeholder="Unit" style={[box, { width: 64 }]} />
           <TextInput value={String(x.rate ?? '')} onChangeText={(t) => set(i, { rate: t.replace(/[^0-9.]/g, '') })} placeholder="Rate £" keyboardType="decimal-pad" style={[box, { width: 84 }]} />
-          <Pressable hitSlop={8} accessibilityLabel="Remove line" onPress={() => { if (x.id) setRemoved((r) => [...r, x.id]); setItems((xs) => xs.filter((_, j) => j !== i)); }}><Text style={{ color: base.slate, fontWeight: '700' }}>✕</Text></Pressable>
+          <Pressable hitSlop={8} accessibilityLabel="Remove line" onPress={() => { if (x.id) setRemoved((r) => [...r, x.id]); setItems((xs) => xs.filter((_, j) => j !== i)); }}><Text style={{ color: base.slate, fontWeight: '500' }}>✕</Text></Pressable>
         </View>
       ))}
       <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>

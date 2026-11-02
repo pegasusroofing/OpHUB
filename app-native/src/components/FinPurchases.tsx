@@ -147,7 +147,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
               { k: 'v', l: 'Value', render: (p: Row) => <Cell>{p.value != null ? money(p.value) : '—'}</Cell> },
               { k: 'i', l: 'Invoiced', render: (p: Row) => <Cell>{money(poInvoiced(p, live))}</Cell> },
               { k: 'l', l: 'Left To Invoice', render: (p: Row) => <Cell>{p.value != null ? money(Math.max(0, round2(Number(p.value) - poInvoiced(p, live)))) : '—'}</Cell> },
-              { k: 's', l: 'Status', render: (p: Row) => <Text style={{ fontSize: 10.5, fontWeight: '800', color: p.status === 'open' ? '#1d4ed8' : '#6b7280', backgroundColor: p.status === 'open' ? '#EEF3FD' : '#EEF0F2', borderRadius: 999, paddingVertical: 3, paddingHorizontal: 9, overflow: 'hidden' }}>● {PO_STATUS[p.status] || p.status}</Text> },
+              { k: 's', l: 'Status', render: (p: Row) => <Text style={{ fontSize: 10.5, fontWeight: '600', color: p.status === 'open' ? '#1d4ed8' : '#6b7280', backgroundColor: p.status === 'open' ? '#EEF3FD' : '#EEF0F2', borderRadius: 999, paddingVertical: 3, paddingHorizontal: 9, overflow: 'hidden' }}>● {PO_STATUS[p.status] || p.status}</Text> },
             ]}
             foot={(list) => <><FootText bold>{list.length} shown</FootText><FootText>Value {money(list.reduce((t, p) => t + Number(p.value || 0), 0))}</FootText><FootText>Invoiced {money(list.reduce((t, p) => t + poInvoiced(p, live), 0))}</FootText></>} />
         ) : list.length ? list.map((p) => { const inv = poInvoiced(p, live), left = p.value != null ? Math.max(0, round2(Number(p.value) - inv)) : null; return (
@@ -214,11 +214,11 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
               };
               const bulkBar = bulk && picked.length > 0 ? (
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                  <Text style={{ fontWeight: '800', color: base.ink }}>{picked.length} selected · {money(picked.reduce((t, i) => t + Number(i.total || 0), 0))}</Text>
+                  <Text style={{ fontWeight: '600', color: base.ink }}>{picked.length} selected · {money(picked.reduce((t, i) => t + Number(i.total || 0), 0))}</Text>
                   {cur === 'approve' ? <Button title={`✓ Approve ${picked.length}`} onPress={() => void approveAll()} /> : <Button title={`Mark ${picked.length} paid`} onPress={() => void paidAll()} />}
                   <Pressable onPress={() => setSel(new Set())}><Text style={{ color: base.slate }}>Clear</Text></Pressable>
                 </View>
-              ) : bulk && list.length > 1 ? <Pressable onPress={() => setSel(new Set(list.map((i) => i.id)))} style={{ marginBottom: 10 }}><Text style={{ color: base.blue, fontWeight: '700' }}>☐ Tick all</Text></Pressable> : null;
+              ) : bulk && list.length > 1 ? <Pressable onPress={() => setSel(new Set(list.map((i) => i.id)))} style={{ marginBottom: 10 }}><Text style={{ color: base.blue, fontWeight: '500' }}>☐ Tick all</Text></Pressable> : null;
               if (desk && list.length) return (
                 <>{bulkBar}<FinTable rows={list} keyOf={(i) => i.id} onRow={(i) => router.push(`/fin/pinv/${i.id}` as never)}
                   cols={[
@@ -231,7 +231,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
                     { k: 'v', l: 'VAT', min: 64, render: (i: Row) => <Cell>{money(i.vat)}</Cell> },
                     { k: 't', l: 'Gross', min: 72, render: (i: Row) => <Cell bold>{money(i.total)}</Cell> },
                     { k: 'po', l: 'PO', min: 70, render: (i: Row) => <Cell>{posBy[i.po_id] ? posBy[i.po_id].number : 'No PO'}</Cell> },
-                    { k: 'ch', l: 'Checks', flex: 1.2, min: 92, render: (i: Row) => <View style={{ alignItems: 'center', gap: 2 }}>{checks(i).map(([t, c]) => <Text key={t} style={{ fontSize: 10.5, fontWeight: '700', color: c, textAlign: 'center' }}>{t}</Text>)}</View> },
+                    { k: 'ch', l: 'Checks', flex: 1.2, min: 92, render: (i: Row) => <View style={{ alignItems: 'center', gap: 2 }}>{checks(i).map(([t, c]) => <Text key={t} style={{ fontSize: 10.5, fontWeight: '500', color: c, textAlign: 'center' }}>{t}</Text>)}</View> },
                     { k: 's', l: 'Status', min: 72, render: (i: Row) => <Cell tone={i.status === 'query' ? '#C0392B' : undefined}>{i.paid_on ? 'Paid' : PI_STATUS[i.status] || i.status}</Cell> },
                   ]}
                   foot={(list) => <><FootText bold>{list.length} shown</FootText><FootText>Net {money(list.reduce((t, i) => t + Number(i.net || 0), 0))}</FootText><FootText>VAT {money(list.reduce((t, i) => t + Number(i.vat || 0), 0))}</FootText><FootText>Gross {money(list.reduce((t, i) => t + Number(i.total || 0), 0))}</FootText></>} /></>

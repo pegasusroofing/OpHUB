@@ -967,3 +967,17 @@
 {"part":"jobtally1","step":"Laptop: starts on Live; old totals gone","ok":true,"note":"Value of works £628,900; old totals 0","ms":9327}
 {"part":"jobtally1","step":"Laptop: adding Closed and Upcoming changes the tally","ok":true,"note":"Value of works £944,750","ms":1834}
 {"part":"jobtally1","step":"Phone: tally at the bottom","ok":true,"note":"Value of works £628,900","ms":9185}
+{"part":"jobtally1","step":"Laptop: starts on Live; old totals gone","ok":true,"note":"Value of works £628,900; old totals 0","ms":10313}
+{"part":"jobtally1","step":"Laptop: adding Closed and Upcoming changes the tally","ok":true,"note":"Value of works £944,750","ms":1738}
+{"part":"jobtally1","step":"Phone: tally at the bottom","ok":true,"note":"Value of works £628,900","ms":9127}
+{"part":"finfont1","step":"Finance screens","ok":true,"note":"screenshots","ms":28709}
+{"part":"jobtabs1","step":"Tabs on variations","ok":true,"note":"1 tab rows","ms":8114}
+{"part":"jobtabs1","step":"Tabs on budget","ok":true,"note":"1 tab rows","ms":7874}
+{"part":"jobtabs1","step":"Tabs on costs","ok":true,"note":"1 tab rows","ms":7844}
+{"part":"jobtabs1","step":"Tabs on dayworks","ok":true,"note":"1 tab rows","ms":7839}
+{"part":"jobtabs1","step":"Tabs on monthly","ok":true,"note":"1 tab rows","ms":7839}
+{"part":"jobtabs1","step":"Tabs on summary","ok":true,"note":"1 tab rows","ms":7856}
+{"part":"jobtabs1","step":"Tabs on quotes","ok":true,"note":"1 tab rows","ms":7866}
+{"part":"jobtabs1","step":"Tabs on boq","ok":true,"note":"1 tab rows","ms":7833}
+{"part":"jobtabs1","step":"A tab goes to that part of the project","ok":true,"note":"ff28ffa960?tab=sales, rows 1","ms":10522}
+{"part":"jobtabs1","step":"Phone","ok":true,"note":"shown","ms":8501}

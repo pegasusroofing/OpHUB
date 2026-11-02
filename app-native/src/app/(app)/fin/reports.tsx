@@ -42,15 +42,15 @@ export default function FinReports() {
     <FinPage title="Reports" section="reports">
       {Object.keys(REPORT_GROUPS).map((g) => (
         <View key={g} style={{ marginBottom: 14 }}>
-          <Text style={{ fontWeight: '800', fontSize: 14, color: base.ink, marginBottom: 5 }}>{REPORT_GROUPS[g]}</Text>
+          <Text style={{ fontWeight: '600', fontSize: 14, color: base.ink, marginBottom: 5 }}>{REPORT_GROUPS[g]}</Text>
           <View style={{ backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
             {REPORTS.filter((r) => r.group === g).map((r, i) => (
               <Pressable key={r.id} onPress={() => router.setParams({ id: r.id })} style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: 10, borderTopWidth: i ? 1 : 0, borderTopColor: '#EEF0F2', paddingVertical: 8, paddingHorizontal: 12 }, pressed && { backgroundColor: '#F8F9FB' }]}>
                 <View style={{ flex: 1, flexDirection: sideBySide ? 'row' : 'column', alignItems: sideBySide ? 'center' : 'stretch', gap: sideBySide ? 12 : 1 }}>
-                  <Text style={{ fontWeight: '700', color: base.ink, fontSize: 14, width: sideBySide ? 240 : undefined }}>{r.title}</Text>
+                  <Text style={{ fontWeight: '500', color: base.ink, fontSize: 14, width: sideBySide ? 240 : undefined }}>{r.title}</Text>
                   <Text style={{ flex: sideBySide ? 1 : undefined, color: '#4B5563', fontSize: 13 }}>{r.desc}</Text>
                 </View>
-                {autos.some((a) => a.report_id === r.id) && <Text style={{ fontSize: 12, fontWeight: '700', color: '#15803d' }}>Auto-run</Text>}
+                {autos.some((a) => a.report_id === r.id) && <Text style={{ fontSize: 12, fontWeight: '500', color: '#15803d' }}>Auto-run</Text>}
                 <OphIcon name="chevron" size={15} color={base.slate} />
               </Pressable>
             ))}
@@ -100,31 +100,31 @@ function Report({ id }: { id: string }) {
       {isLoading || !res ? <Muted>Working it out…</Muted> : !res.rows.length ? <Empty>Nothing to show.</Empty> : wide ? (
         <ScrollView horizontal contentContainerStyle={{ flexGrow: 1 }}>
           <View style={{ flexGrow: 1 }}>
-            <View style={{ flexDirection: 'row', backgroundColor: '#EEF0F2', borderRadius: 6, paddingVertical: 6 }}>{res.cols.map((c) => <Text key={c.k} style={{ ...cw(c), fontWeight: '800', color: base.ink, fontSize: 13, textAlign: c.money || c.num || c.pct ? 'right' : 'left', paddingHorizontal: 4 }}>{c.l}</Text>)}</View>
+            <View style={{ flexDirection: 'row', backgroundColor: '#EEF0F2', borderRadius: 6, paddingVertical: 6 }}>{res.cols.map((c) => <Text key={c.k} style={{ ...cw(c), fontWeight: '600', color: base.ink, fontSize: 13, textAlign: c.money || c.num || c.pct ? 'right' : 'left', paddingHorizontal: 4 }}>{c.l}</Text>)}</View>
             {res.rows.map((r, i) => (
               <Pressable key={i} onPress={r._go ? () => router.push(r._go as never) : undefined} style={{ flexDirection: 'row', borderBottomWidth: 1, borderColor: '#EEF0F2', paddingVertical: 6 }}>
-                {res.cols.map((c) => <Text key={c.k} style={{ ...cw(c), fontWeight: r._head || r._bold ? '800' : '400', color: Number(r[c.k]) < 0 && c.money ? '#C0392B' : base.ink, fontSize: 13.5, textAlign: c.money || c.num || c.pct ? 'right' : 'left', paddingHorizontal: 4 }}>{r._head || r._bold ? (r[c.k] == null ? '' : fmt(c, r[c.k])) : fmt(c, r[c.k])}</Text>)}
+                {res.cols.map((c) => <Text key={c.k} style={{ ...cw(c), fontWeight: r._head || r._bold ? '600' : '400', color: Number(r[c.k]) < 0 && c.money ? '#C0392B' : base.ink, fontSize: 13.5, textAlign: c.money || c.num || c.pct ? 'right' : 'left', paddingHorizontal: 4 }}>{r._head || r._bold ? (r[c.k] == null ? '' : fmt(c, r[c.k])) : fmt(c, r[c.k])}</Text>)}
               </Pressable>
             ))}
-            {res.totals ? <View style={{ flexDirection: 'row', borderTopWidth: 2, borderColor: base.ink, paddingVertical: 5 }}>{res.cols.map((c, i) => { const t = tot(c); return <Text key={c.k} style={{ ...cw(c), fontWeight: '800', color: base.ink, fontSize: 13.5, textAlign: c.money || c.num || c.pct ? 'right' : 'left', paddingHorizontal: 4 }}>{i === 0 ? `Total (${res.rows.length})` : t !== null ? money(t) : ''}</Text>; })}</View> : null}
+            {res.totals ? <View style={{ flexDirection: 'row', borderTopWidth: 2, borderColor: base.ink, paddingVertical: 5 }}>{res.cols.map((c, i) => { const t = tot(c); return <Text key={c.k} style={{ ...cw(c), fontWeight: '600', color: base.ink, fontSize: 13.5, textAlign: c.money || c.num || c.pct ? 'right' : 'left', paddingHorizontal: 4 }}>{i === 0 ? `Total (${res.rows.length})` : t !== null ? money(t) : ''}</Text>; })}</View> : null}
           </View>
         </ScrollView>
       ) : (
         <View>
-          {res.rows.map((r, i) => r._head ? <Text key={i} style={{ fontWeight: '800', fontSize: 14, color: base.ink, marginTop: 8, marginBottom: 5 }}>{String(r[res.cols[0].k])}</Text> : r._bold ? (
+          {res.rows.map((r, i) => r._head ? <Text key={i} style={{ fontWeight: '600', fontSize: 14, color: base.ink, marginTop: 8, marginBottom: 5 }}>{String(r[res.cols[0].k])}</Text> : r._bold ? (
             <View key={i} style={{ flexDirection: 'row', paddingHorizontal: 10, paddingVertical: 6, marginBottom: 6, backgroundColor: '#EEF0F2', borderRadius: 8 }}>
-              <Text style={{ flex: 1, fontWeight: '800', color: base.ink }}>{res.cols.map((c) => (c.money ? '' : r[c.k] || '')).join('')}</Text>
-              <Text style={{ fontWeight: '800', color: base.ink }}>{res.cols.filter((c) => c.money).map((c) => fmt(c, r[c.k])).join(' ')}</Text>
+              <Text style={{ flex: 1, fontWeight: '600', color: base.ink }}>{res.cols.map((c) => (c.money ? '' : r[c.k] || '')).join('')}</Text>
+              <Text style={{ fontWeight: '600', color: base.ink }}>{res.cols.filter((c) => c.money).map((c) => fmt(c, r[c.k])).join(' ')}</Text>
             </View>
           ) : (
             <Pressable key={i} onPress={r._go ? () => router.push(r._go as never) : undefined}>
               <Card style={{ padding: 10 }}>
-                <Text style={{ fontWeight: '800', color: base.ink, marginBottom: 4 }}>{fmt(res.cols[0], r[res.cols[0].k])}</Text>
-                {res.cols.slice(1).map((c) => <View key={c.k} style={{ flexDirection: 'row' }}><Text style={{ flex: 1, color: '#4B5563', fontSize: 13 }}>{c.l}</Text><Text style={{ color: Number(r[c.k]) < 0 && c.money ? '#C0392B' : base.ink, fontWeight: '700', fontSize: 13 }}>{fmt(c, r[c.k])}</Text></View>)}
+                <Text style={{ fontWeight: '600', color: base.ink, marginBottom: 4 }}>{fmt(res.cols[0], r[res.cols[0].k])}</Text>
+                {res.cols.slice(1).map((c) => <View key={c.k} style={{ flexDirection: 'row' }}><Text style={{ flex: 1, color: '#4B5563', fontSize: 13 }}>{c.l}</Text><Text style={{ color: Number(r[c.k]) < 0 && c.money ? '#C0392B' : base.ink, fontWeight: '500', fontSize: 13 }}>{fmt(c, r[c.k])}</Text></View>)}
               </Card>
             </Pressable>
           ))}
-          {res.totals ? <Card>{res.cols.map((c) => { const t = tot(c); return t !== null ? <View key={c.k} style={{ flexDirection: 'row' }}><Text style={{ flex: 1, fontWeight: '700', color: base.ink }}>{c.l}</Text><Text style={{ fontWeight: '800', color: base.ink }}>{money(t)}</Text></View> : null; })}</Card> : null}
+          {res.totals ? <Card>{res.cols.map((c) => { const t = tot(c); return t !== null ? <View key={c.k} style={{ flexDirection: 'row' }}><Text style={{ flex: 1, fontWeight: '500', color: base.ink }}>{c.l}</Text><Text style={{ fontWeight: '600', color: base.ink }}>{money(t)}</Text></View> : null; })}</Card> : null}
         </View>
       )}
       {res?.note ? <Muted style={{ marginTop: 8 }}>{res.note}</Muted> : null}
@@ -171,22 +171,22 @@ function AutoRun({ id, title, f, dates }: { id: string; title: string; f: Filter
           <Pressable onPress={() => setOpen(false)} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', padding: 16 }}>
             <Pressable onPress={() => {}} style={{ backgroundColor: base.card, borderRadius: 14, padding: 16, width: '100%', maxWidth: 440, maxHeight: '90%', alignSelf: 'center' }}>
               <View style={{ flexDirection: 'row', marginBottom: 10 }}>
-                <Text style={{ flex: 1, fontWeight: '800', fontSize: 16, color: base.ink }}>Auto-run {title}</Text>
-                <Pressable onPress={() => setOpen(false)} accessibilityRole="button" accessibilityLabel="Close" hitSlop={10}><Text style={{ fontSize: 18, color: base.slate, fontWeight: '700' }}>✕</Text></Pressable>
+                <Text style={{ flex: 1, fontWeight: '600', fontSize: 16, color: base.ink }}>Auto-run {title}</Text>
+                <Pressable onPress={() => setOpen(false)} accessibilityRole="button" accessibilityLabel="Close" hitSlop={10}><Text style={{ fontSize: 18, color: base.slate, fontWeight: '500' }}>✕</Text></Pressable>
               </View>
               <ScrollView style={{ flexGrow: 0 }} keyboardShouldPersistTaps="handled">
                 <SelectBox label="How often" title="How often" value={freq} options={FREQ} onChange={setFreq} />
                 {freq === 'weekly' && <SelectBox label="Which day" title="Which day" value={day} options={WEEKDAYS} onChange={setDay} />}
                 {freq === 'monthly' && <SelectBox label="Day of the month" title="Day of the month" value={day} options={MONTH_DAYS} onChange={setDay} />}
                 {dates && <SelectBox label="Which dates" title="Which dates" value={period} options={[['last_month', 'Last month'], ['this_month', 'This month so far'], ...(id === 'cis' ? [['cis_month', 'Last CIS month (6th to 5th)'] as [string, string]] : []), ['all', 'All dates']]} onChange={setPeriod} />}
-                <Text style={{ fontSize: 12, fontWeight: '700', color: base.slate, marginBottom: 4 }}>Save to OneDrive folder</Text>
+                <Text style={{ fontSize: 12, fontWeight: '500', color: base.slate, marginBottom: 4 }}>Save to OneDrive folder</Text>
                 <Pressable accessibilityRole="button" accessibilityLabel="Save to OneDrive folder" onPress={() => setChoosing(!choosing)} style={{ flexDirection: 'row', borderWidth: 1, borderColor: base.line, borderRadius: radius.input, paddingHorizontal: 12, paddingVertical: 9, marginBottom: 8 }}>
                   <Text numberOfLines={1} style={{ flex: 1, fontSize: 15, color: folder ? base.ink : base.slateLight }}>{folder?.name || 'Choose a folder'}</Text><Text style={{ color: base.slate, fontSize: 12 }}>▾</Text>
                 </Pressable>
                 {choosing && (
                   <View style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 8, marginBottom: 8 }}>
                     <Text style={{ fontSize: 12.5, color: '#4B5563', marginBottom: 4 }}>{['OneDrive', ...trail.map((t) => t.name)].join(' › ')}</Text>
-                    {!!here && <Pressable onPress={() => setTrail(trail.slice(0, -1))} style={{ paddingVertical: 6 }}><Text style={{ color: base.blue, fontWeight: '700' }}>‹ Back</Text></Pressable>}
+                    {!!here && <Pressable onPress={() => setTrail(trail.slice(0, -1))} style={{ paddingVertical: 6 }}><Text style={{ color: base.blue, fontWeight: '500' }}>‹ Back</Text></Pressable>}
                     {isLoading ? <Muted>Loading…</Muted> : level?.error ? <Muted style={{ color: base.warn }}>{level.error}</Muted> : !level?.folders.length ? <Muted>No folders in here.</Muted> : level.folders.map((x) => (
                       <Pressable key={x.id} onPress={() => setTrail([...trail, { ...x, driveId: x.driveId || here?.driveId }])} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 6, borderTopWidth: 1, borderTopColor: '#EEF0F2' }}>
                         <Text numberOfLines={1} style={{ flex: 1, color: base.ink }}>{x.name}</Text><OphIcon name="chevron" size={14} color={base.slate} />

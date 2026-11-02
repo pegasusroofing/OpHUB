@@ -132,11 +132,11 @@ export default function FinDirectory() {
         <Muted style={{ marginBottom: 10 }}>Subcontractors who invoice you under CIS, and PAYE staff. Check each subbie&apos;s CIS status with HMRC before you pay them.</Muted>
         {waiting.length > 0 && (
           <View style={{ borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, padding: 10, marginBottom: 10, backgroundColor: base.card }}>
-            <Text style={{ fontWeight: '800', color: base.ink, marginBottom: 10 }}>{waiting.length} from the sub-contractor sign-up form, not in the directory yet</Text>
+            <Text style={{ fontWeight: '600', color: base.ink, marginBottom: 10 }}>{waiting.length} from the sub-contractor sign-up form, not in the directory yet</Text>
             {waiting.map((a) => (
               <View key={a.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6, borderTopWidth: 1, borderTopColor: base.line }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontWeight: '700', color: base.ink }}>{a.company_name || (a.data as Row | null)?.trading_name || a.contact_name || 'Applicant'} <Text style={{ color: a.status === 'approved' ? base.ok : base.slate, fontWeight: '400' }}>· {a.status === 'approved' ? 'Approved' : 'New'}</Text></Text>
+                  <Text style={{ fontWeight: '500', color: base.ink }}>{a.company_name || (a.data as Row | null)?.trading_name || a.contact_name || 'Applicant'} <Text style={{ color: a.status === 'approved' ? base.ok : base.slate, fontWeight: '400' }}>· {a.status === 'approved' ? 'Approved' : 'New'}</Text></Text>
                   <Muted>{[a.contact_name, a.email, a.phone].filter(Boolean).join(' · ')}</Muted>
                 </View>
                 <Button small kind="ghost" title="Add to directory" onPress={() => void addFromApp(a)} />
@@ -222,8 +222,8 @@ export default function FinDirectory() {
     <FinPage title="Directory" section={section} sub={subTab} onSub={onSub}>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 10 }}>
         <Text style={{ flex: 1, minWidth: 200, fontSize: 12, color: '#6b7280' }}>{list.length} {sup ? 'supplier' : 'client'}{list.length === 1 ? '' : 's'} · {list.filter((c) => c.xero_contact_id).length} in Xero. New {sup ? 'suppliers' : 'clients'} you add here go into Xero too.</Text>
-        <Pressable disabled={busy} onPress={() => void pull()} style={{ borderWidth: 1, borderColor: '#e5e7eb', backgroundColor: '#fff', borderRadius: 8, paddingVertical: 7, paddingHorizontal: 12 }}><Text style={{ fontSize: 12, fontWeight: '700', color: base.ink }}>{busy ? 'Pulling…' : '⟳ Pull from Xero'}</Text></Pressable>
-        <Pressable onPress={() => setEdit({ toX: true })} style={{ backgroundColor: th.brand1, borderRadius: 8, paddingVertical: 7, paddingHorizontal: 12 }}><Text style={{ fontSize: 12, fontWeight: '800', color: th.brand1Text }}>+ New {sup ? 'supplier' : 'client'}</Text></Pressable>
+        <Pressable disabled={busy} onPress={() => void pull()} style={{ borderWidth: 1, borderColor: '#e5e7eb', backgroundColor: '#fff', borderRadius: 8, paddingVertical: 7, paddingHorizontal: 12 }}><Text style={{ fontSize: 12, fontWeight: '500', color: base.ink }}>{busy ? 'Pulling…' : '⟳ Pull from Xero'}</Text></Pressable>
+        <Pressable onPress={() => setEdit({ toX: true })} style={{ backgroundColor: th.brand1, borderRadius: 8, paddingVertical: 7, paddingHorizontal: 12 }}><Text style={{ fontSize: 12, fontWeight: '600', color: th.brand1Text }}>+ New {sup ? 'supplier' : 'client'}</Text></Pressable>
       </View>
       <TextInput value={q} onChangeText={setQ} placeholder={`Search ${sup ? 'suppliers' : 'clients'}`} style={box} />
       {isLoading ? <Muted>Loading…</Muted> : desk && list.length ? (() => {
@@ -234,14 +234,14 @@ export default function FinDirectory() {
             cols={[
               { k: 'n', l: sup ? 'Supplier' : 'Client', flex: 2.2, min: 220, render: (c: Row) => (
                 <View style={{ alignSelf: 'stretch' }}>
-                  <Text style={{ fontWeight: '800', fontSize: 13, color: '#111827' }}>{c.name}</Text>
+                  <Text style={{ fontWeight: '600', fontSize: 13, color: '#111827' }}>{c.name}</Text>
                   <Text style={{ fontSize: 11.5, color: '#6b7280' }}>{[sup ? c.category : '', termsText(c), c.sales_vat ? `${sup ? '' : 'Sales '}VAT ${VAT_SHOW.find(([k]) => k === c.sales_vat)?.[1]}` : '', c.cis_registered ? 'CIS' : ''].filter(Boolean).join(' · ')}</Text>
                   {!!c.email && <Text style={{ fontSize: 11.5, color: '#6b7280' }}>{c.email}</Text>}
                 </View>
               ) },
               ...(sup ? [] : [{ k: 'j', l: 'Jobs', render: (c: Row) => { const js = jobsOf(c); return <Cell bold>{js.length} job{js.length === 1 ? '' : 's'} · {js.filter((s) => finStatus(s) === 'live').length} live</Cell>; } }]),
-              { k: 'x', l: 'Xero', render: (c: Row) => c.xero_contact_id ? <Cell>In Xero</Cell> : <Text style={{ fontSize: 12, fontWeight: '700', color: base.ink, borderWidth: 1, borderColor: '#d1d5db', borderRadius: 6, paddingVertical: 5, paddingHorizontal: 10, overflow: 'hidden' }}>Add to Xero</Text> },
-              ...(sup ? [] : [{ k: 'o', l: 'Owed', render: (c: Row) => { const o = owedOf(c); return <View style={{ alignItems: 'center' }}><Cell>{o.o ? money(o.o, 0) : '—'}</Cell>{o.od ? <Text style={{ fontSize: 11, color: '#c81e1e', fontWeight: '700' }}>{money(o.od, 0)} overdue</Text> : null}</View>; } }]),
+              { k: 'x', l: 'Xero', render: (c: Row) => c.xero_contact_id ? <Cell>In Xero</Cell> : <Text style={{ fontSize: 12, fontWeight: '500', color: base.ink, borderWidth: 1, borderColor: '#d1d5db', borderRadius: 6, paddingVertical: 5, paddingHorizontal: 10, overflow: 'hidden' }}>Add to Xero</Text> },
+              ...(sup ? [] : [{ k: 'o', l: 'Owed', render: (c: Row) => { const o = owedOf(c); return <View style={{ alignItems: 'center' }}><Cell>{o.o ? money(o.o, 0) : '—'}</Cell>{o.od ? <Text style={{ fontSize: 11, color: '#c81e1e', fontWeight: '500' }}>{money(o.od, 0)} overdue</Text> : null}</View>; } }]),
             ]}
             foot={(list) => <><FootText bold>{list.length} shown</FootText>{!sup && <FootText>Owed {money(list.reduce((t, c) => t + owedOf(c).o, 0))}</FootText>}</>} />
         );

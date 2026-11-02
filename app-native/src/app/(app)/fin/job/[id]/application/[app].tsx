@@ -159,7 +159,7 @@ function Editor({ a0, jf, previousLive, prevPct, prevVar, siteProgress, varProgr
     <ScrollView contentContainerStyle={page(1000)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: `Application ${a0.number}` }} />
       {!!autoNote && <Muted style={{ marginBottom: 6, textAlign: 'right', fontSize: 12 }}>{autoNote}</Muted>}
-      {!!a0.retention_release && <Card style={{ backgroundColor: '#f1fbf5', borderColor: '#d3f0de' }}><Text style={{ color: base.ink }}><Text style={{ fontWeight: '800' }}>Retention release — {a0.retention_release === 1 ? 'first half (practical completion)' : 'final release'}.</Text> Retention on this application is {pct(a0.retention_pct)}%, so the client pays back {a0.retention_release === 1 ? 'half of what they hold' : 'what they still hold'} when they certify it.</Text></Card>}
+      {!!a0.retention_release && <Card style={{ backgroundColor: '#f1fbf5', borderColor: '#d3f0de' }}><Text style={{ color: base.ink }}><Text style={{ fontWeight: '600' }}>Retention release — {a0.retention_release === 1 ? 'first half (practical completion)' : 'final release'}.</Text> Retention on this application is {pct(a0.retention_pct)}%, so the client pays back {a0.retention_release === 1 ? 'half of what they hold' : 'what they still hold'} when they certify it.</Text></Card>}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
         <FinStat v={STAGE[stage]} label="Stage" /><FinStat v={money(c.net_due)} label="Amount due this application" />
         {(desk || locked) && <><FinStat v={fdate(a.valuation_date)} label="Valuation date" /><FinStat v={a.final_date ? fdate(a.final_date) : '—'} label="Final date for payment" /></>}
@@ -207,8 +207,8 @@ function Editor({ a0, jf, previousLive, prevPct, prevVar, siteProgress, varProgr
           return (
             <View key={i} style={{ paddingVertical: 8, borderBottomWidth: 1, borderColor: base.line, marginTop: l.kind === 'section' ? 8 : 0 }}>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 8 }}>
-                <Text style={{ flexGrow: 1, flexBasis: 170, flexShrink: 1, fontWeight: '800', color: base.ink, fontSize: l.kind === 'section' ? 15 : 13.5 }}>{l.ref ? `${l.ref} ` : ''}{l.description}</Text>
-                <Text style={{ fontWeight: '700', color: base.ink }}>{money(t?.gross || 0)} <Text style={{ color: base.slate, fontWeight: '400' }}>of {money(t?.value || 0)}</Text></Text>
+                <Text style={{ flexGrow: 1, flexBasis: 170, flexShrink: 1, fontWeight: '600', color: base.ink, fontSize: l.kind === 'section' ? 15 : 13.5 }}>{l.ref ? `${l.ref} ` : ''}{l.description}</Text>
+                <Text style={{ fontWeight: '500', color: base.ink }}>{money(t?.gross || 0)} <Text style={{ color: base.slate, fontWeight: '400' }}>of {money(t?.value || 0)}</Text></Text>
               </View>
               {!locked && l.kind === 'section' && <View style={{ flexDirection: 'row', gap: 6, marginTop: 4 }}><Button small kind="ghost" title="Set all to 100%" onPress={() => fill(i, 100)} /><Button small kind="ghost" title="Set all to 0%" onPress={() => fill(i, 0)} /></View>}
             </View>
@@ -220,7 +220,7 @@ function Editor({ a0, jf, previousLive, prevPct, prevVar, siteProgress, varProgr
           <View key={i} style={{ flexDirection: desk ? 'row' : 'column', alignItems: desk ? 'center' : 'stretch', gap: 8, paddingVertical: desk ? 7 : 10, borderBottomWidth: 1, borderColor: base.line }}>
             <View style={desk ? { flex: 1 } : undefined}>
               <Text style={{ color: base.ink }}>{l.ref ? `${l.ref} · ` : ''}{l.description}</Text>
-              <Muted>{hasQty ? `${l.qty} ${l.unit || ''} × ${money(l.rate)} = ` : 'Value '}{money(l.value)}{siteProgress[l.item_id] != null ? <Text style={{ color: siteProgress[l.item_id] > pct(l.pct) ? '#b45309' : base.slate, fontWeight: '700' }}>{`  · Site ${siteProgress[l.item_id]}%`}</Text> : null}{siteProgress[l.item_id] != null && !locked && siteProgress[l.item_id] !== pct(l.pct) ? <Text onPress={() => { const was = pct(l.pct), to = pct(siteProgress[l.item_id]); setLine(i, { pct: to }); setGen((g) => g + 1); toast(`${l.description}: ${was}% → ${to}% from site — check, then Save`); }} style={{ color: base.blue, fontWeight: '800', textDecorationLine: 'underline' }}> Use</Text> : null}{siteProgress[l.item_id] == null && Object.keys(siteProgress).length > 0 ? <Text style={{ fontSize: 10.5, fontWeight: '600', color: base.slate }}>  · Not on site schedule</Text> : null}</Muted>
+              <Muted>{hasQty ? `${l.qty} ${l.unit || ''} × ${money(l.rate)} = ` : 'Value '}{money(l.value)}{siteProgress[l.item_id] != null ? <Text style={{ color: siteProgress[l.item_id] > pct(l.pct) ? '#b45309' : base.slate, fontWeight: '500' }}>{`  · Site ${siteProgress[l.item_id]}%`}</Text> : null}{siteProgress[l.item_id] != null && !locked && siteProgress[l.item_id] !== pct(l.pct) ? <Text onPress={() => { const was = pct(l.pct), to = pct(siteProgress[l.item_id]); setLine(i, { pct: to }); setGen((g) => g + 1); toast(`${l.description}: ${was}% → ${to}% from site — check, then Save`); }} style={{ color: base.blue, fontWeight: '600', textDecorationLine: 'underline' }}> Use</Text> : null}{siteProgress[l.item_id] == null && Object.keys(siteProgress).length > 0 ? <Text style={{ fontSize: 10.5, fontWeight: '500', color: base.slate }}>  · Not on site schedule</Text> : null}</Muted>
               {/* Previous = certified on this line last time; This time = to date less previous (9219r). */}
               {(() => { const prev = round2((Number(l.value || 0) * (prevPct[l.item_id] || 0)) / 100); return prev || l.gross ? <Muted style={{ fontSize: 11.5 }}>Previous {money(prev)} · This time {money(round2(l.gross - prev))}</Muted> : null; })()}
             </View>
@@ -232,12 +232,12 @@ function Editor({ a0, jf, previousLive, prevPct, prevVar, siteProgress, varProgr
                     ? <TextInput key={`q${i}-${gen}`} accessibilityLabel="Quantity done" defaultValue={String(round2((pct(l.pct) * Number(l.qty)) / 100))} onChangeText={(v) => { const n = num(v); if (n !== null && !isNaN(n)) setLine(i, { pct: pct((n / Number(l.qty)) * 100) }); }} keyboardType="decimal-pad" style={[box, { width: 60, height: 30, paddingVertical: 2, fontSize: 13 }]} />
                     : <TextInput key={`p${i}-${gen}`} accessibilityLabel="Percent done" defaultValue={String(pct(l.pct))} onChangeText={(v) => setLine(i, { pct: pct(v) })} keyboardType="decimal-pad" style={[box, { width: 52, height: 30, paddingVertical: 2, fontSize: 13 }]} />}
                   {hasQty
-                    ? <Pressable accessibilityRole="button" accessibilityLabel={byQty[l.item_id] ? 'Enter by percent' : 'Enter by quantity'} hitSlop={8} onPress={() => setByQty((o) => ({ ...o, [l.item_id]: !o[l.item_id] }))} style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: '#DFE3EA', borderRadius: 7, height: 26, paddingHorizontal: 8 }}><Text style={{ fontSize: 12.5, fontWeight: '700', color: base.ink }}>{byQty[l.item_id] ? l.unit || 'qty' : '%'}</Text><Text style={{ fontSize: 9, color: base.slate }}>⇄</Text></Pressable>
-                    : <Text style={{ color: base.slate, fontWeight: '700' }}>%</Text>}
+                    ? <Pressable accessibilityRole="button" accessibilityLabel={byQty[l.item_id] ? 'Enter by percent' : 'Enter by quantity'} hitSlop={8} onPress={() => setByQty((o) => ({ ...o, [l.item_id]: !o[l.item_id] }))} style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: '#DFE3EA', borderRadius: 7, height: 26, paddingHorizontal: 8 }}><Text style={{ fontSize: 12.5, fontWeight: '500', color: base.ink }}>{byQty[l.item_id] ? l.unit || 'qty' : '%'}</Text><Text style={{ fontSize: 9, color: base.slate }}>⇄</Text></Pressable>
+                    : <Text style={{ color: base.slate, fontWeight: '500' }}>%</Text>}
                 </View>
               )
               : <TextInput key={`g${i}-${gen}`} defaultValue={String(l.gross)} onChangeText={(v) => { const n = num(v), val = Number(l.value || 0); if (val && n !== null && !isNaN(n)) setLine(i, { pct: pct((n / val) * 100) }); }} keyboardType="decimal-pad" style={[box, { width: 90, height: 30, paddingVertical: 2, fontSize: 13 }]} />}
-            <Text style={{ width: 96, textAlign: 'right', fontWeight: '700', color: base.ink }}>{money(l.gross)}</Text>
+            <Text style={{ width: 96, textAlign: 'right', fontWeight: '500', color: base.ink }}>{money(l.gross)}</Text>
             </View>
           </View>
         );
@@ -304,9 +304,9 @@ function Editor({ a0, jf, previousLive, prevPct, prevVar, siteProgress, varProgr
             const sp = varProgress[v.fin_variation_id || v.variation_id || ''];
             if (sp == null) return null;
             const can = !locked && sp !== pct(v.pct);
-            return <Text onPress={can ? () => { const was = pct(v.pct), to = pct(sp); setA({ ...a, variations: a.variations.map((y: Row, j: number) => (j === i ? { ...y, pct: to } : y)) }); setGen((g) => g + 1); toast(`${v.description || 'Variation'}: ${was}% → ${to}% from site`); } : undefined} style={{ fontSize: 11.5, fontWeight: '700', color: sp > pct(v.pct) ? '#b45309' : base.slate }}>Site {sp}%{can ? <Text style={{ color: base.blue, fontWeight: '800', textDecorationLine: 'underline' }}> Use</Text> : null}</Text>;
+            return <Text onPress={can ? () => { const was = pct(v.pct), to = pct(sp); setA({ ...a, variations: a.variations.map((y: Row, j: number) => (j === i ? { ...y, pct: to } : y)) }); setGen((g) => g + 1); toast(`${v.description || 'Variation'}: ${was}% → ${to}% from site`); } : undefined} style={{ fontSize: 11.5, fontWeight: '500', color: sp > pct(v.pct) ? '#b45309' : base.slate }}>Site {sp}%{can ? <Text style={{ color: base.blue, fontWeight: '600', textDecorationLine: 'underline' }}> Use</Text> : null}</Text>;
           })()}
-          <Text style={{ marginLeft: 'auto', minWidth: 90, textAlign: 'right', fontWeight: '700', color: base.ink }}>{money(v.gross)}</Text>
+          <Text style={{ marginLeft: 'auto', minWidth: 90, textAlign: 'right', fontWeight: '500', color: base.ink }}>{money(v.gross)}</Text>
           </View>
         </View>
       ))}
@@ -318,7 +318,7 @@ function Editor({ a0, jf, previousLive, prevPct, prevVar, siteProgress, varProgr
           <TextInput value={d.description || ''} onChangeText={(x) => setA({ ...a, dayworks: a.dayworks.map((y: Row, j: number) => (j === i ? { ...y, description: x } : y)) })} placeholder="Description" style={[box, desk ? { flex: 1 } : null]} />
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
           <TextInput defaultValue={d.value != null ? String(d.value) : ''} onChangeText={(x) => setA({ ...a, dayworks: a.dayworks.map((y: Row, j: number) => (j === i ? { ...y, value: num(x) } : y)) })} placeholder="£ value" keyboardType="decimal-pad" style={[box, { width: 100 }]} />
-          <Text style={{ width: 90, textAlign: 'right', fontWeight: '700', color: base.ink }}>{money(d.gross)}</Text>
+          <Text style={{ width: 90, textAlign: 'right', fontWeight: '500', color: base.ink }}>{money(d.gross)}</Text>
           </View>
         </View>
       ))}
@@ -374,7 +374,7 @@ function Editor({ a0, jf, previousLive, prevPct, prevVar, siteProgress, varProgr
           <FinRow title="Total certified to date" right={money(a0.cert_gross)} /><FinRow title="Less retention" right={`−${money(a0.cert_retention)}`} /><FinRow title="Less previously certified" right={`−${money(a0.cert_previous)}`} />
           {Number(a0.cert_discount || 0) ? <FinRow title="Less discount" right={`−${money(a0.cert_discount)}`} /> : null}
           <FinRow title="Net due" right={money(a0.cert_net)} />
-          {round2(Number(a0.cert_net) - Number(a0.net_due)) !== 0 && <Text style={{ color: Number(a0.cert_net) < Number(a0.net_due) ? '#C0392B' : '#1E7A3C', fontWeight: '700' }}>{Number(a0.cert_net) < Number(a0.net_due) ? 'Short by' : 'Over by'} {money(Math.abs(Number(a0.cert_net) - Number(a0.net_due)))} compared with the {money(a0.net_due)} applied for.</Text>}
+          {round2(Number(a0.cert_net) - Number(a0.net_due)) !== 0 && <Text style={{ color: Number(a0.cert_net) < Number(a0.net_due) ? '#C0392B' : '#1E7A3C', fontWeight: '500' }}>{Number(a0.cert_net) < Number(a0.net_due) ? 'Short by' : 'Over by'} {money(Math.abs(Number(a0.cert_net) - Number(a0.net_due)))} compared with the {money(a0.net_due)} applied for.</Text>}
           {a0.cert_notes ? <Muted>{a0.cert_notes}</Muted> : null}
           {a0.cert_file_path && <Pressable onPress={async () => { const u = await openDocLink('finance-docs', a0.cert_file_path); if (u) viewDoc(u); }}><Text style={{ color: base.blue, marginTop: 6 }}>📄 Certificate</Text></Pressable>}
           <View style={{ marginTop: 8, gap: 8 }}>
@@ -441,7 +441,7 @@ function Certificate({ a, jf, previous, prevPct, prevVar, onSaved }: { a: Row; j
         applyLines({ ...cp, ...r.cp });
         setXlNote(`Read from the client’s Excel. ${r.diffs.length ? `${r.diffs.length} line${r.diffs.length === 1 ? ' differs' : 's differ'} from what you applied for:\n${r.diffs.slice(0, 8).join('\n')}${r.diffs.length > 8 ? `\n…and ${r.diffs.length - 8} more` : ''}` : 'Every line matches what you applied for.'} Check the figures, then save.`);
         toast('Certificate filled in from the Excel');
-      }} style={{ marginBottom: 6 }}><Text style={{ color: base.blue, fontWeight: '700' }}>📥 Fill in from the client&apos;s Excel</Text></Pressable>
+      }} style={{ marginBottom: 6 }}><Text style={{ color: base.blue, fontWeight: '500' }}>📥 Fill in from the client&apos;s Excel</Text></Pressable>
       <Pressable onPress={async () => {
         // 9219p finCertFromPdf: each line's certified % read from the client's PDF (the last % on the matching row);
         // the PDF is kept as the certificate copy. Needs the PDF's text, so not a scan.
@@ -461,7 +461,7 @@ function Certificate({ a, jf, previous, prevPct, prevVar, onSaved }: { a: Row; j
         if (!found) { toast('Read the PDF but couldn’t match any lines — enter the Certified % on each line. The PDF is kept with the certificate.'); return; }
         applyLines({ ...cp, ...next });
         toast(`Read ${found} line${found === 1 ? '' : 's'} from the PDF — check them, then Certify`);
-      }} style={{ marginBottom: 6 }}><Text style={{ color: base.blue, fontWeight: '700' }}>📥 Fill in from the client&apos;s PDF</Text></Pressable>
+      }} style={{ marginBottom: 6 }}><Text style={{ color: base.blue, fontWeight: '500' }}>📥 Fill in from the client&apos;s PDF</Text></Pressable>
       {!!xlNote && <Card style={{ backgroundColor: '#f4f8fd' }}><Text style={{ color: base.ink, fontSize: 12.5 }}>{xlNote}</Text></Card>}
       <View style={{ marginBottom: 8, alignSelf: 'flex-start' }}><Button small kind="ghost" title="Certified as applied" onPress={() => { const o: Record<string, string> = {}; (a.lines || []).forEach((l: Row, i: number) => { if (isItem(l)) o[`l${i}`] = String(pct(l.pct)); }); (a.variations || []).forEach((x: Row, i: number) => { o[`v${i}`] = String(pct(x.pct)); }); (a.dayworks || []).forEach((d: Row, i: number) => { o[`d${i}`] = String(d.value ?? 0); }); applyLines(o); }} /></View>
       {(
@@ -473,7 +473,7 @@ function Certificate({ a, jf, previous, prevPct, prevVar, onSaved }: { a: Row; j
               <Muted style={{ width: 70, textAlign: 'right', fontSize: 12 }}>applied {pct(l.pct)}%</Muted>
               <TextInput value={cp[`l${i}`]} onChangeText={(x) => applyLines({ ...cp, [`l${i}`]: x })} keyboardType="decimal-pad" style={[box, { width: 64, marginBottom: 0 }]} /><Text>%</Text>
             </View>
-          ) : <Text key={`l${i}`} style={{ fontWeight: '800', color: base.ink, marginTop: 8 }}>{l.description}</Text>)}
+          ) : <Text key={`l${i}`} style={{ fontWeight: '600', color: base.ink, marginTop: 8 }}>{l.description}</Text>)}
           {(a.variations || []).map((x: Row, i: number) => (
             <View key={`v${i}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4, borderTopWidth: 1, borderTopColor: '#F0F1F4' }}>
               <Text numberOfLines={2} style={{ flex: 1, color: base.ink, fontSize: 12.5 }}>Variation: {x.description}</Text>

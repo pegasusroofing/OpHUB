@@ -35,20 +35,20 @@ export function InvoiceLines({ lines, checks, sites, read, onChange, readOnly }:
               <TextInput editable={!readOnly} accessibilityLabel={`Line ${k + 1} quantity`} keyboardType="decimal-pad" placeholder="Qty" value={l.qty == null ? '' : String(l.qty)} onChangeText={(t) => edit(k, l, { qty: num(t) })} style={[box, { width: 62 }]} />
               <Text style={{ color: base.slate }}>×</Text>
               <TextInput editable={!readOnly} accessibilityLabel={`Line ${k + 1} unit price`} keyboardType="decimal-pad" placeholder="£ each" value={l.unit_price == null ? '' : String(l.unit_price)} onChangeText={(t) => edit(k, l, { unit_price: num(t) })} style={[box, { width: 86 }]} />
-              <Text style={{ flex: 1, textAlign: 'right', fontWeight: '800', color: base.ink }}>{money(lineValue(l))}</Text>
+              <Text style={{ flex: 1, textAlign: 'right', fontWeight: '600', color: base.ink }}>{money(lineValue(l))}</Text>
             </View>
             <Pressable disabled={readOnly} accessibilityRole="button" accessibilityLabel={`Line ${k + 1} job`} onPress={async () => { const s = await pickJob('Which project is this line for?', sites as never); if (s) set(k, { site_id: s, how: undefined }); }} style={{ borderWidth: 1, borderColor: l.site_id ? base.line : base.warn, borderRadius: radius.input, padding: 8 }}>
-              <Text style={{ color: l.site_id ? base.ink : base.warn, fontWeight: '600' }}>{l.site_id ? jobTag(site(l.site_id) as never) : 'Choose the job…'}{l.how ? `  (from ${l.how})` : ''}</Text>
+              <Text style={{ color: l.site_id ? base.ink : base.warn, fontWeight: '500' }}>{l.site_id ? jobTag(site(l.site_id) as never) : 'Choose the job…'}{l.how ? `  (from ${l.how})` : ''}</Text>
             </Pressable>
-            {!!c && <Text style={{ color: c.col, fontSize: 12, fontWeight: '700', marginTop: 5 }}>{c.t}</Text>}
+            {!!c && <Text style={{ color: c.col, fontSize: 12, fontWeight: '500', marginTop: 5 }}>{c.t}</Text>}
           </View>
         );
       })}
       <View style={{ borderTopWidth: 1, borderTopColor: base.ink, paddingTop: 8, gap: 2 }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Muted>Lines add up to</Muted><Text style={{ fontWeight: '700', color: off ? base.red : base.ink }}>{money(sum)}</Text></View>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Muted>Lines add up to</Muted><Text style={{ fontWeight: '500', color: off ? base.red : base.ink }}>{money(sum)}</Text></View>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Muted>Net on the invoice</Muted><Text style={{ color: base.ink }}>{read.net == null ? 'Not read' : money(Number(read.net))}</Text></View>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Muted>VAT</Muted><Text style={{ color: base.ink }}>{read.vat == null ? 'Not read' : money(Number(read.vat))}</Text></View>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Muted>Total</Muted><Text style={{ fontWeight: '800', color: base.ink }}>{read.total == null ? 'Not read' : money(Number(read.total))}</Text></View>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Muted>Total</Muted><Text style={{ fontWeight: '600', color: base.ink }}>{read.total == null ? 'Not read' : money(Number(read.total))}</Text></View>
       </View>
       {!readOnly && lines.length > 1 && <View style={{ marginTop: 8 }}><Button small kind="ghost" title="Put every line on one job" onPress={async () => { const s = await pickJob('Which project are they all for?', sites as never); if (s) onChange(lines.map((l) => ({ ...l, site_id: s, how: undefined }))); }} /></View>}
     </Card>

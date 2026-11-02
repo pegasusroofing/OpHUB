@@ -131,8 +131,8 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
               { k: 'd', l: 'Date', render: (a: App) => <Cell>{fdate(a.valuation_date)}</Cell> },
               { k: 'ap', l: 'Applied (Net)', render: (a: App) => <Cell>{money(a.net_due)}</Cell> },
               { k: 'ce', l: 'Certified (Net)', render: (a: App) => { const short = a.cert_net != null ? round2(Number(a.cert_net) - Number(a.net_due || 0)) : 0; return <View style={{ alignItems: 'center' }}><Cell>{a.cert_net != null ? money(a.cert_net) : '—'}</Cell>{short < -0.009 ? <Text style={{ fontSize: 11, color: '#C0392B' }}>{money(-short)} short</Text> : null}</View>; } },
-              { k: 'st', l: 'Stage', noSort: true, choices: ['Draft', 'Waiting for certificate', 'Certified', 'Invoiced', 'Pay less notice'], render: (a: App) => { const s = appStage(a); return <Text style={{ fontSize: 10.5, fontWeight: '800', color: s.c, backgroundColor: `${s.c}1A`, borderRadius: 999, paddingVertical: 3, paddingHorizontal: 9, overflow: 'hidden', textAlign: 'center' }}>● {s.l}</Text>; } },
-              { k: 'inv', l: 'Invoice', render: (a: App) => { const inv = data.invs.find((i) => i.id === a.invoice_id); return inv ? <Text accessibilityRole="link" onPress={() => router.push(`/fin/job/${a.site_id}/invoice/${inv.id}` as never)} style={{ fontSize: 12.5, fontWeight: '700', color: base.blue }}>{inv.number || 'Draft'}</Text> : appStage(a).k === 'certified' ? <Button small kind="ghost" title="Raise invoice" onPress={() => void raise(a)} /> : <Cell>—</Cell>; } },
+              { k: 'st', l: 'Stage', noSort: true, choices: ['Draft', 'Waiting for certificate', 'Certified', 'Invoiced', 'Pay less notice'], render: (a: App) => { const s = appStage(a); return <Text style={{ fontSize: 10.5, fontWeight: '600', color: s.c, backgroundColor: `${s.c}1A`, borderRadius: 999, paddingVertical: 3, paddingHorizontal: 9, overflow: 'hidden', textAlign: 'center' }}>● {s.l}</Text>; } },
+              { k: 'inv', l: 'Invoice', render: (a: App) => { const inv = data.invs.find((i) => i.id === a.invoice_id); return inv ? <Text accessibilityRole="link" onPress={() => router.push(`/fin/job/${a.site_id}/invoice/${inv.id}` as never)} style={{ fontSize: 12.5, fontWeight: '500', color: base.blue }}>{inv.number || 'Draft'}</Text> : appStage(a).k === 'certified' ? <Button small kind="ghost" title="Raise invoice" onPress={() => void raise(a)} /> : <Cell>—</Cell>; } },
             ]}
             foot={(list) => <><FootText bold>{list.length} application{list.length === 1 ? '' : 's'}</FootText><FootText>Applied {money(list.reduce((t, a) => t + Number(a.net_due || 0), 0))}</FootText><FootText>Certified {money(list.reduce((t, a) => t + Number(a.cert_net || 0), 0))}</FootText></>} />
         ) : list.length ? list.map((a) => { const s = appStage(a); return (
@@ -215,7 +215,7 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
       ) : rows.length ? rows.map((x) => { const d = retentionDates(x.jf, st || {}); return (
         <FinRow key={x.s.id} title={jobTag(x.s)} sub={[x.s.client_name, `1st release ${d.first ? fdate(d.first) : 'not set'}${x.jf.ret1_invoice_id || x.jf.ret1_app_id ? ' (claimed)' : ''}`, `final ${d.second ? fdate(d.second) : 'not set'}${x.jf.ret2_invoice_id || x.jf.ret2_app_id ? ' (claimed)' : ''}`].filter(Boolean).join(' · ')} right={money(x.held)} onPress={() => router.push(`/fin/job/${x.s.id}?tab=setup` as never)} />
       ); }) : <Empty>No retention held.</Empty>}
-      {!desk && rows.length > 0 && <Card><Text style={{ fontWeight: '800', color: base.ink }}>{rows.length} job{rows.length === 1 ? '' : 's'} · {money(total)} still held</Text></Card>}
+      {!desk && rows.length > 0 && <Card><Text style={{ fontWeight: '600', color: base.ink }}>{rows.length} job{rows.length === 1 ? '' : 's'} · {money(total)} still held</Text></Card>}
     </View>
   );
 }

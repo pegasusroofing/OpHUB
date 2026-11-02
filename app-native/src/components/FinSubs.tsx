@@ -102,7 +102,7 @@ export function SubsLists({ tab, siteId, f }: { tab: 'opinv' | 'wages' | 'payrun
         <Card>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Button kind="ghost" title="‹" onPress={() => setRunDay(addDays(day, -7))} />
-            <View style={{ flex: 1, alignItems: 'center' }}><Muted>Pay day</Muted><Text style={{ fontWeight: '800', fontSize: 17, color: base.ink }}>{fmt(day)}</Text><Muted>Pays operative invoices for work up to {fmt(upTo)}</Muted></View>
+            <View style={{ flex: 1, alignItems: 'center' }}><Muted>Pay day</Muted><Text style={{ fontWeight: '600', fontSize: 17, color: base.ink }}>{fmt(day)}</Text><Muted>Pays operative invoices for work up to {fmt(upTo)}</Muted></View>
             <Button kind="ghost" title="›" onPress={() => setRunDay(addDays(day, 7))} />
           </View>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
@@ -171,7 +171,7 @@ export function SubsLists({ tab, siteId, f }: { tab: 'opinv' | 'wages' | 'payrun
       <Card>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <Button kind="ghost" title="‹" onPress={() => shift(-1)} />
-          <View style={{ flex: 1, alignItems: 'center' }}><Muted>Tax month</Muted><Text style={{ fontWeight: '800', color: base.ink }}>{fdate(cisMonth)} – {fdate(e.toISOString().slice(0, 10))}</Text></View>
+          <View style={{ flex: 1, alignItems: 'center' }}><Muted>Tax month</Muted><Text style={{ fontWeight: '600', color: base.ink }}>{fdate(cisMonth)} – {fdate(e.toISOString().slice(0, 10))}</Text></View>
           <Button kind="ghost" title="›" onPress={() => shift(1)} />
         </View>
       </Card>

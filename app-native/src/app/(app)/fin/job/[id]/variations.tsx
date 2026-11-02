@@ -81,7 +81,7 @@ export default function FinVariations() {
     toast(r.error || r.ok || ''); if (r.ok) { refresh(); void importSiteVariations(me, id).then((x) => setSite(x.site)); }
   };
   const small = (label: string, onPress: () => void, color = base.blue) => (
-    <Pressable onPress={onPress} disabled={!!busy} style={{ paddingVertical: 3, paddingHorizontal: 9, borderRadius: 7, borderWidth: 1, borderColor: base.cardLine, opacity: busy ? 0.5 : 1 }}><Text style={{ fontSize: 12, fontWeight: '700', color }}>{label}</Text></Pressable>
+    <Pressable onPress={onPress} disabled={!!busy} style={{ paddingVertical: 3, paddingHorizontal: 9, borderRadius: 7, borderWidth: 1, borderColor: base.cardLine, opacity: busy ? 0.5 : 1 }}><Text style={{ fontSize: 12, fontWeight: '500', color }}>{label}</Text></Pressable>
   );
   return (
     <ScrollView contentContainerStyle={page(900)}>
@@ -103,10 +103,10 @@ export default function FinVariations() {
       {list.length ? list.map((v) => <FinRow key={v.id} left={v.number} title={v.title} sub={[ST[v.status]?.[0] || v.status, v.instructed_by ? `by ${v.instructed_by}` : '', v.submitted_on ? `issued ${fdate(v.submitted_on)}` : '', v.agreed_on && v.status === 'agreed' ? `approved ${fdate(v.agreed_on)}` : '', v.cost_estimate != null ? `cost ${money(v.cost_estimate)}` : ''].filter(Boolean).join(' · ')} right={money(v.status === 'agreed' ? v.agreed_value ?? v.quoted : v.quoted)} tone={ST[v.status]?.[1]} onPress={() => setEdit(v)}>
           {(v.variation_id || g(v) === 'submitted' || !finOnly) && (
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: 5 }}>
-              {!!v.variation_id && <Text style={{ fontSize: 11, fontWeight: '700', color: '#7A7F87', backgroundColor: '#F0F1F4', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6 }}>Site</Text>}
+              {!!v.variation_id && <Text style={{ fontSize: 11, fontWeight: '500', color: '#7A7F87', backgroundColor: '#F0F1F4', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6 }}>Site</Text>}
               {g(v) === 'submitted' && small('Approve', () => void quick(v, 'approved'), '#1E7A3C')}
               {g(v) === 'submitted' && small('Reject', () => void quick(v, 'rejected'), '#C0392B')}
-              {!finOnly && (inSow(v) ? <Text style={{ fontSize: 12, fontWeight: '700', color: '#1E7A3C' }}>✓ On the schedule</Text> : v.status !== 'rejected' ? small('+ Schedule of Works', () => void toSow(v)) : null)}
+              {!finOnly && (inSow(v) ? <Text style={{ fontSize: 12, fontWeight: '500', color: '#1E7A3C' }}>✓ On the schedule</Text> : v.status !== 'rejected' ? small('+ Schedule of Works', () => void toSow(v)) : null)}
             </View>
           )}
         </FinRow>)
@@ -115,7 +115,7 @@ export default function FinVariations() {
         <FinForm title={cur ? `Variation ${cur.number}` : 'New variation'} initial={cur ? { ...cur, status: g(cur) } : { status: 'submitted' }} onClose={() => { setEdit(null); setVfile(null); }}
           extra={(
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 8 }}>
-              {!!cur?.file_path && <Pressable onPress={async () => { const u = await openDocLink('finance-docs', cur.file_path); if (u) viewDoc(u); }}><Text style={{ color: base.blue, fontWeight: '700' }}>📄 {cur.file_name || 'Instruction / quote document'}</Text></Pressable>}
+              {!!cur?.file_path && <Pressable onPress={async () => { const u = await openDocLink('finance-docs', cur.file_path); if (u) viewDoc(u); }}><Text style={{ color: base.blue, fontWeight: '500' }}>📄 {cur.file_name || 'Instruction / quote document'}</Text></Pressable>}
               <Pressable onPress={async () => { const r = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true }); if (!r.canceled && r.assets[0]) setVfile({ uri: r.assets[0].uri, name: r.assets[0].name || 'document', mimeType: r.assets[0].mimeType }); }}><Text style={{ color: base.blue }}>📎 {vfile ? vfile.name : cur?.file_path ? 'Replace the document' : 'Attach the instruction / quote document'}</Text></Pressable>
             </View>
           )}

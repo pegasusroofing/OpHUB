@@ -82,12 +82,12 @@ export default function FinPo() {
               <View style={{ flex: 1 }}><Button kind="ghost" title="Cancel" onPress={() => setRm(null)} /></View>
             </View>
           </View>
-        ) : <Pressable onPress={() => setRm(new Set())} style={{ marginTop: 6 }}><Text style={{ color: base.blue, fontWeight: '700' }}>Remove lines…</Text></Pressable>)}
+        ) : <Pressable onPress={() => setRm(new Set())} style={{ marginTop: 6 }}><Text style={{ color: base.blue, fontWeight: '500' }}>Remove lines…</Text></Pressable>)}
         {po.vat != null && <><FinRow title="Subtotal" right={money(po.value)} /><FinRow title="VAT" right={money(po.vat)} /><FinRow title="Total" right={money(po.total ?? Number(po.value) + Number(po.vat))} /></>}
       </Card>
       {po.status !== 'cancelled' && (
         <Card>
-          <Muted style={{ fontWeight: '700' }}>PO value (£, excl. VAT)</Muted>
+          <Muted style={{ fontWeight: '500' }}>PO value (£, excl. VAT)</Muted>
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <TextInput value={val ?? (po.value != null ? String(po.value) : '')} onChangeText={setVal} keyboardType="decimal-pad" placeholder="From the supplier’s quote or price list" style={{ flex: 1, borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 9, color: base.ink }} />
             <Button title="Save" onPress={async () => { const v = num(val ?? (po.value != null ? String(po.value) : '')); if (v !== null && (isNaN(v) || v < 0)) { toast('Enter the value as a number.'); return; } if (await savePoValue(po, v)) { toast('PO value saved'); setVal(null); refresh(); } }} />

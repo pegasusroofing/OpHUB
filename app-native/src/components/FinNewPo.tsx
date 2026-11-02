@@ -102,7 +102,7 @@ export function FinNewPo({ site, itemIds = [] }: { site: Site; itemIds?: string[
           {subs.length > 0 && <SelectBox label="Plot / address" value={sub || '-'} options={[['-', 'Whole job'], ...subs.map((s) => [s.id, s.short] as [string, string])]} onChange={(k) => setSub(k === '-' ? '' : k)} style={{ minWidth: 180, flexGrow: 1 }} />}
           <SelectBox label="Delivery" value={delivery} options={[['delivery', 'Deliver to site'], ['collection', 'Collection']]} onChange={setDelivery} style={{ minWidth: 180, flexGrow: 1 }} />
           <View style={{ minWidth: 180, flexGrow: 1, marginBottom: 10 }}>
-            <Text style={{ fontSize: 12, fontWeight: '700', color: base.slate, marginBottom: 4 }}>Required by</Text>
+            <Text style={{ fontSize: 12, fontWeight: '500', color: base.slate, marginBottom: 4 }}>Required by</Text>
             <DateBox value={req} onChange={setReq} min={todayIso()} title="Required by" />
           </View>
         </View>
@@ -120,7 +120,7 @@ export function FinNewPo({ site, itemIds = [] }: { site: Site; itemIds?: string[
           <View key={i} style={{ borderTopWidth: i ? 1 : 0, borderTopColor: base.line, paddingTop: i ? 8 : 0, marginBottom: 8 }}>
             <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
               <TextInput value={l.description} onChangeText={(v) => set(i, { description: v })} placeholder="Description" style={[box, { flex: 1, fontSize: 15 }]} />
-              {lines.length > 1 && <Pressable accessibilityLabel="Remove line" hitSlop={8} onPress={() => setLines((ls) => ls.filter((_, j) => j !== i))}><Text style={{ color: base.slate, fontSize: 16, fontWeight: '700' }}>✕</Text></Pressable>}
+              {lines.length > 1 && <Pressable accessibilityLabel="Remove line" hitSlop={8} onPress={() => setLines((ls) => ls.filter((_, j) => j !== i))}><Text style={{ color: base.slate, fontSize: 16, fontWeight: '500' }}>✕</Text></Pressable>}
             </View>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6, alignItems: 'center' }}>
               <TextInput value={l.qty} onChangeText={(v) => set(i, { qty: v.replace(/[^0-9.]/g, '') })} placeholder="Qty" keyboardType="decimal-pad" style={[box, { width: 64 }]} />
@@ -128,7 +128,7 @@ export function FinNewPo({ site, itemIds = [] }: { site: Site; itemIds?: string[
               <TextInput value={l.rate} onChangeText={(v) => set(i, { rate: v.replace(/[^0-9.]/g, '') })} placeholder="Rate £" keyboardType="decimal-pad" style={[box, { width: 84 }]} />
               <SelectBox value={l.cost_code} title="Cost code" options={Object.entries(COST_CATS).filter(([k]) => k !== 'labour')} onChange={(k) => set(i, { cost_code: k })} style={{ marginBottom: 0, width: 170 }} />
               <SelectBox value={l.vat} title="VAT" options={vats.map((v) => [v.code, v.name] as [string, string])} onChange={(k) => set(i, { vat: k })} style={{ marginBottom: 0, width: 170 }} />
-              <Text style={{ marginLeft: 'auto', fontWeight: '800', color: base.ink }}>{money(amt(l))}</Text>
+              <Text style={{ marginLeft: 'auto', fontWeight: '600', color: base.ink }}>{money(amt(l))}</Text>
             </View>
           </View>
         ))}
@@ -136,7 +136,7 @@ export function FinNewPo({ site, itemIds = [] }: { site: Site; itemIds?: string[
         <View style={{ alignItems: 'flex-end', marginTop: 8, gap: 2 }}>
           <Text style={{ color: base.slate }}>Subtotal {money(net)}</Text>
           <Text style={{ color: base.slate }}>VAT {money(vat)}</Text>
-          <Text style={{ fontWeight: '800', color: base.ink, fontSize: 16 }}>Total {money(r2(net + vat))}</Text>
+          <Text style={{ fontWeight: '600', color: base.ink, fontSize: 16 }}>Total {money(r2(net + vat))}</Text>
         </View>
       </Card>
       <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>

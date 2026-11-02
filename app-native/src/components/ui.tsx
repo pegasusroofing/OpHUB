@@ -30,8 +30,11 @@ export function Card({ children, style }: { children: ReactNode; style?: ViewSty
   return <View style={[s.card, fin && { borderColor: '#e5e7eb', shadowOpacity: 0, elevation: 0, borderRadius: 10, padding: 18 }, style]}>{children}</View>;
 }
 
+// Finance's text is lighter than the rest of the app (Andy, 2 Nov 2026).
+const FIN_TEXT = { fontFamily: undefined, fontWeight: '600' as const, letterSpacing: 0 };
 export function Title({ children }: { children: ReactNode }) {
-  return <Text style={s.title}>{children}</Text>;
+  const fin = useContext(FinMode);
+  return <Text style={[s.title, fin && FIN_TEXT]}>{children}</Text>;
 }
 export function Muted({ children, style }: { children: ReactNode; style?: object }) {
   return <Text style={[s.muted, style]}>{children}</Text>;
@@ -60,6 +63,7 @@ export function Button({ title, onPress, busy, kind = 'primary', disabled, small
   const t = useTheme();
   const primary = kind === 'primary';
   const danger = kind === 'danger' || (kind === 'ghost' && /^[^a-z]*(delete|remove|void)/i.test(title));
+  const fin = useContext(FinMode);
   const fg = primary ? t.brand1Text : danger ? BTN_DANGER[1] : base.ink;
   const held = useRef(false);
   const press = () => {
@@ -82,7 +86,7 @@ export function Button({ title, onPress, busy, kind = 'primary', disabled, small
         (pressed || busy || disabled) && { opacity: 0.7 },
       ]}>
       {busy && <ActivityIndicator color={fg} style={{ marginRight: 8 }} />}
-      <Text style={[s.btnText, small && s.btnTextSmall, { color: fg }]}>{title}</Text>
+      <Text style={[s.btnText, small && s.btnTextSmall, fin && { fontWeight: '500' }, { color: fg }]}>{title}</Text>
     </Pressable>
   );
 }
@@ -167,7 +171,8 @@ export function Row({ title, sub, extra, onPress, dim }: { title: string; sub?: 
 }
 
 export function SectionTitle({ children }: { children: ReactNode }) {
-  return <Text style={s.section}>{children}</Text>;
+  const fin = useContext(FinMode);
+  return <Text style={[s.section, fin && FIN_TEXT]}>{children}</Text>;
 }
 
 export function Empty({ children }: { children: ReactNode }) {

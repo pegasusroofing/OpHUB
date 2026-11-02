@@ -75,9 +75,9 @@ export default function FinParts() {
       {desk ? (
         <FinTable rows={all} keyOf={(r) => r.id} onRow={(r) => void open(r)}
           cols={[
-            { k: 'n', l: noun, flex: 2.2, min: 200, render: (r: P) => <View style={{ alignSelf: 'stretch' }}><Text style={{ fontWeight: '800', fontSize: 13, color: '#111827' }}>{r.name}</Text>{!!r.detail && <Text style={{ fontSize: 11.5, color: '#6b7280' }}>{r.detail}</Text>}</View> },
+            { k: 'n', l: noun, flex: 2.2, min: 200, render: (r: P) => <View style={{ alignSelf: 'stretch' }}><Text style={{ fontWeight: '600', fontSize: 13, color: '#111827' }}>{r.name}</Text>{!!r.detail && <Text style={{ fontSize: 11.5, color: '#6b7280' }}>{r.detail}</Text>}</View> },
             col('value', 'Value'), col('materials', 'Materials'), col('labour', 'Labour'), col('plant', 'Plant'), col('subcontract', 'Subcontract'), col('other', 'Other'), col('cost', 'Total cost'), col('committed', 'Committed'),
-            { k: 'margin', l: 'Margin', render: (r: P) => <Text style={{ fontSize: 13, fontWeight: '700', color: r.margin != null && r.margin < 0 ? '#C0392B' : '#111827' }}>{m(r.margin)}</Text> },
+            { k: 'margin', l: 'Margin', render: (r: P) => <Text style={{ fontSize: 13, fontWeight: '500', color: r.margin != null && r.margin < 0 ? '#C0392B' : '#111827' }}>{m(r.margin)}</Text> },
           ]}
           foot={(left) => { const add = (k: keyof P) => round2(left.reduce((t, r) => t + (Number(r[k]) || 0), 0)); return <><FootText bold>Total cost {money(add('cost'))}</FootText><FootText>Committed {money(add('committed'))}</FootText>{add('value') ? <FootText>Value {money(add('value'))}</FootText> : null}</>; }} />
       ) : all.map((r) => <FinRow key={r.id} title={r.name} sub={[r.detail, `cost ${money(r.cost)}`, r.committed ? `committed ${money(r.committed)}` : '', r.value != null ? `value ${money(r.value)}` : '', r.margin != null ? `margin ${money(r.margin)}` : ''].filter(Boolean).join(' · ')} right={money(r.cost)} tone={r.id === 'none' && r.cost > 0 ? '#D98A00' : undefined} onPress={() => void open(r)} />)}

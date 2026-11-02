@@ -41,7 +41,7 @@ import { base, page, radius, space, useDesk, useTheme } from '@/theme/theme';
 
 type Row = Record<string, any>;
 const slim = { height: 28, paddingVertical: 2, paddingHorizontal: 8, fontSize: 13, borderRadius: 7 };
-const lab = { fontSize: 11.5, fontWeight: '700' as const, color: base.slate };
+const lab = { fontSize: 11.5, fontWeight: '500' as const, color: base.slate };
 const Pound = ({ width, children }: { width: number | '100%'; children: ReactNode }) => (
   <View style={{ flexDirection: 'row', alignItems: 'center', width, height: 28, paddingHorizontal: 8, borderWidth: 1, borderColor: base.line, borderRadius: 7, backgroundColor: base.card, gap: 3 }}><Text style={{ fontSize: 13, color: base.slate }}>£</Text>{children}</View>
 );
@@ -280,7 +280,7 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
         const on = head ? grp.length > 0 && grp.every((j) => rows[j]._sel) : !!r._sel;
         // Headings are one aligned line in a deeper colour: a section in the company colour, a sub-section in grey (Andy, 1 Nov 2026).
         const sec = r.kind === 'section', ink = sec ? t.brand1Text : base.ink;
-        const headBox = { flex: 0, height: 28, paddingVertical: 0, paddingHorizontal: 6, borderWidth: 0, backgroundColor: 'transparent', color: ink, fontWeight: '800' as const };
+        const headBox = { flex: 0, height: 28, paddingVertical: 0, paddingHorizontal: 6, borderWidth: 0, backgroundColor: 'transparent', color: ink, fontWeight: '600' as const };
         // The Add button sits at the end of each section or sub-section: an item, or a sub-section (only ever inside a section).
         let h = i; while (h >= 0 && rows[h].kind !== 'section' && rows[h].kind !== 'subsection') h--;
         const next = rows[i + 1]?.kind, nextHead = next === 'section' || next === 'subsection' || i === rows.length - 1;
@@ -295,9 +295,9 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
           <View style={{ borderWidth: 1, borderColor: sec ? t.brand1 : r.kind === 'subsection' ? '#DFE3EA' : base.cardLine, borderRadius: 8, paddingVertical: head ? (desk ? 2 : 4) : desk ? 6 : 10, paddingHorizontal: 8, marginBottom: 6, backgroundColor: sec ? t.brand1 : r.kind === 'subsection' ? '#DFE3EA' : base.card, marginLeft: r.kind === 'subsection' ? 10 : 0, ...(rows[g[0]].kind === 'section' ? { marginBottom: 0, marginLeft: 0, borderRadius: 0, borderWidth: 0, borderBottomWidth: 1, borderBottomColor: base.cardLine, ...(sec ? { borderTopLeftRadius: 8, borderTopRightRadius: 8 } : null) } : null), zIndex: rows.length - i }}>
             <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
               {selecting && <Pressable hitSlop={6} focusable={false} accessibilityLabel="Tick" onPress={() => (head ? tick(grp, !on) : set(i, '_sel', !on))}><Text style={{ fontSize: 17, color: head ? ink : base.ink }}>{on ? '☑' : '☐'}</Text></Pressable>}
-              {editRefs ? <TextInput value={refs[i]} onChangeText={(v) => set(i, 'ref', v)} placeholder="Ref" placeholderTextColor={head ? ink : undefined} style={[box, slim, { width: desk ? 64 : head ? 30 : 40 }, head && headBox, !desk && { fontSize: 11 }]} /> : <Text numberOfLines={1} accessibilityLabel="Ref" style={{ width: desk ? 64 : head ? 30 : 40, fontSize: desk ? 13 : 11, fontWeight: '700', color: head ? ink : base.slate, paddingHorizontal: 2 }}>{refs[i]}</Text>}
-              <TextInput value={r.description || ''} onChangeText={(v) => set(i, 'description', v)} placeholder={head ? (r.kind === 'section' ? 'Section heading' : 'Sub-section heading') : 'Description'} placeholderTextColor={head ? ink : undefined} autoFocus={openK === r._k} multiline={!head} onContentSizeChange={head ? undefined : (e) => { const h = Math.ceil(e.nativeEvent.contentSize.height); setDescH((o) => (o[r._k] === h ? o : { ...o, [r._k]: h })); }} onKeyPress={head ? undefined : (e) => { const n = e.nativeEvent as unknown as { key: string; shiftKey?: boolean }; if (n.key === 'Tab' && !n.shiftKey) { (e as unknown as { preventDefault: () => void }).preventDefault(); qtyBox.current[r._k]?.focus(); } }} style={[box, slim, { flex: 1, minWidth: 0, height: Math.max(28, descH[r._k] || 0), paddingVertical: 4, lineHeight: 18, fontWeight: desk ? '400' : '700', paddingLeft: desk ? 8 : 16 }, head && { ...headBox, flex: 1, minWidth: 0 }]} />
-              {head && <Text style={{ fontWeight: '800', color: ink, minWidth: desk ? 90 : 0, fontSize: desk ? 14 : 12.5, textAlign: 'right' }}>{money(tots[i]?.value || 0)}</Text>}
+              {editRefs ? <TextInput value={refs[i]} onChangeText={(v) => set(i, 'ref', v)} placeholder="Ref" placeholderTextColor={head ? ink : undefined} style={[box, slim, { width: desk ? 64 : head ? 30 : 40 }, head && headBox, !desk && { fontSize: 11 }]} /> : <Text numberOfLines={1} accessibilityLabel="Ref" style={{ width: desk ? 64 : head ? 30 : 40, fontSize: desk ? 13 : 11, fontWeight: '500', color: head ? ink : base.slate, paddingHorizontal: 2 }}>{refs[i]}</Text>}
+              <TextInput value={r.description || ''} onChangeText={(v) => set(i, 'description', v)} placeholder={head ? (r.kind === 'section' ? 'Section heading' : 'Sub-section heading') : 'Description'} placeholderTextColor={head ? ink : undefined} autoFocus={openK === r._k} multiline={!head} onContentSizeChange={head ? undefined : (e) => { const h = Math.ceil(e.nativeEvent.contentSize.height); setDescH((o) => (o[r._k] === h ? o : { ...o, [r._k]: h })); }} onKeyPress={head ? undefined : (e) => { const n = e.nativeEvent as unknown as { key: string; shiftKey?: boolean }; if (n.key === 'Tab' && !n.shiftKey) { (e as unknown as { preventDefault: () => void }).preventDefault(); qtyBox.current[r._k]?.focus(); } }} style={[box, slim, { flex: 1, minWidth: 0, height: Math.max(28, descH[r._k] || 0), paddingVertical: 4, lineHeight: 18, fontWeight: desk ? '400' : '500', paddingLeft: desk ? 8 : 16 }, head && { ...headBox, flex: 1, minWidth: 0 }]} />
+              {head && <Text style={{ fontWeight: '600', color: ink, minWidth: desk ? 90 : 0, fontSize: desk ? 14 : 12.5, textAlign: 'right' }}>{money(tots[i]?.value || 0)}</Text>}
               <Pressable hitSlop={6} focusable={false} onPress={async () => {
                 const k = await chooseAction('Line', [selecting ? { key: 'unsel', label: 'Stop selecting' } : { key: 'sel', label: 'Select' }, { key: 'refs', label: editRefs ? 'Finish editing ref numbers' : 'Edit ref numbers' }, { key: 'ai', label: head ? '+ Item under this heading' : '+ Item below' }, ...(r.kind === 'section' ? [{ key: 'as', label: '+ Sub-section in this section' }] : []), { key: 'asec', label: '+ Section after this' }, { key: 'up', label: '↑ Move up' }, { key: 'down', label: '↓ Move down' }, { key: 'kind', label: 'Change type' }, { key: 'del', label: '🗑 Remove', danger: true }]);
                 if (k === 'refs') setEditRefs(!editRefs); else if (k === 'sel') { setSelectMode(true); setBulkOpen(true); if (head) tick(grp, true); else set(i, '_sel', true); } else if (k === 'unsel') { setSelectMode(false); setRows((rs) => rs.map((x) => (x._sel ? { ...x, _sel: false } : x))); } else if (k === 'ai') addAt(i, 'item'); else if (k === 'as') addAt(i, 'subsection'); else if (k === 'asec') { const x = rows.slice(); let at = i + 1; while (at < x.length && x[at].kind !== 'section') at++; const n = blank('section'); x.splice(at, 0, n); setRows(x); setOpenK(n._k); }
@@ -319,7 +319,7 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
                 <Pound width={90}><TextInput accessibilityLabel="Amount" value={String(r.cost ?? '')} onChangeText={(v) => setRows((rs) => rs.map((x, j) => (j === i ? { ...x, cost: v, cost_basis: null, cost_pct: null } : x)))} keyboardType="decimal-pad" style={inPound} /></Pound>
                 {subs.length > 0 && <SelectBox value={r.sub || '-'} options={[['-', 'No plot'], ...subs.map((s) => [s.id, s.short] as [string, string])]} onChange={(k) => set(i, 'sub', k === '-' ? '' : k)} title="Plot" compact style={{ marginBottom: 0, width: 130 }} />}
                 <Text style={{ fontSize: 12, color: num(r.cost) !== null && vals[i] && (num(r.cost) as number) > vals[i] ? base.red : base.slate }}>{marginText(vals[i], num(r.cost))}{r.cost_basis && r.cost_pct != null ? ` (set at ${r.cost_pct}% ${r.cost_basis === 'markup' ? 'mark-up' : 'margin'})` : ''}</Text>
-                <Text style={{ marginLeft: 'auto', fontWeight: '800', color: base.ink }}>{money(vals[i])}</Text>
+                <Text style={{ marginLeft: 'auto', fontWeight: '600', color: base.ink }}>{money(vals[i])}</Text>
               </View>
             ) : (
               <View style={{ marginTop: 8, gap: 8 }}>
@@ -330,8 +330,8 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
                 </View>
                 {num(r.value) !== null && num(r.qty) === null && num(r.rate) === null && <Pound width="100%"><TextInput accessibilityLabel="Amount" value={String(r.value ?? '')} onChangeText={(v) => set(i, 'value', v)} keyboardType="decimal-pad" style={inPound} /></Pound>}
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <Pressable accessibilityRole="button" accessibilityLabel="Budget cost" hitSlop={6} onPress={() => setCostOpen((o) => ({ ...o, [r._k]: !o[r._k] }))}><Text style={{ fontSize: 12.5, fontWeight: '700', color: t.brand1 }}>Budget cost {costOpen[r._k] ? '▴' : '▾'}</Text></Pressable>
-                  <Text style={{ marginLeft: 'auto', fontWeight: '800', color: base.ink }}>{money(vals[i])}</Text>
+                  <Pressable accessibilityRole="button" accessibilityLabel="Budget cost" hitSlop={6} onPress={() => setCostOpen((o) => ({ ...o, [r._k]: !o[r._k] }))}><Text style={{ fontSize: 12.5, fontWeight: '500', color: t.brand1 }}>Budget cost {costOpen[r._k] ? '▴' : '▾'}</Text></Pressable>
+                  <Text style={{ marginLeft: 'auto', fontWeight: '600', color: base.ink }}>{money(vals[i])}</Text>
                 </View>
                 {costOpen[r._k] && (
                   <>
@@ -358,7 +358,7 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
       {/* The Bill's summary sits at the bottom; each section's total is on its heading (Andy, 1 Nov 2026). */}
         <View style={{ flexDirection: 'row', backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 10, paddingVertical: 8, marginBottom: 10 }}>
           {[['Total', money(total)], ['Budget cost', costTotal ? money(costTotal) : '—'], ['Margin', costTotal && total ? `${Math.round(((total - costTotal) / total) * 1000) / 10}%` : '—']].map(([l, v], n) => (
-            <View key={l} style={{ flex: 1, alignItems: 'center', borderLeftWidth: n ? 1 : 0, borderLeftColor: base.cardLine }}><Text style={{ fontSize: 11, color: base.slate }}>{l}</Text><Text style={{ fontSize: 13, fontWeight: '800', color: base.ink }}>{v}</Text></View>
+            <View key={l} style={{ flex: 1, alignItems: 'center', borderLeftWidth: n ? 1 : 0, borderLeftColor: base.cardLine }}><Text style={{ fontSize: 11, color: base.slate }}>{l}</Text><Text style={{ fontSize: 13, fontWeight: '600', color: base.ink }}>{v}</Text></View>
           ))}
         </View>
       {/* Budget cost: margin / mark-up for all or the ticked lines, and changes to the ticked lines together (902). */}
@@ -366,14 +366,14 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
       {(desk || bulkOpen) && (
       <Card style={{ paddingVertical: 5, paddingHorizontal: 10 }}>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
-          <Text style={{ fontWeight: '700', fontSize: 12, color: base.ink }}>Budget cost:</Text>
+          <Text style={{ fontWeight: '500', fontSize: 12, color: base.ink }}>Budget cost:</Text>
           <TextInput value={pct} onChangeText={(v) => setPct(v.replace(/[^0-9.]/g, ''))} placeholder="%" keyboardType="decimal-pad" style={[box, { width: 48, height: 26, paddingVertical: 2, paddingHorizontal: 6, fontSize: 12 }]} />
           <SelectBox value={basis} options={[['margin', '% margin'], ['markup', '% mark-up']]} onChange={setBasis} compact style={{ marginBottom: 0, width: 110 }} title="Margin or mark-up" />
           <Button small kind="ghost" title={ticked.length ? `Apply to ${ticked.length} ticked` : 'Apply to ticked'} disabled={!ticked.length} onPress={() => applyPct(true)} />
           <Button small kind="ghost" title="Apply to all lines" onPress={() => applyPct(false)} />
           {ticked.length ? (
             <>
-              <Text style={{ fontWeight: '700', color: base.ink }}>{ticked.length} ticked</Text>
+              <Text style={{ fontWeight: '500', color: base.ink }}>{ticked.length} ticked</Text>
               {subs.length > 0 && <SelectBox value="" placeholder="Set plot…" title="Plot for the ticked lines" options={[['-', 'No plot'], ...subs.map((s) => [s.id, s.short] as [string, string])]} onChange={(k) => setRows((rs) => rs.map((r, j) => (ticked.includes(j) ? { ...r, sub: k === '-' ? '' : k } : r)))} style={{ marginBottom: 0, width: 170 }} />}
               <Button small kind="ghost" title="Set unit" onPress={async () => { const u = await promptText('Unit for the ticked lines (e.g. m², nr, item)', ''); if (u !== null) setRows((rs) => rs.map((r, j) => (ticked.includes(j) ? { ...r, unit: u.trim() } : r))); }} />
               <Button small kind="ghost" title="Clear costs" onPress={() => setRows((rs) => rs.map((r, j) => (ticked.includes(j) ? { ...r, cost: '', cost_basis: null, cost_pct: null } : r)))} />
@@ -411,18 +411,18 @@ function ImportPreview({ imp, setImp, onUse }: { imp: Imp; setImp: (i: Imp | nul
   const total = round2(used.reduce((t, l) => t + Number(l.value || 0), 0));
   return (
     <Card style={{ borderColor: base.blue, borderWidth: 1.5 }}>
-      <Text style={{ fontWeight: '800', color: base.ink, marginBottom: 4 }}>Check the breakdown</Text>
+      <Text style={{ fontWeight: '600', color: base.ink, marginBottom: 4 }}>Check the breakdown</Text>
       {imp.sheets.length > 1 && (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
-          {imp.sheets.map((s) => <Pressable key={s.name} onPress={() => { const g = guessColumns(s.rows); setImp({ ...imp, sheet: s.name, lines: importRows(s.rows, g.header, g.cols) }); }} style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14, borderWidth: 1, borderColor: imp.sheet === s.name ? base.ink : base.line, backgroundColor: imp.sheet === s.name ? base.ink : base.card }}><Text style={{ color: imp.sheet === s.name ? '#fff' : base.ink, fontWeight: '700' }}>{s.name}</Text></Pressable>)}
+          {imp.sheets.map((s) => <Pressable key={s.name} onPress={() => { const g = guessColumns(s.rows); setImp({ ...imp, sheet: s.name, lines: importRows(s.rows, g.header, g.cols) }); }} style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14, borderWidth: 1, borderColor: imp.sheet === s.name ? base.ink : base.line, backgroundColor: imp.sheet === s.name ? base.ink : base.card }}><Text style={{ color: imp.sheet === s.name ? '#fff' : base.ink, fontWeight: '500' }}>{s.name}</Text></Pressable>)}
         </View>
       )}
       <Muted style={{ marginBottom: 6 }}>{used.length} item{used.length === 1 ? '' : 's'} · total {money(total)}. Tap a line to change its type; totals are skipped so nothing is counted twice.</Muted>
       {imp.lines.length ? imp.lines.map((l, i) => (
         <Pressable key={i} onPress={() => { const n = imp.lines.slice(); n[i] = { ...l, kind: KINDS[(KINDS.indexOf(l.kind) + 1) % KINDS.length] }; setImp({ ...imp, lines: n }); }} style={{ flexDirection: 'row', gap: 8, paddingVertical: 4, borderBottomWidth: 1, borderBottomColor: base.line, opacity: l.kind === 'skip' ? 0.45 : 1 }}>
-          <Text style={{ width: 82, fontSize: 11.5, fontWeight: '800', color: l.kind === 'item' ? base.ink : base.blue }}>{KIND_LABEL[l.kind]}</Text>
-          <Text style={{ flex: 1, color: base.ink, fontWeight: l.kind === 'section' ? '800' : '400' }}>{l.ref ? `${l.ref} · ` : ''}{l.description}{l.qty != null || l.rate != null ? `  (${l.qty ?? ''} ${l.unit || ''}${l.rate != null ? ` × ${l.rate}` : ''})` : ''}</Text>
-          <Text style={{ fontWeight: '700', color: base.ink }}>{l.value != null ? money(l.value) : ''}</Text>
+          <Text style={{ width: 82, fontSize: 11.5, fontWeight: '600', color: l.kind === 'item' ? base.ink : base.blue }}>{KIND_LABEL[l.kind]}</Text>
+          <Text style={{ flex: 1, color: base.ink, fontWeight: l.kind === 'section' ? '600' : '400' }}>{l.ref ? `${l.ref} · ` : ''}{l.description}{l.qty != null || l.rate != null ? `  (${l.qty ?? ''} ${l.unit || ''}${l.rate != null ? ` × ${l.rate}` : ''})` : ''}</Text>
+          <Text style={{ fontWeight: '500', color: base.ink }}>{l.value != null ? money(l.value) : ''}</Text>
         </Pressable>
       )) : <Muted>Nothing found. Try another sheet.</Muted>}
       <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
