@@ -1273,3 +1273,12 @@
 {"part":"appentry1","step":"Certified by £","ok":true,"note":"shows £625","ms":6860}
 {"part":"appentry1","step":"Certified by qty, then back to %: same figure","ok":true,"note":"qty showed 50, now 20%","ms":2761}
 {"part":"appentry1","step":"One line can switch on its own","ok":true,"note":"qty boxes 1","ms":543}
+{"part":"appstyle1","step":"Application draft","ok":true,"note":"4 bars","ms":12541}
+{"part":"appstyle1","step":"Plot box on a multi-site job with no plots","ok":true,"note":"boxes 1","ms":10927}
+{"part":"appstyle1","step":"A new line takes the plot above","ok":true,"note":"1 > 2","ms":14703}
+{"part":"appentry1","step":"Applied by £ on the draft","ok":true,"note":"pct 50","ms":50296}
+{"part":"appentry1","step":"Applied by qty on the draft","ok":true,"note":"pct 75","ms":4399}
+{"part":"appentry1","step":"Applied by % still works","ok":true,"note":"pct 80","ms":4257}
+{"part":"appentry1","step":"Certified by £","ok":true,"note":"shows £625","ms":6934}
+{"part":"appentry1","step":"Certified by qty, then back to %: same figure","ok":true,"note":"qty showed 50, now 20%","ms":2766}
+{"part":"appentry1","step":"One line can switch on its own","ok":true,"note":"qty boxes 1","ms":579}
