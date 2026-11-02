@@ -26,6 +26,16 @@ export function appCalc(app: Row, contractValue: unknown, retLimitPct: unknown, 
 }
 /** What was certified (or, until the certificate is in, applied for) on earlier applications. */
 export const previousCertified = (apps: Row[], number: number) => round2(apps.filter((a) => a.number < number && !['draft', 'void'].includes(a.status)).reduce((t, a) => t + Number(a.cert_net != null ? a.cert_net : a.net_due || 0), 0));
+/** A valuation split up for the overview: the certified figures once there's a certificate, otherwise what was applied for. */
+export function appFigures(a: Row | null | undefined) {
+  if (!a) return { contract: 0, variations: 0, dayworks: 0, gross: 0, discount: 0, retention: 0 };
+  const cert = a.cert_net != null, cl: Row[] = cert ? a.cert_lines || [] : [];
+  const add = (xs: Row[], f: (x: Row) => unknown) => round2(xs.reduce((t, x) => t + Number(f(x) || 0), 0));
+  const gross = round2(Number((cert ? a.cert_gross : a.gross) || 0));
+  const variations = cl.length ? add(cl.filter((l) => l.var_index != null), (l) => l.gross) : add(a.variations || [], (v) => v.gross ?? (Number(v.value || 0) * pct(v.pct)) / 100);
+  const dayworks = cl.length ? add(cl.filter((l) => l.day_index != null), (l) => l.gross) : add(a.dayworks || [], (d) => d.gross ?? d.value);
+  return { contract: round2(gross - variations - dayworks), variations, dayworks, gross, discount: round2(Number((cert ? a.cert_discount : a.discount) || 0)), retention: round2(Number((cert ? a.cert_retention : a.retention) || 0)) };
+}
 /** Each header adds up the items below it until the next header of the same or higher level. */
 export function groupTotals(rows: Row[], valueOf: (r: Row) => number, grossOf: (r: Row) => number) {
   const out: Record<number, { value: number; gross: number }> = {}; let sec: number | null = null, sub: number | null = null;

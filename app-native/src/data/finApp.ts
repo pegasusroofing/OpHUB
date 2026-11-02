@@ -79,8 +79,10 @@ export async function newApplication(me: Profile, siteId: string): Promise<{ id?
 export async function loadApplication(id: string) {
   const a = (await fdb.from('fin_applications').select('*').eq('id', id).maybeSingle()).data as Row | null;
   if (!a) return null;
-  const [jf, apps] = await Promise.all([fdb.from('job_finance').select('*').eq('site_id', a.site_id).maybeSingle(), rows(fdb.from('fin_applications').select('number,status,cert_net,net_due,lines,cert_lines,variations').eq('site_id', a.site_id))]);
+  const [jf, apps] = await Promise.all([fdb.from('job_finance').select('*').eq('site_id', a.site_id).maybeSingle(), rows(fdb.from('fin_applications').select('number,status,cert_net,net_due,lines,cert_lines,variations,dayworks,gross,discount,retention,cert_gross,cert_discount,cert_retention').eq('site_id', a.site_id))]);
   const j = (jf.data as Row | null) || {}, previousLive = previousCertified(apps, a.number);
+  // The last application before this one, for the Previous column on the overview.
+  const prior = apps.filter((x: Row) => x.number < a.number && !['draft', 'void'].includes(x.status)).sort((x: Row, y: Row) => x.number - y.number).pop() || null;
   // Each line's % on the last certificate, for the Previous / This time figures (9219r).
   const { prevPct, prevVar } = appDoc(a, j, apps);
   const [siteProgress, varProgress] = await Promise.all([loadSiteProgress(a.site_id), loadVarProgress(a.site_id)]);
@@ -92,10 +94,10 @@ export async function loadApplication(id: string) {
     if (newV.length || newD.length) {
       const next = { ...a, variations: [...(a.variations || []), ...newV], dayworks: [...(a.dayworks || []), ...newD] };
       const saved = rowForSave(next, j, previousLive);
-      if (!(await fdb.from('fin_applications').update(saved as never).eq('id', a.id).eq('status', 'draft')).error) return { a: { ...next, ...saved }, jf: j, previousLive, prevPct, prevVar, siteProgress, varProgress, synced: true };
+      if (!(await fdb.from('fin_applications').update(saved as never).eq('id', a.id).eq('status', 'draft')).error) return { a: { ...next, ...saved }, jf: j, prior, previousLive, prevPct, prevVar, siteProgress, varProgress, synced: true };
     }
   }
-  return { a, jf: j, previousLive, prevPct, prevVar, siteProgress, varProgress, synced: false };
+  return { a, jf: j, prior, previousLive, prevPct, prevVar, siteProgress, varProgress, synced: false };
 }
 export function rowForSave(a: Row, jf: Row, previous: number) {
   const c = appCalc(a, jf.contract_value, jf.retention_limit_pct, previous);

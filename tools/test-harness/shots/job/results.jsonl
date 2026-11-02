@@ -1238,3 +1238,22 @@
 {"part":"boqsave1","step":"Tab goes straight from Unit to Sell rate","ok":false,"note":"after one Tab: Amount","ms":11405}
 {"part":"boqsave1","step":"Select lines, then Tick all appears","ok":true,"note":"apply 1","ms":1148}
 {"part":"boqsave1","step":"A second open copy does not break saving","ok":true,"note":"2 > 3 > 3, failed 0","ms":27282}
+{"part":"appview1","step":"Draft opens on the overview","ok":true,"note":"Contract works £3,250.00 Valuation date 2 Nov 2026 Due date 2 Dec 2026 Fin","ms":14167}
+{"part":"appview1","step":"Line by line has the lines and a totals bar","ok":true,"note":"boxes 5","ms":1238}
+{"part":"appview1","step":"Mark applied, stays on line by line with certified boxes","ok":true,"note":"boxes 5","ms":287}
+{"part":"appview1","step":"Certified as applied, then the overview shows both columns","ok":false,"note":"","ms":1942}
+{"part":"appview1","step":"Save certificate: overview keeps the figures","ok":false,"note":"locator.click: Timeout 5000ms exceeded.","ms":5011}
+{"part":"appview1","step":"Phone: overview fits","ok":true,"note":"over by 0","ms":846}
+{"part":"appview1","step":"Draft opens on the overview","ok":true,"note":"Contract works £3,250.00 Valuation date 2 Nov 2026 Due date 2 Dec 2026 Fin","ms":14814}
+{"part":"appview1","step":"Line by line has the lines and a totals bar","ok":true,"note":"boxes 5","ms":1245}
+{"part":"appview1","step":"Mark applied, stays on line by line with certified boxes","ok":true,"note":"boxes 5","ms":173}
+{"part":"appview1","step":"Certified as applied, then the overview shows both columns","ok":true,"note":"Balance £807.50 £807.50 £522.50 £285.00 Total due £285.00 An application isn'","ms":1663}
+{"part":"appview1","step":"Save certificate: overview keeps the figures","ok":true,"note":"certified cert 285 applied 285","ms":4725}
+{"part":"appview1","step":"Phone: overview fits","ok":true,"note":"over by 0","ms":868}
+{"part":"appflow1","step":"BoQ: all on one row, capital letter","ok":true,"note":"row offset -6, Strip tiles","ms":13528}
+{"part":"appflow1","step":"Draft: click selects, no jump after typing and returning to the window","ok":true,"note":"typed 50, scroll 520.5 > 520.5, still 50","ms":21471}
+{"part":"appflow1","step":"Variation quantity sets the value","ok":true,"note":"value £300","ms":1583}
+{"part":"appflow1","step":"Buttons on one row, then certified on each line","ok":true,"note":"one row true, submitted, certified boxes 6, variation kept true","ms":5404}
+{"part":"appstyle1","step":"Application draft","ok":true,"note":"4 bars","ms":12386}
+{"part":"appstyle1","step":"Plot box on a multi-site job with no plots","ok":true,"note":"boxes 1","ms":10681}
+{"part":"appstyle1","step":"A new line takes the plot above","ok":true,"note":"1 > 2","ms":14301}

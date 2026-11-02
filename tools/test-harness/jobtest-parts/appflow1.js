@@ -15,7 +15,7 @@ module.exports = async ({as, step}) => {
   });
   let id;
   await step('Draft: click selects, no jump after typing and returning to the window', async () => {
-    await a.go('/fin/job/' + J.id + '/application/new', 9000); await a.page.waitForTimeout(4000); id = new URL(a.page.url()).pathname.split('/').pop(); await a.shot('draft');
+    await a.go('/fin/job/' + J.id + '/application/new', 9000); await a.page.waitForTimeout(4000); id = new URL(a.page.url()).pathname.split('/').pop(); await a.shot('draft'); await q('Line by line').first().click({timeout: 5000}); await a.page.waitForTimeout(500);
     const box = a.page.getByLabel('Percent done').last(); await box.scrollIntoViewIfNeeded(); await a.page.waitForTimeout(300);
     await box.click(); await a.page.waitForTimeout(150); await a.page.keyboard.type('50'); await a.page.waitForTimeout(200);
     const typed = await box.inputValue(); const y1 = (await box.boundingBox()).y;
