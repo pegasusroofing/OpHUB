@@ -1,6 +1,7 @@
 // Finance reports (913): each is {id, group, title, desc, filters, run(ctx, f)}
 // returning {cols, rows, totals, note}. All read from the company "book" and
-// the same forecast as the project pages.
+// the same forecast as the project pages. The finance-report-run server function runs this same code for auto-run:
+// after changing it, run tools/sync-report-fn.js and redeploy that function.
 import { COST_CATS, costLines, forecast, isoDay, poInvoiced, type Book } from '@/lib/rules/finBook';
 import { addDays, invOutstanding, invOutstandingNet, money, retentionDates, retentionStillHeld, round2, today, type FinInv } from '@/lib/rules/finance';
 
@@ -9,8 +10,6 @@ export type Col = { k: string; l: string; money?: boolean; num?: boolean; pct?: 
 export type Result = { cols: Col[]; rows: Row[]; totals?: boolean | string[]; note?: string };
 export type Filters = { job: string; from: string; to: string; status: string; opening: string; varstatus: string; postatus: string };
 export type Ctx = { b: Book; settings: Row; sites: Row[]; status: (s: Row) => string; cisPays: Row[] };
-/** Reports that can save themselves to OneDrive (the finance-report-run server function works these out too). */
-export const AUTO_RUN_REPORTS = ['moneydue', 'debtors'];
 export const REPORT_GROUPS: Record<string, string> = { qs: 'Commercial / QS', money: 'Money in & out', tax: 'Labour, CIS & VAT' };
 const VAR_ST: Record<string, string> = { instructed: 'Instructed', priced: 'Priced', submitted: 'Submitted', agreed: 'Agreed', rejected: 'Rejected' };
 const PO_ST: Record<string, string> = { open: 'Open', invoiced: 'Invoiced', cancelled: 'Cancelled' };
@@ -68,7 +67,7 @@ export const REPORTS: { id: string; group: string; title: string; desc: string; 
     });
     return { cols: [{ k: 'job', l: 'Project' }, { k: 'who', l: 'Client / subcontractor' }, { k: 'type', l: 'Type' }, { k: 'held', l: 'Amount', money: true }, { k: 'first', l: '1st half due', date: true }, { k: 'second', l: '2nd half due', date: true }], rows, totals: true, note: 'Negative amounts are retention you hold on subcontractors and will have to pay out.' };
   } },
-  // Andy's Monthly Budgetting sheet, "Money Due" tab: everything owed, invoices then applications then retentions. Same sums in finance-report-run.
+  // Andy's Monthly Budgetting sheet, "Money Due" tab: everything owed, invoices then applications then retentions.
   { id: 'moneydue', group: 'money', title: 'Money due', desc: 'Everything owed to you: unpaid invoices, applications not invoiced yet, and retention held.', filters: [], run: (c) => {
     const t = today(), live = (c.b.apps as Row[]).filter((a) => a.status !== 'void');
     const inv = (c.b.invs as Row[]).filter((i) => invOutstandingNet(i as never) > 0).sort((a, b) => String(a.due_date || '').localeCompare(String(b.due_date || ''))).map((i) => {

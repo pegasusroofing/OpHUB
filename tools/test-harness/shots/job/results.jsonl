@@ -940,3 +940,20 @@
 {"part":"moneydue2","step":"Switched off again","ok":true,"note":"active false","ms":10232}
 {"part":"moneydue2","step":"Save and run now, from the box","ok":true,"note":"status 200; Saved Money due 2026-11-02.xlsx","ms":37196}
 {"part":"moneydue3","step":"Buttons in the box take an ordinary click","ok":true,"note":"clickable","ms":12041}
+{"part":"moneydue3","step":"Server matches the page: overview","ok":true,"note":"15 rows, 67 figures checked","ms":12670}
+{"part":"moneydue3","step":"Server matches the page: cvr","ok":true,"note":"15 rows, 61 figures checked","ms":11450}
+{"part":"moneydue3","step":"Server matches the page: ffa","ok":true,"note":"15 rows, 30 figures checked","ms":11191}
+{"part":"moneydue3","step":"Server matches the page: budget","ok":true,"note":"28 rows, 95 figures checked","ms":12510}
+{"part":"moneydue3","step":"Server matches the page: costs","ok":true,"note":"8 rows, 26 figures checked","ms":10639}
+{"part":"moneydue3","step":"Server matches the page: variations","ok":true,"note":"7 rows, 12 figures checked","ms":10609}
+{"part":"moneydue3","step":"Server matches the page: apps","ok":true,"note":"21 rows, 35 figures checked","ms":10560}
+{"part":"moneydue3","step":"Server matches the page: retention","ok":true,"note":"6 rows, 6 figures checked","ms":10459}
+{"part":"moneydue3","step":"Server matches the page: moneydue","ok":true,"note":"25 rows, 22 figures checked","ms":9971}
+{"part":"moneydue3","step":"Server matches the page: debtors","ok":true,"note":"7 rows, 14 figures checked","ms":9927}
+{"part":"moneydue3","step":"Server matches the page: creditors","ok":true,"note":"3 rows, 6 figures checked","ms":10420}
+{"part":"moneydue3","step":"Server matches the page: cashflow","ok":true,"note":"12 rows, 28 figures checked","ms":9941}
+{"part":"moneydue3","step":"Server matches the page: pos","ok":true,"note":"15 rows, 25 figures checked","ms":10857}
+{"part":"moneydue3","step":"Server matches the page: labour","ok":true,"note":"7 rows, 7 figures checked","ms":10896}
+{"part":"moneydue3","step":"Server matches the page: cis","ok":true,"note":"2 rows, 8 figures checked","ms":10515}
+{"part":"moneydue3","step":"Server matches the page: vat","ok":true,"note":"20 rows, 32 figures checked","ms":10679}
+{"part":"moneydue2","step":"Save and run now, from the box","ok":true,"note":"status 200; Saved Money due 2026-11-02 1.xlsx","ms":37098}

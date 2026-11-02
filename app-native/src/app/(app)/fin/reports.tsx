@@ -20,7 +20,7 @@ import { invokeAsUser } from '@/lib/userFunctions';
 import { loadBook } from '@/data/finBook';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
-import { AUTO_RUN_REPORTS, REPORT_GROUPS, REPORTS, type Col, type Filters } from '@/lib/finReports';
+import { REPORT_GROUPS, REPORTS, type Col, type Filters } from '@/lib/finReports';
 import { fdate, jobTag, money } from '@/lib/rules/finance';
 import { exportTableExcel, exportTablePdf, type Table } from '@/lib/tableExport';
 import { base, radius } from '@/theme/theme';
@@ -36,6 +36,8 @@ export default function FinReports() {
   const { width } = useWindowDimensions();
   // Every report in view, one tight row each, under a plain heading (Andy, 2 Nov 2026). On a laptop the description sits beside the name.
   const sideBySide = width >= 760;
+  const { me } = useAuth();
+  const { data: autos = [] } = useQuery({ queryKey: ['finReportSchedules', me?.org_id], enabled: !!me && !rep, queryFn: async () => ((await fdb.from('fin_report_schedules').select('report_id').eq('org_id', me?.org_id as string).eq('active', true)).data as Row[] | null) ?? [] });
   if (!rep) return (
     <FinPage title="Reports" section="reports">
       {Object.keys(REPORT_GROUPS).map((g) => (
@@ -48,6 +50,7 @@ export default function FinReports() {
                   <Text style={{ fontWeight: '700', color: base.ink, fontSize: 14, width: sideBySide ? 240 : undefined }}>{r.title}</Text>
                   <Text style={{ flex: sideBySide ? 1 : undefined, color: '#4B5563', fontSize: 13 }}>{r.desc}</Text>
                 </View>
+                {autos.some((a) => a.report_id === r.id) && <Text style={{ fontSize: 12, fontWeight: '700', color: '#15803d' }}>Auto-run</Text>}
                 <OphIcon name="chevron" size={15} color={base.slate} />
               </Pressable>
             ))}
@@ -92,7 +95,7 @@ function Report({ id }: { id: string }) {
         {has('opening') && <TextInput value={f.opening} onChangeText={(v) => setF({ ...f, opening: v })} placeholder="Opening bank balance £" keyboardType="decimal-pad" style={[box, { width: 180, fontSize: 12 }]} />}
         {has('varstatus') && <SelectBox compact title="Variation status" value={f.varstatus || 'any'} options={[['any', 'Any status'], ['instructed', 'Instructed'], ['priced', 'Priced'], ['submitted', 'Submitted'], ['agreed', 'Agreed'], ['rejected', 'Rejected']]} onChange={(k) => setF({ ...f, varstatus: k === 'any' ? '' : k })} style={{ width: 130, marginBottom: 0 }} />}
         {has('postatus') && <SelectBox compact title="PO status" value={f.postatus || 'any'} options={[['any', 'Any PO'], ['open', 'Open'], ['invoiced', 'Invoiced'], ['cancelled', 'Cancelled']]} onChange={(k) => setF({ ...f, postatus: k === 'any' ? '' : k })} style={{ width: 130, marginBottom: 0 }} />}
-        {AUTO_RUN_REPORTS.includes(id) && <AutoRun id={id} title={rep.title} />}
+        <AutoRun id={id} title={rep.title} f={f} dates={has('dates')} />
       </View>
       {isLoading || !res ? <Muted>Working it out…</Muted> : !res.rows.length ? <Empty>Nothing to show.</Empty> : wide ? (
         <ScrollView horizontal contentContainerStyle={{ flexGrow: 1 }}>
@@ -134,14 +137,14 @@ function Report({ id }: { id: string }) {
 const FREQ: [string, string][] = [['off', 'Off'], ['daily', 'Every day'], ['weekly', 'Every week'], ['monthly', 'Every month']];
 const WEEKDAYS: [string, string][] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((d, i) => [String(i + 1), d]);
 const MONTH_DAYS: [string, string][] = Array.from({ length: 28 }, (_, i) => [String(i + 1), String(i + 1)]);
-function AutoRun({ id, title }: { id: string; title: string }) {
+function AutoRun({ id, title, f, dates }: { id: string; title: string; f: Filters; dates: boolean }) {
   const { me } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
   const key = ['finReportSchedule', me?.org_id, id];
   const { data: sc } = useQuery({ queryKey: key, enabled: !!me, queryFn: async () => (await fdb.from('fin_report_schedules').select('*').eq('org_id', me?.org_id as string).eq('report_id', id).maybeSingle()).data as Row | null });
   const [open, setOpen] = useState(false);
-  const [freq, setFreq] = useState('off'), [day, setDay] = useState('1');
+  const [freq, setFreq] = useState('off'), [day, setDay] = useState('1'), [period, setPeriod] = useState('last_month');
   const [folder, setFolder] = useState<{ id: string; name: string; driveId?: string | null } | null>(null);
   const [trail, setTrail] = useState<OdFolder[]>([]), [choosing, setChoosing] = useState(false), [busy, setBusy] = useState('');
   const here = trail[trail.length - 1] ?? null;
@@ -149,14 +152,14 @@ function AutoRun({ id, title }: { id: string; title: string }) {
   if (!me || !['admin', 'pm'].includes(me.role)) return null;
   const on = !!sc?.active;
   const label = on ? `Auto-run: ${FREQ.find(([k]) => k === sc?.frequency)?.[1] || 'On'}` : 'Auto-run: Off';
-  const start = () => { setFreq(on ? String(sc?.frequency) : 'off'); setDay(String(sc?.run_day || 1)); setFolder(sc?.folder_id ? { id: sc.folder_id, name: sc.folder_name || 'Chosen folder', driveId: sc.drive_id } : null); setTrail([]); setChoosing(false); setOpen(true); };
+  const start = () => { setFreq(on ? String(sc?.frequency) : 'off'); setDay(String(sc?.run_day || 1)); setPeriod(String(sc?.filters?.period || 'last_month')); setFolder(sc?.folder_id ? { id: sc.folder_id, name: sc.folder_name || 'Chosen folder', driveId: sc.drive_id } : null); setTrail([]); setChoosing(false); setOpen(true); };
   const save = async () => {
     if (freq !== 'off' && !folder) { toast('Choose the OneDrive folder first.'); return null; }
     setBusy('save');
-    const r = await fdb.from('fin_report_schedules').upsert({ org_id: me.org_id, report_id: id, active: freq !== 'off', frequency: freq === 'off' ? String(sc?.frequency || 'monthly') : freq, run_day: Number(day) || 1, folder_id: folder?.id ?? null, folder_name: folder?.name ?? null, drive_id: folder?.driveId ?? null, updated_by: me.id, updated_at: new Date().toISOString() } as never, { onConflict: 'org_id,report_id' }).select('id').maybeSingle();
+    const r = await fdb.from('fin_report_schedules').upsert({ org_id: me.org_id, report_id: id, active: freq !== 'off', frequency: freq === 'off' ? String(sc?.frequency || 'monthly') : freq, run_day: Number(day) || 1, folder_id: folder?.id ?? null, folder_name: folder?.name ?? null, drive_id: folder?.driveId ?? null, filters: { job: f.job, status: f.status, opening: f.opening, varstatus: f.varstatus, postatus: f.postatus, period: dates ? period : null }, updated_by: me.id, updated_at: new Date().toISOString() } as never, { onConflict: 'org_id,report_id' }).select('id').maybeSingle();
     setBusy('');
     if (r.error || !r.data) { toast('Not saved — try again.'); return null; }
-    void qc.invalidateQueries({ queryKey: key });
+    void qc.invalidateQueries({ queryKey: key }); void qc.invalidateQueries({ queryKey: ['finReportSchedules'] });
     return (r.data as { id: string }).id;
   };
   return (
@@ -175,6 +178,7 @@ function AutoRun({ id, title }: { id: string; title: string }) {
                 <SelectBox label="How often" title="How often" value={freq} options={FREQ} onChange={setFreq} />
                 {freq === 'weekly' && <SelectBox label="Which day" title="Which day" value={day} options={WEEKDAYS} onChange={setDay} />}
                 {freq === 'monthly' && <SelectBox label="Day of the month" title="Day of the month" value={day} options={MONTH_DAYS} onChange={setDay} />}
+                {dates && <SelectBox label="Which dates" title="Which dates" value={period} options={[['last_month', 'Last month'], ['this_month', 'This month so far'], ...(id === 'cis' ? [['cis_month', 'Last CIS month (6th to 5th)'] as [string, string]] : []), ['all', 'All dates']]} onChange={setPeriod} />}
                 <Text style={{ fontSize: 12, fontWeight: '700', color: base.slate, marginBottom: 4 }}>Save to OneDrive folder</Text>
                 <Pressable accessibilityRole="button" accessibilityLabel="Save to OneDrive folder" onPress={() => setChoosing(!choosing)} style={{ flexDirection: 'row', borderWidth: 1, borderColor: base.line, borderRadius: radius.input, paddingHorizontal: 12, paddingVertical: 9, marginBottom: 8 }}>
                   <Text numberOfLines={1} style={{ flex: 1, fontSize: 15, color: folder ? base.ink : base.slateLight }}>{folder?.name || 'Choose a folder'}</Text><Text style={{ color: base.slate, fontSize: 12 }}>▾</Text>
@@ -191,7 +195,7 @@ function AutoRun({ id, title }: { id: string; title: string }) {
                     {!!here && !here.virtual && !here.isSite && <View style={{ marginTop: 6 }}><Button small title={`Use ${here.name}`} onPress={() => { setFolder({ id: here.id, name: here.name, driveId: here.driveId }); setChoosing(false); }} /></View>}
                   </View>
                 )}
-                <Muted style={{ fontSize: 12, marginBottom: 10 }}>Saves as Excel from 6am UK time, with the date in the file name. Older copies stay in the folder.</Muted>
+                <Muted style={{ fontSize: 12, marginBottom: 10 }}>Saves as Excel from 6am UK time, with the date in the file name. Older copies stay in the folder. It uses the filters set on this page.</Muted>
               </ScrollView>
               <View style={{ gap: 8 }}>
                 <Button busy={busy === 'save'} title="Save" onPress={async () => { if (await save()) { toast(freq === 'off' ? 'Auto-run off' : 'Auto-run saved'); setOpen(false); } }} />
