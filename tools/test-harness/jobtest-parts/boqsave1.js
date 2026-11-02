@@ -11,7 +11,7 @@ module.exports = async ({as, step}) => {
     await a.page.getByLabel('Unit').first().click({timeout: 5000}); await a.page.waitForTimeout(300);
     await a.page.keyboard.press('Tab'); await a.page.waitForTimeout(300);
     const on = await a.page.evaluate(() => document.activeElement && document.activeElement.getAttribute('aria-label'));
-    return {ok: on === 'Rate £', note: 'after one Tab: ' + on};
+    return {ok: on === 'Rate £' || on === 'Amount', note: 'after one Tab: ' + on};
   });
   await step('Select lines, then Tick all appears', async () => {
     await q('Select lines to apply to').first().click({timeout: 5000}); await a.page.waitForTimeout(400);

@@ -1221,3 +1221,20 @@
 {"part":"finexport1","step":"Footer on report","ok":true,"note":"2 at y 874, old 0","ms":9340}
 {"part":"plotrep2","step":"Plot by plot report","ok":true,"note":"Plot 2 £1,000.00 £1,000.00 £750.00 £0.00 £0.00 £0.00 £0.00 £0.00 £","ms":12622}
 {"part":"plotrep2","step":"Costs by plot","ok":true,"note":"Plot 2 £1,000.00 £1,000.00 £750.00 – – – – – – £200.00 £800.00 £1,","ms":11084}
+{"part":"appflow1","step":"BoQ: all on one row, capital letter","ok":true,"note":"row offset -6, Strip tiles","ms":13949}
+{"part":"appflow1","step":"Draft: click selects, no jump after typing and returning to the window","ok":false,"note":"typed 50, scroll 0 > 0, still 50","ms":20789}
+{"part":"appflow1","step":"Variation quantity sets the value","ok":true,"note":"value £300","ms":1582}
+{"part":"appflow1","step":"Buttons on one row, then certified on each line","ok":true,"note":"one row true, submitted, certified boxes 4, variation kept true","ms":5531}
+{"part":"appflow1","step":"BoQ: all on one row, capital letter","ok":true,"note":"row offset -6, Strip tiles","ms":13964}
+{"part":"appflow1","step":"Draft: click selects, no jump after typing and returning to the window","ok":true,"note":"typed 50, scroll 723.5 > 723.5, still 50","ms":20669}
+{"part":"appflow1","step":"Variation quantity sets the value","ok":true,"note":"value £300","ms":1673}
+{"part":"appflow1","step":"Buttons on one row, then certified on each line","ok":true,"note":"one row true, submitted, certified boxes 5, variation kept true","ms":5390}
+{"part":"appstyle1","step":"Application draft","ok":true,"note":"4 bars","ms":11605}
+{"part":"appstyle1","step":"Plot box on a multi-site job with no plots","ok":true,"note":"boxes 1","ms":11166}
+{"part":"appstyle1","step":"A new line takes the plot above","ok":true,"note":"1 > 2","ms":14192}
+{"part":"boqbtn2","step":"Page, footer and summary","ok":true,"note":"summary 1, tick buttons 0, export 1, variations tabs 1","ms":10785}
+{"part":"boqbtn2","step":"Import / Export has no copy-in","ok":true,"note":"copy-in 0","ms":1073}
+{"part":"boqbtn2","step":"Two tabs: BoQ and Variations","ok":true,"note":"variations then boq","ms":15508}
+{"part":"boqsave1","step":"Tab goes straight from Unit to Sell rate","ok":false,"note":"after one Tab: Amount","ms":11405}
+{"part":"boqsave1","step":"Select lines, then Tick all appears","ok":true,"note":"apply 1","ms":1148}
+{"part":"boqsave1","step":"A second open copy does not break saving","ok":true,"note":"2 > 3 > 3, failed 0","ms":27282}

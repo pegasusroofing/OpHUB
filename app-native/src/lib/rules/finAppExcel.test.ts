@@ -32,7 +32,7 @@ test('Excel out and back in: keys, prev certified, applied and certified %', asy
   const items = parseAppBook(book)!;
   assert.ok(items);
   const tiling = items.find((i) => i.key === 'L:i1')!;
-  assert.equal(tiling.applied, 50); assert.equal(tiling.certified, 50); assert.equal(tiling.amount, 36000);
+  assert.equal(tiling.applied, 50); assert.equal(tiling.certified, null); assert.equal(tiling.amount, 36000); // Certified is blank until the client fills it in
   // The client certifies 40% of tiling and adds nothing; we raise Ridge to 10% and add a new line.
   tiling.certified = 40;
   items.find((i) => i.key === 'L:i2')!.applied = 10;

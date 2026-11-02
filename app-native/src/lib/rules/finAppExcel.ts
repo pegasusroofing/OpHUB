@@ -40,11 +40,11 @@ export function appDoc(a: Row, jf: Row, apps: Row[], defaultVat?: string | null)
 export function appSummary(a: Row, D: AppDoc) {
   const secs = D.sections.map((s) => {
     let t = 0, ap = 0, ce = 0;
-    s.rows.filter(isItem).forEach((l) => { const v = Number(l.value || 0), a1 = pct(l.pct), c1 = D.certPct[l.item_id] != null ? D.certPct[l.item_id] : a1; t += v; ap += (v * a1) / 100; ce += (v * c1) / 100; });
+    s.rows.filter(isItem).forEach((l) => { const v = Number(l.value || 0), a1 = pct(l.pct), c1 = D.certPct[l.item_id] != null ? D.certPct[l.item_id] : D.certified ? a1 : 0; t += v; ap += (v * a1) / 100; ce += (v * c1) / 100; });
     return { title: s.title, t: round2(t), ap: round2(ap), ce: round2(ce) };
   });
-  { let t = 0, ap = 0; D.vars.forEach((x) => { t += Number(x.v.value || 0); ap += (Number(x.v.value || 0) * pct(x.v.pct)) / 100; }); secs.push({ title: 'Variations', t: round2(t), ap: round2(ap), ce: round2(ap) }); }
-  if ((a.dayworks || []).length) { const t = round2(a.dayworks.reduce((s: number, d: Row) => s + Number(d.value || 0), 0)); secs.push({ title: 'Dayworks', t, ap: t, ce: t }); }
+  { let t = 0, ap = 0; D.vars.forEach((x) => { t += Number(x.v.value || 0); ap += (Number(x.v.value || 0) * pct(x.v.pct)) / 100; }); secs.push({ title: 'Variations', t: round2(t), ap: round2(ap), ce: D.certified ? round2(ap) : 0 }); }
+  if ((a.dayworks || []).length) { const t = round2(a.dayworks.reduce((s: number, d: Row) => s + Number(d.value || 0), 0)); secs.push({ title: 'Dayworks', t, ap: t, ce: D.certified ? t : 0 }); }
   const T = (k: 't' | 'ap' | 'ce') => round2(secs.reduce((s, x) => s + x[k], 0));
   const side = (g: number) => {
     const disc = round2((g * D.discPct) / 100); let ret = round2(((g - disc) * D.retPct) / 100); if (D.capRet != null) ret = Math.min(ret, D.capRet);
@@ -69,26 +69,27 @@ export function appExcelSheets(a: Row, D: AppDoc, info: { company: string; clien
     sheets.push({ name, rows, widths: WIDTHS, hidden: [0, 15], freeze: 1 });
     return { name, rows };
   };
-  const item = (rows: XCell[][], key: string, ref: unknown, desc: string, qty: number | null, unit: string, rate: number | null, value: number, prevP: number, appP: number, certP: number) => {
+  const item = (rows: XCell[][], key: string, ref: unknown, desc: string, qty: number | null, unit: string, rate: number | null, value: number, prevP: number, appP: number, certP: number | null) => {
     const n = rows.length + 1, amt = qty != null && rate != null ? round2(qty * rate) : round2(value);
     rows.push([key, { v: ref == null ? '' : String(ref), s: 'cell' }, { v: desc || '', s: 'cwrap' }, { v: qty, s: 'cell' }, { v: unit || '', s: 'cell' }, { v: rate, s: 'cmoney' },
       qty != null && rate != null ? { v: amt, f: `IFERROR(D${n}*F${n}, 0)`, s: 'cmoney' } : { v: amt, s: 'cmoney' },
       { v: prevP / 100, s: 'cpct' }, { v: round2((amt * prevP) / 100), f: `IFERROR(G${n}*H${n}, 0)`, s: 'cmoney' },
       { v: appP / 100, s: 'apct' }, { v: round2((amt * appP) / 100), f: `IFERROR(G${n}*J${n}, 0)`, s: 'cmoney' },
-      { v: certP / 100, s: 'cepct' }, { v: round2((amt * certP) / 100), f: `IFERROR(G${n}*L${n}, 0)`, s: 'cmoney' },
-      { v: round2((amt * (certP - appP)) / 100), f: `IFERROR(M${n}-K${n}, 0)`, s: 'cmoney' }, { v: '', s: 'cell' }, 1]);
+      // Certified stays blank until there's a certificate: the client fills it in on their copy.
+      { v: certP == null ? null : certP / 100, s: 'cepct' }, { v: certP == null ? '' : round2((amt * certP) / 100), f: `IF(L${n}="","",G${n}*L${n})`, s: 'cmoney' },
+      { v: certP == null ? '' : round2((amt * (certP - appP)) / 100), f: `IF(L${n}="","",M${n}-K${n})`, s: 'cmoney' }, { v: '', s: 'cell' }, 1]);
   };
   D.sections.forEach((sec) => {
     const { name, rows } = mk(sec.title, sec.id ? `H:${sec.id}` : '');
     sec.rows.forEach((l) => {
       if (l.kind === 'subsection') { rows.push([`H:${l.item_id}`, { v: l.ref || '', s: 'subfill' }, { v: l.description || '', s: 'sub' }, ...Array.from({ length: 12 }, () => ({ v: '', s: 'subfill' as const }))]); return; }
-      const ap = pct(l.pct), cp = D.certPct[l.item_id] != null ? D.certPct[l.item_id] : ap, hasQ = l.qty != null && l.rate != null;
+      const ap = pct(l.pct), cp = D.certPct[l.item_id] != null ? D.certPct[l.item_id] : D.certified ? ap : null, hasQ = l.qty != null && l.rate != null;
       item(rows, `L:${l.item_id}`, l.ref, l.description, hasQ ? Number(l.qty) : null, l.unit, hasQ ? Number(l.rate) : null, Number(l.value || 0), D.prevPct[l.item_id] || 0, ap, cp);
     });
     refs.push({ title: sec.title, name, last: Math.max(rows.length, 3) + 200 });
   });
-  { const { name, rows } = mk('Variations', ''); D.vars.forEach((x) => item(rows, x.key, '', x.v.description || 'Variation', 1, 'item', Number(x.v.value || 0), Number(x.v.value || 0), x.prev, pct(x.v.pct), pct(x.v.pct))); refs.push({ title: 'Variations', name, last: Math.max(rows.length, 3) + 200 }); }
-  if ((a.dayworks || []).length) { const { name, rows } = mk('Dayworks', ''); a.dayworks.forEach((d: Row, i: number) => item(rows, `D:${i}`, '', d.description || 'Daywork', null, '', null, Number(d.value || 0), 0, 100, 100)); refs.push({ title: 'Dayworks', name, last: Math.max(rows.length, 3) + 200 }); }
+  { const { name, rows } = mk('Variations', ''); D.vars.forEach((x) => item(rows, x.key, '', x.v.description || 'Variation', 1, 'item', Number(x.v.value || 0), Number(x.v.value || 0), x.prev, pct(x.v.pct), D.certified ? pct(x.v.pct) : null)); refs.push({ title: 'Variations', name, last: Math.max(rows.length, 3) + 200 }); }
+  if ((a.dayworks || []).length) { const { name, rows } = mk('Dayworks', ''); a.dayworks.forEach((d: Row, i: number) => item(rows, `D:${i}`, '', d.description || 'Daywork', null, '', null, Number(d.value || 0), 0, 100, D.certified ? 100 : null)); refs.push({ title: 'Dayworks', name, last: Math.max(rows.length, 3) + 200 }); }
 
   // General Summary (formulas, with the worked-out values alongside).
   const S = appSummary(a, D), rows: XCell[][] = [[]];
@@ -106,17 +107,19 @@ export function appExcelSheets(a: Row, D: AppDoc, info: { company: string; clien
   const last = rows.length; rows.push([]);
   const line = (label: string, d: XCell, f: XCell, bold = false, c?: XCell) => { rows.push(['', { v: label, s: bold ? 'bcell' : 'cell' }, c ?? { v: '', s: 'cell' }, d, { v: '', s: 'cell' }, f, { v: '', s: 'cell' }]); return rows.length; };
   const m = (v: number, f?: string, bold = false): XCell => ({ v, f, s: bold ? 'bmoney' : 'cmoney' });
+  const anyCert = `SUM(F${first}:F${last})=0`;
+  const mc = (v: number, f: string, bold = false): XCell => (D.certified ? m(v, f, bold) : { v: '', f: `IF(${anyCert},"",${f})`, s: bold ? 'bmoney' : 'cmoney' });
   const A = S.applied, C = S.certified, dp = D.discPct / 100, rp = D.retPct / 100;
   const sub = line('SubTotal', m(A.gross, `IFERROR(SUM(D${first}:D${last}), 0)`, true), m(C.gross, `IFERROR(SUM(F${first}:F${last}), 0)`, true), true, m(S.t, `IFERROR(SUM(C${first}:C${last}), 0)`, true));
-  const dsc = line(`Less Discount at ${D.discPct}%`, m(A.disc, `IFERROR(ROUND(D${sub}*${dp},2), 0)`), m(C.disc, `IFERROR(ROUND(F${sub}*${dp},2), 0)`));
+  const dsc = line(`Less Discount at ${D.discPct}%`, m(A.disc, `IFERROR(ROUND(D${sub}*${dp},2), 0)`), mc(C.disc, `IFERROR(ROUND(F${sub}*${dp},2), 0)`));
   const retF = (c: string) => (D.capRet != null ? `IFERROR(MIN(ROUND((${c}${sub}-${c}${dsc})*${rp},2),${D.capRet}), 0)` : `IFERROR(ROUND((${c}${sub}-${c}${dsc})*${rp},2), 0)`);
-  const ret = line(`Retention at ${D.retPct}%`, m(A.ret, retF('D')), m(C.ret, retF('F')));
-  const net = line('Net After Retention', m(A.net, `IFERROR(D${sub}-D${dsc}-D${ret}, 0)`), m(C.net, `IFERROR(F${sub}-F${dsc}-F${ret}, 0)`));
-  const prv = line('Previously Certified (excl VAT)', m(D.previous), m(D.previous));
-  const due = line('Gross Payment Due', m(A.due, `IFERROR(D${net}-D${prv}, 0)`, true), m(C.due, `IFERROR(F${net}-F${prv}, 0)`, true), true);
-  const vat = line(vatLabel(D.vt), D.vt === 'standard' ? m(A.vat, `ROUND(D${due}*0.2,2)`) : m(0), D.vt === 'standard' ? m(C.vat, `ROUND(F${due}*0.2,2)`) : m(0));
-  line('Net Payment Due', m(A.total, `IFERROR(D${due}+D${vat}, 0)`, true), m(C.total, `IFERROR(F${due}+F${vat}, 0)`, true), true);
-  rows.push([], ['', { v: D.certified ? 'Certified figures are as entered from the client’s certificate.' : 'Applied = what we are applying for. Certified starts the same — the client changes the Certified % (green) and sends it back.', s: 'note' }]);
+  const ret = line(`Retention at ${D.retPct}%`, m(A.ret, retF('D')), mc(C.ret, retF('F')));
+  const net = line('Net After Retention', m(A.net, `IFERROR(D${sub}-D${dsc}-D${ret}, 0)`), mc(C.net, `IFERROR(F${sub}-F${dsc}-F${ret}, 0)`));
+  const prv = line('Previously Certified (excl VAT)', m(D.previous), D.certified ? m(D.previous) : mc(D.previous, String(D.previous)));
+  const due = line('Gross Payment Due', m(A.due, `IFERROR(D${net}-D${prv}, 0)`, true), mc(C.due, `IFERROR(F${net}-F${prv}, 0)`, true), true);
+  const vat = line(vatLabel(D.vt), D.vt === 'standard' ? m(A.vat, `ROUND(D${due}*0.2,2)`) : m(0), D.vt === 'standard' ? mc(C.vat, `ROUND(F${due}*0.2,2)`) : m(0));
+  line('Net Payment Due', m(A.total, `IFERROR(D${due}+D${vat}, 0)`, true), mc(C.total, `IFERROR(F${due}+F${vat}, 0)`, true), true);
+  rows.push([], ['', { v: D.certified ? 'Certified figures are as entered from the client’s certificate.' : 'Applied = what we are applying for. Certified is left blank for the client: they fill in the Certified % (green) and send it back.', s: 'note' }]);
   return [{ name: 'General Summary', rows, widths: [4, 36, 19, 19, 13, 19, 13] }, ...sheets];
 }
 export const appFilename = (a: Row, site: Row | null | undefined, ext: 'xlsx' | 'pdf') => `Application ${a.number} - ${String(site?.name || '').replace(/[\\/:*?"<>|]+/g, '')}${site?.job_number ? ` (${site.job_number})` : ''}.${ext}`;

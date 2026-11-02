@@ -285,3 +285,6 @@
 {"table":"price_builder_sheet_items","id":"c00b3803-65dd-436c-a99d-804ab2c757d5"}
 {"table":"fin_invoices","id":"65eab39e-26a6-4c07-8523-c369a98aaaab"}
 {"table":"fin_invoices","id":"e1445058-1a79-4c9f-a65c-62929a34ade7"}
+{"table":"fin_applications","id":"a9b3a8db-d016-47d5-8aea-d69204a75086"}
+{"table":"fin_applications","id":"25906fa1-d7af-4cf5-94e1-3f62b8cec490"}
+{"table":"fin_contract_items","id":"4c7e6807-0ec4-4748-b787-0232c549ccc1"}

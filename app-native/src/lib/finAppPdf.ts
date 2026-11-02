@@ -37,24 +37,26 @@ export async function buildAppPdf(a: Row, D: AppDoc, info: { company: string; br
     cells.forEach((c, i) => { if (c == null || c === '') return; const f = o.bold ? B : F; if (i === 0) txt(fit(c, cols[1] - cols[0] - 6, 8.5, f), cols[0] + 4, y - 8, { font: f }); else right(c, cols[i + 1] - 6, y - 8, { font: f }); });
     y -= h;
   };
-  row(['Section', 'Total', 'Applied Total', 'Applied %', 'Certified Total', 'Certified %'], { bold: true, bg: headBg });
+  // Certified figures only once there's a certificate (Andy, 2 Nov 2026).
+  const hasCert = D.certified, cm = (v: string) => (hasCert ? v : '');
+  row(['Section', 'Total', 'Applied Total', 'Applied %', cm('Certified Total'), cm('Certified %')], { bold: true, bg: headBg });
   const S = appSummary(a, D), A = S.applied, C = S.certified;
-  S.secs.forEach((s) => row([s.title, m(s.t), m(s.ap), p(s.t ? (s.ap / s.t) * 100 : 0), m(s.ce), p(s.t ? (s.ce / s.t) * 100 : 0)], { bg: secBg }));
+  S.secs.forEach((s) => row([s.title, m(s.t), m(s.ap), p(s.t ? (s.ap / s.t) * 100 : 0), cm(m(s.ce)), cm(p(s.t ? (s.ce / s.t) * 100 : 0))], { bg: secBg }));
   y -= 6;
-  row(['SubTotal', m(S.t), m(A.gross), p(S.t ? (A.gross / S.t) * 100 : 0), m(C.gross), p(S.t ? (C.gross / S.t) * 100 : 0)], { bold: true });
-  row([`Less Discount at ${D.discPct}%`, '', m(A.disc), '', m(C.disc), '']);
-  row([`Retention at ${D.retPct}%`, '', m(A.ret), '', m(C.ret), '']);
-  row(['Net After Retention', '', m(A.net), '', m(C.net), '']);
-  row(['Previously Certified (excl VAT)', '', m(D.previous), '', m(D.previous), '']);
-  row(['Gross Payment Due', '', m(A.due), '', m(C.due), ''], { bold: true });
-  row([vatLabel(D.vt), '', m(A.vat), '', m(C.vat), '']);
-  row(['Net Payment Due', '', m(A.total), '', m(C.total), ''], { bold: true, bg: headBg });
+  row(['SubTotal', m(S.t), m(A.gross), p(S.t ? (A.gross / S.t) * 100 : 0), cm(m(C.gross)), cm(p(S.t ? (C.gross / S.t) * 100 : 0))], { bold: true });
+  row([`Less Discount at ${D.discPct}%`, '', m(A.disc), '', cm(m(C.disc)), '']);
+  row([`Retention at ${D.retPct}%`, '', m(A.ret), '', cm(m(C.ret)), '']);
+  row(['Net After Retention', '', m(A.net), '', cm(m(C.net)), '']);
+  row(['Previously Certified (excl VAT)', '', m(D.previous), '', cm(m(D.previous)), '']);
+  row(['Gross Payment Due', '', m(A.due), '', cm(m(C.due)), ''], { bold: true });
+  row([vatLabel(D.vt), '', m(A.vat), '', cm(m(C.vat)), '']);
+  row(['Net Payment Due', '', m(A.total), '', cm(m(C.total)), ''], { bold: true, bg: headBg });
 
   // Section pages
   const X = { ref: M, desc: M + 34, qty: M + 300, unit: M + 340, rate: M + 378, amt: M + 440, prevp: M + 505, appp: M + 548, app: M + 612, certp: M + 656, cert: W - M };
   const headRow = () => {
     const h = 18; page.drawRectangle({ x: M, y: y - h + 4, width: W - 2 * M, height: h, color: headBg });
-    ([['Ref', X.ref, 'l'], ['Description', X.desc, 'l'], ['Qty', X.unit - 6, 'r'], ['Unit', X.unit, 'l'], ['Rate', X.amt - 6, 'r'], ['Amount', X.prevp - 6, 'r'], ['Prev %', X.appp - 6, 'r'], ['Applied %', X.app - 6, 'r'], ['Applied', X.certp - 6, 'r'], ['Cert %', X.certp + 40, 'r'], ['Certified', X.cert - 4, 'r']] as [string, number, string][])
+    ([['Ref', X.ref, 'l'], ['Description', X.desc, 'l'], ['Qty', X.unit - 6, 'r'], ['Unit', X.unit, 'l'], ['Rate', X.amt - 6, 'r'], ['Amount', X.prevp - 6, 'r'], ['Prev %', X.appp - 6, 'r'], ['Applied %', X.app - 6, 'r'], ['Applied', X.certp - 6, 'r'], ...(hasCert ? [['Cert %', X.certp + 40, 'r'], ['Certified', X.cert - 4, 'r']] : [])] as [string, number, string][])
       .forEach(([t, x, al]) => (al === 'l' ? txt(t, x + 2, y - 9, { font: B, size: 8 }) : right(t, x, y - 9, { font: B, size: 8 })));
     y -= h;
   };
@@ -67,7 +69,7 @@ export async function buildAppPdf(a: Row, D: AppDoc, info: { company: string; br
     txt(fit(ref, 30), X.ref + 2, y - 9); ls.forEach((l, i) => txt(l, X.desc + 2, y - 9 - i * 11));
     if (qty != null) right(String(qty), X.unit - 6, y - 9); txt(fit(unit || '', 34), X.unit + 2, y - 9); if (rate != null) right(m(rate), X.amt - 6, y - 9);
     right(m(amount), X.prevp - 6, y - 9); right(p(prevP), X.appp - 6, y - 9); right(p(appP), X.app - 6, y - 9); right(m(round2((amount * appP) / 100)), X.certp - 6, y - 9);
-    right(p(certP), X.certp + 40, y - 9); right(m(round2((amount * certP) / 100)), X.cert - 4, y - 9);
+    if (hasCert) { right(p(certP), X.certp + 40, y - 9); right(m(round2((amount * certP) / 100)), X.cert - 4, y - 9); }
     y -= h;
   };
   const sectionStart = (title: string) => { curTitle = title; ensure(60); y -= 8; page.drawRectangle({ x: M, y: y - 14, width: W - 2 * M, height: 18, color: secBg }); page.drawText(fit(title, 600, 11, B), { x: M + 4, y: y - 9, size: 11, font: B }); y -= 22; headRow(); };
