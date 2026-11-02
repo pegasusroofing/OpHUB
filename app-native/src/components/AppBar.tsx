@@ -95,7 +95,7 @@ export function AppBar({ title, onBack, home, right, noHistory }: { title?: stri
   const crumbs: [string, string | null][] = fin ? finCrumbs : site
     ? [['Projects', '/sites'], [sName, jobHome ? null : `/sites/${site.id}`], ...(jobHome ? [] : pageTrail ?? [...secStep, ...(!title ? [] : [[titleCase(title), null] as [string, null]])])]
     : [];
-  const cfs = desk ? 12.5 : 11.5;
+  const cfs = desk ? 13.75 : 12.65;
   // The bold line: to the first page of this part of the app. The small line under it copies, rather than selecting the text.
   const area = areaHome(path);
   const titleGo = home || path.split('?')[0].replace(/\/$/, '') === area ? null : area;

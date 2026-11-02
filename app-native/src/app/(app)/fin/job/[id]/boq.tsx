@@ -20,7 +20,7 @@ import { openDocLink } from '@/data/hs';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { ThinExportBar } from '@/components/FinFilterBar';
-import { FinRow } from '@/components/FinNav';
+import { FinRow, BoqTabs } from '@/components/FinNav';
 import { SelectBox } from '@/components/SelectBox';
 import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Card, Muted } from '@/components/ui';
@@ -40,12 +40,12 @@ import { exportTableExcel, exportTablePdf, type Table } from '@/lib/tableExport'
 import { base, page, radius, space, useDesk, useTheme } from '@/theme/theme';
 
 type Row = Record<string, any>;
-const slim = { height: 28, paddingVertical: 2, paddingHorizontal: 8, fontSize: 13, borderRadius: 7 };
-const lab = { fontSize: 11.5, fontWeight: '500' as const, color: base.slate };
+const slim0 = { height: 28, paddingVertical: 2, paddingHorizontal: 8, fontSize: 13, borderRadius: 7 };
+const lab0 = { fontSize: 11.5, fontWeight: '500' as const, color: base.slate };
 const Pound = ({ width, children }: { width: number | '100%'; children: ReactNode }) => (
-  <View style={{ flexDirection: 'row', alignItems: 'center', width, height: 28, paddingHorizontal: 8, borderWidth: 1, borderColor: base.line, borderRadius: 7, backgroundColor: base.card, gap: 3 }}><Text style={{ fontSize: 13, color: base.slate }}>£</Text>{children}</View>
+  <View style={{ flexDirection: 'row', alignItems: 'center', width, height: 32, paddingHorizontal: 8, borderWidth: 1, borderColor: base.line, borderRadius: 7, backgroundColor: base.card, gap: 3 }}><Text style={{ fontSize: 13, color: base.slate }}>£</Text>{children}</View>
 );
-const inPound = { flex: 1, minWidth: 0, fontSize: 13, color: base.ink, padding: 0, outlineStyle: 'none' as 'solid' };
+const inPound0 = { flex: 1, minWidth: 0, fontSize: 13, color: base.ink, padding: 0, outlineStyle: 'none' as 'solid' };
 const Above = ({ l, flex = 1, children }: { l: string; flex?: number; children: ReactNode }) => <View style={{ flex, minWidth: 0 }}><Text style={[lab, { marginBottom: 2 }]}>{l}</Text>{children}</View>;
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 7, color: base.ink, backgroundColor: base.card };
 
@@ -61,6 +61,8 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
   const { org } = useAuth();
   const t = useTheme();
   const desk = useDesk();
+  // Laptop: bigger line text and boxes (Andy, 2 Nov 2026).
+  const slim = desk ? { ...slim0, height: 32, fontSize: 15 } : slim0, lab = desk ? { ...lab0, fontSize: 13.2 } : lab0, inPound = desk ? { ...inPound0, fontSize: 15 } : inPound0;
   const [costOpen, setCostOpen] = useState<Record<string, boolean>>({}); // phone: a line's budget cost drop-down
   // The tick boxes stay hidden until Select is chosen from a line's ⋯ menu (Andy, 1 Nov 2026).
   const [selectMode, setSelectMode] = useState(false);
@@ -197,26 +199,10 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
 
   const ioBtn = (
         <Button small kind="ghost" busy={importing} title="Import / Export" onPress={async () => {
-          const k = await chooseAction('Import / Export', [{ key: 'copy', label: 'Copy in tasks from the site schedule' }, { key: 'send', label: "Send to the operatives' schedule" }, { key: 'imp', label: 'Import a breakdown (Excel, CSV or PDF)' }, ...(lastUp?.path ? [{ key: 'last', label: 'Last Upload' }] : [])]);
-          if (k === 'copy') await bqCopy(); else if (k === 'send') await bqSend(); else if (k === 'imp') await bqImport(); else if (k === 'last') await bqLast();
+          const k = await chooseAction('Import / Export', [{ key: 'send', label: "Send to the operatives' schedule" }, { key: 'imp', label: 'Import a breakdown (Excel, CSV or PDF)' }, ...(lastUp?.path ? [{ key: 'last', label: 'Last Upload' }] : [])]);
+          if (k === 'send') await bqSend(); else if (k === 'imp') await bqImport(); else if (k === 'last') await bqLast();
         }} />
   );
-  const bqCopy = async () => {
-          const [secs, tasks] = await Promise.all([
-            fdb.from('schedule_sections').select('id,name,contract_item_id').eq('site_id', id).order('position', { ascending: true, nullsFirst: false }).order('created_at'),
-            fdb.from('schedule_tasks').select('id,name,section_id,contract_item_id').eq('site_id', id).order('position', { ascending: true, nullsFirst: false }).order('created_at'),
-          ]);
-          const have = new Set(rows.map((r) => r._task_id).filter(Boolean));
-          const free = ((tasks.data as Row[] | null) ?? []).filter((t) => !t.contract_item_id && !have.has(t.id));
-          if (!free.length) { toast('Everything on the site schedule is already in here.'); return; }
-          const addRows: Row[] = free.filter((t) => !t.section_id).map((t) => ({ ...blank('item'), description: t.name, _task_id: t.id }));
-          ((secs.data as Row[] | null) ?? []).forEach((s) => {
-            const ts = free.filter((t) => t.section_id === s.id); if (!ts.length) return;
-            addRows.push({ ...blank('section'), description: s.name, _sec_id: s.contract_item_id ? null : s.id }, ...ts.map((t) => ({ ...blank('item'), description: t.name, _task_id: t.id })));
-          });
-          setRows([...rows, ...addRows]);
-          toast(`${free.length} task${free.length === 1 ? '' : 's'} copied in — add a price to each`);
-        };
   const bqSend = async () => {
           if (rows.some((r) => !r.id)) { toast('Save the schedule first.'); return; }
           const [secs, tasks] = await Promise.all([fdb.from('schedule_sections').select('id,contract_item_id,name,position').eq('site_id', id), fdb.from('schedule_tasks').select('id,contract_item_id,name,section_id,position').eq('site_id', id)]);
@@ -265,27 +251,29 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
   // Budget cost: margin / mark-up for all or the ticked lines, and changes to the ticked lines together (902).
   const costTools = (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
-          <Text style={{ fontWeight: '500', fontSize: 12, color: base.ink }}>Budget cost:</Text>
-          <TextInput value={pct} onChangeText={(v) => setPct(v.replace(/[^0-9.]/g, ''))} placeholder="%" keyboardType="decimal-pad" style={[box, { width: 48, height: 26, paddingVertical: 2, paddingHorizontal: 6, fontSize: 12 }]} />
-          <SelectBox value={basis} options={[['margin', '% margin'], ['markup', '% mark-up']]} onChange={setBasis} compact style={{ marginBottom: 0, width: 110 }} title="Margin or mark-up" />
-          <Button small kind="ghost" title={ticked.length ? `Apply to ${ticked.length} ticked` : 'Apply to ticked'} disabled={!ticked.length} onPress={() => applyPct(true)} />
-          <Button small kind="ghost" title="Apply to all lines" onPress={() => applyPct(false)} />
+          <Text style={{ fontWeight: '500', fontSize: 13.2, color: base.ink }}>Budget cost:</Text>
+          <TextInput value={pct} onChangeText={(v) => setPct(v.replace(/[^0-9.]/g, ''))} placeholder="%" keyboardType="decimal-pad" style={[box, { width: 52, height: 28, paddingVertical: 2, paddingHorizontal: 6, fontSize: 13.2 }]} />
+          <SelectBox value={basis} options={[['margin', '% margin'], ['markup', '% mark-up']]} onChange={setBasis} compact textSize={13.2} style={{ marginBottom: 0, width: 118 }} title="Margin or mark-up" />
+          {ticked.length > 0 && <Button small textSize={13.75} kind="ghost" title={`Apply to ${ticked.length} ticked`} onPress={() => applyPct(true)} />}
+          <Button small textSize={13.75} kind="ghost" title="Apply to all lines" onPress={() => applyPct(false)} />
           {ticked.length ? (
             <>
-              <Text style={{ fontWeight: '500', color: base.ink }}>{ticked.length} ticked</Text>
+              <Text style={{ fontWeight: '500', fontSize: 13.2, color: base.ink }}>{ticked.length} ticked</Text>
               {subs.length > 0 && <SelectBox value="" placeholder="Set plot…" title="Plot for the ticked lines" options={[['-', 'No plot'], ...subs.map((s) => [s.id, s.short] as [string, string])]} onChange={(k) => setRows((rs) => rs.map((r, j) => (ticked.includes(j) ? { ...r, sub: k === '-' ? '' : k } : r)))} style={{ marginBottom: 0, width: 170 }} />}
               <Button small kind="ghost" title="Set unit" onPress={async () => { const u = await promptText('Unit for the ticked lines (e.g. m², nr, item)', ''); if (u !== null) setRows((rs) => rs.map((r, j) => (ticked.includes(j) ? { ...r, unit: u.trim() } : r))); }} />
               <Button small kind="ghost" title="Clear costs" onPress={() => setRows((rs) => rs.map((r, j) => (ticked.includes(j) ? { ...r, cost: '', cost_basis: null, cost_pct: null } : r)))} />
               <Button small kind="ghost" title="Remove" onPress={async () => { if (await confirmAsk(`Remove ${ticked.length} ticked line${ticked.length === 1 ? '' : 's'}?`, 'Remove')) setRows((rs) => rs.filter((_, j) => !ticked.includes(j))); }} />
+              {ticked.length < itemIdx.length && <Button small kind="ghost" title={`Tick all ${itemIdx.length} lines`} onPress={() => tick(itemIdx, true)} />}
               <Button small kind="ghost" title="Untick all" onPress={() => tick(itemIdx, false)} />
             </>
-          ) : itemIdx.length ? <><Button small kind="ghost" title={`Tick all ${itemIdx.length} lines`} onPress={() => tick(itemIdx, true)} /><Muted>Tick lines (or a heading) to change them together.</Muted></> : null}
+          ) : null}
         </View>
   );
   return (
     <View style={{ flex: 1 }}>
     <ScrollView style={{ flex: 1 }} contentContainerStyle={page(1100)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Bill of Quantities' }} />
+      <BoqTabs id={id} on="boq" />
       {/* The page's own header (Andy, 2 Nov 2026). */}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10, marginTop: desk ? 6 : 0, marginBottom: desk ? 18 : 12 }}>
         <Text style={{ flexGrow: 1, fontSize: desk ? 20 : 17, fontWeight: '600', color: base.ink }}>Bill of Quantities</Text>
@@ -298,7 +286,7 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
 
       {/* Each section sits in its own border (Andy, 1 Nov 2026); lines before any section don't. */}
       {rows.reduce<number[][]>((gs, r, i) => { if (r.kind === 'section' || !gs.length) gs.push([i]); else gs[gs.length - 1].push(i); return gs; }, []).map((g) => (
-      <View key={rows[g[0]]._k} style={rows[g[0]].kind === 'section' ? { borderWidth: 1.5, borderColor: t.brand1, borderRadius: 10, backgroundColor: base.card, marginBottom: desk ? 18 : 12, zIndex: rows.length - g[0] } : undefined}>
+      <View key={rows[g[0]]._k} style={rows[g[0]].kind === 'section' ? { borderWidth: 1.5, borderColor: t.brand1, borderRadius: 10, backgroundColor: base.card, marginBottom: desk ? 30 : 22, zIndex: rows.length - g[0] } : undefined}>
       {g.map((i) => {
         const r = rows[i];
         const head = r.kind === 'section' || r.kind === 'subsection';
@@ -306,7 +294,7 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
         const on = head ? grp.length > 0 && grp.every((j) => rows[j]._sel) : !!r._sel;
         // Headings are one aligned line in a deeper colour: a section in the company colour, a sub-section in grey (Andy, 1 Nov 2026).
         const sec = r.kind === 'section', ink = sec ? t.brand1Text : base.ink;
-        const headBox = { flex: 0, height: 28, paddingVertical: 0, paddingHorizontal: 6, borderWidth: 0, backgroundColor: 'transparent', color: ink, fontWeight: '600' as const };
+        const headBox = { flex: 0, height: desk ? 31 : 28, ...(desk ? { fontSize: 15 } : null), paddingVertical: 0, paddingHorizontal: 6, borderWidth: 0, backgroundColor: 'transparent', color: ink, fontWeight: '600' as const };
         // The Add button sits at the end of each section or sub-section: an item, or a sub-section (only ever inside a section).
         let h = i; while (h >= 0 && rows[h].kind !== 'section' && rows[h].kind !== 'subsection') h--;
         const next = rows[i + 1]?.kind, nextHead = next === 'section' || next === 'subsection' || i === rows.length - 1;
@@ -318,12 +306,12 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
         };
         return (
           <Fragment key={r._k}>
-          <View style={{ borderWidth: 1, borderColor: sec ? t.brand1 : r.kind === 'subsection' ? '#DFE3EA' : base.cardLine, borderRadius: 8, paddingVertical: head ? (desk ? 5 : 4) : desk ? 11 : 10, paddingHorizontal: 8, marginBottom: 6, backgroundColor: sec ? t.brand1 : r.kind === 'subsection' ? '#DFE3EA' : base.card, marginLeft: r.kind === 'subsection' ? 10 : 0, ...(rows[g[0]].kind === 'section' ? { marginBottom: 0, marginLeft: 0, borderRadius: 0, borderWidth: 0, borderBottomWidth: 1, borderBottomColor: base.cardLine, ...(sec ? { borderTopLeftRadius: 8, borderTopRightRadius: 8 } : null) } : null), zIndex: rows.length - i }}>
+          <View style={{ borderWidth: 1, borderColor: sec ? t.brand1 : r.kind === 'subsection' ? '#DFE3EA' : base.cardLine, borderRadius: 8, paddingVertical: head ? (desk ? 6 : 4) : desk ? 11 : 10, paddingHorizontal: 8, marginBottom: 6, backgroundColor: sec ? t.brand1 : r.kind === 'subsection' ? '#DFE3EA' : base.card, marginLeft: r.kind === 'subsection' ? 10 : 0, ...(rows[g[0]].kind === 'section' ? { marginBottom: 0, marginLeft: 0, borderRadius: 0, borderWidth: 0, borderBottomWidth: 1, borderBottomColor: base.cardLine, ...(sec ? { borderTopLeftRadius: 8, borderTopRightRadius: 8 } : null) } : null), zIndex: rows.length - i }}>
             <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
               {selecting && <Pressable hitSlop={6} focusable={false} accessibilityLabel="Tick" onPress={() => (head ? tick(grp, !on) : set(i, '_sel', !on))}><Text style={{ fontSize: 17, color: head ? ink : base.ink }}>{on ? '☑' : '☐'}</Text></Pressable>}
-              {editRefs ? <TextInput value={refs[i]} onChangeText={(v) => set(i, 'ref', v)} placeholder="Ref" placeholderTextColor={head ? ink : undefined} style={[box, slim, { width: desk ? 64 : head ? 30 : 40 }, head && headBox, !desk && { fontSize: 11 }]} /> : <Text numberOfLines={1} accessibilityLabel="Ref" style={{ width: desk ? 64 : head ? 30 : 40, fontSize: desk ? 13 : 11, fontWeight: '500', color: head ? ink : base.slate, paddingHorizontal: 2 }}>{refs[i]}</Text>}
-              <TextInput value={r.description || ''} onChangeText={(v) => set(i, 'description', v)} placeholder={head ? (r.kind === 'section' ? 'Section heading' : 'Sub-section heading') : 'Description'} placeholderTextColor={head ? ink : undefined} autoFocus={openK === r._k} multiline={!head} onContentSizeChange={head ? undefined : (e) => { const h = Math.ceil(e.nativeEvent.contentSize.height); setDescH((o) => (o[r._k] === h ? o : { ...o, [r._k]: h })); }} onKeyPress={head ? undefined : (e) => { const n = e.nativeEvent as unknown as { key: string; shiftKey?: boolean }; if (n.key === 'Tab' && !n.shiftKey) { (e as unknown as { preventDefault: () => void }).preventDefault(); qtyBox.current[r._k]?.focus(); } }} style={[box, slim, { flex: 1, minWidth: 0, height: Math.max(28, descH[r._k] || 0), paddingVertical: 4, lineHeight: 18, fontWeight: desk ? '400' : '500', paddingLeft: desk ? 8 : 16 }, head && { ...headBox, flex: 1, minWidth: 0 }]} />
-              {head && <Text style={{ fontWeight: '600', color: ink, minWidth: desk ? 90 : 0, fontSize: desk ? 14 : 12.5, textAlign: 'right' }}>{money(tots[i]?.value || 0)}</Text>}
+              {editRefs ? <TextInput value={refs[i]} onChangeText={(v) => set(i, 'ref', v)} placeholder="Ref" placeholderTextColor={head ? ink : undefined} style={[box, slim, { width: desk ? 64 : head ? 30 : 40 }, head && headBox, !desk && { fontSize: 11 }]} /> : <Text numberOfLines={1} accessibilityLabel="Ref" style={{ width: desk ? 64 : head ? 30 : 40, fontSize: desk ? 15 : 11, fontWeight: '500', color: head ? ink : base.slate, paddingHorizontal: 2 }}>{refs[i]}</Text>}
+              <TextInput value={r.description || ''} onChangeText={(v) => set(i, 'description', v)} placeholder={head ? (r.kind === 'section' ? 'Section heading' : 'Sub-section heading') : 'Description'} placeholderTextColor={head ? ink : undefined} autoFocus={openK === r._k} multiline={!head} onContentSizeChange={head ? undefined : (e) => { const h = Math.ceil(e.nativeEvent.contentSize.height); setDescH((o) => (o[r._k] === h ? o : { ...o, [r._k]: h })); }} onKeyPress={head ? undefined : (e) => { const n = e.nativeEvent as unknown as { key: string; shiftKey?: boolean }; if (n.key === 'Tab' && !n.shiftKey) { (e as unknown as { preventDefault: () => void }).preventDefault(); qtyBox.current[r._k]?.focus(); } }} style={[box, slim, { flex: 1, minWidth: 0, height: Math.max(desk ? 32 : 28, descH[r._k] || 0), paddingVertical: 4, lineHeight: 18, fontWeight: desk ? '400' : '500', paddingLeft: desk ? 8 : 16 }, head && { ...headBox, flex: 1, minWidth: 0 }]} />
+              {head && <Text style={{ fontWeight: '600', color: ink, minWidth: desk ? 90 : 0, fontSize: desk ? 15 : 12.5, textAlign: 'right' }}>{money(tots[i]?.value || 0)}</Text>}
               <Pressable hitSlop={6} focusable={false} onPress={async () => {
                 const k = await chooseAction('Line', [selecting ? { key: 'unsel', label: 'Stop selecting' } : { key: 'sel', label: 'Select' }, { key: 'refs', label: editRefs ? 'Finish editing ref numbers' : 'Edit ref numbers' }, { key: 'ai', label: head ? '+ Item under this heading' : '+ Item below' }, ...(r.kind === 'section' ? [{ key: 'as', label: '+ Sub-section in this section' }] : []), { key: 'asec', label: '+ Section after this' }, { key: 'up', label: '↑ Move up' }, { key: 'down', label: '↓ Move down' }, { key: 'kind', label: 'Change type' }, { key: 'del', label: '🗑 Remove', danger: true }]);
                 if (k === 'refs') setEditRefs(!editRefs); else if (k === 'sel') { setSelectMode(true); setBulkOpen(true); if (head) tick(grp, true); else set(i, '_sel', true); } else if (k === 'unsel') { setSelectMode(false); setRows((rs) => rs.map((x) => (x._sel ? { ...x, _sel: false } : x))); } else if (k === 'ai') addAt(i, 'item'); else if (k === 'as') addAt(i, 'subsection'); else if (k === 'asec') { const x = rows.slice(); let at = i + 1; while (at < x.length && x[at].kind !== 'section') at++; const n = blank('section'); x.splice(at, 0, n); setRows(x); setOpenK(n._k); }
@@ -334,9 +322,9 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
             {head ? null : desk ? (
               <View style={{ flexDirection: 'row', gap: 6, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                 <Text style={lab}>Qty</Text>
-                <TextInput ref={(el) => { qtyBox.current[r._k] = el as unknown as { focus: () => void } | null; }} value={String(r.qty ?? '')} onChangeText={(v) => set(i, 'qty', v)} accessibilityLabel="Qty" keyboardType="decimal-pad" style={[box, slim, { width: 70 }]} />
+                <TextInput ref={(el) => { qtyBox.current[r._k] = el as unknown as { focus: () => void } | null; }} value={String(r.qty ?? '')} onChangeText={(v) => set(i, 'qty', v)} accessibilityLabel="Qty" keyboardType="decimal-pad" style={[box, slim, { width: 76 }]} />
                 <Text style={lab}>Unit</Text>
-                <UnitField value={r.unit || ''} onChangeText={(v) => set(i, 'unit', v)} units={units} onEdit={() => void editUnits()} style={[box, slim, { width: 60 }]} />
+                <UnitField value={r.unit || ''} onChangeText={(v) => set(i, 'unit', v)} units={units} onEdit={() => void editUnits()} style={[box, slim, { width: 66 }]} />
                 <Text style={lab}>Sell rate</Text><Pound width={90}><TextInput accessibilityLabel="Rate £" value={String(r.rate ?? '')} onChangeText={(v) => set(i, 'rate', v)} keyboardType="decimal-pad" style={inPound} /></Pound>
                 {num(r.value) !== null && num(r.qty) === null && num(r.rate) === null && <Pound width={90}><TextInput accessibilityLabel="Amount" value={String(r.value ?? '')} onChangeText={(v) => set(i, 'value', v)} keyboardType="decimal-pad" style={inPound} /></Pound>}
                 <Text style={lab}>{num(r.qty) ? 'Cost rate' : 'Cost'}</Text>
@@ -344,8 +332,8 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
                 <Text style={lab}>Budget cost</Text>
                 <Pound width={90}><TextInput accessibilityLabel="Amount" value={String(r.cost ?? '')} onChangeText={(v) => setRows((rs) => rs.map((x, j) => (j === i ? { ...x, cost: v, cost_basis: null, cost_pct: null } : x)))} keyboardType="decimal-pad" style={inPound} /></Pound>
                 {subs.length > 0 && <SelectBox value={r.sub || '-'} options={[['-', 'No plot'], ...subs.map((s) => [s.id, s.short] as [string, string])]} onChange={(k) => set(i, 'sub', k === '-' ? '' : k)} title="Plot" compact style={{ marginBottom: 0, width: 130 }} />}
-                <Text style={{ fontSize: 12, color: num(r.cost) !== null && vals[i] && (num(r.cost) as number) > vals[i] ? base.red : base.slate }}>{marginText(vals[i], num(r.cost))}{r.cost_basis && r.cost_pct != null ? ` (set at ${r.cost_pct}% ${r.cost_basis === 'markup' ? 'mark-up' : 'margin'})` : ''}</Text>
-                <Text style={{ marginLeft: 'auto', fontWeight: '600', color: base.ink }}>{money(vals[i])}</Text>
+                <Text style={{ fontSize: 13.8, color: num(r.cost) !== null && vals[i] && (num(r.cost) as number) > vals[i] ? base.red : base.slate }}>{marginText(vals[i], num(r.cost))}{r.cost_basis && r.cost_pct != null ? ` (set at ${r.cost_pct}% ${r.cost_basis === 'markup' ? 'mark-up' : 'margin'})` : ''}</Text>
+                <Text style={{ marginLeft: 'auto', fontSize: 15, fontWeight: '600', color: base.ink }}>{money(vals[i])}</Text>
               </View>
             ) : (
               <View style={{ marginTop: 8, gap: 8 }}>
@@ -376,6 +364,15 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
           </Fragment>
         );
       })}
+      {rows[g[0]].kind === 'section' && (() => {
+        const v = round2(g.reduce((n, j) => n + vals[j], 0)), c = round2(g.reduce((n, j) => n + (isItem(rows[j]) ? num(rows[j].cost) || 0 : 0), 0));
+        const parts = [['Total', money(v)], ['Budget cost', c ? money(c) : '—'], ['Margin', c && v ? `${Math.round(((v - c) / v) * 1000) / 10}%` : '—']];
+        return (
+          <View accessibilityLabel="Section summary" style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: desk ? 26 : 12, backgroundColor: t.brand1, borderBottomLeftRadius: 8, borderBottomRightRadius: 8, paddingVertical: desk ? 7 : 6, paddingHorizontal: 12 }}>
+            {parts.map(([l, x]) => <Text key={l} style={{ fontSize: desk ? 14 : 12, color: t.brand1Text }}>{l} <Text style={{ fontWeight: '600' }}>{x}</Text></Text>)}
+          </View>
+        );
+      })()}
       </View>
       ))}
       {rows.length > 0 && <View style={{ flexDirection: 'row', marginTop: 4, marginBottom: 20 }}>{addWorks}</View>}

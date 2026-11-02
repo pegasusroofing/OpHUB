@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { FinForm } from '@/components/FinForm';
-import { FinChip, FinRow, FinStat, VarDayChips } from '@/components/FinNav';
+import { FinChip, FinRow, FinStat, VarDayChips, BoqTabs } from '@/components/FinNav';
 import { promptText, useToast } from '@/components/toast';
 import { Button, Empty, Muted } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
@@ -86,6 +86,7 @@ export default function FinVariations() {
   return (
     <ScrollView contentContainerStyle={page(900)}>
       <Stack.Screen options={{ title: 'Variations' }} />
+      <BoqTabs id={id} on="variations" />
       <VarDayChips id={id} on="variations" />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
         <FinStat v={money(sum('agreed_value', (v) => v.status === 'agreed'), 0)} label="Approved" />

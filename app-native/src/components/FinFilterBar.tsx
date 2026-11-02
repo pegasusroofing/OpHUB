@@ -82,8 +82,8 @@ export function ThinExportBar({ onExcel, onPdf, busy }: { onExcel: () => void; o
   const link = (t: string, press: () => void) => <Pressable accessibilityRole="button" onPress={press}><Text style={{ fontSize: 13, fontWeight: '500', color: base.blue }}>{t}</Text></Pressable>;
   return (
     <View style={{ flexDirection: 'row', justifyContent: 'space-between', backgroundColor: base.card, borderTopWidth: 1, borderTopColor: base.line, paddingHorizontal: 16, paddingVertical: 9 }}>
-      {link(busy === 'x' ? 'Making…' : 'Excel', onExcel)}
-      {link(busy === 'p' ? 'Making…' : 'PDF', onPdf)}
+      {link(busy === 'x' ? 'Making…' : 'Export to Excel', onExcel)}
+      {link(busy === 'p' ? 'Making…' : 'Export to PDF', onPdf)}
     </View>
   );
 }

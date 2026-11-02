@@ -47,6 +47,22 @@ export function FinTabRow({ children, style }: { children: ReactNode; style?: ob
     </View>
   );
 }
+const useJobBilling = (id: string) => useQuery({ queryKey: ['finJobBilling', id], queryFn: async () => ((await fdb.from('job_finance').select('billing_type').eq('site_id', id).maybeSingle()).data as { billing_type: string | null } | null)?.billing_type ?? null });
+/** Inside the Bill of Quantities tab: the Bill and its Variations (Andy, 2 Nov 2026). An invoice job has no Bill, so no tabs here. */
+export function BoqTabs({ id, on }: { id: string; on: 'boq' | 'variations' }) {
+  const t = useTheme();
+  const { data: billing } = useJobBilling(id);
+  if (billing === 'invoice') return null;
+  return (
+    <View style={{ flexDirection: 'row', gap: 6, marginBottom: 12 }}>
+      {([['boq', 'BoQ'], ['variations', 'Variations']] as const).map(([k, l]) => (
+        <Pressable key={k} accessibilityRole="button" onPress={() => { if (on !== k) router.replace((k === 'boq' ? `/fin/job/${id}/boq` : `/fin/job/${id}/variations`) as never); }} style={{ paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 2, borderBottomColor: on === k ? t.brand1 : 'transparent' }}>
+          <Text style={{ fontSize: 14, fontWeight: on === k ? '700' : '600', color: on === k ? '#111827' : '#6b7280' }}>{l}</Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
 /** Variations and Day Works share the Variations tab. */
 export function VarDayChips({ id, on }: { id: string; on: 'variations' | 'dayworks' }) {
   return (
@@ -59,9 +75,11 @@ export function VarDayChips({ id, on }: { id: string; on: 'variations' | 'daywor
 /** The white row with the job and + New, then a project's tabs: on every page inside a project (Andy, 2 Nov 2026). */
 export function FinJobTabs({ id, active, job, name, onOverview }: { id: string; active: string; job?: string | null; name?: string | null; onOverview: boolean }) {
   const t = useTheme();
-  const { data: billing } = useQuery({ queryKey: ['finJobBilling', id], queryFn: async () => ((await fdb.from('job_finance').select('billing_type').eq('site_id', id).maybeSingle()).data as { billing_type: string | null } | null)?.billing_type ?? null });
+  const { data: billing } = useJobBilling(id);
   const invoiceJob = billing === 'invoice';
-  const tabs: [string, string][] = [['overview', 'Overview'], ['sales', 'Sales'], ['purchases', 'Purchases'], ['subs', 'Subcontractors & Labour'], ...(invoiceJob ? [] : [['boq', 'Bill of Quantities'] as [string, string]]), ['variations', 'Variations'], ['docs', 'Documents'], ['setup', 'Project Admin']];
+  // Variations sit inside the Bill of Quantities tab, unless an invoice job has no Bill.
+  const current = active === 'variations' && !invoiceJob ? 'boq' : active;
+  const tabs: [string, string][] = [['overview', 'Overview'], ['sales', 'Sales'], ['purchases', 'Purchases'], ['subs', 'Subcontractors & Labour'], ...(invoiceJob ? [['variations', 'Variations'] as [string, string]] : [['boq', 'Bill of Quantities'] as [string, string]]), ['docs', 'Documents'], ['setup', 'Project Admin']];
   const go = (k: string) => { if (k === 'boq' || k === 'variations') router.navigate(`/fin/job/${id}/${k}` as never); else if (onOverview) router.setParams({ tab: k }); else router.navigate(`/fin/job/${id}?tab=${k}` as never); };
   return (
     <View>
@@ -77,8 +95,8 @@ export function FinJobTabs({ id, active, job, name, onOverview }: { id: string; 
       </View>
       <FinTabRow style={{ marginTop: 6, marginBottom: 0 }}>
         {tabs.map(([k, l]) => (
-          <Pressable key={k} onPress={() => go(k)} style={{ paddingVertical: 12, paddingHorizontal: 14, borderBottomWidth: 2, borderBottomColor: active === k ? t.brand1 : 'transparent' }}>
-            <Text style={{ fontSize: 13, fontWeight: active === k ? '700' : '600', color: active === k ? '#111827' : '#6b7280' }}>{l}</Text>
+          <Pressable key={k} onPress={() => go(k)} style={{ paddingVertical: 12, paddingHorizontal: 14, borderBottomWidth: 2, borderBottomColor: current === k ? t.brand1 : 'transparent' }}>
+            <Text style={{ fontSize: 13, fontWeight: current === k ? '700' : '600', color: current === k ? '#111827' : '#6b7280' }}>{l}</Text>
           </Pressable>
         ))}
       </FinTabRow>

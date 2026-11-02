@@ -57,8 +57,8 @@ export function Field({ label, ...props }: TextInputProps & { label: string }) {
 // Normal-case words, gentle corners. A ghost button whose title starts Delete, Remove or Void takes the red look by itself.
 const BTN_GREY = '#DFE3EA', BTN_DANGER = ['#FDECEC', '#B42318'] as const;
 const BTN_SHADOW = { shadowColor: '#101828', shadowOpacity: 0.12, shadowRadius: 2, shadowOffset: { width: 0, height: 1 }, elevation: 1 };
-export function Button({ title, onPress, busy, kind = 'primary', disabled, small }: {
-  title: string; onPress: () => void | Promise<unknown>; busy?: boolean; kind?: 'primary' | 'ghost' | 'danger'; disabled?: boolean; small?: boolean;
+export function Button({ title, onPress, busy, kind = 'primary', disabled, small, textSize }: {
+  title: string; onPress: () => void | Promise<unknown>; busy?: boolean; kind?: 'primary' | 'ghost' | 'danger'; disabled?: boolean; small?: boolean; textSize?: number;
 }) {
   const t = useTheme();
   const primary = kind === 'primary';
@@ -86,7 +86,7 @@ export function Button({ title, onPress, busy, kind = 'primary', disabled, small
         (pressed || busy || disabled) && { opacity: 0.7 },
       ]}>
       {busy && <ActivityIndicator color={fg} style={{ marginRight: 8 }} />}
-      <Text style={[s.btnText, small && s.btnTextSmall, fin && { fontWeight: '500' }, { color: fg }]}>{title}</Text>
+      <Text style={[s.btnText, small && s.btnTextSmall, fin && { fontWeight: '500' }, !!textSize && { fontSize: textSize }, { color: fg }]}>{title}</Text>
     </Pressable>
   );
 }

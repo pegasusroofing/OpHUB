@@ -46,7 +46,7 @@ export function UnitField({ value, onChangeText, units, onEdit, style, onFocus, 
           else if (k === 'Escape') setOpen(false);
         }} />
       {open && (
-        <View ref={box as never} style={{ position: 'absolute', top: 30, left: 0, width: 170, maxHeight: 240, overflow: 'scroll' as 'hidden', backgroundColor: base.card, borderWidth: 1, borderColor: base.line, borderRadius: 8, shadowColor: '#101828', shadowOpacity: 0.18, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 6 }}>
+        <View ref={box as never} style={{ position: 'absolute', top: 34, left: 0, width: 170, maxHeight: 240, overflow: 'scroll' as 'hidden', backgroundColor: base.card, borderWidth: 1, borderColor: base.line, borderRadius: 8, shadowColor: '#101828', shadowOpacity: 0.18, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 6 }}>
           {list.map((u, i) => (
             <Pressable key={u} focusable={false} onPress={() => take(i)} style={{ paddingHorizontal: 10, paddingVertical: 5, backgroundColor: hi === i ? '#E7EDF8' : undefined }}>
               <Text style={{ fontSize: 13, color: base.ink, fontWeight: hi === i ? '700' : '400' }}>{u}</Text>

@@ -1054,3 +1054,22 @@
 {"part":"boqbtn1","step":"Typing m2 gives m²","ok":true,"note":"offered 1, m², m³","ms":1093}
 {"part":"boqbtn1","step":"Empty page","ok":true,"note":"empty state","ms":10388}
 {"part":"boqbtn1","step":"Phone","ok":false,"note":"tools button","ms":9990}
+{"part":"boqphone","step":"Phone bottom","ok":true,"note":"Budget cost tools ▾","ms":11146}
+{"part":"boqbtn2","step":"Page, footer and summary","ok":true,"note":"summary 1, tick buttons 0, export 1, variations tabs 1","ms":10927}
+{"part":"boqbtn2","step":"Import / Export has no copy-in","ok":true,"note":"copy-in 0","ms":1099}
+{"part":"boqbtn2","step":"Two tabs: BoQ and Variations","ok":true,"note":"variations then boq","ms":15328}
+{"part":"boqbtn2","step":"Page, footer and summary","ok":true,"note":"summary 1, tick buttons 0, export 1, variations tabs 1","ms":11193}
+{"part":"boqbtn2","step":"Import / Export has no copy-in","ok":true,"note":"copy-in 0","ms":1087}
+{"part":"boqbtn2","step":"Two tabs: BoQ and Variations","ok":true,"note":"variations then boq","ms":15177}
+{"part":"jobtabs1","step":"Tabs and white row on overview","ok":true,"note":"1 tab rows, New 1, job no 1","ms":8561}
+{"part":"jobtabs1","step":"Tabs and white row on variations","ok":true,"note":"1 tab rows, New 1, job no 1","ms":8172}
+{"part":"jobtabs1","step":"Tabs and white row on budget","ok":true,"note":"1 tab rows, New 1, job no 1","ms":8045}
+{"part":"jobtabs1","step":"Tabs and white row on costs","ok":true,"note":"1 tab rows, New 1, job no 1","ms":8024}
+{"part":"jobtabs1","step":"Tabs and white row on dayworks","ok":true,"note":"1 tab rows, New 1, job no 1","ms":8039}
+{"part":"jobtabs1","step":"Tabs and white row on monthly","ok":true,"note":"1 tab rows, New 1, job no 1","ms":8018}
+{"part":"jobtabs1","step":"Tabs and white row on summary","ok":true,"note":"1 tab rows, New 1, job no 1","ms":8075}
+{"part":"jobtabs1","step":"Tabs and white row on quotes","ok":true,"note":"1 tab rows, New 1, job no 1","ms":8033}
+{"part":"jobtabs1","step":"Tabs and white row on boq","ok":true,"note":"1 tab rows, New 1, job no 1","ms":8043}
+{"part":"jobtabs1","step":"A tab goes to that part of the project","ok":true,"note":"ff28ffa960?tab=sales, rows 1","ms":10814}
+{"part":"jobtabs1","step":"Tabs work on the overview page too","ok":true,"note":"?tab=purchases","ms":10091}
+{"part":"jobtabs1","step":"Phone","ok":false,"note":"page.waitForTimeout: Page crashed","ms":4917}
