@@ -3,7 +3,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ScrollView, TextInput, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 
 import { DateBox } from '@/components/DateField';
 import { useSites } from '@/data/sites';
@@ -11,9 +11,8 @@ import { exportTableExcel, exportTablePdf } from '@/lib/tableExport';
 
 import { FinForm } from '@/components/FinForm';
 import { AllocRow } from '@/components/FinSplit';
-import { ThinExportBar } from '@/components/FinFilterBar';
+import { FinFilterBar, ThinExportBar, type FilterSel } from '@/components/FinFilterBar';
 import { FinChip, FinRow } from '@/components/FinNav';
-import { SelectBox } from '@/components/SelectBox';
 import { confirmAsk, useToast } from '@/components/toast';
 import { Button, Empty, Muted } from '@/components/ui';
 import { useBook } from '@/data/finBook';
@@ -21,14 +20,15 @@ import { fdb } from '@/data/finance';
 import { useAuth } from '@/lib/auth';
 import { COST_CATS, forecast } from '@/lib/rules/finBook';
 import { fdate, money, num, round2, today } from '@/lib/rules/finance';
-import { base, page, radius, space } from '@/theme/theme';
+import { page, space } from '@/theme/theme';
 import { mustHit } from '@/lib/mustHit';
 
 export default function FinCosts() {
   const { id, sub, open } = useLocalSearchParams<{ id: string; sub?: string; open?: string }>();
   const { me, org } = useAuth();
   const { data } = useBook(me?.org_id, id);
-  const [cat, setCat] = useState('all');
+  // Filter by type, as many as you like (Andy, 2 Nov 2026). None ticked shows every cost except what's only ordered.
+  const [sel, setSel] = useState<FilterSel>({ type: [] });
   // 910: search, a date range and sorting, then Excel / PDF of what's shown.
   const [q, setQ] = useState('');
   const [from, setFrom] = useState('');
@@ -44,7 +44,8 @@ export default function FinCosts() {
   if (!data || !me) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   const fc = forecast(data.book, id, data.settings);
   const ql = q.trim().toLowerCase();
-  const list = fc.lines.filter((l) => (cat === 'all' ? l.cat !== 'committed' : l.cat === cat) && (!sub || (sub === 'none' ? !l.sub : l.sub === sub))
+  const types = sel.type || [];
+  const list = fc.lines.filter((l) => (!types.length ? l.cat !== 'committed' : types.includes(l.cat)) && (!sub || (sub === 'none' ? !l.sub : l.sub === sub))
     && (!ql || [l.desc, l.who, l.ref].filter(Boolean).join(' ').toLowerCase().includes(ql))
     && (!from || String(l.date || '') >= from) && (!to || String(l.date || '').slice(0, 10) <= to))
     .sort((a, b) => (sort === 'old' ? String(a.date || '').localeCompare(String(b.date || '')) : sort === 'big' ? b.net - a.net : sort === 'az' ? String(a.desc || '').localeCompare(String(b.desc || '')) : String(b.date || '').localeCompare(String(a.date || ''))));
@@ -69,15 +70,13 @@ export default function FinCosts() {
     <ScrollView style={{ flex: 1 }} contentContainerStyle={page(1000)}>
       <Stack.Screen options={{ title: 'Costs ledger' }} />
       {!!sub && <View style={{ flexDirection: 'row', marginBottom: 8 }}><FinChip on label={`${sub === 'none' ? 'Not allocated to a plot' : 'One plot / repair job'} ✕`} onPress={() => router.setParams({ sub: '' })} /></View>}
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
-        <SelectBox value={cat} title="Show" style={{ marginBottom: 0, flexGrow: 1, flexBasis: 200 }} onChange={setCat} options={[['all', `All ${money(fc.costToDate, 0)} · ${howMany(fc.lines.filter((l) => l.cat !== 'committed').length)}`], ...Object.entries(COST_CATS).map(([k, l]): [string, string] => [k, `${l} ${money(tot(k), 0)} · ${howMany(fc.lines.filter((x) => x.cat === k).length)}`]), ['committed', `Ordered ${money(fc.committedTotal, 0)} · ${howMany(fc.lines.filter((x) => x.cat === 'committed').length)}`]]} />
-        <View style={{ marginLeft: 'auto' }}><Button title="+ Add cost" onPress={() => setEdit('new')} /></View>
-      </View>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 10 }}>
-        <TextInput value={q} onChangeText={setQ} placeholder="Search description, supplier or ref" style={{ flexGrow: 1, minWidth: 200, borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 9, color: base.ink, backgroundColor: base.card }} />
-        <View style={{ width: 150 }}><DateBox value={from} onChange={setFrom} placeholder="From" title="From" /></View>
-        <View style={{ width: 150 }}><DateBox value={to} onChange={setTo} placeholder="To" title="To" /></View>
-        <SelectBox value={sort} title="Sort" style={{ marginBottom: 0, width: 130 }} onChange={setSort} options={[['new', 'Newest'], ['old', 'Oldest'], ['big', 'Biggest'], ['az', 'A–Z']]} />
+      <View style={{ alignSelf: 'flex-end', marginBottom: 10 }}><Button title="+ Add cost" onPress={() => setEdit('new')} /></View>
+      <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search description, supplier or ref' }} sel={sel} onChange={setSel} onClear={() => setSel({ type: [] })}
+        parts={[{ key: 'type', label: 'Type', items: [...Object.entries(COST_CATS).map(([v, l]) => ({ v, l: `${l} ${money(tot(v), 0)}`, n: fc.lines.filter((x) => x.cat === v).length })), { v: 'committed', l: `Ordered, not invoiced ${money(fc.committedTotal, 0)}`, n: fc.lines.filter((x) => x.cat === 'committed').length }] }]}
+        sorts={[['new', 'Newest'], ['old', 'Oldest'], ['big', 'Biggest'], ['az', 'A–Z']]} sort={sort} onSort={(k) => setSort(k as typeof sort)} />
+      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
+        <View style={{ flex: 1, maxWidth: 170 }}><DateBox compact value={from} onChange={setFrom} placeholder="From" title="From" /></View>
+        <View style={{ flex: 1, maxWidth: 170 }}><DateBox compact value={to} onChange={setTo} placeholder="To" title="To" /></View>
       </View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 8 }}>
         <Muted>{howMany(list.length)} · {money(shownTotal)}{waiting ? ` · ${money(waiting)} waiting approval` : ''}</Muted>
@@ -85,7 +84,7 @@ export default function FinCosts() {
       {list.length ? list.map((l) => <FinRow key={l.key} title={l.desc} sub={[l.date ? fdate(l.date) : '', COST_CATS[l.cat] || (l.cat === 'committed' ? `Ordered (${COST_CATS[l.ccat || 'materials']})` : l.cat), l.who, l.ref, l.status].filter(Boolean).join(' · ')} right={money(l.net)} onPress={l.go ? () => router.push(l.go as never) : l.key.startsWith('jc:') ? () => openCost(l.key) : undefined} />) : <Empty>No costs yet.</Empty>}
       {edit && (
         <FinForm title={cur ? 'Cost' : 'Add a cost'} note="For costs without a purchase invoice in OpHUB — skips, fuel, travel, accommodation, site set-up. (Company overheads are added automatically — Finance › Settings › Company overheads.)"
-          initial={cur ? { ...cur } : { category: COST_CATS[cat] && cat !== 'labour' ? cat : 'overheads', cost_date: today() }} onClose={() => setEdit(null)}
+          initial={cur ? { ...cur } : { category: types.length === 1 && COST_CATS[types[0]] && types[0] !== 'labour' ? types[0] : 'overheads', cost_date: today() }} onClose={() => setEdit(null)}
           fields={[
             { k: 'category', label: 'Type', kind: 'choice', options: Object.entries(COST_CATS), half: true }, { k: 'cost_date', label: 'Date', kind: 'date', half: true },
             { k: 'description', label: 'Description' },

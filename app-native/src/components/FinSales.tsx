@@ -160,7 +160,7 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
             ...(siteId ? [] : [{ key: 'job', label: 'Project', items: [...new Set(live.map((i) => i.site_id))].map((id) => ({ v: id, l: jobTag(site(id)) })) }]),
           ]} />}
         {desk && list.length ? (
-          <FinTable rows={list} keyOf={(i) => i.id} onMenu={(i) => void rowMenu.invMenu(i)} onRow={(i) => router.push(`/fin/job/${i.site_id}/invoice/${i.id}` as never)}
+          <FinTable startFilter={f0 === 'overdue' ? { s: ['Overdue'] } : undefined} rows={list} keyOf={(i) => i.id} onMenu={(i) => void rowMenu.invMenu(i)} onRow={(i) => router.push(`/fin/job/${i.site_id}/invoice/${i.id}` as never)}
             cols={[
               { k: 'no', l: 'Invoice', render: (i: Inv) => <Cell bold>{i.number || 'Draft'}</Cell> },
               { k: 'c', l: 'Client', flex: 1.4, min: 130, render: (i: Inv) => <View style={{ alignItems: 'center' }}><Cell>{billTo(i) || '—'}</Cell>{addr1(i) ? <Text numberOfLines={1} style={{ fontSize: 11, color: base.slate }}>{addr1(i)}</Text> : null}</View> },

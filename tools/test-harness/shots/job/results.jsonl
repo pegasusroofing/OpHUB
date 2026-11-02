@@ -981,3 +981,8 @@
 {"part":"jobtabs1","step":"Tabs on boq","ok":true,"note":"1 tab rows","ms":7833}
 {"part":"jobtabs1","step":"A tab goes to that part of the project","ok":true,"note":"ff28ffa960?tab=sales, rows 1","ms":10522}
 {"part":"jobtabs1","step":"Phone","ok":true,"note":"shown","ms":8501}
+{"part":"jobcosts1","step":"Filter by Labour then add Plant","ok":true,"note":"7 lines · £76,035.71 · £6,400.00 waiting approval | 2 lines · £35,120.00 | 3 lines · £38,925.71","ms":12329}
+{"part":"jobcosts1","step":"Sort still there; phone","ok":true,"note":"sort 1","ms":850}
+{"part":"jobtiles1","step":"Overdue tile shows only overdue invoices","ok":true,"note":"overdue shown 1, not-due shown 0","ms":13920}
+{"part":"jobtiles1","step":"Invoices tab after that shows them all","ok":true,"note":"f=","ms":2121}
+{"part":"jobtiles1","step":"Applied tile opens Applications","ok":true,"note":"?tab=sales&sub=apps","ms":13632}
