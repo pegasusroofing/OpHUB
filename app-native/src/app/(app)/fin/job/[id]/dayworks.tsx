@@ -7,7 +7,7 @@ import { useState } from 'react';
 import { ScrollView, View } from 'react-native';
 
 import { FinForm } from '@/components/FinForm';
-import { FinChip, FinRow, FinStat } from '@/components/FinNav';
+import { FinChip, FinRow, FinStat, VarDayChips } from '@/components/FinNav';
 import { viewDoc } from '@/components/DocViewer';
 import { promptText, useToast } from '@/components/toast';
 import { Button, Empty, Muted } from '@/components/ui';
@@ -36,6 +36,7 @@ export default function FinDayworks() {
   return (
     <ScrollView contentContainerStyle={page(900)}>
       <Stack.Screen options={{ title: 'Day works' }} />
+      <VarDayChips id={id} on="dayworks" />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}><FinStat v={money(sum('approved'), 0)} label="Approved" /><FinStat v={money(sum('issued'), 0)} label="Issued, waiting" /><FinStat v={money(sum('rejected'), 0)} label="Rejected" /></View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
         {[['all', 'All'], ['issued', 'Issued'], ['approved', 'Approved'], ['rejected', 'Rejected']].map(([k, l]) => <FinChip key={k} on={f === k} label={l} n={data.filter((d) => k === 'all' || d.status === k).length} onPress={() => setF(k)} />)}

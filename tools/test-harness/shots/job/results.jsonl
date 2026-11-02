@@ -1037,3 +1037,12 @@
 {"part":"fintabs2","step":"Tabs","ok":true,"note":"screenshots","ms":18137}
 {"part":"fintabs2","step":"Tabs","ok":true,"note":"screenshots","ms":18029}
 {"part":"fintabs2","step":"Tabs","ok":true,"note":"screenshots","ms":18077}
+{"part":"jobvar1","step":"Overview keeps Monthly Report only","ok":true,"note":"monthly 1, others 0","ms":10669}
+{"part":"jobvar1","step":"Variations tab, then Day Works","ok":true,"note":"variations then dayworks","ms":5360}
+{"part":"jobvar1","step":"Sales opens on Applications, in the right order","ok":true,"note":"301 < 485 < 565, applications list 1","ms":10649}
+{"part":"jobtiles1","step":"Overdue tile shows only overdue invoices","ok":true,"note":"overdue shown 1, not-due shown 0","ms":13909}
+{"part":"jobtiles1","step":"Invoices tab after that shows them all","ok":true,"note":"f=","ms":2126}
+{"part":"jobtiles1","step":"Applied tile opens Applications","ok":true,"note":"?tab=sales&sub=apps","ms":13686}
+{"part":"jobvar1","step":"Overview keeps Monthly Report only","ok":true,"note":"monthly 1, others 0","ms":10772}
+{"part":"jobvar1","step":"Variations tab, then Day Works","ok":true,"note":"variations then dayworks","ms":5335}
+{"part":"jobvar1","step":"Sales opens on Applications, in the right order","ok":true,"note":"301 < 485 < 565, applications list 1","ms":10573}

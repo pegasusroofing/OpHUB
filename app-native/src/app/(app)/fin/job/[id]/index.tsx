@@ -53,7 +53,7 @@ export default function FinJob() {
   const { data: site } = useSite(id);
   const { data, isLoading } = useBook(me?.org_id, id);
   const t = useTheme();
-  const [sub, setSub] = useState<Record<string, string>>({ sales: 'invoices', purchases: 'orders', subs: 'orders' });
+  const [sub0, setSub] = useState<Record<string, string>>({ sales: tab === 'sales' && qSub ? String(qSub) : '', purchases: 'orders', subs: 'orders' });
   useEffect(() => { if (typeof qSub === 'string' && qSub) setSub((cur) => (cur[tab] === qSub ? cur : { ...cur, [tab]: qSub })); }, [qSub, tab]);
   // Variations raised on site come into the register (so the forecast and the Variations tile count them).
   const qcJob = useQueryClient();
@@ -67,14 +67,17 @@ export default function FinJob() {
   const s = site as (typeof site & Row) | undefined;
   const title = s ? `${s.job_number ? `${s.job_number} · ` : ''}${s.name}` : 'Project';
   const fc = data ? forecast(data.book, id, data.settings) : null;
+  // Sales opens on its first tab: an application job's is Applications & Certificates (Andy, 2 Nov 2026).
+  const invoiceOnly = !!fc?.isInvoiceJob && !data?.book.apps.some((a) => a.site_id === id);
+  const sub: Record<string, string> = { ...sub0, sales: sub0.sales || (invoiceOnly ? 'invoices' : 'apps') };
   const subTabs = (k: string, opts: [string, string][]) => (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>{opts.map(([v, l]) => <FinChip key={v} on={sub[k] === v} label={l} onPress={() => { setSub({ ...sub, [k]: v }); if (qF) router.setParams({ f: '' }); }} />)}</View>
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>{opts.map(([v, l]) => <FinChip key={v} on={sub[k] === v} label={l} onPress={() => { setSub({ ...sub0, [k]: v }); if (qF) router.setParams({ f: '' }); }} />)}{k === 'purchases' && <FinChip on={false} label="Project Quotes" onPress={() => router.push(`/fin/job/${id}/quotes` as never)} />}</View>
   );
   return (
     <ScrollView contentContainerStyle={page(1000)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title }} />
       {isLoading || !fc || !data ? <Muted>Loading…</Muted> : tab === 'overview' ? <Overview askFinancials={qSetup === '1'} id={id} fc={fc} settings={data.settings} invs={data.book.invs.filter((i) => i.site_id === id)} apps={data.book.apps.filter((a) => a.site_id === id)} book={data.book as unknown as Row} />
-        : tab === 'sales' ? <>{subTabs('sales', [['invoices', 'Invoices'], ...(fc.isInvoiceJob && !data.book.apps.some((a) => a.site_id === id) ? [] : [['apps', 'Applications & Certificates'], ['retention', 'Retention']] as [string, string][])])}{sub.sales === 'retention' && !fc.isInvoiceJob && <RetentionPanel id={id} fc={fc} settings={data.settings} invs={data.book.invs.filter((i) => i.site_id === id)} apps={data.book.apps.filter((a) => a.site_id === id)} />}<SalesLists key={`${sub.sales}${qF || ''}`} tab={sub.sales as 'invoices'} siteId={id} f={qF || undefined} /></>
+        : tab === 'sales' ? <>{subTabs('sales', invoiceOnly ? [['invoices', 'Invoices']] : [['apps', 'Applications & Certificates'], ['invoices', 'Invoices'], ['retention', 'Retention']])}{sub.sales === 'retention' && !fc.isInvoiceJob && <RetentionPanel id={id} fc={fc} settings={data.settings} invs={data.book.invs.filter((i) => i.site_id === id)} apps={data.book.apps.filter((a) => a.site_id === id)} />}<SalesLists key={`${sub.sales}${qF || ''}`} tab={sub.sales as 'invoices'} siteId={id} f={qF || undefined} /></>
         : tab === 'purchases' ? <>{subTabs('purchases', [['orders', 'Purchase orders'], ['invoices', 'Purchase invoices'], ['plant', 'Plant hire'], ['quotes', 'Purchase Quotes']])}{sub.purchases === 'quotes' ? <PurchaseQuotes siteId={id} /> : <PurchasesLists key={sub.purchases} tab={sub.purchases as 'orders'} siteId={id} />}</>
         : tab === 'docs' ? <FinDocs site={s as Record<string, unknown> | undefined} />
         : tab === 'subs' ? <>{subTabs('subs', [['orders', 'Subcontractor POs'], ['apps', 'Applications'], ['opinv', 'Operative invoices'], ['wages', 'Wages to book']])}<SubsLists key={sub.subs} tab={sub.subs as 'orders'} siteId={id} /></>
@@ -119,7 +122,7 @@ function Overview({ id, fc, settings, invs, apps, book, askFinancials }: { id: s
   const TINT = { blue: ['#f3f7ff', '#dbe6ff', '#1d4ed8'], green: ['#f1fbf5', '#d3f0de', '#15803d'], red: ['#fff5f4', '#fbdcd9', '#c81e1e'], amber: ['#fffaf0', '#f8e7c2', '#b45309'], grey: ['#fff', '#e5e7eb', '#111827'] } as const;
   const tiles: { t: string; v: string; sub: string; tone: keyof typeof TINT; go: string; slot?: string; cur?: string }[] = [
     (() => { const c = choice('cv', 'contract'); return { slot: 'cv', cur: c, t: c === 'contract' ? 'Contract Value' : c === 'cva' ? 'Contract + Variations' : 'Final Account', v: k(c === 'contract' ? fc.contract : c === 'cva' ? fc.contract + (fc.vAgreed || 0) : fc.ffa), sub: c === 'ffa' ? 'incl. submitted variations' : 'excl. VAT', tone: 'blue' as const, go: `/fin/job/${id}?tab=setup` }; })(),
-    (() => { const c = choice('var', 'va'), r = vd(c); return { slot: 'var', cur: c, t: c === 'va' ? 'Variations' : ({ vu: 'Unapproved', v: 'Variations', da: 'Day Works', d: 'Day Works' } as Record<string, string>)[c], v: k(r.v), sub: `${r.n} ${c[0] === 'v' ? (r.n === 1 ? 'variation' : 'variations') : (r.n === 1 ? 'day work' : 'day works')}${c.length === 1 ? '' : c[1] === 'a' ? ' approved' : ' not approved'}`, tone: (c[1] === 'u' ? 'amber' : 'blue') as 'amber' | 'blue', go: `/fin/job/${id}/variations` }; })(),
+    (() => { const c = choice('var', 'va'), r = vd(c); return { slot: 'var', cur: c, t: c === 'va' ? 'Variations' : ({ vu: 'Unapproved', v: 'Variations', da: 'Day Works', d: 'Day Works' } as Record<string, string>)[c], v: k(r.v), sub: `${r.n} ${c[0] === 'v' ? (r.n === 1 ? 'variation' : 'variations') : (r.n === 1 ? 'day work' : 'day works')}${c.length === 1 ? '' : c[1] === 'a' ? ' approved' : ' not approved'}`, tone: (c[1] === 'u' ? 'amber' : 'blue') as 'amber' | 'blue', go: `/fin/job/${id}/${c[0] === 'd' ? 'dayworks' : 'variations'}` }; })(),
     (() => { const c = choice('cost', 'all'); const v = c === 'all' ? fc.costToDate : c === 'committed' ? fc.committedTotal : fc.actual[c] || 0; const bud = c === 'all' || c === 'committed' ? null : fc.budget[c]; return { slot: 'cost', cur: c, t: c === 'all' ? 'Costs' : c === 'committed' ? 'Ordered' : c === 'overheads' ? 'Prelims' : c === 'other' ? 'Other Costs' : c[0].toUpperCase() + c.slice(1), v: k(v), sub: c === 'all' ? (fc.budgetTotal ? `${pctTxt((fc.costToDate / fc.budgetTotal) * 100)} of budget` : 'No budget yet') : c === 'committed' ? 'on POs, no invoice yet' : bud ? `${pc(v, bud)} of ${k(bud)} budget` : fc.costToDate ? `${pc(v, fc.costToDate)} of all costs` : 'to date', tone: 'grey' as const, go: `/fin/job/${id}/costs` }; })(),
     { slot: 'pr', cur: prK, t: prK === 'td' ? 'Profit' : prK === 'fc' ? 'Forecast Profit' : 'Profit (pre-OHP)', v: prof == null ? '—' : pctTxt(prof), sub: prof == null ? (prK === 'fc' ? 'Needs a budget' : 'Nothing valued yet') : `${money(prM, 0)}${prK === 'td' && fc.ohpPct ? ` after ${fc.ohpPct}% OHP` : prK === 'gross' ? ' before OHP' : prK === 'fc' ? ' forecast' : ' to date'}`, tone: prof == null ? 'grey' : prof < 0 ? 'red' : 'green', go: `/fin/job/${id}/budget` },
     ...(fc.isInvoiceJob ? [] : [(() => { const c = choice('ap', 'applied'); const v = c === 'applied' ? fc.applied : c === 'certified' ? fc.certified : fc.sales; return { slot: 'ap', cur: c, t: c === 'applied' ? 'Applied' : c === 'certified' ? 'Certified' : 'Valued', v: k(v), sub: fc.ffa ? `${pctTxt(((v || 0) / fc.ffa) * 100)} of final account` : '', tone: 'blue' as const, go: `/fin/job/${id}?tab=sales&sub=apps` }; })()]),
@@ -179,7 +182,7 @@ function Overview({ id, fc, settings, invs, apps, book, askFinancials }: { id: s
         {ghost('Full Summary', `/fin/job/${id}/summary`)}
         {!!subKind(site) && ghost(subKind(site) === 'repair' ? 'Costs by repair job' : 'Costs by plot', `/fin/job/${id}/parts`)}
         <View style={{ flex: 1 }} />
-        {ghost('Monthly Report', `/fin/job/${id}/monthly`)}{ghost('Day Works', `/fin/job/${id}/dayworks`)}{ghost('Budgets', `/fin/job/${id}/budget`)}{ghost('Project Quotes', `/fin/job/${id}/quotes`)}
+        {ghost('Monthly Report', `/fin/job/${id}/monthly`)}
       </View>
       {fc.ffaFromInvoiced && <Text style={{ color: '#D98A00', fontWeight: '500', marginBottom: 8 }}>Invoiced to date is more than the contract and variations, so the forecast uses the invoiced total.</Text>}
       {fc.budgetSource === 'schedule' && fc.schedCostedN < fc.schedItemsN && <Text onPress={() => router.push(`/fin/job/${id}/boq` as never)} style={{ color: '#D98A00', fontWeight: '500', marginBottom: 8 }}>{fc.schedItemsN - fc.schedCostedN} Bill of Quantities line{fc.schedItemsN - fc.schedCostedN === 1 ? ' has' : 's have'} no cost price yet, so the budget is low. ›</Text>}

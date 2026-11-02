@@ -47,13 +47,22 @@ export function FinTabRow({ children, style }: { children: ReactNode; style?: ob
     </View>
   );
 }
+/** Variations and Day Works share the Variations tab. */
+export function VarDayChips({ id, on }: { id: string; on: 'variations' | 'dayworks' }) {
+  return (
+    <View style={{ flexDirection: 'row', gap: 6, marginBottom: 10 }}>
+      <Chip on={on === 'variations'} label="Variations" onPress={() => { if (on !== 'variations') router.replace(`/fin/job/${id}/variations` as never); }} />
+      <Chip on={on === 'dayworks'} label="Day Works" onPress={() => { if (on !== 'dayworks') router.replace(`/fin/job/${id}/dayworks` as never); }} />
+    </View>
+  );
+}
 /** The white row with the job and + New, then a project's tabs: on every page inside a project (Andy, 2 Nov 2026). */
 export function FinJobTabs({ id, active, job, name, onOverview }: { id: string; active: string; job?: string | null; name?: string | null; onOverview: boolean }) {
   const t = useTheme();
   const { data: billing } = useQuery({ queryKey: ['finJobBilling', id], queryFn: async () => ((await fdb.from('job_finance').select('billing_type').eq('site_id', id).maybeSingle()).data as { billing_type: string | null } | null)?.billing_type ?? null });
   const invoiceJob = billing === 'invoice';
-  const tabs: [string, string][] = [['overview', 'Overview'], ['sales', 'Sales'], ['purchases', 'Purchases'], ['subs', 'Subcontractors & Labour'], ...(invoiceJob ? [] : [['boq', 'Bill of Quantities'] as [string, string]]), ['docs', 'Documents'], ['setup', 'Project Admin']];
-  const go = (k: string) => { if (k === 'boq') router.navigate(`/fin/job/${id}/boq` as never); else if (onOverview) router.setParams({ tab: k }); else router.navigate(`/fin/job/${id}?tab=${k}` as never); };
+  const tabs: [string, string][] = [['overview', 'Overview'], ['sales', 'Sales'], ['purchases', 'Purchases'], ['subs', 'Subcontractors & Labour'], ...(invoiceJob ? [] : [['boq', 'Bill of Quantities'] as [string, string]]), ['variations', 'Variations'], ['docs', 'Documents'], ['setup', 'Project Admin']];
+  const go = (k: string) => { if (k === 'boq' || k === 'variations') router.navigate(`/fin/job/${id}/${k}` as never); else if (onOverview) router.setParams({ tab: k }); else router.navigate(`/fin/job/${id}?tab=${k}` as never); };
   return (
     <View>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10, padding: 8, marginTop: 6, marginBottom: 2 }}>
