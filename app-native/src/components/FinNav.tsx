@@ -19,7 +19,7 @@ export const FIN_SUBS: Record<string, [string, string][]> = {
   purchases: [['orders', 'Purchase orders'], ['invoices', 'Purchase invoices'], ['statements', 'Statements'], ['plant', 'Plant hire'], ['suppliers', 'Suppliers'], ['pricebook', 'Price book'], ['pricelists', 'Price lists'], ['yard', 'Yard stock']],
   subs: [['opinv', 'Operative invoices'], ['wages', 'Wages to book'], ['payrun', 'Pay run'], ['orders', 'Subcontractor POs'], ['apps', 'Applications & Certificates'], ['cis', 'CIS'], ['rates', 'People & rates']],
   settings: [['general', 'Settings'], ['codes', 'Cost Codes'], ['team', 'Team']],
-  directory: [['client', 'Clients'], ['supplier', 'Suppliers'], ['labour', 'Labour (CIS)'], ['codes', 'Cost codes']],
+  directory: [['client', 'Clients'], ['supplier', 'Suppliers'], ['labour', 'Labour (CIS)']],
 };
 const Chip = ({ on, label, onPress, n }: { on: boolean; label: string; onPress: () => void; n?: number }) => {
   const t = useTheme();
@@ -65,7 +65,8 @@ export function FinSeg({ items, value, onChange }: { items: [string, string, num
 export function FinPage({ title, section, sub, onSub, badges, children, wide, top, foot }: { title: string; section: string; sub?: string; onSub?: (k: string) => void; badges?: Record<string, number>; children: ReactNode; wide?: boolean; top?: ReactNode; foot?: ReactNode }) {
   const { me, org } = useAuth();
   const t = useTheme();
-  const subs = FIN_SUBS[section] || [];
+  // Team only for Finance-only companies, which have no Admin Centre; everyone else switches Finance on in Admin › Users.
+  const subs = (FIN_SUBS[section] || []).filter(([k]) => !(section === 'settings' && k === 'team' && org?.has_pm !== false));
   return (
     <View style={{ flex: 1 }}>
     <ScrollView style={{ flex: 1 }} contentContainerStyle={[page(wide ? 1200 : 900), { paddingTop: 0 }]} keyboardShouldPersistTaps="handled">

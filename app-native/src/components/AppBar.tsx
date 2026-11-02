@@ -82,6 +82,7 @@ export function AppBar({ title, onBack, home, right, noHistory }: { title?: stri
       ...(jobPage ? [[jobPage, inside ? `/fin/job/${finJob}/${finRest[0]}` : null] as [string, string | null]] : []),
       ...(inside ? [[inside, null] as [string, null]] : [])]
       : FIN_PARENT[finSec] ? [['Finance', '/fin'], FIN_PARENT[finSec], ...(title && titleCase(title) !== FIN_PARENT[finSec][0] ? [[titleCase(title), null] as [string, null]] : [])]
+      : finSec === 'directory' && qKind === 'codes' ? [['Finance', '/fin'], ['Settings', '/fin/settings'], ['Cost Codes', null]]
       : secTab && secTab !== finSub ? [['Finance', '/fin'], [finSub, `/fin/${finSec}`], [secTab, null]]
       : [['Finance', '/fin'], [finSub, null]];
   // A page can give its own steps after the job (e.g. Drawings › Roof plans); otherwise a page inside a

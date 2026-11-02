@@ -39,6 +39,9 @@ const I: Record<string, El[]> = {
   building: [['r',4,3,16,18,1],['p','M9 7h2M13 7h2M9 11h2M13 11h2M9 15h2M13 15h2M10 21v-3h4v3']],
   check: [['r',3,3,18,18,4],['p','M8 12l3 3 5-6']],
   clock: [['c',12,13,8],['p','M12 9v4l3 2M10 2h4']],
+  eye: [['p','M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z'],['c',12,12,3]],
+  hash: [['p','M5 9h15M4 15h15M10 3L8 21M16 3l-2 18']],
+  percent: [['p','M19 5L5 19'],['c',7,7,2.5],['c',17,17,2.5]],
 };
 export type IconName = keyof typeof I;
 

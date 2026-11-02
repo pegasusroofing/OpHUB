@@ -38,7 +38,10 @@ export function termsText(r: Row) {
 const CIS_REG: [string, string][] = [['', 'Choose…'], ['sole_trader', 'Sole trader'], ['company', 'Company'], ['partnership', 'Partnership'], ['trust', 'Trust']];
 
 export default function FinDirectory() {
-  const { kind = 'client' } = useLocalSearchParams<{ kind?: Kind }>();
+  const { kind = 'client', from } = useLocalSearchParams<{ kind?: Kind; from?: string }>();
+  // Cost codes live under Settings; People & rates keeps the Subcontractors tabs when opened from there.
+  const section = kind === 'codes' ? 'settings' : kind === 'labour' && from === 'subs' ? 'subs' : 'directory';
+  const subTab = section === 'subs' ? 'rates' : kind;
   const { me } = useAuth();
   // The company's VAT rates (Finance Settings): switched-off ones still show on records that use them.
   const { data: fst } = useFinSettings(me?.org_id);
@@ -76,7 +79,12 @@ export default function FinDirectory() {
   const refresh = () => void qc.invalidateQueries({ queryKey: ['finDir'] });
   const go = (k: string) => router.setParams({ kind: k });
   const ql = q.trim().toLowerCase();
-  const onSub = (k: string) => { setQ(''); go(k); };
+  const onSub = (k: string) => {
+    setQ('');
+    if (section === 'settings') { if (k !== 'codes') router.replace((k === 'team' ? '/fin/team' : '/fin/settings') as never); return; }
+    if (section === 'subs') { if (k !== 'rates') router.replace(`/fin/subs?tab=${k}` as never); return; }
+    go(k);
+  };
   const pull = async () => {
     setBusy(true);
     try {
@@ -120,7 +128,7 @@ export default function FinDirectory() {
       toast('Added from the sign-up form — check their CIS status with HMRC'); refresh();
     };
     return (
-      <FinPage title="Directory" section="directory" sub={kind} onSub={onSub}>
+      <FinPage title="Directory" section={section} sub={subTab} onSub={onSub}>
         <Muted style={{ marginBottom: 10 }}>Subcontractors who invoice you under CIS, and PAYE staff. Check each subbie&apos;s CIS status with HMRC before you pay them.</Muted>
         {waiting.length > 0 && (
           <View style={{ borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, padding: 10, marginBottom: 10, backgroundColor: base.card }}>
@@ -186,7 +194,7 @@ export default function FinDirectory() {
     const list = ((data as Row[]) || []).filter((c) => !ql || `${c.name} ${c.code || ''} ${c.description || ''}`.toLowerCase().includes(ql));
     const groups: Record<string, Row[]> = {}; list.forEach((c) => { (groups[c.grp || 'No group'] = groups[c.grp || 'No group'] || []).push(c); });
     return (
-      <FinPage title="Cost codes" section="directory" sub={kind} onSub={onSub}>
+      <FinPage title="Cost codes" section={section} sub={subTab} onSub={onSub}>
         <View style={{ flexDirection: 'row', marginBottom: 10 }}><Muted style={{ flex: 1 }}>The ID is the Xero account code each cost goes to. The type decides which column it adds up in on job costs and reports.</Muted><Button title="+ Add cost code" onPress={() => setEdit({ category: 'materials', grp: list[0]?.grp || '' })} /></View>
         <TextInput value={q} onChangeText={setQ} placeholder="Search cost codes" style={box} />
         {Object.keys(groups).sort().map((g) => (
@@ -211,7 +219,7 @@ export default function FinDirectory() {
   const sup = kind === 'supplier', tbl = sup ? 'fin_suppliers' : 'fin_clients';
   const list = ((data as Row[]) || []).filter((c) => !ql || `${c.name} ${c.email || ''} ${c.category || ''}`.toLowerCase().includes(ql));
   return (
-    <FinPage title="Directory" section="directory" sub={kind} onSub={onSub}>
+    <FinPage title="Directory" section={section} sub={subTab} onSub={onSub}>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 10 }}>
         <Text style={{ flex: 1, minWidth: 200, fontSize: 12, color: '#6b7280' }}>{list.length} {sup ? 'supplier' : 'client'}{list.length === 1 ? '' : 's'} · {list.filter((c) => c.xero_contact_id).length} in Xero. New {sup ? 'suppliers' : 'clients'} you add here go into Xero too.</Text>
         <Pressable disabled={busy} onPress={() => void pull()} style={{ borderWidth: 1, borderColor: '#e5e7eb', backgroundColor: '#fff', borderRadius: 8, paddingVertical: 7, paddingHorizontal: 12 }}><Text style={{ fontSize: 12, fontWeight: '700', color: base.ink }}>{busy ? 'Pulling…' : '⟳ Pull from Xero'}</Text></Pressable>

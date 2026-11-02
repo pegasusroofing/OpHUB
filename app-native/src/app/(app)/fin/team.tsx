@@ -2,6 +2,7 @@
 // company, Finance on / off for each (giving Finance also makes them a manager; switching it off puts their
 // old role back), make an admin, and an invite link to copy or email.
 import { useQueryClient } from '@tanstack/react-query';
+import { router } from 'expo-router';
 import { useState } from 'react';
 import { Platform, Share, Text, TextInput, View } from 'react-native';
 
@@ -28,7 +29,7 @@ export default function FinTeam() {
   const people = team.filter((p) => p.role !== 'superadmin').slice().sort((a, b) => String(a.name).localeCompare(String(b.name)));
   const refresh = () => void qc.invalidateQueries({ queryKey: ['team'] });
   return (
-    <FinPage title="Team" section="settings">
+    <FinPage title="Team" section="settings" sub="team" onSub={(k) => { if (k !== 'team') router.replace((k === 'codes' ? '/fin/directory?kind=codes' : '/fin/settings') as never); }}>
       <Muted style={{ marginBottom: 10 }}>Everyone in {org?.name || 'your company'}. To add someone: make an invite link, they sign up with it, then switch Finance on for them here.</Muted>
       <Card>
         {people.map((p, i) => (

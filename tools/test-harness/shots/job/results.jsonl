@@ -922,3 +922,9 @@
 {"part":"rams1","step":"Library search: not listed writes a new one","ok":false,"note":"locator.click: Timeout 6000ms exceeded.","ms":6004}
 {"part":"rams1","step":"Template and own task together","ok":true,"note":"📋 New template · 0 hazards · 0 sections; 0 hazards, 1 sections","ms":14246}
 {"part":"rams1","step":"Library search: not listed writes a new one","ok":true,"note":"2 sections","ms":4777}
+{"part":"finsettings1","step":"Company overheads can be changed from their own row","ok":true,"note":"was null, now 7.5","ms":18493}
+{"part":"finsettings1","step":"Figure put back","ok":true,"note":"now 0","ms":12026}
+{"part":"finsettings1","step":"Cost Codes keep the Settings tabs; no Team tab; none in Directory","ok":true,"note":"team 0, settings 3, directory cost codes 0","ms":10341}
+{"part":"finsettings1","step":"Admin Users: Finance switch on office roles, none on operatives","ok":true,"note":"1 switches, 2 operatives, 0 on operatives","ms":8470}
+{"part":"finsettings1","step":"Reports list and a report read cleanly","ok":true,"note":"3 matches; 39 rows","ms":18177}
+{"part":"finsettings1","step":"Statements and People & rates keep their tabs","ok":true,"note":"statements 1, rates 1","ms":17649}

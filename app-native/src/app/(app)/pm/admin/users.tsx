@@ -33,6 +33,13 @@ export default function Users() {
   if (!me) return null;
   if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['team'] }); void qc.invalidateQueries({ queryKey: ['people'] }); };
+  // Finance is switched on the person's row: office roles only, never operatives (Andy, 2 Nov 2026).
+  const finRole = (p: TeamMember) => p.role === 'admin' || p.role === 'pm';
+  const canFin = me.role === 'admin' && isFinanceUser(me, org);
+  const flipFinance = async (p: TeamMember) => {
+    if (!(await confirmAsk(p.finance_enabled ? `Switch Finance off for ${p.name}?` : `Give ${p.name} access to Finance?`, p.finance_enabled ? 'Switch off' : 'Give Finance'))) return;
+    toast(await toggleFinance(p)); refresh();
+  };
   const act = async (p: TeamMember) => {
     const { options, canRemove } = roleActionsFor(me, p, team);
     const full = isFullManager(me);
@@ -40,7 +47,6 @@ export default function Users() {
       ...(options && options.length > 1 ? [{ key: 'role', label: `Role: ${ROLE_LABEL[shownRole(p)] || p.role} — change` }] : []),
       ...(full && p.role === 'operative' ? [{ key: 'subform', label: `📝 Sub form: ${p.subform_required === false ? 'Off' : 'On'}` }] : []),
       ...(p.id === me.id && isFinanceUser(me, org) ? [{ key: 'myfin', label: `💷 Finance: ${me.finance_hidden ? 'Off — turn on' : 'On — turn off'}` }] : []),
-      ...(isFinanceUser(me, org) && p.id !== me.id && (p.role === 'admin' || p.role === 'pm') ? [{ key: 'fin', label: `💷 Finance: ${p.finance_enabled ? 'On — turn off' : 'Off — turn on'}` }] : []),
       ...(me.role === 'superadmin' && p.email ? [{ key: 'pw', label: '🔑 Reset password' }] : []),
       ...(full ? [{ key: 'phone', label: `📞 ${p.phone ? `${p.phone} — change` : 'Add phone'}` }] : []),
       ...(canRemove ? [{ key: 'remove', label: '🗑 Remove', danger: true }] : []),
@@ -56,8 +62,6 @@ export default function Users() {
     } else if (k === 'phone') {
       const v = await promptText(`Mobile number for ${p.name}`, p.phone || ''); if (v === null) return;
       toast((await setPhone(p.id, v.trim() || null)) ? 'Phone number saved' : "Could not save — admins can set anyone's number; PMs can set operatives', drivers' and site managers'."); refresh();
-    } else if (k === 'fin') {
-      toast(await toggleFinance(p)); refresh();
     } else if (k === 'myfin') {
       const show = !!me.finance_hidden;
       const r = await supabase.from('profiles').update({ finance_hidden: !show } as never).eq('id', me.id);
@@ -100,6 +104,12 @@ Pass it on securely — it won’t be shown again.`, 'Password reset');
                   <Text style={{ fontWeight: '700', color: base.ink }}>{p.name}{p.id === me.id ? ' (you)' : ''}</Text>
                   <Muted>{p.email || ''}{p.phone ? ` · ${p.phone}` : ''}</Muted>
                 </View>
+                {finRole(p) && (canFin && p.id !== me.id
+                  ? <Pressable accessibilityRole="switch" accessibilityState={{ checked: !!p.finance_enabled }} accessibilityLabel={`Finance for ${p.name}`} hitSlop={6} onPress={(e) => { e.stopPropagation(); void flipFinance(p); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={{ fontSize: 12, fontWeight: '700', color: base.ink }}>Finance</Text>
+                      <View style={{ width: 36, height: 20, borderRadius: 10, backgroundColor: p.finance_enabled ? '#15803d' : '#d1d5db', padding: 2, alignItems: p.finance_enabled ? 'flex-end' : 'flex-start' }}><View style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: '#fff' }} /></View>
+                    </Pressable>
+                  : p.finance_enabled ? <Text style={{ fontSize: 12, fontWeight: '700', color: '#15803d' }}>Finance on</Text> : null)}
               </Pressable>
             )) : <Empty>{g.empty}</Empty>}
           </View>

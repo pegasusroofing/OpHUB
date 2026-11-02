@@ -3072,3 +3072,8 @@
 {"wrote":"site_activity_log","method":"POST","keys":["site_id","org_id","actor_id","action","description"]}
 {"wrote":"rams_builds","method":"PATCH","keys":["title","details","hazards","sections","ppe","updated_at"]}
 {"wrote":"rams_builds","method":"PATCH","keys":["title","details","hazards","sections","ppe","updated_at"]}
+{"blocked":"function","fn":"xero"}
+{"wrote":"fin_settings","method":"POST","keys":["org_id","updated_at","updated_by","ohp_pct"]}
+{"blocked":"function","fn":"xero"}
+{"wrote":"fin_settings","method":"POST","keys":["org_id","updated_at","updated_by","ohp_pct"]}
+{"blocked":"function","fn":"xero"}

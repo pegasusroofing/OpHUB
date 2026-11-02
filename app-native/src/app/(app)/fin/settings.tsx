@@ -12,11 +12,12 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Linking, Platform, Pressable, Text, TextInput, View } from 'react-native';
 
-import { FinForm } from '@/components/FinForm';
+import { FinForm, type Field } from '@/components/FinForm';
 import { FinPage, FinRow } from '@/components/FinNav';
 import { XeroSettings } from '@/components/FinXero';
+import { OphIcon } from '@/components/OphIcon';
 import { confirmAsk, useToast } from '@/components/toast';
-import { Button, Card, Muted, TINTS } from '@/components/ui';
+import { Button, Card, Muted } from '@/components/ui';
 import { fdb, finInvoke, useFinSettings } from '@/data/finance';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
@@ -36,7 +37,7 @@ export default function FinSettings() {
   const { data: sites = [] } = useSites();
   const { data: o } = useQuery({ queryKey: ['finOrgNums', me?.org_id], enabled: !!me, queryFn: async () => (await fdb.from('organizations').select('auto_job_numbers,job_number_prefix,next_job_number').eq('id', me?.org_id as string).maybeSingle()).data as Row | null });
   const { data: xero } = useQuery({ queryKey: ['finXeroStatus', me?.org_id], enabled: !!me, queryFn: async () => (me ? finInvoke<Row>(me, 'xero', { action: 'status' }) : null) });
-  const [edit, setEdit] = useState(false);
+  const [edit, setEdit] = useState<string | null>(null); // which part is being edited
   const [openS, setOpenS] = useState<string[]>([]);
   const { data: team, refetch: refetchTeam } = useQuery({ queryKey: ['finSeeCosts', me?.org_id], enabled: !!me && openS.includes('costs'), queryFn: async () =>
     (((await fdb.from('profiles').select('*').eq('org_id', me?.org_id as string)).data as Profile[] | null) ?? [])
@@ -62,31 +63,45 @@ export default function FinSettings() {
   const canEditCosts = me.role === 'admin' && isFinanceUser(me, org);
   const initial = { ...s, po_enabled: !!s.po_enabled, po_vat_default: String(s.po_vat_default || '20'), auto_job_numbers: !!o?.auto_job_numbers, job_number_prefix: o?.job_number_prefix || '', next_job_number: o?.next_job_number ?? '' };
   const xs = xero?.data, xErr = xero?.error;
+  const EDIT_TITLE: Record<string, string> = { nums: 'Project numbers', po: 'Purchase orders', vat: 'Default VAT', inv: 'Invoice numbers', def: 'Defaults for new projects', ohp: 'Company overheads (OHP)', bill: 'On your invoices' };
+  const EDIT_FIELDS: Record<string, Field[]> = {
+    nums: [{ k: 'auto_job_numbers', label: 'Number new projects automatically', kind: 'check' }, { k: 'job_number_prefix', label: 'Project number prefix', half: true }, { k: 'next_job_number', label: 'Next project number', kind: 'number', half: true }],
+    inv: [{ k: 'invoice_prefix', label: 'Invoice prefix', half: true }, { k: 'next_invoice_number', label: 'Next invoice number', kind: 'number', half: true }],
+    def: [{ k: 'default_retention_pct', label: 'Default retention %', kind: 'number', half: true }, { k: 'app_reminder_day', label: 'Application date (day of month)', kind: 'number', half: true }, { k: 'default_due_days', label: 'Payment due (days)', kind: 'number', half: true }, { k: 'default_final_days', label: 'Final date (days)', kind: 'number', half: true }],
+    po: [{ k: 'po_enabled', label: 'Raise a PO for every PM’s order', kind: 'check' }, { k: 'po_vat_default', label: 'VAT on new PO lines', kind: 'choice', options: vatList(s).filter((x) => x.active || x.code === String(s.po_vat_default || '20')).map((x) => [x.code, x.name] as [string, string]) }],
+    vat: [{ k: 'default_vat', label: 'Default VAT', kind: 'choice', options: Object.entries(FIN_VAT_LABEL) }],
+    ohp: [{ k: 'ohp_pct', label: 'Company overheads %', kind: 'number' }],
+    bill: [{ k: 'company_address', label: 'Company address', kind: 'multiline' }, { k: 'company_vat_no', label: 'VAT number', half: true }, { k: 'company_reg_no', label: 'Company number', half: true }, { k: 'bank_name', label: 'Bank', half: true }, { k: 'bank_account_name', label: 'Account name', half: true }, { k: 'bank_sort_code', label: 'Sort code', half: true }, { k: 'bank_account_no', label: 'Account number', half: true }, { k: 'invoice_footer', label: 'Invoice footer', kind: 'multiline' }, { k: 'contractor_utr', label: 'Contractor UTR (CIS)', half: true }, { k: 'employer_ref', label: 'Employer reference', half: true }],
+  };
+  // Overheads are for company admins only (as in the current app).
+  const editBtn = (k: string) => (k === 'ohp' && me.role !== 'admin'
+    ? <Muted style={{ marginTop: 4 }}>Only a company admin can change this.</Muted>
+    : <View style={{ alignSelf: 'flex-start', marginTop: 4 }}><Button small title="Edit" onPress={() => setEdit(k)} /></View>);
   return (
-    <FinPage title="Finance settings" section="settings" sub="general" onSub={(k) => router.push((k === 'codes' ? '/fin/directory?kind=codes' : k === 'team' ? '/fin/team' : '/fin/settings') as never)}>
-      {/* Each part opens on its own (the current app's settings list); Edit settings changes them all. */}
+    <FinPage title="Finance settings" section="settings" sub="general" onSub={(k) => { if (k !== 'general') router.replace((k === 'codes' ? '/fin/directory?kind=codes' : '/fin/team') as never); }}>
+      {/* Each part opens on its own, with its own Edit (Andy, 2 Nov 2026). */}
       {([
-        ['costs', 'Who can see material costs', '👁', 'blue', []],
-        ['nums', 'Project numbers', '#', 'red', [['Project numbers', o?.auto_job_numbers ? `Automatic · next ${o.job_number_prefix || ''}${o.next_job_number ?? ''}` : 'Typed by hand']]],
-        ['po', 'Purchase orders', '📄', 'orange', [['Raise a PO for every PM’s order', s.po_enabled ? 'On' : 'Off'], ['VAT on new PO lines', vatList(s).find((x) => x.code === String(s.po_vat_default || '20'))?.name || String(s.po_vat_default || '20')]]],
-        ['vat', 'VAT rates', '%', 'green', [['Default VAT', FIN_VAT_LABEL[s.default_vat] || '—']]],
-        ['inv', 'Invoice numbers', 'Nº', 'green', [['Next invoice number', `${s.invoice_prefix || ''}${s.next_invoice_number ?? ''}`]]],
-        ['def', 'Defaults for new projects', '⚙', 'grey', [['Retention', `${s.default_retention_pct ?? 5}%`], ['Payment terms', `${s.default_due_days ?? 30} days · final ${s.default_final_days ?? 14} days`], ['Application date', s.app_reminder_day ? `${s.app_reminder_day} of each month` : 'Not set']]],
-        ['ohp', 'Company overheads (OHP)', '%', 'orange', [['Company overheads', `${s.ohp_pct ?? 0}%`]]],
-        ['bill', 'On your invoices', '🏛', 'grey', [['Company address', s.company_address || '—'], ['VAT no.', s.company_vat_no || '—'], ['Company no.', s.company_reg_no || '—'], ['Bank', [s.bank_name, s.bank_account_name, s.bank_sort_code, s.bank_account_no].filter(Boolean).join(' · ') || '—'], ['Contractor UTR (CIS)', s.contractor_utr || '—'], ['Employer ref', s.employer_ref || '—']]],
-        ['inbox', 'Invoice inbox (email)', '✉', 'purple', []],
-        ['xero', 'Xero', '🔗', 'blue', []],
-      ] as [string, string, string, keyof typeof TINTS, [string, string][]][]).map(([k, title, ic, tn, rows]) => {
+        ['costs', 'Who can see material costs', 'eye', []],
+        ['nums', 'Project numbers', 'hash', [['Project numbers', o?.auto_job_numbers ? `Automatic · next ${o.job_number_prefix || ''}${o.next_job_number ?? ''}` : 'Typed by hand']]],
+        ['po', 'Purchase orders', 'reports', [['Raise a PO for every PM’s order', s.po_enabled ? 'On' : 'Off'], ['VAT on new PO lines', vatList(s).find((x) => x.code === String(s.po_vat_default || '20'))?.name || String(s.po_vat_default || '20')]]],
+        ['vat', 'VAT rates', 'percent', [['Default VAT', FIN_VAT_LABEL[s.default_vat] || '—']]],
+        ['inv', 'Invoice numbers', 'list', [['Next invoice number', `${s.invoice_prefix || ''}${s.next_invoice_number ?? ''}`]]],
+        ['def', 'Defaults for new projects', 'gear', [['Retention', `${s.default_retention_pct ?? 5}%`], ['Payment terms', `${s.default_due_days ?? 30} days · final ${s.default_final_days ?? 14} days`], ['Application date', s.app_reminder_day ? `${s.app_reminder_day} of each month` : 'Not set']]],
+        ['ohp', 'Company overheads (OHP)', 'chart', [['Company overheads', `${s.ohp_pct ?? 0}%`]]],
+        ['bill', 'On your invoices', 'building', [['Company address', s.company_address || '—'], ['VAT no.', s.company_vat_no || '—'], ['Company no.', s.company_reg_no || '—'], ['Bank', [s.bank_name, s.bank_account_name, s.bank_sort_code, s.bank_account_no].filter(Boolean).join(' · ') || '—'], ['Contractor UTR (CIS)', s.contractor_utr || '—'], ['Employer ref', s.employer_ref || '—']]],
+        ['inbox', 'Invoice inbox (email)', 'mail', []],
+        ['xero', 'Xero', 'link', []],
+      ] as [string, string, string, [string, string][]][]).map(([k, title, ic, rows]) => {
         const on = openS.includes(k);
         return (
-          <View key={k} style={{ marginBottom: 8 }}>
-            <Pressable onPress={() => setOpenS(on ? openS.filter((x) => x !== k) : [...openS, k])} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10, paddingVertical: 12, paddingHorizontal: 14 }}>
-              <View style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: TINTS[tn][0], alignItems: 'center', justifyContent: 'center' }}><Text style={{ fontSize: 12, fontWeight: '800', color: TINTS[tn][1] }}>{ic}</Text></View>
+          <View key={k} style={{ marginBottom: 4 }}>
+            <Pressable onPress={() => setOpenS(on ? openS.filter((x) => x !== k) : [...openS, k])} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 8, paddingVertical: 7, paddingHorizontal: 10 }}>
+              <OphIcon name={ic} size={16} color={base.slate} />
               <Text style={{ flex: 1, fontWeight: '800', color: '#111827', fontSize: 13 }}>{title}</Text>
-              <Text style={{ fontSize: 10, color: '#111827' }}>{on ? '▼' : '▶'}</Text>
+              <View style={{ transform: [{ rotate: on ? '90deg' : '0deg' }] }}><OphIcon name="chevron" size={14} color={base.slate} /></View>
             </Pressable>
             {on && (
-              <Card style={{ marginTop: 6, marginBottom: 0 }}>
+              <Card style={{ marginTop: 4, marginBottom: 4 }}>
                 {k === 'costs' ? (
                   <>
                     <Muted style={{ marginBottom: 8 }}>Prices on project quotes (and in the Materials tile) are hidden from everyone except Finance users and the people switched on here.</Muted>
@@ -123,49 +138,51 @@ export default function FinSettings() {
                     {xs && !xs.connected && <View style={{ marginTop: 8 }}><Button kind="ghost" title="Connect Xero" onPress={async () => { const r = await finInvoke<Row>(me, 'xero', { action: 'connect', origin: Platform.OS === 'web' ? window.location.origin : null }); if (r.error || !r.data?.url) { toast(r.error || 'Could not start the Xero connection.'); return; } if (Platform.OS === 'web') window.location.href = r.data.url; else void Linking.openURL(r.data.url); }} /></View>}
                   </>
                 ) : k === 'vat' ? (
-                  <>{rows.map(([l, v]) => <FinRow key={l} title={l} right={v} />)}<VatRates s={s} canEdit={me.role === 'admin' && isFinanceUser(me, org)} onSaved={() => void qc.invalidateQueries({ queryKey: ['finSettings'] })} /></>
-                ) : rows.map(([l, v]) => <FinRow key={l} title={l} right={v} />)}
+                  <>{rows.map(([l, v]) => <FinRow compact key={l} title={l} right={v} />)}{editBtn('vat')}<VatRates s={s} canEdit={me.role === 'admin' && isFinanceUser(me, org)} onSaved={() => void qc.invalidateQueries({ queryKey: ['finSettings'] })} /></>
+                ) : <>{rows.map(([l, v]) => <FinRow compact key={l} title={l} right={v} />)}{editBtn(k)}</>}
               </Card>
             )}
           </View>
         );
       })}
-      <View style={{ alignSelf: 'flex-start', marginTop: 6 }}><Button title="Edit settings" onPress={() => setEdit(true)} /></View>
       {edit && (
-        <FinForm title="Finance settings" initial={initial} onClose={() => setEdit(false)}
-          fields={[
-            { k: 'auto_job_numbers', label: 'Number new projects automatically', kind: 'check' }, { k: 'job_number_prefix', label: 'Project number prefix', half: true }, { k: 'next_job_number', label: 'Next project number', kind: 'number', half: true },
-            { k: 'invoice_prefix', label: 'Invoice prefix', half: true }, { k: 'next_invoice_number', label: 'Next invoice number', kind: 'number', half: true },
-            { k: 'default_retention_pct', label: 'Default retention %', kind: 'number', half: true }, { k: 'app_reminder_day', label: 'Application date (day of month)', kind: 'number', half: true },
-            { k: 'default_due_days', label: 'Payment due (days)', kind: 'number', half: true }, { k: 'default_final_days', label: 'Final date (days)', kind: 'number', half: true },
-            { k: 'po_enabled', label: 'Raise a PO for every PM’s order', kind: 'check' }, { k: 'po_vat_default', label: 'VAT on new PO lines', kind: 'choice', options: vatList(s).filter((x) => x.active || x.code === String(s.po_vat_default || '20')).map((x) => [x.code, x.name] as [string, string]) },
-            { k: 'default_vat', label: 'Default VAT', kind: 'choice', options: Object.entries(FIN_VAT_LABEL) }, ...(me.role === 'admin' ? [{ k: 'ohp_pct', label: 'Company overheads % (OHP)', kind: 'number' as const }] : []),
-            { k: 'company_address', label: 'Company address', kind: 'multiline' }, { k: 'company_vat_no', label: 'VAT number', half: true }, { k: 'company_reg_no', label: 'Company number', half: true },
-            { k: 'bank_name', label: 'Bank', half: true }, { k: 'bank_account_name', label: 'Account name', half: true }, { k: 'bank_sort_code', label: 'Sort code', half: true }, { k: 'bank_account_no', label: 'Account number', half: true },
-            { k: 'invoice_footer', label: 'Invoice footer', kind: 'multiline' }, { k: 'contractor_utr', label: 'Contractor UTR (CIS)', half: true }, { k: 'employer_ref', label: 'Employer reference', half: true },
-          ]}
+        <FinForm title={EDIT_TITLE[edit] || 'Finance settings'} initial={initial} onClose={() => setEdit(null)}
+          fields={EDIT_FIELDS[edit] || []}
           onSave={async (v) => {
-            const auto = !!v.auto_job_numbers, prefix = String(v.job_number_prefix || '').trim(), nextJob = num(v.next_job_number), invNext = num(v.next_invoice_number);
-            const ret = num(v.default_retention_pct), appDay = num(v.app_reminder_day), due = num(v.default_due_days), fin = num(v.default_final_days);
-            if (auto && (!nextJob || nextJob < 1)) return 'Enter the next project number.';
-            if (auto) { const clash = sites.find((x) => String((x as Row).job_number || '').trim().toLowerCase() === `${prefix}${nextJob}`.toLowerCase()); if (clash) return `Project number ${prefix}${nextJob} is already used on ${clash.name}. Pick a higher number.`; }
-            if (!invNext || invNext < 1) return 'Enter the next invoice number.';
-            if (ret === null || isNaN(ret) || ret < 0 || ret > 100) return 'Retention must be between 0 and 100%.';
-            if (appDay !== null && (isNaN(appDay) || appDay < 1 || appDay > 31)) return 'Application date must be a day of the month, 1 to 31.';
+            // Only this part's boxes are checked and saved, so a blank elsewhere can't stop it.
+            const body: Row = { org_id: me.org_id, updated_at: new Date().toISOString(), updated_by: me.id };
             const t = (k: string) => String(v[k] ?? '').trim() || null;
-            const body: Row = { org_id: me.org_id, invoice_prefix: String(v.invoice_prefix ?? ''), default_retention_pct: ret, default_due_days: due === null || isNaN(due) ? 30 : due, default_final_days: fin === null || isNaN(fin) ? 14 : fin, default_vat: v.default_vat || 'standard', po_enabled: !!v.po_enabled, po_vat_default: String(v.po_vat_default || '20'), app_reminder_day: appDay, updated_at: new Date().toISOString(), updated_by: me.id, contractor_utr: t('contractor_utr'), employer_ref: t('employer_ref'), company_address: t('company_address'), company_vat_no: t('company_vat_no'), company_reg_no: t('company_reg_no'), bank_name: t('bank_name'), bank_account_name: t('bank_account_name'), bank_sort_code: t('bank_sort_code'), bank_account_no: t('bank_account_no'), invoice_footer: t('invoice_footer') };
-            // Counters only when changed, so an old form can't wind them back.
-            if (String(invNext) !== String(s.next_invoice_number ?? '')) body.next_invoice_number = invNext;
-            if (me.role === 'admin') { const oh = num(v.ohp_pct); if (oh !== null && (isNaN(oh) || oh < 0 || oh > 100)) return 'Overheads must be between 0 and 100%.'; body.ohp_pct = oh; }
             const orgPatch: Row = {};
-            if (!!o?.auto_job_numbers !== auto) orgPatch.auto_job_numbers = auto;
-            if (String(o?.job_number_prefix || '') !== prefix) orgPatch.job_number_prefix = prefix;
-            if (String(o?.next_job_number ?? '') !== String(nextJob ?? '')) orgPatch.next_job_number = nextJob || null;
+            if (edit === 'nums') {
+              const auto = !!v.auto_job_numbers, prefix = String(v.job_number_prefix || '').trim(), nextJob = num(v.next_job_number);
+              if (auto && (!nextJob || nextJob < 1)) return 'Enter the next project number.';
+              if (auto) { const clash = sites.find((x) => String((x as Row).job_number || '').trim().toLowerCase() === `${prefix}${nextJob}`.toLowerCase()); if (clash) return `Project number ${prefix}${nextJob} is already used on ${clash.name}. Pick a higher number.`; }
+              if (!!o?.auto_job_numbers !== auto) orgPatch.auto_job_numbers = auto;
+              if (String(o?.job_number_prefix || '') !== prefix) orgPatch.job_number_prefix = prefix;
+              if (String(o?.next_job_number ?? '') !== String(nextJob ?? '')) orgPatch.next_job_number = nextJob || null;
+            }
+            if (edit === 'inv') {
+              const invNext = num(v.next_invoice_number);
+              if (!invNext || invNext < 1) return 'Enter the next invoice number.';
+              body.invoice_prefix = String(v.invoice_prefix ?? '');
+              // Counters only when changed, so an old form can't wind them back.
+              if (String(invNext) !== String(s.next_invoice_number ?? '')) body.next_invoice_number = invNext;
+            }
+            if (edit === 'def') {
+              const ret = num(v.default_retention_pct), appDay = num(v.app_reminder_day), due = num(v.default_due_days), fin = num(v.default_final_days);
+              if (ret === null || isNaN(ret) || ret < 0 || ret > 100) return 'Retention must be between 0 and 100%.';
+              if (appDay !== null && (isNaN(appDay) || appDay < 1 || appDay > 31)) return 'Application date must be a day of the month, 1 to 31.';
+              Object.assign(body, { default_retention_pct: ret, app_reminder_day: appDay, default_due_days: due === null || isNaN(due) ? 30 : due, default_final_days: fin === null || isNaN(fin) ? 14 : fin });
+            }
+            if (edit === 'po') Object.assign(body, { po_enabled: !!v.po_enabled, po_vat_default: String(v.po_vat_default || '20') });
+            if (edit === 'vat') body.default_vat = v.default_vat || 'standard';
+            if (edit === 'ohp') { const oh = num(v.ohp_pct); if (oh === null || isNaN(oh) || oh < 0 || oh > 100) return 'Overheads must be between 0 and 100%.'; body.ohp_pct = oh; }
+            if (edit === 'bill') ['contractor_utr', 'employer_ref', 'company_address', 'company_vat_no', 'company_reg_no', 'bank_name', 'bank_account_name', 'bank_sort_code', 'bank_account_no', 'invoice_footer'].forEach((k) => { body[k] = t(k); });
             let orgNote = '';
             if (Object.keys(orgPatch).length) { const r = await fdb.from('organizations').update(orgPatch as never).eq('id', org?.id || (me.org_id as string)).select('id'); if (r.error || !(r.data as unknown[] | null)?.length) orgNote = ' The project number settings can only be changed by an admin.'; }
-            const r = await fdb.from('fin_settings').upsert(body as never, { onConflict: 'org_id' });
+            const r = edit === 'nums' ? { error: null } : await fdb.from('fin_settings').upsert(body as never, { onConflict: 'org_id' });
             if (r.error) return `Save failed — ${r.error.message}`;
-            toast(`Finance settings saved.${orgNote}`); ['finSettings', 'finOrgNums'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] })); return null;
+            toast(orgNote ? orgNote.trim() : 'Saved'); ['finSettings', 'finOrgNums'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] })); return null;
           }} />
       )}
     </FinPage>
