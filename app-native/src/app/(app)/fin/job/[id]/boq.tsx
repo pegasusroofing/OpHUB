@@ -354,6 +354,7 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
       ))}
       <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginTop: 8, marginBottom: 24 }}>
         <Button small kind="ghost" title="+ Add Works" onPress={async () => { const k = await chooseAction('Add Works', [{ key: 'section', label: 'Section' }, { key: 'item', label: 'Item' }]); if (k) add(k); }} />
+        {desk && ioBtn}
       </View>
       {/* The Bill's summary sits at the bottom; each section's total is on its heading (Andy, 1 Nov 2026). */}
         <View style={{ flexDirection: 'row', backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 10, paddingVertical: 8, marginBottom: 10 }}>
@@ -385,7 +386,6 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
       </Card>
       )}
 
-      {desk && <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>{ioBtn}</View>}
             <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
         <Button small busy={busy} title="Save Bill of Quantities" onPress={() => void save()} />
         <Button small kind="ghost" title="Publish to Application for Payment" onPress={async () => { await save(); if (snap(latest.current) !== saved.current) return; router.push(`/fin/job/${id}/application/new` as never); }} />
