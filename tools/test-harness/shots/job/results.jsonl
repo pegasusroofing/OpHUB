@@ -1219,3 +1219,5 @@
 {"part":"finexport1","step":"Footer on invoice","ok":true,"note":"1 at y 874, old 0","ms":9273}
 {"part":"finexport1","step":"Footer on po","ok":true,"note":"1 at y 874, old 0","ms":9582}
 {"part":"finexport1","step":"Footer on report","ok":true,"note":"2 at y 874, old 0","ms":9340}
+{"part":"plotrep2","step":"Plot by plot report","ok":true,"note":"Plot 2 £1,000.00 £1,000.00 £750.00 £0.00 £0.00 £0.00 £0.00 £0.00 £","ms":12622}
+{"part":"plotrep2","step":"Costs by plot","ok":true,"note":"Plot 2 £1,000.00 £1,000.00 £750.00 – – – – – – £200.00 £800.00 £1,","ms":11084}
