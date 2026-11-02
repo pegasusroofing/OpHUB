@@ -46,7 +46,7 @@ const Pound = ({ width, children }: { width: number | '100%'; children: ReactNod
   <View style={{ flexDirection: 'row', alignItems: 'center', width, height: 32, paddingHorizontal: 8, borderWidth: 1, borderColor: base.line, borderRadius: 7, backgroundColor: base.card, gap: 3 }}><Text style={{ fontSize: 13, color: base.slate }}>£</Text>{children}</View>
 );
 const inPound0 = { flex: 1, minWidth: 0, fontSize: 13, color: base.ink, padding: 0, outlineStyle: 'none' as 'solid' };
-const Above = ({ l, flex = 1, children }: { l: string; flex?: number; children: ReactNode }) => <View style={{ flex, minWidth: 0 }}><Text style={[lab, { marginBottom: 2 }]}>{l}</Text>{children}</View>;
+const Above = ({ l, flex = 1, children }: { l: string; flex?: number; children: ReactNode }) => <View style={{ flex, minWidth: 0 }}><Text style={[lab0, { marginBottom: 2 }]}>{l}</Text>{children}</View>;
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 7, color: base.ink, backgroundColor: base.card };
 
 export default function FinBoq() {

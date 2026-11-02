@@ -1073,3 +1073,8 @@
 {"part":"jobtabs1","step":"A tab goes to that part of the project","ok":true,"note":"ff28ffa960?tab=sales, rows 1","ms":10814}
 {"part":"jobtabs1","step":"Tabs work on the overview page too","ok":true,"note":"?tab=purchases","ms":10091}
 {"part":"jobtabs1","step":"Phone","ok":false,"note":"page.waitForTimeout: Page crashed","ms":4917}
+{"part":"boqphone","step":"Phone bottom","ok":true,"note":"Budget cost tools ▾","ms":11361}
+{"part":"boqbtn1","step":"With lines: header, buttons, footer","ok":true,"note":"footer at 815, add 2, io 1","ms":10785}
+{"part":"boqbtn1","step":"Typing m2 gives m²","ok":true,"note":"offered 1, m², m³","ms":1226}
+{"part":"boqbtn1","step":"Empty page","ok":true,"note":"empty state","ms":10662}
+{"part":"boqbtn1","step":"Phone","ok":false,"note":"tools button","ms":10302}
