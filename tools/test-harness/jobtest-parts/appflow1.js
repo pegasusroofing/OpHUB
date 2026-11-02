@@ -35,7 +35,7 @@ module.exports = async ({as, step}) => {
     const s = await q('Save').last().boundingBox(), m = await q('Mark as Applied').first().boundingBox(), d = await q('Delete').first().boundingBox(); await a.shot('buttons');
     const same = Math.abs(s.y - m.y) < 8 && Math.abs(d.y + d.height / 2 - (m.y + m.height / 2)) < 8;
     await q('Mark as Applied').first().click({timeout: 5000}); await a.page.waitForTimeout(1500);
-    await q('Mark applied').last().click({timeout: 5000}); await a.page.waitForTimeout(3500); await a.shot('applied');
+    await q('Mark applied').last().click({timeout: 5000}); await a.page.waitForTimeout(3500); await a.shot('applied'); await q('Certify').first().click({timeout: 5000}); await a.page.waitForTimeout(600);
     const boxes = await a.page.getByLabel('Certified percent').count();
     const [r] = await a.get('fin_applications?select=status,variations&id=eq.' + id);
     const kept = (r.variations || []).some((v) => v.description === 'ZZ two doors' && Number(v.value) === 300 && Number(v.qty) === 2);

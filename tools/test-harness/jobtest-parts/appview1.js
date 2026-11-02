@@ -16,7 +16,7 @@ module.exports = async ({as, step}) => {
   await step('Line by line has the lines and a totals bar', async () => {
     await q('Line by line').first().click({timeout: 5000}); await a.page.waitForTimeout(800); await a.shot('lines');
     const [r] = await a.get('fin_applications?select=status&id=eq.' + id);
-    const boxes = r.status === 'draft' ? await a.page.getByLabel('Percent done').count() : await a.page.getByLabel('Certified percent').count();
+    const boxes = r.status === 'draft' ? await a.page.getByLabel('Percent done').count() : await q('Applied %').count();
     return {ok: boxes >= 1 && (await a.page.getByLabel('Totals').count()) === 1, note: 'boxes ' + boxes};
   });
   await step('Mark applied, stays on line by line with certified boxes', async () => {
@@ -26,7 +26,7 @@ module.exports = async ({as, step}) => {
       await q('Mark as Applied').first().click({timeout: 5000}); await a.page.waitForTimeout(1500);
       await q('Mark applied').last().click({timeout: 5000}); await a.page.waitForTimeout(3500);
     }
-    await a.shot('applied-lines');
+    await a.shot('applied-lines'); await q('Certify').first().click({timeout: 5000}); await a.page.waitForTimeout(600);
     return {ok: (await a.page.getByLabel('Certified percent').count()) >= 1, note: 'boxes ' + (await a.page.getByLabel('Certified percent').count())};
   });
   await step('Certified as applied, then the overview shows both columns', async () => {

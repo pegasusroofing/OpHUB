@@ -1282,3 +1282,57 @@
 {"part":"appentry1","step":"Certified by £","ok":true,"note":"shows £625","ms":6934}
 {"part":"appentry1","step":"Certified by qty, then back to %: same figure","ok":true,"note":"qty showed 50, now 20%","ms":2766}
 {"part":"appentry1","step":"One line can switch on its own","ok":true,"note":"qty boxes 1","ms":579}
+{"part":"appentry1","step":"Applied by £ on the draft","ok":true,"note":"pct 50","ms":48820}
+{"part":"appentry1","step":"Each line on one row","ok":true,"note":"394, 394, 394","ms":189}
+{"part":"appentry1","step":"Applied by qty on the draft","ok":true,"note":"pct 75","ms":4194}
+{"part":"appentry1","step":"Applied by % still works","ok":true,"note":"pct 80","ms":4105}
+{"part":"appentry1","step":"Certified by £","ok":true,"note":"shows £625","ms":6897}
+{"part":"appentry1","step":"Certified by qty, then back to %: same figure","ok":true,"note":"qty showed 50, now 20%","ms":2577}
+{"part":"appentry1","step":"One line can switch on its own","ok":true,"note":"qty boxes 1","ms":580}
+{"part":"appentry1","step":"Applied by £ on the draft","ok":true,"note":"pct 50","ms":48704}
+{"part":"appentry1","step":"Each line on one row","ok":true,"note":"394, 394, 394","ms":206}
+{"part":"appentry1","step":"Applied by qty on the draft","ok":true,"note":"pct 75","ms":4292}
+{"part":"appentry1","step":"Applied by % still works","ok":true,"note":"pct 80","ms":4100}
+{"part":"appentry1","step":"Certified by £","ok":true,"note":"shows £625","ms":6929}
+{"part":"appentry1","step":"Certified by qty, then back to %: same figure","ok":true,"note":"qty showed 50, now 20%","ms":2710}
+{"part":"appentry1","step":"One line can switch on its own","ok":true,"note":"qty boxes 1","ms":622}
+{"part":"appview1","step":"Draft opens on the overview","ok":true,"note":"Contract works £3,250.00 Valuation date 2 Nov 2026 Due date 2 Dec 2026 Fin","ms":13753}
+{"part":"appview1","step":"Line by line has the lines and a totals bar","ok":true,"note":"boxes 7","ms":1329}
+{"part":"appview1","step":"Mark applied, stays on line by line with certified boxes","ok":true,"note":"boxes 7","ms":240}
+{"part":"appview1","step":"Certified as applied, then the overview shows both columns","ok":true,"note":"Balance £2,185.00 £2,185.00 £237.50 £1,947.50 Total due £1,947.50 An applicat","ms":1781}
+{"part":"appview1","step":"Save certificate: overview keeps the figures","ok":true,"note":"certified cert 1947.5 applied 1947.5","ms":4762}
+{"part":"appview1","step":"Phone: overview fits","ok":true,"note":"over by 0","ms":884}
+{"part":"appentry1","step":"Applied by £ on the draft","ok":true,"note":"pct 50","ms":31918}
+{"part":"appentry1","step":"Each line on one row","ok":true,"note":"397, 397, 388","ms":184}
+{"part":"appentry1","step":"Applied by qty on the draft","ok":true,"note":"pct 75","ms":4338}
+{"part":"appentry1","step":"Applied by % still works","ok":true,"note":"pct 80","ms":4193}
+{"part":"appentry1","step":"Certified by £","ok":true,"note":"shows £625","ms":7823}
+{"part":"appentry1","step":"Certified by qty, then back to %: same figure","ok":true,"note":"qty showed 50, now 20%","ms":2733}
+{"part":"appentry1","step":"One line can switch on its own","ok":true,"note":"qty boxes 1","ms":576}
+{"part":"appview1","step":"Draft opens on the overview","ok":true,"note":"Contract works £3,250.00 Valuation date 2 Nov 2026 Due date 2 Dec 2026 Fin","ms":13967}
+{"part":"appview1","step":"Line by line has the lines and a totals bar","ok":false,"note":"boxes 0","ms":1383}
+{"part":"appview1","step":"Mark applied, stays on line by line with certified boxes","ok":true,"note":"boxes 7","ms":885}
+{"part":"appview1","step":"Certified as applied, then the overview shows both columns","ok":true,"note":"Balance £2,185.00 £2,185.00 £2,185.00 £0.00 Total due £0.00 An application is","ms":1876}
+{"part":"appview1","step":"Save certificate: overview keeps the figures","ok":true,"note":"certified cert 0 applied 0","ms":4817}
+{"part":"appview1","step":"Phone: overview fits","ok":true,"note":"over by 0","ms":873}
+{"part":"appflow1","step":"BoQ: all on one row, capital letter","ok":true,"note":"row offset -6, Strip tiles","ms":13704}
+{"part":"appflow1","step":"Draft: click selects, no jump after typing and returning to the window","ok":true,"note":"typed 50, scroll 499 > 499, still 50","ms":21590}
+{"part":"appflow1","step":"Variation quantity sets the value","ok":true,"note":"value £300","ms":1768}
+{"part":"appflow1","step":"Buttons on one row, then certified on each line","ok":true,"note":"one row true, submitted, certified boxes 8, variation kept true","ms":6333}
+{"part":"appentry1","step":"Applied by £ on the draft","ok":true,"note":"pct 50","ms":51837}
+{"part":"appentry1","step":"Each line on one row","ok":true,"note":"394, 394, 394","ms":235}
+{"part":"appentry1","step":"Applied by qty on the draft","ok":true,"note":"pct 75","ms":4278}
+{"part":"appentry1","step":"Applied by % still works","ok":true,"note":"pct 80","ms":4136}
+{"part":"appentry1","step":"Certified by £","ok":true,"note":"shows £625","ms":7703}
+{"part":"appentry1","step":"Certified by qty, then back to %: same figure","ok":true,"note":"qty showed 50, now 20%","ms":2654}
+{"part":"appentry1","step":"One line can switch on its own","ok":true,"note":"qty boxes 1","ms":524}
+{"part":"appview1","step":"Draft opens on the overview","ok":true,"note":"Contract works £3,250.00 Valuation date 2 Nov 2026 Due date 2 Dec 2026 Fin","ms":13741}
+{"part":"appview1","step":"Line by line has the lines and a totals bar","ok":true,"note":"boxes 1","ms":1199}
+{"part":"appview1","step":"Mark applied, stays on line by line with certified boxes","ok":true,"note":"boxes 8","ms":884}
+{"part":"appview1","step":"Certified as applied, then the overview shows both columns","ok":true,"note":"Balance £2,327.50 £2,327.50 £2,327.50 £0.00 Total due £0.00 An application is","ms":1899}
+{"part":"appview1","step":"Save certificate: overview keeps the figures","ok":true,"note":"certified cert 0 applied 0","ms":4773}
+{"part":"appview1","step":"Phone: overview fits","ok":true,"note":"over by 0","ms":872}
+{"part":"appflow1","step":"BoQ: all on one row, capital letter","ok":true,"note":"row offset -6, Strip tiles","ms":13430}
+{"part":"appflow1","step":"Draft: click selects, no jump after typing and returning to the window","ok":true,"note":"typed 50, scroll 499 > 499, still 50","ms":21512}
+{"part":"appflow1","step":"Variation quantity sets the value","ok":true,"note":"value £300","ms":1776}
+{"part":"appflow1","step":"Buttons on one row, then certified on each line","ok":true,"note":"one row true, submitted, certified boxes 9, variation kept true","ms":6346}
