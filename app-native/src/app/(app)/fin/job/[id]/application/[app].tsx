@@ -164,15 +164,16 @@ function Editor({ a0, jf, previousLive, prevPct, prevVar, siteProgress, varProgr
         <FinStat v={STAGE[stage]} label="Stage" /><FinStat v={money(c.net_due)} label="Amount due this application" />
         {(desk || locked) && <><FinStat v={fdate(a.valuation_date)} label="Valuation date" /><FinStat v={a.final_date ? fdate(a.final_date) : '—'} label="Final date for payment" /></>}
       </View>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
-        <Button kind="ghost" busy={busy === 'xlsx'} title="⬇ Download Excel" onPress={() => void exportAs('xlsx')} />
-        <Button kind="ghost" busy={busy === 'pdf'} title="⬇ Download PDF" onPress={() => void exportAs('pdf')} />
-        {stage === 'draft' && <Button kind="ghost" busy={busy === 'up'} title="⬆ Upload edited Excel" onPress={() => void uploadExcel()} />}
+      <View style={{ alignSelf: 'flex-start', marginBottom: 10 }}>
+        <Button small kind="ghost" busy={!!busy} title="Excel / PDF ▾" onPress={async () => {
+          const k = await chooseAction('Excel / PDF', [{ key: 'xlsx', label: 'Download Excel' }, { key: 'pdf', label: 'Download PDF' }, ...(stage === 'draft' ? [{ key: 'up', label: 'Upload edited Excel' }] : [])]);
+          if (k === 'xlsx' || k === 'pdf') void exportAs(k); else if (k === 'up') void uploadExcel();
+        }} />
       </View>
       {!locked && (
-        <Card>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-            {[['valuation_date', 'Valuation date'], ['due_date', 'Due date'], ['final_date', 'Final date']].map(([k, l]) => <View key={k} style={{ flexGrow: 1 }}><Muted>{l}</Muted><DateBox value={a[k] || ''} onChange={(v) => setA({ ...a, [k]: v })} title={l} style={{ marginBottom: 8 }} /></View>)}
+        <Card style={desk ? undefined : { padding: 8 }}>
+          <View style={{ flexDirection: 'row', flexWrap: desk ? 'wrap' : 'nowrap', gap: desk ? 8 : 6 }}>
+            {[['valuation_date', desk ? 'Valuation date' : 'Valuation'], ['due_date', desk ? 'Due date' : 'Due'], ['final_date', desk ? 'Final date' : 'Final']].map(([k, l]) => <View key={k} style={desk ? { flexGrow: 1 } : { flex: 1, minWidth: 0 }}><Muted style={desk ? undefined : { fontSize: 11.5 }}>{l}</Muted><DateBox compact={!desk} value={a[k] || ''} onChange={(v) => setA({ ...a, [k]: v })} title={l} style={{ marginBottom: 8 }} /></View>)}
           </View>
         </Card>
       )}

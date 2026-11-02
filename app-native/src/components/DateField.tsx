@@ -62,17 +62,17 @@ export function CalendarPopup({ value, min, max, title = 'Choose a date', onPick
 }
 
 // The box you tap. Looks like a text box, opens the calendar.
-export function DateBox({ value, onChange, min, max, placeholder = 'Choose a date', clearable = true, style, disabled, title }: {
+export function DateBox({ value, onChange, min, max, placeholder = 'Choose a date', clearable = true, style, disabled, title, compact }: {
   value?: string | null; onChange: (iso: string) => void; min?: string; max?: string; placeholder?: string; clearable?: boolean;
-  style?: StyleProp<ViewStyle>; disabled?: boolean; title?: string;
+  style?: StyleProp<ViewStyle>; disabled?: boolean; title?: string; compact?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   return (
     <>
       <Pressable accessibilityRole="button" accessibilityLabel={title || placeholder} disabled={disabled} onPress={() => setOpen(true)}
         style={[{ flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: base.line, borderRadius: radius.input, paddingHorizontal: 12, paddingVertical: 10, backgroundColor: base.card, opacity: disabled ? 0.6 : 1 }, style]}>
-        <Text style={{ flex: 1, fontSize: 15, color: value ? base.ink : base.slateLight }}>{value ? showDate(value) : placeholder}</Text>
-        <Text style={{ fontSize: 15 }}>📅</Text>
+        <Text numberOfLines={1} style={{ flex: 1, fontSize: compact ? 12 : 15, color: value ? base.ink : base.slateLight }}>{value ? showDate(value) : placeholder}</Text>
+        {!compact && <Text style={{ fontSize: 15 }}>📅</Text>}
       </Pressable>
       {open && <CalendarPopup value={value} min={min} max={max} title={title} clearable={clearable} onClose={() => setOpen(false)} onPick={(iso) => { setOpen(false); onChange(iso); }} />}
     </>
