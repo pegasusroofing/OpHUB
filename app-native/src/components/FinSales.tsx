@@ -90,8 +90,8 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
   const xeroOn = !!(st as { xero_tenant_name?: string | null } | null | undefined)?.xero_tenant_name;
   const xeroTag = (i: Inv) => i.status === 'draft' || i.status === 'void' ? '' : i.xero_id ? 'Xero ✓' : i.xero_post === false ? 'Not for Xero' : xeroOn ? 'To post' : '';
   const raise = async (a: App) => {
-    if (!me || !(await confirmAsk(`Raise and issue the invoice for this certificate (${money(a.cert_net)} net)?\n\nIt gets the next invoice number and is saved as a PDF ready to email.`, 'Raise and issue'))) return;
-    const r = await raiseInvoiceFromCert(me, org, a, site(a.site_id) as never, true);
+    if (!me || !(await confirmAsk(`Raise a draft invoice for this certificate (${money(a.cert_net)} net)? It opens for you to check before issuing.`, 'Raise draft'))) return;
+    const r = await raiseInvoiceFromCert(me, org, a, site(a.site_id) as never, false);
     if (r.error) { toastRet(r.error); return; }
     ['finSales', 'finBook', 'finOverview'].forEach((k) => void qcRet.invalidateQueries({ queryKey: [k] }));
     if (r.id) router.push(`/fin/job/${a.site_id}/invoice/${r.id}` as never);

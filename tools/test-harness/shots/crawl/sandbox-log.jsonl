@@ -3019,3 +3019,9 @@
 {"wrote":"fin_contract_items","method":"PATCH","keys":["kind","ref","description","qty","unit","rate","value","position","cost","sub_job_id","cost_basis","cost_pct"]}
 {"wrote":"job_finance","method":"POST","keys":["site_id","org_id","billing_type","updated_at","updated_by","contract_value"]}
 {"wrote":"fin_applications","method":"POST","keys":["org_id","site_id","status","valuation_date","due_date","final_date","client_po","lines","variations","dayworks","retention_pct","created_by","number"]}
+{"wrote":"fin_applications","method":"PATCH","keys":["valuation_date","due_date","final_date","lines","variations","dayworks","gross","discount_pct","discount","retention_pct","retention","previous","net_due","updated_at"]}
+{"wrote":"fin_applications","method":"PATCH","keys":["valuation_date","due_date","final_date","lines","variations","dayworks","gross","discount_pct","discount","retention_pct","retention","previous","net_due","updated_at"]}
+{"wrote":"fin_applications","method":"PATCH","keys":["status","submitted_at","updated_at"]}
+{"wrote":"fin_applications","method":"PATCH","keys":["cert_gross","cert_retention","cert_previous","cert_discount","cert_net","cert_date","cert_is_payless","cert_notes","status","updated_at"]}
+{"wrote":"fin_invoices","method":"POST","keys":["org_id","site_id","status","issue_date","due_date","client_po","bill_name","bill_address","bill_email","vat_treatment","lines","net","vat","rc_vat","total","source","source_id","created_by","notes"]}
+{"wrote":"fin_applications","method":"PATCH","keys":["invoice_id","status","updated_at"]}

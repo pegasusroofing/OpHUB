@@ -109,8 +109,12 @@ export async function saveCertificate(me: Profile, a: Row, v: Row, file?: { uri:
 }
 export const clearCertificate = (id: string) => setStatus(id, { cert_net: null, cert_gross: null, cert_retention: null, cert_previous: null, cert_discount: null, cert_lines: null, status: 'submitted' });
 /** The invoice for a certificate: its lines ARE the certificate breakdown. Issued straight away when asked. */
-export async function raiseInvoiceFromCert(me: Profile, org: Organization | null, a: Row, site: Row | undefined, issueNow: boolean): Promise<{ id?: string; error?: string; needsBill?: boolean }> {
-  if (a.invoice_id) return { id: a.invoice_id };
+export async function raiseInvoiceFromCert(me: Profile, org: Organization | null, given: Row, site: Row | undefined, issueNow: boolean): Promise<{ id?: string; error?: string; needsBill?: boolean }> {
+  // Always from the full record (903): a list only holds some of the figures, and someone else may have raised it already.
+  const fresh = (await fdb.from('fin_applications').select('*').eq('id', given.id).maybeSingle()).data as Row | null;
+  if (!fresh) return { error: 'Could not read the application — try again.' };
+  if (fresh.invoice_id) return { id: fresh.invoice_id };
+  const a: Row = { ...fresh, ...given, invoice_id: null };
   const [st, jfR, cliR] = await Promise.all([loadSettings(me.org_id), rows(fdb.from('job_finance').select('*').eq('site_id', a.site_id)), rows(fdb.from('fin_clients').select('name,sales_vat').eq('org_id', me.org_id as string))]);
   const jf = jfR[0] || {}, billName = jf.billing_name || site?.client_name || null;
   const c = cliR.find((x) => String(x.name).trim().toLowerCase() === String(billName || '').trim().toLowerCase());
@@ -125,7 +129,7 @@ export async function raiseInvoiceFromCert(me: Profile, org: Organization | null
   } as never).select('*').single();
   const inv = r.data as Row | null;
   if (!inv) return { error: 'Could not raise the invoice.' };
-  await setStatus(a.id, { invoice_id: inv.id, status: 'invoiced' });
+  if (!(await setStatus(a.id, { invoice_id: inv.id, status: 'invoiced' }))) return { id: inv.id, error: 'The invoice was made, but couldn’t be linked to the application. Check it before raising another.' };
   if (issueNow && inv.bill_name) { const x = await issue(me, org, inv.id, site); if (x.error) return { id: inv.id, error: x.error }; }
   return { id: inv.id, needsBill: issueNow && !inv.bill_name };
 }
@@ -191,7 +195,9 @@ export async function appSowChoice(a: Row): Promise<{ has: boolean; since: { fro
   const from = p ? addDays(String(p).slice(0, 10), 1) : null;
   return { has, since: from && from <= to ? { from, to } : null };
 }
-export async function exportApplication(me: Profile, org: Organization | null, a: Row, kind: 'xlsx' | 'pdf', sow: AppSow = null): Promise<boolean> {
+export async function exportApplication(me: Profile, org: Organization | null, given: Row, kind: 'xlsx' | 'pdf', sow: AppSow = null): Promise<boolean> {
+  // Always from the full saved record (902, 9219p): a list only holds some of the figures.
+  const a = ((await fdb.from('fin_applications').select('*').eq('id', given.id).maybeSingle()).data as Row | null) ?? given;
   const [jfR, apps, siteR, st] = await Promise.all([
     rows(fdb.from('job_finance').select('*').eq('site_id', a.site_id)),
     rows(fdb.from('fin_applications').select('number,status,lines,cert_lines,variations').eq('site_id', a.site_id)),

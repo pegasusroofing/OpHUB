@@ -150,7 +150,9 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
       }
       // New ids go onto the lines by their key, so anything typed while saving is kept.
       setRows((rs) => rs.map((r) => (got[r._k] ? { ...r, ...got[r._k] } : r)));
+      const wasSaved = saved.current;
       saved.current = snap(now.map((r) => (got[r._k] ? { ...r, ...got[r._k] } : r)));
+      if (failed) saved.current = wasSaved;
       const jf = ((await fdb.from('job_finance').select('*').eq('site_id', id).maybeSingle()).data as Row | null) || {};
       const patch: Row = { site_id: id, org_id: me.org_id, billing_type: 'application', updated_at: new Date().toISOString(), updated_by: me.id };
       if (jf.contract_value_source !== 'manual') patch.contract_value = total;

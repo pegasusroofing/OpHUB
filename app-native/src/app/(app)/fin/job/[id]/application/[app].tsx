@@ -120,7 +120,7 @@ function Editor({ a0, jf, previousLive, prevPct, siteProgress, varProgress }: { 
   const fill = (i: number, p: number) => { const lv = a.lines[i].kind, ls = a.lines.slice(); for (let j = i + 1; j < ls.length; j++) { const k = ls[j].kind; if (k === 'section' || (lv === 'subsection' && k === 'subsection')) break; if (isItem(ls[j])) ls[j] = { ...ls[j], pct: p }; } setA({ ...a, lines: ls }); setGen((g) => g + 1); };
   const exportAs = async (kind: 'xlsx' | 'pdf') => {
     if (!me) return;
-    if (isDraft && JSON.stringify(a) !== savedSnap.current && !(await save(true))) return;
+    if (isDraft && !(await save(true))) return;
     // Proof of works (9219zo): ask whether to include the Schedule of Works report.
     const doc = isDraft ? { ...a0, ...a } : a0;
     const sow = await askAppSow(doc, kind); if (sow === undefined) return;
