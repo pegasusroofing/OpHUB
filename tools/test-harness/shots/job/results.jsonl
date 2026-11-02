@@ -992,3 +992,37 @@
 {"part":"jobtally1","step":"Laptop: starts on Live; old totals gone","ok":true,"note":"Value of works £628,900; old totals 0","ms":9534}
 {"part":"jobtally1","step":"Laptop: adding Closed and Upcoming changes the tally","ok":true,"note":"Value of works £944,750","ms":1859}
 {"part":"jobtally1","step":"Phone: tally at the bottom","ok":true,"note":"Value of works £628,900","ms":9063}
+{"part":"jobtabs1","step":"Tabs and white row on overview","ok":true,"note":"1 tab rows, New 1, job no 1","ms":8157}
+{"part":"jobtabs1","step":"Tabs and white row on variations","ok":true,"note":"1 tab rows, New 1, job no 1","ms":8032}
+{"part":"jobtabs1","step":"Tabs and white row on budget","ok":true,"note":"1 tab rows, New 1, job no 1","ms":8012}
+{"part":"jobtabs1","step":"Tabs and white row on costs","ok":true,"note":"1 tab rows, New 1, job no 1","ms":7994}
+{"part":"jobtabs1","step":"Tabs and white row on dayworks","ok":true,"note":"1 tab rows, New 1, job no 1","ms":7918}
+{"part":"jobtabs1","step":"Tabs and white row on monthly","ok":true,"note":"1 tab rows, New 1, job no 1","ms":7943}
+{"part":"jobtabs1","step":"Tabs and white row on summary","ok":true,"note":"1 tab rows, New 1, job no 1","ms":7937}
+{"part":"jobtabs1","step":"Tabs and white row on quotes","ok":true,"note":"1 tab rows, New 1, job no 1","ms":7930}
+{"part":"jobtabs1","step":"Tabs and white row on boq","ok":true,"note":"1 tab rows, New 1, job no 1","ms":7941}
+{"part":"jobtabs1","step":"A tab goes to that part of the project","ok":true,"note":"ff28ffa960?tab=sales, rows 1","ms":10574}
+{"part":"jobtabs1","step":"Tabs work on the overview page too","ok":true,"note":"?tab=purchases","ms":10036}
+{"part":"jobtabs1","step":"Phone","ok":true,"note":"shown","ms":8473}
+{"part":"jobtiles1","step":"Overdue tile shows only overdue invoices","ok":true,"note":"overdue shown 1, not-due shown 0","ms":13827}
+{"part":"jobtiles1","step":"Invoices tab after that shows them all","ok":true,"note":"f=","ms":2120}
+{"part":"jobtiles1","step":"Applied tile opens Applications","ok":true,"note":"?tab=sales&sub=apps","ms":13610}
+{"part":"jobtally1","step":"Laptop: starts on Live; old totals gone","ok":true,"note":"Value of works £628,900; old totals 0","ms":9230}
+{"part":"jobtally1","step":"Laptop: adding Closed and Upcoming changes the tally","ok":true,"note":"Value of works £944,750","ms":1682}
+{"part":"jobtally1","step":"Phone: tally at the bottom","ok":true,"note":"Value of works £628,900","ms":9169}
+{"part":"moneydue3","step":"Server matches the page: overview","ok":false,"note":"status 403","ms":12}
+{"part":"moneydue3","step":"Server matches the page: cvr","ok":false,"note":"status 403","ms":9}
+{"part":"moneydue3","step":"Server matches the page: ffa","ok":false,"note":"status 403","ms":6}
+{"part":"moneydue3","step":"Server matches the page: budget","ok":false,"note":"status 403","ms":6}
+{"part":"moneydue3","step":"Server matches the page: costs","ok":false,"note":"status 403","ms":5}
+{"part":"moneydue3","step":"Server matches the page: variations","ok":false,"note":"status 403","ms":5}
+{"part":"moneydue3","step":"Server matches the page: apps","ok":false,"note":"status 403","ms":5}
+{"part":"moneydue3","step":"Server matches the page: retention","ok":false,"note":"status 403","ms":6}
+{"part":"moneydue3","step":"Server matches the page: moneydue","ok":false,"note":"status 403","ms":6}
+{"part":"moneydue3","step":"Server matches the page: debtors","ok":false,"note":"status 403","ms":6}
+{"part":"moneydue3","step":"Server matches the page: creditors","ok":false,"note":"status 403","ms":5}
+{"part":"moneydue3","step":"Server matches the page: cashflow","ok":false,"note":"status 403","ms":5}
+{"part":"moneydue3","step":"Server matches the page: pos","ok":false,"note":"status 403","ms":6}
+{"part":"moneydue3","step":"Server matches the page: labour","ok":false,"note":"status 403","ms":5}
+{"part":"moneydue3","step":"Server matches the page: cis","ok":false,"note":"status 403","ms":6}
+{"part":"moneydue3","step":"Server matches the page: vat","ok":false,"note":"status 403","ms":6}

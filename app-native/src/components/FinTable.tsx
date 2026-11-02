@@ -87,8 +87,8 @@ export function FinTable<T>({ cols, rows, keyOf, onRow, foot, onMenu, defaultSor
           </View>
         </View>
       </ScrollView>
-      {/* tally: the totals as a small box bottom right that stays in view while the list scrolls. */}
-      {!!footer && tally && <View style={{ position: 'sticky' as never, bottom: 10, alignSelf: 'flex-end', marginTop: 10, backgroundColor: t.brand1, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 12 }}>{footer}</View>}
+      {/* tally: the totals as a bar across the table, left and right, that stays in view while the list scrolls. */}
+      {!!footer && tally && <View style={{ position: 'sticky' as never, bottom: 10, marginTop: 10, backgroundColor: t.brand1, borderRadius: 10, paddingVertical: 9, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>{footer}</View>}
       {!!footer && !tally && <View style={{ marginTop: 10, backgroundColor: t.brand1, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 14 }}>{footer}</View>}
     </View>
   );

@@ -34,7 +34,6 @@ import { isFinanceOnlyOrg, isFinanceUser, isFullManager } from '@/lib/roles';
 import { base, page, space, useTheme } from '@/theme/theme';
 
 type Row = Record<string, any>;
-const TABS: [string, string][] = [['overview', 'Overview'], ['sales', 'Sales'], ['purchases', 'Purchases'], ['subs', 'Subcontractors & Labour']];
 // £10.0k, as the current app's tiles (finK).
 const OV_OPTS: Record<string, [string, string][]> = {
   cv: [['contract', 'Contract Value'], ['cva', 'Contract + Approved Variations'], ['ffa', 'Forecasted Final Account']],
@@ -74,23 +73,6 @@ export default function FinJob() {
   return (
     <ScrollView contentContainerStyle={page(1000)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title }} />
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10, padding: 8, marginBottom: 6 }}>
-        <Text numberOfLines={1} style={{ flex: 1, fontSize: 13, color: base.ink }}><Text style={{ fontWeight: '600' }}>{s?.job_number || ''}</Text>  {s?.name || ''}</Text>
-        <Pressable onPress={async () => {
-          const opts = [['inv', 'Invoice', `/fin/job/${id}/invoice/new`], ...(fc && !fc.isInvoiceJob ? [['app', 'Application', `/fin/job/${id}/application/new`]] : []), ['po', 'Purchase order', `/fin/po/new?site=${id}`], ['pinv', 'Purchase invoice', `/fin/pinv/new?site=${id}`], ['plant', 'Plant hire', `/fin/plant/new?site=${id}`], ['sub', 'Subcontractor order', `/fin/sub/new?site=${id}`]];
-          const k = await chooseAction('New', opts.map(([key, label]) => ({ key, label })));
-          const o = opts.find((x) => x[0] === k); if (o) router.push(o[2] as never);
-        }} style={{ backgroundColor: t.brand1, borderRadius: 8, paddingVertical: 7, paddingHorizontal: 14, flexDirection: 'row', gap: 18 }}>
-          <Text style={{ color: t.brand1Text, fontSize: 12.5, fontWeight: '600' }}>+ New</Text><Text style={{ color: t.brand1Text, fontSize: 11 }}>▾</Text>
-        </Pressable>
-      </View>
-      <FinTabRow>
-        {[...TABS, ...(fc && !fc.isInvoiceJob ? [['boq', 'Bill of Quantities'] as [string, string]] : []), ['docs', 'Documents'] as [string, string], ['setup', 'Project Admin'] as [string, string]].map(([key, l]) => (
-          <Pressable key={key} onPress={() => (key === 'boq' ? router.push(`/fin/job/${id}/boq` as never) : router.setParams({ tab: key }))} style={{ paddingVertical: 12, paddingHorizontal: 14, borderBottomWidth: 2, borderBottomColor: tab === key ? t.brand1 : 'transparent' }}>
-            <Text style={{ fontSize: 13, fontWeight: tab === key ? '700' : '600', color: tab === key ? '#111827' : '#6b7280' }}>{l}</Text>
-          </Pressable>
-        ))}
-      </FinTabRow>
       {isLoading || !fc || !data ? <Muted>Loading…</Muted> : tab === 'overview' ? <Overview askFinancials={qSetup === '1'} id={id} fc={fc} settings={data.settings} invs={data.book.invs.filter((i) => i.site_id === id)} apps={data.book.apps.filter((a) => a.site_id === id)} book={data.book as unknown as Row} />
         : tab === 'sales' ? <>{subTabs('sales', [['invoices', 'Invoices'], ...(fc.isInvoiceJob && !data.book.apps.some((a) => a.site_id === id) ? [] : [['apps', 'Applications & Certificates'], ['retention', 'Retention']] as [string, string][])])}{sub.sales === 'retention' && !fc.isInvoiceJob && <RetentionPanel id={id} fc={fc} settings={data.settings} invs={data.book.invs.filter((i) => i.site_id === id)} apps={data.book.apps.filter((a) => a.site_id === id)} />}<SalesLists key={`${sub.sales}${qF || ''}`} tab={sub.sales as 'invoices'} siteId={id} f={qF || undefined} /></>
         : tab === 'purchases' ? <>{subTabs('purchases', [['orders', 'Purchase orders'], ['invoices', 'Purchase invoices'], ['plant', 'Plant hire'], ['quotes', 'Purchase Quotes']])}{sub.purchases === 'quotes' ? <PurchaseQuotes siteId={id} /> : <PurchasesLists key={sub.purchases} tab={sub.purchases as 'orders'} siteId={id} />}</>

@@ -145,7 +145,7 @@ export function AppBar({ title, onBack, home, right, noHistory }: { title?: stri
           ))}
         </View>
       )}
-      {!!finJob && finRest.length > 0 && <View style={{ backgroundColor: base.paper, paddingHorizontal: desk ? 40 : 16 }}><FinJobTabs id={finJob} active={finRest[0] === 'boq' ? 'boq' : ['invoice', 'application'].includes(finRest[0]) ? 'sales' : finRest[0] === 'quotes' ? 'purchases' : 'overview'} /></View>}
+      {!!finJob && <View style={{ backgroundColor: base.paper, paddingHorizontal: desk ? 40 : 16 }}><FinJobTabs id={finJob} job={fJob?.job_number} name={fJob?.name} onOverview={!finRest.length} active={!finRest.length ? (typeof qTab === 'string' && qTab ? qTab : 'overview') : finRest[0] === 'boq' ? 'boq' : ['invoice', 'application'].includes(finRest[0]) ? 'sales' : finRest[0] === 'quotes' ? 'purchases' : 'overview'} /></View>}
     </View>
   );
   return (

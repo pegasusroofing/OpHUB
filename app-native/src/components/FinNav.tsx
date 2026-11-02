@@ -5,6 +5,7 @@ import { router, Stack } from 'expo-router';
 import { useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
+import { chooseAction } from '@/components/toast';
 import { FinMode, Muted } from '@/components/ui';
 import { fdb } from '@/data/finance';
 import { useAuth } from '@/lib/auth';
@@ -46,19 +47,33 @@ export function FinTabRow({ children, style }: { children: ReactNode; style?: ob
     </View>
   );
 }
-/** A project's tabs, on the pages inside a project (Andy, 2 Nov 2026: they stay in place all through Finance). Its own overview page draws them itself. */
-export function FinJobTabs({ id, active }: { id: string; active: string }) {
+/** The white row with the job and + New, then a project's tabs: on every page inside a project (Andy, 2 Nov 2026). */
+export function FinJobTabs({ id, active, job, name, onOverview }: { id: string; active: string; job?: string | null; name?: string | null; onOverview: boolean }) {
   const t = useTheme();
   const { data: billing } = useQuery({ queryKey: ['finJobBilling', id], queryFn: async () => ((await fdb.from('job_finance').select('billing_type').eq('site_id', id).maybeSingle()).data as { billing_type: string | null } | null)?.billing_type ?? null });
-  const tabs: [string, string][] = [['overview', 'Overview'], ['sales', 'Sales'], ['purchases', 'Purchases'], ['subs', 'Subcontractors & Labour'], ...(billing === 'invoice' ? [] : [['boq', 'Bill of Quantities'] as [string, string]]), ['docs', 'Documents'], ['setup', 'Project Admin']];
+  const invoiceJob = billing === 'invoice';
+  const tabs: [string, string][] = [['overview', 'Overview'], ['sales', 'Sales'], ['purchases', 'Purchases'], ['subs', 'Subcontractors & Labour'], ...(invoiceJob ? [] : [['boq', 'Bill of Quantities'] as [string, string]]), ['docs', 'Documents'], ['setup', 'Project Admin']];
+  const go = (k: string) => { if (k === 'boq') router.navigate(`/fin/job/${id}/boq` as never); else if (onOverview) router.setParams({ tab: k }); else router.navigate(`/fin/job/${id}?tab=${k}` as never); };
   return (
-    <FinTabRow style={{ marginBottom: 0 }}>
-      {tabs.map(([k, l]) => (
-        <Pressable key={k} onPress={() => router.navigate((k === 'boq' ? `/fin/job/${id}/boq` : `/fin/job/${id}?tab=${k}`) as never)} style={{ paddingVertical: 12, paddingHorizontal: 14, borderBottomWidth: 2, borderBottomColor: active === k ? t.brand1 : 'transparent' }}>
-          <Text style={{ fontSize: 13, fontWeight: active === k ? '700' : '600', color: active === k ? '#111827' : '#6b7280' }}>{l}</Text>
+    <View>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10, padding: 8, marginTop: 6, marginBottom: 2 }}>
+        <Text numberOfLines={1} style={{ flex: 1, fontSize: 13, color: base.ink }}><Text style={{ fontWeight: '600' }}>{job || ''}</Text>  {name || ''}</Text>
+        <Pressable onPress={async () => {
+          const opts = [['inv', 'Invoice', `/fin/job/${id}/invoice/new`], ...(invoiceJob ? [] : [['app', 'Application', `/fin/job/${id}/application/new`]]), ['po', 'Purchase order', `/fin/po/new?site=${id}`], ['pinv', 'Purchase invoice', `/fin/pinv/new?site=${id}`], ['plant', 'Plant hire', `/fin/plant/new?site=${id}`], ['sub', 'Subcontractor order', `/fin/sub/new?site=${id}`]];
+          const k = await chooseAction('New', opts.map(([key, label]) => ({ key, label })));
+          const o = opts.find((x) => x[0] === k); if (o) router.push(o[2] as never);
+        }} style={{ backgroundColor: t.brand1, borderRadius: 8, paddingVertical: 7, paddingHorizontal: 14, flexDirection: 'row', gap: 18 }}>
+          <Text style={{ color: t.brand1Text, fontSize: 12.5, fontWeight: '600' }}>+ New</Text><Text style={{ color: t.brand1Text, fontSize: 11 }}>▾</Text>
         </Pressable>
-      ))}
-    </FinTabRow>
+      </View>
+      <FinTabRow style={{ marginBottom: 0 }}>
+        {tabs.map(([k, l]) => (
+          <Pressable key={k} onPress={() => go(k)} style={{ paddingVertical: 12, paddingHorizontal: 14, borderBottomWidth: 2, borderBottomColor: active === k ? t.brand1 : 'transparent' }}>
+            <Text style={{ fontSize: 13, fontWeight: active === k ? '700' : '600', color: active === k ? '#111827' : '#6b7280' }}>{l}</Text>
+          </Pressable>
+        ))}
+      </FinTabRow>
+    </View>
   );
 }
 /** The grey filter bar with counts (finsubtabs): the chosen one white. */
