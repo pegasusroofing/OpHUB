@@ -21,7 +21,7 @@ function nodeText(n: ReactNode): string {
   if (isValidElement(n)) { const p = n.props as { children?: ReactNode; label?: string; title?: string }; return [nodeText(p.children), p.label || '', p.title || ''].join(' '); }
   return '';
 }
-export function FinTable<T>({ cols, rows, keyOf, onRow, foot, onMenu, defaultSort, startFilter }: { cols: FinCol<T>[]; rows: T[]; keyOf: (r: T) => string; onRow?: (r: T) => void; foot?: ReactNode | ((shown: T[]) => ReactNode); onMenu?: (r: T) => void; defaultSort?: FinSort; startFilter?: Record<string, string | string[]> }) {
+export function FinTable<T>({ cols, rows, keyOf, onRow, foot, onMenu, defaultSort, startFilter, tally }: { cols: FinCol<T>[]; rows: T[]; keyOf: (r: T) => string; onRow?: (r: T) => void; foot?: ReactNode | ((shown: T[]) => ReactNode); onMenu?: (r: T) => void; defaultSort?: FinSort; startFilter?: Record<string, string | string[]>; tally?: boolean }) {
   const t = useTheme();
   // startFilter: what the column filters hold when the table opens (Projects starts on Live): words for a typed box, a list for a
   // drop-down column. Cleared like any filter.
@@ -48,7 +48,7 @@ export function FinTable<T>({ cols, rows, keyOf, onRow, foot, onMenu, defaultSor
           <View style={{ flexDirection: 'row', paddingVertical: 10, paddingHorizontal: 8 }}>
             {cols.map((c) => (
               <Pressable key={c.k} disabled={!c.l || c.noSort} onPress={() => setSort(nextSort(sort, c.k))} accessibilityRole={c.noSort ? undefined : 'button'} accessibilityLabel={c.noSort ? undefined : `Sort by ${c.l}${sort?.k === c.k ? (sort.dir === 'asc' ? ', A to Z' : ', Z to A') : ''}`} style={cell(c)}>
-                <Text style={{ fontSize: 10.5, fontWeight: '800', letterSpacing: 0.7, color: sort?.k === c.k ? t.brand1 : base.ink, textDecorationLine: 'underline', textTransform: 'uppercase' }}>{c.l}{sort?.k === c.k ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : ''}</Text>
+                <Text style={{ fontSize: 13, fontWeight: '800', letterSpacing: 0.4, color: sort?.k === c.k ? t.brand1 : base.ink, textDecorationLine: 'underline', textTransform: 'uppercase' }}>{c.l}{sort?.k === c.k ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : ''}</Text>
               </Pressable>
             ))}
               {onMenu ? <View style={{ width: 32 }} /> : null}
@@ -88,7 +88,9 @@ export function FinTable<T>({ cols, rows, keyOf, onRow, foot, onMenu, defaultSor
           </View>
         </View>
       </ScrollView>
-      {!!footer && <View style={{ marginTop: 10, backgroundColor: t.brand1, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 14 }}>{footer}</View>}
+      {/* tally: the totals as a small box bottom right that stays in view while the list scrolls. */}
+      {!!footer && tally && <View style={{ position: 'sticky' as never, bottom: 10, alignSelf: 'flex-end', marginTop: 10, backgroundColor: t.brand1, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 12 }}>{footer}</View>}
+      {!!footer && !tally && <View style={{ marginTop: 10, backgroundColor: t.brand1, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 14 }}>{footer}</View>}
     </View>
   );
 }

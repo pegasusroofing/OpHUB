@@ -11,7 +11,7 @@ import { FinFilterBar, type FilterSel } from '@/components/FinFilterBar';
 import { FinPage, FinRow } from '@/components/FinNav';
 import { Cell, FinTable, FootText } from '@/components/FinTable';
 import { askDate } from '@/components/DateField';
-import { Button, Card, Empty, Muted } from '@/components/ui';
+import { Button, Empty, Muted } from '@/components/ui';
 import { finStatus, selectAll } from '@/data/finance';
 import { usePeople } from '@/data/hs';
 import { useSites } from '@/data/sites';
@@ -72,10 +72,11 @@ export default function FinJobs() {
   if (vt && !desk) shown = shown.filter((s) => vt(Number(data?.jfBy[s.id]?.contract_value || 0)));
   shown = shown.slice().sort((a, b) => nm(a).localeCompare(nm(b), 'en-GB', { sensitivity: 'base' }));
   const pms = Array.from(new Set(sites.map((s) => s.responsible_pm_id).filter(Boolean))) as string[];
-  const totalOf = (list: typeof shown) => list.reduce((t, s) => { const m = data?.m[s.id]; return { v: t.v + Number(data?.jfBy[s.id]?.contract_value || 0), inv: t.inv + (m?.inv || 0), owed: t.owed + (m?.owed || 0), od: t.od + (m?.overdue || 0) }; }, { v: 0, inv: 0, owed: 0, od: 0 });
-  const tot = totalOf(shown);
+  // A running tally of whatever the filters leave showing (Andy, 2 Nov 2026).
+  const valueOf = (list: typeof shown) => list.reduce((t, s) => t + Number(data?.jfBy[s.id]?.contract_value || 0), 0);
+  const tallyText = (list: typeof shown) => `${list.length} project${list.length === 1 ? '' : 's'}`;
   return (
-    <FinPage title="Projects" section="jobs">
+    <FinPage title="Projects" section="jobs" foot={!desk && data && shown.length ? <View accessibilityLabel="Value of works" style={{ flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 12, backgroundColor: base.card, borderTopWidth: 1, borderTopColor: base.line, paddingHorizontal: 16, paddingVertical: 9 }}><Text style={{ fontSize: 12.5, color: base.slate }}>{tallyText(shown)}</Text><Text style={{ fontSize: 14, fontWeight: '800', color: base.ink }}>Value of works {money(valueOf(shown), 0)}</Text></View> : undefined}>
       {me && isFullManager(me) && <View style={{ marginBottom: 10 }}><Button title="+ New project" onPress={() => router.push('/fin/newjob' as never)} /></View>}
       {!desk && <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search project no., name, client or PO' }} sel={sel} moreOn={!!val}
         onClear={() => { setSel({ status: [], pm: [], client: [], start: [] }); setVal(''); }}
@@ -94,22 +95,21 @@ export default function FinJobs() {
         <FinTable rows={shown} keyOf={(s) => s.id} onRow={(s) => router.push(`/fin/job/${s.id}` as never)} defaultSort={{ k: 'name', dir: 'asc' }} startFilter={{ st: ['Live'] }}
           cols={[
             { k: 'no', l: 'Job No', min: 90, flex: 0.8, sort: (s) => s.job_number || '', render: (s) => <Text style={{ fontSize: 11, fontWeight: '800', color: t.brand1, borderWidth: 1.5, borderColor: t.brand1, borderRadius: 8, paddingVertical: 4, paddingHorizontal: 10, overflow: 'hidden' }}>{s.job_number || '—'}</Text> },
-            { k: 'name', l: 'Project', flex: 2.2, min: 200, render: (s) => <Cell bold>{s.name}</Cell> },
+            { k: 'name', l: 'Project', flex: 2.7, min: 230, render: (s) => <Cell bold>{s.name}</Cell> },
             { k: 'cli', l: 'Client', flex: 1.5, min: 150, render: (s) => <Cell bold>{cliOf(s) || '—'}</Cell> },
             { k: 'po', l: 'Client PO', render: (s) => { const po = (data.posBy[s.id] || []).join(', '); return po ? <Cell>{po}</Cell> : <Cell tone="#D97706">No PO</Cell>; } },
-            { k: 'pm', l: 'PM', flex: 0.7, min: 70, render: (s) => <Cell>{pmName(s.responsible_pm_id) || '—'}</Cell> },
-            { k: 'st', l: 'Status', flex: 0.7, min: 84, noSort: true, choices: ['Live', 'Upcoming', 'Closed'], render: (s) => { const k = finStatus(s); const c = k === 'live' ? ['#E7F6EC', '#1E7A43'] : k === 'upcoming' ? ['#FDF1E6', '#B35A00'] : ['#EEF0F2', '#6b7280']; return <Text style={{ fontSize: 10.5, fontWeight: '800', color: c[1], backgroundColor: c[0], borderRadius: 999, paddingVertical: 3, paddingHorizontal: 9, overflow: 'hidden' }}>● {k[0].toUpperCase() + k.slice(1)}</Text>; } },
+            { k: 'pm', l: 'PM', flex: 0.5, min: 56, render: (s) => <Cell>{pmName(s.responsible_pm_id) || '—'}</Cell> },
+            { k: 'st', l: 'Status', flex: 0.55, min: 74, noSort: true, choices: ['Live', 'Upcoming', 'Closed'], render: (s) => { const k = finStatus(s); const c = k === 'live' ? ['#E7F6EC', '#1E7A43'] : k === 'upcoming' ? ['#FDF1E6', '#B35A00'] : ['#EEF0F2', '#6b7280']; return <Text style={{ fontSize: 10.5, fontWeight: '800', color: c[1], backgroundColor: c[0], borderRadius: 999, paddingVertical: 3, paddingHorizontal: 9, overflow: 'hidden' }}>● {k[0].toUpperCase() + k.slice(1)}</Text>; } },
             { k: 'start', l: 'Start', sort: (s) => String(s.start_date || (s as { created_at?: string }).created_at || '').slice(0, 10), render: (s) => { const d = s.start_date || (s as { created_at?: string }).created_at; return <Cell>{d ? new Date(String(d).slice(0, 10) + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</Cell>; } },
             { k: 'v', l: 'Value', sort: (s) => Number(data.jfBy[s.id]?.contract_value || 0) || null, render: (s) => { const v = Number(data.jfBy[s.id]?.contract_value || 0), m = data.m[s.id]; return <Cell tone={m?.overdue ? '#C0392B' : undefined}>{v ? money(v, 0) : '—'}</Cell>; } },
           ]}
-          foot={(left) => { const tot = totalOf(left); return <><FootText bold>{left.length} project{left.length === 1 ? '' : 's'}</FootText><FootText>Value {money(tot.v, 0)}</FootText><FootText>Invoiced {money(tot.inv, 0)}</FootText><FootText>Owed {money(tot.owed, 0)}</FootText>{tot.od ? <FootText>Overdue {money(tot.od, 0)}</FootText> : null}</>; }} />
+          tally foot={(left) => <><FootText>{tallyText(left)}</FootText><FootText bold>Value of works {money(valueOf(left), 0)}</FootText></>} />
       ) : shown.length ? shown.map((s) => {
         const m = data.m[s.id], v = Number(data.jfBy[s.id]?.contract_value || 0), po = (data.posBy[s.id] || []).join(', ');
         return <FinRow compact key={s.id} left={s.job_number || 'No no.'} title={s.name} onPress={() => router.push(`/fin/job/${s.id}` as never)}
           sub={[cliOf(s) || 'No client', po ? `PO ${po}` : 'No PO', pmName(s.responsible_pm_id), m?.owed ? `owed ${money(m.owed, 0)}` : '', m?.overdue ? `${money(m.overdue, 0)} overdue` : ''].filter(Boolean).join(' · ')}
           right={v ? money(v, 0) : 'No value'} tone={m?.overdue ? '#C0392B' : undefined} />;
       }) : <Empty>No projects here.</Empty>}
-      {!desk && shown.length > 0 && <Card><Text style={{ color: base.ink, fontWeight: '700' }}>{shown.length} project{shown.length === 1 ? '' : 's'} · Value {money(tot.v, 0)} · Invoiced {money(tot.inv, 0)} · Owed {money(tot.owed, 0)}{tot.od ? ` · Overdue ${money(tot.od, 0)}` : ''}</Text></Card>}
     </FinPage>
   );
 }

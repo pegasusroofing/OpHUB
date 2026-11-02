@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTrail } from '@/components/Crumbs';
 import { FIN_SUBS } from '@/components/FinNav';
 import { OphIcon } from '@/components/OphIcon';
+import { StorageImage } from '@/components/StorageImage';
 import { showAlert } from '@/components/toast';
 import { isManager } from '@/lib/roles';
 import { areaHome, parentOf, takeJump } from '@/lib/navBack';
@@ -77,11 +78,12 @@ export function AppBar({ title, onBack, home, right, noHistory }: { title?: stri
   const inside = finRest.length > 1 && finRest[1] !== 'new' ? (title && titleCase(title) !== jobPage ? titleCase(title) : null) : finRest[1] === 'new' ? 'New' : null;
   const secTab = tabLabel(FIN_SUBS[finSec], finSec === 'directory' ? (typeof qKind === 'string' ? qKind : undefined) : typeof qTab === 'string' ? qTab : undefined);
   const finCrumbs: [string, string | null][] = path === '/fin' ? []
-    : finJob ? [['Finance', '/fin'], ['Projects', '/fin/jobs'], [fJob ? [fJob.job_number, fJob.name].filter(Boolean).join(' ') : 'Project', jobTab || jobPage ? `/fin/job/${finJob}` : null],
+    : finJob ? [['Finance', '/fin'], ['Projects', '/fin/jobs'], [fJob ? `${[fJob.job_number, fJob.name].filter(Boolean).join(' ')}${finClient ? ` · ${finClient}` : ''}` : 'Project', jobTab || jobPage ? `/fin/job/${finJob}` : null],
       ...(jobTab && jobTab !== 'Overview' ? [[jobTab, null] as [string, null]] : []),
       ...(jobPage ? [[jobPage, inside ? `/fin/job/${finJob}/${finRest[0]}` : null] as [string, string | null]] : []),
       ...(inside ? [[inside, null] as [string, null]] : [])]
       : FIN_PARENT[finSec] ? [['Finance', '/fin'], FIN_PARENT[finSec], ...(title && titleCase(title) !== FIN_PARENT[finSec][0] ? [[titleCase(title), null] as [string, null]] : [])]
+      : finSec === 'reports' && title && title !== 'Reports' ? [['Finance', '/fin'], ['Reports', '/fin/reports'], [titleCase(title), null]]
       : finSec === 'directory' && qKind === 'codes' ? [['Finance', '/fin'], ['Settings', '/fin/settings'], ['Cost Codes', null]]
       : secTab && secTab !== finSub ? [['Finance', '/fin'], [finSub, `/fin/${finSec}`], [secTab, null]]
       : [['Finance', '/fin'], [finSub, null]];
@@ -114,6 +116,37 @@ export function AppBar({ title, onBack, home, right, noHistory }: { title?: stri
     onBack?.();
   };
   const roundBtn = { width: 38, height: 38, borderRadius: 19, backgroundColor: base.paper, alignItems: 'center', justifyContent: 'center' } as const;
+  // Finance's bar (Andy, 2 Nov 2026): slim, just the back arrow and OpHUB x the company. The trail under it names the page.
+  if (fin) return (
+    <View>
+      <View style={{ backgroundColor: base.card, borderBottomWidth: 1, borderBottomColor: '#e5e7eb', flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: insets.top + 6, paddingBottom: 6, paddingHorizontal: desk ? 28 : 10 }}>
+        {onBack && (
+          <Pressable onPress={pressBack} hitSlop={10} accessibilityRole="button" accessibilityLabel="Back" style={{ width: 28, height: 30, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ fontSize: 26, lineHeight: 28, color: base.ink, marginTop: -3 }}>‹</Text>
+          </Pressable>
+        )}
+        <Pressable onPress={() => router.navigate('/fin' as never)} accessibilityRole="link" accessibilityLabel="Finance overview" style={{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Text style={[heading(800), { fontSize: 18, letterSpacing: -0.3, color: '#111318' }]}><Text style={{ color: '#2B73D4' }}>Op</Text>HUB</Text>
+          <Text style={{ fontSize: 14, color: base.slate, fontWeight: '600' }}>×</Text>
+          {org?.logo_path && <StorageImage bucket="org-logos" path={org.logo_path} style={{ width: 28, height: 28, resizeMode: 'contain' }} />}
+          <Text numberOfLines={1} style={[heading(700), { flexShrink: 1, fontSize: 14.5, color: t.brand1 }]}>{org?.name || ''}</Text>
+        </Pressable>
+        {right}
+      </View>
+      {crumbs.length > 1 && (
+        <View style={{ backgroundColor: base.paper, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, paddingHorizontal: desk ? 40 : 16, paddingTop: 8, paddingBottom: 4 }}>
+          {crumbs.map(([l, href], i) => (
+            <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, maxWidth: '100%' }}>
+              {i > 0 && <Text style={{ color: '#B8BDC6', fontSize: cfs }}>›</Text>}
+              {href
+                ? <Pressable onPress={() => router.navigate(href as never)}><Text style={{ fontSize: cfs, fontWeight: '700', color: t.brand1 }}>{l}</Text></Pressable>
+                : <Text numberOfLines={1} style={{ fontSize: cfs, fontWeight: '700', color: base.ink }}>{l}</Text>}
+            </View>
+          ))}
+        </View>
+      )}
+    </View>
+  );
   return (
     <View>
       <View style={{ backgroundColor: base.card, borderBottomWidth: 1, borderBottomColor: fin ? '#e5e7eb' : desk ? '#E5E8ED' : base.line, paddingTop: insets.top + (desk ? 14 : 10), paddingBottom: desk ? 14 : 10, paddingHorizontal: desk ? 40 : 14 }}>

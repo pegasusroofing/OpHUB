@@ -957,3 +957,13 @@
 {"part":"moneydue3","step":"Server matches the page: cis","ok":true,"note":"2 rows, 8 figures checked","ms":10515}
 {"part":"moneydue3","step":"Server matches the page: vat","ok":true,"note":"20 rows, 32 figures checked","ms":10679}
 {"part":"moneydue2","step":"Save and run now, from the box","ok":true,"note":"status 200; Saved Money due 2026-11-02 1.xlsx","ms":37098}
+{"part":"finsettings2","step":"Settings at laptop size","ok":true,"note":"edit 1, settings labels 3","ms":13033}
+{"part":"finsettings2","step":"Finance bar: OpHUB x company on laptop and phone; back still works","ok":true,"note":"trail 1, x 1, back to /fin","ms":20473}
+{"part":"finsettings2","step":"Users at laptop size","ok":true,"note":"switch shown","ms":8458}
+{"part":"finsettings2","step":"Reports at laptop size","ok":true,"note":"screenshots","ms":17304}
+{"part":"jobtally1","step":"Laptop: starts on Live; old totals gone","ok":true,"note":"Value of works £628,900; old totals 0","ms":9347}
+{"part":"jobtally1","step":"Laptop: adding Closed and Upcoming changes the tally","ok":true,"note":"Value of works £944,750","ms":1708}
+{"part":"jobtally1","step":"Phone: tally at the bottom","ok":true,"note":"Value of works £628,900","ms":9193}
+{"part":"jobtally1","step":"Laptop: starts on Live; old totals gone","ok":true,"note":"Value of works £628,900; old totals 0","ms":9327}
+{"part":"jobtally1","step":"Laptop: adding Closed and Upcoming changes the tally","ok":true,"note":"Value of works £944,750","ms":1834}
+{"part":"jobtally1","step":"Phone: tally at the bottom","ok":true,"note":"Value of works £628,900","ms":9185}

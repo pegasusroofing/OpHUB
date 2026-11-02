@@ -3105,3 +3105,4 @@
 {"sent":"finance-report-run"}
 {"wrote":"fin_report_schedules","method":"POST","keys":["org_id","report_id","active","frequency","run_day","folder_id","folder_name","drive_id","filters","updated_by","updated_at"]}
 {"sent":"finance-report-run"}
+{"blocked":"function","fn":"xero"}
