@@ -137,7 +137,7 @@ export default function FinDetail() {
       {tab !== 'summary' && <TextInput value={q} onChangeText={setQ} placeholder="Search this tab — supplier, PO, invoice no., description…" style={[box, { marginBottom: 10 }]} />}
       <Card>{body}</Card>
     </ScrollView>
-    <ThinExportBar excelLabel="Export to Excel (every tab)" onExcel={exportAll} />
+    <ThinExportBar excelLabel="Export To Excel (Every Tab)" onExcel={exportAll} />
     </View>
   );
 }

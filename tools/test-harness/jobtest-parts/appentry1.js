@@ -5,13 +5,13 @@ module.exports = async ({as, step}) => {
   const [J] = await a.get('sites?select=id&name=eq.ZZ%20JOB%20Fin%20C&limit=1');
   await a.page.setViewportSize({width: 1440, height: 900});
   const pick = async (from, to) => { await q(from).first().click({timeout: 5000}); await a.page.waitForTimeout(400); await q(to).last().click({timeout: 5000}); await a.page.waitForTimeout(400); };
-  const open = async (id) => { await a.go('/fin/job/' + J.id + '/application/' + id, 9000); await a.page.waitForTimeout(4000); await q('Line by line').first().click({timeout: 5000}); await a.page.waitForTimeout(600); };
+  const open = async (id) => { await a.go('/fin/job/' + J.id + '/application/' + id, 9000); await a.page.waitForTimeout(4000); await q('Line By Line').first().click({timeout: 5000}); await a.page.waitForTimeout(600); };
   const line = (l) => (l.lines || []).find((x) => x.description === 'Strip tiles');
   let id;
   await step('Applied by £ on the draft', async () => {
     const [last] = await a.get('fin_applications?select=id,status&site_id=eq.' + J.id + '&order=number.desc&limit=1');
     if (last.status !== 'draft' && last.status !== 'submitted') { await a.go('/fin/job/' + J.id + '/application/new', 9000); await a.page.waitForTimeout(3000); id = new URL(a.page.url()).pathname.split('/').pop(); }
-    else if (last.status === 'submitted') { await a.go('/fin/job/' + J.id + '/application/' + last.id, 9000); await a.page.waitForTimeout(3500); await q('Certify').first().click({timeout: 6000}).catch(() => {}); await a.page.waitForTimeout(800); await q('Overview').last().click({timeout: 5000}).catch(() => {}); await a.page.waitForTimeout(800); await q('Certified as applied').first().click({timeout: 5000}).catch(() => {}); await a.page.waitForTimeout(400); await q('Save certificate').first().click({timeout: 6000}).catch(() => {}); await a.page.waitForTimeout(3500); await a.go('/fin/job/' + J.id + '/application/new', 9000); await a.page.waitForTimeout(3000); id = new URL(a.page.url()).pathname.split('/').pop(); }
+    else if (last.status === 'submitted') { await a.go('/fin/job/' + J.id + '/application/' + last.id, 9000); await a.page.waitForTimeout(3500); await q('Certify').first().click({timeout: 6000}).catch(() => {}); await a.page.waitForTimeout(800); await q('Overview').last().click({timeout: 5000}).catch(() => {}); await a.page.waitForTimeout(800); await q('Certified As Applied').first().click({timeout: 5000}).catch(() => {}); await a.page.waitForTimeout(400); await q('Save Certificate').first().click({timeout: 6000}).catch(() => {}); await a.page.waitForTimeout(3500); await a.go('/fin/job/' + J.id + '/application/new', 9000); await a.page.waitForTimeout(3000); id = new URL(a.page.url()).pathname.split('/').pop(); }
     else id = last.id;
     await open(id);
     await pick('Enter %', 'Enter £');
@@ -20,7 +20,7 @@ module.exports = async ({as, step}) => {
     return {ok: Number(line(r).pct) === 50, note: 'pct ' + line(r).pct};
   });
   await step('Each line on one row', async () => {
-    const sum = await a.page.getByText(/^100 m2 × /).locator('visible=true').first().boundingBox(), was = await a.page.getByText(/^Previous £/).locator('visible=true').first().boundingBox(), d = await a.page.getByText('Strip tiles').locator('visible=true').first().boundingBox();
+    const sum = await q('m2').first().boundingBox(), was = await a.page.getByLabel('Amount done').first().boundingBox(), d = await a.page.getByText('Strip tiles').locator('visible=true').first().boundingBox();
     await a.shot('one-row');
     return {ok: Math.abs(sum.y + sum.height / 2 - (was.y + was.height / 2)) < 6 && Math.abs(sum.y + sum.height / 2 - (d.y + d.height / 2)) < 6, note: [d.y, sum.y, was.y].map(Math.round).join(', ')};
   });
@@ -37,8 +37,8 @@ module.exports = async ({as, step}) => {
     return {ok: Number(line(r).pct) === 80, note: 'pct ' + line(r).pct};
   });
   await step('Certified by £', async () => {
-    await q('Mark as Applied').first().click({timeout: 5000}); await a.page.waitForTimeout(1500);
-    await q('Mark applied').last().click({timeout: 5000}); await a.page.waitForTimeout(3500); await a.shot('applied-form');
+    await q('Mark As Applied').first().click({timeout: 5000}); await a.page.waitForTimeout(1500);
+    await q('Mark As Applied').last().click({timeout: 5000}); await a.page.waitForTimeout(3500); await a.shot('applied-form');
     if ((await a.page.getByLabel('Certified percent').count()) !== 0) throw new Error('certified boxes showed before Certify');
     await q('Certify').first().click({timeout: 5000}); await a.page.waitForTimeout(600); await a.shot('certifying');
     await pick('Enter %', 'Enter £');

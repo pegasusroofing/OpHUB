@@ -6,7 +6,7 @@ module.exports = async ({as, step}) => {
   await a.page.setViewportSize({width: 1440, height: 900});
   await step('Page, footer and summary', async () => {
     await a.go('/fin/job/' + J.id + '/boq', 7000); await a.page.waitForTimeout(3000); await a.shot('boq');
-    const sum = await a.page.getByLabel('Section summary').count(), ticked = await a.page.getByText(/ticked|^Tick all/i).locator('visible=true').count(), ex = await q('Export to Excel').count(), main = await q('Variations').count();
+    const sum = await a.page.getByLabel('Section summary').count(), ticked = await a.page.getByText(/ticked|^Tick all/i).locator('visible=true').count(), ex = await q('Export To Excel').count(), main = await q('Variations').count();
     return {ok: sum === 1 && ticked === 0 && ex === 1 && main === 1, note: 'summary ' + sum + ', tick buttons ' + ticked + ', export ' + ex + ', variations tabs ' + main};
   });
   await step('Import / Export has no copy-in', async () => {

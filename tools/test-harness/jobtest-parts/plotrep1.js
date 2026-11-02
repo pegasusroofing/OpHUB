@@ -21,7 +21,7 @@ module.exports = async ({as, step}) => {
   });
   await step('Costs by plot has invoiced columns and export', async () => {
     await a.go('/fin/job/' + J.id + '/parts', 7000); await a.page.waitForTimeout(3000); await a.shot('parts');
-    return {ok: (await q('Invoiced').count()) >= 1 && (await q('Export to Excel').count()) === 1, note: 'ok'};
+    return {ok: (await q('Invoiced').count()) >= 1 && (await q('Export To Excel').count()) === 1, note: 'ok'};
   });
   await step('Plot by plot report', async () => {
     await a.go('/fin/reports', 5000); await a.page.waitForTimeout(1500); await q('Plot by plot').first().click({timeout: 6000}); await a.page.waitForTimeout(4000); await a.shot('report');

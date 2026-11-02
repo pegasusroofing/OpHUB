@@ -44,7 +44,7 @@ async function pickAppExcel(toast: (m: string) => void): Promise<AppXlItem[] | n
   return items;
 }
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 7, color: base.ink, backgroundColor: base.card };
-const STAGE: Record<string, string> = { draft: 'Draft', applied: 'Applied — waiting for certificate', certified: 'Certified', invoiced: 'Invoiced', void: 'Void' };
+const STAGE: Record<string, string> = { draft: 'Draft', applied: 'Applied — Waiting For Certificate', certified: 'Certified', invoiced: 'Invoiced', void: 'Void' };
 
 // Which view each application was last on, so marking one as applied from Line by line stays there.
 const lastView: Record<string, 'overview' | 'lines'> = {};
@@ -183,6 +183,16 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
   const gridCert = certFig && (stage !== 'applied' || certFig.gross) ? certFig : null;
   const certNet = certCalc ? certCalc.net_due : certDone ? Number(a0.cert_net || 0) : null;
   const dueNow = certNet != null ? certNet : c.net_due;
+  // Laptop: below each section bar, a table with a column for each figure (Andy, 2 Nov 2026).
+  const entryHead = (w: string) => `${w} ${mode === 'gbp' ? '£' : mode === 'qty' ? 'qty' : '%'}`;
+  const cols = certing || certDone ? ['ref', 'desc', 'qty', 'unit', 'value', 'pct', 'gross', 'certBox', 'cert', 'prev', 'now'] : ['ref', 'desc', 'qty', 'unit', 'rate', 'value', stage === 'draft' ? 'box' : 'pct', 'gross', 'prev', 'now'];
+  const gridHead = <GridRow head cols={cols} cells={{ ref: 'Ref', desc: 'Description', qty: 'Qty', unit: 'Unit', rate: 'Rate', value: 'Value', box: entryHead('Applied'), pct: 'Applied %', gross: certing || certDone ? 'Applied' : 'Cumulative', certBox: certing ? entryHead('Certified') : 'Certified %', cert: 'Certified', prev: 'Previous', now: 'Current' }} />;
+  const varSite = (v: Row, i: number) => {
+    const sp = varProgress[v.fin_variation_id || v.variation_id || ''];
+    if (sp == null) return null;
+    const can = !locked && sp !== pct(v.pct);
+    return <Text onPress={can ? () => { const was = pct(v.pct), to = pct(sp); setA({ ...a, variations: a.variations.map((y: Row, j: number) => (j === i ? { ...y, pct: to } : y)) }); setGen((g) => g + 1); toast(`${v.description || 'Variation'}: ${was}% → ${to}% from site`); } : undefined} style={{ fontSize: 11.5, fontWeight: '500', color: sp > pct(v.pct) ? '#b45309' : base.slate }}>Site {sp}%{can ? <Text style={{ color: base.blue, fontWeight: '600', textDecorationLine: 'underline' }}> Use</Text> : null}</Text>;
+  };
   return (
     <View style={{ flex: 1 }}>
     <ScrollView ref={scroller} style={{ flex: 1 }} contentContainerStyle={page(1100)} keyboardShouldPersistTaps="handled">
@@ -190,10 +200,10 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
       {!!a0.retention_release && <Card style={{ backgroundColor: '#f1fbf5', borderColor: '#d3f0de' }}><Text style={{ color: base.ink }}><Text style={{ fontWeight: '600' }}>Retention release — {a0.retention_release === 1 ? 'first half (practical completion)' : 'final release'}.</Text> Retention on this application is {pct(a0.retention_pct)}%, so the client pays back {a0.retention_release === 1 ? 'half of what they hold' : 'what they still hold'} when they certify it.</Text></Card>}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10, marginBottom: 6 }}>
         <Text style={{ fontSize: desk ? 20 : 17, fontWeight: '600', color: base.ink }}>Application No. {a0.number}</Text>
-        <View style={{ backgroundColor: stage === 'draft' ? '#EEF0F3' : stage === 'applied' ? '#FFF4DF' : '#E3F5E9', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 }}><Text style={{ fontSize: 12.5, fontWeight: '500', color: stage === 'draft' ? base.slate : stage === 'applied' ? '#92580A' : '#1E7A3C' }}>{certing ? 'Entering the certificate' : STAGE[stage]}</Text></View>
+        <View style={{ backgroundColor: stage === 'draft' ? '#EEF0F3' : stage === 'applied' ? '#FFF4DF' : '#E3F5E9', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 }}><Text style={{ fontSize: 12.5, fontWeight: '500', color: stage === 'draft' ? base.slate : stage === 'applied' ? '#92580A' : '#1E7A3C' }}>{certing ? 'Entering The Certificate' : STAGE[stage]}</Text></View>
       </View>
       <View style={{ flexDirection: 'row', gap: 6, marginBottom: 14, borderBottomWidth: 1, borderColor: base.cardLine }}>
-        {([['overview', 'Overview'], ['lines', 'Line by line']] as const).map(([k, l]) => (
+        {([['overview', 'Overview'], ['lines', 'Line By Line']] as const).map(([k, l]) => (
           <Pressable key={k} accessibilityRole="button" onPress={() => setView(k)} style={{ paddingHorizontal: 12, paddingVertical: 8, marginBottom: -1, borderBottomWidth: 2, borderBottomColor: view === k ? t.brand1 : 'transparent' }}>
             <Text style={{ fontSize: 14, fontWeight: view === k ? '600' : '500', color: view === k ? base.ink : base.slate }}>{l}</Text>
           </Pressable>
@@ -203,9 +213,9 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
         <View style={{ flexDirection: desk ? 'row' : 'column', alignItems: desk ? 'flex-start' : 'stretch', gap: 14 }}>
           <View style={desk ? { width: 340 } : undefined}>
             <Panel title="Application">
-              <DetailRow l="Application no."><Val>{a0.number}</Val></DetailRow>
-              <DetailRow l="Contract works"><Val>{money(contractTotal)}</Val></DetailRow>
-              {([['valuation_date', 'Valuation date'], ['due_date', 'Due date'], ['final_date', 'Final date for payment']] as const).map(([k, l]) => (
+              <DetailRow l="Application No."><Val>{a0.number}</Val></DetailRow>
+              <DetailRow l="Contract Works"><Val>{money(contractTotal)}</Val></DetailRow>
+              {([['valuation_date', 'Valuation Date'], ['due_date', 'Due Date'], ['final_date', 'Final Date For Payment']] as const).map(([k, l]) => (
                 <DetailRow key={k} l={l}>{locked ? <Val>{a[k] ? fdate(a[k]) : '—'}</Val> : <DateBox value={a[k] || ''} onChange={(x) => setA({ ...a, [k]: x })} title={l} style={{ width: 150, paddingVertical: 5 }} />}</DetailRow>
               ))}
               <DetailRow l={`Retention %${jf.retention_limit_pct ? ` (limit ${jf.retention_limit_pct}%)` : ''}`}>{locked ? <Val>{pct(a.retention_pct)}%</Val> : <TextInput accessibilityLabel="Retention percent" defaultValue={String(pct(a.retention_pct))} onChangeText={(x) => setA({ ...a, retention_pct: pct(x) })} keyboardType="decimal-pad" selectTextOnFocus style={[box, { width: 64, height: 30, paddingVertical: 2, textAlign: 'right' }]} />}</DetailRow>
@@ -214,17 +224,17 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
           </View>
           <View style={desk ? { flex: 1, minWidth: 0 } : undefined}>
             <Panel title="Valuation">
-              <ValGrid desk={desk} heads={gridCert ? ['Applied to date', 'Certified to date', 'Previous', 'This certificate'] : ['Applied to date', 'Previous', 'This application']} rows={(() => {
+              <ValGrid desk={desk} heads={gridCert ? ['Applied To Date', 'Certified To Date', 'Previous', 'This Certificate'] : ['Applied To Date', 'Previous', 'This Application']} rows={(() => {
                 const ap = figs(c), pr = appFigures(prior), mine = gridCert || ap, row = (l: string, k: keyof typeof ap, o?: Partial<GridRow>): GridRow => ({ l, v: gridCert ? [ap[k], gridCert[k], pr[k], round2(gridCert[k] - pr[k])] : [ap[k], pr[k], round2(ap[k] - pr[k])], ...o });
                 const netTo = round2(mine.gross - mine.discount - mine.retention), prevNet = gridCert ? certPrev : c.previous, thisNet = round2(netTo - prevNet);
                 const blank = (x: number): (number | null)[] => (gridCert ? [null, null, null, x] : [null, null, x]);
                 const vat = (jf.vat_treatment || finSt?.default_vat || 'standard') === 'standard';
                 return [
-                  row('Contract works', 'contract'), row('Variations', 'variations'), row('Day works', 'dayworks'), row('Subtotal', 'gross', { bold: true }),
-                  row('Less discount', 'discount', { neg: true }), row('Less retention', 'retention', { neg: true }),
+                  row('Contract Works', 'contract'), row('Variations', 'variations'), row('Day Works', 'dayworks'), row('Subtotal', 'gross', { bold: true }),
+                  row('Less Discount', 'discount', { neg: true }), row('Less Retention', 'retention', { neg: true }),
                   { l: 'Balance', bold: true, v: gridCert ? [round2(ap.gross - ap.discount - ap.retention), netTo, prevNet, thisNet] : [netTo, prevNet, thisNet] },
                   ...(vat ? [{ l: 'VAT @ 20%', v: blank(round2(thisNet * 0.2)) }] : []),
-                  { l: 'Total due', total: true, v: blank(vat ? round2(thisNet * 1.2) : thisNet) },
+                  { l: 'Total Due', total: true, v: blank(vat ? round2(thisNet * 1.2) : thisNet) },
                 ];
               })()} />
             </Panel>
@@ -233,7 +243,8 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
               <>
                 <ActionRow onDelete={deleteAny}>
                   <Button title="Certify" onPress={() => { setCertifying(true); setView('lines'); }} />
-                  <Button kind="ghost" title="Return to draft" onPress={async () => { if (await confirmAsk('Return this application to draft so you can edit it?', 'Return to draft')) { if (await setStatus(a0.id, { status: 'draft' })) { toast('Back to draft — you can edit it now'); refresh(); } } }} />
+                  <Button kind="ghost" busy={busy === 'xlsx'} title="Export Excel" onPress={() => void exportAs('xlsx')} />
+                  <Button kind="ghost" title="Return To Draft" onPress={async () => { if (await confirmAsk('Return this application to draft so you can edit it?', 'Return to draft')) { if (await setStatus(a0.id, { status: 'draft' })) { toast('Back to draft — you can edit it now'); refresh(); } } }} />
                 </ActionRow>
                 <Muted style={{ marginTop: 6 }}>Emailing the application to the client is switched off while Finance is on trial.</Muted>
               </>
@@ -242,21 +253,21 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
               <Certificate a={a0} jf={jf} cert={cert} onSaved={refresh} onLines={() => setView('lines')} actions={(saveBtn) => (
                 <ActionRow onDelete={deleteAny}>
                   {saveBtn}
-                  <Button kind="ghost" title="Back to the application" onPress={() => setCertifying(false)} />
+                  <Button kind="ghost" title="Back To The Application" onPress={() => setCertifying(false)} />
                 </ActionRow>
               )} />
             )}
             {(stage === 'certified' || stage === 'invoiced') && (
-              <Panel title={`${a0.cert_is_payless ? 'Pay-less notice' : 'Payment certificate'} · ${fdate(a0.cert_date)}`}>
+              <Panel title={`${a0.cert_is_payless ? 'Pay-Less Notice' : 'Payment Certificate'} · ${fdate(a0.cert_date)}`}>
                 <View style={{ padding: 12 }}>
-                  <SumRow bold l="Net due" v={money(a0.cert_net)} />
+                  <SumRow bold l="Net Due" v={money(a0.cert_net)} />
                   {round2(Number(a0.cert_net) - Number(a0.net_due)) !== 0 && <Text style={{ marginTop: 6, color: Number(a0.cert_net) < Number(a0.net_due) ? '#C0392B' : '#1E7A3C', fontWeight: '500' }}>{Number(a0.cert_net) < Number(a0.net_due) ? 'Short by' : 'Over by'} {money(Math.abs(Number(a0.cert_net) - Number(a0.net_due)))} compared with the {money(a0.net_due)} applied for.</Text>}
                   {a0.cert_notes ? <Muted style={{ marginTop: 6 }}>{a0.cert_notes}</Muted> : null}
                   {a0.cert_file_path && <Pressable onPress={async () => { const u = await openDocLink('finance-docs', a0.cert_file_path); if (u) viewDoc(u); }}><Text style={{ color: base.blue, marginTop: 6 }}>📄 Certificate</Text></Pressable>}
                   <ActionRow onDelete={a0.invoice_id ? undefined : deleteAny}>
-                    {a0.invoice_id ? <Button title="Open invoice" onPress={() => router.push(`/fin/job/${a0.site_id}/invoice/${a0.invoice_id}` as never)} />
-                      : <Button busy={busy === 'inv'} title="Raise invoice" onPress={async () => { setBusy('inv'); const r = await raiseInvoiceFromCert(me, org, a0, site as never, false); setBusy(''); if (r.error) toast(r.error); if (r.id) { refresh(); router.push(`/fin/job/${a0.site_id}/invoice/${r.id}` as never); } }} />}
-                    {!a0.invoice_id && <Button kind="ghost" title="Change the certificate" onPress={async () => { if (await confirmAsk('Clear the certificate figures and enter them again?', 'Clear')) { if (await clearCertificate(a0.id)) refresh(); else toast('Not saved — check your signal and try again.'); } }} />}
+                    {a0.invoice_id ? <Button title="Open Invoice" onPress={() => router.push(`/fin/job/${a0.site_id}/invoice/${a0.invoice_id}` as never)} />
+                      : <Button busy={busy === 'inv'} title="Raise Invoice" onPress={async () => { setBusy('inv'); const r = await raiseInvoiceFromCert(me, org, a0, site as never, false); setBusy(''); if (r.error) toast(r.error); if (r.id) { refresh(); router.push(`/fin/job/${a0.site_id}/invoice/${r.id}` as never); } }} />}
+                    {!a0.invoice_id && <Button kind="ghost" title="Change The Certificate" onPress={async () => { if (await confirmAsk('Clear the certificate figures and enter them again?', 'Clear')) { if (await clearCertificate(a0.id)) refresh(); else toast('Not saved — check your signal and try again.'); } }} />}
                   </ActionRow>
                 </View>
               </Panel>
@@ -266,9 +277,9 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
       )}
       {view === 'lines' && <>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8, alignItems: 'center' }}>
-        {(stage === 'draft' || certing) && <SelectBox title="Enter figures by" value={mode} options={[['pct', 'Enter %'], ['gbp', 'Enter £'], ['qty', 'Enter qty']]} onChange={(k) => setMode(k as Entry)} style={{ width: 130, marginBottom: 0 }} />}
-        <Check label="Hide 0% lines" value={hideZero} onChange={setHideZero} />
-        {stage === 'draft' && <View style={{ marginLeft: 'auto' }}><Button small kind="ghost" busy={!!busy} title="Upload edited Excel" onPress={() => void uploadExcel()} /></View>}
+        {(stage === 'draft' || certing) && <SelectBox title="Enter Figures By" value={mode} options={[['pct', 'Enter %'], ['gbp', 'Enter £'], ['qty', 'Enter qty']]} onChange={(k) => setMode(k as Entry)} style={{ width: 130, marginBottom: 0 }} />}
+        <Check label="Hide 0% Lines" value={hideZero} onChange={setHideZero} />
+        {stage === 'draft' && <View style={{ marginLeft: 'auto' }}><Button small kind="ghost" busy={!!busy} title="Upload Edited Excel" onPress={() => void uploadExcel()} /></View>}
         {stage === 'applied' && !certing && <View style={{ marginLeft: 'auto' }}><Button title="Certify" onPress={() => setCertifying(true)} /></View>}
       </View>
       {certing && <CertTools a={a0} cert={cert} />}
@@ -297,12 +308,8 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
         const sum = (k: string) => round2(g.reduce((n, j) => n + (isItem(c.lines[j]) ? Number((c.lines[j] as Row)[k] || 0) : 0), 0));
         return (
       <SecBlock key={g[0]} title={isSec ? head.description : 'General'} refNo={isSec ? head.ref : ''} total={sum('gross')} of={sum('value')}
-        tools={!locked && isSec ? <View style={{ flexDirection: 'row', gap: 6 }}><Button small kind="ghost" title="Set all to 100%" onPress={() => fill(g[0], 100)} /><Button small kind="ghost" title="Set all to 0%" onPress={() => fill(g[0], 0)} /></View> : undefined}>
-      {locked && desk && (
-        <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8, backgroundColor: '#F4F5F7', borderBottomWidth: 1, borderColor: base.cardLine, paddingVertical: 6, paddingHorizontal: 12 }}>
-          {([['Applied %', 62], ['Applied', 96], ...(certing || certDone ? [[certing && mode !== 'pct' ? (mode === 'gbp' ? 'Certified £' : 'Certified qty') : 'Certified %', CERT_W], ['Certified', 96]] : [])] as [string, number][]).map(([x, w]) => <Text key={x} style={{ width: w, textAlign: w === CERT_W ? 'center' : 'right', fontSize: 12.5, fontWeight: '600', color: base.slate }}>{x}</Text>)}
-        </View>
-      )}
+        tools={!locked && isSec ? <View style={{ flexDirection: 'row', gap: 6 }}><Button small kind="ghost" title="Set All To 100%" onPress={() => fill(g[0], 100)} /><Button small kind="ghost" title="Set All To 0%" onPress={() => fill(g[0], 0)} /></View> : undefined}>
+      {desk && gridHead}
       {g.map((i) => {
         const l = c.lines[i] as Row;
         if (l.kind === 'section') return null;
@@ -317,11 +324,28 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
         }
         if (hideZero && !pct(l.pct)) return null;
         const hasQty = l.qty != null && Number(l.qty) !== 0;
+        const siteTag = <Text style={{ fontSize: 12 }}>{siteProgress[l.item_id] != null ? <Text style={{ color: siteProgress[l.item_id] > pct(l.pct) ? '#b45309' : base.slate, fontWeight: '500' }}>{`  · Site ${siteProgress[l.item_id]}%`}</Text> : null}{siteProgress[l.item_id] != null && !locked && siteProgress[l.item_id] !== pct(l.pct) ? <Text onPress={() => { const was = pct(l.pct), to = pct(siteProgress[l.item_id]); setLine(i, { pct: to }); setGen((g) => g + 1); toast(`${l.description}: ${was}% → ${to}% from site — check, then Save`); }} style={{ color: base.blue, fontWeight: '600', textDecorationLine: 'underline' }}> Use</Text> : null}{siteProgress[l.item_id] == null && Object.keys(siteProgress).length > 0 ? <Text style={{ fontWeight: '500', color: base.slate }}>  · Not on site schedule</Text> : null}</Text>;
+        if (desk) {
+          const val = Number(l.value || 0), prev = round2((val * (prevPct[l.item_id] || 0)) / 100), p0 = pct(cert.cp[`l${i}`]);
+          const cl = certDone ? (a0.cert_lines || []).find((x: Row) => x.item_id === l.item_id) : null;
+          const certG = certing ? round2((val * p0) / 100) : cl ? Number(cl.gross || 0) : null;
+          return (
+            <GridRow key={i} cols={cols} cells={{
+              ref: l.ref || '', desc: <Text style={{ color: base.ink, fontSize: 14 }}>{l.description}{siteTag}</Text>,
+              qty: hasQty ? String(l.qty) : '', unit: hasQty ? l.unit || '' : '', rate: hasQty ? money(l.rate) : '', value: money(l.value),
+              box: <AmountBox key={`p${i}-${gen}`} p={pct(l.pct)} value={l.value} qty={l.qty} unit={l.unit} mode={over[l.item_id] || mode} onMode={flip(l.item_id)} labels={['Percent done', 'Amount done', 'Quantity done']} onPct={(x) => setLine(i, { pct: x })} />,
+              pct: `${pct(l.pct)}%`, gross: <Strong>{money(l.gross)}</Strong>,
+              certBox: certing ? <AmountBox p={p0} value={l.value} qty={l.qty} unit={l.unit} mode={over[l.item_id] || mode} onMode={flip(l.item_id)} labels={CERT_LABELS} onPct={(x) => cert.applyLines({ ...cert.cp, [`l${i}`]: String(x) })} /> : cl ? `${pct(cl.pct)}%` : '—',
+              cert: certG == null ? '—' : <Strong warn={certing && p0 !== pct(l.pct)}>{money(certG)}</Strong>,
+              prev: money(prev), now: certDone && !cl ? '—' : money(round2((certG ?? l.gross) - prev)),
+            }} />
+          );
+        }
         return (
           <View key={i} style={{ flexDirection: desk ? 'row' : 'column', alignItems: desk ? 'center' : 'stretch', gap: 8, paddingVertical: desk ? 8 : 10, paddingHorizontal: 12, borderBottomWidth: 1, borderColor: base.cardLine }}>
             {/* Laptop: description, sum and previous / this time all on the one row (Andy, 2 Nov 2026). */}
             <View style={desk ? { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 12 } : undefined}>
-              <Text style={desk ? { flex: 1, minWidth: 0, color: base.ink, fontSize: 15 } : { color: base.ink, fontSize: 14 }}><Text style={{ color: base.slate }}>{l.ref ? `${l.ref}  ` : ''}</Text>{l.description}<Text style={{ fontSize: 12 }}>{siteProgress[l.item_id] != null ? <Text style={{ color: siteProgress[l.item_id] > pct(l.pct) ? '#b45309' : base.slate, fontWeight: '500' }}>{`  · Site ${siteProgress[l.item_id]}%`}</Text> : null}{siteProgress[l.item_id] != null && !locked && siteProgress[l.item_id] !== pct(l.pct) ? <Text onPress={() => { const was = pct(l.pct), to = pct(siteProgress[l.item_id]); setLine(i, { pct: to }); setGen((g) => g + 1); toast(`${l.description}: ${was}% → ${to}% from site — check, then Save`); }} style={{ color: base.blue, fontWeight: '600', textDecorationLine: 'underline' }}> Use</Text> : null}{siteProgress[l.item_id] == null && Object.keys(siteProgress).length > 0 ? <Text style={{ fontWeight: '500', color: base.slate }}>  · Not on site schedule</Text> : null}</Text></Text>
+              <Text style={desk ? { flex: 1, minWidth: 0, color: base.ink, fontSize: 15 } : { color: base.ink, fontSize: 14 }}><Text style={{ color: base.slate }}>{l.ref ? `${l.ref}  ` : ''}</Text>{l.description}{siteTag}</Text>
               <Muted style={desk ? { width: 190, marginBottom: 0, marginTop: 0, fontSize: 12.5 } : undefined}>{hasQty ? `${l.qty} ${l.unit || ''} × ${money(l.rate)} = ` : 'Value '}{money(l.value)}</Muted>
               {/* Previous = certified on this line last time; This time = to date less previous (9219r). */}
               {(() => { const prev = round2((Number(l.value || 0) * (prevPct[l.item_id] || 0)) / 100); return prev || l.gross ? <Muted style={desk ? { width: 245, marginBottom: 0, marginTop: 0, fontSize: 12 } : { fontSize: 11.5 }}>Previous {money(prev)} · This time {money(round2(l.gross - prev))}</Muted> : desk ? <View style={{ width: 245 }} /> : null; })()}
@@ -350,12 +374,12 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
       })}
       {!locked && (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: desk ? 24 : 18 }}>
-          <Button small kind="ghost" title="+ Add a line" onPress={() => setAdding('line')} />
-          <Button small kind="ghost" title="+ Add a section" onPress={() => setAdding('section')} />
+          <Button small kind="ghost" title="+ Add A Line" onPress={() => setAdding('line')} />
+          <Button small kind="ghost" title="+ Add A Section" onPress={() => setAdding('section')} />
         </View>
       )}
       {adding && me && (
-        <FinForm title={adding === 'line' ? 'Add a line' : 'Add a section'} onClose={() => setAdding(null)}
+        <FinForm title={adding === 'line' ? 'Add A Line' : 'Add A Section'} onClose={() => setAdding(null)}
           note={adding === 'line' ? 'It goes into the Bill of Quantities too, so it carries on to later applications.' : 'A new header at the end of the Bill of Quantities.'}
           initial={{ under: '', pct: '0' }}
           fields={adding === 'line' ? [
@@ -395,8 +419,27 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
             setA({ ...a, lines: L }); toast('Line added'); return null;
           }} />
       )}
-      {(c.variations.length > 0 || !locked) && <SecBlock title="Variations" total={round2(c.variations.reduce((n: number, v: Row) => n + Number(v.gross || 0), 0))} tools={!locked ? <Button small kind="ghost" title="+ Variation line" onPress={() => setA({ ...a, variations: [...(a.variations || []), { variation_id: null, description: '', value: null, pct: 100 }] })} /> : undefined}>
-      {c.variations.map((v: Row, i: number) => (
+      {(c.variations.length > 0 || !locked) && <SecBlock title="Variations" total={round2(c.variations.reduce((n: number, v: Row) => n + Number(v.gross || 0), 0))} tools={!locked ? <Button small kind="ghost" title="+ Variation Line" onPress={() => setA({ ...a, variations: [...(a.variations || []), { variation_id: null, description: '', value: null, pct: 100 }] })} /> : undefined}>
+      {desk && gridHead}
+      {c.variations.map((v: Row, i: number) => desk ? (() => {
+        const val = Number(v.value || 0), prev = round2((val * (prevVar[v.fin_variation_id || v.variation_id || ''] || 0)) / 100), cp0 = pct(cert.cp[`v${i}`]);
+        const cl = certDone ? (a0.cert_lines || []).find((x: Row) => x.var_index === i) : null;
+        const certG = certing ? round2((val * cp0) / 100) : cl ? Number(cl.gross || 0) : null;
+        const inp = { width: '100%' as const, height: 30, paddingVertical: 2, fontSize: 13 };
+        return (
+          <GridRow key={i} cols={cols} cells={{
+            ref: '', desc: locked ? <Text style={{ color: base.ink, fontSize: 14 }}>{v.description} {varSite(v, i)}</Text> : <View style={{ width: '100%', flexDirection: 'row', alignItems: 'center', gap: 6 }}><TextInput value={v.description} onChangeText={(x) => setA({ ...a, variations: a.variations.map((y: Row, j: number) => (j === i ? { ...y, description: x } : y)) })} placeholder="Description" style={[box, { flex: 1, minWidth: 0, height: 30, paddingVertical: 2, fontSize: 13 }]} />{varSite(v, i)}</View>,
+            qty: locked ? (v.qty != null ? String(v.qty) : '1') : <TextInput accessibilityLabel="Variation quantity" defaultValue={v.qty != null ? String(v.qty) : '1'} onChangeText={(x) => setVar(i, { qty: x })} keyboardType="decimal-pad" selectTextOnFocus style={[box, inp]} />,
+            unit: '', rate: locked ? money(v.rate ?? v.value) : <TextInput defaultValue={v.rate != null ? String(v.rate) : v.value != null ? String(v.value) : ''} onChangeText={(x) => setVar(i, { rate: x })} placeholder="£ value" keyboardType="decimal-pad" selectTextOnFocus style={[box, inp]} />,
+            value: money(v.value),
+            box: <AmountBox key={`vp${i}-${gen}`} p={pct(v.pct)} value={v.value} mode={mode === 'gbp' ? 'gbp' : 'pct'} labels={['Percent done', 'Amount done', 'Quantity done']} onPct={(x) => setA({ ...a, variations: a.variations.map((y: Row, j: number) => (j === i ? { ...y, pct: x } : y)) })} />,
+            pct: `${pct(v.pct)}%`, gross: <Strong>{money(v.gross)}</Strong>,
+            certBox: certing ? <AmountBox p={cp0} value={v.value} qty={Number(v.qty) > 1 ? v.qty : null} mode={over[`v${i}`] || mode} onMode={flip(`v${i}`)} labels={CERT_LABELS} onPct={(x) => cert.applyLines({ ...cert.cp, [`v${i}`]: String(x) })} /> : cl && val ? `${pct((Number(cl.gross || 0) / val) * 100)}%` : '—',
+            cert: certG == null ? '—' : <Strong warn={certing && cp0 !== pct(v.pct)}>{money(certG)}</Strong>,
+            prev: money(prev), now: certDone && !cl ? '—' : money(round2((certG ?? v.gross) - prev)),
+          }} />
+        );
+      })() : (
         <View key={i} style={{ flexDirection: desk ? 'row' : 'column', alignItems: desk ? 'center' : 'stretch', gap: 8, paddingVertical: 8, paddingHorizontal: 12, borderBottomWidth: 1, borderColor: base.cardLine }}>
           {locked ? <Text style={desk ? { flex: 1, color: base.ink } : { color: base.ink }}>{v.description}</Text> : <TextInput value={v.description} onChangeText={(x) => setA({ ...a, variations: a.variations.map((y: Row, j: number) => (j === i ? { ...y, description: x } : y)) })} placeholder="Description" style={[box, desk ? { flex: 1 } : null]} />}
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
@@ -409,12 +452,7 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
               <AmountBox key={`vp${i}-${gen}`} p={pct(v.pct)} value={v.value} mode={mode === 'gbp' ? 'gbp' : 'pct'} labels={['Percent done', 'Amount done', 'Quantity done']} onPct={(x) => setA({ ...a, variations: a.variations.map((y: Row, j: number) => (j === i ? { ...y, pct: x } : y)) })} />
             </>
           )}
-          {(() => {
-            const sp = varProgress[v.fin_variation_id || v.variation_id || ''];
-            if (sp == null) return null;
-            const can = !locked && sp !== pct(v.pct);
-            return <Text onPress={can ? () => { const was = pct(v.pct), to = pct(sp); setA({ ...a, variations: a.variations.map((y: Row, j: number) => (j === i ? { ...y, pct: to } : y)) }); setGen((g) => g + 1); toast(`${v.description || 'Variation'}: ${was}% → ${to}% from site`); } : undefined} style={{ fontSize: 11.5, fontWeight: '500', color: sp > pct(v.pct) ? '#b45309' : base.slate }}>Site {sp}%{can ? <Text style={{ color: base.blue, fontWeight: '600', textDecorationLine: 'underline' }}> Use</Text> : null}</Text>;
-          })()}
+          {varSite(v, i)}
           <Text style={{ marginLeft: 'auto', minWidth: 90, textAlign: 'right', fontWeight: '600', color: base.ink }}>{money(v.gross)}</Text>
           {certing && <><View style={{ width: CERT_W, alignItems: 'center' }}><AmountBox p={pct(cert.cp[`v${i}`])} value={v.value} qty={Number(v.qty) > 1 ? v.qty : null} mode={over[`v${i}`] || mode} onMode={flip(`v${i}`)} labels={CERT_LABELS} onPct={(x) => cert.applyLines({ ...cert.cp, [`v${i}`]: String(x) })} /></View><Text style={{ width: 96, textAlign: 'right', fontWeight: '600', color: base.ink }}>{money(round2((Number(v.value || 0) * pct(cert.cp[`v${i}`])) / 100))}</Text></>}
           </View>
@@ -422,8 +460,23 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
       ))}
       </SecBlock>}
       {/* 902: typed day works can be added and changed on a draft; ones from the Day works register stay as they are. */}
-      {(c.dayworks.length > 0 || !locked) && <SecBlock title="Day works" total={round2(c.dayworks.reduce((n: number, d: Row) => n + Number(d.gross || 0), 0))} tools={!locked ? <Button small kind="ghost" title="+ Add daywork" onPress={() => setA({ ...a, dayworks: [...(a.dayworks || []), { description: '', value: null }] })} /> : undefined}>
-      {c.dayworks.map((d: Row, i: number) => (locked || d.fin_daywork_id) ? <View key={i} style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8, paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderColor: base.cardLine }}><Text style={{ flex: 1, color: base.ink }}>{d.description}</Text><Text style={{ fontWeight: '600', color: base.ink }}>{money(d.gross)}</Text>{certing && <View style={{ width: 180, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}><Text style={{ color: base.slate }}>£</Text><TextInput accessibilityLabel="Certified amount" value={cert.cp[`d${i}`]} onChangeText={(x) => cert.applyLines({ ...cert.cp, [`d${i}`]: x })} keyboardType="decimal-pad" selectTextOnFocus style={[box, { width: 96, height: 30, paddingVertical: 2, fontSize: 13 }]} /></View>}</View> : (
+      {(c.dayworks.length > 0 || !locked) && <SecBlock title="Day Works" total={round2(c.dayworks.reduce((n: number, d: Row) => n + Number(d.gross || 0), 0))} tools={!locked ? <Button small kind="ghost" title="+ Add Day Work" onPress={() => setA({ ...a, dayworks: [...(a.dayworks || []), { description: '', value: null }] })} /> : undefined}>
+      {desk && gridHead}
+      {c.dayworks.map((d: Row, i: number) => desk ? (() => {
+        const typed = !locked && !d.fin_daywork_id;
+        const cl = certDone ? (a0.cert_lines || []).find((x: Row) => x.day_index === i) : null;
+        const certG = certing ? num(cert.cp[`d${i}`]) || 0 : cl ? Number(cl.gross || 0) : null;
+        return (
+          <GridRow key={i} cols={cols} cells={{
+            ref: '', desc: typed ? <TextInput value={d.description || ''} onChangeText={(x) => setA({ ...a, dayworks: a.dayworks.map((y: Row, j: number) => (j === i ? { ...y, description: x } : y)) })} placeholder="Description" style={[box, { width: '100%', height: 30, paddingVertical: 2, fontSize: 13 }]} /> : <Text style={{ color: base.ink, fontSize: 14 }}>{d.description}</Text>,
+            qty: '', unit: '', rate: '', value: typed ? <TextInput defaultValue={d.value != null ? String(d.value) : ''} onChangeText={(x) => setA({ ...a, dayworks: a.dayworks.map((y: Row, j: number) => (j === i ? { ...y, value: num(x) } : y)) })} placeholder="£ value" keyboardType="decimal-pad" selectTextOnFocus style={[box, { width: '100%', height: 30, paddingVertical: 2, fontSize: 13 }]} /> : money(d.value),
+            box: '', pct: '', gross: <Strong>{money(d.gross)}</Strong>,
+            certBox: certing ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}><Text style={{ color: base.slate, fontWeight: '500' }}>£</Text><TextInput accessibilityLabel="Certified amount" value={cert.cp[`d${i}`]} onChangeText={(x) => cert.applyLines({ ...cert.cp, [`d${i}`]: x })} keyboardType="decimal-pad" selectTextOnFocus style={[box, { width: 90, height: 30, paddingVertical: 2, fontSize: 13 }]} /></View> : '',
+            cert: certG == null ? '—' : <Strong warn={certing && certG !== Number(d.gross || 0)}>{money(certG)}</Strong>,
+            prev: '', now: certG == null ? (certDone ? '—' : money(d.gross)) : money(certG),
+          }} />
+        );
+      })() : (locked || d.fin_daywork_id) ? <View key={i} style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8, paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderColor: base.cardLine }}><Text style={{ flex: 1, color: base.ink }}>{d.description}</Text><Text style={{ fontWeight: '600', color: base.ink }}>{money(d.gross)}</Text>{certing && <View style={{ width: 180, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}><Text style={{ color: base.slate }}>£</Text><TextInput accessibilityLabel="Certified amount" value={cert.cp[`d${i}`]} onChangeText={(x) => cert.applyLines({ ...cert.cp, [`d${i}`]: x })} keyboardType="decimal-pad" selectTextOnFocus style={[box, { width: 96, height: 30, paddingVertical: 2, fontSize: 13 }]} /></View>}</View> : (
         <View key={i} style={{ flexDirection: desk ? 'row' : 'column', alignItems: desk ? 'center' : 'stretch', gap: 8, paddingVertical: 8, paddingHorizontal: 12, borderBottomWidth: 1, borderColor: base.cardLine }}>
           <TextInput value={d.description || ''} onChangeText={(x) => setA({ ...a, dayworks: a.dayworks.map((y: Row, j: number) => (j === i ? { ...y, description: x } : y)) })} placeholder="Description" style={[box, desk ? { flex: 1 } : null]} />
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
@@ -433,14 +486,15 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
         </View>
       ))}
       </SecBlock>}
-      {certing && <View style={{ alignSelf: 'flex-end', marginBottom: 12 }}><Button title="Back to Overview to save the certificate" onPress={() => setView('overview')} /></View>}
+      {certing && <View style={{ alignSelf: 'flex-end', marginBottom: 12 }}><Button title="Back To Overview To Save The Certificate" onPress={() => setView('overview')} /></View>}
       </>}
       {stage === 'draft' && (
         <ActionRow note={autoNote} onDelete={async () => { if (await confirmAsk('Delete this draft application?', 'Delete')) { if (await deleteApplication(a0.id)) { toast('Draft deleted'); refresh(); router.back(); } else toast('Not saved — check your signal and try again.'); } }}>
           <Button kind="ghost" busy={busy === 'save'} title="Save" onPress={() => void save()} />
-          <Button title="Mark as Applied" onPress={async () => {
+          <Button kind="ghost" busy={busy === 'xlsx'} title="Export Excel" onPress={() => void exportAs('xlsx')} />
+          <Button title="Mark As Applied" onPress={async () => {
             if (!(await save(true))) return;
-            if (!(await confirmAsk('Mark this application as Applied? It will be locked so the figures can’t change. You can return it to draft if you need to edit it.', 'Mark applied'))) return;
+            if (!(await confirmAsk('Mark this application as Applied? It will be locked so the figures can’t change. You can return it to draft if you need to edit it.', 'Mark As Applied'))) return;
             if (await setStatus(a0.id, { status: 'submitted', submitted_at: new Date().toISOString() })) { toast('Applied — now locked.'); refresh(); } else toast('Not saved — check your signal and try again.');
           }} />
         </ActionRow>
@@ -448,12 +502,30 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
     </ScrollView>
     {view === 'lines' && (
       <View accessibilityLabel="Totals" style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-end', columnGap: desk ? 26 : 12, backgroundColor: t.brand1, paddingVertical: 8, paddingHorizontal: 16 }}>
-        <Text style={{ fontSize: desk ? 14 : 12, color: t.brand1Text }}>Applied to date <Text style={{ fontWeight: '600' }}>{money(c.gross)}</Text></Text>
-        {certFig && <Text style={{ fontSize: desk ? 14 : 12, color: t.brand1Text }}>Certified to date <Text style={{ fontWeight: '600' }}>{money(certFig.gross)}</Text></Text>}
-        <Text style={{ fontSize: desk ? 14 : 12, color: t.brand1Text }}>Due this time <Text style={{ fontWeight: '600' }}>{money(dueNow)}</Text></Text>
+        <Text style={{ fontSize: desk ? 14 : 12, color: t.brand1Text }}>Applied To Date <Text style={{ fontWeight: '600' }}>{money(c.gross)}</Text></Text>
+        {certFig && <Text style={{ fontSize: desk ? 14 : 12, color: t.brand1Text }}>Certified To Date <Text style={{ fontWeight: '600' }}>{money(certFig.gross)}</Text></Text>}
+        <Text style={{ fontSize: desk ? 14 : 12, color: t.brand1Text }}>Due This Time <Text style={{ fontWeight: '600' }}>{money(dueNow)}</Text></Text>
       </View>
     )}
     <ThinExportBar busy={busy ? 'x' : undefined} onExcel={() => void exportAs('xlsx')} onPdf={() => void exportAs('pdf')} />
+    </View>
+  );
+}
+
+const GRID_W: Record<string, number> = { ref: 52, qty: 58, unit: 48, rate: 82, value: 92, box: 124, pct: 66, gross: 96, certBox: 124, cert: 96, prev: 92, now: 92 };
+const Strong = ({ children, warn }: { children: ReactNode; warn?: boolean }) => <Text style={{ fontSize: 13.5, fontWeight: '600', color: warn ? '#b45309' : base.ink }}>{children}</Text>;
+/** One row of the lines table: thin lines between the columns, words on the left and figures on the right. */
+function GridRow({ cols, cells, head }: { cols: string[]; cells: Record<string, ReactNode>; head?: boolean }) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'stretch', borderBottomWidth: 1, borderColor: base.cardLine, backgroundColor: head ? '#F4F5F7' : undefined }}>
+      {cols.map((k, i) => {
+        const v = cells[k], words = k === 'desc' || k === 'ref' || k === 'unit', mid = k === 'box' || k === 'certBox';
+        return (
+          <View key={k} style={{ ...(k === 'desc' ? { flex: 1, minWidth: 0 } : { width: GRID_W[k] }), justifyContent: 'center', alignItems: mid ? 'center' : words ? 'flex-start' : 'flex-end', borderLeftWidth: i ? 1 : 0, borderColor: base.cardLine, paddingVertical: head ? 6 : 6, minHeight: head ? 0 : 42, paddingLeft: i ? 7 : 12, paddingRight: 7 }}>
+            {typeof v === 'string' ? <Text style={{ fontSize: head ? 12.5 : 13.5, fontWeight: head ? '600' : '400', color: head || k === 'ref' ? base.slate : base.ink, textAlign: mid ? 'center' : words ? 'left' : 'right' }}>{v}</Text> : v}
+          </View>
+        );
+      })}
     </View>
   );
 }
@@ -550,7 +622,7 @@ function ActionRow({ children, onDelete, note }: { children: ReactNode; onDelete
       {!!note && <Muted style={{ fontSize: 12, marginBottom: 6 }}>{note}</Muted>}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
         {(Array.isArray(children) ? children : [children]).filter(Boolean).map((b, i) => <View key={i} style={{ flex: 1, minWidth: 0 }}>{b}</View>)}
-        {!!onDelete && <Button small kind="ghost" title="Delete" onPress={onDelete} />}
+        {!!onDelete && <View style={{ width: 100 }}><Button kind="ghost" title="Delete" onPress={onDelete} /></View>}
       </View>
     </View>
   );
@@ -568,9 +640,9 @@ function SecBlock({ title, refNo, total, of, tools, children }: { title: string;
       {children}
       {tools ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, paddingVertical: 11, paddingHorizontal: 12 }}>{tools}</View> : null}
       <View accessibilityLabel="Section summary" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: desk ? 26 : 12, backgroundColor: t.brand1, borderBottomLeftRadius: 8, borderBottomRightRadius: 8, paddingVertical: desk ? 11 : 8, paddingHorizontal: 12 }}>
-        {of != null && <Text style={{ fontSize: desk ? 14 : 12, color: t.brand1Text }}>Section value <Text style={{ fontWeight: '600' }}>{money(of)}</Text></Text>}
+        {of != null && <Text style={{ fontSize: desk ? 14 : 12, color: t.brand1Text }}>Section Value <Text style={{ fontWeight: '600' }}>{money(of)}</Text></Text>}
         {of ? <Text style={{ fontSize: desk ? 14 : 12, color: t.brand1Text }}>Complete <Text style={{ fontWeight: '600' }}>{Math.round((total / of) * 1000) / 10}%</Text></Text> : null}
-        <Text style={{ fontSize: desk ? 14 : 12, color: t.brand1Text }}>To date <Text style={{ fontWeight: '600' }}>{money(total)}</Text></Text>
+        <Text style={{ fontSize: desk ? 14 : 12, color: t.brand1Text }}>To Date <Text style={{ fontWeight: '600' }}>{money(total)}</Text></Text>
       </View>
     </View>
   );
@@ -617,8 +689,8 @@ function CertTools({ a, cert }: { a: Row; cert: Cert }) {
     <View style={{ marginBottom: 12 }}>
       <Muted style={{ marginBottom: 8 }}>Enter what the client certified in the Certified column on each line. Lines start at what they last certified.</Muted>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-        <Button small kind="ghost" title="Certified as applied" onPress={cert.asApplied} />
-        <Button small kind="ghost" title="Fill in from the client's Excel" onPress={async () => {
+        <Button small kind="ghost" title="Certified As Applied" onPress={cert.asApplied} />
+        <Button small kind="ghost" title="Fill In From The Client's Excel" onPress={async () => {
           const items = await pickAppExcel(toast); if (!items) return;
           const r = certFromItems(a, items);
           if (!r.found) { toast('That doesn’t look like this application’s Excel — download it from OpHUB, send it to the client and upload their copy.'); return; }
@@ -626,7 +698,7 @@ function CertTools({ a, cert }: { a: Row; cert: Cert }) {
           setXlNote(`Read from the client’s Excel. ${r.diffs.length ? `${r.diffs.length} line${r.diffs.length === 1 ? ' differs' : 's differ'} from what you applied for:\n${r.diffs.slice(0, 8).join('\n')}${r.diffs.length > 8 ? `\n…and ${r.diffs.length - 8} more` : ''}` : 'Every line matches what you applied for.'} Check the figures, then save.`);
           toast('Certificate filled in from the Excel');
         }} />
-        <Button small kind="ghost" title="Fill in from the client's PDF" onPress={async () => {
+        <Button small kind="ghost" title="Fill In From The Client's PDF" onPress={async () => {
           // 9219p finCertFromPdf: each line's certified % read from the client's PDF (the last % on the matching row);
           // the PDF is kept as the certificate copy. Needs the PDF's text, so not a scan.
           const r = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true }); if (r.canceled || !r.assets[0]) return;
@@ -667,19 +739,19 @@ function Certificate({ a, cert, onSaved, onLines, jf, actions }: { a: Row; jf: R
     ? <DateBox value={String(v[k] ?? '')} onChange={(x) => setV({ ...v, [k]: x })} title={l} placeholder="Choose a date" style={{ paddingVertical: 8 }} />
     : <TextInput value={String(v[k])} onChangeText={(x) => setV({ ...v, [k]: x })} keyboardType="decimal-pad" selectTextOnFocus style={box} />}</View>;
   return (
-    <Panel title="Client's certificate">
+    <Panel title="Client's Certificate">
       <View style={{ padding: 12 }}>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}><Button small kind="ghost" title="Enter the certified figures line by line" onPress={onLines} /><Button small kind="ghost" title="Certified as applied" onPress={cert.asApplied} /></View>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}><Button small kind="ghost" title="Enter The Certified Figures Line By Line" onPress={onLines} /><Button small kind="ghost" title="Certified As Applied" onPress={cert.asApplied} /></View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 8 }}>
-        {f('cert_date', 'Certificate date')}
+        {f('cert_date', 'Certificate Date')}
       </View>
-      {n('cert_gross') ? <SumRow bold l="Net due" v={money(net)} /> : null}
+      {n('cert_gross') ? <SumRow bold l="Net Due" v={money(net)} /> : null}
       <Text style={{ color: !n('cert_gross') ? base.slate : diff < 0 ? '#C0392B' : diff > 0 ? '#1E7A3C' : base.slate, marginTop: 6, marginBottom: 6 }}>{!n('cert_gross') ? 'Nothing certified yet.' : diff ? `${diff < 0 ? 'Short by' : 'Over by'} ${money(Math.abs(diff))} compared with the ${money(a.net_due)} applied for.` : 'Matches what was applied for.'}</Text>
-      <Check label="This is a pay-less notice" value={!!v.cert_is_payless} onChange={(x) => setV({ ...v, cert_is_payless: x })} />
+      <Check label="This Is A Pay-Less Notice" value={!!v.cert_is_payless} onChange={(x) => setV({ ...v, cert_is_payless: x })} />
       <TextInput value={v.cert_notes} onChangeText={(x) => setV({ ...v, cert_notes: x })} placeholder="Notes, e.g. reason for any shortfall" style={[box, { marginVertical: 6 }]} />
-      <Pressable onPress={async () => { const r = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true }); if (!r.canceled && r.assets[0]) setFile({ uri: r.assets[0].uri, name: r.assets[0].name, mimeType: r.assets[0].mimeType }); }}><Text style={{ color: base.blue, marginBottom: 6 }}>📎 {file ? file.name : 'Copy of the certificate (optional)'}</Text></Pressable>
-      <Check label="Raise and issue the invoice now" value={!!v.invoiceNow} onChange={(x) => setV({ ...v, invoiceNow: x })} />
-      {actions(<Button busy={busy} title="Save certificate" onPress={async () => {
+      <Pressable onPress={async () => { const r = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true }); if (!r.canceled && r.assets[0]) setFile({ uri: r.assets[0].uri, name: r.assets[0].name, mimeType: r.assets[0].mimeType }); }}><Text style={{ color: base.blue, marginBottom: 6 }}>📎 {file ? file.name : 'Copy Of The Certificate (Optional)'}</Text></Pressable>
+      <Check label="Raise And Issue The Invoice Now" value={!!v.invoiceNow} onChange={(x) => setV({ ...v, invoiceNow: x })} />
+      {actions(<Button busy={busy} title="Save Certificate" onPress={async () => {
         const vals = ['cert_gross', 'cert_retention', 'cert_previous', 'cert_discount'].map((k) => num(v[k]));
         if (vals.some((x) => x === null || isNaN(x))) { toast('Fill in every amount (0 if none).'); return; }
         setBusy(true);

@@ -15,7 +15,7 @@ module.exports = async ({as, step}) => {
   });
   let id;
   await step('Draft: click selects, no jump after typing and returning to the window', async () => {
-    await a.go('/fin/job/' + J.id + '/application/new', 9000); await a.page.waitForTimeout(4000); id = new URL(a.page.url()).pathname.split('/').pop(); await a.shot('draft'); await q('Line by line').first().click({timeout: 5000}); await a.page.waitForTimeout(500);
+    await a.go('/fin/job/' + J.id + '/application/new', 9000); await a.page.waitForTimeout(4000); id = new URL(a.page.url()).pathname.split('/').pop(); await a.shot('draft'); await q('Line By Line').first().click({timeout: 5000}); await a.page.waitForTimeout(500);
     const box = a.page.getByLabel('Percent done').last(); await box.scrollIntoViewIfNeeded(); await a.page.waitForTimeout(300);
     await box.click(); await a.page.waitForTimeout(150); await a.page.keyboard.type('50'); await a.page.waitForTimeout(200);
     const typed = await box.inputValue(); const y1 = (await box.boundingBox()).y;
@@ -25,17 +25,17 @@ module.exports = async ({as, step}) => {
     return {ok: typed === '50' && Math.abs(y2 - y1) < 2 && still === '50', note: 'typed ' + typed + ', scroll ' + y1 + ' > ' + y2 + ', still ' + still};
   });
   await step('Variation quantity sets the value', async () => {
-    await q('+ Variation line').first().click({timeout: 5000}); await a.page.waitForTimeout(500);
+    await q('+ Variation Line').first().click({timeout: 5000}); await a.page.waitForTimeout(500);
     await a.page.getByPlaceholder('Description').last().fill('ZZ two doors');
     await a.page.getByLabel('Variation quantity').last().fill('2');
     await a.page.getByPlaceholder('£ value').last().fill('150'); await a.page.waitForTimeout(600); await a.shot('variation');
     return {ok: (await q('£300.00').count()) >= 1, note: 'value £300'};
   });
   await step('Buttons on one row, then certified on each line', async () => {
-    const s = await q('Save').last().boundingBox(), m = await q('Mark as Applied').first().boundingBox(), d = await q('Delete').first().boundingBox(); await a.shot('buttons');
+    const s = await q('Save').last().boundingBox(), m = await q('Mark As Applied').first().boundingBox(), d = await q('Delete').first().boundingBox(); await a.shot('buttons');
     const same = Math.abs(s.y - m.y) < 8 && Math.abs(d.y + d.height / 2 - (m.y + m.height / 2)) < 8;
-    await q('Mark as Applied').first().click({timeout: 5000}); await a.page.waitForTimeout(1500);
-    await q('Mark applied').last().click({timeout: 5000}); await a.page.waitForTimeout(3500); await a.shot('applied'); await q('Certify').first().click({timeout: 5000}); await a.page.waitForTimeout(600);
+    await q('Mark As Applied').first().click({timeout: 5000}); await a.page.waitForTimeout(1500);
+    await q('Mark As Applied').last().click({timeout: 5000}); await a.page.waitForTimeout(3500); await a.shot('applied'); await q('Certify').first().click({timeout: 5000}); await a.page.waitForTimeout(600);
     const boxes = await a.page.getByLabel('Certified percent').count();
     const [r] = await a.get('fin_applications?select=status,variations&id=eq.' + id);
     const kept = (r.variations || []).some((v) => v.description === 'ZZ two doors' && Number(v.value) === 300 && Number(v.qty) === 2);
