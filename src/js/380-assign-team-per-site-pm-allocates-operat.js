@@ -125,6 +125,7 @@ async function renderAssignTeam(siteId){
     <p class="ddrow" style="margin-top:18px;" onclick="toggleSiteTeamSection('sync')"><span class="arrow">${siteTeamSectionOpen.sync?'▼':'▶'}</span> Sync Folder</p>
     ${siteTeamSectionOpen.sync ? `
     <div class="card" style="padding:10px 14px;">
+      ${typeof jobPackSiteCardHtml==='function' ? jobPackSiteCardHtml(site) : ''}
       ${odNeedsReconnect ? `<p class="stub" style="margin:0 0 8px;color:var(--warn);">OneDrive isn't syncing at the moment — the company connection needs reconnecting by an admin (Admin Centre › Integrations).</p>` : ''}
       ${site.onedrive_folder_id ? `
         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">

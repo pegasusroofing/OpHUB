@@ -173,7 +173,7 @@ async function sowSendOne(r){
   const pc = sowPendingFind(r.id);
   if(sowCancelled.has(r.id) || (pc && pc.cancelled)){ try{ await sbFetch('/rest/v1/schedule_photos?id=eq.'+r.id, {method:'DELETE'}); }catch(e){} return true; }
   sowSetState(r.id, 'done');
-  try{ const nm = await sowTaskName(r.taskId); queueOneDrivePhotoPath(stored, nm+' '+new Date(r.at).toISOString().slice(0,16).replace(/[:T]/g,'-')+' '+r.id.slice(0,4)+'.jpg', r.siteId); }catch(e){}
+  try{ const nm = await sowTaskName(r.taskId); queueOneDrivePhotoPath(stored, nm+' '+new Date(r.at).toISOString().slice(0,16).replace(/[:T]/g,'-')+' '+r.id.slice(0,4)+'.jpg', r.siteId, r.stage); }catch(e){}
   return true;
 }
 async function sowPumpRun(){

@@ -298,6 +298,7 @@ async function renderTeam(adminPage, adminItemKey){
         <button class="darkbtn" ${odBusy?'disabled':''} onclick="connectOneDrive()">${odBusy?'Connecting…':'Connect OneDrive'}</button>
       `}
     </div>
+    ${typeof jobPackAdminCardHtml==='function' ? jobPackAdminCardHtml() : ''}
     <div class="card" style="margin-top:10px;">
       <p class="sectiontitle" style="margin-top:0;">⭐ Quick Links</p>
       <p class="stub" style="margin:0 0 10px;">Pin a folder here — e.g. your Live Projects folder — so it shows as a one-tap shortcut anywhere someone chooses a OneDrive sync folder, instead of clicking through every folder each time.</p>
@@ -337,7 +338,7 @@ async function renderTeam(adminPage, adminItemKey){
                 <span class="integ-dot ${p.id?'on':''}"></span>
                 <span class="integ-txt"><b>${p.label}</b><span>${p.id ? '📁 '+escapeHtml(p.name||'Linked folder') : 'Not linked'}</span></span>
                 <button type="button" class="ghostbtn" style="width:auto;margin:0;padding:6px 10px;font-size:12px;" onclick="startOneDriveFolderPicker('${s.id}','${p.k}','#/team/company/onedrive')">${p.id?'Change':'Link'}</button>
-              </div>`).join('') + (s.onedrive_folder_id ? `<div class="integ-row" style="justify-content:flex-end;"><button type="button" class="ghostbtn" style="width:auto;margin:0;padding:6px 10px;font-size:12px;" ${siteOdSyncBusy===s.id?'disabled':''} onclick="manualSyncSiteOneDrive('${s.id}')">${siteOdSyncBusy===s.id?'Syncing…':'Sync now'}</button></div>` : '') : ''}
+              </div>`).join('') + (typeof jobPackSiteRowHtml==='function' ? jobPackSiteRowHtml(s) : '') + (s.onedrive_folder_id ? `<div class="integ-row" style="justify-content:flex-end;"><button type="button" class="ghostbtn" style="width:auto;margin:0;padding:6px 10px;font-size:12px;" ${siteOdSyncBusy===s.id?'disabled':''} onclick="manualSyncSiteOneDrive('${s.id}')">${siteOdSyncBusy===s.id?'Syncing…':'Sync now'}</button></div>` : '') : ''}
           </div>`;
         }).join('');
       })()}
