@@ -251,6 +251,7 @@ function Setup({ id, site, jf, cpos, settings, formOnly, onDone }: { id: string;
   const toast = useToast();
   const qc = useQueryClient();
   const [edit, setEdit] = useState<'job' | 'po' | 'dates' | 'site' | null>(formOnly ? 'job' : null);
+  const [datesOver, setDatesOver] = useState(false); // the monthly dates, opened on top of Project Financials so nothing typed there is lost
   const { data: people } = usePeople();
   // Directory clients: the bill-to follows the client's Directory record (9219u — it lives on the client).
   const { data: dirClients = [] } = useQuery({ queryKey: ['finDirClients', me?.org_id], enabled: !!me, queryFn: async () => ((await fdb.from('fin_clients').select('id,name,email,address,postcode').eq('org_id', me?.org_id as string).order('name')).data as Row[] | null) ?? [] });
@@ -273,15 +274,15 @@ function Setup({ id, site, jf, cpos, settings, formOnly, onDone }: { id: string;
     if (await deleteSite(id)) { toast('Project deleted'); void qc.invalidateQueries({ queryKey: ['sites'] }); router.replace('/fin/jobs' as never); } else toast('Could not delete — try again.');
   };
   const jobForm = edit === 'job' && (
-        <FinForm title="Project Financials" initial={{ ...jf, job_number: site?.job_number || '', billing_type: jf.billing_type || '' }} onClose={() => { setEdit(null); onDone?.(); }}
+        <FinForm title="Project Financials" initial={{ ...jf, job_number: site?.job_number || '', billing_type: jf.billing_type || '', ohp_pct: jf.ohp_pct ?? settings.ohp_pct ?? 0 }} onClose={() => { setEdit(null); onDone?.(); }}
           fields={[
             { k: 'job_number', label: 'Project number', half: true }, { k: 'contract_value', label: 'Contract value £ (excl. VAT)', kind: 'money', half: true },
             { k: 'billing_type', label: 'Billed by', kind: 'choice', options: [['invoice', 'Invoice'], ['application', 'Application (with retention)']], note: 'Invoice jobs have no applications or retention.' },
             ...(byInv ? [] : [{ k: 'retention_pct', label: 'Retention %', kind: 'number' as const, half: true, ph: String(settings.default_retention_pct) }, { k: 'retention_limit_pct', label: 'Retention limit %', kind: 'number' as const, half: true }]),
             { k: 'due_days', label: 'Payment due (days)', kind: 'number', half: true, ph: String(settings.default_due_days) }, { k: 'final_days', label: 'Final date (days)', kind: 'number', half: true, ph: String(settings.default_final_days) },
             { k: 'vat_treatment', label: 'VAT', kind: 'choice', options: [['', 'Company default'], ...Object.entries(FIN_VAT_LABEL)] as [string, string][] },
-            { k: 'app_reminder_day', label: 'Application date (day of month)', kind: 'number', half: true }, { k: 'ohp_pct', label: `Company overheads % (blank = ${settings.ohp_pct ?? 0}%)`, kind: 'number', half: true, note: me.role === 'admin' ? undefined : 'Only a company admin can change this.' },
-            { k: 'billing_name', label: 'Bill to (client)', kind: 'choice', options: [['', 'Not set'], ...dirClients.map((c) => [c.name, c.name] as [string, string]), ...(jf.billing_name && !dirClients.some((c) => c.name === jf.billing_name) ? [[jf.billing_name, `${jf.billing_name} (not in the Directory)`] as [string, string]] : [])], note: 'From the Directory — the billing address and accounts email follow the client’s Directory record.' }, { k: 'billing_address', label: 'Billing address', kind: 'multiline' }, { k: 'billing_email', label: 'Accounts email', kind: 'email' },
+            { k: 'app_reminder_day', label: 'Application date (day of month)', kind: 'day', half: true, extra: { label: 'Set a differing day for some months', onPress: () => setDatesOver(true) } }, { k: 'ohp_pct', label: 'Company overheads %', kind: 'number', half: true, note: me.role === 'admin' ? undefined : 'Only a company admin can change this.' },
+            { k: 'billing_name', label: 'Client', kind: 'choice', options: [['', 'Not set'], ...dirClients.map((c) => [c.name, c.name] as [string, string]), ...(jf.billing_name && !dirClients.some((c) => c.name === jf.billing_name) ? [[jf.billing_name, `${jf.billing_name} (not in the Directory)`] as [string, string]] : [])], note: 'From the Directory — the billing address and accounts email follow the client’s Directory record.' }, { k: 'billing_address', label: 'Billing address', kind: 'multiline' }, { k: 'billing_email', label: 'Accounts email', kind: 'email' },
             { k: 'pc_date', label: 'Practical completion date', kind: 'date', half: true }, { k: 'defects_months', label: 'Defects period (months)', kind: 'number', half: true },
             ...(byInv ? [] : [{ k: 'final_release_date', label: 'Final retention release (blank = end of defects period)', kind: 'date' as const, half: true }]),
             { k: 'qs_id', label: 'QS', kind: 'choice', half: true, options: [['', 'None yet'], ...(people ?? []).filter((p) => ['pm', 'admin', 'site_manager'].includes(p.role) || (p as { finance_enabled?: boolean }).finance_enabled).sort((a, b) => a.name.localeCompare(b.name)).map((p) => [p.id, p.name] as [string, string])] },
@@ -309,13 +310,36 @@ function Setup({ id, site, jf, cpos, settings, formOnly, onDone }: { id: string;
             };
             if (contract !== null && contract !== Number(jf.contract_value)) patch.contract_value_source = 'manual';
             if (jf.original_value == null && contract && contract > 0) { patch.original_value = contract; patch.original_at = jf.original_at || new Date().toISOString(); }
-            if (me.role === 'admin') { const o = n('ohp_pct'); patch.ohp_pct = o === null || isNaN(o) || o < 0 || o > 100 ? null : o; }
+            if (me.role === 'admin') { const o = n('ohp_pct'); patch.ohp_pct = o === null || isNaN(o) || o < 0 || o > 100 || o === Number(settings.ohp_pct ?? 0) ? null : o; }
             const e = await saveJobFinance(me, id, patch);
             if (e) return e;
             toast('Project financials saved'); refresh(); return null;
           }} />
   );
-  if (formOnly) return jobForm || null;
+  const datesForm = (edit === 'dates' || datesOver) && (() => {
+        const months = Array.from({ length: 13 }, (_, i) => { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 1 + i); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; });
+        const custom = (jf.app_dates || {}) as Record<string, string>;
+        const rule = (ym: string) => appDateFor({ ...jf, app_dates: null } as never, settings, ym);
+        return (
+          <FinForm title="Monthly application dates" onClose={() => { setDatesOver(false); if (edit === 'dates') setEdit(null); }}
+            note="Set a date for any month that's different from the usual day. Leave a month blank to use the usual day (shown greyed)."
+            initial={Object.fromEntries(months.map((m) => [m, custom[m] || '']))}
+            fields={months.map((m) => ({ k: m, label: new Date(`${m}-01T12:00:00`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }), kind: 'date' as const, half: true, ph: rule(m) || 'No usual day set' }))}
+            onSave={async (v) => {
+              const next: Record<string, string> = { ...custom };
+              for (const m of months) {
+                const d = String(v[m] ?? '').trim();
+                if (!d || d === rule(m)) { delete next[m]; continue; }
+                if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return `Use YYYY-MM-DD for ${m}.`;
+                next[m] = d;
+              }
+              const e = await saveJobFinance(me, id, { app_dates: Object.keys(next).length ? next : null });
+              if (e) return e;
+              toast('Application dates saved'); refresh(); return null;
+            }} />
+        );
+  })();
+  if (formOnly) return <>{jobForm}{datesForm}</>;
   return (
     <View>
       <SectionTitle>Project details</SectionTitle>
@@ -327,7 +351,7 @@ function Setup({ id, site, jf, cpos, settings, formOnly, onDone }: { id: string;
         {kv('Payment terms', `${jf.due_days ?? settings.default_due_days} days · final ${jf.final_days ?? settings.default_final_days} days`)}
         {kv('VAT', FIN_VAT_LABEL[jf.vat_treatment || settings.default_vat] || '—')}
         {!byInv && kv('Application date', jf.app_reminder_day ? `${jf.app_reminder_day} of each month` : settings.app_reminder_day ? `${settings.app_reminder_day} (company)` : 'Not set')}
-        {kv('Bill to', [jf.billing_name, jf.billing_email].filter(Boolean).join(' · ') || '—')}
+        {kv('Client', [jf.billing_name, jf.billing_email].filter(Boolean).join(' · ') || '—')}
         {kv('Practical completion', jf.pc_date ? fdate(jf.pc_date) : '—')}
         {kv('Defects period', `${jf.defects_months ?? settings.default_defects_months ?? 12} months`)}
         {!byInv && kv('Final retention release', jf.final_release_date ? `${fdate(jf.final_release_date)} (set by hand)` : 'End of the defects period')}
@@ -363,29 +387,7 @@ function Setup({ id, site, jf, cpos, settings, formOnly, onDone }: { id: string;
             refresh(); return null;
           }} />
       )}
-      {edit === 'dates' && (() => {
-        const months = Array.from({ length: 13 }, (_, i) => { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 1 + i); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; });
-        const custom = (jf.app_dates || {}) as Record<string, string>;
-        const rule = (ym: string) => appDateFor({ ...jf, app_dates: null } as never, settings, ym);
-        return (
-          <FinForm title="Monthly application dates" onClose={() => setEdit(null)}
-            note="Set a date for any month that's different from the usual day. Leave a month blank to use the usual day (shown greyed)."
-            initial={Object.fromEntries(months.map((m) => [m, custom[m] || '']))}
-            fields={months.map((m) => ({ k: m, label: new Date(`${m}-01T12:00:00`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }), kind: 'date' as const, half: true, ph: rule(m) || 'No usual day set' }))}
-            onSave={async (v) => {
-              const next: Record<string, string> = { ...custom };
-              for (const m of months) {
-                const d = String(v[m] ?? '').trim();
-                if (!d || d === rule(m)) { delete next[m]; continue; }
-                if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return `Use YYYY-MM-DD for ${m}.`;
-                next[m] = d;
-              }
-              const e = await saveJobFinance(me, id, { app_dates: Object.keys(next).length ? next : null });
-              if (e) return e;
-              toast('Application dates saved'); refresh(); return null;
-            }} />
-        );
-      })()}
+      {datesForm}
       {jobForm}
       {edit === 'po' && (
         <FinForm title={po ? `Client PO ${po.po_number}` : 'Client PO'} initial={po || { is_primary: !cpos.length }} onClose={() => setEdit(null)}

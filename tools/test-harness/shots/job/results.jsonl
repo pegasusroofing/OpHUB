@@ -1149,3 +1149,14 @@
 {"part":"jobvar1","step":"Variations tab, then Day Works","ok":true,"note":"variations then dayworks","ms":5140}
 {"part":"jobvar1","step":"Sales opens on Applications, in the right order","ok":true,"note":"301 < 485 < 565, applications list 1","ms":10438}
 {"part":"boqdup1","step":"Duplicate section","ok":true,"note":"1,1.1,1.2,1.3 > 1,1.1,1.2,1.3,2,2.1,2.2,2.3","ms":12170}
+{"part":"finform1","step":"Form","ok":true,"note":"client 2, old 0, overheads box filled true","ms":11072}
+{"part":"finform1","step":"Calendar gives a day; link opens the months","ok":true,"note":"day 1, months 1","ms":2807}
+{"part":"finform1","step":"Form","ok":true,"note":"client 2, old 0, overheads box filled true","ms":10980}
+{"part":"finform1","step":"Stays open after a mistake and a click outside","ok":true,"note":"message 1, form open 1","ms":2155}
+{"part":"finform1","step":"Calendar gives a day; link opens the months","ok":true,"note":"day 1, months 1","ms":2704}
+{"part":"finsettings1","step":"Company overheads can be changed from their own row","ok":true,"note":"was 0, now 7.5","ms":16195}
+{"part":"finsettings1","step":"Figure put back","ok":true,"note":"now 0","ms":12030}
+{"part":"finsettings1","step":"Cost Codes keep the Settings tabs; no Team tab; none in Directory","ok":true,"note":"team 0, settings 3, directory cost codes 0","ms":10501}
+{"part":"finsettings1","step":"Admin Users: Finance switch on office roles, none on operatives","ok":true,"note":"1 switches, 2 operatives, 0 on operatives","ms":8530}
+{"part":"finsettings1","step":"Reports list and a report read cleanly","ok":true,"note":"2 matches; 39 rows","ms":18211}
+{"part":"finsettings1","step":"Statements and People & rates keep their tabs","ok":false,"note":"page.waitForTimeout: Page crashed","ms":3659}

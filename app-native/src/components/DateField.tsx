@@ -1,6 +1,6 @@
 // A date you pick from a calendar (Andy: every date is a clickable calendar). The value is kept as
 // YYYY-MM-DD and shown as 29 Oct 2026. `min` stops earlier days being picked (e.g. today onwards).
-import { useEffect, useState, type ComponentProps } from 'react';
+import { useEffect, useState, type ComponentProps, type ReactNode } from 'react';
 import { Pressable, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { Popup } from '@/components/Popup';
@@ -13,8 +13,8 @@ export const todayIso = () => isoOf(new Date());
 const parse = (v?: string | null) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(v || ''); return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null; };
 export const showDate = (v?: string | null) => { const d = parse(v); return d ? `${d.getDate()} ${MONTHS[d.getMonth()].slice(0, 3)} ${d.getFullYear()}` : ''; };
 
-export function CalendarPopup({ value, min, max, title = 'Choose a date', onPick, onClose, clearable }: {
-  value?: string | null; min?: string; max?: string; title?: string; clearable?: boolean;
+export function CalendarPopup({ value, min, max, title = 'Choose a date', onPick, onClose, clearable, footer }: {
+  value?: string | null; min?: string; max?: string; title?: string; clearable?: boolean; footer?: ReactNode;
   onPick: (iso: string) => void; onClose: () => void;
 }) {
   const start = parse(value) || parse(min) || new Date();
@@ -57,6 +57,7 @@ export function CalendarPopup({ value, min, max, title = 'Choose a date', onPick
         {!min || today >= min ? <Pressable onPress={() => onPick(today)}><Text style={{ color: base.blue, fontWeight: '700' }}>Today</Text></Pressable> : <View />}
         {clearable && <Pressable onPress={() => onPick('')}><Text style={{ color: base.slate, fontWeight: '700' }}>Clear</Text></Pressable>}
       </View>
+      {footer}
     </Popup>
   );
 }

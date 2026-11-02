@@ -3128,3 +3128,8 @@
 {"wrote":"job_finance","method":"POST","keys":["site_id","org_id","updated_at","updated_by","contract_value"]}
 {"wrote":"fin_contract_items","method":"PATCH","keys":["kind","ref","description","qty","unit","rate","value","position","cost","sub_job_id","cost_basis","cost_pct"]}
 {"wrote":"job_finance","method":"POST","keys":["site_id","org_id","updated_at","updated_by","contract_value"]}
+{"blocked":"function","fn":"xero"}
+{"wrote":"fin_settings","method":"POST","keys":["org_id","updated_at","updated_by","ohp_pct"]}
+{"blocked":"function","fn":"xero"}
+{"wrote":"fin_settings","method":"POST","keys":["org_id","updated_at","updated_by","ohp_pct"]}
+{"blocked":"function","fn":"xero"}
