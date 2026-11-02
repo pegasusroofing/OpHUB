@@ -80,7 +80,8 @@ export function FinJobTabs({ id, active, job, name, onOverview }: { id: string; 
   // Variations sit inside the Bill of Quantities tab, unless an invoice job has no Bill.
   const current = active === 'variations' && !invoiceJob ? 'boq' : active;
   const tabs: [string, string][] = [['overview', 'Overview'], ['sales', 'Sales'], ['purchases', 'Purchases'], ['subs', 'Subcontractors & Labour'], ...(invoiceJob ? [['variations', 'Variations'] as [string, string]] : [['boq', 'Bill of Quantities'] as [string, string]]), ['docs', 'Documents'], ['setup', 'Project Admin']];
-  const go = (k: string) => { if (k === 'boq' || k === 'variations') router.navigate(`/fin/job/${id}/${k}` as never); else if (onOverview) router.setParams({ tab: k }); else router.navigate(`/fin/job/${id}?tab=${k}` as never); };
+  // Swaps the page rather than stacking another on top: a Bill left open underneath would keep saving over this one.
+  const go = (k: string) => { if (k === 'boq' || k === 'variations') router.replace(`/fin/job/${id}/${k}` as never); else if (onOverview) router.setParams({ tab: k }); else router.replace(`/fin/job/${id}?tab=${k}` as never); };
   return (
     <View>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10, padding: 8, marginTop: 6, marginBottom: 2 }}>

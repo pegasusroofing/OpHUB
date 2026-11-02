@@ -3123,3 +3123,8 @@
 {"blocked":"function","fn":"finance-report-run"}
 {"blocked":"function","fn":"finance-report-run"}
 {"blocked":"function","fn":"xero"}
+{"wrote":"fin_contract_items","method":"PATCH","keys":["kind","ref","description","qty","unit","rate","value","position","cost","sub_job_id","cost_basis","cost_pct"]}
+{"wrote":"fin_contract_items","method":"POST","keys":["kind","ref","description","qty","unit","rate","value","position","cost","sub_job_id","cost_basis","cost_pct","org_id","site_id"]}
+{"wrote":"job_finance","method":"POST","keys":["site_id","org_id","updated_at","updated_by","contract_value"]}
+{"wrote":"fin_contract_items","method":"PATCH","keys":["kind","ref","description","qty","unit","rate","value","position","cost","sub_job_id","cost_basis","cost_pct"]}
+{"wrote":"job_finance","method":"POST","keys":["site_id","org_id","updated_at","updated_by","contract_value"]}

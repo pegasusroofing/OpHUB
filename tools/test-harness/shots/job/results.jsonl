@@ -1125,3 +1125,26 @@
 {"part":"jobtiles1","step":"Overdue tile shows only overdue invoices","ok":true,"note":"overdue shown 1, not-due shown 0","ms":13837}
 {"part":"jobtiles1","step":"Invoices tab after that shows them all","ok":true,"note":"f=","ms":2111}
 {"part":"jobtiles1","step":"Applied tile opens Applications","ok":true,"note":"?tab=sales&sub=apps","ms":13537}
+{"part":"boqsave1","step":"Tab goes straight from Unit to Sell rate","ok":true,"note":"after one Tab: Rate £","ms":11212}
+{"part":"boqsave1","step":"Select lines, then Tick all appears","ok":true,"note":"apply 1","ms":969}
+{"part":"boqsave1","step":"A second open copy does not break saving","ok":true,"note":"1 > 2 > 2, failed 0","ms":26421}
+{"part":"boqbtn2","step":"Page, footer and summary","ok":true,"note":"summary 1, tick buttons 0, export 1, variations tabs 1","ms":10672}
+{"part":"boqbtn2","step":"Import / Export has no copy-in","ok":true,"note":"copy-in 0","ms":1059}
+{"part":"boqbtn2","step":"Two tabs: BoQ and Variations","ok":true,"note":"variations then boq","ms":15196}
+{"part":"boqkeys","step":"Typing m then 2 on the keyboard","ok":true,"note":"typed m², after Tab m², listed 1/1","ms":11892}
+{"part":"boqkeys","step":"General heading can be named","ok":true,"note":"[\"Flat roof\"]","ms":15090}
+{"part":"jobtabs1","step":"Tabs and white row on overview","ok":true,"note":"1 tab rows, New 1, job no 1","ms":8118}
+{"part":"jobtabs1","step":"Tabs and white row on variations","ok":true,"note":"1 tab rows, New 1, job no 1","ms":7919}
+{"part":"jobtabs1","step":"Tabs and white row on budget","ok":true,"note":"1 tab rows, New 1, job no 1","ms":7852}
+{"part":"jobtabs1","step":"Tabs and white row on costs","ok":true,"note":"1 tab rows, New 1, job no 1","ms":7876}
+{"part":"jobtabs1","step":"Tabs and white row on dayworks","ok":true,"note":"1 tab rows, New 1, job no 1","ms":7907}
+{"part":"jobtabs1","step":"Tabs and white row on monthly","ok":true,"note":"1 tab rows, New 1, job no 1","ms":7854}
+{"part":"jobtabs1","step":"Tabs and white row on summary","ok":true,"note":"1 tab rows, New 1, job no 1","ms":7840}
+{"part":"jobtabs1","step":"Tabs and white row on quotes","ok":true,"note":"1 tab rows, New 1, job no 1","ms":7863}
+{"part":"jobtabs1","step":"Tabs and white row on boq","ok":true,"note":"1 tab rows, New 1, job no 1","ms":7874}
+{"part":"jobtabs1","step":"A tab goes to that part of the project","ok":true,"note":"ff28ffa960?tab=sales, rows 1","ms":10433}
+{"part":"jobtabs1","step":"Tabs work on the overview page too","ok":true,"note":"?tab=purchases","ms":9880}
+{"part":"jobtabs1","step":"Phone","ok":true,"note":"shown","ms":8603}
+{"part":"jobvar1","step":"Overview keeps Monthly Report only","ok":true,"note":"monthly 1, others 0","ms":10644}
+{"part":"jobvar1","step":"Variations tab, then Day Works","ok":true,"note":"variations then dayworks","ms":5140}
+{"part":"jobvar1","step":"Sales opens on Applications, in the right order","ok":true,"note":"301 < 485 < 565, applications list 1","ms":10438}

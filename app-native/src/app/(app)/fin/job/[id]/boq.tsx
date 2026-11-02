@@ -98,6 +98,7 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
   const [basis, setBasis] = useState<'margin' | 'markup'>('margin');
   const [autoNote, setAutoNote] = useState('');
   const saved = useRef(snap(initial.map((r) => ({ ...r, sub: r.sub_job_id || '' }))));
+  const known = useRef(new Set<string>(initial.map((r) => r.id).filter(Boolean)));
   const saving = useRef(false);
   const latest = useRef(rows);
   useEffect(() => { latest.current = rows; }, [rows]);
@@ -138,14 +139,19 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
       if (ex.error) { if (!quiet) toast('Couldn’t reach the server, so nothing was saved — try again.'); else setAutoNote('Not saved — no signal'); return; }
       const keep = new Set(clean.filter((r) => r.id).map((r) => r.id));
       let failed = 0;
-      for (const e of (ex.data as Row[]) || []) if (!keep.has(e.id) && !(await fdb.from('fin_contract_items').delete().eq('id', e.id).select('id')).data?.length) failed++;
+      // Only lines this page knows about are removed: anything else was added elsewhere (Andy, 2 Nov 2026: copies of this page were deleting each other's lines).
+      for (const e of (ex.data as Row[]) || []) if (!keep.has(e.id) && known.current.has(e.id)) { const del = await fdb.from('fin_contract_items').delete().eq('id', e.id); if (del.error) failed++; else known.current.delete(e.id); }
       const got: Record<string, Row> = {};
       for (let i = 0; i < clean.length; i++) {
         const r = clean[i], item = isItem(r);
         const d = { kind: r.kind, ref: r.ref, description: r.description, qty: r.qty, unit: r.unit, rate: r.rate, value: item ? r.value : 0, position: i, cost: item ? r.cost : null, sub_job_id: item ? r.sub : null, cost_basis: item ? r.cost_basis : null, cost_pct: item ? r.cost_pct : null };
         let savedId = r.id as string | undefined;
-        if (r.id) { if (!(await fdb.from('fin_contract_items').update(d as never).eq('id', r.id).select('id')).data?.length) failed++; }
-        else { const ins = await fdb.from('fin_contract_items').insert({ ...d, org_id: me.org_id, site_id: id } as never).select('id').single(); if (ins.data) { savedId = (ins.data as Row).id; got[r._k] = { id: savedId }; } else failed++; }
+        const up = r.id ? await fdb.from('fin_contract_items').update(d as never).eq('id', r.id).select('id') : null;
+        if (up?.error) failed++;
+        else if (!up?.data?.length) { // new, or the row has gone: it goes in as a new line, so nothing typed is lost
+          const ins = await fdb.from('fin_contract_items').insert({ ...d, org_id: me.org_id, site_id: id } as never).select('id').single();
+          if (ins.data) { savedId = (ins.data as Row).id; got[r._k] = { id: savedId }; known.current.add(savedId as string); } else failed++;
+        }
         // Copied in from the site schedule: link the task / section to this line.
         if (savedId && r._task_id) { await fdb.from('schedule_tasks').update({ contract_item_id: savedId } as never).eq('id', r._task_id); got[r._k] = { ...(got[r._k] || {}), _task_id: null }; }
         if (savedId && r._sec_id) { await fdb.from('schedule_sections').update({ contract_item_id: savedId } as never).eq('id', r._sec_id); got[r._k] = { ...(got[r._k] || {}), _sec_id: null }; }
@@ -175,12 +181,22 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
       ['finBook', 'finJobs'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] }));
     } finally { saving.current = false; setBusy(false); }
   };
-  // Saves by itself a few seconds after a change (9219ze autosave), when every line is complete.
+  // Saves by itself every 2 minutes, a moment after a line is finished, and on leaving the page (Andy, 2 Nov 2026), when every line is complete.
+  const saveNow = useRef(save); saveNow.current = save;
+  const dirty = () => snap(latest.current) !== saved.current;
+  const doneLines = rows.filter((r) => isItem(r) && String(r.description || '').trim() && itemValue(r) !== null).length;
+  const lastDone = useRef(doneLines), lineDone = useRef(false);
   useEffect(() => {
-    if (snap(rows) === saved.current) return;
-    const t = setTimeout(() => { void save(true); }, 2500);
+    if (doneLines > lastDone.current) lineDone.current = true;
+    lastDone.current = doneLines;
+    if (!lineDone.current) return;
+    const t = setTimeout(() => { lineDone.current = false; if (dirty()) void saveNow.current(true); }, 4000);
     return () => clearTimeout(t);
   }, [rows]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const t = setInterval(() => { if (dirty()) void saveNow.current(true); }, 120000);
+    return () => { clearInterval(t); if (dirty()) void saveNow.current(true); };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const exportBoq = async (kind: 'x' | 'p') => {
     if (!rows.length) { toast('No lines to export yet.'); return; }
     const out = rows.map((r, i) => {
@@ -255,7 +271,7 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
           <TextInput value={pct} onChangeText={(v) => setPct(v.replace(/[^0-9.]/g, ''))} placeholder="%" keyboardType="decimal-pad" style={[box, { width: 52, height: 28, paddingVertical: 2, paddingHorizontal: 6, fontSize: 13.2 }]} />
           <SelectBox value={basis} options={[['margin', '% margin'], ['markup', '% mark-up']]} onChange={setBasis} compact textSize={13.2} style={{ marginBottom: 0, width: 118 }} title="Margin or mark-up" />
           {ticked.length > 0 && <Button small textSize={13.75} kind="ghost" title={`Apply to ${ticked.length} ticked`} onPress={() => applyPct(true)} />}
-          <Button small textSize={13.75} kind="ghost" title="Apply to all lines" onPress={() => applyPct(false)} />
+          {!ticked.length && <Button small textSize={13.75} kind="ghost" title={selecting ? 'Stop selecting' : 'Select lines to apply to'} onPress={() => setSelectMode(!selecting)} />}
           {ticked.length ? (
             <>
               <Text style={{ fontWeight: '500', fontSize: 13.2, color: base.ink }}>{ticked.length} ticked</Text>
@@ -266,7 +282,7 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
               {ticked.length < itemIdx.length && <Button small kind="ghost" title={`Tick all ${itemIdx.length} lines`} onPress={() => tick(itemIdx, true)} />}
               <Button small kind="ghost" title="Untick all" onPress={() => tick(itemIdx, false)} />
             </>
-          ) : null}
+          ) : selecting ? <Text style={{ fontSize: 13.2, color: base.slate }}>Tick the lines, or a heading for all its lines.</Text> : null}
         </View>
   );
   return (
@@ -320,7 +336,7 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
             <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
               {selecting && <Pressable hitSlop={6} focusable={false} accessibilityLabel="Tick" onPress={() => (head ? tick(grp, !on) : set(i, '_sel', !on))}><Text style={{ fontSize: 17, color: head ? ink : base.ink }}>{on ? '☑' : '☐'}</Text></Pressable>}
               {editRefs ? <TextInput value={refs[i]} onChangeText={(v) => set(i, 'ref', v)} placeholder="Ref" placeholderTextColor={head ? ink : undefined} style={[box, slim, { width: desk ? 64 : head ? 30 : 40 }, head && headBox, !desk && { fontSize: 11 }]} /> : <Text numberOfLines={1} accessibilityLabel="Ref" style={{ width: desk ? 64 : head ? 30 : 40, fontSize: desk ? 15 : 11, fontWeight: '500', color: head ? ink : base.slate, paddingHorizontal: 2 }}>{refs[i]}</Text>}
-              <TextInput value={r.description || ''} onChangeText={(v) => set(i, 'description', v)} placeholder={head ? (r.kind === 'section' ? 'Section heading' : 'Sub-section heading') : 'Description'} placeholderTextColor={head ? ink : undefined} autoFocus={openK === r._k} multiline={!head} onContentSizeChange={head ? undefined : (e) => { const h = Math.ceil(e.nativeEvent.contentSize.height); setDescH((o) => (o[r._k] === h ? o : { ...o, [r._k]: h })); }} onKeyPress={head ? undefined : (e) => { const n = e.nativeEvent as unknown as { key: string; shiftKey?: boolean }; if (n.key === 'Tab' && !n.shiftKey) { (e as unknown as { preventDefault: () => void }).preventDefault(); qtyBox.current[r._k]?.focus(); } }} style={[box, slim, { flex: 1, minWidth: 0, height: Math.max(desk ? 32 : 28, descH[r._k] || 0), paddingVertical: 4, lineHeight: 18, fontWeight: desk ? '400' : '500', paddingLeft: desk ? 8 : 16 }, head && { ...headBox, flex: 1, minWidth: 0 }]} />
+              <TextInput value={r.description || ''} onChangeText={(v) => set(i, 'description', v)} placeholder={head ? (r.kind === 'section' ? 'Section heading' : 'Sub-section heading') : 'Description'} placeholderTextColor={head ? ink : undefined} autoFocus={openK === r._k} multiline={!head} onContentSizeChange={head ? undefined : (e) => { const h = Math.ceil(e.nativeEvent.contentSize.height); setDescH((o) => (o[r._k] === h ? o : { ...o, [r._k]: h })); }} onKeyPress={head ? undefined : (e) => { const n = e.nativeEvent as unknown as { key: string; shiftKey?: boolean }; if (n.key === 'Tab' && !n.shiftKey) { (e as unknown as { preventDefault: () => void }).preventDefault(); qtyBox.current[r._k]?.focus(); } }} style={[box, slim, { flex: 1, minWidth: 0, height: Math.max(desk ? 32 : 28, descH[r._k] || 0), paddingVertical: desk ? 5 : 4, lineHeight: desk ? 20 : 18, fontWeight: desk ? '400' : '500', paddingLeft: desk ? 8 : 16 }, head && { ...headBox, flex: 1, minWidth: 0 }]} />
               {head && <Text style={{ fontWeight: '600', color: ink, minWidth: desk ? 90 : 0, fontSize: desk ? 15 : 12.5, textAlign: 'right' }}>{money(tots[i]?.value || 0)}</Text>}
               <Pressable hitSlop={6} focusable={false} onPress={async () => {
                 const k = await chooseAction('Line', [selecting ? { key: 'unsel', label: 'Stop selecting' } : { key: 'sel', label: 'Select' }, { key: 'refs', label: editRefs ? 'Finish editing ref numbers' : 'Edit ref numbers' }, { key: 'ai', label: head ? '+ Item under this heading' : '+ Item below' }, ...(r.kind === 'section' ? [{ key: 'as', label: '+ Sub-section in this section' }] : []), { key: 'asec', label: '+ Section after this' }, { key: 'up', label: '↑ Move up' }, { key: 'down', label: '↓ Move down' }, { key: 'kind', label: 'Change type' }, { key: 'del', label: '🗑 Remove', danger: true }]);
@@ -370,7 +386,7 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
               </View>
             )}
           </View>
-          {nextHead && <View style={{ marginVertical: 6, marginLeft: 8 }}><Button small kind="ghost" title="+ Add" onPress={() => void addHere()} /></View>}
+          {nextHead && <View style={{ marginTop: 10, marginBottom: 16, marginLeft: 8 }}><Button small kind="ghost" title="+ Add" onPress={() => void addHere()} /></View>}
           </Fragment>
         );
       })}
@@ -403,7 +419,7 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
         <View style={{ minWidth: desk ? 240 : 0, flexGrow: desk ? 0 : 1 }}><Button busy={busy} title="Save Bill of Quantities" onPress={() => void save()} /></View>
         <Button kind="ghost" title="Publish to Application for Payment" onPress={async () => { await save(); if (snap(latest.current) !== saved.current) return; router.push(`/fin/job/${id}/application/new` as never); }} />
       </View>
-      <Muted style={{ marginTop: 6, fontSize: 12 }}>Saves by itself a few seconds after a change once every line has a description and a value.{autoNote ? ` ${autoNote}` : ''}</Muted>
+      <Muted style={{ marginTop: 6, fontSize: 12 }}>Saves by itself every 2 minutes and when a line is finished, once every line has a description and a value.{autoNote ? ` ${autoNote}` : ''}</Muted>
     </ScrollView>
     {desk && rows.length > 0 && (
       <View accessibilityLabel="Budget cost footer" style={{ backgroundColor: base.card, borderTopWidth: 1, borderTopColor: base.line, paddingHorizontal: 40, paddingVertical: 8, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
