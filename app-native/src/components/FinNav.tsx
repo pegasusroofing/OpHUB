@@ -66,9 +66,9 @@ export function FinJobTabs({ id, active, job, name, onOverview }: { id: string; 
           <Text style={{ color: t.brand1Text, fontSize: 12.5, fontWeight: '600' }}>+ New</Text><Text style={{ color: t.brand1Text, fontSize: 11 }}>▾</Text>
         </Pressable>
       </View>
-      <FinTabRow style={{ marginBottom: 0 }}>
+      <FinTabRow style={{ marginTop: 6, marginBottom: 0 }}>
         {tabs.map(([k, l]) => (
-          <Pressable key={k} onPress={() => go(k)} style={{ paddingVertical: 12, paddingHorizontal: 14, borderBottomWidth: 2, borderBottomColor: active === k ? t.brand1 : 'transparent' }}>
+          <Pressable key={k} onPress={() => go(k)} style={{ paddingVertical: 12, paddingHorizontal: 14, borderTopWidth: 2, borderBottomWidth: 2, borderTopColor: active === k ? t.brand1 : 'transparent', borderBottomColor: active === k ? t.brand1 : 'transparent' }}>
             <Text style={{ fontSize: 13, fontWeight: active === k ? '700' : '600', color: active === k ? '#111827' : '#6b7280' }}>{l}</Text>
           </Pressable>
         ))}
@@ -104,9 +104,9 @@ export function FinPage({ title, section, sub, onSub, badges, children, wide, to
       <Stack.Screen options={{ title }} />
       {!me ? null : !isFinanceUser(me, org) ? <Muted>OpHUB Finance isn&apos;t switched on for your account.</Muted> : (
         <>
-          <FinTabRow>
+          <FinTabRow style={{ marginTop: 10 }}>
             {FIN_SECTIONS.map((s) => (
-              <Pressable key={s.k} onPress={() => router.replace(s.go as never)} style={{ paddingVertical: 12, paddingHorizontal: 14, borderBottomWidth: 2, borderBottomColor: s.k === section ? t.brand1 : 'transparent' }}>
+              <Pressable key={s.k} onPress={() => router.replace(s.go as never)} style={{ paddingVertical: 12, paddingHorizontal: 14, borderTopWidth: 2, borderBottomWidth: 2, borderTopColor: s.k === section ? t.brand1 : 'transparent', borderBottomColor: s.k === section ? t.brand1 : 'transparent' }}>
                 <Text style={{ fontSize: 13, fontWeight: s.k === section ? '700' : '600', color: s.k === section ? '#111827' : '#6b7280' }}>{s.l}</Text>
               </Pressable>
             ))}
