@@ -928,3 +928,15 @@
 {"part":"finsettings1","step":"Admin Users: Finance switch on office roles, none on operatives","ok":true,"note":"1 switches, 2 operatives, 0 on operatives","ms":8470}
 {"part":"finsettings1","step":"Reports list and a report read cleanly","ok":true,"note":"3 matches; 39 rows","ms":18177}
 {"part":"finsettings1","step":"Statements and People & rates keep their tabs","ok":true,"note":"statements 1, rates 1","ms":17649}
+{"part":"finsettings2","step":"Settings at laptop size","ok":true,"note":"edit 1, settings labels 3","ms":12668}
+{"part":"finsettings2","step":"Users at laptop size","ok":true,"note":"switch shown","ms":8495}
+{"part":"finsettings2","step":"Reports at laptop size","ok":true,"note":"screenshots","ms":17468}
+{"part":"moneydue1","step":"Money due lists invoices, applications, retentions and a total","ok":true,"note":"1,1,1,1","ms":11956}
+{"part":"moneydue1","step":"Auto-run box opens with how often and folder","ok":true,"note":"day box 1","ms":2221}
+{"part":"moneydue1","step":"Phone view","ok":true,"note":"screenshot","ms":1041}
+{"part":"moneydue2","step":"Choose the folder and run now","ok":false,"note":"null","ms":37176}
+{"part":"moneydue2","step":"Switched off again","ok":true,"note":"active false","ms":9954}
+{"part":"moneydue2","step":"Choose the folder and run now","ok":false,"note":"locator.click: Timeout 15000ms exceeded.","ms":34586}
+{"part":"moneydue2","step":"Switched off again","ok":true,"note":"active false","ms":10232}
+{"part":"moneydue2","step":"Save and run now, from the box","ok":true,"note":"status 200; Saved Money due 2026-11-02.xlsx","ms":37196}
+{"part":"moneydue3","step":"Buttons in the box take an ordinary click","ok":true,"note":"clickable","ms":12041}

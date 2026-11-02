@@ -19,8 +19,8 @@ declare
   j record;
   n int := 0;
 begin
-  if (select count(*) from cron.job where command ~ pat) <> 14 then
-    raise exception 'Expected 14 scheduled jobs with the secret. Nothing changed. Ask Claude.';
+  if (select count(*) from cron.job where command ~ pat) <> 15 then
+    raise exception 'Expected 15 scheduled jobs with the secret. Nothing changed. Ask Claude.';
   end if;
   if fn !~ pat then
     raise exception 'The message email trigger has no secret where expected. Nothing changed. Ask Claude.';
@@ -33,7 +33,7 @@ begin
 
   execute regexp_replace(fn, pat, '\1' || new_secret || '\2', 'g');
 
-  if n <> 14 then
+  if n <> 15 then
     raise exception 'Only % jobs changed. Nothing changed. Ask Claude.', n;
   end if;
 end $$;

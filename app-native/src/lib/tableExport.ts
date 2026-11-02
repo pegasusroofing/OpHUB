@@ -6,14 +6,14 @@ import { makeXlsx, reportSheet, type XCell } from '@/lib/rules/xlsx';
 import type { Organization } from '@/lib/types';
 
 export type TCol = { l: string; money?: boolean; num?: boolean; w?: number };
-export type Table = { title: string; sub?: string; cols: TCol[]; rows: (string | number | null | undefined)[][]; totals?: (string | number | null | undefined)[]; site?: string | null };
+export type Table = { title: string; sub?: string; cols: TCol[]; rows: (string | number | null | undefined)[][]; totals?: (string | number | null | undefined)[]; site?: string | null; boldRows?: number[] };
 const gbp = (n: number) => `${n < 0 ? '-' : ''}£${Math.abs(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 export const cellText = (c: TCol, v: unknown) => (v == null || v === '' ? '' : c.money && typeof v === 'number' ? gbp(v) : typeof v === 'number' ? v.toLocaleString('en-GB', { maximumFractionDigits: 2 }) : String(v));
 
 export function tableSheets(t: Table, org: Organization | null, more: Table[] = []) {
   return [t, ...more].map((x) => {
     const cell = (c: TCol, v: unknown, bold = false): XCell => (c.money && typeof v === 'number' ? { v, s: 'money' } : bold ? { v: v as string, s: 'bold' } : (v as string | number | null));
-    const rows = x.rows.map((r) => x.cols.map((c, i) => cell(c, r[i])));
+    const rows = x.rows.map((r, n) => x.cols.map((c, i) => cell(c, r[i], !!x.boldRows?.includes(n))));
     if (x.totals) rows.push(x.cols.map((c, i) => cell(c, x.totals?.[i], true)));
     return reportSheet(x.title, `${org?.name || 'OpHUB'} — ${x.title}`, x.cols.map((c) => c.l), rows, x.cols.map((c, i) => c.w ? c.w / 6 : i === 0 ? 30 : c.money || c.num ? 14 : 22), x.sub ? `${x.sub} · exported ${new Date().toLocaleDateString('en-GB')}` : undefined);
   });
@@ -59,7 +59,7 @@ export async function exportTablePdf(t: Table, org: Organization | null, deliver
     y -= 14 + (hl - 1) * (size + 2);
   }
   newPage();
-  t.rows.forEach((r) => line(r));
+  t.rows.forEach((r, i) => line(r, t.boldRows?.includes(i) ? bold : reg));
   if (t.totals) { page.drawLine({ start: { x: M, y: y + 11 }, end: { x: W - M, y: y + 11 }, thickness: 1, color: INK }); line(t.totals, bold); }
   return deliver(await doc.save(), exportFilename(t.site || '', t.title, 'pdf'));
 }

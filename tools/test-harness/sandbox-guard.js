@@ -41,6 +41,8 @@ function fnAllowed(fn, body) {
   if (FN_READ.test(fn)) return true;
   // The real AI reader, on Sandbox's own files only (AI_TEST). It reads a file and answers; it sends nothing.
   if (fn === 'finance-ai-read' && process.env.AI_TEST === '1') return String(body?.path || '').startsWith(SANDBOX + '/');
+  // Auto-run report (REPORT_TEST): only reads Finance and adds a file to the folder on Sandbox's own schedule row.
+  if (fn === 'finance-report-run' && process.env.REPORT_TEST === '1') return true;
   const text = JSON.stringify(body || {});
   // The Documents test adds a file to a test job pack's own folder (PACK_TEST), nothing else.
   if (fn === 'onedrive-upload' && process.env.PACK_TEST === '1' && body?.folder_id && !body?.subfolder) return true;

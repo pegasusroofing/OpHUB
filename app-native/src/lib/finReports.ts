@@ -9,6 +9,8 @@ export type Col = { k: string; l: string; money?: boolean; num?: boolean; pct?: 
 export type Result = { cols: Col[]; rows: Row[]; totals?: boolean | string[]; note?: string };
 export type Filters = { job: string; from: string; to: string; status: string; opening: string; varstatus: string; postatus: string };
 export type Ctx = { b: Book; settings: Row; sites: Row[]; status: (s: Row) => string; cisPays: Row[] };
+/** Reports that can save themselves to OneDrive (the finance-report-run server function works these out too). */
+export const AUTO_RUN_REPORTS = ['moneydue', 'debtors'];
 export const REPORT_GROUPS: Record<string, string> = { qs: 'Commercial / QS', money: 'Money in & out', tax: 'Labour, CIS & VAT' };
 const VAR_ST: Record<string, string> = { instructed: 'Instructed', priced: 'Priced', submitted: 'Submitted', agreed: 'Agreed', rejected: 'Rejected' };
 const PO_ST: Record<string, string> = { open: 'Open', invoiced: 'Invoiced', cancelled: 'Cancelled' };
@@ -65,6 +67,24 @@ export const REPORTS: { id: string; group: string; title: string; desc: string; 
       by(c.b.scs, s.id).forEach((sc) => { const last = (c.b.sapps || []).filter((a) => a.subcontract_id === sc.id && a.certified_gross != null).sort((x, y) => x.number - y.number).pop(); if (last && Number(last.retention)) rows.push({ job: job(s), who: sc.name, type: 'We hold (owed to subcontractor)', held: -Number(last.retention), first: null, second: null, _go: `/fin/sub/${sc.id}` }); });
     });
     return { cols: [{ k: 'job', l: 'Project' }, { k: 'who', l: 'Client / subcontractor' }, { k: 'type', l: 'Type' }, { k: 'held', l: 'Amount', money: true }, { k: 'first', l: '1st half due', date: true }, { k: 'second', l: '2nd half due', date: true }], rows, totals: true, note: 'Negative amounts are retention you hold on subcontractors and will have to pay out.' };
+  } },
+  // Andy's Monthly Budgetting sheet, "Money Due" tab: everything owed, invoices then applications then retentions. Same sums in finance-report-run.
+  { id: 'moneydue', group: 'money', title: 'Money due', desc: 'Everything owed to you: unpaid invoices, applications not invoiced yet, and retention held.', filters: [], run: (c) => {
+    const t = today(), live = (c.b.apps as Row[]).filter((a) => a.status !== 'void');
+    const inv = (c.b.invs as Row[]).filter((i) => invOutstandingNet(i as never) > 0).sort((a, b) => String(a.due_date || '').localeCompare(String(b.due_date || ''))).map((i) => {
+      const s = site(c, i.site_id), late = i.due_date ? days(i.due_date, t) : 0;
+      return { inv: i.number, client: i.bill_name || s?.client_name || '', addr: s?.name || '', due: invOutstandingNet(i as never), date: i.due_date, status: late > 0 ? `${late} days overdue` : 'Not yet due', notes: i.notes || '', _go: `/fin/job/${i.site_id}/invoice/${i.id}` };
+    });
+    const when = (a: Row) => String(a.final_date || a.due_date || a.valuation_date || '');
+    const apps = live.filter((a) => a.status !== 'invoiced' && !a.invoice_id && Number(a.cert_net ?? a.net_due ?? 0) > 0).sort((a, b) => when(a).localeCompare(when(b))).map((a) => {
+      const s = site(c, a.site_id);
+      return { inv: `App ${a.number}`, client: s?.client_name || '', addr: s?.name || '', due: round2(a.cert_net ?? a.net_due), date: a.final_date || a.due_date || a.valuation_date, status: a.status === 'certified' ? 'Certified' : a.status === 'submitted' ? 'Applied' : 'Draft – value TBC', notes: a.notes || '', _go: `/fin/job/${a.site_id}/application/${a.id}` };
+    });
+    const ret: Row[] = [];
+    c.sites.forEach((s) => { const jf = by(c.b.jf, s.id)[0] || {}, held = retentionStillHeld(live.filter((a) => a.site_id === s.id) as never, jf, by(c.b.invs as Row[], s.id) as never); if (held > 0) ret.push({ inv: '', client: s.client_name || '', addr: `${s.name || ''} – retention`, due: held, date: jf.pc_date || null, status: 'Held', notes: '', _go: `/fin/job/${s.id}` }); });
+    const sum = (a: Row[]) => round2(a.reduce((n, r) => n + r.due, 0));
+    const head = (x: string): Row => ({ inv: x, _head: true }), total = (x: string, v: number): Row => ({ addr: x, due: v, _bold: true });
+    return { cols: [{ k: 'inv', l: 'Invoice No' }, { k: 'client', l: 'Client' }, { k: 'addr', l: 'Address' }, { k: 'due', l: 'Due', money: true }, { k: 'date', l: 'Date', date: true }, { k: 'status', l: 'Status' }, { k: 'notes', l: 'Notes' }], rows: [head('Invoices'), ...inv, total('Invoice total:', sum(inv)), head('Applications'), ...apps, total('Applications total:', sum(apps)), head('Retentions'), ...ret, total('Retentions total:', sum(ret)), total('Total due:', round2(sum(inv) + sum(apps) + sum(ret)))], note: 'Before VAT, the same as Aged debtors. Applications show the certified figure once there is one. Draft applications count at their current value.' };
   } },
   { id: 'debtors', group: 'money', title: 'Aged debtors', desc: 'Who owes you money and how overdue it is.', filters: ['job'], run: (c, f) => {
     const t = today(), ids = new Set(sitesFor(c, f, true).map((s) => s.id));
