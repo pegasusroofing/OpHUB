@@ -39,6 +39,7 @@ export function DeskNav() {
         ...(isManager(me) ? [{ k: 'pm/sitemap', ic: 'pin', lbl: 'Sites Map', go: '/pm/sitemap' }] : []),
         ...(isFullManager(me) ? [{ k: 'pm/reports', ic: 'reports', lbl: 'Reports & Surveys', go: '/pm/reports' }] : []),
       ] },
+      ...(isFullManager(me) ? [{ k: 'pm/quotes', ic: 'reports', lbl: 'Quotes', go: '/pm/quotes' }] : []),
       { k: 'pm/deliveries', ic: 'truck', lbl: 'Deliveries', go: '/pm/deliveries' },
       { k: 'pm/calendar', ic: 'calendar', lbl: 'Calendar', go: '/pm/calendar' },
       { k: 'pm/hub', ic: 'bell', lbl: 'Hub', go: '/pm/hub', badge: hubN },

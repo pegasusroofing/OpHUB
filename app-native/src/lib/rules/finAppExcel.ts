@@ -10,7 +10,7 @@ type Row = Record<string, any>;
 export type AppDoc = {
   sections: { id: string; title: string; rows: Row[] }[];
   vars: { key: string; v: Row; prev: number }[];
-  prevPct: Record<string, number>; certPct: Record<string, number>; certified: boolean;
+  prevPct: Record<string, number>; prevVar: Record<string, number>; certPct: Record<string, number>; certified: boolean;
   vt: string; retPct: number; discPct: number; previous: number; capRet: number | null;
 };
 
@@ -33,7 +33,7 @@ export function appDoc(a: Row, jf: Row, apps: Row[], defaultVat?: string | null)
   });
   const vars = (a.variations || []).map((v: Row, i: number) => ({ key: `V:${v.variation_id || `x${i}`}`, v, prev: prevVar[v.fin_variation_id || v.variation_id] || 0 }));
   const capRet = jf.retention_limit_pct && jf.contract_value ? round2((Number(jf.contract_value) * Number(jf.retention_limit_pct)) / 100) : null;
-  return { sections, vars, prevPct, certPct, certified: a.cert_net != null, vt: jf.vat_treatment || defaultVat || 'standard', retPct: pct(a.retention_pct), discPct: pct(a.discount_pct || 0), previous: round2(Number(a.previous || 0)), capRet };
+  return { sections, vars, prevPct, prevVar, certPct, certified: a.cert_net != null, vt: jf.vat_treatment || defaultVat || 'standard', retPct: pct(a.retention_pct), discPct: pct(a.discount_pct || 0), previous: round2(Number(a.previous || 0)), capRet };
 }
 
 /** Section totals and the summary lines (the PDF and the on-screen check use these; the Excel works them out itself). */

@@ -77,7 +77,7 @@ export async function loadApplication(id: string) {
   const [jf, apps] = await Promise.all([fdb.from('job_finance').select('*').eq('site_id', a.site_id).maybeSingle(), rows(fdb.from('fin_applications').select('number,status,cert_net,net_due,lines,cert_lines,variations').eq('site_id', a.site_id))]);
   const j = (jf.data as Row | null) || {}, previousLive = previousCertified(apps, a.number);
   // Each line's % on the last certificate, for the Previous / This time figures (9219r).
-  const prevPct = appDoc(a, j, apps).prevPct;
+  const { prevPct, prevVar } = appDoc(a, j, apps);
   const [siteProgress, varProgress] = await Promise.all([loadSiteProgress(a.site_id), loadVarProgress(a.site_id)]);
   if (a.status === 'draft') {
     const [vars, fvars, fdays] = await loadRegisters(a.site_id);
@@ -86,10 +86,10 @@ export async function loadApplication(id: string) {
     if (key(varRows) !== key(a.variations || []) || key(dayRows) !== key(a.dayworks || [])) {
       const next = { ...a, variations: varRows, dayworks: dayRows };
       const saved = rowForSave(next, j, previousLive);
-      if (!(await fdb.from('fin_applications').update(saved as never).eq('id', a.id).eq('status', 'draft')).error) return { a: { ...next, ...saved }, jf: j, previousLive, prevPct, siteProgress, varProgress, synced: true };
+      if (!(await fdb.from('fin_applications').update(saved as never).eq('id', a.id).eq('status', 'draft')).error) return { a: { ...next, ...saved }, jf: j, previousLive, prevPct, prevVar, siteProgress, varProgress, synced: true };
     }
   }
-  return { a, jf: j, previousLive, prevPct, siteProgress, varProgress, synced: false };
+  return { a, jf: j, previousLive, prevPct, prevVar, siteProgress, varProgress, synced: false };
 }
 export function rowForSave(a: Row, jf: Row, previous: number) {
   const c = appCalc(a, jf.contract_value, jf.retention_limit_pct, previous);

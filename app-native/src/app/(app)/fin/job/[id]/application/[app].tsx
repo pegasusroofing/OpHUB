@@ -28,7 +28,7 @@ import { APP_STAGE, appCalc, groupTotals, isItem, pct } from '@/lib/rules/finApp
 import { applyAppUpload, certFromItems, parseAppBook, type AppXlItem } from '@/lib/rules/finAppExcel';
 import { readXlsx } from '@/lib/rules/xlsxRead';
 import { fdate, money, num, round2, today } from '@/lib/rules/finance';
-import { base, page, radius, space } from '@/theme/theme';
+import { base, page, radius, space, useDesk } from '@/theme/theme';
 
 type Row = Record<string, any>;
 /** Picks an Excel file and reads it as an OpHUB application workbook (null = cancelled or not one; told why). */
@@ -58,10 +58,11 @@ export default function FinApplication() {
   const { data, isLoading } = useQuery({ queryKey: ['finApp', app], enabled: app !== 'new', gcTime: 0, queryFn: () => loadApplication(app) });
   if (app === 'new' || isLoading) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   if (!data) return <Muted style={{ padding: space.l }}>Application not found.</Muted>;
-  return <Editor key={`${data.a.id}${data.a.updated_at}`} a0={data.a} jf={data.jf} previousLive={data.previousLive} prevPct={data.prevPct} siteProgress={data.siteProgress} varProgress={data.varProgress} />;
+  return <Editor key={`${(data.a as Row).id}${data.a.updated_at}`} a0={data.a} jf={data.jf} previousLive={data.previousLive} prevPct={data.prevPct} prevVar={data.prevVar} siteProgress={data.siteProgress} varProgress={data.varProgress} />;
 }
 
-function Editor({ a0, jf, previousLive, prevPct, siteProgress, varProgress }: { a0: Row; jf: Row; previousLive: number; prevPct: Record<string, number>; siteProgress: Record<string, number>; varProgress: Record<string, number> }) {
+function Editor({ a0, jf, previousLive, prevPct, prevVar, siteProgress, varProgress }: { a0: Row; jf: Row; previousLive: number; prevPct: Record<string, number>; prevVar: Record<string, number>; siteProgress: Record<string, number>; varProgress: Record<string, number> }) {
+  const desk = useDesk();
   const { me, org } = useAuth();
   const { data: site } = useSite(a0.site_id);
   const { data: finSt } = useFinSettings(me?.org_id);
@@ -160,7 +161,7 @@ function Editor({ a0, jf, previousLive, prevPct, siteProgress, varProgress }: { 
       {!!a0.retention_release && <Card style={{ backgroundColor: '#f1fbf5', borderColor: '#d3f0de' }}><Text style={{ color: base.ink }}><Text style={{ fontWeight: '800' }}>Retention release — {a0.retention_release === 1 ? 'first half (practical completion)' : 'final release'}.</Text> Retention on this application is {pct(a0.retention_pct)}%, so the client pays back {a0.retention_release === 1 ? 'half of what they hold' : 'what they still hold'} when they certify it.</Text></Card>}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
         <FinStat v={STAGE[stage]} label="Stage" /><FinStat v={money(c.net_due)} label="Amount due this application" />
-        <FinStat v={fdate(a.valuation_date)} label="Valuation date" /><FinStat v={a.final_date ? fdate(a.final_date) : '—'} label="Final date for payment" />
+        {(desk || locked) && <><FinStat v={fdate(a.valuation_date)} label="Valuation date" /><FinStat v={a.final_date ? fdate(a.final_date) : '—'} label="Final date for payment" /></>}
       </View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
         <Button kind="ghost" busy={busy === 'xlsx'} title="⬇ Download Excel" onPress={() => void exportAs('xlsx')} />
@@ -203,33 +204,35 @@ function Editor({ a0, jf, previousLive, prevPct, siteProgress, varProgress }: { 
           const t = tots[i];
           return (
             <View key={i} style={{ paddingVertical: 8, borderBottomWidth: 1, borderColor: base.line, marginTop: l.kind === 'section' ? 8 : 0 }}>
-              <View style={{ flexDirection: 'row' }}>
-                <Text style={{ flex: 1, fontWeight: '800', color: base.ink, fontSize: l.kind === 'section' ? 15 : 13.5 }}>{l.ref ? `${l.ref} ` : ''}{l.description}</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 8 }}>
+                <Text style={{ flexGrow: 1, flexBasis: 170, flexShrink: 1, fontWeight: '800', color: base.ink, fontSize: l.kind === 'section' ? 15 : 13.5 }}>{l.ref ? `${l.ref} ` : ''}{l.description}</Text>
                 <Text style={{ fontWeight: '700', color: base.ink }}>{money(t?.gross || 0)} <Text style={{ color: base.slate, fontWeight: '400' }}>of {money(t?.value || 0)}</Text></Text>
               </View>
-              {!locked && l.kind === 'section' && <View style={{ flexDirection: 'row', gap: 14 }}><Pressable onPress={() => fill(i, 100)}><Text style={{ color: base.blue }}>Set all to 100%</Text></Pressable><Pressable onPress={() => fill(i, 0)}><Text style={{ color: base.slate }}>Set all to 0%</Text></Pressable></View>}
+              {!locked && l.kind === 'section' && <View style={{ flexDirection: 'row', gap: 6, marginTop: 4 }}><Button small kind="ghost" title="Set all to 100%" onPress={() => fill(i, 100)} /><Button small kind="ghost" title="Set all to 0%" onPress={() => fill(i, 0)} /></View>}
             </View>
           );
         }
         if (hideZero && !pct(l.pct)) return null;
         const hasQty = l.qty != null && Number(l.qty) !== 0;
         return (
-          <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 7, borderBottomWidth: 1, borderColor: base.line }}>
-            <View style={{ flex: 1 }}>
+          <View key={i} style={{ flexDirection: desk ? 'row' : 'column', alignItems: desk ? 'center' : 'stretch', gap: 8, paddingVertical: desk ? 7 : 10, borderBottomWidth: 1, borderColor: base.line }}>
+            <View style={desk ? { flex: 1 } : undefined}>
               <Text style={{ color: base.ink }}>{l.ref ? `${l.ref} · ` : ''}{l.description}</Text>
               <Muted>{hasQty ? `${l.qty} ${l.unit || ''} × ${money(l.rate)} = ` : 'Value '}{money(l.value)}{siteProgress[l.item_id] != null ? <Text style={{ color: siteProgress[l.item_id] > pct(l.pct) ? '#b45309' : base.slate, fontWeight: '700' }}>{`  · Site ${siteProgress[l.item_id]}%`}</Text> : null}{siteProgress[l.item_id] != null && !locked && siteProgress[l.item_id] !== pct(l.pct) ? <Text onPress={() => { const was = pct(l.pct), to = pct(siteProgress[l.item_id]); setLine(i, { pct: to }); setGen((g) => g + 1); toast(`${l.description}: ${was}% → ${to}% from site — check, then Save`); }} style={{ color: base.blue, fontWeight: '800', textDecorationLine: 'underline' }}> Use</Text> : null}{siteProgress[l.item_id] == null && Object.keys(siteProgress).length > 0 ? <Text style={{ fontSize: 10.5, fontWeight: '600', color: base.slate }}>  · Not on site schedule</Text> : null}</Muted>
               {/* Previous = certified on this line last time; This time = to date less previous (9219r). */}
               {(() => { const prev = round2((Number(l.value || 0) * (prevPct[l.item_id] || 0)) / 100); return prev || l.gross ? <Muted style={{ fontSize: 11.5 }}>Previous {money(prev)} · This time {money(round2(l.gross - prev))}</Muted> : null; })()}
             </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
             {locked ? <Text style={{ color: base.slate }}>{pct(l.pct)}%</Text> : mode === 'pct'
               ? <TextInput key={`p${i}-${gen}`} defaultValue={String(pct(l.pct))} onChangeText={(v) => setLine(i, { pct: pct(v) })} keyboardType="decimal-pad" style={[box, { width: 70 }]} />
               : <TextInput key={`g${i}-${gen}`} defaultValue={String(l.gross)} onChangeText={(v) => { const n = num(v), val = Number(l.value || 0); if (val && n !== null && !isNaN(n)) setLine(i, { pct: pct((n / val) * 100) }); }} keyboardType="decimal-pad" style={[box, { width: 100 }]} />}
             <Text style={{ width: 96, textAlign: 'right', fontWeight: '700', color: base.ink }}>{money(l.gross)}</Text>
+            </View>
           </View>
         );
       })}
       {!locked && (
-        <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 }}>
           <Button kind="ghost" title="+ Add a line" onPress={() => setAdding('line')} />
           <Button kind="ghost" title="+ Add a section" onPress={() => setAdding('section')} />
         </View>
@@ -277,12 +280,13 @@ function Editor({ a0, jf, previousLive, prevPct, siteProgress, varProgress }: { 
       )}
       {(c.variations.length > 0 || !locked) && <SectionTitle>Variations</SectionTitle>}
       {c.variations.map((v: Row, i: number) => (
-        <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6 }}>
-          {locked ? <Text style={{ flex: 1, color: base.ink }}>{v.description}</Text> : <TextInput value={v.description} onChangeText={(x) => setA({ ...a, variations: a.variations.map((y: Row, j: number) => (j === i ? { ...y, description: x } : y)) })} style={[box, { flex: 1 }]} />}
+        <View key={i} style={{ flexDirection: desk ? 'row' : 'column', alignItems: desk ? 'center' : 'stretch', gap: 8, paddingVertical: 6 }}>
+          {locked ? <Text style={desk ? { flex: 1, color: base.ink } : { color: base.ink }}>{v.description}</Text> : <TextInput value={v.description} onChangeText={(x) => setA({ ...a, variations: a.variations.map((y: Row, j: number) => (j === i ? { ...y, description: x } : y)) })} placeholder="Description" style={[box, desk ? { flex: 1 } : null]} />}
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
           {locked ? <Text style={{ color: base.slate }}>{money(v.value)} @ {pct(v.pct)}%</Text> : (
             <>
               <TextInput defaultValue={v.value != null ? String(v.value) : ''} onChangeText={(x) => setA({ ...a, variations: a.variations.map((y: Row, j: number) => (j === i ? { ...y, value: num(x) } : y)) })} placeholder="£ value" keyboardType="decimal-pad" style={[box, { width: 90 }]} />
-              <TextInput key={`vp${i}-${gen}`} defaultValue={String(pct(v.pct))} onChangeText={(x) => setA({ ...a, variations: a.variations.map((y: Row, j: number) => (j === i ? { ...y, pct: pct(x) } : y)) })} keyboardType="decimal-pad" style={[box, { width: 56 }]} />
+              <TextInput key={`vp${i}-${gen}`} defaultValue={String(pct(v.pct))} onChangeText={(x) => setA({ ...a, variations: a.variations.map((y: Row, j: number) => (j === i ? { ...y, pct: pct(x) } : y)) })} keyboardType="decimal-pad" style={[box, { width: 56 }]} /><Text style={{ color: base.slate }}>%</Text>
             </>
           )}
           {(() => {
@@ -291,17 +295,20 @@ function Editor({ a0, jf, previousLive, prevPct, siteProgress, varProgress }: { 
             const can = !locked && sp !== pct(v.pct);
             return <Text onPress={can ? () => { const was = pct(v.pct), to = pct(sp); setA({ ...a, variations: a.variations.map((y: Row, j: number) => (j === i ? { ...y, pct: to } : y)) }); setGen((g) => g + 1); toast(`${v.description || 'Variation'}: ${was}% → ${to}% from site`); } : undefined} style={{ fontSize: 11.5, fontWeight: '700', color: sp > pct(v.pct) ? '#b45309' : base.slate }}>Site {sp}%{can ? <Text style={{ color: base.blue, fontWeight: '800', textDecorationLine: 'underline' }}> Use</Text> : null}</Text>;
           })()}
-          <Text style={{ width: 90, textAlign: 'right', fontWeight: '700', color: base.ink }}>{money(v.gross)}</Text>
+          <Text style={{ marginLeft: 'auto', minWidth: 90, textAlign: 'right', fontWeight: '700', color: base.ink }}>{money(v.gross)}</Text>
+          </View>
         </View>
       ))}
       {!locked && <Button kind="ghost" title="+ Variation line" onPress={() => setA({ ...a, variations: [...(a.variations || []), { variation_id: null, description: '', value: null, pct: 100 }] })} />}
       {/* 902: typed day works can be added and changed on a draft; ones from the Day works register stay as they are. */}
       {(c.dayworks.length > 0 || !locked) && <SectionTitle>Day works</SectionTitle>}
       {c.dayworks.map((d: Row, i: number) => (locked || d.fin_daywork_id) ? <FinRow key={i} title={d.description} right={money(d.gross)} /> : (
-        <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6 }}>
-          <TextInput value={d.description || ''} onChangeText={(x) => setA({ ...a, dayworks: a.dayworks.map((y: Row, j: number) => (j === i ? { ...y, description: x } : y)) })} placeholder="Description" style={[box, { flex: 1 }]} />
+        <View key={i} style={{ flexDirection: desk ? 'row' : 'column', alignItems: desk ? 'center' : 'stretch', gap: 8, paddingVertical: 6 }}>
+          <TextInput value={d.description || ''} onChangeText={(x) => setA({ ...a, dayworks: a.dayworks.map((y: Row, j: number) => (j === i ? { ...y, description: x } : y)) })} placeholder="Description" style={[box, desk ? { flex: 1 } : null]} />
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
           <TextInput defaultValue={d.value != null ? String(d.value) : ''} onChangeText={(x) => setA({ ...a, dayworks: a.dayworks.map((y: Row, j: number) => (j === i ? { ...y, value: num(x) } : y)) })} placeholder="£ value" keyboardType="decimal-pad" style={[box, { width: 100 }]} />
           <Text style={{ width: 90, textAlign: 'right', fontWeight: '700', color: base.ink }}>{money(d.gross)}</Text>
+          </View>
         </View>
       ))}
       {!locked && <Button kind="ghost" title="+ Add daywork" onPress={() => setA({ ...a, dayworks: [...(a.dayworks || []), { description: '', value: null }] })} />}
@@ -339,7 +346,7 @@ function Editor({ a0, jf, previousLive, prevPct, siteProgress, varProgress }: { 
       )}
       {stage === 'applied' && (
         <>
-          <Certificate a={a0} jf={jf} previous={previousLive} onSaved={refresh} />
+          <Certificate a={a0} jf={jf} previous={previousLive} prevPct={prevPct} prevVar={prevVar} onSaved={refresh} />
           <Button kind="ghost" title="Return to draft to edit" onPress={async () => { if (await confirmAsk('Return this application to draft so you can edit it?', 'Return to draft')) { if (await setStatus(a0.id, { status: 'draft' })) { toast('Back to draft — you can edit it now'); refresh(); } } }} />
           <Muted style={{ marginTop: 6 }}>Emailing the application to the client is switched off while Finance is on trial.</Muted>
         </>
@@ -370,40 +377,41 @@ function Editor({ a0, jf, previousLive, prevPct, siteProgress, varProgress }: { 
   );
 }
 
-function Certificate({ a, jf, previous, onSaved }: { a: Row; jf: Row; previous: number; onSaved: () => void }) {
+function Certificate({ a, jf, previous, prevPct, prevVar, onSaved }: { a: Row; jf: Row; previous: number; prevPct: Record<string, number>; prevVar: Record<string, number>; onSaved: () => void }) {
   const { me, org } = useAuth();
   const { data: site } = useSite(a.site_id);
   const toast = useToast();
-  const [v, setV] = useState<Row>({ cert_date: today(), cert_gross: String(round2(a.gross)), cert_retention: String(round2(a.retention)), cert_previous: String(round2(previous)), cert_discount: String(round2(a.discount != null ? Number(a.discount) : (Number(a.gross || 0) * Number(a.discount_pct || 0)) / 100)), cert_notes: '', cert_is_payless: false, invoiceNow: false });
-  const [file, setFile] = useState<{ uri: string; name: string; mimeType?: string | null } | null>(null);
-  const [netTyped, setNetTyped] = useState('');
-  const [busy, setBusy] = useState(false);
-  // Certify line by line (9219p finCertTotals): a Certified % for each line and variation and an amount for each
-  // day work; the totals (with discount, retention and its limit) are worked out from them.
-  const [byLine, setByLine] = useState(false);
-  const [xlNote, setXlNote] = useState('');
-  const [cp, setCp] = useState<Record<string, string>>(() => {
+  // Each line starts at what the client last certified (0 on a first certificate), so their figure has to be entered (9219p).
+  const startCp = () => {
     const o: Record<string, string> = {};
-    (a.lines || []).forEach((l: Row, i: number) => { if (isItem(l)) o[`l${i}`] = String(l.pct ?? 0); });
-    (a.variations || []).forEach((x: Row, i: number) => { o[`v${i}`] = String(x.pct ?? 100); });
+    (a.lines || []).forEach((l: Row, i: number) => { if (isItem(l)) o[`l${i}`] = String(prevPct[l.item_id] ?? 0); });
+    (a.variations || []).forEach((x: Row, i: number) => { o[`v${i}`] = String(prevVar[x.fin_variation_id || x.variation_id || ''] ?? 0); });
     (a.dayworks || []).forEach((d: Row, i: number) => { o[`d${i}`] = String(d.value ?? 0); });
     return o;
-  });
-  const certApp = () => ({
+  };
+  const withCp = (next: Record<string, string>) => ({
     ...a,
-    lines: (a.lines || []).map((l: Row, i: number) => (isItem(l) ? { ...l, pct: pct(cp[`l${i}`]) } : l)),
-    variations: (a.variations || []).map((x: Row, i: number) => ({ ...x, pct: pct(cp[`v${i}`]) })),
-    dayworks: (a.dayworks || []).map((d: Row, i: number) => ({ ...d, value: num(cp[`d${i}`]) || 0 })),
+    lines: (a.lines || []).map((l: Row, i: number) => (isItem(l) ? { ...l, pct: pct(next[`l${i}`]) } : l)),
+    variations: (a.variations || []).map((x: Row, i: number) => ({ ...x, pct: pct(next[`v${i}`]) })),
+    dayworks: (a.dayworks || []).map((d: Row, i: number) => ({ ...d, value: num(next[`d${i}`]) || 0 })),
   });
+  const [cp, setCp] = useState<Record<string, string>>(startCp);
+  const [v, setV] = useState<Row>(() => { const c0 = appCalc(withCp(startCp()), jf.contract_value, jf.retention_limit_pct, previous); return { cert_date: today(), cert_gross: String(c0.gross), cert_retention: String(c0.retention), cert_previous: String(round2(previous)), cert_discount: String(c0.discount), cert_notes: '', cert_is_payless: false, invoiceNow: false }; });
+  const [file, setFile] = useState<{ uri: string; name: string; mimeType?: string | null } | null>(null);
+  const [busy, setBusy] = useState(false);
+  // A Certified % for each line and variation and an amount for each day work; the totals (with discount, retention and its
+  // limit) are worked out from them and can't be typed over, so the invoice always matches the certificate (9219p finCertTotals).
+  const [xlNote, setXlNote] = useState('');
+  const certApp = () => withCp(cp);
   const applyLines = (next: Record<string, string>) => {
     setCp(next);
-    const c2 = appCalc({ ...certApp(), ...((): Row => { const o = { ...a }; o.lines = (a.lines || []).map((l: Row, i: number) => (isItem(l) ? { ...l, pct: pct(next[`l${i}`]) } : l)); o.variations = (a.variations || []).map((x: Row, i: number) => ({ ...x, pct: pct(next[`v${i}`]) })); o.dayworks = (a.dayworks || []).map((d: Row, i: number) => ({ ...d, value: num(next[`d${i}`]) || 0 })); return o; })() }, jf.contract_value, jf.retention_limit_pct, num(v.cert_previous) || 0);
+    const c2 = appCalc(withCp(next), jf.contract_value, jf.retention_limit_pct, num(v.cert_previous) || 0);
     setV({ ...v, cert_gross: String(c2.gross), cert_discount: String(c2.discount), cert_retention: String(c2.retention) });
   };
   if (!me) return null;
   const n = (k: string) => num(v[k]) || 0;
   const netWorked = round2(n('cert_gross') - n('cert_retention') - n('cert_previous') - n('cert_discount'));
-  const net = netTyped.trim() !== '' && num(netTyped) !== null && !isNaN(num(netTyped) as number) ? round2(num(netTyped) as number) : netWorked;
+  const net = netWorked;
   const diff = round2(net - Number(a.net_due));
   const f = (k: string, l: string) => <View key={k} style={{ flexBasis: '47%', flexGrow: 1, marginBottom: 6 }}><Muted>{l}</Muted>{k === 'cert_date'
     ? <DateBox value={String(v[k] ?? '')} onChange={(x) => setV({ ...v, [k]: x })} title={l} placeholder="Choose a date" style={{ paddingVertical: 8 }} />
@@ -411,15 +419,15 @@ function Certificate({ a, jf, previous, onSaved }: { a: Row; jf: Row; previous: 
   return (
     <Card>
       <SectionTitle>Client&apos;s certificate</SectionTitle>
-      <Muted style={{ marginBottom: 8 }}>When the client&apos;s certificate (or pay-less notice) comes back, enter its figures. They start as what you applied for.</Muted>
+      <Muted style={{ marginBottom: 8 }}>When the client&apos;s certificate (or pay-less notice) comes back, enter what they certified on each line. Lines start at what they last certified.</Muted>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 8 }}>
-        {f('cert_date', 'Certificate date')}{f('cert_gross', 'Total certified to date (£)')}{f('cert_retention', 'Retention held (£)')}{f('cert_previous', 'Previously certified (£)')}{f('cert_discount', 'Discount, if any (£)')}
+        {f('cert_date', 'Certificate date')}
       </View>
       <Pressable onPress={async () => {
         const items = await pickAppExcel(toast); if (!items) return;
         const r = certFromItems(a, items);
         if (!r.found) { toast('That doesn’t look like this application’s Excel — download it from OpHUB, send it to the client and upload their copy.'); return; }
-        setByLine(true); applyLines({ ...cp, ...r.cp });
+        applyLines({ ...cp, ...r.cp });
         setXlNote(`Read from the client’s Excel. ${r.diffs.length ? `${r.diffs.length} line${r.diffs.length === 1 ? ' differs' : 's differ'} from what you applied for:\n${r.diffs.slice(0, 8).join('\n')}${r.diffs.length > 8 ? `\n…and ${r.diffs.length - 8} more` : ''}` : 'Every line matches what you applied for.'} Check the figures, then save.`);
         toast('Certificate filled in from the Excel');
       }} style={{ marginBottom: 6 }}><Text style={{ color: base.blue, fontWeight: '700' }}>📥 Fill in from the client&apos;s Excel</Text></Pressable>
@@ -430,7 +438,7 @@ function Certificate({ a, jf, previous, onSaved }: { a: Row; jf: Row; previous: 
         const asset = r.assets[0];
         const rows = await pdfLines(new Uint8Array(await (await fetch(asset.uri)).arrayBuffer()));
         setFile({ uri: asset.uri, name: asset.name || 'certificate.pdf', mimeType: 'application/pdf' });
-        if (!rows) { toast('Couldn’t read any text in that PDF (a scan, or on a phone) — enter the Certified % on each line. The PDF is kept with the certificate.'); setByLine(true); return; }
+        if (!rows) { toast('Couldn’t read any text in that PDF (a scan, or on a phone) — enter the Certified % on each line. The PDF is kept with the certificate.'); return; }
         const norm = (x: unknown) => String(x || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
         const next: Record<string, string> = {}; let found = 0;
         (a.lines || []).forEach((l: Row, i: number) => {
@@ -439,16 +447,15 @@ function Certificate({ a, jf, previous, onSaved }: { a: Row; jf: Row; previous: 
           const pcts = (row.match(/(\d{1,3}(?:\.\d+)?)\s?%/g) || []).map((x) => Number(x.replace(/[^\d.]/g, ''))).filter((n) => n <= 100);
           if (pcts.length) { next[`l${i}`] = String(pcts[pcts.length - 1]); found++; }
         });
-        setByLine(true);
         if (!found) { toast('Read the PDF but couldn’t match any lines — enter the Certified % on each line. The PDF is kept with the certificate.'); return; }
         applyLines({ ...cp, ...next });
         toast(`Read ${found} line${found === 1 ? '' : 's'} from the PDF — check them, then Certify`);
       }} style={{ marginBottom: 6 }}><Text style={{ color: base.blue, fontWeight: '700' }}>📥 Fill in from the client&apos;s PDF</Text></Pressable>
       {!!xlNote && <Card style={{ backgroundColor: '#f4f8fd' }}><Text style={{ color: base.ink, fontSize: 12.5 }}>{xlNote}</Text></Card>}
-      <Pressable onPress={() => setByLine(!byLine)} style={{ marginBottom: 6 }}><Text style={{ color: base.blue, fontWeight: '700' }}>{byLine ? '▼' : '▶'} Certify line by line</Text></Pressable>
-      {byLine && (
+      <View style={{ marginBottom: 8, alignSelf: 'flex-start' }}><Button small kind="ghost" title="Certified as applied" onPress={() => { const o: Record<string, string> = {}; (a.lines || []).forEach((l: Row, i: number) => { if (isItem(l)) o[`l${i}`] = String(pct(l.pct)); }); (a.variations || []).forEach((x: Row, i: number) => { o[`v${i}`] = String(pct(x.pct)); }); (a.dayworks || []).forEach((d: Row, i: number) => { o[`d${i}`] = String(d.value ?? 0); }); applyLines(o); }} /></View>
+      {(
         <View style={{ marginBottom: 8 }}>
-          <Muted style={{ marginBottom: 6 }}>Type the client&apos;s Certified % against each line (and the amount for each day work). The totals above fill in from these.</Muted>
+          <Muted style={{ marginBottom: 6 }}>Type the client&apos;s Certified % against each line (and the amount for each day work). The totals below fill in from these.</Muted>
           {(a.lines || []).map((l: Row, i: number) => isItem(l) ? (
             <View key={`l${i}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4, borderTopWidth: 1, borderTopColor: '#F0F1F4' }}>
               <Text numberOfLines={2} style={{ flex: 1, color: base.ink, fontSize: 12.5 }}>{[l.ref, l.description].filter(Boolean).join(' ')}</Text>
@@ -472,10 +479,11 @@ function Certificate({ a, jf, previous, onSaved }: { a: Row; jf: Row; previous: 
           ))}
         </View>
       )}
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-        <Text style={{ flex: 1, fontWeight: '700', color: base.ink }}>Net due</Text>
-        <TextInput value={netTyped} onChangeText={setNetTyped} placeholder={String(netWorked)} keyboardType="decimal-pad" style={[box, { width: 120, marginBottom: 0, textAlign: 'right' }]} />
-      </View>
+      <FinRow title="Total certified to date" right={money(n('cert_gross'))} />
+      {n('cert_discount') ? <FinRow title="Less discount" right={`−${money(n('cert_discount'))}`} /> : null}
+      <FinRow title="Less retention" right={`−${money(n('cert_retention'))}`} />
+      <FinRow title="Less previously certified" right={`−${money(n('cert_previous'))}`} />
+      <FinRow title="Net due" right={money(net)} />
       <Text style={{ color: diff < 0 ? '#C0392B' : diff > 0 ? '#1E7A3C' : base.slate, marginBottom: 6 }}>{diff ? `${diff < 0 ? 'Short by' : 'Over by'} ${money(Math.abs(diff))} compared with the ${money(a.net_due)} applied for.` : 'Matches what was applied for.'}</Text>
       <Check label="This is a pay-less notice" value={!!v.cert_is_payless} onChange={(x) => setV({ ...v, cert_is_payless: x })} />
       <TextInput value={v.cert_notes} onChangeText={(x) => setV({ ...v, cert_notes: x })} placeholder="Notes, e.g. reason for any shortfall" style={[box, { marginVertical: 6 }]} />
@@ -486,8 +494,9 @@ function Certificate({ a, jf, previous, onSaved }: { a: Row; jf: Row; previous: 
         if (vals.some((x) => x === null || isNaN(x))) { toast('Fill in every amount (0 if none).'); return; }
         setBusy(true);
         try {
-          const ca = byLine ? appCalc(certApp(), jf.contract_value, jf.retention_limit_pct, vals[2] as number) : null;
-          const certLines = ca ? [...ca.lines.filter(isItem).map((l: Row) => ({ item_id: l.item_id, pct: l.pct, gross: l.gross })), ...ca.variations.map((x: Row) => ({ fin_variation_id: x.fin_variation_id || null, variation_id: x.variation_id || null, description: x.description, pct: x.pct, gross: x.gross })), ...ca.dayworks.map((d: Row) => ({ fin_daywork_id: d.fin_daywork_id || null, description: d.description, gross: d.gross }))] : null;
+          const ca = appCalc(certApp(), jf.contract_value, jf.retention_limit_pct, vals[2] as number);
+          // The extra fields let the old app show these too, while both are in use (9219p).
+          const certLines = [...ca.lines.filter(isItem).map((l: Row) => ({ item_id: l.item_id, pct: l.pct, gross: l.gross, value: l.value, applied_pct: pct((a.lines || []).find((y: Row) => y.item_id === l.item_id)?.pct) })), ...ca.variations.map((x: Row, i: number) => ({ var_index: i, fin_variation_id: x.fin_variation_id || null, variation_id: x.variation_id || null, description: x.description, pct: x.pct, gross: x.gross, value: x.value, applied_pct: pct(a.variations?.[i]?.pct) })), ...ca.dayworks.map((d: Row, i: number) => ({ day_index: i, fin_daywork_id: d.fin_daywork_id || null, description: d.description, gross: d.gross }))];
           const e = await saveCertificate(me, a, { ...v, cert_gross: vals[0], cert_retention: vals[1], cert_previous: vals[2], cert_discount: vals[3], cert_net: net, cert_lines: certLines }, file);
           if (e) { toast(e); return; }
           if (v.invoiceNow && net > 0) {

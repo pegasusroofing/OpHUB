@@ -908,3 +908,8 @@
 {"part":"appdive","step":"Certificate form opens, shows the figures","ok":true,"note":"Applied — waiting for certificate | Excl. VAT. An application isn't a VAT invoice; the invoice follows the certificate. | CLIENT'S CERTIFICATE | When the client","ms":73}
 {"part":"appdive2","step":"Save the certificate as applied","ok":true,"note":"status certified, cert net 4000, previous 6900","ms":12167}
 {"part":"appdive2","step":"Raise from the list makes a draft with the previous taken off","ok":true,"note":"draft, invoice net 4000 against cert net 4000","ms":14537}
+{"part":"appdive3","step":"Phone: published draft fits, tall shots","ok":true,"note":"no. 5, boxes off screen 0","ms":17580}
+{"part":"appdive3","step":"Certificate: no boxes to type totals, lines start at last certified, one line short follows through","ok":false,"note":"locator.fill: Timeout 30000ms exceeded.","ms":34388}
+{"part":"appdive3","step":"Phone: published draft fits, tall shots","ok":true,"note":"no. 6, boxes off screen 0","ms":17590}
+{"part":"appdive3","step":"Certificate: no boxes to type totals, lines start at last certified, one line short follows through","ok":true,"note":"boxes 7; Net due £0.00 Matches what was; saved net -100","ms":8809}
+{"part":"appdive3","step":"Laptop: Quotes in the left menu opens the tracker","ok":true,"note":"/pm/quotes","ms":9642}
