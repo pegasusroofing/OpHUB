@@ -71,14 +71,16 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
   const [view, setViewNow] = useState<'overview' | 'lines'>(lastView[a0.id] || 'overview');
   const scroller = useRef<ComponentRef<typeof ScrollView>>(null);
   const setView = (x: 'overview' | 'lines') => { lastView[a0.id] = x; setViewNow(x); scroller.current?.scrollTo({ y: 0, animated: false }); };
-  const [byQty, setByQty] = useState<Record<string, boolean>>({}); // lines entered by quantity done rather than %
+  const [over, setOver] = useState<Record<string, Entry>>({}); // single lines switched away from the page's choice
   const { me, org } = useAuth();
   const { data: site } = useSite(a0.site_id);
   const { data: finSt } = useFinSettings(me?.org_id);
   const toast = useToast();
   const qc = useQueryClient();
   const [a, setA] = useState<Row>(() => JSON.parse(JSON.stringify(a0)));
-  const [mode, setMode] = useState<'pct' | 'gbp'>('pct');
+  const [mode, setModeNow] = useState<Entry>('pct');
+  const setMode = (m: Entry) => { setModeNow(m); setOver({}); };
+  const flip = (k: string) => (m: Entry) => setOver((o) => ({ ...o, [k]: m }));
   const [hideZero, setHideZero] = useState(false);
   const [busy, setBusy] = useState('');
   const [adding, setAdding] = useState<'line' | 'section' | null>(null);
@@ -256,7 +258,7 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
       )}
       {view === 'lines' && <>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8, alignItems: 'center' }}>
-        {!locked && <><FinChip on={mode === 'pct'} label="Enter %" onPress={() => setMode('pct')} /><FinChip on={mode === 'gbp'} label="Enter £" onPress={() => setMode('gbp')} /></>}
+        {(stage === 'draft' || stage === 'applied') && <><FinChip on={mode === 'pct'} label="Enter %" onPress={() => setMode('pct')} /><FinChip on={mode === 'gbp'} label="Enter £" onPress={() => setMode('gbp')} /><FinChip on={mode === 'qty'} label="Enter qty" onPress={() => setMode('qty')} /></>}
         <Check label="Hide 0% lines" value={hideZero} onChange={setHideZero} />
         {stage === 'draft' && <View style={{ marginLeft: 'auto' }}><Button small kind="ghost" busy={!!busy} title="Upload edited Excel" onPress={() => void uploadExcel()} /></View>}
       </View>
@@ -289,7 +291,7 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
         tools={!locked && isSec ? <View style={{ flexDirection: 'row', gap: 6 }}><Button small kind="ghost" title="Set all to 100%" onPress={() => fill(g[0], 100)} /><Button small kind="ghost" title="Set all to 0%" onPress={() => fill(g[0], 0)} /></View> : undefined}>
       {locked && desk && (
         <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8, backgroundColor: '#F4F5F7', borderBottomWidth: 1, borderColor: base.cardLine, paddingVertical: 6, paddingHorizontal: 12 }}>
-          {([['Applied %', 62], ['Applied', 96], ['Certified %', 84], ['Certified', 96]] as [string, number][]).map(([x, w]) => <Text key={x} style={{ width: w, textAlign: 'right', fontSize: 12.5, fontWeight: '600', color: base.slate }}>{x}</Text>)}
+          {([['Applied %', 62], ['Applied', 96], [stage === 'applied' && mode !== 'pct' ? (mode === 'gbp' ? 'Certified £' : 'Certified qty') : 'Certified %', CERT_W], ['Certified', 96]] as [string, number][]).map(([x, w]) => <Text key={x} style={{ width: w, textAlign: 'right', fontSize: 12.5, fontWeight: '600', color: base.slate }}>{x}</Text>)}
         </View>
       )}
       {g.map((i) => {
@@ -314,29 +316,18 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
               {/* Previous = certified on this line last time; This time = to date less previous (9219r). */}
               {(() => { const prev = round2((Number(l.value || 0) * (prevPct[l.item_id] || 0)) / 100); return prev || l.gross ? <Muted style={{ fontSize: 11.5 }}>Previous {money(prev)} · This time {money(round2(l.gross - prev))}</Muted> : null; })()}
             </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-            {locked ? <Text style={{ width: 62, textAlign: 'right', color: base.ink }}>{pct(l.pct)}%</Text> : mode === 'pct'
-              ? (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                  {hasQty && byQty[l.item_id]
-                    ? <TextInput key={`q${i}-${gen}`} accessibilityLabel="Quantity done" defaultValue={String(round2((pct(l.pct) * Number(l.qty)) / 100))} onChangeText={(v) => { const n = num(v); if (n !== null && !isNaN(n)) setLine(i, { pct: pct((n / Number(l.qty)) * 100) }); }} keyboardType="decimal-pad" selectTextOnFocus style={[box, { width: 60, height: 30, paddingVertical: 2, fontSize: 13 }]} />
-                    : <TextInput key={`p${i}-${gen}`} accessibilityLabel="Percent done" defaultValue={String(pct(l.pct))} onChangeText={(v) => setLine(i, { pct: pct(v) })} keyboardType="decimal-pad" selectTextOnFocus style={[box, { width: 52, height: 30, paddingVertical: 2, fontSize: 13 }]} />}
-                  {hasQty
-                    ? <Pressable accessibilityRole="button" accessibilityLabel={byQty[l.item_id] ? 'Enter by percent' : 'Enter by quantity'} hitSlop={8} onPress={() => setByQty((o) => ({ ...o, [l.item_id]: !o[l.item_id] }))} style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: '#DFE3EA', borderRadius: 7, height: 26, paddingHorizontal: 8 }}><Text style={{ fontSize: 12.5, fontWeight: '500', color: base.ink }}>{byQty[l.item_id] ? l.unit || 'qty' : '%'}</Text><Text style={{ fontSize: 9, color: base.slate }}>⇄</Text></Pressable>
-                    : <Text style={{ color: base.slate, fontWeight: '500' }}>%</Text>}
-                </View>
-              )
-              : <TextInput key={`g${i}-${gen}`} defaultValue={String(l.gross)} onChangeText={(v) => { const n = num(v), val = Number(l.value || 0); if (val && n !== null && !isNaN(n)) setLine(i, { pct: pct((n / val) * 100) }); }} keyboardType="decimal-pad" selectTextOnFocus style={[box, { width: 90, height: 30, paddingVertical: 2, fontSize: 13 }]} />}
+            <View style={{ flexDirection: 'row', flexWrap: desk ? 'nowrap' : 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+            {locked ? <Text style={{ width: 62, textAlign: 'right', color: base.ink }}>{pct(l.pct)}%</Text> : <AmountBox key={`p${i}-${gen}`} p={pct(l.pct)} value={l.value} qty={l.qty} unit={l.unit} mode={over[l.item_id] || mode} onMode={flip(l.item_id)} labels={['Percent done', 'Amount done', 'Quantity done']} onPct={(x) => setLine(i, { pct: x })} />}
             <Text style={{ width: 96, textAlign: 'right', fontSize: desk ? 15 : 14, fontWeight: '600', color: base.ink }}>{money(l.gross)}</Text>
             {stage === 'applied' && (() => { const p0 = pct(cert.cp[`l${i}`]); return (
               <>
-                <View style={{ width: 84, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}><TextInput accessibilityLabel="Certified percent" value={cert.cp[`l${i}`]} onChangeText={(x) => cert.applyLines({ ...cert.cp, [`l${i}`]: x })} keyboardType="decimal-pad" selectTextOnFocus style={[box, { width: 56, height: 30, paddingVertical: 2, fontSize: 13 }]} /><Text style={{ color: base.slate, fontWeight: '500' }}>%</Text></View>
+                <View style={{ width: CERT_W, alignItems: 'flex-end' }}><AmountBox p={p0} value={l.value} qty={l.qty} unit={l.unit} mode={over[l.item_id] || mode} onMode={flip(l.item_id)} labels={CERT_LABELS} onPct={(x) => cert.applyLines({ ...cert.cp, [`l${i}`]: String(x) })} /></View>
                 <Text style={{ width: 96, textAlign: 'right', fontSize: desk ? 15 : 14, fontWeight: '600', color: p0 !== pct(l.pct) ? '#b45309' : base.ink }}>{money(round2((Number(l.value || 0) * p0) / 100))}</Text>
               </>
             ); })()}
             {(stage === 'certified' || stage === 'invoiced') && (() => { const cl = (a0.cert_lines || []).find((x: Row) => x.item_id === l.item_id); return (
               <>
-                <Text style={{ width: 84, textAlign: 'right', color: base.ink }}>{cl ? `${pct(cl.pct)}%` : '—'}</Text>
+                <Text style={{ width: CERT_W, textAlign: 'right', color: base.ink }}>{cl ? `${pct(cl.pct)}%` : '—'}</Text>
                 <Text style={{ width: 96, textAlign: 'right', fontSize: desk ? 15 : 14, fontWeight: '600', color: base.ink }}>{cl ? money(cl.gross) : '—'}</Text>
               </>
             ); })()}
@@ -405,7 +396,7 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
               <TextInput accessibilityLabel="Variation quantity" defaultValue={v.qty != null ? String(v.qty) : '1'} onChangeText={(x) => setVar(i, { qty: x })} keyboardType="decimal-pad" selectTextOnFocus style={[box, { width: 56 }]} />
               <Text style={{ color: base.slate }}>×</Text>
               <TextInput defaultValue={v.rate != null ? String(v.rate) : v.value != null ? String(v.value) : ''} onChangeText={(x) => setVar(i, { rate: x })} placeholder="£ value" keyboardType="decimal-pad" selectTextOnFocus style={[box, { width: 90 }]} />
-              <TextInput key={`vp${i}-${gen}`} defaultValue={String(pct(v.pct))} onChangeText={(x) => setA({ ...a, variations: a.variations.map((y: Row, j: number) => (j === i ? { ...y, pct: pct(x) } : y)) })} keyboardType="decimal-pad" selectTextOnFocus style={[box, { width: 56 }]} /><Text style={{ color: base.slate }}>%</Text>
+              <AmountBox key={`vp${i}-${gen}`} p={pct(v.pct)} value={v.value} mode={mode === 'gbp' ? 'gbp' : 'pct'} labels={['Percent done', 'Amount done', 'Quantity done']} onPct={(x) => setA({ ...a, variations: a.variations.map((y: Row, j: number) => (j === i ? { ...y, pct: x } : y)) })} />
             </>
           )}
           {(() => {
@@ -415,7 +406,7 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
             return <Text onPress={can ? () => { const was = pct(v.pct), to = pct(sp); setA({ ...a, variations: a.variations.map((y: Row, j: number) => (j === i ? { ...y, pct: to } : y)) }); setGen((g) => g + 1); toast(`${v.description || 'Variation'}: ${was}% → ${to}% from site`); } : undefined} style={{ fontSize: 11.5, fontWeight: '500', color: sp > pct(v.pct) ? '#b45309' : base.slate }}>Site {sp}%{can ? <Text style={{ color: base.blue, fontWeight: '600', textDecorationLine: 'underline' }}> Use</Text> : null}</Text>;
           })()}
           <Text style={{ marginLeft: 'auto', minWidth: 90, textAlign: 'right', fontWeight: '600', color: base.ink }}>{money(v.gross)}</Text>
-          {stage === 'applied' && <><View style={{ width: 84, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}><TextInput accessibilityLabel="Certified percent" value={cert.cp[`v${i}`]} onChangeText={(x) => cert.applyLines({ ...cert.cp, [`v${i}`]: x })} keyboardType="decimal-pad" selectTextOnFocus style={[box, { width: 56, height: 30, paddingVertical: 2, fontSize: 13 }]} /><Text style={{ color: base.slate, fontWeight: '500' }}>%</Text></View><Text style={{ width: 96, textAlign: 'right', fontWeight: '600', color: base.ink }}>{money(round2((Number(v.value || 0) * pct(cert.cp[`v${i}`])) / 100))}</Text></>}
+          {stage === 'applied' && <><View style={{ width: CERT_W, alignItems: 'flex-end' }}><AmountBox p={pct(cert.cp[`v${i}`])} value={v.value} qty={Number(v.qty) > 1 ? v.qty : null} mode={over[`v${i}`] || mode} onMode={flip(`v${i}`)} labels={CERT_LABELS} onPct={(x) => cert.applyLines({ ...cert.cp, [`v${i}`]: String(x) })} /></View><Text style={{ width: 96, textAlign: 'right', fontWeight: '600', color: base.ink }}>{money(round2((Number(v.value || 0) * pct(cert.cp[`v${i}`])) / 100))}</Text></>}
           </View>
         </View>
       ))}
@@ -453,6 +444,33 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
       </View>
     )}
     <ThinExportBar busy={busy ? 'x' : undefined} onExcel={() => void exportAs('xlsx')} onPdf={() => void exportAs('pdf')} />
+    </View>
+  );
+}
+
+type Entry = 'pct' | 'gbp' | 'qty';
+const CERT_W = 124;
+const CERT_LABELS: [string, string, string] = ['Certified percent', 'Certified amount', 'Certified quantity'];
+
+/** One box for how far a line has got, typed as a %, in £ or as a quantity. It's always kept as a %, which every sum uses. */
+function AmountBox({ p, value, qty, unit, mode, onMode, labels, onPct }: { p: number; value: unknown; qty?: unknown; unit?: string | null; mode: Entry; onMode?: (m: Entry) => void; labels: [string, string, string]; onPct: (p: number) => void }) {
+  const [typing, setTyping] = useState<string | null>(null);
+  const val = Number(value || 0), q = qty != null && Number(qty) !== 0 ? Number(qty) : 0;
+  const m: Entry = mode === 'qty' && !q ? 'pct' : mode;
+  const shown = String(m === 'gbp' ? round2((val * p) / 100) : m === 'qty' ? round2((p * q) / 100) : p);
+  const type = (x: string) => {
+    setTyping(x);
+    const n = x.trim() === '' ? 0 : num(x);
+    if (n === null || isNaN(n)) return;
+    if (m === 'gbp') { if (val) onPct(pct((n / val) * 100)); } else if (m === 'qty') onPct(pct((n / q) * 100)); else onPct(pct(n));
+  };
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+      {m === 'gbp' && <Text style={{ color: base.slate, fontWeight: '500' }}>£</Text>}
+      <TextInput accessibilityLabel={labels[m === 'pct' ? 0 : m === 'gbp' ? 1 : 2]} value={typing ?? shown} onChangeText={type} onFocus={() => setTyping(shown)} onBlur={() => setTyping(null)} keyboardType="decimal-pad" selectTextOnFocus style={[box, { width: m === 'gbp' ? 90 : 56, height: 30, paddingVertical: 2, fontSize: 13 }]} />
+      {m === 'gbp' ? null : q && onMode
+        ? <Pressable accessibilityRole="button" accessibilityLabel={m === 'qty' ? 'Enter by percent' : 'Enter by quantity'} hitSlop={8} onPress={() => onMode(m === 'qty' ? 'pct' : 'qty')} style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: '#DFE3EA', borderRadius: 7, height: 26, paddingHorizontal: 8 }}><Text style={{ fontSize: 12.5, fontWeight: '500', color: base.ink }}>{m === 'qty' ? unit || 'qty' : '%'}</Text><Text style={{ fontSize: 9, color: base.slate }}>⇄</Text></Pressable>
+        : <Text style={{ color: base.slate, fontWeight: '500' }}>{m === 'qty' ? unit || '' : '%'}</Text>}
     </View>
   );
 }

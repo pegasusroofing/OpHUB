@@ -1257,3 +1257,13 @@
 {"part":"appstyle1","step":"Application draft","ok":true,"note":"4 bars","ms":12386}
 {"part":"appstyle1","step":"Plot box on a multi-site job with no plots","ok":true,"note":"boxes 1","ms":10681}
 {"part":"appstyle1","step":"A new line takes the plot above","ok":true,"note":"1 > 2","ms":14301}
+{"part":"appentry1","step":"Applied by £ on the draft","ok":true,"note":"pct 50","ms":49112}
+{"part":"appentry1","step":"Applied by qty on the draft","ok":true,"note":"pct 75","ms":3863}
+{"part":"appentry1","step":"Applied by % still works","ok":true,"note":"pct 80","ms":3741}
+{"part":"appentry1","step":"Certified by £","ok":true,"note":"shows £625","ms":6396}
+{"part":"appentry1","step":"Certified by qty, then back to %: same figure","ok":true,"note":"qty showed 50, now 20%","ms":1888}
+{"part":"appentry1","step":"One line can switch on its own","ok":true,"note":"qty boxes 1","ms":632}
+{"part":"appflow1","step":"BoQ: all on one row, capital letter","ok":true,"note":"row offset -6, Strip tiles","ms":13574}
+{"part":"appflow1","step":"Draft: click selects, no jump after typing and returning to the window","ok":true,"note":"typed 50, scroll 499 > 499, still 50","ms":21520}
+{"part":"appflow1","step":"Variation quantity sets the value","ok":true,"note":"value £300","ms":1793}
+{"part":"appflow1","step":"Buttons on one row, then certified on each line","ok":true,"note":"one row true, submitted, certified boxes 7, variation kept true","ms":5530}
