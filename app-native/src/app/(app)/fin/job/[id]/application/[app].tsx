@@ -7,7 +7,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { pdfLines } from '@/lib/pdfjs';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { ThinExportBar } from '@/components/FinFilterBar';
@@ -29,7 +29,7 @@ import { APP_STAGE, appCalc, groupTotals, isItem, pct } from '@/lib/rules/finApp
 import { applyAppUpload, certFromItems, parseAppBook, type AppXlItem } from '@/lib/rules/finAppExcel';
 import { readXlsx } from '@/lib/rules/xlsxRead';
 import { fdate, money, num, round2, today } from '@/lib/rules/finance';
-import { base, page, radius, space, useDesk } from '@/theme/theme';
+import { base, page, radius, space, useDesk, useTheme } from '@/theme/theme';
 
 type Row = Record<string, any>;
 /** Picks an Excel file and reads it as an OpHUB application workbook (null = cancelled or not one; told why). */
@@ -178,7 +178,7 @@ function Editor({ a0, jf, previousLive, prevPct, prevVar, siteProgress, varProgr
         {!locked && <><FinChip on={mode === 'pct'} label="Enter %" onPress={() => setMode('pct')} /><FinChip on={mode === 'gbp'} label="Enter £" onPress={() => setMode('gbp')} /></>}
         <Check label="Hide 0% lines" value={hideZero} onChange={setHideZero} />
       </View>
-      <SectionTitle>Bill of Quantities</SectionTitle>
+      <Text style={{ fontSize: desk ? 20 : 17, fontWeight: '600', color: base.ink, marginTop: desk ? 6 : 0, marginBottom: 12 }}>Bill of Quantities</Text>
       {!locked && (Object.keys(siteProgress).length > 0 || Object.keys(varProgress).length > 0) && (() => {
         // Site progress from the operatives' Schedule of Works (9219w): lists what would change, nothing moves unless you say.
         const ch: { what: string; from: number; to: number; i: number; isVar: boolean }[] = [];
@@ -198,25 +198,31 @@ function Editor({ a0, jf, previousLive, prevPct, prevVar, siteProgress, varProgr
           </Card>
         );
       })()}
-      {c.lines.map((l: Row, i: number) => {
-        if (l.kind === 'section' || l.kind === 'subsection') {
+      {/* Each section in its own border with a bar above and below, as the Bill of Quantities (Andy, 2 Nov 2026). */}
+      {(c.lines as Row[]).reduce<number[][]>((gs, l, i) => { if (l.kind === 'section' || !gs.length) gs.push([i]); else gs[gs.length - 1].push(i); return gs; }, []).map((g) => {
+        const head = c.lines[g[0]] as Row, isSec = head.kind === 'section';
+        const sum = (k: string) => round2(g.reduce((n, j) => n + (isItem(c.lines[j]) ? Number((c.lines[j] as Row)[k] || 0) : 0), 0));
+        return (
+      <SecBlock key={g[0]} title={isSec ? head.description : 'General'} refNo={isSec ? head.ref : ''} total={sum('gross')} of={sum('value')}
+        tools={!locked && isSec ? <View style={{ flexDirection: 'row', gap: 6 }}><Button small kind="ghost" title="Set all to 100%" onPress={() => fill(g[0], 100)} /><Button small kind="ghost" title="Set all to 0%" onPress={() => fill(g[0], 0)} /></View> : undefined}>
+      {g.map((i) => {
+        const l = c.lines[i] as Row;
+        if (l.kind === 'section') return null;
+        if (l.kind === 'subsection') {
           const t = tots[i];
           return (
-            <View key={i} style={{ paddingVertical: 8, borderBottomWidth: 1, borderColor: base.line, marginTop: l.kind === 'section' ? 8 : 0 }}>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 8 }}>
-                <Text style={{ flexGrow: 1, flexBasis: 170, flexShrink: 1, fontWeight: '600', color: base.ink, fontSize: l.kind === 'section' ? 15 : 13.5 }}>{l.ref ? `${l.ref} ` : ''}{l.description}</Text>
-                <Text style={{ fontWeight: '500', color: base.ink }}>{money(t?.gross || 0)} <Text style={{ color: base.slate, fontWeight: '400' }}>of {money(t?.value || 0)}</Text></Text>
-              </View>
-              {!locked && l.kind === 'section' && <View style={{ flexDirection: 'row', gap: 6, marginTop: 4 }}><Button small kind="ghost" title="Set all to 100%" onPress={() => fill(i, 100)} /><Button small kind="ghost" title="Set all to 0%" onPress={() => fill(i, 0)} /></View>}
+            <View key={i} style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 8, backgroundColor: '#DFE3EA', paddingVertical: 7, paddingHorizontal: 12 }}>
+              <Text style={{ flexGrow: 1, flexBasis: 170, flexShrink: 1, fontWeight: '600', color: base.ink, fontSize: desk ? 14 : 13 }}>{l.ref ? `${l.ref} ` : ''}{l.description}</Text>
+              <Text style={{ fontWeight: '500', color: base.ink }}>{money(t?.gross || 0)} <Text style={{ color: base.slate, fontWeight: '400' }}>of {money(t?.value || 0)}</Text></Text>
             </View>
           );
         }
         if (hideZero && !pct(l.pct)) return null;
         const hasQty = l.qty != null && Number(l.qty) !== 0;
         return (
-          <View key={i} style={{ flexDirection: desk ? 'row' : 'column', alignItems: desk ? 'center' : 'stretch', gap: 8, paddingVertical: desk ? 7 : 10, borderBottomWidth: 1, borderColor: base.line }}>
+          <View key={i} style={{ flexDirection: desk ? 'row' : 'column', alignItems: desk ? 'center' : 'stretch', gap: 8, paddingVertical: desk ? 11 : 10, paddingHorizontal: 12, borderBottomWidth: 1, borderColor: base.cardLine }}>
             <View style={desk ? { flex: 1 } : undefined}>
-              <Text style={{ color: base.ink }}>{l.ref ? `${l.ref} · ` : ''}{l.description}</Text>
+              <Text style={{ color: base.ink, fontSize: desk ? 15 : 14 }}><Text style={{ color: base.slate }}>{l.ref ? `${l.ref}  ` : ''}</Text>{l.description}</Text>
               <Muted>{hasQty ? `${l.qty} ${l.unit || ''} × ${money(l.rate)} = ` : 'Value '}{money(l.value)}{siteProgress[l.item_id] != null ? <Text style={{ color: siteProgress[l.item_id] > pct(l.pct) ? '#b45309' : base.slate, fontWeight: '500' }}>{`  · Site ${siteProgress[l.item_id]}%`}</Text> : null}{siteProgress[l.item_id] != null && !locked && siteProgress[l.item_id] !== pct(l.pct) ? <Text onPress={() => { const was = pct(l.pct), to = pct(siteProgress[l.item_id]); setLine(i, { pct: to }); setGen((g) => g + 1); toast(`${l.description}: ${was}% → ${to}% from site — check, then Save`); }} style={{ color: base.blue, fontWeight: '600', textDecorationLine: 'underline' }}> Use</Text> : null}{siteProgress[l.item_id] == null && Object.keys(siteProgress).length > 0 ? <Text style={{ fontSize: 10.5, fontWeight: '500', color: base.slate }}>  · Not on site schedule</Text> : null}</Muted>
               {/* Previous = certified on this line last time; This time = to date less previous (9219r). */}
               {(() => { const prev = round2((Number(l.value || 0) * (prevPct[l.item_id] || 0)) / 100); return prev || l.gross ? <Muted style={{ fontSize: 11.5 }}>Previous {money(prev)} · This time {money(round2(l.gross - prev))}</Muted> : null; })()}
@@ -234,15 +240,18 @@ function Editor({ a0, jf, previousLive, prevPct, prevVar, siteProgress, varProgr
                 </View>
               )
               : <TextInput key={`g${i}-${gen}`} defaultValue={String(l.gross)} onChangeText={(v) => { const n = num(v), val = Number(l.value || 0); if (val && n !== null && !isNaN(n)) setLine(i, { pct: pct((n / val) * 100) }); }} keyboardType="decimal-pad" style={[box, { width: 90, height: 30, paddingVertical: 2, fontSize: 13 }]} />}
-            <Text style={{ width: 96, textAlign: 'right', fontWeight: '500', color: base.ink }}>{money(l.gross)}</Text>
+            <Text style={{ width: 96, textAlign: 'right', fontSize: desk ? 15 : 14, fontWeight: '600', color: base.ink }}>{money(l.gross)}</Text>
             </View>
           </View>
         );
       })}
+      </SecBlock>
+        );
+      })}
       {!locked && (
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 }}>
-          <Button kind="ghost" title="+ Add a line" onPress={() => setAdding('line')} />
-          <Button kind="ghost" title="+ Add a section" onPress={() => setAdding('section')} />
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
+          <Button small kind="ghost" title="+ Add a line" onPress={() => setAdding('line')} />
+          <Button small kind="ghost" title="+ Add a section" onPress={() => setAdding('section')} />
         </View>
       )}
       {adding && me && (
@@ -286,9 +295,9 @@ function Editor({ a0, jf, previousLive, prevPct, prevVar, siteProgress, varProgr
             setA({ ...a, lines: L }); toast('Line added'); return null;
           }} />
       )}
-      {(c.variations.length > 0 || !locked) && <SectionTitle>Variations</SectionTitle>}
+      {(c.variations.length > 0 || !locked) && <SecBlock title="Variations" total={round2(c.variations.reduce((n: number, v: Row) => n + Number(v.gross || 0), 0))} tools={!locked ? <Button small kind="ghost" title="+ Variation line" onPress={() => setA({ ...a, variations: [...(a.variations || []), { variation_id: null, description: '', value: null, pct: 100 }] })} /> : undefined}>
       {c.variations.map((v: Row, i: number) => (
-        <View key={i} style={{ flexDirection: desk ? 'row' : 'column', alignItems: desk ? 'center' : 'stretch', gap: 8, paddingVertical: 6 }}>
+        <View key={i} style={{ flexDirection: desk ? 'row' : 'column', alignItems: desk ? 'center' : 'stretch', gap: 8, paddingVertical: 8, paddingHorizontal: 12, borderBottomWidth: 1, borderColor: base.cardLine }}>
           {locked ? <Text style={desk ? { flex: 1, color: base.ink } : { color: base.ink }}>{v.description}</Text> : <TextInput value={v.description} onChangeText={(x) => setA({ ...a, variations: a.variations.map((y: Row, j: number) => (j === i ? { ...y, description: x } : y)) })} placeholder="Description" style={[box, desk ? { flex: 1 } : null]} />}
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
           {locked ? <Text style={{ color: base.slate }}>{money(v.value)} @ {pct(v.pct)}%</Text> : (
@@ -307,11 +316,11 @@ function Editor({ a0, jf, previousLive, prevPct, prevVar, siteProgress, varProgr
           </View>
         </View>
       ))}
-      {!locked && <Button kind="ghost" title="+ Variation line" onPress={() => setA({ ...a, variations: [...(a.variations || []), { variation_id: null, description: '', value: null, pct: 100 }] })} />}
+      </SecBlock>}
       {/* 902: typed day works can be added and changed on a draft; ones from the Day works register stay as they are. */}
-      {(c.dayworks.length > 0 || !locked) && <SectionTitle>Day works</SectionTitle>}
-      {c.dayworks.map((d: Row, i: number) => (locked || d.fin_daywork_id) ? <FinRow key={i} title={d.description} right={money(d.gross)} /> : (
-        <View key={i} style={{ flexDirection: desk ? 'row' : 'column', alignItems: desk ? 'center' : 'stretch', gap: 8, paddingVertical: 6 }}>
+      {(c.dayworks.length > 0 || !locked) && <SecBlock title="Day works" total={round2(c.dayworks.reduce((n: number, d: Row) => n + Number(d.gross || 0), 0))} tools={!locked ? <Button small kind="ghost" title="+ Add daywork" onPress={() => setA({ ...a, dayworks: [...(a.dayworks || []), { description: '', value: null }] })} /> : undefined}>
+      {c.dayworks.map((d: Row, i: number) => (locked || d.fin_daywork_id) ? <View key={i} style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8, paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderColor: base.cardLine }}><Text style={{ flex: 1, color: base.ink }}>{d.description}</Text><Text style={{ fontWeight: '600', color: base.ink }}>{money(d.gross)}</Text></View> : (
+        <View key={i} style={{ flexDirection: desk ? 'row' : 'column', alignItems: desk ? 'center' : 'stretch', gap: 8, paddingVertical: 8, paddingHorizontal: 12, borderBottomWidth: 1, borderColor: base.cardLine }}>
           <TextInput value={d.description || ''} onChangeText={(x) => setA({ ...a, dayworks: a.dayworks.map((y: Row, j: number) => (j === i ? { ...y, description: x } : y)) })} placeholder="Description" style={[box, desk ? { flex: 1 } : null]} />
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
           <TextInput defaultValue={d.value != null ? String(d.value) : ''} onChangeText={(x) => setA({ ...a, dayworks: a.dayworks.map((y: Row, j: number) => (j === i ? { ...y, value: num(x) } : y)) })} placeholder="£ value" keyboardType="decimal-pad" style={[box, { width: 100 }]} />
@@ -319,7 +328,7 @@ function Editor({ a0, jf, previousLive, prevPct, prevVar, siteProgress, varProgr
           </View>
         </View>
       ))}
-      {!locked && <Button kind="ghost" title="+ Add daywork" onPress={() => setA({ ...a, dayworks: [...(a.dayworks || []), { description: '', value: null }] })} />}
+      </SecBlock>}
       <SectionTitle>Summary</SectionTitle>
       <Card>
         <FinRow title={`Contract works to date${contractTotal ? ` (${Math.round((contractDone / contractTotal) * 1000) / 10}% of ${money(contractTotal)})` : ''}`} right={money(contractDone)} />
@@ -383,6 +392,26 @@ function Editor({ a0, jf, previousLive, prevPct, prevVar, siteProgress, varProgr
       )}
     </ScrollView>
     <ThinExportBar busy={busy ? 'x' : undefined} onExcel={() => void exportAs('xlsx')} onPdf={() => void exportAs('pdf')} />
+    </View>
+  );
+}
+
+/** A section: blue bar, its lines, any buttons, then a blue bar with the total: the Bill of Quantities' look. */
+function SecBlock({ title, refNo, total, of, tools, children }: { title: string; refNo?: string; total: number; of?: number; tools?: ReactNode; children: ReactNode }) {
+  const t = useTheme(), desk = useDesk();
+  return (
+    <View style={{ borderWidth: 1.5, borderColor: t.brand1, borderRadius: 10, backgroundColor: base.card, marginBottom: desk ? 24 : 18 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: t.brand1, borderTopLeftRadius: 8, borderTopRightRadius: 8, paddingVertical: desk ? 10 : 8, paddingHorizontal: 12 }}>
+        <Text style={{ flex: 1, fontSize: desk ? 15 : 13, fontWeight: '600', color: t.brand1Text }}>{refNo ? `${refNo}   ` : ''}{title}</Text>
+        <Text style={{ fontSize: desk ? 15 : 12.5, fontWeight: '600', color: t.brand1Text }}>{money(total)}</Text>
+      </View>
+      {children}
+      {tools ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingVertical: 10, paddingHorizontal: 12 }}>{tools}</View> : null}
+      <View accessibilityLabel="Section summary" style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: desk ? 26 : 12, backgroundColor: t.brand1, borderBottomLeftRadius: 8, borderBottomRightRadius: 8, paddingVertical: desk ? 7 : 6, paddingHorizontal: 12 }}>
+        {of != null && <Text style={{ fontSize: desk ? 14 : 12, color: t.brand1Text }}>Section value <Text style={{ fontWeight: '600' }}>{money(of)}</Text></Text>}
+        {of ? <Text style={{ fontSize: desk ? 14 : 12, color: t.brand1Text }}>Complete <Text style={{ fontWeight: '600' }}>{Math.round((total / of) * 1000) / 10}%</Text></Text> : null}
+        <Text style={{ fontSize: desk ? 14 : 12, color: t.brand1Text }}>To date <Text style={{ fontWeight: '600' }}>{money(total)}</Text></Text>
+      </View>
     </View>
   );
 }

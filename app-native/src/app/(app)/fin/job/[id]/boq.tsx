@@ -114,8 +114,10 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
     const copies = rows.slice(i, end).map((r) => { const c: Row = { ...r, _k: key(), ref: '', _sel: false }; delete c.id; delete c._task_id; delete c._sec_id; return c; });
     const x = rows.slice(); x.splice(end, 0, ...copies); setRows(x);
   };
-  const add = (kind: string) => { const n = blank(kind); setRows([...rows, n]); setOpenK(n._k); };
-  const addAt = (i: number, kind: string) => { const at = insertAt(rows, i, kind); const n = blank(kind), x = rows.slice(); x.splice(at, 0, n); setRows(x); setOpenK(n._k); };
+  // A new line starts on the plot of the line above it in the same section (Andy, 2 Nov 2026).
+  const plotAbove = (at: number) => { for (let j = at - 1; j >= 0; j--) { if (rows[j].kind === 'section') return ''; if (isItem(rows[j])) return rows[j].sub || ''; } return ''; };
+  const add = (kind: string) => { const n = blank(kind); if (kind === 'item') n.sub = plotAbove(rows.length); setRows([...rows, n]); setOpenK(n._k); };
+  const addAt = (i: number, kind: string) => { const at = insertAt(rows, i, kind); const n = blank(kind), x = rows.slice(); if (kind === 'item') n.sub = plotAbove(at); x.splice(at, 0, n); setRows(x); setOpenK(n._k); };
   const refs = autoRefs(rows);
   const selecting = selectMode || rows.some((x) => x._sel);
   const vals = rows.map((r) => (isItem(r) ? itemValue(r) || 0 : 0));
@@ -337,7 +339,7 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
           const canSub = next !== 'subsection' && rows.slice(0, i + 1).some((x) => x.kind === 'section');
           const k = canSub ? await chooseAction('Add', [{ key: 'item', label: 'Item' }, { key: 'subsection', label: 'Sub-section' }]) : 'item';
           if (!k) return;
-          const n = blank(k), x = rows.slice(); x.splice(i + 1, 0, n); setRows(x); setOpenK(n._k);
+          const n = blank(k), x = rows.slice(); if (k === 'item') n.sub = plotAbove(i + 1); x.splice(i + 1, 0, n); setRows(x); setOpenK(n._k);
         };
         return (
           <Fragment key={r._k}>
@@ -366,7 +368,7 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
                 <Pound width={90}><TextInput accessibilityLabel="Amount" value={costRate(r)} onChangeText={(v) => { const n = num(v), q = num(r.qty); setRows((rs) => rs.map((x, j) => (j === i ? { ...x, cost: n === null || isNaN(n) ? '' : q ? round2(n * q) : n, cost_basis: null, cost_pct: null } : x))); }} keyboardType="decimal-pad" style={inPound} /></Pound>
                 <Text style={lab}>Budget cost</Text>
                 <Pound width={90}><TextInput accessibilityLabel="Amount" value={String(r.cost ?? '')} onChangeText={(v) => setRows((rs) => rs.map((x, j) => (j === i ? { ...x, cost: v, cost_basis: null, cost_pct: null } : x)))} keyboardType="decimal-pad" style={inPound} /></Pound>
-                {subs.length > 0 && <><Text style={lab}>Plot</Text><SelectBox value={r.sub || '-'} options={[['-', 'No plot'], ...subs.map((s) => [s.id, s.short] as [string, string])]} onChange={(k) => set(i, 'sub', k === '-' ? '' : k)} title="Plot" compact textSize={13.5} style={{ marginBottom: 0, width: 130 }} /></>}
+                {(subs.length > 0 || (site as Row | undefined)?.multi_site) && <><Text style={lab}>Plot</Text><SelectBox value={r.sub || '-'} options={[['-', subs.length ? 'No plot' : 'No plots added yet'], ...subs.map((s) => [s.id, s.short] as [string, string])]} onChange={(k) => set(i, 'sub', k === '-' ? '' : k)} title="Plot" compact textSize={13.5} style={{ marginBottom: 0, width: 130 }} /></>}
                 <Text style={{ fontSize: 13.8, color: num(r.cost) !== null && vals[i] && (num(r.cost) as number) > vals[i] ? base.red : base.slate }}>{marginText(vals[i], num(r.cost))}{r.cost_basis && r.cost_pct != null ? ` (set at ${r.cost_pct}% ${r.cost_basis === 'markup' ? 'mark-up' : 'margin'})` : ''}</Text>
                 <Text style={{ marginLeft: 'auto', fontSize: 15, fontWeight: '600', color: base.ink }}>{money(vals[i])}</Text>
               </View>

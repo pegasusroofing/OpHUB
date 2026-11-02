@@ -1160,3 +1160,19 @@
 {"part":"finsettings1","step":"Admin Users: Finance switch on office roles, none on operatives","ok":true,"note":"1 switches, 2 operatives, 0 on operatives","ms":8530}
 {"part":"finsettings1","step":"Reports list and a report read cleanly","ok":true,"note":"2 matches; 39 rows","ms":18211}
 {"part":"finsettings1","step":"Statements and People & rates keep their tabs","ok":false,"note":"page.waitForTimeout: Page crashed","ms":3659}
+{"part":"appstyle1","step":"Application draft","ok":true,"note":"4 bars","ms":11607}
+{"part":"appstyle1","step":"Plot box on a multi-site job with no plots","ok":true,"note":"boxes 3","ms":11240}
+{"part":"appstyle1","step":"A new line takes the plot above","ok":false,"note":"1 > 1","ms":14076}
+{"part":"appstyle1","step":"Application draft","ok":true,"note":"4 bars","ms":11637}
+{"part":"appstyle1","step":"Plot box on a multi-site job with no plots","ok":true,"note":"boxes 3","ms":11012}
+{"part":"appstyle1","step":"A new line takes the plot above","ok":false,"note":"apiRequestContext.get: read ECONNRESET","ms":8400}
+{"part":"appstyle1","step":"Application draft","ok":true,"note":"4 bars","ms":12321}
+{"part":"appstyle1","step":"Plot box on a multi-site job with no plots","ok":true,"note":"boxes 3","ms":11099}
+{"part":"appstyle1","step":"A new line takes the plot above","ok":true,"note":"1 > 2","ms":15168}
+{"part":"finsettings1","step":"Company overheads can be changed from their own row","ok":true,"note":"was 0, now 7.5","ms":17053}
+{"part":"finsettings1","step":"Figure put back","ok":true,"note":"now 0","ms":12459}
+{"part":"finsettings1","step":"Cost Codes keep the Settings tabs; no Team tab; none in Directory","ok":true,"note":"team 0, settings 3, directory cost codes 0","ms":11199}
+{"part":"finsettings1","step":"Admin Users: Finance switch on office roles, none on operatives","ok":true,"note":"1 switches, 2 operatives, 0 on operatives","ms":10746}
+{"part":"finsettings1","step":"Reports list and a report read cleanly","ok":false,"note":"page.waitForTimeout: Page crashed","ms":15951}
+{"part":"finsettings1","step":"Statements and People & rates keep their tabs","ok":false,"note":"page.goto: Page crashed","ms":1}
+{"part":"boqdup1","step":"Duplicate section","ok":false,"note":" > 1,1.1,1.2,1.3,2,2.1,2.2,2.3","ms":13902}
