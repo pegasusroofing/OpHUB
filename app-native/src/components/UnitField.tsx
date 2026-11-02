@@ -17,7 +17,7 @@ export function UnitField({ value, onChangeText, units, onEdit, style, onFocus, 
   const [open, setOpen] = useState(false);
   const [hi, setHi] = useState(-1);
   const q = plain(value);
-  const list = units.filter((u) => !q || (plain(u).includes(q) && plain(u) !== q));
+  const list = units.filter((u) => !q || plain(u).includes(q));
   const count = list.length + 1; // the last row is Edit saved units
   // A click in the list mustn't take focus from the box, or the line would close before the click lands.
   const box = useRef<View>(null);

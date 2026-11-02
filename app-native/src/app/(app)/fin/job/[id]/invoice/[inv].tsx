@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { FinForm } from '@/components/FinForm';
+import { ThinExportBar } from '@/components/FinFilterBar';
 import { FinRow, FinStat } from '@/components/FinNav';
 import { XeroRow } from '@/components/FinXero';
 import { chooseAction, confirmAsk, useToast } from '@/components/toast';
@@ -123,7 +124,8 @@ function Issued({ inv, pays, site }: { inv: Row; pays: Row[]; site: Row | undefi
   const out = invOutstanding(inv as never), t = invTotals(inv.lines, inv.vat_treatment, inv.vat_rate);
   const refresh = () => { ['finInvoice', 'finSales', 'finBook', 'finOverview', 'finJobs'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] })); };
   return (
-    <ScrollView contentContainerStyle={page(900)}>
+    <View style={{ flex: 1 }}>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={page(900)}>
       <Stack.Screen options={{ title: inv.number || 'Invoice' }} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
         <FinStat v={inv.number || '—'} label="Invoice" /><FinStat v={invOverdue(inv as never) ? 'Overdue' : INV_STATUS[inv.status] || inv.status} label="Status" hot={invOverdue(inv as never)} />
@@ -140,10 +142,6 @@ function Issued({ inv, pays, site }: { inv: Row; pays: Row[]; site: Row | undefi
         <FinRow title="Net" right={money(t.net)} /><FinRow title="VAT" right={money(t.vat)} /><FinRow title="Total" right={money(t.total)} />
         {t.vatDue ? <Muted>Reverse charge VAT {money(t.vatDue)} — paid by the client to HMRC.</Muted> : null}
       </Card>
-      <Button title="View PDF" onPress={async () => {
-        let p = inv.pdf_path; if (!p) p = await storePdf(me, org, inv, site);
-        const u = p ? await openDocLink('finance-docs', p) : null; if (u) viewDoc(u); else toast('Could not build the PDF.');
-      }} />
       <Muted style={{ marginVertical: 6 }}>Emailing invoices and reminders is switched off while Finance is on trial.</Muted>
       {inv.status !== 'void' ? (
         <>
@@ -166,5 +164,10 @@ function Issued({ inv, pays, site }: { inv: Row; pays: Row[]; site: Row | undefi
           onSave={async (v) => { const a = num(v.amount); if (a === null || isNaN(a) || a <= 0) return 'Enter the amount received.'; if (!(await addPayment(me, inv.id, a, String(v.paid_on), String(v.note)))) return 'Could not save.'; toast('Payment recorded'); refresh(); return null; }} />
       )}
     </ScrollView>
+    <ThinExportBar onPdf={async () => {
+        let p = inv.pdf_path; if (!p) p = await storePdf(me, org, inv, site);
+        const u = p ? await openDocLink('finance-docs', p) : null; if (u) viewDoc(u); else toast('Could not build the PDF.');
+      }} />
+    </View>
   );
 }

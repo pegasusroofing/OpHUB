@@ -10,6 +10,7 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
+import { ThinExportBar } from '@/components/FinFilterBar';
 import { FinChip, FinRow, FinStat } from '@/components/FinNav';
 import { chooseAction, confirmAsk, showAlert, useToast } from '@/components/toast';
 import { FinForm } from '@/components/FinForm';
@@ -156,7 +157,8 @@ function Editor({ a0, jf, previousLive, prevPct, prevVar, siteProgress, varProgr
   const save = async (quiet?: boolean) => { setBusy('save'); const ok = await saveApplication(a, jf, previous); setBusy(''); if (ok) { savedSnap.current = JSON.stringify(a); void plainSet(KEY, null); } if (!quiet) toast(ok ? 'Application saved' : 'Could not save — try again.'); refresh(); return ok; };
   const contractTotal = c.lines.filter(isItem).reduce((t: number, l: Row) => t + Number(l.value || 0), 0), contractDone = c.lines.reduce((t: number, l: Row) => t + l.gross, 0);
   return (
-    <ScrollView contentContainerStyle={page(1000)} keyboardShouldPersistTaps="handled">
+    <View style={{ flex: 1 }}>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={page(1000)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: `Application ${a0.number}` }} />
       {!!autoNote && <Muted style={{ marginBottom: 6, textAlign: 'right', fontSize: 12 }}>{autoNote}</Muted>}
       {!!a0.retention_release && <Card style={{ backgroundColor: '#f1fbf5', borderColor: '#d3f0de' }}><Text style={{ color: base.ink }}><Text style={{ fontWeight: '600' }}>Retention release — {a0.retention_release === 1 ? 'first half (practical completion)' : 'final release'}.</Text> Retention on this application is {pct(a0.retention_pct)}%, so the client pays back {a0.retention_release === 1 ? 'half of what they hold' : 'what they still hold'} when they certify it.</Text></Card>}
@@ -164,12 +166,7 @@ function Editor({ a0, jf, previousLive, prevPct, prevVar, siteProgress, varProgr
         <FinStat v={STAGE[stage]} label="Stage" /><FinStat v={money(c.net_due)} label="Amount due this application" />
         {(desk || locked) && <><FinStat v={fdate(a.valuation_date)} label="Valuation date" /><FinStat v={a.final_date ? fdate(a.final_date) : '—'} label="Final date for payment" /></>}
       </View>
-      <View style={{ alignSelf: 'flex-start', marginBottom: 10 }}>
-        <Button small kind="ghost" busy={!!busy} title="Excel / PDF ▾" onPress={async () => {
-          const k = await chooseAction('Excel / PDF', [{ key: 'xlsx', label: 'Download Excel' }, { key: 'pdf', label: 'Download PDF' }, ...(stage === 'draft' ? [{ key: 'up', label: 'Upload edited Excel' }] : [])]);
-          if (k === 'xlsx' || k === 'pdf') void exportAs(k); else if (k === 'up') void uploadExcel();
-        }} />
-      </View>
+      {stage === 'draft' && <View style={{ alignSelf: 'flex-start', marginBottom: 10 }}><Button small kind="ghost" busy={!!busy} title="Upload edited Excel" onPress={() => void uploadExcel()} /></View>}
       {!locked && (
         <Card style={desk ? undefined : { padding: 8 }}>
           <View style={{ flexDirection: 'row', flexWrap: desk ? 'wrap' : 'nowrap', gap: desk ? 8 : 6 }}>
@@ -385,6 +382,8 @@ function Editor({ a0, jf, previousLive, prevPct, prevVar, siteProgress, varProgr
         </Card>
       )}
     </ScrollView>
+    <ThinExportBar busy={busy ? 'x' : undefined} onExcel={() => void exportAs('xlsx')} onPdf={() => void exportAs('pdf')} />
+    </View>
   );
 }
 

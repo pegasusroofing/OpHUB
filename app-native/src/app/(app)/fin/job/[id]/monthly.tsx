@@ -8,6 +8,7 @@ import { Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
+import { ThinExportBar } from '@/components/FinFilterBar';
 import { FinChip } from '@/components/FinNav';
 import { useToast } from '@/components/toast';
 import { Button, Muted } from '@/components/ui';
@@ -63,13 +64,11 @@ export default function FinMonthly() {
   });
   const cell = (v: number | null | undefined) => (v == null ? '' : v ? money(v, 0) : '—');
   return (
-    <ScrollView contentContainerStyle={page(1200)}>
+    <View style={{ flex: 1 }}>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={page(1200)}>
       <Stack.Screen options={{ title: 'Monthly report' }} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10, alignItems: 'center' }}>
         <FinChip on={view === 'month'} label="In the month" onPress={() => setView('month')} /><FinChip on={view === 'cum'} label="Running total" onPress={() => setView('cum')} />
-        <View style={{ flex: 1 }} />
-        <Button kind="ghost" title="📊 Excel" onPress={async () => { if (!(await exportTableExcel(table(), org).catch(() => false))) toast('Could not make the file — try again.'); }} />
-        <Button kind="ghost" title="📄 PDF" onPress={async () => { if (!(await exportTablePdf(table(), org).catch(() => false))) toast('Could not make the PDF — try again.'); }} />
       </View>
       <ScrollView horizontal>
         <View>
@@ -96,5 +95,7 @@ export default function FinMonthly() {
       </ScrollView>
       <Muted style={{ marginTop: 10 }}>Excl. VAT. Applied and certified = the change from the last application. Actual costs are by invoice / work date. Forecast value, budget and final cost are in the total column.{rep.groups.length > 1 ? ' Plot figures use the plot on each schedule line and each cost.' : ''}</Muted>
     </ScrollView>
+    <ThinExportBar onExcel={async () => { if (!(await exportTableExcel(table(), org).catch(() => false))) toast('Could not make the file — try again.'); }} onPdf={async () => { if (!(await exportTablePdf(table(), org).catch(() => false))) toast('Could not make the PDF — try again.'); }} />
+    </View>
   );
 }

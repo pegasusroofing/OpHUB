@@ -1078,3 +1078,50 @@
 {"part":"boqbtn1","step":"Typing m2 gives m²","ok":true,"note":"offered 1, m², m³","ms":1226}
 {"part":"boqbtn1","step":"Empty page","ok":true,"note":"empty state","ms":10662}
 {"part":"boqbtn1","step":"Phone","ok":false,"note":"tools button","ms":10302}
+{"part":"jobtabs1","step":"Tabs and white row on overview","ok":true,"note":"1 tab rows, New 1, job no 1","ms":8252}
+{"part":"jobtabs1","step":"Tabs and white row on variations","ok":true,"note":"1 tab rows, New 1, job no 1","ms":8261}
+{"part":"jobtabs1","step":"Tabs and white row on budget","ok":true,"note":"1 tab rows, New 1, job no 1","ms":8073}
+{"part":"jobtabs1","step":"Tabs and white row on costs","ok":true,"note":"1 tab rows, New 1, job no 1","ms":8142}
+{"part":"jobtabs1","step":"Tabs and white row on dayworks","ok":true,"note":"1 tab rows, New 1, job no 1","ms":8124}
+{"part":"jobtabs1","step":"Tabs and white row on monthly","ok":true,"note":"1 tab rows, New 1, job no 1","ms":8062}
+{"part":"jobtabs1","step":"Tabs and white row on summary","ok":true,"note":"1 tab rows, New 1, job no 1","ms":8228}
+{"part":"jobtabs1","step":"Tabs and white row on quotes","ok":true,"note":"1 tab rows, New 1, job no 1","ms":8027}
+{"part":"jobtabs1","step":"Tabs and white row on boq","ok":true,"note":"1 tab rows, New 1, job no 1","ms":8018}
+{"part":"jobtabs1","step":"A tab goes to that part of the project","ok":true,"note":"ff28ffa960?tab=sales, rows 1","ms":10709}
+{"part":"jobtabs1","step":"Tabs work on the overview page too","ok":true,"note":"?tab=purchases","ms":10014}
+{"part":"jobtabs1","step":"Phone","ok":true,"note":"shown","ms":8606}
+{"part":"boqreal","step":"BoQ on Richardson%20court","ok":true,"note":"section bars 0, footer 0","ms":10681}
+{"part":"boqreal","step":"BoQ on Riverside*","ok":true,"note":"section bars 0, footer 1","ms":10549}
+{"part":"boqreal","step":"BoQ on Richardson%20court","ok":true,"note":"section bars 0, footer 0, add under title true","ms":10870}
+{"part":"boqreal","step":"BoQ on Riverside*","ok":true,"note":"section bars 1, footer 1, add under title true","ms":10658}
+{"part":"boqbtn2","step":"Page, footer and summary","ok":true,"note":"summary 1, tick buttons 0, export 1, variations tabs 1","ms":10638}
+{"part":"boqbtn2","step":"Import / Export has no copy-in","ok":true,"note":"copy-in 0","ms":1044}
+{"part":"boqbtn2","step":"Two tabs: BoQ and Variations","ok":true,"note":"variations then boq","ms":15013}
+{"part":"boqkeys","step":"Typing m then 2 on the keyboard","ok":true,"note":"typed m², after Tab m², listed 1/1","ms":11694}
+{"part":"boqkeys","step":"General heading can be named","ok":true,"note":"[\"Flat roof\"]","ms":15125}
+{"part":"finexport1","step":"Footer on monthly","ok":false,"note":"0 at y 0, old 0","ms":8607}
+{"part":"finexport1","step":"Footer on summary","ok":false,"note":"0 at y 0, old 0","ms":8599}
+{"part":"finexport1","step":"Footer on variations","ok":false,"note":"0 at y 0, old 0","ms":8606}
+{"part":"finexport1","step":"Footer on costs","ok":false,"note":"0 at y 0, old 0","ms":8583}
+{"part":"finexport1","step":"Footer on boq","ok":false,"note":"0 at y 0, old 0","ms":8575}
+{"part":"finexport1","step":"Footer on application","ok":false,"note":"0 at y 0, old 0","ms":8596}
+{"part":"finexport1","step":"Footer on invoice","ok":false,"note":"0 at y 0, old 0","ms":8589}
+{"part":"finexport1","step":"Footer on po","ok":false,"note":"0 at y 0, old 0","ms":8578}
+{"part":"finexport1","step":"Footer on report","ok":false,"note":"0 at y 0, old 0","ms":8579}
+{"part":"finexport1","step":"Footer on monthly","ok":true,"note":"2 at y 874, old 0","ms":9058}
+{"part":"finexport1","step":"Footer on summary","ok":true,"note":"1 at y 874, old 0","ms":8884}
+{"part":"finexport1","step":"Footer on variations","ok":true,"note":"2 at y 874, old 0","ms":8901}
+{"part":"finexport1","step":"Footer on costs","ok":true,"note":"2 at y 874, old 0","ms":8901}
+{"part":"finexport1","step":"Footer on boq","ok":true,"note":"2 at y 874, old 0","ms":9077}
+{"part":"finexport1","step":"Footer on application","ok":true,"note":"2 at y 874, old 0","ms":8967}
+{"part":"finexport1","step":"Footer on invoice","ok":true,"note":"1 at y 874, old 0","ms":9011}
+{"part":"finexport1","step":"Footer on po","ok":true,"note":"1 at y 874, old 0","ms":9056}
+{"part":"finexport1","step":"Footer on report","ok":true,"note":"2 at y 874, old 0","ms":9022}
+{"part":"boqkeys","step":"Typing m then 2 on the keyboard","ok":true,"note":"typed m², after Tab m², listed 1/1","ms":11697}
+{"part":"boqkeys","step":"General heading can be named","ok":true,"note":"[\"Flat roof\"]","ms":15007}
+{"part":"boqbtn2","step":"Page, footer and summary","ok":true,"note":"summary 1, tick buttons 0, export 1, variations tabs 1","ms":10708}
+{"part":"boqbtn2","step":"Import / Export has no copy-in","ok":true,"note":"copy-in 0","ms":1057}
+{"part":"boqbtn2","step":"Two tabs: BoQ and Variations","ok":true,"note":"variations then boq","ms":14989}
+{"part":"jobtiles1","step":"Overdue tile shows only overdue invoices","ok":true,"note":"overdue shown 1, not-due shown 0","ms":13837}
+{"part":"jobtiles1","step":"Invoices tab after that shows them all","ok":true,"note":"f=","ms":2111}
+{"part":"jobtiles1","step":"Applied tile opens Applications","ok":true,"note":"?tab=sales&sub=apps","ms":13537}

@@ -7,6 +7,7 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
+import { ThinExportBar } from '@/components/FinFilterBar';
 import { FinRow, FinStat } from '@/components/FinNav';
 import { AllocRow } from '@/components/FinSplit';
 import { FinNewPo } from '@/components/FinNewPo';
@@ -51,7 +52,8 @@ export default function FinPo() {
   const matBy: Record<string, Row> = {}; mats.forEach((m) => { matBy[m.id] = m; });
   const refresh = () => ['finPo', 'finPurchases', 'finBook'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] }));
   return (
-    <ScrollView contentContainerStyle={page(900)} keyboardShouldPersistTaps="handled">
+    <View style={{ flex: 1 }}>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={page(900)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: po.number }} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
         <FinStat v={`${po.number} · ${po.status}`} label="PO" /><FinStat v={po.supplier_name || '—'} label="Supplier" />
@@ -103,7 +105,10 @@ export default function FinPo() {
         {po.status === 'open' && <Button kind="ghost" title="Cancel PO" onPress={async () => { if (await confirmAsk('Cancel this purchase order? Its site requests are marked cancelled too.', 'Cancel PO')) { const n = await setPoStatusWithRequests(me, po.id, 'cancelled'); if (n !== null) { toast(n ? `PO cancelled — ${n} site request${n === 1 ? '' : 's'} marked cancelled` : 'PO cancelled'); refresh(); } } }} />}
         {po.status !== 'open' && <Button kind="ghost" title="Reopen PO" onPress={async () => { const n = await setPoStatusWithRequests(me, po.id, 'open'); if (n !== null) { toast(n ? `PO reopened — ${n} site request${n === 1 ? '' : 's'} put back` : 'PO reopened'); refresh(); } }} />}
       </View>
-      <Button kind="ghost" title="📄 Download the PO PDF" onPress={async () => {
+      {po.status !== 'cancelled' && <PoQuote me={me} po={po} onDone={refresh} />}
+      <Muted style={{ marginTop: 8 }}>Emailing the PO to the supplier is off during the Finance trial.</Muted>
+    </ScrollView>
+    <ThinExportBar onPdf={async () => {
         try {
           const sup = po.supplier_id ? ((await fdb.from('suppliers').select('id,name,email').eq('id', po.supplier_id).maybeSingle()).data as Row | null) : null;
           const bytes = await buildPoPdf(po, sites.find((s) => s.id === po.site_id) as Row | undefined, await loadSettings(me.org_id), sup, org);
@@ -111,8 +116,6 @@ export default function FinPo() {
           if (!(await deliverPdf(bytes, `PO ${String(po.number).replace(/[^a-z0-9-]+/gi, '_')}.pdf`))) toast('Could not make the PDF — try again.');
         } catch { toast('Could not build the PO PDF.'); }
       }} />
-      {po.status !== 'cancelled' && <PoQuote me={me} po={po} onDone={refresh} />}
-      <Muted style={{ marginTop: 8 }}>Emailing the PO to the supplier is off during the Finance trial.</Muted>
-    </ScrollView>
+    </View>
   );
 }

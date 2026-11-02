@@ -275,18 +275,28 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
       <Stack.Screen options={{ title: 'Bill of Quantities' }} />
       <BoqTabs id={id} on="boq" />
       {/* The page's own header (Andy, 2 Nov 2026). */}
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10, marginTop: desk ? 6 : 0, marginBottom: desk ? 18 : 12 }}>
-        <Text style={{ flexGrow: 1, fontSize: desk ? 20 : 17, fontWeight: '600', color: base.ink }}>Bill of Quantities</Text>
-        <View style={{ flexDirection: 'row', gap: 6 }}>{addWorks}{desk && ioBtn}</View>
+      <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 10, marginTop: desk ? 6 : 0, marginBottom: desk ? 18 : 12 }}>
+        <View style={{ alignItems: 'flex-start', gap: 8 }}>
+          <Text style={{ fontSize: desk ? 20 : 17, fontWeight: '600', color: base.ink }}>Bill of Quantities</Text>
+          {addWorks}
+        </View>
+        {desk && ioBtn}
       </View>
       {imp && <ImportPreview imp={imp} setImp={setImp} onUse={async (lines) => {
         if (rows.some((x) => String(x.description || '').trim()) && !(await confirmAsk('Replace the lines here with the imported breakdown?', 'Replace'))) return;
         setRows(boqRows(lines).map((r) => ({ ...r, _k: key(), sub: '' }))); setImp(null);
       }} />}
 
-      {/* Each section sits in its own border (Andy, 1 Nov 2026); lines before any section don't. */}
+      {/* Each section sits in its own border with a bar above and below (Andy, 1 Nov 2026). Lines before any section get the same, as General. */}
       {rows.reduce<number[][]>((gs, r, i) => { if (r.kind === 'section' || !gs.length) gs.push([i]); else gs[gs.length - 1].push(i); return gs; }, []).map((g) => (
-      <View key={rows[g[0]]._k} style={rows[g[0]].kind === 'section' ? { borderWidth: 1.5, borderColor: t.brand1, borderRadius: 10, backgroundColor: base.card, marginBottom: desk ? 30 : 22, zIndex: rows.length - g[0] } : undefined}>
+      <View key={rows[g[0]]._k} style={{ borderWidth: 1.5, borderColor: t.brand1, borderRadius: 10, backgroundColor: base.card, marginBottom: desk ? 30 : 22, zIndex: rows.length - g[0] }}>
+      {rows[g[0]].kind !== 'section' && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: t.brand1, borderTopLeftRadius: 8, borderTopRightRadius: 8, paddingVertical: desk ? 11 : 9, paddingHorizontal: 12 }}>
+          {/* Typing a name turns these lines into a real section. */}
+          <TextInput value="" accessibilityLabel="Section heading" placeholder="GENERAL – click to name" placeholderTextColor={t.brand1Text} onChangeText={(v) => { if (!v) return; const n = blank('section'); n.description = v; const x = rows.slice(); x.splice(g[0], 0, n); setRows(x); setOpenK(n._k); }} style={{ flex: 1, minWidth: 0, fontSize: desk ? 15 : 13, fontWeight: '600', color: t.brand1Text, padding: 0, outlineStyle: 'none' as 'solid' }} />
+          <Text style={{ fontSize: desk ? 15 : 12.5, fontWeight: '600', color: t.brand1Text }}>{money(round2(g.reduce((n, j) => n + vals[j], 0)))}</Text>
+        </View>
+      )}
       {g.map((i) => {
         const r = rows[i];
         const head = r.kind === 'section' || r.kind === 'subsection';
@@ -306,7 +316,7 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
         };
         return (
           <Fragment key={r._k}>
-          <View style={{ borderWidth: 1, borderColor: sec ? t.brand1 : r.kind === 'subsection' ? '#DFE3EA' : base.cardLine, borderRadius: 8, paddingVertical: head ? (desk ? 6 : 4) : desk ? 11 : 10, paddingHorizontal: 8, marginBottom: 6, backgroundColor: sec ? t.brand1 : r.kind === 'subsection' ? '#DFE3EA' : base.card, marginLeft: r.kind === 'subsection' ? 10 : 0, ...(rows[g[0]].kind === 'section' ? { marginBottom: 0, marginLeft: 0, borderRadius: 0, borderWidth: 0, borderBottomWidth: 1, borderBottomColor: base.cardLine, ...(sec ? { borderTopLeftRadius: 8, borderTopRightRadius: 8 } : null) } : null), zIndex: rows.length - i }}>
+          <View style={{ paddingVertical: head ? (desk ? 6 : 4) : desk ? 11 : 10, paddingHorizontal: 8, backgroundColor: sec ? t.brand1 : r.kind === 'subsection' ? '#DFE3EA' : base.card, marginBottom: 0, marginLeft: 0, borderRadius: 0, borderWidth: 0, borderBottomWidth: 1, borderBottomColor: base.cardLine, ...(sec ? { borderTopLeftRadius: 8, borderTopRightRadius: 8 } : null), zIndex: rows.length - i }}>
             <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
               {selecting && <Pressable hitSlop={6} focusable={false} accessibilityLabel="Tick" onPress={() => (head ? tick(grp, !on) : set(i, '_sel', !on))}><Text style={{ fontSize: 17, color: head ? ink : base.ink }}>{on ? '☑' : '☐'}</Text></Pressable>}
               {editRefs ? <TextInput value={refs[i]} onChangeText={(v) => set(i, 'ref', v)} placeholder="Ref" placeholderTextColor={head ? ink : undefined} style={[box, slim, { width: desk ? 64 : head ? 30 : 40 }, head && headBox, !desk && { fontSize: 11 }]} /> : <Text numberOfLines={1} accessibilityLabel="Ref" style={{ width: desk ? 64 : head ? 30 : 40, fontSize: desk ? 15 : 11, fontWeight: '500', color: head ? ink : base.slate, paddingHorizontal: 2 }}>{refs[i]}</Text>}
@@ -360,11 +370,11 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
               </View>
             )}
           </View>
-          {h >= 0 && nextHead && <View style={{ marginVertical: 6, marginLeft: 8 }}><Button small kind="ghost" title="+ Add" onPress={() => void addHere()} /></View>}
+          {nextHead && <View style={{ marginVertical: 6, marginLeft: 8 }}><Button small kind="ghost" title="+ Add" onPress={() => void addHere()} /></View>}
           </Fragment>
         );
       })}
-      {rows[g[0]].kind === 'section' && (() => {
+      {(() => {
         const v = round2(g.reduce((n, j) => n + vals[j], 0)), c = round2(g.reduce((n, j) => n + (isItem(rows[j]) ? num(rows[j].cost) || 0 : 0), 0));
         const parts = [['Total', money(v)], ['Budget cost', c ? money(c) : '—'], ['Margin', c && v ? `${Math.round(((v - c) / v) * 1000) / 10}%` : '—']];
         return (

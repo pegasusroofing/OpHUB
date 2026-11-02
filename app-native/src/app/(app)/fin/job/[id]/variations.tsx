@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { FinForm } from '@/components/FinForm';
+import { ThinExportBar } from '@/components/FinFilterBar';
 import { FinChip, FinRow, FinStat, VarDayChips, BoqTabs } from '@/components/FinNav';
 import { promptText, useToast } from '@/components/toast';
 import { Button, Empty, Muted } from '@/components/ui';
@@ -84,7 +85,8 @@ export default function FinVariations() {
     <Pressable onPress={onPress} disabled={!!busy} style={{ paddingVertical: 3, paddingHorizontal: 9, borderRadius: 7, borderWidth: 1, borderColor: base.cardLine, opacity: busy ? 0.5 : 1 }}><Text style={{ fontSize: 12, fontWeight: '500', color }}>{label}</Text></Pressable>
   );
   return (
-    <ScrollView contentContainerStyle={page(900)}>
+    <View style={{ flex: 1 }}>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={page(900)}>
       <Stack.Screen options={{ title: 'Variations' }} />
       <BoqTabs id={id} on="variations" />
       <VarDayChips id={id} on="variations" />
@@ -97,8 +99,6 @@ export default function FinVariations() {
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
         {[['all', 'All'], ['submitted', 'Issued'], ['agreed', 'Approved'], ['rejected', 'Rejected']].map(([k, l]) => <FinChip key={k} on={f === k} label={l} n={vars.filter((v) => k === 'all' || g(v) === k).length} onPress={() => setF(k)} />)}
         <View style={{ marginLeft: 'auto', flexDirection: 'row', gap: 6 }}>
-          <Button kind="ghost" title="Excel" onPress={() => void exportReg('xlsx')} />
-          <Button kind="ghost" title="PDF" onPress={() => void exportReg('pdf')} />
           <Button title="+ Variation" onPress={() => setEdit('new')} />
         </View>
       </View>
@@ -148,5 +148,7 @@ export default function FinVariations() {
           }} />
       )}
     </ScrollView>
+    <ThinExportBar onExcel={() => void exportReg('xlsx')} onPdf={() => void exportReg('pdf')} />
+    </View>
   );
 }

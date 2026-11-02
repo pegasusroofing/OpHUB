@@ -6,6 +6,7 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, Text, TextInput, View } from 'react-native';
 
+import { ThinExportBar } from '@/components/FinFilterBar';
 import { FinChip, FinRow } from '@/components/FinNav';
 import { appStage, type App } from '@/components/FinSales';
 import { useFinRowMenu } from '@/components/FinRowMenu';
@@ -120,7 +121,8 @@ export default function FinDetail() {
     );
   }
   return (
-    <ScrollView contentContainerStyle={page(1100)} keyboardShouldPersistTaps="handled">
+    <View style={{ flex: 1 }}>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={page(1100)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Detailed Summary' }} />
       <Card>
         <Text style={{ fontWeight: '600', color: base.ink }}>{s?.job_number || '—'} · {s?.name} · {s?.client_name || 'No client'}</Text>
@@ -134,7 +136,8 @@ export default function FinDetail() {
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>{TABS.map(([k, l]) => <FinChip key={k} on={tab === k} label={l} onPress={() => { setTab(k); setQ(''); }} />)}</View>
       {tab !== 'summary' && <TextInput value={q} onChangeText={setQ} placeholder="Search this tab — supplier, PO, invoice no., description…" style={[box, { marginBottom: 10 }]} />}
       <Card>{body}</Card>
-      <Button kind="ghost" title="📊 Excel (every tab)" onPress={exportAll} />
     </ScrollView>
+    <ThinExportBar excelLabel="Export to Excel (every tab)" onExcel={exportAll} />
+    </View>
   );
 }
