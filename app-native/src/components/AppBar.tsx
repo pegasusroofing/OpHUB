@@ -136,7 +136,7 @@ export function AppBar({ title, onBack, home, right, noHistory }: { title?: stri
         <View style={{ minWidth: 34, alignItems: 'flex-end' }}>{right}</View>
       </View>
       {crumbs.length > 1 && (
-        <View style={{ backgroundColor: base.paper, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, paddingHorizontal: desk ? 40 : 16, paddingTop: 8, paddingBottom: 4 }}>
+        <View style={{ backgroundColor: base.paper, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, paddingHorizontal: desk ? 40 : 16, paddingTop: 14, paddingBottom: 8 }}>
           {crumbs.map(([l, href], i) => (
             <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, maxWidth: '100%' }}>
               {i > 0 && <Text style={{ color: '#B8BDC6', fontSize: cfs }}>›</Text>}
