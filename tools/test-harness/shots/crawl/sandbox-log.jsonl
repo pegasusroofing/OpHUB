@@ -3064,3 +3064,6 @@
 {"wrote":"fin_applications","method":"PATCH","keys":["valuation_date","due_date","final_date","lines","variations","dayworks","gross","discount_pct","discount","retention_pct","retention","previous","net_due","updated_at"]}
 {"wrote":"fin_applications","method":"PATCH","keys":["valuation_date","due_date","final_date","lines","variations","dayworks","gross","discount_pct","discount","retention_pct","retention","previous","net_due","updated_at"]}
 {"wrote":"fin_applications","method":"PATCH","keys":["valuation_date","due_date","final_date","lines","variations","dayworks","gross","discount_pct","discount","retention_pct","retention","previous","net_due","updated_at"]}
+{"rpc":"rams_take_numbers"}
+{"wrote":"rams_builds","method":"POST","keys":["org_id","site_id","title","details","hazards","sections","ppe","created_by"]}
+{"wrote":"site_activity_log","method":"POST","keys":["site_id","org_id","actor_id","action","description"]}

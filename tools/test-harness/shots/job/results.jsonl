@@ -918,3 +918,5 @@
 {"part":"appdive4","step":"A variation value changed on the draft survives reopening","ok":true,"note":"value 777 (1 variations)","ms":20093}
 {"part":"off1","step":"Home","ok":true,"note":"/home | Sandbox Roofing Ltd OPHUB ↻ Monday 2 November Good afternoon, Demo 🔍 Search projects, people, reports… 💡 How Home works ▾ ✕ 16 Live jobs 0 On site now 3 To do","ms":12859}
 {"part":"appdive5","step":"Menu and dates","ok":true,"note":"dates on one row","ms":9515}
+{"part":"rams1","step":"Template and own task together","ok":false,"note":"📋 New template · 0 hazards · 0 sections; 0 hazards, 1 sections","ms":14395}
+{"part":"rams1","step":"Library search: not listed writes a new one","ok":false,"note":"locator.click: Timeout 6000ms exceeded.","ms":6004}

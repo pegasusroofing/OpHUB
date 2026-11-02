@@ -26,7 +26,7 @@ const Badge = ({ p, s }: { p: unknown; s: unknown }) => { const n = rr(p, s), b 
 const chipStyle = (on: boolean) => ({ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: on ? base.ink : base.line, backgroundColor: on ? base.ink : base.card });
 
 export default function RamsBuildScreen() {
-  const { id, b: buildId } = useLocalSearchParams<{ id: string; b: string }>();
+  const { id, b: buildId, tab: startTab } = useLocalSearchParams<{ id: string; b: string; tab?: string }>();
   const { me, org } = useAuth();
   const { data: site } = useSite(id);
   const { data, isLoading } = useQuery({ queryKey: ['ramsBuild', buildId], enabled: !!me && !!buildId, gcTime: 0, queryFn: () => loadBuild(me as never, org as never, site, buildId) });
@@ -42,7 +42,7 @@ function Editor({ initial, siteId }: { initial: RamsBuild; siteId: string }) {
   const toast = useToast();
   const qc = useQueryClient();
   const [b, setB] = useState<RamsBuild>(initial);
-  const [tab, setTab] = useState<Tab>('details');
+  const [tab, setTab] = useState<Tab>(startTab === 'ms' ? 'ms' : 'details');
   const [editId, setEditId] = useState<string | null>(null);
   const [picker, setPicker] = useState<{ kind: 'hazard' | 'section'; part: 'general' | 'method' | null } | null>(null);
   const [saveState, setSaveState] = useState(initial.status === 'issued' ? `✓ Issued rev ${initial.revision} · edits need re-issuing` : 'Draft · saves automatically');
@@ -299,7 +299,12 @@ function Editor({ initial, siteId }: { initial: RamsBuild; siteId: string }) {
         </ScrollView>
         {tab === 'details' ? details() : tab === 'ra' ? hazards() : tab === 'ssow' ? sections('general') : tab === 'ms' ? sections('method') : issueTab()}
       </ScrollView>
-      {picker && <Picker kind={picker.kind} part={picker.part} have={picker.kind === 'hazard' ? b.hazards : b.sections} onClose={() => setPicker(null)} onAdd={(items) => {
+      {picker && <Picker kind={picker.kind} part={picker.part} have={picker.kind === 'hazard' ? b.hazards : b.sections} onClose={() => setPicker(null)} onNew={(title) => {
+        // Not in the library: start a new one with what was searched for, on this RAMS only.
+        if (picker.kind === 'hazard') { const h: Hazard = { id: ramsUid(), title, harm: '', p: 3, s: 3, rp: 1, rs: 3, controls: [] }; change((x) => ({ ...x, hazards: [...x.hazards, h] })); setEditId(h.id); }
+        else { const n: RSection = { id: ramsUid(), part: picker.part || 'method', title, body: '', steps: [] }; change((x) => ({ ...x, sections: [...x.sections, n] })); setEditId(n.id); }
+        setPicker(null);
+      }} onAdd={(items) => {
         change((x) => picker.kind === 'hazard' ? { ...x, hazards: [...x.hazards, ...items.map(hazardFromLib)] } : { ...x, sections: [...x.sections, ...items.map(sectionFromLib)] });
         setPicker(null); toast(`${items.length} added`);
       }} />}
@@ -314,7 +319,7 @@ function ListBox({ value, onChange }: { value: string[]; onChange: (v: string[])
 }
 
 /** Library picker (multi-tick, select all, search; items already in this RAMS listed last). */
-function Picker({ kind, part, have, onClose, onAdd }: { kind: 'hazard' | 'section'; part: 'general' | 'method' | null; have: (Hazard | RSection)[]; onClose: () => void; onAdd: (items: import('@/lib/rules/rams').LibItem[]) => void }) {
+function Picker({ kind, part, have, onClose, onNew, onAdd }: { kind: 'hazard' | 'section'; part: 'general' | 'method' | null; have: (Hazard | RSection)[]; onClose: () => void; onNew: (title: string) => void; onAdd: (items: import('@/lib/rules/rams').LibItem[]) => void }) {
   const { me } = useAuth();
   const { data: libAll, isLoading } = useLibrary(me?.org_id);
   const [q, setQ] = useState('');
@@ -347,6 +352,7 @@ function Picker({ kind, part, have, onClose, onAdd }: { kind: 'hazard' | 'sectio
             {added.map(row)}
             {!isLoading && !fresh.length && !added.length && <Empty>{(libAll || []).length ? 'Nothing matches.' : 'The library is empty — load the starter library in Admin Centre › RAMS Library.'}</Empty>}
           </ScrollView>
+          <View style={{ marginTop: 8 }}><Button small kind="ghost" title={q.trim() ? `Not listed? Write new: ${q.trim()}` : 'Not listed? Write a new one'} onPress={() => onNew(q.trim())} /></View>
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
             <View style={{ flex: 2 }}><Button title={`Add ${sel.length || ''} selected`} onPress={() => { const items = lib.filter((i) => sel.includes(i.id)); if (!items.length) return; onAdd(items); }} /></View>
             <View style={{ flex: 1 }}><Button kind="ghost" title="Cancel" onPress={onClose} /></View>

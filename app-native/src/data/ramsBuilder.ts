@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { log, tellOperatives } from '@/data/hsManager';
 import { buildRamsPdf } from '@/lib/ramsPdf';
-import { combineStart, defaultDetails, normaliseBuild, ramsSettings, siteClientContact, type Hazard, type LibItem, type RamsBuild, type RamsSettings, type RSection } from '@/lib/rules/rams';
+import { combineStart, defaultDetails, normaliseBuild, ramsSettings, siteClientContact, type Hazard, type LibItem, type RamsBuild, type RamsSettings, type RSection, ramsUid } from '@/lib/rules/rams';
 import { fullSiteAddress } from '@/lib/rules/checkin';
 import { supabase } from '@/lib/supabase';
 import type { Organization, Profile, Site } from '@/lib/types';
@@ -53,7 +53,7 @@ async function takeNumbers(): Promise<{ ra: number; ms: number } | null> {
     return d && d.ok && Number(d.ra) > 0 && Number(d.ms) > 0 ? { ra: Number(d.ra), ms: Number(d.ms) } : null;
   } catch { return null; }
 }
-export async function createBuild(me: Me, org: Org, site: Site | undefined, siteId: string, title: string, tplIds: string[], copyIds: string[]): Promise<{ id: string; missing: string[] } | string> {
+export async function createBuild(me: Me, org: Org, site: Site | undefined, siteId: string, title: string, tplIds: string[], copyIds: string[], ownTasks: string[] = []): Promise<{ id: string; missing: string[] } | string> {
   const st = await loadSettings(org);
   const details = defaultsFor(me, site, st);
   const nums = await takeNumbers();
@@ -61,7 +61,7 @@ export async function createBuild(me: Me, org: Org, site: Site | undefined, site
   const lib = tplIds.length ? await loadLibrary(me.org_id) : [];
   const srcs = copyIds.length ? (((await db.from('rams_builds').select('*').in('id', copyIds)).data as Record<string, unknown>[] | null) ?? []).sort((x, y) => copyIds.indexOf(String(x.id)) - copyIds.indexOf(String(y.id))) : [];
   const out = combineStart(lib, tplIds, srcs as never, details);
-  const r = await db.from('rams_builds').insert({ org_id: me.org_id, site_id: siteId, title, details: out.details, hazards: out.hazards, sections: out.sections, ppe: out.ppe, created_by: me.id } as never).select('id').single();
+  const r = await db.from('rams_builds').insert({ org_id: me.org_id, site_id: siteId, title, details: out.details, hazards: out.hazards, sections: [...out.sections, ...ownTasks.map((t) => ({ id: ramsUid(), part: 'method' as const, title: t, body: '', steps: [] }))], ppe: out.ppe, created_by: me.id } as never).select('id').single();
   const id = (r.data as { id: string } | null)?.id;
   if (!id) return 'Could not create the RAMS — try again.';
   // Numbers couldn't be taken up front: move the saved counter on.

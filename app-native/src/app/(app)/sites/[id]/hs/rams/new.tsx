@@ -1,5 +1,6 @@
 // Create RAMS (586 renderRamsNew): name it, then start blank, from one or more
-// templates, and / or by copying other jobs' RAMS. PMs and admins only.
+// templates, and / or by copying other jobs' RAMS, plus any tasks of your own that aren't in the library (Andy, 2 Nov 2026).
+// PMs and admins only.
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
@@ -30,6 +31,7 @@ export default function RamsNew() {
   const [tpls, setTpls] = useState<string[]>([]);
   const [copySite, setCopySite] = useState<string | null>(null);
   const [copies, setCopies] = useState<string[]>([]);
+  const [own, setOwn] = useState('');
   const [busy, setBusy] = useState(false);
   if (!me) return null;
   if (!isFullManager(me)) return <Muted style={{ padding: space.l }}>Project Managers and admins only.</Muted>;
@@ -50,7 +52,7 @@ export default function RamsNew() {
       <Card>
         {templates.length > 1 && <Check label="Select all templates" value={tpls.length === templates.length} onChange={(v) => setTpls(v ? templates.map((t) => t.id) : [])} />}
         {templates.map((t) => <Check key={t.id} label={`📋 ${t.title} · ${((t.data || {}).hazards as unknown[] || []).length} hazards · ${((t.data || {}).sections as unknown[] || []).length} sections`} value={tpls.includes(t.id)} onChange={() => tick(tpls, setTpls, t.id)} />)}
-        <Muted style={{ marginTop: 6 }}>Tick nothing to start blank and add hazards and sections yourself from the library. Ticking several combines them — anything in more than one is only added once.</Muted>
+        <Muted style={{ marginTop: 6 }}>Tick nothing to start blank. Ticking several combines them — anything in more than one is only added once. Whatever you start from, you can change it or add to it on the next screen. That only changes this RAMS, not the template.</Muted>
         {!templates.length && <Muted style={{ marginTop: 6 }}>No templates yet — {lib.length ? 'save one from any RAMS.' : 'load the starter library to get going.'}</Muted>}
         {!templates.length && !lib.length && <Button kind="ghost" title="📚 Load the starter library" onPress={async () => {
           const r = await supabase.from('rams_library_items').insert(starterRows().map((x) => ({ ...x, org_id: me.org_id, created_by: me.id })) as never);
@@ -71,14 +73,20 @@ export default function RamsNew() {
           </Card>
         </>
       )}
+      <SectionTitle>Tasks not in the library</SectionTitle>
+      <Card>
+        <Muted style={{ marginBottom: 6 }}>Type any other tasks on this job, one per line. Each becomes its own method statement for you to write up, and you can save it to the library from there.</Muted>
+        <TextInput value={own} onChangeText={setOwn} multiline accessibilityLabel="Tasks not in the library" placeholder={'e.g. Install roof lantern\nRemove asbestos soffit'} style={[box, { minHeight: 64, marginBottom: 0, textAlignVertical: 'top' }]} />
+      </Card>
       <View style={{ marginTop: 6 }}><Button title="Create RAMS" busy={busy} onPress={async () => {
         if (busy) return;
         setBusy(true);
         try {
-          const r = await createBuild(me, org as never, site, id, name.trim() || 'RAMS', tpls, copies);
+          const ownTasks = own.split('\n').map((x) => x.trim()).filter(Boolean);
+          const r = await createBuild(me, org as never, site, id, name.trim() || 'RAMS', tpls, copies, ownTasks);
           if (typeof r === 'string') { toast(r); return; }
           void qc.invalidateQueries({ queryKey: ['ramsBuilds'] }); void qc.invalidateQueries({ queryKey: ['ramsBuildsOrg'] });
-          router.replace(`/sites/${id}/hs/rams/build/${r.id}` as never);
+          router.replace(`/sites/${id}/hs/rams/build/${r.id}${ownTasks.length ? '?tab=ms' : ''}` as never);
           if (r.missing.length) showAlert(`Heads up: ${r.missing.length === 1 ? 'one item' : `${r.missing.length} items`} in the template could not be found in the RAMS library, so ${r.missing.length === 1 ? 'it was' : 'they were'} not added: ${r.missing.join(' · ')}. Add ${r.missing.length === 1 ? 'it' : 'them'} from the library in the editor, and fix the template in the RAMS Library.`);
         } finally { setBusy(false); }
       }} /></View>
