@@ -11,7 +11,7 @@ import { useEffect, useRef, useState, type ComponentRef, type ReactNode } from '
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { ThinExportBar } from '@/components/FinFilterBar';
-import { FinChip } from '@/components/FinNav';
+import { SelectBox } from '@/components/SelectBox';
 import { chooseAction, confirmAsk, showAlert, useToast } from '@/components/toast';
 import { FinForm } from '@/components/FinForm';
 import { Button, Card, Check, Muted } from '@/components/ui';
@@ -258,7 +258,7 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
       )}
       {view === 'lines' && <>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8, alignItems: 'center' }}>
-        {(stage === 'draft' || stage === 'applied') && <><FinChip on={mode === 'pct'} label="Enter %" onPress={() => setMode('pct')} /><FinChip on={mode === 'gbp'} label="Enter £" onPress={() => setMode('gbp')} /><FinChip on={mode === 'qty'} label="Enter qty" onPress={() => setMode('qty')} /></>}
+        {(stage === 'draft' || stage === 'applied') && <SelectBox title="Enter figures by" value={mode} options={[['pct', 'Enter %'], ['gbp', 'Enter £'], ['qty', 'Enter qty']]} onChange={(k) => setMode(k as Entry)} style={{ width: 130, marginBottom: 0 }} />}
         <Check label="Hide 0% lines" value={hideZero} onChange={setHideZero} />
         {stage === 'draft' && <View style={{ marginLeft: 'auto' }}><Button small kind="ghost" busy={!!busy} title="Upload edited Excel" onPress={() => void uploadExcel()} /></View>}
       </View>
