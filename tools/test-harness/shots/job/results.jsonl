@@ -1400,3 +1400,4 @@
 {"part":"appstyle1","step":"Application draft","ok":true,"note":"4 bars","ms":12198}
 {"part":"appstyle1","step":"Plot box on a multi-site job with no plots","ok":true,"note":"boxes 1","ms":10744}
 {"part":"appstyle1","step":"A new line takes the plot above","ok":true,"note":"1 > 2","ms":14868}
+{"part":"appbtn1","step":"Delete is red, narrow and the same height","ok":true,"note":"{\"d\":{\"h\":34,\"w\":100,\"bg\":\"rgb(253, 236, 236)\"},\"e\":{\"h\":34,\"w\":211,\"bg\":\"rgb(223, 227, 234)\"}}","ms":12296}

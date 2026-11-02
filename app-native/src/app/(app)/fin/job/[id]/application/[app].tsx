@@ -512,7 +512,7 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
   );
 }
 
-const GRID_W: Record<string, number> = { ref: 52, qty: 58, unit: 48, rate: 82, value: 92, box: 124, pct: 66, gross: 96, certBox: 124, cert: 96, prev: 92, now: 92 };
+const GRID_W: Record<string, number> = { ref: 52, qty: 58, unit: 48, rate: 82, value: 92, box: 124, pct: 84, gross: 96, certBox: 124, cert: 96, prev: 92, now: 92 };
 const Strong = ({ children, warn }: { children: ReactNode; warn?: boolean }) => <Text style={{ fontSize: 13.5, fontWeight: '600', color: warn ? '#b45309' : base.ink }}>{children}</Text>;
 /** One row of the lines table: thin lines between the columns, words on the left and figures on the right. */
 function GridRow({ cols, cells, head }: { cols: string[]; cells: Record<string, ReactNode>; head?: boolean }) {
@@ -622,7 +622,7 @@ function ActionRow({ children, onDelete, note }: { children: ReactNode; onDelete
       {!!note && <Muted style={{ fontSize: 12, marginBottom: 6 }}>{note}</Muted>}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
         {(Array.isArray(children) ? children : [children]).filter(Boolean).map((b, i) => <View key={i} style={{ flex: 1, minWidth: 0 }}>{b}</View>)}
-        {!!onDelete && <View style={{ width: 100 }}><Button kind="ghost" title="Delete" onPress={onDelete} /></View>}
+        {!!onDelete && <View style={{ width: 100 }}><Button kind="danger" title="Delete" onPress={onDelete} /></View>}
       </View>
     </View>
   );
