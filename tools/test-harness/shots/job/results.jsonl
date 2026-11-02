@@ -900,3 +900,4 @@
 {"part":"bq7","step":"Hidden, Select shows them, Stop selecting hides them","ok":true,"note":"0, 6, 0","ms":12341}
 {"part":"bq8","step":"Refs fixed, menu opens them for editing","ok":true,"note":"15 then 21","ms":12141}
 {"part":"bq8","step":"Tools and Import / Export on one row","ok":true,"note":"rows 620, 620","ms":669}
+{"part":"bq9","step":"Publishes every line","ok":true,"note":"0/application/1e20252e-39e5-482a-b09c-496275bd7c9f","ms":17076}

@@ -3011,3 +3011,11 @@
 {"wrote":"job_finance","method":"POST","keys":["site_id","org_id","billing_type","billing_name","billing_email","billing_address","vat_treatment","contract_value","original_value","contract_value_manual","contract_value_source","updated_at","updated_by"]}
 {"sent":"onedrive-job-pack"}
 {"wrote":"job_finance","method":"POST","keys":["contract_value","retention_pct","retention_limit_pct","due_days","final_days","app_reminder_day","vat_treatment","billing_type","billing_name","billing_address","billing_email","pc_date","defects_months","notes","final_release_date","qs_id","ohp_pct","site_id","org_id","updated_at","updated_by","setup_checked_at"]}
+{"wrote":"fin_contract_items","method":"PATCH","keys":["kind","ref","description","qty","unit","rate","value","position","cost","sub_job_id","cost_basis","cost_pct"]}
+{"wrote":"fin_contract_items","method":"PATCH","keys":["kind","ref","description","qty","unit","rate","value","position","cost","sub_job_id","cost_basis","cost_pct"]}
+{"wrote":"fin_contract_items","method":"PATCH","keys":["kind","ref","description","qty","unit","rate","value","position","cost","sub_job_id","cost_basis","cost_pct"]}
+{"wrote":"fin_contract_items","method":"PATCH","keys":["kind","ref","description","qty","unit","rate","value","position","cost","sub_job_id","cost_basis","cost_pct"]}
+{"wrote":"fin_contract_items","method":"PATCH","keys":["kind","ref","description","qty","unit","rate","value","position","cost","sub_job_id","cost_basis","cost_pct"]}
+{"wrote":"fin_contract_items","method":"PATCH","keys":["kind","ref","description","qty","unit","rate","value","position","cost","sub_job_id","cost_basis","cost_pct"]}
+{"wrote":"job_finance","method":"POST","keys":["site_id","org_id","billing_type","updated_at","updated_by","contract_value"]}
+{"wrote":"fin_applications","method":"POST","keys":["org_id","site_id","status","valuation_date","due_date","final_date","client_po","lines","variations","dayworks","retention_pct","created_by","number"]}
