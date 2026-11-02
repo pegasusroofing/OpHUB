@@ -14,6 +14,16 @@ delete from price_builder_sheets
    and site_id in (select id from sites where org_id = '2eb072b7-2704-48c0-8110-62e45e621ded'
      and name in ('ZZ TEST JOB - safe to delete', 'ZZ JOB Repair', 'ZZ JOB Multi', 'ZZ JOB Main Contractor', 'ZZ JOB Quote Won', 'ZZ JOB Quote Won B', 'ZZ JOB Flow C'));
 
+-- Finance records on these jobs would otherwise stop the jobs being removed.
+do $$
+declare t text;
+begin
+  foreach t in array array['fin_quote_items', 'fin_quotes', 'fin_sub_apps', 'fin_subcontracts', 'fin_dayworks', 'fin_variations', 'fin_job_budgets', 'fin_job_costs', 'fin_shop_items'] loop
+    execute format($q$delete from public.%I where site_id in (select id from public.sites where org_id = '2eb072b7-2704-48c0-8110-62e45e621ded'
+      and name in ('ZZ TEST JOB - safe to delete', 'ZZ JOB Repair', 'ZZ JOB Multi', 'ZZ JOB Main Contractor', 'ZZ JOB Quote Won', 'ZZ JOB Quote Won B', 'ZZ JOB Flow C'))$q$, t);
+  end loop;
+end $$;
+
 delete from sites
  where org_id = '2eb072b7-2704-48c0-8110-62e45e621ded'
    and name in ('ZZ TEST JOB - safe to delete', 'ZZ JOB Repair', 'ZZ JOB Multi', 'ZZ JOB Main Contractor', 'ZZ JOB Quote Won', 'ZZ JOB Quote Won B', 'ZZ JOB Flow C');
