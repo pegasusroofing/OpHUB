@@ -279,3 +279,7 @@
 {"table":"site_activity_log","id":"562cf530-372b-4585-90b1-28584746d3ab"}
 {"table":"site_sub_addresses","id":"0298c50d-f75a-4eee-a2fe-e4565e3669c4"}
 {"table":"site_activity_log","id":"5293fbb5-85a8-4600-9f1b-320b240b9432"}
+{"table":"fin_subcontracts","id":"f2c807da-f803-46f1-bcd9-ee754d12d517"}
+{"table":"pricing_elements","id":"e218b598-8063-4a5f-a818-c9e2719d1e06"}
+{"table":"price_builder_sheets","id":"7e19d60f-a592-4f66-b883-bebbd7ac78eb"}
+{"table":"price_builder_sheet_items","id":"c00b3803-65dd-436c-a99d-804ab2c757d5"}

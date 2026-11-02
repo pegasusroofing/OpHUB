@@ -1200,3 +1200,5 @@
 {"part":"plots1","step":"Add a plot","ok":true,"note":"Plot 1, Plot 2, ZZ Plot 6654","ms":13958}
 {"part":"plots1","step":"It shows in the Bill","ok":true,"note":"listed 1","ms":3893}
 {"part":"plots1","step":"Remove it","ok":true,"note":"Plot 1, Plot 2","ms":13294}
+{"part":"scplot1","step":"New order with a plot","ok":true,"note":"{\"name\":\"ZZ Sub 5524\",\"sub_job_id\":\"94c003d5-b37d-4d90-b1cf-d1511d2eca22\"}","ms":16448}
+{"part":"scplot1","step":"No picker on a single-site job","ok":true,"note":"hidden","ms":10981}

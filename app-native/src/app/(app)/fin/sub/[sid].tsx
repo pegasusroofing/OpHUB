@@ -18,6 +18,7 @@ import { Button, Card, Check, Muted, SectionTitle } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
 import { DateBox } from '@/components/DateField';
 import { fdb, insertNumbered, loadSettings } from '@/data/finance';
+import { subNoun, useSubJobs } from '@/data/finSubJobs';
 import { openDocLink } from '@/data/hs';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
@@ -50,6 +51,9 @@ export default function FinSubcontract() {
     const [sc, apps] = await Promise.all([fdb.from('fin_subcontracts').select('*').eq('id', sid).maybeSingle(), fdb.from('fin_sub_apps').select('*').eq('subcontract_id', sid).order('number')]);
     return { sc: sc.data as Row | null, apps: (apps.data as Row[] | null) ?? [] };
   } });
+  // Booked to a plot or repair job, when the project has them (912 finSubJobSelectHtml).
+  const home = sites.find((x) => x.id === (data?.sc?.site_id || site));
+  const { data: subJobs = [] } = useSubJobs(home as never);
   if (!me) return null;
   if (sid !== 'new' && isLoading) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   const sc = data?.sc || null, apps = data?.apps || [];
@@ -86,7 +90,7 @@ export default function FinSubcontract() {
       {sc && (
         <>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
-            <FinStat v={sc.order_value != null ? money(sc.order_value) : '—'} label="Order value" /><FinStat v={money(lastCert?.certified_gross || 0)} label="Certified to date" />
+            <FinStat v={sc.order_value != null ? money(sc.order_value) : '—'} label="Order value" />{!!sc.sub_job_id && <FinStat v={subJobs.find((j) => j.id === sc.sub_job_id)?.short || '—'} label={subNoun(home as never)} />}<FinStat v={money(lastCert?.certified_gross || 0)} label="Certified to date" />
             <FinStat v={money(apps.filter((a) => a.status === 'certified').reduce((t, a) => t + Number(a.pay_amount || 0), 0))} label="Certified, to pay" /><FinStat v={sc.status === 'complete' ? 'Complete' : 'Active'} label="Status" />
           </View>
           <Card>
@@ -130,6 +134,7 @@ export default function FinSubcontract() {
           fields={[
             { k: 'name', label: 'Subcontractor' }, { k: 'email', label: 'Email', kind: 'email' }, { k: 'description', label: 'Work', kind: 'multiline' },
             { k: 'order_value', label: 'Order value £', kind: 'money', half: true }, { k: 'retention_pct', label: 'Retention %', kind: 'number', half: true },
+            ...(subJobs.length ? [{ k: 'sub_job_id', label: subNoun(home as never), kind: 'choice' as const, ph: 'Not booked to one', options: [['', 'Not booked to one'], ...subJobs.map((j) => [j.id, j.short] as [string, string])] as [string, string][] }] : []),
             { k: 'cis_rate', label: 'CIS rate', kind: 'choice', options: [['0', '0% (gross)'], ['20', '20% (registered)'], ['30', '30% (not registered)']], half: true }, { k: 'utr', label: 'UTR', half: true },
             { k: 'vat_registered', label: 'VAT registered', kind: 'check' }, ...(sc ? [{ k: 'status', label: 'Status', kind: 'choice', options: [['active', 'Active'], ['complete', 'Complete']] }] as never[] : []),
           ]}
@@ -138,7 +143,7 @@ export default function FinSubcontract() {
             const ret = num(v.retention_pct); if (ret === null || isNaN(ret) || ret < 0 || ret > 20) return 'Retention should be between 0 and 20%.';
             const lt = sc ? null : linesTotal(lines);
             const val = lt != null ? lt : num(v.order_value);
-            const row: Row = { name, email: String(v.email).trim() || null, description: String(v.description).trim() || null, order_value: val === null || isNaN(val) ? null : round2(val), retention_pct: ret, cis_rate: Number(v.cis_rate || 20), utr: String(v.utr).trim() || null, vat_registered: !!v.vat_registered, ...(!sc && pre ? { worker_id: pre.id } : {}) };
+            const row: Row = { name, email: String(v.email).trim() || null, description: String(v.description).trim() || null, order_value: val === null || isNaN(val) ? null : round2(val), retention_pct: ret, cis_rate: Number(v.cis_rate || 20), utr: String(v.utr).trim() || null, vat_registered: !!v.vat_registered, ...(!sc && pre ? { worker_id: pre.id } : {}), ...(subJobs.length ? { sub_job_id: String(v.sub_job_id || '') || null } : {}) };
             if (sc && v.status) row.status = v.status;
             if (sc) { if (!(await fdb.from('fin_subcontracts').update(row as never).eq('id', sc.id).select('id')).data?.length) return 'Could not save.'; toast('Subcontractor PO saved'); refresh(); return null; }
             const r = await insertNumbered('fin_subcontracts', { col: 'site_id', val: site || '' }, (s) => `SC-${String(s).padStart(3, '0')}`, { ...row, org_id: me.org_id, site_id: site, created_by: me.id });
