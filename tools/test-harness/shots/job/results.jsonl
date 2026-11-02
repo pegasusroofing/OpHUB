@@ -1029,3 +1029,4 @@
 {"part":"attention1","step":"Company overview: heading only; row still opens","ok":true,"note":"sub lines 0, opened /fin/sales","ms":11672}
 {"part":"attention1","step":"Project overview: heading only","ok":true,"note":"sub lines 0","ms":11012}
 {"part":"finfont1","step":"Bar and buttons","ok":false,"note":"locator.boundingBox: Timeout 30000ms exceeded.","ms":41225}
+{"part":"finfont1","step":"Bar and buttons","ok":true,"note":"text is 0.0px off centre","ms":11090}
