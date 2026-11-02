@@ -48,15 +48,14 @@ export function FinTabRow({ children, style }: { children: ReactNode; style?: ob
   );
 }
 const useJobBilling = (id: string) => useQuery({ queryKey: ['finJobBilling', id], queryFn: async () => ((await fdb.from('job_finance').select('billing_type').eq('site_id', id).maybeSingle()).data as { billing_type: string | null } | null)?.billing_type ?? null });
-/** Inside the Bill of Quantities tab: the Bill and its Variations (Andy, 2 Nov 2026). An invoice job has no Bill, so no tabs here. */
-export function BoqTabs({ id, on }: { id: string; on: 'boq' | 'variations' }) {
+/** Inside the Bill of Quantities tab: the Bill, its Variations and the Plots (Andy, 2 Nov 2026). An invoice job has no Bill, so those two only. */
+export function BoqTabs({ id, on }: { id: string; on: 'boq' | 'variations' | 'plots' }) {
   const t = useTheme();
   const { data: billing } = useJobBilling(id);
-  if (billing === 'invoice') return null;
   return (
     <View style={{ flexDirection: 'row', gap: 6, marginBottom: 12 }}>
-      {([['boq', 'BoQ'], ['variations', 'Variations']] as const).map(([k, l]) => (
-        <Pressable key={k} accessibilityRole="button" onPress={() => { if (on !== k) router.replace((k === 'boq' ? `/fin/job/${id}/boq` : `/fin/job/${id}/variations`) as never); }} style={{ paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 2, borderBottomColor: on === k ? t.brand1 : 'transparent' }}>
+      {([['boq', 'BoQ'], ['variations', 'Variations'], ['plots', 'Plots']] as const).filter(([k]) => k !== 'boq' || billing !== 'invoice').map(([k, l]) => (
+        <Pressable key={k} accessibilityRole="button" onPress={() => { if (on !== k) router.replace(`/fin/job/${id}/${k}` as never); }} style={{ paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 2, borderBottomColor: on === k ? t.brand1 : 'transparent' }}>
           <Text style={{ fontSize: 14, fontWeight: on === k ? '700' : '600', color: on === k ? '#111827' : '#6b7280' }}>{l}</Text>
         </Pressable>
       ))}

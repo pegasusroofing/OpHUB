@@ -3138,3 +3138,15 @@
 {"blocked":"function","fn":"xero"}
 {"wrote":"fin_settings","method":"POST","keys":["org_id","updated_at","updated_by","ohp_pct"]}
 {"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"wrote":"fin_settings","method":"POST","keys":["org_id","updated_at","updated_by","ohp_pct"]}
+{"blocked":"function","fn":"xero"}
+{"wrote":"fin_settings","method":"POST","keys":["org_id","updated_at","updated_by","ohp_pct"]}
+{"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}
+{"wrote":"site_sub_addresses","method":"POST","keys":["name","address","postcode","site_id","org_id","created_by"]}
+{"wrote":"site_sub_addresses","method":"DELETE","keys":[]}
+{"wrote":"site_activity_log","method":"POST","keys":["site_id","org_id","actor_id","action","description"]}
+{"wrote":"site_sub_addresses","method":"POST","keys":["name","address","postcode","site_id","org_id","created_by"]}
+{"wrote":"site_sub_addresses","method":"DELETE","keys":[]}
+{"wrote":"site_activity_log","method":"POST","keys":["site_id","org_id","actor_id","action","description"]}
