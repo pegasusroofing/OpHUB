@@ -20,7 +20,7 @@ export const FIN_SUBS: Record<string, [string, string][]> = {
   sales: [['apps', 'Applications & Certificates'], ['invoices', 'Invoices'], ['retention', 'Retention']],
   purchases: [['orders', 'Purchase orders'], ['invoices', 'Purchase invoices'], ['statements', 'Statements'], ['plant', 'Plant hire'], ['suppliers', 'Suppliers'], ['pricebook', 'Price book'], ['pricelists', 'Price lists'], ['yard', 'Yard stock']],
   subs: [['opinv', 'Operative invoices'], ['wages', 'Wages to book'], ['payrun', 'Pay run'], ['orders', 'Subcontractor POs'], ['apps', 'Applications & Certificates'], ['cis', 'CIS'], ['rates', 'People & rates']],
-  settings: [['general', 'Settings'], ['codes', 'Cost Codes'], ['team', 'Team']],
+  settings: [['general', 'Settings'], ['codes', 'Cost Codes'], ['templates', 'Templates'], ['team', 'Team']],
   directory: [['client', 'Clients'], ['supplier', 'Suppliers'], ['labour', 'Labour (CIS)']],
 };
 const Chip = ({ on, label, onPress, n }: { on: boolean; label: string; onPress: () => void; n?: number }) => {
@@ -119,6 +119,9 @@ export function FinSeg({ items, value, onChange }: { items: [string, string, num
     </View>
   );
 }
+
+/** The Settings tabs: Settings, Cost Codes, Templates and Team live on different pages. */
+export const finSettingsGo = (k: string) => router.replace(({ general: '/fin/settings', codes: '/fin/directory?kind=codes', templates: '/fin/templates', team: '/fin/team' } as Record<string, string>)[k] as never);
 
 export function FinPage({ title, section, sub, onSub, badges, children, wide, top, foot }: { title: string; section: string; sub?: string; onSub?: (k: string) => void; badges?: Record<string, number>; children: ReactNode; wide?: boolean; top?: ReactNode; foot?: ReactNode }) {
   const { me, org } = useAuth();

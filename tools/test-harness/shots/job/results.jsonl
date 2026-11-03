@@ -1461,3 +1461,16 @@
 {"part":"appphone1","step":"Overview buttons the same height, bin on the right, Email Application below","ok":true,"note":"[{\"t\":\"Return To Draft\",\"h\":50,\"w\":109,\"x\":16,\"y\":1144},{\"t\":\"Import Certificate\",\"h\":50,\"w\":109,\"x\":133,\"y\":1144},{\"t\":\"Certify\",\"h\":50,\"w\":109,\"x\":251,\"y\":1144},{\"t\":\"bin\",\"h\":50,\"w\":46,\"x\":368,\"y\":1144}]","ms":1355}
 {"part":"appphone2","step":"Valuation grid fits","ok":true,"note":"{\"sideways\":0,\"over\":0} last figure right edge 365, total at 581","ms":12717}
 {"part":"appphone2","step":"List: figure level with the ⋯","ok":true,"note":"dots 471, figure 471","ms":12632}
+{"part":"tpl1","step":"Templates tab after Cost Codes","ok":true,"note":"templates","ms":12302}
+{"part":"tpl1","step":"Make a default application template","ok":false,"note":"apiRequestContext.get: socket hang up (ECONNRESET)","ms":18858}
+{"part":"tpl1","step":"Email pop-up picks it and fills in the job","ok":false,"note":"apiRequestContext.get: read ECONNRESET","ms":9088}
+{"part":"tpl1","step":"Remove the test template","ok":false,"note":"locator.click: Timeout 5000ms exceeded.","ms":14490}
+{"part":"tpl1","step":"Phone: Templates page fits","ok":true,"note":"over 0","ms":876}
+{"part":"tpl1","step":"Templates tab after Cost Codes","ok":true,"note":"templates","ms":11858}
+{"part":"tpl1","step":"Make a default application template","ok":true,"note":"[{\"id\":\"4f137959-042d-4de8-a0c8-d6dc56519d82\",\"is_default\":true,\"subject\":\"ZZ {project} application {number}\"}]","ms":3542}
+{"part":"tpl1","step":"Email pop-up picks it and fills in the job","ok":true,"note":"picked 1, ZZ ZZ JOB Fin C application 14","ms":14033}
+{"part":"tpl1","step":"Remove the test template","ok":true,"note":"left 0","ms":12638}
+{"part":"tpl1","step":"Phone: Templates page fits","ok":true,"note":"over 0","ms":850}
+{"part":"appimport1","step":"An applied application to work on","ok":true,"note":"submitted","ms":70}
+{"part":"appimport1","step":"Email Application pop-up: client email, CC Me ticked, Email Me Only","ok":true,"note":"cc 1, me only 1, send 1","ms":13961}
+{"part":"appimport1","step":"Import Certificate reads our exported Excel","ok":true,"note":"certified boxes 9, note 1","ms":5381}

@@ -205,7 +205,7 @@ export async function appSowChoice(a: Row): Promise<{ has: boolean; since: { fro
 }
 /** Emails the application's Excel for the client to certify (902 sendFinAppEmail): kept in finance-docs, then sent by
  *  send-finance-email. During the Finance trial only the Sandbox company sends. Gives the problem, or null when sent. */
-export async function emailApplication(me: Profile, org: Organization | null, given: Row, to: string[], cc: string[]): Promise<string | null> {
+export async function emailApplication(me: Profile, org: Organization | null, given: Row, to: string[], cc: string[], words?: { subject: string; body: string; logos: string[]; hideLogo: boolean }): Promise<string | null> {
   if (finBlocked('send-finance-email', undefined, me.org_id)) return FIN_TRIAL_MSG;
   const a = ((await fdb.from('fin_applications').select('*').eq('id', given.id).maybeSingle()).data as Row | null) ?? given;
   const [jfR, apps, siteR, st] = await Promise.all([
@@ -219,7 +219,7 @@ export async function emailApplication(me: Profile, org: Organization | null, gi
   const info = { company: org?.name || '', client: jf.billing_name || site.client_name || '', project: site.name || '', jobNo: site.job_number || '', valDate: a.valuation_date ? fdate(a.valuation_date) : '' };
   const up = await supabase.storage.from('finance-docs').upload(`${me.org_id}/${a.site_id}/applications/Application-${a.number}-${Date.now()}.xlsx`, makeXlsx(appExcelSheets(a, D, info)), { contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   if (up.error) return 'Could not store the Excel to send — try again.';
-  const r = await finInvoke(me, 'send-finance-email', { kind: 'application', site_id: a.site_id, storage_path: up.data.path, filename: appFilename(a, site, 'xlsx'), recipients: to, cc, reference: `No. ${a.number}`, client_po: a.client_po || '', amount: `${money(a.net_due)} excl. VAT`, due: a.due_date ? fdate(a.due_date) : '' });
+  const r = await finInvoke(me, 'send-finance-email', { kind: 'application', site_id: a.site_id, storage_path: up.data.path, filename: appFilename(a, site, 'xlsx'), recipients: to, cc, reference: `No. ${a.number}`, client_po: a.client_po || '', amount: `${money(a.net_due)} excl. VAT`, due: a.due_date ? fdate(a.due_date) : '', ...(words ? { subject: words.subject, body_text: words.body, logos: words.logos, hide_logo: words.hideLogo } : {}) });
   if (r.error) return r.error;
   await fdb.from('fin_applications').update({ excel_path: up.data.path, sent_to: to.join(', ') } as never).eq('id', a.id);
   return null;

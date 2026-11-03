@@ -14,6 +14,7 @@ import { ThinExportBar } from '@/components/FinFilterBar';
 import { OphIcon } from '@/components/OphIcon';
 import { SelectBox } from '@/components/SelectBox';
 import { confirmAsk, showAlert, useToast } from '@/components/toast';
+import { FinEmailPopup } from '@/components/FinEmailPopup';
 import { FinForm } from '@/components/FinForm';
 import { Button, Card, Check, Muted } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
@@ -523,18 +524,11 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
         </ActionRow>
       )}
       {mailing && me && (
-        <FinForm title={`Email Application No. ${a0.number}`} saveLabel="Send" onClose={() => setMailing(false)}
-          note="The application's Excel goes to the client to fill in what they certify."
-          initial={{ to: jf.billing_email || site?.client_email || '', ccMe: true }}
-          fields={[{ k: 'to', label: 'To', kind: 'email', ph: 'qs@client.co.uk (commas for more than one)' }, { k: 'ccMe', label: `CC Me (${me.email})`, kind: 'check' }]}
-          extra={<View style={{ marginTop: 4 }}><Button kind="ghost" title="Email Me Only" onPress={async () => { const e = await emailApplication(me, org, a0, [me.email], []); if (e) { showAlert(e); return; } toast(`Application emailed to ${me.email}`); setMailing(false); refresh(); }} /></View>}
-          onSave={async (v) => {
-            const to = String(v.to || '').split(/[,;\s]+/).map((x) => x.trim()).filter(Boolean);
-            if (!to.length || to.some((x) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x))) return 'Check the email address.';
-            const e = await emailApplication(me, org, a0, to, v.ccMe && me.email ? [me.email] : []);
-            if (e) return e;
-            toast(`Application emailed to ${to.join(', ')}`); refresh(); return null;
-          }} />
+        <FinEmailPopup kind="application" title={`Email Application No. ${a0.number}`} to={jf.billing_email || site?.client_email || ''}
+          note="The application's Excel goes with it, for the client to fill in what they certify."
+          vars={{ client: jf.billing_name || site?.client_name || '', project: site?.name || '', job_no: site?.job_number || '', number: String(a0.number), amount: money(a0.net_due), due: a0.due_date ? fdate(a0.due_date) : '', client_po: a0.client_po || '', company: org?.name || '', my_name: me.name || '' }}
+          onSend={async (o) => { const e = await emailApplication(me, org, a0, o.to, o.cc, o); if (e) return e; toast(`Application emailed to ${o.to.join(', ')}`); refresh(); return null; }}
+          onClose={() => setMailing(false)} />
       )}
     </ScrollView>
     {view === 'lines' && (

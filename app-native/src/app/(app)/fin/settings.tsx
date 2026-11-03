@@ -8,12 +8,11 @@
 // Finance switch people on) and the invoice inbox address (906: a private key
 // in fin_settings; while Finance is on trial nothing that arrives is read or filed).
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { router } from 'expo-router';
 import { useState } from 'react';
 import { Linking, Platform, Pressable, Text, TextInput, View } from 'react-native';
 
 import { FinForm, type Field } from '@/components/FinForm';
-import { FinPage, FinRow } from '@/components/FinNav';
+import { FinPage, finSettingsGo, FinRow } from '@/components/FinNav';
 import { XeroSettings } from '@/components/FinXero';
 import { OphIcon } from '@/components/OphIcon';
 import { confirmAsk, useToast } from '@/components/toast';
@@ -78,7 +77,7 @@ export default function FinSettings() {
     ? <Muted style={{ marginTop: 4 }}>Only a company admin can change this.</Muted>
     : <View style={{ alignSelf: 'flex-start', marginTop: 4 }}><Button small title="Edit" onPress={() => setEdit(k)} /></View>);
   return (
-    <FinPage title="Finance settings" section="settings" sub="general" onSub={(k) => { if (k !== 'general') router.replace((k === 'codes' ? '/fin/directory?kind=codes' : '/fin/team') as never); }}>
+    <FinPage title="Finance settings" section="settings" sub="general" onSub={(k) => { if (k !== 'general') finSettingsGo(k); }}>
       {/* Each part opens on its own, with its own Edit (Andy, 2 Nov 2026). */}
       {([
         ['costs', 'Who can see material costs', 'eye', []],

@@ -61,7 +61,7 @@ function ophubFrom(rawFrom: string | undefined | null, company: string): string 
   const address = (m ? m[1] : rawFrom || 'reports@ophub.app').trim();
   return `"${`${company || 'OpHUB'}`.replace(/"/g, "'")}" <${address}>`;
 }
-function ophubEmail(o: { company?: string | null; brand?: string | null; logoUrl?: string | null; kicker?: string | null; title: string; greeting?: string | null; intro?: string | null; bodyHtml?: string | null; note?: string | null }): string {
+function ophubEmail(o: { company?: string | null; brand?: string | null; logoUrl?: string | null; noLogo?: boolean; kicker?: string | null; title: string; greeting?: string | null; intro?: string | null; bodyHtml?: string | null; note?: string | null }): string {
   const company = o.company || 'OpHUB';
   const brand = /^#[0-9a-fA-F]{6}$/.test(String(o.brand || '')) ? String(o.brand) : '#4E8FD1';
   const logo = o.logoUrl || 'https://operativehub.co.uk/assets/ophub-mark.png';
@@ -71,8 +71,8 @@ function ophubEmail(o: { company?: string | null; brand?: string | null; logoUrl
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F4F6F9;padding:32px 16px;"><tr><td align="center">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.06);">
       <tr><td style="background:${brand};padding:24px 28px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
-        <td style="vertical-align:middle;width:46px;"><img src="${ophubEsc(logo)}" alt="${ophubEsc(company)}" width="40" height="40" style="border-radius:8px;background:#fff;object-fit:contain;padding:3px;display:block;"></td>
-        <td style="vertical-align:middle;padding-left:14px;"><div style="color:#ffffff;font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;opacity:.85;">${ophubEsc(o.kicker || company)}</div><div style="color:#ffffff;font-size:20px;font-weight:800;margin-top:2px;line-height:1.25;">${ophubEsc(o.title)}</div></td>
+        ${o.noLogo ? '' : `<td style="vertical-align:middle;width:46px;"><img src="${ophubEsc(logo)}" alt="${ophubEsc(company)}" width="40" height="40" style="border-radius:8px;background:#fff;object-fit:contain;padding:3px;display:block;"></td>`}
+        <td style="vertical-align:middle;padding-left:${o.noLogo ? 0 : 14}px;"><div style="color:#ffffff;font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;opacity:.85;">${ophubEsc(o.kicker || company)}</div><div style="color:#ffffff;font-size:20px;font-weight:800;margin-top:2px;line-height:1.25;">${ophubEsc(o.title)}</div></td>
       </tr></table></td></tr>
       <tr><td style="padding:24px 28px 8px;">
         ${o.greeting ? `<p style="${p}">${ophubEsc(o.greeting)}</p>` : ''}
@@ -154,6 +154,12 @@ Deno.serve(withCors(async (req) => {
     const { data: fset } = await admin.from('fin_settings').select('company_reg_no, company_vat_no').eq('org_id', caller.org_id).maybeSingle();
     const company = org?.name || 'OpHUB';
     const logoUrl = org?.logo_path ? `${SUPABASE_URL}/storage/v1/object/public/org-logos/${org.logo_path}` : null;
+    // Email templates (3 Nov 2026): the company logo can be left off, and extra logos (e.g. accreditations) shown under
+    // the signature — only pictures in this company's own folder of the public org-logos bucket.
+    const hideLogo = body.hide_logo === true;
+    const logoPrefix = `${SUPABASE_URL}/storage/v1/object/public/org-logos/${caller.org_id}/`;
+    const extraLogos = (Array.isArray(body.logos) ? body.logos : []).map((u: unknown) => String(u)).filter((u: string) => u.startsWith(logoPrefix) && !u.includes('..') && !/["'<>\s]/.test(u)).slice(0, 6);
+    const logosHtml = extraLogos.length ? `<div style="margin:14px 0 4px;">${extraLogos.map((u: string) => `<img src="${ophubEsc(u)}" alt="" height="44" style="height:44px;width:auto;max-width:150px;margin:0 12px 8px 0;display:inline-block;border:0;">`).join('')}</div>` : '';
     const label = KIND_LABEL[kind];
     const isPo = kind === 'po';
     const ref = String(body.reference || '').slice(0, 60);
@@ -178,14 +184,14 @@ Deno.serve(withCors(async (req) => {
       + `<div style="font-size:13.5px;color:#3A3B3E;line-height:1.6;">${ophubEsc(company)}</div>`
       + (caller.email ? `<div style="font-size:13.5px;line-height:1.6;"><a href="mailto:${ophubEsc(caller.email)}" style="color:#2F6FDE;text-decoration:none;">${ophubEsc(caller.email)}</a></div>` : '')
       + (regNo || vatNo ? `<div style="font-size:12.5px;color:#8A8D93;line-height:1.6;">${[regNo ? 'Company No. ' + ophubEsc(regNo) : '', vatNo ? 'VAT No. ' + ophubEsc(vatNo) : ''].filter(Boolean).join(' &nbsp;·&nbsp; ')}</div>` : '')
-      + (logoUrl ? `<div style="margin-top:12px;"><img src="${ophubEsc(logoUrl)}" alt="${ophubEsc(company)}" height="52" style="height:52px;width:auto;max-width:200px;display:block;border:0;"></div>` : '')
+      + (logoUrl && !hideLogo ? `<div style="margin-top:12px;"><img src="${ophubEsc(logoUrl)}" alt="${ophubEsc(company)}" height="52" style="height:52px;width:auto;max-width:200px;display:block;border:0;"></div>` : '')
       + `</td></tr></table>`;
     const sigText = '\n\n--\n' + sigLines.join('\n');
     // The send pop-up (26 Oct) passes the whole message as typed: it's sent as written, inside the branded email.
     const bodyText = String(body.body_text || '').replace(/\r\n/g, '\n').slice(0, 5000).trim();
     const html = bodyText
-      ? ophubEmail({ company, brand: org?.color_primary, logoUrl, kicker: site.name, title: label + (ref ? ' ' + ref : ''),
-          bodyHtml: `<p style="margin:0 0 12px;font-size:15px;line-height:1.55;color:#101114;white-space:pre-wrap;">${ophubEsc(bodyText)}</p>` + sigHtml })
+      ? ophubEmail({ company, brand: org?.color_primary, logoUrl, noLogo: hideLogo, kicker: site.name, title: label + (ref ? ' ' + ref : ''),
+          bodyHtml: `<p style="margin:0 0 12px;font-size:15px;line-height:1.55;color:#101114;white-space:pre-wrap;">${ophubEsc(bodyText)}</p>` + sigHtml + logosHtml })
       : htmlStd;
     const text = bodyText ? bodyText + sigText : `Hello,\n\n${intro}\n${rows.filter(r => r[1]).map(r => r[0] + ': ' + r[1]).join('\n')}\n\n${message ? message + '\n\n' : ''}Kind regards,\n${sender}\n${company}`;
 

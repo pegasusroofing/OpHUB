@@ -9,7 +9,7 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { FinForm, type Field } from '@/components/FinForm';
 import { FinFilterBar } from '@/components/FinFilterBar';
-import { FinPage, FinRow } from '@/components/FinNav';
+import { FinPage, finSettingsGo, FinRow } from '@/components/FinNav';
 import { Cell, FinTable, FootText } from '@/components/FinTable';
 import { bankOk, sortCode } from '@/components/FinSubs';
 import { useToast } from '@/components/toast';
@@ -81,7 +81,7 @@ export default function FinDirectory() {
   const ql = q.trim().toLowerCase();
   const onSub = (k: string) => {
     setQ('');
-    if (section === 'settings') { if (k !== 'codes') router.replace((k === 'team' ? '/fin/team' : '/fin/settings') as never); return; }
+    if (section === 'settings') { if (k !== 'codes') finSettingsGo(k); return; }
     if (section === 'subs') { if (k !== 'rates') router.replace(`/fin/subs?tab=${k}` as never); return; }
     go(k);
   };
