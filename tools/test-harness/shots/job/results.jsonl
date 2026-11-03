@@ -1703,3 +1703,22 @@
 {"part":"finhdr1","step":"Header at 1440","ok":true,"note":"","ms":12652}
 {"part":"finhdr1","step":"Header at 430","ok":true,"note":"","ms":12390}
 {"part":"pinv4","step":"Lists and item","ok":true,"note":"","ms":32384}
+{"part":"ramsfeel1","step":"RAMS list and Export pop-up at 1440","ok":true,"note":"","ms":12110}
+{"part":"ramsfeel1","step":"RAMS list and Export pop-up at 430","ok":true,"note":"","ms":11634}
+{"part":"ramsfeel1","step":"Builder Info tab","ok":true,"note":"","ms":10739}
+{"part":"ramsfeel1","step":"New RAMS, copy closed","ok":true,"note":"","ms":12768}
+{"part":"ramsfeel1","step":"Home and check in at 1440","ok":true,"note":"","ms":23945}
+{"part":"ramsfeel1","step":"Home and check in at 430","ok":true,"note":"","ms":23819}
+{"part":"tbtrow1","step":"Talks at 1440","ok":true,"note":"talk live","ms":26396}
+{"part":"tbtrow1","step":"Talks at 430","ok":true,"note":"talk live","ms":25935}
+{"part":"coshhtbt2","step":"COSHH","ok":true,"note":"","ms":23776}
+{"part":"coshhtbt2","step":"TBT tabs at 1440","ok":true,"note":"","ms":12603}
+{"part":"coshhtbt2","step":"TBT tabs at 430","ok":true,"note":"","ms":12491}
+{"part":"mattabs1","step":"Tabs stay on every page","ok":true,"note":"Collections:tabs · Yard Stock:tabs · Book into yard:tabs · back → about:blank","ms":24018}
+{"part":"finbars1","step":"Finance lists at 1440","ok":false,"note":"search boxes seen: 2","ms":79105}
+{"part":"finbars1","step":"Finance lists at 430","ok":true,"note":"search boxes seen: 3","ms":78339}
+{"part":"pinv4","step":"Lists and item","ok":true,"note":"","ms":32992}
+{"part":"docsplit1","step":"Side panel","ok":true,"note":"pinv shown","ms":49511}
+{"part":"revise1","step":"Menu shows Revise RAMS","ok":true,"note":"","ms":11118}
+{"part":"finbars1","step":"Finance lists at 1440","ok":true,"note":"search boxes seen: 0","ms":79266}
+{"part":"finbars1","step":"Finance lists at 430","ok":true,"note":"search boxes seen: 1","ms":78666}

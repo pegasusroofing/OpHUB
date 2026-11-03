@@ -134,10 +134,10 @@ export default function Expenses() {
                       onPress={async () => { const u = await openDocLink('site-photos', p); if (u) viewDoc(u); }} />
                   ))}
                   {(r.created_by === me.id || full) && (
-                    <Button kind="ghost" title="✉️ Resend" onPress={async () => {
-                      if (!(await confirmAsk(`Email ${nf === 1 ? 'this receipt' : `these ${nf} receipts`} to the office again?`, 'Send'))) return;
-                      const s = await sendExpenses({ batch_id: r.batch_id, expense_id: r.id, resend: true });
-                      if (s.ok) showAlert(`✓ Sent again${s.to ? ` to ${s.to}` : ''}${(s.emails || 0) > 1 ? ` — ${s.emails} emails` : ''}.`); else toast(`Could not send — ${s.error}`);
+                    <Button kind="ghost" title={r.emailed_at ? '✉️ Resend' : '✉️ Send Now'} onPress={async () => {
+                      if (!(await confirmAsk(`Email ${nf === 1 ? 'this receipt' : `these ${nf} receipts`} to the office${r.emailed_at ? ' again' : ''}?`, 'Send'))) return;
+                      const s = await sendExpenses(r.emailed_at ? { batch_id: r.batch_id, expense_id: r.id, resend: true } : { batch_id: r.batch_id });
+                      if (s.ok) showAlert(`✓ ${r.emailed_at ? 'Sent again' : 'Sent'}${s.to ? ` to ${s.to}` : ''}${(s.emails || 0) > 1 ? ` — ${s.emails} emails` : ''}.`); else toast(`Could not send — ${s.error}`);
                       void qc.invalidateQueries({ queryKey: ['expenses'] });
                     }} />
                   )}

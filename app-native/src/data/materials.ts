@@ -475,7 +475,7 @@ export function useOfficeOrders(siteId: string | undefined, enabled: boolean) {
 }
 
 /* ---------- yard stock (9219m / 9219zq): no rates here, those stay in Finance ---------- */
-export const yardCanEdit = (me: Profile | null, financeUser: boolean) => !!me && (me.role === 'pm' || me.role === 'admin' || financeUser);
+export const yardCanEdit = (me: Profile | null, financeUser: boolean) => !!me && (me.role === 'pm' || me.role === 'admin' || financeUser || (me.role === 'superadmin' && !!(me as Profile & { view_as_org_id?: string | null }).view_as_org_id));
 export const yardBookInCan = (me: Profile | null, financeUser: boolean) => yardCanEdit(me, financeUser) || me?.role === 'driver';
 
 export function useYard(orgId: string | null | undefined) {

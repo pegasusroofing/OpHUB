@@ -49,7 +49,7 @@ export type IncidentDraft = {
 };
 
 /** "2026-10-28 14:30" → ISO, else null. */
-const dt = (t: string) => { const m = /^(\d{4}-\d{2}-\d{2})[ T](\d{1,2}):(\d{2})$/.exec(t.trim()); return m ? new Date(`${m[1]}T${m[2].padStart(2, '0')}:${m[3]}:00`).toISOString() : null; };
+const dt = (t: string) => { const m = /^(\d{4}-\d{2}-\d{2})(?:[ T](\d{1,2}):(\d{2}))?$/.exec(t.trim()); return m ? new Date(`${m[1]}T${(m[2] || '00').padStart(2, '0')}:${m[3] || '00'}:00`).toISOString() : null; };
 export const validDateTime = (t: string) => !t.trim() || !!dt(t);
 
 export function incidentProblem(d: IncidentDraft): string | null {

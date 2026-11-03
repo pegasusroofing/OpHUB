@@ -238,7 +238,7 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
               {manager && (
                 <Pressable hitSlop={8} onPress={async () => {
                   const k = await chooseAction(r.name, [...(kind === 'rams' && !companyId && isFullManager(me) ? [{ key: 'revise', label: '✏️ Revise RAMS' }] : []), // Export and Email live in the row under the list (Andy, 3 Nov 2026).
-                    ...(kind === 'layout' && sigsFor(r.id).length ? [{ key: 'pdf', label: '📄 Export signed PDF' }] : []), ...(kind === 'rams' ? [{ key: 'multi', label: `${(r as { sign_layout?: { multi?: boolean } | null }).sign_layout?.multi ? '☑' : '☐'} Multi-page sign required` }, ...((r as { sign_layout?: { multi?: boolean } | null }).sign_layout?.multi ? [{ key: 'boxes', label: '✍ Signature boxes' }, { key: 'testfill', label: '🧪 Test fill the boxes' }] : [])] : []), ...(kind === 'coshh' ? [{ key: 'replace', label: '🔁 Replace file (resets signatures)' }, { key: 'tolib', label: '📚 Save to COSHH Library' }] : []), { key: 'del', label: '🗑 Delete', danger: true }]);
+                    ...(kind === 'layout' && sigsFor(r.id).length ? [{ key: 'pdf', label: '📄 Export signed PDF' }] : []), ...(kind === 'rams' ? [{ key: 'multi', label: `${multiOn(r) ? '☑' : '☐'} Multi-page sign required` }, ...(multiOn(r) ? [{ key: 'boxes', label: '✍ Signature boxes' }, { key: 'testfill', label: '🧪 Test fill the boxes' }] : [])] : []), ...(kind === 'coshh' ? [{ key: 'replace', label: '🔁 Replace file (resets signatures)' }, { key: 'tolib', label: '📚 Save to COSHH Library' }] : []), { key: 'del', label: '🗑 Delete', danger: true }]);
                   const refresh = () => { void qc.invalidateQueries({ queryKey: ['hsDocs', kind, site.id] }); void qc.invalidateQueries({ queryKey: ['hsSummary', site.id] }); };
                   if (k === 'view') void view(r);
                   else if (k === 'revise') {
@@ -258,8 +258,8 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
                   }
                   else if (k === 'multi') {
                     const cur = (r as { sign_layout?: { multi?: boolean } | null }).sign_layout;
-                    const ok = !!(await supabase.from('rams_docs').update({ sign_layout: { v: 2, boxes: [], ...(cur || {}), multi: !cur?.multi } } as never).eq('id', r.id).select('id')).data?.length;
-                    toast(ok ? (cur?.multi ? 'Multi-page signing off' : 'Multi-page signing on') : 'Could not save — try again.'); refresh();
+                    const ok = !!(await supabase.from('rams_docs').update({ sign_layout: { v: 2, boxes: [], ...(cur || {}), multi: !multiOn(r) } } as never).eq('id', r.id).select('id')).data?.length;
+                    toast(ok ? (multiOn(r) ? 'Multi-page signing off' : 'Multi-page signing on') : 'Could not save — try again.'); refresh();
                   }
                   else if (k === 'email') void emailIds([r.id]);
                   else if (k === 'pdf') {
@@ -308,7 +308,7 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
               }} /></View>
             )}
             <RowSigners total={data.roster.length} signed={signed} waiting={waiting} people={people} indent={manager && kind !== 'layout'} />
-            {kind === 'rams' && manager && !companyId && (r as { sign_layout?: { multi?: boolean } | null }).sign_layout?.multi && <ClientSignLines ramsId={r.id} site={site} />}
+            {kind === 'rams' && manager && !companyId && multiOn(r) && <ClientSignLines ramsId={r.id} site={site} />}
           </Card>
         );
       }) : <Empty>No {label} uploaded.</Empty>}
@@ -383,6 +383,14 @@ export function RowSigners({ total, signed, waiting, people, indent }: { total: 
       )}
     </View>
   );
+}
+
+/** Multi-page signing is on (580 ramsMultiOn): as set; else when older uploads already had boxes set (the builder's own
+ *  sign-off sheet doesn't count). */
+function multiOn(r: HsDoc): boolean {
+  const lay = (r as { sign_layout?: { multi?: boolean; boxes?: unknown[] } | null }).sign_layout;
+  if (lay && lay.multi != null) return !!lay.multi;
+  return (lay?.boxes?.length ?? 0) > 0 && !/^(Risk Assessment|Method Statement) — /.test(r.name || '');
 }
 
 export function SignerList({ headline, signed, waiting, people }: { headline: string; signed: HsSig[]; waiting: string[]; people: { id: string; name: string; role: string }[] | undefined }) {

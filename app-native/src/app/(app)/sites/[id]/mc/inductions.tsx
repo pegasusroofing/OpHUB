@@ -17,13 +17,24 @@ import { deleteCompletion, HEALTH_ITEMS, inductionItems, setInductionQuestions, 
 import { unlinkFolder } from '@/data/onedrive';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
-import { deliverPdf, emailPdf, exportFilename, fetchBytes, PDFDocument } from '@/lib/pdf';
+import { deliverPdf, exportFilename, fetchBytes, PDFDocument } from '@/lib/pdf';
 import { publicUrl } from '@/lib/privateFiles';
+import { supabase } from '@/lib/supabase';
+
 import { isManager } from '@/lib/roles';
 import { base, page as pageStyle, radius, space, live } from '@/theme/theme';
 
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card, marginBottom: 8 };
 const day = (s: string) => new Date(s).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+
+/** Emails stored induction PDFs (550 emailSiteInductionPdf / emailSelectedInductions). Gives the problem, or null. */
+async function emailInductions(siteId: string, to: { to: string; cc?: string | null; clientCc?: string | null }, items: { operative_name: string; storage_path: string }[]): Promise<string | null> {
+  try {
+    const r = await supabase.functions.invoke('send-site-induction-email', { body: { site_id: siteId, recipient_email: to.to, cc_email: to.cc ?? null, client_cc_email: to.clientCc ?? null, items: items.map((i) => ({ ...i, file_url: publicUrl('mc-documents', i.storage_path) })) } });
+    const said = (r.data as { error?: string } | null)?.error;
+    return r.error || said ? said || 'Could not send the email — please try again.' : null;
+  } catch { return 'Could not send the email — please try again.'; }
+}
 
 export default function Inductions() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -110,7 +121,7 @@ export default function Inductions() {
                   const filename = exportFilename(site?.name || '', `Site Induction - ${nameOf(people, u)}`, 'pdf');
                   if (k === 'pdf') { if (!(await deliverPdf(bytes, filename))) toast('Could not save the PDF.'); return; }
                   const to = await promptEmail('Email this signed induction to:', { myEmail: me?.email, clientEmail: site?.client_email }); if (!to) return;
-                  const err = await emailPdf(bytes, filename, `${id}/induction-exports`, { site_id: id, recipient_email: to.to, cc_email: to.cc, client_cc_email: to.clientCc, doc_title: `Site Induction — ${nameOf(people, u)}` });
+                  const err = await emailInductions(id, to, [{ operative_name: nameOf(people, u), storage_path: c.pdf_path as string }]);
                   toast(err || 'Emailed');
                 }
                 else if (k === 'del' && await confirmAsk('Delete this completed induction? The operative will need to complete it again.', 'Delete') && await deleteCompletion(c.id)) { toast('Deleted — they can now redo their induction'); refresh(); }
@@ -142,7 +153,7 @@ export default function Inductions() {
               if (!merged.getPageCount()) { toast('Could not load the induction PDFs — check your connection and try again.'); return; }
               const name = exportFilename(site?.name || '', `Site Inductions (${paths.length - failed})`, 'pdf'), bytes = await merged.save();
               if (k === 'pdf') { if (!(await deliverPdf(bytes, name))) toast('Could not save the PDF.'); }
-              else if (to) { const err = await emailPdf(bytes, name, `${id}/induction-exports`, { site_id: id, recipient_email: to.to, cc_email: to.cc, client_cc_email: to.clientCc, doc_title: `Site Inductions — ${site?.name || ''}` }); toast(err || `Emailed to ${to.to}`); if (!err) setSel(new Set()); }
+              else if (to) { const err = await emailInductions(id, to, who.map((u) => ({ operative_name: nameOf(people, u), storage_path: byOp[u]?.pdf_path as string }))); toast(err || `Emailed to ${to.to}`); if (!err) setSel(new Set()); }
               if (failed) toast(`${failed} induction PDF${failed === 1 ? '' : 's'} could not be included — check your connection.`);
             }} /></View>)}
           </View>

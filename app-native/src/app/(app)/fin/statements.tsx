@@ -23,7 +23,7 @@ import { csvRows, readXlsx } from '@/lib/rules/xlsxRead';
 import { supabase } from '@/lib/supabase';
 import { fdate, money, num, round2 } from '@/lib/rules/finance';
 import { autoMatch, lineState, sameSupplier, STMT_TYPES, supKey, type Cand, type SLine } from '@/lib/rules/finStatements';
-import { base, radius, useDesk } from '@/theme/theme';
+import { base, radius } from '@/theme/theme';
 
 type Row = Record<string, any>;
 const TONE: Record<string, string> = { ok: '#1E7A3C', diff: '#D98A00', missing: '#C0392B', payment: '#2F6FB3', ignored: '#7A7F87' };
@@ -72,7 +72,6 @@ function List() {
   const { me } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
-  const desk = useDesk();
   const [q, setQ] = useState('');
   const [busy, setBusy] = useState(false);
   const [nw, setNw] = useState<NewStmt | null>(null);
@@ -111,7 +110,7 @@ function List() {
             return null;
           }} />
       )}
-      {!desk && <TextInput value={q} onChangeText={setQ} placeholder="Search supplier" style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 9, color: base.ink, backgroundColor: base.card, marginBottom: 10 }} />}
+      {<TextInput value={q} onChangeText={setQ} placeholder="Search supplier" style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 9, color: base.ink, backgroundColor: base.card, marginBottom: 10 }} />}
       {isLoading ? <Muted>Loading…</Muted> : list.length ? list.map((s) => {
         const ls = ((s.lines || []) as SLine[]).filter((l) => !l.ignore && l.type !== 'payment'), miss = ls.filter((l) => !l.match).length;
         return <FinRow key={s.id} title={s.supplier_name} sub={[s.statement_date ? fdate(s.statement_date) : '', `${ls.length} lines · ${ls.length - miss} matched`, miss ? `${miss} not in OpHUB` : '', s.status === 'reconciled' ? 'Reconciled' : 'To check'].filter(Boolean).join(' · ')} right={s.closing_balance != null ? money(s.closing_balance) : '—'} tone={miss ? '#C0392B' : undefined} onPress={() => router.setParams({ id: s.id })} />;

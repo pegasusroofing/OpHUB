@@ -4,7 +4,9 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 
+import { FinForm } from '@/components/FinForm';
 import { MatTabs } from '@/components/MatTabs';
+import { supabase } from '@/lib/supabase';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
@@ -32,6 +34,7 @@ export default function Yard() {
   const [mode, setMode] = useState<'issue' | 'return'>('issue');
   const [busy, setBusy] = useState<string | null>(null);
   const [pickFor, setPickFor] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
   const fin = isFinanceUser(me, org);
   if (!me || !site) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   if (!yardCanEdit(me, fin)) return <Muted style={{ padding: space.l }}>Only managers and Finance can use the yard stock.</Muted>;
@@ -89,6 +92,26 @@ export default function Yard() {
             </Pressable>
           ))}
         </View>
+      )}
+      {!request && <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 8 }}><Button small kind="ghost" title="+ New Item" onPress={() => setAdding(true)} /></View>}
+      {adding && (
+        <FinForm title="New yard stock item" saveLabel="Add item" onClose={() => setAdding(false)} initial={{}}
+          fields={[
+            { k: 'item', label: 'Item *', ph: 'e.g. Code 4 lead 300mm' },
+            { k: 'unit', label: 'Unit', ph: 'e.g. roll, m, box, each', half: true },
+            { k: 'location', label: 'Location in the yard', ph: 'e.g. Rack B', half: true },
+            { k: 'min_qty', label: 'Low stock at', kind: 'number', half: true },
+            { k: 'qty', label: 'Qty in the yard now', kind: 'number', ph: '0', half: true },
+          ]}
+          onSave={async (v) => {
+            const item = String(v.item || '').trim(); if (!item) return 'Enter the item.';
+            const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
+            const r = await db.from('yard_stock').insert({ org_id: me.org_id, created_by: me.id, qty: 0, item, unit: String(v.unit || '').trim() || null, location: String(v.location || '').trim() || null, min_qty: String(v.min_qty || '').trim() ? yardNum(v.min_qty) : null, updated_at: new Date().toISOString() } as never).select('id').single();
+            if (r.error || !r.data) return 'Could not save — try again.';
+            const q0 = yardNum(v.qty);
+            if (q0) await db.from('yard_moves').insert({ org_id: me.org_id, stock_id: (r.data as { id: string }).id, kind: 'in', qty: Math.abs(q0), note: 'Opening stock', created_by: me.id } as never);
+            toast('Added to yard stock'); setAdding(false); void refetch(); return null;
+          }} />
       )}
       <TextInput value={q} onChangeText={setQ} placeholder="Search the yard" style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card, marginBottom: 8 }} />
       {shown.length ? shown.map((s) => (

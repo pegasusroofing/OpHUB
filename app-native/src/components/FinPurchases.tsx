@@ -167,7 +167,14 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
   ];
   const bar = (ph: string, parts: FilterPart[] = [], cur?: FilterSel) => desk ? (() => {
     const show = parts.find((p) => p.single);
-    return show ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>{show.items.map((it) => <FinChip key={it.v} on={(cur || sel).status[0] === it.v} label={it.l} n={it.n} onPress={() => setFilt({ ...sel, status: [it.v] })} />)}</View> : null;
+    // Lists drawn as cards have no headings to search by, so they keep a slim search box.
+    const cards = tab === 'plant' || (tab === 'invoices' && ['job', 'pm'].includes(String((cur || sel).status[0] || '')));
+    return (
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+        {show?.items.map((it) => <FinChip key={it.v} on={(cur || sel).status[0] === it.v} label={it.l} n={it.n} onPress={() => setFilt({ ...sel, status: [it.v] })} />)}
+        {cards && <TextInput value={q} onChangeText={setQ} placeholder={ph} style={[box, { flexGrow: 1, minWidth: 220, maxWidth: 360, marginBottom: 0, paddingVertical: 6, fontSize: 13 }]} />}
+      </View>
+    );
   })() : (
     <FinFilterBar search={{ value: q, onChange: setQ, placeholder: ph }} parts={[...parts, ...commonParts]} sel={cur || sel} onChange={setFilt} moreOn={!!val}
       onClear={() => { setFilt({ status: tab === 'invoices' ? ['all'] : [], sup: [], job: [], mon: [] }); setVal(''); }}

@@ -380,7 +380,8 @@ function RequestBox({ siteId, repairJobs, shop, addrs, busy, autoFocus, extra, o
             if (!item.trim()) { toast('Say what you need first.'); return; }
             if (addrs && addrs.length && !sub) { toast('Choose which address on this job.'); return; }
             const d = by || null;
-            if (await onSubmit({ item: item.trim(), qty: qty.trim(), requiredBy: d, sub, shopItemId, repairJob: rj })) { setItem(''); setQty(''); setBy(''); setSub(null); setPick(null); setRj(null); }
+            const q2 = qty.trim(), withUnit = shopItemId && pick?.unit && /^[\d.]+$/.test(q2) ? `${q2} ${pick.unit}` : q2;
+            if (await onSubmit({ item: item.trim(), qty: withUnit, requiredBy: d, sub, shopItemId, repairJob: rj })) { setItem(''); setQty(''); setBy(''); setSub(null); setPick(null); setRj(null); }
           }} />
         </View>
       </View>

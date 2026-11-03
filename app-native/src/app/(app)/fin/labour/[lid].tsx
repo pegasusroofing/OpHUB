@@ -9,6 +9,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { FinRow, FinStat } from '@/components/FinNav';
+import { XeroRow } from '@/components/FinXero';
 import { pickJob } from '@/components/FinSales';
 import { monday } from '@/components/FinSubs';
 import { chooseAction, confirmAsk, useToast } from '@/components/toast';
@@ -133,6 +134,7 @@ function Editor({ p, rateBy, who }: { p: Row | null; rateBy: Record<string, Row>
         <FinStat v={money(c.gross)} label="Gross" /><FinStat v={`−${money(c.cis_deduction)}`} label={`CIS @ ${c.cis_rate}% on labour`} /><FinStat v={money(c.net_pay)} label="To pay" />
       </View>
       {!locked && <Pressable onPress={async () => { const x = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true }); if (!x.canceled && x.assets[0]) setFile({ uri: x.assets[0].uri, name: x.assets[0].name, mimeType: x.assets[0].mimeType }); }}><Text style={{ color: base.blue, marginBottom: 8 }}>📎 {file ? file.name : 'Attach their invoice'}</Text></Pressable>}
+      {!!p && <XeroRow kind="sub" rec={p} onDone={refresh} />}
       {!!p && !wagesOff(me.org_id) && <WagesToBook me={me} invoiceId={p.id} title="Book to a price sheet" />}
       {p?.file_path && <FinRow title={`📄 ${p.file_name || 'Their invoice'}`} onPress={async () => { const u = await openDocLink('finance-docs', p.file_path); if (u) viewDoc(u); }} />}
       {!locked && <Button busy={busy} title="Save — ready for the pay run" onPress={() => void save()} />}

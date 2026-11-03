@@ -166,7 +166,8 @@ export async function emailPdf(bytes: Uint8Array, filename: string, folder: stri
   const up = await supabase.storage.from('mc-documents').upload(path, bytes, { contentType });
   if (up.error) return 'Could not upload the PDF — try again.';
   const r = await supabase.functions.invoke('send-document-email', { body: { ...body, file_url: publicUrl('mc-documents', up.data.path), storage_bucket: 'mc-documents', storage_path: up.data.path } });
-  return r.error ? 'Could not send the email — try again.' : null;
+  const said = (r.data as { error?: string } | null)?.error;
+  return r.error || said ? (said || 'Could not send the email — try again.') : null;
 }
 
 /** Several PDFs in one email, each its own attachment (700 emailPdfsSeparately): uploaded first, then
