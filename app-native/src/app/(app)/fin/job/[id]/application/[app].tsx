@@ -7,7 +7,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { pdfLines } from '@/lib/pdfjs';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { cloneElement, isValidElement, useEffect, useRef, useState, type ComponentRef, type ReactElement, type ReactNode } from 'react';
+import { cloneElement, createContext, isValidElement, useContext, useEffect, useRef, useState, type ComponentRef, type ReactElement, type ReactNode } from 'react';
 import { Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { ThinExportBar } from '@/components/FinFilterBar';
@@ -20,8 +20,8 @@ import { Button, Card, Check, Muted } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
 import { askAppSow } from '@/components/FinRowMenu';
 import { DateBox } from '@/components/DateField';
-import { addBoqLines, addBoqSection, clearCertificate, emailApplication, deleteApplication, deleteApplicationAny, exportApplication, loadApplication, newApplication, raiseInvoiceFromCert, saveApplication, saveCertificate, setStatus } from '@/data/finApp';
-import { useFinSettings } from '@/data/finance';
+import { addBoqLines, addBoqSection, applyRetention, clearCertificate, emailApplication, deleteApplication, deleteApplicationAny, exportApplication, loadApplication, newApplication, raiseInvoiceFromCert, saveApplication, saveCertificate, setStatus } from '@/data/finApp';
+import { fdb, useFinSettings } from '@/data/finance';
 import { openDocLink } from '@/data/hs';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
@@ -74,6 +74,10 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
   const scroller = useRef<ComponentRef<typeof ScrollView>>(null);
   const setView = (x: 'overview' | 'lines') => { lastView.set(a0.id, x); setViewNow(x); scroller.current?.scrollTo({ y: 0, animated: false }); };
   const [mailing, setMailing] = useState(false);
+  // Hide the qty column on the phone rows (Andy, 3 Nov 2026): kept with the application, so its certificate looks the same.
+  const [hideQty, setHideQtyNow] = useState(!!a0.hide_qty);
+  // The request only goes when awaited, so it's awaited here.
+  const setHideQty = async (x: boolean) => { setHideQtyNow(x); const r = await fdb.from('fin_applications').update({ hide_qty: x } as never).eq('id', a0.id); if (r.error) toast('Not saved — try again.'); };
   // An applied application stays as an application until Certify is pressed.
   const [certifying, setCertifying] = useState(false);
   const [over, setOver] = useState<Record<string, Entry>>({}); // single lines switched away from the page's choice
@@ -172,13 +176,30 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
       toast((up.changed || added ? `Updated from Excel: ${up.changed} change${up.changed === 1 ? '' : 's'}${added ? `, ${added} new line${added === 1 ? '' : 's'}` : ''}` : 'No changes found in that file') + (up.skipped ? ` (${up.skipped} new line${up.skipped === 1 ? ' was' : 's were'} already there, so not added again)` : ''));
     } finally { setBusy(''); }
   };
-  const save = async (quiet?: boolean) => { setBusy('save'); const ok = await saveApplication(a, jf, previous); setBusy(''); if (ok) { savedSnap.current = JSON.stringify(a); void plainSet(KEY, null); } if (!quiet) toast(ok ? 'Application saved' : 'Could not save — try again.'); refresh(); return ok; };
+  const save = async (quiet?: boolean, x: Row = a) => { setBusy('save'); const ok = await saveApplication(x, jf, previous); setBusy(''); if (ok) { savedSnap.current = JSON.stringify(x); void plainSet(KEY, null); } if (!quiet) toast(ok ? 'Application saved' : 'Could not save — try again.'); refresh(); return ok; };
   // Any stage (9219q finRowDelApp): not with an invoice, and only the latest one.
   const deleteAny = async () => {
     if (!(await confirmAsk(`Delete application No. ${a0.number}?${a0.cert_net != null ? '\n\nIt has a certificate — that will be deleted too.' : ''}\n\nThis can’t be undone.`, 'Delete'))) return;
     const e = await deleteApplicationAny(a0); if (e) { showAlert(e); return; }
     toast('Application deleted'); refresh(); router.back();
   };
+  // Retention release from the application (Andy, 3 Nov 2026), the same as Apply on the project's retention card: this draft's
+  // retention % drops to half (first half) or 0 (final), so the client pays back what they hold when they certify it.
+  const ret1Done = !!jf.ret1_invoice_id || (!!jf.ret1_app_id && jf.ret1_app_id !== a0.id), ret2Done = !!jf.ret2_invoice_id || (!!jf.ret2_app_id && jf.ret2_app_id !== a0.id);
+  const releaseRet = async (n: 1 | 2): Promise<Row | null> => {
+    if (!me) return null;
+    const r = await applyRetention(me, a0.site_id, n);
+    if (r.error) { toast(r.error); return null; }
+    if (r.id !== a0.id) { toast(`Another draft is open (Application ${r.number}) — the release went on that one.`); return null; }
+    const next = { ...a, retention_pct: r.pct, retention_release: n };
+    setA(next); setGen((g) => g + 1); toast(n === 1 ? 'First half of the retention added to this application' : 'Final retention release added to this application');
+    return next;
+  };
+  const chooseRelease = async () => {
+    const k = await chooseAction('Retention release', [...(!ret1Done ? [{ key: '1', label: 'First half — practical completion' }] : []), ...(ret1Done && !ret2Done ? [{ key: '2', label: 'Final release — end of the defects period' }] : [])]);
+    if (k) await releaseRet(Number(k) as 1 | 2);
+  };
+  const allDone = (a.lines || []).filter(isItem).every((l: Row) => pct(l.pct) >= 100) && (a.variations || []).every((v: Row) => pct(v.pct) >= 100) && (a.lines || []).some(isItem);
   const contractTotal = c.lines.filter(isItem).reduce((n: number, l: Row) => n + Number(l.value || 0), 0);
   // The client's figures: as entered while waiting for the certificate, then as saved.
   const certPrev = stage === 'applied' ? num(cert.v.cert_previous) || 0 : Number(a0.cert_previous || 0);
@@ -198,10 +219,11 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
     return <Text onPress={can ? () => { const was = pct(v.pct), to = pct(sp); setA({ ...a, variations: a.variations.map((y: Row, j: number) => (j === i ? { ...y, pct: to } : y)) }); setGen((g) => g + 1); toast(`${v.description || 'Variation'}: ${was}% → ${to}% from site`); } : undefined} style={{ fontSize: 11.5, fontWeight: '500', color: sp > pct(v.pct) ? '#b45309' : base.slate }}>Site {sp}%{can ? <Text style={{ color: base.blue, fontWeight: '600', textDecorationLine: 'underline' }}> Use</Text> : null}</Text>;
   };
   return (
+    <QtyHidden.Provider value={hideQty}>
     <View style={{ flex: 1 }}>
     <ScrollView ref={scroller} style={{ flex: 1 }} contentContainerStyle={page(1100)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: `Application ${a0.number}` }} />
-      {!!a0.retention_release && <Card style={{ backgroundColor: '#f1fbf5', borderColor: '#d3f0de' }}><Text style={{ color: base.ink }}><Text style={{ fontWeight: '600' }}>Retention release — {a0.retention_release === 1 ? 'first half (practical completion)' : 'final release'}.</Text> Retention on this application is {pct(a0.retention_pct)}%, so the client pays back {a0.retention_release === 1 ? 'half of what they hold' : 'what they still hold'} when they certify it.</Text></Card>}
+      {!!a.retention_release && <Card style={{ backgroundColor: '#f1fbf5', borderColor: '#d3f0de' }}><Text style={{ color: base.ink }}><Text style={{ fontWeight: '600' }}>Retention release — {a.retention_release === 1 ? 'first half (practical completion)' : 'final release'}.</Text> Retention on this application is {pct(a.retention_pct)}%, so the client pays back {a.retention_release === 1 ? 'half of what they hold' : 'what they still hold'} when they certify it.</Text></Card>}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10, marginBottom: 6 }}>
         <Text style={{ fontSize: desk ? 20 : 17, fontWeight: '600', color: base.ink }}>Application No. {a0.number}</Text>
         <View style={{ backgroundColor: stage === 'draft' ? '#EEF0F3' : stage === 'applied' ? '#FFF4DF' : '#E3F5E9', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3, marginTop: desk ? 4 : 3 }}><Text style={{ fontSize: 12.5, fontWeight: '500', color: stage === 'draft' ? base.slate : stage === 'applied' ? '#92580A' : '#1E7A3C' }}>{certing ? 'Entering The Certificate' : STAGE[stage]}</Text></View>
@@ -222,8 +244,11 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
               {([['valuation_date', 'Valuation Date'], ['due_date', 'Due Date'], ['final_date', 'Final Date For Payment']] as const).map(([k, l]) => (
                 <DetailRow key={k} l={l}>{locked ? <Val>{a[k] ? fdate(a[k]) : '—'}</Val> : <DateBox value={a[k] || ''} onChange={(x) => setA({ ...a, [k]: x })} title={l} style={{ width: 150, paddingVertical: 5 }} />}</DetailRow>
               ))}
-              <DetailRow l={`Retention${jf.retention_limit_pct ? ` (limit ${jf.retention_limit_pct}%)` : ''}`}>{locked ? <Val>{pct(a.retention_pct)}%</Val> : <PctIn label="Retention percent" value={pct(a.retention_pct)} onChange={(x) => setA({ ...a, retention_pct: x })} />}</DetailRow>
-              <DetailRow l="Discount" last>{stage !== 'draft' ? <Val>{pct(a.discount_pct || 0)}%</Val> : <PctIn label="Discount percent" value={pct(a.discount_pct || 0)} onChange={(x) => setA({ ...a, discount_pct: x })} />}</DetailRow>
+              <DetailRow l={`Retention${jf.retention_limit_pct ? ` (limit ${jf.retention_limit_pct}%)` : ''}`}>{locked ? <Val>{pct(a.retention_pct)}%</Val> : <PctIn key={`ret${a.retention_release || 0}`} label="Retention percent" value={pct(a.retention_pct)} onChange={(x) => setA({ ...a, retention_pct: x })} />}</DetailRow>
+              <DetailRow l="Discount" last={locked && !a.retention_release}>{stage !== 'draft' ? <Val>{pct(a.discount_pct || 0)}%</Val> : <PctIn label="Discount percent" value={pct(a.discount_pct || 0)} onChange={(x) => setA({ ...a, discount_pct: x })} />}</DetailRow>
+              {(!locked || !!a.retention_release) && (
+                <DetailRow l="Retention Release" last>{a.retention_release ? <Val>{a.retention_release === 1 ? 'First half' : 'Final release'}</Val> : ret1Done && ret2Done ? <Val>Released</Val> : <Button small kind="ghost" title="Release ▾" onPress={() => void chooseRelease()} />}</DetailRow>
+              )}
             </Panel>
           </View>
           <View style={desk ? { flex: 1, minWidth: 0 } : undefined}>
@@ -288,10 +313,11 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
             // No Enter % / £ / qty on a phone: the % and qty boxes are both there to type in (Andy, 3 Nov 2026).
             const k = await chooseAction(certing ? 'Bulk Certify' : stage === 'draft' ? 'Bulk Edit' : 'Lines', [
               { key: 'zero', label: hideZero ? 'Show 0% lines' : 'Hide 0% lines' },
+              { key: 'qtycol', label: hideQty ? 'Show the qty column' : 'Hide the qty column' },
               ...(certing ? [{ key: 'applied', label: 'Fill in: certified as applied' }, { key: 'xl', label: 'Fill in: from the client’s Excel' }, { key: 'pdf', label: 'Fill in: from the client’s PDF' }] : []),
               ...(stage === 'draft' ? [{ key: 'all100', label: 'Set every line to 100%' }, { key: 'all0', label: 'Set every line to 0%' }, { key: 'up', label: 'Upload edited Excel' }] : []),
             ]);
-            if (k === 'zero') setHideZero(!hideZero);
+            if (k === 'zero') setHideZero(!hideZero); else if (k === 'qtycol') void setHideQty(!hideQty);
             else if (k === 'applied') cert.asApplied();
             else if (k === 'xl') { const items = await pickAppExcel(toast); if (items) certFromExcel(a0, cert, items, toast); }
             else if (k === 'pdf') { const r = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true }); if (!r.canceled && r.assets[0]) await certFromPdf(a0, cert, r.assets[0], toast); }
@@ -523,7 +549,13 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
           <Button kind="ghost" busy={busy === 'save'} title="Save" onPress={() => void save()} />
           <Button kind="ghost" busy={busy === 'xlsx'} title="Export Excel" onPress={() => void exportAs('xlsx', true)} />
           <Button title="Apply For Payment" onPress={async () => {
-            if (!(await save(true))) return;
+            let x = a;
+            if (allDone && !a.retention_release && !ret1Done && Number(a.retention_pct || 0) > 0) {
+              const k = await chooseAction('Everything is 100% complete', [{ key: 'yes', label: 'Also apply for the first half of the retention (practical completion)' }, { key: 'no', label: 'No — just apply for payment' }]);
+              if (!k) return;
+              if (k === 'yes') { const r = await releaseRet(1); if (!r) return; x = r; }
+            }
+            if (!(await save(true, x))) return;
             if (!(await confirmAsk('Apply for payment? The application is locked so the figures can’t change. You can return it to draft if you need to edit it.', 'Apply For Payment'))) return;
             if (await setStatus(a0.id, { status: 'submitted', submitted_at: new Date().toISOString() })) { toast('Applied for payment — now locked.'); refresh(); } else toast('Not saved — check your signal and try again.');
           }} />
@@ -546,6 +578,7 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
     )}
     <ThinExportBar busy={busy ? 'x' : undefined} onExcel={() => void exportAs('xlsx')} onPdf={() => void exportAs('pdf')} />
     </View>
+    </QtyHidden.Provider>
   );
 }
 
@@ -583,7 +616,9 @@ function TapEdit({ value, onChange, placeholder = 'Tap to add a description' }: 
 const FIG_F = { label: 1.15, unit: 0.6, rate: 1.1, pct: 1, qty: 0.95, total: 1.4 };
 /** Phone: one figures row under a line (Andy, 3 Nov 2026) — Contract, Previous, Applied or Certified, then unit, rate, %, qty and
  *  total. Boxes to type in take the place of the figures they set; plain rows (contract, previous) have no band. */
+const QtyHidden = createContext(false);
 function FigRow({ label, unit = '', rate = '', pct: pc = '', qty = '', total, warn, inputs, plain, bold }: { label: string; unit?: string; rate?: string; pct?: string; qty?: string; total: string; warn?: boolean; inputs?: Partial<Record<'unit' | 'rate' | FigCol, ReactNode>>; plain?: boolean; bold?: boolean }) {
+  const noQty = useContext(QtyHidden);
   const cell = (k: 'unit' | 'rate' | FigCol, v: string) => (
     <View key={k} style={{ flex: FIG_F[k], minWidth: 0, alignItems: k === 'total' ? 'flex-end' : 'center' }}>
       {inputs?.[k] ?? <Text numberOfLines={1} style={{ fontSize: k === 'unit' ? 10.5 : 11.5, fontWeight: bold || (k === 'total' && !plain) ? '600' : '400', color: plain && !bold ? base.slate : k === 'total' && warn ? '#b45309' : base.ink }}>{v}</Text>}
@@ -592,16 +627,17 @@ function FigRow({ label, unit = '', rate = '', pct: pc = '', qty = '', total, wa
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', minHeight: plain ? 24 : 36, backgroundColor: plain ? undefined : '#F6F7F9', borderRadius: 8, paddingHorizontal: 6, paddingVertical: plain ? 1 : 4 }}>
       <Text style={{ flex: FIG_F.label, minWidth: 0, fontSize: 11, fontWeight: bold ? '600' : '500', color: bold ? base.ink : base.slate }}>{label}</Text>
-      {cell('unit', unit)}{cell('rate', rate)}{cell('pct', pc)}{cell('qty', qty)}{cell('total', total)}
+      {cell('unit', unit)}{cell('rate', rate)}{cell('pct', pc)}{!noQty && cell('qty', qty)}{cell('total', total)}
     </View>
   );
 }
 /** The column headings for those rows, under each section bar. */
 function FigHead() {
+  const noQty = useContext(QtyHidden);
   const h = (l: string, f: number) => <Text key={l} style={{ flex: f, minWidth: 0, textAlign: 'center', fontSize: 10.5, fontWeight: '600', color: base.slate }}>{l}</Text>;
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F4F5F7', borderBottomWidth: 1, borderColor: base.cardLine, paddingVertical: 6, paddingHorizontal: 18 }}>
-      <View style={{ flex: FIG_F.label }} />{h('Unit', FIG_F.unit)}{h('Rate', FIG_F.rate)}{h('%', FIG_F.pct)}{h('Qty', FIG_F.qty)}<Text style={{ flex: FIG_F.total, minWidth: 0, textAlign: 'right', fontSize: 10.5, fontWeight: '600', color: base.slate }}>Total</Text>
+      <View style={{ flex: FIG_F.label }} />{h('Unit', FIG_F.unit)}{h('Rate', FIG_F.rate)}{h('%', FIG_F.pct)}{!noQty && h('Qty', FIG_F.qty)}<Text style={{ flex: FIG_F.total, minWidth: 0, textAlign: 'right', fontSize: 10.5, fontWeight: '600', color: base.slate }}>Total</Text>
     </View>
   );
 }

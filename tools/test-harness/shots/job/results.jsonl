@@ -1553,3 +1553,12 @@
 {"part":"appret1","step":"% after the box at 390","ok":false,"note":"box ends 343, % at 348,348","ms":10153}
 {"part":"appret1","step":"% after the box at 1440","ok":true,"note":"box ends 597, % at 602,602","ms":10733}
 {"part":"appret1","step":"% after the box at 390","ok":true,"note":"box ends 343, % at 348,348","ms":10332}
+{"part":"appret2","step":"Phone: Hide the qty column, kept with the application","ok":false,"note":"qty headings 4 > 0, saved false, back false","ms":15888}
+{"part":"appret2","step":"Everything at 100%: Apply For Payment offers the first half of the retention","ok":false,"note":"offered 0, still draft","ms":6679}
+{"part":"appret2","step":"Overview: Retention Release row","ok":true,"note":"button 1, choices 1","ms":732}
+{"part":"appret2","step":"Phone: Hide the qty column, kept with the application","ok":false,"note":"qty headings 4 > 0, saved false, back false","ms":15940}
+{"part":"appret2","step":"Everything at 100%: Apply For Payment offers the first half of the retention","ok":true,"note":"offered 1, still draft","ms":19253}
+{"part":"appret2","step":"Overview: Retention Release row","ok":true,"note":"button 1, choices 1","ms":11297}
+{"part":"appret2","step":"Phone: Hide the qty column, kept with the application","ok":true,"note":"qty headings 4 > 0, saved true, back false","ms":15799}
+{"part":"appret2","step":"Everything at 100%: Apply For Payment offers the first half of the retention","ok":true,"note":"offered 1, still draft","ms":19031}
+{"part":"appret2","step":"Overview: Retention Release row","ok":true,"note":"button 1, choices 1","ms":11423}

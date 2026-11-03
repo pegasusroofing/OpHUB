@@ -3318,3 +3318,9 @@
 {"wrote":"fin_applications","method":"PATCH","keys":["status","submitted_at","updated_at"]}
 {"wrote":"fin_applications","method":"PATCH","keys":["valuation_date","due_date","final_date","lines","variations","dayworks","gross","discount_pct","discount","retention_pct","retention","previous","net_due","updated_at"]}
 {"wrote":"fin_applications","method":"PATCH","keys":["valuation_date","due_date","final_date","lines","variations","dayworks","gross","discount_pct","discount","retention_pct","retention","previous","net_due","updated_at"]}
+{"wrote":"fin_applications","method":"PATCH","keys":["valuation_date","due_date","final_date","lines","variations","dayworks","gross","discount_pct","discount","retention_pct","retention","previous","net_due","updated_at"]}
+{"wrote":"fin_applications","method":"PATCH","keys":["valuation_date","due_date","final_date","lines","variations","dayworks","gross","discount_pct","discount","retention_pct","retention","previous","net_due","updated_at"]}
+{"wrote":"fin_applications","method":"POST","keys":["org_id","site_id","status","valuation_date","due_date","final_date","client_po","lines","variations","dayworks","retention_pct","created_by","number"]}
+{"wrote":"fin_applications","method":"PATCH","keys":["valuation_date","due_date","final_date","lines","variations","dayworks","gross","discount_pct","discount","retention_pct","retention","previous","net_due","updated_at"]}
+{"wrote":"fin_applications","method":"PATCH","keys":["hide_qty"]}
+{"wrote":"fin_applications","method":"PATCH","keys":["hide_qty"]}
