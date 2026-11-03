@@ -619,26 +619,27 @@ function DetailRow({ l, children, last }: { l: string; children: ReactNode; last
 }
 const Val = ({ children }: { children: ReactNode }) => <Text style={{ fontSize: 14, fontWeight: '500', color: base.ink }}>{children}</Text>;
 
-/** The valuation at a glance: each kind of work against what's applied, certified, gone before and due now. */
+/** The valuation at a glance: each kind of work against what's applied, certified, gone before and due now.
+ *  On a phone it all fits the width: smaller figures and a narrower first column, no sideways scrolling (Andy, 3 Nov 2026). */
 function ValGrid({ heads, rows, desk }: { heads: string[]; rows: GridRow[]; desk: boolean }) {
   const t = useTheme();
-  const w = desk ? undefined : 92;
+  const fs = desk ? 14 : heads.length > 3 ? 11.5 : 12.5, hs = desk ? 12.5 : 11, px = desk ? 12 : 8, gap = desk ? 8 : 4;
   const cell = (x: number | null, r: GridRow) => (x == null ? '' : r.neg ? (x > 0 ? `−${money(x)}` : money(-x)) : money(x));
-  const grid = (
-    <View style={desk ? undefined : { minWidth: 140 + 92 * heads.length }}>
-      <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8, backgroundColor: '#F4F5F7', borderBottomWidth: 1, borderColor: base.cardLine, paddingVertical: 7, paddingHorizontal: 12 }}>
-        <View style={{ flex: 1.2, minWidth: 110 }} />
-        {heads.map((h) => <Text key={h} style={{ flex: w ? undefined : 1, width: w, textAlign: 'center', fontSize: 12.5, fontWeight: '600', color: base.slate }}>{h}</Text>)}
+  const first = desk ? { flex: 1.2, minWidth: 110 } : { flex: 1.1, minWidth: 0 };
+  return (
+    <View>
+      <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap, backgroundColor: '#F4F5F7', borderBottomWidth: 1, borderColor: base.cardLine, paddingVertical: 7, paddingHorizontal: px }}>
+        <View style={first} />
+        {heads.map((h) => <Text key={h} style={{ flex: 1, minWidth: 0, textAlign: 'center', fontSize: hs, fontWeight: '600', color: base.slate }}>{h}</Text>)}
       </View>
       {rows.map((r) => (
-        <View key={r.l} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 9, paddingHorizontal: 12, borderBottomWidth: r.total ? 0 : 1, borderColor: base.cardLine, backgroundColor: r.total ? t.brand1 : r.bold ? '#F4F5F7' : undefined }}>
-          <Text style={{ flex: 1.2, minWidth: 110, fontSize: 14, fontWeight: r.bold || r.total ? '600' : '400', color: r.total ? t.brand1Text : base.ink }}>{r.l}</Text>
-          {r.v.map((x, i) => <Text key={i} style={{ flex: w ? undefined : 1, width: w, textAlign: 'center', fontSize: 14, fontWeight: r.bold || r.total || i === r.v.length - 1 ? '600' : '400', color: r.total ? t.brand1Text : base.ink }}>{cell(x, r)}</Text>)}
+        <View key={r.l} style={{ flexDirection: 'row', alignItems: 'center', gap, paddingVertical: desk ? 9 : 8, paddingHorizontal: px, borderBottomWidth: r.total ? 0 : 1, borderColor: base.cardLine, backgroundColor: r.total ? t.brand1 : r.bold ? '#F4F5F7' : undefined }}>
+          <Text style={{ ...first, fontSize: desk ? 14 : 12.5, fontWeight: r.bold || r.total ? '600' : '400', color: r.total ? t.brand1Text : base.ink }}>{r.l}</Text>
+          {r.v.map((x, i) => <Text key={i} style={{ flex: 1, minWidth: 0, textAlign: 'center', fontSize: fs, fontWeight: r.bold || r.total || i === r.v.length - 1 ? '600' : '400', color: r.total ? t.brand1Text : base.ink }}>{cell(x, r)}</Text>)}
         </View>
       ))}
     </View>
   );
-  return desk ? grid : <ScrollView horizontal showsHorizontalScrollIndicator={false}>{grid}</ScrollView>;
 }
 
 /** A summary row: label, an optional box, then the figure, so every figure lines up on the right. */

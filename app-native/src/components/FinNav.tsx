@@ -168,13 +168,12 @@ export function FinRow({ left, title, sub, right, onPress, tone, children, onMen
   if (compact) return (
     <Pressable onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.input, paddingHorizontal: 10, paddingVertical: 6, marginBottom: 4 }}>
       <View style={{ flex: 1 }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>
-          <Text numberOfLines={1} style={{ flex: 1, fontWeight: '500', fontSize: 13.5, color: base.ink }}>{left ? `${left} · ` : ''}{title}</Text>
-          {right ? <Text style={{ fontWeight: '600', fontSize: 13, color: tone || base.ink }}>{right}</Text> : null}
-        </View>
+        <Text numberOfLines={1} style={{ fontWeight: '500', fontSize: 13.5, color: base.ink }}>{left ? `${left} · ` : ''}{title}</Text>
         {sub ? <Text numberOfLines={2} style={{ fontSize: 11.5, color: base.slate, marginTop: 1 }}>{sub}</Text> : null}
         {children}
       </View>
+      {/* The figure sits level with the ⋯, half way down the row (Andy, 3 Nov 2026). */}
+      {right ? <Text style={{ fontWeight: '600', fontSize: 13, color: tone || base.ink }}>{right}</Text> : null}
       {onMenu ? <Pressable onPress={onMenu} hitSlop={8} accessibilityLabel={`More: ${left || title}`} style={{ paddingHorizontal: 4 }}><Text style={{ fontSize: 16, fontWeight: '600', color: base.slate }}>⋯</Text></Pressable> : null}
     </Pressable>
   );

@@ -1459,3 +1459,5 @@
 {"part":"appphone1","step":"Box beside the description","ok":true,"note":"desc 29,369 box 328,377 over 0","ms":43305}
 {"part":"appphone1","step":"Variations: box beside the description too","ok":true,"note":"desc 678 box 328,680","ms":30}
 {"part":"appphone1","step":"Overview buttons the same height, bin on the right, Email Application below","ok":true,"note":"[{\"t\":\"Return To Draft\",\"h\":50,\"w\":109,\"x\":16,\"y\":1144},{\"t\":\"Import Certificate\",\"h\":50,\"w\":109,\"x\":133,\"y\":1144},{\"t\":\"Certify\",\"h\":50,\"w\":109,\"x\":251,\"y\":1144},{\"t\":\"bin\",\"h\":50,\"w\":46,\"x\":368,\"y\":1144}]","ms":1355}
+{"part":"appphone2","step":"Valuation grid fits","ok":true,"note":"{\"sideways\":0,\"over\":0} last figure right edge 365, total at 581","ms":12717}
+{"part":"appphone2","step":"List: figure level with the ⋯","ok":true,"note":"dots 471, figure 471","ms":12632}
