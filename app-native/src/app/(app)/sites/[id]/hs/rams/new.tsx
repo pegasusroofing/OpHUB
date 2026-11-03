@@ -7,7 +7,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { chooseAction, showAlert, useToast } from '@/components/toast';
-import { Button, Card, Check, Muted, SectionTitle } from '@/components/ui';
+import { Button, Card, Check, Muted, SectionTitle, Toggle } from '@/components/ui';
 import { createBuild, useLibrary, useOrgBuilds } from '@/data/ramsBuilder';
 import { useSite, useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
@@ -31,6 +31,7 @@ export default function RamsNew() {
   const [tpls, setTpls] = useState<string[]>([]);
   const [copySite, setCopySite] = useState<string | null>(null);
   const [copies, setCopies] = useState<string[]>([]);
+  const [copyOpen, setCopyOpen] = useState(false);
   const [own, setOwn] = useState('');
   const [busy, setBusy] = useState(false);
   if (!me) return null;
@@ -61,8 +62,9 @@ export default function RamsNew() {
       </Card>
       {builds.length > 0 && (
         <>
-          <SectionTitle>Or copy another job&apos;s RAMS</SectionTitle>
-          <Card>
+          {/* Closed until opened (Andy, 3 Nov 2026). */}
+          <Toggle title={`Or Copy Another Job's RAMS${copies.length ? ` (${copies.length} ticked)` : ''}`} open={copyOpen} onPress={() => setCopyOpen(!copyOpen)} />
+          {copyOpen && <Card>
             <Muted>Pick the job, then tick one or more of its RAMS. Can be combined with templates above.</Muted>
             <Pressable onPress={async () => { const k = await chooseAction('Choose a job', copySites.map((c) => ({ key: c.id, label: `${c.name} (${c.n})` }))); if (k) { setCopySite(k); } }} style={[box, { marginTop: 8 }]}>
               <Text style={{ color: copySite ? base.ink : base.slate }}>{copySite ? siteName(copySite) : `— Choose a job (${copySites.length}) —`}</Text>
@@ -70,7 +72,7 @@ export default function RamsNew() {
             {copySite && (bySite[copySite] || []).map((b) => <Check key={b.id} label={`${b.title} · ${b.status === 'issued' ? `Issued rev ${b.revision}` : 'Draft'} · ${new Date(b.updated_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}`} value={copies.includes(b.id)} onChange={() => tick(copies, setCopies, b.id)} />)}
             {copies.length > 0 && <Muted style={{ marginTop: 4 }}>{copies.length} ticked to copy.</Muted>}
             <Muted style={{ marginTop: 6 }}>Copies hazards, sections, PPE and groups — job details (dates, address, numbers) start fresh. Edit anything afterwards.</Muted>
-          </Card>
+          </Card>}
         </>
       )}
       <SectionTitle>Tasks not in the library</SectionTitle>

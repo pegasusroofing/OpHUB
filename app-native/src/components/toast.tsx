@@ -106,10 +106,11 @@ export function MenuHost() {
 }
 
 // Yes / No question. Resolves true for Yes (or the yes label given).
-type ConfirmReq = { message: string; yes: string; no: string; ok?: boolean; resolve: (v: boolean) => void };
+type ConfirmReq = { message: string; yes: string; no: string; ok?: boolean; center?: boolean; resolve: (v: boolean) => void };
 const confirmListeners = new Set<(r: ConfirmReq) => void>();
-export function confirmAsk(message: string, yes = 'Yes', no = 'No'): Promise<boolean> {
-  return new Promise((resolve) => { confirmListeners.forEach((l) => l({ message, yes, no: no === 'Cancel' ? 'No' : no, resolve })); });
+/** center: in the middle of the screen rather than by the tap (big steps such as issuing RAMS). */
+export function confirmAsk(message: string, yes = 'Yes', no = 'No', center = false): Promise<boolean> {
+  return new Promise((resolve) => { confirmListeners.forEach((l) => l({ message, yes, no: no === 'Cancel' ? 'No' : no, center, resolve })); });
 }
 export function showAlert(message: string, title = 'OpHUB') {
   confirmListeners.forEach((l) => l({ message: title === 'OpHUB' ? message : `${title}\n\n${message}`, yes: 'OK', no: '', ok: true, resolve: () => undefined }));
@@ -125,7 +126,7 @@ export function ConfirmHost() {
   const done = (v: boolean) => { req.resolve(v); setReq(null); };
   const danger = /delete|remove|cancel|reject|void|close/i.test(req.yes) && req.yes !== 'Yes';
   return (
-    <Popup onClose={() => done(false)} width={360} footer={<PopupButtons yes={req.yes} no={req.ok ? undefined : req.no} danger={danger} onYes={() => done(true)} onNo={() => done(false)} />}>
+    <Popup key={String(req.center)} center={req.center} onClose={() => done(false)} width={360} footer={<PopupButtons yes={req.yes} no={req.ok ? undefined : req.no} danger={danger} onYes={() => done(true)} onNo={() => done(false)} />}>
       <Text style={{ fontSize: 15, color: '#1E2124', lineHeight: 21 }}>{req.message}</Text>
     </Popup>
   );

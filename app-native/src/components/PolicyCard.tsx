@@ -43,13 +43,25 @@ export function PolicyCard() {
   const qc = useQueryClient();
   const { data } = useHsPolicy();
   const [open, setOpen] = useState<boolean | null>(null);
-  if (!me || !data?.doc) return null;
+  if (!me || !data) return null;
+  if (!data.doc) return isManager(me) ? (
+    <Pressable onPress={() => router.push('/pm/admin/hspolicy' as never)} accessibilityRole="link" style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, marginBottom: 10 }}>
+      <Text style={{ fontSize: 13.5, fontWeight: '600', color: '#111827' }}>H&S Policy</Text>
+      <Text numberOfLines={1} style={{ flex: 1, fontSize: 12, color: '#6b7280' }}>None uploaded — add it in Admin Centre</Text>
+      <Text style={{ fontSize: 12, color: base.blue }}>Open ›</Text>
+    </Pressable>
+  ) : null;
   const doc = data.doc;
   const mine = [...data.mine].reverse().find((s) => policySigValid(doc, s));
   const isOpen = open ?? !mine;
   return (
     <>
-      <Toggle title={`H&S Policy${mine ? '' : '  (!)'}`} open={isOpen} onPress={() => setOpen(!isOpen)} />
+      {/* A slim row, closed once signed (Andy, 3 Nov 2026). */}
+      <Pressable onPress={() => setOpen(!isOpen)} accessibilityRole="button" style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, marginBottom: 10 }}>
+        <Text style={{ flex: 1, fontSize: 13.5, fontWeight: '600', color: '#111827' }}>H&S Policy</Text>
+        {mine ? <Text style={{ fontSize: 12, color: '#15803d', fontWeight: '600' }}>✓ Signed {longDate(mine.signed_at)}</Text> : me.role !== 'client' ? <Text style={{ fontSize: 12, color: '#b45309', fontWeight: '600' }}>To Sign</Text> : null}
+        <Text style={{ fontSize: 12, color: '#6b7280' }}>{isOpen ? '▾' : '▸'}</Text>
+      </Pressable>
       {isOpen && (
         <Card>
           <Text style={{ fontWeight: '800', fontSize: 14, color: base.ink }}>{doc.name}</Text>

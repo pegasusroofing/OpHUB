@@ -13,7 +13,7 @@ import { DateBox } from '@/components/DateField';
 import { deleteBuild, issueBuild, loadBuild, previewPdf, saveAsTemplate, saveBuild, saveItemToLibrary, useLibrary } from '@/data/ramsBuilder';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
-import { deliverPdf } from '@/lib/pdf';
+import { showPdf } from '@/lib/pdf';
 import { hazardFromLib, lines, missingInfo, moveItem, P_LABELS, RAMS_GROUPS, RAMS_PPE, RAMS_REQUIRED, ramsUid, riskBand, rr, S_LABELS, sectionFromLib, type Hazard, type RamsBuild, type RamsDetails, type RSection } from '@/lib/rules/rams';
 import { isFullManager } from '@/lib/roles';
 import { base, page, radius, space } from '@/theme/theme';
@@ -29,10 +29,10 @@ export default function RamsBuildScreen() {
   const { id, b: buildId } = useLocalSearchParams<{ id: string; b: string }>();
   const { me, org } = useAuth();
   const { data: site } = useSite(id);
-  const { data, isLoading } = useQuery({ queryKey: ['ramsBuild', buildId], enabled: !!me && !!buildId, gcTime: 0, queryFn: () => loadBuild(me as never, org as never, site, buildId) });
+  const { data, isLoading } = useQuery({ queryKey: ['ramsBuild', buildId, !!site], enabled: !!me && !!buildId && !!site, gcTime: 0, queryFn: () => loadBuild(me as never, org as never, site, buildId) });
   if (!me) return null;
   if (!isFullManager(me)) return <Muted style={{ padding: space.l }}>Project Managers and admins only.</Muted>;
-  if (isLoading) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
+  if (isLoading || !site) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   if (!data) return <Muted style={{ padding: space.l }}>RAMS not found.</Muted>;
   return <Editor key={data.id} initial={data} siteId={id} />;
 }
@@ -105,13 +105,13 @@ function Editor({ initial, siteId }: { initial: RamsBuild; siteId: string }) {
   const field = (label: string, k: keyof RamsDetails, o: { multiline?: boolean; kb?: 'phone-pad'; ph?: string; date?: boolean } = {}) => {
     const req = RAMS_REQUIRED.some(([r]) => r === k), v = String(b.details[k] ?? ''), bad = req && !v.trim();
     return (
-      <View key={k} style={{ flex: 1 }}>
+      <View key={k}>
         <Muted style={{ fontWeight: '700' }}>{label}{req ? <Text style={{ color: '#C0392B' }}> *</Text> : null}</Muted>
         {o.date ? <DateBox value={v} onChange={(t) => setD(k, t)} title={label} placeholder={req ? 'Required' : 'Choose a date'} style={[{ marginBottom: 8 }, bad ? { borderColor: '#C0392B' } : null]} /> : <TextInput value={v} onChangeText={(t) => setD(k, t)} multiline={o.multiline} keyboardType={o.kb} placeholder={o.ph || (req ? 'Required' : undefined)} style={[box, o.multiline ? { minHeight: 70 } : null, bad ? { borderColor: '#C0392B' } : null]} />}
       </View>
     );
   };
-  const row = (...kids: React.ReactNode[]) => <View style={{ flexDirection: 'row', gap: 8 }}>{kids}</View>;
+  const row = (...kids: React.ReactNode[]) => <View style={{ flexDirection: 'row', gap: 8 }}>{kids.map((k, i) => <View key={i} style={{ flex: 1, minWidth: 0 }}>{k}</View>)}</View>;
   const details = () => {
     const d = b.details, groups = RAMS_GROUPS.concat((d.groups || []).filter((g) => !RAMS_GROUPS.includes(g)));
     return (
@@ -236,7 +236,7 @@ function Editor({ initial, siteId }: { initial: RamsBuild; siteId: string }) {
   };
   const preview = async (which: 'ra' | 'ms') => {
     await saveNow(); toast('Building PDF…');
-    try { const out = await previewPdf(latest.current, which, org as never); await deliverPdf(out.bytes, `${which === 'ra' ? 'Risk Assessment' : 'Method Statement'} - ${b.title}.pdf`.replace(/[\\/:*?"<>|]+/g, '-')); }
+    try { const out = await previewPdf(latest.current, which, org as never); await showPdf(out.bytes, `${which === 'ra' ? 'Risk Assessment' : 'Method Statement'} - ${b.title}.pdf`.replace(/[\\/:*?"<>|]+/g, '-')); }
     catch (e) { showAlert(`Could not build the PDF: ${(e as Error).message}`); }
   };
   const issue = async () => {
@@ -248,7 +248,7 @@ function Editor({ initial, siteId }: { initial: RamsBuild; siteId: string }) {
     const miss = missingInfo(x.details);
     if (miss.length) { toast(`Fill in ${miss.join(' and ')} on the Info tab first`); void go('details'); return; }
     const reissue = x.status === 'issued';
-    if (!(await confirmAsk(reissue ? `Re-issue "${x.title}" as revision ${x.revision + 1}?\n\nThe current Risk Assessment and Method Statement are marked superseded and everyone on the job is asked to sign the new versions.` : `Issue "${x.title}"?\n\nThis adds a Risk Assessment and a Method Statement to this job's RAMS for operatives to sign.`, reissue ? 'Re-issue' : 'Issue'))) return;
+    if (!(await confirmAsk(reissue ? `Re-issue "${x.title}" as revision ${x.revision + 1}?\n\nThe current Risk Assessment and Method Statement are marked superseded and everyone on the job is asked to sign the new versions.` : `Issue "${x.title}"?\n\nThis adds a Risk Assessment and a Method Statement to this job's RAMS for operatives to sign.`, reissue ? 'Re-issue' : 'Issue', 'No', true))) return;
     setBusy(true); toast('Building documents…');
     try {
       const err = await issueBuild(me, org as never, siteId, x);

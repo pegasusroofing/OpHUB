@@ -28,7 +28,8 @@ import { base, page, space, useDesk } from '@/theme/theme';
 
 type T = { key: string; ic?: string; emoji?: string; bg: string; fg: string; title: string; sub: string; badge?: number | string; onPress: () => void };
 
-const shadow = { shadowColor: '#14181D', shadowOpacity: 0.07, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 1 } as const;
+// Flat, as Finance (Andy, 3 Nov 2026).
+const shadow = { shadowOpacity: 0, elevation: 0 } as const;
 const cardBox = { backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, ...shadow } as const;
 
 /** The .tilegrid.hometiles grid: an odd last tile stretches across its row. */
@@ -38,7 +39,7 @@ function JobTiles({ tiles, cols }: { tiles: T[]; cols: number }) {
       {tiles.map((x, i) => (
         <View key={x.key} style={{ width: tiles.length % 2 === 1 && i === tiles.length - 1 ? '100%' : `${100 / cols}%`, padding: 5 }}>
           <Pressable onPress={x.onPress} accessibilityRole="button"
-            style={({ pressed }) => [cardBox, { borderRadius: 18, height: 122, alignItems: 'center', justifyContent: 'center', gap: 6.6, paddingHorizontal: 10 }, pressed && { opacity: 0.7 }]}>
+            style={({ pressed }) => [cardBox, { borderRadius: 10, height: 122, alignItems: 'center', justifyContent: 'center', gap: 6.6, paddingHorizontal: 10 }, pressed && { opacity: 0.7 }]}>
             <View style={{ width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: x.bg }}>
               {x.ic ? <OphIcon name={x.ic} size={20} color={x.fg} /> : <Text style={{ fontSize: 18 }}>{x.emoji}</Text>}
             </View>
@@ -161,7 +162,7 @@ export default function SiteHome() {
       {header}
       <HowTo k="site_home" />
       <JobSignPrompt siteId={site.id} />
-      <View style={[cardBox, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderColor: base.line, borderRadius: 16, paddingVertical: 10.8, paddingHorizontal: 12.6, marginBottom: 10.6, shadowOpacity: 0 }]}>
+      <View style={[cardBox, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderColor: base.line, borderRadius: 10, paddingVertical: 10.8, paddingHorizontal: 12.6, marginBottom: 10.6, shadowOpacity: 0 }]}>
         <Text style={{ fontSize: 12.6, color: base.ink }}>{site.job_number ? <><Text style={{ fontWeight: '800' }}>Job No:</Text> {site.job_number}</> : ' '}</Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 999, paddingVertical: 4.5, paddingHorizontal: 8, backgroundColor: h?.meOnSite ? base.okBg : base.line }}>
           <View style={{ width: 5.4, height: 5.4, borderRadius: 3, backgroundColor: h?.meOnSite ? base.ok : base.slate }} />
@@ -180,7 +181,7 @@ export default function SiteHome() {
       )}
       {!client && (
         <Pressable onPress={go('checkin')} accessibilityRole="button"
-          style={({ pressed }) => [cardBox, { borderRadius: 18, minHeight: 59.8, paddingVertical: 10, alignItems: 'center', justifyContent: 'center', gap: 4, marginBottom: 5 }, pressed && { opacity: 0.7 }]}>
+          style={({ pressed }) => [cardBox, { borderRadius: 10, minHeight: 59.8, paddingVertical: 10, alignItems: 'center', justifyContent: 'center', gap: 4, marginBottom: 5 }, pressed && { opacity: 0.7 }]}>
           <View style={{ width: 30, height: 30, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: base.red }}><OphIcon name="clock" size={18} color="#fff" /></View>
           <Text style={[heading(700), { fontSize: 13.2, color: base.ink }]}>Check In / Out</Text>
           <Text style={{ fontSize: 11.1, color: base.slateLight }}>Tap to log time</Text>

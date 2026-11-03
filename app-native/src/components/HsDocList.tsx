@@ -10,7 +10,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { testFill } from '@/data/signTemplates';
 import { supabase } from '@/lib/supabase';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { ClientSignLines } from '@/components/ClientSignLines';
@@ -24,10 +24,10 @@ import { viewDoc } from '@/components/DocViewer';
 import { DOC_LABEL, docBucket, nameOf, openDocLink, sigDocId, signDocs, useHsDocs, usePeople, type DocKind, type HsDoc, type HsSig } from '@/data/hs';
 import { deleteHsDoc, replaceCoshh } from '@/data/hsManager';
 import { buildSignedHsPdf, buildSignedLayoutPdf } from '@/data/hsPdf';
-import { deliverPdf, emailPdf, fetchBytes, PDFDocument } from '@/lib/pdf';
+import { deliverPdf, emailPdf, fetchBytes, PDFDocument, showPdf } from '@/lib/pdf';
 import { publicUrl } from '@/lib/privateFiles';
 import { useAuth } from '@/lib/auth';
-import { resignDue, signedHeadline, signers } from '@/lib/rules/hs';
+import { resignDue, signers } from '@/lib/rules/hs';
 import { isManager } from '@/lib/roles';
 import type { Site } from '@/lib/types';
 import { base, radius } from '@/theme/theme';
@@ -91,6 +91,24 @@ function SubDocsByCompany({ site, kind }: { site: Site; kind: 'rams' | 'coshh' }
   );
 }
 
+/** The chosen documents as one PDF (each signed copy with its sheet, else as uploaded), in list order. */
+export async function packHsPdf(kind: DocKind, site: Site, docs: HsDoc[], ids: string[]): Promise<{ bytes: Uint8Array; filename: string; title: string; skipped: string[] } | null> {
+  const out = await PDFDocument.create(); const names: string[] = [], skipped: string[] = [];
+  const label = DOC_LABEL[kind];
+  for (const doc of docs.filter((x) => ids.includes(x.id))) {
+    const b = await buildSignedHsPdf(kind as 'rams' | 'coshh', doc.id, site).catch(() => null);
+    const bytes = b && typeof b !== 'string' ? b.bytes : await fetchBytes(publicUrl(docBucket(kind), doc.storage_path));
+    try {
+      if (!bytes) throw new Error('no file');
+      const src = await PDFDocument.load(bytes, { ignoreEncryption: true });
+      (await out.copyPages(src, src.getPageIndices())).forEach((p) => out.addPage(p)); names.push(doc.name);
+    } catch { skipped.push(doc.name); }
+  }
+  if (!out.getPageCount()) return null;
+  const title = names.length === 1 ? names[0] : `${label} pack (${names.length} documents)`;
+  return { bytes: await out.save(), filename: `${title} - ${site.name}`.replace(/[\\/:*?"<>|]+/g, '-') + '.pdf', title, skipped };
+}
+
 export function HsDocList({ kind, site, companyId = null, canManage }: { kind: DocKind; site: Site; companyId?: string | null; canManage?: boolean }) {
   const { me } = useAuth();
   const toast = useToast();
@@ -150,7 +168,13 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
       if (err) showAlert(err); else { toast('Emailed'); setSel(new Set()); }
     } finally { setBusy(false); }
   };
+  // View shows the signed copy (Andy, 3 Nov 2026): the Issued By row filled with the issuer's name, signature and date,
+  // and everyone who has signed. Before anyone has, the document as uploaded.
   const view = async (doc: HsDoc) => {
+    if (kind === 'rams' || kind === 'coshh') {
+      const b = await buildSignedHsPdf(kind, doc.id, site).catch(() => null);
+      if (b && typeof b !== 'string') { await showPdf(b.bytes, b.filename); return; }
+    }
     const u = await openDocLink(docBucket(kind), doc.storage_path);
     if (u) viewDoc(u); else toast('Could not open the document.');
   };
@@ -167,7 +191,7 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
               <Button kind="ghost" busy={busy} title="✉ Email" onPress={() => void emailIds(ordered(sel))} />
               <Pressable onPress={() => setSel(new Set())}><Text style={{ color: base.slate }}>Clear</Text></Pressable>
             </>
-          ) : <Pressable onPress={() => setSel(new Set(data.docs.map((x) => x.id)))}><Text style={{ color: base.blue, fontWeight: '700' }}>☐ Select all</Text></Pressable>}
+          ) : <Pressable onPress={() => setSel(new Set(data.docs.map((x) => x.id)))} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingLeft: 15 }}><View style={{ width: 18, height: 18, borderRadius: 4, borderWidth: 1.5, borderColor: '#c3c8d0', backgroundColor: '#fff' }} /><Text style={{ color: '#6b7280', fontSize: 13, fontWeight: '500' }}>Select All</Text></Pressable>}
           {kind === 'coshh' && sel.size === 0 && data.docs.some((x) => sigsFor(x.id).length) && <Pressable onPress={async () => {
             const ids = data.docs.filter((x) => sigsFor(x.id).length).map((x) => x.id);
             const cc = site.client_email && (await confirmAsk(`CC client contact (${site.client_name || site.client_email}) on this email?`, 'Yes', 'No')) ? site.client_email : null;
@@ -188,10 +212,14 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
         const due = resignDue(r, site);
         const canTap = !client && !(manager && (issued.length || mine)) && !(kind !== 'rams' && manager);
         return (
-          <Card key={r.id} style={{ padding: 12 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
-              {manager && kind !== 'layout' && <Pressable hitSlop={8} onPress={() => setSel((x) => { const n = new Set(x); if (n.has(r.id)) n.delete(r.id); else n.add(r.id); return n; })}><Text style={{ fontSize: 18 }}>{sel.has(r.id) ? '☑' : '☐'}</Text></Pressable>}
-              <Text style={{ flex: 1, fontSize: 16.5, fontWeight: '800', color: base.ink }}>{r.name}</Text>
+          <Card key={r.id} style={{ paddingVertical: 12, paddingHorizontal: 14 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              {manager && kind !== 'layout' && <Pressable hitSlop={8} accessibilityRole="checkbox" accessibilityState={{ checked: sel.has(r.id) }} onPress={() => setSel((x) => { const n = new Set(x); if (n.has(r.id)) n.delete(r.id); else n.add(r.id); return n; })}
+                style={{ width: 18, height: 18, borderRadius: 4, borderWidth: 1.5, borderColor: sel.has(r.id) ? base.blue : '#c3c8d0', backgroundColor: sel.has(r.id) ? base.blue : '#fff', alignItems: 'center', justifyContent: 'center' }}>{sel.has(r.id) && <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700', lineHeight: 14 }}>✓</Text>}</Pressable>}
+              <DocBadge kind={kind} type={r.doc_type} />
+              <Text numberOfLines={2} style={{ flex: 1, fontSize: 15, fontWeight: '600', color: '#111827' }}>{docTitle(r.name, site.name)}</Text>
+              <StatusPill text={issued.length ? `Issued ${d(issued[0].signed_at)}` : data.roster.length ? `${signed.length} of ${data.roster.length} Signed` : 'Not Issued'} tone={issued.length || (data.roster.length && !waiting.length) ? 'ok' : waiting.length ? 'warn' : 'grey'} />
+              <Pressable onPress={() => view(r)} hitSlop={6} style={{ borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 7, paddingHorizontal: 10, height: 26, justifyContent: 'center' }}><Text style={{ color: '#111827', fontSize: 12.5, fontWeight: '500' }}>View</Text></Pressable>
               {manager && (
                 <Pressable hitSlop={8} onPress={async () => {
                   const k = await chooseAction(r.name, [{ key: 'view', label: '👁 View document' }, ...(kind !== 'layout' ? [{ key: 'pdf', label: '📄 Export signed PDF' }, { key: 'email', label: '✉ Email signed PDF' }] : sigsFor(r.id).length ? [{ key: 'pdf', label: '📄 Export signed PDF' }] : []), ...(kind === 'rams' ? [{ key: 'multi', label: `${(r as { sign_layout?: { multi?: boolean } | null }).sign_layout?.multi ? '☑' : '☐'} Multi-page sign required` }, ...((r as { sign_layout?: { multi?: boolean } | null }).sign_layout?.multi ? [{ key: 'boxes', label: '✍ Signature boxes' }, { key: 'testfill', label: '🧪 Test fill the boxes' }] : [])] : []), ...(kind === 'coshh' ? [{ key: 'replace', label: '🔁 Replace file (resets signatures)' }, { key: 'tolib', label: '📚 Save to COSHH Library' }] : []), { key: 'del', label: '🗑 Delete', danger: true }]);
@@ -222,15 +250,16 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
                     if (!(await confirmAsk(`Delete this ${label} document and all its signatures? This cannot be undone.`, 'Delete'))) return;
                     if (await deleteHsDoc(me, kind, site.id, r)) { toast(`${label} document deleted`); refresh(); } else toast('Could not delete — try again.');
                   }
-                }}><Text style={{ fontSize: 18, color: base.slate, paddingHorizontal: 4 }}>⋮</Text></Pressable>
+                }} style={{ height: 26, justifyContent: 'center' }}><Text style={{ fontSize: 18, lineHeight: 20, color: base.slate, paddingHorizontal: 4 }}>⋮</Text></Pressable>
               )}
             </View>
-            <Muted>
-              Uploaded by {nameOf(people, r.uploaded_by)} · {d(r.uploaded_at)}
-              {r.supersedes ? ` · Supersedes "${nameById[r.supersedes] || 'an earlier version'}"` : ''}
-              {due ? ` · Re-sign due ${due.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}` : ''}
-            </Muted>
-            <Pressable onPress={() => view(r)}><Text style={{ color: base.blue, marginTop: 4 }}>View document ↗</Text></Pressable>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 6, paddingLeft: manager && kind !== 'layout' ? 28 : 0 }}>
+              <Text numberOfLines={2} style={{ flex: 1, fontSize: 12.5, color: '#6b7280' }}>
+                {issued.length ? `Issued by ${issued.map((x) => nameOf(people, x.user_id)).join(', ')}` : `Uploaded by ${nameOf(people, r.uploaded_by)} · ${d(r.uploaded_at)}`}
+                {r.supersedes ? ` · Replaces "${nameById[r.supersedes] || 'an earlier version'}"` : ''}
+                {due ? ` · Re-sign ${due.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}` : ''}
+              </Text>
+            </View>
             {canTap && (
               <Pressable disabled={!!mine || busy} onPress={() => sign([r.id])}
                 style={{ marginTop: 8, borderWidth: 1.5, borderStyle: mine ? 'solid' : 'dashed', borderColor: mine ? base.ok : base.line, backgroundColor: mine ? base.okBg : base.card, borderRadius: radius.input, padding: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -252,10 +281,7 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
                 if (!(await deliverPdf(b.bytes, b.filename))) toast('Could not save the PDF.');
               }} /></View>
             )}
-            {issued.map((s) => (
-              <Text key={s.id} style={{ marginTop: 6, color: base.ink }}><Text style={{ fontWeight: '800' }}>ISSUED BY:</Text> {nameOf(people, s.user_id)} · {d(s.signed_at)}</Text>
-            ))}
-            <SignerList headline={signedHeadline(data.roster.length, waiting.length)} signed={signed} waiting={waiting} people={people} />
+            <RowSigners total={data.roster.length} signed={signed} waiting={waiting} people={people} indent={manager && kind !== 'layout'} />
             {kind === 'rams' && manager && !companyId && (r as { sign_layout?: { multi?: boolean } | null }).sign_layout?.multi && <ClientSignLines ramsId={r.id} site={site} />}
           </Card>
         );
@@ -291,10 +317,52 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
   );
 }
 
+/** A small coloured tag for the document type: RA, MS, RAMS, COSHH. */
+function DocBadge({ kind, type }: { kind: DocKind; type?: string | null }) {
+  const t = kind === 'coshh' ? 'COSHH' : kind === 'layout' ? 'Site' : type === 'Risk Assessment' ? 'RA' : type === 'Method Statement' ? 'MS' : 'RAMS';
+  const c = t === 'RA' ? ['#fff5f4', '#c81e1e'] : t === 'MS' ? ['#f3f7ff', '#1d4ed8'] : t === 'COSHH' ? ['#fffaf0', '#b45309'] : ['#f1fbf5', '#15803d'];
+  return <View style={{ backgroundColor: c[0], borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3, minWidth: 34, alignItems: 'center' }}><Text style={{ color: c[1], fontSize: 11, fontWeight: '700' }}>{t}</Text></View>;
+}
+function StatusPill({ text, tone }: { text: string; tone: 'ok' | 'warn' | 'grey' }) {
+  const c = tone === 'ok' ? ['#f1fbf5', '#15803d'] : tone === 'warn' ? ['#fffaf0', '#b45309'] : ['#f3f4f6', '#6b7280'];
+  return <View style={{ backgroundColor: c[0], borderRadius: 12, paddingHorizontal: 9, paddingVertical: 3 }}><Text numberOfLines={1} style={{ color: c[1], fontSize: 11.5, fontWeight: '600' }}>{text}</Text></View>;
+}
+/** The name without the job's own name repeated in it ("Method Statement — 123 Test Street — Roof Renewal" → "Method Statement — Roof Renewal"). */
+const docTitle = (name: string, siteName: string | null | undefined) => {
+  const sn = String(siteName || '').trim();
+  return sn ? name.split(' — ').filter((p) => p.trim().toLowerCase() !== sn.toLowerCase()).join(' — ') || name : name;
+};
+
+/** Who has signed and who is still to sign, side by side in the row (Andy, 3 Nov 2026). */
+function RowSigners({ total, signed, waiting, people, indent }: { total: number; signed: HsSig[]; waiting: string[]; people: { id: string; name: string; role: string }[] | undefined; indent?: boolean }) {
+  const chip = (key: string, text: string, ok: boolean, when?: string | null) => (
+    <View key={key} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: ok ? '#f1fbf5' : '#fffaf0', borderWidth: 1, borderColor: ok ? '#d3f0de' : '#f8e7c2', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 2 }}>
+      <Text style={{ fontSize: 12, color: ok ? '#15803d' : '#b45309', fontWeight: '600' }}>{ok ? '✓' : '○'} {text}</Text>
+      {!!when && <Text style={{ fontSize: 11, color: '#6b7280' }}>{when}</Text>}
+    </View>
+  );
+  const col = (title: string, n: number, kids: ReactNode[], empty: string) => (
+    <View style={{ flex: 1, minWidth: 150, gap: 6 }}>
+      <Text style={{ fontSize: 11, fontWeight: '600', letterSpacing: 0.5, textTransform: 'uppercase', color: '#6b7280' }}>{title} ({n})</Text>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>{kids.length ? kids : <Text style={{ fontSize: 12, color: '#9ca3af' }}>{empty}</Text>}</View>
+    </View>
+  );
+  return (
+    <View style={{ marginTop: 10, marginLeft: indent ? 28 : 0, paddingVertical: 9, paddingHorizontal: 10, backgroundColor: '#f9fafb', borderWidth: 1, borderColor: '#f0f1f3', borderRadius: 8 }}>
+      {!total ? <Text style={{ fontSize: 12.5, color: '#6b7280' }}>No operatives on this job yet — assign them and they sign here.</Text> : (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
+          {col('Signed', signed.length, signed.map((x) => chip(x.id, nameOf(people, x.user_id), true, d(x.signed_at))), 'Nobody yet')}
+          {col('Outstanding', waiting.length, waiting.map((id) => chip(id, nameOf(people, id), false)), 'Everyone has signed')}
+        </View>
+      )}
+    </View>
+  );
+}
+
 export function SignerList({ headline, signed, waiting, people }: { headline: string; signed: HsSig[]; waiting: string[]; people: { id: string; name: string; role: string }[] | undefined }) {
   if (!headline && !signed.length && !waiting.length) return null;
   return (
-    <View style={{ marginTop: 8, padding: 8, backgroundColor: base.paper, borderRadius: 10 }}>
+    <View style={{ marginTop: 10, paddingVertical: 7, paddingHorizontal: 10, backgroundColor: '#f9fafb', borderWidth: 1, borderColor: '#f0f1f3', borderRadius: 8 }}>
       {!!headline && <Text style={{ fontWeight: '700', color: headline.startsWith('✓') ? base.ok : base.ink, marginBottom: 4 }}>{headline}</Text>}
       {signed.map((s) => <Text key={s.id} style={{ color: base.ink, fontSize: 12.5 }}><Text style={{ color: base.ok, fontWeight: '700' }}>✓</Text> {nameOf(people, s.user_id)} <Text style={{ color: base.slate }}>{d(s.signed_at)}</Text></Text>)}
       {waiting.map((id) => <Text key={id} style={{ color: base.slate, fontSize: 12.5 }}>○ {nameOf(people, id)} not signed yet</Text>)}

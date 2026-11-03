@@ -39,7 +39,12 @@ const defaultsFor = (me: Me, site: Site | undefined, st: RamsSettings) => defaul
 export async function loadBuild(me: Me, org: Org, site: Site | undefined, id: string): Promise<RamsBuild | null> {
   const raw = (await db.from('rams_builds').select('*').eq('id', id).maybeSingle()).data as Record<string, unknown> | null;
   if (!raw) return null;
-  return normaliseBuild(raw, defaultsFor(me, site, await loadSettings(org)), siteClientContact(site as never));
+  const b = normaliseBuild(raw, defaultsFor(me, site, await loadSettings(org)), siteClientContact(site as never));
+  // Drafts made before 3 Nov 2026: the site name heads the address and the main contractor is the client, if left blank.
+  const sn = String(site?.name || '').trim();
+  if (sn && !b.details.address.toLowerCase().includes(sn.toLowerCase())) b.details.address = [sn, b.details.address].filter((x) => x.trim()).join(', ');
+  if (!String(b.details.mainContractor || '').trim() && site?.client_name) b.details.mainContractor = site.client_name;
+  return b;
 }
 export async function saveBuild(b: RamsBuild): Promise<boolean> {
   return !!(await db.from('rams_builds').update({ title: b.title, details: b.details, hazards: b.hazards, sections: b.sections, ppe: b.ppe, updated_at: new Date().toISOString() } as never).eq('id', b.id).select('id')).data?.length;

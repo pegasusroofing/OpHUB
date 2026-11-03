@@ -44,7 +44,9 @@ export function useAppFonts(): boolean {
   return web || ok || !!err;
 }
 
-/** Sora at a weight (titles, tile names, big numbers). */
-export const heading = (w: 600 | 700 | 800 = 700): TextStyle => (web ? { fontFamily: 'Sora', fontWeight: String(w) as TextStyle['fontWeight'] } : { fontFamily: `Sora_${w}` });
+/** Sora at a weight: only the top bar's title and the company name (shared with Finance). */
+export const brand = (w: 600 | 700 | 800 = 700): TextStyle => (web ? { fontFamily: 'Sora', fontWeight: String(w) as TextStyle['fontWeight'] } : { fontFamily: `Sora_${w}` });
+/** Titles, tile names and big numbers, in Finance's style (Andy, 3 Nov 2026): the body font, semi-bold (bold for the biggest). */
+export const heading = (w: 600 | 700 | 800 = 700): TextStyle => ({ fontWeight: w === 800 ? '700' : '600', letterSpacing: 0 });
 /** IBM Plex Mono (figures, the header's sub-line). */
 export const mono = (w: 500 | 600 = 600): TextStyle => (web ? { fontFamily: '"IBM Plex Mono"', fontWeight: String(w) as TextStyle['fontWeight'] } : { fontFamily: `PlexMono_${w}` });

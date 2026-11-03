@@ -105,6 +105,14 @@ export const storageImage = async (doc: PDFDocument, bucket: string, path: strin
 
 /** Hands the PDF to the person: share sheet on a phone, a download on the web; then offers a copy to OneDrive. */
 export const deliverPdf = (bytes: Uint8Array, filename: string) => deliverFile(bytes, filename, 'application/pdf', 'com.adobe.pdf');
+/** Opens a PDF on screen to read (Andy, 3 Nov 2026): the viewer on the web, the phone's own viewer / share sheet otherwise. */
+export async function showPdf(bytes: Uint8Array, filename: string): Promise<boolean> {
+  if (Platform.OS !== 'web') return deliverFile(bytes, filename, 'application/pdf', 'com.adobe.pdf', true);
+  const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: 'application/pdf' }));
+  const { viewDoc } = await import('@/components/DocViewer');
+  viewDoc(url, filename.endsWith('.pdf') ? filename : `${filename}.pdf`);
+  return true;
+}
 /** An Excel file made with lib/rules/xlsx, handed over the same way. */
 export const deliverXlsx = (bytes: Uint8Array, filename: string, direct?: boolean) => deliverFile(bytes, filename, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'org.openxmlformats.spreadsheetml.sheet', direct);
 /**

@@ -20,7 +20,7 @@ import { areaHome, parentOf, takeJump } from '@/lib/navBack';
 import { isFullManager } from '@/lib/roles';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
-import { heading, mono } from '@/lib/fonts';
+import { brand } from '@/lib/fonts';
 import { fullSiteAddress } from '@/lib/rules/checkin';
 import { base, useDesk, useTheme } from '@/theme/theme';
 
@@ -130,10 +130,10 @@ export function AppBar({ title, onBack, home, right, noHistory }: { title?: stri
         )}
         </View>
         <Pressable onPress={() => router.navigate('/fin' as never)} accessibilityRole="link" accessibilityLabel="Finance overview" style={{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-          <Text style={[heading(800), { fontSize: desk ? 22.5 : 18, letterSpacing: -0.3, color: '#111318' }]}><Text style={{ color: '#2B73D4' }}>Op</Text>HUB</Text>
+          <Text style={[brand(800), { fontSize: desk ? 22.5 : 18, letterSpacing: -0.3, color: '#111318' }]}><Text style={{ color: '#2B73D4' }}>Op</Text>HUB</Text>
           <Text style={{ fontSize: desk ? 17.5 : 14, color: base.slate, fontWeight: '600' }}>×</Text>
           {org?.logo_path && <StorageImage bucket="org-logos" path={org.logo_path} style={{ width: desk ? 35 : 26, height: desk ? 35 : 26, resizeMode: 'contain' }} />}
-          <Text numberOfLines={1} style={[heading(700), { flexShrink: 1, fontSize: desk ? 18 : 14, color: t.brand1 }]}>{org?.name || ''}</Text>
+          <Text numberOfLines={1} style={[brand(700), { flexShrink: 1, fontSize: desk ? 18 : 14, color: t.brand1 }]}>{org?.name || ''}</Text>
         </Pressable>
         <View style={{ minWidth: 34, alignItems: 'flex-end' }}>{right}</View>
       </View>
@@ -170,8 +170,8 @@ export function AppBar({ title, onBack, home, right, noHistory }: { title?: stri
             )}
           </View>
           <View style={{ flex: 1, alignItems: fin ? 'flex-start' : 'center', minWidth: 0 }}>
-            <Pressable disabled={!titleGo} onPress={() => { if (titleGo) router.navigate(titleGo as never); }} accessibilityRole={titleGo ? 'link' : undefined} style={noSelect}><Text numberOfLines={1} style={[heading(home ? 800 : 700), { fontSize: fin ? 21 : desk ? 22.8 : 19, color: home ? t.brand1 : fin ? '#111827' : base.ink, letterSpacing: -0.2 }]}>{main}</Text></Pressable>
-            {!!sub && <Pressable disabled={!copyable} onPress={async () => { if (await copyAddress(sub)) { setCopied(true); setTimeout(() => setCopied(false), 1300); } }} accessibilityRole={copyable ? 'button' : undefined} accessibilityHint={copyable ? 'Copies this text' : undefined} style={noSelect}><Text numberOfLines={1} style={[home ? heading(700) : fin ? {} : mono(500), { fontSize: home ? 11 : fin ? 12.5 : 12, color: fin ? '#6b7280' : base.slate, marginTop: 3, letterSpacing: home ? 1 : 0, textTransform: home ? 'uppercase' : 'none' }]}>{sub}</Text></Pressable>}
+            <Pressable disabled={!titleGo} onPress={() => { if (titleGo) router.navigate(titleGo as never); }} accessibilityRole={titleGo ? 'link' : undefined} style={noSelect}><Text numberOfLines={1} style={[brand(home ? 800 : 700), { fontSize: fin ? 21 : desk ? 22.8 : 19, color: home ? t.brand1 : fin ? '#111827' : base.ink, letterSpacing: -0.2 }]}>{main}</Text></Pressable>
+            {!!sub && <Pressable disabled={!copyable} onPress={async () => { if (await copyAddress(sub)) { setCopied(true); setTimeout(() => setCopied(false), 1300); } }} accessibilityRole={copyable ? 'button' : undefined} accessibilityHint={copyable ? 'Copies this text' : undefined} style={noSelect}><Text numberOfLines={1} style={[home ? brand(700) : {}, { fontSize: home ? 11 : 12.5, color: home ? base.slate : '#6b7280', marginTop: 3, letterSpacing: home ? 1 : 0, textTransform: home ? 'uppercase' : 'none' }]}>{sub}</Text></Pressable>}
             {copied && <View pointerEvents="none" style={{ position: 'absolute', bottom: -8, alignSelf: 'center', backgroundColor: base.ink, borderRadius: 10, paddingHorizontal: 9, paddingVertical: 2, zIndex: 5 }}><Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>Copied</Text></View>}
           </View>
           <View style={{ minWidth: 44, alignItems: 'flex-end' }}>

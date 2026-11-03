@@ -11,7 +11,7 @@ import { StorageImage } from '@/components/StorageImage';
 import { useHub } from '@/data/hub';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
-import { heading } from '@/lib/fonts';
+import { brand } from '@/lib/fonts';
 import { homeKind, isFinanceUser, isFullManager, isManager, roleLabel } from '@/lib/roles';
 import { base, useTheme } from '@/theme/theme';
 
@@ -107,7 +107,7 @@ export function DeskNav() {
             {org?.logo_path ? <StorageImage bucket="org-logos" path={org.logo_path} style={{ width: 38, height: 38, resizeMode: 'contain' }} /> : <Image source={require('@/../assets/images/icon.png')} style={{ width: 38, height: 38 }} />}
           </View>
           <View style={{ flex: 1, minWidth: 0 }}>
-            <Text numberOfLines={2} style={[heading(800), { fontSize: 14, color: t.brand1, lineHeight: 17 }]}>{org?.name || 'OpHUB'}</Text>
+            <Text numberOfLines={2} style={[brand(800), { fontSize: 14, color: t.brand1, lineHeight: 17 }]}>{org?.name || 'OpHUB'}</Text>
             <Text style={{ fontSize: 11, fontWeight: '700', color: base.slate, letterSpacing: 0.9 }}>OPHUB</Text>
           </View>
         </Pressable>

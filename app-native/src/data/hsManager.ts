@@ -76,6 +76,20 @@ export async function deleteHsDoc(me: Profile, kind: DocKind, siteId: string, do
 export function outstanding(kind: DocKind, roster: string[], docs: HsDoc[], sigs: HsSig[]): string[] {
   return roster.filter((u) => docs.some((d) => !sigs.some((s) => s[T[kind].key] === d.id && s.user_id === u)));
 }
+/** Each document with the people on the job still to sign it (for the export and email, Andy 3 Nov 2026). */
+export function outstandingByDoc(kind: DocKind, roster: string[], docs: HsDoc[], sigs: HsSig[]): { doc: HsDoc; users: string[] }[] {
+  return docs.map((d) => ({ doc: d, users: roster.filter((u) => !sigs.some((x) => x[T[kind].key] === d.id && x.user_id === u)) })).filter((r) => r.users.length);
+}
+/** Emails a PDF built in the app (send-hs-email). Gives the problem, or null when sent. */
+export async function emailHsPdf(siteId: string, kind: 'signatures' | 'rams' | 'coshh', bytes: Uint8Array, filename: string, o: { to: string[]; cc: string[]; subject: string; body: string; logos: string[]; hideLogo: boolean }): Promise<string | null> {
+  try {
+    let bin = ''; for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + 0x8000)));
+    const r = await supabase.functions.invoke('send-hs-email', { body: { kind, site_id: siteId, filename, content_base64: btoa(bin), recipients: o.to, cc: o.cc, subject: o.subject, body_text: o.body, logos: o.logos, hide_logo: o.hideLogo } });
+    const d = r.data as { ok?: boolean; error?: string } | null;
+    if (r.error || d?.error) return d?.error || 'Could not send — try again.';
+    return null;
+  } catch { return 'Could not send — try again.'; }
+}
 export async function sendSignReminder(kind: DocKind, siteId: string, userIds: string[]): Promise<string> {
   try {
     const r = await supabase.functions.invoke('send-sign-reminder', { body: { site_id: siteId, doc_type: kind, user_ids: userIds } });

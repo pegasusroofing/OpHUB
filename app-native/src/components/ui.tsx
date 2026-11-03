@@ -34,7 +34,7 @@ export function Card({ children, style }: { children: ReactNode; style?: ViewSty
 const FIN_TEXT = { fontFamily: undefined, fontWeight: '600' as const, letterSpacing: 0 };
 export function Title({ children }: { children: ReactNode }) {
   const fin = useContext(FinMode);
-  return <Text style={[s.title, fin && FIN_TEXT]}>{children}</Text>;
+  return <Text style={[s.title, FIN_TEXT, fin && { fontWeight: '600' }]}>{children}</Text>;
 }
 export function Muted({ children, style }: { children: ReactNode; style?: object }) {
   return <Text style={[s.muted, style]}>{children}</Text>;
@@ -64,7 +64,6 @@ export function Button({ title, onPress, busy, kind = 'primary', disabled, small
   const t = useTheme();
   const primary = kind === 'primary';
   const danger = kind === 'danger' || (kind === 'ghost' && /^[^a-z]*(delete|remove|void)/i.test(title));
-  const fin = useContext(FinMode);
   const fg = primary ? t.brand1Text : danger ? BTN_DANGER[1] : base.ink;
   const held = useRef(false);
   const press = () => {
@@ -88,7 +87,7 @@ export function Button({ title, onPress, busy, kind = 'primary', disabled, small
         (pressed || busy || disabled) && { opacity: 0.7 },
       ]}>
       {busy && <ActivityIndicator color={fg} style={{ marginRight: 8 }} />}
-      <Text style={[s.btnText, small && s.btnTextSmall, fin && { fontWeight: '500' }, !!textSize && { fontSize: textSize }, { color: fg }]}>{title}</Text>
+      <Text style={[s.btnText, small && s.btnTextSmall, { fontWeight: '500' }, !!textSize && { fontSize: textSize }, { color: fg }]}>{title}</Text>
     </Pressable>
   );
 }
@@ -174,7 +173,7 @@ export function Row({ title, sub, extra, onPress, dim }: { title: string; sub?: 
 
 export function SectionTitle({ children }: { children: ReactNode }) {
   const fin = useContext(FinMode);
-  return <Text style={[s.section, fin && FIN_TEXT]}>{children}</Text>;
+  return <Text style={[s.section, FIN_TEXT, fin && { fontWeight: '600' }]}>{children}</Text>;
 }
 
 export function Empty({ children }: { children: ReactNode }) {
@@ -283,23 +282,24 @@ export function Tile({ icon, ic, tint, fg, title, sub, onPress, badge, onMenu, d
 }
 
 // --shadow-card in app.css.
-const shadow = { shadowColor: '#14181D', shadowOpacity: 0.07, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 1 } as const;
+// Flat, as Finance (Andy, 3 Nov 2026): no card shadow anywhere.
+const shadow = { shadowColor: '#14181D', shadowOpacity: 0, shadowRadius: 0, shadowOffset: { width: 0, height: 0 }, elevation: 0 } as const;
 
 const s = StyleSheet.create({
   pill: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 6, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999 },
   dot: { width: 8, height: 8, borderRadius: 4 },
-  row: { flexDirection: 'row', alignItems: 'center', backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 16, paddingHorizontal: 14, paddingVertical: 13, marginBottom: space.s },
+  row: { flexDirection: 'row', alignItems: 'center', backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 13, marginBottom: space.s },
   rowTitle: { fontSize: 14, fontWeight: '700', color: base.ink },
   rowSub: { fontSize: 12, color: base.slate, marginTop: 2 },
   section: { ...heading(700), fontSize: 11, letterSpacing: 0.9, textTransform: 'uppercase', color: base.slate, marginTop: 0, marginBottom: space.m },
   empty: { color: base.slateLight, textAlign: 'center', paddingVertical: 26, paddingHorizontal: 10, fontSize: 13 },
-  stat: { flex: 1, backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 16, paddingVertical: 11, paddingHorizontal: 10 },
+  stat: { flex: 1, backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 10, paddingVertical: 11, paddingHorizontal: 10 },
   statN: { ...heading(800), fontSize: 21, color: base.ink, lineHeight: 24 },
   statL: { fontSize: 10.5, color: base.slate, fontWeight: '600' },
   tile: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.tile, padding: 14, marginBottom: space.s, ...shadow },
   tileIc: { width: 42, height: 42, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
-  jbox: { backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 18, height: 106, alignItems: 'center', justifyContent: 'center', gap: 6.6, paddingHorizontal: 10, ...shadow },
-  tbox: { backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 18, padding: 13.5, height: 112, justifyContent: 'space-between', ...shadow },
+  jbox: { backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 10, height: 106, alignItems: 'center', justifyContent: 'center', gap: 6.6, paddingHorizontal: 10, ...shadow },
+  tbox: { backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 10, padding: 13.5, height: 112, justifyContent: 'space-between', ...shadow },
   boxIc: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   boxT: { fontSize: 13, fontWeight: '800', color: base.ink },
   boxS: { fontSize: 10.5, color: base.slate, fontWeight: '500', marginTop: 2 },

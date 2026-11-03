@@ -14,7 +14,7 @@ export const base = {
   paper: '#EFF2F5',
   card: '#FFFFFF',
   line: '#E1E5EA',
-  cardLine: '#ECEEF2',
+  cardLine: '#e5e7eb',
   slate: '#5B6472',
   slateLight: '#88909B',
   ok: '#2F8F5B',
@@ -26,7 +26,7 @@ export const base = {
   tabIdle: '#6B7080',
 };
 
-export const radius = { card: 18, tile: 18, input: 12, button: 12, row: 14 };
+export const radius = { card: 10, tile: 10, input: 12, button: 12, row: 10 };
 export const space = { xs: 4, s: 8, m: 10, l: 16, xl: 24 };
 
 function luminance(hex: string): number | null {

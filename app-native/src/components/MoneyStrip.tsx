@@ -57,7 +57,7 @@ export function MoneyStrip({ site }: { site: Site }) {
   }
   return (
     <Pressable onPress={() => router.push(`/fin/job/${site.id}` as never)} accessibilityLabel="Open project finance"
-      style={{ flexDirection: 'row', backgroundColor: '#fff', borderWidth: 1, borderColor: '#E6E9EF', borderRadius: 16, marginBottom: 14, overflow: 'hidden' }}>
+      style={{ flexDirection: 'row', backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10, marginBottom: 14, overflow: 'hidden' }}>
       {cell('Costs to date', costs, e1, true)}
       {cell('Invoiced to date', inv, e2)}
       {cell('Profit margin', marg, e3, false, <Pressable onPress={() => void pickBasis()} hitSlop={8} accessibilityLabel="Measure margin against"><Text style={{ color: base.slate, fontWeight: '800', fontSize: desk ? 14 : 12 }}>⋯</Text></Pressable>)}

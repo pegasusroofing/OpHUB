@@ -87,7 +87,9 @@ export function defaultDetails(site: SiteLike, address: string, author: string, 
   const review = new Date(now); review.setFullYear(review.getFullYear() + 1);
   return {
     raNumber: String(st.nextRa).padStart(10, '0'), msNumber: String(st.nextMs), date: iso(now), reviewDate: iso(review), author,
-    project: site?.name || '', startDate: '', duration: '', clientContact: siteClientContact(site), description: '', address, notes: '', mainContractor: '', groups: [],
+    project: site?.name || '', startDate: '', duration: '', clientContact: siteClientContact(site), description: '',
+    // The site name heads the address, and the main contractor is the client unless changed (Andy, 3 Nov 2026).
+    address: [site?.name, address].filter((x) => String(x || '').trim()).join(', '), notes: '', mainContractor: site?.client_name || '', groups: [],
     emergencyName: author, emergencyPhone: '', includeDynamic: false,
   };
 }

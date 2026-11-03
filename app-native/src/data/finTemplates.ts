@@ -7,10 +7,10 @@ import { useQuery } from '@tanstack/react-query';
 import { fdb } from '@/data/finance';
 import { supabase } from '@/lib/supabase';
 
-export type TplKind = 'application' | 'invoice' | 'certificate' | 'credit' | 'po';
+export type TplKind = 'application' | 'invoice' | 'certificate' | 'credit' | 'po' | 'signatures' | 'hsdocs';
 export type Tpl = { id: string; kind: TplKind; name: string; subject: string | null; body: string | null; is_default: boolean; show_logo: boolean; logos: string[] };
 
-export const TPL_KINDS: [TplKind, string][] = [['application', 'Application for payment'], ['invoice', 'Invoice'], ['certificate', 'Payment certificate'], ['credit', 'Credit note'], ['po', 'Purchase order']];
+export const TPL_KINDS: [TplKind, string][] = [['application', 'Application for payment'], ['invoice', 'Invoice'], ['certificate', 'Payment certificate'], ['credit', 'Credit note'], ['po', 'Purchase order'], ['signatures', 'Outstanding signatures (H&S)'], ['hsdocs', 'RAMS / COSHH documents (H&S)']];
 export const TPL_FIELDS = '{client} {project} {job_no} {number} {amount} {due} {client_po} {company} {my_name}';
 
 /** OpHUB's own wording, used until a company saves its own. */
@@ -19,6 +19,8 @@ export const TPL_STANDARD: Record<TplKind, { subject: string; body: string }> = 
   invoice: { subject: 'Invoice {number} — {project}', body: 'Hello,\n\nPlease find attached invoice {number} for {project}, for {amount}, due {due}.\n\nKind regards,' },
   certificate: { subject: 'Payment certificate No. {number} — {project}', body: 'Hello,\n\nPlease find attached payment certificate No. {number} for {project}.\n\nKind regards,' },
   credit: { subject: 'Credit note {number} — {project}', body: 'Hello,\n\nPlease find attached credit note {number} for {project}.\n\nKind regards,' },
+  signatures: { subject: 'Outstanding {number} signatures — {project}', body: 'Hello,\n\nPlease find attached the list of who is still to sign the {number} documents for {project}.\n\nKind regards,' },
+  hsdocs: { subject: '{number} — {project}', body: 'Hello,\n\nPlease find attached the signed {number} for {project}.\n\nKind regards,' },
   po: { subject: 'Purchase order {number} — {project}', body: 'Hello,\n\nPlease find attached our purchase order {number} for {project}. Please quote the PO number on your delivery note and invoice.\n\nKind regards,' },
 };
 

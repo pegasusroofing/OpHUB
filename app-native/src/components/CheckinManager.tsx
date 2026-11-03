@@ -182,8 +182,8 @@ function FenceRow({ set, place, current, onLocate, onSave, onRemove }: { set: bo
   const [pick, setPick] = useState(Number(current) || 100);
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-      <View style={{ flex: 1.4, minWidth: 0 }}><Button grow textSize={13} kind="ghost" title={set ? 'Update Location' : `Set ${place === 'site' ? 'Site' : 'Address'} Location`} onPress={onLocate} /></View>
-      <SelectBox textSize={13} style={{ flex: 1, marginBottom: 0, marginTop: 4 }} title="Check-in / out distance" value={String(pick)}
+      <View style={{ flex: 2.2, minWidth: 0 }}><Button grow textSize={13} kind="ghost" title={set ? 'Update Location' : `Set ${place === 'site' ? 'Site' : 'Address'} Location`} onPress={onLocate} /></View>
+      <SelectBox textSize={13} style={{ width: 78, marginBottom: 0, marginTop: 4 }} title="Check-in / out distance" value={String(pick)}
         options={radiusOptions(Number(current) || null).map((r) => [String(r), `${r}m`] as [string, string])} onChange={(k) => setPick(Number(k))} />
       <View style={{ flex: 0.8 }}><Button grow textSize={13} title="Save" onPress={() => onSave(pick)} /></View>
       {set && <Pressable accessibilityRole="button" accessibilityLabel="Remove geofence" onPress={onRemove} style={({ pressed }) => ({ width: 40, height: 34, marginTop: 4, borderRadius: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FDECEC', opacity: pressed ? 0.7 : 1 })}><OphIcon name="bin" size={17} color="#B42318" /></Pressable>}
