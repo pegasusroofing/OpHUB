@@ -239,7 +239,7 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
                 ];
               })()} />
             </Panel>
-            <Muted style={{ fontSize: 12, marginTop: -6, marginBottom: 12 }}>An application isn&apos;t a VAT invoice; the invoice follows the certificate.{(jf.vat_treatment || finSt?.default_vat) === 'reverse_charge' ? ' Reverse charge VAT is shown for the client to account for, and isn&apos;t added to the total.' : ''}</Muted>
+            <Muted style={{ fontSize: 12, marginTop: -6, marginBottom: 12 }}>An application isn&apos;t a VAT invoice; the invoice follows the certificate.{(jf.vat_treatment || finSt?.default_vat) === 'reverse_charge' ? ' Reverse charge VAT is shown for the client to account for, and isn’t added to the total.' : ''}</Muted>
             {stage === 'applied' && !certing && (
               <>
                 <ActionRow onDelete={deleteAny}>
@@ -770,8 +770,9 @@ function Certificate({ a, cert, onSaved, jf, actions }: { a: Row; jf: Row; cert:
           if (e) { toast(e); return; }
           if (raise && net <= 0) { toast('Certificate saved — nothing to invoice, as the net due isn’t above £0.'); onSaved(); return; }
           if (raise) {
-            const r = await raiseInvoiceFromCert(me, org, { ...a, cert_gross: vals[0], cert_retention: vals[1], cert_previous: vals[2], cert_discount: vals[3], cert_net: net, cert_date: v.cert_date }, site as never, true);
-            if (r.error) showAlert(r.error); else if (r.needsBill) toast('Certificate saved — add who the invoice is to, then issue it.');
+            const r = await raiseInvoiceFromCert(me, org, { ...a, cert_gross: vals[0], cert_retention: vals[1], cert_previous: vals[2], cert_discount: vals[3], cert_net: net, cert_date: v.cert_date }, site as never, false);
+            // Left as a draft and opened, so it can be checked and changed before it's issued (Andy, 3 Nov 2026).
+            if (r.error) showAlert(r.error); else toast('Certificate saved — check the invoice, then issue it.');
             onSaved(); if (r.id) router.push(`/fin/job/${a.site_id}/invoice/${r.id}` as never); return;
           }
           toast('Certificate saved'); onSaved();
