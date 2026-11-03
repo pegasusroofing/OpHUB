@@ -13,7 +13,7 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { ThinExportBar } from '@/components/FinFilterBar';
 import { OphIcon } from '@/components/OphIcon';
 import { SelectBox } from '@/components/SelectBox';
-import { confirmAsk, showAlert, useToast } from '@/components/toast';
+import { chooseAction, confirmAsk, showAlert, useToast } from '@/components/toast';
 import { FinEmailPopup } from '@/components/FinEmailPopup';
 import { FinForm } from '@/components/FinForm';
 import { Button, Card, Check, Muted } from '@/components/ui';
@@ -754,17 +754,30 @@ async function importCertificate(a: Row, cert: Cert, toast: (m: string) => void)
 
 /** Quick ways to fill in the Certified column, above the Bill. */
 function CertTools({ a, cert }: { a: Row; cert: Cert }) {
-  const toast = useToast();
+  const toast = useToast(), desk = useDesk();
   const { xlNote } = cert;
+  const fromExcel = async () => { const items = await pickAppExcel(toast); if (items) certFromExcel(a, cert, items, toast); };
+  const fromPdf = async () => { const r = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true }); if (!r.canceled && r.assets[0]) await certFromPdf(a, cert, r.assets[0], toast); };
+  const note = !!xlNote && <Card style={{ backgroundColor: '#f4f8fd', marginTop: 8, marginBottom: 0 }}><Text style={{ color: base.ink, fontSize: 12.5 }}>{xlNote}</Text></Card>;
+  // Phone: the three ways in one button, no wordy line (Andy, 3 Nov 2026).
+  if (!desk) return (
+    <View style={{ marginBottom: 12 }}>
+      <Button kind="ghost" title="Fill In The Certified Figures ▾" onPress={async () => {
+        const k = await chooseAction('Fill in the Certified column', [{ key: 'applied', label: 'Certified as applied' }, { key: 'xl', label: 'From the client’s Excel' }, { key: 'pdf', label: 'From the client’s PDF' }]);
+        if (k === 'applied') cert.asApplied(); else if (k === 'xl') await fromExcel(); else if (k === 'pdf') await fromPdf();
+      }} />
+      {note}
+    </View>
+  );
   return (
     <View style={{ marginBottom: 12 }}>
       <Muted style={{ marginBottom: 8 }}>Enter what the client certified in the Certified column on each line. Lines start at what they last certified.</Muted>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
         <Button small kind="ghost" title="Certified As Applied" onPress={cert.asApplied} />
-        <Button small kind="ghost" title="Fill In From The Client's Excel" onPress={async () => { const items = await pickAppExcel(toast); if (items) certFromExcel(a, cert, items, toast); }} />
-        <Button small kind="ghost" title="Fill In From The Client's PDF" onPress={async () => { const r = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true }); if (!r.canceled && r.assets[0]) await certFromPdf(a, cert, r.assets[0], toast); }} />
+        <Button small kind="ghost" title="Fill In From The Client's Excel" onPress={() => void fromExcel()} />
+        <Button small kind="ghost" title="Fill In From The Client's PDF" onPress={() => void fromPdf()} />
       </View>
-      {!!xlNote && <Card style={{ backgroundColor: '#f4f8fd', marginTop: 8, marginBottom: 0 }}><Text style={{ color: base.ink, fontSize: 12.5 }}>{xlNote}</Text></Card>}
+      {note}
     </View>
   );
 }
