@@ -8,6 +8,7 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
+import { DocSplit } from '@/components/DocSplit';
 import { InvoiceLines } from '@/components/InvoiceLines';
 import { checkAll, loadReadContext, readOne, saveLinesOnInvoice } from '@/data/invoiceRead';
 import { decide, type RLine } from '@/lib/rules/invoiceRead';
@@ -68,6 +69,7 @@ export default function FinInboxItem() {
     toast(`Supplier set to ${name}`); void qc.invalidateQueries({ queryKey: ['finInbox', iid] });
   };
   return (
+    <DocSplit name={it.file_name || 'Invoice'} load={it.file_path ? () => openDocLink('finance-docs', it.file_path) : null}>
     <ScrollView contentContainerStyle={page(800)}>
       <Stack.Screen options={{ title: ex.supplier || it.from_email || 'Purchase invoice' }} />
       {filed && <Card><Text style={{ color: '#1E7A3C', fontWeight: '500' }}>Filed.</Text><Button kind="ghost" title="Open the purchase invoice" onPress={() => router.replace(`/fin/pinv/${it.purchase_invoice_id}` as never)} /></Card>}
@@ -133,5 +135,6 @@ export default function FinInboxItem() {
           }} />
       )}
     </ScrollView>
+    </DocSplit>
   );
 }

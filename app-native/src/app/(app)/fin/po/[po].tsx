@@ -18,6 +18,7 @@ import { fdb, loadSettings } from '@/data/finance';
 import { filePoPdf, loadPo, removePoLines, savePoValue, setPoStatus, setPoStatusWithRequests } from '@/data/finPurchase';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
+import { DocSplit } from '@/components/DocSplit';
 import { buildPoPdf } from '@/lib/finPoPdf';
 import { deliverPdf } from '@/lib/pdf';
 import { COST_CATS, PI_STATUS, poInvoiced } from '@/lib/rules/finBook';
@@ -51,7 +52,13 @@ export default function FinPo() {
   const inv = poInvoiced(po, pinvs);
   const matBy: Record<string, Row> = {}; mats.forEach((m) => { matBy[m.id] = m; });
   const refresh = () => ['finPo', 'finPurchases', 'finBook'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] }));
+  const poPdfUrl = async () => {
+    const sup = po.supplier_id ? ((await fdb.from('suppliers').select('id,name,email').eq('id', po.supplier_id).maybeSingle()).data as Row | null) : null;
+    const bytes = await buildPoPdf(po, sites.find((s) => s.id === po.site_id) as Row | undefined, await loadSettings(me.org_id), sup, org);
+    return URL.createObjectURL(new Blob([bytes as BlobPart], { type: 'application/pdf' }));
+  };
   return (
+    <DocSplit key={`${po.id}${po.updated_at || ''}`} name={`PO ${po.number}`} load={poPdfUrl}>
     <View style={{ flex: 1 }}>
     <ScrollView style={{ flex: 1 }} contentContainerStyle={page(900)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: po.number }} />
@@ -117,5 +124,6 @@ export default function FinPo() {
         } catch { toast('Could not build the PO PDF.'); }
       }} />
     </View>
+    </DocSplit>
   );
 }

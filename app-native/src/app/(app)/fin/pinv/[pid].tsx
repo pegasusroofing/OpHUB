@@ -15,6 +15,7 @@ import { FinRow, FinStat } from '@/components/FinNav';
 import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Card, Check, Muted, SectionTitle } from '@/components/ui';
 import { fdb } from '@/data/finance';
+import { DocSplit } from '@/components/DocSplit';
 import { viewDoc } from '@/components/DocViewer';
 import { nameOf, openDocLink, usePeople } from '@/data/hs';
 import { addPiThreadReply, piLabel, tellPmOfPi, addPinv, duplicateOf, isInXero, loadPinv, setPinvCostCode, setPinvPaid, setPinvStatus } from '@/data/finPurchase';
@@ -109,6 +110,7 @@ function ViewPinv({ id }: { id: string }) {
     toast(s === 'approved' ? `Approved${r.xero ? ' — not posted to Xero (Finance trial)' : ''}` : 'Rejected'); refresh();
   };
   return (
+    <DocSplit name={i.file_name || 'Invoice'} load={i.file_path ? () => openDocLink('finance-docs', i.file_path) : null}>
     <ScrollView contentContainerStyle={page(800)}>
       <Stack.Screen options={{ title: i.supplier_name || 'Purchase invoice' }} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
@@ -168,6 +170,7 @@ function ViewPinv({ id }: { id: string }) {
       </View>
       <Muted style={{ marginTop: 8 }}>Net {money(i.net)} · VAT {money(i.vat)} · gross {money(round2(Number(i.net) + Number(i.vat || 0)))}</Muted>
     </ScrollView>
+    </DocSplit>
   );
 }
 

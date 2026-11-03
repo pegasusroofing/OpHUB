@@ -97,7 +97,7 @@ const zb = { width: 46, height: 46, borderRadius: 23, backgroundColor: 'rgba(255
 const zt = { fontSize: 24, fontWeight: '800' as const, color: '#111' };
 
 // Laptop: every page drawn into the scroll area, sharp enough to zoom into.
-function PdfPages({ url, zoom }: { url: string; zoom: number }) {
+export function PdfPages({ url, zoom, width: w0, light }: { url: string; zoom: number; width?: number; light?: boolean }) {
   const host = useRef<HTMLElement | null>(null);
   const [state, setState] = useState<'loading' | 'ok' | 'bad'>('loading');
   const [fit, setFit] = useState(800);
@@ -111,7 +111,7 @@ function PdfPages({ url, zoom }: { url: string; zoom: number }) {
       try {
         const bytes = new Uint8Array(await (await fetch(url)).arrayBuffer());
         const pdf = await lib.getDocument({ data: bytes }).promise;
-        const width = Math.min(globalThis.innerWidth || 800, 1100) - 32;
+        const width = w0 && w0 > 100 ? w0 : Math.min(globalThis.innerWidth || 800, 1100) - 32;
         if (alive) setFit(width);
         el.innerHTML = '';
         const dpr = Math.min(3, globalThis.devicePixelRatio || 1);
@@ -135,7 +135,7 @@ function PdfPages({ url, zoom }: { url: string; zoom: number }) {
       } catch { if (alive) setState('bad'); }
     })();
     return () => { alive = false; };
-  }, [url]);
+  }, [url, w0]);
   // Zoom: resize the drawn pages (the area scrolls both ways).
   useEffect(() => {
     const el = host.current;
@@ -146,8 +146,8 @@ function PdfPages({ url, zoom }: { url: string; zoom: number }) {
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 8 }}>
       <ScrollView horizontal contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}>
         <View>
-          {state === 'loading' && <Text style={{ color: '#fff', opacity: 0.7, marginTop: 40, textAlign: 'center' }}>Loading document…</Text>}
-          {state === 'bad' && <Text style={{ color: '#fff', marginTop: 40, textAlign: 'center' }} onPress={() => void Linking.openURL(url)}>Couldn’t show this document here — tap to open it directly.</Text>}
+          {state === 'loading' && <Text style={{ color: light ? '#6b7280' : '#fff', opacity: 0.7, marginTop: 40, textAlign: 'center' }}>Loading document…</Text>}
+          {state === 'bad' && <Text style={{ color: light ? '#6b7280' : '#fff', marginTop: 40, textAlign: 'center' }} onPress={() => void Linking.openURL(url)}>Couldn’t show this document here — tap to open it directly.</Text>}
           <View ref={host as never} style={{ minWidth: 300 }} />
         </View>
       </ScrollView>
