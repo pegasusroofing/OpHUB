@@ -21,8 +21,8 @@ const corsHeaders = {
 //
 // #notif-review-2026-09: audience='managers' used to notify every pm/admin/
 // superadmin in the org. Per the notifications review, this is narrowed to
-// the site's own Responsible PM (falling back to every PM in the org when
-// the site has none set, or when the message isn't tied to a site at all)
+// the site's own Responsible PM (3 Nov 2026: no PM set = Admins only, no
+// longer every PM in the org)
 // PLUS every Admin in the org, unconditionally — Admins always want the
 // org-wide oversight view; PMs only need to hear about their own sites.
 // 'superadmin' is dropped from this set entirely (platform-level role, not
@@ -135,14 +135,10 @@ Deno.serve(async (req) => {
       }
       if (responsiblePmId) {
         recipientSet.add(responsiblePmId);
-      } else {
-        // No responsible PM set for this site (or the message isn't tied to a
-        // site, e.g. the vehicle-checklist failure notice) — fall back to
-        // every PM in the org, same rule used by the other PM-facing
-        // notification functions (resign-check, TBT reminder, RAMS/COSHH nudge).
-        const { data: pms } = await admin.from('profiles').select('id').eq('org_id', orgId).eq('role', 'pm');
-        (pms || []).forEach((p: { id: string }) => recipientSet.add(p.id));
       }
+      // 3 Nov 2026 (Andy): no responsible PM set for the site (or the message isn't tied to a site) = the
+      // company Admin(s) only. It used to fall back to every PM in the company, so one job without a PM sent
+      // every PM emails and alerts they didn't need.
       recipientIds = [...recipientSet];
     } else {
       if (siteId) {
@@ -155,6 +151,15 @@ Deno.serve(async (req) => {
       }
     }
     recipientIds = recipientIds.filter((id) => id && id !== senderId);
+    // 3 Nov 2026 (Andy): a Project Manager / Admin listing materials themselves (to build an order that goes to
+    // the email they choose) is not "a request for the managers": it used to push AND email every PM, one per
+    // line (14 lines = 14 emails to Neil). Only material requests from operatives / site managers notify.
+    if (kind === 'material_request' && senderId) {
+      const { data: who } = await admin.from('profiles').select('role').eq('id', senderId).maybeSingle();
+      if (who && ['pm', 'admin', 'superadmin'].includes(String(who.role))) {
+        return new Response(JSON.stringify({ ok: true, sent: 0, skipped: 'raised by a manager' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+    }
     if (!recipientIds.length) {
       return new Response(JSON.stringify({ ok: true, sent: 0, reason: 'no recipients' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
