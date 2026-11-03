@@ -613,14 +613,14 @@ function TapEdit({ value, onChange, placeholder = 'Tap to add a description' }: 
   );
 }
 // Shares of the row, so the columns spread evenly across any phone (Andy, 3 Nov 2026).
-const FIG_F = { label: 1.15, unit: 0.6, rate: 1.1, pct: 1, qty: 0.95, total: 1.4 };
+const FIG_F = { label: 1.1, unit: 0.8, rate: 1.05, pct: 1, qty: 1, total: 1.3 };
 /** Phone: one figures row under a line (Andy, 3 Nov 2026) — Contract, Previous, Applied or Certified, then unit, rate, %, qty and
  *  total. Boxes to type in take the place of the figures they set; plain rows (contract, previous) have no band. */
 const QtyHidden = createContext(false);
 function FigRow({ label, unit = '', rate = '', pct: pc = '', qty = '', total, warn, inputs, plain, bold }: { label: string; unit?: string; rate?: string; pct?: string; qty?: string; total: string; warn?: boolean; inputs?: Partial<Record<'unit' | 'rate' | FigCol, ReactNode>>; plain?: boolean; bold?: boolean }) {
   const noQty = useContext(QtyHidden);
   const cell = (k: 'unit' | 'rate' | FigCol, v: string) => (
-    <View key={k} style={{ flex: FIG_F[k], minWidth: 0, alignItems: k === 'total' ? 'flex-end' : 'center' }}>
+    <View key={k} style={{ flex: FIG_F[k], minWidth: 0, alignItems: 'center' }}>
       {inputs?.[k] ?? <Text numberOfLines={1} style={{ fontSize: k === 'unit' ? 10.5 : 11.5, fontWeight: bold || (k === 'total' && !plain) ? '600' : '400', color: plain && !bold ? base.slate : k === 'total' && warn ? '#b45309' : base.ink }}>{v}</Text>}
     </View>
   );
@@ -637,7 +637,7 @@ function FigHead() {
   const h = (l: string, f: number) => <Text key={l} style={{ flex: f, minWidth: 0, textAlign: 'center', fontSize: 10.5, fontWeight: '600', color: base.slate }}>{l}</Text>;
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F4F5F7', borderBottomWidth: 1, borderColor: base.cardLine, paddingVertical: 6, paddingHorizontal: 18 }}>
-      <View style={{ flex: FIG_F.label }} />{h('Unit', FIG_F.unit)}{h('Rate', FIG_F.rate)}{h('%', FIG_F.pct)}{!noQty && h('Qty', FIG_F.qty)}<Text style={{ flex: FIG_F.total, minWidth: 0, textAlign: 'right', fontSize: 10.5, fontWeight: '600', color: base.slate }}>Total</Text>
+      <View style={{ flex: FIG_F.label }} />{h('Unit', FIG_F.unit)}{h('Rate', FIG_F.rate)}{h('%', FIG_F.pct)}{!noQty && h('Qty', FIG_F.qty)}<Text style={{ flex: FIG_F.total, minWidth: 0, textAlign: 'center', fontSize: 10.5, fontWeight: '600', color: base.slate }}>Total</Text>
     </View>
   );
 }
