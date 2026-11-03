@@ -1493,3 +1493,4 @@
 {"part":"appimport1","step":"Email Application pop-up: client email, CC Me ticked, Email Me Only","ok":true,"note":"cc 1, me only 1, send 1","ms":13730}
 {"part":"appimport1","step":"Import Certificate reads our exported Excel","ok":true,"note":"certified boxes 9, note 1","ms":5315}
 {"part":"appphone3","step":"One Fill In button on a phone","ok":true,"note":"old bits 0, one 1, hidden 1, over 0","ms":15779}
+{"part":"appphone3","step":"One Fill In button on a phone","ok":true,"note":"old bits 0, one 1, hidden 1, over 0","ms":15788}

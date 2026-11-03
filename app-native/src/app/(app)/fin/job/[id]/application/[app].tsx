@@ -284,9 +284,9 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
       {view === 'lines' && <>
       {!desk ? (
         <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10, alignItems: 'center' }}>
-          <View style={{ flex: 1 }}><Button kind="ghost" busy={!!busy} title={`${stage === 'draft' || certing ? (mode === 'gbp' ? 'Enter £' : mode === 'qty' ? 'Enter qty' : 'Enter %') : 'Options'}${hideZero ? ' · 0% Hidden' : ''}${certing ? ' · Fill In' : ''} ▾`} onPress={async () => {
+          <View style={{ flex: 1 }}><Button kind="ghost" busy={!!busy} title={certing ? 'Bulk Certify ▾' : `${stage === 'draft' ? (mode === 'gbp' ? 'Enter £' : mode === 'qty' ? 'Enter qty' : 'Enter %') : 'Options'}${hideZero ? ' · 0% Hidden' : ''} ▾`} onPress={async () => {
             const on = (x: boolean) => (x ? '✓ ' : '');
-            const k = await chooseAction(certing ? 'Certified figures' : 'Lines', [
+            const k = await chooseAction(certing ? 'Bulk Certify' : 'Lines', [
               ...(stage === 'draft' || certing ? [{ key: 'pct', label: `${on(mode === 'pct')}Enter %` }, { key: 'gbp', label: `${on(mode === 'gbp')}Enter £` }, { key: 'qty', label: `${on(mode === 'qty')}Enter qty` }] : []),
               { key: 'zero', label: hideZero ? 'Show 0% lines' : 'Hide 0% lines' },
               ...(certing ? [{ key: 'applied', label: 'Fill in: certified as applied' }, { key: 'xl', label: 'Fill in: from the client’s Excel' }, { key: 'pdf', label: 'Fill in: from the client’s PDF' }] : []),

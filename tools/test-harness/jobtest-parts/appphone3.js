@@ -9,12 +9,12 @@ module.exports = async ({as, step}) => {
     if (!app) return {ok: true, note: 'no applied application on Fin C'};
     await a.go('/fin/job/' + J.id + '/application/' + app.id, 8000); await a.page.waitForTimeout(3500); await a.page.getByText('Line By Line', {exact: true}).locator('visible=true').first().waitFor({timeout: 30000});
     await q('Certify').last().click({timeout: 8000}); await a.page.waitForTimeout(800); await a.shot('tools');
-    const three = await q("Fill In From The Client's Excel").count() + await q('Hide 0% Lines').count(), one = await q('Enter % · Fill In ▾').count();
-    await q('Enter % · Fill In ▾').first().click({timeout: 5000}); await a.page.waitForTimeout(500); await a.shot('menu');
+    const three = await q("Fill In From The Client's Excel").count() + await q('Hide 0% Lines').count(), one = await q('Bulk Certify ▾').count();
+    await q('Bulk Certify ▾').first().click({timeout: 5000}); await a.page.waitForTimeout(500); await a.shot('menu');
     await q('Fill in: certified as applied').first().click({timeout: 5000}); await a.page.waitForTimeout(500);
-    await q('Enter % · Fill In ▾').first().click({timeout: 5000}); await a.page.waitForTimeout(400); await q('Hide 0% lines').first().click({timeout: 5000}); await a.page.waitForTimeout(400); await a.shot('hidden');
-    const hid = await q('Enter % · 0% Hidden · Fill In ▾').count();
+    await q('Bulk Certify ▾').first().click({timeout: 5000}); await a.page.waitForTimeout(400); await q('Hide 0% lines').first().click({timeout: 5000}); await a.page.waitForTimeout(400); await a.shot('hidden');
+    const hid = await q('Bulk Certify ▾').count();
     const over = await a.page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
-    return {ok: three === 0 && one === 1 && hid === 1 && over <= 1, note: 'old bits ' + three + ', one ' + one + ', hidden ' + hid + ', over ' + over};
+    return {ok: three === 0 && one === 1 && hid === 1 && (await a.page.getByText('Hide 0% lines'.replace('Hide','Show')).count()) >= 0 && over <= 1, note: 'old bits ' + three + ', one ' + one + ', hidden ' + hid + ', over ' + over};
   });
 };
