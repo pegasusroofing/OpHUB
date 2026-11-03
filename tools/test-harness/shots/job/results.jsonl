@@ -1630,3 +1630,9 @@
 {"part":"appret2","step":"Phone: Hide the qty column, kept with the application","ok":true,"note":"qty headings 4 > 0, saved true, back false","ms":16072}
 {"part":"appret2","step":"Everything at 100%: Apply For Payment offers the first half of the retention","ok":true,"note":"offered 1, still draft","ms":20108}
 {"part":"appret2","step":"Overview: Retention Release row","ok":true,"note":"button 1, choices 1","ms":11290}
+{"part":"clientrow1","step":"Client row and keys","ok":true,"note":"picked \"Ashcroft Estates Ltd\" (first client Ashcroft Estates Ltd)","ms":11504}
+{"part":"clientrow1","step":"Tiles and geofence at 1440","ok":true,"note":"","ms":23814}
+{"part":"clientrow1","step":"Tiles and geofence at 430","ok":true,"note":"","ms":23776}
+{"part":"clientrow1","step":"Client row and keys","ok":true,"note":"picked \"Ashcroft Estates Ltd\" (first client Ashcroft Estates Ltd)","ms":11576}
+{"part":"clientrow1","step":"Tiles and geofence at 1440","ok":true,"note":"","ms":23951}
+{"part":"clientrow1","step":"Tiles and geofence at 430","ok":true,"note":"","ms":23719}

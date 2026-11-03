@@ -38,6 +38,10 @@ type Target = { table: 'sites' | 'site_sub_addresses'; id: string };
 export async function setFencePoint(t: Target, lat: number, lon: number): Promise<boolean> {
   return !!(await db.from(t.table).update({ geofence_lat: lat, geofence_lon: lon } as never).eq('id', t.id).select('id')).data?.length;
 }
+/** Takes the geofence off (Andy, 3 Nov 2026): check-ins are no longer distance-checked. The distance is kept. */
+export async function clearFence(t: Target): Promise<boolean> {
+  return !!(await db.from(t.table).update({ geofence_lat: null, geofence_lon: null } as never).eq('id', t.id).select('id')).data?.length;
+}
 export async function setFenceRadius(t: Target, radius: number): Promise<boolean> {
   return !!(await db.from(t.table).update({ geofence_radius_m: radius } as never).eq('id', t.id).select('id')).data?.length;
 }

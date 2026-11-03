@@ -11,6 +11,7 @@ export function SuggestField({ label, value, onChangeText, items, onPick, max = 
   label?: string; value: string; onChangeText: (v: string) => void; items: Suggestion[]; onPick: (s: Suggestion) => void; max?: number; showAllOnFocus?: boolean;
 }) {
   const [focus, setFocus] = useState(false);
+  const [hi, setHi] = useState(-1);
   const q = value.trim().toLowerCase();
   const list = items
     .filter((s) => (q ? s.label.toLowerCase().includes(q) && s.label.toLowerCase() !== q : showAllOnFocus))
@@ -19,13 +20,22 @@ export function SuggestField({ label, value, onChangeText, items, onPick, max = 
   return (
     <View style={[{ marginBottom: 12, zIndex: focus ? 20 : 0 }, style]}>
       {!!label && <Text style={{ fontSize: 12, fontWeight: '700', color: base.slate, marginBottom: 4 }}>{label}</Text>}
-      <TextInput value={value} onChangeText={onChangeText} onFocus={() => setFocus(true)} onBlur={() => setTimeout(() => setFocus(false), 200)}
+      <TextInput value={value} onChangeText={(v) => { setHi(-1); onChangeText(v); }} onFocus={() => setFocus(true)} onBlur={() => setTimeout(() => setFocus(false), 200)}
+        onKeyPress={(e) => {
+          const k = e.nativeEvent.key, open = focus && list.length > 0;
+          if (!open) return;
+          const stop = () => (e as unknown as { preventDefault?: () => void }).preventDefault?.();
+          if (k === 'ArrowDown') { stop(); setHi((h) => Math.min(list.length - 1, h + 1)); }
+          else if (k === 'ArrowUp') { stop(); setHi((h) => Math.max(0, h - 1)); }
+          else if ((k === 'Tab' || k === 'Enter') && hi >= 0 && list[hi]) { stop(); onPick(list[hi]); setHi(-1); setFocus(false); }
+          else if (k === 'Escape') { setFocus(false); }
+        }}
         placeholderTextColor={base.slateLight} autoComplete="off"
         style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, paddingHorizontal: 12, paddingVertical: 11, fontSize: 15, color: base.ink, backgroundColor: base.card }} {...props} />
       {focus && list.length > 0 && (
         <View style={{ marginTop: 2, borderWidth: 1, borderColor: base.line, borderRadius: radius.input, backgroundColor: base.card, overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 8, elevation: 3 }}>
           {list.map((s, i) => (
-            <Pressable key={s.key} onPress={() => { onPick(s); setFocus(false); }} style={({ pressed }) => [{ paddingHorizontal: 12, paddingVertical: 9, borderTopWidth: i ? 1 : 0, borderTopColor: '#ECEEF2' }, pressed && { backgroundColor: '#F3F5F8' }]}>
+            <Pressable key={s.key} onPress={() => { onPick(s); setFocus(false); }} style={({ pressed }) => [{ paddingHorizontal: 12, paddingVertical: 9, borderTopWidth: i ? 1 : 0, borderTopColor: '#ECEEF2' }, (pressed || i === hi) && { backgroundColor: '#EAF1FB' }]}>
               <Text style={{ fontSize: 15, color: base.ink, fontWeight: '600' }}>{s.top ? '★ ' : ''}{s.label}</Text>
               {!!s.sub && <Text style={{ fontSize: 12, color: base.slate }}>{s.sub}</Text>}
             </Pressable>

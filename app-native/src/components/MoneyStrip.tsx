@@ -31,14 +31,14 @@ export function MoneyStrip({ site }: { site: Site }) {
     toast(`Margin measured against ${k === 'auto' ? 'the latest (certified, else applied)' : k}`);
   };
   const fc = data ? forecast(data.book, site.id, data.settings) : null;
-  const cell = (label: string, v: ReactNode, em: string, first?: boolean, menu?: ReactNode) => (
-    <View style={{ flex: 1, minWidth: 0, alignItems: 'center', gap: 3, paddingVertical: desk ? 14 : 10, paddingHorizontal: desk ? 16 : 8, borderLeftWidth: first ? 0 : 1, borderLeftColor: '#EEF0F4' }}>
+  // No line under the figure (Andy, 3 Nov 2026): the three sit level.
+  const cell = (label: string, v: ReactNode, _em: string, first?: boolean, menu?: ReactNode) => (
+    <View style={{ flex: 1, minWidth: 0, alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: desk ? 14 : 10, paddingHorizontal: desk ? 16 : 8, borderLeftWidth: first ? 0 : 1, borderLeftColor: '#EEF0F4' }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, maxWidth: '100%' }}>
         <Text numberOfLines={1} style={{ flexShrink: 1, fontSize: desk ? 12 : 10.5, fontWeight: '700', color: base.slate, textTransform: 'uppercase', letterSpacing: desk ? 0.5 : 0.2 }}>{label}</Text>
         {menu}
       </View>
       {fc ? v : <View style={{ backgroundColor: '#F0F2F5', borderRadius: 6, width: '70%', height: 24 }} />}
-      <Text numberOfLines={1} style={{ fontSize: desk ? 12.5 : 11, color: base.slate }}>{fc ? em || ' ' : ' '}</Text>
     </View>
   );
   const big = (s: string, colour: string = base.ink, small?: string) => (

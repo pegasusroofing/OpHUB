@@ -5,11 +5,13 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Linking, Pressable, Text, TextInput, View } from 'react-native';
 
-import { showAlert, useToast } from '@/components/toast';
+import { OphIcon } from '@/components/OphIcon';
+import { SelectBox } from '@/components/SelectBox';
+import { confirmAsk, showAlert, useToast } from '@/components/toast';
 import { Popup } from '@/components/Popup';
 import { Button, Card, Empty, Muted, Pill, SectionTitle, Toggle } from '@/components/ui';
 import { getPosition } from '@/data/checkinAction';
-import { checkinsForExport, setFencePoint, setFenceRadius, usePmLogins, useTeamCheckins } from '@/data/checkinManager';
+import { checkinsForExport, clearFence, setFencePoint, setFenceRadius, usePmLogins, useTeamCheckins } from '@/data/checkinManager';
 import { nameOf, usePeople } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
@@ -27,7 +29,6 @@ export function CheckinManager({ site, sub }: { site: Site; sub?: SubAddress }) 
   const { data: people } = usePeople();
   const admin = me?.role === 'admin';
   const { data: pmLogins = [] } = usePmLogins(site.id, site.responsible_pm_id, admin && !sub);
-  const [fenceOpen, setFenceOpen] = useState(false);
   const [histOpen, setHistOpen] = useState(false);
   const [pmOpen, setPmOpen] = useState(false);
   const [exporting, setExporting] = useState<'week' | 'all' | null>(null);
@@ -41,7 +42,7 @@ export function CheckinManager({ site, sub }: { site: Site; sub?: SubAddress }) 
   const place = sub ? 'address' : 'site';
 
   const savePoint = async (la: number, lo: number) => {
-    if (await setFencePoint(target, la, lo)) { toast(`${sub ? 'Address' : 'Site'} location saved — now choose the check-in distance below`); setFenceOpen(true); refresh(); }
+    if (await setFencePoint(target, la, lo)) { toast(`${sub ? 'Address' : 'Site'} location saved — now choose the check-in distance`); refresh(); }
     else toast('Could not save — try again.');
   };
   const useHere = async () => {
@@ -70,32 +71,25 @@ export function CheckinManager({ site, sub }: { site: Site; sub?: SubAddress }) 
 
   return (
     <View>
-      <SectionTitle>{sub ? 'Address Geofence' : 'Site Geofence'}</SectionTitle>
-      {fence.geofence_lat != null && fence.geofence_lon != null ? (
-        <>
-          <Toggle title={`Geofence set — ${fence.geofence_radius_m || 100}m radius`} open={fenceOpen} onPress={() => setFenceOpen(!fenceOpen)} />
-          {fenceOpen && (
-            <Card>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-                <View>
-                  <Text style={{ fontFamily: 'monospace', color: base.ink }}>{fence.geofence_lat.toFixed(5)}, {fence.geofence_lon.toFixed(5)}</Text>
-                  <Text style={{ color: base.blue }} onPress={() => Linking.openURL(`https://www.google.com/maps?q=${fence.geofence_lat},${fence.geofence_lon}`)}>View on map ↗</Text>
-                </View>
-                <Button kind="ghost" title="Update location" onPress={() => setModal('choose')} />
-              </View>
-              <RadiusPicker current={fence.geofence_radius_m} onSave={async (r) => { if (await setFenceRadius(target, r)) { toast(`Check-in distance set to ${r}m`); setFenceOpen(false); refresh(); } }} />
-            </Card>
-          )}
-        </>
-      ) : (
-        <Card>
-          <Muted style={{ marginBottom: 8 }}>Not set — check-ins won&apos;t be distance-checked yet.</Muted>
-          <Button title={`Set ${place} location`} onPress={() => setModal('choose')} />
-          <RadiusPicker current={fence.geofence_radius_m} onSave={async (r) => { if (await setFenceRadius(target, r)) { toast(`Check-in distance set to ${r}m`); refresh(); } }} />
-        </Card>
-      )}
+      {/* One compact row (Andy, 3 Nov 2026): set location, distance, Save, bin to take it off. Clear of the button above. */}
+      <View style={{ marginTop: 18 }}><SectionTitle>{sub ? 'Address Geofence' : 'Site Geofence'}</SectionTitle></View>
+      <Card style={{ paddingVertical: 10 }}>
+        {fence.geofence_lat != null && fence.geofence_lon != null ? (
+          <Text style={{ fontSize: 13, color: base.slate, marginBottom: 6 }}>
+            Set at <Text style={{ fontFamily: 'monospace', color: base.ink }}>{fence.geofence_lat.toFixed(5)}, {fence.geofence_lon.toFixed(5)}</Text>
+            {'  '}<Text style={{ color: base.blue }} onPress={() => Linking.openURL(`https://www.google.com/maps?q=${fence.geofence_lat},${fence.geofence_lon}`)}>View On Map ↗</Text>
+          </Text>
+        ) : <Muted style={{ marginBottom: 6, fontSize: 13 }}>Not set — check-ins won&apos;t be distance-checked.</Muted>}
+        <FenceRow key={String(fence.geofence_radius_m)} set={fence.geofence_lat != null && fence.geofence_lon != null} place={place} current={fence.geofence_radius_m}
+          onLocate={() => setModal('choose')}
+          onSave={async (r) => { if (await setFenceRadius(target, r)) { toast(`Check-in distance set to ${r}m`); refresh(); } else toast('Could not save — try again.'); }}
+          onRemove={async () => {
+            if (!(await confirmAsk(`Remove the ${place} geofence? Check-ins won't be distance-checked.`))) return;
+            if (await clearFence(target)) { toast('Geofence removed'); refresh(); } else toast('Could not remove — try again.');
+          }} />
+      </Card>
 
-      <SectionTitle>Site Team — Live Status</SectionTitle>
+      <View style={{ marginTop: 14 }}><SectionTitle>Site Team — Live Status</SectionTitle></View>
       {status.length ? status.map((c) => (
         <Card key={c.user_id} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10 }}>
           <Text style={{ fontWeight: '700', color: base.ink }}>{nameOf(people, c.user_id)}{c.user_id === me.id ? <Text style={{ color: base.slate }}> (you)</Text> : null}</Text>
@@ -182,20 +176,17 @@ export function CheckinManager({ site, sub }: { site: Site; sub?: SubAddress }) 
   );
 }
 
-function RadiusPicker({ current, onSave }: { current: number | null; onSave: (r: number) => void }) {
+/** Set / Update Location, the distance drop-down, Save and (once set) a red bin, on one row. */
+function FenceRow({ set, place, current, onLocate, onSave, onRemove }: { set: boolean; place: string; current: number | null; onLocate: () => void; onSave: (r: number) => void; onRemove: () => void }) {
   // The radius can come back from the database as text ("100"): compare as numbers so it shows as chosen.
   const [pick, setPick] = useState(Number(current) || 100);
   return (
-    <View style={{ marginTop: 14 }}>
-      <Muted style={{ marginBottom: 6 }}>Check-in/out distance limit</Muted>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
-        {radiusOptions(Number(current) || null).map((r) => (
-          <Pressable key={r} onPress={() => setPick(r)} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 14, borderWidth: 1, borderColor: pick === r ? base.ink : base.line, backgroundColor: pick === r ? base.ink : base.card }}>
-            <Text style={{ fontSize: 12, fontWeight: '700', color: pick === r ? '#fff' : base.ink }}>{r}m</Text>
-          </Pressable>
-        ))}
-      </View>
-      <Button title="Save" onPress={() => onSave(pick)} />
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+      <View style={{ flex: 1.4, minWidth: 0 }}><Button grow textSize={13} kind="ghost" title={set ? 'Update Location' : `Set ${place === 'site' ? 'Site' : 'Address'} Location`} onPress={onLocate} /></View>
+      <SelectBox textSize={13} style={{ flex: 1, marginBottom: 0, marginTop: 4 }} title="Check-in / out distance" value={String(pick)}
+        options={radiusOptions(Number(current) || null).map((r) => [String(r), `${r}m`] as [string, string])} onChange={(k) => setPick(Number(k))} />
+      <View style={{ flex: 0.8 }}><Button grow textSize={13} title="Save" onPress={() => onSave(pick)} /></View>
+      {set && <Pressable accessibilityRole="button" accessibilityLabel="Remove geofence" onPress={onRemove} style={({ pressed }) => ({ width: 40, height: 34, marginTop: 4, borderRadius: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FDECEC', opacity: pressed ? 0.7 : 1 })}><OphIcon name="bin" size={17} color="#B42318" /></Pressable>}
     </View>
   );
 }

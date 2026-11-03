@@ -19,13 +19,14 @@ import { useAuth } from '@/lib/auth';
 import { clientPortfolio } from '@/lib/rules/checkin';
 import { isFullManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
-import { base, page, space } from '@/theme/theme';
+import { base, page, space, useDesk } from '@/theme/theme';
 
 // 030 applyTitleCase: capitals only at the start or after a space (Andy's House, not Andy'S House).
 const titleCase = (t: string) => t.replace(/(^|\s)([a-z])/g, (_m, a: string, c: string) => a + c.toUpperCase());
 const EMPTY: NewSite = { name: '', address: '', postcode: '', job_number: '', client_name: '', client_phone: '', client_email: '', multi_site: false, repair_contract: false, status: 'active', start_date: '' };
 
 export default function NewProject() {
+  const desk = useDesk();
   const { me } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
@@ -71,11 +72,12 @@ export default function NewProject() {
         <Field label="Address *" value={d.address} onChangeText={(v) => set({ address: titleCase(v) })} />
         <Field label="Postcode" value={d.postcode} onChangeText={(v) => set({ postcode: v.toUpperCase() })} autoCapitalize="characters" />
         <Field label="Job number" value={auto ? `${nums?.job_number_prefix || ''}${nums?.next_job_number ?? ''} (given automatically)` : d.job_number} onChangeText={(v) => set({ job_number: v })} editable={!auto} />
-        <SuggestField label="Client *" value={d.client_name} onChangeText={(v) => set({ client_name: titleCase(v) })} placeholder="Start typing — clients from the Directory come up" items={clients}
-          onPick={(c) => { const x = clients.find((y) => y.key === c.key); set({ client_name: c.label, client_phone: x?.phone || d.client_phone, client_email: x?.email || d.client_email }); }} />
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          <View style={{ flex: 4 }}><Field label="Contact number" value={d.client_phone} onChangeText={(v) => set({ client_phone: v })} keyboardType="phone-pad" /></View>
-          <View style={{ flex: 6 }}><Field label="Contact email" value={d.client_email} onChangeText={(v) => set({ client_email: v })} keyboardType="email-address" autoCapitalize="none" /></View>
+        {/* Client, number and email together (Andy, 3 Nov 2026): picked from the Directory (synced with Xero) and still editable. */}
+        <View style={{ flexDirection: desk ? 'row' : 'column', gap: desk ? 8 : 0, alignItems: desk ? 'flex-start' : 'stretch', zIndex: 20 }}>
+          <View style={desk ? { flex: 4 } : undefined}><SuggestField label="Client *" value={d.client_name} onChangeText={(v) => { const name = titleCase(v), x = clients.find((y) => y.label.toLowerCase() === name.trim().toLowerCase()); set({ client_name: name, ...(x ? { client_phone: d.client_phone || x.phone || '', client_email: d.client_email || x.email || '' } : {}) }); }} placeholder="Start typing — clients from the Directory come up" items={clients}
+            onPick={(c) => { const x = clients.find((y) => y.key === c.key); set({ client_name: c.label, client_phone: x?.phone || d.client_phone, client_email: x?.email || d.client_email }); }} /></View>
+          <View style={desk ? { flex: 3 } : undefined}><Field label="Client number" value={d.client_phone} onChangeText={(v) => set({ client_phone: v })} keyboardType="phone-pad" /></View>
+          <View style={desk ? { flex: 4 } : undefined}><Field label="Client email" value={d.client_email} onChangeText={(v) => set({ client_email: v })} keyboardType="email-address" autoCapitalize="none" /></View>
         </View>
         <Check label="Multi-site job (several addresses / plots)" value={d.multi_site} onChange={(x) => set({ multi_site: x, repair_contract: x ? false : d.repair_contract })} />
         <Check label="Repair / maintenance contract" value={d.repair_contract} onChange={(x) => set({ repair_contract: x, multi_site: x ? false : d.multi_site })} />
