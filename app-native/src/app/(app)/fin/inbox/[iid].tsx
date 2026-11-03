@@ -15,7 +15,7 @@ import { decide, type RLine } from '@/lib/rules/invoiceRead';
 import { FinForm } from '@/components/FinForm';
 import { FinRow } from '@/components/FinNav';
 import { pickJob } from '@/components/FinSales';
-import { chooseAction, confirmAsk, useToast } from '@/components/toast';
+import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Card, Muted } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
 import { fdb } from '@/data/finance';
@@ -42,6 +42,8 @@ export default function FinInboxItem() {
   const [reading, setReading] = useState(false);
   const [edited, setLines] = useState<RLine[] | null>(null);
   const { data: it, isLoading } = useQuery({ queryKey: ['finInbox', iid], queryFn: async () => (await fdb.from('fin_inbox').select('*').eq('id', iid).maybeSingle()).data as Row | null });
+  // The Directory's suppliers, to choose who the invoice is from (Andy, 3 Nov 2026).
+  const { data: sups = [] } = useQuery({ queryKey: ['finSupNames', me?.org_id], enabled: !!me?.org_id, queryFn: async () => (((await fdb.from('fin_suppliers').select('name').eq('org_id', me?.org_id as string).order('name')).data as Row[] | null) ?? []).map((x) => String(x.name || '')).filter(Boolean) });
   const { data: ctx } = useQuery({ queryKey: ['finReadCtx', me?.org_id], enabled: !!me?.org_id, queryFn: () => loadReadContext(me?.org_id as string) });
   const lines = edited ?? (it?.extracted?.lines as RLine[] | undefined) ?? null;
   // With lines, the job is whichever has most of the invoice; the rest goes on as a split when it's filed.
@@ -55,12 +57,23 @@ export default function FinInboxItem() {
   const ex = it.extracted || {};
   const po = poId ?? it.po_id ?? null;
   const filed = it.status === 'filed' && it.purchase_invoice_id;
+  // Who it's from can always be changed, read or not: saved straight onto the invoice so filing picks it up.
+  const chooseSupplier = async () => {
+    const k = await chooseAction('Who is the invoice from?', [...sups.map((n) => ({ key: `s:${n}`, label: `${n === ex.supplier ? '✓ ' : ''}${n}` })), { key: 'type', label: '✏️ Type a name' }]);
+    if (!k) return;
+    const name = k === 'type' ? (await promptText('Supplier name', ex.supplier || ''))?.trim() : k.slice(2);
+    if (!name || name === ex.supplier) return;
+    const r = await fdb.from('fin_inbox').update({ extracted: { ...ex, supplier: name } } as never).eq('id', it.id).select('id');
+    if (!r.data?.length) { toast('Could not save — try again.'); return; }
+    toast(`Supplier set to ${name}`); void qc.invalidateQueries({ queryKey: ['finInbox', iid] });
+  };
   return (
     <ScrollView contentContainerStyle={page(800)}>
       <Stack.Screen options={{ title: ex.supplier || it.from_email || 'Purchase invoice' }} />
       {filed && <Card><Text style={{ color: '#1E7A3C', fontWeight: '500' }}>Filed.</Text><Button kind="ghost" title="Open the purchase invoice" onPress={() => router.replace(`/fin/pinv/${it.purchase_invoice_id}` as never)} /></Card>}
       <Card>
-        <FinRow title="From" right={it.from_email || '—'} /><FinRow title="Received" right={fdate(String(it.received_at).slice(0, 10))} />{it.subject && <FinRow title="Subject" right={it.subject} />}
+        <FinRow title="Supplier" right={`${ex.supplier || 'Choose'} ▾`} onPress={filed ? undefined : () => void chooseSupplier()} />
+        <FinRow title="Emailed From" right={it.from_email || '—'} /><FinRow title="Received" right={fdate(String(it.received_at).slice(0, 10))} />{it.subject && <FinRow title="Subject" right={it.subject} />}
         {it.query_reason && <Text style={{ color: '#D98A00', marginTop: 6 }}>Why it&apos;s unallocated: {it.query_reason}</Text>}
         {(it.comments || []).map((c: Row, k: number) => <Muted key={k}>{c.name}: {c.text}</Muted>)}
       </Card>

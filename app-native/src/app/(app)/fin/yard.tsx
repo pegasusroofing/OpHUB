@@ -9,6 +9,7 @@ import { TextInput, View } from 'react-native';
 
 import { FinFilterBar, type FilterSel } from '@/components/FinFilterBar';
 import { FinPage, FinRow, FinStat } from '@/components/FinNav';
+import { PurchasesStats } from '@/components/FinPurchases';
 import { FinForm, type Field } from '@/components/FinForm';
 import { confirmAsk, useToast } from '@/components/toast';
 import { Button, Empty, Muted, SectionTitle } from '@/components/ui';
@@ -138,7 +139,7 @@ export default function FinYard() {
     );
   }
   return (
-    <FinPage title="Purchases" section="purchases" sub="yard" onSub={(k) => (k === 'yard' ? undefined : k === 'statements' ? router.replace('/fin/statements' as never) : router.replace(`/fin/purchases?tab=${k}` as never))}>
+    <FinPage title="Purchases" section="purchases" sub="yard" top={<PurchasesStats />} onSub={(k) => (k === 'yard' ? undefined : k === 'statements' ? router.replace('/fin/statements' as never) : router.replace(`/fin/purchases?tab=${k}` as never))}>
       <YardList items={items} rateBy={rateBy} loading={isLoading} onNew={() => setEdit('new')} onMove={openMove} />
       {forms}
     </FinPage>

@@ -1691,3 +1691,9 @@
 {"part":"mattabs1","step":"Tabs stay on every page","ok":true,"note":"Collections:tabs · Yard Stock:tabs · Book into yard:tabs · back → about:blank","ms":23670}
 {"part":"tiles3","step":"Tiles at 1440","ok":true,"note":"","ms":38638}
 {"part":"tiles3","step":"Tiles at 430","ok":true,"note":"","ms":38066}
+{"part":"finbars1","step":"Finance lists at 1440","ok":false,"note":"search boxes seen: 1","ms":79908}
+{"part":"finbars1","step":"Finance lists at 430","ok":true,"note":"search boxes seen: 3","ms":78624}
+{"part":"finbars1","step":"Finance lists at 1440","ok":true,"note":"search boxes seen: 0","ms":79156}
+{"part":"finbars1","step":"Finance lists at 430","ok":true,"note":"search boxes seen: 3","ms":79384}
+{"part":"pinvrows1","step":"Invoices at 1440","ok":true,"note":"","ms":26957}
+{"part":"pinvrows1","step":"Invoices at 430","ok":true,"note":"","ms":26471}

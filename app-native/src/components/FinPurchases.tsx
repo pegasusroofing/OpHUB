@@ -12,7 +12,7 @@ import { inPeriod, useStatPeriods } from '@/lib/useStatPeriods';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { FinFilterBar, type FilterPart, type FilterSel } from '@/components/FinFilterBar';
-import { FinRow, FinStat } from '@/components/FinNav';
+import { FinChip, FinRow, FinStat } from '@/components/FinNav';
 import { Cell, FinTable, FootText } from '@/components/FinTable';
 import { pickJob } from '@/components/FinSales';
 import { chooseAction, confirmAsk, useToast } from '@/components/toast';
@@ -31,6 +31,8 @@ import { base, radius, useDesk } from '@/theme/theme';
 
 type Row = Record<string, any>;
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 9, color: base.ink, backgroundColor: base.card };
+/** Why an invoice is waiting, in plain words: the reader's own error messages aren't for the office. */
+const plainReason = (r: unknown) => { const t = String(r || ''); return /^couldn.t read it/i.test(t) ? 'Couldn’t be read — open it to file by hand' : t; };
 export const PO_STATUS: Record<string, string> = { open: 'Open', invoiced: 'Invoiced', cancelled: 'Cancelled', draft: 'Draft' };
 
 export function usePurchases(orgId: string | null | undefined, siteId?: string) {
@@ -53,7 +55,8 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
   const { data: sites = [] } = useSites();
   const { data } = usePurchases(me?.org_id, siteId);
   // Filter: status, supplier, project and month, tick as many as you like. Purchase invoices keep one view at a time, as each shows a different list.
-  const [sel, setFilt] = useState<FilterSel>({ status: tab === 'orders' ? ['open'] : tab === 'invoices' && f0 ? [f0] : [], sup: [], job: [], mon: [] });
+  const desk = useDesk();
+  const [sel, setFilt] = useState<FilterSel>({ status: tab === 'orders' ? (desk ? [] : ['open']) : tab === 'invoices' && f0 ? [f0] : [], sup: [], job: [], mon: [] });
   const [sort, setSort] = useState('new');
   const [val, setVal] = useState('');
   const [q, setQ] = useState('');
@@ -72,7 +75,6 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
       return next;
     },
   });
-  const desk = useDesk();
   // Tick several to approve, or to mark paid (9219g finPiBulkApprove / finPiBulkPaid).
   const [picks, setSel] = useState<Set<string>>(new Set());
   const toast = useToast();
@@ -120,7 +122,10 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
     ...(siteId ? [] : [{ key: 'job', label: 'Project', items: jobIds.map((id) => ({ v: id, l: jobTag(site(id)) })) }]),
     { key: 'mon', label: 'Month', items: monthsIn([...data.pos, ...data.pinvs, ...data.hires], mOf).map((m) => ({ v: m, l: monthLabel(m) })) },
   ];
-  const bar = (ph: string, parts: FilterPart[] = [], cur?: FilterSel) => (
+  const bar = (ph: string, parts: FilterPart[] = [], cur?: FilterSel) => desk ? (() => {
+    const show = parts.find((p) => p.single);
+    return show ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>{show.items.map((it) => <FinChip key={it.v} on={(cur || sel).status[0] === it.v} label={it.l} n={it.n} onPress={() => setFilt({ ...sel, status: [it.v] })} />)}</View> : null;
+  })() : (
     <FinFilterBar search={{ value: q, onChange: setQ, placeholder: ph }} parts={[...parts, ...commonParts]} sel={cur || sel} onChange={setFilt} moreOn={!!val}
       onClear={() => { setFilt({ status: tab === 'invoices' ? ['all'] : [], sup: [], job: [], mon: [] }); setVal(''); }}
       sorts={[['new', 'Newest first'], ['old', 'Oldest first'], ['big', 'Biggest first'], ['sup', 'Supplier A to Z']]} sort={sort} onSort={setSort}
@@ -138,7 +143,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
         <View style={{ marginBottom: 10 }}><Button title="+ New PO" onPress={() => void withJob('New purchase order', (sid) => `/fin/po/new?site=${sid}`)} /></View>
         {bar('Search PO, supplier or project', [{ key: 'status', label: 'Status', items: [['open', 'Open'], ['invoiced', 'Invoiced'], ['cancelled', 'Cancelled']].map(([v, l]) => ({ v, l, n: data.pos.filter(F[v]).filter(fOK).length })) }])}
         {desk && list.length ? (
-          <FinTable rows={list} keyOf={(p) => p.id} onRow={(p) => router.push(`/fin/po/${p.id}` as never)}
+          <FinTable startFilter={{ s: ['Open'] }} rows={list} keyOf={(p) => p.id} onRow={(p) => router.push(`/fin/po/${p.id}` as never)}
             cols={[
               { k: 'no', l: 'PO', render: (p: Row) => <Cell bold>{p.number}</Cell> },
               { k: 'sup', l: 'Supplier', flex: 1.3, min: 130, render: (p: Row) => <Cell>{p.supplier_name || '—'}</Cell> },
@@ -147,7 +152,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
               { k: 'v', l: 'Value', render: (p: Row) => <Cell>{p.value != null ? money(p.value) : '—'}</Cell> },
               { k: 'i', l: 'Invoiced', render: (p: Row) => <Cell>{money(poInvoiced(p, live))}</Cell> },
               { k: 'l', l: 'Left To Invoice', render: (p: Row) => <Cell>{p.value != null ? money(Math.max(0, round2(Number(p.value) - poInvoiced(p, live)))) : '—'}</Cell> },
-              { k: 's', l: 'Status', render: (p: Row) => <Text style={{ fontSize: 10.5, fontWeight: '600', color: p.status === 'open' ? '#1d4ed8' : '#6b7280', backgroundColor: p.status === 'open' ? '#EEF3FD' : '#EEF0F2', borderRadius: 999, paddingVertical: 3, paddingHorizontal: 9, overflow: 'hidden' }}>● {PO_STATUS[p.status] || p.status}</Text> },
+              { k: 's', l: 'Status', noSort: true, choices: ['Open', 'Invoiced', 'Cancelled', 'Draft'], render: (p: Row) => <Text style={{ fontSize: 10.5, fontWeight: '600', color: p.status === 'open' ? '#1d4ed8' : '#6b7280', backgroundColor: p.status === 'open' ? '#EEF3FD' : '#EEF0F2', borderRadius: 999, paddingVertical: 3, paddingHorizontal: 9, overflow: 'hidden' }}>● {PO_STATUS[p.status] || p.status}</Text> },
             ]}
             foot={(list) => <><FootText bold>{list.length} shown</FootText><FootText>Value {money(list.reduce((t, p) => t + Number(p.value || 0), 0))}</FootText><FootText>Invoiced {money(list.reduce((t, p) => t + poInvoiced(p, live), 0))}</FootText></>} />
         ) : list.length ? list.map((p) => { const inv = poInvoiced(p, live), left = p.value != null ? Math.max(0, round2(Number(p.value) - inv)) : null; return (
@@ -177,17 +182,19 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
     };
     return (
       <View>
-        <Muted style={{ marginBottom: 10 }}>Invoices emailed in or added here are read, checked against your newest quote or price list, and filed to the job when it’s clear which one. Anything unclear stays in Unallocated with the reason. While Finance is on trial they aren’t read: allocate them by hand.</Muted>
-        <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
-          <View style={{ flex: 1 }}><Button kind="ghost" busy={upBusy} title="+ Add invoices" onPress={() => void uploadInvoices()} /></View>
-          <View style={{ flex: 1 }}><Button title="+ Type one in" onPress={() => void withJob('Add a purchase invoice', (sid) => `/fin/pinv/new?site=${sid}`)} /></View>
+        <Muted style={{ marginBottom: 10, fontSize: 12.5 }}>Invoices are filed to their job when it’s clear which one; anything unclear waits in Unallocated.</Muted>
+        <View style={{ flexDirection: desk ? 'row' : 'column-reverse', alignItems: desk ? 'flex-start' : 'stretch', gap: desk ? 12 : 0 }}>
+          <View style={{ flex: desk ? 1 : undefined, minWidth: 0 }}>{bar(cur === 'job' || cur === 'pm' ? 'Search supplier, email or invoice no.' : 'Search supplier, invoice no. or project', [{ key: 'status', label: 'Show', single: true, items: chips.map(([v, l, n]) => ({ v, l, n })) }], { ...sel, status: [cur] })}</View>
+          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
+            <View style={{ flex: desk ? undefined : 1 }}><Button small={desk} grow={!desk} kind="ghost" busy={upBusy} title="Add Invoices" onPress={() => void uploadInvoices()} /></View>
+            <View style={{ flex: desk ? undefined : 1 }}><Button small={desk} grow={!desk} title="Type One In" onPress={() => void withJob('Add a purchase invoice', (sid) => `/fin/pinv/new?site=${sid}`)} /></View>
+          </View>
         </View>
-        {bar(cur === 'job' || cur === 'pm' ? 'Search supplier, email or invoice no.' : 'Search supplier, invoice no. or project', [{ key: 'status', label: 'Show', single: true, items: chips.map(([v, l, n]) => ({ v, l, n })) }], { ...sel, status: [cur] })}
         {cur === 'job' || cur === 'pm' ? (
           <>
             {(cur === 'job' ? needJob : withPm).filter((it) => (!sel.sup.length || sel.sup.includes(supKey(it.extracted?.supplier))) && (!sel.job.length || sel.job.includes(it.site_id)) && hit(it.extracted?.supplier, it.from_email, it.extracted?.invoice_no, it.subject)).map((it) => {
               const ex = it.extracted || {}, last = (it.comments || []).slice(-1)[0];
-              return <FinRow key={it.id} title={ex.supplier || it.from_email || it.file_name || 'Purchase invoice'} sub={[ex.invoice_no, `received ${fdate(String(it.received_at).slice(0, 10))}`, cur === 'job' ? (!it.extracted ? 'Not read yet — open it to file by hand' : it.stage === 'pm_replied' && last ? `PM replied — ${last.name}: ${last.text}` : it.query_reason) : 'Sent to a PM'].filter(Boolean).join(' · ')} right={ex.total != null ? money(ex.total) : '—'} onPress={() => router.push(`/fin/inbox/${it.id}` as never)} />;
+              return <FinRow key={it.id} title={ex.supplier || it.from_email || it.file_name || 'Purchase invoice'} sub={[ex.invoice_no, `received ${fdate(String(it.received_at).slice(0, 10))}`, cur === 'job' ? (!it.extracted ? 'Not read yet — open it to file by hand' : it.stage === 'pm_replied' && last ? `PM replied — ${last.name}: ${last.text}` : plainReason(it.query_reason)) : 'Sent to a PM'].filter(Boolean).join(' · ')} right={ex.total != null ? money(ex.total) : 'To File'} onPress={() => router.push(`/fin/inbox/${it.id}` as never)} />;
             })}
             {!(cur === 'job' ? needJob : withPm).length && <Empty>{cur === 'job' ? 'Nothing waiting to be allocated.' : 'Nothing with a PM.'}</Empty>}
           </>
@@ -232,7 +239,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
                     { k: 't', l: 'Gross', min: 72, render: (i: Row) => <Cell bold>{money(i.total)}</Cell> },
                     { k: 'po', l: 'PO', min: 70, render: (i: Row) => <Cell>{posBy[i.po_id] ? posBy[i.po_id].number : 'No PO'}</Cell> },
                     { k: 'ch', l: 'Checks', flex: 1.2, min: 92, render: (i: Row) => <View style={{ alignItems: 'center', gap: 2 }}>{checks(i).map(([t, c]) => <Text key={t} style={{ fontSize: 10.5, fontWeight: '500', color: c, textAlign: 'center' }}>{t}</Text>)}</View> },
-                    { k: 's', l: 'Status', min: 72, render: (i: Row) => <Cell tone={i.status === 'query' ? '#C0392B' : undefined}>{i.paid_on ? 'Paid' : PI_STATUS[i.status] || i.status}</Cell> },
+                    { k: 's', l: 'Status', min: 72, noSort: true, choices: ['To approve', 'Approved', 'Query', 'Rejected', 'Paid'], render: (i: Row) => <Cell tone={i.status === 'query' ? '#C0392B' : undefined}>{i.paid_on ? 'Paid' : PI_STATUS[i.status] || i.status}</Cell> },
                   ]}
                   foot={(list) => <><FootText bold>{list.length} shown</FootText><FootText>Net {money(list.reduce((t, i) => t + Number(i.net || 0), 0))}</FootText><FootText>VAT {money(list.reduce((t, i) => t + Number(i.vat || 0), 0))}</FootText><FootText>Gross {money(list.reduce((t, i) => t + Number(i.total || 0), 0))}</FootText></>} /></>
               );

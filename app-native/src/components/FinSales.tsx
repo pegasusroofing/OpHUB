@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { askDate } from '@/components/DateField';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Text, TextInput, View } from 'react-native';
+import { Text, View } from 'react-native';
 
 import { FinFilterBar, type FilterSel } from '@/components/FinFilterBar';
 import { FinRow, FinStat } from '@/components/FinNav';
@@ -20,9 +20,8 @@ import { useAuth } from '@/lib/auth';
 import { byJobNoDesc, fdate, INV_STATUS, invOutstanding, invOutstandingNet, invOverdue, jobTag, money, retentionDates, retentionStillHeld, round2, type FinApp, type FinInv, type JobFin } from '@/lib/rules/finance';
 import { monthLabel, monthOf, monthsIn } from '@/lib/rules/finFilters';
 import { inPeriod, useStatPeriods } from '@/lib/useStatPeriods';
-import { base, radius, useDesk } from '@/theme/theme';
+import { base, useDesk } from '@/theme/theme';
 
-const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 9, color: base.ink, backgroundColor: base.card, marginBottom: 10 };
 export type App = FinApp & { id: string; site_id: string; due_date?: string | null; gross?: number | null; net_due?: number | null; cert_gross?: number | null; cert_net?: number | null; cert_is_payless?: boolean | null; invoice_id?: string | null; submitted_at?: string | null; created_at?: string };
 export type Inv = FinInv & { bill_name?: string | null; bill_address?: string | null; net?: number | null; vat?: number | null; rc_vat?: number | null; xero_id?: string | null; xero_post?: boolean | null; created_at?: string; kind?: string | null; lines?: { description?: string; amount?: number | string | null }[] | null; created_by?: string | null; updated_at?: string };
 export function appStage(a: App) {
@@ -76,13 +75,11 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
   // Filter: status, month and project, tick as many as you like. An application list with nothing chosen yet starts on the first group with anything in it.
   const [sel0, setSel] = useState<FilterSel | null>(tab === 'apps' ? (f0 ? { status: f0 === 'all' ? [] : [f0], mon: [], job: [] } : null) : { status: f0 === 'all' ? [] : [f0 || 'outstanding'], mon: [], job: [] });
   const [sort, setSort] = useState('new');
-  const [q, setQ] = useState('');
   const rowMenu = useFinRowMenu(data?.invs);
   const [voidOpen, setVoidOpen] = useState(false); // voided invoices sit in a closed drop-down (9219zn)
   const desk = useDesk();
-  // Inside a project on a laptop the table filters by column (Andy, 1 Nov 2026), so the search and filter row stay off and
-  // every status shows.
-  const bare = !!siteId && desk;
+  // On a laptop the table's own headings sort and filter, so the Filter / Sort bar is for phones only (Andy, 3 Nov 2026).
+  const bare = desk;
   const sites = sitesRaw as (typeof sitesRaw[number] & { job_number?: string | null; client_name?: string | null })[];
   const site = (id: string) => sites.find((s) => s.id === id);
   const billTo = (i: Inv) => i.bill_name || site(i.site_id)?.client_name || '';
@@ -96,7 +93,8 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
     ['finSales', 'finBook', 'finOverview'].forEach((k) => void qcRet.invalidateQueries({ queryKey: [k] }));
     if (r.id) router.push(`/fin/job/${a.site_id}/invoice/${r.id}` as never);
   };
-  const ql = q.trim().toLowerCase();
+  // No search row on Applications, Invoices or Retention (Andy, 3 Nov 2026): the filters do the job.
+  const ql = '';
   if (!data) return <Muted>Loading…</Muted>;
   const live = data.invs.filter((i) => i.status !== 'void');
   const stage = (a: App) => appStage(a).k;
@@ -116,7 +114,7 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
       <View>
         <Muted style={{ marginBottom: 10, fontSize: 12 }}>Apply → the client certifies it (enter their figures on the application) → the invoice is raised for you. A certificate is just a certified application.</Muted>
         <View style={{ marginBottom: 10 }}><Button title="+ New application" onPress={() => void newFor('application')} /></View>
-        {!bare && <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search application no., project or client' }} sel={sel} onChange={setSel} onClear={() => setSel({ status: [], mon: [], job: [] })}
+        {!bare && <FinFilterBar sel={sel} onChange={setSel} onClear={() => setSel({ status: [], mon: [], job: [] })}
           sorts={[['new', 'Newest first'], ['old', 'Oldest first'], ['big', 'Biggest first'], ...(siteId ? [] : [['job', 'Project'] as [string, string]])]} sort={sort} onSort={setSort}
           parts={[
             { key: 'status', label: 'Status', items: [['open', 'In progress'], ['certified', 'Certified, to invoice'], ['invoiced', 'Invoiced']].map(([v, l]) => ({ v, l, n: data.apps.filter(F[v]).length })) },
@@ -152,7 +150,7 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
     return (
       <View>
         <View style={{ marginBottom: 10 }}><Button title="+ New invoice" onPress={() => void newFor('invoice')} /></View>
-        {!bare && <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search invoice no., client or project' }} sel={sel} onChange={setSel} onClear={() => setSel({ status: [], mon: [], job: [] })}
+        {!bare && <FinFilterBar sel={sel} onChange={setSel} onClear={() => setSel({ status: [], mon: [], job: [] })}
           sorts={[['new', 'Newest first'], ['old', 'Oldest first'], ['big', 'Biggest first'], ['client', 'Client A to Z']]} sort={sort} onSort={setSort}
           parts={[
             { key: 'status', label: 'Status', items: [['outstanding', 'Owed'], ['overdue', 'Overdue'], ['draft', 'Drafts'], ['paid', 'Paid']].map(([v, l]) => ({ v, l, n: live.filter(F[v]).length })) },
@@ -201,7 +199,6 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
   return (
     <View>
       <Muted style={{ marginBottom: 10 }}>Money your clients are holding back until the work is signed off: {money(total)} across {rows.length} job{rows.length === 1 ? '' : 's'}. Half usually comes back at practical completion and half at the end of the defects period — set the dates on each project.</Muted>
-      {!siteId && <TextInput value={q} onChangeText={setQ} placeholder="Search project, client" style={box} />}
       {desk && rows.length ? (
         <FinTable rows={rows} keyOf={(x) => x.s.id} onRow={(x) => router.push(`/fin/job/${x.s.id}?tab=setup` as never)}
           cols={[
