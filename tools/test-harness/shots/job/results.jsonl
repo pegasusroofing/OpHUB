@@ -1698,3 +1698,5 @@
 {"part":"pinvrows1","step":"Invoices at 1440","ok":true,"note":"","ms":26957}
 {"part":"pinvrows1","step":"Invoices at 430","ok":true,"note":"","ms":26471}
 {"part":"docsplit1","step":"Side panel","ok":true,"note":"pinv shown","ms":49990}
+{"part":"pinvrows1","step":"Invoices at 1440","ok":true,"note":"","ms":26687}
+{"part":"pinvrows1","step":"Invoices at 430","ok":true,"note":"","ms":26386}

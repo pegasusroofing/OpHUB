@@ -33,6 +33,36 @@ type Row = Record<string, any>;
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 9, color: base.ink, backgroundColor: base.card };
 /** Why an invoice is waiting, in plain words: the reader's own error messages aren't for the office. */
 const plainReason = (r: unknown) => { const t = String(r || ''); return /^couldn.t read it/i.test(t) ? 'Couldn’t be read — open it to file by hand' : t; };
+/** How long ago, in short: Just now, 5h ago, 3d ago. */
+function ageOf(ts: string) { const h = Math.max(0, Math.round((Date.now() - new Date(ts).getTime()) / 36e5)); return h < 1 ? 'Just now' : h < 24 ? `${h}h ago` : `${Math.round(h / 24)}d ago`; }
+/** An invoice waiting to be filed (Andy, 3 Nov 2026): its number, status and age; Total, VAT and the project as chips
+ *  (tap the project to choose it); then supplier, dates, why it's waiting and where it came from. */
+function InboxRow({ it, pm, why, job, onJob }: { it: Row; pm: boolean; why: string; job: string; onJob: () => void }) {
+  const ex = it.extracted || {};
+  const ago = ageOf(it.received_at);
+  const chip = (label: string, v: string, onPress?: () => void, warn?: boolean) => (
+    <Pressable key={label} onPress={onPress} disabled={!onPress} style={{ flexDirection: 'row', gap: 4, alignItems: 'center', borderWidth: 1, borderColor: warn ? '#f8e7c2' : '#e5e7eb', backgroundColor: warn ? '#fffaf0' : '#fff', borderRadius: 7, paddingHorizontal: 9, height: 28 }}>
+      {!!label && <Text style={{ fontSize: 12, color: '#6b7280' }}>{label}</Text>}<Text numberOfLines={1} style={{ fontSize: 12.5, fontWeight: '600', color: warn ? '#b45309' : '#111827', maxWidth: 220 }}>{v}</Text>
+    </Pressable>
+  );
+  const meta = [ex.supplier || it.from_email || '', ex.date ? `Issued ${fdate(ex.date)}` : '', ex.due ? `Due ${fdate(ex.due)}` : '', why, it.from_email && ex.supplier ? it.from_email : ''].filter(Boolean).join(' · ');
+  return (
+    <Pressable onPress={() => router.push(`/fin/inbox/${it.id}` as never)} style={({ pressed }) => ({ backgroundColor: pressed ? '#f9fafb' : base.card, borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 11, marginBottom: 8 })}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <Text numberOfLines={1} style={{ flex: 1, fontSize: 15, fontWeight: '600', color: '#111827' }}>{ex.invoice_no || it.file_name || 'Purchase invoice'}</Text>
+        <Text style={{ fontSize: 11.5, fontWeight: '600', color: pm ? '#1d4ed8' : '#b45309', backgroundColor: pm ? '#f3f7ff' : '#fffaf0', borderRadius: 12, paddingHorizontal: 9, paddingVertical: 3, overflow: 'hidden' }}>{pm ? 'With A PM' : 'Unallocated'}</Text>
+        <Text style={{ fontSize: 12, color: '#6b7280' }}>{ago}</Text>
+        <Text style={{ fontSize: 14, color: '#9ca3af' }}>›</Text>
+      </View>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+        {chip('Total', ex.total != null ? money(ex.total) : '—')}
+        {chip('VAT', ex.vat != null ? money(ex.vat) : '—')}
+        {chip('', job || 'Select Project ▾', onJob, !job)}
+      </View>
+      {!!meta && <Text numberOfLines={2} style={{ fontSize: 12.5, color: '#6b7280', marginTop: 8 }}>{meta}</Text>}
+    </Pressable>
+  );
+}
 export const PO_STATUS: Record<string, string> = { open: 'Open', invoiced: 'Invoiced', cancelled: 'Cancelled', draft: 'Draft' };
 
 export function usePurchases(orgId: string | null | undefined, siteId?: string) {
@@ -193,8 +223,8 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
         {cur === 'job' || cur === 'pm' ? (
           <>
             {(cur === 'job' ? needJob : withPm).filter((it) => (!sel.sup.length || sel.sup.includes(supKey(it.extracted?.supplier))) && (!sel.job.length || sel.job.includes(it.site_id)) && hit(it.extracted?.supplier, it.from_email, it.extracted?.invoice_no, it.subject)).map((it) => {
-              const ex = it.extracted || {}, last = (it.comments || []).slice(-1)[0];
-              return <FinRow key={it.id} title={ex.supplier || it.from_email || it.file_name || 'Purchase invoice'} sub={[ex.invoice_no, `received ${fdate(String(it.received_at).slice(0, 10))}`, cur === 'job' ? (!it.extracted ? 'Not read yet — open it to file by hand' : it.stage === 'pm_replied' && last ? `PM replied — ${last.name}: ${last.text}` : plainReason(it.query_reason)) : 'Sent to a PM'].filter(Boolean).join(' · ')} right={ex.total != null ? money(ex.total) : 'To File'} onPress={() => router.push(`/fin/inbox/${it.id}` as never)} />;
+              const last = (it.comments || []).slice(-1)[0];
+              return <InboxRow key={it.id} it={it} pm={cur === 'pm'} why={cur === 'job' ? (!it.extracted ? 'Not read yet — open it to file by hand' : it.stage === 'pm_replied' && last ? `PM replied — ${last.name}: ${last.text}` : plainReason(it.query_reason)) : 'Sent to a PM'} job={it.site_id ? jobTag(site(it.site_id)) : ''} onJob={async () => { const sid = await pickJob('Which project is it for?', sites.filter((x) => x.status !== 'closed')); if (!sid) return; const r = await fdb.from('fin_inbox').update({ site_id: sid } as never).eq('id', it.id).select('id'); if (!r.data?.length) { toast('Could not save — try again.'); return; } void qc.invalidateQueries({ queryKey: ['finPurchases'] }); }} />;
             })}
             {!(cur === 'job' ? needJob : withPm).length && <Empty>{cur === 'job' ? 'Nothing waiting to be allocated.' : 'Nothing with a PM.'}</Empty>}
           </>
