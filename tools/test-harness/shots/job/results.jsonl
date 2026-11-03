@@ -1438,3 +1438,24 @@
 {"part":"invlock1","step":"Edit lines opens them again","ok":true,"note":"boxes 2, test draft deleted true","ms":3481}
 {"part":"invlock1","step":"Issued: locked, Edit lines warns about Xero, Cancel leaves it","ok":true,"note":"before 0, warned 1, open 2","ms":13889}
 {"part":"appphone1","step":"Box beside the description","ok":true,"note":"desc 29,370 box 303,371 over 0","ms":13335}
+{"part":"appphone1","step":"Box beside the description","ok":true,"note":"desc 29,369 box 328,377 over 0","ms":43351}
+{"part":"appphone1","step":"Buttons the same height, bin on the right","ok":false,"note":"locator.scrollIntoViewIfNeeded: Timeout 30000ms exceeded.","ms":30032}
+{"part":"appbtn1","step":"Applied: Return To Draft, Export Excel, Certify, Delete; Delete red and same height","ok":true,"note":"order true {\"d\":{\"h\":34,\"w\":46,\"bg\":\"rgb(253, 236, 236)\"},\"e\":{\"h\":34,\"w\":229,\"bg\":\"rgb(223, 227, 234)\"}}","ms":12487}
+{"part":"appbtn1","step":"Certifying: Back To The Application, Save Certificate, Save & Raise Invoice, Delete","ok":true,"note":"order true","ms":1659}
+{"part":"appimport1","step":"An applied application to work on","ok":true,"note":"submitted","ms":214}
+{"part":"appimport1","step":"Email Application pop-up: client email, CC Me ticked, Email Me Only","ok":false,"note":"locator.click: Timeout 5000ms exceeded.","ms":18322}
+{"part":"appimport1","step":"Import Certificate reads our exported Excel","ok":true,"note":"certified boxes 9, note 1","ms":5490}
+{"part":"appbtn1","step":"Applied: Return To Draft, Import Certificate, Certify, Delete; Delete red and same height","ok":true,"note":"order true {\"d\":{\"h\":34,\"w\":46,\"bg\":\"rgb(253, 236, 236)\"},\"e\":{\"h\":34,\"w\":229,\"bg\":\"rgb(223, 227, 234)\"}}","ms":12385}
+{"part":"appbtn1","step":"Certifying: Back To The Application, Save Certificate, Save & Raise Invoice, Delete","ok":true,"note":"order true","ms":1679}
+{"part":"appphone1","step":"Box beside the description","ok":true,"note":"desc 29,369 box 328,377 over 0","ms":43422}
+{"part":"appphone1","step":"Variations: box beside the description too","ok":false,"note":"locator.boundingBox: Timeout 30000ms exceeded.","ms":60031}
+{"part":"appphone1","step":"Overview buttons the same height, bin on the right, Email Application below","ok":true,"note":"[{\"t\":\"Return To Draft\",\"h\":50,\"w\":109,\"x\":16,\"y\":1144},{\"t\":\"Import Certificate\",\"h\":50,\"w\":109,\"x\":133,\"y\":1144},{\"t\":\"Certify\",\"h\":50,\"w\":109,\"x\":251,\"y\":1144},{\"t\":\"bin\",\"h\":50,\"w\":46,\"x\":368,\"y\":1144}]","ms":1349}
+{"part":"appimport1","step":"An applied application to work on","ok":true,"note":"submitted","ms":188}
+{"part":"appimport1","step":"Email Application pop-up: client email, CC Me ticked, Email Me Only","ok":true,"note":"cc 1, me only 1, send 1","ms":13801}
+{"part":"appimport1","step":"Import Certificate reads our exported Excel","ok":true,"note":"certified boxes 9, note 1","ms":8190}
+{"part":"appphone1","step":"Box beside the description","ok":false,"note":"locator.boundingBox: Timeout 30000ms exceeded.","ms":73609}
+{"part":"appphone1","step":"Variations: box beside the description too","ok":false,"note":"locator.boundingBox: Timeout 30000ms exceeded.","ms":60039}
+{"part":"appphone1","step":"Overview buttons the same height, bin on the right, Email Application below","ok":true,"note":"[{\"t\":\"Return To Draft\",\"h\":50,\"w\":109,\"x\":16,\"y\":1144},{\"t\":\"Import Certificate\",\"h\":50,\"w\":109,\"x\":133,\"y\":1144},{\"t\":\"Certify\",\"h\":50,\"w\":109,\"x\":251,\"y\":1144},{\"t\":\"bin\",\"h\":50,\"w\":46,\"x\":368,\"y\":1144}]","ms":1351}
+{"part":"appphone1","step":"Box beside the description","ok":true,"note":"desc 29,369 box 328,377 over 0","ms":43305}
+{"part":"appphone1","step":"Variations: box beside the description too","ok":true,"note":"desc 678 box 328,680","ms":30}
+{"part":"appphone1","step":"Overview buttons the same height, bin on the right, Email Application below","ok":true,"note":"[{\"t\":\"Return To Draft\",\"h\":50,\"w\":109,\"x\":16,\"y\":1144},{\"t\":\"Import Certificate\",\"h\":50,\"w\":109,\"x\":133,\"y\":1144},{\"t\":\"Certify\",\"h\":50,\"w\":109,\"x\":251,\"y\":1144},{\"t\":\"bin\",\"h\":50,\"w\":46,\"x\":368,\"y\":1144}]","ms":1355}

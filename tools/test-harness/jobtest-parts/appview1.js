@@ -23,8 +23,8 @@ module.exports = async ({as, step}) => {
     const [r] = await a.get('fin_applications?select=status&id=eq.' + id);
     if (r.status === 'draft') {
       await a.page.getByLabel('Percent done').first().fill('50'); await a.page.waitForTimeout(2800);
-      await q('Mark As Applied').first().click({timeout: 5000}); await a.page.waitForTimeout(1500);
-      await q('Mark As Applied').last().click({timeout: 5000}); await a.page.waitForTimeout(3500);
+      await q('Apply For Payment').first().click({timeout: 5000}); await a.page.waitForTimeout(1500);
+      await q('Apply For Payment').last().click({timeout: 5000}); await a.page.waitForTimeout(3500);
     }
     await a.shot('applied-lines'); await q('Certify').first().click({timeout: 5000}); await a.page.waitForTimeout(600);
     return {ok: (await a.page.getByLabel('Certified percent').count()) >= 1, note: 'boxes ' + (await a.page.getByLabel('Certified percent').count())};

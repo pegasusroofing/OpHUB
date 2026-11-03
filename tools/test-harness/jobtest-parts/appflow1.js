@@ -32,10 +32,10 @@ module.exports = async ({as, step}) => {
     return {ok: (await q('£300.00').count()) >= 1, note: 'value £300'};
   });
   await step('Buttons on one row, then certified on each line', async () => {
-    const s = await q('Save').last().boundingBox(), m = await q('Mark As Applied').first().boundingBox(), d = await q('Delete').first().boundingBox(); await a.shot('buttons');
+    const s = await q('Save').last().boundingBox(), m = await q('Apply For Payment').first().boundingBox(), d = await a.page.getByLabel('Delete', {exact: true}).locator('visible=true').first().boundingBox(); await a.shot('buttons');
     const same = Math.abs(s.y - m.y) < 8 && Math.abs(d.y + d.height / 2 - (m.y + m.height / 2)) < 8;
-    await q('Mark As Applied').first().click({timeout: 5000}); await a.page.waitForTimeout(1500);
-    await q('Mark As Applied').last().click({timeout: 5000}); await a.page.waitForTimeout(3500); await a.shot('applied'); await q('Certify').first().click({timeout: 5000}); await a.page.waitForTimeout(600);
+    await q('Apply For Payment').first().click({timeout: 5000}); await a.page.waitForTimeout(1500);
+    await q('Apply For Payment').last().click({timeout: 5000}); await a.page.waitForTimeout(3500); await a.shot('applied'); await q('Certify').first().click({timeout: 5000}); await a.page.waitForTimeout(600);
     const boxes = await a.page.getByLabel('Certified percent').count();
     const [r] = await a.get('fin_applications?select=status,variations&id=eq.' + id);
     const kept = (r.variations || []).some((v) => v.description === 'ZZ two doors' && Number(v.value) === 300 && Number(v.qty) === 2);

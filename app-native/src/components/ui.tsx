@@ -57,8 +57,9 @@ export function Field({ label, ...props }: TextInputProps & { label: string }) {
 // Normal-case words, gentle corners. A ghost button whose title starts Delete, Remove or Void takes the red look by itself.
 const BTN_GREY = '#DFE3EA', BTN_DANGER = ['#FDECEC', '#B42318'] as const;
 const BTN_SHADOW = { shadowColor: '#101828', shadowOpacity: 0.12, shadowRadius: 2, shadowOffset: { width: 0, height: 1 }, elevation: 1 };
-export function Button({ title, onPress, busy, kind = 'primary', disabled, small, textSize }: {
-  title: string; onPress: () => void | Promise<unknown>; busy?: boolean; kind?: 'primary' | 'ghost' | 'danger'; disabled?: boolean; small?: boolean; textSize?: number;
+/** grow: fills the height it's given, so a row of buttons with longer and shorter words all match. */
+export function Button({ title, onPress, busy, kind = 'primary', disabled, small, textSize, grow }: {
+  title: string; onPress: () => void | Promise<unknown>; busy?: boolean; kind?: 'primary' | 'ghost' | 'danger'; disabled?: boolean; small?: boolean; textSize?: number; grow?: boolean;
 }) {
   const t = useTheme();
   const primary = kind === 'primary';
@@ -83,6 +84,7 @@ export function Button({ title, onPress, busy, kind = 'primary', disabled, small
         s.btn,
         primary ? { backgroundColor: t.brand1, ...BTN_SHADOW } : { backgroundColor: danger ? BTN_DANGER[0] : BTN_GREY },
         small && s.btnSmall,
+        grow && { flexGrow: 1 },
         (pressed || busy || disabled) && { opacity: 0.7 },
       ]}>
       {busy && <ActivityIndicator color={fg} style={{ marginRight: 8 }} />}

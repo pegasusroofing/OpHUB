@@ -37,8 +37,8 @@ module.exports = async ({as, step}) => {
     return {ok: Number(line(r).pct) === 80, note: 'pct ' + line(r).pct};
   });
   await step('Certified by £', async () => {
-    await q('Mark As Applied').first().click({timeout: 5000}); await a.page.waitForTimeout(1500);
-    await q('Mark As Applied').last().click({timeout: 5000}); await a.page.waitForTimeout(3500); await a.shot('applied-form');
+    await q('Apply For Payment').first().click({timeout: 5000}); await a.page.waitForTimeout(1500);
+    await q('Apply For Payment').last().click({timeout: 5000}); await a.page.waitForTimeout(3500); await a.shot('applied-form');
     if ((await a.page.getByLabel('Certified percent').count()) !== 0) throw new Error('certified boxes showed before Certify');
     await q('Certify').first().click({timeout: 5000}); await a.page.waitForTimeout(600); await a.shot('certifying');
     await pick('Enter %', 'Enter £');

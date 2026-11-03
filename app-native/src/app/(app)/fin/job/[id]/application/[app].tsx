@@ -7,10 +7,11 @@ import * as DocumentPicker from 'expo-document-picker';
 import { pdfLines } from '@/lib/pdfjs';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useEffect, useRef, useState, type ComponentRef, type ReactNode } from 'react';
+import { cloneElement, isValidElement, useEffect, useRef, useState, type ComponentRef, type ReactElement, type ReactNode } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { ThinExportBar } from '@/components/FinFilterBar';
+import { OphIcon } from '@/components/OphIcon';
 import { SelectBox } from '@/components/SelectBox';
 import { confirmAsk, showAlert, useToast } from '@/components/toast';
 import { FinForm } from '@/components/FinForm';
@@ -18,7 +19,7 @@ import { Button, Card, Check, Muted } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
 import { askAppSow } from '@/components/FinRowMenu';
 import { DateBox } from '@/components/DateField';
-import { addBoqLines, addBoqSection, clearCertificate, deleteApplication, deleteApplicationAny, exportApplication, loadApplication, newApplication, raiseInvoiceFromCert, saveApplication, saveCertificate, setStatus } from '@/data/finApp';
+import { addBoqLines, addBoqSection, clearCertificate, emailApplication, deleteApplication, deleteApplicationAny, exportApplication, loadApplication, newApplication, raiseInvoiceFromCert, saveApplication, saveCertificate, setStatus } from '@/data/finApp';
 import { useFinSettings } from '@/data/finance';
 import { openDocLink } from '@/data/hs';
 import { useSite } from '@/data/sites';
@@ -71,6 +72,7 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
   const [view, setViewNow] = useState<'overview' | 'lines'>(lastView.get(a0.id) || 'overview');
   const scroller = useRef<ComponentRef<typeof ScrollView>>(null);
   const setView = (x: 'overview' | 'lines') => { lastView.set(a0.id, x); setViewNow(x); scroller.current?.scrollTo({ y: 0, animated: false }); };
+  const [mailing, setMailing] = useState(false);
   // An applied application stays as an application until Certify is pressed.
   const [certifying, setCertifying] = useState(false);
   const [over, setOver] = useState<Record<string, Entry>>({}); // single lines switched away from the page's choice
@@ -244,10 +246,10 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
               <>
                 <ActionRow onDelete={deleteAny}>
                   <Button kind="ghost" title="Return To Draft" onPress={async () => { if (await confirmAsk('Return this application to draft so you can edit it?', 'Return to draft')) { if (await setStatus(a0.id, { status: 'draft' })) { toast('Back to draft — you can edit it now'); refresh(); } } }} />
-                  <Button kind="ghost" busy={busy === 'xlsx'} title="Export Excel" onPress={() => void exportAs('xlsx', true)} />
+                  <Button kind="ghost" busy={busy === 'cert'} title="Import Certificate" onPress={async () => { setBusy('cert'); try { if (await importCertificate(a0, cert, toast)) { setCertifying(true); setView('lines'); } } finally { setBusy(''); } }} />
                   <Button title="Certify" onPress={() => { setCertifying(true); setView('lines'); }} />
                 </ActionRow>
-                <Muted style={{ marginTop: 6 }}>Emailing the application to the client is switched off while Finance is on trial.</Muted>
+                <View style={{ marginTop: 4 }}><Button kind="ghost" title="Email Application" onPress={() => setMailing(true)} /></View>
               </>
             )}
             {certing && (
@@ -439,21 +441,30 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
           }} />
         );
       })() : (
-        <View key={i} style={{ flexDirection: desk ? 'row' : 'column', alignItems: desk ? 'center' : 'stretch', gap: 8, paddingVertical: 8, paddingHorizontal: 12, borderBottomWidth: 1, borderColor: base.cardLine }}>
-          {locked ? <Text style={desk ? { flex: 1, color: base.ink } : { color: base.ink }}>{v.description}</Text> : <TextInput value={v.description} onChangeText={(x) => setA({ ...a, variations: a.variations.map((y: Row, j: number) => (j === i ? { ...y, description: x } : y)) })} placeholder="Description" style={[box, desk ? { flex: 1 } : null]} />}
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
-          {locked ? <Text style={{ color: base.slate }}>{Number(v.qty) > 1 ? `${v.qty} × ${money(v.rate)} = ` : ''}{money(v.value)} @ {pct(v.pct)}%</Text> : (
-            <>
-              <Text style={{ color: base.slate, fontSize: 13 }}>Qty</Text>
-              <TextInput accessibilityLabel="Variation quantity" defaultValue={v.qty != null ? String(v.qty) : '1'} onChangeText={(x) => setVar(i, { qty: x })} keyboardType="decimal-pad" selectTextOnFocus style={[box, { width: 56 }]} />
-              <Text style={{ color: base.slate }}>×</Text>
-              <TextInput defaultValue={v.rate != null ? String(v.rate) : v.value != null ? String(v.value) : ''} onChangeText={(x) => setVar(i, { rate: x })} placeholder="£ value" keyboardType="decimal-pad" selectTextOnFocus style={[box, { width: 90 }]} />
-              <AmountBox key={`vp${i}-${gen}`} p={pct(v.pct)} value={v.value} mode={mode === 'gbp' ? 'gbp' : 'pct'} labels={['Percent done', 'Amount done', 'Quantity done']} onPct={(x) => setA({ ...a, variations: a.variations.map((y: Row, j: number) => (j === i ? { ...y, pct: x } : y)) })} />
-            </>
-          )}
-          {varSite(v, i)}
-          <Text style={{ marginLeft: 'auto', minWidth: 90, textAlign: 'right', fontWeight: '600', color: base.ink }}>{money(v.gross)}</Text>
-          {certing && <><View style={{ width: CERT_W, alignItems: 'center' }}><AmountBox p={pct(cert.cp[`v${i}`])} value={v.value} qty={Number(v.qty) > 1 ? v.qty : null} mode={over[`v${i}`] || mode} onMode={flip(`v${i}`)} labels={CERT_LABELS} onPct={(x) => cert.applyLines({ ...cert.cp, [`v${i}`]: String(x) })} /></View><Text style={{ width: 96, textAlign: 'right', fontWeight: '600', color: base.ink }}>{money(round2((Number(v.value || 0) * pct(cert.cp[`v${i}`])) / 100))}</Text></>}
+        <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderColor: base.cardLine }}>
+          <View style={{ flex: 1, minWidth: 0, gap: 6 }}>
+            {locked ? <Text style={{ color: base.ink, fontSize: 14 }}>{v.description}</Text> : <TextInput value={v.description} onChangeText={(x) => setA({ ...a, variations: a.variations.map((y: Row, j: number) => (j === i ? { ...y, description: x } : y)) })} placeholder="Description" style={[box, { fontSize: 14 }]} />}
+            {locked ? <Muted style={{ fontSize: 12 }}>{Number(v.qty) > 1 ? `${v.qty} × ${money(v.rate)} = ` : 'Value '}{money(v.value)}</Muted> : (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={{ color: base.slate, fontSize: 13 }}>Qty</Text>
+                <TextInput accessibilityLabel="Variation quantity" defaultValue={v.qty != null ? String(v.qty) : '1'} onChangeText={(x) => setVar(i, { qty: x })} keyboardType="decimal-pad" selectTextOnFocus style={[box, { width: 48 }]} />
+                <Text style={{ color: base.slate }}>×</Text>
+                <TextInput defaultValue={v.rate != null ? String(v.rate) : v.value != null ? String(v.value) : ''} onChangeText={(x) => setVar(i, { rate: x })} placeholder="£ value" keyboardType="decimal-pad" selectTextOnFocus style={[box, { flex: 1, minWidth: 60 }]} />
+              </View>
+            )}
+            {varSite(v, i)}
+          </View>
+          <View style={{ alignItems: 'flex-end', gap: 4 }}>
+            {locked ? <Text style={{ color: base.slate, fontSize: 12.5 }}>Applied {pct(v.pct)}%</Text> : <AmountBox key={`vp${i}-${gen}`} p={pct(v.pct)} value={v.value} mode={mode === 'gbp' ? 'gbp' : 'pct'} labels={['Percent done', 'Amount done', 'Quantity done']} onPct={(x) => setA({ ...a, variations: a.variations.map((y: Row, j: number) => (j === i ? { ...y, pct: x } : y)) })} />}
+            <Text style={{ fontSize: 14, fontWeight: '600', color: base.ink }}>{money(v.gross)}</Text>
+            {certing && (
+              <>
+                <Muted style={{ fontSize: 11.5, marginTop: 4, marginBottom: 0 }}>Certified</Muted>
+                <AmountBox p={pct(cert.cp[`v${i}`])} value={v.value} qty={Number(v.qty) > 1 ? v.qty : null} mode={over[`v${i}`] || mode} onMode={flip(`v${i}`)} labels={CERT_LABELS} onPct={(x) => cert.applyLines({ ...cert.cp, [`v${i}`]: String(x) })} />
+                <Text style={{ fontSize: 14, fontWeight: '600', color: base.ink }}>{money(round2((Number(v.value || 0) * pct(cert.cp[`v${i}`])) / 100))}</Text>
+              </>
+            )}
+            {certDone && (() => { const cl = (a0.cert_lines || []).find((x: Row) => x.var_index === i); return <Text style={{ color: base.slate, fontSize: 12.5 }}>Certified {cl ? money(cl.gross) : '—'}</Text>; })()}
           </View>
         </View>
       ))}
@@ -475,12 +486,25 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
             prev: '', now: certG == null ? (certDone ? '—' : money(d.gross)) : money(certG),
           }} />
         );
-      })() : (locked || d.fin_daywork_id) ? <View key={i} style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8, paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderColor: base.cardLine }}><Text style={{ flex: 1, color: base.ink }}>{d.description}</Text><Text style={{ fontWeight: '600', color: base.ink }}>{money(d.gross)}</Text>{certing && <View style={{ width: 180, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}><Text style={{ color: base.slate }}>£</Text><TextInput accessibilityLabel="Certified amount" value={cert.cp[`d${i}`]} onChangeText={(x) => cert.applyLines({ ...cert.cp, [`d${i}`]: x })} keyboardType="decimal-pad" selectTextOnFocus style={[box, { width: 96, height: 30, paddingVertical: 2, fontSize: 13 }]} /></View>}</View> : (
-        <View key={i} style={{ flexDirection: desk ? 'row' : 'column', alignItems: desk ? 'center' : 'stretch', gap: 8, paddingVertical: 8, paddingHorizontal: 12, borderBottomWidth: 1, borderColor: base.cardLine }}>
-          <TextInput value={d.description || ''} onChangeText={(x) => setA({ ...a, dayworks: a.dayworks.map((y: Row, j: number) => (j === i ? { ...y, description: x } : y)) })} placeholder="Description" style={[box, desk ? { flex: 1 } : null]} />
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-          <TextInput defaultValue={d.value != null ? String(d.value) : ''} onChangeText={(x) => setA({ ...a, dayworks: a.dayworks.map((y: Row, j: number) => (j === i ? { ...y, value: num(x) } : y)) })} placeholder="£ value" keyboardType="decimal-pad" selectTextOnFocus style={[box, { width: 100 }]} />
-          <Text style={{ width: 90, textAlign: 'right', fontWeight: '500', color: base.ink }}>{money(d.gross)}</Text>
+      })() : (
+        <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderColor: base.cardLine }}>
+          <View style={{ flex: 1, minWidth: 0, gap: 6 }}>
+            {!locked && !d.fin_daywork_id ? (
+              <>
+                <TextInput value={d.description || ''} onChangeText={(x) => setA({ ...a, dayworks: a.dayworks.map((y: Row, j: number) => (j === i ? { ...y, description: x } : y)) })} placeholder="Description" style={[box, { fontSize: 14 }]} />
+                <TextInput defaultValue={d.value != null ? String(d.value) : ''} onChangeText={(x) => setA({ ...a, dayworks: a.dayworks.map((y: Row, j: number) => (j === i ? { ...y, value: num(x) } : y)) })} placeholder="£ value" keyboardType="decimal-pad" selectTextOnFocus style={[box, { width: 110 }]} />
+              </>
+            ) : <Text style={{ color: base.ink, fontSize: 14 }}>{d.description}</Text>}
+          </View>
+          <View style={{ alignItems: 'flex-end', gap: 4 }}>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: base.ink }}>{money(d.gross)}</Text>
+            {certing && (
+              <>
+                <Muted style={{ fontSize: 11.5, marginTop: 4, marginBottom: 0 }}>Certified</Muted>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}><Text style={{ color: base.slate, fontWeight: '500' }}>£</Text><TextInput accessibilityLabel="Certified amount" value={cert.cp[`d${i}`]} onChangeText={(x) => cert.applyLines({ ...cert.cp, [`d${i}`]: x })} keyboardType="decimal-pad" selectTextOnFocus style={[box, { width: 90, height: 30, paddingVertical: 2, fontSize: 13 }]} /></View>
+              </>
+            )}
+            {certDone && (() => { const cl = (a0.cert_lines || []).find((x: Row) => x.day_index === i); return <Text style={{ color: base.slate, fontSize: 12.5 }}>Certified {cl ? money(cl.gross) : '—'}</Text>; })()}
           </View>
         </View>
       ))}
@@ -491,12 +515,26 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
         <ActionRow note={autoNote} onDelete={async () => { if (await confirmAsk('Delete this draft application?', 'Delete')) { if (await deleteApplication(a0.id)) { toast('Draft deleted'); refresh(); router.back(); } else toast('Not saved — check your signal and try again.'); } }}>
           <Button kind="ghost" busy={busy === 'save'} title="Save" onPress={() => void save()} />
           <Button kind="ghost" busy={busy === 'xlsx'} title="Export Excel" onPress={() => void exportAs('xlsx', true)} />
-          <Button title="Mark As Applied" onPress={async () => {
+          <Button title="Apply For Payment" onPress={async () => {
             if (!(await save(true))) return;
-            if (!(await confirmAsk('Mark this application as Applied? It will be locked so the figures can’t change. You can return it to draft if you need to edit it.', 'Mark As Applied'))) return;
-            if (await setStatus(a0.id, { status: 'submitted', submitted_at: new Date().toISOString() })) { toast('Applied — now locked.'); refresh(); } else toast('Not saved — check your signal and try again.');
+            if (!(await confirmAsk('Apply for payment? The application is locked so the figures can’t change. You can return it to draft if you need to edit it.', 'Apply For Payment'))) return;
+            if (await setStatus(a0.id, { status: 'submitted', submitted_at: new Date().toISOString() })) { toast('Applied for payment — now locked.'); refresh(); } else toast('Not saved — check your signal and try again.');
           }} />
         </ActionRow>
+      )}
+      {mailing && me && (
+        <FinForm title={`Email Application No. ${a0.number}`} saveLabel="Send" onClose={() => setMailing(false)}
+          note="The application's Excel goes to the client to fill in what they certify."
+          initial={{ to: jf.billing_email || site?.client_email || '', ccMe: true }}
+          fields={[{ k: 'to', label: 'To', kind: 'email', ph: 'qs@client.co.uk (commas for more than one)' }, { k: 'ccMe', label: `CC Me (${me.email})`, kind: 'check' }]}
+          extra={<View style={{ marginTop: 4 }}><Button kind="ghost" title="Email Me Only" onPress={async () => { const e = await emailApplication(me, org, a0, [me.email], []); if (e) { showAlert(e); return; } toast(`Application emailed to ${me.email}`); setMailing(false); refresh(); }} /></View>}
+          onSave={async (v) => {
+            const to = String(v.to || '').split(/[,;\s]+/).map((x) => x.trim()).filter(Boolean);
+            if (!to.length || to.some((x) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x))) return 'Check the email address.';
+            const e = await emailApplication(me, org, a0, to, v.ccMe && me.email ? [me.email] : []);
+            if (e) return e;
+            toast(`Application emailed to ${to.join(', ')}`); refresh(); return null;
+          }} />
       )}
     </ScrollView>
     {view === 'lines' && (
@@ -530,7 +568,6 @@ function LineRow({ cols, cells, head }: { cols: string[]; cells: Record<string, 
 }
 
 type Entry = 'pct' | 'gbp' | 'qty';
-const CERT_W = 124;
 const CERT_LABELS: [string, string, string] = ['Certified percent', 'Certified amount', 'Certified quantity'];
 
 /** One box for how far a line has got, typed as a %, in £ or as a quantity. It's always kept as a %, which every sum uses. */
@@ -614,14 +651,14 @@ function SumRow({ l, v, input, bold }: { l: string; v: string; input?: ReactNode
     </View>
   );
 }
-/** The page's main buttons in one row: shared evenly, with a small Delete on the end. */
+/** The page's main buttons in one row: shared evenly and all the same height, with a small red bin on the end (Andy, 3 Nov 2026). */
 function ActionRow({ children, onDelete, note }: { children: ReactNode; onDelete?: () => void; note?: string }) {
   return (
     <View style={{ marginTop: 10, marginBottom: 6 }}>
       {!!note && <Muted style={{ fontSize: 12, marginBottom: 6 }}>{note}</Muted>}
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        {(Array.isArray(children) ? children : [children]).filter(Boolean).map((b, i) => <View key={i} style={{ flex: 1, minWidth: 0 }}>{b}</View>)}
-        {!!onDelete && <View style={{ width: 100 }}><Button kind="danger" title="Delete" onPress={onDelete} /></View>}
+      <View style={{ flexDirection: 'row', alignItems: 'stretch', gap: 8 }}>
+        {(Array.isArray(children) ? children : [children]).filter(Boolean).map((b, i) => <View key={i} style={{ flex: 1, minWidth: 0 }}>{isValidElement(b) ? cloneElement(b as ReactElement<{ grow?: boolean }>, { grow: true }) : b}</View>)}
+        {!!onDelete && <Pressable accessibilityRole="button" accessibilityLabel="Delete" onPress={onDelete} style={({ pressed }) => ({ width: 46, marginTop: 4, borderRadius: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FDECEC', opacity: pressed ? 0.7 : 1 })}><OphIcon name="bin" size={19} color="#B42318" /></Pressable>}
       </View>
     </View>
   );
@@ -680,43 +717,57 @@ function useCert(a: Row, jf: Row, previous: number, prevPct: Record<string, numb
 }
 type Cert = ReturnType<typeof useCert>;
 
+/** Our application Excel back from the client: their Certified % on each line fills the Certified column. */
+function certFromExcel(a: Row, cert: Cert, items: AppXlItem[], toast: (m: string) => void): boolean {
+  const r = certFromItems(a, items);
+  if (!r.found) { toast('That doesn’t look like this application’s Excel — download it from OpHUB, send it to the client and upload their copy.'); return false; }
+  cert.applyLines({ ...cert.cp, ...r.cp });
+  cert.setXlNote(`Read from the client’s Excel. ${r.diffs.length ? `${r.diffs.length} line${r.diffs.length === 1 ? ' differs' : 's differ'} from what you applied for:\n${r.diffs.slice(0, 8).join('\n')}${r.diffs.length > 8 ? `\n…and ${r.diffs.length - 8} more` : ''}` : 'Every line matches what you applied for.'} Check the figures, then save.`);
+  toast('Certificate filled in from the Excel');
+  return true;
+}
+/** 9219p finCertFromPdf: each line's certified % read from the client's PDF (the last % on the matching row); the PDF is kept
+ *  as the certificate copy. Needs the PDF's text, so not a scan. */
+async function certFromPdf(a: Row, cert: Cert, file: { uri: string; name?: string | null }, toast: (m: string) => void): Promise<boolean> {
+  const rows = await pdfLines(new Uint8Array(await (await fetch(file.uri)).arrayBuffer()));
+  cert.setFile({ uri: file.uri, name: file.name || 'certificate.pdf', mimeType: 'application/pdf' });
+  if (!rows) { toast('Couldn’t read any text in that PDF (a scan, or on a phone) — enter the Certified % on each line. The PDF is kept with the certificate.'); return false; }
+  const norm = (x: unknown) => String(x || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const next: Record<string, string> = {}; let found = 0;
+  (a.lines || []).forEach((l: Row, i: number) => {
+    if (!isItem(l)) return; const dsc = norm(l.description); if (!dsc) return;
+    const row = rows.find((x) => norm(x).includes(dsc.slice(0, 40))); if (!row) return;
+    const pcts = (row.match(/(\d{1,3}(?:\.\d+)?)\s?%/g) || []).map((x) => Number(x.replace(/[^\d.]/g, ''))).filter((n) => n <= 100);
+    if (pcts.length) { next[`l${i}`] = String(pcts[pcts.length - 1]); found++; }
+  });
+  if (!found) { toast('Read the PDF but couldn’t match any lines — enter the Certified % on each line. The PDF is kept with the certificate.'); return false; }
+  cert.applyLines({ ...cert.cp, ...next });
+  toast(`Read ${found} line${found === 1 ? '' : 's'} from the PDF — check them, then save`);
+  return true;
+}
+/** Import Certificate (Andy, 3 Nov 2026): our Excel back from the client, or their PDF. True when anything was read. */
+async function importCertificate(a: Row, cert: Cert, toast: (m: string) => void): Promise<boolean> {
+  const r = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true }); if (r.canceled || !r.assets[0]) return false;
+  const f = r.assets[0];
+  if (/\.pdf$/i.test(f.name || '') || f.mimeType === 'application/pdf') return certFromPdf(a, cert, f, toast);
+  if (/\.xls$/i.test(f.name || '')) { toast('Save it as .xlsx first — old .xls files can’t be read.'); return false; }
+  const book = await readXlsx(new Uint8Array(await (await fetch(f.uri)).arrayBuffer())).catch(() => null);
+  const items = book ? parseAppBook(book) : null;
+  if (!items) { toast('That isn’t this application’s Excel or a PDF certificate — upload the Excel the client sent back, or their PDF.'); return false; }
+  return certFromExcel(a, cert, items, toast);
+}
+
 /** Quick ways to fill in the Certified column, above the Bill. */
 function CertTools({ a, cert }: { a: Row; cert: Cert }) {
   const toast = useToast();
-  const { cp, applyLines, setFile, xlNote, setXlNote } = cert;
+  const { xlNote } = cert;
   return (
     <View style={{ marginBottom: 12 }}>
       <Muted style={{ marginBottom: 8 }}>Enter what the client certified in the Certified column on each line. Lines start at what they last certified.</Muted>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
         <Button small kind="ghost" title="Certified As Applied" onPress={cert.asApplied} />
-        <Button small kind="ghost" title="Fill In From The Client's Excel" onPress={async () => {
-          const items = await pickAppExcel(toast); if (!items) return;
-          const r = certFromItems(a, items);
-          if (!r.found) { toast('That doesn’t look like this application’s Excel — download it from OpHUB, send it to the client and upload their copy.'); return; }
-          applyLines({ ...cp, ...r.cp });
-          setXlNote(`Read from the client’s Excel. ${r.diffs.length ? `${r.diffs.length} line${r.diffs.length === 1 ? ' differs' : 's differ'} from what you applied for:\n${r.diffs.slice(0, 8).join('\n')}${r.diffs.length > 8 ? `\n…and ${r.diffs.length - 8} more` : ''}` : 'Every line matches what you applied for.'} Check the figures, then save.`);
-          toast('Certificate filled in from the Excel');
-        }} />
-        <Button small kind="ghost" title="Fill In From The Client's PDF" onPress={async () => {
-          // 9219p finCertFromPdf: each line's certified % read from the client's PDF (the last % on the matching row);
-          // the PDF is kept as the certificate copy. Needs the PDF's text, so not a scan.
-          const r = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true }); if (r.canceled || !r.assets[0]) return;
-          const asset = r.assets[0];
-          const rows = await pdfLines(new Uint8Array(await (await fetch(asset.uri)).arrayBuffer()));
-          setFile({ uri: asset.uri, name: asset.name || 'certificate.pdf', mimeType: 'application/pdf' });
-          if (!rows) { toast('Couldn’t read any text in that PDF (a scan, or on a phone) — enter the Certified % on each line. The PDF is kept with the certificate.'); return; }
-          const norm = (x: unknown) => String(x || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
-          const next: Record<string, string> = {}; let found = 0;
-          (a.lines || []).forEach((l: Row, i: number) => {
-            if (!isItem(l)) return; const dsc = norm(l.description); if (!dsc) return;
-            const row = rows.find((x) => norm(x).includes(dsc.slice(0, 40))); if (!row) return;
-            const pcts = (row.match(/(\d{1,3}(?:\.\d+)?)\s?%/g) || []).map((x) => Number(x.replace(/[^\d.]/g, ''))).filter((n) => n <= 100);
-            if (pcts.length) { next[`l${i}`] = String(pcts[pcts.length - 1]); found++; }
-          });
-          if (!found) { toast('Read the PDF but couldn’t match any lines — enter the Certified % on each line. The PDF is kept with the certificate.'); return; }
-          applyLines({ ...cp, ...next });
-          toast(`Read ${found} line${found === 1 ? '' : 's'} from the PDF — check them, then save`);
-        }} />
+        <Button small kind="ghost" title="Fill In From The Client's Excel" onPress={async () => { const items = await pickAppExcel(toast); if (items) certFromExcel(a, cert, items, toast); }} />
+        <Button small kind="ghost" title="Fill In From The Client's PDF" onPress={async () => { const r = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true }); if (!r.canceled && r.assets[0]) await certFromPdf(a, cert, r.assets[0], toast); }} />
       </View>
       {!!xlNote && <Card style={{ backgroundColor: '#f4f8fd', marginTop: 8, marginBottom: 0 }}><Text style={{ color: base.ink, fontSize: 12.5 }}>{xlNote}</Text></Card>}
     </View>

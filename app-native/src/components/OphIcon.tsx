@@ -42,6 +42,7 @@ const I: Record<string, El[]> = {
   eye: [['p','M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z'],['c',12,12,3]],
   hash: [['p','M5 9h15M4 15h15M10 3L8 21M16 3l-2 18']],
   percent: [['p','M19 5L5 19'],['c',7,7,2.5],['c',17,17,2.5]],
+  bin: [['p','M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6']],
 };
 export type IconName = keyof typeof I;
 

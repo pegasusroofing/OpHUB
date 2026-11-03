@@ -3,7 +3,7 @@
 // works), saving, Applied (locked) / back to draft, the client's certificate,
 // and the invoice raised from it.
 import { issue } from '@/data/finInvoice';
-import { fdb, loadSettings } from '@/data/finance';
+import { fdb, finInvoke, loadSettings } from '@/data/finance';
 import { syncSiteVariationValues } from '@/data/finVar';
 import { buildAppPdf } from '@/lib/finAppPdf';
 import { deliverPdf, deliverXlsx, PDFDocument } from '@/lib/pdf';
@@ -11,7 +11,7 @@ import { buildSowPdf, sowPeriod } from '@/lib/sowPdf';
 import { appCalc, certInvoiceLines, isItem, pct, previousCertified } from '@/lib/rules/finApp';
 import { appDoc, appExcelSheets, appFilename, type NewBoqLine } from '@/lib/rules/finAppExcel';
 import { makeXlsx } from '@/lib/rules/xlsx';
-import { daysOr, addDays, appDateFor, fdate, retentionHeld, retentionReleased, retHalf, round2, today } from '@/lib/rules/finance';
+import { daysOr, addDays, appDateFor, fdate, FIN_TRIAL_MSG, finBlocked, money, retentionHeld, retentionReleased, retHalf, round2, today } from '@/lib/rules/finance';
 import { invTotals, vatFromTreatment } from '@/lib/rules/finInvoice';
 import { supabase } from '@/lib/supabase';
 import type { Organization, Profile, Site } from '@/lib/types';
@@ -203,6 +203,28 @@ export async function appSowChoice(a: Row): Promise<{ has: boolean; since: { fro
   const from = p ? addDays(String(p).slice(0, 10), 1) : null;
   return { has, since: from && from <= to ? { from, to } : null };
 }
+/** Emails the application's Excel for the client to certify (902 sendFinAppEmail): kept in finance-docs, then sent by
+ *  send-finance-email. During the Finance trial only the Sandbox company sends. Gives the problem, or null when sent. */
+export async function emailApplication(me: Profile, org: Organization | null, given: Row, to: string[], cc: string[]): Promise<string | null> {
+  if (finBlocked('send-finance-email', undefined, me.org_id)) return FIN_TRIAL_MSG;
+  const a = ((await fdb.from('fin_applications').select('*').eq('id', given.id).maybeSingle()).data as Row | null) ?? given;
+  const [jfR, apps, siteR, st] = await Promise.all([
+    rows(fdb.from('job_finance').select('*').eq('site_id', a.site_id)),
+    rows(fdb.from('fin_applications').select('number,status,lines,cert_lines,variations').eq('site_id', a.site_id)),
+    rows(fdb.from('sites').select('name,job_number,client_name').eq('id', a.site_id)),
+    loadSettings(me.org_id),
+  ]);
+  const jf = jfR[0] || {}, site = siteR[0] || {};
+  const D = appDoc(a, jf, apps, (st as Row).default_vat);
+  const info = { company: org?.name || '', client: jf.billing_name || site.client_name || '', project: site.name || '', jobNo: site.job_number || '', valDate: a.valuation_date ? fdate(a.valuation_date) : '' };
+  const up = await supabase.storage.from('finance-docs').upload(`${me.org_id}/${a.site_id}/applications/Application-${a.number}-${Date.now()}.xlsx`, makeXlsx(appExcelSheets(a, D, info)), { contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  if (up.error) return 'Could not store the Excel to send — try again.';
+  const r = await finInvoke(me, 'send-finance-email', { kind: 'application', site_id: a.site_id, storage_path: up.data.path, filename: appFilename(a, site, 'xlsx'), recipients: to, cc, reference: `No. ${a.number}`, client_po: a.client_po || '', amount: `${money(a.net_due)} excl. VAT`, due: a.due_date ? fdate(a.due_date) : '' });
+  if (r.error) return r.error;
+  await fdb.from('fin_applications').update({ excel_path: up.data.path, sent_to: to.join(', ') } as never).eq('id', a.id);
+  return null;
+}
+
 export async function exportApplication(me: Profile, org: Organization | null, given: Row, kind: 'xlsx' | 'pdf', sow: AppSow = null, direct = false): Promise<boolean> {
   // Always from the full saved record (902, 9219p): a list only holds some of the figures.
   const a = ((await fdb.from('fin_applications').select('*').eq('id', given.id).maybeSingle()).data as Row | null) ?? given;
