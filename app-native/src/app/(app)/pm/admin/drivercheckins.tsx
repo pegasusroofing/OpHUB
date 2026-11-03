@@ -12,7 +12,7 @@ import { useAuth } from '@/lib/auth';
 import { dayTotals, localISODate, minsLabel } from '@/lib/rules/driver';
 import { isFullManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
-import { base, page, space } from '@/theme/theme';
+import { base, page, space, live } from '@/theme/theme';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 type Chk = { user_id: string; type: string; ts: string; lat: number | null; lon: number | null; accuracy_m: number | null };
@@ -46,8 +46,8 @@ export default function DriverCheckins() {
       <Stack.Screen options={{ title: 'Driver Check-In Log' }} />
       <View style={{ flexDirection: 'row', gap: 6, marginBottom: 10 }}>
         {[14, 30, 90].map((n) => (
-          <Pressable key={n} onPress={() => setDays(n)} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: days === n ? base.ink : base.line, backgroundColor: days === n ? base.ink : base.card }}>
-            <Text style={{ fontWeight: '700', fontSize: 12, color: days === n ? '#fff' : base.ink }}>Last {n} days</Text>
+          <Pressable key={n} onPress={() => setDays(n)} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: days === n ? live.brand1 : base.line, backgroundColor: days === n ? live.brand1 : base.card }}>
+            <Text style={{ fontWeight: '500', fontSize: 12, color: days === n ? live.brand1Text : base.ink }}>Last {n} days</Text>
           </Pressable>
         ))}
       </View>

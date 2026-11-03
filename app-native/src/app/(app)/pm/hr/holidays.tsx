@@ -18,11 +18,11 @@ import { localISODate } from '@/lib/rules/driver';
 import { bankHolCount, bookingParts, dayFraction, HR_COLOURS, HR_TYPES, isBankHol, leaveDays, limitClash, offOn, usedDays, type Leave } from '@/lib/rules/hr';
 import { readIsoDate } from '@/lib/rules/materials';
 import { isManager } from '@/lib/roles';
-import { base, page, radius, space } from '@/theme/theme';
+import { base, page, radius, space, live } from '@/theme/theme';
 
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card, marginBottom: 10 };
 function Chip({ on, label, onPress }: { on: boolean; label: string; onPress: () => void }) {
-  return <Pressable onPress={onPress} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: on ? base.ink : base.line, backgroundColor: on ? base.ink : base.card }}><Text style={{ fontWeight: '700', color: on ? '#fff' : base.ink, fontSize: 12.5 }}>{label}</Text></Pressable>;
+  return <Pressable onPress={onPress} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: on ? live.brand1 : base.line, backgroundColor: on ? live.brand1 : base.card }}><Text style={{ fontWeight: '500', color: on ? live.brand1Text : base.ink, fontSize: 12.5 }}>{label}</Text></Pressable>;
 }
 type Draft = { user_id: string; type: string; start: string; end: string; part: string; startPart: string; endPart: string; link: boolean; note: string };
 

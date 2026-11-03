@@ -16,7 +16,7 @@ import { cap1, currentPpe, PPE_STANDARD_ITEMS, type Issuance } from '@/lib/rules
 import { supabase } from '@/lib/supabase';
 import { exportTablePdf } from '@/lib/tableExport';
 import type { Site } from '@/lib/types';
-import { base, radius } from '@/theme/theme';
+import { base, radius, live } from '@/theme/theme';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 type Req = { id: string; user_id: string; item_name: string; status: string; date_needed: string | null; created_at: string; fulfilled_at: string | null };
@@ -73,7 +73,7 @@ export function PpeManager({ site }: { site: Site }) {
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginVertical: 8 }}>
             {PPE_STANDARD_ITEMS.map((it) => {
               const on = items.includes(it);
-              return <Pressable key={it} onPress={() => setItems(flip(items, it))} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: on ? base.ink : base.line, backgroundColor: on ? base.ink : base.card }}><Text style={{ fontWeight: '700', color: on ? '#fff' : base.ink }}>{it}</Text></Pressable>;
+              return <Pressable key={it} onPress={() => setItems(flip(items, it))} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: on ? live.brand1 : base.line, backgroundColor: on ? live.brand1 : base.card }}><Text style={{ fontWeight: '500', color: on ? live.brand1Text : base.ink }}>{it}</Text></Pressable>;
             })}
           </View>
           <TextInput value={custom} onChangeText={setCustom} placeholder="Add another item, e.g. Safety Glasses" style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, marginBottom: 8 }} />

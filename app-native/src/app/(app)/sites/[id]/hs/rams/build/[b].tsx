@@ -16,14 +16,14 @@ import { useAuth } from '@/lib/auth';
 import { showPdf } from '@/lib/pdf';
 import { hazardFromLib, lines, missingInfo, moveItem, P_LABELS, RAMS_GROUPS, RAMS_PPE, RAMS_REQUIRED, ramsUid, riskBand, rr, S_LABELS, sectionFromLib, type Hazard, type RamsBuild, type RamsDetails, type RSection } from '@/lib/rules/rams';
 import { isFullManager } from '@/lib/roles';
-import { base, page, radius, space } from '@/theme/theme';
+import { base, page, radius, space, live } from '@/theme/theme';
 
 type Tab = 'details' | 'ra' | 'ssow' | 'ms' | 'issue';
 const ORDER: Tab[] = ['details', 'ra', 'ssow', 'ms', 'issue'];
 const NEXT: Partial<Record<Tab, string>> = { ra: 'Next: Risk Assessment', ssow: 'Next: Safe Systems of Work', ms: 'Next: Method Statements', issue: 'Next: Issue' };
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 9, color: base.ink, backgroundColor: base.card, marginBottom: 8 };
 const Badge = ({ p, s }: { p: unknown; s: unknown }) => { const n = rr(p, s), b = riskBand(n); return <Text style={{ backgroundColor: b.bg, color: b.fg, fontWeight: '800', paddingHorizontal: 7, borderRadius: 6, overflow: 'hidden' }}>{n}</Text>; };
-const chipStyle = (on: boolean) => ({ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: on ? base.ink : base.line, backgroundColor: on ? base.ink : base.card });
+const chipStyle = (on: boolean) => ({ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: on ? live.brand1 : base.line, backgroundColor: on ? live.brand1 : base.card });
 
 export default function RamsBuildScreen() {
   const { id, b: buildId } = useLocalSearchParams<{ id: string; b: string }>();
@@ -133,14 +133,14 @@ function Editor({ initial, siteId }: { initial: RamsBuild; siteId: string }) {
         <Card>
           <SectionTitle>Groups affected</SectionTitle>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-            {groups.map((g) => { const on = d.groups.includes(g); return <Pressable key={g} onPress={() => setD('groups', on ? d.groups.filter((x) => x !== g) : [...d.groups, g])} style={chipStyle(on)}><Text style={{ fontSize: 12, color: on ? '#fff' : base.ink }}>{g}</Text></Pressable>; })}
+            {groups.map((g) => { const on = d.groups.includes(g); return <Pressable key={g} onPress={() => setD('groups', on ? d.groups.filter((x) => x !== g) : [...d.groups, g])} style={chipStyle(on)}><Text style={{ fontSize: 12, color: on ? live.brand1Text : base.ink }}>{g}</Text></Pressable>; })}
           </View>
           <Pressable onPress={async () => { const v = await promptText('Group affected', ''); if (v && v.trim() && !d.groups.includes(v.trim())) setD('groups', [...d.groups, v.trim()]); }} style={{ marginTop: 8 }}><Text style={{ color: base.blue, fontWeight: '700' }}>+ Add group</Text></Pressable>
         </Card>
         <Card>
           <SectionTitle>Required PPE</SectionTitle>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-            {RAMS_PPE.map((p) => { const on = b.ppe.includes(p.key); return <Pressable key={p.key} onPress={() => change((x) => ({ ...x, ppe: on ? x.ppe.filter((k) => k !== p.key) : [...x.ppe, p.key] }))} style={chipStyle(on)}><Text style={{ fontSize: 12, color: on ? '#fff' : base.ink }}>{p.icon} {p.label}</Text></Pressable>; })}
+            {RAMS_PPE.map((p) => { const on = b.ppe.includes(p.key); return <Pressable key={p.key} onPress={() => change((x) => ({ ...x, ppe: on ? x.ppe.filter((k) => k !== p.key) : [...x.ppe, p.key] }))} style={chipStyle(on)}><Text style={{ fontSize: 12, color: on ? live.brand1Text : base.ink }}>{p.icon} {p.label}</Text></Pressable>; })}
           </View>
         </Card>
         <Check label="Include the Dynamic Risk Assessment page" value={d.includeDynamic !== false} onChange={(v) => setD('includeDynamic', v)} />

@@ -21,7 +21,7 @@ import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { branchLabel, isEmail, orderEmailFor, sortSuppliers, type Branch } from '@/lib/rules/materials';
 import { isManager } from '@/lib/roles';
-import { base, page, radius, space } from '@/theme/theme';
+import { base, page, radius, space, live } from '@/theme/theme';
 
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card, marginBottom: 8 };
 const STATUS: Record<string, string> = { open: 'Open', assigned: 'Assigned', collected: 'Collected', closed: '✓ Collected' };
@@ -147,8 +147,8 @@ export default function Collections() {
       <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
         {([['live', 'To collect'], ['closed', 'Collected']] as const).map(([k, l]) => (
           <Pressable key={k} onPress={() => { setTab(k); setSel(new Set()); setAssignFor(null); setCollectFor(null); }}
-            style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 16, borderWidth: 1, borderColor: tab === k ? base.ink : base.line, backgroundColor: tab === k ? base.ink : base.card }}>
-            <Text style={{ fontWeight: '700', color: tab === k ? '#fff' : base.ink }}>{l}</Text>
+            style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 16, borderWidth: 1, borderColor: tab === k ? live.brand1 : base.line, backgroundColor: tab === k ? live.brand1 : base.card }}>
+            <Text style={{ fontWeight: '500', color: tab === k ? live.brand1Text : base.ink }}>{l}</Text>
           </Pressable>
         ))}
       </View>

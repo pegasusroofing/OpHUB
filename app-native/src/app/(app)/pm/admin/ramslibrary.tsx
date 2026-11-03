@@ -13,7 +13,7 @@ import { lines, moveLib, P_LABELS, RAMS_DEFAULT_PPE, RAMS_PPE, ramsSettings, ren
 import { starterRows } from '@/lib/rules/ramsStarter';
 import { isFullManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
-import { base, page, radius, space } from '@/theme/theme';
+import { base, page, radius, space, live } from '@/theme/theme';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 const rpc = supabase.rpc.bind(supabase) as unknown as (n: string, a: object) => Promise<{ data: unknown; error: unknown }>;
@@ -63,7 +63,7 @@ function Editor({ it, lib, onSave, onCancel }: { it: LibItem; lib: LibItem[]; on
         <>
           <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8 }}>
             {[['general', 'Safe system of work'], ['method', 'Method statement (step by step)']].map(([k, l]) => (
-              <Pressable key={k} onPress={() => setPart(k)} style={{ flex: 1, padding: 8, borderRadius: radius.input, borderWidth: 1, borderColor: part === k ? base.ink : base.line, backgroundColor: part === k ? base.ink : base.card }}><Text style={{ textAlign: 'center', color: part === k ? '#fff' : base.ink, fontWeight: '700', fontSize: 12 }}>{l}</Text></Pressable>
+              <Pressable key={k} onPress={() => setPart(k)} style={{ flex: 1, padding: 8, borderRadius: radius.input, borderWidth: 1, borderColor: part === k ? live.brand1 : base.line, backgroundColor: part === k ? live.brand1 : base.card }}><Text style={{ textAlign: 'center', color: part === k ? live.brand1Text : base.ink, fontWeight: '700', fontSize: 12 }}>{l}</Text></Pressable>
             ))}
           </View>
           <Muted style={{ fontWeight: '700' }}>Text</Muted>
@@ -92,8 +92,8 @@ function Editor({ it, lib, onSave, onCancel }: { it: LibItem; lib: LibItem[]; on
           <Text style={{ fontWeight: '800', color: base.ink, marginBottom: 4 }}>Required PPE</Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
             {RAMS_PPE.map((p) => (
-              <Pressable key={p.key} onPress={() => setPpe(ppe.includes(p.key) ? ppe.filter((x) => x !== p.key) : [...ppe, p.key])} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: ppe.includes(p.key) ? base.ink : base.line, backgroundColor: ppe.includes(p.key) ? base.ink : base.card }}>
-                <Text style={{ fontSize: 12, color: ppe.includes(p.key) ? '#fff' : base.ink }}>{p.icon} {p.label}</Text>
+              <Pressable key={p.key} onPress={() => setPpe(ppe.includes(p.key) ? ppe.filter((x) => x !== p.key) : [...ppe, p.key])} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: ppe.includes(p.key) ? live.brand1 : base.line, backgroundColor: ppe.includes(p.key) ? live.brand1 : base.card }}>
+                <Text style={{ fontSize: 12, color: ppe.includes(p.key) ? live.brand1Text : base.ink }}>{p.icon} {p.label}</Text>
               </Pressable>
             ))}
           </View>
@@ -207,7 +207,7 @@ export default function RamsLibrary() {
     await Promise.all(next.map((x, k) => (x.sort_order === k ? null : db.from('rams_library_items').update({ sort_order: k } as never).eq('id', x.id))));
     refresh();
   };
-  const chip = (on: boolean, l: string, onPress: () => void) => <Pressable key={l} onPress={onPress} style={{ flexBasis: '48%', flexGrow: 1, padding: 8, borderRadius: 16, borderWidth: 1, borderColor: on ? base.ink : base.line, backgroundColor: on ? base.ink : base.card }}><Text style={{ textAlign: 'center', fontWeight: '700', fontSize: 12, color: on ? '#fff' : base.ink }}>{l}</Text></Pressable>;
+  const chip = (on: boolean, l: string, onPress: () => void) => <Pressable key={l} onPress={onPress} style={{ flexBasis: '48%', flexGrow: 1, padding: 8, borderRadius: 16, borderWidth: 1, borderColor: on ? live.brand1 : base.line, backgroundColor: on ? live.brand1 : base.card }}><Text style={{ textAlign: 'center', fontWeight: '500', fontSize: 12, color: on ? live.brand1Text : base.ink }}>{l}</Text></Pressable>;
   return (
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'RAMS Library' }} />

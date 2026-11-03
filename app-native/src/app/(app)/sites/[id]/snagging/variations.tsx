@@ -22,7 +22,7 @@ import { buildVariationsPdf, type SnagScope } from '@/lib/snagPdf';
 import { supabase } from '@/lib/supabase';
 import { money, readMoney, valueOf } from '@/lib/rules/variations';
 import { isFinanceUser, isFullManager, isManager } from '@/lib/roles';
-import { base, page, radius, space } from '@/theme/theme';
+import { base, page, radius, space, live } from '@/theme/theme';
 
 const d = (t: string | null) => (t ? new Date(t).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '');
 
@@ -63,8 +63,8 @@ export default function Variations() {
       <Stack.Screen options={{ title: 'Variations' }} />
       <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
         {([['live', 'Live'], ['closed', 'Closed']] as const).map(([k, l]) => (
-          <Pressable key={k} onPress={() => setFilter(k)} style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 16, borderWidth: 1, borderColor: filter === k ? base.ink : base.line, backgroundColor: filter === k ? base.ink : base.card }}>
-            <Text style={{ fontWeight: '700', color: filter === k ? '#fff' : base.ink }}>{l}</Text>
+          <Pressable key={k} onPress={() => setFilter(k)} style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 16, borderWidth: 1, borderColor: filter === k ? live.brand1 : base.line, backgroundColor: filter === k ? live.brand1 : base.card }}>
+            <Text style={{ fontWeight: '500', color: filter === k ? live.brand1Text : base.ink }}>{l}</Text>
           </Pressable>
         ))}
       </View>

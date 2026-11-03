@@ -18,7 +18,7 @@ import { makeXlsx } from '@/lib/rules/xlsx';
 import { readXlsx } from '@/lib/rules/xlsxRead';
 import { RATE_UNITS, rateCategories, readRate, type RateItem, type RateOption } from '@/lib/rules/rateCard';
 import { supabase } from '@/lib/supabase';
-import { base, page, radius, space } from '@/theme/theme';
+import { base, page, radius, space, live } from '@/theme/theme';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 8, color: base.ink, backgroundColor: base.card };
@@ -146,7 +146,7 @@ export default function RateCard() {
         <Card>
           <TextInput value={nw.category} onChangeText={(v) => setNw({ ...nw, category: v })} placeholder="Category, e.g. Pitched Roofing" style={[box, { marginBottom: 8 }]} />
           <TextInput value={nw.name} onChangeText={(v) => setNw({ ...nw, name: v })} placeholder="Item name, e.g. Strip" style={[box, { marginBottom: 8 }]} />
-          <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8 }}>{RATE_UNITS.map(([k, l]) => <Pressable key={k} onPress={() => setNw({ ...nw, unit: k })} style={{ flex: 1, padding: 8, borderRadius: radius.input, borderWidth: 1, borderColor: nw.unit === k ? base.ink : base.line, backgroundColor: nw.unit === k ? base.ink : base.card }}><Text style={{ textAlign: 'center', fontSize: 12, color: nw.unit === k ? '#fff' : base.ink }}>{l}</Text></Pressable>)}</View>
+          <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8 }}>{RATE_UNITS.map(([k, l]) => <Pressable key={k} onPress={() => setNw({ ...nw, unit: k })} style={{ flex: 1, padding: 8, borderRadius: radius.input, borderWidth: 1, borderColor: nw.unit === k ? live.brand1 : base.line, backgroundColor: nw.unit === k ? live.brand1 : base.card }}><Text style={{ textAlign: 'center', fontSize: 12, color: nw.unit === k ? live.brand1Text : base.ink }}>{l}</Text></Pressable>)}</View>
           <Check label="This is a dropdown (e.g. Tile Type) — priced by option, added after" value={nw.dropdown} onChange={(v) => setNw({ ...nw, dropdown: v })} />
           {!nw.dropdown && <TextInput value={nw.rate} onChangeText={(v) => setNw({ ...nw, rate: v })} placeholder="Rate (£) e.g. 12.50" keyboardType="decimal-pad" style={[box, { marginVertical: 8 }]} />}
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>

@@ -13,7 +13,7 @@ import { useSchedule } from '@/data/sow';
 import { useSubco } from '@/data/subcontractors';
 import { useAuth } from '@/lib/auth';
 import { onQueueChange, onUploadsSent, pendingJobs, type UploadJob } from '@/lib/uploadQueue';
-import { base, page, space } from '@/theme/theme';
+import { base, page, space, live } from '@/theme/theme';
 
 export default function SubSchedule() {
   const { id, co } = useLocalSearchParams<{ id: string; co: string }>();
@@ -45,8 +45,8 @@ export default function SubSchedule() {
       <Muted style={{ marginBottom: 10 }}>Only the work items assigned to {sub.company.name} — updates show straight away on the main Schedule of Works.</Muted>
       <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
         {([['all', 'All'], ['todo', 'To Do'], ['progress', 'In Progress / Complete']] as const).map(([k, l]) => (
-          <Pressable key={k} onPress={() => setF(k)} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: f === k ? base.ink : base.line, backgroundColor: f === k ? base.ink : base.card }}>
-            <Text style={{ fontWeight: '700', color: f === k ? '#fff' : base.ink }}>{l}</Text>
+          <Pressable key={k} onPress={() => setF(k)} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: f === k ? live.brand1 : base.line, backgroundColor: f === k ? live.brand1 : base.card }}>
+            <Text style={{ fontWeight: '500', color: f === k ? live.brand1Text : base.ink }}>{l}</Text>
           </Pressable>
         ))}
       </View>

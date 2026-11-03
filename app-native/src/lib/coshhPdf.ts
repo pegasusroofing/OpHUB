@@ -14,7 +14,8 @@ type Org = { name?: string | null; color_primary?: string | null; logo_path?: st
 type Me = { name?: string | null; signature_path?: string | null };
 type SiteLike = { name: string; address: string | null; postcode: string | null } | null | undefined;
 
-export async function buildCoshhPdf(it: CoshhItem, site: SiteLike, job: { where: string; note: string }, org: Org, me: Me, st: RamsSettings): Promise<Uint8Array> {
+export type CoshhJob = { where: string; note: string; name?: string; date?: string; assessor?: string };
+export async function buildCoshhPdf(it: CoshhItem, site: SiteLike, job: CoshhJob, org: Org, me: Me, st: RamsSettings): Promise<Uint8Array> {
   const d = it.data;
   const pdf = await PDFDocument.create();
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold), reg = await pdf.embedFont(StandardFonts.Helvetica);
@@ -62,12 +63,12 @@ export async function buildCoshhPdf(it: CoshhItem, site: SiteLike, job: { where:
   if (logo) { const dim = logo.scale(1), s = Math.min(150 / dim.width, 64 / dim.height); page.drawImage(logo, { x: W - M - dim.width * s, y: y - dim.height * s, width: dim.width * s, height: dim.height * s }); }
   y = Math.min(hy, y - 70) - 10;
   const title = 'COSHH Assessment'; txt(title, (W - bold.widthOfTextAtSize(title, 17)) / 2, y - 17, 17, bold); y -= 28;
-  const pname = pdfSafe(it.title); txt(pname, (W - bold.widthOfTextAtSize(pname, 13)) / 2, y - 13, 13, bold, BRAND); y -= 26;
-  const today = new Date(), review = new Date(); review.setFullYear(review.getFullYear() + 1);
+  const pname = pdfSafe(job.name?.trim() || it.title); txt(pname, (W - bold.widthOfTextAtSize(pname, 13)) / 2, y - 13, 13, bold, BRAND); y -= 26;
+  const today = job.date ? new Date(`${job.date}T12:00:00`) : new Date(), review = new Date(today); review.setFullYear(review.getFullYear() + 1);
   const fmt = (t: Date) => t.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
   bar('1.0 Product & Job');
   const addr = site ? fullSiteAddress(site) : '';
-  kv([['Product', it.title], ['Manufacturer / supplier', d.manufacturer], ['Used for', d.use], ['Job / site', site ? `${site.name}${addr ? ` — ${addr}` : ''}` : ''], ['Where used on this job', job.where], ['Notes', job.note], ['Assessed by', me.name || ''], ['Date', fmt(today)], ['Review date', fmt(review)], ['Risk level', d.risk]]);
+  kv([['Product', it.title], ['Manufacturer / supplier', d.manufacturer], ['Used for', d.use], ['Job / site', site ? `${site.name}${addr ? ` — ${addr}` : ''}` : ''], ['Where used on this job', job.where], ['Notes', job.note], ['Assessed by', job.assessor?.trim() || me.name || ''], ['Date', fmt(today)], ['Review date', fmt(review)], ['Risk level', d.risk]]);
   bar('2.0 Hazards');
   if (d.pictos.length) {
     const IS = 52, per = 6, cw = CW / per;

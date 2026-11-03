@@ -9,7 +9,7 @@ import { Button, Card, Check, Field, Muted, SectionTitle } from '@/components/ui
 import type { OdItem } from '@/data/drawings';
 import { quotationFiles, sendQuote, submitQuote, type Quote } from '@/data/quotes';
 import { useAuth } from '@/lib/auth';
-import { base, radius } from '@/theme/theme';
+import { base, radius, live } from '@/theme/theme';
 
 const EMAIL_OK = /^[^\s@,;<>"]+@[^\s@,;<>"]+\.[^\s@,;<>"]+$/;
 
@@ -61,8 +61,8 @@ export function SubmitQuote({ q, firstDays, onDone }: { q: Quote; firstDays: num
     onDone();
   };
   const choice = (k: 'self' | 'app', label: string) => (
-    <Pressable onPress={() => setHow(k)} style={{ flex: 1, alignItems: 'center', padding: 9, borderRadius: radius.input, borderWidth: 1, borderColor: how === k ? base.ink : base.line, backgroundColor: how === k ? base.ink : base.card }}>
-      <Text style={{ fontWeight: '700', fontSize: 13, color: how === k ? '#fff' : base.ink }}>{label}</Text>
+    <Pressable onPress={() => setHow(k)} style={{ flex: 1, alignItems: 'center', padding: 9, borderRadius: radius.input, borderWidth: 1, borderColor: how === k ? live.brand1 : base.line, backgroundColor: how === k ? live.brand1 : base.card }}>
+      <Text style={{ fontWeight: '500', fontSize: 13, color: how === k ? live.brand1Text : base.ink }}>{label}</Text>
     </Pressable>
   );
   return (

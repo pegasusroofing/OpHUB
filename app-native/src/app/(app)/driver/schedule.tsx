@@ -26,7 +26,7 @@ import {
 } from '@/lib/rules/driver';
 import { isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
-import { base, page, radius, space, useTheme } from '@/theme/theme';
+import { base, page, radius, space, useTheme, live } from '@/theme/theme';
 
 type P = { id: string; name: string; phone: string | null };
 function usePhones() {
@@ -110,7 +110,7 @@ export default function DriverSchedule() {
         <Card style={{ backgroundColor: base.blueBg }}>
           <Text style={{ fontWeight: '700', color: base.ink }}>👁 Driver view</Text>
           <Muted>{drivers.length ? 'This is what the driver sees: their own deliveries plus any not yet given to a driver. View only.' : 'There are no drivers set up yet, so this shows only deliveries not given to a driver.'}</Muted>
-          {drivers.length > 1 && <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>{drivers.map((p) => <Pressable key={p.id} onPress={() => setPick(p.id)} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 14, borderWidth: 1, borderColor: viewAs === p.id ? base.ink : base.line, backgroundColor: viewAs === p.id ? base.ink : base.card }}><Text style={{ fontWeight: '700', color: viewAs === p.id ? '#fff' : base.ink }}>{p.name}</Text></Pressable>)}</View>}
+          {drivers.length > 1 && <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>{drivers.map((p) => <Pressable key={p.id} onPress={() => setPick(p.id)} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 14, borderWidth: 1, borderColor: viewAs === p.id ? live.brand1 : base.line, backgroundColor: viewAs === p.id ? live.brand1 : base.card }}><Text style={{ fontWeight: '500', color: viewAs === p.id ? live.brand1Text : base.ink }}>{p.name}</Text></Pressable>)}</View>}
         </Card>
       ) : onDuty ? (
         <Button kind={brk ? 'primary' : 'ghost'} title={brk ? '▶ End Break' : '☕ Start Break'}
@@ -126,8 +126,8 @@ export default function DriverSchedule() {
       </View>
       <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
         {([['todo', `To do (${todo.length})`], ['done', `✓ Completed (${done.length})`]] as const).map(([k, l]) => (
-          <Pressable key={k} onPress={() => setTab(k)} style={{ flex: 1, paddingVertical: 8, borderRadius: 16, borderWidth: 1, alignItems: 'center', borderColor: tab === k ? base.ink : base.line, backgroundColor: tab === k ? base.ink : base.card }}>
-            <Text style={{ fontWeight: '700', color: tab === k ? '#fff' : base.ink }}>{l}</Text>
+          <Pressable key={k} onPress={() => setTab(k)} style={{ flex: 1, paddingVertical: 8, borderRadius: 16, borderWidth: 1, alignItems: 'center', borderColor: tab === k ? live.brand1 : base.line, backgroundColor: tab === k ? live.brand1 : base.card }}>
+            <Text style={{ fontWeight: '500', color: tab === k ? live.brand1Text : base.ink }}>{l}</Text>
           </Pressable>
         ))}
       </View>
@@ -274,8 +274,8 @@ function ReopenModal({ task, onClose, onDone }: { task: Delivery | null; onClose
           <DateBox value={d} onChange={setDate} min={todayIso()} title="New date" style={{ marginVertical: 8 }} />
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
             {DELIVERY_TIME_SLOTS.map((s) => (
-              <Pressable key={s.key} onPress={() => setSlot(s.key)} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 14, borderWidth: 1, borderColor: sl === s.key ? base.ink : base.line, backgroundColor: sl === s.key ? base.ink : base.card }}>
-                <Text style={{ fontSize: 12, fontWeight: '700', color: sl === s.key ? '#fff' : base.ink }}>{s.label}</Text>
+              <Pressable key={s.key} onPress={() => setSlot(s.key)} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 14, borderWidth: 1, borderColor: sl === s.key ? live.brand1 : base.line, backgroundColor: sl === s.key ? live.brand1 : base.card }}>
+                <Text style={{ fontSize: 12, fontWeight: '500', color: sl === s.key ? live.brand1Text : base.ink }}>{s.label}</Text>
               </Pressable>
             ))}
           </View>

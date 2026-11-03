@@ -10,7 +10,7 @@ import { useAuth } from '@/lib/auth';
 import { money } from '@/lib/rules/finance';
 import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/lib/types';
-import { base, radius } from '@/theme/theme';
+import { base, radius, live } from '@/theme/theme';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 export type ShopItem = { id: string; description: string; unit: string | null; code: string | null; supplier_id: string | null; supplier_name: string | null; quote_id: string | null; quote_label: string | null; rate?: number | null };
@@ -58,8 +58,8 @@ export function ShopPicker({ siteId, onPick, onClose }: { siteId: string; onPick
               {Object.keys(quotes).length > 1 && (
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, marginBottom: 8 }}>
                   {[['', 'All quotes'], ...Object.entries(quotes)].map(([k, l]) => (
-                    <Pressable key={k || 'all'} onPress={() => setQuote(k)} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 14, borderWidth: 1, borderColor: quote === k ? base.ink : base.line, backgroundColor: quote === k ? base.ink : base.card }}>
-                      <Text style={{ fontSize: 12, fontWeight: '700', color: quote === k ? '#fff' : base.ink }}>{l}</Text>
+                    <Pressable key={k || 'all'} onPress={() => setQuote(k)} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 14, borderWidth: 1, borderColor: quote === k ? live.brand1 : base.line, backgroundColor: quote === k ? live.brand1 : base.card }}>
+                      <Text style={{ fontSize: 12, fontWeight: '500', color: quote === k ? live.brand1Text : base.ink }}>{l}</Text>
                     </Pressable>
                   ))}
                 </ScrollView>

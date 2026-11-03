@@ -54,8 +54,11 @@ export function themeFor(org: Pick<Organization, 'color_primary' | 'color_second
 }
 
 const Ctx = createContext<Theme>(themeFor(null));
+/** The company colour for plain style objects (tabs and chips), kept up to date by the provider as it renders. */
+export const live = { brand1: DEFAULT_BRAND1, brand1Text: readableTextColor(DEFAULT_BRAND1) };
+function setLive(t: Theme) { live.brand1 = t.brand1; live.brand1Text = t.brand1Text; return t; }
 export function ThemeProvider({ org, children }: { org: Organization | null; children: ReactNode }) {
-  const t = useMemo(() => themeFor(org), [org]);
+  const t = useMemo(() => setLive(themeFor(org)), [org]);
   return <Ctx.Provider value={t}>{children}</Ctx.Provider>;
 }
 export const useTheme = () => useContext(Ctx);

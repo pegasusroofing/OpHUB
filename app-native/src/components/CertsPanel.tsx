@@ -22,7 +22,7 @@ import { buildCertBundlePdf } from '@/lib/certBundlePdf';
 import { deliverPdf, emailPdf } from '@/lib/pdf';
 import { CERT_CATEGORIES_AZ, certCategoryLabel, certDisplayName, certStats, type Cert } from '@/lib/rules/certs';
 import { readIsoDate } from '@/lib/rules/materials';
-import { base } from '@/theme/theme';
+import { base, live } from '@/theme/theme';
 
 export function CertsPanel({ userId, manual = false }: { userId: string; manual?: boolean }) {
   const { me } = useAuth();
@@ -109,8 +109,8 @@ export function CertsPanel({ userId, manual = false }: { userId: string; manual?
           <Muted style={{ fontWeight: '700', marginBottom: 6 }}>Type</Muted>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
             {CERT_CATEGORIES_AZ.map((c) => (
-              <Pressable key={c.key} onPress={() => setCat(c.key)} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 14, borderWidth: 1, borderColor: cat === c.key ? base.ink : base.line, backgroundColor: cat === c.key ? base.ink : base.card }}>
-                <Text style={{ fontSize: 12, fontWeight: '700', color: cat === c.key ? '#fff' : base.ink }}>{c.label}</Text>
+              <Pressable key={c.key} onPress={() => setCat(c.key)} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 14, borderWidth: 1, borderColor: cat === c.key ? live.brand1 : base.line, backgroundColor: cat === c.key ? live.brand1 : base.card }}>
+                <Text style={{ fontSize: 12, fontWeight: '500', color: cat === c.key ? live.brand1Text : base.ink }}>{c.label}</Text>
               </Pressable>
             ))}
           </View>

@@ -22,7 +22,7 @@ import { readIsoDate } from '@/lib/rules/materials';
 import { buildIcs } from '@/lib/rules/ics';
 import { isFinanceUser, isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
-import { base, page, radius, space, useTheme } from '@/theme/theme';
+import { base, page, radius, space, useTheme, live } from '@/theme/theme';
 
 type View_ = 'week' | 'twoweek' | 'month';
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card, marginBottom: 8 };
@@ -228,8 +228,8 @@ export default function SiteCalendar() {
 
 function Chip({ on, label, onPress }: { on: boolean; label: string; onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: on ? base.ink : base.line, backgroundColor: on ? base.ink : base.card }}>
-      <Text style={{ fontWeight: '700', color: on ? '#fff' : base.ink }}>{label}</Text>
+    <Pressable onPress={onPress} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: on ? live.brand1 : base.line, backgroundColor: on ? live.brand1 : base.card }}>
+      <Text style={{ fontWeight: '500', color: on ? live.brand1Text : base.ink }}>{label}</Text>
     </Pressable>
   );
 }

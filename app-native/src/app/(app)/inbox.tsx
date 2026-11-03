@@ -14,7 +14,7 @@ import { isManager } from '@/lib/roles';
 import { KIND_LABEL, msgDest } from '@/data/siteMessages';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
-import { base, page, space, useTheme } from '@/theme/theme';
+import { base, page, space, useTheme, live } from '@/theme/theme';
 
 type Tab = 'todo' | 'msgs';
 const TYPES = [{ k: 'all', l: 'All' }, { k: 'rams', l: 'RAMS' }, { k: 'coshh', l: 'COSHH' }, { k: 'tbt', l: 'TBT' }] as const;
@@ -67,8 +67,8 @@ export default function Inbox() {
       <Title>Messages & tasks</Title>
       <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
         {([['todo', `To sign / do${todoN ? ` (${todoN})` : ''}`], ['msgs', `Messages${unreadN && current !== 'msgs' ? ` (${unreadN} new)` : ''}`]] as const).map(([k, label]) => (
-          <Pressable key={k} onPress={() => setTab(k)} style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 18, borderWidth: 1, borderColor: current === k ? base.ink : base.line, backgroundColor: current === k ? base.ink : base.card }}>
-            <Text style={{ fontWeight: '700', color: current === k ? '#fff' : base.ink }}>{label}</Text>
+          <Pressable key={k} onPress={() => setTab(k)} style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 18, borderWidth: 1, borderColor: current === k ? live.brand1 : base.line, backgroundColor: current === k ? live.brand1 : base.card }}>
+            <Text style={{ fontWeight: '500', color: current === k ? live.brand1Text : base.ink }}>{label}</Text>
           </Pressable>
         ))}
       </View>

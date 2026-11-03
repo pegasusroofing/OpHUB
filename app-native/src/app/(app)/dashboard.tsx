@@ -20,7 +20,7 @@ import { deliverPdf, emailPdf } from '@/lib/pdf';
 import { openDocLink } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
 import { CERT_CATEGORIES_AZ, certCategoryLabel, certDisplayName, certStats } from '@/lib/rules/certs';
-import { base, space } from '@/theme/theme';
+import { base, space, live } from '@/theme/theme';
 
 export default function Dashboard() {
   const { me } = useAuth();
@@ -106,8 +106,8 @@ export default function Dashboard() {
               <Muted style={{ fontWeight: '700', marginBottom: 6 }}>Type</Muted>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
                 {CERT_CATEGORIES_AZ.map((c) => (
-                  <Pressable key={c.key} onPress={() => setCat(c.key)} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 14, borderWidth: 1, borderColor: cat === c.key ? base.ink : base.line, backgroundColor: cat === c.key ? base.ink : base.card }}>
-                    <Text style={{ fontSize: 12, fontWeight: '700', color: cat === c.key ? '#fff' : base.ink }}>{c.label}</Text>
+                  <Pressable key={c.key} onPress={() => setCat(c.key)} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 14, borderWidth: 1, borderColor: cat === c.key ? live.brand1 : base.line, backgroundColor: cat === c.key ? live.brand1 : base.card }}>
+                    <Text style={{ fontSize: 12, fontWeight: '500', color: cat === c.key ? live.brand1Text : base.ink }}>{c.label}</Text>
                   </Pressable>
                 ))}
               </View>

@@ -17,7 +17,7 @@ import { pickPhotos } from '@/lib/photos';
 import { fullSiteAddress } from '@/lib/rules/checkin';
 import { localISODate } from '@/lib/rules/driver';
 import { supabase } from '@/lib/supabase';
-import { base, page, radius, space } from '@/theme/theme';
+import { base, page, radius, space, live } from '@/theme/theme';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card, marginBottom: 12 };
@@ -71,8 +71,8 @@ export default function NewIncident() {
       <Text style={{ fontWeight: '700', color: base.ink, marginBottom: 6 }}>{label}</Text>
       <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
         {options.map(([val, l]) => (
-          <Pressable key={val} onPress={() => set(k, val)} style={{ flex: 1, minWidth: 70, alignItems: 'center', padding: 10, borderRadius: 8, borderWidth: 1, borderColor: v[k] === val ? base.ink : base.line, backgroundColor: v[k] === val ? base.ink : base.card }}>
-            <Text style={{ fontWeight: '700', color: v[k] === val ? '#fff' : base.ink }}>{l}</Text>
+          <Pressable key={val} onPress={() => set(k, val)} style={{ flex: 1, minWidth: 70, alignItems: 'center', padding: 10, borderRadius: 8, borderWidth: 1, borderColor: v[k] === val ? live.brand1 : base.line, backgroundColor: v[k] === val ? live.brand1 : base.card }}>
+            <Text style={{ fontWeight: '500', color: v[k] === val ? live.brand1Text : base.ink }}>{l}</Text>
           </Pressable>
         ))}
       </View>

@@ -18,7 +18,7 @@ import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { readIsoDate } from '@/lib/rules/materials';
 import { isManager } from '@/lib/roles';
-import { base, page, radius, space } from '@/theme/theme';
+import { base, page, radius, space, live } from '@/theme/theme';
 
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 9, color: base.ink, backgroundColor: base.card, marginBottom: 6 };
 const pick = async (multiple: boolean) => {
@@ -59,8 +59,8 @@ export default function Handover() {
     setBusy(''); toast(`${n} added`); refresh();
   };
   const chip = (k: typeof tab, l: string, n?: number) => (
-    <Pressable onPress={() => setTab(k)} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: tab === k ? base.ink : base.line, backgroundColor: tab === k ? base.ink : base.card }}>
-      <Text style={{ fontWeight: '700', color: tab === k ? '#fff' : base.ink }}>{l}{n != null ? ` (${n})` : ''}</Text>
+    <Pressable onPress={() => setTab(k)} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: tab === k ? live.brand1 : base.line, backgroundColor: tab === k ? live.brand1 : base.card }}>
+      <Text style={{ fontWeight: '500', color: tab === k ? live.brand1Text : base.ink }}>{l}{n != null ? ` (${n})` : ''}</Text>
     </Pressable>
   );
   const when = (t: string | null) => (t ? new Date(t).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '');

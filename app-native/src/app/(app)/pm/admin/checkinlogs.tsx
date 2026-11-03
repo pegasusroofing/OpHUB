@@ -16,7 +16,7 @@ import { byDay, logRange, pairSessions, type LogRow } from '@/lib/rules/checkinL
 import { readIsoDate } from '@/lib/rules/materials';
 import { isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
-import { base, page, space } from '@/theme/theme';
+import { base, page, space, live } from '@/theme/theme';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 
@@ -49,7 +49,7 @@ export default function CheckinLogs() {
   const siteIds = new Set(sites.map((s) => s.id)), teamIds = new Set(team.map((p) => p.id));
   const mine = rows.filter((c) => (c.site_id && siteIds.has(c.site_id)) || teamIds.has(c.user_id));
   const operatives = team.filter((p) => p.role === 'operative' && (!ops.length || ops.includes(p.id)));
-  const chip = (on: boolean, l: string, onPress: () => void) => <Pressable onPress={onPress} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: on ? base.ink : base.line, backgroundColor: on ? base.ink : base.card }}><Text style={{ fontWeight: '700', fontSize: 12, color: on ? '#fff' : base.ink }}>{l}</Text></Pressable>;
+  const chip = (on: boolean, l: string, onPress: () => void) => <Pressable onPress={onPress} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: on ? live.brand1 : base.line, backgroundColor: on ? live.brand1 : base.card }}><Text style={{ fontWeight: '500', fontSize: 12, color: on ? live.brand1Text : base.ink }}>{l}</Text></Pressable>;
   const dateBox = (v: string, set: (s: string) => void, ph: string) => <DateBox value={v} onChange={set} placeholder={ph} title={ph} style={{ flex: 1, paddingVertical: 7 }} />;
   return (
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">

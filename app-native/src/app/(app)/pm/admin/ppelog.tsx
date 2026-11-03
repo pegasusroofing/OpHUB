@@ -18,7 +18,7 @@ import { currentPpe, PPE_STANDARD_ITEMS, type Issuance } from '@/lib/rules/ppe';
 import { exportTableExcel, exportTablePdf, type Table } from '@/lib/tableExport';
 import { isFullManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
-import { base, page, space } from '@/theme/theme';
+import { base, page, space, live } from '@/theme/theme';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 type Row = { id: string; user_id: string; site_id: string; items: string[] | null; status: string; issued_at: string; issued_by?: string | null };
@@ -59,7 +59,7 @@ export default function PpeLog() {
     return exportTableExcel({ title: 'PPE Register', sub: 'Items each operative currently holds (latest signed issue)', cols: [{ l: 'Operative' }, ...items.map((x) => ({ l: x, w: 70 }))], rows: opsAll.map((p) => { const cur = new Set(currentPpe(all, p.id)); return [p.name, ...items.map((x) => (cur.has(x) ? 'Issued' : ''))]; }) }, org);
   };
   const run = async (k: string, fn: () => Promise<boolean>) => { if (k !== 'r' && !shown.length) { toast('No PPE issued in that range.'); return; } setBusy(k); const ok = await fn().catch(() => false); setBusy(''); if (!ok) toast('Could not make the file — try again.'); };
-  const chip = (on: boolean, l: string, onPress: () => void) => <Pressable key={l} onPress={onPress} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: on ? base.ink : base.line, backgroundColor: on ? base.ink : base.card }}><Text style={{ fontWeight: '700', fontSize: 12, color: on ? '#fff' : base.ink }}>{l}</Text></Pressable>;
+  const chip = (on: boolean, l: string, onPress: () => void) => <Pressable key={l} onPress={onPress} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: on ? live.brand1 : base.line, backgroundColor: on ? live.brand1 : base.card }}><Text style={{ fontWeight: '500', fontSize: 12, color: on ? live.brand1Text : base.ink }}>{l}</Text></Pressable>;
   return (
     <View style={{ flex: 1 }}>
     <ScrollView style={{ flex: 1 }} contentContainerStyle={page(720)}>

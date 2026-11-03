@@ -12,7 +12,8 @@ import { CoshhFolderPicker } from '@/components/CoshhFolderPicker';
 import { confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Muted, SectionTitle } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
-import { assessMap, deleteProductFull, loadProduct, previewAssessment, saveAssessment, saveProduct, uploadSds } from '@/data/coshhLib';
+import { useSite } from '@/data/sites';
+import { assessMap, deleteProductFull, issueToSite, loadProduct, previewAssessment, saveAssessment, saveProduct, uploadSds } from '@/data/coshhLib';
 import { openDocLink } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
 import { pdfPageTexts } from '@/lib/pdfjs';
@@ -22,10 +23,10 @@ import { deliverPdf } from '@/lib/pdf';
 import { codeText, COSHH_PICTOS, COSHH_ROUTES, parseCodes, suggestPictos, suggestSignal, type CoshhData, type CoshhItem } from '@/lib/rules/coshh';
 import { RAMS_PPE } from '@/lib/rules/rams';
 import { isFullManager } from '@/lib/roles';
-import { base, page, radius, space } from '@/theme/theme';
+import { base, page, radius, space, live } from '@/theme/theme';
 
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 9, color: base.ink, backgroundColor: base.card, marginBottom: 8 };
-const chipStyle = (on: boolean) => ({ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: on ? base.ink : base.line, backgroundColor: on ? base.ink : base.card });
+const chipStyle = (on: boolean) => ({ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: on ? live.brand1 : base.line, backgroundColor: on ? live.brand1 : base.card });
 
 export default function CoshhProduct() {
   const { pid } = useLocalSearchParams<{ pid: string }>();
@@ -43,7 +44,9 @@ function Codes({ codes }: { codes: string[] }) {
 }
 
 function Editor({ initial }: { initial: CoshhItem }) {
-  const { folder } = useLocalSearchParams<{ folder?: string }>();
+  const { folder, site: siteId } = useLocalSearchParams<{ folder?: string; site?: string }>();
+  const { data: site } = useSite(siteId || '');
+  const [where, setWhere] = useState('');
   const { me, org } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
@@ -82,6 +85,24 @@ function Editor({ initial }: { initial: CoshhItem }) {
     <View style={{ flex: 1 }}>
       <Stack.Screen options={{ title: 'COSHH Product' }} />
       <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
+        {/* Opened from a job's Create COSHH (Andy, 3 Nov 2026): fill it in, then issue it straight to that job. */}
+        {!!siteId && site && (
+          <Card style={{ borderColor: base.blue }}>
+            <SectionTitle>{`Issue To ${site.name}`}</SectionTitle>
+            <Muted style={{ marginBottom: 6 }}>Fill in the details below (and add the data sheet if you have one), then issue it. It stays in the COSHH Library for other jobs.</Muted>
+            <TextInput value={where} onChangeText={setWhere} placeholder="Where is it used on this job? (optional)" style={box} />
+            <Button busy={!!busy} title="Save & Issue To This Job" onPress={async () => {
+              if (!(await saveFirst())) return;
+              setBusy('Building the COSHH assessment…');
+              try {
+                const n = await issueToSite(me, org, site, [it], { where, note: '' });
+                if (!n) { toast('Could not issue — check signal and try again.'); return; }
+                refresh(); void qc.invalidateQueries({ queryKey: ['hsDocs', 'coshh', site.id] }); void qc.invalidateQueries({ queryKey: ['hsSummary', site.id] });
+                toast('COSHH assessment issued to the job'); router.replace(`/sites/${site.id}/hs/coshh` as never);
+              } finally { setBusy(''); }
+            }} />
+          </Card>
+        )}
         <Card>
           <SectionTitle>COSHH assessment</SectionTitle>
           {a ? (

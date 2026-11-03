@@ -33,7 +33,7 @@ import {
   addItemCopy, canAddItem, completeProblem, itemAllowsMedia, reportDrawingKeys, itemAllowsNote, itemHasTraffic, itemOptions, itemVisible, mediaRequiredFor, scoreLabel, scoreSections,
   trafficHex, trafficLevels, type Answers, type ReportItem,
 } from '@/lib/rules/reports';
-import { base, radius } from '@/theme/theme';
+import { base, radius, live as themeLive } from '@/theme/theme';
 
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card, marginBottom: 8 };
 type Op = { id: string; userId: string | null; name: string; role: string; included: boolean };
@@ -204,8 +204,8 @@ export function ReportFill({ sub, siteId, editingCompleted, isBriefing, onDone }
       {opts.map((o) => {
         const on = Array.isArray(cur) ? cur.includes(o) : cur === o;
         return (
-          <Pressable key={o} onPress={() => onPick(o)} style={{ paddingHorizontal: 14, paddingVertical: 9, borderRadius: 8, borderWidth: 1, borderColor: on ? base.ink : base.line, backgroundColor: on ? base.ink : base.card, flexGrow: it.type === 'passfail' || it.type === 'checkbox' ? 1 : 0, alignItems: 'center' }}>
-            <Text style={{ fontWeight: '700', color: on ? '#fff' : base.ink }}>{o}</Text>
+          <Pressable key={o} onPress={() => onPick(o)} style={{ paddingHorizontal: 14, paddingVertical: 9, borderRadius: 8, borderWidth: 1, borderColor: on ? themeLive.brand1 : base.line, backgroundColor: on ? themeLive.brand1 : base.card, flexGrow: it.type === 'passfail' || it.type === 'checkbox' ? 1 : 0, alignItems: 'center' }}>
+            <Text style={{ fontWeight: '500', color: on ? themeLive.brand1Text : base.ink }}>{o}</Text>
           </Pressable>
         );
       })}

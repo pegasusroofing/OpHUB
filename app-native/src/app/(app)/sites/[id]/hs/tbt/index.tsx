@@ -10,9 +10,9 @@ import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { TbtStatusTag } from '@/components/TbtStatusTag';
-import { confirmAsk, promptText, useToast } from '@/components/toast';
+import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { DocBadge, RowSigners } from '@/components/HsDocList';
-import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
+import { Button, Card, Empty, Muted, SectionTitle, Toggle } from '@/components/ui';
 import { HowTo } from '@/components/HowTo';
 import { usePeople, useTbts } from '@/data/hs';
 import { useSite } from '@/data/sites';
@@ -22,7 +22,7 @@ import { useAuth } from '@/lib/auth';
 import { deliverPdf, emailPdf, exportFilename, PDFDocument, emailPdfsSeparately } from '@/lib/pdf';
 import { isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
-import { base, page, radius, space } from '@/theme/theme';
+import { base, page, radius, space, live } from '@/theme/theme';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 
@@ -37,6 +37,7 @@ export default function Tbts() {
   const mgr = !!me && isManager(me);
   const [tab, setTab] = useState<'bank' | 'live' | 'completed' | null>(null);
   const [title, setTitle] = useState('');
+  const [upOpen, setUpOpen] = useState(false);
   const [file, setFile] = useState<{ uri: string; name: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [sel, setSel] = useState<Set<string>>(new Set());
@@ -80,12 +81,17 @@ export default function Tbts() {
         </Card>
       )}
       {mgr && (
-        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
           {(['bank', 'live', 'completed'] as const).map((k) => (
-            <Pressable key={k} onPress={() => setTab(k)} style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 16, borderWidth: 1, borderColor: cur === k ? base.ink : base.line, backgroundColor: cur === k ? base.ink : base.card }}>
-              <Text style={{ fontWeight: '700', color: cur === k ? '#fff' : base.ink }}>{k === 'bank' ? 'TBT Library' : k === 'live' ? 'Live TBT' : 'Completed TBT'}</Text>
+            <Pressable key={k} onPress={() => setTab(k)} style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 16, borderWidth: 1, borderColor: cur === k ? live.brand1 : base.line, backgroundColor: cur === k ? live.brand1 : base.card }}>
+              <Text style={{ fontWeight: '500', color: cur === k ? live.brand1Text : base.ink }}>{k === 'bank' ? 'TBT Library' : k === 'live' ? 'Live TBT' : 'Completed TBT'}</Text>
             </Pressable>
           ))}
+          <View style={{ flex: 1 }} />
+          {cur === 'bank' && <Pressable accessibilityRole="button" accessibilityLabel="More" hitSlop={8} disabled={busy} onPress={async () => {
+            const k = await chooseAction('TBT Library', [{ key: 'sync', label: '🔄 Sync From The Admin Centre Library' }]);
+            if (k === 'sync') { setBusy(true); toast(await syncTbtBank(me, id)); setBusy(false); refresh(); }
+          }} style={{ paddingHorizontal: 6, height: 30, justifyContent: 'center' }}><Text style={{ fontSize: 18, lineHeight: 20, color: base.slate }}>⋮</Text></Pressable>}
         </View>
       )}
       {isLoading || !site ? <Muted>Loading…</Muted> : shown.length ? shown.map((t) => {
@@ -119,9 +125,8 @@ export default function Tbts() {
 
       {mgr && cur === 'bank' && (
         <>
-          <Button kind="ghost" busy={busy} title="🔄 Sync TBT Library from Admin Centre Library" onPress={async () => { setBusy(true); toast(await syncTbtBank(me, id)); setBusy(false); refresh(); }} />
-          <Card>
-            <SectionTitle>Upload a toolbox talk</SectionTitle>
+          <Toggle title="Upload A Toolbox Talk" open={upOpen} onPress={() => setUpOpen(!upOpen)} />
+          {upOpen && <Card>
             <TextInput value={title} onChangeText={setTitle} placeholder="Title, e.g. Week 24 — Manual Handling" style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, marginBottom: 8 }} />
             <Button kind="ghost" title={file ? `📄 ${file.name}` : 'Choose PDF'} onPress={async () => {
               const r = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true });
@@ -131,10 +136,10 @@ export default function Tbts() {
               if (!title.trim() || !file) { toast('Add a title and choose a PDF.'); return; }
               setBusy(true); const err = await uploadTbt(me, id, title.trim(), file); setBusy(false);
               if (err) { toast(err); return; }
-              toast('Toolbox talk uploaded to TBT Library'); setTitle(''); setFile(null); setTab('bank'); refresh();
+              toast('Toolbox talk uploaded to TBT Library'); setTitle(''); setFile(null); setUpOpen(false); setTab('bank'); refresh();
             }} />
             <Muted>New uploads go into TBT Library — operatives can&apos;t see them until you tap &quot;Issue for Signing&quot;.</Muted>
-          </Card>
+          </Card>}
         </>
       )}
       {mgr && cur === 'completed' && shown.length > 0 && (

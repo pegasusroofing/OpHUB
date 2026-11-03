@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { log, tellOperatives } from '@/data/hsManager';
 import { loadSettings } from '@/data/ramsBuilder';
-import { buildCoshhPdf } from '@/lib/coshhPdf';
+import { buildCoshhPdf, type CoshhJob } from '@/lib/coshhPdf';
 import { fetchBytes, PDFDocument } from '@/lib/pdf';
 import { publicUrl } from '@/lib/privateFiles';
 import { pdfPageTexts } from '@/lib/pdfjs';
@@ -175,8 +175,8 @@ export async function assessMap(orgId: string | null, lib: CoshhItem[]): Promise
 }
 export const useAssessMap = (orgId: string | null | undefined, lib: CoshhItem[] | undefined) => useQuery({ queryKey: ['coshhAssess', orgId, (lib || []).map((i) => i.id).join(',')], enabled: !!orgId && !!lib, queryFn: () => assessMap(orgId ?? null, lib || []) });
 
-export async function previewAssessment(it: CoshhItem, org: Org, me: Me) {
-  return buildCoshhPdf(it, null, { where: '', note: '' }, org, me, await loadSettings(org as never));
+export async function previewAssessment(it: CoshhItem, org: Org, me: Me, site: Site | null = null, job: CoshhJob = { where: '', note: '' }) {
+  return buildCoshhPdf(it, site, job, org, me, await loadSettings(org as never));
 }
 /**
  * Builds the product's assessment and files it in one or more folders — or,
@@ -217,13 +217,13 @@ export async function deleteProductFull(it: CoshhItem, a: Assessed | undefined):
 
 // ---------- onto a job ----------
 /** Create COSHH: each ticked product becomes its own assessment in the job's COSHH list, data sheet attached. */
-export async function issueToSite(me: Me, org: Org, site: Site, products: CoshhItem[], job: { where: string; note: string }): Promise<number> {
+export async function issueToSite(me: Me, org: Org, site: Site, products: CoshhItem[], job: CoshhJob, names: Record<string, string> = {}): Promise<number> {
   const st = await loadSettings(org as never);
   let made = 0;
   for (const it of products) {
     try {
-      const bytes = await buildCoshhPdf(it, site, job, org, me, st);
-      const name = `COSHH — ${it.title}`;
+      const name = (names[it.id] || '').trim() || `COSHH — ${it.title}`;
+      const bytes = await buildCoshhPdf(it, site, { ...job, name: name.replace(/^COSHH\s*[—-]\s*/i, '') }, org, me, st);
       const up = await supabase.storage.from('coshh-docs').upload(`${site.id}/coshh/${rid()}-COSHH-${clean(it.title).slice(0, 60)}.pdf`, bytes, { contentType: 'application/pdf' });
       if (up.error) continue;
       if (!(await db.from('coshh_docs').insert({ site_id: site.id, name, storage_path: up.data.path, uploaded_by: me.id } as never)).error) { made++; tellOperatives(me, site.id, `New COSHH published and needs signing: "${name}"`); }

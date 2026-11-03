@@ -13,7 +13,7 @@ import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { yardGuess, yardLow, yardNum, yardQty, type YardItem } from '@/lib/rules/materials';
 import { isFinanceUser } from '@/lib/roles';
-import { base, page, radius, space } from '@/theme/theme';
+import { base, page, radius, space, live } from '@/theme/theme';
 
 const qbox = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, paddingHorizontal: 8, paddingVertical: 6, width: 70, textAlign: 'center' as const, color: base.ink, backgroundColor: base.card };
 
@@ -81,8 +81,8 @@ export default function Yard() {
       {!request && (
         <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
           {(['issue', 'return'] as const).map((k) => (
-            <Pressable key={k} onPress={() => setMode(k)} style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 16, borderWidth: 1, borderColor: mode === k ? base.ink : base.line, backgroundColor: mode === k ? base.ink : base.card }}>
-              <Text style={{ fontWeight: '700', color: mode === k ? '#fff' : base.ink }}>{k === 'issue' ? 'Issue to this job' : '↩ Return from this job'}</Text>
+            <Pressable key={k} onPress={() => setMode(k)} style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 16, borderWidth: 1, borderColor: mode === k ? live.brand1 : base.line, backgroundColor: mode === k ? live.brand1 : base.card }}>
+              <Text style={{ fontWeight: '500', color: mode === k ? live.brand1Text : base.ink }}>{k === 'issue' ? 'Issue to this job' : '↩ Return from this job'}</Text>
             </Pressable>
           ))}
         </View>

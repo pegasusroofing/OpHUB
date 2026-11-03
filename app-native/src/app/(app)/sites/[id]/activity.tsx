@@ -10,7 +10,7 @@ import { nameOf, usePeople } from '@/data/hs';
 import { useActivity } from '@/data/siteAdmin';
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
-import { base, page, space } from '@/theme/theme';
+import { base, page, space, live } from '@/theme/theme';
 
 export default function Activity() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -32,8 +32,8 @@ export default function Activity() {
       <Stack.Screen options={{ title: 'Activity History' }} />
       <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
         {(['all', 'changes', 'notices'] as const).map((k) => (
-          <Pressable key={k} onPress={() => setFilter(k)} style={{ flex: 1, alignItems: 'center', paddingVertical: 7, borderRadius: 16, borderWidth: 1, borderColor: filter === k ? base.ink : base.line, backgroundColor: filter === k ? base.ink : base.card }}>
-            <Text style={{ fontWeight: '700', color: filter === k ? '#fff' : base.ink }}>{k === 'all' ? 'All' : k === 'changes' ? 'Changes' : 'Notices'}</Text>
+          <Pressable key={k} onPress={() => setFilter(k)} style={{ flex: 1, alignItems: 'center', paddingVertical: 7, borderRadius: 16, borderWidth: 1, borderColor: filter === k ? live.brand1 : base.line, backgroundColor: filter === k ? live.brand1 : base.card }}>
+            <Text style={{ fontWeight: '500', color: filter === k ? live.brand1Text : base.ink }}>{k === 'all' ? 'All' : k === 'changes' ? 'Changes' : 'Notices'}</Text>
           </Pressable>
         ))}
       </View>

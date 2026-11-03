@@ -8,7 +8,7 @@ import { promptText, useToast } from '@/components/toast';
 import { Button } from '@/components/ui';
 import { createFolder, useAllFolders, type Folder } from '@/data/coshhLib';
 import { useAuth } from '@/lib/auth';
-import { base, radius } from '@/theme/theme';
+import { base, radius, live } from '@/theme/theme';
 
 export function CoshhFolderPicker({ title, multi, onDone, onCancel }: { title: string; multi?: boolean; onDone: (ids: (string | null)[]) => void; onCancel: () => void }) {
   const { me } = useAuth();
@@ -25,8 +25,8 @@ export function CoshhFolderPicker({ title, multi, onDone, onCancel }: { title: s
   const row = (id: string | null, label: string, depth: number) => {
     const on = picked.includes(id);
     return (
-      <Pressable key={id || 'top'} onPress={() => tap(id)} style={{ padding: 10, paddingLeft: 12 + depth * 18, borderWidth: 1, borderColor: on ? base.ink : base.line, backgroundColor: on ? base.ink : base.card, borderRadius: radius.input, marginBottom: 6 }}>
-        <Text style={{ fontWeight: '700', color: on ? '#fff' : base.ink }}>{on ? '✓ ' : ''}{label}</Text>
+      <Pressable key={id || 'top'} onPress={() => tap(id)} style={{ padding: 10, paddingLeft: 12 + depth * 18, borderWidth: 1, borderColor: on ? live.brand1 : base.line, backgroundColor: on ? live.brand1 : base.card, borderRadius: radius.input, marginBottom: 6 }}>
+        <Text style={{ fontWeight: '500', color: on ? live.brand1Text : base.ink }}>{on ? '✓ ' : ''}{label}</Text>
       </Pressable>
     );
   };

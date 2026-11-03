@@ -16,7 +16,7 @@ import { useAuth } from '@/lib/auth';
 import { VEHICLE_ITEMS, VEHICLE_PHOTOS, type VItem } from '@/lib/rules/driver';
 import { isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
-import { base, page, radius, space } from '@/theme/theme';
+import { base, page, radius, space, live } from '@/theme/theme';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 type Check = { id: string; driver_id: string; vehicle_reg: string | null; week_start: string; mileage: number | null; has_fails: boolean; submitted_at: string | null; items: VItem[] | null };
@@ -112,7 +112,7 @@ export default function Vehicles() {
       }) : <Muted style={{ marginBottom: 12 }}>Mileage starts being tracked from each vehicle&apos;s next weekly check.</Muted>}
       <SectionTitle>Weekly checklists</SectionTitle>
       <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
-        {([[false, 'All'], [true, '⚠ Had Fails']] as const).map(([k, l]) => <Pressable key={l} onPress={() => setFails(k)} style={{ flex: 1, paddingVertical: 8, borderRadius: 16, borderWidth: 1, alignItems: 'center', borderColor: fails === k ? base.ink : base.line, backgroundColor: fails === k ? base.ink : base.card }}><Text style={{ fontWeight: '700', color: fails === k ? '#fff' : base.ink }}>{l}</Text></Pressable>)}
+        {([[false, 'All'], [true, '⚠ Had Fails']] as const).map(([k, l]) => <Pressable key={l} onPress={() => setFails(k)} style={{ flex: 1, paddingVertical: 8, borderRadius: 16, borderWidth: 1, alignItems: 'center', borderColor: fails === k ? live.brand1 : base.line, backgroundColor: fails === k ? live.brand1 : base.card }}><Text style={{ fontWeight: '500', color: fails === k ? live.brand1Text : base.ink }}>{l}</Text></Pressable>)}
       </View>
       {shown.length ? shown.map((r) => (
         <Pressable key={r.id} onPress={() => router.setParams({ id: r.id })}>

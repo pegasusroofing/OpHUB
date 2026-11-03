@@ -43,7 +43,7 @@ import { HowTo } from '@/components/HowTo';
 import { viewDoc } from '@/components/DocViewer';
 import { openDocLink } from '@/data/hs';
 import { onQueueChange, onUploadsSent, pendingJobs, type PatchJob, type UploadJob } from '@/lib/uploadQueue';
-import { base, page, radius, space, useTheme } from '@/theme/theme';
+import { base, page, radius, space, useTheme, live } from '@/theme/theme';
 
 export default function Schedule() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -346,8 +346,8 @@ function AddTaskBox({ addresses, onAdd, onCancel }: { addresses: { id: string; n
       {addresses.length > 0 && (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
           {[{ id: '', name: 'Not on the list' }, ...addresses].map((a) => (
-            <Pressable key={a.id} onPress={() => setSub(a.id || null)} style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14, borderWidth: 1, borderColor: (sub || '') === a.id ? base.ink : base.line, backgroundColor: (sub || '') === a.id ? base.ink : base.card }}>
-              <Text style={{ fontSize: 12, fontWeight: '700', color: (sub || '') === a.id ? '#fff' : base.ink }}>{a.name}</Text>
+            <Pressable key={a.id} onPress={() => setSub(a.id || null)} style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14, borderWidth: 1, borderColor: (sub || '') === a.id ? live.brand1 : base.line, backgroundColor: (sub || '') === a.id ? live.brand1 : base.card }}>
+              <Text style={{ fontSize: 12, fontWeight: '500', color: (sub || '') === a.id ? live.brand1Text : base.ink }}>{a.name}</Text>
             </Pressable>
           ))}
         </View>

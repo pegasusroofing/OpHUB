@@ -19,9 +19,9 @@ import { useAuth } from '@/lib/auth';
 import { deliverPdf } from '@/lib/pdf';
 import { exportTableExcel, exportTablePdf } from '@/lib/tableExport';
 import type { Site } from '@/lib/types';
-import { base, radius } from '@/theme/theme';
+import { base, radius, live } from '@/theme/theme';
 
-export function HsDocUpload({ kind, site, companyId = null, create, createLabel }: { kind: DocKind; site: Site; companyId?: string | null; create?: ReactNode; createLabel?: string }) {
+export function HsDocUpload({ kind, site, companyId = null, create, createLabel, options }: { kind: DocKind; site: Site; companyId?: string | null; create?: ReactNode; createLabel?: string; options?: { label: string; go: () => void }[] }) {
   const { me, org } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
@@ -105,7 +105,12 @@ export function HsDocUpload({ kind, site, companyId = null, create, createLabel 
           }}
           onClose={() => setMailing(null)} />
       )}
-      {create ? (
+      {options ? (
+        <View style={{ marginTop: 8 }}><Button title={createLabel || `Create ${label}`} onPress={async () => {
+          const k = await chooseAction(createLabel || `Create ${label}`, [...options.map((o, i) => ({ key: String(i), label: o.label })), { key: 'up', label: `Upload ${label} Assessment` }]);
+          if (k === 'up') { setOpen(true); setMaking(false); } else if (k != null && options[Number(k)]) options[Number(k)].go();
+        }} /></View>
+      ) : create ? (
         <>
           {!!data?.docs.length && <Toggle title={`Create / Upload ${label}`} open={wrap} onPress={() => setWrap(!wrap)} />}
           {(wrap || !data?.docs.length) && (
@@ -120,7 +125,7 @@ export function HsDocUpload({ kind, site, companyId = null, create, createLabel 
           )}
         </>
       ) : <Toggle title={`Upload ${label}`} open={open} onPress={() => setOpen(!open)} />}
-      {open && (!create || wrap || !data?.docs.length) && (
+      {open && (!!options || !create || wrap || !data?.docs.length) && (
         <Card>
           <TextInput value={name} onChangeText={setName} placeholder={`${label} name`} style={box} />
           {kind === 'rams' && !companyId && (
@@ -200,8 +205,8 @@ function PickDocs({ mode, label, docs, onClose, onGo }: { mode: 'export' | 'emai
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card, marginBottom: 8 };
 function Chip({ on, label, onPress }: { on: boolean; label: string; onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: on ? base.ink : base.line, backgroundColor: on ? base.ink : base.card }}>
-      <Text style={{ fontWeight: '700', color: on ? '#fff' : base.ink }}>{label}</Text>
+    <Pressable onPress={onPress} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: on ? live.brand1 : base.line, backgroundColor: on ? live.brand1 : base.card }}>
+      <Text style={{ fontWeight: '500', color: on ? live.brand1Text : base.ink }}>{label}</Text>
     </Pressable>
   );
 }

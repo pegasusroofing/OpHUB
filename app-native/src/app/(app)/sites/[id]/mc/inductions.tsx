@@ -20,7 +20,7 @@ import { useAuth } from '@/lib/auth';
 import { deliverPdf, emailPdf, exportFilename, fetchBytes, PDFDocument } from '@/lib/pdf';
 import { publicUrl } from '@/lib/privateFiles';
 import { isManager } from '@/lib/roles';
-import { base, page as pageStyle, radius, space } from '@/theme/theme';
+import { base, page as pageStyle, radius, space, live } from '@/theme/theme';
 
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card, marginBottom: 8 };
 const day = (s: string) => new Date(s).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -60,8 +60,8 @@ export default function Inductions() {
         <Stack.Screen options={{ title: 'Site Inductions' }} />
         <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
           {(['outstanding', 'completed'] as const).map((k) => (
-            <Pressable key={k} onPress={() => setTab(k)} style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 16, borderWidth: 1, borderColor: tab === k ? base.ink : base.line, backgroundColor: tab === k ? base.ink : base.card }}>
-              <Text style={{ fontWeight: '700', color: tab === k ? '#fff' : base.ink }}>{k === 'outstanding' ? 'Outstanding' : 'Completed Inductions'}</Text>
+            <Pressable key={k} onPress={() => setTab(k)} style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 16, borderWidth: 1, borderColor: tab === k ? live.brand1 : base.line, backgroundColor: tab === k ? live.brand1 : base.card }}>
+              <Text style={{ fontWeight: '500', color: tab === k ? live.brand1Text : base.ink }}>{k === 'outstanding' ? 'Outstanding' : 'Completed Inductions'}</Text>
             </Pressable>
           ))}
         </View>
@@ -203,8 +203,8 @@ export default function Inductions() {
               <Text style={{ color: base.ink, marginVertical: 6 }}>{it.question}</Text>
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 {['no', 'yes'].map((v) => (
-                  <Pressable key={v} onPress={() => setHealth({ ...health, [i]: v })} style={{ flex: 1, alignItems: 'center', padding: 9, borderRadius: 8, borderWidth: 1, borderColor: health[i] === v ? base.ink : base.line, backgroundColor: health[i] === v ? base.ink : base.card }}>
-                    <Text style={{ fontWeight: '700', color: health[i] === v ? '#fff' : base.ink }}>{v === 'yes' ? 'Yes' : 'No'}</Text>
+                  <Pressable key={v} onPress={() => setHealth({ ...health, [i]: v })} style={{ flex: 1, alignItems: 'center', padding: 9, borderRadius: 8, borderWidth: 1, borderColor: health[i] === v ? live.brand1 : base.line, backgroundColor: health[i] === v ? live.brand1 : base.card }}>
+                    <Text style={{ fontWeight: '500', color: health[i] === v ? live.brand1Text : base.ink }}>{v === 'yes' ? 'Yes' : 'No'}</Text>
                   </Pressable>
                 ))}
               </View>

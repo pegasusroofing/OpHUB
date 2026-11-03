@@ -10,7 +10,7 @@ import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
-import { base, page, radius, space } from '@/theme/theme';
+import { base, page, radius, space, live } from '@/theme/theme';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 export type SubApp = { id: string; company_name: string; contact_name: string; email: string; phone: string | null; status: string; created_at: string; data: Record<string, unknown> | null };
@@ -45,8 +45,8 @@ export default function SubApps() {
       </Card>
       <View style={{ flexDirection: 'row', gap: 6, marginVertical: 10 }}>
         {(['new', 'approved', 'rejected'] as const).map((k) => (
-          <Pressable key={k} onPress={() => setTab(k)} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: tab === k ? base.ink : base.line, backgroundColor: tab === k ? base.ink : base.card }}>
-            <Text style={{ fontWeight: '700', color: tab === k ? '#fff' : base.ink }}>{k[0].toUpperCase() + k.slice(1)} ({counts[k] || 0})</Text>
+          <Pressable key={k} onPress={() => setTab(k)} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: tab === k ? live.brand1 : base.line, backgroundColor: tab === k ? live.brand1 : base.card }}>
+            <Text style={{ fontWeight: '500', color: tab === k ? live.brand1Text : base.ink }}>{k[0].toUpperCase() + k.slice(1)} ({counts[k] || 0})</Text>
           </Pressable>
         ))}
       </View>

@@ -9,7 +9,7 @@ import { useToast } from '@/components/toast';
 import { Button, Card, Muted } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
-import { base, page, radius, space } from '@/theme/theme';
+import { base, page, radius, space, live } from '@/theme/theme';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 
@@ -36,8 +36,8 @@ export default function ExpensesEmail() {
         <Muted style={{ fontWeight: '700', marginBottom: 4 }}>Keep receipts in the app for</Muted>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
           {[3, 6, 9, 12].map((m) => (
-            <Pressable key={m} onPress={() => setMonths(m)} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: months === m ? base.ink : base.line, backgroundColor: months === m ? base.ink : base.card }}>
-              <Text style={{ fontWeight: '700', color: months === m ? '#fff' : base.ink }}>{m} months</Text>
+            <Pressable key={m} onPress={() => setMonths(m)} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: months === m ? live.brand1 : base.line, backgroundColor: months === m ? live.brand1 : base.card }}>
+              <Text style={{ fontWeight: '500', color: months === m ? live.brand1Text : base.ink }}>{m} months</Text>
             </Pressable>
           ))}
         </View>

@@ -15,7 +15,7 @@ import { requestPpe, signPpe, useMyPpe } from '@/data/ppe';
 import { useAuth } from '@/lib/auth';
 import { cap1, currentPpe, PPE_STANDARD_ITEMS } from '@/lib/rules/ppe';
 import { isManager } from '@/lib/roles';
-import { base, page, space } from '@/theme/theme';
+import { base, page, space, live } from '@/theme/theme';
 
 const longDate = (d: string) => new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 
@@ -83,8 +83,8 @@ export default function Ppe() {
               <Muted style={{ fontWeight: '700', marginBottom: 6 }}>Item</Muted>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
                 {[...PPE_STANDARD_ITEMS, '__other'].map((x) => (
-                  <Pressable key={x} onPress={() => setItem(x)} style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: 16, borderWidth: 1, borderColor: item === x ? base.ink : base.line, backgroundColor: item === x ? base.ink : base.card }}>
-                    <Text style={{ fontWeight: '700', color: item === x ? '#fff' : base.ink }}>{x === '__other' ? 'Other…' : x}</Text>
+                  <Pressable key={x} onPress={() => setItem(x)} style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: 16, borderWidth: 1, borderColor: item === x ? live.brand1 : base.line, backgroundColor: item === x ? live.brand1 : base.card }}>
+                    <Text style={{ fontWeight: '500', color: item === x ? live.brand1Text : base.ink }}>{x === '__other' ? 'Other…' : x}</Text>
                   </Pressable>
                 ))}
               </View>

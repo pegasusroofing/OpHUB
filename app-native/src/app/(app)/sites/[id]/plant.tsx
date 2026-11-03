@@ -21,7 +21,7 @@ import { pickPhotos, type Picked } from '@/lib/photos';
 import { readIsoDate } from '@/lib/rules/materials';
 import { categoryLabel, dueBadge, effectiveState, PLANT_CHECKLIST, type PlantItem } from '@/lib/rules/plant';
 import { isManager } from '@/lib/roles';
-import { base, page, radius, space } from '@/theme/theme';
+import { base, page, radius, space, live } from '@/theme/theme';
 
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card, marginBottom: 8 };
 const toneColour = { none: base.slate, bad: base.red, warn: base.warn, ok: base.ok };
@@ -88,8 +88,8 @@ export default function Plant() {
                     <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
                       {[true, false].map((v) => (
                         <Pressable key={String(v)} onPress={() => { setAnswers({ ...answers, [item.id]: { ...ans, [q.key]: v } }); if (!v) showAlert("This will be flagged to your PM — they may decline the check-out until it's resolved."); }}
-                          style={{ flex: 1, alignItems: 'center', padding: 9, borderRadius: 8, borderWidth: 1, borderColor: ans[q.key] === v ? base.ink : base.line, backgroundColor: ans[q.key] === v ? base.ink : base.card }}>
-                          <Text style={{ fontWeight: '700', color: ans[q.key] === v ? '#fff' : base.ink }}>{v ? 'Yes' : 'No'}</Text>
+                          style={{ flex: 1, alignItems: 'center', padding: 9, borderRadius: 8, borderWidth: 1, borderColor: ans[q.key] === v ? live.brand1 : base.line, backgroundColor: ans[q.key] === v ? live.brand1 : base.card }}>
+                          <Text style={{ fontWeight: '500', color: ans[q.key] === v ? live.brand1Text : base.ink }}>{v ? 'Yes' : 'No'}</Text>
                         </Pressable>
                       ))}
                     </View>
@@ -168,8 +168,8 @@ export default function Plant() {
               <TextInput value={adding.name} onChangeText={(t) => setAdding({ ...adding, name: t })} placeholder="Item name, e.g. Genie GS-1930 MEWP" style={box} />
               <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
                 {[['plant', 'Plant / Equipment'], ['pat', 'PAT Tested Appliance']].map(([v, l]) => (
-                  <Pressable key={v} onPress={() => setAdding({ ...adding, category: v })} style={{ flex: 1, alignItems: 'center', padding: 9, borderRadius: 8, borderWidth: 1, borderColor: adding.category === v ? base.ink : base.line, backgroundColor: adding.category === v ? base.ink : base.card }}>
-                    <Text style={{ fontWeight: '700', color: adding.category === v ? '#fff' : base.ink }}>{l}</Text>
+                  <Pressable key={v} onPress={() => setAdding({ ...adding, category: v })} style={{ flex: 1, alignItems: 'center', padding: 9, borderRadius: 8, borderWidth: 1, borderColor: adding.category === v ? live.brand1 : base.line, backgroundColor: adding.category === v ? live.brand1 : base.card }}>
+                    <Text style={{ fontWeight: '500', color: adding.category === v ? live.brand1Text : base.ink }}>{l}</Text>
                   </Pressable>
                 ))}
               </View>
@@ -178,8 +178,8 @@ export default function Plant() {
               <Muted style={{ fontWeight: '700' }}>Recurring Inspection Interval</Muted>
               <View style={{ flexDirection: 'row', gap: 8, marginVertical: 8 }}>
                 {[6, 12].map((m) => (
-                  <Pressable key={m} onPress={() => setAdding({ ...adding, interval: m })} style={{ flex: 1, alignItems: 'center', padding: 9, borderRadius: 8, borderWidth: 1, borderColor: adding.interval === m ? base.ink : base.line, backgroundColor: adding.interval === m ? base.ink : base.card }}>
-                    <Text style={{ fontWeight: '700', color: adding.interval === m ? '#fff' : base.ink }}>Every {m} months</Text>
+                  <Pressable key={m} onPress={() => setAdding({ ...adding, interval: m })} style={{ flex: 1, alignItems: 'center', padding: 9, borderRadius: 8, borderWidth: 1, borderColor: adding.interval === m ? live.brand1 : base.line, backgroundColor: adding.interval === m ? live.brand1 : base.card }}>
+                    <Text style={{ fontWeight: '500', color: adding.interval === m ? live.brand1Text : base.ink }}>Every {m} months</Text>
                   </Pressable>
                 ))}
               </View>

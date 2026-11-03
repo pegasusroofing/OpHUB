@@ -218,7 +218,7 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
                 style={{ width: 18, height: 18, borderRadius: 4, borderWidth: 1.5, borderColor: sel.has(r.id) ? base.blue : '#c3c8d0', backgroundColor: sel.has(r.id) ? base.blue : '#fff', alignItems: 'center', justifyContent: 'center' }}>{sel.has(r.id) && <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700', lineHeight: 14 }}>✓</Text>}</Pressable>}
               <DocBadge kind={kind} type={r.doc_type} />
               <Text numberOfLines={2} style={{ flex: 1, fontSize: 15, fontWeight: '600', color: '#111827' }}>{docTitle(r.name, site.name)}</Text>
-              <StatusPill text={issued.length ? `Issued ${d(issued[0].signed_at)}` : data.roster.length ? `${signed.length} of ${data.roster.length} Signed` : 'Not Issued'} tone={issued.length || (data.roster.length && !waiting.length) ? 'ok' : waiting.length ? 'warn' : 'grey'} />
+              <StatusPill text={issued.length ? `Issued ${d(issued[0].signed_at)}` : kind === 'coshh' && r.uploaded_at && !data.roster.length ? `Issued ${d(r.uploaded_at)}` : data.roster.length ? `${signed.length} of ${data.roster.length} Signed` : 'Not Issued'} tone={issued.length || (kind === 'coshh' && !data.roster.length) || (data.roster.length && !waiting.length) ? 'ok' : waiting.length ? 'warn' : 'grey'} />
               <Pressable onPress={() => view(r)} hitSlop={6} style={{ borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 7, paddingHorizontal: 10, height: 26, justifyContent: 'center' }}><Text style={{ color: '#111827', fontSize: 12.5, fontWeight: '500' }}>View</Text></Pressable>
               {manager && (
                 <Pressable hitSlop={8} onPress={async () => {

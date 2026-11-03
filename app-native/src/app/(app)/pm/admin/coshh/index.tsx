@@ -19,10 +19,10 @@ import { COSHH_PICTO_IMG } from '@/lib/coshhPictoImages';
 import { deliverPdf, emailPdf } from '@/lib/pdf';
 import { brandOf, titleKey, type CoshhItem } from '@/lib/rules/coshh';
 import { isFullManager } from '@/lib/roles';
-import { base, page, radius, space } from '@/theme/theme';
+import { base, page, radius, space, live } from '@/theme/theme';
 
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 9, color: base.ink, backgroundColor: base.card };
-const chip = (on: boolean) => ({ flex: 1, padding: 9, borderRadius: 16, borderWidth: 1, borderColor: on ? base.ink : base.line, backgroundColor: on ? base.ink : base.card });
+const chip = (on: boolean) => ({ flex: 1, padding: 9, borderRadius: 16, borderWidth: 1, borderColor: on ? live.brand1 : base.line, backgroundColor: on ? live.brand1 : base.card });
 type Pick = { title: string; multi?: boolean; then: (ids: (string | null)[]) => void };
 
 function Folders({ setPick }: { setPick: (p: Pick | null) => void }) {
@@ -76,7 +76,7 @@ function Folders({ setPick }: { setPick: (p: Pick | null) => void }) {
             const on = sel.includes(f.id);
             return (
               <Card key={f.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, borderColor: on ? base.ink : base.cardLine }}>
-                <Pressable onPress={() => setSel(on ? sel.filter((x) => x !== f.id) : [...sel, f.id])} hitSlop={6} style={{ width: 22, height: 22, borderRadius: 5, borderWidth: 1.5, borderColor: on ? base.ink : base.line, backgroundColor: on ? base.ink : base.card, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff', fontWeight: '800' }}>{on ? '✓' : ''}</Text></Pressable>
+                <Pressable onPress={() => setSel(on ? sel.filter((x) => x !== f.id) : [...sel, f.id])} hitSlop={6} style={{ width: 22, height: 22, borderRadius: 5, borderWidth: 1.5, borderColor: on ? live.brand1 : base.line, backgroundColor: on ? live.brand1 : base.card, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff', fontWeight: '800' }}>{on ? '✓' : ''}</Text></Pressable>
                 <Text style={{ flex: 1, fontWeight: '700', color: base.ink }}>{f.name}</Text>
                 <Pressable onPress={async () => { const u = await openDocLink('coshh-library', f.storage_path); if (u) viewDoc(u); else toast('Could not open the file.'); }}><Text style={{ color: base.blue, fontWeight: '700' }}>View</Text></Pressable>
                 <Pressable hitSlop={8} onPress={async () => { const n = await promptText('Rename document', f.name); if (n && n.trim() && n.trim() !== f.name) { toast((await renameFile(f.id, n.trim())) ? 'Document renamed' : 'Could not rename'); refresh(); } }}><Text>✏️</Text></Pressable>

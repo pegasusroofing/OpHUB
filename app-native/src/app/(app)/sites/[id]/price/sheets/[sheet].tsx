@@ -26,7 +26,7 @@ import { isFullManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
 import { exportTableExcel, exportTablePdf, type Table } from '@/lib/tableExport';
 import type { Organization, Profile, Site } from '@/lib/types';
-import { base, page, radius, space } from '@/theme/theme';
+import { base, page, radius, space, live } from '@/theme/theme';
 
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, paddingHorizontal: 8, paddingVertical: 6, color: base.ink, backgroundColor: base.card };
 
@@ -178,7 +178,7 @@ function Builder({ me, site, sheet, items, alloc, rateItems, options }: { me: Pr
         {!sheet.schedule_section_id && <Check label="Add these lines to the Schedule of Works when issued" value={w.populateSOW} onChange={(v) => up((x) => { x.populateSOW = v; })} />}
       </Card>
       <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8 }}>
-        {(['tick', 'confirm'] as const).map((p) => <Pressable key={p} onPress={() => setPhase(p)} style={{ flex: 1, paddingVertical: 8, borderRadius: 16, borderWidth: 1, alignItems: 'center', borderColor: phase === p ? base.ink : base.line, backgroundColor: phase === p ? base.ink : base.card }}><Text style={{ fontWeight: '700', color: phase === p ? '#fff' : base.ink }}>{p === 'tick' ? '1. Tick items' : `2. Quantities (${Object.keys(w.items).length + w.customRows.length})`}</Text></Pressable>)}
+        {(['tick', 'confirm'] as const).map((p) => <Pressable key={p} onPress={() => setPhase(p)} style={{ flex: 1, paddingVertical: 8, borderRadius: 16, borderWidth: 1, alignItems: 'center', borderColor: phase === p ? live.brand1 : base.line, backgroundColor: phase === p ? live.brand1 : base.card }}><Text style={{ fontWeight: '500', color: phase === p ? live.brand1Text : base.ink }}>{p === 'tick' ? '1. Tick items' : `2. Quantities (${Object.keys(w.items).length + w.customRows.length})`}</Text></Pressable>)}
       </View>
 
       {phase === 'tick' ? (

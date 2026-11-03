@@ -21,7 +21,7 @@ import { pickPhotos, type Picked } from '@/lib/photos';
 import { buildSnagPdf, type SnagScope } from '@/lib/snagPdf';
 import { publicUrl, resolveStorageUrl } from '@/lib/privateFiles';
 import { isManager } from '@/lib/roles';
-import { base, page, radius, space } from '@/theme/theme';
+import { base, page, radius, space, live } from '@/theme/theme';
 
 const d = (t: string | null) => (t ? new Date(t).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '');
 
@@ -100,8 +100,8 @@ export default function SnagList() {
       <HowTo k="snagging" />
       <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
         {([['open', 'Live'], ['closed', 'Closed']] as const).map(([k, l]) => (
-          <Pressable key={k} onPress={() => setFilter(k)} style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 16, borderWidth: 1, borderColor: filter === k ? base.ink : base.line, backgroundColor: filter === k ? base.ink : base.card }}>
-            <Text style={{ fontWeight: '700', color: filter === k ? '#fff' : base.ink }}>{l}</Text>
+          <Pressable key={k} onPress={() => setFilter(k)} style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 16, borderWidth: 1, borderColor: filter === k ? live.brand1 : base.line, backgroundColor: filter === k ? live.brand1 : base.card }}>
+            <Text style={{ fontWeight: '500', color: filter === k ? live.brand1Text : base.ink }}>{l}</Text>
           </Pressable>
         ))}
       </View>

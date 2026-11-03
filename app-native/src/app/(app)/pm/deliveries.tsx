@@ -21,7 +21,7 @@ import { exportDeliverySchedule } from '@/lib/deliveryExport';
 import { fullSiteAddress } from '@/lib/rules/checkin';
 import { bySlotOrder, collectionLine, continuations, dayTotals, DELIVERY_TIME_SLOTS, fullSlots, localISODate, minsLabel, nextSlotKey, slotLabel } from '@/lib/rules/driver';
 import { isManager } from '@/lib/roles';
-import { base, page, radius, space, useTheme } from '@/theme/theme';
+import { base, page, radius, space, useTheme, live as themeLive } from '@/theme/theme';
 
 const addDays = (iso: string, n: number) => { const d = new Date(`${iso}T12:00:00`); d.setDate(d.getDate() + n); return localISODate(d); };
 
@@ -180,8 +180,8 @@ export default function DeliverySchedule() {
         <Card style={{ marginTop: 10 }}>
           <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
             {[[0, 'This week'], [-1, 'Last week']].map(([n, l]) => (
-              <Pressable key={n} onPress={() => setWeek(n as number)} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: week === n ? base.ink : base.line, backgroundColor: week === n ? base.ink : base.card }}>
-                <Text style={{ fontWeight: '700', color: week === n ? '#fff' : base.ink }}>{l}</Text>
+              <Pressable key={n} onPress={() => setWeek(n as number)} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: week === n ? themeLive.brand1 : base.line, backgroundColor: week === n ? themeLive.brand1 : base.card }}>
+                <Text style={{ fontWeight: '500', color: week === n ? themeLive.brand1Text : base.ink }}>{l}</Text>
               </Pressable>
             ))}
           </View>

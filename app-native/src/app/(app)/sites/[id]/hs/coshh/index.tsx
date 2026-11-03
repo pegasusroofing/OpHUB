@@ -1,9 +1,9 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { ScrollView, View } from 'react-native';
+import { ScrollView } from 'react-native';
 
 import { HsDocList } from '@/components/HsDocList';
 import { HsDocUpload } from '@/components/HsDocUpload';
-import { Button, Muted } from '@/components/ui';
+import { Muted } from '@/components/ui';
 import { HowTo } from '@/components/HowTo';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
@@ -21,12 +21,10 @@ export default function Coshh() {
       <HowTo k="coshh" />
       {site ? <HsDocList kind="coshh" site={site} /> : <Muted>Loading…</Muted>}
       {site && manager && (
-        <HsDocUpload kind="coshh" site={site} createLabel="🧪 Create COSHH" create={
-          <View style={{ gap: 8 }}>
-            <Button title="+ Build a COSHH assessment" onPress={() => router.push(`/sites/${site.id}/hs/coshh/new` as never)} />
-            <Button kind="ghost" title="📚 Add from COSHH Library" onPress={() => router.push(`/sites/${site.id}/hs/coshh/pick` as never)} />
-          </View>
-        } />
+        <HsDocUpload kind="coshh" site={site} createLabel="Create COSHH" options={[
+          { label: 'Add From Library', go: () => router.push(`/sites/${site.id}/hs/coshh/pick` as never) },
+          { label: 'Create COSHH', go: () => router.push(`/sites/${site.id}/hs/coshh/new` as never) },
+        ]} />
       )}
     </ScrollView>
   );

@@ -15,7 +15,7 @@ import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { money, type PriceElement } from '@/lib/rules/price';
-import { base, page, radius, space } from '@/theme/theme';
+import { base, page, radius, space, live } from '@/theme/theme';
 
 export default function PriceTile() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -77,8 +77,8 @@ export default function PriceTile() {
       {multi && (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
           {data.subs.length ? data.subs.map((a) => (
-            <Pressable key={a.id} onPress={() => setSub(a.id)} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: subId === a.id ? base.ink : base.line, backgroundColor: subId === a.id ? base.ink : base.card }}>
-              <Text style={{ fontWeight: '700', color: subId === a.id ? '#fff' : base.ink }}>{a.name}</Text>
+            <Pressable key={a.id} onPress={() => setSub(a.id)} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: subId === a.id ? live.brand1 : base.line, backgroundColor: subId === a.id ? live.brand1 : base.card }}>
+              <Text style={{ fontWeight: '500', color: subId === a.id ? live.brand1Text : base.ink }}>{a.name}</Text>
             </Pressable>
           )) : <Muted>No addresses on this job yet.</Muted>}
         </View>
