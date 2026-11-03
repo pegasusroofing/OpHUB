@@ -15,7 +15,7 @@ module.exports = async ({as, step}) => {
     return {ok: r.sub_job_id === P.id, note: String(r.sub_job_id)};
   });
   await step('A saved draft keeps it', async () => {
-    await q('Save draft').first().click({timeout: 6000}); await a.page.waitForTimeout(2000);
+    await q('Save Draft').first().click({timeout: 6000}); await a.page.waitForTimeout(2000);
     const [r] = await a.get('fin_invoices?select=sub_job_id&id=eq.' + inv);
     return {ok: r.sub_job_id === P.id, note: String(r.sub_job_id)};
   });

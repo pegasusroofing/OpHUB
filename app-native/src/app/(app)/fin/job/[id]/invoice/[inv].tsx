@@ -10,6 +10,7 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { FinForm } from '@/components/FinForm';
 import { ThinExportBar } from '@/components/FinFilterBar';
 import { FinRow, FinStat } from '@/components/FinNav';
+import { OphIcon } from '@/components/OphIcon';
 import { XeroRow } from '@/components/FinXero';
 import { chooseAction, confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Muted, SectionTitle } from '@/components/ui';
@@ -19,7 +20,7 @@ import { openDocLink } from '@/data/hs';
 import { SelectBox } from '@/components/SelectBox';
 import { subNoun, useSubJobs } from '@/data/finSubJobs';
 import { addPayment, deleteDraft, deletePayment, draftRow, issue, loadInvoice, newInvoice, saveDraft, saveIssuedLines, storePdf, voidInvoice } from '@/data/finInvoice';
-import { fdb, finInvoke } from '@/data/finance';
+import { fdb, finInvoke, useFinSettings } from '@/data/finance';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { fdate, INV_STATUS, invOutstanding, invOverdue, money, num, today } from '@/lib/rules/finance';
@@ -62,11 +63,22 @@ function InvoicePlot({ inv, site, onSet }: { inv: Row; site: Row | undefined; on
   );
 }
 
+const RED = '#C0392B';
+/** Red for money below nought, on screen only (Andy, 3 Nov 2026). */
+const minusTone = (n: unknown) => (Number(n) < 0 ? RED : undefined);
+/** The company's default sales code (Xero account), used on any line without its own. */
+function useSalesCode() {
+  const { me } = useAuth();
+  const { data: st } = useFinSettings(me?.org_id);
+  return String((st as Row | undefined)?.xero_sales_account || '200');
+}
+
 /** Saved lines: read only, with a small Edit lines link. */
 function LinesView({ lines, mixed, vatOf, note, onEdit }: { lines: Row[]; mixed: boolean; vatOf: (l: Row) => string; note?: string; onEdit: () => void }) {
+  const def = useSalesCode();
   return (
     <Card>
-      {lines.map((l: Row, i: number) => <FinRow key={i} title={l.description || ''} sub={mixed ? INV_VAT[vatOf(l)]?.l : undefined} right={money(num(l.amount) || 0)} />)}
+      {lines.map((l: Row, i: number) => <FinRow key={i} title={l.description || ''} sub={[mixed ? INV_VAT[vatOf(l)]?.l : '', l.account && l.account !== def ? `Sales code ${l.account}` : ''].filter(Boolean).join(' · ') || undefined} right={money(num(l.amount) || 0)} tone={minusTone(num(l.amount))} />)}
       <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
         <Muted style={{ flex: 1 }}>{note ? `${note} ` : ''}Saved lines are locked.</Muted>
         <Text accessibilityRole="button" onPress={onEdit} style={{ fontSize: 11.5, color: base.slate, textDecorationLine: 'underline' }}>Edit lines</Text>
@@ -74,25 +86,44 @@ function LinesView({ lines, mixed, vatOf, note, onEdit }: { lines: Row[]; mixed:
     </Card>
   );
 }
-/** The lines being typed: description, amount and VAT on each, add a line, VAT for all. */
+/** The lines being typed: description, then the amount (with its £), VAT and sales code on each; add a line, VAT for all. */
 function LinesEdit({ d, setD }: { d: Row; setD: (d: Row) => void }) {
+  const def = useSalesCode();
+  const [typing, setTyping] = useState<number | null>(null);
   const setLine = (i: number, k: string, v: unknown) => setD({ ...d, lines: d.lines.map((l: Row, j: number) => (j === i ? { ...l, [k]: v } : l)) });
+  const used = [...new Set((d.lines as Row[]).map((l) => String(l.account || '')).filter((c) => c && c !== def))];
+  const chooseCode = async (i: number) => {
+    const k = await chooseAction('Sales code', [{ key: def, label: `${def} — default sales` }, ...used.map((c) => ({ key: c, label: c })), { key: '__type', label: 'Type another code…' }]);
+    if (k === '__type') setTyping(i); else if (k) setLine(i, 'account', k === def ? null : k);
+  };
+  const chip = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, paddingHorizontal: 9, height: 40, justifyContent: 'center' as const, backgroundColor: base.card };
   return (
     <>
-      {d.lines.map((l: Row, i: number) => (
+      {d.lines.map((l: Row, i: number) => {
+        const neg = (num(l.amount) ?? 0) < 0;
+        return (
         <Card key={i} style={{ padding: 10 }}>
           <TextInput value={l.description || ''} onChangeText={(v) => setLine(i, 'description', v)} placeholder="Description" multiline style={[box, { marginBottom: 6 }]} />
           <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
-            <TextInput value={String(l.amount ?? '')} onChangeText={(v) => setLine(i, 'amount', v)} placeholder="£0.00" keyboardType="decimal-pad" style={[box, { flex: 1 }]} />
-            <Pressable onPress={async () => { const k = await chooseAction('VAT', Object.entries(INV_VAT).map(([key, v]) => ({ key, label: v.l }))); if (k) setLine(i, 'vat', k); }} style={box}><Text style={{ color: base.ink }}>{INV_VAT[l.vat]?.s || 'VAT'} ▾</Text></Pressable>
-            {d.lines.length > 1 && <Pressable hitSlop={8} onPress={() => setD({ ...d, lines: d.lines.filter((_: Row, j: number) => j !== i) })}><Text>🗑</Text></Pressable>}
+            <View style={[chip, { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 2 }]}>
+              <Text style={{ color: neg ? RED : base.slate, fontWeight: '500' }}>£</Text>
+              <TextInput accessibilityLabel={`Line ${i + 1} amount`} value={String(l.amount ?? '')} onChangeText={(v) => setLine(i, 'amount', v.replace(/[£\s]/g, ''))} placeholder="0.00" keyboardType="numbers-and-punctuation" style={{ flex: 1, minWidth: 0, height: 38, color: neg ? RED : base.ink, fontSize: 15 }} />
+            </View>
+            <Pressable accessibilityRole="button" accessibilityLabel="VAT" onPress={async () => { const k = await chooseAction('VAT', Object.entries(INV_VAT).map(([key, v]) => ({ key, label: v.l }))); if (k) setLine(i, 'vat', k); }} style={chip}><Text style={{ color: base.ink }}>{INV_VAT[l.vat]?.s || 'VAT'} ▾</Text></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="Sales code" onPress={() => void chooseCode(i)} style={chip}><Text style={{ color: base.ink }}>{l.account || def} ▾</Text></Pressable>
+            {d.lines.length > 1 && <Pressable hitSlop={8} accessibilityLabel="Remove line" onPress={() => setD({ ...d, lines: d.lines.filter((_: Row, j: number) => j !== i) })}><Text>🗑</Text></Pressable>}
           </View>
         </Card>
-      ))}
+        );
+      })}
       <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
-        <View style={{ flex: 1 }}><Button kind="ghost" title="+ Add line" onPress={() => setD({ ...d, lines: [...d.lines, { description: '', amount: '', vat: d.lines[d.lines.length - 1]?.vat }] })} /></View>
+        <View style={{ flex: 1 }}><Button kind="ghost" title="+ Add line" onPress={() => setD({ ...d, lines: [...d.lines, { description: '', amount: '', vat: d.lines[d.lines.length - 1]?.vat, account: d.lines[d.lines.length - 1]?.account || null }] })} /></View>
         <View style={{ flex: 1 }}><Button kind="ghost" title="VAT for all lines" onPress={async () => { const k = await chooseAction('VAT for every line', Object.entries(INV_VAT).map(([key, v]) => ({ key, label: v.l }))); if (k) setD({ ...d, lines: d.lines.map((l: Row) => ({ ...l, vat: k })) }); }} /></View>
       </View>
+      {typing != null && (
+        <FinForm title="Sales code" note="The Xero account code for this line, e.g. 200 for sales." initial={{ code: d.lines[typing]?.account || '' }} fields={[{ k: 'code', label: 'Code', ph: def }]} onClose={() => setTyping(null)}
+          onSave={async (v) => { const c = String(v.code || '').trim(); if (!c) return 'Type the code.'; setLine(typing, 'account', c === def ? null : c); return null; }} />
+      )}
     </>
   );
 }
@@ -108,12 +139,13 @@ function Draft({ inv, site }: { inv: Row; site: Row | undefined }) {
   if (!me) return null;
   const t = invTotals(d.lines, d.vat_treatment, d.vat_rate);
   const set = (k: string, v: unknown) => setD({ ...d, [k]: v });
-  const field = (k: string, label: string, o: { multiline?: boolean; half?: boolean; ph?: string; date?: boolean } = {}) => (
-    <View style={{ flexBasis: o.half ? '47%' : '100%', flexGrow: 1, marginBottom: 8 }}><Muted style={{ fontWeight: '500' }}>{label}</Muted>{o.date ? <DateBox value={String(d[k] ?? '')} onChange={(v) => set(k, v)} title={label} /> : <TextInput value={String(d[k] ?? '')} onChangeText={(v) => set(k, v)} multiline={o.multiline} placeholder={o.ph} style={[box, o.multiline ? { minHeight: 60 } : null]} />}</View>
+  const field = (k: string, label: string, o: { multiline?: boolean; half?: boolean; ph?: string; date?: boolean; short?: boolean } = {}) => (
+    <View style={{ flexBasis: o.half ? '47%' : '100%', flexGrow: 1, marginBottom: 8 }}><Muted style={{ fontWeight: '500' }}>{label}</Muted>{o.date ? <DateBox value={String(d[k] ?? '')} onChange={(v) => set(k, v)} title={label} /> : <TextInput value={String(d[k] ?? '')} onChangeText={(v) => set(k, v)} multiline={o.multiline} numberOfLines={o.short ? 1 : undefined} placeholder={o.ph} style={[box, o.multiline ? (o.short ? { minHeight: 44, paddingTop: 12, paddingBottom: 10 } : { minHeight: 60 }) : null]} />}</View>
   );
   const refresh = () => { ['finInvoice', 'finSales', 'finBook', 'finOverview', 'finJobs'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] })); };
   return (
-    <ScrollView contentContainerStyle={page(900)} keyboardShouldPersistTaps="handled">
+    <View style={{ flex: 1 }}>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={page(900)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Draft invoice' }} />
       <Card>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 8 }}>
@@ -131,15 +163,17 @@ function Draft({ inv, site }: { inv: Row; site: Row | undefined }) {
       <SectionTitle>Lines</SectionTitle>
       {editing ? <LinesEdit d={d} setD={setD} /> : <LinesView lines={d.lines} mixed={t.mixed} vatOf={(l) => l.vat} note={inv.source === 'certificate' ? 'These are the certificate’s figures.' : undefined} onEdit={() => setEditing(true)} />}
       <Card>
-        <FinRow title="Net" right={money(t.net)} />
+        <FinRow title="Net" right={money(t.net)} tone={minusTone(t.net)} />
         {Object.keys(t.by).filter((k) => !INV_VAT[k].rc && INV_VAT[k].r > 0).map((k) => <FinRow key={k} title={`VAT @ ${INV_VAT[k].l}${t.mixed ? ` on ${money(t.by[k].net)}` : ''}`} right={money(t.by[k].vat)} />)}
-        <FinRow title="Total" right={money(t.total)} />
+        <FinRow title="Total" right={money(t.total)} tone={minusTone(t.total)} />
         {t.vatDue ? <Muted>Reverse charge VAT {money(t.vatDue)} — the client pays this to HMRC; not added to the total.</Muted> : null}
       </Card>
-      {field('notes', 'Notes on the invoice', { multiline: true })}
-      <View style={{ gap: 8 }}>
-        <Button kind="ghost" busy={busy === 'save'} title="Save draft" onPress={async () => { setBusy('save'); const e = await saveDraft(inv.id, d); setBusy(''); toast(e || 'Draft saved'); if (!e) setEditing(false); refresh(); }} />
-        <Button busy={busy === 'issue'} title="Issue invoice…" onPress={async () => {
+      {field('notes', 'Notes on the invoice', { multiline: true, short: true })}
+    </ScrollView>
+    {/* Always in view at the bottom, however long the lines get (Andy, 3 Nov 2026). */}
+    <View style={{ flexDirection: 'row', alignItems: 'stretch', gap: 8, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 10, backgroundColor: base.card, borderTopWidth: 1, borderColor: base.cardLine }}>
+        <View style={{ flex: 1 }}><Button grow kind="ghost" busy={busy === 'save'} title="Save Draft" onPress={async () => { setBusy('save'); const e = await saveDraft(inv.id, d); setBusy(''); toast(e || 'Draft saved'); if (!e) setEditing(false); refresh(); }} /></View>
+        <View style={{ flex: 1 }}><Button grow busy={busy === 'issue'} title="Issue Invoice" onPress={async () => {
           const row = draftRow(d), p = issueProblem(row);
           if (p) { toast(p); return; }
           if (!(await confirmAsk(`Issue this invoice for ${money(row.total)}${row.vat ? ' (incl. VAT)' : ''}?\n\nIt gets the next invoice number and can’t be changed afterwards.`, 'Issue invoice'))) return;
@@ -150,10 +184,10 @@ function Draft({ inv, site }: { inv: Row; site: Row | undefined }) {
             if (r.error) { toast(r.error); return; }
             toast(`Invoice ${r.inv?.number} issued${r.xero ? ' — not posted to Xero (Finance trial)' : ''}`); refresh();
           } finally { setBusy(''); }
-        }} />
-        <Button kind="ghost" title="Delete draft" onPress={async () => { if (!(await confirmAsk('Delete this draft invoice?', 'Delete'))) return; if (await deleteDraft(inv.id)) { toast('Draft deleted'); refresh(); router.back(); } else toast('Could not delete.'); }} />
-      </View>
-    </ScrollView>
+        }} /></View>
+        <Pressable accessibilityRole="button" accessibilityLabel="Delete draft" onPress={async () => { if (!(await confirmAsk('Delete this draft invoice?', 'Delete'))) return; if (await deleteDraft(inv.id)) { toast('Draft deleted'); refresh(); router.back(); } else toast('Could not delete.'); }} style={({ pressed }) => ({ width: 46, marginTop: 4, borderRadius: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FDECEC', opacity: pressed ? 0.7 : 1 })}><OphIcon name="bin" size={19} color="#B42318" /></Pressable>
+    </View>
+    </View>
   );
 }
 
@@ -193,7 +227,7 @@ function Issued({ inv, pays, site }: { inv: Row; pays: Row[]; site: Row | undefi
         </>
       )}
       <Card>
-        {(inv.lines || []).map((l: Row, i: number) => <FinRow key={i} title={l.description || ''} sub={t.mixed ? INV_VAT[lineVat(l, inv.vat_treatment, inv.vat_rate)].l : undefined} right={money(l.amount)} />)}
+        {(inv.lines || []).map((l: Row, i: number) => <FinRow key={i} title={l.description || ''} sub={t.mixed ? INV_VAT[lineVat(l, inv.vat_treatment, inv.vat_rate)].l : undefined} right={money(l.amount)} tone={minusTone(l.amount)} />)}
         <FinRow title="Net" right={money(t.net)} /><FinRow title="VAT" right={money(t.vat)} /><FinRow title="Total" right={money(t.total)} />
         {t.vatDue ? <Muted>Reverse charge VAT {money(t.vatDue)} — paid by the client to HMRC.</Muted> : null}
       </Card>

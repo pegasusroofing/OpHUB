@@ -1581,3 +1581,19 @@
 {"part":"appphone4","step":"Draft on a phone","ok":true,"note":"over at 375 0, bulk edit 1","ms":43234}
 {"part":"appphone4","step":"Phone: % and qty boxes keep in step","ok":true,"note":"qty 25 gave 25%, 10% gave qty 10 (line of 100), put back to 50% (was 10%)","ms":6412}
 {"part":"appphone4","step":"Phone: variation description is words until tapped","ok":true,"note":"open boxes before 0, after tap 1, qty to tap 1, old £ boxes 0","ms":1007}
+{"part":"invedit1","step":"Edit lines on a phone","ok":true,"note":"buttons before 2, after 2 | ‹ OpHUB × Sandbox Roofing Ltd Finance › Projects › SBX-123 ZZ JOB Fin C › Invoices › Draft Invoice SBX-123 ZZ JOB Fin C ","ms":15114}
+{"part":"invedit2","step":"ddf invoice: Edit lines","ok":true,"note":"before 2, after 2 | & Labour Bill of Quantities Documents Project Admin › Choose from the Directory ▾ Bill to Billing address Accounts email Client PO Invoice date 3 Nov 2026 📅 Due date 29 Dec 2026 📅 LINES RC 20% ▾ 🗑 RC 20% ▾ 🗑 RC 20% ▾ 🗑 + Add line VAT for all lin","ms":14806}
+{"part":"invedit1","step":"Edit lines on a phone","ok":true,"note":"buttons before 2, after 2 | ‹ OpHUB × Sandbox Roofing Ltd Finance › Projects › SBX-123 ZZ JOB Fin C › Invoices › Draft Invoice SBX-123 ZZ JOB Fin C ","ms":14878}
+{"part":"invlock1","step":"New draft: lines open; Save draft locks them","ok":true,"note":"open 2, after save 0, edit link 1","ms":16245}
+{"part":"invlock1","step":"Edit lines opens them again","ok":true,"note":"boxes 2, test draft deleted true","ms":5232}
+{"part":"invlock1","step":"Issued: locked, Edit lines warns about Xero, Cancel leaves it","ok":true,"note":"before 0, warned 1, open 2","ms":14321}
+{"part":"invedit1","step":"Edit lines on a phone","ok":true,"note":"buttons before 2, after 2 | scrollers 702/2128/662 | ‹ OpHUB × Sandbox Roofing Ltd Finance › Projects › SBX-123 ZZ JOB Fin C › Invoices › Draft Invoice SBX-123 ZZ JOB Fin C ","ms":15378}
+{"part":"invcode1","step":"£ box, red minus, sales code saved with the line","ok":true,"note":"colour rgb(192, 57, 43), saved {\"vat\":\"rc20\",\"amount\":-50,\"account\":\"215\",\"description\":\"ZZ code test\"}","ms":18792}
+{"part":"invcode1","step":"Locked view: red total, then delete the test draft","ok":true,"note":"red figures 3, deleted true","ms":2896}
+{"part":"invlock1","step":"New draft: lines open; Save draft locks them","ok":false,"note":"locator.fill: Timeout 30000ms exceeded.","ms":43778}
+{"part":"invlock1","step":"Edit lines opens them again","ok":false,"note":"locator.click: Timeout 5000ms exceeded.","ms":5015}
+{"part":"invlock1","step":"Issued: locked, Edit lines warns about Xero, Cancel leaves it","ok":true,"note":"before 0, warned 1, open 1","ms":14575}
+{"part":"invlock1","step":"New draft: lines open; Save draft locks them","ok":true,"note":"open 2, after save 0, edit link 1","ms":16100}
+{"part":"invlock1","step":"Edit lines opens them again","ok":true,"note":"boxes 2, test draft deleted true","ms":6763}
+{"part":"invlock1","step":"Issued: locked, Edit lines warns about Xero, Cancel leaves it","ok":true,"note":"before 0, warned 1, open 2","ms":14439}
+{"part":"zztidy","step":"Delete my empty test draft","ok":true,"note":"done","ms":16023}

@@ -5,7 +5,7 @@ export const INV_VAT: Record<string, { l: string; s: string; r: number; rc?: boo
   '20': { l: '20%', s: 'VAT 20%', r: 20 }, '5': { l: '5%', s: 'VAT 5%', r: 5 }, rc20: { l: 'Reverse charge 20%', s: 'RC 20%', r: 20, rc: true },
   rc5: { l: 'Reverse charge 5%', s: 'RC 5%', r: 5, rc: true }, '0': { l: 'Zero rated', s: 'Zero rated', r: 0 }, ex: { l: 'No VAT / exempt', s: 'No VAT', r: 0 },
 };
-export type InvLine = { description?: string; amount?: number | string | null; vat?: string };
+export type InvLine = { description?: string; amount?: number | string | null; vat?: string; account?: string | null };
 export const vatFromTreatment = (t: string | null | undefined, rate?: number | null) => (t === 'reverse_charge' ? (Number(rate) === 5 ? 'rc5' : 'rc20') : t === 'zero' ? '0' : Number(rate) === 5 ? '5' : '20');
 export const lineVat = (l: InvLine, t: string | null | undefined, rate?: number | null) => (l.vat && INV_VAT[l.vat] ? l.vat : vatFromTreatment(t, rate));
 const r2 = (n: number) => Math.round(n * 100) / 100;
@@ -34,7 +34,8 @@ export function treatmentOf(t: ReturnType<typeof invTotals>) {
 export function cleanLines(lines: InvLine[], t: string | null | undefined, rate?: number | null) {
   return lines.map((l) => {
     const a = l.amount === null || l.amount === undefined || l.amount === '' ? null : Number(String(l.amount).replace(/[£,\s]/g, ''));
-    return { description: String(l.description || '').trim(), amount: a === null || isNaN(a) ? null : r2(a), vat: INV_VAT[l.vat || ''] ? (l.vat as string) : vatFromTreatment(t, rate) };
+    const account = String(l.account || '').trim();
+    return { description: String(l.description || '').trim(), amount: a === null || isNaN(a) ? null : r2(a), vat: INV_VAT[l.vat || ''] ? (l.vat as string) : vatFromTreatment(t, rate), ...(account ? { account } : {}) };
   }).filter((l) => l.description || l.amount !== null);
 }
 /** What stops an invoice being issued, or null. */

@@ -147,6 +147,7 @@ Then the same run on Sandbox Roofing against the real database, admin only: 138 
 - **Supplier order email:** check it never shows the PO number to operatives.
 - **Push function:** check it sends the message's own id.
 - **Labour review and repair jobs in Finance:** waiting for Andy.
+- **Sales code per invoice line (3 Nov 2026):** the new app saves each line's own sales code as `lines[].account` (blank = the company default). Before Finance comes off trial, the `xero` function's invoice push needs `AccountCode: l.account || s.xero_sales_account || '200'` (supabase/functions/xero/index.ts, the `push_invoice` lines map), then a redeploy with verify_jwt off as now.
 - **Andy said no** to the Schedule of Works photo upload speed-up and to general speed work on the old app. The native app covers both.
 
 ## Finance snags from Andy's run-through (1 Nov 2026, evening)

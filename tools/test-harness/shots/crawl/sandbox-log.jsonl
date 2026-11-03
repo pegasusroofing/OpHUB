@@ -3329,3 +3329,17 @@
 {"wrote":"fin_applications","method":"PATCH","keys":["valuation_date","due_date","final_date","lines","variations","dayworks","gross","discount_pct","discount","retention_pct","retention","previous","net_due","updated_at"]}
 {"wrote":"fin_applications","method":"PATCH","keys":["valuation_date","due_date","final_date","lines","variations","dayworks","gross","discount_pct","discount","retention_pct","retention","previous","net_due","updated_at"]}
 {"wrote":"fin_applications","method":"PATCH","keys":["valuation_date","due_date","final_date","lines","variations","dayworks","gross","discount_pct","discount","retention_pct","retention","previous","net_due","updated_at"]}
+{"wrote":"fin_invoices","method":"POST","keys":["org_id","site_id","status","issue_date","due_date","client_po","bill_name","bill_address","bill_email","vat_treatment","lines","created_by","source"]}
+{"wrote":"fin_invoices","method":"PATCH","keys":["issue_date","due_date","client_po","bill_name","bill_address","bill_email","vat_treatment","lines","net","vat","rc_vat","total","notes","xero_post","updated_at"]}
+{"wrote":"fin_invoices","method":"DELETE","keys":[]}
+{"blocked":"function","fn":"xero"}
+{"wrote":"fin_invoices","method":"POST","keys":["org_id","site_id","status","issue_date","due_date","client_po","bill_name","bill_address","bill_email","vat_treatment","lines","created_by","source"]}
+{"wrote":"fin_invoices","method":"PATCH","keys":["issue_date","due_date","client_po","bill_name","bill_address","bill_email","vat_treatment","lines","net","vat","rc_vat","total","notes","xero_post","updated_at"]}
+{"wrote":"fin_invoices","method":"DELETE","keys":[]}
+{"wrote":"fin_invoices","method":"POST","keys":["org_id","site_id","status","issue_date","due_date","client_po","bill_name","bill_address","bill_email","vat_treatment","lines","created_by","source"]}
+{"blocked":"function","fn":"xero"}
+{"wrote":"fin_invoices","method":"POST","keys":["org_id","site_id","status","issue_date","due_date","client_po","bill_name","bill_address","bill_email","vat_treatment","lines","created_by","source"]}
+{"wrote":"fin_invoices","method":"PATCH","keys":["issue_date","due_date","client_po","bill_name","bill_address","bill_email","vat_treatment","lines","net","vat","rc_vat","total","notes","xero_post","updated_at"]}
+{"wrote":"fin_invoices","method":"DELETE","keys":[]}
+{"blocked":"function","fn":"xero"}
+{"wrote":"fin_invoices","method":"DELETE","keys":[]}
