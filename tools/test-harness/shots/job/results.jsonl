@@ -1427,3 +1427,5 @@
 {"part":"appview1","step":"Phone: overview fits","ok":true,"note":"over by 0","ms":829}
 {"part":"appraise1","step":"Save & Raise Invoice goes to the draft invoice","ok":false,"note":"job/065e90e3-a980-4386-bba9-c6eaee02c617/application/f602aa4a-78f8-40c5-bfd9-1ae33c93029d undefined","ms":21470}
 {"part":"appraise1","step":"Save & Raise Invoice goes to the draft invoice","ok":true,"note":"job/065e90e3-a980-4386-bba9-c6eaee02c617/invoice/298b2d16-36c6-4548-bf96-0ff8d3acfc04 draft net 2256.25","ms":44347}
+{"part":"appcrumb1","step":"Applications step goes to the Sales list","ok":true,"note":"job/065e90e3-a980-4386-bba9-c6eaee02c617?tab=sales","ms":15535}
+{"part":"appcrumb1","step":"Raise Invoice cell is the row size","ok":true,"note":"height 16","ms":41}

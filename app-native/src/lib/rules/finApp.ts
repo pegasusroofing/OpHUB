@@ -50,8 +50,9 @@ export function groupTotals(rows: Row[], valueOf: (r: Row) => number, grossOf: (
 }
 export const APP_STAGE = (a: Row) => (a.status === 'void' ? 'void' : a.invoice_id ? 'invoiced' : a.cert_net != null ? 'certified' : a.status === 'submitted' ? 'applied' : 'draft');
 /** The invoice lines for a certificate: certified total, less discount, retention and previously certified. */
-export function certInvoiceLines(a: Row, fdate: (d: string) => string) {
-  const lines = [{ description: `Application ${a.number} — total certified to date${a.cert_date ? ` (${fdate(a.cert_date)})` : ''}`, amount: round2(a.cert_gross) }];
+export function certInvoiceLines(a: Row) {
+  // No date on the line (Andy, 3 Nov 2026): the invoice has its own.
+  const lines = [{ description: `Application ${a.number} — total certified to date`, amount: round2(a.cert_gross) }];
   if (Number(a.cert_discount || 0)) lines.push({ description: 'Less discount', amount: -round2(a.cert_discount) });
   lines.push({ description: 'Less retention', amount: -round2(a.cert_retention) });
   if (Number(a.cert_previous || 0)) lines.push({ description: 'Less previously certified (paid)', amount: -round2(a.cert_previous) });

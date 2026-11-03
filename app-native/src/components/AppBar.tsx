@@ -29,7 +29,9 @@ const FIN_PARENT: Record<string, [string, string]> = { po: ['Purchases', '/fin/p
 const FIN_SUB: Record<string, string> = { '': 'Overview', jobs: 'Projects', sales: 'Sales', purchases: 'Purchases', subs: 'Subcontractors & Labour', reports: 'Reports', settings: 'Settings', directory: 'Directory', statements: 'Statements', yard: 'Yard stock', inbox: 'Inbox', newjob: 'New project' };
 // A project's Finance tabs and the pages inside it, for the trail.
 const FIN_JOB_TABS: [string, string][] = [['overview', 'Overview'], ['sales', 'Sales'], ['purchases', 'Purchases'], ['subs', 'Subcontractors & Labour'], ['setup', 'Project Admin'], ['docs', 'Documents']];
-const FIN_JOB_PAGES: Record<string, string> = { boq: 'Bill of Quantities', budget: 'Budgets', costs: 'Costs', dayworks: 'Day Works', monthly: 'Monthly Report', parts: 'Parts', quotes: 'Project Quotes', summary: 'Full Summary', variations: 'Variations', invoice: 'Invoice', application: 'Application' };
+const FIN_JOB_PAGES: Record<string, string> = { boq: 'Bill of Quantities', budget: 'Budgets', costs: 'Costs', dayworks: 'Day Works', monthly: 'Monthly Report', parts: 'Parts', quotes: 'Project Quotes', summary: 'Full Summary', variations: 'Variations', invoice: 'Invoices', application: 'Applications' };
+// Pages with no list of their own: the step back goes to the list on the project's tab (Andy, 3 Nov 2026).
+const FIN_JOB_UP: Record<string, string> = { application: '?tab=sales', invoice: '?tab=sales' };
 // A job's sections, so a page further in can step back to its section from the trail.
 const SECTION: Record<string, string> = { schedule: 'Schedule Of Works', drawings: "Drawings, Spec's & Programme", materials: 'Materials', hs: 'Health & Safety', snagging: 'Snagging', checkin: 'Check In / Out', price: 'Price', repairs: 'Repairs', om: 'O&M Manual', mc: 'Main Contractor', handover: 'Handover', todos: 'To Do List' };
 // Tapping a job's address under the title copies it (or shares it on a phone) — 130 shell.
@@ -80,7 +82,7 @@ export function AppBar({ title, onBack, home, right, noHistory }: { title?: stri
   const finCrumbs: [string, string | null][] = path === '/fin' ? [['Finance', '/fin'], ['Overview', null]]
     : finJob ? [['Finance', '/fin'], ['Projects', '/fin/jobs'], [fJob ? `${[fJob.job_number, fJob.name].filter(Boolean).join(' ')}${finClient ? ` · ${finClient}` : ''}` : 'Project', jobTab || jobPage ? `/fin/job/${finJob}` : null],
       ...(jobTab && jobTab !== 'Overview' ? [[jobTab, null] as [string, null]] : []),
-      ...(jobPage ? [[jobPage, inside ? `/fin/job/${finJob}/${finRest[0]}` : null] as [string, string | null]] : []),
+      ...(jobPage ? [[jobPage, inside ? `/fin/job/${finJob}${FIN_JOB_UP[finRest[0]] ?? `/${finRest[0]}`}` : null] as [string, string | null]] : []),
       ...(inside ? [[inside, null] as [string, null]] : [])]
       : FIN_PARENT[finSec] ? [['Finance', '/fin'], FIN_PARENT[finSec], ...(title && titleCase(title) !== FIN_PARENT[finSec][0] ? [[titleCase(title), null] as [string, null]] : [])]
       : finSec === 'reports' && title && title !== 'Reports' ? [['Finance', '/fin'], ['Reports', '/fin/reports'], [titleCase(title), null]]

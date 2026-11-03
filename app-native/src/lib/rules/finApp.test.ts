@@ -17,7 +17,7 @@ test('previous certified, section totals and certificate invoice lines', () => {
   assert.equal(previousCertified([{ number: 1, status: 'invoiced', cert_net: 900, net_due: 1000 }, { number: 2, status: 'submitted', net_due: 500 }, { number: 3, status: 'draft', net_due: 9 }], 3), 1400);
   const t = groupTotals([{ kind: 'section' }, { kind: 'subsection' }, { v: 10, g: 5 }, { kind: 'section' }, { v: 3, g: 3 }], (r) => r.v, (r) => r.g);
   assert.deepEqual(t[0], { value: 10, gross: 5 }); assert.deepEqual(t[3], { value: 3, gross: 3 });
-  const L = certInvoiceLines({ number: 2, cert_gross: 5000, cert_retention: 250, cert_previous: 1000, cert_discount: 0 }, (d) => d);
+  const L = certInvoiceLines({ number: 2, cert_gross: 5000, cert_retention: 250, cert_previous: 1000, cert_discount: 0 });
   assert.deepEqual(L.map((l) => l.amount), [5000, -250, -1000]);
 });
 

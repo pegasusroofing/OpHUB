@@ -128,7 +128,7 @@ export async function raiseInvoiceFromCert(me: Profile, org: Organization | null
   const c = cliR.find((x) => String(x.name).trim().toLowerCase() === String(billName || '').trim().toLowerCase());
   const map: Record<string, string> = { '20': '20', '5': '5', rc20: 'rc20', rc5: 'rc5', '0': '0', ex: 'ex', none: 'ex' };
   const treat = jf.vat_treatment || st.default_vat || 'standard';
-  const lines = certInvoiceLines(a, fdate).map((l) => ({ ...l, vat: (c && map[c.sales_vat]) || vatFromTreatment(treat, 20) }));
+  const lines = certInvoiceLines(a).map((l) => ({ ...l, vat: (c && map[c.sales_vat]) || vatFromTreatment(treat, 20) }));
   const t = invTotals(lines, treat, 20);
   const r = await fdb.from('fin_invoices').insert({
     org_id: me.org_id, site_id: a.site_id, status: 'draft', issue_date: today(), due_date: a.final_date || addDays(today(), daysOr(jf.due_days ?? st.default_due_days, 30)),
