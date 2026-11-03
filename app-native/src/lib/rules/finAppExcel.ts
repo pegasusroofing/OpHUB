@@ -15,6 +15,8 @@ export type AppDoc = {
 };
 
 /** Everything the Excel and the PDF need. `apps`: the project's applications (for "Prev Certified"). */
+/** How a variation is matched from one application to the next: its register id, or for a typed-in one its description (Andy, 3 Nov 2026). */
+export const varKey = (v: Row) => String(v.fin_variation_id || v.variation_id || (String(v.description || '').trim() ? `d:${String(v.description).trim().toLowerCase()}` : ''));
 export function appDoc(a: Row, jf: Row, apps: Row[], defaultVat?: string | null): AppDoc {
   // "Prev Certified" only ever comes from a certified (or invoiced) application, as on screen.
   const prev = apps.filter((x) => x.number < a.number && ['certified', 'invoiced'].includes(x.status)).sort((x, y) => x.number - y.number).pop() || null;
@@ -22,7 +24,9 @@ export function appDoc(a: Row, jf: Row, apps: Row[], defaultVat?: string | null)
   if (prev) {
     const cl: Record<string, number> = {}; (prev.cert_lines || []).forEach((l: Row) => { if (l.item_id) cl[l.item_id] = l.pct; });
     (prev.lines || []).filter(isItem).forEach((l: Row) => { prevPct[l.item_id] = cl[l.item_id] != null ? cl[l.item_id] : pct(l.pct); });
-    (prev.variations || []).forEach((v: Row) => { const k = v.fin_variation_id || v.variation_id; if (k) prevVar[k] = pct(v.pct); });
+    // What the client certified on each variation last time (its certificate line), or what was applied for if there's none.
+    const cv: Record<number, number> = {}; (prev.cert_lines || []).forEach((l: Row) => { if (l.var_index != null) cv[l.var_index] = l.pct != null ? pct(l.pct) : Number(l.value) ? pct((Number(l.gross || 0) / Number(l.value)) * 100) : 0; });
+    (prev.variations || []).forEach((v: Row, i: number) => { const k = varKey(v); if (k) prevVar[k] = cv[i] != null ? cv[i] : pct(v.pct); });
   }
   const certPct: Record<string, number> = {}; (a.cert_lines || []).forEach((l: Row) => { if (l.item_id) certPct[l.item_id] = l.pct; });
   const sections: AppDoc['sections'] = []; let cur: AppDoc['sections'][number] | null = null;
@@ -31,7 +35,7 @@ export function appDoc(a: Row, jf: Row, apps: Row[], defaultVat?: string | null)
     if (!cur) { cur = { id: '', title: 'Contract works', rows: [] }; sections.push(cur); }
     cur.rows.push(l);
   });
-  const vars = (a.variations || []).map((v: Row, i: number) => ({ key: `V:${v.variation_id || `x${i}`}`, v, prev: prevVar[v.fin_variation_id || v.variation_id] || 0 }));
+  const vars = (a.variations || []).map((v: Row, i: number) => ({ key: `V:${v.variation_id || `x${i}`}`, v, prev: prevVar[varKey(v)] || 0 }));
   const capRet = jf.retention_limit_pct && jf.contract_value ? round2((Number(jf.contract_value) * Number(jf.retention_limit_pct)) / 100) : null;
   return { sections, vars, prevPct, prevVar, certPct, certified: a.cert_net != null, vt: jf.vat_treatment || defaultVat || 'standard', retPct: pct(a.retention_pct), discPct: pct(a.discount_pct || 0), previous: round2(Number(a.previous || 0)), capRet };
 }

@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { appDoc, appExcelSheets, appSummary, applyAppUpload, certFromItems, parseAppBook } from './finAppExcel.ts';
+import { appDoc, appExcelSheets, appSummary, applyAppUpload, certFromItems, parseAppBook, varKey } from './finAppExcel.ts';
 import { makeXlsx } from './xlsx.ts';
 import { readXlsx } from './xlsxRead.ts';
 
@@ -55,4 +55,13 @@ test('Excel out and back in: keys, prev certified, applied and certified %', asy
 
 test('not an OpHUB application workbook', () => {
   assert.equal(parseAppBook([{ name: 'Sheet1', rows: [['Description', 'Value']] }]), null);
+});
+
+test('a typed-in variation is matched to the last certificate by its description', () => {
+  const typed = { description: 'Additional leadwork ', value: 100, pct: 100 };
+  const prev = { number: 2, status: 'certified', lines: [], variations: [{ description: 'additional leadwork', value: 100, pct: 100 }], cert_lines: [{ var_index: 0, pct: 80, gross: 80, value: 100 }] };
+  const D = appDoc({ number: 3, lines: [], variations: [typed] }, {}, [prev]);
+  assert.equal(varKey(typed), 'd:additional leadwork');
+  assert.equal(D.prevVar['d:additional leadwork'], 80); // what was certified, not what was applied for
+  assert.equal(D.vars[0].prev, 80);
 });

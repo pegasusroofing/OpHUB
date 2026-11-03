@@ -1605,3 +1605,5 @@
 {"part":"invcode1","step":"Locked view: red total, then delete the test draft","ok":true,"note":"red figures 3, deleted true","ms":2958}
 {"part":"invmail1","step":"Email Invoice and Export PDF on an issued invoice","ok":true,"note":"buttons 2, template 1, subject has number 1","ms":15321}
 {"part":"invmail1","step":"Email Invoice and Export PDF on an issued invoice","ok":true,"note":"buttons 2, template 1, subject has number 1","ms":15237}
+{"part":"appret3","step":"Overview: nothing new on variations","ok":true,"note":"Variations £100.00 £100.00 £0.00","ms":10816}
+{"part":"appret3","step":"Certify: certified to date starts at last time","ok":true,"note":"Subtotal £710.00 £710.00 £710.00 £0.00","ms":2063}

@@ -28,7 +28,7 @@ import { useAuth } from '@/lib/auth';
 import { plainGet, plainSet } from '@/lib/kv';
 import { useFlushOnLeave } from '@/lib/useFlushOnLeave';
 import { APP_STAGE, appCalc, appFigures, groupTotals, isItem, pct } from '@/lib/rules/finApp';
-import { applyAppUpload, certFromItems, parseAppBook, type AppXlItem } from '@/lib/rules/finAppExcel';
+import { applyAppUpload, certFromItems, parseAppBook, varKey, type AppXlItem } from '@/lib/rules/finAppExcel';
 import { readXlsx } from '@/lib/rules/xlsxRead';
 import { fdate, money, num, round2, today } from '@/lib/rules/finance';
 import { base, page, radius, space, useDesk, useTheme } from '@/theme/theme';
@@ -470,7 +470,7 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
       {(c.variations.length > 0 || !locked) && <SecBlock title="Variations" total={round2(c.variations.reduce((n: number, v: Row) => n + Number(v.gross || 0), 0))} tools={!locked ? <Button small kind="ghost" title="+ Variation Line" onPress={() => setA({ ...a, variations: [...(a.variations || []), { variation_id: null, description: '', value: null, pct: 100 }] })} /> : undefined}>
       {desk ? gridHead : <FigHead />}
       {c.variations.map((v: Row, i: number) => desk ? (() => {
-        const val = Number(v.value || 0), prev = round2((val * (prevVar[v.fin_variation_id || v.variation_id || ''] || 0)) / 100), cp0 = pct(cert.cp[`v${i}`]);
+        const val = Number(v.value || 0), prev = round2((val * (prevVar[varKey(v)] || 0)) / 100), cp0 = pct(cert.cp[`v${i}`]);
         const cl = certDone ? (a0.cert_lines || []).find((x: Row) => x.var_index === i) : null;
         const certG = certing ? round2((val * cp0) / 100) : cl ? Number(cl.gross || 0) : null;
         const inp = { width: '100%' as const, height: 30, paddingVertical: 2, fontSize: 13 };
@@ -489,7 +489,7 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
         );
       })() : (() => {
         const vq = Number(v.qty) > 1 ? Number(v.qty) : 1, rate = money(v.rate ?? v.value), qd = (x: number) => String(round2((x * vq) / 100));
-        const pv = prevVar[v.fin_variation_id || v.variation_id || ''] || 0;
+        const pv = prevVar[varKey(v)] || 0;
         const boxes = (p0: number, labels: [string, string, string], onPct: (x: number) => void, k: string): Partial<Record<FigCol, ReactNode>> => ({
           pct: <AmountBox bare key={`${k}p`} p={p0} value={v.value} qty={vq} mode="pct" labels={labels} onPct={onPct} />,
           ...(vq > 1 ? { qty: <AmountBox bare key={`${k}q`} p={p0} value={v.value} qty={vq} mode="qty" labels={labels} onPct={onPct} /> } : {}),
@@ -792,7 +792,7 @@ function useCert(a: Row, jf: Row, previous: number, prevPct: Record<string, numb
   const startCp = () => {
     const o: Record<string, string> = {};
     (a.lines || []).forEach((l: Row, i: number) => { if (isItem(l)) o[`l${i}`] = String(prevPct[l.item_id] ?? 0); });
-    (a.variations || []).forEach((x: Row, i: number) => { o[`v${i}`] = String(prevVar[x.fin_variation_id || x.variation_id || ''] ?? 0); });
+    (a.variations || []).forEach((x: Row, i: number) => { o[`v${i}`] = String(prevVar[varKey(x)] ?? 0); });
     (a.dayworks || []).forEach((d: Row, i: number) => { o[`d${i}`] = String(d.value ?? 0); });
     return o;
   };
