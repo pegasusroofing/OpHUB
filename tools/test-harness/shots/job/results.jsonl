@@ -1700,3 +1700,6 @@
 {"part":"docsplit1","step":"Side panel","ok":true,"note":"pinv shown","ms":49990}
 {"part":"pinvrows1","step":"Invoices at 1440","ok":true,"note":"","ms":26687}
 {"part":"pinvrows1","step":"Invoices at 430","ok":true,"note":"","ms":26386}
+{"part":"finhdr1","step":"Header at 1440","ok":true,"note":"","ms":12652}
+{"part":"finhdr1","step":"Header at 430","ok":true,"note":"","ms":12390}
+{"part":"pinv4","step":"Lists and item","ok":true,"note":"","ms":32384}

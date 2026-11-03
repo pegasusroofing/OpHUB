@@ -119,23 +119,25 @@ export function AppBar({ title, onBack, home, right, noHistory }: { title?: stri
   };
   const roundBtn = { width: 38, height: 38, borderRadius: 19, backgroundColor: base.paper, alignItems: 'center', justifyContent: 'center' } as const;
   // Finance's bar (Andy, 2 Nov 2026): slim, just the back arrow and OpHUB x the company. The trail under it names the page.
+  // 1.15 times bigger all round (Andy, 3 Nov 2026); both sides the same width so the middle stays centred.
+  const K = 1.15, side = Math.round(40 * K);
   if (fin) return (
     <View>
-      <View style={{ backgroundColor: base.card, borderBottomWidth: 1, borderBottomColor: '#e5e7eb', flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: insets.top + 8, paddingBottom: 8, paddingHorizontal: desk ? 28 : 10 }}>
-        <View style={{ width: 34 }}>
+      <View style={{ backgroundColor: base.card, borderBottomWidth: 1, borderBottomColor: '#e5e7eb', flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: insets.top + Math.round(8 * K), paddingBottom: Math.round(8 * K), paddingHorizontal: desk ? 28 : 10 }}>
+        <View style={{ width: side }}>
         {onBack && (
-          <Pressable onPress={pressBack} hitSlop={10} accessibilityRole="button" accessibilityLabel="Back" style={{ width: 28, height: 30, alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ fontSize: 26, lineHeight: 28, color: base.ink, marginTop: -3 }}>‹</Text>
+          <Pressable onPress={pressBack} hitSlop={10} accessibilityRole="button" accessibilityLabel="Back" style={{ width: 28 * K, height: 30 * K, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ fontSize: 26 * K, lineHeight: 28 * K, color: base.ink, marginTop: -3 }}>‹</Text>
           </Pressable>
         )}
         </View>
-        <Pressable onPress={() => router.navigate('/fin' as never)} accessibilityRole="link" accessibilityLabel="Finance overview" style={{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-          <Text style={[brand(800), { fontSize: desk ? 22.5 : 18, letterSpacing: -0.3, color: '#111318' }]}><Text style={{ color: '#2B73D4' }}>Op</Text>HUB</Text>
-          <Text style={{ fontSize: desk ? 17.5 : 14, color: base.slate, fontWeight: '600' }}>×</Text>
-          {org?.logo_path && <StorageImage bucket="org-logos" path={org.logo_path} style={{ width: desk ? 35 : 26, height: desk ? 35 : 26, resizeMode: 'contain' }} />}
-          <Text numberOfLines={1} style={[brand(700), { flexShrink: 1, fontSize: desk ? 18 : 14, color: t.brand1 }]}>{org?.name || ''}</Text>
+        <Pressable onPress={() => router.navigate('/fin' as never)} accessibilityRole="link" accessibilityLabel="Finance overview" style={{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 * K }}>
+          <Text style={[brand(800), { fontSize: (desk ? 22.5 : 18) * K, letterSpacing: -0.3, color: '#111318' }]}><Text style={{ color: '#2B73D4' }}>Op</Text>HUB</Text>
+          <Text style={{ fontSize: (desk ? 17.5 : 14) * K, color: base.slate, fontWeight: '600' }}>×</Text>
+          {org?.logo_path && <StorageImage bucket="org-logos" path={org.logo_path} style={{ width: (desk ? 35 : 26) * K, height: (desk ? 35 : 26) * K, resizeMode: 'contain' }} />}
+          <Text numberOfLines={1} style={[brand(700), { flexShrink: 1, fontSize: (desk ? 18 : 14) * K, color: t.brand1 }]}>{org?.name || ''}</Text>
         </Pressable>
-        <View style={{ minWidth: 34, alignItems: 'flex-end' }}>{right}</View>
+        <View style={{ width: side, alignItems: 'flex-end' }}>{right}</View>
       </View>
       {crumbs.length > 1 && (
         <View style={{ backgroundColor: base.paper, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, paddingHorizontal: desk ? 40 : 16, paddingTop: 14, paddingBottom: 8 }}>

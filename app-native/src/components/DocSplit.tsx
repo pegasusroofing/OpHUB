@@ -2,7 +2,7 @@
 // open on the right at half screen, Full to read it across the whole page, ✕ to close (a slim tab brings it back).
 // Phones and narrow windows show the page only; the page's own button opens the document as before.
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Image, Platform, Pressable, Text, useWindowDimensions, View } from 'react-native';
+import { Image, Platform, Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 
 import { PdfPages, viewDoc } from '@/components/DocViewer';
 
@@ -15,6 +15,7 @@ export function DocSplit({ load, name, children }: { load: (() => Promise<string
   const [url, setUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
   const [panelW, setPanelW] = useState(0);
+  const [zoom, setZoom] = useState(1);
   // Fetched once, however often the page redraws.
   const started = useRef(false), loader = useRef(load);
   useEffect(() => { loader.current = load; });
@@ -42,13 +43,16 @@ export function DocSplit({ load, name, children }: { load: (() => Promise<string
         <View style={{ width: mode === 'full' ? '100%' : '46%', borderLeftWidth: 1, borderLeftColor: '#e5e7eb', backgroundColor: '#f3f4f6' }} onLayout={(e) => setPanelW(e.nativeEvent.layout.width)}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e5e7eb' }}>
             <Text numberOfLines={1} style={{ flex: 1, fontSize: 13.5, fontWeight: '600', color: '#111827' }}>{name}</Text>
+            {btn('−', false, () => setZoom((z) => Math.max(0.5, Math.round((z - 0.25) * 100) / 100)))}
+            <Text style={{ fontSize: 12, color: '#6b7280', minWidth: 38, textAlign: 'center' }}>{Math.round(zoom * 100)}%</Text>
+            {btn('+', false, () => setZoom((z) => Math.min(4, Math.round((z + 0.25) * 100) / 100)))}
             {btn('Half', mode === 'half', () => setMode('half'))}
             {btn('Full', mode === 'full', () => setMode('full'))}
             {!!url && btn('Open', false, () => viewDoc(url, name.endsWith('.pdf') ? name : `${name}.pdf`))}
             {btn('✕', false, () => setMode('off'))}
           </View>
-          {url && photo ? <Image source={{ uri: url }} resizeMode="contain" style={{ flex: 1, margin: 12 }} />
-            : url && panelW > 0 ? <PdfPages key={`${url}${mode}`} url={url} zoom={1} width={panelW - 32} light />
+          {url && photo ? <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 12 }} horizontal={zoom > 1}><Image source={{ uri: url }} resizeMode="contain" style={{ width: Math.max(100, (panelW - 24) * zoom), height: Math.max(200, (panelW - 24) * 1.4 * zoom) }} /></ScrollView>
+            : url && panelW > 0 ? <PdfPages key={`${url}${mode}`} url={url} zoom={zoom} width={panelW - 32} light />
             : <Text style={{ color: '#6b7280', marginTop: 40, textAlign: 'center' }}>{failed ? 'Couldn’t open the document.' : 'Loading document…'}</Text>}
         </View>
       )}

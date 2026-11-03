@@ -25,7 +25,7 @@ import { setPinvPaid, setPinvStatus } from '@/data/finPurchase';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { PI_STATUS, poInvoiced } from '@/lib/rules/finBook';
-import { fdate, jobTag, money, plantCost, round2, today } from '@/lib/rules/finance';
+import { fdate, FIN_TRIAL_MSG, finBlocked, jobTag, money, plantCost, round2, today } from '@/lib/rules/finance';
 import { monthLabel, monthOf, monthsIn, valueTest } from '@/lib/rules/finFilters';
 import { base, radius, useDesk } from '@/theme/theme';
 
@@ -37,11 +37,11 @@ const plainReason = (r: unknown) => { const t = String(r || ''); return /^couldn
 function ageOf(ts: string) { const h = Math.max(0, Math.round((Date.now() - new Date(ts).getTime()) / 36e5)); return h < 1 ? 'Just now' : h < 24 ? `${h}h ago` : `${Math.round(h / 24)}d ago`; }
 /** An invoice waiting to be filed (Andy, 3 Nov 2026): its number, status and age; Total, VAT and the project as chips
  *  (tap the project to choose it); then supplier, dates, why it's waiting and where it came from. */
-function InboxRow({ it, pm, why, job, onJob }: { it: Row; pm: boolean; why: string; job: string; onJob: () => void }) {
+function InboxRow({ it, pm, why, job, onJob, onPm }: { it: Row; pm: boolean; why: string; job: string; onJob: () => void; onPm: () => void }) {
   const ex = it.extracted || {};
   const ago = ageOf(it.received_at);
   const chip = (label: string, v: string, onPress?: () => void, warn?: boolean) => (
-    <Pressable key={label} onPress={onPress} disabled={!onPress} style={{ flexDirection: 'row', gap: 4, alignItems: 'center', borderWidth: 1, borderColor: warn ? '#f8e7c2' : '#e5e7eb', backgroundColor: warn ? '#fffaf0' : '#fff', borderRadius: 7, paddingHorizontal: 9, height: 28 }}>
+    <Pressable key={label || v} onPress={onPress} disabled={!onPress} style={{ flexDirection: 'row', gap: 4, alignItems: 'center', borderWidth: 1, borderColor: warn ? '#f8e7c2' : '#e5e7eb', backgroundColor: warn ? '#fffaf0' : '#fff', borderRadius: 7, paddingHorizontal: 9, height: 28 }}>
       {!!label && <Text style={{ fontSize: 12, color: '#6b7280' }}>{label}</Text>}<Text numberOfLines={1} style={{ fontSize: 12.5, fontWeight: '600', color: warn ? '#b45309' : '#111827', maxWidth: 220 }}>{v}</Text>
     </Pressable>
   );
@@ -58,7 +58,20 @@ function InboxRow({ it, pm, why, job, onJob }: { it: Row; pm: boolean; why: stri
         {chip('Total', ex.total != null ? money(ex.total) : '—')}
         {chip('VAT', ex.vat != null ? money(ex.vat) : '—')}
         {chip('', job || 'Select Project ▾', onJob, !job)}
+        {chip('', pm ? 'With A PM ▾' : 'Assign To PM ▾', onPm)}
       </View>
+      {Array.isArray(ex.lines) && ex.lines.length > 0 && (
+        <View style={{ marginTop: 8, borderTopWidth: 1, borderTopColor: '#f0f1f3', paddingTop: 6, gap: 2 }}>
+          {(ex.lines as Row[]).slice(0, 4).map((l, k) => (
+            <View key={k} style={{ flexDirection: 'row', gap: 8 }}>
+              <Text numberOfLines={1} style={{ flex: 1, fontSize: 12.5, color: '#111827' }}>{l.description || 'Line'}</Text>
+              <Text style={{ fontSize: 12.5, color: '#6b7280' }}>{l.qty != null ? `${l.qty} × ` : ''}{l.unit_price != null ? money(Number(l.unit_price)) : ''}</Text>
+              <Text style={{ fontSize: 12.5, fontWeight: '600', color: '#111827', minWidth: 72, textAlign: 'right' }}>{money(l.amount != null ? Number(l.amount) : Number(l.qty || 0) * Number(l.unit_price || 0))}</Text>
+            </View>
+          ))}
+          {ex.lines.length > 4 && <Text style={{ fontSize: 12, color: '#6b7280' }}>+ {ex.lines.length - 4} more line{ex.lines.length - 4 === 1 ? '' : 's'}</Text>}
+        </View>
+      )}
       {!!meta && <Text numberOfLines={2} style={{ fontSize: 12.5, color: '#6b7280', marginTop: 8 }}>{meta}</Text>}
     </Pressable>
   );
@@ -161,6 +174,15 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
       sorts={[['new', 'Newest first'], ['old', 'Oldest first'], ['big', 'Biggest first'], ['sup', 'Supplier A to Z']]} sort={sort} onSort={setSort}
       more={<TextInput value={val} onChangeText={setVal} placeholder="Value e.g. >1k" style={[box, { fontSize: 16, marginBottom: 0 }, val && !vt ? { borderColor: '#C0392B' } : null]} />} />
   );
+  // Send an unallocated invoice to a PM to book (as on the invoice itself). Off while Finance is on trial.
+  const assignPm = async (it: Row) => {
+    if (!me) return;
+    if (finBlocked('wage-push', undefined, me.org_id)) { toast(FIN_TRIAL_MSG); return; }
+    const pms = ((await fdb.from('profiles').select('id,name,role,finance_only').eq('org_id', me.org_id as string).in('role', ['pm', 'admin'])).data as { id: string; name: string; finance_only?: boolean }[] | null ?? []).filter((x) => !x.finance_only);
+    const k = await chooseAction('Which PM?', pms.map((x) => ({ key: x.id, label: `${x.id === it.assigned_pm ? '✓ ' : ''}${x.name}` }))); if (!k) return;
+    const ok = await fdb.from('fin_inbox').update({ stage: 'with_pm', assigned_pm: k, assigned_at: new Date().toISOString() } as never).eq('id', it.id).select('id');
+    toast(ok.data?.length ? `Sent to ${pms.find((x) => x.id === k)?.name}` : 'Not sent. Try again.'); void qc.invalidateQueries({ queryKey: ['finPurchases'] });
+  };
   const withJob = async (title: string, path: (sid: string) => string) => { const sid = siteId || (await pickJob(title, sites.filter((s) => s.status !== 'closed'))); if (sid) router.push(path(sid) as never); };
 
   if (tab === 'orders') {
@@ -224,7 +246,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
           <>
             {(cur === 'job' ? needJob : withPm).filter((it) => (!sel.sup.length || sel.sup.includes(supKey(it.extracted?.supplier))) && (!sel.job.length || sel.job.includes(it.site_id)) && hit(it.extracted?.supplier, it.from_email, it.extracted?.invoice_no, it.subject)).map((it) => {
               const last = (it.comments || []).slice(-1)[0];
-              return <InboxRow key={it.id} it={it} pm={cur === 'pm'} why={cur === 'job' ? (!it.extracted ? 'Not read yet — open it to file by hand' : it.stage === 'pm_replied' && last ? `PM replied — ${last.name}: ${last.text}` : plainReason(it.query_reason)) : 'Sent to a PM'} job={it.site_id ? jobTag(site(it.site_id)) : ''} onJob={async () => { const sid = await pickJob('Which project is it for?', sites.filter((x) => x.status !== 'closed')); if (!sid) return; const r = await fdb.from('fin_inbox').update({ site_id: sid } as never).eq('id', it.id).select('id'); if (!r.data?.length) { toast('Could not save — try again.'); return; } void qc.invalidateQueries({ queryKey: ['finPurchases'] }); }} />;
+              return <InboxRow key={it.id} it={it} pm={cur === 'pm'} why={cur === 'job' ? (!it.extracted ? 'Not read yet — open it to file by hand' : it.stage === 'pm_replied' && last ? `PM replied — ${last.name}: ${last.text}` : plainReason(it.query_reason)) : 'Sent to a PM'} job={it.site_id ? jobTag(site(it.site_id)) : ''} onPm={() => void assignPm(it)} onJob={async () => { const sid = await pickJob('Which project is it for?', sites.filter((x) => x.status !== 'closed')); if (!sid) return; const r = await fdb.from('fin_inbox').update({ site_id: sid } as never).eq('id', it.id).select('id'); if (!r.data?.length) { toast('Could not save — try again.'); return; } void qc.invalidateQueries({ queryKey: ['finPurchases'] }); }} />;
             })}
             {!(cur === 'job' ? needJob : withPm).length && <Empty>{cur === 'job' ? 'Nothing waiting to be allocated.' : 'Nothing with a PM.'}</Empty>}
           </>
@@ -233,7 +255,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
             {(() => {
               const list = sortBy(data.pinvs.filter(F[cur]).filter(fOK).filter((i) => hit(i.supplier_name, i.invoice_no, jobTag(site(i.site_id)), posBy[i.po_id]?.number)), 'invoice_date', 'total');
               const bulk = cur === 'approve' || cur === 'unpaid', picked = list.filter((i) => picks.has(i.id));
-              const tick = (i: Row) => <Pressable hitSlop={8} onPress={() => setSel((x) => { const n = new Set(x); if (n.has(i.id)) n.delete(i.id); else n.add(i.id); return n; })}><Text style={{ fontSize: 18 }}>{picks.has(i.id) ? '☑' : '☐'}</Text></Pressable>;
+              const tick = (i: Row) => <Pressable hitSlop={8} accessibilityRole="checkbox" accessibilityState={{ checked: picks.has(i.id) }} onPress={() => setSel((x) => { const n = new Set(x); if (n.has(i.id)) n.delete(i.id); else n.add(i.id); return n; })} style={{ width: 16, height: 16, borderRadius: 4, borderWidth: 1.5, borderColor: picks.has(i.id) ? base.blue : '#c3c8d0', backgroundColor: picks.has(i.id) ? base.blue : '#fff', alignItems: 'center', justifyContent: 'center', alignSelf: 'center' }}>{picks.has(i.id) && <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700', lineHeight: 13 }}>✓</Text>}</Pressable>;
               const refresh = () => { setSel(new Set()); ['finPurchases', 'finBook', 'finOverview', 'finPo'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] })); };
               const approveAll = async () => {
                 const rows = picked.filter((i) => ['to_approve', 'query'].includes(i.status)); if (!rows.length || !me) { toast('None of those are waiting for approval.'); return; }
@@ -251,15 +273,16 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
               };
               const bulkBar = bulk && picked.length > 0 ? (
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                  <Text style={{ fontWeight: '600', color: base.ink }}>{picked.length} selected · {money(picked.reduce((t, i) => t + Number(i.total || 0), 0))}</Text>
-                  {cur === 'approve' ? <Button title={`✓ Approve ${picked.length}`} onPress={() => void approveAll()} /> : <Button title={`Mark ${picked.length} paid`} onPress={() => void paidAll()} />}
-                  <Pressable onPress={() => setSel(new Set())}><Text style={{ color: base.slate }}>Clear</Text></Pressable>
+                  <Text style={{ fontWeight: '600', color: base.ink, fontSize: 13 }}>{picked.length} selected · {money(picked.reduce((t, i) => t + Number(i.total || 0), 0))}</Text>
+                  {cur === 'approve' ? <Button small title={`Approve ${picked.length}`} onPress={() => void approveAll()} /> : <Button small title={`Mark ${picked.length} Paid`} onPress={() => void paidAll()} />}
+                  {picked.length < list.length && <Pressable onPress={() => setSel(new Set(list.map((i) => i.id)))}><Text style={{ color: base.blue, fontWeight: '500', fontSize: 13 }}>Select All ({list.length})</Text></Pressable>}
+                  <Pressable onPress={() => setSel(new Set())}><Text style={{ color: base.slate, fontSize: 13 }}>Clear</Text></Pressable>
                 </View>
-              ) : bulk && list.length > 1 ? <Pressable onPress={() => setSel(new Set(list.map((i) => i.id)))} style={{ marginBottom: 10 }}><Text style={{ color: base.blue, fontWeight: '500' }}>☐ Tick all</Text></Pressable> : null;
+              ) : bulk && list.length > 1 ? <Pressable onPress={() => setSel(new Set(list.map((i) => i.id)))} style={{ marginBottom: 10 }}><Text style={{ color: base.blue, fontWeight: '500', fontSize: 13 }}>Select All</Text></Pressable> : null;
               if (desk && list.length) return (
                 <>{bulkBar}<FinTable rows={list} keyOf={(i) => i.id} onRow={(i) => router.push(`/fin/pinv/${i.id}` as never)}
                   cols={[
-                    ...(bulk ? [{ k: 'tick', l: '', flex: 0.3, min: 36, render: (i: Row) => tick(i) }] : []),
+                    ...(bulk ? [{ k: 'tick', l: '', flex: 0.2, min: 28, noSort: true, render: (i: Row) => tick(i) }] : []),
                     { k: 'sup', l: 'Supplier', flex: 1.3, min: 110, render: (i: Row) => <Cell bold>{i.supplier_name || 'Supplier'}</Cell> },
                     { k: 'no', l: 'Invoice No.', min: 76, render: (i: Row) => <Cell>{i.invoice_no || '—'}</Cell> },
                     ...(siteId ? [] : [{ k: 'p', l: 'Project', flex: 1.5, min: 120, render: (i: Row) => <Cell>{jobTag(site(i.site_id))}</Cell> }]),
