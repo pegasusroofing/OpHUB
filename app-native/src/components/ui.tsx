@@ -214,11 +214,13 @@ export function TileGrid({ children, cols = 2 }: { children: ReactNode; cols?: n
 export function JobGrid({ children }: { children: ReactNode }) {
   const desk = useDesk();
   const items = Children.toArray(children).filter(Boolean);
-  const cols = desk ? 4 : 2;
+  // Three tiles sit three across, phone too; a part-filled last row shares its width evenly (Andy, 3 Nov 2026).
+  const cols = items.length === 3 ? 3 : desk ? 4 : 2;
+  const lastRow = items.length % cols, lastFrom = items.length - lastRow;
   return (
     <GridCtx.Provider value={-1}>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -5 }}>
-        {items.map((c, i) => <View key={i} style={{ width: items.length % 2 === 1 && i === items.length - 1 ? '100%' : `${100 / cols}%`, padding: 5 }}>{c}</View>)}
+        {items.map((c, i) => <View key={i} style={{ width: `${100 / (lastRow && i >= lastFrom ? lastRow : cols)}%`, padding: 5 }}>{c}</View>)}
       </View>
     </GridCtx.Provider>
   );
