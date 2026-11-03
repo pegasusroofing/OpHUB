@@ -2,6 +2,7 @@
 // (handed over in person, so it's signed straight away), PPE Requests to fulfil or
 // cancel, and each operative's Site Issued PPE history with delete.
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
@@ -10,6 +11,7 @@ import { Button, Card, Empty, Muted, SectionTitle, Toggle } from '@/components/u
 import { orThrow } from '@/lib/offlineCache';
 import { nameOf, usePeople } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
+import { isFullManager } from '@/lib/roles';
 import { deliverPdf } from '@/lib/pdf';
 import { ppeEmailPdfs, ppeExportPdf } from '@/lib/ppePdf';
 import { cap1, currentPpe, PPE_STANDARD_ITEMS, type Issuance } from '@/lib/rules/ppe';
@@ -206,7 +208,9 @@ export function PpeManager({ site }: { site: Site }) {
           }} /></View>
         </View>
       )}
-      <Muted style={{ marginTop: 12 }}>Tick issued records to export or email them. The company PPE Register is in Admin › PPE Log.</Muted>
+      <Muted style={{ marginTop: 12 }}>Tick issued records to export or email them.</Muted>
+      {/* The company register, as the old page's link (650 openAdminPpeRegister). */}
+      {isFullManager(me) && <Pressable onPress={() => router.push('/pm/admin/ppelog' as never)} style={{ marginTop: 4 }}><Text style={{ color: base.blue, fontWeight: '500' }}>Open The Company PPE Register ›</Text></Pressable>}
     </View>
   );
 }
