@@ -282,12 +282,32 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
         </View>
       )}
       {view === 'lines' && <>
+      {!desk ? (
+        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10, alignItems: 'center' }}>
+          <View style={{ flex: 1 }}><Button kind="ghost" busy={!!busy} title={`${stage === 'draft' || certing ? (mode === 'gbp' ? 'Enter £' : mode === 'qty' ? 'Enter qty' : 'Enter %') : 'Options'}${hideZero ? ' · 0% Hidden' : ''}${certing ? ' · Fill In' : ''} ▾`} onPress={async () => {
+            const on = (x: boolean) => (x ? '✓ ' : '');
+            const k = await chooseAction(certing ? 'Certified figures' : 'Lines', [
+              ...(stage === 'draft' || certing ? [{ key: 'pct', label: `${on(mode === 'pct')}Enter %` }, { key: 'gbp', label: `${on(mode === 'gbp')}Enter £` }, { key: 'qty', label: `${on(mode === 'qty')}Enter qty` }] : []),
+              { key: 'zero', label: hideZero ? 'Show 0% lines' : 'Hide 0% lines' },
+              ...(certing ? [{ key: 'applied', label: 'Fill in: certified as applied' }, { key: 'xl', label: 'Fill in: from the client’s Excel' }, { key: 'pdf', label: 'Fill in: from the client’s PDF' }] : []),
+              ...(stage === 'draft' ? [{ key: 'up', label: 'Upload edited Excel' }] : []),
+            ]);
+            if (k === 'pct' || k === 'gbp' || k === 'qty') setMode(k); else if (k === 'zero') setHideZero(!hideZero);
+            else if (k === 'applied') cert.asApplied();
+            else if (k === 'xl') { const items = await pickAppExcel(toast); if (items) certFromExcel(a0, cert, items, toast); }
+            else if (k === 'pdf') { const r = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true }); if (!r.canceled && r.assets[0]) await certFromPdf(a0, cert, r.assets[0], toast); }
+            else if (k === 'up') void uploadExcel();
+          }} /></View>
+          {stage === 'applied' && !certing && <Button title="Certify" onPress={() => setCertifying(true)} />}
+        </View>
+      ) : (
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8, alignItems: 'center' }}>
         {(stage === 'draft' || certing) && <SelectBox title="Enter Figures By" value={mode} options={[['pct', 'Enter %'], ['gbp', 'Enter £'], ['qty', 'Enter qty']]} onChange={(k) => setMode(k as Entry)} style={{ width: 130, marginBottom: 0 }} />}
         <Check label="Hide 0% Lines" value={hideZero} onChange={setHideZero} />
         {stage === 'draft' && <View style={{ marginLeft: 'auto' }}><Button small kind="ghost" busy={!!busy} title="Upload Edited Excel" onPress={() => void uploadExcel()} /></View>}
         {stage === 'applied' && !certing && <View style={{ marginLeft: 'auto' }}><Button title="Certify" onPress={() => setCertifying(true)} /></View>}
       </View>
+      )}
       {certing && <CertTools a={a0} cert={cert} />}
       {!locked && (Object.keys(siteProgress).length > 0 || Object.keys(varProgress).length > 0) && (() => {
         // Site progress from the operatives' Schedule of Works (9219w): lists what would change, nothing moves unless you say.
@@ -760,15 +780,7 @@ function CertTools({ a, cert }: { a: Row; cert: Cert }) {
   const fromPdf = async () => { const r = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true }); if (!r.canceled && r.assets[0]) await certFromPdf(a, cert, r.assets[0], toast); };
   const note = !!xlNote && <Card style={{ backgroundColor: '#f4f8fd', marginTop: 8, marginBottom: 0 }}><Text style={{ color: base.ink, fontSize: 12.5 }}>{xlNote}</Text></Card>;
   // Phone: the three ways in one button, no wordy line (Andy, 3 Nov 2026).
-  if (!desk) return (
-    <View style={{ marginBottom: 12 }}>
-      <Button kind="ghost" title="Fill In The Certified Figures ▾" onPress={async () => {
-        const k = await chooseAction('Fill in the Certified column', [{ key: 'applied', label: 'Certified as applied' }, { key: 'xl', label: 'From the client’s Excel' }, { key: 'pdf', label: 'From the client’s PDF' }]);
-        if (k === 'applied') cert.asApplied(); else if (k === 'xl') await fromExcel(); else if (k === 'pdf') await fromPdf();
-      }} />
-      {note}
-    </View>
-  );
+  if (!desk) return note ? <View style={{ marginBottom: 12 }}>{note}</View> : null;
   return (
     <View style={{ marginBottom: 12 }}>
       <Muted style={{ marginBottom: 8 }}>Enter what the client certified in the Certified column on each line. Lines start at what they last certified.</Muted>

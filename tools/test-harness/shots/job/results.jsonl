@@ -1482,3 +1482,14 @@
 {"part":"appentry1","step":"Certified by £","ok":true,"note":"shows £625","ms":8223}
 {"part":"appentry1","step":"Certified by qty, then back to %: same figure","ok":true,"note":"qty showed 50, now 20%","ms":2851}
 {"part":"appentry1","step":"One line can switch on its own","ok":true,"note":"qty boxes 1","ms":585}
+{"part":"appphone3","step":"One Fill In button on a phone","ok":false,"note":"locator.click: Timeout 5000ms exceeded.","ms":18956}
+{"part":"appview1","step":"Draft opens on the overview","ok":true,"note":"Contract Works £3,250.00 Valuation Date 3 Nov 2026 Due Date 3 Dec 2026 Fin","ms":13757}
+{"part":"appview1","step":"Line by line has the lines and a totals bar","ok":true,"note":"boxes 2","ms":1231}
+{"part":"appview1","step":"Mark applied, stays on line by line with certified boxes","ok":true,"note":"boxes 12","ms":970}
+{"part":"appview1","step":"Certified as applied, then the overview shows both columns","ok":true,"note":"Balance £4,560.00 £4,560.00 £4,797.50 −£237.50 Reverse Charge VAT −£47.50 Tot","ms":1963}
+{"part":"appview1","step":"Save certificate: overview keeps the figures","ok":true,"note":"certified cert -237.5 applied -237.5","ms":4834}
+{"part":"appview1","step":"Phone: overview fits","ok":true,"note":"over by 0","ms":881}
+{"part":"appimport1","step":"An applied application to work on","ok":true,"note":"submitted","ms":163}
+{"part":"appimport1","step":"Email Application pop-up: client email, CC Me ticked, Email Me Only","ok":true,"note":"cc 1, me only 1, send 1","ms":13730}
+{"part":"appimport1","step":"Import Certificate reads our exported Excel","ok":true,"note":"certified boxes 9, note 1","ms":5315}
+{"part":"appphone3","step":"One Fill In button on a phone","ok":true,"note":"old bits 0, one 1, hidden 1, over 0","ms":15779}
