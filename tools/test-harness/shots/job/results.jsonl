@@ -1569,3 +1569,7 @@
 {"part":"appphone4","step":"Draft on a phone","ok":true,"note":"over at 375 0, bulk edit 1","ms":43337}
 {"part":"appphone4","step":"Phone: % and qty boxes keep in step","ok":true,"note":"qty 25 gave 25%, 10% gave qty 10 (line of 100), put back to 50% (was 100%)","ms":6536}
 {"part":"appphone4","step":"Phone: variation description is words until tapped","ok":true,"note":"open boxes before 0, after tap 1, qty to tap 1, old £ boxes 0","ms":1023}
+{"part":"appphone4","step":"Certifying on a phone","ok":true,"note":"over 0, applied rows 12","ms":13810}
+{"part":"appphone4","step":"Draft on a phone","ok":true,"note":"over at 375 0, bulk edit 1","ms":43251}
+{"part":"appphone4","step":"Phone: % and qty boxes keep in step","ok":true,"note":"qty 25 gave 25%, 10% gave qty 10 (line of 100), put back to 50% (was 50%)","ms":6510}
+{"part":"appphone4","step":"Phone: variation description is words until tapped","ok":true,"note":"open boxes before 0, after tap 1, qty to tap 1, old £ boxes 0","ms":1028}

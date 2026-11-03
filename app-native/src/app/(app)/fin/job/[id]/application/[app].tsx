@@ -410,8 +410,8 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
             <FigRow label="Contract" unit={unit} rate={rate} pct="100%" qty={hasQty ? String(l.qty) : ''} total={money(l.value)} plain bold />
             {pv > 0 && <FigRow label="Previous" unit={unit} rate={rate} pct={`${pct(pv)}%`} qty={qd(pv)} total={money(prev)} plain />}
             <FigRow label="Applied" unit={unit} rate={rate} pct={`${pct(l.pct)}%`} qty={qd(pct(l.pct))} total={money(l.gross)} inputs={locked ? undefined : boxes(pct(l.pct), ['Percent done', 'Amount done', 'Quantity done'], (x) => setLine(i, { pct: x }), `a${i}-${gen}`)} />
-            {certing && (() => { const p0 = pct(cert.cp[`l${i}`]); return <FigRow label="Certified" unit={unit} rate={rate} pct={`${p0}%`} qty={qd(p0)} total={money(round2((Number(l.value || 0) * p0) / 100))} warn={p0 !== pct(l.pct)} inputs={boxes(p0, CERT_LABELS, (x) => cert.applyLines({ ...cert.cp, [`l${i}`]: String(x) }), `c${i}`)} />; })()}
-            {certDone && (() => { const cl = (a0.cert_lines || []).find((x: Row) => x.item_id === l.item_id); return <FigRow label="Certified" unit={unit} rate={rate} pct={cl ? `${pct(cl.pct)}%` : '—'} qty={cl ? qd(pct(cl.pct)) : ''} total={cl ? money(cl.gross) : '—'} />; })()}
+            {certing && (() => { const p0 = pct(cert.cp[`l${i}`]); return <FigRow label="Certified" bold unit={unit} rate={rate} pct={`${p0}%`} qty={qd(p0)} total={money(round2((Number(l.value || 0) * p0) / 100))} warn={p0 !== pct(l.pct)} inputs={boxes(p0, CERT_LABELS, (x) => cert.applyLines({ ...cert.cp, [`l${i}`]: String(x) }), `c${i}`)} />; })()}
+            {certDone && (() => { const cl = (a0.cert_lines || []).find((x: Row) => x.item_id === l.item_id); return <FigRow label="Certified" bold unit={unit} rate={rate} pct={cl ? `${pct(cl.pct)}%` : '—'} qty={cl ? qd(pct(cl.pct)) : ''} total={cl ? money(cl.gross) : '—'} />; })()}
           </View>
             );
           })()
@@ -509,8 +509,8 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
           }} />
           {pv > 0 && <FigRow label="Previous" rate={rate} pct={`${pct(pv)}%`} qty={qd(pv)} total={money(round2((Number(v.value || 0) * pv) / 100))} plain />}
           <FigRow label="Applied" rate={rate} pct={`${pct(v.pct)}%`} qty={qd(pct(v.pct))} total={money(v.gross)} inputs={locked ? undefined : boxes(pct(v.pct), ['Percent done', 'Amount done', 'Quantity done'], (x) => setA({ ...a, variations: a.variations.map((y: Row, j: number) => (j === i ? { ...y, pct: x } : y)) }), `va${i}-${gen}`)} />
-          {certing && <FigRow label="Certified" rate={rate} pct={`${pct(cert.cp[`v${i}`])}%`} qty={qd(pct(cert.cp[`v${i}`]))} total={money(round2((Number(v.value || 0) * pct(cert.cp[`v${i}`])) / 100))} warn={pct(cert.cp[`v${i}`]) !== pct(v.pct)} inputs={boxes(pct(cert.cp[`v${i}`]), CERT_LABELS, (x) => cert.applyLines({ ...cert.cp, [`v${i}`]: String(x) }), `vc${i}`)} />}
-          {certDone && (() => { const cl = (a0.cert_lines || []).find((x: Row) => x.var_index === i), cp1 = cl && Number(v.value) ? pct((Number(cl.gross) / Number(v.value)) * 100) : null; return <FigRow label="Certified" rate={rate} pct={cp1 != null ? `${cp1}%` : '—'} qty={cp1 != null ? qd(cp1) : ''} total={cl ? money(cl.gross) : '—'} />; })()}
+          {certing && <FigRow label="Certified" bold rate={rate} pct={`${pct(cert.cp[`v${i}`])}%`} qty={qd(pct(cert.cp[`v${i}`]))} total={money(round2((Number(v.value || 0) * pct(cert.cp[`v${i}`])) / 100))} warn={pct(cert.cp[`v${i}`]) !== pct(v.pct)} inputs={boxes(pct(cert.cp[`v${i}`]), CERT_LABELS, (x) => cert.applyLines({ ...cert.cp, [`v${i}`]: String(x) }), `vc${i}`)} />}
+          {certDone && (() => { const cl = (a0.cert_lines || []).find((x: Row) => x.var_index === i), cp1 = cl && Number(v.value) ? pct((Number(cl.gross) / Number(v.value)) * 100) : null; return <FigRow label="Certified" bold rate={rate} pct={cp1 != null ? `${cp1}%` : '—'} qty={cp1 != null ? qd(cp1) : ''} total={cl ? money(cl.gross) : '—'} />; })()}
         </View>
         );
       })())}
@@ -536,9 +536,9 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
         <View key={i} style={{ paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderColor: base.cardLine, gap: 6 }}>
           {!locked && !d.fin_daywork_id ? <TapEdit value={d.description || ''} onChange={(x) => setA({ ...a, dayworks: a.dayworks.map((y: Row, j: number) => (j === i ? { ...y, description: x } : y)) })} /> : <Text style={{ color: base.ink, fontSize: 13 }}>{d.description}</Text>}
           <FigRow label="Applied" total={money(d.gross)} inputs={locked || d.fin_daywork_id ? undefined : { total: <TextInput defaultValue={d.value != null ? String(d.value) : ''} onChangeText={(x) => setA({ ...a, dayworks: a.dayworks.map((y: Row, j: number) => (j === i ? { ...y, value: num(x) } : y)) })} placeholder="£" keyboardType="decimal-pad" selectTextOnFocus style={[box, { width: 70, height: 30, paddingVertical: 2, fontSize: 13 }]} /> }} />
-          {certing && <FigRow label="Certified" total={money(num(cert.cp[`d${i}`]) || 0)} warn={(num(cert.cp[`d${i}`]) || 0) !== Number(d.gross || 0)}
+          {certing && <FigRow label="Certified" bold total={money(num(cert.cp[`d${i}`]) || 0)} warn={(num(cert.cp[`d${i}`]) || 0) !== Number(d.gross || 0)}
             inputs={{ total: <TextInput accessibilityLabel="Certified amount" value={cert.cp[`d${i}`]} onChangeText={(x) => cert.applyLines({ ...cert.cp, [`d${i}`]: x })} keyboardType="decimal-pad" selectTextOnFocus style={[box, { width: 70, height: 30, paddingVertical: 2, fontSize: 13 }]} /> }} />}
-          {certDone && (() => { const cl = (a0.cert_lines || []).find((x: Row) => x.day_index === i); return <FigRow label="Certified" total={cl ? money(cl.gross) : '—'} />; })()}
+          {certDone && (() => { const cl = (a0.cert_lines || []).find((x: Row) => x.day_index === i); return <FigRow label="Certified" bold total={cl ? money(cl.gross) : '—'} />; })()}
         </View>
       ))}
       </SecBlock>}
