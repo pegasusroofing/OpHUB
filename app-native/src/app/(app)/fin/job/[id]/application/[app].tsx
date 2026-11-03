@@ -8,7 +8,7 @@ import { pdfLines } from '@/lib/pdfjs';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { cloneElement, isValidElement, useEffect, useRef, useState, type ComponentRef, type ReactElement, type ReactNode } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { ThinExportBar } from '@/components/FinFilterBar';
 import { OphIcon } from '@/components/OphIcon';
@@ -284,19 +284,19 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
       {view === 'lines' && <>
       {!desk ? (
         <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10, alignItems: 'center' }}>
-          <View style={{ flex: 1 }}><Button kind="ghost" busy={!!busy} title={certing ? 'Bulk Certify ▾' : `${stage === 'draft' ? (mode === 'gbp' ? 'Enter £' : mode === 'qty' ? 'Enter qty' : 'Enter %') : 'Options'}${hideZero ? ' · 0% Hidden' : ''} ▾`} onPress={async () => {
-            const on = (x: boolean) => (x ? '✓ ' : '');
-            const k = await chooseAction(certing ? 'Bulk Certify' : 'Lines', [
-              ...(stage === 'draft' || certing ? [{ key: 'pct', label: `${on(mode === 'pct')}Enter %` }, { key: 'gbp', label: `${on(mode === 'gbp')}Enter £` }, { key: 'qty', label: `${on(mode === 'qty')}Enter qty` }] : []),
+          <View style={{ flex: 1 }}><Button kind="ghost" busy={!!busy} title={certing ? 'Bulk Certify ▾' : stage === 'draft' ? 'Bulk Edit ▾' : `Options${hideZero ? ' · 0% Hidden' : ''} ▾`} onPress={async () => {
+            // No Enter % / £ / qty on a phone: the % and qty boxes are both there to type in (Andy, 3 Nov 2026).
+            const k = await chooseAction(certing ? 'Bulk Certify' : stage === 'draft' ? 'Bulk Edit' : 'Lines', [
               { key: 'zero', label: hideZero ? 'Show 0% lines' : 'Hide 0% lines' },
               ...(certing ? [{ key: 'applied', label: 'Fill in: certified as applied' }, { key: 'xl', label: 'Fill in: from the client’s Excel' }, { key: 'pdf', label: 'Fill in: from the client’s PDF' }] : []),
-              ...(stage === 'draft' ? [{ key: 'up', label: 'Upload edited Excel' }] : []),
+              ...(stage === 'draft' ? [{ key: 'all100', label: 'Set every line to 100%' }, { key: 'all0', label: 'Set every line to 0%' }, { key: 'up', label: 'Upload edited Excel' }] : []),
             ]);
-            if (k === 'pct' || k === 'gbp' || k === 'qty') setMode(k); else if (k === 'zero') setHideZero(!hideZero);
+            if (k === 'zero') setHideZero(!hideZero);
             else if (k === 'applied') cert.asApplied();
             else if (k === 'xl') { const items = await pickAppExcel(toast); if (items) certFromExcel(a0, cert, items, toast); }
             else if (k === 'pdf') { const r = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true }); if (!r.canceled && r.assets[0]) await certFromPdf(a0, cert, r.assets[0], toast); }
             else if (k === 'up') void uploadExcel();
+            else if (k === 'all100' || k === 'all0') { const to = k === 'all100' ? 100 : 0; setA({ ...a, lines: (a.lines || []).map((l: Row) => (isItem(l) ? { ...l, pct: to } : l)), variations: (a.variations || []).map((x: Row) => ({ ...x, pct: to })) }); setGen((g) => g + 1); }
           }} /></View>
           {stage === 'applied' && !certing && <Button title="Certify" onPress={() => setCertifying(true)} />}
         </View>
@@ -335,7 +335,7 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
         return (
       <SecBlock key={g[0]} title={isSec ? head.description : 'General'} refNo={isSec ? head.ref : ''} total={sum('gross')} of={sum('value')}
         tools={!locked && isSec ? <View style={{ flexDirection: 'row', gap: 6 }}><Button small kind="ghost" title="Set All To 100%" onPress={() => fill(g[0], 100)} /><Button small kind="ghost" title="Set All To 0%" onPress={() => fill(g[0], 0)} /></View> : undefined}>
-      {desk && gridHead}
+      {desk ? gridHead : <FigHead />}
       {g.map((i) => {
         const l = c.lines[i] as Row;
         if (l.kind === 'section') return null;
@@ -368,27 +368,27 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
           );
         }
         return (
-          // Phone: the words on the left, the box and figures on the right of the same row (Andy, 3 Nov 2026).
-          <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderColor: base.cardLine }}>
-            <View style={{ flex: 1, minWidth: 0 }}>
-              <Text style={{ color: base.ink, fontSize: 14 }}><Text style={{ color: base.slate }}>{l.ref ? `${l.ref}  ` : ''}</Text>{l.description}{siteTag}</Text>
-              <Muted style={{ fontSize: 12 }}>{hasQty ? `${l.qty} ${l.unit || ''} × ${money(l.rate)} = ` : 'Value '}{money(l.value)}</Muted>
-              {/* Previous = certified on this line last time; This time = to date less previous (9219r). */}
-              {(() => { const prev = round2((Number(l.value || 0) * (prevPct[l.item_id] || 0)) / 100); return prev || l.gross ? <Muted style={{ fontSize: 11.5 }}>Previous {money(prev)} · This time {money(round2(l.gross - prev))}</Muted> : null; })()}
-            </View>
-            <View style={{ alignItems: 'flex-end', gap: 4 }}>
-              {locked ? <Text style={{ color: base.slate, fontSize: 12.5 }}>Applied {pct(l.pct)}%</Text> : <AmountBox key={`p${i}-${gen}`} p={pct(l.pct)} value={l.value} qty={l.qty} unit={l.unit} mode={over[l.item_id] || mode} onMode={flip(l.item_id)} labels={['Percent done', 'Amount done', 'Quantity done']} onPct={(x) => setLine(i, { pct: x })} />}
-              <Text style={{ fontSize: 14, fontWeight: '600', color: base.ink }}>{money(l.gross)}</Text>
-              {certing && (() => { const p0 = pct(cert.cp[`l${i}`]); return (
-                <>
-                  <Muted style={{ fontSize: 11.5, marginTop: 4, marginBottom: 0 }}>Certified</Muted>
-                  <AmountBox p={p0} value={l.value} qty={l.qty} unit={l.unit} mode={over[l.item_id] || mode} onMode={flip(l.item_id)} labels={CERT_LABELS} onPct={(x) => cert.applyLines({ ...cert.cp, [`l${i}`]: String(x) })} />
-                  <Text style={{ fontSize: 14, fontWeight: '600', color: p0 !== pct(l.pct) ? '#b45309' : base.ink }}>{money(round2((Number(l.value || 0) * p0) / 100))}</Text>
-                </>
-              ); })()}
-              {certDone && (() => { const cl = (a0.cert_lines || []).find((x: Row) => x.item_id === l.item_id); return <Text style={{ color: base.slate, fontSize: 12.5 }}>Certified {cl ? `${pct(cl.pct)}% · ${money(cl.gross)}` : '—'}</Text>; })()}
-            </View>
+          // Phone (Andy, 3 Nov 2026): ref and description, then rows of unit, rate, %, qty and total — the contract, what went
+          // before, applied and certified. % and qty can both be typed in and keep each other in step; £ goes in the total.
+          (() => {
+            const qd = (x: number) => (hasQty ? String(round2((x * Number(l.qty)) / 100)) : ''), unit = hasQty ? l.unit || '' : '', rate = hasQty ? money(l.rate) : '';
+            const pv = prevPct[l.item_id] || 0, prev = round2((Number(l.value || 0) * pv) / 100);
+            const boxes = (p0: number, labels: [string, string, string], onPct: (x: number) => void, k: string): Partial<Record<FigCol, ReactNode>> => ({
+              pct: <AmountBox bare key={`${k}p`} p={p0} value={l.value} qty={l.qty} mode="pct" labels={labels} onPct={onPct} />,
+              ...(hasQty ? { qty: <AmountBox bare key={`${k}q`} p={p0} value={l.value} qty={l.qty} mode="qty" labels={labels} onPct={onPct} /> } : {}),
+              ...(mode === 'gbp' ? { total: <AmountBox bare key={`${k}g`} p={p0} value={l.value} mode="gbp" labels={labels} onPct={onPct} /> } : {}),
+            });
+            return (
+          <View key={i} style={{ paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderColor: base.cardLine, gap: 5 }}>
+            <Text style={{ color: base.ink, fontSize: 13, marginBottom: 1 }}>{l.ref ? <Text style={{ color: base.slate, fontSize: 11.5 }}>{`${l.ref}  `}</Text> : null}{l.description}{siteTag}</Text>
+            <FigRow label="Contract" unit={unit} rate={rate} pct="100%" qty={hasQty ? String(l.qty) : ''} total={money(l.value)} plain bold />
+            {pv > 0 && <FigRow label="Previous" unit={unit} rate={rate} pct={`${pct(pv)}%`} qty={qd(pv)} total={money(prev)} plain />}
+            <FigRow label="Applied" unit={unit} rate={rate} pct={`${pct(l.pct)}%`} qty={qd(pct(l.pct))} total={money(l.gross)} inputs={locked ? undefined : boxes(pct(l.pct), ['Percent done', 'Amount done', 'Quantity done'], (x) => setLine(i, { pct: x }), `a${i}-${gen}`)} />
+            {certing && (() => { const p0 = pct(cert.cp[`l${i}`]); return <FigRow label="Certified" unit={unit} rate={rate} pct={`${p0}%`} qty={qd(p0)} total={money(round2((Number(l.value || 0) * p0) / 100))} warn={p0 !== pct(l.pct)} inputs={boxes(p0, CERT_LABELS, (x) => cert.applyLines({ ...cert.cp, [`l${i}`]: String(x) }), `c${i}`)} />; })()}
+            {certDone && (() => { const cl = (a0.cert_lines || []).find((x: Row) => x.item_id === l.item_id); return <FigRow label="Certified" unit={unit} rate={rate} pct={cl ? `${pct(cl.pct)}%` : '—'} qty={cl ? qd(pct(cl.pct)) : ''} total={cl ? money(cl.gross) : '—'} />; })()}
           </View>
+            );
+          })()
         );
       })}
       </SecBlock>
@@ -442,7 +442,7 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
           }} />
       )}
       {(c.variations.length > 0 || !locked) && <SecBlock title="Variations" total={round2(c.variations.reduce((n: number, v: Row) => n + Number(v.gross || 0), 0))} tools={!locked ? <Button small kind="ghost" title="+ Variation Line" onPress={() => setA({ ...a, variations: [...(a.variations || []), { variation_id: null, description: '', value: null, pct: 100 }] })} /> : undefined}>
-      {desk && gridHead}
+      {desk ? gridHead : <FigHead />}
       {c.variations.map((v: Row, i: number) => desk ? (() => {
         const val = Number(v.value || 0), prev = round2((val * (prevVar[v.fin_variation_id || v.variation_id || ''] || 0)) / 100), cp0 = pct(cert.cp[`v${i}`]);
         const cl = certDone ? (a0.cert_lines || []).find((x: Row) => x.var_index === i) : null;
@@ -461,38 +461,37 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
             prev: money(prev), now: certDone && !cl ? '—' : money(round2((certG ?? v.gross) - prev)),
           }} />
         );
-      })() : (
-        <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderColor: base.cardLine }}>
-          <View style={{ flex: 1, minWidth: 0, gap: 6 }}>
-            {locked ? <Text style={{ color: base.ink, fontSize: 14 }}>{v.description}</Text> : <TextInput value={v.description} onChangeText={(x) => setA({ ...a, variations: a.variations.map((y: Row, j: number) => (j === i ? { ...y, description: x } : y)) })} placeholder="Description" style={[box, { fontSize: 14 }]} />}
-            {locked ? <Muted style={{ fontSize: 12 }}>{Number(v.qty) > 1 ? `${v.qty} × ${money(v.rate)} = ` : 'Value '}{money(v.value)}</Muted> : (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Text style={{ color: base.slate, fontSize: 13 }}>Qty</Text>
-                <TextInput accessibilityLabel="Variation quantity" defaultValue={v.qty != null ? String(v.qty) : '1'} onChangeText={(x) => setVar(i, { qty: x })} keyboardType="decimal-pad" selectTextOnFocus style={[box, { width: 48 }]} />
-                <Text style={{ color: base.slate }}>×</Text>
-                <TextInput defaultValue={v.rate != null ? String(v.rate) : v.value != null ? String(v.value) : ''} onChangeText={(x) => setVar(i, { rate: x })} placeholder="£ value" keyboardType="decimal-pad" selectTextOnFocus style={[box, { flex: 1, minWidth: 60 }]} />
-              </View>
-            )}
-            {varSite(v, i)}
-          </View>
-          <View style={{ alignItems: 'flex-end', gap: 4 }}>
-            {locked ? <Text style={{ color: base.slate, fontSize: 12.5 }}>Applied {pct(v.pct)}%</Text> : <AmountBox key={`vp${i}-${gen}`} p={pct(v.pct)} value={v.value} mode={mode === 'gbp' ? 'gbp' : 'pct'} labels={['Percent done', 'Amount done', 'Quantity done']} onPct={(x) => setA({ ...a, variations: a.variations.map((y: Row, j: number) => (j === i ? { ...y, pct: x } : y)) })} />}
-            <Text style={{ fontSize: 14, fontWeight: '600', color: base.ink }}>{money(v.gross)}</Text>
-            {certing && (
-              <>
-                <Muted style={{ fontSize: 11.5, marginTop: 4, marginBottom: 0 }}>Certified</Muted>
-                <AmountBox p={pct(cert.cp[`v${i}`])} value={v.value} qty={Number(v.qty) > 1 ? v.qty : null} mode={over[`v${i}`] || mode} onMode={flip(`v${i}`)} labels={CERT_LABELS} onPct={(x) => cert.applyLines({ ...cert.cp, [`v${i}`]: String(x) })} />
-                <Text style={{ fontSize: 14, fontWeight: '600', color: base.ink }}>{money(round2((Number(v.value || 0) * pct(cert.cp[`v${i}`])) / 100))}</Text>
-              </>
-            )}
-            {certDone && (() => { const cl = (a0.cert_lines || []).find((x: Row) => x.var_index === i); return <Text style={{ color: base.slate, fontSize: 12.5 }}>Certified {cl ? money(cl.gross) : '—'}</Text>; })()}
-          </View>
+      })() : (() => {
+        const vq = Number(v.qty) > 1 ? Number(v.qty) : 1, rate = money(v.rate ?? v.value), qd = (x: number) => String(round2((x * vq) / 100));
+        const pv = prevVar[v.fin_variation_id || v.variation_id || ''] || 0;
+        const boxes = (p0: number, labels: [string, string, string], onPct: (x: number) => void, k: string): Partial<Record<FigCol, ReactNode>> => ({
+          pct: <AmountBox bare key={`${k}p`} p={p0} value={v.value} qty={vq} mode="pct" labels={labels} onPct={onPct} />,
+          ...(vq > 1 ? { qty: <AmountBox bare key={`${k}q`} p={p0} value={v.value} qty={vq} mode="qty" labels={labels} onPct={onPct} /> } : {}),
+          ...(mode === 'gbp' ? { total: <AmountBox bare key={`${k}g`} p={p0} value={v.value} mode="gbp" labels={labels} onPct={onPct} /> } : {}),
+        });
+        return (
+        <View key={i} style={{ paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderColor: base.cardLine, gap: 5 }}>
+          {locked ? <Text style={{ color: base.ink, fontSize: 13, marginBottom: 1 }}>{v.description} {varSite(v, i)}</Text> : (
+            <>
+              <TapEdit value={v.description || ''} onChange={(x) => setA({ ...a, variations: a.variations.map((y: Row, j: number) => (j === i ? { ...y, description: x } : y)) })} />
+              {varSite(v, i)}
+            </>
+          )}
+          <FigRow label="Contract" rate={rate} pct="100%" qty={String(vq)} total={money(v.value)} plain bold inputs={locked ? undefined : {
+            qty: <TapNum label="Variation quantity" value={v.qty != null ? String(v.qty) : '1'} onChange={(x) => setVar(i, { qty: x })} />,
+            rate: <TapNum label="Variation rate" value={v.rate != null ? String(v.rate) : v.value != null ? String(v.value) : ''} show={rate} onChange={(x) => setVar(i, { rate: x })} wide />,
+          }} />
+          {pv > 0 && <FigRow label="Previous" rate={rate} pct={`${pct(pv)}%`} qty={qd(pv)} total={money(round2((Number(v.value || 0) * pv) / 100))} plain />}
+          <FigRow label="Applied" rate={rate} pct={`${pct(v.pct)}%`} qty={qd(pct(v.pct))} total={money(v.gross)} inputs={locked ? undefined : boxes(pct(v.pct), ['Percent done', 'Amount done', 'Quantity done'], (x) => setA({ ...a, variations: a.variations.map((y: Row, j: number) => (j === i ? { ...y, pct: x } : y)) }), `va${i}-${gen}`)} />
+          {certing && <FigRow label="Certified" rate={rate} pct={`${pct(cert.cp[`v${i}`])}%`} qty={qd(pct(cert.cp[`v${i}`]))} total={money(round2((Number(v.value || 0) * pct(cert.cp[`v${i}`])) / 100))} warn={pct(cert.cp[`v${i}`]) !== pct(v.pct)} inputs={boxes(pct(cert.cp[`v${i}`]), CERT_LABELS, (x) => cert.applyLines({ ...cert.cp, [`v${i}`]: String(x) }), `vc${i}`)} />}
+          {certDone && (() => { const cl = (a0.cert_lines || []).find((x: Row) => x.var_index === i), cp1 = cl && Number(v.value) ? pct((Number(cl.gross) / Number(v.value)) * 100) : null; return <FigRow label="Certified" rate={rate} pct={cp1 != null ? `${cp1}%` : '—'} qty={cp1 != null ? qd(cp1) : ''} total={cl ? money(cl.gross) : '—'} />; })()}
         </View>
-      ))}
+        );
+      })())}
       </SecBlock>}
       {/* 902: typed day works can be added and changed on a draft; ones from the Day works register stay as they are. */}
       {(c.dayworks.length > 0 || !locked) && <SecBlock title="Day Works" total={round2(c.dayworks.reduce((n: number, d: Row) => n + Number(d.gross || 0), 0))} tools={!locked ? <Button small kind="ghost" title="+ Add Day Work" onPress={() => setA({ ...a, dayworks: [...(a.dayworks || []), { description: '', value: null }] })} /> : undefined}>
-      {desk && gridHead}
+      {desk ? gridHead : <FigHead />}
       {c.dayworks.map((d: Row, i: number) => desk ? (() => {
         const typed = !locked && !d.fin_daywork_id;
         const cl = certDone ? (a0.cert_lines || []).find((x: Row) => x.day_index === i) : null;
@@ -508,25 +507,12 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
           }} />
         );
       })() : (
-        <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderColor: base.cardLine }}>
-          <View style={{ flex: 1, minWidth: 0, gap: 6 }}>
-            {!locked && !d.fin_daywork_id ? (
-              <>
-                <TextInput value={d.description || ''} onChangeText={(x) => setA({ ...a, dayworks: a.dayworks.map((y: Row, j: number) => (j === i ? { ...y, description: x } : y)) })} placeholder="Description" style={[box, { fontSize: 14 }]} />
-                <TextInput defaultValue={d.value != null ? String(d.value) : ''} onChangeText={(x) => setA({ ...a, dayworks: a.dayworks.map((y: Row, j: number) => (j === i ? { ...y, value: num(x) } : y)) })} placeholder="£ value" keyboardType="decimal-pad" selectTextOnFocus style={[box, { width: 110 }]} />
-              </>
-            ) : <Text style={{ color: base.ink, fontSize: 14 }}>{d.description}</Text>}
-          </View>
-          <View style={{ alignItems: 'flex-end', gap: 4 }}>
-            <Text style={{ fontSize: 14, fontWeight: '600', color: base.ink }}>{money(d.gross)}</Text>
-            {certing && (
-              <>
-                <Muted style={{ fontSize: 11.5, marginTop: 4, marginBottom: 0 }}>Certified</Muted>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}><Text style={{ color: base.slate, fontWeight: '500' }}>£</Text><TextInput accessibilityLabel="Certified amount" value={cert.cp[`d${i}`]} onChangeText={(x) => cert.applyLines({ ...cert.cp, [`d${i}`]: x })} keyboardType="decimal-pad" selectTextOnFocus style={[box, { width: 90, height: 30, paddingVertical: 2, fontSize: 13 }]} /></View>
-              </>
-            )}
-            {certDone && (() => { const cl = (a0.cert_lines || []).find((x: Row) => x.day_index === i); return <Text style={{ color: base.slate, fontSize: 12.5 }}>Certified {cl ? money(cl.gross) : '—'}</Text>; })()}
-          </View>
+        <View key={i} style={{ paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderColor: base.cardLine, gap: 6 }}>
+          {!locked && !d.fin_daywork_id ? <TapEdit value={d.description || ''} onChange={(x) => setA({ ...a, dayworks: a.dayworks.map((y: Row, j: number) => (j === i ? { ...y, description: x } : y)) })} /> : <Text style={{ color: base.ink, fontSize: 13 }}>{d.description}</Text>}
+          <FigRow label="Applied" total={money(d.gross)} inputs={locked || d.fin_daywork_id ? undefined : { total: <TextInput defaultValue={d.value != null ? String(d.value) : ''} onChangeText={(x) => setA({ ...a, dayworks: a.dayworks.map((y: Row, j: number) => (j === i ? { ...y, value: num(x) } : y)) })} placeholder="£" keyboardType="decimal-pad" selectTextOnFocus style={[box, { width: 70, height: 30, paddingVertical: 2, fontSize: 13 }]} /> }} />
+          {certing && <FigRow label="Certified" total={money(num(cert.cp[`d${i}`]) || 0)} warn={(num(cert.cp[`d${i}`]) || 0) !== Number(d.gross || 0)}
+            inputs={{ total: <TextInput accessibilityLabel="Certified amount" value={cert.cp[`d${i}`]} onChangeText={(x) => cert.applyLines({ ...cert.cp, [`d${i}`]: x })} keyboardType="decimal-pad" selectTextOnFocus style={[box, { width: 70, height: 30, paddingVertical: 2, fontSize: 13 }]} /> }} />}
+          {certDone && (() => { const cl = (a0.cert_lines || []).find((x: Row) => x.day_index === i); return <FigRow label="Certified" total={cl ? money(cl.gross) : '—'} />; })()}
         </View>
       ))}
       </SecBlock>}
@@ -564,6 +550,61 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
 }
 
 const GRID_W: Record<string, number> = { ref: 52, qty: 58, unit: 48, rate: 82, value: 92, box: 124, pct: 84, gross: 96, certBox: 124, cert: 96, prev: 92, now: 92 };
+type FigCol = 'pct' | 'qty' | 'total';
+/** A small box with small writing. A phone's web browser zooms in on boxes under 16pt, so there the box keeps 16pt and is
+ *  drawn smaller instead (Andy, 3 Nov 2026); the installed app just uses the small size. */
+const SMALL = 0.7;
+function SmallBox({ w, h, style, ...rest }: React.ComponentProps<typeof TextInput> & { w: number; h: number }) {
+  if (Platform.OS !== 'web') return <TextInput {...rest} style={[box, { width: w, height: h, paddingVertical: 1, paddingHorizontal: 3, fontSize: 11, textAlign: 'center' }, style]} />;
+  return (
+    <View style={{ width: w, height: h, alignItems: 'center', justifyContent: 'center' }}>
+      <TextInput {...rest} style={[box, { width: w / SMALL, height: h / SMALL, paddingVertical: 1, paddingHorizontal: 4, fontSize: 16, textAlign: 'center', transform: [{ scale: SMALL }] }, style]} />
+    </View>
+  );
+}
+/** A figure that looks like a figure, underlined, until tapped; then a small box to change it (Andy, 3 Nov 2026). */
+function TapNum({ value, show, onChange, label, wide }: { value: string; show?: string; onChange: (v: string) => void; label: string; wide?: boolean }) {
+  const [on, setOn] = useState(false);
+  if (on) return <SmallBox w={wide ? 54 : 42} h={26} autoFocus accessibilityLabel={label} defaultValue={value} onChangeText={onChange} onBlur={() => setOn(false)} keyboardType="decimal-pad" selectTextOnFocus />;
+  return <Text accessibilityRole="button" accessibilityLabel={`Change ${label.toLowerCase()}`} onPress={() => setOn(true)} style={{ fontSize: 11.5, fontWeight: '600', color: base.ink, textDecorationLine: 'underline', textDecorationStyle: 'dotted' }}>{show ?? (value || '—')}</Text>;
+}
+/** Words that look like words until tapped, then a box to change them (Andy, 3 Nov 2026). */
+function TapEdit({ value, onChange, placeholder = 'Tap to add a description' }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
+  const [on, setOn] = useState(!value);
+  if (on) return <TextInput autoFocus={!!value} value={value} onChangeText={onChange} onBlur={() => { if (value.trim()) setOn(false); }} placeholder={placeholder} accessibilityLabel="Description" style={[box, { fontSize: 13, paddingVertical: 5 }]} />;
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel={`Change: ${value}`} onPress={() => setOn(true)} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+      <Text style={{ flexShrink: 1, color: base.ink, fontSize: 13 }}>{value}</Text>
+      <OphIcon name="pencil" size={13} color={base.slate} />
+    </Pressable>
+  );
+}
+// Shares of the row, so the columns spread evenly across any phone (Andy, 3 Nov 2026).
+const FIG_F = { label: 1.15, unit: 0.6, rate: 1.1, pct: 1, qty: 0.95, total: 1.4 };
+/** Phone: one figures row under a line (Andy, 3 Nov 2026) — Contract, Previous, Applied or Certified, then unit, rate, %, qty and
+ *  total. Boxes to type in take the place of the figures they set; plain rows (contract, previous) have no band. */
+function FigRow({ label, unit = '', rate = '', pct: pc = '', qty = '', total, warn, inputs, plain, bold }: { label: string; unit?: string; rate?: string; pct?: string; qty?: string; total: string; warn?: boolean; inputs?: Partial<Record<'unit' | 'rate' | FigCol, ReactNode>>; plain?: boolean; bold?: boolean }) {
+  const cell = (k: 'unit' | 'rate' | FigCol, v: string) => (
+    <View key={k} style={{ flex: FIG_F[k], minWidth: 0, alignItems: k === 'total' ? 'flex-end' : 'center' }}>
+      {inputs?.[k] ?? <Text numberOfLines={1} style={{ fontSize: k === 'unit' ? 10.5 : 11.5, fontWeight: bold || (k === 'total' && !plain) ? '600' : '400', color: plain && !bold ? base.slate : k === 'total' && warn ? '#b45309' : base.ink }}>{v}</Text>}
+    </View>
+  );
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', minHeight: plain ? 24 : 36, backgroundColor: plain ? undefined : '#F6F7F9', borderRadius: 8, paddingHorizontal: 6, paddingVertical: plain ? 1 : 4 }}>
+      <Text style={{ flex: FIG_F.label, minWidth: 0, fontSize: 11, fontWeight: bold ? '600' : '500', color: bold ? base.ink : base.slate }}>{label}</Text>
+      {cell('unit', unit)}{cell('rate', rate)}{cell('pct', pc)}{cell('qty', qty)}{cell('total', total)}
+    </View>
+  );
+}
+/** The column headings for those rows, under each section bar. */
+function FigHead() {
+  const h = (l: string, f: number) => <Text key={l} style={{ flex: f, minWidth: 0, textAlign: 'center', fontSize: 10.5, fontWeight: '600', color: base.slate }}>{l}</Text>;
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F4F5F7', borderBottomWidth: 1, borderColor: base.cardLine, paddingVertical: 6, paddingHorizontal: 18 }}>
+      <View style={{ flex: FIG_F.label }} />{h('Unit', FIG_F.unit)}{h('Rate', FIG_F.rate)}{h('%', FIG_F.pct)}{h('Qty', FIG_F.qty)}<Text style={{ flex: FIG_F.total, minWidth: 0, textAlign: 'right', fontSize: 10.5, fontWeight: '600', color: base.slate }}>Total</Text>
+    </View>
+  );
+}
 const Strong = ({ children, warn }: { children: ReactNode; warn?: boolean }) => <Text style={{ fontSize: 13.5, fontWeight: '600', color: warn ? '#b45309' : base.ink }}>{children}</Text>;
 /** One row of the lines table: thin lines between the columns, words on the left and figures on the right. */
 function LineRow({ cols, cells, head }: { cols: string[]; cells: Record<string, ReactNode>; head?: boolean }) {
@@ -585,7 +626,7 @@ type Entry = 'pct' | 'gbp' | 'qty';
 const CERT_LABELS: [string, string, string] = ['Certified percent', 'Certified amount', 'Certified quantity'];
 
 /** One box for how far a line has got, typed as a %, in £ or as a quantity. It's always kept as a %, which every sum uses. */
-function AmountBox({ p, value, qty, unit, mode, onMode, labels, onPct }: { p: number; value: unknown; qty?: unknown; unit?: string | null; mode: Entry; onMode?: (m: Entry) => void; labels: [string, string, string]; onPct: (p: number) => void }) {
+function AmountBox({ p, value, qty, unit, mode, onMode, labels, onPct, bare }: { p: number; value: unknown; qty?: unknown; unit?: string | null; mode: Entry; onMode?: (m: Entry) => void; labels: [string, string, string]; onPct: (p: number) => void; bare?: boolean }) {
   const [typing, setTyping] = useState<string | null>(null);
   const val = Number(value || 0), q = qty != null && Number(qty) !== 0 ? Number(qty) : 0;
   const m: Entry = mode === 'qty' && !q ? 'pct' : mode;
@@ -596,6 +637,9 @@ function AmountBox({ p, value, qty, unit, mode, onMode, labels, onPct }: { p: nu
     if (n === null || isNaN(n)) return;
     if (m === 'gbp') { if (val) onPct(pct((n / val) * 100)); } else if (m === 'qty') onPct(pct((n / q) * 100)); else onPct(pct(n));
   };
+  const props = { accessibilityLabel: labels[m === 'pct' ? 0 : m === 'gbp' ? 1 : 2], value: typing ?? shown, onChangeText: type, onFocus: () => setTyping(shown), onBlur: () => setTyping(null), keyboardType: 'decimal-pad' as const, selectTextOnFocus: true };
+  const input = bare ? <SmallBox w={m === 'gbp' ? 70 : 46} h={26} {...props} /> : <TextInput {...props} style={[box, { width: m === 'gbp' ? 90 : 56, height: 30, paddingVertical: 2, fontSize: 13 }]} />;
+  if (bare) return input;
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
       {m === 'gbp' && <Text style={{ color: base.slate, fontWeight: '500' }}>£</Text>}

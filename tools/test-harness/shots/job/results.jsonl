@@ -1494,3 +1494,58 @@
 {"part":"appimport1","step":"Import Certificate reads our exported Excel","ok":true,"note":"certified boxes 9, note 1","ms":5315}
 {"part":"appphone3","step":"One Fill In button on a phone","ok":true,"note":"old bits 0, one 1, hidden 1, over 0","ms":15779}
 {"part":"appphone3","step":"One Fill In button on a phone","ok":true,"note":"old bits 0, one 1, hidden 1, over 0","ms":15788}
+{"part":"appphone3","step":"One Fill In button on a phone","ok":false,"note":"locator.waitFor: Timeout 30000ms exceeded.","ms":41597}
+{"part":"appphone4","step":"Certifying on a phone","ok":true,"note":"over 0, applied rows 4","ms":13556}
+{"part":"appphone4","step":"Certifying on a phone","ok":true,"note":"over 0, applied rows 4","ms":13685}
+{"part":"appphone4","step":"Draft on a phone","ok":true,"note":"over at 375 0","ms":12566}
+{"part":"appphone4","step":"Certifying on a phone","ok":true,"note":"over 0, applied rows 4","ms":13936}
+{"part":"appphone4","step":"Draft on a phone","ok":true,"note":"over at 375 0","ms":12264}
+{"part":"appphone4","step":"Phone: % and qty boxes keep in step","ok":true,"note":"qty 25 gave 25%, 10% gave qty 10 (line of 100), put back to 50%","ms":5285}
+{"part":"appphone4","step":"Certifying on a phone","ok":false,"note":"locator.scrollIntoViewIfNeeded: Timeout 30000ms exceeded.","ms":41791}
+{"part":"appphone4","step":"Draft on a phone","ok":true,"note":"over at 375 0","ms":13193}
+{"part":"appphone4","step":"Phone: % and qty boxes keep in step","ok":false,"note":"qty 25 gave 100%, 10% gave qty 0.1 (line of 100), put back to 80%","ms":5210}
+{"part":"appimport1","step":"An applied application to work on","ok":true,"note":"submitted","ms":91}
+{"part":"appimport1","step":"Email Application pop-up: client email, CC Me ticked, Email Me Only","ok":true,"note":"cc 1, me only 1, send 1","ms":13932}
+{"part":"appimport1","step":"Import Certificate reads our exported Excel","ok":true,"note":"certified boxes 9, note 1","ms":5798}
+{"part":"appphone4","step":"Certifying on a phone","ok":true,"note":"over 0, applied rows 9","ms":13690}
+{"part":"appphone4","step":"Draft on a phone","ok":true,"note":"over at 375 0","ms":12245}
+{"part":"appphone4","step":"Phone: % and qty boxes keep in step","ok":true,"note":"qty 25 gave 25%, 10% gave qty 10 (line of 100), put back to 50%","ms":5269}
+{"part":"appphone4","step":"Certifying on a phone","ok":true,"note":"over 0, applied rows 9","ms":13636}
+{"part":"appphone4","step":"Draft on a phone","ok":true,"note":"over at 375 0","ms":12226}
+{"part":"appphone4","step":"Phone: % and qty boxes keep in step","ok":true,"note":"qty 25 gave 25%, 10% gave qty 10 (line of 100), put back to 50%","ms":5327}
+{"part":"appphone4","step":"Phone: variation description is words until tapped","ok":true,"note":"open boxes before 0, after tap 1","ms":997}
+{"part":"appphone4","step":"Certifying on a phone","ok":true,"note":"over 0, applied rows 9","ms":13692}
+{"part":"appphone4","step":"Draft on a phone","ok":true,"note":"over at 375 0","ms":12356}
+{"part":"appphone4","step":"Phone: % and qty boxes keep in step","ok":true,"note":"qty 25 gave 25%, 10% gave qty 10 (line of 100), put back to 50%","ms":5322}
+{"part":"appphone4","step":"Phone: variation description is words until tapped","ok":true,"note":"open boxes before 0, after tap 1, qty to tap 1, old £ boxes 0","ms":994}
+{"part":"appphone4","step":"Certifying on a phone","ok":true,"note":"over 0, applied rows 9","ms":13370}
+{"part":"appphone4","step":"Draft on a phone","ok":true,"note":"over at 375 0","ms":11744}
+{"part":"appphone4","step":"Phone: % and qty boxes keep in step","ok":true,"note":"qty 25 gave 25%, 10% gave qty 10 (line of 100), put back to 50%","ms":5198}
+{"part":"appphone4","step":"Phone: variation description is words until tapped","ok":true,"note":"open boxes before 0, after tap 1, qty to tap 1, old £ boxes 0","ms":894}
+{"part":"appphone4","step":"Certifying on a phone","ok":true,"note":"over 0, applied rows 9","ms":13572}
+{"part":"appphone4","step":"Draft on a phone","ok":true,"note":"over at 375 0","ms":12301}
+{"part":"appphone4","step":"Phone: % and qty boxes keep in step","ok":true,"note":"qty 25 gave 25%, 10% gave qty 10 (line of 100), put back to 50%","ms":5365}
+{"part":"appphone4","step":"Phone: variation description is words until tapped","ok":true,"note":"open boxes before 0, after tap 1, qty to tap 1, old £ boxes 0","ms":1007}
+{"part":"appphone4","step":"Certifying on a phone","ok":true,"note":"over 0, applied rows 9","ms":14046}
+{"part":"appphone4","step":"Draft on a phone","ok":true,"note":"over at 375 0","ms":12304}
+{"part":"appphone4","step":"Phone: % and qty boxes keep in step","ok":true,"note":"qty 25 gave 25%, 10% gave qty 10 (line of 100), put back to 50%","ms":5366}
+{"part":"appphone4","step":"Phone: variation description is words until tapped","ok":true,"note":"open boxes before 0, after tap 1, qty to tap 1, old £ boxes 0","ms":1024}
+{"part":"appphone4","step":"Certifying on a phone","ok":true,"note":"over 0, applied rows 9","ms":13917}
+{"part":"appphone4","step":"Draft on a phone","ok":true,"note":"over at 375 0, bulk edit 1","ms":43411}
+{"part":"appphone4","step":"Phone: % and qty boxes keep in step","ok":true,"note":"qty 25 gave 25%, 10% gave qty 10 (line of 100), put back to 50%","ms":5243}
+{"part":"appphone4","step":"Phone: variation description is words until tapped","ok":true,"note":"open boxes before 0, after tap 1, qty to tap 1, old £ boxes 0","ms":1023}
+{"part":"appphone4","step":"Certifying on a phone","ok":true,"note":"over 0, applied rows 9","ms":14247}
+{"part":"appphone4","step":"Draft on a phone","ok":true,"note":"over at 375 0, bulk edit 1","ms":43383}
+{"part":"appphone4","step":"Phone: % and qty boxes keep in step","ok":true,"note":"qty 25 gave 25%, 10% gave qty 10 (line of 100), put back to 10%","ms":5349}
+{"part":"appphone4","step":"Phone: variation description is words until tapped","ok":true,"note":"open boxes before 0, after tap 1, qty to tap 1, old £ boxes 0","ms":1016}
+{"part":"appentry1","step":"Applied by £ on the draft","ok":true,"note":"pct 50","ms":32310}
+{"part":"appentry1","step":"Each line on one row","ok":true,"note":"421, 421, 415","ms":206}
+{"part":"appentry1","step":"Applied by qty on the draft","ok":true,"note":"pct 75","ms":4529}
+{"part":"appentry1","step":"Applied by % still works","ok":true,"note":"pct 80","ms":4245}
+{"part":"appentry1","step":"Certified by £","ok":true,"note":"shows £625","ms":8003}
+{"part":"appentry1","step":"Certified by qty, then back to %: same figure","ok":true,"note":"qty showed 50, now 20%","ms":2852}
+{"part":"appentry1","step":"One line can switch on its own","ok":true,"note":"qty boxes 1","ms":597}
+{"part":"appphone4","step":"Certifying on a phone","ok":true,"note":"over 0, applied rows 12","ms":13697}
+{"part":"appphone4","step":"Draft on a phone","ok":true,"note":"over at 375 0, bulk edit 1","ms":42987}
+{"part":"appphone4","step":"Phone: % and qty boxes keep in step","ok":true,"note":"qty 25 gave 25%, 10% gave qty 10 (line of 100), put back to 50% (was 25%)","ms":6364}
+{"part":"appphone4","step":"Phone: variation description is words until tapped","ok":true,"note":"open boxes before 0, after tap 1, qty to tap 1, old £ boxes 0","ms":1019}
