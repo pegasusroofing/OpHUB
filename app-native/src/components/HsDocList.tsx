@@ -11,7 +11,7 @@ import { router } from 'expo-router';
 import { testFill } from '@/data/signTemplates';
 import { supabase } from '@/lib/supabase';
 import { useState, type ReactNode } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, Text, useWindowDimensions, View } from 'react-native';
 
 import { ClientSignLines } from '@/components/ClientSignLines';
 import { promptEmail } from '@/components/EmailPrompt';
@@ -118,6 +118,7 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
   const [busy, setBusy] = useState(false);
   const [supOpen, setSupOpen] = useState(false);
   const [sel, setSel] = useState<Set<string>>(new Set());
+  const narrow = useWindowDimensions().width < 700;
   if (!me) return null;
   const manager = canManage ?? isManager(me);
   const client = me.role === 'client';
@@ -213,12 +214,26 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
         const canTap = !client && !(manager && (issued.length || mine)) && !(kind !== 'rams' && manager);
         return (
           <Card key={r.id} style={{ paddingVertical: 12, paddingHorizontal: 14 }}>
+            {/* View and the menu sit to the right, centred on the title and the line under it (Andy, 3 Nov 2026). */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <View style={{ flex: 1, minWidth: 0 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               {manager && kind !== 'layout' && <Pressable hitSlop={8} accessibilityRole="checkbox" accessibilityState={{ checked: sel.has(r.id) }} onPress={() => setSel((x) => { const n = new Set(x); if (n.has(r.id)) n.delete(r.id); else n.add(r.id); return n; })}
                 style={{ width: 18, height: 18, borderRadius: 4, borderWidth: 1.5, borderColor: sel.has(r.id) ? base.blue : '#c3c8d0', backgroundColor: sel.has(r.id) ? base.blue : '#fff', alignItems: 'center', justifyContent: 'center' }}>{sel.has(r.id) && <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700', lineHeight: 14 }}>✓</Text>}</Pressable>}
               <DocBadge kind={kind} type={r.doc_type} />
               <Text numberOfLines={2} style={{ flex: 1, fontSize: 15, fontWeight: '600', color: '#111827' }}>{docTitle(r.name, site.name)}</Text>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 6, paddingLeft: manager && kind !== 'layout' ? 28 : 0 }}>
+              <Text numberOfLines={2} style={{ flex: 1, fontSize: 12.5, color: '#6b7280' }}>
+                {issued.length ? `Issued by ${issued.map((x) => nameOf(people, x.user_id)).join(', ')}` : `Uploaded by ${nameOf(people, r.uploaded_by)} · ${d(r.uploaded_at)}`}
+                {r.supersedes ? ` · Replaces "${nameById[r.supersedes] || 'an earlier version'}"` : ''}
+                {due ? ` · Re-sign ${due.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}` : ''}
+              </Text>
+            </View>
+            </View>
+              <View style={narrow ? { alignItems: 'flex-end', gap: 6 } : { flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <StatusPill text={issued.length ? `Issued ${d(issued[0].signed_at)}` : kind === 'coshh' && r.uploaded_at && !data.roster.length ? `Issued ${d(r.uploaded_at)}` : data.roster.length ? `${signed.length} of ${data.roster.length} Signed` : 'Not Issued'} tone={issued.length || (kind === 'coshh' && !data.roster.length) || (data.roster.length && !waiting.length) ? 'ok' : waiting.length ? 'warn' : 'grey'} />
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <Pressable onPress={() => view(r)} hitSlop={6} style={{ borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 7, paddingHorizontal: 10, height: 26, justifyContent: 'center' }}><Text style={{ color: '#111827', fontSize: 12.5, fontWeight: '500' }}>View</Text></Pressable>
               {manager && (
                 <Pressable hitSlop={8} onPress={async () => {
@@ -268,13 +283,8 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
                   }
                 }} style={{ height: 26, justifyContent: 'center' }}><Text style={{ fontSize: 18, lineHeight: 20, color: base.slate, paddingHorizontal: 4 }}>⋮</Text></Pressable>
               )}
-            </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 6, paddingLeft: manager && kind !== 'layout' ? 28 : 0 }}>
-              <Text numberOfLines={2} style={{ flex: 1, fontSize: 12.5, color: '#6b7280' }}>
-                {issued.length ? `Issued by ${issued.map((x) => nameOf(people, x.user_id)).join(', ')}` : `Uploaded by ${nameOf(people, r.uploaded_by)} · ${d(r.uploaded_at)}`}
-                {r.supersedes ? ` · Replaces "${nameById[r.supersedes] || 'an earlier version'}"` : ''}
-                {due ? ` · Re-sign ${due.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}` : ''}
-              </Text>
+              </View>
+              </View>
             </View>
             {canTap && (
               <Pressable disabled={!!mine || busy} onPress={() => sign([r.id])}
