@@ -1549,3 +1549,5 @@
 {"part":"appphone4","step":"Draft on a phone","ok":true,"note":"over at 375 0, bulk edit 1","ms":42987}
 {"part":"appphone4","step":"Phone: % and qty boxes keep in step","ok":true,"note":"qty 25 gave 25%, 10% gave qty 10 (line of 100), put back to 50% (was 25%)","ms":6364}
 {"part":"appphone4","step":"Phone: variation description is words until tapped","ok":true,"note":"open boxes before 0, after tap 1, qty to tap 1, old £ boxes 0","ms":1019}
+{"part":"appret1","step":"% after the box at 1440","ok":false,"note":"box ends 597, % at 602,602","ms":10473}
+{"part":"appret1","step":"% after the box at 390","ok":false,"note":"box ends 343, % at 348,348","ms":10153}

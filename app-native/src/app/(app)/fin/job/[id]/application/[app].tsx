@@ -222,8 +222,8 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
               {([['valuation_date', 'Valuation Date'], ['due_date', 'Due Date'], ['final_date', 'Final Date For Payment']] as const).map(([k, l]) => (
                 <DetailRow key={k} l={l}>{locked ? <Val>{a[k] ? fdate(a[k]) : '—'}</Val> : <DateBox value={a[k] || ''} onChange={(x) => setA({ ...a, [k]: x })} title={l} style={{ width: 150, paddingVertical: 5 }} />}</DetailRow>
               ))}
-              <DetailRow l={`Retention %${jf.retention_limit_pct ? ` (limit ${jf.retention_limit_pct}%)` : ''}`}>{locked ? <Val>{pct(a.retention_pct)}%</Val> : <TextInput accessibilityLabel="Retention percent" defaultValue={String(pct(a.retention_pct))} onChangeText={(x) => setA({ ...a, retention_pct: pct(x) })} keyboardType="decimal-pad" selectTextOnFocus style={[box, { width: 64, height: 30, paddingVertical: 2, textAlign: 'right' }]} />}</DetailRow>
-              <DetailRow l="Discount %" last>{stage !== 'draft' ? <Val>{pct(a.discount_pct || 0)}%</Val> : <TextInput accessibilityLabel="Discount percent" defaultValue={String(pct(a.discount_pct || 0))} onChangeText={(x) => setA({ ...a, discount_pct: pct(x) })} keyboardType="decimal-pad" selectTextOnFocus style={[box, { width: 64, height: 30, paddingVertical: 2, textAlign: 'right' }]} />}</DetailRow>
+              <DetailRow l={`Retention${jf.retention_limit_pct ? ` (limit ${jf.retention_limit_pct}%)` : ''}`}>{locked ? <Val>{pct(a.retention_pct)}%</Val> : <PctIn label="Retention percent" value={pct(a.retention_pct)} onChange={(x) => setA({ ...a, retention_pct: x })} />}</DetailRow>
+              <DetailRow l="Discount" last>{stage !== 'draft' ? <Val>{pct(a.discount_pct || 0)}%</Val> : <PctIn label="Discount percent" value={pct(a.discount_pct || 0)} onChange={(x) => setA({ ...a, discount_pct: x })} />}</DetailRow>
             </Panel>
           </View>
           <View style={desk ? { flex: 1, minWidth: 0 } : undefined}>
@@ -675,6 +675,13 @@ function DetailRow({ l, children, last }: { l: string; children: ReactNode; last
     </View>
   );
 }
+/** A % box with the % sign straight after it (Andy, 3 Nov 2026). */
+const PctIn = ({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) => (
+  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+    <TextInput accessibilityLabel={label} defaultValue={String(value)} onChangeText={(x) => onChange(pct(x))} keyboardType="decimal-pad" selectTextOnFocus style={[box, { width: 56, height: 30, paddingVertical: 2, textAlign: 'right' }]} />
+    <Text style={{ fontSize: 14, fontWeight: '500', color: base.ink }}>%</Text>
+  </View>
+);
 const Val = ({ children }: { children: ReactNode }) => <Text style={{ fontSize: 14, fontWeight: '500', color: base.ink }}>{children}</Text>;
 
 /** The valuation at a glance: each kind of work against what's applied, certified, gone before and due now.
