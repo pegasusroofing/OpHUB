@@ -20,8 +20,6 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
     html, body { background-color: #FFFFFF; }
     body { position: fixed; inset: 0; }
     #root { width: 100%; height: 100%; height: 100dvh; overflow: hidden; }
-    /* iPhone Safari: let the app run a little into the space above the floating address bar, so the bottom bar sits lower (Andy, 3 Nov 2026). Not when added to the home screen. */
-    @supports (-webkit-touch-callout: none) { @media not all and (display-mode: standalone) { #root { height: calc(100dvh + 12px); } } }
     @media (pointer: coarse), (max-width: 1099px) { input, textarea, select { font-size: 16px !important; } }
   `;
   document.head.appendChild(style);
