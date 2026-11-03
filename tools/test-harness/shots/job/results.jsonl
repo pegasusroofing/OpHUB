@@ -1437,3 +1437,4 @@
 {"part":"invlock1","step":"New draft: lines open; Save draft locks them","ok":true,"note":"open 2, after save 0, edit link 1","ms":15890}
 {"part":"invlock1","step":"Edit lines opens them again","ok":true,"note":"boxes 2, test draft deleted true","ms":3481}
 {"part":"invlock1","step":"Issued: locked, Edit lines warns about Xero, Cancel leaves it","ok":true,"note":"before 0, warned 1, open 2","ms":13889}
+{"part":"appphone1","step":"Box beside the description","ok":true,"note":"desc 29,370 box 303,371 over 0","ms":13335}

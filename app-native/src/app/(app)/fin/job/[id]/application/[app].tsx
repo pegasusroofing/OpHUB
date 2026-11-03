@@ -345,29 +345,25 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
           );
         }
         return (
-          <View key={i} style={{ flexDirection: desk ? 'row' : 'column', alignItems: desk ? 'center' : 'stretch', gap: 8, paddingVertical: desk ? 8 : 10, paddingHorizontal: 12, borderBottomWidth: 1, borderColor: base.cardLine }}>
-            {/* Laptop: description, sum and previous / this time all on the one row (Andy, 2 Nov 2026). */}
-            <View style={desk ? { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 12 } : undefined}>
-              <Text style={desk ? { flex: 1, minWidth: 0, color: base.ink, fontSize: 15 } : { color: base.ink, fontSize: 14 }}><Text style={{ color: base.slate }}>{l.ref ? `${l.ref}  ` : ''}</Text>{l.description}{siteTag}</Text>
-              <Muted style={desk ? { width: 190, marginBottom: 0, marginTop: 0, fontSize: 12.5 } : undefined}>{hasQty ? `${l.qty} ${l.unit || ''} × ${money(l.rate)} = ` : 'Value '}{money(l.value)}</Muted>
+          // Phone: the words on the left, the box and figures on the right of the same row (Andy, 3 Nov 2026).
+          <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderColor: base.cardLine }}>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={{ color: base.ink, fontSize: 14 }}><Text style={{ color: base.slate }}>{l.ref ? `${l.ref}  ` : ''}</Text>{l.description}{siteTag}</Text>
+              <Muted style={{ fontSize: 12 }}>{hasQty ? `${l.qty} ${l.unit || ''} × ${money(l.rate)} = ` : 'Value '}{money(l.value)}</Muted>
               {/* Previous = certified on this line last time; This time = to date less previous (9219r). */}
-              {(() => { const prev = round2((Number(l.value || 0) * (prevPct[l.item_id] || 0)) / 100); return prev || l.gross ? <Muted style={desk ? { width: 245, marginBottom: 0, marginTop: 0, fontSize: 12 } : { fontSize: 11.5 }}>Previous {money(prev)} · This time {money(round2(l.gross - prev))}</Muted> : desk ? <View style={{ width: 245 }} /> : null; })()}
+              {(() => { const prev = round2((Number(l.value || 0) * (prevPct[l.item_id] || 0)) / 100); return prev || l.gross ? <Muted style={{ fontSize: 11.5 }}>Previous {money(prev)} · This time {money(round2(l.gross - prev))}</Muted> : null; })()}
             </View>
-            <View style={{ flexDirection: 'row', flexWrap: desk ? 'nowrap' : 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-            {locked ? <Text style={{ width: 62, textAlign: 'right', color: base.ink }}>{pct(l.pct)}%</Text> : <AmountBox key={`p${i}-${gen}`} p={pct(l.pct)} value={l.value} qty={l.qty} unit={l.unit} mode={over[l.item_id] || mode} onMode={flip(l.item_id)} labels={['Percent done', 'Amount done', 'Quantity done']} onPct={(x) => setLine(i, { pct: x })} />}
-            <Text style={{ width: 96, textAlign: 'right', fontSize: desk ? 15 : 14, fontWeight: '600', color: base.ink }}>{money(l.gross)}</Text>
-            {certing && (() => { const p0 = pct(cert.cp[`l${i}`]); return (
-              <>
-                <View style={{ width: CERT_W, alignItems: 'center' }}><AmountBox p={p0} value={l.value} qty={l.qty} unit={l.unit} mode={over[l.item_id] || mode} onMode={flip(l.item_id)} labels={CERT_LABELS} onPct={(x) => cert.applyLines({ ...cert.cp, [`l${i}`]: String(x) })} /></View>
-                <Text style={{ width: 96, textAlign: 'right', fontSize: desk ? 15 : 14, fontWeight: '600', color: p0 !== pct(l.pct) ? '#b45309' : base.ink }}>{money(round2((Number(l.value || 0) * p0) / 100))}</Text>
-              </>
-            ); })()}
-            {(stage === 'certified' || stage === 'invoiced') && (() => { const cl = (a0.cert_lines || []).find((x: Row) => x.item_id === l.item_id); return (
-              <>
-                <Text style={{ width: CERT_W, textAlign: 'center', color: base.ink }}>{cl ? `${pct(cl.pct)}%` : '—'}</Text>
-                <Text style={{ width: 96, textAlign: 'right', fontSize: desk ? 15 : 14, fontWeight: '600', color: base.ink }}>{cl ? money(cl.gross) : '—'}</Text>
-              </>
-            ); })()}
+            <View style={{ alignItems: 'flex-end', gap: 4 }}>
+              {locked ? <Text style={{ color: base.slate, fontSize: 12.5 }}>Applied {pct(l.pct)}%</Text> : <AmountBox key={`p${i}-${gen}`} p={pct(l.pct)} value={l.value} qty={l.qty} unit={l.unit} mode={over[l.item_id] || mode} onMode={flip(l.item_id)} labels={['Percent done', 'Amount done', 'Quantity done']} onPct={(x) => setLine(i, { pct: x })} />}
+              <Text style={{ fontSize: 14, fontWeight: '600', color: base.ink }}>{money(l.gross)}</Text>
+              {certing && (() => { const p0 = pct(cert.cp[`l${i}`]); return (
+                <>
+                  <Muted style={{ fontSize: 11.5, marginTop: 4, marginBottom: 0 }}>Certified</Muted>
+                  <AmountBox p={p0} value={l.value} qty={l.qty} unit={l.unit} mode={over[l.item_id] || mode} onMode={flip(l.item_id)} labels={CERT_LABELS} onPct={(x) => cert.applyLines({ ...cert.cp, [`l${i}`]: String(x) })} />
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: p0 !== pct(l.pct) ? '#b45309' : base.ink }}>{money(round2((Number(l.value || 0) * p0) / 100))}</Text>
+                </>
+              ); })()}
+              {certDone && (() => { const cl = (a0.cert_lines || []).find((x: Row) => x.item_id === l.item_id); return <Text style={{ color: base.slate, fontSize: 12.5 }}>Certified {cl ? `${pct(cl.pct)}% · ${money(cl.gross)}` : '—'}</Text>; })()}
             </View>
           </View>
         );
