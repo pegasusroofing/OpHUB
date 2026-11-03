@@ -24,7 +24,7 @@ import { viewDoc } from '@/components/DocViewer';
 import { DOC_LABEL, docBucket, nameOf, openDocLink, sigDocId, signDocs, useHsDocs, usePeople, type DocKind, type HsDoc, type HsSig } from '@/data/hs';
 import { deleteHsDoc, replaceCoshh, uploadHsDoc } from '@/data/hsManager';
 import { buildSignedHsPdf, buildSignedLayoutPdf } from '@/data/hsPdf';
-import { deliverPdf, emailPdf, fetchBytes, PDFDocument, showPdf } from '@/lib/pdf';
+import { deliverPdf, emailPdf, emailPdfsSeparately, fetchBytes, PDFDocument, showPdf } from '@/lib/pdf';
 import { publicUrl } from '@/lib/privateFiles';
 import { useAuth } from '@/lib/auth';
 import { resignDue, signers } from '@/lib/rules/hs';
@@ -160,6 +160,20 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
     return { bytes: await out.save(), filename: `${title} - ${site.name}`.replace(/[\\/:*?"<>|]+/g, '-') + '.pdf', title };
   };
   const emailIds = async (ids: string[]) => {
+    const mode = kind === 'coshh' && ids.length > 1 ? await chooseAction(`Email ${ids.length} COSHH`, [{ key: 'separate', label: `📎 Separate PDFs (${ids.length} attachments)` }, { key: 'one', label: '📄 One combined PDF' }]) : 'one';
+    if (!mode) return;
+    if (mode === 'separate') {
+      const to1 = await promptEmail(`Email the selected COSHH (${ids.length}) to:`, { myEmail: me.email, clientEmail: site.client_email }); if (!to1) return;
+      setBusy(true); toast('Building signed PDFs…');
+      try {
+        const parts: { bytes: Uint8Array; name: string }[] = [];
+        for (const id of ids) { const b = await pack([id]); if (b) parts.push({ bytes: b.bytes, name: b.filename }); }
+        if (!parts.length) return;
+        const err = await emailPdfsSeparately(parts, `${site.id}/${kind}-exports`, { site_id: site.id, recipient_email: to1.to, cc_email: to1.cc, client_cc_email: to1.clientCc, doc_title: `COSHH (${parts.length}, signed)` });
+        if (err) showAlert(err); else { toast(`${parts.length} COSHH emailed as separate PDFs`); setSel(new Set()); }
+      } finally { setBusy(false); }
+      return;
+    }
     const to = await promptEmail(ids.length === 1 ? `Email this signed ${label} PDF to:` : `Email the selected ${label} (${ids.length}) as one PDF to:`, { myEmail: me.email, clientEmail: site.client_email }); if (!to) return;
     setBusy(true); toast('Building signed PDF…');
     try {

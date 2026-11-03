@@ -350,7 +350,7 @@ export function PurchasesStats() {
   if (!data) return null;
   const pJ = period('p_job', 'all'), pU = period('p_pay', 'all'), pA = period('p_appr', 'all'), pC = period('p_ord', 'all');
   const live = data.pinvs.filter((i) => i.status !== 'rejected');
-  const needJob = data.inbox.filter((i) => i.extracted && i.stage !== 'with_pm' && inPeriod(i.received_at, pJ)).length;
+  const needJob = data.inbox.filter((i) => i.stage !== 'with_pm' && inPeriod(i.received_at, pJ)).length; // unread ones too, as the list (4 Nov 2026)
   const unpaid = data.pinvs.filter((i) => i.status === 'approved' && !i.paid_on && inPeriod(i.invoice_date, pU)).reduce((t, i) => t + Number(i.total || 0), 0);
   const toApprove = data.pinvs.filter((i) => ['to_approve', 'query'].includes(i.status) && inPeriod(i.invoice_date, pA)).length;
   const ordered = round2(data.pos.filter((p) => p.status === 'open' && p.value != null && inPeriod(p.created_at, pC)).reduce((t, p) => t + Math.max(0, Number(p.value) - poInvoiced(p, live)), 0));

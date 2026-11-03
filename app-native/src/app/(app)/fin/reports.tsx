@@ -72,6 +72,7 @@ function Report({ id }: { id: string }) {
   const [busy, setBusy] = useState('');
   const { data: sites = [] } = useSites();
   const { width } = useWindowDimensions();
+  const [srt, setSrt] = useState<{ k: string; d: 1 | -1 } | null>(null);
   const [f, setF] = useState<Filters>({ job: '', from: '', to: '', status: 'live', opening: '', varstatus: '', postatus: '' });
   const { data, isLoading } = useQuery({
     queryKey: ['finRepCtx', me?.org_id, id === 'cis', id === 'plots'], enabled: !!me, staleTime: 15000,
@@ -84,7 +85,10 @@ function Report({ id }: { id: string }) {
     },
   });
   const has = (k: string) => rep.filters.includes(k);
-  const res = data ? rep.run({ b: data.b, settings: data.settings, sites: sites as Row[], status: (s: Row) => finStatus(s as never), cisPays: data.cisPays, plots: data.plots, plotValues: data.plotValues } as never, f) : null;
+  const res0 = data ? rep.run({ b: data.b, settings: data.settings, sites: sites as Row[], status: (s: Row) => finStatus(s as never), cisPays: data.cisPays, plots: data.plots, plotValues: data.plotValues } as never, f) : null;
+  // Grouped reports (with heading rows) keep their own order.
+  const sortable = !!res0 && !res0.rows.some((r) => r._head || r._bold);
+  const res = res0 && srt && sortable ? { ...res0, rows: res0.rows.slice().sort((a, b) => { const c = res0.cols.find((x) => x.k === srt.k); const av = a[srt.k], bv = b[srt.k]; const n = c && (c.money || c.num || c.pct); return srt.d * (n ? (Number(av) || 0) - (Number(bv) || 0) : String(av ?? '').localeCompare(String(bv ?? ''), 'en-GB', { numeric: true })); }) } : res0;
   const tot = (c: Col) => (res?.totals === true ? c.money : Array.isArray(res?.totals) && res.totals.includes(c.k)) ? res!.rows.reduce((t, r) => t + (Number(r[c.k]) || 0), 0) : null;
   const wide = width >= 900;
   const table = (): Table | null => (res ? { title: rep.title, sub: [f.job ? jobTag(sites.find((s) => s.id === f.job)) : rep.filters.includes('status') ? `${f.status} projects` : '', f.from || f.to ? `${f.from ? fdate(f.from) : 'start'} to ${f.to ? fdate(f.to) : 'today'}` : ''].filter(Boolean).join(' · '), cols: res.cols.map((c) => ({ l: c.l, money: c.money, num: c.num || c.pct })), boldRows: res.rows.flatMap((r, i) => (r._head || r._bold ? [i] : [])), rows: res.rows.map((r) => res.cols.map((c) => (c.money ? ((r._head || r._bold) && r[c.k] == null ? null : Number(r[c.k]) || 0) : c.pct ? (r[c.k] == null ? null : Math.round(Number(r[c.k]) * 10) / 10) : c.date ? (r[c.k] ? fdate(String(r[c.k])) : '') : r[c.k] == null ? '' : String(r[c.k])))), totals: res.totals ? res.cols.map((c, i) => (i === 0 ? 'Total' : tot(c))) : undefined } : null);
@@ -105,7 +109,7 @@ function Report({ id }: { id: string }) {
       {isLoading || !res ? <Muted>Working it out…</Muted> : !res.rows.length ? <Empty>Nothing to show.</Empty> : wide ? (
         <ScrollView horizontal contentContainerStyle={{ flexGrow: 1 }}>
           <View style={{ flexGrow: 1 }}>
-            <View style={{ flexDirection: 'row', backgroundColor: '#EEF0F2', borderRadius: 6, paddingVertical: 6 }}>{res.cols.map((c) => <Text key={c.k} style={{ ...cw(c), fontWeight: '600', color: base.ink, fontSize: 13, textAlign: c.money || c.num || c.pct ? 'right' : 'left', paddingHorizontal: 4 }}>{c.l}</Text>)}</View>
+            <View style={{ flexDirection: 'row', backgroundColor: '#EEF0F2', borderRadius: 6, paddingVertical: 6 }}>{res.cols.map((c) => <Pressable key={c.k} disabled={!sortable} onPress={() => setSrt(srt?.k === c.k ? (srt.d === 1 ? { k: c.k, d: -1 } : null) : { k: c.k, d: 1 })} style={{ ...cw(c), paddingHorizontal: 4 }}><Text style={{ fontWeight: '600', color: base.ink, fontSize: 13, textAlign: c.money || c.num || c.pct ? 'right' : 'left' }}>{c.l}{srt?.k === c.k ? (srt.d === 1 ? ' ▲' : ' ▼') : ''}</Text></Pressable>)}</View>
             {res.rows.map((r, i) => (
               <Pressable key={i} onPress={r._go ? () => router.push(r._go as never) : undefined} style={{ flexDirection: 'row', borderBottomWidth: 1, borderColor: '#EEF0F2', paddingVertical: 6 }}>
                 {res.cols.map((c) => <Text key={c.k} style={{ ...cw(c), fontWeight: r._head || r._bold ? '600' : '400', color: Number(r[c.k]) < 0 && c.money ? '#C0392B' : base.ink, fontSize: 13.5, textAlign: c.money || c.num || c.pct ? 'right' : 'left', paddingHorizontal: 4 }}>{r._head || r._bold ? (r[c.k] == null ? '' : fmt(c, r[c.k])) : fmt(c, r[c.k])}</Text>)}

@@ -58,7 +58,7 @@ export function useFinOverview(me: Profile | null, sites: Site[] | undefined) {
         loadSettings(org),
         selectAll<{ net: number }>('purchase_invoices', 'id,net', (q) => q.eq('org_id', org).in('status', ['to_approve', 'query'])),
         selectAll<{ item: string; on_hire: string; rate: number; rate_period: string }>('fin_plant_hires', 'id,site_id,item,on_hire,rate,rate_period', (q) => q.eq('org_id', org).is('off_hire', null)),
-        selectAll<{ id: string }>('fin_inbox', 'id', (q) => q.eq('org_id', org).neq('stage', 'with_pm').not('extracted', 'is', null).or('status.eq.new,and(status.eq.filed,purchase_invoice_id.is.null)')),
+        selectAll<{ id: string }>('fin_inbox', 'id', (q) => q.eq('org_id', org).neq('stage', 'with_pm').neq('stage', 'ignored').or('status.eq.new,and(status.eq.filed,purchase_invoice_id.is.null)')),
         selectAll<{ id: string }>('fin_sub_apps', 'id', (q) => q.eq('org_id', org).eq('status', 'received')),
       ]);
       const S = sites || [];

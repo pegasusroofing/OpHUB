@@ -10,7 +10,7 @@ import { supabase } from '@/lib/supabase';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
-import { confirmAsk, useToast } from '@/components/toast';
+import { confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import { useMaterialRequests, useYard, yardCanEdit, yardMove } from '@/data/materials';
 import { useSite } from '@/data/sites';
@@ -48,7 +48,8 @@ export default function Yard() {
     if (!(n > 0)) { toast(kind === 'issue' ? 'Enter the qty to issue.' : 'Enter the qty to return.'); return; }
     if (kind === 'issue' && n > Number(s.qty || 0) && !(await confirmAsk(`Only ${yardQty(s.qty)} ${s.unit || ''} showing in the yard. Issue ${yardQty(n)} anyway? (The count will go below zero — adjust it after.)`, 'Issue anyway'))) return;
     setBusy(s.id);
-    const err = await yardMove(me, { kind, stock: s, qty: n, siteId: id, materialId });
+    const note = kind === 'return' ? ((await promptText('Note for this return (optional)', '')) ?? '').trim() : '';
+    const err = await yardMove(me, { kind, stock: s, qty: n, siteId: id, materialId, note: note || null });
     setBusy(null);
     if (err) { toast(err); return; }
     const after = Number(s.qty || 0) + (kind === 'issue' ? -n : n);
