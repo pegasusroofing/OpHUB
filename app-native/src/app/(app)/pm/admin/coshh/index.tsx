@@ -232,7 +232,7 @@ export default function CoshhLibrary() {
       <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
         <Muted style={{ marginBottom: 10 }}>1. Add a product and its data sheet. 2. Check it and tap Assess — the assessment is saved in a folder. 3. Add assessments to a job from its COSHH page (Add from COSHH Library), or tick them here to export or email.</Muted>
         <View style={{ flexDirection: 'row', gap: 6, marginBottom: 12 }}>
-          {([['assess', 'Assessments (folders)'], ['products', 'Products (data sheets)']] as const).map(([k, l]) => <Pressable key={k} onPress={() => setTab(k)} style={chip(tab === k)}><Text style={{ textAlign: 'center', fontWeight: '700', fontSize: 12, color: tab === k ? '#fff' : base.ink }}>{l}</Text></Pressable>)}
+          {([['assess', 'Assessments (folders)'], ['products', 'Products (data sheets)']] as const).map(([k, l]) => <Pressable key={k} onPress={() => setTab(k)} style={chip(tab === k)}><Text style={{ textAlign: 'center', fontWeight: '700', fontSize: 12, color: tab === k ? live.brand1Text : base.ink }}>{l}</Text></Pressable>)}
         </View>
         {tab === 'assess' ? <Folders setPick={setPick} /> : <Products setPick={setPick} />}
       </ScrollView>

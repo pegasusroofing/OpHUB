@@ -98,7 +98,7 @@ function Editor({ initial }: { initial: CoshhItem }) {
                 const n = await issueToSite(me, org, site, [it], { where, note: '' });
                 if (!n) { toast('Could not issue — check signal and try again.'); return; }
                 refresh(); void qc.invalidateQueries({ queryKey: ['hsDocs', 'coshh', site.id] }); void qc.invalidateQueries({ queryKey: ['hsSummary', site.id] });
-                toast('COSHH assessment issued to the job'); router.replace(`/sites/${site.id}/hs/coshh` as never);
+                toast('COSHH assessment issued to the job'); ((router as unknown as { dismissTo?: (h: string) => void }).dismissTo ?? router.replace)(`/sites/${site.id}/hs/coshh` as never);
               } finally { setBusy(''); }
             }} />
           </Card>
@@ -167,7 +167,7 @@ function Editor({ initial }: { initial: CoshhItem }) {
             ); })}
           </View>
           <Muted style={{ fontWeight: '700', marginTop: 10 }}>Signal word</Muted>
-          <View style={{ flexDirection: 'row', gap: 6 }}>{['', 'Warning', 'Danger'].map((w) => <Pressable key={w || 'none'} onPress={() => set({ signal: w })} style={chipStyle(d.signal === w)}><Text style={{ color: d.signal === w ? '#fff' : base.ink }}>{w || 'None'}</Text></Pressable>)}</View>
+          <View style={{ flexDirection: 'row', gap: 6 }}>{['', 'Warning', 'Danger'].map((w) => <Pressable key={w || 'none'} onPress={() => set({ signal: w })} style={chipStyle(d.signal === w)}><Text style={{ color: d.signal === w ? live.brand1Text : base.ink }}>{w || 'None'}</Text></Pressable>)}</View>
         </Card>
         <Card>
           <SectionTitle>Hazard statements (H codes)</SectionTitle>
@@ -182,11 +182,11 @@ function Editor({ initial }: { initial: CoshhItem }) {
         </Card>
         <Card>
           <SectionTitle>How can it harm you?</SectionTitle>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>{COSHH_ROUTES.map(([k, l]) => <Pressable key={k} onPress={() => toggle('routes', k)} style={chipStyle(d.routes.includes(k))}><Text style={{ fontSize: 12, color: d.routes.includes(k) ? '#fff' : base.ink }}>{l}</Text></Pressable>)}</View>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>{COSHH_ROUTES.map(([k, l]) => <Pressable key={k} onPress={() => toggle('routes', k)} style={chipStyle(d.routes.includes(k))}><Text style={{ fontSize: 12, color: d.routes.includes(k) ? live.brand1Text : base.ink }}>{l}</Text></Pressable>)}</View>
           <SectionTitle>PPE to wear</SectionTitle>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>{RAMS_PPE.map((p) => <Pressable key={p.key} onPress={() => toggle('ppe', p.key)} style={chipStyle(d.ppe.includes(p.key))}><Text style={{ fontSize: 12, color: d.ppe.includes(p.key) ? '#fff' : base.ink }}>{p.icon} {p.label}</Text></Pressable>)}</View>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>{RAMS_PPE.map((p) => <Pressable key={p.key} onPress={() => toggle('ppe', p.key)} style={chipStyle(d.ppe.includes(p.key))}><Text style={{ fontSize: 12, color: d.ppe.includes(p.key) ? live.brand1Text : base.ink }}>{p.icon} {p.label}</Text></Pressable>)}</View>
           <Muted style={{ fontWeight: '700', marginTop: 10 }}>Risk level</Muted>
-          <View style={{ flexDirection: 'row', gap: 6 }}>{['Low', 'Medium', 'High'].map((w) => <Pressable key={w} onPress={() => set({ risk: w })} style={chipStyle(d.risk === w)}><Text style={{ color: d.risk === w ? '#fff' : base.ink }}>{w}</Text></Pressable>)}</View>
+          <View style={{ flexDirection: 'row', gap: 6 }}>{['Low', 'Medium', 'High'].map((w) => <Pressable key={w} onPress={() => set({ risk: w })} style={chipStyle(d.risk === w)}><Text style={{ color: d.risk === w ? live.brand1Text : base.ink }}>{w}</Text></Pressable>)}</View>
         </Card>
         <Card>
           {area('controls', 'How to use it safely (controls)', 90)}

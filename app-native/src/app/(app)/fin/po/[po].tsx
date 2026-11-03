@@ -58,7 +58,7 @@ export default function FinPo() {
     return URL.createObjectURL(new Blob([bytes as BlobPart], { type: 'application/pdf' }));
   };
   return (
-    <DocSplit key={`${po.id}${po.updated_at || ''}`} name={`PO ${po.number}`} load={poPdfUrl}>
+    <DocSplit reloadKey={`${po.id}${po.updated_at || ''}`} name={`PO ${po.number}`} load={poPdfUrl}>
     <View style={{ flex: 1 }}>
     <ScrollView style={{ flex: 1 }} contentContainerStyle={page(900)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: po.number }} />

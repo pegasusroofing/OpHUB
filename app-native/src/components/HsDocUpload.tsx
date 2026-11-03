@@ -16,6 +16,7 @@ import { DOC_LABEL, nameOf, useHsDocs, usePeople, type DocKind } from '@/data/hs
 import { emailHsPdf, outstanding, outstandingByDoc, RAMS_DOC_TYPES, sendSignReminder, uploadHsDoc } from '@/data/hsManager';
 import { boxesOf, layoutSummary, useSignTemplates } from '@/data/signTemplates';
 import { useAuth } from '@/lib/auth';
+import { isFullManager } from '@/lib/roles';
 import { deliverPdf } from '@/lib/pdf';
 import { exportTableExcel, exportTablePdf } from '@/lib/tableExport';
 import type { Site } from '@/lib/types';
@@ -64,7 +65,7 @@ export function HsDocUpload({ kind, site, companyId = null, create, createLabel,
             toast(await sendSignReminder(kind, site.id, out));
           }} /></View>
           <View style={{ flex: 1 }}><Button grow kind="ghost" title="Export" onPress={() => setPicking('export')} /></View>
-          <View style={{ flex: 1 }}><Button grow kind="ghost" title="Email" onPress={() => setPicking('email')} /></View>
+          {isFullManager(me) && <View style={{ flex: 1 }}><Button grow kind="ghost" title="Email" onPress={() => setPicking('email')} /></View>}
         </View>
       )}
       {picking && data && (

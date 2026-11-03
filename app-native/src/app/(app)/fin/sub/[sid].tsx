@@ -54,10 +54,10 @@ export default function FinSubcontract() {
   // Booked to a plot or repair job, when the project has them (912 finSubJobSelectHtml).
   const home = sites.find((x) => x.id === (data?.sc?.site_id || site));
   const { data: subJobs = [] } = useSubJobs(home as never);
+  const { data: sheet } = useQuery({ queryKey: ['finSubSheet', data?.sc?.price_sheet_id], enabled: !!data?.sc?.price_sheet_id, queryFn: async () => (await fdb.from('price_builder_sheets').select('id,title,status,total,site_id,pricing_element_id').eq('id', data?.sc?.price_sheet_id).maybeSingle()).data as Record<string, any> | null });
   if (!me) return null;
   if (sid !== 'new' && isLoading) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   const sc = data?.sc || null, apps = data?.apps || [];
-  const { data: sheet } = useQuery({ queryKey: ['finSubSheet', sc?.price_sheet_id], enabled: !!sc?.price_sheet_id, queryFn: async () => (await fdb.from('price_builder_sheets').select('id,title,status,total,site_id,pricing_element_id').eq('id', sc?.price_sheet_id).maybeSingle()).data as Record<string, any> | null });
   if (sid !== 'new' && !sc) return <Muted style={{ padding: space.l }}>Subcontractor PO not found.</Muted>;
   const refresh = () => ['finSub', 'finSubs', 'finBook'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] }));
   const lastCert = apps.filter((a) => a.certified_gross != null).pop();

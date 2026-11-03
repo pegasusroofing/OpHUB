@@ -45,7 +45,7 @@ function InboxRow({ it, pm, why, job, onJob, onPm }: { it: Row; pm: boolean; why
       {!!label && <Text style={{ fontSize: 12, color: '#6b7280' }}>{label}</Text>}<Text numberOfLines={1} style={{ fontSize: 12.5, fontWeight: '600', color: warn ? '#b45309' : '#111827', maxWidth: 220 }}>{v}</Text>
     </Pressable>
   );
-  const meta = [ex.supplier || it.from_email || '', ex.date ? `Issued ${fdate(ex.date)}` : '', ex.due ? `Due ${fdate(ex.due)}` : '', why, it.from_email && ex.supplier ? it.from_email : ''].filter(Boolean).join(' · ');
+  const meta = [it.supplier_override || ex.supplier || it.from_email || '', ex.date ? `Issued ${fdate(ex.date)}` : '', ex.due ? `Due ${fdate(ex.due)}` : '', why, it.from_email && (it.supplier_override || ex.supplier) ? it.from_email : ''].filter(Boolean).join(' · ');
   return (
     <Pressable onPress={() => router.push(`/fin/inbox/${it.id}` as never)} style={({ pressed }) => ({ backgroundColor: pressed ? '#f9fafb' : base.card, borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 11, marginBottom: 8 })}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -200,7 +200,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
               { k: 'no', l: 'PO', render: (p: Row) => <Cell bold>{p.number}</Cell> },
               { k: 'sup', l: 'Supplier', flex: 1.3, min: 130, render: (p: Row) => <Cell>{p.supplier_name || '—'}</Cell> },
               ...(siteId ? [] : [{ k: 'p', l: 'Project', flex: 1.6, min: 160, render: (p: Row) => <Cell>{jobTag(site(p.site_id))}</Cell> }]),
-              { k: 'd', l: 'Date', render: (p: Row) => <Cell>{fdate(String(p.issue_date || p.created_at || '').slice(0, 10))}</Cell> },
+              { k: 'd', l: 'Date', sort: (p: Row) => String(p.issue_date || p.created_at || ''), render: (p: Row) => <Cell>{fdate(String(p.issue_date || p.created_at || '').slice(0, 10))}</Cell> },
               { k: 'v', l: 'Value', render: (p: Row) => <Cell>{p.value != null ? money(p.value) : '—'}</Cell> },
               { k: 'i', l: 'Invoiced', render: (p: Row) => <Cell>{money(poInvoiced(p, live))}</Cell> },
               { k: 'l', l: 'Left To Invoice', render: (p: Row) => <Cell>{p.value != null ? money(Math.max(0, round2(Number(p.value) - poInvoiced(p, live)))) : '—'}</Cell> },
@@ -286,7 +286,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
                     { k: 'sup', l: 'Supplier', flex: 1.3, min: 110, render: (i: Row) => <Cell bold>{i.supplier_name || 'Supplier'}</Cell> },
                     { k: 'no', l: 'Invoice No.', min: 76, render: (i: Row) => <Cell>{i.invoice_no || '—'}</Cell> },
                     ...(siteId ? [] : [{ k: 'p', l: 'Project', flex: 1.5, min: 120, render: (i: Row) => <Cell>{jobTag(site(i.site_id))}</Cell> }]),
-                    { k: 'd', l: 'Date', min: 72, render: (i: Row) => <Cell>{fdate(i.invoice_date)}</Cell> },
+                    { k: 'd', l: 'Date', min: 72, sort: (i: Row) => String(i.invoice_date || ''), render: (i: Row) => <Cell>{fdate(i.invoice_date)}</Cell> },
                     { k: 'n', l: 'Net', min: 72, render: (i: Row) => <Cell>{money(i.net)}</Cell> },
                     { k: 'v', l: 'VAT', min: 64, render: (i: Row) => <Cell>{money(i.vat)}</Cell> },
                     { k: 't', l: 'Gross', min: 72, render: (i: Row) => <Cell bold>{money(i.total)}</Cell> },

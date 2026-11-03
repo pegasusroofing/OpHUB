@@ -8,7 +8,7 @@ import { PdfPages, viewDoc } from '@/components/DocViewer';
 
 type Mode = 'half' | 'full' | 'off';
 
-export function DocSplit({ load, name, children }: { load: (() => Promise<string | null>) | null; name: string; children: ReactNode }) {
+export function DocSplit({ load, name, children, reloadKey }: { load: (() => Promise<string | null>) | null; name: string; children: ReactNode; reloadKey?: string }) {
   const { width } = useWindowDimensions();
   const can = Platform.OS === 'web' && width >= 1100 && !!load;
   const [mode, setMode] = useState<Mode>('half');
@@ -17,13 +17,17 @@ export function DocSplit({ load, name, children }: { load: (() => Promise<string
   const [panelW, setPanelW] = useState(0);
   const [zoom, setZoom] = useState(1);
   // Fetched once, however often the page redraws.
-  const started = useRef(false), loader = useRef(load);
+  const started = useRef<string | null>(null), loader = useRef(load);
   useEffect(() => { loader.current = load; });
   useEffect(() => {
-    if (!can || started.current || !loader.current) return;
-    started.current = true;
-    void loader.current().then((u) => { if (u) setUrl(u); else setFailed(true); }).catch(() => setFailed(true));
-  }, [can]);
+    if (!can || !loader.current) return undefined;
+    if (started.current === reloadKey) return undefined;
+    started.current = reloadKey ?? '';
+    let alive = true, made: string | null = null;
+    void loader.current().then((u) => { if (!alive) { if (u?.startsWith('blob:')) URL.revokeObjectURL(u); return; } made = u; if (u) { setUrl(u); setFailed(false); } else setFailed(true); }).catch(() => { if (alive) setFailed(true); });
+    // Let go of a PDF made in the browser when it's replaced or the page closes.
+    return () => { alive = false; if (made?.startsWith('blob:')) URL.revokeObjectURL(made); };
+  }, [can, reloadKey]);
   const photo = /\.(jpe?g|png|gif|webp|heic)$/i.test(name);
   if (!can) return <>{children}</>;
   const btn = (label: string, on: boolean, onPress: () => void) => (
@@ -33,7 +37,7 @@ export function DocSplit({ load, name, children }: { load: (() => Promise<string
   );
   return (
     <View style={{ flex: 1, flexDirection: 'row' }}>
-      {mode !== 'full' && <View style={{ flex: 1, minWidth: 0 }}>{children}</View>}
+      <View style={[{ flex: 1, minWidth: 0 }, mode === 'full' && { display: 'none' }]}>{children}</View>
       {mode === 'off' ? (
         <Pressable onPress={() => setMode('half')} accessibilityRole="button" accessibilityLabel="Show the document" style={{ width: 34, borderLeftWidth: 1, borderLeftColor: '#e5e7eb', backgroundColor: '#fff', alignItems: 'center', paddingTop: 16 }}>
           <Text style={{ fontSize: 16 }}>📄</Text>
@@ -48,7 +52,7 @@ export function DocSplit({ load, name, children }: { load: (() => Promise<string
             {btn('+', false, () => setZoom((z) => Math.min(4, Math.round((z + 0.25) * 100) / 100)))}
             {btn('Half', mode === 'half', () => setMode('half'))}
             {btn('Full', mode === 'full', () => setMode('full'))}
-            {!!url && btn('Open', false, () => viewDoc(url, name.endsWith('.pdf') ? name : `${name}.pdf`))}
+            {!!url && btn('Open', false, () => viewDoc(url, photo || name.endsWith('.pdf') ? name : `${name}.pdf`))}
             {btn('✕', false, () => setMode('off'))}
           </View>
           {url && photo ? <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 12 }} horizontal={zoom > 1}><Image source={{ uri: url }} resizeMode="contain" style={{ width: Math.max(100, (panelW - 24) * zoom), height: Math.max(200, (panelW - 24) * 1.4 * zoom) }} /></ScrollView>

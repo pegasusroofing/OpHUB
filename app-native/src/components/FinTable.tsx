@@ -12,6 +12,8 @@ import { base, useTheme } from '@/theme/theme';
 export type FinCol<T> = { k: string; l: string; flex?: number; min?: number; render: (r: T) => ReactNode; sort?: (r: T) => string | number | null | undefined; choices?: string[]; noSort?: boolean };
 export type { FinSort };
 
+/** A ticked choice matches a cell that starts with it (after any dot or symbol), so 'Paid' isn't 'Part paid'. */
+const choiceHit = (text: string, want: string) => { const t = text.replace(/^[^a-z0-9]+/, '').trim(); return t === want || t.startsWith(`${want} `); };
 /** The words a cell shows, for the filter boxes. */
 function nodeText(n: ReactNode): string {
   if (n == null || typeof n === 'boolean') return '';
@@ -33,7 +35,7 @@ export function FinTable<T>({ cols, rows, keyOf, onRow, foot, onMenu, defaultSor
   const on = cols.filter((c) => !c.choices && q[c.k]?.trim()).map((c) => ({ c, q: q[c.k].trim().toLowerCase() }));
   const onPicks = cols.filter((c) => c.choices && picks[c.k]?.length).map((c) => ({ c, want: picks[c.k].map((x) => x.toLowerCase()) }));
   const cellText = (c: FinCol<T>, r: T) => nodeText(c.render(r)).toLowerCase().replace(/\s+/g, ' ');
-  const filtered = on.length || onPicks.length ? rows.filter((r) => on.every((f) => cellText(f.c, r).includes(f.q)) && onPicks.every((f) => f.want.some((w) => cellText(f.c, r).includes(w)))) : rows;
+  const filtered = on.length || onPicks.length ? rows.filter((r) => on.every((f) => cellText(f.c, r).includes(f.q)) && onPicks.every((f) => f.want.some((w) => choiceHit(cellText(f.c, r), w)))) : rows;
   const tick = (k: string, v: string) => { const cur = picks[k] || []; setPicks({ ...picks, [k]: cur.includes(v) ? cur.filter((x) => x !== v) : [...cur, v] }); };
   const pickLabel = (c: FinCol<T>) => { const p = picks[c.k] || []; return p.length === 0 ? `${c.l}: any` : p.length === 1 ? p[0] : p.join(', '); };
   const openCol = cols.find((c) => c.k === open && c.choices);

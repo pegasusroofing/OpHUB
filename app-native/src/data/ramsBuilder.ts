@@ -40,9 +40,10 @@ export async function loadBuild(me: Me, org: Org, site: Site | undefined, id: st
   const raw = (await db.from('rams_builds').select('*').eq('id', id).maybeSingle()).data as Record<string, unknown> | null;
   if (!raw) return null;
   const b = normaliseBuild(raw, defaultsFor(me, site, await loadSettings(org)), siteClientContact(site as never));
-  // Drafts made before 3 Nov 2026: the site name heads the address and the main contractor is the client, if left blank.
-  const sn = String(site?.name || '').trim();
-  if (sn && !b.details.address.toLowerCase().includes(sn.toLowerCase())) b.details.address = [sn, b.details.address].filter((x) => x.trim()).join(', ');
+  // Drafts made before 3 Nov 2026: a blank address or main contractor starts as the site (name first) and the client.
+  // Shown only; it's saved when the PM next changes something.
+  const sn = String(site?.name || '').trim(), addr = String(b.details.address || '').trim();
+  if (!addr && site) b.details.address = [sn, fullSiteAddress(site)].filter((x) => String(x || '').trim()).join(', ');
   if (!String(b.details.mainContractor || '').trim() && site?.client_name) b.details.mainContractor = site.client_name;
   return b;
 }

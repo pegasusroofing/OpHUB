@@ -10,7 +10,7 @@ import { confirmAsk, useToast } from '@/components/toast';
 import { Button, Check, Muted } from '@/components/ui';
 import { fdb, finInvoke } from '@/data/finance';
 import { useAuth } from '@/lib/auth';
-import { fdate } from '@/lib/rules/finance';
+import { fdate, money } from '@/lib/rules/finance';
 import { base, radius } from '@/theme/theme';
 
 type Row = Record<string, any>;
@@ -53,7 +53,9 @@ export function XeroSettings({ s }: { s: Row }) {
         }} />
         <Button small kind="ghost" busy={busy === 'pay'} title="Check Xero for payments" onPress={async () => {
           setBusy('pay'); const r = await finInvoke<Row>(me, 'xero', { action: 'pull_payments' }); setBusy('');
-          toast(r.error ? `Xero: ${r.error}` : r.data?.updated ? `${r.data.updated} payment${r.data.updated === 1 ? '' : 's'} brought in from Xero` : 'No new payments in Xero');
+          const n = Number(r.data?.added || 0);
+          toast(r.error ? `Xero: ${r.error}` : n ? `${n} payment${n === 1 ? '' : 's'} brought in from Xero${r.data?.amount ? ` · ${money(Number(r.data.amount))}` : ''}` : `No new payments in Xero${r.data?.checked ? ` (${r.data.checked} checked)` : ''}`);
+          if (!r.error && n) ['finSales', 'finBook', 'finOverview', 'finInv'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] }));
         }} />
         <Button small kind="ghost" busy={busy === 'off'} title="Disconnect" onPress={async () => {
           if (!(await confirmAsk('Disconnect Xero? Nothing already posted is changed; you can connect again any time.', 'Disconnect'))) return;

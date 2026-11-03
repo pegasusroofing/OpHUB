@@ -109,6 +109,7 @@ export const deliverPdf = (bytes: Uint8Array, filename: string) => deliverFile(b
 export async function showPdf(bytes: Uint8Array, filename: string): Promise<boolean> {
   if (Platform.OS !== 'web') return deliverFile(bytes, filename, 'application/pdf', 'com.adobe.pdf', true);
   const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: 'application/pdf' }));
+  setTimeout(() => URL.revokeObjectURL(url), 15 * 60000); // let go once it's long been read
   const { viewDoc } = await import('@/components/DocViewer');
   viewDoc(url, filename.endsWith('.pdf') ? filename : `${filename}.pdf`);
   return true;

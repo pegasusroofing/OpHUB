@@ -11,7 +11,7 @@ import { router } from 'expo-router';
 import { testFill } from '@/data/signTemplates';
 import { supabase } from '@/lib/supabase';
 import { useState, type ReactNode } from 'react';
-import { Pressable, Text, useWindowDimensions, View } from 'react-native';
+import { Platform, Pressable, Text, useWindowDimensions, View } from 'react-native';
 
 import { ClientSignLines } from '@/components/ClientSignLines';
 import { promptEmail } from '@/components/EmailPrompt';
@@ -28,7 +28,7 @@ import { deliverPdf, emailPdf, fetchBytes, PDFDocument, showPdf } from '@/lib/pd
 import { publicUrl } from '@/lib/privateFiles';
 import { useAuth } from '@/lib/auth';
 import { resignDue, signers } from '@/lib/rules/hs';
-import { isManager } from '@/lib/roles';
+import { isFullManager, isManager } from '@/lib/roles';
 import type { Site } from '@/lib/types';
 import { base, radius } from '@/theme/theme';
 
@@ -172,7 +172,7 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
   // View shows the signed copy (Andy, 3 Nov 2026): the Issued By row filled with the issuer's name, signature and date,
   // and everyone who has signed. Before anyone has, the document as uploaded.
   const view = async (doc: HsDoc) => {
-    if (kind === 'rams' || kind === 'coshh') {
+    if ((kind === 'rams' || kind === 'coshh') && Platform.OS === 'web') {
       const b = await buildSignedHsPdf(kind, doc.id, site).catch(() => null);
       if (b && typeof b !== 'string') { await showPdf(b.bytes, b.filename); return; }
     }
@@ -237,7 +237,7 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
               <Pressable onPress={() => view(r)} hitSlop={6} style={{ borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 7, paddingHorizontal: 10, height: 26, justifyContent: 'center' }}><Text style={{ color: '#111827', fontSize: 12.5, fontWeight: '500' }}>View</Text></Pressable>
               {manager && (
                 <Pressable hitSlop={8} onPress={async () => {
-                  const k = await chooseAction(r.name, [...(kind === 'rams' && !companyId ? [{ key: 'revise', label: '✏️ Revise RAMS' }] : []), // Export and Email live in the row under the list (Andy, 3 Nov 2026).
+                  const k = await chooseAction(r.name, [...(kind === 'rams' && !companyId && isFullManager(me) ? [{ key: 'revise', label: '✏️ Revise RAMS' }] : []), // Export and Email live in the row under the list (Andy, 3 Nov 2026).
                     ...(kind === 'layout' && sigsFor(r.id).length ? [{ key: 'pdf', label: '📄 Export signed PDF' }] : []), ...(kind === 'rams' ? [{ key: 'multi', label: `${(r as { sign_layout?: { multi?: boolean } | null }).sign_layout?.multi ? '☑' : '☐'} Multi-page sign required` }, ...((r as { sign_layout?: { multi?: boolean } | null }).sign_layout?.multi ? [{ key: 'boxes', label: '✍ Signature boxes' }, { key: 'testfill', label: '🧪 Test fill the boxes' }] : [])] : []), ...(kind === 'coshh' ? [{ key: 'replace', label: '🔁 Replace file (resets signatures)' }, { key: 'tolib', label: '📚 Save to COSHH Library' }] : []), { key: 'del', label: '🗑 Delete', danger: true }]);
                   const refresh = () => { void qc.invalidateQueries({ queryKey: ['hsDocs', kind, site.id] }); void qc.invalidateQueries({ queryKey: ['hsSummary', site.id] }); };
                   if (k === 'view') void view(r);

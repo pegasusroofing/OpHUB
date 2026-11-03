@@ -50,7 +50,7 @@ export default function FinInboxItem() {
   // With lines, the job is whichever has most of the invoice; the rest goes on as a split when it's filed.
   const checks = lines && ctx ? checkAll(lines, it?.extracted?.supplier, ctx) : [];
   const verdict = lines && it?.extracted ? decide(it.extracted, lines, checks) : null;
-  const sid = siteId ?? verdict?.mainSite ?? it?.site_id ?? null;
+  const sid = siteId ?? it?.site_id ?? verdict?.mainSite ?? null;
   const { data: pos = [] } = useQuery({ queryKey: ['finInboxPos', sid], enabled: !!sid, queryFn: async () => ((await fdb.from('purchase_orders').select('id,number,supplier_name,value,status').eq('site_id', sid as string).neq('status', 'cancelled')).data as Row[] | null) ?? [] });
   if (!me) return null;
   if (isLoading) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
@@ -60,11 +60,11 @@ export default function FinInboxItem() {
   const filed = it.status === 'filed' && it.purchase_invoice_id;
   // Who it's from can always be changed, read or not: saved straight onto the invoice so filing picks it up.
   const chooseSupplier = async () => {
-    const k = await chooseAction('Who is the invoice from?', [...sups.map((n) => ({ key: `s:${n}`, label: `${n === ex.supplier ? '✓ ' : ''}${n}` })), { key: 'type', label: '✏️ Type a name' }]);
+    const k = await chooseAction('Who is the invoice from?', [...sups.map((n) => ({ key: `s:${n}`, label: `${n === (it.supplier_override || ex.supplier) ? '✓ ' : ''}${n}` })), { key: 'type', label: '✏️ Type a name' }]);
     if (!k) return;
     const name = k === 'type' ? (await promptText('Supplier name', ex.supplier || ''))?.trim() : k.slice(2);
-    if (!name || name === ex.supplier) return;
-    const r = await fdb.from('fin_inbox').update({ extracted: { ...ex, supplier: name } } as never).eq('id', it.id).select('id');
+    if (!name || name === (it.supplier_override || ex.supplier)) return;
+    const r = await fdb.from('fin_inbox').update({ supplier_override: name, ...(it.extracted ? { extracted: { ...ex, supplier: name } } : {}) } as never).eq('id', it.id).select('id');
     if (!r.data?.length) { toast('Could not save — try again.'); return; }
     toast(`Supplier set to ${name}`); void qc.invalidateQueries({ queryKey: ['finInbox', iid] });
   };
@@ -74,7 +74,7 @@ export default function FinInboxItem() {
       <Stack.Screen options={{ title: ex.supplier || it.from_email || 'Purchase invoice' }} />
       {filed && <Card><Text style={{ color: '#1E7A3C', fontWeight: '500' }}>Filed.</Text><Button kind="ghost" title="Open the purchase invoice" onPress={() => router.replace(`/fin/pinv/${it.purchase_invoice_id}` as never)} /></Card>}
       <Card>
-        <FinRow title="Supplier" right={`${ex.supplier || 'Choose'} ▾`} onPress={filed ? undefined : () => void chooseSupplier()} />
+        <FinRow title="Supplier" right={`${it.supplier_override || ex.supplier || 'Choose'} ▾`} onPress={filed ? undefined : () => void chooseSupplier()} />
         <FinRow title="Emailed From" right={it.from_email || '—'} /><FinRow title="Received" right={fdate(String(it.received_at).slice(0, 10))} />{it.subject && <FinRow title="Subject" right={it.subject} />}
         {it.query_reason && <Text style={{ color: '#D98A00', marginTop: 6 }}>Why it&apos;s unallocated: {it.query_reason}</Text>}
         {(it.comments || []).map((c: Row, k: number) => <Muted key={k}>{c.name}: {c.text}</Muted>)}
@@ -106,7 +106,7 @@ export default function FinInboxItem() {
       }} /></View>}
       {!filed && finBlocked('wage-push', undefined, me.org_id) && <Muted style={{ marginTop: 8 }}>Sending it to a PM to book is switched off while Finance is on trial.</Muted>}
       {filing && sid && (
-        <FinForm title="File as a purchase invoice" initial={{ supplier: ex.supplier || '', invoice_no: ex.invoice_no || '', date: ex.date || today(), net: ex.net ?? '', vat: ex.vat ?? '', total: ex.total ?? '' }} onClose={() => setFiling(false)} saveLabel="File it"
+        <FinForm title="File as a purchase invoice" initial={{ supplier: it.supplier_override || ex.supplier || '', invoice_no: ex.invoice_no || '', date: ex.date || today(), net: ex.net ?? '', vat: ex.vat ?? '', total: ex.total ?? '' }} onClose={() => setFiling(false)} saveLabel="File it"
           fields={[{ k: 'supplier', label: 'Supplier' }, { k: 'invoice_no', label: 'Invoice no.', half: true }, { k: 'date', label: 'Invoice date', kind: 'date', half: true }, { k: 'net', label: 'Net £', kind: 'money', half: true }, { k: 'vat', label: 'VAT £', kind: 'money', half: true }, { k: 'total', label: 'Total £', kind: 'money' }]}
           onSave={async (v) => {
             let net = num(v.net), vat = num(v.vat), total = num(v.total);

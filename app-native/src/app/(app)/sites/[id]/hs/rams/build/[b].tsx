@@ -64,7 +64,8 @@ function Editor({ initial, siteId }: { initial: RamsBuild; siteId: string }) {
   useEffect(() => () => { if (timer.current) { clearTimeout(timer.current); void saveBuild(latest.current); } }, []);
   if (!me) return null;
   const setD = (k: keyof RamsDetails, v: unknown) => change((x) => ({ ...x, details: { ...x.details, [k]: v } }));
-  const go = async (t: Tab) => { await saveNow(); setTab(t); setEditId(null); setPicker(null); };
+  // Only saves when there's a change waiting, so just looking round the tabs never rewrites the draft.
+  const go = async (t: Tab) => { if (timer.current) await saveNow(); setTab(t); setEditId(null); setPicker(null); };
   const next = (from: Tab) => {
     const nx = ORDER[ORDER.indexOf(from) + 1];
     return nx ? <View style={{ marginTop: 14 }}><Button title={`${NEXT[nx]} ›`} onPress={() => {
@@ -203,7 +204,7 @@ function Editor({ initial, siteId }: { initial: RamsBuild; siteId: string }) {
             <TextInput value={s.title} onChangeText={(t) => setS(s.id, { title: t })} style={box} autoFocus={!s.title} />
             <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8 }}>
               {([['general', 'Safe system of work'], ['method', 'Method statement (step by step)']] as const).map(([k, l]) => (
-                <Pressable key={k} onPress={() => setS(s.id, { part: k })} style={[chipStyle(s.part === k), { flex: 1 }]}><Text style={{ textAlign: 'center', fontSize: 12, fontWeight: '700', color: s.part === k ? '#fff' : base.ink }}>{l}</Text></Pressable>
+                <Pressable key={k} onPress={() => setS(s.id, { part: k })} style={[chipStyle(s.part === k), { flex: 1 }]}><Text style={{ textAlign: 'center', fontSize: 12, fontWeight: '700', color: s.part === k ? live.brand1Text : base.ink }}>{l}</Text></Pressable>
               ))}
             </View>
             <Muted style={{ fontWeight: '700' }}>Text</Muted>
@@ -235,7 +236,8 @@ function Editor({ initial, siteId }: { initial: RamsBuild; siteId: string }) {
     );
   };
   const preview = async (which: 'ra' | 'ms') => {
-    await saveNow(); toast('Building PDF…');
+    if (timer.current) await saveNow();
+    toast('Building PDF…');
     try { const out = await previewPdf(latest.current, which, org as never); await showPdf(out.bytes, `${which === 'ra' ? 'Risk Assessment' : 'Method Statement'} - ${b.title}.pdf`.replace(/[\\/:*?"<>|]+/g, '-')); }
     catch (e) { showAlert(`Could not build the PDF: ${(e as Error).message}`); }
   };
@@ -296,7 +298,7 @@ function Editor({ initial, siteId }: { initial: RamsBuild; siteId: string }) {
         <TextInput value={b.title} onChangeText={(t) => change((x) => ({ ...x, title: t }))} style={[box, { fontSize: 17, fontWeight: '800' }]} />
         <Muted style={{ marginBottom: 8 }}>{saveState}</Muted>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }} contentContainerStyle={{ gap: 6 }}>
-          {tabs.map(([k, l]) => <Pressable key={k} onPress={() => void go(k)} style={chipStyle(tab === k)}><Text style={{ fontWeight: '700', fontSize: 13, color: tab === k ? '#fff' : base.ink }}>{l}</Text></Pressable>)}
+          {tabs.map(([k, l]) => <Pressable key={k} onPress={() => void go(k)} style={chipStyle(tab === k)}><Text style={{ fontWeight: '700', fontSize: 13, color: tab === k ? live.brand1Text : base.ink }}>{l}</Text></Pressable>)}
         </ScrollView>
         {tab === 'details' ? details() : tab === 'ra' ? hazards() : tab === 'ssow' ? sections('general') : tab === 'ms' ? sections('method') : issueTab()}
       </ScrollView>
