@@ -10,7 +10,7 @@ import { useToast } from '@/components/toast';
 import { Button, Empty, Muted } from '@/components/ui';
 import { fdb, selectAll } from '@/data/finance';
 import { useAuth } from '@/lib/auth';
-import { fdate, money, num } from '@/lib/rules/finance';
+import { fdate, money, num, rateMoney } from '@/lib/rules/finance';
 import { base, radius } from '@/theme/theme';
 
 type PB = { id: string; supplier_name: string | null; supplier_key: string; description: string; code: string | null; unit: string | null; rate: number; source: string | null; updated_at: string };
@@ -32,7 +32,7 @@ export function PriceBook() {
       <View style={{ flexDirection: 'row', marginBottom: 8 }}><View style={{ marginLeft: 'auto' }}><Button title="+ Add a price" onPress={() => setEdit('new')} /></View></View>
       <Muted style={{ marginBottom: 8 }}>Each supplier&apos;s latest price for every item, learned from quotes and invoices. New POs from the Materials tile are priced from here as an estimate until the real price comes in.</Muted>
       <TextInput value={q} onChangeText={setQ} placeholder="Search supplier, item or code" style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 9, color: base.ink, backgroundColor: base.card, marginBottom: 10 }} />
-      {isLoading ? <Muted>Loading…</Muted> : list.length ? list.map((r) => <FinRow key={r.id} title={r.description} sub={`${r.supplier_name || r.supplier_key}${r.code ? ` · ${r.code}` : ''} · from ${r.source || 'manual'} ${fdate(String(r.updated_at).slice(0, 10))}`} right={`${money(r.rate)} ${r.unit ? `per ${r.unit}` : 'each'}`} onPress={() => setEdit(r)} />)
+      {isLoading ? <Muted>Loading…</Muted> : list.length ? list.map((r) => <FinRow key={r.id} title={r.description} sub={`${r.supplier_name || r.supplier_key}${r.code ? ` · ${r.code}` : ''} · from ${r.source || 'manual'} ${fdate(String(r.updated_at).slice(0, 10))}`} right={`${rateMoney(r.rate)} ${r.unit ? `per ${r.unit}` : 'each'}`} onPress={() => setEdit(r)} />)
         : <Empty>No prices yet — they&apos;re added as quotes and invoices are read.</Empty>}
       {edit && (
         <FinForm title={cur ? 'Price' : 'Add a price'} initial={cur || {}} onClose={() => setEdit(null)}

@@ -33,6 +33,14 @@ export function num(v: unknown): number | null {
   return isNaN(n) ? NaN : n;
 }
 export const round2 = (n: unknown) => Math.round((Number(n) || 0) * 100) / 100;
+/** Material prices and quantities go to 3 decimal places (Andy, 3 Nov 2026); totals stay to the penny. */
+export const round3 = (n: unknown) => Math.round((Number(n) || 0) * 1000) / 1000;
+/** A material price each: £0.125, £12.50 — 2 places, or 3 when it has them. */
+export function rateMoney(n: unknown): string {
+  if (n === null || n === undefined || n === '' || isNaN(Number(n))) return '—';
+  const v = Number(n);
+  return `${v < 0 ? '−' : ''}£${Math.abs(v).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 3 })}`;
+}
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 export const today = (now = new Date()) => iso(now);
 export function addDays(d: string, n: number) { const x = new Date(`${d}T12:00:00`); x.setDate(x.getDate() + (Number(n) || 0)); return iso(x); }

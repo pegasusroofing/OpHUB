@@ -3,7 +3,7 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { pickJob } from '@/components/FinSales';
 import { Button, Card, Muted, SectionTitle } from '@/components/ui';
-import { jobTag, money, round2 } from '@/lib/rules/finance';
+import { jobTag, money, rateMoney, round2 } from '@/lib/rules/finance';
 import { lineValue, type PriceCheck, type RLine, type RSite } from '@/lib/rules/invoiceRead';
 import { base, radius } from '@/theme/theme';
 
@@ -13,7 +13,7 @@ const cheque = (c?: PriceCheck) => {
   if (!c || c.state === 'none') return c?.charged != null ? { t: 'No quote or price list for this', col: base.slate } : null;
   const src = `${c.from}${c.date ? `, ${when(c.date)}` : ''}`;
   if (c.state === 'ok') return { t: `Matches ${src}`, col: base.ok };
-  return { t: `${c.state === 'over' ? 'Dearer' : 'Cheaper'} than ${src}: ${money(c.rate as number)}`, col: c.state === 'over' ? base.red : base.blue };
+  return { t: `${c.state === 'over' ? 'Dearer' : 'Cheaper'} than ${src}: ${rateMoney(c.rate as number)}`, col: c.state === 'over' ? base.red : base.blue };
 };
 
 export function InvoiceLines({ lines, checks, sites, read, onChange, readOnly }: { lines: RLine[]; checks: PriceCheck[]; sites: RSite[]; read: { net?: number; vat?: number; total?: number }; onChange: (l: RLine[]) => void; readOnly?: boolean }) {

@@ -15,7 +15,7 @@ import { Button, Empty, Muted, SectionTitle } from '@/components/ui';
 import { fdb, finStatus, selectAll } from '@/data/finance';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
-import { fdate, money, round2 } from '@/lib/rules/finance';
+import { fdate, money, rateMoney, round2, round3 } from '@/lib/rules/finance';
 import { yardLow, yardNum, yardQty, type YardItem } from '@/lib/rules/materials';
 import { base, radius } from '@/theme/theme';
 
@@ -83,7 +83,7 @@ export default function FinYard() {
     let have = Number(s.qty || 0);
     if (move.kind === 'adjust') { const f = (await fdb.from('yard_stock').select('qty').eq('id', s.id).maybeSingle()).data as Row | null; if (f) have = Number(f.qty || 0); }
     if (move.kind === 'issue' && q > have && !(await confirmAsk(`Only ${yardQty(have)} ${s.unit || ''} showing in the yard. Issue ${yardQty(q)} anyway? (The count will go below zero — adjust it after.)`, 'Issue anyway'))) return null;
-    const qty = move.kind === 'adjust' ? round2(q - have) : q;
+    const qty = move.kind === 'adjust' ? round3(q - have) : q;
     if (move.kind === 'adjust' && !qty) return 'That’s the same as the current count.';
     const r = await fdb.from('yard_moves').insert({ org_id: me.org_id, stock_id: s.id, kind: move.kind, qty, site_id: site, note: String(v.note || '').trim() || null, created_by: me.id } as never);
     if (r.error) return 'Could not save — try again.';
@@ -189,7 +189,7 @@ function ItemView({ s, rate, jobName, onEdit, onMove }: { s: Item; rate?: number
     <>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
         <FinStat v={`${yardQty(s.qty)} ${s.unit || ''}`} label={`in the yard${s.min_qty != null ? ` · minimum ${yardQty(s.min_qty)}` : ''}${yardLow(s) ? ' · low stock' : ''}`} hot={yardLow(s)} />
-        <FinStat v={rate != null ? money(rate) : 'No rate'} label={`per ${s.unit || 'unit'}`} hot={rate == null} />
+        <FinStat v={rate != null ? rateMoney(rate) : 'No rate'} label={`per ${s.unit || 'unit'}`} hot={rate == null} />
         <FinStat v={rate != null ? money(rate * Number(s.qty || 0)) : '—'} label="Stock value" />
       </View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>

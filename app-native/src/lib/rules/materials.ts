@@ -179,7 +179,7 @@ export function sortSuppliers<T extends { name: string; favourite?: boolean | nu
 
 /* ---------- yard stock (9219m / 9219zq) ---------- */
 export type YardItem = { id: string; item: string; unit: string | null; qty: number | string | null; min_qty: number | string | null; location: string | null; category: string | null; active?: boolean | null };
-export const yardQty = (n: unknown) => (Math.round(Number(n || 0) * 100) / 100).toLocaleString('en-GB');
+export const yardQty = (n: unknown) => (Math.round(Number(n || 0) * 1000) / 1000).toLocaleString('en-GB', { maximumFractionDigits: 3 });
 export const yardLow = (s: YardItem) => s.min_qty != null && Number(s.qty || 0) <= Number(s.min_qty);
 /** "2 rolls" → 2, "1.5" → 1.5; null if no number. */
 export function yardNum(t: unknown): number | null {

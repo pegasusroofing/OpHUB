@@ -10,7 +10,7 @@ import { chooseAction, useToast } from '@/components/toast';
 import { Button, Card, Muted } from '@/components/ui';
 import { fdb } from '@/data/finance';
 import { pdfPageTexts } from '@/lib/pdfjs';
-import { money, round2 } from '@/lib/rules/finance';
+import { money, rateMoney, round2 } from '@/lib/rules/finance';
 import { itemKey, linesFromRows, linesFromText, matchLines, qtyNum, round4, type QLine } from '@/lib/rules/finQuote';
 import { csvRows, readXlsx } from '@/lib/rules/xlsxRead';
 import { supabase } from '@/lib/supabase';
@@ -67,11 +67,11 @@ export function PoQuote({ me, po, onDone }: { me: Profile; po: Row; onDone: () =
       <Muted style={{ marginBottom: 6 }}>{q.lines.length} priced line{q.lines.length === 1 ? '' : 's'} read from {q.file}. Check each match, then apply.</Muted>
       {items.map((it, i) => { const j = q.map[i], l = j != null ? q.lines[j] : null; return (
         <Pressable key={i} onPress={async () => {
-          const k = await chooseAction(String(it.item || it.description || 'Item'), [{ key: '-', label: '— not on the quote —' }, ...q.lines.map((x, jj) => ({ key: String(jj), label: `${x.description.slice(0, 70)} · ${money(x.unit_price)}${x.unit ? `/${x.unit}` : ''}` }))]);
+          const k = await chooseAction(String(it.item || it.description || 'Item'), [{ key: '-', label: '— not on the quote —' }, ...q.lines.map((x, jj) => ({ key: String(jj), label: `${x.description.slice(0, 70)} · ${rateMoney(x.unit_price)}${x.unit ? `/${x.unit}` : ''}` }))]);
           if (k == null) return; const m = { ...q.map }; if (k === '-') delete m[i]; else m[i] = Number(k); setQ({ ...q, map: m });
         }} style={{ paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: base.line }}>
           <Text style={{ color: base.ink, fontWeight: '600' }}>{it.item || it.description} · qty {String(it.qty ?? '')}</Text>
-          <Text style={{ color: l ? base.blue : base.slate, fontSize: 12.5 }}>{l ? `→ ${l.description} · ${money(l.unit_price)}${l.unit ? `/${l.unit}` : ''}` : '— not on the quote — (tap to choose)'}</Text>
+          <Text style={{ color: l ? base.blue : base.slate, fontSize: 12.5 }}>{l ? `→ ${l.description} · ${rateMoney(l.unit_price)}${l.unit ? `/${l.unit}` : ''}` : '— not on the quote — (tap to choose)'}</Text>
         </Pressable>
       ); })}
       <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>

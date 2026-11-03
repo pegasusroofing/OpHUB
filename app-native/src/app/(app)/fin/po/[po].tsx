@@ -21,7 +21,7 @@ import { useAuth } from '@/lib/auth';
 import { buildPoPdf } from '@/lib/finPoPdf';
 import { deliverPdf } from '@/lib/pdf';
 import { COST_CATS, PI_STATUS, poInvoiced } from '@/lib/rules/finBook';
-import { fdate, jobTag, money, num } from '@/lib/rules/finance';
+import { fdate, jobTag, money, num, rateMoney } from '@/lib/rules/finance';
 import { base, page, radius, space } from '@/theme/theme';
 
 type Row = Record<string, any>;
@@ -69,7 +69,7 @@ export default function FinPo() {
       </Card>
       <SectionTitle>Items</SectionTitle>
       <Card>
-        {(po.items || []).map((it: Row, k: number) => { const m = it.material_id ? matBy[it.material_id] : null; return <View key={k} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>{rm && <Pressable hitSlop={8} onPress={() => setRm((x) => { const n = new Set(x ?? []); if (n.has(k)) n.delete(k); else n.add(k); return n; })}><Text style={{ fontSize: 18 }}>{rm.has(k) ? '☑' : '☐'}</Text></Pressable>}<View style={{ flex: 1 }}><FinRow title={`${it.item || 'Item'}${it.qty != null ? ` · ${it.qty}${it.unit ? ` ${it.unit}` : ''}` : ''}${it.rate != null ? ` × ${money(it.rate)}` : ''}`} sub={[it.cost_code ? COST_CATS[it.cost_code] : '', m?.grn ? (m.grn.ok === false ? '⚠ problem on delivery' : '✓ received') : m ? 'not received yet' : '', m?.status === 'cancelled' ? 'cancelled' : ''].filter(Boolean).join(' · ')} right={it.amount != null ? money(it.amount) : ''} /></View></View>; })}
+        {(po.items || []).map((it: Row, k: number) => { const m = it.material_id ? matBy[it.material_id] : null; return <View key={k} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>{rm && <Pressable hitSlop={8} onPress={() => setRm((x) => { const n = new Set(x ?? []); if (n.has(k)) n.delete(k); else n.add(k); return n; })}><Text style={{ fontSize: 18 }}>{rm.has(k) ? '☑' : '☐'}</Text></Pressable>}<View style={{ flex: 1 }}><FinRow title={`${it.item || 'Item'}${it.qty != null ? ` · ${it.qty}${it.unit ? ` ${it.unit}` : ''}` : ''}${it.rate != null ? ` × ${rateMoney(it.rate)}` : ''}`} sub={[it.cost_code ? COST_CATS[it.cost_code] : '', m?.grn ? (m.grn.ok === false ? '⚠ problem on delivery' : '✓ received') : m ? 'not received yet' : '', m?.status === 'cancelled' ? 'cancelled' : ''].filter(Boolean).join(' · ')} right={it.amount != null ? money(it.amount) : ''} /></View></View>; })}
         {po.status === 'open' && (po.items || []).length > 1 && (rm ? (
           <View style={{ gap: 6, marginTop: 6 }}>
             <Muted>Tick the lines to take off this PO. A site request on a removed line is marked cancelled. Email the supplier the updated PO afterwards.</Muted>
