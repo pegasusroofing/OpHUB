@@ -11,9 +11,10 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { TbtStatusTag } from '@/components/TbtStatusTag';
 import { confirmAsk, promptText, useToast } from '@/components/toast';
+import { DocBadge, RowSigners } from '@/components/HsDocList';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import { HowTo } from '@/components/HowTo';
-import { nameOf, usePeople, useTbts } from '@/data/hs';
+import { usePeople, useTbts } from '@/data/hs';
 import { useSite } from '@/data/sites';
 import { deleteTbt, syncTbtBank, tbtDue, uploadTbt } from '@/data/tbtManager';
 import { buildSignedTbtPdf } from '@/data/hsPdf';
@@ -75,14 +76,14 @@ export default function Tbts() {
       {!!due && (
         <Card style={{ borderColor: base.warn, borderWidth: 1.5 }}>
           <Text style={{ fontWeight: '700', color: base.warn }}>{due}</Text>
-          <Muted>A Toolbox Talk must be issued and signed off every month. Issue one from Bank TBT below.</Muted>
+          <Muted>A Toolbox Talk must be issued and signed off every month. Issue one from TBT Library below.</Muted>
         </Card>
       )}
       {mgr && (
         <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
           {(['bank', 'live', 'completed'] as const).map((k) => (
             <Pressable key={k} onPress={() => setTab(k)} style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 16, borderWidth: 1, borderColor: cur === k ? base.ink : base.line, backgroundColor: cur === k ? base.ink : base.card }}>
-              <Text style={{ fontWeight: '700', color: cur === k ? '#fff' : base.ink }}>{k === 'bank' ? 'Bank TBT' : k === 'live' ? 'Live TBT' : 'Completed TBT'}</Text>
+              <Text style={{ fontWeight: '700', color: cur === k ? '#fff' : base.ink }}>{k === 'bank' ? 'TBT Library' : k === 'live' ? 'Live TBT' : 'Completed TBT'}</Text>
             </Pressable>
           ))}
         </View>
@@ -93,7 +94,7 @@ export default function Tbts() {
         return (
           <Pressable key={t.id} onPress={() => (mgr && cur === 'completed' && sel.size ? setSel((x) => { const n = new Set(x); if (n.has(t.id)) n.delete(t.id); else n.add(t.id); return n; }) : router.push(`/sites/${site.id}/hs/tbt/${t.id}`))} onLongPress={mgr && cur === 'completed' ? () => setSel((x) => new Set(x).add(t.id)) : undefined}>
             <Card>
-              <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                 {mgr && t.status === 'live' && (
                   <Pressable hitSlop={8} accessibilityLabel={`Delete ${t.title}`} onPress={async () => {
                     const n = signed.length;
@@ -101,24 +102,24 @@ export default function Tbts() {
                     if (await deleteTbt(me, id, t)) { toast('Toolbox talk deleted'); refresh(); } else toast('Could not delete — try again.');
                   }}><Text style={{ color: base.red }}>🗑</Text></Pressable>
                 )}
+                {mgr && cur === 'completed' && <Pressable hitSlop={8} onPress={() => setSel((x) => { const n = new Set(x); if (n.has(t.id)) n.delete(t.id); else n.add(t.id); return n; })}
+                  style={{ width: 18, height: 18, borderRadius: 4, borderWidth: 1.5, borderColor: sel.has(t.id) ? base.blue : '#c3c8d0', backgroundColor: sel.has(t.id) ? base.blue : '#fff', alignItems: 'center', justifyContent: 'center' }}>{sel.has(t.id) && <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700', lineHeight: 14 }}>✓</Text>}</Pressable>}
+                <DocBadge label="TBT" />
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontWeight: '800', color: base.ink }}>{mgr && cur === 'completed' ? <Text onPress={() => setSel((x) => { const n = new Set(x); if (n.has(t.id)) n.delete(t.id); else n.add(t.id); return n; })}>{sel.has(t.id) ? '☑ ' : '☐ '}</Text> : null}{t.title}</Text>
-                  <Muted>{new Date(t.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</Muted>
+                  <Text numberOfLines={2} style={{ fontSize: 15, fontWeight: '600', color: '#111827' }}>{t.title}</Text>
+                  <Text style={{ fontSize: 12.5, color: '#6b7280', marginTop: 2 }}>Added {new Date(t.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}{mgr && t.status !== 'bank' ? ` · ${signed.length} signed` : ''}</Text>
                 </View>
                 <TbtStatusTag status={t.status} />
               </View>
-              {mgr && <Muted style={{ marginTop: 6 }}>{signed.length} signed</Muted>}
-              {mgr && t.status === 'live' && roster && (waiting.length
-                ? <Text style={{ color: base.warn, fontSize: 12.5 }}>Still to sign: {waiting.map((u) => nameOf(people, u)).join(', ')}</Text>
-                : <Text style={{ color: base.ok, fontSize: 12.5 }}>✓ Everyone has signed</Text>)}
+              {mgr && t.status === 'live' && roster && <RowSigners total={(roster.assigned ?? []).filter((u) => opIds.has(u)).length} signed={signed as never} waiting={waiting} people={people} />}
             </Card>
           </Pressable>
         );
-      }) : <Empty>No {mgr ? `${cur === 'bank' ? 'bank' : cur} ` : ''}toolbox talks{mgr ? '' : ' yet'}.</Empty>}
+      }) : <Empty>No {mgr ? `${cur === 'bank' ? 'library' : cur} ` : ''}toolbox talks{mgr ? '' : ' yet'}.</Empty>}
 
       {mgr && cur === 'bank' && (
         <>
-          <Button kind="ghost" busy={busy} title="🔄 Sync Bank TBT from Admin Centre Library" onPress={async () => { setBusy(true); toast(await syncTbtBank(me, id)); setBusy(false); refresh(); }} />
+          <Button kind="ghost" busy={busy} title="🔄 Sync TBT Library from Admin Centre Library" onPress={async () => { setBusy(true); toast(await syncTbtBank(me, id)); setBusy(false); refresh(); }} />
           <Card>
             <SectionTitle>Upload a toolbox talk</SectionTitle>
             <TextInput value={title} onChangeText={setTitle} placeholder="Title, e.g. Week 24 — Manual Handling" style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, marginBottom: 8 }} />
@@ -130,9 +131,9 @@ export default function Tbts() {
               if (!title.trim() || !file) { toast('Add a title and choose a PDF.'); return; }
               setBusy(true); const err = await uploadTbt(me, id, title.trim(), file); setBusy(false);
               if (err) { toast(err); return; }
-              toast('Toolbox talk uploaded to Bank TBT'); setTitle(''); setFile(null); setTab('bank'); refresh();
+              toast('Toolbox talk uploaded to TBT Library'); setTitle(''); setFile(null); setTab('bank'); refresh();
             }} />
-            <Muted>New uploads go into Bank TBT — operatives can&apos;t see them until you tap &quot;Issue for Signing&quot;.</Muted>
+            <Muted>New uploads go into TBT Library — operatives can&apos;t see them until you tap &quot;Issue for Signing&quot;.</Muted>
           </Card>
         </>
       )}

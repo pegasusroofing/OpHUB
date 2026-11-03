@@ -318,9 +318,9 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
 }
 
 /** A small coloured tag for the document type: RA, MS, RAMS, COSHH. */
-function DocBadge({ kind, type }: { kind: DocKind; type?: string | null }) {
-  const t = kind === 'coshh' ? 'COSHH' : kind === 'layout' ? 'Site' : type === 'Risk Assessment' ? 'RA' : type === 'Method Statement' ? 'MS' : 'RAMS';
-  const c = t === 'RA' ? ['#fff5f4', '#c81e1e'] : t === 'MS' ? ['#f3f7ff', '#1d4ed8'] : t === 'COSHH' ? ['#fffaf0', '#b45309'] : ['#f1fbf5', '#15803d'];
+export function DocBadge({ kind, type, label }: { kind?: DocKind; type?: string | null; label?: string }) {
+  const t = label ? label : kind === 'coshh' ? 'COSHH' : kind === 'layout' ? 'Site' : type === 'Risk Assessment' ? 'RA' : type === 'Method Statement' ? 'MS' : 'RAMS';
+  const c = t === 'RA' ? ['#fff5f4', '#c81e1e'] : t === 'MS' ? ['#f3f7ff', '#1d4ed8'] : t === 'COSHH' ? ['#fffaf0', '#b45309'] : t === 'TBT' ? ['#f5f3ff', '#6d28d9'] : ['#f1fbf5', '#15803d'];
   return <View style={{ backgroundColor: c[0], borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3, minWidth: 34, alignItems: 'center' }}><Text style={{ color: c[1], fontSize: 11, fontWeight: '700' }}>{t}</Text></View>;
 }
 function StatusPill({ text, tone }: { text: string; tone: 'ok' | 'warn' | 'grey' }) {
@@ -334,7 +334,7 @@ const docTitle = (name: string, siteName: string | null | undefined) => {
 };
 
 /** Who has signed and who is still to sign, side by side in the row (Andy, 3 Nov 2026). */
-function RowSigners({ total, signed, waiting, people, indent }: { total: number; signed: HsSig[]; waiting: string[]; people: { id: string; name: string; role: string }[] | undefined; indent?: boolean }) {
+export function RowSigners({ total, signed, waiting, people, indent }: { total: number; signed: { id: string; user_id: string | null; signed_at: string | null }[]; waiting: string[]; people: { id: string; name: string; role: string }[] | undefined; indent?: boolean }) {
   const chip = (key: string, text: string, ok: boolean, when?: string | null) => (
     <View key={key} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: ok ? '#f1fbf5' : '#fffaf0', borderWidth: 1, borderColor: ok ? '#d3f0de' : '#f8e7c2', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 2 }}>
       <Text style={{ fontSize: 12, color: ok ? '#15803d' : '#b45309', fontWeight: '600' }}>{ok ? '✓' : '○'} {text}</Text>
@@ -351,7 +351,7 @@ function RowSigners({ total, signed, waiting, people, indent }: { total: number;
     <View style={{ marginTop: 10, marginLeft: indent ? 28 : 0, paddingVertical: 9, paddingHorizontal: 10, backgroundColor: '#f9fafb', borderWidth: 1, borderColor: '#f0f1f3', borderRadius: 8 }}>
       {!total ? <Text style={{ fontSize: 12.5, color: '#6b7280' }}>No operatives on this job yet — assign them and they sign here.</Text> : (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
-          {col('Signed', signed.length, signed.map((x) => chip(x.id, nameOf(people, x.user_id), true, d(x.signed_at))), 'Nobody yet')}
+          {col('Signed', signed.length, signed.map((x, i) => chip(x.id || `${x.user_id}-${i}`, nameOf(people, x.user_id), true, d(x.signed_at))), 'Nobody yet')}
           {col('Outstanding', waiting.length, waiting.map((id) => chip(id, nameOf(people, id), false)), 'Everyone has signed')}
         </View>
       )}

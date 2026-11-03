@@ -1,5 +1,5 @@
 // Admin Centre › Toolbox Talk Templates (260 tbt, 300 addTbtTemplate /
-// deleteTbtTemplate), admins only: talks copied into every new site's Bank TBT.
+// deleteTbtTemplate), admins only: talks copied into every new site's TBT Library.
 import * as DocumentPicker from 'expo-document-picker';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
@@ -34,7 +34,7 @@ export default function TbtTemplates() {
   return (
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Toolbox Talk Templates' }} />
-      <Muted style={{ marginBottom: 10 }}>Templates here are automatically copied into Bank TBT on every new site you create, so standard talks (e.g. Alcohol &amp; Drugs, Manual Handling) are already there without re-uploading per job.</Muted>
+      <Muted style={{ marginBottom: 10 }}>Templates here are automatically copied into TBT Library on every new site you create, so standard talks (e.g. Alcohol &amp; Drugs, Manual Handling) are already there without re-uploading per job.</Muted>
       {isLoading ? <Muted>Loading…</Muted> : list.length ? list.map((t) => (
         <Card key={t.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <Text style={{ fontSize: 20 }}>🗣</Text>
@@ -47,7 +47,7 @@ export default function TbtTemplates() {
             toast(!(await db.from('tbt_templates').delete().eq('id', t.id).select('id')).data?.length ? 'Could not remove — try again.' : 'Template removed'); refresh();
           }}><Text>🗑</Text></Pressable>
         </Card>
-      )) : <Empty>No templates yet — anything you upload here will be pre-loaded into every future site&apos;s Bank TBT.</Empty>}
+      )) : <Empty>No templates yet — anything you upload here will be pre-loaded into every future site&apos;s TBT Library.</Empty>}
       <Card>
         <TextInput value={title} onChangeText={setTitle} placeholder="Title, e.g. Alcohol & Drugs" style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, marginBottom: 8 }} />
         <Button kind="ghost" title={file ? `📎 ${file.name}` : 'Choose PDF'} onPress={async () => { const r = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true }); if (!r.canceled && r.assets[0]) setFile(r.assets[0]); }} />

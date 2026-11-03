@@ -6,7 +6,7 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
-import { SignerList } from '@/components/HsDocList';
+import { DocBadge, RowSigners } from '@/components/HsDocList';
 import { StorageImage } from '@/components/StorageImage';
 import { TbtStatusTag } from '@/components/TbtStatusTag';
 import * as DocumentPicker from 'expo-document-picker';
@@ -22,7 +22,7 @@ import { completeTbt, deleteTbt, issueTbt, issueTbtCompanyWide, remindTbt, renam
 import { isManager } from '@/lib/roles';
 import { openDocLink, signTbt, usePeople, useTbt } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
-import { signedHeadline, signers } from '@/lib/rules/hs';
+import { signers } from '@/lib/rules/hs';
 import { base, page, radius, space } from '@/theme/theme';
 
 export default function TbtView() {
@@ -100,15 +100,15 @@ export default function TbtView() {
       <Stack.Screen options={{ title: talk?.title || 'Toolbox Talk' }} />
       {isLoading ? <Muted>Loading…</Muted> : !talk ? <Muted>Could not load that toolbox talk — it may no longer be live.</Muted> : (
         <Card>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
-            <Text style={{ flex: 1, fontSize: 17, fontWeight: '800', color: base.ink }}>{talk.title}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <DocBadge label="TBT" />
+            <Text numberOfLines={2} style={{ flex: 1, fontSize: 15, fontWeight: '600', color: '#111827' }}>{talk.title}</Text>
             <TbtStatusTag status={talk.status} />
-            {mgr && <Pressable hitSlop={8} disabled={busy} onPress={() => void menu()}><Text style={{ fontSize: 18, color: base.slate, paddingHorizontal: 4 }}>⋮</Text></Pressable>}
+            <Pressable onPress={async () => { const u = await openDocLink('rams-docs', talk.storage_path); if (u) viewDoc(u); else toast('Could not open the document.'); }} hitSlop={6} style={{ borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 7, paddingHorizontal: 10, height: 26, justifyContent: 'center' }}><Text style={{ color: '#111827', fontSize: 12.5, fontWeight: '500' }}>View</Text></Pressable>
+            {mgr && <Pressable hitSlop={8} disabled={busy} onPress={() => void menu()} style={{ height: 26, justifyContent: 'center' }}><Text style={{ fontSize: 18, lineHeight: 20, color: base.slate, paddingHorizontal: 4 }}>⋮</Text></Pressable>}
           </View>
+          <Text style={{ fontSize: 12.5, color: '#6b7280', marginTop: 6 }}>{talk.created_at ? `Added ${new Date(talk.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}` : ''}</Text>
           {mgr && talk.status === 'bank' && <Button busy={busy} title="✍ Issue for Signing" onPress={async () => { setBusy(true); const r = await issueTbt(me, id, talk); setBusy(false); toast(r.msg); refresh(); if (r.id && r.id !== talk.id) router.replace(`/sites/${id}/hs/tbt/${r.id}`); }} />}
-          <Pressable onPress={async () => { const u = await openDocLink('rams-docs', talk.storage_path); if (u) viewDoc(u); else toast('Could not open the document.'); }}>
-            <Text style={{ color: base.blue, marginTop: 6 }}>View document ↗</Text>
-          </Pressable>
           {me.role === 'client' ? (
             // 710:333 client view: who has signed and the signed PDF, no sign box.
             <View style={{ marginTop: 10 }}>
@@ -131,7 +131,8 @@ export default function TbtView() {
               </>
             ) : <Text style={{ fontWeight: '700', color: live ? base.ink : base.slate }}>{live ? (busy ? 'Signing…' : '✍ Tap to sign') : 'This talk is not live for signing'}</Text>}
           </Pressable>
-          <SignerList headline={signedHeadline(data?.roster.length ?? 0, waiting.length)} signed={signed} waiting={waiting} people={people} />
+          {/* Everyone who has signed, the manager who conducted it too, and who is still to sign. */}
+          <RowSigners total={data?.roster.length ?? 0} signed={(data?.sigs ?? []) as never} waiting={waiting} people={people} />
           </>)}
         </Card>
       )}

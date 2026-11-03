@@ -8,7 +8,9 @@ import { ScrollView, TextInput } from 'react-native';
 
 import { promptText, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Check, Empty, Muted } from '@/components/ui';
-import { issueToSite, newProduct, useProducts } from '@/data/coshhLib';
+import * as DocumentPicker from 'expo-document-picker';
+
+import { issueToSite, newProduct, productFromSds, useProducts } from '@/data/coshhLib';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { isFullManager, isManager } from '@/lib/roles';
@@ -28,6 +30,7 @@ export default function CoshhNew() {
   const [where, setWhere] = useState('');
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
+  const [reading, setReading] = useState(false);
   if (!me) return null;
   if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
   const shown = lib.filter((it) => !q.trim() || `${it.title} ${it.data.manufacturer}`.toLowerCase().includes(q.trim().toLowerCase()));
@@ -41,6 +44,25 @@ export default function CoshhNew() {
         {isLoading ? <Muted>Loading…</Muted> : shown.length ? shown.map((it) => <Check key={it.id} label={`${it.title}${it.data.manufacturer ? ` · ${it.data.manufacturer}` : ''}${it.data.sdsPath ? '' : ' · no data sheet'}`} value={sel.includes(it.id)} onChange={(v) => setSel(v ? [...sel, it.id] : sel.filter((x) => x !== it.id))} />)
           : <Empty>{lib.length ? 'Nothing matches.' : 'No products in the COSHH Library yet.'}</Empty>}
       </Card>
+      {/* A Safety Data Sheet makes the COSHH (Andy, 3 Nov 2026): the sheet is read, the product goes into the COSHH Library
+          (or fills the blanks of the one already there) and is ticked here ready to issue. */}
+      <Button busy={reading} title="📄 Upload Safety Data Sheet(s)" onPress={async () => {
+        const r = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', multiple: true, copyToCacheDirectory: true });
+        if (r.canceled || !r.assets.length) return;
+        setReading(true);
+        try {
+          const got: string[] = []; let failed = 0;
+          for (const a of r.assets) {
+            toast(`Reading ${a.name || 'the data sheet'}…`);
+            const p = await productFromSds(me, { uri: a.uri, name: a.name || 'data-sheet.pdf', mimeType: a.mimeType || 'application/pdf' } as never, lib).catch(() => null);
+            if (p) got.push(p.item.id); else failed++;
+          }
+          await qc.invalidateQueries({ queryKey: ['coshhProducts'] });
+          if (got.length) setSel((x) => Array.from(new Set([...x, ...got])));
+          toast(got.length ? `${got.length} product${got.length === 1 ? '' : 's'} read from the data sheet${got.length === 1 ? '' : 's'} and ticked — check the details in the COSHH Library, then Issue${failed ? ` (${failed} could not be read)` : ''}` : 'Could not read that data sheet — try again.');
+        } finally { setReading(false); }
+      }} />
+      <Muted style={{ marginTop: 4, marginBottom: 8 }}>Reads the product name, hazards, codes, PPE and first aid from the sheet. Best on the office laptop.</Muted>
       {isFullManager(me) && <Button kind="ghost" title="+ Product not listed? Add it in the COSHH Library" onPress={async () => {
         const n = (await promptText('New product name', ''))?.trim(); if (!n) return;
         const pid = await newProduct(me, n); if (!pid) { toast('Could not create it — try again.'); return; }

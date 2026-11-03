@@ -1660,3 +1660,6 @@
 {"part":"ramsfeel1","step":"New RAMS, copy closed","ok":true,"note":"","ms":12428}
 {"part":"ramsfeel1","step":"Home and check in at 1440","ok":true,"note":"","ms":23446}
 {"part":"ramsfeel1","step":"Home and check in at 430","ok":true,"note":"","ms":23461}
+{"part":"tbtrow1","step":"Talks at 1440","ok":true,"note":"talk live","ms":26310}
+{"part":"tbtrow1","step":"Talks at 430","ok":true,"note":"talk live","ms":25780}
+{"part":"coshhrow1","step":"COSHH list and create","ok":true,"note":"","ms":26062}

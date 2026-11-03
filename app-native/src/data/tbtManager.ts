@@ -1,4 +1,4 @@
-// Toolbox talks, manager side (710): upload into Bank TBT, sync the bank from the
+// Toolbox talks, manager side (710): upload into TBT Library, sync the bank from the
 // Admin Centre library, issue for signing (a live copy; only one live talk per job;
 // the issuer signs it there and then), issue company-wide, rename, replace the
 // file, mark completed, delete, and remind whoever hasn't signed.
@@ -40,9 +40,9 @@ export async function syncTbtBank(me: Profile, siteId: string): Promise<string> 
   const [t, e] = await Promise.all([db.from('tbt_templates').select('title,storage_path').eq('org_id', me.org_id as string), db.from('toolbox_talks').select('title,storage_path').eq('site_id', siteId)]);
   const have = new Set(((e.data as { title: string; storage_path: string }[] | null) ?? []).map((x) => `${x.title}|${x.storage_path}`));
   const missing = ((t.data as { title: string; storage_path: string }[] | null) ?? []).filter((x) => !have.has(`${x.title}|${x.storage_path}`));
-  if (!missing.length) return 'Bank TBT is already up to date with the library.';
+  if (!missing.length) return 'TBT Library is already up to date with the library.';
   const r = await db.from('toolbox_talks').insert(missing.map((x) => ({ site_id: siteId, org_id: me.org_id, title: x.title, storage_path: x.storage_path, status: 'bank', created_by: me.id })) as never);
-  return r.error ? 'Could not sync — try again.' : `${missing.length} template${missing.length === 1 ? '' : 's'} added to Bank TBT`;
+  return r.error ? 'Could not sync — try again.' : `${missing.length} template${missing.length === 1 ? '' : 's'} added to TBT Library`;
 }
 
 async function autoSignIssuer(me: Me, tbtId: string) {
@@ -69,7 +69,7 @@ export async function issueTbt(me: Me, siteId: string, talk: Tbt): Promise<{ id:
   const signed = await autoSignIssuer(me, liveId);
   tellOperatives(me, siteId, talk.title);
   if (talk.storage_path) packDoc(siteId, 'tbt_issued', talk.title, 'rams-docs', talk.storage_path);
-  return { id: liveId, msg: `Issued for signing${signed ? ' and signed by you' : ''}${talk.status === 'bank' ? ' — original kept in Bank TBT for reuse' : ''}${!me.signature_path ? '. Adopt your signature to have it signed automatically next time.' : ''}` };
+  return { id: liveId, msg: `Issued for signing${signed ? ' and signed by you' : ''}${talk.status === 'bank' ? ' — original kept in TBT Library for reuse' : ''}${!me.signature_path ? '. Adopt your signature to have it signed automatically next time.' : ''}` };
 }
 
 /** Each live job gets its own live copy. */
@@ -83,7 +83,7 @@ export async function issueTbtCompanyWide(me: Me, talk: Tbt, sites: Site[]): Pro
       if (id) { n++; tellOperatives(me, s.id, talk.title); await autoSignIssuer(me, id); }
     } catch { /* keep going */ }
   }
-  return `Issued for signing at ${n} live site${n === 1 ? '' : 's'} — original kept in Bank TBT`;
+  return `Issued for signing at ${n} live site${n === 1 ? '' : 's'} — original kept in TBT Library`;
 }
 
 export const renameTbt = async (id: string, title: string) => !!(await db.from('toolbox_talks').update({ title } as never).eq('id', id).select('id')).data?.length;
