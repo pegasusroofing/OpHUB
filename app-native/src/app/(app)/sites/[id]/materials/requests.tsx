@@ -9,7 +9,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import * as DocumentPicker from 'expo-document-picker';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useRef, useState, type ComponentRef, type ReactNode } from 'react';
-import { Pressable, RefreshControl, ScrollView, Text, TextInput, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native';
 
 import { askDate, DateBox, todayIso } from '@/components/DateField';
 import { GrnDetail } from '@/components/Grn';
@@ -186,8 +186,7 @@ export default function MaterialRequests() {
   const entries = done ? doneEntries(items) : mgr ? liveEntries(items) : items.map((m) => ({ m, items: [m] }));
 
   const importBtn = (
-        <View style={{ marginTop: 8 }}>
-          <Button small kind="ghost" busy={importing} title={importing ? 'Importing…' : '📄 Import from Excel'} onPress={async () => {
+        <Pressable accessibilityRole="button" disabled={importing} style={hdrBtn} onPress={async () => {
             const r = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true }); if (r.canceled || !r.assets[0]) return;
             const a = r.assets[0], name = a.name || 'spreadsheet';
             if (/\.xls$/i.test(name)) { toast('Save it as .xlsx or .csv first — old .xls files can’t be read.'); return; }
@@ -205,18 +204,16 @@ export default function MaterialRequests() {
             if (!(await confirmAsk(`Add these ${lines.length} item${lines.length === 1 ? '' : 's'} from "${name}" as material requests?${req ? ` Required by ${req}.` : ''}\n\n${preview}`, 'Add them'))) return;
             setImporting(true); const n = await importMaterials(me, id, lines, req || null, name); setImporting(false);
             showAlert(n ? `✓ ${n} material request${n === 1 ? '' : 's'} added.` : 'They could not be added — check your connection, then import again.'); refresh();
-          }} />
-          <Muted>Pick a material order spreadsheet — each item and quantity becomes its own request. You&apos;re shown the list to confirm first.</Muted>
-        </View>
+          }}><Text style={hdrBtnText}>{importing ? 'Importing…' : 'Import Excel'}</Text></Pressable>
   );
   return (
     <ScrollView ref={scroll} contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled"
       refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => { void refetch(); }} />}>
       <Stack.Screen options={{ title: 'Material Requests' }} />
-      {mgr && <Card style={{ backgroundColor: '#F1E4FA', flexDirection: 'row', gap: 10, alignItems: 'flex-start', shadowOpacity: 0 }}><Text style={{ fontSize: 16 }}>🙋</Text><Text style={{ flex: 1, color: '#4E1F6E' }}><Text style={{ fontWeight: '700' }}>Requests from operatives.</Text> Order them from a merchant, or give them to an operative to collect — those move to the <Text style={{ fontWeight: '700' }}>Collections</Text> tab. Tick several to group them into one request.</Text></Card>}
       {mgr
         ? <MatTabs siteId={id} on={tab as MatTabKey} collectN={collectN} yard={yardCanEdit(me, fin)} onPick={(k) => { setSel(new Set()); setTab(k as MatTab); }} />
         : <FilterRow value={tab as string} onChange={(k) => { setSel(new Set()); setTab(k as MatTab); }} options={[['live', 'Live/Pending'], ['closed', 'Closed']] as [string, string][]} />}
+      {mgr && <Card style={{ backgroundColor: '#F1E4FA', flexDirection: 'row', gap: 10, alignItems: 'flex-start', shadowOpacity: 0 }}><Text style={{ fontSize: 16 }}>🙋</Text><Text style={{ flex: 1, color: '#4E1F6E' }}><Text style={{ fontWeight: '700' }}>Requests from operatives.</Text> Order them from a merchant, or give them to an operative to collect — those move to the <Text style={{ fontWeight: '700' }}>Collections</Text> tab. Tick several to group them into one request.</Text></Card>}
 
       {ordering && (
         <Card style={{ borderColor: base.ink, borderWidth: 1.5 }}>
@@ -315,7 +312,9 @@ export default function MaterialRequests() {
 
 // Quantities: numbers only (a decimal point allowed).
 const numOnly = (t: string) => t.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');
-const lbl = { fontSize: 11, fontWeight: '800' as const, letterSpacing: 0.5, color: base.slate, marginBottom: 4 };
+const lbl = { fontSize: 12, fontWeight: '600' as const, color: '#6b7280', marginBottom: 4 };
+const hdrBtn = { borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 7, paddingHorizontal: 10, height: 28, justifyContent: 'center' as const, backgroundColor: '#fff' };
+const hdrBtnText = { fontSize: 12.5, fontWeight: '500' as const, color: '#111827' };
 const rowStyle = { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 8, backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, padding: 12, marginBottom: 8 };
 const doneTag = (m: Mat) => (m.status === 'cancelled' ? 'Cancelled' : m.merchant === 'Yard stock' ? 'Yard stock' : m.email_sent_at ? `Emailed ${long(m.email_sent_at)}` : wasOrdered(m) ? 'Ordered' : 'Closed');
 
@@ -334,10 +333,17 @@ function RequestBox({ siteId, repairJobs, shop, addrs, busy, autoFocus, extra, o
   const [rj, setRj] = useState<{ id: string; label: string } | null>(null);
   // The picked quote item counts only while the wording is left as it was.
   const shopItemId = pick && pick.description.trim() === item.trim() ? pick.id : null;
+  const wide = useWindowDimensions().width >= 700;
   return (
     <Card style={{ marginTop: 18 }}>
       {picking && <ShopPicker siteId={siteId} onClose={() => setPicking(false)} onPick={(i) => { setPick(i); setItem(i.description); setPicking(false); }} />}
-      <SectionTitle>Request material</SectionTitle>
+      {/* Request Material, laid out as Finance (Andy, 3 Nov 2026): title with its extras on the right; item, quantity,
+          date and the button on one line on a laptop, stacked on a phone. */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+        <Text style={{ flex: 1, fontSize: 15, fontWeight: '600', color: '#111827' }}>Request Material</Text>
+        {shop && <Pressable accessibilityRole="button" style={hdrBtn} onPress={() => setPicking(true)}><Text style={hdrBtnText}>From A Quote</Text></Pressable>}
+        {extra}
+      </View>
       {addrs && (
         <View style={{ marginBottom: 8 }}>
           <Muted style={{ fontWeight: '700', marginBottom: 4 }}>Which address on this job?</Muted>
@@ -354,32 +360,33 @@ function RequestBox({ siteId, repairJobs, shop, addrs, busy, autoFocus, extra, o
           </Pressable>
         </View>
       )}
-      <TextInput autoFocus={autoFocus} value={item} onChangeText={setItem} placeholder="Item" style={[box, { fontSize: 16 }]} />
-      {shop && (
-        <View style={{ marginBottom: 8 }}>
-          <Button kind="ghost" title="📋 Pick from a project quote" onPress={() => setPicking(true)} />
-          {!!shopItemId && pick && (
-            <Text style={{ fontSize: 12, color: base.slate, marginTop: 4 }}>From a project quote{pick.supplier_name ? ` · ${pick.supplier_name}` : ''}{pick.rate != null ? ` · £${Number(pick.rate).toFixed(2)}${pick.unit ? `/${pick.unit}` : ''}` : ''}  <Text onPress={() => setPick(null)} style={{ color: base.blue, fontWeight: '700' }}>clear</Text></Text>
-          )}
+      <View style={{ flexDirection: wide ? 'row' : 'column', alignItems: wide ? 'flex-end' : 'stretch', gap: wide ? 10 : 0 }}>
+        <View style={wide ? { flex: 3, minWidth: 0 } : undefined}>
+          <Text style={lbl}>Item</Text>
+          <TextInput autoFocus={autoFocus} value={item} onChangeText={setItem} placeholder="e.g. 18mm OSB 2440 x 1220" style={[box, wide && { marginBottom: 0 }]} />
         </View>
-      )}
-      <View style={{ flexDirection: 'row', gap: 8 }}>
-        <View style={{ flex: 1 }}>
-          <Text style={lbl}>QUANTITY</Text>
-          <TextInput value={qty} onChangeText={(t) => setQty(numOnly(t))} keyboardType="decimal-pad" placeholder={shopItemId && pick?.unit ? `Quantity (${pick.unit})` : 'Quantity'} style={box} />
+        <View style={{ flexDirection: 'row', gap: 10, flex: wide ? 2.4 : undefined }}>
+          <View style={{ flex: 1 }}>
+            <Text style={lbl}>Quantity{shopItemId && pick?.unit ? ` (${pick.unit})` : ''}</Text>
+            <TextInput value={qty} onChangeText={(t) => setQty(numOnly(t))} keyboardType="decimal-pad" placeholder="0" style={[box, wide && { marginBottom: 0 }]} />
+          </View>
+          <View style={{ flex: 1.3 }}>
+            <Text style={lbl}>Required By</Text>
+            <DateBox value={by} onChange={setBy} min={todayIso()} placeholder="Any time" title="Required by" style={{ marginBottom: wide ? 0 : 8 }} />
+          </View>
         </View>
-        <View style={{ flex: 1 }}>
-          <Text style={lbl}>REQUIRED BY (OPTIONAL)</Text>
-          <DateBox value={by} onChange={setBy} min={todayIso()} placeholder="Choose a date" title="Required by" style={{ marginBottom: 8 }} />
+        <View style={wide ? { width: 130 } : { marginTop: 2 }}>
+          <Button grow busy={busy} title="Request" onPress={async () => {
+            if (!item.trim()) { toast('Say what you need first.'); return; }
+            if (addrs && addrs.length && !sub) { toast('Choose which address on this job.'); return; }
+            const d = by || null;
+            if (await onSubmit({ item: item.trim(), qty: qty.trim(), requiredBy: d, sub, shopItemId, repairJob: rj })) { setItem(''); setQty(''); setBy(''); setSub(null); setPick(null); setRj(null); }
+          }} />
         </View>
       </View>
-      <Button small busy={busy} title="Request Material Order" onPress={async () => {
-        if (!item.trim()) return;
-        if (addrs && addrs.length && !sub) { toast('Choose which address on this job.'); return; }
-        const d = by || null;
-        if (await onSubmit({ item: item.trim(), qty: qty.trim(), requiredBy: d, sub, shopItemId, repairJob: rj })) { setItem(''); setQty(''); setBy(''); setSub(null); setPick(null); setRj(null); }
-      }} />
-      {extra}
+      {!!shopItemId && pick && (
+        <Text style={{ fontSize: 12, color: '#6b7280', marginTop: 8 }}>From a project quote{pick.supplier_name ? ` · ${pick.supplier_name}` : ''}{pick.rate != null ? ` · £${Number(pick.rate).toFixed(2)}${pick.unit ? `/${pick.unit}` : ''}` : ''}  <Text onPress={() => setPick(null)} style={{ color: base.blue, fontWeight: '500' }}>Clear</Text></Text>
+      )}
     </Card>
   );
 }

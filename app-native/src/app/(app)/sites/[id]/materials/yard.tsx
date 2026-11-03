@@ -3,6 +3,8 @@
 // fills that request from the yard instead.
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
+
+import { MatTabs } from '@/components/MatTabs';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
@@ -12,7 +14,7 @@ import { useMaterialRequests, useYard, yardCanEdit, yardMove } from '@/data/mate
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { yardGuess, yardLow, yardNum, yardQty, type YardItem } from '@/lib/rules/materials';
-import { isFinanceUser } from '@/lib/roles';
+import { isFinanceUser, isManager } from '@/lib/roles';
 import { base, page, radius, space, live } from '@/theme/theme';
 
 const qbox = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, paddingHorizontal: 8, paddingVertical: 6, width: 70, textAlign: 'center' as const, color: base.ink, backgroundColor: base.card };
@@ -56,6 +58,7 @@ export default function Yard() {
   return (
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: '📦 Yard stock' }} />
+      {!request && isManager(me) && <MatTabs siteId={id} on="yard" yard />}
       {request && (
         <Card style={{ borderColor: base.ink, borderWidth: 1.5 }}>
           <SectionTitle>Fill from yard stock</SectionTitle>

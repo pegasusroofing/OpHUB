@@ -10,9 +10,10 @@ export function MatTabs({ siteId, on, collectN, yard, onPick }: { siteId: string
   return (
     <FilterRow value={on} options={options} onChange={(k) => {
       if (k === on) return;
-      if (k === 'yard') { router.push(`/sites/${siteId}/materials/yard` as never); return; }
-      if (k === 'bookin') { router.push('/driver/yard' as never); return; }
-      if (k === 'collect') { router.push(`/sites/${siteId}/materials/collections` as never); return; }
+      // Each tab replaces the last, so Back always goes up to Materials; Book Into Yard stays in the job (Andy, 3 Nov 2026).
+      if (k === 'yard') { router.replace(`/sites/${siteId}/materials/yard` as never); return; }
+      if (k === 'bookin') { router.replace(`/sites/${siteId}/materials/bookin` as never); return; }
+      if (k === 'collect') { router.replace(`/sites/${siteId}/materials/collections` as never); return; }
       if (onPick) onPick(k); else router.replace(`/sites/${siteId}/materials/requests?tab=${k}` as never);
     }} />
   );

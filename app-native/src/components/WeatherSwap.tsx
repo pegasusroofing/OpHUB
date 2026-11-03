@@ -20,8 +20,11 @@ function useWeather(postcode?: string | null) {
   return useQuery({
     queryKey: ['weather', postcode], enabled: !!postcode, staleTime: 30 * 60000, refetchInterval: 30 * 60000, retry: 1,
     queryFn: async () => {
-      const at = (await (await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(String(postcode).trim())}`)).json())?.result;
-      if (!at) return null;
+      const pc = String(postcode).trim();
+      let at = (await (await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(pc)}`)).json())?.result;
+      // Only the first half typed in (e.g. "BN1"), or not found: the area's weather instead (Andy, 3 Nov 2026).
+      if (!at) at = (await (await fetch(`https://api.postcodes.io/outcodes/${encodeURIComponent(pc.split(/\s+/)[0])}`)).json())?.result;
+      if (!at || at.latitude == null) return null;
       const w = await (await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${at.latitude}&longitude=${at.longitude}&current=temperature_2m,weather_code&daily=precipitation_probability_max&forecast_days=1&timezone=Europe%2FLondon`)).json();
       return { temp: Math.round(Number(w?.current?.temperature_2m)), code: w?.current?.weather_code as number, rain: w?.daily?.precipitation_probability_max?.[0] as number | undefined };
     },

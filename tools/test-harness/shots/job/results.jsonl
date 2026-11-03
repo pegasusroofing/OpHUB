@@ -1685,3 +1685,7 @@
 {"part":"ramsfeel1","step":"New RAMS, copy closed","ok":true,"note":"","ms":12408}
 {"part":"ramsfeel1","step":"Home and check in at 1440","ok":true,"note":"","ms":23281}
 {"part":"ramsfeel1","step":"Home and check in at 430","ok":true,"note":"","ms":23285}
+{"part":"weather1","step":"Box swaps to the weather","ok":true,"note":"postcode SW1A 1AA · seen snags,weather,onsite · resp 200 https://api.postcodes.io/postcodes/SW1A%201AA | resp 200 https://api.open-meteo.com/v1/forecast?latitude=51.50101&lon","ms":39926}
+{"part":"matreq1","step":"Request card at 1440","ok":true,"note":"","ms":10543}
+{"part":"matreq1","step":"Request card at 430","ok":true,"note":"","ms":10428}
+{"part":"mattabs1","step":"Tabs stay on every page","ok":true,"note":"Collections:tabs · Yard Stock:tabs · Book into yard:tabs · back → about:blank","ms":23670}
