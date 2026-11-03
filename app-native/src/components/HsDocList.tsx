@@ -22,7 +22,7 @@ import { chooseAction, confirmAsk, showAlert, useToast } from '@/components/toas
 import { Button, Card, Empty, Muted, Toggle, SectionTitle } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
 import { DOC_LABEL, docBucket, nameOf, openDocLink, sigDocId, signDocs, useHsDocs, usePeople, type DocKind, type HsDoc, type HsSig } from '@/data/hs';
-import { deleteHsDoc, replaceCoshh } from '@/data/hsManager';
+import { deleteHsDoc, replaceCoshh, uploadHsDoc } from '@/data/hsManager';
 import { buildSignedHsPdf, buildSignedLayoutPdf } from '@/data/hsPdf';
 import { deliverPdf, emailPdf, fetchBytes, PDFDocument, showPdf } from '@/lib/pdf';
 import { publicUrl } from '@/lib/privateFiles';
@@ -222,9 +222,25 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
               <Pressable onPress={() => view(r)} hitSlop={6} style={{ borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 7, paddingHorizontal: 10, height: 26, justifyContent: 'center' }}><Text style={{ color: '#111827', fontSize: 12.5, fontWeight: '500' }}>View</Text></Pressable>
               {manager && (
                 <Pressable hitSlop={8} onPress={async () => {
-                  const k = await chooseAction(r.name, [{ key: 'view', label: '👁 View document' }, ...(kind !== 'layout' ? [{ key: 'pdf', label: '📄 Export signed PDF' }, { key: 'email', label: '✉ Email signed PDF' }] : sigsFor(r.id).length ? [{ key: 'pdf', label: '📄 Export signed PDF' }] : []), ...(kind === 'rams' ? [{ key: 'multi', label: `${(r as { sign_layout?: { multi?: boolean } | null }).sign_layout?.multi ? '☑' : '☐'} Multi-page sign required` }, ...((r as { sign_layout?: { multi?: boolean } | null }).sign_layout?.multi ? [{ key: 'boxes', label: '✍ Signature boxes' }, { key: 'testfill', label: '🧪 Test fill the boxes' }] : [])] : []), ...(kind === 'coshh' ? [{ key: 'replace', label: '🔁 Replace file (resets signatures)' }, { key: 'tolib', label: '📚 Save to COSHH Library' }] : []), { key: 'del', label: '🗑 Delete', danger: true }]);
+                  const k = await chooseAction(r.name, [...(kind === 'rams' && !companyId ? [{ key: 'revise', label: '✏️ Revise RAMS' }] : []), { key: 'view', label: '👁 View document' }, // Export and Email live in the row under the list (Andy, 3 Nov 2026).
+                    ...(kind === 'layout' && sigsFor(r.id).length ? [{ key: 'pdf', label: '📄 Export signed PDF' }] : []), ...(kind === 'rams' ? [{ key: 'multi', label: `${(r as { sign_layout?: { multi?: boolean } | null }).sign_layout?.multi ? '☑' : '☐'} Multi-page sign required` }, ...((r as { sign_layout?: { multi?: boolean } | null }).sign_layout?.multi ? [{ key: 'boxes', label: '✍ Signature boxes' }, { key: 'testfill', label: '🧪 Test fill the boxes' }] : [])] : []), ...(kind === 'coshh' ? [{ key: 'replace', label: '🔁 Replace file (resets signatures)' }, { key: 'tolib', label: '📚 Save to COSHH Library' }] : []), { key: 'del', label: '🗑 Delete', danger: true }]);
                   const refresh = () => { void qc.invalidateQueries({ queryKey: ['hsDocs', kind, site.id] }); void qc.invalidateQueries({ queryKey: ['hsSummary', site.id] }); };
                   if (k === 'view') void view(r);
+                  else if (k === 'revise') {
+                    // Built in the app: back into its builder, where Issue re-issues it as the next revision and everyone signs again.
+                    const b = ((await supabase.from('rams_builds').select('id').or(`ra_doc_id.eq.${r.id},ms_doc_id.eq.${r.id}`).limit(1)).data as { id: string }[] | null)?.[0];
+                    if (b) { router.push(`/sites/${site.id}/hs/rams/build/${b.id}` as never); toast('Make your changes, then Re-issue on the Issue tab'); return; }
+                    // Uploaded: the revised PDF replaces it and everyone signs again.
+                    if (!(await confirmAsk(`Revise "${r.name}"? Choose the revised PDF — it replaces this one (kept under Superseded) and everyone on the job is asked to sign again.`, 'Choose PDF'))) return;
+                    const p = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true });
+                    if (p.canceled || !p.assets[0]) return;
+                    setBusy(true);
+                    try {
+                      const rr = r as HsDoc & { sign_layout?: object | null };
+                      const err = await uploadHsDoc(me, 'rams', site.id, { name: r.name, docType: r.doc_type || 'RAMS', supersedesId: r.id, file: { uri: p.assets[0].uri, name: p.assets[0].name || 'rams.pdf' }, signLayout: rr.sign_layout ?? null });
+                      toast(err ?? 'RAMS revised and re-issued — everyone will be asked to sign again'); refresh();
+                    } finally { setBusy(false); }
+                  }
                   else if (k === 'multi') {
                     const cur = (r as { sign_layout?: { multi?: boolean } | null }).sign_layout;
                     const ok = !!(await supabase.from('rams_docs').update({ sign_layout: { v: 2, boxes: [], ...(cur || {}), multi: !cur?.multi } } as never).eq('id', r.id).select('id')).data?.length;
