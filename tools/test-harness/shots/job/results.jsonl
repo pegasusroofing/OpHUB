@@ -1597,3 +1597,9 @@
 {"part":"invlock1","step":"Edit lines opens them again","ok":true,"note":"boxes 2, test draft deleted true","ms":6763}
 {"part":"invlock1","step":"Issued: locked, Edit lines warns about Xero, Cancel leaves it","ok":true,"note":"before 0, warned 1, open 2","ms":14439}
 {"part":"zztidy","step":"Delete my empty test draft","ok":true,"note":"done","ms":16023}
+{"part":"invbill1","step":"Closed client details, tap to change","ok":true,"note":"closed 3, boxes 2 > 3 | Bill to RTB Roofing Billing address Accounts email andy.cramp+demo@rtbroofinglimited.com Client P","ms":13507}
+{"part":"invlock1","step":"New draft: lines open; Save draft locks them","ok":true,"note":"open 2, after save 0, edit link 1","ms":16334}
+{"part":"invlock1","step":"Edit lines opens them again","ok":true,"note":"boxes 2, test draft deleted true","ms":4609}
+{"part":"invlock1","step":"Issued: locked, Edit lines warns about Xero, Cancel leaves it","ok":true,"note":"before 0, warned 1, open 2","ms":14571}
+{"part":"invcode1","step":"£ box, red minus, sales code saved with the line","ok":true,"note":"colour rgb(192, 57, 43), saved {\"vat\":\"rc20\",\"amount\":-50,\"account\":\"215\",\"description\":\"ZZ code test\"}","ms":18844}
+{"part":"invcode1","step":"Locked view: red total, then delete the test draft","ok":true,"note":"red figures 3, deleted true","ms":2958}

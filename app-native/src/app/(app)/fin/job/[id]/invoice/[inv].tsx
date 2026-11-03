@@ -128,6 +128,24 @@ function LinesEdit({ d, setD }: { d: Row; setD: (d: Row) => void }) {
   );
 }
 
+/** A detail that reads as text until tapped, then a box to change it (Andy, 3 Nov 2026): the Directory fills these in. */
+function TapField({ label, value, onChange, multiline, half, email }: { label: string; value: unknown; onChange: (v: string) => void; multiline?: boolean; half?: boolean; email?: boolean }) {
+  const v = String(value ?? '');
+  const [on, setOn] = useState(false);
+  return (
+    <View style={{ flexBasis: half ? '47%' : '100%', flexGrow: 1, marginBottom: 8 }}>
+      <Muted style={{ fontWeight: '500' }}>{label}</Muted>
+      {on ? <TextInput autoFocus value={v} onChangeText={onChange} onBlur={() => setOn(false)} multiline={multiline} autoCapitalize={email ? 'none' : 'sentences'} keyboardType={email ? 'email-address' : 'default'} style={[box, multiline ? { minHeight: 60 } : null]} />
+        : (
+          <Pressable accessibilityRole="button" accessibilityLabel={`Change ${label.toLowerCase()}`} onPress={() => setOn(true)} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 40, paddingHorizontal: 11, paddingVertical: 8, borderRadius: radius.input, backgroundColor: '#F6F7F9' }}>
+            <Text numberOfLines={multiline ? 4 : 1} style={{ flex: 1, color: v ? base.ink : base.slate, fontSize: 15 }}>{v || 'Tap to add'}</Text>
+            <OphIcon name="pencil" size={14} color={base.slate} />
+          </Pressable>
+        )}
+    </View>
+  );
+}
+
 function Draft({ inv, site }: { inv: Row; site: Row | undefined }) {
   const { me, org } = useAuth();
   const toast = useToast();
@@ -136,6 +154,18 @@ function Draft({ inv, site }: { inv: Row; site: Row | undefined }) {
   const [busy, setBusy] = useState('');
   // Lines are locked once saved (Andy, 3 Nov 2026): a new, empty draft starts open; Edit lines opens them again.
   const [editing, setEditing] = useState(() => inv.source !== 'certificate' && !(inv.lines || []).some((l: Row) => String(l.description || '').trim() || (l.amount != null && l.amount !== '')));
+  // The client's name, address and accounts email come from the Directory (by the name on the job), so there's nothing to type.
+  useEffect(() => {
+    const name = String(inv.bill_name || site?.client_name || '').trim();
+    if (!name || !me?.org_id || (inv.bill_name && inv.bill_address && inv.bill_email)) return;
+    let live = true;
+    void fdb.from('fin_clients').select('name,address,postcode,email').eq('org_id', me.org_id).then(({ data }: { data: unknown }) => {
+      const c = ((data as Row[] | null) ?? []).find((x) => String(x.name || '').trim().toLowerCase() === name.toLowerCase());
+      if (!c || !live) return;
+      setD((x) => ({ ...x, bill_name: x.bill_name || c.name, bill_address: x.bill_address || [c.address, c.postcode].filter(Boolean).join('\n') || null, bill_email: x.bill_email || c.email || null }));
+    });
+    return () => { live = false; };
+  }, [site?.client_name, me?.org_id]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!me) return null;
   const t = invTotals(d.lines, d.vat_treatment, d.vat_rate);
   const set = (k: string, v: unknown) => setD({ ...d, [k]: v });
@@ -155,7 +185,7 @@ function Draft({ inv, site }: { inv: Row; site: Row | undefined }) {
             const k = await chooseAction('Bill to', cs.map((c) => ({ key: c.id, label: c.name }))); const c = cs.find((x) => x.id === k); if (!c) return;
             setD({ ...d, bill_name: c.name, bill_address: [c.address, c.postcode].filter(Boolean).join('\n') || d.bill_address, bill_email: c.email || d.bill_email });
           }}>Choose from the Directory ▾</Text>
-          {field('bill_name', 'Bill to')}{field('bill_address', 'Billing address', { multiline: true })}{field('bill_email', 'Accounts email', { half: true })}
+          <TapField label="Bill to" value={d.bill_name} onChange={(v) => set('bill_name', v)} /><TapField label="Billing address" value={d.bill_address} multiline onChange={(v) => set('bill_address', v)} /><TapField label="Accounts email" value={d.bill_email} half email onChange={(v) => set('bill_email', v)} />
           {field('client_po', 'Client PO', { half: true })}{field('issue_date', 'Invoice date', { half: true, date: true })}{field('due_date', 'Due date', { half: true, date: true })}
         </View>
         <InvoicePlot inv={d} site={site} onSet={(v) => set('sub_job_id', v)} />
