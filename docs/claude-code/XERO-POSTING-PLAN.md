@@ -3,8 +3,8 @@
 ## How it works today
 - **Sales invoices** go to Xero when they're **issued**.
 - **Purchase invoices (bills)** go when they're **approved**.
-- **Subcontractor payments** go when they're **approved**.
-- **Conditions:** each only happens when Xero is connected, "send automatically" is on in Finance Settings, and the record isn't set to stay out of Xero or already in it.
+- **Subcontractor payments** only go when someone presses **Post to Xero** on them. There's nothing automatic yet.
+- **Conditions:** the automatic ones only happen when Xero is connected, "send automatically" is on in Finance Settings, and the record isn't set to stay out of Xero or already in it.
 - **Manual posting:** every record page has a **Post to Xero** button for anything that didn't go automatically.
 - **Voids:** voiding an issued invoice that's in Xero voids it there too. Editing lines after posting doesn't re-post; the app warns about that.
 - **During the Finance trial** nothing goes to Xero for RTB. Sandbox is exempt.
