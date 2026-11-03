@@ -234,12 +234,12 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
                   row('Contract Works', 'contract'), row('Variations', 'variations'), row('Day Works', 'dayworks'), row('Subtotal', 'gross', { bold: true }),
                   row('Less Discount', 'discount', { neg: true }), row('Less Retention', 'retention', { neg: true }),
                   { l: 'Balance', bold: true, v: gridCert ? [round2(ap.gross - ap.discount - ap.retention), netTo, prevNet, thisNet] : [netTo, prevNet, thisNet] },
-                  ...(vat ? [{ l: 'VAT @ 20%', v: blank(round2(thisNet * 0.2)) }] : rc ? [{ l: 'VAT (Reverse Charge, Not Added)', v: blank(round2(thisNet * 0.2)) }] : []),
+                  ...(vat ? [{ l: 'VAT @ 20%', v: blank(round2(thisNet * 0.2)) }] : rc ? [{ l: 'Reverse Charge VAT', v: blank(round2(thisNet * 0.2)) }] : []),
                   { l: 'Total Due', total: true, v: blank(vat ? round2(thisNet * 1.2) : thisNet) },
                 ];
               })()} />
             </Panel>
-            <Muted style={{ fontSize: 12, marginTop: -6, marginBottom: 12 }}>An application isn&apos;t a VAT invoice; the invoice follows the certificate.</Muted>
+            <Muted style={{ fontSize: 12, marginTop: -6, marginBottom: 12 }}>An application isn&apos;t a VAT invoice; the invoice follows the certificate.{(jf.vat_treatment || finSt?.default_vat) === 'reverse_charge' ? ' Reverse charge VAT is shown for the client to account for, and isn&apos;t added to the total.' : ''}</Muted>
             {stage === 'applied' && !certing && (
               <>
                 <ActionRow onDelete={deleteAny}>
