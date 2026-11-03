@@ -25,7 +25,7 @@ module.exports = async ({as, step}) => {
     await q('Line By Line').first().click(); await a.page.waitForTimeout(500);
     await q('Bulk Edit ▾').first().click(); await a.page.waitForTimeout(400); await q('Set every line to 100%').first().click(); await a.page.waitForTimeout(3500);
     await q('Overview').last().click(); await a.page.waitForTimeout(600);
-    await q('Apply For Payment').first().click({timeout: 5000}); await a.page.waitForTimeout(800); await a.shot('ret-offer');
+    await q('Apply For Payment').first().click({timeout: 5000}); await a.page.waitForTimeout(800); await q('Apply For Payment').last().click({timeout: 5000}); await a.page.waitForTimeout(800); await a.shot('ret-offer');
     const offered = await q('Everything is 100% complete').count();
     await a.page.getByLabel('Close').locator('visible=true').last().click().catch(() => {}); await a.page.waitForTimeout(500);
     const id = new URL(a.page.url()).pathname.split('/').pop(), [r] = await a.get('fin_applications?select=status&id=eq.' + id);

@@ -1607,3 +1607,26 @@
 {"part":"invmail1","step":"Email Invoice and Export PDF on an issued invoice","ok":true,"note":"buttons 2, template 1, subject has number 1","ms":15237}
 {"part":"appret3","step":"Overview: nothing new on variations","ok":true,"note":"Variations £100.00 £100.00 £0.00","ms":10816}
 {"part":"appret3","step":"Certify: certified to date starts at last time","ok":true,"note":"Subtotal £710.00 £710.00 £710.00 £0.00","ms":2063}
+{"part":"appreg1","step":"+ Variation Line: pop-up with status and Schedule of Works, saved to the Variations tab","ok":true,"note":"{\"id\":\"c5613141-0aea-4728-9cd7-185909675870\",\"status\":\"instructed\",\"quoted\":100,\"number\":\"V001\"}, sow tick 1 42","ms":17212}
+{"part":"appreg1","step":"+ Add Day Work: saved to the Day works tab","ok":true,"note":"{\"id\":\"03021d8a-1818-4230-85bf-4dc6906a9275\",\"status\":\"issued\",\"value\":75}, linked on the application true","ms":8107}
+{"part":"appvargrp1","step":"Groups at 1440","ok":true,"note":"approved heads 0, not approved heads 1","ms":13349}
+{"part":"appvargrp1","step":"Groups at 430","ok":true,"note":"approved heads 0, not approved heads 1","ms":13075}
+{"part":"appvargrp1","step":"Groups at 1440","ok":true,"note":"approved heads 1, not approved heads 1","ms":13437}
+{"part":"appvargrp1","step":"Groups at 430","ok":true,"note":"approved heads 1, not approved heads 1","ms":13179}
+{"part":"appret3","step":"Overview: nothing new on variations","ok":true,"note":"Variations £100.00 £100.00 £0.00","ms":10869}
+{"part":"appret3","step":"Certify: certified to date starts at last time","ok":true,"note":"Subtotal £710.00 £710.00 £710.00 £0.00","ms":2066}
+{"part":"appflow1","step":"BoQ: all on one row, capital letter","ok":true,"note":"row offset -6, Strip tiles","ms":13899}
+{"part":"appflow1","step":"Draft: click selects, no jump after typing and returning to the window","ok":true,"note":"typed 50, scroll 499 > 499, still 50","ms":21887}
+{"part":"appflow1","step":"Variation quantity sets the value","ok":true,"note":"value £300","ms":1956}
+{"part":"appflow1","step":"Buttons on one row, then certified on each line","ok":false,"note":"locator.click: Timeout 5000ms exceeded.","ms":5193}
+{"part":"appflow1","step":"BoQ: all on one row, capital letter","ok":true,"note":"row offset -6, Strip tiles","ms":14090}
+{"part":"appflow1","step":"Draft: click selects, no jump after typing and returning to the window","ok":true,"note":"typed 50, scroll 499 > 499, still 50","ms":21896}
+{"part":"appflow1","step":"Variation quantity sets the value","ok":true,"note":"value £300","ms":3664}
+{"part":"appflow1","step":"Buttons on one row, then certified on each line","ok":false,"note":"locator.click: Timeout 5000ms exceeded.","ms":10592}
+{"part":"appflow1","step":"BoQ: all on one row, capital letter","ok":true,"note":"row offset -6, Strip tiles","ms":14791}
+{"part":"appflow1","step":"Draft: click selects, no jump after typing and returning to the window","ok":true,"note":"typed 50, scroll 499 > 499, still 50","ms":21849}
+{"part":"appflow1","step":"Variation quantity sets the value","ok":true,"note":"value £300","ms":3768}
+{"part":"appflow1","step":"Buttons on one row, then certified on each line","ok":true,"note":"one row true, submitted, certified boxes 15, variation kept true","ms":11039}
+{"part":"appret2","step":"Phone: Hide the qty column, kept with the application","ok":true,"note":"qty headings 4 > 0, saved true, back false","ms":16072}
+{"part":"appret2","step":"Everything at 100%: Apply For Payment offers the first half of the retention","ok":true,"note":"offered 1, still draft","ms":20108}
+{"part":"appret2","step":"Overview: Retention Release row","ok":true,"note":"button 1, choices 1","ms":11290}

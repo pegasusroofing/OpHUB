@@ -3,8 +3,8 @@
 // works), saving, Applied (locked) / back to draft, the client's certificate,
 // and the invoice raised from it.
 import { issue } from '@/data/finInvoice';
-import { fdb, finInvoke, loadSettings } from '@/data/finance';
-import { syncSiteVariationValues } from '@/data/finVar';
+import { fdb, finInvoke, insertNumbered, loadSettings } from '@/data/finance';
+import { syncSiteVariationValues, varToSow } from '@/data/finVar';
 import { buildAppPdf } from '@/lib/finAppPdf';
 import { deliverPdf, deliverXlsx, PDFDocument } from '@/lib/pdf';
 import { buildSowPdf, sowPeriod } from '@/lib/sowPdf';
@@ -30,8 +30,10 @@ function registerRows(prev: Row | undefined, vars: Row[], fvars: Row[], fdays: R
   const varRows: Row[] = fvars.map((v) => ({ fin_variation_id: v.id, variation_id: v.variation_id || null, description: `${v.number} ${v.title}`, value: v.agreed_value != null ? Number(v.agreed_value) : Number(v.quoted || 0), pct: lastFinVar[v.id] ? lastFinVar[v.id].pct : 100 }));
   vars.filter((v) => !linked.has(v.id)).forEach((v) => { const p = lastVar[v.id], amt = Number(String(v.cost_impact ?? '').replace(/[£,\s]/g, '')); varRows.push({ variation_id: v.id, description: v.description || 'Variation', value: isNaN(amt) || !String(v.cost_impact ?? '').trim() ? (p ? p.value : 0) : amt, pct: p ? p.pct : 100 }); });
   (prev?.variations || []).filter((v: Row) => !v.variation_id && !v.fin_variation_id).forEach((v: Row) => varRows.push({ ...v }));
+  // Added on an application and not approved yet (Andy, 3 Nov 2026): it carries on until it's approved or certified.
+  (prev?.variations || []).filter((v: Row) => v.fin_variation_id && !fvars.some((f) => f.id === v.fin_variation_id)).forEach((v: Row) => varRows.push({ ...v }));
   const dayRows: Row[] = fdays.map((d) => ({ fin_daywork_id: d.id, description: `${d.number ? `${d.number} ` : ''}${d.title}`, value: Number(d.value || 0) }))
-    .concat((prev?.dayworks || []).filter((d: Row) => !d.fin_daywork_id).map((d: Row) => ({ ...d })));
+    .concat((prev?.dayworks || []).filter((d: Row) => !d.fin_daywork_id || !fdays.some((f) => f.id === d.fin_daywork_id)).map((d: Row) => ({ ...d })));
   return { varRows, dayRows };
 }
 const loadRegisters = (siteId: string) => Promise.all([
@@ -169,6 +171,49 @@ export async function raiseRetentionInvoice(me: Profile, siteId: string, n: 1 | 
 /** Release retention through an application (9219zn finApplyRetention): the draft application (or a new
  *  one) gets retention at half the rate for the first release, 0% for the final, so the client pays
  *  it back when they certify. The project remembers which application did it. */
+/** Variations and day works added on an application go into the Variations and Day works tabs too (Andy, 3 Nov 2026).
+ *  status: instructed (not approved) / submitted (issued) / agreed (approved); sow also puts it on the operatives' Schedule of Works. */
+export async function addAppVariation(me: Profile, siteId: string, o: { title: string; qty: number; rate: number; status: string; sow: boolean }): Promise<{ row?: Row; error?: string; sow?: string }> {
+  const value = round2(o.qty * o.rate);
+  const v = await insertNumbered('fin_variations', { col: 'site_id', val: siteId }, (n) => `V${String(n).padStart(3, '0')}`, {
+    org_id: me.org_id, site_id: siteId, created_by: me.id, title: o.title.slice(0, 200), status: o.status, quoted: value,
+    agreed_value: o.status === 'agreed' ? value : null, agreed_on: o.status === 'agreed' ? today() : null, instructed_on: today(), notes: 'Added on an application',
+  }) as Row | null;
+  if (!v) return { error: 'Could not add the variation — try again.' };
+  const sow = o.sow ? await varToSow(me, siteId, v, []) : null;
+  return { row: { fin_variation_id: v.id, variation_id: null, description: `${v.number} ${v.title}`, qty: o.qty, rate: o.rate, value, pct: 100 }, sow: sow ? sow.error || sow.ok : undefined };
+}
+/** status: issued (waiting for approval) / approved. */
+export async function addAppDaywork(me: Profile, siteId: string, o: { title: string; value: number; status: string }): Promise<{ row?: Row; error?: string }> {
+  const d = await insertNumbered('fin_dayworks', { col: 'site_id', val: siteId }, (n) => `DW${String(n).padStart(3, '0')}`, {
+    org_id: me.org_id, site_id: siteId, created_by: me.id, title: o.title.slice(0, 200), value: round2(o.value), status: o.status, work_date: today(), approved_on: o.status === 'approved' ? today() : null, notes: 'Added on an application',
+  }) as Row | null;
+  if (!d) return { error: 'Could not add the day work — try again.' };
+  return { row: { fin_daywork_id: d.id, description: `${d.number} ${d.title}`, value: round2(o.value) } };
+}
+/** On Apply for payment: any variation or day work typed straight onto the application goes into its tab as issued. */
+export async function registerTyped(me: Profile, a: Row): Promise<Row> {
+  const variations = await Promise.all((a.variations || []).map(async (v: Row) => {
+    if (v.fin_variation_id || v.variation_id || !String(v.description || '').trim()) return v;
+    const r = await addAppVariation(me, a.site_id, { title: String(v.description).trim(), qty: Number(v.qty) > 0 ? Number(v.qty) : 1, rate: Number(v.rate ?? v.value ?? 0), status: 'submitted', sow: false });
+    return r.row ? { ...v, fin_variation_id: r.row.fin_variation_id, description: r.row.description } : v;
+  }));
+  const dayworks = await Promise.all((a.dayworks || []).map(async (d: Row) => {
+    if (d.fin_daywork_id || !String(d.description || '').trim()) return d;
+    const r = await addAppDaywork(me, a.site_id, { title: String(d.description).trim(), value: Number(d.value || 0), status: 'issued' });
+    return r.row ? { ...d, fin_daywork_id: r.row.fin_daywork_id, description: r.row.description } : d;
+  }));
+  return { ...a, variations, dayworks };
+}
+/** Once the client certifies a variation or day work, it's approved in its tab. */
+export async function approveCertified(certLines: Row[]): Promise<void> {
+  const vs = certLines.filter((l) => l.var_index != null && l.fin_variation_id && Number(l.gross) > 0), ds = certLines.filter((l) => l.day_index != null && l.fin_daywork_id && Number(l.gross) > 0);
+  await Promise.all([
+    ...vs.map((l) => fdb.from('fin_variations').update({ status: 'agreed', agreed_value: round2(Number(l.value || 0)), agreed_on: today(), updated_at: new Date().toISOString() } as never).eq('id', l.fin_variation_id).neq('status', 'agreed')),
+    ...ds.map((l) => fdb.from('fin_dayworks').update({ status: 'approved', approved_on: today(), updated_at: new Date().toISOString() } as never).eq('id', l.fin_daywork_id).neq('status', 'approved')),
+  ]);
+}
+
 export async function applyRetention(me: Profile, siteId: string, n: 1 | 2): Promise<{ id?: string; number?: number; pct?: number; error?: string }> {
   const [jfR, apps, st] = await Promise.all([rows(fdb.from('job_finance').select('*').eq('site_id', siteId)), rows(fdb.from('fin_applications').select('id,number,status,cert_retention').eq('site_id', siteId).order('number', { ascending: false })), loadSettings(me.org_id)]);
   const jf = jfR[0] || {};

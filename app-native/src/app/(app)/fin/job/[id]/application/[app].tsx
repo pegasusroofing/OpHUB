@@ -7,7 +7,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { pdfLines } from '@/lib/pdfjs';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { cloneElement, createContext, isValidElement, useContext, useEffect, useRef, useState, type ComponentRef, type ReactElement, type ReactNode } from 'react';
+import { Fragment, cloneElement, createContext, isValidElement, useContext, useEffect, useRef, useState, type ComponentRef, type ReactElement, type ReactNode } from 'react';
 import { Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { ThinExportBar } from '@/components/FinFilterBar';
@@ -20,7 +20,7 @@ import { Button, Card, Check, Muted } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
 import { askAppSow } from '@/components/FinRowMenu';
 import { DateBox } from '@/components/DateField';
-import { addBoqLines, addBoqSection, applyRetention, clearCertificate, emailApplication, deleteApplication, deleteApplicationAny, exportApplication, loadApplication, newApplication, raiseInvoiceFromCert, saveApplication, saveCertificate, setStatus } from '@/data/finApp';
+import { addAppDaywork, addAppVariation, addBoqLines, addBoqSection, applyRetention, approveCertified, clearCertificate, registerTyped, emailApplication, deleteApplication, deleteApplicationAny, exportApplication, loadApplication, newApplication, raiseInvoiceFromCert, saveApplication, saveCertificate, setStatus } from '@/data/finApp';
 import { fdb, useFinSettings } from '@/data/finance';
 import { openDocLink } from '@/data/hs';
 import { useSite } from '@/data/sites';
@@ -93,6 +93,7 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
   const [hideZero, setHideZero] = useState(false);
   const [busy, setBusy] = useState('');
   const [adding, setAdding] = useState<'line' | 'section' | null>(null);
+  const [addingReg, setAddingReg] = useState<'variation' | 'daywork' | null>(null);
   // Bumped when a button changes many lines at once, so the % / £ boxes show the new figures.
   const [gen, setGen] = useState(0); // a new Bill of Quantities line / header (9219n)
   // Autosave (9219ze): a copy on this device after every change, saved to the server two seconds after
@@ -103,6 +104,7 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
   const autoSave = useRef<(() => Promise<unknown>) | null>(null);
   useFlushOnLeave(autoSave);
   const cert = useCert(a0, jf, previousLive, prevPct, prevVar);
+  const { data: varState = {} } = useQuery({ queryKey: ['finVarStatus', a0.site_id], queryFn: async () => Object.fromEntries((((await fdb.from('fin_variations').select('id,status').eq('site_id', a0.site_id)).data as Row[] | null) ?? []).map((v) => [v.id, v.status])) as Record<string, string> });
   const retryT = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     const on = () => { void autoSave.current?.(); };
@@ -200,6 +202,10 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
     if (k) await releaseRet(Number(k) as 1 | 2);
   };
   const allDone = (a.lines || []).filter(isItem).every((l: Row) => pct(l.pct) >= 100) && (a.variations || []).every((v: Row) => pct(v.pct) >= 100) && (a.lines || []).some(isItem);
+  // Variations split into approved and not approved yet (Andy, 3 Nov 2026): approved in the Variations tab, or approved on site.
+  // A typed-in one the client has already certified counts as approved.
+  const varOk = (v: Row) => (v.fin_variation_id ? varState[v.fin_variation_id] === 'agreed' : !!v.variation_id || (prevVar[varKey(v)] || 0) > 0);
+  const varGroups = ([['Approved', c.variations.map((_: Row, i: number) => i).filter((i: number) => varOk(c.variations[i]))], ['Not Approved Yet', c.variations.map((_: Row, i: number) => i).filter((i: number) => !varOk(c.variations[i]))]] as [string, number[]][]).filter(([, ix]) => ix.length);
   const contractTotal = c.lines.filter(isItem).reduce((n: number, l: Row) => n + Number(l.value || 0), 0);
   // The client's figures: as entered while waiting for the certificate, then as saved.
   const certPrev = stage === 'applied' ? num(cert.v.cert_previous) || 0 : Number(a0.cert_previous || 0);
@@ -426,6 +432,36 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
           <Button small kind="ghost" title="+ Add A Section" onPress={() => setAdding('section')} />
         </View>
       )}
+      {addingReg && me && (
+        <FinForm title={addingReg === 'variation' ? 'New Variation' : 'New Day Work'} onClose={() => setAddingReg(null)}
+          note={addingReg === 'variation' ? 'It goes into the Variations tab too, and is approved there or when the client certifies it.' : 'It goes into the Day works tab too, and is approved there or when the client certifies it.'}
+          initial={addingReg === 'variation' ? { qty: '1', status: 'instructed', sow: false } : { status: 'issued' }}
+          fields={addingReg === 'variation' ? [
+            { k: 'title', label: 'Description' },
+            { k: 'qty', label: 'Qty', kind: 'number', half: true }, { k: 'rate', label: 'Rate £', kind: 'money', half: true },
+            { k: 'status', label: 'Status', kind: 'choice', options: [['instructed', 'Not approved'], ['submitted', 'Issued'], ['agreed', 'Approved']] },
+            { k: 'sow', label: "Add it to the operatives' Schedule of Works", kind: 'check' },
+          ] : [
+            { k: 'title', label: 'Description' }, { k: 'value', label: 'Value £', kind: 'money', half: true },
+            { k: 'status', label: 'Status', kind: 'choice', options: [['issued', 'Issued — waiting for approval'], ['approved', 'Approved']], half: true },
+          ]}
+          onSave={async (v) => {
+            const title = String(v.title || '').trim(); if (!title) return 'Enter the description.';
+            const n = (k: string) => { const x = num(v[k]); return x === null || isNaN(x) ? null : x; };
+            if (addingReg === 'variation') {
+              const qty = n('qty') ?? 1, rate = n('rate'); if (rate == null) return 'Enter the rate.';
+              const r = await addAppVariation(me, a0.site_id, { title, qty, rate, status: String(v.status || 'instructed'), sow: !!v.sow });
+              if (!r.row) return r.error || 'Could not add — try again.';
+              setA({ ...a, variations: [...(a.variations || []), r.row] }); setGen((g) => g + 1); void qc.invalidateQueries({ queryKey: ['finVarStatus'] }); toast(r.sow ? `Variation added — ${r.sow}` : 'Variation added — it\u2019s in the Variations tab too');
+              return null;
+            }
+            const value = n('value'); if (value == null) return 'Enter the value.';
+            const r = await addAppDaywork(me, a0.site_id, { title, value, status: String(v.status || 'issued') });
+            if (!r.row) return r.error || 'Could not add — try again.';
+            setA({ ...a, dayworks: [...(a.dayworks || []), r.row] }); toast('Day work added — it\u2019s in the Day works tab too');
+            return null;
+          }} />
+      )}
       {adding && me && (
         <FinForm title={adding === 'line' ? 'Add A Line' : 'Add A Section'} onClose={() => setAdding(null)}
           note={adding === 'line' ? 'It goes into the Bill of Quantities too, so it carries on to later applications.' : 'A new header at the end of the Bill of Quantities.'}
@@ -467,9 +503,9 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
             setA({ ...a, lines: L }); toast('Line added'); return null;
           }} />
       )}
-      {(c.variations.length > 0 || !locked) && <SecBlock title="Variations" total={round2(c.variations.reduce((n: number, v: Row) => n + Number(v.gross || 0), 0))} tools={!locked ? <Button small kind="ghost" title="+ Variation Line" onPress={() => setA({ ...a, variations: [...(a.variations || []), { variation_id: null, description: '', value: null, pct: 100 }] })} /> : undefined}>
+      {(c.variations.length > 0 || !locked) && <SecBlock title="Variations" total={round2(c.variations.reduce((n: number, v: Row) => n + Number(v.gross || 0), 0))} tools={!locked ? <Button small kind="ghost" title="+ Variation Line" onPress={() => setAddingReg('variation')} /> : undefined}>
       {desk ? gridHead : <FigHead />}
-      {c.variations.map((v: Row, i: number) => desk ? (() => {
+      {varGroups.map(([gl, idxs]) => <Fragment key={gl}><VarHead label={gl} total={round2(idxs.reduce((n: number, i: number) => n + Number((c.variations[i] as Row).gross || 0), 0))} />{idxs.map((i: number) => { const v = c.variations[i] as Row; return desk ? (() => {
         const val = Number(v.value || 0), prev = round2((val * (prevVar[varKey(v)] || 0)) / 100), cp0 = pct(cert.cp[`v${i}`]);
         const cl = certDone ? (a0.cert_lines || []).find((x: Row) => x.var_index === i) : null;
         const certG = certing ? round2((val * cp0) / 100) : cl ? Number(cl.gross || 0) : null;
@@ -513,10 +549,10 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
           {certDone && (() => { const cl = (a0.cert_lines || []).find((x: Row) => x.var_index === i), cp1 = cl && Number(v.value) ? pct((Number(cl.gross) / Number(v.value)) * 100) : null; return <FigRow label="Certified" bold rate={rate} pct={cp1 != null ? `${cp1}%` : '—'} qty={cp1 != null ? qd(cp1) : ''} total={cl ? money(cl.gross) : '—'} />; })()}
         </View>
         );
-      })())}
+      })(); })}</Fragment>)}
       </SecBlock>}
       {/* 902: typed day works can be added and changed on a draft; ones from the Day works register stay as they are. */}
-      {(c.dayworks.length > 0 || !locked) && <SecBlock title="Day Works" total={round2(c.dayworks.reduce((n: number, d: Row) => n + Number(d.gross || 0), 0))} tools={!locked ? <Button small kind="ghost" title="+ Add Day Work" onPress={() => setA({ ...a, dayworks: [...(a.dayworks || []), { description: '', value: null }] })} /> : undefined}>
+      {(c.dayworks.length > 0 || !locked) && <SecBlock title="Day Works" total={round2(c.dayworks.reduce((n: number, d: Row) => n + Number(d.gross || 0), 0))} tools={!locked ? <Button small kind="ghost" title="+ Add Day Work" onPress={() => setAddingReg('daywork')} /> : undefined}>
       {desk ? gridHead : <FigHead />}
       {c.dayworks.map((d: Row, i: number) => desk ? (() => {
         const typed = !locked && !d.fin_daywork_id;
@@ -549,14 +585,16 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
           <Button kind="ghost" busy={busy === 'save'} title="Save" onPress={() => void save()} />
           <Button kind="ghost" busy={busy === 'xlsx'} title="Export Excel" onPress={() => void exportAs('xlsx', true)} />
           <Button title="Apply For Payment" onPress={async () => {
+            // Asked first, so saying No changes nothing: then the retention offer, then typed lines go into their tabs.
+            if (!(await confirmAsk('Apply for payment? The application is locked so the figures can’t change. You can return it to draft if you need to edit it.', 'Apply For Payment'))) return;
             let x = a;
             if (allDone && !a.retention_release && !ret1Done && Number(a.retention_pct || 0) > 0) {
               const k = await chooseAction('Everything is 100% complete', [{ key: 'yes', label: 'Also apply for the first half of the retention (practical completion)' }, { key: 'no', label: 'No — just apply for payment' }]);
               if (!k) return;
               if (k === 'yes') { const r = await releaseRet(1); if (!r) return; x = r; }
             }
+            if (me) { x = await registerTyped(me, x); if (x !== a) setA(x); }
             if (!(await save(true, x))) return;
-            if (!(await confirmAsk('Apply for payment? The application is locked so the figures can’t change. You can return it to draft if you need to edit it.', 'Apply For Payment'))) return;
             if (await setStatus(a0.id, { status: 'submitted', submitted_at: new Date().toISOString() })) { toast('Applied for payment — now locked.'); refresh(); } else toast('Not saved — check your signal and try again.');
           }} />
         </ActionRow>
@@ -616,6 +654,15 @@ function TapEdit({ value, onChange, placeholder = 'Tap to add a description' }: 
 const FIG_F = { label: 1.1, unit: 0.8, rate: 1.05, pct: 1, qty: 1, total: 1.3 };
 /** Phone: one figures row under a line (Andy, 3 Nov 2026) — Contract, Previous, Applied or Certified, then unit, rate, %, qty and
  *  total. Boxes to type in take the place of the figures they set; plain rows (contract, previous) have no band. */
+/** A grey bar over each group of variations, with what's applied for in it. */
+function VarHead({ label, total }: { label: string; total: number }) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#DFE3EA', paddingVertical: 7, paddingHorizontal: 12 }}>
+      <Text style={{ flex: 1, fontWeight: '600', fontSize: 13, color: base.ink }}>{label}</Text>
+      <Text style={{ fontWeight: '600', fontSize: 13, color: base.ink }}>{money(total)}</Text>
+    </View>
+  );
+}
 const QtyHidden = createContext(false);
 function FigRow({ label, unit = '', rate = '', pct: pc = '', qty = '', total, warn, inputs, plain, bold }: { label: string; unit?: string; rate?: string; pct?: string; qty?: string; total: string; warn?: boolean; inputs?: Partial<Record<'unit' | 'rate' | FigCol, ReactNode>>; plain?: boolean; bold?: boolean }) {
   const noQty = useContext(QtyHidden);
@@ -922,6 +969,7 @@ function Certificate({ a, cert, onSaved, jf, actions }: { a: Row; jf: Row; cert:
           const certLines = [...ca.lines.filter(isItem).map((l: Row) => ({ item_id: l.item_id, pct: l.pct, gross: l.gross, value: l.value, applied_pct: pct((a.lines || []).find((y: Row) => y.item_id === l.item_id)?.pct) })), ...ca.variations.map((x: Row, i: number) => ({ var_index: i, fin_variation_id: x.fin_variation_id || null, variation_id: x.variation_id || null, description: x.description, pct: x.pct, gross: x.gross, value: x.value, applied_pct: pct(a.variations?.[i]?.pct) })), ...ca.dayworks.map((d: Row, i: number) => ({ day_index: i, fin_daywork_id: d.fin_daywork_id || null, description: d.description, gross: d.gross }))];
           const e = await saveCertificate(me, a, { ...v, cert_gross: vals[0], cert_retention: vals[1], cert_previous: vals[2], cert_discount: vals[3], cert_net: net, cert_lines: certLines }, file);
           if (e) { toast(e); return; }
+          await approveCertified(certLines);
           if (raise && net <= 0) { toast('Certificate saved — nothing to invoice, as the net due isn’t above £0.'); onSaved(); return; }
           if (raise) {
             const r = await raiseInvoiceFromCert(me, org, { ...a, cert_gross: vals[0], cert_retention: vals[1], cert_previous: vals[2], cert_discount: vals[3], cert_net: net, cert_date: v.cert_date }, site as never, false);

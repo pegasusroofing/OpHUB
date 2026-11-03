@@ -13,7 +13,7 @@ module.exports = async ({as, step}) => {
       await q('Line By Line').first().click({timeout: 5000}); await a.page.waitForTimeout(500);
       await q('Set All To 100%').first().click({timeout: 5000}); await a.page.waitForTimeout(3500);
       await q('Apply For Payment').first().click({timeout: 5000}); await a.page.waitForTimeout(1500);
-      await q('Apply For Payment').last().click({timeout: 5000}); await a.page.waitForTimeout(3500);
+      await q('Apply For Payment').last().click({timeout: 5000}); await a.page.getByText(/^No — just apply/).locator('visible=true').first().click({timeout: 2000}).catch(() => {}); await a.page.waitForTimeout(2500); await a.page.waitForTimeout(3500);
       app = {id};
     }
     const [r] = await a.get('fin_applications?select=status&id=eq.' + app.id);
