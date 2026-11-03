@@ -570,10 +570,10 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
       )}
     </ScrollView>
     {view === 'lines' && (
-      <View accessibilityLabel="Totals" style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-end', columnGap: desk ? 26 : 12, backgroundColor: t.brand1, paddingVertical: 8, paddingHorizontal: 16 }}>
-        <Text style={{ fontSize: desk ? 14 : 12, color: t.brand1Text }}>Applied To Date <Text style={{ fontWeight: '600' }}>{money(c.gross)}</Text></Text>
-        {certFig && <Text style={{ fontSize: desk ? 14 : 12, color: t.brand1Text }}>Certified To Date <Text style={{ fontWeight: '600' }}>{money(certFig.gross)}</Text></Text>}
-        <Text style={{ fontSize: desk ? 14 : 12, color: t.brand1Text }}>Due This Time <Text style={{ fontWeight: '600' }}>{money(dueNow)}</Text></Text>
+      <View accessibilityLabel="Totals" style={{ flexDirection: 'row', flexWrap: 'nowrap', justifyContent: desk ? 'flex-end' : 'space-between', columnGap: desk ? 26 : 8, backgroundColor: t.brand1, paddingVertical: 8, paddingHorizontal: 16 }}>
+        <Text style={{ fontSize: desk ? 14 : 12, color: t.brand1Text }}>{desk ? 'Applied To Date' : 'Applied'} <Text style={{ fontWeight: '600' }}>{money(c.gross)}</Text></Text>
+        {certFig && <Text style={{ fontSize: desk ? 14 : 12, color: t.brand1Text }}>{desk ? 'Certified To Date' : 'Certified'} <Text style={{ fontWeight: '600' }}>{money(certFig.gross)}</Text></Text>}
+        <Text style={{ fontSize: desk ? 14 : 12, color: t.brand1Text }}>{desk ? 'Due This Time' : 'Due'} <Text style={{ fontWeight: '600' }}>{money(dueNow)}</Text></Text>
       </View>
     )}
     <ThinExportBar busy={busy ? 'x' : undefined} onExcel={() => void exportAs('xlsx')} onPdf={() => void exportAs('pdf')} />

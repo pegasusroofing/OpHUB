@@ -13,7 +13,8 @@ module.exports = async ({as, step}) => {
     await a.page.getByText(/Strip tiles/).locator('visible=true').first().scrollIntoViewIfNeeded(); await a.page.mouse.wheel(0, -120); await a.page.waitForTimeout(500); await a.shot('lines');
     await a.page.getByText('Variations', {exact: true}).locator('visible=true').last().scrollIntoViewIfNeeded(); await a.page.waitForTimeout(500); await a.shot('variations');
     const over = await a.page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
-    return {ok: over <= 1 && (await q('Applied').count()) >= 3, note: 'over ' + over + ', applied rows ' + (await q('Applied').count())};
+    const bar = await a.page.getByLabel('Totals').boundingBox();
+    return {ok: over <= 1 && bar.height < 40 && (await q('Applied').count()) >= 3, note: 'over ' + over + ', totals bar height ' + Math.round(bar.height) + ', applied rows ' + (await q('Applied').count())};
   });
   await step('Draft on a phone', async () => {
     const [d] = await a.get('fin_applications?select=id,site_id&status=eq.draft&site_id=eq.' + JA.id + '&order=created_at.desc&limit=1');

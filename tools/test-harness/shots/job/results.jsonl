@@ -1573,3 +1573,11 @@
 {"part":"appphone4","step":"Draft on a phone","ok":true,"note":"over at 375 0, bulk edit 1","ms":43251}
 {"part":"appphone4","step":"Phone: % and qty boxes keep in step","ok":true,"note":"qty 25 gave 25%, 10% gave qty 10 (line of 100), put back to 50% (was 50%)","ms":6510}
 {"part":"appphone4","step":"Phone: variation description is words until tapped","ok":true,"note":"open boxes before 0, after tap 1, qty to tap 1, old £ boxes 0","ms":1028}
+{"part":"appphone4","step":"Certifying on a phone","ok":false,"note":"locator.waitFor: Timeout 30000ms exceeded.","ms":38168}
+{"part":"appphone4","step":"Draft on a phone","ok":false,"note":"locator.waitFor: Timeout 30000ms exceeded.","ms":38434}
+{"part":"appphone4","step":"Phone: % and qty boxes keep in step","ok":false,"note":"no qty box","ms":509}
+{"part":"appphone4","step":"Phone: variation description is words until tapped","ok":true,"note":"no variation with words on this draft; open boxes 0","ms":10}
+{"part":"appphone4","step":"Certifying on a phone","ok":true,"note":"over 0, totals bar height 31, applied rows 12","ms":13844}
+{"part":"appphone4","step":"Draft on a phone","ok":true,"note":"over at 375 0, bulk edit 1","ms":43234}
+{"part":"appphone4","step":"Phone: % and qty boxes keep in step","ok":true,"note":"qty 25 gave 25%, 10% gave qty 10 (line of 100), put back to 50% (was 10%)","ms":6412}
+{"part":"appphone4","step":"Phone: variation description is words until tapped","ok":true,"note":"open boxes before 0, after tap 1, qty to tap 1, old £ boxes 0","ms":1007}
