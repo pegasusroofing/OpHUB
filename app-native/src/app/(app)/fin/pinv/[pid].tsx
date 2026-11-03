@@ -74,7 +74,7 @@ function NewPinv({ siteId, poId, receipt }: { siteId: string; poId: string; rece
           if (net === null || isNaN(net)) return 'Enter the net amount.';
           const key = `${supplier.toLowerCase()}|${no.toLowerCase()}`;
           if (no && dupOk !== key) { const d = await duplicateOf(supplier, no); if (d) { setDupOk(key); return `Possible duplicate: ${supplier} invoice ${no} is already on ${jobTag(sites.find((s) => s.id === d.site_id)) || 'another project'} (${fdate(d.invoice_date)}). Save again to add it anyway.`; } }
-          const r = await addPinv(me, siteId, { supplier, invoice_no: no, invoice_date: String(v.invoice_date), net, vat, total: total === null || isNaN(total) ? null : total, due_date: String(v.due_date).trim() || (String(v.invoice_date || '').trim() ? addDays(String(v.invoice_date), 30) : null), // blank = 30 days (904) description: String(v.description).trim(), cost_code: v.cost_code, po_id: poId || v.po_pick || null, receipt: isReceipt }, file);
+          const r = await addPinv(me, siteId, { supplier, invoice_no: no, invoice_date: String(v.invoice_date), net, vat, total: total === null || isNaN(total) ? null : total, due_date: String(v.due_date).trim() || (String(v.invoice_date || '').trim() ? addDays(String(v.invoice_date), 30) : null), description: String(v.description).trim(), cost_code: v.cost_code, po_id: poId || v.po_pick || null, receipt: isReceipt }, file);
           if (r.error) return r.error;
           toast(r.flags.length ? `Saved and flagged: ${r.flags[0]}` : 'Saved — waiting for approval');
           ['finPurchases', 'finBook', 'finPo'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] }));
