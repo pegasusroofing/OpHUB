@@ -48,12 +48,13 @@ export function appSummary(a: Row, D: AppDoc) {
   const T = (k: 't' | 'ap' | 'ce') => round2(secs.reduce((s, x) => s + x[k], 0));
   const side = (g: number) => {
     const disc = round2((g * D.discPct) / 100); let ret = round2(((g - disc) * D.retPct) / 100); if (D.capRet != null) ret = Math.min(ret, D.capRet);
-    const net = round2(g - disc - ret), due = round2(net - D.previous), vat = D.vt === 'standard' ? round2(due * 0.2) : 0;
-    return { gross: g, disc, ret, net, due, vat, total: round2(due + vat) };
+    const net = round2(g - disc - ret), due = round2(net - D.previous), vat = D.vt === 'standard' || D.vt === 'reverse_charge' ? round2(due * 0.2) : 0;
+    // Reverse charge: the VAT is shown for the customer to account for, but not added to what's due.
+    return { gross: g, disc, ret, net, due, vat, total: round2(due + (D.vt === 'standard' ? vat : 0)) };
   };
   return { secs, t: T('t'), applied: side(T('ap')), certified: side(T('ce')) };
 }
-export const vatLabel = (vt: string) => (vt === 'reverse_charge' ? 'VAT (domestic reverse charge — customer to account to HMRC)' : vt === 'zero' ? 'VAT (zero rated)' : 'VAT @ 20%');
+export const vatLabel = (vt: string) => (vt === 'reverse_charge' ? 'VAT (domestic reverse charge — customer to account to HMRC, not added)' : vt === 'zero' ? 'VAT (zero rated)' : 'VAT @ 20%');
 
 const HEAD = ['OpHUB Key', 'Ref', 'Description', 'Qty', 'Unit', 'Rate', 'Amount', 'Prev Certified %', 'Prev Certified', 'Applied %', 'Applied', 'Certified %', 'Certified', 'Difference', 'Notes', 'Include in Summary'];
 const WIDTHS = [11, 9, 46, 9, 11, 15, 15, 16, 15, 12, 15, 12, 15, 14, 21, 11];
@@ -117,8 +118,9 @@ export function appExcelSheets(a: Row, D: AppDoc, info: { company: string; clien
   const net = line('Net After Retention', m(A.net, `IFERROR(D${sub}-D${dsc}-D${ret}, 0)`), mc(C.net, `IFERROR(F${sub}-F${dsc}-F${ret}, 0)`));
   const prv = line('Previously Certified (excl VAT)', m(D.previous), D.certified ? m(D.previous) : mc(D.previous, String(D.previous)));
   const due = line('Gross Payment Due', m(A.due, `IFERROR(D${net}-D${prv}, 0)`, true), mc(C.due, `IFERROR(F${net}-F${prv}, 0)`, true), true);
-  const vat = line(vatLabel(D.vt), D.vt === 'standard' ? m(A.vat, `ROUND(D${due}*0.2,2)`) : m(0), D.vt === 'standard' ? mc(C.vat, `ROUND(F${due}*0.2,2)`) : m(0));
-  line('Net Payment Due', m(A.total, `IFERROR(D${due}+D${vat}, 0)`, true), mc(C.total, `IFERROR(F${due}+F${vat}, 0)`, true), true);
+  const shown = D.vt === 'standard' || D.vt === 'reverse_charge', add = D.vt === 'standard';
+  const vat = line(vatLabel(D.vt), shown ? m(A.vat, `ROUND(D${due}*0.2,2)`) : m(0), shown ? mc(C.vat, `ROUND(F${due}*0.2,2)`) : m(0));
+  line('Net Payment Due', m(A.total, add ? `IFERROR(D${due}+D${vat}, 0)` : `IFERROR(D${due}, 0)`, true), mc(C.total, add ? `IFERROR(F${due}+F${vat}, 0)` : `IFERROR(F${due}, 0)`, true), true);
   rows.push([], ['', { v: D.certified ? 'Certified figures are as entered from the client’s certificate.' : 'Applied = what we are applying for. Certified is left blank for the client: they fill in the Certified % (green) and send it back.', s: 'note' }]);
   return [{ name: 'General Summary', rows, widths: [4, 36, 19, 19, 13, 19, 13] }, ...sheets];
 }

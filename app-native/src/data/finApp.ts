@@ -203,7 +203,7 @@ export async function appSowChoice(a: Row): Promise<{ has: boolean; since: { fro
   const from = p ? addDays(String(p).slice(0, 10), 1) : null;
   return { has, since: from && from <= to ? { from, to } : null };
 }
-export async function exportApplication(me: Profile, org: Organization | null, given: Row, kind: 'xlsx' | 'pdf', sow: AppSow = null): Promise<boolean> {
+export async function exportApplication(me: Profile, org: Organization | null, given: Row, kind: 'xlsx' | 'pdf', sow: AppSow = null, direct = false): Promise<boolean> {
   // Always from the full saved record (902, 9219p): a list only holds some of the figures.
   const a = ((await fdb.from('fin_applications').select('*').eq('id', given.id).maybeSingle()).data as Row | null) ?? given;
   const [jfR, apps, siteR, st] = await Promise.all([
@@ -224,7 +224,7 @@ export async function exportApplication(me: Profile, org: Organization | null, g
     if (r && typeof r !== 'string') { sowBytes = r.bytes; sowName = r.filename; }
   }
   if (kind === 'xlsx') {
-    const ok = await deliverXlsx(makeXlsx(appExcelSheets(a, D, info)), appFilename(a, site, 'xlsx'));
+    const ok = await deliverXlsx(makeXlsx(appExcelSheets(a, D, info)), appFilename(a, site, 'xlsx'), direct);
     if (ok && sowBytes) await deliverPdf(sowBytes, sowName);
     return ok;
   }

@@ -106,20 +106,21 @@ export const storageImage = async (doc: PDFDocument, bucket: string, path: strin
 /** Hands the PDF to the person: share sheet on a phone, a download on the web; then offers a copy to OneDrive. */
 export const deliverPdf = (bytes: Uint8Array, filename: string) => deliverFile(bytes, filename, 'application/pdf', 'com.adobe.pdf');
 /** An Excel file made with lib/rules/xlsx, handed over the same way. */
-export const deliverXlsx = (bytes: Uint8Array, filename: string) => deliverFile(bytes, filename, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'org.openxmlformats.spreadsheetml.sheet');
+export const deliverXlsx = (bytes: Uint8Array, filename: string, direct?: boolean) => deliverFile(bytes, filename, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'org.openxmlformats.spreadsheetml.sheet', direct);
 /**
  * Hands a finished file over, asking how when there's a choice: save it, share it (WhatsApp, email and the
  * rest of the phone's share menu, as 060 shareFile) or put it in OneDrive. The file is already made, so the
- * share call runs straight from the press, which phones insist on.
+ * share call runs straight from the press, which phones insist on. direct: no question, just download it
+ * (the phone's share menu on a phone).
  */
-export async function deliverFile(bytes: Uint8Array, filename: string, mime: string, uti?: string): Promise<boolean> {
+export async function deliverFile(bytes: Uint8Array, filename: string, mime: string, uti?: string, direct?: boolean): Promise<boolean> {
   try {
-    const orgId = oneDriveSaver();
+    const orgId = direct ? null : oneDriveSaver();
     const webFile = Platform.OS === 'web' ? new globalThis.File([bytes as BlobPart], filename, { type: mime }) : null;
     const canShareWeb = !!webFile && !!globalThis.navigator?.canShare?.({ files: [webFile] });
     const items = [
       ...(Platform.OS === 'web' ? [{ key: 'save', label: mime === 'application/pdf' ? '📄 PDF' : '⬇️ Download' }] : []),
-      ...(Platform.OS !== 'web' || canShareWeb ? [{ key: 'share', label: '📤 Share (WhatsApp, email…)' }] : []),
+      ...(Platform.OS !== 'web' || (canShareWeb && !direct) ? [{ key: 'share', label: '📤 Share (WhatsApp, email…)' }] : []),
       ...(orgId ? [{ key: 'od', label: '☁️ OneDrive' }] : []),
     ];
     const how = items.length > 1 ? await chooseAction(filename, items) : items[0]?.key;

@@ -1401,3 +1401,19 @@
 {"part":"appstyle1","step":"Plot box on a multi-site job with no plots","ok":true,"note":"boxes 1","ms":10744}
 {"part":"appstyle1","step":"A new line takes the plot above","ok":true,"note":"1 > 2","ms":14868}
 {"part":"appbtn1","step":"Delete is red, narrow and the same height","ok":true,"note":"{\"d\":{\"h\":34,\"w\":100,\"bg\":\"rgb(253, 236, 236)\"},\"e\":{\"h\":34,\"w\":211,\"bg\":\"rgb(223, 227, 234)\"}}","ms":12296}
+{"part":"appxl1","step":"Export Excel button: no Download / OneDrive question","ok":false,"note":"locator.click: Timeout 5000ms exceeded.","ms":18748}
+{"part":"appxl1","step":"Footer Export To Excel still asks","ok":true,"note":"asked 1","ms":3825}
+{"part":"appxl1","step":"Export Excel button: no Download / OneDrive question","ok":true,"note":"Application 16 - ZZ JOB Fin C (SBX-123).xlsx, asked 0, sow question 0","ms":14245}
+{"part":"appxl1","step":"Footer Export To Excel still asks","ok":true,"note":"asked 1","ms":3861}
+{"part":"appbtn1","step":"Applied: Return To Draft, Export Excel, Certify, Delete; Delete red and same height","ok":true,"note":"order true {\"d\":{\"h\":34,\"w\":100,\"bg\":\"rgb(253, 236, 236)\"},\"e\":{\"h\":34,\"w\":211,\"bg\":\"rgb(223, 227, 234)\"}}","ms":12510}
+{"part":"appbtn1","step":"Certifying: Back To The Application, Export Excel, Save Certificate, Delete","ok":true,"note":"order true","ms":1610}
+{"part":"appflow1","step":"BoQ: all on one row, capital letter","ok":true,"note":"row offset -6, Strip tiles","ms":12598}
+{"part":"appflow1","step":"Draft: click selects, no jump after typing and returning to the window","ok":true,"note":"typed 50, scroll 499 > 499, still 50","ms":21123}
+{"part":"appflow1","step":"Variation quantity sets the value","ok":true,"note":"value £300","ms":1597}
+{"part":"appflow1","step":"Buttons on one row, then certified on each line","ok":true,"note":"one row true, submitted, certified boxes 12, variation kept true","ms":6045}
+{"part":"appview1","step":"Draft opens on the overview","ok":true,"note":"Contract Works £3,250.00 Valuation Date 3 Nov 2026 Due Date 3 Dec 2026 Fin","ms":13617}
+{"part":"appview1","step":"Line by line has the lines and a totals bar","ok":true,"note":"boxes 2","ms":1038}
+{"part":"appview1","step":"Mark applied, stays on line by line with certified boxes","ok":true,"note":"boxes 12","ms":835}
+{"part":"appview1","step":"Certified as applied, then the overview shows both columns","ok":true,"note":"Balance £2,897.50 £2,897.50 £2,755.00 £142.50 VAT (Reverse Charge, Not Added)","ms":1734}
+{"part":"appview1","step":"Save certificate: overview keeps the figures","ok":true,"note":"certified cert 142.5 applied 142.5","ms":4640}
+{"part":"appview1","step":"Phone: overview fits","ok":true,"note":"over by 0","ms":845}

@@ -135,14 +135,15 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
   // A variation can be more than one: value = quantity × the figure each (Andy, 2 Nov 2026). The value stays what every sum uses.
   const setVar = (i: number, patch: Row) => setA({ ...a, variations: a.variations.map((y: Row, j: number) => { if (j !== i) return y; const z = { ...y, ...patch }; if ('qty' in patch || 'rate' in patch) { const q = num(z.qty), r = num(z.rate ?? y.value); z.value = r === null || isNaN(r) ? null : round2((q === null || isNaN(q) ? 1 : q) * r); } return z; }) });
   const fill = (i: number, p: number) => { const lv = a.lines[i].kind, ls = a.lines.slice(); for (let j = i + 1; j < ls.length; j++) { const k = ls[j].kind; if (k === 'section' || (lv === 'subsection' && k === 'subsection')) break; if (isItem(ls[j])) ls[j] = { ...ls[j], pct: p }; } setA({ ...a, lines: ls }); setGen((g) => g + 1); };
-  const exportAs = async (kind: 'xlsx' | 'pdf') => {
+  // direct: the Export Excel button downloads straight away; the footer still asks Download or OneDrive (Andy, 3 Nov 2026).
+  const exportAs = async (kind: 'xlsx' | 'pdf', direct = false) => {
     if (!me) return;
     if (isDraft && !(await save(true))) return;
     // Proof of works (9219zo): ask whether to include the Schedule of Works report.
     const doc = isDraft ? { ...a0, ...a } : a0;
     const sow = await askAppSow(doc, kind); if (sow === undefined) return;
     setBusy(kind);
-    const ok = await exportApplication(me, org, doc, kind, sow).catch(() => false);
+    const ok = await exportApplication(me, org, doc, kind, sow, direct).catch(() => false);
     setBusy(''); if (!ok) toast(kind === 'pdf' ? 'Could not make the PDF — try again.' : 'Could not make the Excel — try again.');
   };
   // A valued copy back (9219p uploadFinAppExcel): the Applied % column updates this draft; new rows become
@@ -228,12 +229,12 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
                 const ap = figs(c), pr = appFigures(prior), mine = gridCert || ap, row = (l: string, k: keyof typeof ap, o?: Partial<GridRow>): GridRow => ({ l, v: gridCert ? [ap[k], gridCert[k], pr[k], round2(gridCert[k] - pr[k])] : [ap[k], pr[k], round2(ap[k] - pr[k])], ...o });
                 const netTo = round2(mine.gross - mine.discount - mine.retention), prevNet = gridCert ? certPrev : c.previous, thisNet = round2(netTo - prevNet);
                 const blank = (x: number): (number | null)[] => (gridCert ? [null, null, null, x] : [null, null, x]);
-                const vat = (jf.vat_treatment || finSt?.default_vat || 'standard') === 'standard';
+                const vt = jf.vat_treatment || finSt?.default_vat || 'standard', vat = vt === 'standard', rc = vt === 'reverse_charge';
                 return [
                   row('Contract Works', 'contract'), row('Variations', 'variations'), row('Day Works', 'dayworks'), row('Subtotal', 'gross', { bold: true }),
                   row('Less Discount', 'discount', { neg: true }), row('Less Retention', 'retention', { neg: true }),
                   { l: 'Balance', bold: true, v: gridCert ? [round2(ap.gross - ap.discount - ap.retention), netTo, prevNet, thisNet] : [netTo, prevNet, thisNet] },
-                  ...(vat ? [{ l: 'VAT @ 20%', v: blank(round2(thisNet * 0.2)) }] : []),
+                  ...(vat ? [{ l: 'VAT @ 20%', v: blank(round2(thisNet * 0.2)) }] : rc ? [{ l: 'VAT (Reverse Charge, Not Added)', v: blank(round2(thisNet * 0.2)) }] : []),
                   { l: 'Total Due', total: true, v: blank(vat ? round2(thisNet * 1.2) : thisNet) },
                 ];
               })()} />
@@ -242,9 +243,9 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
             {stage === 'applied' && !certing && (
               <>
                 <ActionRow onDelete={deleteAny}>
-                  <Button title="Certify" onPress={() => { setCertifying(true); setView('lines'); }} />
-                  <Button kind="ghost" busy={busy === 'xlsx'} title="Export Excel" onPress={() => void exportAs('xlsx')} />
                   <Button kind="ghost" title="Return To Draft" onPress={async () => { if (await confirmAsk('Return this application to draft so you can edit it?', 'Return to draft')) { if (await setStatus(a0.id, { status: 'draft' })) { toast('Back to draft — you can edit it now'); refresh(); } } }} />
+                  <Button kind="ghost" busy={busy === 'xlsx'} title="Export Excel" onPress={() => void exportAs('xlsx', true)} />
+                  <Button title="Certify" onPress={() => { setCertifying(true); setView('lines'); }} />
                 </ActionRow>
                 <Muted style={{ marginTop: 6 }}>Emailing the application to the client is switched off while Finance is on trial.</Muted>
               </>
@@ -252,8 +253,9 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
             {certing && (
               <Certificate a={a0} jf={jf} cert={cert} onSaved={refresh} onLines={() => setView('lines')} actions={(saveBtn) => (
                 <ActionRow onDelete={deleteAny}>
-                  {saveBtn}
                   <Button kind="ghost" title="Back To The Application" onPress={() => setCertifying(false)} />
+                  <Button kind="ghost" busy={busy === 'xlsx'} title="Export Excel" onPress={() => void exportAs('xlsx', true)} />
+                  {saveBtn}
                 </ActionRow>
               )} />
             )}
@@ -265,9 +267,10 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
                   {a0.cert_notes ? <Muted style={{ marginTop: 6 }}>{a0.cert_notes}</Muted> : null}
                   {a0.cert_file_path && <Pressable onPress={async () => { const u = await openDocLink('finance-docs', a0.cert_file_path); if (u) viewDoc(u); }}><Text style={{ color: base.blue, marginTop: 6 }}>📄 Certificate</Text></Pressable>}
                   <ActionRow onDelete={a0.invoice_id ? undefined : deleteAny}>
+                    {!a0.invoice_id && <Button kind="ghost" title="Change The Certificate" onPress={async () => { if (await confirmAsk('Clear the certificate figures and enter them again?', 'Clear')) { if (await clearCertificate(a0.id)) refresh(); else toast('Not saved — check your signal and try again.'); } }} />}
+                    <Button kind="ghost" busy={busy === 'xlsx'} title="Export Excel" onPress={() => void exportAs('xlsx', true)} />
                     {a0.invoice_id ? <Button title="Open Invoice" onPress={() => router.push(`/fin/job/${a0.site_id}/invoice/${a0.invoice_id}` as never)} />
                       : <Button busy={busy === 'inv'} title="Raise Invoice" onPress={async () => { setBusy('inv'); const r = await raiseInvoiceFromCert(me, org, a0, site as never, false); setBusy(''); if (r.error) toast(r.error); if (r.id) { refresh(); router.push(`/fin/job/${a0.site_id}/invoice/${r.id}` as never); } }} />}
-                    {!a0.invoice_id && <Button kind="ghost" title="Change The Certificate" onPress={async () => { if (await confirmAsk('Clear the certificate figures and enter them again?', 'Clear')) { if (await clearCertificate(a0.id)) refresh(); else toast('Not saved — check your signal and try again.'); } }} />}
                   </ActionRow>
                 </View>
               </Panel>
@@ -491,7 +494,7 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
       {stage === 'draft' && (
         <ActionRow note={autoNote} onDelete={async () => { if (await confirmAsk('Delete this draft application?', 'Delete')) { if (await deleteApplication(a0.id)) { toast('Draft deleted'); refresh(); router.back(); } else toast('Not saved — check your signal and try again.'); } }}>
           <Button kind="ghost" busy={busy === 'save'} title="Save" onPress={() => void save()} />
-          <Button kind="ghost" busy={busy === 'xlsx'} title="Export Excel" onPress={() => void exportAs('xlsx')} />
+          <Button kind="ghost" busy={busy === 'xlsx'} title="Export Excel" onPress={() => void exportAs('xlsx', true)} />
           <Button title="Mark As Applied" onPress={async () => {
             if (!(await save(true))) return;
             if (!(await confirmAsk('Mark this application as Applied? It will be locked so the figures can’t change. You can return it to draft if you need to edit it.', 'Mark As Applied'))) return;

@@ -21,6 +21,13 @@ test('summary: applied side matches the application maths', () => {
   assert.equal(S.applied.ret, 974.5);
   assert.equal(S.applied.due, 19490 - 974.5 - 1000);
   assert.equal(S.applied.vat, Math.round(S.applied.due * 0.2 * 100) / 100);
+  assert.equal(S.applied.total, Math.round((S.applied.due + S.applied.vat) * 100) / 100);
+});
+
+test('summary: reverse charge shows the VAT but leaves it out of what is due', () => {
+  const S = appSummary(app, appDoc(app, { ...jf, vat_treatment: 'reverse_charge' }, apps));
+  assert.equal(S.applied.vat, Math.round(S.applied.due * 0.2 * 100) / 100);
+  assert.equal(S.applied.total, S.applied.due);
 });
 
 test('Excel out and back in: keys, prev certified, applied and certified %', async () => {
