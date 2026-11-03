@@ -1429,3 +1429,11 @@
 {"part":"appraise1","step":"Save & Raise Invoice goes to the draft invoice","ok":true,"note":"job/065e90e3-a980-4386-bba9-c6eaee02c617/invoice/298b2d16-36c6-4548-bf96-0ff8d3acfc04 draft net 2256.25","ms":44347}
 {"part":"appcrumb1","step":"Applications step goes to the Sales list","ok":true,"note":"job/065e90e3-a980-4386-bba9-c6eaee02c617?tab=sales","ms":15535}
 {"part":"appcrumb1","step":"Raise Invoice cell is the row size","ok":true,"note":"height 16","ms":41}
+{"part":"invlock1","step":"Draft from a certificate: lines locked, header still editable","ok":true,"note":"line boxes 0, note 1, save 1","ms":12187}
+{"part":"invlock1","step":"Issued invoice: nothing to type in","ok":true,"note":"boxes 0","ms":11881}
+{"part":"invlock1","step":"New draft: lines open; Save draft locks them","ok":false,"note":"locator.fill: Timeout 30000ms exceeded.","ms":43088}
+{"part":"invlock1","step":"Edit lines opens them again","ok":true,"note":"boxes 2, test draft deleted true","ms":3516}
+{"part":"invlock1","step":"Issued: locked, Edit lines warns about Xero, Cancel leaves it","ok":false,"note":"before 0, warned 1, open 0","ms":13918}
+{"part":"invlock1","step":"New draft: lines open; Save draft locks them","ok":true,"note":"open 2, after save 0, edit link 1","ms":15890}
+{"part":"invlock1","step":"Edit lines opens them again","ok":true,"note":"boxes 2, test draft deleted true","ms":3481}
+{"part":"invlock1","step":"Issued: locked, Edit lines warns about Xero, Cancel leaves it","ok":true,"note":"before 0, warned 1, open 2","ms":13889}

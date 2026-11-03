@@ -18,7 +18,7 @@ import { DateBox } from '@/components/DateField';
 import { openDocLink } from '@/data/hs';
 import { SelectBox } from '@/components/SelectBox';
 import { subNoun, useSubJobs } from '@/data/finSubJobs';
-import { addPayment, deleteDraft, deletePayment, draftRow, issue, loadInvoice, newInvoice, saveDraft, storePdf, voidInvoice } from '@/data/finInvoice';
+import { addPayment, deleteDraft, deletePayment, draftRow, issue, loadInvoice, newInvoice, saveDraft, saveIssuedLines, storePdf, voidInvoice } from '@/data/finInvoice';
 import { fdb, finInvoke } from '@/data/finance';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
@@ -62,16 +62,52 @@ function InvoicePlot({ inv, site, onSet }: { inv: Row; site: Row | undefined; on
   );
 }
 
+/** Saved lines: read only, with a small Edit lines link. */
+function LinesView({ lines, mixed, vatOf, note, onEdit }: { lines: Row[]; mixed: boolean; vatOf: (l: Row) => string; note?: string; onEdit: () => void }) {
+  return (
+    <Card>
+      {lines.map((l: Row, i: number) => <FinRow key={i} title={l.description || ''} sub={mixed ? INV_VAT[vatOf(l)]?.l : undefined} right={money(num(l.amount) || 0)} />)}
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
+        <Muted style={{ flex: 1 }}>{note ? `${note} ` : ''}Saved lines are locked.</Muted>
+        <Text accessibilityRole="button" onPress={onEdit} style={{ fontSize: 11.5, color: base.slate, textDecorationLine: 'underline' }}>Edit lines</Text>
+      </View>
+    </Card>
+  );
+}
+/** The lines being typed: description, amount and VAT on each, add a line, VAT for all. */
+function LinesEdit({ d, setD }: { d: Row; setD: (d: Row) => void }) {
+  const setLine = (i: number, k: string, v: unknown) => setD({ ...d, lines: d.lines.map((l: Row, j: number) => (j === i ? { ...l, [k]: v } : l)) });
+  return (
+    <>
+      {d.lines.map((l: Row, i: number) => (
+        <Card key={i} style={{ padding: 10 }}>
+          <TextInput value={l.description || ''} onChangeText={(v) => setLine(i, 'description', v)} placeholder="Description" multiline style={[box, { marginBottom: 6 }]} />
+          <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+            <TextInput value={String(l.amount ?? '')} onChangeText={(v) => setLine(i, 'amount', v)} placeholder="£0.00" keyboardType="decimal-pad" style={[box, { flex: 1 }]} />
+            <Pressable onPress={async () => { const k = await chooseAction('VAT', Object.entries(INV_VAT).map(([key, v]) => ({ key, label: v.l }))); if (k) setLine(i, 'vat', k); }} style={box}><Text style={{ color: base.ink }}>{INV_VAT[l.vat]?.s || 'VAT'} ▾</Text></Pressable>
+            {d.lines.length > 1 && <Pressable hitSlop={8} onPress={() => setD({ ...d, lines: d.lines.filter((_: Row, j: number) => j !== i) })}><Text>🗑</Text></Pressable>}
+          </View>
+        </Card>
+      ))}
+      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
+        <View style={{ flex: 1 }}><Button kind="ghost" title="+ Add line" onPress={() => setD({ ...d, lines: [...d.lines, { description: '', amount: '', vat: d.lines[d.lines.length - 1]?.vat }] })} /></View>
+        <View style={{ flex: 1 }}><Button kind="ghost" title="VAT for all lines" onPress={async () => { const k = await chooseAction('VAT for every line', Object.entries(INV_VAT).map(([key, v]) => ({ key, label: v.l }))); if (k) setD({ ...d, lines: d.lines.map((l: Row) => ({ ...l, vat: k })) }); }} /></View>
+      </View>
+    </>
+  );
+}
+
 function Draft({ inv, site }: { inv: Row; site: Row | undefined }) {
   const { me, org } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
   const [d, setD] = useState<Row>(() => { const x = JSON.parse(JSON.stringify(inv)); if (!Array.isArray(x.lines) || !x.lines.length) x.lines = [{ description: '', amount: null }]; x.lines.forEach((l: Row) => { if (!INV_VAT[l.vat]) l.vat = lineVat(l, x.vat_treatment, x.vat_rate); l.amount = l.amount == null ? '' : String(l.amount); }); return x; });
   const [busy, setBusy] = useState('');
+  // Lines are locked once saved (Andy, 3 Nov 2026): a new, empty draft starts open; Edit lines opens them again.
+  const [editing, setEditing] = useState(() => inv.source !== 'certificate' && !(inv.lines || []).some((l: Row) => String(l.description || '').trim() || (l.amount != null && l.amount !== '')));
   if (!me) return null;
   const t = invTotals(d.lines, d.vat_treatment, d.vat_rate);
   const set = (k: string, v: unknown) => setD({ ...d, [k]: v });
-  const setLine = (i: number, k: string, v: unknown) => setD({ ...d, lines: d.lines.map((l: Row, j: number) => (j === i ? { ...l, [k]: v } : l)) });
   const field = (k: string, label: string, o: { multiline?: boolean; half?: boolean; ph?: string; date?: boolean } = {}) => (
     <View style={{ flexBasis: o.half ? '47%' : '100%', flexGrow: 1, marginBottom: 8 }}><Muted style={{ fontWeight: '500' }}>{label}</Muted>{o.date ? <DateBox value={String(d[k] ?? '')} onChange={(v) => set(k, v)} title={label} /> : <TextInput value={String(d[k] ?? '')} onChangeText={(v) => set(k, v)} multiline={o.multiline} placeholder={o.ph} style={[box, o.multiline ? { minHeight: 60 } : null]} />}</View>
   );
@@ -93,20 +129,7 @@ function Draft({ inv, site }: { inv: Row; site: Row | undefined }) {
         <InvoicePlot inv={d} site={site} onSet={(v) => set('sub_job_id', v)} />
       </Card>
       <SectionTitle>Lines</SectionTitle>
-      {d.lines.map((l: Row, i: number) => (
-        <Card key={i} style={{ padding: 10 }}>
-          <TextInput value={l.description || ''} onChangeText={(v) => setLine(i, 'description', v)} placeholder="Description" multiline style={[box, { marginBottom: 6 }]} />
-          <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
-            <TextInput value={String(l.amount ?? '')} onChangeText={(v) => setLine(i, 'amount', v)} placeholder="£0.00" keyboardType="decimal-pad" style={[box, { flex: 1 }]} />
-            <Pressable onPress={async () => { const k = await chooseAction('VAT', Object.entries(INV_VAT).map(([key, v]) => ({ key, label: v.l }))); if (k) setLine(i, 'vat', k); }} style={box}><Text style={{ color: base.ink }}>{INV_VAT[l.vat]?.s || 'VAT'} ▾</Text></Pressable>
-            {d.lines.length > 1 && <Pressable hitSlop={8} onPress={() => setD({ ...d, lines: d.lines.filter((_: Row, j: number) => j !== i) })}><Text>🗑</Text></Pressable>}
-          </View>
-        </Card>
-      ))}
-      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
-        <View style={{ flex: 1 }}><Button kind="ghost" title="+ Add line" onPress={() => setD({ ...d, lines: [...d.lines, { description: '', amount: '', vat: d.lines[d.lines.length - 1]?.vat }] })} /></View>
-        <View style={{ flex: 1 }}><Button kind="ghost" title="VAT for all lines" onPress={async () => { const k = await chooseAction('VAT for every line', Object.entries(INV_VAT).map(([key, v]) => ({ key, label: v.l }))); if (k) setD({ ...d, lines: d.lines.map((l: Row) => ({ ...l, vat: k })) }); }} /></View>
-      </View>
+      {editing ? <LinesEdit d={d} setD={setD} /> : <LinesView lines={d.lines} mixed={t.mixed} vatOf={(l) => l.vat} note={inv.source === 'certificate' ? 'These are the certificate’s figures.' : undefined} onEdit={() => setEditing(true)} />}
       <Card>
         <FinRow title="Net" right={money(t.net)} />
         {Object.keys(t.by).filter((k) => !INV_VAT[k].rc && INV_VAT[k].r > 0).map((k) => <FinRow key={k} title={`VAT @ ${INV_VAT[k].l}${t.mixed ? ` on ${money(t.by[k].net)}` : ''}`} right={money(t.by[k].vat)} />)}
@@ -115,7 +138,7 @@ function Draft({ inv, site }: { inv: Row; site: Row | undefined }) {
       </Card>
       {field('notes', 'Notes on the invoice', { multiline: true })}
       <View style={{ gap: 8 }}>
-        <Button kind="ghost" busy={busy === 'save'} title="Save draft" onPress={async () => { setBusy('save'); const e = await saveDraft(inv.id, d); setBusy(''); toast(e || 'Draft saved'); refresh(); }} />
+        <Button kind="ghost" busy={busy === 'save'} title="Save draft" onPress={async () => { setBusy('save'); const e = await saveDraft(inv.id, d); setBusy(''); toast(e || 'Draft saved'); if (!e) setEditing(false); refresh(); }} />
         <Button busy={busy === 'issue'} title="Issue invoice…" onPress={async () => {
           const row = draftRow(d), p = issueProblem(row);
           if (p) { toast(p); return; }
@@ -139,6 +162,8 @@ function Issued({ inv, pays, site }: { inv: Row; pays: Row[]; site: Row | undefi
   const toast = useToast();
   const qc = useQueryClient();
   const [pay, setPay] = useState(false);
+  const [edit, setEdit] = useState<Row | null>(null);
+  const [saving, setSaving] = useState(false);
   if (!me) return null;
   const out = invOutstanding(inv as never), t = invTotals(inv.lines, inv.vat_treatment, inv.vat_rate);
   const refresh = () => { ['finInvoice', 'finSales', 'finBook', 'finOverview', 'finJobs'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] })); };
@@ -157,6 +182,16 @@ function Issued({ inv, pays, site }: { inv: Row; pays: Row[]; site: Row | undefi
         <InvoicePlot inv={inv} site={site} onSet={refresh} />
       </Card>
       <SectionTitle>Lines</SectionTitle>
+      {edit && (
+        <>
+          <LinesEdit d={edit} setD={setEdit} />
+          <Muted style={{ marginBottom: 8 }}>This changes the invoice in OpHUB only. It won’t be re-posted to Xero, so if it’s already there, change it in Xero too.</Muted>
+          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+            <View style={{ flex: 1 }}><Button kind="ghost" title="Cancel" onPress={() => setEdit(null)} /></View>
+            <View style={{ flex: 1 }}><Button busy={saving} title="Save Changes" onPress={async () => { setSaving(true); const e = await saveIssuedLines(inv.id, edit); setSaving(false); if (e) { toast(e); return; } toast('Invoice changed — not re-posted to Xero'); setEdit(null); refresh(); }} /></View>
+          </View>
+        </>
+      )}
       <Card>
         {(inv.lines || []).map((l: Row, i: number) => <FinRow key={i} title={l.description || ''} sub={t.mixed ? INV_VAT[lineVat(l, inv.vat_treatment, inv.vat_rate)].l : undefined} right={money(l.amount)} />)}
         <FinRow title="Net" right={money(t.net)} /><FinRow title="VAT" right={money(t.vat)} /><FinRow title="Total" right={money(t.total)} />
@@ -176,6 +211,10 @@ function Issued({ inv, pays, site }: { inv: Row; pays: Row[]; site: Row | undefi
             refresh();
           } }} />
           <Muted style={{ marginTop: 6 }}>Issued invoices can&apos;t be changed. To correct one, void it and raise a new one.</Muted>
+          {!edit && <Text accessibilityRole="button" onPress={async () => {
+            if (!(await confirmAsk('Change the lines on this issued invoice?\n\nIt changes here only and won’t be re-posted to Xero — if it’s already in Xero, change it there too.', 'Edit lines'))) return;
+            setEdit({ ...JSON.parse(JSON.stringify(inv)), lines: (inv.lines || []).length ? inv.lines.map((l: Row) => ({ ...l, vat: INV_VAT[l.vat] ? l.vat : lineVat(l, inv.vat_treatment, inv.vat_rate), amount: l.amount == null ? '' : String(l.amount) })) : [{ description: '', amount: '' }] });
+          }} style={{ alignSelf: 'flex-end', marginTop: 10, fontSize: 11.5, color: base.slate, textDecorationLine: 'underline' }}>Edit lines</Text>}
         </>
       ) : <Card><Muted>This invoice was voided.</Muted></Card>}
       {pay && (

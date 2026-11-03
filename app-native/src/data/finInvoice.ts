@@ -46,6 +46,13 @@ export async function saveDraft(id: string, d: Row): Promise<string | null> {
   if (r.error) return 'Could not save — try again.';
   return (r.data as unknown[] | null)?.length ? null : 'This draft no longer exists — it may have been deleted or issued.';
 }
+/** Changes the lines of an issued invoice, here only: nothing is re-posted to Xero. The stored PDF is dropped so the next one shows the change. */
+export async function saveIssuedLines(id: string, d: Row): Promise<string | null> {
+  const x = draftRow(d);
+  const r = await fdb.from('fin_invoices').update({ lines: x.lines, net: x.net, vat: x.vat, rc_vat: x.rc_vat, total: x.total, vat_treatment: x.vat_treatment, pdf_path: null } as never).eq('id', id).neq('status', 'draft').neq('status', 'void').select('id');
+  if (r.error) return 'Could not save — try again.';
+  return (r.data as unknown[] | null)?.length ? null : 'This invoice can’t be changed any more.';
+}
 export const deleteDraft = async (id: string) => !(await fdb.from('fin_invoices').delete().eq('id', id).eq('status', 'draft')).error;
 /** Stores the invoice PDF with it (finance-docs/<org>/<site>/invoices/…). */
 export async function storePdf(me: Profile, org: Organization | null, inv: Row, site: Row | undefined): Promise<string | null> {
