@@ -7585,7 +7585,7 @@ window.deleteCompany = async function(orgId, name){
 let refreshingAppData = false;
 window.refreshAppData = async function(){
   if(refreshingAppData) return;
-  addSiteFormOpen = false; newSiteStatus = null; newSiteNameDraft=''; newSiteAddrDraft=''; newSitePostcodeDraft=''; newSiteJobNumberDraft=''; newSiteStartDateDraft=''; newSiteMultiSiteDraft=false; newSiteRepairContractDraft=false; newSiteClientNameDraft=''; newSiteClientPhoneDraft=''; newSiteClientEmailDraft=''; // close the collapsed add-site form back up on refresh
+  addSiteFormOpen = false; newSiteStatus = null; newSiteNameDraft=''; newSiteAddrDraft=''; newSitePostcodeDraft=''; newSiteJobNumberDraft=''; newSiteStartDateDraft=''; newSiteMultiSiteDraft=false; newSiteRepairContractDraft=false; newSiteClientNameDraft=''; newSiteClientPhoneDraft=''; newSiteClientContactDraft=''; newSiteClientEmailDraft=''; // close the collapsed add-site form back up on refresh
   refreshingAppData = true; render();
   await loadProfile();
   let refreshedOk = false;
@@ -7734,6 +7734,7 @@ let newSiteMultiSiteDraft = false;
 let newSiteRepairContractDraft = false;
 let newSiteClientNameDraft = '';
 let newSiteClientPhoneDraft = '';
+let newSiteClientContactDraft = '';
 let newSiteClientEmailDraft = '';
 let siteStatusMenuOpenId = null;
 let sitePmPickerOpenId = null;
@@ -7882,9 +7883,12 @@ async function renderSites(){
         <div class="formfield"><input type="text" id="newSitePostcode" placeholder="Postcode" value="${escapeHtml(newSitePostcodeDraft)}" oninput="applyUpperCase(this);newSitePostcodeDraft=this.value"></div>
         ${ORG && ORG.auto_job_numbers ? `<div class="formfield"><input type="text" id="newSiteJobNumber" value="" placeholder="Job number: ${escapeHtml(finNextJobNumberLabel())} (given automatically)" disabled></div>` : `<div class="formfield"><input type="text" id="newSiteJobNumber" placeholder="Job number" value="${escapeHtml(newSiteJobNumberDraft)}" oninput="newSiteJobNumberDraft=this.value"></div>`}
         <p class="field-label" style="margin-bottom:6px;">Client (optional)</p>
-        ${clientPickerHtml({name:'newSiteClientName', phone:'newSiteClientPhone', email:'newSiteClientEmail'})}
-        <div class="formfield"><input type="text" id="newSiteClientName" list="clientPortfolioList" autocomplete="off" placeholder="Client name — type or pick" value="${escapeHtml(newSiteClientNameDraft)}" oninput="applyTitleCase(this);newSiteClientNameDraft=this.value" onchange="pickSavedClient(this.value,{name:'newSiteClientName',phone:'newSiteClientPhone',email:'newSiteClientEmail'},true)"></div>
-        <div class="formfield"><input type="tel" id="newSiteClientPhone" placeholder="Client contact number" value="${escapeHtml(newSiteClientPhoneDraft)}" oninput="newSiteClientPhoneDraft=this.value"></div>
+        ${clientPickerHtml({name:'newSiteClientName', contact:'newSiteClientContact', phone:'newSiteClientPhone', email:'newSiteClientEmail'})}
+        <div class="formfield"><input type="text" id="newSiteClientName" list="clientPortfolioList" autocomplete="off" placeholder="Client name — type or pick" value="${escapeHtml(newSiteClientNameDraft)}" oninput="applyTitleCase(this);newSiteClientNameDraft=this.value" onchange="pickSavedClient(this.value,{name:'newSiteClientName',contact:'newSiteClientContact',phone:'newSiteClientPhone',email:'newSiteClientEmail'},true)"></div>
+        <div class="newsite-2col" style="display:flex;gap:10px;">
+          <div class="formfield" style="flex:1;min-width:0;"><input type="text" id="newSiteClientContact" autocomplete="off" placeholder="Client contact name" value="${escapeHtml(newSiteClientContactDraft)}" oninput="applyTitleCase(this);newSiteClientContactDraft=this.value"></div>
+          <div class="formfield" style="flex:1;min-width:0;"><input type="tel" id="newSiteClientPhone" placeholder="Client contact number" value="${escapeHtml(newSiteClientPhoneDraft)}" oninput="newSiteClientPhoneDraft=this.value"></div>
+        </div>
         <div class="formfield"><input type="email" id="newSiteClientEmail" placeholder="Client contact email" value="${escapeHtml(newSiteClientEmailDraft)}" oninput="newSiteClientEmailDraft=this.value"></div>
         <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 10px;"><input type="checkbox" id="newSiteMultiSite" style="width:auto;" ${newSiteMultiSiteDraft?'checked':''} ${newSiteRepairContractDraft?'disabled':''} onchange="newSiteMultiSiteDraft=this.checked">Multi-site (several separate addresses under one job — addresses are added once the project's created)</label>
         <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 14px;"><input type="checkbox" id="newSiteRepairContract" style="width:auto;" ${newSiteRepairContractDraft?'checked':''} ${newSiteMultiSiteDraft?'disabled':''} onchange="newSiteRepairContractDraft=this.checked">Maintenance / Repair Contract (a running list of individual repair jobs/addresses, each tracked through survey → approval → completion)</label>
@@ -7956,7 +7960,7 @@ window.togglePmFilterId = function(id){
   siteFilterPmIds = siteFilterPmIds.includes(id) ? siteFilterPmIds.filter(x=>x!==id) : [...siteFilterPmIds, id];
   render();
 };
-window.toggleAddSiteForm = function(){ addSiteFormOpen = !addSiteFormOpen; newSiteStatus = null; newSiteNameDraft=''; newSiteAddrDraft=''; newSitePostcodeDraft=''; newSiteJobNumberDraft=''; newSiteStartDateDraft=''; newSiteMultiSiteDraft=false; newSiteRepairContractDraft=false; newSiteClientNameDraft=''; newSiteClientPhoneDraft=''; newSiteClientEmailDraft=''; render(); };
+window.toggleAddSiteForm = function(){ addSiteFormOpen = !addSiteFormOpen; newSiteStatus = null; newSiteNameDraft=''; newSiteAddrDraft=''; newSitePostcodeDraft=''; newSiteJobNumberDraft=''; newSiteStartDateDraft=''; newSiteMultiSiteDraft=false; newSiteRepairContractDraft=false; newSiteClientNameDraft=''; newSiteClientPhoneDraft=''; newSiteClientContactDraft=''; newSiteClientEmailDraft=''; render(); };
 window.addSite = async function(){
   const name = document.getElementById('newSiteName').value.trim();
   const addr = document.getElementById('newSiteAddr').value.trim();
@@ -7964,6 +7968,7 @@ window.addSite = async function(){
   const jobNumber = document.getElementById('newSiteJobNumber').value.trim();
   const clientName = document.getElementById('newSiteClientName').value.trim();
   const clientPhone = document.getElementById('newSiteClientPhone').value.trim();
+  const clientContact = (document.getElementById('newSiteClientContact')?.value || '').trim();
   const clientEmail = document.getElementById('newSiteClientEmail').value.trim();
   const startDate = newSiteStatus==='upcoming' ? (document.getElementById('newSiteStartDate')?.value || '') : '';
   if(!name){ toast('Enter a site name.'); return; }
@@ -7979,10 +7984,10 @@ window.addSite = async function(){
   // is fully allowed. Inserting plain, then re-fetching the list, sidesteps
   // it without weakening the security policy.
   const newSiteId = crypto.randomUUID();
-  const res = await sbFetch('/rest/v1/sites', {method:'POST', body: JSON.stringify({id:newSiteId, name, address:addr||null, postcode:postcode||null, job_number:jobNumber||null, status:newSiteStatus, start_date:startDate||null, multi_site:!!newSiteMultiSiteDraft, repair_contract:!!newSiteRepairContractDraft, client_name:clientName||null, client_phone:clientPhone||null, client_email:clientEmail||null, created_by:ME.id, org_id:ME.org_id})});
+  const res = await sbFetch('/rest/v1/sites', {method:'POST', body: JSON.stringify({id:newSiteId, name, address:addr||null, postcode:postcode||null, job_number:jobNumber||null, status:newSiteStatus, start_date:startDate||null, multi_site:!!newSiteMultiSiteDraft, repair_contract:!!newSiteRepairContractDraft, client_name:clientName||null, client_contact_name:clientContact||null, client_phone:clientPhone||null, client_email:clientEmail||null, created_by:ME.id, org_id:ME.org_id})});
   if(!res.ok){ toast('Save failed — '+(await safeErr(res))); return; }
   newSiteStatus = null;
-  newSiteNameDraft = ''; newSiteAddrDraft = ''; newSitePostcodeDraft = ''; newSiteJobNumberDraft = ''; newSiteStartDateDraft = ''; newSiteMultiSiteDraft = false; newSiteRepairContractDraft = false; newSiteClientNameDraft = ''; newSiteClientPhoneDraft = ''; newSiteClientEmailDraft = '';
+  newSiteNameDraft = ''; newSiteAddrDraft = ''; newSitePostcodeDraft = ''; newSiteJobNumberDraft = ''; newSiteStartDateDraft = ''; newSiteMultiSiteDraft = false; newSiteRepairContractDraft = false; newSiteClientNameDraft = ''; newSiteClientPhoneDraft = ''; newSiteClientContactDraft = ''; newSiteClientEmailDraft = '';
   const sitesRes = await dbSelectChecked('sites', 'select=*&order=created_at.asc');
   if(sitesRes.ok) SITES = sitesRes.data;
   // Matched by its own id (not "newest") so the folders can't land on a
@@ -47516,7 +47521,7 @@ async function renderRoute(){
     if(parts[1]==='tbt') return renderCompletedTbts();
     return renderAllReports();
   }
-  addSiteFormOpen = false; newSiteStatus = null; newSiteNameDraft=''; newSiteAddrDraft=''; newSitePostcodeDraft=''; newSiteJobNumberDraft=''; newSiteMultiSiteDraft=false; newSiteRepairContractDraft=false; newSiteClientNameDraft=''; newSiteClientPhoneDraft=''; newSiteClientEmailDraft=''; // navigating anywhere off the site list closes the collapsed add-site form back up
+  addSiteFormOpen = false; newSiteStatus = null; newSiteNameDraft=''; newSiteAddrDraft=''; newSitePostcodeDraft=''; newSiteJobNumberDraft=''; newSiteMultiSiteDraft=false; newSiteRepairContractDraft=false; newSiteClientNameDraft=''; newSiteClientPhoneDraft=''; newSiteClientContactDraft=''; newSiteClientEmailDraft=''; // navigating anywhere off the site list closes the collapsed add-site form back up
   pmFilterOpen = false; // and closes the PM filter dropdown back up
   if(parts[0]==='team'){
     // Web-app return leg of the OneDrive OAuth flow: the callback page
