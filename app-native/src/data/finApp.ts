@@ -93,8 +93,41 @@ export async function loadApplication(id: string) {
     const { varRows, dayRows } = registerRows(a, vars, fvars, fdays);
     const haveV = new Set((a.variations || []).flatMap((r: Row) => [r.fin_variation_id, r.variation_id]).filter(Boolean)), haveD = new Set((a.dayworks || []).map((r: Row) => r.fin_daywork_id).filter(Boolean));
     const newV = varRows.filter((r) => (r.fin_variation_id || r.variation_id) && !haveV.has(r.fin_variation_id) && !haveV.has(r.variation_id)), newD = dayRows.filter((r) => r.fin_daywork_id && !haveD.has(r.fin_daywork_id));
-    if (newV.length || newD.length) {
-      const next = { ...a, variations: [...(a.variations || []), ...newV], dayworks: [...(a.dayworks || []), ...newD] };
+    // Keep a draft in step with the registers (9219s): a rejected one comes off, an approved value that changed is updated.
+    // Ones added on an application and not approved yet carry on (Andy, 3 Nov 2026).
+    const fIds = (a.variations || []).map((r: Row) => r.fin_variation_id).filter(Boolean), sIds = (a.variations || []).filter((r: Row) => r.variation_id && !r.fin_variation_id).map((r: Row) => r.variation_id), dIds = (a.dayworks || []).map((r: Row) => r.fin_daywork_id).filter(Boolean);
+    const [fNow, sNow, dNow] = await Promise.all([
+      fIds.length ? rows(fdb.from('fin_variations').select('id,status,agreed_value,quoted').in('id', fIds)) : Promise.resolve([] as Row[]),
+      sIds.length ? rows(fdb.from('variations').select('id,approval_status,cost_impact').in('id', sIds)) : Promise.resolve([] as Row[]),
+      dIds.length ? rows(fdb.from('fin_dayworks').select('id,status,value').in('id', dIds)) : Promise.resolve([] as Row[]),
+    ]);
+    const fBy = Object.fromEntries(fNow.map((x) => [x.id, x])), sBy = Object.fromEntries(sNow.map((x) => [x.id, x])), dBy = Object.fromEntries(dNow.map((x) => [x.id, x]));
+    let changed = false;
+    const keptV = (a.variations || []).flatMap((r: Row) => {
+      if (r.fin_variation_id && fBy[r.fin_variation_id]) {
+        const f = fBy[r.fin_variation_id];
+        if (f.status === 'rejected') { changed = true; return []; }
+        if (f.status === 'agreed' && f.agreed_value != null && round2(Number(f.agreed_value)) !== round2(Number(r.value ?? 0))) {
+          changed = true; const v = round2(Number(f.agreed_value)), q = Number(r.qty) > 0 ? Number(r.qty) : null;
+          return [{ ...r, value: v, ...(q ? { rate: round2(v / q) } : {}) }];
+        }
+      } else if (r.variation_id && !r.fin_variation_id && sBy[r.variation_id]) {
+        const sv = sBy[r.variation_id];
+        if (sv.approval_status !== 'approved') { changed = true; return []; }
+        const amt = Number(String(sv.cost_impact ?? '').replace(/[£,\s]/g, ''));
+        if (isFinite(amt) && amt > 0 && round2(amt) !== round2(Number(r.value ?? 0))) { changed = true; return [{ ...r, value: round2(amt) }]; }
+      }
+      return [r];
+    });
+    const keptD = (a.dayworks || []).flatMap((r: Row) => {
+      const d = r.fin_daywork_id ? dBy[r.fin_daywork_id] : null;
+      if (!d) return [r];
+      if (d.status === 'rejected') { changed = true; return []; }
+      if (d.status === 'approved' && round2(Number(d.value || 0)) !== round2(Number(r.value ?? 0))) { changed = true; return [{ ...r, value: round2(Number(d.value || 0)) }]; }
+      return [r];
+    });
+    if (newV.length || newD.length || changed) {
+      const next = { ...a, variations: [...keptV, ...newV], dayworks: [...keptD, ...newD] };
       const saved = rowForSave(next, j, previousLive);
       if (!(await fdb.from('fin_applications').update(saved as never).eq('id', a.id).eq('status', 'draft')).error) return { a: { ...next, ...saved }, jf: j, prior, previousLive, prevPct, prevVar, siteProgress, varProgress, synced: true };
     }
