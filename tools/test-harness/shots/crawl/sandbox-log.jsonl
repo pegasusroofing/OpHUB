@@ -3351,3 +3351,4 @@
 {"wrote":"fin_invoices","method":"PATCH","keys":["issue_date","due_date","client_po","bill_name","bill_address","bill_email","vat_treatment","lines","net","vat","rc_vat","total","notes","xero_post","updated_at"]}
 {"wrote":"fin_invoices","method":"DELETE","keys":[]}
 {"blocked":"function","fn":"xero"}
+{"blocked":"function","fn":"xero"}

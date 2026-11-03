@@ -254,6 +254,12 @@ function Issued({ inv, pays, site }: { inv: Row; pays: Row[]; site: Row | undefi
         <FinStat v={inv.number || '—'} label="Invoice" /><FinStat v={invOverdue(inv as never) ? 'Overdue' : INV_STATUS[inv.status] || inv.status} label="Status" hot={invOverdue(inv as never)} />
         <FinStat v={money(inv.total)} label="Total" /><FinStat v={money(out)} label="Outstanding" hot={out > 0} />
       </View>
+      {inv.status !== 'void' && (
+        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
+          <View style={{ flex: 1 }}><Button title="Email Invoice" onPress={() => setMailing(true)} /></View>
+          <View style={{ flex: 1 }}><Button kind="ghost" title="Export PDF" onPress={() => void openPdf()} /></View>
+        </View>
+      )}
       <Card>
         <FinRow title="Bill to" right={inv.bill_name || site?.client_name || '—'} /><FinRow title="Issued" right={fdate(inv.issue_date)} /><FinRow title="Due" right={fdate(inv.due_date)} />
         <FinRow title="Sent" right={inv.sent_at ? `${fdate(String(inv.sent_at).slice(0, 10))}${inv.sent_to ? ` to ${inv.sent_to}` : ''}` : 'Not emailed yet'} />
@@ -276,12 +282,6 @@ function Issued({ inv, pays, site }: { inv: Row; pays: Row[]; site: Row | undefi
         <FinRow title="Net" right={money(t.net)} /><FinRow title="VAT" right={money(t.vat)} /><FinRow title="Total" right={money(t.total)} />
         {t.vatDue ? <Muted>Reverse charge VAT {money(t.vatDue)} — paid by the client to HMRC.</Muted> : null}
       </Card>
-      {inv.status !== 'void' && (
-        <View style={{ flexDirection: 'row', gap: 8, marginTop: 4, marginBottom: 12 }}>
-          <View style={{ flex: 1 }}><Button title="Email Invoice" onPress={() => setMailing(true)} /></View>
-          <View style={{ flex: 1 }}><Button kind="ghost" title="Export PDF" onPress={() => void openPdf()} /></View>
-        </View>
-      )}
       {mailing && (
         <FinEmailPopup kind="invoice" title={`Email Invoice ${inv.number || ''}`} to={inv.bill_email || site?.client_email || ''}
           note="The invoice PDF goes with it."

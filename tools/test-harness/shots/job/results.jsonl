@@ -1604,3 +1604,4 @@
 {"part":"invcode1","step":"£ box, red minus, sales code saved with the line","ok":true,"note":"colour rgb(192, 57, 43), saved {\"vat\":\"rc20\",\"amount\":-50,\"account\":\"215\",\"description\":\"ZZ code test\"}","ms":18844}
 {"part":"invcode1","step":"Locked view: red total, then delete the test draft","ok":true,"note":"red figures 3, deleted true","ms":2958}
 {"part":"invmail1","step":"Email Invoice and Export PDF on an issued invoice","ok":true,"note":"buttons 2, template 1, subject has number 1","ms":15321}
+{"part":"invmail1","step":"Email Invoice and Export PDF on an issued invoice","ok":true,"note":"buttons 2, template 1, subject has number 1","ms":15237}
