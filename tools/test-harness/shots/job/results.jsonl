@@ -1551,3 +1551,5 @@
 {"part":"appphone4","step":"Phone: variation description is words until tapped","ok":true,"note":"open boxes before 0, after tap 1, qty to tap 1, old £ boxes 0","ms":1019}
 {"part":"appret1","step":"% after the box at 1440","ok":false,"note":"box ends 597, % at 602,602","ms":10473}
 {"part":"appret1","step":"% after the box at 390","ok":false,"note":"box ends 343, % at 348,348","ms":10153}
+{"part":"appret1","step":"% after the box at 1440","ok":true,"note":"box ends 597, % at 602,602","ms":10733}
+{"part":"appret1","step":"% after the box at 390","ok":true,"note":"box ends 343, % at 348,348","ms":10332}
