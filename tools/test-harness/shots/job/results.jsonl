@@ -1417,3 +1417,11 @@
 {"part":"appview1","step":"Certified as applied, then the overview shows both columns","ok":true,"note":"Balance £2,897.50 £2,897.50 £2,755.00 £142.50 VAT (Reverse Charge, Not Added)","ms":1734}
 {"part":"appview1","step":"Save certificate: overview keeps the figures","ok":true,"note":"certified cert 142.5 applied 142.5","ms":4640}
 {"part":"appview1","step":"Phone: overview fits","ok":true,"note":"over by 0","ms":845}
+{"part":"appbtn1","step":"Applied: Return To Draft, Export Excel, Certify, Delete; Delete red and same height","ok":true,"note":"order true {\"d\":{\"h\":34,\"w\":100,\"bg\":\"rgb(253, 236, 236)\"},\"e\":{\"h\":34,\"w\":211,\"bg\":\"rgb(223, 227, 234)\"}}","ms":12235}
+{"part":"appbtn1","step":"Certifying: Back To The Application, Save Certificate, Save & Raise Invoice, Delete","ok":true,"note":"order true","ms":1657}
+{"part":"appview1","step":"Draft opens on the overview","ok":true,"note":"Contract Works £3,250.00 Valuation Date 3 Nov 2026 📅 Due Date 3 Dec 2026 ","ms":13609}
+{"part":"appview1","step":"Line by line has the lines and a totals bar","ok":true,"note":"boxes 12","ms":993}
+{"part":"appview1","step":"Mark applied, stays on line by line with certified boxes","ok":true,"note":"boxes 12","ms":8801}
+{"part":"appview1","step":"Certified as applied, then the overview shows both columns","ok":true,"note":"Balance £2,541.25 £2,541.25 £2,897.50 −£356.25 VAT (Reverse Charge, Not Added","ms":1652}
+{"part":"appview1","step":"Save certificate: overview keeps the figures","ok":true,"note":"certified cert -356.25 applied -356.25","ms":4665}
+{"part":"appview1","step":"Phone: overview fits","ok":true,"note":"over by 0","ms":829}

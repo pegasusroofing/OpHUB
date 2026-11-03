@@ -13,9 +13,9 @@ module.exports = async ({as, step}) => {
     const ok1 = await order(['Return To Draft', 'Export Excel', 'Certify', 'Delete']);
     return {ok: ok1 && d.h === e.h && d.w < e.w && d.bg !== e.bg, note: 'order ' + ok1 + ' ' + JSON.stringify({d, e})};
   });
-  await step('Certifying: Back To The Application, Export Excel, Save Certificate, Delete', async () => {
+  await step('Certifying: Back To The Application, Save Certificate, Save & Raise Invoice, Delete', async () => {
     await q('Certify').last().click({timeout: 5000}); await a.page.waitForTimeout(500); await q('Overview').last().click({timeout: 5000}); await a.page.waitForTimeout(800); await a.shot('certifying');
-    const ok1 = await order(['Back To The Application', 'Export Excel', 'Save Certificate', 'Delete']);
+    const ok1 = await order(['Back To The Application', 'Save Certificate', 'Save & Raise Invoice', 'Delete']) && (await q('Certified As Applied').count()) === 0 && (await q('Raise And Issue The Invoice Now').count()) === 0;
     return {ok: ok1, note: 'order ' + ok1};
   });
 };

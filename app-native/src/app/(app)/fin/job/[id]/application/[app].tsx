@@ -12,7 +12,7 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { ThinExportBar } from '@/components/FinFilterBar';
 import { SelectBox } from '@/components/SelectBox';
-import { chooseAction, confirmAsk, showAlert, useToast } from '@/components/toast';
+import { confirmAsk, showAlert, useToast } from '@/components/toast';
 import { FinForm } from '@/components/FinForm';
 import { Button, Card, Check, Muted } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
@@ -47,7 +47,7 @@ const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input
 const STAGE: Record<string, string> = { draft: 'Draft', applied: 'Applied — Waiting For Certificate', certified: 'Certified', invoiced: 'Invoiced', void: 'Void' };
 
 // Which view each application was last on, so marking one as applied from Line by line stays there.
-const lastView: Record<string, 'overview' | 'lines'> = {};
+const lastView = new Map<string, 'overview' | 'lines'>();
 
 export default function FinApplication() {
   const { id, app } = useLocalSearchParams<{ id: string; app: string }>();
@@ -68,9 +68,9 @@ export default function FinApplication() {
 function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, varProgress }: { a0: Row; jf: Row; prior: Row | null; previousLive: number; prevPct: Record<string, number>; prevVar: Record<string, number>; siteProgress: Record<string, number>; varProgress: Record<string, number> }) {
   const desk = useDesk(), t = useTheme();
   // Overview first, then line by line (Andy, 2 Nov 2026).
-  const [view, setViewNow] = useState<'overview' | 'lines'>(lastView[a0.id] || 'overview');
+  const [view, setViewNow] = useState<'overview' | 'lines'>(lastView.get(a0.id) || 'overview');
   const scroller = useRef<ComponentRef<typeof ScrollView>>(null);
-  const setView = (x: 'overview' | 'lines') => { lastView[a0.id] = x; setViewNow(x); scroller.current?.scrollTo({ y: 0, animated: false }); };
+  const setView = (x: 'overview' | 'lines') => { lastView.set(a0.id, x); setViewNow(x); scroller.current?.scrollTo({ y: 0, animated: false }); };
   // An applied application stays as an application until Certify is pressed.
   const [certifying, setCertifying] = useState(false);
   const [over, setOver] = useState<Record<string, Entry>>({}); // single lines switched away from the page's choice
@@ -187,7 +187,7 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
   // Laptop: below each section bar, a table with a column for each figure (Andy, 2 Nov 2026).
   const entryHead = (w: string) => `${w} ${mode === 'gbp' ? '£' : mode === 'qty' ? 'qty' : '%'}`;
   const cols = certing || certDone ? ['ref', 'desc', 'qty', 'unit', 'value', 'pct', 'gross', 'certBox', 'cert', 'prev', 'now'] : ['ref', 'desc', 'qty', 'unit', 'rate', 'value', stage === 'draft' ? 'box' : 'pct', 'gross', 'prev', 'now'];
-  const gridHead = <GridRow head cols={cols} cells={{ ref: 'Ref', desc: 'Description', qty: 'Qty', unit: 'Unit', rate: 'Rate', value: 'Value', box: entryHead('Applied'), pct: 'Applied %', gross: certing || certDone ? 'Applied' : 'Cumulative', certBox: certing ? entryHead('Certified') : 'Certified %', cert: 'Certified', prev: 'Previous', now: 'Current' }} />;
+  const gridHead = <LineRow head cols={cols} cells={{ ref: 'Ref', desc: 'Description', qty: 'Qty', unit: 'Unit', rate: 'Rate', value: 'Value', box: entryHead('Applied'), pct: 'Applied %', gross: certing || certDone ? 'Applied' : 'Cumulative', certBox: certing ? entryHead('Certified') : 'Certified %', cert: 'Certified', prev: 'Previous', now: 'Current' }} />;
   const varSite = (v: Row, i: number) => {
     const sp = varProgress[v.fin_variation_id || v.variation_id || ''];
     if (sp == null) return null;
@@ -251,11 +251,11 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
               </>
             )}
             {certing && (
-              <Certificate a={a0} jf={jf} cert={cert} onSaved={refresh} onLines={() => setView('lines')} actions={(saveBtn) => (
+              <Certificate a={a0} jf={jf} cert={cert} onSaved={refresh} actions={(saveBtn, raiseBtn) => (
                 <ActionRow onDelete={deleteAny}>
                   <Button kind="ghost" title="Back To The Application" onPress={() => setCertifying(false)} />
-                  <Button kind="ghost" busy={busy === 'xlsx'} title="Export Excel" onPress={() => void exportAs('xlsx', true)} />
                   {saveBtn}
+                  {raiseBtn}
                 </ActionRow>
               )} />
             )}
@@ -333,7 +333,7 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
           const cl = certDone ? (a0.cert_lines || []).find((x: Row) => x.item_id === l.item_id) : null;
           const certG = certing ? round2((val * p0) / 100) : cl ? Number(cl.gross || 0) : null;
           return (
-            <GridRow key={i} cols={cols} cells={{
+            <LineRow key={i} cols={cols} cells={{
               ref: l.ref || '', desc: <Text style={{ color: base.ink, fontSize: 14 }}>{l.description}{siteTag}</Text>,
               qty: hasQty ? String(l.qty) : '', unit: hasQty ? l.unit || '' : '', rate: hasQty ? money(l.rate) : '', value: money(l.value),
               box: <AmountBox key={`p${i}-${gen}`} p={pct(l.pct)} value={l.value} qty={l.qty} unit={l.unit} mode={over[l.item_id] || mode} onMode={flip(l.item_id)} labels={['Percent done', 'Amount done', 'Quantity done']} onPct={(x) => setLine(i, { pct: x })} />,
@@ -430,7 +430,7 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
         const certG = certing ? round2((val * cp0) / 100) : cl ? Number(cl.gross || 0) : null;
         const inp = { width: '100%' as const, height: 30, paddingVertical: 2, fontSize: 13 };
         return (
-          <GridRow key={i} cols={cols} cells={{
+          <LineRow key={i} cols={cols} cells={{
             ref: '', desc: locked ? <Text style={{ color: base.ink, fontSize: 14 }}>{v.description} {varSite(v, i)}</Text> : <View style={{ width: '100%', flexDirection: 'row', alignItems: 'center', gap: 6 }}><TextInput value={v.description} onChangeText={(x) => setA({ ...a, variations: a.variations.map((y: Row, j: number) => (j === i ? { ...y, description: x } : y)) })} placeholder="Description" style={[box, { flex: 1, minWidth: 0, height: 30, paddingVertical: 2, fontSize: 13 }]} />{varSite(v, i)}</View>,
             qty: locked ? (v.qty != null ? String(v.qty) : '1') : <TextInput accessibilityLabel="Variation quantity" defaultValue={v.qty != null ? String(v.qty) : '1'} onChangeText={(x) => setVar(i, { qty: x })} keyboardType="decimal-pad" selectTextOnFocus style={[box, inp]} />,
             unit: '', rate: locked ? money(v.rate ?? v.value) : <TextInput defaultValue={v.rate != null ? String(v.rate) : v.value != null ? String(v.value) : ''} onChangeText={(x) => setVar(i, { rate: x })} placeholder="£ value" keyboardType="decimal-pad" selectTextOnFocus style={[box, inp]} />,
@@ -470,7 +470,7 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
         const cl = certDone ? (a0.cert_lines || []).find((x: Row) => x.day_index === i) : null;
         const certG = certing ? num(cert.cp[`d${i}`]) || 0 : cl ? Number(cl.gross || 0) : null;
         return (
-          <GridRow key={i} cols={cols} cells={{
+          <LineRow key={i} cols={cols} cells={{
             ref: '', desc: typed ? <TextInput value={d.description || ''} onChangeText={(x) => setA({ ...a, dayworks: a.dayworks.map((y: Row, j: number) => (j === i ? { ...y, description: x } : y)) })} placeholder="Description" style={[box, { width: '100%', height: 30, paddingVertical: 2, fontSize: 13 }]} /> : <Text style={{ color: base.ink, fontSize: 14 }}>{d.description}</Text>,
             qty: '', unit: '', rate: '', value: typed ? <TextInput defaultValue={d.value != null ? String(d.value) : ''} onChangeText={(x) => setA({ ...a, dayworks: a.dayworks.map((y: Row, j: number) => (j === i ? { ...y, value: num(x) } : y)) })} placeholder="£ value" keyboardType="decimal-pad" selectTextOnFocus style={[box, { width: '100%', height: 30, paddingVertical: 2, fontSize: 13 }]} /> : money(d.value),
             box: '', pct: '', gross: <Strong>{money(d.gross)}</Strong>,
@@ -518,7 +518,7 @@ function Editor({ a0, jf, prior, previousLive, prevPct, prevVar, siteProgress, v
 const GRID_W: Record<string, number> = { ref: 52, qty: 58, unit: 48, rate: 82, value: 92, box: 124, pct: 84, gross: 96, certBox: 124, cert: 96, prev: 92, now: 92 };
 const Strong = ({ children, warn }: { children: ReactNode; warn?: boolean }) => <Text style={{ fontSize: 13.5, fontWeight: '600', color: warn ? '#b45309' : base.ink }}>{children}</Text>;
 /** One row of the lines table: thin lines between the columns, words on the left and figures on the right. */
-function GridRow({ cols, cells, head }: { cols: string[]; cells: Record<string, ReactNode>; head?: boolean }) {
+function LineRow({ cols, cells, head }: { cols: string[]; cells: Record<string, ReactNode>; head?: boolean }) {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'stretch', borderBottomWidth: 1, borderColor: base.cardLine, backgroundColor: head ? '#F4F5F7' : undefined }}>
       {cols.map((k, i) => {
@@ -727,11 +727,11 @@ function CertTools({ a, cert }: { a: Row; cert: Cert }) {
   );
 }
 
-function Certificate({ a, cert, onSaved, onLines, jf, actions }: { a: Row; jf: Row; cert: Cert; onSaved: () => void; onLines: () => void; actions: (save: ReactNode) => ReactNode }) {
+function Certificate({ a, cert, onSaved, jf, actions }: { a: Row; jf: Row; cert: Cert; onSaved: () => void; actions: (save: ReactNode, saveAndRaise: ReactNode) => ReactNode }) {
   const { me, org } = useAuth();
   const { data: site } = useSite(a.site_id);
   const toast = useToast();
-  const { cp, v, setV, file, setFile, certApp } = cert;
+  const { v, setV, file, setFile, certApp } = cert;
   const [busy, setBusy] = useState(false);
   if (!me) return null;
   const n = (k: string) => num(v[k]) || 0;
@@ -744,7 +744,6 @@ function Certificate({ a, cert, onSaved, onLines, jf, actions }: { a: Row; jf: R
   return (
     <Panel title="Client's Certificate">
       <View style={{ padding: 12 }}>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}><Button small kind="ghost" title="Enter The Certified Figures Line By Line" onPress={onLines} /><Button small kind="ghost" title="Certified As Applied" onPress={cert.asApplied} /></View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 8 }}>
         {f('cert_date', 'Certificate Date')}
       </View>
@@ -753,8 +752,13 @@ function Certificate({ a, cert, onSaved, onLines, jf, actions }: { a: Row; jf: R
       <Check label="This Is A Pay-Less Notice" value={!!v.cert_is_payless} onChange={(x) => setV({ ...v, cert_is_payless: x })} />
       <TextInput value={v.cert_notes} onChangeText={(x) => setV({ ...v, cert_notes: x })} placeholder="Notes, e.g. reason for any shortfall" style={[box, { marginVertical: 6 }]} />
       <Pressable onPress={async () => { const r = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true }); if (!r.canceled && r.assets[0]) setFile({ uri: r.assets[0].uri, name: r.assets[0].name, mimeType: r.assets[0].mimeType }); }}><Text style={{ color: base.blue, marginBottom: 6 }}>📎 {file ? file.name : 'Copy Of The Certificate (Optional)'}</Text></Pressable>
-      <Check label="Raise And Issue The Invoice Now" value={!!v.invoiceNow} onChange={(x) => setV({ ...v, invoiceNow: x })} />
-      {actions(<Button busy={busy} title="Save Certificate" onPress={async () => {
+      {actions(<Button kind="ghost" busy={busy} title="Save Certificate" onPress={() => void save(false)} />, <Button busy={busy} title="Save & Raise Invoice" onPress={() => void save(true)} />)}
+      </View>
+    </Panel>
+  );
+  // Save the certificate; with raise, also raise and issue the invoice from it (Andy, 3 Nov 2026: a button instead of a tick).
+  async function save(raise: boolean) {
+        if (!me) return;
         const vals = ['cert_gross', 'cert_retention', 'cert_previous', 'cert_discount'].map((k) => num(v[k]));
         if (vals.some((x) => x === null || isNaN(x))) { toast('Fill in every amount (0 if none).'); return; }
         setBusy(true);
@@ -764,15 +768,13 @@ function Certificate({ a, cert, onSaved, onLines, jf, actions }: { a: Row; jf: R
           const certLines = [...ca.lines.filter(isItem).map((l: Row) => ({ item_id: l.item_id, pct: l.pct, gross: l.gross, value: l.value, applied_pct: pct((a.lines || []).find((y: Row) => y.item_id === l.item_id)?.pct) })), ...ca.variations.map((x: Row, i: number) => ({ var_index: i, fin_variation_id: x.fin_variation_id || null, variation_id: x.variation_id || null, description: x.description, pct: x.pct, gross: x.gross, value: x.value, applied_pct: pct(a.variations?.[i]?.pct) })), ...ca.dayworks.map((d: Row, i: number) => ({ day_index: i, fin_daywork_id: d.fin_daywork_id || null, description: d.description, gross: d.gross }))];
           const e = await saveCertificate(me, a, { ...v, cert_gross: vals[0], cert_retention: vals[1], cert_previous: vals[2], cert_discount: vals[3], cert_net: net, cert_lines: certLines }, file);
           if (e) { toast(e); return; }
-          if (v.invoiceNow && net > 0) {
+          if (raise && net <= 0) { toast('Certificate saved — nothing to invoice, as the net due isn’t above £0.'); onSaved(); return; }
+          if (raise) {
             const r = await raiseInvoiceFromCert(me, org, { ...a, cert_gross: vals[0], cert_retention: vals[1], cert_previous: vals[2], cert_discount: vals[3], cert_net: net, cert_date: v.cert_date }, site as never, true);
             if (r.error) showAlert(r.error); else if (r.needsBill) toast('Certificate saved — add who the invoice is to, then issue it.');
             onSaved(); if (r.id) router.push(`/fin/job/${a.site_id}/invoice/${r.id}` as never); return;
           }
           toast('Certificate saved'); onSaved();
         } finally { setBusy(false); }
-      }} />)}
-      </View>
-    </Panel>
-  );
+  }
 }
