@@ -4,7 +4,7 @@
 // emailing the invoice are switched off while Finance is on trial.
 import { fdb, finInvoke, loadSettings, xeroAutoOk } from '@/data/finance';
 import { buildInvoicePdf } from '@/lib/finInvoicePdf';
-import { daysOr, addDays, round2, today } from '@/lib/rules/finance';
+import { daysOr, addDays, fdate, FIN_TRIAL_MSG, finBlocked, money, round2, today } from '@/lib/rules/finance';
 import { cleanLines, invTotals, treatmentOf, type InvLine, INV_VAT } from '@/lib/rules/finInvoice';
 import { supabase } from '@/lib/supabase';
 import type { Organization, Profile } from '@/lib/types';
@@ -74,6 +74,17 @@ export async function issue(me: Profile, org: Organization | null, id: string, s
   // Posting to Xero — blocked by the Finance trial for RTB.
   const x = (await xeroAutoOk(me.org_id, 'fin_invoices', inv.id)) ? await finInvoke(me, 'xero', { action: 'push_invoice', id: inv.id }) : { error: null };
   return { inv, error: null, xero: x.error };
+}
+/** Emails an issued invoice's PDF (Andy, 3 Nov 2026) with the wording from the send pop-up, through send-finance-email;
+ *  notes who it went to. During the Finance trial only the Sandbox company sends. Gives the problem, or null when sent. */
+export async function emailInvoice(me: Profile, org: Organization | null, inv: Row, site: Row | undefined, to: string[], cc: string[], words: { subject: string; body: string; logos: string[]; hideLogo: boolean }): Promise<string | null> {
+  if (finBlocked('send-finance-email', undefined, me.org_id)) return FIN_TRIAL_MSG;
+  const pdf = inv.pdf_path || (await storePdf(me, org, inv, site));
+  if (!pdf) return 'Could not make the PDF — try again.';
+  const r = await finInvoke(me, 'send-finance-email', { kind: 'invoice', site_id: inv.site_id, storage_path: pdf, filename: `${String(inv.number || 'Invoice').replace(/[^a-z0-9-]+/gi, '_')}.pdf`, recipients: to, cc, reference: inv.number || '', client_po: inv.client_po || '', amount: money(inv.total), due: inv.due_date ? fdate(inv.due_date) : '', subject: words.subject, body_text: words.body, logos: words.logos, hide_logo: words.hideLogo });
+  if (r.error) return r.error;
+  await fdb.from('fin_invoices').update({ sent_at: new Date().toISOString(), sent_to: to.join(', ') } as never).eq('id', inv.id);
+  return null;
 }
 export const voidInvoice = async (id: string) => !!(await fdb.from('fin_invoices').update({ status: 'void', updated_at: new Date().toISOString() } as never).eq('id', id).select('id')).data?.length;
 export async function addPayment(me: Profile, invId: string, amount: number, paidOn: string, note: string): Promise<boolean> {

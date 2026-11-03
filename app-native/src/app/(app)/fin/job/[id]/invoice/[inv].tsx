@@ -7,6 +7,7 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
+import { FinEmailPopup } from '@/components/FinEmailPopup';
 import { FinForm } from '@/components/FinForm';
 import { ThinExportBar } from '@/components/FinFilterBar';
 import { FinRow, FinStat } from '@/components/FinNav';
@@ -19,7 +20,7 @@ import { DateBox } from '@/components/DateField';
 import { openDocLink } from '@/data/hs';
 import { SelectBox } from '@/components/SelectBox';
 import { subNoun, useSubJobs } from '@/data/finSubJobs';
-import { addPayment, deleteDraft, deletePayment, draftRow, issue, loadInvoice, newInvoice, saveDraft, saveIssuedLines, storePdf, voidInvoice } from '@/data/finInvoice';
+import { addPayment, deleteDraft, deletePayment, draftRow, emailInvoice, issue, loadInvoice, newInvoice, saveDraft, saveIssuedLines, storePdf, voidInvoice } from '@/data/finInvoice';
 import { fdb, finInvoke, useFinSettings } from '@/data/finance';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
@@ -212,7 +213,7 @@ function Draft({ inv, site }: { inv: Row; site: Row | undefined }) {
             const e = await saveDraft(inv.id, d); if (e) { toast(e); return; }
             const r = await issue(me, org, inv.id, site);
             if (r.error) { toast(r.error); return; }
-            toast(`Invoice ${r.inv?.number} issued${r.xero ? ' — not posted to Xero (Finance trial)' : ''}`); refresh();
+            toast(`Invoice ${r.inv?.number} issued${r.xero ? ' — not posted to Xero (Finance trial)' : ''}`); justIssued.add(inv.id); refresh();
           } finally { setBusy(''); }
         }} /></View>
         <Pressable accessibilityRole="button" accessibilityLabel="Delete draft" onPress={async () => { if (!(await confirmAsk('Delete this draft invoice?', 'Delete'))) return; if (await deleteDraft(inv.id)) { toast('Draft deleted'); refresh(); router.back(); } else toast('Could not delete.'); }} style={({ pressed }) => ({ width: 46, marginTop: 4, borderRadius: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FDECEC', opacity: pressed ? 0.7 : 1 })}><OphIcon name="bin" size={19} color="#B42318" /></Pressable>
@@ -221,6 +222,9 @@ function Draft({ inv, site }: { inv: Row; site: Row | undefined }) {
   );
 }
 
+// Invoices just issued on this device: the issued page asks Email it / Export PDF straight away (Andy, 3 Nov 2026).
+const justIssued = new Set<string>();
+
 function Issued({ inv, pays, site }: { inv: Row; pays: Row[]; site: Row | undefined }) {
   const { me, org } = useAuth();
   const toast = useToast();
@@ -228,6 +232,17 @@ function Issued({ inv, pays, site }: { inv: Row; pays: Row[]; site: Row | undefi
   const [pay, setPay] = useState(false);
   const [edit, setEdit] = useState<Row | null>(null);
   const [saving, setSaving] = useState(false);
+  const [mailing, setMailing] = useState(false);
+  const openPdf = async () => {
+    if (!me) return;
+    let p = inv.pdf_path; if (!p) p = await storePdf(me, org, inv, site);
+    const u = p ? await openDocLink('finance-docs', p) : null; if (u) viewDoc(u); else toast('Could not build the PDF.');
+  };
+  useEffect(() => {
+    if (!justIssued.has(inv.id)) return;
+    justIssued.delete(inv.id);
+    void chooseAction(`Invoice ${inv.number} issued`, [{ key: 'email', label: 'Email it' }, { key: 'pdf', label: 'Export PDF' }, { key: 'done', label: 'Done' }]).then((k) => { if (k === 'email') setMailing(true); else if (k === 'pdf') void openPdf(); });
+  }, [inv.id]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!me) return null;
   const out = invOutstanding(inv as never), t = invTotals(inv.lines, inv.vat_treatment, inv.vat_rate);
   const refresh = () => { ['finInvoice', 'finSales', 'finBook', 'finOverview', 'finJobs'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] })); };
@@ -261,7 +276,19 @@ function Issued({ inv, pays, site }: { inv: Row; pays: Row[]; site: Row | undefi
         <FinRow title="Net" right={money(t.net)} /><FinRow title="VAT" right={money(t.vat)} /><FinRow title="Total" right={money(t.total)} />
         {t.vatDue ? <Muted>Reverse charge VAT {money(t.vatDue)} — paid by the client to HMRC.</Muted> : null}
       </Card>
-      <Muted style={{ marginVertical: 6 }}>Emailing invoices and reminders is switched off while Finance is on trial.</Muted>
+      {inv.status !== 'void' && (
+        <View style={{ flexDirection: 'row', gap: 8, marginTop: 4, marginBottom: 12 }}>
+          <View style={{ flex: 1 }}><Button title="Email Invoice" onPress={() => setMailing(true)} /></View>
+          <View style={{ flex: 1 }}><Button kind="ghost" title="Export PDF" onPress={() => void openPdf()} /></View>
+        </View>
+      )}
+      {mailing && (
+        <FinEmailPopup kind="invoice" title={`Email Invoice ${inv.number || ''}`} to={inv.bill_email || site?.client_email || ''}
+          note="The invoice PDF goes with it."
+          vars={{ client: inv.bill_name || site?.client_name || '', project: site?.name || '', job_no: site?.job_number || '', number: String(inv.number || ''), amount: money(inv.total), due: inv.due_date ? fdate(inv.due_date) : '', client_po: inv.client_po || '', company: org?.name || '', my_name: me.name || '' }}
+          onSend={async (o) => { const e = await emailInvoice(me, org, inv, site, o.to, o.cc, o); if (e) return e; toast(`Invoice emailed to ${o.to.join(', ')}`); refresh(); return null; }}
+          onClose={() => setMailing(false)} />
+      )}
       {inv.status !== 'void' ? (
         <>
           <SectionTitle>Payments</SectionTitle>
