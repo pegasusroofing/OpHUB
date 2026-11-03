@@ -16,6 +16,8 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
   const style = document.createElement('style');
   style.textContent = `
     html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; -webkit-text-size-adjust: 100%; }
+    /* The strip between the app and Safari's floating address bar shows the page behind: white, like the bottom bar (Andy, 3 Nov 2026). */
+    html, body { background-color: #FFFFFF; }
     body { position: fixed; inset: 0; }
     #root { width: 100%; height: 100%; height: 100dvh; overflow: hidden; }
     @media (pointer: coarse), (max-width: 1099px) { input, textarea, select { font-size: 16px !important; } }
