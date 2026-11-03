@@ -23,7 +23,7 @@ import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { COST_CATS, PI_STATUS } from '@/lib/rules/finBook';
 import { codePatch, codeStart, type CodeLine } from '@/lib/rules/piCode';
-import { fdate, jobTag, money, num, round2, today } from '@/lib/rules/finance';
+import { addDays, fdate, jobTag, money, num, round2, today } from '@/lib/rules/finance';
 import { base, page, radius, space } from '@/theme/theme';
 
 const XERO_Q = 'This is already in Xero. Changing it here won’t change Xero — change it in Xero too, or the two won’t match.';
@@ -60,7 +60,7 @@ function NewPinv({ siteId, poId, receipt }: { siteId: string; poId: string; rece
           ...(!poId && !isReceipt && sitePos.length ? [{ k: 'po_pick', label: 'Purchase order (optional)', kind: 'choice', options: [['', 'None'], ...sitePos.map((p): [string, string] => [p.id, `${p.number || 'PO'} · ${p.supplier_name || ''}`])] }] as never[] : []),
           { k: 'supplier', label: 'Supplier' }, ...(isReceipt ? [] : [{ k: 'invoice_no', label: 'Invoice number', half: true }] as never[]), { k: 'invoice_date', label: 'Date', kind: 'date', half: true },
           { k: 'net', label: 'Net £ (blank = worked out from the total)', kind: 'money', half: true, ph: 'Worked out' }, { k: 'vat', label: 'VAT £ (blank = 20%)', kind: 'money', half: true, ph: 'Worked out' }, { k: 'total', label: 'Total £ (blank = net + VAT)', kind: 'money', half: true, ph: 'Worked out' }, { k: 'due_date', label: 'Due date', kind: 'date', half: true },
-          { k: 'cost_code', label: 'Cost type', kind: 'choice', options: Object.entries(COST_CATS) }, { k: 'description', label: 'Description' },
+          { k: 'cost_code', label: 'Cost type', kind: 'choice', options: Object.entries(COST_CATS).filter(([c]) => c !== 'labour') }, { k: 'description', label: 'Description' },
         ]}
         onSave={async (v) => {
           const supplier = String(v.supplier).trim(), no = String(v.invoice_no || '').trim(), total = num(v.total);
@@ -74,7 +74,7 @@ function NewPinv({ siteId, poId, receipt }: { siteId: string; poId: string; rece
           if (net === null || isNaN(net)) return 'Enter the net amount.';
           const key = `${supplier.toLowerCase()}|${no.toLowerCase()}`;
           if (no && dupOk !== key) { const d = await duplicateOf(supplier, no); if (d) { setDupOk(key); return `Possible duplicate: ${supplier} invoice ${no} is already on ${jobTag(sites.find((s) => s.id === d.site_id)) || 'another project'} (${fdate(d.invoice_date)}). Save again to add it anyway.`; } }
-          const r = await addPinv(me, siteId, { supplier, invoice_no: no, invoice_date: String(v.invoice_date), net, vat, total: total === null || isNaN(total) ? null : total, due_date: String(v.due_date).trim() || null, description: String(v.description).trim(), cost_code: v.cost_code, po_id: poId || v.po_pick || null, receipt: isReceipt }, file);
+          const r = await addPinv(me, siteId, { supplier, invoice_no: no, invoice_date: String(v.invoice_date), net, vat, total: total === null || isNaN(total) ? null : total, due_date: String(v.due_date).trim() || (String(v.invoice_date || '').trim() ? addDays(String(v.invoice_date), 30) : null), // blank = 30 days (904) description: String(v.description).trim(), cost_code: v.cost_code, po_id: poId || v.po_pick || null, receipt: isReceipt }, file);
           if (r.error) return r.error;
           toast(r.flags.length ? `Saved and flagged: ${r.flags[0]}` : 'Saved — waiting for approval');
           ['finPurchases', 'finBook', 'finPo'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] }));
