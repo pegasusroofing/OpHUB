@@ -37,12 +37,16 @@ Andy's own hands-on review of the new app. This is separate from the automatic t
 - Expenses
 - OneDrive sync
 
-## Finance: still to review
+## Finance: reviewed (2–3 Nov 2026, laptop then phone)
 - Jobs grid and the project overview (forecast, OHP)
-- Bill of Quantities
-- Applications for payment and certificates
-- Retention
-- Sales invoices
+- Bill of Quantities, plots
+- Applications for payment and certificates (overview, line by line, certify, import, email)
+- Retention release through an application
+- Sales invoices (draft, lock, issue, email / export)
+- Settings: email templates
+
+## Finance: still to review
+- Variations and Day works tabs (now fed from applications)
 - Purchases (POs, purchase invoices, quotes, plant)
 - Subcontractors and CIS
 - Operative invoices
