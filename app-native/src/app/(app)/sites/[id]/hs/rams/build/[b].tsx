@@ -10,12 +10,13 @@ import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-nativ
 import { chooseAction, confirmAsk, promptText, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Check, Empty, Muted, SectionTitle } from '@/components/ui';
 import { DateBox } from '@/components/DateField';
+import { NumberedLines } from '@/components/NumberedLines';
 import { askAiCharge, RamsAiPopup } from '@/components/RamsAiBox';
 import { aiDraft, aiToLibrary, deleteBuild, issueBuild, loadBuild, previewPdf, saveAsTemplate, saveBuild, saveItemToLibrary, useLibrary } from '@/data/ramsBuilder';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { showPdf } from '@/lib/pdf';
-import { hazardFromLib, lines, mergeAiDraft, missingInfo, moveItem, P_LABELS, RAMS_GROUPS, RAMS_PPE, RAMS_REQUIRED, ramsUid, riskBand, rr, S_LABELS, sectionFromLib, type Hazard, type RamsBuild, type RamsDetails, type RSection } from '@/lib/rules/rams';
+import { hazardFromLib, mergeAiDraft, missingInfo, moveItem, P_LABELS, RAMS_GROUPS, RAMS_PPE, RAMS_REQUIRED, ramsUid, riskBand, rr, S_LABELS, sectionFromLib, type Hazard, type RamsBuild, type RamsDetails, type RSection } from '@/lib/rules/rams';
 import { isCompanyAdmin, isFullManager } from '@/lib/roles';
 import { base, page, radius, space, live } from '@/theme/theme';
 
@@ -97,7 +98,7 @@ function Editor({ initial, siteId }: { initial: RamsBuild; siteId: string }) {
     if (r === 'Could not save') { toast(r); return; }
     change((x) => kind === 'hazard' ? { ...x, hazards: x.hazards.map((h) => (h.id === it.id ? { ...h, libId: r } : h)) } : { ...x, sections: x.sections.map((s) => (s.id === it.id ? { ...s, libId: r } : s)) });
     void qc.invalidateQueries({ queryKey: ['ramsLib'] });
-    toast('Saved to the library');
+    toast('✓ Saved to the library', { confirm: true });
   };
   const pick = async (label: string, labels: string[], cur: number, set: (n: number) => void) => {
     const k = await chooseAction(label, [1, 2, 3, 4, 5].map((n) => ({ key: String(n), label: `${n === cur ? '✓ ' : ''}${n} — ${labels[n]}` })));
@@ -171,11 +172,11 @@ function Editor({ initial, siteId }: { initial: RamsBuild; siteId: string }) {
               <Badge p={h[pk]} s={h[sk]} />
             </View>
           ))}
-          <Muted style={{ fontWeight: '700' }}>Control procedures — one per line</Muted>
-          <ListBox value={h.controls} onChange={(v) => setH(h.id, { controls: v })} />
+          <Muted style={{ fontWeight: '700' }}>Control Measures</Muted>
+          <NumberedLines value={h.controls} onChange={(v) => setH(h.id, { controls: v })} />
           <View style={{ flexDirection: 'row', gap: 8 }}>
-            <View style={{ flex: 2 }}><Button title="Done" onPress={() => { setEditId(null); void saveNow(); }} /></View>
-            <View style={{ flex: 1 }}><Button kind="ghost" title="⭳ Save to library" onPress={() => void toLibrary('hazard', h)} /></View>
+            <View style={{ flex: 2 }}><Button oneLine textSize={13} title="Done" onPress={() => { setEditId(null); void saveNow(); }} /></View>
+            <View style={{ flex: 1 }}><Button kind="ghost" oneLine textSize={12} title="Save To Library" onPress={() => void toLibrary('hazard', h)} /></View>
           </View>
         </Card>
       ) : (
@@ -191,8 +192,8 @@ function Editor({ initial, siteId }: { initial: RamsBuild; siteId: string }) {
         </Card>
       )) : <Empty>No hazards yet.</Empty>}
       <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
-        <View style={{ flex: 1 }}><Button title="+ Add from library" onPress={() => setPicker({ kind: 'hazard', part: null })} /></View>
-        <View style={{ flex: 1 }}><Button kind="ghost" title="+ New hazard" onPress={() => { const h: Hazard = { id: ramsUid(), title: '', harm: '', p: 3, s: 3, rp: 1, rs: 3, controls: [] }; change((x) => ({ ...x, hazards: [...x.hazards, h] })); setEditId(h.id); }} /></View>
+        <View style={{ flex: 1 }}><Button oneLine textSize={13} title="+ Add From Library" onPress={() => setPicker({ kind: 'hazard', part: null })} /></View>
+        <View style={{ flex: 1 }}><Button kind="ghost" oneLine textSize={13} title="+ New Hazard" onPress={() => { const h: Hazard = { id: ramsUid(), title: '', harm: '', p: 3, s: 3, rp: 1, rs: 3, controls: [] }; change((x) => ({ ...x, hazards: [...x.hazards, h] })); setEditId(h.id); }} /></View>
       </View>
       {next('ra')}
     </>
@@ -204,20 +205,19 @@ function Editor({ initial, siteId }: { initial: RamsBuild; siteId: string }) {
         <Muted style={{ marginBottom: 10 }}>{isM ? 'The step-by-step method statements — each is its own section. They print after the safe systems of work in the Method Statement document.' : 'Safe systems of work (general precautions) — each is its own section. They print first in the Method Statement document.'}</Muted>
         {list.length ? list.map((s, i) => editId === s.id ? (
           <Card key={s.id} style={{ borderColor: base.ink }}>
+            {/* What's being filled in, and no switch between the two kinds: moving a section to the other tab mid-edit broke the
+                builder (Andy, 4 Nov 2026). A section stays on the tab it was made on. */}
+            <Text style={{ fontSize: 15, fontWeight: '600', color: base.ink, marginBottom: 8 }}>{isM ? 'Method Statement' : 'Safe System Of Work'}</Text>
             <Muted style={{ fontWeight: '700' }}>Heading</Muted>
             <TextInput value={s.title} onChangeText={(t) => setS(s.id, { title: t })} style={box} autoFocus={!s.title} />
-            <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8 }}>
-              {([['general', 'Safe system of work'], ['method', 'Method statement (step by step)']] as const).map(([k, l]) => (
-                <Pressable key={k} onPress={() => setS(s.id, { part: k })} style={[chipStyle(s.part === k), { flex: 1 }]}><Text style={{ textAlign: 'center', fontSize: 12, fontWeight: '700', color: s.part === k ? live.brand1Text : base.ink }}>{l}</Text></Pressable>
-              ))}
-            </View>
-            <Muted style={{ fontWeight: '700' }}>Text</Muted>
-            <TextInput value={s.body} onChangeText={(t) => setS(s.id, { body: t })} multiline style={[box, { minHeight: 90 }]} />
-            <Muted style={{ fontWeight: '700' }}>Numbered steps / points — one per line (optional)</Muted>
-            <ListBox value={s.steps} onChange={(v) => setS(s.id, { steps: v })} />
+            {/* No text box any more, just the numbered points (Andy, 4 Nov 2026). Older sections that already have text keep the
+                box so it can still be edited, as it prints. */}
+            {!!s.body && <><Muted style={{ fontWeight: '700' }}>Text</Muted><TextInput value={s.body} onChangeText={(t) => setS(s.id, { body: t })} multiline style={[box, { minHeight: 70 }]} /></>}
+            <Muted style={{ fontWeight: '700' }}>Steps</Muted>
+            <NumberedLines value={s.steps} onChange={(v) => setS(s.id, { steps: v })} />
             <View style={{ flexDirection: 'row', gap: 8 }}>
-              <View style={{ flex: 2 }}><Button title="Done" onPress={() => { setEditId(null); void saveNow(); }} /></View>
-              <View style={{ flex: 1 }}><Button kind="ghost" title="⭳ Save to library" onPress={() => void toLibrary('section', s)} /></View>
+              <View style={{ flex: 2 }}><Button oneLine textSize={13} title="Done" onPress={() => { setEditId(null); void saveNow(); }} /></View>
+              <View style={{ flex: 1 }}><Button kind="ghost" oneLine textSize={12} title="Save To Library" onPress={() => void toLibrary('section', s)} /></View>
             </View>
           </Card>
         ) : (
@@ -232,8 +232,8 @@ function Editor({ initial, siteId }: { initial: RamsBuild; siteId: string }) {
           </Card>
         )) : <Empty>None yet.</Empty>}
         <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
-          <View style={{ flex: 1 }}><Button title="+ Add from library" onPress={() => setPicker({ kind: 'section', part })} /></View>
-          <View style={{ flex: 1 }}><Button kind="ghost" title={`+ New ${isM ? 'method statement' : 'safe system of work'}`} onPress={() => { const s: RSection = { id: ramsUid(), part, title: '', body: '', steps: [] }; change((x) => ({ ...x, sections: [...x.sections, s] })); setEditId(s.id); }} /></View>
+          <View style={{ flex: 1 }}><Button oneLine textSize={13} title="+ Add From Library" onPress={() => setPicker({ kind: 'section', part })} /></View>
+          <View style={{ flex: 1 }}><Button kind="ghost" oneLine textSize={13} title={`+ New ${isM ? 'Method Statement' : 'Safe System'}`} onPress={() => { const s: RSection = { id: ramsUid(), part, title: '', body: '', steps: [] }; change((x) => ({ ...x, sections: [...x.sections, s] })); setEditId(s.id); }} /></View>
         </View>
         {next(isM ? 'ms' : 'ssow')}
       </>
@@ -299,8 +299,8 @@ function Editor({ initial, siteId }: { initial: RamsBuild; siteId: string }) {
         <SectionTitle>Issue to this job</SectionTitle>
         <Muted style={{ marginBottom: 10 }}>Creates two documents in this job&apos;s RAMS list — Risk Assessment ({b.hazards.length} hazards) and Method Statement ({b.sections.length} sections) — each with a sign-off sheet that operatives sign in the app, exactly like an uploaded RAMS.{b.status === 'issued' ? ' Re-issuing replaces the current versions and everyone is asked to sign again.' : ''}</Muted>
         <View style={{ flexDirection: 'row', gap: 8 }}>
-          <View style={{ flex: 1 }}><Button kind="ghost" title="👁 Preview RA" onPress={() => void preview('ra')} /></View>
-          <View style={{ flex: 1 }}><Button kind="ghost" title="👁 Preview MS" onPress={() => void preview('ms')} /></View>
+          <View style={{ flex: 1 }}><Button kind="ghost" oneLine textSize={13} title="👁 Preview RA" onPress={() => void preview('ra')} /></View>
+          <View style={{ flex: 1 }}><Button kind="ghost" oneLine textSize={13} title="👁 Preview MS" onPress={() => void preview('ms')} /></View>
         </View>
         <View style={{ marginTop: 10 }}><Button busy={busy} title={b.status === 'issued' ? `↻ Re-issue (rev ${b.revision + 1})` : '✓ Issue Risk Assessment & Method Statement'} onPress={() => void issue()} /></View>
       </Card>
@@ -308,7 +308,8 @@ function Editor({ initial, siteId }: { initial: RamsBuild; siteId: string }) {
         <SectionTitle>Reuse</SectionTitle>
         <Button kind="ghost" title="📋 Save as a template" onPress={async () => {
           const n = await promptText('Template name', b.title); if (!n || !n.trim()) return;
-          toast((await saveAsTemplate(me, latest.current, n.trim())) ? 'Template saved' : 'Could not save');
+          const ok = await saveAsTemplate(me, latest.current, n.trim());
+          toast(ok ? `✓ Template "${n.trim()}" saved` : 'Could not save the template — try again.', { confirm: true });
           void qc.invalidateQueries({ queryKey: ['ramsLib'] });
         }} />
         <Muted style={{ marginTop: 6 }}>Saves these hazards, sections, PPE and groups — exactly as edited here — as a template for future jobs.</Muted>
@@ -348,11 +349,6 @@ function Editor({ initial, siteId }: { initial: RamsBuild; siteId: string }) {
   );
 }
 
-/** One-per-line list box that keeps blank lines while typing. */
-function ListBox({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
-  const [t, setT] = useState(value.join('\n'));
-  return <TextInput value={t} onChangeText={(v) => { setT(v); onChange(lines(v)); }} multiline style={[box, { minHeight: 120 }]} />;
-}
 
 /** Library picker (multi-tick, select all, search; items already in this RAMS listed last). */
 function Picker({ kind, part, have, onClose, onNew, onAdd }: { kind: 'hazard' | 'section'; part: 'general' | 'method' | null; have: (Hazard | RSection)[]; onClose: () => void; onNew: (title: string) => void; onAdd: (items: import('@/lib/rules/rams').LibItem[]) => void }) {
@@ -390,8 +386,8 @@ function Picker({ kind, part, have, onClose, onNew, onAdd }: { kind: 'hazard' | 
           </ScrollView>
           <View style={{ marginTop: 8 }}><Button small kind="ghost" title={q.trim() ? `Not listed? Write new: ${q.trim()}` : 'Not listed? Write a new one'} onPress={() => onNew(q.trim())} /></View>
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
-            <View style={{ flex: 2 }}><Button title={`Add ${sel.length || ''} selected`} onPress={() => { const items = lib.filter((i) => sel.includes(i.id)); if (!items.length) return; onAdd(items); }} /></View>
-            <View style={{ flex: 1 }}><Button kind="ghost" title="Cancel" onPress={onClose} /></View>
+            <View style={{ flex: 2 }}><Button oneLine textSize={13} title={`Add ${sel.length || ''} Selected`} onPress={() => { const items = lib.filter((i) => sel.includes(i.id)); if (!items.length) return; onAdd(items); }} /></View>
+            <View style={{ flex: 1 }}><Button kind="ghost" oneLine textSize={13} title="Cancel" onPress={onClose} /></View>
           </View>
         </Pressable>
       </Pressable>

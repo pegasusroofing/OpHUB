@@ -8,7 +8,8 @@ import { EmailPromptHost } from '@/components/EmailPrompt';
 import { noteTap, Popup, PopupButtons } from '@/components/Popup';
 import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
-const Ctx = createContext<(msg: string) => void>(() => undefined);
+// confirm: show a 'done' message anyway, for a couple of seconds, where Andy wants to see it was saved (4 Nov 2026).
+const Ctx = createContext<(msg: string, opts?: { confirm?: boolean }) => void>(() => undefined);
 
 // A message that only says something worked: not shown (Andy: the black pop-ups aren't needed).
 const DONE = /\b(saved|added|created|updated|sent|done|filled in|removed|deleted|copied|marked|hidden|shown|uploaded|approved|rejected|booked|assigned|linked|moved|renamed|signed|submitted|closed|reopened|ordered|imported|exported|downloaded|cleared|changed|archived|restored|emailed|queued|requested|completed|finished|ready|thanks|thank you|recorded|logged|checked (in|out)|started|stopped|refreshed|synced|applied|set to|turned (on|off)|switched (on|off)|on its way|opened|posted|allocated|split|matched|ignored|cancelled|paid|certified|issued)\b/i;
@@ -18,11 +19,11 @@ export const isJustDone = (m: string) => DONE.test(m) && !ACT.test(m);
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [msg, setMsg] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const show = useCallback((m: string) => {
-    if (!m || isJustDone(m)) return;
+  const show = useCallback((m: string, opts?: { confirm?: boolean }) => {
+    if (!m || (isJustDone(m) && !opts?.confirm)) return;
     setMsg(m);
     if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => setMsg(null), 4500);
+    timer.current = setTimeout(() => setMsg(null), opts?.confirm ? 2500 : 4500);
   }, []);
   return (
     <Ctx.Provider value={show}>

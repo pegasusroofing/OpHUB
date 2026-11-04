@@ -1741,3 +1741,11 @@
 {"part":"weather2","step":"Count and weather together (1440)","ok":true,"note":"postcode SW1A 1AA · both at once: true · still both after 9s: true · ⋮ shown: true","ms":23150}
 {"part":"weather2","step":"Count and weather together (430)","ok":true,"note":"postcode SW1A 1AA · both at once: true · still both after 9s: true · ⋮ shown: true","ms":23558}
 {"part":"weather2","step":"Count and weather together (1440)","ok":true,"note":"postcode SW1A 1AA · both at once: true · still both after 9s: true · ⋮ shown: true","ms":22535}
+{"part":"rams1","step":"Template from the drop-down, emergency contact = the job PM","ok":true,"note":"tasks box gone true · 📋 New template · 0 hazards · 0 sections · emergency Demo 07545532603","ms":15667}
+{"part":"rams1","step":"Hazard editor: Done and Save To Library the same height","ok":true,"note":"heights 34 / 34","ms":3494}
+{"part":"rams1","step":"Safe System editor: a title, no part switch, buttons the same height","ok":true,"note":"heights 34 / 34","ms":3445}
+{"part":"rams1","step":"Library search: not listed writes a new one","ok":true,"note":"2 sections","ms":5918}
+{"part":"rams1","step":"Template from the drop-down, emergency contact = the job PM","ok":true,"note":"tasks box gone true · 📋 New template · 0 hazards · 0 sections · emergency Demo 07545532603","ms":16230}
+{"part":"rams1","step":"Hazard editor: Done and Save To Library the same height","ok":true,"note":"heights 34 / 34","ms":3486}
+{"part":"rams1","step":"Safe System editor: a title, no part switch, buttons the same height","ok":true,"note":"heights 34 / 34","ms":3456}
+{"part":"rams1","step":"Library search: not listed writes a new one","ok":true,"note":"2 sections","ms":6022}

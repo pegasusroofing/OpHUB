@@ -35,6 +35,12 @@ export async function loadSettings(org: Org): Promise<RamsSettings> {
   return ramsSettings(r?.rams_settings ?? org?.rams_settings, org?.name);
 }
 const defaultsFor = (me: Me, site: Site | undefined, st: RamsSettings) => defaultDetails(site as never, (site && fullSiteAddress(site)) || '', me.name || '', st);
+/** The emergency contact on a RAMS is the job's PM (Andy, 4 Nov 2026): their name and phone, or whoever writes it if the job has no PM. */
+async function pmContact(me: Me, site: Site | undefined): Promise<{ name: string; phone: string }> {
+  const pmId = site?.responsible_pm_id;
+  const p = pmId && pmId !== me.id ? ((await db.from('profiles').select('name,phone').eq('id', pmId).maybeSingle()).data as { name: string | null; phone: string | null } | null) : null;
+  return p ? { name: p.name || '', phone: p.phone || '' } : { name: me.name || '', phone: me.phone || '' };
+}
 
 export async function loadBuild(me: Me, org: Org, site: Site | undefined, id: string): Promise<RamsBuild | null> {
   const raw = (await db.from('rams_builds').select('*').eq('id', id).maybeSingle()).data as Record<string, unknown> | null;
@@ -45,6 +51,7 @@ export async function loadBuild(me: Me, org: Org, site: Site | undefined, id: st
   const sn = String(site?.name || '').trim(), addr = String(b.details.address || '').trim();
   if (!addr && site) b.details.address = [sn, fullSiteAddress(site)].filter((x) => String(x || '').trim()).join(', ');
   if (!String(b.details.mainContractor || '').trim() && site?.client_name) b.details.mainContractor = site.client_name;
+  if (!String(b.details.emergencyPhone || '').trim()) { const pm = await pmContact(me, site); if (pm.phone) { b.details.emergencyPhone = pm.phone; b.details.emergencyName = pm.name || b.details.emergencyName; } }
   return b;
 }
 export async function saveBuild(b: RamsBuild): Promise<boolean> {
@@ -62,6 +69,8 @@ async function takeNumbers(): Promise<{ ra: number; ms: number } | null> {
 export async function createBuild(me: Me, org: Org, site: Site | undefined, siteId: string, title: string, tplIds: string[], copyIds: string[], ownTasks: string[] = []): Promise<{ id: string; missing: string[] } | string> {
   const st = await loadSettings(org);
   const details = defaultsFor(me, site, st);
+  const pm = await pmContact(me, site);
+  details.emergencyName = pm.name || details.emergencyName; details.emergencyPhone = pm.phone;
   const nums = await takeNumbers();
   if (nums) { details.raNumber = String(nums.ra).padStart(10, '0'); details.msNumber = String(nums.ms); }
   const lib = tplIds.length ? await loadLibrary(me.org_id) : [];

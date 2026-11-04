@@ -58,8 +58,9 @@ export function Field({ label, ...props }: TextInputProps & { label: string }) {
 const BTN_GREY = '#DFE3EA', BTN_DANGER = ['#FDECEC', '#B42318'] as const;
 const BTN_SHADOW = { shadowColor: '#101828', shadowOpacity: 0.12, shadowRadius: 2, shadowOffset: { width: 0, height: 1 }, elevation: 1 };
 /** grow: fills the height it's given, so a row of buttons with longer and shorter words all match. */
-export function Button({ title, onPress, busy, kind = 'primary', disabled, small, textSize, grow }: {
-  title: string; onPress: () => void | Promise<unknown>; busy?: boolean; kind?: 'primary' | 'ghost' | 'danger'; disabled?: boolean; small?: boolean; textSize?: number; grow?: boolean;
+// oneLine: the words never wrap, so a narrow button stays the same height as its neighbours (Andy, 4 Nov 2026).
+export function Button({ title, onPress, busy, kind = 'primary', disabled, small, textSize, grow, oneLine }: {
+  title: string; onPress: () => void | Promise<unknown>; busy?: boolean; kind?: 'primary' | 'ghost' | 'danger'; disabled?: boolean; small?: boolean; textSize?: number; grow?: boolean; oneLine?: boolean;
 }) {
   const t = useTheme();
   const primary = kind === 'primary';
@@ -87,7 +88,7 @@ export function Button({ title, onPress, busy, kind = 'primary', disabled, small
         (pressed || busy || disabled) && { opacity: 0.7 },
       ]}>
       {busy && <ActivityIndicator color={fg} style={{ marginRight: 8 }} />}
-      <Text style={[s.btnText, small && s.btnTextSmall, { fontWeight: '500' }, !!textSize && { fontSize: textSize }, { color: fg }]}>{title}</Text>
+      <Text numberOfLines={oneLine ? 1 : undefined} style={[s.btnText, small && s.btnTextSmall, { fontWeight: '500' }, !!textSize && { fontSize: textSize }, { color: fg }]}>{title}</Text>
     </Pressable>
   );
 }

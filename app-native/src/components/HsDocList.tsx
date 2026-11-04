@@ -30,7 +30,7 @@ import { useAuth } from '@/lib/auth';
 import { resignDue, signers } from '@/lib/rules/hs';
 import { isFullManager, isManager } from '@/lib/roles';
 import type { Site } from '@/lib/types';
-import { base, radius } from '@/theme/theme';
+import { base, radius, useDesk } from '@/theme/theme';
 
 const d = (t: string | null) => (t ? new Date(t).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '');
 
@@ -119,6 +119,7 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
   const [supOpen, setSupOpen] = useState(false);
   const [sel, setSel] = useState<Set<string>>(new Set());
   const narrow = useWindowDimensions().width < 700;
+  const desk = useDesk();
   if (!me) return null;
   const manager = canManage ?? isManager(me);
   const client = me.role === 'client';
@@ -195,18 +196,30 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
   };
 
   const ordered = (ids: Set<string>) => data.docs.filter((x) => ids.has(x.id)).map((x) => x.id);
+  // Ticked documents: a bar pinned to the bottom of the screen (Andy, 4 Nov 2026), above the phone's menu. Untick them all and it goes.
+  const delSelected = async () => {
+    const ids = ordered(sel);
+    if (!(await confirmAsk(`Delete ${ids.length} ${label} document${ids.length === 1 ? '' : 's'} and all ${ids.length === 1 ? 'its' : 'their'} signatures? This cannot be undone.`, 'Delete'))) return;
+    setBusy(true);
+    let n = 0;
+    try { for (const r of data.docs.filter((x) => ids.includes(x.id))) if (await deleteHsDoc(me, kind, site.id, r)) n++; } finally { setBusy(false); }
+    setSel(new Set()); void qc.invalidateQueries({ queryKey: ['hsDocs', kind, site.id] }); void qc.invalidateQueries({ queryKey: ['hsSummary', site.id] });
+    toast(n === ids.length ? `${n} deleted` : `Only ${n} of ${ids.length} could be deleted — try again.`, { confirm: true });
+  };
+  const bar = manager && kind !== 'layout' && sel.size > 0 ? (
+    <View style={{ position: (Platform.OS === 'web' ? 'fixed' : 'absolute') as 'absolute', left: desk ? 264 : 12, right: desk ? 24 : 12, bottom: desk ? 16 : 84, zIndex: 50, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, backgroundColor: base.ink, shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 6 }}>
+      <Text style={{ flex: 1, color: '#fff', fontWeight: '600', fontSize: 13.5 }}>{sel.size} Selected</Text>
+      <Pressable accessibilityRole="button" disabled={busy} onPress={async () => { setBusy(true); toast('Building signed PDF…'); try { const b = await pack(ordered(sel)); if (b && !(await deliverPdf(b.bytes, b.filename))) toast('Could not save the PDF.'); } finally { setBusy(false); } }} style={{ paddingHorizontal: 10, paddingVertical: 6 }}><Text style={{ color: '#fff', fontWeight: '500' }}>📄 Export</Text></Pressable>
+      <Pressable accessibilityRole="button" disabled={busy} onPress={() => void emailIds(ordered(sel))} style={{ paddingHorizontal: 10, paddingVertical: 6 }}><Text style={{ color: '#fff', fontWeight: '500' }}>✉ Email</Text></Pressable>
+      <Pressable accessibilityRole="button" accessibilityLabel="Delete selected" disabled={busy} onPress={() => void delSelected()} style={{ paddingHorizontal: 10, paddingVertical: 6 }}><Text style={{ fontSize: 16 }}>🗑</Text></Pressable>
+    </View>
+  ) : null;
   return (
-    <View>
+    <View style={sel.size > 0 ? { paddingBottom: 64 } : undefined}>
+      {bar}
       {manager && kind !== 'layout' && data.docs.length > 0 && (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-          {sel.size > 0 ? (
-            <>
-              <Text style={{ fontWeight: '700', color: base.ink }}>{sel.size} selected</Text>
-              <Button kind="ghost" busy={busy} title="📄 Export as one PDF" onPress={async () => { setBusy(true); toast('Building signed PDF…'); try { const b = await pack(ordered(sel)); if (b && !(await deliverPdf(b.bytes, b.filename))) toast('Could not save the PDF.'); } finally { setBusy(false); } }} />
-              <Button kind="ghost" busy={busy} title="✉ Email" onPress={() => void emailIds(ordered(sel))} />
-              <Pressable onPress={() => setSel(new Set())}><Text style={{ color: base.slate }}>Clear</Text></Pressable>
-            </>
-          ) : <Pressable onPress={() => setSel(new Set(data.docs.map((x) => x.id)))} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingLeft: 15 }}><View style={{ width: 18, height: 18, borderRadius: 4, borderWidth: 1.5, borderColor: '#c3c8d0', backgroundColor: '#fff' }} /><Text style={{ color: '#6b7280', fontSize: 13, fontWeight: '500' }}>Select All</Text></Pressable>}
+          {sel.size > 0 ? null : <Pressable onPress={() => setSel(new Set(data.docs.map((x) => x.id)))} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingLeft: 15 }}><View style={{ width: 18, height: 18, borderRadius: 4, borderWidth: 1.5, borderColor: '#c3c8d0', backgroundColor: '#fff' }} /><Text style={{ color: '#6b7280', fontSize: 13, fontWeight: '500' }}>Select All</Text></Pressable>}
           {kind === 'coshh' && sel.size === 0 && data.docs.some((x) => sigsFor(x.id).length) && <Pressable onPress={async () => {
             const ids = data.docs.filter((x) => sigsFor(x.id).length).map((x) => x.id);
             const cc = site.client_email && (await confirmAsk(`CC client contact (${site.client_name || site.client_email}) on this email?`, 'Yes', 'No')) ? site.client_email : null;

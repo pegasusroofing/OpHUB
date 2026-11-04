@@ -1,5 +1,5 @@
-// Create RAMS (586 renderRamsNew): name it, then start blank, from one or more
-// templates, and / or by copying other jobs' RAMS, plus any tasks of your own that aren't in the library (Andy, 2 Nov 2026).
+// Create RAMS (586 renderRamsNew): name it, then start blank, from one or more templates (a closed drop-down, Andy
+// 4 Nov 2026), by copying other jobs' RAMS, and / or with the AI writer (admins). Extra tasks are added in the builder.
 // PMs and admins only.
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
@@ -7,7 +7,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { chooseAction, showAlert, useToast } from '@/components/toast';
-import { Button, Card, Check, Muted, SectionTitle, Toggle } from '@/components/ui';
+import { Button, Card, Check, Muted, Toggle } from '@/components/ui';
 import { AiTasksInput, askAiCharge } from '@/components/RamsAiBox';
 import { aiFillBuild, createBuild, useLibrary, useOrgBuilds } from '@/data/ramsBuilder';
 import { useSite, useSites } from '@/data/sites';
@@ -33,7 +33,7 @@ export default function RamsNew() {
   const [copySite, setCopySite] = useState<string | null>(null);
   const [copies, setCopies] = useState<string[]>([]);
   const [copyOpen, setCopyOpen] = useState(false);
-  const [own, setOwn] = useState('');
+  const [tplOpen, setTplOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   const [aiText, setAiText] = useState('');
   const [busy, setBusy] = useState(false);
@@ -52,8 +52,8 @@ export default function RamsNew() {
       <Card style={{ backgroundColor: '#E7EEF9', borderColor: '#C9D7EE' }}><Text style={{ color: '#1F3B66' }}>🦺 Builds a <Text style={{ fontWeight: '800' }}>Risk Assessment</Text> and a <Text style={{ fontWeight: '800' }}>Method Statement</Text> as two separate documents for this job. Everything stays editable until you issue it.</Text></Card>
       <Muted style={{ fontWeight: '700' }}>RAMS name</Muted>
       <TextInput value={name} onChangeText={setTitle} style={box} />
-      <SectionTitle>Start from — tick one or more</SectionTitle>
-      <Card>
+      <Toggle title={`Start From A Template${tpls.length ? ` (${tpls.length} ticked)` : ''}`} open={tplOpen} onPress={() => setTplOpen(!tplOpen)} />
+      {tplOpen && <Card>
         {templates.length > 1 && <Check label="Select all templates" value={tpls.length === templates.length} onChange={(v) => setTpls(v ? templates.map((t) => t.id) : [])} />}
         {templates.map((t) => <Check key={t.id} label={`📋 ${t.title} · ${((t.data || {}).hazards as unknown[] || []).length} hazards · ${((t.data || {}).sections as unknown[] || []).length} sections`} value={tpls.includes(t.id)} onChange={() => tick(tpls, setTpls, t.id)} />)}
         <Muted style={{ marginTop: 6 }}>Tick nothing to start blank. Ticking several combines them — anything in more than one is only added once. Whatever you start from, you can change it or add to it on the next screen. That only changes this RAMS, not the template.</Muted>
@@ -62,7 +62,7 @@ export default function RamsNew() {
           const r = await supabase.from('rams_library_items').insert(starterRows().map((x) => ({ ...x, org_id: me.org_id, created_by: me.id })) as never);
           toast(r.error ? 'Could not load it — try again.' : 'Starter library loaded'); void qc.invalidateQueries();
         }} />}
-      </Card>
+      </Card>}
       {builds.length > 0 && (
         <>
           {/* Closed until opened (Andy, 3 Nov 2026). */}
@@ -84,24 +84,18 @@ export default function RamsNew() {
         <Muted style={{ marginBottom: 6 }}>Describe the job and its tasks in your own words. The AI writes the hazards, safe systems of work and a method statement for each task. It can be combined with templates above. You check and edit everything before issuing, and can save any of it to the library. This is an additional feature, charged per build.</Muted>
         <AiTasksInput value={aiText} onChange={setAiText} />
       </Card>}
-      <SectionTitle>Tasks not in the library</SectionTitle>
-      <Card>
-        <Muted style={{ marginBottom: 6 }}>Type any other tasks on this job, one per line. Each becomes its own method statement for you to write up, and you can save it to the library from there.</Muted>
-        <TextInput value={own} onChangeText={setOwn} multiline accessibilityLabel="Tasks not in the library" placeholder={'e.g. Install roof lantern\nRemove asbestos soffit'} style={[box, { minHeight: 64, marginBottom: 0, textAlignVertical: 'top' }]} />
-      </Card>
       <View style={{ marginTop: 6 }}><Button title="Create RAMS" busy={busy} onPress={async () => {
         if (busy) return;
         if (isCompanyAdmin(me) && aiText.trim() && !(await askAiCharge())) return;
         setBusy(true);
         try {
-          const ownTasks = own.split('\n').map((x) => x.trim()).filter(Boolean);
-          const r = await createBuild(me, org as never, site, id, name.trim() || 'RAMS', tpls, copies, ownTasks);
+          const r = await createBuild(me, org as never, site, id, name.trim() || 'RAMS', tpls, copies);
           if (typeof r === 'string') { toast(r); return; }
           const ai = isCompanyAdmin(me) ? aiText.trim() : '';
           let aiErr: string | null = null;
           if (ai) { toast('✨ Writing the RAMS — this takes up to a minute…'); aiErr = await aiFillBuild(me, org as never, site, r.id, ai); }
           void qc.invalidateQueries({ queryKey: ['ramsBuilds'] }); void qc.invalidateQueries({ queryKey: ['ramsBuildsOrg'] });
-          router.replace(`/sites/${id}/hs/rams/build/${r.id}${ai && !aiErr ? '?tab=ra' : ownTasks.length ? '?tab=ms' : ''}` as never);
+          router.replace(`/sites/${id}/hs/rams/build/${r.id}${ai && !aiErr ? '?tab=ra' : ''}` as never);
           if (aiErr) showAlert(`The RAMS was created, but the AI part didn't work: ${aiErr}\n\nYou can try again from the builder with ✨ Write With AI.`);
           if (r.missing.length) showAlert(`Heads up: ${r.missing.length === 1 ? 'one item' : `${r.missing.length} items`} in the template could not be found in the RAMS library, so ${r.missing.length === 1 ? 'it was' : 'they were'} not added: ${r.missing.join(' · ')}. Add ${r.missing.length === 1 ? 'it' : 'them'} from the library in the editor, and fix the template in the RAMS Library.`);
         } finally { setBusy(false); }
