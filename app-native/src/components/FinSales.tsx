@@ -115,7 +115,7 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
     return (
       <View>
         <Muted style={{ marginBottom: 10, fontSize: 12 }}>Apply → the client certifies it (enter their figures on the application) → the invoice is raised for you. A certificate is just a certified application.</Muted>
-        <View style={{ marginBottom: 10 }}><Button title="+ New application" onPress={() => void newFor('application')} /></View>
+        <View style={desk ? { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10 } : { marginBottom: 10 }}><Button title="+ New application" onPress={() => void newFor('application')} /></View>
         {searchBox('Search applications')}
         {!bare && <FinFilterBar sel={sel} onChange={setSel} onClear={() => setSel({ status: [], mon: [], job: [] })}
           sorts={[['new', 'Newest first'], ['old', 'Oldest first'], ['big', 'Biggest first'], ...(siteId ? [] : [['job', 'Project'] as [string, string]])]} sort={sort} onSort={setSort}
@@ -152,7 +152,7 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
     const months = monthsIn(live, iMonth);
     return (
       <View>
-        <View style={{ marginBottom: 10 }}><Button title="+ New invoice" onPress={() => void newFor('invoice')} /></View>
+        <View style={desk ? { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10 } : { marginBottom: 10 }}><Button title="+ New invoice" onPress={() => void newFor('invoice')} /></View>
         {searchBox('Search invoices')}
         {!bare && <FinFilterBar sel={sel} onChange={setSel} onClear={() => setSel({ status: [], mon: [], job: [] })}
           sorts={[['new', 'Newest first'], ['old', 'Oldest first'], ['big', 'Biggest first'], ['client', 'Client A to Z']]} sort={sort} onSort={setSort}
@@ -162,7 +162,8 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
             ...(siteId ? [] : [{ key: 'job', label: 'Project', items: [...new Set(live.map((i) => i.site_id))].map((id) => ({ v: id, l: jobTag(site(id)) })) }]),
           ]} />}
         {desk && list.length ? (
-          <FinTable startFilter={f0 === 'overdue' ? { s: ['Overdue'] } : undefined} rows={list} keyOf={(i) => i.id} onMenu={(i) => void rowMenu.invMenu(i)} onRow={(i) => router.push(`/fin/job/${i.site_id}/invoice/${i.id}` as never)}
+          // Starts on the owed ones, as the current app's Owed chip (9219 sales tables; cmp-fin 5 Nov 2026). Untick to see paid and drafts.
+          <FinTable startFilter={f0 === 'overdue' ? { s: ['Overdue'] } : siteId ? undefined : { s: ['Issued', 'Sent', 'Part paid', 'Overdue'] }} rows={list} keyOf={(i) => i.id} onMenu={(i) => void rowMenu.invMenu(i)} onRow={(i) => router.push(`/fin/job/${i.site_id}/invoice/${i.id}` as never)}
             cols={[
               { k: 'no', l: 'Invoice', render: (i: Inv) => <Cell bold>{i.number || 'Draft'}</Cell> },
               { k: 'c', l: 'Client', flex: 1.4, min: 130, render: (i: Inv) => <View style={{ alignItems: 'center' }}><Cell>{billTo(i) || '—'}</Cell>{addr1(i) ? <Text numberOfLines={1} style={{ fontSize: 11, color: base.slate }}>{addr1(i)}</Text> : null}</View> },

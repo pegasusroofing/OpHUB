@@ -199,7 +199,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
     const committed = round2(openPos.filter((p) => p.value != null).reduce((t, p) => t + Math.max(0, Number(p.value) - poInvoiced(p, live)), 0));
     return (
       <View>
-        <View style={{ marginBottom: 10 }}><Button title="+ New PO" onPress={() => void withJob('New purchase order', (sid) => `/fin/po/new?site=${sid}`)} /></View>
+        <View style={desk ? { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10 } : { marginBottom: 10 }}><Button title="+ New PO" onPress={() => void withJob('New purchase order', (sid) => `/fin/po/new?site=${sid}`)} /></View>
         {bar('Search PO, supplier or project', [{ key: 'status', label: 'Status', items: [['open', 'Open'], ['invoiced', 'Invoiced'], ['cancelled', 'Cancelled']].map(([v, l]) => ({ v, l, n: data.pos.filter(F[v]).filter(fOK).length })) }])}
         {desk && list.length ? (
           <FinTable startFilter={{ s: ['Open'] }} rows={list} keyOf={(p) => p.id} onRow={(p) => router.push(`/fin/po/${p.id}` as never)}
@@ -322,8 +322,20 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
     return (
       <View>
         <View style={{ flexDirection: 'row', marginBottom: 10 }}><View style={{ marginLeft: 'auto' }}><Button title="+ Plant hire" onPress={() => void withJob('Add plant hire', (sid) => `/fin/plant/new?site=${sid}`)} /></View></View>
-        {bar('Search item, supplier or project')}
-        {list.length ? list.map((h) => { const c = plantCost(h as never), long = !h.off_hire && c.days > 28; return (
+        {!desk && bar('Search item, supplier or project')}
+        {desk && list.length ? (
+          <FinTable rows={list} keyOf={(h) => h.id} onRow={(h) => router.push(`/fin/plant/${h.id}` as never)}
+            cols={[
+              { k: 'i', l: 'Item', render: (h: Row) => <Cell bold>{h.item}</Cell> },
+              { k: 's', l: 'Supplier', render: (h: Row) => <Cell>{h.supplier_name || '—'}</Cell> },
+              ...(siteId ? [] : [{ k: 'p', l: 'Project', render: (h: Row) => <Cell>{jobTag(site(h.site_id))}</Cell> }]),
+              { k: 'on', l: 'On Hire', sort: (h: Row) => String(h.on_hire || ''), render: (h: Row) => <Cell>{h.on_hire ? fdate(h.on_hire) : '—'}</Cell> },
+              { k: 'off', l: 'Off Hire', sort: (h: Row) => String(h.off_hire || ''), render: (h: Row) => <Cell>{h.off_hire ? fdate(h.off_hire) : '—'}</Cell> },
+              { k: 'c', l: 'Cost To Date', sort: (h: Row) => plantCost(h as never).cost, render: (h: Row) => <Cell>{money(plantCost(h as never).cost)}</Cell> },
+              { k: 'st', l: 'Status', noSort: true, render: (h: Row) => { const c = plantCost(h as never), long = !h.off_hire && c.days > 28; return <Cell tone={h.off_hire ? undefined : long ? '#C0392B' : '#1E7A43'}>{h.off_hire ? 'Off hire' : `On hire ${c.weeks} wk`}</Cell>; } },
+            ]}
+            foot={(left) => <><FootText bold>{left.length} shown</FootText><FootText>Cost to date {money(left.reduce((t, h) => t + plantCost(h as never).cost, 0))}</FootText></>} />
+        ) : list.length ? list.map((h) => { const c = plantCost(h as never), long = !h.off_hire && c.days > 28; return (
           <FinRow compact key={h.id} title={h.item} sub={[h.supplier_name, siteId ? '' : jobTag(site(h.site_id)), `on ${fdate(h.on_hire)}`, h.off_hire ? `off ${fdate(h.off_hire)}` : `on hire ${c.weeks} wk${long ? ' — over 4 weeks' : ''}`].filter(Boolean).join(' · ')} right={money(c.cost)} tone={long ? '#D98A00' : undefined} onPress={() => router.push(`/fin/plant/${h.id}` as never)} />
         ); }) : <Empty>No plant hire.</Empty>}
         <Muted style={{ marginTop: 10 }}>{onHire.length} on hire · {money(onHire.reduce((t, h) => t + plantCost(h as never).cost, 0), 0)} so far. Tap one to off-hire it.</Muted>

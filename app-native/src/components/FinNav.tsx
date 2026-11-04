@@ -18,7 +18,8 @@ export const FIN_SECTIONS = [
 ];
 export const FIN_SUBS: Record<string, [string, string][]> = {
   sales: [['apps', 'Applications & Certificates'], ['invoices', 'Invoices'], ['retention', 'Retention']],
-  purchases: [['orders', 'Purchase orders'], ['invoices', 'Purchase invoices'], ['statements', 'Statements'], ['plant', 'Plant hire'], ['suppliers', 'Suppliers'], ['prices', 'Price lists'], ['yard', 'Yard']],
+  // The current app's order: invoices first, then orders, statements, yard, plant hire, prices (9219z, 9219l, 9219m; cmp-fin 5 Nov 2026).
+  purchases: [['invoices', 'Purchase invoices'], ['orders', 'Purchase orders'], ['statements', 'Statements'], ['yard', 'Yard'], ['plant', 'Plant hire'], ['suppliers', 'Suppliers'], ['prices', 'Price lists']],
   subs: [['opinv', 'Operative invoices'], ['wages', 'Wages to book'], ['payrun', 'Pay run'], ['orders', 'Subcontractor POs'], ['apps', 'Applications & Certificates'], ['cis', 'CIS'], ['rates', 'People & rates']],
   settings: [['general', 'Settings'], ['codes', 'Cost Codes'], ['templates', 'Templates'], ['team', 'Team']],
   directory: [['client', 'Clients'], ['supplier', 'Suppliers'], ['labour', 'Labour (CIS)']],

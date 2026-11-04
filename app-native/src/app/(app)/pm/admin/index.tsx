@@ -13,7 +13,8 @@ import { useToast } from '@/components/toast';
 import { Muted, TINTS } from '@/components/ui';
 import { ADMIN_PAGES, searchItems, visibleItems, type AdminItem, type AdminPage } from '@/lib/adminItems';
 import { useAuth } from '@/lib/auth';
-import { isManager } from '@/lib/roles';
+import { finHasAccess, isManager } from '@/lib/roles';
+import { supabase } from '@/lib/supabase';
 import { base, page as pageStyle, radius, space } from '@/theme/theme';
 
 // Line icons and tints for each item (260 ADMIN_ICON / ADMIN_TINT).
@@ -24,7 +25,7 @@ const Row = ListRow;
 const Group = ListGroup;
 
 export default function AdminCentre() {
-  const { me, org } = useAuth();
+  const { me, org, signOut, refresh } = useAuth();
   const toast = useToast();
   const { page } = useLocalSearchParams<{ page?: AdminPage }>();
   const [q, setQ] = useState('');
@@ -89,6 +90,19 @@ export default function AdminCentre() {
               {od && <Row icon="cloud" tint="grey" label="Integrations by project" sub="What each project can sync, and set it up" onPress={() => open(od)} last />}
             </Group>
           )}
+          {/* The current app's footer under the hub (260): who you are, My Signature, the Finance (trial) switch, Sign Out. */}
+          <View style={{ alignItems: 'center', gap: 6, marginTop: 22 }}>
+            <Text style={{ fontSize: 12, fontStyle: 'italic', color: base.slate }}>{me.name} · {me.email}</Text>
+            <Pressable onPress={() => router.push('/signature' as never)}><Text style={{ fontSize: 12, fontStyle: 'italic', color: base.slate, textDecorationLine: 'underline' }}>My Signature</Text></Pressable>
+            {finHasAccess(me, org) && (
+              <Pressable onPress={async () => {
+                const r = await supabase.from('profiles').update({ finance_hidden: !me.finance_hidden } as never).eq('id', me.id);
+                if (r.error) { toast('Could not save — try again.'); return; }
+                void refresh();
+              }}><Text style={{ fontSize: 12, fontStyle: 'italic', color: base.slate, textDecorationLine: 'underline' }}>💷 Finance (Trial): {me.finance_hidden ? 'Off — Turn On' : 'On — Turn Off'}</Text></Pressable>
+            )}
+            <Pressable onPress={() => void signOut()}><Text style={{ fontSize: 12, fontStyle: 'italic', color: base.slate, textDecorationLine: 'underline' }}>Sign Out</Text></Pressable>
+          </View>
         </>
       )}
     </ScrollView>

@@ -10,6 +10,7 @@ import { Text, TextInput, View } from 'react-native';
 
 import { FinForm } from '@/components/FinForm';
 import { FinPage, FinRow, FinStat } from '@/components/FinNav';
+import { Cell, FinTable } from '@/components/FinTable';
 import { PurchasesStats } from '@/components/FinPurchases';
 import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
@@ -23,7 +24,7 @@ import { csvRows, readXlsx } from '@/lib/rules/xlsxRead';
 import { supabase } from '@/lib/supabase';
 import { fdate, money, num, round2 } from '@/lib/rules/finance';
 import { autoMatch, lineState, sameSupplier, STMT_TYPES, supKey, type Cand, type SLine } from '@/lib/rules/finStatements';
-import { base, radius } from '@/theme/theme';
+import { base, radius, useDesk } from '@/theme/theme';
 
 type Row = Record<string, any>;
 const TONE: Record<string, string> = { ok: '#1E7A3C', diff: '#D98A00', missing: '#C0392B', payment: '#2F6FB3', ignored: '#7A7F87' };
@@ -75,12 +76,13 @@ function List() {
   const [q, setQ] = useState('');
   const [busy, setBusy] = useState(false);
   const [nw, setNw] = useState<NewStmt | null>(null);
+  const desk = useDesk(); // laptop: the current app's table and a small Upload button on the right (9219l; cmp-fin 5 Nov 2026)
   const { data = [], isLoading } = useQuery({ queryKey: ['finStmts', me?.org_id], enabled: !!me, queryFn: async () => (await selectAll<Row>('fin_statements', '*', (x) => x.eq('org_id', me?.org_id as string))).sort((a, b) => String(b.statement_date || b.created_at).localeCompare(String(a.statement_date || a.created_at))) });
   const list = data.filter((s) => !q.trim() || String(s.supplier_name).toLowerCase().includes(q.trim().toLowerCase()));
   return (
     <FinPage title="Statements" section="purchases" sub="statements" top={<PurchasesStats />} onSub={(k) => { if (k !== 'statements') router.replace((k === 'yard' ? '/fin/yard' : `/fin/purchases?tab=${k}`) as never); }}>
       <Muted style={{ marginBottom: 8 }}>Supplier statements matched to the purchase invoices you hold — by invoice number, or amount and date. Upload a statement (PDF, Excel or CSV) and its lines are read and matched. Nothing leaves OpHUB.</Muted>
-      <Button busy={busy} title="⬆ Upload a statement" onPress={async () => {
+      <View style={desk ? { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 8 } : undefined}><Button busy={busy} title="⬆ Upload a statement" onPress={async () => {
         const r = await DocumentPicker.getDocumentAsync({ type: ['application/pdf', 'text/csv', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', '*/*'], copyToCacheDirectory: true });
         if (r.canceled || !r.assets[0]) return;
         const a = r.assets[0];
@@ -88,7 +90,7 @@ function List() {
         if (/\.xls$/i.test(a.name || '')) { toast('Save it as .xlsx or .csv first — old .xls files can’t be read.'); return; }
         setBusy(true); toast('Reading the statement…');
         try { setNw(await readStatement(me?.org_id as string, { uri: a.uri, name: a.name || 'statement', mimeType: a.mimeType, size: a.size })); } finally { setBusy(false); }
-      }} />
+      }} /></View>
       {nw && me && (
         <FinForm title="New statement" saveLabel="Match the invoices" onClose={() => setNw(null)}
           note={`${nw.file.name} · ${nw.lines.length ? `${nw.lines.length} line${nw.lines.length === 1 ? '' : 's'} read` : 'no lines could be read — you can add them by hand'}.${nw.names.length ? ` Known suppliers include: ${nw.names.slice(0, 6).join(', ')}${nw.names.length > 6 ? '…' : ''}` : ''}`}
@@ -111,7 +113,21 @@ function List() {
           }} />
       )}
       {<TextInput value={q} onChangeText={setQ} placeholder="Search supplier" style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 9, color: base.ink, backgroundColor: base.card, marginBottom: 10 }} />}
-      {isLoading ? <Muted>Loading…</Muted> : list.length ? list.map((s) => {
+      {isLoading ? <Muted>Loading…</Muted> : desk && list.length ? (() => {
+        const st = (s: Row) => { const ls = ((s.lines || []) as SLine[]).filter((l) => !l.ignore && l.type !== 'payment'); return { n: ls.length, miss: ls.filter((l) => !l.match).length }; };
+        return (
+          <FinTable rows={list} keyOf={(s) => s.id} onRow={(s) => router.setParams({ id: s.id })}
+            cols={[
+              { k: 'sup', l: 'Supplier', render: (s: Row) => <Cell bold>{s.supplier_name}</Cell> },
+              { k: 'd', l: 'Statement Date', sort: (s: Row) => String(s.statement_date || ''), render: (s: Row) => <Cell>{s.statement_date ? fdate(s.statement_date) : '—'}</Cell> },
+              { k: 'l', l: 'Lines', sort: (s: Row) => st(s).n, render: (s: Row) => <Cell>{st(s).n}</Cell> },
+              { k: 'm', l: 'Matched', sort: (s: Row) => st(s).n - st(s).miss, render: (s: Row) => <Cell>{st(s).n - st(s).miss}</Cell> },
+              { k: 'x', l: 'Not In OpHUB', sort: (s: Row) => st(s).miss, render: (s: Row) => <Cell tone={st(s).miss ? '#C0392B' : undefined}>{st(s).miss}</Cell> },
+              { k: 'b', l: 'Balance', sort: (s: Row) => Number(s.closing_balance ?? 0), render: (s: Row) => <Cell>{s.closing_balance != null ? money(s.closing_balance) : '—'}</Cell> },
+              { k: 's', l: 'Status', noSort: true, choices: ['To check', 'Reconciled'], render: (s: Row) => <Cell tone={s.status === 'reconciled' ? '#1E7A43' : '#B35A00'}>{s.status === 'reconciled' ? 'Reconciled' : 'To check'}</Cell> },
+            ]} />
+        );
+      })() : list.length ? list.map((s) => {
         const ls = ((s.lines || []) as SLine[]).filter((l) => !l.ignore && l.type !== 'payment'), miss = ls.filter((l) => !l.match).length;
         return <FinRow key={s.id} title={s.supplier_name} sub={[s.statement_date ? fdate(s.statement_date) : '', `${ls.length} lines · ${ls.length - miss} matched`, miss ? `${miss} not in OpHUB` : '', s.status === 'reconciled' ? 'Reconciled' : 'To check'].filter(Boolean).join(' · ')} right={s.closing_balance != null ? money(s.closing_balance) : '—'} tone={miss ? '#C0392B' : undefined} onPress={() => router.setParams({ id: s.id })} />;
       }) : <Empty>No statements yet.</Empty>}

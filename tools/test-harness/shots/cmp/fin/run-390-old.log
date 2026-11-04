@@ -1,0 +1,65 @@
+fin-overview old 17 buttons 
+fin-projects old 15 buttons 
+fin-sales-apps old 20 buttons 
+fin-sales-invoices old 21 buttons 
+fin-sales-retention old 18 buttons 
+fin-pur-orders old 24 buttons 
+fin-pur-invoices old 27 buttons 
+fin-pur-plant old 20 buttons 
+fin-pur-pricebook old 17 buttons 
+fin-pur-pricelists old 17 buttons 
+fin-pur-statements old 19 buttons 
+fin-pur-yard old 25 buttons 
+fin-inbox old 26 buttons 
+fin-subs-opinv old 22 buttons 
+fin-subs-orders old 23 buttons 
+fin-subs-apps old 23 buttons 
+fin-subs-cis old 16 buttons 
+fin-subs-payrun old 19 buttons 
+fin-labour-payment old 22 buttons 
+fin-reports old 22 buttons 
+fin-rep-debtors old 9 buttons 
+fin-rep-cvr old 9 buttons 
+fin-dir-clients old 19 buttons 
+fin-dir-suppliers old 19 buttons 
+fin-dir-labour old 23 buttons 
+fin-settings old 14 buttons 
+fin-codes old 14 buttons 
+fin-templates old 14 buttons 
+fin-team old 14 buttons 
+job-overview old 27 buttons 
+job-sales old 21 buttons 
+job-purchases old 23 buttons 
+job-subs old 17 buttons 
+job-setup old 18 buttons 
+job-boq old 27 buttons 
+job-variations old 24 buttons 
+job-summary old 20 buttons 
+job-costs old 24 buttons 
+job-budget old 14 buttons 
+job-monthly old 14 buttons 
+job-parts old 14 buttons 
+job-quotes old 10 buttons 
+job-app-cert old 11 buttons 
+job-app-draft old 18 buttons 
+job-invoice old 16 buttons 
+job-po old 17 buttons 
+job-sub old 12 buttons 
+fin-pinv old 26 buttons 
+fin-plant old 20 buttons 
+adm-front old 11 buttons 
+node:fs:2483
+    return binding.writeFileUtf8(
+                   ^
+
+Error: UNKNOWN: unknown error, open 'C:\Users\AndyCramp\OneDrive - RTB Roofing Ltd\RTB Roofing Ltd\Andy's Documents\Operative Hub App\GitHub\OpHUB\tools\test-harness\shots\cmp\fin\inv-390-old.json'
+    at Object.writeFileSync (node:fs:2483:20)
+    at keep (C:\Users\AndyCramp\OneDrive - RTB Roofing Ltd\RTB Roofing Ltd\Andy's Documents\Operative Hub App\GitHub\OpHUB\tools\test-harness\cmp-fin.js:129:29)
+    at run (C:\Users\AndyCramp\OneDrive - RTB Roofing Ltd\RTB Roofing Ltd\Andy's Documents\Operative Hub App\GitHub\OpHUB\tools\test-harness\cmp-fin.js:147:100) {
+  errno: -4094,
+  code: 'UNKNOWN',
+  syscall: 'open',
+  path: "C:\\Users\\AndyCramp\\OneDrive - RTB Roofing Ltd\\RTB Roofing Ltd\\Andy's Documents\\Operative Hub App\\GitHub\\OpHUB\\tools\\test-harness\\shots\\cmp\\fin\\inv-390-old.json"
+}
+
+Node.js v24.19.0

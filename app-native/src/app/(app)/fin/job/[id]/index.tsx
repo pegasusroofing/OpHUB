@@ -439,12 +439,12 @@ function NeedsAttention({ id, site, fc, settings, invs, apps, book }: { id: stri
   const tone = { bad: base.red, warn: '#D98A00', blue: base.blue, grey: base.slate };
   return (
     <>
-      <SectionTitle>Needs attention</SectionTitle>
+      <SectionTitle>Needs Attention</SectionTitle>
       <Card>
         {items.map((x, k) => (
           <Pressable key={x.t} onPress={() => router.push(x.go as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderTopWidth: k ? 1 : 0, borderTopColor: base.line }}>
             <Text style={{ minWidth: 26, textAlign: 'center', fontWeight: '600', color: '#fff', backgroundColor: tone[x.tone], borderRadius: 13, paddingVertical: 2, overflow: 'hidden' }}>{x.n}</Text>
-            <View style={{ flex: 1 }}><Text style={{ fontWeight: '500', color: base.ink }}>{x.t}</Text></View>
+            <View style={{ flex: 1 }}><Text style={{ fontWeight: '500', color: base.ink }}>{x.t.replace(/\b\w/g, (ch) => ch.toUpperCase())}</Text></View>
             <Text style={{ color: base.slate }}>›</Text>
           </Pressable>
         ))}

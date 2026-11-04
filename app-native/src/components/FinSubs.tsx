@@ -19,7 +19,7 @@ import { fdb, selectAll, useFinSettings } from '@/data/finance';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { addDays, fdate, jobTag, money, round2, today } from '@/lib/rules/finance';
-import { base, radius } from '@/theme/theme';
+import { base, radius, useDesk } from '@/theme/theme';
 
 type Row = Record<string, any>;
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 9, color: base.ink, backgroundColor: base.card, marginBottom: 10 };
@@ -52,6 +52,7 @@ export function SubsLists({ tab, siteId, f }: { tab: 'opinv' | 'wages' | 'payrun
   const { me } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
+  const desk = useDesk(); // laptop: the + buttons sit small on the right, as the current app
   const { data: sites = [] } = useSites();
   const { data: st } = useFinSettings(me?.org_id);
   const { data } = useSubsData(me?.org_id, siteId);
@@ -79,7 +80,7 @@ export function SubsLists({ tab, siteId, f }: { tab: 'opinv' | 'wages' | 'payrun
     return (
       <View>
         <Muted style={{ marginBottom: 10 }}>When an operative sends their invoice, put it in here with the amount for each job. CIS is worked out for you and it&apos;s paid in the pay run. (Booking it to a price sheet is off while Finance is on trial.)</Muted>
-        <View style={{ marginBottom: 10 }}><Button title="+ Operative invoice" onPress={() => router.push('/fin/labour/new' as never)} /></View>
+        <View style={desk ? { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10 } : { marginBottom: 10 }}><Button title="+ Operative invoice" onPress={() => router.push('/fin/labour/new' as never)} /></View>
         <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search name, invoice no. or job' }} sel={sel} onChange={setSel} onClear={() => setSel({ show: [] })} sorts={[['new', 'Newest first'], ['old', 'Oldest first'], ['big', 'Biggest first'], ['name', 'Name A to Z']]} sort={sort} onSort={setSort}
           parts={[{ key: 'show', label: 'Show', items: [['topay', 'To pay'], ['paid', 'Paid']].map(([v, l]) => ({ v, l, n: data.ops.filter(F[v]).length })) }]} />
         {list.length ? list.map((p) => <FinRow compact key={p.id} title={p.name || 'Operative'} sub={[p.invoice_no ? `inv ${p.invoice_no}` : '', `w/c ${fdate(p.period_start)}`, opJobs(p), `gross ${money(p.gross)} · CIS −${money(p.cis_deduction)}`, p.status === 'paid' ? `Paid ${fdate(p.paid_on)}` : p.status === 'approved' ? 'To pay' : 'Draft'].filter(Boolean).join(' · ')} right={money(p.net_pay)} onPress={() => router.push(`/fin/labour/${p.id}` as never)} />)
@@ -137,7 +138,7 @@ export function SubsLists({ tab, siteId, f }: { tab: 'opinv' | 'wages' | 'payrun
     return (
       <View>
         <Muted style={{ marginBottom: 10 }}>For subcontractors on a fixed price who apply for payment (e.g. leadwork, scaffolding).</Muted>
-        <View style={{ marginBottom: 10 }}><Button title="+ Subcontractor PO" onPress={async () => { const sid = siteId || (await pickJob('New subcontractor PO', sites.filter((s) => s.status !== 'closed'))); if (sid) router.push(`/fin/sub/new?site=${sid}` as never); }} /></View>
+        <View style={desk ? { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10 } : { marginBottom: 10 }}><Button title="+ Subcontractor PO" onPress={async () => { const sid = siteId || (await pickJob('New subcontractor PO', sites.filter((s) => s.status !== 'closed'))); if (sid) router.push(`/fin/sub/new?site=${sid}` as never); }} /></View>
         <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search subcontractor or project' }} sel={sel} onChange={setSel} onClear={() => setSel({ show: [] })} sorts={[['new', 'Newest first'], ['old', 'Oldest first'], ['big', 'Biggest first'], ['name', 'Name A to Z']]} sort={sort} onSort={setSort}
           parts={[{ key: 'show', label: 'Show', items: [['active', 'Active'], ['complete', 'Complete']].map(([v, l]) => ({ v, l, n: data.scs.filter(F[v]).length })) }]} />
         {list.length ? list.map((sc) => <FinRow compact key={sc.id} left={sc.number} title={sc.name} sub={[siteId ? '' : jobTag(site(sc.site_id)), sc.description, `certified ${money(lastCert(sc.id)?.certified_gross || 0)}`, sc.status === 'complete' ? 'Complete' : 'Active'].filter(Boolean).join(' · ')} right={sc.order_value != null ? money(sc.order_value) : '—'} onPress={() => router.push(`/fin/sub/${sc.id}` as never)} />)

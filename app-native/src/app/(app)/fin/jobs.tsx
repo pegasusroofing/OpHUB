@@ -77,7 +77,8 @@ export default function FinJobs() {
   const tallyText = (list: typeof shown) => `${list.length} project${list.length === 1 ? '' : 's'}`;
   return (
     <FinPage title="Projects" section="jobs" foot={!desk && data && shown.length ? <View accessibilityLabel="Value of works" style={{ flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 12, backgroundColor: base.card, borderTopWidth: 1, borderTopColor: base.line, paddingHorizontal: 16, paddingVertical: 9 }}><Text style={{ fontSize: 12.5, color: base.slate }}>{tallyText(shown)}</Text><Text style={{ fontSize: 14, fontWeight: '600', color: base.ink }}>Value of works {money(valueOf(shown), 0)}</Text></View> : undefined}>
-      {me && isFullManager(me) && <View style={{ marginBottom: 10 }}><Button title="+ New project" onPress={() => router.push('/fin/newjob' as never)} /></View>}
+      {/* On a laptop a small button on the right, as the current app (cmp-fin, 5 Nov 2026); full width on a phone. */}
+      {me && isFullManager(me) && <View style={desk ? { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10 } : { marginBottom: 10 }}><Button title="+ New project" onPress={() => router.push('/fin/newjob' as never)} /></View>}
       {!desk && <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search project no., name, client or PO' }} sel={sel} moreOn={!!val}
         onClear={() => { setSel({ status: [], pm: [], client: [], start: [] }); setVal(''); }}
         onChange={async (next) => {

@@ -1,0 +1,2386 @@
+{
+ "fin-overview": {
+  "buttons": [
+   "OpHUB Finance",
+   "Overview",
+   "Search",
+   "Projects",
+   "Sales",
+   "Purchases",
+   "Subcontractors & Labour",
+   "Reports",
+   "Directory",
+   "Settings",
+   "£174,500",
+   "£29,000",
+   "£1,050",
+   "3",
+   "1",
+   "2",
+   "Post ticked to Xero"
+  ],
+  "inputs": [
+   "checkbox: All",
+   "checkbox: Sales invoice INV-0980",
+   "checkbox: Sales invoice INV-1002",
+   "checkbox: Sales invoice INV-1003",
+   "checkbox: Sales invoice INV-1001"
+  ],
+  "heads": [
+   "OpHUB Finance",
+   "Needs Attention",
+   "Ready To Post To Xero 4"
+  ],
+  "text": "OpHUB Finance\nOverview\nOverview\nProjects\nSales\nPurchases\nSubcontractors & Labour\nReports\nDirectory\nSettings\n🔒 Only you can see OpHUB Finance while it’s being built.\n£174,500\nLive Contract Value · 2 Jobs\n£29,000\nOwed To You\n£29,000\nOverdue\n£1,050\nRetention Held By Clients\nNeeds Attention\n3\nOverdue Invoices\n£29,000 to chase\n›\n1\nPurchase Invoices To Approve\n£1,800 excl. VAT\n›\n2\nUnallocated Purchase Invoices\nWe couldn’t tell the job — allocate them or send to a PM\n›\n1\nRetention To Claim Back\nJ101 Studley Rd\n›\n1\nPlant On Hire Over 4 Weeks\nCherry picker\n›\n2\nLive Projects With No Client PO\nJ101 Studley Rd, J102 Cleveland Primary School\n›\nReady To Post To Xero 4\nAll\nSales invoice INV-0980\nJ101 · Studley Rd · 1 Aug 2026\n£2,000.00\nSales invoice INV-1002\nJ102 · Cleveland Primary School · 1 Sept 2026\n£50,400.00\nSales invoice INV-1003\nJ102 · Cleveland Primary School · 15 Sept 2026\n£14,400.00\nSales invoice INV-1001\nJ101 · Studley Rd · 1 Oct 2026\n£15,000.00\nPost ticked to Xero\nEach one can only be posted once. To keep one out of Xero, open it and untick “Post to Xero”.",
+  "url": "http://localhost:59297/app.html#/finance",
+  "errors": []
+ },
+ "fin-projects": {
+  "buttons": [
+   "Projects",
+   "OpHUB Finance",
+   "Search",
+   "Finance",
+   "Overview",
+   "Sales",
+   "Purchases",
+   "Subcontractors & Labour",
+   "Reports",
+   "Directory",
+   "Settings",
+   "+ New project",
+   "J102",
+   "J101",
+   "⚙"
+  ],
+  "inputs": [
+   "search: Search projects",
+   "select: Status"
+  ],
+  "heads": [
+   "Projects"
+  ],
+  "text": "Projects\nOpHUB Finance\nFinance\n›\nProjects\nOverview\nProjects\nSales\nPurchases\nSubcontractors & Labour\nReports\nDirectory\nSettings\n+ New project\nJ102\nCleveland Primary School\nPersimmon\nNo PO\nAndy Admin\nLive\n14 Sept 2026\n£126,500\nJ101\nStudley Rd\nBellway Homes\nNo PO\nAndy Admin\nLive\n3 Aug 2026\n£48,000\n2 projects\nValue £174,500\nLive\nUpcoming\nClosed\nAll\nSort ▾\nSort: Newest project no.\nSort: Project no. A–Z\nSort: Name A–Z\nSort: Name Z–A\nSort: Start date (newest)\n⚙",
+  "url": "http://localhost:59297/app.html#/finance/jobs",
+  "errors": []
+ },
+ "fin-sales-apps": {
+  "buttons": [
+   "Sales",
+   "OpHUB Finance · money in",
+   "Search",
+   "Finance",
+   "Overview",
+   "Projects",
+   "Purchases",
+   "Subcontractors & Labour",
+   "Reports",
+   "Directory",
+   "Settings",
+   "⋯",
+   "Applications & Certificates",
+   "Invoices",
+   "Retention",
+   "+ New application",
+   "In Progress",
+   "Certified — To Invoice",
+   "Invoiced",
+   "All"
+  ],
+  "inputs": [
+   "text: Search application no., project or client",
+   "select: Month"
+  ],
+  "heads": [
+   "Sales"
+  ],
+  "text": "Sales\nOpHUB Finance · money in\nFinance\n›\nSales\n›\nApplications & Certificates\nOverview\nProjects\nSales\nPurchases\nSubcontractors & Labour\nReports\nDirectory\nSettings\n⋯\n£0\nApplied Value this month\n⋯\n£0\nInvoiced Value this month\n⋯\n£29,000\nOverdue all time\n⋯\n£0\nApplied, Not Certified Or Invoiced all time\nApplications & Certificates\n1\nInvoices\nRetention\n+ New application\nApply → the client certifies it (enter their figures on the application) → the invoice is raised for you. A certificate is just a certified application.\nIn Progress\n2\nCertified — To Invoice\n1\nInvoiced\n0\nAll\n3\nJ101 · Studley Rd\nApplication 3\n2 Nov 2026\n£8,000.00\n—\nDraft\n—\n⋯\nJ101 · Studley Rd\nApplication 2\n25 Oct 2026\n—\n—\nDraft\n—\n⋯\n2 applications\nApplied £8,000.00\nCertified £0.00\nAll months\nNov 2026\nOct 2026",
+  "url": "http://localhost:59297/app.html#/finance/sales/apps",
+  "errors": []
+ },
+ "fin-sales-invoices": {
+  "buttons": [
+   "Sales",
+   "OpHUB Finance · money in",
+   "Search",
+   "Finance",
+   "Overview",
+   "Projects",
+   "Purchases",
+   "Subcontractors & Labour",
+   "Reports",
+   "Directory",
+   "Settings",
+   "⋯",
+   "Applications & Certificates",
+   "Invoices",
+   "Retention",
+   "+ New invoice",
+   "Owed",
+   "Overdue",
+   "Drafts",
+   "Paid",
+   "All"
+  ],
+  "inputs": [
+   "text: Search invoice no., client, address or project",
+   "select: Month"
+  ],
+  "heads": [
+   "Sales"
+  ],
+  "text": "Sales\nOpHUB Finance · money in\nFinance\n›\nSales\n›\nInvoices\nOverview\nProjects\nSales\nPurchases\nSubcontractors & Labour\nReports\nDirectory\nSettings\n⋯\n£0\nApplied Value this month\n⋯\n£0\nInvoiced Value this month\n⋯\n£29,000\nOverdue all time\n⋯\n£0\nApplied, Not Certified Or Invoiced all time\nApplications & Certificates\n1\nInvoices\nRetention\n+ New invoice\nOwed\n3\nOverdue\n3\nDrafts\n0\nPaid\n1\nAll\n5\nINV-1001\nBellway Homes\nJ101 · Studley Rd\n1 Oct 2026\n31 Oct 2026\n£15,000.00\n£0.00\n£15,000.00\nOverdue To post\n⋯\nINV-1003\nPersimmon\nJ102 · Cleveland Primary School\n15 Sept 2026\n10 Oct 2026\n£12,000.00\n£2,400.00\n£14,400.00\nOverdue To post\n⋯\nINV-0980\nBellway Homes\nJ101 · Studley Rd\n1 Aug 2026\n31 Aug 2026\n£2,000.00\n£0.00\n£2,000.00\nOverdue To post\n⋯\n3 invoices\nNet £29,000.00\nVAT £2,400.00\nGross £31,400.00\nOwed £29,000.00\nAll months\nOct 2026\nSept 2026\nAug 2026\nRecord money received on the invoice itself (payments made in Xero come across on their own).",
+  "url": "http://localhost:59297/app.html#/finance/sales/invoices",
+  "errors": []
+ },
+ "fin-sales-retention": {
+  "buttons": [
+   "Sales",
+   "OpHUB Finance · money in",
+   "Search",
+   "Finance",
+   "Overview",
+   "Projects",
+   "Purchases",
+   "Subcontractors & Labour",
+   "Reports",
+   "Directory",
+   "Settings",
+   "⋯",
+   "Applications & Certificates",
+   "Invoices",
+   "Retention",
+   "J101 Studley Rd",
+   "Practical completion — first half of the retention is due",
+   "End of the defects period — the rest of the retention is due"
+  ],
+  "inputs": [
+   "text: Search project, client",
+   "date: "
+  ],
+  "heads": [
+   "Sales"
+  ],
+  "text": "Sales\nOpHUB Finance · money in\nFinance\n›\nSales\n›\nRetention\nOverview\nProjects\nSales\nPurchases\nSubcontractors & Labour\nReports\nDirectory\nSettings\n⋯\n£0\nApplied Value this month\n⋯\n£0\nInvoiced Value this month\n⋯\n£29,000\nOverdue all time\n⋯\n£0\nApplied, Not Certified Or Invoiced all time\nApplications & Certificates\n1\nInvoices\nRetention\nMoney your clients are holding back until the work is signed off: £1,050.00 across 1 job. Half usually comes back at practical completion and half at the end of the defects period — set the dates here (they save to the project) to get reminders.\nJ101 Studley Rd\nBellway Homes\n£1,050.00\n1 shown\nStill Held £1,050.00",
+  "url": "http://localhost:59297/app.html#/finance/sales/retention",
+  "errors": []
+ },
+ "fin-pur-orders": {
+  "buttons": [
+   "Purchases",
+   "OpHUB Finance · money out",
+   "Search",
+   "Finance",
+   "Overview",
+   "Projects",
+   "Sales",
+   "Subcontractors & Labour",
+   "Reports",
+   "Directory",
+   "Settings",
+   "⋯",
+   "Purchase Invoices",
+   "Purchase Orders",
+   "Statements",
+   "Yard Stock",
+   "Plant Hire",
+   "Price List",
+   "+ New PO",
+   "Open",
+   "Invoiced",
+   "Cancelled",
+   "All",
+   "J101-PO-001"
+  ],
+  "inputs": [
+   "select: Supplier",
+   "select: Project",
+   "select: Sort",
+   "text: Search PO, supplier or project"
+  ],
+  "heads": [
+   "Purchases"
+  ],
+  "text": "Purchases\nOpHUB Finance · money out\nFinance\n›\nPurchases\n›\nPurchase Orders\nOverview\nProjects\nSales\nPurchases\nSubcontractors & Labour\nReports\nDirectory\nSettings\n⋯\n2\nUnallocated Invoices all time\n⋯\n£0\nTo Pay Suppliers (Incl. VAT) all time\n⋯\n1\nTo Approve all time\n⋯\n£0\nOrdered, Not Invoiced all time\nPurchase Invoices\n3\nPurchase Orders\nStatements\nYard Stock\nPlant Hire\nPrice List\n+ New PO\nOpen\n1\nInvoiced\n0\nCancelled\n0\nAll\n1\nSupplier\nAll suppliers\nJewson\nSIG Roofing\nTravis Perkins\nProject\nAll projects\nJ101 · Studley Rd\nSort\nNewest first\nOldest first\nBiggest first\nSupplier A–Z\nSearch\nJ101-PO-001\nSIG Roofing\nJ101 · Studley Rd\n5 Oct 2026\n£1,800.00\nOpen\n1 shown\nValue £1,800.00\nInvoiced £1,800.00\nLeft To Invoice £0.00\n1 open · £0 ordered but not invoiced yet. Orders sent from a project’s Materials tile appear here by themselves.",
+  "url": "http://localhost:59297/app.html#/finance/purchases/orders",
+  "errors": []
+ },
+ "fin-pur-invoices": {
+  "buttons": [
+   "Purchases",
+   "OpHUB Finance · money out",
+   "Search",
+   "Finance",
+   "Overview",
+   "Projects",
+   "Sales",
+   "Subcontractors & Labour",
+   "Reports",
+   "Directory",
+   "Settings",
+   "⋯",
+   "Purchase Invoices",
+   "Purchase Orders",
+   "Statements",
+   "Yard Stock",
+   "Plant Hire",
+   "Price List",
+   "+ Add invoices",
+   "Unallocated",
+   "With A PM",
+   "To Approve",
+   "Approved, Not Paid",
+   "Paid",
+   "All Filed",
+   "on",
+   "Type one in by hand instead"
+  ],
+  "inputs": [
+   "select: Supplier",
+   "select: Project",
+   "select: Sort",
+   "text: Search supplier, invoice no. or project",
+   "checkbox: "
+  ],
+  "heads": [
+   "Purchases"
+  ],
+  "text": "Purchases\nOpHUB Finance · money out\nFinance\n›\nPurchases\n›\nInvoices\nOverview\nProjects\nSales\nPurchases\nSubcontractors & Labour\nReports\nDirectory\nSettings\n⋯\n2\nUnallocated Invoices all time\n⋯\n£0\nTo Pay Suppliers (Incl. VAT) all time\n⋯\n1\nTo Approve all time\n⋯\n£0\nOrdered, Not Invoiced all time\nPurchase Invoices\n3\nPurchase Orders\nStatements\nYard Stock\nPlant Hire\nPrice List\n+ Add invoices\nPurchase invoices emailed to your invoice address (or added here) are read for you. If we can tell the job — from our PO number, the job number, or the site postcode or address — they’re filed to it. If not, they wait in Unallocated: allocate it yourself or send it to a PM.\nUnallocated\n2\nWith A PM\n0\nTo Approve\n1\nApproved, Not Paid\n0\nPaid\n0\nAll Filed\n1\nSupplier\nAll suppliers\nJewson\nSIG Roofing\nTravis Perkins\nProject\nAll projects\nJ101 · Studley Rd\nSort\nNewest first\nOldest first\nBiggest first\nSupplier A–Z\nSearch\nSIG Roofing\nSIG-88231\nJ101 · Studley Rd\n12 Oct 2026\n£1,800.00\n£360.00\n£2,160.00\nJ101-PO-001\nPO linked\nTo approve\n1 shown\nNet £1,800.00\nVat £360.00\nGross £2,160.00\nType one in by hand instead",
+  "url": "http://localhost:59297/app.html#/finance/purchases/invoices",
+  "errors": []
+ },
+ "fin-pur-plant": {
+  "buttons": [
+   "Purchases",
+   "OpHUB Finance · money out",
+   "Search",
+   "Finance",
+   "Overview",
+   "Projects",
+   "Sales",
+   "Subcontractors & Labour",
+   "Reports",
+   "Directory",
+   "Settings",
+   "⋯",
+   "Purchase Invoices",
+   "Purchase Orders",
+   "Statements",
+   "Yard Stock",
+   "Plant Hire",
+   "Price List",
+   "+ Plant hire",
+   "Cherry picker"
+  ],
+  "inputs": [
+   "select: Supplier",
+   "select: Project",
+   "select: Sort"
+  ],
+  "heads": [
+   "Purchases"
+  ],
+  "text": "Purchases\nOpHUB Finance · money out\nFinance\n›\nPurchases\n›\nPlant\nOverview\nProjects\nSales\nPurchases\nSubcontractors & Labour\nReports\nDirectory\nSettings\n⋯\n2\nUnallocated Invoices all time\n⋯\n£0\nTo Pay Suppliers (Incl. VAT) all time\n⋯\n1\nTo Approve all time\n⋯\n£0\nOrdered, Not Invoiced all time\nPurchase Invoices\n3\nPurchase Orders\nStatements\nYard Stock\nPlant Hire\nPrice List\n+ Plant hire\nSupplier\nAll suppliers\nJewson\nSIG Roofing\nTravis Perkins\nProject\nAll projects\nJ101 · Studley Rd\nSort\nNewest first\nOldest first\nBiggest first\nSupplier A–Z\nCherry picker\n—\nJ101 · Studley Rd\n5 Oct 2026\n—\n£1,328.57\nOn hire 4.4 wk\n1 shown\nCost To Date £1,328.57\n1 on hire · £1,329 so far. Tap one to off-hire it.",
+  "url": "http://localhost:59297/app.html#/finance/purchases/plant",
+  "errors": []
+ },
+ "fin-pur-pricebook": {
+  "buttons": [
+   "Price List",
+   "OpHUB Finance · purchases",
+   "Search",
+   "Finance",
+   "Purchases",
+   "Overview",
+   "Projects",
+   "Sales",
+   "Subcontractors & Labour",
+   "Reports",
+   "Directory",
+   "Settings",
+   "Purchase Invoices",
+   "Purchase Orders",
+   "Statements",
+   "Yard Stock",
+   "Plant Hire"
+  ],
+  "inputs": [
+   "text: Read from the list"
+  ],
+  "heads": [
+   "Price List",
+   "Price List — Yearly Supplier Price Lists"
+  ],
+  "text": "Price List\nOpHUB Finance · purchases\nFinance\n›\nPurchases\n›\nPrice Book\nOverview\nProjects\nSales\nPurchases\nSubcontractors & Labour\nReports\nDirectory\nSettings\nPurchase Invoices\nPurchase Orders\nStatements\nYard Stock\nPlant Hire\nPrice List\nPrice List — Yearly Supplier Price Lists\nYour main suppliers' yearly price lists (e.g. Alltype). They apply to every project — their items show under each project's Purchases › Purchase Quotes, ready to tick and order. Project-specific quotes (e.g. a Bauder quote for one job) are uploaded on that project instead. Each item's quoted rate shows alongside it for reference.\nSupplier\n+ Upload Price Lists\nPDF, photo or Excel — you can pick several at once.\nNo price lists yet.",
+  "url": "http://localhost:59297/app.html#/finance/purchases/pricebook",
+  "errors": []
+ },
+ "fin-pur-pricelists": {
+  "buttons": [
+   "Price List",
+   "OpHUB Finance · purchases",
+   "Search",
+   "Finance",
+   "Purchases",
+   "Overview",
+   "Projects",
+   "Sales",
+   "Subcontractors & Labour",
+   "Reports",
+   "Directory",
+   "Settings",
+   "Purchase Invoices",
+   "Purchase Orders",
+   "Statements",
+   "Yard Stock",
+   "Plant Hire"
+  ],
+  "inputs": [
+   "text: Read from the list"
+  ],
+  "heads": [
+   "Price List",
+   "Price List — Yearly Supplier Price Lists"
+  ],
+  "text": "Price List\nOpHUB Finance · purchases\nFinance\n›\nPurchases\n›\nPrice Book\nOverview\nProjects\nSales\nPurchases\nSubcontractors & Labour\nReports\nDirectory\nSettings\nPurchase Invoices\nPurchase Orders\nStatements\nYard Stock\nPlant Hire\nPrice List\nPrice List — Yearly Supplier Price Lists\nYour main suppliers' yearly price lists (e.g. Alltype). They apply to every project — their items show under each project's Purchases › Purchase Quotes, ready to tick and order. Project-specific quotes (e.g. a Bauder quote for one job) are uploaded on that project instead. Each item's quoted rate shows alongside it for reference.\nSupplier\n+ Upload Price Lists\nPDF, photo or Excel — you can pick several at once.\nNo price lists yet.",
+  "url": "http://localhost:59297/app.html#/finance/purchases/pricebook",
+  "errors": []
+ },
+ "fin-pur-statements": {
+  "buttons": [
+   "Purchases",
+   "OpHUB Finance · money out",
+   "Search",
+   "Finance",
+   "Overview",
+   "Projects",
+   "Sales",
+   "Subcontractors & Labour",
+   "Reports",
+   "Directory",
+   "Settings",
+   "Purchase Invoices",
+   "Purchase Orders",
+   "Statements",
+   "Yard Stock",
+   "Plant Hire",
+   "Price List",
+   "+ Upload statement",
+   "SIG"
+  ],
+  "inputs": [
+   "text: Search supplier"
+  ],
+  "heads": [
+   "Purchases"
+  ],
+  "text": "Purchases\nOpHUB Finance · money out\nFinance\n›\nPurchases\nOverview\nProjects\nSales\nPurchases\nSubcontractors & Labour\nReports\nDirectory\nSettings\nPurchase Invoices\nPurchase Orders\nStatements\nYard Stock\nPlant Hire\nPrice List\n+ Upload statement\nUpload a supplier statement (PDF, Excel or CSV). Each line is matched to the purchase invoices you hold — by invoice number, or amount and date — and you can change any match by hand.\nSIG\n30 Oct 2026\n0\n0\n0\n—\nTo check\n1 shown",
+  "url": "http://localhost:59297/app.html#/finance/purchases/statements",
+  "errors": []
+ },
+ "fin-pur-yard": {
+  "buttons": [
+   "Purchases",
+   "OpHUB Finance · money out",
+   "Search",
+   "Finance",
+   "Overview",
+   "Projects",
+   "Sales",
+   "Subcontractors & Labour",
+   "Reports",
+   "Directory",
+   "Settings",
+   "Purchase Invoices",
+   "Purchase Orders",
+   "Statements",
+   "Yard Stock",
+   "Plant Hire",
+   "Price List",
+   "+ New item",
+   "⬇ Book stock in",
+   "⬆ Issue to a job",
+   "↩ Return from a job",
+   "In Use",
+   "Low Stock",
+   "Not Stocked",
+   "Issue"
+  ],
+  "inputs": [
+   "select: Category",
+   "text: Search item or location"
+  ],
+  "heads": [
+   "Purchases"
+  ],
+  "text": "Purchases\nOpHUB Finance · money out\nFinance\n›\nPurchases\nOverview\nProjects\nSales\nPurchases\nSubcontractors & Labour\nReports\nDirectory\nSettings\nPurchase Invoices\nPurchase Orders\nStatements\nYard Stock\nPlant Hire\nPrice List\n+ New item\nMaterials held in the yard. Issue them to a job and the cost goes on that job (qty × rate). PMs can see the list and issue to their projects from Material Requests, but don’t see rates.\n⬇ Book stock in\n⬆ Issue to a job\n↩ Return from a job\nIn Use\n1\nLow Stock\n0\nNot Stocked\n0\nCategory\nAll\nSlates & tiles\nSearch\nSlate 500x250\nSlates & tiles\n—\n400\nnr\n—\nNo rate\n—\nIssue\n1 shown\nStock value £0 (items with a rate).",
+  "url": "http://localhost:59297/app.html#/finance/purchases/yard",
+  "errors": []
+ },
+ "fin-inbox": {
+  "buttons": [
+   "Purchases",
+   "OpHUB Finance · money out",
+   "Search",
+   "Finance",
+   "Overview",
+   "Projects",
+   "Sales",
+   "Subcontractors & Labour",
+   "Reports",
+   "Directory",
+   "Settings",
+   "⋯",
+   "Purchase Invoices",
+   "Purchase Orders",
+   "Statements",
+   "Yard Stock",
+   "Plant Hire",
+   "Price List",
+   "+ Add invoices",
+   "Unallocated",
+   "With A PM",
+   "To Approve",
+   "Approved, Not Paid",
+   "Paid",
+   "All Filed",
+   "Allocate"
+  ],
+  "inputs": [
+   "select: Supplier",
+   "select: Project",
+   "select: Sort",
+   "text: Search supplier, email or invoice no."
+  ],
+  "heads": [
+   "Purchases"
+  ],
+  "text": "Purchases\nOpHUB Finance · money out\nFinance\n›\nPurchases\nOverview\nProjects\nSales\nPurchases\nSubcontractors & Labour\nReports\nDirectory\nSettings\n⋯\n2\nUnallocated Invoices all time\n⋯\n£0\nTo Pay Suppliers (Incl. VAT) all time\n⋯\n1\nTo Approve all time\n⋯\n£0\nOrdered, Not Invoiced all time\nPurchase Invoices\n3\nPurchase Orders\nStatements\nYard Stock\nPlant Hire\nPrice List\n+ Add invoices\nPurchase invoices emailed to your invoice address (or added here) are read for you. If we can tell the job — from our PO number, the job number, or the site postcode or address — they’re filed to it. If not, they wait in Unallocated: allocate it yourself or send it to a PM.\nUnallocated\n2\nWith A PM\n0\nTo Approve\n1\nApproved, Not Paid\n0\nPaid\n0\nAll Filed\n1\nSupplier\nAll suppliers\nJewson\nSIG Roofing\nTravis Perkins\nProject\nAll projects\nJ101 · Studley Rd\nSort\nNewest first\nOldest first\nBiggest first\nSupplier A–Z\nSearch\nJewson\nJ-5521\n19 Oct 2026\n£600.00\nMore than one job matches — choose which\nAllocate\nTravis Perkins\n7781\n19 Oct 2026\n£240.00\nCouldn’t find a PO, job number or site address on it\nAllocate\n2 shown\nTotal £840.00",
+  "url": "http://localhost:59297/app.html#/finance/inbox",
+  "errors": []
+ },
+ "fin-subs-opinv": {
+  "buttons": [
+   "Subcontractors & Labour",
+   "OpHUB Finance",
+   "Search",
+   "Finance",
+   "Overview",
+   "Projects",
+   "Sales",
+   "Purchases",
+   "Reports",
+   "Directory",
+   "Settings",
+   "£0",
+   "6 Nov 2026",
+   "0",
+   "Operative Invoices",
+   "Subcontractor POs",
+   "Applications & Certificates",
+   "CIS",
+   "+ Operative invoice",
+   "To Pay",
+   "Paid",
+   "All"
+  ],
+  "inputs": [
+   "text: Search name, invoice no. or job"
+  ],
+  "heads": [
+   "Subcontractors & Labour"
+  ],
+  "text": "Subcontractors & Labour\nOpHUB Finance\nFinance\n›\nSubcontractors & Labour\nOverview\nProjects\nSales\nPurchases\nSubcontractors & Labour\nReports\nDirectory\nSettings\n£0\nOperative Invoices To Pay\n6 Nov 2026\nNext Pay Day\n0\nApplications To Certify\n£0\nCertified, To Pay\nOperative Invoices\nSubcontractor POs\nApplications & Certificates\nCIS\n+ Operative invoice\nWhen an operative sends you their invoice, put it in here with the amount for each job. CIS is worked out for you, it goes to that job’s PM to book against the price, and it’s paid in the Friday pay run.\nTo Pay\n0\nPaid\n0\nAll\n0\nNo operative invoices here.",
+  "url": "http://localhost:59297/app.html#/finance/subs/opinv",
+  "errors": []
+ },
+ "fin-subs-orders": {
+  "buttons": [
+   "Subcontractors & Labour",
+   "OpHUB Finance",
+   "Search",
+   "Finance",
+   "Overview",
+   "Projects",
+   "Sales",
+   "Purchases",
+   "Reports",
+   "Directory",
+   "Settings",
+   "£0",
+   "6 Nov 2026",
+   "0",
+   "Operative Invoices",
+   "Subcontractor POs",
+   "Applications & Certificates",
+   "CIS",
+   "+ Subcontractor PO",
+   "Active",
+   "Complete",
+   "All",
+   "SC-001"
+  ],
+  "inputs": [
+   "text: Search subcontractor or project"
+  ],
+  "heads": [
+   "Subcontractors & Labour"
+  ],
+  "text": "Subcontractors & Labour\nOpHUB Finance\nFinance\n›\nSubcontractors & Labour\n›\nPurchase Orders\nOverview\nProjects\nSales\nPurchases\nSubcontractors & Labour\nReports\nDirectory\nSettings\n£0\nOperative Invoices To Pay\n6 Nov 2026\nNext Pay Day\n0\nApplications To Certify\n£0\nCertified, To Pay\nOperative Invoices\nSubcontractor POs\nApplications & Certificates\nCIS\n+ Subcontractor PO\nFor subcontractors on a fixed price who apply for payment (e.g. leadwork, scaffolding). Price sheets your PMs issue come in here by themselves.\nActive\n1\nComplete\n0\nAll\n1\nSC-001\nLead Co\nJ101 · Studley Rd\nLeadwork\n£6,000.00\n£0.00\nActive\n1 shown\nOrder Value £6,000.00\nCertified £0.00",
+  "url": "http://localhost:59297/app.html#/finance/subs/orders",
+  "errors": []
+ },
+ "fin-subs-apps": {
+  "buttons": [
+   "Subcontractors & Labour",
+   "OpHUB Finance",
+   "Search",
+   "Finance",
+   "Overview",
+   "Projects",
+   "Sales",
+   "Purchases",
+   "Reports",
+   "Directory",
+   "Settings",
+   "£0",
+   "6 Nov 2026",
+   "0",
+   "Operative Invoices",
+   "Subcontractor POs",
+   "Applications & Certificates",
+   "CIS",
+   "+ Record an application",
+   "To Certify",
+   "Certified — To Pay",
+   "Paid",
+   "All"
+  ],
+  "inputs": [
+   "text: Search subcontractor or project"
+  ],
+  "heads": [
+   "Subcontractors & Labour"
+  ],
+  "text": "Subcontractors & Labour\nOpHUB Finance\nFinance\n›\nSubcontractors & Labour\n›\nApplications & Certificates\nOverview\nProjects\nSales\nPurchases\nSubcontractors & Labour\nReports\nDirectory\nSettings\n£0\nOperative Invoices To Pay\n6 Nov 2026\nNext Pay Day\n0\nApplications To Certify\n£0\nCertified, To Pay\nOperative Invoices\nSubcontractor POs\nApplications & Certificates\nCIS\n+ Record an application\nA subcontractor applies → you certify it (that’s the certificate) and send the payment or pay-less notice before the final date → mark it paid.\nTo Certify\n0\nCertified — To Pay\n0\nPaid\n0\nAll\n1\nNothing here.",
+  "url": "http://localhost:59297/app.html#/finance/subs/apps",
+  "errors": []
+ },
+ "fin-subs-cis": {
+  "buttons": [
+   "CIS",
+   "Subcontractors & Labour",
+   "Search",
+   "Finance",
+   "Overview",
+   "Projects",
+   "Sales",
+   "Purchases",
+   "Reports",
+   "Directory",
+   "Settings",
+   "Operative Invoices",
+   "Subcontractor POs",
+   "Applications & Certificates",
+   "‹",
+   "›"
+  ],
+  "inputs": [],
+  "heads": [
+   "CIS",
+   "For The Monthly CIS Return"
+  ],
+  "text": "CIS\nSubcontractors & Labour\nFinance\n›\nLabour\nOverview\nProjects\nSales\nPurchases\nSubcontractors & Labour\nReports\nDirectory\nSettings\nOperative Invoices\nSubcontractor POs\nApplications & Certificates\nCIS\n‹\nTax Month\n6 Sept 2026 – 5 Oct 2026\n›\n£0.00\nPaid To Subcontractors\n£0.00\nCIS Deducted (To Pay HMRC)\nFor The Monthly CIS Return\nNo subcontractor payments marked paid in this tax month.\nWhen Xero is linked, the CIS return is made from Xero. Until then use these figures; the HMRC deadline is the 19th.",
+  "url": "http://localhost:59297/app.html#/finance/labour/cis",
+  "errors": []
+ },
+ "fin-subs-payrun": {
+  "buttons": [
+   "Pay run",
+   "Subcontractors & Labour",
+   "Search",
+   "Finance",
+   "Overview",
+   "Projects",
+   "Sales",
+   "Purchases",
+   "Reports",
+   "Directory",
+   "Settings",
+   "Operative Invoices",
+   "Subcontractor POs",
+   "Applications & Certificates",
+   "CIS",
+   "‹",
+   "›",
+   "Mark paid once you’ve sent the money",
+   "+ Operative invoice"
+  ],
+  "inputs": [
+   "select: "
+  ],
+  "heads": [
+   "Pay run"
+  ],
+  "text": "Pay run\nSubcontractors & Labour\nFinance\n›\nLabour\nOverview\nProjects\nSales\nPurchases\nSubcontractors & Labour\nReports\nDirectory\nSettings\nOperative Invoices\nSubcontractor POs\nApplications & Certificates\nCIS\n‹\nPay Day\nFri 6 Nov\nPays operative invoices for work up to Sun 1 Nov\n›\nPaid\nSundays\nMondays\nTuesdays\nWednesdays\nThursdays\nFridays\nSaturdays\nfor the same week\none week behind (a week in hand)\ntwo weeks behind\nby bank transfer\nInvoices\n£0.00\nCIS to pay HMRC\n£0.00\nTo transfer\n£0.00\nMark paid once you’ve sent the money\nNothing to pay on this day. Add operative invoices as they come in — + Operative invoice",
+  "url": "http://localhost:59297/app.html#/finance/labour/payrun",
+  "errors": []
+ },
+ "fin-labour-payment": {
+  "buttons": [
+   "Subcontractors & Labour",
+   "OpHUB Finance",
+   "Search",
+   "Finance",
+   "Overview",
+   "Projects",
+   "Sales",
+   "Purchases",
+   "Reports",
+   "Directory",
+   "Settings",
+   "£0",
+   "6 Nov 2026",
+   "0",
+   "Operative Invoices",
+   "Subcontractor POs",
+   "Applications & Certificates",
+   "CIS",
+   "+ Operative invoice",
+   "To Pay",
+   "Paid",
+   "All"
+  ],
+  "inputs": [
+   "text: Search name, invoice no. or job"
+  ],
+  "heads": [
+   "Subcontractors & Labour"
+  ],
+  "text": "Subcontractors & Labour\nOpHUB Finance\nFinance\n›\nSubcontractors & Labour\nOverview\nProjects\nSales\nPurchases\nSubcontractors & Labour\nReports\nDirectory\nSettings\n£0\nOperative Invoices To Pay\n6 Nov 2026\nNext Pay Day\n0\nApplications To Certify\n£0\nCertified, To Pay\nOperative Invoices\nSubcontractor POs\nApplications & Certificates\nCIS\n+ Operative invoice\nWhen an operative sends you their invoice, put it in here with the amount for each job. CIS is worked out for you, it goes to that job’s PM to book against the price, and it’s paid in the Friday pay run.\nTo Pay\n0\nPaid\n0\nAll\n0\nNo operative invoices here.",
+  "url": "http://localhost:59297/app.html#/finance/subs/opinv",
+  "errors": []
+ },
+ "fin-reports": {
+  "buttons": [
+   "Reports",
+   "OpHUB Finance",
+   "Search",
+   "Finance",
+   "Overview",
+   "Projects",
+   "Sales",
+   "Purchases",
+   "Subcontractors & Labour",
+   "Directory",
+   "Settings",
+   "📊",
+   "Company overview",
+   "Cost value reconciliation (CVR)",
+   "Forecast final account",
+   "Budget vs actual",
+   "Costs by project and type",
+   "Variations register",
+   "Applications & Certificates",
+   "Retention ledger",
+   "£",
+   "🧾"
+  ],
+  "inputs": [],
+  "heads": [
+   "Reports"
+  ],
+  "text": "Reports\nOpHUB Finance\nFinance\n›\nReports\nOverview\nProjects\nSales\nPurchases\nSubcontractors & Labour\nReports\nDirectory\nSettings\nPick a report, set the project and dates, then download it as Excel or PDF.\n📊\nCommercial / QS · 8 reports\n▼\nCompany overview\nEvery project: contract, final account, invoiced, owed, costs, forecast margin.\n›\nCost value reconciliation (CVR)\nValue to date against cost to date, and the forecast at completion, project by project.\n›\nForecast final account\nContract sum plus variations agreed, submitted and instructed, by project.\n›\nBudget vs actual\nBudget, spent, committed and forecast by heading, for one project or all.\n›\nCosts by project and type\nMaterials, labour, plant, subcontract, prelims and other costs per project.\n›\nVariations register\nEvery variation on every project with its status and values.\n›\nApplications & Certificates\nApplied, certified, shortfall and invoice for every application.\n›\nRetention ledger\nRetention held by your clients, release dates, and retention you hold on subcontractors.\n›\n£\nMoney in & out · 4 reports\n▶\n🧾\nLabour, CIS & VAT · 3 reports\n▶",
+  "url": "http://localhost:59297/app.html#/finance/reports",
+  "errors": []
+ },
+ "fin-rep-debtors": {
+  "buttons": [
+   "Aged debtors",
+   "OpHUB Finance · reports",
+   "Search",
+   "Finance",
+   "Reports",
+   "Excel",
+   "PDF",
+   "Bellway Homes",
+   "Persimmon"
+  ],
+  "inputs": [
+   "select: Project"
+  ],
+  "heads": [
+   "Aged debtors"
+  ],
+  "text": "Aged debtors\nOpHUB Finance · reports\nFinance\n›\nReports\n›\nAged Debtors\nWho owes you money and how overdue it is.\nProject\nAll projects\nJ103 · Simon De Senlis\nJ102 · Cleveland Primary School\nJ101 · Studley Rd\nExcel\nPDF\nBellway Homes\nJ101 · Studley Rd\nINV-1001\n31 Oct 2026\n£0.00\n£15,000.00\n£0.00\n£0.00\n£0.00\n£15,000.00\nBellway Homes\nJ101 · Studley Rd\nINV-0980\n31 Aug 2026\n£0.00\n£0.00\n£0.00\n£2,000.00\n£0.00\n£2,000.00\nPersimmon\nJ102 · Cleveland Primary School\nINV-1003\n10 Oct 2026\n£0.00\n£12,000.00\n£0.00\n£0.00\n£0.00\n£12,000.00\nTotal · 3 rows\n£0.00\n£27,000.00\n£0.00\n£2,000.00\n£0.00\n£29,000.00\nExcluding VAT (as everywhere in Finance). Days overdue are counted from the invoice due date.",
+  "url": "http://localhost:59297/app.html#/finance/reports/debtors",
+  "errors": []
+ },
+ "fin-rep-cvr": {
+  "buttons": [
+   "Cost value reconciliation (CVR)",
+   "OpHUB Finance · reports",
+   "Search",
+   "Finance",
+   "Reports",
+   "Excel",
+   "PDF",
+   "J101 · Studley Rd",
+   "J102 · Cleveland Primary School"
+  ],
+  "inputs": [
+   "select: Projects",
+   "select: Project"
+  ],
+  "heads": [
+   "Cost value reconciliation (CVR)"
+  ],
+  "text": "Cost value reconciliation (CVR)\nOpHUB Finance · reports\nFinance\n›\nReports\n›\nCost Value Reconciliation (CVR)\nValue to date against cost to date, and the forecast at completion, project by project.\nProjects\nLive\nUpcoming\nClosed\nAll\nProject\nAll projects\nJ103 · Simon De Senlis\nJ102 · Cleveland Primary School\nJ101 · Studley Rd\nExcel\nPDF\nJ101 · Studley Rd\n£21,000.00\n£14,548.57\n£2,100.00\n£4,351.43\n20.7%\n£6,000.00\n£51,500.00\n£37,898.57\n£8,451.43\n16.4%\nJ102 · Cleveland Primary School\n£54,000.00\n£31,200.00\n£5,400.00\n£17,400.00\n32.2%\n£0.00\n£126,500.00\n£31,200.00\n£82,650.00\n65.3%\nTotal · 2 rows\n£75,000.00\n£45,748.57\n£7,500.00\n£21,751.43\n£6,000.00\n£178,000.00\n£69,098.57\n£91,101.43\nValue to date is the latest certified (or applied) gross valuation. Cost to date excludes committed orders. Margins are after company overheads (OHP), set in Finance › Settings.",
+  "url": "http://localhost:59297/app.html#/finance/reports/cvr",
+  "errors": []
+ },
+ "fin-dir-clients": {
+  "buttons": [
+   "Directory",
+   "OpHUB Finance",
+   "Search",
+   "Finance",
+   "Overview",
+   "Projects",
+   "Sales",
+   "Purchases",
+   "Subcontractors & Labour",
+   "Reports",
+   "Settings",
+   "Clients",
+   "Suppliers",
+   "Labour (CIS)",
+   "⟳ Pull from Xero",
+   "+ New client",
+   "1 job · 1 live",
+   "Add to Xero",
+   "1 job · 0 live"
+  ],
+  "inputs": [
+   "text: Search clients"
+  ],
+  "heads": [
+   "Directory"
+  ],
+  "text": "Directory\nOpHUB Finance\nFinance\n›\nDirectory\n›\nClients\nOverview\nProjects\nSales\nPurchases\nSubcontractors & Labour\nReports\nDirectory\nSettings\nClients\nSuppliers\nLabour (CIS)\n⟳ Pull from Xero\n+ New client\n3 clients · 0 in Xero. New clients you add here go into Xero too.\nBellway Homes\na@bellway.example\n1 job · 1 live\nAdd to Xero\n£17,000\n£17,000 overdue\nForma London\n1 job · 0 live\nAdd to Xero\n—\nPersimmon\nap@persimmon.example\n1 job · 1 live\nAdd to Xero\n£12,000\n£12,000 overdue\n3 shown\nOwed £29,000.00",
+  "url": "http://localhost:59297/app.html#/finance/directory/clients",
+  "errors": []
+ },
+ "fin-dir-suppliers": {
+  "buttons": [
+   "Directory",
+   "OpHUB Finance",
+   "Search",
+   "Finance",
+   "Overview",
+   "Projects",
+   "Sales",
+   "Purchases",
+   "Subcontractors & Labour",
+   "Reports",
+   "Settings",
+   "Clients",
+   "Suppliers",
+   "Labour (CIS)",
+   "⟳ Pull from Xero",
+   "+ New supplier",
+   "SIG",
+   "SIG Roofing",
+   "Travis Perkins"
+  ],
+  "inputs": [
+   "text: Search suppliers"
+  ],
+  "heads": [
+   "Directory"
+  ],
+  "text": "Directory\nOpHUB Finance\nFinance\n›\nDirectory\n›\nSuppliers\nOverview\nProjects\nSales\nPurchases\nSubcontractors & Labour\nReports\nDirectory\nSettings\nClients\nSuppliers\nLabour (CIS)\n⟳ Pull from Xero\n+ New supplier\n3 suppliers · 0 linked to Xero. Tap one to set VAT, payment terms and a default cost code.\nSIG\ns@x.co\nNot set\nNot set\n—\n0\n£0.00\n—\nSIG Roofing\norders@sig.example\nMaterials\nNot set\nNot set\n—\n1\n£0.00\n—\nTravis Perkins\ntp@tp.example\nMaterials\nNot set\nNot set\n—\n0\n£0.00\n—\n3 shown\nSpent (Net) £0.00",
+  "url": "http://localhost:59297/app.html#/finance/directory/suppliers",
+  "errors": []
+ },
+ "fin-dir-labour": {
+  "buttons": [
+   "Directory",
+   "OpHUB Finance",
+   "Search",
+   "Finance",
+   "Overview",
+   "Projects",
+   "Sales",
+   "Purchases",
+   "Subcontractors & Labour",
+   "Reports",
+   "Settings",
+   "Clients",
+   "Suppliers",
+   "Labour (CIS)",
+   "+ Add a person",
+   "Add to directory",
+   "CIS Subcontractors",
+   "Not Verified",
+   "PAYE Staff",
+   "No Longer Working For Us",
+   "All",
+   "Dan Fixer",
+   "Jake Morris"
+  ],
+  "inputs": [
+   "text: Search name or UTR"
+  ],
+  "heads": [
+   "Directory"
+  ],
+  "text": "Directory\nOpHUB Finance\nFinance\n›\nDirectory\nOverview\nProjects\nSales\nPurchases\nSubcontractors & Labour\nReports\nDirectory\nSettings\nClients\nSuppliers\nLabour (CIS)\n+ Add a person\nSubcontractors who invoice you under CIS, and PAYE staff. Check each subbie’s CIS status with HMRC before you pay them.\n1 from the sub-contractor sign-up form, not in the directory yet\nAcme Roofing Ltd New\nSam Acme · UTR 12345 67890\nAdd to directory\nCIS Subcontractors\n2\nNot Verified\n2\nPAYE Staff\n1\nNo Longer Working For Us\n0\nAll\n3\nDan Fixer\nStandard (20%)\nMissing\nUnverified\n£200.00\n12-34-56 · ••5678\nJake Morris\nHas the app\nStandard (20%)\nMissing\nUnverified\n£150.00\nNot saved\n2 shown\nDay Rate £350.00",
+  "url": "http://localhost:59297/app.html#/finance/directory/labour",
+  "errors": []
+ },
+ "fin-settings": {
+  "buttons": [
+   "Finance settings",
+   "OpHUB Finance",
+   "Search",
+   "Finance",
+   "Overview",
+   "Projects",
+   "Sales",
+   "Purchases",
+   "Subcontractors & Labour",
+   "Reports",
+   "Directory",
+   "Settings",
+   "Cost Codes",
+   "Save settings"
+  ],
+  "inputs": [
+   "checkbox: ",
+   "text: e.g. RTB-",
+   "number: ",
+   "select: ",
+   "text: Name",
+   "number: Rate %",
+   "text: ",
+   "number: e.g. 25",
+   "number: 0",
+   "textarea: ",
+   "text: 00-00-00",
+   "text: e.g. Payment terms 30 days"
+  ],
+  "heads": [
+   "Finance settings"
+  ],
+  "text": "Finance settings\nOpHUB Finance\nFinance\n›\nSettings\nOverview\nProjects\nSales\nPurchases\nSubcontractors & Labour\nReports\nDirectory\nSettings\nSettings\nCost Codes\n👁\nWho can see material costs\n▶\n#\nProject numbers\n▶\n🧾\nPurchase orders\n▶\n%\nVAT rates\n▶\n№\nInvoice numbers\n▶\n⚙\nDefaults for new projects\n▶\n%\nCompany overheads (OHP)\n▶\n🏦\nOn your invoices\n▶\n📥\nInvoice inbox (email)\n▶\n🔗\nXero\n▶\nSave settings",
+  "url": "http://localhost:59297/app.html#/finance/settings",
+  "errors": []
+ },
+ "fin-codes": {
+  "buttons": [
+   "Settings",
+   "OpHUB Finance",
+   "Search",
+   "Finance",
+   "Overview",
+   "Projects",
+   "Sales",
+   "Purchases",
+   "Subcontractors & Labour",
+   "Reports",
+   "Directory",
+   "Cost Codes",
+   "+ Add cost code",
+   "Materials"
+  ],
+  "inputs": [
+   "text: Search cost codes"
+  ],
+  "heads": [
+   "Settings",
+   "Materials · 1 Cost Code"
+  ],
+  "text": "Settings\nOpHUB Finance\nFinance\n›\nSettings\nOverview\nProjects\nSales\nPurchases\nSubcontractors & Labour\nReports\nDirectory\nSettings\nSettings\nCost Codes\n+ Add cost code\nThe ID is the Xero account code each cost goes to. The type decides which column it adds up in on job costs and reports.\nMaterials · 1 Cost Code\nMaterials\n310\n1 shown",
+  "url": "http://localhost:59297/app.html#/finance/settings/codes",
+  "errors": []
+ },
+ "fin-templates": {
+  "buttons": [
+   "Finance settings",
+   "OpHUB Finance",
+   "Search",
+   "Finance",
+   "Overview",
+   "Projects",
+   "Sales",
+   "Purchases",
+   "Subcontractors & Labour",
+   "Reports",
+   "Directory",
+   "Settings",
+   "Cost Codes",
+   "Save settings"
+  ],
+  "inputs": [
+   "checkbox: ",
+   "text: e.g. RTB-",
+   "number: ",
+   "select: ",
+   "text: Name",
+   "number: Rate %",
+   "text: ",
+   "number: e.g. 25",
+   "number: 0",
+   "textarea: ",
+   "text: 00-00-00",
+   "text: e.g. Payment terms 30 days"
+  ],
+  "heads": [
+   "Finance settings"
+  ],
+  "text": "Finance settings\nOpHUB Finance\nFinance\n›\nSettings\nOverview\nProjects\nSales\nPurchases\nSubcontractors & Labour\nReports\nDirectory\nSettings\nSettings\nCost Codes\n👁\nWho can see material costs\n▶\n#\nProject numbers\n▶\n🧾\nPurchase orders\n▶\n%\nVAT rates\n▶\n№\nInvoice numbers\n▶\n⚙\nDefaults for new projects\n▶\n%\nCompany overheads (OHP)\n▶\n🏦\nOn your invoices\n▶\n📥\nInvoice inbox (email)\n▶\n🔗\nXero\n▶\nSave settings",
+  "url": "http://localhost:59297/app.html#/finance/settings",
+  "errors": []
+ },
+ "fin-team": {
+  "buttons": [
+   "Finance settings",
+   "OpHUB Finance",
+   "Search",
+   "Finance",
+   "Overview",
+   "Projects",
+   "Sales",
+   "Purchases",
+   "Subcontractors & Labour",
+   "Reports",
+   "Directory",
+   "Settings",
+   "Cost Codes",
+   "Save settings"
+  ],
+  "inputs": [
+   "checkbox: ",
+   "text: e.g. RTB-",
+   "number: ",
+   "select: ",
+   "text: Name",
+   "number: Rate %",
+   "text: ",
+   "number: e.g. 25",
+   "number: 0",
+   "textarea: ",
+   "text: 00-00-00",
+   "text: e.g. Payment terms 30 days"
+  ],
+  "heads": [
+   "Finance settings"
+  ],
+  "text": "Finance settings\nOpHUB Finance\nFinance\n›\nSettings\nOverview\nProjects\nSales\nPurchases\nSubcontractors & Labour\nReports\nDirectory\nSettings\nSettings\nCost Codes\n👁\nWho can see material costs\n▶\n#\nProject numbers\n▶\n🧾\nPurchase orders\n▶\n%\nVAT rates\n▶\n№\nInvoice numbers\n▶\n⚙\nDefaults for new projects\n▶\n%\nCompany overheads (OHP)\n▶\n🏦\nOn your invoices\n▶\n📥\nInvoice inbox (email)\n▶\n🔗\nXero\n▶\nSave settings",
+  "url": "http://localhost:59297/app.html#/finance/settings",
+  "errors": []
+ },
+ "job-overview": {
+  "buttons": [
+   "J101 · Studley Rd",
+   "Finance · Bellway Homes",
+   "Search",
+   "🏠",
+   "Finance",
+   "Projects",
+   "Back",
+   "Overview",
+   "Sales",
+   "Purchases",
+   "Subcontractors & Labour",
+   "Bill Of Quantities",
+   "Project Admin",
+   "⋯",
+   "Contract",
+   "Variations",
+   "Costs",
+   "Profit",
+   "Applied",
+   "Invoiced",
+   "Overdue",
+   "Retention",
+   "Full Summary",
+   "Reports",
+   "Budgets",
+   "2",
+   "1"
+  ],
+  "inputs": [
+   "select: New"
+  ],
+  "heads": [
+   "J101 · Studley Rd",
+   "Needs Attention"
+  ],
+  "text": "J101 · Studley Rd\nFinance · Bellway Homes\n🏠\nFinance\n›\nProjects\n›\nJ101 Studley Rd\n+ New\nApplication\nSales invoice\nVariation\nPurchase order\nPurchase invoice\nSubcontractor PO\nPlant hire\nCost\nOverview\nSales\nPurchases\nSubcontractors & Labour\nBill Of Quantities\nProject Admin\n🔒 Only you can see this while OpHUB Finance is being built.\nFORECASTED FINAL ACCOUNT\n⋯\n£51,500\n16.4% margin\nContract £48,000 + £1,000 agreed variations + £2,500 submitted · forecast profit £8,451 (after 10% overheads)\n£21,000 valued (41%)\n£30,500 to go\nContract\n⋯\n£48.0k\nexcl. VAT\nVariations\n⋯\n£1.0k\n1 variation approved\nCosts\n⋯\n£14.5k\n46.2% of budget\nProfit\n⋯\n20.7%\n£4,351 after 10% OHP\nApplied\n⋯\n£21.5k\n41.7% of final account\nInvoiced\n⋯\n£17.0k\nexcl. VAT\nOverdue\n⋯\n£17.0k\n2 invoices\nRetention\n⋯\n£1.1k\nstill with the client\nFull Summary\nReports\nBudgets\nNeeds Attention\n2\nOverdue Invoices\n£17,000 to chase\n›\n2\nDrafts Not Sent Yet\nInvoices or applications still in draft\n›\n1\nPurchase Invoices To Approve\n£1,800 excl. VAT\n›\n1\nPlant On Hire Over 4 Weeks\nCherry picker\n›\n1\nNo Client PO\nIt goes on every invoice and application\n›",
+  "url": "http://localhost:59297/app.html#/site/11111111-1111-1111-1111-111111111111/finance",
+  "errors": []
+ },
+ "job-sales": {
+  "buttons": [
+   "J101 · Studley Rd",
+   "Finance · Bellway Homes",
+   "Search",
+   "🏠",
+   "Finance",
+   "Projects",
+   "←",
+   "Project overview",
+   "Overview",
+   "Sales",
+   "Purchases",
+   "Subcontractors & Labour",
+   "Bill of Quantities",
+   "Project Admin",
+   "Applications & Certificates",
+   "Invoices",
+   "Retention",
+   "+ NEW APPLICATION",
+   "⋯",
+   "RAISE INVOICE",
+   "Application 2"
+  ],
+  "inputs": [
+   "select: New",
+   "select: Month"
+  ],
+  "heads": [
+   "J101 · Studley Rd",
+   "APPLICATIONS & CERTIFICATES"
+  ],
+  "text": "J101 · Studley Rd\nFinance · Bellway Homes\n🏠\nFinance\n›\nProjects\n›\nJ101 Studley Rd\n←\n+ New\nApplication\nSales invoice\nVariation\nPurchase order\nPurchase invoice\nSubcontractor PO\nPlant hire\nCost\nOverview\nSales\nPurchases\nSubcontractors & Labour\nBill of Quantities\nProject Admin\n🔒 Only you can see this while OpHUB Finance is being built.\nApplied\n£21,500\nexcl. VAT · to date (App 2)\nInvoiced\n£17,000\nexcl. VAT · 2 invoices\nPaid\n£0\nexcl. VAT\nApplications & Certificates\nInvoices\nRetention\nAPPLICATIONS & CERTIFICATES\n+ NEW APPLICATION\nApply → the client certifies (enter their figures on the application) → the invoice is raised for you.\nApplication 3\n2 Nov 2026\n£8,000.00\n—\nDraft\n—\n⋯\nCertificate 2\n15 Oct 2026\n£9,800.00\n£9,500.00\n£300.00 short\nCertified\nRAISE INVOICE\n⋯\nApplication 2\n25 Oct 2026\n—\n—\nDraft\n—\n⋯\n3 applications\nApplied £17,800.00\nCertified £9,500.00\nAll months\nNov 2026\nOct 2026",
+  "url": "http://localhost:59297/app.html#/site/11111111-1111-1111-1111-111111111111/finance?tab=sales",
+  "errors": []
+ },
+ "job-purchases": {
+  "buttons": [
+   "J101 · Studley Rd",
+   "Finance · Bellway Homes",
+   "Search",
+   "🏠",
+   "Finance",
+   "Projects",
+   "←",
+   "Project overview",
+   "Overview",
+   "Sales",
+   "Purchases",
+   "Subcontractors & Labour",
+   "Bill of Quantities",
+   "Project Admin",
+   "Purchase Orders",
+   "Purchase Invoices",
+   "Plant",
+   "Total Spend",
+   "Purchase Quotes",
+   "All",
+   "+ ▾",
+   "+ ADD INVOICE",
+   "SIG Roofing"
+  ],
+  "inputs": [
+   "select: New"
+  ],
+  "heads": [
+   "J101 · Studley Rd",
+   "PURCHASE INVOICES"
+  ],
+  "text": "J101 · Studley Rd\nFinance · Bellway Homes\n🏠\nFinance\n›\nProjects\n›\nJ101 Studley Rd\n←\n+ New\nApplication\nSales invoice\nVariation\nPurchase order\nPurchase invoice\nSubcontractor PO\nPlant hire\nCost\nOverview\nSales\nPurchases\nSubcontractors & Labour\nBill of Quantities\nProject Admin\n🔒 Only you can see this while OpHUB Finance is being built.\nPurchase Orders\n£1,800\n1 order\nPurchase Invoices\n£1,800\n1 invoice, net\nPlant\n£1,329\n1 on hire\nTotal Spend\n£14,549\nexcl. VAT\nPurchase Invoices\n1\nPurchase Orders\n1\nPurchase Quotes\nPlant\n1\nAll\n5\nPURCHASE INVOICES\n+ ▾\n+ ADD INVOICE\nSIG Roofing\nSIG-88231\n12/10/26\n—\n£1,800.00\n£360.00\n£2,160.00\nTo approve",
+  "url": "http://localhost:59297/app.html#/site/11111111-1111-1111-1111-111111111111/finance?tab=purchases",
+  "errors": []
+ },
+ "job-subs": {
+  "buttons": [
+   "J101 · Studley Rd",
+   "Finance · Bellway Homes",
+   "Search",
+   "🏠",
+   "Finance",
+   "Projects",
+   "←",
+   "Project overview",
+   "Overview",
+   "Sales",
+   "Purchases",
+   "Subcontractors & Labour",
+   "Bill of Quantities",
+   "Project Admin",
+   "+ SUBCONTRACTOR PO",
+   "SC-001 · Lead Co",
+   "+ OPERATIVE INVOICE"
+  ],
+  "inputs": [
+   "select: New"
+  ],
+  "heads": [
+   "J101 · Studley Rd",
+   "SUBCONTRACTORS",
+   "LABOUR"
+  ],
+  "text": "J101 · Studley Rd\nFinance · Bellway Homes\n🏠\nFinance\n›\nProjects\n›\nJ101 Studley Rd\n←\n+ New\nApplication\nSales invoice\nVariation\nPurchase order\nPurchase invoice\nSubcontractor PO\nPlant hire\nCost\nOverview\nSales\nPurchases\nSubcontractors & Labour\nBill of Quantities\nProject Admin\n🔒 Only you can see this while OpHUB Finance is being built.\nSUBCONTRACTORS\n+ SUBCONTRACTOR PO\nSC-001 · Lead Co\nLeadwork · certified £0 of £6,000\n£6,000\nLABOUR\n+ OPERATIVE INVOICE\nOperatives’ invoices for this job, plus PAYE staff’s days on site at their day rate.\nNo labour on this job yet.",
+  "url": "http://localhost:59297/app.html#/site/11111111-1111-1111-1111-111111111111/finance?tab=subs",
+  "errors": []
+ },
+ "job-setup": {
+  "buttons": [
+   "J101 · Studley Rd",
+   "Finance · Bellway Homes",
+   "Search",
+   "🏠",
+   "Finance",
+   "Projects",
+   "←",
+   "Project overview",
+   "Overview",
+   "Sales",
+   "Purchases",
+   "Subcontractors & Labour",
+   "Bill of Quantities",
+   "Project Admin",
+   "Change",
+   "Edit in Directory",
+   "SAVE CHANGES",
+   "Delete project"
+  ],
+  "inputs": [
+   "select: New",
+   "text: ",
+   "text: £0.00",
+   "text: Pick from the Directory or type a new one",
+   "text: As on the client’s order",
+   "date: ",
+   "select: ",
+   "number: ",
+   "number: None",
+   "number: e.g. 25",
+   "number: Company figure: 10%",
+   "textarea: Anything about payment"
+  ],
+  "heads": [
+   "J101 · Studley Rd"
+  ],
+  "text": "J101 · Studley Rd\nFinance · Bellway Homes\n🏠\nFinance\n›\nProjects\n›\nJ101 Studley Rd\n←\n+ New\nApplication\nSales invoice\nVariation\nPurchase order\nPurchase invoice\nSubcontractor PO\nPlant hire\nCost\nOverview\nSales\nPurchases\nSubcontractors & Labour\nBill of Quantities\nProject Admin\n🔒 Only you can see this while OpHUB Finance is being built.\nProject Details\nJOB NO\nPROJECT NAME\nPROJECT ADDRESS\nPROJECT POSTCODE\nCONTRACT VALUE (£ EX VAT)\nCLIENT\nPO NUMBER\nCLIENT PO\nNo copy yet\nUpload\nSTART DATE\nSTATUS\nUpcoming\nLive\nClosed\nPM\nNone yet\nAndy Admin\nDave Price\nQS\nNone yet\nAndy Admin\nDave Price\nContract Terms\nPAYMENT PROCEDURE\nApplications\nChange\nVAT\nStandard VAT (20%)\nDomestic reverse charge (CIS)\nZero rated / no VAT\nRetention\nRETENTION %\nRETENTION LIMIT %\nPayment\nDAYS TO DUE DATE\nDAYS TO FINAL DATE\nAPPLICATION DAY (OF MONTH)\nOverheads\nOVERHEADS %\nMonthly Application Dates\nBilling\nEdit in Directory\nBILL TO\nBellway Homes\nBILLING ADDRESS\n—\nACCOUNTS EMAIL\na@bellway.example\nPAYMENT NOTES\nSAVE CHANGES\nDelete project",
+  "url": "http://localhost:59297/app.html#/site/11111111-1111-1111-1111-111111111111/finance?tab=setup",
+  "errors": []
+ },
+ "job-boq": {
+  "buttons": [
+   "Bill of Quantities",
+   "Studley Rd",
+   "Search",
+   "🏠",
+   "←",
+   "Project overview",
+   "Overview",
+   "Sales",
+   "Purchases",
+   "Subcontractors & Labour",
+   "Bill Of Quantities",
+   "Project Admin",
+   "Variations",
+   "Day Works",
+   "Main Roof",
+   "Tiling",
+   "Ridge",
+   "＋ Add item to Main Roof",
+   "＋ Add to Bill of Quantities",
+   "Finance",
+   "Projects",
+   "J101 Studley Rd",
+   "Send to the operatives’ schedule",
+   "Copy in 2 tasks from the site schedule",
+   "Apply to ticked",
+   "Apply to all lines",
+   "Save Bill of Quantities"
+  ],
+  "inputs": [
+   "select: New",
+   "file: ",
+   "select: Margin or mark-up",
+   "text: 20"
+  ],
+  "heads": [
+   "Bill of Quantities",
+   "Lines1 section · 2 items",
+   "Operatives’ Schedule Of Works"
+  ],
+  "text": "Bill of Quantities\nStudley Rd\n🏠\n←\n+ New\nApplication\nSales invoice\nVariation\nPurchase order\nPurchase invoice\nSubcontractor PO\nPlant hire\nCost\nOverview\nSales\nPurchases\nSubcontractors & Labour\nBill Of Quantities\nProject Admin\nBill Of Quantities\nVariations\nDay Works\nLines1 section · 2 items\n£48,000.00\nCost £32,000.00 · margin 33.3%\nMain Roof\n£48,000.00\nTiling\n£36,000.00\n300 m2 × £120.00\nCost £24,000 · 33.3%\nRidge\n£12,000.00\n60 m × £200.00\nCost £8,000 · 33.3%\n＋ Add item to Main Roof\n＋ Add to Bill of Quantities\nFinance\n›\nProjects\n›\nJ101 Studley Rd\n›\nBill of Quantities\nOperatives’ Schedule Of Works\n0 of 2 lines are on the operatives’ Schedule of Works.\nSend to the operatives’ schedule\nCopy in 2 tasks from the site schedule\nThis project already has applications. Changes here apply to new applications; existing ones keep the lines they were made with.\nUpload A Bill Of Quantities\nExcel or PDF\n▾\nBudget cost\nMargin on the sale price\nMark-up on cost\n%\nApply to ticked\nApply to all lines\ne.g. a £1,000.00 line at 20% margin costs £800.00; at 20% mark-up it costs £833.33. Or type a cost on each line.\nSave Bill of Quantities\nSaving sets the project’s contract value to the total of the items. Value = quantity × rate; leave the quantity and rate empty to enter a lump sum.",
+  "url": "http://localhost:59297/app.html#/site/11111111-1111-1111-1111-111111111111/finance/contract",
+  "errors": []
+ },
+ "job-variations": {
+  "buttons": [
+   "Bill of Quantities",
+   "Studley Rd",
+   "Search",
+   "🏠",
+   "←",
+   "Project overview",
+   "Overview",
+   "Sales",
+   "Purchases",
+   "Subcontractors & Labour",
+   "Bill Of Quantities",
+   "Project Admin",
+   "Variations",
+   "Day Works",
+   "+ Add Variation",
+   "All (2)",
+   "Issued (1)",
+   "Approved (1)",
+   "Rejected (0)",
+   "+ Schedule of Works",
+   "Approve",
+   "Reject",
+   "Excel",
+   "PDF"
+  ],
+  "inputs": [
+   "select: New"
+  ],
+  "heads": [
+   "Bill of Quantities",
+   "Variations"
+  ],
+  "text": "Bill of Quantities\nStudley Rd\n🏠\n←\n+ New\nApplication\nSales invoice\nVariation\nPurchase order\nPurchase invoice\nSubcontractor PO\nPlant hire\nCost\nOverview\nSales\nPurchases\nSubcontractors & Labour\nBill Of Quantities\nProject Admin\nBill Of Quantities\nVariations\nDay Works\nVariations\n+ Add Variation\nIssued\n£2,500.00\nApproved\n£1,000.00\nRejected\n£0.00\nOnly approved variations go onto applications, at their approved value. Variations raised on site (Projects › Variations) come in here on their own.\nAll (2)\nIssued (1)\nApproved (1)\nRejected (0)\nV01\nExtra flashing\nApproved\n£1,000.00\n—\n+ Schedule of Works\nV02\nGutter swap\nIssued\n£2,500.00\n—\nApprove\nReject\n+ Schedule of Works\n2 shown\nValue £3,500.00\nExport:\nExport:\nExcel\nPDF",
+  "url": "http://localhost:59297/app.html#/site/11111111-1111-1111-1111-111111111111/finance/variations",
+  "errors": []
+ },
+ "job-summary": {
+  "buttons": [
+   "Detailed Summary",
+   "J101 · Studley Rd",
+   "Search",
+   "🏠",
+   "Finance",
+   "Projects",
+   "J101 Studley Rd",
+   "←",
+   "Project overview",
+   "Overview",
+   "Sales",
+   "Purchases",
+   "Subcontractors & Labour",
+   "Bill Of Quantities",
+   "Project Admin",
+   "Cost Summary",
+   "Labour & Subcontractors",
+   "Applications & Invoices",
+   "Plant",
+   "Excel"
+  ],
+  "inputs": [
+   "select: New",
+   "date: From",
+   "date: To"
+  ],
+  "heads": [
+   "Detailed Summary",
+   "Sales",
+   "Cost"
+  ],
+  "text": "Detailed Summary\nJ101 · Studley Rd\n🏠\nFinance\n›\nProjects\n›\nJ101 Studley Rd\n›\nDetailed Summary\n←\n+ New\nApplication\nSales invoice\nVariation\nPurchase order\nPurchase invoice\nSubcontractor PO\nPlant hire\nCost\nOverview\nSales\nPurchases\nSubcontractors & Labour\nBill Of Quantities\nProject Admin\nJob No\nJ101\nCustomer\nBellway Homes\nContract Name\nStudley Rd\nONLY SHOW ITEMS DATED\nFrom\nTo\nShowing the whole job. Pick dates to see one period (e.g. a month) on every tab.\nCost Summary\nPurchases\nLabour & Subcontractors\nApplications & Invoices\nPlant\nExcel\nSales\nApplied To Date (Gross)\n£21,500.00\nApplication Discount\n−£0.00\nApplied Net Of Discount\n£21,500.00\nCertified To Date (Gross)\n£21,000.00\nInvoiced\n£17,000.00\nReceived\n£0.00\nOutstanding\n£17,000.00\nRetention Held By Client\n£1,050.00\nSales Value\n£21,000.00\nSales value = latest certified (or applied) to date, less discount. All excl. VAT.\nCost\nPurchases (Materials)\n£11,650.00\nPlant\n£2,578.57\nLabour\n£0.00\nSubcontractors\n£0.00\nPrelims & Site Costs\n£320.00\nOther\n£0.00\nTotal Cost\n£14,548.57\nProfit Before Overheads\n£6,451.43\nCompany Overheads (OHP) 10%\n−£2,100.00\nProfit After Overheads\n£4,351.43\n% Profit (After Overheads)\n20.7%\nOrdered, Not Invoiced Yet\n£6,000.00\nOrdered (open POs and subcontract orders) isn't in Total Cost until it's invoiced or certified.",
+  "url": "http://localhost:59297/app.html#/site/11111111-1111-1111-1111-111111111111/finance/summary",
+  "errors": []
+ },
+ "job-costs": {
+  "buttons": [
+   "Project costs",
+   "J101 · Studley Rd",
+   "Search",
+   "🏠",
+   "Finance",
+   "Projects",
+   "J101 Studley Rd",
+   "←",
+   "Project overview",
+   "ALL COSTS",
+   "MATERIALS",
+   "LABOUR",
+   "PLANT",
+   "SUBCONTRACT",
+   "PRELIMS & SITE COSTS",
+   "OTHER",
+   "COMMITTED",
+   "Excel",
+   "PDF",
+   "+ Add cost",
+   "12 Oct 2026",
+   "5 Oct 2026",
+   "3 Oct 2026",
+   "2 Oct 2026"
+  ],
+  "inputs": [
+   "select: New",
+   "search: Search description, supplier, ref…",
+   "date: From",
+   "date: To"
+  ],
+  "heads": [
+   "Project costs"
+  ],
+  "text": "Project costs\nJ101 · Studley Rd\n🏠\nFinance\n›\nProjects\n›\nJ101 Studley Rd\n›\nAll Costs\n←\n+ New\nApplication\nSales invoice\nVariation\nPurchase order\nPurchase invoice\nSubcontractor PO\nPlant hire\nCost\nALL COSTS\n£14,549\n5 lines\nMATERIALS\n£11,650\n2 lines\nLABOUR\n£0\n0 lines\nPLANT\n£2,579\n2 lines\nSUBCONTRACT\n£0\n0 lines\nPRELIMS & SITE COSTS\n£320\n1 line\nOTHER\n£0\n0 lines\nCOMMITTED\n£6,000\n1 line\nFrom\nTo\nExcel\nPDF\n+ Add cost\n12 Oct 2026\nMaterials\nPurchase invoice\nSIG Roofing\nSIG-88231 · J101-PO-001\nTo approve\n£1,800.00\n5 Oct 2026\nPlant\nCherry picker (on hire 4.4 wk)\nOn hire\n£1,328.57\n5 Oct 2026\nPlant\nScaffold hire\n£1,250.00\n3 Oct 2026\nPrelims & site costs\nSkip\n£320.00\n2 Oct 2026\nMaterials\nSlates\n£9,850.00\n5 lines · £1,800.00 waiting approval\n£14,548.57\nExcl. VAT. “All costs” is what’s been spent or invoiced; purchase invoices still waiting for approval are included and marked. Committed = ordered on a PO but not invoiced yet. Labour from sign-in is priced at each person’s day rate.",
+  "url": "http://localhost:59297/app.html#/site/11111111-1111-1111-1111-111111111111/finance/costs",
+  "errors": []
+ },
+ "job-budget": {
+  "buttons": [
+   "Budget & forecast",
+   "J101 · Studley Rd",
+   "Search",
+   "🏠",
+   "Finance",
+   "Projects",
+   "J101 Studley Rd",
+   "←",
+   "Project overview",
+   "£11,650.00",
+   "£0.00",
+   "£2,578.57",
+   "£320.00",
+   "Save budget & forecast"
+  ],
+  "inputs": [
+   "select: New",
+   "number: ",
+   "text: £0.00",
+   "text: £8,350.00",
+   "text: £9,000.00"
+  ],
+  "heads": [
+   "Budget & forecast",
+   "Cost By Heading",
+   "Value"
+  ],
+  "text": "Budget & forecast\nJ101 · Studley Rd\n🏠\nFinance\n›\nProjects\n›\nJ101 Studley Rd\n›\nBudget\n←\n+ New\nApplication\nSales invoice\nVariation\nPurchase order\nPurchase invoice\nSubcontractor PO\nPlant hire\nCost\nFORECAST PROFIT (AFTER 10% OVERHEADS)\n£8,451\n16.4%\nFinal account (incl. submitted variations)\n£51,500\nForecast final cost\n£37,899\nBudget\n£31,500\nSpent £14,549\nOrdered £6,000\nLeft £10,951\nForecast to go £6,399 over budget\nSet budgets from a target margin\nType the margin you want; it works out what you can spend and splits it across the headings.\nCost By Heading\nSet a budget for each heading. Cost to complete is what you expect still to spend — leave it blank and it’s worked out as budget less spent and ordered.\nMaterials\n£11,650.00\n£0.00\n£20,000.00\nunder £0.00\nLabour\n£0.00\n£0.00\n£9,000.00\nunder £0.00\nPlant\n£2,578.57\n£0.00\n£2,578.57\nover £78.57\nSubcontract\n£0.00\n£6,000.00\n£6,000.00\n—\nPrelims & site costs\n£320.00\n£0.00\n£320.00\n—\nOther\n£0.00\n£0.00\n£0.00\n—\nTotal\n£31,500.00\n£14,548.57\n£6,000.00\n£17,350.00\n£37,898.57\nover £6,398.57\nSave budget & forecast\nValue\nContract Value\n£48,000.00\nVariations Agreed\n£1,000.00\nVariations Priced Or Submitted (Not Agreed)\n£2,500.00\nForecast Final Account (Incl. Submitted Variations)\n£51,500.00\nCompany Overheads (OHP) 10% Of The Final Account\n−£5,150.00\nValuation To Date (Last Application)\n£21,000.00\nInvoiced\n£17,000.00",
+  "url": "http://localhost:59297/app.html#/site/11111111-1111-1111-1111-111111111111/finance/budget",
+  "errors": []
+ },
+ "job-monthly": {
+  "buttons": [
+   "Monthly report",
+   "J101 · Studley Rd",
+   "Search",
+   "🏠",
+   "Finance",
+   "Projects",
+   "J101 Studley Rd",
+   "←",
+   "Project overview",
+   "In the month",
+   "Running total",
+   "Excel",
+   "PDF",
+   "▼ Total"
+  ],
+  "inputs": [
+   "select: New"
+  ],
+  "heads": [
+   "Monthly report",
+   "COST REPORT",
+   "AUG 2026",
+   "SEPT 2026",
+   "OCT 2026",
+   "NOV 2026",
+   "TOTAL"
+  ],
+  "text": "Monthly report\nJ101 · Studley Rd\n🏠\nFinance\n›\nProjects\n›\nJ101 Studley Rd\n›\nMonthly Report\n←\n+ New\nApplication\nSales invoice\nVariation\nPurchase order\nPurchase invoice\nSubcontractor PO\nPlant hire\nCost\nIn the month\nRunning total\nExcel\nPDF\nCOST REPORT\tAUG 2026\tSEPT 2026\tOCT 2026\tNOV 2026\tTOTAL\n▼ Total\nApplied\t£0.00\t£0.00\t£21,500.00\t£0.00\t£21,500.00\nCertified\t£0.00\t£0.00\t£21,000.00\t£0.00\t£21,000.00\nInvoiced\t£2,000.00\t£0.00\t£15,000.00\t£0.00\t£17,000.00\nActual costs\t£0.00\t£0.00\t£14,548.57\t£0.00\t£14,548.57\nForecast value\t\t\t\t\t£51,500.00\nForecast budget\t\t\t\t\t£31,500.00\nForecast final cost\t\t\t\t\t£37,898.57\nExcl. VAT. Applied and certified = the change from the last application. Actual costs are by invoice / work date. Forecast value, budget and final cost are in the total column.",
+  "url": "http://localhost:59297/app.html#/site/11111111-1111-1111-1111-111111111111/finance/monthly",
+  "errors": []
+ },
+ "job-parts": {
+  "buttons": [
+   "Costs by plot",
+   "J101 · Studley Rd",
+   "Search",
+   "🏠",
+   "Finance",
+   "Projects",
+   "J101 Studley Rd",
+   "←",
+   "Project overview",
+   "£14,549",
+   "Excel",
+   "PDF",
+   "All costs",
+   "Not allocated — whole project"
+  ],
+  "inputs": [
+   "select: New",
+   "search: Search plots & addresses…"
+  ],
+  "heads": [
+   "Costs by plot"
+  ],
+  "text": "Costs by plot\nJ101 · Studley Rd\n🏠\nFinance\n›\nProjects\n›\nJ101 Studley Rd\n›\nCosts By Plot\n←\n+ New\nApplication\nSales invoice\nVariation\nPurchase order\nPurchase invoice\nSubcontractor PO\nPlant hire\nCost\n£14,549\nTotal Cost\n£0\nAllocated To Plots & Addresses\n£14,549\nNot Allocated\n£6,000\nCommitted (Ordered)\nNo plots & addresses on this project yet. Add them in the project’s Settings › Multi-Site.\nExcel\nPDF\nAll costs\nNot allocated — whole project\nCosts not booked to one plot / address yet\n£48,000.00\n£11,650.00\n–\n£2,578.57\n–\n£320.00\n£14,548.57\n£6,000.00\n£27,451.43\nTotal\n£48,000.00\n£11,650.00\n£0.00\n£2,578.57\n£0.00\n£320.00\n£14,548.57\n£6,000.00\n£27,451.43\nExcl. VAT. Tap a plot / address to see every cost booked to it. Materials ordered for a plot / address carry through to the PO and the purchase invoice. Split costs show their share. Sign-in days are shared across the addresses signed into that day. Value = the Bill of Quantities for each one. Margin = value − cost − committed.",
+  "url": "http://localhost:59297/app.html#/site/11111111-1111-1111-1111-111111111111/finance/parts",
+  "errors": []
+ },
+ "job-quotes": {
+  "buttons": [
+   "Project quotes",
+   "J101 · Studley Rd",
+   "Search",
+   "🏠",
+   "Finance",
+   "Projects",
+   "J101 Studley Rd",
+   "←",
+   "Project overview",
+   "+ Add an item by hand"
+  ],
+  "inputs": [
+   "select: New",
+   "select: ",
+   "file: "
+  ],
+  "heads": [
+   "Project quotes",
+   "Upload A Project Quote",
+   "Project Quotes"
+  ],
+  "text": "Project quotes\nJ101 · Studley Rd\n🏠\nFinance\n›\nProjects\n›\nJ101 Studley Rd\n›\nShopping List\n←\n+ New\nApplication\nSales invoice\nVariation\nPurchase order\nPurchase invoice\nSubcontractor PO\nPlant hire\nCost\nUpload A Project Quote\nUpload a supplier quote or price list (PDF, photo or Excel). You can add as many as you need — one per supplier or per stage. The team pick items from them when they request materials, and POs are priced from them. Only Finance users and people you allow can see the prices.\nSupplier\nFrom the quote\nSIG Roofing\nTravis Perkins\nQuote file\nProject Quotes\n+ Add an item by hand\nNo items yet. Upload a quote above.",
+  "url": "http://localhost:59297/app.html#/site/11111111-1111-1111-1111-111111111111/finance/shopping",
+  "errors": []
+ },
+ "job-app-cert": {
+  "buttons": [
+   "Application 2",
+   "Studley Rd",
+   "Search",
+   "🏠",
+   "Finance",
+   "Projects",
+   "J101 Studley Rd",
+   "←",
+   "Project overview",
+   "🧾 Raise invoice",
+   "Change the certificate figures"
+  ],
+  "inputs": [
+   "select: New",
+   "checkbox: Hide 0% lines",
+   "select: Status"
+  ],
+  "heads": [
+   "Application 2",
+   "Contract Works",
+   "Certificate Summary",
+   "Payment Certificate"
+  ],
+  "text": "Application 2\nStudley Rd\n🏠\nFinance\n›\nProjects\n›\nJ101 Studley Rd\n›\nApplication 2\n←\n+ New\nApplication\nSales invoice\nVariation\nPurchase order\nPurchase invoice\nSubcontractor PO\nPlant hire\nCost\nApplication\nNo. 2 Certified\nValuation Date\n15 Oct 2026\nClient PO\n—\nDue This Application\n£0.00\nThis application has been certified, so it can’t be changed.\nContract Works\nHide 0% lines\nNo lines.\nVariations & Day Works\n▾\nCertificate Summary\nAPPLIED\nCERTIFIED\nContract Works To Date\n£0.00\n—\nGross Valuation To Date\n£0.00\n£21,000.00\nLess Discount\n−£0.00\n−£0.00\nLess Retention @ 0%\n−£0.00\n−£1,050.00\nLess Previously Certified\n−£0.00\n−£10,450.00\nAmount Due This Application\n£0.00\n£9,500.00\nShort by £300.00 against what you applied for.\nPayment Certificate\n18 Oct 2026\nNet Due\n£9,500.00\nShort by £300.00 compared with the £9,800.00 applied for.\n🧾 Raise invoice\nChange the certificate figures\nStatus\nDraft\nApplied\nCertified\nInvoiced\n✓ Draft\n›\n✓ Applied\n›\nCertified\n›\nInvoiced\nPress Raise invoice in the certificate box: certified total, less discount, less retention, less previously certified, with VAT on the total.",
+  "url": "http://localhost:59297/app.html#/site/11111111-1111-1111-1111-111111111111/finance/application/a1",
+  "errors": []
+ },
+ "job-app-draft": {
+  "buttons": [
+   "Application 3",
+   "Studley Rd",
+   "Search",
+   "🏠",
+   "Finance",
+   "Projects",
+   "J101 Studley Rd",
+   "←",
+   "Project overview",
+   "%",
+   "£",
+   "Qty",
+   "+ Add a line",
+   "+ Add a section",
+   "Save",
+   "Apply ›",
+   "Send & export ▾",
+   "Delete draft"
+  ],
+  "inputs": [
+   "select: New",
+   "date: ",
+   "text: ",
+   "checkbox: Hide 0% lines",
+   "text: %",
+   "select: Status"
+  ],
+  "heads": [
+   "Application 3",
+   "Contract Works",
+   "Application Summary"
+  ],
+  "text": "Application 3\nStudley Rd\n🏠\nFinance\n›\nProjects\n›\nJ101 Studley Rd\n›\nApplication 3\n←\n+ New\nApplication\nSales invoice\nVariation\nPurchase order\nPurchase invoice\nSubcontractor PO\nPlant hire\nCost\nApplication\nNo. 3 Draft\nValuation Date\n2 Nov 2026\nClient PO\n—\nDue This Application\n−£9,500.00\n📅 Dates & retention\n▾\nContract Works\n%\n£\nQty\nHide 0% lines\nNo lines.\n+ Add a line\n+ Add a section\nNew lines are added to the project’s Bill of Quantities too, so they carry on to the next application.\nVariations & Day Works\n▾\nApplication Summary\nContract Works To Date\n£0.00\nGross valuation to date\n£0.00\nLess Discount \n%\n−£0.00\nLess Retention @ 5%\n−£0.00\nLess Previously Certified\n−£9,500.00\nAmount Due This Application\n−£9,500.00\nExcl. VAT. An application isn’t a VAT invoice; the invoice follows the certificate.\nSave\nApply ›\nSend & export ▾\nDelete draft\nStatus\nDraft\nApplied\nCertified\nInvoiced\nDraft\n›\nApplied\n›\nCertified\n›\nInvoiced\nFill in the % done, then press Apply. That locks it — you can still email it to the client.",
+  "url": "http://localhost:59297/app.html#/site/11111111-1111-1111-1111-111111111111/finance/application/a3",
+  "errors": []
+ },
+ "job-invoice": {
+  "buttons": [
+   "INV-1001",
+   "Studley Rd",
+   "Search",
+   "🏠",
+   "Finance",
+   "Projects",
+   "J101 Studley Rd",
+   "←",
+   "Project overview",
+   "?",
+   "View PDF",
+   "Email",
+   "Send a reminder",
+   "Post to Xero",
+   "+ Record payment",
+   "Void this invoice"
+  ],
+  "inputs": [
+   "select: New"
+  ],
+  "heads": [
+   "INV-1001",
+   "Lines",
+   "Payments"
+  ],
+  "text": "INV-1001\nStudley Rd\n🏠\nFinance\n›\nProjects\n›\nJ101 Studley Rd\n›\nINV-1001\n←\n+ New\nApplication\nSales invoice\nVariation\nPurchase order\nPurchase invoice\nSubcontractor PO\nPlant hire\nCost\nInvoice\nINV-1001\nStatus\nOverdue\nTotal\n£15,000.00\nOutstanding\n£15,000.00\nBill To\nBellway Homes\nIssued\n1 Oct 2026\nDue\n31 Oct 2026\nSent\nNot emailed yet\nLines\nApplication 1\n£15,000.00\nNet\n£15,000.00\nVAT\n£0.00\nTotal\n£15,000.00\nReverse Charge VAT ? client pays HMRC\n£3,000.00\nDomestic reverse charge on £15,000.00 — not added to the total; printed on the invoice and sent to Xero.\nView PDF\nEmail\nSend a reminder\nNot posted to Xero yet\nPost to Xero\nPayments\n+ Record payment\nNo payments recorded.\nVoid this invoice\nIssued invoices can’t be changed. To correct one, void it and raise a new one.",
+  "url": "http://localhost:59297/app.html#/site/11111111-1111-1111-1111-111111111111/finance/invoice/v1",
+  "errors": []
+ },
+ "job-po": {
+  "buttons": [
+   "J101-PO-001",
+   "Studley Rd",
+   "Search",
+   "🏠",
+   "Finance",
+   "Projects",
+   "J101 Studley Rd",
+   "←",
+   "Project overview",
+   "Split",
+   "Remove lines…",
+   "Save",
+   "+ Add invoice",
+   "SIG Roofing To approve",
+   "PO PDF",
+   "Mark fully invoiced",
+   "Cancel PO"
+  ],
+  "inputs": [
+   "select: New",
+   "text: From the supplier’s quote or price list"
+  ],
+  "heads": [
+   "J101-PO-001",
+   "Items",
+   "Purchase Invoices"
+  ],
+  "text": "J101-PO-001\nStudley Rd\n🏠\nFinance\n›\nProjects\n›\nJ101 Studley Rd\n›\nJ101-PO-001\n←\n+ New\nApplication\nSales invoice\nVariation\nPurchase order\nPurchase invoice\nSubcontractor PO\nPlant hire\nCost\nPO\nJ101-PO-001 Open\nSupplier\nSIG Roofing\nPO Value\n£1,800.00\nInvoiced\n£1,800.00\nOrdered\n5 Oct 2026 by —\nRequired For Delivery\n—\nBooked To\nJ101 · Studley Rd Split\nItems\nBatten 25x50 · 100 M × £18.00\nRemove lines…\nPO value (£, excl. VAT)\nSave\nPriced from the shopping list or price book where possible; upload the supplier’s quote to price it properly, or the invoice will price it when it arrives. Invoices over this value are flagged.\nPrice from a supplier quote (PDF, photo or Excel)\nPurchase Invoices\n+ Add invoice\nSIG Roofing To approve\nInvoice SIG-88231 · 12 Oct 2026\n£1,800.00\nPO PDF\nMark fully invoiced\nCancel PO",
+  "url": "http://localhost:59297/app.html#/site/11111111-1111-1111-1111-111111111111/finance/po/po1",
+  "errors": []
+ },
+ "job-sub": {
+  "buttons": [
+   "Lead Co",
+   "SC-001 · Studley Rd",
+   "Search",
+   "🏠",
+   "Finance",
+   "Projects",
+   "J101 Studley Rd",
+   "←",
+   "Project overview",
+   "Edit order",
+   "+ Record application",
+   "Application 1"
+  ],
+  "inputs": [
+   "select: New"
+  ],
+  "heads": [
+   "Lead Co",
+   "Applications"
+  ],
+  "text": "Lead Co\nSC-001 · Studley Rd\n🏠\nFinance\n›\nProjects\n›\nJ101 Studley Rd\n›\nLead Co\n←\n+ New\nApplication\nSales invoice\nVariation\nPurchase order\nPurchase invoice\nSubcontractor PO\nPlant hire\nCost\nOrder\nSC-001\nOrder Value\n£6,000.00\nCertified To Date\n£0.00\nRetention Held\n£0.00\nWork\nLeadwork\nRetention · CIS\n5% · Standard (20%)\nUTR\n—\nContra Charges To Date\n£0.00\nPaid To Date (Before CIS)\n£0.00\nEdit order\nApplications\n+ Record application\nApplication 1\n—\n—\n—\n—\n—\nsubmitted",
+  "url": "http://localhost:59297/app.html#/site/11111111-1111-1111-1111-111111111111/finance/sub/sc1",
+  "errors": []
+ },
+ "fin-pinv": {
+  "buttons": [
+   "Purchases",
+   "OpHUB Finance · money out",
+   "Search",
+   "Finance",
+   "Overview",
+   "Projects",
+   "Sales",
+   "Subcontractors & Labour",
+   "Reports",
+   "Directory",
+   "Settings",
+   "⋯",
+   "Purchase Invoices",
+   "Purchase Orders",
+   "Statements",
+   "Yard Stock",
+   "Plant Hire",
+   "Price List",
+   "+ Add invoices",
+   "Unallocated",
+   "With A PM",
+   "To Approve",
+   "Approved, Not Paid",
+   "Paid",
+   "All Filed",
+   "Allocate"
+  ],
+  "inputs": [
+   "select: Supplier",
+   "select: Project",
+   "select: Sort",
+   "text: Search supplier, email or invoice no."
+  ],
+  "heads": [
+   "Purchases"
+  ],
+  "text": "Purchases\nOpHUB Finance · money out\nFinance\n›\nPurchases\n›\nInvoices\nOverview\nProjects\nSales\nPurchases\nSubcontractors & Labour\nReports\nDirectory\nSettings\n⋯\n2\nUnallocated Invoices all time\n⋯\n£0\nTo Pay Suppliers (Incl. VAT) all time\n⋯\n1\nTo Approve all time\n⋯\n£0\nOrdered, Not Invoiced all time\nPurchase Invoices\n3\nPurchase Orders\nStatements\nYard Stock\nPlant Hire\nPrice List\n+ Add invoices\nPurchase invoices emailed to your invoice address (or added here) are read for you. If we can tell the job — from our PO number, the job number, or the site postcode or address — they’re filed to it. If not, they wait in Unallocated: allocate it yourself or send it to a PM.\nUnallocated\n2\nWith A PM\n0\nTo Approve\n1\nApproved, Not Paid\n0\nPaid\n0\nAll Filed\n1\nSupplier\nAll suppliers\nJewson\nSIG Roofing\nTravis Perkins\nProject\nAll projects\nJ101 · Studley Rd\nSort\nNewest first\nOldest first\nBiggest first\nSupplier A–Z\nSearch\nJewson\nJ-5521\n19 Oct 2026\n£600.00\nMore than one job matches — choose which\nAllocate\nTravis Perkins\n7781\n19 Oct 2026\n£240.00\nCouldn’t find a PO, job number or site address on it\nAllocate\n2 shown\nTotal £840.00",
+  "url": "http://localhost:59297/app.html#/finance/purchases/invoices",
+  "errors": []
+ },
+ "fin-plant": {
+  "buttons": [
+   "Purchases",
+   "OpHUB Finance · money out",
+   "Search",
+   "Finance",
+   "Overview",
+   "Projects",
+   "Sales",
+   "Subcontractors & Labour",
+   "Reports",
+   "Directory",
+   "Settings",
+   "⋯",
+   "Purchase Invoices",
+   "Purchase Orders",
+   "Statements",
+   "Yard Stock",
+   "Plant Hire",
+   "Price List",
+   "+ Plant hire",
+   "Cherry picker"
+  ],
+  "inputs": [
+   "select: Supplier",
+   "select: Project",
+   "select: Sort"
+  ],
+  "heads": [
+   "Purchases"
+  ],
+  "text": "Purchases\nOpHUB Finance · money out\nFinance\n›\nPurchases\n›\nPlant\nOverview\nProjects\nSales\nPurchases\nSubcontractors & Labour\nReports\nDirectory\nSettings\n⋯\n2\nUnallocated Invoices all time\n⋯\n£0\nTo Pay Suppliers (Incl. VAT) all time\n⋯\n1\nTo Approve all time\n⋯\n£0\nOrdered, Not Invoiced all time\nPurchase Invoices\n3\nPurchase Orders\nStatements\nYard Stock\nPlant Hire\nPrice List\n+ Plant hire\nSupplier\nAll suppliers\nJewson\nSIG Roofing\nTravis Perkins\nProject\nAll projects\nJ101 · Studley Rd\nSort\nNewest first\nOldest first\nBiggest first\nSupplier A–Z\nCherry picker\n—\nJ101 · Studley Rd\n5 Oct 2026\n—\n£1,328.57\nOn hire 4.4 wk\n1 shown\nCost To Date £1,328.57\n1 on hire · £1,329 so far. Tap one to off-hire it.",
+  "url": "http://localhost:59297/app.html#/finance/purchases/plant",
+  "errors": []
+ },
+ "adm-front": {
+  "buttons": [
+   "Admin Centre",
+   "Search",
+   "🔍",
+   "Users & invites",
+   "Libraries",
+   "Main Contractor",
+   "Company",
+   "Integrations by project",
+   "My signature",
+   "💷 Finance (trial): On — turn off",
+   "Sign out"
+  ],
+  "inputs": [],
+  "heads": [
+   "Admin Centre"
+  ],
+  "text": "Admin Centre\nCompany Admin\n🔍\nPEOPLE\nUsers & invites\nInvites, roles, device locks, check-in logs\nLIBRARIES\nLibraries\nReport templates, RAMS, COSHH, SOW, rates, suppliers\nMain Contractor\nSubcontractors and inspection templates\nCOMPANY\nCompany\nLogo, theme, integrations\nIntegrations by project\nWhat each project can sync, and set it up\nAndy Admin · a@x.co\nMy signature\n💷 Finance (trial): On — turn off\nSign out",
+  "url": "http://localhost:59297/app.html#/team",
+  "errors": []
+ },
+ "adm-company": {
+  "buttons": [
+   "Company",
+   "Search",
+   "Company Logo & Theme",
+   "Expenses Email",
+   "OneDrive",
+   "OpHUB Finance"
+  ],
+  "inputs": [],
+  "heads": [
+   "Company"
+  ],
+  "text": "Company\nBRANDING\nCompany Logo & Theme\nLogo and colours\nINTEGRATIONS\nExpenses Email\nNot set · kept 3 months\nOneDrive\nPhoto and export syncing, quick links\nOPHUB FINANCE\nOpHUB Finance\nJobs, client POs, job numbers, finance settings",
+  "url": "http://localhost:50979/app.html#/team/company",
+  "errors": []
+ },
+ "adm-libraries": {
+  "buttons": [
+   "Libraries",
+   "Search",
+   "Report Templates",
+   "Signing Templates",
+   "Schedule of Works Library",
+   "Price Sheet Rate Card",
+   "Suppliers",
+   "Main Contractor",
+   "H&S Policy",
+   "HAVS Tools",
+   "RAMS Library",
+   "COSHH Library",
+   "Toolbox Talk Templates",
+   "PPE Log"
+  ],
+  "inputs": [],
+  "heads": [
+   "Libraries"
+  ],
+  "text": "Libraries\nREPORTS & DOCUMENTS\nReport Templates\nInspections, surveys, briefings\nSigning Templates\nRAMS signature boxes\nWORKS & PRICING\nSchedule of Works Library\nStandard sections and tasks\nPrice Sheet Rate Card\nRates by category\nSuppliers\nSuppliers, order emails and branches\nMain Contractor\nInspection templates\nHEALTH & SAFETY\nH&S Policy\nPolicy document and who has signed\nHAVS Tools\nVibration tool list\nRAMS Library\nHazards, method statements, templates\nCOSHH Library\nData sheets → products → assessments in folders\nToolbox Talk Templates\nAll sites\nPPE Log\nIssued PPE and the register",
+  "url": "http://localhost:50979/app.html#/team/libraries",
+  "errors": []
+ },
+ "adm-people": {
+  "buttons": [
+   "People",
+   "Search",
+   "Invites",
+   "Users",
+   "Device Locks",
+   "Check-In Logs",
+   "Driver Check-In Log",
+   "Subcontractor sign-up"
+  ],
+  "inputs": [],
+  "heads": [
+   "People"
+  ],
+  "text": "People\nTEAM\nInvites\nInvite links and pending invites\nUsers\n5 people\nDevice Locks\nOne phone = one person\nLOGS\nCheck-In Logs\nOperatives and PM logins by site\nDriver Check-In Log\nShifts, breaks, hours\nSUBCONTRACTORS\nSubcontractor sign-up\nSign-up form link and applications",
+  "url": "http://localhost:50979/app.html#/team/people",
+  "errors": []
+ },
+ "adm-branding": {
+  "buttons": [
+   "Company Logo & Theme",
+   "Search",
+   "SAVE THEME",
+   "RESET TO DEFAULT"
+  ],
+  "inputs": [
+   "color: "
+  ],
+  "heads": [
+   "Company Logo & Theme",
+   "COMPANY LOGO",
+   "COMPANY THEME"
+  ],
+  "text": "Company Logo & Theme\nCOMPANY LOGO\nShown throughout the app and on your team's invite/join screen.\nTap the logo above to choose a new one.\nCOMPANY THEME\nSet your company's colours — these apply across the app for everyone at RTB Roofing Ltd.\nPrimary colour\nSecondary colour\nYour primary colour accents the header bar, your company name, and buttons/badges throughout the app.\nSAVE THEME\nRESET TO DEFAULT",
+  "url": "http://localhost:50979/app.html#/team/company/branding",
+  "errors": []
+ },
+ "adm-expenses": {
+  "buttons": [
+   "Expenses Email",
+   "Search",
+   "SAVE"
+  ],
+  "inputs": [
+   "email: e.g. info@yourcompany.co.uk",
+   "select: "
+  ],
+  "heads": [
+   "Expenses Email"
+  ],
+  "text": "Expenses Email\nReceipts sent from the Expenses tile on any job are emailed to this address.\nSEND EXPENSES TO\nKEEP RECEIPTS IN THE APP FOR\n3 months\n6 months\n9 months\n12 months\nAfter this, receipts are deleted from the app automatically. Emails already sent to the office are not affected.\nSAVE\nNot set yet — receipts can't be sent until an address is saved.",
+  "url": "http://localhost:50979/app.html#/team/company/expensesemail",
+  "errors": []
+ },
+ "adm-onedrive": {
+  "buttons": [
+   "OneDrive",
+   "Search",
+   "CONNECT ONEDRIVE",
+   "SET IT UP",
+   "+ ADD QUICK LINK",
+   "Cleveland Primary School",
+   "Simon De Senlis",
+   "Studley Rd"
+  ],
+  "inputs": [],
+  "heads": [
+   "OneDrive",
+   "ONEDRIVE — PROGRESS REPORT PHOTOS",
+   "📦 NEW JOB PACK",
+   "⭐ QUICK LINKS",
+   "INTEGRATIONS BY PROJECT"
+  ],
+  "text": "OneDrive\nONEDRIVE — PROGRESS REPORT PHOTOS\nConnect your company's OneDrive so schedule progress photos upload there automatically.\nCONNECT ONEDRIVE\n📦 NEW JOB PACK\nA new job gets its own OneDrive folder made from your template, and the app files photos, RAMS, COSHH, toolbox talks, variations and drawings where your rules say.\nNot set up yet.\nSET IT UP\n⭐ QUICK LINKS\nPin a folder here — e.g. your Live Projects folder — so it shows as a one-tap shortcut anywhere someone chooses a OneDrive sync folder, instead of clicking through every folder each time.\nNo Quick Links yet.\n+ ADD QUICK LINK\nINTEGRATIONS BY PROJECT\nTap a project to see everything it can sync to OneDrive, and link or change a folder there.\nCleveland Primary School\n0/2 linked\n▼\nSimon De Senlis\n0/2 linked\n▼\nStudley Rd\n0/3 linked\n▼",
+  "url": "http://localhost:50979/app.html#/team/company/onedrive",
+  "errors": []
+ },
+ "adm-jobpack": {
+  "buttons": [
+   "OneDrive",
+   "Search",
+   "CONNECT ONEDRIVE",
+   "SET IT UP",
+   "+ ADD QUICK LINK",
+   "Cleveland Primary School",
+   "Simon De Senlis",
+   "Studley Rd"
+  ],
+  "inputs": [],
+  "heads": [
+   "OneDrive",
+   "ONEDRIVE — PROGRESS REPORT PHOTOS",
+   "📦 NEW JOB PACK",
+   "⭐ QUICK LINKS",
+   "INTEGRATIONS BY PROJECT"
+  ],
+  "text": "OneDrive\nONEDRIVE — PROGRESS REPORT PHOTOS\nConnect your company's OneDrive so schedule progress photos upload there automatically.\nCONNECT ONEDRIVE\n📦 NEW JOB PACK\nA new job gets its own OneDrive folder made from your template, and the app files photos, RAMS, COSHH, toolbox talks, variations and drawings where your rules say.\nNot set up yet.\nSET IT UP\n⭐ QUICK LINKS\nPin a folder here — e.g. your Live Projects folder — so it shows as a one-tap shortcut anywhere someone chooses a OneDrive sync folder, instead of clicking through every folder each time.\nNo Quick Links yet.\n+ ADD QUICK LINK\nINTEGRATIONS BY PROJECT\nTap a project to see everything it can sync to OneDrive, and link or change a folder there.\nCleveland Primary School\n0/2 linked\n▼\nSimon De Senlis\n0/2 linked\n▼\nStudley Rd\n0/3 linked\n▼",
+  "url": "http://localhost:50979/app.html#/team/company/onedrive",
+  "errors": []
+ },
+ "adm-reporttpl": {
+  "buttons": [
+   "Report Templates",
+   "Search",
+   "📋",
+   "▾",
+   "+ NEW TEMPLATE"
+  ],
+  "inputs": [],
+  "heads": [
+   "Report Templates"
+  ],
+  "text": "Report Templates\nBuild reusable inspection / report templates here. Project Managers can fill these in on site and submit them as a report. Editing a template never changes inspections already started from it.\n📋\nDaily report\n1 section\n▾\n📋\nLOLER check\n0 sections\n▾\n+ NEW TEMPLATE",
+  "url": "http://localhost:50979/app.html#/team/libraries/reporttemplates",
+  "errors": []
+ },
+ "adm-signtpl": {
+  "buttons": [
+   "Signing Templates",
+   "Search",
+   "CHOOSE SAMPLE PDF",
+   "UPLOAD & SET BOXES",
+   "▾"
+  ],
+  "inputs": [
+   "text: Template name, e.g. Hyde RAMS form"
+  ],
+  "heads": [
+   "Signing Templates",
+   "YOUR TEMPLATES"
+  ],
+  "text": "Signing Templates\nHow this works\n1. Upload a sample of a form you use often. 2. Mark every box and say who it's for — Operative 1, Operative 2, the Project Manager, the Client. 3. When you upload that form for a job, pick the template: the boxes are already in place and everyone signs with one tap.\nNew template\nCHOOSE SAMPLE PDF\nUPLOAD & SET BOXES\nYOUR TEMPLATES\nTwo box\nNo boxes set yet · 1 pages\n▾",
+  "url": "http://localhost:50979/app.html#/sign-templates",
+  "errors": []
+ },
+ "adm-sowlib": {
+  "buttons": [
+   "Schedule of Works Library",
+   "Search",
+   "▶",
+   "+ NEW TEMPLATE"
+  ],
+  "inputs": [],
+  "heads": [
+   "Schedule of Works Library"
+  ],
+  "text": "Schedule of Works Library\nReusable Schedule of Works templates for the whole company — build one once here, then pick it from any site's Schedule of Works \"+ → From Library\" to copy the whole structure in. Every copied line becomes an ordinary task on that site, fully editable or deletable afterwards — this library copy is never linked back to.\n▶\nFlat roof strip\n+ NEW TEMPLATE",
+  "url": "http://localhost:50979/app.html#/team/libraries/sowlibrary",
+  "errors": []
+ },
+ "adm-ratecard": {
+  "buttons": [
+   "Price Sheet Rate Card",
+   "Search",
+   "⬇ DOWNLOAD RATE CARD (EXCEL)",
+   "⬆ UPLOAD RATE CARD (EXCEL)",
+   "SAVE TERMS",
+   "🗑",
+   "+ ADD OPTION",
+   "+ ADD RATE ITEM"
+  ],
+  "inputs": [
+   "textarea: Paste your subcontractor terms & conditions here..",
+   "text: ",
+   "select: ",
+   "number: "
+  ],
+  "heads": [
+   "Price Sheet Rate Card",
+   "PITCHED ROOFING",
+   "ROOFLINE"
+  ],
+  "text": "Price Sheet Rate Card\nOne shared rate card for the whole company, kept as an Excel file — download it, edit it (add items, rates, or new dropdown options right in the spreadsheet), then re-upload to update the app. The app is the source everyone works from; the Excel is just how you edit it.\n⬇ DOWNLOAD RATE CARD (EXCEL)\n⬆ UPLOAD RATE CARD (EXCEL)\nTERMS & CONDITIONS\nShown as its own page 1 on every Price Sheet PDF export, before the priced items — paste your subcontractor T&Cs in here word for word.\nSAVE TERMS\nPITCHED ROOFING\nLinear metre (lm)\nm²\nEach\n£\n🗑\nLinear metre (lm)\nm²\nEach\nDropdown — priced by option below\n🗑\n£\n🗑\n£\n🗑\n+ ADD OPTION\nROOFLINE\nLinear metre (lm)\nm²\nEach\n£\n🗑\n+ ADD RATE ITEM",
+  "url": "http://localhost:50979/app.html#/team/libraries/pricebuilder",
+  "errors": []
+ },
+ "adm-suppliers": {
+  "buttons": [
+   "Suppliers",
+   "Search",
+   "▶",
+   "+ ADD SUPPLIER"
+  ],
+  "inputs": [],
+  "heads": [
+   "Suppliers"
+  ],
+  "text": "Suppliers\nSupplier names, order emails and branches. Branches can be picked when you order for collection or add to a Collection List.\n▶\nSIG Roofing\n0 branches\n▶\nTravis Perkins\n0 branches\n+ ADD SUPPLIER",
+  "url": "http://localhost:50979/app.html#/suppliers",
+  "errors": []
+ },
+ "adm-maincon": {
+  "buttons": [
+   "Main Contractor",
+   "Search",
+   "📚 SUBCONTRACTOR LIBRARY",
+   "📋 TEMPLATES (REPORT TEMPLATES, IN LIBRARIES)"
+  ],
+  "inputs": [],
+  "heads": [
+   "Main Contractor"
+  ],
+  "text": "Main Contractor\nCompany-wide Main Contractor tools — shared across every site.\n📚 SUBCONTRACTOR LIBRARY\n📋 TEMPLATES (REPORT TEMPLATES, IN LIBRARIES)",
+  "url": "http://localhost:50979/app.html#/team/libraries/maincontractor",
+  "errors": []
+ },
+ "adm-hspolicy": {
+  "buttons": [
+   "H&S Policy",
+   "Search",
+   "View document ↗",
+   "▶"
+  ],
+  "inputs": [],
+  "heads": [
+   "H&S Policy"
+  ],
+  "text": "H&S Policy\nH&S Policy\nUploaded 04 Nov 2026 by Andy Admin\nView document ↗\n▶\nSigned (1 of 5)\n▶\nUpload New Version",
+  "url": "http://localhost:50979/app.html#/team/libraries/hspolicy",
+  "errors": []
+ },
+ "adm-havs": {
+  "buttons": [
+   "HAVS Tools",
+   "Search",
+   "🗑",
+   "+ ADD TOOL"
+  ],
+  "inputs": [
+   "text: ",
+   "number: "
+  ],
+  "heads": [
+   "HAVS Tools"
+  ],
+  "text": "HAVS Tools\nThe vibration magnitude (m/s²) used to calculate everyone's HAVS exposure points. These are sensible starting defaults — update them if you have proper manufacturer or measured figures.\nMagnitude\nm/s²\n🗑\n+ ADD TOOL",
+  "url": "http://localhost:50979/app.html#/team/libraries/havstools",
+  "errors": []
+ },
+ "adm-rams": {
+  "buttons": [
+   "RAMS Library",
+   "Search",
+   "HAZARDS (3)",
+   "SAFE SYSTEMS OF WORK & METHOD STATEMENTS (2)",
+   "TEMPLATES (1)",
+   "COMPANY DETAILS",
+   "↑",
+   "↓",
+   "+ NEW HAZARD"
+  ],
+  "inputs": [
+   "search: Search…",
+   "select: Sort by"
+  ],
+  "heads": [
+   "RAMS Library"
+  ],
+  "text": "RAMS Library\nThe hazards, safe systems of work and templates your team picks from in the RAMS Builder. Changing the library doesn't change RAMS already written for a job.\nHAZARDS (3)\nSAFE SYSTEMS OF WORK & METHOD STATEMENTS (2)\nTEMPLATES (1)\nCOMPANY DETAILS\nSort: Your order\nSort: A–Z\nSort: Most used\n1\nWorking at height\nFalls from roof edge — serious injury or death · 3 controls\n20\n→\n5\n↑\n↓\n⋯\n2\nManual handling\nBack injury from lifting tiles and materials · 2 controls\n9\n→\n4\n↑\n↓\n⋯\n3\nHot works\nBurns and fire from torch-on felt · 3 controls\n12\n→\n4\n↑\n↓\n⋯\n+ NEW HAZARD",
+  "url": "http://localhost:50979/app.html#/rams-library",
+  "errors": []
+ },
+ "adm-coshh": {
+  "buttons": [
+   "COSHH Library",
+   "Search",
+   "▶",
+   "Assessments (folders)",
+   "Products (data sheets)",
+   "+",
+   "📁 Flat Roofing",
+   "✏️",
+   "🗑",
+   "📁 Pitched Roofing",
+   "+ Upload a ready-made PDF",
+   "🗑 DELETE ALL FOLDERS AND DOCUMENTS"
+  ],
+  "inputs": [
+   "select: "
+  ],
+  "heads": [
+   "COSHH Library"
+  ],
+  "text": "COSHH Library\n▶\nHow it works\nAssessments (folders)\nProducts (data sheets)\n📄 UPLOAD DATA SHEETS → MAKE THE COSHH ASSESSMENTS\nOne sheet: the reader fills it in and you check it before the assessment is made. Several at once: each is read and its assessment saved here straight away — check the products afterwards (marked \"check me\").\nFOLDERS\n+\nFilter: jump to element of works…\nFlat Roofing\nPitched Roofing\n📁 Flat Roofing\n✏️\n🗑\n📁 Pitched Roofing\n✏️\n🗑\n+ Upload a ready-made PDF\n🗑 DELETE ALL FOLDERS AND DOCUMENTS",
+  "url": "http://localhost:50979/app.html#/coshh-substances",
+  "errors": []
+ },
+ "adm-tbt": {
+  "buttons": [
+   "Toolbox Talk Templates",
+   "Search",
+   "🗑",
+   "CHOOSE PDF",
+   "ADD TO BANK"
+  ],
+  "inputs": [
+   "text: Title, e.g. Alcohol & Drugs"
+  ],
+  "heads": [
+   "Toolbox Talk Templates"
+  ],
+  "text": "Toolbox Talk Templates\nTemplates here are automatically copied into Bank TBT on every new site you create, so standard talks (e.g. Alcohol & Drugs, Manual Handling) are already there without re-uploading per job.\n🗣\nWorking at height\nAdded 04 Nov 2026\n🗑\nCHOOSE PDF\nADD TO BANK",
+  "url": "http://localhost:50979/app.html#/team/libraries/tbt",
+  "errors": []
+ },
+ "adm-ppelog": {
+  "buttons": [
+   "PPE Log",
+   "Search",
+   "WEEKLY",
+   "MONTHLY",
+   "YEARLY",
+   "ALL OPERATIVES ▼",
+   "‹",
+   "›",
+   "📊 EXPORT EXCEL",
+   "📄 EXPORT PDF",
+   "📄 EXPORT PPE REGISTER (ALL OPERATIVES)"
+  ],
+  "inputs": [],
+  "heads": [
+   "PPE Log"
+  ],
+  "text": "PPE Log\nPPE issued across every site, for whichever period and operative(s) you choose.\nWEEKLY\nMONTHLY\nYEARLY\nALL OPERATIVES ▼\n‹\nNovember 2026\n›\nJake Morris\nPENDING\nStudley Rd · 04 Nov 2026\n📊 EXPORT EXCEL\n📄 EXPORT PDF\nA different view — one row per operative showing what PPE they currently hold, not a chronological log.\n📄 EXPORT PPE REGISTER (ALL OPERATIVES)",
+  "url": "http://localhost:50979/app.html#/team/libraries/ppelog",
+  "errors": []
+ },
+ "adm-invites": {
+  "buttons": [
+   "Invites",
+   "Search",
+   "CREATE PERMANENT INVITE LINK",
+   "GENERATE ONE-TIME INVITE LINK"
+  ],
+  "inputs": [
+   "select: "
+  ],
+  "heads": [
+   "Invites",
+   "ONE-TIME INVITE"
+  ],
+  "text": "Invites\nCreate one link you can share with your whole team at once — in a group chat, on a noticeboard, or as a QR code — instead of sending a separate link to each operative.\nCREATE PERMANENT INVITE LINK\nONE-TIME INVITE\nPrefer a single-use link for one person instead of the permanent link above?\nINVITE AS\nOperative\nDelivery Driver\nClient (view-only)\nGENERATE ONE-TIME INVITE LINK\nA Client invite gives read-only access (RAMS, COSHH, Toolbox Talks, Schedule of Works, completed inspections, snagging and the operative dashboard) once a PM assigns them to a site — they can view and export, but never sign or edit anything. An Operative can be promoted to Project Manager below once they've joined.",
+  "url": "http://localhost:50979/app.html#/team/people/invites",
+  "errors": []
+ },
+ "adm-users": {
+  "buttons": [
+   "Users",
+   "Search",
+   "AA",
+   "DP",
+   "JM",
+   "TH",
+   "DD"
+  ],
+  "inputs": [],
+  "heads": [
+   "Users",
+   "COMPANY ADMINS",
+   "PROJECT MANAGERS",
+   "SITE MANAGERS",
+   "OPERATIVES",
+   "DELIVERY DRIVERS",
+   "CLIENTS"
+  ],
+  "text": "Users\nCOMPANY ADMINS\nAA\nAndy Admin (you)\na@x.co\nPROJECT MANAGERS\nDP\nDave Price\ndave@rtb.example\nSITE MANAGERS\nNo site managers yet.\nOPERATIVES\nJM\nJake Morris\nj@x.co\nTH\nTom Hughes\nt@x.co\nDELIVERY DRIVERS\nDD\nDave Driver\nd@x.co\nCLIENTS\nNo clients yet.\nProject Managers and Admins can remove Operatives and Site Managers. Only a Company Admin can remove a Project Manager or another Admin. A Company Admin can promote anyone straight to Admin, or move people between Operative, Site Manager, Project Manager and Admin here — you can't change your own role, and the last remaining Admin can't be demoted (add another Admin first). A Site Manager works day-to-day like a Project Manager but only on the sites they're assigned to, and can't create/delete sites or manage other people's accounts.",
+  "url": "http://localhost:50979/app.html#/team/people/users",
+  "errors": []
+ },
+ "adm-devicelocks": {
+  "buttons": [
+   "Device Locks",
+   "Search",
+   "UNLOCK"
+  ],
+  "inputs": [],
+  "heads": [
+   "Device Locks"
+  ],
+  "text": "Device Locks\nEveryone except Project Managers and admins is locked to one phone, and each phone to one person — whether they use the app or the web browser. A person's first phone locks to them automatically. A second phone, or a phone that looks the same as one already locked to somebody else, waits here for approval. Unlock removes a lock entirely (e.g. lost phone, locked by mistake).\nUnknown\nLast used 04 Nov 2026\nUNLOCK",
+  "url": "http://localhost:50979/app.html#/team/people/devicelocks",
+  "errors": []
+ },
+ "adm-checkinlogs": {
+  "buttons": [
+   "Check-In Logs",
+   "Search",
+   "WEEKLY",
+   "MONTHLY",
+   "ALL OPERATIVES ▼",
+   "‹",
+   "›"
+  ],
+  "inputs": [
+   "date: "
+  ],
+  "heads": [
+   "Check-In Logs"
+  ],
+  "text": "Check-In Logs\nEvery operative's check-in / check-out times, across all sites.\nWEEKLY\nMONTHLY\nALL OPERATIVES ▼\n‹\n02 Nov – 08 Nov\n›\nFrom\nTo\nJake Morris\n0.0H\n04/11/2026\n23:08 – still on site\nTom Hughes\nNo check-ins this week.",
+  "url": "http://localhost:50979/app.html#/team/people/checkinlogs",
+  "errors": []
+ },
+ "adm-drivercheck": {
+  "buttons": [
+   "Driver Check-In Log",
+   "Search",
+   "LAST 14 DAYS",
+   "LAST 30 DAYS",
+   "LAST 90 DAYS"
+  ],
+  "inputs": [],
+  "heads": [
+   "Driver Check-In Log"
+  ],
+  "text": "Driver Check-In Log\nLAST 14 DAYS\nLAST 30 DAYS\nLAST 90 DAYS\nWednesday, 04 Nov 2026\n🚐 Dave Driver\nOn duty now\n▶ Checked in 23:08",
+  "url": "http://localhost:50979/app.html#/team/people/drivercheckins",
+  "errors": []
+ },
+ "adm-subapps": {
+  "buttons": [
+   "Subcontractor sign-up",
+   "Applications",
+   "Search",
+   "📋 COPY LINK",
+   "👁 OPEN THE FORM",
+   "New (1)",
+   "Approved (0)",
+   "Rejected (0)",
+   "Acme Roofing Ltd"
+  ],
+  "inputs": [],
+  "heads": [
+   "Subcontractor sign-up",
+   "YOUR SIGN-UP FORM"
+  ],
+  "text": "Subcontractor sign-up\nApplications\nYOUR SIGN-UP FORM\nSend this link to any subcontractor. They fill in their company details, insurance, accreditations and operatives, upload their documents and sign — it lands here.\nhttps://www.operativehub.co.uk/subcontractor.html?org=e56d69c8-0000-0000-0000-000000000001\n📋 COPY LINK\n👁 OPEN THE FORM\nNew (1)\nApproved (0)\nRejected (0)\nAcme Roofing Ltd\nSam Acme · Slating · 4 Nov",
+  "url": "http://localhost:50979/app.html#/subapplications",
+  "errors": []
+ },
+ "adm-subapp1": {
+  "buttons": [
+   "Acme Roofing Ltd",
+   "Subcontractor application",
+   "Search",
+   "sam@acme.co",
+   "0700",
+   "✓ APPROVE",
+   "REJECT",
+   "🗑 DELETE APPLICATION"
+  ],
+  "inputs": [],
+  "heads": [
+   "Acme Roofing Ltd",
+   "ACME ROOFING LTD",
+   "DOCUMENTS (0)"
+  ],
+  "text": "Acme Roofing Ltd\nSubcontractor application\nACME ROOFING LTD\nNew\nSam Acme · sam@acme.co · 0700\nSent 4 Nov 2026, 23:08 · signed by\nUTR\n12345 67890\nTrades\nSlating\nDOCUMENTS (0)\nNone uploaded.\n✓ APPROVE\nREJECT\n🗑 DELETE APPLICATION",
+  "url": "http://localhost:50979/app.html#/subapplications/ap1",
+  "errors": []
+ },
+ "adm-operatives": {
+  "buttons": [
+   "Operatives",
+   "Search",
+   "📊 EXPORT TRAINING MATRIX (EXCEL)",
+   "📄 EXPORT TRAINING MATRIX (PDF)",
+   "+ ADD OPERATIVE",
+   "JM",
+   "TH",
+   "▶"
+  ],
+  "inputs": [
+   "text: Search operatives…"
+  ],
+  "heads": [
+   "Operatives"
+  ],
+  "text": "Operatives\n📊 EXPORT TRAINING MATRIX (EXCEL)\n📄 EXPORT TRAINING MATRIX (PDF)\n+ ADD OPERATIVE\nJM\nJake Morris\n1 site · 0 certificates\nTH\nTom Hughes\n1 site · 0 certificates\n▶\nOperative Tools",
+  "url": "http://localhost:50979/app.html#/operatives",
+  "errors": []
+ },
+ "adm-hr": {
+  "buttons": [
+   "HR",
+   "Holidays, policies & handbook",
+   "Search",
+   "Holiday calendar",
+   "Company policies & handbook"
+  ],
+  "inputs": [],
+  "heads": [
+   "HR"
+  ],
+  "text": "HR\nHolidays, policies & handbook\nHoliday calendar\n28 days left this year · 1 to approve\nCompany policies & handbook\nAll signed",
+  "url": "http://localhost:50979/app.html#/hr",
+  "errors": []
+ },
+ "adm-hr-holidays": {
+  "buttons": [
+   "Holiday calendar",
+   "Everyone’s time off",
+   "Search",
+   "Book time off",
+   "Calendar",
+   "Requests (1)",
+   "Settings",
+   "‹",
+   "Today",
+   "›",
+   "26",
+   "27",
+   "28",
+   "29",
+   "30",
+   "31",
+   "1",
+   "2",
+   "3",
+   "4",
+   "5",
+   "6",
+   "7",
+   "8",
+   "9",
+   "10",
+   "11",
+   "12",
+   "13",
+   "14",
+   "15",
+   "16",
+   "17",
+   "18",
+   "19",
+   "20",
+   "21",
+   "22",
+   "23",
+   "24",
+   "25",
+   "+ BOOK THIS DAY"
+  ],
+  "inputs": [],
+  "heads": [
+   "Holiday calendar",
+   "DAYS LEFT 2026"
+  ],
+  "text": "Holiday calendar\nEveryone’s time off\n28\nDays left 2026\n0\nTaken / booked\n0\nAwaiting approval\nPMs and site managers get 1 day for each bank holiday allocated automatically.\nBook time off\nCalendar\nRequests (1)\nSettings\n‹\nNovember 2026\nToday\n›\nM\nT\nW\nT\nF\nS\nS\n26\n27\n28\n29\n30\n31\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\nJM\n??\n12\nJM\n??\n13\nJM\n??\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23\n24\n25\n26\n27\n28\n29\n30\n1\n2\n3\n4\n5\n6\nAndy Admin\nDave Price\nAL annual leave · TC training course · SK sick · BH bank holiday (booked for PMs automatically) · outlined = waiting approval\nDAYS LEFT 2026\nAndy Admin\n0 used\n28/28\nDave Price\n0 used\n28/28\nWed 4 Nov\nEveryone's in.\n+ BOOK THIS DAY",
+  "url": "http://localhost:50979/app.html#/hr/holidays",
+  "errors": []
+ },
+ "adm-hr-requests": {
+  "buttons": [
+   "Time off requests",
+   "Everyone’s time off",
+   "Search",
+   "Book time off",
+   "Calendar",
+   "Requests (1)",
+   "Settings",
+   "APPROVE",
+   "DECLINE"
+  ],
+  "inputs": [],
+  "heads": [
+   "Time off requests"
+  ],
+  "text": "Time off requests\nEveryone’s time off\n28\nDays left 2026\n0\nTaken / booked\n0\nAwaiting approval\nPMs and site managers get 1 day for each bank holiday allocated automatically.\nBook time off\nCalendar\nRequests (1)\nSettings\nJake Morris\n??\nundefined days\nundefined · Wed 11 Nov – Fri 13 Nov\n28 days left before this\nAPPROVE\nDECLINE",
+  "url": "http://localhost:50979/app.html#/hr/holidays/req",
+  "errors": []
+ },
+ "adm-hr-policies": {
+  "buttons": [
+   "Policies & handbook",
+   "RTB Roofing Ltd",
+   "Search"
+  ],
+  "inputs": [],
+  "heads": [
+   "Policies & handbook",
+   "COMPANY POLICIES",
+   "COMPANY HANDBOOK"
+  ],
+  "text": "Policies & handbook\nRTB Roofing Ltd\nCOMPANY POLICIES\nNo policies uploaded yet.\n+ UPLOAD POLICIES (PDF OR WORD, SEVERAL AT ONCE)\nCOMPANY HANDBOOK\nRead it, then sign it on its own — it isn't part of \"Sign all\".\nNo handbook uploaded yet.\n+ UPLOAD HANDBOOK (PDF OR WORD)",
+  "url": "http://localhost:50979/app.html#/hr/policies",
+  "errors": []
+ },
+ "adm-activity": {
+  "buttons": [
+   "Activity History",
+   "Studley Rd, London, SW4 6RZ",
+   "Search",
+   "🏠",
+   "Projects",
+   "J101 Studley Rd",
+   "ALL",
+   "CHANGES",
+   "NOTICES"
+  ],
+  "inputs": [],
+  "heads": [
+   "Activity History",
+   "WED, 04 NOV 2026"
+  ],
+  "text": "Activity History\nStudley Rd, London, SW4 6RZ\n🏠\nProjects\n›\nJ101 Studley Rd\n›\nActivity History\nALL\nCHANGES\nNOTICES\nChanges are edits, closures and deletions. Notices are things raised on the job, such as material requests, snags and variations.\nWED, 04 NOV 2026\nGENERAL\n23:08\nScaffold is up\nJake Morris",
+  "url": "http://localhost:50979/app.html#/site/11111111-1111-1111-1111-111111111111/activity",
+  "errors": []
+ },
+ "adm-superadmin": {
+  "buttons": [
+   "OPHUB",
+   "Platform Admin",
+   "OpHUB · all companies",
+   "Search",
+   "RESET MY PASSWORD",
+   "CREATE COMPANY & INVITE",
+   "RTB Roofing Ltd",
+   "Sign out"
+  ],
+  "inputs": [
+   "text: Company name",
+   "email: Their email (optional)"
+  ],
+  "heads": [
+   "Platform Admin",
+   "MY ACCOUNT",
+   "INVITE A COMPANY",
+   "ALL COMPANIES (1)"
+  ],
+  "text": "OPHUB\nPlatform Admin\nOpHUB · all companies\nMY ACCOUNT\nAndy Admin (you)\na@x.co · Super Admin\nRESET MY PASSWORD\nINVITE A COMPANY\nCREATE COMPANY & INVITE\nSets up a new company outside of Stripe checkout and gives you a founding-admin invite link to send them directly.\nALL COMPANIES (1)\nRTB Roofing Ltd\n+ Finance · active · 5 members\n▼\nSign out",
+  "url": "http://localhost:50070/app.html#/",
+  "errors": []
+ }
+}
