@@ -2,7 +2,7 @@
 // wrapper with the access check, and small shared bits (stat tile, row, chip).
 import { useQuery } from '@tanstack/react-query';
 import { router, Stack } from 'expo-router';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ComponentRef, type ReactNode } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { chooseAction } from '@/components/toast';
@@ -120,6 +120,21 @@ export function FinSeg({ items, value, onChange }: { items: [string, string, num
   );
 }
 
+/** A sideways row of tabs that keeps the one you're on in view. Plant hire, Yard stock and the rest sat off the
+ *  right of a phone, and the row jumped back to the start each time one opened (Andy, 4 Nov 2026). */
+function KeepInView({ on, items, render }: { on?: string; items: [string, string][]; render: (k: string, l: string) => ReactNode }) {
+  const sv = useRef<ComponentRef<typeof ScrollView>>(null);
+  const xs = useRef<Record<string, { x: number; w: number }>>({});
+  const [vw, setVw] = useState(0);
+  const go = () => { const p = on ? xs.current[on] : undefined; if (p && vw) sv.current?.scrollTo({ x: Math.max(0, p.x + p.w / 2 - vw / 2), animated: false }); };
+  useEffect(go);
+  return (
+    <ScrollView ref={sv} horizontal showsHorizontalScrollIndicator={false} onLayout={(e) => setVw(e.nativeEvent.layout.width)} contentContainerStyle={{ gap: 6, marginBottom: 10 }}>
+      {items.map(([k, l]) => <View key={k} onLayout={(e) => { xs.current[k] = { x: e.nativeEvent.layout.x, w: e.nativeEvent.layout.width }; if (k === on) go(); }}>{render(k, l)}</View>)}
+    </ScrollView>
+  );
+}
+
 /** The Settings tabs: Settings, Cost Codes, Templates and Team live on different pages. */
 export const finSettingsGo = (k: string) => router.replace(({ general: '/fin/settings', codes: '/fin/directory?kind=codes', templates: '/fin/templates', team: '/fin/team' } as Record<string, string>)[k] as never);
 
@@ -144,9 +159,7 @@ export function FinPage({ title, section, sub, onSub, badges, children, wide, to
           {section === 'overview' && <View style={{ backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 12, marginBottom: 10 }}><Text style={{ color: '#111827', fontSize: 12 }}>🔒 Finance trial — nothing is sent from Finance (no emails, no Xero, no pushes to PMs) while it&apos;s being tested.</Text></View>}
           {!!top && <FinMode.Provider value>{top}</FinMode.Provider>}
           {subs.length > 1 && onSub && (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, marginBottom: 10 }}>
-              {subs.map(([k, l]) => <Pressable key={k} onPress={() => onSub(k)} style={{ paddingHorizontal: 10, paddingVertical: 6, borderBottomWidth: 2, borderColor: k === sub ? base.ink : 'transparent' }}><Text style={{ fontWeight: k === sub ? '800' : '600', color: k === sub ? base.ink : base.slate }}>{l}{badges?.[k] ? ` · ${badges[k]}` : ''}</Text></Pressable>)}
-            </ScrollView>
+            <KeepInView on={sub} items={subs} render={(k, l) => <Pressable onPress={() => onSub(k)} style={{ paddingHorizontal: 10, paddingVertical: 6, borderBottomWidth: 2, borderColor: k === sub ? base.ink : 'transparent' }}><Text style={{ fontWeight: k === sub ? '800' : '600', color: k === sub ? base.ink : base.slate }}>{l}{badges?.[k] ? ` · ${badges[k]}` : ''}</Text></Pressable>} />
           )}
           <FinMode.Provider value>{children}</FinMode.Provider>
         </>

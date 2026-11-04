@@ -15,6 +15,7 @@ import { askDate, DateBox, todayIso } from '@/components/DateField';
 import { GrnDetail } from '@/components/Grn';
 import { OrderPanel } from '@/components/OrderPanel';
 import { ShopPicker, type ShopItem } from '@/components/ShopPicker';
+import { DEFAULT_UNITS, UnitField } from '@/components/UnitField';
 import { chooseAction, confirmAsk, promptText, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Empty, FilterRow, Muted, SectionTitle } from '@/components/ui';
 import { nameOf, usePeople } from '@/data/hs';
@@ -294,13 +295,13 @@ export default function MaterialRequests() {
           ))}
         </View>
       )}
-      {editing && <EditBox m={editing} busy={busy} onCancel={() => setEditing(null)} onSave={async (f) => {
+      {editing && <EditBox m={editing} unitBox={mgr} busy={busy} onCancel={() => setEditing(null)} onSave={async (f) => {
         setBusy(true); const err = await editMaterial(me, id, editing.id, f, mgr); setBusy(false);
         if (err) { toast(err); return; }
         toast('Request updated'); setEditing(null); refresh();
       }} />}
       {(tab === 'live' || tab === 'pending') && !editing && (
-        <RequestBox siteId={id} repairJobs={fin && site.repair_contract ? repairJobs ?? [] : null} shop={fin && !!org?.has_finance} autoFocus={add === '1'} addrs={site.multi_site ? addrs ?? [] : null} busy={busy} extra={me && isFullManager(me) ? importBtn : null} onSubmit={async (f) => {
+        <RequestBox siteId={id} unitBox={mgr} repairJobs={fin && site.repair_contract ? repairJobs ?? [] : null} shop={fin && !!org?.has_finance} autoFocus={add === '1'} addrs={site.multi_site ? addrs ?? [] : null} busy={busy} extra={me && isFullManager(me) ? importBtn : null} onSubmit={async (f) => {
           setBusy(true); const ok = await addMaterial(me, id, f); setBusy(false);
           if (!ok) { toast('Could not save — try again.'); return false; }
           toast('Request added'); refresh(); return true;
@@ -322,10 +323,11 @@ function Chip({ text, tone }: { text: string; tone?: 'due' }) {
   return <Text style={{ fontSize: 11.5, color: tone === 'due' ? base.warn : base.slate, backgroundColor: base.paper, borderRadius: 8, paddingHorizontal: 7, paddingVertical: 2, overflow: 'hidden' }}>{text}</Text>;
 }
 
-function RequestBox({ siteId, repairJobs, shop, addrs, busy, autoFocus, extra, onSubmit }: { siteId: string; repairJobs: { id: string; label: string }[] | null; shop: boolean; addrs: SubAddr[] | null; busy: boolean; autoFocus: boolean; extra?: ReactNode; onSubmit: (f: { repairJob?: { id: string; label: string } | null; item: string; qty: string; requiredBy: string | null; sub: SubAddr | null; shopItemId?: string | null }) => Promise<boolean> }) {
+function RequestBox({ siteId, unitBox, repairJobs, shop, addrs, busy, autoFocus, extra, onSubmit }: { siteId: string; unitBox: boolean; repairJobs: { id: string; label: string }[] | null; shop: boolean; addrs: SubAddr[] | null; busy: boolean; autoFocus: boolean; extra?: ReactNode; onSubmit: (f: { repairJob?: { id: string; label: string } | null; item: string; qty: string; requiredBy: string | null; sub: SubAddr | null; shopItemId?: string | null }) => Promise<boolean> }) {
   const toast = useToast();
   const [item, setItem] = useState('');
   const [qty, setQty] = useState('');
+  const [unit, setUnit] = useState('');
   const [by, setBy] = useState('');
   const [sub, setSub] = useState<SubAddr | null>(null);
   const [picking, setPicking] = useState(false);
@@ -336,7 +338,7 @@ function RequestBox({ siteId, repairJobs, shop, addrs, busy, autoFocus, extra, o
   const wide = useWindowDimensions().width >= 700;
   return (
     <Card style={{ marginTop: 18 }}>
-      {picking && <ShopPicker siteId={siteId} onClose={() => setPicking(false)} onPick={(i) => { setPick(i); setItem(i.description); setPicking(false); }} />}
+      {picking && <ShopPicker siteId={siteId} onClose={() => setPicking(false)} onPick={(i) => { setPick(i); setItem(i.description); if (i.unit) setUnit(i.unit); setPicking(false); }} />}
       {/* Request Material, laid out as Finance (Andy, 3 Nov 2026): title with its extras on the right; item, quantity,
           date and the button on one line on a laptop, stacked on a phone. */}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
@@ -365,11 +367,18 @@ function RequestBox({ siteId, repairJobs, shop, addrs, busy, autoFocus, extra, o
           <Text style={lbl}>Item</Text>
           <TextInput autoFocus={autoFocus} value={item} onChangeText={setItem} placeholder="e.g. 18mm OSB 2440 x 1220" style={[box, wide && { marginBottom: 0 }]} />
         </View>
-        <View style={{ flexDirection: 'row', gap: 10, flex: wide ? 2.4 : undefined }}>
+        <View style={{ flexDirection: 'row', gap: 10, flex: wide ? (unitBox ? 3.2 : 2.4) : undefined }}>
           <View style={{ flex: 1 }}>
-            <Text style={lbl}>Quantity{shopItemId && pick?.unit ? ` (${pick.unit})` : ''}</Text>
+            <Text style={lbl}>Quantity{!unitBox && shopItemId && pick?.unit ? ` (${pick.unit})` : ''}</Text>
             <TextInput value={qty} onChangeText={(t) => setQty(numOnly(t))} keyboardType="decimal-pad" placeholder="0" style={[box, wide && { marginBottom: 0 }]} />
           </View>
+          {/* Operatives give a number only; PMs and admins also say what it's in (Andy, 4 Nov 2026). */}
+          {unitBox && (
+            <View style={{ flex: 0.8 }}>
+              <Text style={lbl}>Unit</Text>
+              <UnitField value={unit} onChangeText={setUnit} units={DEFAULT_UNITS} style={[box, wide && { marginBottom: 0 }]} />
+            </View>
+          )}
           <View style={{ flex: 1.3 }}>
             <Text style={lbl}>Required By</Text>
             <DateBox value={by} onChange={setBy} min={todayIso()} placeholder="Any time" title="Required by" style={{ marginBottom: wide ? 0 : 8 }} />
@@ -380,8 +389,8 @@ function RequestBox({ siteId, repairJobs, shop, addrs, busy, autoFocus, extra, o
             if (!item.trim()) { toast('Say what you need first.'); return; }
             if (addrs && addrs.length && !sub) { toast('Choose which address on this job.'); return; }
             const d = by || null;
-            const q2 = qty.trim(), withUnit = shopItemId && pick?.unit && /^[\d.]+$/.test(q2) ? `${q2} ${pick.unit}` : q2;
-            if (await onSubmit({ item: item.trim(), qty: withUnit, requiredBy: d, sub, shopItemId, repairJob: rj })) { setItem(''); setQty(''); setBy(''); setSub(null); setPick(null); setRj(null); }
+            const q2 = qty.trim(), u = unitBox ? unit.trim() : shopItemId ? pick?.unit ?? '' : '', withUnit = u && /^[\d.]+$/.test(q2) ? `${q2} ${u}` : q2;
+            if (await onSubmit({ item: item.trim(), qty: withUnit, requiredBy: d, sub, shopItemId, repairJob: rj })) { setItem(''); setQty(''); setUnit(''); setBy(''); setSub(null); setPick(null); setRj(null); }
           }} />
         </View>
       </View>
@@ -392,10 +401,13 @@ function RequestBox({ siteId, repairJobs, shop, addrs, busy, autoFocus, extra, o
   );
 }
 
-function EditBox({ m, busy, onSave, onCancel }: { m: Mat; busy: boolean; onSave: (f: { item: string; qty: string; requiredBy: string | null }) => void; onCancel: () => void }) {
+function EditBox({ m, unitBox, busy, onSave, onCancel }: { m: Mat; unitBox: boolean; busy: boolean; onSave: (f: { item: string; qty: string; requiredBy: string | null }) => void; onCancel: () => void }) {
   const toast = useToast();
   const [item, setItem] = useState(m.item);
-  const [qty, setQty] = useState(m.qty || '');
+  // "5 m" opens as 5 and m.
+  const q0 = /^([\d.]+)\s*(.*)$/.exec((m.qty || '').trim());
+  const [qty, setQty] = useState(q0 ? q0[1] : numOnly(m.qty || ''));
+  const [unit, setUnit] = useState(q0 ? q0[2] : '');
   const [by, setBy] = useState(m.required_by_date || '');
   const sent = m.status === 'sent' || (m.status === 'closed' && !!m.merchant);
   return (
@@ -406,11 +418,13 @@ function EditBox({ m, busy, onSave, onCancel }: { m: Mat; busy: boolean; onSave:
       <TextInput value={item} onChangeText={setItem} style={box} />
       <Muted style={{ fontWeight: '700' }}>Quantity</Muted>
       <TextInput value={qty} onChangeText={(t) => setQty(numOnly(t))} keyboardType="decimal-pad" style={box} />
+      {unitBox ? <><Muted style={{ fontWeight: '700' }}>Unit</Muted><UnitField value={unit} onChangeText={setUnit} units={DEFAULT_UNITS} style={box} /></> : null}
       <Muted style={{ fontWeight: '700' }}>Required by (optional)</Muted>
       <DateBox value={by} onChange={setBy} title="Required by" style={{ marginBottom: 8 }} />
       <Button busy={busy} title="Save changes" onPress={() => {
         if (!item.trim()) { toast('Enter the item.'); return; }
-        onSave({ item: item.trim(), qty: qty.trim(), requiredBy: by || null });
+        const u = (unitBox ? unit : q0 ? q0[2] : '').trim();
+        onSave({ item: item.trim(), qty: u && qty.trim() ? `${qty.trim()} ${u}` : qty.trim(), requiredBy: by || null });
       }} />
       <Button kind="ghost" title="Cancel" onPress={onCancel} />
     </Card>

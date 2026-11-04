@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { askDate } from '@/components/DateField';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Text, View } from 'react-native';
+import { Text, TextInput, View } from 'react-native';
 
 import { FinFilterBar, type FilterSel } from '@/components/FinFilterBar';
 import { FinRow, FinStat } from '@/components/FinNav';
@@ -20,7 +20,7 @@ import { useAuth } from '@/lib/auth';
 import { byJobNoDesc, fdate, INV_STATUS, invOutstanding, invOutstandingNet, invOverdue, jobTag, money, retentionDates, retentionStillHeld, round2, type FinApp, type FinInv, type JobFin } from '@/lib/rules/finance';
 import { monthLabel, monthOf, monthsIn } from '@/lib/rules/finFilters';
 import { inPeriod, useStatPeriods } from '@/lib/useStatPeriods';
-import { base, useDesk } from '@/theme/theme';
+import { base, radius, useDesk } from '@/theme/theme';
 
 export type App = FinApp & { id: string; site_id: string; due_date?: string | null; gross?: number | null; net_due?: number | null; cert_gross?: number | null; cert_net?: number | null; cert_is_payless?: boolean | null; invoice_id?: string | null; submitted_at?: string | null; created_at?: string };
 export type Inv = FinInv & { bill_name?: string | null; bill_address?: string | null; net?: number | null; vat?: number | null; rc_vat?: number | null; xero_id?: string | null; xero_post?: boolean | null; created_at?: string; kind?: string | null; lines?: { description?: string; amount?: number | string | null }[] | null; created_by?: string | null; updated_at?: string };
@@ -93,8 +93,10 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
     ['finSales', 'finBook', 'finOverview'].forEach((k) => void qcRet.invalidateQueries({ queryKey: [k] }));
     if (r.id) router.push(`/fin/job/${a.site_id}/invoice/${r.id}` as never);
   };
-  // No search row on Applications, Invoices or Retention (Andy, 3 Nov 2026): the filters do the job.
-  const ql = '';
+  // No search row on a laptop (the table headings filter, Andy 3 Nov 2026); phones keep a search box (Andy, 4 Nov 2026).
+  const [q, setQ] = useState('');
+  const ql = desk ? '' : q.trim().toLowerCase();
+  const searchBox = (ph: string) => (desk ? null : <TextInput value={q} onChangeText={setQ} placeholder={ph} autoCorrect={false} style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, paddingHorizontal: 10, paddingVertical: 8, color: base.ink, backgroundColor: base.card, marginBottom: 10 }} />);
   if (!data) return <Muted>Loading…</Muted>;
   const live = data.invs.filter((i) => i.status !== 'void');
   const stage = (a: App) => appStage(a).k;
@@ -114,6 +116,7 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
       <View>
         <Muted style={{ marginBottom: 10, fontSize: 12 }}>Apply → the client certifies it (enter their figures on the application) → the invoice is raised for you. A certificate is just a certified application.</Muted>
         <View style={{ marginBottom: 10 }}><Button title="+ New application" onPress={() => void newFor('application')} /></View>
+        {searchBox('Search applications')}
         {!bare && <FinFilterBar sel={sel} onChange={setSel} onClear={() => setSel({ status: [], mon: [], job: [] })}
           sorts={[['new', 'Newest first'], ['old', 'Oldest first'], ['big', 'Biggest first'], ...(siteId ? [] : [['job', 'Project'] as [string, string]])]} sort={sort} onSort={setSort}
           parts={[
@@ -150,6 +153,7 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
     return (
       <View>
         <View style={{ marginBottom: 10 }}><Button title="+ New invoice" onPress={() => void newFor('invoice')} /></View>
+        {searchBox('Search invoices')}
         {!bare && <FinFilterBar sel={sel} onChange={setSel} onClear={() => setSel({ status: [], mon: [], job: [] })}
           sorts={[['new', 'Newest first'], ['old', 'Oldest first'], ['big', 'Biggest first'], ['client', 'Client A to Z']]} sort={sort} onSort={setSort}
           parts={[

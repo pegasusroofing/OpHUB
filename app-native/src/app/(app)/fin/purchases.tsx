@@ -9,7 +9,7 @@ import { PurchaseQuotes } from '@/components/FinPurchaseQuotes';
 export default function FinPurchases() {
   const { tab = 'orders', f } = useLocalSearchParams<{ tab?: 'orders' | 'invoices' | 'plant' | 'suppliers' | 'pricebook' | 'pricelists'; f?: string }>();
   return (
-    <FinPage title="Purchases" section="purchases" sub={tab} onSub={(k) => (k === 'statements' ? router.push('/fin/statements' as never) : k === 'yard' ? router.push('/fin/yard' as never) : router.setParams({ tab: k as never }))} top={<PurchasesStats />}>
+    <FinPage title="Purchases" section="purchases" sub={tab} onSub={(k) => (k === 'statements' ? router.replace('/fin/statements' as never) : k === 'yard' ? router.replace('/fin/yard' as never) : router.setParams({ tab: k as never }))} top={<PurchasesStats />}>
       {tab === 'pricebook' ? <PriceBook /> : tab === 'pricelists' ? <PurchaseQuotes /> : <PurchasesLists key={`${tab}${f || ''}`} tab={tab as 'orders'} f={f} />}
     </FinPage>
   );
