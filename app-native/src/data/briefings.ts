@@ -59,7 +59,7 @@ export function useBriefing(subId: string | undefined) {
 
 export async function signBriefing(me: Profile & { signature_path?: string | null }, subId: string): Promise<{ ok: boolean; needSignature?: boolean; msg: string }> {
   if (!me.signature_path) return { ok: false, needSignature: true, msg: "Adopt your signature first — one tap and it's used everywhere." };
-  const r = await db.from('daily_briefing_signatures').insert({ submission_id: subId, user_id: me.id, signature_image_path: me.signature_path } as never);
+  const r = await db.from('daily_briefing_signatures').insert({ submission_id: subId, user_id: me.id, signature_image_path: me.signature_path, signed_at: new Date().toISOString() } as never);
   return r.error ? { ok: false, msg: 'Could not save — check your signal and try again.' } : { ok: true, msg: 'Signed' };
 }
 
@@ -69,8 +69,15 @@ export async function briefingTemplate(orgId: string) {
   const r = await db.from('report_templates').select('*').eq('org_id', orgId).eq('is_daily_briefing', true).eq('archived', false).order('name').limit(1);
   return ((r.data as Template[] | null) ?? [])[0] ?? null;
 }
-export async function issueBriefing(me: Profile, subId: string) {
-  return !!(await db.from('report_submissions').update({ issued_at: new Date().toISOString(), issued_by: me.id } as never).eq('id', subId).select('id')).data?.length;
+/** Issue for signing, as RAMS (Andy, 4 Nov 2026): the PM who issues it signs it there and then with their saved signature,
+ *  then the operatives tap to sign. */
+export async function issueBriefing(me: Profile & { signature_path?: string | null }, subId: string): Promise<{ ok: boolean; needSignature?: boolean }> {
+  if (!me.signature_path) return { ok: false, needSignature: true };
+  const ok = !!(await db.from('report_submissions').update({ issued_at: new Date().toISOString(), issued_by: me.id } as never).eq('id', subId).select('id')).data?.length;
+  if (!ok) return { ok: false };
+  const have = ((await db.from('daily_briefing_signatures').select('id').eq('submission_id', subId).eq('user_id', me.id).limit(1)).data as { id: string }[] | null) ?? [];
+  if (!have.length) await db.from('daily_briefing_signatures').insert({ submission_id: subId, user_id: me.id, signature_image_path: me.signature_path, signed_at: new Date().toISOString() } as never);
+  return { ok: true };
 }
 /** Admins can remove a briefing that was started but never completed. */
 /** An unfinished briefing deleted by an admin, written to the job's Activity History (700 deleteBriefingSubmission). */

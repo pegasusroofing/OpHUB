@@ -27,7 +27,8 @@ export function TrafficKey({ sections }: { sections: ReportSection[] }) {
   );
 }
 
-export function ReportAnswers({ sections, answers, nameOf }: { sections: ReportSection[]; answers: Answers; nameOf: (id: string | null | undefined) => string }) {
+// hideHistory: the 'Edited … by …' lines are left off (daily briefings, Andy 4 Nov 2026).
+export function ReportAnswers({ sections, answers, nameOf, hideHistory }: { sections: ReportSection[]; answers: Answers; nameOf: (id: string | null | undefined) => string; hideHistory?: boolean }) {
   const sc = scoreSections(sections, answers);
   const history = Array.isArray(answers._editHistory) ? (answers._editHistory as { by: string; byName?: string; at: string }[]) : [];
 
@@ -74,7 +75,7 @@ export function ReportAnswers({ sections, answers, nameOf }: { sections: ReportS
 
   return (
     <View>
-      {history.map((e, i) => <Muted key={i}>Edited {new Date(e.at).toLocaleString('en-GB')} by {e.byName || nameOf(e.by)}</Muted>)}
+      {!hideHistory && history.map((e, i) => <Muted key={i}>Edited {new Date(e.at).toLocaleString('en-GB')} by {e.byName || nameOf(e.by)}</Muted>)}
       {sc.overall.possible > 0 && <Text style={{ textAlign: 'right', fontWeight: '800', color: base.ink }}>Score: {scoreLabel(sc.overall)}</Text>}
       <TrafficKey sections={sections} />
       {(sections || []).filter((s) => reportListsSection(sections, s, answers)).map((s) => (

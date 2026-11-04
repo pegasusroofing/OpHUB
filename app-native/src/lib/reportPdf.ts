@@ -30,7 +30,7 @@ async function liveShowUnanswered(sub: PdfSub) {
   } catch { /* keep as saved */ }
 }
 
-export async function buildReportPdf(subIn: PdfSub, site: Site | null, org: Organization | null, nameOf: (id: string | null | undefined) => string, opts: { fromBriefing?: boolean; onProgress?: (msg: string) => void } = {}): Promise<{ bytes: Uint8Array; filename: string; failures: number } | null> {
+export async function buildReportPdf(subIn: PdfSub, site: Site | null, org: Organization | null, nameOf: (id: string | null | undefined) => string, opts: { fromBriefing?: boolean; onProgress?: (msg: string) => void; signers?: { name: string; when: string; imagePath: string | null }[]; disclaimer?: string } = {}): Promise<{ bytes: Uint8Array; filename: string; failures: number } | null> {
   const sub: PdfSub = { ...subIn, sections: JSON.parse(JSON.stringify(subIn.sections || [])), answers: subIn.answers || {} };
   await liveShowUnanswered(sub);
   const generalLabel = !sub.site_id ? sub.general_label || '' : '';
@@ -61,7 +61,7 @@ export async function buildReportPdf(subIn: PdfSub, site: Site | null, org: Orga
       page.drawImage(logo, { x: MARGIN + (40 - dim.width * s) / 2, y: PAGE_H - 76 + (40 - dim.height * s) / 2, width: dim.width * s, height: dim.height * s });
     }
     const tx = logo ? MARGIN + 52 : MARGIN;
-    T(page, 'INSPECTION REPORT', { x: tx, y: PAGE_H - 40, size: 9, font: bold, color: WHITE, opacity: 0.85 });
+    T(page, opts.fromBriefing ? 'DAILY BRIEFING' : 'INSPECTION REPORT', { x: tx, y: PAGE_H - 40, size: 9, font: bold, color: WHITE, opacity: 0.85 });
     T(page, sub.template_name.length > 44 ? `${sub.template_name.slice(0, 41)}…` : sub.template_name, { x: tx, y: PAGE_H - 60, size: 16, font: bold, color: WHITE });
     drawFit(page, companyName + (site ? ` · ${siteLabel(site)}` : generalLabel ? ` · ${generalLabel}` : ''), { x: tx, y: PAGE_H - 76, size: 9.5, font: reg, color: WHITE, opacity: 0.9 });
     page.drawLine({ start: { x: MARGIN, y: 34 }, end: { x: PAGE_W - MARGIN, y: 34 }, thickness: 0.75, color: FAINT });
@@ -194,8 +194,8 @@ export async function buildReportPdf(subIn: PdfSub, site: Site | null, org: Orga
   }
 
   /* body */
-  newPage();
-  headingBar(sub.template_name, scoreInfo.overall.possible > 0 ? scoreLabel(scoreInfo.overall) : null, 12.5);
+  if (opts.fromBriefing) y -= 14;
+  else { newPage(); headingBar(sub.template_name, scoreInfo.overall.possible > 0 ? scoreLabel(scoreInfo.overall) : null, 12.5); }
   const levels = trafficLevels(sub.sections);
   if (levels) {
     ensure(22 + levels.length * 16);
@@ -303,6 +303,27 @@ export async function buildReportPdf(subIn: PdfSub, site: Site | null, org: Orga
       if (extra.length) await photoGrid(collect(extra));
     }
     y -= 6;
+  }
+  // Who signed the briefing, straight after it (on a new page only if it doesn't fit).
+  if (opts.signers?.length) {
+    ensure(90);
+    headingBar('Signatures', null, 12.5);
+    if (opts.disclaimer) { lines(opts.disclaimer, reg, 9.5, CONTENT_W).forEach((l) => { ensure(14); T(page, l, { x: MARGIN, y: y - 10, size: 9.5, font: reg, color: SLATE }); y -= 13; }); y -= 6; }
+    const colSig = MARGIN + CONTENT_W * 0.42, colWhen = MARGIN + CONTENT_W * 0.74;
+    ensure(22);
+    T(page, 'Name', { x: MARGIN + 4, y: y - 12, size: 9.5, font: bold, color: INK }); T(page, 'Signature', { x: colSig, y: y - 12, size: 9.5, font: bold, color: INK }); T(page, 'Date', { x: colWhen, y: y - 12, size: 9.5, font: bold, color: INK });
+    y -= 18; page.drawLine({ start: { x: MARGIN, y }, end: { x: PAGE_W - MARGIN, y }, thickness: 0.75, color: LINE });
+    for (const sg of opts.signers) {
+      ensure(40);
+      drawFit(page, sg.name, { x: MARGIN + 4, y: y - 22, size: 10, font: reg, color: INK, maxWidth: colSig - MARGIN - 10 });
+      const bytes = sg.imagePath ? await fetchBytes(publicUrl('signatures', sg.imagePath)) : null;
+      let img: PDFImage | null = null;
+      if (bytes) { try { img = await doc.embedPng(bytes); } catch { try { img = await doc.embedJpg(bytes); } catch { img = null; } } }
+      if (img) { const d = img.scale(1), s2 = Math.min(110 / d.width, 30 / d.height, 1); page.drawImage(img, { x: colSig, y: y - 6 - d.height * s2, width: d.width * s2, height: d.height * s2 }); }
+      T(page, sg.when, { x: colWhen, y: y - 22, size: 9.5, font: reg, color: SLATE });
+      y -= 38; page.drawLine({ start: { x: MARGIN, y }, end: { x: PAGE_W - MARGIN, y }, thickness: 0.5, color: LINE });
+    }
+    y -= 8;
   }
   if (allPhotos.length) { newPage(); headingBar('Media summary', null, 12.5); await mediaGrid(allPhotos); }
   const total = doc.getPageCount();

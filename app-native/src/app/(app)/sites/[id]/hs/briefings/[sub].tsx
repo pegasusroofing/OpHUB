@@ -34,16 +34,19 @@ export default function BriefingView() {
   return (
     <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: sub.template_name || 'Daily Briefing' }} />
+      {/* No 'Completed … / Edited …' lines above the sections (Andy, 4 Nov 2026). */}
       <SectionTitle>{sub.template_name}</SectionTitle>
-      <Muted>{sub.submitted_at ? `Completed ${new Date(sub.submitted_at).toLocaleString('en-GB')} by ${nameOf(people, sub.submitted_by)}` : `Not completed yet · started by ${nameOf(people, sub.submitted_by)}`}</Muted>
-      <ReportAnswers sections={sub.sections || []} answers={sub.answers || {}} nameOf={(u) => nameOf(people, u)} />
+      {!sub.submitted_at && <Muted>Not completed yet · started by {nameOf(people, sub.submitted_by)}</Muted>}
+      <ReportAnswers hideHistory sections={sub.sections || []} answers={sub.answers || {}} nameOf={(u) => nameOf(people, u)} />
       <Card>
         <SectionTitle>Signing</SectionTitle>
-        <Muted style={{ marginBottom: 10 }}>{sub.issued_at ? `Issued for signing ${new Date(sub.issued_at).toLocaleString('en-GB')} — every operative in the app can sign it. Signing is optional, so this can be exported at any time.` : 'Not issued for signing yet.'}</Muted>
+        <Muted style={{ marginBottom: 10 }}>{sub.issued_at ? `Issued for signing ${new Date(sub.issued_at).toLocaleString('en-GB')} — every operative in the app can sign it. Signing is optional, so this can be exported at any time.` : 'Not issued for signing yet. Issuing signs it for you, then the operatives tap to sign.'}</Muted>
         {mgr && !sub.issued_at && sub.status === 'completed' && (
-          <Button kind="ghost" title="Issue for Signing" onPress={async () => {
-            if (!(await confirmAsk('Issue this briefing for signing? Every operative in the app will be able to sign it — this is optional and can still be exported without any signatures.', 'Issue'))) return;
-            if (await issueBriefing(me, sub.id)) { toast('Briefing issued for signing'); refresh(); } else toast('Could not save — try again.');
+          <Button title="Issue For Signing" onPress={async () => {
+            if (!(await confirmAsk('Issue this briefing for signing? It is signed for you now, then every operative in the app can tap to sign it. Signing is optional; it can still be exported at any time.', 'Issue', 'No', true))) return;
+            const r = await issueBriefing(me, sub.id);
+            if (r.needSignature) { toast("Adopt your signature first — one tap and it's used everywhere."); router.push('/signature'); return; }
+            if (r.ok) { toast('✓ Issued and signed by you', { confirm: true }); refresh(); } else toast('Could not save — try again.');
           }} />
         )}
         {sub.issued_at && !mine && (
