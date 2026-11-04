@@ -1,5 +1,6 @@
 // One quote: client from the Directory, project, value, who priced it, return date; outcome; the email chaser; its
-// folder of documents; and Won, convert to job.
+// folder of documents; and Won, convert to job. Laid out like Finance (Andy, 4 Nov 2026): the figures as tiles across the top
+// with the outcome and the actions on one row; customer and project side by side on a laptop.
 import * as DocumentPicker from 'expo-document-picker';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
@@ -10,13 +11,14 @@ import { DateBox } from '@/components/DateField';
 import { OneDriveBrowser } from '@/components/OneDriveBrowser';
 import { chooseAction, confirmAsk, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Field, Muted, SectionTitle, Toggle } from '@/components/ui';
+import { FinStat } from '@/components/FinNav';
 import { useTeam } from '@/data/admin';
 import { chaseNow, chasePatch, clientId, convertToJob, fileQuoteFolder, makeQuoteFolder, saveQuote, searchClients, setQuoteStatus, uploadTenderDocs, useQuote, useQuoteSettings, type ClientHit } from '@/data/quotes';
 import { SubmitQuote } from '@/components/SubmitQuote';
 import { useAuth } from '@/lib/auth';
 import { DISCIPLINES, isClosed, QUOTE_STATUS, statusLabel } from '@/lib/rules/quotes';
 import { supabase } from '@/lib/supabase';
-import { base, page, space } from '@/theme/theme';
+import { base, page, space, useDesk } from '@/theme/theme';
 
 type Form = { client: string; contact: string; email: string; phone: string; title: string; address: string; postcode: string; discipline: string; value: string; profit: string; pricedBy: string; pricedName: string; received: string; ret: string; notes: string };
 const EMPTY: Form = { client: '', contact: '', email: '', phone: '', title: '', address: '', postcode: '', discipline: '', value: '', profit: '', pricedBy: '', pricedName: '', received: '', ret: '', notes: '' };
@@ -37,6 +39,7 @@ export default function QuotePage() {
   const [busy, setBusy] = useState('');
   const [docs, setDocs] = useState<{ uri: string; name: string }[]>([]);
   const [showDetails, setShowDetails] = useState(false);
+  const desk = useDesk();
   const q = data?.quote ?? null;
   const firstDays = settings?.chase_first_days ?? 30;
   useEffect(() => {
@@ -113,18 +116,33 @@ export default function QuotePage() {
   const people = (team ?? []).filter((p) => p.role === 'pm' || p.role === 'admin');
 
   return (
-    <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={page(desk ? 1000 : 720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: isNew ? 'New Enquiry' : 'Quote' }} />
-      {!!q && (
-        <Card>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Text style={{ flex: 1, fontWeight: '800', fontSize: 15, color: base.ink }}>{statusLabel(q.status)}</Text>
-            {!q.site_id && <Button small kind="ghost" busy={busy === 'status'} title="Change" onPress={() => void changeStatus()} />}
+      {!!q && (() => {
+        const tone = q.status === 'won' ? '#15803d' : isClosed(q.status) ? '#7A7F87' : q.status === 'returned' ? '#D98A00' : q.status === 'negotiating' ? '#2F6FB3' : '#1E2124';
+        const ukd = (d: string | null) => (d ? new Date(`${d}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—');
+        return (
+          <View style={{ marginBottom: 12 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+              <View style={{ flex: 1, minWidth: 200 }}>
+                <Text style={{ fontSize: 17, fontWeight: '600', color: base.ink }}>{q.title}</Text>
+                <Text style={{ fontSize: 13, color: base.slate }}>{[q.client_name, q.discipline, q.address].filter(Boolean).join(' · ')}</Text>
+              </View>
+              <Text style={{ fontSize: 11.5, fontWeight: '600', color: tone, backgroundColor: `${tone}1A`, borderRadius: 999, paddingVertical: 4, paddingHorizontal: 11, overflow: 'hidden' }}>● {statusLabel(q.status)}</Text>
+            </View>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 10 }}>
+              <FinStat basis={desk ? 150 : '45%'} v={q.value ? `£${Math.round(q.value).toLocaleString('en-GB')}` : '—'} label="Tender value" tone="blue" />
+              <FinStat basis={desk ? 150 : '45%'} v={q.profit_pct == null ? '—' : `${Math.round(q.profit_pct * 1000) / 10}%`} label="Profit" tone="green" />
+              <FinStat basis={desk ? 150 : '45%'} v={ukd(q.return_date)} label={q.returned_at ? 'Sent' : 'Due back'} tone="amber" />
+              <FinStat basis={desk ? 150 : '45%'} v={q.priced_by_name || '—'} label="Priced by" />
+            </View>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              {q.site_id ? <Button small title="Open The Job" onPress={() => router.push(`/sites/${q.site_id}` as never)} /> : <Button small busy={busy === 'won'} title="🏆 Won: Convert To Job" onPress={() => void won()} />}
+              {!q.site_id && <Button small kind="ghost" busy={busy === 'status'} title="Change Outcome" onPress={() => void changeStatus()} />}
+            </View>
           </View>
-          {q.site_id ? <View style={{ marginTop: 8 }}><Button title="Open the job" onPress={() => router.push(`/sites/${q.site_id}` as never)} /></View>
-            : <View style={{ marginTop: 8 }}><Button busy={busy === 'won'} title="🏆 Won: convert to job" onPress={() => void won()} /></View>}
-        </Card>
-      )}
+        );
+      })()}
       {!!q && !q.returned_at && !q.site_id && <SubmitQuote q={q} firstDays={firstDays} onDone={refresh} />}
       {!!q && (
         <Card>
@@ -159,8 +177,8 @@ export default function QuotePage() {
       )}
       {!isNew && <Toggle title="Customer and project details" open={showDetails} onPress={() => setShowDetails(!showDetails)} />}
       {(isNew || showDetails) && (
-        <>
-      <Card>
+        <View style={desk ? { flexDirection: 'row', gap: 12, alignItems: 'flex-start' } : undefined}>
+      <Card style={desk ? { flex: 1 } : undefined}>
         <SectionTitle>Customer</SectionTitle>
         <Field label="Client *" value={v.client} onChangeText={typeClient} placeholder="Start typing to search your Directory" />
         {hits.filter((h) => h.name.toLowerCase() !== v.client.trim().toLowerCase()).map((h) => (
@@ -174,7 +192,7 @@ export default function QuotePage() {
           <View style={{ flex: 3 }}><Field label="Contact email (the chaser goes here)" value={v.email} onChangeText={set('email')} keyboardType="email-address" autoCapitalize="none" /></View>
         </View>
       </Card>
-      <Card>
+      <Card style={desk ? { flex: 1.3 } : undefined}>
         <SectionTitle>Project</SectionTitle>
         <Field label="Project name *" value={v.title} onChangeText={set('title')} />
         <Field label="Address" value={v.address} onChangeText={set('address')} />
@@ -182,13 +200,14 @@ export default function QuotePage() {
         <Muted style={{ fontWeight: '700', marginBottom: 4 }}>Discipline</Muted>
         <View style={{ marginBottom: 10 }}><Button kind="ghost" title={v.discipline || 'Choose…'} onPress={async () => { const k = await chooseAction('Discipline', DISCIPLINES.map((d) => ({ key: d, label: d }))); if (k) set('discipline')(k); }} /></View>
         {!isNew && (
-          <>
-            <Field label="Tender value £" value={v.value} onChangeText={set('value')} keyboardType="decimal-pad" />
-            <Field label="Profit %" value={v.profit} onChangeText={set('profit')} keyboardType="decimal-pad" />
-            <Muted style={{ fontWeight: '700', marginBottom: 4 }}>Priced by</Muted>
-            <View style={{ marginBottom: 10 }}><Button kind="ghost" title={v.pricedName || 'Choose…'} onPress={async () => { const k = await chooseAction('Priced by', people.map((p) => ({ key: p.id, label: p.name || p.email || 'Unknown' }))); const p = people.find((x) => x.id === k); if (p) setV((f) => ({ ...f, pricedBy: p.id, pricedName: p.name || '' })); }} /></View>
-          </>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <View style={{ flex: 1 }}><Field label="Tender value £" value={v.value} onChangeText={set('value')} keyboardType="decimal-pad" /></View>
+            <View style={{ flex: 1 }}><Field label="Profit %" value={v.profit} onChangeText={set('profit')} keyboardType="decimal-pad" /></View>
+          </View>
         )}
+        {/* Who's pricing it can be set from the start, so the estimator owns it (Andy, 4 Nov 2026). */}
+        <Muted style={{ fontWeight: '700', marginBottom: 4 }}>{isNew ? 'Who is pricing it' : 'Priced by'}</Muted>
+        <View style={{ marginBottom: 10 }}><Button kind="ghost" title={v.pricedName || (isNew ? `${me.name || 'Me'} (me)` : 'Choose…')} onPress={async () => { const k = await chooseAction(isNew ? 'Who is pricing it' : 'Priced by', people.map((p) => ({ key: p.id, label: p.name || p.email || 'Unknown' }))); const p = people.find((x) => x.id === k); if (p) setV((f) => ({ ...f, pricedBy: p.id, pricedName: p.name || '' })); }} /></View>
         <Muted style={{ fontWeight: '700', marginBottom: 4 }}>Enquiry received</Muted>
         <DateBox value={v.received} onChange={set('received')} title="Enquiry received" style={{ marginBottom: 10 }} />
         <Muted style={{ fontWeight: '700', marginBottom: 4 }}>{q?.returned_at ? 'Date sent' : 'Tender due back'}</Muted>
@@ -205,7 +224,7 @@ export default function QuotePage() {
         {busy && busy !== 'save' && isNew ? <Muted style={{ marginBottom: 8 }}>{busy}</Muted> : null}
         <Button busy={busy === 'save' || (isNew && !!busy)} title={isNew ? 'Create Enquiry' : 'Save'} onPress={() => void save()} />
       </Card>
-        </>
+        </View>
       )}
     </ScrollView>
   );

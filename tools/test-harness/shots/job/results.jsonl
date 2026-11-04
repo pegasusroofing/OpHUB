@@ -1726,3 +1726,6 @@
 {"part":"appvargrp1","step":"Groups at 430","ok":true,"note":"approved heads 0, not approved heads 1","ms":12577}
 {"part":"weather2","step":"Count and weather together (430)","ok":true,"note":"postcode SW1A 1AA · both at once: true · still both after 9s: true · ⋮ shown: true","ms":22577}
 {"part":"weather2","step":"Count and weather together (1440)","ok":true,"note":"postcode SW1A 1AA · both at once: true · still both after 9s: true · ⋮ shown: true","ms":22449}
+{"part":"quotes2","step":"Quotes list (1440)","ok":true,"note":"tiles true · table true · export true · all shows 5/5 newest","ms":10109}
+{"part":"quotes2","step":"Quotes list (430)","ok":true,"note":"tiles true · table false · export true · all shows 5/5 newest","ms":8996}
+{"part":"quotes2","step":"One quote","ok":true,"note":"ZZ JOB Self Sent","ms":6409}
