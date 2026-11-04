@@ -9,6 +9,7 @@ import { TextInput, View } from 'react-native';
 
 import { FinFilterBar, type FilterSel } from '@/components/FinFilterBar';
 import { FinPage, FinRow, FinStat } from '@/components/FinNav';
+import { YardLeftovers } from '@/components/YardLeftovers';
 import { PurchasesStats } from '@/components/FinPurchases';
 import { FinForm, type Field } from '@/components/FinForm';
 import { confirmAsk, useToast } from '@/components/toast';
@@ -140,6 +141,7 @@ export default function FinYard() {
   }
   return (
     <FinPage title="Purchases" section="purchases" sub="yard" top={<PurchasesStats />} onSub={(k) => (k === 'yard' ? undefined : k === 'statements' ? router.replace('/fin/statements' as never) : router.replace(`/fin/purchases?tab=${k}` as never))}>
+      <YardLeftovers />
       <YardList items={items} rateBy={rateBy} loading={isLoading} onNew={() => setEdit('new')} onMove={openMove} />
       {forms}
     </FinPage>
@@ -167,7 +169,7 @@ function YardList({ items, rateBy, loading, onNew, onMove }: { items: Item[]; ra
       </View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
         <Button title="+ New item" onPress={onNew} /><Button kind="ghost" title="⬇ Book stock in" onPress={() => onMove('in')} /><Button kind="ghost" title="⬆ Issue to a job" onPress={() => onMove('issue')} />
-        <Button kind="ghost" title="↩ Return from a job" onPress={() => onMove('return')} /><Button kind="ghost" title="Adjust a count" onPress={() => onMove('adjust')} />
+        <Button kind="ghost" title="↩ Return from a job" onPress={() => onMove('return')} /><Button kind="ghost" title="Adjust a count" onPress={() => onMove('adjust')} /><Button kind="ghost" title="Stock Take" onPress={() => router.push('/yardcount' as never)} />
       </View>
       <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search item or location' }} sel={sel} onChange={(n) => setSel({ ...n, show: n.show.length ? n.show : ['all'] })} onClear={() => setSel({ show: ['all'], cat: [] })}
         sorts={[['as', 'Category order'], ['az', 'Item A to Z'], ['qty', 'Most in the yard'], ['val', 'Highest value']]} sort={sort} onSort={setSort}

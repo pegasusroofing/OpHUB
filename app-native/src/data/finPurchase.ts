@@ -28,7 +28,7 @@ export async function addPinv(me: Profile, siteId: string, v: Row, file?: { uri:
       const sofar = others.reduce((t, i) => t + Number(i.net || 0), 0) + v.net;
       if (po.value != null && sofar > Number(po.value) + 0.005) flags.push(`${money(sofar - Number(po.value))} over the PO value of ${money(po.value)}`);
       const mats = (po.material_ids || []).length ? ((await fdb.from('materials').select('grn').in('id', po.material_ids)).data as Row[] | null) ?? [] : [];
-      if (mats.length && !mats.some((m) => m.grn)) flags.push('nothing on this PO has been marked received yet');
+      if (mats.length && !mats.some((m) => m.grn) && !po.yard_booked_at) flags.push('nothing on this PO has been marked received yet');
       if (mats.some((m) => m.grn && m.grn.ok === false)) flags.push('a delivery on this PO was marked with a problem');
     }
   }

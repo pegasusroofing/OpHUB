@@ -5,10 +5,11 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Image, Pressable, Text, TextInput, View } from 'react-native';
 
-import { showAlert, useToast } from '@/components/toast';
-import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
+import { chooseAction, showAlert, useToast } from '@/components/toast';
+import { Button, Card, Check, Empty, Muted, SectionTitle } from '@/components/ui';
 import { nameOf, usePeople } from '@/data/hs';
 import { useRecentBookIns, useYard, yardBookIn } from '@/data/materials';
+import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { isFinanceUser } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
@@ -44,6 +45,10 @@ export function YardBookIn({ canAddItems, stockId: stock0 = null }: { canAddItem
   const [note, setNote] = useState('');
   const [photo, setPhoto] = useState<Picked | null>(null);
   const [busy, setBusy] = useState(false);
+  // Leftovers from a job (Andy, 4 Nov 2026): the job is optional; a PM allocates it either way.
+  const [left, setLeft] = useState(false);
+  const [fromSite, setFromSite] = useState<string | null>(null);
+  const { data: sites = [] } = useSites();
   if (!me) return null;
   const list = items ?? [];
   const shown = q.trim() ? list.filter((s) => s.item.toLowerCase().includes(q.trim().toLowerCase())) : list;
@@ -66,11 +71,20 @@ export function YardBookIn({ canAddItems, stockId: stock0 = null }: { canAddItem
             </View>
           )}
           <Muted>{canAddItems ? 'Not on the list? Add new items in Yard stock (Projects › Materials › 📦 Yard Stock, or Finance › Purchases).' : 'Not on the list? Book it with a note and ask the office to add it.'}</Muted>
+          <View style={{ marginTop: 8 }}><Check label="Leftovers back from a job" value={left} onChange={(v) => { setLeft(v); if (!v) setFromSite(null); }} /></View>
+          {left && (() => {
+            const st = sites.find((x) => x.id === fromSite);
+            return (
+              <Pressable onPress={async () => { const k = await chooseAction('Which job? (optional)', [{ key: '-', label: "Don't know" }, ...sites.filter((x) => x.status !== 'closed').map((x) => ({ key: x.id, label: `${x.job_number ? `${x.job_number} ` : ''}${x.name}` }))]); if (k) setFromSite(k === '-' ? null : k); }} style={[box, { marginTop: 4 }]}>
+                <Text style={{ color: st ? base.ink : base.slate }}>{st ? `From ${st.job_number ? `${st.job_number} ` : ''}${st.name}` : 'Which job? (optional)'} ▾</Text>
+              </Pressable>
+            );
+          })()}
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
             <TextInput value={qty} onChangeText={setQty} keyboardType="decimal-pad" placeholder="Qty, e.g. 40" style={[box, { flex: 1, minWidth: 0 }]} />
-            <TextInput value={sup} onChangeText={setSup} placeholder="From (supplier)" style={[box, { flex: 1, minWidth: 0 }]} />
+            {!left && <TextInput value={sup} onChangeText={setSup} placeholder="From (supplier)" style={[box, { flex: 1, minWidth: 0 }]} />}
           </View>
-          {!!pos?.length && (() => {
+          {!left && !!pos?.length && (() => {
             const po = pos.find((p) => p.id === poId);
             const ql = poQ.trim().toLowerCase();
             const hits = ql ? pos.filter((p) => `${p.number || ''} ${p.supplier_name || ''}`.toLowerCase().includes(ql)) : pos;
@@ -105,10 +119,11 @@ export function YardBookIn({ canAddItems, stockId: stock0 = null }: { canAddItem
             const n = yardNum(qty);
             if (n == null || !(n > 0)) { toast('Enter the qty as a number.'); return; }
             setBusy(true);
-            const err = await yardBookIn(me, { stock, qty: n, supplier: sup.trim(), ref: ref.trim(), note: note.trim(), photo, poId });
+            const err = await yardBookIn(me, { stock, qty: n, supplier: left ? '' : sup.trim(), ref: ref.trim(), note: note.trim(), photo, poId: left ? null : poId, leftover: left, fromSiteId: fromSite });
             setBusy(false);
             if (err) { toast(err); return; }
-            toast(`Booked in — ${yardQty(Number(stock.qty || 0) + n)} ${stock.unit || ''} now in the yard`);
+            toast(`Booked in — ${yardQty(Number(stock.qty || 0) + n)} ${stock.unit || ''} now in the yard${left ? '. A PM will allocate the leftovers to the job' : ''}`);
+            setLeft(false); setFromSite(null);
             setStockId(null); setQty(''); setSup(''); setRef(''); setNote(''); setPhoto(null); setPoId(null);
             void qc.invalidateQueries({ queryKey: ['yard'] });
           }} />

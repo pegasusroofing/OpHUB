@@ -521,7 +521,7 @@ export async function yardMove(me: Profile, f: { kind: 'issue' | 'return'; stock
   return null;
 }
 
-export async function yardBookIn(me: Profile, f: { stock: YardItem; qty: number; supplier: string; ref: string; note: string; photo: Picked | null; poId?: string | null }): Promise<string | null> {
+export async function yardBookIn(me: Profile, f: { stock: YardItem; qty: number; supplier: string; ref: string; note: string; photo: Picked | null; poId?: string | null; leftover?: boolean; fromSiteId?: string | null }): Promise<string | null> {
   let photo: string | null = null;
   if (f.photo) {
     try {
@@ -532,8 +532,23 @@ export async function yardBookIn(me: Profile, f: { stock: YardItem; qty: number;
       photo = up.data.path;
     } catch { return 'Could not upload the photo — check your signal and try again.'; }
   }
-  const r = await db.from('yard_moves').insert({ org_id: me.org_id, stock_id: f.stock.id, kind: 'in', qty: f.qty, site_id: null, note: f.note || null, created_by: me.id, ref: f.ref || null, supplier_name: f.supplier || null, po_id: f.poId || null, photo_path: photo } as never);
+  const r = await db.from('yard_moves').insert({ org_id: me.org_id, stock_id: f.stock.id, kind: 'in', qty: f.qty, site_id: null, note: f.note || null, created_by: me.id, ref: f.ref || null, supplier_name: f.supplier || null, po_id: f.poId || null, photo_path: photo, leftover: !!f.leftover, from_site_id: f.leftover ? f.fromSiteId || null : null } as never);
+  if (r.error) return 'Could not save — try again.';
+  // Leftovers wait for a PM to allocate them (Andy, 4 Nov 2026); the job's managers are told when one is named.
+  if (f.leftover && f.fromSiteId) tellManagers(me, f.fromSiteId, 'yard_leftover', `${me.name} booked leftovers back into the yard: ${yardQty(f.qty)} ${f.stock.unit || ''} ${f.stock.item}. Allocate them in Materials › Yard Stock so the job gets the cost back.`.replace(/\s+/g, ' '));
+  return null;
+}
+/** A PM / admin / Finance says which job leftovers came from (or null: no job). */
+export async function allocateLeftover(moveId: string, siteId: string | null): Promise<string | null> {
+  const r = await supabase.rpc('yard_allocate_leftover' as never, { p_move: moveId, p_site: siteId } as never);
   return r.error ? 'Could not save — try again.' : null;
+}
+/** Stock take: each changed item gets a count adjustment to what was counted. */
+export async function yardCount(me: Profile, rows: { stock: YardItem; counted: number }[]): Promise<string | null> {
+  const moves = rows.map((x) => ({ org_id: me.org_id, stock_id: x.stock.id, kind: 'adjust', qty: Math.round((x.counted - Number(x.stock.qty || 0)) * 1000) / 1000, note: 'Stock take', created_by: me.id })).filter((m) => m.qty !== 0);
+  if (!moves.length) return null;
+  const r = await db.from('yard_moves').insert(moves as never);
+  return r.error ? 'Could not save the stock take — try again.' : null;
 }
 
 /** Spreadsheet lines as material requests (730 importMaterialsExcel): top to bottom in the file's order; the managers are told. */

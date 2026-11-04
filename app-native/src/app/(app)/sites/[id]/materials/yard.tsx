@@ -6,6 +6,7 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 
 import { FinForm } from '@/components/FinForm';
 import { MatTabs } from '@/components/MatTabs';
+import { YardLeftovers } from '@/components/YardLeftovers';
 import { supabase } from '@/lib/supabase';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
@@ -94,7 +95,8 @@ export default function Yard() {
           ))}
         </View>
       )}
-      {!request && <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 8 }}><Button small kind="ghost" title="+ New Item" onPress={() => setAdding(true)} /></View>}
+      {!request && <YardLeftovers siteId={id} />}
+      {!request && <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginBottom: 8 }}><Button small kind="ghost" title="Stock Take" onPress={() => router.push('/yardcount' as never)} /><Button small kind="ghost" title="+ New Item" onPress={() => setAdding(true)} /></View>}
       {adding && (
         <FinForm title="New yard stock item" saveLabel="Add item" onClose={() => setAdding(false)} initial={{}}
           fields={[

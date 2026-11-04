@@ -70,6 +70,7 @@ export default function FinPo() {
         <FinRow title="Project" right={jobTag(sites.find((s) => s.id === po.site_id))} onPress={() => router.push(`/fin/job/${po.site_id}` as never)} />
         <AllocRow table="purchase_orders" row={po} onSaved={refresh} />
         <FinRow title="Ordered" right={`${fdate(String(po.created_at).slice(0, 10))} by ${po.ordered_by_name || '—'}`} />
+        {!!po.yard_booked_at && <FinRow title="Booked into the yard" right={fdate(String(po.yard_booked_at).slice(0, 10))} />}
         {po.required_by && <FinRow title={po.fulfilment === 'collection' ? 'Collection' : 'Required for delivery'} right={fdate(po.required_by)} />}
         {po.supplier_branch && <FinRow title="Branch" right={po.supplier_branch} />}{po.note && <FinRow title="Note" right={po.note} />}
         {po.sent_at && <FinRow title="Emailed" right={`${fdate(String(po.sent_at).slice(0, 10))} to ${po.sent_to || ''}`} />}
