@@ -44,6 +44,13 @@
 - 30 send and notify functions hardened. Repo copies are in `supabase/functions/`.
 - The `xero` and `finance-inbox` repo copies match live.
 - When redeploying, keep each function's `verify_jwt` setting as it is live.
+- `send-hs-email` v2 (3 Nov, verify_jwt on): H&S documents and signature sheets from the new app.
+- `rams-ai-draft` v3 (4 Nov, verify_jwt on): the AI RAMS writer.
+  - Company admins only, because each draft is a paid AI call (Andy, 4 Nov).
+  - The app asks "additional feature, charged per build" (Yes / No) before every build.
+  - Each successful build emails the platform admin(s): company, who, job, and the company's builds this month, for billing. These emails are logged in `edge_email_log`.
+  - It uses the same `ANTHROPIC_API_KEY` secret as `finance-ai-read`.
+  - 30 drafts a day per company. Each call is logged in the new table `ai_usage_log`, which only admins can read.
 
 ## Native app: Phase 0 (started 28 Oct 2026)
 - **Built:** `app-native/` (Expo SDK 58, TypeScript strict). See `app-native/README.md`.

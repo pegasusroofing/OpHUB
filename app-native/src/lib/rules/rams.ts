@@ -35,8 +35,9 @@ export function ramsSettings(raw: Partial<RamsSettings> | null | undefined, orgN
 }
 
 export type LibItem = { id: string; kind: 'hazard' | 'section' | 'template'; title: string; sort_order: number | null; data: Record<string, unknown> | null };
-export type Hazard = { id: string; libId?: string; title: string; harm: string; p: number; s: number; rp: number; rs: number; controls: string[] };
-export type RSection = { id: string; libId?: string; part: 'general' | 'method'; title: string; body: string; steps: string[] };
+// ai: written by the AI writer and not saved to the library yet (shows a ✨ tag).
+export type Hazard = { id: string; libId?: string; ai?: boolean; title: string; harm: string; p: number; s: number; rp: number; rs: number; controls: string[] };
+export type RSection = { id: string; libId?: string; ai?: boolean; part: 'general' | 'method'; title: string; body: string; steps: string[] };
 export const ramsUid = () => `x${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36).slice(-4)}`;
 
 export function hazardFromLib(it: LibItem): Hazard {
@@ -149,4 +150,30 @@ export function moveItem<T extends { id: string; part?: string }>(arr: T[], id: 
   if (j < 0 || j >= arr.length) return null;
   const out = arr.slice(); [out[idx], out[j]] = [out[j], out[idx]];
   return out;
+}
+
+/** What the AI writer sends back, tidied: scores 1–5, ids given, only known PPE and groups, and nothing the RAMS already has. */
+export type AiDraft = { description: string; duration: string; hazards: Hazard[]; sections: RSection[]; ppe: string[]; groups: string[] };
+export function tidyAiDraft(raw: Record<string, unknown> | null | undefined): AiDraft {
+  const d = raw || {};
+  const sc = (v: unknown) => Math.max(1, Math.min(5, Math.round(Number(v) || 1)));
+  const strs = (v: unknown) => asList<unknown>(v).map((x) => String(x ?? '').trim()).filter(Boolean);
+  const ppeKeys = RAMS_PPE.map((p) => p.key);
+  return {
+    description: String(d.description || '').trim(), duration: String(d.duration || '').trim(),
+    hazards: asList<Record<string, unknown>>(d.hazards).filter((h) => String(h?.title || '').trim()).map((h) => ({ id: ramsUid(), ai: true, title: String(h.title).trim(), harm: String(h.harm || '').trim(), p: sc(h.p), s: sc(h.s), rp: sc(h.rp), rs: sc(h.rs), controls: strs(h.controls) })),
+    sections: asList<Record<string, unknown>>(d.sections).filter((x) => String(x?.title || '').trim()).map((x) => ({ id: ramsUid(), ai: true, part: x.part === 'general' ? 'general' as const : 'method' as const, title: String(x.title).trim(), body: String(x.body || '').trim(), steps: strs(x.steps) })),
+    ppe: strs(d.ppe).filter((k) => ppeKeys.includes(k)), groups: strs(d.groups).filter((g) => RAMS_GROUPS.includes(g)),
+  };
+}
+/** Adds an AI draft to a RAMS: nothing already there is changed, and a heading it already has isn't added twice. */
+export function mergeAiDraft(b: RamsBuild, d: AiDraft): RamsBuild {
+  const key = (x: { title: string }) => x.title.trim().toLowerCase();
+  const hz = b.hazards.slice(), sec = b.sections.slice();
+  d.hazards.forEach((h) => { if (!hz.some((x) => key(x) === key(h))) hz.push(h); });
+  d.sections.forEach((x) => { if (!sec.some((y) => key(y) === key(x) && y.part === x.part)) sec.push(x); });
+  const details = { ...b.details, groups: [...new Set([...(b.details.groups || []), ...d.groups])] };
+  if (!String(details.description || '').trim() && d.description) details.description = d.description;
+  if (!String(details.duration || '').trim() && d.duration) details.duration = d.duration;
+  return { ...b, details, hazards: hz, sections: sec.filter((x) => x.part !== 'method').concat(sec.filter((x) => x.part === 'method')), ppe: [...new Set([...b.ppe, ...d.ppe])] };
 }

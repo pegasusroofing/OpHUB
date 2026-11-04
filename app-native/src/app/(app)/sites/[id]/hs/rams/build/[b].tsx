@@ -10,12 +10,13 @@ import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-nativ
 import { chooseAction, confirmAsk, promptText, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Check, Empty, Muted, SectionTitle } from '@/components/ui';
 import { DateBox } from '@/components/DateField';
-import { deleteBuild, issueBuild, loadBuild, previewPdf, saveAsTemplate, saveBuild, saveItemToLibrary, useLibrary } from '@/data/ramsBuilder';
+import { askAiCharge, RamsAiPopup } from '@/components/RamsAiBox';
+import { aiDraft, aiToLibrary, deleteBuild, issueBuild, loadBuild, previewPdf, saveAsTemplate, saveBuild, saveItemToLibrary, useLibrary } from '@/data/ramsBuilder';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { showPdf } from '@/lib/pdf';
-import { hazardFromLib, lines, missingInfo, moveItem, P_LABELS, RAMS_GROUPS, RAMS_PPE, RAMS_REQUIRED, ramsUid, riskBand, rr, S_LABELS, sectionFromLib, type Hazard, type RamsBuild, type RamsDetails, type RSection } from '@/lib/rules/rams';
-import { isFullManager } from '@/lib/roles';
+import { hazardFromLib, lines, mergeAiDraft, missingInfo, moveItem, P_LABELS, RAMS_GROUPS, RAMS_PPE, RAMS_REQUIRED, ramsUid, riskBand, rr, S_LABELS, sectionFromLib, type Hazard, type RamsBuild, type RamsDetails, type RSection } from '@/lib/rules/rams';
+import { isCompanyAdmin, isFullManager } from '@/lib/roles';
 import { base, page, radius, space, live } from '@/theme/theme';
 
 type Tab = 'details' | 'ra' | 'ssow' | 'ms' | 'issue';
@@ -43,11 +44,14 @@ function Editor({ initial, siteId }: { initial: RamsBuild; siteId: string }) {
   const qc = useQueryClient();
   const [b, setB] = useState<RamsBuild>(initial);
   const { tab: startTab } = useLocalSearchParams<{ tab?: string }>();
-  const [tab, setTab] = useState<Tab>(startTab === 'ms' ? 'ms' : 'details');
+  const [tab, setTab] = useState<Tab>(startTab === 'ms' || startTab === 'ra' ? startTab : 'details');
   const [editId, setEditId] = useState<string | null>(null);
   const [picker, setPicker] = useState<{ kind: 'hazard' | 'section'; part: 'general' | 'method' | null } | null>(null);
   const [saveState, setSaveState] = useState(initial.status === 'issued' ? `✓ Issued rev ${initial.revision} · edits need re-issuing` : 'Draft · saves automatically');
   const [busy, setBusy] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiBusy, setAiBusy] = useState(false);
+  const { data: site } = useSite(siteId);
   const latest = useRef(b), timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saveNow = async () => {
     if (timer.current) { clearTimeout(timer.current); timer.current = null; }
@@ -262,6 +266,33 @@ function Editor({ initial, siteId }: { initial: RamsBuild; siteId: string }) {
     } catch (e) { showAlert(`Could not issue: ${(e as Error).message}`); }
     finally { setBusy(false); }
   };
+  // ----- AI writer (Andy, 4 Nov 2026) -----
+  const aiN = b.hazards.filter((h) => h.ai).length + b.sections.filter((x) => x.ai).length;
+  const writeAi = async (tasks: string) => {
+    if (!(await askAiCharge())) return;
+    setAiBusy(true);
+    try {
+      const d = await aiDraft(tasks, site, latest.current);
+      if (typeof d === 'string') { showAlert(d); return; }
+      change((x) => mergeAiDraft(x, d));
+      setAiOpen(false);
+      toast(`✨ Added ${d.hazards.length} hazards and ${d.sections.length} sections — check them before issuing`);
+    } finally { setAiBusy(false); }
+  };
+  // Each AI draft is a paid call, so writing is for admins; anyone can save what's there to the library.
+  const aiCan = isCompanyAdmin(me);
+  const aiBanner = () => (!aiCan && !aiN ? null :
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 10, padding: 10, borderRadius: 10, borderWidth: 1, borderColor: aiN ? '#E9D8FD' : base.line, backgroundColor: aiN ? '#FAF5FF' : base.card }}>
+      <Text style={{ flex: 1, minWidth: 200, fontSize: 13, color: aiN ? '#553C9A' : base.slate }}>{aiN ? `✨ ${aiN} item${aiN === 1 ? '' : 's'} written by AI. Check every line before issuing. Save them to the library to use on other jobs.` : 'Work not in the templates? Describe it and let the AI write it.'}</Text>
+      {aiN > 0 && <Button small kind="ghost" title="⭳ Save AI Items To Library" onPress={async () => {
+        if (timer.current) await saveNow();
+        const r = await aiToLibrary(me, latest.current);
+        change(() => r.b); void qc.invalidateQueries({ queryKey: ['ramsLib'] });
+        toast(r.n ? `${r.n} saved to the library` : 'Nothing new to save — those headings are already in the library');
+      }} />}
+      {aiCan && <Button small title="✨ Write With AI" onPress={() => setAiOpen(true)} />}
+    </View>
+  );
   const issueTab = () => (
     <>
       <Card>
@@ -300,8 +331,10 @@ function Editor({ initial, siteId }: { initial: RamsBuild; siteId: string }) {
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }} contentContainerStyle={{ gap: 6 }}>
           {tabs.map(([k, l]) => <Pressable key={k} onPress={() => void go(k)} style={chipStyle(tab === k)}><Text style={{ fontWeight: '700', fontSize: 13, color: tab === k ? live.brand1Text : base.ink }}>{l}</Text></Pressable>)}
         </ScrollView>
+        {aiBanner()}
         {tab === 'details' ? details() : tab === 'ra' ? hazards() : tab === 'ssow' ? sections('general') : tab === 'ms' ? sections('method') : issueTab()}
       </ScrollView>
+      {aiOpen && <RamsAiPopup busy={aiBusy} onClose={() => { if (!aiBusy) setAiOpen(false); }} onWrite={(t) => void writeAi(t)} />}
       {picker && <Picker kind={picker.kind} part={picker.part} have={picker.kind === 'hazard' ? b.hazards : b.sections} onClose={() => setPicker(null)} onNew={(title) => {
         // Not in the library: start a new one with what was searched for, on this RAMS only.
         if (picker.kind === 'hazard') { const h: Hazard = { id: ramsUid(), title, harm: '', p: 3, s: 3, rp: 1, rs: 3, controls: [] }; change((x) => ({ ...x, hazards: [...x.hazards, h] })); setEditId(h.id); }

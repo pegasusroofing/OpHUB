@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { log, tellOperatives } from '@/data/hsManager';
 import { buildRamsPdf } from '@/lib/ramsPdf';
-import { combineStart, defaultDetails, normaliseBuild, ramsSettings, siteClientContact, type Hazard, type LibItem, type RamsBuild, type RamsSettings, type RSection, ramsUid } from '@/lib/rules/rams';
+import { combineStart, defaultDetails, mergeAiDraft, normaliseBuild, tidyAiDraft, type AiDraft, ramsSettings, siteClientContact, type Hazard, type LibItem, type RamsBuild, type RamsSettings, type RSection, ramsUid } from '@/lib/rules/rams';
 import { fullSiteAddress } from '@/lib/rules/checkin';
 import { supabase } from '@/lib/supabase';
 import type { Organization, Profile, Site } from '@/lib/types';
@@ -131,4 +131,39 @@ export async function issueBuild(me: Me, org: Org, siteId: string, b: RamsBuild)
   made.forEach(([, , name]) => tellOperatives(me, siteId, `New RAMS published and needs signing: "${name}"`));
   log(me, siteId, 'rams_build_issued', `Issued RAMS "${b.title}" rev ${rev}`);
   return null;
+}
+
+/** The AI writer (rams-ai-draft): a tidied draft, or what went wrong in plain words. */
+export async function aiDraft(tasks: string, site: Site | undefined, have: RamsBuild | null): Promise<AiDraft | string> {
+  try {
+    const r = await supabase.functions.invoke('rams-ai-draft', { body: { tasks, site: { name: site?.name || '', address: (site && fullSiteAddress(site)) || '', client: site?.client_name || '' }, have: { hazards: have?.hazards.map((h) => h.title) ?? [], sections: have?.sections.map((x) => x.title) ?? [] } } });
+    const d = r.data as { ok?: boolean; data?: Record<string, unknown>; error?: string } | null;
+    if (d?.error === 'not_configured') return 'The AI writer isn’t switched on yet (it needs the AI key set up on the server).';
+    if (r.error || !d?.ok) return d?.error || 'The AI writer didn’t answer — check signal and try again.';
+    const out = tidyAiDraft(d.data);
+    return out.hazards.length || out.sections.length ? out : 'The AI didn’t come back with anything — add a bit more detail and try again.';
+  } catch { return 'The AI writer didn’t answer — check signal and try again.'; }
+}
+/** Writes an AI draft into a saved RAMS (used straight after Create RAMS). */
+export async function aiFillBuild(me: Me, org: Org, site: Site | undefined, id: string, tasks: string): Promise<string | null> {
+  const b = await loadBuild(me, org, site, id);
+  if (!b) return 'Could not open the new RAMS.';
+  const d = await aiDraft(tasks, site, b);
+  if (typeof d === 'string') return d;
+  return (await saveBuild(mergeAiDraft(b, d))) ? null : 'The AI draft could not be saved — try again from the builder.';
+}
+/** Saves every AI-written item in a RAMS to the library (Andy, 4 Nov 2026). Returns how many went in. */
+export async function aiToLibrary(me: Me, b: RamsBuild): Promise<{ n: number; b: RamsBuild }> {
+  let n = 0;
+  const next = { ...b, hazards: b.hazards.slice(), sections: b.sections.slice() };
+  for (const [kind, list] of [['hazard', next.hazards], ['section', next.sections]] as const) {
+    for (let i = 0; i < list.length; i++) {
+      const it = list[i];
+      if (!it.ai || !it.title.trim()) continue;
+      // A heading the library already has is left alone; it isn't overwritten without asking.
+      const r = await saveItemToLibrary(me, kind, { ...it, ai: undefined } as never, async () => false);
+      if (r && r !== 'Could not save') { list[i] = { ...it, ai: false, libId: r } as never; n++; }
+    }
+  }
+  return { n, b: next };
 }

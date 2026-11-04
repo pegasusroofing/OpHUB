@@ -8,12 +8,13 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { chooseAction, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Check, Muted, SectionTitle, Toggle } from '@/components/ui';
-import { createBuild, useLibrary, useOrgBuilds } from '@/data/ramsBuilder';
+import { AiTasksInput, askAiCharge } from '@/components/RamsAiBox';
+import { aiFillBuild, createBuild, useLibrary, useOrgBuilds } from '@/data/ramsBuilder';
 import { useSite, useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { starterRows } from '@/lib/rules/ramsStarter';
 import { supabase } from '@/lib/supabase';
-import { isFullManager } from '@/lib/roles';
+import { isCompanyAdmin, isFullManager } from '@/lib/roles';
 import { base, page, radius, space } from '@/theme/theme';
 
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card, marginBottom: 8 };
@@ -33,6 +34,8 @@ export default function RamsNew() {
   const [copies, setCopies] = useState<string[]>([]);
   const [copyOpen, setCopyOpen] = useState(false);
   const [own, setOwn] = useState('');
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiText, setAiText] = useState('');
   const [busy, setBusy] = useState(false);
   if (!me) return null;
   if (!isFullManager(me)) return <Muted style={{ padding: space.l }}>Project Managers and admins only.</Muted>;
@@ -75,6 +78,12 @@ export default function RamsNew() {
           </Card>}
         </>
       )}
+      {/* For work the templates don't cover (Andy, 4 Nov 2026). */}
+      {isCompanyAdmin(me) && <Toggle title={`✨ Or Write It With AI${aiText.trim() ? ' (described)' : ''}`} open={aiOpen} onPress={() => setAiOpen(!aiOpen)} />}
+      {aiOpen && isCompanyAdmin(me) && <Card>
+        <Muted style={{ marginBottom: 6 }}>Describe the job and its tasks in your own words. The AI writes the hazards, safe systems of work and a method statement for each task. It can be combined with templates above. You check and edit everything before issuing, and can save any of it to the library. This is an additional feature, charged per build.</Muted>
+        <AiTasksInput value={aiText} onChange={setAiText} />
+      </Card>}
       <SectionTitle>Tasks not in the library</SectionTitle>
       <Card>
         <Muted style={{ marginBottom: 6 }}>Type any other tasks on this job, one per line. Each becomes its own method statement for you to write up, and you can save it to the library from there.</Muted>
@@ -82,13 +91,18 @@ export default function RamsNew() {
       </Card>
       <View style={{ marginTop: 6 }}><Button title="Create RAMS" busy={busy} onPress={async () => {
         if (busy) return;
+        if (isCompanyAdmin(me) && aiText.trim() && !(await askAiCharge())) return;
         setBusy(true);
         try {
           const ownTasks = own.split('\n').map((x) => x.trim()).filter(Boolean);
           const r = await createBuild(me, org as never, site, id, name.trim() || 'RAMS', tpls, copies, ownTasks);
           if (typeof r === 'string') { toast(r); return; }
+          const ai = isCompanyAdmin(me) ? aiText.trim() : '';
+          let aiErr: string | null = null;
+          if (ai) { toast('✨ Writing the RAMS — this takes up to a minute…'); aiErr = await aiFillBuild(me, org as never, site, r.id, ai); }
           void qc.invalidateQueries({ queryKey: ['ramsBuilds'] }); void qc.invalidateQueries({ queryKey: ['ramsBuildsOrg'] });
-          router.replace(`/sites/${id}/hs/rams/build/${r.id}${ownTasks.length ? '?tab=ms' : ''}` as never);
+          router.replace(`/sites/${id}/hs/rams/build/${r.id}${ai && !aiErr ? '?tab=ra' : ownTasks.length ? '?tab=ms' : ''}` as never);
+          if (aiErr) showAlert(`The RAMS was created, but the AI part didn't work: ${aiErr}\n\nYou can try again from the builder with ✨ Write With AI.`);
           if (r.missing.length) showAlert(`Heads up: ${r.missing.length === 1 ? 'one item' : `${r.missing.length} items`} in the template could not be found in the RAMS library, so ${r.missing.length === 1 ? 'it was' : 'they were'} not added: ${r.missing.join(' · ')}. Add ${r.missing.length === 1 ? 'it' : 'them'} from the library in the editor, and fix the template in the RAMS Library.`);
         } finally { setBusy(false); }
       }} /></View>
