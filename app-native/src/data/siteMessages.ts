@@ -26,7 +26,11 @@ export const KIND_ROUTE: Record<string, string> = {
 /** 9219zr MPL_KIND_LABEL: the tag shown on one-person messages that open somewhere special. */
 export const SPECIAL_LABEL: Record<string, string> = { grn_problem: 'Delivery problem', pi_query: 'Invoice query', pi_query_reply: 'Invoice query reply' };
 /** Where tapping a message goes: delivery problems and invoice queries open like their push (9219zr msgExtraClick), others by kind. */
-export function msgDest(m: Pick<Message, 'kind' | 'site_id'> & { related_id?: string | null }, me: Profile | null): string | null {
+export function msgDest(m: Pick<Message, 'kind' | 'site_id'> & { related_id?: string | null; body?: string | null }, me: Profile | null): string | null {
+  // Plant hand-overs and yard leftovers (Andy, 4 Nov 2026) use the existing message kinds, so they're known by their wording.
+  const b = String(m.body || '');
+  if (/open Plant to |please confirm it in Plant/.test(b)) return m.site_id ? `/sites/${m.site_id}/plant` : '/pm/yard';
+  if (/Allocate them in Materials › Yard Stock/.test(b) && m.site_id) return `/sites/${m.site_id}/materials/yard`;
   if (m.kind === 'grn_problem' || m.kind === 'pi_query' || m.kind === 'pi_query_reply') return pushRoute({ kind: m.kind, site_id: m.site_id || undefined, related_id: m.related_id || undefined }, me);
   return m.site_id && KIND_ROUTE[m.kind] ? `/sites/${m.site_id}/${KIND_ROUTE[m.kind]}` : null;
 }

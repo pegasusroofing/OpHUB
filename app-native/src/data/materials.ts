@@ -535,7 +535,7 @@ export async function yardBookIn(me: Profile, f: { stock: YardItem; qty: number;
   const r = await db.from('yard_moves').insert({ org_id: me.org_id, stock_id: f.stock.id, kind: 'in', qty: f.qty, site_id: null, note: f.note || null, created_by: me.id, ref: f.ref || null, supplier_name: f.supplier || null, po_id: f.poId || null, photo_path: photo, leftover: !!f.leftover, from_site_id: f.leftover ? f.fromSiteId || null : null } as never);
   if (r.error) return 'Could not save — try again.';
   // Leftovers wait for a PM to allocate them (Andy, 4 Nov 2026); the job's managers are told when one is named.
-  if (f.leftover && f.fromSiteId) tellManagers(me, f.fromSiteId, 'yard_leftover', `${me.name} booked leftovers back into the yard: ${yardQty(f.qty)} ${f.stock.unit || ''} ${f.stock.item}. Allocate them in Materials › Yard Stock so the job gets the cost back.`.replace(/\s+/g, ' '));
+  if (f.leftover && f.fromSiteId) tellManagers(me, f.fromSiteId, 'message', `${me.name} booked leftovers back into the yard: ${yardQty(f.qty)} ${f.stock.unit || ''} ${f.stock.item}. Allocate them in Materials › Yard Stock so the job gets the cost back.`.replace(/\s+/g, ' '));
   return null;
 }
 /** A PM / admin / Finance says which job leftovers came from (or null: no job). */

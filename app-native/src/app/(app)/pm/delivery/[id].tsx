@@ -17,6 +17,7 @@ import { blankDraft, deleteDelivery, draftFrom, existingFirstDrop, loadDelivery,
 import { completionPhotos, dayList, placeOf, reopenDelivery, siteLabel } from '@/data/driver';
 import { useSuppliers } from '@/data/materials';
 import { useSites, useSubAddresses } from '@/data/sites';
+import { useOrgPlant } from '@/data/plant';
 import { useAuth } from '@/lib/auth';
 import { pickPhotos } from '@/lib/photos';
 import { siteStatusKey } from '@/lib/rules/checkin';
@@ -56,6 +57,7 @@ export default function DeliveryForm() {
   });
   const { data: dayTasks = [] } = useQuery({ queryKey: ['dayList', me?.org_id, d?.scheduled_date], enabled: !!me && !!d?.scheduled_date, queryFn: () => dayList(me?.org_id as string, d?.scheduled_date as string) });
   const drivers = people.filter((p) => p.role === 'driver');
+  const { data: plant } = useOrgPlant(me?.org_id);
 
   useEffect(() => {
     if (d || !me) return;
@@ -249,6 +251,40 @@ export default function DeliveryForm() {
           <Muted style={{ marginTop: -6, marginBottom: 10 }}>An unassigned delivery shows on every driver&apos;s schedule until one is chosen.</Muted>
         </>
       ) : <Text style={{ color: base.warn, marginBottom: 10 }}>No delivery drivers set up yet — this will sit unassigned until one is added.</Text>}
+      {/* Plant on the van (Andy, 4 Nov 2026): it moves when the driver marks the delivery complete. */}
+      {(() => {
+        const items = plant?.items ?? [];
+        const free = (x: (typeof items)[number]) => x.current_status === 'available';
+        const nm = (pid: string) => items.find((x) => x.id === pid)?.name || 'Item';
+        const add = async (key: 'plant_item_ids' | 'plant_return_ids') => {
+          const pool = key === 'plant_item_ids' ? items.filter((x) => free(x) && !x.current_site_id) : items.filter((x) => free(x) && !!d.site_id && x.current_site_id === d.site_id);
+          const opts = pool.filter((x) => !d.plant_item_ids.includes(x.id) && !d.plant_return_ids.includes(x.id));
+          if (!opts.length) { toast(key === 'plant_item_ids' ? 'No free plant in the yard.' : 'No free plant on this job to bring back.'); return; }
+          const k = await chooseAction(key === 'plant_item_ids' ? 'Plant to take to the job' : 'Plant to bring back to the yard', opts.map((x) => ({ key: x.id, label: x.name })));
+          if (k) set({ [key]: [...d[key], k] } as Partial<Draft>);
+        };
+        const chips = (key: 'plant_item_ids' | 'plant_return_ids') => d[key].length ? (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
+            {d[key].map((pid) => <Pressable key={pid} onPress={() => set({ [key]: d[key].filter((x) => x !== pid) } as Partial<Draft>)} style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1, borderColor: base.line, backgroundColor: base.card }}><Text style={{ fontSize: 12.5, color: base.ink }}>{nm(pid)}  ✕</Text></Pressable>)}
+          </View>
+        ) : null;
+        return (
+          <>
+            <Label>Plant To Take To The Job (optional)</Label>
+            {chips('plant_item_ids')}
+            <Button small kind="ghost" title="+ Add Plant From The Yard" onPress={() => void add('plant_item_ids')} />
+            {!d.manualSite && !!d.site_id && (
+              <>
+                <View style={{ height: 8 }} />
+                <Label>Plant To Bring Back To The Yard (optional)</Label>
+                {chips('plant_return_ids')}
+                <Button small kind="ghost" title="+ Add Plant From This Job" onPress={() => void add('plant_return_ids')} />
+              </>
+            )}
+            <Muted style={{ marginTop: 4, marginBottom: 10 }}>The plant moves when the driver marks the delivery complete, with a photo.</Muted>
+          </>
+        );
+      })()}
       <Label>Photos (optional)</Label>
       {d.photo_paths.length > 0 && (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>

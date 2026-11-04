@@ -101,6 +101,8 @@ export type Draft = {
   collection_address_manual: string; site_contact_id: string; site_contact_manual: string; photo_paths: string[];
   scheduled_date: string; time_slot: string; high_priority: boolean; double_slot: boolean; driver_id: string;
   requestId?: string | null;
+  // Plant the driver takes to the job, and plant they bring back to the yard (Andy, 4 Nov 2026).
+  plant_item_ids: string[]; plant_return_ids: string[];
 };
 export type Orig = { date: string; slot: string; driverId: string; calendarEventId: string | null } | null;
 
@@ -112,6 +114,7 @@ export function draftFrom(t: FullDelivery): { draft: Draft; orig: Orig } {
       collection_address_manual: t.collection_address_manual || '', site_contact_id: t.site_contact_id || (t.site_contact_manual ? '__typed' : ''), site_contact_manual: t.site_contact_manual || '',
       photo_paths: t.photo_paths?.filter(Boolean).length ? t.photo_paths.filter(Boolean) : t.photo_path ? [t.photo_path] : [],
       scheduled_date: t.scheduled_date, time_slot: t.time_slot, high_priority: !!t.high_priority, double_slot: !!t.double_slot, driver_id: t.driver_id || 'none',
+      plant_item_ids: ((t as { plant_item_ids?: string[] | null }).plant_item_ids ?? []).slice(), plant_return_ids: ((t as { plant_return_ids?: string[] | null }).plant_return_ids ?? []).slice(),
     },
     orig: { date: t.scheduled_date, slot: t.time_slot, driverId: t.driver_id || '', calendarEventId: t.calendar_event_id || null },
   };
@@ -124,6 +127,7 @@ export function blankDraft(date: string, slot: string | null, req: DeliveryReque
     collection_type: req ? 'manual' : 'yard', supplier_id: '', supplier_branch: null, collection_address_manual: req ? 'Clear site' : '',
     site_contact_id: '', site_contact_manual: '', photo_paths: (req?.photo_paths ?? []).slice(),
     scheduled_date: date, time_slot: slot || '7am', high_priority: false, double_slot: false, driver_id: '', requestId: req?.id ?? null,
+    plant_item_ids: [], plant_return_ids: [],
   };
 }
 
@@ -159,6 +163,7 @@ export async function saveDelivery(me: Profile, d: Draft, orig: Orig, sites: Sit
     site_contact_manual: d.site_contact_id === '__typed' ? d.site_contact_manual.trim() || null : null,
     photo_path: d.photo_paths[0] || null, photo_paths: d.photo_paths, scheduled_date: d.scheduled_date, time_slot: d.time_slot,
     high_priority: high, double_slot: d.double_slot, driver_id: d.driver_id && d.driver_id !== 'none' ? d.driver_id : null, needs_completing: false,
+    plant_item_ids: d.plant_item_ids.length ? d.plant_item_ids : null, plant_return_ids: d.plant_return_ids.length ? d.plant_return_ids : null,
   };
   let savedId = d.id;
   if (d.id) {

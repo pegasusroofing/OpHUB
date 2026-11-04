@@ -10,6 +10,8 @@ import { TextInput, View } from 'react-native';
 import { FinFilterBar, type FilterSel } from '@/components/FinFilterBar';
 import { FinPage, FinRow, FinStat } from '@/components/FinNav';
 import { YardLeftovers } from '@/components/YardLeftovers';
+import { PlantRegister } from '@/components/PlantRegister';
+import { YardSubTabs } from '@/components/YardSubTabs';
 import { PurchasesStats } from '@/components/FinPurchases';
 import { FinForm, type Field } from '@/components/FinForm';
 import { confirmAsk, useToast } from '@/components/toast';
@@ -41,7 +43,7 @@ function useYardBook(orgId: string | null | undefined) {
 }
 
 export default function FinYard() {
-  const { id } = useLocalSearchParams<{ id?: string }>();
+  const { id, sub } = useLocalSearchParams<{ id?: string; sub?: string }>();
   const { me } = useAuth();
   const qc = useQueryClient();
   const toast = useToast();
@@ -141,8 +143,9 @@ export default function FinYard() {
   }
   return (
     <FinPage title="Purchases" section="purchases" sub="yard" top={<PurchasesStats />} onSub={(k) => (k === 'yard' ? undefined : k === 'statements' ? router.replace('/fin/statements' as never) : router.replace(`/fin/purchases?tab=${k}` as never))}>
-      <YardLeftovers />
-      <YardList items={items} rateBy={rateBy} loading={isLoading} onNew={() => setEdit('new')} onMove={openMove} />
+      <YardSubTabs on={sub === 'plant' ? 'plant' : 'stock'} />
+      {sub === 'plant' ? <PlantRegister /> : <><YardLeftovers />
+      <YardList items={items} rateBy={rateBy} loading={isLoading} onNew={() => setEdit('new')} onMove={openMove} /></>}
       {forms}
     </FinPage>
   );

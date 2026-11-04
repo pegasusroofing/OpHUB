@@ -18,6 +18,7 @@ import {
   removeCompletionPhoto, replaceCompletionPhoto, reopenDelivery, siteHeading, useDriverDay, useDriverStatus, type Delivery,
 } from '@/data/driver';
 import { useStaff } from '@/data/deliveries';
+import { useOrgPlant } from '@/data/plant';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { pickPhotos } from '@/lib/photos';
@@ -38,6 +39,7 @@ function usePhones() {
 
 export default function DriverSchedule() {
   const { me } = useAuth();
+  const { data: plant } = useOrgPlant(me?.org_id);
   const th = useTheme();
   const toast = useToast();
   const markup = useStoredPhotoMarkup();
@@ -184,6 +186,16 @@ export default function DriverSchedule() {
                   <Text style={{ fontSize: 12.5, color: base.slate }}>{pm.booked ? 'Booked by' : 'PM'}: {pm.name}{pm.phone ? <Text style={{ color: base.blue }} onPress={() => Linking.openURL(`tel:${pm.phone.replace(/[^0-9+]/g, '')}`)}> · {pm.phone}</Text> : null}</Text>
                 ) : <Text style={{ fontSize: 12.5, color: base.slate }}>PM: not set</Text>}
                 {!!t.description && <Text style={{ color: base.ink, marginTop: 6 }}>{t.description}</Text>}
+                {(() => {
+                  const ids = (t as { plant_item_ids?: string[] | null }).plant_item_ids ?? [], back = (t as { plant_return_ids?: string[] | null }).plant_return_ids ?? [];
+                  const nm = (pid: string) => plant?.items.find((x) => x.id === pid)?.name || 'Item';
+                  return (
+                    <>
+                      {ids.length > 0 && <Text style={{ color: base.ink, marginTop: 6 }}>🏗 <Text style={{ fontWeight: '700' }}>Plant to take:</Text> {ids.map(nm).join(', ')}</Text>}
+                      {back.length > 0 && <Text style={{ color: base.ink, marginTop: 4 }}>↩ <Text style={{ fontWeight: '700' }}>Plant to bring back:</Text> {back.map(nm).join(', ')}</Text>}
+                    </>
+                  );
+                })()}
                 <Muted style={{ marginTop: 4 }}>{collectionLine(t, supplierName(t.supplier_id))}</Muted>
                 {contact && <Muted>👤 Site contact: {contact.name}{contact.phone ? ` · ${contact.phone}` : ''}</Muted>}
                 {!contact && !!t.site_contact_manual && <Muted>👤 Site contact: {t.site_contact_manual}</Muted>}
