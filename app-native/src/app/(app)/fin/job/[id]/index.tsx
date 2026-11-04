@@ -274,7 +274,7 @@ function Setup({ id, site, jf, cpos, settings, formOnly, onDone }: { id: string;
     if (await deleteSite(id)) { toast('Project deleted'); void qc.invalidateQueries({ queryKey: ['sites'] }); router.replace('/fin/jobs' as never); } else toast('Could not delete — try again.');
   };
   const jobForm = edit === 'job' && (
-        <FinForm title="Project Financials" initial={{ ...jf, job_number: site?.job_number || '', billing_type: jf.billing_type || '', ohp_pct: jf.ohp_pct ?? settings.ohp_pct ?? 0 }} onClose={() => { setEdit(null); onDone?.(); }}
+        <FinForm title="Project Financials" extra={isFullManager(me) ? <View style={{ marginBottom: 8 }}><Button small kind="ghost" title="📁 Link Estimating Folder" onPress={() => { setEdit(null); onDone?.(); router.push({ pathname: '/pm/onedrive-pick', params: { target: 'estimating', id } } as never); }} /></View> : undefined} initial={{ ...jf, job_number: site?.job_number || '', billing_type: jf.billing_type || '', ohp_pct: jf.ohp_pct ?? settings.ohp_pct ?? 0 }} onClose={() => { setEdit(null); onDone?.(); }}
           fields={[
             { k: 'job_number', label: 'Project number', half: true }, { k: 'contract_value', label: 'Contract value £ (excl. VAT)', kind: 'money', half: true },
             { k: 'billing_type', label: 'Billed by', kind: 'choice', options: [['invoice', 'Invoice'], ['application', 'Application (with retention)']], note: 'Invoice jobs have no applications or retention.' },
@@ -357,7 +357,7 @@ function Setup({ id, site, jf, cpos, settings, formOnly, onDone }: { id: string;
         {!byInv && kv('Final retention release', jf.final_release_date ? `${fdate(jf.final_release_date)} (set by hand)` : 'End of the defects period')}
         {kv('QS', jf.qs_id ? (people ?? []).find((p) => p.id === jf.qs_id)?.name || '—' : 'None yet')}
         {kv('Company overheads', jf.ohp_pct != null ? `${jf.ohp_pct}%` : `${settings.ohp_pct ?? 0}% (company)`)}
-        <View style={{ marginTop: 8, gap: 8 }}>{isFullManager(me) && <Button kind="ghost" title="✎ Project — name, client, address, status" onPress={() => setEdit('site')} />}<Button title="Edit Project Financials" onPress={() => setEdit('job')} />{!byInv && <Button kind="ghost" title="📅 Monthly application dates" onPress={() => setEdit('dates')} />}</View>
+        <View style={{ marginTop: 8, gap: 8 }}>{isFullManager(me) && <Button kind="ghost" title="✎ Project — name, client, address, status" onPress={() => setEdit('site')} />}<Button title="Edit Project Financials" onPress={() => setEdit('job')} />{isFullManager(me) && <Button kind="ghost" title="📁 Link Estimating Folder" onPress={() => router.push({ pathname: '/pm/onedrive-pick', params: { target: 'estimating', id } } as never)} />}{!byInv && <Button kind="ghost" title="📅 Monthly application dates" onPress={() => setEdit('dates')} />}</View>
       </Card>
       {isFullManager(me) && <View style={{ marginBottom: 8 }}><Button kind="danger" title="🗑 Delete this project" onPress={() => void delJob()} /></View>}
       <SectionTitle>Client POs</SectionTitle>

@@ -133,6 +133,25 @@ export async function convertToJob(me: Profile, q: Quote, autoNumbers: boolean, 
   return { siteId: made.id, note: notes.join('. ') };
 }
 
+/** Where open enquiries live (Quote settings), so the OneDrive picker can start there. Null if it isn't set. */
+export async function estimatingRoot(): Promise<{ id: string; name: string; driveId: string | null } | null> {
+  const r = await invokeAsUser<{ ok?: boolean; none?: boolean; id?: string; driveId?: string | null; name?: string }>('quote-tracker', { action: 'estimating_root' });
+  return r.data?.id ? { id: r.data.id, name: r.data.name || 'Estimating', driveId: r.data.driveId ?? null } : null;
+}
+/** A job's estimating folder chosen from OneDrive (Andy, 4 Nov 2026), e.g. for a job made in Finance: the job's own folder is
+ *  made first if needed, then the chosen folder moves into its Contract & Commercial › Estimating folder. A quote using that
+ *  folder is marked won and linked to the job. */
+export async function linkEstimatingFolder(siteId: string, f: { id: string; name: string; driveId?: string | null }): Promise<{ error?: string; note: string }> {
+  if (!(await hasJobPack(siteId))) {
+    const pack = await setupJobPack(siteId);
+    if ('error' in pack) return { error: `The job's OneDrive folder couldn't be made: ${pack.error}`, note: '' };
+  }
+  const r = await invokeAsUser<{ ok?: boolean; how?: string; quote?: string | null }>('quote-tracker', { action: 'link_folder', site_id: siteId, folder_id: f.id, drive_id: f.driveId || null });
+  if (r.error || !r.data?.ok) return { error: r.error || 'Could not move the folder.', note: '' };
+  const bits = [r.data.how === 'copied' ? `"${f.name}" was copied into the job (the original stays in Estimating)` : `"${f.name}" moved into the job's Estimating folder`];
+  if (r.data.quote) bits.push(`the quote "${r.data.quote}" is marked won`);
+  return { note: bits.join(', and ') };
+}
 /** Won, for a job that's already in OpHUB (Andy, 4 Nov 2026): the enquiry's folder moves into that job's Estimating folder
  *  (the job's folder is made first if it hasn't one), and the quote is marked won and linked to the job. */
 export async function linkToJob(me: Profile, q: Quote, siteId: string, firstDays: number): Promise<{ note: string } | { error: string }> {

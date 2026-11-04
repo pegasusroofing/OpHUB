@@ -8,6 +8,8 @@ import { encodeBase64 } from 'jsr:@std/encoding@1/base64';
 //   { action: 'chase', quote_id }   a PM presses Chase now: one email to the quote's contact.
 //   { action: 'send', quote_id, to, subject, body, files: [{id, driveId, name}] }  sends the quote to the client with
 //     files from its OneDrive folder attached, copying the sender in.
+//   { action: 'estimating_root' } / { action: 'link_folder', site_id, folder_id, drive_id }  a job's estimating folder
+//     chosen from OneDrive (Finance jobs), see below.
 //   cron: every company with chase_enabled, returned quotes with chase_on whose date has come.
 // Folders are only ever moved or copied, never deleted, and are held by id so a move by hand in OneDrive doesn't lose them.
 const corsHeaders = { 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-user-token, x-cron-secret, cache-control, pragma' };
@@ -124,6 +126,36 @@ Deno.serve(async (req) => {
     if (!me?.org_id || !['pm', 'admin'].includes(String(me.role))) return reply(req, { error: 'Project managers and admins only.' }, 403);
 
     const body = await req.json().catch(() => ({}));
+    // A job's estimating folder, chosen from OneDrive (Andy, 4 Nov 2026), e.g. for a job made in Finance. No quote needed.
+    //   { action: 'estimating_root' }  where open enquiries live (Quote settings), so the picker can start there.
+    //   { action: 'link_folder', site_id, folder_id, drive_id }  moves that folder into the job's Contract & Commercial ›
+    //     Estimating folder; a quote using that folder is marked won and linked to the job.
+    if (body.action === 'estimating_root' || body.action === 'link_folder') {
+      const { data: st } = await admin.from('quote_settings').select('*').eq('org_id', me.org_id).maybeSingle();
+      const { data: cn } = await admin.from('onedrive_connections').select('*').eq('org_id', me.org_id).maybeSingle();
+      if (!cn?.access_token) return reply(req, { error: 'OneDrive isn’t connected.' });
+      const g = await tokenFor(admin, cn);
+      if (body.action === 'estimating_root') {
+        const path = cleanPath(st?.open_path || '');
+        const r = path ? await walk(g, ROOT, path, false) : null;
+        return reply(req, r ? { ok: true, id: r.id, driveId: r.drive, name: path.split('/').pop() } : { ok: true, none: true });
+      }
+      const { data: site } = await admin.from('sites').select('org_id, job_pack').eq('id', String(body.site_id || '')).maybeSingle();
+      if (!site || site.org_id !== me.org_id) return reply(req, { error: 'Forbidden' }, 403);
+      if (!site.job_pack) return reply(req, { error: 'This job has no OneDrive folder yet.' });
+      const fid = String(body.folder_id || '');
+      if (!fid) return reply(req, { error: 'Choose the folder.' }, 400);
+      let fdrive = String(body.drive_id || '') || null;
+      if (!fdrive) fdrive = (await (await fetch(`${GRAPH}/me/drive/items/${encodeURIComponent(fid)}?select=parentReference`, { headers: { Authorization: `Bearer ${g}` } })).json().catch(() => ({})))?.parentReference?.driveId || null;
+      if (!fdrive) return reply(req, { error: 'Could not find that folder in OneDrive.' });
+      const to = await walk(g, { drive: site.job_pack.drive_id, id: site.job_pack.root_id }, cleanPath(st?.won_folder || '1. Contract & Commercial/2. Estimating'), true);
+      if (!to) return reply(req, { error: 'Could not find the job’s estimating folder.' }, 502);
+      const how = await moveFolder(g, { drive: fdrive, id: fid }, to);
+      if (how === 'failed') return reply(req, { error: 'Could not move the folder.' });
+      const { data: hit } = await admin.from('quotes').select('id, title').eq('org_id', me.org_id).eq('folder_id', fid).is('site_id', null).limit(1);
+      if (hit?.[0]) await admin.from('quotes').update({ site_id: String(body.site_id), status: 'won', completed_at: new Date().toISOString().slice(0, 10), chase_on: false, next_chase_date: null, updated_at: new Date().toISOString() }).eq('id', hit[0].id);
+      return reply(req, { ok: true, how, quote: hit?.[0]?.title ?? null });
+    }
     const { data: q } = await admin.from('quotes').select('*').eq('id', String(body.quote_id || '')).maybeSingle();
     if (!q || q.org_id !== me.org_id) return reply(req, { error: 'Forbidden' }, 403);
     const { data: settings } = await admin.from('quote_settings').select('*').eq('org_id', me.org_id).maybeSingle();

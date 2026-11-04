@@ -11,7 +11,7 @@ const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supab
 const rpc = supabase.rpc.bind(supabase) as unknown as (n: string, a: object) => Promise<{ data: unknown; error: unknown }>;
 export type OdStatus = { exists: boolean; connected: boolean; needs_reconnect: boolean; reason?: string; account_email?: string; folder_path?: string } | null;
 export type OdFolder = { id: string; name: string; driveId?: string | null; virtual?: boolean; isSite?: boolean };
-export type OdTarget = 'progress' | 'materials' | 'siteinductions' | 'repairjob' | 'operative' | 'quicklink' | 'quote';
+export type OdTarget = 'progress' | 'materials' | 'siteinductions' | 'repairjob' | 'operative' | 'quicklink' | 'quote' | 'estimating';
 export const SHARED_ROOT = '__SHARED__', SITES_ROOT = '__SITES__';
 
 export async function oneDriveStatus(orgId: string | null): Promise<OdStatus> {
