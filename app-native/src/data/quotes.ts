@@ -64,6 +64,10 @@ export async function addQuoteClient(me: Profile, quoteId: string, c: { name: st
   return !(await db.from('quote_clients').insert({ org_id: me.org_id, quote_id: quoteId, client_id: cid, client_name: c.name, contact_name: c.contact || null, contact_email: c.email || null, contact_phone: c.phone || null, created_by: me.id } as never)).error;
 }
 export const removeQuoteClient = async (id: string) => !(await db.from('quote_clients').delete().eq('id', id)).error;
+/** Who to chase at one of the other clients (the chaser emails every client on a returned quote). */
+export const setQuoteClientContact = async (id: string, c: { contact_name: string | null; contact_email: string | null }) => !(await db.from('quote_clients').update(c as never).eq('id', id)).error;
+/** Every email the chaser will use on a quote, main client first, no repeats. */
+export const chaseEmails = (q: Quote) => [...new Set([q.contact_email, ...(q.others ?? []).map((o) => o.contact_email)].map((e) => String(e || '').trim()).filter((e) => /^[^\s@,;<>"]+@[^\s@,;<>"]+\.[^\s@,;<>"]+$/.test(e)))];
 /** Won from one of the other clients: they become the quote's main client (so the job is made for them) and the old main
  *  client joins the others, so the reports still count the quote for them. Returns the quote as it now stands. */
 export async function wonFrom(me: Profile, q: Quote, o: QuoteClient): Promise<Quote | null> {

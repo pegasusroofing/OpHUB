@@ -59,6 +59,7 @@ These need an admin, in Quotes › Settings:
   - **Winning:** Won asks *which client you won it from*. That client becomes the main one, and the job is made (or linked) for them.
   - **Reports:** **By Customer** counts the quote for every client: won for the winner, not won for the others. The Customer filter and search find a quote by any of its clients.
   - **Totals:** in By Customer, the value total counts a quote once per client.
+  - **The chaser emails every client** on a returned quote (Andy, 4 Nov). Each gets their own email, with their own name and company. It covers the automatic chases and Chase Now, and one round counts once towards the chase limit. Tap another client on the quote to add the contact to chase there.
 - **Won: Link To Existing Job:** for a job that's already in OpHUB. Pick the job, and the enquiry's folder moves into its Contract & Commercial › Estimating folder. The job's OneDrive folder is made first if it has none.
 - **Link Estimating Folder (Finance):** a job made in Finance opens its Project Financials pop-up, which now has **Link Estimating Folder** at the top. It's also in Project Admin.
   - The OneDrive picker opens in your Estimating folder. Pick the enquiry's folder and it moves into the job's Contract & Commercial › Estimating folder.
@@ -72,4 +73,3 @@ These need an admin, in Quotes › Settings:
 
 ## Still to decide
 - **Chasing tender-stage quotes:** they don't chase. Do you want a reminder to *you* instead, e.g. "chase this one by phone"?
-- **The chaser and several clients:** it emails the main client's contact only. Should it chase every client's contact on a returned quote?

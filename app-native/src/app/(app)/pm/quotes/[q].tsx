@@ -9,11 +9,11 @@ import { Pressable, ScrollView, Switch, Text, View } from 'react-native';
 
 import { DateBox } from '@/components/DateField';
 import { OneDriveBrowser } from '@/components/OneDriveBrowser';
-import { chooseAction, confirmAsk, showAlert, useToast } from '@/components/toast';
+import { chooseAction, confirmAsk, promptText, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Field, Muted, SectionTitle, Toggle } from '@/components/ui';
 import { FinStat } from '@/components/FinNav';
 import { useTeam } from '@/data/admin';
-import { addQuoteClient, chaseNow, chasePatch, clientId, convertToJob, fileQuoteFolder, linkToJob, removeQuoteClient, setClientMarkup, wonFrom, type Quote, makeQuoteFolder, saveQuote, searchClients, setQuoteStatus, uploadTenderDocs, useQuote, useQuoteSettings, type ClientHit } from '@/data/quotes';
+import { addQuoteClient, chaseEmails, chaseNow, chasePatch, setQuoteClientContact, clientId, convertToJob, fileQuoteFolder, linkToJob, removeQuoteClient, setClientMarkup, wonFrom, type Quote, makeQuoteFolder, saveQuote, searchClients, setQuoteStatus, uploadTenderDocs, useQuote, useQuoteSettings, type ClientHit } from '@/data/quotes';
 import { SubmitQuote } from '@/components/SubmitQuote';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
@@ -188,8 +188,17 @@ export default function QuotePage() {
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
             <Text style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1, borderColor: base.ink, color: base.ink, fontSize: 12.5, overflow: 'hidden' }}>★ {q.client_name}</Text>
             {(q.others ?? []).map((o) => (
-              <Pressable key={o.id} disabled={!!q.site_id} onPress={async () => { if (await confirmAsk(`Take ${o.client_name} off this quote?`, 'Take Off')) { if (await removeQuoteClient(o.id)) refresh(); else toast('Could not save — try again.'); } }} style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1, borderColor: base.line, backgroundColor: base.card }}>
-                <Text style={{ fontSize: 12.5, color: base.ink }}>{o.client_name}{o.contact_name ? ` · ${o.contact_name}` : ''}{q.site_id ? '' : '  ✕'}</Text>
+              <Pressable key={o.id} disabled={!!q.site_id} onPress={async () => {
+                const k = await chooseAction(o.client_name, [{ key: 'contact', label: o.contact_email ? `✉ Contact: ${o.contact_name ? `${o.contact_name}, ` : ''}${o.contact_email}` : '✉ Add The Contact To Chase' }, { key: 'off', label: 'Take Off This Quote' }]);
+                if (k === 'off') { if (await confirmAsk(`Take ${o.client_name} off this quote?`, 'Take Off')) { if (await removeQuoteClient(o.id)) refresh(); else toast('Could not save — try again.'); } }
+                if (k === 'contact') {
+                  const nm = await promptText(`Contact name at ${o.client_name}`, o.contact_name || ''); if (nm === null) return;
+                  const em = await promptText(`${nm.trim() || 'Their'} email (the chaser goes here)`, o.contact_email || ''); if (em === null) return;
+                  if (em.trim() && !EMAIL_OK.test(em.trim())) { toast('That email address doesn’t look right.'); return; }
+                  if (await setQuoteClientContact(o.id, { contact_name: nm.trim() || null, contact_email: em.trim() || null })) { toast('Saved'); refresh(); } else toast('Could not save — try again.');
+                }
+              }} style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1, borderColor: base.line, backgroundColor: base.card }}>
+                <Text style={{ fontSize: 12.5, color: base.ink }}>{o.client_name}{o.contact_name ? ` · ${o.contact_name}` : ''}{o.contact_email ? ' ✉' : ''}{q.site_id ? '' : '  ⋮'}</Text>
               </Pressable>
             ))}
           </View>
@@ -232,10 +241,10 @@ export default function QuotePage() {
           </View>
           <Muted style={{ marginBottom: 8 }}>
             {!settings?.chase_enabled ? 'Automatic chasing is switched off for the company, in Quote settings. Chase now still works.' : q.next_chase_date && q.chase_on ? `Next chase ${new Date(`${q.next_chase_date}T12:00:00`).toLocaleDateString('en-GB')}.` : q.status === 'returned' ? 'No chase due.' : 'Starts once the quote is Returned. Moving it to Tender stage turns it off.'}
-            {q.contact_email ? '' : ' Add a contact email first.'}
+            {chaseEmails(q).length ? ` Chases ${chaseEmails(q).length === 1 ? chaseEmails(q)[0] : `all ${chaseEmails(q).length} clients' contacts`}.` : ' Add a contact email first.'}
           </Muted>
-          <Button kind="ghost" busy={busy === 'chase'} disabled={!q.contact_email} title="✉ Chase now" onPress={async () => {
-            if (!(await confirmAsk(`Send a chaser email to ${q.contact_email} now?`, 'Send'))) return;
+          <Button kind="ghost" busy={busy === 'chase'} disabled={!chaseEmails(q).length} title="✉ Chase now" onPress={async () => {
+            if (!(await confirmAsk(`Send a chaser email now to ${chaseEmails(q).join(', ')}?`, 'Send'))) return;
             setBusy('chase'); const r = await chaseNow(q.id); setBusy('');
             toast(r.error || 'Chaser sent'); refresh();
           }} />

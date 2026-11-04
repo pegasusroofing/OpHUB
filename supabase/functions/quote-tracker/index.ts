@@ -5,7 +5,7 @@ import { encodeBase64 } from 'jsr:@std/encoding@1/base64';
 //   { action: 'folder', quote_id }  makes the enquiry's OneDrive folder by copying the company's New Enquiry template.
 //   { action: 'file', quote_id }    a finished quote: moves its folder to the Estimating folder for the year it finished.
 //   { action: 'won', quote_id, site_id }  moves the folder into the new job's pack.
-//   { action: 'chase', quote_id }   a PM presses Chase now: one email to the quote's contact.
+//   { action: 'chase', quote_id }   a PM presses Chase now: one email to each client's contact on the quote.
 //   { action: 'send', quote_id, to, subject, body, files: [{id, driveId, name}] }  sends the quote to the client with
 //     files from its OneDrive folder attached, copying the sender in.
 //   { action: 'estimating_root' } / { action: 'link_folder', site_id, folder_id, drive_id }  a job's estimating folder
@@ -69,32 +69,43 @@ async function moveFolder(token: string, folder: Ref, to: Ref): Promise<'moved' 
 
 const DEFAULT_SUBJECT = 'Our quotation for {project}';
 const DEFAULT_BODY = 'Hi {contact},\n\nI hope you are well. We sent you our quotation for {project} on {date}, and I wanted to check how things are progressing.\n\nIf you need anything else from us, or there is any feedback, please let me know.\n\nKind regards,\n{sender}\n{company}';
+// Every client the quote went to is chased, each by name (Andy, 4 Nov 2026): the main contact and the other clients
+// tendering the same job (quote_clients) that have a contact email. One round counts once towards the chase limit.
 async function sendChase(admin: any, q: any, settings: any, sender: { id: string | null; name: string; email: string | null }, automatic: boolean): Promise<string | null> {
-  const to = String(q.contact_email || '').trim();
-  if (!EMAIL_OK.test(to)) return 'This quote has no email address to chase.';
+  const { data: extra } = await admin.from('quote_clients').select('client_name, contact_name, contact_email').eq('quote_id', q.id);
+  const seen = new Set<string>();
+  const people = [{ client: q.client_name, contact: q.contact_name, email: q.contact_email }, ...(extra || []).map((c: any) => ({ client: c.client_name, contact: c.contact_name, email: c.contact_email }))]
+    .map((p) => ({ ...p, email: String(p.email || '').trim() }))
+    .filter((p) => EMAIL_OK.test(p.email) && !seen.has(p.email.toLowerCase()) && seen.add(p.email.toLowerCase()));
+  if (!people.length) return 'This quote has no email address to chase.';
   const KEY = Deno.env.get('RESEND_API_KEY');
   if (!KEY) return 'Email sending is not set up.';
   const { data: org } = await admin.from('organizations').select('name, logo_path, color_primary').eq('id', q.org_id).maybeSingle();
   const company = org?.name || '';
   const date = q.returned_at || q.return_date ? new Date(`${q.returned_at || q.return_date}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }) : 'recently';
-  const fill = (t: string) => t.replace(/\{contact\}/g, q.contact_name || 'there').replace(/\{client\}/g, q.client_name || '').replace(/\{project\}/g, q.title || '').replace(/\{date\}/g, date).replace(/\{sender\}/g, sender.name).replace(/\{company\}/g, company);
-  const subject = fill(settings?.chase_subject || DEFAULT_SUBJECT).replace(/[\r\n]+/g, ' ').slice(0, 200);
-  const text = fill(settings?.chase_body || DEFAULT_BODY);
-  // Reads like a person's email, not a system notice: this one goes to clients.
-  const html = `<div style="font-family:'Segoe UI',Arial,sans-serif;font-size:15px;line-height:1.5;color:#101114;white-space:pre-wrap;">${esc(text)}</div>`;
   const m = /<([^>]+)>/.exec(Deno.env.get('ORDERS_FROM_EMAIL') || '');
   const address = (m ? m[1] : Deno.env.get('ORDERS_FROM_EMAIL') || 'orders@ophub.app').trim();
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST', headers: { Authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from: `"${`${sender.name} - ${company}`.replace(/"/g, "'")}" <${address}>`, to: [to], subject, text, html, ...(sender.email ? { reply_to: [sender.email] } : {}) }),
-  });
-  if (!res.ok) { console.error('quote-tracker: provider refused', res.status, await res.text()); return 'The email service didn’t accept the email.'; }
+  let sent = 0;
+  for (const p of people) {
+    const fill = (t: string) => t.replace(/\{contact\}/g, p.contact || 'there').replace(/\{client\}/g, p.client || '').replace(/\{project\}/g, q.title || '').replace(/\{date\}/g, date).replace(/\{sender\}/g, sender.name).replace(/\{company\}/g, company);
+    const subject = fill(settings?.chase_subject || DEFAULT_SUBJECT).replace(/[\r\n]+/g, ' ').slice(0, 200);
+    const text = fill(settings?.chase_body || DEFAULT_BODY);
+    // Reads like a person's email, not a system notice: this one goes to clients.
+    const html = `<div style="font-family:'Segoe UI',Arial,sans-serif;font-size:15px;line-height:1.5;color:#101114;white-space:pre-wrap;">${esc(text)}</div>`;
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST', headers: { Authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from: `"${`${sender.name} - ${company}`.replace(/"/g, "'")}" <${address}>`, to: [p.email], subject, text, html, ...(sender.email ? { reply_to: [sender.email] } : {}) }),
+    });
+    if (!res.ok) { console.error('quote-tracker: provider refused', res.status, await res.text()); continue; }
+    sent++;
+    await admin.from('quote_chases').insert({ quote_id: q.id, org_id: q.org_id, sent_to: p.email, sent_by: sender.id, automatic });
+    await admin.from('edge_email_log').insert({ fn: 'quote-tracker', sender_id: sender.id, org_id: q.org_id, to_email: p.email.toLowerCase(), cc: [], subject }).then(undefined, () => undefined);
+  }
+  if (!sent) return 'The email service didn’t accept the email.';
   const now = new Date();
   const count = (q.chase_count || 0) + 1, max = settings?.chase_max ?? 3;
-  await admin.from('quote_chases').insert({ quote_id: q.id, org_id: q.org_id, sent_to: to, sent_by: sender.id, automatic });
   await admin.from('quotes').update({ chase_count: count, last_chased_at: now.toISOString(), next_chase_date: q.chase_on && count < max ? addDays(now, settings?.chase_every_days ?? 14) : null, updated_at: now.toISOString() }).eq('id', q.id);
-  await admin.from('edge_email_log').insert({ fn: 'quote-tracker', sender_id: sender.id, org_id: q.org_id, to_email: to.toLowerCase(), cc: [], subject }).then(undefined, () => undefined);
-  return null;
+  return sent < people.length ? `Sent to ${sent} of ${people.length} — the email service didn’t accept the rest.` : null;
 }
 
 Deno.serve(async (req) => {
