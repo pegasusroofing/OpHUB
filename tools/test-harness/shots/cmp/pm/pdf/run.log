@@ -1,0 +1,13 @@
+variations old true
+incident old true
+schedule old false
+puwer old true
+matrix old true
+variations new true
+incident new true
+schedule new press /^(📄 )?PDF$/ locator.click: Timeout 3000ms exceeded.
+Call log:
+[2m  - wa
+schedule new false
+puwer new true
+matrix new true

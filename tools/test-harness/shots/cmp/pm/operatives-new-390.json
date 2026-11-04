@@ -1,0 +1,34 @@
+{
+ "url": "http://localhost:8081/pm/operatives",
+ "controls": [
+  "‹",
+  "RTB Roofing Ltd",
+  "Company dashboard",
+  "Operative dashboard",
+  "[text] Search operatives…",
+  "📊 Export Training Matrix (Excel)",
+  "📄 Export Training Matrix (PDF)",
+  "View the matrix on screen ›",
+  "JM Jake Morris 1 site · 0 certificates ›",
+  "TH Tom Hughes 1 site · 0 certificates ›",
+  "Operative Tools ▼"
+ ],
+ "lines": [
+  "‹",
+  "Dashboard",
+  "RTB Roofing Ltd",
+  "Company dashboard",
+  "Operative dashboard",
+  "📊 Export Training Matrix (Excel)",
+  "📄 Export Training Matrix (PDF)",
+  "View the matrix on screen ›",
+  "JM",
+  "Jake Morris",
+  "1 site · 0 certificates",
+  "›",
+  "TH",
+  "Tom Hughes",
+  "Operative Tools",
+  "▼"
+ ]
+}

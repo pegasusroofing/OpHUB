@@ -1,0 +1,27 @@
+{
+ "url": "http://localhost:58789/app.html#/operatives",
+ "controls": [
+  "Operatives",
+  "Search",
+  "[text] Search operatives…",
+  "📊 EXPORT TRAINING MATRIX (EXCEL)",
+  "📄 EXPORT TRAINING MATRIX (PDF)",
+  "+ ADD OPERATIVE",
+  "JM Jake Morris 1 site · 0 certificates",
+  "TH Tom Hughes 1 site · 0 certificates",
+  "▶ Operative Tools"
+ ],
+ "lines": [
+  "Operatives",
+  "📊 EXPORT TRAINING MATRIX (EXCEL)",
+  "📄 EXPORT TRAINING MATRIX (PDF)",
+  "+ ADD OPERATIVE",
+  "JM",
+  "Jake Morris",
+  "1 site · 0 certificates",
+  "TH",
+  "Tom Hughes",
+  "▶",
+  "Operative Tools"
+ ]
+}

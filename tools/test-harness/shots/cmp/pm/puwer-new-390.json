@@ -1,0 +1,43 @@
+{
+ "url": "http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/hs/puwer",
+ "controls": [
+  "‹",
+  "PUWER Tool Inspection",
+  "Studley Rd, London, SW4 6RZ",
+  "Job home",
+  "Projects",
+  "J101 Studley Rd",
+  "Health & Safety",
+  "☐",
+  "Mark This Week As Complete",
+  "Export All",
+  "Email All",
+  "Home",
+  "Deliveries",
+  "Check In",
+  "Inbox",
+  "Settings"
+ ],
+ "lines": [
+  "‹",
+  "PUWER Tool Inspection",
+  "Studley Rd, London, SW4 6RZ",
+  "Projects",
+  "›",
+  "J101 Studley Rd",
+  "Health & Safety",
+  "02 Nov – 06 Nov 2026",
+  "☐",
+  "Jake Morris",
+  "Not yet inspected · 1 tool",
+  "Pending",
+  "Mark This Week As Complete",
+  "Export All",
+  "Email All",
+  "Home",
+  "Deliveries",
+  "Check In",
+  "Inbox",
+  "Settings"
+ ]
+}

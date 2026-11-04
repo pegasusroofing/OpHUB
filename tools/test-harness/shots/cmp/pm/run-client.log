@@ -1,0 +1,12 @@
+old client-home /site/11111111-1111-1111-1111-111111111111/home
+old client-schedule /site/11111111-1111-1111-1111-111111111111/schedule
+old client-hs /site/11111111-1111-1111-1111-111111111111/hs
+old client-snags /site/11111111-1111-1111-1111-111111111111/snagging
+old client-projects /sites
+old errors: 
+new client-home /sites/11111111-1111-1111-1111-111111111111
+new client-schedule /sites/11111111-1111-1111-1111-111111111111/schedule
+new client-hs /sites/11111111-1111-1111-1111-111111111111/hs
+new client-snags /sites/11111111-1111-1111-1111-111111111111/snagging
+new client-projects /sites
+new errors: 

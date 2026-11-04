@@ -1,0 +1,31 @@
+{
+ "url": "http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/documents",
+ "controls": [
+  "‹",
+  "[id]/documents",
+  "Studley Rd, London, SW4 6RZ",
+  "Job home",
+  "Projects",
+  "J101 Studley Rd",
+  "Home",
+  "Deliveries",
+  "Check In",
+  "Inbox",
+  "Settings"
+ ],
+ "lines": [
+  "‹",
+  "[id]/documents",
+  "Studley Rd, London, SW4 6RZ",
+  "Projects",
+  "›",
+  "J101 Studley Rd",
+  "[Id]/Documents",
+  "This job has no OneDrive folder yet. Set one up or link one in Project Admin.",
+  "Home",
+  "Deliveries",
+  "Check In",
+  "Inbox",
+  "Settings"
+ ]
+}

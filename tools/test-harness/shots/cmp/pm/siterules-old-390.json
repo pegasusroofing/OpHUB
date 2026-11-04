@@ -1,0 +1,41 @@
+{
+ "url": "http://localhost:58789/app.html#/site/11111111-1111-1111-1111-111111111111/mc/site_layout",
+ "controls": [
+  "Site Rules & Layout",
+  "Studley Rd, London, SW4 6RZ",
+  "Search",
+  "🏠",
+  "Projects",
+  "J101 Studley Rd",
+  "🗑",
+  "View document ↗",
+  "▶ Upload Document",
+  "Home",
+  "Deliveries",
+  "Check In",
+  "Inbox",
+  "Settings"
+ ],
+ "lines": [
+  "Site Rules & Layout",
+  "Studley Rd, London, SW4 6RZ",
+  "🏠",
+  "Projects",
+  "›",
+  "J101 Studley Rd",
+  "Layout.pdf",
+  "🗑",
+  "Uploaded by Unknown · Invalid Date · Re-sign due Invalid Date · View document ↗",
+  "0 signed",
+  "1 outstanding",
+  "Still need to sign:",
+  "○ Jake Morris",
+  "▶",
+  "Upload Document",
+  "Home",
+  "Deliveries",
+  "Check In",
+  "Inbox",
+  "Settings"
+ ]
+}

@@ -1,0 +1,20 @@
+{
+ "url": "http://localhost:58789/app.html#/templates",
+ "controls": [
+  "Report Templates",
+  "Search",
+  "▾",
+  "+ NEW TEMPLATE"
+ ],
+ "lines": [
+  "Report Templates",
+  "REPORT TEMPLATES",
+  "Build reusable inspection / report templates here. Project Managers can fill these in on site and submit them as a report.",
+  "Daily report",
+  "1 section",
+  "▾",
+  "LOLER check",
+  "0 sections",
+  "+ NEW TEMPLATE"
+ ]
+}

@@ -1,0 +1,348 @@
+
+### calendar @1300
+  old url http://localhost:52116/app.html#/site/11111111-1111-1111-1111-111111111111/calendar
+  new url http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/calendar
+  OLD ONLY: ＋ Add ▼ | + New item | ⬇ Book in | ↩ Return from this job | [text] Search the yard
+  NEW ONLY: Quotes | Job home | Options ▾
+
+### checkin @1300
+  old url http://localhost:52116/app.html#/site/11111111-1111-1111-1111-111111111111/checkin
+  new url http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/checkin
+  OLD ONLY: [select] 25m / 50m / 75m / 100m / 150m / 200m / 300m / 500m
+  NEW ONLY: Quotes | Job home | 📊 This week (Excel) | 📊 Full history (Excel)
+
+### checkinlogs @1300
+  old url http://localhost:52116/app.html#/team/people/checkinlogs
+  new url http://localhost:8081/pm/admin/checkinlogs
+  OLD ONLY: [date] 
+  NEW ONLY: Quotes
+
+### collections @1300
+  old url http://localhost:52116/app.html#/site/11111111-1111-1111-1111-111111111111/materialrequired
+  new url http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/materials/collections
+  OLD ONLY: TO ACTION
+  NEW ONLY: Quotes | Job home | Materials
+
+### coshh @1300
+  old url http://localhost:52116/app.html#/site/11111111-1111-1111-1111-111111111111/hs/coshh
+  new url http://localhost:8081/home
+  OLD ONLY: Project Home | Schedule of Works | Health & Safety | Check In | Inbox | Price | Finance | Project Settings | COSHH | Studley Rd, London, SW4 6RZ | J101 Studley Rd | Select all | [checkbox] on | View ↗ | 🔔 ASK OUTSTANDING TO SIGN | ▶ Create / Upload COSHH
+  NEW ONLY: Quotes | Settings | 2 Live jobs | 1 On site now | 1 To do | 4 Notifications | Live projects 2 live · 1 upcoming | Open full map › | OpHUB Finance Money in & out | Quotes Tender tracker | Dashboard Company & operatives | Calendar All projects | Deliveries Delivery schedule | Reports & surveys 1 in progress | Yard & Plant Stock and who has what | HR Holidays, policies & handbook | Admin Team, libraries, settings | Daily report Studley Rd · in progress
+
+### coshhlib @1300
+  old url http://localhost:52116/app.html#/coshh-substances
+  new url http://localhost:8081/pm/admin/coshh
+  OLD ONLY: ▶ How it works | [select] Filter: jump to element of works… / Flat Roofing / Pitched Roofing | + Upload a ready-made PDF
+  NEW ONLY: Quotes | Jump to… ▾ | + Folder | + Upload ready-made PDFs into the top level | 📥 Make assessments from data sheets into the top level
+
+### coshhnew @1300
+  old url http://localhost:52116/app.html#/site/11111111-1111-1111-1111-111111111111/hs/coshh/new
+  new url http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/hs/coshh/new
+  OLD ONLY: [text] Search products… | [checkbox] c1 | [checkbox] c2 | + PRODUCT NOT LISTED? ADD IT TO THE LIBRARY | [text] e.g. Flat roof to rear, applied by roller | [text] e.g. Residents' windows to be closed while in use | ISSUE COSHH
+  NEW ONLY: Quotes | Studley Rd, London, SW4 6RZ | Job home | 📄 Upload Data Sheet Reads the name, hazards, codes, PPE and first aid off the Safety Data | ✏️ Enter Manually Fill in the product details yourself, and add its data sheet if you have | 📚 Product Already In The Library Pick from the 2 products already set up.
+
+### coshhpick @1300
+  old url http://localhost:52116/app.html#/site/11111111-1111-1111-1111-111111111111/hs/coshh-pick
+  new url http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/hs/coshh/pick
+  OLD ONLY: -
+  NEW ONLY: Quotes | Job home
+
+### dashboard @1300
+  old url http://localhost:52116/app.html#/dashboard
+  new url http://localhost:8081/pm/dashboard
+  OLD ONLY: SR Studley Rd 1
+  NEW ONLY: Quotes | Operative dashboard | Studley Rd 1
+
+### deliveries @1300
+  old url http://localhost:52116/app.html#/deliveries
+  new url http://localhost:8081/pm/deliveries
+  OLD ONLY: 🚐 Vehicle Checklists | + New item | ⬇ Book in | ↩ Return from this job | [text] Search the yard
+  NEW ONLY: Quotes | 4 Nov 2026 📅 | + Add Delivery | 👁 Driver view | ⏭ Push to next day | 🕒 Driver hours Each driver's hours for the week, breaks taken off ▸ | 📊 Export Excel | 📄 Export PDF | 🚐 Vehicle health checks
+
+### documents @1300
+  old url http://localhost:52116/app.html#/site/11111111-1111-1111-1111-111111111111/home
+  new url http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/documents
+  OLD ONLY: Client: Bellway Homes Contact: Jo Smith · 07111 222333 | 04 Nov Scaffold up | 1 OPEN SNAGS | Check In / Out Tap to log time | Schedule of Works 0 of 2 done · 0% | Main Contractor 9 areas | Health & Safety 0 to sign ! | Drawings, Spec's & Programme View & upload | Materials 1 pending | Inspections & Reports 1 open 1 | 💷 Price Restricted access | Finance Job J101 | Calendar Key dates | To Do List 1 open | + New item | ⬇ Book in | ↩ Return from this job | [text] Search the yard
+  NEW ONLY: Quotes | [id]/documents | Job home
+
+### drawfolder @1300
+  old url http://localhost:52116/app.html#/site/11111111-1111-1111-1111-111111111111/drawings/df1
+  new url http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/drawings/df1
+  OLD ONLY: + New item | ⬇ Book in | ↩ Return from this job | [text] Search the yard
+  NEW ONLY: Quotes | Job home | Drawings, Spec's & Programme
+
+### drawings @1300
+  old url http://localhost:52116/app.html#/site/11111111-1111-1111-1111-111111111111/drawings
+  new url http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/drawings
+  OLD ONLY: + New item | ⬇ Book in | ↩ Return from this job | [text] Search the yard
+  NEW ONLY: Quotes | Drawings, Spec's & Programme | Job home
+
+### handover @1300
+  old url http://localhost:52116/app.html#/site/11111111-1111-1111-1111-111111111111/handover
+  new url http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/handover
+  OLD ONLY: Handover – O&M manuals | + New item | ⬇ Book in | ↩ Return from this job | [text] Search the yard
+  NEW ONLY: Quotes | Handover | Studley Rd, London, SW4 6RZ | Job home | O&M manuals | Data sheets (0) | Guarantees (0) | Rename
+
+### havs @1300
+  old url http://localhost:52116/app.html#/site/11111111-1111-1111-1111-111111111111/hs/havs
+  new url http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/hs/havs
+  OLD ONLY: 📄 EXPORT | ✉️ EMAIL | [checkbox] on | + Add Tool | SAVE & CLOSE FOR THE WEEK
+  NEW ONLY: Quotes | Job home | Breaker · 12 | + New tool | Export All | Email All | Choose…
+
+### havspuwer @1300
+  old url http://localhost:52116/app.html#/site/11111111-1111-1111-1111-111111111111/hs/havspuwer
+  new url http://localhost:8081/home
+  OLD ONLY: Project Home | Schedule of Works | Health & Safety | Check In | Inbox | Price | Finance | Project Settings | Tools, HAVS & PUWER | Studley Rd, London, SW4 6RZ | J101 Studley Rd | 🛠 PUWER Tool Inspection Weekly tool checks
+  NEW ONLY: Quotes | Settings | 2 Live jobs | 1 On site now | 1 To do | 4 Notifications | Live projects 2 live · 1 upcoming | Open full map › | OpHUB Finance Money in & out | Quotes Tender tracker | Dashboard Company & operatives | Calendar All projects | Deliveries Delivery schedule | Reports & surveys 1 in progress | Yard & Plant Stock and who has what | HR Holidays, policies & handbook | Admin Team, libraries, settings | Daily report Studley Rd · in progress
+
+### homecal @1300
+  old url http://localhost:52116/app.html#/calendar
+  new url http://localhost:8081/pm/calendar
+  OLD ONLY: All sites | + New item | ⬇ Book in | ↩ Return from this job | [text] Search the yard
+  NEW ONLY: Quotes
+
+### hs @1300
+  old url http://localhost:52116/app.html#/site/11111111-1111-1111-1111-111111111111/hs
+  new url http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/hs
+  OLD ONLY: -
+  NEW ONLY: Quotes | Job home
+
+### incidentnew @1300
+  old url http://localhost:52116/app.html#/site/11111111-1111-1111-1111-111111111111/hs/incidents/new
+  new url http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/hs/incidents/new
+  OLD ONLY: [date] 2026-11-04 | [checkbox] on | [file]  | [datetime-local] 
+  NEW ONLY: Quotes | Job home | 4 Nov 2026 📅 | Date 📅 | [text] Time, e.g. 14:30
+
+### incidents @1300
+  old url http://localhost:52116/app.html#/site/11111111-1111-1111-1111-111111111111/hs/incidents
+  new url http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/hs/incidents
+  OLD ONLY: -
+  NEW ONLY: Quotes | Job home
+
+### inductions @1300
+  old url http://localhost:52116/app.html#/site/11111111-1111-1111-1111-111111111111/mc/site_inductions
+  new url http://localhost:8081/
+  OLD ONLY: RTB Roofing Ltd OPHUB | 🔍 Search Ctrl K | Home | Projects | Show Projects pages | Deliveries | Calendar | Hub 4 | Dashboard | Show Dashboard pages | OpHUB Finance | Admin | Project Home | Schedule of Works | Health & Safety | Check In | Inbox | Price | Finance | Project Settings | Sign out | Site Inductions | Studley Rd, London, SW4 6RZ | 🏠 | J101 Studley Rd | OUTSTANDING | COMPLETED INDUCTIONS | ▶ Induction Form
+  NEW ONLY: -
+
+### jobhome @1300
+  old url http://localhost:52116/app.html#/site/11111111-1111-1111-1111-111111111111/home
+  new url http://localhost:8081/sites/11111111-1111-1111-1111-111111111111
+  OLD ONLY: 1 OPEN SNAGS
+  NEW ONLY: Quotes | 1 ON SITE | 🌦️ 10° 30% rain
+
+### loler @1300
+  old url http://localhost:52116/app.html#/site/11111111-1111-1111-1111-111111111111/hs/loler
+  new url http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/hs/loler
+  OLD ONLY: LOLER check Submitted 04/11/2026, 22:57:59 · Paula PM COMPLETED
+  NEW ONLY: Quotes | Job home | LOLER check Submitted 04/11/2026, 23:01:41 · Paula PM Completed
+
+### materials @1300
+  old url http://localhost:52116/app.html#/site/11111111-1111-1111-1111-111111111111/materials
+  new url http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/materials
+  OLD ONLY: 🙋 Material Requests 1 to action
+  NEW ONLY: Quotes | Job home | 🙋 Material Requests 1 new 1
+
+### matpos @1300
+  old url http://localhost:52116/app.html#/site/11111111-1111-1111-1111-111111111111/materialorders
+  new url http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/materials/pos
+  OLD ONLY: -
+  NEW ONLY: Quotes | Job home | Materials
+
+### matrequests @1300
+  old url http://localhost:52116/app.html#/site/11111111-1111-1111-1111-111111111111/materialrequests
+  new url http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/materials/requests
+  OLD ONLY: TO ACTION | [checkbox] on | ▶ Supplier | 🏗 FROM YARD STOCK | [text] Item | 📋 PICK FROM A PROJECT QUOTE | [text] Quantity | [date]  | REQUEST MATERIAL ORDER | ▶ 🏪 Suppliers 2 saved
+  NEW ONLY: Quotes | Job home | Materials | From A Quote | Import Excel | [text] e.g. 18mm OSB 2440 x 1220 | [text] 0 | [text] Unit | Any time 📅 | Request
+
+### mchome @1300
+  old url http://localhost:52116/app.html#/site/11111111-1111-1111-1111-111111111111/mc
+  new url http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/mc
+  OLD ONLY: + New item | ⬇ Book in | ↩ Return from this job | [text] Search the yard
+  NEW ONLY: Quotes | Job home
+
+### mcinspections @1300
+  old url http://localhost:52116/app.html#/site/11111111-1111-1111-1111-111111111111/mc/inspections
+  new url http://localhost:8081/home
+  OLD ONLY: Project Home | Schedule of Works | Health & Safety | Check In | Inbox | Price | Finance | Project Settings | Inspections | Studley Rd, London, SW4 6RZ | J101 Studley Rd | MANAGE TEMPLATES | + NEW INSPECTION | + New item | ⬇ Book in | ↩ Return from this job | [text] Search the yard
+  NEW ONLY: Quotes | Settings | 2 Live jobs | 1 On site now | 1 To do | 4 Notifications | Live projects 2 live · 1 upcoming | Open full map › | OpHUB Finance Money in & out | Quotes Tender tracker | Dashboard Company & operatives | Calendar All projects | Deliveries Delivery schedule | Reports & surveys 1 in progress | Yard & Plant Stock and who has what | HR Holidays, policies & handbook | Admin Team, libraries, settings | Daily report Studley Rd · in progress
+
+### newjob @1300
+  old url http://localhost:52116/app.html#/sites
+  new url http://localhost:8081/sites/new
+  OLD ONLY: [search] Search projects | All (3) | Live (2) | Upcoming (1) | Closed (0) | PM ▼ | [text] Site name | [text] Address | [text] Postcode | [text] Job number | [select] 📇 Choose a saved client (3)… / Bellway Homes — Jo Smith / Forma London / Persimm | [text] Client name — type or pick | [text] Client contact name | [tel] Client contact number | [email] Client contact email | [checkbox] on | LIVE (2) ▾ | PP | UPCOMING (1) ▾
+  NEW ONLY: Quotes | [text]  | [text] Start typing — clients from the Directory come up | [tel]  | [email]  | Multi-site job (several addresses / plots) | Repair / maintenance contract | Choose a date 📅
+
+### operative @1300
+  old url http://localhost:52116/app.html#/operatives/o1
+  new url http://localhost:8081/pm/operatives/o1
+  OLD ONLY: Operative | LINK ONEDRIVE FOLDER | 📊 EXPORT FULL TRAINING MATRIX (EXCEL) | [file] 
+  NEW ONLY: Quotes
+
+### operatives @1300
+  old url http://localhost:52116/app.html#/operatives
+  new url http://localhost:8081/pm/operatives
+  OLD ONLY: + ADD OPERATIVE
+  NEW ONLY: Quotes | Company dashboard | Operative dashboard | View the matrix on screen ›
+
+### permits @1300
+  old url http://localhost:52116/app.html#/site/11111111-1111-1111-1111-111111111111/mc/permits
+  new url http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/mc/permits
+  OLD ONLY: -
+  NEW ONLY: Quotes | Job home | Main Contractor
+
+### plant @1300
+  old url http://localhost:52116/app.html#/site/11111111-1111-1111-1111-111111111111/plant
+  new url http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/plant
+  OLD ONLY: PLANT AT OTHER SITES / YARD ▶ | + ADD PLANT ITEM | + New item | ⬇ Book in | ↩ Return from this job | [text] Search the yard
+  NEW ONLY: Quotes | Job home | All | In The Yard | Signed Out | To Sign / Approve | Returns To Confirm | Lost / Out Of Service | [text] Search item, number, person or job | + Add Plant
+
+### pmhome @1300
+  old url http://localhost:52116/app.html#/home
+  new url http://localhost:8081/home
+  OLD ONLY: Refresh — pull latest from Admin Centre | Dashboard Company overview | 4 HUB 4 notifications | Operatives Certifications, training, tools
+  NEW ONLY: Quotes | Settings | Quotes Tender tracker | Dashboard Company & operatives | Yard & Plant Stock and who has what
+
+### ppe @1300
+  old url http://localhost:52116/app.html#/site/11111111-1111-1111-1111-111111111111/ppe
+  new url http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/ppe
+  OLD ONLY: [checkbox] on | FULFIL | CANCEL | Admin Centre
+  NEW ONLY: Quotes | Job home | Open The Company PPE Register ›
+
+### price @1300
+  old url http://localhost:52116/app.html#/site/11111111-1111-1111-1111-111111111111/price
+  new url http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/price
+  OLD ONLY: 🧮 Price Sheets 1 sheet › | ⋮ MANAGE | + New item | ⬇ Book in | ↩ Return from this job | [text] Search the yard
+  NEW ONLY: Quotes | Job home
+
+### pricesheets @1300
+  old url http://localhost:52116/app.html#/site/11111111-1111-1111-1111-111111111111/pricebuilder
+  new url http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/price/sheets
+  OLD ONLY: Price Sheet | + New item | ⬇ Book in | ↩ Return from this job | [text] Search the yard
+  NEW ONLY: Quotes | Price Sheets | Job home | Draft roof Draft | + New Sheet
+
+### projects @1300
+  old url http://localhost:52116/app.html#/sites
+  new url http://localhost:8081/sites
+  OLD ONLY: [search] Search projects | Closed (0)
+  NEW ONLY: Quotes | [text] Search projects
+
+### puwer @1300
+  old url http://localhost:52116/app.html#/site/11111111-1111-1111-1111-111111111111/hs/puwer
+  new url http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/hs/puwer
+  OLD ONLY: [checkbox] on | 🔧 1 tool — open in Operatives | 📄 EXPORT ALL OPERATIVES WEEKLY PUWER | ✉️ EMAIL ALL OPERATIVES WEEKLY PUWER
+  NEW ONLY: Quotes | Job home | Export All | Email All
+
+### quotes @1300
+  old url http://localhost:52116/app.html#/home
+  new url http://localhost:8081/pm/quotes
+  OLD ONLY: Refresh — pull latest from Admin Centre | 2 Live jobs | 1 On site now | 1 To do | 4 Notifications | Live projects 2 live · 1 upcoming | Open full map › | OpHUB Finance Money in & out | Dashboard Company overview | Calendar All projects | 4 HUB 4 notifications | Deliveries Delivery schedule | Reports & surveys 1 in progress | Operatives Certifications, training, tools | HR Holidays, policies & handbook | Admin Team, libraries, settings | Daily report Studley Rd · in progress | + New item | ⬇ Book in | ↩ Return from this job | [text] Search the yard
+  NEW ONLY: Quotes | 0 Live quotes · — | 0 Returned, waiting | — Won in 2026 · 0 quotes | – Win rate 2026 | Live | Returned | Tender Stage | Won | Lost / No Reply | All | List ▾ | + New Enquiry
+
+### rams @1300
+  old url http://localhost:52116/app.html#/site/11111111-1111-1111-1111-111111111111/hs/rams
+  new url http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/hs/rams
+  OLD ONLY: -
+  NEW ONLY: Quotes | Job home | H&S Policy ✓ Signed 04 Nov 2026 ▸
+
+### ramsbuild @1300
+  old url http://localhost:52116/app.html#/site/11111111-1111-1111-1111-111111111111/hs/rams/build/b1
+  new url http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/hs/rams/build/b1
+  OLD ONLY: [date] 2026-11-04 | [date] 2027-11-04 | [date] Required | [text] Studley Rd, London, SW4 6RZ | [tel]  | [checkbox] on
+  NEW ONLY: Quotes | Studley Rd, London, SW4 6RZ | Job home | 4 Nov 2026 📅 | 4 Nov 2027 📅 | 3 Nov 2026 📅 | [text] Studley Rd, Studley Rd, London, SW4 6RZ | [text] Bellway Homes | [tel] 07000 000000
+
+### ramsnew @1300
+  old url http://localhost:52116/app.html#/site/11111111-1111-1111-1111-111111111111/hs/rams/new
+  new url http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/hs/rams/new
+  OLD ONLY: [checkbox] t1 | [search] Type to filter jobs… | [select] — Choose a job (1) — / Studley Rd (1)
+  NEW ONLY: Quotes | Job home | Start From A Template ▼
+
+### repairs @1300
+  old url http://localhost:52116/app.html#/site/22222222-2222-2222-2222-222222222222/repairjobs
+  new url http://localhost:8081/sites/22222222-2222-2222-2222-222222222222/repairs
+  OLD ONLY: OneDrive folder — not linked yet › | + New item | ⬇ Book in | ↩ Return from this job | [text] Search the yard
+  NEW ONLY: Quotes | Cleveland Rd, Ilford, IG1 2EW | Job home | 📥 Bulk add from work orders | ⬇ Export Excel (Repair Tracker)
+
+### reports @1300
+  old url http://localhost:52116/app.html#/reports
+  new url http://localhost:8081/pm/reports
+  OLD ONLY: All projects | [search] Search reports, projects, people | Select report | Daily report Studley Rd · Paula PM In progress | + New item | ⬇ Book in | ↩ Return from this job | [text] Search the yard
+  NEW ONLY: Yard & Plant | Quotes | [text] Search reports, projects, people
+
+### schedule @1300
+  old url http://localhost:52116/app.html#/site/11111111-1111-1111-1111-111111111111/schedule
+  new url http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/schedule
+  OLD ONLY: [file]  | 📷 Add photo | [text] e.g. Fit lead flashing | ADD | SAVE — CLOSE OUT | 📄 EXPORT PDF
+  NEW ONLY: Quotes | Job home | 📷 Add pre-start photos | Submit | 📄 Export
+
+### sitereports @1300
+  old url http://localhost:52116/app.html#/site/11111111-1111-1111-1111-111111111111/snagging/reports
+  new url http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/snagging/reports
+  OLD ONLY: [select] All templates / Daily report / LOLER check | [checkbox] on | Daily report Submitted 04/11/2026, 22:57:59 · Paula PM | LOLER check Submitted 04/11/2026, 22:57:59 · Paula PM | + New item | ⬇ Book in | ↩ Return from this job | [text] Search the yard
+  NEW ONLY: Quotes | Job home | Snagging | Daily report Submitted 04/11/2026, 23:01:41 · Paula PM | LOLER check Submitted 04/11/2026, 23:01:41 · Paula PM
+
+### siterules @1300
+  old url http://localhost:52116/app.html#/site/11111111-1111-1111-1111-111111111111/mc/site_layout
+  new url http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/mc/layout
+  OLD ONLY: View document ↗ | ▶ Upload Document
+  NEW ONLY: Quotes | Job home | Main Contractor | Upload Site Rules & Layout ▼ | View
+
+### snagfolder @1300
+  old url http://localhost:52116/app.html#/site/11111111-1111-1111-1111-111111111111/snagging
+  new url http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/snagging
+  OLD ONLY: -
+  NEW ONLY: Quotes | Job home
+
+### snags @1300
+  old url http://localhost:52116/app.html#/site/11111111-1111-1111-1111-111111111111/snagging/list
+  new url http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/snagging/list
+  OLD ONLY: [text] Issue | [text] Location | [file] 
+  NEW ONLY: Quotes | Job home | [text] 
+
+### subcompany @1300
+  old url http://localhost:52116/app.html#/site/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1
+  new url http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors/sc1
+  OLD ONLY: + New item | ⬇ Book in | ↩ Return from this job | [text] Search the yard
+  NEW ONLY: Quotes | Job home | Main Contractor
+
+### subcontractors @1300
+  old url http://localhost:52116/app.html#/site/11111111-1111-1111-1111-111111111111/mc/subcontractors
+  new url http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors
+  OLD ONLY: + New item | ⬇ Book in | ↩ Return from this job | [text] Search the yard
+  NEW ONLY: Quotes | Job home | Main Contractor
+
+### tbt @1300
+  old url http://localhost:52116/app.html#/site/11111111-1111-1111-1111-111111111111/hs/tbt
+  new url http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/hs/tbt
+  OLD ONLY: BANK TBT
+  NEW ONLY: Quotes | Job home | TBT Library
+
+### team @1300
+  old url http://localhost:52116/app.html#/site/11111111-1111-1111-1111-111111111111/team
+  new url http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/admin
+  OLD ONLY: Site set up Name & address, main contractor, subcontractor, multi-site, sync folder ▶ | [select] Active / Upcoming / Closed
+  NEW ONLY: Quotes | Job home | ⚙ Site set up — name & address, main contractor, multi-site ▼ | 🟢 Live ▾
+
+### templates @1300
+  old url http://localhost:52116/app.html#/templates
+  new url http://localhost:8081/pm/admin/templates
+  OLD ONLY: + New item | ⬇ Book in | ↩ Return from this job | [text] Search the yard
+  NEW ONLY: Quotes
+
+### todos @1300
+  old url http://localhost:52116/app.html#/site/11111111-1111-1111-1111-111111111111/todos
+  new url http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/todos
+  OLD ONLY: [checkbox] on | Required by 07 Nov 2026 | Assigned to Paula PM — tap to change | MARK COMPLETE | + Add photo/document | [text] Add a comment… | COMMENT | [text] What needs doing? | [textarea] Add any notes… | [date]  | ▶ Unassigned | CHOOSE FILE(S) | [file]  | ✉️ EMAIL TO DO LIST | + New item | ⬇ Book in | ↩ Return from this job | [text] Search the yard
+  NEW ONLY: Quotes | Job home | 0 Overdue | 1 This week | 1 Live | 0 Closed | Select | Chase scaffold Due 7 Nov · Paula PM | ✉ Email | 📄 Export
+
+### variations @1300
+  old url http://localhost:52116/app.html#/site/11111111-1111-1111-1111-111111111111/snagging/variations
+  new url http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/snagging/variations
+  OLD ONLY: [file]  | 📄 EXPORT LIVE (PDF) | 📄 EXPORT CLOSED (PDF) | 📄 EXPORT ALL (PDF)
+  NEW ONLY: Quotes | Job home | Snagging | Export Live | Export Closed | Export All
+
+### yard @1300
+  old url http://localhost:52116/app.html#/site/11111111-1111-1111-1111-111111111111/materials
+  new url http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/materials/yard
+  OLD ONLY: 🙋 Material Requests 1 to action | 📄 Material PO's | ⬇ Book in
+  NEW ONLY: Quotes | Job home | Collections | Completed | Book into yard | Issue to this job | Stock Take

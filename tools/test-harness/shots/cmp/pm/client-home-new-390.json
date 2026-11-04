@@ -1,0 +1,37 @@
+{
+ "url": "http://localhost:8081/sites/11111111-1111-1111-1111-111111111111",
+ "controls": [
+  "‹",
+  "Studley Rd",
+  "Studley Rd, London, SW4 6RZ",
+  "Projects",
+  "Schedule of Works 0 of 2 done · 0%",
+  "Health & Safety RAMS · COSHH · TBT",
+  "🔧 Snagging 1 open",
+  "Home",
+  "SOW",
+  "Check In",
+  "Inbox",
+  "Settings"
+ ],
+ "lines": [
+  "‹",
+  "Studley Rd",
+  "Studley Rd, London, SW4 6RZ",
+  "Projects",
+  "›",
+  "J101 Studley Rd",
+  "Schedule of Works",
+  "0 of 2 done · 0%",
+  "Health & Safety",
+  "RAMS · COSHH · TBT",
+  "🔧",
+  "Snagging",
+  "1 open",
+  "Home",
+  "SOW",
+  "Check In",
+  "Inbox",
+  "Settings"
+ ]
+}

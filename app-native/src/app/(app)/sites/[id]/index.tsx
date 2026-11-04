@@ -33,11 +33,11 @@ const shadow = { shadowOpacity: 0, elevation: 0 } as const;
 const cardBox = { backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, ...shadow } as const;
 
 /** The .tilegrid.hometiles grid: an odd last tile stretches across its row. */
-function JobTiles({ tiles, cols }: { tiles: T[]; cols: number }) {
+function JobTiles({ tiles, cols, noStretch }: { tiles: T[]; cols: number; noStretch?: boolean }) {
   return (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -5 }}>
       {tiles.map((x, i) => (
-        <View key={x.key} style={{ width: tiles.length % 2 === 1 && i === tiles.length - 1 ? '100%' : `${100 / cols}%`, padding: 5 }}>
+        <View key={x.key} style={{ width: !noStretch && tiles.length % 2 === 1 && i === tiles.length - 1 ? '100%' : `${100 / cols}%`, padding: 5 }}>
           <Pressable onPress={x.onPress} accessibilityRole="button"
             style={({ pressed }) => [cardBox, { borderRadius: 10, height: 122, alignItems: 'center', justifyContent: 'center', gap: 6.6, paddingHorizontal: 10 }, pressed && { opacity: 0.7 }]}>
             <View style={{ width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: x.bg }}>
@@ -135,27 +135,37 @@ export default function SiteHome() {
   const swapBox = <OnSiteWeather key="swap" me={me} site={site} company={org?.name || ''} style={cardBox} count={h?.onSiteCount ?? 0} onSite={go('checkin')} />;
   const stats = mgr ? [clientBox, calBox, swapBox] : client ? [tasksBox, calBox, snagBox] : [clientBox, calBox, tasksBox];
 
+  // 510 getMcTiles: nine areas; operatives don't count the ones hidden from them.
+  const mcAreas = 9 - (mgr ? 0 : new Set(((site as { mc_hidden_tiles?: string[] | null }).mc_hidden_tiles) ?? []).size);
   const tiles: T[] = client ? [
     { key: 'sow', ic: 'clipboard', bg: TINTS.blue[0], fg: TINTS.blue[1], title: 'Schedule of Works', sub: sowSub, onPress: go('schedule') },
     { key: 'hs', ic: 'shield', bg: '#E7E9EE', fg: base.ink, title: 'Health & Safety', sub: 'RAMS · COSHH · TBT', onPress: go('hs') },
-    { key: 'snag', ic: 'reports', bg: base.warnBg, fg: base.warn, title: 'Snagging', sub: h ? `${snags} open` : '…', onPress: go('snagging/list') },
+    { key: 'snag', emoji: '🔧', bg: base.warnBg, fg: base.warn, title: 'Snagging', sub: h ? `${snags} open` : '…', onPress: go('snagging/list') },
   ] : [
     { key: 'sow', ic: 'clipboard', bg: TINTS.blue[0], fg: TINTS.blue[1], title: 'Schedule of Works', sub: sowSub, onPress: go('schedule') },
-    ...(site.acting_as_main_contractor ? [{ key: 'mc', ic: 'building', bg: '#E7E9EE', fg: base.ink, title: 'Main Contractor', sub: 'Areas and subcontractors', onPress: go('mc') }] : []),
+    ...(site.acting_as_main_contractor ? [{ key: 'mc', ic: 'building', bg: '#E7E9EE', fg: base.ink, title: 'Main Contractor', sub: `${mcAreas} area${mcAreas === 1 ? '' : 's'}`, onPress: go('mc') }] : []),
     { key: 'hs', ic: 'shield', bg: '#E7E9EE', fg: base.ink, title: 'Health & Safety', sub: h ? `${h.pendingRams} to sign` : '…', badge: mgr ? (h?.hsGap ? '!' : undefined) : h?.pendingRams || undefined, onPress: go('hs') },
     { key: 'dwg', ic: 'pencil', bg: '#E7EFEA', fg: '#2F6B4A', title: "Drawings, Spec's & Programme", sub: 'View & upload', onPress: go('drawings') },
     ...((me?.role === 'pm' || me?.role === 'admin') && (site as { onedrive_folder_id?: string | null }).onedrive_folder_id ? [{ key: 'docs', ic: 'pencil', bg: '#E7EDF4', fg: '#1F3A5F', title: 'Documents', sub: 'The job’s OneDrive folder', onPress: go('documents') }] : []),
     { key: 'mat', ic: 'box', bg: base.okBg, fg: base.ok, title: 'Materials', sub: h ? `${h.pendingMaterials} pending` : '…', onPress: go('materials') },
     { key: 'rep', ic: 'reports', bg: base.warnBg, fg: base.warn, title: mgr ? 'Inspections & Reports' : 'Snagging & Variations', sub: h ? `${snags} open` : '…', badge: snags || undefined, onPress: go('snagging') },
-    ...(h?.canSeePrice ? [{ key: 'price', emoji: '💷', bg: '#FFF3D9', fg: '#8A6300', title: 'Price', sub: h.priceWages ? `${h.priceWages} wage${h.priceWages > 1 ? 's' : ''} to book` : h.priceVars ? `${h.priceVars} variation${h.priceVars > 1 ? 's' : ''} pending` : 'Pricing elements', badge: h.priceVars + h.priceWages || undefined, onPress: go('price') }] : []),
-    // Messages is in the left menu on a computer.
-    ...(!desk ? [{ key: 'msg', ic: 'chat', bg: TINTS.blue[0], fg: TINTS.blue[1], title: 'HUB', sub: 'Team messages', onPress: go('messages') }] : []),
+    ...(h?.canSeePrice ? [{ key: 'price', emoji: '💷', bg: '#FFF3D9', fg: '#8A6300', title: 'Price', sub: h.priceWages ? `${h.priceWages} wage${h.priceWages > 1 ? 's' : ''} to book` : h.priceVars ? `${h.priceVars} variation${h.priceVars > 1 ? 's' : ''} pending` : 'Restricted access', badge: h.priceVars + h.priceWages || undefined, onPress: go('price') }] : []),
     ...(mgr && siteStatusKey(site) === 'closed' ? [{ key: 'ho', emoji: '📘', bg: '#E3F4EA', fg: '#1E7A46', title: 'Handover', sub: 'O&M manual · data sheets · guarantees', onPress: go('handover') }]
       : mgr ? [{ key: 'todo', ic: 'check', bg: '#EFEAFB', fg: '#5B3FA6', title: 'To Do List', sub: h ? (h.openTodos ? `${h.openTodos} open` : 'Nothing outstanding') : '…', onPress: go('todos') }] : []),
   ];
   // Calendar sits second to last, whatever comes before it.
   if (!client) tiles.splice(Math.max(0, tiles.length - 1), 0, { key: 'cal', ic: 'calendar', bg: '#E4EEFB', fg: TINTS.blue[1], title: 'Calendar', sub: 'Key dates', onPress: go('calendar') });
+  // The HUB tile (phone only; Messages is in the left menu on a computer) goes last, so Calendar stays second to
+  // last as in the current app (330), where Messages had no tile.
+  if (!client && !desk) tiles.push({ key: 'msg', ic: 'chat', bg: TINTS.blue[0], fg: TINTS.blue[1], title: 'HUB', sub: 'Team messages', onPress: go('messages') });
 
+  // 330: a client gets a minimal, view-only home: no job bar, money or stat row, just the tiles (not stretched).
+  if (client) return (
+    <ScrollView contentContainerStyle={page(720)}>
+      {header}
+      <JobTiles cols={cols} tiles={tiles} noStretch />
+    </ScrollView>
+  );
   return (
     <ScrollView contentContainerStyle={page(720)}>
       {header}

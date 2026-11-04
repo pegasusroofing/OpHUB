@@ -1,0 +1,36 @@
+{
+ "url": "http://localhost:58789/app.html#/reports",
+ "controls": [
+  "Reports & surveys",
+  "All projects",
+  "Search",
+  "Start a report",
+  "[search] Search reports, projects, people",
+  "In progress (1)",
+  "Completed (2)",
+  "All (3)",
+  "Filter ▾",
+  "Select all",
+  "Select report",
+  "Daily report Studley Rd · Paula PM In progress",
+  "General surveys Not linked to a project",
+  "Completed TBTs Signed toolbox talks, all projects"
+ ],
+ "lines": [
+  "Reports & surveys",
+  "All projects",
+  "Start a report",
+  "In progress (1)",
+  "Completed (2)",
+  "All (3)",
+  "Filter ▾",
+  "Select all",
+  "Daily report",
+  "Studley Rd · Paula PM",
+  "In progress",
+  "General surveys",
+  "Not linked to a project",
+  "Completed TBTs",
+  "Signed toolbox talks, all projects"
+ ]
+}

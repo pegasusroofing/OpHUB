@@ -1,0 +1,41 @@
+{
+ "url": "http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/hs/rams",
+ "controls": [
+  "‹",
+  "RAMS",
+  "Studley Rd, London, SW4 6RZ",
+  "Job home",
+  "Projects",
+  "J101 Studley Rd",
+  "Health & Safety",
+  "H&S Policy ✓ Signed 04 Nov 2026 ▸",
+  "🦺 Create RAMS",
+  "📄 Upload RAMS",
+  "Home",
+  "Deliveries",
+  "Check In",
+  "Inbox",
+  "Settings"
+ ],
+ "lines": [
+  "‹",
+  "RAMS",
+  "Studley Rd, London, SW4 6RZ",
+  "Projects",
+  "›",
+  "J101 Studley Rd",
+  "Health & Safety",
+  "H&S Policy",
+  "✓ Signed 04 Nov 2026",
+  "▸",
+  "No RAMS uploaded.",
+  "CREATE / UPLOAD RAMS",
+  "🦺 Create RAMS",
+  "📄 Upload RAMS",
+  "Home",
+  "Deliveries",
+  "Check In",
+  "Inbox",
+  "Settings"
+ ]
+}

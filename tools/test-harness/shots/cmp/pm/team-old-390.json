@@ -1,0 +1,36 @@
+{
+ "url": "http://localhost:58789/app.html#/site/11111111-1111-1111-1111-111111111111/team",
+ "controls": [
+  "Settings & Admin",
+  "Studley Rd, London, SW4 6RZ",
+  "Search",
+  "Projects",
+  "J101 Studley Rd",
+  "Site set up Name & address, main contractor, subcontractor, multi-site, sync folder ▶",
+  "Team Operatives, site managers & clients ▶",
+  "[select] Active / Upcoming / Closed",
+  "▶ Price",
+  "▶ Activity History · who did what, and when"
+ ],
+ "lines": [
+  "Settings & Admin",
+  "Studley Rd, London, SW4 6RZ",
+  "Projects",
+  "›",
+  "J101 Studley Rd",
+  "Site set up",
+  "Name & address, main contractor, subcontractor, multi-site, sync folder",
+  "▶",
+  "Team",
+  "Operatives, site managers & clients",
+  "JOB STATUS",
+  "Active",
+  "Upcoming",
+  "Closed",
+  "Price",
+  "Activity History",
+  "· who did what, and when",
+  "SITE INFO",
+  "Created 04 Nov 2026"
+ ]
+}

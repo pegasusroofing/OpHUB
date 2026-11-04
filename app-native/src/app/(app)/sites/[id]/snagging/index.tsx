@@ -1,5 +1,5 @@
 // Snagging folder: Snagging, Variations and (managers) Reports. Ported from renderSnaggingFolder (490).
-import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { Redirect, router, Stack, useLocalSearchParams } from 'expo-router';
 import { ScrollView } from 'react-native';
 
 import { JobGrid, Tile } from '@/components/ui';
@@ -15,9 +15,11 @@ export default function SnagFolder() {
   const { data } = useSnagFolderCounts(id);
   const mgr = !!me && isManager(me);
   const { data: tpls } = useTemplates(mgr ? me?.org_id : null);
+  // 890: a client's Snagging is the snag list itself (no folder, no Variations).
+  if (me?.role === 'client') return <Redirect href={`/sites/${id}/snagging/list` as never} />;
   return (
     <ScrollView contentContainerStyle={page(720)}>
-      <Stack.Screen options={{ title: mgr ? 'Inspections & Reports' : 'Snagging' }} />
+      <Stack.Screen options={{ title: mgr ? 'Inspections & Reports' : 'Snagging & Variations' }} />
       <JobGrid>
       <Tile icon="🏷" tint="#FBEEDE" title="Snagging" sub={data ? `${data.openSnags} open` : '…'} onPress={() => router.push(`/sites/${id}/snagging/list`)} />
       <Tile icon="✎" tint="#F0E4F5" title="Variations" sub={data ? `${data.liveVariations} live` : '…'} onPress={() => router.push(`/sites/${id}/snagging/variations`)} />

@@ -21,7 +21,8 @@ import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { siteStatusKey } from '@/lib/rules/checkin';
-import { isFullManager } from '@/lib/roles';
+import { isFullManager, roleLabel } from '@/lib/roles';
+import { useOnboarding } from '@/data/onboarding';
 import type { Site } from '@/lib/types';
 import { heading } from '@/lib/fonts';
 import { base, page, useDesk, useTheme } from '@/theme/theme';
@@ -29,14 +30,16 @@ import { base, page, useDesk, useTheme } from '@/theme/theme';
 const match = (s: Site, q: string) => !q || [s.name, s.address, s.postcode, s.job_number, s.client_name].filter(Boolean).join(' ').toLowerCase().includes(q);
 
 export default function Sites() {
-  const { me } = useAuth();
+  const { me, signOut } = useAuth();
   const t = useTheme();
   const desk = useDesk();
   const toast = useToast();
   const qc = useQueryClient();
   const { data, isLoading, refetch, isRefetching, error } = useSites();
   const full = isFullManager(me);
-  const { data: team = [] } = useTeam(full ? me?.org_id : null);
+  // Everyone gets the team, so the PM chip on each card shows the PM's initials (180 siteCardHtml).
+  const { data: team = [] } = useTeam(me?.org_id);
+  const { data: onboarding } = useOnboarding(full ? undefined : data);
   const [q, setQ] = useState('');
   const { tab: tab0 } = useLocalSearchParams<{ tab?: 'all' | 'live' | 'upcoming' | 'closed' }>();
   const [tab, setTab] = useState<'all' | 'live' | 'upcoming' | 'closed'>(tab0 || 'all');
@@ -45,7 +48,7 @@ export default function Sites() {
   const sites = data ?? [];
   const query = q.trim().toLowerCase();
   const pms = team.filter((p) => p.role === 'pm' || p.role === 'admin');
-  const pmName = (id: string | null | undefined) => pms.find((p) => p.id === id)?.name || '';
+  const pmName = (id: string | null | undefined) => team.find((p) => p.id === id)?.name || '';
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['sites'] }); };
   // The .pmsearch bar, and cards 2+ across on a computer (.projgrp-body grid).
   const searchBar = (
@@ -73,8 +76,9 @@ export default function Sites() {
   );
 
   if (!full) {
-    const mine = sites.filter((s) => match(s, query));
-    const live = mine.filter((s) => siteStatusKey(s) === 'live'), upcoming = mine.filter((s) => siteStatusKey(s) === 'upcoming');
+    // 180 (not a PM / admin): one "Your Projects" list of live and upcoming jobs, the Getting Started card,
+    // and your name, email, role and Sign out underneath.
+    const mine = sites.filter((s) => siteStatusKey(s) !== 'closed' && match(s, query));
     return (
       <ScrollView contentContainerStyle={page(720)}
         refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => { void refetch(); }} />}>
@@ -92,10 +96,25 @@ export default function Sites() {
         {!isLoading && error && !data && <Muted>Couldn&apos;t load your projects — check your signal and pull down to try again.</Muted>}
         {!isLoading && !!data && (
           <View>
-            {head('live', 'Live', live.length, grp.live, () => setGrp({ ...grp, live: !grp.live }))}
-            {grp.live && (live.length ? grid(live, (x) => <ProjectCard s={x} />) : <Empty>{query ? 'No projects match.' : 'No live projects.'}</Empty>)}
-            {!!upcoming.length && head('upcoming', 'Upcoming', upcoming.length, !!grp.upcoming, () => setGrp({ ...grp, upcoming: !grp.upcoming }))}
-            {grp.upcoming && grid(upcoming, (x) => <ProjectCard s={x} />)}
+            <Text style={{ fontSize: 11, fontWeight: '800', letterSpacing: 0.8, color: base.slate, marginTop: 4, marginBottom: 10 }}>YOUR PROJECTS</Text>
+            {onboarding && !onboarding.allDone && (
+              <Pressable onPress={() => router.push('/getting-started' as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: base.warnBg, borderWidth: 1, borderColor: base.warn, borderRadius: 18, padding: 14, marginBottom: 16 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontWeight: '800', fontSize: 13.5, color: base.warn }}>Getting Started</Text>
+                  <Text style={{ color: base.slate, fontStyle: 'italic', marginTop: 2 }}>{onboarding.items.filter((i) => i.done).length} of {onboarding.items.length} steps done — tap to finish</Text>
+                </View>
+                <Text style={{ fontSize: 20, color: base.warn }}>›</Text>
+              </Pressable>
+            )}
+            {mine.length ? grid(mine, (x) => <ProjectCard s={x} pmName={pmName(x.responsible_pm_id)} />) : <Empty>{query ? 'No projects match.' : 'No active sites.'}</Empty>}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 20 }}>
+              <Muted>{me?.name}</Muted>
+              <Text numberOfLines={1} style={{ flex: 1, textAlign: 'center', color: base.slate, fontStyle: 'italic', fontSize: 12 }}>{me?.email}</Text>
+              <Muted>{roleLabel(me)}</Muted>
+            </View>
+            <Pressable onPress={() => void signOut()} style={{ alignSelf: 'center', marginTop: 8 }}>
+              <Text style={{ color: base.warn, textDecorationLine: 'underline' }}>Sign out</Text>
+            </Pressable>
           </View>
         )}
       </ScrollView>
@@ -149,14 +168,15 @@ export default function Sites() {
           if (k) setTab(k as typeof tab);
         }, 'show')}
         <View style={{ flex: 1 }} />
+        {/* Filled, before the PM filter, as 180 renderSites. */}
+        {desk && <Pressable onPress={() => router.push('/sites/new' as never)} accessibilityLabel="Add a new project" style={{ height: 32, paddingHorizontal: 14, borderRadius: 20, backgroundColor: t.brand1, justifyContent: 'center', marginRight: 4 }}>
+          <Text style={[heading(700), { fontSize: 12.5, color: t.brand1Text }]}>+ New project</Text>
+        </Pressable>}
         {pms.length > 0 && chip(!!pmIds.length, pmIds.length ? (pmIds.length === 1 ? pmName(pmIds[0]) : `${pmIds.length} selected`) : 'PM ▼', async () => {
           const k = await chooseAction('Show projects for', [...pms.map((p) => ({ key: p.id, label: `${pmIds.includes(p.id) ? '☑' : '☐'} ${p.name}` })), ...(pmIds.length ? [{ key: '__clear', label: 'Clear' }] : [])]);
           if (!k) return; if (k === '__clear') { setPmIds([]); return; }
           setPmIds(pmIds.includes(k) ? pmIds.filter((x) => x !== k) : [...pmIds, k]);
         }, 'pm')}
-        {desk && <Pressable onPress={() => router.push('/sites/new' as never)} accessibilityLabel="Add a new project" style={{ height: 32, paddingHorizontal: 14, borderRadius: 20, borderWidth: 1, borderColor: t.brand1, justifyContent: 'center', marginLeft: 4 }}>
-          <Text style={[heading(700), { fontSize: 12.5, color: t.brand1 }]}>+ New project</Text>
-        </Pressable>}
       </View>
       {isLoading && <ActivityIndicator style={{ marginTop: 24 }} />}
       {!isLoading && error && !data && <Muted>Couldn&apos;t load your projects — check your signal and pull down to try again.</Muted>}

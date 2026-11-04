@@ -1,0 +1,38 @@
+{
+ "url": "http://localhost:58789/app.html#/site/11111111-1111-1111-1111-111111111111/hs/rams",
+ "controls": [
+  "RAMS",
+  "Studley Rd, London, SW4 6RZ",
+  "Search",
+  "🏠",
+  "Projects",
+  "J101 Studley Rd",
+  "🦺 CREATE RAMS",
+  "📄 UPLOAD RAMS",
+  "▶ H&S Policy",
+  "Home",
+  "Deliveries",
+  "Check In",
+  "Inbox",
+  "Settings"
+ ],
+ "lines": [
+  "RAMS",
+  "Studley Rd, London, SW4 6RZ",
+  "🏠",
+  "Projects",
+  "›",
+  "J101 Studley Rd",
+  "No RAMS uploaded.",
+  "CREATE / UPLOAD RAMS",
+  "🦺 CREATE RAMS",
+  "📄 UPLOAD RAMS",
+  "▶",
+  "H&S Policy",
+  "Home",
+  "Deliveries",
+  "Check In",
+  "Inbox",
+  "Settings"
+ ]
+}

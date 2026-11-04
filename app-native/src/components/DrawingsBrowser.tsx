@@ -28,11 +28,12 @@ import { programmeDates } from '@/lib/rules/programmeDates';
 import { readXlsx } from '@/lib/rules/xlsxRead';
 import { readIsoDate } from '@/lib/rules/materials';
 import { isManager } from '@/lib/roles';
-import { base, radius, space } from '@/theme/theme';
+import { base, radius, space, useTheme } from '@/theme/theme';
 
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card, marginBottom: 8 };
 
 export function DrawingsBrowser({ siteId, folderId }: { siteId: string; folderId: string | null }) {
+  const th = useTheme();
   const { me } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
@@ -116,8 +117,9 @@ export function DrawingsBrowser({ siteId, folderId }: { siteId: string; folderId
               if (linked) router.push(`/sites/${siteId}/drawings/import${folderId ? `?folder=${folderId}` : ''}` as never);
               else if (await confirmAsk('This project isn’t linked to a OneDrive folder yet. Link one now? New uploads then copy to OneDrive, and you can bring files in from it.', 'Link a folder')) router.push({ pathname: '/pm/onedrive-pick', params: { target: 'progress', id: siteId } } as never);
             }
-          }} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: base.ink, alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ color: '#fff', fontSize: 22, lineHeight: 24 }}>+</Text>
+          }} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: th.brand1, alignItems: 'center', justifyContent: 'center' }}>
+            {/* 810: the round + is the company colour. */}
+            <Text style={{ color: th.brand1Text, fontSize: 22, lineHeight: 24 }}>+</Text>
           </Pressable>
         </View>
       )}

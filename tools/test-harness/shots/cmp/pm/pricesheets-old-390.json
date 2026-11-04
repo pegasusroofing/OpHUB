@@ -1,0 +1,26 @@
+{
+ "url": "http://localhost:58789/app.html#/site/11111111-1111-1111-1111-111111111111/pricebuilder",
+ "controls": [
+  "Price Sheet",
+  "Studley Rd, London, SW4 6RZ",
+  "Search",
+  "🏠",
+  "Projects",
+  "J101 Studley Rd",
+  "+",
+  "▾"
+ ],
+ "lines": [
+  "Price Sheet",
+  "Studley Rd, London, SW4 6RZ",
+  "🏠",
+  "Projects",
+  "›",
+  "J101 Studley Rd",
+  "Tick-box price sheets built from the company rate card, ready to issue to a subcontractor.",
+  "+",
+  "Draft roof",
+  "DRAFT",
+  "▾"
+ ]
+}

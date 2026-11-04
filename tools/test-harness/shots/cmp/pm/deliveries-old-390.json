@@ -1,0 +1,16 @@
+{
+ "url": "http://localhost:58789/app.html#/deliveries",
+ "controls": [
+  "Deliveries",
+  "Search",
+  "🚚 Delivery Schedule",
+  "🚐 Vehicle Checklists"
+ ],
+ "lines": [
+  "Deliveries",
+  "🚚",
+  "Delivery Schedule",
+  "🚐",
+  "Vehicle Checklists"
+ ]
+}

@@ -1,0 +1,37 @@
+{
+ "url": "http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/drawings",
+ "controls": [
+  "‹",
+  "Drawings, Spec's & Programme",
+  "Studley Rd, London, SW4 6RZ",
+  "Job home",
+  "Projects",
+  "J101 Studley Rd",
+  "+",
+  "⋮",
+  "Home",
+  "Deliveries",
+  "Check In",
+  "Inbox",
+  "Settings"
+ ],
+ "lines": [
+  "‹",
+  "Drawings, Spec's & Programme",
+  "Studley Rd, London, SW4 6RZ",
+  "Projects",
+  "›",
+  "J101 Studley Rd",
+  "Folder/File Name",
+  "+",
+  "📁",
+  "Drawings",
+  "Folder",
+  "⋮",
+  "Home",
+  "Deliveries",
+  "Check In",
+  "Inbox",
+  "Settings"
+ ]
+}

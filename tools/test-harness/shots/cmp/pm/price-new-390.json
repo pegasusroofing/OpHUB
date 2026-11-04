@@ -1,0 +1,43 @@
+{
+ "url": "http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/price",
+ "controls": [
+  "‹",
+  "Price",
+  "Studley Rd, London, SW4 6RZ",
+  "Job home",
+  "Projects",
+  "J101 Studley Rd",
+  "🧮 Price Sheets 1 sheet ›",
+  "+ Add price",
+  "⋮ Manage",
+  "⋮",
+  "Home",
+  "Deliveries",
+  "Check In",
+  "Inbox",
+  "Settings"
+ ],
+ "lines": [
+  "‹",
+  "Price",
+  "Studley Rd, London, SW4 6RZ",
+  "Projects",
+  "›",
+  "J101 Studley Rd",
+  "🧮",
+  "Price Sheets",
+  "1 sheet",
+  "+ Add price",
+  "⋮ Manage",
+  "⋮",
+  "🧾",
+  "Flat roof",
+  "£10,000.00 · £0.00 booked",
+  "Bal: £10,000.00",
+  "Home",
+  "Deliveries",
+  "Check In",
+  "Inbox",
+  "Settings"
+ ]
+}

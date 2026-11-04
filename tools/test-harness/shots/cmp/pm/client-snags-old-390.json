@@ -1,0 +1,41 @@
+{
+ "url": "http://localhost:50975/app.html#/site/11111111-1111-1111-1111-111111111111/snagging",
+ "controls": [
+  "Snagging",
+  "Studley Rd, London, SW4 6RZ",
+  "Search",
+  "🏠",
+  "Projects",
+  "J101 Studley Rd",
+  "LIVE",
+  "CLOSED",
+  "📄 EXPORT LIVE",
+  "✉️ EMAIL LIVE SNAGS",
+  "Home",
+  "SOW",
+  "Check In",
+  "Inbox",
+  "Settings"
+ ],
+ "lines": [
+  "Snagging",
+  "Studley Rd, London, SW4 6RZ",
+  "🏠",
+  "Projects",
+  "›",
+  "J101 Studley Rd",
+  "LIVE",
+  "CLOSED",
+  "Cracked tile",
+  "Rear",
+  "OPEN",
+  "EXPORT",
+  "📄 EXPORT LIVE",
+  "✉️ EMAIL LIVE SNAGS",
+  "Home",
+  "SOW",
+  "Check In",
+  "Inbox",
+  "Settings"
+ ]
+}

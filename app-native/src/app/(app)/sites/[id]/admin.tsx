@@ -229,8 +229,9 @@ export default function SiteAdmin() {
         </>
       )}
 
-      <Pressable onPress={() => router.push(`/sites/${id}/activity` as never)} style={{ marginTop: space.l }}>
-        <Text style={{ fontWeight: '700', color: base.ink }}>▶ Activity History <Text style={{ fontWeight: '400', color: base.slate }}>· who did what, and when</Text></Text>
+      {/* 385: a row like the drop-downs above it, not loose text. */}
+      <Pressable onPress={() => router.push(`/sites/${id}/activity` as never)} accessibilityRole="button" style={{ marginTop: 8, marginBottom: 6, paddingVertical: 9, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1, borderColor: base.cardLine, backgroundColor: base.card }}>
+        <Text style={{ fontWeight: '700', fontSize: 13.5, color: base.ink }}>▶ Activity History <Text style={{ fontWeight: '400', fontStyle: 'italic', fontSize: 12, color: base.slate }}>· who did what, and when</Text></Text>
       </Pressable>
 
       <SectionTitle>Site Info</SectionTitle>

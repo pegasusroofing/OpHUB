@@ -1,0 +1,26 @@
+{
+ "url": "http://localhost:58789/app.html#/site/11111111-1111-1111-1111-111111111111/hs/coshh-pick",
+ "controls": [
+  "Add from Library",
+  "Studley Rd, London, SW4 6RZ",
+  "Search",
+  "🏠",
+  "Projects",
+  "J101 Studley Rd",
+  "SELECT FOLDER"
+ ],
+ "lines": [
+  "Add from Library",
+  "Studley Rd, London, SW4 6RZ",
+  "🏠",
+  "Projects",
+  "›",
+  "J101 Studley Rd",
+  "Add From Library",
+  "Element of Works",
+  "Tap a folder to open it, or \"Select Folder\" to select every document inside it (including subfolders) at once.",
+  "📁 Flat Roofing",
+  "SELECT FOLDER",
+  "📁 Pitched Roofing"
+ ]
+}

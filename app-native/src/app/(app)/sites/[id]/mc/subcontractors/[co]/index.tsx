@@ -3,7 +3,7 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { ScrollView } from 'react-native';
 
-import { Muted, Tile } from '@/components/ui';
+import { JobGrid, Muted, Tile } from '@/components/ui';
 import { useSite } from '@/data/sites';
 import { useSubco, useSubcos } from '@/data/subcontractors';
 import { isManager } from '@/lib/roles';
@@ -25,6 +25,8 @@ export default function SubcoHub() {
   return (
     <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: data.company.name }} />
+      {/* 550: a tile grid like the Main Contractor page, not a list. */}
+      <JobGrid>
       <Tile icon="📄" tint="#E7E9EE" title="RAMS" sub={docs(n.rams)} onPress={go('docs?kind=rams')} />
       <Tile icon="🧪" tint="#E7E9EE" title="COSHH" sub={docs(n.coshh)} onPress={go('docs?kind=coshh')} />
       <Tile icon="📢" tint="#E7E9EE" title="TBT" sub={`${n.tbt} live`} onPress={go('tbt')} />
@@ -33,6 +35,7 @@ export default function SubcoHub() {
       <Tile icon="🔍" tint="#E7E9EE" title="Inspections" sub={`${n.inspections} file${n.inspections === 1 ? '' : 's'}`} onPress={go('inspections')} />
       <Tile icon="📝" tint="#E7E9EE" title="Daily Briefings" sub={`${n.briefings} logged`} onPress={go('briefings')} />
       <Tile icon="👷" tint="#E7E9EE" title="Operatives" sub={`${n.operatives} allocated`} onPress={go('operatives')} />
+      </JobGrid>
     </ScrollView>
   );
 }

@@ -1,0 +1,36 @@
+{
+ "url": "http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/mc/inspections",
+ "controls": [
+  "‹",
+  "Inspections",
+  "Studley Rd, London, SW4 6RZ",
+  "Job home",
+  "Projects",
+  "J101 Studley Rd",
+  "Main Contractor",
+  "Manage Templates",
+  "+ New Inspection",
+  "Home",
+  "Deliveries",
+  "Check In",
+  "Inbox",
+  "Settings"
+ ],
+ "lines": [
+  "‹",
+  "Inspections",
+  "Studley Rd, London, SW4 6RZ",
+  "Projects",
+  "›",
+  "J101 Studley Rd",
+  "Main Contractor",
+  "Manage Templates",
+  "+ New Inspection",
+  "No inspections logged yet — set up a template first.",
+  "Home",
+  "Deliveries",
+  "Check In",
+  "Inbox",
+  "Settings"
+ ]
+}

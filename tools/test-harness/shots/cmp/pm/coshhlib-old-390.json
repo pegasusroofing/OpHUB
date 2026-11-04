@@ -1,0 +1,34 @@
+{
+ "url": "http://localhost:58789/app.html#/coshh-substances",
+ "controls": [
+  "COSHH Library",
+  "Search",
+  "▶ How it works",
+  "Assessments (folders)",
+  "Products (data sheets)",
+  "+",
+  "[select] Filter: jump to element of works… / Flat Roofing / Pitched Roofing",
+  "✏️",
+  "🗑",
+  "+ Upload a ready-made PDF"
+ ],
+ "lines": [
+  "COSHH Library",
+  "▶",
+  "How it works",
+  "Assessments (folders)",
+  "Products (data sheets)",
+  "📄 UPLOAD DATA SHEETS → MAKE THE COSHH ASSESSMENTS",
+  "One sheet: the reader fills it in and you check it before the assessment is made. Several at once: each is read and its assessment saved here straight away — check the products afterwards (marked \"check me\").",
+  "FOLDERS",
+  "+",
+  "Filter: jump to element of works…",
+  "Flat Roofing",
+  "Pitched Roofing",
+  "📁 Flat Roofing",
+  "✏️",
+  "🗑",
+  "📁 Pitched Roofing",
+  "+ Upload a ready-made PDF"
+ ]
+}

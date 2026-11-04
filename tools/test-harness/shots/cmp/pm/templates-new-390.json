@@ -1,0 +1,23 @@
+{
+ "url": "http://localhost:8081/pm/admin/templates",
+ "controls": [
+  "‹",
+  "Report Templates",
+  "RTB Roofing Ltd",
+  "⋮",
+  "+ New Template"
+ ],
+ "lines": [
+  "‹",
+  "Report Templates",
+  "RTB Roofing Ltd",
+  "Build reusable inspection / report templates here. Project Managers can fill these in on site and submit them as a report. Editing a template never changes inspections already started from it.",
+  "📋",
+  "Daily report",
+  "1 section · Report / survey",
+  "⋮",
+  "LOLER check",
+  "0 sections · LOLER inspection",
+  "+ New Template"
+ ]
+}

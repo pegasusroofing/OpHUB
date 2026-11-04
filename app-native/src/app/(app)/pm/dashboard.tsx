@@ -18,7 +18,7 @@ import { overallPct } from '@/lib/rules/sow';
 import { isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
 import type { Site } from '@/lib/types';
-import { base, page, radius, space } from '@/theme/theme';
+import { base, page, radius, space, useTheme } from '@/theme/theme';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 const rows = <T,>(r: { data: unknown }) => ((r.data as T[] | null) ?? []);
@@ -75,6 +75,7 @@ export default function CompanyDashboard() {
   const { data: sites } = useSites();
   const { data, isLoading } = useCompanyDashboard(sites);
   const [show, setShow] = useState<string | null>(null);
+  const t = useTheme();
   if (!me) return null;
   if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
   const all = sites ?? [];
@@ -98,6 +99,9 @@ export default function CompanyDashboard() {
     tbt: { title: 'Live Projects With TBT Outstanding', map: data?.tbtBy, go: (id) => `/sites/${id}/hs/tbt` },
   };
   const toggle = (k: string) => () => setShow(show === k ? null : k);
+  // 230 .sitecard: a company-colour swatch (the project's initials, or ⚠️), the name, the count underneath.
+  const swatch = (txt: string) => <View style={{ width: 50, height: 43, borderRadius: 14, backgroundColor: t.brand1, alignItems: 'center', justifyContent: 'center' }}><Text style={[heading(800), { color: t.brand1Text, fontSize: 12 }]}>{txt}</Text></View>;
+  const initials = (n: string) => (n || '?').split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase();
   const sel = show && lists[show];
   return (
     <ScrollView contentContainerStyle={page(720)}>
@@ -127,9 +131,12 @@ export default function CompanyDashboard() {
             <View key={k}>
               <SectionTitle>{l.title}</SectionTitle>
               {ranked.length ? ranked.map(({ s, n }) => (
-                <Pressable key={s.id} onPress={() => router.push(l.go(s.id) as never)} style={{ flexDirection: 'row', alignItems: 'center', padding: 12, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 10, backgroundColor: base.card }}>
-                  <Text style={{ flex: 1, fontWeight: '700', color: base.ink }}>{s.name}</Text>
-                  <Text style={{ fontWeight: '800', color: base.warn }}>{n}</Text>
+                <Pressable key={s.id} onPress={() => router.push(l.go(s.id) as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 10, backgroundColor: base.card }}>
+                  {swatch(initials(s.name))}
+                  <View style={{ flex: 1 }}>
+                    <Text style={[heading(700), { color: base.ink, fontSize: 14.5 }]}>{s.name}</Text>
+                    <Text style={{ color: base.slate, fontSize: 12 }}>{n}</Text>
+                  </View>
                 </Pressable>
               )) : <Empty>Nothing outstanding.</Empty>}
             </View>
@@ -140,7 +147,7 @@ export default function CompanyDashboard() {
               <SectionTitle>Recent Accident / Incident Reports</SectionTitle>
               {data.incidents.slice(0, 8).length ? data.incidents.slice(0, 8).map((r) => (
                 <Pressable key={r.id} onPress={() => router.push(`/sites/${r.site_id}/hs/incidents/${r.id}` as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 10, backgroundColor: base.card }}>
-                  <Text>⚠️</Text>
+                  {swatch('⚠️')}
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontWeight: '700', color: base.ink }}>{all.find((x) => x.id === r.site_id)?.name || 'Unknown project'}</Text>
                     <Muted>{r.location || ''} · {new Date(r.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}{r.riddor_reportable ? ' · RIDDOR' : ''}</Muted>

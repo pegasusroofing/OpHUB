@@ -1,0 +1,37 @@
+{
+ "url": "http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/hs/loler",
+ "controls": [
+  "‹",
+  "LOLER Inspections",
+  "Studley Rd, London, SW4 6RZ",
+  "Job home",
+  "Projects",
+  "J101 Studley Rd",
+  "Health & Safety",
+  "+ New LOLER Inspection",
+  "LOLER check Submitted 04/11/2026, 23:18:28 · Paula PM Completed",
+  "Home",
+  "Deliveries",
+  "Check In",
+  "Inbox",
+  "Settings"
+ ],
+ "lines": [
+  "‹",
+  "LOLER Inspections",
+  "Studley Rd, London, SW4 6RZ",
+  "Projects",
+  "›",
+  "J101 Studley Rd",
+  "Health & Safety",
+  "+ New LOLER Inspection",
+  "LOLER check",
+  "Submitted 04/11/2026, 23:18:28 · Paula PM",
+  "Completed",
+  "Home",
+  "Deliveries",
+  "Check In",
+  "Inbox",
+  "Settings"
+ ]
+}

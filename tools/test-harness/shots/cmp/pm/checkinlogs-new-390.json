@@ -1,0 +1,33 @@
+{
+ "url": "http://localhost:8081/pm/admin/checkinlogs",
+ "controls": [
+  "‹",
+  "Check-In Logs",
+  "RTB Roofing Ltd",
+  "Weekly",
+  "Monthly",
+  "All operatives",
+  "From 📅",
+  "To 📅"
+ ],
+ "lines": [
+  "‹",
+  "Check-In Logs",
+  "RTB Roofing Ltd",
+  "Every operative's check-in / check-out times, across all sites.",
+  "Weekly",
+  "Monthly",
+  "All operatives",
+  "02 Nov – 08 Nov",
+  "›",
+  "From",
+  "📅",
+  "To",
+  "Jake Morris",
+  "0.0h",
+  "04/11/2026",
+  "23:18 – still on site",
+  "Tom Hughes",
+  "No check-ins this week."
+ ]
+}

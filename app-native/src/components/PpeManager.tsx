@@ -52,7 +52,7 @@ export function PpeManager({ site }: { site: Site }) {
   const [who, setWho] = useState<string[]>([]);
   const [items, setItems] = useState<string[]>([]);
   const [custom, setCustom] = useState('');
-  const [reqOpen, setReqOpen] = useState(false);
+  const [reqOpen, setReqOpen] = useState(true); // 650: ppeRequestsOpen starts open
   const [reqPick, setReqPick] = useState<Set<string>>(new Set()); // 650 #263: tick requests to export / email them
   const [openFor, setOpenFor] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);

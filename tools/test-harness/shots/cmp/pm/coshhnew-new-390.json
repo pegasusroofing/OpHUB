@@ -1,0 +1,40 @@
+{
+ "url": "http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/hs/coshh/new",
+ "controls": [
+  "‹",
+  "Create COSHH",
+  "Studley Rd, London, SW4 6RZ",
+  "Job home",
+  "Projects",
+  "J101 Studley Rd",
+  "Health & Safety",
+  "📄 Upload Data Sheet Reads the name, hazards, codes, PPE and first aid off the Safety Data",
+  "✏️ Enter Manually Fill in the product details yourself, and add its data sheet if you have",
+  "📚 Product Already In The Library Pick from the 2 products already set up.",
+  "Home",
+  "Deliveries",
+  "Check In",
+  "Inbox",
+  "Settings"
+ ],
+ "lines": [
+  "‹",
+  "Create COSHH",
+  "Studley Rd, London, SW4 6RZ",
+  "Projects",
+  "›",
+  "J101 Studley Rd",
+  "Health & Safety",
+  "📄 Upload Data Sheet",
+  "Reads the name, hazards, codes, PPE and first aid off the Safety Data Sheet. Best on the office laptop.",
+  "✏️ Enter Manually",
+  "Fill in the product details yourself, and add its data sheet if you have one.",
+  "📚 Product Already In The Library",
+  "Pick from the 2 products already set up.",
+  "Home",
+  "Deliveries",
+  "Check In",
+  "Inbox",
+  "Settings"
+ ]
+}

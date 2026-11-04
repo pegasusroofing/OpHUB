@@ -1,0 +1,31 @@
+{
+ "url": "http://localhost:58789/app.html#/team/people/checkinlogs",
+ "controls": [
+  "Check-In Logs",
+  "Search",
+  "WEEKLY",
+  "MONTHLY",
+  "ALL OPERATIVES ▼",
+  "‹",
+  "›",
+  "[date] "
+ ],
+ "lines": [
+  "Check-In Logs",
+  "Every operative's check-in / check-out times, across all sites.",
+  "WEEKLY",
+  "MONTHLY",
+  "ALL OPERATIVES ▼",
+  "‹",
+  "02 Nov – 08 Nov",
+  "›",
+  "From",
+  "To",
+  "Jake Morris",
+  "0.0H",
+  "04/11/2026",
+  "23:14 – still on site",
+  "Tom Hughes",
+  "No check-ins this week."
+ ]
+}

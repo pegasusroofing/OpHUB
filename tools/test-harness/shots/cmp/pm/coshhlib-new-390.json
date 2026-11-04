@@ -1,0 +1,34 @@
+{
+ "url": "http://localhost:8081/pm/admin/coshh",
+ "controls": [
+  "‹",
+  "COSHH Library",
+  "RTB Roofing Ltd",
+  "Assessments (folders)",
+  "Products (data sheets)",
+  "Jump to… ▾",
+  "+ Folder",
+  "✏️",
+  "🗑",
+  "+ Upload ready-made PDFs into the top level",
+  "📥 Make assessments from data sheets into the top level"
+ ],
+ "lines": [
+  "‹",
+  "COSHH Library",
+  "RTB Roofing Ltd",
+  "1. Add a product and its data sheet. 2. Check it and tap Assess — the assessment is saved in a folder. 3. Add assessments to a job from its COSHH page (Add from COSHH Library), or tick them here to export or email.",
+  "Assessments (folders)",
+  "Products (data sheets)",
+  "Jump to… ▾",
+  "Folders",
+  "+ Folder",
+  "📁 Flat Roofing",
+  "✏️",
+  "🗑",
+  "📁 Pitched Roofing",
+  "+ Upload ready-made PDFs into the top level",
+  "📥 Make assessments from data sheets into the top level",
+  "Pick one Safety Data Sheet to check it first, or several at once: each becomes a product with its own COSHH assessment in this folder. On the office laptop the codes are read off each sheet for you — always check them."
+ ]
+}

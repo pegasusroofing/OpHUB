@@ -1,0 +1,39 @@
+{
+ "url": "http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/mc/subcontractors",
+ "controls": [
+  "‹",
+  "Subcontractors",
+  "Studley Rd, London, SW4 6RZ",
+  "Job home",
+  "Projects",
+  "J101 Studley Rd",
+  "Main Contractor",
+  "✏️",
+  "🗑",
+  "+ Add Subcontractor",
+  "Home",
+  "Deliveries",
+  "Check In",
+  "Inbox",
+  "Settings"
+ ],
+ "lines": [
+  "‹",
+  "Subcontractors",
+  "Studley Rd, London, SW4 6RZ",
+  "Projects",
+  "›",
+  "J101 Studley Rd",
+  "Main Contractor",
+  "Each subcontractor gets their own tile with RAMS, COSHH, Toolbox Talks, Daily Briefings and their own operatives — only operatives allocated to a company can open that company's tile.",
+  "Acme Scaffolding",
+  "✏️",
+  "🗑",
+  "+ Add Subcontractor",
+  "Home",
+  "Deliveries",
+  "Check In",
+  "Inbox",
+  "Settings"
+ ]
+}
