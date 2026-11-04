@@ -13,7 +13,7 @@ import { chooseAction, confirmAsk, showAlert, useToast } from '@/components/toas
 import { Button, Card, Field, Muted, SectionTitle, Toggle } from '@/components/ui';
 import { FinStat } from '@/components/FinNav';
 import { useTeam } from '@/data/admin';
-import { chaseNow, chasePatch, clientId, convertToJob, fileQuoteFolder, linkToJob, makeQuoteFolder, saveQuote, searchClients, setQuoteStatus, uploadTenderDocs, useQuote, useQuoteSettings, type ClientHit } from '@/data/quotes';
+import { chaseNow, chasePatch, clientId, convertToJob, fileQuoteFolder, linkToJob, setClientMarkup, makeQuoteFolder, saveQuote, searchClients, setQuoteStatus, uploadTenderDocs, useQuote, useQuoteSettings, type ClientHit } from '@/data/quotes';
 import { SubmitQuote } from '@/components/SubmitQuote';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
@@ -21,8 +21,8 @@ import { DISCIPLINES, isClosed, QUOTE_STATUS, statusLabel } from '@/lib/rules/qu
 import { supabase } from '@/lib/supabase';
 import { base, page, space, useDesk } from '@/theme/theme';
 
-type Form = { client: string; contact: string; email: string; phone: string; title: string; address: string; postcode: string; discipline: string; value: string; profit: string; pricedBy: string; pricedName: string; received: string; ret: string; notes: string };
-const EMPTY: Form = { client: '', contact: '', email: '', phone: '', title: '', address: '', postcode: '', discipline: '', value: '', profit: '', pricedBy: '', pricedName: '', received: '', ret: '', notes: '' };
+type Form = { client: string; contact: string; email: string; phone: string; title: string; address: string; postcode: string; discipline: string; value: string; profit: string; markup: string; pricedBy: string; pricedName: string; received: string; ret: string; notes: string };
+const EMPTY: Form = { client: '', contact: '', email: '', phone: '', title: '', address: '', postcode: '', discipline: '', value: '', profit: '', markup: '', pricedBy: '', pricedName: '', received: '', ret: '', notes: '' };
 const EMAIL_OK = /^[^\s@,;<>"]+@[^\s@,;<>"]+\.[^\s@,;<>"]+$/;
 
 export default function QuotePage() {
@@ -37,6 +37,7 @@ export default function QuotePage() {
   const { data: nums } = useQuery({ queryKey: ['orgNums', me?.org_id], enabled: !!me, queryFn: async () => (await supabase.from('organizations').select('auto_job_numbers').eq('id', me?.org_id as string).maybeSingle()).data as { auto_job_numbers?: boolean } | null });
   const [v, setV] = useState<Form>(EMPTY);
   const [hits, setHits] = useState<ClientHit[]>([]);
+  const [picked, setPicked] = useState<ClientHit | null>(null);
   const [busy, setBusy] = useState('');
   const [docs, setDocs] = useState<{ uri: string; name: string }[]>([]);
   const [showDetails, setShowDetails] = useState(false);
@@ -46,7 +47,7 @@ export default function QuotePage() {
   const firstDays = settings?.chase_first_days ?? 30;
   useEffect(() => {
     if (!q) return;
-    setV({ client: q.client_name, contact: q.contact_name ?? '', email: q.contact_email ?? '', phone: q.contact_phone ?? '', title: q.title, address: q.address ?? '', postcode: q.postcode ?? '', discipline: q.discipline ?? '', value: q.value == null ? '' : String(q.value), profit: q.profit_pct == null ? '' : String(Math.round(q.profit_pct * 1000) / 10), pricedBy: q.priced_by ?? '', pricedName: q.priced_by_name ?? '', received: q.received_date ?? '', ret: q.return_date ?? '', notes: q.notes ?? '' });
+    setV({ client: q.client_name, contact: q.contact_name ?? '', email: q.contact_email ?? '', phone: q.contact_phone ?? '', title: q.title, address: q.address ?? '', postcode: q.postcode ?? '', discipline: q.discipline ?? '', value: q.value == null ? '' : String(q.value), profit: q.profit_pct == null ? '' : String(Math.round(q.profit_pct * 1000) / 10), markup: q.guide_markup_pct == null ? '' : String(q.guide_markup_pct), pricedBy: q.priced_by ?? '', pricedName: q.priced_by_name ?? '', received: q.received_date ?? '', ret: q.return_date ?? '', notes: q.notes ?? '' });
   }, [q?.id, q?.status, q?.folder_id, q?.chase_count]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!me) return null;
   if (me.role !== 'pm' && me.role !== 'admin') return <Muted style={{ padding: space.l }}>Project managers and admins only.</Muted>;
@@ -61,12 +62,13 @@ export default function QuotePage() {
     const email = v.email.trim();
     if (email && !EMAIL_OK.test(email)) { toast('That email address doesn’t look right.'); return null; }
     const val = v.value.trim() ? Number(v.value.replace(/[£,\s]/g, '')) : null, pct = v.profit.trim() ? Number(v.profit.replace(/[%\s]/g, '')) : null;
-    if ((val != null && !isFinite(val)) || (pct != null && !isFinite(pct))) { toast('Value and profit need to be numbers.'); return null; }
+    const mk = v.markup.trim() ? Number(v.markup.replace(/[%\s]/g, '')) : null;
+    if ((val != null && !isFinite(val)) || (pct != null && !isFinite(pct)) || (mk != null && !isFinite(mk))) { toast('Value, profit and mark-up need to be numbers.'); return null; }
     setBusy(isNew ? 'Saving…' : 'save');
     const cid = await clientId(v.client.trim(), email, v.phone.trim());
     const saved = await saveQuote(me, isNew ? null : id, {
       client_id: cid, client_name: v.client.trim(), contact_name: v.contact.trim() || null, contact_email: email || null, contact_phone: v.phone.trim() || null, title: v.title.trim(), address: v.address.trim() || null, postcode: v.postcode.trim() || null,
-      discipline: v.discipline || null, value: val, profit_pct: pct == null ? null : pct / 100, priced_by: v.pricedBy || (isNew ? me.id : null), priced_by_name: v.pricedName || (isNew ? me.name : null), received_date: v.received || null, return_date: v.ret || null, notes: v.notes.trim() || null,
+      discipline: v.discipline || null, value: val, profit_pct: pct == null ? null : pct / 100, guide_markup_pct: mk, priced_by: v.pricedBy || (isNew ? me.id : null), priced_by_name: v.pricedName || (isNew ? me.name : null), received_date: v.received || null, return_date: v.ret || null, notes: v.notes.trim() || null,
     });
     if (!saved) { setBusy(''); toast('Could not save. Try again.'); return null; }
     let done = isNew ? 'Enquiry added' : 'Saved';
@@ -152,7 +154,7 @@ export default function QuotePage() {
             </View>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 10 }}>
               <FinStat basis={desk ? 150 : '45%'} v={q.value ? `£${Math.round(q.value).toLocaleString('en-GB')}` : '—'} label="Tender value" tone="blue" />
-              <FinStat basis={desk ? 150 : '45%'} v={q.profit_pct == null ? '—' : `${Math.round(q.profit_pct * 1000) / 10}%`} label="Profit" tone="green" />
+              <FinStat basis={desk ? 150 : '45%'} v={q.profit_pct == null ? '—' : `${Math.round(q.profit_pct * 1000) / 10}%`} label={q.guide_markup_pct != null ? `Profit · guide mark-up ${q.guide_markup_pct}%` : 'Profit'} tone="green" />
               <FinStat basis={desk ? 150 : '45%'} v={ukd(q.return_date)} label={q.returned_at ? 'Sent' : 'Due back'} tone="amber" />
               <FinStat basis={desk ? 150 : '45%'} v={q.priced_by_name || '—'} label="Priced by" />
             </View>
@@ -203,7 +205,7 @@ export default function QuotePage() {
         <SectionTitle>Customer</SectionTitle>
         <Field label="Client *" value={v.client} onChangeText={typeClient} placeholder="Start typing to search your Directory" />
         {hits.filter((h) => h.name.toLowerCase() !== v.client.trim().toLowerCase()).map((h) => (
-          <Pressable key={h.id} onPress={() => { setV((f) => ({ ...f, client: h.name, email: f.email || h.email || '', phone: f.phone || h.phone || '' })); setHits([]); }} style={{ paddingVertical: 8 }}>
+          <Pressable key={h.id} onPress={() => { setV((f) => ({ ...f, client: h.name, email: f.email || h.email || '', phone: f.phone || h.phone || '', markup: f.markup || (h.markup != null ? String(h.markup) : '') })); setPicked(h); setHits([]); }} style={{ paddingVertical: 8 }}>
             <Text style={{ color: base.blue, fontWeight: '700' }}>{h.name}</Text>
           </Pressable>
         ))}
@@ -226,6 +228,21 @@ export default function QuotePage() {
             <View style={{ flex: 1 }}><Field label="Profit %" value={v.profit} onChangeText={set('profit')} keyboardType="decimal-pad" /></View>
           </View>
         )}
+        {/* Guide mark-up (Andy, 4 Nov 2026): starts as the client's estimating mark-up from the Directory; change it here, and save it
+            back to the client if it should be their new figure. */}
+        <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-end' }}>
+          <View style={{ flex: 1 }}><Field label="Guide mark-up %" value={v.markup} onChangeText={set('markup')} keyboardType="decimal-pad" placeholder={picked?.markup != null ? `${picked.markup} (client)` : 'e.g. 15'} /></View>
+          {!!v.client.trim() && v.markup.trim() !== '' && (picked ? String(picked.markup ?? '') !== v.markup.trim() : true) && (
+            <View style={{ flex: 1, marginBottom: 10 }}><Button small kind="ghost" busy={busy === 'markup'} title="Save For This Client" onPress={async () => {
+              const n = Number(v.markup.replace(/[%\s]/g, '')); if (!isFinite(n)) { toast('The mark-up needs to be a number.'); return; }
+              setBusy('markup');
+              const cid = picked?.id ?? (q?.client_id || (await clientId(v.client.trim(), v.email.trim(), v.phone.trim())));
+              const ok = !!cid && (await setClientMarkup(cid, n));
+              setBusy('');
+              if (ok) { setPicked({ ...(picked ?? { id: cid as string, name: v.client.trim(), email: null, phone: null }), markup: n }); toast(`${v.client.trim()}'s estimating mark-up is now ${n}%`); } else toast('Could not save it to the client.');
+            }} /></View>
+          )}
+        </View>
         {/* Who's pricing it can be set from the start, so the estimator owns it (Andy, 4 Nov 2026). */}
         <Muted style={{ fontWeight: '700', marginBottom: 4 }}>{isNew ? 'Who is pricing it' : 'Priced by'}</Muted>
         <View style={{ marginBottom: 10 }}><Button kind="ghost" title={v.pricedName || (isNew ? `${me.name || 'Me'} (me)` : 'Choose…')} onPress={async () => { const k = await chooseAction(isNew ? 'Who is pricing it' : 'Priced by', people.map((p) => ({ key: p.id, label: p.name || p.email || 'Unknown' }))); const p = people.find((x) => x.id === k); if (p) setV((f) => ({ ...f, pricedBy: p.id, pricedName: p.name || '' })); }} /></View>

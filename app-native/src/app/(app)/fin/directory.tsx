@@ -248,7 +248,7 @@ export default function FinDirectory() {
       })() : list.length ? list.map((c) => <FinRow key={c.id} title={c.name} sub={[sup ? c.category : '', c.email, termsText(c), c.sales_vat ? `VAT ${VAT_SHOW.find(([k]) => k === c.sales_vat)?.[1]}` : '', c.cis_registered ? 'CIS' : '', c.xero_contact_id ? 'In Xero' : 'Not in Xero'].filter(Boolean).join(' · ')} onPress={() => setEdit(c)} />) : <Empty>Nothing here yet.</Empty>}
       {!sup && !!jd && sites.some((s) => !(s.client_name || jd.jfBy[s.id]?.billing_name)) && <Muted style={{ marginTop: 10 }}>Jobs with no client set: {sites.filter((s) => !(s.client_name || jd.jfBy[s.id]?.billing_name)).map(jobTag).join(', ')}</Muted>}
       {edit && (
-        <FinForm title={edit.id ? edit.name : `New ${sup ? 'supplier' : 'client'}`} initial={{ ...edit, terms_days: edit.terms_days ?? '', cis_rate: String(edit.cis_rate ?? 20), toX: !edit.xero_contact_id }} onClose={() => setEdit(null)}
+        <FinForm title={edit.id ? edit.name : `New ${sup ? 'supplier' : 'client'}`} initial={{ ...edit, estimating_markup_pct: edit.estimating_markup_pct ?? '', terms_days: edit.terms_days ?? '', cis_rate: String(edit.cis_rate ?? 20), toX: !edit.xero_contact_id }} onClose={() => setEdit(null)}
           note={edit.xero_contact_id ? 'Linked to Xero.' : 'Not in Xero yet.'}
           fields={[
             { k: 'name', label: `${sup ? 'Supplier' : 'Client'} name` }, ...(sup ? [{ k: 'category', label: 'Category', kind: 'choice', options: [['', 'Not set'], ...SUP_CATS.map((x) => [x, x])] }, { k: 'supplier_id', label: 'Projects Supplier (ordering)', kind: 'choice', options: [['', 'Not linked'], ...mats.map((m) => { const other = ((data as Row[]) || []).find((x) => x.supplier_id === m.id && x.id !== edit.id); return [m.id, `${m.name}${other ? ` (linked to ${other.name})` : ''}`]; }), ['__new', '+ Add to the Projects suppliers']], note: 'Links this Directory record to the supplier you order from on projects. They stay separate — changing one never changes the other.' }] as Field[] : []),
@@ -258,7 +258,10 @@ export default function FinDirectory() {
             { k: 'vat_registered', label: 'VAT registered', kind: 'check' }, { k: 'vat_number', label: 'VAT number', half: true }, { k: 'sales_vat', label: sup ? 'Default sales VAT' : 'Default VAT code on invoices', kind: 'choice', options: VAT, half: true },
             ...(sup ? [{ k: 'purchase_vat', label: 'Default purchase VAT', kind: 'choice', options: VAT, half: true }, { k: 'foreign_supplier', label: 'Foreign supplier (ignore VAT)', kind: 'check' }, { k: 'no_sync', label: 'Don’t send this supplier’s bills to Xero', kind: 'check' }, { k: 'utr', label: 'UTR', half: true }] as Field[] : []),
             { k: 'cis_registered', label: sup ? 'CIS subcontractor (you deduct CIS)' : 'CIS registered (they deduct CIS from you)', kind: 'check' }, { k: 'cis_rate', label: 'CIS rate', kind: 'choice', options: CIS, half: true },
-            { k: 'company_number', label: 'Company number', half: true }, { k: 'notes', label: 'Notes', kind: 'multiline' }, ...(!edit.xero_contact_id ? [{ k: 'toX', label: 'Add to Xero as well', kind: 'check' }] as Field[] : []),
+            { k: 'company_number', label: 'Company number', half: true },
+            // The guide mark-up a quote for this client starts with (Andy, 4 Nov 2026).
+            ...(sup ? [] : [{ k: 'estimating_markup_pct', label: 'Estimating mark-up %', kind: 'number', half: true, note: 'Fills the guide mark-up on new quotes for this client.' }] as Field[]),
+            { k: 'notes', label: 'Notes', kind: 'multiline' }, ...(!edit.xero_contact_id ? [{ k: 'toX', label: 'Add to Xero as well', kind: 'check' }] as Field[] : []),
           ]}
           onSave={async (v) => {
             const name = String(v.name || '').trim(); if (!name) return 'Enter the name.';
@@ -268,6 +271,7 @@ export default function FinDirectory() {
             const row: Row = { name, email: email || null, address: t('address'), postcode: t('postcode'), phone: t('phone'), vat_registered: !!v.vat_registered, vat_number: t('vat_number'), sales_vat: t('sales_vat'), terms_days: num(v.terms_days), terms_type: t('terms_type'), terms_agreed: !!v.terms_agreed, cost_code_id: t('cost_code_id'), company_number: t('company_number'), cis_registered: !!v.cis_registered, cis_rate: Number(v.cis_rate || 20), notes: t('notes') };
             let link = sup ? String(v.supplier_id || '') || null : null;
             if (link === '__new') { const m = await fdb.from('suppliers').insert({ org_id: me.org_id, name, email: email || '', created_by: me.id } as never).select('id').single(); link = (m.data as Row | null)?.id ?? null; if (!link) return 'Could not add it to the Projects suppliers.'; }
+            if (!sup) row.estimating_markup_pct = num(v.estimating_markup_pct);
             if (sup) Object.assign(row, { supplier_id: link, category: t('category'), purchase_vat: t('purchase_vat'), foreign_supplier: !!v.foreign_supplier, no_sync: !!v.no_sync, utr: utr || null, updated_at: new Date().toISOString() });
             const dup = ((data as Row[]) || []).find((x) => x.id !== edit.id && String(x.name).trim().toLowerCase() === name.toLowerCase());
             if (dup) return `“${dup.name}” is already in the directory.`;

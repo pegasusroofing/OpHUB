@@ -16,11 +16,11 @@ const rpc = supabase.rpc.bind(supabase) as unknown as (n: string, a: object) => 
 
 export type Quote = QuoteRow & {
   id: string; org_id: string; client_id: string | null; contact_name: string | null; contact_email: string | null; contact_phone: string | null; address: string | null; postcode: string | null;
-  profit_pct: number | null; priced_by: string | null; received_date: string | null; returned_at: string | null; notes: string | null; chase_count: number; last_chased_at: string | null;
+  profit_pct: number | null; guide_markup_pct: number | null; priced_by: string | null; received_date: string | null; returned_at: string | null; notes: string | null; chase_count: number; last_chased_at: string | null;
   folder_id: string | null; folder_drive_id: string | null; folder_name: string | null; filed_at: string | null; site_id: string | null; created_at: string;
 };
 export type QuoteSettings = { org_id: string; chase_enabled: boolean; chase_first_days: number; chase_every_days: number; chase_max: number; chase_subject: string | null; chase_body: string | null; open_path: string | null; template_path: string | null; archive_path: string | null; won_folder: string | null };
-export type ClientHit = { id: string; name: string; email: string | null; phone: string | null };
+export type ClientHit = { id: string; name: string; email: string | null; phone: string | null; markup?: number | null };
 
 export const useQuotes = (orgId: string | null | undefined) => useQuery({
   queryKey: ['quotes', orgId], enabled: !!orgId,
@@ -49,8 +49,13 @@ export const useQuoteSettings = (orgId: string | null | undefined) => useQuery({
 export const saveQuoteSettings = async (s: Partial<QuoteSettings> & { org_id: string }) => !(await db.from('quote_settings').upsert({ ...s, updated_at: new Date().toISOString() } as never)).error;
 
 export async function searchClients(q: string): Promise<ClientHit[]> {
-  const r = await rpc('quote_client_search', { q });
+  const r = await rpc('quote_client_search_v2', { q });
   return r.error ? [] : (r.data as ClientHit[]);
+}
+/** Saves a client's estimating mark-up in the Directory, from a quote. */
+export async function setClientMarkup(clientId: string, pct: number | null): Promise<boolean> {
+  const r = await rpc('quote_set_client_markup', { p_client: clientId, p_pct: pct });
+  return !r.error && r.data === true;
 }
 /** A new name joins the client Directory, as on a new Finance job. */
 export async function clientId(name: string, email: string, phone: string): Promise<string | null> {
