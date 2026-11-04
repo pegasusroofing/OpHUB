@@ -1729,3 +1729,15 @@
 {"part":"quotes2","step":"Quotes list (1440)","ok":true,"note":"tiles true · table true · export true · all shows 5/5 newest","ms":10109}
 {"part":"quotes2","step":"Quotes list (430)","ok":true,"note":"tiles true · table false · export true · all shows 5/5 newest","ms":8996}
 {"part":"quotes2","step":"One quote","ok":true,"note":"ZZ JOB Self Sent","ms":6409}
+{"part":"weather2","step":"Count and weather together (430)","ok":true,"note":"postcode SW1A 1AA · both at once: true · still both after 9s: true · ⋮ shown: true","ms":22845}
+{"part":"weather2","step":"Count and weather together (1440)","ok":true,"note":"postcode SW1A 1AA · both at once: true · still both after 9s: true · ⋮ shown: true","ms":23257}
+{"part":"weather2","step":"Count and weather together (430)","ok":true,"note":"postcode SW1A 1AA · both at once: true · still both after 9s: true · ⋮ shown: true","ms":8626975}
+{"part":"weather2","step":"Count and weather together (1440)","ok":false,"note":"postcode SW1A 1AA · both at once: false · still both after 9s: false · ⋮ shown: false","ms":24617}
+{"part":"weather2","step":"Count and weather together (430)","ok":true,"note":"postcode SW1A 1AA · both at once: true · still both after 9s: true · ⋮ shown: true","ms":24307}
+{"part":"weather2","step":"Count and weather together (1440)","ok":true,"note":"postcode SW1A 1AA · both at once: true · still both after 9s: true · ⋮ shown: true","ms":23736874}
+{"part":"weather2","step":"Count and weather together (430)","ok":true,"note":"postcode SW1A 1AA · both at once: true · still both after 9s: true · ⋮ shown: true","ms":23968}
+{"part":"weather2","step":"Count and weather together (1440)","ok":true,"note":"postcode SW1A 1AA · both at once: true · still both after 9s: true · ⋮ shown: true","ms":22600}
+{"part":"weather2","step":"Count and weather together (430)","ok":true,"note":"postcode SW1A 1AA · both at once: true · still both after 9s: true · ⋮ shown: true","ms":22698}
+{"part":"weather2","step":"Count and weather together (1440)","ok":true,"note":"postcode SW1A 1AA · both at once: true · still both after 9s: true · ⋮ shown: true","ms":23150}
+{"part":"weather2","step":"Count and weather together (430)","ok":true,"note":"postcode SW1A 1AA · both at once: true · still both after 9s: true · ⋮ shown: true","ms":23558}
+{"part":"weather2","step":"Count and weather together (1440)","ok":true,"note":"postcode SW1A 1AA · both at once: true · still both after 9s: true · ⋮ shown: true","ms":22535}

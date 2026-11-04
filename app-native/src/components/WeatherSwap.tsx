@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
-import Svg, { Line, Polygon } from 'react-native-svg';
+import Svg, { Line } from 'react-native-svg';
 
 import { useToast } from '@/components/toast';
 import { Button, Muted } from '@/components/ui';
@@ -11,7 +11,7 @@ import { isEmail } from '@/lib/rules/materials';
 import { longDate, rainDelayEmail, weatherWords } from '@/lib/rules/weather';
 import { supabase } from '@/lib/supabase';
 import type { Profile, Site } from '@/lib/types';
-import { base, radius } from '@/theme/theme';
+import { base, radius, useTheme } from '@/theme/theme';
 
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card, marginBottom: 12 };
 
@@ -35,28 +35,31 @@ function useWeather(postcode?: string | null) {
  *  Left half opens Check In; right half lets a manager email the client a rain delay day. No postcode: just the count. */
 export function OnSiteWeather({ me, site, company, count, onSite, style }: { me: Profile; site: Site; company: string; count: number; onSite: () => void; style: object }) {
   const { data: w } = useWeather(site.postcode);
+  const t = useTheme();
   const pmId = (site as Site & { responsible_pm_id?: string | null }).responsible_pm_id;
   const { data: pm } = useQuery({ queryKey: ['jobPm', pmId], enabled: !!pmId, queryFn: async () => (await supabase.from('profiles').select('name,email').eq('id', pmId as string).maybeSingle()).data as { name?: string | null; email?: string | null } | null });
   const [open, setOpen] = useState(false);
   const [size, setSize] = useState({ w: 0, h: 64 });
   const say = w ? weatherWords(w.code) : null;
-  const n = <Text style={{ fontSize: 19, fontWeight: '600', color: count ? base.ok : base.ink, fontVariant: ['tabular-nums'] }}>{count}</Text>;
-  const lbl = <Text style={{ fontSize: 9.5, color: base.slateLight, textTransform: 'uppercase', letterSpacing: 0.4, fontWeight: '700' }}>On site</Text>;
+  // A narrow tile (a phone) gets slightly smaller text so the count and the weather each fit their corner.
+  const narrow = size.w > 0 && size.w < 170;
+  const n = <Text style={{ fontSize: narrow ? 17 : 19, fontWeight: '600', color: count ? base.ok : base.ink, fontVariant: ['tabular-nums'] }}>{count}</Text>;
+  const lbl = <Text numberOfLines={1} style={{ fontSize: narrow ? 8.5 : 9.5, color: base.slateLight, textTransform: 'uppercase', letterSpacing: 0.4, fontWeight: '700' }}>On site</Text>;
   return (
     <>
       <View onLayout={(e) => setSize({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })} style={[style, { flex: 1, minWidth: 0, height: 64, borderRadius: 12, overflow: 'hidden' }]}>
         {w && size.w > 0 && (
           <Svg width={size.w} height={size.h} style={{ position: 'absolute', left: 0, top: 0 }} pointerEvents="none">
-            <Polygon points={`${size.w},0 ${size.w},${size.h} 0,${size.h}`} fill="#EEF4FB" />
-            <Line x1={size.w} y1={0} x2={0} y2={size.h} stroke={base.cardLine} strokeWidth={1} />
+            {/* One colour all over, split by a company-colour line corner to corner (Andy, 4 Nov 2026). */}
+            <Line x1={size.w} y1={0} x2={0} y2={size.h} stroke={t.brand1} strokeWidth={2} strokeLinecap="round" />
           </Svg>
         )}
-        <Pressable accessibilityRole="button" accessibilityLabel={`${count} on site now`} onPress={onSite} style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: w ? '50%' : '100%', paddingLeft: 10, paddingTop: 6, alignItems: w ? 'flex-start' : 'center', justifyContent: w ? 'flex-start' : 'center' }}>
-          {n}{lbl}
+        <Pressable accessibilityRole="button" accessibilityLabel={`${count} on site now`} onPress={onSite} style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: w ? '62%' : '100%', paddingLeft: narrow ? 8 : 10, paddingTop: 6, alignItems: w ? 'flex-start' : 'center', justifyContent: w ? 'flex-start' : 'center' }}>
+          {w ? <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>{n}{lbl}</View> : <>{n}{lbl}</>}
         </Pressable>
         {w && say && (
-          <Pressable accessibilityRole="button" accessibilityLabel={`Weather: ${say.text}`} onPress={() => setOpen(true)} style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '50%', paddingRight: 10, paddingBottom: 6, alignItems: 'flex-end', justifyContent: 'flex-end' }}>
-            <Text style={{ fontSize: 15, fontWeight: '700', color: base.ink }}>{say.icon} {Number.isFinite(w.temp) ? `${w.temp}°` : ''}</Text>
+          <Pressable accessibilityRole="button" accessibilityLabel={`Weather: ${say.text}`} onPress={() => setOpen(true)} style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: narrow ? '62%' : '50%', paddingRight: 10, paddingBottom: 6, alignItems: 'flex-end', justifyContent: 'flex-end' }}>
+            <Text numberOfLines={1} style={{ fontSize: narrow ? 13.5 : 15, fontWeight: '700', color: base.ink }}>{say.icon} {Number.isFinite(w.temp) ? `${w.temp}°` : ''}</Text>
             {w.rain != null && <Text style={{ fontSize: 9.5, color: base.slateLight, fontWeight: '600' }}>{w.rain}% rain</Text>}
           </Pressable>
         )}
