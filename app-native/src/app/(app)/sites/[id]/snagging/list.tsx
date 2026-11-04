@@ -89,7 +89,7 @@ export default function SnagList() {
           <Muted>Closed by {nameOf(people, s.closed_by)} · {d(s.closed_at)}</Muted>
         </View>
       ) : !client && (
-        <Button kind="ghost" busy={busy === s.id} title={busy === s.id ? 'Uploading…' : '📷 Close snag (photo of the fix)'} onPress={() => close(s)} />
+        <Button kind="ghost" busy={busy === s.id} title={busy === s.id ? 'Uploading…' : '📷 Close Snag'} onPress={() => close(s)} />
       )}
     </View>
   );
@@ -111,7 +111,7 @@ export default function SnagList() {
             <Card key={s.id}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>
                 <View style={{ flex: 1 }}><Text style={{ fontWeight: '800', color: base.ink }}>{s.title}</Text><Muted>{s.location || '—'}</Muted></View>
-                <Text style={{ fontSize: 11, fontWeight: '800', color: base.warn, backgroundColor: base.warnBg, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, overflow: 'hidden', alignSelf: 'flex-start' }}>{s.status}</Text>
+                <Text style={{ fontSize: 11, fontWeight: '800', color: base.warn, backgroundColor: base.warnBg, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, overflow: 'hidden', alignSelf: 'flex-start', textTransform: 'uppercase' }}>{s.status}</Text>
               </View>
               {body(s)}
             </Card>

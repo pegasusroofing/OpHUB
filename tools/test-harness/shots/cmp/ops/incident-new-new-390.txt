@@ -1,0 +1,92 @@
+URL /sites/11111111-1111-1111-1111-111111111111/hs/incidents/new
+TEXT
+‹
+New Report
+Studley Rd, London, SW4 6RZ
+Projects
+›
+J101 Studley Rd
+›
+Health & Safety
+›
+New Report
+Fill in what you can — the more detail the better. Fields marked * are required.
+* What type of report is this?
+Incident
+Accident
+Near Miss
+Site of accident / incident / near miss
+Location of incident
+Date of incident
+4 Nov 2026
+📅
+Operatives involved
+☐ Jake Morris
+☐ Olly Operative
+Form filed by
+* Detail of the incident
+Photo of area of incident
+📷 Add Photo(s)
+Date and time of incident
+Date
+📅
+Date and time incident was reported
+Date
+📅
+To whom was the incident reported?
+Was there any witness(es)?
+Yes
+No
+N/A
+* Operative requires further medical treatment
+Yes
+No
+DETAILS OF INJURY, IF APPLICABLE
+* Any injuries occurred?
+Yes
+No
+DETAILS OF DAMAGE
+Did any damage occur to any property or plant?
+Yes
+No
+ANALYSIS
+Any contributing factors to incident?
+Corrective action (include detail of action and person(s) responsible)
+What was the potential for severity?
+Minor
+Serious
+Major
+What could have potentially happened?
+What is the probability of reoccurrence?
+Remote
+Improbable
+Probable
+* RIDDOR reportable?
+Yes
+No
+Submitting signs this report with your adopted signature — the same one used on RAMS and Toolbox Talks.
+Sign & Submit Report
+Home
+SOW
+Check In
+Inbox
+Settings
+
+BUTTONS
+‹
+Studley Rd, London, SW4 6RZ
+[input text "Studley Rd, Studley Rd, London, SW4 6RZ"]
+[input text ""]
+4 Nov 2026 📅
+[input text "Tick above, or type names not assigned to this site"]
+[input text "Olly Operative"]
+[textarea textarea ""]
+📷 Add Photo(s)
+Date 📅
+[input text "Time, e.g. 14:30"]
+Sign & Submit Report
+Home
+SOW
+Check In
+Inbox
+Settings

@@ -29,7 +29,7 @@ export default function Dashboard() {
   const qc = useQueryClient();
   const { data: certs = [], isLoading } = useMyCerts();
   const [showMissing, setShowMissing] = useState(false);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true); // 670: the Certifications folder starts open (odCertFolderOpen)
   const [adding, setAdding] = useState(false);
   const [cat, setCat] = useState('cscs_card');
   const [other, setOther] = useState('');

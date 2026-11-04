@@ -1,0 +1,58 @@
+TEXT
+OPHUB - RTB ROOFING LTD
+Dan Driver
+Delivery Driver
+📍
+Check In / Out
+Not checked in
+📅
+Today's Schedule
+2 deliveries today
+🚐
+Vehicle Checklist
+Weekly inspection
+📦
+Book Stock Into The Yard
+Deliveries and leftovers
+🌴
+Book Time Off
+Next: Sat, 14 Nov 2026 →
+
+Account & Settings
+
+App version: 17 Oct 2026 · Andy list batches 1-8
+
+✕
+🌴 Book Time Off
+
+Deliveries can’t be booked for you on these days.
+
+One day
+Several days
+DATE
+NOTE (OPTIONAL)
+BOOK TIME OFF
+
+YOUR BOOKED DAYS OFF
+
+Sat, 14 Nov 2026 – Sun, 15 Nov 2026
+2 days · Holiday
+Remove
+Close
+
+BUTTONS
+OPHUB - RTB ROOFING LTD
+Dan Driver
+Delivery Driver
+📍 Check In / Out Not checked in
+📅 Today's Schedule 2 deliveries today
+🚐 Vehicle Checklist Weekly inspection
+Account & Settings
+✕
+One day
+Several days
+[input date "2026-11-04"]
+[input text "e.g. Holiday, appointment"]
+BOOK TIME OFF
+Remove
+Close

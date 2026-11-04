@@ -1,0 +1,20 @@
+URL /signature
+TEXT
+My Signature
+Olly Operative
+
+YOUR SIGNATURE
+
+Currently adopted:
+
+Draw a new signature to replace it
+
+CLEAR
+SAVE SIGNATURE
+
+BUTTONS
+My Signature
+Olly Operative
+Search
+CLEAR
+SAVE SIGNATURE

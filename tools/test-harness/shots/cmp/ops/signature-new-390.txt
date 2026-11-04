@@ -1,0 +1,27 @@
+URL /signature
+TEXT
+‹
+My Signature
+RTB Roofing Ltd
+YOUR SIGNATURE
+Currently adopted:
+Draw a new signature to replace it
+Clear
+Save Signature
+Home
+Projects
+Settings
+My Dashboard
+3
+Inbox
+
+BUTTONS
+‹
+RTB Roofing Ltd
+Clear
+Save Signature
+Home
+Projects
+Settings
+My Dashboard
+3 Inbox

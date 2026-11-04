@@ -1,0 +1,67 @@
+URL /site/11111111-1111-1111-1111-111111111111/hs/mytools
+TEXT
+RTB Roofing Ltd
+OPHUB
+🔍
+Search
+Ctrl K
+Home
+My projects
+Outstanding
+3
+Inbox
+My Dashboard
+Settings
+THIS PROJECT
+Studley Rd
+Project Home
+Schedule of Works
+Health & Safety
+Check In
+Inbox
+2
+Olly Operative
+Operative
+Sign out
+My Tools
+Studley Rd, London, SW4 6RZ
+🏠
+Projects
+›
+J101 Studley Rd
+›
+My Tools
+
+Your own power tools — name, serial/item number, and a photo. Used to auto-populate PUWER Tool Inspections.
+
+🔧
+Makita drill
+Serial: MK-221
+Add photo
+🗑
++ ADD TOOL
+
+BUTTONS
+RTB Roofing Ltd OPHUB
+🔍 Search Ctrl K
+Home
+My projects
+Outstanding 3
+Inbox
+My Dashboard
+Settings
+Project Home
+Schedule of Works
+Health & Safety
+Check In
+Inbox 2
+Sign out
+My Tools
+Studley Rd, London, SW4 6RZ
+🏠
+Projects
+J101 Studley Rd
+Add photo
+[input file ""]
+🗑
++ ADD TOOL

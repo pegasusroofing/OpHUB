@@ -1,0 +1,55 @@
+URL /site/11111111-1111-1111-1111-111111111111/snagging/variations
+TEXT
+Variations
+Studley Rd, London, SW4 6RZ
+🏠
+Projects
+›
+J101 Studley Rd
+›
+Variations
+LIVE
+CLOSED
+No live variations.
+
+RAISE A VARIATION
+
+PHOTO EVIDENCE
+📷
+Tap to add a photo
+DESCRIPTION
+SUBMIT VARIATION
+
+EXPORT
+
+📄 EXPORT LIVE (PDF)
+📄 EXPORT CLOSED (PDF)
+📄 EXPORT ALL (PDF)
+Home
+SOW
+Check In
+Inbox
+2
+Settings
+
+BUTTONS
+Variations
+Studley Rd, London, SW4 6RZ
+Search
+🏠
+Projects
+J101 Studley Rd
+LIVE
+CLOSED
+📷 Tap to add a photo
+[input file ""]
+[textarea textarea "What's changed and why..."]
+SUBMIT VARIATION
+📄 EXPORT LIVE (PDF)
+📄 EXPORT CLOSED (PDF)
+📄 EXPORT ALL (PDF)
+Home
+SOW
+Check In
+Inbox 2
+Settings

@@ -117,7 +117,7 @@ export default function DriverSchedule() {
       ) : onDuty ? (
         <Button kind={brk ? 'primary' : 'ghost'} title={brk ? '▶ End Break' : '☕ Start Break'}
           onPress={async () => { const ok = await driverBreak(me, brk ? 'end' : 'start'); toast(ok ? (brk ? 'Break ended' : 'Break started') : 'Could not save — check your connection and try again.'); void qc.invalidateQueries({ queryKey: ['driverStatus'] }); }} />
-      ) : <Muted style={{ textAlign: 'center', marginBottom: 6 }}>☕ Breaks — check in first</Muted>}
+      ) : <View style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, backgroundColor: base.card, paddingVertical: 12, alignItems: 'center', marginBottom: 6, opacity: 0.7 }}><Text style={{ fontWeight: '800', color: base.ink }}>☕ Breaks — Check In First</Text></View>}
 
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginVertical: 14 }}>
         <Pressable onPress={() => setOffset(offset - 1)} style={navBtn}><Text style={{ fontSize: 20 }}>‹</Text></Pressable>
@@ -127,7 +127,7 @@ export default function DriverSchedule() {
         <Pressable onPress={() => setOffset(offset + 1)} style={navBtn}><Text style={{ fontSize: 20 }}>›</Text></Pressable>
       </View>
       <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
-        {([['todo', `To do (${todo.length})`], ['done', `✓ Completed (${done.length})`]] as const).map(([k, l]) => (
+        {([['todo', `To Do (${todo.length})`], ['done', `✓ Completed (${done.length})`]] as const).map(([k, l]) => (
           <Pressable key={k} onPress={() => setTab(k)} style={{ flex: 1, paddingVertical: 8, borderRadius: 16, borderWidth: 1, alignItems: 'center', borderColor: tab === k ? live.brand1 : base.line, backgroundColor: tab === k ? live.brand1 : base.card }}>
             <Text style={{ fontWeight: '500', color: tab === k ? live.brand1Text : base.ink }}>{l}</Text>
           </Pressable>
@@ -185,7 +185,7 @@ export default function DriverSchedule() {
                 {pm ? (
                   <Text style={{ fontSize: 12.5, color: base.slate }}>{pm.booked ? 'Booked by' : 'PM'}: {pm.name}{pm.phone ? <Text style={{ color: base.blue }} onPress={() => Linking.openURL(`tel:${pm.phone.replace(/[^0-9+]/g, '')}`)}> · {pm.phone}</Text> : null}</Text>
                 ) : <Text style={{ fontSize: 12.5, color: base.slate }}>PM: not set</Text>}
-                {!!t.description && <Text style={{ color: base.ink, marginTop: 6 }}>{t.description}</Text>}
+                {!!t.description && <Text style={{ color: base.ink, marginTop: 6, fontWeight: '800', fontSize: 15 }}>{t.description}</Text>}
                 {(() => {
                   const ids = (t as { plant_item_ids?: string[] | null }).plant_item_ids ?? [], back = (t as { plant_return_ids?: string[] | null }).plant_return_ids ?? [];
                   const nm = (pid: string) => plant?.items.find((x) => x.id === pid)?.name || 'Item';
@@ -217,11 +217,11 @@ export default function DriverSchedule() {
                     <Thumbs paths={cPhotos} onRemove={async (i) => { await removeCompletionPhoto(t, i); refresh(); }}
                       onMarkup={(i) => void markup.open(cPhotos[i], `${me?.org_id}/delivery/${t.id}`, async (np) => { toast((await replaceCompletionPhoto(t, cPhotos[i], np)) ? 'Photo updated' : 'Could not save — try again.'); refresh(); })} />
                     <View style={{ flexDirection: 'row', gap: 8 }}>
-                      <View style={{ flex: 1 }}><Button kind="ghost" disabled={!!busyId} title={busy ? 'Uploading…' : '📷 Take photo'} onPress={() => addPhotos(t, 'camera')} /></View>
-                      <View style={{ flex: 1 }}><Button kind="ghost" disabled={!!busyId} title="🖼 Choose photos" onPress={() => addPhotos(t, 'library')} /></View>
+                      <View style={{ flex: 1 }}><Button kind="ghost" disabled={!!busyId} title={busy ? 'Uploading…' : '📷 Take Photo'} onPress={() => addPhotos(t, 'camera')} /></View>
+                      <View style={{ flex: 1 }}><Button kind="ghost" disabled={!!busyId} title="🖼 Choose Photos" onPress={() => addPhotos(t, 'library')} /></View>
                     </View>
-                    <Button disabled={!!busyId || !cPhotos.length} title={cPhotos.length ? '✓ Mark Complete' : 'Add a photo to complete'} onPress={() => complete(t)} />
-                    <Button kind="ghost" disabled={busy} title={busy ? 'Moving…' : '⏭ Push to Next Working Day'} onPress={() => push(t)} />
+                    <Button disabled={!!busyId || !cPhotos.length} title={cPhotos.length ? '✓ Mark Complete' : '✓ Mark Complete (Add A Photo First)'} onPress={() => complete(t)} />
+                    <Button kind="ghost" disabled={busy} title={busy ? 'Moving…' : '⏭ Push To Next Working Day'} onPress={() => push(t)} />
                   </>
                 )}
               </Card>

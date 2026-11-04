@@ -1,0 +1,19 @@
+URL /driver/checkin
+TEXT
+‹
+Check In / Out
+RTB Roofing Ltd
+You are not currently checked in.
+Check In
+The time of each check in/out and break is recorded for the office. Your location is not needed.
+RECENT
+No check-ins yet.
+Home
+Settings
+
+BUTTONS
+‹
+RTB Roofing Ltd
+Check In
+Home
+Settings

@@ -1,0 +1,67 @@
+TEXT
+Schedule of Works
+Studley Rd, London, SW4 6RZ
+🏠
+Projects
+›
+J101 Studley Rd
+›
+Schedule Of Works
+Overall progress
+0%
+To Do / In Progress
+Complete
+All
+▼ Main roof
+0/1 done
+Strip roof
+📷 Add photo
+To Commence
+In Progress
+Complete
+0%
+
+SITE CONDITION
+
+🗑 Is there waste to clear?
+No
+Yes
+📦 Any leftover material?
+No
+Yes
+SAVE — CLOSE OUT
+📄 EXPORT PDF
+✉️ EMAIL REPORT
+Home
+SOW
+Check In
+Inbox
+2
+Settings
+
+BUTTONS
+Schedule of Works
+Studley Rd, London, SW4 6RZ
+Search
+🏠
+Projects
+J101 Studley Rd
+To Do / In Progress
+Complete
+All
+▼ Main roof 0/1 done
+📷 Add photo
+[input file ""]
+To Commence
+In Progress
+[input range "0"]
+No
+Yes
+SAVE — CLOSE OUT
+📄 EXPORT PDF
+✉️ EMAIL REPORT
+Home
+SOW
+Check In
+Inbox 2
+Settings

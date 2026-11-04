@@ -1,0 +1,25 @@
+URL /driver/checkin
+TEXT
+RTB Roofing Ltd
+OPHUB
+Search
+Ctrl K
+Home
+My schedule
+Settings
+Dan Driver
+Delivery Driver
+Sign out
+‹
+Check In / Out
+RTB Roofing Ltd
+You are not currently checked in.
+Check In
+The time of each check in/out and break is recorded for the office. Your location is not needed.
+RECENT
+No check-ins yet.
+
+BUTTONS
+‹
+RTB Roofing Ltd
+Check In

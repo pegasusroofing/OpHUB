@@ -131,8 +131,8 @@ export default function TbtView() {
               </>
             ) : <Text style={{ fontWeight: '700', color: live ? base.ink : base.slate }}>{live ? (busy ? 'Signing…' : '✍ Tap to sign') : 'This talk is not live for signing'}</Text>}
           </Pressable>
-          {/* Everyone who has signed, the manager who conducted it too, and who is still to sign. */}
-          <RowSigners total={data?.roster.length ?? 0} signed={(data?.sigs ?? []) as never} waiting={waiting} people={people} />
+          {/* Managers: everyone who has signed, the manager who conducted it too, and who is still to sign (operatives only see their own box, 710). */}
+          {mgr && <RowSigners total={data?.roster.length ?? 0} signed={(data?.sigs ?? []) as never} waiting={waiting} people={people} />}
           </>)}
         </Card>
       )}

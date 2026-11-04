@@ -43,7 +43,7 @@ export default function TimeOff() {
         <Text style={{ fontSize: 18, fontWeight: '800', color: base.ink }}>🌴 Book Time Off</Text>
         <Muted style={{ marginBottom: 12 }}>Deliveries can’t be booked for you on these days.</Muted>
         <View style={{ flexDirection: 'row', backgroundColor: '#EEF0F3', borderRadius: 10, padding: 3, gap: 3, marginBottom: 12 }}>
-          {([['single', 'One day'], ['range', 'Several days']] as const).map(([k, l]) => (
+          {([['single', 'One Day'], ['range', 'Several Days']] as const).map(([k, l]) => (
             <Pressable key={k} onPress={() => setMode(k)} style={{ flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: 'center', backgroundColor: mode === k ? '#fff' : 'transparent' }}>
               <Text style={{ fontWeight: '700', color: mode === k ? base.ink : base.slate }}>{l}</Text>
             </Pressable>
@@ -51,7 +51,7 @@ export default function TimeOff() {
         </View>
         <DateField label={mode === 'range' ? 'From' : 'Date'} value={from} onChange={setFrom} min={todayIso()} />
         {mode === 'range' && <DateField label="To" value={to} onChange={setTo} min={from || todayIso()} />}
-        <Field label="Note (optional)" value={note} onChangeText={setNote} maxLength={200} placeholder="e.g. Holiday, appointment" />
+        <Field label="Note (Optional)" value={note} onChangeText={setNote} maxLength={200} placeholder="e.g. Holiday, appointment" />
         <Button title={busy ? 'Saving…' : 'Book Time Off'} busy={busy} onPress={save} />
       </Card>
       <SectionTitle>Your Booked Days Off</SectionTitle>

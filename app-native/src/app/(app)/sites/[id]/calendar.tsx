@@ -184,7 +184,7 @@ export default function SiteCalendar() {
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Calendar' }} />
       <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10 }}>
-        <CalTools view={view} onView={setView} label="Options" extra={[
+        <CalTools view={view} onView={setView} label="＋ Add" extra={[
           { key: 'add', label: '＋ Add a key date', run: () => setForm({ at: 'top', editId: null, d: blank(view === 'month' && sel >= today ? sel : today) }) },
           { key: 'ics', label: '📅 Add to phone calendar', run: () => void phoneCal() },
         ]} />
@@ -207,11 +207,14 @@ export default function SiteCalendar() {
         return (
           <View key={ds} style={{ borderBottomWidth: 1, borderBottomColor: base.line, paddingVertical: 8 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <View style={{ width: 64, alignItems: 'flex-start' }}>
-                <Text style={{ fontSize: 10, fontWeight: '800', color: weekend ? base.red : base.slate }}>{d.toLocaleDateString('en-GB', { weekday: 'short' }).toUpperCase()}</Text>
-                <Text style={{ fontWeight: '800', color: base.ink, borderBottomWidth: ds === today ? 2 : 0, borderBottomColor: th.brand1 }}>
-                  {d.getDate()}{ordinal(d.getDate())}{d.getMonth() !== anchorMonth ? ` ${d.toLocaleDateString('en-GB', { month: 'short' })}` : ''}
-                </Text>
+              {/* 780: weekday over the date, centred; weekends in the company colour; today circled. */}
+              <View style={{ width: 64, alignItems: 'center' }}>
+                <Text style={{ fontSize: 10, fontWeight: '800', letterSpacing: 0.5, color: weekend ? th.brand1 : base.slate }}>{d.toLocaleDateString('en-GB', { weekday: 'short' }).toUpperCase()}</Text>
+                <View style={{ minWidth: 26, height: 26, paddingHorizontal: 5, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: ds === today ? 2 : 0, borderColor: th.brand1 }}>
+                  <Text style={{ fontWeight: '800', fontSize: d.getMonth() === anchorMonth ? 14 : 11.5, color: weekend ? th.brand1 : base.ink }}>
+                    {d.getDate()}{ordinal(d.getDate())}{d.getMonth() !== anchorMonth ? ` ${d.toLocaleDateString('en-GB', { month: 'short' })}` : ''}
+                  </Text>
+                </View>
               </View>
               <View style={{ flex: 1 }}>{list.length ? list.map(line) : <Text style={{ color: base.line }}>{view === 'month' ? 'Nothing booked — tap + to add' : '—'}</Text>}</View>
               <Pressable hitSlop={8} onPress={() => setForm(form?.at === ds && !form.editId ? null : { at: ds, editId: null, d: blank(ds) })}>

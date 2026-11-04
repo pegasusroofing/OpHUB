@@ -1,0 +1,26 @@
+URL /account
+TEXT
+‹
+Settings
+RTB Roofing Ltd
+YOUR ACCOUNT
+Dan Driver · a@x.co
+Phone Number
+Shown to delivery drivers when you're the site contact for a delivery.
+Save Phone Number
+✍ My Signature
+💡 Show The How-To Tips Again
+Sign Out
+Home
+Settings
+
+BUTTONS
+‹
+RTB Roofing Ltd
+[input tel "e.g. 07123 456789"]
+Save Phone Number
+✍ My Signature
+💡 Show The How-To Tips Again
+Sign Out
+Home
+Settings

@@ -1,10 +1,10 @@
-// Driver home: Check In / Out, Today's Schedule, Vehicle Checklist, Book Time Off.
+// Driver home: Check In / Out, Today's Schedule, Vehicle Checklist, Book Stock Into The Yard, Book Time Off.
 // Ported from renderDriverHome (840) and the time-off tile (9219zz).
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback } from 'react';
 import { Text } from 'react-native';
 
-import { Muted, Screen, Tile } from '@/components/ui';
+import { JobGrid, Muted, Screen, Tile } from '@/components/ui';
 import { useDriverDay, useDriverStatus, useTimeOff } from '@/data/driver';
 import { useAuth } from '@/lib/auth';
 import { dtoFmt, localISODate } from '@/lib/rules/driver';
@@ -23,14 +23,17 @@ export function DriverHome() {
     <Screen>
       <Text style={{ fontSize: 21, fontWeight: '800', color: base.ink }}>{me?.name}</Text>
       <Muted style={{ marginBottom: 14 }}>Delivery Driver</Muted>
+      {/* 840: the tiles two across, in the current app's order (Book Stock Into The Yard, 9219zq, then Book Time Off, 9219zz). */}
+      <JobGrid>
       <Tile icon="📍" tint={s?.onDuty ? base.okBg : '#E7E9EE'} title="Check In / Out"
         sub={s ? (s.openBreak ? 'On a break' : s.onDuty ? 'Currently checked in' : 'Not checked in') : '…'} onPress={() => router.push('/driver/checkin')} />
       <Tile icon="📅" tint={base.blueBg} title="Today's Schedule" sub={`${pending} ${pending === 1 ? 'delivery' : 'deliveries'} today`} onPress={() => router.push('/driver/schedule')} />
       <Tile icon="🚐" tint={base.warnBg} title="Vehicle Checklist" sub="Weekly inspection" onPress={() => router.push('/driver/vehicle')} />
-      <Tile icon="🌴" tint="#ECFDF3" title="Book Time Off"
-        sub={next ? `Next: ${next.start_date === next.end_date ? dtoFmt(next.start_date) : `${dtoFmt(next.start_date)} – ${dtoFmt(next.end_date)}`}` : 'Pick a day or a range'}
-        onPress={() => router.push('/driver/timeoff')} />
       <Tile icon="📦" tint="#EEF4FF" title="Book Stock Into The Yard" sub="Deliveries and leftovers" onPress={() => router.push('/driver/yard')} />
+      <Tile icon="🌴" tint="#ECFDF3" title="Book Time Off"
+        sub={next ? `Next: ${next.start_date === next.end_date ? dtoFmt(next.start_date) : `${dtoFmt(next.start_date)} →`}` : 'Days off and holidays'}
+        onPress={() => router.push('/driver/timeoff')} />
+      </JobGrid>
     </Screen>
   );
 }

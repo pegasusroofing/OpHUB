@@ -1,0 +1,29 @@
+URL /signature
+TEXT
+RTB Roofing Ltd
+OPHUB
+Search
+Ctrl K
+Home
+My projects
+Inbox
+6
+My Dashboard
+Settings
+Olly Operative
+Operative
+Sign out
+‹
+My Signature
+RTB Roofing Ltd
+YOUR SIGNATURE
+Currently adopted:
+Draw a new signature to replace it
+Clear
+Save Signature
+
+BUTTONS
+‹
+RTB Roofing Ltd
+Clear
+Save Signature

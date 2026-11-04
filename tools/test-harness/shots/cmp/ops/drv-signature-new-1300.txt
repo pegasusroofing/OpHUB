@@ -1,0 +1,26 @@
+URL /signature
+TEXT
+RTB Roofing Ltd
+OPHUB
+Search
+Ctrl K
+Home
+My schedule
+Settings
+Dan Driver
+Delivery Driver
+Sign out
+‹
+My Signature
+RTB Roofing Ltd
+YOUR SIGNATURE
+Currently adopted:
+Draw a new signature to replace it
+Clear
+Save Signature
+
+BUTTONS
+‹
+RTB Roofing Ltd
+Clear
+Save Signature

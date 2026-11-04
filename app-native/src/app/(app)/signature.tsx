@@ -6,7 +6,7 @@ import { View } from 'react-native';
 import { SignaturePad, type SignaturePadHandle } from '@/components/SignaturePad';
 import { StorageImage } from '@/components/StorageImage';
 import { useToast } from '@/components/toast';
-import { Button, Card, Muted, Screen, SectionTitle, Title } from '@/components/ui';
+import { Button, Card, Muted, Screen, SectionTitle } from '@/components/ui';
 import { saveSignature } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
 
@@ -31,7 +31,6 @@ export default function Signature() {
 
   return (
     <Screen>
-      <Title>My Signature</Title>
       <Card>
         <SectionTitle>Your signature</SectionTitle>
         {me.signature_path ? (
@@ -42,7 +41,7 @@ export default function Signature() {
             </View>
           </>
         ) : (
-          <Muted style={{ marginBottom: 10 }}>Draw your signature below — it'll be used automatically whenever you sign a RAMS document or Toolbox Talk.</Muted>
+          <Muted style={{ marginBottom: 10 }}>Draw your signature below — it&apos;ll be used automatically whenever you sign a RAMS document or Toolbox Talk.</Muted>
         )}
         <Muted style={{ marginBottom: 6, fontWeight: '700' }}>{me.signature_path ? 'Draw a new signature to replace it' : 'Draw here'}</Muted>
         <SignaturePad ref={pad} />

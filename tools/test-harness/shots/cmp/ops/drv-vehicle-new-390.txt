@@ -1,0 +1,102 @@
+URL /driver/vehicle
+TEXT
+‹
+Vehicle Checklist
+RTB Roofing Ltd
+Week commencing 02 Nov
+0 of 20 checked
+Vehicle registration
+Current mileage
+VEHICLE PHOTOS (ALL 4 REQUIRED)
+1. Front
+No photo yet
+📷 Take Photo
+2. Back
+No photo yet
+📷 Take Photo
+3. Left hand side
+No photo yet
+📷 Take Photo
+4. Right hand side
+No photo yet
+📷 Take Photo
+CAB / INTERIOR
+Windscreen is undamaged and the view is unobscured
+✓ Pass
+✕ Fail
+Mirrors are present, secure and unbroken
+✓ Pass
+✕ Fail
+Washers and wipers work properly
+✓ Pass
+✕ Fail
+No dashboard warning lights stay on after starting
+✓ Pass
+✕ Fail
+Steering moves freely, no excessive play or jamming
+✓ Pass
+✕ Fail
+Horn works
+✓ Pass
+✕ Fail
+Footbrake is firm, no excessive travel
+✓ Pass
+✕ Fail
+Handbrake holds the vehicle securely
+✓ Pass
+✕ Fail
+Seats are secure and seatbelts are undamaged, latch and retract properly
+✓ Pass
+✕ Fail
+EXTERIOR
+All lights and indicators work, lenses clean and correct colour
+✓ Pass
+✕ Fail
+Number plates are secure, clean and legible
+✓ Pass
+✕ Fail
+Bodywork and doors undamaged, no sharp edges, doors shut and lock securely
+✓ Pass
+✕ Fail
+No exhaust leaks, excessive smoke or noise
+✓ Pass
+✕ Fail
+BATTERY
+Battery is secure, in good condition and not leaking
+✓ Pass
+✕ Fail
+TYRES & WHEELS
+Legal tread depth on all tyres
+✓ Pass
+✕ Fail
+Tyre pressures correct
+✓ Pass
+✕ Fail
+No cuts, bulges or sidewall damage, no wire/cord visible
+✓ Pass
+✕ Fail
+Wheels and wheel nuts secure, undamaged
+✓ Pass
+✕ Fail
+LOAD SECURING
+Load area / racking secure, nothing loose
+✓ Pass
+✕ Fail
+Rear doors / tailgate lock properly
+✓ Pass
+✕ Fail
+Submit Checklist
+PREVIOUS WEEKS
+No previous checklists yet.
+Home
+Settings
+
+BUTTONS
+‹
+RTB Roofing Ltd
+[input text "e.g. AB12 CDE"]
+[input text "e.g. 48250"]
+📷 Take Photo
+Submit Checklist
+Home
+Settings

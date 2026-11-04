@@ -1,0 +1,47 @@
+URL /dashboard
+TEXT
+‹
+My Dashboard
+RTB Roofing Ltd
+Outstanding Items
+RAMS, COSHH and Toolbox Talks awaiting your signature
+›
+0
+Certificates
+0
+Expiring Soon
+0
+Expired
+4
+Missing Types
+These feed the company Training Matrix automatically — your PM/admin sees this exact record under Operatives.
+Certifications (0)
+▲
+Add a certificate
++
+No certificates yet.
+MY TOOLS
+Your own power tools — name, serial/item number, and a photo. Used to auto-populate PUWER Tool Inspections.
+🔧
+Makita drill
+Serial: MK-221
+Add photo
+🗑
++ Add Tool
+Home
+Projects
+Settings
+My Dashboard
+3
+Inbox
+
+BUTTONS
+‹
+RTB Roofing Ltd
+Certifications (0) ▲
++ Add Tool
+Home
+Projects
+Settings
+My Dashboard
+3 Inbox

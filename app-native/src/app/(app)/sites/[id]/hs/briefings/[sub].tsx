@@ -68,7 +68,8 @@ export default function BriefingView() {
         ))}
       </Card>
       {mgr && !sigs.length && <Button kind="ghost" title="Edit Briefing" onPress={() => router.push(`/sites/${id}/hs/briefings/fill/${sub.id}` as never)} />}
-      {mgr && <ReportPdfActions sub={sub as never} fromBriefing />}
+      {/* 430 renderReportView: Export PDF for everyone (Email Report is managers only, inside). */}
+      <ReportPdfActions sub={sub as never} fromBriefing />
     </ScrollView>
   );
 }

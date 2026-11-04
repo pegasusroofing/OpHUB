@@ -6,7 +6,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Modal, Pressable, Text, View } from 'react-native';
 
-import { Button, Muted } from '@/components/ui';
+import { Muted } from '@/components/ui';
 import { useOutstanding } from '@/data/inbox';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
@@ -39,13 +39,14 @@ export function JobSignPrompt({ siteId }: { siteId: string }) {
           </View>
           <Muted style={{ marginBottom: 12 }}>Please read and sign before starting work on this job.</Muted>
           {items.map((i) => (
-            <Pressable key={i.href} onPress={() => { close(); router.push(i.href as never); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderWidth: 1, borderColor: base.line, borderRadius: 10, marginBottom: 8 }}>
+            <Pressable key={i.href} onPress={() => { close(); router.push(i.href as never); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderWidth: 1, borderColor: '#F0C98C', backgroundColor: base.warnBg, borderRadius: 12, marginBottom: 8 }}>
               <Text>{ICON[i.type] || '•'}</Text>
               <Text style={{ flex: 1, fontWeight: '800', color: base.ink }}>{i.label.replace(/ to sign \((\d+)\)$/, (_m, n: string) => (n === '1' ? '' : ` ×${n}`))}</Text>
-              <Text style={{ color: base.blue, fontWeight: '700' }}>Sign now ›</Text>
+              <Text style={{ color: base.red, fontWeight: '800' }}>Sign now ›</Text>
             </Pressable>
           ))}
-          <View style={{ marginTop: 4 }}><Button kind="ghost" title="Not now" onPress={close} /></View>
+          {/* 330 sign prompt: orange rows with a red Sign now, and a plain Not now underneath. */}
+          <Pressable onPress={close} accessibilityRole="button" style={{ alignSelf: 'center', paddingVertical: 10, paddingHorizontal: 16, marginTop: 2 }}><Text style={{ fontWeight: '700', color: base.slate }}>Not now</Text></Pressable>
         </Pressable>
       </Pressable>
     </Modal>

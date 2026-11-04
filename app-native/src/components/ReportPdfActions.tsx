@@ -9,6 +9,7 @@ import { Button } from '@/components/ui';
 import { nameOf, usePeople } from '@/data/hs';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
+import { isManager } from '@/lib/roles';
 import { deliverPdf, emailPdf } from '@/lib/pdf';
 import { saveToOneDrive } from '@/lib/oneDriveSave';
 import { buildReportPdf, type PdfSub } from '@/lib/reportPdf';
@@ -47,7 +48,8 @@ export function ReportPdfActions({ sub, fromBriefing }: { sub: PdfSub; fromBrief
         if (b && sub.site_id) void saveToOneDrive(me.org_id, b.bytes, b.filename, sub.site_id);
         setBusy(null);
       }} /></View>
-      <View style={{ flex: 1 }}><Button kind="ghost" busy={busy === 'email'} title="✉ Email Report" onPress={async () => {
+      {/* 430: everyone can export the PDF; only managers email it. */}
+      {isManager(me) && <View style={{ flex: 1 }}><Button kind="ghost" busy={busy === 'email'} title="✉ Email Report" onPress={async () => {
         const to = await promptText('Email this report PDF to:', me.email || ''); if (to === null) return;
         const email = to.trim(); if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast('Enter a valid email address.'); return; }
         setBusy('email');
@@ -59,7 +61,7 @@ export function ReportPdfActions({ sub, fromBriefing }: { sub: PdfSub; fromBrief
           if (err) showAlert(err); else toast(b.failures ? `Emailed — but ${b.failures} photo${b.failures > 1 ? 's' : ''} could not be included.` : 'Emailed');
         }
         setBusy(null);
-      }} /></View>
+      }} /></View>}
     </View>
   );
 }

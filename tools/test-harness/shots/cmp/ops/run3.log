@@ -1,0 +1,17 @@
+old drv-home
+old drv-checkin
+press failed drv-schedule-old-390-pop locator.click: Timeout 2500ms exceeded.
+Call log:
+[2m  - waiting for getByText(
+old drv-schedule
+old drv-vehicle
+old drv-account
+old drv-signature
+old errors: 
+new drv-home
+new drv-checkin
+new drv-schedule
+new drv-vehicle
+new drv-account
+new drv-signature
+new errors: 

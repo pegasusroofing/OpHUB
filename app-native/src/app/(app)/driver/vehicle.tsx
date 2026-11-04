@@ -91,7 +91,7 @@ export default function Vehicle() {
               <Text style={{ fontWeight: '700', fontSize: 13, marginBottom: 6, color: base.ink }}>{i + 1}. {ph.label}</Text>
               {path ? <StorageImage bucket="site-photos" path={path} style={{ width: '100%', aspectRatio: 4 / 3, borderRadius: 8 }} />
                 : <View style={{ width: '100%', aspectRatio: 4 / 3, borderWidth: 1.5, borderStyle: 'dashed', borderColor: base.line, borderRadius: 8, alignItems: 'center', justifyContent: 'center' }}><Muted>{submitted ? 'Not taken' : 'No photo yet'}</Muted></View>}
-              {!submitted && <Button kind="ghost" title={photoBusy === ph.key ? 'Uploading…' : path ? '📷 Retake' : '📷 Take photo'} disabled={!!photoBusy} onPress={() => photo(ph.key)} />}
+              {!submitted && <Button kind="ghost" title={photoBusy === ph.key ? 'Uploading…' : path ? '📷 Retake' : '📷 Take Photo'} disabled={!!photoBusy} onPress={() => photo(ph.key)} />}
             </View>
           );
         })}

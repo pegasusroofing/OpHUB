@@ -98,7 +98,7 @@ export default function Variations() {
       {filter !== 'closed' && (
         <Card style={{ marginTop: 14 }}>
           <SectionTitle>Raise a variation</SectionTitle>
-          <Muted style={{ fontWeight: '700', marginBottom: 6 }}>Photo evidence</Muted>
+          <Muted style={{ fontWeight: '700', marginBottom: 6 }}>Photo Evidence</Muted>
           <Pressable onPress={async () => { const p = await pickCameraOrLibrary(false); if ('error' in p) showAlert(p.error); else if (p[0]) { setPhoto(p[0]); setMarking(true); } }}
             style={{ borderWidth: 1.5, borderStyle: 'dashed', borderColor: base.line, borderRadius: radius.input, minHeight: 90, alignItems: 'center', justifyContent: 'center', marginBottom: 10, overflow: 'hidden' }}>
             {photo ? <Image source={{ uri: photo.uri }} style={{ width: '100%', height: 160 }} resizeMode="cover" /> : <Text style={{ color: base.slate }}>📷 Tap to add a photo</Text>}
@@ -118,7 +118,7 @@ export default function Variations() {
       {marking && !!photo && <MarkupEditor photo src={photo.uri} onClose={(out) => { setMarking(false); if (out) setPhoto({ ...photo, uri: out.image }); }} />}
       <SectionTitle>Export</SectionTitle>
       <View style={{ flexDirection: 'row', gap: 6 }}>
-        {([['live', 'Export live'], ['closed', 'Export closed'], ['all', 'Export all']] as [SnagScope, string][]).map(([sc, label]) => (
+        {([['live', 'Export Live'], ['closed', 'Export Closed'], ['all', 'Export All']] as [SnagScope, string][]).map(([sc, label]) => (
           <View key={sc} style={{ flex: 1 }}><Button kind="ghost" busy={pdfBusy === sc} title={label} onPress={async () => {
             setPdfBusy(sc);
             try {

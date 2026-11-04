@@ -1,0 +1,195 @@
+URL /driver/vehicle-checklist
+TEXT
+RTB Roofing Ltd
+OPHUB
+🔍
+Search
+Ctrl K
+My schedule
+Settings
+Dan Driver
+Delivery Driver
+Sign out
+Vehicle Checklist
+
+Week commencing 02 Nov
+
+0 of 20 checked
+
+Vehicle registration 
+Current mileage 
+
+VEHICLE PHOTOS (ALL 4 REQUIRED)
+
+1. Front
+
+No photo yet
+📷 TAKE PHOTO
+
+2. Back
+
+No photo yet
+📷 TAKE PHOTO
+
+3. Left hand side
+
+No photo yet
+📷 TAKE PHOTO
+
+4. Right hand side
+
+No photo yet
+📷 TAKE PHOTO
+
+CAB / INTERIOR
+
+Windscreen is undamaged and the view is unobscured
+
+✓ PASS
+✕ FAIL
+
+Mirrors are present, secure and unbroken
+
+✓ PASS
+✕ FAIL
+
+Washers and wipers work properly
+
+✓ PASS
+✕ FAIL
+
+No dashboard warning lights stay on after starting
+
+✓ PASS
+✕ FAIL
+
+Steering moves freely, no excessive play or jamming
+
+✓ PASS
+✕ FAIL
+
+Horn works
+
+✓ PASS
+✕ FAIL
+
+Footbrake is firm, no excessive travel
+
+✓ PASS
+✕ FAIL
+
+Handbrake holds the vehicle securely
+
+✓ PASS
+✕ FAIL
+
+Seats are secure and seatbelts are undamaged, latch and retract properly
+
+✓ PASS
+✕ FAIL
+
+EXTERIOR
+
+All lights and indicators work, lenses clean and correct colour
+
+✓ PASS
+✕ FAIL
+
+Number plates are secure, clean and legible
+
+✓ PASS
+✕ FAIL
+
+Bodywork and doors undamaged, no sharp edges, doors shut and lock securely
+
+✓ PASS
+✕ FAIL
+
+No exhaust leaks, excessive smoke or noise
+
+✓ PASS
+✕ FAIL
+
+BATTERY
+
+Battery is secure, in good condition and not leaking
+
+✓ PASS
+✕ FAIL
+
+TYRES & WHEELS
+
+Legal tread depth on all tyres
+
+✓ PASS
+✕ FAIL
+
+Tyre pressures correct
+
+✓ PASS
+✕ FAIL
+
+No cuts, bulges or sidewall damage, no wire/cord visible
+
+✓ PASS
+✕ FAIL
+
+Wheels and wheel nuts secure, undamaged
+
+✓ PASS
+✕ FAIL
+
+LOAD SECURING
+
+Load area / racking secure, nothing loose
+
+✓ PASS
+✕ FAIL
+
+Rear doors / tailgate lock properly
+
+✓ PASS
+✕ FAIL
+SUBMIT CHECKLIST
+
+PREVIOUS WEEKS
+
+No previous checklists yet.
+✕
+🌴 Book Time Off
+
+Deliveries can’t be booked for you on these days.
+
+One day
+Several days
+DATE
+NOTE (OPTIONAL)
+BOOK TIME OFF
+
+YOUR BOOKED DAYS OFF
+
+Sat, 14 Nov 2026 – Sun, 15 Nov 2026
+2 days · Holiday
+Remove
+Close
+
+BUTTONS
+RTB Roofing Ltd OPHUB
+🔍 Search Ctrl K
+My schedule
+Settings
+Sign out
+Vehicle Checklist
+[input text "e.g. AB12 CDE"]
+[input number "e.g. 48250"]
+✓ PASS
+✕ FAIL
+SUBMIT CHECKLIST
+✕
+One day
+Several days
+[input date "2026-11-04"]
+[input text "e.g. Holiday, appointment"]
+BOOK TIME OFF
+Remove
+Close

@@ -124,7 +124,7 @@ function OperativeMaterials({ siteId, vis }: { siteId: string; vis: Parameters<t
                 return (
                   <Pressable key={m.id} disabled={done} onPress={() => toggle(m.id)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, borderTopWidth: 1, borderTopColor: base.line, marginTop: 6, opacity: done ? 0.6 : 1 }}>
                     <Text style={{ width: 22, height: 22, borderWidth: 1.5, borderColor: on ? base.ok : base.line, borderRadius: 5, textAlign: 'center', color: base.ok, fontWeight: '800' }}>{on ? '✓' : ''}</Text>
-                    <Text style={{ flex: 1, color: base.ink, textDecorationLine: done ? 'line-through' : 'none' }}>{m.item}{m.qty ? <Text style={{ color: base.slate }}> × {m.qty}</Text> : null}</Text>
+                    <Text style={{ flex: 1, color: base.ink, fontWeight: '700', textDecorationLine: done ? 'line-through' : 'none' }}>{m.item}{m.qty ? <Text style={{ color: base.slate }}> × {m.qty}</Text> : null}</Text>
                     {done && <Text style={{ fontSize: 11, fontWeight: '700', color: base.ok }}>Collected</Text>}
                   </Pressable>
                 );
@@ -132,7 +132,7 @@ function OperativeMaterials({ siteId, vis }: { siteId: string; vis: Parameters<t
             </Card>
           )) : <Empty>Nothing for you to collect.</Empty>}
           {openIds.length > 0 && (
-            <Button busy={busy} kind={picked.length ? 'primary' : 'ghost'} title={`✓ Mark ${picked.length ? `${picked.length} ` : ''}collected`} onPress={async () => {
+            <Button busy={busy} kind={picked.length ? 'primary' : 'ghost'} title={`✓ Mark ${picked.length ? `${picked.length} ` : ''}Collected`} onPress={async () => {
               if (!picked.length) { toast('Tick the items you have collected first'); return; }
               setBusy(true);
               const n = await collectPickups(me, siteId, (data?.pickups ?? []).filter((m) => picked.includes(m.id)));
@@ -151,11 +151,11 @@ function OperativeMaterials({ siteId, vis }: { siteId: string; vis: Parameters<t
                 <Muted>Delivery{m.required_for_delivery ? ` · ${fmt(m.required_for_delivery)}` : ''}</Muted>
                 {!!m.sub_site_label && <Muted>📍 {m.sub_site_label}</Muted>}
               </View>
-              <Text style={{ fontSize: 11, fontWeight: '700', color: m.grn ? (m.grn.ok ? base.ok : base.red) : base.blue }}>{m.grn ? (m.grn.ok ? 'GRN ✓' : 'GRN ⚠') : 'Delivery'}</Text>
+              <Text style={{ fontSize: 11, fontWeight: '700', color: m.grn ? (m.grn.ok ? base.ok : base.red) : base.blue, backgroundColor: m.grn ? (m.grn.ok ? base.okBg : '#FDE8E8') : base.blueBg, paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999, overflow: 'hidden' }}>{m.grn ? (m.grn.ok ? 'GRN ✓' : 'GRN ⚠') : 'Delivery'}</Text>
               </View>
               {!m.grn && (grnFor === m.id
                 ? <GrnForm siteId={siteId} m={m} onCancel={() => setGrnFor(null)} onDone={() => { setGrnFor(null); void qc.invalidateQueries({ queryKey: ['materials', siteId] }); }} />
-                : <Pressable onPress={() => setGrnFor(m.id)} style={{ marginTop: 8 }}><Text style={{ color: base.ink }}>☐ Goods received (GRN)</Text></Pressable>)}
+                : <Pressable onPress={() => setGrnFor(m.id)} style={{ marginTop: 10, flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderStyle: 'dashed', borderColor: base.line, borderRadius: 10, padding: 10 }}><View style={{ width: 20, height: 20, borderWidth: 1.5, borderColor: base.slate, borderRadius: 4 }} /><Text style={{ color: base.ink, fontWeight: '700' }}>Goods Received (GRN)</Text></Pressable>)}
             </Card>
           )) : <Empty>No deliveries booked.</Empty>}
 
@@ -167,14 +167,14 @@ function OperativeMaterials({ siteId, vis }: { siteId: string; vis: Parameters<t
                   <Text style={{ fontWeight: '700', color: base.ink }}>{m.item}{m.qty ? <Text style={{ color: base.slate, fontWeight: '400' }}> × {m.qty}</Text> : null}</Text>
                   <Muted>Waiting for manager</Muted>
                 </View>
-                <Text style={{ fontSize: 11, fontWeight: '700', color: '#6A2C91' }}>Requested</Text>
+                <Text style={{ fontSize: 11, fontWeight: '700', color: '#6A2C91', backgroundColor: '#F1E7F8', paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999, overflow: 'hidden' }}>Requested</Text>
               </Card>
             </Pressable>
           ))}
-          <Button title="+ Request materials" onPress={() => router.push(`/sites/${siteId}/materials/requests?add=1` as never)} />
+          <Button title="+ Request Materials" onPress={() => router.push(`/sites/${siteId}/materials/requests?add=1` as never)} />
           {showPlant && <Button kind="ghost" title="🏗 Plant" onPress={() => router.push(`/sites/${siteId}/plant` as never)} />}
           {showExp && <Button kind="ghost" title="🧾 Expenses" onPress={() => router.push(`/sites/${siteId}/expenses` as never)} />}
-          <Pressable onPress={() => router.push(`/sites/${siteId}/materials/requests` as never)} style={{ marginTop: 10 }}><Text style={{ color: base.slate }}>See all my requests →</Text></Pressable>
+          <Pressable onPress={() => router.push(`/sites/${siteId}/materials/requests` as never)} style={{ marginTop: 10 }}><Text style={{ color: base.slate, fontSize: 12, textDecorationLine: 'underline' }}>See All My Requests →</Text></Pressable>
         </>
       )}
     </ScrollView>

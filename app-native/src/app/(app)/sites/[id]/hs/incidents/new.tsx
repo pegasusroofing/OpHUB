@@ -153,7 +153,7 @@ export default function NewIncident() {
       {toggle('potential', 'What was the potential for severity?', [['minor', 'Minor'], ['serious', 'Serious'], ['major', 'Major']])}
       {text('potentialOutcome', 'What could have potentially happened?', { multi: true })}
       {toggle('reoccurrence', 'What is the probability of reoccurrence?', [['remote', 'Remote'], ['improbable', 'Improbable'], ['probable', 'Probable']])}
-      {toggle('riddor', '* Riddor reportable?', [['yes', 'Yes'], ['no', 'No']])}
+      {toggle('riddor', '* RIDDOR reportable?', [['yes', 'Yes'], ['no', 'No']])}
       <Muted style={{ marginBottom: 8 }}>Submitting signs this report with your adopted signature — the same one used on RAMS and Toolbox Talks.</Muted>
       <Button busy={busy === 'submit'} title="Sign & Submit Report" onPress={async () => {
         const p = incidentProblem(v);

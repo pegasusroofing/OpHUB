@@ -6,7 +6,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 
-import { Card, Empty, Muted, Row, SectionTitle, Title } from '@/components/ui';
+import { Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import { nameOf, usePeople } from '@/data/hs';
 import { useHub } from '@/data/hub';
 import { markMessagesRead, outstandingCount, useMyMessages, useOutstanding, type OutstandingRow } from '@/data/inbox';
@@ -14,7 +14,7 @@ import { isManager } from '@/lib/roles';
 import { KIND_LABEL, msgDest } from '@/data/siteMessages';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
-import { base, page, space, useTheme, live } from '@/theme/theme';
+import { base, page, useTheme } from '@/theme/theme';
 
 type Tab = 'todo' | 'msgs';
 const TYPES = [{ k: 'all', l: 'All' }, { k: 'rams', l: 'RAMS' }, { k: 'coshh', l: 'COSHH' }, { k: 'tbt', l: 'TBT' }] as const;
@@ -64,11 +64,10 @@ export default function Inbox() {
   return (
     <ScrollView contentContainerStyle={page(720)}
       refreshControl={<RefreshControl refreshing={out.isRefetching || msgs.isRefetching} onRefresh={() => { void out.refetch(); void msgs.refetch(); }} />}>
-      <Title>Messages & tasks</Title>
       <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
         {([['todo', `To sign / do${todoN ? ` (${todoN})` : ''}`], ['msgs', `Messages${unreadN && current !== 'msgs' ? ` (${unreadN} new)` : ''}`]] as const).map(([k, label]) => (
-          <Pressable key={k} onPress={() => setTab(k)} style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 18, borderWidth: 1, borderColor: current === k ? live.brand1 : base.line, backgroundColor: current === k ? live.brand1 : base.card }}>
-            <Text style={{ fontWeight: '500', color: current === k ? live.brand1Text : base.ink }}>{label}</Text>
+          <Pressable key={k} onPress={() => setTab(k)} style={{ height: 34, justifyContent: 'center', paddingHorizontal: 13, borderRadius: 999, borderWidth: 1, borderColor: current === k ? base.ink : base.line, backgroundColor: current === k ? base.ink : base.card }}>
+            <Text style={{ fontSize: 12.5, fontWeight: '700', color: current === k ? '#fff' : base.ink }}>{label}</Text>
           </Pressable>
         ))}
       </View>
@@ -76,17 +75,24 @@ export default function Inbox() {
       {current === 'todo' ? (
         <>
           <Muted style={{ marginBottom: 10 }}>Outstanding items on your sites — tap one to go straight to it.</Muted>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
+          <View style={{ flexDirection: 'row', gap: 6, marginBottom: 6 }}>
             {TYPES.map((c) => (
-              <Pressable key={c.k} onPress={() => setType(c.k)} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14, borderWidth: 1, borderColor: type === c.k ? t.brand1 : base.line, backgroundColor: type === c.k ? t.brand1 : base.card }}>
-                <Text style={{ fontSize: 12, fontWeight: '700', color: type === c.k ? t.brand1Text : base.ink }}>{c.l}</Text>
+              <Pressable key={c.k} onPress={() => setType(c.k)} style={{ flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 10, borderWidth: 1.5, borderColor: type === c.k ? t.brand1 : base.line, backgroundColor: base.card }}>
+                <Text style={{ fontSize: 12, fontWeight: '800', letterSpacing: 0.4, textTransform: 'uppercase', color: type === c.k ? base.ink : base.slate }}>{c.l}</Text>
               </Pressable>
             ))}
           </View>
           {out.isLoading ? <Muted>Loading…</Muted> : rows.length ? rows.map((r) => (
             <View key={r.site.id}>
               <SectionTitle>{r.site.name}</SectionTitle>
-              {r.items.map((it, i) => <Row key={`${it.href}-${i}`} title={`! ${it.label}`} onPress={() => router.push(it.href as never)} />)}
+              {/* 190: each item is a card with an orange ! swatch, like a project card. */}
+              {r.items.map((it, i) => (
+                <Pressable key={`${it.href}-${i}`} onPress={() => router.push(it.href as never)} accessibilityRole="button"
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 18, paddingVertical: 12, paddingHorizontal: 14, marginBottom: 10 }}>
+                  <View style={{ width: 50, height: 43, borderRadius: 14, backgroundColor: base.warnBg, borderWidth: 1.5, borderColor: base.ink, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: base.warn, fontWeight: '800' }}>!</Text></View>
+                  <Text style={{ flex: 1, fontWeight: '800', fontSize: 14.5, color: base.ink }}>{it.label}</Text>
+                </Pressable>
+              ))}
             </View>
           )) : <Empty>Nothing outstanding — nice work.</Empty>}
         </>

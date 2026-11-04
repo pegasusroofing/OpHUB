@@ -1,0 +1,53 @@
+URL /sites/11111111-1111-1111-1111-111111111111/snagging/variations
+TEXT
+RTB Roofing Ltd
+OPHUB
+Search
+Ctrl K
+Home
+My projects
+Inbox
+6
+My Dashboard
+Settings
+THIS PROJECT
+Studley Rd
+Project Home
+Schedule of Works
+Health & Safety
+Check In
+Inbox
+Olly Operative
+Operative
+Sign out
+‹
+Variations
+Studley Rd, London, SW4 6RZ
+Projects
+›
+J101 Studley Rd
+›
+Snagging & Variations
+›
+Variations
+Live
+Closed
+No live variations.
+RAISE A VARIATION
+Photo Evidence
+📷 Tap to add a photo
+Description
+Submit Variation
+EXPORT
+Export Live
+Export Closed
+Export All
+
+BUTTONS
+‹
+Studley Rd, London, SW4 6RZ
+[textarea textarea "What's changed and why..."]
+Submit Variation
+Export Live
+Export Closed
+Export All

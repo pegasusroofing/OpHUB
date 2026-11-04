@@ -143,8 +143,8 @@ export default function Briefings() {
                       }}><Text style={{ color: base.red }}>🗑</Text></Pressable>
                     ) : undefined} />
                   {needsMe && (
-                    <Pressable onPress={() => sign(s)} style={{ marginTop: -4, marginBottom: 8, borderWidth: 1.5, borderStyle: 'dashed', borderColor: base.line, borderRadius: radius.input, padding: 12, backgroundColor: base.card }}>
-                      <Text style={{ fontWeight: '700', color: base.ink }}>✍ Tap to sign — {s.template_name}</Text>
+                    <Pressable onPress={() => sign(s)} style={{ marginTop: -4, marginBottom: 8, borderWidth: 1.5, borderColor: base.warn, borderRadius: radius.input, padding: 14, backgroundColor: base.warnBg, alignItems: 'center' }}>
+                      <Text style={{ fontWeight: '700', color: base.warn, textAlign: 'center' }}>Tap To Sign — {s.template_name}</Text>
                     </Pressable>
                   )}
                 </View>

@@ -1,0 +1,57 @@
+URL /sites/11111111-1111-1111-1111-111111111111/hs/puwer
+TEXT
+RTB Roofing Ltd
+OPHUB
+Search
+Ctrl K
+Home
+My projects
+Inbox
+6
+My Dashboard
+Settings
+THIS PROJECT
+Studley Rd
+Project Home
+Schedule of Works
+Health & Safety
+Check In
+Inbox
+Olly Operative
+Operative
+Sign out
+‹
+PUWER Tool Inspection
+Studley Rd, London, SW4 6RZ
+Projects
+›
+J101 Studley Rd
+›
+Health & Safety
+›
+PUWER Tool Inspection
+‹
+02 Nov – 06 Nov 2026
+›
+OLLY OPERATIVE'S REGISTERED TOOLS
+1 tool pulled through from My Tools: Makita drill
+Makita drill  · MK-221
+Suitability
+Is the tool or machine right for the specific job you are using it for?
+Guarding
+Are all safety guards, interlocks, and protective devices present, secure, and working properly?
+Controls
+Do the start, stop, and speed controls function correctly, and are emergency stop buttons easy to reach?
+Maintenance & Condition
+Is there any sign of damage, excessive wear, corrosion, leaks, or electrical faults?
+Markings & Warnings
+Are all safety signs, operational instructions, and warning labels clear and easy to read?
+✗ Can't be used until brought in line with PUWER
+ANY OTHER COMMENTS
+Save Inspection
+
+BUTTONS
+‹
+Studley Rd, London, SW4 6RZ
+[textarea textarea "Optional"]
+Save Inspection

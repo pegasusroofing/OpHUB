@@ -3,7 +3,9 @@
 import { router } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 
-import { Muted, Screen, Stat, Tile } from '@/components/ui';
+import { Muted, Screen, Stat, Tile, TileGrid, TINTS } from '@/components/ui';
+import { OphIcon } from '@/components/OphIcon';
+import { heading } from '@/lib/fonts';
 import { HowTo } from '@/components/HowTo';
 import { SearchButton } from '@/components/SearchButton';
 import { outstandingCount, useOutstanding } from '@/data/inbox';
@@ -14,11 +16,12 @@ import { useSubformNeeded } from '@/data/subform';
 import { useAuth } from '@/lib/auth';
 import { greeting, siteStatusKey } from '@/lib/rules/checkin';
 import { roleLabel } from '@/lib/roles';
-import { base, space, useTheme } from '@/theme/theme';
+import { base, space, useDesk, useTheme } from '@/theme/theme';
 
 export function OperativeHome() {
   const { me, signOut } = useAuth();
   const t = useTheme();
+  const desk = useDesk();
   const { data: sites = [] } = useSites();
   const mine = sites.filter((s) => siteStatusKey(s) !== 'closed');
   const live = mine.filter((s) => siteStatusKey(s) === 'live');
@@ -35,7 +38,7 @@ export function OperativeHome() {
     <Screen>
       <Text style={{ fontSize: 12.5, color: base.slate, fontWeight: '600' }}>{dateTxt}</Text>
       <Text style={{ fontSize: 21, fontWeight: '800', color: base.ink, marginBottom: 14 }}>{greeting()}{first ? `, ${first}` : ''}</Text>
-      <SearchButton />
+      {!desk && <SearchButton />}
       <HowTo k="home" />
       {onboarding && !onboarding.allDone && (
         <Pressable onPress={() => router.push('/getting-started')} style={{ backgroundColor: base.warnBg, borderWidth: 1, borderColor: base.warn, borderRadius: 18, padding: 14, marginBottom: 14 }}>
@@ -49,16 +52,24 @@ export function OperativeHome() {
         <Stat n={todo + unread} label="Messages & tasks" hot={todo + unread > 0} onPress={() => router.push('/inbox')} />
       </View>
       <Pressable onPress={() => router.push('/sites')} accessibilityRole="button"
-        style={({ pressed }) => [{ backgroundColor: t.brand1, borderRadius: 22, padding: 20, marginBottom: space.m }, pressed && { opacity: 0.85 }]}>
-        <Text style={{ color: t.brand1Text, fontSize: 20, fontWeight: '800' }}>My projects</Text>
-        <Text style={{ color: t.brand1Text, opacity: 0.85, marginTop: 4 }}>{live.length} live{upcoming.length ? ` · ${upcoming.length} upcoming` : ''}</Text>
+        style={({ pressed }) => [{ backgroundColor: t.brand1, borderRadius: 22, paddingVertical: 18, paddingHorizontal: 20, marginBottom: space.m }, pressed && { opacity: 0.9 }]}>
+        {/* 185 .pmhero: briefcase icon and chevron, like the PM home. */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+          <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' }}><OphIcon name="projects" size={22} color={t.brand1Text} /></View>
+          <OphIcon name="chevron" size={22} color={t.brand1Text} stroke={2.4} />
+        </View>
+        <Text style={[heading(800), { color: t.brand1Text, fontSize: 20, letterSpacing: -0.2 }]}>My projects</Text>
+        <Text style={{ color: t.brand1Text, opacity: 0.92, marginTop: 4, fontSize: 13, fontWeight: '500' }}>{live.length} live{upcoming.length ? ` · ${upcoming.length} upcoming` : ''}</Text>
       </Pressable>
-      {subform?.needed && <Tile icon="📝" tint={base.warnBg} title="Subcontractor form" sub="Please fill in — takes about 5 minutes" badge={1} onPress={() => router.push('/subform' as never)} />}
-      <Tile icon="💬" tint={base.blueBg} title="Messages & tasks" badge={todo + unread}
-        sub={[todo ? `${todo} to sign or do` : 'Nothing to sign', unread ? `${unread} new message${unread === 1 ? '' : 's'}` : 'no new messages'].join(' · ')}
-        onPress={() => router.push('/inbox')} />
-      <Tile icon="🧰" tint={base.okBg} title="My dashboard" sub="Hours, tools, certificates" onPress={() => router.push('/dashboard')} />
-      <Tile icon="⚙️" tint={base.paper} title="Settings" sub="Account, signature, password" onPress={() => router.push('/account')} />
+      {/* 185 .pmtiles: two across on a phone, four on a computer, with line icons. */}
+      <TileGrid cols={desk ? 4 : 2}>
+        {subform?.needed && <Tile ic="reports" tint={TINTS.orange[0]} fg={TINTS.orange[1]} title="Subcontractor form" sub="Please fill in — takes about 5 minutes" badge="!" onPress={() => router.push('/subform' as never)} />}
+        <Tile ic="chat" tint={TINTS.blue[0]} fg={TINTS.blue[1]} title="Messages & tasks" badge={todo + unread || undefined}
+          sub={[todo ? `${todo} to sign or do` : 'Nothing to sign', unread ? `${unread} new message${unread === 1 ? '' : 's'}` : 'no new messages'].join(' · ')}
+          onPress={() => router.push('/inbox')} />
+        <Tile ic="tools" tint={TINTS.green[0]} fg={TINTS.green[1]} title="My dashboard" sub="Hours, tools, certificates" onPress={() => router.push('/dashboard')} />
+        <Tile ic="gear" tint={TINTS.grey[0]} fg={TINTS.grey[1]} title="Settings" sub="Account, signature, password" onPress={() => router.push('/account')} />
+      </TileGrid>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 22 }}>
         <Muted>{me?.name}</Muted>
         <Muted>{roleLabel(me)}</Muted>

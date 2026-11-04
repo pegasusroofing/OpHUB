@@ -1,0 +1,25 @@
+URL /account
+TEXT
+Settings
+
+YOUR ACCOUNT
+
+Olly Operative · a@x.co
+
+PHONE NUMBER
+
+Shown to delivery drivers when you're the site contact for a delivery.
+
+SAVE PHONE NUMBER
+MY SIGNATURE
+💡 SHOW THE HOW-TO TIPS AGAIN
+SIGN OUT
+
+BUTTONS
+Settings
+Search
+[input tel "e.g. 07123 456789"]
+SAVE PHONE NUMBER
+MY SIGNATURE
+💡 SHOW THE HOW-TO TIPS AGAIN
+SIGN OUT

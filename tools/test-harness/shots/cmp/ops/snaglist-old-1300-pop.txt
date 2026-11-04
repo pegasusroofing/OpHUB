@@ -1,0 +1,80 @@
+TEXT
+RTB Roofing Ltd
+OPHUB
+🔍
+Search
+Ctrl K
+Home
+My projects
+Outstanding
+3
+Inbox
+My Dashboard
+Settings
+THIS PROJECT
+Studley Rd
+Project Home
+Schedule of Works
+Health & Safety
+Check In
+Inbox
+2
+Olly Operative
+Operative
+Sign out
+Snagging
+Studley Rd, London, SW4 6RZ
+🏠
+Projects
+›
+J101 Studley Rd
+›
+Snagging
+LIVE
+CLOSED
+Loose ridge
+Front
+OPEN
+
+Upload a photo showing this is fixed.
+
+📷 ADD CLOSING PHOTO
+CANCEL
+Cracked tile
+Rear
+OPEN
+CLOSE SNAG
+
+EXPORT
+
+📄 EXPORT LIVE
+✉️ EMAIL LIVE SNAGS
+
+BUTTONS
+RTB Roofing Ltd OPHUB
+🔍 Search Ctrl K
+Home
+My projects
+Outstanding 3
+Inbox
+My Dashboard
+Settings
+Project Home
+Schedule of Works
+Health & Safety
+Check In
+Inbox 2
+Sign out
+Snagging
+Studley Rd, London, SW4 6RZ
+🏠
+Projects
+J101 Studley Rd
+LIVE
+CLOSED
+📷 ADD CLOSING PHOTO
+[input file ""]
+CANCEL
+CLOSE SNAG
+📄 EXPORT LIVE
+✉️ EMAIL LIVE SNAGS

@@ -9,6 +9,7 @@ import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { siteStatusKey } from '@/lib/rules/checkin';
 import { canSeeTile } from '@/lib/rules/hs';
+import { canSeeMatTile } from '@/lib/rules/materials';
 import { isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
 import { base } from '@/theme/theme';
@@ -54,6 +55,10 @@ function useJobGuard(): { to: string; why?: string } | null {
   if (me.role === 'client' && page === 'hs' && sub === 'coshh' && ['pick', 'save', 'new'].includes(seg[at + 3] || '')) return { to: `/sites/${id}/hs/coshh` };
   // 890 todos: managers only, except on a repair contract job (its home has a To Do List tile for everyone).
   if (page === 'todos' && !isManager(me) && site && !site.repair_contract) return { to: `/sites/${id}`, why: 'Project managers and admins only.' };
+  // 890: the job's activity history is managers only.
+  if (page === 'activity' && !isManager(me)) return { to: `/sites/${id}` };
+  // 890: Plant and Expenses hidden from your role on this job (the Materials ⋮ setting) don't open by link either.
+  if ((page === 'expenses' || page === 'plant') && site && !canSeeMatTile(site.materials_visibility, page, me.role)) return { to: `/sites/${id}/materials` };
   // 890 mc: everything but Site Rules & Layout needs the job switched on as Main Contractor, and a tile hidden
   // from operatives can't be opened by link (a subcontractor operative still reaches their own company's folder).
   if (page === 'mc' && sub && sub !== 'index' && sub !== 'layout' && site && !site.acting_as_main_contractor) return { to: `/sites/${id}` };
