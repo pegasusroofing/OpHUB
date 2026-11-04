@@ -1724,3 +1724,5 @@
 {"part":"finbars1","step":"Finance lists at 430","ok":true,"note":"search boxes seen: 1","ms":78666}
 {"part":"appvargrp1","step":"Groups at 1440","ok":true,"note":"approved heads 0, not approved heads 1","ms":12787}
 {"part":"appvargrp1","step":"Groups at 430","ok":true,"note":"approved heads 0, not approved heads 1","ms":12577}
+{"part":"weather2","step":"Count and weather together (430)","ok":true,"note":"postcode SW1A 1AA · both at once: true · still both after 9s: true · ⋮ shown: true","ms":22577}
+{"part":"weather2","step":"Count and weather together (1440)","ok":true,"note":"postcode SW1A 1AA · both at once: true · still both after 9s: true · ⋮ shown: true","ms":22449}

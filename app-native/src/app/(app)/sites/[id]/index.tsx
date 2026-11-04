@@ -3,7 +3,7 @@
 // today's calendar, snags / on site / tasks), the wide Check In / Out tile,
 // then the tiles — 2 across on a phone, 4 on a computer, centred icon and
 // label; an odd last tile fills its row. Clients get a cut-down view.
-import { WeatherSwap } from '@/components/WeatherSwap';
+import { OnSiteWeather } from '@/components/WeatherSwap';
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
@@ -132,8 +132,7 @@ export default function SiteHome() {
   const snags = h?.openSnags ?? 0;
   const tasksBox = <StatBox key="tasks" onPress={go('schedule')}><Text style={statN}>{done}/{h?.tasks.length ?? 0}</Text><Text style={statL}>Tasks done</Text></StatBox>;
   const snagBox = <StatBox key="snags" onPress={go('snagging/list')}><Text style={[statN, !!snags && { color: base.warn }]}>{snags}</Text><Text style={statL}>Open snags</Text></StatBox>;
-  const onSiteBox = <StatBox key="on" onPress={go('checkin')}><Text style={[statN, !!h?.onSiteCount && { color: base.ok }]}>{h?.onSiteCount ?? 0}</Text><Text style={statL}>On site now</Text></StatBox>;
-  const swapBox = <WeatherSwap key="swap" me={me} site={site} company={org?.name || ''} style={cardBox} tiles={snags ? [onSiteBox, snagBox] : [onSiteBox]} />;
+  const swapBox = <OnSiteWeather key="swap" me={me} site={site} company={org?.name || ''} style={cardBox} count={h?.onSiteCount ?? 0} onSite={go('checkin')} />;
   const stats = mgr ? [clientBox, calBox, swapBox] : client ? [tasksBox, calBox, snagBox] : [clientBox, calBox, tasksBox];
 
   const tiles: T[] = client ? [

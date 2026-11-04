@@ -1,8 +1,9 @@
-// The job home's third box swaps between what's on site and the weather (Andy, 1 Nov 2026). Tapping the weather lets a manager
+// The job home's third box: what's on site and the weather, split corner to corner (Andy, 4 Nov 2026; it used to swap). Tapping the weather lets a manager
 // email the client a rain delay day: filled in, editable, and the job's PM is always copied in. Operatives and clients don't get this box.
 import { useQuery } from '@tanstack/react-query';
-import { type ReactNode, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import Svg, { Line, Polygon } from 'react-native-svg';
 
 import { useToast } from '@/components/toast';
 import { Button, Muted } from '@/components/ui';
@@ -12,7 +13,6 @@ import { supabase } from '@/lib/supabase';
 import type { Profile, Site } from '@/lib/types';
 import { base, radius } from '@/theme/theme';
 
-const SWAP_MS = 8000;
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card, marginBottom: 12 };
 
 /** From the job's postcode. No account or key needed; refreshed every half hour. */
@@ -31,23 +31,36 @@ function useWeather(postcode?: string | null) {
   });
 }
 
-export function WeatherSwap({ me, site, company, tiles, style }: { me: Profile; site: Site; company: string; tiles: ReactNode[]; style: object }) {
+/** One box split corner to corner (Andy, 4 Nov 2026): how many are on site top left, the weather bottom right. Nothing swaps.
+ *  Left half opens Check In; right half lets a manager email the client a rain delay day. No postcode: just the count. */
+export function OnSiteWeather({ me, site, company, count, onSite, style }: { me: Profile; site: Site; company: string; count: number; onSite: () => void; style: object }) {
   const { data: w } = useWeather(site.postcode);
   const pmId = (site as Site & { responsible_pm_id?: string | null }).responsible_pm_id;
   const { data: pm } = useQuery({ queryKey: ['jobPm', pmId], enabled: !!pmId, queryFn: async () => (await supabase.from('profiles').select('name,email').eq('id', pmId as string).maybeSingle()).data as { name?: string | null; email?: string | null } | null });
-  const [i, setI] = useState(0);
   const [open, setOpen] = useState(false);
-  const all = w ? tiles.length + 1 : tiles.length;
-  useEffect(() => { if (all < 2) return undefined; const t = setInterval(() => setI((x) => x + 1), SWAP_MS); return () => clearInterval(t); }, [all]);
-  const at = i % all;
-  if (at < tiles.length || !w) return <>{tiles[at] ?? tiles[0]}</>;
-  const say = weatherWords(w.code);
+  const [size, setSize] = useState({ w: 0, h: 64 });
+  const say = w ? weatherWords(w.code) : null;
+  const n = <Text style={{ fontSize: 19, fontWeight: '600', color: count ? base.ok : base.ink, fontVariant: ['tabular-nums'] }}>{count}</Text>;
+  const lbl = <Text style={{ fontSize: 9.5, color: base.slateLight, textTransform: 'uppercase', letterSpacing: 0.4, fontWeight: '700' }}>On site</Text>;
   return (
     <>
-      <Pressable accessibilityRole="button" accessibilityLabel="Weather" onPress={() => setOpen(true)} style={[style, { flex: 1, minWidth: 0, height: 64, borderRadius: 12, alignItems: 'center', justifyContent: 'center', gap: 1, paddingHorizontal: 6 }]}>
-        <Text style={{ fontSize: 15, fontWeight: '700', color: base.ink }}>{say.icon} {Number.isFinite(w.temp) ? `${w.temp}°` : ''}</Text>
-        <Text numberOfLines={1} style={{ fontSize: 10, color: base.slateLight, fontWeight: '600' }}>{say.text}{w.rain != null ? ` · ${w.rain}% rain` : ''}</Text>
-      </Pressable>
+      <View onLayout={(e) => setSize({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })} style={[style, { flex: 1, minWidth: 0, height: 64, borderRadius: 12, overflow: 'hidden' }]}>
+        {w && size.w > 0 && (
+          <Svg width={size.w} height={size.h} style={{ position: 'absolute', left: 0, top: 0 }} pointerEvents="none">
+            <Polygon points={`${size.w},0 ${size.w},${size.h} 0,${size.h}`} fill="#EEF4FB" />
+            <Line x1={size.w} y1={0} x2={0} y2={size.h} stroke={base.cardLine} strokeWidth={1} />
+          </Svg>
+        )}
+        <Pressable accessibilityRole="button" accessibilityLabel={`${count} on site now`} onPress={onSite} style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: w ? '50%' : '100%', paddingLeft: 10, paddingTop: 6, alignItems: w ? 'flex-start' : 'center', justifyContent: w ? 'flex-start' : 'center' }}>
+          {n}{lbl}
+        </Pressable>
+        {w && say && (
+          <Pressable accessibilityRole="button" accessibilityLabel={`Weather: ${say.text}`} onPress={() => setOpen(true)} style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '50%', paddingRight: 10, paddingBottom: 6, alignItems: 'flex-end', justifyContent: 'flex-end' }}>
+            <Text style={{ fontSize: 15, fontWeight: '700', color: base.ink }}>{say.icon} {Number.isFinite(w.temp) ? `${w.temp}°` : ''}</Text>
+            {w.rain != null && <Text style={{ fontSize: 9.5, color: base.slateLight, fontWeight: '600' }}>{w.rain}% rain</Text>}
+          </Pressable>
+        )}
+      </View>
       {open && <RainDelay me={me} site={site} company={company} pm={pm} onClose={() => setOpen(false)} />}
     </>
   );

@@ -60,7 +60,7 @@ export function MoneyStrip({ site }: { site: Site }) {
       style={{ flexDirection: 'row', backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10, marginBottom: 14, overflow: 'hidden' }}>
       {cell('Costs to date', costs, e1, true)}
       {cell('Invoiced to date', inv, e2)}
-      {cell('Profit margin', marg, e3, false, <Pressable onPress={() => void pickBasis()} hitSlop={8} accessibilityLabel="Measure margin against"><Text style={{ color: base.slate, fontWeight: '800', fontSize: desk ? 14 : 12 }}>⋯</Text></Pressable>)}
+      {cell('Profit margin', marg, e3, false, <Pressable onPress={() => void pickBasis()} hitSlop={8} accessibilityLabel="Measure margin against"><Text style={{ color: base.slate, fontWeight: '800', fontSize: desk ? 16 : 14, paddingHorizontal: 4 }}>⋮</Text></Pressable>)}
     </Pressable>
   );
 }
