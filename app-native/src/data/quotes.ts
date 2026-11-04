@@ -2,7 +2,7 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { listOneDriveLevel, type OdItem } from '@/data/drawings';
-import { setupJobPack } from '@/data/jobPack';
+import { hasJobPack, setupJobPack } from '@/data/jobPack';
 import { createSite } from '@/data/siteList';
 import { localISODate } from '@/lib/rules/driver';
 import { readTenderLog, statusPatch, type ImportRow, type QuoteRow } from '@/lib/rules/quotes';
@@ -126,6 +126,28 @@ export async function convertToJob(me: Profile, q: Quote, autoNumbers: boolean, 
   }
   await saveQuote(me, q.id, { ...(statusPatch('won', q, localISODate(new Date()), firstDays) as Partial<Quote>), site_id: made.id });
   return { siteId: made.id, note: notes.join('. ') };
+}
+
+/** Won, for a job that's already in OpHUB (Andy, 4 Nov 2026): the enquiry's folder moves into that job's Estimating folder
+ *  (the job's folder is made first if it hasn't one), and the quote is marked won and linked to the job. */
+export async function linkToJob(me: Profile, q: Quote, siteId: string, firstDays: number): Promise<{ note: string } | { error: string }> {
+  const notes: string[] = [];
+  if (q.folder_id) {
+    let packOk = await hasJobPack(siteId);
+    if (!packOk) {
+      const pack = await setupJobPack(siteId);
+      if ('error' in pack) notes.push(`The documents stayed in Estimating: ${pack.error}`);
+      else packOk = true;
+    }
+    if (packOk) {
+      const m = await call('won', q.id, { site_id: siteId });
+      if (m.error) notes.push(`The documents stayed in Estimating: ${m.error}`);
+      else if (m.data?.how === 'copied') notes.push('The documents were copied into the job, and the originals stay in Estimating');
+    }
+  }
+  const saved = await saveQuote(me, q.id, { ...(statusPatch('won', q, localISODate(new Date()), firstDays) as Partial<Quote>), site_id: siteId });
+  if (!saved) return { error: 'Could not mark it won. Try again.' };
+  return { note: notes.join('. ') };
 }
 
 /** Loads the Tender Enquiry Log. Run it again and quotes already loaded are left alone. */

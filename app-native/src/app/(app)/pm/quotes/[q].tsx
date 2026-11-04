@@ -13,8 +13,9 @@ import { chooseAction, confirmAsk, showAlert, useToast } from '@/components/toas
 import { Button, Card, Field, Muted, SectionTitle, Toggle } from '@/components/ui';
 import { FinStat } from '@/components/FinNav';
 import { useTeam } from '@/data/admin';
-import { chaseNow, chasePatch, clientId, convertToJob, fileQuoteFolder, makeQuoteFolder, saveQuote, searchClients, setQuoteStatus, uploadTenderDocs, useQuote, useQuoteSettings, type ClientHit } from '@/data/quotes';
+import { chaseNow, chasePatch, clientId, convertToJob, fileQuoteFolder, linkToJob, makeQuoteFolder, saveQuote, searchClients, setQuoteStatus, uploadTenderDocs, useQuote, useQuoteSettings, type ClientHit } from '@/data/quotes';
 import { SubmitQuote } from '@/components/SubmitQuote';
+import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { DISCIPLINES, isClosed, QUOTE_STATUS, statusLabel } from '@/lib/rules/quotes';
 import { supabase } from '@/lib/supabase';
@@ -40,6 +41,7 @@ export default function QuotePage() {
   const [docs, setDocs] = useState<{ uri: string; name: string }[]>([]);
   const [showDetails, setShowDetails] = useState(false);
   const desk = useDesk();
+  const { data: sites = [] } = useSites();
   const q = data?.quote ?? null;
   const firstDays = settings?.chase_first_days ?? 30;
   useEffect(() => {
@@ -113,6 +115,24 @@ export default function QuotePage() {
     else toast('Won: the job is made');
     router.replace(`/sites/${r.siteId}` as never);
   };
+  // The job may already be in OpHUB: link the quote to it and move the enquiry's folder into its files (Andy, 4 Nov 2026).
+  const wonExisting = async () => {
+    if (!q) return;
+    const order = (st: string | null | undefined) => (st === 'closed' ? 2 : st === 'upcoming' ? 1 : 0);
+    const opts = sites.slice().sort((a, b) => order(a.status) - order(b.status) || String(b.job_number || '').localeCompare(String(a.job_number || ''), 'en-GB', { numeric: true }))
+      .map((s2) => ({ key: s2.id, label: `${s2.status === 'closed' ? 'Closed · ' : s2.status === 'upcoming' ? 'Upcoming · ' : ''}${s2.job_number ? `${s2.job_number} ` : ''}${s2.name}` }));
+    const sid = await chooseAction('Which job is it?', opts);
+    if (!sid) return;
+    const job = sites.find((x) => x.id === sid);
+    if (!(await confirmAsk(`Mark "${q.title}" as won for ${job?.name || 'that job'}?${q.folder_id ? ' Its folder moves out of Estimating into the job.' : ''}`, 'Yes, Link It'))) return;
+    setBusy('won');
+    const r = await linkToJob(me, q, sid, firstDays);
+    setBusy('');
+    if ('error' in r) { showAlert(r.error); return; }
+    refresh();
+    if (r.note) showAlert(`Linked to the job. ${r.note}.`); else toast('Won: linked to the job, with its folder');
+    router.replace(`/sites/${sid}` as never);
+  };
   const people = (team ?? []).filter((p) => p.role === 'pm' || p.role === 'admin');
 
   return (
@@ -138,6 +158,7 @@ export default function QuotePage() {
             </View>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
               {q.site_id ? <Button small title="Open The Job" onPress={() => router.push(`/sites/${q.site_id}` as never)} /> : <Button small busy={busy === 'won'} title="🏆 Won: Convert To Job" onPress={() => void won()} />}
+              {!q.site_id && <Button small kind="ghost" busy={busy === 'won'} title="Won: Link To Existing Job" onPress={() => void wonExisting()} />}
               {!q.site_id && <Button small kind="ghost" busy={busy === 'status'} title="Change Outcome" onPress={() => void changeStatus()} />}
             </View>
           </View>
