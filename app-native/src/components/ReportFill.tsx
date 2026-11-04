@@ -37,6 +37,15 @@ import { base, radius, live as themeLive } from '@/theme/theme';
 
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card, marginBottom: 8 };
 type Op = { id: string; userId: string | null; name: string; role: string; included: boolean };
+// The old app's look (430 renderReportFillItem + app.css .rfitem / .ghostbtn / .darkbtn), 4 Nov 2026: thin outline,
+// bold capitals; the chosen answer has the thick company-colour outline.
+function OBtn({ title, onPress, on, style }: { title: string; onPress: () => void; on?: boolean; style?: object }) {
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel={title} onPress={onPress} style={[{ borderWidth: on ? 2.5 : 1, borderColor: on ? themeLive.brand1 : base.line, borderRadius: 12, paddingVertical: on ? 5 : 6.5, paddingHorizontal: 6, backgroundColor: base.card, alignItems: 'center', marginBottom: 8 }, style]}>
+      <Text style={{ fontSize: 11.5, fontWeight: '800', letterSpacing: 0.3, textTransform: 'uppercase', color: on ? themeLive.brand1 : base.ink, textAlign: 'center' }}>{title}</Text>
+    </Pressable>
+  );
+}
 
 export function ReportFill({ sub, siteId, editingCompleted, isBriefing, onDone }: { sub: Sub; siteId: string; editingCompleted: boolean; isBriefing: boolean; onDone: (subId: string, completed: boolean) => void }) {
   const { me, org } = useAuth();
@@ -200,14 +209,15 @@ export function ReportFill({ sub, siteId, editingCompleted, isBriefing, onDone }
     );
   };
   const choices = (it: ReportItem, opts: string[], cur: unknown, onPick: (v: string) => void) => (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 4 }}>
       {opts.map((o) => {
         const on = Array.isArray(cur) ? cur.includes(o) : cur === o;
-        return (
-          <Pressable key={o} onPress={() => onPick(o)} style={{ paddingHorizontal: 14, paddingVertical: 9, borderRadius: 8, borderWidth: 1, borderColor: on ? themeLive.brand1 : base.line, backgroundColor: on ? themeLive.brand1 : base.card, flexGrow: it.type === 'passfail' || it.type === 'checkbox' ? 1 : 0, alignItems: 'center' }}>
-            <Text style={{ fontWeight: '500', color: on ? themeLive.brand1Text : base.ink }}>{o}</Text>
+        if (it.type === 'multichoice') return (
+          <Pressable key={o} onPress={() => onPick(o)} style={{ flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1, borderColor: base.line, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 5, backgroundColor: base.card, marginBottom: 4 }}>
+            <Text style={{ fontSize: 15, color: on ? themeLive.brand1 : base.slate }}>{on ? '☑' : '☐'}</Text><Text style={{ fontSize: 13, color: base.ink }}>{o}</Text>
           </Pressable>
         );
+        return <OBtn key={o} title={o} on={on} onPress={() => onPick(o)} style={it.type === 'passfail' || it.type === 'checkbox' ? { flex: 1 } : { paddingHorizontal: 12 }} />;
       })}
     </View>
   );
@@ -222,10 +232,16 @@ export function ReportFill({ sub, siteId, editingCompleted, isBriefing, onDone }
     return (
       <View style={{ marginBottom: 12 }}>
         {tl && (
-          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginBottom: 8 }}>
             {tl.map((l) => {
               const on = answers[`${it.id}__tl`] === l.id;
-              return <Pressable key={l.id} onPress={() => set(`${it.id}__tl`, on ? '' : l.id)} style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: trafficHex(l.color), borderWidth: on ? 3 : 0, borderColor: base.ink, opacity: on || !answers[`${it.id}__tl`] ? 1 : 0.35 }} />;
+              const hex = trafficHex(l.color);
+              return (
+                <Pressable key={l.id} onPress={() => set(`${it.id}__tl`, on ? '' : l.id)} style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, borderWidth: 1.5, borderColor: hex, backgroundColor: on ? hex : 'transparent' }}>
+                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: on ? '#fff' : hex }} />
+                  <Text style={{ fontSize: 10.5, fontWeight: '700', color: on ? '#fff' : base.ink }}>{l.label}</Text>
+                </Pressable>
+              );
             })}
           </View>
         )}
@@ -233,8 +249,8 @@ export function ReportFill({ sub, siteId, editingCompleted, isBriefing, onDone }
         {canMedia && photos(`${it.id}__media`, 70)}
         {req && <Text style={{ color: base.warn, fontWeight: '700', marginBottom: 6 }}>A photo is required for this answer *</Text>}
         <View style={{ flexDirection: 'row', gap: 8 }}>
-          {canNote && !noteOpen && <View style={{ flex: 1 }}><Button kind="ghost" title="📝 Add note" onPress={() => setNotesOpen(new Set(notesOpen).add(it.id))} /></View>}
-          {canMedia && <View style={{ flex: 1 }}><Button kind="ghost" title={`📷 Add photo${req && !mArr.length ? ' *' : ''}`} onPress={() => void addPhotos(`${it.id}__media`)} /></View>}
+          {canNote && !noteOpen && <OBtn style={{ flex: 1 }} title="📝 Add Note" onPress={() => setNotesOpen(new Set(notesOpen).add(it.id))} />}
+          {canMedia && <OBtn style={{ flex: 1 }} title={`📷 Add Photo${req && !mArr.length ? ' *' : ''}`} onPress={() => void addPhotos(`${it.id}__media`)} />}
         </View>
       </View>
     );
@@ -242,7 +258,7 @@ export function ReportFill({ sub, siteId, editingCompleted, isBriefing, onDone }
 
   const field = (it: ReportItem) => {
     const val = answers[it.id];
-    const label = <Text style={{ fontWeight: '700', color: base.ink, marginBottom: 6 }}>{it.label}{it.required ? ' *' : ''}{it.autofill ? <Text style={{ fontWeight: '400', color: base.slate, fontSize: 11 }}> (auto-filled — edit if needed)</Text> : null}</Text>;
+    const label = <Text style={{ fontSize: 15, fontWeight: '800', letterSpacing: 0.3, textTransform: 'uppercase', color: base.ink, marginBottom: 8 }}>{it.label}{it.required ? ' *' : ''}{it.autofill ? <Text style={{ fontWeight: '700', color: base.slate, fontSize: 10.5 }}> (auto-filled — edit if needed)</Text> : null}</Text>;
     switch (it.type) {
       case 'instruction': return <Text style={{ fontWeight: '800', color: base.ink, marginBottom: 10 }}>{it.label}</Text>;
       case 'text': case 'number': case 'date': case 'textarea':
@@ -256,14 +272,13 @@ export function ReportFill({ sub, siteId, editingCompleted, isBriefing, onDone }
       }
       case 'choice': {
         const opts = itemOptions(it, answers); if (val && !opts.includes(String(val))) opts.push(String(val));
-        return (<>{label}{it.asButtons || opts.length <= 6 ? choices(it, opts, val, (o) => set(it.id, val === o ? '' : o)) : (
-          <Pressable onPress={async () => { const k = await chooseAction(it.label, opts.map((o) => ({ key: o, label: `${val === o ? '✓ ' : ''}${o}` }))); if (k) set(it.id, k); }} style={[box, { paddingVertical: 12 }]}>
-            <Text style={{ color: val ? base.ink : base.slate }}>▼ {val ? String(val) : 'Select…'}</Text>
+        // A drop-down (the old <select>) unless the template asks for buttons; "+ Add another answer" is in the list.
+        const addAnswer = async () => { const t = (await promptText('Type the answer to add:', ''))?.trim(); if (!t) return; const ex = Array.isArray(answers[`${it.id}__opts`]) ? (answers[`${it.id}__opts`] as string[]) : []; setAnswers((a) => ({ ...a, [`${it.id}__opts`]: ex.includes(t) ? ex : [...ex, t], [it.id]: t })); };
+        return (<>{label}{it.asButtons ? <>{choices(it, opts, val, (o) => set(it.id, val === o ? '' : o))}<Pressable onPress={() => void addAnswer()}><Text style={{ color: base.blue, marginBottom: 8 }}>+ Add another answer</Text></Pressable></> : (
+          <Pressable accessibilityRole="button" accessibilityLabel={it.label} onPress={async () => { const k = await chooseAction(it.label, [...opts.map((o) => ({ key: o, label: `${val === o ? '✓ ' : ''}${o}` })), { key: '__add__', label: '+ Add another answer…' }]); if (k === '__add__') void addAnswer(); else if (k) set(it.id, k); }} style={[box, { paddingVertical: 11, flexDirection: 'row', alignItems: 'center' }]}>
+            <Text style={{ flex: 1, color: base.ink }}>{val ? String(val) : 'Select...'}</Text><Text style={{ color: base.ink, fontSize: 12 }}>▾</Text>
           </Pressable>
-        )}
-          <Pressable onPress={async () => { const t = (await promptText('Type the answer to add:', ''))?.trim(); if (!t) return; const ex = Array.isArray(answers[`${it.id}__opts`]) ? (answers[`${it.id}__opts`] as string[]) : []; setAnswers((a) => ({ ...a, [`${it.id}__opts`]: ex.includes(t) ? ex : [...ex, t], [it.id]: t })); }}>
-            <Text style={{ color: base.blue, marginBottom: 8 }}>+ Add another answer</Text>
-          </Pressable>{extras(it)}</>);
+        )}{extras(it)}</>);
       }
       case 'multichoice': {
         const arr = Array.isArray(val) ? (val as string[]) : [];
@@ -274,7 +289,7 @@ export function ReportFill({ sub, siteId, editingCompleted, isBriefing, onDone }
           </Pressable>{extras(it)}</>);
       }
       case 'photo':
-        return (<>{label}{photos(it.id, 90)}<Button kind="ghost" title="📷 Add photo" onPress={() => void addPhotos(it.id)} /></>);
+        return (<>{label}{photos(it.id, 90)}<OBtn title="📷 Add Photo" onPress={() => void addPhotos(it.id)} /></>);
       case 'drawing': {
         const arr = Array.isArray(val) ? (val as string[]) : [];
         const nKeys = reportDrawingKeys(sections, answers).length;
@@ -307,7 +322,7 @@ export function ReportFill({ sub, siteId, editingCompleted, isBriefing, onDone }
                 {!r.userId && <Pressable onPress={() => set(it.id, list.filter((_, j) => j !== i))}><Text style={{ color: base.red }}>✕</Text></Pressable>}
               </View>
             )) : <Muted>No operatives assigned to this site yet.</Muted>}
-            <Button kind="ghost" title="+ Add Operative" onPress={async () => { const n = (await promptText('Name', ''))?.trim(); if (n) set(it.id, [...list, { id: `${Date.now()}`, userId: null, name: n, role: '', included: true }]); }} />
+            <OBtn style={{ marginTop: 8 }} title="+ Add Operative" onPress={async () => { const n = (await promptText('Name', ''))?.trim(); if (n) set(it.id, [...list, { id: `${Date.now()}`, userId: null, name: n, role: '', included: true }]); }} />
           </View>
         );
       }
@@ -385,13 +400,13 @@ export function ReportFill({ sub, siteId, editingCompleted, isBriefing, onDone }
             <SectionTitle>{s.title}</SectionTitle>
             {sc.bySection[s.id] && <Text style={{ fontWeight: '700', fontSize: 12, color: base.slate, marginTop: 16 }}>{scoreLabel(sc.bySection[s.id])}</Text>}
           </View>
-          {(s.items || []).filter((it) => itemVisible(it, answers)).map((it) => (
-            <View key={it.id}>
+          {(s.items || []).filter((it) => itemVisible(it, answers)).map((it, i) => (
+            <View key={it.id} style={i ? { borderTopWidth: 2, borderTopColor: base.line, paddingTop: 12, marginTop: 4 } : undefined}>
               {it.addedOnSite && <Pressable onPress={async () => { const a = answers[it.id], m = answers[`${it.id}__media`]; if (((a !== undefined && a !== null && a !== '' && !(Array.isArray(a) && !a.length)) || (Array.isArray(m) && m.length)) && !(await confirmAsk(`Remove "${it.label}" and what you have entered for it?`, 'Remove'))) return; setSections((x) => x.map((y) => (y.id === s.id ? { ...y, items: (y.items || []).filter((z) => z.id !== it.id) } : y))); setExtra(true); }} style={{ alignSelf: 'flex-end' }}><Text style={{ color: base.red, fontSize: 12 }}>✕ Remove this item</Text></Pressable>}
               {field(it)}{drawingTick(it)}
             </View>
           ))}
-          {canAddItem(s) && <Button kind="ghost" title="+ Add another item" onPress={() => { setSections((x) => addItemCopy(x, s.id, `id_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`)); setExtra(true); }} />}
+          {canAddItem(s) && <OBtn style={{ marginTop: 8 }} title="+ Add Another Item" onPress={() => { setSections((x) => addItemCopy(x, s.id, `id_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`)); setExtra(true); }} />}
         </Card>
       ))}
       <View style={{ flexDirection: 'row', gap: 8 }}>

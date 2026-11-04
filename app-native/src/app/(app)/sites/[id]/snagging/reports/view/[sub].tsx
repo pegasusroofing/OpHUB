@@ -23,7 +23,7 @@ export default function ReportView() {
     <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: sub.template_name || 'Report' }} />
       <SectionTitle>{sub.template_name}</SectionTitle>
-      <Muted>Submitted {sub.submitted_at ? new Date(sub.submitted_at).toLocaleString('en-GB') : 'in progress'} by {nameOf(people, sub.submitted_by)}</Muted>
+      <Muted style={{ fontStyle: 'italic' }}>Submitted {sub.submitted_at ? new Date(sub.submitted_at).toLocaleString('en-GB') : 'in progress'} by {nameOf(people, sub.submitted_by)}</Muted>
       <ReportAnswers sections={sub.sections || []} answers={sub.answers || {}} nameOf={(u) => nameOf(people, u)} />
       {isManager(me) && <Button kind="ghost" title="Edit Report" onPress={() => router.push(`/sites/${id}/snagging/reports/fill/${sub.id}` as never)} />}
       <ReportPdfActions sub={sub as never} />

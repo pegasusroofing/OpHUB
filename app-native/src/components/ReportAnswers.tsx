@@ -1,6 +1,7 @@
 // A finished report's answers, read-only (430 renderReportView / renderReportViewItem):
 // score, condition key, each listed section and question with its traffic-light
 // colour, note and photos. Used by Reports, Daily Briefings and LOLER.
+import type React from 'react';
 import { Text, View } from 'react-native';
 
 import { StorageImage, UrlImage } from '@/components/StorageImage';
@@ -10,6 +11,9 @@ import {
   trafficHex, trafficLevels, type Answers, type ReportItem, type ReportSection,
 } from '@/lib/rules/reports';
 import { base } from '@/theme/theme';
+
+// The question, as the old app's p.stub: small, grey, italic.
+const Q = ({ children }: { children: React.ReactNode }) => <Text style={{ fontSize: 11.5, fontStyle: 'italic', color: base.slate, marginBottom: 2 }}>{children}</Text>;
 
 export function TrafficKey({ sections }: { sections: ReportSection[] }) {
   const lv = trafficLevels(sections);
@@ -43,7 +47,7 @@ export function ReportAnswers({ sections, answers, nameOf, hideHistory }: { sect
       if (!arr.length) return null;
       return (
         <View key={it.id} style={{ marginBottom: 10 }}>
-          <Muted>{it.label}</Muted>
+          <Q>{it.label}</Q>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
             {arr.map((u) => <UrlImage key={u} url={u} style={it.type === 'drawing' ? { width: '100%', aspectRatio: 1.4, borderRadius: 8 } : { width: 140, height: 140, borderRadius: 8 }} />)}
           </View>
@@ -51,20 +55,20 @@ export function ReportAnswers({ sections, answers, nameOf, hideHistory }: { sect
       );
     }
     if (it.type === 'signature') {
-      return val ? <View key={it.id} style={{ marginBottom: 10 }}><Muted>{it.label}</Muted><StorageImage bucket="signatures" path={String(val)} style={{ height: 44, width: 160, resizeMode: 'contain' }} /></View> : null;
+      return val ? <View key={it.id} style={{ marginBottom: 10 }}><Q>{it.label}</Q><View style={{ alignSelf: 'flex-start', backgroundColor: '#fff', borderWidth: 1, borderColor: base.line, borderRadius: 6, padding: 4 }}><StorageImage bucket="signatures" path={String(val)} style={{ height: 44, width: 160, resizeMode: 'contain' }} /></View></View> : null;
     }
     if (it.type === 'operatives') {
       const list = Array.isArray(val) ? (val as { included?: boolean; name: string; role?: string }[]).filter((r) => r.included) : [];
       return (
         <View key={it.id} style={{ marginBottom: 10 }}>
-          <Muted>{it.label}</Muted>
-          {list.length ? list.map((r) => <Text key={r.name} style={{ fontWeight: '700', color: base.ink }}>{r.name}{r.role ? <Text style={{ fontWeight: '400', color: base.slate }}> · {r.role}</Text> : null}</Text>) : <Text>—</Text>}
+          <Q>{it.label}</Q>
+          {list.length ? list.map((r) => <Text key={r.name} style={{ fontWeight: '700', color: base.ink }}>{r.name}{r.role ? <Text style={{ fontWeight: '400', color: base.slate }}> — {r.role}</Text> : null}</Text>) : <Text>—</Text>}
         </View>
       );
     }
     return (
       <View key={it.id} style={{ marginBottom: 10 }}>
-        <Muted>{it.label}</Muted>
+        <Q>{it.label}</Q>
         <Text style={{ fontWeight: '700', fontSize: 13.5, color: base.ink }}>{answerText(it, val)}</Text>
         {!!tl && <Text style={{ alignSelf: 'flex-start', marginTop: 4, paddingHorizontal: 10, paddingVertical: 3, borderRadius: 999, backgroundColor: trafficHex(tl.color), color: '#fff', fontSize: 11.5, fontWeight: '700', overflow: 'hidden' }}>{tl.label}</Text>}
         {!!note && <Text style={{ color: base.slate, marginTop: 2 }}>Note: {String(note)}</Text>}
@@ -76,13 +80,13 @@ export function ReportAnswers({ sections, answers, nameOf, hideHistory }: { sect
   return (
     <View>
       {!hideHistory && history.map((e, i) => <Muted key={i}>Edited {new Date(e.at).toLocaleString('en-GB')} by {e.byName || nameOf(e.by)}</Muted>)}
-      {sc.overall.possible > 0 && <Text style={{ textAlign: 'right', fontWeight: '800', color: base.ink }}>Score: {scoreLabel(sc.overall)}</Text>}
+      {sc.overall.possible > 0 && <Text style={{ textAlign: 'right', fontWeight: '800', fontStyle: 'italic', fontSize: 12, color: base.ink, marginBottom: 6 }}>Score: {scoreLabel(sc.overall)}</Text>}
       <TrafficKey sections={sections} />
       {(sections || []).filter((s) => reportListsSection(sections, s, answers)).map((s) => (
         <Card key={s.id}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
             <SectionTitle>{s.title}</SectionTitle>
-            {sc.bySection[s.id] && <Text style={{ fontWeight: '700', fontSize: 12, color: base.slate, marginTop: 16 }}>{scoreLabel(sc.bySection[s.id])}</Text>}
+            {sc.bySection[s.id] && <Text style={{ fontWeight: '700', fontSize: 12, color: base.slate }}>{scoreLabel(sc.bySection[s.id])}</Text>}
           </View>
           {(s.items || []).filter((it) => itemVisible(it, answers) && reportListsItem(sections, it, answers)).map(item)}
         </Card>
