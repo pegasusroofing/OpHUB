@@ -53,7 +53,23 @@ These need an admin, in Quotes › Settings:
 2. **The chaser:** check the wording, the timings and the subject, then switch it on. It's off until you do, so nothing is sent.
 3. **Load your Tender Tracker** (Settings › Import). It reads the Tender Enquiry Log sheet. Running it again skips quotes already loaded. **Imported quotes never chase**, so loading years of old quotes can't email anyone.
 
-## Questions
-1. **Won without a new job:** sometimes the job may already exist, or you may not want a job made. Should there be a "Won, link to an existing job" option?
-2. **Chasing tender-stage quotes:** they don't chase now. Do you want a reminder to *you* instead, e.g. "chase this one by phone"?
-3. **Value at enquiry:** should you be able to enter a guide value when the enquiry first comes in? At the moment it's only asked at Send & Submit.
+## Added 4 Nov (from Andy's answers)
+- **Several clients on one enquiry:** the same job priced for several main contractors is one quote.
+  - **Clients Tendering** on the quote lists the main client and the others. Add more from the Directory, or as new clients.
+  - **Winning:** Won asks *which client you won it from*. That client becomes the main one, and the job is made (or linked) for them.
+  - **Reports:** **By Customer** counts the quote for every client: won for the winner, not won for the others. The Customer filter and search find a quote by any of its clients.
+  - **Totals:** in By Customer, the value total counts a quote once per client.
+- **Won: Link To Existing Job:** for a job that's already in OpHUB. Pick the job, and the enquiry's folder moves into its Contract & Commercial › Estimating folder. The job's OneDrive folder is made first if it has none.
+- **Link Estimating Folder (Finance):** a job made in Finance opens its Project Financials pop-up, which now has **Link Estimating Folder** at the top. It's also in Project Admin.
+  - The OneDrive picker opens in your Estimating folder. Pick the enquiry's folder and it moves into the job's Contract & Commercial › Estimating folder.
+  - If a quote uses that folder, the quote is marked won and linked.
+  - Pressing the link closes the pop-up, so save anything you've typed first.
+- **Guide mark-up %:**
+  - each client in the Directory has an **Estimating mark-up %**;
+  - a quote's guide mark-up fills in from the client when you pick them, and can be changed;
+  - **Save For This Client** puts it back on the client.
+- **Who is pricing it** can be chosen on a new enquiry.
+
+## Still to decide
+- **Chasing tender-stage quotes:** they don't chase. Do you want a reminder to *you* instead, e.g. "chase this one by phone"?
+- **The chaser and several clients:** it emails the main client's contact only. Should it chase every client's contact on a returned quote?

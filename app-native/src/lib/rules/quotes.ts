@@ -28,6 +28,19 @@ export function statusPatch(to: string, q: { chase_on: boolean; return_date: str
   return p;
 }
 
+/** One row per client a quote went to (Andy, 4 Nov 2026): the main client, then the others tendering the same job. A won
+ *  quote is won for the client it was won from (the main one) and not won for the rest; otherwise they share its outcome. */
+export function perClient<T extends QuoteRow & { others?: { client_name: string }[] }>(rows: T[]): T[] {
+  const out: T[] = [];
+  for (const r of rows) {
+    out.push(r);
+    for (const o of r.others ?? []) out.push({ ...r, client_name: o.client_name, status: r.status === 'won' ? 'lost' : r.status });
+  }
+  return out;
+}
+/** Every client on a quote, main first. */
+export const clientNames = (r: { client_name: string; others?: { client_name: string }[] }) => [r.client_name, ...(r.others ?? []).map((o) => o.client_name)];
+
 export type Group = { key: string; count: number; value: number; won: number; lost: number; wonValue: number; rate: number | null };
 export type GroupBy = 'client_name' | 'discipline' | 'priced_by_name' | 'year' | 'status';
 /** Figures per customer, discipline, person or year. Win rate is won out of won + lost: quotes still live don't count against it. */

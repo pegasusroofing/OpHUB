@@ -13,7 +13,7 @@ import { chooseAction, confirmAsk, showAlert, useToast } from '@/components/toas
 import { Button, Card, Field, Muted, SectionTitle, Toggle } from '@/components/ui';
 import { FinStat } from '@/components/FinNav';
 import { useTeam } from '@/data/admin';
-import { chaseNow, chasePatch, clientId, convertToJob, fileQuoteFolder, linkToJob, setClientMarkup, makeQuoteFolder, saveQuote, searchClients, setQuoteStatus, uploadTenderDocs, useQuote, useQuoteSettings, type ClientHit } from '@/data/quotes';
+import { addQuoteClient, chaseNow, chasePatch, clientId, convertToJob, fileQuoteFolder, linkToJob, removeQuoteClient, setClientMarkup, wonFrom, type Quote, makeQuoteFolder, saveQuote, searchClients, setQuoteStatus, uploadTenderDocs, useQuote, useQuoteSettings, type ClientHit } from '@/data/quotes';
 import { SubmitQuote } from '@/components/SubmitQuote';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
@@ -38,6 +38,8 @@ export default function QuotePage() {
   const [v, setV] = useState<Form>(EMPTY);
   const [hits, setHits] = useState<ClientHit[]>([]);
   const [picked, setPicked] = useState<ClientHit | null>(null);
+  const [addQ, setAddQ] = useState('');
+  const [addHits, setAddHits] = useState<ClientHit[]>([]);
   const [busy, setBusy] = useState('');
   const [docs, setDocs] = useState<{ uri: string; name: string }[]>([]);
   const [showDetails, setShowDetails] = useState(false);
@@ -105,10 +107,23 @@ export default function QuotePage() {
     toast(ok ? `Now ${statusLabel(k)}.${note}` : 'Could not save. Try again.');
     refresh();
   };
+  // Tendered to several clients: say which one it was won from (Andy, 4 Nov 2026).
+  const winner = async (): Promise<Quote | null> => {
+    if (!q) return null;
+    if (!q.others?.length) return q;
+    const k = await chooseAction('Which client did you win it from?', [{ key: '-', label: `${q.client_name} (main)` }, ...q.others.map((o) => ({ key: o.id, label: o.client_name }))]);
+    if (!k) return null;
+    if (k === '-') return q;
+    const o = q.others.find((x) => x.id === k);
+    const next = o ? await wonFrom(me, q, o) : null;
+    if (!next) { toast('Could not save — try again.'); return null; }
+    return next;
+  };
   const won = async () => {
+    const qw = await winner(); if (!qw) return;
     if (!q || !(await confirmAsk(`Mark "${q.title}" as won and make it a job? Its folder moves out of Estimating into the new job.`, 'Won, make the job'))) return;
     setBusy('won');
-    const r = await convertToJob(me, q, !!nums?.auto_job_numbers, firstDays);
+    const r = await convertToJob(me, qw, !!nums?.auto_job_numbers, firstDays);
     setBusy('');
     if ('error' in r) { showAlert(r.error); return; }
     void qc.invalidateQueries({ queryKey: ['sites'] });
@@ -119,7 +134,7 @@ export default function QuotePage() {
   };
   // The job may already be in OpHUB: link the quote to it and move the enquiry's folder into its files (Andy, 4 Nov 2026).
   const wonExisting = async () => {
-    if (!q) return;
+    const qw = await winner(); if (!q || !qw) return;
     const order = (st: string | null | undefined) => (st === 'closed' ? 2 : st === 'upcoming' ? 1 : 0);
     const opts = sites.slice().sort((a, b) => order(a.status) - order(b.status) || String(b.job_number || '').localeCompare(String(a.job_number || ''), 'en-GB', { numeric: true }))
       .map((s2) => ({ key: s2.id, label: `${s2.status === 'closed' ? 'Closed · ' : s2.status === 'upcoming' ? 'Upcoming · ' : ''}${s2.job_number ? `${s2.job_number} ` : ''}${s2.name}` }));
@@ -128,7 +143,7 @@ export default function QuotePage() {
     const job = sites.find((x) => x.id === sid);
     if (!(await confirmAsk(`Mark "${q.title}" as won for ${job?.name || 'that job'}?${q.folder_id ? ' Its folder moves out of Estimating into the job.' : ''}`, 'Yes, Link It'))) return;
     setBusy('won');
-    const r = await linkToJob(me, q, sid, firstDays);
+    const r = await linkToJob(me, qw, sid, firstDays);
     setBusy('');
     if ('error' in r) { showAlert(r.error); return; }
     refresh();
@@ -148,7 +163,7 @@ export default function QuotePage() {
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
               <View style={{ flex: 1, minWidth: 200 }}>
                 <Text style={{ fontSize: 17, fontWeight: '600', color: base.ink }}>{q.title}</Text>
-                <Text style={{ fontSize: 13, color: base.slate }}>{[q.client_name, q.discipline, q.address].filter(Boolean).join(' · ')}</Text>
+                <Text style={{ fontSize: 13, color: base.slate }}>{[q.client_name + (q.others?.length ? ` +${q.others.length} more` : ''), q.discipline, q.address].filter(Boolean).join(' · ')}</Text>
               </View>
               <Text style={{ fontSize: 11.5, fontWeight: '600', color: tone, backgroundColor: `${tone}1A`, borderRadius: 999, paddingVertical: 4, paddingHorizontal: 11, overflow: 'hidden' }}>● {statusLabel(q.status)}</Text>
             </View>
@@ -166,6 +181,35 @@ export default function QuotePage() {
           </View>
         );
       })()}
+      {!!q && (
+        <Card>
+          <SectionTitle>Clients Tendering</SectionTitle>
+          <Muted style={{ marginBottom: 6 }}>The same job priced for more than one client. When it&apos;s won you choose which client it came from; the reports count it for each of them.</Muted>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
+            <Text style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1, borderColor: base.ink, color: base.ink, fontSize: 12.5, overflow: 'hidden' }}>★ {q.client_name}</Text>
+            {(q.others ?? []).map((o) => (
+              <Pressable key={o.id} disabled={!!q.site_id} onPress={async () => { if (await confirmAsk(`Take ${o.client_name} off this quote?`, 'Take Off')) { if (await removeQuoteClient(o.id)) refresh(); else toast('Could not save — try again.'); } }} style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1, borderColor: base.line, backgroundColor: base.card }}>
+                <Text style={{ fontSize: 12.5, color: base.ink }}>{o.client_name}{o.contact_name ? ` · ${o.contact_name}` : ''}{q.site_id ? '' : '  ✕'}</Text>
+              </Pressable>
+            ))}
+          </View>
+          {!q.site_id && (
+            <>
+              <Field label="Add another client" value={addQ} onChangeText={(t) => { setAddQ(t); if (t.trim().length >= 2) void searchClients(t.trim()).then(setAddHits); else setAddHits([]); }} placeholder="Start typing to search your Directory" />
+              {addHits.filter((h) => ![q.client_name, ...(q.others ?? []).map((o) => o.client_name)].some((n) => n.toLowerCase() === h.name.toLowerCase())).map((h) => (
+                <Pressable key={h.id} onPress={async () => { if (await addQuoteClient(me, q.id, { name: h.name, email: h.email, phone: h.phone })) { setAddQ(''); setAddHits([]); refresh(); } else toast('Could not save — try again.'); }} style={{ paddingVertical: 7 }}>
+                  <Text style={{ color: base.blue, fontWeight: '600' }}>+ {h.name}</Text>
+                </Pressable>
+              ))}
+              {addQ.trim().length >= 2 && !addHits.some((h) => h.name.toLowerCase() === addQ.trim().toLowerCase()) && (
+                <Pressable onPress={async () => { if (await addQuoteClient(me, q.id, { name: addQ.trim() })) { setAddQ(''); setAddHits([]); refresh(); toast('Added — and to the Directory'); } else toast('Could not save — try again.'); }} style={{ paddingVertical: 7 }}>
+                  <Text style={{ color: base.blue, fontWeight: '600' }}>+ Add &quot;{addQ.trim()}&quot; as a new client</Text>
+                </Pressable>
+              )}
+            </>
+          )}
+        </Card>
+      )}
       {!!q && !q.returned_at && !q.site_id && <SubmitQuote q={q} firstDays={firstDays} onDone={refresh} />}
       {!!q && (
         <Card>

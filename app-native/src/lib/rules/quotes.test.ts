@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { groupQuotes, readTenderLog, statusPatch, type QuoteRow } from './quotes.ts';
+import { clientNames, groupQuotes, perClient, readTenderLog, statusPatch, type QuoteRow } from './quotes.ts';
 
 const q = (o: Partial<QuoteRow>): QuoteRow => ({ client_name: 'A', title: 't', discipline: null, value: null, status: 'pricing', return_date: null, priced_by_name: null, completed_at: null, chase_on: true, next_chase_date: null, ...o });
 
@@ -43,3 +43,15 @@ test('section headings and half rows are skipped, and a bad date is dropped', ()
   assert.equal(r.skipped, 2); assert.equal(r.rows.length, 1); assert.equal(r.rows[0].return_date, null);
 });
 test('a different sheet is refused', () => { assert.ok('error' in readTenderLog([['a', 'b']], [])); });
+
+test('one quote to several clients counts for each client', () => {
+  const won = { ...q({ status: 'won', value: 100 }), client_name: 'A', others: [{ client_name: 'B' }, { client_name: 'C' }] };
+  const live = { ...q({ status: 'returned', value: 50 }), client_name: 'B', others: [{ client_name: 'A' }] };
+  const rows = perClient([won, live]);
+  assert.equal(rows.length, 5);
+  const g = Object.fromEntries(groupQuotes(rows, 'client_name').map((x) => [x.key, x]));
+  assert.equal(g.A.won, 1); assert.equal(g.A.count, 2);
+  assert.equal(g.B.won, 0); assert.equal(g.B.lost, 1); assert.equal(g.B.count, 2);
+  assert.equal(g.C.rate, 0);
+  assert.deepEqual(clientNames(won), ['A', 'B', 'C']);
+});

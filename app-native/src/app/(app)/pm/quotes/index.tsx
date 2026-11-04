@@ -14,7 +14,7 @@ import { useToast } from '@/components/toast';
 import { Button, Empty, Muted } from '@/components/ui';
 import { useQuotes, type Quote } from '@/data/quotes';
 import { useAuth } from '@/lib/auth';
-import { groupQuotes, isClosed, QUOTE_STATUS, statusLabel, type Group, type GroupBy } from '@/lib/rules/quotes';
+import { clientNames, groupQuotes, isClosed, perClient, QUOTE_STATUS, statusLabel, type Group, type GroupBy } from '@/lib/rules/quotes';
 import { exportTableExcel, exportTablePdf, type Table } from '@/lib/tableExport';
 import { base, page, space, useDesk } from '@/theme/theme';
 
@@ -56,8 +56,9 @@ export default function Quotes() {
       date: (a, b) => (dateOf(b) || '').localeCompare(dateOf(a) || ''), old: (a, b) => (dateOf(a) || '9').localeCompare(dateOf(b) || '9'),
       value: (a, b) => (b.value || 0) - (a.value || 0), client: (a, b) => a.client_name.localeCompare(b.client_name),
     };
-    return all.filter(inShow).filter((x) => has('client', x.client_name) && has('disc', x.discipline) && has('by', x.priced_by_name) && has('year', yearOf(x))
-      && (!s || `${x.client_name} ${x.title} ${x.address ?? ''} ${x.postcode ?? ''} ${x.discipline ?? ''} ${x.priced_by_name ?? ''} ${x.notes ?? ''}`.toLowerCase().includes(s))).sort(SORT[sort]);
+    const hasClient = (x: Quote) => desk || !sel.client?.length || clientNames(x).some((n) => sel.client.includes(n));
+    return all.filter(inShow).filter((x) => hasClient(x) && has('disc', x.discipline) && has('by', x.priced_by_name) && has('year', yearOf(x))
+      && (!s || `${clientNames(x).join(' ')} ${x.title} ${x.address ?? ''} ${x.postcode ?? ''} ${x.discipline ?? ''} ${x.priced_by_name ?? ''} ${x.notes ?? ''}`.toLowerCase().includes(s))).sort(SORT[sort]);
   }, [all, inShow, q, sel, sort, desk]);
   if (!me) return null;
   if (me.role !== 'pm' && me.role !== 'admin') return <Muted style={{ padding: space.l }}>Project managers and admins only.</Muted>;
@@ -66,13 +67,14 @@ export default function Quotes() {
   const yr = all.filter((x) => yearOf(x) === thisYear);
   const yrG = groupQuotes(yr.map((x) => ({ ...x, client_name: 'all' })), 'client_name')[0];
   const chaseDue = all.filter((x) => x.chase_on && x.next_chase_date && x.next_chase_date <= new Date().toISOString().slice(0, 10)).length;
-  const groups: Group[] = view === 'list' ? [] : groupQuotes(list, view);
+  const groups: Group[] = view === 'list' ? [] : groupQuotes(view === 'client_name' ? perClient(list) : list, view);
   const distinct = (f: (x: Quote) => string | null) => [...new Set(all.filter(inShow).map(f).filter(Boolean) as string[])].sort();
+  const allClients = [...new Set(all.filter(inShow).flatMap(clientNames))].sort();
   const viewLabel = VIEWS.find(([k]) => k === view)?.[1] ?? 'List';
   const table = (): Table => view === 'list' ? ({
     title: 'Quotes', sub: `${SHOW.find(([k]) => k === show)?.[1]} · ${list.length} quotes`,
     cols: [{ l: 'Customer', w: 130 }, { l: 'Project', w: 190 }, { l: 'Discipline', w: 80 }, { l: 'Value', money: true, w: 75 }, { l: 'Priced by', w: 70 }, { l: 'Date', w: 65 }, { l: 'Outcome', w: 70 }, { l: 'Notes', w: 150 }],
-    rows: list.map((x) => [x.client_name, x.title, x.discipline, x.value, x.priced_by_name, ukd(dateOf(x)), statusLabel(x.status), x.notes]),
+    rows: list.map((x) => [clientNames(x).join(', '), x.title, x.discipline, x.value, x.priced_by_name, ukd(dateOf(x)), statusLabel(x.status), x.notes]),
     totals: ['Total', '', '', list.reduce((t, x) => t + (x.value || 0), 0), '', '', '', ''],
   }) : ({
     title: `Quotes ${viewLabel.toLowerCase()}`, sub: `${list.length} quotes`,
@@ -103,7 +105,7 @@ export default function Quotes() {
           <FinFilterBar search={{ value: q, onChange: (t) => { setQ(t); setShown(100); }, placeholder: 'Search customer, project, address…' }} sel={sel} onChange={setSel} onClear={() => setSel({ client: [], disc: [], by: [], year: [] })}
             sorts={[['date', 'Newest first'], ['old', 'Oldest first'], ['value', 'Highest value'], ['client', 'Customer A to Z']]} sort={sort} onSort={setSort}
             parts={[
-              { key: 'client', label: 'Customer', items: distinct((x) => x.client_name).map((v) => ({ v, l: v })) },
+              { key: 'client', label: 'Customer', items: allClients.map((v) => ({ v, l: v })) },
               { key: 'disc', label: 'Discipline', items: distinct((x) => x.discipline).map((v) => ({ v, l: v })) },
               { key: 'by', label: 'Priced by', items: distinct((x) => x.priced_by_name).map((v) => ({ v, l: v })) },
               { key: 'year', label: 'Year', items: distinct(yearOf).reverse().map((v) => ({ v, l: v })) },
@@ -127,7 +129,7 @@ export default function Quotes() {
           <FinTable rows={list} keyOf={(x) => x.id} onRow={go} defaultSort={{ k: 'd', dir: 'desc' }}
             cols={[
               { k: 'p', l: 'Project', flex: 2, min: 200, render: (x: Quote) => <View style={{ alignItems: 'center' }}><Cell bold>{x.title}</Cell>{x.address ? <Text numberOfLines={1} style={{ fontSize: 11, color: base.slate }}>{x.address}</Text> : null}</View>, sort: (x: Quote) => x.title },
-              { k: 'c', l: 'Customer', flex: 1.5, min: 140, render: (x: Quote) => <Cell>{x.client_name}</Cell>, sort: (x: Quote) => x.client_name },
+              { k: 'c', l: 'Customer', flex: 1.5, min: 140, render: (x: Quote) => <View style={{ alignItems: 'center' }}><Cell>{x.client_name}</Cell>{x.others?.length ? <Text numberOfLines={1} style={{ fontSize: 11, color: base.slate }}>also {x.others.map((o) => o.client_name).join(', ')}</Text> : null}</View>, sort: (x: Quote) => x.client_name },
               { k: 'di', l: 'Discipline', choices: [...new Set(list.map((x) => x.discipline).filter(Boolean) as string[])].sort(), render: (x: Quote) => <Cell>{x.discipline || '—'}</Cell>, sort: (x: Quote) => x.discipline || '' },
               { k: 'v', l: 'Value', render: (x: Quote) => <View style={{ alignItems: 'center' }}><Cell bold>{money(x.value)}</Cell>{x.profit_pct != null ? <Text style={{ fontSize: 11, color: base.slate }}>{Math.round(x.profit_pct * 1000) / 10}% profit</Text> : null}</View>, sort: (x: Quote) => x.value || 0 },
               { k: 'b', l: 'Priced By', choices: [...new Set(list.map((x) => x.priced_by_name).filter(Boolean) as string[])].sort(), render: (x: Quote) => <Cell>{x.priced_by_name || '—'}</Cell>, sort: (x: Quote) => x.priced_by_name || '' },
@@ -145,7 +147,7 @@ export default function Quotes() {
                   <Text style={{ fontWeight: '600', fontSize: 13, color: base.ink }}>{money(x.value)}</Text>
                 </View>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 3 }}>
-                  <Text numberOfLines={1} style={{ flex: 1, fontSize: 11.5, color: base.slate }}>{[x.client_name, x.discipline, x.priced_by_name, `${dateWord(x)} ${ukd(dateOf(x))}`].filter(Boolean).join(' · ')}</Text>
+                  <Text numberOfLines={1} style={{ flex: 1, fontSize: 11.5, color: base.slate }}>{[x.client_name + (x.others?.length ? ` +${x.others.length}` : ''), x.discipline, x.priced_by_name, `${dateWord(x)} ${ukd(dateOf(x))}`].filter(Boolean).join(' · ')}</Text>
                   <Pill s={x.status} />
                 </View>
               </Pressable>

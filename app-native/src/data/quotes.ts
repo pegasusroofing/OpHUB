@@ -18,7 +18,10 @@ export type Quote = QuoteRow & {
   id: string; org_id: string; client_id: string | null; contact_name: string | null; contact_email: string | null; contact_phone: string | null; address: string | null; postcode: string | null;
   profit_pct: number | null; guide_markup_pct: number | null; priced_by: string | null; received_date: string | null; returned_at: string | null; notes: string | null; chase_count: number; last_chased_at: string | null;
   folder_id: string | null; folder_drive_id: string | null; folder_name: string | null; filed_at: string | null; site_id: string | null; created_at: string;
+  // The other clients tendering the same job (Andy, 4 Nov 2026).
+  others?: QuoteClient[];
 };
+export type QuoteClient = { id: string; quote_id: string; client_id: string | null; client_name: string; contact_name: string | null; contact_email: string | null; contact_phone: string | null };
 export type QuoteSettings = { org_id: string; chase_enabled: boolean; chase_first_days: number; chase_every_days: number; chase_max: number; chase_subject: string | null; chase_body: string | null; open_path: string | null; template_path: string | null; archive_path: string | null; won_folder: string | null };
 export type ClientHit = { id: string; name: string; email: string | null; phone: string | null; markup?: number | null };
 
@@ -31,15 +34,18 @@ export const useQuotes = (orgId: string | null | undefined) => useQuery({
       const r = await db.from('quotes').select('*').eq('org_id', orgId as string).order('return_date', { ascending: false, nullsFirst: false }).range(from, from + 999);
       if (r.error) throw r.error;
       all.push(...((r.data as Quote[] | null) ?? []));
-      if (((r.data as Quote[] | null) ?? []).length < 1000) return all;
+      if (((r.data as Quote[] | null) ?? []).length < 1000) break;
     }
+    const extra = ((await db.from('quote_clients').select('id,quote_id,client_id,client_name,contact_name,contact_email,contact_phone').eq('org_id', orgId as string).limit(20000)).data as QuoteClient[] | null) ?? [];
+    const by: Record<string, QuoteClient[]> = {}; extra.forEach((c) => { (by[c.quote_id] = by[c.quote_id] || []).push(c); });
+    return all.map((q) => (by[q.id] ? { ...q, others: by[q.id] } : q));
   },
 });
 export const useQuote = (id: string | undefined) => useQuery({
   queryKey: ['quote', id], enabled: !!id && id !== 'new',
   queryFn: async () => {
-    const [q, c] = await Promise.all([db.from('quotes').select('*').eq('id', id as string).maybeSingle(), db.from('quote_chases').select('id,sent_to,automatic,sent_at').eq('quote_id', id as string).order('sent_at', { ascending: false })]);
-    return { quote: q.data as Quote | null, chases: (c.data as { id: string; sent_to: string; automatic: boolean; sent_at: string }[] | null) ?? [] };
+    const [q, c, o] = await Promise.all([db.from('quotes').select('*').eq('id', id as string).maybeSingle(), db.from('quote_chases').select('id,sent_to,automatic,sent_at').eq('quote_id', id as string).order('sent_at', { ascending: false }), db.from('quote_clients').select('id,quote_id,client_id,client_name,contact_name,contact_email,contact_phone').eq('quote_id', id as string).order('created_at')]);
+    return { quote: q.data ? { ...(q.data as Quote), others: (o.data as QuoteClient[] | null) ?? [] } : null, chases: (c.data as { id: string; sent_to: string; automatic: boolean; sent_at: string }[] | null) ?? [] };
   },
 });
 export const useQuoteSettings = (orgId: string | null | undefined) => useQuery({
@@ -51,6 +57,20 @@ export const saveQuoteSettings = async (s: Partial<QuoteSettings> & { org_id: st
 export async function searchClients(q: string): Promise<ClientHit[]> {
   const r = await rpc('quote_client_search_v2', { q });
   return r.error ? [] : (r.data as ClientHit[]);
+}
+/** Another client tendering the same job (they join the Directory if new). */
+export async function addQuoteClient(me: Profile, quoteId: string, c: { name: string; email?: string | null; phone?: string | null; contact?: string | null }): Promise<boolean> {
+  const cid = await clientId(c.name, c.email || '', c.phone || '');
+  return !(await db.from('quote_clients').insert({ org_id: me.org_id, quote_id: quoteId, client_id: cid, client_name: c.name, contact_name: c.contact || null, contact_email: c.email || null, contact_phone: c.phone || null, created_by: me.id } as never)).error;
+}
+export const removeQuoteClient = async (id: string) => !(await db.from('quote_clients').delete().eq('id', id)).error;
+/** Won from one of the other clients: they become the quote's main client (so the job is made for them) and the old main
+ *  client joins the others, so the reports still count the quote for them. Returns the quote as it now stands. */
+export async function wonFrom(me: Profile, q: Quote, o: QuoteClient): Promise<Quote | null> {
+  const ok = await saveQuote(me, q.id, { client_id: o.client_id, client_name: o.client_name, contact_name: o.contact_name, contact_email: o.contact_email, contact_phone: o.contact_phone });
+  if (!ok) return null;
+  await db.from('quote_clients').update({ client_id: q.client_id, client_name: q.client_name, contact_name: q.contact_name, contact_email: q.contact_email, contact_phone: q.contact_phone } as never).eq('id', o.id);
+  return { ...q, client_id: o.client_id, client_name: o.client_name, contact_name: o.contact_name, contact_email: o.contact_email, contact_phone: o.contact_phone };
 }
 /** Saves a client's estimating mark-up in the Directory, from a quote. */
 export async function setClientMarkup(clientId: string, pct: number | null): Promise<boolean> {
