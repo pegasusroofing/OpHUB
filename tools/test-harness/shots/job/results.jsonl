@@ -1722,3 +1722,5 @@
 {"part":"revise1","step":"Menu shows Revise RAMS","ok":true,"note":"","ms":11118}
 {"part":"finbars1","step":"Finance lists at 1440","ok":true,"note":"search boxes seen: 0","ms":79266}
 {"part":"finbars1","step":"Finance lists at 430","ok":true,"note":"search boxes seen: 1","ms":78666}
+{"part":"appvargrp1","step":"Groups at 1440","ok":true,"note":"approved heads 0, not approved heads 1","ms":12787}
+{"part":"appvargrp1","step":"Groups at 430","ok":true,"note":"approved heads 0, not approved heads 1","ms":12577}
