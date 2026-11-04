@@ -9,6 +9,7 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { CertsPanel } from '@/components/CertsPanel';
 import { DashTabs } from '@/components/DashTabs';
+import { ManualOpsList } from '@/components/ManualOpsList';
 import { MyToolsList } from '@/components/MyToolsList';
 import { confirmAsk, useToast } from '@/components/toast';
 import { Button, Empty, Muted, SectionTitle, Toggle } from '@/components/ui';
@@ -69,6 +70,8 @@ export default function Operatives() {
           <Pressable onPress={() => router.push('/pm/operatives/matrix' as never)} style={{ alignSelf: 'center' }}><Text style={{ fontSize: 12, color: base.blue }}>View the matrix on screen ›</Text></Pressable>
         </View>
       )}
+      {/* 9219zzg (4 Nov 2026): + Add Operative, and the ones not signed up yet. */}
+      {!site && isManager(me) && <ManualOpsList q={q} />}
       {isLoading ? <Muted>Loading…</Muted> : shown.length ? shown.map((o) => (
         <Pressable key={o.id} onPress={() => router.push(`/pm/operatives/${o.id}` as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 10, backgroundColor: base.card }}>
           <View style={{ width: 38, height: 38, borderRadius: 10, backgroundColor: base.blueBg, alignItems: 'center', justifyContent: 'center' }}>

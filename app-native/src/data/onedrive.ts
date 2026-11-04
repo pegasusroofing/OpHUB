@@ -49,14 +49,15 @@ export async function linkFolder(target: OdTarget, id: string, f: { id: string; 
   const d = f.driveId || null;
   if (target === 'quote') return !!(await db.from('quotes').update({ folder_id: f.id, folder_name: f.name, folder_drive_id: d } as never).eq('id', id).select('id')).data?.length;
   if (target === 'repairjob') return !!(await db.from('repair_jobs').update({ onedrive_folder_id: f.id, onedrive_folder_name: f.name, onedrive_drive_id: d } as never).eq('id', id).select('id')).data?.length;
-  if (target === 'operative') return !!(await db.from('profiles').update({ onedrive_folder_id: f.id, onedrive_folder_name: f.name, onedrive_drive_id: d, onedrive_last_synced_at: null } as never).eq('id', id).select('id')).data?.length;
+  // 'm-<uuid>' = an operative added by hand (manual_operatives, 4 Nov 2026).
+  if (target === 'operative') return !!(await db.from(id.indexOf('m-') === 0 ? 'manual_operatives' : 'profiles').update({ onedrive_folder_id: f.id, onedrive_folder_name: f.name, onedrive_drive_id: d, onedrive_last_synced_at: null } as never).eq('id', id.indexOf('m-') === 0 ? id.slice(2) : id).select('id')).data?.length;
   const patch = target === 'materials' ? { material_orders_folder_id: f.id, material_orders_folder_name: f.name, material_orders_drive_id: d }
     : target === 'siteinductions' ? { site_inductions_folder_id: f.id, site_inductions_folder_name: f.name, site_inductions_drive_id: d }
     : { onedrive_folder_id: f.id, onedrive_folder_name: f.name, onedrive_drive_id: d };
   return !!(await db.from('sites').update(patch as never).eq('id', id).select('id')).data?.length;
 }
 export async function unlinkFolder(target: OdTarget, id: string): Promise<boolean> {
-  if (target === 'operative') return !!(await db.from('profiles').update({ onedrive_folder_id: null, onedrive_folder_name: null, onedrive_drive_id: null } as never).eq('id', id).select('id')).data?.length;
+  if (target === 'operative') return !!(await db.from(id.indexOf('m-') === 0 ? 'manual_operatives' : 'profiles').update({ onedrive_folder_id: null, onedrive_folder_name: null, onedrive_drive_id: null } as never).eq('id', id.indexOf('m-') === 0 ? id.slice(2) : id).select('id')).data?.length;
   if (target === 'repairjob') return !!(await db.from('repair_jobs').update({ onedrive_folder_id: null, onedrive_folder_name: null, onedrive_drive_id: null } as never).eq('id', id).select('id')).data?.length;
   const patch = target === 'materials' ? { material_orders_folder_id: null, material_orders_folder_name: null, material_orders_drive_id: null }
     : target === 'siteinductions' ? { site_inductions_folder_id: null, site_inductions_folder_name: null, site_inductions_drive_id: null }

@@ -13,7 +13,7 @@ import { useTeam } from '@/data/admin';
 import { Button, Card, Field, Muted } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
 import { askDate, DateField } from '@/components/DateField';
-import { deleteCert, renameCert, setCertCategory, setCertExpiry, uploadCert, useMyCerts } from '@/data/certs';
+import { deleteCert, renameCert, setCertCategory, setCertExpiry, uploadCert, useMyCerts, type CertOwner } from '@/data/certs';
 import { openDocLink } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
@@ -24,7 +24,9 @@ import { CERT_CATEGORIES_AZ, certCategoryLabel, certDisplayName, certStats, type
 import { readIsoDate } from '@/lib/rules/materials';
 import { base, live } from '@/theme/theme';
 
-export function CertsPanel({ userId, manual = false }: { userId: string; manual?: boolean }) {
+// manual = 'operative': an operative added by hand (userId = their manual_operatives id); their
+// certificates work the same as a signed-up operative's, OneDrive included.
+export function CertsPanel({ userId, manual = false }: { userId: string; manual?: CertOwner }) {
   const { me } = useAuth();
   const { data: team } = useTeam(me?.org_id);
   const toast = useToast();
@@ -53,7 +55,7 @@ export function CertsPanel({ userId, manual = false }: { userId: string; manual?
     } catch { toast('Could not build the combined PDF.'); } finally { setBulk(null); }
   };
   const s = certStats(certs);
-  const refresh = () => { void qc.invalidateQueries({ queryKey: ['myCerts', userId] }); void qc.invalidateQueries({ queryKey: ['operativeList'] }); void qc.invalidateQueries({ queryKey: ['manualPeople'] }); };
+  const refresh = () => { void qc.invalidateQueries({ queryKey: ['myCerts', userId] }); void qc.invalidateQueries({ queryKey: ['operativeList'] }); void qc.invalidateQueries({ queryKey: ['manualPeople'] }); void qc.invalidateQueries({ queryKey: ['manualOps'] }); void qc.invalidateQueries({ queryKey: ['opOneDrive'] }); };
   const stat = (v: number, label: string, colour: string, onPress?: () => void) => (
     <Pressable onPress={onPress} disabled={!onPress} style={{ flex: 1, minWidth: 80, backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 16, padding: 10, alignItems: 'center' }}>
       <Text style={{ fontSize: 22, fontWeight: '800', color: v ? colour : base.ink }}>{v}</Text>
@@ -128,15 +130,15 @@ export function CertsPanel({ userId, manual = false }: { userId: string; manual?
           <View style={{ flex: 1 }}><Button busy={bulk === 'pdf'} disabled={!picked.length} title={`Export ${picked.length} (PDF)`} onPress={() => void bundle('pdf')} /></View>
           <View style={{ flex: 1 }}><Button kind="ghost" busy={bulk === 'email'} disabled={!picked.length} title={`Email ${picked.length}`} onPress={() => void bundle('email')} /></View>
           {/* 320 pushSelectedCertsToOneDrive: managers send just the ticked phone-only certificates to the operative's OneDrive folder */}
-          {!manual && isManager(me) && <View style={{ flex: 1 }}><Button kind="ghost" busy={bulk === 'od'} disabled={!picked.length} title={`☁ Upload ${picked.length} to OneDrive`} onPress={async () => {
+          {manual !== true && isManager(me) && <View style={{ flex: 1 }}><Button kind="ghost" busy={bulk === 'od'} disabled={!picked.length} title={`☁ Upload ${picked.length} to OneDrive`} onPress={async () => {
             const ids = picked.filter((c) => (c as { source?: string }).source !== 'onedrive' && !(c as { pushed_to_onedrive_at?: string | null }).pushed_to_onedrive_at).map((c) => c.id);
             if (!ids.length) { toast('Nothing to upload — those are already on OneDrive.'); return; }
             setBulk('od');
             try {
-              const r = await supabase.functions.invoke('sync-operative-certification', { body: { operative_id: userId, cert_ids: ids } });
+              const r = await supabase.functions.invoke('sync-operative-certification', { body: manual === 'operative' ? { manual_operative_id: userId, cert_ids: ids } : { operative_id: userId, cert_ids: ids } });
               const d = (r.data ?? {}) as { error?: string; pushed?: number };
               if (r.error || d.error) toast(`Upload to OneDrive failed — ${d.error || 'try again'}`); else { toast(d.pushed ? `Uploaded ${d.pushed} to OneDrive.` : 'Nothing to upload — already on OneDrive.'); setSel(null); }
-            } catch { toast('Could not reach the server.'); } finally { setBulk(null); void qc.invalidateQueries({ queryKey: ['myCerts'] }); void qc.invalidateQueries({ queryKey: ['opOneDrive', userId] }); }
+            } catch { toast('Could not reach the server.'); } finally { setBulk(null); void qc.invalidateQueries({ queryKey: ['myCerts'] }); void qc.invalidateQueries({ queryKey: ['opOneDrive'] }); }
           }} /></View>}
           <View style={{ flex: 1 }}><Button kind="ghost" title="Cancel" onPress={() => setSel(null)} /></View>
         </View>

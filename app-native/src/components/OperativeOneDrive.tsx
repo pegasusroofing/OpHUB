@@ -9,6 +9,7 @@ import { View } from 'react-native';
 
 import { confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Muted } from '@/components/ui';
+import { isManualOpId, manualOpUuid } from '@/data/manualOps';
 import { unlinkFolder, useOneDriveStatus } from '@/data/onedrive';
 import { supabase } from '@/lib/supabase';
 import { base } from '@/theme/theme';
@@ -21,18 +22,22 @@ export function OperativeOneDrive({ orgId, opId }: { orgId: string; opId: string
   const qc = useQueryClient();
   const [busy, setBusy] = useState<'' | 'sync' | 'push'>('');
   const { data: st } = useOneDriveStatus(orgId);
+  // An operative added by hand ('m-<uuid>', 4 Nov 2026): their folder is on manual_operatives and the sync
+  // function takes manual_operative_id; everything else is the same as a signed-up operative.
+  const manual = isManualOpId(opId), key = manual ? manualOpUuid(opId) : opId;
   const { data } = useQuery({ queryKey: ['opOneDrive', opId], queryFn: async () => {
     const [p, c] = await Promise.all([
-      db.from('profiles').select('onedrive_folder_id,onedrive_folder_name,onedrive_last_synced_at').eq('id', opId).maybeSingle(),
-      db.from('operative_certifications').select('id,source,pushed_to_onedrive_at').eq('operative_id', opId),
+      db.from(manual ? 'manual_operatives' : 'profiles').select('onedrive_folder_id,onedrive_folder_name,onedrive_last_synced_at').eq('id', key).maybeSingle(),
+      db.from('operative_certifications').select('id,source,pushed_to_onedrive_at').eq(manual ? 'manual_operative_id' : 'operative_id', key),
     ]);
     return { p: (p.data as Row | null) ?? {}, pushable: (((c.data as Row[] | null) ?? []).filter((x) => x.source === 'upload' && !x.pushed_to_onedrive_at)).map((x) => x.id as string) };
   } });
-  if (!st) return null;
+  // Company OneDrive not connected: say so, rather than leave the OneDrive Sync heading empty.
+  if (!st) return <Muted style={{ marginBottom: 8 }}>Link this operative&apos;s own OneDrive folder to sync their certificates once the company OneDrive is connected (Admin Centre › OneDrive).</Muted>;
   const call = async (kind: 'sync' | 'push') => {
     setBusy(kind);
     try {
-      const r = await supabase.functions.invoke('sync-operative-certification', { body: kind === 'sync' ? { operative_id: opId } : { operative_id: opId, cert_ids: data?.pushable ?? [] } });
+      const r = await supabase.functions.invoke('sync-operative-certification', { body: { ...(manual ? { manual_operative_id: key } : { operative_id: opId }), ...(kind === 'push' ? { cert_ids: data?.pushable ?? [] } : {}) } });
       const d = (r.data ?? {}) as { error?: string; pulled?: number; pushed?: number };
       if (r.error || d.error) toast(`${kind === 'sync' ? 'Sync' : 'Upload to OneDrive'} failed — ${d.error || 'try again'}`);
       else toast(kind === 'sync' ? `Synced — ${d.pulled || 0} pulled in from OneDrive.` : d.pushed ? `Uploaded ${d.pushed} to OneDrive.` : 'Nothing to upload — already on OneDrive.');

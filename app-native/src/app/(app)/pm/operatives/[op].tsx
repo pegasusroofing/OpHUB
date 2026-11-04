@@ -2,26 +2,37 @@
 // assigned / live now, their certificates and their tools.
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 
 import { CertsPanel } from '@/components/CertsPanel';
+import { ManualOperativePage } from '@/components/ManualOperativePage';
 import { MyToolsList } from '@/components/MyToolsList';
 import { OperativeOneDrive } from '@/components/OperativeOneDrive';
 import { promptText, useToast } from '@/components/toast';
 import { Button, Card, Muted, SectionTitle } from '@/components/ui';
 import { saveOperativeField, useOperativeList } from '@/data/certs';
+import { isManualOpId, manualOpUuid } from '@/data/manualOps';
 import { useOperativeSubform } from '@/data/subform';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { siteStatusKey } from '@/lib/rules/checkin';
+import { exportTrainingMatrixExcel, loadTrainingMatrix } from '@/lib/trainingMatrix';
 import { isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
 import { base, page, space } from '@/theme/theme';
 
-export default function OperativeDetail() {
+// 'm-<uuid>' = an operative added by hand who hasn't signed up yet (9219zzg, 4 Nov 2026): their own page.
+export default function OperativeRoute() {
   const { op } = useLocalSearchParams<{ op: string }>();
-  const { me } = useAuth();
+  return isManualOpId(op) ? <ManualOperativePage uuid={manualOpUuid(op)} /> : <OperativeDetail />;
+}
+
+function OperativeDetail() {
+  const { op } = useLocalSearchParams<{ op: string }>();
+  const { me, org } = useAuth();
   const toast = useToast();
+  const [xBusy, setXBusy] = useState(false);
   const qc = useQueryClient();
   const { data: ops = [] } = useOperativeList(me?.org_id);
   const { data: sites = [] } = useSites();
@@ -68,14 +79,21 @@ export default function OperativeDetail() {
       <SectionTitle>Certificates</SectionTitle>
       <Muted style={{ marginBottom: 6 }}>This is {o.name}&apos;s record in the company Training Matrix — it also shows on their own My Dashboard.</Muted>
       <CertsPanel userId={o.id} />
+      {/* 320 renderOperativeDetail: the full matrix from this page too. */}
+      <Button kind="ghost" busy={xBusy} title="📊 Export Full Training Matrix (Excel)" onPress={async () => {
+        if (!me.org_id) return; setXBusy(true);
+        try { await exportTrainingMatrixExcel(await loadTrainingMatrix(me.org_id), org ?? null); } catch { toast('Could not make the Training Matrix — try again.'); }
+        setXBusy(false);
+      }} />
+      <SectionTitle>Tools</SectionTitle>
+      <MyToolsList userId={o.id} name={o.name} />
+      {/* 320: the subcontractor form sits last. */}
       <SectionTitle>Subcontractor form</SectionTitle>
       <Card>
         <Text style={{ fontWeight: '700', color: sub?.sent ? base.ok : sub?.off ? base.slate : base.warn }}>{sub?.sent ? `Sent ${new Date(sub.sent.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : sub?.off ? 'Turned off' : 'Not sent yet'}</Text>
         {sub?.sent ? <Button kind="ghost" title="View form" onPress={() => router.push(`/pm/admin/subapps/${sub.sent?.id}` as never)} />
           : <Muted>{sub?.off ? 'Not asked for — switch it on from Admin Centre › Invites & Users.' : 'It’s on their Home screen until they send it.'}</Muted>}
       </Card>
-      <SectionTitle>Tools</SectionTitle>
-      <MyToolsList userId={o.id} name={o.name} />
       <View style={{ height: space.xl }} />
     </ScrollView>
   );

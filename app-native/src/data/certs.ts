@@ -11,25 +11,28 @@ import type { Profile } from '@/lib/types';
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 
 /** An operative's certificates — your own, or (managers) anyone's. */
-/** `manual`: the id is a person not on the app (certification_manual_people), not an operative. */
-export function useMyCerts(userId?: string, manual = false) {
+/** `manual`: the id is a person not on the app (certification_manual_people), not an operative.
+ *  `manual = 'operative'`: the id (the uuid, without 'm-') is an operative added by hand (manual_operatives, 4 Nov 2026). */
+export type CertOwner = boolean | 'operative';
+const ownerCol = (manual: CertOwner) => (manual === 'operative' ? 'manual_operative_id' : manual ? 'manual_person_id' : 'operative_id');
+export function useMyCerts(userId?: string, manual: CertOwner = false) {
   const { me } = useAuth();
   const who = userId || me?.id;
   return useQuery({
     queryKey: ['myCerts', who],
     enabled: !!who,
     queryFn: () => cachedQuery(`myCerts:${who}`, async () =>
-      orThrow(await db.from('operative_certifications').select('id,category,name,storage_path,expiry_date,other_type_description,source,pushed_to_onedrive_at').eq(manual ? 'manual_person_id' : 'operative_id', who as string).order('created_at', { ascending: false })) as Cert[]),
+      orThrow(await db.from('operative_certifications').select('id,category,name,storage_path,expiry_date,other_type_description,source,pushed_to_onedrive_at').eq(ownerCol(manual), who as string).order('created_at', { ascending: false })) as Cert[]),
   });
 }
 
-export async function uploadCert(me: Profile, f: { uri: string; name: string; mimeType?: string | null; size?: number | null }, category: string, otherDesc: string, expiry: string | null, operativeId: string = me.id, manual = false): Promise<string | null> {
+export async function uploadCert(me: Profile, f: { uri: string; name: string; mimeType?: string | null; size?: number | null }, category: string, otherDesc: string, expiry: string | null, operativeId: string = me.id, manual: CertOwner = false): Promise<string | null> {
   const rid = globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}`;
-  const path = manual ? `${me.org_id}/manual/${operativeId}/${rid}-${f.name.replace(/[^a-z0-9.-]+/gi, '_')}` : certPath(me.org_id as string, operativeId, rid, f.name);
+  const path = manual === 'operative' ? certPath(me.org_id as string, `m-${operativeId}`, rid, f.name) : manual ?`${me.org_id}/manual/${operativeId}/${rid}-${f.name.replace(/[^a-z0-9.-]+/gi, '_')}` : certPath(me.org_id as string, operativeId, rid, f.name);
   const up = await supabase.storage.from('certifications').upload(path, await (await fetch(f.uri)).arrayBuffer(), { contentType: f.mimeType || 'application/octet-stream' });
   if (up.error) return 'Upload failed — check your signal and try again.';
   const r = await db.from('operative_certifications').insert({
-    org_id: me.org_id, ...(manual ? { manual_person_id: operativeId } : { operative_id: operativeId }), category, other_type_description: category === 'other' ? otherDesc || null : null,
+    org_id: me.org_id, ...(manual === 'operative' ? { operative_id: null, manual_operative_id: operativeId } : manual ? { manual_person_id: operativeId } : { operative_id: operativeId }), category, other_type_description: category === 'other' ? otherDesc || null : null,
     expiry_date: expiry, name: f.name, storage_path: up.data.path, size: f.size ?? null, source: 'upload', uploaded_by: me.id,
   } as never);
   return r.error ? 'Could not save — try again.' : null;
