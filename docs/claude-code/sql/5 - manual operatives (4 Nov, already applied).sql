@@ -1,0 +1,6 @@
+-- ALREADY APPLIED on 4 Nov 2026 (record only, do not run again).
+-- manual_operatives table + RLS (managers of the company), operative_certifications.manual_operative_id,
+-- link_manual_operative(p_manual, p_profile) / link_manual_operative_to(...), the profiles trigger
+-- zz_manual_operative_autolink (links by email on sign-up / joining the company), and the widened
+-- check operative_certifications_target_chk2 (exactly one of operative_id, manual_person_id, manual_operative_id).
+-- See migrations "manual_operatives" and "operative_certifications_target_allows_manual_operative" in Supabase.
