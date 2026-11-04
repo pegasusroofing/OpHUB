@@ -93,7 +93,9 @@ export function AppBar({ title, onBack, home, right, noHistory }: { title?: stri
   // section (Materials › Requests) gets the section as a step back.
   const pageTrail = useTrail(path);
   const secKey = site ? (path.split('/')[3] || '') : '';
-  const secStep: [string, string][] = site && SECTION[secKey] && path.split('/').filter(Boolean).length > 3 && titleCase(title || '') !== SECTION[secKey] ? [[SECTION[secKey], `/sites/${site.id}/${secKey}`]] : [];
+  // The snagging section is called what its job-home tile says (old app): Inspections & Reports for managers, Snagging & Variations for everyone else.
+  const secName = secKey === 'snagging' ? (isManager(me) ? 'Inspections & Reports' : 'Snagging & Variations') : SECTION[secKey];
+  const secStep: [string, string][] = site && secName && path.split('/').filter(Boolean).length > 3 && titleCase(title || '') !== secName ? [[secName, `/sites/${site.id}/${secKey}`]] : [];
   const crumbs: [string, string | null][] = fin ? finCrumbs : site
     ? [['Projects', '/sites'], [sName, jobHome ? null : `/sites/${site.id}`], ...(jobHome ? [] : pageTrail ?? [...secStep, ...(!title ? [] : [[titleCase(title), null] as [string, null]])])]
     : [];

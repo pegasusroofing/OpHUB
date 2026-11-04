@@ -216,11 +216,11 @@ export function HavsManager({ site }: { site: Site }) {
               )}
               {data.locked ? (
                 <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <View style={{ flex: 1 }}><Button kind="ghost" title="Reopen this week" onPress={async () => { if (data.completion && (await reopenHavsWeek(data.completion.id))) { toast('Week reopened'); refresh(); } }} /></View>
-                  {offset < 0 && <View style={{ flex: 1 }}><Button title="Move to next week" onPress={() => setOffset(offset + 1)} /></View>}
+                  <View style={{ flex: 1 }}><Button kind="ghost" title="Reopen This Week" onPress={async () => { if (data.completion && (await reopenHavsWeek(data.completion.id))) { toast('Week reopened'); refresh(); } }} /></View>
+                  {offset < 0 && <View style={{ flex: 1 }}><Button title="Move To Next Week" onPress={() => setOffset(offset + 1)} /></View>}
                 </View>
-              ) : tools.length > 0 && (
-                <Button title="Save & Close for the Week" busy={busy === 'close'} onPress={async () => {
+              ) : (
+                <Button title="Save & Close For The Week" busy={busy === 'close'} onPress={async () => {
                   if (!(await confirmAsk('Save and close this week? Inputs are locked until a manager reopens it.', 'Save & Close'))) return;
                   setBusy('close'); await flush();
                   const ok = await closeHavsWeek(me, site.id, from); setBusy(null);

@@ -49,7 +49,8 @@ export async function loadBuild(me: Me, org: Org, site: Site | undefined, id: st
   // Drafts made before 3 Nov 2026: a blank address or main contractor starts as the site (name first) and the client.
   // Shown only; it's saved when the PM next changes something.
   const sn = String(site?.name || '').trim(), addr = String(b.details.address || '').trim();
-  if (!addr && site) b.details.address = [sn, fullSiteAddress(site)].filter((x) => String(x || '').trim()).join(', ');
+  // The name only once: skip it when the address already starts with it ('Studley Rd, Studley Rd, London' — found 5 Nov 2026).
+  if (!addr && site) { const full = String(fullSiteAddress(site) || '').trim(); b.details.address = sn && !full.toLowerCase().startsWith(sn.toLowerCase()) ? [sn, full].filter(Boolean).join(', ') : full || sn; }
   if (!String(b.details.mainContractor || '').trim() && site?.client_name) b.details.mainContractor = site.client_name;
   if (!String(b.details.emergencyPhone || '').trim()) { const pm = await pmContact(me, site); if (pm.phone) { b.details.emergencyPhone = pm.phone; b.details.emergencyName = pm.name || b.details.emergencyName; } }
   return b;
