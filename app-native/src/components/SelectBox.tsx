@@ -4,10 +4,11 @@ import { Pressable, Text, View, type StyleProp, type ViewStyle } from 'react-nat
 import { chooseAction } from '@/components/toast';
 import { base, radius } from '@/theme/theme';
 
-export function SelectBox<K extends string>({ label, value, options, onChange, placeholder = 'Choose…', style, title, compact, textSize }: {
-  label?: string; value: K | null | undefined; options: [K, string][]; onChange: (k: K) => void; placeholder?: string; style?: StyleProp<ViewStyle>; title?: string; compact?: boolean; textSize?: number;
+// short: a shorter name to show in the box when it is narrow (the list keeps the full names).
+export function SelectBox<K extends string>({ label, value, options, onChange, placeholder = 'Choose…', style, title, compact, textSize, short }: {
+  label?: string; value: K | null | undefined; options: [K, string][]; onChange: (k: K) => void; placeholder?: string; style?: StyleProp<ViewStyle>; title?: string; compact?: boolean; textSize?: number; short?: Partial<Record<K, string>>;
 }) {
-  const cur = options.find(([k]) => k === value)?.[1];
+  const cur = (value != null && short?.[value]) || options.find(([k]) => k === value)?.[1];
   return (
     <View style={[{ marginBottom: 10 }, style]}>
       {!!label && <Text style={{ fontSize: 12, fontWeight: '700', color: base.slate, marginBottom: 4 }}>{label}</Text>}

@@ -129,8 +129,13 @@ export function useManagerMessages(siteId: string | undefined) {
 }
 
 /** Send to this job's operatives, or all operatives in the company. */
-export async function sendBroadcast(me: Profile, siteId: string, body: string, wholeCompany: boolean): Promise<boolean> {
-  return !(await db.from('messages').insert({ org_id: me.org_id, site_id: wholeCompany ? null : siteId, sender_id: me.id, audience: 'operatives', kind: 'message', body } as never)).error;
+/** Who a manager's message goes to (Andy, 4 Nov 2026): this site's operatives, every operative, or the managers only. */
+export type SendTo = 'site' | 'all' | 'managers';
+export async function sendBroadcast(me: Profile, siteId: string, body: string, to: SendTo): Promise<boolean> {
+  const row = to === 'managers'
+    ? { org_id: me.org_id, site_id: siteId, sender_id: me.id, audience: 'managers', kind: 'message', body }
+    : { org_id: me.org_id, site_id: to === 'all' ? null : siteId, sender_id: me.id, audience: 'operatives', kind: 'message', body };
+  return !(await db.from('messages').insert(row as never)).error;
 }
 
 export async function deleteMessages(me: Profile, siteId: string, ids: string[], body?: string): Promise<boolean> {

@@ -9,14 +9,17 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { chooseAction, confirmAsk, useToast } from '@/components/toast';
 import { MentionBox, mentionedIn } from '@/components/MentionBox';
+import { SelectBox } from '@/components/SelectBox';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import { nameOf, usePeople } from '@/data/hs';
 import { markMessagesRead } from '@/data/inbox';
-import { deleteMessages, KIND_LABEL, msgDest, sendBroadcast, sendMentions, sendReply, useManagerMessages } from '@/data/siteMessages';
+import { deleteMessages, KIND_LABEL, msgDest, sendBroadcast, sendMentions, sendReply, useManagerMessages, type SendTo } from '@/data/siteMessages';
 import { useAuth } from '@/lib/auth';
 import type { Message } from '@/lib/types';
 import { base, radius, useTheme } from '@/theme/theme';
 
+const SEND_TO: [SendTo, string][] = [['site', 'Site Operatives'], ['all', 'All Operatives'], ['managers', 'All Managers Only']];
+const SENT: Record<SendTo, string> = { site: "Sent to this site's operatives", all: 'Sent to all operatives', managers: 'Sent to the managers' };
 const when = (t: string) => new Date(t).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 
 export function ManagerMessages({ siteId }: { siteId: string }) {
@@ -28,6 +31,7 @@ export function ManagerMessages({ siteId }: { siteId: string }) {
   const { data: people } = usePeople();
   const [tab, setTab] = useState<'fromTeam' | 'sent'>('fromTeam');
   const [draft, setDraft] = useState('');
+  const [sendTo, setSendTo] = useState<SendTo>('site');
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [reply, setReply] = useState('');
@@ -115,15 +119,16 @@ export function ManagerMessages({ siteId }: { siteId: string }) {
     <View>
       <Card>
         <SectionTitle>Send a message</SectionTitle>
-        <MentionBox value={draft} onChangeText={setDraft} people={people ?? []} placeholder="Message to operatives... type @ to mention someone" style={[box, { marginBottom: 8 }]} />
-        <Button title="Send" onPress={async () => {
-          if (!draft.trim()) { toast('Write a message first.'); return; }
-          const to = await chooseAction('Send to', [{ key: 'site', label: 'Project operatives' }, { key: 'all', label: 'All company operatives' }]);
-          if (!to) return;
-          const whole = to === 'all';
-          if (await sendBroadcast(me, siteId, draft.trim(), whole)) { void sendMentions(me, siteId, draft.trim(), mentionedIn(draft, people ?? [])); setDraft(''); toast(whole ? 'Sent to all operatives' : "Sent to this site's operatives"); void qc.invalidateQueries({ queryKey: ['mgrMessages', siteId] }); }
-          else toast('Could not send — check your signal and try again.');
-        }} />
+        <MentionBox value={draft} onChangeText={setDraft} people={people ?? []} placeholder={sendTo === 'managers' ? 'Message to the managers... type @ to mention someone' : 'Message to operatives... type @ to mention someone'} style={[box, { marginBottom: 8 }]} />
+        {/* Send takes three quarters; who it goes to is a drop-down in the last quarter (Andy, 4 Nov 2026). */}
+        <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+          <View style={{ flex: 3 }}><Button title="Send" onPress={async () => {
+            if (!draft.trim()) { toast('Write a message first.'); return; }
+            if (await sendBroadcast(me, siteId, draft.trim(), sendTo)) { void sendMentions(me, siteId, draft.trim(), mentionedIn(draft, people ?? [])); setDraft(''); toast(SENT[sendTo]); void qc.invalidateQueries({ queryKey: ['mgrMessages', siteId] }); }
+            else toast('Could not send — check your signal and try again.');
+          }} /></View>
+          <SelectBox<SendTo> style={{ flex: 1, marginBottom: 0 }} title="Send To" textSize={13} short={{ site: 'Site', all: 'All Ops', managers: 'Managers' }} value={sendTo} onChange={setSendTo} options={SEND_TO} />
+        </View>
       </Card>
       {sel.size > 0 && (
         <Button title={`Delete ${sel.size} Selected`} onPress={async () => {
