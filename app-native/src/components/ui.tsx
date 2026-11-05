@@ -231,28 +231,9 @@ export const TINTS = {
   blue: ['#EEF3FD', '#2457C5'], orange: ['#FDF1E6', '#B35A00'], green: ['#EAF6EF', '#17804A'], purple: ['#F3EEFA', '#6B3FA8'], grey: ['#F1F2F4', '#1E2124'], teal: ['#E7F5F5', '#0E7F7C'], red: ['#FDECEA', '#C8102E'],
 } as const;
 
-/** Bold tiles (option B, Andy 5 Nov 2026): each tint one step stronger, so a filled tile stands out from the page. */
-const BOLD: Record<string, string> = { '#EEF3FD': '#DCE8FB', '#FDF1E6': '#FBE3CC', '#EAF6EF': '#D5EEDF', '#F3EEFA': '#E6DCF6', '#F1F2F4': '#E3E5E9', '#E7F5F5': '#D2EDED', '#FDECEA': '#F9D8D4' };
-
 // Home tile: coloured icon square (a line icon via ic, else the emoji) + title + subtitle.
-// bold: the whole tile is filled in its colour, with a big icon and the words in the same colour (option B).
-export function Tile({ icon, ic, tint, fg, title, sub, onPress, badge, onMenu, dim, bold }: { icon?: string; ic?: string; tint: string; fg?: string; title: string; sub: string; onPress: () => void; badge?: number | string; onMenu?: () => void; dim?: boolean; bold?: boolean }) {
+export function Tile({ icon, ic, tint, fg, title, sub, onPress, badge, onMenu, dim }: { icon?: string; ic?: string; tint: string; fg?: string; title: string; sub: string; onPress: () => void; badge?: number | string; onMenu?: () => void; dim?: boolean }) {
   const cols = useContext(GridCtx);
-  if (bold && cols > 0) return (
-    <View style={{ width: `${100 / cols}%`, padding: 5 }}>
-      <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={title}
-        style={({ pressed }) => [{ backgroundColor: BOLD[tint] ?? tint, borderRadius: 18, padding: 15, height: 118, justifyContent: 'space-between' }, dim && { opacity: 0.55 }, pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }]}>
-        <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-          {ic ? <OphIcon name={ic} size={28} color={fg || base.ink} stroke={1.9} /> : <Text style={{ fontSize: 24 }}>{icon}</Text>}
-          {!!badge && <View style={{ minWidth: 22, height: 22, borderRadius: 11, paddingHorizontal: 6, backgroundColor: base.red, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff', fontSize: 12, fontWeight: '800' }}>{badge}</Text></View>}
-        </View>
-        <View>
-          <Text style={[heading(800), { fontSize: 15.5, color: fg || base.ink, letterSpacing: -0.1 }]} numberOfLines={1}>{title}</Text>
-          {!!sub && <Text style={{ fontSize: 12, color: fg || base.slate, opacity: 0.78, marginTop: 1, fontWeight: '600' }} numberOfLines={1}>{sub}</Text>}
-        </View>
-      </Pressable>
-    </View>
-  );
   if (cols === -1) return (
     <Pressable onPress={onPress} accessibilityRole="button"
       style={({ pressed }) => [s.jbox, dim && { backgroundColor: '#F3F3F1' }, pressed && { opacity: 0.7 }]}>

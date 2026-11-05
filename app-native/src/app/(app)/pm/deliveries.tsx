@@ -216,6 +216,8 @@ export default function DeliverySchedule() {
           {([['x', '📊 Export Excel'], ['p', '📄 Export PDF']] as const).map(([k, l]) => <Button key={k} kind="ghost" title={busy === `exp${k}` ? 'Building…' : l} onPress={async () => { setBusy(`exp${k}`); const why = await exportDeliverySchedule(k, me.org_id as string, Array.from({ length: 7 }, (_, i) => addDays(iso, i)), sites, people, org); setBusy(null); if (why) toast(why); }} />)}
         </View>
         <Button kind="ghost" title="🚐 Vehicle health checks" onPress={() => router.push('/pm/vehicles' as never)} />
+        {/* The yard and plant register sit under Deliveries now (Andy, 5 Nov 2026); this is the way in on a phone. */}
+        <View style={{ marginTop: 10 }}><Button kind="ghost" title="🏗 Yard & Plant" onPress={() => router.push('/pm/yard' as never)} /></View>
         <Muted>Exports cover 7 days from the day shown.</Muted>
       </Card>
     </ScrollView>
