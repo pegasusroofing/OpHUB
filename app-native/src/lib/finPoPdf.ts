@@ -37,7 +37,7 @@ export async function buildPoPdf(po: Row, site: Row | undefined, st: Row, suppli
     wrap(safe(po.delivery_address || (site ? fullSiteAddress(site as never) || [site.address, site.postcode].filter(Boolean).join(', ') : '')), reg, 10, 240).slice(0, 4).forEach((l) => { txt(l, M, by); by -= 13; });
   } else { txt('Supplier’s branch — we will collect', M, by); by -= 13; }
   let dy = y;
-  [['PO number', po.number], ['Date', fdate(String(po.created_at || '').slice(0, 10))], ['Project no.', site?.job_number || '—'], ['Required by', po.required_by ? fdate(po.required_by) : 'Please advise'], ['Ordered by', po.ordered_by_name || '']].forEach(([k, v]) => { txt(k, 330, dy, { size: 9, color: SLATE }); txt(v, 420, dy, { font: bold, size: 10 }); dy -= 15; });
+  [['PO number', po.number], ['Date', fdate(String(po.created_at || '').slice(0, 10))], ['Project no.', site?.job_number || '—'], [po.fulfilment === 'collection' ? 'Collection date' : 'Delivery date', po.required_by ? fdate(po.required_by) : 'Please advise'], ['Ordered by', po.ordered_by_name || '']].forEach(([k, v]) => { txt(k, 330, dy, { size: 9, color: SLATE }); txt(v, 420, dy, { font: bold, size: 10 }); dy -= 15; });
   y = Math.min(by, dy) - 20;
   const cols = { d: M + 8, q: W - M - 230, u: W - M - 180, r: W - M - 90, a: W - M - 8 };
   page.drawRectangle({ x: M, y: y - 6, width: W - 2 * M, height: 22, color: rgb(0.95, 0.96, 0.97) });

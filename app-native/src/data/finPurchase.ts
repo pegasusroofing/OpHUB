@@ -3,7 +3,7 @@
 // paid dates, and a PO's value and status. Posting bills to Xero is off
 // during the Finance trial.
 import { fdb, finInvoke, xeroAutoOk } from '@/data/finance';
-import { money, round2, today } from '@/lib/rules/finance';
+import { FIN_TRIAL_MSG, finBlocked, money, round2, today } from '@/lib/rules/finance';
 import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/lib/types';
 
@@ -184,4 +184,15 @@ export async function filePoPdf(me: Profile, po: Record<string, any>, bytes: Uin
     else await fdb.from('material_order_files').insert({ ...row, site_id: po.site_id, org_id: me.org_id, folder_id: folder?.id ?? null, item_id: itemId } as never);
   } catch { /* filing is best-effort; the download still happens */ }
   return path;
+}
+
+/** Email a PO to the supplier with the PO PDF (Send PO / Email PO). Off for RTB while Finance is on trial. */
+export async function emailPo(me: Profile, po: Record<string, any>, bytes: Uint8Array, o: { to: string[]; cc: string[]; subject: string; body: string; logos: string[]; hideLogo: boolean }): Promise<string | null> {
+  if (finBlocked('send-finance-email', undefined, me.org_id)) return FIN_TRIAL_MSG;
+  const path = await filePoPdf(me, po, bytes);
+  if (!path) return 'Could not store the PDF — try again.';
+  const r = await finInvoke(me, 'send-finance-email', { kind: 'po', site_id: po.site_id, storage_path: path, filename: `PO ${String(po.number).replace(/[^a-z0-9-]+/gi, '_')}.pdf`, recipients: o.to, cc: o.cc, reference: po.number || '', amount: money(po.total ?? po.value), subject: o.subject, body_text: o.body, logos: o.logos, hide_logo: o.hideLogo });
+  if (r.error) return r.error;
+  await fdb.from('purchase_orders').update({ sent_at: new Date().toISOString(), sent_to: o.to.join(', ') } as never).eq('id', po.id);
+  return null;
 }
