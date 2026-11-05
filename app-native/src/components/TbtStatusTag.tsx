@@ -4,7 +4,8 @@ import { TBT_STATUS_LABEL } from '@/lib/rules/hs';
 import { base } from '@/theme/theme';
 
 const COLOURS: Record<string, { bg: string; fg: string }> = {
-  bank: { bg: base.warnBg, fg: base.warn }, live: { bg: base.okBg, fg: base.ok }, completed: { bg: base.paper, fg: base.slate },
+  // As the old app: LIVE orange, COMPLETED green (5 Nov 2026).
+  bank: { bg: base.paper, fg: base.slate }, live: { bg: base.warnBg, fg: base.warn }, completed: { bg: base.okBg, fg: base.ok },
 };
 
 export function TbtStatusTag({ status }: { status: string }) {

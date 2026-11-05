@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import { Platform, Pressable, Text, useWindowDimensions, View } from 'react-native';
 
 import { useHub } from '@/data/hub';
+import { useManagerMessages } from '@/data/siteMessages';
 import { outstandingCount, useOutstanding } from '@/data/inbox';
 import { useSites } from '@/data/sites';
 import { OfflineBar } from '@/components/OfflineBar';
@@ -44,6 +45,9 @@ export default function AppLayout() {
   const projBar = usesPhoneBar(path.replace(/\/$/, ''), isFullManager(me) && !isFinanceController(me) && !isFinanceOnlyOrg(org));
   const { data: hubBadge } = useHub(siteMgr || (projBar && isFullManager(me) && !/^\/sites\/[0-9a-f-]{36}/.test(path)) ? me : null, allSites, '');
   const { data: ownBadge } = useOutstanding(me && !siteMgr && !isManager(me) && hasSites ? allSites : undefined);
+  // The job's Inbox badge on a manager's phone bar: unread messages for this job (it never showed, found 5 Nov 2026).
+  const jobId = projBar ? /^\/sites\/([0-9a-f-]{36})/.exec(path)?.[1] : undefined;
+  const { data: jobMsgs } = useManagerMessages(jobId);
   const inboxN = siteMgr ? (hubBadge?.items.length ?? 0) : outstandingCount(ownBadge);
   const { width } = useWindowDimensions();
   const desk = Platform.OS === 'web' && width >= 1100;
@@ -101,7 +105,7 @@ export default function AppLayout() {
       <Tabs.Screen name="pm" options={{ ...(siteMgr && !desk ? { tabBarIcon: icon('bell'), tabBarLabel: 'HUB', href: '/pm/hub' as never, tabBarBadge: inboxN || undefined } : hidden), title: 'Manager', headerShown: false }} />
       <Tabs.Screen name="fin" options={{ ...hidden, title: 'Finance', headerShown: false }} />
     </Tabs>
-    {!desk && projBar && <PhoneBar hubCount={hubBadge?.items.length} />}
+    {!desk && projBar && <PhoneBar hubCount={hubBadge?.items.length} inboxCount={jobMsgs?.unread.length || undefined} />}
     </View>
   );
 }
