@@ -19,7 +19,7 @@ export const FIN_SECTIONS = [
 export const FIN_SUBS: Record<string, [string, string][]> = {
   sales: [['apps', 'Applications & Certificates'], ['invoices', 'Invoices'], ['retention', 'Retention']],
   // The current app's order: invoices first, then orders, statements, yard, plant hire, prices (9219z, 9219l, 9219m; cmp-fin 5 Nov 2026).
-  purchases: [['invoices', 'Purchase Invoices'], ['orders', 'Purchase Orders'], ['statements', 'Statements'], ['yard', 'Yard'], ['plant', 'Plant Hire'], ['suppliers', 'Suppliers'], ['prices', 'Price Lists']],
+  purchases: [['invoices', 'Purchase Invoices'], ['orders', 'Purchase Orders'], ['statements', 'Statements'], ['yard', 'Yard'], ['plant', 'Plant Hire'], ['prices', 'Price Lists']], // Suppliers live in the Directory (Andy, 5 Nov 2026)
   // Every word capitalised, as the current app (9219x) and Andy's rule (cmp-fin 5 Nov 2026).
   subs: [['opinv', 'Operative Invoices'], ['wages', 'Wages To Book'], ['payrun', 'Pay Run'], ['orders', 'Subcontractor POs'], ['apps', 'Applications & Certificates'], ['cis', 'CIS'], ['rates', 'People & Rates']],
   settings: [['general', 'Settings'], ['codes', 'Cost Codes'], ['templates', 'Templates'], ['team', 'Team']],
@@ -158,7 +158,8 @@ function KeepInView({ on, items, render }: { on?: string; items: [string, string
 /** The Settings tabs: Settings, Cost Codes, Templates and Team live on different pages. */
 export const finSettingsGo = (k: string) => router.replace(({ general: '/fin/settings', codes: '/fin/directory?kind=codes', templates: '/fin/templates', team: '/fin/team' } as Record<string, string>)[k] as never);
 
-export function FinPage({ title, section, sub, onSub, badges, children, wide, top, foot }: { title: string; section: string; sub?: string; onSub?: (k: string) => void; badges?: Record<string, number>; children: ReactNode; wide?: boolean; top?: ReactNode; foot?: ReactNode }) {
+/** subRight: a button at the right-hand end of the second tab row (+ New PO, Andy 5 Nov 2026). */
+export function FinPage({ title, section, sub, onSub, badges, children, wide, top, foot, subRight }: { title: string; section: string; sub?: string; onSub?: (k: string) => void; badges?: Record<string, number>; children: ReactNode; wide?: boolean; top?: ReactNode; foot?: ReactNode; subRight?: ReactNode }) {
   const { me, org } = useAuth();
   const t = useTheme();
   // Team only for Finance-only companies, which have no Admin Centre; everyone else switches Finance on in Admin › Users.
@@ -179,7 +180,7 @@ export function FinPage({ title, section, sub, onSub, badges, children, wide, to
           {section === 'overview' && <View style={{ backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 12, marginBottom: 10 }}><Text style={{ color: '#111827', fontSize: 12 }}>🔒 Finance trial — nothing is sent from Finance (no emails, no Xero, no pushes to PMs) while it&apos;s being tested.</Text></View>}
           {!!top && <FinMode.Provider value>{top}</FinMode.Provider>}
           {subs.length > 1 && onSub && (
-            <View style={{ borderBottomWidth: 1, borderBottomColor: '#e5e7eb', marginBottom: 10 }}><KeepInView on={sub} items={subs} render={(k, l) => <TabItem on={k === sub} label={l} n={badges?.[k]} amber onPress={() => onSub(k)} />} /></View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 }}><View style={{ flex: 1, minWidth: 0, borderBottomWidth: 1, borderBottomColor: '#e5e7eb' }}><KeepInView on={sub} items={subs} render={(k, l) => <TabItem on={k === sub} label={l} n={badges?.[k]} amber onPress={() => onSub(k)} />} /></View>{subRight}</View>
           )}
           <FinMode.Provider value>{children}</FinMode.Provider>
         </>

@@ -103,6 +103,11 @@ const isPaid = (i: Row) => !!i.paid_on || !!i.stmt_paid;
 /** The Status words (Andy, 5 Nov 2026): Needs Checking, Query, Approved (Auto when it approved itself), Paid. */
 const piWord = (i: Row) => (isPaid(i) ? (i.paid_on ? 'Paid' : 'Paid (Statement)') : i.status === 'to_approve' ? 'Needs Checking' : i.status === 'approved' && i.auto_approved ? 'Approved (Auto)' : PI_STATUS[i.status] || i.status);
 const piTone = (i: Row) => (isPaid(i) ? '#1E7A43' : i.status === 'query' ? '#C0392B' : i.status === 'to_approve' ? '#B35A00' : undefined);
+/** + New PO in the Purchases tab row (Andy, 5 Nov 2026): pick the project, then the new PO. */
+export function NewPoButton() {
+  const { data: sites = [] } = useSites();
+  return <Button small title="+ New PO" onPress={async () => { const sid = await pickJob('New purchase order', sites.filter((s) => s.status !== 'closed')); if (sid) router.push(`/fin/po/new?site=${sid}` as never); }} />;
+}
 export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoices' | 'plant' | 'suppliers' | 'all'; siteId?: string; f?: string }) {
   const { me } = useAuth();
   const { data: sites = [] } = useSites();
@@ -221,7 +226,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
     const committed = round2(openPos.filter((p) => p.value != null).reduce((t, p) => t + Math.max(0, Number(p.value) - poInvoiced(p, live)), 0));
     return (
       <View>
-        <View style={desk ? { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10 } : { marginBottom: 10 }}><Button title="+ New PO" onPress={() => void withJob('New purchase order', (sid) => `/fin/po/new?site=${sid}`)} /></View>
+        {!!siteId && <View style={desk ? { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10 } : { marginBottom: 10 }}><Button title="+ New PO" onPress={() => void withJob('New purchase order', (sid) => `/fin/po/new?site=${sid}`)} /></View>}
         {bar('Search PO, supplier or project', [{ key: 'status', label: 'Status', items: [['open', 'Open'], ['invoiced', 'Invoiced'], ['cancelled', 'Cancelled']].map(([v, l]) => ({ v, l, n: data.pos.filter(F[v]).filter(fOK).length })) }])}
         {desk && list.length ? (
           <FinTable startFilter={{ s: ['Open'] }} rows={list} keyOf={(p) => p.id} onRow={(p) => router.push(`/fin/po/${p.id}` as never)}
