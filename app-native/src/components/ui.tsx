@@ -199,7 +199,7 @@ export function Stat({ n, label, hot, onPress }: { n: number | string; label: st
   return (
     <Pressable onPress={onPress} style={[s.stat, desk ? { paddingVertical: 16, paddingHorizontal: 18 } : { paddingHorizontal: 8 }]}>
       <Text style={[s.statN, hot && { color: base.red }]}>{n}</Text>
-      <Text style={s.statL}>{label}</Text>
+      <Text style={[s.statL, !desk && { fontSize: 10.5 }]} numberOfLines={1}>{label}</Text>
     </Pressable>
   );
 }
@@ -297,15 +297,16 @@ const s = StyleSheet.create({
   section: { ...heading(700), fontSize: 11, letterSpacing: 0.9, textTransform: 'uppercase', color: base.slate, marginTop: 0, marginBottom: space.m },
   empty: { color: base.slateLight, textAlign: 'center', paddingVertical: 26, paddingHorizontal: 10, fontSize: 13 },
   stat: { flex: 1, backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 10, paddingVertical: 11, paddingHorizontal: 10 },
-  statN: { ...heading(800), fontSize: 21, color: base.ink, lineHeight: 24 },
-  statL: { fontSize: 10.5, color: base.slate, fontWeight: '600' },
+  // Counts and tile words in Finance's text style (Andy, 5 Nov 2026): semi-bold, a touch bigger, grey labels.
+  statN: { fontWeight: '600', fontSize: 22, color: base.ink, lineHeight: 26 },
+  statL: { fontSize: 11.5, color: '#6b7280', fontWeight: '500' },
   tile: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.tile, padding: 14, marginBottom: space.s, ...shadow },
   tileIc: { width: 42, height: 42, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
   jbox: { backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 10, height: 106, alignItems: 'center', justifyContent: 'center', gap: 6.6, paddingHorizontal: 10, ...shadow },
   tbox: { backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 10, padding: 13.5, height: 112, justifyContent: 'space-between', ...shadow },
   boxIc: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  boxT: { fontSize: 13, fontWeight: '800', color: base.ink },
-  boxS: { fontSize: 10.5, color: base.slate, fontWeight: '500', marginTop: 2 },
+  boxT: { fontSize: 14, fontWeight: '600', color: '#111827' },
+  boxS: { fontSize: 12, color: '#6b7280', fontWeight: '500', marginTop: 2 },
   badge: { position: 'absolute', top: -6, right: -6, backgroundColor: base.red, color: '#fff', fontSize: 11, fontWeight: '800', borderRadius: 9, minWidth: 18, textAlign: 'center', paddingHorizontal: 4, overflow: 'hidden' },
   screen: { flex: 1, backgroundColor: base.paper },
   scroll: { flexGrow: 1, padding: space.l },

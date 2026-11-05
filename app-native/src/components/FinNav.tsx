@@ -9,7 +9,7 @@ import { chooseAction } from '@/components/toast';
 import { FinMode, Muted } from '@/components/ui';
 import { fdb } from '@/data/finance';
 import { useAuth } from '@/lib/auth';
-import { isFinanceUser } from '@/lib/roles';
+import { isFinanceController, isFinanceOnlyOrg, isFinanceUser } from '@/lib/roles';
 import { base, page, radius, useTheme } from '@/theme/theme';
 
 export const FIN_SECTIONS = [
@@ -76,6 +76,9 @@ export function VarDayChips({ id, on }: { id: string; on: 'variations' | 'daywor
 /** The white row with the job and + New, then a project's tabs: on every page inside a project (Andy, 2 Nov 2026). */
 export function FinJobTabs({ id, active, job, name, onOverview }: { id: string; active: string; job?: string | null; name?: string | null; onOverview: boolean }) {
   const t = useTheme();
+  const { me, org } = useAuth();
+  // Go To Project (Andy, 5 Nov 2026): straight to this job's page in Projects, for people who use Projects.
+  const toProject = !isFinanceOnlyOrg(org) && !isFinanceController(me);
   const { data: billing } = useJobBilling(id);
   const invoiceJob = billing === 'invoice';
   // Variations sit inside the Bill of Quantities tab, unless an invoice job has no Bill.
@@ -87,6 +90,11 @@ export function FinJobTabs({ id, active, job, name, onOverview }: { id: string; 
     <View>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10, padding: 8, marginTop: 6, marginBottom: 2 }}>
         <Text numberOfLines={1} style={{ flex: 1, fontSize: 13, color: base.ink }}><Text style={{ fontWeight: '600' }}>{job || ''}</Text>  {name || ''}</Text>
+        {toProject && (
+          <Pressable onPress={() => router.push(`/sites/${id}` as never)} accessibilityRole="button" style={{ borderWidth: 1, borderColor: t.brand1, borderRadius: 8, paddingVertical: 6, paddingHorizontal: 14 }}>
+            <Text style={{ color: t.brand1, fontSize: 12.5, fontWeight: '600' }}>Go To Project</Text>
+          </Pressable>
+        )}
         <Pressable onPress={async () => {
           const opts = [['inv', 'Invoice', `/fin/job/${id}/invoice/new`], ...(invoiceJob ? [] : [['app', 'Application', `/fin/job/${id}/application/new`]]), ['po', 'Purchase order', `/fin/po/new?site=${id}`], ['pinv', 'Purchase invoice', `/fin/pinv/new?site=${id}`], ['plant', 'Plant hire', `/fin/plant/new?site=${id}`], ['sub', 'Subcontractor order', `/fin/sub/new?site=${id}`]];
           const k = await chooseAction('New', opts.map(([key, label]) => ({ key, label })));

@@ -86,7 +86,7 @@ export function PmHome() {
         <Tile ic="chart" tint={TINTS.teal[0]} fg={TINTS.teal[1]} title="Dashboard" sub="Company & operatives" onPress={go('/pm/dashboard')} />
         <Tile ic="calendar" tint={TINTS.green[0]} fg={TINTS.green[1]} title="Calendar" sub="All projects" onPress={go('/pm/calendar')} />
         <Tile ic="truck" tint={TINTS.purple[0]} fg={TINTS.purple[1]} title="Deliveries" sub={dlvN ? `${dlvN} to schedule` : 'Delivery schedule'} badge={dlvN || undefined} onPress={go('/pm/deliveries')} />
-        <Tile ic="reports" tint={TINTS.blue[0]} fg={TINTS.blue[1]} title="Reports & surveys" sub={open.length ? `${open.length} in progress` : 'All projects'} onPress={go('/pm/reports')} />
+        <Tile ic="reports" tint={TINTS.blue[0]} fg={TINTS.blue[1]} title="Reports & Surveys" sub={open.length ? `${open.length} in progress` : 'All projects'} onPress={go('/pm/reports')} />
         <Tile ic="users" tint={TINTS.purple[0]} fg={TINTS.purple[1]} title="HR" sub="Holidays, policies & handbook" onPress={go('/pm/hr')} />
         <Tile ic="gear" tint={TINTS.grey[0]} fg={TINTS.grey[1]} title="Admin" sub="Team, libraries, settings" onPress={go('/pm/admin')} />
       </TileGrid>
