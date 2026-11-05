@@ -18,8 +18,9 @@ const seed = require('./fresh/seed');
   await page.locator('input >> visible=true').last().fill('150'); await page.locator('text="OK" >> visible=true').last().click(); await page.waitForTimeout(2500);
   console.log('day work', db.fin_dayworks[0].status, db.fin_dayworks[0].value);
   await page.goto('http://localhost:8081/fin/job/'+S1+'/application/'+ap.id); await page.waitForTimeout(6000);
-  await page.getByText('+ Add a line').click(); await page.waitForTimeout(800);
-  const box = (label) => page.locator(`text="${label}"`).locator('xpath=following::input[1]');
+  await page.getByText('Line By Line', {exact:true}).click(); await page.waitForTimeout(800); // lines are on Line By Line
+  await page.getByText('+ Add A Line', {exact:true}).click(); await page.waitForTimeout(800);
+  const box = (label) => page.locator(`text="${label}" >> visible=true`).last().locator('xpath=following::input[1]'); // the pop-up's (the table has a Description heading too)
   await page.locator('text=/^Choose…|^New section…|^At the end/ >> visible=true').first().click(); await page.waitForTimeout(400);
   await page.locator('text="New section…" >> visible=true').last().click(); await page.waitForTimeout(400);
   await box('New section name (if New section…)').fill('Extras');

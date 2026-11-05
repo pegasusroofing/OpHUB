@@ -15,9 +15,9 @@ const {chromium, makeContext, S1} = require('./harness');
   await page.goto(BASE+'/fin/po/new?site='+S1); await page.waitForTimeout(5000);
   await page.getByPlaceholder('Type to find a supplier, or a new name').fill('Roofing Supplies Ltd');
   await page.getByPlaceholder("Supplier's orders email (optional)").fill('orders@rsl.test');
-  await page.getByPlaceholder('Description').fill('Slates 500x250'); await page.getByPlaceholder('Qty').fill('400'); await page.getByPlaceholder('Rate £').fill('1.25');
+  await page.getByPlaceholder('Description').fill('Slates 500x250'); await page.getByPlaceholder('Qty').fill('400'); await page.getByLabel('Rate', {exact:true}).fill('1.25'); // the laptop line table (Job, Description, Qty, Unit, Rate £ …)
   await page.getByText('+ Add line').click(); await page.waitForTimeout(300);
-  await page.getByPlaceholder('Description').nth(1).fill('Lead code 4'); await page.getByPlaceholder('Rate £').nth(1).fill('85');
+  await page.getByPlaceholder('Description').nth(1).fill('Lead code 4'); await page.getByLabel('Rate', {exact:true}).nth(1).fill('85');
   await page.screenshot({path:'shots/newpo.png', fullPage:true});
   await page.getByText('Raise PO', {exact:true}).click(); await page.waitForTimeout(5000);
   console.log('url:', page.url().replace(BASE,''));

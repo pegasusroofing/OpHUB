@@ -20,19 +20,23 @@ const {chromium, makeContext, S1} = require('./harness');
   await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
   await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
   await page.goto(BASE+'/fin/job/'+S1+'/boq'); await page.waitForTimeout(6000);
+  await page.getByText('Select lines to apply to', {exact:true}).click(); await page.waitForTimeout(400); // the tick boxes show once selecting
   await page.getByLabel('Tick').first().click(); await page.waitForTimeout(300); // the Main roof section → its 2 items
   await page.getByPlaceholder('%').fill('25');
   await page.getByText('Apply to 2 ticked').click(); await page.waitForTimeout(300);
   await page.getByText('Untick all').click();
-  await page.getByPlaceholder('Cost £').last().fill('400'); // lump-sum line: cost typed
+  await page.getByLabel('Budget cost', {exact:true}).last().fill('400'); // lump-sum line: cost typed
   const plots = page.getByLabel('Plot'); await plots.nth(0).click(); await page.waitForTimeout(400); await page.getByText('Plot 2', {exact:true}).last().click(); await page.waitForTimeout(300);
   await page.getByText('⋯').nth(3).click(); await page.waitForTimeout(400); await page.getByText('+ Item under this heading').click(); await page.waitForTimeout(300);
-  await page.getByPlaceholder('Description').last().fill('Garage gutter'); await page.getByPlaceholder('Lump sum £').last().fill('120');
+  await page.getByPlaceholder('Description').last().fill('Garage gutter'); await page.getByLabel('Qty', {exact:true}).last().fill('1'); await page.getByLabel('Rate £', {exact:true}).last().fill('120'); // a new line is qty × sell rate
   await page.screenshot({path:'shots/boq-tools.png', fullPage:true});
   await page.waitForTimeout(6000); // autosave
   const items = db.fin_contract_items.slice().sort((a,b)=>a.position-b.position).map(r=>[r.position, r.kind, r.description, r.value, r.cost, r.cost_basis||'', r.cost_pct??'', r.sub_job_id||'']);
   console.log(JSON.stringify(items));
-  const [dl] = await Promise.all([page.waitForEvent('download', {timeout:15000}).catch(()=>null), page.getByText('📊 Excel').click()]);
+  const dlP = page.waitForEvent('download', {timeout:15000}).catch(()=>null);
+  await page.getByText('Export To Excel', {exact:true}).click(); await page.waitForTimeout(1200);
+  if (await page.getByText('⬇️ Download', {exact:true}).count()) await page.getByText('⬇️ Download', {exact:true}).click(); // asks how when OneDrive / sharing is on offer
+  const dl = await dlP;
   console.log('excel:', dl ? dl.suggestedFilename() : 'none');
   console.log('errors', errs.join(' / ').slice(0,400) || 'none');
   await browser.close(); process.exit(0);

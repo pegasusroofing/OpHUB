@@ -11,9 +11,11 @@ const seed = require('./fresh/seed');
   await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
   await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
   await page.goto('http://localhost:8081/fin/job/'+S1+'/application/ap2'); await page.waitForTimeout(6000);
-  const boxes = async ()=>JSON.stringify((await page.locator('input').evaluateAll(els=>els.map(e=>e.value))).slice(3, 6));
+  await page.getByText('Line By Line', {exact:true}).click(); await page.waitForTimeout(1000); // the lines and site progress are on Line By Line
+  const boxes = async ()=>JSON.stringify((await page.locator('input').evaluateAll(els=>els.map(e=>e.value))).slice(0, 2)); // Tiling, Ridge applied %
   console.log('before', await boxes());
-  await page.getByText('Use site progress', {exact:true}).click(); await page.waitForTimeout(1000);
+  await page.getByText('Use site progress', {exact:true}).click(); await page.waitForTimeout(800);
+  await page.locator('text="Use site progress" >> visible=true').last().click(); await page.waitForTimeout(1000); // it asks first; the yes button says Use site progress
   console.log('after', await boxes());
   console.log('errors', errs.join(' | ')||'none'); await browser.close(); process.exit(0);
 })();

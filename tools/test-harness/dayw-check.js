@@ -13,10 +13,14 @@ const seed = require('./fresh/seed');
   const ap = db.fin_applications.find((a) => a.status === 'draft' && a.site_id === S1) || db.fin_applications.find((a) => a.site_id === S1);
   ap.status = 'draft';
   await page.goto('http://localhost:8081/fin/job/'+S1+'/application/'+ap.id); await page.waitForTimeout(6000);
-  await page.getByText('+ Add daywork').click(); await page.waitForTimeout(400);
-  const descs = page.locator('input[placeholder="Description"] >> visible=true');
-  await descs.last().fill('Extra scaffold lift'); await page.locator('input[placeholder="£ value"] >> visible=true').last().fill('350');
+  // Day works sit on the Line By Line tab; + Add Day Work opens a pop-up (description, value, status) — cf764b8.
+  await page.getByText('Line By Line', {exact:true}).click(); await page.waitForTimeout(800);
+  await page.getByText('+ Add Day Work', {exact:true}).click(); await page.waitForTimeout(600);
+  await page.locator('text="Description" >> visible=true').last().locator('xpath=following::input[1]').fill('Extra scaffold lift');
+  await page.locator('input[placeholder="£0.00"] >> visible=true').last().fill('350');
+  await page.locator('text="Save" >> visible=true').last().click();
   await page.waitForTimeout(4500);
+  console.log('in the Day works register', JSON.stringify((db.fin_dayworks || []).filter((d) => d.site_id === S1).map((d) => [d.title || d.description, d.value])));
   const saved = db.fin_applications.find((a) => a.id === ap.id);
   console.log('dayworks saved', JSON.stringify((saved.dayworks || []).map((d) => [d.description, d.value])));
   console.log('errors', errs.join(' / ').slice(0,300) || 'none');

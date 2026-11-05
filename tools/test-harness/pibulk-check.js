@@ -13,9 +13,10 @@ const seed = require('./fresh/seed');
   await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
   await page.goto('http://localhost:8081/fin/purchases?tab=invoices'); await page.waitForTimeout(5000);
   const ta = page.getByText(/^To approve/); if(await ta.count()) await ta.first().click(); await page.waitForTimeout(800);
-  await page.getByText('☐ Tick all').click(); await page.waitForTimeout(500);
+  await page.getByText('Select All', {exact:true}).click(); await page.waitForTimeout(500); // was ☐ Tick all
   await page.screenshot({path:'shots/native_pibulk-1300.png'});
-  await page.getByText(/^✓ Approve/).click(); await page.waitForTimeout(4000);
+  await page.getByText(/^Approve [0-9]+$/).click(); await page.waitForTimeout(800); // Approve N, then the Yes/No question
+  await page.locator('text="Approve" >> visible=true').last().click(); await page.waitForTimeout(4000);
   console.log('statuses', JSON.stringify(db.purchase_invoices.map(i=>[i.invoice_no,i.status])));
   console.log('errors', errs.join(' | ')||'none'); await browser.close(); process.exit(0);
 })();

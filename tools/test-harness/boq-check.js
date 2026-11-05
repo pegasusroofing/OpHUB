@@ -31,11 +31,15 @@ const seed = require('./fresh/seed');
   // Import a Bill of Quantities breakdown (BOQ env = path) and use it
   page.on('dialog', d => d.accept());
   await page.goto(BASE+'/fin/job/'+S1+'/boq'); await page.waitForTimeout(6000);
-  const [fc] = await Promise.all([page.waitForEvent('filechooser', {timeout:15000}), page.getByText('📥 Import a breakdown (Excel, CSV or PDF)', {exact:true}).click()]);
+  await page.getByText('Import / Export', {exact:true}).click(); await page.waitForTimeout(600); // the import sits in the Import / Export menu
+  const [fc] = await Promise.all([page.waitForEvent('filechooser', {timeout:15000}), page.getByText('Import a breakdown (Excel, CSV or PDF)', {exact:true}).click()]);
   await fc.setFiles(process.env.BOQ); await page.waitForTimeout(5000);
   let t = (await page.evaluate(()=>document.body.innerText)).replace(/\s+/g,' ');
   console.log('preview:', (t.match(/Check the breakdown.{0,300}/)||[''])[0]);
-  await page.getByText('Use this breakdown', {exact:true}).click(); await page.waitForTimeout(2000);
+  await page.getByText('Use this breakdown', {exact:true}).click(); await page.waitForTimeout(800);
+  // Lines already there: it asks before replacing them (an in-app Yes/No now, not a browser dialog).
+  if (await page.locator('text="Replace" >> visible=true').count()) await page.locator('text="Replace" >> visible=true').last().click();
+  await page.waitForTimeout(2000);
   t = (await page.evaluate(()=>document.body.innerText)).replace(/\s+/g,' ');
   console.log('after:', (t.match(/Total £[\d,.]+/)||[''])[0]);
   console.log('errors:', errs.join(' / ').slice(0,400) || 'none');

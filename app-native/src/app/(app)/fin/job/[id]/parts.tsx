@@ -66,7 +66,7 @@ export default function FinParts() {
     if (await saveSubValue(me, id, r.id, value)) { toast(value == null ? 'Value cleared' : 'Value saved'); void qc.invalidateQueries({ queryKey: ['finParts'] }); } else toast('Could not save the value');
   };
   const m = (v: number | null) => (v == null ? '—' : v ? money(v) : '–');
-  const col = (k: keyof P, l: string) => ({ k, l, render: (r: P) => <Cell>{m(r[k] as number | null)}</Cell> });
+  const col = (k: keyof P, l: string, off?: boolean) => ({ k, l, off, min: 72, render: (r: P) => <Cell>{m(r[k] as number | null)}</Cell> });
   const table = () => ({ title: `Costs by ${noun.toLowerCase()}`, site: site?.name || '', sub: site?.name || '', cols: [{ l: noun, w: 170 }, ...['Value', 'Invoiced', 'Owed', 'Materials', 'Labour', 'Plant', 'Subcontract', 'Other', 'Total cost', 'Ordered', 'Margin', 'Invoiced less cost'].map((l) => ({ l, money: true }))], rows: all.map((r) => [r.name, r.value, r.invoiced, r.owed, r.materials, r.labour, r.plant, r.subcontract, r.other, r.cost, r.committed, r.margin, r.left]) });
   return (
     <View style={{ flex: 1 }}>
@@ -79,12 +79,14 @@ export default function FinParts() {
       {sv.subs.length > 0 && cv != null && valTot > 0 && Math.abs(valTot - cv) >= 1 && <Card style={{ backgroundColor: '#fffaf0' }}><Text style={{ color: base.ink }}>The {nouns} add up to {money(valTot)} but the contract value is {money(cv)}.</Text></Card>}
       {!sv.subs.length && <Card><Text style={{ color: base.ink }}>No {nouns} on this project yet. {subKind(site) === 'repair' ? 'Add repair jobs from the project home.' : 'Add them in the project’s Settings › Multi-Site.'}</Text></Card>}
       {desk ? (
-        <FinTable rows={all} keyOf={(r) => r.id} onRow={(r) => void open(r)}
+        // Thirteen columns don't fit a laptop, so it opens on the current app's columns (917 finPartsCols) and Invoiced, Owed and
+        // Invoiced less cost are a tick away in ⚙ Columns (saved on this device). The name wraps rather than widening the table.
+        <FinTable rows={all} keyOf={(r) => r.id} onRow={(r) => void open(r)} colsKey="parts"
           cols={[
-            { k: 'n', l: noun, flex: 2.2, min: 200, render: (r: P) => <View style={{ alignSelf: 'stretch' }}><Text style={{ fontWeight: '600', fontSize: 13, color: '#111827' }}>{r.name}</Text>{!!r.detail && <Text style={{ fontSize: 11.5, color: '#6b7280' }}>{r.detail}</Text>}</View> },
-            col('value', 'Value'), col('invoiced', 'Invoiced'), col('owed', 'Owed'), col('materials', 'Materials'), col('labour', 'Labour'), col('plant', 'Plant'), col('subcontract', 'Subcontract'), col('other', 'Other'), col('cost', 'Total cost'), col('committed', 'Committed'),
-            { k: 'margin', l: 'Margin', render: (r: P) => <Text style={{ fontSize: 13, fontWeight: '500', color: r.margin != null && r.margin < 0 ? '#C0392B' : '#111827' }}>{m(r.margin)}</Text> },
-            { k: 'left', l: 'Invoiced less cost', render: (r: P) => <Text style={{ fontSize: 13, fontWeight: '500', color: r.left < 0 ? '#C0392B' : '#111827' }}>{m(r.left)}</Text> },
+            { k: 'n', l: noun, flex: 2.2, min: 180, lock: true, render: (r: P) => <View style={{ alignSelf: 'stretch', width: 0, minWidth: '100%' }}><Text style={{ fontWeight: '600', fontSize: 13, color: '#111827' }}>{r.name}</Text>{!!r.detail && <Text style={{ fontSize: 11.5, color: '#6b7280' }}>{r.detail}</Text>}</View> },
+            col('value', 'Value'), col('invoiced', 'Invoiced', true), col('owed', 'Owed', true), col('materials', 'Materials'), col('labour', 'Labour'), col('plant', 'Plant'), col('subcontract', 'Subcontract'), col('other', 'Other'), col('cost', 'Total cost'), col('committed', 'Committed'),
+            { k: 'margin', l: 'Margin', min: 84, render: (r: P) => <Text style={{ fontSize: 13, fontWeight: '500', color: r.margin != null && r.margin < 0 ? '#C0392B' : '#111827' }}>{m(r.margin)}</Text> },
+            { k: 'left', l: 'Invoiced less cost', off: true, render: (r: P) => <Text style={{ fontSize: 13, fontWeight: '500', color: r.left < 0 ? '#C0392B' : '#111827' }}>{m(r.left)}</Text> },
           ]}
           foot={(left) => { const add = (k: keyof P) => round2(left.reduce((t, r) => t + (Number(r[k]) || 0), 0)); return <><FootText bold>Total cost {money(add('cost'))}</FootText><FootText>Committed {money(add('committed'))}</FootText>{add('value') ? <FootText>Value {money(add('value'))}</FootText> : null}<FootText>Invoiced {money(add('invoiced'))}</FootText></>; }} />
       ) : all.map((r) => <FinRow key={r.id} title={r.name} sub={[r.detail, r.invoiced ? `invoiced ${money(r.invoiced)}` : '', `cost ${money(r.cost)}`, r.committed ? `committed ${money(r.committed)}` : '', r.value != null ? `value ${money(r.value)}` : '', r.margin != null ? `margin ${money(r.margin)}` : ''].filter(Boolean).join(' · ')} right={money(r.cost)} tone={r.id === 'none' && r.cost > 0 ? '#D98A00' : undefined} onPress={() => void open(r)} />)}

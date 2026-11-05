@@ -16,7 +16,9 @@ const {chromium, makeContext, S1} = require('./harness');
   await page.getByPlaceholder('Search description, supplier or ref').fill('biffa'); await page.waitForTimeout(500);
   console.log('search biffa', await page.getByText('Skip hire').count(), await page.getByText('Fuel', {exact:true}).count());
   const dl = page.waitForEvent('download', {timeout:15000}).catch(()=>null);
-  await page.getByText('📊 Excel').click(); const d = await dl; console.log('excel', d ? d.suggestedFilename() : 'none');
+  await page.getByText('Export To Excel', {exact:true}).click(); await page.waitForTimeout(1200); // the footer export bar
+  if (await page.getByText('⬇️ Download', {exact:true}).count()) await page.getByText('⬇️ Download', {exact:true}).click();
+  const d = await dl; console.log('excel', d ? d.suggestedFilename() : 'none');
   console.log('errors', errs.join(' / ').slice(0,300) || 'none');
   await browser.close(); process.exit(0);
 })();

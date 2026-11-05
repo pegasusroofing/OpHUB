@@ -14,12 +14,13 @@ const {chromium, makeContext, S1} = require('./harness');
   await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
   await page.goto(BASE+'/fin/sales?tab=invoices'); await page.waitForTimeout(5000);
   const before = (await page.evaluate(()=>document.body.innerText)).includes('INV-1');
-  await page.getByLabel('Month', {exact: true}).click(); await page.waitForTimeout(400); await page.getByText('Oct 2026', {exact:true}).last().click(); await page.waitForTimeout(800);
+  // The month picker sits on the totals bar (All months), as the current app.
+  await page.getByLabel('All months', {exact: true}).click(); await page.waitForTimeout(400); await page.getByRole('radio', {name: 'Oct 2026', exact: true}).click(); await page.waitForTimeout(800);
   const t = await page.evaluate(()=>document.body.innerText);
   console.log('sales month: before INV-1', before, '| after Oct: INV-1', t.includes('INV-1'), 'INV-2', t.includes('INV-2'));
   await page.screenshot({path:'shots/fin-sales-month.png'});
   await page.goto(BASE+'/fin/jobs'); await page.waitForTimeout(5000);
-  await page.getByPlaceholder('Value e.g. >50k, 25k-100k').fill('>100k'); await page.waitForTimeout(600);
+  await page.getByLabel('Filter Value', {exact: true}).fill('>100k'); await page.waitForTimeout(600); // the Value column's filter box (e.g. >50k, 25k-100k)
   const j = await page.evaluate(()=>document.body.innerText);
   console.log('projects >100k:', db.sites.map(s=>s.name+':'+j.includes(s.name)).join(' '));
   await page.screenshot({path:'shots/fin-jobs-value.png'});

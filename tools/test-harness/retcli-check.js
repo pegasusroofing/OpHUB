@@ -13,12 +13,13 @@ const {chromium, makeContext, S1} = require('./harness');
   await page.goto('http://localhost:8081/login'); await page.waitForTimeout(5000);
   await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
   await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
-  await page.goto('http://localhost:8081/fin/job/'+S1); await page.waitForTimeout(7000);
+  // The retention card is on Sales › Retention now.
+  await page.goto('http://localhost:8081/fin/job/'+S1+'?tab=sales&sub=retention'); await page.waitForTimeout(7000);
   console.log('retention in app:', await page.getByText(/In Application 3/).count());
   await page.screenshot({path:'shots/retcli.png', fullPage:true});
-  await page.goto('http://localhost:8081/fin/job/'+S1+'?tab=admin'); await page.waitForTimeout(6000);
+  await page.goto('http://localhost:8081/fin/job/'+S1+'?tab=setup'); await page.waitForTimeout(6000);
   await page.getByText(/✎ Project — name, client/).first().click(); await page.waitForTimeout(800);
-  const cb = page.locator('text="Client"').locator('xpath=following::input[1]');
+  const cb = page.locator('text="Client" >> visible=true').last().locator('xpath=following::input[1]'); // the pop-up's Client box (the page behind has one too)
   await cb.fill('New Client Ltd'); await page.locator('text="Save" >> visible=true').last().click(); await page.waitForTimeout(3000);
   console.log('clients', db.fin_clients.map(c=>c.name).join(', '), '| bill to', db.job_finance[0].billing_name, '| site client', db.sites.find(s=>s.id===S1).client_name);
   console.log('errors', errs.join(' / ').slice(0,300) || 'none');

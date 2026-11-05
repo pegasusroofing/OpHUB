@@ -12,10 +12,11 @@ const seed = require('./fresh/seed');
   await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
   await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
   await page.goto(BASE+'/fin/newjob'); await page.waitForTimeout(6000);
-  const inputs = page.locator('input, textarea');
-  await inputs.nth(0).fill('Test Job'); await inputs.nth(1).fill('T100');
-  await page.getByText('Application for payment', {exact:true}).click();
-  await inputs.nth(2).fill('12,500'); await inputs.nth(3).fill('PO-77');
+  // The form as the current app: Project number first, then name; Payment Procedure is a drop-down.
+  const box = (label) => page.locator(`text="${label}" >> visible=true`).first().locator('xpath=following::input[1]');
+  await box('Project name *').fill('Test Job'); await box('Project number *').fill('T100');
+  await page.getByLabel('Payment Procedure *').click(); await page.waitForTimeout(400); await page.getByText('Application for payment', {exact:true}).last().click(); await page.waitForTimeout(300);
+  await page.getByPlaceholder('£0.00').first().fill('12,500'); await box('Client PO number').fill('PO-77');
   await page.getByPlaceholder('From the Directory — a new name is added').fill('Acme Homes');
   await page.getByText('Create project', {exact:true}).last().click(); await page.waitForTimeout(5000);
   const s = (db.sites||[]).find(x=>x.name==='Test Job');

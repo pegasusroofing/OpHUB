@@ -20,7 +20,8 @@ const pop = (page, t) => page.locator(`text="${t}" >> visible=true`).last().clic
   await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
   // Strip
   await page.goto(B+'/sites/'+S1); await page.waitForTimeout(6000);
-  const strip = async () => (await page.getByText(/^on £|^Nothing .* yet$/).first().innerText().catch(()=>'-'));
+  // The strip has no 'on £…' line under the figures since 3 Nov (6aac83f), so read the Profit margin cell itself (figure and %).
+  const strip = async () => (await page.getByLabel('Measure margin against').locator('xpath=../..').innerText().catch(()=>'-')).replace(/\s+/g, ' ').trim();
   console.log('strip auto:', await strip());
   await page.getByLabel('Measure margin against').click(); await page.waitForTimeout(600);
   await page.screenshot({path:'shots/margin-menu.png'});
@@ -39,6 +40,7 @@ const pop = (page, t) => page.locator(`text="${t}" >> visible=true`).last().clic
   await page.screenshot({path:'shots/ov-tiles.png'});
   // Application
   await page.goto(B+'/fin/job/'+S1+'/application/ap2'); await page.waitForTimeout(7000);
+  await page.getByText('Line By Line', {exact:true}).click(); await page.waitForTimeout(1000); // site progress is on Line By Line
   await page.screenshot({path:'shots/siteprog.png', fullPage:true});
   console.log('not on schedule', await page.getByText(/Not on site schedule/).count(), '| Use tags', await page.getByText(/^ Use$/).count(), '| card', await page.getByText(/Site progress is ahead/).first().innerText().catch(()=>'-'));
   await page.getByText('Use site progress', {exact:true}).click(); await page.waitForTimeout(800);

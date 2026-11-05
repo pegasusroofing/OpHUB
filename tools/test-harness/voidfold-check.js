@@ -14,7 +14,7 @@ const {chromium, makeContext, S1} = require('./harness');
   await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
   await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
   await page.goto(BASE+'/fin/sales?tab=invoices'); await page.waitForTimeout(5000);
-  await page.getByText(/^All/).first().click(); await page.waitForTimeout(500);
+  // A laptop has no All chip any more (the table's own filters); /^All/ would now open the All months picker.
   let t = await page.evaluate(()=>document.body.innerText);
   console.log('All: INV-2 hidden', !t.includes('INV-2'), '| fold shown', t.includes('Voided invoices (1)'));
   await page.getByText('Voided invoices (1)').click(); await page.waitForTimeout(400);

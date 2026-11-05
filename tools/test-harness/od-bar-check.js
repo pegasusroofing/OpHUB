@@ -14,10 +14,16 @@ const fs = require('fs');
   await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
   await page.goto(BASE+'/fin/job/'+S1+'/application/ap2'); await page.waitForTimeout(6000);
   await page.screenshot({path:'shots/native_app_export-1300.png'});
-  for(const [label, out] of [['⬇ Download Excel','shots/app-test.xlsx'],['⬇ Download PDF','shots/app-test.pdf']]){
-    const dl = page.waitForEvent('download', {timeout:20000});
-    await page.getByText(label, {exact:true}).click();
-    const d = await dl; await d.saveAs(out); console.log('saved', out, d.suggestedFilename()); if(out.endsWith('.pdf')){ await page.waitForTimeout(800); const bar = await page.getByText('☁️ Save to OneDrive').count(); console.log('bar shown', bar); global.__fn=(n,b)=>{ if(n==='onedrive-upload') console.log('upload', b.filename, b.site_id||b.subfolder); return {ok:true}; }; await page.getByText('☁️ Save to OneDrive').click(); await page.waitForTimeout(2500); }
-  }
+  // Export Excel (by Save) downloads straight away. The footer's Export To PDF asks how: 📄 PDF downloads it, ☁️ OneDrive saves it
+  // to the job's OneDrive folder (this replaced the old "☁️ Save to OneDrive" bar after a download).
+  { const dl = page.waitForEvent('download', {timeout:20000}); await page.getByText('Export Excel', {exact:true}).first().click();
+    const d = await dl; await d.saveAs('shots/app-test.xlsx'); console.log('saved', 'shots/app-test.xlsx', d.suggestedFilename()); }
+  { const dl = page.waitForEvent('download', {timeout:20000}); await page.getByText('Export To PDF', {exact:true}).click(); await page.waitForTimeout(1200);
+    console.log('choices shown', await page.getByText('📄 PDF', {exact:true}).count(), await page.getByText('☁️ OneDrive', {exact:true}).count());
+    await page.getByText('📄 PDF', {exact:true}).click(); const d = await dl; await d.saveAs('shots/app-test.pdf'); console.log('saved', 'shots/app-test.pdf', d.suggestedFilename()); }
+  global.__fn=(n,b)=>{ if(n==='onedrive-upload') console.log('upload', b.filename, b.site_id||b.subfolder); return {ok:true}; };
+  await page.getByText('Export To PDF', {exact:true}).click(); await page.waitForTimeout(1200);
+  const od = await page.getByText('☁️ OneDrive', {exact:true}).count(); console.log('bar shown', od);
+  if (od) { await page.getByText('☁️ OneDrive', {exact:true}).click(); await page.waitForTimeout(2500); }
   console.log('errors', errs.join(' | ')||'none'); await browser.close(); process.exit(0);
 })();

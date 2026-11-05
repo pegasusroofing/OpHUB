@@ -18,7 +18,9 @@ const {chromium, makeContext, S1} = require('./harness');
   console.log('editor open', await page.locator('input').evaluateAll((els)=>els.some((e)=>e.value==='Labour October')));
   await page.screenshot({path:'shots/pogap-cost.png'});
   await page.goto('http://localhost:8081/fin/settings'); await page.waitForTimeout(6000);
-  await page.getByText('Edit settings', {exact:true}).click(); await page.waitForTimeout(1500);
+  // Each part of Settings opens on its own with its own Edit (2 Nov): open Purchase orders, then Edit.
+  await page.getByText('Purchase orders', {exact:true}).last().click(); await page.waitForTimeout(800);
+  await page.locator('text="Edit" >> visible=true').last().click(); await page.waitForTimeout(1500);
   await page.getByText('Raise a PO for every PM’s order').last().click(); await page.waitForTimeout(500);
   await page.screenshot({path:'shots/pogap-settings.png', fullPage:false});
   await page.getByText('Save', {exact:true}).last().click(); await page.waitForTimeout(3000);

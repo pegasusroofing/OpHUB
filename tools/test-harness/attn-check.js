@@ -1,4 +1,4 @@
-// Finance project Overview: "Needs attention" lists overdue invoices, purchase invoices to approve, no client PO,
+// Finance project Overview: "Needs Attention" lists overdue invoices, purchase invoices to approve, no client PO,
 // client not in the Directory — and tapping a row goes there.
 const {chromium, makeContext, S1} = require('./harness');
 (async()=>{
@@ -15,9 +15,9 @@ const {chromium, makeContext, S1} = require('./harness');
   await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
   await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
   await page.goto('http://localhost:8081/fin/job/'+S1); await page.waitForTimeout(7000);
-  for (const t of ['Needs attention', 'Overdue invoices', 'Purchase invoices to approve', 'No client PO', 'Client not in the Directory']) console.log(t, await page.getByText(t, {exact:true}).count());
+  for (const t of ['Needs Attention', 'Overdue Invoices', 'Purchase Invoices To Approve', 'No Client PO', 'Client Not In The Directory']) console.log(t, await page.getByText(t, {exact:true}).count());
   await page.screenshot({path:'shots/attn.png', fullPage:true});
-  await page.getByText('Client not in the Directory', {exact:true}).click(); await page.waitForTimeout(3000);
+  await page.getByText('Client Not In The Directory', {exact:true}).click(); await page.waitForTimeout(3000);
   console.log('tap →', page.url().replace('http://localhost:8081',''));
   console.log('errors', errs.join(' / ').slice(0,300) || 'none');
   await browser.close(); process.exit(0);

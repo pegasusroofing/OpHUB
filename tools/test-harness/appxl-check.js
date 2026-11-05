@@ -14,9 +14,11 @@ const fs = require('fs');
   await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
   await page.goto(BASE+'/fin/job/'+S1+'/application/ap2'); await page.waitForTimeout(6000);
   await page.screenshot({path:'shots/native_app_export-1300.png'});
-  for(const [label, out] of [['⬇ Download Excel','shots/app-test.xlsx'],['⬇ Download PDF','shots/app-test.pdf']]){
+  // Export Excel (the button by Save) downloads straight away; the footer's Export To PDF may ask how (📄 PDF / OneDrive).
+  for(const [label, out] of [['Export Excel','shots/app-test.xlsx'],['Export To PDF','shots/app-test.pdf']]){
     const dl = page.waitForEvent('download', {timeout:20000});
-    await page.getByText(label, {exact:true}).click();
+    await page.getByText(label, {exact:true}).first().click(); await page.waitForTimeout(1200);
+    if (await page.getByText('📄 PDF', {exact:true}).count()) await page.getByText('📄 PDF', {exact:true}).click();
     const d = await dl; await d.saveAs(out); console.log('saved', out, d.suggestedFilename(), fs.statSync(out).size);
   }
   console.log('errors', errs.join(' | ')||'none'); await browser.close(); process.exit(0);

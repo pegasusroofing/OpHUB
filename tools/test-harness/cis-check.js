@@ -16,7 +16,9 @@ const fs = require('fs');
   await page.screenshot({path:'shots/native_cis-1300.png'});
   for(const [label, out] of [['CIS payment statement','shots/cis-test.pdf']]){
     const dl = page.waitForEvent('download', {timeout:20000});
-    await page.getByText(label, {exact:true}).click();
+    await page.getByText(label, {exact:true}).click(); await page.waitForTimeout(1200);
+    // A PDF now asks how to save it when there's a choice (📄 PDF / OneDrive).
+    if (await page.getByText('📄 PDF', {exact:true}).count()) await page.getByText('📄 PDF', {exact:true}).click();
     const d = await dl; await d.saveAs(out); console.log('saved', out, d.suggestedFilename(), fs.statSync(out).size);
   }
   console.log('errors', errs.join(' | ')||'none'); await browser.close(); process.exit(0);

@@ -15,10 +15,11 @@ const { PDFDocument } = require('pdf-lib');
   await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
   await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
   await page.goto(BASE+'/fin/job/'+S1+'/application/ap2'); await page.waitForTimeout(6000);
-  await page.getByText('⬇ Download PDF', {exact:true}).click(); await page.waitForTimeout(1200);
+  await page.getByText('Export To PDF', {exact:true}).click(); await page.waitForTimeout(1200);
   await page.screenshot({path:'shots/appsow-ask.png'});
   const dl = page.waitForEvent('download', {timeout:30000});
   await page.getByText('📋 Yes — the whole Schedule of Works').click();
+  await page.waitForTimeout(1500); if (await page.getByText('📄 PDF', {exact:true}).count()) await page.getByText('📄 PDF', {exact:true}).click(); // then how to save it
   const d = await dl; await d.saveAs('shots/appsow.pdf');
   const pdf = await PDFDocument.load(fs.readFileSync('shots/appsow.pdf'));
   console.log('pdf', d.suggestedFilename(), 'pages', pdf.getPageCount());
