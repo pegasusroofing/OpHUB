@@ -355,7 +355,8 @@ export function FinNewPo({ site: site0, itemIds = [] }: { site?: Site | null; it
               </Pressable>
             ), 2)}
             <View style={{ justifyContent: 'flex-end', marginBottom: 10 }}><Pressable accessibilityRole="button" onPress={() => setSplit(split ? null : evenSplit([site.id || '', '']))} style={[box, { paddingVertical: 10, borderColor: split ? base.blue : base.line }]}><Text style={{ color: split ? base.blue : base.ink, fontSize: 13.5 }}>⇄ Split Purchase</Text></Pressable></View>
-            {subs.length > 0 && field('Plot / Address', <SelectBox value={sub || '-'} options={[['-', 'Whole job'], ...subs.map((s) => [s.id, s.short] as [string, string])]} onChange={(k) => setSub(k === '-' ? '' : k)} style={{ marginBottom: 0 }} />)}
+            {/* Always there, so choosing a project never moves the page about (Andy, 5 Nov 2026). */}
+            {field('Plot / Address', <SelectBox value={sub || '-'} options={[['-', subs.length ? 'Whole job' : 'Whole job (no plots)'], ...subs.map((s) => [s.id, s.short] as [string, string])]} onChange={(k) => setSub(k === '-' ? '' : k)} style={{ marginBottom: 0 }} />)}
           </View>
           {!!split && splitRows(split, net, setSplit, 'Split Purchase — the whole order across these projects')}
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
