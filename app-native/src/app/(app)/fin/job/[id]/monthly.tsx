@@ -9,9 +9,9 @@ import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { ThinExportBar } from '@/components/FinFilterBar';
-import { FinChip } from '@/components/FinNav';
+import { FinTabs } from '@/components/FinNav';
 import { useToast } from '@/components/toast';
-import { Button, Muted } from '@/components/ui';
+import { Muted } from '@/components/ui';
 import { fdb } from '@/data/finance';
 import { useBook } from '@/data/finBook';
 import { useSite } from '@/data/sites';
@@ -67,9 +67,7 @@ export default function FinMonthly() {
     <View style={{ flex: 1 }}>
     <ScrollView style={{ flex: 1 }} contentContainerStyle={page(1200)}>
       <Stack.Screen options={{ title: 'Monthly report' }} />
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10, alignItems: 'center' }}>
-        <FinChip on={view === 'month'} label="In the month" onPress={() => setView('month')} /><FinChip on={view === 'cum'} label="Running total" onPress={() => setView('cum')} />
-      </View>
+      <FinTabs items={[['month', 'In The Month'], ['cum', 'Running Total']]} value={view} onChange={(k) => setView(k as typeof view)} />
       <ScrollView horizontal>
         <View>
           <View style={{ flexDirection: 'row', borderBottomWidth: 2, borderColor: base.ink, paddingBottom: 4 }}>

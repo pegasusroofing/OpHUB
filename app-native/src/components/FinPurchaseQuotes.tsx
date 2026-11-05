@@ -11,7 +11,7 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { DateBox } from '@/components/DateField';
 import { viewDoc } from '@/components/DocViewer';
-import { FinChip } from '@/components/FinNav';
+import { FinTabs } from '@/components/FinNav';
 import { SelectBox } from '@/components/SelectBox';
 import { SuggestField } from '@/components/SuggestField';
 import { confirmAsk, useToast } from '@/components/toast';
@@ -109,10 +109,10 @@ export function PurchaseQuotes({ siteId }: { siteId?: string }) {
         </View>
       </Card>
       {data.quotes.length > 0 && (
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
-          <FinChip on={!filter} label={`All (${data.items.length})`} onPress={() => setFilter('')} />
-          {data.quotes.map((x) => <FinChip key={x.id} on={filter === x.id} label={`${qLabel(x)}${x.site_id ? '' : ' · all projects'} (${data.items.filter((i) => i.quote_id === x.id).length})`} onPress={() => setFilter(x.id)} />)}
-        </View>
+        <FinTabs value={filter} onChange={setFilter} items={[
+          ['', 'All', data.items.length],
+          ...data.quotes.map((x) => [x.id, `${qLabel(x)}${x.site_id ? '' : ' · All Projects'}`, data.items.filter((i) => i.quote_id === x.id).length] as [string, string, number]),
+        ]} />
       )}
       {!!filter && qBy[filter] && (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>

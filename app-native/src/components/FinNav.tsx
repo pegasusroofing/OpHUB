@@ -49,29 +49,39 @@ export function FinTabRow({ children, style }: { children: ReactNode; style?: ob
     </View>
   );
 }
+/** One underlined tab, as the top Finance row: bold with a line in the company colour when on, grey when not.
+ *  A count sits beside the name: grey, or amber for things waiting (Andy, 5 Nov 2026). */
+function TabItem({ on, label, n, amber, onPress }: { on: boolean; label: string; n?: number; amber?: boolean; onPress: () => void }) {
+  const t = useTheme();
+  return (
+    <Pressable onPress={onPress} accessibilityRole="tab" accessibilityState={{ selected: on }} style={{ paddingVertical: 10, paddingHorizontal: 14, borderBottomWidth: 2, borderBottomColor: on ? t.brand1 : 'transparent' }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        <Text style={{ fontSize: 13, fontWeight: on ? '700' : '600', color: on ? '#111827' : '#6b7280' }}>{label}</Text>
+        {n ? <Text accessibilityLabel={amber ? `${n} waiting` : undefined} style={{ fontSize: 10.5, fontWeight: '700', color: amber ? '#B45309' : on ? '#111827' : '#6b7280', backgroundColor: amber ? '#FDF1E0' : '#EEF0F3', borderRadius: 9, minWidth: 18, textAlign: 'center', paddingHorizontal: 5, overflow: 'hidden' }}>{n}</Text> : null}
+      </View>
+    </Pressable>
+  );
+}
+/** A row of underlined tabs for Finance (Andy, 5 Nov 2026: "change all the tabs through finance to that").
+ *  items: [key, label, count?]. right: a button that sits at the end of the row. */
+export function FinTabs({ items, value, onChange, right, amber, style }: { items: [string, string, number?][]; value: string; onChange: (k: string) => void; right?: ReactNode; amber?: boolean; style?: object }) {
+  const row = (
+    <FinTabRow style={right ? { flex: 1, minWidth: 0, marginBottom: 0 } : style}>
+      {items.map(([k, l, n]) => <TabItem key={k} on={value === k} label={l} n={n} amber={amber} onPress={() => onChange(k)} />)}
+    </FinTabRow>
+  );
+  if (!right) return row;
+  return <View style={[{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 }, style]}>{row}<View>{right}</View></View>;
+}
 const useJobBilling = (id: string) => useQuery({ queryKey: ['finJobBilling', id], queryFn: async () => ((await fdb.from('job_finance').select('billing_type').eq('site_id', id).maybeSingle()).data as { billing_type: string | null } | null)?.billing_type ?? null });
 /** Inside the Bill of Quantities tab: the Bill, its Variations and the Plots (Andy, 2 Nov 2026). An invoice job has no Bill, so those two only. */
 export function BoqTabs({ id, on }: { id: string; on: 'boq' | 'variations' | 'plots' }) {
-  const t = useTheme();
   const { data: billing } = useJobBilling(id);
-  return (
-    <View style={{ flexDirection: 'row', gap: 6, marginBottom: 12 }}>
-      {([['boq', 'BoQ'], ['variations', 'Variations'], ['plots', 'Plots']] as const).filter(([k]) => k !== 'boq' || billing !== 'invoice').map(([k, l]) => (
-        <Pressable key={k} accessibilityRole="button" onPress={() => { if (on !== k) router.replace(`/fin/job/${id}/${k}` as never); }} style={{ paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 2, borderBottomColor: on === k ? t.brand1 : 'transparent' }}>
-          <Text style={{ fontSize: 14, fontWeight: on === k ? '700' : '600', color: on === k ? '#111827' : '#6b7280' }}>{l}</Text>
-        </Pressable>
-      ))}
-    </View>
-  );
+  return <FinTabs items={([['boq', 'BoQ'], ['variations', 'Variations'], ['plots', 'Plots']] as [string, string][]).filter(([k]) => k !== 'boq' || billing !== 'invoice')} value={on} onChange={(k) => { if (on !== k) router.replace(`/fin/job/${id}/${k}` as never); }} />;
 }
 /** Variations and Day Works share the Variations tab. */
 export function VarDayChips({ id, on }: { id: string; on: 'variations' | 'dayworks' }) {
-  return (
-    <View style={{ flexDirection: 'row', gap: 6, marginBottom: 10 }}>
-      <Chip on={on === 'variations'} label="Variations" onPress={() => { if (on !== 'variations') router.replace(`/fin/job/${id}/variations` as never); }} />
-      <Chip on={on === 'dayworks'} label="Day Works" onPress={() => { if (on !== 'dayworks') router.replace(`/fin/job/${id}/dayworks` as never); }} />
-    </View>
-  );
+  return <FinTabs items={[['variations', 'Variations'], ['dayworks', 'Day Works']]} value={on} onChange={(k) => { if (on !== k) router.replace(`/fin/job/${id}/${k}` as never); }} />;
 }
 /** The white row with the job and + New, then a project's tabs: on every page inside a project (Andy, 2 Nov 2026). */
 export function FinJobTabs({ id, active, job, name, onOverview }: { id: string; active: string; job?: string | null; name?: string | null; onOverview: boolean }) {
@@ -139,7 +149,7 @@ function KeepInView({ on, items, render }: { on?: string; items: [string, string
   const go = () => { const p = on ? xs.current[on] : undefined; if (p && vw) sv.current?.scrollTo({ x: Math.max(0, p.x + p.w / 2 - vw / 2), animated: false }); };
   useEffect(go);
   return (
-    <ScrollView ref={sv} horizontal showsHorizontalScrollIndicator={false} onLayout={(e) => setVw(e.nativeEvent.layout.width)} contentContainerStyle={{ gap: 6, marginBottom: 10 }}>
+    <ScrollView ref={sv} horizontal showsHorizontalScrollIndicator={false} onLayout={(e) => setVw(e.nativeEvent.layout.width)} contentContainerStyle={{ gap: 2 }}>
       {items.map(([k, l]) => <View key={k} onLayout={(e) => { xs.current[k] = { x: e.nativeEvent.layout.x, w: e.nativeEvent.layout.width }; if (k === on) go(); }}>{render(k, l)}</View>)}
     </ScrollView>
   );
@@ -169,7 +179,7 @@ export function FinPage({ title, section, sub, onSub, badges, children, wide, to
           {section === 'overview' && <View style={{ backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 12, marginBottom: 10 }}><Text style={{ color: '#111827', fontSize: 12 }}>🔒 Finance trial — nothing is sent from Finance (no emails, no Xero, no pushes to PMs) while it&apos;s being tested.</Text></View>}
           {!!top && <FinMode.Provider value>{top}</FinMode.Provider>}
           {subs.length > 1 && onSub && (
-            <KeepInView on={sub} items={subs} render={(k, l) => <Pressable onPress={() => onSub(k)} style={{ paddingHorizontal: 10, paddingVertical: 6, borderBottomWidth: 2, borderColor: k === sub ? base.ink : 'transparent' }}><View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}><Text style={{ fontWeight: k === sub ? '800' : '600', color: k === sub ? base.ink : base.slate }}>{l}</Text>{badges?.[k] ? <Text accessibilityLabel={`${badges[k]} waiting`} style={{ fontSize: 10.5, fontWeight: '700', color: '#B45309', backgroundColor: '#FDF1E0', borderRadius: 9, minWidth: 18, textAlign: 'center', paddingHorizontal: 5, overflow: 'hidden' }}>{badges[k]}</Text> : null}</View></Pressable>} />
+            <View style={{ borderBottomWidth: 1, borderBottomColor: '#e5e7eb', marginBottom: 10 }}><KeepInView on={sub} items={subs} render={(k, l) => <TabItem on={k === sub} label={l} n={badges?.[k]} amber onPress={() => onSub(k)} />} /></View>
           )}
           <FinMode.Provider value>{children}</FinMode.Provider>
         </>

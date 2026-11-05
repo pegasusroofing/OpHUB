@@ -92,7 +92,7 @@ export function FinTable<T>({ cols: allCols, rows, keyOf, onRow, foot, onMenu, d
           <View style={{ flexDirection: 'row', paddingVertical: 10, paddingHorizontal: 8 }}>
             {cols.map((c) => (
               <Pressable key={c.k} disabled={!c.l || c.noSort} onPress={() => setSort(nextSort(sort, c.k))} accessibilityRole={c.noSort ? undefined : 'button'} accessibilityLabel={c.noSort ? undefined : `Sort by ${c.l}${sort?.k === c.k ? (sort.dir === 'asc' ? ', A to Z' : ', Z to A') : ''}`} style={cell(c)}>
-                <Text style={{ fontSize: 13, fontWeight: '600', letterSpacing: 0.4, color: sort?.k === c.k ? t.brand1 : base.ink, textDecorationLine: 'underline', textTransform: 'uppercase' }}>{c.l}{sort?.k === c.k ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : ''}</Text>
+                <Text style={{ fontSize: 11.5, fontWeight: '600', letterSpacing: 0.4, color: sort?.k === c.k ? t.brand1 : base.ink, textDecorationLine: 'underline', textTransform: 'uppercase' }}>{c.l}{sort?.k === c.k ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : ''}</Text>
               </Pressable>
             ))}
               {onMenu ? <View style={{ width: 32 }} /> : null}

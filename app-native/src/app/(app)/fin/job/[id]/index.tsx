@@ -8,7 +8,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { FinForm } from '@/components/FinForm';
-import { FinChip, FinRow, FinTabRow } from '@/components/FinNav';
+import { FinRow, FinTabs } from '@/components/FinNav';
 import { OneDriveBrowser } from '@/components/OneDriveBrowser';
 import { PurchaseQuotes } from '@/components/FinPurchaseQuotes';
 import { PurchasesLists } from '@/components/FinPurchases';
@@ -71,7 +71,8 @@ export default function FinJob() {
   const invoiceOnly = !!fc?.isInvoiceJob && !data?.book.apps.some((a) => a.site_id === id);
   const sub: Record<string, string> = { ...sub0, sales: sub0.sales || (invoiceOnly ? 'invoices' : 'apps') };
   const subTabs = (k: string, opts: [string, string][]) => (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>{opts.map(([v, l]) => <FinChip key={v} on={sub[k] === v} label={l} onPress={() => { setSub({ ...sub0, [k]: v }); if (qF) router.setParams({ f: '' }); }} />)}{k === 'purchases' && <FinChip on={false} label="Project Quotes" onPress={() => router.push(`/fin/job/${id}/quotes` as never)} />}</View>
+    <FinTabs items={opts} value={sub[k]} onChange={(v) => { setSub({ ...sub0, [k]: v }); if (qF) router.setParams({ f: '' }); }}
+      right={k === 'purchases' ? <Button small kind="ghost" title="Project Quotes" onPress={() => router.push(`/fin/job/${id}/quotes` as never)} /> : undefined} />
   );
   return (
     <ScrollView contentContainerStyle={page(1000)} keyboardShouldPersistTaps="handled">

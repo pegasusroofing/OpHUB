@@ -8,7 +8,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { FinForm } from '@/components/FinForm';
 import { ThinExportBar } from '@/components/FinFilterBar';
-import { FinChip, FinRow, FinStat, VarDayChips, BoqTabs } from '@/components/FinNav';
+import { FinRow, FinStat, FinTabs, VarDayChips, BoqTabs } from '@/components/FinNav';
 import { promptText, useToast } from '@/components/toast';
 import { Button, Empty, Muted } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
@@ -96,12 +96,8 @@ export default function FinVariations() {
         <FinStat v={money(sum('quoted', (v) => v.status === 'rejected'), 0)} label="Rejected" />
       </View>
       <Muted style={{ marginBottom: 10 }}>{`Only approved variations go onto applications, at their approved value.${finOnly ? '' : ' Variations raised on site (Projects › Variations) come in here on their own.'}`}</Muted>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
-        {[['all', 'All'], ['submitted', 'Issued'], ['agreed', 'Approved'], ['rejected', 'Rejected']].map(([k, l]) => <FinChip key={k} on={f === k} label={l} n={vars.filter((v) => k === 'all' || g(v) === k).length} onPress={() => setF(k)} />)}
-        <View style={{ marginLeft: 'auto', flexDirection: 'row', gap: 6 }}>
-          <Button title="+ Variation" onPress={() => setEdit('new')} />
-        </View>
-      </View>
+      <FinTabs items={[['all', 'All'], ['submitted', 'Issued'], ['agreed', 'Approved'], ['rejected', 'Rejected']].map(([k, l]) => [k, l, vars.filter((v) => k === 'all' || g(v) === k).length] as [string, string, number])} value={f} onChange={setF}
+        right={<Button title="+ Variation" onPress={() => setEdit('new')} />} />
       {list.length ? list.map((v) => <FinRow key={v.id} left={v.number} title={v.title} sub={[ST[v.status]?.[0] || v.status, v.instructed_by ? `by ${v.instructed_by}` : '', v.submitted_on ? `issued ${fdate(v.submitted_on)}` : '', v.agreed_on && v.status === 'agreed' ? `approved ${fdate(v.agreed_on)}` : '', v.cost_estimate != null ? `cost ${money(v.cost_estimate)}` : ''].filter(Boolean).join(' · ')} right={money(v.status === 'agreed' ? v.agreed_value ?? v.quoted : v.quoted)} tone={ST[v.status]?.[1]} onPress={() => setEdit(v)}>
           {(v.variation_id || g(v) === 'submitted' || !finOnly) && (
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: 5 }}>

@@ -12,7 +12,7 @@ import { inPeriod, useStatPeriods } from '@/lib/useStatPeriods';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { FinFilterBar, type FilterPart, type FilterSel } from '@/components/FinFilterBar';
-import { FinRow, FinStat, FinTabRow } from '@/components/FinNav';
+import { FinRow, FinStat, FinTabs } from '@/components/FinNav';
 import { Cell, FinChoicePop, FinTable, FootPick } from '@/components/FinTable';
 import { pickJob } from '@/components/FinSales';
 import { chooseAction, confirmAsk, useToast } from '@/components/toast';
@@ -27,7 +27,7 @@ import { useAuth } from '@/lib/auth';
 import { PI_STATUS, poInvoiced } from '@/lib/rules/finBook';
 import { fdate, FIN_TRIAL_MSG, finBlocked, jobTag, money, plantCost, round2, today } from '@/lib/rules/finance';
 import { monthLabel, monthOf, monthsIn, valueTest } from '@/lib/rules/finFilters';
-import { base, radius, useDesk, useTheme } from '@/theme/theme';
+import { base, radius, useDesk } from '@/theme/theme';
 
 type Row = Record<string, any>;
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 9, color: base.ink, backgroundColor: base.card };
@@ -99,7 +99,6 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
   const { data } = usePurchases(me?.org_id, siteId);
   // Filter: status, supplier, project and month, tick as many as you like. Purchase invoices keep one view at a time, as each shows a different list.
   const desk = useDesk();
-  const th = useTheme();
   const [sel, setFilt] = useState<FilterSel>({ status: tab === 'orders' ? (desk ? [] : ['open']) : tab === 'invoices' && f0 ? [f0] : [], sup: [], job: [], mon: [] });
   const [sort, setSort] = useState('new');
   const [val, setVal] = useState('');
@@ -183,18 +182,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
     return (
       <>
         {/* Underlined tabs like the Overview / Sales / Purchases row above (Andy, 5 Nov 2026), not chips. */}
-        {!!show && (
-          <FinTabRow>
-            {show.items.map((it) => (
-              <Pressable key={it.v} onPress={() => setFilt({ ...sel, status: [it.v] })} accessibilityRole="tab" accessibilityState={{ selected: on === it.v }} style={{ paddingVertical: 10, paddingHorizontal: 14, borderBottomWidth: 2, borderBottomColor: on === it.v ? th.brand1 : 'transparent' }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Text style={{ fontSize: 13, fontWeight: on === it.v ? '700' : '600', color: on === it.v ? '#111827' : '#6b7280' }}>{it.l}</Text>
-                  {it.n ? <Text style={{ fontSize: 10.5, fontWeight: '700', color: on === it.v ? '#111827' : '#6b7280', backgroundColor: '#EEF0F3', borderRadius: 9, minWidth: 18, textAlign: 'center', paddingHorizontal: 5, overflow: 'hidden' }}>{it.n}</Text> : null}
-                </View>
-              </Pressable>
-            ))}
-          </FinTabRow>
-        )}
+        {!!show && <FinTabs items={show.items.map((it) => [it.v, it.l, it.n ?? undefined] as [string, string, number?])} value={String(on || '')} onChange={(v) => setFilt({ ...sel, status: [v] })} />}
         {cards && <TextInput value={q} onChangeText={setQ} placeholder={ph} style={[box, { minWidth: 220, maxWidth: 360, marginBottom: 10, paddingVertical: 6, fontSize: 13 }]} />}
       </>
     );

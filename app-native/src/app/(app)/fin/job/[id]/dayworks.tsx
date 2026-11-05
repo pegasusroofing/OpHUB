@@ -7,7 +7,7 @@ import { useState } from 'react';
 import { ScrollView, View } from 'react-native';
 
 import { FinForm } from '@/components/FinForm';
-import { FinChip, FinRow, FinStat, VarDayChips, BoqTabs } from '@/components/FinNav';
+import { FinRow, FinStat, FinTabs, VarDayChips, BoqTabs } from '@/components/FinNav';
 import { viewDoc } from '@/components/DocViewer';
 import { promptText, useToast } from '@/components/toast';
 import { Button, Empty, Muted } from '@/components/ui';
@@ -39,10 +39,8 @@ export default function FinDayworks() {
       <BoqTabs id={id} on="variations" />
       <VarDayChips id={id} on="dayworks" />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}><FinStat v={money(sum('approved'), 0)} label="Approved" /><FinStat v={money(sum('issued'), 0)} label="Issued, waiting" /><FinStat v={money(sum('rejected'), 0)} label="Rejected" /></View>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
-        {[['all', 'All'], ['issued', 'Issued'], ['approved', 'Approved'], ['rejected', 'Rejected']].map(([k, l]) => <FinChip key={k} on={f === k} label={l} n={data.filter((d) => k === 'all' || d.status === k).length} onPress={() => setF(k)} />)}
-        <View style={{ marginLeft: 'auto' }}><Button title="+ Day work" onPress={() => setEdit({ status: 'issued', work_date: today() })} /></View>
-      </View>
+      <FinTabs items={[['all', 'All'], ['issued', 'Issued'], ['approved', 'Approved'], ['rejected', 'Rejected']].map(([k, l]) => [k, l, data.filter((d) => k === 'all' || d.status === k).length] as [string, string, number])} value={f} onChange={setF}
+        right={<Button title="+ Day Work" onPress={() => setEdit({ status: 'issued', work_date: today() })} />} />
       {isLoading ? <Muted>Loading…</Muted> : list.length ? list.map((d) => (
         <View key={d.id}>
           <FinRow left={d.number} title={d.title} sub={[ST[d.status]?.[0], d.work_date ? fdate(d.work_date) : '', d.ref ? `sheet ${d.ref}` : '', d.cost_estimate != null ? `cost ${money(d.cost_estimate)}` : ''].filter(Boolean).join(' · ')} right={money(d.value)} tone={ST[d.status]?.[1]} onPress={() => setEdit(d)} />

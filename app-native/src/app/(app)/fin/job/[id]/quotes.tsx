@@ -8,7 +8,7 @@ import { Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
-import { FinChip } from '@/components/FinNav';
+import { FinTabs } from '@/components/FinNav';
 import { confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import { fdb } from '@/data/finance';
@@ -114,11 +114,11 @@ export default function ProjectQuotes() {
         }} /></View>
       </View>
       {(data.quotes.length > 0 || manual.length > 0) && (
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
-          <FinChip on={!sel} label={`All quotes (${data.items.length})`} onPress={() => setSel('')} />
-          {data.quotes.map((q) => <FinChip key={q.id} on={sel === q.id} label={`${qLabel(q)} · ${fdate(q.quote_date || String(q.created_at).slice(0, 10))} (${data.items.filter((i) => i.quote_id === q.id).length})`} onPress={() => setSel(q.id)} />)}
-          {manual.length > 0 && <FinChip on={sel === 'manual'} label={`Added by hand (${manual.length})`} onPress={() => setSel('manual')} />}
-        </View>
+        <FinTabs value={sel} onChange={setSel} items={[
+          ['', 'All Quotes', data.items.length],
+          ...data.quotes.map((q) => [q.id, `${qLabel(q)} · ${fdate(q.quote_date || String(q.created_at).slice(0, 10))}`, data.items.filter((i) => i.quote_id === q.id).length] as [string, string, number]),
+          ...(manual.length > 0 ? [['manual', 'Added By Hand', manual.length] as [string, string, number]] : []),
+        ]} />
       )}
       {!!sel && sel !== 'manual' && (
         <Button kind="ghost" title="Hide all on this quote from the team" onPress={async () => {

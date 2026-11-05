@@ -7,11 +7,11 @@ import { useState } from 'react';
 import { ScrollView, Text, TextInput, View } from 'react-native';
 
 import { ThinExportBar } from '@/components/FinFilterBar';
-import { FinChip, FinRow } from '@/components/FinNav';
+import { FinRow, FinTabs } from '@/components/FinNav';
 import { appStage, type App } from '@/components/FinSales';
 import { useFinRowMenu } from '@/components/FinRowMenu';
 import { useToast } from '@/components/toast';
-import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
+import { Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import { DateBox } from '@/components/DateField';
 import { useBook } from '@/data/finBook';
 import { useSite } from '@/data/sites';
@@ -133,7 +133,7 @@ export default function FinDetail() {
         </View>
         <Muted style={{ marginTop: 4 }}>{from || to ? `Showing ${from ? `from ${fdate(from)}` : ''}${to ? ` to ${fdate(to)}` : ''} — every tab and total only counts items in these dates.` : 'Showing the whole job. Pick dates to see one period (e.g. a month).'}</Muted>
       </Card>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>{TABS.map(([k, l]) => <FinChip key={k} on={tab === k} label={l} onPress={() => { setTab(k); setQ(''); }} />)}</View>
+      <FinTabs items={TABS} value={tab} onChange={(k) => { setTab(k as typeof tab); setQ(''); }} />
       {tab !== 'summary' && <TextInput value={q} onChangeText={setQ} placeholder="Search this tab — supplier, PO, invoice no., description…" style={[box, { marginBottom: 10 }]} />}
       <Card>{body}</Card>
     </ScrollView>
