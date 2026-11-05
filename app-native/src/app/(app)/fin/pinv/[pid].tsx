@@ -32,9 +32,9 @@ const XERO_Q = 'This is already in Xero. Changing it here wonâ€™t change Xero â€
 
 type Row = Record<string, any>;
 export default function FinPinv() {
-  const { pid, site, po, receipt } = useLocalSearchParams<{ pid: string; site?: string; po?: string; receipt?: string }>();
+  const { pid, site, po, receipt, sup, no, amt, date } = useLocalSearchParams<{ pid: string; site?: string; po?: string; receipt?: string; sup?: string; no?: string; amt?: string; date?: string }>();
   // Add Manually opens the line-by-line screen (Andy, 5 Nov 2026); the project is chosen on it.
-  if (pid === 'new') return <PinvEditor key={`${site || ''}${po || ''}${receipt || ''}`} siteId={site || undefined} poId={po || undefined} />;
+  if (pid === 'new') return <PinvEditor key={`${site || ''}${po || ''}${receipt || ''}${no || ''}`} siteId={site || undefined} poId={po || undefined} start={sup || no ? { supplier: sup, no, amount: amt ? Number(amt) : undefined, date } : undefined} />;
   return <ViewPinv id={pid} />;
 }
 

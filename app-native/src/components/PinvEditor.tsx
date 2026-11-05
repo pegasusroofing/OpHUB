@@ -39,7 +39,8 @@ const mainSiteOf = (lines: RLine[], fallback: string | null) => {
   return Object.keys(by).sort((a, b) => by[b] - by[a])[0] || fallback;
 };
 
-export function PinvEditor({ inbox, siteId: site0, poId: po0 }: { inbox?: Row | null; siteId?: string; poId?: string }) {
+/** start: from a statement's Add Missing Invoice — the supplier, number, gross amount and date already known. */
+export function PinvEditor({ inbox, siteId: site0, poId: po0, start }: { inbox?: Row | null; siteId?: string; poId?: string; start?: { supplier?: string; no?: string; amount?: number; date?: string } }) {
   const { me } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
@@ -47,9 +48,9 @@ export function PinvEditor({ inbox, siteId: site0, poId: po0 }: { inbox?: Row | 
   const { data: sites = [] } = useSites();
   const ex = (inbox?.extracted || {}) as Row;
   const unread = !!inbox && !(Array.isArray(ex.lines) && ex.lines.length);
-  const [supplier, setSupplier] = useState<string>(inbox ? inbox.supplier_override || ex.supplier || '' : '');
-  const [no, setNo] = useState<string>(ex.invoice_no || ex.doc_number || '');
-  const [date, setDate] = useState<string>(ex.date || ex.doc_date || today());
+  const [supplier, setSupplier] = useState<string>(inbox ? inbox.supplier_override || ex.supplier || '' : start?.supplier || '');
+  const [no, setNo] = useState<string>(ex.invoice_no || ex.doc_number || start?.no || '');
+  const [date, setDate] = useState<string>(ex.date || ex.doc_date || start?.date || today());
   const [due, setDue] = useState<string>(ex.due_date || '');
   const [siteId, setSiteId] = useState<string | null>(site0 || inbox?.site_id || null);
   const [poId, setPoId] = useState<string>(po0 || inbox?.po_id || '');
@@ -60,7 +61,8 @@ export function PinvEditor({ inbox, siteId: site0, poId: po0 }: { inbox?: Row | 
   const [showWhy, setShowWhy] = useState(false);
   // Lines as read, or one line for the amount read (an unread invoice: one blank line to fill in).
   const [lines, setLines] = useState<RLine[]>(() => (Array.isArray(ex.lines) && ex.lines.length ? (ex.lines as RLine[])
-    : ex.net != null ? [{ ...blankLine(site0 || inbox?.site_id), description: 'Invoice total', unit_price: Number(ex.net), amount: Number(ex.net) }] : [blankLine(site0 || inbox?.site_id)]));
+    : ex.net != null ? [{ ...blankLine(site0 || inbox?.site_id), description: 'Invoice total', unit_price: Number(ex.net), amount: Number(ex.net) }]
+    : start?.amount ? [{ ...blankLine(site0), description: 'Invoice total', unit_price: round2(start.amount / 1.2), amount: round2(start.amount / 1.2) }] : [blankLine(site0 || inbox?.site_id)]));
   const { data: sups = [] } = useQuery({ queryKey: ['finSupNames', me?.org_id], enabled: !!me?.org_id, queryFn: async () => (((await fdb.from('fin_suppliers').select('name').eq('org_id', me?.org_id as string).order('name')).data as Row[] | null) ?? []).map((x) => String(x.name || '')).filter(Boolean) });
   const { data: ctx } = useQuery({ queryKey: ['finReadCtx', me?.org_id], enabled: !!me?.org_id, queryFn: () => loadReadContext(me?.org_id as string) });
   const { data: pos = [] } = useQuery({ queryKey: ['finInboxPos', siteId], enabled: !!siteId, queryFn: async () => ((await fdb.from('purchase_orders').select('id,number,supplier_name,value,status').eq('site_id', siteId as string).neq('status', 'cancelled').order('created_at', { ascending: false })).data as Row[] | null) ?? [] });

@@ -3,7 +3,8 @@
 // same-amount line within 10 days — keeping matches made by hand. Pure.
 import { round2 } from './finance.ts';
 
-export type SLine = { id: string; date?: string | null; ref?: string | null; type: string; amount: number; match?: string | null; how?: string | null; ignore?: boolean };
+/** allocated: ticked and allocated, so its invoice counts as paid; query: what was asked of the supplier (Andy, 5 Nov 2026). */
+export type SLine = { id: string; date?: string | null; ref?: string | null; type: string; amount: number; match?: string | null; how?: string | null; ignore?: boolean; allocated?: boolean; allocated_at?: string | null; query?: string | null };
 export type Cand = { id: string; kind: 'pi' | 'inbox'; site_id?: string; invoice_no: string; date: string | null; total: number; status: string };
 export const STMT_TYPES: Record<string, string> = { invoice: 'Invoice', credit: 'Credit note', payment: 'Payment', other: 'Other' };
 export const refKey = (s: unknown) => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '').replace(/^(INVOICE|INV|CRN|CN|CR|SI)(?=\d)/, '').replace(/^0+/, '');

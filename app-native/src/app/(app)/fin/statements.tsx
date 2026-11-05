@@ -6,7 +6,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as DocumentPicker from 'expo-document-picker';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Text, TextInput, View } from 'react-native';
+import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { FinForm } from '@/components/FinForm';
 import { FinPage, FinRow, FinStat } from '@/components/FinNav';
@@ -15,6 +15,8 @@ import { PurchasesStats, usePurchaseBadges } from '@/components/FinPurchases';
 import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
+import { DocSplit } from '@/components/DocSplit';
+import { useSites } from '@/data/sites';
 import { fdb, selectAll } from '@/data/finance';
 import { openDocLink } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
@@ -145,6 +147,8 @@ function Statement({ id }: { id: string }) {
     if (!s) return null;
     return { s, cands: await loadCands(me?.org_id as string, s.supplier_name) };
   } });
+  const [ticks, setTicks] = useState<Set<string>>(new Set());
+  const { data: sites = [] } = useSites();
   if (!me) return null;
   if (isLoading) return <FinPage title="Statement" section="purchases"><Muted>Loading…</Muted></FinPage>;
   if (!data) return <FinPage title="Statement" section="purchases"><Muted>Statement not found.</Muted></FinPage>;
@@ -167,7 +171,40 @@ function Statement({ id }: { id: string }) {
     if (await save({ lines: autoMatch([...lines, line], cands) })) toast('Line added');
   };
   const counts = lines.reduce((o: Record<string, number>, l) => { const k = lineState(l, cands).k; o[k] = (o[k] || 0) + 1; return o; }, {});
+  // Tick lines, then Allocate & Mark Paid, Query With Supplier, or Add Missing Invoice (Andy, 5 Nov 2026).
+  const candOf = (l: SLine) => (l.match ? cands.find((x) => x.id === l.match) : undefined);
+  const canAlloc = (l: SLine) => !l.allocated && !l.ignore && l.type !== 'payment' && lineState(l, cands).k === 'ok' && candOf(l)?.kind === 'pi';
+  const picked = lines.filter((l) => ticks.has(l.id));
+  const allocN = picked.filter(canAlloc).length, missN = picked.filter((l) => lineState(l, cands).k === 'missing').length;
+  const allocate = async () => {
+    const now = new Date().toISOString();
+    const next = lines.map((l) => (ticks.has(l.id) && canAlloc(l) ? { ...l, allocated: true, allocated_at: now } : l));
+    const done = next.every((l) => l.ignore || l.type === 'payment' || l.allocated);
+    if (await save({ lines: next, ...(done ? { status: 'reconciled', reconciled_at: now, reconciled_by: me.id } : {}) })) { toast(`${allocN} allocated — marked paid${done ? '. Statement reconciled' : ''}`, { confirm: true }); setTicks(new Set()); void qc.invalidateQueries({ queryKey: ['finPurchases'] }); }
+  };
+  const query = async () => {
+    const n = await promptText(`What’s the query with ${s.supplier_name} on ${picked.length} line${picked.length === 1 ? '' : 's'}?`, ''); if (n === null) return;
+    if (await save({ lines: lines.map((l) => (ticks.has(l.id) ? { ...l, query: n.trim() || 'Query' } : l)) })) { toast('Marked as queried'); setTicks(new Set()); }
+  };
+  const addMissing = () => {
+    const l = picked.find((x) => lineState(x, cands).k === 'missing'); if (!l) return;
+    router.push(`/fin/pinv/new?sup=${encodeURIComponent(s.supplier_name || '')}&no=${encodeURIComponent(l.ref || '')}&amt=${Math.abs(Number(l.amount || 0))}${l.date ? `&date=${l.date}` : ''}` as never);
+  };
+  const tick = (l: SLine) => <Pressable hitSlop={8} accessibilityRole="checkbox" accessibilityState={{ checked: ticks.has(l.id) }} accessibilityLabel={`Tick ${l.ref || 'line'}`} onPress={() => setTicks((x) => { const n = new Set(x); if (n.has(l.id)) n.delete(l.id); else n.add(l.id); return n; })} style={{ width: 16, height: 16, borderRadius: 4, borderWidth: 1.5, borderColor: ticks.has(l.id) ? base.blue : '#c3c8d0', backgroundColor: ticks.has(l.id) ? base.blue : '#fff', alignItems: 'center', justifyContent: 'center', alignSelf: 'center' }}>{ticks.has(l.id) && <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700', lineHeight: 13 }}>✓</Text>}</Pressable>;
+  const statusOf = (l: SLine) => (l.allocated ? { t: 'Allocated · Paid', c: '#1E7A3C' } : l.query ? { t: `Queried: ${l.query}`, c: '#B35A00' } : { t: lineState(l, cands).label, c: TONE[lineState(l, cands).k] });
+  const pickLine = async (l: SLine) => {
+    const k = await chooseAction(`${l.ref || 'Line'} · ${money(l.amount)}`, [...cands.filter((x) => !used.has(x.id) || x.id === l.match).map((x) => ({ key: x.id, label: `${x.invoice_no || 'No number'} · ${fdate(x.date)} · ${money(x.total)}${x.kind === 'inbox' ? ' (unallocated)' : ''}` })), { key: '-none', label: 'No match' }, { key: '-type', label: `Change type (now ${STMT_TYPES[l.type] || l.type})` }, { key: l.ignore ? '-unignore' : '-ignore', label: l.ignore ? 'Stop ignoring this line' : 'Ignore this line' }, ...(l.allocated ? [{ key: '-unalloc', label: 'Take off allocated (not paid)' }] : []), ...(l.query ? [{ key: '-unquery', label: 'Query sorted' }] : [])]);
+    if (!k) return;
+    if (k === '-type') {
+      const t = await chooseAction('Type of line', Object.entries(STMT_TYPES).map(([key, label]) => ({ key, label }))); if (!t) return;
+      const amt = Math.abs(Number(l.amount || 0));
+      void setLine(l.id, { type: t, ...(t === 'credit' || t === 'payment' ? { amount: -amt } : t === 'invoice' ? { amount: amt } : {}), ...(t === 'payment' ? { match: null, how: null } : {}) });
+    } else if (k === '-ignore') void setLine(l.id, { ignore: true, match: null, how: null }); else if (k === '-unignore') void setLine(l.id, { ignore: false });
+    else if (k === '-unalloc') void setLine(l.id, { allocated: false, allocated_at: null }); else if (k === '-unquery') void setLine(l.id, { query: null });
+    else if (k === '-none') void setLine(l.id, { match: null, how: 'manual', allocated: false }); else void setLine(l.id, { match: k, how: 'manual', ignore: false });
+  };
   return (
+    <DocSplit name={s.file_name || 'Statement'} load={s.file_path ? () => openDocLink('finance-docs', s.file_path) : null}>
     <FinPage title={s.supplier_name} section="purchases">
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
         <FinStat v={s.statement_date ? fdate(s.statement_date) : '—'} label="Statement date" /><FinStat v={s.closing_balance != null ? money(s.closing_balance) : '—'} label="Balance" />
@@ -175,30 +212,38 @@ function Statement({ id }: { id: string }) {
         <FinStat v={String(counts.ok || 0)} label="Matched" /><FinStat v={String(counts.missing || 0)} label="Not in OpHUB" hot={!!counts.missing} />
       </View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
-        <Button kind="ghost" title="+ Add a line" onPress={() => void addLine()} />
-        <Button kind="ghost" title="Match again" onPress={async () => { if (await save({ lines: autoMatch(lines, cands) })) toast('Matched again'); }} />
-        {s.file_path && <Button kind="ghost" title="📄 Open the statement" onPress={async () => { const u = await openDocLink('finance-docs', s.file_path); if (u) viewDoc(u); }} />}
+        <Button kind="ghost" title="+ Add A Line" onPress={() => void addLine()} />
+        <Button kind="ghost" title="Match Again" onPress={async () => { if (await save({ lines: autoMatch(lines, cands) })) toast('Matched again'); }} />
+        {s.file_path && <Button kind="ghost" title="📄 Open The Statement" onPress={async () => { const u = await openDocLink('finance-docs', s.file_path); if (u) viewDoc(u); }} />}
         {s.status === 'reconciled' ? <Button kind="ghost" title="Reopen" onPress={async () => { if (await save({ status: 'open', reconciled_at: null, reconciled_by: null })) toast('Reopened'); }} />
-          : <Button title="Mark reconciled" onPress={async () => { const miss = counts.missing || 0; if (miss && !(await confirmAsk(`${miss} line${miss === 1 ? ' isn’t' : 's aren’t'} matched to an invoice. Mark the statement reconciled anyway?`, 'Mark reconciled'))) return; if (await save({ status: 'reconciled', reconciled_at: new Date().toISOString(), reconciled_by: me.id })) toast('Statement reconciled'); }} />}
+          : <Button title="Mark Reconciled" onPress={async () => { const miss = counts.missing || 0; if (miss && !(await confirmAsk(`${miss} line${miss === 1 ? ' isn’t' : 's aren’t'} matched to an invoice. Mark the statement reconciled anyway?`, 'Mark reconciled'))) return; if (await save({ status: 'reconciled', reconciled_at: new Date().toISOString(), reconciled_by: me.id })) toast('Statement reconciled'); }} />}
       </View>
       <SectionTitle>Lines</SectionTitle>
-      {lines.map((l) => {
-        const st = lineState(l, cands), c = l.match ? cands.find((x) => x.id === l.match) : null;
-        return (
-          <FinRow key={l.id} left={l.date ? fdate(l.date) : ''} title={`${STMT_TYPES[l.type] || l.type} ${l.ref || ''}`} sub={[st.label, c ? `→ ${c.invoice_no || 'invoice'} ${fdate(c.date)} ${money(c.total)}${c.kind === 'inbox' ? ' (unallocated)' : ''}` : ''].filter(Boolean).join(' · ')} right={money(l.amount)} tone={TONE[st.k]}
-            onPress={async () => {
-              const k = await chooseAction(`${l.ref || 'Line'} · ${money(l.amount)}`, [...cands.filter((x) => !used.has(x.id) || x.id === l.match).map((x) => ({ key: x.id, label: `${x.invoice_no || 'No number'} · ${fdate(x.date)} · ${money(x.total)}${x.kind === 'inbox' ? ' (unallocated)' : ''}` })), { key: '-none', label: 'No match' }, { key: '-type', label: `Change type (now ${STMT_TYPES[l.type] || l.type})` }, { key: l.ignore ? '-unignore' : '-ignore', label: l.ignore ? 'Stop ignoring this line' : 'Ignore this line' }]);
-              if (!k) return;
-              if (k === '-type') {
-                // Credits and payments are negative, invoices positive; a payment isn't matched to an invoice.
-                const t = await chooseAction('Type of line', Object.entries(STMT_TYPES).map(([key, label]) => ({ key, label }))); if (!t) return;
-                const amt = Math.abs(Number(l.amount || 0));
-                void setLine(l.id, { type: t, ...(t === 'credit' || t === 'payment' ? { amount: -amt } : t === 'invoice' ? { amount: amt } : {}), ...(t === 'payment' ? { match: null, how: null } : {}) });
-              } else if (k === '-ignore') void setLine(l.id, { ignore: true, match: null, how: null }); else if (k === '-unignore') void setLine(l.id, { ignore: false });
-              else if (k === '-none') void setLine(l.id, { match: null, how: 'manual' }); else void setLine(l.id, { match: k, how: 'manual', ignore: false });
-            }} />
-        );
-      })}
+      {lines.length > 0 && (
+        <FinTable rows={lines} keyOf={(l) => l.id} onRow={(l) => void pickLine(l)}
+          cols={[
+            { k: 'tick', l: '', flex: 0.2, min: 28, noSort: true, render: (l: SLine) => tick(l) },
+            { k: 'd', l: 'Date', min: 70, sort: (l: SLine) => String(l.date || ''), render: (l: SLine) => <Cell>{l.date ? fdate(l.date) : '—'}</Cell> },
+            { k: 'r', l: 'Their Ref', min: 80, render: (l: SLine) => <Cell bold>{l.ref || '—'}</Cell> },
+            { k: 't', l: 'Type', min: 64, noSort: true, render: (l: SLine) => <Cell>{STMT_TYPES[l.type] || l.type}</Cell> },
+            { k: 'a', l: 'Amount', min: 76, total: (ls: SLine[]) => money(ls.filter((x) => !x.ignore).reduce((t, x) => t + Number(x.amount || 0), 0)), render: (l: SLine) => <Cell>{money(l.amount)}</Cell> },
+            { k: 'm', l: 'In OpHUB', flex: 1.4, min: 120, noSort: true, render: (l: SLine) => { const c = candOf(l); return <Cell>{c ? `${c.invoice_no || 'invoice'} · ${money(c.total)}${c.kind === 'inbox' ? ' (unallocated)' : ''}` : l.type === 'payment' ? '—' : 'Not in OpHUB'}</Cell>; } },
+            { k: 'p', l: 'Project', min: 70, noSort: true, render: (l: SLine) => { const c = candOf(l); return <Cell>{c?.site_id ? sites.find((x) => x.id === c.site_id)?.job_number || '' : ''}</Cell>; } },
+            { k: 's', l: 'Status', flex: 1.2, min: 110, noSort: true, render: (l: SLine) => { const st = statusOf(l); return <Cell tone={st.c}>{st.t}</Cell>; } },
+          ]}
+          footLabel={(ls) => `${ls.length} lines`} />
+      )}
+      {picked.length > 0 && (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 10, padding: 10, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10 }}>
+          <Text style={{ fontWeight: '600', color: base.ink, fontSize: 13 }}>{picked.length} Selected · {money(picked.reduce((t, l) => t + Number(l.amount || 0), 0))}</Text>
+          {picked.filter(canAlloc).length < lines.filter(canAlloc).length && <Pressable onPress={() => setTicks(new Set(lines.filter(canAlloc).map((l) => l.id)))}><Text style={{ color: base.blue, fontWeight: '500', fontSize: 13 }}>Select All Matching ({lines.filter(canAlloc).length})</Text></Pressable>}
+          <Pressable onPress={() => setTicks(new Set())}><Text style={{ color: base.slate, fontSize: 13 }}>Clear</Text></Pressable>
+          <View style={{ flex: 1 }} />
+          <Button small kind="ghost" title={`Query ${picked.length} With Supplier`} onPress={() => void query()} />
+          {missN > 0 && <Button small kind="ghost" title="Add Missing Invoice" onPress={addMissing} />}
+          {allocN > 0 && <Button small title={`Allocate ${allocN} & Mark Paid`} onPress={() => void allocate()} />}
+        </View>
+      )}
       {!lines.length && <Empty>No lines read from this statement.</Empty>}
       {notOnStmt.length > 0 && (
         <Card>
@@ -216,7 +261,8 @@ function Statement({ id }: { id: string }) {
           ))}
         </Card>
       )}
-      <Text style={{ color: base.slate, marginTop: 6 }}>Tap a line to change its match or ignore it.</Text>
+      <Text style={{ color: base.slate, marginTop: 6 }}>Tick the lines that match, then Allocate & Mark Paid: those invoices show as Paid (Statement). Tap a line to change its match, ignore it or take it off allocated.</Text>
     </FinPage>
+    </DocSplit>
   );
 }
