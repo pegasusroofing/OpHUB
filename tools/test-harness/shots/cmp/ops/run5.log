@@ -118,3 +118,24 @@ new mytools
 new havspuwer
 new havs
 new puwer
+new incidents
+new incident-new
+new ppe
+new messages
+new inbox
+node:internal/process/promises:394
+    triggerUncaughtException(err, true /* fromPromise */);
+    ^
+
+page.goto: net::ERR_NETWORK_IO_SUSPENDED at http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/calendar
+Call log:
+[2m  - navigating to "http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/calendar", waiting until "load"[22m
+
+    at C:\Users\AndyCramp\OneDrive - RTB Roofing Ltd\RTB Roofing Ltd\Andy's Documents\Operative Hub App\GitHub\OpHUB\tools\test-harness\cmp-ops.js:99:18 {
+  log: [
+    '  - navigating to "http://localhost:8081/sites/11111111-1111-1111-1111-111111111111/calendar", waiting until "load"'
+  ],
+  name: 'Error'
+}
+
+Node.js v24.19.0
