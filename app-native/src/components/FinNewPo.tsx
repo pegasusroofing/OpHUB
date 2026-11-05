@@ -25,6 +25,9 @@ import { supabase } from '@/lib/supabase';
 import type { Site } from '@/lib/types';
 import { base, radius, useDesk } from '@/theme/theme';
 
+const OFFLOAD = ['Hiab / Crane Offload', 'Forklift On Site', 'Hand Unload', 'Tail Lift', 'Call 30 Min Before'];
+const TIMES: [string, string][] = [['', 'Any Time'], ['First Thing (Before 9)', 'First Thing (Before 9)'], ['AM (8–12)', 'AM (8–12)'], ['PM (12–5)', 'PM (12–5)'], ['Timed — See Notes', 'Timed — See Notes']];
+type QItem = { id: string; quote_id: string; code: string | null; description: string | null; unit: string | null; rate: number | null; supplier_name: string | null };
 type Line = { site_id: string; description: string; qty: string; unit: string; rate: string; disc: string; cost_code: string; cost_code_id: string | null; vat: string };
 type Code = { id: string; code: string | null; name: string; category: string | null; active: boolean | null };
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, paddingHorizontal: 8, paddingVertical: 7, color: base.ink, backgroundColor: base.card };
@@ -70,6 +73,22 @@ export function FinNewPo({ site, itemIds = [] }: { site: Site; itemIds?: string[
   // A supplier's default VAT from the Directory goes on every line.
   const applySupVat = (id: string, name: string) => { const v = finSups?.find((x) => x.supplier_id === id || x.name.trim().toLowerCase() === name.trim().toLowerCase())?.purchase_vat; if (v && vats.some((x) => x.code === v)) setLines((ls) => ls.map((l) => ({ ...l, vat: v }))); };
   const [busy, setBusy] = useState(false);
+  // Delivery (Andy, 5 Nov 2026): the job address by default, or the office, or typed; a time; what's needed to offload.
+  const [deliverTo, setDeliverTo] = useState<'job' | 'office' | 'other'>('job');
+  const [addrTyped, setAddrTyped] = useState('');
+  const [delTime, setDelTime] = useState('');
+  const [offload, setOffload] = useState<string[]>([]);
+  const jobAddr = [(site as Record<string, any>).address, (site as Record<string, any>).postcode].filter(Boolean).join(', ');
+  const officeAddr = String((setup?.st as Record<string, any> | undefined)?.company_address || '').replace(/\s*\n\s*/g, ', ');
+  // The project's quotes and the price lists, as a shopping list: tick what you want and add it (Andy, 5 Nov 2026).
+  const { data: quotes } = useQuery({ queryKey: ['finPoQuotes', site.id, me?.org_id], enabled: !!me, queryFn: async () => {
+    const qs = ((await fdb.from('fin_quotes').select('id,site_id,supplier_name,quote_no,quote_date,created_at').eq('org_id', me?.org_id as string).eq('purpose', 'pquote')).data as Record<string, any>[] | null) ?? [];
+    const mine = qs.filter((q) => !q.site_id || q.site_id === site.id).sort((a, b) => Number(b.site_id === site.id) - Number(a.site_id === site.id) || String(b.quote_date || b.created_at || '').localeCompare(String(a.quote_date || a.created_at || '')));
+    const items = mine.length ? ((await fdb.from('fin_quote_items').select('id,quote_id,code,description,unit,rate,supplier_name,active').in('quote_id', mine.map((q) => q.id)).eq('active', true).order('position')).data as QItem[] | null) ?? [] : [];
+    return { list: mine, items };
+  } });
+  const [qPick, setQPick] = useState('');
+  const [ticked, setTicked] = useState<Set<string>>(new Set());
   // Ticked on Purchase Quotes (9219z finPqRaisePo): those items become the lines, the supplier filled in.
   const [filled, setFilled] = useState(false);
   const { data: picked } = useQuery({ queryKey: ['finNewPoItems', itemIds.join(',')], enabled: itemIds.length > 0, queryFn: async () => ((await fdb.from('fin_quote_items').select('*').in('id', itemIds)).data as Record<string, any>[] | null) ?? [] });
@@ -91,6 +110,7 @@ export function FinNewPo({ site, itemIds = [] }: { site: Site; itemIds?: string[
     if (!supId && !supText.trim()) { toast('Choose the supplier.'); return; }
     if (contact.trim() && !contactPh.trim()) { toast(`Add a contact number for ${contact.trim()}.`); return; }
     if (isNew && newEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail.trim())) { toast('Check the supplier’s email.'); return; }
+    if (deliverTo === 'other' && delivery === 'delivery' && !addrTyped.trim()) { toast('Type the delivery address.'); return; }
     const items = lines.filter((l) => l.description.trim()).map((l) => {
       const d = dsc(l), r = num(l.rate);
       return { item: l.description.trim(), qty: num(l.qty), unit: l.unit.trim() || null, rate: r === null || isNaN(r) ? null : r4(r * (1 - d / 100)), ...(d ? { list_rate: r, discount_pct: d } : {}), amount: amt(l), cost_code: l.cost_code || 'materials', ...(codes.length && (l.cost_code_id ?? codeFor(l.cost_code)) ? { cost_code_id: l.cost_code_id ?? codeFor(l.cost_code) } : {}), site_id: l.site_id || site.id, vat_rate: l.vat, vat: r2(amt(l) * rateOf(l.vat)) };
@@ -115,14 +135,40 @@ export function FinNewPo({ site, itemIds = [] }: { site: Site; itemIds?: string[
       if (sids.length > 1) { const tot = net || 1; split = sids.map((x) => ({ site_id: x, pct: r2((bySite[x] / tot) * 100) })); split[0].pct = r2(split[0].pct + r2(100 - split.reduce((t, e) => t + e.pct, 0))); }
       // The plot list is this job's plots: it only applies if the PO stayed on this job.
       const plot = poSite === site.id ? sub : '';
-      await fdb.from('purchase_orders').update({ vat, total: r2(net + vat), reference: ref.trim() || null, issue_date: todayIso(), site_contact: contact.trim() || null, site_contact_phone: contactPh.trim() || null, ...(plot ? { sub_job_id: plot } : {}), ...(split ? { split, split_sites: sids.filter((x) => x !== poSite) } : {}) } as never).eq('id', d.id);
+      await fdb.from('purchase_orders').update({ vat, total: r2(net + vat), delivery_to: delivery === 'delivery' ? deliverTo : null, delivery_address: delivery === 'delivery' ? (deliverTo === 'office' ? officeAddr : deliverTo === 'other' ? addrTyped.trim() : jobAddr) || null : null, delivery_time: delTime || null, offload: offload.length ? offload : null, reference: ref.trim() || null, issue_date: todayIso(), site_contact: contact.trim() || null, site_contact_phone: contactPh.trim() || null, ...(plot ? { sub_job_id: plot } : {}), ...(split ? { split, split_sites: sids.filter((x) => x !== poSite) } : {}) } as never).eq('id', d.id);
       if (split) toast(`PO ${d.number} raised — costs split across ${sids.length} jobs`);
       router.replace(`/fin/po/${d.id}` as never);
     } finally { setBusy(false); }
   };
 
+  const qList = quotes?.list || [];
+  const qOn = qPick || qList[0]?.id || '';
+  const qItems = (quotes?.items || []).filter((i) => i.quote_id === qOn);
+  const shop = qList.length ? (
+    <Card style={desk ? { width: 380 } : undefined}>
+      <SectionTitle>From The Project Quote</SectionTitle>
+      <SelectBox value={qOn} title="Quote" options={qList.map((q) => [q.id, `${q.supplier_name || 'Supplier'}${q.quote_no ? ` ${q.quote_no}` : ''}${q.site_id ? '' : ' (price list)'}${q.quote_date ? ` · ${q.quote_date.split('-').reverse().join('/')}` : ''}`] as [string, string])} onChange={(k) => { setQPick(k); setTicked(new Set()); }} />
+      <Muted style={{ marginBottom: 6 }}>Tick what you want, like a shopping list.</Muted>
+      {qItems.map((i) => { const on = ticked.has(i.id); return (
+        <Pressable key={i.id} accessibilityRole="checkbox" accessibilityState={{ checked: on }} accessibilityLabel={`Tick ${i.description || ''}`} onPress={() => setTicked((t) => { const n = new Set(t); if (n.has(i.id)) n.delete(i.id); else n.add(i.id); return n; })} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6, borderTopWidth: 1, borderTopColor: '#f0f1f3' }}>
+          <View style={{ width: 16, height: 16, borderRadius: 4, borderWidth: 1.5, borderColor: on ? base.blue : '#c3c8d0', backgroundColor: on ? base.blue : '#fff', alignItems: 'center', justifyContent: 'center' }}>{on && <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700', lineHeight: 13 }}>✓</Text>}</View>
+          <Text style={{ flex: 1, color: base.ink, fontSize: 13 }} numberOfLines={2}>{i.code ? `${i.code} – ` : ''}{i.description}</Text>
+          <Text style={{ color: base.slate, fontSize: 12.5 }}>{i.rate != null ? `£${Number(i.rate).toFixed(3)}${i.unit ? ` / ${i.unit}` : ''}` : ''}</Text>
+        </Pressable>
+      ); })}
+      {!qItems.length && <Muted>Nothing on this quote yet.</Muted>}
+      <View style={{ marginTop: 8, alignSelf: 'flex-start' }}><Button small title={ticked.size ? `Add ${ticked.size} Ticked To PO` : 'Tick Items To Add'} onPress={() => {
+        const add = qItems.filter((i) => ticked.has(i.id)); if (!add.length) { toast('Tick at least one item.'); return; }
+        setLines((ls) => [...ls.filter((l) => l.description.trim() || l.rate), ...add.map((i) => ({ ...blank(ls[0]?.vat || vat0), description: `${i.code ? `${i.code} – ` : ''}${i.description || ''}`, unit: i.unit || '', rate: i.rate != null ? String(i.rate) : '' }))]);
+        const q = qList.find((x) => x.id === qOn); if (!supId && !supText.trim() && q?.supplier_name) { const m = setup?.sups.find((x) => x.name.trim().toLowerCase() === String(q.supplier_name).trim().toLowerCase()); setSupText(m ? m.name : q.supplier_name); setSupId(m ? m.id : null); }
+        setTicked(new Set()); toast(`${add.length} added to the PO`);
+      }} /></View>
+    </Card>
+  ) : null;
   return (
-    <View>
+    <View style={desk && shop ? { flexDirection: 'row', gap: 12, alignItems: 'flex-start' } : undefined}>
+    {shop}
+    <View style={desk && shop ? { flex: 1, minWidth: 0 } : undefined}>
       <Card>
         <SectionTitle>New purchase order · {jobTag(site)}</SectionTitle>
         <SuggestField label="Supplier" value={supText} onChangeText={(t) => { setSupText(t); setSupId(null); }} placeholder="Type to find a supplier, or a new name" showAllOnFocus max={12}
@@ -138,8 +184,23 @@ export function FinNewPo({ site, itemIds = [] }: { site: Site; itemIds?: string[
         </View>
         <SuggestField label="Site contact" value={contact} onChangeText={setContact} placeholder="Start typing a name" showAllOnFocus max={12} items={(team || []).map((p) => ({ key: p.id, label: p.name, sub: p.phone || '' }))} onPick={(s) => { setContact(s.label); const ph = team?.find((p) => p.id === s.key)?.phone; if (ph) setContactPh(ph); }} />
         <TextInput accessibilityLabel="Contact number" value={contactPh} onChangeText={setContactPh} keyboardType="phone-pad" placeholder="Contact number" style={[box, { marginBottom: 8 }]} />
+        {delivery === 'delivery' && (
+          <>
+            <SelectBox label="Deliver To" value={deliverTo} options={[['job', `Job Address · ${jobAddr || 'not set on the project'}`], ['office', `Office · ${officeAddr || 'set it in Finance › Settings'}`], ['other', '✏️ Type An Address…']]} onChange={(k) => setDeliverTo(k as 'job')} />
+            {deliverTo === 'other' && <TextInput accessibilityLabel="Delivery address" value={addrTyped} onChangeText={setAddrTyped} placeholder="Delivery address" multiline style={[box, { marginBottom: 8, minHeight: 44 }]} />}
+            <SelectBox label="Delivery Time" value={delTime} options={TIMES} onChange={setDelTime} />
+            <Text style={{ fontSize: 12, fontWeight: '500', color: base.slate, marginBottom: 4 }}>Offload</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+              {OFFLOAD.map((o) => { const on = offload.includes(o); return (
+                <Pressable key={o} accessibilityRole="checkbox" accessibilityState={{ checked: on }} onPress={() => setOffload(on ? offload.filter((x) => x !== o) : [...offload, o])} style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, borderWidth: 1, borderColor: on ? '#1E7A43' : base.line, backgroundColor: on ? '#E7F6EC' : base.card }}>
+                  <Text style={{ fontSize: 12.5, fontWeight: '600', color: on ? '#1E7A43' : base.ink }}>{on ? '✓ ' : ''}{o}</Text>
+                </Pressable>
+              ); })}
+            </View>
+          </>
+        )}
         <TextInput value={ref} onChangeText={setRef} placeholder="Your reference (optional), e.g. Quote Q-5521" style={[box, { marginBottom: 8 }]} />
-        <TextInput value={note} onChangeText={setNote} placeholder="Notes for the supplier (optional)" multiline style={[box, { minHeight: 52 }]} />
+        <TextInput value={note} onChangeText={setNote} placeholder="Delivery notes for the supplier (optional), e.g. narrow access, max 7.5t" multiline style={[box, { minHeight: 52 }]} />
       </Card>
       <Card>
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
@@ -198,8 +259,9 @@ export function FinNewPo({ site, itemIds = [] }: { site: Site; itemIds?: string[
       <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
         <Button small busy={busy} title="Raise PO" onPress={() => void raise()} />
         <Button small kind="ghost" title="Cancel" onPress={() => router.back()} />
-        <Muted style={{ fontSize: 12 }}>The PO is saved and numbered here. Emailing it to the supplier is off while Finance is on trial — print or download the PDF instead.</Muted>
+        <Muted style={{ fontSize: 12 }}>The PO is saved and numbered here. Then View PO or Send PO from it.</Muted>
       </View>
+    </View>
     </View>
   );
 }

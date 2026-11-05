@@ -14,15 +14,17 @@ import { FinNewPo } from '@/components/FinNewPo';
 import { PoQuote } from '@/components/PoQuote';
 import { confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Muted, SectionTitle } from '@/components/ui';
-import { fdb, loadSettings } from '@/data/finance';
+import { fdb, finInvoke, loadSettings } from '@/data/finance';
 import { filePoPdf, loadPo, removePoLines, savePoValue, setPoStatus, setPoStatusWithRequests } from '@/data/finPurchase';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { DocSplit } from '@/components/DocSplit';
+import { viewDoc } from '@/components/DocViewer';
+import { FinEmailPopup } from '@/components/FinEmailPopup';
 import { buildPoPdf } from '@/lib/finPoPdf';
 import { deliverPdf } from '@/lib/pdf';
 import { COST_CATS, PI_STATUS, poInvoiced } from '@/lib/rules/finBook';
-import { fdate, jobTag, money, num, rateMoney } from '@/lib/rules/finance';
+import { fdate, FIN_TRIAL_MSG, finBlocked, jobTag, money, num, rateMoney } from '@/lib/rules/finance';
 import { base, page, radius, space } from '@/theme/theme';
 
 type Row = Record<string, any>;
@@ -36,11 +38,12 @@ export default function FinPo() {
   const { data, isLoading } = useQuery({ queryKey: ['finPo', poId], enabled: poId !== 'new', queryFn: () => loadPo(poId) });
   const [val, setVal] = useState<string | null>(null);
   const [rm, setRm] = useState<Set<number> | null>(null); // ticking lines to take off (9219zr)
+  const [mailing, setMailing] = useState<string | null>(null); // Send PO: the supplier's email (Andy, 5 Nov 2026)
   if (!me) return null;
   if (poId === 'new') {
     const st = sites.find((x) => x.id === site);
     return (
-      <ScrollView contentContainerStyle={page(900)} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={page(1300)} keyboardShouldPersistTaps="handled">
         <Stack.Screen options={{ title: 'New purchase order' }} />
         {st ? <FinNewPo site={st} itemIds={itemIds ? itemIds.split(',').filter(Boolean) : []} /> : <Muted>Choose the project first.</Muted>}
       </ScrollView>
@@ -62,6 +65,27 @@ export default function FinPo() {
     <View style={{ flex: 1 }}>
     <ScrollView style={{ flex: 1 }} contentContainerStyle={page(900)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: po.number }} />
+      {/* View PO (the PDF beside it, or opened) and Send PO, like a sales invoice (Andy, 5 Nov 2026). */}
+      <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'flex-end', marginBottom: 10 }}>
+        <Button small kind="ghost" title="👁 View PO" onPress={async () => { try { viewDoc(await poPdfUrl(), `PO ${po.number}.pdf`); } catch { toast('Could not build the PO PDF.'); } }} />
+        {po.status !== 'cancelled' && <Button small title="✉ Send PO" onPress={async () => { const sup = po.supplier_id ? ((await fdb.from('suppliers').select('email').eq('id', po.supplier_id).maybeSingle()).data as Row | null) : null; setMailing(String(sup?.email || '')); }} />}
+      </View>
+      {mailing !== null && (
+        <FinEmailPopup kind="po" title={`Send PO ${po.number}`} to={mailing} note="The PO PDF goes with it."
+          vars={{ number: String(po.number || ''), project: sites.find((s) => s.id === po.site_id)?.name || '', job_no: sites.find((s) => s.id === po.site_id)?.job_number || '', supplier: po.supplier_name || '', amount: money(po.total ?? po.value), required_by: po.required_by ? fdate(po.required_by) : '' }}
+          onSend={async (o) => {
+            if (finBlocked('send-finance-email', undefined, me.org_id)) return FIN_TRIAL_MSG;
+            const sup = po.supplier_id ? ((await fdb.from('suppliers').select('id,name,email').eq('id', po.supplier_id).maybeSingle()).data as Row | null) : null;
+            const bytes = await buildPoPdf(po, sites.find((s) => s.id === po.site_id) as Row | undefined, await loadSettings(me.org_id), sup, org);
+            const path = await filePoPdf(me, po, bytes);
+            if (!path) return 'Could not store the PDF — try again.';
+            const r = await finInvoke(me, 'send-finance-email', { kind: 'po', site_id: po.site_id, storage_path: path, filename: `PO ${String(po.number).replace(/[^a-z0-9-]+/gi, '_')}.pdf`, recipients: o.to, cc: o.cc, reference: po.number || '', amount: money(po.total ?? po.value), subject: o.subject, body_text: o.body, logos: o.logos, hide_logo: o.hideLogo });
+            if (r.error) return r.error;
+            await fdb.from('purchase_orders').update({ sent_at: new Date().toISOString(), sent_to: o.to.join(', ') } as never).eq('id', po.id);
+            toast(`PO emailed to ${o.to.join(', ')}`); refresh(); return null;
+          }}
+          onClose={() => setMailing(null)} />
+      )}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
         <FinStat v={`${po.number} · ${po.status}`} label="PO" /><FinStat v={po.supplier_name || '—'} label="Supplier" />
         <FinStat v={po.value != null ? money(po.value) : '—'} label="PO value" /><FinStat v={money(inv)} label="Invoiced" hot={po.value != null && inv > Number(po.value)} />
@@ -72,6 +96,10 @@ export default function FinPo() {
         <FinRow title="Ordered" right={`${fdate(String(po.created_at).slice(0, 10))} by ${po.ordered_by_name || '—'}`} />
         {!!po.yard_booked_at && <FinRow title="Booked into the yard" right={fdate(String(po.yard_booked_at).slice(0, 10))} />}
         {po.required_by && <FinRow title={po.fulfilment === 'collection' ? 'Collection' : 'Required for delivery'} right={fdate(po.required_by)} />}
+        {po.fulfilment !== 'collection' && !!po.delivery_address && <FinRow title={po.delivery_to === 'office' ? 'Deliver to the office' : 'Deliver to'} right={po.delivery_address} />}
+        {!!po.delivery_time && <FinRow title="Delivery time" right={po.delivery_time} />}
+        {Array.isArray(po.offload) && po.offload.length > 0 && <FinRow title="Offload" right={po.offload.join(', ')} />}
+        {!!po.site_contact && <FinRow title="Site contact" right={`${po.site_contact}${po.site_contact_phone ? ` · ${po.site_contact_phone}` : ''}`} />}
         {po.supplier_branch && <FinRow title="Branch" right={po.supplier_branch} />}{po.note && <FinRow title="Note" right={po.note} />}
         {po.sent_at && <FinRow title="Emailed" right={`${fdate(String(po.sent_at).slice(0, 10))} to ${po.sent_to || ''}`} />}
       </Card>
@@ -114,7 +142,6 @@ export default function FinPo() {
         {po.status !== 'open' && <Button kind="ghost" title="Reopen PO" onPress={async () => { const n = await setPoStatusWithRequests(me, po.id, 'open'); if (n !== null) { toast(n ? `PO reopened — ${n} site request${n === 1 ? '' : 's'} put back` : 'PO reopened'); refresh(); } }} />}
       </View>
       {po.status !== 'cancelled' && <PoQuote me={me} po={po} onDone={refresh} />}
-      <Muted style={{ marginTop: 8 }}>Emailing the PO to the supplier is off during the Finance trial.</Muted>
     </ScrollView>
     <ThinExportBar onPdf={async () => {
         try {

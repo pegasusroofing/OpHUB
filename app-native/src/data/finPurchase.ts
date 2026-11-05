@@ -164,21 +164,24 @@ export async function removePoLines(me: Profile, id: string, idx: number[]): Pro
 
 /** A Finance PO's PDF kept on the PO (finance-docs, pdf_path) and filed in the job's Material PO's ›
  *  "Finance POs" folder, dated for the required-by day (909 finStorePoPdf + 9219zr mplFilePoPdf). Best-effort. */
-export async function filePoPdf(me: Profile, po: Record<string, any>, bytes: Uint8Array): Promise<void> {
+/** Stores the PO PDF in Finance (and the project's Finance POs folder); gives back where, for Send PO. */
+export async function filePoPdf(me: Profile, po: Record<string, any>, bytes: Uint8Array): Promise<string | null> {
+  let path: string | null = null;
   try {
     const keep = `${me.org_id}/${po.site_id}/po/${String(po.number).replace(/[^a-z0-9-]+/gi, '_')}-${Date.now()}.pdf`;
     const up = await supabase.storage.from('finance-docs').upload(keep, bytes, { contentType: 'application/pdf' });
-    if (!up.error) await fdb.from('purchase_orders').update({ pdf_path: up.data.path } as never).eq('id', po.id);
-    if (!po.site_id) return;
+    if (!up.error) { path = up.data.path; await fdb.from('purchase_orders').update({ pdf_path: up.data.path } as never).eq('id', po.id); }
+    if (!po.site_id) return path;
     const FOLDER = 'Finance POs';
     let folder = ((await fdb.from('material_order_folders').select('id').eq('site_id', po.site_id).is('parent_id', null).eq('name', FOLDER).limit(1)).data as { id: string }[] | null)?.[0];
     if (!folder) folder = ((await fdb.from('material_order_folders').insert({ site_id: po.site_id, parent_id: null, name: FOLDER, created_by: me.id } as never).select('id')).data as { id: string }[] | null)?.[0];
-    const path = `${po.site_id}/finance-pos/${po.id}.pdf`;
-    if ((await supabase.storage.from('material-orders').upload(path, bytes, { contentType: 'application/pdf', upsert: true })).error) return;
+    const fpath = `${po.site_id}/finance-pos/${po.id}.pdf`;
+    if ((await supabase.storage.from('material-orders').upload(fpath, bytes, { contentType: 'application/pdf', upsert: true })).error) return path;
     const itemId = `finpo-${po.id}`;
-    const row = { name: `PO ${po.number || ''}${po.supplier_name ? ` – ${po.supplier_name}` : ''}.pdf`, storage_path: path, size: bytes.length, scheduled_delivery_date: po.required_by ? String(po.required_by).slice(0, 10) : null, synced_at: new Date().toISOString() };
+    const row = { name: `PO ${po.number || ''}${po.supplier_name ? ` – ${po.supplier_name}` : ''}.pdf`, storage_path: fpath, size: bytes.length, scheduled_delivery_date: po.required_by ? String(po.required_by).slice(0, 10) : null, synced_at: new Date().toISOString() };
     const ex = ((await fdb.from('material_order_files').select('id').eq('site_id', po.site_id).eq('item_id', itemId).limit(1)).data as { id: string }[] | null)?.[0];
     if (ex) await fdb.from('material_order_files').update(row as never).eq('id', ex.id);
     else await fdb.from('material_order_files').insert({ ...row, site_id: po.site_id, org_id: me.org_id, folder_id: folder?.id ?? null, item_id: itemId } as never);
   } catch { /* filing is best-effort; the download still happens */ }
+  return path;
 }
