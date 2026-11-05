@@ -1,5 +1,8 @@
 -- ==========================================================================================
--- OpHUB security fixes (written 5 Nov 2026 from the overnight security review). NOT RUN YET.
+-- OpHUB security fixes (written 5 Nov 2026 from the overnight security review).
+-- PART A WAS RUN ON 5 Nov 2026 (Andy said go ahead), as migration security_fixes_5nov_part_a. Checked: all
+-- three rules in place, Xero token tables closed, and an operative can no longer approve their own plant
+-- (tested on Sandbox, rolled back). Part B has NOT been run.
 -- How to run: Supabase > SQL Editor > New query, paste this whole file, press Run.
 -- Part A runs as one block: if any line fails, nothing changes. Safe to run twice.
 -- Part B (at the bottom) is commented out on purpose: each item needs your go-ahead first.

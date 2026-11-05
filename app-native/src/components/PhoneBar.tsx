@@ -15,9 +15,10 @@ type Item = { k: string; icon: string; label: string; href: string; emph?: boole
 const JOB = /^\/sites\/([0-9a-f-]{36})(?:\/(.*))?$/;
 /** Whether this path has the Projects bar, not the general one. */
 // Managers only have it inside Projects (Andy, 1 Nov 2026): not on Home, Finance or anywhere else.
-export const usesPhoneBar = (path: string, fullManager: boolean) => JOB.test(path) || (fullManager && (path === '/sites' || path.startsWith('/sites/')));
+// Operatives, subcontractor logins and clients (opBar): only on a job and on the projects list, as the old app (Andy, 5 Nov 2026).
+export const usesPhoneBar = (path: string, fullManager: boolean, opBar = false) => JOB.test(path) || (fullManager && (path === '/sites' || path.startsWith('/sites/'))) || (opBar && path === '/sites');
 
-export function PhoneBar({ hubCount, inboxCount }: { hubCount?: number; inboxCount?: number }) {
+export function PhoneBar({ hubCount, inboxCount, outstanding }: { hubCount?: number; inboxCount?: number; outstanding?: number }) {
   const { me } = useAuth();
   const t = useTheme();
   const insets = useSafeAreaInsets();
@@ -40,6 +41,14 @@ export function PhoneBar({ hubCount, inboxCount }: { hubCount?: number; inboxCou
       { k: 'add', icon: 'plus', label: 'Add', href: '/sites/new', emph: true, branded: true, on: path === '/sites/new' },
       { k: 'hub', icon: 'bell', label: 'HUB', href: '/pm/hub', badge: hubCount, on: path === '/pm/hub' },
       { k: 'calendar', icon: 'calendar', label: 'Calendar', href: '/pm/calendar', on: path === '/pm/calendar' },
+    ];
+  } else if (path === '/sites') {
+    // 130 homeBottomBar for everyone else: Outstanding · Inbox (not for clients) · My Dashboard · Settings.
+    items = [
+      { k: 'outstanding', icon: 'list', label: 'Outstanding', href: '/inbox?tab=todo', badge: outstanding },
+      ...(me?.role === 'client' ? [] : [{ k: 'inbox', icon: 'chat', label: 'Inbox', href: '/inbox?tab=msgs' }]),
+      { k: 'mydash', icon: 'tools', label: 'My Dashboard', href: '/dashboard' },
+      { k: 'settings', icon: 'gear', label: 'Settings', href: '/account' },
     ];
   } else return null;
   return (

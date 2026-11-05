@@ -5,7 +5,7 @@ import { useEffect } from 'react';
 import { Platform, Pressable, Text, useWindowDimensions, View } from 'react-native';
 
 import { useHub } from '@/data/hub';
-import { useManagerMessages } from '@/data/siteMessages';
+import { useManagerMessages, useSiteMessages } from '@/data/siteMessages';
 import { outstandingCount, useOutstanding } from '@/data/inbox';
 import { useSites } from '@/data/sites';
 import { OfflineBar } from '@/components/OfflineBar';
@@ -42,12 +42,16 @@ export default function AppLayout() {
   const siteMgr = me?.role === 'site_manager';
   const { data: allSites } = useSites();
   const path = usePathname();
-  const projBar = usesPhoneBar(path.replace(/\/$/, ''), isFullManager(me) && !isFinanceController(me) && !isFinanceOnlyOrg(org));
+  // Operatives, subcontractor logins and clients: no general bar at all; the old app's bar only on Projects and on a job (Andy, 5 Nov 2026).
+  const opBar = !!me && ['operative', 'subcontractor', 'client'].includes(homeKind(me, org));
+  const projBar = usesPhoneBar(path.replace(/\/$/, ''), isFullManager(me) && !isFinanceController(me) && !isFinanceOnlyOrg(org), opBar);
   const { data: hubBadge } = useHub(siteMgr || (projBar && isFullManager(me) && !/^\/sites\/[0-9a-f-]{36}/.test(path)) ? me : null, allSites, '');
   const { data: ownBadge } = useOutstanding(me && !siteMgr && !isManager(me) && hasSites ? allSites : undefined);
   // The job's Inbox badge on a manager's phone bar: unread messages for this job (it never showed, found 5 Nov 2026).
   const jobId = projBar ? /^\/sites\/([0-9a-f-]{36})/.exec(path)?.[1] : undefined;
-  const { data: jobMsgs } = useManagerMessages(jobId);
+  const mgrInbox = !!me && isManager(me);
+  const { data: jobMsgs } = useManagerMessages(mgrInbox ? jobId : undefined);
+  const { data: opMsgs } = useSiteMessages(mgrInbox ? undefined : jobId);
   const inboxN = siteMgr ? (hubBadge?.items.length ?? 0) : outstandingCount(ownBadge);
   const { width } = useWindowDimensions();
   const desk = Platform.OS === 'web' && width >= 1100;
@@ -77,7 +81,7 @@ export default function AppLayout() {
     <SupportBar />
     <OfflineBar />
     <Tabs
-      tabBar={desk ? () => <DeskNav /> : projBar || isFullManager(me) ? () => null : undefined}
+      tabBar={desk ? () => <DeskNav /> : projBar || opBar || isFullManager(me) ? () => null : undefined}
       screenOptions={{
         // Pages straight under the tabs get the shared top bar; the sections with their own Stack draw it themselves.
         header: (p) => <AppBar title={p.options.title} home={p.route.name === 'home'} onBack={p.route.name === 'home' ? undefined : () => router.navigate('/home' as never)} />,
@@ -105,7 +109,7 @@ export default function AppLayout() {
       <Tabs.Screen name="pm" options={{ ...(siteMgr && !desk ? { tabBarIcon: icon('bell'), tabBarLabel: 'HUB', href: '/pm/hub' as never, tabBarBadge: inboxN || undefined } : hidden), title: 'Manager', headerShown: false }} />
       <Tabs.Screen name="fin" options={{ ...hidden, title: 'Finance', headerShown: false }} />
     </Tabs>
-    {!desk && projBar && <PhoneBar hubCount={hubBadge?.items.length} inboxCount={jobMsgs?.unread.length || undefined} />}
+    {!desk && projBar && <PhoneBar hubCount={hubBadge?.items.length} inboxCount={(mgrInbox ? jobMsgs?.unread.length : opMsgs?.unread.length) || undefined} outstanding={opBar ? inboxN || undefined : undefined} />}
     </View>
   );
 }
