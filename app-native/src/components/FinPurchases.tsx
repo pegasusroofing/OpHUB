@@ -12,7 +12,7 @@ import { inPeriod, useStatPeriods } from '@/lib/useStatPeriods';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { FinFilterBar, type FilterPart, type FilterSel } from '@/components/FinFilterBar';
-import { FinChip, FinRow, FinStat } from '@/components/FinNav';
+import { FinRow, FinStat, FinTabRow } from '@/components/FinNav';
 import { Cell, FinChoicePop, FinTable, FootPick } from '@/components/FinTable';
 import { pickJob } from '@/components/FinSales';
 import { chooseAction, confirmAsk, useToast } from '@/components/toast';
@@ -27,7 +27,7 @@ import { useAuth } from '@/lib/auth';
 import { PI_STATUS, poInvoiced } from '@/lib/rules/finBook';
 import { fdate, FIN_TRIAL_MSG, finBlocked, jobTag, money, plantCost, round2, today } from '@/lib/rules/finance';
 import { monthLabel, monthOf, monthsIn, valueTest } from '@/lib/rules/finFilters';
-import { base, radius, useDesk } from '@/theme/theme';
+import { base, radius, useDesk, useTheme } from '@/theme/theme';
 
 type Row = Record<string, any>;
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 9, color: base.ink, backgroundColor: base.card };
@@ -99,6 +99,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
   const { data } = usePurchases(me?.org_id, siteId);
   // Filter: status, supplier, project and month, tick as many as you like. Purchase invoices keep one view at a time, as each shows a different list.
   const desk = useDesk();
+  const th = useTheme();
   const [sel, setFilt] = useState<FilterSel>({ status: tab === 'orders' ? (desk ? [] : ['open']) : tab === 'invoices' && f0 ? [f0] : [], sup: [], job: [], mon: [] });
   const [sort, setSort] = useState('new');
   const [val, setVal] = useState('');
@@ -178,11 +179,24 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
     const show = parts.find((p) => p.single);
     // Lists drawn as cards have no headings to search by, so they keep a slim search box.
     const cards = tab === 'plant' || (tab === 'invoices' && ['job', 'pm'].includes(String((cur || sel).status[0] || '')));
+    const on = (cur || sel).status[0];
     return (
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginBottom: 10 }}>
-        {show?.items.map((it) => <FinChip key={it.v} on={(cur || sel).status[0] === it.v} label={it.l} n={it.n} onPress={() => setFilt({ ...sel, status: [it.v] })} />)}
-        {cards && <TextInput value={q} onChangeText={setQ} placeholder={ph} style={[box, { flexGrow: 1, minWidth: 220, maxWidth: 360, marginBottom: 0, paddingVertical: 6, fontSize: 13 }]} />}
-      </View>
+      <>
+        {/* Underlined tabs like the Overview / Sales / Purchases row above (Andy, 5 Nov 2026), not chips. */}
+        {!!show && (
+          <FinTabRow>
+            {show.items.map((it) => (
+              <Pressable key={it.v} onPress={() => setFilt({ ...sel, status: [it.v] })} accessibilityRole="tab" accessibilityState={{ selected: on === it.v }} style={{ paddingVertical: 10, paddingHorizontal: 14, borderBottomWidth: 2, borderBottomColor: on === it.v ? th.brand1 : 'transparent' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={{ fontSize: 13, fontWeight: on === it.v ? '700' : '600', color: on === it.v ? '#111827' : '#6b7280' }}>{it.l}</Text>
+                  {it.n ? <Text style={{ fontSize: 10.5, fontWeight: '700', color: on === it.v ? '#111827' : '#6b7280', backgroundColor: '#EEF0F3', borderRadius: 9, minWidth: 18, textAlign: 'center', paddingHorizontal: 5, overflow: 'hidden' }}>{it.n}</Text> : null}
+                </View>
+              </Pressable>
+            ))}
+          </FinTabRow>
+        )}
+        {cards && <TextInput value={q} onChangeText={setQ} placeholder={ph} style={[box, { minWidth: 220, maxWidth: 360, marginBottom: 10, paddingVertical: 6, fontSize: 13 }]} />}
+      </>
     );
   })() : (
     <FinFilterBar search={{ value: q, onChange: setQ, placeholder: ph }} parts={[...parts, ...commonParts]} sel={cur || sel} onChange={setFilt} moreOn={!!val}
@@ -237,7 +251,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
     const F: Record<string, (i: Row) => boolean> = { approve: (i) => ['to_approve', 'query'].includes(i.status), unpaid: (i) => i.status === 'approved' && !i.paid_on, paid: (i) => !!i.paid_on, all: () => true };
     const cnt: Record<string, number> = { job: needJob.length, pm: withPm.length, approve: toApprove.length, unpaid: unpaid.length };
     const cur = sel.status[0] || ['job', 'approve', 'pm', 'unpaid'].find((k) => cnt[k]) || 'all';
-    const chips: [string, string, number][] = [['job', 'Unallocated', needJob.length], ['pm', 'With a PM', withPm.length], ['approve', 'To approve', toApprove.length], ['unpaid', 'Approved, not paid', unpaid.length], ['paid', 'Paid', data.pinvs.filter(F.paid).length], ['all', 'All filed', data.pinvs.length]];
+    const chips: [string, string, number][] = [['job', 'Unallocated', needJob.length], ['pm', 'With A PM', withPm.length], ['approve', 'To Approve', toApprove.length], ['unpaid', 'Approved, Not Paid', unpaid.length], ['paid', 'Paid', data.pinvs.filter(F.paid).length], ['all', 'All Filed', data.pinvs.length]];
     const posBy: Record<string, Row> = {}; data.pos.forEach((p) => { posBy[p.id] = p; });
     const checks = (i: Row): [string, string][] => {
       const po = posBy[i.po_id], out: [string, string][] = [];
