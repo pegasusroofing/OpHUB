@@ -1,29 +1,31 @@
 // A purchase invoice or receipt (904 openPurchaseInvoiceView / Form). "new"
 // (?site=&po=) adds one by hand with the duplicate check; otherwise approve,
 // query, reject, mark paid and open the file.
-import * as DocumentPicker from 'expo-document-picker';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, Text, View, TextInput } from 'react-native';
+import { ScrollView, Text, View, TextInput } from 'react-native';
 
 import { SelectBox } from '@/components/SelectBox';
-import { FinForm } from '@/components/FinForm';
+import { PinvEditor } from '@/components/PinvEditor';
+import { InvoiceLines } from '@/components/InvoiceLines';
 import { AllocRow } from '@/components/FinSplit';
 import { XeroRow } from '@/components/FinXero';
 import { FinRow, FinStat } from '@/components/FinNav';
 import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
-import { Button, Card, Check, Muted, SectionTitle } from '@/components/ui';
+import { Button, Card, Muted, SectionTitle } from '@/components/ui';
 import { fdb } from '@/data/finance';
 import { DocSplit } from '@/components/DocSplit';
 import { viewDoc } from '@/components/DocViewer';
 import { nameOf, openDocLink, usePeople } from '@/data/hs';
-import { addPiThreadReply, piLabel, tellPmOfPi, addPinv, duplicateOf, isInXero, loadPinv, setPinvCostCode, setPinvPaid, setPinvStatus } from '@/data/finPurchase';
+import { addPiThreadReply, piLabel, tellPmOfPi, isInXero, loadPinv, setPinvCostCode, setPinvPaid, setPinvStatus } from '@/data/finPurchase';
 import { useSites } from '@/data/sites';
+import { saveLinesOnInvoice } from '@/data/invoiceRead';
+import { allocProblem, linesNet, linesVat } from '@/lib/rules/invoiceRead';
 import { useAuth } from '@/lib/auth';
 import { COST_CATS, PI_STATUS } from '@/lib/rules/finBook';
 import { codePatch, codeStart, type CodeLine } from '@/lib/rules/piCode';
-import { addDays, fdate, jobTag, money, num, round2, today } from '@/lib/rules/finance';
+import { fdate, jobTag, money, round2, today } from '@/lib/rules/finance';
 import { base, page, radius, space } from '@/theme/theme';
 
 const XERO_Q = 'This is already in Xero. Changing it here won’t change Xero — change it in Xero too, or the two won’t match.';
@@ -31,57 +33,9 @@ const XERO_Q = 'This is already in Xero. Changing it here won’t change Xero �
 type Row = Record<string, any>;
 export default function FinPinv() {
   const { pid, site, po, receipt } = useLocalSearchParams<{ pid: string; site?: string; po?: string; receipt?: string }>();
-  if (pid === 'new') return <NewPinv siteId={site || ''} poId={po || ''} receipt={receipt === '1'} />;
+  // Add Manually opens the line-by-line screen (Andy, 5 Nov 2026); the project is chosen on it.
+  if (pid === 'new') return <PinvEditor key={`${site || ''}${po || ''}${receipt || ''}`} siteId={site || undefined} poId={po || undefined} />;
   return <ViewPinv id={pid} />;
-}
-
-function NewPinv({ siteId, poId, receipt }: { siteId: string; poId: string; receipt: boolean }) {
-  const { me } = useAuth();
-  const toast = useToast();
-  const qc = useQueryClient();
-  const { data: sites = [] } = useSites();
-  const [file, setFile] = useState<{ uri: string; name: string; mimeType?: string | null } | null>(null);
-  const [dupOk, setDupOk] = useState('');
-  const [isReceipt, setIsReceipt] = useState(receipt);
-  // 904:186 — link a typed invoice to one of the project's open POs, so the over-PO / nothing-received checks run.
-  const { data: sitePos = [] } = useQuery({
-    queryKey: ['finSitePos', siteId], enabled: !!siteId && !poId,
-    queryFn: async () => ((await fdb.from('purchase_orders').select('id,number,supplier_name').eq('site_id', siteId).not('status', 'in', '(cancelled)').order('created_at', { ascending: false })).data as Row[] | null) ?? [],
-  });
-  if (!me) return null;
-  return (
-    <ScrollView contentContainerStyle={page(700)}>
-      <Stack.Screen options={{ title: isReceipt ? 'Add a receipt' : 'Add a purchase invoice' }} />
-      <Muted style={{ marginBottom: 8 }}>{jobTag(sites.find((s) => s.id === siteId))}</Muted>
-      <Check label="This is a receipt (no invoice number)" value={isReceipt} onChange={setIsReceipt} />
-      <Pressable onPress={async () => { const r = await DocumentPicker.getDocumentAsync({ type: ['application/pdf', 'image/*'], copyToCacheDirectory: true }); if (!r.canceled && r.assets[0]) setFile({ uri: r.assets[0].uri, name: r.assets[0].name, mimeType: r.assets[0].mimeType }); }} style={{ marginVertical: 8 }}><Text style={{ color: base.blue }}>📎 {file ? file.name : 'Attach the invoice (PDF or photo)'}</Text></Pressable>
-      <FinForm title={isReceipt ? 'Receipt' : 'Purchase invoice'} initial={{ invoice_date: today(), cost_code: 'materials', po_id: poId }} onClose={() => router.back()} saveLabel="Save"
-        fields={[
-          ...(!poId && !isReceipt && sitePos.length ? [{ k: 'po_pick', label: 'Purchase order (optional)', kind: 'choice', options: [['', 'None'], ...sitePos.map((p): [string, string] => [p.id, `${p.number || 'PO'} · ${p.supplier_name || ''}`])] }] as never[] : []),
-          { k: 'supplier', label: 'Supplier' }, ...(isReceipt ? [] : [{ k: 'invoice_no', label: 'Invoice number', half: true }] as never[]), { k: 'invoice_date', label: 'Date', kind: 'date', half: true },
-          { k: 'net', label: 'Net £ (blank = worked out from the total)', kind: 'money', half: true, ph: 'Worked out' }, { k: 'vat', label: 'VAT £ (blank = 20%)', kind: 'money', half: true, ph: 'Worked out' }, { k: 'total', label: 'Total £ (blank = net + VAT)', kind: 'money', half: true, ph: 'Worked out' }, { k: 'due_date', label: 'Due date', kind: 'date', half: true },
-          { k: 'cost_code', label: 'Cost type', kind: 'choice', options: Object.entries(COST_CATS).filter(([c]) => c !== 'labour') }, { k: 'description', label: 'Description' },
-        ]}
-        onSave={async (v) => {
-          const supplier = String(v.supplier).trim(), no = String(v.invoice_no || '').trim(), total = num(v.total);
-          // 904 finPiCalc: a net fills VAT at 20% (and the total); a total on its own backs out the net and VAT.
-          const typedVat = String(v.vat ?? '').trim() !== '' ? num(v.vat) : null;
-          let net = num(v.net), vat = typedVat ?? 0;
-          if ((net === null || isNaN(net)) && total !== null && !isNaN(total)) { net = typedVat !== null && !isNaN(typedVat) ? round2(total - typedVat) : round2(total / 1.2); if (typedVat === null) vat = round2(total - net); }
-          else if (net !== null && !isNaN(net) && typedVat === null) vat = total !== null && !isNaN(total) ? round2(total - net) : round2(net * 0.2);
-          if (!supplier) return 'Enter the supplier.';
-          if (!isReceipt && !no) return 'Enter the invoice number.';
-          if (net === null || isNaN(net)) return 'Enter the net amount.';
-          const key = `${supplier.toLowerCase()}|${no.toLowerCase()}`;
-          if (no && dupOk !== key) { const d = await duplicateOf(supplier, no); if (d) { setDupOk(key); return `Possible duplicate: ${supplier} invoice ${no} is already on ${jobTag(sites.find((s) => s.id === d.site_id)) || 'another project'} (${fdate(d.invoice_date)}). Save again to add it anyway.`; } }
-          const r = await addPinv(me, siteId, { supplier, invoice_no: no, invoice_date: String(v.invoice_date), net, vat, total: total === null || isNaN(total) ? null : total, due_date: String(v.due_date).trim() || (String(v.invoice_date || '').trim() ? addDays(String(v.invoice_date), 30) : null), description: String(v.description).trim(), cost_code: v.cost_code, po_id: poId || v.po_pick || null, receipt: isReceipt }, file);
-          if (r.error) return r.error;
-          toast(r.flags.length ? `Saved and flagged: ${r.flags[0]}` : 'Saved — waiting for approval');
-          ['finPurchases', 'finBook', 'finPo'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] }));
-          return null;
-        }} />
-    </ScrollView>
-  );
 }
 
 function ViewPinv({ id }: { id: string }) {
@@ -160,7 +114,7 @@ function ViewPinv({ id }: { id: string }) {
         {i.paid_on && <FinRow title="Paid" right={fdate(i.paid_on)} />}
         <XeroRow kind="bill" rec={i} onDone={refresh} />
       </Card>
-      <CodeLines i={i} sites={sites} onSaved={refresh} />
+      <PinvLines i={i} sites={sites} onSaved={refresh} />
       {i.file_path && <Button kind="ghost" title={`📄 ${i.file_name || 'Open the invoice'}`} onPress={async () => { const u = await openDocLink('finance-docs', i.file_path); if (u) viewDoc(u); else toast('Could not open the file.'); }} />}
       <View style={{ gap: 8, marginTop: 10 }}>
         {i.status !== 'approved' && <Button title="✓ Approve" onPress={() => void status('approved', 'Approve')} />}
@@ -174,8 +128,35 @@ function ViewPinv({ id }: { id: string }) {
   );
 }
 
+/** The invoice's lines (Andy, 5 Nov 2026): shown as on the new screen; Edit Lines changes them (qty, rate, discount,
+ *  VAT, project or a split by %) and saves the net, VAT, total and split from them. Not once it's in Xero or paid. */
+function PinvLines({ i, sites, onSaved }: { i: Row; sites: { id: string; job_number?: string | null; name?: string | null; status?: string | null }[]; onSaved: () => void }) {
+  const toast = useToast();
+  const [lines, setLines] = useState<Row[] | null>(null);
+  const items = ((i.lines || []) as Row[]).filter((l) => l && (l.kind || 'item') !== 'total');
+  const locked = !!i.xero_id || !!i.paid_on;
+  if (!items.length && !lines) return locked ? null : <Button small kind="ghost" title="+ Add The Lines" onPress={() => setLines([{ description: i.description || 'Invoice total', qty: 1, unit: 'each', unit_price: Number(i.net || 0), amount: Number(i.net || 0), site_id: i.site_id, cost_code: i.cost_code || 'materials', vat_rate: Number(i.net) ? Math.round((Number(i.vat || 0) / Number(i.net)) * 100) : 20, disc: 0 }])} />;
+  return (
+    <View>
+      <InvoiceLines lines={(lines ?? items) as never} checks={[]} sites={sites as never} read={null} readOnly={!lines} onChange={(l) => setLines(l as Row[])} defaultSite={i.site_id} />
+      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
+        {!lines && !locked && <Button small kind="ghost" title="Edit Lines" onPress={() => setLines(items)} />}
+        {!!lines && <Button small title="Save Lines" onPress={async () => {
+          for (const [k, l] of lines.entries()) { if (!l.alloc?.length && !l.site_id) { toast(`Choose the project on line ${k + 1}.`); return; } const p = allocProblem(l); if (p) { toast(`Line ${k + 1}: ${p}`); return; } }
+          const net = linesNet(lines as never), vat = linesVat(lines as never);
+          if (!(await fdb.from('purchase_invoices').update({ net, vat, total: round2(net + vat) } as never).eq('id', i.id).select('id')).data?.length) { toast('Could not save — try again.'); return; }
+          await saveLinesOnInvoice({ ...i, net }, lines as never, []);
+          setLines(null); onSaved();
+        }} />}
+        {!!lines && <Button small kind="ghost" title="Cancel" onPress={() => setLines(null)} />}
+        {locked && <Muted>{i.xero_id ? 'In Xero, so the lines are changed in Xero.' : 'Paid, so the lines stay as they are.'}</Muted>}
+      </View>
+    </View>
+  );
+}
+
 // Code each line to a project and cost type (9219g): one invoice can cover several jobs.
-function CodeLines({ i, sites, onSaved }: { i: Row; sites: { id: string; job_number?: string | null; name?: string | null; status?: string | null }[]; onSaved: () => void }) {
+export function CodeLines({ i, sites, onSaved }: { i: Row; sites: { id: string; job_number?: string | null; name?: string | null; status?: string | null }[]; onSaved: () => void }) {
   const toast = useToast();
   const [lines, setLines] = useState<CodeLine[] | null>(null);
   const items = ((i.lines || []) as Row[]).filter((l) => l && (l.kind || 'item') !== 'total');

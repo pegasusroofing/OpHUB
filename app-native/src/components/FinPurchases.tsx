@@ -273,7 +273,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
           <View style={{ flex: desk ? 1 : undefined, minWidth: 0 }}>{bar(cur === 'job' || cur === 'pm' ? 'Search supplier, email or invoice no.' : 'Search supplier, invoice no. or project', [{ key: 'status', label: 'Show', single: true, items: chips.map(([v, l, n]) => ({ v, l, n })) }], { ...sel, status: [cur] })}</View>
           <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
             <View style={{ flex: desk ? undefined : 1 }}><Button small={desk} grow={!desk} kind="ghost" busy={upBusy} title="Add Invoices" onPress={() => void uploadInvoices()} /></View>
-            <View style={{ flex: desk ? undefined : 1 }}><Button small={desk} grow={!desk} title="Add Manually" onPress={() => void withJob('Add a purchase invoice', (sid) => `/fin/pinv/new?site=${sid}`)} /></View>
+            <View style={{ flex: desk ? undefined : 1 }}><Button small={desk} grow={!desk} title="Add Manually" onPress={() => router.push((siteId ? `/fin/pinv/new?site=${siteId}` : '/fin/pinv/new') as never)} /></View>
           </View>
         </View>
         {cur === 'job' || cur === 'pm' ? (

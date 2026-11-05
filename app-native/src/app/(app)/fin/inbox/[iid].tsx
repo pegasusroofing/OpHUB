@@ -9,6 +9,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { DocSplit } from '@/components/DocSplit';
+import { PinvEditor } from '@/components/PinvEditor';
 import { InvoiceLines } from '@/components/InvoiceLines';
 import { checkAll, loadReadContext, readOne, saveLinesOnInvoice } from '@/data/invoiceRead';
 import { decide, type RLine } from '@/lib/rules/invoiceRead';
@@ -68,6 +69,8 @@ export default function FinInboxItem() {
     if (!r.data?.length) { toast('Could not save — try again.'); return; }
     toast(`Supplier set to ${name}`); void qc.invalidateQueries({ queryKey: ['finInbox', iid] });
   };
+  // Not filed yet: the line-by-line purchase invoice screen (Andy, 5 Nov 2026), filled in from what was read.
+  if (!filed) return <PinvEditor key={`${it.id}${it.extracted?.lines ? 'r' : ''}${it.supplier_override || ''}`} inbox={it} />;
   return (
     <DocSplit name={it.file_name || 'Invoice'} load={it.file_path ? () => openDocLink('finance-docs', it.file_path) : null}>
     <ScrollView contentContainerStyle={page(800)}>

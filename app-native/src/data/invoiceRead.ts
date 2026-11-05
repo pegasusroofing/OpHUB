@@ -2,7 +2,7 @@
 // job and a price check against the newest quote or price list. Clear ones file themselves; the rest wait in Unallocated
 // with the reason. While Finance is on trial none of this runs for RTB: finInvoke refuses the reader.
 import { fdb, finInvoke } from '@/data/finance';
-import { codeLines, decide, lineValue, priceCheck, type PriceCheck, type Quote, type QuoteItem, type Read, type RLine, type RPo, type RSite } from '@/lib/rules/invoiceRead';
+import { codedParts, codeLines, decide, priceCheck, type PriceCheck, type Quote, type QuoteItem, type Read, type RLine, type RPo, type RSite } from '@/lib/rules/invoiceRead';
 import { codePatch } from '@/lib/rules/piCode';
 import { round2, today } from '@/lib/rules/finance';
 import { supabase } from '@/lib/supabase';
@@ -28,9 +28,9 @@ export const checkAll = (lines: RLine[], supplier: string | undefined, c: ReadCo
 export async function saveLinesOnInvoice(pi: Row, lines: RLine[], flags: string[]): Promise<void> {
   const stored = lines.map((l) => ({ ...l, kind: l.kind || 'item', cost_code: l.cost_code || 'materials' }));
   const withLines = { ...pi, lines: stored };
-  const coded = stored.filter((l) => l.site_id).map((l) => ({ description: l.description || '', amount: lineValue(l), site_id: l.site_id as string, cost_code: l.cost_code }));
-  const patch = codePatch(withLines, coded);
-  await fdb.from('purchase_invoices').update({ ...('patch' in patch ? patch.patch : {}), lines: 'patch' in patch ? patch.patch.lines : stored, ...(flags.length ? { match_notes: flags.join('\n') } : {}) } as never).eq('id', pi.id);
+  // Split lines (by %) count against each of their projects (Andy, 5 Nov 2026); the lines are kept exactly as entered.
+  const patch = codePatch({ ...withLines, lines: [] }, codedParts(stored));
+  await fdb.from('purchase_invoices').update({ ...('patch' in patch ? patch.patch : {}), lines: stored, ...(flags.length ? { match_notes: flags.join('\n') } : {}) } as never).eq('id', pi.id);
 }
 
 const asItem = (r: Read, code: ReturnType<typeof codeLines>) => ({ ...r, invoice_no: r.doc_number, date: r.doc_date, lines: code.lines });

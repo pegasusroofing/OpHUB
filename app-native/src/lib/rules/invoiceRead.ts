@@ -2,7 +2,9 @@
 // have cost, and whether it can be filed by itself or needs someone to look. Pure, so it can be tested on its own.
 export type RSite = { id: string; job_number?: string | null; name?: string | null; address?: string | null; postcode?: string | null; status?: string | null };
 export type RPo = { id: string; number?: string | null; site_id?: string | null };
-export type RLine = { code?: string; description?: string; qty?: number; unit?: string; unit_price?: number; amount?: number; kind?: string; site_reference?: string; site_id?: string | null; how?: string; cost_code?: string };
+/** One line. disc: discount %. alloc: the line split across projects by % (Andy, 5 Nov 2026). vat_rate: 20, 5, 0 or 'rc'. */
+export type Alloc = { site_id: string; pct: number };
+export type RLine = { code?: string; description?: string; qty?: number; unit?: string; unit_price?: number; amount?: number; kind?: string; site_reference?: string; site_id?: string | null; how?: string; cost_code?: string; disc?: number; alloc?: Alloc[]; vat_rate?: number | 'rc'; from_quote?: string };
 export type Read = { doc_type?: string; supplier?: string; doc_number?: string; doc_date?: string; due_date?: string; po_number?: string; site_reference?: string; net?: number; vat?: number; total?: number; lines?: RLine[] };
 export type Quote = { id: string; site_id?: string | null; supplier_name?: string | null; quote_no?: string | null; quote_date?: string | null; created_at?: string | null };
 export type QuoteItem = { quote_id: string; code?: string | null; description?: string | null; rate?: number | string | null; active?: boolean | null };
@@ -44,6 +46,29 @@ export function codeLines(r: Read, sites: RSite[], pos: RPo[]): { lines: RLine[]
   return { lines, headerSite: 'site_id' in head ? head.site_id : null, poId: 'site_id' in head ? head.po_id ?? null : null, why: 'why' in head ? head.why : null };
 }
 
+/** Qty × rate, less the discount, to the penny. Rates and quantities keep 3 decimal places. */
+export const lineAmount = (qty: unknown, rate: unknown, disc?: unknown) => round2(Number(qty ?? 0) * Number(rate ?? 0) * (1 - Math.min(100, Math.max(0, Number(disc ?? 0))) / 100));
+export const r3 = (n: unknown) => Math.round(Number(n || 0) * 1000) / 1000;
+/** What's wrong with a line's split, if anything: every project chosen and the shares adding up to 100%. */
+export function allocProblem(l: RLine): string | null {
+  if (!l.alloc?.length) return null;
+  if (l.alloc.some((a) => !a.site_id)) return 'Choose the project on every row of the split.';
+  const t = Math.round(l.alloc.reduce((s, a) => s + Number(a.pct || 0), 0) * 100) / 100;
+  return Math.abs(t - 100) < 0.01 ? null : `The split adds up to ${t}% — it needs to be 100%.`;
+}
+/** Each line's cost against its project(s): a split line becomes one part per project, by its %. */
+export function codedParts(lines: RLine[]): { description: string; amount: number; site_id: string; cost_code: string }[] {
+  const out: { description: string; amount: number; site_id: string; cost_code: string }[] = [];
+  lines.filter((l) => (l.kind || 'item') !== 'total').forEach((l) => {
+    const amt = lineValue(l), cc = l.cost_code || 'materials', d = l.description || '';
+    if (l.alloc?.length) l.alloc.filter((a) => a.site_id && Number(a.pct) > 0).forEach((a) => out.push({ description: d, amount: round2((amt * Number(a.pct)) / 100), site_id: a.site_id, cost_code: cc }));
+    else if (l.site_id) out.push({ description: d, amount: amt, site_id: l.site_id, cost_code: cc });
+  });
+  return out;
+}
+/** VAT on the lines: 'rc' (reverse charge) adds none. */
+export const linesVat = (lines: RLine[]) => round2(lines.filter((l) => (l.kind || 'item') !== 'total').reduce((t, l) => t + (l.vat_rate === 'rc' ? 0 : (lineValue(l) * Number(l.vat_rate == null ? 20 : l.vat_rate)) / 100), 0));
+export const linesNet = (lines: RLine[]) => round2(lines.filter((l) => (l.kind || 'item') !== 'total').reduce((t, l) => t + lineValue(l), 0));
 export const lineValue = (l: RLine) => (l.amount != null ? Number(l.amount) : round2(Number(l.qty ?? 0) * Number(l.unit_price ?? 0)));
 const unitOf = (l: RLine) => (l.unit_price != null ? Number(l.unit_price) : l.qty ? Number(l.amount ?? 0) / Number(l.qty) : null);
 const sameSupplier = (a: unknown, b: unknown) => { const x = words(a).replace(/\b(ltd|limited|plc|uk|the)\b/g, '').trim(), y = words(b).replace(/\b(ltd|limited|plc|uk|the)\b/g, '').trim(); return !!x && !!y && (x === y || x.includes(y) || y.includes(x)); };

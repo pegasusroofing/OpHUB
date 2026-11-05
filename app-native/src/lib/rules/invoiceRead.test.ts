@@ -93,3 +93,18 @@ test('anything unclear goes to a person, with the reason', () => {
   assert.match(why(good, [{ description: 'A', amount: 60, site_id: 'a' }, { description: 'B', amount: 40 }]) ?? '', /job for 1 line/);
   assert.match(why(good, [{ description: 'A', amount: 100 }]) ?? '', /which job/);
 });
+
+test('purchase lines (5 Nov 2026): discount, 3 decimals, split by %, VAT', async () => {
+  const { lineAmount, r3, allocProblem, codedParts, linesNet, linesVat } = await import('./invoiceRead.ts');
+  assert.equal(lineAmount(24, 86.45, 10), 1867.32);
+  assert.equal(lineAmount(12, 54.275, 10), 586.17);
+  assert.equal(r3(7.7104), 7.71);
+  assert.equal(allocProblem({ alloc: [{ site_id: 'a', pct: 50 }, { site_id: 'b', pct: 30 }] }), 'The split adds up to 80% — it needs to be 100%.');
+  assert.equal(allocProblem({ alloc: [{ site_id: 'a', pct: 50 }, { site_id: '', pct: 50 }] }), 'Choose the project on every row of the split.');
+  assert.equal(allocProblem({ alloc: [{ site_id: 'a', pct: 50 }, { site_id: 'b', pct: 50 }] }), null);
+  const lines = [{ amount: 100, site_id: 'a', cost_code: 'materials' }, { amount: 308.4, alloc: [{ site_id: 'a', pct: 50 }, { site_id: 'b', pct: 30 }, { site_id: 'c', pct: 20 }] }, { amount: 50, vat_rate: 'rc' as const, site_id: 'a', cost_code: 'plant' }];
+  const parts = codedParts(lines);
+  assert.deepEqual(parts.map((p) => [p.site_id, p.amount, p.cost_code]), [['a', 100, 'materials'], ['a', 154.2, 'materials'], ['b', 92.52, 'materials'], ['c', 61.68, 'materials'], ['a', 50, 'plant']]);
+  assert.equal(linesNet(lines), 458.4);
+  assert.equal(linesVat(lines), 81.68);
+});

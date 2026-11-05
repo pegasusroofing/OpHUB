@@ -18,8 +18,8 @@ export async function duplicateOf(supplier: string, no: string): Promise<Row | n
   const d = ((await fdb.from('purchase_invoices').select('id,supplier_name,site_id,invoice_date').eq('invoice_no', no)).data as Row[] | null) ?? [];
   return d.find((x) => String(x.supplier_name || '').trim().toLowerCase() === supplier.trim().toLowerCase()) || null;
 }
-export async function addPinv(me: Profile, siteId: string, v: Row, file?: { uri: string; name: string; mimeType?: string | null } | null): Promise<{ id?: string; flags: string[]; error?: string }> {
-  const flags: string[] = [];
+export async function addPinv(me: Profile, siteId: string, v: Row, file?: { uri: string; name: string; mimeType?: string | null } | null, more: string[] = []): Promise<{ id?: string; flags: string[]; error?: string }> {
+  const flags: string[] = [...more]; // price checks and the like from the new invoice screen (5 Nov 2026)
   let po: Row | null = null;
   if (v.po_id) {
     po = (await fdb.from('purchase_orders').select('*').eq('id', v.po_id).maybeSingle()).data as Row | null;

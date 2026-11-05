@@ -1,6 +1,7 @@
 -- ==========================================================================================
 -- OpHUB: purchase invoices approve themselves when nothing looks wrong (Andy, 5 Nov 2026:
 -- "approving each one will take ages").
+-- RUN ON 5 Nov 2026 (Andy asked to try again), as migration pinv_auto_approve_5nov. Checked on Sandbox (rolled back): a Directory supplier's invoice approved itself, an unknown supplier's waited, a flagged one stayed on query.
 -- How to run: Supabase > SQL Editor > New query, paste this whole file, press Run.
 -- It only ADDS things: a company switch, a marker on each invoice, and a rule that runs when a new
 -- purchase invoice is saved. Nothing is deleted, and invoices already in OpHUB are not changed.
