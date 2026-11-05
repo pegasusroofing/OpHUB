@@ -63,6 +63,11 @@ function RetDateBox({ d, claimed, label, onPick }: { d?: string | null; claimed:
     </View>
   );
 }
+/** + New Application / + New Invoice in the Sales tab row (Andy, 5 Nov 2026): pick the project, then the new one. */
+export function NewSalesButton({ what }: { what: 'invoice' | 'application' }) {
+  const { data: sites = [] } = useSites();
+  return <Button small title={what === 'invoice' ? '+ New Invoice' : '+ New Application'} onPress={async () => { const sid = await pickJob(what === 'invoice' ? 'New invoice' : 'New application', sites.filter((s) => s.status !== 'closed')); if (sid) router.push(`/fin/job/${sid}/${what}/new` as never); }} />;
+}
 export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 'retention'; siteId?: string; f?: string }) {
   const qcRet = useQueryClient();
   const setRetDate = async (sid: string, n: 1 | 2, jf: JobFin, picked?: string) => {
@@ -133,7 +138,7 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
     return (
       <View>
         <Muted style={{ marginBottom: 10, fontSize: 12 }}>Apply → the client certifies it (enter their figures on the application) → the invoice is raised for you. A certificate is just a certified application.</Muted>
-        <View style={desk ? { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10 } : { marginBottom: 10 }}><Button title="+ New application" onPress={() => void newFor('application')} /></View>
+        {!!siteId && <View style={desk ? { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10 } : { marginBottom: 10 }}><Button title="+ New Application" onPress={() => void newFor('application')} /></View>}
         {searchBox('Search applications')}
         {!bare && <FinFilterBar sel={sel} onChange={setSel} onClear={() => setSel({ status: [], mon: [], job: [] })}
           sorts={[['new', 'Newest first'], ['old', 'Oldest first'], ['big', 'Biggest first'], ...(siteId ? [] : [['job', 'Project'] as [string, string]])]} sort={sort} onSort={setSort}
@@ -170,7 +175,7 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
     const months = monthsIn(live, iMonth);
     return (
       <View>
-        <View style={desk ? { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10 } : { marginBottom: 10 }}><Button title="+ New invoice" onPress={() => void newFor('invoice')} /></View>
+        {!!siteId && <View style={desk ? { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10 } : { marginBottom: 10 }}><Button title="+ New Invoice" onPress={() => void newFor('invoice')} /></View>}
         {searchBox('Search invoices')}
         {!bare && <FinFilterBar sel={sel} onChange={setSel} onClear={() => setSel({ status: [], mon: [], job: [] })}
           sorts={[['new', 'Newest first'], ['old', 'Oldest first'], ['big', 'Biggest first'], ['client', 'Client A to Z']]} sort={sort} onSort={setSort}

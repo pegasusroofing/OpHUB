@@ -170,13 +170,17 @@ export function FinPage({ title, section, sub, onSub, badges, children, wide, to
       <Stack.Screen options={{ title }} />
       {!me ? null : !isFinanceUser(me, org) ? <Muted>OpHUB Finance isn&apos;t switched on for your account.</Muted> : (
         <>
-          <FinTabRow style={{ marginTop: 10 }}>
+          {/* A page with no second row (Projects) puts its button at the end of this row (Andy, 5 Nov 2026). */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10, marginBottom: 10 }}>
+          <FinTabRow style={{ flex: 1, minWidth: 0, marginBottom: 0 }}>
             {FIN_SECTIONS.map((s) => (
               <Pressable key={s.k} onPress={() => router.replace(s.go as never)} style={{ paddingVertical: 12, paddingHorizontal: 14, borderBottomWidth: 2, borderBottomColor: s.k === section ? t.brand1 : 'transparent' }}>
                 <Text style={{ fontSize: 13, fontWeight: s.k === section ? '700' : '600', color: s.k === section ? '#111827' : '#6b7280' }}>{s.l}</Text>
               </Pressable>
             ))}
           </FinTabRow>
+          {!(subs.length > 1 && onSub) && subRight}
+          </View>
           {section === 'overview' && <View style={{ backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 12, marginBottom: 10 }}><Text style={{ color: '#111827', fontSize: 12 }}>🔒 Finance trial — nothing is sent from Finance (no emails, no Xero, no pushes to PMs) while it&apos;s being tested.</Text></View>}
           {!!top && <FinMode.Provider value>{top}</FinMode.Provider>}
           {subs.length > 1 && onSub && (

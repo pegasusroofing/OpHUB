@@ -82,10 +82,9 @@ export default function FinJobs() {
   // A running tally of whatever the filters leave showing (Andy, 2 Nov 2026).
   const valueOf = (list: typeof shown) => list.reduce((t, s) => t + Number(data?.jfBy[s.id]?.contract_value || 0), 0);
   const tallyText = (list: typeof shown) => `${list.length} project${list.length === 1 ? '' : 's'}`;
+  // + New Project sits at the end of the Finance tab row (Andy, 5 Nov 2026).
   return (
-    <FinPage title="Projects" section="jobs" foot={!desk && data && shown.length ? <View accessibilityLabel="Value of works" style={{ flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 12, backgroundColor: base.card, borderTopWidth: 1, borderTopColor: base.line, paddingHorizontal: 16, paddingVertical: 9 }}><Text style={{ fontSize: 12.5, color: base.slate }}>{tallyText(shown)}</Text><Text style={{ fontSize: 14, fontWeight: '600', color: base.ink }}>Value of works {money(valueOf(shown), 0)}</Text></View> : undefined}>
-      {/* On a laptop a small button on the right, as the current app (cmp-fin, 5 Nov 2026); full width on a phone. */}
-      {me && isFullManager(me) && <View style={desk ? { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10 } : { marginBottom: 10 }}><Button title="+ New project" onPress={() => router.push('/fin/newjob' as never)} /></View>}
+    <FinPage title="Projects" section="jobs" subRight={me && isFullManager(me) ? <Button small title="+ New Project" onPress={() => router.push('/fin/newjob' as never)} /> : undefined} foot={!desk && data && shown.length ? <View accessibilityLabel="Value of works" style={{ flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 12, backgroundColor: base.card, borderTopWidth: 1, borderTopColor: base.line, paddingHorizontal: 16, paddingVertical: 9 }}><Text style={{ fontSize: 12.5, color: base.slate }}>{tallyText(shown)}</Text><Text style={{ fontSize: 14, fontWeight: '600', color: base.ink }}>Value of works {money(valueOf(shown), 0)}</Text></View> : undefined}>
       {!desk && <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search project no., name, client or PO' }} sel={sel} moreOn={!!val}
         onClear={() => { setSel({ status: [], pm: [], client: [], start: [] }); setVal(''); }}
         onChange={async (next) => {

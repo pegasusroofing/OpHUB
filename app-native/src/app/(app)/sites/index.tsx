@@ -170,7 +170,7 @@ export default function Sites() {
         <View style={{ flex: 1 }} />
         {/* Filled, before the PM filter, as 180 renderSites. */}
         {desk && <Pressable onPress={() => router.push('/sites/new' as never)} accessibilityLabel="Add a new project" style={{ height: 32, paddingHorizontal: 14, borderRadius: 20, backgroundColor: t.brand1, justifyContent: 'center', marginRight: 4 }}>
-          <Text style={[heading(700), { fontSize: 12.5, color: t.brand1Text }]}>+ New project</Text>
+          <Text style={[heading(700), { fontSize: 12.5, color: t.brand1Text }]}>+ New Project</Text>
         </Pressable>}
         {pms.length > 0 && chip(!!pmIds.length, pmIds.length ? (pmIds.length === 1 ? pmName(pmIds[0]) : `${pmIds.length} selected`) : 'PM ▼', async () => {
           const k = await chooseAction('Show projects for', [...pms.map((p) => ({ key: p.id, label: `${pmIds.includes(p.id) ? '☑' : '☐'} ${p.name}` })), ...(pmIds.length ? [{ key: '__clear', label: 'Clear' }] : [])]);

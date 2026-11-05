@@ -1,4 +1,4 @@
-// Projects (manager): tabs and search, + New project (folders + TBT bank), status menu → Close, PM picker.
+// Projects (manager): tabs and search, + New Project (folders + TBT bank), status menu → Close, PM picker.
 const {chromium, makeContext, S1} = require('./harness');
 const seed = require('./fresh/seed');
 (async()=>{
@@ -18,7 +18,7 @@ const seed = require('./fresh/seed');
   await page.getByPlaceholder('Search projects').fill('studley'); await page.waitForTimeout(800);
   console.log('search:', (await txt()).match(/Live \(\d+\)|Upcoming \(\d+\)|No projects match\./g));
   await page.getByPlaceholder('Search projects').fill('');
-  await page.getByText('+ New project', {exact:true}).click(); await page.waitForTimeout(3000);
+  await page.getByText('+ New Project', {exact:true}).click(); await page.waitForTimeout(3000);
   const f = page.locator('input:visible');
   await f.nth(0).fill('High Street Flats'); await f.nth(1).fill('1 High Street'); await f.nth(2).fill('ab1 2cd'); await f.nth(3).fill('J900');
   await page.getByPlaceholder('Start typing — clients from the Directory come up').fill('New Client Ltd');

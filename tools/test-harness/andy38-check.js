@@ -22,7 +22,7 @@ const B = 'http://localhost:8081', shot = (p, n) => p.screenshot({path: `shots/a
   let t = await text();
   say('projects bar', ['Home', 'Deliveries', 'HUB', 'Calendar'].map((x) => `${x}:${t.includes(x)}`).join(' '));
   say('filters in one drop-down', /All \(\d+\) ▼/.test(t) && !/Upcoming \(\d+\)/.test(t));
-  say('no + New project in the page', !t.includes('+ New project'));
+  say('no + New Project in the page', !t.includes('+ New Project'));
   say('page width', await page.evaluate(() => `${document.documentElement.scrollWidth}/${innerWidth}`));
   await page.getByText(/All \(\d+\) ▼/).click(); await page.waitForTimeout(800); await shot(page, 'projects-filter');
   await page.getByText(/^Live \(\d+\)/).last().click(); await page.waitForTimeout(800);

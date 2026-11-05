@@ -12,7 +12,7 @@ const seed = require('./fresh/seed');
   await page.goto('http://localhost:8081/login'); await page.waitForTimeout(4000);
   await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
   await page.getByText('Sign In', {exact: true}).click(); await page.waitForTimeout(5000);
-  for (const [u, n] of [[`/fin/job/${S1}?tab=purchases`, 'job-purchases'], [`/fin/job/${S1}/variations`, 'job-variations'], [`/fin/job/${S1}/summary`, 'job-summary'], ['/fin/purchases?tab=orders', 'purchase-orders'], ['/fin/purchases?tab=pricebook', 'price-book'], ['/fin/sales?tab=invoices', 'sales']]) {
+  for (const [u, n] of [[`/fin/job/${S1}?tab=purchases`, 'job-purchases'], [`/fin/job/${S1}/variations`, 'job-variations'], [`/fin/job/${S1}/summary`, 'job-summary'], ['/fin/purchases?tab=orders', 'purchase-orders'], ['/fin/purchases?tab=pricebook', 'price-book'], ['/fin/sales?tab=invoices', 'sales'], ['/fin/sales?tab=apps', 'sales-apps'], ['/fin/jobs', 'projects']]) {
     await page.goto('http://localhost:8081' + u); await page.waitForTimeout(5000);
     const tabs = await page.getByRole('tab').allInnerTexts();
     console.log(n, '|', tabs.map((t) => t.replace(/\s+/g, ' ')).join(' · '));
