@@ -92,14 +92,16 @@ export function PmHome() {
       </TileGrid>
       {mine.length > 0 && (
         <>
-          <SectionTitle>Pick up where you left off</SectionTitle>
+          {/* Lined up with the tiles above (Andy, 5 Nov 2026): same corners and padding, the words start where
+              the tile words start, and "In Progress" sits on the right instead of a dot in front. */}
+          <View style={{ marginTop: 14 }}><SectionTitle>Pick up where you left off</SectionTitle></View>
           {mine.map((r) => (
-            <Pressable key={r.id} onPress={go(r.site_id ? `/sites/${r.site_id}/snagging/reports/fill/${r.id}` : `/pm/survey/${r.id}?mode=fill`)} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 16, paddingVertical: 13, paddingHorizontal: 14, marginBottom: 10 }}>
-              <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: base.warn }} />
+            <Pressable key={r.id} onPress={go(r.site_id ? `/sites/${r.site_id}/snagging/reports/fill/${r.id}` : `/pm/survey/${r.id}?mode=fill`)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 10, padding: 13.5, marginBottom: 10 }}>
               <View style={{ flex: 1 }}>
                 <Text style={{ fontWeight: '700', color: base.ink, fontSize: 14 }}>{r.template_name || 'Report'}</Text>
-                <Muted>{where(r)} · in progress</Muted>
+                <Muted>{where(r)}</Muted>
               </View>
+              <View style={{ backgroundColor: TINTS.orange[0], borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 }}><Text style={{ fontSize: 11, fontWeight: '700', color: TINTS.orange[1] }}>In Progress</Text></View>
               <OphIcon name="chevron" size={18} color={base.slateLight} stroke={2.2} />
             </Pressable>
           ))}

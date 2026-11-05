@@ -6,7 +6,7 @@ import { useEffect, useRef, useState, type ComponentRef } from 'react';
 import { Platform, Pressable, Text, View } from 'react-native';
 
 import { heading } from '@/lib/fonts';
-import { loadMapLibre, MAP_COLOURS, MAP_STYLE, mapPoints, type MapPoint } from '@/lib/sitesMap';
+import { busiestGroup, loadMapLibre, MAP_COLOURS, MAP_STYLE, mapPoints, type MapPoint } from '@/lib/sitesMap';
 import { fullSiteAddress } from '@/lib/rules/checkin';
 import type { Site } from '@/lib/types';
 import { base, useDesk, useTheme } from '@/theme/theme';
@@ -52,7 +52,8 @@ export function SitesMapView({ sites, mini, show, people, onPoints, handle, heig
         if (!map || !shown.length) return;
         if (shown.length === 1) { map.jumpTo({ center: [shown[0].lng, shown[0].lat], zoom: 12 }); return; }
         const b = new ml.LngLatBounds() as { extend: (x: [number, number]) => void };
-        shown.forEach((p) => b.extend([p.lng as number, p.lat as number]));
+        // Open on where most jobs are (Andy, 5 Nov 2026); far-off jobs keep their pins.
+        busiestGroup(shown).forEach((p) => b.extend([p.lng as number, p.lat as number]));
         map.fitBounds(b, { padding: mini ? 40 : 70, maxZoom: 13, duration: 0 });
       };
       fit();

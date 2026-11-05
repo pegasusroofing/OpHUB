@@ -85,3 +85,19 @@ export function loadMapLibre(): Promise<MapLibre | null> {
   })();
   return loading;
 }
+
+const km = (a: MapPoint, b: MapPoint) => {
+  const r = Math.PI / 180, dLat = ((b.lat as number) - (a.lat as number)) * r, dLng = ((b.lng as number) - (a.lng as number)) * r;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos((a.lat as number) * r) * Math.cos((b.lat as number) * r) * Math.sin(dLng / 2) ** 2;
+  return 12742 * Math.asin(Math.sqrt(h));
+};
+/** Where most of the jobs are (Andy, 5 Nov 2026): the map opens on the busiest group, so a cluster in
+ *  London keeps it on London instead of the whole country. Finds the job with the most others within
+ *  30 km, then keeps every job within 70 km of it. Jobs further out still have pins; pan to see them. */
+export function busiestGroup(pts: MapPoint[]): MapPoint[] {
+  if (pts.length < 3) return pts;
+  let best = pts[0], bestN = -1;
+  pts.forEach((p) => { const n = pts.filter((q) => km(p, q) <= 30).length; if (n > bestN) { bestN = n; best = p; } });
+  const near = pts.filter((q) => km(best, q) <= 70);
+  return near.length >= 2 ? near : pts;
+}
