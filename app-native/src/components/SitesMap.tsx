@@ -92,22 +92,23 @@ function popup(p: MapPoint, people: { id: string; name: string }[] | undefined, 
 }
 
 /** The Home page card: computer only, managers. Click to open the full map. */
-export function SitesMapCard({ sites }: { sites: Site[] }) {
+/** fill: the card stretches to its column's height (beside the home tiles, Andy 5 Nov 2026). */
+export function SitesMapCard({ sites, fill }: { sites: Site[]; fill?: boolean }) {
   const t = useTheme();
   const desk = useDesk();
   const [count, setCount] = useState('');
   if (!desk) return null;
   return (
-    <View style={{ backgroundColor: '#fff', borderWidth: 1, borderColor: '#ECEEF2', borderRadius: 18, padding: 12, marginBottom: 12 }}>
+    <View style={{ backgroundColor: '#fff', borderWidth: 1, borderColor: '#ECEEF2', borderRadius: 18, padding: 12, marginBottom: 12, ...(fill ? { flex: 1, marginBottom: 5, marginTop: 5 } : {}) }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 4, paddingTop: 2, paddingBottom: 10 }}>
         <Text style={[heading(700), { fontSize: 14, color: base.ink }]}>Sites map</Text>
         <Text style={{ fontSize: 11, color: base.slateLight, fontStyle: 'italic' }}>{count}</Text>
         <View style={{ flex: 1 }} />
         <Pressable onPress={() => router.push('/pm/sitemap' as never)}><Text style={{ fontSize: 12.5, fontWeight: '800', color: t.brand1 }}>Open full map ›</Text></Pressable>
       </View>
-      <Pressable onPress={() => router.push('/pm/sitemap' as never)} style={{ borderRadius: 12, overflow: 'hidden' }}>
-        <View pointerEvents="none">
-          <SitesMapView sites={sites} mini height={340} onPoints={({ pts, missing }) => {
+      <Pressable onPress={() => router.push('/pm/sitemap' as never)} style={{ borderRadius: 12, overflow: 'hidden', ...(fill ? { flex: 1, minHeight: 300 } : {}) }}>
+        <View pointerEvents="none" style={fill ? { flex: 1 } : undefined}>
+          <SitesMapView sites={sites} mini height={fill ? '100%' : 340} onPoints={({ pts, missing }) => {
             const shown = pts.filter((p) => p.st !== 'closed').length, miss = missing.filter((x) => x.st !== 'closed').length;
             setCount(`${shown} site${shown === 1 ? '' : 's'} on the map${miss ? ` · ${miss} without a postcode` : ''}`);
           }} />

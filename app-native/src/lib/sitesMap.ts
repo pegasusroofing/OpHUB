@@ -1,6 +1,6 @@
 // Sites map (125 sites-map, website only): each project's postcode turned into a
 // map position with the free UK postcodes.io service (remembered in this
-// browser), drawn with MapLibre and OpenFreeMap's "positron" style — free, no
+// browser), drawn with MapLibre and OpenFreeMap's "liberty" (colour) style — free, no
 // account or key.
 import { siteStatusKey } from '@/lib/rules/checkin';
 import type { Site } from '@/lib/types';
@@ -8,7 +8,8 @@ import type { Site } from '@/lib/types';
 export const MAP_COLOURS: Record<string, string> = { live: '#1E9E5A', upcoming: '#E08A00', closed: '#8A8D93' };
 const MAPLIBRE_JS = ['https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js', 'https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.js'];
 const MAPLIBRE_CSS = 'https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css';
-export const MAP_STYLE = 'https://tiles.openfreemap.org/styles/positron';
+// In colour (Andy, 5 Nov 2026): OpenFreeMap's "liberty" style; it was the grey "positron".
+export const MAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
 
 const UK_POSTCODE_RE = /\b([A-Z]{1,2}\d[A-Z\d]?)\s*(\d[A-Z]{2})\b/i;
 export function sitePostcode(s: Pick<Site, 'postcode' | 'address'>): string | null {
