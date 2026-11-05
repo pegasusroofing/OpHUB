@@ -34,6 +34,8 @@ const seed = require('./fresh/seed');
   page.on('dialog', d => d.accept());
   await page.goto(BASE+'/fin/job/'+S1+'/boq'); await page.waitForTimeout(6000);
   const before = (db.schedule_tasks||[]).filter(t=>t.site_id===S1).length;
+  // Import / Export menu › Copy in tasks from the site schedule.
+  await page.getByText('Import / Export', {exact:true}).first().click(); await page.waitForTimeout(500);
   await page.getByText('Copy in tasks from the site schedule', {exact:true}).click(); await page.waitForTimeout(1500);
   const t = (await page.evaluate(()=>document.body.innerText)).replace(/\s+/g,' ');
   const vals = await page.evaluate(()=>Array.from(document.querySelectorAll('input,textarea')).map(e=>e.value).filter(Boolean));

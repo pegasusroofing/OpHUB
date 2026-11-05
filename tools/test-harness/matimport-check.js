@@ -14,8 +14,11 @@ const fs = require('fs'), path = require('path');
   await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
   await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
   await page.goto(BASE+'/sites/'+S1+'/materials/requests'); await page.waitForTimeout(5000);
-  const [fc] = await Promise.all([page.waitForEvent('filechooser'), page.getByText('📄 Import from Excel', {exact:true}).click()]);
-  await fc.setFiles(csv); await page.waitForTimeout(4000);
+  const [fc] = await Promise.all([page.waitForEvent('filechooser'), page.getByText('Import Excel', {exact:true}).click()]);
+  await fc.setFiles(csv); await page.waitForTimeout(2500);
+  // In-app pop-ups now: Required by? (calendar; Clear skips it), then Add these … as material requests?
+  await page.locator('text="Clear" >> visible=true').last().click(); await page.waitForTimeout(800);
+  await page.locator('text="Add them" >> visible=true').last().click(); await page.waitForTimeout(3000);
   console.log('materials:', JSON.stringify(db.materials.map(m=>[m.item, m.qty, m.status])), '|', errs.join(' / ') || 'no errors');
   fs.unlinkSync(csv);
   await browser.close(); process.exit(0);

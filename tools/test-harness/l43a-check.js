@@ -16,7 +16,9 @@ const {chromium, makeContext, S1} = require('./harness');
   await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
   await page.goto(BASE+'/sites/'+S1+'/schedule'); await page.waitForTimeout(5000);
   await page.getByLabel('More').first().click(); await page.waitForTimeout(400);
-  await page.getByText('📚 From Library').click(); await page.waitForTimeout(600);
+  // The More menu: Add Section › From the library.
+  await page.getByText('📁 Add Section', {exact:true}).click(); await page.waitForTimeout(400);
+  await page.getByText('📚 From the library', {exact:true}).click(); await page.waitForTimeout(600);
   await page.getByText('Flat roof strip').last().click(); await page.waitForTimeout(1200);
   await page.screenshot({path:'shots/lib-preview.png'});
   console.log('preview shows tasks:', await page.getByText(/Strip old felt/).count() > 0);

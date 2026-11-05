@@ -87,6 +87,19 @@ export const removePlant = async (id: string) => !!(await db.from('plant_items')
    Handing back: the operative signs with a photo and a PM / yard manager confirms; a PM returning it just signs.
    Every step is a database function, so nothing can skip a signature. */
 export type PlantRow = PlantItem & { lost_at?: string | null; lost_note?: string | null };
+/** How many items on this job are waiting for your signature or signed out to you. While there are any you can open
+ *  the job's Plant page to sign for them or hand them back, even when Plant is hidden from your role on the job
+ *  (Andy, 4 Nov 2026: a PM allocates an item, then the person signs for it). */
+export function useMyPlantHere(siteId: string | undefined, userId: string | undefined) {
+  return useQuery({
+    queryKey: ['plantMine', siteId, userId], enabled: !!siteId && !!userId,
+    queryFn: async () => {
+      const rows = ((await db.from('plant_checkouts').select('id,checkout_status,checkin_status,allocated_at').eq('site_id', siteId as string).eq('operative_id', userId as string)).data as Pick<Checkout, 'checkout_status' | 'checkin_status' | 'allocated_at'>[] | null) ?? [];
+      return rows.filter((c) => (c.checkout_status === 'pending_signoff' && !!c.allocated_at && !c.checkin_status) || (c.checkout_status === 'checked_out' && c.checkin_status !== 'returned')).length;
+    },
+  });
+}
+
 /** Every item in the company with its latest hand-over (the Yard › Plant register). */
 export function useOrgPlant(orgId: string | null | undefined) {
   return useQuery({

@@ -12,6 +12,7 @@ import { useToast } from '@/components/toast';
 import { Button, Card, Empty, JobGrid, Muted, SectionTitle, Tile } from '@/components/ui';
 import { collectPickups, useCollectionsOpenCount, useMaterialRequests, useOfficeOrders, useOpMaterials } from '@/data/materials';
 import { HowTo } from '@/components/HowTo';
+import { useMyPlantHere } from '@/data/plant';
 import { useSite } from '@/data/sites';
 import { tileRoles, tileVisMenu } from '@/data/tileVis';
 import { useAuth } from '@/lib/auth';
@@ -93,12 +94,14 @@ function OperativeMaterials({ siteId, vis }: { siteId: string; vis: Parameters<t
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
   const [grnFor, setGrnFor] = useState<string | null>(null);
+  const { data: plantMine = 0 } = useMyPlantHere(siteId, me?.id);
   if (!me) return null;
   const supName = (sid: string) => data?.suppliers.find((s) => s.id === sid)?.name ?? null;
   const groups = groupPickups(data?.pickups ?? [], supName);
   const openIds = (data?.pickups ?? []).filter((m) => m.status !== 'collected').map((m) => m.id);
   const picked = [...sel].filter((x) => openIds.includes(x));
-  const showPlant = canSeeMatTile(vis, 'plant', me.role);
+  // Plant hidden from your role still shows while something there waits for your signature or is with you.
+  const showPlant = canSeeMatTile(vis, 'plant', me.role) || plantMine > 0;
   const showExp = canSeeMatTile(vis, 'expenses', me.role);
   const toggle = (x: string) => { const n = new Set(sel); if (n.has(x)) n.delete(x); else n.add(x); setSel(n); };
 
@@ -172,7 +175,7 @@ function OperativeMaterials({ siteId, vis }: { siteId: string; vis: Parameters<t
             </Pressable>
           ))}
           <Button title="+ Request Materials" onPress={() => router.push(`/sites/${siteId}/materials/requests?add=1` as never)} />
-          {showPlant && <Button kind="ghost" title="🏗 Plant" onPress={() => router.push(`/sites/${siteId}/plant` as never)} />}
+          {showPlant && <Button kind="ghost" title={plantMine ? `🏗 Plant (${plantMine})` : '🏗 Plant'} onPress={() => router.push(`/sites/${siteId}/plant` as never)} />}
           {showExp && <Button kind="ghost" title="🧾 Expenses" onPress={() => router.push(`/sites/${siteId}/expenses` as never)} />}
           <Pressable onPress={() => router.push(`/sites/${siteId}/materials/requests` as never)} style={{ marginTop: 10 }}><Text style={{ color: base.slate, fontSize: 12, textDecorationLine: 'underline' }}>See All My Requests →</Text></Pressable>
         </>

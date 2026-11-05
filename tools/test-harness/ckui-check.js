@@ -12,7 +12,7 @@ const {chromium, makeContext, S1} = require('./harness');
   await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
   await page.goto(BASE+'/sites/'+S1+'/checkin'); await page.waitForTimeout(5000);
   await page.screenshot({path:'shots/ck-1.png', fullPage:true});
-  await page.getByText(/^Set .* location$/).first().click(); await page.waitForTimeout(600);
+  await page.getByText(/^Set .* location$/i).first().click(); await page.waitForTimeout(600);
   await page.screenshot({path:'shots/ck-2-pop.png'});
   console.log('errors', errs.join(' / ').slice(0,300) || 'none');
   await browser.close(); process.exit(0);

@@ -12,6 +12,8 @@ const {chromium, makeContext, S1} = require('./harness');
   await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
   await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
   await page.goto(BASE+'/sites/'+S1+'/price'); await page.waitForTimeout(5000);
+  // 5 Nov: Close several… sits in the ⋮ Manage menu (as the old app's Manage).
+  await page.getByText('⋮ Manage', {exact:true}).click(); await page.waitForTimeout(400);
   await page.getByText('☑ Close several…').click(); await page.waitForTimeout(400);
   await page.getByText(/Garage/).first().click(); await page.getByText(/Porch/).first().click(); await page.waitForTimeout(300);
   await page.screenshot({path:'shots/priceclose.png'});

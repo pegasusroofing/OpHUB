@@ -14,8 +14,9 @@ const {chromium, makeContext, S1} = require('./harness');
   await page.goto('http://localhost:8081/sites/'+S1+'/materials/requests'); await page.waitForTimeout(6000);
   await page.getByText(/General \/ not for one job — ▾/).click(); await page.waitForTimeout(500);
   await page.locator('text="RJ-101 — 5 High St" >> visible=true').last().click(); await page.waitForTimeout(300);
-  await page.getByPlaceholder('Item').fill('Ridge tiles'); await page.getByPlaceholder('Quantity').fill('20');
-  await page.getByText('Request Material Order').click(); await page.waitForTimeout(3000);
+  // Request Material card (3 Nov): Item / Quantity labels above the boxes, a Request button.
+  await page.getByPlaceholder('e.g. 18mm OSB 2440 x 1220').fill('Ridge tiles'); await page.getByPlaceholder('0', {exact:true}).first().fill('20');
+  await page.getByText('Request', {exact:true}).click(); await page.waitForTimeout(3000);
   console.log(JSON.stringify(db.materials.map(m=>({item:m.item, rj:m.repair_job_id, lbl:m.sub_site_label}))));
   console.log('errors', errs.join(' / ').slice(0,300) || 'none');
   await browser.close(); process.exit(0);

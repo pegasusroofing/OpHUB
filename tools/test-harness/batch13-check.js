@@ -36,7 +36,8 @@ const login = async (page) => { await page.goto('http://localhost:8081/login'); 
     await page.getByText(/Slates/).first().click(); await page.waitForTimeout(1200); await page.getByText(/Slates/).last().click(); await page.waitForTimeout(3000);
     console.log('diary tap →', page.url().replace('http://localhost:8081',''));
     await page.goto('http://localhost:8081/sites/'+S1+'/hs/coshh/new'); await page.waitForTimeout(5000);
-    await page.getByText(/Product not listed/).click(); await page.waitForTimeout(800);
+    // Create COSHH asks the way in (3 Nov): Enter Manually replaced Product not listed.
+    await page.getByText(/Enter Manually/).first().click(); await page.waitForTimeout(800);
     await page.locator('input >> visible=true').last().fill('Bitumen Primer'); await page.locator('text="OK" >> visible=true').last().click(); await page.waitForTimeout(3000);
     console.log('product', db.rams_library_items.map(i=>i.title).join(','), '| url', page.url().includes('/pm/admin/coshh/'));
     await ctx.close();

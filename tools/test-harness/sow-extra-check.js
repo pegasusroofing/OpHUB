@@ -21,12 +21,15 @@ const fs = require('fs'), path = require('path');
   await page.goto(BASE+'/sites/'+S1+'/schedule'); await page.waitForTimeout(6000);
   await page.screenshot({path:'shots/sow-extra.png'}); console.log('more buttons', await page.getByLabel('More').count());
   const more = ()=>page.getByLabel('More').first().click();
+  // More › Import schedule › From Excel or CSV (Andy, 31 Oct: three choices, the rest one level under).
   await more(); await page.waitForTimeout(500);
-  let [fc] = await Promise.all([page.waitForEvent('filechooser'), page.getByText('📊 Import tasks from Excel / CSV', {exact:true}).click()]);
+  await page.getByText(/^📊 Import schedule/).click(); await page.waitForTimeout(500);
+  let [fc] = await Promise.all([page.waitForEvent('filechooser'), page.getByText('📊 From Excel or CSV', {exact:true}).click()]);
   await fc.setFiles(csv); await page.waitForTimeout(2500);
   await page.getByText(/★ Scope of works/).click(); await page.waitForTimeout(800); await page.locator('text="Import" >> visible=true').last().click(); await page.waitForTimeout(2000);
   console.log('tasks:', db.schedule_tasks.map(t=>t.name+'@'+t.position).join(', '));
   await more(); await page.waitForTimeout(500);
+  await page.getByText(/^📊 Import schedule/).click(); await page.waitForTimeout(500);
   [fc] = await Promise.all([page.waitForEvent('filechooser'), page.getByText('📎 Add the Schedule of Works document', {exact:true}).click()]);
   await fc.setFiles(doc); await page.waitForTimeout(4000);
   await page.getByText('⋮', {exact:true}).first().click(); await page.waitForTimeout(500);

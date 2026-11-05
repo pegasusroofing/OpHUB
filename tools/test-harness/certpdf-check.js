@@ -18,7 +18,9 @@ const {PDFDocument, StandardFonts} = require('pdf-lib'); const fs = require('fs'
   await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
   await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
   await page.goto('http://localhost:8081/fin/job/'+S1+'/application/'+ap.id); await page.waitForTimeout(6000);
-  const [fc] = await Promise.all([page.waitForEvent('filechooser', {timeout:15000}), page.getByText(/Fill in from the client.s PDF/).click()]);
+  // The application opens on Overview; Certify opens Line By Line with the fill-in buttons (3 Nov).
+  await page.getByText('Certify', {exact:true}).first().click(); await page.waitForTimeout(1500);
+  const [fc] = await Promise.all([page.waitForEvent('filechooser', {timeout:15000}), page.getByText(/Fill in from the client.s PDF/i).click()]);
   await fc.setFiles('shots/cert-client.pdf'); await page.waitForTimeout(6000);
   const vals = await page.locator('input >> visible=true').evaluateAll((els) => els.map((e) => e.value));
   console.log('35 filled in', vals.includes('35'));

@@ -23,13 +23,16 @@ const {chromium, makeContext, S1} = require('./harness');
   console.log('template listed:', await page.getByText('Daily site inspection').count(), '| sub file:', await page.getByText('Scaffold tag check.pdf').count());
   await page.screenshot({path:'shots/mcinsp.png', fullPage:true});
   await page.goto(BASE+'/sites/'+S1+'/snagging/list'); await page.waitForTimeout(5000);
-  await page.getByText(/Close snag/).first().click(); await page.waitForTimeout(600);
+  await page.getByText(/Close Snag/).first().click(); await page.waitForTimeout(600);
   console.log('snag close asks:', await page.getByText('🖼 Choose from library').count());
   await page.screenshot({path:'shots/snagclose.png'});
   await page.goto(BASE+'/sites/'+S1+'/schedule'); await page.waitForTimeout(5000);
   await page.getByLabel('More').first().click(); await page.waitForTimeout(400);
   const dl = page.waitForEvent('download', {timeout:8000}).catch(()=>null);
-  await page.getByText(/Download the Excel import template/).click();
+  await page.getByText(/^📊 Import schedule/).click(); await page.waitForTimeout(400);
+  await page.getByText(/Download the Excel template/).click(); await page.waitForTimeout(800);
+  // With OneDrive connected the file asks where to go: Download.
+  const dlBtn = page.locator('text="⬇️ Download" >> visible=true'); if (await dlBtn.count()) await dlBtn.last().click();
   const d = await dl; console.log('template download:', d ? d.suggestedFilename() : 'none');
   console.log('errors', errs.join(' / ').slice(0,400) || 'none');
   await browser.close(); process.exit(0);

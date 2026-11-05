@@ -13,11 +13,14 @@ const {chromium, makeContext, S1} = require('./harness');
   await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
   await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
   await page.goto(BASE+'/sites/'+S1+'/ppe'); await page.waitForTimeout(6000);
-  await page.getByText(/PPE Requests/).first().click(); await page.waitForTimeout(500);
+  // PPE Requests starts open (as the old app, 5 Nov) — no tap to open it.
+  await page.getByText(/PPE Requests/).first().waitFor(); await page.waitForTimeout(500);
   console.log('export button before tick:', await page.getByText(/Export 1 \(PDF\)/).count());
   await page.getByText('☐').first().click(); await page.waitForTimeout(300);
   const dl = page.waitForEvent('download', {timeout:15000}).catch(()=>null);
-  await page.getByText('Export 1 (PDF)').click();
+  await page.getByText('Export 1 (PDF)').click(); await page.waitForTimeout(800);
+  // With more than one way to save (OneDrive connected) it asks: PDF.
+  const pdfBtn = page.locator('text="📄 PDF" >> visible=true'); if (await pdfBtn.count()) await pdfBtn.last().click();
   const d = await dl; console.log('download:', d ? d.suggestedFilename() : 'none');
   await page.waitForTimeout(500);
   await page.getByText('☐').first().click(); await page.waitForTimeout(300);

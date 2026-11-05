@@ -14,6 +14,7 @@ const {chromium, makeContext, S1} = require('./harness');
   await page.goto(BASE+'/sites/'+S1+'/todos'); await page.waitForTimeout(5000);
   await page.getByText('Chase scaffold handover cert').waitFor(); await page.waitForTimeout(500);
   await page.screenshot({path:'shots/td-1.png', fullPage:true});
+  await page.getByText('+ Add To Do', {exact:true}).click(); await page.waitForTimeout(600);
   await page.getByText('Required by (optional)').last().click(); await page.waitForTimeout(600);
   await page.screenshot({path:'shots/td-2-cal.png'});
   await page.keyboard.press('Escape');

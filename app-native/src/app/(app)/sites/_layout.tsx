@@ -5,12 +5,13 @@ import { View } from 'react-native';
 
 import { stackHeader } from '@/components/AppBar';
 import { useToast } from '@/components/toast';
+import { useMyPlantHere } from '@/data/plant';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { siteStatusKey } from '@/lib/rules/checkin';
 import { canSeeTile } from '@/lib/rules/hs';
 import { canSeeMatTile } from '@/lib/rules/materials';
-import { isManager } from '@/lib/roles';
+import { isFullManager, isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
 import { base } from '@/theme/theme';
 
@@ -43,6 +44,8 @@ function useJobGuard(): { to: string; why?: string } | null {
     queryKey: ['mySubCo', id, me?.id], enabled: onJob && op,
     queryFn: async () => (((await supabase.from('subcontractor_operatives').select('subcontractor_company_id').eq('site_id', id as string).eq('user_id', me!.id).limit(1)).data as { subcontractor_company_id: string }[] | null) ?? [])[0]?.subcontractor_company_id ?? null,
   });
+  // Plant waiting for your signature (or with you) on this job opens Plant even when it is hidden from your role.
+  const plantMine = useMyPlantHere(onJob && page === 'plant' && !!me && !isFullManager(me) ? id : undefined, me?.id);
   if (!onJob || !me) return null;
   if (missing === id && !site) return { to: '/sites', why: 'That job couldn’t be found.' };
   if (!isManager(me) && site && siteStatusKey(site) === 'closed') return { to: '/sites', why: 'This job is closed.' };
@@ -58,7 +61,8 @@ function useJobGuard(): { to: string; why?: string } | null {
   // 890: the job's activity history is managers only.
   if (page === 'activity' && !isManager(me)) return { to: `/sites/${id}` };
   // 890: Plant and Expenses hidden from your role on this job (the Materials ⋮ setting) don't open by link either.
-  if ((page === 'expenses' || page === 'plant') && site && !canSeeMatTile(site.materials_visibility, page, me.role)) return { to: `/sites/${id}/materials` };
+  if (page === 'plant' && plantMine.isLoading) return null;
+  if ((page === 'expenses' || page === 'plant') && site && !canSeeMatTile(site.materials_visibility, page, me.role) && !(page === 'plant' && (plantMine.data ?? 0) > 0)) return { to: `/sites/${id}/materials` };
   // 890 mc: everything but Site Rules & Layout needs the job switched on as Main Contractor, and a tile hidden
   // from operatives can't be opened by link (a subcontractor operative still reaches their own company's folder).
   if (page === 'mc' && sub && sub !== 'index' && sub !== 'layout' && site && !site.acting_as_main_contractor) return { to: `/sites/${id}` };

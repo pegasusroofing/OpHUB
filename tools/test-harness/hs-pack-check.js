@@ -16,7 +16,7 @@ const seed = require('./fresh/seed');
   await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
   await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
   await page.goto('http://localhost:8081/sites/'+S1+'/hs/rams'); await page.waitForTimeout(5000);
-  await page.getByText('☐ Select all').click(); await page.waitForTimeout(500);
+  await page.getByText('Select All', {exact:true}).click(); await page.waitForTimeout(500);
   await page.getByText('✉ Email', {exact:true}).click(); await page.waitForTimeout(800);
   await page.screenshot({path:'shots/native_email_cc-1300.png'});
   await page.fill('input[placeholder="name@company.co.uk"]', 'qs@main.test');
