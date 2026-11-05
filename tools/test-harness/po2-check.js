@@ -32,7 +32,7 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   check(await page.getByText('20% VAT on £1,867.32: £373.46').count() === 1 && await page.getByText('5% VAT on £586.17: £29.31').count() === 1, 'VAT shows for each rate');
   check(await page.getByText('Total £2,856.26').count() === 1, 'total £2,856.26 (1,867.32 + 586.17 + 373.46 + 29.31)');
   // Split Purchase: the whole order 60 / 40 across two projects
-  await page.getByText('⇄ Split Purchase').click(); await page.waitForTimeout(300);
+  await page.getByLabel('Split Purchase', {exact: true}).click(); await page.waitForTimeout(300);
   const row2 = page.getByLabel(/Split Purchase.*row 2 project/);
   await row2.click(); await row2.fill((db.sites.find((s) => s.id === S2).job_number || '').slice(0, 4)); await page.keyboard.press('Tab'); await page.waitForTimeout(200);
   await page.getByLabel(/Split Purchase.*row 1 percent/).fill('60'); await page.getByLabel(/Split Purchase.*row 2 percent/).fill('40'); await page.waitForTimeout(300);
@@ -45,6 +45,7 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   await page.getByText('👁 View PO', {exact:true}).click(); await page.waitForTimeout(3000);
   check(await page.locator('canvas').count() >= 1, 'View PO shows the PDF in the right-hand panel');
   await page.getByText('New Purchase Order', {exact:true}).last().scrollIntoViewIfNeeded(); await page.waitForTimeout(800);
+  await page.screenshot({path:'shots/job/po3-top-1400.png', clip: {x: 280, y: 100, width: 1120, height: 420}});
   await page.screenshot({path:'shots/job/po2-view-1400.png'});
   await page.getByText('Raise PO', {exact:true}).click(); await page.waitForTimeout(2500);
   check(await page.getByText(/raised — what next\?/).count() === 1, 'Raise PO asks what next');

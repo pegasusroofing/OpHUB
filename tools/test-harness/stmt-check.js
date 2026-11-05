@@ -30,7 +30,7 @@ const seed = require('./fresh/seed');
   await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
   // Upload a supplier statement (STMT env = path) and match it
   await page.goto(BASE+'/fin/statements'); await page.waitForTimeout(6000);
-  const [fc] = await Promise.all([page.waitForEvent('filechooser', {timeout:15000}), page.getByText('⬆ Upload a statement', {exact:true}).click()]);
+  const [fc] = await Promise.all([page.waitForEvent('filechooser', {timeout:15000}), page.getByText('⬆ Upload Statement', {exact:true}).click()]);
   await fc.setFiles(process.env.STMT); await page.waitForTimeout(6000);
   await page.getByPlaceholder('Start typing…').fill('SIG Roofing');
   await page.getByText('Match the invoices', {exact:true}).click(); await page.waitForTimeout(5000);

@@ -19,7 +19,7 @@ const {chromium, makeContext, S1} = require('./harness');
   await page.getByText('Purchases', {exact:true}).first().click(); await page.waitForTimeout(1000);
   await page.getByText('Purchase Quotes', {exact:true}).first().click(); await page.waitForTimeout(2500);
   await page.getByPlaceholder('Supplier name').fill('Bauder');
-  const [fc] = await Promise.all([page.waitForEvent('filechooser'), page.getByText(/Upload quotes/).click()]); await fc.setFiles(csv); await page.waitForTimeout(4000);
+  const [fc] = await Promise.all([page.waitForEvent('filechooser'), page.getByText(/Upload Price List/).click()]); await fc.setFiles(csv); await page.waitForTimeout(4000);
   console.log('quote items now:', db.fin_quote_items.filter(i=>i.active).map(i=>[i.code, i.description, i.rate, i.site_id ? 'project' : 'all']).join(' | '));
   await page.getByText('Felt underlay 1x20m', {exact:false}).first().click(); await page.getByText('Bauder cap sheet', {exact:false}).first().click(); await page.waitForTimeout(300);
   await page.screenshot({path:'shots/pquotes.png', fullPage:true});

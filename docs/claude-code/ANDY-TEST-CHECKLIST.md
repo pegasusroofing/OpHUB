@@ -142,4 +142,4 @@ Rules are edited in the app, Admin Centre › OneDrive › New job pack (Andy, 1
 52. Finance-Projects sheet checked link by link in the new app, 1 Nov: docs/claude-code/context/finance-projects-map-new-app-1Nov.md. Still to build: yard cost edit (L46), bring staff in from Xero (L70), Getting Started card (L84).
 
 ## To discuss with Andy
-- How multi-site (multi-plot) jobs should work (Andy, 2 Nov 2026). Bring this up before Finance is signed off.
+- Sort out plots: how multi-site (multi-plot) jobs should work (Andy, 2 Nov 2026; asked again 5 Nov 2026: "we need to discuss and sort plots out"). Bring this up before Finance is signed off. Plots show today on BoQ lines and as a column on PO lines (only when the project has plots).

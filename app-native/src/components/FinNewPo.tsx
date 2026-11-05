@@ -1,4 +1,4 @@
-// Raise a purchase order from Finance (909 openFinNewPo / saveFinNewPo): supplier (or a new one), plot,
+// Raise a purchase order from Finance (909 openFinNewPo / saveFinNewPo): supplier (or a new one), a plot on each line,
 // delivery or collection, required-by date, reference, notes, and priced lines with a cost code and VAT
 // each → a numbered PO (fin_new_po, same <job>-PO-NNN numbering as material orders). Nothing is sent:
 // emailing the PO to the supplier waits for the end of the Finance trial.
@@ -39,7 +39,7 @@ import { base, radius, useDesk } from '@/theme/theme';
 const OFFLOAD = ['Hiab / Crane Offload', 'Forklift On Site', 'Hand Unload', 'Tail Lift', 'Call 30 Min Before'];
 const TIMES: [string, string][] = [['', 'Any Time'], ['First Thing (Before 9)', 'First Thing (Before 9)'], ['AM (8–12)', 'AM (8–12)'], ['PM (12–5)', 'PM (12–5)'], ['Timed — See Notes', 'Timed — See Notes']];
 type QItem = { id: string; quote_id: string; code: string | null; description: string | null; unit: string | null; rate: number | null; supplier_name: string | null };
-type Line = { alloc?: Alloc[];
+type Line = { alloc?: Alloc[]; sub?: string; // sub: the plot on the main project (Andy, 5 Nov 2026)
   site_id: string; description: string; qty: string; unit: string; rate: string; disc: string; cost_code: string; cost_code_id: string | null; vat: string };
 type Code = { id: string; code: string | null; name: string; category: string | null; active: boolean | null };
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, paddingHorizontal: 8, paddingVertical: 7, color: base.ink, backgroundColor: base.card };
@@ -49,7 +49,8 @@ const th = { fontSize: 11, fontWeight: '600' as const, color: base.slate };
 const cell = { paddingVertical: 5, fontSize: 13.5, textAlign: 'center' as const };
 
 /** site: the project when opened from one; otherwise it's chosen on the form (Andy, 5 Nov 2026: no job picker first). */
-export function FinNewPo({ site: site0, itemIds = [] }: { site?: Site | null; itemIds?: string[] }) {
+/** toTop: scrolls the page to the top (View PO shows the PO there; Andy, 5 Nov 2026). */
+export function FinNewPo({ site: site0, itemIds = [], toTop }: { site?: Site | null; itemIds?: string[]; toTop?: () => void }) {
   const { me, org } = useAuth();
   const toast = useToast();
   const desk = useDesk();
@@ -70,7 +71,6 @@ export function FinNewPo({ site: site0, itemIds = [] }: { site?: Site | null; it
   const [supText, setSupText] = useState('');
   const [supId, setSupId] = useState<string | null>(null);
   const [newEmail, setNewEmail] = useState('');
-  const [sub, setSub] = useState('');
   const [delivery, setDelivery] = useState<'delivery' | 'collection'>('delivery');
   const [req, setReq] = useState('');
   const [ref, setRef] = useState('');
@@ -144,7 +144,7 @@ export function FinNewPo({ site: site0, itemIds = [] }: { site?: Site | null; it
     if (status === 'open' && deliverTo === 'other' && delivery === 'delivery' && !addrTyped.trim()) return no('Type the delivery address.');
     const items = lines.filter((l) => l.description.trim()).map((l) => {
       const d = dsc(l), r = num(l.rate);
-      return { item: l.description.trim(), qty: num(l.qty), unit: l.unit.trim() || null, rate: r === null || isNaN(r) ? null : r4(r * (1 - d / 100)), ...(d ? { list_rate: r, discount_pct: d } : {}), amount: amt(l), cost_code: l.cost_code || 'materials', ...(codes.length && (l.cost_code_id ?? codeFor(l.cost_code)) ? { cost_code_id: l.cost_code_id ?? codeFor(l.cost_code) } : {}), site_id: mainSite([{ ...l, site_id: l.site_id || site.id }], split, site.id), ...(allocOf({ ...l, site_id: l.site_id || site.id }, split).length > 1 ? { alloc: allocOf({ ...l, site_id: l.site_id || site.id }, split) } : {}), vat_rate: l.vat, vat: lineVat(l, pv) };
+      return { item: l.description.trim(), qty: num(l.qty), unit: l.unit.trim() || null, rate: r === null || isNaN(r) ? null : r4(r * (1 - d / 100)), ...(d ? { list_rate: r, discount_pct: d } : {}), amount: amt(l), cost_code: l.cost_code || 'materials', ...(codes.length && (l.cost_code_id ?? codeFor(l.cost_code)) ? { cost_code_id: l.cost_code_id ?? codeFor(l.cost_code) } : {}), site_id: mainSite([{ ...l, site_id: l.site_id || site.id }], split, site.id), ...(allocOf({ ...l, site_id: l.site_id || site.id }, split).length > 1 ? { alloc: allocOf({ ...l, site_id: l.site_id || site.id }, split) } : {}), vat_rate: l.vat, vat: lineVat(l, pv), ...(l.sub && !split?.length && !l.alloc?.length && (l.site_id || site.id) === site.id ? { sub_job_id: l.sub } : {}) };
     });
     if (!items.length) return no('Add at least one item.');
     setBusy(true);
@@ -170,12 +170,14 @@ export function FinNewPo({ site: site0, itemIds = [] }: { site?: Site | null; it
       const sids = os ? os.map((x) => x.site_id) : [poSite];
       const poSplit = os ? os.map((x) => ({ site_id: x.site_id, pct: x.pct, amount: x.amount })) : null;
       // The plot list is this job's plots: it only applies if the PO stayed on this job.
-      const plot = poSite === site.id ? sub : '';
-      const patch = { status, supplier_id: id, supplier_name: name, items, value: net, required_by: req || null, fulfilment: delivery, note: noteText, vat, total: r2(net + vat), delivery_to: delivery === 'delivery' ? deliverTo : null, delivery_address: delivery === 'delivery' ? (deliverTo === 'office' ? officeAddr : deliverTo === 'other' ? addrTyped.trim() : jobAddr) || null : null, delivery_time: delTime || null, offload: offload.length ? offload : null, reference: ref.trim() || null, issue_date: todayIso(), site_contact: contact.trim() || null, site_contact_phone: contactPh.trim() || null, ...(plot ? { sub_job_id: plot } : {}), ...(poSplit ? { split: poSplit, split_sites: sids.filter((x) => x !== poSite) } : { split: null, split_sites: null }) };
+      const onSite = items.filter((x) => x.site_id === poSite), plots = new Set(onSite.map((x) => (x as { sub_job_id?: string }).sub_job_id || ''));
+      const plot = poSite === site.id && plots.size === 1 ? [...plots][0] : '';
+      const patch = { status, supplier_id: id, supplier_name: name, items, value: net, required_by: req || null, fulfilment: delivery, note: noteText, vat, total: r2(net + vat), delivery_to: delivery === 'delivery' ? deliverTo : null, delivery_address: delivery === 'delivery' ? (deliverTo === 'office' ? officeAddr : deliverTo === 'other' ? addrTyped.trim() : jobAddr) || null : null, delivery_time: delTime || null, offload: offload.length ? offload : null, reference: ref.trim() || null, issue_date: todayIso(), site_contact: contact.trim() || null, site_contact_phone: contactPh.trim() || null, sub_job_id: plot || null, ...(poSplit ? { split: poSplit, split_sites: sids.filter((x) => x !== poSite) } : { split: null, split_sites: null }) };
       const up = await fdb.from('purchase_orders').update(patch as never).eq('id', d.id).select('*');
       const row = ((up.data as Record<string, any>[] | null) ?? [])[0];
       if (!row) return no('Could not save the PO — try again.');
       setSaved({ id: d.id, number: d.number }); setStatusNow(status);
+      if (panel === 'pdf') void pdfOf(row).then((bytes) => { if (pdfUrl) URL.revokeObjectURL(pdfUrl); setPdfUrl(URL.createObjectURL(new Blob([bytes as BlobPart], { type: 'application/pdf' }))); }).catch(() => undefined);
       void qc.invalidateQueries({ queryKey: ['finPurchases'] }); void qc.invalidateQueries({ queryKey: ['finPo'] });
       return row;
     } finally { setBusy(false); }
@@ -184,7 +186,7 @@ export function FinNewPo({ site: site0, itemIds = [] }: { site?: Site | null; it
   const pdfOf = async (row: Record<string, any>) => buildPoPdf(row, allSites.find((x) => x.id === row.site_id) as Record<string, any> | undefined, await loadSettings(me.org_id), setup?.sups.find((x) => x.id === row.supplier_id) ?? null, org);
   const draftRow = (): Record<string, any> => ({ number: saved?.number || 'DRAFT', created_at: new Date().toISOString(), site_id: site.id, supplier_id: supId, supplier_name: supText, required_by: req || null, fulfilment: delivery, note: note.trim() || null, value: net, vat, total: r2(net + vat), delivery_to: deliverTo, delivery_address: deliverTo === 'office' ? officeAddr : deliverTo === 'other' ? addrTyped.trim() : jobAddr, delivery_time: delTime || null, offload, site_contact: contact.trim() || null, site_contact_phone: contactPh.trim() || null, ordered_by_name: me.name, items: lines.filter((l) => l.description.trim()).map((l) => ({ item: l.description.trim(), qty: num(l.qty), unit: l.unit || null, rate: (() => { const r = num(l.rate); return r === null || isNaN(r) ? null : r4(r * (1 - dsc(l) / 100)); })(), amount: amt(l) })) });
   const viewPo = async () => {
-    try { const bytes = await pdfOf(draftRow()); if (pdfUrl) URL.revokeObjectURL(pdfUrl); setPdfUrl(URL.createObjectURL(new Blob([bytes as BlobPart], { type: 'application/pdf' }))); setShowShop(true); setPanel('pdf'); }
+    try { const bytes = await pdfOf(draftRow()); if (pdfUrl) URL.revokeObjectURL(pdfUrl); setPdfUrl(URL.createObjectURL(new Blob([bytes as BlobPart], { type: 'application/pdf' }))); setShowShop(true); setPanel('pdf'); toTop?.(); }
     catch { toast('Could not build the PO PDF.'); }
   };
   const exportPdf = async (row: Record<string, any>) => { try { const bytes = await pdfOf(row); void filePoPdf(me, row, bytes); if (!(await deliverPdf(bytes, `PO ${String(row.number).replace(/[^a-z0-9-]+/gi, '_')}.pdf`))) toast('Could not make the PDF — try again.'); } catch { toast('Could not build the PO PDF.'); } };
@@ -215,8 +217,7 @@ export function FinNewPo({ site: site0, itemIds = [] }: { site?: Site | null; it
     <Card style={desk ? { flex: 1, minWidth: 0, marginBottom: 0, padding: 0, overflow: 'hidden' } : { padding: 0, overflow: 'hidden' }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, padding: 10, borderBottomWidth: 1, borderBottomColor: '#e5e7eb' }}>
         <Text style={{ flex: 1, fontWeight: '600', color: base.ink }}>PO {saved?.number || '(draft)'}</Text>
-        <Pressable onPress={() => setPanel('quote')}><Text style={{ color: base.blue, fontSize: 12.5 }}>Project Quote</Text></Pressable>
-        <Pressable accessibilityRole="button" accessibilityLabel="Close the panel" onPress={() => setShowShop(false)} style={{ borderWidth: 1, borderColor: base.line, borderRadius: 7, width: 30, height: 30, alignItems: 'center', justifyContent: 'center' }}><Text style={{ fontSize: 16, color: base.slate }}>›</Text></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="Close the PO PDF" onPress={() => setPanel('quote')} style={{ borderWidth: 1, borderColor: base.line, borderRadius: 7, width: 30, height: 30, alignItems: 'center', justifyContent: 'center' }}><Text style={{ fontSize: 15, color: base.slate }}>✕</Text></Pressable>
       </View>
       <View onLayout={(e) => setPdfW(Math.round(e.nativeEvent.layout.width))} style={{ height: desk ? 560 : 480, backgroundColor: '#f3f4f6' }}>{pdfW > 0 && <PdfPages key={`${pdfUrl}${pdfW}`} url={pdfUrl} zoom={1} width={pdfW - 24} light />}</View>
     </Card>
@@ -226,7 +227,6 @@ export function FinNewPo({ site: site0, itemIds = [] }: { site?: Site | null; it
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
         <View style={{ flex: 1 }}><SectionTitle>From The Project Quote</SectionTitle></View>
         <Button small kind="ghost" busy={!!upBusy} title={upBusy || '📥 Upload Quote'} onPress={() => void uploadQuote()} />
-        <Pressable accessibilityRole="button" accessibilityLabel="Close the project quote" hitSlop={8} onPress={() => setShowShop(false)} style={{ borderWidth: 1, borderColor: base.line, borderRadius: 7, width: 30, height: 30, alignItems: 'center', justifyContent: 'center' }}><Text style={{ fontSize: 16, color: base.slate }}>›</Text></Pressable>
       </View>
       {qList.length ? (
         <>
@@ -261,13 +261,25 @@ export function FinNewPo({ site: site0, itemIds = [] }: { site?: Site | null; it
     </Pressable>
   ) : null;
 
+  // The open panel folds away from a strip down its left edge (Andy, 5 Nov 2026); the phone keeps a link instead.
+  const side = desk && showShop && shop && panel !== 'pdf' ? (
+    <View style={{ flex: 1, minWidth: 0, flexDirection: 'row' }}>
+      <Pressable accessibilityRole="button" accessibilityLabel="Close the project quote" onPress={() => setShowShop(false)} style={{ width: 22, borderTopLeftRadius: 10, borderBottomLeftRadius: 10, borderWidth: 1, borderRightWidth: 0, borderColor: '#e5e7eb', backgroundColor: '#F6F7F9', alignItems: 'center', justifyContent: 'center' }}>
+        <Text style={{ fontSize: 16, color: base.slate }}>›</Text>
+      </Pressable>
+      <View style={{ flex: 1, minWidth: 0 }}>{shop}</View>
+    </View>
+  ) : shop;
+
   // Keyboard drop-downs (TypePick): job number, cost code (number only unless Show Descriptions), VAT, and the Unit box.
   const jobOpts: PickOpt[] = jobs.map((x) => ({ v: x.id, label: jobTag(x), short: x.job_number || x.name }));
   const lineJobOpts: PickOpt[] = [...jobOpts, { v: '__split', label: '⇄ Split this line across jobs…' }];
   const codeOptsK: PickOpt[] = codes.length ? codes.map((c) => ({ v: `cc:${c.id}`, label: `${c.code ? `${c.code} – ` : ''}${c.name}`, short: fullCodes ? `${c.code ? `${c.code} – ` : ''}${c.name}` : c.code || c.name }))
     : Object.entries(COST_CATS).filter(([k]) => k !== 'labour').map(([k, l]) => ({ v: k, label: l }));
   const vatOpts: PickOpt[] = vats.map((v) => ({ v: v.code, label: v.name, short: v.rc ? 'RC' : `${v.rate}%` }));
-  const W = { job: 84, qty: 64, unit: 64, rate: 84, disc: 60, code: fullCodes ? 210 : 78, vat: 66, net: 92, x: 20 };
+  const hasPlots = subs.length > 0; // the Plot column only shows for a project with plots
+  const plotOpts: PickOpt[] = [{ v: '', label: 'Whole job', short: '—' }, ...subs.map((x) => ({ v: x.id, label: x.short }))];
+  const W = { plot: 96, job: 84, qty: 64, unit: 64, rate: 84, disc: 60, code: fullCodes ? 210 : 78, vat: 66, net: 92, x: 20 };
   const ctr = { textAlign: 'center' as const };
   const headCell = (t: string, w: number | null, left = false) => <Text key={t || 'x'} style={[th, w ? { width: w } : { flex: 1, minWidth: 0 }, left ? null : ctr]}>{t}</Text>;
   const setJob = (i: number, v: string) => { set(i, { site_id: v }); if (!siteId) setSiteId(v); };
@@ -277,6 +289,8 @@ export function FinNewPo({ site: site0, itemIds = [] }: { site?: Site | null; it
       ? <Pressable accessibilityRole="button" accessibilityLabel={`Line ${i + 1} split`} onPress={() => setOpenSplit(openSplit === i ? null : i)} style={[box, { paddingVertical: 6, borderColor: splitProblem(l.alloc) ? '#f8e7c2' : base.blue }]}><Text style={{ textAlign: 'center', color: splitProblem(l.alloc) ? '#b45309' : base.blue, fontSize: 13 }}>Split {l.alloc.length}</Text></Pressable>
       : split?.length ? <View style={[box, { paddingVertical: 6, backgroundColor: '#F6F7F9' }]}><Text style={{ textAlign: 'center', color: base.slate, fontSize: 13 }}>Split</Text></View>
       : <TypePick label={`Line ${i + 1} job`} value={l.site_id} options={lineJobOpts} onChange={(v) => { if (v === '__split') { set(i, { alloc: [{ site_id: l.site_id || site.id, pct: 50 }, { site_id: '', pct: 50 }] }); setOpenSplit(i); } else setJob(i, v); }} placeholder="Job" listWidth={300} style={[box, cell]} />}</View>;
+    const onMain = !split?.length && !l.alloc?.length && (l.site_id || site.id) === site.id;
+    const plot = !hasPlots ? null : <View style={{ width: desk ? W.plot : 110 }}>{onMain ? <TypePick label={`Line ${i + 1} plot`} value={l.sub || ''} options={plotOpts} onChange={(v) => set(i, { sub: v || undefined })} listWidth={240} style={[box, cell]} /> : <View style={[box, { paddingVertical: 6, backgroundColor: '#F6F7F9' }]}><Text style={{ textAlign: 'center', color: base.slate, fontSize: 13 }}>—</Text></View>}</View>;
     const desc = <TextInput accessibilityLabel={`Line ${i + 1} description`} value={l.description} onChangeText={(v) => set(i, { description: v })} placeholder="Description" style={[box, { flex: 1, minWidth: 0, paddingVertical: 5, fontSize: 13.5, textAlign: 'left' }]} />;
     const nums = (
       <>
@@ -291,7 +305,7 @@ export function FinNewPo({ site: site0, itemIds = [] }: { site?: Site | null; it
     return desk ? (
       <View key={i} style={{ zIndex: lines.length - i }}>
       <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center', marginBottom: 6 }}>
-        {job}{desc}{nums}
+        {job}{plot}{desc}{nums}
         <Text style={{ width: W.net, textAlign: 'center', fontWeight: '600', color: base.ink, fontSize: 13.5 }}>{money(amt(l))}</Text>
         {del}
       </View>
@@ -299,7 +313,7 @@ export function FinNewPo({ site: site0, itemIds = [] }: { site?: Site | null; it
       </View>
     ) : (
       <View key={i} style={{ borderTopWidth: i ? 1 : 0, borderTopColor: base.line, paddingTop: i ? 8 : 0, marginBottom: 8, zIndex: lines.length - i }}>
-        <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>{job}{desc}{del}</View>
+        <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>{job}{plot}{desc}{del}</View>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6, alignItems: 'center' }}>{nums}<Text style={{ marginLeft: 'auto', fontWeight: '600', color: base.ink }}>{money(amt(l))}</Text></View>
         {openSplit === i && !!l.alloc?.length && splitRows(l.alloc, amt(l), (a) => { set(i, a ? { alloc: a } : { alloc: undefined, site_id: l.alloc?.[0]?.site_id || l.site_id }); if (!a) setOpenSplit(null); }, `Line ${i + 1} split across jobs`)}
       </View>
@@ -345,18 +359,21 @@ export function FinNewPo({ site: site0, itemIds = [] }: { site?: Site | null; it
             items={(setup?.sups || []).map((s) => ({ key: s.id, label: s.name, sub: s.email || '' }))} onPick={(s) => { setSupId(s.key); setSupText(s.label); applySupVat(s.key, s.label); }} />
           {isNew && <><Muted style={{ marginTop: -6, marginBottom: 6 }}>New supplier — added to your suppliers when the PO is raised.</Muted><TextInput value={newEmail} onChangeText={setNewEmail} placeholder="Supplier's orders email (optional)" autoCapitalize="none" keyboardType="email-address" style={[box, { marginBottom: 8 }]} /></>}
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-            {field('Main Project (new lines go here; change any line’s job below)', (
+            {field('Main Project', (
+              <View style={{ flexDirection: 'row', gap: 6 }}>
               <Pressable accessibilityRole="button" accessibilityLabel="Project" onPress={async () => {
                 const sid = await pickJob('Which project is the PO mainly for?', jobs); if (!sid) return;
                 // Lines still on the old main project (or none) move with it; lines booked to other jobs stay.
-                setLines((ls) => ls.map((l) => (!l.site_id || l.site_id === siteId ? { ...l, site_id: sid } : l))); setSiteId(sid); setSub('');
-              }} style={[box, { paddingVertical: 10, borderColor: site.id ? base.line : '#f8e7c2', backgroundColor: site.id ? base.card : '#fffaf0' }]}>
-                <Text style={{ color: site.id ? base.ink : '#b45309', fontSize: 14 }}>{site.id ? jobTag(site) : 'Choose the project'} ▾</Text>
+                setLines((ls) => ls.map((l) => (!l.site_id || l.site_id === siteId ? { ...l, site_id: sid } : l))); setSiteId(sid); setLines((ls) => ls.map((l) => ({ ...l, sub: undefined })));
+              }} style={[box, { flex: 1, minWidth: 0, height: 46, justifyContent: 'center', borderColor: site.id ? base.line : '#f8e7c2', backgroundColor: site.id ? base.card : '#fffaf0' }]}>
+                <Text numberOfLines={1} style={{ color: site.id ? base.ink : '#b45309', fontSize: 14 }}>{site.id ? jobTag(site) : 'Choose the project'} ▾</Text>
               </Pressable>
+              {/* ÷ Split Purchase: the whole order across several projects. */}
+              <Pressable accessibilityRole="button" accessibilityLabel="Split Purchase" onPress={() => setSplit(split ? null : evenSplit([site.id || '', '']))} style={[box, { width: 46, height: 46, alignItems: 'center', justifyContent: 'center', borderColor: split ? base.blue : base.line, backgroundColor: split ? '#EEF3FD' : base.card }]}>
+                <Text style={{ color: split ? base.blue : base.ink, fontSize: 20, lineHeight: 22 }}>÷</Text>
+              </Pressable>
+              </View>
             ), 2)}
-            <View style={{ justifyContent: 'flex-end', marginBottom: 10 }}><Pressable accessibilityRole="button" onPress={() => setSplit(split ? null : evenSplit([site.id || '', '']))} style={[box, { paddingVertical: 10, borderColor: split ? base.blue : base.line }]}><Text style={{ color: split ? base.blue : base.ink, fontSize: 13.5 }}>⇄ Split Purchase</Text></Pressable></View>
-            {/* Always there, so choosing a project never moves the page about (Andy, 5 Nov 2026). */}
-            {field('Plot / Address', <SelectBox value={sub || '-'} options={[['-', subs.length ? 'Whole job' : 'Whole job (no plots)'], ...subs.map((s) => [s.id, s.short] as [string, string])]} onChange={(k) => setSub(k === '-' ? '' : k)} style={{ marginBottom: 0 }} />)}
           </View>
           {!!split && splitRows(split, net, setSplit, 'Split Purchase — the whole order across these projects')}
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
@@ -365,8 +382,9 @@ export function FinNewPo({ site: site0, itemIds = [] }: { site?: Site | null; it
           </View>
           {field('Reference', <TextInput accessibilityLabel="Reference" value={ref} onChangeText={setRef} placeholder="e.g. Quote Q-5521 (filled in from a project quote)" style={box} />)}
         </Card>
-        {shop}
+        {side}
       </View>
+      {!desk && showShop && <Pressable onPress={() => setShowShop(false)} style={{ marginBottom: 8 }}><Text style={{ color: base.blue, fontSize: 13 }}>Hide The Project Quote</Text></Pressable>}
       <Card style={{ zIndex: 5 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6, gap: 8 }}>
           <View style={{ flex: 1 }}><SectionTitle>Lines</SectionTitle></View>
@@ -375,7 +393,7 @@ export function FinNewPo({ site: site0, itemIds = [] }: { site?: Site | null; it
         </View>
         {desk && (
           <View style={{ flexDirection: 'row', gap: 6, paddingBottom: 4, borderBottomWidth: 1, borderBottomColor: base.line, marginBottom: 6 }}>
-            {headCell('Job', W.job)}{headCell('Description', null, true)}{headCell('Qty', W.qty)}{headCell('Unit', W.unit)}{headCell('Rate £', W.rate)}{headCell('Disc %', W.disc)}{headCell('Cost Code', W.code)}{headCell('VAT', W.vat)}{headCell('Net', W.net)}{headCell('', W.x)}
+            {headCell('Job', W.job)}{hasPlots && headCell('Plot', W.plot)}{headCell('Description', null, true)}{headCell('Qty', W.qty)}{headCell('Unit', W.unit)}{headCell('Rate £', W.rate)}{headCell('Disc %', W.disc)}{headCell('Cost Code', W.code)}{headCell('VAT', W.vat)}{headCell('Net', W.net)}{headCell('', W.x)}
           </View>
         )}
         {lines.map(lineRow)}

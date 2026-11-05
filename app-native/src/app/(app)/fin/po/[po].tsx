@@ -4,7 +4,7 @@
 // emailing one from Finance is switched off during the Finance trial.
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState, type ComponentRef } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { ThinExportBar } from '@/components/FinFilterBar';
@@ -38,15 +38,16 @@ export default function FinPo() {
   const { data, isLoading } = useQuery({ queryKey: ['finPo', poId], enabled: poId !== 'new', queryFn: () => loadPo(poId) });
   const [val, setVal] = useState<string | null>(null);
   const [rm, setRm] = useState<Set<number> | null>(null); // ticking lines to take off (9219zr)
-  const [mailing, setMailing] = useState<string | null>(null); // Send PO: the supplier's email (Andy, 5 Nov 2026)
+  const [mailing, setMailing] = useState<string | null>(null);
+  const newSv = useRef<ComponentRef<typeof ScrollView>>(null); // the new PO page, so View PO can go back to the top // Send PO: the supplier's email (Andy, 5 Nov 2026)
   if (!me) return null;
   if (poId === 'new') {
     const st = sites.find((x) => x.id === site);
     return (
-      <ScrollView contentContainerStyle={page(1300)} keyboardShouldPersistTaps="handled">
+      <ScrollView ref={newSv} contentContainerStyle={page(1300)} keyboardShouldPersistTaps="handled">
         <Stack.Screen options={{ title: 'New purchase order' }} />
         {/* Opens straight away; the project is chosen on the form when it didn't come from one (Andy, 5 Nov 2026). */}
-        {site && !st ? <Muted>Loading…</Muted> : <FinNewPo key={st?.id || 'none'} site={st || null} itemIds={itemIds ? itemIds.split(',').filter(Boolean) : []} />}
+        {site && !st ? <Muted>Loading…</Muted> : <FinNewPo key={st?.id || 'none'} site={st || null} itemIds={itemIds ? itemIds.split(',').filter(Boolean) : []} toTop={() => newSv.current?.scrollTo({ y: 0, animated: true })} />}
       </ScrollView>
     );
   }
