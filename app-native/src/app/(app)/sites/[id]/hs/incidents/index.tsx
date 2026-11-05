@@ -11,7 +11,7 @@ import { useAuth } from '@/lib/auth';
 import { isManager } from '@/lib/roles';
 import { base, page, radius, space } from '@/theme/theme';
 
-const chip = (t: string, bad?: boolean) => <Text key={t} style={{ fontSize: 11, fontWeight: '700', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, overflow: 'hidden', backgroundColor: bad ? '#FDECEA' : base.paper, color: bad ? base.red : base.slate }}>{t}</Text>;
+const chip = (t: string, bad?: boolean) => <Text key={t} style={{ fontSize: 11, fontWeight: '600', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, overflow: 'hidden', backgroundColor: bad ? '#FDECEA' : base.paper, color: bad ? base.red : base.slate }}>{t}</Text>;
 
 export default function Incidents() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -30,7 +30,7 @@ export default function Incidents() {
           style={{ flexDirection: 'row', gap: 10, padding: 12, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginTop: 8, backgroundColor: base.card }}>
           <Text style={{ fontSize: 20 }}>⚠️</Text>
           <View style={{ flex: 1 }}>
-            <Text style={{ fontWeight: '700', color: base.ink }}>{r.location || 'Location not given'}</Text>
+            <Text style={{ fontWeight: '600', color: base.ink }}>{r.location || 'Location not given'}</Text>
             <Muted>{new Date(r.incident_date ? `${r.incident_date}T00:00:00` : r.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} · Filed by {r.filed_by_name || (r.created_by ? nameOf(people, r.created_by) : '') || 'Unknown'}</Muted>
             <View style={{ flexDirection: 'row', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
               {r.riddor_reportable && chip('RIDDOR', true)}{r.injury_occurred && chip('Injury')}{r.damage_occurred && chip('Damage')}

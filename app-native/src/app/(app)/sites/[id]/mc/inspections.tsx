@@ -44,7 +44,7 @@ export default function McInspections() {
           <Muted style={{ marginBottom: 8 }}>Main Contractor Inspection templates — separate from the general Report Templates. Editing a template never changes inspections already started from it.</Muted>
           {data?.templates.length ? data.templates.map((t) => (
             <View key={t.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, borderTopWidth: 1, borderTopColor: base.line }}>
-              <View style={{ flex: 1 }}><Text style={{ fontWeight: '700', color: base.ink }}>{t.name}</Text>{!!t.description && <Muted>{t.description}</Muted>}</View>
+              <View style={{ flex: 1 }}><Text style={{ fontWeight: '600', color: base.ink }}>{t.name}</Text>{!!t.description && <Muted>{t.description}</Muted>}</View>
               <Button small kind="ghost" title="Edit" onPress={() => router.push(`/pm/admin/templates/${t.id}` as never)} />
               <Button small kind="ghost" title="Delete" onPress={async () => {
                 if (!(await confirmAsk(`Delete template "${t.name}"? Inspections already done from it are kept.`, 'Delete'))) return;
@@ -62,7 +62,7 @@ export default function McInspections() {
           <Muted style={{ marginBottom: 8 }}>Pick a template to start a new inspection:</Muted>
           {data?.templates.length ? data.templates.map((t) => (
             <View key={t.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, borderTopWidth: 1, borderTopColor: base.line }}>
-              <View style={{ flex: 1 }}><Text style={{ fontWeight: '700', color: base.ink }}>{t.name}</Text>{!!t.description && <Muted>{t.description}</Muted>}</View>
+              <View style={{ flex: 1 }}><Text style={{ fontWeight: '600', color: base.ink }}>{t.name}</Text>{!!t.description && <Muted>{t.description}</Muted>}</View>
               <Button busy={busy} title="Start" onPress={async () => {
                 setBusy(true); const sid = await startReport(me, site, t as unknown as Template); setBusy(false);
                 if (!sid) { toast('Could not start — try again.'); return; }
@@ -78,10 +78,10 @@ export default function McInspections() {
         <Pressable key={s.id} disabled={!mgr} onPress={() => router.push(`/sites/${id}/snagging/reports/${s.status === 'in_progress' ? 'fill' : 'view'}/${s.id}` as never)}
           style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginTop: 8, backgroundColor: base.card }}>
           <View style={{ flex: 1 }}>
-            <Text style={{ fontWeight: '700', color: base.ink }}>{s.template_name}</Text>
+            <Text style={{ fontWeight: '600', color: base.ink }}>{s.template_name}</Text>
             <Muted>{s.status === 'in_progress' ? 'Started' : `Submitted ${s.submitted_at ? new Date(s.submitted_at).toLocaleString('en-GB') : ''}`} · {nameOf(people, s.submitted_by)}</Muted>
           </View>
-          <Text style={{ fontWeight: '700', color: s.status === 'in_progress' ? base.warn : base.ok }}>{REPORT_STATUS_LABEL[s.status] || s.status}</Text>
+          <Text style={{ fontWeight: '600', color: s.status === 'in_progress' ? base.warn : base.ok }}>{REPORT_STATUS_LABEL[s.status] || s.status}</Text>
         </Pressable>
       )) : <Empty>No inspections logged yet{data?.templates.length ? '.' : ' — set up a template first.'}</Empty>}
       {mgr && !!subCos?.length && (
@@ -93,7 +93,7 @@ export default function McInspections() {
               {subOpen[c.id] && c.files.map((f) => (
                 <Pressable key={f.id} onPress={async () => { const u = await openDocLink('mc-documents', f.storage_path); if (u) viewDoc(u, f.file_name); else toast('Could not open the file.'); }}
                   style={{ padding: 10, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginTop: 6, backgroundColor: base.card }}>
-                  <Text style={{ fontWeight: '700', color: base.ink }}>{f.file_name}</Text>
+                  <Text style={{ fontWeight: '600', color: base.ink }}>{f.file_name}</Text>
                   <Muted>{f.folder_id && c.folderName[f.folder_id] ? `📁 ${c.folderName[f.folder_id]} · ` : ''}{nameOf(people, f.uploaded_by)} · {new Date(f.uploaded_at).toLocaleDateString('en-GB')}</Muted>
                 </Pressable>
               ))}

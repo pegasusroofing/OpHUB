@@ -105,8 +105,8 @@ export function OrderPanel({ siteId, mats, again, onDone, onCancel }: { siteId: 
       <View style={{ marginBottom: 10 }}>
         {mats.map((m) => (
           <View key={m.id} style={{ flexDirection: 'row', gap: 10, paddingVertical: 5, borderBottomWidth: 1, borderBottomColor: base.line }}>
-            <Text style={{ flex: 1, fontSize: 16, fontWeight: '700', color: base.ink }}>{m.item}</Text>
-            <Text style={{ fontSize: 16, fontWeight: '700', color: base.ink }}>× {m.qty || '1'}</Text>
+            <Text style={{ flex: 1, fontSize: 16, fontWeight: '600', color: base.ink }}>{m.item}</Text>
+            <Text style={{ fontSize: 16, fontWeight: '600', color: base.ink }}>× {m.qty || '1'}</Text>
           </View>
         ))}
       </View>
@@ -126,7 +126,7 @@ export function OrderPanel({ siteId, mats, again, onDone, onCancel }: { siteId: 
       {sup && sendOpts.length > 1 && <SelectBox label="Send the order email to" value={sendKey} options={sendOpts.map((o) => [o.key, o.label] as [SendTo, string])} onChange={(k) => setSendTo(k)} />}
 
       {!opNoSup && <View style={{ marginBottom: 10 }}>
-        <Text style={{ fontSize: 12, fontWeight: '700', color: base.slate, marginBottom: 4 }}>{mode === 'collection' ? 'Collection date' : 'Delivery date'} (the supplier sees this)</Text>
+        <Text style={{ fontSize: 12, fontWeight: '600', color: base.slate, marginBottom: 4 }}>{mode === 'collection' ? 'Collection date' : 'Delivery date'} (the supplier sees this)</Text>
         <DateBox value={date} onChange={setDate} min={todayIso()} clearable={false} title={mode === 'collection' ? 'Collection date' : 'Delivery date'} />
       </View>}
       {how === 'driver' && (drvOpts.length ? <SelectBox label="Which driver" value={who} options={drvOpts} onChange={setWho} placeholder="Choose the driver" /> : <Text style={{ color: base.warn, marginBottom: 8 }}>No drivers set up yet.</Text>)}
@@ -138,7 +138,7 @@ export function OrderPanel({ siteId, mats, again, onDone, onCancel }: { siteId: 
           <TextInput value={note} onChangeText={setNote} multiline maxLength={500} placeholder="Note (optional) — e.g. what each item is for…" placeholderTextColor={base.slateLight} style={[box, { minHeight: 52 }]} />
           {ops.some((o) => o.email) && (
             <View style={{ marginBottom: 8 }}>
-              <Muted style={{ fontWeight: '700', marginBottom: 4 }}>Also email a copy to (optional)</Muted>
+              <Muted style={{ fontWeight: '600', marginBottom: 4 }}>Also email a copy to (optional)</Muted>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
                 {ops.filter((o) => o.email).map((o) => chip(ccIds.has(o.id), `${ccIds.has(o.id) ? '☑' : '☐'} ${o.name}`, () => { const x = new Set(ccIds); if (x.has(o.id)) x.delete(o.id); else x.add(o.id); setCcIds(x); }, o.id))}
               </View>

@@ -99,7 +99,7 @@ export function HavsManager({ site }: { site: Site }) {
         const d = daysFrom(r.week_start);
         return (
           <Card key={r.id}>
-            <Text style={{ fontWeight: '800', color: base.ink }}>{weekLabel(d)}</Text>
+            <Text style={{ fontWeight: '600', color: base.ink }}>{weekLabel(d)}</Text>
             <Muted style={{ marginBottom: 8 }}>Completed{r.completed_at ? ` ${new Date(r.completed_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}` : ''}{r.by ? ` by ${r.by}` : ''}</Muted>
             <View style={{ flexDirection: 'row', gap: 8 }}>
               <View style={{ flex: 1 }}><Button kind="ghost" busy={busy === `${r.id}p`} title="Export" onPress={() => void pdf('pdf', d, `${r.id}p`)} /></View>
@@ -112,14 +112,14 @@ export function HavsManager({ site }: { site: Site }) {
         <>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
             <Pressable onPress={() => shift(-1)} style={nav}><Text style={{ fontSize: 20 }}>‹</Text></Pressable>
-            <Text style={{ fontWeight: '800', color: base.ink }}>{weekLabel(days)}{data?.locked ? '  🔒' : ''}</Text>
+            <Text style={{ fontWeight: '600', color: base.ink }}>{weekLabel(days)}{data?.locked ? '  🔒' : ''}</Text>
             <Pressable onPress={() => shift(1)} disabled={offset >= 0} style={[nav, offset >= 0 && { opacity: 0.35 }]}><Text style={{ fontSize: 20 }}>›</Text></Pressable>
           </View>
           <Muted style={{ textAlign: 'center', marginBottom: 10 }}>Daily EAV (action value) = 100 points · Daily ELV (limit value) = 400 points</Muted>
           {isLoading || !data ? <Muted>Loading…</Muted> : (
             <>
               <Card>
-                <Text style={{ fontWeight: '800', color: base.ink, marginBottom: 6 }}>Tools On This Site ({tools.length})</Text>
+                <Text style={{ fontWeight: '600', color: base.ink, marginBottom: 6 }}>Tools On This Site ({tools.length})</Text>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
                   {data.allTools.map((t) => { const on = tools.some((x) => x.id === t.id); return (
                     <FinChip key={t.id} on={on} label={`${titleCaseWords(t.name)} · ${t.vibration_magnitude}`} onPress={async () => { if (await setSiteHavsTool(site.id, t.id, !on)) refresh(); else toast('Could not save — try again.'); }} />
@@ -147,19 +147,19 @@ export function HavsManager({ site }: { site: Site }) {
                         <Toggle title={`${HAVS_DAY_LABELS[di]}  ${d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}`} open={isOpen}
                           onPress={async () => { setOpen({ ...open, [di]: !isOpen }); if (isOpen && (await flush(di))) { toast('Entries saved'); refresh(); } }} />
                       </View>
-                      {worst && <Text style={{ marginTop: space.l, marginLeft: 6, fontSize: 10.5, fontWeight: '800', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, overflow: 'hidden', backgroundColor: PILL[worst].bg, color: PILL[worst].fg }}>{DAY_STATUS_LABEL[worst]}</Text>}
+                      {worst && <Text style={{ marginTop: space.l, marginLeft: 6, fontSize: 10.5, fontWeight: '600', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, overflow: 'hidden', backgroundColor: PILL[worst].bg, color: PILL[worst].fg }}>{DAY_STATUS_LABEL[worst]}</Text>}
                     </View>
                     {isOpen && (
                       <Card>
                         {people.map((u) => {
                           const pts = dayEntries.filter((e) => e.user_id === u).reduce((t, e) => t + points(toolById[e.tool_id]?.vibration_magnitude || 0, e.minutes), 0);
                           const st = dayStatus(pts);
-                          return <Text key={u} style={{ fontSize: 12, color: st ? PILL[st].fg : base.slate, fontWeight: '700' }}>{data.nameById[u] || 'Operative'} — {pts.toFixed(0)} pts{st ? ` · ${DAY_STATUS_LABEL[st]}` : ''}</Text>;
+                          return <Text key={u} style={{ fontSize: 12, color: st ? PILL[st].fg : base.slate, fontWeight: '600' }}>{data.nameById[u] || 'Operative'} — {pts.toFixed(0)} pts{st ? ` · ${DAY_STATUS_LABEL[st]}` : ''}</Text>;
                         })}
                         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
                           {tools.map((tool) => (
                             <View key={tool.id} style={{ borderWidth: 1, borderColor: base.line, borderRadius: 8, padding: 8, minWidth: 200, flexGrow: 1, flexBasis: 200 }}>
-                              <Text style={{ fontWeight: '700', fontSize: 12, color: base.ink }}>{titleCaseWords(tool.name)} <Text style={{ fontWeight: '400', color: base.slate }}>{tool.vibration_magnitude} m/s²</Text></Text>
+                              <Text style={{ fontWeight: '600', fontSize: 12, color: base.ink }}>{titleCaseWords(tool.name)} <Text style={{ fontWeight: '400', color: base.slate }}>{tool.vibration_magnitude} m/s²</Text></Text>
                               {dayEntries.filter((e) => e.tool_id === tool.id).map((e) => (
                                 <View key={e.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
                                   <Text style={{ flex: 1, fontSize: 11, color: base.slate }}>{data.nameById[e.user_id] || 'Operative'} · {e.minutes}m · {points(tool.vibration_magnitude, e.minutes).toFixed(0)}pts</Text>
@@ -182,7 +182,7 @@ export function HavsManager({ site }: { site: Site }) {
                               {!data.locked && (() => {
                                 const k = `${di}|${tool.id}`, have = new Set([...data.ops.map((o) => o.id), ...(extra[k] || [])]);
                                 const pick = (everyone ?? []).filter((p) => p.role === 'operative' && !have.has(p.id)).sort((a, b) => a.name.localeCompare(b.name));
-                                return pick.length ? <Pressable onPress={async () => { const u = await chooseAction('Add an operative not on this job', pick.map((p) => ({ key: p.id, label: p.name }))); if (u) setExtra((x) => ({ ...x, [k]: [...(x[k] || []), u] })); }}><Text style={{ color: base.blue, fontSize: 12, fontWeight: '700', marginTop: 6 }}>+ Add operative</Text></Pressable> : null;
+                                return pick.length ? <Pressable onPress={async () => { const u = await chooseAction('Add an operative not on this job', pick.map((p) => ({ key: p.id, label: p.name }))); if (u) setExtra((x) => ({ ...x, [k]: [...(x[k] || []), u] })); }}><Text style={{ color: base.blue, fontSize: 12, fontWeight: '600', marginTop: 6 }}>+ Add operative</Text></Pressable> : null;
                               })()}
                             </View>
                           ))}
@@ -204,7 +204,7 @@ export function HavsManager({ site }: { site: Site }) {
                     return (
                       <View key={o.id} style={{ paddingVertical: 6, borderTopWidth: 1, borderTopColor: base.line }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                          <Text style={{ flex: 1, fontWeight: '700', color: base.ink }}>{o.name}</Text>
+                          <Text style={{ flex: 1, fontWeight: '600', color: base.ink }}>{o.name}</Text>
                           <Muted>Week {by.reduce((t, x) => t + x, 0).toFixed(0)} pts</Muted>
                           <Text style={{ color: base.blue }} onPress={async () => { setBusy('sel'); try { const b = await buildHavsPdf(site, org, days, weekLabel(days), [o], o.name); if (!(await deliverPdf(b.bytes, b.filename))) toast('Could not save the PDF.'); } catch { toast('Could not build the PDF.'); } finally { setBusy(''); } }}>Export</Text>
                         </View>

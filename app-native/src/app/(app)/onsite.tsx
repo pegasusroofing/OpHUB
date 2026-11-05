@@ -29,17 +29,17 @@ export default function OnSiteNow() {
       <Title>On site now</Title>
       <Muted style={{ marginBottom: 10 }}>{new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}</Muted>
       <Card>
-        <Text style={{ fontSize: 26, fontWeight: '800', color: base.ink }}>{rows.length}</Text>
+        <Text style={{ fontSize: 26, fontWeight: '600', color: base.ink }}>{rows.length}</Text>
         <Muted>on site now across {list.length} job{list.length === 1 ? '' : 's'}</Muted>
       </Card>
       {list.length ? list.map((st) => (
         <Card key={st.id} style={{ padding: 0, overflow: 'hidden' }}>
           <Pressable onPress={() => router.push(`/sites/${st.id}/checkin`)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, backgroundColor: base.paper }}>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontWeight: '800', color: base.ink }}>{st.name}</Text>
+              <Text style={{ fontWeight: '600', color: base.ink }}>{st.name}</Text>
               <Muted>{fullSiteAddress(st) || ''}</Muted>
             </View>
-            <Text style={{ fontWeight: '700', color: base.ok }}>{bySite[st.id].length} on site</Text>
+            <Text style={{ fontWeight: '600', color: base.ok }}>{bySite[st.id].length} on site</Text>
           </Pressable>
           {bySite[st.id].sort((a, b) => a.ts.localeCompare(b.ts)).map((r) => {
             const p = people?.find((x) => x.id === r.user_id);

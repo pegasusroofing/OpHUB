@@ -54,7 +54,7 @@ export function UnitField({ value, onChangeText, units, onEdit, style, onFocus, 
             </Pressable>
           ))}
           {onEdit && <Pressable focusable={false} onPress={() => take(list.length)} style={{ paddingHorizontal: 10, paddingVertical: 6, borderTopWidth: list.length ? 1 : 0, borderTopColor: base.line, backgroundColor: hi === list.length ? '#E7EDF8' : undefined }}>
-            <Text style={{ fontSize: 12.5, fontWeight: '700', color: base.slate }}>Edit saved units…</Text>
+            <Text style={{ fontSize: 12.5, fontWeight: '600', color: base.slate }}>Edit saved units…</Text>
           </Pressable>}
         </View>
       )}

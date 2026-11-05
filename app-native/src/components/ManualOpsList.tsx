@@ -64,13 +64,13 @@ export function ManualOpsList({ q }: { q: string }) {
         {list.map((m) => (
           <Pressable key={m.id} onPress={() => router.push(`/pm/operatives/m-${m.id}` as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 10, backgroundColor: base.card }}>
             <View style={{ width: 38, height: 38, borderRadius: 10, borderWidth: 1.5, borderStyle: 'dashed', borderColor: base.line, alignItems: 'center', justifyContent: 'center' }}>
-              <Text style={{ fontWeight: '800', color: base.slate }}>{initials(m.name)}</Text>
+              <Text style={{ fontWeight: '600', color: base.slate }}>{initials(m.name)}</Text>
             </View>
             <View style={{ flex: 1, minWidth: 0 }}>
-              <Text style={{ fontWeight: '700', color: base.ink }}>{m.name}</Text>
+              <Text style={{ fontWeight: '600', color: base.ink }}>{m.name}</Text>
               <Muted>{[m.trade, m.phone].filter(Boolean).join(' · ') || 'No details yet'} · {m.certs} certificate{m.certs === 1 ? '' : 's'}{m.onedrive_folder_id ? ' · 📁 OneDrive' : ''}</Muted>
             </View>
-            <View style={{ backgroundColor: '#FFF4E0', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3 }}><Text style={{ color: '#8A5300', fontSize: 11.5, fontWeight: '700' }}>Not Signed Up</Text></View>
+            <View style={{ backgroundColor: '#FFF4E0', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3 }}><Text style={{ color: '#8A5300', fontSize: 11.5, fontWeight: '600' }}>Not Signed Up</Text></View>
           </Pressable>
         ))}
         <SectionTitle>Signed Up</SectionTitle>

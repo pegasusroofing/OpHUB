@@ -35,7 +35,7 @@ import type { Organization, Profile, Site } from '@/lib/types';
 import { base, page, radius, space } from '@/theme/theme';
 
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 8, color: base.ink, backgroundColor: base.card, marginBottom: 6 };
-const small = { color: base.blue, fontWeight: '700' as const, paddingHorizontal: 6 };
+const small = { color: base.blue, fontWeight: '600' as const, paddingHorizontal: 6 };
 
 export default function OmManual() {
   const { id, manual } = useLocalSearchParams<{ id: string; manual: string }>();
@@ -109,7 +109,7 @@ function Editor({ me, org, site, manualId, name0, data0 }: { me: Profile; org: O
   return (
     <ScrollView contentContainerStyle={page(820)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: name || 'O&M Manual' }} />
-      <TextInput value={name} onChangeText={(v) => { setName(v); queue(d, v); }} placeholder="Manual name" style={[box, { fontWeight: '800', fontSize: 16 }]} />
+      <TextInput value={name} onChangeText={(v) => { setName(v); queue(d, v); }} placeholder="Manual name" style={[box, { fontWeight: '600', fontSize: 16 }]} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
         <Button title={status || '📄 Export PDF'} disabled={!!status} onPress={async () => { const b = await build(); if (b && !(await deliverPdf(b.bytes, b.filename))) toast('Could not save the PDF.'); }} />
         <Button kind="ghost" title="✉ Email PDF" disabled={!!status} onPress={async () => {
@@ -166,7 +166,7 @@ function Editor({ me, org, site, manualId, name0, data0 }: { me: Profile; org: O
       <Card>
         <SectionTitle>Attach in the back of the PDF</SectionTitle>
         {([['datasheets', 'Data sheets'], ['guarantees', 'Guarantees'], ['coshh', 'The job’s COSHH assessments'], ['drawings', 'Drawings']] as const).map(([k, l]) => <Check key={k} label={l} value={!!d.attach[k]} onChange={(v) => up((x) => { x.attach[k] = v; })} />)}
-        {d.appendix.length > 0 && <Muted style={{ marginTop: 6, fontWeight: '700' }}>Appendix</Muted>}
+        {d.appendix.length > 0 && <Muted style={{ marginTop: 6, fontWeight: '600' }}>Appendix</Muted>}
         {d.appendix.map((e, i) => (
           <View key={`${e.label}${i}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
             <TextInput value={e.label} onChangeText={(v) => up((x) => { x.appendix[i].label = v; })} style={[box, { flex: 1 }]} />
@@ -189,7 +189,7 @@ function Editor({ me, org, site, manualId, name0, data0 }: { me: Profile; org: O
       {d.sections.map((s, si) => (
         <Card key={s.id}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-            <TextInput value={s.title} onChangeText={(v) => up((x) => { sec(x, s.id).title = v; })} style={[box, { flex: 1, fontWeight: '800', marginBottom: 0 }]} />
+            <TextInput value={s.title} onChangeText={(v) => up((x) => { sec(x, s.id).title = v; })} style={[box, { flex: 1, fontWeight: '600', marginBottom: 0 }]} />
             <Text style={[small, { opacity: si ? 1 : 0.3 }]} onPress={() => move(s.id, -1)}>▲</Text>
             <Text style={[small, { opacity: si < d.sections.length - 1 ? 1 : 0.3 }]} onPress={() => move(s.id, 1)}>▼</Text>
             <Text style={[small, { color: base.red }]} onPress={() => void delSec(s)}>🗑</Text>
@@ -239,7 +239,7 @@ function TableEdit({ s, up, onAttach, busy }: { s: OmSection; up: (fn: (t: OmSec
           <View style={{ flexDirection: 'row', gap: 4 }}>
             {cols.map((h, ci) => (
               <View key={ci} style={{ width: cw }}>
-                <TextInput value={h} onChangeText={(v) => up((t) => { (t.columns as string[])[ci] = v; })} placeholder="(no heading)" style={[box, { fontWeight: '700', backgroundColor: '#EEF0F4' }]} />
+                <TextInput value={h} onChangeText={(v) => up((t) => { (t.columns as string[])[ci] = v; })} placeholder="(no heading)" style={[box, { fontWeight: '600', backgroundColor: '#EEF0F4' }]} />
                 {cols.length > 1 && <Text style={[small, { fontSize: 11 }]} onPress={() => up((t) => { (t.columns as string[]).splice(ci, 1); (t.rows || []).forEach((r) => r.splice(ci, 1)); })}>✕ column</Text>}
               </View>
             ))}
@@ -283,7 +283,7 @@ function MaintEdit({ s, up }: { s: OmSection; up: (fn: (t: OmSection) => void) =
       {items.map((it, i) => (
         <View key={it.id} style={{ marginBottom: 8 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <TextInput value={it.title} onChangeText={(v) => up((t) => { (t.items || [])[i].title = v; })} placeholder="Heading" style={[box, { flex: 1, fontWeight: '700' }]} />
+            <TextInput value={it.title} onChangeText={(v) => up((t) => { (t.items || [])[i].title = v; })} placeholder="Heading" style={[box, { flex: 1, fontWeight: '600' }]} />
             <Text style={small} onPress={() => up((t) => { const a = t.items || []; if (i > 0) [a[i], a[i - 1]] = [a[i - 1], a[i]]; })}>▲</Text>
             <Text style={[small, { color: base.red }]} onPress={() => up((t) => { t.items = (t.items || []).filter((x) => x.id !== it.id); })}>✕</Text>
           </View>
@@ -343,7 +343,7 @@ function LibraryPicker({ orgId, have, onPick, onClose }: { orgId: string; have: 
           <Pressable key={it.id} disabled={inLog} onPress={() => setSel(on ? sel.filter((x) => x !== it.id) : [...sel, it.id])} style={{ flexDirection: 'row', gap: 10, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: base.line, opacity: inLog ? 0.5 : 1 }}>
             <Text style={{ fontSize: 18 }}>{on || inLog ? '☑' : '☐'}</Text>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontWeight: '700', color: base.ink }}>{it.title}</Text>
+              <Text style={{ fontWeight: '600', color: base.ink }}>{it.title}</Text>
               <Muted>{[it.data.manufacturer, it.data.sdsPath ? '📄 data sheet' : 'no data sheet', a ? '✓ COSHH assessment' : 'no COSHH yet', inLog ? 'already in the log' : ''].filter(Boolean).join(' · ')}</Muted>
             </View>
           </Pressable>

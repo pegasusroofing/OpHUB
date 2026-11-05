@@ -110,8 +110,8 @@ export default function SnagList() {
           return (
             <Card key={s.id}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>
-                <View style={{ flex: 1 }}><Text style={{ fontWeight: '800', color: base.ink }}>{s.title}</Text><Muted>{s.location || '—'}</Muted></View>
-                <Text style={{ fontSize: 11, fontWeight: '800', color: base.warn, backgroundColor: base.warnBg, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, overflow: 'hidden', alignSelf: 'flex-start', textTransform: 'uppercase' }}>{s.status}</Text>
+                <View style={{ flex: 1 }}><Text style={{ fontWeight: '600', color: base.ink }}>{s.title}</Text><Muted>{s.location || '—'}</Muted></View>
+                <Text style={{ fontSize: 11, fontWeight: '600', color: base.warn, backgroundColor: base.warnBg, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, overflow: 'hidden', alignSelf: 'flex-start', textTransform: 'uppercase' }}>{s.status}</Text>
               </View>
               {body(s)}
             </Card>
@@ -122,7 +122,7 @@ export default function SnagList() {
           <View key={s.id}>
             <Pressable onPress={() => { const n = new Set(expanded); if (open) n.delete(s.id); else n.add(s.id); setExpanded(n); }}
               style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, padding: 12, marginBottom: 8 }}>
-              <View style={{ flex: 1 }}><Text style={{ fontWeight: '700', color: base.ink }}>{s.title}</Text><Muted>{s.location || '—'} · Closed {d(s.closed_at)}</Muted></View>
+              <View style={{ flex: 1 }}><Text style={{ fontWeight: '600', color: base.ink }}>{s.title}</Text><Muted>{s.location || '—'} · Closed {d(s.closed_at)}</Muted></View>
               <Text style={{ color: base.slate }}>{open ? '▼' : '▶'}</Text>
             </Pressable>
             {open && <Card>{body(s)}</Card>}

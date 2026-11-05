@@ -121,7 +121,7 @@ export function Notice({ kind, text }: { kind: 'error' | 'info'; text: string })
   const err = kind === 'error';
   return (
     <View style={[s.notice, { backgroundColor: err ? '#FBE7EA' : base.okBg, borderColor: err ? base.red : base.ok }]}>
-      <Text style={{ color: err ? base.red : base.ok, fontWeight: '700' }}>{text}</Text>
+      <Text style={{ color: err ? base.red : base.ok, fontWeight: '600' }}>{text}</Text>
     </View>
   );
 }
@@ -130,7 +130,7 @@ export function Link({ title, onPress }: { title: string; onPress: () => void })
   const t = useTheme();
   return (
     <Pressable onPress={onPress} accessibilityRole="link" style={{ alignSelf: 'center', paddingVertical: 8 }}>
-      <Text style={{ color: t.brand1, fontWeight: '700' }}>{title}</Text>
+      <Text style={{ color: t.brand1, fontWeight: '600' }}>{title}</Text>
     </Pressable>
   );
 }
@@ -140,7 +140,7 @@ export function Check({ label, value, onChange }: { label: string; value: boolea
   return (
     <Pressable onPress={() => onChange(!value)} accessibilityRole="checkbox" accessibilityState={{ checked: value }} style={s.checkRow}>
       <View style={[s.box, value && { backgroundColor: t.brand1, borderColor: t.brand1 }]}>
-        {value && <Text style={{ color: t.brand1Text, fontSize: 12, fontWeight: '800' }}>✓</Text>}
+        {value && <Text style={{ color: t.brand1Text, fontSize: 12, fontWeight: '600' }}>✓</Text>}
       </View>
       <Text style={[s.muted, { flex: 1 }]}>{label}</Text>
     </Pressable>
@@ -152,7 +152,7 @@ export function Pill({ on, text }: { on: boolean; text: string }) {
   return (
     <View style={[s.pill, { backgroundColor: on ? base.okBg : base.line }]}>
       <View style={[s.dot, { width: 6, height: 6, backgroundColor: on ? base.ok : base.slate }]} />
-      <Text style={{ color: on ? base.ok : base.slate, fontWeight: '800', fontSize: 11, letterSpacing: 0.5, textTransform: 'uppercase' }}>{text}</Text>
+      <Text style={{ color: on ? base.ok : base.slate, fontWeight: '600', fontSize: 11, letterSpacing: 0.5, textTransform: 'uppercase' }}>{text}</Text>
     </View>
   );
 }
@@ -292,7 +292,7 @@ const s = StyleSheet.create({
   pill: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 6, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999 },
   dot: { width: 8, height: 8, borderRadius: 4 },
   row: { flexDirection: 'row', alignItems: 'center', backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 13, marginBottom: space.s },
-  rowTitle: { fontSize: 14, fontWeight: '700', color: base.ink },
+  rowTitle: { fontSize: 14, fontWeight: '600', color: base.ink },
   rowSub: { fontSize: 12, color: base.slate, marginTop: 2 },
   section: { ...heading(700), fontSize: 11, letterSpacing: 0.9, textTransform: 'uppercase', color: base.slate, marginTop: 0, marginBottom: space.m },
   empty: { color: base.slateLight, textAlign: 'center', paddingVertical: 26, paddingHorizontal: 10, fontSize: 13 },
@@ -307,7 +307,7 @@ const s = StyleSheet.create({
   boxIc: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   boxT: { fontSize: 14, fontWeight: '600', color: '#111827' },
   boxS: { fontSize: 12, color: '#6b7280', fontWeight: '500', marginTop: 2 },
-  badge: { position: 'absolute', top: -6, right: -6, backgroundColor: base.red, color: '#fff', fontSize: 11, fontWeight: '800', borderRadius: 9, minWidth: 18, textAlign: 'center', paddingHorizontal: 4, overflow: 'hidden' },
+  badge: { position: 'absolute', top: -6, right: -6, backgroundColor: base.red, color: '#fff', fontSize: 11, fontWeight: '600', borderRadius: 9, minWidth: 18, textAlign: 'center', paddingHorizontal: 4, overflow: 'hidden' },
   screen: { flex: 1, backgroundColor: base.paper },
   scroll: { flexGrow: 1, padding: space.l },
   center: { justifyContent: 'center' },
@@ -315,7 +315,7 @@ const s = StyleSheet.create({
   card: { backgroundColor: base.card, borderRadius: radius.card, borderWidth: 1, borderColor: base.cardLine, padding: 14, marginBottom: space.m, ...shadow },
   title: { ...heading(800), fontSize: 21, color: base.ink, marginBottom: space.s, letterSpacing: -0.2 },
   muted: { fontSize: 13, color: base.slate, lineHeight: 18 },
-  label: { fontSize: 12, fontWeight: '700', color: base.slate, marginBottom: 4 },
+  label: { fontSize: 12, fontWeight: '600', color: base.slate, marginBottom: 4 },
   input: { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, paddingHorizontal: 12, paddingVertical: 11, fontSize: 15, color: base.ink, backgroundColor: base.card },
   btn: { borderRadius: 9, paddingVertical: 7, paddingHorizontal: 14, minHeight: 34, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', marginTop: 4 },
   btnText: { fontSize: 13.5, fontWeight: '600', textAlign: 'center' },

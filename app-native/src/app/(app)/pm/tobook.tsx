@@ -44,12 +44,12 @@ export default function ToBook() {
           <Card key={it.id}>
             <View style={{ flexDirection: 'row', gap: 8 }}>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontWeight: '800', color: base.ink }}>{ex.supplier || it.from_email || 'Purchase invoice'}</Text>
+                <Text style={{ fontWeight: '600', color: base.ink }}>{ex.supplier || it.from_email || 'Purchase invoice'}</Text>
                 <Muted>{[ex.invoice_no ? `Invoice ${ex.invoice_no}` : '', ex.date ? fdate(ex.date) : ''].filter(Boolean).join(' · ')}</Muted>
               </View>
-              {ex.total != null && <Text style={{ fontWeight: '800', color: base.ink }}>{money(ex.total)}</Text>}
+              {ex.total != null && <Text style={{ fontWeight: '600', color: base.ink }}>{money(ex.total)}</Text>}
             </View>
-            {!!last && <Text style={{ marginTop: 6, color: base.ink }}><Text style={{ fontWeight: '700' }}>{last.name || 'Office'}:</Text> {last.text || ''}</Text>}
+            {!!last && <Text style={{ marginTop: 6, color: base.ink }}><Text style={{ fontWeight: '600' }}>{last.name || 'Office'}:</Text> {last.text || ''}</Text>}
             {!!it.file_path && <Button kind="ghost" title="View the invoice" onPress={async () => { const u = await openDocLink('finance-docs', it.file_path); if (u) viewDoc(u); else toast('Could not open the file.'); }} />}
             <Pressable onPress={async () => { const s = await pickJob('Which job is it for', open); if (s) setPick({ ...pick, [it.id]: s }); }} style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, marginTop: 8, backgroundColor: base.card }}>
               <Text style={{ color: site ? base.ink : base.slate }}>{site ? jobTag(site) : 'Which job is it for? ▾'}</Text>

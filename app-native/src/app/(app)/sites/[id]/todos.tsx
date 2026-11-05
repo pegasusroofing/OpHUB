@@ -83,7 +83,7 @@ export default function TodoList() {
         <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
           <Pressable hitSlop={8} accessibilityLabel="Select" onPress={() => { const n = new Set(sel); if (n.has(t.id)) n.delete(t.id); else n.add(t.id); setSel(n); }}
             style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: sel.has(t.id) ? base.ink : base.slateLight, backgroundColor: sel.has(t.id) ? base.ink : 'transparent', alignItems: 'center', justifyContent: 'center', marginTop: 1 }}>
-            {sel.has(t.id) && <Text style={{ color: '#fff', fontSize: 12, fontWeight: '800' }}>✓</Text>}
+            {sel.has(t.id) && <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>✓</Text>}
           </Pressable>
           <Pressable style={{ flex: 1 }} onPress={() => { const n = new Set(openRows); if (n.has(t.id)) n.delete(t.id); else n.add(t.id); setOpenRows(n); }}>
             {edit?.id === t.id ? (
@@ -101,9 +101,9 @@ export default function TodoList() {
               </View>
             ) : (
               <>
-                <Text style={{ fontSize: 15, fontWeight: '700', color: t.done ? base.slate : base.ink, textDecorationLine: t.done ? 'line-through' : 'none' }}>{t.text}</Text>
+                <Text style={{ fontSize: 15, fontWeight: '600', color: t.done ? base.slate : base.ink, textDecorationLine: t.done ? 'line-through' : 'none' }}>{t.text}</Text>
                 <Text style={{ fontSize: 12.5, color: base.slate, marginTop: 3 }}>
-                  {isOverdue(t) ? <Text style={{ color: base.red, fontWeight: '700' }}>Overdue {dateLabel}</Text> : isThisWeek(t) ? <Text style={{ color: base.warn, fontWeight: '700' }}>Due {dateLabel}</Text> : dateLabel ? `Due ${dateLabel}` : 'No date'}
+                  {isOverdue(t) ? <Text style={{ color: base.red, fontWeight: '600' }}>Overdue {dateLabel}</Text> : isThisWeek(t) ? <Text style={{ color: base.warn, fontWeight: '600' }}>Due {dateLabel}</Text> : dateLabel ? `Due ${dateLabel}` : 'No date'}
                   {' · '}{t.assigned_to ? nameOf(people, t.assigned_to) : 'Unassigned'}{comments.length ? ` · 💬 ${comments.length}` : ''}{files.length ? ` · 📎 ${files.length}` : ''}
                 </Text>
               </>
@@ -121,7 +121,7 @@ export default function TodoList() {
               const pm = await choosePm(t.assigned_to); if (pm === undefined) return;
               if (await assignTodo(me, id, site.name, t, pm)) { toast(pm ? 'Project manager updated' : 'Project manager removed'); refresh(); }
             }} style={{ marginBottom: 8 }}>
-              <Text style={{ fontSize: 12.5, color: base.slate }}>{t.assigned_to ? <>Assigned to <Text style={{ fontWeight: '700' }}>{nameOf(people, t.assigned_to)}</Text>{t.done ? '' : ', press to change'}</> : t.done ? 'Unassigned' : 'Press to assign a project manager'}</Text>
+              <Text style={{ fontSize: 12.5, color: base.slate }}>{t.assigned_to ? <>Assigned to <Text style={{ fontWeight: '600' }}>{nameOf(people, t.assigned_to)}</Text>{t.done ? '' : ', press to change'}</> : t.done ? 'Unassigned' : 'Press to assign a project manager'}</Text>
             </Pressable>
           {files.map((f) => (
             <View key={f.id} style={{ flexDirection: 'row', gap: 8, marginBottom: 6 }}>
@@ -138,7 +138,7 @@ export default function TodoList() {
             <>
               {comments.length ? comments.map((c) => (
                 <View key={c.id} style={{ marginTop: 6 }}>
-                  <Text style={{ fontSize: 13.5, color: base.ink }}><Text style={{ fontWeight: '700' }}>{nameOf(people, c.created_by)}</Text> <Text style={{ color: base.slate, fontSize: 12 }}>{new Date(c.created_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</Text></Text>
+                  <Text style={{ fontSize: 13.5, color: base.ink }}><Text style={{ fontWeight: '600' }}>{nameOf(people, c.created_by)}</Text> <Text style={{ color: base.slate, fontSize: 12 }}>{new Date(c.created_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</Text></Text>
                   <Text style={{ color: base.ink, fontSize: 15 }}>{c.body}</Text>
                 </View>
               )) : <Muted>No comments yet — add one if something isn&apos;t possible.</Muted>}
@@ -155,7 +155,7 @@ export default function TodoList() {
             <View style={{ flexDirection: 'row', marginTop: 10 }}>
               <Pressable onPress={async () => { if (await setTodoDone(t.id, !t.done)) { toast(t.done ? 'Reopened' : 'Closed'); refresh(); } }}
                 style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: 9, borderWidth: 1, borderColor: base.ok, backgroundColor: base.okBg }}>
-                <Text style={{ fontWeight: '800', fontSize: 12, color: base.ok }}>{t.done ? '✓ Completed: reopen' : 'Mark Complete'}</Text>
+                <Text style={{ fontWeight: '600', fontSize: 12, color: base.ok }}>{t.done ? '✓ Completed: reopen' : 'Mark Complete'}</Text>
               </Pressable>
             </View>
           </View>
@@ -167,7 +167,7 @@ export default function TodoList() {
 
   const stat = (key: string, n: number, label: string, on: boolean, press: () => void, red = false) => (
     <Pressable key={key} onPress={press} accessibilityLabel={label} style={{ flex: 1, backgroundColor: base.card, borderWidth: on ? 2 : 1, borderColor: on ? base.ink : base.cardLine, borderRadius: radius.row, paddingVertical: 8, alignItems: 'center' }}>
-      <Text style={{ fontSize: 21, fontWeight: '800', color: red && n ? base.red : base.ink }}>{n}</Text>
+      <Text style={{ fontSize: 21, fontWeight: '600', color: red && n ? base.red : base.ink }}>{n}</Text>
       <Text style={{ fontSize: 11.5, fontWeight: '600', color: base.slate }}>{label}</Text>
     </Pressable>
   );
@@ -202,8 +202,8 @@ export default function TodoList() {
     </ScrollView>
     {list.length > 0 && (
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', backgroundColor: base.card, borderTopWidth: 1, borderTopColor: base.line, paddingHorizontal: 16, paddingVertical: 9 }}>
-        {tab === 'live' ? <Pressable onPress={() => setEmail({ ids: list.map((t) => t.id) })}><Text style={{ fontSize: 13, fontWeight: '700', color: base.blue }}>✉ Email</Text></Pressable> : <View />}
-        <Pressable onPress={() => void exportPdf(list.map((t) => t.id))}><Text style={{ fontSize: 13, fontWeight: '700', color: base.blue }}>📄 Export</Text></Pressable>
+        {tab === 'live' ? <Pressable onPress={() => setEmail({ ids: list.map((t) => t.id) })}><Text style={{ fontSize: 13, fontWeight: '600', color: base.blue }}>✉ Email</Text></Pressable> : <View />}
+        <Pressable onPress={() => void exportPdf(list.map((t) => t.id))}><Text style={{ fontSize: 13, fontWeight: '600', color: base.blue }}>📄 Export</Text></Pressable>
       </View>
     )}
     </View>
@@ -228,7 +228,7 @@ function AddBox({ choosePm, onAdd }: { pms: Pm[]; choosePm: (c: string | null) =
   return (
     <Card>
       <TextInput value={text} onChangeText={setText} placeholder="What needs doing?" style={[box, { fontSize: 16 }]} onSubmitEditing={() => void submit()} />
-      <Muted style={{ fontWeight: '700' }}>Comments (optional)</Muted>
+      <Muted style={{ fontWeight: '600' }}>Comments (optional)</Muted>
       <TextInput value={note} onChangeText={setNote} multiline placeholder="Add any notes…" style={[box, { minHeight: 56 }]} />
       <View style={{ flexDirection: 'row', gap: 8 }}>
         <DateBox value={date} onChange={setDate} placeholder="Required by (optional)" title="Required by" style={{ flex: 1, marginBottom: 8 }} />
@@ -240,7 +240,7 @@ function AddBox({ choosePm, onAdd }: { pms: Pm[]; choosePm: (c: string | null) =
       {files.map((f, i) => (
         <View key={`${f.uri}${i}`} style={{ flexDirection: 'row', gap: 8, marginBottom: 4 }}>
           <Text style={{ flex: 1, color: base.slate }} numberOfLines={1}>{f.name}</Text>
-          <Pressable onPress={() => setFiles(files.filter((_, j) => j !== i))}><Text style={{ color: base.warn, fontWeight: '700' }}>Remove</Text></Pressable>
+          <Pressable onPress={() => setFiles(files.filter((_, j) => j !== i))}><Text style={{ color: base.warn, fontWeight: '600' }}>Remove</Text></Pressable>
         </View>
       ))}
       <View style={{ marginTop: 8 }}><Button small busy={busy} title="Add To Do" onPress={() => void submit()} /></View>

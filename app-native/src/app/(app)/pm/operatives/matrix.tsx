@@ -37,13 +37,13 @@ export default function TrainingMatrix() {
         <ScrollView horizontal>
           <View style={{ backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 10 }}>
             <View style={{ flexDirection: 'row', backgroundColor: '#E4E9F0' }}>
-              <Text style={[cell, { width: 170, fontWeight: '800', color: base.ink }]}>Operative</Text>
-              {CERT_CATEGORIES.map((c) => <Text key={c.key} style={[cell, { fontWeight: '800', color: base.ink, fontSize: 12 }]}>{c.label}</Text>)}
+              <Text style={[cell, { width: 170, fontWeight: '600', color: base.ink }]}>Operative</Text>
+              {CERT_CATEGORIES.map((c) => <Text key={c.key} style={[cell, { fontWeight: '600', color: base.ink, fontSize: 12 }]}>{c.label}</Text>)}
             </View>
             {data.operatives.map((o) => (
               <View key={o.id} style={{ flexDirection: 'row' }}>
-                <Pressable onPress={() => router.push(`/pm/operatives/${o.id}` as never)} style={[cell, { width: 170 }]}><Text style={{ fontWeight: '700', color: base.blue }}>{o.name}</Text></Pressable>
-                {CERT_CATEGORIES.map((c) => { const e = data.byOp[o.id]?.[c.key], st = matrixState(e); return <Text key={c.key} style={[cell, { backgroundColor: BG[st], color: FG[st], fontWeight: '700', fontSize: 12 }]}>{matrixCellText(e, true).replace(/^Y$/, '✓') || '–'}</Text>; })}
+                <Pressable onPress={() => router.push(`/pm/operatives/${o.id}` as never)} style={[cell, { width: 170 }]}><Text style={{ fontWeight: '600', color: base.blue }}>{o.name}</Text></Pressable>
+                {CERT_CATEGORIES.map((c) => { const e = data.byOp[o.id]?.[c.key], st = matrixState(e); return <Text key={c.key} style={[cell, { backgroundColor: BG[st], color: FG[st], fontWeight: '600', fontSize: 12 }]}>{matrixCellText(e, true).replace(/^Y$/, '✓') || '–'}</Text>; })}
               </View>
             ))}
           </View>

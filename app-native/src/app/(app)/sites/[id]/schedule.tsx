@@ -130,7 +130,7 @@ export default function Schedule() {
   const addBox = (key: string, sectionId: string | null) => canAdd && (adding === key
     ? <AddTaskBox addresses={site.multi_site ? data?.addresses ?? [] : []} onCancel={() => setAdding(null)}
         onAdd={async (name, subId) => { if (await addTask(site.id, name, sectionId, subId)) { changed(); return true; } toast('Could not save — try again.'); return false; }} />
-    : <Pressable onPress={() => setAdding(key)} accessibilityRole="button" style={{ alignSelf: 'flex-start', marginTop: 4, borderWidth: 1.5, borderColor: t.brand1, borderRadius: 999, paddingVertical: 5, paddingHorizontal: 10 }}><Text style={{ fontSize: 10, fontWeight: '800', letterSpacing: 0.4, color: t.brand1 }}>+ ADD TASK</Text></Pressable>);
+    : <Pressable onPress={() => setAdding(key)} accessibilityRole="button" style={{ alignSelf: 'flex-start', marginTop: 4, borderWidth: 1.5, borderColor: t.brand1, borderRadius: 999, paddingVertical: 5, paddingHorizontal: 10 }}><Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.4, color: t.brand1 }}>+ ADD TASK</Text></Pressable>);
   const sectionMenu = async (sec: { id: string; name: string }) => {
     const k = await chooseAction(sec.name, [{ key: 'dup', label: '⧉ Duplicate section' }, { key: 'ren', label: '✎ Rename' }, { key: 'vis', label: '🔒 Who can see this' }, { key: 'del', label: '🗑 Delete', danger: true }]);
     if (k === 'vis') { setVis(sec.id); setOpen((o) => ({ ...o, [sec.id]: true })); }
@@ -228,16 +228,16 @@ export default function Schedule() {
               <Text style={{ flex: 1, fontSize: 13, color: base.ink }}>
                 📍 {showAll ? 'Showing all addresses' : `You're checked in at ${view.here.name} — showing its tasks only`}
               </Text>
-              <Pressable onPress={() => setShowAll(!showAll)}><Text style={{ color: base.blue, fontWeight: '700' }}>{showAll ? `Just ${view.here.name}` : 'Show all addresses'}</Text></Pressable>
+              <Pressable onPress={() => setShowAll(!showAll)}><Text style={{ color: base.blue, fontWeight: '600' }}>{showAll ? `Just ${view.here.name}` : 'Show all addresses'}</Text></Pressable>
             </Card>
           )}
           {view.allTasks.length > 0 && (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12, backgroundColor: '#fff', borderWidth: 1, borderColor: '#ECEEF2', borderRadius: 16, paddingVertical: 12, paddingHorizontal: 14 }}>
-              <Text style={{ fontSize: 12, fontWeight: '700', color: base.ink }}>Overall progress</Text>
+              <Text style={{ fontSize: 12, fontWeight: '600', color: base.ink }}>Overall progress</Text>
               <View style={{ flex: 1, height: 10, borderRadius: 6, backgroundColor: base.line, overflow: 'hidden' }}>
                 <View style={{ width: `${overallPct(view.allTasks)}%`, height: '100%', backgroundColor: '#2E9E5B' }} />
               </View>
-              <Text style={{ fontWeight: '800', color: base.ink }}>{overallPct(view.allTasks)}%</Text>
+              <Text style={{ fontWeight: '600', color: base.ink }}>{overallPct(view.allTasks)}%</Text>
             </View>
           )}
           <FilterRow seg options={SOW_FILTERS.map((k) => [k, SOW_FILTER_LABEL[k]] as [SowFilter, string])} value={filter} onChange={setFilter} />
@@ -245,7 +245,7 @@ export default function Schedule() {
           {manager && (
             selecting ? (
               <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <Text style={{ flex: 1, fontWeight: '700', color: base.ink }}>{selecting.size} selected</Text>
+                <Text style={{ flex: 1, fontWeight: '600', color: base.ink }}>{selecting.size} selected</Text>
                 <Button title="🗑 Delete Selected" disabled={!selecting.size} onPress={async () => {
                   const n = selecting.size;
                   if (!(await confirmAsk(`Delete ${n} task${n === 1 ? '' : 's'}? This also removes their progress photos. This can't be undone.`, 'Delete'))) return;
@@ -337,10 +337,10 @@ function AddTaskBox({ addresses, onAdd, onCancel }: { addresses: { id: string; n
         <TextInput value={name} onChangeText={setName} placeholder="New task, e.g. Fit lead flashing" autoFocus onSubmitEditing={() => void add()} placeholderTextColor={base.slateLight}
           style={{ flex: 1, borderWidth: 1, borderColor: base.line, borderRadius: radius.input, paddingHorizontal: 12, paddingVertical: 9, fontSize: 15, color: base.ink, backgroundColor: base.card }} />
         <Pressable accessibilityRole="button" onPress={() => void add()} disabled={busy || !name.trim()} style={{ minWidth: 74, alignItems: 'center', paddingHorizontal: 18, paddingVertical: 9, borderRadius: radius.input, backgroundColor: base.blue, opacity: busy || !name.trim() ? 0.5 : 1 }}>
-          <Text style={{ color: '#fff', fontWeight: '800' }}>Add</Text>
+          <Text style={{ color: '#fff', fontWeight: '600' }}>Add</Text>
         </Pressable>
         <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={onCancel} hitSlop={8} style={{ paddingHorizontal: 6 }}>
-          <Text style={{ fontSize: 16, color: base.slate, fontWeight: '700' }}>✕</Text>
+          <Text style={{ fontSize: 16, color: base.slate, fontWeight: '600' }}>✕</Text>
         </Pressable>
       </View>
       {addresses.length > 0 && (
@@ -363,10 +363,10 @@ function Group({ title, count, open, onToggle, onMenu, onAdd, onMore, children }
       <Pressable onPress={onToggle} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 14 }}>
         <Text style={{ fontSize: 10, color: base.slate, marginRight: 8 }}>{open ? '▼' : '▶'}</Text>
         <Text style={[heading(800), { flex: 1, fontSize: 15, color: base.ink }]} numberOfLines={1}>{title}</Text>
-        {!!count && <Text style={{ fontSize: 11, fontWeight: '700', color: base.slate, backgroundColor: '#F1F2F4', borderRadius: 999, paddingVertical: 3, paddingHorizontal: 9, marginLeft: 6, overflow: 'hidden' }}>{count}</Text>}
+        {!!count && <Text style={{ fontSize: 11, fontWeight: '600', color: base.slate, backgroundColor: '#F1F2F4', borderRadius: 999, paddingVertical: 3, paddingHorizontal: 9, marginLeft: 6, overflow: 'hidden' }}>{count}</Text>}
         {onAdd && (
           <Pressable onPress={onAdd} hitSlop={6} style={{ marginLeft: 8, borderWidth: 1.5, borderColor: t.brand1, borderRadius: 999, paddingVertical: 5, paddingHorizontal: 10 }}>
-            <Text style={{ fontSize: 10, fontWeight: '800', letterSpacing: 0.4, color: t.brand1 }}>+ ADD TASK</Text>
+            <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.4, color: t.brand1 }}>+ ADD TASK</Text>
           </Pressable>
         )}
         {onMore && <Pressable onPress={onMore} hitSlop={8} accessibilityLabel="More" style={{ marginLeft: 6, width: 26, height: 26, borderRadius: 13, borderWidth: 1, borderColor: base.line, alignItems: 'center', justifyContent: 'center' }}><Text style={{ fontSize: 10, color: base.slate }}>▾</Text></Pressable>}
@@ -387,10 +387,10 @@ function SiteCondition({ flag, tasks, filter, canChange, onSave, onReopen, onAns
     return (
       <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
         <View style={{ flex: 1 }}>
-          <Text style={{ fontWeight: '800', color: base.ink }}>Site condition ✓ closed out</Text>
+          <Text style={{ fontWeight: '600', color: base.ink }}>Site condition ✓ closed out</Text>
           <Muted>🗑 Waste to clear: {yn(flag?.waste_to_clear)} · 📦 Leftover material: {yn(flag?.leftover_material)}</Muted>
         </View>
-        {canChange && <Pressable onPress={onReopen}><Text style={{ color: base.blue, fontWeight: '700' }}>Change</Text></Pressable>}
+        {canChange && <Pressable onPress={onReopen}><Text style={{ color: base.blue, fontWeight: '600' }}>Change</Text></Pressable>}
       </Card>
     );
   }
@@ -402,7 +402,7 @@ function SiteCondition({ flag, tasks, filter, canChange, onSave, onReopen, onAns
         return (
           <Pressable key={lbl} onPress={() => { if (!active) onAnswer(field, val); }}
             style={{ marginLeft: 6, paddingHorizontal: 14, paddingVertical: 6, borderRadius: 10, borderWidth: 1, borderColor: active ? (val ? base.warn : base.ink) : base.line, backgroundColor: active ? (val ? base.warnBg : base.paper) : base.card }}>
-            <Text style={{ fontWeight: '700', color: active ? (val ? base.warn : base.ink) : base.slate }}>{lbl}</Text>
+            <Text style={{ fontWeight: '600', color: active ? (val ? base.warn : base.ink) : base.slate }}>{lbl}</Text>
           </Pressable>
         );
       })}
@@ -413,7 +413,7 @@ function SiteCondition({ flag, tasks, filter, canChange, onSave, onReopen, onAns
       <SectionTitle>Site condition</SectionTitle>
       {q('🗑 Is there waste to clear?', !!flag?.waste_to_clear, 'waste_to_clear')}
       {q('📦 Any leftover material?', !!flag?.leftover_material, 'leftover_material')}
-      {flag?.leftover_material && flag.leftover_photo_path && <Pressable onPress={async () => { const u = await openDocLink('site-photos', flag.leftover_photo_path as string); if (u) viewDoc(u); }}><Muted style={{ color: base.blue, fontWeight: '700' }}>📷 Leftover photo added — tap to view</Muted></Pressable>}
+      {flag?.leftover_material && flag.leftover_photo_path && <Pressable onPress={async () => { const u = await openDocLink('site-photos', flag.leftover_photo_path as string); if (u) viewDoc(u); }}><Muted style={{ color: base.blue, fontWeight: '600' }}>📷 Leftover photo added — tap to view</Muted></Pressable>}
       <Button title="Submit" onPress={onSave} />
     </Card>
   );

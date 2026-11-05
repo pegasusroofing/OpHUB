@@ -67,10 +67,10 @@ export default function CompanyLibraryDocs() {
       {data.docs.length ? data.docs.map((d) => (
         <Card key={d.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <View style={{ flex: 1 }}>
-            <Text style={{ fontWeight: '700', color: base.ink }}>{d.name}</Text>
+            <Text style={{ fontWeight: '600', color: base.ink }}>{d.name}</Text>
             <Muted>{CATS.find((c) => c.key === d.category)?.label || 'Other'} · {team.find((p) => p.id === d.uploaded_by)?.name || 'Unknown'} · {new Date(d.uploaded_at).toLocaleDateString('en-GB')}{d.expiry_date ? ` · expires ${new Date(`${d.expiry_date}T00:00:00`).toLocaleDateString('en-GB')}` : ''}</Muted>
           </View>
-          <Pressable onPress={async () => { const u = await openDocLink('mc-documents', d.storage_path); if (u) viewDoc(u); else toast('Could not open the file.'); }}><Text style={{ color: base.blue, fontWeight: '700' }}>View</Text></Pressable>
+          <Pressable onPress={async () => { const u = await openDocLink('mc-documents', d.storage_path); if (u) viewDoc(u); else toast('Could not open the file.'); }}><Text style={{ color: base.blue, fontWeight: '600' }}>View</Text></Pressable>
           <Pressable hitSlop={8} onPress={async () => {
             if (!(await confirmAsk("Delete this document? This can't be undone.", 'Delete'))) return;
             if (!(await db.from('subcontractor_company_documents').delete().eq('id', d.id).select('id')).data?.length) { toast('Could not delete — try again.'); return; }

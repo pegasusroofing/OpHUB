@@ -55,9 +55,9 @@ export function PmHome() {
       <HomePrompts />
       {(tbInv > 0 || tbWages > 0) && (
         <Pressable onPress={go('/pm/tobook')} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: base.warnBg, borderRadius: 16, padding: 14, marginBottom: space.m }}>
-          <Text style={{ fontSize: 18, fontWeight: '800', color: base.warn }}>£</Text>
+          <Text style={{ fontSize: 18, fontWeight: '600', color: base.warn }}>£</Text>
           <View style={{ flex: 1 }}>
-            <Text style={{ fontWeight: '800', color: base.ink }}>Needs you</Text>
+            <Text style={{ fontWeight: '600', color: base.ink }}>Needs you</Text>
             <Text style={{ fontSize: 12.5, color: base.slate }}>{[tbInv ? `${tbInv} purchase invoice${tbInv === 1 ? '' : 's'} to book to a job` : '', tbWages ? `${tbWages} wage${tbWages === 1 ? '' : 's'} to book to a price` : ''].filter(Boolean).join(' · ')}</Text>
           </View>
           <OphIcon name="chevron" size={18} color={base.slate} stroke={2.2} />
@@ -98,10 +98,10 @@ export function PmHome() {
           {mine.map((r) => (
             <Pressable key={r.id} onPress={go(r.site_id ? `/sites/${r.site_id}/snagging/reports/fill/${r.id}` : `/pm/survey/${r.id}?mode=fill`)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 10, padding: 13.5, marginBottom: 10 }}>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontWeight: '700', color: base.ink, fontSize: 14 }}>{r.template_name || 'Report'}</Text>
+                <Text style={{ fontWeight: '600', color: base.ink, fontSize: 14 }}>{r.template_name || 'Report'}</Text>
                 <Muted>{where(r)}</Muted>
               </View>
-              <View style={{ backgroundColor: TINTS.orange[0], borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 }}><Text style={{ fontSize: 11, fontWeight: '700', color: TINTS.orange[1] }}>In Progress</Text></View>
+              <View style={{ backgroundColor: TINTS.orange[0], borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 }}><Text style={{ fontSize: 11, fontWeight: '600', color: TINTS.orange[1] }}>In Progress</Text></View>
               <OphIcon name="chevron" size={18} color={base.slateLight} stroke={2.2} />
             </Pressable>
           ))}

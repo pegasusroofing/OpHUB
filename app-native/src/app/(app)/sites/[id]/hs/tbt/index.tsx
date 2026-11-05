@@ -76,7 +76,7 @@ export default function Tbts() {
       <HowTo k="tbt" />
       {!!due && (
         <Card style={{ borderColor: base.warn, borderWidth: 1.5 }}>
-          <Text style={{ fontWeight: '700', color: base.warn }}>{due}</Text>
+          <Text style={{ fontWeight: '600', color: base.warn }}>{due}</Text>
           <Muted>A Toolbox Talk must be issued and signed off every month. Issue one from TBT Library below.</Muted>
         </Card>
       )}
@@ -109,7 +109,7 @@ export default function Tbts() {
                   }}><Text style={{ color: base.red }}>🗑</Text></Pressable>
                 )}
                 {mgr && cur === 'completed' && <Pressable hitSlop={8} onPress={() => setSel((x) => { const n = new Set(x); if (n.has(t.id)) n.delete(t.id); else n.add(t.id); return n; })}
-                  style={{ width: 18, height: 18, borderRadius: 4, borderWidth: 1.5, borderColor: sel.has(t.id) ? base.blue : '#c3c8d0', backgroundColor: sel.has(t.id) ? base.blue : '#fff', alignItems: 'center', justifyContent: 'center' }}>{sel.has(t.id) && <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700', lineHeight: 14 }}>✓</Text>}</Pressable>}
+                  style={{ width: 18, height: 18, borderRadius: 4, borderWidth: 1.5, borderColor: sel.has(t.id) ? base.blue : '#c3c8d0', backgroundColor: sel.has(t.id) ? base.blue : '#fff', alignItems: 'center', justifyContent: 'center' }}>{sel.has(t.id) && <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600', lineHeight: 14 }}>✓</Text>}</Pressable>}
                 <DocBadge label="TBT" />
                 <View style={{ flex: 1 }}>
                   <Text numberOfLines={2} style={{ fontSize: 15, fontWeight: '600', color: '#111827' }}>{t.title}</Text>
@@ -188,11 +188,11 @@ function SubTbts({ siteId, site }: { siteId: string; site: NonNullable<ReturnTyp
       <SectionTitle>Subcontractor Toolbox Talks</SectionTitle>
       {data.map((c) => (
         <Card key={c.id}>
-          <Pressable onPress={() => setOpen({ ...open, [c.id]: !open[c.id] })}><Text style={{ fontWeight: '800', color: base.ink }}>{open[c.id] ? '▼' : '▶'} {c.name} ({c.talks.length})</Text></Pressable>
+          <Pressable onPress={() => setOpen({ ...open, [c.id]: !open[c.id] })}><Text style={{ fontWeight: '600', color: base.ink }}>{open[c.id] ? '▼' : '▶'} {c.name} ({c.talks.length})</Text></Pressable>
           {open[c.id] && c.talks.map((t) => (
             <View key={t.id} style={{ paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: base.line }}>
               <Pressable onPress={() => router.push(`/sites/${siteId}/mc/subcontractors/${c.id}/tbt` as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <View style={{ flex: 1 }}><Text style={{ fontWeight: '700', color: base.ink }}>{t.title}</Text><Muted>{new Date(t.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</Muted></View>
+                <View style={{ flex: 1 }}><Text style={{ fontWeight: '600', color: base.ink }}>{t.title}</Text><Muted>{new Date(t.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</Muted></View>
                 <TbtStatusTag status={t.status as never} />
               </Pressable>
               <View style={{ flexDirection: 'row', gap: 16, marginTop: 4 }}>

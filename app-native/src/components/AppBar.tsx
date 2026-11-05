@@ -147,8 +147,8 @@ export function AppBar({ title, onBack, home, right, noHistory }: { title?: stri
             <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, maxWidth: '100%' }}>
               {i > 0 && <Text style={{ color: '#B8BDC6', fontSize: cfs }}>›</Text>}
               {href
-                ? <Pressable onPress={() => router.navigate(href as never)}><Text style={{ fontSize: cfs, fontWeight: '700', color: t.brand1 }}>{l}</Text></Pressable>
-                : <Text numberOfLines={1} style={{ fontSize: cfs, fontWeight: '700', color: base.ink }}>{l}</Text>}
+                ? <Pressable onPress={() => router.navigate(href as never)}><Text style={{ fontSize: cfs, fontWeight: '600', color: t.brand1 }}>{l}</Text></Pressable>
+                : <Text numberOfLines={1} style={{ fontSize: cfs, fontWeight: '600', color: base.ink }}>{l}</Text>}
             </View>
           ))}
         </View>
@@ -176,7 +176,7 @@ export function AppBar({ title, onBack, home, right, noHistory }: { title?: stri
           <View style={{ flex: 1, alignItems: fin ? 'flex-start' : 'center', minWidth: 0 }}>
             <Pressable disabled={!titleGo} onPress={() => { if (titleGo) router.navigate(titleGo as never); }} accessibilityRole={titleGo ? 'link' : undefined} style={noSelect}><Text numberOfLines={1} style={[brand(home ? 800 : 700), { fontSize: fin ? 21 : desk ? 22.8 : 19, color: home ? t.brand1 : fin ? '#111827' : base.ink, letterSpacing: -0.2 }]}>{main}</Text></Pressable>
             {!!sub && <Pressable disabled={!copyable} onPress={async () => { if (await copyAddress(sub)) { setCopied(true); setTimeout(() => setCopied(false), 1300); } }} accessibilityRole={copyable ? 'button' : undefined} accessibilityHint={copyable ? 'Copies this text' : undefined} style={noSelect}><Text numberOfLines={1} style={[home ? brand(700) : {}, { fontSize: home ? 11 : 12.5, color: home ? base.slate : '#6b7280', marginTop: 3, letterSpacing: home ? 1 : 0, textTransform: home ? 'uppercase' : 'none' }]}>{sub}</Text></Pressable>}
-            {copied && <View pointerEvents="none" style={{ position: 'absolute', bottom: -8, alignSelf: 'center', backgroundColor: base.ink, borderRadius: 10, paddingHorizontal: 9, paddingVertical: 2, zIndex: 5 }}><Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>Copied</Text></View>}
+            {copied && <View pointerEvents="none" style={{ position: 'absolute', bottom: -8, alignSelf: 'center', backgroundColor: base.ink, borderRadius: 10, paddingHorizontal: 9, paddingVertical: 2, zIndex: 5 }}><Text style={{ color: '#fff', fontSize: 11, fontWeight: '600' }}>Copied</Text></View>}
           </View>
           <View style={{ minWidth: 44, alignItems: 'flex-end' }}>
             {right ?? (site && !jobHome && (
@@ -198,8 +198,8 @@ export function AppBar({ title, onBack, home, right, noHistory }: { title?: stri
             <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, maxWidth: '100%' }}>
               {i > 0 && <Text style={{ color: '#B8BDC6', fontSize: cfs }}>›</Text>}
               {href
-                ? <Pressable onPress={() => router.navigate(href as never)}><Text style={{ fontSize: cfs, fontWeight: '700', color: t.brand1 }}>{l}</Text></Pressable>
-                : <Text numberOfLines={1} style={{ fontSize: cfs, fontWeight: '700', color: base.ink }}>{l}</Text>}
+                ? <Pressable onPress={() => router.navigate(href as never)}><Text style={{ fontSize: cfs, fontWeight: '600', color: t.brand1 }}>{l}</Text></Pressable>
+                : <Text numberOfLines={1} style={{ fontSize: cfs, fontWeight: '600', color: base.ink }}>{l}</Text>}
             </View>
           ))}
         </View>

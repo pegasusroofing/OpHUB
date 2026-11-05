@@ -34,7 +34,7 @@ const HINT: Record<string, string> = {
   Rejected: 'Quote rejected.', 'Awaiting Sign-off': 'Operative has marked this complete — awaiting PM sign-off.', Closed: 'Closed.',
 };
 const fmt = (d: string | null) => (d ? new Date(d.length === 10 ? `${d}T00:00:00` : d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '');
-const Label = ({ children }: { children: ReactNode }) => <Text style={{ fontSize: 12, fontWeight: '700', color: base.slate, marginTop: 10, marginBottom: 4 }}>{children}</Text>;
+const Label = ({ children }: { children: ReactNode }) => <Text style={{ fontSize: 12, fontWeight: '600', color: base.slate, marginTop: 10, marginBottom: 4 }}>{children}</Text>;
 
 function Photo({ p, onRemove }: { p: RepairPhoto; onRemove?: () => void }) {
   const big = useStorageUrl('site-photos', p.hires_path || p.storage_path);
@@ -158,8 +158,8 @@ export default function RepairJobPage() {
       <Stack.Screen options={{ title: label }} />
       <Card>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <View style={{ flex: 1 }}><Muted style={{ fontWeight: '700' }}>Status</Muted><Text style={{ fontSize: 15, fontWeight: '800', color: base.ink }}>{job.job_status || 'To Survey'}</Text></View>
-          {mgr && <Pressable onPress={async () => { const k = await chooseAction('Move this job to', REPAIR_STATUSES.map((s) => ({ key: s, label: s }))); if (k) void save({ job_status: k }); }}><Text style={{ color: base.blue, fontWeight: '700' }}>Change ▾</Text></Pressable>}
+          <View style={{ flex: 1 }}><Muted style={{ fontWeight: '600' }}>Status</Muted><Text style={{ fontSize: 15, fontWeight: '600', color: base.ink }}>{job.job_status || 'To Survey'}</Text></View>
+          {mgr && <Pressable onPress={async () => { const k = await chooseAction('Move this job to', REPAIR_STATUSES.map((s) => ({ key: s, label: s }))); if (k) void save({ job_status: k }); }}><Text style={{ color: base.blue, fontWeight: '600' }}>Change ▾</Text></Pressable>}
         </View>
         {!!(job.job_status === 'Surveyed - Awaiting Cost' ? (mgr ? 'Enter a variation cost and issue it to the client, or approve/reject directly below.' : 'Awaiting a cost decision from the office.') : HINT[job.job_status || '']) && (
           <Muted style={{ marginTop: 6 }}>{job.job_status === 'Surveyed - Awaiting Cost' ? (mgr ? 'Enter a variation cost and issue it to the client, or approve/reject directly below.' : 'Awaiting a cost decision from the office.') : HINT[job.job_status || '']}</Muted>
@@ -168,8 +168,8 @@ export default function RepairJobPage() {
 
       <Card>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <Text style={{ flex: 1, fontWeight: '800', color: base.ink }}>{label}</Text>
-          {mgr && <Pressable onPress={() => setEdit(edit ? null : { job_number: job.job_number || '', address: job.address || '', description: job.description || '' })}><Text style={{ color: base.blue, fontWeight: '700' }}>{edit ? 'Cancel' : 'Edit'}</Text></Pressable>}
+          <Text style={{ flex: 1, fontWeight: '600', color: base.ink }}>{label}</Text>
+          {mgr && <Pressable onPress={() => setEdit(edit ? null : { job_number: job.job_number || '', address: job.address || '', description: job.description || '' })}><Text style={{ color: base.blue, fontWeight: '600' }}>{edit ? 'Cancel' : 'Edit'}</Text></Pressable>}
         </View>
         {edit ? (
           <View style={{ marginTop: 8 }}>
@@ -208,7 +208,7 @@ export default function RepairJobPage() {
             }} />}
           </>
         ) : job.survey_booking_date && job.survey_booking_assigned_to === me.id ? <><Label>Survey booking</Label><Muted>{fmt(job.survey_booking_date)} — you&apos;re assigned to this one</Muted></> : null}
-        {!!job.survey_date && <><Label>Survey Date</Label><Text style={{ fontWeight: '800', color: base.ink }}>{fmt(job.survey_date)}{job.surveyed_by ? ` · ${nameOf(people, job.surveyed_by)}` : ''}</Text></>}
+        {!!job.survey_date && <><Label>Survey Date</Label><Text style={{ fontWeight: '600', color: base.ink }}>{fmt(job.survey_date)}{job.surveyed_by ? ` · ${nameOf(people, job.surveyed_by)}` : ''}</Text></>}
         {mgr && <Button kind="ghost" title="Delete Job" onPress={async () => {
           if (!(await confirmAsk('Permanently delete this job and all its photos? This cannot be undone.', 'Delete'))) return;
           if (await deleteRepairJob(job)) { toast('Job deleted'); void qc.invalidateQueries({ queryKey: ['repairJobs', id] }); router.back(); } else toast('Could not delete — try again.');
@@ -218,7 +218,7 @@ export default function RepairJobPage() {
       <Card>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <View style={{ flex: 1 }}><SectionTitle>Survey</SectionTitle></View>
-          {surveyDone && <Text style={{ color: base.ok, fontWeight: '700' }}>✅ {job.survey_required === 'NA' ? 'N/A' : `Completed ${fmt(job.survey_date)}`}</Text>}
+          {surveyDone && <Text style={{ color: base.ok, fontWeight: '600' }}>✅ {job.survey_required === 'NA' ? 'N/A' : `Completed ${fmt(job.survey_date)}`}</Text>}
         </View>
         {!surveying ? (
           <>
@@ -233,7 +233,7 @@ export default function RepairJobPage() {
             <View style={{ flexDirection: 'row', gap: 6 }}>
               {[['N', 'To Survey'], ['Y', 'Completed'], ['NA', 'N/A']].map(([k, l]) => (
                 <Pressable key={k} onPress={() => void setSurvey(k)} style={{ flex: k === 'NA' ? 0.5 : 1, padding: 10, borderRadius: radius.input, borderWidth: 1, borderColor: (job.survey_required || 'N') === k ? base.ink : base.line, backgroundColor: (job.survey_required || 'N') === k ? (k === 'Y' ? base.okBg : base.paper) : base.card, alignItems: 'center' }}>
-                  <Text style={{ fontWeight: '700', color: base.ink }}>{l}</Text>
+                  <Text style={{ fontWeight: '600', color: base.ink }}>{l}</Text>
                 </Pressable>
               ))}
             </View>

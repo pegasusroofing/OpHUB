@@ -39,7 +39,7 @@ export default function ClientInfo() {
   const v = f ?? { name: site.client_name || '', contact: site.client_contact_name || '', phone: site.client_phone || '', email: site.client_email || '' };
   const row = (label: string, value: string) => (
     <View key={label} style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: base.cardLine }}>
-      <Muted style={{ fontWeight: '700' }}>{label}</Muted>
+      <Muted style={{ fontWeight: '600' }}>{label}</Muted>
       <Text style={{ flex: 1, textAlign: 'right', color: base.ink, fontWeight: '600' }}>{value || '—'}</Text>
     </View>
   );
@@ -59,7 +59,7 @@ export default function ClientInfo() {
         </Card>
       ) : (
         <Card>
-          <Muted style={{ fontWeight: '700' }}>Client Name</Muted>
+          <Muted style={{ fontWeight: '600' }}>Client Name</Muted>
           <TextInput accessibilityLabel="Client Name" value={v.name} onFocus={() => setTyping(true)} onChangeText={(t) => { setTyping(true); setF({ ...v, name: titleCase(t) }); }} placeholder="Type a name, or pick one of your clients" style={[box, hits.length ? { marginBottom: 4 } : null]} />
           {hits.length > 0 && (
             <View style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, marginBottom: space.m, overflow: 'hidden' }}>
@@ -71,11 +71,11 @@ export default function ClientInfo() {
               ))}
             </View>
           )}
-          <Muted style={{ fontWeight: '700' }}>Client Contact Name</Muted>
+          <Muted style={{ fontWeight: '600' }}>Client Contact Name</Muted>
           <TextInput value={v.contact} onChangeText={(t) => setF({ ...v, contact: titleCase(t) })} placeholder="Optional" style={box} />
-          <Muted style={{ fontWeight: '700' }}>Client Contact Number</Muted>
+          <Muted style={{ fontWeight: '600' }}>Client Contact Number</Muted>
           <TextInput value={v.phone} onChangeText={(t) => setF({ ...v, phone: t })} keyboardType="phone-pad" placeholder="Optional" style={box} />
-          <Muted style={{ fontWeight: '700' }}>Client Contact Email</Muted>
+          <Muted style={{ fontWeight: '600' }}>Client Contact Email</Muted>
           <TextInput value={v.email} onChangeText={(t) => setF({ ...v, email: t })} keyboardType="email-address" autoCapitalize="none" placeholder="Optional" style={box} />
           <Muted style={{ marginBottom: space.m }}>When an email address is entered here, a &quot;CC client contact&quot; tick box appears on the app&apos;s email pickers so whoever&apos;s sending can loop the client in.</Muted>
           <View style={{ flexDirection: 'row', gap: space.m }}>

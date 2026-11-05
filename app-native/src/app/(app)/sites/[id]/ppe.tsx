@@ -66,7 +66,7 @@ export default function Ppe() {
           {pending.length > 0 && <SectionTitle>Awaiting Your Signature</SectionTitle>}
           {pending.map((i) => (
             <Card key={i.id}>
-              <Text style={{ fontWeight: '700', color: base.ink }}>{(i.items || []).join(', ')}</Text>
+              <Text style={{ fontWeight: '600', color: base.ink }}>{(i.items || []).join(', ')}</Text>
               <Muted>Issued {longDate(i.issued_at)} by {nameOf(people, i.issued_by)}</Muted>
               <Button title="I confirm receipt of this PPE — Sign" onPress={async () => {
                 const r = await signPpe(me, i.id);
@@ -80,7 +80,7 @@ export default function Ppe() {
           <SectionTitle>Request PPE</SectionTitle>
           {open ? (
             <Card>
-              <Muted style={{ fontWeight: '700', marginBottom: 6 }}>Item</Muted>
+              <Muted style={{ fontWeight: '600', marginBottom: 6 }}>Item</Muted>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
                 {[...PPE_STANDARD_ITEMS, '__other'].map((x) => (
                   <Pressable key={x} onPress={() => setItem(x)} style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: 16, borderWidth: 1, borderColor: item === x ? live.brand1 : base.line, backgroundColor: item === x ? live.brand1 : base.card }}>
@@ -101,8 +101,8 @@ export default function Ppe() {
           {(data?.requests ?? []).map((r) => (
             <Card key={r.id} style={{ paddingVertical: 10 }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                <Text style={{ fontWeight: '800', color: base.ink }}>{r.item_name}</Text>
-                <Text style={{ fontWeight: '700', color: r.status === 'fulfilled' ? base.ok : r.status === 'cancelled' ? base.slate : base.warn }}>{cap1(r.status)}</Text>
+                <Text style={{ fontWeight: '600', color: base.ink }}>{r.item_name}</Text>
+                <Text style={{ fontWeight: '600', color: r.status === 'fulfilled' ? base.ok : r.status === 'cancelled' ? base.slate : base.warn }}>{cap1(r.status)}</Text>
               </View>
               <Muted>{r.date_needed ? `Needed by ${longDate(`${r.date_needed}T00:00:00`)}` : 'No date given'}</Muted>
             </Card>

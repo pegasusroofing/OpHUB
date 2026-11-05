@@ -236,7 +236,7 @@ export default function QuotePage() {
         <Card>
           <SectionTitle>Email chaser</SectionTitle>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-            <Text style={{ flex: 1, color: base.ink, fontWeight: '700' }}>Chase this quote</Text>
+            <Text style={{ flex: 1, color: base.ink, fontWeight: '600' }}>Chase this quote</Text>
             <Switch accessibilityLabel="Chase this quote" value={q.chase_on} onValueChange={async (on) => { if (await saveQuote(me, q.id, chasePatch(q, on, firstDays))) refresh(); else toast('Could not save. Try again.'); }} />
           </View>
           <Muted style={{ marginBottom: 8 }}>
@@ -259,7 +259,7 @@ export default function QuotePage() {
         <Field label="Client *" value={v.client} onChangeText={typeClient} placeholder="Start typing to search your Directory" />
         {hits.filter((h) => h.name.toLowerCase() !== v.client.trim().toLowerCase()).map((h) => (
           <Pressable key={h.id} onPress={() => { setV((f) => ({ ...f, client: h.name, email: f.email || h.email || '', phone: f.phone || h.phone || '', markup: f.markup || (h.markup != null ? String(h.markup) : '') })); setPicked(h); setHits([]); }} style={{ paddingVertical: 8 }}>
-            <Text style={{ color: base.blue, fontWeight: '700' }}>{h.name}</Text>
+            <Text style={{ color: base.blue, fontWeight: '600' }}>{h.name}</Text>
           </Pressable>
         ))}
         <Field label="Contact name" value={v.contact} onChangeText={set('contact')} />
@@ -273,7 +273,7 @@ export default function QuotePage() {
         <Field label="Project name *" value={v.title} onChangeText={set('title')} />
         <Field label="Address" value={v.address} onChangeText={set('address')} />
         <Field label="Postcode" value={v.postcode} onChangeText={set('postcode')} />
-        <Muted style={{ fontWeight: '700', marginBottom: 4 }}>Discipline</Muted>
+        <Muted style={{ fontWeight: '600', marginBottom: 4 }}>Discipline</Muted>
         <View style={{ marginBottom: 10 }}><Button kind="ghost" title={v.discipline || 'Choose…'} onPress={async () => { const k = await chooseAction('Discipline', DISCIPLINES.map((d) => ({ key: d, label: d }))); if (k) set('discipline')(k); }} /></View>
         {!isNew && (
           <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -297,16 +297,16 @@ export default function QuotePage() {
           )}
         </View>
         {/* Who's pricing it can be set from the start, so the estimator owns it (Andy, 4 Nov 2026). */}
-        <Muted style={{ fontWeight: '700', marginBottom: 4 }}>{isNew ? 'Who is pricing it' : 'Priced by'}</Muted>
+        <Muted style={{ fontWeight: '600', marginBottom: 4 }}>{isNew ? 'Who is pricing it' : 'Priced by'}</Muted>
         <View style={{ marginBottom: 10 }}><Button kind="ghost" title={v.pricedName || (isNew ? `${me.name || 'Me'} (me)` : 'Choose…')} onPress={async () => { const k = await chooseAction(isNew ? 'Who is pricing it' : 'Priced by', people.map((p) => ({ key: p.id, label: p.name || p.email || 'Unknown' }))); const p = people.find((x) => x.id === k); if (p) setV((f) => ({ ...f, pricedBy: p.id, pricedName: p.name || '' })); }} /></View>
-        <Muted style={{ fontWeight: '700', marginBottom: 4 }}>Enquiry received</Muted>
+        <Muted style={{ fontWeight: '600', marginBottom: 4 }}>Enquiry received</Muted>
         <DateBox value={v.received} onChange={set('received')} title="Enquiry received" style={{ marginBottom: 10 }} />
-        <Muted style={{ fontWeight: '700', marginBottom: 4 }}>{q?.returned_at ? 'Date sent' : 'Tender due back'}</Muted>
+        <Muted style={{ fontWeight: '600', marginBottom: 4 }}>{q?.returned_at ? 'Date sent' : 'Tender due back'}</Muted>
         <DateBox value={v.ret} onChange={set('ret')} title={q?.returned_at ? 'Date sent' : 'Tender due back'} style={{ marginBottom: 10 }} />
         <Field label="Notes and feedback" value={v.notes} onChangeText={set('notes')} multiline />
         {isNew && (
           <View style={{ marginBottom: 10 }}>
-            <Muted style={{ fontWeight: '700', marginBottom: 4 }}>Tender documents</Muted>
+            <Muted style={{ fontWeight: '600', marginBottom: 4 }}>Tender documents</Muted>
             {docs.map((d, i) => <Pressable key={d.uri} onPress={() => setDocs(docs.filter((_, j) => j !== i))}><Text style={{ color: base.ink, paddingVertical: 3 }}>📎 {d.name}  ✕</Text></Pressable>)}
             <Button kind="ghost" title="📎 Add documents" onPress={async () => { const r = await DocumentPicker.getDocumentAsync({ type: '*/*', multiple: true, copyToCacheDirectory: true }); if (!r.canceled) setDocs([...docs, ...r.assets.map((a) => ({ uri: a.uri, name: a.name || 'file' }))]); }} />
             <Muted style={{ marginTop: 6 }}>They go in the enquiry’s Tender Documents folder in OneDrive.</Muted>

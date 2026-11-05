@@ -85,10 +85,10 @@ export default function PriceTile() {
           </Pressable>
         )}
         <View style={tileIcon}><Text style={{ fontSize: 18 }}>{sel && !el.closed ? (sel.has(el.id) ? '☑' : '☐') : '🧾'}</Text></View>
-        <Text numberOfLines={2} style={tileLbl}>{el.name}{el.closed ? <Text style={{ fontSize: 9, fontWeight: '700', color: base.slate }}>  CLOSED</Text> : null}</Text>
+        <Text numberOfLines={2} style={tileLbl}>{el.name}{el.closed ? <Text style={{ fontSize: 9, fontWeight: '600', color: base.slate }}>  CLOSED</Text> : null}</Text>
         <Text style={tileSub}>{money(f.priceTotal)} · {money(f.bookedIn)} booked</Text>
-        <Text style={[tileSub, { fontWeight: '700', color: over ? base.warn : base.ink }]}>Bal: {money(f.balance)}</Text>
-        {over && <Text style={{ position: 'absolute', top: 8, right: 8, backgroundColor: base.warn, color: '#fff', fontSize: 11, fontWeight: '800', borderRadius: 9, minWidth: 18, textAlign: 'center', overflow: 'hidden' }}>!</Text>}
+        <Text style={[tileSub, { fontWeight: '600', color: over ? base.warn : base.ink }]}>Bal: {money(f.balance)}</Text>
+        {over && <Text style={{ position: 'absolute', top: 8, right: 8, backgroundColor: base.warn, color: '#fff', fontSize: 11, fontWeight: '600', borderRadius: 9, minWidth: 18, textAlign: 'center', overflow: 'hidden' }}>!</Text>}
       </Pressable>,
     );
   };
@@ -116,7 +116,7 @@ export default function PriceTile() {
           style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 14, marginBottom: 12, borderWidth: 1.5, borderColor: base.line, borderRadius: 12, backgroundColor: base.card }}>
           <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#FFF3D9', alignItems: 'center', justifyContent: 'center' }}><Text style={{ fontSize: 18 }}>🧮</Text></View>
           <View style={{ flex: 1, minWidth: 0 }}>
-            <Text style={{ fontWeight: '800', color: base.ink }}>Price Sheets</Text>
+            <Text style={{ fontWeight: '600', color: base.ink }}>Price Sheets</Text>
             <Muted style={{ fontStyle: 'italic' }}>{nSheets ? `${nSheets} sheet${nSheets > 1 ? 's' : ''}` : 'Build a priced sheet for this job'}</Muted>
           </View>
           <Text style={{ fontSize: 18, color: base.slate }}>›</Text>
@@ -133,7 +133,7 @@ export default function PriceTile() {
       )}
       {data.mgr && sel && (
         <Card style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, borderColor: base.ink, borderWidth: 1.5 }}>
-          <Text style={{ flex: 1, fontWeight: '700', color: base.ink }}>{sel.size ? `${sel.size} ticked` : 'Tap the prices to close'}</Text>
+          <Text style={{ flex: 1, fontWeight: '600', color: base.ink }}>{sel.size ? `${sel.size} ticked` : 'Tap the prices to close'}</Text>
           <Button small title={`Close ${sel.size || ''} selected`} disabled={!sel.size} onPress={async () => {
             if (!(await confirmAsk(`Close ${sel.size} price${sel.size === 1 ? '' : 's'}? They move to Closed and can be reopened.`, 'Close'))) return;
             const at = new Date().toISOString();
@@ -148,9 +148,9 @@ export default function PriceTile() {
       {groups.map((g) => { const fg = data.groupFigs[g.id]; return (
         <View key={g.id}>
           <Card style={{ borderColor: g.color, borderWidth: 1.5 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><View style={{ width: 12, height: 12, borderRadius: 3, backgroundColor: g.color }} /><Text style={{ flex: 1, fontWeight: '800', color: base.ink }}>{g.name}</Text><Muted>{fg.count} tile{fg.count === 1 ? '' : 's'}</Muted></View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><View style={{ width: 12, height: 12, borderRadius: 3, backgroundColor: g.color }} /><Text style={{ flex: 1, fontWeight: '600', color: base.ink }}>{g.name}</Text><Muted>{fg.count} tile{fg.count === 1 ? '' : 's'}</Muted></View>
             <Muted>{money(fg.priceTotal)} price · {money(fg.bookedIn)} booked</Muted>
-            <Text style={{ fontWeight: '700', color: fg.balance < 0 ? base.warn : base.ink }}>Balance: {money(fg.balance)}</Text>
+            <Text style={{ fontWeight: '600', color: fg.balance < 0 ? base.warn : base.ink }}>Balance: {money(fg.balance)}</Text>
           </Card>
           {grid(open.filter((el) => el.group_id === g.id))}
         </View>
@@ -158,7 +158,7 @@ export default function PriceTile() {
       {grid(open.filter((el) => !grouped.has(el.id)))}
       {closed.length > 0 && (
         <Card style={{ padding: 0 }}>
-          <Pressable onPress={() => setShowClosed(!showClosed)} style={{ paddingVertical: 12, paddingHorizontal: 14 }}><Text style={{ fontWeight: '700', color: base.ink }}>{showClosed ? '▼' : '▶'} Closed ({closed.length})</Text></Pressable>
+          <Pressable onPress={() => setShowClosed(!showClosed)} style={{ paddingVertical: 12, paddingHorizontal: 14 }}><Text style={{ fontWeight: '600', color: base.ink }}>{showClosed ? '▼' : '▶'} Closed ({closed.length})</Text></Pressable>
           {showClosed && <View style={{ paddingHorizontal: 14 }}>{grid(closed)}</View>}
         </Card>
       )}

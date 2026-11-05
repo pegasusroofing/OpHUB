@@ -110,18 +110,18 @@ export default function DriverSchedule() {
     <ScrollView contentContainerStyle={page(720)}>
       {preview ? (
         <Card style={{ backgroundColor: base.blueBg }}>
-          <Text style={{ fontWeight: '700', color: base.ink }}>👁 Driver view</Text>
+          <Text style={{ fontWeight: '600', color: base.ink }}>👁 Driver view</Text>
           <Muted>{drivers.length ? 'This is what the driver sees: their own deliveries plus any not yet given to a driver. View only.' : 'There are no drivers set up yet, so this shows only deliveries not given to a driver.'}</Muted>
           {drivers.length > 1 && <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>{drivers.map((p) => <Pressable key={p.id} onPress={() => setPick(p.id)} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 14, borderWidth: 1, borderColor: viewAs === p.id ? live.brand1 : base.line, backgroundColor: viewAs === p.id ? live.brand1 : base.card }}><Text style={{ fontWeight: '500', color: viewAs === p.id ? live.brand1Text : base.ink }}>{p.name}</Text></Pressable>)}</View>}
         </Card>
       ) : onDuty ? (
         <Button kind={brk ? 'primary' : 'ghost'} title={brk ? '▶ End Break' : '☕ Start Break'}
           onPress={async () => { const ok = await driverBreak(me, brk ? 'end' : 'start'); toast(ok ? (brk ? 'Break ended' : 'Break started') : 'Could not save — check your connection and try again.'); void qc.invalidateQueries({ queryKey: ['driverStatus'] }); }} />
-      ) : <View style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, backgroundColor: base.card, paddingVertical: 12, alignItems: 'center', marginBottom: 6, opacity: 0.7 }}><Text style={{ fontWeight: '800', color: base.ink }}>☕ Breaks — Check In First</Text></View>}
+      ) : <View style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, backgroundColor: base.card, paddingVertical: 12, alignItems: 'center', marginBottom: 6, opacity: 0.7 }}><Text style={{ fontWeight: '600', color: base.ink }}>☕ Breaks — Check In First</Text></View>}
 
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginVertical: 14 }}>
         <Pressable onPress={() => setOffset(offset - 1)} style={navBtn}><Text style={{ fontSize: 20 }}>‹</Text></Pressable>
-        <Text style={{ flex: 1, textAlign: 'center', fontWeight: '700', fontSize: 15, color: base.ink }}>
+        <Text style={{ flex: 1, textAlign: 'center', fontWeight: '600', fontSize: 15, color: base.ink }}>
           {d.toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'short' })}{today ? ' (Today)' : ''}
         </Text>
         <Pressable onPress={() => setOffset(offset + 1)} style={navBtn}><Text style={{ fontSize: 20 }}>›</Text></Pressable>
@@ -143,14 +143,14 @@ export default function DriverSchedule() {
           <View key={pl.key}>
             <Pressable onPress={() => setOpen({ ...open, [pl.key]: !isOpen })} style={collRow}>
               <Text style={{ color: base.slate, marginRight: 6 }}>{isOpen ? '▼' : '▶'}</Text>
-              <Text style={{ flex: 1, fontWeight: '700', color: base.ink }}>📦 Collect from {pl.label}</Text>
+              <Text style={{ flex: 1, fontWeight: '600', color: base.ink }}>📦 Collect from {pl.label}</Text>
               <Text style={{ fontSize: 12, color: base.slate }}>{pl.tasks.length} job{pl.tasks.length === 1 ? '' : 's'}{left < pl.tasks.length ? ` · ${left} left` : ''}</Text>
             </Pressable>
             {isOpen && (
               <Card>
                 {pl.tasks.map((t, i) => (
                   <View key={t.id} style={{ paddingVertical: 8, borderTopWidth: i ? 1 : 0, borderTopColor: base.line, opacity: t.status === 'completed' ? 0.55 : 1 }}>
-                    <Text style={{ fontWeight: '700', color: base.ink }}>{t.high_priority ? <Text style={{ color: th.brand1, fontWeight: '800' }}>! 1st DROP · </Text> : null}{siteHeading(t as Delivery, sites).join('\n')}</Text>
+                    <Text style={{ fontWeight: '600', color: base.ink }}>{t.high_priority ? <Text style={{ color: th.brand1, fontWeight: '600' }}>! 1st DROP · </Text> : null}{siteHeading(t as Delivery, sites).join('\n')}</Text>
                     {!!(t as Delivery).description && <Text style={{ color: base.ink }}>{(t as Delivery).description}</Text>}
                     <Muted>{slotLabel(t.time_slot)}{t.status === 'completed' ? ' · ✓ Completed' : ''}</Muted>
                   </View>
@@ -164,7 +164,7 @@ export default function DriverSchedule() {
       {tab === 'done' && !done.length && !isLoading && <Empty>No completed deliveries {today ? 'yet today' : 'on this day'}.</Empty>}
       {tab === 'todo' && !todo.length && !done.length && !isLoading && <Empty>No deliveries booked {today ? 'for today' : 'on this day'}.</Empty>}
       {tab === 'todo' && !todo.length && done.length > 0 && (
-        <Card style={{ alignItems: 'center' }}><Text style={{ fontWeight: '700', color: base.ok }}>✓ All done for {today ? 'today' : 'this day'}</Text></Card>
+        <Card style={{ alignItems: 'center' }}><Text style={{ fontWeight: '600', color: base.ok }}>✓ All done for {today ? 'today' : 'this day'}</Text></Card>
       )}
 
       {slots.map((slot) => (
@@ -179,20 +179,20 @@ export default function DriverSchedule() {
             return (
               <Card key={t.id} style={t.double_slot ? { borderLeftWidth: 4, borderLeftColor: th.brand1 } : undefined}>
                 {t.high_priority && (
-                  <Text style={{ color: th.brand1, fontWeight: '800', marginBottom: 6 }}>1st DROP{'\n'}<Text style={{ fontWeight: '500', fontSize: 12, color: base.slate }}>This is the first delivery of the day — do this one first.</Text></Text>
+                  <Text style={{ color: th.brand1, fontWeight: '600', marginBottom: 6 }}>1st DROP{'\n'}<Text style={{ fontWeight: '500', fontSize: 12, color: base.slate }}>This is the first delivery of the day — do this one first.</Text></Text>
                 )}
-                <Text style={{ fontWeight: '700', color: base.ink, marginBottom: 4 }}>{siteHeading(t, sites).join('\n')}</Text>
+                <Text style={{ fontWeight: '600', color: base.ink, marginBottom: 4 }}>{siteHeading(t, sites).join('\n')}</Text>
                 {pm ? (
                   <Text style={{ fontSize: 12.5, color: base.slate }}>{pm.booked ? 'Booked by' : 'PM'}: {pm.name}{pm.phone ? <Text style={{ color: base.blue }} onPress={() => Linking.openURL(`tel:${pm.phone.replace(/[^0-9+]/g, '')}`)}> · {pm.phone}</Text> : null}</Text>
                 ) : <Text style={{ fontSize: 12.5, color: base.slate }}>PM: not set</Text>}
-                {!!t.description && <Text style={{ color: base.ink, marginTop: 6, fontWeight: '800', fontSize: 15 }}>{t.description}</Text>}
+                {!!t.description && <Text style={{ color: base.ink, marginTop: 6, fontWeight: '600', fontSize: 15 }}>{t.description}</Text>}
                 {(() => {
                   const ids = (t as { plant_item_ids?: string[] | null }).plant_item_ids ?? [], back = (t as { plant_return_ids?: string[] | null }).plant_return_ids ?? [];
                   const nm = (pid: string) => plant?.items.find((x) => x.id === pid)?.name || 'Item';
                   return (
                     <>
-                      {ids.length > 0 && <Text style={{ color: base.ink, marginTop: 6 }}>🏗 <Text style={{ fontWeight: '700' }}>Plant to take:</Text> {ids.map(nm).join(', ')}</Text>}
-                      {back.length > 0 && <Text style={{ color: base.ink, marginTop: 4 }}>↩ <Text style={{ fontWeight: '700' }}>Plant to bring back:</Text> {back.map(nm).join(', ')}</Text>}
+                      {ids.length > 0 && <Text style={{ color: base.ink, marginTop: 6 }}>🏗 <Text style={{ fontWeight: '600' }}>Plant to take:</Text> {ids.map(nm).join(', ')}</Text>}
+                      {back.length > 0 && <Text style={{ color: base.ink, marginTop: 4 }}>↩ <Text style={{ fontWeight: '600' }}>Plant to bring back:</Text> {back.map(nm).join(', ')}</Text>}
                     </>
                   );
                 })()}
@@ -254,7 +254,7 @@ function Thumbs({ paths, onRemove, onMarkup }: { paths: string[]; onRemove?: (i:
           {onMarkup && <Text style={{ position: 'absolute', bottom: 2, left: 4, fontSize: 13 }}>✏️</Text>}
           {onRemove && (
             <Pressable onPress={() => onRemove(i)} hitSlop={8} style={{ position: 'absolute', top: -6, right: -6, width: 20, height: 20, borderRadius: 10, backgroundColor: base.red, alignItems: 'center', justifyContent: 'center' }}>
-              <Text style={{ color: '#fff', fontWeight: '800' }}>×</Text>
+              <Text style={{ color: '#fff', fontWeight: '600' }}>×</Text>
             </Pressable>
           )}
         </View>
@@ -276,13 +276,13 @@ function ReopenModal({ task, onClose, onDone }: { task: Delivery | null; onClose
       <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,.45)', justifyContent: 'center', padding: 16 }}>
         <View style={{ backgroundColor: base.card, borderRadius: radius.card, padding: 16, maxWidth: 460, width: '100%', alignSelf: 'center' }}>
           <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12 }}>
-            <Text style={{ flex: 1, fontWeight: '800', color: base.ink,  }}>Re-open this delivery</Text>
-            <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" hitSlop={10} style={{ paddingLeft: 10 }}><Text style={{ fontSize: 18, color: base.slate, fontWeight: '700' }}>✕</Text></Pressable>
+            <Text style={{ flex: 1, fontWeight: '600', color: base.ink,  }}>Re-open this delivery</Text>
+            <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" hitSlop={10} style={{ paddingLeft: 10 }}><Text style={{ fontSize: 18, color: base.slate, fontWeight: '600' }}>✕</Text></Pressable>
           </View>
           <Button title={`Same date & time — ${new Date(`${task.scheduled_date}T00:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' })}, ${slotLabel(task.time_slot)}`}
             onPress={() => onDone({ date: task.scheduled_date, slot: task.time_slot })} />
           {isPast && <Text style={{ color: base.warn, marginTop: 4 }}>That date has already passed.</Text>}
-          <Muted style={{ marginTop: 12, fontWeight: '700' }}>Or choose a new date</Muted>
+          <Muted style={{ marginTop: 12, fontWeight: '600' }}>Or choose a new date</Muted>
           <DateBox value={d} onChange={setDate} min={todayIso()} title="New date" style={{ marginVertical: 8 }} />
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
             {DELIVERY_TIME_SLOTS.map((s) => (

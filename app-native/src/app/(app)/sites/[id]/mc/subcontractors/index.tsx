@@ -36,7 +36,7 @@ export default function Subcontractors() {
         return (
           <Pressable key={c.id} onPress={() => (canOpen(c.id) ? router.push(`/sites/${id}/mc/subcontractors/${c.id}` as never) : toast("You don't have access to this subcontractor."))}
             style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 8, backgroundColor: base.card, opacity: canOpen(c.id) ? 1 : 0.55 }}>
-            <Text style={{ flex: 1, fontWeight: '700', color: base.ink }}>{c.name}</Text>
+            <Text style={{ flex: 1, fontWeight: '600', color: base.ink }}>{c.name}</Text>
             {editable && <Pressable hitSlop={6} onPress={async () => { const n = (await promptText('Rename subcontractor', c.name))?.trim(); if (n && n !== c.name && await renameSubco(c, n)) { toast('Renamed'); refresh(); } }}><Text>✏️</Text></Pressable>}
             {mgr && <Pressable hitSlop={6} onPress={async () => { if (await confirmAsk(`Remove "${c.name}" and everything in their folder? This cannot be undone.`, 'Remove') && await deleteSubco(c.id)) { toast('Removed'); refresh(); } }}><Text>🗑</Text></Pressable>}
           </Pressable>

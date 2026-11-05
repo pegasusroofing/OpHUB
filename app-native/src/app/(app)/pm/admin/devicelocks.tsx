@@ -32,10 +32,10 @@ export default function DeviceLocks() {
       <Muted style={{ marginBottom: 10 }}>Everyone except Project Managers and admins is locked to one phone, and each phone to one person — whether they use the app or the web browser. A person&apos;s first phone locks to them automatically; a second phone waits here for approval.</Muted>
       {isLoading ? <Muted>Loading…</Muted> : (
         <>
-          {pending.length > 0 && <Text style={{ fontWeight: '800', color: base.warn, marginBottom: 6 }}>Awaiting approval</Text>}
+          {pending.length > 0 && <Text style={{ fontWeight: '600', color: base.warn, marginBottom: 6 }}>Awaiting approval</Text>}
           {pending.map((x) => (
             <Card key={x.device_id} style={{ borderColor: base.warn, backgroundColor: base.warnBg }}>
-              <Text style={{ fontWeight: '700', color: base.ink }}>{x.user_name || 'Unknown'}</Text>
+              <Text style={{ fontWeight: '600', color: base.ink }}>{x.user_name || 'Unknown'}</Text>
               <Muted>Requested {d(x.requested_at || x.locked_at)} — new device</Muted>
               <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
                 <View style={{ flex: 1 }}><Button title="Approve" onPress={async () => { const err = await approveDevice(x.device_id); toast(err || 'Device approved'); refresh(); }} /></View>
@@ -43,11 +43,11 @@ export default function DeviceLocks() {
               </View>
             </Card>
           ))}
-          {pending.length > 0 && <Text style={{ fontWeight: '800', color: base.ink, marginVertical: 6 }}>Approved devices</Text>}
+          {pending.length > 0 && <Text style={{ fontWeight: '600', color: base.ink, marginVertical: 6 }}>Approved devices</Text>}
           {locked.length ? locked.map((x) => (
             <Card key={x.device_id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontWeight: '700', color: base.ink }}>{x.user_name || 'Unknown'}</Text>
+                <Text style={{ fontWeight: '600', color: base.ink }}>{x.user_name || 'Unknown'}</Text>
                 <Muted>Last used {d(x.last_seen_at)}</Muted>
               </View>
               <View style={{ width: 100 }}><Button kind="ghost" title="Unlock" onPress={() => void unlock(x.device_id)} /></View>

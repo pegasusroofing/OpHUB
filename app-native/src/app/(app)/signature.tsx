@@ -43,7 +43,7 @@ export default function Signature() {
         ) : (
           <Muted style={{ marginBottom: 10 }}>Draw your signature below — it&apos;ll be used automatically whenever you sign a RAMS document or Toolbox Talk.</Muted>
         )}
-        <Muted style={{ marginBottom: 6, fontWeight: '700' }}>{me.signature_path ? 'Draw a new signature to replace it' : 'Draw here'}</Muted>
+        <Muted style={{ marginBottom: 6, fontWeight: '600' }}>{me.signature_path ? 'Draw a new signature to replace it' : 'Draw here'}</Muted>
         <SignaturePad ref={pad} />
         <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
           <View style={{ flex: 1 }}><Button kind="ghost" title="Clear" onPress={() => pad.current?.clear()} /></View>

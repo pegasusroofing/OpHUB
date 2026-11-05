@@ -39,11 +39,11 @@ export function PlatformAdmin() {
   };
   return (
     <ScrollView contentContainerStyle={page(820)} keyboardShouldPersistTaps="handled">
-      <Text style={{ fontSize: 21, fontWeight: '800', color: base.ink }}>Platform Admin</Text>
+      <Text style={{ fontSize: 21, fontWeight: '600', color: base.ink }}>Platform Admin</Text>
       <Muted style={{ marginBottom: 12 }}>OpHUB · all companies</Muted>
       <SectionTitle>My Account</SectionTitle>
       <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-        <View style={{ flex: 1 }}><Text style={{ fontWeight: '700', color: base.ink }}>{me.name} (you)</Text><Muted>{me.email} · Super Admin</Muted></View>
+        <View style={{ flex: 1 }}><Text style={{ fontWeight: '600', color: base.ink }}>{me.name} (you)</Text><Muted>{me.email} · Super Admin</Muted></View>
         <View style={{ width: 170 }}><Button kind="ghost" busy={busy === me.email} title="Reset My Password" onPress={() => void reset(me.email)} /></View>
       </Card>
       <SectionTitle>Invite a Company</SectionTitle>
@@ -78,18 +78,18 @@ export function PlatformAdmin() {
           <Card key={o.id}>
             <Pressable onPress={() => setOpen(ex ? null : o.id)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontWeight: '800', color: base.ink }}>{o.name}</Text>
+                <Text style={{ fontWeight: '600', color: base.ink }}>{o.name}</Text>
                 <Muted>{o.has_pm === false ? 'OpHUB Finance only' : `${PLAN_LABEL[o.plan_tier] || o.plan_tier || '—'}${o.has_finance ? ' + Finance' : ''}`} · {sub ? sub.status : 'no Stripe subscription'} · {people.length} member{people.length === 1 ? '' : 's'}</Muted>
               </View>
               <Text style={{ color: base.slate }}>{ex ? '▲' : '▼'}</Text>
             </Pressable>
             {ex && (
               <View style={{ marginTop: 10 }}>
-                <Muted style={{ fontWeight: '700', marginBottom: 4 }}>Package</Muted>
+                <Muted style={{ fontWeight: '600', marginBottom: 4 }}>Package</Muted>
                 <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
                   {Object.entries(PLAN_LABEL).map(([k, l]) => <FinChip key={k} on={o.plan_tier === k} label={l} onPress={async () => { toast((await setOrgPlan(o.id, k)) ? `Package updated — ${l}` : 'Could not save — try again.'); reload(); }} />)}
                 </View>
-                <Muted style={{ fontWeight: '700' }}>Modules</Muted>
+                <Muted style={{ fontWeight: '600' }}>Modules</Muted>
                 <Check label="Project management (site app)" value={o.has_pm !== false} onChange={async (on) => {
                   if (!on && !(await confirmAsk('Make this company Finance only? Their people will only see OpHUB Finance.', 'Finance only'))) return;
                   toast((await setOrgModules(o.id, 'has_pm', on)) ? 'Modules updated' : 'Could not save — try again.'); reload();
@@ -106,10 +106,10 @@ export function PlatformAdmin() {
                   if (!(await confirmAsk(`Permanently delete "${o.name}"? This removes the company, all its sites, and all its team members' access. This cannot be undone.`, 'Delete'))) return;
                   if ((await promptText(`Type the company name to confirm deleting "${o.name}":`, '')) !== o.name) { toast("Names didn't match — nothing deleted."); return; }
                   const r = await deleteCompany(o.id); toast(r.error ? `Delete failed — ${r.error}` : `Deleted ${r.data?.deleted || o.name}`); reload();
-                }} style={{ marginVertical: 10 }}><Text style={{ color: base.warn, fontWeight: '700' }}>Delete Company</Text></Pressable>
+                }} style={{ marginVertical: 10 }}><Text style={{ color: base.warn, fontWeight: '600' }}>Delete Company</Text></Pressable>
                 {people.length ? people.map((p: Row) => (
                   <View key={p.id} style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, paddingVertical: 8, borderTopWidth: 1, borderTopColor: base.line }}>
-                    <View style={{ flex: 1, minWidth: 180 }}><Text style={{ fontWeight: '700', color: base.ink }}>{p.name}</Text><Muted>{p.email} · {p.is_estimator ? 'Estimator' : ROLES.find(([k]) => k === p.role)?.[1] || p.role}</Muted></View>
+                    <View style={{ flex: 1, minWidth: 180 }}><Text style={{ fontWeight: '600', color: base.ink }}>{p.name}</Text><Muted>{p.email} · {p.is_estimator ? 'Estimator' : ROLES.find(([k]) => k === p.role)?.[1] || p.role}</Muted></View>
                     {p.role !== 'superadmin' && <FinChip on={false} label="Role ▾" onPress={async () => {
                       const r = await chooseAction(`Role for ${p.name}`, ROLES.map(([k, l]) => ({ key: k, label: `${(p.is_estimator ? 'estimator' : p.role) === k ? '✓ ' : ''}${l}` })));
                       if (!r || !(await confirmAsk(`Change this person's role to ${ROLES.find(([k]) => k === r)?.[1]}?`, 'Change'))) return;
@@ -141,9 +141,9 @@ export function SupportBar() {
   if (!me?._support) return null;
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#FFF3CD', borderBottomWidth: 1, borderBottomColor: '#E6C766', paddingHorizontal: 12, paddingVertical: 8 }}>
-      <Text style={{ flex: 1, color: base.ink, fontSize: 12.5 }}>🛠 Support mode — you&apos;re inside <Text style={{ fontWeight: '800' }}>{org?.name || 'this company'}</Text> as their admin. Changes are real.</Text>
+      <Text style={{ flex: 1, color: base.ink, fontSize: 12.5 }}>🛠 Support mode — you&apos;re inside <Text style={{ fontWeight: '600' }}>{org?.name || 'this company'}</Text> as their admin. Changes are real.</Text>
       <Pressable onPress={async () => { const err = await viewAsOrg(null); if (err) { toast(`Could not switch — ${err}`); return; } qc.clear(); await refresh(); }} style={{ backgroundColor: base.ink, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6 }}>
-        <Text style={{ color: '#fff', fontWeight: '700' }}>Exit</Text>
+        <Text style={{ color: '#fff', fontWeight: '600' }}>Exit</Text>
       </Pressable>
     </View>
   );

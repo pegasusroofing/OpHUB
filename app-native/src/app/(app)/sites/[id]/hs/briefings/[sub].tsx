@@ -56,7 +56,7 @@ export default function BriefingView() {
             if (r.needSignature) router.push('/signature');
             if (r.ok) refresh();
           }} style={{ borderWidth: 1.5, borderStyle: 'dashed', borderColor: base.line, borderRadius: radius.input, padding: 14, marginBottom: 10 }}>
-            <Text style={{ fontWeight: '700', color: base.ink }}>✍ Tap to sign</Text>
+            <Text style={{ fontWeight: '600', color: base.ink }}>✍ Tap to sign</Text>
           </Pressable>
         )}
         {sigs.map((s) => (

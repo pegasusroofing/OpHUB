@@ -62,7 +62,7 @@ export default function Sites() {
     : <>{list.map((x) => <View key={x.id}>{card(x)}</View>)}</>;
   const head = (k: string, label: string, n: number, on: boolean, toggle: () => void) => (
     <Pressable key={`h${k}`} onPress={toggle} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10, marginBottom: 10, paddingVertical: 12, paddingHorizontal: 14, backgroundColor: base.card, borderWidth: 1, borderColor: base.line, borderRadius: 12 }}>
-      <Text style={{ fontWeight: '800', fontSize: 13, letterSpacing: 0.8, color: base.ink }}>{label.toUpperCase()}</Text>
+      <Text style={{ fontWeight: '600', fontSize: 13, letterSpacing: 0.8, color: base.ink }}>{label.toUpperCase()}</Text>
       <Text style={{ fontWeight: '600', fontSize: 13, color: base.slate }}>({n})</Text>
       <View style={{ flex: 1 }} />
       <Text style={{ color: base.ink, transform: [{ rotate: on ? '0deg' : '-90deg' }] }}>▾</Text>
@@ -71,7 +71,7 @@ export default function Sites() {
   const tabLabel = { all: 'All', live: 'Live', upcoming: 'Upcoming', closed: 'Closed' };
   const chip = (on: boolean, label: string, onPress: () => void, key?: string) => (
     <Pressable key={key ?? label} onPress={onPress} style={{ height: 32, paddingHorizontal: 10, borderRadius: 999, borderWidth: 1, borderColor: on ? base.ink : base.line, backgroundColor: on ? base.ink : '#fff', justifyContent: 'center' }}>
-      <Text style={{ fontSize: 11.5, fontWeight: '700', color: on ? '#fff' : base.ink }}>{label}</Text>
+      <Text style={{ fontSize: 11.5, fontWeight: '600', color: on ? '#fff' : base.ink }}>{label}</Text>
     </Pressable>
   );
 
@@ -87,7 +87,7 @@ export default function Sites() {
         {me?.role === 'site_manager' && (
           <Pressable onPress={() => router.push('/pm/hr' as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 14, padding: 12, marginBottom: 10 }}>
             <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: '#F3EEFA', alignItems: 'center', justifyContent: 'center' }}><OphIcon name="users" size={18} color="#6B3FA8" /></View>
-            <View style={{ flex: 1 }}><Text style={{ fontWeight: '700', color: base.ink }}>HR</Text><Muted>Holidays, policies &amp; handbook</Muted></View>
+            <View style={{ flex: 1 }}><Text style={{ fontWeight: '600', color: base.ink }}>HR</Text><Muted>Holidays, policies &amp; handbook</Muted></View>
             <OphIcon name="chevron" size={18} color={base.slateLight} stroke={2.2} />
           </Pressable>
         )}
@@ -96,11 +96,11 @@ export default function Sites() {
         {!isLoading && error && !data && <Muted>Couldn&apos;t load your projects — check your signal and pull down to try again.</Muted>}
         {!isLoading && !!data && (
           <View>
-            <Text style={{ fontSize: 11, fontWeight: '800', letterSpacing: 0.8, color: base.slate, marginTop: 4, marginBottom: 10 }}>YOUR PROJECTS</Text>
+            <Text style={{ fontSize: 11, fontWeight: '600', letterSpacing: 0.8, color: base.slate, marginTop: 4, marginBottom: 10 }}>YOUR PROJECTS</Text>
             {onboarding && !onboarding.allDone && (
               <Pressable onPress={() => router.push('/getting-started' as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: base.warnBg, borderWidth: 1, borderColor: base.warn, borderRadius: 18, padding: 14, marginBottom: 16 }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontWeight: '800', fontSize: 13.5, color: base.warn }}>Getting Started</Text>
+                  <Text style={{ fontWeight: '600', fontSize: 13.5, color: base.warn }}>Getting Started</Text>
                   <Text style={{ color: base.slate, fontStyle: 'italic', marginTop: 2 }}>{onboarding.items.filter((i) => i.done).length} of {onboarding.items.length} steps done — tap to finish</Text>
                 </View>
                 <Text style={{ fontSize: 20, color: base.warn }}>›</Text>

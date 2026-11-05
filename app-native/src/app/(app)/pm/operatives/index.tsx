@@ -75,10 +75,10 @@ export default function Operatives() {
       {isLoading ? <Muted>Loading…</Muted> : shown.length ? shown.map((o) => (
         <Pressable key={o.id} onPress={() => router.push(`/pm/operatives/${o.id}` as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 10, backgroundColor: base.card }}>
           <View style={{ width: 38, height: 38, borderRadius: 10, backgroundColor: base.blueBg, alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ fontWeight: '800', color: base.blue }}>{(o.name || '?').split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase()}</Text>
+            <Text style={{ fontWeight: '600', color: base.blue }}>{(o.name || '?').split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase()}</Text>
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={{ fontWeight: '700', color: base.ink }}>{o.name}</Text>
+            <Text style={{ fontWeight: '600', color: base.ink }}>{o.name}</Text>
             <Muted>{o.sites} site{o.sites === 1 ? '' : 's'} · {o.certs} certificate{o.certs === 1 ? '' : 's'}{o.phone ? ` · 📞 ${o.phone}` : ''}</Muted>
           </View>
           <Text style={{ color: base.slate, fontSize: 18 }}>›</Text>
@@ -91,7 +91,7 @@ export default function Operatives() {
           {manual.map((p) => (
             <View key={p.id}>
               <Pressable disabled={!isManager(me)} onPress={() => setOpenFor((x) => { const n = new Set(x); if (n.has(p.id)) n.delete(p.id); else n.add(p.id); return n; })} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 10, backgroundColor: base.card }}>
-                <View style={{ flex: 1 }}><Text style={{ fontWeight: '700', color: base.ink }}>{p.name}</Text><Muted>{p.certs} certificate{p.certs === 1 ? '' : 's'}</Muted></View>
+                <View style={{ flex: 1 }}><Text style={{ fontWeight: '600', color: base.ink }}>{p.name}</Text><Muted>{p.certs} certificate{p.certs === 1 ? '' : 's'}</Muted></View>
                 {isManager(me) && <Pressable hitSlop={8} onPress={async () => { if (!(await confirmAsk("Remove this person? Their certificates will be deleted too — this can't be undone.", 'Remove'))) return; toast((await removeManualPerson(p.id)) ? 'Removed' : 'Could not remove — try again.'); void qc.invalidateQueries({ queryKey: ['manualPeople', site] }); }}><Text>🗑</Text></Pressable>}
               </Pressable>
               {openFor.has(p.id) && isManager(me) && <View style={{ backgroundColor: base.card, borderRadius: 14, borderWidth: 1, borderColor: base.cardLine, padding: 12, marginBottom: 10 }}><CertsPanel userId={p.id} manual /></View>}
@@ -114,7 +114,7 @@ export default function Operatives() {
               <View key={o.id}>
                 <Pressable onPress={() => setOpenFor((x) => { const n = new Set(x); if (n.has(o.id)) n.delete(o.id); else n.add(o.id); return n; })} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 4 }}>
                   <Text style={{ color: base.slate, marginRight: 8 }}>{on ? '▼' : '▶'}</Text>
-                  <Text style={{ fontWeight: '700', color: base.ink }}>{o.name} ({toolCount?.[o.id] ?? 0})</Text>
+                  <Text style={{ fontWeight: '600', color: base.ink }}>{o.name} ({toolCount?.[o.id] ?? 0})</Text>
                 </Pressable>
                 {on && <View style={{ backgroundColor: base.card, borderRadius: 14, borderWidth: 1, borderColor: base.cardLine, padding: 12, marginBottom: 10 }}><MyToolsList userId={o.id} name={o.name} /></View>}
               </View>

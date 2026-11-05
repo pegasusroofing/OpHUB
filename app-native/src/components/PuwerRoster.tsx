@@ -33,10 +33,10 @@ export function PuwerRoster({ siteId, offset, setOffset, readOnly }: { siteId: s
       <Stack.Screen options={{ title: 'PUWER Tool Inspection' }} />
       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
         <Pressable onPress={() => setOffset(offset - 1)} style={nav}><Text style={{ fontSize: 20 }}>‹</Text></Pressable>
-        <Text style={{ flex: 1, textAlign: 'center', fontWeight: '700', color: base.ink }}>{weekLabel(days)}</Text>
+        <Text style={{ flex: 1, textAlign: 'center', fontWeight: '600', color: base.ink }}>{weekLabel(days)}</Text>
         <Pressable disabled={offset >= 0} onPress={() => setOffset(offset + 1)} style={[nav, offset >= 0 && { opacity: 0.35 }]}><Text style={{ fontSize: 20 }}>›</Text></Pressable>
       </View>
-      {data?.completion && <Card style={{ backgroundColor: base.okBg }}><Text style={{ color: base.ok, fontWeight: '700' }}>✓ Week marked complete — {new Date(data.completion.completed_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })} by {nameOf(people, data.completion.completed_by)}</Text></Card>}
+      {data?.completion && <Card style={{ backgroundColor: base.okBg }}><Text style={{ color: base.ok, fontWeight: '600' }}>✓ Week marked complete — {new Date(data.completion.completed_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })} by {nameOf(people, data.completion.completed_by)}</Text></Card>}
       {isLoading || !data ? <Muted>Loading…</Muted> : data.ops.length ? data.ops.map((op) => {
         const done = data.done.has(op.id);
         const n = data.toolCount[op.id] || 0;
@@ -45,10 +45,10 @@ export function PuwerRoster({ siteId, offset, setOffset, readOnly }: { siteId: s
             style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 8, backgroundColor: base.card }}>
             <Pressable hitSlop={8} accessibilityLabel={`Tick ${op.name}`} onPress={() => setSel(sel.includes(op.id) ? sel.filter((x) => x !== op.id) : [...sel, op.id])}><Text style={{ fontSize: 18 }}>{sel.includes(op.id) ? '☑' : '☐'}</Text></Pressable>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontWeight: '700', color: base.ink }}>{op.name}{op.id === me.id ? ' (you)' : ''}</Text>
+              <Text style={{ fontWeight: '600', color: base.ink }}>{op.name}{op.id === me.id ? ' (you)' : ''}</Text>
               <Muted>{done ? 'Inspection recorded' : 'Not yet inspected'} · {n} tool{n === 1 ? '' : 's'}</Muted>
             </View>
-            <Text style={{ fontWeight: '700', color: done ? base.ok : base.warn }}>{done ? 'Done' : 'Pending'}</Text>
+            <Text style={{ fontWeight: '600', color: done ? base.ok : base.warn }}>{done ? 'Done' : 'Pending'}</Text>
           </Pressable>
         );
       }) : <Empty>No operatives assigned to this site.</Empty>}

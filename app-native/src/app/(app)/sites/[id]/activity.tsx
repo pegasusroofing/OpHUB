@@ -39,7 +39,7 @@ export default function Activity() {
       </View>
       {(ids.length > 1 || !!person) && (
         <View style={{ marginBottom: 8 }}>
-          <Pressable onPress={() => setPickPerson(!pickPerson)}><Text style={{ color: base.ink, fontWeight: '700' }}>{pickPerson ? '▼' : '▶'} Person: {person ? nameOf(people, person) : 'Everyone'}</Text></Pressable>
+          <Pressable onPress={() => setPickPerson(!pickPerson)}><Text style={{ color: base.ink, fontWeight: '600' }}>{pickPerson ? '▼' : '▶'} Person: {person ? nameOf(people, person) : 'Everyone'}</Text></Pressable>
           {pickPerson && [''].concat(ids).map((u) => (
             <Pressable key={u || 'all'} onPress={() => { setPerson(u); setPickPerson(false); }}><Text style={{ paddingVertical: 5, color: base.ink }}>{person === u ? '◉' : '○'} {u ? nameOf(people, u) : 'Everyone'}</Text></Pressable>
           ))}
@@ -56,7 +56,7 @@ export default function Activity() {
             {hdr}
             <Card style={{ paddingVertical: 9 }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                <Text style={{ fontSize: 11, fontWeight: '800', letterSpacing: 0.5, textTransform: 'uppercase', color: i.type === 'changes' ? base.warn : base.blue }}>{i.head}</Text>
+                <Text style={{ fontSize: 11, fontWeight: '600', letterSpacing: 0.5, textTransform: 'uppercase', color: i.type === 'changes' ? base.warn : base.blue }}>{i.head}</Text>
                 <Text style={{ fontSize: 11, color: base.slate }}>{d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</Text>
               </View>
               <Text style={{ color: base.ink, marginTop: 2 }}>{i.text}</Text>

@@ -34,7 +34,7 @@ function Chip({ on, label, onPress }: { on: boolean; label: string; onPress: () 
   const t = useTheme();
   return (
     <Pressable onPress={onPress} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: base.line, backgroundColor: on ? t.brand1 : '#fff' }}>
-      <Text style={{ fontWeight: '700', color: on ? t.brand1Text : base.slate, fontSize: 11, letterSpacing: 0.4, textTransform: 'uppercase' }}>{label}</Text>
+      <Text style={{ fontWeight: '600', color: on ? t.brand1Text : base.slate, fontSize: 11, letterSpacing: 0.4, textTransform: 'uppercase' }}>{label}</Text>
     </Pressable>
   );
 }
@@ -117,7 +117,7 @@ export default function AllCalendar() {
       if (openId === e.id && e.kind === 'event') {
         return (
           <Card key={e.id}>
-            <Pressable onPress={() => e.site_id && router.push(`/sites/${e.site_id}/calendar?date=${e.event_date}` as never)}><Text style={{ fontWeight: '800', color: base.blue }}>{e.is_private ? '🔒 ' : ''}{e.recurrence_group_id ? '🔁 ' : ''}{e.title} ›</Text></Pressable>
+            <Pressable onPress={() => e.site_id && router.push(`/sites/${e.site_id}/calendar?date=${e.event_date}` as never)}><Text style={{ fontWeight: '600', color: base.blue }}>{e.is_private ? '🔒 ' : ''}{e.recurrence_group_id ? '🔁 ' : ''}{e.title} ›</Text></Pressable>
             <Muted>Project: {s?.name ?? 'Unknown site'}</Muted>
             {!!s && !!fullSiteAddress(s) && <Muted>Address: {fullSiteAddress(s)}</Muted>}
             <Muted>Date: {d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</Muted>
@@ -145,9 +145,9 @@ export default function AllCalendar() {
     return (
       <View key={ds} style={{ flexDirection: 'row', gap: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: base.line }}>
         <View style={{ width: 52, alignItems: 'center' }}>
-          <Text style={{ fontSize: 10, fontWeight: '800', color: d.getDay() % 6 === 0 ? base.red : base.slate }}>{d.toLocaleDateString('en-GB', { weekday: 'short' }).toUpperCase()}</Text>
+          <Text style={{ fontSize: 10, fontWeight: '600', color: d.getDay() % 6 === 0 ? base.red : base.slate }}>{d.toLocaleDateString('en-GB', { weekday: 'short' }).toUpperCase()}</Text>
           <View style={{ width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', borderWidth: ds === today ? 2 : 0, borderColor: t.brand1 }}>
-            <Text style={{ fontSize: 16, fontWeight: '800', color: base.ink }}>{d.getDate()}</Text>
+            <Text style={{ fontSize: 16, fontWeight: '600', color: base.ink }}>{d.getDate()}</Text>
           </View>
         </View>
         <View style={{ flex: 1 }}>{dayItems(ds)}</View>

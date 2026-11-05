@@ -75,14 +75,14 @@ export default function PpeLog() {
       </View>
       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
         <Pressable onPress={() => setOffset(offset - 1)} style={{ padding: 8 }}><Text style={{ fontSize: 18 }}>‹</Text></Pressable>
-        <Text style={{ flex: 1, textAlign: 'center', fontWeight: '800', color: base.ink }}>{range.label}</Text>
+        <Text style={{ flex: 1, textAlign: 'center', fontWeight: '600', color: base.ink }}>{range.label}</Text>
         <Pressable disabled={offset >= 0} onPress={() => setOffset(offset + 1)} style={{ padding: 8, opacity: offset >= 0 ? 0.35 : 1 }}><Text style={{ fontSize: 18 }}>›</Text></Pressable>
       </View>
       {isLoading ? <Muted>Loading…</Muted> : shown.length ? shown.map((r) => (
         <Card key={r.id}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Text style={{ flex: 1, fontWeight: '800', color: base.ink }}>{name(r.user_id)}</Text>
-            <Text style={{ fontSize: 11, fontWeight: '700', color: r.status === 'signed' ? base.ok : base.warn }}>{r.status === 'signed' ? 'Signed' : 'Pending'}</Text>
+            <Text style={{ flex: 1, fontWeight: '600', color: base.ink }}>{name(r.user_id)}</Text>
+            <Text style={{ fontSize: 11, fontWeight: '600', color: r.status === 'signed' ? base.ok : base.warn }}>{r.status === 'signed' ? 'Signed' : 'Pending'}</Text>
           </View>
           <Text style={{ color: base.ink }}>{(r.items || []).join(', ')}</Text>
           <Muted>{sites.find((s) => s.id === r.site_id)?.name || ''} · {new Date(r.issued_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</Muted>

@@ -74,7 +74,7 @@ export default function PriceElementPage() {
       const msg = await reviseVariation(me, site, v, n, t.trim()); toast(msg || 'Could not save — try again.'); refresh();
     } else if (k === 'remove') { if (!(await confirmAsk('Remove this variation request?', 'Remove'))) return; toast((await removeVariation(me, site.id, v)) ? 'Request removed' : 'Could not remove — try again.'); refresh(); }
   };
-  const row = (l: string, v: string, colour: string = base.ink) => <View style={{ flexDirection: 'row', paddingVertical: 4 }}><Text style={{ flex: 1, color: base.slate }}>{l}</Text><Text style={{ fontWeight: '800', color: colour }}>{v}</Text></View>;
+  const row = (l: string, v: string, colour: string = base.ink) => <View style={{ flexDirection: 'row', paddingVertical: 4 }}><Text style={{ flex: 1, color: base.slate }}>{l}</Text><Text style={{ fontWeight: '600', color: colour }}>{v}</Text></View>;
 
   return (
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
@@ -89,9 +89,9 @@ export default function PriceElementPage() {
           {row('Balance', money(f.balance), f.balance < 0 ? base.warn : base.ok)}
           {mgr && (
             <View style={{ marginTop: 10 }}>
-              <Muted style={{ fontWeight: '700' }}>Price Total (£)</Muted>
+              <Muted style={{ fontWeight: '600' }}>Price Total (£)</Muted>
               <TextInput value={total ?? (el.price_total == null ? '' : String(el.price_total))} onChangeText={setTotal} keyboardType="decimal-pad" style={box} onBlur={() => { if (total != null) void saveNum('price_total', total); }} />
-              <Muted style={{ fontWeight: '700' }}>Booked In override (£) — leave blank to add up the weeks ({money(f.autoBookedIn)})</Muted>
+              <Muted style={{ fontWeight: '600' }}>Booked In override (£) — leave blank to add up the weeks ({money(f.autoBookedIn)})</Muted>
               <TextInput value={override ?? (el.price_booked_override == null ? '' : String(el.price_booked_override))} onChangeText={setOverride} keyboardType="decimal-pad" style={box} onBlur={() => { if (override != null) void saveNum('price_booked_override', override); }} />
               {el.closed && <Check label="Operatives can see the price while closed" value={!!el.closed_show_price_to_operatives} onChange={async (v) => { toast((await patchElement(el.id, { closed_show_price_to_operatives: v })) ? 'Saved' : 'Could not save — try again.'); refresh(); }} />}
             </View>
@@ -109,7 +109,7 @@ export default function PriceElementPage() {
             <Pressable key={v.id} disabled={!mgr && !(v.requested_by === me.id && v.status === 'pending')} onPress={() => void vMenu(v)}>
               <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontWeight: '700', color: base.ink }}>{money(v.amount)} · {v.note || ''}</Text>
+                  <Text style={{ fontWeight: '600', color: base.ink }}>{money(v.amount)} · {v.note || ''}</Text>
                   <Muted>{v.requested_by ? `${nameOf(people, v.requested_by)} · ` : ''}{new Date(v.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}{v.rejection_reason ? ` · Reason: ${v.rejection_reason}` : ''}</Muted>
                   {!!v.photo_path && <Pressable onPress={async () => { const u = await openDocLink('site-photos', v.photo_path as string); if (u) viewDoc(u); }}><StorageImage bucket="site-photos" path={v.photo_path} style={{ width: 64, height: 64, borderRadius: 8, marginTop: 6 }} /></Pressable>}
                 </View>
@@ -120,12 +120,12 @@ export default function PriceElementPage() {
                     toast((await addVariationPhoto(site.id, v, picked[0])) ? 'Photo added' : 'Could not add the photo — try again.'); refresh();
                   }} style={{ width: 30, height: 30, borderRadius: 15, borderWidth: 1, borderColor: base.line, alignItems: 'center', justifyContent: 'center' }}><Text style={{ fontSize: 13 }}>📷</Text></Pressable>
                 )}
-                <Text style={{ fontWeight: '700', color: v.status === 'approved' ? base.ok : v.status === 'rejected' ? base.red : base.warn }}>{v.status === 'approved' ? 'Approved' : v.status === 'rejected' ? 'Rejected' : 'Pending'}</Text>
+                <Text style={{ fontWeight: '600', color: v.status === 'approved' ? base.ok : v.status === 'rejected' ? base.red : base.warn }}>{v.status === 'approved' ? 'Approved' : v.status === 'rejected' ? 'Rejected' : 'Pending'}</Text>
               </Card>
             </Pressable>
           )) : <Empty>No variations to price yet.</Empty>}
           <Card>
-            <Muted style={{ fontWeight: '700', marginBottom: 4 }}>Request a variation to price</Muted>
+            <Muted style={{ fontWeight: '600', marginBottom: 4 }}>Request a variation to price</Muted>
             <TextInput value={amt} onChangeText={setAmt} keyboardType="decimal-pad" placeholder="Amount (£)" style={box} />
             <TextInput value={note} onChangeText={setNote} placeholder="Explain the variation" multiline style={[box, { minHeight: 56 }]} />
             <Button busy={busy} title="Add request" onPress={async () => {

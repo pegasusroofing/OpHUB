@@ -105,7 +105,7 @@ export function SitesMapCard({ sites, fill }: { sites: Site[]; fill?: boolean })
         <Text style={[heading(700), { fontSize: 14, color: base.ink }]}>Sites map</Text>
         <Text style={{ fontSize: 11, color: base.slateLight, fontStyle: 'italic' }}>{count}</Text>
         <View style={{ flex: 1 }} />
-        <Pressable onPress={() => router.push('/pm/sitemap' as never)}><Text style={{ fontSize: 12.5, fontWeight: '800', color: t.brand1 }}>Open full map ›</Text></Pressable>
+        <Pressable onPress={() => router.push('/pm/sitemap' as never)}><Text style={{ fontSize: 12.5, fontWeight: '600', color: t.brand1 }}>Open full map ›</Text></Pressable>
       </View>
       <Pressable onPress={() => router.push('/pm/sitemap' as never)} style={{ borderRadius: 12, overflow: 'hidden', ...(fill ? { flex: 1, minHeight: 300 } : {}) }}>
         <View pointerEvents="none" style={fill ? { flex: 1 } : undefined}>

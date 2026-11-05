@@ -53,7 +53,7 @@ export default function QuoteSettingsPage() {
       <Card>
         <SectionTitle>Automatic chaser</SectionTitle>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-          <Text style={{ flex: 1, fontWeight: '700', color: base.ink }}>Send chasers automatically</Text>
+          <Text style={{ flex: 1, fontWeight: '600', color: base.ink }}>Send chasers automatically</Text>
           <Switch accessibilityLabel="Send chasers automatically" value={!!data?.chase_enabled} onValueChange={async (on) => {
             if (on && !(await confirmAsk('This emails your clients by itself, each weekday morning, for returned quotes with the chaser on. Imported quotes stay off. Switch on?', 'Switch on'))) return;
             await save({ chase_enabled: on });

@@ -24,7 +24,7 @@ export function GrnForm({ siteId, m, onDone, onCancel }: { siteId: string; m: Ma
   if (!me) return null;
   return (
     <View style={{ marginTop: 8 }}>
-      <Pressable onPress={() => setOk(!ok)}><Text style={{ color: base.ink, fontWeight: '700' }}>{ok ? '☑' : '☐'} Everything received and correct</Text></Pressable>
+      <Pressable onPress={() => setOk(!ok)}><Text style={{ color: base.ink, fontWeight: '600' }}>{ok ? '☑' : '☐'} Everything received and correct</Text></Pressable>
       <Muted style={{ marginTop: 8 }}>{ok ? 'Notes (optional)' : "What's wrong? (shortages, damage, wrong items)"}</Muted>
       <TextInput value={notes} onChangeText={setNotes} multiline placeholder={ok ? 'e.g. left by the welfare unit' : 'e.g. 2 packs short, 1 damaged'}
         style={{ minHeight: 60, borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, marginVertical: 6 }} />
@@ -33,7 +33,7 @@ export function GrnForm({ siteId, m, onDone, onCancel }: { siteId: string; m: Ma
           {photos.map((p, i) => (
             <Pressable key={p.uri} onPress={() => setPhotos(photos.filter((_, j) => j !== i))}>
               <Image source={{ uri: p.uri }} style={{ width: 64, height: 64, borderRadius: 6 }} />
-              <Text style={{ position: 'absolute', top: 0, right: 4, color: '#fff', fontWeight: '800' }}>✕</Text>
+              <Text style={{ position: 'absolute', top: 0, right: 4, color: '#fff', fontWeight: '600' }}>✕</Text>
             </Pressable>
           ))}
         </View>
@@ -59,7 +59,7 @@ export function GrnForm({ siteId, m, onDone, onCancel }: { siteId: string; m: Ma
 export function GrnDetail({ g }: { g: NonNullable<Mat['grn']> }) {
   return (
     <View style={{ marginTop: 6, padding: 8, borderRadius: 8, backgroundColor: g.ok ? base.okBg : '#FDE2E0' }}>
-      <Text style={{ color: g.ok ? base.ok : base.red, fontWeight: '700' }}>
+      <Text style={{ color: g.ok ? base.ok : base.red, fontWeight: '600' }}>
         {g.ok ? '✓ Goods received' : '⚠ Received with a problem'}
         <Text style={{ fontWeight: '400', color: base.slate }}>{g.byName ? ` · ${g.byName}` : ''}{g.at ? ` · ${new Date(g.at).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}` : ''}</Text>
       </Text>

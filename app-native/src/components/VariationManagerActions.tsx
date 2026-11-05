@@ -44,7 +44,7 @@ export function VariationManagerActions({ v, siteId, onChanged }: { v: V; siteId
     <View style={{ marginTop: 10 }}>
       {canPrice && (
         <View style={{ marginBottom: 8 }}>
-          <Muted style={{ fontWeight: '700', marginBottom: 4 }}>Value to the client (£, ex VAT)</Muted>
+          <Muted style={{ fontWeight: '600', marginBottom: 4 }}>Value to the client (£, ex VAT)</Muted>
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <TextInput value={val} onChangeText={setVal} keyboardType="decimal-pad" placeholder="e.g. 850" style={[box, { flex: 1 }]} />
             <Button kind="ghost" title="Save value" onPress={() => {

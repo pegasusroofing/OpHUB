@@ -74,14 +74,14 @@ export function SubmitQuote({ q, firstDays, onDone }: { q: Quote; firstDays: num
       </View>
       <Field label="Value £ *" value={value} onChangeText={setValue} keyboardType="decimal-pad" />
       <Field label="Profit %" value={profit} onChangeText={setProfit} keyboardType="decimal-pad" />
-      <Muted style={{ fontWeight: '700', marginBottom: 4 }}>Date sent *</Muted>
+      <Muted style={{ fontWeight: '600', marginBottom: 4 }}>Date sent *</Muted>
       <DateBox value={sent} onChange={setSent} max={todayIso()} clearable={false} title="Date sent" style={{ marginBottom: 10 }} />
       {how === 'app' && (
         <>
           <Field label="Send to *" value={to} onChangeText={setTo} keyboardType="email-address" autoCapitalize="none" />
           <Field label="Subject" value={subject} onChangeText={setSubject} />
           <Field label="Message" value={body} onChangeText={setBody} multiline />
-          <Muted style={{ fontWeight: '700', marginBottom: 4 }}>Attach from the Quotation folder</Muted>
+          <Muted style={{ fontWeight: '600', marginBottom: 4 }}>Attach from the Quotation folder</Muted>
           {!q.folder_id ? <Muted style={{ marginBottom: 8 }}>This quote has no folder, so there’s nothing to attach. Make the folder below first, or email it yourself.</Muted>
             : !files ? <Muted style={{ marginBottom: 8 }}>Loading from OneDrive…</Muted>
             : fileError ? <Muted style={{ color: base.warn, marginBottom: 8 }}>{fileError}</Muted>

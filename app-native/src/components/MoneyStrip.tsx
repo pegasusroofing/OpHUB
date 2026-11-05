@@ -35,7 +35,7 @@ export function MoneyStrip({ site }: { site: Site }) {
   const cell = (label: string, v: ReactNode, _em: string, first?: boolean, menu?: ReactNode) => (
     <View style={{ flex: 1, minWidth: 0, alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: desk ? 14 : 10, paddingHorizontal: desk ? 16 : 8, borderLeftWidth: first ? 0 : 1, borderLeftColor: '#EEF0F4' }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, maxWidth: '100%' }}>
-        <Text numberOfLines={1} style={{ flexShrink: 1, fontSize: desk ? 12 : 10.5, fontWeight: '700', color: base.slate, textTransform: 'uppercase', letterSpacing: desk ? 0.5 : 0.2 }}>{label}</Text>
+        <Text numberOfLines={1} style={{ flexShrink: 1, fontSize: desk ? 12 : 10.5, fontWeight: '600', color: base.slate, textTransform: 'uppercase', letterSpacing: desk ? 0.5 : 0.2 }}>{label}</Text>
         {menu}
       </View>
       {fc ? v : <View style={{ backgroundColor: '#F0F2F5', borderRadius: 6, width: '70%', height: 24 }} />}
@@ -60,7 +60,7 @@ export function MoneyStrip({ site }: { site: Site }) {
       style={{ flexDirection: 'row', backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10, marginBottom: 14, overflow: 'hidden' }}>
       {cell('Costs to date', costs, e1, true)}
       {cell('Invoiced to date', inv, e2)}
-      {cell('Profit margin', marg, e3, false, <Pressable onPress={() => void pickBasis()} hitSlop={8} accessibilityLabel="Measure margin against"><Text style={{ color: base.slate, fontWeight: '800', fontSize: desk ? 16 : 14, paddingHorizontal: 4 }}>⋮</Text></Pressable>)}
+      {cell('Profit margin', marg, e3, false, <Pressable onPress={() => void pickBasis()} hitSlop={8} accessibilityLabel="Measure margin against"><Text style={{ color: base.slate, fontWeight: '600', fontSize: desk ? 16 : 14, paddingHorizontal: 4 }}>⋮</Text></Pressable>)}
     </Pressable>
   );
 }

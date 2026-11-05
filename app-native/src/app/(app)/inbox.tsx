@@ -67,7 +67,7 @@ export default function Inbox() {
       <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
         {([['todo', `To sign / do${todoN ? ` (${todoN})` : ''}`], ['msgs', `Messages${unreadN && current !== 'msgs' ? ` (${unreadN} new)` : ''}`]] as const).map(([k, label]) => (
           <Pressable key={k} onPress={() => setTab(k)} style={{ height: 34, justifyContent: 'center', paddingHorizontal: 13, borderRadius: 999, borderWidth: 1, borderColor: current === k ? base.ink : base.line, backgroundColor: current === k ? base.ink : base.card }}>
-            <Text style={{ fontSize: 12.5, fontWeight: '700', color: current === k ? '#fff' : base.ink }}>{label}</Text>
+            <Text style={{ fontSize: 12.5, fontWeight: '600', color: current === k ? '#fff' : base.ink }}>{label}</Text>
           </Pressable>
         ))}
       </View>
@@ -78,7 +78,7 @@ export default function Inbox() {
           <View style={{ flexDirection: 'row', gap: 6, marginBottom: 6 }}>
             {TYPES.map((c) => (
               <Pressable key={c.k} onPress={() => setType(c.k)} style={{ flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 10, borderWidth: 1.5, borderColor: type === c.k ? t.brand1 : base.line, backgroundColor: base.card }}>
-                <Text style={{ fontSize: 12, fontWeight: '800', letterSpacing: 0.4, textTransform: 'uppercase', color: type === c.k ? base.ink : base.slate }}>{c.l}</Text>
+                <Text style={{ fontSize: 12, fontWeight: '600', letterSpacing: 0.4, textTransform: 'uppercase', color: type === c.k ? base.ink : base.slate }}>{c.l}</Text>
               </Pressable>
             ))}
           </View>
@@ -89,8 +89,8 @@ export default function Inbox() {
               {r.items.map((it, i) => (
                 <Pressable key={`${it.href}-${i}`} onPress={() => router.push(it.href as never)} accessibilityRole="button"
                   style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 18, paddingVertical: 12, paddingHorizontal: 14, marginBottom: 10 }}>
-                  <View style={{ width: 50, height: 43, borderRadius: 14, backgroundColor: base.warnBg, borderWidth: 1.5, borderColor: base.ink, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: base.warn, fontWeight: '800' }}>!</Text></View>
-                  <Text style={{ flex: 1, fontWeight: '800', fontSize: 14.5, color: base.ink }}>{it.label}</Text>
+                  <View style={{ width: 50, height: 43, borderRadius: 14, backgroundColor: base.warnBg, borderWidth: 1.5, borderColor: base.ink, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: base.warn, fontWeight: '600' }}>!</Text></View>
+                  <Text style={{ flex: 1, fontWeight: '600', fontSize: 14.5, color: base.ink }}>{it.label}</Text>
                 </Pressable>
               ))}
             </View>

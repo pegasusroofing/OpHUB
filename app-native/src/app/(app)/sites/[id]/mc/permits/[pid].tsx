@@ -63,11 +63,11 @@ export default function PermitView() {
       <Card>
         <SectionTitle>{PERMIT_ICON[permit.permit_type] || '🧾'} {PERMIT_LABEL[permit.permit_type] || permit.permit_type}</SectionTitle>
         <Text style={{ color: base.ink, marginBottom: 6 }}>{permit.description}</Text>
-        <Muted><Text style={{ fontWeight: '700' }}>Location:</Text> {permit.location}</Muted>
-        <Muted><Text style={{ fontWeight: '700' }}>Date:</Text> {d(permit.work_date)}</Muted>
-        {!!data?.company && <Muted><Text style={{ fontWeight: '700' }}>Subcontractor:</Text> {data.company}</Muted>}
-        <Muted><Text style={{ fontWeight: '700' }}>Status:</Text> {permit.status}</Muted>
-        <Muted style={{ marginTop: 6 }}><Text style={{ fontWeight: '700' }}>Issued by</Text> {nameOf(people, permit.issued_by)} on {d(permit.issued_at)}</Muted>
+        <Muted><Text style={{ fontWeight: '600' }}>Location:</Text> {permit.location}</Muted>
+        <Muted><Text style={{ fontWeight: '600' }}>Date:</Text> {d(permit.work_date)}</Muted>
+        {!!data?.company && <Muted><Text style={{ fontWeight: '600' }}>Subcontractor:</Text> {data.company}</Muted>}
+        <Muted><Text style={{ fontWeight: '600' }}>Status:</Text> {permit.status}</Muted>
+        <Muted style={{ marginTop: 6 }}><Text style={{ fontWeight: '600' }}>Issued by</Text> {nameOf(people, permit.issued_by)} on {d(permit.issued_at)}</Muted>
         {!!permit.issuer_signature_path && <StorageImage bucket="signatures" path={permit.issuer_signature_path} style={{ height: 40, width: 180, resizeMode: 'contain' }} />}
       </Card>
 
@@ -75,7 +75,7 @@ export default function PermitView() {
       {assigned.length ? assigned.map((u) => (
         <View key={u} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 6, backgroundColor: base.card }}>
           <View style={{ flex: 1 }}>
-            <Text style={{ fontWeight: '700', color: base.ink }}>{nameOf(people, u)}</Text>
+            <Text style={{ fontWeight: '600', color: base.ink }}>{nameOf(people, u)}</Text>
             <Muted>{signed[u] ? `Signed ${d(signed[u].signed_at)}` : 'Awaiting signature'}</Muted>
           </View>
           {!!signed[u]?.signature_image_path && <StorageImage bucket="signatures" path={signed[u].signature_image_path} style={{ height: 32, width: 100, resizeMode: 'contain' }} />}
@@ -90,7 +90,7 @@ export default function PermitView() {
         <>
           <SectionTitle>Closed down</SectionTitle>
           <Card>
-            <Muted><Text style={{ fontWeight: '700' }}>Closed by</Text> {nameOf(people, permit.closed_by)} on {d(permit.closed_at)}</Muted>
+            <Muted><Text style={{ fontWeight: '600' }}>Closed by</Text> {nameOf(people, permit.closed_by)} on {d(permit.closed_at)}</Muted>
             {!!permit.closed_notes && <Text style={{ color: base.ink, marginVertical: 6 }}>{permit.closed_notes}</Text>}
             {!!permit.closer_signature_path && <StorageImage bucket="signatures" path={permit.closer_signature_path} style={{ height: 40, width: 180, resizeMode: 'contain' }} />}
             {(!!permit.closedown_photo_path_1 || !!permit.closedown_photo_path_2) && (

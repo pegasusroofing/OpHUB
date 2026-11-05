@@ -72,7 +72,7 @@ export default function PmTodos() {
           <TextInput value={comment} onChangeText={setComment} placeholder="Comments (optional)" multiline style={[box, { minHeight: 60 }]} />
           {siteId !== 'general' && (
             <Pressable style={{ marginBottom: 8 }} onPress={async () => { const r = await DocumentPicker.getDocumentAsync({ multiple: true, copyToCacheDirectory: true }); if (!r.canceled) setFiles([...files, ...r.assets.map((a) => ({ uri: a.uri, name: a.name, mimeType: a.mimeType, size: a.size }))]); }}>
-              <Text style={{ color: base.blue, fontWeight: '700' }}>📎 Photos / documents{files.length ? ` (${files.length})` : ''}</Text>
+              <Text style={{ color: base.blue, fontWeight: '600' }}>📎 Photos / documents{files.length ? ` (${files.length})` : ''}</Text>
             </Pressable>
           )}
           <Button busy={busy} title="Add To Do" onPress={async () => {
@@ -98,7 +98,7 @@ export default function PmTodos() {
                   <Text style={{ color: base.ink, fontWeight: '600' }}>{t.text}</Text>
                   <Muted>{t.assigned_to ? `Assigned to ${nameOf(people, t.assigned_to)}` : 'Unassigned'}</Muted>
                 </View>
-                {!!t.date_required_by && <Text style={{ fontSize: 11, fontWeight: '700', color: over ? base.warn : base.slate }}>{over ? 'Overdue · ' : ''}{new Date(`${t.date_required_by}T00:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</Text>}
+                {!!t.date_required_by && <Text style={{ fontSize: 11, fontWeight: '600', color: over ? base.warn : base.slate }}>{over ? 'Overdue · ' : ''}{new Date(`${t.date_required_by}T00:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</Text>}
               </Pressable>
             );
           })}

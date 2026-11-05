@@ -106,7 +106,7 @@ export default function RateCard() {
             <View key={it.id}>
               <Card style={{ padding: 10 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Cell value={it.name} onSave={field(it, 'price_rate_items', 'name', 'Item name')} style={{ flex: 1, fontWeight: '700' }} />
+                  <Cell value={it.name} onSave={field(it, 'price_rate_items', 'name', 'Item name')} style={{ flex: 1, fontWeight: '600' }} />
                   {!it.is_dropdown && <><Text style={{ color: base.ink }}>£</Text><Cell money value={it.rate != null ? String(it.rate) : ''} onSave={field(it, 'price_rate_items', 'rate', 'Rate')} style={{ width: 80 }} /></>}
                   <Pressable hitSlop={8} onPress={async () => {
                     if (!(await confirmAsk(`Remove "${it.name}" from the rate card? This can't be undone — it won't affect any sheet that's already been issued, since those keep their own snapshot of the rates used.`, 'Remove'))) return;
@@ -135,7 +135,7 @@ export default function RateCard() {
                     const r = await promptText(`Rate for "${label.trim()}" (£)`, ''); if (r === null) return;
                     const rate = readRate(r); if (rate === null) { toast('Enter a valid number.'); return; }
                     toast((await db.from('price_rate_options').insert({ rate_item_id: it.id, label: label.trim(), rate } as never)).error ? 'Could not add — try again.' : 'Option added'); refresh();
-                  }} style={{ paddingVertical: 4 }}><Text style={{ color: base.blue, fontWeight: '700' }}>+ Add option</Text></Pressable>
+                  }} style={{ paddingVertical: 4 }}><Text style={{ color: base.blue, fontWeight: '600' }}>+ Add option</Text></Pressable>
                 </View>
               )}
             </View>

@@ -67,7 +67,7 @@ export default function Yard() {
       {request && (
         <Card style={{ borderColor: base.ink, borderWidth: 1.5 }}>
           <SectionTitle>Fill from yard stock</SectionTitle>
-          <Muted>For the request: <Text style={{ fontWeight: '700', color: base.ink }}>{request.item}</Text> × {request.qty || '1'}</Muted>
+          <Muted>For the request: <Text style={{ fontWeight: '600', color: base.ink }}>{request.item}</Text> × {request.qty || '1'}</Muted>
           {(() => {
             const s = list.find((x) => x.id === guess);
             const n0 = yardNum(request.qty);
@@ -120,10 +120,10 @@ export default function Yard() {
       {shown.length ? shown.map((s) => (
         <View key={s.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, paddingHorizontal: 10, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 6, backgroundColor: base.card }}>
           <View style={{ flex: 1 }}>
-            <Text style={{ fontWeight: '700', color: base.ink }}>{s.item}</Text>
+            <Text style={{ fontWeight: '600', color: base.ink }}>{s.item}</Text>
             {!!(s.category || s.location) && <Muted>{[s.category, s.location].filter(Boolean).join(' · ')}</Muted>}
           </View>
-          <Text style={{ fontWeight: '700', color: yardLow(s) ? base.red : base.slate }}>{yardQty(s.qty)} {s.unit || ''}{yardLow(s) ? ' · low' : ''}</Text>
+          <Text style={{ fontWeight: '600', color: yardLow(s) ? base.red : base.slate }}>{yardQty(s.qty)} {s.unit || ''}{yardLow(s) ? ' · low' : ''}</Text>
           {request ? <Button kind="ghost" title={guess === s.id ? '✓' : 'Use'} onPress={() => setPickFor(s.id)} /> : (
             <>
               <TextInput value={qty[s.id] ?? ''} onChangeText={(t) => setQty({ ...qty, [s.id]: t })} keyboardType="decimal-pad" placeholder="Qty" style={qbox} />

@@ -57,7 +57,7 @@ export default function CompletedTbts() {
       <TextInput value={q} onChangeText={setQ} placeholder="Search toolbox talks or projects" style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card, marginBottom: 10 }} />
       {sel.size > 0 ? (
         <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Text style={{ flex: 1, fontWeight: '700', color: base.ink }}>{sel.size} selected</Text>
+          <Text style={{ flex: 1, fontWeight: '600', color: base.ink }}>{sel.size} selected</Text>
           <Button kind="ghost" busy={busy === 'pdf'} title="Export PDF" onPress={async () => { setBusy('pdf'); toast('Building one PDF…'); const m = await merged().catch(() => null); setBusy(''); if (m && !(await deliverPdf(m.bytes, m.filename))) toast('Could not save the PDF.'); }} />
           <Button busy={busy === 'email'} title="Email all" onPress={async () => {
             const to = await ask(`the ${sel.size} ticked toolbox talk${sel.size === 1 ? '' : 's'}`); if (!to) return;
@@ -75,7 +75,7 @@ export default function CompletedTbts() {
             <View style={{ flexDirection: 'row', gap: 10 }}>
               <Pressable onPress={() => setSel((x) => { const n = new Set(x); if (n.has(t.id)) n.delete(t.id); else n.add(t.id); return n; })}><Text style={{ fontSize: 20 }}>{on ? '☑' : '☐'}</Text></Pressable>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontWeight: '700', color: base.ink }}>{t.title || 'Toolbox Talk'}</Text>
+                <Text style={{ fontWeight: '600', color: base.ink }}>{t.title || 'Toolbox Talk'}</Text>
                 <Muted style={{ fontSize: 12 }}>{s?.name || 'Project'} · issued {fmt(t.created_at)}{data?.last[t.id] ? ` · last signed ${fmt(data.last[t.id])}` : ''} · {data?.n[t.id]} signature{data?.n[t.id] === 1 ? '' : 's'}</Muted>
                 <View style={{ flexDirection: 'row', gap: 16, marginTop: 6 }}>
                   <Text style={{ color: base.blue }} onPress={() => router.push(`/sites/${t.site_id}/hs/tbt/${t.id}` as never)}>Open</Text>

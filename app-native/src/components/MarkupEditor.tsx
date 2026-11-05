@@ -168,7 +168,7 @@ export function MarkupEditor({ src, ops: initial, keys = [], photo = false, onCl
   const close = async () => { if (ops.length && !(await confirmAsk('Close without saving your marks?', 'Close'))) return; onClose(null); };
   const chip = (on: boolean, label: string, onPress: () => void, key?: string) => (
     <Pressable key={key ?? label} onPress={onPress} style={{ paddingHorizontal: 10, paddingVertical: 7, borderRadius: 8, backgroundColor: on ? '#fff' : 'rgba(255,255,255,0.12)' }}>
-      <Text style={{ color: on ? base.ink : '#fff', fontWeight: '700', fontSize: 12.5 }}>{label}</Text>
+      <Text style={{ color: on ? base.ink : '#fff', fontWeight: '600', fontSize: 12.5 }}>{label}</Text>
     </Pressable>
   );
   return (
@@ -176,14 +176,14 @@ export function MarkupEditor({ src, ops: initial, keys = [], photo = false, onCl
       <View style={{ flex: 1, backgroundColor: '#1c1f24' }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', padding: 10, gap: 8 }}>
           {chip(false, 'Cancel', () => void close())}
-          <Text style={{ flex: 1, color: '#fff', fontWeight: '800', textAlign: 'center' }}>{photo ? 'Mark up photo' : 'Mark up drawing'}</Text>
+          <Text style={{ flex: 1, color: '#fff', fontWeight: '600', textAlign: 'center' }}>{photo ? 'Mark up photo' : 'Mark up drawing'}</Text>
           {chip(false, '↶ Undo', () => setOps((x) => x.slice(0, -1)))}
           {chip(false, 'Clear', async () => { if (ops.length && (await confirmAsk('Remove all the marks?', 'Clear'))) setOps([]); })}
-          <Pressable onPress={() => void save()} disabled={saving} style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 8, backgroundColor: base.blue }}><Text style={{ color: '#fff', fontWeight: '800' }}>{saving ? 'Saving…' : 'Save'}</Text></Pressable>
+          <Pressable onPress={() => void save()} disabled={saving} style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 8, backgroundColor: base.blue }}><Text style={{ color: '#fff', fontWeight: '600' }}>{saving ? 'Saving…' : 'Save'}</Text></Pressable>
         </View>
         {sel != null && ops[sel] ? (
           <ScrollView horizontal style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 6, paddingHorizontal: 10, paddingBottom: 6, alignItems: 'center' }}>
-            <Text style={{ color: '#fff', fontWeight: '700', marginRight: 4 }}>Selected {(() => { const o = ops[sel]; return o.t === 'num' ? o.n : o.t === 'text' ? 'text' : o.t; })()}</Text>
+            <Text style={{ color: '#fff', fontWeight: '600', marginRight: 4 }}>Selected {(() => { const o = ops[sel]; return o.t === 'num' ? o.n : o.t === 'text' ? 'text' : o.t; })()}</Text>
             {chip(false, '−', () => setOps((x) => x.map((o, j) => (j === sel && size ? scaleMark(o, 1 / 1.2, size.W) : o))), 'sm')}
             {chip(false, '+', () => setOps((x) => x.map((o, j) => (j === sel && size ? scaleMark(o, 1.2, size.W) : o))), 'sb')}
             {ops[sel].t === 'text' && chip(false, '✎ Edit text', async () => { const o = ops[sel] as { s: string }; const t = (await promptText('Edit text', o.s))?.trim(); if (t) setOps((x) => x.map((q, j) => (j === sel ? { ...q, s: t } as MarkOp : q))); }, 'et')}

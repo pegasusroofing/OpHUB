@@ -62,41 +62,41 @@ export default function Permits() {
           style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 8, backgroundColor: base.card }}>
           <Text style={{ fontSize: 20 }}>{PERMIT_ICON[p.permit_type] || '🧾'}</Text>
           <View style={{ flex: 1 }}>
-            <Text style={{ fontWeight: '700', color: base.ink }}>{PERMIT_LABEL[p.permit_type] || p.permit_type}</Text>
+            <Text style={{ fontWeight: '600', color: base.ink }}>{PERMIT_LABEL[p.permit_type] || p.permit_type}</Text>
             <Muted>{p.description || ''}{p.subcontractor_company_id ? ` · ${names[p.subcontractor_company_id] || 'Subcontractor'}` : ''}</Muted>
           </View>
-          <Text style={{ fontWeight: '700', color: p.status === 'open' ? base.warn : base.ok }}>{p.status}</Text>
+          <Text style={{ fontWeight: '600', color: p.status === 'open' ? base.warn : base.ok }}>{p.status}</Text>
         </Pressable>
       )) : <Empty>No {tab} permits.</Empty>}
 
       {mgr && tab === 'open' && (issuing ? (
         <Card style={{ marginTop: 14 }}>
           <SectionTitle>Issue a permit</SectionTitle>
-          <Muted style={{ fontWeight: '700' }}>Permit type</Muted>
+          <Muted style={{ fontWeight: '600' }}>Permit type</Muted>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginVertical: 8 }}>
             {Object.keys(PERMIT_LABEL).map((k) => <Chip key={k} on={type === k} label={`${PERMIT_ICON[k]} ${PERMIT_LABEL[k]}`} onPress={() => setType(k)} />)}
           </View>
           {!!data?.companies.length && !fixedCo && (
             <>
-              <Muted style={{ fontWeight: '700' }}>Contractor</Muted>
+              <Muted style={{ fontWeight: '600' }}>Contractor</Muted>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginVertical: 8 }}>
                 <Chip on={!co} label="RTB (no subcontractor)" onPress={() => { setCo(null); setWho(new Set()); }} />
                 {data.companies.map((c) => <Chip key={c.id} on={co === c.id} label={c.name} onPress={() => { setCo(c.id); setWho(new Set()); }} />)}
               </View>
             </>
           )}
-          <Muted style={{ fontWeight: '700' }}>Who needs to sign this permit? (required)</Muted>
+          <Muted style={{ fontWeight: '600' }}>Who needs to sign this permit? (required)</Muted>
           <TextInput value={q} onChangeText={setQ} placeholder="Filter by name…" style={[box, { marginTop: 6 }]} />
           {shown.length ? shown.map((p) => (
             <Pressable key={p.id} onPress={() => { const n = new Set(who); if (n.has(p.id)) n.delete(p.id); else n.add(p.id); setWho(n); }}>
               <Text style={{ paddingVertical: 5, color: base.ink }}>{who.has(p.id) ? '☑' : '☐'} {p.name}</Text>
             </Pressable>
           )) : <Muted>{q ? `No operatives match "${q}".` : 'No operatives available to pick from yet.'}</Muted>}
-          <Muted style={{ fontWeight: '700', marginTop: 8 }}>Description of works</Muted>
+          <Muted style={{ fontWeight: '600', marginTop: 8 }}>Description of works</Muted>
           <TextInput value={desc} onChangeText={setDesc} placeholder="e.g. Hot works to re-felt the plant room roof" style={box} />
-          <Muted style={{ fontWeight: '700' }}>Location</Muted>
+          <Muted style={{ fontWeight: '600' }}>Location</Muted>
           <Text style={[box, { backgroundColor: base.paper }]}>{fullSiteAddress(site)}</Text>
-          <Muted style={{ fontWeight: '700' }}>Date</Muted>
+          <Muted style={{ fontWeight: '600' }}>Date</Muted>
           <DateBox value={date} onChange={setDate} title="Date" style={{ marginBottom: 8 }} />
           {!sig && <Pressable onPress={() => router.push('/signature')}><Text style={{ color: base.warn, marginBottom: 8 }}>You haven't adopted a signature yet — tap to set one up before issuing.</Text></Pressable>}
           <View style={{ flexDirection: 'row', gap: 8 }}>

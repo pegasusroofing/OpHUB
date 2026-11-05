@@ -126,10 +126,10 @@ export default function TbtView() {
               <>
                 {mine.signature_image_path
                   ? <StorageImage bucket="signatures" path={mine.signature_image_path} style={{ height: 34, width: 140, resizeMode: 'contain' }} />
-                  : <Text style={{ fontWeight: '700' }}>{me.name}</Text>}
-                <Text style={{ color: base.ok, fontWeight: '700' }}>Signed {mine.signed_at ? new Date(mine.signed_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : ''}</Text>
+                  : <Text style={{ fontWeight: '600' }}>{me.name}</Text>}
+                <Text style={{ color: base.ok, fontWeight: '600' }}>Signed {mine.signed_at ? new Date(mine.signed_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : ''}</Text>
               </>
-            ) : <Text style={{ fontWeight: '700', color: live ? base.ink : base.slate }}>{live ? (busy ? 'Signing…' : '✍ Tap to sign') : 'This talk is not live for signing'}</Text>}
+            ) : <Text style={{ fontWeight: '600', color: live ? base.ink : base.slate }}>{live ? (busy ? 'Signing…' : '✍ Tap to sign') : 'This talk is not live for signing'}</Text>}
           </Pressable>
           {/* Managers: everyone who has signed, the manager who conducted it too, and who is still to sign (operatives only see their own box, 710). */}
           {mgr && <RowSigners total={data?.roster.length ?? 0} signed={(data?.sigs ?? []) as never} waiting={waiting} people={people} />}

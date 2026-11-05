@@ -28,11 +28,11 @@ export default function CoshhSave() {
     <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'Save to COSHH Library' }} />
       <Muted style={{ marginBottom: 10 }}>Choose where to save &quot;{name}&quot; in the Admin Centre COSHH Library.</Muted>
-      <Text style={{ fontWeight: '800', color: base.ink, marginBottom: 8 }}>{cur ? cur.name : 'Element of Works'}</Text>
+      <Text style={{ fontWeight: '600', color: base.ink, marginBottom: 8 }}>{cur ? cur.name : 'Element of Works'}</Text>
       {cur && <View style={{ marginBottom: 10 }}><Button kind="ghost" title="‹ Up one level" onPress={() => setFolderId(cur.parent_id)} /></View>}
       {isLoading ? <Muted>Loading…</Muted> : data?.subfolders.length ? data.subfolders.map((f) => (
         <Pressable key={f.id} onPress={() => setFolderId(f.id)} style={{ padding: 11, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 6, backgroundColor: base.card }}>
-          <Text style={{ fontWeight: '700', color: base.ink }}>📁 {f.name}</Text>
+          <Text style={{ fontWeight: '600', color: base.ink }}>📁 {f.name}</Text>
         </Pressable>
       )) : <Empty>No subfolders here.</Empty>}
       <View style={{ marginTop: 14 }}><Button busy={busy} title={`Save to ${cur ? `"${cur.name}"` : 'the top level'}`} onPress={async () => {

@@ -30,7 +30,7 @@ function PolicySignedList({ docId, doc }: { docId: string; doc: Parameters<typeo
       {open && <Card>{team.map((p) => (
         <View key={p.id} style={{ flexDirection: 'row', paddingVertical: 5 }}>
           <Text style={{ flex: 1, color: base.ink }}>{p.name}</Text>
-          <Text style={{ fontWeight: '700', color: done.has(p.id) ? base.ok : base.warn }}>{done.has(p.id) ? 'Signed' : 'Outstanding'}</Text>
+          <Text style={{ fontWeight: '600', color: done.has(p.id) ? base.ok : base.warn }}>{done.has(p.id) ? 'Signed' : 'Outstanding'}</Text>
         </View>
       ))}</Card>}
     </>
@@ -64,7 +64,7 @@ export function PolicyCard() {
       </Pressable>
       {isOpen && (
         <Card>
-          <Text style={{ fontWeight: '800', fontSize: 14, color: base.ink }}>{doc.name}</Text>
+          <Text style={{ fontWeight: '600', fontSize: 14, color: base.ink }}>{doc.name}</Text>
           <Muted>Uploaded {longDate(doc.uploaded_at)}{doc.expiry_date ? ` · Expires ${longDate(`${doc.expiry_date}T00:00:00`)}` : ''}</Muted>
           <Pressable onPress={async () => { const u = await openDocLink('rams-docs', doc.storage_path); if (u) viewDoc(u); }}>
             <Text style={{ color: base.blue, marginTop: 6 }}>View document ↗</Text>

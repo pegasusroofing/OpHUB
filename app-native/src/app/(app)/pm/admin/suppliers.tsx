@@ -28,7 +28,7 @@ function Field({ label, value, placeholder, onSave, keyboard }: { label?: string
   const [v, setV] = useState(value);
   return (
     <View>
-      {!!label && <Muted style={{ fontWeight: '700' }}>{label}</Muted>}
+      {!!label && <Muted style={{ fontWeight: '600' }}>{label}</Muted>}
       <TextInput value={v} onChangeText={setV} placeholder={placeholder} keyboardType={keyboard} autoCapitalize={keyboard ? 'none' : 'sentences'} onBlur={() => { if (v.trim() !== value.trim()) onSave(v.trim()); }} style={box} />
     </View>
   );
@@ -89,7 +89,7 @@ export default function Suppliers() {
           <Card key={s.id} style={{ padding: 0, overflow: 'hidden' }}>
             <Pressable onPress={() => setOpen(isOpen ? null : s.id)} style={{ flexDirection: 'row', alignItems: 'center', padding: 12 }}>
               <Text style={{ color: base.slate, width: 18 }}>{isOpen ? '▼' : '▶'}</Text>
-              <Text style={{ flex: 1, fontWeight: '800', color: base.ink }}>{s.name}</Text>
+              <Text style={{ flex: 1, fontWeight: '600', color: base.ink }}>{s.name}</Text>
               <Pressable hitSlop={8} accessibilityLabel={`Favourite ${s.name}`} style={{ paddingHorizontal: 8 }} onPress={async () => { const err = await toggleFavourite(me.org_id as string, s); if (err) toast(err); refresh(); }}><Text style={{ fontSize: 17, color: s.favourite ? '#D98A00' : base.slate }}>{s.favourite ? '★' : '☆'}</Text></Pressable>
               <Muted>{brs.length} branch{brs.length === 1 ? '' : 'es'}</Muted>
             </Pressable>
@@ -109,7 +109,7 @@ export default function Suppliers() {
                   const val = v.slice(0, 60);
                   toast(!(await db.from('suppliers').update({ account_number: val || null } as never).eq('id', s.id).select('id')).data?.length ? 'Could not save — try again.' : val ? 'Account number saved — it goes on order emails' : 'Account number removed'); refresh();
                 }} />
-                <Text style={{ fontWeight: '800', color: base.ink, marginTop: 6, marginBottom: 4 }}>Branches</Text>
+                <Text style={{ fontWeight: '600', color: base.ink, marginTop: 6, marginBottom: 4 }}>Branches</Text>
                 {brs.length ? brs.map((b) => (
                   <View key={b.id} style={{ borderTopWidth: 1, borderTopColor: base.line, paddingTop: 6, marginTop: 4 }}>
                     <Field value={b.name || ''} placeholder="Branch name, e.g. Stockton" onSave={(v) => void saveBranch(s, b.id, 'name', v)} />
@@ -117,7 +117,7 @@ export default function Suppliers() {
                     <Field value={b.email || ''} placeholder="Branch order email (optional — used instead of the main one)" keyboard="email-address" onSave={(v) => void saveBranch(s, b.id, 'email', v)} />
                     <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
                       <View style={{ flex: 1 }}><Field value={b.phone || ''} placeholder="Phone (optional)" keyboard="phone-pad" onSave={(v) => void saveBranch(s, b.id, 'phone', v)} /></View>
-                      <Pressable onPress={async () => { if (!(await confirmAsk('Delete this branch?', 'Delete'))) return; if (await updateBranches(s.id, (bs) => bs.filter((x) => x.id !== b.id))) refresh(); }}><Text style={{ color: base.warn, fontWeight: '700' }}>Delete</Text></Pressable>
+                      <Pressable onPress={async () => { if (!(await confirmAsk('Delete this branch?', 'Delete'))) return; if (await updateBranches(s.id, (bs) => bs.filter((x) => x.id !== b.id))) refresh(); }}><Text style={{ color: base.warn, fontWeight: '600' }}>Delete</Text></Pressable>
                     </View>
                   </View>
                 )) : <Muted style={{ marginBottom: 8 }}>No branches yet.</Muted>}

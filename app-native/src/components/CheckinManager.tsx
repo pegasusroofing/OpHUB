@@ -92,7 +92,7 @@ export function CheckinManager({ site, sub }: { site: Site; sub?: SubAddress }) 
       <View style={{ marginTop: 14 }}><SectionTitle>Site Team — Live Status</SectionTitle></View>
       {status.length ? status.map((c) => (
         <Card key={c.user_id} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10 }}>
-          <Text style={{ fontWeight: '700', color: base.ink }}>{nameOf(people, c.user_id)}{c.user_id === me.id ? <Text style={{ color: base.slate }}> (you)</Text> : null}</Text>
+          <Text style={{ fontWeight: '600', color: base.ink }}>{nameOf(people, c.user_id)}{c.user_id === me.id ? <Text style={{ color: base.slate }}> (you)</Text> : null}</Text>
           <Pill on={c.type === 'in'} text={c.type === 'in' && c.ts ? `On site since ${timeHM(c.ts)}` : 'Off site'} />
         </Card>
       )) : <Empty>No check-ins recorded for this {sub ? 'address' : 'site'} yet.</Empty>}
@@ -100,12 +100,12 @@ export function CheckinManager({ site, sub }: { site: Site; sub?: SubAddress }) 
       <Toggle title={sub ? 'All Operatives' : 'All Operatives / PM Logins'} open={histOpen} onPress={() => setHistOpen(!histOpen)} />
       {histOpen && (dayKeys.length ? dayKeys.map((k) => (
         <View key={k} style={{ marginTop: 10 }}>
-          <Text style={{ fontSize: 11, fontWeight: '800', letterSpacing: 0.5, textTransform: 'uppercase', color: base.slate, marginBottom: 6 }}>{checkinDayLabel(k)}</Text>
+          <Text style={{ fontSize: 11, fontWeight: '600', letterSpacing: 0.5, textTransform: 'uppercase', color: base.slate, marginBottom: 6 }}>{checkinDayLabel(k)}</Text>
           {days[k].sort((a, b) => ((b.in || b.out)?.ts || '').localeCompare((a.in || a.out)?.ts || '')).map((s, i) => (
             <Card key={`${s.user_id}-${i}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10 }}>
-              <Text style={{ flex: 1, fontWeight: '700', color: base.ink }}>{nameOf(people, s.user_id)}</Text>
+              <Text style={{ flex: 1, fontWeight: '600', color: base.ink }}>{nameOf(people, s.user_id)}</Text>
               <Muted>{s.in?.ts ? `In ${timeHM(s.in.ts)}` : '—'}</Muted>
-              {s.out?.ts ? <Muted>Out {timeHM(s.out.ts)}</Muted> : s.in ? <Text style={{ color: base.ok, fontWeight: '700' }}>On site</Text> : <Muted>—</Muted>}
+              {s.out?.ts ? <Muted>Out {timeHM(s.out.ts)}</Muted> : s.in ? <Text style={{ color: base.ok, fontWeight: '600' }}>On site</Text> : <Muted>—</Muted>}
             </Card>
           ))}
         </View>
@@ -116,7 +116,7 @@ export function CheckinManager({ site, sub }: { site: Site; sub?: SubAddress }) 
           <Toggle title="PM Logins" open={pmOpen} onPress={() => setPmOpen(!pmOpen)} />
           {pmOpen && (pmLogins.length ? pmLogins.slice(0, 4).map((c) => (
             <Card key={c.id} style={{ paddingVertical: 10 }}>
-              <Text style={{ color: base.ink }}><Text style={{ fontWeight: '700' }}>{nameOf(people, site.responsible_pm_id)}</Text> — {c.type === 'in' ? 'Checked in' : 'Checked out'} · {c.ts ? new Date(c.ts).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}</Text>
+              <Text style={{ color: base.ink }}><Text style={{ fontWeight: '600' }}>{nameOf(people, site.responsible_pm_id)}</Text> — {c.type === 'in' ? 'Checked in' : 'Checked out'} · {c.ts ? new Date(c.ts).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}</Text>
             </Card>
           )) : <Empty>{site.responsible_pm_id ? 'No check-ins yet.' : 'No project manager assigned to this project yet.'}</Empty>)}
         </>
@@ -157,9 +157,9 @@ export function CheckinManager({ site, sub }: { site: Site; sub?: SubAddress }) 
             ) : (
               <>
                 <Muted style={{ marginBottom: 10 }}>Plain decimal (51.51828) or Google&apos;s degrees/minutes/seconds (51°31&apos;05.8&quot;N) both work. You can also paste a full pair from Google into the Latitude box.</Muted>
-                <Muted style={{ fontWeight: '700' }}>Latitude</Muted>
+                <Muted style={{ fontWeight: '600' }}>Latitude</Muted>
                 <TextInput value={lat} onChangeText={setLat} placeholder={`e.g. 51.51828 or 51°31'05.8"N`} autoCapitalize="none" style={inp} />
-                <Muted style={{ fontWeight: '700' }}>Longitude</Muted>
+                <Muted style={{ fontWeight: '600' }}>Longitude</Muted>
                 <TextInput value={lon} onChangeText={setLon} placeholder={`e.g. -0.15139 or 0°09'05.0"W`} autoCapitalize="none" style={inp} />
                 {ok && <Text style={{ fontFamily: 'monospace', color: base.slate }}>Interpreted as: {la.toFixed(5)}, {lo.toFixed(5)}</Text>}
                 {ok && <Text style={{ color: base.blue, marginVertical: 6 }} onPress={() => Linking.openURL(`https://www.google.com/maps?q=${la},${lo}`)}>Find this spot on the map ↗</Text>}

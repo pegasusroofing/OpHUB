@@ -11,7 +11,7 @@ export function SelectBox<K extends string>({ label, value, options, onChange, p
   const cur = (value != null && short?.[value]) || options.find(([k]) => k === value)?.[1];
   return (
     <View style={[{ marginBottom: 10 }, style]}>
-      {!!label && <Text style={{ fontSize: 12, fontWeight: '700', color: base.slate, marginBottom: 4 }}>{label}</Text>}
+      {!!label && <Text style={{ fontSize: 12, fontWeight: '600', color: base.slate, marginBottom: 4 }}>{label}</Text>}
       <Pressable accessibilityRole="button" accessibilityLabel={label || title || placeholder} onPress={async () => {
         const k = await chooseAction(title || label || placeholder, options.map(([key, l]) => ({ key, label: `${key === value ? '✓ ' : ''}${l}` })));
         if (k !== null && k !== undefined) onChange(k as K);

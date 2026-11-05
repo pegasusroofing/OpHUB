@@ -40,12 +40,12 @@ export default function TimeOff() {
   return (
     <ScrollView contentContainerStyle={page(520)}>
       <Card>
-        <Text style={{ fontSize: 18, fontWeight: '800', color: base.ink }}>🌴 Book Time Off</Text>
+        <Text style={{ fontSize: 18, fontWeight: '600', color: base.ink }}>🌴 Book Time Off</Text>
         <Muted style={{ marginBottom: 12 }}>Deliveries can’t be booked for you on these days.</Muted>
         <View style={{ flexDirection: 'row', backgroundColor: '#EEF0F3', borderRadius: 10, padding: 3, gap: 3, marginBottom: 12 }}>
           {([['single', 'One Day'], ['range', 'Several Days']] as const).map(([k, l]) => (
             <Pressable key={k} onPress={() => setMode(k)} style={{ flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: 'center', backgroundColor: mode === k ? '#fff' : 'transparent' }}>
-              <Text style={{ fontWeight: '700', color: mode === k ? base.ink : base.slate }}>{l}</Text>
+              <Text style={{ fontWeight: '600', color: mode === k ? base.ink : base.slate }}>{l}</Text>
             </Pressable>
           ))}
         </View>
@@ -58,14 +58,14 @@ export default function TimeOff() {
       {isLoading ? <Muted>Loading…</Muted> : mine.length ? mine.map((t) => (
         <Card key={t.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10 }}>
           <View style={{ flex: 1 }}>
-            <Text style={{ fontWeight: '700', color: base.ink }}>{dtoRange(t)}</Text>
+            <Text style={{ fontWeight: '600', color: base.ink }}>{dtoRange(t)}</Text>
             <Muted>{dtoDays(t.start_date, t.end_date)} day{dtoDays(t.start_date, t.end_date) === 1 ? '' : 's'}{t.note ? ` · ${t.note}` : ''}</Muted>
           </View>
           <Pressable onPress={async () => {
             if (sure !== t.id) { setSure(t.id); return; }
             if (await removeTimeOff(t.id)) { toast('Removed'); setSure(null); void qc.invalidateQueries({ queryKey: ['timeOff'] }); }
           }}>
-            <Text style={{ color: base.red, fontWeight: '700' }}>{sure === t.id ? 'Tap again to remove' : 'Remove'}</Text>
+            <Text style={{ color: base.red, fontWeight: '600' }}>{sure === t.id ? 'Tap again to remove' : 'Remove'}</Text>
           </Pressable>
         </Card>
       )) : <Empty>No days off booked.</Empty>}

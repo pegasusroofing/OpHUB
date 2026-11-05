@@ -131,13 +131,13 @@ export function HsDocUpload({ kind, site, companyId = null, create, createLabel,
           <TextInput value={name} onChangeText={setName} placeholder={`${label} name`} style={box} />
           {kind === 'rams' && !companyId && (
             <>
-              <Muted style={{ fontWeight: '700' }}>Document type</Muted>
+              <Muted style={{ fontWeight: '600' }}>Document type</Muted>
               <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
                 {RAMS_DOC_TYPES.map((t) => <Chip key={t} on={type === t} label={t} onPress={() => setType(t)} />)}
               </View>
               {!!data?.docs.length && (
                 <>
-                  <Muted style={{ fontWeight: '700' }}>Supersedes (optional)</Muted>
+                  <Muted style={{ fontWeight: '600' }}>Supersedes (optional)</Muted>
                   <Pressable onPress={() => setSup(null)}><Text style={{ paddingVertical: 5, color: base.ink }}>{!sup ? '◉' : '○'} New document, doesn&apos;t replace anything</Text></Pressable>
                   {data.docs.map((d) => <Pressable key={d.id} onPress={() => setSup(d.id)}><Text style={{ paddingVertical: 5, color: base.ink }}>{sup === d.id ? '◉' : '○'} {d.name}</Text></Pressable>)}
                 </>

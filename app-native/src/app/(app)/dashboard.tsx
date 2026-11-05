@@ -52,7 +52,7 @@ export default function Dashboard() {
 
   const stat = (v: number, label: string, colour: string, onPress?: () => void) => (
     <Pressable onPress={onPress} disabled={!onPress} style={{ flex: 1, minWidth: 80, backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 16, padding: 10, alignItems: 'center' }}>
-      <Text style={{ fontSize: 22, fontWeight: '800', color: v ? colour : base.ink }}>{v}</Text>
+      <Text style={{ fontSize: 22, fontWeight: '600', color: v ? colour : base.ink }}>{v}</Text>
       <Text style={{ fontSize: 11, color: base.slate, textAlign: 'center' }}>{label}</Text>
     </Pressable>
   );
@@ -72,7 +72,7 @@ export default function Dashboard() {
       <Pressable onPress={() => router.push('/inbox?tab=todo')}>
         <Card style={{ flexDirection: 'row', alignItems: 'center' }}>
           <View style={{ flex: 1 }}>
-            <Text style={{ fontWeight: '800', color: base.ink }}>Outstanding Items</Text>
+            <Text style={{ fontWeight: '600', color: base.ink }}>Outstanding Items</Text>
             <Muted>RAMS, COSHH and Toolbox Talks awaiting your signature</Muted>
           </View>
           <Text style={{ fontSize: 20, color: base.slate }}>›</Text>
@@ -98,12 +98,12 @@ export default function Dashboard() {
             </View>
           )}
           <Pressable onPress={() => setAdding(!adding)} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8 }}>
-            <Text style={{ fontWeight: '700', color: base.ink }}>Add a certificate</Text>
+            <Text style={{ fontWeight: '600', color: base.ink }}>Add a certificate</Text>
             <Text style={{ fontSize: 20, color: base.ink }}>{adding ? '−' : '+'}</Text>
           </Pressable>
           {adding && (
             <Card>
-              <Muted style={{ fontWeight: '700', marginBottom: 6 }}>Type</Muted>
+              <Muted style={{ fontWeight: '600', marginBottom: 6 }}>Type</Muted>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
                 {CERT_CATEGORIES_AZ.map((c) => (
                   <Pressable key={c.key} onPress={() => setCat(c.key)} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 14, borderWidth: 1, borderColor: cat === c.key ? live.brand1 : base.line, backgroundColor: cat === c.key ? live.brand1 : base.card }}>
@@ -125,7 +125,7 @@ export default function Dashboard() {
             if (!list.length) return null;
             return (
               <View key={c.key}>
-                <Muted style={{ fontWeight: '700', marginTop: 10, marginBottom: 4 }}>{c.label} ({list.length})</Muted>
+                <Muted style={{ fontWeight: '600', marginTop: 10, marginBottom: 4 }}>{c.label} ({list.length})</Muted>
                 {list.map((f) => (
                   <Pressable key={f.id} onPress={async () => { const u = await openDocLink('certifications', f.storage_path); if (u) viewDoc(u); else toast('Could not open the file.'); }}>
                     <Card style={{ paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 8 }}>

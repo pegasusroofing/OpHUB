@@ -49,9 +49,9 @@ export default function Home() {
   return (
     <Screen>
       <Text style={{ fontSize: 12.5, color: base.slate, fontWeight: '600' }}>{today}</Text>
-      <Text style={{ fontSize: 21, fontWeight: '800', color: base.ink, marginBottom: 14 }}>Hi {first}</Text>
+      <Text style={{ fontSize: 21, fontWeight: '600', color: base.ink, marginBottom: 14 }}>Hi {first}</Text>
       <View style={{ backgroundColor: t.brand1, borderRadius: 22, padding: 20, marginBottom: 12 }}>
-        <Text style={{ color: t.brand1Text, fontSize: 20, fontWeight: '800' }}>{HOME_TITLE[kind]}</Text>
+        <Text style={{ color: t.brand1Text, fontSize: 20, fontWeight: '600' }}>{HOME_TITLE[kind]}</Text>
         <Text style={{ color: t.brand1Text, opacity: 0.85, marginTop: 4 }}>{org?.name || 'OpHUB'} · {roleLabel(me)}</Text>
       </View>
       <Card>

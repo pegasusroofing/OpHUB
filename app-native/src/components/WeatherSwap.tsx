@@ -59,7 +59,7 @@ export function OnSiteWeather({ me, site, company, count, onSite, style }: { me:
   // A narrow tile (a phone) gets slightly smaller text so the count and the weather each fit their corner.
   const narrow = size.w > 0 && size.w < 170;
   const n = <Text style={{ fontSize: narrow ? 17 : 19, fontWeight: '600', color: count ? base.ok : base.ink, fontVariant: ['tabular-nums'] }}>{count}</Text>;
-  const lbl = <Text numberOfLines={1} style={{ fontSize: narrow ? 8.5 : 9.5, color: base.slateLight, textTransform: 'uppercase', letterSpacing: 0.4, fontWeight: '700' }}>On site</Text>;
+  const lbl = <Text numberOfLines={1} style={{ fontSize: narrow ? 8.5 : 9.5, color: base.slateLight, textTransform: 'uppercase', letterSpacing: 0.4, fontWeight: '600' }}>On site</Text>;
   return (
     <>
       <View onLayout={(e) => setSize({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })} style={[style, { flex: 1, minWidth: 0, height: 64, borderRadius: 12, overflow: 'hidden' }]}>
@@ -74,7 +74,7 @@ export function OnSiteWeather({ me, site, company, count, onSite, style }: { me:
         </Pressable>
         {w && say && (
           <Pressable accessibilityRole="button" accessibilityLabel={`Weather: ${say.text}`} onPress={() => setOpen(true)} style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: narrow ? '62%' : '50%', paddingRight: 10, paddingBottom: 6, alignItems: 'flex-end', justifyContent: 'flex-end' }}>
-            <Text numberOfLines={1} style={{ fontSize: narrow ? 13.5 : 15, fontWeight: '700', color: base.ink }}>{say.icon} {Number.isFinite(w.temp) ? `${w.temp}°` : ''}</Text>
+            <Text numberOfLines={1} style={{ fontSize: narrow ? 13.5 : 15, fontWeight: '600', color: base.ink }}>{say.icon} {Number.isFinite(w.temp) ? `${w.temp}°` : ''}</Text>
             {w.rain != null && <Text style={{ fontSize: 9.5, color: base.slateLight, fontWeight: '600' }}>{w.rain}% rain</Text>}
           </Pressable>
         )}
@@ -103,14 +103,14 @@ function WeatherPopup({ me, site, company, pm, lat, lon, onClose }: { me: Profil
         <Pressable onPress={() => undefined} style={{ backgroundColor: base.card, borderRadius: radius.card, padding: 16, maxHeight: '90%', width: '100%', maxWidth: 560, alignSelf: 'center' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 17, fontWeight: '800', color: base.ink }}>Weather</Text>
+              <Text style={{ fontSize: 17, fontWeight: '600', color: base.ink }}>Weather</Text>
               <Muted>{site.name}{site.postcode ? ` · ${site.postcode}` : ''}</Muted>
             </View>
             <Pressable hitSlop={10} accessibilityLabel="Close" onPress={onClose}><Text style={{ fontSize: 20, color: base.slate }}>✕</Text></Pressable>
           </View>
           <View style={{ flexDirection: 'row', backgroundColor: base.paper, borderRadius: 11, padding: 3, marginBottom: 12 }}>
-            <Pressable accessibilityRole="button" onPress={() => setView('today')} style={tab(view === 'today')}><Text style={{ fontWeight: '700', color: base.ink }}>Today</Text></Pressable>
-            <Pressable accessibilityRole="button" onPress={() => setView('week')} style={tab(view === 'week')}><Text style={{ fontWeight: '700', color: base.ink }}>Next 5 Days</Text></Pressable>
+            <Pressable accessibilityRole="button" onPress={() => setView('today')} style={tab(view === 'today')}><Text style={{ fontWeight: '600', color: base.ink }}>Today</Text></Pressable>
+            <Pressable accessibilityRole="button" onPress={() => setView('week')} style={tab(view === 'week')}><Text style={{ fontWeight: '600', color: base.ink }}>Next 5 Days</Text></Pressable>
           </View>
           <ScrollView style={{ maxHeight: 420 }}>
             {isLoading || !f ? <Muted>{isLoading ? 'Loading the forecast…' : 'The forecast could not be loaded. Try again later.'}</Muted> : view === 'today' ? (
@@ -118,18 +118,18 @@ function WeatherPopup({ me, site, company, pm, lat, lon, onClose }: { me: Profil
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 }}>
                   <Text style={{ fontSize: 40 }}>{say?.icon}</Text>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 26, fontWeight: '800', color: base.ink }}>{f.now.temp}°</Text>
+                    <Text style={{ fontSize: 26, fontWeight: '600', color: base.ink }}>{f.now.temp}°</Text>
                     <Text style={{ color: base.ink, fontWeight: '600' }}>{say?.text}</Text>
                     <Muted>Feels like {f.now.feels}° · Wind {f.now.wind} mph</Muted>
                   </View>
-                  {f.days[0] && <View style={{ alignItems: 'flex-end' }}><Text style={{ fontWeight: '700', color: base.ink }}>High {f.days[0].hi}° · Low {f.days[0].lo}°</Text><Muted>{f.days[0].rain}% chance of rain</Muted><Muted>Sunrise {hhmm(f.sunrise)} · Sunset {hhmm(f.sunset)}</Muted></View>}
+                  {f.days[0] && <View style={{ alignItems: 'flex-end' }}><Text style={{ fontWeight: '600', color: base.ink }}>High {f.days[0].hi}° · Low {f.days[0].lo}°</Text><Muted>{f.days[0].rain}% chance of rain</Muted><Muted>Sunrise {hhmm(f.sunrise)} · Sunset {hhmm(f.sunset)}</Muted></View>}
                 </View>
-                {hours.length > 0 && <Text style={{ fontSize: 11, fontWeight: '800', color: base.slate, letterSpacing: 0.5, marginBottom: 6 }}>HOUR BY HOUR</Text>}
+                {hours.length > 0 && <Text style={{ fontSize: 11, fontWeight: '600', color: base.slate, letterSpacing: 0.5, marginBottom: 6 }}>HOUR BY HOUR</Text>}
                 {hours.map((h) => (
                   <View key={h.t} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: base.line }}>
                     <Text style={{ width: 52, color: base.ink, fontWeight: '600' }}>{hhmm(h.t)}</Text>
                     <Text style={{ width: 30 }}>{weatherWords(h.code).icon}</Text>
-                    <Text style={{ width: 44, color: base.ink, fontWeight: '700' }}>{h.temp}°</Text>
+                    <Text style={{ width: 44, color: base.ink, fontWeight: '600' }}>{h.temp}°</Text>
                     <Text style={{ flex: 1, color: h.rain >= 50 ? base.blue : base.slate }}>💧 {h.rain}%</Text>
                     <Text style={{ color: base.slate }}>💨 {h.wind} mph</Text>
                   </View>
@@ -141,11 +141,11 @@ function WeatherPopup({ me, site, company, pm, lat, lon, onClose }: { me: Profil
                   <View key={d.d} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: base.line }}>
                     <Text style={{ fontSize: 24, width: 40 }}>{weatherWords(d.code).icon}</Text>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ fontWeight: '700', color: base.ink }}>{dayName(d.d, i + 1)}</Text>
+                      <Text style={{ fontWeight: '600', color: base.ink }}>{dayName(d.d, i + 1)}</Text>
                       <Muted>{weatherWords(d.code).text}</Muted>
                     </View>
                     <View style={{ alignItems: 'flex-end' }}>
-                      <Text style={{ fontWeight: '700', color: base.ink }}>{d.hi}° / {d.lo}°</Text>
+                      <Text style={{ fontWeight: '600', color: base.ink }}>{d.hi}° / {d.lo}°</Text>
                       <Text style={{ fontSize: 12, color: d.rain >= 50 ? base.blue : base.slate }}>💧 {d.rain}% · 💨 {d.wind} mph</Text>
                     </View>
                   </View>
@@ -183,16 +183,16 @@ function RainDelay({ me, site, company, pm, onClose, onBack }: { me: Profile; si
         <Pressable onPress={() => undefined} style={{ backgroundColor: base.card, borderRadius: radius.card, padding: 16, maxHeight: '90%', width: '100%', maxWidth: 560, alignSelf: 'center' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
             {onBack && <Pressable hitSlop={10} accessibilityLabel="Back" onPress={onBack} style={{ marginRight: 10 }}><Text style={{ fontSize: 20, color: base.slate }}>‹</Text></Pressable>}
-            <Text style={{ flex: 1, fontSize: 17, fontWeight: '800', color: base.ink }}>Email Weather Delay</Text>
+            <Text style={{ flex: 1, fontSize: 17, fontWeight: '600', color: base.ink }}>Email Weather Delay</Text>
             <Pressable hitSlop={10} accessibilityLabel="Close" onPress={onClose}><Text style={{ fontSize: 20, color: base.slate }}>✕</Text></Pressable>
           </View>
           <ScrollView keyboardShouldPersistTaps="handled">
-            <Muted style={{ fontWeight: '700' }}>To</Muted>
+            <Muted style={{ fontWeight: '600' }}>To</Muted>
             <TextInput accessibilityLabel="To" value={to} onChangeText={setTo} keyboardType="email-address" autoCapitalize="none" placeholder="Client's email" style={box} />
             <Muted style={{ marginBottom: 12 }}>Copied in: {pm?.email ? `${pm.name || 'PM'} (${pm.email})` : 'you, as this job has no PM set'}</Muted>
-            <Muted style={{ fontWeight: '700' }}>Subject</Muted>
+            <Muted style={{ fontWeight: '600' }}>Subject</Muted>
             <TextInput accessibilityLabel="Subject" value={subject} onChangeText={setSubject} style={box} />
-            <Muted style={{ fontWeight: '700' }}>Message</Muted>
+            <Muted style={{ fontWeight: '600' }}>Message</Muted>
             <TextInput accessibilityLabel="Message" value={message} onChangeText={setMessage} multiline style={[box, { minHeight: 190, textAlignVertical: 'top' }]} />
             <Button busy={busy} title="Send" onPress={() => void send()} />
           </ScrollView>

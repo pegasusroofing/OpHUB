@@ -49,7 +49,7 @@ export function OperativeOneDrive({ orgId, opId }: { orgId: string; opId: string
   return (
     <Card>
       {p.onedrive_folder_id ? <>
-        <Muted style={{ color: base.ok, fontWeight: '700' }}>📁 Linked to “{p.onedrive_folder_name || 'folder'}”</Muted>
+        <Muted style={{ color: base.ok, fontWeight: '600' }}>📁 Linked to “{p.onedrive_folder_name || 'folder'}”</Muted>
         <Muted style={{ marginBottom: 8 }}>{p.onedrive_last_synced_at ? `Last synced ${new Date(p.onedrive_last_synced_at).toLocaleString('en-GB')}` : 'Not synced yet'}. Sync Now pulls in anything new added to their folder.</Muted>
         <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
           <View style={{ flex: 1, minWidth: 140 }}><Button busy={busy === 'sync'} title="🔄 Sync Now" onPress={() => void call('sync')} /></View>

@@ -57,7 +57,7 @@ export function YardLeftovers({ siteId }: { siteId?: string }) {
         const target = siteId ?? l.from_site_id;
         return (
           <View key={l.id} style={{ borderTopWidth: 1, borderTopColor: base.line, paddingVertical: 8 }}>
-            <Text style={{ fontWeight: '700', color: base.ink }}>{s?.item ?? 'Item'} <Text style={{ color: base.slate, fontWeight: '600' }}>× {yardQty(l.qty)} {s?.unit || ''}</Text></Text>
+            <Text style={{ fontWeight: '600', color: base.ink }}>{s?.item ?? 'Item'} <Text style={{ color: base.slate, fontWeight: '600' }}>× {yardQty(l.qty)} {s?.unit || ''}</Text></Text>
             <Muted>{[new Date(l.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }), l.created_by ? `by ${nameOf(people, l.created_by)}` : '', l.from_site_id ? `says from ${jobName(l.from_site_id)}` : 'no job given', l.note].filter(Boolean).join(' · ')}</Muted>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
               {!!target && <Button small busy={busy === l.id} title={siteId ? 'Credit This Job' : `Credit ${jobName(target)}`} onPress={() => void go(l, target)} />}

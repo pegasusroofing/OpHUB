@@ -60,7 +60,7 @@ export function ManagerMessages({ siteId }: { siteId: string }) {
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <Pressable onPress={() => { const n = new Set(sel); if (ticked) n.delete(m.id); else n.add(m.id); setSel(n); }}
             style={{ width: 20, height: 20, borderRadius: 5, borderWidth: 1.5, borderColor: base.slateLight, alignItems: 'center', justifyContent: 'center', backgroundColor: ticked ? base.ink : base.card }}>
-            {ticked && <Text style={{ color: '#fff', fontSize: 12, fontWeight: '800' }}>✓</Text>}
+            {ticked && <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>✓</Text>}
           </Pressable>
           <Pressable style={{ flex: 1 }} disabled={!dest} onPress={() => dest && router.push(dest as never)}>
             <Text style={{ fontSize: 12, color: base.slate, marginBottom: 4 }}>
@@ -88,7 +88,7 @@ export function ManagerMessages({ siteId }: { siteId: string }) {
             )}
           </>
         )}
-        {replies.length > 0 && <Pressable onPress={() => { const n = new Set(threads); if (n.has(m.id)) n.delete(m.id); else n.add(m.id); setThreads(n); }} style={{ marginTop: 8 }}><Text style={{ color: base.blue, fontWeight: '700' }}>💬 {replies.length} repl{replies.length === 1 ? 'y' : 'ies'} {threads.has(m.id) ? '▼' : '▶'}</Text></Pressable>}
+        {replies.length > 0 && <Pressable onPress={() => { const n = new Set(threads); if (n.has(m.id)) n.delete(m.id); else n.add(m.id); setThreads(n); }} style={{ marginTop: 8 }}><Text style={{ color: base.blue, fontWeight: '600' }}>💬 {replies.length} repl{replies.length === 1 ? 'y' : 'ies'} {threads.has(m.id) ? '▼' : '▶'}</Text></Pressable>}
         {replies.length > 0 && threads.has(m.id) && (
           <View style={{ marginTop: 8, marginLeft: 14, paddingLeft: 10, borderLeftWidth: 2, borderLeftColor: base.line }}>
             {replies.map((r) => (
@@ -141,7 +141,7 @@ export function ManagerMessages({ siteId }: { siteId: string }) {
           const k = await chooseAction('Show', [{ key: 'fromTeam', label: `From Team${data && unreadIn(data.fromTeam) ? ` (${unreadIn(data.fromTeam)})` : ''}` }, { key: 'sent', label: `Sent to Operatives${data && unreadIn(data.sent) ? ` (${unreadIn(data.sent)})` : ''}` }]);
           if (k) setTab(k as typeof tab);
         }} style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 18, borderWidth: 1, borderColor: base.line, backgroundColor: base.card }}>
-          <Text style={{ fontWeight: '700', color: base.ink }}>{tab === 'fromTeam' ? 'From Team' : 'Sent to Operatives'}{data && unreadIn(tab === 'fromTeam' ? data.fromTeam : data.sent) ? ` (${unreadIn(tab === 'fromTeam' ? data.fromTeam : data.sent)})` : ''} ▼</Text>
+          <Text style={{ fontWeight: '600', color: base.ink }}>{tab === 'fromTeam' ? 'From Team' : 'Sent to Operatives'}{data && unreadIn(tab === 'fromTeam' ? data.fromTeam : data.sent) ? ` (${unreadIn(tab === 'fromTeam' ? data.fromTeam : data.sent)})` : ''} ▼</Text>
         </Pressable>
       </View>
       {isLoading ? <Muted>Loading…</Muted> : tab === 'fromTeam'

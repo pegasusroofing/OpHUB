@@ -28,15 +28,15 @@ export default function CoshhPick() {
   return (
     <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'Add from Library' }} />
-      <Text style={{ fontWeight: '800', color: base.ink, marginBottom: 8 }}>{cur ? cur.name : 'Element of Works'}</Text>
+      <Text style={{ fontWeight: '600', color: base.ink, marginBottom: 8 }}>{cur ? cur.name : 'Element of Works'}</Text>
       {cur && <View style={{ marginBottom: 10 }}><Button kind="ghost" title="‹ Up one level" onPress={() => setFolderId(cur.parent_id)} /></View>}
       {!!data?.subfolders.length && <Muted style={{ marginBottom: 8 }}>Tap a folder to open it, or &quot;Select Folder&quot; to select every document inside it (including subfolders) at once.</Muted>}
       {isLoading ? <Muted>Loading…</Muted> : (
         <>
           {data?.subfolders.map((f) => (
             <Pressable key={f.id} onPress={() => setFolderId(f.id)} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, padding: 11, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 6, backgroundColor: base.card }}>
-              <Text style={{ flex: 1, fontWeight: '700', color: base.ink }}>📁 {f.name}</Text>
-              <Pressable onPress={async () => { const ids = await folderFileIds(f.id); if (!ids.length) { toast(`No documents found in "${f.name}".`); return; } setSel((s) => Array.from(new Set([...s, ...ids]))); toast(`${ids.length} document${ids.length === 1 ? '' : 's'} selected from "${f.name}"`); }} style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, paddingHorizontal: 8, paddingVertical: 4 }}><Text style={{ fontSize: 11, fontWeight: '700', color: base.ink }}>Select Folder</Text></Pressable>
+              <Text style={{ flex: 1, fontWeight: '600', color: base.ink }}>📁 {f.name}</Text>
+              <Pressable onPress={async () => { const ids = await folderFileIds(f.id); if (!ids.length) { toast(`No documents found in "${f.name}".`); return; } setSel((s) => Array.from(new Set([...s, ...ids]))); toast(`${ids.length} document${ids.length === 1 ? '' : 's'} selected from "${f.name}"`); }} style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, paddingHorizontal: 8, paddingVertical: 4 }}><Text style={{ fontSize: 11, fontWeight: '600', color: base.ink }}>Select Folder</Text></Pressable>
             </Pressable>
           ))}
           {data?.files.map((f) => <Check key={f.id} label={`📄 ${f.name}`} value={sel.includes(f.id)} onChange={(v) => setSel(v ? [...sel, f.id] : sel.filter((x) => x !== f.id))} />)}

@@ -28,9 +28,9 @@ export function OfflineBar() {
   }, [qc]);
   if (saved) return (
     <Pressable onPress={() => void qc.invalidateQueries()} style={{ backgroundColor: base.warnBg, paddingVertical: 6, paddingHorizontal: 14 }}>
-      <Text style={{ color: base.warn, fontSize: 12, fontWeight: '700', textAlign: 'center' }}>📡 Offline — showing saved data from earlier · tap to retry</Text>
+      <Text style={{ color: base.warn, fontSize: 12, fontWeight: '600', textAlign: 'center' }}>📡 Offline — showing saved data from earlier · tap to retry</Text>
     </Pressable>
   );
-  if (back) return <Text style={{ backgroundColor: base.okBg, color: base.ok, fontSize: 12, fontWeight: '700', textAlign: 'center', paddingVertical: 6 }}>✓ Back online</Text>;
+  if (back) return <Text style={{ backgroundColor: base.okBg, color: base.ok, fontSize: 12, fontWeight: '600', textAlign: 'center', paddingVertical: 6 }}>✓ Back online</Text>;
   return null;
 }

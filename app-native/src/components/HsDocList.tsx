@@ -73,7 +73,7 @@ function SubDocsByCompany({ site, kind }: { site: Site; kind: 'rams' | 'coshh' }
             <View>
               {c.docs.map((x) => (
                 <View key={x.id} style={{ padding: 10, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginTop: 6, backgroundColor: base.card }}>
-                  <Text style={{ fontWeight: '700', color: base.ink }}>{x.name}</Text>
+                  <Text style={{ fontWeight: '600', color: base.ink }}>{x.name}</Text>
                   <Muted>{x.doc_type || word} · uploaded {new Date(x.uploaded_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</Muted>
                   <View style={{ flexDirection: 'row', gap: 14, marginTop: 4 }}>
                     <Text style={{ color: base.blue }} onPress={async () => { const u = await openDocLink(kind === 'rams' ? 'rams-docs' : 'coshh-docs', x.storage_path); if (u) viewDoc(u, /\.pdf$/i.test(x.name) ? x.name : `${x.name}.pdf`); }}>View document ↗</Text>
@@ -229,7 +229,7 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
               const err = await emailPdf(b.bytes, b.filename, `${site.id}/coshh-exports`, { site_id: site.id, recipient_email: me.email || '', client_cc_email: cc, doc_title: `${b.title} (Signed COSHH)` });
               if (err) showAlert(err); else toast(`Signed COSHH emailed to ${me.email}`);
             } finally { setBusy(false); }
-          }}><Text style={{ color: base.blue, fontWeight: '700' }}>✉ Email all signed COSHH</Text></Pressable>}
+          }}><Text style={{ color: base.blue, fontWeight: '600' }}>✉ Email all signed COSHH</Text></Pressable>}
         </View>
       )}
       {data.docs.length ? data.docs.map((r) => {
@@ -246,7 +246,7 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
             <View style={{ flex: 1, minWidth: 0 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               {manager && kind !== 'layout' && <Pressable hitSlop={8} accessibilityRole="checkbox" accessibilityState={{ checked: sel.has(r.id) }} onPress={() => setSel((x) => { const n = new Set(x); if (n.has(r.id)) n.delete(r.id); else n.add(r.id); return n; })}
-                style={{ width: 18, height: 18, borderRadius: 4, borderWidth: 1.5, borderColor: sel.has(r.id) ? base.blue : '#c3c8d0', backgroundColor: sel.has(r.id) ? base.blue : '#fff', alignItems: 'center', justifyContent: 'center' }}>{sel.has(r.id) && <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700', lineHeight: 14 }}>✓</Text>}</Pressable>}
+                style={{ width: 18, height: 18, borderRadius: 4, borderWidth: 1.5, borderColor: sel.has(r.id) ? base.blue : '#c3c8d0', backgroundColor: sel.has(r.id) ? base.blue : '#fff', alignItems: 'center', justifyContent: 'center' }}>{sel.has(r.id) && <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600', lineHeight: 14 }}>✓</Text>}</Pressable>}
               <DocBadge kind={kind} type={r.doc_type} />
               <Text numberOfLines={2} style={{ flex: 1, fontSize: 15, fontWeight: '600', color: '#111827' }}>{docTitle(r.name, site.name)}</Text>
             </View>
@@ -320,10 +320,10 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
                   <>
                     {mine.signature_image_path
                       ? <StorageImage bucket="signatures" path={mine.signature_image_path} style={{ height: 24, width: 100, resizeMode: 'contain' }} />
-                      : <Text style={{ fontWeight: '700' }}>{me.name}</Text>}
-                    <Text style={{ color: base.ok, fontWeight: '700' }}>Signed {d(mine.signed_at)}</Text>
+                      : <Text style={{ fontWeight: '600' }}>{me.name}</Text>}
+                    <Text style={{ color: base.ok, fontWeight: '600' }}>Signed {d(mine.signed_at)}</Text>
                   </>
-                ) : <Text style={{ color: base.ink, fontWeight: '700' }}>✍ Tap to {kind === 'rams' && manager ? 'mark as issued' : 'sign'}</Text>}
+                ) : <Text style={{ color: base.ink, fontWeight: '600' }}>✍ Tap to {kind === 'rams' && manager ? 'mark as issued' : 'sign'}</Text>}
               </Pressable>
             )}
             {client && sigsFor(r.id).length > 0 && (
@@ -352,7 +352,7 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
           <Toggle title={`Superseded Documents (${data.superseded.length})`} open={supOpen} onPress={() => setSupOpen(!supOpen)} />
           {supOpen && data.superseded.map((r) => (
             <Card key={r.id} style={{ padding: 12 }}>
-              <Text style={{ fontWeight: '700', color: base.ink }}>{r.name}</Text>
+              <Text style={{ fontWeight: '600', color: base.ink }}>{r.name}</Text>
               <Muted>Uploaded {r.uploaded_at ? new Date(r.uploaded_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : ''} · superseded{r.superseded_by ? ` by "${nameById[r.superseded_by] || 'a newer version'}"` : ''}</Muted>
               <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
                 <Pressable onPress={() => view(r)} style={{ flex: 1 }}><Text style={{ color: base.blue }}>View document ↗</Text></Pressable>
@@ -374,7 +374,7 @@ export function HsDocList({ kind, site, companyId = null, canManage }: { kind: D
 export function DocBadge({ kind, type, label }: { kind?: DocKind; type?: string | null; label?: string }) {
   const t = label ? label : kind === 'coshh' ? 'COSHH' : kind === 'layout' ? 'Site' : type === 'Risk Assessment' ? 'RA' : type === 'Method Statement' ? 'MS' : 'RAMS';
   const c = t === 'RA' ? ['#fff5f4', '#c81e1e'] : t === 'MS' ? ['#f3f7ff', '#1d4ed8'] : t === 'COSHH' ? ['#fffaf0', '#b45309'] : t === 'TBT' ? ['#f5f3ff', '#6d28d9'] : ['#f1fbf5', '#15803d'];
-  return <View style={{ backgroundColor: c[0], borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3, minWidth: 34, alignItems: 'center' }}><Text style={{ color: c[1], fontSize: 11, fontWeight: '700' }}>{t}</Text></View>;
+  return <View style={{ backgroundColor: c[0], borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3, minWidth: 34, alignItems: 'center' }}><Text style={{ color: c[1], fontSize: 11, fontWeight: '600' }}>{t}</Text></View>;
 }
 function StatusPill({ text, tone }: { text: string; tone: 'ok' | 'warn' | 'grey' }) {
   const c = tone === 'ok' ? ['#f1fbf5', '#15803d'] : tone === 'warn' ? ['#fffaf0', '#b45309'] : ['#f3f4f6', '#6b7280'];
@@ -424,8 +424,8 @@ export function SignerList({ headline, signed, waiting, people }: { headline: st
   if (!headline && !signed.length && !waiting.length) return null;
   return (
     <View style={{ marginTop: 10, paddingVertical: 7, paddingHorizontal: 10, backgroundColor: '#f9fafb', borderWidth: 1, borderColor: '#f0f1f3', borderRadius: 8 }}>
-      {!!headline && <Text style={{ fontWeight: '700', color: headline.startsWith('✓') ? base.ok : base.ink, marginBottom: 4 }}>{headline}</Text>}
-      {signed.map((s) => <Text key={s.id} style={{ color: base.ink, fontSize: 12.5 }}><Text style={{ color: base.ok, fontWeight: '700' }}>✓</Text> {nameOf(people, s.user_id)} <Text style={{ color: base.slate }}>{d(s.signed_at)}</Text></Text>)}
+      {!!headline && <Text style={{ fontWeight: '600', color: headline.startsWith('✓') ? base.ok : base.ink, marginBottom: 4 }}>{headline}</Text>}
+      {signed.map((s) => <Text key={s.id} style={{ color: base.ink, fontSize: 12.5 }}><Text style={{ color: base.ok, fontWeight: '600' }}>✓</Text> {nameOf(people, s.user_id)} <Text style={{ color: base.slate }}>{d(s.signed_at)}</Text></Text>)}
       {waiting.map((id) => <Text key={id} style={{ color: base.slate, fontSize: 12.5 }}>○ {nameOf(people, id)} not signed yet</Text>)}
     </View>
   );

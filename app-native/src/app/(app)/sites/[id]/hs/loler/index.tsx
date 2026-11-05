@@ -60,7 +60,7 @@ export default function Loler() {
               <Muted style={{ marginBottom: 8 }}>Select an item:</Muted>
               {(plant ?? []).map((p) => (
                 <Pressable key={p.id} disabled={busy} onPress={() => void start(p, null)} style={{ paddingVertical: 10, borderTopWidth: 1, borderTopColor: base.line }}>
-                  <Text style={{ fontWeight: '700', color: base.ink }}>{p.name}</Text>
+                  <Text style={{ fontWeight: '600', color: base.ink }}>{p.name}</Text>
                   {!!p.serial_number && <Muted>{p.serial_number}</Muted>}
                 </Pressable>
               ))}
@@ -74,10 +74,10 @@ export default function Loler() {
         <Pressable key={s.id} onPress={() => router.push(`/sites/${id}/hs/loler/${mgr && s.status === 'in_progress' ? 'fill' : 'view'}/${s.id}` as never)}
           style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginTop: 8, backgroundColor: base.card }}>
           <View style={{ flex: 1 }}>
-            <Text style={{ fontWeight: '700', color: base.ink }}>{String(s.answers?.loler_make_model || s.template_name)}</Text>
+            <Text style={{ fontWeight: '600', color: base.ink }}>{String(s.answers?.loler_make_model || s.template_name)}</Text>
             <Muted>{s.status === 'in_progress' ? 'Started' : `Submitted ${s.submitted_at ? new Date(s.submitted_at).toLocaleString('en-GB') : ''}`} · {nameOf(people, s.submitted_by)}</Muted>
           </View>
-          <Text style={{ fontSize: 11.5, fontWeight: '700', color: s.status === 'in_progress' ? base.warn : base.ok }}>{REPORT_STATUS_LABEL[s.status] || s.status}</Text>
+          <Text style={{ fontSize: 11.5, fontWeight: '600', color: s.status === 'in_progress' ? base.warn : base.ok }}>{REPORT_STATUS_LABEL[s.status] || s.status}</Text>
         </Pressable>
       )) : <Empty>No LOLER inspections logged yet{t ? '.' : ' — set up a template first.'}</Empty>}
     </ScrollView>

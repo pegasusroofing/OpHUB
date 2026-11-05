@@ -24,8 +24,8 @@ function BuilderCard({ siteId }: { siteId: string }) {
       <Muted style={{ marginBottom: 8 }}>Write a Risk Assessment and Method Statement from your library, and issue them as two documents.</Muted>
       {builds.map((b) => (
         <Pressable key={b.id} onPress={() => router.push(`/sites/${siteId}/hs/rams/build/${b.id}` as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 9, borderTopWidth: 1, borderColor: base.line }}>
-          <Text style={{ flex: 1, fontWeight: '700', color: base.ink }}>{b.title}</Text>
-          <Text style={{ fontSize: 11, fontWeight: '700', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8, overflow: 'hidden', backgroundColor: b.status === 'issued' ? '#DDF3E3' : '#EEE', color: b.status === 'issued' ? '#1E7A3C' : '#555' }}>{b.status === 'issued' ? `Issued rev ${b.revision}` : 'Draft'}</Text>
+          <Text style={{ flex: 1, fontWeight: '600', color: base.ink }}>{b.title}</Text>
+          <Text style={{ fontSize: 11, fontWeight: '600', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8, overflow: 'hidden', backgroundColor: b.status === 'issued' ? '#DDF3E3' : '#EEE', color: b.status === 'issued' ? '#1E7A3C' : '#555' }}>{b.status === 'issued' ? `Issued rev ${b.revision}` : 'Draft'}</Text>
           <Pressable hitSlop={8} onPress={async () => {
             if (!(await confirmAsk(`Delete "${b.title}"?${b.status === 'issued' ? '\n\nThe issued documents stay in the RAMS list — only this editable copy is deleted.' : ''}`, 'Delete'))) return;
             toast((await deleteBuild(b.id)) ? 'Deleted' : 'Could not delete — try again.');

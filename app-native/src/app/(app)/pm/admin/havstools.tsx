@@ -24,7 +24,7 @@ function ToolRow({ t, onSave, onRemove }: { t: Tool; onSave: (field: 'name' | 'v
   return (
     <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
       <View style={{ flex: 1, gap: 6 }}>
-        <TextInput value={name} onChangeText={setName} onBlur={() => { if (name !== titleCaseWords(t.name)) onSave('name', name); }} style={[box, { fontWeight: '700' }]} />
+        <TextInput value={name} onChangeText={setName} onBlur={() => { if (name !== titleCaseWords(t.name)) onSave('name', name); }} style={[box, { fontWeight: '600' }]} />
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
           <Muted>Magnitude</Muted>
           <TextInput value={mag} onChangeText={setMag} keyboardType="decimal-pad" onBlur={() => { if (mag !== String(t.vibration_magnitude)) onSave('vibration_magnitude', mag); }} style={[box, { width: 70 }]} />

@@ -130,7 +130,7 @@ export function PriceFiles({ me, site, el, mgr, canPrice, canLabour }: { me: Pro
       )}
       {sheet && (
         <Card style={{ borderColor: base.blue, borderWidth: 1.5 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}><Text style={{ flex: 1, fontWeight: '800', color: base.ink }}>{sheet.name}</Text><Pressable onPress={() => setSheet(null)}><Text style={{ color: base.blue }}>Close</Text></Pressable></View>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}><Text style={{ flex: 1, fontWeight: '600', color: base.ink }}>{sheet.name}</Text><Pressable onPress={() => setSheet(null)}><Text style={{ color: base.blue }}>Close</Text></Pressable></View>
           <ScrollView horizontal><View>{sheet.rows.slice(0, 200).map((r, i) => <View key={i} style={{ flexDirection: 'row' }}>{r.map((c, j) => <Text key={j} style={{ width: 110, padding: 3, borderWidth: 0.5, borderColor: base.line, fontSize: 11.5, color: base.ink }} numberOfLines={2}>{String(c)}</Text>)}</View>)}</View></ScrollView>
         </Card>
       )}

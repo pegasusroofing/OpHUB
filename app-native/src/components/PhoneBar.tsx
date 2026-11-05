@@ -59,8 +59,8 @@ export function PhoneBar({ hubCount, inboxCount, outstanding }: { hubCount?: num
           <Pressable key={x.k} onPress={() => router.navigate(x.href as never)} accessibilityRole="button" accessibilityLabel={x.label}
             style={{ alignItems: 'center', justifyContent: 'center', gap: 2, minWidth: 58, minHeight: 44, borderRadius: 12, paddingHorizontal: x.emph ? 14 : 6, paddingVertical: 4, ...(x.emph ? { borderWidth: 1.5, borderColor: x.branded ? t.brand1 : x.on ? t.brand1 : base.line, backgroundColor: x.branded ? t.brand1 : base.paper } : {}) }}>
             <OphIcon name={x.icon} size={x.emph ? 24 : 22} color={colour} />
-            {!x.branded && <Text style={{ fontSize: 10, fontWeight: '700', color: colour }}>{x.label}</Text>}
-            {!!x.badge && <View style={{ position: 'absolute', top: 0, right: 8, minWidth: 16, height: 16, borderRadius: 8, paddingHorizontal: 3, backgroundColor: base.red, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff', fontSize: 9.5, fontWeight: '800' }}>{x.badge}</Text></View>}
+            {!x.branded && <Text style={{ fontSize: 10, fontWeight: '600', color: colour }}>{x.label}</Text>}
+            {!!x.badge && <View style={{ position: 'absolute', top: 0, right: 8, minWidth: 16, height: 16, borderRadius: 8, paddingHorizontal: 3, backgroundColor: base.red, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff', fontSize: 9.5, fontWeight: '600' }}>{x.badge}</Text></View>}
           </Pressable>
         );
       })}

@@ -81,7 +81,7 @@ export default function JobPackRules() {
       <Card>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <View style={{ flex: 1 }}>
-            <Text style={{ fontWeight: '800', color: base.ink }}>Set up new jobs automatically</Text>
+            <Text style={{ fontWeight: '600', color: base.ink }}>Set up new jobs automatically</Text>
             <Muted>{data?.enabled ? 'On: every new job gets its folder.' : data?.config ? 'Off: new jobs don’t get a folder.' : 'Off, and these rules aren’t saved yet.'}</Muted>
           </View>
           <Switch accessibilityLabel="Set up new jobs automatically" value={!!data?.enabled} onValueChange={async (on) => {
@@ -106,7 +106,7 @@ export default function JobPackRules() {
               <View key={r.key} style={{ paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: base.cardLine }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontWeight: '700', color: base.ink }}>{r.area}</Text>
+                    <Text style={{ fontWeight: '600', color: base.ink }}>{r.area}</Text>
                     <Muted>{r.when}</Muted>
                   </View>
                   <Switch accessibilityLabel={`${r.area}: ${r.when}`} value={v.on} onValueChange={(on) => setC({ ...c, rules: { ...c.rules, [r.key]: { ...v, on } } })} />

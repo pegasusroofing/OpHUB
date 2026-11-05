@@ -33,13 +33,13 @@ export default function IncidentView() {
   if (isLoading || !r) return <Muted style={{ padding: space.l }}>{isLoading ? 'Loading…' : 'Report not found.'}</Muted>;
   const row = (label: string, value: unknown) => (value === null || value === undefined || value === '' ? null : (
     <View key={label} style={{ marginBottom: 10 }}>
-      <Muted style={{ fontWeight: '700' }}>{label}</Muted>
+      <Muted style={{ fontWeight: '600' }}>{label}</Muted>
       <Text style={{ color: base.ink, fontSize: 14 }}>{String(value)}</Text>
     </View>
   ));
   const pics = (label: string, list: string[] | null) => (list?.length ? (
     <View style={{ marginBottom: 10 }}>
-      <Muted style={{ fontWeight: '700' }}>{label}</Muted>
+      <Muted style={{ fontWeight: '600' }}>{label}</Muted>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>{list.map((p) => <StorageImage zoom key={p} bucket="incident-photos" path={p} style={{ width: 70, height: 70, borderRadius: 6 }} />)}</View>
     </View>
   ) : null);
@@ -48,9 +48,9 @@ export default function IncidentView() {
       <Stack.Screen options={{ title: 'Incident Report' }} />
       <Card>
         <View style={{ flexDirection: 'row', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
-          {r.riddor_reportable && <Text style={{ color: base.red, fontWeight: '700' }}>RIDDOR Reportable</Text>}
-          {r.injury_occurred && <Text style={{ fontWeight: '700', color: base.ink }}>· Injury</Text>}
-          {r.damage_occurred && <Text style={{ fontWeight: '700', color: base.ink }}>· Damage</Text>}
+          {r.riddor_reportable && <Text style={{ color: base.red, fontWeight: '600' }}>RIDDOR Reportable</Text>}
+          {r.injury_occurred && <Text style={{ fontWeight: '600', color: base.ink }}>· Injury</Text>}
+          {r.damage_occurred && <Text style={{ fontWeight: '600', color: base.ink }}>· Damage</Text>}
         </View>
         {row('Type', cap(String(r.incident_type || '').replace('_', ' ')))}
         {row('Site of accident / incident / near miss', r.site_address)}

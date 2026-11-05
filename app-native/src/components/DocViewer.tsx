@@ -73,10 +73,10 @@ export function DocViewerHost() {
     <Modal visible transparent={false} animationType="fade" onRequestClose={close}>
       <View style={{ flex: 1, backgroundColor: '#1c1f24' }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingTop: Platform.OS === 'ios' ? 50 : 10, paddingBottom: 10, backgroundColor: '#111317' }}>
-          <Text numberOfLines={1} style={{ flex: 1, color: '#fff', fontWeight: '700', fontSize: 15 }}>{req.name}</Text>
-          {!!req.onMarkup && <Pressable accessibilityRole="button" onPress={() => { const m = req.onMarkup; close(); m?.(req.url); }} style={btn}><Text style={{ color: '#fff', fontWeight: '700' }}>✏️ Mark up</Text></Pressable>}
-          <Pressable accessibilityRole="button" accessibilityLabel="Export" onPress={() => void exportFile()} style={btn}><Text style={{ color: '#fff', fontWeight: '700' }}>📤 Export</Text></Pressable>
-          <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={close} style={btn}><Text style={{ color: '#fff', fontWeight: '800' }}>✕</Text></Pressable>
+          <Text numberOfLines={1} style={{ flex: 1, color: '#fff', fontWeight: '600', fontSize: 15 }}>{req.name}</Text>
+          {!!req.onMarkup && <Pressable accessibilityRole="button" onPress={() => { const m = req.onMarkup; close(); m?.(req.url); }} style={btn}><Text style={{ color: '#fff', fontWeight: '600' }}>✏️ Mark up</Text></Pressable>}
+          <Pressable accessibilityRole="button" accessibilityLabel="Export" onPress={() => void exportFile()} style={btn}><Text style={{ color: '#fff', fontWeight: '600' }}>📤 Export</Text></Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={close} style={btn}><Text style={{ color: '#fff', fontWeight: '600' }}>✕</Text></Pressable>
         </View>
         {isPdf(req) && Platform.OS === 'web' ? <PdfPages url={req.url} zoom={zoom} /> : (
           <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}>
@@ -94,7 +94,7 @@ export function DocViewerHost() {
   );
 }
 const zb = { width: 46, height: 46, borderRadius: 23, backgroundColor: 'rgba(255,255,255,.92)', alignItems: 'center' as const, justifyContent: 'center' as const };
-const zt = { fontSize: 24, fontWeight: '800' as const, color: '#111' };
+const zt = { fontSize: 24, fontWeight: '600' as const, color: '#111' };
 
 // Laptop: every page drawn into the scroll area, sharp enough to zoom into.
 export function PdfPages({ url, zoom, width: w0, light }: { url: string; zoom: number; width?: number; light?: boolean }) {

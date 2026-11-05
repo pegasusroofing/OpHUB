@@ -55,15 +55,15 @@ export default function Policies() {
       <Card key={p.id}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <Pressable style={{ flex: 1 }} onPress={() => void view(p)}>
-            <Text style={{ fontWeight: '700', color: base.ink }}>{p.title}</Text>
+            <Text style={{ fontWeight: '600', color: base.ink }}>{p.title}</Text>
             <Muted>{/\.pdf$/i.test(p.file_name || '') ? 'PDF' : 'Word'} · tap to view</Muted>
           </Pressable>
-          {mine ? <Text style={{ color: base.ok, fontWeight: '700', fontSize: 12 }}>Signed {fmt(mine.signed_at)}</Text>
+          {mine ? <Text style={{ color: base.ok, fontWeight: '600', fontSize: 12 }}>Signed {fmt(mine.signed_at)}</Text>
             : isHb ? <View style={{ width: 120 }}><Button title="Read & sign" onPress={async () => {
               if (!(await needSig())) return;
               if (!(await confirmAsk('I confirm I have read and understood the company handbook.', 'Sign'))) return;
               toast((await signPolicies(me, [p.id])) ? 'Handbook signed' : 'Could not sign — try again.'); refresh();
-            }} /></View> : <Text style={{ color: base.warn, fontWeight: '700', fontSize: 12 }}>To sign</Text>}
+            }} /></View> : <Text style={{ color: base.warn, fontWeight: '600', fontSize: 12 }}>To sign</Text>}
           {isAdmin && <Pressable hitSlop={8} onPress={() => setOpenId(open ? null : p.id)}><Text style={{ color: base.slate }}>{open ? '▲' : '▼'}</Text></Pressable>}
         </View>
         {isAdmin && open && (
@@ -72,7 +72,7 @@ export default function Policies() {
             {people.map((u) => { const s = sb.get(u.id); return (
               <View key={u.id} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 3 }}>
                 <Text style={{ color: base.ink }}>{u.name}</Text>
-                <Text style={{ color: s ? base.ok : base.slate, fontWeight: '700' }}>{s ? `✓ ${fmt(s.signed_at)}` : 'Not yet'}</Text>
+                <Text style={{ color: s ? base.ok : base.slate, fontWeight: '600' }}>{s ? `✓ ${fmt(s.signed_at)}` : 'Not yet'}</Text>
               </View>
             ); })}
             <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -110,7 +110,7 @@ export default function Policies() {
             if (!(await needSig())) return;
             if (!(await confirmAsk(`Sign all ${toSign.length} company polic${toSign.length === 1 ? 'y' : 'ies'}? This confirms you have read and understood ${toSign.length === 1 ? 'it' : 'them'}.`, 'Sign all'))) return;
             toast((await signPolicies(me, toSign.map((p) => p.id))) ? 'Signed' : 'Could not sign — try again.'); refresh();
-          }} /> : policies.length ? <Text style={{ color: base.ok, fontWeight: '700', marginBottom: 10 }}>✓ You&apos;ve signed every policy.</Text> : null}
+          }} /> : policies.length ? <Text style={{ color: base.ok, fontWeight: '600', marginBottom: 10 }}>✓ You&apos;ve signed every policy.</Text> : null}
           {policies.length ? policies.map((p) => row(p, false)) : <Empty>No policies uploaded yet.</Empty>}
           {isAdmin && <Button kind="ghost" busy={busy} title="+ Upload policies (PDF or Word, several at once)" onPress={() => void upload('policy')} />}
           <SectionTitle>Company handbook</SectionTitle>

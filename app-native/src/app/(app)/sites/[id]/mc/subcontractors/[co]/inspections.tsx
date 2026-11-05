@@ -37,7 +37,7 @@ export default function SubInspections() {
       {!folder && (data?.folders ?? []).map((f) => (
         <Pressable key={f.id} onPress={() => router.push(`/sites/${id}/mc/subcontractors/${co}/inspections?folder=${f.id}` as never)} style={row}>
           <Text style={{ fontSize: 18 }}>📁</Text>
-          <Text style={{ flex: 1, fontWeight: '700', color: base.ink }}>{f.name}</Text>
+          <Text style={{ flex: 1, fontWeight: '600', color: base.ink }}>{f.name}</Text>
           {folders && <Pressable hitSlop={6} onPress={async () => { const n = (await promptText('Rename folder', f.name))?.trim(); if (n && n !== f.name && await renameSubInspFolder(f.id, n)) { toast('Renamed'); refresh(); } }}><Text>✏️</Text></Pressable>}
         </Pressable>
       ))}
@@ -51,7 +51,7 @@ export default function SubInspections() {
       {isLoading ? <Muted>Loading…</Muted> : data?.files.length ? data.files.map((f) => (
         <View key={f.id} style={row}>
           <View style={{ flex: 1 }}>
-            <Text style={{ fontWeight: '700', color: base.ink }}>{f.file_name}</Text>
+            <Text style={{ fontWeight: '600', color: base.ink }}>{f.file_name}</Text>
             <Muted>{nameOf(people, f.uploaded_by)} · {new Date(f.uploaded_at).toLocaleString('en-GB')}</Muted>
           </View>
           <Button kind="ghost" title="View" onPress={async () => { const u = await openDocLink('mc-documents', f.storage_path); if (u) viewDoc(u); else toast('Could not open the file.'); }} />

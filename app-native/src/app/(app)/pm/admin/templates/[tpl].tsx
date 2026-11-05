@@ -86,9 +86,9 @@ export default function TemplateEditor() {
     const own = ownValueOptions(it);
     return (
       <View key={it.id} style={{ borderWidth: 1.5, borderColor: parent ? base.blue : base.line, borderRadius: 12, padding: 10, marginBottom: 8, marginLeft: parent ? 16 : 0, backgroundColor: base.card }}>
-        {!!parent && <Text style={{ fontWeight: '700', color: base.ink, fontSize: 12, marginBottom: 6 }}>↳ Only asked if “{parent.label || 'the question above'}” {it.showIf?.mode === 'notblank' ? 'is answered' : (it.showIf?.values || []).length ? `is ${(it.showIf?.values || []).map((v) => pfLbl(parent, String(v))).join(' or ')}` : 'is… (pick the answer in More options)'}</Text>}
+        {!!parent && <Text style={{ fontWeight: '600', color: base.ink, fontSize: 12, marginBottom: 6 }}>↳ Only asked if “{parent.label || 'the question above'}” {it.showIf?.mode === 'notblank' ? 'is answered' : (it.showIf?.values || []).length ? `is ${(it.showIf?.values || []).map((v) => pfLbl(parent, String(v))).join(' or ')}` : 'is… (pick the answer in More options)'}</Text>}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-          <Text style={{ fontWeight: '800', color: base.slate, minWidth: 18 }}>{ii + 1}.</Text>
+          <Text style={{ fontWeight: '600', color: base.slate, minWidth: 18 }}>{ii + 1}.</Text>
           <TextInput value={it.label || ''} onChangeText={(v) => patchItem(si, ii, { label: v })} placeholder={it.type === 'instruction' ? 'Text to show' : it.type === 'textarea' ? 'Heading for the notes box, e.g. Notes' : 'Type the question'} style={[box, { flex: 1 }]} />
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -99,7 +99,7 @@ export default function TemplateEditor() {
         </View>
         {(it.type === 'choice' || it.type === 'multichoice') && !isYnnv && (
           <View style={{ marginTop: 8, padding: 8, borderWidth: 1, borderStyle: 'dashed', borderColor: base.line, borderRadius: 10 }}>
-            <Muted style={{ fontWeight: '700', marginBottom: 4 }}>Answers to pick from{it.type === 'multichoice' ? ' (more than one can be ticked)' : ''}{usedSet ? ' — from your answer type' : ''}</Muted>
+            <Muted style={{ fontWeight: '600', marginBottom: 4 }}>Answers to pick from{it.type === 'multichoice' ? ' (more than one can be ticked)' : ''}{usedSet ? ' — from your answer type' : ''}</Muted>
             {(it.options || []).map((o, oi) => (
               <View key={oi} style={{ flexDirection: 'row', gap: 6, marginBottom: 6 }}>
                 <TextInput value={o} onChangeText={(v) => patchItem(si, ii, { options: (it.options || []).map((x, k) => (k === oi ? v : x)) })} placeholder={`Answer ${oi + 1}`} style={[box, { flex: 1 }]} />
@@ -111,7 +111,7 @@ export default function TemplateEditor() {
         )}
         {fu.length > 0 && (
           <View style={{ marginTop: 8 }}>
-            <Muted style={{ fontWeight: '700', marginBottom: 4 }}>Ask a follow-up question if the answer is…</Muted>
+            <Muted style={{ fontWeight: '600', marginBottom: 4 }}>Ask a follow-up question if the answer is…</Muted>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
               {fu.map((v) => <Pressable key={v} onPress={() => setItems(si, addFollowUp(items, ii, v).items)} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: base.line }}><Text style={{ fontSize: 12, color: base.ink }}>+ {pfLbl(it, v)}</Text></Pressable>)}
             </View>
@@ -133,7 +133,7 @@ export default function TemplateEditor() {
                     <Check label="Let a photo be added to this answer" value={it.allowMedia !== false} onChange={(v) => patchItem(si, ii, { allowMedia: v, ...(v ? {} : { mediaRequiredWhen: [] }) })} />
                     {it.allowMedia !== false && (own ? (
                       <View style={{ marginLeft: 8 }}>
-                        <Muted style={{ fontWeight: '700' }}>Require the photo when the answer is…</Muted>
+                        <Muted style={{ fontWeight: '600' }}>Require the photo when the answer is…</Muted>
                         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                           {own.map((o) => <Check key={String(o)} label={typeof o === 'boolean' ? (o ? 'Yes' : 'No') : pfLbl(it, String(o))} value={(it.mediaRequiredWhen || []).includes(o)} onChange={(v) => patchItem(si, ii, { mediaRequiredWhen: v ? [...(it.mediaRequiredWhen || []), o] : (it.mediaRequiredWhen || []).filter((x) => x !== o) })} />)}
                         </View>
@@ -149,7 +149,7 @@ export default function TemplateEditor() {
                 )}
                 {(cands.length > 0 || !!it.showIf) && (
                   <View style={{ marginTop: 8 }}>
-                    <Muted style={{ fontWeight: '700' }}>Only show this question if…</Muted>
+                    <Muted style={{ fontWeight: '600' }}>Only show this question if…</Muted>
                     <Pressable onPress={async () => {
                       const k = await chooseAction('Only show this question if…', [{ key: '__always', label: 'Always show' }, ...cands.map((c) => ({ key: c.id, label: c.label || '(untitled question)' }))]);
                       if (!k) return;
@@ -194,9 +194,9 @@ export default function TemplateEditor() {
   return (
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Edit Template' }} />
-      <Muted style={{ fontWeight: '700' }}>Template Name</Muted>
+      <Muted style={{ fontWeight: '600' }}>Template Name</Muted>
       <TextInput value={t.name} onChangeText={(v) => setT({ ...t, name: v })} style={[box, { marginBottom: 8 }]} />
-      <Muted style={{ fontWeight: '700' }}>Description (optional)</Muted>
+      <Muted style={{ fontWeight: '600' }}>Description (optional)</Muted>
       <TextInput value={t.description || ''} onChangeText={(v) => setT({ ...t, description: v })} multiline style={[box, { minHeight: 56, marginBottom: 10 }]} />
 
       <Toggle title={`Where this template is used · ${t.is_daily_briefing ? 'Daily Briefing' : t.is_mc_inspection ? 'Main Contractor inspection' : t.is_loler_inspection ? 'LOLER inspection' : 'Reports'}`} open={usedOpen} onPress={() => setUsedOpen(!usedOpen)} />
@@ -263,7 +263,7 @@ export default function TemplateEditor() {
 
       {secs.map((s, si) => (
         <Card key={s.id}>
-          <Muted style={{ fontWeight: '700' }}>Section Title</Muted>
+          <Muted style={{ fontWeight: '600' }}>Section Title</Muted>
           <TextInput value={s.title} onChangeText={(v) => setSecs(secs.map((x, i) => (i === si ? { ...x, title: v } : x)))} placeholder="Section title" style={[box, { marginBottom: 8 }]} />
           {s.items.length ? s.items.map((it, ii) => itemEditor(si, ii, it)) : <Muted style={{ marginBottom: 6 }}>No questions in this section yet.</Muted>}
           <View style={{ flexDirection: 'row', gap: 8 }}>

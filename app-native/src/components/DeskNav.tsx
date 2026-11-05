@@ -72,7 +72,7 @@ export function DeskNav() {
         on ? { backgroundColor: `${t.brand1}1A` } : (st as { hovered?: boolean }).hovered ? { backgroundColor: '#F1F3F6' } : null]}>
       <OphIcon name={i.ic} size={small ? 15 : 18} color={on ? t.brand1 : '#7A7E87'} />
       <Text numberOfLines={1} style={{ flex: 1, fontSize: small ? 13 : 13.5, fontWeight: on ? '800' : '600', color: on ? t.brand1 : '#3A3D44' }}>{i.lbl}</Text>
-      {!!i.badge && <View style={{ minWidth: 18, height: 18, paddingHorizontal: 5, borderRadius: 9, backgroundColor: t.brand1, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff', fontSize: 10.5, fontWeight: '800' }}>{i.badge}</Text></View>}
+      {!!i.badge && <View style={{ minWidth: 18, height: 18, paddingHorizontal: 5, borderRadius: 9, backgroundColor: t.brand1, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff', fontSize: 10.5, fontWeight: '600' }}>{i.badge}</Text></View>}
     </Pressable>
   );
   const group = (i: Item) => {
@@ -112,7 +112,7 @@ export function DeskNav() {
           </View>
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text numberOfLines={2} style={[brand(800), { fontSize: 14, color: t.brand1, lineHeight: 17 }]}>{org?.name || 'OpHUB'}</Text>
-            <Text style={{ fontSize: 11, fontWeight: '700', color: base.slate, letterSpacing: 0.9 }}>OPHUB</Text>
+            <Text style={{ fontSize: 11, fontWeight: '600', color: base.slate, letterSpacing: 0.9 }}>OPHUB</Text>
           </View>
         </Pressable>
         {kind !== 'finance' && kind !== 'superadmin' && (
@@ -125,18 +125,18 @@ export function DeskNav() {
         <View style={{ gap: 2, marginTop: 4 }}>{items.map(group)}</View>
         {sub.length > 0 && (
           <>
-            <Text style={{ marginTop: 18, marginHorizontal: 12, marginBottom: 4, fontSize: 10.5, fontWeight: '800', letterSpacing: 1, color: '#9A9DA4' }}>THIS PROJECT</Text>
-            <Text numberOfLines={1} style={{ marginHorizontal: 12, marginBottom: 6, fontWeight: '800', fontSize: 13, color: base.ink }}>{site?.name || 'Project'}</Text>
+            <Text style={{ marginTop: 18, marginHorizontal: 12, marginBottom: 4, fontSize: 10.5, fontWeight: '600', letterSpacing: 1, color: '#9A9DA4' }}>THIS PROJECT</Text>
+            <Text numberOfLines={1} style={{ marginHorizontal: 12, marginBottom: 6, fontWeight: '600', fontSize: 13, color: base.ink }}>{site?.name || 'Project'}</Text>
             {sub.map((i) => <View key={i.go} style={{ flexDirection: 'row' }}>{row(i, subPart === i.k || (i.k === 'fin' && path.startsWith('/fin/job/')))}</View>)}
           </>
         )}
         <View style={{ flex: 1 }} />
         <View style={{ marginTop: 14, paddingTop: 14, paddingHorizontal: 12, borderTopWidth: 1, borderTopColor: '#EEE', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <View style={{ flex: 1, minWidth: 0 }}>
-            <Text numberOfLines={1} style={{ fontSize: 12.5, fontWeight: '700', color: base.ink }}>{me.name}</Text>
+            <Text numberOfLines={1} style={{ fontSize: 12.5, fontWeight: '600', color: base.ink }}>{me.name}</Text>
             <Text numberOfLines={1} style={{ fontSize: 11, fontWeight: '600', color: base.slate }}>{roleLabel(me)}</Text>
           </View>
-          <Pressable onPress={() => void signOut()}><Text style={{ fontSize: 12, fontWeight: '700', color: base.warn }}>Sign out</Text></Pressable>
+          <Pressable onPress={() => void signOut()}><Text style={{ fontSize: 12, fontWeight: '600', color: base.warn }}>Sign out</Text></Pressable>
         </View>
       </ScrollView>
     </View>

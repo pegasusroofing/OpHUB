@@ -52,7 +52,7 @@ export default function NewIncident() {
     const [d = '', tm = ''] = onlyTime ? ['', raw] : raw.split(' ');
     return (
       <View style={{ marginBottom: 10 }}>
-        <Text style={{ fontWeight: '700', color: base.ink, marginBottom: 6 }}>{label}</Text>
+        <Text style={{ fontWeight: '600', color: base.ink, marginBottom: 6 }}>{label}</Text>
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <View style={{ flex: 2 }}><DateBox value={d} onChange={(x) => set(k, `${x} ${tm}`.trim())} max={todayIso()} title={label} placeholder="Date" /></View>
           <TextInput value={tm} onChangeText={(x) => set(k, `${d} ${x.replace(/[^0-9:]/g, '').slice(0, 5)}`.trim())} placeholder="Time, e.g. 14:30" keyboardType="numbers-and-punctuation" style={[box, { flex: 1, marginBottom: 0 }]} />
@@ -62,13 +62,13 @@ export default function NewIncident() {
   };
   const text = (k: K, label: string, opts: { multi?: boolean; ph?: string } = {}) => (
     <View>
-      <Text style={{ fontWeight: '700', color: base.ink, marginBottom: 4 }}>{label}</Text>
+      <Text style={{ fontWeight: '600', color: base.ink, marginBottom: 4 }}>{label}</Text>
       <TextInput value={v[k] as string} onChangeText={(t) => set(k, t)} multiline={opts.multi} placeholder={opts.ph} style={[box, opts.multi ? { minHeight: 70 } : {}]} />
     </View>
   );
   const toggle = (k: K, label: string, options: [string, string][]) => (
     <View style={{ marginBottom: 12 }}>
-      <Text style={{ fontWeight: '700', color: base.ink, marginBottom: 6 }}>{label}</Text>
+      <Text style={{ fontWeight: '600', color: base.ink, marginBottom: 6 }}>{label}</Text>
       <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
         {options.map(([val, l]) => (
           <Pressable key={val} onPress={() => set(k, val)} style={{ flex: 1, minWidth: 70, alignItems: 'center', padding: 10, borderRadius: 8, borderWidth: 1, borderColor: v[k] === val ? live.brand1 : base.line, backgroundColor: v[k] === val ? live.brand1 : base.card }}>
@@ -80,7 +80,7 @@ export default function NewIncident() {
   );
   const photos = (k: 'areaPhotos' | 'damagePhotos', label: string) => (
     <View style={{ marginBottom: 12 }}>
-      <Text style={{ fontWeight: '700', color: base.ink, marginBottom: 6 }}>{label}</Text>
+      <Text style={{ fontWeight: '600', color: base.ink, marginBottom: 6 }}>{label}</Text>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
         {v[k].map((p, i) => <View key={p}><StorageImage zoom bucket="incident-photos" path={p} style={{ width: 60, height: 60, borderRadius: 6 }} /><Pressable hitSlop={6} accessibilityLabel="Remove photo" onPress={() => set(k, v[k].filter((_, j) => j !== i))} style={{ position: 'absolute', top: -6, right: -6, width: 20, height: 20, borderRadius: 10, backgroundColor: base.ink, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff', fontSize: 11 }}>✕</Text></Pressable></View>)}
       </View>
@@ -107,9 +107,9 @@ export default function NewIncident() {
       {toggle('type', '* What type of report is this?', [['incident', 'Incident'], ['accident', 'Accident'], ['near_miss', 'Near Miss']])}
       {text('siteAddress', 'Site of accident / incident / near miss')}
       {text('location', 'Location of incident')}
-      <Text style={{ fontWeight: '700', color: base.ink, marginBottom: 4 }}>Date of incident</Text>
+      <Text style={{ fontWeight: '600', color: base.ink, marginBottom: 4 }}>Date of incident</Text>
       <DateBox value={v.date as string} onChange={(t) => set('date', t)} max={todayIso()} clearable={false} title="Date of incident" style={{ marginBottom: 10 }} />
-      <Text style={{ fontWeight: '700', color: base.ink, marginBottom: 6 }}>Operatives involved</Text>
+      <Text style={{ fontWeight: '600', color: base.ink, marginBottom: 6 }}>Operatives involved</Text>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
         {(ops ?? []).map((o) => (
           <Pressable key={o.id} onPress={() => { const n = new Set(ticked); if (n.has(o.name)) n.delete(o.name); else n.add(o.name); set('operatives', [...n].join(', ')); }}

@@ -19,7 +19,7 @@ export function SuggestField({ label, value, onChangeText, items, onPick, max = 
     .slice(0, max);
   return (
     <View style={[{ marginBottom: 12, zIndex: focus ? 20 : 0 }, style]}>
-      {!!label && <Text style={{ fontSize: 12, fontWeight: '700', color: base.slate, marginBottom: 4 }}>{label}</Text>}
+      {!!label && <Text style={{ fontSize: 12, fontWeight: '600', color: base.slate, marginBottom: 4 }}>{label}</Text>}
       <TextInput value={value} onChangeText={(v) => { setHi(-1); onChangeText(v); }} onFocus={() => setFocus(true)} onBlur={() => setTimeout(() => setFocus(false), 200)}
         onKeyPress={(e) => {
           const k = e.nativeEvent.key, open = focus && list.length > 0;

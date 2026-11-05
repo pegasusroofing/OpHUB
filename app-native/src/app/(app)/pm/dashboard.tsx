@@ -149,7 +149,7 @@ export default function CompanyDashboard() {
                 <Pressable key={r.id} onPress={() => router.push(`/sites/${r.site_id}/hs/incidents/${r.id}` as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 10, backgroundColor: base.card }}>
                   {swatch('⚠️')}
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontWeight: '700', color: base.ink }}>{all.find((x) => x.id === r.site_id)?.name || 'Unknown project'}</Text>
+                    <Text style={{ fontWeight: '600', color: base.ink }}>{all.find((x) => x.id === r.site_id)?.name || 'Unknown project'}</Text>
                     <Muted>{r.location || ''} · {new Date(r.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}{r.riddor_reportable ? ' · RIDDOR' : ''}</Muted>
                   </View>
                 </Pressable>

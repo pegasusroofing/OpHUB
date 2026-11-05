@@ -55,21 +55,21 @@ function OperativeDetail() {
     void qc.invalidateQueries({ queryKey: ['operativeList'] }); void qc.invalidateQueries({ queryKey: ['people'] });
   };
   const box = (n: number, l: string) => (
-    <Card style={{ flex: 1, alignItems: 'center' }}><Text style={{ fontSize: 26, fontWeight: '800', color: base.ink }}>{n}</Text><Muted>{l}</Muted></Card>
+    <Card style={{ flex: 1, alignItems: 'center' }}><Text style={{ fontSize: 26, fontWeight: '600', color: base.ink }}>{n}</Text><Muted>{l}</Muted></Card>
   );
   return (
     <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: o.name }} />
       <SectionTitle>Details</SectionTitle>
       <Card>
-        <Muted style={{ fontWeight: '700' }}>Name</Muted>
+        <Muted style={{ fontWeight: '600' }}>Name</Muted>
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-          <Text style={{ flex: 1, fontWeight: '700', fontSize: 15, color: base.ink }}>{o.name || '—'}</Text>
+          <Text style={{ flex: 1, fontWeight: '600', fontSize: 15, color: base.ink }}>{o.name || '—'}</Text>
           <View style={{ width: 90 }}><Button kind="ghost" title="Edit" onPress={() => void edit('name')} /></View>
         </View>
-        <Muted style={{ fontWeight: '700' }}>Contact number</Muted>
+        <Muted style={{ fontWeight: '600' }}>Contact number</Muted>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <Text style={{ flex: 1, fontWeight: '700', fontSize: 15, color: base.ink }}>{o.phone || '—'}</Text>
+          <Text style={{ flex: 1, fontWeight: '600', fontSize: 15, color: base.ink }}>{o.phone || '—'}</Text>
           <View style={{ width: 90 }}><Button kind="ghost" title="Edit" onPress={() => void edit('phone')} /></View>
         </View>
       </Card>
@@ -90,7 +90,7 @@ function OperativeDetail() {
       {/* 320: the subcontractor form sits last. */}
       <SectionTitle>Subcontractor form</SectionTitle>
       <Card>
-        <Text style={{ fontWeight: '700', color: sub?.sent ? base.ok : sub?.off ? base.slate : base.warn }}>{sub?.sent ? `Sent ${new Date(sub.sent.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : sub?.off ? 'Turned off' : 'Not sent yet'}</Text>
+        <Text style={{ fontWeight: '600', color: sub?.sent ? base.ok : sub?.off ? base.slate : base.warn }}>{sub?.sent ? `Sent ${new Date(sub.sent.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : sub?.off ? 'Turned off' : 'Not sent yet'}</Text>
         {sub?.sent ? <Button kind="ghost" title="View form" onPress={() => router.push(`/pm/admin/subapps/${sub.sent?.id}` as never)} />
           : <Muted>{sub?.off ? 'Not asked for — switch it on from Admin Centre › Invites & Users.' : 'It’s on their Home screen until they send it.'}</Muted>}
       </Card>

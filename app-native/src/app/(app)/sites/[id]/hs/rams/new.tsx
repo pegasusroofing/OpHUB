@@ -49,8 +49,8 @@ export default function RamsNew() {
   return (
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Create RAMS' }} />
-      <Card style={{ backgroundColor: '#E7EEF9', borderColor: '#C9D7EE' }}><Text style={{ color: '#1F3B66' }}>🦺 Builds a <Text style={{ fontWeight: '800' }}>Risk Assessment</Text> and a <Text style={{ fontWeight: '800' }}>Method Statement</Text> as two separate documents for this job. Everything stays editable until you issue it.</Text></Card>
-      <Muted style={{ fontWeight: '700' }}>RAMS name</Muted>
+      <Card style={{ backgroundColor: '#E7EEF9', borderColor: '#C9D7EE' }}><Text style={{ color: '#1F3B66' }}>🦺 Builds a <Text style={{ fontWeight: '600' }}>Risk Assessment</Text> and a <Text style={{ fontWeight: '600' }}>Method Statement</Text> as two separate documents for this job. Everything stays editable until you issue it.</Text></Card>
+      <Muted style={{ fontWeight: '600' }}>RAMS name</Muted>
       <TextInput value={name} onChangeText={setTitle} style={box} />
       <Toggle title={`Start From A Template${tpls.length ? ` (${tpls.length} ticked)` : ''}`} open={tplOpen} onPress={() => setTplOpen(!tplOpen)} />
       {tplOpen && <Card>

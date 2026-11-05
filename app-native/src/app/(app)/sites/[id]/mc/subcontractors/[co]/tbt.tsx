@@ -32,7 +32,7 @@ export default function SubTbt() {
         <Pressable key={t.id} onPress={() => router.push(`/sites/${id}/hs/tbt/${t.id}`)}>
           <Card style={{ flexDirection: 'row', gap: 8 }}>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontWeight: '800', color: base.ink }}>{t.title}</Text>
+              <Text style={{ fontWeight: '600', color: base.ink }}>{t.title}</Text>
               <Muted>{new Date(t.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</Muted>
             </View>
             <TbtStatusTag status={t.status} />

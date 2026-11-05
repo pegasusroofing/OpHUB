@@ -27,18 +27,18 @@ export function CalendarPopup({ value, min, max, title = 'Choose a date', onPick
   const step = (n: number) => setYm(({ y, m }) => { const d = new Date(y, m + n, 1); return { y: d.getFullYear(), m: d.getMonth() }; });
   const nav = (label: string, n: number) => (
     <Pressable accessibilityRole="button" accessibilityLabel={n < 0 ? 'Previous month' : 'Next month'} onPress={() => step(n)} hitSlop={6} style={{ paddingHorizontal: 12, paddingVertical: 4 }}>
-      <Text style={{ fontSize: 18, fontWeight: '800', color: base.blue }}>{label}</Text>
+      <Text style={{ fontSize: 18, fontWeight: '600', color: base.blue }}>{label}</Text>
     </Pressable>
   );
   return (
     <Popup title={title} onClose={onClose} width={330}>
       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
         {nav('‹', -1)}
-        <Text style={{ flex: 1, textAlign: 'center', fontWeight: '800', color: base.ink, fontSize: 15 }}>{MONTHS[ym.m]} {ym.y}</Text>
+        <Text style={{ flex: 1, textAlign: 'center', fontWeight: '600', color: base.ink, fontSize: 15 }}>{MONTHS[ym.m]} {ym.y}</Text>
         {nav('›', 1)}
       </View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-        {['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].map((d) => <Text key={d} style={{ width: '14.28%', textAlign: 'center', color: base.slate, fontSize: 12, fontWeight: '700', paddingVertical: 4 }}>{d}</Text>)}
+        {['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].map((d) => <Text key={d} style={{ width: '14.28%', textAlign: 'center', color: base.slate, fontSize: 12, fontWeight: '600', paddingVertical: 4 }}>{d}</Text>)}
         {cells.map((n, i) => {
           if (!n) return <View key={i} style={{ width: '14.28%', height: 38 }} />;
           const iso = `${ym.y}-${pad(ym.m + 1)}-${pad(n)}`;
@@ -54,8 +54,8 @@ export function CalendarPopup({ value, min, max, title = 'Choose a date', onPick
         })}
       </View>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
-        {!min || today >= min ? <Pressable onPress={() => onPick(today)}><Text style={{ color: base.blue, fontWeight: '700' }}>Today</Text></Pressable> : <View />}
-        {clearable && <Pressable onPress={() => onPick('')}><Text style={{ color: base.slate, fontWeight: '700' }}>Clear</Text></Pressable>}
+        {!min || today >= min ? <Pressable onPress={() => onPick(today)}><Text style={{ color: base.blue, fontWeight: '600' }}>Today</Text></Pressable> : <View />}
+        {clearable && <Pressable onPress={() => onPick('')}><Text style={{ color: base.slate, fontWeight: '600' }}>Clear</Text></Pressable>}
       </View>
       {footer}
     </Popup>
@@ -84,7 +84,7 @@ export function DateBox({ value, onChange, min, max, placeholder = 'Choose a dat
 export function DateField({ label, ...p }: ComponentProps<typeof DateBox> & { label: string }) {
   return (
     <View style={{ marginBottom: 12 }}>
-      <Text style={{ fontSize: 12, fontWeight: '700', color: base.slate, marginBottom: 4 }}>{label}</Text>
+      <Text style={{ fontSize: 12, fontWeight: '600', color: base.slate, marginBottom: 4 }}>{label}</Text>
       <DateBox title={label} {...p} />
     </View>
   );

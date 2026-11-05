@@ -74,7 +74,7 @@ export default function Briefings() {
       <Stack.Screen options={{ title: 'Daily Briefings' }} />
       {mgr && sel.size > 0 && (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-          <Text style={{ fontWeight: '700', color: base.ink }}>{sel.size} selected</Text>
+          <Text style={{ fontWeight: '600', color: base.ink }}>{sel.size} selected</Text>
           <Button kind="ghost" busy={busy} title="📄 Export as one PDF" onPress={async () => { setBusy(true); try { const m = await merged(); if (m && !(await deliverPdf(m.bytes, m.filename))) toast('Could not save the PDF.'); } finally { setBusy(false); } }} />
           <Button kind="ghost" busy={busy} title="✉ Email" onPress={async () => {
             if (!site) return;
@@ -144,7 +144,7 @@ export default function Briefings() {
                     ) : undefined} />
                   {needsMe && (
                     <Pressable onPress={() => sign(s)} style={{ marginTop: -4, marginBottom: 8, borderWidth: 1.5, borderColor: base.warn, borderRadius: radius.input, padding: 14, backgroundColor: base.warnBg, alignItems: 'center' }}>
-                      <Text style={{ fontWeight: '700', color: base.warn, textAlign: 'center' }}>Tap To Sign — {s.template_name}</Text>
+                      <Text style={{ fontWeight: '600', color: base.warn, textAlign: 'center' }}>Tap To Sign — {s.template_name}</Text>
                     </Pressable>
                   )}
                 </View>

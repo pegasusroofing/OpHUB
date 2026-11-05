@@ -54,7 +54,7 @@ export default function Account() {
             toast(finShown ? 'Finance hidden' : 'Finance shown'); void refresh();
           }} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: base.line, borderRadius: 12, padding: 12, marginTop: 10 }}>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontWeight: '700', color: base.ink }}>Show Finance</Text>
+              <Text style={{ fontWeight: '600', color: base.ink }}>Show Finance</Text>
               <Muted>Turn off to hide Finance and money figures from your projects. Nothing is deleted — switch it back on any time.</Muted>
             </View>
             <Text style={{ fontSize: 22, color: finShown ? base.ok : base.slate }}>{finShown ? '☑' : '☐'}</Text>

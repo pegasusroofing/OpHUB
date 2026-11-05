@@ -27,7 +27,7 @@ import { supabase } from '@/lib/supabase';
 import { base, page, radius, space } from '@/theme/theme';
 
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card, marginBottom: 10 };
-const Label = ({ children }: { children: string }) => <Text style={{ fontSize: 12, fontWeight: '700', color: base.slate, marginBottom: 4 }}>{children}</Text>;
+const Label = ({ children }: { children: string }) => <Text style={{ fontSize: 12, fontWeight: '600', color: base.slate, marginBottom: 4 }}>{children}</Text>;
 function Pick({ value, placeholder, onPress }: { value: string; placeholder: string; onPress: () => void }) {
   return <Pressable onPress={onPress} style={[box, { paddingVertical: 12 }]}><Text style={{ color: value ? base.ink : base.slate }}>▼ {value || placeholder}</Text></Pressable>;
 }
@@ -176,7 +176,7 @@ export default function DeliveryForm() {
       <Stack.Screen options={{ title: isNew ? 'Add Delivery' : 'Edit Delivery' }} />
       {done && task && (
         <Card style={{ borderColor: base.ok }}>
-          <Text style={{ fontWeight: '800', color: base.ok }}>✓ Completed{task.completed_at ? ` ${new Date(task.completed_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}` : ''}</Text>
+          <Text style={{ fontWeight: '600', color: base.ok }}>✓ Completed{task.completed_at ? ` ${new Date(task.completed_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}` : ''}</Text>
           {!!task.completed_by && <Muted>By {people.find((p) => p.id === task.completed_by)?.name || ''}</Muted>}
           {completionPhotos(task).length ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>{completionPhotos(task).map((p) => <StorageImage zoom key={p} bucket="site-photos" path={p} style={{ width: 90, height: 90, borderRadius: 8 }} />)}</View> : <Muted>No completion photo on file.</Muted>}
           <Button kind="ghost" title="↩ Re-open delivery" onPress={async () => {
@@ -227,7 +227,7 @@ export default function DeliveryForm() {
       <View style={{ flexDirection: 'row', gap: 8, marginBottom: 6 }}>
         {[[false, '1 drop', 'Normal'], [true, '2 drops', 'Extra time']].map(([v, a, b]) => (
           <Pressable key={String(v)} onPress={() => set({ double_slot: v as boolean })} style={{ flex: 1, padding: 10, borderRadius: radius.input, borderWidth: 2, borderColor: d.double_slot === v ? base.ink : base.line, alignItems: 'center', backgroundColor: base.card }}>
-            <Text style={{ fontWeight: '800', color: base.ink }}>{a as string}</Text><Muted>{b as string}</Muted>
+            <Text style={{ fontWeight: '600', color: base.ink }}>{a as string}</Text><Muted>{b as string}</Muted>
           </Pressable>
         ))}
       </View>

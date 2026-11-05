@@ -82,7 +82,7 @@ export default function SubForm() {
     );
     return (
       <View key={id} style={{ marginBottom: 14, ...(bad ? { borderLeftWidth: 3, borderLeftColor: base.red, paddingLeft: 8 } : null) }}>
-        <Text style={{ fontWeight: '700', color: base.ink, marginBottom: 4 }}>{q.l}{q.req ? <Text style={{ color: base.red }}> *</Text> : null}</Text>
+        <Text style={{ fontWeight: '600', color: base.ink, marginBottom: 4 }}>{q.l}{q.req ? <Text style={{ color: base.red }}> *</Text> : null}</Text>
         {!!q.hint && <Muted style={{ marginBottom: 4 }}>{q.hint}</Muted>}
         {body}
         {bad && <Text style={{ color: base.red, fontSize: 12, marginTop: 3 }}>This question is required</Text>}
@@ -93,24 +93,24 @@ export default function SubForm() {
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Subcontractor form' }} />
       <Card style={{ borderTopWidth: 6, borderTopColor: base.blue }}>
-        <Text style={{ fontSize: 20, fontWeight: '800', color: base.ink }}>Subcontractor form</Text>
+        <Text style={{ fontSize: 20, fontWeight: '600', color: base.ink }}>Subcontractor form</Text>
         <Muted>Please fill this in for {org?.name || 'us'} — your company details, insurance, cards and health &amp; safety. It saves as you go, so you can come back to it.</Muted>
         <Text style={{ color: base.red, marginTop: 4 }}>* Required</Text>
       </Card>
       {SUBFORM_SECTIONS.map((s, i) => (
         <Card key={s.t}>
-          <Text style={{ fontWeight: '800', fontSize: 16, color: base.ink, marginBottom: 2 }}>{i + 1}. {s.t}</Text>
+          <Text style={{ fontWeight: '600', fontSize: 16, color: base.ink, marginBottom: 2 }}>{i + 1}. {s.t}</Text>
           {!!s.hint && <Muted style={{ marginBottom: 8 }}>{s.hint}</Muted>}
           <View style={{ marginTop: 6 }}>{s.q.map(question)}</View>
         </Card>
       ))}
       <Card>
-        <Text style={{ fontWeight: '800', fontSize: 16, color: base.ink, marginBottom: 8 }}>Declaration</Text>
+        <Text style={{ fontWeight: '600', fontSize: 16, color: base.ink, marginBottom: 8 }}>Declaration</Text>
         <Pressable onPress={() => update({ ...d, agree: !d.agree })} style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
           <Text style={{ fontSize: 17, color: miss?.has('__agree') ? base.red : base.ink }}>{d.agree ? '☑' : '☐'}</Text>
           <Text style={{ flex: 1, color: miss?.has('__agree') ? base.red : base.ink }}>I confirm the information given is true and complete, the insurances above are in force, and I will tell you straight away if anything changes.</Text>
         </Pressable>
-        <Text style={{ fontWeight: '700', color: base.ink, marginBottom: 4 }}>Type your full name to sign<Text style={{ color: base.red }}> *</Text></Text>
+        <Text style={{ fontWeight: '600', color: base.ink, marginBottom: 4 }}>Type your full name to sign<Text style={{ color: base.red }}> *</Text></Text>
         <TextInput value={d.signed} onChangeText={(t) => update({ ...d, signed: t })} style={[box, miss?.has('__signed') ? { borderColor: base.red } : null]} />
         <View style={{ marginTop: 12 }}><Button busy={busy} title={busy ? 'Sending…' : 'Submit'} onPress={async () => {
           const m = subformMissing(d);

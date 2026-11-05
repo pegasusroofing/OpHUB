@@ -69,16 +69,16 @@ export default function Expenses() {
     <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: 'Expenses' }} />
       <Card>
-        <Text style={{ fontWeight: '700', color: base.ink }}>🧾 Send receipts to the office</Text>
+        <Text style={{ fontWeight: '600', color: base.ink }}>🧾 Send receipts to the office</Text>
         <Muted>Add a photo or file of each receipt and say which job it's for.{toEmail ? ` When you save, each receipt is emailed on its own to ${toEmail}, labelled with the job.` : ' No expenses email is set up yet — receipts are saved and the office can see them here.'}</Muted>
       </Card>
       {groups.map((g, i) => (
         <Card key={g.key}>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-            <Text style={{ flex: 1, fontWeight: '700', color: base.ink }}>Receipt{groups.length > 1 ? ` group ${i + 1}` : 's'}</Text>
+            <Text style={{ flex: 1, fontWeight: '600', color: base.ink }}>Receipt{groups.length > 1 ? ` group ${i + 1}` : 's'}</Text>
             {groups.length > 1 && <Pressable onPress={() => setGroups(groups.filter((x) => x.key !== g.key))}><Text style={{ color: base.red }}>Remove</Text></Pressable>}
           </View>
-          <Muted style={{ fontWeight: '700' }}>Which job is this for?</Muted>
+          <Muted style={{ fontWeight: '600' }}>Which job is this for?</Muted>
           <Row title={jobLabel(g)} onPress={() => setPickJobFor(pickJobFor === g.key ? null : g.key)} />
           {pickJobFor === g.key && (
             <View style={{ marginBottom: 8 }}>
@@ -127,7 +127,7 @@ export default function Expenses() {
               <Card>
                 {!!r.note && <Muted>{r.note}</Muted>}
                 {full && r.created_by !== me.id && <Muted>Sent by {nameOf(people, r.created_by)}</Muted>}
-                <Text style={{ color: r.emailed_at ? base.ok : base.warn, fontWeight: '700', marginVertical: 6 }}>{r.emailed_at ? `✓ Emailed${r.emailed_to ? ` to ${r.emailed_to}` : ''}` : 'Not emailed yet'}</Text>
+                <Text style={{ color: r.emailed_at ? base.ok : base.warn, fontWeight: '600', marginVertical: 6 }}>{r.emailed_at ? `✓ Emailed${r.emailed_to ? ` to ${r.emailed_to}` : ''}` : 'Not emailed yet'}</Text>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                   {(r.file_paths || []).map((p, k) => (
                     <Button key={p} kind="ghost" title={`${/\.pdf$/i.test(p) ? '📄' : '🖼'} ${(r.file_names || [])[k] || 'Receipt'}`}

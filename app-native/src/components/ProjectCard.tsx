@@ -24,7 +24,7 @@ export function ProjectCard({ s, pmName, onPm, onStatus, onStart }: { s: Site; p
       style={(st2) => [{ flexDirection: 'row', alignItems: 'center', gap: 10.8, height: 76, backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 18, paddingVertical: 12, paddingHorizontal: 14, marginBottom: 10, shadowColor: '#14181D', shadowOpacity: 0.07, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } },
         (st2 as { hovered?: boolean }).hovered && { shadowOpacity: 0.12, transform: [{ translateY: -1 }] }]}>
       <View style={{ width: 50.4, height: 43.2, borderRadius: 14, backgroundColor: t.brand1, borderWidth: 1.8, borderColor: t.brand2, alignItems: 'center', justifyContent: 'center', padding: 1.8 }}>
-        <Text numberOfLines={2} style={{ color: t.brand1Text, fontWeight: '800', fontSize: fs, textAlign: 'center' }}>{sw}</Text>
+        <Text numberOfLines={2} style={{ color: t.brand1Text, fontWeight: '600', fontSize: fs, textAlign: 'center' }}>{sw}</Text>
       </View>
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text numberOfLines={1} style={[heading(800), { fontSize: 14.5, color: base.ink }]}>{s.name}</Text>
@@ -38,7 +38,7 @@ export function ProjectCard({ s, pmName, onPm, onStatus, onStart }: { s: Site; p
       <Pressable onPress={onStatus} disabled={!onStatus} hitSlop={8} accessibilityLabel={`Status ${st}`}
         style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 3.2, paddingHorizontal: 8.6, borderRadius: 999, backgroundColor: PILL[st].bg }}>
         {st === 'upcoming' ? <Text style={{ fontSize: 10 }}>🕐</Text> : <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: PILL[st].fg }} />}
-        {onStatus && <Text style={{ fontSize: 9, color: PILL[st].fg, fontWeight: '800' }}>▾</Text>}
+        {onStatus && <Text style={{ fontSize: 9, color: PILL[st].fg, fontWeight: '600' }}>▾</Text>}
       </Pressable>
     </Pressable>
   );

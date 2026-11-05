@@ -79,7 +79,7 @@ export default function AllReports() {
   };
   const chip = (k: 'open' | 'done' | 'all', l: string) => (
     <Pressable key={k} onPress={() => setTab(k)} style={{ height: 30, paddingHorizontal: 10, justifyContent: 'center', borderRadius: 999, borderWidth: 1, borderColor: tab === k ? base.ink : base.line, backgroundColor: tab === k ? base.ink : '#fff' }}>
-      <Text style={{ fontSize: 11.5, fontWeight: '700', color: tab === k ? '#fff' : base.ink }}>{l} ({count[k]})</Text>
+      <Text style={{ fontSize: 11.5, fontWeight: '600', color: tab === k ? '#fff' : base.ink }}>{l} ({count[k]})</Text>
     </Pressable>
   );
   const merged = async () => {
@@ -120,13 +120,13 @@ export default function AllReports() {
           else if (k === 'by') { const v = await chooseAction('Surveyor', [{ key: '', label: 'Everyone' }, ...surveyors.map((u) => ({ key: u, label: nameOf(people, u) }))]); if (v !== null) setBy(v); }
           else if (k === 'clear') { setTpl(''); setBy(''); setGen(false); }
         }} style={{ height: 30, paddingHorizontal: 10, justifyContent: 'center', borderRadius: 999, borderWidth: 1, borderColor: tpl || by ? base.ink : base.line, backgroundColor: '#fff' }}>
-          <Text style={{ fontSize: 11.5, fontWeight: '700', color: base.ink }}>{tpl || by ? `Filter (${(tpl ? 1 : 0) + (by ? 1 : 0)})` : 'Filter'} ▾</Text>
+          <Text style={{ fontSize: 11.5, fontWeight: '600', color: base.ink }}>{tpl || by ? `Filter (${(tpl ? 1 : 0) + (by ? 1 : 0)})` : 'Filter'} ▾</Text>
         </Pressable>
       </View>
-      {shown.length > 0 && <Pressable style={{ marginBottom: 6 }} onPress={() => setSel(sel.size === shown.length ? new Set() : new Set(shown.map((r) => r.id)))}><Text style={{ color: base.blue, fontWeight: '700' }}>{sel.size === shown.length ? 'Clear all' : 'Select all'}</Text></Pressable>}
+      {shown.length > 0 && <Pressable style={{ marginBottom: 6 }} onPress={() => setSel(sel.size === shown.length ? new Set() : new Set(shown.map((r) => r.id)))}><Text style={{ color: base.blue, fontWeight: '600' }}>{sel.size === shown.length ? 'Clear all' : 'Select all'}</Text></Pressable>}
       {sel.size > 0 && (
         <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Text style={{ flex: 1, fontWeight: '700', color: base.ink }}>{sel.size} selected</Text>
+          <Text style={{ flex: 1, fontWeight: '600', color: base.ink }}>{sel.size} selected</Text>
           <Button kind="ghost" busy={xBusy === 'pdf'} title="Export PDF" onPress={async () => { setXBusy('pdf'); toast('Building PDF…'); const m = await merged().catch(() => null); setXBusy(''); if (m && !(await deliverPdf(m.bytes, m.filename))) toast('Could not save the PDF.'); }} />
           <Button busy={xBusy === 'email'} title="Email" onPress={async () => {
             const to = (await promptText(`Email the ${sel.size} ticked report${sel.size === 1 ? '' : 's'} (one PDF) to:`, ''))?.trim(); if (!to) return;
@@ -142,10 +142,10 @@ export default function AllReports() {
         <Pressable key={r.id} onPress={() => open(r)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderWidth: 1, borderColor: sel.has(r.id) ? base.blue : base.cardLine, borderRadius: radius.row, marginBottom: 8, backgroundColor: base.card }}>
           {<Pressable hitSlop={8} onPress={() => setSel((x) => { const n = new Set(x); if (n.has(r.id)) n.delete(r.id); else n.add(r.id); return n; })}><Text style={{ fontSize: 20 }}>{sel.has(r.id) ? '☑' : '☐'}</Text></Pressable>}
           <View style={{ flex: 1 }}>
-            <Text style={{ fontWeight: '700', color: base.ink }}>{r.template_name || 'Report'}</Text>
+            <Text style={{ fontWeight: '600', color: base.ink }}>{r.template_name || 'Report'}</Text>
             <Muted>{where(r)} · {nameOf(people, r.submitted_by)}{r.status === 'in_progress' || !r.submitted_at ? '' : ` · ${new Date(r.submitted_at).toLocaleDateString('en-GB')}`}</Muted>
           </View>
-          <Text style={{ fontWeight: '700', color: r.status === 'in_progress' ? base.warn : base.ok }}>{r.status === 'in_progress' ? 'In progress' : 'Completed'}</Text>
+          <Text style={{ fontWeight: '600', color: r.status === 'in_progress' ? base.warn : base.ok }}>{r.status === 'in_progress' ? 'In progress' : 'Completed'}</Text>
         </Pressable>
       )) : <Empty>No reports here{tpl || by ? ' for these filters' : ''}.</Empty>}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 14 }}>

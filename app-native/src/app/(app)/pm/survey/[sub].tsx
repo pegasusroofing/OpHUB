@@ -35,7 +35,7 @@ export default function GeneralSurvey() {
         if (v === null) return;
         if (await renameGeneral(sub.id, v.trim() || null)) { toast('Saved'); void qc.invalidateQueries({ queryKey: ['reportSub', sub.id] }); void qc.invalidateQueries({ queryKey: ['pmReports'] }); }
       }}>
-        <Text style={{ fontWeight: '700', color: base.ink, marginBottom: 6 }}>{sub.general_label || 'No job name'}{mgr ? <Text style={{ color: base.blue, fontWeight: '400' }}>  · rename</Text> : null}</Text>
+        <Text style={{ fontWeight: '600', color: base.ink, marginBottom: 6 }}>{sub.general_label || 'No job name'}{mgr ? <Text style={{ color: base.blue, fontWeight: '400' }}>  · rename</Text> : null}</Text>
       </Pressable>
       {fill ? (
         <ReportFill sub={sub} siteId={`general/${me.org_id}`} editingCompleted={sub.status === 'completed'} isBriefing={false}

@@ -42,7 +42,7 @@ type Op = { id: string; userId: string | null; name: string; role: string; inclu
 function OBtn({ title, onPress, on, style }: { title: string; onPress: () => void; on?: boolean; style?: object }) {
   return (
     <Pressable accessibilityRole="button" accessibilityLabel={title} onPress={onPress} style={[{ borderWidth: on ? 2.5 : 1, borderColor: on ? themeLive.brand1 : base.line, borderRadius: 12, paddingVertical: on ? 5 : 6.5, paddingHorizontal: 6, backgroundColor: base.card, alignItems: 'center', marginBottom: 8 }, style]}>
-      <Text style={{ fontSize: 11.5, fontWeight: '800', letterSpacing: 0.3, textTransform: 'uppercase', color: on ? themeLive.brand1 : base.ink, textAlign: 'center' }}>{title}</Text>
+      <Text style={{ fontSize: 11.5, fontWeight: '600', letterSpacing: 0.3, textTransform: 'uppercase', color: on ? themeLive.brand1 : base.ink, textAlign: 'center' }}>{title}</Text>
     </Pressable>
   );
 }
@@ -124,7 +124,7 @@ export function ReportFill({ sub, siteId, editingCompleted, isBriefing, onDone }
         {arr.map((u, i) => (
           <Pressable key={`${u}${i}`} onPress={() => set(key, arr.filter((_, j) => j !== i))}>
             {/^https?:/.test(u) ? <UrlImage url={u} style={{ width: size, height: size, borderRadius: 8 }} /> : <Image source={{ uri: u }} style={{ width: size, height: size, borderRadius: 8 }} />}
-            <Text style={{ position: 'absolute', top: 2, right: 6, color: '#fff', fontWeight: '800', textShadowColor: '#000', textShadowRadius: 3 }}>✕</Text>
+            <Text style={{ position: 'absolute', top: 2, right: 6, color: '#fff', fontWeight: '600', textShadowColor: '#000', textShadowRadius: 3 }}>✕</Text>
           </Pressable>
         ))}
       </View>
@@ -204,7 +204,7 @@ export function ReportFill({ sub, siteId, editingCompleted, isBriefing, onDone }
         live.current = a; setAnswers(a);
       }} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 }}>
         <Text style={{ fontSize: 16, color: base.ink }}>{n ? '☑' : '☐'}</Text><Text style={{ color: base.ink, fontWeight: '600' }}>📍 Add to drawing</Text>
-        {!!n && <View style={{ minWidth: 22, height: 22, borderRadius: 11, backgroundColor: base.ink, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }}><Text style={{ color: '#fff', fontWeight: '800', fontSize: 12 }}>{n}</Text></View>}
+        {!!n && <View style={{ minWidth: 22, height: 22, borderRadius: 11, backgroundColor: base.ink, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }}><Text style={{ color: '#fff', fontWeight: '600', fontSize: 12 }}>{n}</Text></View>}
       </Pressable>
     );
   };
@@ -239,7 +239,7 @@ export function ReportFill({ sub, siteId, editingCompleted, isBriefing, onDone }
               return (
                 <Pressable key={l.id} onPress={() => set(`${it.id}__tl`, on ? '' : l.id)} style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, borderWidth: 1.5, borderColor: hex, backgroundColor: on ? hex : 'transparent' }}>
                   <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: on ? '#fff' : hex }} />
-                  <Text style={{ fontSize: 10.5, fontWeight: '700', color: on ? '#fff' : base.ink }}>{l.label}</Text>
+                  <Text style={{ fontSize: 10.5, fontWeight: '600', color: on ? '#fff' : base.ink }}>{l.label}</Text>
                 </Pressable>
               );
             })}
@@ -247,7 +247,7 @@ export function ReportFill({ sub, siteId, editingCompleted, isBriefing, onDone }
         )}
         {noteOpen && <TextInput value={note} onChangeText={(t) => set(`${it.id}__note`, t)} multiline placeholder="Add a note…" style={[box, { minHeight: 54 }]} />}
         {canMedia && photos(`${it.id}__media`, 70)}
-        {req && <Text style={{ color: base.warn, fontWeight: '700', marginBottom: 6 }}>A photo is required for this answer *</Text>}
+        {req && <Text style={{ color: base.warn, fontWeight: '600', marginBottom: 6 }}>A photo is required for this answer *</Text>}
         <View style={{ flexDirection: 'row', gap: 8 }}>
           {canNote && !noteOpen && <OBtn style={{ flex: 1 }} title="📝 Add Note" onPress={() => setNotesOpen(new Set(notesOpen).add(it.id))} />}
           {canMedia && <OBtn style={{ flex: 1 }} title={`📷 Add Photo${req && !mArr.length ? ' *' : ''}`} onPress={() => void addPhotos(`${it.id}__media`)} />}
@@ -258,9 +258,9 @@ export function ReportFill({ sub, siteId, editingCompleted, isBriefing, onDone }
 
   const field = (it: ReportItem) => {
     const val = answers[it.id];
-    const label = <Text style={{ fontSize: 15, fontWeight: '800', letterSpacing: 0.3, textTransform: 'uppercase', color: base.ink, marginBottom: 8 }}>{it.label}{it.required ? ' *' : ''}{it.autofill ? <Text style={{ fontWeight: '700', color: base.slate, fontSize: 10.5 }}> (auto-filled — edit if needed)</Text> : null}</Text>;
+    const label = <Text style={{ fontSize: 15, fontWeight: '600', letterSpacing: 0.3, textTransform: 'uppercase', color: base.ink, marginBottom: 8 }}>{it.label}{it.required ? ' *' : ''}{it.autofill ? <Text style={{ fontWeight: '600', color: base.slate, fontSize: 10.5 }}> (auto-filled — edit if needed)</Text> : null}</Text>;
     switch (it.type) {
-      case 'instruction': return <Text style={{ fontWeight: '800', color: base.ink, marginBottom: 10 }}>{it.label}</Text>;
+      case 'instruction': return <Text style={{ fontWeight: '600', color: base.ink, marginBottom: 10 }}>{it.label}</Text>;
       case 'text': case 'number': case 'date': case 'textarea':
         return (<>{label}{it.type === 'date' ? <DateBox value={val == null ? '' : String(val)} onChange={(t) => set(it.id, t)} style={{ marginBottom: 8 }} /> : <TextInput value={val == null ? '' : String(val)} onChangeText={(t) => set(it.id, t)} multiline={it.type === 'textarea'} keyboardType={it.type === 'number' ? 'decimal-pad' : 'default'} style={[box, it.type === 'textarea' ? { minHeight: 70 } : {}]} />}{extras(it)}</>);
       case 'checkbox':
@@ -317,7 +317,7 @@ export function ReportFill({ sub, siteId, editingCompleted, isBriefing, onDone }
             {list.length ? list.map((r, i) => (
               <View key={r.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: base.line }}>
                 <Pressable onPress={() => upd(i, { included: !r.included })}><Text style={{ fontSize: 18 }}>{r.included ? '☑' : '☐'}</Text></Pressable>
-                <Text style={{ flex: 1, fontWeight: '700', color: base.ink }}>{r.name}</Text>
+                <Text style={{ flex: 1, fontWeight: '600', color: base.ink }}>{r.name}</Text>
                 <TextInput value={r.role} onChangeText={(t) => upd(i, { role: t })} placeholder="Role on site" style={[box, { flex: 1, marginBottom: 0, paddingVertical: 6 }]} />
                 {!r.userId && <Pressable onPress={() => set(it.id, list.filter((_, j) => j !== i))}><Text style={{ color: base.red }}>✕</Text></Pressable>}
               </View>
@@ -393,12 +393,12 @@ export function ReportFill({ sub, siteId, editingCompleted, isBriefing, onDone }
     <View>
       <SectionTitle>{sub.template_name}</SectionTitle>
       <TrafficKey sections={sections} />
-      {sc.overall.possible > 0 && <Text style={{ textAlign: 'right', fontWeight: '800', color: base.ink }}>Score: {scoreLabel(sc.overall)}</Text>}
+      {sc.overall.possible > 0 && <Text style={{ textAlign: 'right', fontWeight: '600', color: base.ink }}>Score: {scoreLabel(sc.overall)}</Text>}
       {sections.map((s) => (
         <Card key={s.id}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
             <SectionTitle>{s.title}</SectionTitle>
-            {sc.bySection[s.id] && <Text style={{ fontWeight: '700', fontSize: 12, color: base.slate, marginTop: 16 }}>{scoreLabel(sc.bySection[s.id])}</Text>}
+            {sc.bySection[s.id] && <Text style={{ fontWeight: '600', fontSize: 12, color: base.slate, marginTop: 16 }}>{scoreLabel(sc.bySection[s.id])}</Text>}
           </View>
           {(s.items || []).filter((it) => itemVisible(it, answers)).map((it, i) => (
             <View key={it.id} style={i ? { borderTopWidth: 2, borderTopColor: base.line, paddingTop: 12, marginTop: 4 } : undefined}>
@@ -413,7 +413,7 @@ export function ReportFill({ sub, siteId, editingCompleted, isBriefing, onDone }
         <View style={{ flex: 1 }}><Button kind="ghost" busy={busy === 'save'} disabled={!!busy} title="Save & Exit" onPress={() => void saveExit()} /></View>
         <View style={{ flex: 1 }}><Button busy={busy === 'complete'} disabled={!!busy} title={isBriefing ? 'Complete Briefing' : 'Complete Inspection'} onPress={() => void complete()} /></View>
       </View>
-      {!!progress && <Text style={{ textAlign: 'center', fontWeight: '700', color: base.ink, marginTop: 10 }}>{progress}</Text>}
+      {!!progress && <Text style={{ textAlign: 'center', fontWeight: '600', color: base.ink, marginTop: 10 }}>{progress}</Text>}
       {mark && markSrc && <MarkupEditor src={markSrc} ops={markOps} keys={reportDrawingKeys(sections, answers).map((x) => ({ n: x.n, label: x.label + (x.answer ? `: ${x.answer}` : ''), color: x.color }))} onClose={markDone} />}
       <Muted style={{ marginTop: 12 }}>A copy is kept on this phone as you go. With no signal, Save &amp; Exit and Complete keep it here and it sends by itself later.</Muted>
     </View>

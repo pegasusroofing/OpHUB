@@ -42,7 +42,7 @@ export default function Login() {
 
   return (
     <Screen center>
-      <Text style={{ fontSize: 24, fontWeight: '800', textAlign: 'center', marginBottom: 16, color: t.brand1 }}>OpHUB</Text>
+      <Text style={{ fontSize: 24, fontWeight: '600', textAlign: 'center', marginBottom: 16, color: t.brand1 }}>OpHUB</Text>
       <Card>
         {notice && <Notice kind={notice.kind} text={notice.text} />}
         <Field label="Email" value={email} onChangeText={setEmail} placeholder="you@yourcompany.co.uk"

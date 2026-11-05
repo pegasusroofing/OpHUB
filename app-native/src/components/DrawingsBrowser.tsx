@@ -109,7 +109,7 @@ export function DrawingsBrowser({ siteId, folderId }: { siteId: string; folderId
       {!folderId && <HowTo k="drawings" />}
       {mgr && (
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-          <Text style={{ flex: 1, fontWeight: '700', color: base.slate }}>Folder/File Name</Text>
+          <Text style={{ flex: 1, fontWeight: '600', color: base.slate }}>Folder/File Name</Text>
           <Pressable onPress={async () => {
             const k = await chooseAction('What would you like to add?', [{ key: 'upload', label: '📄 Upload a file' }, { key: 'folder', label: '📁 Add Folder' }, { key: 'od', label: '☁️ Sync from OneDrive' }]);
             if (k === 'folder' || k === 'upload') setMode(k);
@@ -139,7 +139,7 @@ export function DrawingsBrowser({ siteId, folderId }: { siteId: string; folderId
           <Muted>Uploads into {folder ? `"${folder.name}"` : 'the top level'}. You can pick more than one file — each is saved separately.</Muted>
           {!!data?.files.length && (
             <View style={{ marginTop: 8 }}>
-              <Muted style={{ fontWeight: '700' }}>Supersedes (optional, single file only)</Muted>
+              <Muted style={{ fontWeight: '600' }}>Supersedes (optional, single file only)</Muted>
               <Pressable onPress={() => setSupersedes(null)}><Text style={{ paddingVertical: 5, color: base.ink }}>{!supersedes ? '◉' : '○'} New document, doesn&apos;t replace anything</Text></Pressable>
               {data.files.map((f) => <Pressable key={f.id} onPress={() => setSupersedes(f.id)}><Text style={{ paddingVertical: 5, color: base.ink }}>{supersedes === f.id ? '◉' : '○'} {f.name}</Text></Pressable>)}
             </View>
@@ -153,11 +153,11 @@ export function DrawingsBrowser({ siteId, folderId }: { siteId: string; folderId
           <SectionTitle>Add a key date from &quot;{keyDate.name}&quot;?</SectionTitle>
           <Muted>Puts the date straight onto the job Calendar so the team can see it without opening the document.</Muted>
           {keyDate.cands.length ? <View style={{ marginTop: 8 }}>
-            <Muted style={{ fontWeight: '700' }}>Dates found in the programme — tick the ones to add:</Muted>
+            <Muted style={{ fontWeight: '600' }}>Dates found in the programme — tick the ones to add:</Muted>
             {keyDate.cands.map((c, i) => (
               <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
                 <Pressable onPress={() => setKeyDate({ ...keyDate, cands: keyDate.cands.map((x, j) => (j === i ? { ...x, on: !x.on } : x)) })}><Text style={{ fontSize: 18, color: base.ink }}>{c.on ? '☑' : '☐'}</Text></Pressable>
-                <Text style={{ width: 92, color: base.ink, fontWeight: '700' }}>{new Date(`${c.date}T12:00:00`).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</Text>
+                <Text style={{ width: 92, color: base.ink, fontWeight: '600' }}>{new Date(`${c.date}T12:00:00`).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</Text>
                 <TextInput value={c.label} onChangeText={(t) => setKeyDate({ ...keyDate, cands: keyDate.cands.map((x, j) => (j === i ? { ...x, label: t } : x)) })} placeholder={`Programme: ${keyDate.name}`} style={[box, { flex: 1, marginBottom: 0 }]} />
               </View>
             ))}
@@ -192,7 +192,7 @@ export function DrawingsBrowser({ siteId, folderId }: { siteId: string; folderId
               style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, minHeight: 66, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 8, backgroundColor: base.card }}>
               <Text style={{ fontSize: 20 }}>{f.name === 'Specification' ? '📄' : '📁'}</Text>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontWeight: '700', color: base.ink }}>{f.visibility_mode === 'assigned' ? '🔒 ' : ''}{f.name}</Text>
+                <Text style={{ fontWeight: '600', color: base.ink }}>{f.visibility_mode === 'assigned' ? '🔒 ' : ''}{f.name}</Text>
                 <Muted>Folder</Muted>
               </View>
               {mgr && (
@@ -214,10 +214,10 @@ export function DrawingsBrowser({ siteId, folderId }: { siteId: string; folderId
             <Card key={f.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <Text style={{ fontSize: 18 }}>{fileIcon(f)}</Text>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontWeight: '700', color: base.ink }}>{f.name}</Text>
+                <Text style={{ fontWeight: '600', color: base.ink }}>{f.name}</Text>
                 {!!f.supersedes && <Muted>Supersedes &quot;{data.nameById[f.supersedes] || 'an earlier version'}&quot;</Muted>}
               </View>
-              <Pressable onPress={() => void view(f)} style={{ paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: base.line, borderRadius: 8 }}><Text style={{ fontWeight: '700', color: base.ink }}>View</Text></Pressable>
+              <Pressable onPress={() => void view(f)} style={{ paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: base.line, borderRadius: 8 }}><Text style={{ fontWeight: '600', color: base.ink }}>View</Text></Pressable>
               {mgr && <Pressable hitSlop={8} accessibilityLabel={`Options for ${f.name}`} onPress={async () => {
                 const k = await chooseAction(f.name, [{ key: 'ren', label: '✏️ Rename' }, { key: 'del', label: '🗑 Delete', danger: true }]);
                 if (k === 'ren') { const n = await promptText('Rename drawing', f.name); if (n && n.trim() && n.trim() !== f.name && await renameFile(f.id, n.trim())) { toast('Drawing renamed'); refresh(); } }
@@ -231,13 +231,13 @@ export function DrawingsBrowser({ siteId, folderId }: { siteId: string; folderId
       {markup && <MarkupEditor src={markup.src} onClose={(out) => { if (out) void saveMarkup(out.image); else setMarkup(null); }} />}
       {!!data?.superseded.length && (
         <>
-          <Pressable onPress={() => setShowOld(!showOld)} style={{ marginTop: space.m }}><Text style={{ fontWeight: '700', color: base.ink }}>{showOld ? '▼' : '▶'} Superseded Documents ({data.superseded.length})</Text></Pressable>
+          <Pressable onPress={() => setShowOld(!showOld)} style={{ marginTop: space.m }}><Text style={{ fontWeight: '600', color: base.ink }}>{showOld ? '▼' : '▶'} Superseded Documents ({data.superseded.length})</Text></Pressable>
           {showOld && (
             <Card>
               {data.superseded.map((f) => (
                 <View key={f.id} style={{ flexDirection: 'row', gap: 8, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: base.line }}>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontWeight: '700', color: base.ink }}>{f.name}</Text>
+                    <Text style={{ fontWeight: '600', color: base.ink }}>{f.name}</Text>
                     <Muted>Uploaded {new Date(f.uploaded_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} · superseded{f.superseded_by ? ` by "${data.nameById[f.superseded_by] || 'a newer version'}"` : ''}</Muted>
                     <Pressable onPress={() => void view(f)}><Text style={{ color: base.blue }}>View document ↗</Text></Pressable>
                   </View>

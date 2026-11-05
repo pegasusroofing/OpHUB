@@ -76,11 +76,11 @@ export default function Variations() {
             <Pressable onPress={() => { const n = new Set(open); if (isOpen) n.delete(v.id); else n.add(v.id); setOpen(n); }}
               style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, padding: 12, marginBottom: 8 }}>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontWeight: '700', color: base.ink }}>{v.description}</Text>
+                <Text style={{ fontWeight: '600', color: base.ink }}>{v.description}</Text>
                 <Muted>{nameOf(people, v.created_by)} · {d(v.created_at)}</Muted>
               </View>
-              {valueOf(v.cost_impact) != null && <Text style={{ fontSize: 11, fontWeight: '700', color: base.ink }}>{money(valueOf(v.cost_impact) as number)}</Text>}
-              {v.status !== 'closed' && <Text style={{ fontSize: 11, fontWeight: '700', color: col, borderWidth: 1, borderColor: col, borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2 }}>{approvalLabel(v)}</Text>}
+              {valueOf(v.cost_impact) != null && <Text style={{ fontSize: 11, fontWeight: '600', color: base.ink }}>{money(valueOf(v.cost_impact) as number)}</Text>}
+              {v.status !== 'closed' && <Text style={{ fontSize: 11, fontWeight: '600', color: col, borderWidth: 1, borderColor: col, borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2 }}>{approvalLabel(v)}</Text>}
               <Text style={{ color: base.slate }}>{isOpen ? '▼' : '▶'}</Text>
             </Pressable>
             {isOpen && (
@@ -98,17 +98,17 @@ export default function Variations() {
       {filter !== 'closed' && (
         <Card style={{ marginTop: 14 }}>
           <SectionTitle>Raise a variation</SectionTitle>
-          <Muted style={{ fontWeight: '700', marginBottom: 6 }}>Photo Evidence</Muted>
+          <Muted style={{ fontWeight: '600', marginBottom: 6 }}>Photo Evidence</Muted>
           <Pressable onPress={async () => { const p = await pickCameraOrLibrary(false); if ('error' in p) showAlert(p.error); else if (p[0]) { setPhoto(p[0]); setMarking(true); } }}
             style={{ borderWidth: 1.5, borderStyle: 'dashed', borderColor: base.line, borderRadius: radius.input, minHeight: 90, alignItems: 'center', justifyContent: 'center', marginBottom: 10, overflow: 'hidden' }}>
             {photo ? <Image source={{ uri: photo.uri }} style={{ width: '100%', height: 160 }} resizeMode="cover" /> : <Text style={{ color: base.slate }}>📷 Tap to add a photo</Text>}
           </Pressable>
           {!!photo && <View style={{ marginBottom: 10 }}><Button kind="ghost" small title="✏️ Mark up photo" onPress={() => setMarking(true)} /></View>}
-          <Muted style={{ fontWeight: '700', marginBottom: 6 }}>Description</Muted>
+          <Muted style={{ fontWeight: '600', marginBottom: 6 }}>Description</Muted>
           <TextInput multiline value={desc} onChangeText={setDesc} placeholder="What's changed and why..."
             style={{ minHeight: 70, borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, marginBottom: 6 }} />
           {canPrice && (<>
-            <Muted style={{ fontWeight: '700', marginBottom: 6 }}>Value to the client (£, ex VAT) — optional</Muted>
+            <Muted style={{ fontWeight: '600', marginBottom: 6 }}>Value to the client (£, ex VAT) — optional</Muted>
             <TextInput value={value} onChangeText={setValue} keyboardType="decimal-pad" placeholder="e.g. 850"
               style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, marginBottom: 6 }} />
           </>)}

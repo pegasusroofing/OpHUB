@@ -66,13 +66,13 @@ export default function RepairList() {
         <Pressable style={{ marginBottom: 8 }} onPress={async () => {
           const k = await chooseAction('Which list?', Object.entries(REPAIR_CATEGORIES).map(([c, d]) => ({ key: c, label: `${d.icon} ${d.label} (${jobs.filter(d.match).length})` })));
           if (k && k !== key) router.replace(`/sites/${id}/repairs/list/${k}` as never);
-        }}><Text style={{ color: base.ink, fontWeight: '700' }}>▾ {def.label}</Text></Pressable>
+        }}><Text style={{ color: base.ink, fontWeight: '600' }}>▾ {def.label}</Text></Pressable>
       )}
       <TextInput value={q} onChangeText={setQ} placeholder="Search address, description or job number" style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card, marginBottom: 8 }} />
       <View style={{ flexDirection: 'row', gap: 12, marginBottom: 10, alignItems: 'center' }}>
         <Pressable onPress={async () => { const k = await chooseAction('Sort by', sorts.map((s) => ({ key: s, label: REPAIR_SORT_LABELS[s] }))); if (k) setSort(k as RepairSort); }}><Text style={{ color: base.blue }}>⇅ {REPAIR_SORT_LABELS[sort]}</Text></Pressable>
         <View style={{ flex: 1 }} />
-        {mgr && <Pressable onPress={() => { setSelecting(!selecting); setSel(new Set()); }}><Text style={{ color: base.blue, fontWeight: '700' }}>{selecting ? 'Cancel' : 'Select'}</Text></Pressable>}
+        {mgr && <Pressable onPress={() => { setSelecting(!selecting); setSel(new Set()); }}><Text style={{ color: base.blue, fontWeight: '600' }}>{selecting ? 'Cancel' : 'Select'}</Text></Pressable>}
       </View>
       {selecting && (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
@@ -90,7 +90,7 @@ export default function RepairList() {
           style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderWidth: 1, borderColor: sel.has(j.id) ? base.ink : base.cardLine, borderRadius: radius.row, marginBottom: 8, backgroundColor: base.card }}>
           {selecting && <Text style={{ fontSize: 18 }}>{sel.has(j.id) ? '☑' : '☐'}</Text>}
           <View style={{ flex: 1 }}>
-            <Text style={{ fontWeight: '700', color: base.ink }}>{mgr && j.job_number ? `${j.job_number} · ` : ''}{j.address || 'No address'}</Text>
+            <Text style={{ fontWeight: '600', color: base.ink }}>{mgr && j.job_number ? `${j.job_number} · ` : ''}{j.address || 'No address'}</Text>
             {!!j.description && <Text style={{ color: base.slate, fontSize: 13 }} numberOfLines={2}>{j.description}</Text>}
             <Muted style={{ fontSize: 11 }}>{j.job_status || 'To Survey'}{j.closed ? (j.invoiced ? ' · Invoiced' : ' · Subject to invoice') : ''}</Muted>
           </View>

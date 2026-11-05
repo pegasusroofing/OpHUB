@@ -46,7 +46,7 @@ function JobTiles({ tiles, cols, noStretch }: { tiles: T[]; cols: number; noStre
             <Text numberOfLines={2} style={[heading(700), { fontSize: 13.2, color: base.ink, textAlign: 'center' }]}>{x.title}</Text>
             {!!x.sub && <Text numberOfLines={1} style={{ fontSize: 11.1, color: base.slateLight, textAlign: 'center' }}>{x.sub}</Text>}
             {x.badge != null && x.badge !== 0 && (
-              <Text style={{ position: 'absolute', top: 8, right: 8, backgroundColor: base.red, color: '#fff', fontSize: 11, fontWeight: '800', borderRadius: 9, minWidth: 18, textAlign: 'center', paddingHorizontal: 4, overflow: 'hidden' }}>{x.badge}</Text>
+              <Text style={{ position: 'absolute', top: 8, right: 8, backgroundColor: base.red, color: '#fff', fontSize: 11, fontWeight: '600', borderRadius: 9, minWidth: 18, textAlign: 'center', paddingHorizontal: 4, overflow: 'hidden' }}>{x.badge}</Text>
             )}
           </Pressable>
         </View>
@@ -62,7 +62,7 @@ function StatBox({ children, onPress }: { children: ReactNode; onPress?: () => v
   );
 }
 const statN = { ...mono(600), fontSize: 19, color: base.ink } as const;
-const statL = { fontSize: 10, color: base.slateLight, textTransform: 'uppercase', letterSpacing: 0.4, fontWeight: '700', textAlign: 'center' } as const;
+const statL = { fontSize: 10, color: base.slateLight, textTransform: 'uppercase', letterSpacing: 0.4, fontWeight: '600', textAlign: 'center' } as const;
 
 
 export default function SiteHome() {
@@ -117,10 +117,10 @@ export default function SiteHome() {
     <StatBox key="client" onPress={mgr ? go('client') : undefined}>
       {hasClient ? (
         <>
-          <Text numberOfLines={1} style={clientLine}><Text style={{ fontWeight: '800' }}>Client:</Text> {site.client_name || '—'}</Text>
-          <Text numberOfLines={1} style={clientLine}><Text style={{ fontWeight: '800' }}>Contact:</Text> {[site.client_contact_name, site.client_phone].filter(Boolean).join(' · ') || '—'}</Text>
+          <Text numberOfLines={1} style={clientLine}><Text style={{ fontWeight: '600' }}>Client:</Text> {site.client_name || '—'}</Text>
+          <Text numberOfLines={1} style={clientLine}><Text style={{ fontWeight: '600' }}>Contact:</Text> {[site.client_contact_name, site.client_phone].filter(Boolean).join(' · ') || '—'}</Text>
         </>
-      ) : <Text style={{ fontSize: 12, color: base.slateLight, fontWeight: '700' }}>{mgr ? 'Add client info' : 'No client info yet'}</Text>}
+      ) : <Text style={{ fontSize: 12, color: base.slateLight, fontWeight: '600' }}>{mgr ? 'Add client info' : 'No client info yet'}</Text>}
     </StatBox>
   );
   const calBox = (
@@ -172,10 +172,10 @@ export default function SiteHome() {
       <HowTo k="site_home" />
       <JobSignPrompt siteId={site.id} />
       <View style={[cardBox, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderColor: base.line, borderRadius: 10, paddingVertical: 10.8, paddingHorizontal: 12.6, marginBottom: 10.6, shadowOpacity: 0 }]}>
-        <Text style={{ fontSize: 12.6, color: base.ink }}>{site.job_number ? <><Text style={{ fontWeight: '800' }}>Job No:</Text> {site.job_number}</> : ' '}</Text>
+        <Text style={{ fontSize: 12.6, color: base.ink }}>{site.job_number ? <><Text style={{ fontWeight: '600' }}>Job No:</Text> {site.job_number}</> : ' '}</Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 999, paddingVertical: 4.5, paddingHorizontal: 8, backgroundColor: h?.meOnSite ? base.okBg : base.line }}>
           <View style={{ width: 5.4, height: 5.4, borderRadius: 3, backgroundColor: h?.meOnSite ? base.ok : base.slate }} />
-          <Text style={{ fontSize: 9.9, fontWeight: '800', letterSpacing: 0.5, color: h?.meOnSite ? base.ok : base.slate }}>{h?.meOnSite ? 'ON SITE' : 'NOT CHECKED IN'}</Text>
+          <Text style={{ fontSize: 9.9, fontWeight: '600', letterSpacing: 0.5, color: h?.meOnSite ? base.ok : base.slate }}>{h?.meOnSite ? 'ON SITE' : 'NOT CHECKED IN'}</Text>
         </View>
       </View>
       {fin && !client && <MoneyStrip site={site} />}
@@ -183,7 +183,7 @@ export default function SiteHome() {
       {mgr && siteStatusKey(site) === 'live' && h?.assignedCount === 0 && (
         <Pressable onPress={() => setAssignOpen(!assignOpen)}>
           <Card style={{ backgroundColor: base.warnBg, paddingVertical: 10 }}>
-            <Text style={{ color: base.ink, fontSize: 13 }}><Text style={{ fontWeight: '700' }}>Nobody is assigned to this job yet.</Text> Tap to assign operatives so they can check in.</Text>
+            <Text style={{ color: base.ink, fontSize: 13 }}><Text style={{ fontWeight: '600' }}>Nobody is assigned to this job yet.</Text> Tap to assign operatives so they can check in.</Text>
             {assignOpen && <QuickAssign siteId={site.id} />}
           </Card>
         </Pressable>

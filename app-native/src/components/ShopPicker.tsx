@@ -48,8 +48,8 @@ export function ShopPicker({ siteId, onPick, onClose }: { siteId: string; onPick
       <Pressable onPress={onClose} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 20 }}>
         <Pressable onPress={() => {}} style={{ backgroundColor: base.card, borderRadius: radius.card, padding: 16, maxWidth: 560, width: '100%', alignSelf: 'center', maxHeight: '90%' }}>
           <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 10 }}>
-            <Text style={{ flex: 1, fontSize: 17, fontWeight: '800', color: base.ink,  }}>Project quotes</Text>
-            <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" hitSlop={10} style={{ paddingLeft: 10 }}><Text style={{ fontSize: 18, color: base.slate, fontWeight: '700' }}>✕</Text></Pressable>
+            <Text style={{ flex: 1, fontSize: 17, fontWeight: '600', color: base.ink,  }}>Project quotes</Text>
+            <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" hitSlop={10} style={{ paddingLeft: 10 }}><Text style={{ fontSize: 18, color: base.slate, fontWeight: '600' }}>✕</Text></Pressable>
           </View>
           {isLoading ? <Text style={{ color: base.slate }}>Loading…</Text> : !items?.length ? (
             <Text style={{ color: base.slate, marginBottom: 10 }}>There are no project quotes for this project yet. Finance can add them from a supplier quote.</Text>
@@ -69,10 +69,10 @@ export function ShopPicker({ siteId, onPick, onClose }: { siteId: string; onPick
                 {shown.map((i) => (
                   <Pressable key={i.id} onPress={() => onPick(i)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: base.line }}>
                     <View style={{ flex: 1, minWidth: 0 }}>
-                      <Text style={{ fontWeight: '700', color: base.ink }}>{i.description}</Text>
+                      <Text style={{ fontWeight: '600', color: base.ink }}>{i.description}</Text>
                       <Text style={{ fontSize: 12, color: base.slate }}>{[i.quote_label || i.supplier_name, i.code, i.unit ? `per ${i.unit}` : ''].filter(Boolean).join(' · ')}</Text>
                     </View>
-                    {i.rate != null && <Text style={{ fontWeight: '700', color: base.ink }}>{money(i.rate)}</Text>}
+                    {i.rate != null && <Text style={{ fontWeight: '600', color: base.ink }}>{money(i.rate)}</Text>}
                   </Pressable>
                 ))}
                 {!shown.length && <Text style={{ color: base.slate, textAlign: 'center', paddingVertical: 14 }}>No match.</Text>}

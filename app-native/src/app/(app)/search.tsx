@@ -79,11 +79,11 @@ export default function Search() {
         const head = it.g !== last; last = it.g;
         return (
           <View key={`${it.g}${i}${it.go}`}>
-            {head && <Text style={{ fontSize: 11, fontWeight: '800', color: base.slate, textTransform: 'uppercase', letterSpacing: 0.6, marginTop: 10, marginBottom: 4 }}>{it.g}</Text>}
+            {head && <Text style={{ fontSize: 11, fontWeight: '600', color: base.slate, textTransform: 'uppercase', letterSpacing: 0.6, marginTop: 10, marginBottom: 4 }}>{it.g}</Text>}
             <Pressable onPress={() => router.push(it.go as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderRadius: radius.row, backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, marginBottom: 6 }}>
               <Text style={{ fontSize: 17 }}>{it.ic}</Text>
               <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={{ fontWeight: '700', color: base.ink }} numberOfLines={1}>{it.t}</Text>
+                <Text style={{ fontWeight: '600', color: base.ink }} numberOfLines={1}>{it.t}</Text>
                 {!!it.s && <Text style={{ color: base.slate, fontSize: 12 }} numberOfLines={1}>{it.s}</Text>}
               </View>
             </Pressable>

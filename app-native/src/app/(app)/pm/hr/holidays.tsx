@@ -61,7 +61,7 @@ export default function Holidays() {
     const halfHere = !!l.half || (!!ds && dayFraction(l, ds) < 1);
     return (
       <View key={l.id} style={{ flexDirection: 'row', alignSelf: 'flex-start', borderWidth: 1, borderColor: c, backgroundColor: pend ? '#fff' : c, borderRadius: 6, paddingHorizontal: small ? 2 : 6, paddingVertical: 1, marginTop: 1 }}>
-        <Text style={{ fontSize: small ? 8 : 12, fontWeight: '700', color: pend ? c : '#fff' }}>{small ? initials(l.user_id) : name(l.user_id)} {l.bank_holiday ? 'BH' : hrCode(hr, l.type)}{halfHere ? '½' : ''}</Text>
+        <Text style={{ fontSize: small ? 8 : 12, fontWeight: '600', color: pend ? c : '#fff' }}>{small ? initials(l.user_id) : name(l.user_id)} {l.bank_holiday ? 'BH' : hrCode(hr, l.type)}{halfHere ? '½' : ''}</Text>
       </View>
     );
   };
@@ -114,7 +114,7 @@ export default function Holidays() {
   const selOffs = offOn(hr.leave, sel).filter((l) => !l.bank_holiday);
   const myUpcoming = hr.allLeave.filter((l) => l.user_id === me.id && !l.bank_holiday && l.end_date >= today && (l.status === 'approved' || l.status === 'pending'));
   const preview = d ? (() => { const s = readIsoDate(d.start), e = readIsoDate(d.end); return s && e && s !== 'bad' && e !== 'bad' && e >= s ? leaveDays({ start_date: s, end_date: e, ...bookingParts(s, e, d.part, d.startPart, d.endPart) }) : null; })() : null;
-  const stat = (n: number, l: string, hot = false) => <Card style={{ flex: 1, alignItems: 'center' }}><Text style={{ fontSize: 22, fontWeight: '800', color: hot && n ? base.warn : base.ink }}>{n}</Text><Muted style={{ textAlign: 'center' }}>{l}</Muted></Card>;
+  const stat = (n: number, l: string, hot = false) => <Card style={{ flex: 1, alignItems: 'center' }}><Text style={{ fontSize: 22, fontWeight: '600', color: hot && n ? base.warn : base.ink }}>{n}</Text><Muted style={{ textAlign: 'center' }}>{l}</Muted></Card>;
 
   return (
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
@@ -128,19 +128,19 @@ export default function Holidays() {
         <Card>
           <SectionTitle>Book time off</SectionTitle>
           {isAdmin && <Pressable style={[box, { paddingVertical: 12 }]} onPress={async () => { const k = await chooseAction('Who', hr.people.map((p) => ({ key: p.id, label: p.name }))); if (k) setD({ ...d, user_id: k }); }}><Text style={{ color: base.ink }}>▼ {name(d.user_id)}</Text></Pressable>}
-          <Muted style={{ fontWeight: '700', marginBottom: 4 }}>Type</Muted>
+          <Muted style={{ fontWeight: '600', marginBottom: 4 }}>Type</Muted>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>{Object.keys(HR_TYPES).map((k) => <Chip key={k} on={d.type === k} label={`${HR_TYPES[k]} (${hrCode(hr, k)})`} onPress={() => setD({ ...d, type: k })} />)}</View>
           <View style={{ flexDirection: 'row', gap: 8 }}>
-            <View style={{ flex: 1 }}><Muted style={{ fontWeight: '700' }}>From</Muted><DateBox value={d.start} onChange={(v) => setD({ ...d, start: v, end: !d.end || d.end < v ? v : d.end })} clearable={false} title="From" style={{ marginBottom: 8 }} /></View>
-            <View style={{ flex: 1 }}><Muted style={{ fontWeight: '700' }}>To</Muted><DateBox value={d.end} onChange={(v) => setD({ ...d, end: v })} min={d.start || undefined} clearable={false} title="To" style={{ marginBottom: 8 }} /></View>
+            <View style={{ flex: 1 }}><Muted style={{ fontWeight: '600' }}>From</Muted><DateBox value={d.start} onChange={(v) => setD({ ...d, start: v, end: !d.end || d.end < v ? v : d.end })} clearable={false} title="From" style={{ marginBottom: 8 }} /></View>
+            <View style={{ flex: 1 }}><Muted style={{ fontWeight: '600' }}>To</Muted><DateBox value={d.end} onChange={(v) => setD({ ...d, end: v })} min={d.start || undefined} clearable={false} title="To" style={{ marginBottom: 8 }} /></View>
           </View>
           {d.start === d.end ? (
             <View style={{ flexDirection: 'row', gap: 6, marginBottom: 10 }}>{[['full', 'Full day'], ['am', 'Morning'], ['pm', 'Afternoon']].map(([k, l]) => <Chip key={k} on={d.part === k} label={l} onPress={() => setD({ ...d, part: k })} />)}</View>
           ) : (
             <>
-              <Muted style={{ fontWeight: '700' }}>First day</Muted>
+              <Muted style={{ fontWeight: '600' }}>First day</Muted>
               <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8 }}>{[['full', 'Full day'], ['pm', 'Afternoon only']].map(([k, l]) => <Chip key={k} on={d.startPart === k} label={l} onPress={() => setD({ ...d, startPart: k })} />)}</View>
-              <Muted style={{ fontWeight: '700' }}>Last day</Muted>
+              <Muted style={{ fontWeight: '600' }}>Last day</Muted>
               <View style={{ flexDirection: 'row', gap: 6, marginBottom: 10 }}>{[['full', 'Full day'], ['am', 'Morning only']].map(([k, l]) => <Chip key={k} on={d.endPart === k} label={l} onPress={() => setD({ ...d, endPart: k })} />)}</View>
             </>
           )}
@@ -159,18 +159,18 @@ export default function Holidays() {
           <Card style={{ marginTop: 10 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
               <Pressable hitSlop={10} onPress={() => setMonth(month.m === 0 ? { y: month.y - 1, m: 11 } : { y: month.y, m: month.m - 1 })}><Text style={{ fontSize: 20, paddingHorizontal: 10 }}>‹</Text></Pressable>
-              <Text style={{ flex: 1, textAlign: 'center', fontWeight: '800', color: base.ink }}>{new Date(month.y, month.m, 1).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}</Text>
-              <Pressable onPress={() => { const t = new Date(); setMonth({ y: t.getFullYear(), m: t.getMonth() }); setSel(today); }}><Text style={{ color: base.blue, fontWeight: '700', paddingHorizontal: 6 }}>Today</Text></Pressable>
+              <Text style={{ flex: 1, textAlign: 'center', fontWeight: '600', color: base.ink }}>{new Date(month.y, month.m, 1).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}</Text>
+              <Pressable onPress={() => { const t = new Date(); setMonth({ y: t.getFullYear(), m: t.getMonth() }); setSel(today); }}><Text style={{ color: base.blue, fontWeight: '600', paddingHorizontal: 6 }}>Today</Text></Pressable>
               <Pressable hitSlop={10} onPress={() => setMonth(month.m === 11 ? { y: month.y + 1, m: 0 } : { y: month.y, m: month.m + 1 })}><Text style={{ fontSize: 20, paddingHorizontal: 10 }}>›</Text></Pressable>
             </View>
-            <View style={{ flexDirection: 'row' }}>{['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((x, i) => <Text key={i} style={{ width: `${100 / 7}%`, textAlign: 'center', fontSize: 11, color: base.slate, fontWeight: '700' }}>{x}</Text>)}</View>
+            <View style={{ flexDirection: 'row' }}>{['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((x, i) => <Text key={i} style={{ width: `${100 / 7}%`, textAlign: 'center', fontSize: 11, color: base.slate, fontWeight: '600' }}>{x}</Text>)}</View>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
               {grid.map((ds) => {
                 const dt = new Date(`${ds}T00:00:00`), offs = offOn(hr.leave, ds).filter((l) => !l.bank_holiday);
                 const bh = isBankHol(ds), we = dt.getDay() === 0 || dt.getDay() === 6;
                 return (
                   <Pressable key={ds} onPress={() => setSel(ds)} style={{ width: `${100 / 7}%`, minHeight: 62, padding: 2, borderWidth: sel === ds ? 2 : 0.5, borderColor: sel === ds ? base.ink : base.line, backgroundColor: bh || we ? base.paper : base.card, opacity: dt.getMonth() === month.m ? 1 : 0.45 }}>
-                    <Text style={{ fontSize: 11, fontWeight: '700', color: ds === today ? base.red : base.ink }}>{dt.getDate()}{bh ? ' BH' : ''}</Text>
+                    <Text style={{ fontSize: 11, fontWeight: '600', color: ds === today ? base.red : base.ink }}>{dt.getDate()}{bh ? ' BH' : ''}</Text>
                     {offs.slice(0, 3).map((l) => chip(l, true, ds))}
                     {offs.length > 3 && <Text style={{ fontSize: 8, color: base.slate }}>+{offs.length - 3}</Text>}
                   </Pressable>
@@ -191,9 +191,9 @@ export default function Holidays() {
                   return (
                     <View key={p.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 7, borderBottomWidth: 1, borderBottomColor: base.line }}>
                       <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: hrColour(hr, p.id) }} />
-                      <Text style={{ flex: 1, fontWeight: '700', color: base.ink }}>{p.name}</Text>
+                      <Text style={{ flex: 1, fontWeight: '600', color: base.ink }}>{p.name}</Text>
                       <Muted>{used} used{pend ? ` · ${pend} waiting` : ''}</Muted>
-                      <Text style={{ fontWeight: '800', color: base.ink, minWidth: 50, textAlign: 'right' }}>{al - used - pend}<Text style={{ color: base.slate, fontSize: 11 }}>/{al}</Text></Text>
+                      <Text style={{ fontWeight: '600', color: base.ink, minWidth: 50, textAlign: 'right' }}>{al - used - pend}<Text style={{ color: base.slate, fontSize: 11 }}>/{al}</Text></Text>
                     </View>
                   );
                 })}
@@ -205,7 +205,7 @@ export default function Holidays() {
             <Card key={l.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               {chip(l, false)}
               <View style={{ flex: 1 }}>
-                <Text style={{ fontWeight: '700', color: base.ink }}>{typeLabel(l)}</Text>
+                <Text style={{ fontWeight: '600', color: base.ink }}>{typeLabel(l)}</Text>
                 <Muted>{range(l)}{l.status === 'pending' ? ' · waiting approval' : ''}{l.note ? ` · ${l.note}` : ''}</Muted>
               </View>
             </Card>
@@ -217,10 +217,10 @@ export default function Holidays() {
               {myUpcoming.map((l) => (
                 <Card key={l.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontWeight: '700', color: base.ink }}>{typeLabel(l)} · {l.days} day{Number(l.days) === 1 ? '' : 's'}</Text>
+                    <Text style={{ fontWeight: '600', color: base.ink }}>{typeLabel(l)} · {l.days} day{Number(l.days) === 1 ? '' : 's'}</Text>
                     <Muted>{range(l)}{l.status === 'pending' ? ' · waiting approval' : ''}{l.link_projects ? ' · on project calendars' : ''}</Muted>
                   </View>
-                  <Pressable onPress={async () => { if (!(await confirmAsk('Cancel this time off?', 'Cancel it'))) return; toast((await cancelLeave(l.id)) ? 'Cancelled' : 'Could not save — try again.'); refresh(); }}><Text style={{ color: base.warn, fontWeight: '700' }}>Cancel</Text></Pressable>
+                  <Pressable onPress={async () => { if (!(await confirmAsk('Cancel this time off?', 'Cancel it'))) return; toast((await cancelLeave(l.id)) ? 'Cancelled' : 'Could not save — try again.'); refresh(); }}><Text style={{ color: base.warn, fontWeight: '600' }}>Cancel</Text></Pressable>
                 </Card>
               ))}
             </>
@@ -231,7 +231,7 @@ export default function Holidays() {
       {isAdmin && view === 'req' && (pending.length ? pending.map((l) => (
         <Card key={l.id}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>{chip(l, false)}<Muted>{l.days} day{Number(l.days) === 1 ? '' : 's'}</Muted></View>
-          <Text style={{ fontWeight: '700', color: base.ink, marginTop: 6 }}>{typeLabel(l)} · {range(l)}</Text>
+          <Text style={{ fontWeight: '600', color: base.ink, marginTop: 6 }}>{typeLabel(l)} · {range(l)}</Text>
           {!!l.note && <Muted>{l.note}</Muted>}
           <Muted style={{ marginBottom: 8 }}>{hrAllowance(hr, l.user_id) - usedDays(hr.leave, l.user_id, Number(l.start_date.slice(0, 4)), ['approved'])} days left before this</Muted>
           <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -245,13 +245,13 @@ export default function Holidays() {
         <>
           <Card>
             <SectionTitle>Rules</SectionTitle>
-            <Muted style={{ fontWeight: '700' }}>Most people off at the same time</Muted>
+            <Muted style={{ fontWeight: '600' }}>Most people off at the same time</Muted>
             <TextInput value={setMax ?? String(Number(hr.settings.max_off_at_once) || 0)} onChangeText={setSetMax} keyboardType="number-pad" style={box} />
             <Muted style={{ marginBottom: 10 }}>0 = no limit. You can still go over it yourself when booking or approving. PMs&apos; and site managers&apos; time off always comes to an admin to approve; sick days are recorded straight away.</Muted>
-            <Muted style={{ fontWeight: '700', marginBottom: 6 }}>Letters shown in the calendar</Muted>
+            <Muted style={{ fontWeight: '600', marginBottom: 6 }}>Letters shown in the calendar</Muted>
             {Object.keys(HR_TYPES).map((k) => (
               <View key={k} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                <TextInput value={(codes ?? {})[k] ?? hrCode(hr, k)} onChangeText={(v) => setCodes({ ...(codes ?? {}), [k]: v.toUpperCase().slice(0, 2) })} maxLength={2} autoCapitalize="characters" style={[box, { width: 60, marginBottom: 0, textAlign: 'center', fontWeight: '800' }]} />
+                <TextInput value={(codes ?? {})[k] ?? hrCode(hr, k)} onChangeText={(v) => setCodes({ ...(codes ?? {}), [k]: v.toUpperCase().slice(0, 2) })} maxLength={2} autoCapitalize="characters" style={[box, { width: 60, marginBottom: 0, textAlign: 'center', fontWeight: '600' }]} />
                 <Text style={{ color: base.ink }}>{HR_TYPES[k]}</Text>
               </View>
             ))}
@@ -264,7 +264,7 @@ export default function Holidays() {
               return (
                 <View key={p.id} style={{ marginBottom: 12 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <Text style={{ flex: 1, fontWeight: '700', color: base.ink }}>{p.name}</Text>
+                    <Text style={{ flex: 1, fontWeight: '600', color: base.ink }}>{p.name}</Text>
                     <TextInput value={allow[p.id] ?? String(hrAllowance(hr, p.id))} onChangeText={(v) => setAllow({ ...allow, [p.id]: v })} keyboardType="decimal-pad" style={[box, { width: 72, marginBottom: 0 }]} />
                   </View>
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 6 }}>

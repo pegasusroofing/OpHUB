@@ -78,8 +78,8 @@ export default function Collections() {
         <Pressable onPress={() => flip(m.id, open, setOpen)} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12 }}>
           <Pressable hitSlop={8} onPress={() => flip(m.id, sel, setSel)}><Text style={{ fontSize: 18 }}>{sel.has(m.id) ? '☑' : '☐'}</Text></Pressable>
           <Text style={{ color: base.slate }}>{isOpen ? '▼' : '▶'}</Text>
-          <Text style={{ flex: 1, fontWeight: '700', color: base.ink, fontSize: 15.5 }}>{m.item}{m.qty ? <Text style={{ color: base.slate, fontWeight: '600' }}> × {m.qty}</Text> : null}</Text>
-          <Text style={{ fontSize: 11.5, fontWeight: '700', color: m.status === 'closed' || m.status === 'collected' ? base.ok : m.status === 'assigned' ? base.blue : base.warn }}>{STATUS[m.status] || m.status}</Text>
+          <Text style={{ flex: 1, fontWeight: '600', color: base.ink, fontSize: 15.5 }}>{m.item}{m.qty ? <Text style={{ color: base.slate, fontWeight: '600' }}> × {m.qty}</Text> : null}</Text>
+          <Text style={{ fontSize: 11.5, fontWeight: '600', color: m.status === 'closed' || m.status === 'collected' ? base.ok : m.status === 'assigned' ? base.blue : base.warn }}>{STATUS[m.status] || m.status}</Text>
         </Pressable>
         {isOpen && (
           <View style={{ paddingHorizontal: 12, paddingBottom: 12 }}>
@@ -143,7 +143,7 @@ export default function Collections() {
       refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => { void refetch(); }} />}>
       <Stack.Screen options={{ title: 'Collections' }} />
       {!!me && isManager(me) && <MatTabs siteId={id} on="collect" collectN={collectN ?? 0} yard={yardCanEdit(me, isFinanceUser(me, org))} />}
-      <Card style={{ backgroundColor: '#FCEFD2' }}><Text style={{ color: '#5E3D00' }}><Text style={{ fontWeight: '700' }}>Items for an operative to pick up.</Text> Assign who collects each one — it shows on their Materials screen as a tick list.</Text></Card>
+      <Card style={{ backgroundColor: '#FCEFD2' }}><Text style={{ color: '#5E3D00' }}><Text style={{ fontWeight: '600' }}>Items for an operative to pick up.</Text> Assign who collects each one — it shows on their Materials screen as a tick list.</Text></Card>
       <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
         {([['live', 'To collect'], ['closed', 'Collected']] as const).map(([k, l]) => (
           <Pressable key={k} onPress={() => { setTab(k); setSel(new Set()); setAssignFor(null); setCollectFor(null); }}
@@ -155,7 +155,7 @@ export default function Collections() {
 
       {items.length > 1 && sel.size > 0 && (
         <Pressable onPress={() => setSel(sel.size >= items.length ? new Set() : new Set(items.map((m) => m.id)))} style={{ marginBottom: 8 }}>
-          <Text style={{ fontWeight: '700', color: base.ink }}>{sel.size >= items.length ? '☑' : '☐'} Select all ({items.length}){sel.size < items.length ? ` · ${sel.size} selected` : ''}</Text>
+          <Text style={{ fontWeight: '600', color: base.ink }}>{sel.size >= items.length ? '☑' : '☐'} Select all ({items.length}){sel.size < items.length ? ` · ${sel.size} selected` : ''}</Text>
         </Pressable>
       )}
       {picked.length > 0 && (
@@ -192,12 +192,12 @@ export default function Collections() {
         return (
           <Card key={k}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <Text style={{ flex: 1, fontWeight: '700', color: base.ink }}>{k === '__none' ? 'No supplier' : sup?.name ?? 'Supplier'} <Text style={{ color: base.slate, fontWeight: '400' }}>({groups[k].length} item{groups[k].length > 1 ? 's' : ''})</Text></Text>
+              <Text style={{ flex: 1, fontWeight: '600', color: base.ink }}>{k === '__none' ? 'No supplier' : sup?.name ?? 'Supplier'} <Text style={{ color: base.slate, fontWeight: '400' }}>({groups[k].length} item{groups[k].length > 1 ? 's' : ''})</Text></Text>
               {k !== '__none' && sup && <Pressable onPress={() => { if (!sup.email && !branchesOf(sup).some((b) => b.email)) { toast('This supplier has no email on file.'); return; } setEmailing({ kind: 'supplier', sup }); }}><Text style={{ color: base.blue }}>✉ Email Supplier</Text></Pressable>}
             </View>
             {bundles(groups[k]).map((b) => (b.length < 2 ? row(b[0]) : (
               <View key={`g:${b[0].group_id}`} style={{ borderLeftWidth: 4, borderLeftColor: '#6A2C91', paddingLeft: 8, marginBottom: 8 }}>
-                <Text style={{ fontWeight: '700', color: '#4E1F6E', marginBottom: 6 }}>🔗 Grouped request · {b.length} items</Text>
+                <Text style={{ fontWeight: '600', color: '#4E1F6E', marginBottom: 6 }}>🔗 Grouped request · {b.length} items</Text>
                 {b.map(row)}
               </View>
             )))}
@@ -218,7 +218,7 @@ function SupplierPick({ suppliers, value, onChange }: { suppliers: FullSupplier[
   const [q, setQ] = useState('');
   return (
     <View style={{ marginBottom: 8 }}>
-      <Pressable onPress={() => setOpen(!open)} style={{ paddingVertical: 6 }}><Text style={{ fontWeight: '700', color: base.ink }}>{open ? '▼' : '▶'} {suppliers.find((s) => s.id === value)?.name ?? 'Supplier (optional)'}</Text></Pressable>
+      <Pressable onPress={() => setOpen(!open)} style={{ paddingVertical: 6 }}><Text style={{ fontWeight: '600', color: base.ink }}>{open ? '▼' : '▶'} {suppliers.find((s) => s.id === value)?.name ?? 'Supplier (optional)'}</Text></Pressable>
       {open && (
         <View>
           {suppliers.length > 10 && <TextInput value={q} onChangeText={setQ} placeholder="Filter suppliers…" style={box} />}
@@ -237,7 +237,7 @@ function BranchPick({ branches, value, onChange }: { branches: Branch[]; value: 
   if (!branches.length) return null;
   return (
     <View style={{ marginBottom: 8 }}>
-      <Muted style={{ fontWeight: '700' }}>Branch / address</Muted>
+      <Muted style={{ fontWeight: '600' }}>Branch / address</Muted>
       <Pressable onPress={() => onChange(null)}><Text style={{ paddingVertical: 5, color: base.ink }}>{!value ? '◉' : '○'} Any branch / not specified</Text></Pressable>
       {branches.map((b) => (
         <Pressable key={b.id} onPress={() => onChange({ id: b.id, name: b.name || '', address: b.address || '', phone: b.phone || '', email: b.email || '' })}>
@@ -277,7 +277,7 @@ function AddBox({ suppliers, addrs, onSave }: { suppliers: FullSupplier[]; addrs
       <BranchPick branches={branchesOf(suppliers.find((s) => s.id === sup))} value={branch} onChange={setBranch} />
       {addrs && (
         <View style={{ marginBottom: 8 }}>
-          <Muted style={{ fontWeight: '700' }}>Address</Muted>
+          <Muted style={{ fontWeight: '600' }}>Address</Muted>
           <Pressable onPress={() => setSub(null)}><Text style={{ paddingVertical: 5, color: base.ink }}>{!sub ? '◉' : '○'} Not on the list</Text></Pressable>
           {addrs.map((a) => <Pressable key={a.id} onPress={() => setSub(a.id)}><Text style={{ paddingVertical: 5, color: base.ink }}>{sub === a.id ? '◉' : '○'} {a.name}</Text></Pressable>)}
         </View>
@@ -308,7 +308,7 @@ function EmailBox({ title, managers, meId, fixed, lines, onSend, onCancel }: {
   return (
     <Card style={{ borderColor: base.blue, borderWidth: 1.5 }}>
       <SectionTitle>{title}</SectionTitle>
-      {fixed ? <Muted>Sending to <Text style={{ fontWeight: '700' }}>{fixed}</Text> — {lines.length} item{lines.length > 1 ? 's' : ''}:</Muted> : <Muted>Tick who should receive it, or add another address below.</Muted>}
+      {fixed ? <Muted>Sending to <Text style={{ fontWeight: '600' }}>{fixed}</Text> — {lines.length} item{lines.length > 1 ? 's' : ''}:</Muted> : <Muted>Tick who should receive it, or add another address below.</Muted>}
       {!fixed && managers.map((p) => (
         <Pressable key={p.id} onPress={() => { const s = new Set(ticked); if (s.has(p.email as string)) s.delete(p.email as string); else s.add(p.email as string); setTicked(s); }}>
           <Text style={{ paddingVertical: 5, color: base.ink }}>{ticked.has(p.email as string) ? '☑' : '☐'} {p.name} <Text style={{ color: base.slate }}>({p.email})</Text></Text>

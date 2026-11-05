@@ -41,7 +41,7 @@ function Folders({ setPick }: { setPick: (p: Pick | null) => void }) {
     <View>
       {sel.length > 0 && (
         <Card style={{ backgroundColor: '#EEF3FA' }}>
-          <Text style={{ fontWeight: '800', color: base.ink, marginBottom: 6 }}>{sel.length} selected</Text>
+          <Text style={{ fontWeight: '600', color: base.ink, marginBottom: 6 }}>{sel.length} selected</Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
             {([['Move', () => setPick({ title: `Move ${sel.length} assessment${sel.length === 1 ? '' : 's'} to which folder?`, then: async ([d]) => { setPick(null); toast(`${await moveFiles(sel, d)} moved`); setSel([]); setFolderId(d); refresh(); } })],
               ['+ Also in…', () => setPick({ title: `Also put ${sel.length} assessment${sel.length === 1 ? '' : 's'} in which folder(s)?`, multi: true, then: async (ds) => { setPick(null); const n = await alsoIn(me, sel, ds); toast(n ? `Added to ${n} more folder place${n === 1 ? '' : 's'}` : 'Already in those folders'); setSel([]); refresh(); } })],
@@ -52,7 +52,7 @@ function Folders({ setPick }: { setPick: (p: Pick | null) => void }) {
                 setBusy('Sending…');
                 try { const p = await packPdf(sel); if (!p) { toast('Nothing to email.'); return; } const err = await emailPdf(p.bytes, p.filename, `coshh-exports/${me.org_id}`, { general_label: 'COSHH assessments', recipient_email: to, cc_email: to !== me.email ? me.email || undefined : undefined, doc_title: p.label }); toast(err || 'Emailed'); if (!err) setSel([]); } finally { setBusy(''); }
               }],
-              ['Clear', () => setSel([])]] as [string, () => void][]).map(([l, fn]) => <Pressable key={l} onPress={fn} style={[box, { paddingVertical: 6 }]}><Text style={{ color: base.ink, fontWeight: '700', fontSize: 12 }}>{l}</Text></Pressable>)}
+              ['Clear', () => setSel([])]] as [string, () => void][]).map(([l, fn]) => <Pressable key={l} onPress={fn} style={[box, { paddingVertical: 6 }]}><Text style={{ color: base.ink, fontWeight: '600', fontSize: 12 }}>{l}</Text></Pressable>)}
           </View>
         </Card>
       )}
@@ -60,14 +60,14 @@ function Folders({ setPick }: { setPick: (p: Pick | null) => void }) {
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
         {cur && <Pressable onPress={() => setFolderId(cur.parent_id)} style={[box, { paddingVertical: 5 }]}><Text style={{ color: base.ink }}>‹ Up</Text></Pressable>}
         {(allFolders ?? []).some((f) => !f.parent_id) && <Pressable onPress={async () => { const k = await chooseAction('Jump to a folder', [{ key: '-', label: 'Top level' }, ...(allFolders ?? []).filter((f) => !f.parent_id).sort((a, b) => a.name.localeCompare(b.name)).map((f) => ({ key: f.id, label: f.name }))]); if (k) setFolderId(k === '-' ? null : k); }} style={[box, { paddingVertical: 5 }]}><Text style={{ color: base.ink }}>Jump to… ▾</Text></Pressable>}
-        <Text style={{ flex: 1, fontWeight: '800', color: base.ink }}>{cur ? cur.name : 'Folders'}</Text>
-        <Pressable onPress={async () => { const n = await promptText('New folder name', ''); if (!n || !n.trim()) return; toast((await createFolder(me, folderId, n.trim())) ? 'Folder created' : 'Could not create the folder'); refresh(); }} style={[box, { paddingVertical: 5 }]}><Text style={{ color: base.ink, fontWeight: '700' }}>+ Folder</Text></Pressable>
+        <Text style={{ flex: 1, fontWeight: '600', color: base.ink }}>{cur ? cur.name : 'Folders'}</Text>
+        <Pressable onPress={async () => { const n = await promptText('New folder name', ''); if (!n || !n.trim()) return; toast((await createFolder(me, folderId, n.trim())) ? 'Folder created' : 'Could not create the folder'); refresh(); }} style={[box, { paddingVertical: 5 }]}><Text style={{ color: base.ink, fontWeight: '600' }}>+ Folder</Text></Pressable>
       </View>
       {isLoading ? <Muted>Loading…</Muted> : (data?.subfolders.length || data?.files.length) ? (
         <>
           {data.subfolders.map((f) => (
             <Pressable key={f.id} onPress={() => setFolderId(f.id)} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, padding: 11, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 6, backgroundColor: base.card }}>
-              <Text style={{ flex: 1, fontWeight: '700', color: base.ink }}>📁 {f.name}</Text>
+              <Text style={{ flex: 1, fontWeight: '600', color: base.ink }}>📁 {f.name}</Text>
               <Pressable hitSlop={8} onPress={async () => { const n = await promptText('Rename folder', f.name); if (n && n.trim() && n.trim() !== f.name) { toast((await renameFolder(f.id, n.trim())) ? 'Folder renamed' : 'Could not rename'); refresh(); } }}><Text>✏️</Text></Pressable>
               <Pressable hitSlop={8} onPress={async () => { if (await confirmAsk("Delete this folder and everything inside it? This can't be undone.", 'Delete')) { toast((await deleteFolder(f.id)) ? 'Folder deleted' : 'Could not delete'); refresh(); } }}><Text>🗑</Text></Pressable>
             </Pressable>
@@ -76,9 +76,9 @@ function Folders({ setPick }: { setPick: (p: Pick | null) => void }) {
             const on = sel.includes(f.id);
             return (
               <Card key={f.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, borderColor: on ? base.ink : base.cardLine }}>
-                <Pressable onPress={() => setSel(on ? sel.filter((x) => x !== f.id) : [...sel, f.id])} hitSlop={6} style={{ width: 22, height: 22, borderRadius: 5, borderWidth: 1.5, borderColor: on ? live.brand1 : base.line, backgroundColor: on ? live.brand1 : base.card, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff', fontWeight: '800' }}>{on ? '✓' : ''}</Text></Pressable>
-                <Text style={{ flex: 1, fontWeight: '700', color: base.ink }}>{f.name}</Text>
-                <Pressable onPress={async () => { const u = await openDocLink('coshh-library', f.storage_path); if (u) viewDoc(u); else toast('Could not open the file.'); }}><Text style={{ color: base.blue, fontWeight: '700' }}>View</Text></Pressable>
+                <Pressable onPress={() => setSel(on ? sel.filter((x) => x !== f.id) : [...sel, f.id])} hitSlop={6} style={{ width: 22, height: 22, borderRadius: 5, borderWidth: 1.5, borderColor: on ? live.brand1 : base.line, backgroundColor: on ? live.brand1 : base.card, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff', fontWeight: '600' }}>{on ? '✓' : ''}</Text></Pressable>
+                <Text style={{ flex: 1, fontWeight: '600', color: base.ink }}>{f.name}</Text>
+                <Pressable onPress={async () => { const u = await openDocLink('coshh-library', f.storage_path); if (u) viewDoc(u); else toast('Could not open the file.'); }}><Text style={{ color: base.blue, fontWeight: '600' }}>View</Text></Pressable>
                 <Pressable hitSlop={8} onPress={async () => { const n = await promptText('Rename document', f.name); if (n && n.trim() && n.trim() !== f.name) { toast((await renameFile(f.id, n.trim())) ? 'Document renamed' : 'Could not rename'); refresh(); } }}><Text>✏️</Text></Pressable>
                 <Pressable hitSlop={8} onPress={async () => { if (await confirmAsk("Delete this document from the library? This can't be undone.", 'Delete')) { toast((await deleteFile(f)) ? 'Document deleted' : 'Could not delete'); refresh(); } }}><Text>🗑</Text></Pressable>
               </Card>
@@ -174,7 +174,7 @@ function Products({ setPick }: { setPick: (p: Pick | null) => void }) {
       }} />
       {dupN > 0 && (
         <Card style={{ backgroundColor: '#FDECEA', borderColor: '#F5C2BD', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Text style={{ flex: 1, color: '#8E2B20' }}><Text style={{ fontWeight: '800' }}>{dupN} duplicate{dupN === 1 ? '' : 's'}</Text> — marked in red below</Text>
+          <Text style={{ flex: 1, color: '#8E2B20' }}><Text style={{ fontWeight: '600' }}>{dupN} duplicate{dupN === 1 ? '' : 's'}</Text> — marked in red below</Text>
           <Button title="Remove duplicates" onPress={async () => {
             if (!(await confirmAsk(`Remove ${dupN} duplicate product${dupN === 1 ? '' : 's'}? The first copy of each is kept. Assessments already in folders aren't touched.`, 'Remove'))) return;
             const n = await removeDuplicates(all); toast(`${n} duplicate${n === 1 ? '' : 's'} removed`); refresh();
@@ -190,7 +190,7 @@ function Products({ setPick }: { setPick: (p: Pick | null) => void }) {
               <Pressable key={it.id} onPress={() => router.push(`/pm/admin/coshh/${it.id}` as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, padding: 10, borderWidth: 1, borderColor: dup ? '#E0301E' : base.cardLine, borderRadius: radius.row, marginBottom: 6, backgroundColor: base.card }}>
                 <View style={{ flexDirection: 'row', width: 58, gap: 2 }}>{it.data.pictos.slice(0, 3).map((k) => <Image key={k} source={{ uri: COSHH_PICTO_IMG[k] }} style={{ width: 18, height: 18 }} />)}</View>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontWeight: '700', color: base.ink }}>{it.title}{dup ? '  · Duplicate' : ''}{it.data.needsCheck ? '  · Check' : ''}</Text>
+                  <Text style={{ fontWeight: '600', color: base.ink }}>{it.title}{dup ? '  · Duplicate' : ''}{it.data.needsCheck ? '  · Check' : ''}</Text>
                   <Muted>{it.data.manufacturer || 'No manufacturer'}{it.data.sdsPath ? ' · data sheet' : ' · no data sheet'}{a ? ` · ${a.due ? 'review due' : `assessed ${fmtD(a.at)}`}` : ''}</Muted>
                 </View>
                 {a ? (
@@ -205,7 +205,7 @@ function Products({ setPick }: { setPick: (p: Pick | null) => void }) {
                       toast((await deleteProductFull(it, a)) ? 'Deleted' : 'Could not delete'); refresh();
                     }
                   }}><Text style={{ fontSize: 18, color: base.slate }}>⋯</Text></Pressable>
-                ) : <Pressable onPress={() => assess(it)} style={[box, { paddingVertical: 5 }]}><Text style={{ fontWeight: '700', color: base.ink, fontSize: 12 }}>+ Assess</Text></Pressable>}
+                ) : <Pressable onPress={() => assess(it)} style={[box, { paddingVertical: 5 }]}><Text style={{ fontWeight: '600', color: base.ink, fontSize: 12 }}>+ Assess</Text></Pressable>}
               </Pressable>
             );
           })}
@@ -232,7 +232,7 @@ export default function CoshhLibrary() {
       <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
         <Muted style={{ marginBottom: 10 }}>1. Add a product and its data sheet. 2. Check it and tap Assess — the assessment is saved in a folder. 3. Add assessments to a job from its COSHH page (Add from COSHH Library), or tick them here to export or email.</Muted>
         <View style={{ flexDirection: 'row', gap: 6, marginBottom: 12 }}>
-          {([['assess', 'Assessments (folders)'], ['products', 'Products (data sheets)']] as const).map(([k, l]) => <Pressable key={k} onPress={() => setTab(k)} style={chip(tab === k)}><Text style={{ textAlign: 'center', fontWeight: '700', fontSize: 12, color: tab === k ? live.brand1Text : base.ink }}>{l}</Text></Pressable>)}
+          {([['assess', 'Assessments (folders)'], ['products', 'Products (data sheets)']] as const).map(([k, l]) => <Pressable key={k} onPress={() => setTab(k)} style={chip(tab === k)}><Text style={{ textAlign: 'center', fontWeight: '600', fontSize: 12, color: tab === k ? live.brand1Text : base.ink }}>{l}</Text></Pressable>)}
         </View>
         {tab === 'assess' ? <Folders setPick={setPick} /> : <Products setPick={setPick} />}
       </ScrollView>

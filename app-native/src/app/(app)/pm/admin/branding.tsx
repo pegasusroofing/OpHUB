@@ -32,7 +32,7 @@ export default function Branding() {
   return (
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: org && !org.logo_path ? 'Set Up Your Company' : 'Company Logo & Theme' }} />
-      {!!org && !org.logo_path && <Card style={{ backgroundColor: base.warnBg, borderColor: base.warn }}><Text style={{ color: base.ink }}>Before you get started, set up <Text style={{ fontWeight: '800' }}>{org.name}</Text>&apos;s branding — your logo and colours are shown throughout the app and on your team&apos;s invite link. Add your logo to carry on.</Text></Card>}
+      {!!org && !org.logo_path && <Card style={{ backgroundColor: base.warnBg, borderColor: base.warn }}><Text style={{ color: base.ink }}>Before you get started, set up <Text style={{ fontWeight: '600' }}>{org.name}</Text>&apos;s branding — your logo and colours are shown throughout the app and on your team&apos;s invite link. Add your logo to carry on.</Text></Card>}
       <SectionTitle>Company Logo</SectionTitle>
       <Card>
         <Muted style={{ marginBottom: 10 }}>Shown throughout the app and on your team&apos;s invite/join screen.</Muted>
@@ -72,7 +72,7 @@ export default function Branding() {
           <View key={l as string} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 }}>
             {swatch(v as string)}
             <View style={{ flex: 1 }}>
-              <Muted style={{ fontWeight: '700' }}>{l as string}</Muted>
+              <Muted style={{ fontWeight: '600' }}>{l as string}</Muted>
               <TextInput value={v as string} onChangeText={set as (s: string) => void} autoCapitalize="none" style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 8, color: base.ink }} />
             </View>
           </View>

@@ -73,13 +73,13 @@ export default function SiteCalendar() {
 
   const editor = (at: string) => form && form.at === at && (
     <Card style={{ marginTop: 6, borderColor: base.ink, borderWidth: 1.5 }}>
-      <Muted style={{ fontWeight: '700' }}>What&apos;s happening</Muted>
+      <Muted style={{ fontWeight: '600' }}>What&apos;s happening</Muted>
       <TextInput value={form.d.title} onChangeText={(t) => setForm({ ...form, d: { ...form.d, title: t } })} placeholder="e.g. Scaffold delivery" style={box} />
-      <Muted style={{ fontWeight: '700' }}>Date</Muted>
+      <Muted style={{ fontWeight: '600' }}>Date</Muted>
       <DateBox value={form.d.date} onChange={(t) => setForm({ ...form, d: { ...form.d, date: t } })} clearable={false} title="Date" style={{ marginBottom: 8 }} />
       {mgr && !form.editId && (
         <>
-          <Muted style={{ fontWeight: '700' }}>Repeats</Muted>
+          <Muted style={{ fontWeight: '600' }}>Repeats</Muted>
           <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
             {(Object.keys(REPEAT_LABEL) as Repeat[]).map((r) => <Chip key={r} on={form.d.repeat === r} label={REPEAT_LABEL[r]} onPress={() => setForm({ ...form, d: { ...form.d, repeat: r } })} />)}
           </View>
@@ -88,7 +88,7 @@ export default function SiteCalendar() {
       )}
       {mgr ? (
         <View style={{ marginBottom: 8 }}>
-          <Muted style={{ fontWeight: '700' }}>Visibility</Muted>
+          <Muted style={{ fontWeight: '600' }}>Visibility</Muted>
           <Pressable onPress={() => setVisOpen(!visOpen)} style={[box, { marginBottom: 4, flexDirection: 'row' }]}>
             <Text style={{ flex: 1, color: base.ink }}>{form.d.roles ? (form.d.roles.length ? VIS_ROLES.filter(([k]) => form.d.roles?.includes(k)).map(([, l]) => l).join(', ') : 'Only admins and me') : 'Everyone on the job'}{form.d.hidden.length ? ` · ${form.d.hidden.length} excluded` : ''}</Text>
             <Text style={{ color: base.slate }}>{visOpen ? '▲' : '▼'}</Text>
@@ -99,7 +99,7 @@ export default function SiteCalendar() {
                 const on = !form.d.roles || form.d.roles.includes(k);
                 return <Pressable key={k} onPress={() => { const cur = form.d.roles ?? VIS_ROLES.map(([x]) => x); const next = on ? cur.filter((x) => x !== k) : [...cur, k]; setForm({ ...form, d: { ...form.d, roles: next.length === VIS_ROLES.length ? null : next } }); }}><Text style={{ paddingVertical: 5, color: base.ink }}>{on ? '☑' : '☐'} {l}</Text></Pressable>;
               })}
-              {!!recipients?.length && <Muted style={{ fontWeight: '700', marginTop: 6 }}>Leave these people out</Muted>}
+              {!!recipients?.length && <Muted style={{ fontWeight: '600', marginTop: 6 }}>Leave these people out</Muted>}
               {(recipients ?? []).filter((p) => p.id !== me.id && p.role !== 'admin' && (!form.d.roles || form.d.roles.includes(p.role))).map((p) => {
                 const out = form.d.hidden.includes(p.id);
                 return <Pressable key={p.id} onPress={() => setForm({ ...form, d: { ...form.d, hidden: out ? form.d.hidden.filter((x) => x !== p.id) : [...form.d.hidden, p.id] } })}><Text style={{ paddingVertical: 5, color: base.ink }}>{out ? '☑' : '☐'} {p.name}</Text></Pressable>;
@@ -114,12 +114,12 @@ export default function SiteCalendar() {
           <Check label="Email a reminder" value={form.d.remind} onChange={(v) => setForm({ ...form, d: { ...form.d, remind: v } })} />
           {form.d.remind && (
             <View>
-              <Muted style={{ fontWeight: '700' }}>Send the reminder</Muted>
+              <Muted style={{ fontWeight: '600' }}>Send the reminder</Muted>
               <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8 }}>
                 {([['day_before', 'Day before'], ['day_of', 'Day of'], ['custom', 'Custom date']] as const).map(([k, l]) => <Chip key={k} on={form.d.timing === k} label={l} onPress={() => setForm({ ...form, d: { ...form.d, timing: k } })} />)}
               </View>
               {form.d.timing === 'custom' && <DateBox value={form.d.custom} onChange={(t) => setForm({ ...form, d: { ...form.d, custom: t } })} placeholder="Reminder date" title="Reminder date" style={{ marginBottom: 8 }} />}
-              <Muted style={{ fontWeight: '700' }}>Send it to</Muted>
+              <Muted style={{ fontWeight: '600' }}>Send it to</Muted>
               {recipients.map((p) => {
                 const on = form.d.recipients.includes(p.id);
                 return (
@@ -209,9 +209,9 @@ export default function SiteCalendar() {
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
               {/* 780: weekday over the date, centred; weekends in the company colour; today circled. */}
               <View style={{ width: 64, alignItems: 'center' }}>
-                <Text style={{ fontSize: 10, fontWeight: '800', letterSpacing: 0.5, color: weekend ? th.brand1 : base.slate }}>{d.toLocaleDateString('en-GB', { weekday: 'short' }).toUpperCase()}</Text>
+                <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.5, color: weekend ? th.brand1 : base.slate }}>{d.toLocaleDateString('en-GB', { weekday: 'short' }).toUpperCase()}</Text>
                 <View style={{ minWidth: 26, height: 26, paddingHorizontal: 5, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: ds === today ? 2 : 0, borderColor: th.brand1 }}>
-                  <Text style={{ fontWeight: '800', fontSize: d.getMonth() === anchorMonth ? 14 : 11.5, color: weekend ? th.brand1 : base.ink }}>
+                  <Text style={{ fontWeight: '600', fontSize: d.getMonth() === anchorMonth ? 14 : 11.5, color: weekend ? th.brand1 : base.ink }}>
                     {d.getDate()}{ordinal(d.getDate())}{d.getMonth() !== anchorMonth ? ` ${d.toLocaleDateString('en-GB', { month: 'short' })}` : ''}
                   </Text>
                 </View>

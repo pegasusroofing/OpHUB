@@ -37,7 +37,7 @@ export function Slider({ value, onDone, step = 10, color = '#16A34A' }: { value:
         </View>
         <View pointerEvents="none" style={{ position: 'absolute', left: `${v}%`, marginLeft: -11, width: 22, height: 22, borderRadius: 11, backgroundColor: '#fff', borderWidth: 2, borderColor: color, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 3, elevation: 2 }} />
       </View>
-      <Text style={{ width: 44, textAlign: 'right', fontWeight: '800', color: base.ink }}>{v}%</Text>
+      <Text style={{ width: 44, textAlign: 'right', fontWeight: '600', color: base.ink }}>{v}%</Text>
     </View>
   );
 }

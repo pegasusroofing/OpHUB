@@ -31,9 +31,9 @@ export default function ExpensesEmail() {
       <Stack.Screen options={{ title: 'Expenses Email' }} />
       <Card>
         <Muted style={{ marginBottom: 10 }}>Receipts sent from the Expenses tile on any job are emailed to this address.</Muted>
-        <Muted style={{ fontWeight: '700' }}>Send expenses to</Muted>
+        <Muted style={{ fontWeight: '600' }}>Send expenses to</Muted>
         <TextInput value={email} onChangeText={setEmail} placeholder="e.g. info@yourcompany.co.uk" autoCapitalize="none" keyboardType="email-address" style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, marginBottom: 10 }} />
-        <Muted style={{ fontWeight: '700', marginBottom: 4 }}>Keep receipts in the app for</Muted>
+        <Muted style={{ fontWeight: '600', marginBottom: 4 }}>Keep receipts in the app for</Muted>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
           {[3, 6, 9, 12].map((m) => (
             <Pressable key={m} onPress={() => setMonths(m)} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: months === m ? live.brand1 : base.line, backgroundColor: months === m ? live.brand1 : base.card }}>

@@ -86,10 +86,10 @@ export default function Invites() {
             {data.pending.map((i) => (
               <View key={i.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, borderTopWidth: 1, borderTopColor: base.line }}>
                 <View style={{ flex: 1 }}>
-                  {!!i.email && <Text style={{ fontWeight: '700', color: base.ink }}>{i.email}</Text>}
+                  {!!i.email && <Text style={{ fontWeight: '600', color: base.ink }}>{i.email}</Text>}
                   <Muted>{ROLES.find((r) => r.key === i.role)?.label || i.role} · created {new Date(i.created_at).toLocaleDateString('en-GB')} · expires {new Date(i.expires_at).toLocaleDateString('en-GB')}</Muted>
                 </View>
-                <Pressable onPress={async () => { if (!(await confirmAsk('Revoke this invite link?', 'Revoke'))) return; toast((await revokeInvite(i.id)) ? 'Invite revoked' : 'Could not revoke — try again.'); if (newId === i.id) setNewId(null); refresh(); }}><Text style={{ color: base.warn, fontWeight: '700' }}>Revoke</Text></Pressable>
+                <Pressable onPress={async () => { if (!(await confirmAsk('Revoke this invite link?', 'Revoke'))) return; toast((await revokeInvite(i.id)) ? 'Invite revoked' : 'Could not revoke — try again.'); if (newId === i.id) setNewId(null); refresh(); }}><Text style={{ color: base.warn, fontWeight: '600' }}>Revoke</Text></Pressable>
               </View>
             ))}
           </>

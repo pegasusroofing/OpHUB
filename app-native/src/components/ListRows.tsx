@@ -15,10 +15,10 @@ export function ListRow({ icon, tint, label, sub, onPress, last, badge }: { icon
       style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 14, borderBottomWidth: last ? 0 : 1, borderBottomColor: '#F0F1F4' }, pressed && { backgroundColor: '#F8F9FB' }]}>
       <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: TINTS[tint][0], alignItems: 'center', justifyContent: 'center' }}><OphIcon name={icon} size={19} color={TINTS[tint][1]} /></View>
       <View style={{ flex: 1, minWidth: 0 }}>
-        <Text style={{ fontWeight: '700', fontSize: 14, color: base.ink }}>{label}</Text>
+        <Text style={{ fontWeight: '600', fontSize: 14, color: base.ink }}>{label}</Text>
         {!!sub && <Text style={{ fontSize: 12, color: base.slate, marginTop: 1 }}>{sub}</Text>}
       </View>
-      {!!badge && <Text style={{ backgroundColor: base.red, color: '#fff', fontSize: 11, fontWeight: '800', borderRadius: 9, minWidth: 18, textAlign: 'center', paddingHorizontal: 5, overflow: 'hidden' }}>{badge}</Text>}
+      {!!badge && <Text style={{ backgroundColor: base.red, color: '#fff', fontSize: 11, fontWeight: '600', borderRadius: 9, minWidth: 18, textAlign: 'center', paddingHorizontal: 5, overflow: 'hidden' }}>{badge}</Text>}
       <OphIcon name="chevron" size={18} color={base.slateLight} stroke={2.2} />
     </Pressable>
   );

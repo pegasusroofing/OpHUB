@@ -66,7 +66,7 @@ export default function CheckinLogs() {
       </View>
       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
         <Pressable disabled={custom} onPress={() => setOffset(offset - 1)} style={{ opacity: custom ? 0.35 : 1, padding: 8 }}><Text style={{ fontSize: 18 }}>‹</Text></Pressable>
-        <Text style={{ flex: 1, textAlign: 'center', fontWeight: '800', color: base.ink }}>{range.label}</Text>
+        <Text style={{ flex: 1, textAlign: 'center', fontWeight: '600', color: base.ink }}>{range.label}</Text>
         <Pressable disabled={custom || offset >= 0} onPress={() => setOffset(offset + 1)} style={{ opacity: custom || offset >= 0 ? 0.35 : 1, padding: 8 }}><Text style={{ fontSize: 18 }}>›</Text></Pressable>
       </View>
       <View style={{ flexDirection: 'row', gap: 6, marginBottom: 12, alignItems: 'center' }}>
@@ -76,13 +76,13 @@ export default function CheckinLogs() {
       {(f === 'bad' || t === 'bad') && <Text style={{ color: base.warn, marginBottom: 8 }} onPress={() => toast('Enter the dates as YYYY-MM-DD.')}>Enter the dates as YYYY-MM-DD.</Text>}
       {isLoading ? <Muted>Loading…</Muted> : operatives.length ? operatives.map((op) => {
         const list = mine.filter((c) => c.user_id === op.id);
-        if (!list.length) return <Card key={op.id}><Text style={{ fontWeight: '800', color: base.ink }}>{op.name}</Text><Muted>No check-ins this {mode === 'weekly' ? 'week' : 'month'}.</Muted></Card>;
+        if (!list.length) return <Card key={op.id}><Text style={{ fontWeight: '600', color: base.ink }}>{op.name}</Text><Muted>No check-ins this {mode === 'weekly' ? 'week' : 'month'}.</Muted></Card>;
         const { days, hours } = byDay(pairSessions(list));
         return (
           <Card key={op.id}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-              <Text style={{ flex: 1, fontWeight: '800', color: base.ink }}>{op.name}</Text>
-              <Text style={{ fontWeight: '800', color: base.ink, backgroundColor: base.paper, paddingHorizontal: 8, borderRadius: 10 }}>{hours}h</Text>
+              <Text style={{ flex: 1, fontWeight: '600', color: base.ink }}>{op.name}</Text>
+              <Text style={{ fontWeight: '600', color: base.ink, backgroundColor: base.paper, paddingHorizontal: 8, borderRadius: 10 }}>{hours}h</Text>
             </View>
             {Object.entries(days).map(([day, ss]) => (
               <View key={day} style={{ flexDirection: 'row', paddingVertical: 4, borderBottomWidth: 1, borderBottomColor: base.line }}>

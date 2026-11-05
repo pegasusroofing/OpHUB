@@ -47,10 +47,10 @@ export function WagesToBook({ me, siteId, invoiceId, title = 'Wages to book', sh
             <View key={p.id} style={{ borderTopWidth: i ? 1 : 0, borderTopColor: base.line, paddingVertical: 8 }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontWeight: '700', color: base.ink }}>{p.person_name || 'Worker'}</Text>
+                  <Text style={{ fontWeight: '600', color: base.ink }}>{p.person_name || 'Worker'}</Text>
                   <Muted>{[!siteId && s ? jobTag(s) : '', p.week_start ? `w/c ${fdate(p.week_start)}` : '', Number(p.days) ? `${Number(p.days)} day${Number(p.days) === 1 ? '' : 's'}` : '', p.description].filter(Boolean).join(' · ')}</Muted>
                 </View>
-                <Text style={{ fontWeight: '800', color: base.ink }}>{money(Number(p.amount || 0))}</Text>
+                <Text style={{ fontWeight: '600', color: base.ink }}>{money(Number(p.amount || 0))}</Text>
               </View>
               {p.status === 'pending' ? (
                 <View style={{ flexDirection: 'row', gap: 6, marginTop: 6 }}>
@@ -59,7 +59,7 @@ export function WagesToBook({ me, siteId, invoiceId, title = 'Wages to book', sh
                 </View>
               ) : (
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
-                  <Text style={{ color: base.ok, fontWeight: '700', flex: 1 }}>{PUSH_LABEL[p.status] || p.status}{p.status === 'price' ? `${el ? `: ${el.name}` : ''}, week ${p.week_number}` : ''}</Text>
+                  <Text style={{ color: base.ok, fontWeight: '600', flex: 1 }}>{PUSH_LABEL[p.status] || p.status}{p.status === 'price' ? `${el ? `: ${el.name}` : ''}, week ${p.week_number}` : ''}</Text>
                   <Button small kind="ghost" title="Change" onPress={() => void run(p.id, () => unbookWage(me, p.id), 'Back to be booked')} />
                 </View>
               )}

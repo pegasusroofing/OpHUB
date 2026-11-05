@@ -49,9 +49,9 @@ export default function GettingStarted() {
       <Card>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
           <View style={{ width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: step.done ? base.okBg : base.warnBg }}>
-            <Text style={{ fontWeight: '800', color: step.done ? base.ok : base.warn }}>{step.done ? '✓' : i + 1}</Text>
+            <Text style={{ fontWeight: '600', color: step.done ? base.ok : base.warn }}>{step.done ? '✓' : i + 1}</Text>
           </View>
-          <Text style={{ fontWeight: '800', fontSize: 15, color: base.ink, flex: 1 }}>{step.title}</Text>
+          <Text style={{ fontWeight: '600', fontSize: 15, color: base.ink, flex: 1 }}>{step.title}</Text>
         </View>
         <Muted style={{ marginBottom: 12, fontSize: 13.5 }}>{step.body}</Muted>
         {step.phone && (

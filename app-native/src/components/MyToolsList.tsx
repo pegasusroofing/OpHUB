@@ -35,7 +35,7 @@ export function MyToolsList({ userId, name: who }: { userId?: string; name?: str
           {t.photo_path ? <StorageImage bucket="operative-tools" path={t.photo_path} style={{ width: 48, height: 48, borderRadius: 8 }} />
             : <View style={{ width: 48, height: 48, borderRadius: 8, backgroundColor: base.paper, alignItems: 'center', justifyContent: 'center' }}><Text>🔧</Text></View>}
           <View style={{ flex: 1 }}>
-            <Text style={{ fontWeight: '700', color: base.ink }}>{t.name}</Text>
+            <Text style={{ fontWeight: '600', color: base.ink }}>{t.name}</Text>
             {!!t.serial_number && <Muted>Serial: {t.serial_number}</Muted>}
           </View>
           <Pressable onPress={async () => {

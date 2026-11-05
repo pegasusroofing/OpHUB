@@ -38,7 +38,7 @@ export function ReportAnswers({ sections, answers, nameOf, hideHistory }: { sect
 
   const item = (it: ReportItem) => {
     const val = answers[it.id];
-    if (it.type === 'instruction') return <Text key={it.id} style={{ fontWeight: '800', color: base.ink, marginBottom: 8 }}>{it.label}</Text>;
+    if (it.type === 'instruction') return <Text key={it.id} style={{ fontWeight: '600', color: base.ink, marginBottom: 8 }}>{it.label}</Text>;
     const media = itemAllowsMedia(it) && Array.isArray(answers[`${it.id}__media`]) ? (answers[`${it.id}__media`] as string[]) : [];
     const note = itemAllowsNote(it) ? answers[`${it.id}__note`] : null;
     const tl = itemTrafficLevel(sections, it, answers);
@@ -62,15 +62,15 @@ export function ReportAnswers({ sections, answers, nameOf, hideHistory }: { sect
       return (
         <View key={it.id} style={{ marginBottom: 10 }}>
           <Q>{it.label}</Q>
-          {list.length ? list.map((r) => <Text key={r.name} style={{ fontWeight: '700', color: base.ink }}>{r.name}{r.role ? <Text style={{ fontWeight: '400', color: base.slate }}> — {r.role}</Text> : null}</Text>) : <Text>—</Text>}
+          {list.length ? list.map((r) => <Text key={r.name} style={{ fontWeight: '600', color: base.ink }}>{r.name}{r.role ? <Text style={{ fontWeight: '400', color: base.slate }}> — {r.role}</Text> : null}</Text>) : <Text>—</Text>}
         </View>
       );
     }
     return (
       <View key={it.id} style={{ marginBottom: 10 }}>
         <Q>{it.label}</Q>
-        <Text style={{ fontWeight: '700', fontSize: 13.5, color: base.ink }}>{answerText(it, val)}</Text>
-        {!!tl && <Text style={{ alignSelf: 'flex-start', marginTop: 4, paddingHorizontal: 10, paddingVertical: 3, borderRadius: 999, backgroundColor: trafficHex(tl.color), color: '#fff', fontSize: 11.5, fontWeight: '700', overflow: 'hidden' }}>{tl.label}</Text>}
+        <Text style={{ fontWeight: '600', fontSize: 13.5, color: base.ink }}>{answerText(it, val)}</Text>
+        {!!tl && <Text style={{ alignSelf: 'flex-start', marginTop: 4, paddingHorizontal: 10, paddingVertical: 3, borderRadius: 999, backgroundColor: trafficHex(tl.color), color: '#fff', fontSize: 11.5, fontWeight: '600', overflow: 'hidden' }}>{tl.label}</Text>}
         {!!note && <Text style={{ color: base.slate, marginTop: 2 }}>Note: {String(note)}</Text>}
         {media.length > 0 && <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>{media.map((u) => <UrlImage key={u} url={u} style={{ width: 90, height: 90, borderRadius: 8 }} />)}</View>}
       </View>
@@ -80,13 +80,13 @@ export function ReportAnswers({ sections, answers, nameOf, hideHistory }: { sect
   return (
     <View>
       {!hideHistory && history.map((e, i) => <Muted key={i}>Edited {new Date(e.at).toLocaleString('en-GB')} by {e.byName || nameOf(e.by)}</Muted>)}
-      {sc.overall.possible > 0 && <Text style={{ textAlign: 'right', fontWeight: '800', fontStyle: 'italic', fontSize: 12, color: base.ink, marginBottom: 6 }}>Score: {scoreLabel(sc.overall)}</Text>}
+      {sc.overall.possible > 0 && <Text style={{ textAlign: 'right', fontWeight: '600', fontStyle: 'italic', fontSize: 12, color: base.ink, marginBottom: 6 }}>Score: {scoreLabel(sc.overall)}</Text>}
       <TrafficKey sections={sections} />
       {(sections || []).filter((s) => reportListsSection(sections, s, answers)).map((s) => (
         <Card key={s.id}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
             <SectionTitle>{s.title}</SectionTitle>
-            {sc.bySection[s.id] && <Text style={{ fontWeight: '700', fontSize: 12, color: base.slate }}>{scoreLabel(sc.bySection[s.id])}</Text>}
+            {sc.bySection[s.id] && <Text style={{ fontWeight: '600', fontSize: 12, color: base.slate }}>{scoreLabel(sc.bySection[s.id])}</Text>}
           </View>
           {(s.items || []).filter((it) => itemVisible(it, answers) && reportListsItem(sections, it, answers)).map(item)}
         </Card>

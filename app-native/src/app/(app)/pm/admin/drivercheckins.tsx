@@ -56,7 +56,7 @@ export default function DriverCheckins() {
         const drivers = [...new Set(dayRows.map((r) => r.user_id))];
         return (
           <View key={k}>
-            <Muted style={{ fontWeight: '700', marginTop: 12, marginBottom: 6 }}>{new Date(`${k}T00:00:00`).toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'short', year: 'numeric' })}</Muted>
+            <Muted style={{ fontWeight: '600', marginTop: 12, marginBottom: 6 }}>{new Date(`${k}T00:00:00`).toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'short', year: 'numeric' })}</Muted>
             {drivers.map((uid) => {
               const list = dayRows.filter((r) => r.user_id === uid).sort((a, b) => +new Date(a.ts) - +new Date(b.ts));
               let mins = 0, open: Chk | null = null;
@@ -72,8 +72,8 @@ export default function DriverCheckins() {
               return (
                 <Card key={uid}>
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <Text style={{ flex: 1, fontWeight: '700', color: base.ink }}>🚐 {team.find((p) => p.id === uid)?.name || 'Unknown driver'}</Text>
-                    <Text style={{ fontSize: 12, fontWeight: '700', color: stillIn ? base.ok : open ? base.warn : base.slate }}>{stillIn ? 'On duty now' : open ? 'No check-out' : dur}</Text>
+                    <Text style={{ flex: 1, fontWeight: '600', color: base.ink }}>🚐 {team.find((p) => p.id === uid)?.name || 'Unknown driver'}</Text>
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: stillIn ? base.ok : open ? base.warn : base.slate }}>{stillIn ? 'On duty now' : open ? 'No check-out' : dur}</Text>
                   </View>
                   {events.map((e, i) => (
                     <View key={i} style={{ flexDirection: 'row', gap: 6, marginTop: 3 }}>

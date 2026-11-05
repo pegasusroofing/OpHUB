@@ -68,10 +68,10 @@ export default function Puwer() {
       <Stack.Screen options={{ title: 'PUWER Tool Inspection' }} />
       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
         <Pressable onPress={() => setOffset(offset - 1)} style={nav}><Text style={{ fontSize: 20 }}>‹</Text></Pressable>
-        <Text style={{ flex: 1, textAlign: 'center', fontWeight: '700', color: base.ink }}>{weekLabel(days)}</Text>
+        <Text style={{ flex: 1, textAlign: 'center', fontWeight: '600', color: base.ink }}>{weekLabel(days)}</Text>
         <Pressable disabled={offset >= 0} onPress={() => setOffset(offset + 1)} style={[nav, offset >= 0 && { opacity: 0.35 }]}><Text style={{ fontSize: 20 }}>›</Text></Pressable>
       </View>
-      {data?.weekDone && <Card style={{ backgroundColor: base.okBg }}><Text style={{ color: base.ok, fontWeight: '700' }}>✓ Week marked complete</Text></Card>}
+      {data?.weekDone && <Card style={{ backgroundColor: base.okBg }}><Text style={{ color: base.ok, fontWeight: '600' }}>✓ Week marked complete</Text></Card>}
       {mgr && !locked && who !== me.id && (
         <Button kind="ghost" title={`+ Add Tool for ${whoName}`} onPress={async () => {
           const n = (await promptText(`Tool for ${whoName}`, '', { placeholder: 'Tool name, e.g. Makita drill' }))?.trim(); if (!n) return;
@@ -87,14 +87,14 @@ export default function Puwer() {
             {tools.length ? <Muted>{tools.length} tool{tools.length === 1 ? '' : 's'} pulled through from My Tools: {tools.map((t) => t.name).join(', ')}</Muted> : null}
           </Card>
           {!tools.length ? (
-            <Empty>{who === me.id ? 'You have' : `${whoName} has`} not logged any tools yet. <Text style={{ color: base.blue, fontWeight: '700' }} onPress={() => router.push(`/sites/${id}/hs/mytools`)}>Add one in My Tools</Text></Empty>
+            <Empty>{who === me.id ? 'You have' : `${whoName} has`} not logged any tools yet. <Text style={{ color: base.blue, fontWeight: '600' }} onPress={() => router.push(`/sites/${id}/hs/mytools`)}>Add one in My Tools</Text></Empty>
           ) : tools.map((t, i) => (
             <Card key={t.toolId || t.dbId || i}>
-              <Text style={{ fontWeight: '800', color: base.ink, marginBottom: 6 }}>{t.name}{t.serial_number ? <Text style={{ fontWeight: '400', color: base.slate }}>  · {t.serial_number}</Text> : null}</Text>
+              <Text style={{ fontWeight: '600', color: base.ink, marginBottom: 6 }}>{t.name}{t.serial_number ? <Text style={{ fontWeight: '400', color: base.slate }}>  · {t.serial_number}</Text> : null}</Text>
               {PUWER_QUESTIONS.map((q) => (
                 <Pressable key={q.key} disabled={locked} onPress={() => toggle(i, q.key)} style={{ flexDirection: 'row', gap: 10, paddingVertical: 8, borderTopWidth: 1, borderTopColor: base.line }}>
                   <View style={{ width: 22, height: 22, borderRadius: 5, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', borderColor: t[q.key] ? base.ok : base.slateLight, backgroundColor: t[q.key] ? base.okBg : base.card, opacity: locked ? 0.6 : 1 }}>
-                    {t[q.key] && <Text style={{ color: base.ok, fontWeight: '800' }}>✓</Text>}
+                    {t[q.key] && <Text style={{ color: base.ok, fontWeight: '600' }}>✓</Text>}
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontWeight: '600', color: base.ink }}>{q.label}</Text>
@@ -102,7 +102,7 @@ export default function Puwer() {
                   </View>
                 </Pressable>
               ))}
-              <Text style={{ marginTop: 6, fontWeight: '700', color: toolPasses(t) ? base.ok : base.warn }}>{toolPasses(t) ? '✓ Acceptable' : "✗ Can't be used until brought in line with PUWER"}</Text>
+              <Text style={{ marginTop: 6, fontWeight: '600', color: toolPasses(t) ? base.ok : base.warn }}>{toolPasses(t) ? '✓ Acceptable' : "✗ Can't be used until brought in line with PUWER"}</Text>
             </Card>
           ))}
           {(!locked || !!comments) && <SectionTitle>Any Other Comments</SectionTitle>}

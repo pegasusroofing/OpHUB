@@ -63,9 +63,9 @@ function ManagerTiles({ siteId, vis, role, me, site }: { siteId: string; vis: Pa
             return (
               <View key={p.id ?? i} style={{ borderTopWidth: i ? 1 : 0, borderTopColor: base.line, paddingTop: i ? 8 : 0, marginTop: i ? 8 : 0 }}>
                 <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <Text style={{ fontWeight: '700', color: base.ink }}>{p.number || 'PO'}</Text>
+                  <Text style={{ fontWeight: '600', color: base.ink }}>{p.number || 'PO'}</Text>
                   <Text style={{ color: base.slate, flex: 1 }}>{p.supplier_name || 'Supplier'}</Text>
-                  <Text style={{ fontSize: 11, fontWeight: '700', color: base.blue }}>{p.fulfilment === 'collection' ? 'Collection' : 'Delivery'}{p.required_by ? ` ${fmt(p.required_by)}` : ' date to be confirmed'}</Text>
+                  <Text style={{ fontSize: 11, fontWeight: '600', color: base.blue }}>{p.fulfilment === 'collection' ? 'Collection' : 'Delivery'}{p.required_by ? ` ${fmt(p.required_by)}` : ' date to be confirmed'}</Text>
                 </View>
                 {!p.sent_at && <Muted>Not sent to the supplier yet</Muted>}
                 {(p.items ?? []).length ? (p.items ?? []).map((it, j) => {
@@ -73,7 +73,7 @@ function ManagerTiles({ siteId, vis, role, me, site }: { siteId: string; vis: Pa
                   return (
                     <View key={j} style={{ flexDirection: 'row', gap: 8, paddingVertical: 3 }}>
                       <Text style={{ flex: 1, color: base.ink }}>{it.item || 'Item'}{it.qty != null && it.qty !== '' ? <Text style={{ color: base.slate }}> × {String(it.qty)}{it.unit ? ` ${it.unit}` : ''}</Text> : null}</Text>
-                      <Text style={{ fontSize: 11, fontWeight: '700', color: g ? (g.ok === false ? base.red : base.ok) : base.slate }}>{g ? (g.ok === false ? '⚠ Problem' : '✓ Received') : 'Not received'}</Text>
+                      <Text style={{ fontSize: 11, fontWeight: '600', color: g ? (g.ok === false ? base.red : base.ok) : base.slate }}>{g ? (g.ok === false ? '⚠ Problem' : '✓ Received') : 'Not received'}</Text>
                     </View>
                   );
                 }) : <Muted>No lines on it yet.</Muted>}
@@ -113,12 +113,12 @@ function OperativeMaterials({ siteId, vis }: { siteId: string; vis: Parameters<t
           <SectionTitle>Your collection list</SectionTitle>
           {openIds.length > 1 && picked.length > 0 && (
             <Pressable onPress={() => setSel(picked.length >= openIds.length ? new Set() : new Set(openIds))} style={{ marginBottom: 8 }}>
-              <Text style={{ fontWeight: '700', color: base.ink }}>{picked.length >= openIds.length ? '☑' : '☐'} Select all ({openIds.length}){picked.length < openIds.length ? ` · ${picked.length} selected` : ''}</Text>
+              <Text style={{ fontWeight: '600', color: base.ink }}>{picked.length >= openIds.length ? '☑' : '☐'} Select all ({openIds.length}){picked.length < openIds.length ? ` · ${picked.length} selected` : ''}</Text>
             </Pressable>
           )}
           {groups.length ? groups.map((g) => (
             <Card key={g.key}>
-              <Text style={{ fontWeight: '700', color: base.ink }}>{g.name}{g.items[0].assigned_at ? <Text style={{ fontWeight: '400', color: base.slate }}> · asked {fmt(g.items[0].assigned_at)}</Text> : null}</Text>
+              <Text style={{ fontWeight: '600', color: base.ink }}>{g.name}{g.items[0].assigned_at ? <Text style={{ fontWeight: '400', color: base.slate }}> · asked {fmt(g.items[0].assigned_at)}</Text> : null}</Text>
               {!!g.addr && <Text style={{ color: base.blue, marginTop: 2 }} onPress={() => void Linking.openURL(`https://maps.google.com/?q=${encodeURIComponent(g.addr)}`)}>📍 {g.addr}</Text>}
               {!!g.phone && <Text style={{ color: base.blue, marginTop: 2 }} onPress={() => void Linking.openURL(`tel:${g.phone}`)}>📞 {g.phone}</Text>}
               {g.items.map((m) => {
@@ -126,9 +126,9 @@ function OperativeMaterials({ siteId, vis }: { siteId: string; vis: Parameters<t
                 const on = done || sel.has(m.id);
                 return (
                   <Pressable key={m.id} disabled={done} onPress={() => toggle(m.id)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, borderTopWidth: 1, borderTopColor: base.line, marginTop: 6, opacity: done ? 0.6 : 1 }}>
-                    <Text style={{ width: 22, height: 22, borderWidth: 1.5, borderColor: on ? base.ok : base.line, borderRadius: 5, textAlign: 'center', color: base.ok, fontWeight: '800' }}>{on ? '✓' : ''}</Text>
-                    <Text style={{ flex: 1, color: base.ink, fontWeight: '700', textDecorationLine: done ? 'line-through' : 'none' }}>{m.item}{m.qty ? <Text style={{ color: base.slate }}> × {m.qty}</Text> : null}</Text>
-                    {done && <Text style={{ fontSize: 11, fontWeight: '700', color: base.ok }}>Collected</Text>}
+                    <Text style={{ width: 22, height: 22, borderWidth: 1.5, borderColor: on ? base.ok : base.line, borderRadius: 5, textAlign: 'center', color: base.ok, fontWeight: '600' }}>{on ? '✓' : ''}</Text>
+                    <Text style={{ flex: 1, color: base.ink, fontWeight: '600', textDecorationLine: done ? 'line-through' : 'none' }}>{m.item}{m.qty ? <Text style={{ color: base.slate }}> × {m.qty}</Text> : null}</Text>
+                    {done && <Text style={{ fontSize: 11, fontWeight: '600', color: base.ok }}>Collected</Text>}
                   </Pressable>
                 );
               })}
@@ -150,15 +150,15 @@ function OperativeMaterials({ siteId, vis }: { siteId: string; vis: Parameters<t
             <Card key={m.id}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontWeight: '700', color: base.ink }}>{m.item}{m.qty ? <Text style={{ color: base.slate, fontWeight: '400' }}> × {m.qty}</Text> : null}</Text>
+                <Text style={{ fontWeight: '600', color: base.ink }}>{m.item}{m.qty ? <Text style={{ color: base.slate, fontWeight: '400' }}> × {m.qty}</Text> : null}</Text>
                 <Muted>Delivery{m.required_for_delivery ? ` · ${fmt(m.required_for_delivery)}` : ''}</Muted>
                 {!!m.sub_site_label && <Muted>📍 {m.sub_site_label}</Muted>}
               </View>
-              <Text style={{ fontSize: 11, fontWeight: '700', color: m.grn ? (m.grn.ok ? base.ok : base.red) : base.blue, backgroundColor: m.grn ? (m.grn.ok ? base.okBg : '#FDE8E8') : base.blueBg, paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999, overflow: 'hidden' }}>{m.grn ? (m.grn.ok ? 'GRN ✓' : 'GRN ⚠') : 'Delivery'}</Text>
+              <Text style={{ fontSize: 11, fontWeight: '600', color: m.grn ? (m.grn.ok ? base.ok : base.red) : base.blue, backgroundColor: m.grn ? (m.grn.ok ? base.okBg : '#FDE8E8') : base.blueBg, paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999, overflow: 'hidden' }}>{m.grn ? (m.grn.ok ? 'GRN ✓' : 'GRN ⚠') : 'Delivery'}</Text>
               </View>
               {!m.grn && (grnFor === m.id
                 ? <GrnForm siteId={siteId} m={m} onCancel={() => setGrnFor(null)} onDone={() => { setGrnFor(null); void qc.invalidateQueries({ queryKey: ['materials', siteId] }); }} />
-                : <Pressable onPress={() => setGrnFor(m.id)} style={{ marginTop: 10, flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderStyle: 'dashed', borderColor: base.line, borderRadius: 10, padding: 10 }}><View style={{ width: 20, height: 20, borderWidth: 1.5, borderColor: base.slate, borderRadius: 4 }} /><Text style={{ color: base.ink, fontWeight: '700' }}>Goods Received (GRN)</Text></Pressable>)}
+                : <Pressable onPress={() => setGrnFor(m.id)} style={{ marginTop: 10, flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderStyle: 'dashed', borderColor: base.line, borderRadius: 10, padding: 10 }}><View style={{ width: 20, height: 20, borderWidth: 1.5, borderColor: base.slate, borderRadius: 4 }} /><Text style={{ color: base.ink, fontWeight: '600' }}>Goods Received (GRN)</Text></Pressable>)}
             </Card>
           )) : <Empty>No deliveries booked.</Empty>}
 
@@ -167,10 +167,10 @@ function OperativeMaterials({ siteId, vis }: { siteId: string; vis: Parameters<t
             <Pressable key={m.id} onPress={() => router.push(`/sites/${siteId}/materials/requests` as never)}>
               <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontWeight: '700', color: base.ink }}>{m.item}{m.qty ? <Text style={{ color: base.slate, fontWeight: '400' }}> × {m.qty}</Text> : null}</Text>
+                  <Text style={{ fontWeight: '600', color: base.ink }}>{m.item}{m.qty ? <Text style={{ color: base.slate, fontWeight: '400' }}> × {m.qty}</Text> : null}</Text>
                   <Muted>Waiting for manager</Muted>
                 </View>
-                <Text style={{ fontSize: 11, fontWeight: '700', color: '#6A2C91', backgroundColor: '#F1E7F8', paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999, overflow: 'hidden' }}>Requested</Text>
+                <Text style={{ fontSize: 11, fontWeight: '600', color: '#6A2C91', backgroundColor: '#F1E7F8', paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999, overflow: 'hidden' }}>Requested</Text>
               </Card>
             </Pressable>
           ))}

@@ -53,8 +53,8 @@ export default function SubApp() {
       <Stack.Screen options={{ title: r.company_name }} />
       <Card>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <Text style={{ flex: 1, fontWeight: '800', fontSize: 16, color: base.ink }}>{r.company_name}</Text>
-          <Text style={{ fontWeight: '700', color: r.status === 'approved' ? base.ok : r.status === 'rejected' ? base.slate : base.warn }}>{st}</Text>
+          <Text style={{ flex: 1, fontWeight: '600', fontSize: 16, color: base.ink }}>{r.company_name}</Text>
+          <Text style={{ fontWeight: '600', color: r.status === 'approved' ? base.ok : r.status === 'rejected' ? base.slate : base.warn }}>{st}</Text>
         </View>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
           <Muted>{r.contact_name} ·</Muted>
@@ -67,7 +67,7 @@ export default function SubApp() {
       <Card>
         {Object.keys(LABELS).filter((k) => d[k] != null && subAppValue(d[k]).trim() !== '').map((k) => (
           <View key={k} style={{ paddingVertical: 5, borderBottomWidth: 1, borderBottomColor: base.line }}>
-            <Text style={{ fontWeight: '700', color: base.ink, fontSize: 12.5 }}>{LABELS[k]}</Text>
+            <Text style={{ fontWeight: '600', color: base.ink, fontSize: 12.5 }}>{LABELS[k]}</Text>
             <Text style={{ color: base.ink }}>{subAppValue(d[k])}</Text>
           </View>
         ))}
@@ -80,7 +80,7 @@ export default function SubApp() {
             const u = await openDocLink(f.bucket === 'subcontractor-apps' ? 'subcontractor-apps' : 'mc-documents', f.path);
             if (u) viewDoc(u); else toast('Could not open that document.');
           }} style={{ paddingVertical: 6 }}>
-            <Text style={{ color: base.ink }}>📎 <Text style={{ fontWeight: '700' }}>{f.label || 'Document'}</Text>  <Muted>{f.name || ''}</Muted></Text>
+            <Text style={{ color: base.ink }}>📎 <Text style={{ fontWeight: '600' }}>{f.label || 'Document'}</Text>  <Muted>{f.name || ''}</Muted></Text>
           </Pressable>
         )) : <Empty>None uploaded.</Empty>}
       </Card>

@@ -81,7 +81,7 @@ export default function NewProject() {
         </View>
         <Check label="Multi-site job (several addresses / plots)" value={d.multi_site} onChange={(x) => set({ multi_site: x, repair_contract: x ? false : d.repair_contract })} />
         <Check label="Repair / maintenance contract" value={d.repair_contract} onChange={(x) => set({ repair_contract: x, multi_site: x ? false : d.multi_site })} />
-        <Text style={{ fontWeight: '700', color: base.ink, marginTop: 10, marginBottom: 6 }}>Status</Text>
+        <Text style={{ fontWeight: '600', color: base.ink, marginTop: 10, marginBottom: 6 }}>Status</Text>
         <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
           <FinChip on={chosen && d.status === 'active'} label="Active" onPress={() => { setChosen(true); set({ status: 'active' }); }} />
           <FinChip on={chosen && d.status === 'upcoming'} label="Upcoming" onPress={() => { setChosen(true); set({ status: 'upcoming' }); }} />

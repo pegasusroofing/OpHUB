@@ -41,7 +41,7 @@ export default function DrawingsImport() {
         {isLoading ? <Muted>Loading…</Muted> : data?.error ? <Empty>{data.error}</Empty> : <>
           {data?.folders.map((f) => (
             <Pressable key={f.id} onPress={() => setStack([...stack, { ...f, driveId: f.driveId || cur?.driveId }])} style={card}>
-              <Text style={{ fontWeight: '700', color: base.ink }}>📁 {f.name}</Text>
+              <Text style={{ fontWeight: '600', color: base.ink }}>📁 {f.name}</Text>
             </Pressable>
           ))}
           {data?.files.map((f) => { const k = `${f.id}|${f.driveId || ''}`; return (

@@ -99,7 +99,7 @@ export default function CoshhNew() {
                 <Pressable onPress={async () => { toast('Building the preview…'); try { await showPdf(await previewAssessment({ ...it }, org, me, site ?? null, { where, note, name: (names[it.id] || '').replace(/^COSHH\s*[—-]\s*/i, ''), date, assessor: assessor ?? me.name ?? '' }), `COSHH - ${it.title}.pdf`); } catch { toast('Could not build the preview.'); } }} hitSlop={6} style={pill}><Text style={pillText}>Preview</Text></Pressable>
                 {isFullManager(me) && <Pressable onPress={() => router.push(`/pm/admin/coshh/${it.id}?site=${id}` as never)} hitSlop={6} style={pill}><Text style={pillText}>Edit Details</Text></Pressable>}
               </View>
-              <Muted style={{ fontWeight: '700', marginTop: 4 }}>COSHH name</Muted>
+              <Muted style={{ fontWeight: '600', marginTop: 4 }}>COSHH name</Muted>
               <TextInput value={names[it.id] ?? `COSHH — ${it.title}`} onChangeText={(v) => setNames({ ...names, [it.id]: v })} style={box} />
             </View>
           ))}
@@ -119,12 +119,12 @@ export default function CoshhNew() {
         <>
           <Card>
             <View style={{ flexDirection: 'row', gap: 8 }}>
-              <View style={{ flex: 1 }}><Muted style={{ fontWeight: '700' }}>Date of assessment</Muted><DateBox value={date} onChange={setDate} title="Date of assessment" style={{ marginBottom: 8 }} /></View>
-              <View style={{ flex: 1 }}><Muted style={{ fontWeight: '700' }}>Assessed by</Muted><TextInput value={assessor ?? me.name ?? ''} onChangeText={setAssessor} style={box} /></View>
+              <View style={{ flex: 1 }}><Muted style={{ fontWeight: '600' }}>Date of assessment</Muted><DateBox value={date} onChange={setDate} title="Date of assessment" style={{ marginBottom: 8 }} /></View>
+              <View style={{ flex: 1 }}><Muted style={{ fontWeight: '600' }}>Assessed by</Muted><TextInput value={assessor ?? me.name ?? ''} onChangeText={setAssessor} style={box} /></View>
             </View>
-            <Muted style={{ fontWeight: '700' }}>Where is it used on this job? (optional)</Muted>
+            <Muted style={{ fontWeight: '600' }}>Where is it used on this job? (optional)</Muted>
             <TextInput value={where} onChangeText={setWhere} placeholder="e.g. Flat roof to rear, applied by roller" style={box} />
-            <Muted style={{ fontWeight: '700' }}>Anything else to note (optional)</Muted>
+            <Muted style={{ fontWeight: '600' }}>Anything else to note (optional)</Muted>
             <TextInput value={note} onChangeText={setNote} placeholder="e.g. Residents' windows to be closed while in use" style={box} />
           </Card>
           <Button busy={busy} title={`Issue ${sel.length} COSHH Assessment${sel.length === 1 ? '' : 's'}`} onPress={async () => {

@@ -70,7 +70,7 @@ export function CheckinPanel({ site, sub }: { site: Site; sub?: SubAddress }) {
           {recentOpen && (mine.length ? mine.slice(0, 4).map((c) => (
             <Card key={c.id} style={{ paddingVertical: 10 }}>
               <Text style={{ fontSize: 12.5, color: base.ink }}>
-                <Text style={{ fontWeight: '700' }}>{c.type === 'in' ? 'Checked in' : 'Checked out'}</Text>
+                <Text style={{ fontWeight: '600' }}>{c.type === 'in' ? 'Checked in' : 'Checked out'}</Text>
                 {c.ts ? ` · ${new Date(c.ts).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}` : ''}
               </Text>
             </Card>

@@ -64,14 +64,14 @@ export default function OneDrivePick() {
   };
   const row = (f: OdFolder, onPress: () => void) => (
     <Pressable key={`${f.driveId || ''}${f.id}`} onPress={onPress} style={{ padding: 11, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 6, backgroundColor: base.card }}>
-      <Text style={{ fontWeight: '700', color: base.ink }}>{f.virtual ? f.name : `📁 ${f.name}`}</Text>
+      <Text style={{ fontWeight: '600', color: base.ink }}>{f.virtual ? f.name : `📁 ${f.name}`}</Text>
     </Pressable>
   );
   return (
     <ScrollView contentContainerStyle={page(720)}>
       <Stack.Screen options={{ title: est ? 'Choose The Estimating Folder' : 'Choose OneDrive folder' }} />
       {est && <Muted style={{ marginBottom: 8 }}>{estRoot ? 'Open the enquiry’s folder and press Use. It moves into this job’s Contract & Commercial › Estimating folder.' : estLoading ? 'Finding the Estimating folder…' : 'No Estimating folder is set in Quote settings, so this starts at the top of OneDrive.'}</Muted>}
-      <Text style={{ fontWeight: '800', color: base.ink, marginBottom: 8 }}>{['OneDrive', ...stack.map((s) => s.name)].join(' › ')}</Text>
+      <Text style={{ fontWeight: '600', color: base.ink, marginBottom: 8 }}>{['OneDrive', ...stack.map((s) => s.name)].join(' › ')}</Text>
       {stack.length > 0 && <View style={{ marginBottom: 8 }}><Button kind="ghost" title="‹ Up one level" onPress={() => setStack(stack.slice(0, -1))} /></View>}
       {canUse && <View style={{ marginBottom: 10 }}><Button busy={busy} title={target === 'quicklink' ? `⭐ Pin "${cur.name}" as a Quick Link` : est ? `Use "${cur.name}" For This Job` : `Use "${cur.name}"`} onPress={() => void use(cur)} /></View>}
       {canUse && target !== 'quicklink' && (

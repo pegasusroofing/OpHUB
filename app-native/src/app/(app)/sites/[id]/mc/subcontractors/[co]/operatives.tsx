@@ -34,7 +34,7 @@ export default function SubOperatives() {
       {isLoading ? <Muted>Loading…</Muted> : data?.allocated.length ? data.allocated.map((a) => (
         <View key={a.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, padding: 10, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 6, backgroundColor: base.card }}>
           <View style={{ flex: 1 }}>
-            <Text style={{ fontWeight: '700', color: base.ink }}>{nameOf(people, a.user_id)}</Text>
+            <Text style={{ fontWeight: '600', color: base.ink }}>{nameOf(people, a.user_id)}</Text>
             {a.is_admin && <Muted>⭐ Subcontractor admin</Muted>}
           </View>
           {mgr && <Button kind="ghost" title={a.is_admin ? 'Remove admin' : 'Make admin'} onPress={async () => { if (await setSubOpAdmin(a.id, !a.is_admin)) { toast(a.is_admin ? 'Admin removed' : 'Now the subcontractor admin'); refresh(); } }} />}

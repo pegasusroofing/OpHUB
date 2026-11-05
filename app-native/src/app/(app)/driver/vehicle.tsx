@@ -72,7 +72,7 @@ export default function Vehicle() {
   return (
     <ScrollView contentContainerStyle={page(720)}>
       <Card>
-        <Text style={{ fontWeight: '700', color: base.ink }}>Week commencing {new Date(`${d.week_start}T00:00:00`).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</Text>
+        <Text style={{ fontWeight: '600', color: base.ink }}>Week commencing {new Date(`${d.week_start}T00:00:00`).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</Text>
         {submitted ? <Text style={{ color: base.ok }}>✓ Submitted</Text> : <Muted>{answered} of {VEHICLE_ITEMS.length} checked</Muted>}
         <View style={{ marginTop: 10 }}>
           <Field label="Vehicle registration" value={d.vehicle_reg} editable={!submitted} placeholder="e.g. AB12 CDE" autoCapitalize="characters"
@@ -88,7 +88,7 @@ export default function Vehicle() {
           const path = d.items[ph.key]?.photo_path;
           return (
             <View key={ph.key} style={{ width: '47%' }}>
-              <Text style={{ fontWeight: '700', fontSize: 13, marginBottom: 6, color: base.ink }}>{i + 1}. {ph.label}</Text>
+              <Text style={{ fontWeight: '600', fontSize: 13, marginBottom: 6, color: base.ink }}>{i + 1}. {ph.label}</Text>
               {path ? <StorageImage bucket="site-photos" path={path} style={{ width: '100%', aspectRatio: 4 / 3, borderRadius: 8 }} />
                 : <View style={{ width: '100%', aspectRatio: 4 / 3, borderWidth: 1.5, borderStyle: 'dashed', borderColor: base.line, borderRadius: 8, alignItems: 'center', justifyContent: 'center' }}><Muted>{submitted ? 'Not taken' : 'No photo yet'}</Muted></View>}
               {!submitted && <Button kind="ghost" title={photoBusy === ph.key ? 'Uploading…' : path ? '📷 Retake' : '📷 Take Photo'} disabled={!!photoBusy} onPress={() => photo(ph.key)} />}
@@ -112,7 +112,7 @@ export default function Vehicle() {
                     return (
                       <Pressable key={r} disabled={submitted} onPress={() => setItem(item.key, { result: r })}
                         style={{ flex: 1, paddingVertical: 10, borderRadius: radius.button, borderWidth: 1, alignItems: 'center', borderColor: on ? c.fg : base.line, backgroundColor: on ? c.bg : base.card }}>
-                        <Text style={{ fontWeight: '700', color: on ? c.fg : base.ink }}>{r === 'pass' ? '✓ Pass' : '✕ Fail'}</Text>
+                        <Text style={{ fontWeight: '600', color: on ? c.fg : base.ink }}>{r === 'pass' ? '✓ Pass' : '✕ Fail'}</Text>
                       </Pressable>
                     );
                   })}

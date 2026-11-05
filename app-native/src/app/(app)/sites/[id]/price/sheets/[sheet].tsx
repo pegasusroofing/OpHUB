@@ -78,7 +78,7 @@ function View_({ me, org, site, sheet, items, can }: { me: Profile; org: Organiz
     <ScrollView contentContainerStyle={page(820)}>
       <Stack.Screen options={{ title: 'Price Sheet', headerRight: () => <Pressable onPress={() => void menu()} hitSlop={10} style={{ paddingHorizontal: 12 }}><Text style={{ fontSize: 18, color: base.ink }}>⋮</Text></Pressable> }} />
       <Card>
-        {can ? <TextInput value={title} onChangeText={setTitle} onBlur={async () => { if (title.trim() && title !== sheet.title) toast((await renameSheet(sheet.id, title.trim())) ? 'Sheet renamed' : 'Could not save — try again.'); }} style={{ fontSize: 17, fontWeight: '800', color: base.ink, padding: 0 }} /> : <Text style={{ fontSize: 17, fontWeight: '800', color: base.ink }}>{sheet.title}</Text>}
+        {can ? <TextInput value={title} onChangeText={setTitle} onBlur={async () => { if (title.trim() && title !== sheet.title) toast((await renameSheet(sheet.id, title.trim())) ? 'Sheet renamed' : 'Could not save — try again.'); }} style={{ fontSize: 17, fontWeight: '600', color: base.ink, padding: 0 }} /> : <Text style={{ fontSize: 17, fontWeight: '600', color: base.ink }}>{sheet.title}</Text>}
         {sheet.subcontractor_name ? <Muted>For: {sheet.subcontractor_name}</Muted> : null}
         {sheet.issued_at ? <Muted>Issued {new Date(sheet.issued_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</Muted> : null}
       </Card>
@@ -91,15 +91,15 @@ function View_({ me, org, site, sheet, items, can }: { me: Profile; org: Organiz
                 <Text style={{ fontWeight: '600', color: base.ink }}>{it.option_label ? `${it.name} - ${it.option_label}` : it.name}</Text>
                 <Muted>{it.quantity} {PRICE_UNIT_LABEL[it.unit] || it.unit} @ {money(it.rate)}{it.is_manual_rate ? ' · ⚠ Manual rate' : ''}</Muted>
               </View>
-              <Text style={{ fontWeight: '800', color: base.ink }}>{money(it.line_total)}</Text>
+              <Text style={{ fontWeight: '600', color: base.ink }}>{money(it.line_total)}</Text>
             </Card>
           ); })}
         </View>
       ))}
       {!items.length && <Muted>No items on this sheet.</Muted>}
       <Card>
-        <View style={{ flexDirection: 'row' }}><Text style={{ flex: 1, fontWeight: '800', color: base.ink, fontSize: 16 }}>Total</Text><Text style={{ fontWeight: '800', fontSize: 18, color: base.ink }}>{money(sheet.total)}</Text></View>
-        {fig && sheet.pricing_element_id && <><Muted>Taken (booked in): {money(fig.taken)}</Muted><Text style={{ color: fig.balance < 0 ? base.warn : base.ok, fontWeight: '700' }}>Balance: {money(fig.balance)}</Text></>}
+        <View style={{ flexDirection: 'row' }}><Text style={{ flex: 1, fontWeight: '600', color: base.ink, fontSize: 16 }}>Total</Text><Text style={{ fontWeight: '600', fontSize: 18, color: base.ink }}>{money(sheet.total)}</Text></View>
+        {fig && sheet.pricing_element_id && <><Muted>Taken (booked in): {money(fig.taken)}</Muted><Text style={{ color: fig.balance < 0 ? base.warn : base.ok, fontWeight: '600' }}>Balance: {money(fig.balance)}</Text></>}
       </Card>
       <View style={{ flexDirection: 'row', gap: 8 }}>
         <View style={{ flex: 1 }}><Button title="📄 PDF" onPress={async () => { if (!(await exportTablePdf(sheetTable(sheet, items, site, fig), org).catch(() => false))) toast('Could not make the PDF — try again.'); }} /></View>
@@ -172,8 +172,8 @@ function Builder({ me, site, sheet, items, alloc, rateItems, options }: { me: Pr
     <ScrollView contentContainerStyle={page(820)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: issued ? 'Edit Price Sheet' : 'Price Sheet (draft)' }} />
       <Card>
-        <TextInput value={w.title} onChangeText={(v) => up((x) => { x.title = v; })} placeholder="Title" style={[box, { fontWeight: '800', fontSize: 16, marginBottom: 8 }]} />
-        <Muted style={{ fontWeight: '700', marginBottom: 4 }}>Assign to</Muted>
+        <TextInput value={w.title} onChangeText={(v) => up((x) => { x.title = v; })} placeholder="Title" style={[box, { fontWeight: '600', fontSize: 16, marginBottom: 8 }]} />
+        <Muted style={{ fontWeight: '600', marginBottom: 4 }}>Assign to</Muted>
         <AssignChips ops={ops} sel={w.assignedUserIds} onToggle={(u) => up((x) => { x.assignedUserIds = x.assignedUserIds.includes(u) ? x.assignedUserIds.filter((y) => y !== u) : [...x.assignedUserIds, u]; })} />
         {!sheet.schedule_section_id && <Check label="Add these lines to the Schedule of Works when issued" value={w.populateSOW} onChange={(v) => up((x) => { x.populateSOW = v; })} />}
       </Card>
@@ -185,7 +185,7 @@ function Builder({ me, site, sheet, items, alloc, rateItems, options }: { me: Pr
         <>
           {cats.map((c, ci) => { const isOpen = open[c.name] ?? ci === 0; const n = c.items.filter((it) => Object.values(w.items).some((e) => e.rateItemId === it.id)).length; return (
             <Card key={c.name}>
-              <Pressable onPress={() => setOpen({ ...open, [c.name]: !isOpen })}><Text style={{ fontWeight: '800', color: base.ink }}>{isOpen ? '▼' : '▶'} {c.name}{n ? ` (${n} ticked)` : ''}</Text></Pressable>
+              <Pressable onPress={() => setOpen({ ...open, [c.name]: !isOpen })}><Text style={{ fontWeight: '600', color: base.ink }}>{isOpen ? '▼' : '▶'} {c.name}{n ? ` (${n} ticked)` : ''}</Text></Pressable>
               {isOpen && c.items.map((it) => it.is_dropdown ? (
                 <View key={it.id} style={{ marginTop: 6 }}>
                   <Text style={{ fontWeight: '600', color: base.ink }}>{it.name}</Text>
@@ -203,7 +203,7 @@ function Builder({ me, site, sheet, items, alloc, rateItems, options }: { me: Pr
           {Object.entries(w.items).map(([key, e]) => { const it = byId[e.rateItemId]; if (!it) return null; return (
             <Card key={key}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <TextInput value={e.nameOverride ?? it.name} onChangeText={(v) => up((x) => { x.items[key].nameOverride = v.trim() && v !== it.name ? v : null; })} style={[box, { flex: 1, fontWeight: '700' }]} />
+                <TextInput value={e.nameOverride ?? it.name} onChangeText={(v) => up((x) => { x.items[key].nameOverride = v.trim() && v !== it.name ? v : null; })} style={[box, { flex: 1, fontWeight: '600' }]} />
                 <Pressable hitSlop={6} onPress={() => { if (allocated(e.id)) { toast("Can't remove — this item already has bookings against it."); return; } up((x) => { delete x.items[key]; }); }}><Text style={{ color: base.red, fontSize: 16 }}>✕</Text></Pressable>
               </View>
               <Muted style={{ fontSize: 11 }}>{it.category}</Muted>
@@ -218,9 +218,9 @@ function Builder({ me, site, sheet, items, alloc, rateItems, options }: { me: Pr
                 <Pressable onPress={async () => { const u = await chooseAction('Unit', RATE_UNITS.map(([k, l]) => ({ key: k, label: l }))); if (u) up((x) => { x.items[key].unit = u === it.unit ? null : u; }); }} style={[box, { width: 64 }]}><Text style={{ color: base.ink }}>{PRICE_UNIT_LABEL[e.unit || it.unit] || e.unit || it.unit} ▾</Text></Pressable>
                 <Text style={{ color: base.slate }}>@</Text>
                 <TextInput value={rateDraft[key] ?? String(resolvedRate(e, it))} onChangeText={(v) => setRateDraft({ ...rateDraft, [key]: v })} onBlur={() => { const v = rateDraft[key]; if (v == null) return; setRateDraft((d) => { const n = { ...d }; delete n[key]; return n; }); void changeRate(key, v); }} keyboardType="decimal-pad" style={[box, { width: 80 }, e.isManualRate ? { borderColor: base.warn } : null]} />
-                <Text style={{ flex: 1, textAlign: 'right', fontWeight: '800', color: base.ink }}>{money(it.is_dropdown && !e.optionId ? 0 : lineTotal(e, it))}</Text>
+                <Text style={{ flex: 1, textAlign: 'right', fontWeight: '600', color: base.ink }}>{money(it.is_dropdown && !e.optionId ? 0 : lineTotal(e, it))}</Text>
               </View>
-              {e.isManualRate && <Text style={{ color: base.warn, fontSize: 12, fontWeight: '700' }}>⚠ Manual rate (off the rate card)</Text>}
+              {e.isManualRate && <Text style={{ color: base.warn, fontSize: 12, fontWeight: '600' }}>⚠ Manual rate (off the rate card)</Text>}
             </Card>
           ); })}
           <SectionTitle>Additional Items</SectionTitle>
@@ -235,12 +235,12 @@ function Builder({ me, site, sheet, items, alloc, rateItems, options }: { me: Pr
                 <TextInput value={c.unit} onChangeText={(v) => up((x) => { x.customRows[i].unit = v || 'item'; })} placeholder="Unit" style={[box, { width: 64 }]} />
                 <Text style={{ color: base.slate }}>@ £</Text>
                 <TextInput value={c.rate === '' ? '' : String(c.rate)} onChangeText={(v) => up((x) => { x.customRows[i].rate = v === '' ? '' : (v as unknown as number); })} keyboardType="decimal-pad" placeholder="Rate" style={[box, { width: 80 }]} />
-                <Text style={{ flex: 1, textAlign: 'right', fontWeight: '800', color: base.ink }}>{money(pbRound2((Number(c.quantity) || 0) * (Number(c.rate) || 0)))}</Text>
+                <Text style={{ flex: 1, textAlign: 'right', fontWeight: '600', color: base.ink }}>{money(pbRound2((Number(c.quantity) || 0) * (Number(c.rate) || 0)))}</Text>
               </View>
             </Card>
           ))}
           <Button kind="ghost" title="+ Add your own line" onPress={() => up((x) => { x.customRows.push({ localId: `c${Date.now()}`, id: null, name: '', rate: '', quantity: '', unit: 'item' }); })} />
-          <Card><View style={{ flexDirection: 'row' }}><Text style={{ flex: 1, fontWeight: '800', color: base.ink, fontSize: 16 }}>Total</Text><Text style={{ fontWeight: '800', fontSize: 18, color: base.ink }}>{money(total)}</Text></View></Card>
+          <Card><View style={{ flexDirection: 'row' }}><Text style={{ flex: 1, fontWeight: '600', color: base.ink, fontSize: 16 }}>Total</Text><Text style={{ fontWeight: '600', fontSize: 18, color: base.ink }}>{money(total)}</Text></View></Card>
         </>
       )}
       <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>

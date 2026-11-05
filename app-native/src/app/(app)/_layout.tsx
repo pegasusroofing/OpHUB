@@ -120,9 +120,9 @@ function FinNoAccess() {
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, backgroundColor: base.paper }}>
       <View style={{ backgroundColor: base.card, borderRadius: 16, padding: 24, maxWidth: 420, width: '100%', alignItems: 'center', borderWidth: 1, borderColor: base.cardLine }}>
         <Text style={{ fontSize: 34 }}>🔒</Text>
-        <Text style={{ fontWeight: '800', fontSize: 16, color: base.ink, marginTop: 10, marginBottom: 4, textAlign: 'center' }}>You don’t have OpHUB Finance yet</Text>
+        <Text style={{ fontWeight: '600', fontSize: 16, color: base.ink, marginTop: 10, marginBottom: 4, textAlign: 'center' }}>You don’t have OpHUB Finance yet</Text>
         <Text style={{ color: base.slate, textAlign: 'center', marginBottom: 16 }}>Ask your company admin to switch Finance on for you in Finance › Team.</Text>
-        <Pressable onPress={() => void signOut()} style={{ borderWidth: 1, borderColor: base.line, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 18 }}><Text style={{ fontWeight: '700', color: base.ink }}>Sign out</Text></Pressable>
+        <Pressable onPress={() => void signOut()} style={{ borderWidth: 1, borderColor: base.line, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 18 }}><Text style={{ fontWeight: '600', color: base.ink }}>Sign out</Text></Pressable>
       </View>
     </View>
   );

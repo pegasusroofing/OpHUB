@@ -34,14 +34,14 @@ export function HowTo({ k }: { k: string }) {
     <View style={{ backgroundColor: '#FFF8E1', borderWidth: 1, borderColor: '#F3D98B', borderRadius: 12, marginBottom: 12 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8 }}>
         <Text style={{ fontSize: 15 }}>💡</Text>
-        <Pressable onPress={() => setOpen(!open)} style={{ flex: 1, marginLeft: 8 }}><Text style={{ fontWeight: '700', color: base.ink }}>How {h.title} works {open ? '▴' : '▾'}</Text></Pressable>
+        <Pressable onPress={() => setOpen(!open)} style={{ flex: 1, marginLeft: 8 }}><Text style={{ fontWeight: '600', color: base.ink }}>How {h.title} works {open ? '▴' : '▾'}</Text></Pressable>
         <Pressable onPress={() => void close(k)} hitSlop={8} accessibilityLabel="Close tip"><Text style={{ color: base.slate, fontSize: 16 }}>✕</Text></Pressable>
       </View>
       {open && (
         <View style={{ paddingHorizontal: 12, paddingBottom: 10 }}>
           {steps.map((s, i) => <Text key={i} style={{ color: base.ink, marginBottom: 4 }}>{i + 1}. {s}</Text>)}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 6 }}>
-            <Pressable onPress={() => void close(k)} style={{ borderWidth: 1, borderColor: base.line, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, backgroundColor: base.card }}><Text style={{ fontWeight: '700', color: base.ink }}>Got it — don&apos;t show again</Text></Pressable>
+            <Pressable onPress={() => void close(k)} style={{ borderWidth: 1, borderColor: base.line, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, backgroundColor: base.card }}><Text style={{ fontWeight: '600', color: base.ink }}>Got it — don&apos;t show again</Text></Pressable>
             <Pressable onPress={() => void close('*')}><Text style={{ color: base.slate, textDecorationLine: 'underline' }}>Turn off all tips</Text></Pressable>
           </View>
         </View>

@@ -11,7 +11,7 @@ export function DashTabs({ on }: { on: 'company' | 'operatives' }) {
     <View style={{ flexDirection: 'row', gap: 16, borderBottomWidth: 1, borderBottomColor: base.line, marginBottom: 12 }}>
       {TABS.map(([k, label, go]) => (
         <Pressable key={k} accessibilityRole="tab" accessibilityState={{ selected: k === on }} onPress={() => { if (k !== on) router.replace(go as never); }} style={{ paddingVertical: 8, borderBottomWidth: 2, borderBottomColor: k === on ? base.ink : 'transparent', marginBottom: -1 }}>
-          <Text style={{ fontWeight: '700', color: k === on ? base.ink : base.slate }}>{label}</Text>
+          <Text style={{ fontWeight: '600', color: k === on ? base.ink : base.slate }}>{label}</Text>
         </Pressable>
       ))}
     </View>

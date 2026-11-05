@@ -64,7 +64,7 @@ export default function Reports() {
       <Stack.Screen options={{ title: 'Reports' }} />
       {waiting.length > 0 && (
         <Card style={{ borderColor: base.warn, borderWidth: 1.5, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <Text style={{ flex: 1, color: base.ink }}><Text style={{ fontWeight: '800' }}>⏳ {waiting.length} report{waiting.length === 1 ? '' : 's'} waiting to send</Text> — {waiting.map((w) => w.name).join(', ')}. They send by themselves when there’s signal.</Text>
+          <Text style={{ flex: 1, color: base.ink }}><Text style={{ fontWeight: '600' }}>⏳ {waiting.length} report{waiting.length === 1 ? '' : 's'} waiting to send</Text> — {waiting.map((w) => w.name).join(', ')}. They send by themselves when there’s signal.</Text>
           <Button small busy={busy} title="Send now" onPress={async () => { setBusy(true); const n = await sendParked(me); setBusy(false); void refetchWaiting(); void qc.invalidateQueries({ queryKey: ['reports', id] }); if (!n) toast('Still no signal — they’re kept on this phone and will send later.'); }} />
         </Card>
       )}
@@ -75,7 +75,7 @@ export default function Reports() {
           {startable.length ? startable.map((t) => (
             <View key={t.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, borderTopWidth: 1, borderTopColor: base.line }}>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontWeight: '700', color: base.ink }}>{t.name}</Text>
+                <Text style={{ fontWeight: '600', color: base.ink }}>{t.name}</Text>
                 {!!t.description && <Muted>{t.description}</Muted>}
               </View>
               <Button busy={busy} title="Start" onPress={async () => {
@@ -90,7 +90,7 @@ export default function Reports() {
       )}
       {(names.length > 1 || !!filter) && (
         <Pressable onPress={async () => { const k = await chooseAction('Filter by template', [{ key: '', label: 'All templates' }, ...names.map((n) => ({ key: n, label: n }))]); if (k !== null) setFilter(k); }} style={{ marginVertical: 8 }}>
-          <Text style={{ fontWeight: '700', color: base.ink }}>▼ {filter || 'All templates'}</Text>
+          <Text style={{ fontWeight: '600', color: base.ink }}>▼ {filter || 'All templates'}</Text>
         </Pressable>
       )}
       {sel.size > 0 && (
@@ -125,10 +125,10 @@ export default function Reports() {
         <View key={s.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginTop: 8, backgroundColor: base.card }}>
           <Pressable hitSlop={8} onPress={() => { const n = new Set(sel); if (n.has(s.id)) n.delete(s.id); else n.add(s.id); setSel(n); }}><Text style={{ fontSize: 18 }}>{sel.has(s.id) ? '☑' : '☐'}</Text></Pressable>
           <Pressable style={{ flex: 1 }} onPress={() => router.push(`/sites/${id}/snagging/reports/${s.status === 'in_progress' ? 'fill' : 'view'}/${s.id}` as never)}>
-            <Text style={{ fontWeight: '700', color: base.ink }}>{s.template_name}</Text>
+            <Text style={{ fontWeight: '600', color: base.ink }}>{s.template_name}</Text>
             <Muted>{s.status === 'in_progress' ? 'Started' : `Submitted ${s.submitted_at ? new Date(s.submitted_at).toLocaleString('en-GB') : ''}`} · {nameOf(people, s.submitted_by)}</Muted>
           </Pressable>
-          <Text style={{ fontSize: 11.5, fontWeight: '700', color: s.status === 'in_progress' ? base.warn : base.ok }}>{REPORT_STATUS_LABEL[s.status] || s.status}</Text>
+          <Text style={{ fontSize: 11.5, fontWeight: '600', color: s.status === 'in_progress' ? base.warn : base.ok }}>{REPORT_STATUS_LABEL[s.status] || s.status}</Text>
         </View>
       )) : <Empty>No inspections started yet{filter ? ' for this template.' : '.'}</Empty>}
       <Muted style={{ marginTop: space.m }}>Tick reports to export them as one PDF. Open a report to export or email it on its own.</Muted>

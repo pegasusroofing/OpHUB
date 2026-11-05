@@ -37,12 +37,12 @@ export function OperativeHome() {
   return (
     <Screen>
       <Text style={{ fontSize: 12.5, color: base.slate, fontWeight: '600' }}>{dateTxt}</Text>
-      <Text style={{ fontSize: 21, fontWeight: '800', color: base.ink, marginBottom: 14 }}>{greeting()}{first ? `, ${first}` : ''}</Text>
+      <Text style={{ fontSize: 21, fontWeight: '600', color: base.ink, marginBottom: 14 }}>{greeting()}{first ? `, ${first}` : ''}</Text>
       {!desk && <SearchButton />}
       <HowTo k="home" />
       {onboarding && !onboarding.allDone && (
         <Pressable onPress={() => router.push('/getting-started')} style={{ backgroundColor: base.warnBg, borderWidth: 1, borderColor: base.warn, borderRadius: 18, padding: 14, marginBottom: 14 }}>
-          <Text style={{ fontWeight: '800', color: base.warn }}>Getting Started</Text>
+          <Text style={{ fontWeight: '600', color: base.warn }}>Getting Started</Text>
           <Text style={{ color: base.slate, marginTop: 2 }}>{onboarding.items.filter((i) => i.done).length} of {onboarding.items.length} steps done — tap to finish</Text>
         </Pressable>
       )}

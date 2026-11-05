@@ -31,7 +31,7 @@ export default function SiteMapPage() {
         {(['live', 'upcoming', 'closed'] as const).map((k) => (
           <Pressable key={k} onPress={() => setShow({ ...show, [k]: !show[k] })}
             style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 999, borderWidth: 1, borderColor: show[k] ? base.ink : '#E2E3E7' }}>
-            {dot(k, !show[k])}<Text style={{ fontSize: 12, fontWeight: '700', color: show[k] ? base.ink : '#7A7E87' }}>{LABEL[k]}</Text>
+            {dot(k, !show[k])}<Text style={{ fontSize: 12, fontWeight: '600', color: show[k] ? base.ink : '#7A7E87' }}>{LABEL[k]}</Text>
           </Pressable>
         ))}
       </View>
@@ -40,14 +40,14 @@ export default function SiteMapPage() {
         {vis.map((p) => (
           <Pressable key={p.s.id} onPress={() => map.current?.focus(p.s.id)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 8, borderRadius: 10 }}>
             {dot(p.st)}
-            <View style={{ flex: 1, minWidth: 0 }}><Text numberOfLines={1} style={{ fontSize: 13, fontWeight: '700', color: base.ink }}>{p.s.name}</Text><Text style={{ fontSize: 11, color: base.slate }}>{p.pc}</Text></View>
+            <View style={{ flex: 1, minWidth: 0 }}><Text numberOfLines={1} style={{ fontSize: 13, fontWeight: '600', color: base.ink }}>{p.s.name}</Text><Text style={{ fontSize: 11, color: base.slate }}>{p.pc}</Text></View>
           </Pressable>
         ))}
-        {!!miss.length && <Text style={{ marginTop: 12, marginHorizontal: 8, marginBottom: 4, fontSize: 10.5, fontWeight: '800', letterSpacing: 0.8, textTransform: 'uppercase', color: '#9A9DA4' }}>No postcode found ({miss.length})</Text>}
+        {!!miss.length && <Text style={{ marginTop: 12, marginHorizontal: 8, marginBottom: 4, fontSize: 10.5, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', color: '#9A9DA4' }}>No postcode found ({miss.length})</Text>}
         {miss.map((p) => (
           <Pressable key={p.s.id} onPress={() => router.push(`/sites/${p.s.id}` as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 8, borderRadius: 10, opacity: 0.7 }}>
             {dot(p.st)}
-            <View style={{ flex: 1, minWidth: 0 }}><Text numberOfLines={1} style={{ fontSize: 13, fontWeight: '700', color: base.ink }}>{p.s.name}</Text><Text style={{ fontSize: 11, color: base.slate }}>Add a postcode to show it</Text></View>
+            <View style={{ flex: 1, minWidth: 0 }}><Text numberOfLines={1} style={{ fontSize: 13, fontWeight: '600', color: base.ink }}>{p.s.name}</Text><Text style={{ fontSize: 11, color: base.slate }}>Add a postcode to show it</Text></View>
           </Pressable>
         ))}
       </ScrollView>

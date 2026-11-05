@@ -24,7 +24,7 @@ export function PolicyGate({ doc }: { doc: PolicyDoc }) {
       <Title>Health & Safety Policy</Title>
       <Muted style={{ marginBottom: 16 }}>Before you can use OpHUB, please read and sign the current company H&S Policy. This is a one-off for the year and travels with you to every site.</Muted>
       <Card>
-        <Text style={{ fontWeight: '800', fontSize: 14, color: base.ink }}>{doc.name}</Text>
+        <Text style={{ fontWeight: '600', fontSize: 14, color: base.ink }}>{doc.name}</Text>
         <Muted>Uploaded {longDate(doc.uploaded_at)}{doc.expiry_date ? ` · Expires ${longDate(`${doc.expiry_date}T00:00:00`)}` : ''}</Muted>
         <Pressable onPress={async () => { const u = await openDocLink('rams-docs', doc.storage_path); if (u) viewDoc(u); else toast('Could not open the document.'); }}>
           <Text style={{ color: base.blue, marginTop: 6 }}>View document ↗</Text>

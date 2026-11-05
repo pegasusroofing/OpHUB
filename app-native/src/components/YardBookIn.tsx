@@ -59,9 +59,9 @@ export function YardBookIn({ canAddItems, stockId: stock0 = null }: { canAddItem
       <SectionTitle>⬇ Book Stock Into The Yard</SectionTitle>
       {list.length ? (
         <>
-          <Muted style={{ fontWeight: '700' }}>Item</Muted>
+          <Muted style={{ fontWeight: '600' }}>Item</Muted>
           {stock ? (
-            <Pressable onPress={() => setStockId(null)} style={{ paddingVertical: 8 }}><Text style={{ color: base.ink, fontWeight: '700' }}>▼ {stock.item} — {yardQty(stock.qty)} {stock.unit || ''} in yard</Text></Pressable>
+            <Pressable onPress={() => setStockId(null)} style={{ paddingVertical: 8 }}><Text style={{ color: base.ink, fontWeight: '600' }}>▼ {stock.item} — {yardQty(stock.qty)} {stock.unit || ''} in yard</Text></Pressable>
           ) : (
             <View style={{ marginBottom: 8 }}>
               <TextInput value={q} onChangeText={setQ} placeholder="Search the yard" style={box} />
@@ -90,8 +90,8 @@ export function YardBookIn({ canAddItems, stockId: stock0 = null }: { canAddItem
             const hits = ql ? pos.filter((p) => `${p.number || ''} ${p.supplier_name || ''}`.toLowerCase().includes(ql)) : pos;
             return (
               <View style={{ marginBottom: 8 }}>
-                <Muted style={{ fontWeight: '700' }}>Purchase order (optional)</Muted>
-                <Pressable onPress={() => setPoOpen(!poOpen)} style={{ paddingVertical: 8 }}><Text style={{ color: base.ink, fontWeight: '700' }}>{poOpen ? '▲' : '▼'} {po ? `${po.number || 'PO'} · ${po.supplier_name || ''}` : 'None'}</Text></Pressable>
+                <Muted style={{ fontWeight: '600' }}>Purchase order (optional)</Muted>
+                <Pressable onPress={() => setPoOpen(!poOpen)} style={{ paddingVertical: 8 }}><Text style={{ color: base.ink, fontWeight: '600' }}>{poOpen ? '▲' : '▼'} {po ? `${po.number || 'PO'} · ${po.supplier_name || ''}` : 'None'}</Text></Pressable>
                 {poOpen && (
                   <View>
                     <TextInput value={poQ} onChangeText={setPoQ} placeholder="Search PO number or supplier" style={box} />
@@ -136,10 +136,10 @@ export function YardBookIn({ canAddItems, stockId: stock0 = null }: { canAddItem
         return (
           <View key={m.id} style={{ flexDirection: 'row', gap: 10, paddingVertical: 6, borderTopWidth: 1, borderTopColor: base.line }}>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontWeight: '700', color: base.ink }}>{s?.item ?? 'Item'}</Text>
+              <Text style={{ fontWeight: '600', color: base.ink }}>{s?.item ?? 'Item'}</Text>
               <Muted>{[new Date(m.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }), m.created_by ? nameOf(people, m.created_by) : '', m.supplier_name, m.ref, m.note].filter(Boolean).join(' · ')}{m.photo_path ? ' · 📷' : ''}</Muted>
             </View>
-            <Text style={{ fontWeight: '800', color: base.ok }}>+{yardQty(m.qty)} {s?.unit || ''}</Text>
+            <Text style={{ fontWeight: '600', color: base.ok }}>+{yardQty(m.qty)} {s?.unit || ''}</Text>
           </View>
         );
       }) : <Muted>Nothing booked in yet.</Muted>}

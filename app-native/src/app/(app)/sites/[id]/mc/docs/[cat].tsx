@@ -38,7 +38,7 @@ export default function McDocs() {
       {isLoading ? <Muted>Loading…</Muted> : docs?.length ? docs.map((d) => (
         <Card key={d.id}>
           <View style={{ flexDirection: 'row', gap: 8 }}>
-            <Text style={{ flex: 1, fontSize: 16.5, fontWeight: '800', color: base.ink }}>{d.name}</Text>
+            <Text style={{ flex: 1, fontSize: 16.5, fontWeight: '600', color: base.ink }}>{d.name}</Text>
             {mgr && <Pressable hitSlop={6} onPress={async () => { const n = (await promptText('Rename document', d.name))?.trim(); if (n && n !== d.name && await renameMcDoc(d.id, n)) { toast('Renamed'); refresh(); } }}><Text>✏️</Text></Pressable>}
             {mgr && <Pressable hitSlop={6} onPress={async () => { if (await confirmAsk('Delete this document?', 'Delete') && await deleteMcDoc(d)) { toast('Deleted'); refresh(); } }}><Text>🗑</Text></Pressable>}
           </View>

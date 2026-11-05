@@ -102,18 +102,18 @@ Pass it on securely — it won’t be shown again.`, 'Password reset');
             {list.length ? list.map((p) => (
               <Pressable key={p.id} onPress={() => void act(p)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 6, backgroundColor: base.card }}>
                 <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: swatch(p.role), alignItems: 'center', justifyContent: 'center' }}>
-                  <Text style={{ color: swatchText(p.role), fontWeight: '800' }}>{(p.name || '?').split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase()}</Text>
+                  <Text style={{ color: swatchText(p.role), fontWeight: '600' }}>{(p.name || '?').split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase()}</Text>
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontWeight: '700', color: base.ink }}>{p.name}{p.id === me.id ? ' (you)' : ''}</Text>
+                  <Text style={{ fontWeight: '600', color: base.ink }}>{p.name}{p.id === me.id ? ' (you)' : ''}</Text>
                   <Muted>{p.email || ''}{p.phone ? ` · ${p.phone}` : ''}</Muted>
                 </View>
                 {finRole(p) && (canFin && p.id !== me.id
                   ? <Pressable accessibilityRole="switch" accessibilityState={{ checked: !!p.finance_enabled }} accessibilityLabel={`Finance for ${p.name}`} hitSlop={6} onPress={(e) => { e.stopPropagation(); void flipFinance(p); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <Text style={{ fontSize: 12, fontWeight: '700', color: base.ink }}>Finance</Text>
+                      <Text style={{ fontSize: 12, fontWeight: '600', color: base.ink }}>Finance</Text>
                       <View style={{ width: 36, height: 20, borderRadius: 10, backgroundColor: p.finance_enabled ? '#15803d' : '#d1d5db', padding: 2, alignItems: p.finance_enabled ? 'flex-end' : 'flex-start' }}><View style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: '#fff' }} /></View>
                     </Pressable>
-                  : p.finance_enabled ? <Text style={{ fontSize: 12, fontWeight: '700', color: '#15803d' }}>Finance on</Text> : null)}
+                  : p.finance_enabled ? <Text style={{ fontSize: 12, fontWeight: '600', color: '#15803d' }}>Finance on</Text> : null)}
               </Pressable>
             )) : <Empty>{g.empty}</Empty>}
           </View>

@@ -60,7 +60,7 @@ export default function OneDriveAdmin() {
         <Muted style={{ marginBottom: 8 }}>Pin a folder here — e.g. your Live Projects folder — so it shows as a one-tap shortcut wherever someone chooses a OneDrive folder.</Muted>
         {quick.map((l) => (
           <View key={l.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6 }}>
-            <Text style={{ flex: 1, color: base.ink, fontWeight: '700' }}>⭐ {l.name}</Text>
+            <Text style={{ flex: 1, color: base.ink, fontWeight: '600' }}>⭐ {l.name}</Text>
             <Pressable hitSlop={8} onPress={async () => { toast((await setQuickLinks(me.org_id as string, quick.filter((x) => x.id !== l.id))) ? 'Removed Quick Link' : 'Could not save'); refresh(); }}><Text>🗑</Text></Pressable>
           </View>
         ))}
@@ -75,7 +75,7 @@ export default function OneDriveAdmin() {
         return (
           <Card key={s.id} style={{ padding: 10 }}>
             <Pressable onPress={() => setOpen(open === s.id ? null : s.id)} style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Text style={{ flex: 1, fontWeight: '700', color: base.ink }}>{s.name}</Text>
+              <Text style={{ flex: 1, fontWeight: '600', color: base.ink }}>{s.name}</Text>
               {/* "0/2 linked" as the current app (260): inductions only count on Main Contractor jobs. */}
               <Muted>{n}/{links.filter(([t]) => t !== 'siteinductions' || mc).length} linked {open === s.id ? '▾' : '▸'}</Muted>
             </Pressable>
@@ -83,7 +83,7 @@ export default function OneDriveAdmin() {
             {open === s.id && links.filter(([t]) => t !== 'siteinductions' || mc).map(([t, label, fid, fname]) => (
               <View key={t} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 }}>
                 <View style={{ flex: 1 }}><Text style={{ color: base.ink }}>{label}</Text><Muted>{fid ? `📁 ${fname || 'Linked folder'}` : 'Not linked'}</Muted></View>
-                <Pressable onPress={() => pick(t, s.id)} style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, paddingHorizontal: 10, paddingVertical: 5 }}><Text style={{ color: base.ink, fontWeight: '700', fontSize: 12 }}>{fid ? 'Change' : 'Link'}</Text></Pressable>
+                <Pressable onPress={() => pick(t, s.id)} style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, paddingHorizontal: 10, paddingVertical: 5 }}><Text style={{ color: base.ink, fontWeight: '600', fontSize: 12 }}>{fid ? 'Change' : 'Link'}</Text></Pressable>
                 {!!fid && <Pressable hitSlop={8} onPress={async () => { if (await confirmAsk(`Unlink the ${label.toLowerCase()} folder? Sync stops until a new one is linked.`, 'Unlink')) { toast((await unlinkFolder(t, s.id)) ? 'Folder unlinked' : 'Could not unlink'); refresh(); } }}><Text>✕</Text></Pressable>}
               </View>
             ))}

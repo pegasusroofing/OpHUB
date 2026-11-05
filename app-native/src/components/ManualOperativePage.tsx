@@ -45,8 +45,8 @@ export function ManualOperativePage({ uuid }: { uuid: string }) {
   const refresh = () => { ['manualOp', 'manualOps', 'operativeList', 'trainingMatrix', 'signedUpOps'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] })); };
   const row = (label: string, v: string | null) => (
     <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 10, paddingVertical: 6, borderBottomWidth: 1, borderColor: base.line }}>
-      <Muted style={{ fontWeight: '700' }}>{label}</Muted>
-      <Text style={{ flexShrink: 1, fontWeight: '700', fontSize: 14.5, color: base.ink, textAlign: 'right' }}>{v || '—'}</Text>
+      <Muted style={{ fontWeight: '600' }}>{label}</Muted>
+      <Text style={{ flexShrink: 1, fontWeight: '600', fontSize: 14.5, color: base.ink, textAlign: 'right' }}>{v || '—'}</Text>
     </View>
   );
   const save = async () => {
@@ -79,7 +79,7 @@ export function ManualOperativePage({ uuid }: { uuid: string }) {
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: m.name }} />
       <Card style={{ backgroundColor: '#FFF8EC', borderColor: '#F1D9A8' }}>
-        <Text style={{ fontWeight: '800', color: '#8A5300' }}>Not Signed Up Yet</Text>
+        <Text style={{ fontWeight: '600', color: '#8A5300' }}>Not Signed Up Yet</Text>
         <Muted>{m.email ? `When they sign up with ${m.email}, their certificates and OneDrive folder move onto their login by themselves.` : 'Add their email so they link up by themselves when they sign up, or link them below once they have.'}</Muted>
       </Card>
 

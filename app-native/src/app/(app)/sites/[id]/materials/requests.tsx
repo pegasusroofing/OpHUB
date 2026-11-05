@@ -110,7 +110,7 @@ export default function MaterialRequests() {
           <Pressable onPress={() => toggle([m.id])} hitSlop={8}><Text style={{ fontSize: 18 }}>{sel.has(m.id) ? '☑' : '☐'}</Text></Pressable>
         )}
         <View style={{ flex: 1 }}>
-          <Text style={{ fontWeight: '700', color: base.ink, fontSize: 16.5 }}>{m.item} <Text style={{ fontSize: 12, color: base.slate, fontWeight: '400' }}>{matAgo(m.created_at)}</Text></Text>
+          <Text style={{ fontWeight: '600', color: base.ink, fontSize: 16.5 }}>{m.item} <Text style={{ fontSize: 12, color: base.slate, fontWeight: '400' }}>{matAgo(m.created_at)}</Text></Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
             <Chip text={`Qty ${m.qty || '1'}`} />
             <Chip text={`👷 ${nameOf(people, m.requested_by)}`} />
@@ -119,7 +119,7 @@ export default function MaterialRequests() {
             {!!m.sub_site_label && <Chip text={`📍 ${m.sub_site_label}`} />}
           </View>
         </View>
-        <Text style={{ fontSize: 11.5, fontWeight: '700', color: m.status === 'pending' ? base.warn : m.status === 'cancelled' ? base.red : base.slate }}>{mgr ? m.status : OP_STATUS_LABEL[m.status] || m.status}</Text>
+        <Text style={{ fontSize: 11.5, fontWeight: '600', color: m.status === 'pending' ? base.warn : m.status === 'cancelled' ? base.red : base.slate }}>{mgr ? m.status : OP_STATUS_LABEL[m.status] || m.status}</Text>
         {mgr && (
           <Pressable hitSlop={8} onPress={async () => {
             const k = await chooseAction(m.item, [{ key: 'edit', label: '✎ Edit' }, { key: 'del', label: '🗑 Delete', danger: true }]);
@@ -132,7 +132,7 @@ export default function MaterialRequests() {
         <View style={{ marginTop: 6 }}>
           {m.merchant === 'Yard stock' ? <Muted>🏗 From yard stock</Muted>
             : <Muted>{m.status === 'sent' ? `→ ${m.merchant || 'Supplier'} · ` : ''}{m.email_sent_at ? `✓ Emailed ${long(m.email_sent_at)}` : 'Email pending'}</Muted>}
-          {!!m.required_for_delivery && <Muted>Required for delivery: <Text style={{ fontWeight: '700' }}>{short(m.required_for_delivery)}</Text></Muted>}
+          {!!m.required_for_delivery && <Muted>Required for delivery: <Text style={{ fontWeight: '600' }}>{short(m.required_for_delivery)}</Text></Muted>}
           {fin && !!m.po_number && <Muted>PO {m.po_number}</Muted>}
         </View>
       )}
@@ -177,7 +177,7 @@ export default function MaterialRequests() {
   const row = (m: Mat) => done ? (
     <View key={m.id}>
       <Pressable onPress={() => flip(m.id)} style={rowStyle}>
-        <Text style={{ flex: 1, color: base.ink, fontWeight: '700', fontSize: 15.5 }}>{open.has(m.id) ? '▼' : '▶'} {m.item}{m.qty ? <Text style={{ color: base.slate, fontWeight: '600' }}> × {m.qty}</Text> : null}</Text>
+        <Text style={{ flex: 1, color: base.ink, fontWeight: '600', fontSize: 15.5 }}>{open.has(m.id) ? '▼' : '▶'} {m.item}{m.qty ? <Text style={{ color: base.slate, fontWeight: '600' }}> × {m.qty}</Text> : null}</Text>
         <Text style={{ fontSize: 11, color: base.slate }}>{doneTag(m)}</Text>
       </Pressable>
       {open.has(m.id) && <Card>{body(m)}</Card>}
@@ -214,7 +214,7 @@ export default function MaterialRequests() {
       {mgr
         ? <MatTabs siteId={id} on={tab as MatTabKey} collectN={collectN} yard={yardCanEdit(me, fin)} onPick={(k) => { setSel(new Set()); setTab(k as MatTab); }} />
         : <FilterRow value={tab as string} onChange={(k) => { setSel(new Set()); setTab(k as MatTab); }} options={[['live', 'Live/Pending'], ['closed', 'Closed']] as [string, string][]} />}
-      {mgr && <Card style={{ backgroundColor: '#F1E4FA', flexDirection: 'row', gap: 10, alignItems: 'flex-start', shadowOpacity: 0 }}><Text style={{ fontSize: 16 }}>🙋</Text><Text style={{ flex: 1, color: '#4E1F6E' }}><Text style={{ fontWeight: '700' }}>Requests from operatives.</Text> Order them from a merchant, or give them to an operative to collect — those move to the <Text style={{ fontWeight: '700' }}>Collections</Text> tab. Tick several to group them into one request.</Text></Card>}
+      {mgr && <Card style={{ backgroundColor: '#F1E4FA', flexDirection: 'row', gap: 10, alignItems: 'flex-start', shadowOpacity: 0 }}><Text style={{ fontSize: 16 }}>🙋</Text><Text style={{ flex: 1, color: '#4E1F6E' }}><Text style={{ fontWeight: '600' }}>Requests from operatives.</Text> Order them from a merchant, or give them to an operative to collect — those move to the <Text style={{ fontWeight: '600' }}>Collections</Text> tab. Tick several to group them into one request.</Text></Card>}
 
       {ordering && (
         <Card style={{ borderColor: base.ink, borderWidth: 1.5 }}>
@@ -223,7 +223,7 @@ export default function MaterialRequests() {
       )}
       {mgr && selectable.length > 1 && (sel.size > 0 || !done) && (
         <Pressable onPress={() => setSel(sel.size >= selectable.length ? new Set() : new Set(selectable.map((m) => m.id)))} style={{ marginBottom: 10 }}>
-          <Text style={{ fontWeight: '700', color: base.ink }}>{sel.size >= selectable.length ? '☑' : '☐'} Select all ({selectable.length}){sel.size > 0 && sel.size < selectable.length ? ` · ${sel.size} selected` : ''}</Text>
+          <Text style={{ fontWeight: '600', color: base.ink }}>{sel.size >= selectable.length ? '☑' : '☐'} Select all ({selectable.length}){sel.size > 0 && sel.size < selectable.length ? ` · ${sel.size} selected` : ''}</Text>
         </Pressable>
       )}
       {mgr && picked.length > 0 && (
@@ -250,7 +250,7 @@ export default function MaterialRequests() {
             <View key={k}>
               <Pressable onPress={() => flip(k)} style={rowStyle}>
                 {mgr && <Pressable onPress={() => toggle(ids)} hitSlop={8}><Text style={{ fontSize: 18 }}>{ids.every((x) => sel.has(x)) ? '☑' : '☐'}</Text></Pressable>}
-                <Text style={{ flex: 1, color: base.ink, fontWeight: '700' }}>{open.has(k) ? '▼' : '▶'} {e.m.item} <Text style={{ color: '#4E1F6E' }}>· {e.items.length} items</Text>{fin && e.m.po_number ? <Text style={{ color: base.blue }}> · {e.m.po_number}</Text> : null}</Text>
+                <Text style={{ flex: 1, color: base.ink, fontWeight: '600' }}>{open.has(k) ? '▼' : '▶'} {e.m.item} <Text style={{ color: '#4E1F6E' }}>· {e.items.length} items</Text>{fin && e.m.po_number ? <Text style={{ color: base.blue }}> · {e.m.po_number}</Text> : null}</Text>
                 <Text style={{ fontSize: 11, color: base.slate }}>{doneTag(e.m)}</Text>
               </Pressable>
               {open.has(k) && (
@@ -268,11 +268,11 @@ export default function MaterialRequests() {
             <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-start' }}>
               <Pressable onPress={() => toggle(ids)} hitSlop={8}><Text style={{ fontSize: 18 }}>{ids.every((x) => sel.has(x)) ? '☑' : '☐'}</Text></Pressable>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontWeight: '700', color: base.ink }}>🔗 Grouped request · {e.items.length} items</Text>
+                <Text style={{ fontWeight: '600', color: base.ink }}>🔗 Grouped request · {e.items.length} items</Text>
                 <Muted>{due ? `📅 First needed ${short(due)} · ` : ''}👷 {[...new Set(e.items.map((x) => nameOf(people, x.requested_by)))].join(', ')}</Muted>
               </View>
             </View>
-            {e.items.map((x) => <Text key={x.id} style={{ color: base.ink, marginTop: 6, fontSize: 15.5 }}>• <Text style={{ fontWeight: '700' }}>{x.item}</Text> · Qty {x.qty || '1'}{x.order_note ? ` · 📝 ${x.order_note}` : ''}{x.sub_site_label ? ` · 📍 ${x.sub_site_label}` : ''}</Text>)}
+            {e.items.map((x) => <Text key={x.id} style={{ color: base.ink, marginTop: 6, fontSize: 15.5 }}>• <Text style={{ fontWeight: '600' }}>{x.item}</Text> · Qty {x.qty || '1'}{x.order_note ? ` · 📝 ${x.order_note}` : ''}{x.sub_site_label ? ` · 📍 ${x.sub_site_label}` : ''}</Text>)}
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
               <Button small title="🚚 Order from Merchant" onPress={() => void startOrder(e.items, false)} />
               <Button small kind="ghost" title="Ungroup" onPress={() => void act(() => ungroupMaterials(e.items), 'Ungrouped')} />
@@ -289,7 +289,7 @@ export default function MaterialRequests() {
           <SectionTitle>From the yard (internal — no PO)</SectionTitle>
           {yardIssues.map((y) => (
             <View key={y.id} style={rowStyle}>
-              <Text style={{ flex: 1, color: base.ink, fontWeight: '700', fontSize: 15.5 }}>{y.kind === 'return' ? '↩ ' : '🏗 '}{y.item}<Text style={{ color: base.slate, fontWeight: '600' }}> × {y.qty}{y.unit ? ` ${y.unit}` : ''}</Text></Text>
+              <Text style={{ flex: 1, color: base.ink, fontWeight: '600', fontSize: 15.5 }}>{y.kind === 'return' ? '↩ ' : '🏗 '}{y.item}<Text style={{ color: base.slate, fontWeight: '600' }}> × {y.qty}{y.unit ? ` ${y.unit}` : ''}</Text></Text>
               <Text style={{ fontSize: 11, color: base.slate }}>{y.kind === 'return' ? 'Returned to yard' : 'From yard'} {long(y.created_at)}</Text>
             </View>
           ))}
@@ -348,7 +348,7 @@ function RequestBox({ siteId, unitBox, repairJobs, shop, addrs, busy, autoFocus,
       </View>
       {addrs && (
         <View style={{ marginBottom: 8 }}>
-          <Muted style={{ fontWeight: '700', marginBottom: 4 }}>Which address on this job?</Muted>
+          <Muted style={{ fontWeight: '600', marginBottom: 4 }}>Which address on this job?</Muted>
           {addrs.length ? addrs.map((a) => (
             <Pressable key={a.id} onPress={() => setSub(a)}><Text style={{ paddingVertical: 6, color: base.ink, fontWeight: sub?.id === a.id ? '700' : '400' }}>{sub?.id === a.id ? '◉' : '○'} {subAddrLabel(a)}</Text></Pressable>
           )) : <Muted>No addresses added to this job yet — add them in the job&apos;s Settings › Multi-Site.</Muted>}
@@ -356,7 +356,7 @@ function RequestBox({ siteId, unitBox, repairJobs, shop, addrs, busy, autoFocus,
       )}
       {!!repairJobs?.length && (
         <View style={{ marginBottom: 8 }}>
-          <Muted style={{ fontWeight: '700', marginBottom: 4 }}>Which repair job? (optional)</Muted>
+          <Muted style={{ fontWeight: '600', marginBottom: 4 }}>Which repair job? (optional)</Muted>
           <Pressable onPress={async () => { const k = await chooseAction('Which repair job?', [{ key: '', label: '— General / not for one job —' }, ...repairJobs.map((j) => ({ key: j.id, label: j.label }))]); if (k === null || k === undefined) return; setRj(repairJobs.find((j) => j.id === k) ?? null); }}>
             <Text style={{ paddingVertical: 6, color: base.ink }}>{rj ? rj.label : '— General / not for one job —'} ▾</Text>
           </Pressable>
@@ -414,12 +414,12 @@ function EditBox({ m, unitBox, busy, onSave, onCancel }: { m: Mat; unitBox: bool
     <Card style={{ marginTop: 18, borderColor: base.ink, borderWidth: 1.5 }}>
       <SectionTitle>Edit material request</SectionTitle>
       {sent && <Text style={{ color: base.warn, marginBottom: 8 }}>This order has already been sent. Changing it here does not tell the supplier — use Send again if they need the new details.</Text>}
-      <Muted style={{ fontWeight: '700' }}>Item</Muted>
+      <Muted style={{ fontWeight: '600' }}>Item</Muted>
       <TextInput value={item} onChangeText={setItem} style={box} />
-      <Muted style={{ fontWeight: '700' }}>Quantity</Muted>
+      <Muted style={{ fontWeight: '600' }}>Quantity</Muted>
       <TextInput value={qty} onChangeText={(t) => setQty(numOnly(t))} keyboardType="decimal-pad" style={box} />
-      {unitBox ? <><Muted style={{ fontWeight: '700' }}>Unit</Muted><UnitField value={unit} onChangeText={setUnit} units={DEFAULT_UNITS} style={box} /></> : null}
-      <Muted style={{ fontWeight: '700' }}>Required by (optional)</Muted>
+      {unitBox ? <><Muted style={{ fontWeight: '600' }}>Unit</Muted><UnitField value={unit} onChangeText={setUnit} units={DEFAULT_UNITS} style={box} /></> : null}
+      <Muted style={{ fontWeight: '600' }}>Required by (optional)</Muted>
       <DateBox value={by} onChange={setBy} title="Required by" style={{ marginBottom: 8 }} />
       <Button busy={busy} title="Save changes" onPress={() => {
         if (!item.trim()) { toast('Enter the item.'); return; }

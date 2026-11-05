@@ -21,7 +21,7 @@ function AddLine({ placeholder, onAdd }: { placeholder: string; onAdd: (v: strin
   return (
     <View style={{ flexDirection: 'row', gap: 6, marginTop: 6 }}>
       <TextInput value={v} onChangeText={setV} placeholder={placeholder} style={{ flex: 1, borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 8, color: base.ink, backgroundColor: base.card }} />
-      <Pressable onPress={async () => { if (!v.trim()) return; await onAdd(v.trim()); setV(''); }} style={{ paddingHorizontal: 12, justifyContent: 'center', borderRadius: radius.input, backgroundColor: base.ink }}><Text style={{ color: '#fff', fontWeight: '800' }}>+</Text></Pressable>
+      <Pressable onPress={async () => { if (!v.trim()) return; await onAdd(v.trim()); setV(''); }} style={{ paddingHorizontal: 12, justifyContent: 'center', borderRadius: radius.input, backgroundColor: base.ink }}><Text style={{ color: '#fff', fontWeight: '600' }}>+</Text></Pressable>
     </View>
   );
 }
@@ -76,7 +76,7 @@ export default function SowLibrary() {
         <Card key={t.id} style={{ padding: 0, overflow: 'hidden' }}>
           <Pressable onPress={() => setOpen(open === t.id ? null : t.id)} style={{ flexDirection: 'row', padding: 12 }}>
             <Text style={{ color: base.slate, width: 18 }}>{open === t.id ? '▼' : '▶'}</Text>
-            <Text style={{ flex: 1, fontWeight: '800', color: base.ink }}>{t.name}</Text>
+            <Text style={{ flex: 1, fontWeight: '600', color: base.ink }}>{t.name}</Text>
           </Pressable>
           {open === t.id && (
             <View style={{ paddingHorizontal: 12, paddingBottom: 12 }}>
@@ -89,7 +89,7 @@ export default function SowLibrary() {
                   {body.secs.map((s) => (
                     <View key={s.id} style={{ borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, padding: 10, marginBottom: 8 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                        <Text style={{ flex: 1, fontWeight: '700', color: base.ink }}>{s.name}</Text>
+                        <Text style={{ flex: 1, fontWeight: '600', color: base.ink }}>{s.name}</Text>
                         <Pressable hitSlop={6} onPress={() => void rename('sow_library_sections', s, 'Section name')}><Text>✎</Text></Pressable>
                         <Pressable hitSlop={6} onPress={() => void del('sow_library_sections', s.id, 'Delete this section? Its tasks in the library are deleted too.', 'Section deleted')}><Text>🗑</Text></Pressable>
                       </View>
@@ -97,7 +97,7 @@ export default function SowLibrary() {
                       <AddLine placeholder="Add a task to this section" onAdd={(v) => addTask(t.id, s.id, v)} />
                     </View>
                   ))}
-                  {body.tasks.filter((x) => !x.section_id).length > 0 && <Muted style={{ fontWeight: '700', marginTop: 4 }}>Tasks not in a section</Muted>}
+                  {body.tasks.filter((x) => !x.section_id).length > 0 && <Muted style={{ fontWeight: '600', marginTop: 4 }}>Tasks not in a section</Muted>}
                   {body.tasks.filter((x) => !x.section_id).map((x) => taskRow(t.id, x))}
                   <AddLine placeholder="Add a task (no section)" onAdd={(v) => addTask(t.id, null, v)} />
                   <AddLine placeholder="Add a section" onAdd={async (v) => { toast((await db.from('sow_library_sections').insert({ template_id: t.id, name: v, position: nextPos(body.secs) } as never)).error ? 'Could not save — try again.' : 'Section added'); refresh(); }} />

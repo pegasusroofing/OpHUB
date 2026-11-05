@@ -39,7 +39,7 @@ export default function TbtTemplates() {
         <Card key={t.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <Text style={{ fontSize: 20 }}>🗣</Text>
           <Pressable style={{ flex: 1 }} onPress={async () => { const u = await openDocLink('rams-docs', t.storage_path); if (u) viewDoc(u); else toast('Could not open the file.'); }}>
-            <Text style={{ fontWeight: '700', color: base.ink }}>{t.title}</Text>
+            <Text style={{ fontWeight: '600', color: base.ink }}>{t.title}</Text>
             <Muted>Added {new Date(t.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</Muted>
           </Pressable>
           <Pressable hitSlop={8} onPress={async () => {

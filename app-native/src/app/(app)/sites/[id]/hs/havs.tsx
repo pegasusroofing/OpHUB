@@ -75,14 +75,14 @@ export default function Havs() {
       <Stack.Screen options={{ title: 'HAVS' }} />
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
         <Pressable onPress={() => shift(-1)} style={nav}><Text style={{ fontSize: 20 }}>‹</Text></Pressable>
-        <Text style={{ fontWeight: '800', color: base.ink }}>{weekLabel(days)}</Text>
+        <Text style={{ fontWeight: '600', color: base.ink }}>{weekLabel(days)}</Text>
         <Pressable onPress={() => shift(1)} disabled={offset >= 0} style={[nav, offset >= 0 && { opacity: 0.35 }]}><Text style={{ fontSize: 20 }}>›</Text></Pressable>
       </View>
       <Muted style={{ textAlign: 'center', marginBottom: 10 }}>Daily EAV (action value) = 100 points · Daily ELV (limit value) = 400 points</Muted>
       {isLoading || !data ? <Muted>Loading…</Muted> : !data.assigned ? <Empty>You are not assigned to this site.</Empty> : (
         <>
           <Card>
-            <Text style={{ fontWeight: '800', color: base.ink, marginBottom: 4 }}>Tools On This Site ({tools.length})</Text>
+            <Text style={{ fontWeight: '600', color: base.ink, marginBottom: 4 }}>Tools On This Site ({tools.length})</Text>
             <Muted style={{ marginBottom: 6 }}>The HAVS tools set up for this site. Your PM or admin chooses these.</Muted>
             {tools.map((t) => <Text key={t.id} style={{ color: base.ink, fontWeight: '600', paddingVertical: 4 }}>{titleCaseWords(t.name)} <Text style={{ color: base.slate, fontWeight: '400' }}>({t.vibration_magnitude} m/s²)</Text></Text>)}
           </Card>
@@ -100,7 +100,7 @@ export default function Havs() {
                     <Toggle title={`${HAVS_DAY_LABELS[di]}  ${d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}`} open={isOpen}
                       onPress={async () => { setOpen({ ...open, [di]: !isOpen }); if (isOpen && (await flush(di))) { toast('Entries saved'); refresh(); } }} />
                   </View>
-                  {st && <Text style={{ marginTop: space.l, marginLeft: 6, fontSize: 10.5, fontWeight: '800', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, overflow: 'hidden', backgroundColor: PILL[st].bg, color: PILL[st].fg }}>{DAY_STATUS_LABEL[st]}</Text>}
+                  {st && <Text style={{ marginTop: space.l, marginLeft: 6, fontSize: 10.5, fontWeight: '600', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, overflow: 'hidden', backgroundColor: PILL[st].bg, color: PILL[st].fg }}>{DAY_STATUS_LABEL[st]}</Text>}
                 </View>
                 {isOpen && (
                   <Card>
@@ -111,7 +111,7 @@ export default function Havs() {
                         return (
                           <View key={tool.id} style={{ borderWidth: 1, borderColor: base.line, borderRadius: 8, padding: 8, minWidth: 150, flexGrow: 1, flexBasis: 150 }}>
                             <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 6 }}>
-                              <Text style={{ fontWeight: '700', fontSize: 12, color: base.ink, flex: 1 }}>{titleCaseWords(tool.name)}</Text>
+                              <Text style={{ fontWeight: '600', fontSize: 12, color: base.ink, flex: 1 }}>{titleCaseWords(tool.name)}</Text>
                               <Text style={{ fontSize: 10, color: base.slate }}>{tool.vibration_magnitude} m/s²</Text>
                             </View>
                             {dayEntries.filter((e) => e.tool_id === tool.id).map((e) => (

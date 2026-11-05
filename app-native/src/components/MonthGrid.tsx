@@ -32,12 +32,12 @@ export function MonthGrid({ year, month, sel, today, items, onSelect, onShift, o
         {navBtn(-1, '‹')}
         <Text style={[heading(800), { flex: 1, fontSize: desk ? 24 : 18, color: base.ink, letterSpacing: -0.2 }]}>{new Date(year, month, 1).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}</Text>
         <Pressable onPress={onToday} style={{ paddingVertical: desk ? 9 : 6, paddingHorizontal: desk ? 14 : 8, borderRadius: 12, borderWidth: desk ? 1 : 0, borderColor: '#ECEEF2' }}>
-          <Text style={{ fontSize: desk ? 14 : 12.5, fontWeight: '700', color: t.brand1 }}>Today</Text>
+          <Text style={{ fontSize: desk ? 14 : 12.5, fontWeight: '600', color: t.brand1 }}>Today</Text>
         </Pressable>
         {navBtn(1, '›')}
       </View>
       <View style={{ flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#F0F1F4', paddingVertical: desk ? 10 : 0, paddingBottom: 6 }}>
-        {WEEK.map((w) => <Text key={w} style={{ flex: 1, textAlign: 'center', fontSize: desk ? 12.5 : 11, fontWeight: '700', color: base.slate, letterSpacing: desk ? 0.7 : 0, textTransform: desk ? 'uppercase' : 'none' }}>{desk ? w : w[0]}</Text>)}
+        {WEEK.map((w) => <Text key={w} style={{ flex: 1, textAlign: 'center', fontSize: desk ? 12.5 : 11, fontWeight: '600', color: base.slate, letterSpacing: desk ? 0.7 : 0, textTransform: desk ? 'uppercase' : 'none' }}>{desk ? w : w[0]}</Text>)}
       </View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', borderLeftWidth: desk ? 1 : 0, borderLeftColor: '#F0F1F4', paddingTop: desk ? 0 : 4 }}>
         {grid.map((ds) => {
@@ -59,11 +59,11 @@ export function MonthGrid({ year, month, sel, today, items, onSelect, onShift, o
                 <View style={{ width: '100%', gap: desk ? 3 : 2, paddingHorizontal: desk ? 0 : 2, opacity: out ? 0.5 : 1 }}>
                   {evs.slice(0, max).map((e) => (
                     <View key={e.id} style={{ backgroundColor: e.colour, borderRadius: desk ? 6 : 4, paddingVertical: desk ? 4 : 1, paddingHorizontal: desk ? 7 : 3 }}>
-                      <Text numberOfLines={1} style={{ color: '#fff', fontSize: desk ? 12 : 8.5, fontWeight: '700' }}>{e.title.replace(/^.*? off \(/, 'Off (')}</Text>
+                      <Text numberOfLines={1} style={{ color: '#fff', fontSize: desk ? 12 : 8.5, fontWeight: '600' }}>{e.title.replace(/^.*? off \(/, 'Off (')}</Text>
                       {desk && !!e.site && <Text numberOfLines={1} style={{ color: '#fff', opacity: 0.88, fontSize: 10.5, fontWeight: '600' }}>{e.site}</Text>}
                     </View>
                   ))}
-                  {evs.length > max && <Text style={{ fontSize: desk ? 11.5 : 8, fontWeight: '700', color: base.slate, textAlign: desk ? 'left' : 'center', paddingLeft: desk ? 4 : 0 }}>+{evs.length - max} more</Text>}
+                  {evs.length > max && <Text style={{ fontSize: desk ? 11.5 : 8, fontWeight: '600', color: base.slate, textAlign: desk ? 'left' : 'center', paddingLeft: desk ? 4 : 0 }}>+{evs.length - max} more</Text>}
                 </View>
               )}
             </Pressable>
@@ -82,14 +82,14 @@ export function CalTools({ view, onView, label = 'View', extra = [] }: { view: C
   const t = useTheme();
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-      <Text style={{ fontSize: 10.5, fontWeight: '700', color: base.slate }}>{VIEW_LABEL[view]} view</Text>
+      <Text style={{ fontSize: 10.5, fontWeight: '600', color: base.slate }}>{VIEW_LABEL[view]} view</Text>
       <Pressable onPress={async () => {
         const k = await chooseAction(label, [...extra.map((x) => ({ key: x.key, label: x.label })),
           ...(['week', 'twoweek', 'month'] as CalView[]).map((v) => ({ key: `v:${v}`, label: `${view === v ? '✓ ' : ''}${VIEW_LABEL[v]}` }))]);
         if (!k) return;
         if (k.startsWith('v:')) onView(k.slice(2) as CalView); else extra.find((x) => x.key === k)?.run();
       }} style={{ backgroundColor: t.brand1, borderRadius: 10, paddingVertical: 5, paddingHorizontal: 10 }}>
-        <Text style={{ color: t.brand1Text, fontSize: 11, fontWeight: '800' }}>{label} ▾</Text>
+        <Text style={{ color: t.brand1Text, fontSize: 11, fontWeight: '600' }}>{label} ▾</Text>
       </Pressable>
     </View>
   );

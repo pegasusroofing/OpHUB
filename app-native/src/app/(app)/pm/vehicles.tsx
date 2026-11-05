@@ -50,7 +50,7 @@ export default function Vehicles() {
       <ScrollView contentContainerStyle={page(720)}>
         <Stack.Screen options={{ title: 'Vehicle Checklist' }} />
         <Card>
-          <Text style={{ fontWeight: '800', color: base.ink }}>{nameOf(people, r.driver_id) || 'Unknown driver'}</Text>
+          <Text style={{ fontWeight: '600', color: base.ink }}>{nameOf(people, r.driver_id) || 'Unknown driver'}</Text>
           <Muted>{[r.vehicle_reg, r.mileage ? `${Number(r.mileage).toLocaleString('en-GB')} miles` : '', `Week of ${day(r.week_start)}`].filter(Boolean).join(' · ')}</Muted>
           {r.submitted_at && <Muted>Submitted {new Date(r.submitted_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</Muted>}
         </Card>
@@ -71,7 +71,7 @@ export default function Vehicles() {
               return (
                 <Card key={item.key} style={{ paddingVertical: 8 }}>
                   <Text style={{ color: base.ink }}>{item.label}</Text>
-                  <Text style={{ fontWeight: '700', color: a.result === 'fail' ? base.warn : base.ok }}>{a.result === 'fail' ? '✕ Fail' : a.result === 'pass' ? '✓ Pass' : '— Not answered'}</Text>
+                  <Text style={{ fontWeight: '600', color: a.result === 'fail' ? base.warn : base.ok }}>{a.result === 'fail' ? '✕ Fail' : a.result === 'pass' ? '✓ Pass' : '— Not answered'}</Text>
                   {a.result === 'fail' && !!a.note && <Muted>{a.note}</Muted>}
                   {a.result === 'fail' && !!a.photo_path && <StorageImage zoom bucket="site-photos" path={a.photo_path} style={{ width: 80, height: 80, borderRadius: 8, marginTop: 6 }} />}
                 </Card>
@@ -94,10 +94,10 @@ export default function Vehicles() {
           <Card key={v.vehicle_reg}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontWeight: '800', color: base.ink }}>{v.vehicle_reg}</Text>
+                <Text style={{ fontWeight: '600', color: base.ink }}>{v.vehicle_reg}</Text>
                 <Muted>{v.last_miles != null ? `${Number(v.last_miles).toLocaleString('en-GB')} miles · ` : ''}{Number(since).toLocaleString('en-GB')} since last health check{v.health_check_done_at ? ` (${new Date(v.health_check_done_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })})` : ''}</Muted>
               </View>
-              {due && <Text style={{ fontWeight: '800', color: base.red }}>Due</Text>}
+              {due && <Text style={{ fontWeight: '600', color: base.red }}>Due</Text>}
             </View>
             <View style={{ height: 6, borderRadius: 99, backgroundColor: '#ECEEF2', marginVertical: 8, overflow: 'hidden' }}><View style={{ height: 6, width: `${Math.max(0, Math.min(100, Math.round(since / 100)))}%`, backgroundColor: due ? base.red : base.ok }} /></View>
             <Button kind="ghost" title="✓ Health check done" onPress={async () => {
@@ -117,7 +117,7 @@ export default function Vehicles() {
       {shown.length ? shown.map((r) => (
         <Pressable key={r.id} onPress={() => router.setParams({ id: r.id })}>
           <Card>
-            <Text style={{ fontWeight: '700', color: base.ink }}>{nameOf(people, r.driver_id) || 'Unknown driver'}{r.vehicle_reg ? ` · ${r.vehicle_reg}` : ''}</Text>
+            <Text style={{ fontWeight: '600', color: base.ink }}>{nameOf(people, r.driver_id) || 'Unknown driver'}{r.vehicle_reg ? ` · ${r.vehicle_reg}` : ''}</Text>
             <Muted>Week of {day(r.week_start)}{r.mileage ? ` · ${Number(r.mileage).toLocaleString('en-GB')} miles` : ''} · {r.has_fails ? '⚠ Had failed items' : 'All passed'}</Muted>
           </Card>
         </Pressable>

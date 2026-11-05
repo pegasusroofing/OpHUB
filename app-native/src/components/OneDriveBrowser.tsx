@@ -49,9 +49,9 @@ export function OneDriveBrowser({ root }: { root: { id: string; driveId?: string
   return (
     <View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', marginBottom: 10 }}>
-        <Pressable onPress={() => setTrail([])}><Text style={{ fontWeight: '700', color: base.blue }}>{root.name}</Text></Pressable>
+        <Pressable onPress={() => setTrail([])}><Text style={{ fontWeight: '600', color: base.blue }}>{root.name}</Text></Pressable>
         {trail.map((t, i) => (
-          <Pressable key={t.id} onPress={() => setTrail(trail.slice(0, i + 1))}><Text style={{ fontWeight: '700', color: i === trail.length - 1 ? base.ink : base.blue }}> › {t.name}</Text></Pressable>
+          <Pressable key={t.id} onPress={() => setTrail(trail.slice(0, i + 1))}><Text style={{ fontWeight: '600', color: i === trail.length - 1 ? base.ink : base.blue }}> › {t.name}</Text></Pressable>
         ))}
       </View>
       <View style={{ marginBottom: 10 }}><Button kind="ghost" busy={busy} title="⬆️ Add a file here" onPress={() => void upload()} /></View>
@@ -59,7 +59,7 @@ export function OneDriveBrowser({ root }: { root: { id: string; driveId?: string
         <>
           {level.folders.map((f) => (
             <Pressable key={f.id} style={row} onPress={() => setTrail([...trail, { ...f, driveId: f.driveId || here.driveId }])}>
-              <Text style={{ fontSize: 20 }}>📁</Text><Text style={{ flex: 1, fontWeight: '700', color: base.ink }}>{f.name}</Text><Text style={{ color: base.slate }}>›</Text>
+              <Text style={{ fontSize: 20 }}>📁</Text><Text style={{ flex: 1, fontWeight: '600', color: base.ink }}>{f.name}</Text><Text style={{ color: base.slate }}>›</Text>
             </Pressable>
           ))}
           {level.files.map((f) => (

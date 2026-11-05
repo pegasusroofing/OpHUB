@@ -46,7 +46,7 @@ export function HomePrompts() {
   const go = () => { setLeft(null); router.push('/pm/hr/policies' as never); };
   const row = (icon: string, label: string) => (
     <Pressable key={label} onPress={go} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderWidth: 1, borderColor: base.line, borderRadius: 10, marginBottom: 8 }}>
-      <Text>{icon}</Text><Text style={{ flex: 1, fontWeight: '800', color: base.ink }}>{label}</Text><Text style={{ color: base.blue, fontWeight: '700' }}>Sign now ›</Text>
+      <Text>{icon}</Text><Text style={{ flex: 1, fontWeight: '600', color: base.ink }}>{label}</Text><Text style={{ color: base.blue, fontWeight: '600' }}>Sign now ›</Text>
     </Pressable>
   );
   return (
@@ -54,8 +54,8 @@ export function HomePrompts() {
       <Pressable onPress={() => setLeft(null)} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', padding: 16 }}>
         <Pressable onPress={() => {}} style={{ backgroundColor: base.card, borderRadius: 14, padding: 16, width: '100%', maxWidth: 440, alignSelf: 'center' }}>
           <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 4 }}>
-            <Text style={{ flex: 1, fontWeight: '800', fontSize: 17, color: base.ink,  }}>✍️ Needs your signature</Text>
-            <Pressable onPress={() => setLeft(null)} accessibilityRole="button" accessibilityLabel="Close" hitSlop={10} style={{ paddingLeft: 10 }}><Text style={{ fontSize: 18, color: base.slate, fontWeight: '700' }}>✕</Text></Pressable>
+            <Text style={{ flex: 1, fontWeight: '600', fontSize: 17, color: base.ink,  }}>✍️ Needs your signature</Text>
+            <Pressable onPress={() => setLeft(null)} accessibilityRole="button" accessibilityLabel="Close" hitSlop={10} style={{ paddingLeft: 10 }}><Text style={{ fontSize: 18, color: base.slate, fontWeight: '600' }}>✕</Text></Pressable>
           </View>
           <Muted style={{ marginBottom: 12 }}>Please read and sign these.</Muted>
           {left.pol > 0 && row('📄', `Company policies${left.pol > 1 ? ` ×${left.pol}` : ''}`)}

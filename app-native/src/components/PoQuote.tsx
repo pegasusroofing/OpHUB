@@ -63,7 +63,7 @@ export function PoQuote({ me, po, onDone }: { me: Profile; po: Row; onDone: () =
   if (!q) return <Button kind="ghost" busy={busy} title="💷 Price from a quote file (PDF, Excel or CSV)" onPress={() => void read()} />;
   return (
     <Card style={{ borderColor: base.blue, borderWidth: 1.5 }}>
-      <Text style={{ fontWeight: '800', color: base.ink }}>Price {po.number} from the quote</Text>
+      <Text style={{ fontWeight: '600', color: base.ink }}>Price {po.number} from the quote</Text>
       <Muted style={{ marginBottom: 6 }}>{q.lines.length} priced line{q.lines.length === 1 ? '' : 's'} read from {q.file}. Check each match, then apply.</Muted>
       {items.map((it, i) => { const j = q.map[i], l = j != null ? q.lines[j] : null; return (
         <Pressable key={i} onPress={async () => {

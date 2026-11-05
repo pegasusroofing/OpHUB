@@ -29,7 +29,7 @@ const pick = async (multiple: boolean) => {
 /** A text box that saves when you leave it. */
 function SaveField({ value, placeholder, onSave, multiline, bold }: { value: string; placeholder: string; onSave: (v: string) => void; multiline?: boolean; bold?: boolean }) {
   const [v, setV] = useState(value);
-  return <TextInput value={v} onChangeText={setV} placeholder={placeholder} multiline={multiline} onBlur={() => { if (v !== value) onSave(v); }} style={[box, multiline ? { minHeight: 54 } : null, bold ? { fontWeight: '700' } : null]} />;
+  return <TextInput value={v} onChangeText={setV} placeholder={placeholder} multiline={multiline} onBlur={() => { if (v !== value) onSave(v); }} style={[box, multiline ? { minHeight: 54 } : null, bold ? { fontWeight: '600' } : null]} />;
 }
 
 export default function Handover() {
@@ -77,7 +77,7 @@ export default function Handover() {
             <Pressable key={m.id} onPress={() => router.push(`/sites/${site.id}/om/${m.id}` as never)}><Card style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <Text style={{ fontSize: 24 }}>📘</Text>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontWeight: '700', color: base.ink }}>{m.name || 'O&M Manual'}</Text>
+                <Text style={{ fontWeight: '600', color: base.ink }}>{m.name || 'O&M Manual'}</Text>
                 <Muted>Updated {when(m.updated_at || m.created_at)}{m.updated_by ? ` by ${nameOf(people, m.updated_by)}` : ''}</Muted>
               </View>
               <Pressable onPress={async () => { const n = await promptText('Rename this O&M manual', m.name || 'O&M Manual'); if (!n || !n.trim()) return; toast((await renameManual(me, m.id, n.trim())) ? 'Renamed' : 'Could not save — try again.'); refresh(); }}><Text style={{ color: base.blue }}>Rename</Text></Pressable>
@@ -107,7 +107,7 @@ export default function Handover() {
               <SaveField value={x.name} placeholder="Name" bold onSave={(v) => void save(x, 'name', v)} />
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <View style={{ flex: 1 }}><SaveField value={x.provider || ''} placeholder="Manufacturer" onSave={(v) => void save(x, 'provider', v)} /></View>
-                {!!x.storage_path && <Pressable onPress={() => void view(x)}><Text style={{ color: base.blue, fontWeight: '700' }}>View</Text></Pressable>}
+                {!!x.storage_path && <Pressable onPress={() => void view(x)}><Text style={{ color: base.blue, fontWeight: '600' }}>View</Text></Pressable>}
                 <Pressable hitSlop={6} onPress={() => void del(x)}><Text>🗑</Text></Pressable>
               </View>
             </Card>
@@ -132,8 +132,8 @@ export default function Handover() {
               <DateBox value={x.expiry_date || ''} placeholder="Expiry date" title="Expiry date" onChange={(v) => void save(x, 'expiry_date', v)} style={{ marginBottom: 8 }} />
               <SaveField value={x.maintenance || ''} multiline placeholder="Maintenance required to keep the guarantee (e.g. outlets cleared every 3 months)" onSave={(v) => void save(x, 'maintenance', v)} />
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4 }}>
-                {x.storage_path ? <Pressable onPress={() => void view(x)}><Text style={{ color: base.blue, fontWeight: '700' }}>View</Text></Pressable>
-                  : <Pressable onPress={async () => { const f = await pick(false); if (!f[0]) return; setBusy('Uploading…'); const ok = await attachToDoc(me, site, x.id, f[0]); setBusy(''); toast(ok ? 'Attached' : 'Upload failed — try again.'); refresh(); }}><Text style={{ color: base.blue, fontWeight: '700' }}>Attach certificate</Text></Pressable>}
+                {x.storage_path ? <Pressable onPress={() => void view(x)}><Text style={{ color: base.blue, fontWeight: '600' }}>View</Text></Pressable>
+                  : <Pressable onPress={async () => { const f = await pick(false); if (!f[0]) return; setBusy('Uploading…'); const ok = await attachToDoc(me, site, x.id, f[0]); setBusy(''); toast(ok ? 'Attached' : 'Upload failed — try again.'); refresh(); }}><Text style={{ color: base.blue, fontWeight: '600' }}>Attach certificate</Text></Pressable>}
                 <View style={{ flex: 1 }} />
                 <Pressable hitSlop={6} onPress={() => void del(x)}><Text>🗑</Text></Pressable>
               </View>

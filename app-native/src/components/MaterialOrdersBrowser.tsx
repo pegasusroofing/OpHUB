@@ -69,7 +69,7 @@ export function MaterialOrdersBrowser({ siteId, folderId }: { siteId: string; fo
         </Card>
       )}
       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-        <Text style={{ flex: 1, fontWeight: '700', color: base.slate }}>Folder/File Name</Text>
+        <Text style={{ flex: 1, fontWeight: '600', color: base.slate }}>Folder/File Name</Text>
         <Pressable onPress={async () => {
           const k = await chooseAction('What would you like to add?', [{ key: 'folder', label: '📁 Add Folder' }, { key: 'doc', label: '📄 Add Document' }]);
           if (k === 'folder') setNewFolder('');
@@ -101,7 +101,7 @@ export function MaterialOrdersBrowser({ siteId, folderId }: { siteId: string; fo
             <Pressable key={f.id} onPress={() => router.push(`/sites/${siteId}/materials/pos/${f.id}` as never)}
               style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 8, backgroundColor: base.card }}>
               <Text style={{ fontSize: 20 }}>📁</Text>
-              <Text style={{ flex: 1, fontWeight: '700', color: base.ink }}>{f.name}</Text>
+              <Text style={{ flex: 1, fontWeight: '600', color: base.ink }}>{f.name}</Text>
               <Pressable hitSlop={8} onPress={async () => {
                 const k = await chooseAction(f.name, [...(i > 0 ? [{ key: 'up', label: '▲ Move Up' }] : []), ...(i < data.folders.length - 1 ? [{ key: 'down', label: '▼ Move Down' }] : []), { key: 'rename', label: '✏️ Rename' }, { key: 'del', label: '🗑 Delete', danger: true }]);
                 if (k === 'up' || k === 'down') { await moveSibling('material_order_folders', data.folders, f.id, k === 'up' ? -1 : 1); refresh(); }
@@ -115,7 +115,7 @@ export function MaterialOrdersBrowser({ siteId, folderId }: { siteId: string; fo
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                 <Text style={{ fontSize: 18 }}>📦</Text>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontWeight: '700', color: base.ink }} numberOfLines={2}>{f.name}</Text>
+                  <Text style={{ fontWeight: '600', color: base.ink }} numberOfLines={2}>{f.name}</Text>
                   {!!f.synced_at && <Muted>Synced {new Date(f.synced_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</Muted>}
                 </View>
                 <Pressable onPress={async () => {
@@ -126,8 +126,8 @@ export function MaterialOrdersBrowser({ siteId, folderId }: { siteId: string; fo
                 }} style={{ alignItems: 'center', padding: 6, borderRadius: 8, borderWidth: f.scheduled_delivery_date ? 1.5 : 0, borderColor: base.warn, backgroundColor: f.scheduled_delivery_date ? base.warnBg : 'transparent' }}>
                   {f.scheduled_delivery_date ? (
                     <>
-                      <Text style={{ fontSize: 9, fontWeight: '800', color: base.warn }}>🚚 DELIVERY</Text>
-                      <Text style={{ fontWeight: '800', color: base.warn }}>{new Date(`${f.scheduled_delivery_date}T00:00:00`).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</Text>
+                      <Text style={{ fontSize: 9, fontWeight: '600', color: base.warn }}>🚚 DELIVERY</Text>
+                      <Text style={{ fontWeight: '600', color: base.warn }}>{new Date(`${f.scheduled_delivery_date}T00:00:00`).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</Text>
                     </>
                   ) : <Text style={{ fontSize: 11, color: base.blue }}>+ Set date</Text>}
                 </Pressable>

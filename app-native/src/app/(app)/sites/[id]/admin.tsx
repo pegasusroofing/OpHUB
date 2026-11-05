@@ -72,15 +72,15 @@ export default function SiteAdmin() {
               <Toggle title="Amend Site Name, Address & Job Number" open={!!details} onPress={() => setDetails(details ? null : { name: site.name || '', address: site.address || '', postcode: site.postcode || '', job: site.job_number || '', start: site.start_date || '' })} />
               {details && (
                 <Card>
-                  <Muted style={{ fontWeight: '700' }}>Site Name</Muted>
+                  <Muted style={{ fontWeight: '600' }}>Site Name</Muted>
                   <TextInput value={details.name} onChangeText={(t) => setDetails({ ...details, name: t })} style={box} />
-                  <Muted style={{ fontWeight: '700' }}>Address</Muted>
+                  <Muted style={{ fontWeight: '600' }}>Address</Muted>
                   <TextInput value={details.address} onChangeText={(t) => setDetails({ ...details, address: titleCase(t) })} style={box} />
-                  <Muted style={{ fontWeight: '700' }}>Postcode</Muted>
+                  <Muted style={{ fontWeight: '600' }}>Postcode</Muted>
                   <TextInput value={details.postcode} onChangeText={(t) => setDetails({ ...details, postcode: t.toUpperCase() })} autoCapitalize="characters" style={box} />
-                  <Muted style={{ fontWeight: '700' }}>Job Number</Muted>
+                  <Muted style={{ fontWeight: '600' }}>Job Number</Muted>
                   <TextInput value={details.job} onChangeText={(t) => setDetails({ ...details, job: t })} placeholder="Optional" style={box} />
-                  <Muted style={{ fontWeight: '700' }}>Start Date</Muted>
+                  <Muted style={{ fontWeight: '600' }}>Start Date</Muted>
                   <DateBox value={details.start} onChange={(v) => setDetails({ ...details, start: v })} title="Start date" style={{ marginBottom: 8 }} />
                   <Button title="Save" onPress={async () => {
                     if (!details.name.trim()) { toast('Site name cannot be blank.'); return; }
@@ -118,7 +118,7 @@ export default function SiteAdmin() {
                   {(addrs ?? []).map((a: FullSubAddr) => (
                     <Card key={a.id} style={{ flexDirection: 'row', gap: 8 }}>
                       <View style={{ flex: 1 }}>
-                        <Text style={{ fontWeight: '700', color: base.ink }}>{a.name}{a.closed ? ' (closed)' : ''}</Text>
+                        <Text style={{ fontWeight: '600', color: base.ink }}>{a.name}{a.closed ? ' (closed)' : ''}</Text>
                         {!!(a.address || a.postcode) && <Muted>{[a.address, a.postcode].filter(Boolean).join(', ')}</Muted>}
                         <Muted>{a.geofence_lat != null ? `📍 Geofence set — ${a.geofence_radius_m || 100}m radius` : 'No geofence set yet — set it from the address on Check In'}</Muted>
                       </View>
@@ -231,7 +231,7 @@ export default function SiteAdmin() {
 
       {/* 385: a row like the drop-downs above it, not loose text. */}
       <Pressable onPress={() => router.push(`/sites/${id}/activity` as never)} accessibilityRole="button" style={{ marginTop: 8, marginBottom: 6, paddingVertical: 9, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1, borderColor: base.cardLine, backgroundColor: base.card }}>
-        <Text style={{ fontWeight: '700', fontSize: 13.5, color: base.ink }}>▶ Activity History <Text style={{ fontWeight: '400', fontStyle: 'italic', fontSize: 12, color: base.slate }}>· who did what, and when</Text></Text>
+        <Text style={{ fontWeight: '600', fontSize: 13.5, color: base.ink }}>▶ Activity History <Text style={{ fontWeight: '400', fontStyle: 'italic', fontSize: 12, color: base.slate }}>· who did what, and when</Text></Text>
       </Pressable>
 
       <SectionTitle>Site Info</SectionTitle>
@@ -265,7 +265,7 @@ function SyncFolderCard({ site, full }: { site: SyncSite; full: boolean }) {
   };
   return (
     <Card style={{ marginTop: 10 }}>
-      <Text style={{ fontWeight: '700', color: base.ink }}>☁️ OneDrive sync folder</Text>
+      <Text style={{ fontWeight: '600', color: base.ink }}>☁️ OneDrive sync folder</Text>
       {od?.needs_reconnect && <Muted style={{ color: base.warn, marginTop: 6 }}>OneDrive isn&apos;t syncing at the moment — the company connection needs reconnecting by an admin (Admin Centre › Integrations).</Muted>}
       <Muted style={{ marginVertical: 6 }}>{site.onedrive_folder_name ? `📁 ${site.onedrive_folder_name} — photos, drawings and exports sync there` : "Not linked — link the job's real OneDrive folder so photos and exports sync there."}</Muted>
       {full && !!packSettings?.enabled && (!site.onedrive_folder_id || !!(site as { job_pack?: unknown }).job_pack) && <Button kind={site.onedrive_folder_id ? 'ghost' : undefined} title={site.onedrive_folder_id ? '📦 Fill in anything missing from the job pack' : '📦 Set up job pack folder'} onPress={async () => {

@@ -19,7 +19,7 @@ const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supab
 const rpc = supabase.rpc.bind(supabase) as unknown as (n: string, a: object) => Promise<{ data: unknown; error: unknown }>;
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 9, color: base.ink, backgroundColor: base.card, marginBottom: 8 };
 type Tab = 'hazard' | 'section' | 'template' | 'company';
-const Badge = ({ p, s }: { p: unknown; s: unknown }) => { const n = rr(p, s), b = riskBand(n); return <Text style={{ backgroundColor: b.bg, color: b.fg, fontWeight: '800', paddingHorizontal: 7, borderRadius: 6, overflow: 'hidden' }}>{n}</Text>; };
+const Badge = ({ p, s }: { p: unknown; s: unknown }) => { const n = rr(p, s), b = riskBand(n); return <Text style={{ backgroundColor: b.bg, color: b.fg, fontWeight: '600', paddingHorizontal: 7, borderRadius: 6, overflow: 'hidden' }}>{n}</Text>; };
 
 function Editor({ it, lib, onSave, onCancel }: { it: LibItem; lib: LibItem[]; onSave: (title: string, data: Record<string, unknown>) => void; onCancel: () => void }) {
   const d = (it.data || {}) as Record<string, unknown>;
@@ -41,21 +41,21 @@ function Editor({ it, lib, onSave, onCancel }: { it: LibItem; lib: LibItem[]; on
   const toggle = (arr: unknown[], set: (v: unknown[]) => void, t: string) => set(arr.some((x) => name(x) === t) ? arr.filter((x) => name(x) !== t) : [...arr, t]);
   return (
     <Card style={{ borderColor: base.ink }}>
-      <Muted style={{ fontWeight: '700' }}>{it.kind === 'hazard' ? 'Hazard' : it.kind === 'section' ? 'Heading' : 'Template name'}</Muted>
+      <Muted style={{ fontWeight: '600' }}>{it.kind === 'hazard' ? 'Hazard' : it.kind === 'section' ? 'Heading' : 'Template name'}</Muted>
       <TextInput value={title} onChangeText={setTitle} style={box} />
       {it.kind === 'hazard' && (
         <>
-          <Muted style={{ fontWeight: '700' }}>Harm</Muted>
+          <Muted style={{ fontWeight: '600' }}>Harm</Muted>
           <TextInput value={harm} onChangeText={setHarm} style={box} />
           {[['Before controls', 'p', 's'], ['Residual', 'rp', 'rs']].map(([l, a, b]) => (
             <View key={l} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <Text style={{ width: 110, color: base.ink, fontWeight: '700' }}>{l}</Text>
+              <Text style={{ width: 110, color: base.ink, fontWeight: '600' }}>{l}</Text>
               <Pressable onPress={() => void pick(a as 'p')} style={[box, { marginBottom: 0 }]}><Text style={{ color: base.ink }}>P {ps[a as 'p']}</Text></Pressable>
               <Pressable onPress={() => void pick(b as 's')} style={[box, { marginBottom: 0 }]}><Text style={{ color: base.ink }}>S {ps[b as 's']}</Text></Pressable>
               <Badge p={ps[a as 'p']} s={ps[b as 's']} />
             </View>
           ))}
-          <Muted style={{ fontWeight: '700' }}>Control procedures — one per line</Muted>
+          <Muted style={{ fontWeight: '600' }}>Control procedures — one per line</Muted>
           <TextInput value={list} onChangeText={setList} multiline style={[box, { minHeight: 140 }]} />
         </>
       )}
@@ -63,12 +63,12 @@ function Editor({ it, lib, onSave, onCancel }: { it: LibItem; lib: LibItem[]; on
         <>
           <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8 }}>
             {[['general', 'Safe system of work'], ['method', 'Method statement (step by step)']].map(([k, l]) => (
-              <Pressable key={k} onPress={() => setPart(k)} style={{ flex: 1, padding: 8, borderRadius: radius.input, borderWidth: 1, borderColor: part === k ? live.brand1 : base.line, backgroundColor: part === k ? live.brand1 : base.card }}><Text style={{ textAlign: 'center', color: part === k ? live.brand1Text : base.ink, fontWeight: '700', fontSize: 12 }}>{l}</Text></Pressable>
+              <Pressable key={k} onPress={() => setPart(k)} style={{ flex: 1, padding: 8, borderRadius: radius.input, borderWidth: 1, borderColor: part === k ? live.brand1 : base.line, backgroundColor: part === k ? live.brand1 : base.card }}><Text style={{ textAlign: 'center', color: part === k ? live.brand1Text : base.ink, fontWeight: '600', fontSize: 12 }}>{l}</Text></Pressable>
             ))}
           </View>
-          <Muted style={{ fontWeight: '700' }}>Text</Muted>
+          <Muted style={{ fontWeight: '600' }}>Text</Muted>
           <TextInput value={body} onChangeText={setBody} multiline style={[box, { minHeight: 90 }]} />
-          <Muted style={{ fontWeight: '700' }}>Numbered steps — one per line</Muted>
+          <Muted style={{ fontWeight: '600' }}>Numbered steps — one per line</Muted>
           <TextInput value={list} onChangeText={setList} multiline style={[box, { minHeight: 110 }]} />
         </>
       )}
@@ -79,7 +79,7 @@ function Editor({ it, lib, onSave, onCancel }: { it: LibItem; lib: LibItem[]; on
             const custom = a.filter((x) => typeof x !== 'string' && (l === 'Hazards (Risk Assessment)' || (((x as { part?: string }).part === 'method') === (l === 'Method Statements'))));
             return (
               <View key={l as string} style={{ marginBottom: 10 }}>
-                <Text style={{ fontWeight: '800', color: base.ink }}>{l as string} ({o.filter((x) => a.some((y) => name(y) === x.title)).length + custom.length} ticked)</Text>
+                <Text style={{ fontWeight: '600', color: base.ink }}>{l as string} ({o.filter((x) => a.some((y) => name(y) === x.title)).length + custom.length} ticked)</Text>
                 <View style={{ flexDirection: 'row', gap: 10, marginVertical: 4 }}>
                   <Pressable onPress={() => st([...a.filter((y) => !o.some((x) => x.title === name(y))), ...o.map((x) => x.title)])}><Text style={{ color: base.blue }}>Tick all</Text></Pressable>
                   <Pressable onPress={() => st(a.filter((y) => !o.some((x) => x.title === name(y))))}><Text style={{ color: base.blue }}>Untick all</Text></Pressable>
@@ -89,7 +89,7 @@ function Editor({ it, lib, onSave, onCancel }: { it: LibItem; lib: LibItem[]; on
               </View>
             );
           })}
-          <Text style={{ fontWeight: '800', color: base.ink, marginBottom: 4 }}>Required PPE</Text>
+          <Text style={{ fontWeight: '600', color: base.ink, marginBottom: 4 }}>Required PPE</Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
             {RAMS_PPE.map((p) => (
               <Pressable key={p.key} onPress={() => setPpe(ppe.includes(p.key) ? ppe.filter((x) => x !== p.key) : [...ppe, p.key])} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: ppe.includes(p.key) ? live.brand1 : base.line, backgroundColor: ppe.includes(p.key) ? live.brand1 : base.card }}>
@@ -121,15 +121,15 @@ function CompanyForm({ me, data, orgName, toast }: { me: { org_id: string | null
   return (
     <View>
       <Muted style={{ marginBottom: 8 }}>Printed at the top of every Risk Assessment and Method Statement made in the RAMS Builder.</Muted>
-      <Muted style={{ fontWeight: '700' }}>Address (one line per row)</Muted>
+      <Muted style={{ fontWeight: '600' }}>Address (one line per row)</Muted>
       <TextInput value={st.address} onChangeText={(v) => setSt({ ...st, address: v })} multiline style={[box, { minHeight: 80 }]} />
-      <Muted style={{ fontWeight: '700' }}>Telephone</Muted>
+      <Muted style={{ fontWeight: '600' }}>Telephone</Muted>
       <TextInput value={st.phone} onChangeText={(v) => setSt({ ...st, phone: v })} keyboardType="phone-pad" style={box} />
-      <Muted style={{ fontWeight: '700' }}>Data protection statement</Muted>
+      <Muted style={{ fontWeight: '600' }}>Data protection statement</Muted>
       <TextInput value={st.dataProtection} onChangeText={(v) => setSt({ ...st, dataProtection: v })} multiline style={[box, { minHeight: 120 }]} />
       <View style={{ flexDirection: 'row', gap: 8 }}>
-        <View style={{ flex: 1 }}><Muted style={{ fontWeight: '700' }}>Next RA number</Muted><TextInput value={String(st.nextRa)} onChangeText={(v) => setSt({ ...st, nextRa: Number(v) || 0 })} keyboardType="number-pad" style={box} /></View>
-        <View style={{ flex: 1 }}><Muted style={{ fontWeight: '700' }}>Next MS number</Muted><TextInput value={String(st.nextMs)} onChangeText={(v) => setSt({ ...st, nextMs: Number(v) || 0 })} keyboardType="number-pad" style={box} /></View>
+        <View style={{ flex: 1 }}><Muted style={{ fontWeight: '600' }}>Next RA number</Muted><TextInput value={String(st.nextRa)} onChangeText={(v) => setSt({ ...st, nextRa: Number(v) || 0 })} keyboardType="number-pad" style={box} /></View>
+        <View style={{ flex: 1 }}><Muted style={{ fontWeight: '600' }}>Next MS number</Muted><TextInput value={String(st.nextMs)} onChangeText={(v) => setSt({ ...st, nextMs: Number(v) || 0 })} keyboardType="number-pad" style={box} /></View>
       </View>
       <Button title="Save company details" onPress={async () => {
         // 588: the counters move on every time a RAMS is made, so read the live settings now and only
@@ -229,9 +229,9 @@ export default function RamsLibrary() {
             const sub = it.kind === 'hazard' ? `${d.harm ? `${d.harm} · ` : ''}${((d.controls as string[]) || []).length} controls` : it.kind === 'section' ? (((d.steps as string[]) || []).length ? `${((d.steps as string[]) || []).length} steps` : 'Text') : `${((d.hazards as unknown[]) || []).length} hazards · ${((d.sections as unknown[]) || []).length} sections`;
             return (
               <Card key={it.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Text style={{ fontWeight: '800', color: base.slate, width: 22 }}>{i + 1}</Text>
+                <Text style={{ fontWeight: '600', color: base.slate, width: 22 }}>{i + 1}</Text>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontWeight: '700', color: base.ink }}>{it.title}</Text>
+                  <Text style={{ fontWeight: '600', color: base.ink }}>{it.title}</Text>
                   <Muted>{sub}{u ? ` · used in ${u.jobs} RAMS${u.tpls ? ` · ${u.tpls} template${u.tpls === 1 ? '' : 's'}` : ''}` : ''}</Muted>
                   {it.kind === 'hazard' && <View style={{ flexDirection: 'row', gap: 4, alignItems: 'center', marginTop: 4 }}><Badge p={d.p} s={d.s} /><Text>→</Text><Badge p={d.rp} s={d.rs} /></View>}
                 </View>

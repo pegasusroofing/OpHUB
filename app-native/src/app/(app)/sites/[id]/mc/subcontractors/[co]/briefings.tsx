@@ -34,7 +34,7 @@ export default function SubBriefings() {
       <Stack.Screen options={{ title: `${sub.company.name} — Daily Briefings` }} />
       {isLoading ? <Muted>Loading…</Muted> : list?.length ? list.map((b) => (
         <Card key={b.id}>
-          <Text style={{ fontWeight: '700', color: base.ink }}>{b.title}</Text>
+          <Text style={{ fontWeight: '600', color: base.ink }}>{b.title}</Text>
           <Muted>{nameOf(people, b.submitted_by)} · {new Date(b.submitted_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</Muted>
           {!!b.storage_path && <Pressable onPress={async () => { const u = await openDocLink('rams-docs', b.storage_path as string); if (u) viewDoc(u); }}><Text style={{ color: base.blue }}>View document ↗</Text></Pressable>}
           {manage && <Pressable onPress={async () => { if (await confirmAsk('Delete this briefing?', 'Delete') && await deleteSubBriefing(b.id)) { toast('Deleted'); refresh(); } }}><Text style={{ marginTop: 6 }}>🗑</Text></Pressable>}

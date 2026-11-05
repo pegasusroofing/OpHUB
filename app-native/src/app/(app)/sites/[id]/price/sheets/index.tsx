@@ -39,18 +39,18 @@ export default function PriceSheets() {
         <Pressable key={s.id} onPress={() => router.push(`/sites/${id}/price/sheets/${s.id}` as never)}>
           <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontWeight: '800', color: base.ink }}>{s.title || 'Price'}</Text>
+              <Text style={{ fontWeight: '600', color: base.ink }}>{s.title || 'Price'}</Text>
               <Muted>{[s.subcontractor_name, s.total != null ? money(s.total) : ''].filter(Boolean).join(' · ')}</Muted>
             </View>
-            <Text style={{ fontWeight: '700', fontSize: 12, color: s.status === 'issued' ? base.ok : base.slate }}>{s.status === 'issued' ? 'Issued' : 'Draft'}</Text>
+            <Text style={{ fontWeight: '600', fontSize: 12, color: s.status === 'issued' ? base.ok : base.slate }}>{s.status === 'issued' ? 'Issued' : 'Draft'}</Text>
           </Card>
         </Pressable>
       )) : <Empty>{can ? 'No sheets yet — create your first one below.' : 'Nothing issued yet.'}</Empty>}
       {can && (adding ? (
         <Card>
-          <Muted style={{ fontWeight: '700' }}>Title</Muted>
+          <Muted style={{ fontWeight: '600' }}>Title</Muted>
           <TextInput value={title} onChangeText={setTitle} placeholder="Price" style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 9, color: base.ink, marginBottom: 8 }} />
-          <Muted style={{ fontWeight: '700', marginBottom: 4 }}>Assign to</Muted>
+          <Muted style={{ fontWeight: '600', marginBottom: 4 }}>Assign to</Muted>
           <AssignChips ops={ops} sel={sel} onToggle={(u) => setSel(sel.includes(u) ? sel.filter((x) => x !== u) : [...sel, u])} />
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
             <View style={{ flex: 1 }}><Button title="Create" onPress={async () => {

@@ -57,7 +57,7 @@ export default function HsPolicyAdmin() {
       <Card>
         {doc ? (
           <>
-            <Text style={{ fontWeight: '800', color: base.ink }}>{doc.name}</Text>
+            <Text style={{ fontWeight: '600', color: base.ink }}>{doc.name}</Text>
             <Muted>Uploaded {d(doc.uploaded_at)} by {team.find((p) => p.id === doc.uploaded_by)?.name || 'Unknown'}{doc.expiry_date ? ` · Expires ${d(`${doc.expiry_date}T00:00:00`)}` : ''}</Muted>
             <Pressable onPress={() => void view(doc.storage_path)}><Text style={{ color: base.blue, marginTop: 4 }}>View document ↗</Text></Pressable>
           </>
@@ -69,7 +69,7 @@ export default function HsPolicyAdmin() {
           {listOpen && <Card>{team.map((p) => (
             <View key={p.id} style={{ flexDirection: 'row', paddingVertical: 5 }}>
               <Text style={{ flex: 1, color: base.ink }}>{p.name}</Text>
-              <Text style={{ fontWeight: '700', color: data?.signed.has(p.id) ? base.ok : base.warn }}>{data?.signed.has(p.id) ? 'Signed' : 'Outstanding'}</Text>
+              <Text style={{ fontWeight: '600', color: data?.signed.has(p.id) ? base.ok : base.warn }}>{data?.signed.has(p.id) ? 'Signed' : 'Outstanding'}</Text>
             </View>
           ))}</Card>}
         </>
@@ -78,7 +78,7 @@ export default function HsPolicyAdmin() {
       {upOpen && (
         <Card>
           <TextInput value={name} onChangeText={setName} placeholder="Document name, e.g. Health & Safety Policy 2026" style={box} />
-          <Muted style={{ fontWeight: '700' }}>Expiry date (everyone must re-sign once reached)</Muted>
+          <Muted style={{ fontWeight: '600' }}>Expiry date (everyone must re-sign once reached)</Muted>
           <DateBox value={expiry} onChange={setExpiry} min={todayIso()} title="Expiry date" style={{ marginBottom: 8 }} />
           <Button kind="ghost" title={file ? `📎 ${file.name}` : 'Choose PDF'} onPress={async () => { const r = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true }); if (!r.canceled && r.assets[0]) setFile(r.assets[0]); }} />
           <Button busy={busy} title={doc ? 'Upload New Version' : 'Upload'} onPress={async () => {
@@ -105,7 +105,7 @@ export default function HsPolicyAdmin() {
           <Toggle title={`Superseded Versions (${data.superseded.length})`} open={oldOpen} onPress={() => setOldOpen(!oldOpen)} />
           {oldOpen && <Card>{data.superseded.map((x) => (
             <View key={x.id} style={{ paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: base.line }}>
-              <Text style={{ fontWeight: '700', color: base.ink }}>{x.name}</Text>
+              <Text style={{ fontWeight: '600', color: base.ink }}>{x.name}</Text>
               <Muted>Uploaded {d(x.uploaded_at)} · superseded{x.superseded_by ? ` by "${data.all.find((y) => y.id === x.superseded_by)?.name || 'a newer version'}"` : ''}</Muted>
               <Pressable onPress={() => void view(x.storage_path)}><Text style={{ color: base.blue }}>View document ↗</Text></Pressable>
             </View>

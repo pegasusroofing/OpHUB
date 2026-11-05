@@ -36,7 +36,7 @@ export default function Templates() {
         <Pressable key={t.id} onPress={() => router.push(`/pm/admin/templates/${t.id}` as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 8, backgroundColor: base.card }}>
           <Text style={{ fontSize: 20 }}>📋</Text>
           <View style={{ flex: 1 }}>
-            <Text style={{ fontWeight: '700', color: base.ink }}>{t.name}</Text>
+            <Text style={{ fontWeight: '600', color: base.ink }}>{t.name}</Text>
             <Muted>{(t.sections || []).length} section{(t.sections || []).length === 1 ? '' : 's'} · {kind(t)}</Muted>
           </View>
           <Pressable hitSlop={8} onPress={async () => {

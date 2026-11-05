@@ -96,7 +96,7 @@ export function SowTaskRow({ updateOnly, me, site, task, subCos = [], photos, pe
       <Pressable onPress={onToggleSelect} style={[s.task, { flexDirection: 'row', alignItems: 'center', gap: 10 }]}>
         <View style={[s.accent, { backgroundColor: { todo: '#C9CDD4', progress: base.warn, done: base.ok }[status] }]} />
         <View style={{ width: 20, height: 20, borderRadius: 5, borderWidth: 1.5, borderColor: base.slateLight, alignItems: 'center', justifyContent: 'center', backgroundColor: selected ? base.ink : base.card }}>
-          {selected && <Text style={{ color: '#fff', fontWeight: '800', fontSize: 12 }}>✓</Text>}
+          {selected && <Text style={{ color: '#fff', fontWeight: '600', fontSize: 12 }}>✓</Text>}
         </View>
         <Text style={[s.name, done && s.nameDone, { flex: 1 }]}>{task.name}{done ? '  ✓' : ''}</Text>
       </Pressable>
@@ -170,7 +170,7 @@ export function SowTaskRow({ updateOnly, me, site, task, subCos = [], photos, pe
           <Text style={[s.name, done && s.nameDone]}>
             {!task.section_id && task.visibility_mode === 'assigned' ? '🔒 ' : ''}{task.name}{done ? '  ✓' : ''}
           </Text>
-          {!!subCo && <Text onPress={mgr && !updateOnly ? () => void menu('sub') : undefined} style={{ alignSelf: 'flex-start', fontSize: 10.5, fontWeight: '700', color: base.ink, backgroundColor: '#E7E9EE', borderWidth: 1, borderColor: base.line, borderRadius: 20, paddingHorizontal: 8, paddingVertical: 1, marginTop: 3, overflow: 'hidden' }}>{subCo.name.toUpperCase()}</Text>}
+          {!!subCo && <Text onPress={mgr && !updateOnly ? () => void menu('sub') : undefined} style={{ alignSelf: 'flex-start', fontSize: 10.5, fontWeight: '600', color: base.ink, backgroundColor: '#E7E9EE', borderWidth: 1, borderColor: base.line, borderRadius: 20, paddingHorizontal: 8, paddingVertical: 1, marginTop: 3, overflow: 'hidden' }}>{subCo.name.toUpperCase()}</Text>}
           {done && task.completed_at && (
             <Text style={s.meta}>Completed {new Date(task.completed_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</Text>
           )}
@@ -194,7 +194,7 @@ export function SowTaskRow({ updateOnly, me, site, task, subCos = [], photos, pe
           {pending.map((j) => (
             <View key={j.id}>
               <Image source={{ uri: j.files[j.files.length - 1].localUri }} style={[s.thumb, { opacity: 0.55 }]} />
-              <Text style={[s.waiting, j.tries ? { color: '#B3261E', fontWeight: '700' } : null]}>{j.tries ? 'Not sent yet — retrying' : 'Uploading…'}</Text>
+              <Text style={[s.waiting, j.tries ? { color: '#B3261E', fontWeight: '600' } : null]}>{j.tries ? 'Not sent yet — retrying' : 'Uploading…'}</Text>
               <Pressable onPress={() => removePending(j)} style={s.del} hitSlop={8}><Text style={s.delX}>×</Text></Pressable>
             </View>
           ))}
@@ -207,7 +207,7 @@ export function SowTaskRow({ updateOnly, me, site, task, subCos = [], photos, pe
           <View style={{ marginTop: 6 }}><Button kind="ghost" busy={busy} title="📷 Add completed photos" onPress={() => void addPhotosNow('complete')} /></View>
           {mgr && (
             <View style={{ marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderStyle: 'dashed', borderTopColor: '#E8B4B4' }}>
-              <Text style={{ color: '#7A1F1F', fontWeight: '700', marginBottom: 6 }}>PM: or tick photos already uploaded to use as Completed photos</Text>
+              <Text style={{ color: '#7A1F1F', fontWeight: '600', marginBottom: 6 }}>PM: or tick photos already uploaded to use as Completed photos</Text>
               {photos.length ? (
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
                   {photos.map((p) => {
@@ -216,7 +216,7 @@ export function SowTaskRow({ updateOnly, me, site, task, subCos = [], photos, pe
                       <Pressable key={p.id} onPress={() => { const n = new Set(picked); if (on) n.delete(p.id); else n.add(p.id); setPick(n); }}
                         style={{ borderWidth: 2, borderColor: on ? base.ok : 'transparent', borderRadius: 10 }}>
                         <StorageImage bucket="site-photos" path={p.thumb_path || p.mid_path || p.storage_path} style={{ width: 56, height: 56, borderRadius: 8 }} />
-                        {on && <Text style={{ position: 'absolute', top: 2, right: 4, color: base.ok, fontWeight: '800' }}>✓</Text>}
+                        {on && <Text style={{ position: 'absolute', top: 2, right: 4, color: base.ok, fontWeight: '600' }}>✓</Text>}
                       </Pressable>
                     );
                   })}
@@ -230,7 +230,7 @@ export function SowTaskRow({ updateOnly, me, site, task, subCos = [], photos, pe
       ) : (
         <>
           <Pressable onPress={() => void addPhotosNow('add')} disabled={busy} style={s.addPhoto}>
-            <Text style={{ fontWeight: '700', color: base.ink }}>{busy ? 'Preparing photos…' : status === 'todo' ? '📷 Add pre-start photos' : '📷 Add photos'}</Text>
+            <Text style={{ fontWeight: '600', color: base.ink }}>{busy ? 'Preparing photos…' : status === 'todo' ? '📷 Add pre-start photos' : '📷 Add photos'}</Text>
           </Pressable>
         </>
       )}
@@ -249,9 +249,9 @@ export function SowTaskRow({ updateOnly, me, site, task, subCos = [], photos, pe
 
       {status === 'progress' && !completing && (
         <View style={[s.pct, percentPrompt && { borderColor: base.warn, backgroundColor: base.warnBg }]}>
-          {percentPrompt && <Text style={{ fontWeight: '700', color: base.warn, marginBottom: 6 }}>Photo added — how far along is this task now?</Text>}
+          {percentPrompt && <Text style={{ fontWeight: '600', color: base.warn, marginBottom: 6 }}>Photo added — how far along is this task now?</Text>}
           <Slider value={pct} onDone={(v) => void pickPct(v)} />
-          {percentPrompt && <Pressable onPress={() => setPercentPrompt(false)} style={{ marginTop: 6 }}><Text style={{ color: base.slate, fontWeight: '700' }}>Skip — leave at {pct}%</Text></Pressable>}
+          {percentPrompt && <Pressable onPress={() => setPercentPrompt(false)} style={{ marginTop: 6 }}><Text style={{ color: base.slate, fontWeight: '600' }}>Skip — leave at {pct}%</Text></Pressable>}
         </View>
       )}
 
@@ -266,7 +266,7 @@ function PhotoViewer({ path, onClose }: { path: string | null; onClose: () => vo
   return (
     <Modal visible={!!path} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={s.viewer} onPress={onClose}>
-        <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" hitSlop={10} style={{ position: 'absolute', top: 40, right: 20, width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,.15)', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff', fontSize: 20, fontWeight: '800' }}>✕</Text></Pressable>
+        <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" hitSlop={10} style={{ position: 'absolute', top: 40, right: 20, width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,.15)', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff', fontSize: 20, fontWeight: '600' }}>✕</Text></Pressable>
         {url ? <Image source={{ uri: url }} style={{ width: '100%', height: '80%' }} resizeMode="contain" /> : <Text style={{ color: '#fff' }}>Loading…</Text>}
         {url && <Text style={{ color: '#fff', marginTop: 12 }} onPress={() => Linking.openURL(url)}>Open full size ↗</Text>}
       </Pressable>
@@ -277,21 +277,21 @@ function PhotoViewer({ path, onClose }: { path: string | null; onClose: () => vo
 const s = StyleSheet.create({
   task: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#ECEEF2', borderRadius: 14, paddingVertical: 12, paddingRight: 12, paddingLeft: 14, marginBottom: 8 },
   accent: { position: 'absolute', left: 0, top: 10, bottom: 10, width: 4, borderTopRightRadius: 4, borderBottomRightRadius: 4 },
-  name: { fontSize: 17, fontWeight: '700', color: base.ink },
+  name: { fontSize: 17, fontWeight: '600', color: base.ink },
   nameDone: { color: base.slate },
   meta: { fontSize: 11.5, color: base.slate, marginTop: 2 },
-  addrPill: { fontSize: 10.5, fontWeight: '700', textTransform: 'uppercase', color: base.slate, backgroundColor: base.paper, borderRadius: 20, paddingHorizontal: 8, paddingVertical: 2, overflow: 'hidden' },
+  addrPill: { fontSize: 10.5, fontWeight: '600', textTransform: 'uppercase', color: base.slate, backgroundColor: base.paper, borderRadius: 20, paddingHorizontal: 8, paddingVertical: 2, overflow: 'hidden' },
   photos: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
   thumb: { width: 56, height: 56, borderRadius: 8 },
   del: { position: 'absolute', top: -6, right: -6, width: 20, height: 20, borderRadius: 10, backgroundColor: base.red, alignItems: 'center', justifyContent: 'center' },
-  delX: { color: '#fff', fontWeight: '800', fontSize: 13, lineHeight: 15 },
-  waiting: { position: 'absolute', bottom: 2, left: 0, right: 0, textAlign: 'center', fontSize: 10, fontWeight: '700', color: base.ink },
+  delX: { color: '#fff', fontWeight: '600', fontSize: 13, lineHeight: 15 },
+  waiting: { position: 'absolute', bottom: 2, left: 0, right: 0, textAlign: 'center', fontSize: 10, fontWeight: '600', color: base.ink },
   addPhoto: { marginTop: 8, paddingVertical: 6, paddingHorizontal: 11, borderRadius: 999, borderWidth: 1, borderColor: '#DADCE0', alignSelf: 'flex-start', backgroundColor: '#fff' },
   completeCard: { marginTop: 10, padding: 10, borderRadius: 10, backgroundColor: '#FCEFEF', borderWidth: 1, borderColor: '#E8B4B4' },
   statusRow: { flexDirection: 'row', gap: 3, marginTop: 8, backgroundColor: '#F1F2F4', borderRadius: 11, padding: 3 },
   statusBtn: { flex: 1, paddingVertical: 7, paddingHorizontal: 4, borderRadius: 8, alignItems: 'center' },
   statusTodo: { backgroundColor: '#fff', shadowColor: '#14161C', shadowOpacity: 0.12, shadowRadius: 3, shadowOffset: { width: 0, height: 1 } },
-  statusTxt: { fontSize: 11, fontWeight: '700', color: base.slate },
+  statusTxt: { fontSize: 11, fontWeight: '600', color: base.slate },
   pct: { marginTop: 10, padding: 10, borderRadius: 10, borderWidth: 1, borderColor: base.line },
   viewer: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', alignItems: 'center', justifyContent: 'center', padding: 16 },
 });

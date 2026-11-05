@@ -21,7 +21,7 @@ export function DriverHome() {
   const next = off.data?.[0];
   return (
     <Screen>
-      <Text style={{ fontSize: 21, fontWeight: '800', color: base.ink }}>{me?.name}</Text>
+      <Text style={{ fontSize: 21, fontWeight: '600', color: base.ink }}>{me?.name}</Text>
       <Muted style={{ marginBottom: 14 }}>Delivery Driver</Muted>
       {/* 840: the tiles two across, in the current app's order (Book Stock Into The Yard, 9219zq, then Book Time Off, 9219zz). */}
       <JobGrid>

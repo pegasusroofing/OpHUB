@@ -67,11 +67,11 @@ export function PpeManager({ site }: { site: Site }) {
       {issueOpen ? (
         <Card>
           <SectionTitle>Issue PPE</SectionTitle>
-          <Muted style={{ fontWeight: '700' }}>Operative(s) — tick one or more to issue the same PPE to all of them</Muted>
+          <Muted style={{ fontWeight: '600' }}>Operative(s) — tick one or more to issue the same PPE to all of them</Muted>
           {data.ops.length ? data.ops.map((p) => (
             <Pressable key={p.id} onPress={() => setWho(flip(who, p.id))}><Text style={{ paddingVertical: 6, color: base.ink }}>{who.includes(p.id) ? '☑' : '☐'} {p.name}</Text></Pressable>
           )) : <Empty>No operatives assigned to this site.</Empty>}
-          <Muted style={{ fontWeight: '700', marginTop: 8 }}>Items</Muted>
+          <Muted style={{ fontWeight: '600', marginTop: 8 }}>Items</Muted>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginVertical: 8 }}>
             {PPE_STANDARD_ITEMS.map((it) => {
               const on = items.includes(it);
@@ -104,7 +104,7 @@ export function PpeManager({ site }: { site: Site }) {
                 <Text style={{ fontSize: 17, color: base.ink }}>{reqPick.has(r.id) ? '☑' : '☐'}</Text>
               </Pressable>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontWeight: '700', color: base.ink }}>{data.ops.find((o) => o.id === r.user_id)?.name ?? 'Operative'} — {r.item_name}</Text>
+                <Text style={{ fontWeight: '600', color: base.ink }}>{data.ops.find((o) => o.id === r.user_id)?.name ?? 'Operative'} — {r.item_name}</Text>
                 <Muted>{r.date_needed ? `Needed by ${long(`${r.date_needed}T00:00:00`)}` : 'No date given'}</Muted>
               </View>
               {r.status === 'pending' ? (
@@ -160,7 +160,7 @@ export function PpeManager({ site }: { site: Site }) {
                 {history.length ? history.map((i) => (
                   <View key={`${i.kind}${i.id}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6, borderTopWidth: 1, borderTopColor: base.line }}>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ fontWeight: '700', color: base.ink }}>{i.items.join(', ')}{i.kind === 'request' ? ' (via request)' : ''}</Text>
+                      <Text style={{ fontWeight: '600', color: base.ink }}>{i.items.join(', ')}{i.kind === 'request' ? ' (via request)' : ''}</Text>
                       <Muted>Issued {long(i.at)}</Muted>
                     </View>
                     <Text style={{ fontSize: 11, color: base.slate }}>{i.kind === 'request' ? 'Fulfilled' : i.status === 'signed' ? 'Signed' : 'Pending'}</Text>

@@ -35,8 +35,8 @@ export default function CompanyLibrary() {
       <Muted style={{ marginBottom: 12 }}>Every subcontractor company&apos;s own document library — shared across every site that company is added to.</Muted>
       {isLoading ? <Muted>Loading…</Muted> : list.length ? list.map((p) => (
         <Pressable key={p.id} onPress={() => router.push(`/pm/admin/companylibrary/${p.id}` as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 8, backgroundColor: base.card }}>
-          <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: base.ink, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff', fontWeight: '800' }}>{p.name.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase()}</Text></View>
-          <Text style={{ flex: 1, fontWeight: '700', color: base.ink }}>{p.name}</Text>
+          <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: base.ink, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff', fontWeight: '600' }}>{p.name.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase()}</Text></View>
+          <Text style={{ flex: 1, fontWeight: '600', color: base.ink }}>{p.name}</Text>
           <Pressable hitSlop={8} onPress={async () => {
             const n = await promptText('Rename company', p.name); if (!n || !n.trim() || n.trim() === p.name) return;
             if (!(await db.from('subcontractor_company_profiles').update({ name: n.trim() } as never).eq('id', p.id).select('id')).data?.length) { toast('Could not rename — try again.'); return; }

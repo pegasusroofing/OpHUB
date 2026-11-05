@@ -78,25 +78,25 @@ export default function DeliverySchedule() {
       <Stack.Screen options={{ title: 'Delivery Schedule' }} />
       <HowTo k="delivery" />
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-        <Pressable onPress={() => setIso(addDays(iso, -1))} style={{ width: 52, height: 52, borderRadius: 14, backgroundColor: th.brand1, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: th.brand1Text, fontSize: 30, fontWeight: '800' }}>‹</Text></Pressable>
-        <Text style={{ flex: 1, textAlign: 'center', fontWeight: '700', fontSize: 15, color: base.ink }} numberOfLines={1}>{dayLabel} <Text style={{ color: base.slate, fontWeight: '400' }}>({tasks.length})</Text></Text>
-        <Pressable onPress={() => setIso(addDays(iso, 1))} style={{ width: 52, height: 52, borderRadius: 14, backgroundColor: th.brand1, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: th.brand1Text, fontSize: 30, fontWeight: '800' }}>›</Text></Pressable>
+        <Pressable onPress={() => setIso(addDays(iso, -1))} style={{ width: 52, height: 52, borderRadius: 14, backgroundColor: th.brand1, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: th.brand1Text, fontSize: 30, fontWeight: '600' }}>‹</Text></Pressable>
+        <Text style={{ flex: 1, textAlign: 'center', fontWeight: '600', fontSize: 15, color: base.ink }} numberOfLines={1}>{dayLabel} <Text style={{ color: base.slate, fontWeight: '400' }}>({tasks.length})</Text></Text>
+        <Pressable onPress={() => setIso(addDays(iso, 1))} style={{ width: 52, height: 52, borderRadius: 14, backgroundColor: th.brand1, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: th.brand1Text, fontSize: 30, fontWeight: '600' }}>›</Text></Pressable>
       </View>
       <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10, alignItems: 'center' }}>
-        <Text style={{ fontSize: 11, fontWeight: '800', letterSpacing: 0.6, color: base.ink }}>JUMP TO</Text>
+        <Text style={{ fontSize: 11, fontWeight: '600', letterSpacing: 0.6, color: base.ink }}>JUMP TO</Text>
         <DateBox value={iso} onChange={(d) => { if (d) setIso(d); }} clearable={false} title="Jump to" style={{ flex: 1 }} />
-        {iso !== today && <Pressable onPress={() => setIso(today)} style={{ padding: 10 }}><Text style={{ color: base.blue, fontWeight: '700' }}>Today</Text></Pressable>}
+        {iso !== today && <Pressable onPress={() => setIso(today)} style={{ padding: 10 }}><Text style={{ color: base.blue, fontWeight: '600' }}>Today</Text></Pressable>}
       </View>
 
       {reqs.length > 0 && (
         <Card>
-          <Text style={{ fontWeight: '800', color: base.ink }}>📥 To schedule ({reqs.length})</Text>
+          <Text style={{ fontWeight: '600', color: base.ink }}>📥 To schedule ({reqs.length})</Text>
           <Muted style={{ marginBottom: 10 }}>Waste and leftover material flagged on site — book a collection for each.</Muted>
           {reqs.map((r) => {
             const s = sites.find((x) => x.id === r.site_id);
             return (
               <View key={r.id} style={{ borderTopWidth: 1, borderTopColor: base.line, paddingTop: 8, marginTop: 10 }}>
-                <Text style={{ fontWeight: '800', color: base.ink }}>{r.waste ? '🗑 ' : ''}{r.leftover ? '📦 ' : ''}{s?.name || 'Project'}</Text>
+                <Text style={{ fontWeight: '600', color: base.ink }}>{r.waste ? '🗑 ' : ''}{r.leftover ? '📦 ' : ''}{s?.name || 'Project'}</Text>
                 {!!s && !!fullSiteAddress(s) && <Muted>{fullSiteAddress(s)}</Muted>}
                 <Text style={{ color: base.ink }}>{r.description}</Text>
                 <Muted>{r.flagged_by ? `Flagged by ${name(r.flagged_by)} · ` : ''}{new Date(r.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</Muted>
@@ -128,14 +128,14 @@ export default function DeliverySchedule() {
           <View key={slot.key}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <View style={{ flex: 1 }}><SectionTitle>{spans && nx ? `${slot.label} & ${slotLabel(nx)}` : slot.label}</SectionTitle></View>
-              {!full[slot.key] && <Pressable hitSlop={8} onPress={() => add(slot.key)} style={{ width: 28, height: 28, borderRadius: 8, borderWidth: 1, borderColor: base.line, alignItems: 'center', justifyContent: 'center', marginTop: 10 }}><Text style={{ fontWeight: '800', fontSize: 16, color: base.ink }}>+</Text></Pressable>}
+              {!full[slot.key] && <Pressable hitSlop={8} onPress={() => add(slot.key)} style={{ width: 28, height: 28, borderRadius: 8, borderWidth: 1, borderColor: base.line, alignItems: 'center', justifyContent: 'center', marginTop: 10 }}><Text style={{ fontWeight: '600', fontSize: 16, color: base.ink }}>+</Text></Pressable>}
             </View>
             {!!carry && <Muted style={{ marginBottom: 10 }}>{place(carry)} carries on here from the {slotLabel(carry.time_slot)}</Muted>}
             {list.length ? list.map((t) => (
               <View key={t.id} style={{ flexDirection: 'row', gap: 8, padding: 12, borderWidth: 1, borderColor: t.double_slot ? base.blue : base.cardLine, minHeight: t.double_slot ? 260 : undefined, borderRadius: radius.row, marginBottom: 10, backgroundColor: base.card, opacity: t.status === 'completed' ? 0.6 : 1 }}>
                 <Pressable style={{ flex: 1 }} onPress={() => router.push(`/pm/delivery/${t.id}` as never)}>
-                  <Text style={{ fontWeight: '700', color: base.ink }}>
-                    {t.high_priority ? <Text style={{ color: base.red, fontWeight: '800' }}>! 1st DROP · </Text> : null}
+                  <Text style={{ fontWeight: '600', color: base.ink }}>
+                    {t.high_priority ? <Text style={{ color: base.red, fontWeight: '600' }}>! 1st DROP · </Text> : null}
                     {place(t)}{!t.site_id ? ' (not on app)' : ''}{list.length > 1 ? ` (order ${t.sub_priority || '?'})` : ''}
                     {t.needs_completing ? <Text style={{ color: base.warn }}> ⚠ Needs completing</Text> : null}
                     {t.double_slot ? <Text style={{ color: base.blue }}> · 2 drops</Text> : null}
@@ -143,7 +143,7 @@ export default function DeliverySchedule() {
                   {!!t.sub_site_label && <Muted>{t.sub_site_label}</Muted>}
                   {!!jobPm(t) && <Muted>{jobPm(t)}</Muted>}
                   <Muted>{t.description || ''}{t.status === 'completed' ? ' · ✓ Completed' : ''}</Muted>
-                  <Text style={{ fontWeight: '700', color: base.ink, fontSize: 12.5 }}>{collectionLine(t, t.supplier_id ? data?.suppliers[t.supplier_id] : undefined)}</Text>
+                  <Text style={{ fontWeight: '600', color: base.ink, fontSize: 12.5 }}>{collectionLine(t, t.supplier_id ? data?.suppliers[t.supplier_id] : undefined)}</Text>
                   <Text style={{ fontSize: 12.5, color: t.driver_id ? base.slate : base.warn }}>🚐 {t.driver_id ? name(t.driver_id) || 'Driver' : 'Unassigned'}</Text>
                   {t.status !== 'completed' && (
                     <Pressable disabled={busy === t.id} onPress={() => void push(t)} style={{ alignSelf: 'flex-start', marginTop: 10, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: base.line }}>
@@ -171,7 +171,7 @@ export default function DeliverySchedule() {
 
       <Pressable onPress={() => setHoursOpen(!hoursOpen)} style={{ marginTop: 10, padding: 14, borderWidth: 1, borderColor: base.cardLine, borderRadius: 16, backgroundColor: base.card, flexDirection: 'row', alignItems: 'center' }}>
         <View style={{ flex: 1 }}>
-          <Text style={{ fontWeight: '700', color: base.ink }}>🕒 Driver hours</Text>
+          <Text style={{ fontWeight: '600', color: base.ink }}>🕒 Driver hours</Text>
           <Muted>Each driver&apos;s hours for the week, breaks taken off</Muted>
         </View>
         <Text style={{ color: base.slate }}>{hoursOpen ? '▾' : '▸'}</Text>
@@ -190,8 +190,8 @@ export default function DeliverySchedule() {
               <View>
                 <View style={{ flexDirection: 'row' }}>
                   <Text style={{ width: 110 }} />
-                  {hours.data.days.map((k) => <Text key={k} style={{ width: 64, fontSize: 11, fontWeight: '700', color: base.slate }}>{new Date(`${k}T00:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric' })}</Text>)}
-                  <Text style={{ width: 70, fontSize: 11, fontWeight: '800', color: base.ink }}>Total</Text>
+                  {hours.data.days.map((k) => <Text key={k} style={{ width: 64, fontSize: 11, fontWeight: '600', color: base.slate }}>{new Date(`${k}T00:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric' })}</Text>)}
+                  <Text style={{ width: 70, fontSize: 11, fontWeight: '600', color: base.ink }}>Total</Text>
                 </View>
                 {drivers.map((dv) => {
                   const c = hours.data.checks.filter((x) => x.user_id === dv.id), b = hours.data.breaks.filter((x) => x.user_id === dv.id);
@@ -199,9 +199,9 @@ export default function DeliverySchedule() {
                   const cells = hours.data.days.map((k) => { const t = dayTotals(c, b, k); const w = Math.max(0, t.duty - t.brk); tot += w; return w; });
                   return (
                     <View key={dv.id} style={{ flexDirection: 'row', paddingVertical: 6, borderTopWidth: 1, borderTopColor: base.line }}>
-                      <Text style={{ width: 110, fontWeight: '700', color: base.ink }} numberOfLines={1}>{dv.name}</Text>
+                      <Text style={{ width: 110, fontWeight: '600', color: base.ink }} numberOfLines={1}>{dv.name}</Text>
                       {cells.map((w, i) => <Text key={i} style={{ width: 64, fontSize: 12, color: base.ink }}>{w ? minsLabel(w) : '—'}</Text>)}
-                      <Text style={{ width: 70, fontSize: 12, fontWeight: '800', color: base.ink }}>{tot ? minsLabel(tot) : '—'}</Text>
+                      <Text style={{ width: 70, fontSize: 12, fontWeight: '600', color: base.ink }}>{tot ? minsLabel(tot) : '—'}</Text>
                     </View>
                   );
                 })}

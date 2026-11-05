@@ -24,7 +24,7 @@ type Tab = 'details' | 'ra' | 'ssow' | 'ms' | 'issue';
 const ORDER: Tab[] = ['details', 'ra', 'ssow', 'ms', 'issue'];
 const NEXT: Partial<Record<Tab, string>> = { ra: 'Next: Risk Assessment', ssow: 'Next: Safe Systems of Work', ms: 'Next: Method Statements', issue: 'Next: Issue' };
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 9, color: base.ink, backgroundColor: base.card, marginBottom: 8 };
-const Badge = ({ p, s }: { p: unknown; s: unknown }) => { const n = rr(p, s), b = riskBand(n); return <Text style={{ backgroundColor: b.bg, color: b.fg, fontWeight: '800', paddingHorizontal: 7, borderRadius: 6, overflow: 'hidden' }}>{n}</Text>; };
+const Badge = ({ p, s }: { p: unknown; s: unknown }) => { const n = rr(p, s), b = riskBand(n); return <Text style={{ backgroundColor: b.bg, color: b.fg, fontWeight: '600', paddingHorizontal: 7, borderRadius: 6, overflow: 'hidden' }}>{n}</Text>; };
 const chipStyle = (on: boolean) => ({ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: on ? live.brand1 : base.line, backgroundColor: on ? live.brand1 : base.card });
 
 export default function RamsBuildScreen() {
@@ -112,7 +112,7 @@ function Editor({ initial, siteId }: { initial: RamsBuild; siteId: string }) {
     const req = RAMS_REQUIRED.some(([r]) => r === k), v = String(b.details[k] ?? ''), bad = req && !v.trim();
     return (
       <View key={k}>
-        <Muted style={{ fontWeight: '700' }}>{label}{req ? <Text style={{ color: '#C0392B' }}> *</Text> : null}</Muted>
+        <Muted style={{ fontWeight: '600' }}>{label}{req ? <Text style={{ color: '#C0392B' }}> *</Text> : null}</Muted>
         {o.date ? <DateBox value={v} onChange={(t) => setD(k, t)} title={label} placeholder={req ? 'Required' : 'Choose a date'} style={[{ marginBottom: 8 }, bad ? { borderColor: '#C0392B' } : null]} /> : <TextInput value={v} onChangeText={(t) => setD(k, t)} multiline={o.multiline} keyboardType={o.kb} placeholder={o.ph || (req ? 'Required' : undefined)} style={[box, o.multiline ? { minHeight: 70 } : null, bad ? { borderColor: '#C0392B' } : null]} />}
       </View>
     );
@@ -141,7 +141,7 @@ function Editor({ initial, siteId }: { initial: RamsBuild; siteId: string }) {
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
             {groups.map((g) => { const on = d.groups.includes(g); return <Pressable key={g} onPress={() => setD('groups', on ? d.groups.filter((x) => x !== g) : [...d.groups, g])} style={chipStyle(on)}><Text style={{ fontSize: 12, color: on ? live.brand1Text : base.ink }}>{g}</Text></Pressable>; })}
           </View>
-          <Pressable onPress={async () => { const v = await promptText('Group affected', ''); if (v && v.trim() && !d.groups.includes(v.trim())) setD('groups', [...d.groups, v.trim()]); }} style={{ marginTop: 8 }}><Text style={{ color: base.blue, fontWeight: '700' }}>+ Add group</Text></Pressable>
+          <Pressable onPress={async () => { const v = await promptText('Group affected', ''); if (v && v.trim() && !d.groups.includes(v.trim())) setD('groups', [...d.groups, v.trim()]); }} style={{ marginTop: 8 }}><Text style={{ color: base.blue, fontWeight: '600' }}>+ Add group</Text></Pressable>
         </Card>
         <Card>
           <SectionTitle>Required PPE</SectionTitle>
@@ -160,19 +160,19 @@ function Editor({ initial, siteId }: { initial: RamsBuild; siteId: string }) {
       <Muted style={{ marginBottom: 10 }}>Each hazard is its own item. P = probability, S = severity, RR = P × S. Pre-control on the left, residual (after controls) on the right.</Muted>
       {b.hazards.length ? b.hazards.map((h, i) => editId === h.id ? (
         <Card key={h.id} style={{ borderColor: base.ink }}>
-          <Muted style={{ fontWeight: '700' }}>Hazard</Muted>
+          <Muted style={{ fontWeight: '600' }}>Hazard</Muted>
           <TextInput value={h.title} onChangeText={(t) => setH(h.id, { title: t })} style={box} autoFocus={!h.title} />
-          <Muted style={{ fontWeight: '700' }}>Harm / who could be hurt and how</Muted>
+          <Muted style={{ fontWeight: '600' }}>Harm / who could be hurt and how</Muted>
           <TextInput value={h.harm} onChangeText={(t) => setH(h.id, { harm: t })} style={box} />
           {([['Before controls', 'p', 's'], ['Residual (after controls)', 'rp', 'rs']] as const).map(([l, pk, sk]) => (
             <View key={l} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
-              <Text style={{ width: 150, fontWeight: '700', color: base.ink }}>{l}</Text>
+              <Text style={{ width: 150, fontWeight: '600', color: base.ink }}>{l}</Text>
               <Pressable onPress={() => void pick('Probability', P_LABELS, h[pk], (n) => setH(h.id, { [pk]: n }))} style={[box, { marginBottom: 0 }]}><Text style={{ color: base.ink }}>P {h[pk]}</Text></Pressable>
               <Pressable onPress={() => void pick('Severity', S_LABELS, h[sk], (n) => setH(h.id, { [sk]: n }))} style={[box, { marginBottom: 0 }]}><Text style={{ color: base.ink }}>S {h[sk]}</Text></Pressable>
               <Badge p={h[pk]} s={h[sk]} />
             </View>
           ))}
-          <Muted style={{ fontWeight: '700' }}>Control Measures</Muted>
+          <Muted style={{ fontWeight: '600' }}>Control Measures</Muted>
           <NumberedLines value={h.controls} onChange={(v) => setH(h.id, { controls: v })} />
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <View style={{ flex: 2 }}><Button oneLine textSize={13} title="Done" onPress={() => { setEditId(null); void saveNow(); }} /></View>
@@ -182,8 +182,8 @@ function Editor({ initial, siteId }: { initial: RamsBuild; siteId: string }) {
       ) : (
         <Card key={h.id}>
           <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-start' }}>
-            <Text style={{ fontWeight: '800', color: base.slate, width: 20 }}>{i + 1}</Text>
-            <View style={{ flex: 1 }}><Text style={{ fontWeight: '700', color: base.ink }}>{h.title || 'Untitled hazard'}</Text>{!!h.harm && <Muted>{h.harm}</Muted>}</View>
+            <Text style={{ fontWeight: '600', color: base.slate, width: 20 }}>{i + 1}</Text>
+            <View style={{ flex: 1 }}><Text style={{ fontWeight: '600', color: base.ink }}>{h.title || 'Untitled hazard'}</Text>{!!h.harm && <Muted>{h.harm}</Muted>}</View>
             <View style={{ flexDirection: 'row', gap: 4, alignItems: 'center' }}><Badge p={h.p} s={h.s} /><Text>→</Text><Badge p={h.rp} s={h.rs} /></View>
           </View>
           {h.controls.slice(0, 3).map((c, k) => <Muted key={k}>• {c}</Muted>)}
@@ -208,12 +208,12 @@ function Editor({ initial, siteId }: { initial: RamsBuild; siteId: string }) {
             {/* What's being filled in, and no switch between the two kinds: moving a section to the other tab mid-edit broke the
                 builder (Andy, 4 Nov 2026). A section stays on the tab it was made on. */}
             <Text style={{ fontSize: 15, fontWeight: '600', color: base.ink, marginBottom: 8 }}>{isM ? 'Method Statement' : 'Safe System Of Work'}</Text>
-            <Muted style={{ fontWeight: '700' }}>Heading</Muted>
+            <Muted style={{ fontWeight: '600' }}>Heading</Muted>
             <TextInput value={s.title} onChangeText={(t) => setS(s.id, { title: t })} style={box} autoFocus={!s.title} />
             {/* No text box any more, just the numbered points (Andy, 4 Nov 2026). Older sections that already have text keep the
                 box so it can still be edited, as it prints. */}
-            {!!s.body && <><Muted style={{ fontWeight: '700' }}>Text</Muted><TextInput value={s.body} onChangeText={(t) => setS(s.id, { body: t })} multiline style={[box, { minHeight: 70 }]} /></>}
-            <Muted style={{ fontWeight: '700' }}>Steps</Muted>
+            {!!s.body && <><Muted style={{ fontWeight: '600' }}>Text</Muted><TextInput value={s.body} onChangeText={(t) => setS(s.id, { body: t })} multiline style={[box, { minHeight: 70 }]} /></>}
+            <Muted style={{ fontWeight: '600' }}>Steps</Muted>
             <NumberedLines value={s.steps} onChange={(v) => setS(s.id, { steps: v })} />
             <View style={{ flexDirection: 'row', gap: 8 }}>
               <View style={{ flex: 2 }}><Button oneLine textSize={13} title="Done" onPress={() => { setEditId(null); void saveNow(); }} /></View>
@@ -223,8 +223,8 @@ function Editor({ initial, siteId }: { initial: RamsBuild; siteId: string }) {
         ) : (
           <Card key={s.id}>
             <View style={{ flexDirection: 'row', gap: 8 }}>
-              <Text style={{ fontWeight: '800', color: base.slate, width: 20 }}>{i + 1}</Text>
-              <View style={{ flex: 1 }}><Text style={{ fontWeight: '700', color: base.ink }}>{s.title || 'Untitled section'}</Text>{!!s.body && <Text numberOfLines={3} style={{ color: base.slate }}>{s.body}</Text>}</View>
+              <Text style={{ fontWeight: '600', color: base.slate, width: 20 }}>{i + 1}</Text>
+              <View style={{ flex: 1 }}><Text style={{ fontWeight: '600', color: base.ink }}>{s.title || 'Untitled section'}</Text>{!!s.body && <Text numberOfLines={3} style={{ color: base.slate }}>{s.body}</Text>}</View>
             </View>
             {s.steps.slice(0, 3).map((c, k) => <Muted key={k}>{k + 1}. {c}</Muted>)}
             {s.steps.length > 3 && <Pressable onPress={() => setEditId(s.id)}><Text style={{ color: base.blue }}>+ {s.steps.length - 3} more</Text></Pressable>}
@@ -327,10 +327,10 @@ function Editor({ initial, siteId }: { initial: RamsBuild; siteId: string }) {
     <View style={{ flex: 1 }}>
       <Stack.Screen options={{ title: 'RAMS Builder' }} />
       <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
-        <TextInput value={b.title} onChangeText={(t) => change((x) => ({ ...x, title: t }))} style={[box, { fontSize: 17, fontWeight: '800' }]} />
+        <TextInput value={b.title} onChangeText={(t) => change((x) => ({ ...x, title: t }))} style={[box, { fontSize: 17, fontWeight: '600' }]} />
         <Muted style={{ marginBottom: 8 }}>{saveState}</Muted>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }} contentContainerStyle={{ gap: 6 }}>
-          {tabs.map(([k, l]) => <Pressable key={k} onPress={() => void go(k)} style={chipStyle(tab === k)}><Text style={{ fontWeight: '700', fontSize: 13, color: tab === k ? live.brand1Text : base.ink }}>{l}</Text></Pressable>)}
+          {tabs.map(([k, l]) => <Pressable key={k} onPress={() => void go(k)} style={chipStyle(tab === k)}><Text style={{ fontWeight: '600', fontSize: 13, color: tab === k ? live.brand1Text : base.ink }}>{l}</Text></Pressable>)}
         </ScrollView>
         {aiBanner()}
         {tab === 'details' ? details() : tab === 'ra' ? hazards() : tab === 'ssow' ? sections('general') : tab === 'ms' ? sections('method') : issueTab()}
@@ -372,15 +372,15 @@ function Picker({ kind, part, have, onClose, onNew, onAdd }: { kind: 'hazard' | 
       <Pressable onPress={onClose} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 16 }}>
         <Pressable onPress={() => {}} style={{ backgroundColor: base.card, borderRadius: 14, padding: 14, maxHeight: '85%', maxWidth: 640, width: '100%', alignSelf: 'center' }}>
           <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8 }}>
-            <Text style={{ flex: 1, fontWeight: '800', fontSize: 16, color: base.ink,  }}>Add {label} from the library</Text>
-            <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" hitSlop={10} style={{ paddingLeft: 10 }}><Text style={{ fontSize: 18, color: base.slate, fontWeight: '700' }}>✕</Text></Pressable>
+            <Text style={{ flex: 1, fontWeight: '600', fontSize: 16, color: base.ink,  }}>Add {label} from the library</Text>
+            <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" hitSlop={10} style={{ paddingLeft: 10 }}><Text style={{ fontSize: 18, color: base.slate, fontWeight: '600' }}>✕</Text></Pressable>
           </View>
           <TextInput value={q} onChangeText={setQ} placeholder="Search…" style={box} />
           {fresh.length > 1 && <Check label={`Select all (${fresh.length})`} value={fresh.every((i) => sel.includes(i.id))} onChange={(v) => setSel(v ? Array.from(new Set([...sel, ...fresh.map((i) => i.id)])) : sel.filter((x) => !fresh.some((i) => i.id === x)))} />}
           <ScrollView style={{ flexGrow: 0 }}>
             {isLoading ? <Muted>Loading…</Muted> : null}
             {fresh.map(row)}
-            {added.length > 0 && <Muted style={{ marginTop: 10, fontWeight: '700' }}>Already added to this RAMS ({added.length})</Muted>}
+            {added.length > 0 && <Muted style={{ marginTop: 10, fontWeight: '600' }}>Already added to this RAMS ({added.length})</Muted>}
             {added.map(row)}
             {!isLoading && !fresh.length && !added.length && <Empty>{(libAll || []).length ? 'Nothing matches.' : 'The library is empty — load the starter library in Admin Centre › RAMS Library.'}</Empty>}
           </ScrollView>

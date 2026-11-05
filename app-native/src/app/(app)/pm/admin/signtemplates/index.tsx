@@ -31,11 +31,11 @@ export default function SignTemplates() {
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Signing Templates' }} />
       <Card>
-        <Text style={{ fontWeight: '700', color: base.ink, marginBottom: 4 }}>How this works</Text>
+        <Text style={{ fontWeight: '600', color: base.ink, marginBottom: 4 }}>How this works</Text>
         <Muted>1. Upload a sample of a form you use often. 2. Mark every box and say who it&apos;s for — Operative 1, Operative 2, the Project Manager, the Client. 3. When you upload that form for a job, pick the template: the boxes are already in place and everyone signs with one tap.</Muted>
       </Card>
       <Card>
-        <Text style={{ fontWeight: '700', color: base.ink, marginBottom: 8 }}>New template</Text>
+        <Text style={{ fontWeight: '600', color: base.ink, marginBottom: 8 }}>New template</Text>
         <TextInput value={name} onChangeText={setName} maxLength={80} placeholder="Template name, e.g. Hyde RAMS form" style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, marginBottom: 8 }} />
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <View style={{ flex: 1 }}><Button kind="ghost" title={file ? `✓ ${file.name}` : 'Choose sample PDF'} onPress={async () => { const r = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true }); if (!r.canceled && r.assets[0]) setFile({ uri: r.assets[0].uri, name: r.assets[0].name || 'sample.pdf' }); }} /></View>
@@ -57,7 +57,7 @@ export default function SignTemplates() {
         return (
           <Card key={tp.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontWeight: '700', color: base.ink }}>{tp.name}</Text>
+              <Text style={{ fontWeight: '600', color: base.ink }}>{tp.name}</Text>
               <Text style={{ color: s ? base.slate : '#B23B2E' }}>{s || 'No boxes set yet'}{tp.page_count ? ` · ${tp.page_count} pages` : ''}</Text>
             </View>
             <Pressable hitSlop={8} onPress={async () => {

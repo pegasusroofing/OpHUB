@@ -39,7 +39,7 @@ export default function PiQuery() {
       <Card>
         {[['Supplier', d.supplier_name], ['Invoice no.', d.invoice_no], ['Date', d.invoice_date ? fdate(String(d.invoice_date).slice(0, 10)) : ''], ['Project', d.site_name], ['PO', d.po_number], ['For', d.description], ['Net', d.net != null ? money(d.net) : ''], ['Total', d.total != null ? money(d.total) : '']]
           .filter(([, v]) => v != null && v !== '').map(([k, v]) => <FinRow key={k as string} title={k as string} right={String(v)} />)}
-        {!!d.query_note && <Text style={{ color: base.red, marginTop: 8 }}><Text style={{ fontWeight: '800' }}>Query:</Text> {d.query_note}</Text>}
+        {!!d.query_note && <Text style={{ color: base.red, marginTop: 8 }}><Text style={{ fontWeight: '600' }}>Query:</Text> {d.query_note}</Text>}
         {!!d.status && d.status !== 'query' && <Text style={{ color: base.ok, marginTop: 8 }}>The office has sorted this one now.</Text>}
       </Card>
       <SectionTitle>Conversation</SectionTitle>

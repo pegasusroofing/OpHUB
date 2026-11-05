@@ -137,5 +137,5 @@ const s = StyleSheet.create({
   wrap: { position: 'absolute', left: 16, right: 16, top: 70, alignItems: 'center' },
   toast: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: '#FFF7F7', borderWidth: 1, borderColor: '#E9B4B4', borderLeftWidth: 4, borderLeftColor: '#C8102E', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, maxWidth: 480, shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 10, elevation: 4 },
   toastText: { flexShrink: 1, color: '#1E2124', fontWeight: '600', fontSize: 14 },
-  toastX: { color: '#6B7280', fontWeight: '700' },
+  toastX: { color: '#6B7280', fontWeight: '600' },
 });

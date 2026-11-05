@@ -107,7 +107,7 @@ export default function Inductions() {
             <View key={u} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 6, backgroundColor: base.card }}>
               {c && mgr && <Pressable hitSlop={8} onPress={() => setSel((x) => { const n = new Set(x); if (n.has(u)) n.delete(u); else n.add(u); return n; })}><Text style={{ fontSize: 18 }}>{sel.has(u) ? '☑' : '☐'}</Text></Pressable>}
               <View style={{ flex: 1 }}>
-                <Text style={{ fontWeight: '700', color: base.ink }}>{nameOf(people, u)}</Text>
+                <Text style={{ fontWeight: '600', color: base.ink }}>{nameOf(people, u)}</Text>
                 <Muted>{c ? `✓ Completed ${day(c.completed_at)}` : '○ Not yet completed'}</Muted>
               </View>
               {c && <Pressable onPress={() => void view(c.pdf_path)}><Text>👁</Text></Pressable>}
@@ -210,7 +210,7 @@ export default function Inductions() {
           <Muted style={{ marginBottom: 12 }}>Health Questionnaire for {site.name} — please answer every question. Any &quot;Yes&quot; needs a few details so we can keep you safe on site.</Muted>
           {HEALTH_ITEMS.map((it, i) => (
             <Card key={i}>
-              <Text style={{ fontSize: 11.5, fontWeight: '700', color: base.slate }}>{it.category.toUpperCase()}</Text>
+              <Text style={{ fontSize: 11.5, fontWeight: '600', color: base.slate }}>{it.category.toUpperCase()}</Text>
               <Text style={{ color: base.ink, marginVertical: 6 }}>{it.question}</Text>
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 {['no', 'yes'].map((v) => (

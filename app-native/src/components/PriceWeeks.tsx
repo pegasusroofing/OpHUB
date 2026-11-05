@@ -57,8 +57,8 @@ export function PriceWeeks({ me, site, elementId, mgr }: { me: Profile; site: Si
           <Card key={wk} style={{ paddingVertical: 8 }}>
             <Pressable onPress={() => setOpen({ ...open, [wk]: !isOpen })} style={{ flexDirection: 'row', alignItems: 'center' }}>
               <Text style={{ color: base.slate, marginRight: 6 }}>{isOpen ? '▼' : '▶'}</Text>
-              <Text style={{ flex: 1, fontWeight: '700', color: base.ink }}>Week {wk}{wk === count && !w ? ' (next)' : ''}</Text>
-              <Text style={{ fontWeight: '800', color: base.ink }}>{money(w?.amount ?? 0)}</Text>
+              <Text style={{ flex: 1, fontWeight: '600', color: base.ink }}>Week {wk}{wk === count && !w ? ' (next)' : ''}</Text>
+              <Text style={{ fontWeight: '600', color: base.ink }}>{money(w?.amount ?? 0)}</Text>
             </Pressable>
             {isOpen && (sheetMode
               ? <SheetWeek key={`${wk}-${JSON.stringify(data.itemWeeks.filter((x) => x.week_number === wk))}`} me={me} site={site} elementId={elementId} wk={wk} mgr={mgr} items={data.items} itemWeeks={data.itemWeeks} entries={data.entries.filter((e) => e.week_number === wk)} operatives={data.operatives} people={people ?? []} reason={w?.wage_mismatch_override_reason ?? null} refresh={touched} />
@@ -110,16 +110,16 @@ function BuildUp({ me, site, elementId, wk, entries, operatives, people, rollUp,
   );
   return (
     <View style={{ borderWidth: 1, borderColor: base.line, borderRadius: 10, padding: 6 }}>
-      {operatives.length > 0 && <Muted style={{ fontSize: 11, fontWeight: '800' }}>{wagesMode ? 'LABOUR WAGES' : 'OPERATIVES'}</Muted>}
+      {operatives.length > 0 && <Muted style={{ fontSize: 11, fontWeight: '600' }}>{wagesMode ? 'LABOUR WAGES' : 'OPERATIVES'}</Muted>}
       {operatives.map((o) => { const e = quick(o.id); return row(o.id, o.name, e?.amount ?? null, async (n) => done(await setOperativeEntry(me, elementId, site.id, wk, o.id, quickKind, n, rollUp))); })}
-      {others.length > 0 && <Muted style={{ fontSize: 11, fontWeight: '800', marginTop: 4 }}>ADDED</Muted>}
+      {others.length > 0 && <Muted style={{ fontSize: 11, fontWeight: '600', marginTop: 4 }}>ADDED</Muted>}
       {others.map((e) => row(e.id, e.operative_id ? nameOf(people, e.operative_id) : e.label || 'Unnamed', e.amount, async (n) => done(await setEntryAmount(me, elementId, site.id, wk, e.id, n, rollUp)), e.kind === 'cost' ? '#FFF6E5' : '#F2F6FC'))}
       {!entries.length && !operatives.length && <Muted style={{ padding: 6 }}>No rows yet — add an operative, a named extra, or a one-off cost.</Muted>}
       <View style={{ flexDirection: 'row', borderTopWidth: 2, borderTopColor: base.ink, marginTop: 4, paddingTop: 6, paddingHorizontal: 4 }}>
-        <Text style={{ flex: 1, fontWeight: '800', color: base.ink }}>{wagesMode ? 'Wages total' : 'Week total'}</Text>
-        <Text style={{ fontWeight: '800', color: base.ink, marginRight: 24 }}>{money(total)}</Text>
+        <Text style={{ flex: 1, fontWeight: '600', color: base.ink }}>{wagesMode ? 'Wages total' : 'Week total'}</Text>
+        <Text style={{ fontWeight: '600', color: base.ink, marginRight: 24 }}>{money(total)}</Text>
       </View>
-      <Pressable onPress={() => void add()} style={{ paddingVertical: 6 }}><Text style={{ color: base.blue, fontWeight: '700' }}>+ Add</Text></Pressable>
+      <Pressable onPress={() => void add()} style={{ paddingVertical: 6 }}><Text style={{ color: base.blue, fontWeight: '600' }}>+ Add</Text></Pressable>
     </View>
   );
 }
@@ -150,7 +150,7 @@ function SheetWeek({ me, site, elementId, wk, mgr, items, itemWeeks, entries, op
   };
   return (
     <View style={{ marginTop: 8 }}>
-      <Muted style={{ fontSize: 11, fontWeight: '800' }}>PRICED ITEMS — QTY BOOKED IN THIS WEEK</Muted>
+      <Muted style={{ fontSize: 11, fontWeight: '600' }}>PRICED ITEMS — QTY BOOKED IN THIS WEEK</Muted>
       {items.map((it) => (
         <View key={it.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: base.line }}>
           <View style={{ flex: 1 }}>
@@ -161,7 +161,7 @@ function SheetWeek({ me, site, elementId, wk, mgr, items, itemWeeks, entries, op
             <TextInput value={qty[it.id]} onChangeText={(v) => setQty({ ...qty, [it.id]: v })} keyboardType="decimal-pad" placeholder="Qty" style={[box, { width: 60 }]} />
             <TextInput value={ovr[it.id]} onChangeText={(v) => setOvr({ ...ovr, [it.id]: v })} keyboardType="decimal-pad" placeholder="£ override" style={[box, { width: 84 }]} />
           </> : <Text style={{ color: base.ink, width: 50, textAlign: 'right' }}>{cur(it.id)?.qty ?? '—'}</Text>}
-          <Text style={{ fontWeight: '800', color: ovr[it.id]?.trim() ? base.warn : base.ink, width: 80, textAlign: 'right' }}>{money(lineAmt(it))}</Text>
+          <Text style={{ fontWeight: '600', color: ovr[it.id]?.trim() ? base.warn : base.ink, width: 80, textAlign: 'right' }}>{money(lineAmt(it))}</Text>
         </View>
       ))}
       {!items.length && <Muted>This sheet has no priced items.</Muted>}

@@ -76,7 +76,7 @@ export default function RepairsHub() {
       {mgr && siteStatusKey(site) === 'live' && assigned === 0 && (
         <Pressable onPress={() => router.push(`/sites/${site.id}/admin` as never)}>
           <Card style={{ backgroundColor: base.warnBg, paddingVertical: 10 }}>
-            <Text style={{ color: base.ink, fontSize: 13 }}><Text style={{ fontWeight: '700' }}>Nobody is assigned to this contract yet.</Text> Tap to assign operatives so they see its jobs and can check in.</Text>
+            <Text style={{ color: base.ink, fontSize: 13 }}><Text style={{ fontWeight: '600' }}>Nobody is assigned to this contract yet.</Text> Tap to assign operatives so they see its jobs and can check in.</Text>
           </Card>
         </Pressable>
       )}
