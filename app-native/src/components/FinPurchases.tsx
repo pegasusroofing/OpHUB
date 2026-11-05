@@ -221,9 +221,9 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
   const withJob = async (title: string, path: (sid: string) => string) => { const sid = siteId || (await pickJob(title, sites.filter((s) => s.status !== 'closed'))); if (sid) router.push(path(sid) as never); };
 
   if (tab === 'orders') {
-    const F: Record<string, (p: Row) => boolean> = { open: (p) => p.status === 'open', invoiced: (p) => p.status === 'invoiced', cancelled: (p) => p.status === 'cancelled', all: () => true };
+    const F: Record<string, (p: Row) => boolean> = { draft: (p) => p.status === 'open' && !!p.is_draft, open: (p) => p.status === 'open' && !p.is_draft, invoiced: (p) => p.status === 'invoiced', cancelled: (p) => p.status === 'cancelled', all: () => true };
     const list = sortBy(data.pos.filter((p) => !sel.status.length || sel.status.some((k) => F[k](p))).filter(fOK).filter((p) => hit(p.number, p.supplier_name, jobTag(site(p.site_id)))), 'created_at', 'value');
-    const openPos = data.pos.filter((p) => p.status === 'open');
+    const openPos = data.pos.filter((p) => p.status === 'open' && !p.is_draft);
     const committed = round2(openPos.filter((p) => p.value != null).reduce((t, p) => t + Math.max(0, Number(p.value) - poInvoiced(p, live)), 0));
     return (
       <View>
@@ -239,11 +239,11 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
               { k: 'v', l: 'Value', total: (l: Row[]) => money(l.reduce((t, p) => t + Number(p.value || 0), 0)), render: (p: Row) => <Cell>{p.value != null ? money(p.value) : '—'}</Cell> },
               { k: 'i', l: 'Invoiced', total: (l: Row[]) => money(l.reduce((t, p) => t + poInvoiced(p, live), 0)), render: (p: Row) => <Cell>{money(poInvoiced(p, live))}</Cell> },
               { k: 'l', l: 'Left To Invoice', total: (l: Row[]) => money(l.reduce((t, p) => t + (p.value != null ? Math.max(0, round2(Number(p.value) - poInvoiced(p, live))) : 0), 0)), render: (p: Row) => <Cell>{p.value != null ? money(Math.max(0, round2(Number(p.value) - poInvoiced(p, live)))) : '—'}</Cell> },
-              { k: 's', l: 'Status', noSort: true, choices: ['Open', 'Invoiced', 'Cancelled', 'Draft'], render: (p: Row) => <Text style={{ fontSize: 10.5, fontWeight: '600', color: p.status === 'open' ? '#1d4ed8' : '#6b7280', backgroundColor: p.status === 'open' ? '#EEF3FD' : '#EEF0F2', borderRadius: 999, paddingVertical: 3, paddingHorizontal: 9, overflow: 'hidden' }}>● {PO_STATUS[p.status] || p.status}</Text> },
+              { k: 's', l: 'Status', noSort: true, choices: ['Open', 'Invoiced', 'Cancelled', 'Draft'], render: (p: Row) => <Text style={{ fontSize: 10.5, fontWeight: '600', color: p.status === 'open' ? '#1d4ed8' : '#6b7280', backgroundColor: p.status === 'open' ? '#EEF3FD' : '#EEF0F2', borderRadius: 999, paddingVertical: 3, paddingHorizontal: 9, overflow: 'hidden' }}>● {p.is_draft && p.status === 'open' ? 'Draft' : PO_STATUS[p.status] || p.status}</Text> },
             ]}
             footLabel={(list) => `${list.length} shown`} footRight={monthPick} />
         ) : list.length ? list.map((p) => { const inv = poInvoiced(p, live), left = p.value != null ? Math.max(0, round2(Number(p.value) - inv)) : null; return (
-          <FinRow compact key={p.id} left={p.number} title={p.supplier_name || '—'} sub={[siteId ? '' : jobTag(site(p.site_id)), fdate(String(p.issue_date || p.created_at || '').slice(0, 10)), PO_STATUS[p.status] || p.status, `invoiced ${money(inv)}`, left != null && p.status === 'open' ? `${money(left)} left` : ''].filter(Boolean).join(' · ')} right={p.value != null ? money(p.value) : 'No value'} onPress={() => router.push(`/fin/po/${p.id}` as never)} />
+          <FinRow compact key={p.id} left={p.number} title={p.supplier_name || '—'} sub={[siteId ? '' : jobTag(site(p.site_id)), fdate(String(p.issue_date || p.created_at || '').slice(0, 10)), p.is_draft && p.status === 'open' ? 'Draft' : PO_STATUS[p.status] || p.status, `invoiced ${money(inv)}`, left != null && p.status === 'open' ? `${money(left)} left` : ''].filter(Boolean).join(' · ')} right={p.value != null ? money(p.value) : 'No value'} onPress={() => router.push(`/fin/po/${p.id}` as never)} />
         ); }) : <Empty>No purchase orders here.</Empty>}
         <Muted style={{ marginTop: 10 }}>{openPos.length} open · {money(committed, 0)} ordered but not invoiced yet. Orders sent from a project&apos;s Materials tile appear here by themselves.</Muted>
       </View>
@@ -451,7 +451,7 @@ export function PurchasesStats() {
   const needJob = data.inbox.filter((i) => i.stage !== 'with_pm' && inPeriod(i.received_at, pJ)).length; // unread ones too, as the list (4 Nov 2026)
   const unpaid = data.pinvs.filter((i) => i.status === 'approved' && !isPaid(i) && inPeriod(i.invoice_date, pU)).reduce((t, i) => t + Number(i.total || 0), 0);
   const toApprove = data.pinvs.filter((i) => ['to_approve', 'query'].includes(i.status) && inPeriod(i.invoice_date, pA)).length;
-  const ordered = round2(data.pos.filter((p) => p.status === 'open' && p.value != null && inPeriod(p.created_at, pC)).reduce((t, p) => t + Math.max(0, Number(p.value) - poInvoiced(p, live)), 0));
+  const ordered = round2(data.pos.filter((p) => p.status === 'open' && !p.is_draft && p.value != null && inPeriod(p.created_at, pC)).reduce((t, p) => t + Math.max(0, Number(p.value) - poInvoiced(p, live)), 0));
   const to = (tab: string, f: string) => () => router.setParams({ tab, f });
   return (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 10 }}>

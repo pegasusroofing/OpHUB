@@ -59,7 +59,7 @@ export function costLines(b: Book, siteId: string): CostLine[] {
     const cat = a.cat && COST_CATS[a.cat] ? a.cat : COST_CATS[i.cost_code] ? i.cost_code : 'materials';
     lines.push({ key: `pi:${i.id}:${a.sub || ''}${a.cat ? `:${a.cat}` : ''}`, date: i.invoice_date, cat, desc: (i.description || (i.kind === 'receipt' ? 'Receipt' : 'Purchase invoice')) + tag(a), who: i.supplier_name || '', ref: [i.invoice_no, poBy[i.po_id]?.number].filter(Boolean).join(' · '), status: PI_STATUS[i.status] || i.status, waiting: i.status !== 'approved', net: round2(Number(i.net || 0) * a.share), sub: a.sub, share: a.share, go: `/fin/pinv/${i.id}` });
   });
-  each((b.pos || []).filter((p) => p.status === 'open' && p.value != null), (p, a) => {
+  each((b.pos || []).filter((p) => p.status === 'open' && !p.is_draft && p.value != null), (p, a) => { // a draft isn't ordered yet
     const left = round2(Number(p.value) - poInvoiced(p, b.pinvs || []));
     if (left <= 0) return;
     const byCode: Record<string, number> = {}; let codedTot = 0;

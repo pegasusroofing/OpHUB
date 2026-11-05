@@ -14,7 +14,7 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { DateBox, todayIso } from '@/components/DateField';
 import { SelectBox } from '@/components/SelectBox';
 import { SuggestField } from '@/components/SuggestField';
-import { chooseAction, useToast } from '@/components/toast';
+import { useToast } from '@/components/toast';
 import { pickJob } from '@/components/FinSales';
 import { TypePick, type PickOpt } from '@/components/TypePick';
 import { PdfPages } from '@/components/DocViewer';
@@ -25,7 +25,7 @@ import { deliverPdf } from '@/lib/pdf';
 import { DEFAULT_UNITS, UnitField } from '@/components/UnitField';
 import { QUOTE_SKIP_MSG, uploadQuotes } from '@/data/finQuoteUpload';
 import { allocOf, evenSplit, lineNet, lineVat, mainSite, orderSplit, poTotals, splitProblem, type Alloc, type PoVat } from '@/lib/rules/poCalc';
-import { Button, Card, Muted, SectionTitle } from '@/components/ui';
+import { Button, Card, Check, Muted, SectionTitle } from '@/components/ui';
 import { fdb, finStatus, loadSettings } from '@/data/finance';
 import { useSites } from '@/data/sites';
 import { useSubJobs } from '@/data/finSubJobs';
@@ -108,6 +108,8 @@ export function FinNewPo({ site: site0, itemIds = [], toTop }: { site?: Site | n
   const [statusNow, setStatusNow] = useState<'draft' | 'open' | ''>('');
   const [panel, setPanel] = useState<'quote' | 'pdf'>('quote'); // the right-hand panel: the project quote, or the PO PDF
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [toCal, setToCal] = useState(true); // put the delivery / collection date on the project calendar
+  const [toFolder, setToFolder] = useState(true); // file the PO PDF in the project's PO folder (Materials › Finance POs)
   const [viewedKey, setViewedKey] = useState(''); // what the PDF on screen was made from
   const [pdfW, setPdfW] = useState(0); // the panel's width, so the PDF fits it
   const [mailRow, setMailRow] = useState<{ row: Record<string, any>; to: string } | null>(null);
@@ -173,7 +175,7 @@ export function FinNewPo({ site: site0, itemIds = [], toTop }: { site?: Site | n
       // The plot list is this job's plots: it only applies if the PO stayed on this job.
       const onSite = items.filter((x) => x.site_id === poSite), plots = new Set(onSite.map((x) => (x as { sub_job_id?: string }).sub_job_id || ''));
       const plot = poSite === site.id && plots.size === 1 ? [...plots][0] : '';
-      const patch = { status, supplier_id: id, supplier_name: name, items, value: net, required_by: req || null, fulfilment: delivery, note: noteText, vat, total: r2(net + vat), delivery_to: delivery === 'delivery' ? deliverTo : null, delivery_address: delivery === 'delivery' ? (deliverTo === 'office' ? officeAddr : deliverTo === 'other' ? addrTyped.trim() : jobAddr) || null : null, delivery_time: delTime || null, offload: offload.length ? offload : null, reference: ref.trim() || null, issue_date: todayIso(), site_contact: contact.trim() || null, site_contact_phone: contactPh.trim() || null, sub_job_id: plot || null, ...(poSplit ? { split: poSplit, split_sites: sids.filter((x) => x !== poSite) } : { split: null, split_sites: null }) };
+      const patch = { status: 'open', is_draft: status === 'draft', supplier_id: id, supplier_name: name, items, value: net, required_by: req || null, fulfilment: delivery, note: noteText, vat, total: r2(net + vat), delivery_to: delivery === 'delivery' ? deliverTo : null, delivery_address: delivery === 'delivery' ? (deliverTo === 'office' ? officeAddr : deliverTo === 'other' ? addrTyped.trim() : jobAddr) || null : null, delivery_time: delTime || null, offload: offload.length ? offload : null, reference: ref.trim() || null, issue_date: todayIso(), site_contact: contact.trim() || null, site_contact_phone: contactPh.trim() || null, sub_job_id: plot || null, ...(poSplit ? { split: poSplit, split_sites: sids.filter((x) => x !== poSite) } : { split: null, split_sites: null }) };
       const up = await fdb.from('purchase_orders').update(patch as never).eq('id', d.id).select('*');
       const row = ((up.data as Record<string, any>[] | null) ?? [])[0];
       if (!row) return no('Could not save the PO — try again.');
@@ -193,12 +195,21 @@ export function FinNewPo({ site: site0, itemIds = [], toTop }: { site?: Site | n
   };
   const exportPdf = async (row: Record<string, any>) => { try { const bytes = await pdfOf(row); void filePoPdf(me, row, bytes); if (!(await deliverPdf(bytes, `PO ${String(row.number).replace(/[^a-z0-9-]+/gi, '_')}.pdf`))) toast('Could not make the PDF — try again.'); } catch { toast('Could not build the PO PDF.'); } };
   const openEmail = async (row: Record<string, any>) => { const e = row.supplier_id ? ((await fdb.from('suppliers').select('email').eq('id', row.supplier_id).maybeSingle()).data as { email?: string } | null)?.email : ''; setMailRow({ row, to: String(e || newEmail || '') }); };
+  // The raised PO onto the project: its PDF in the PO folder, its date on the calendar (Andy, 5 Nov 2026). Done once per date.
+  const linkToProject = async (row: Record<string, any>) => {
+    if (toFolder) { try { await filePoPdf(me, row, await pdfOf(row)); } catch { /* the PO is saved; filing is best-effort */ } }
+    if (toCal && row.required_by && row.site_id) {
+      const title = `PO ${row.number} ${row.fulfilment === 'collection' ? 'collection' : 'delivery'} — ${row.supplier_name || 'supplier'}`;
+      const have = ((await fdb.from('site_calendar_events').select('id').eq('site_id', row.site_id).eq('event_date', row.required_by).eq('title', title)).data as unknown[] | null) ?? [];
+      if (!have.length) await fdb.from('site_calendar_events').insert({ site_id: row.site_id, org_id: me.org_id, title, event_date: row.required_by, is_private: false, created_by: me.id, reminder_sent: false, reminder_recipient_ids: [] } as never);
+    }
+  };
   const saveDraft = async () => { const row = await persist('draft'); if (row) toast(`Saved as a draft — ${row.number}`, { confirm: true }); };
   const raise = async () => {
     const row = await persist('open'); if (!row) return;
-    // What next (Andy, 5 Nov 2026): email it with a template, download the PDF, or leave it for now.
-    const k = await chooseAction(`PO ${row.number} raised — what next?`, [{ key: 'email', label: '✉ Email it to the supplier' }, { key: 'pdf', label: '⬇ Download the PDF' }, { key: 'view', label: '👁 View it here' }, { key: 'none', label: 'Nothing for now' }]);
-    if (k === 'email') void openEmail(row); else if (k === 'pdf') void exportPdf(row); else if (k === 'view') void viewPo();
+    void linkToProject(row);
+    // The email pop-up, like Applications (Andy, 5 Nov 2026): template, CC Me, Email Me Only, Export PDF or Save Only.
+    void openEmail(row);
   };
 
   const qList = quotes?.list || [];
@@ -436,11 +447,16 @@ export function FinNewPo({ site: site0, itemIds = [], toTop }: { site?: Site | n
       </Card>
       {!!saved && <Text style={{ color: statusNow === 'open' ? '#1E7A43' : base.slate, marginBottom: 8 }}>{statusNow === 'open' ? `✓ PO ${saved.number} raised.` : `Draft ${saved.number} saved — not raised yet.`} Changes here save to the same PO.</Text>}
       <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+        {/* Bottom left: what happens to the PO on the project when it's raised (Andy, 5 Nov 2026). */}
+        <View style={{ marginRight: 'auto', flexDirection: 'row', gap: 14, flexWrap: 'wrap' }}>
+          <Check label="Add To Project Calendar" value={toCal} onChange={setToCal} />
+          <Check label="File In Project PO Folder" value={toFolder} onChange={setToFolder} />
+        </View>
         <Button small kind="ghost" title="Cancel" onPress={() => router.back()} />
         <Button small kind="ghost" title={pdfUrl && viewedKey !== nowKey ? '↻ Update & View' : '👁 View PO'} onPress={() => void viewPo()} />
         {statusNow === 'open' ? (
           <>
-            <Button small kind="ghost" busy={busy} title="Save Changes" onPress={async () => { const row = await persist('open'); if (row) toast('Saved', { confirm: true }); }} />
+            <Button small kind="ghost" busy={busy} title="Save Changes" onPress={async () => { const row = await persist('open'); if (row) { void linkToProject(row); toast('Saved', { confirm: true }); } }} />
             <Button small kind="ghost" title="⬇ Export PDF" onPress={async () => { const row = await persist('open'); if (row) void exportPdf(row); }} />
             <Button small title="✉ Email PO" onPress={async () => { const row = await persist('open'); if (row) void openEmail(row); }} />
           </>
@@ -452,7 +468,9 @@ export function FinNewPo({ site: site0, itemIds = [], toTop }: { site?: Site | n
         )}
       </View>
       {mailRow && (
-        <FinEmailPopup kind="po" title={`Email PO ${mailRow.row.number}`} to={mailRow.to} note="The PO PDF goes with it."
+        <FinEmailPopup kind="po" title={`PO ${mailRow.row.number} raised — email it?`} to={mailRow.to} note="The PO PDF goes with it."
+          extra={<View style={{ marginTop: 8 }}><Check label="Add the delivery date to the project calendar" value={toCal} onChange={(v) => { setToCal(v); if (v) void linkToProject(mailRow.row); }} /><Check label="File the PO in the project’s PO folder" value={toFolder} onChange={(v) => { setToFolder(v); if (v) void linkToProject(mailRow.row); }} /></View>}
+          more={[{ title: '⬇ Export PDF', onPress: async () => { await exportPdf(mailRow.row); setMailRow(null); } }, { title: 'Save Only (Don’t Send)', onPress: () => { toast(`PO ${mailRow.row.number} saved`, { confirm: true }); setMailRow(null); } }]}
           vars={{ number: String(mailRow.row.number || ''), project: allSites.find((x) => x.id === mailRow.row.site_id)?.name || '', job_no: allSites.find((x) => x.id === mailRow.row.site_id)?.job_number || '', supplier: mailRow.row.supplier_name || '', amount: money(mailRow.row.total ?? mailRow.row.value), required_by: mailRow.row.required_by ? mailRow.row.required_by.split('-').reverse().join('/') : '' }}
           onSend={async (o) => { const e = await emailPo(me, mailRow.row, await pdfOf(mailRow.row), o); if (e) return e; toast(`PO emailed to ${o.to.join(', ')}`); return null; }}
           onClose={() => setMailRow(null)} />

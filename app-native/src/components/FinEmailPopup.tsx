@@ -1,6 +1,6 @@
 // The Finance send pop-up (Andy, 3 Nov 2026): who it goes to, CC me, a template from Settings › Templates
 // (the default first), then the subject and message to change before sending. Email Me Only sends it just to you.
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { SelectBox } from '@/components/SelectBox';
@@ -13,7 +13,8 @@ export type EmailOut = { to: string[]; cc: string[]; subject: string; body: stri
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 9, color: base.ink, backgroundColor: base.card, fontSize: 14 };
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export function FinEmailPopup({ kind, title, to: to0, vars, note, onSend, onClose }: { kind: TplKind; title: string; to: string; vars: Record<string, string>; note?: string; onSend: (o: EmailOut) => Promise<string | null>; onClose: () => void }) {
+/** extra: shown above the buttons (e.g. a PO's calendar / folder ticks); more: further buttons such as Export PDF and Save Only (Andy, 5 Nov 2026). */
+export function FinEmailPopup({ kind, title, to: to0, vars, note, onSend, onClose, extra, more }: { kind: TplKind; title: string; to: string; vars: Record<string, string>; note?: string; onSend: (o: EmailOut) => Promise<string | null>; onClose: () => void; extra?: ReactNode; more?: { title: string; onPress: () => void | Promise<void> }[] }) {
   const { me } = useAuth();
   const { data: all = [] } = useTemplates(me?.org_id);
   const list = all.filter((t) => t.kind === kind);
@@ -56,11 +57,13 @@ export function FinEmailPopup({ kind, title, to: to0, vars, note, onSend, onClos
             <Muted style={{ fontWeight: '500' }}>Message</Muted>
             <TextInput accessibilityLabel="Message" value={body} onChangeText={setBody} multiline style={[box, { minHeight: 160, textAlignVertical: 'top' }]} />
             <Muted style={{ fontSize: 11.5, marginTop: 4 }}>Your name, company details{tpl && !tpl.show_logo ? '' : ' and logo'}{tpl?.logos.length ? ` and ${tpl.logos.length} more logo${tpl.logos.length === 1 ? '' : 's'}` : ''} go under the message. Change the wording for good in Settings › Templates.</Muted>
+            {extra}
           </ScrollView>
           {err ? <Text style={{ color: '#C0392B', fontWeight: '500', marginTop: 8 }}>{err}</Text> : null}
           <View style={{ gap: 8, marginTop: 8 }}>
             <Button busy={busy === 'send'} title="Send" onPress={() => void send(false)} />
             <Button kind="ghost" busy={busy === 'me'} title="Email Me Only" onPress={() => void send(true)} />
+            {(more || []).map((m) => <Button key={m.title} kind="ghost" title={m.title} onPress={() => void m.onPress()} />)}
             <Button kind="ghost" title="Cancel" onPress={onClose} />
           </View>
         </View>

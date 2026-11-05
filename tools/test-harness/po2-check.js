@@ -39,7 +39,7 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   check(await page.getByText('Adds up to 100% ✓').count() >= 1, 'the split adds up to 100%');
   await page.getByText('Save Draft', {exact:true}).click(); await page.waitForTimeout(3000);
   const po = db.purchase_orders[0];
-  check(po && po.status === 'draft', 'Save Draft leaves it as a draft: ' + (po && po.status));
+  check(po && po.status === 'open' && po.is_draft === true, 'Save Draft leaves it as a draft (open + is_draft; the live database allows only open / invoiced / cancelled): ' + (po && [po.status, po.is_draft]));
   check(po && Number(po.value) === 2453.49 && Number(po.vat) === 402.77 && Number(po.total) === 2856.26, 'saved sums: ' + JSON.stringify(po && [po.value, po.vat, po.total]));
   check(po && Array.isArray(po.split) && po.split.length === 2 && Math.round(po.split.reduce((t, x) => t + x.pct, 0) * 10000) / 10000 === 100, 'split across 2 projects, 100%: ' + JSON.stringify(po && po.split));
   await page.getByText('👁 View PO', {exact:true}).click(); await page.waitForTimeout(3000);
@@ -57,10 +57,13 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   check(await page.getByText('Delivery Requirements', {exact:true}).count() === 1, 'Delivery Requirements with No Artics');
   await page.screenshot({path:'shots/job/po2-delivery-1400.png'});
   await page.getByText('Raise PO', {exact:true}).click(); await page.waitForTimeout(2500);
-  check(await page.getByText(/raised — what next\?/).count() === 1, 'Raise PO asks what next');
+  check(await page.getByText(/raised.*email it/).count() === 1, 'Raise PO opens the email pop-up');
+  for (const b of ['Email Me Only', '⬇ Export PDF', 'Save Only (Don’t Send)', 'Add the delivery date to the project calendar', 'File the PO in the project’s PO folder']) check(await page.getByText(b, {exact: true}).count() >= 1, 'the pop-up has ' + b);
   await page.screenshot({path:'shots/job/po2-raise-1400.png'});
-  await page.getByText('Nothing for now').click(); await page.waitForTimeout(1500);
-  check(db.purchase_orders.length === 1 && db.purchase_orders[0].status === 'open', 'the same PO is now raised (open), not a second one');
+  await page.getByText('Save Only (Don’t Send)').click(); await page.waitForTimeout(1500);
+  check(db.purchase_orders.length === 1 && db.purchase_orders[0].status === 'open' && !db.purchase_orders[0].is_draft, 'the same PO is now raised (open, not a draft), not a second one');
+  check(db.purchase_orders.every((x) => ['open', 'invoiced', 'cancelled'].includes(x.status)), 'only statuses the live database allows');
+  check(await page.getByText('Add To Project Calendar', {exact: true}).count() === 1 && await page.getByText('File In Project PO Folder', {exact: true}).count() === 1, 'calendar and PO folder ticks bottom left');
   check(new URL(page.url()).pathname === '/fin/po/new', 'it stays on this screen');
   check(await page.getByText('✉ Email PO').count() === 1 && await page.getByText('⬇ Export PDF').count() === 1, 'Email PO and Export PDF once raised');
   await page.getByText('✉ Email PO').click(); await page.waitForTimeout(2000);
