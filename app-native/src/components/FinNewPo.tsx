@@ -36,7 +36,7 @@ import { supabase } from '@/lib/supabase';
 import type { Site } from '@/lib/types';
 import { base, radius, useDesk } from '@/theme/theme';
 
-const OFFLOAD = ['Hiab / Crane Offload', 'Forklift On Site', 'Hand Unload', 'Tail Lift', 'Call 30 Min Before'];
+const OFFLOAD = ['Hiab / Crane Offload', 'Forklift On Site', 'Hand Unload', 'Tail Lift', 'No Artics', 'Call 30 Min Before']; // Delivery Requirements (Andy, 5 Nov 2026)
 const TIMES: [string, string][] = [['', 'Any Time'], ['First Thing (Before 9)', 'First Thing (Before 9)'], ['AM (8–12)', 'AM (8–12)'], ['PM (12–5)', 'PM (12–5)'], ['Timed — See Notes', 'Timed — See Notes']];
 type QItem = { id: string; quote_id: string; code: string | null; description: string | null; unit: string | null; rate: number | null; supplier_name: string | null };
 type Line = { alloc?: Alloc[]; sub?: string; // sub: the plot on the main project (Andy, 5 Nov 2026)
@@ -108,6 +108,7 @@ export function FinNewPo({ site: site0, itemIds = [], toTop }: { site?: Site | n
   const [statusNow, setStatusNow] = useState<'draft' | 'open' | ''>('');
   const [panel, setPanel] = useState<'quote' | 'pdf'>('quote'); // the right-hand panel: the project quote, or the PO PDF
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [viewedKey, setViewedKey] = useState(''); // what the PDF on screen was made from
   const [pdfW, setPdfW] = useState(0); // the panel's width, so the PDF fits it
   const [mailRow, setMailRow] = useState<{ row: Record<string, any>; to: string } | null>(null);
   const [split, setSplit] = useState<Alloc[] | null>(null); // Split Purchase: the whole order across several projects
@@ -177,7 +178,7 @@ export function FinNewPo({ site: site0, itemIds = [], toTop }: { site?: Site | n
       const row = ((up.data as Record<string, any>[] | null) ?? [])[0];
       if (!row) return no('Could not save the PO — try again.');
       setSaved({ id: d.id, number: d.number }); setStatusNow(status);
-      if (panel === 'pdf') void pdfOf(row).then((bytes) => { if (pdfUrl) URL.revokeObjectURL(pdfUrl); setPdfUrl(URL.createObjectURL(new Blob([bytes as BlobPart], { type: 'application/pdf' }))); }).catch(() => undefined);
+      if (panel === 'pdf') void pdfOf(row).then((bytes) => { setViewedKey(JSON.stringify({ ...draftRow(), created_at: '' })); if (pdfUrl) URL.revokeObjectURL(pdfUrl); setPdfUrl(URL.createObjectURL(new Blob([bytes as BlobPart], { type: 'application/pdf' }))); }).catch(() => undefined);
       void qc.invalidateQueries({ queryKey: ['finPurchases'] }); void qc.invalidateQueries({ queryKey: ['finPo'] });
       return row;
     } finally { setBusy(false); }
@@ -185,8 +186,9 @@ export function FinNewPo({ site: site0, itemIds = [], toTop }: { site?: Site | n
   // The PDF of the PO as it stands (View PO shows it in the right-hand panel; Raise PO, Email and Export use it).
   const pdfOf = async (row: Record<string, any>) => buildPoPdf(row, allSites.find((x) => x.id === row.site_id) as Record<string, any> | undefined, await loadSettings(me.org_id), setup?.sups.find((x) => x.id === row.supplier_id) ?? null, org);
   const draftRow = (): Record<string, any> => ({ number: saved?.number || 'DRAFT', created_at: new Date().toISOString(), site_id: site.id, supplier_id: supId, supplier_name: supText, required_by: req || null, fulfilment: delivery, note: note.trim() || null, value: net, vat, total: r2(net + vat), delivery_to: deliverTo, delivery_address: deliverTo === 'office' ? officeAddr : deliverTo === 'other' ? addrTyped.trim() : jobAddr, delivery_time: delTime || null, offload, site_contact: contact.trim() || null, site_contact_phone: contactPh.trim() || null, ordered_by_name: me.name, items: lines.filter((l) => l.description.trim()).map((l) => ({ item: l.description.trim(), qty: num(l.qty), unit: l.unit || null, rate: (() => { const r = num(l.rate); return r === null || isNaN(r) ? null : r4(r * (1 - dsc(l) / 100)); })(), amount: amt(l) })) });
+  const nowKey = JSON.stringify({ ...draftRow(), created_at: '' });
   const viewPo = async () => {
-    try { const bytes = await pdfOf(draftRow()); if (pdfUrl) URL.revokeObjectURL(pdfUrl); setPdfUrl(URL.createObjectURL(new Blob([bytes as BlobPart], { type: 'application/pdf' }))); setShowShop(true); setPanel('pdf'); toTop?.(); }
+    try { setViewedKey(nowKey); const bytes = await pdfOf(draftRow()); if (pdfUrl) URL.revokeObjectURL(pdfUrl); setPdfUrl(URL.createObjectURL(new Blob([bytes as BlobPart], { type: 'application/pdf' }))); setShowShop(true); setPanel('pdf'); toTop?.(); }
     catch { toast('Could not build the PO PDF.'); }
   };
   const exportPdf = async (row: Record<string, any>) => { try { const bytes = await pdfOf(row); void filePoPdf(me, row, bytes); if (!(await deliverPdf(bytes, `PO ${String(row.number).replace(/[^a-z0-9-]+/gi, '_')}.pdf`))) toast('Could not make the PDF — try again.'); } catch { toast('Could not build the PO PDF.'); } };
@@ -343,7 +345,7 @@ export function FinNewPo({ site: site0, itemIds = [], toTop }: { site?: Site | n
       </View>
     );
   };
-  const field = (label: string, child: ReactNode, flex = 1) => <View style={{ flexGrow: flex, flexBasis: 200, minWidth: 180, marginBottom: 10 }}><Text style={{ fontSize: 12, fontWeight: '500', color: base.slate, marginBottom: 4 }}>{label}</Text>{child}</View>;
+  const field = (label: string, child: ReactNode, flex: number | 'own' = 1) => <View style={flex === 'own' ? { marginBottom: 10 } : { flexGrow: flex, flexBasis: 200, minWidth: 180, marginBottom: 10 }}><Text style={{ fontSize: 12, fontWeight: '500', color: base.slate, marginBottom: 4 }}>{label}</Text>{child}</View>;
   const dateLabel = delivery === 'collection' ? 'Collection Date' : 'Delivery Date';
 
   return (
@@ -380,7 +382,7 @@ export function FinNewPo({ site: site0, itemIds = [], toTop }: { site?: Site | n
             {field('Delivery Or Collection', <SelectBox value={delivery} options={[['delivery', 'Deliver To Site'], ['collection', 'Collection']]} onChange={setDelivery} style={{ marginBottom: 0 }} />)}
             {field(dateLabel, <DateBox value={req} onChange={setReq} min={todayIso()} title={dateLabel} />)}
           </View>
-          {field('Reference', <TextInput accessibilityLabel="Reference" value={ref} onChangeText={setRef} placeholder="e.g. Quote Q-5521 (filled in from a project quote)" style={box} />)}
+          {field('Reference', <TextInput accessibilityLabel="Reference" value={ref} onChangeText={setRef} placeholder="e.g. Quote Q-5521 (filled in from a project quote)" style={box} />, 'own')}
         </Card>
         {side}
       </View>
@@ -420,7 +422,7 @@ export function FinNewPo({ site: site0, itemIds = [], toTop }: { site?: Site | n
               {field('Delivery Time', <SelectBox value={delTime} options={TIMES} onChange={setDelTime} style={{ marginBottom: 0 }} />)}
             </View>
             {deliverTo === 'other' && <TextInput accessibilityLabel="Delivery address" value={addrTyped} onChangeText={setAddrTyped} placeholder="Delivery address" multiline style={[box, { marginBottom: 10, minHeight: 44 }]} />}
-            <Text style={{ fontSize: 12, fontWeight: '500', color: base.slate, marginBottom: 4 }}>Offload</Text>
+            <Text style={{ fontSize: 12, fontWeight: '500', color: base.slate, marginBottom: 4 }}>Delivery Requirements</Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
               {OFFLOAD.map((o) => { const on = offload.includes(o); return (
                 <Pressable key={o} accessibilityRole="checkbox" accessibilityState={{ checked: on }} onPress={() => setOffload(on ? offload.filter((x) => x !== o) : [...offload, o])} style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, borderWidth: 1, borderColor: on ? '#1E7A43' : base.line, backgroundColor: on ? '#E7F6EC' : base.card }}>
@@ -430,12 +432,12 @@ export function FinNewPo({ site: site0, itemIds = [], toTop }: { site?: Site | n
             </View>
           </>
         )}
-        {field('Notes For The Supplier', <TextInput value={note} onChangeText={setNote} placeholder="e.g. narrow access, max 7.5t" multiline style={[box, { minHeight: 52 }]} />)}
+        {field('Notes For The Supplier', <TextInput value={note} onChangeText={setNote} placeholder="e.g. narrow access, max 7.5t" multiline style={[box, { minHeight: 52 }]} />, 'own')}
       </Card>
       {!!saved && <Text style={{ color: statusNow === 'open' ? '#1E7A43' : base.slate, marginBottom: 8 }}>{statusNow === 'open' ? `✓ PO ${saved.number} raised.` : `Draft ${saved.number} saved — not raised yet.`} Changes here save to the same PO.</Text>}
       <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
         <Button small kind="ghost" title="Cancel" onPress={() => router.back()} />
-        <Button small kind="ghost" title="👁 View PO" onPress={() => void viewPo()} />
+        <Button small kind="ghost" title={pdfUrl && viewedKey !== nowKey ? '↻ Update & View' : '👁 View PO'} onPress={() => void viewPo()} />
         {statusNow === 'open' ? (
           <>
             <Button small kind="ghost" busy={busy} title="Save Changes" onPress={async () => { const row = await persist('open'); if (row) toast('Saved', { confirm: true }); }} />

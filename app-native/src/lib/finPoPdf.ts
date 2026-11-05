@@ -64,7 +64,7 @@ export async function buildPoPdf(po: Row, site: Row | undefined, st: Row, suppli
     } else { txt('Order total (excl. VAT)', W - M - 210, y, { font: bold, size: 11 }); right(money(po.value), W - M - 8, y, { font: bold, size: 11 }); y -= 22; }
   }
   // Delivery details (Andy, 5 Nov 2026): site contact, time, what's needed to offload.
-  const dl = [po.site_contact ? `Site contact: ${po.site_contact}${po.site_contact_phone ? ` – ${po.site_contact_phone}` : ''}` : '', po.delivery_time ? `Delivery time: ${po.delivery_time}` : '', Array.isArray(po.offload) && po.offload.length ? `Offload: ${po.offload.join(', ')}` : ''].filter(Boolean);
+  const dl = [po.site_contact ? `Site contact: ${po.site_contact}${po.site_contact_phone ? ` – ${po.site_contact_phone}` : ''}` : '', po.delivery_time ? `Delivery time: ${po.delivery_time}` : '', Array.isArray(po.offload) && po.offload.length ? `Delivery requirements: ${po.offload.join(', ')}` : ''].filter(Boolean);
   if (dl.length && po.fulfilment !== 'collection') { txt('DELIVERY', M, y, { font: bold, size: 8.5, color: SLATE }); y -= 14; dl.forEach((d) => wrap(safe(d), reg, 10, W - 2 * M).forEach((l) => { txt(l, M, y); y -= 13; })); y -= 6; }
   if (po.note) { txt('NOTES', M, y, { font: bold, size: 8.5, color: SLATE }); y -= 14; wrap(safe(po.note), reg, 10, W - 2 * M).forEach((l) => { txt(l, M, y); y -= 13; }); y -= 6; }
   wrap(`Please quote PO ${po.number} on your delivery note and invoice. Invoices without a PO number, or over the value of this order, may be held.`, reg, 9.5, W - 2 * M).forEach((l) => { txt(l, M, y, { size: 9.5, color: SLATE }); y -= 12; });

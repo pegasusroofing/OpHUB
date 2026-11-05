@@ -47,6 +47,15 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   await page.getByText('New Purchase Order', {exact:true}).last().scrollIntoViewIfNeeded(); await page.waitForTimeout(800);
   await page.screenshot({path:'shots/job/po3-top-1400.png', clip: {x: 280, y: 100, width: 1120, height: 420}});
   await page.screenshot({path:'shots/job/po2-view-1400.png'});
+  // a change after viewing: the button says Update & View; pressing it shows the new PO and goes back to View PO
+  await page.getByPlaceholder('Qty').nth(0).fill('25'); await page.waitForTimeout(300);
+  check(await page.getByText('↻ Update & View').count() === 1, 'after a change, View PO becomes Update & View');
+  await page.getByText('↻ Update & View').click(); await page.waitForTimeout(2500);
+  check(await page.getByText('👁 View PO').count() === 1, 'and back to View PO once updated');
+  await page.getByPlaceholder('Qty').nth(0).fill('24'); await page.waitForTimeout(300);
+  await page.getByText('No Artics', {exact:true}).scrollIntoViewIfNeeded(); await page.getByText('No Artics', {exact:true}).click(); await page.waitForTimeout(300);
+  check(await page.getByText('Delivery Requirements', {exact:true}).count() === 1, 'Delivery Requirements with No Artics');
+  await page.screenshot({path:'shots/job/po2-delivery-1400.png'});
   await page.getByText('Raise PO', {exact:true}).click(); await page.waitForTimeout(2500);
   check(await page.getByText(/raised — what next\?/).count() === 1, 'Raise PO asks what next');
   await page.screenshot({path:'shots/job/po2-raise-1400.png'});

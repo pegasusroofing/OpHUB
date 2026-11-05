@@ -95,7 +95,7 @@ export default function FinPo() {
         {po.required_by && <FinRow title={po.fulfilment === 'collection' ? 'Collection' : 'Required for delivery'} right={fdate(po.required_by)} />}
         {po.fulfilment !== 'collection' && !!po.delivery_address && <FinRow title={po.delivery_to === 'office' ? 'Deliver to the office' : 'Deliver to'} right={po.delivery_address} />}
         {!!po.delivery_time && <FinRow title="Delivery time" right={po.delivery_time} />}
-        {Array.isArray(po.offload) && po.offload.length > 0 && <FinRow title="Offload" right={po.offload.join(', ')} />}
+        {Array.isArray(po.offload) && po.offload.length > 0 && <FinRow title="Delivery requirements" right={po.offload.join(', ')} />}
         {!!po.site_contact && <FinRow title="Site contact" right={`${po.site_contact}${po.site_contact_phone ? ` · ${po.site_contact_phone}` : ''}`} />}
         {po.supplier_branch && <FinRow title="Branch" right={po.supplier_branch} />}{po.note && <FinRow title="Note" right={po.note} />}
         {po.sent_at && <FinRow title="Emailed" right={`${fdate(String(po.sent_at).slice(0, 10))} to ${po.sent_to || ''}`} />}
