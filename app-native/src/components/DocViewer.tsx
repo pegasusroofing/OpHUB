@@ -101,6 +101,26 @@ export function PdfPages({ url, zoom, width: w0, light }: { url: string; zoom: n
   const host = useRef<HTMLElement | null>(null);
   const [state, setState] = useState<'loading' | 'ok' | 'bad'>('loading');
   const [fit, setFit] = useState(800);
+  // Zoom with the mouse while it is over the document (Andy, 5 Nov 2026): Ctrl + wheel, or pinch on a trackpad,
+  // zooms the PDF instead of the whole page. A plain wheel still scrolls.
+  const wrap = useRef<HTMLElement | null>(null);
+  // Kept per document, so a new one opens at its normal size.
+  const [wzs, setWzs] = useState<{ u: string; z: number }>({ u: url, z: 1 });
+  const wz = wzs.u === url ? wzs.z : 1;
+  const urlNow = useRef(url);
+  useEffect(() => { urlNow.current = url; }, [url]);
+  useEffect(() => {
+    const el = wrap.current;
+    if (!el || typeof el.addEventListener !== 'function') return;
+    const onWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      const u = urlNow.current;
+      setWzs((w) => ({ u, z: Math.max(0.5, Math.min(6, (w.u === u ? w.z : 1) * Math.exp(-e.deltaY * 0.0025))) }));
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, []);
   useEffect(() => {
     let alive = true;
     const el = host.current;
@@ -140,9 +160,10 @@ export function PdfPages({ url, zoom, width: w0, light }: { url: string; zoom: n
   useEffect(() => {
     const el = host.current;
     if (!el) return;
-    el.querySelectorAll('canvas').forEach((c) => { const w = Math.round(fit * zoom); c.style.width = `${w}px`; c.style.height = `${Math.round(w * Number(c.dataset.ratio || 1.4))}px`; });
-  }, [zoom, fit, state]);
+    el.querySelectorAll('canvas').forEach((c) => { const w = Math.round(fit * zoom * wz); c.style.width = `${w}px`; c.style.height = `${Math.round(w * Number(c.dataset.ratio || 1.4))}px`; });
+  }, [zoom, wz, fit, state]);
   return (
+    <View ref={wrap as never} style={{ flex: 1 }}>
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 8 }}>
       <ScrollView horizontal contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}>
         <View>
@@ -152,5 +173,6 @@ export function PdfPages({ url, zoom, width: w0, light }: { url: string; zoom: n
         </View>
       </ScrollView>
     </ScrollView>
+    </View>
   );
 }
