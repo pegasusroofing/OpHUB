@@ -12,8 +12,8 @@ const seed = require('./fresh/seed');
   await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
   await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
   await page.goto('http://localhost:8081/fin/purchases?tab=invoices'); await page.waitForTimeout(5000);
-  const ta = page.getByText(/^To Approve/i); if(await ta.count()) await ta.first().click(); await page.waitForTimeout(800);
-  await page.getByText('Select All', {exact:true}).click(); await page.waitForTimeout(500); // was ☐ Tick all
+  const ta = page.getByText(/^Needs Checking/i); if(await ta.count()) await ta.first().click(); await page.waitForTimeout(800);
+  await page.getByRole('checkbox').first().click(); await page.waitForTimeout(400); await page.getByText(/^Select All/).click(); await page.waitForTimeout(500); // Select All shows once one is ticked (5 Nov)
   await page.screenshot({path:'shots/native_pibulk-1300.png'});
   await page.getByText(/^Approve [0-9]+$/).click(); await page.waitForTimeout(800); // Approve N, then the Yes/No question
   await page.locator('text="Approve" >> visible=true').last().click(); await page.waitForTimeout(4000);

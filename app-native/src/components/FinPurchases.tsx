@@ -1,5 +1,5 @@
 // Purchases lists (9219b renderFinPurchases): purchase orders, purchase
-// invoices (unallocated / with a PM / to approve / approved not paid / paid),
+// invoices (unallocated / with a PM / needs checking / to pay / all filed; paid shows in Status),
 // plant hire and suppliers — for the company or one project (siteId).
 // Inbox items are NOT read or filed automatically here while the Finance
 // trial is on (no inbox processing).
@@ -19,13 +19,13 @@ import { chooseAction, confirmAsk, useToast } from '@/components/toast';
 import { Button, Empty, Muted } from '@/components/ui';
 import { askDate } from '@/components/DateField';
 import * as DocumentPicker from 'expo-document-picker';
-import { fdb, selectAll } from '@/data/finance';
+import { fdb, selectAll, useFinSettings } from '@/data/finance';
 import { supabase } from '@/lib/supabase';
 import { setPinvPaid, setPinvStatus } from '@/data/finPurchase';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
-import { PI_STATUS, poInvoiced } from '@/lib/rules/finBook';
-import { fdate, FIN_TRIAL_MSG, finBlocked, jobTag, money, plantCost, round2, today } from '@/lib/rules/finance';
+import { COST_CATS, PI_STATUS, poInvoiced } from '@/lib/rules/finBook';
+import { fdate, FIN_TRIAL_MSG, finBlocked, jobTag, money, plantCost, round2, today, vatList } from '@/lib/rules/finance';
 import { monthLabel, monthOf, monthsIn, valueTest } from '@/lib/rules/finFilters';
 import { base, radius, useDesk } from '@/theme/theme';
 
@@ -83,16 +83,26 @@ export function usePurchases(orgId: string | null | undefined, siteId?: string) 
     queryKey: ['finPurchases', orgId, siteId || ''], enabled: !!orgId,
     queryFn: async () => {
       const f = (q: Parameters<Parameters<typeof selectAll>[2]>[0]) => (siteId ? q.eq('site_id', siteId) : q.eq('org_id', orgId as string));
-      const [pinvs, pos, inbox, hires, suppliers] = await Promise.all([
+      const [pinvs, pos, inbox, hires, suppliers, stmts] = await Promise.all([
         selectAll<Row>('purchase_invoices', '*', f), selectAll<Row>('purchase_orders', '*', f),
         selectAll<Row>('fin_inbox', 'id,site_id,received_at,from_email,subject,extracted,stage,query_reason,comments,status,purchase_invoice_id,file_name', (q) => f(q).or('status.eq.new,and(status.eq.filed,purchase_invoice_id.is.null)')),
         selectAll<Row>('fin_plant_hires', '*', f), selectAll<Row>('suppliers', 'id,name,email', (q) => q.eq('org_id', orgId as string)),
+        selectAll<Row>('fin_statements', 'id,status,statement_date,reconciled_at,lines', (q) => q.eq('org_id', orgId as string).eq('status', 'reconciled')),
       ]);
+      // Paid when the supplier's statement it is on has been reconciled (Andy, 5 Nov 2026): no need to mark each one paid.
+      const onStmt: Record<string, string> = {};
+      stmts.forEach((st) => ((st.lines as Row[] | null) || []).forEach((l) => { if (l.match && !l.ignore && !String(l.match).startsWith('in:')) onStmt[l.match] = String(st.statement_date || String(st.reconciled_at || '').slice(0, 10)); }));
+      pinvs.forEach((p) => { if (!p.paid_on && onStmt[p.id]) p.stmt_paid = onStmt[p.id]; });
       return { pinvs: pinvs.sort((a, b) => String(b.invoice_date || '').localeCompare(String(a.invoice_date || ''))), pos: pos.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || ''))), inbox, hires, suppliers };
     },
   });
 }
 
+/** Paid by hand, or on a supplier statement that has been reconciled (Andy, 5 Nov 2026). */
+const isPaid = (i: Row) => !!i.paid_on || !!i.stmt_paid;
+/** The Status words (Andy, 5 Nov 2026): Needs Checking, Query, Approved (Auto when it approved itself), Paid. */
+const piWord = (i: Row) => (isPaid(i) ? (i.paid_on ? 'Paid' : 'Paid (Statement)') : i.status === 'to_approve' ? 'Needs Checking' : i.status === 'approved' && i.auto_approved ? 'Approved (Auto)' : PI_STATUS[i.status] || i.status);
+const piTone = (i: Row) => (isPaid(i) ? '#1E7A43' : i.status === 'query' ? '#C0392B' : i.status === 'to_approve' ? '#B35A00' : undefined);
 export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoices' | 'plant' | 'suppliers' | 'all'; siteId?: string; f?: string }) {
   const { me } = useAuth();
   const { data: sites = [] } = useSites();
@@ -121,6 +131,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
   });
   // Tick several to approve, or to mark paid (9219g finPiBulkApprove / finPiBulkPaid).
   const [picks, setSel] = useState<Set<string>>(new Set());
+  const { data: fset } = useFinSettings(me?.org_id);
   const toast = useToast();
   const qc = useQueryClient();
   const [upBusy, setUpBusy] = useState(false);
@@ -235,11 +246,11 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
   if (tab === 'invoices') {
     // Not read yet (uploaded or emailed, and while Finance is on trial nothing is read) count as unallocated too, to file by hand.
     const needJob = data.inbox.filter((i) => i.stage !== 'with_pm'), withPm = data.inbox.filter((i) => i.stage === 'with_pm');
-    const toApprove = data.pinvs.filter((i) => ['to_approve', 'query'].includes(i.status)), unpaid = data.pinvs.filter((i) => i.status === 'approved' && !i.paid_on);
-    const F: Record<string, (i: Row) => boolean> = { approve: (i) => ['to_approve', 'query'].includes(i.status), unpaid: (i) => i.status === 'approved' && !i.paid_on, paid: (i) => !!i.paid_on, all: () => true };
+    const toApprove = data.pinvs.filter((i) => ['to_approve', 'query'].includes(i.status)), unpaid = data.pinvs.filter((i) => i.status === 'approved' && !isPaid(i));
+    const F: Record<string, (i: Row) => boolean> = { approve: (i) => ['to_approve', 'query'].includes(i.status), unpaid: (i) => i.status === 'approved' && !isPaid(i), all: () => true };
     const cnt: Record<string, number> = { job: needJob.length, pm: withPm.length, approve: toApprove.length, unpaid: unpaid.length };
-    const cur = sel.status[0] || ['job', 'approve', 'pm', 'unpaid'].find((k) => cnt[k]) || 'all';
-    const chips: [string, string, number][] = [['job', 'Unallocated', needJob.length], ['pm', 'With A PM', withPm.length], ['approve', 'To Approve', toApprove.length], ['unpaid', 'Approved, Not Paid', unpaid.length], ['paid', 'Paid', data.pinvs.filter(F.paid).length], ['all', 'All Filed', data.pinvs.length]];
+    const cur = (sel.status[0] === 'paid' ? 'all' : sel.status[0]) || ['job', 'approve', 'pm', 'unpaid'].find((k) => cnt[k]) || 'all';
+    const chips: [string, string, number][] = [['job', 'Unallocated', needJob.length], ['pm', 'With A PM', withPm.length], ['approve', 'Needs Checking', toApprove.length], ['unpaid', 'To Pay', unpaid.length], ['all', 'All Filed', data.pinvs.length]];
     const posBy: Record<string, Row> = {}; data.pos.forEach((p) => { posBy[p.id] = p; });
     const checks = (i: Row): [string, string][] => {
       const po = posBy[i.po_id], out: [string, string][] = [];
@@ -272,7 +283,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
           <>
             {(() => {
               const list = sortBy(data.pinvs.filter(F[cur]).filter(fOK).filter((i) => hit(i.supplier_name, i.invoice_no, jobTag(site(i.site_id)), posBy[i.po_id]?.number)), 'invoice_date', 'total');
-              const bulk = cur === 'approve' || cur === 'unpaid', picked = list.filter((i) => picks.has(i.id));
+              const bulk = true, picked = list.filter((i) => picks.has(i.id));
               const tick = (i: Row) => <Pressable hitSlop={8} accessibilityRole="checkbox" accessibilityState={{ checked: picks.has(i.id) }} onPress={() => setSel((x) => { const n = new Set(x); if (n.has(i.id)) n.delete(i.id); else n.add(i.id); return n; })} style={{ width: 16, height: 16, borderRadius: 4, borderWidth: 1.5, borderColor: picks.has(i.id) ? base.blue : '#c3c8d0', backgroundColor: picks.has(i.id) ? base.blue : '#fff', alignItems: 'center', justifyContent: 'center', alignSelf: 'center' }}>{picks.has(i.id) && <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700', lineHeight: 13 }}>✓</Text>}</Pressable>;
               const refresh = () => { setSel(new Set()); ['finPurchases', 'finBook', 'finOverview', 'finPo'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] })); };
               const approveAll = async () => {
@@ -285,20 +296,45 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
               const paidAll = async () => {
                 const d = await askDate(`Paid on which date? (${picked.length} invoice${picked.length === 1 ? '' : 's'})`); if (d == null) return;
                 const date = d || today();
-                const rows = picked.filter((i) => i.status === 'approved'); if (!rows.length) { toast('Only approved invoices can be marked paid.'); return; }
+                const rows = picked.filter((i) => i.status === 'approved' && !isPaid(i)); if (!rows.length) { toast('Only approved invoices that aren’t paid yet can be marked paid.'); return; }
                 let ok = 0; for (const i of rows) if (await setPinvPaid(i.id, date)) ok++;
                 toast(`${ok} marked paid`); refresh();
               };
-              const bulkBar = bulk && picked.length > 0 ? (
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                  <Text style={{ fontWeight: '600', color: base.ink, fontSize: 13 }}>{picked.length} selected · {money(picked.reduce((t, i) => t + Number(i.total || 0), 0))}</Text>
-                  {cur === 'approve' ? <Button small title={`Approve ${picked.length}`} onPress={() => void approveAll()} /> : <Button small title={`Mark ${picked.length} Paid`} onPress={() => void paidAll()} />}
+              // Change several at once (Andy, 5 Nov 2026): VAT and cost type. Anything already in Xero is left alone.
+              const editable = (rows: Row[]) => { const ok = rows.filter((i) => !i.xero_id), skip = rows.length - ok.length; if (skip) toast(`${skip} already in Xero — change ${skip === 1 ? 'it' : 'them'} in Xero.`); return ok; };
+              const vatAll = async () => {
+                const rates = vatList(fset).filter((r) => r.active);
+                const k = await chooseAction(`VAT for ${picked.length} invoice${picked.length === 1 ? '' : 's'}`, rates.map((r) => ({ key: r.code, label: r.name })));
+                const r = rates.find((x) => x.code === k); if (!r) return;
+                let ok = 0; const rows = editable(picked);
+                for (const i of rows) {
+                  const vat = r.rc ? 0 : round2(Number(i.net || 0) * Number(r.rate || 0) / 100);
+                  if ((await fdb.from('purchase_invoices').update({ vat, total: round2(Number(i.net || 0) + vat) } as never).eq('id', i.id).select('id')).data?.length) ok++;
+                }
+                toast(ok === rows.length ? `VAT changed on ${ok}` : `VAT changed on ${ok} of ${rows.length}`); refresh();
+              };
+              const costAll = async () => {
+                const k = await chooseAction(`Cost type for ${picked.length} invoice${picked.length === 1 ? '' : 's'}`, Object.entries(COST_CATS).filter(([c]) => c !== 'labour').map(([key, label]) => ({ key, label }))); if (!k) return;
+                let ok = 0; const rows = editable(picked);
+                for (const i of rows) if ((await fdb.from('purchase_invoices').update({ cost_code: k } as never).eq('id', i.id).select('id')).data?.length) ok++;
+                toast(ok === rows.length ? `Cost type changed on ${ok}` : `Cost type changed on ${ok} of ${rows.length}`); refresh();
+              };
+              const waiting = picked.filter((i) => ['to_approve', 'query'].includes(i.status)).length, payable = picked.filter((i) => i.status === 'approved' && !isPaid(i)).length;
+              // The bulk edit bar sits under the list and only shows once something is ticked; Select All is in it.
+              const bulkBar = picked.length > 0 ? (
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 10, padding: 10, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10 }}>
+                  <Text style={{ fontWeight: '600', color: base.ink, fontSize: 13 }}>{picked.length} Selected · {money(picked.reduce((t, i) => t + Number(i.total || 0), 0))}</Text>
                   {picked.length < list.length && <Pressable onPress={() => setSel(new Set(list.map((i) => i.id)))}><Text style={{ color: base.blue, fontWeight: '500', fontSize: 13 }}>Select All ({list.length})</Text></Pressable>}
                   <Pressable onPress={() => setSel(new Set())}><Text style={{ color: base.slate, fontSize: 13 }}>Clear</Text></Pressable>
+                  <View style={{ flex: 1 }} />
+                  {waiting > 0 && <Button small title={`Approve ${waiting}`} onPress={() => void approveAll()} />}
+                  <Button small kind="ghost" title="Change VAT" onPress={() => void vatAll()} />
+                  <Button small kind="ghost" title="Change Cost Type" onPress={() => void costAll()} />
+                  {payable > 0 && <Button small kind="ghost" title={`Mark ${payable} Paid`} onPress={() => void paidAll()} />}
                 </View>
-              ) : bulk && list.length > 1 ? <Pressable onPress={() => setSel(new Set(list.map((i) => i.id)))} style={{ marginBottom: 10 }}><Text style={{ color: base.blue, fontWeight: '500', fontSize: 13 }}>Select All</Text></Pressable> : null;
+              ) : null;
               if (desk && list.length) return (
-                <>{bulkBar}<FinTable rows={list} keyOf={(i) => i.id} onRow={(i) => router.push(`/fin/pinv/${i.id}` as never)}
+                <><FinTable rows={list} keyOf={(i) => i.id} onRow={(i) => router.push(`/fin/pinv/${i.id}` as never)}
                   cols={[
                     ...(bulk ? [{ k: 'tick', l: '', flex: 0.2, min: 28, noSort: true, render: (i: Row) => tick(i) }] : []),
                     { k: 'sup', l: 'Supplier', flex: 1.3, min: 110, render: (i: Row) => <Cell bold>{i.supplier_name || 'Supplier'}</Cell> },
@@ -310,14 +346,14 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
                     { k: 't', l: 'Gross', min: 72, total: (l: Row[]) => money(l.reduce((t, i) => t + Number(i.total || 0), 0)), render: (i: Row) => <Cell bold>{money(i.total)}</Cell> },
                     { k: 'po', l: 'PO', min: 70, render: (i: Row) => <Cell>{posBy[i.po_id] ? posBy[i.po_id].number : 'No PO'}</Cell> },
                     { k: 'ch', l: 'Checks', flex: 1.2, min: 92, render: (i: Row) => <View style={{ alignItems: 'center', gap: 2 }}>{checks(i).map(([t, c]) => <Text key={t} style={{ fontSize: 10.5, fontWeight: '500', color: c, textAlign: 'center' }}>{t}</Text>)}</View> },
-                    { k: 's', l: 'Status', min: 72, noSort: true, choices: ['To approve', 'Approved', 'Query', 'Rejected', 'Paid'], render: (i: Row) => <Cell tone={i.status === 'query' ? '#C0392B' : undefined}>{i.paid_on ? 'Paid' : PI_STATUS[i.status] || i.status}</Cell> },
+                    { k: 's', l: 'Status', min: 84, noSort: true, choices: ['Needs Checking', 'Query', 'Approved', 'Paid', 'Rejected'], render: (i: Row) => <Cell tone={piTone(i)}>{piWord(i)}</Cell> },
                   ]}
-                  footLabel={(list) => `${list.length} shown`} footRight={monthPick} /></>
+                  footLabel={(list) => `${list.length} shown`} footRight={monthPick} />{bulkBar}</>
               );
               return list.length ? (
                 <>
+                  {list.map((i) => <View key={i.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>{bulk && tick(i)}<View style={{ flex: 1 }}><FinRow compact left={i.invoice_no || '—'} title={i.supplier_name || 'Supplier'} sub={[siteId ? '' : jobTag(site(i.site_id)), fdate(i.invoice_date), `net ${money(i.net)}`, posBy[i.po_id] ? `PO ${posBy[i.po_id].number}` : 'No PO', piWord(i), i.query_note ? `⚠ ${i.query_note}` : ''].filter(Boolean).join(' · ')} right={money(i.total)} tone={i.status === 'query' ? '#C0392B' : undefined} onPress={() => router.push(`/fin/pinv/${i.id}` as never)} /></View></View>)}
                   {bulkBar}
-                  {list.map((i) => <View key={i.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>{bulk && tick(i)}<View style={{ flex: 1 }}><FinRow compact left={i.invoice_no || '—'} title={i.supplier_name || 'Supplier'} sub={[siteId ? '' : jobTag(site(i.site_id)), fdate(i.invoice_date), `net ${money(i.net)}`, posBy[i.po_id] ? `PO ${posBy[i.po_id].number}` : 'No PO', i.paid_on ? 'Paid' : PI_STATUS[i.status] || i.status, i.query_note ? `⚠ ${i.query_note}` : ''].filter(Boolean).join(' · ')} right={money(i.total)} tone={i.status === 'query' ? '#C0392B' : undefined} onPress={() => router.push(`/fin/pinv/${i.id}` as never)} /></View></View>)}
                   {list.length > 1 && <Muted>Total ({list.length}): net {money(list.reduce((t, i) => t + Number(i.net || 0), 0))} · VAT {money(list.reduce((t, i) => t + Number(i.vat || 0), 0))} · gross {money(list.reduce((t, i) => t + Number(i.total || 0), 0))}</Muted>}
                 </>
               ) : <Empty>Nothing here.</Empty>;
@@ -382,7 +418,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
   }
   const by: Record<string, { name: string; email: string; spend: number; owed: number; n: number }> = {};
   data.suppliers.forEach((s) => { by[s.name] = { name: s.name, email: s.email || '', spend: 0, owed: 0, n: 0 }; });
-  live.forEach((i) => { const k = i.supplier_name || 'Unknown', r = (by[k] = by[k] || { name: k, email: '', spend: 0, owed: 0, n: 0 }); r.n++; if (i.status === 'approved') r.spend += Number(i.net || 0); if (i.status === 'approved' && !i.paid_on) r.owed += Number(i.total || 0); });
+  live.forEach((i) => { const k = i.supplier_name || 'Unknown', r = (by[k] = by[k] || { name: k, email: '', spend: 0, owed: 0, n: 0 }); r.n++; if (i.status === 'approved') r.spend += Number(i.net || 0); if (i.status === 'approved' && !isPaid(i)) r.owed += Number(i.total || 0); });
   const list = Object.values(by).sort((a, b) => b.spend - a.spend || a.name.localeCompare(b.name)).filter((r) => hit(r.name, r.email));
   return (
     <View>
@@ -407,14 +443,14 @@ export function PurchasesStats() {
   const pJ = period('p_job', 'all'), pU = period('p_pay', 'all'), pA = period('p_appr', 'all'), pC = period('p_ord', 'all');
   const live = data.pinvs.filter((i) => i.status !== 'rejected');
   const needJob = data.inbox.filter((i) => i.stage !== 'with_pm' && inPeriod(i.received_at, pJ)).length; // unread ones too, as the list (4 Nov 2026)
-  const unpaid = data.pinvs.filter((i) => i.status === 'approved' && !i.paid_on && inPeriod(i.invoice_date, pU)).reduce((t, i) => t + Number(i.total || 0), 0);
+  const unpaid = data.pinvs.filter((i) => i.status === 'approved' && !isPaid(i) && inPeriod(i.invoice_date, pU)).reduce((t, i) => t + Number(i.total || 0), 0);
   const toApprove = data.pinvs.filter((i) => ['to_approve', 'query'].includes(i.status) && inPeriod(i.invoice_date, pA)).length;
   const ordered = round2(data.pos.filter((p) => p.status === 'open' && p.value != null && inPeriod(p.created_at, pC)).reduce((t, p) => t + Math.max(0, Number(p.value) - poInvoiced(p, live)), 0));
   const to = (tab: string, f: string) => () => router.setParams({ tab, f });
   return (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 10 }}>
       <FinStat tone="blue" v={String(needJob)} label={`Unallocated Invoices · ${pJ.label}`} onPress={to('invoices', 'job')} onMenu={() => void pick('p_job', 'all')} /><FinStat tone="green" v={money(unpaid, 0)} label={`To Pay Suppliers (Incl. VAT) · ${pU.label}`} onPress={to('invoices', 'unpaid')} onMenu={() => void pick('p_pay', 'all')} />
-      <FinStat tone="red" v={String(toApprove)} label={`To Approve · ${pA.label}`} onPress={to('invoices', 'approve')} onMenu={() => void pick('p_appr', 'all')} /><FinStat tone="amber" v={money(ordered, 0)} label={`Ordered, Not Invoiced · ${pC.label}`} onPress={to('orders', 'open')} onMenu={() => void pick('p_ord', 'all')} />
+      <FinStat tone="red" v={String(toApprove)} label={`Needs Checking · ${pA.label}`} onPress={to('invoices', 'approve')} onMenu={() => void pick('p_appr', 'all')} /><FinStat tone="amber" v={money(ordered, 0)} label={`Ordered, Not Invoiced · ${pC.label}`} onPress={to('orders', 'open')} onMenu={() => void pick('p_ord', 'all')} />
     </View>
   );
 }

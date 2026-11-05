@@ -67,7 +67,7 @@ const login = async (page) => {
 
   // Purchases and Subs cards go to their list.
   await open('/fin/purchases');
-  await page.getByText(/^To Approve · /).click(); await page.waitForTimeout(800);
+  await page.getByText(/^Needs Checking · /).click(); await page.waitForTimeout(800);
   check('Tap To Approve', param('tab') === 'invoices' && param('f') === 'approve');
   await open('/fin/subs');
   await page.getByText('Applications To Certify').click(); await page.waitForTimeout(800);
