@@ -2,11 +2,12 @@
 // wrapper with the access check, and small shared bits (stat tile, row, chip).
 import { useQuery } from '@tanstack/react-query';
 import { router, Stack } from 'expo-router';
-import { useEffect, useRef, useState, type ComponentRef, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ComponentRef, type ReactNode } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { chooseAction } from '@/components/toast';
 import { FinMode, Muted } from '@/components/ui';
+import { FinSlotCtx } from '@/components/FinSlotCtx';
 import { fdb } from '@/data/finance';
 import { useAuth } from '@/lib/auth';
 import { isFinanceController, isFinanceOnlyOrg, isFinanceUser } from '@/lib/roles';
@@ -162,6 +163,10 @@ export const finSettingsGo = (k: string) => router.replace(({ general: '/fin/set
 export function FinPage({ title, section, sub, onSub, badges, children, wide, top, foot, subRight }: { title: string; section: string; sub?: string; onSub?: (k: string) => void; badges?: Record<string, number>; children: ReactNode; wide?: boolean; top?: ReactNode; foot?: ReactNode; subRight?: ReactNode }) {
   const { me, org } = useAuth();
   const t = useTheme();
+  // The spot at the end of the tab row where a section's own button goes (FinSlot).
+  const [slotEl, setSlotEl] = useState<HTMLElement | null>(null);
+  const slotRef = useCallback((r: unknown) => setSlotEl((r as HTMLElement | null) || null), []);
+  const slot = <View ref={slotRef as never} style={{ flexDirection: 'row', gap: 8 }} />;
   // Team only for Finance-only companies, which have no Admin Centre; everyone else switches Finance on in Admin › Users.
   const subs = (FIN_SUBS[section] || []).filter(([k]) => !(section === 'settings' && k === 'team' && org?.has_pm !== false));
   return (
@@ -179,14 +184,14 @@ export function FinPage({ title, section, sub, onSub, badges, children, wide, to
               </Pressable>
             ))}
           </FinTabRow>
-          {!(subs.length > 1 && onSub) && subRight}
+          {!(subs.length > 1 && onSub) && <>{subRight}{slot}</>}
           </View>
           {section === 'overview' && <View style={{ backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 12, marginBottom: 10 }}><Text style={{ color: '#111827', fontSize: 12 }}>🔒 Finance trial — nothing is sent from Finance (no emails, no Xero, no pushes to PMs) while it&apos;s being tested.</Text></View>}
           {!!top && <FinMode.Provider value>{top}</FinMode.Provider>}
           {subs.length > 1 && onSub && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 }}><View style={{ flex: 1, minWidth: 0, borderBottomWidth: 1, borderBottomColor: '#e5e7eb' }}><KeepInView on={sub} items={subs} render={(k, l) => <TabItem on={k === sub} label={l} n={badges?.[k]} amber onPress={() => onSub(k)} />} /></View>{subRight}</View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 }}><View style={{ flex: 1, minWidth: 0, borderBottomWidth: 1, borderBottomColor: '#e5e7eb' }}><KeepInView on={sub} items={subs} render={(k, l) => <TabItem on={k === sub} label={l} n={badges?.[k]} amber onPress={() => onSub(k)} />} /></View>{subRight}{slot}</View>
           )}
-          <FinMode.Provider value>{children}</FinMode.Provider>
+          <FinSlotCtx.Provider value={{ inPage: true, el: slotEl }}><FinMode.Provider value>{children}</FinMode.Provider></FinSlotCtx.Provider>
         </>
       )}
     </ScrollView>

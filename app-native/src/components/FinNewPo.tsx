@@ -14,6 +14,7 @@ import { DateBox, todayIso } from '@/components/DateField';
 import { SelectBox } from '@/components/SelectBox';
 import { SuggestField } from '@/components/SuggestField';
 import { useToast } from '@/components/toast';
+import { pickJob } from '@/components/FinSales';
 import { Button, Card, Muted, SectionTitle } from '@/components/ui';
 import { fdb, finStatus, loadSettings } from '@/data/finance';
 import { useSites } from '@/data/sites';
@@ -37,12 +38,15 @@ const COL = { job: 96, qty: 54, unit: 58, rate: 78, disc: 58, code: 160, vat: 11
 const th = { fontSize: 11, fontWeight: '600' as const, color: base.slate };
 const cell = { paddingVertical: 5, fontSize: 13.5, textAlign: 'center' as const };
 
-export function FinNewPo({ site, itemIds = [] }: { site: Site; itemIds?: string[] }) {
+/** site: the project when opened from one; otherwise it's chosen on the form (Andy, 5 Nov 2026: no job picker first). */
+export function FinNewPo({ site: site0, itemIds = [] }: { site?: Site | null; itemIds?: string[] }) {
   const { me } = useAuth();
   const toast = useToast();
-  const { data: subs = [] } = useSubJobs(site);
   const desk = useDesk();
   const { data: allSites = [] } = useSites();
+  const [siteId, setSiteId] = useState(site0?.id || '');
+  const site = (allSites.find((x) => x.id === siteId) || (site0 && site0.id === siteId ? site0 : null) || { id: '', name: '' }) as Site;
+  const { data: subs = [] } = useSubJobs(site.id ? site : null as never);
   const jobs = allSites.filter((x) => finStatus(x) !== 'closed' || x.id === site.id).slice().sort((a, b) => String(b.job_number || '').localeCompare(String(a.job_number || ''), 'en-GB', { numeric: true }));
   const { data: codes = [] } = useQuery({ queryKey: ['finCostCodes', me?.org_id], enabled: !!me, queryFn: async () => (((await fdb.from('fin_cost_codes').select('id,code,name,category,active').eq('org_id', me?.org_id as string)).data as Code[] | null) ?? []).filter((c) => c.active !== false && c.category !== 'labour').sort((a, b) => String(a.code || '').localeCompare(String(b.code || ''), 'en-GB', { numeric: true })) });
   const codeFor = (cat: string) => codes.find((c) => c.category === cat)?.id ?? null;
@@ -64,7 +68,7 @@ export function FinNewPo({ site, itemIds = [] }: { site: Site; itemIds?: string[
   const [note, setNote] = useState('');
   const [contact, setContact] = useState('');
   const [contactPh, setContactPh] = useState('');
-  const { data: team } = useQuery({ queryKey: ['finPoTeam', site.id], queryFn: async () => {
+  const { data: team } = useQuery({ queryKey: ['finPoTeam', site.id], enabled: !!site.id, queryFn: async () => {
     const a = ((await fdb.from('site_assignments').select('user_id').eq('site_id', site.id)).data as { user_id: string }[] | null) ?? [];
     const ids = [...a.map((x) => x.user_id), (site as { responsible_pm_id?: string | null }).responsible_pm_id].filter(Boolean) as string[];
     return ids.length ? ((await fdb.from('profiles').select('id,name,phone,role').in('id', ids)).data as { id: string; name: string; phone: string | null; role: string }[] | null) ?? [] : [];
@@ -107,6 +111,7 @@ export function FinNewPo({ site, itemIds = [] }: { site: Site; itemIds?: string[
   const isNew = !supId && !!supText.trim();
 
   const raise = async () => {
+    if (!site.id) { toast('Choose the project.'); return; }
     if (!supId && !supText.trim()) { toast('Choose the supplier.'); return; }
     if (contact.trim() && !contactPh.trim()) { toast(`Add a contact number for ${contact.trim()}.`); return; }
     if (isNew && newEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail.trim())) { toast('Check the supplier’s email.'); return; }
@@ -170,7 +175,15 @@ export function FinNewPo({ site, itemIds = [] }: { site: Site; itemIds?: string[
     {shop}
     <View style={desk && shop ? { flex: 1, minWidth: 0 } : undefined}>
       <Card>
-        <SectionTitle>New purchase order · {jobTag(site)}</SectionTitle>
+        <SectionTitle>New purchase order</SectionTitle>
+        <Text style={{ fontSize: 12, fontWeight: '500', color: base.slate, marginBottom: 4 }}>Project</Text>
+        <Pressable accessibilityRole="button" accessibilityLabel="Project" onPress={async () => {
+          const sid = await pickJob('Which project is the PO for?', jobs); if (!sid) return;
+          // Lines still on the old project (or none) move to the new one.
+          setLines((ls) => ls.map((l) => (!l.site_id || l.site_id === siteId ? { ...l, site_id: sid } : l))); setSiteId(sid); setSub('');
+        }} style={[box, { marginBottom: 10, paddingVertical: 10, borderColor: site.id ? base.line : '#f8e7c2', backgroundColor: site.id ? base.card : '#fffaf0' }]}>
+          <Text style={{ color: site.id ? base.ink : '#b45309', fontSize: 14 }}>{site.id ? jobTag(site) : 'Choose the project'} ▾</Text>
+        </Pressable>
         <SuggestField label="Supplier" value={supText} onChangeText={(t) => { setSupText(t); setSupId(null); }} placeholder="Type to find a supplier, or a new name" showAllOnFocus max={12}
           items={(setup?.sups || []).map((s) => ({ key: s.id, label: s.name, sub: s.email || '' }))} onPick={(s) => { setSupId(s.key); setSupText(s.label); applySupVat(s.key, s.label); }} />
         {isNew && <><Muted style={{ marginTop: -6, marginBottom: 6 }}>New supplier — added to your suppliers when the PO is raised.</Muted><TextInput value={newEmail} onChangeText={setNewEmail} placeholder="Supplier's orders email (optional)" autoCapitalize="none" keyboardType="email-address" style={[box, { marginBottom: 8 }]} /></>}

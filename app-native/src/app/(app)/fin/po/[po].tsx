@@ -45,7 +45,8 @@ export default function FinPo() {
     return (
       <ScrollView contentContainerStyle={page(1300)} keyboardShouldPersistTaps="handled">
         <Stack.Screen options={{ title: 'New purchase order' }} />
-        {st ? <FinNewPo site={st} itemIds={itemIds ? itemIds.split(',').filter(Boolean) : []} /> : <Muted>Choose the project first.</Muted>}
+        {/* Opens straight away; the project is chosen on the form when it didn't come from one (Andy, 5 Nov 2026). */}
+        {site && !st ? <Muted>Loading…</Muted> : <FinNewPo key={st?.id || 'none'} site={st || null} itemIds={itemIds ? itemIds.split(',').filter(Boolean) : []} />}
       </ScrollView>
     );
   }

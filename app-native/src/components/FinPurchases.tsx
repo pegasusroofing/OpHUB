@@ -15,6 +15,7 @@ import { FinFilterBar, type FilterPart, type FilterSel } from '@/components/FinF
 import { FinRow, FinStat, FinTabs } from '@/components/FinNav';
 import { Cell, FinChoicePop, FinTable, FootPick } from '@/components/FinTable';
 import { pickJob } from '@/components/FinSales';
+import { SubRight } from '@/components/FinSlot';
 import { chooseAction, confirmAsk, useToast } from '@/components/toast';
 import { Button, Empty, Muted } from '@/components/ui';
 import { askDate } from '@/components/DateField';
@@ -106,8 +107,7 @@ const piWord = (i: Row) => (isPaid(i) ? (i.paid_on ? 'Paid' : 'Paid (Statement)'
 const piTone = (i: Row) => (isPaid(i) ? '#1E7A43' : i.status === 'query' ? '#C0392B' : i.status === 'to_approve' ? '#B35A00' : undefined);
 /** + New PO in the Purchases tab row (Andy, 5 Nov 2026): pick the project, then the new PO. */
 export function NewPoButton() {
-  const { data: sites = [] } = useSites();
-  return <Button small title="+ New PO" onPress={async () => { const sid = await pickJob('New purchase order', sites.filter((s) => s.status !== 'closed')); if (sid) router.push(`/fin/po/new?site=${sid}` as never); }} />;
+  return <Button small title="+ New PO" onPress={() => router.push('/fin/po/new' as never)} />;
 }
 export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoices' | 'plant' | 'suppliers' | 'all'; siteId?: string; f?: string }) {
   const { me } = useAuth();
@@ -401,7 +401,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
     const onHire = data.hires.filter((h) => !h.off_hire);
     return (
       <View>
-        <View style={{ flexDirection: 'row', marginBottom: 10 }}><View style={{ marginLeft: 'auto' }}><Button title="+ Plant hire" onPress={() => void withJob('Add plant hire', (sid) => `/fin/plant/new?site=${sid}`)} /></View></View>
+        <SubRight><Button small title="+ Plant Hire" onPress={() => void withJob('Add plant hire', (sid) => `/fin/plant/new?site=${sid}`)} /></SubRight>
         {!desk && bar('Search item, supplier or project')}
         {desk && list.length ? (
           <FinTable rows={list} keyOf={(h) => h.id} onRow={(h) => router.push(`/fin/plant/${h.id}` as never)}

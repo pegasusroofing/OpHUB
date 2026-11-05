@@ -16,6 +16,7 @@ import { SelectBox } from '@/components/SelectBox';
 import { SuggestField } from '@/components/SuggestField';
 import { confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
+import { SubRight } from '@/components/FinSlot';
 import { fdb } from '@/data/finance';
 import { openDocLink } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
@@ -105,7 +106,7 @@ export function PurchaseQuotes({ siteId }: { siteId?: string }) {
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
           {siteId && <SelectBox value={scope} title="Who it's for" options={[['project', 'This project'], ['all', 'All projects (price list)']]} onChange={setScope} style={{ marginBottom: 0, width: 200 }} />}
           <TextInput value={sup} onChangeText={setSup} placeholder="Supplier name" style={[box, { minWidth: 180 }]} />
-          <Button small busy={!!busy} title={busy || '📥 Upload quotes (Excel / CSV)'} onPress={() => void upload()} />
+          <SubRight><Button small busy={!!busy} title={busy || '📥 Upload Price List'} onPress={() => void upload()} /></SubRight>
         </View>
       </Card>
       {data.quotes.length > 0 && (

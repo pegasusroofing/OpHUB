@@ -16,6 +16,7 @@ import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toa
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
 import { DocSplit } from '@/components/DocSplit';
+import { SubRight } from '@/components/FinSlot';
 import { useSites } from '@/data/sites';
 import { fdb, selectAll } from '@/data/finance';
 import { openDocLink } from '@/data/hs';
@@ -85,7 +86,7 @@ function List() {
   return (
     <FinPage title="Statements" section="purchases" badges={badges} sub="statements" top={<PurchasesStats />} onSub={(k) => { if (k !== 'statements') router.replace((k === 'yard' ? '/fin/yard' : `/fin/purchases?tab=${k}`) as never); }}>
       <Muted style={{ marginBottom: 8 }}>Supplier statements matched to the purchase invoices you hold — by invoice number, or amount and date. Upload a statement (PDF, Excel or CSV) and its lines are read and matched. Nothing leaves OpHUB.</Muted>
-      <View style={desk ? { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 8 } : undefined}><Button busy={busy} title="⬆ Upload a statement" onPress={async () => {
+      <SubRight><Button small busy={busy} title="⬆ Upload Statement" onPress={async () => {
         const r = await DocumentPicker.getDocumentAsync({ type: ['application/pdf', 'text/csv', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', '*/*'], copyToCacheDirectory: true });
         if (r.canceled || !r.assets[0]) return;
         const a = r.assets[0];
@@ -93,7 +94,7 @@ function List() {
         if (/\.xls$/i.test(a.name || '')) { toast('Save it as .xlsx or .csv first — old .xls files can’t be read.'); return; }
         setBusy(true); toast('Reading the statement…');
         try { setNw(await readStatement(me?.org_id as string, { uri: a.uri, name: a.name || 'statement', mimeType: a.mimeType, size: a.size })); } finally { setBusy(false); }
-      }} /></View>
+      }} /></SubRight>
       {nw && me && (
         <FinForm title="New statement" saveLabel="Match the invoices" onClose={() => setNw(null)}
           note={`${nw.file.name} · ${nw.lines.length ? `${nw.lines.length} line${nw.lines.length === 1 ? '' : 's'} read` : 'no lines could be read — you can add them by hand'}.${nw.names.length ? ` Known suppliers include: ${nw.names.slice(0, 6).join(', ')}${nw.names.length > 6 ? '…' : ''}` : ''}`}
