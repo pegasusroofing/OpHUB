@@ -315,12 +315,12 @@ function Editor({ id, initial, me }: { id: string; initial: Row[]; me: Profile }
   return (
     <View style={{ flex: 1 }}>
     <ScrollView style={{ flex: 1 }} contentContainerStyle={page(1100)} keyboardShouldPersistTaps="handled">
-      <Stack.Screen options={{ title: 'Bill of Quantities' }} />
+      <Stack.Screen options={{ title: 'Bill Of Quantities' }} />
       <BoqTabs id={id} on="boq" />
       {/* The page's own header (Andy, 2 Nov 2026). */}
       <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 10, marginTop: desk ? 6 : 0, marginBottom: desk ? 18 : 12 }}>
         <View style={{ alignItems: 'flex-start', gap: 8 }}>
-          <Text style={{ fontSize: desk ? 20 : 17, fontWeight: '600', color: base.ink }}>Bill of Quantities</Text>
+          <Text style={{ fontSize: desk ? 20 : 17, fontWeight: '600', color: base.ink }}>Bill Of Quantities</Text>
           {addWorks}
         </View>
         {desk && ioBtn}

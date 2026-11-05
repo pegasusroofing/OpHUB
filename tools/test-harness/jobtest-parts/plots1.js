@@ -9,7 +9,7 @@ module.exports = async ({as, step}) => {
   await step('Single site offers to switch on', async () => {
     await a.go('/fin/job/' + S.id + '/boq', 7000); await a.page.waitForTimeout(2500);
     await q('Plots').first().click({timeout: 5000}); await a.page.waitForTimeout(2000); await a.shot('single');
-    const tab = await q('Bill of Quantities').count();
+    const tab = await q('Bill Of Quantities').count();
     return {ok: (await q('Make it multi-site').count()) === 1 && tab >= 1, note: new URL(a.page.url()).pathname.split('/').pop()};
   });
   await step('Add a plot', async () => {

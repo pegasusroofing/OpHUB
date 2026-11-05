@@ -28,7 +28,7 @@ import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { siteStatusKey } from '@/lib/rules/checkin';
 import { plainGet, plainSet } from '@/lib/kv';
-import { forecast, pctTxt } from '@/lib/rules/finBook';
+import { forecast, marginOn, pctTxt, type MarginBasis } from '@/lib/rules/finBook';
 import { appDueThisMonth, plantCost, today, appDateFor, FIN_VAT_LABEL, fdate, invOutstanding, invOutstandingNet, invOverdue, money, num, retentionAlerts, retentionDates, retentionHeld, retHalfAmt, type FinApp, type FinInv } from '@/lib/rules/finance';
 import { isFinanceOnlyOrg, isFinanceUser, isFullManager } from '@/lib/roles';
 import { base, page, space, useTheme } from '@/theme/theme';
@@ -53,7 +53,7 @@ export default function FinJob() {
   const { data: site } = useSite(id);
   const { data, isLoading } = useBook(me?.org_id, id);
   const t = useTheme();
-  const [sub0, setSub] = useState<Record<string, string>>({ sales: tab === 'sales' && qSub ? String(qSub) : '', purchases: 'orders', subs: 'orders' });
+  const [sub0, setSub] = useState<Record<string, string>>({ sales: tab === 'sales' && qSub ? String(qSub) : '', purchases: 'invoices', subs: 'orders' }); // Purchases opens on invoices, as the current app (9219y)
   useEffect(() => { if (typeof qSub === 'string' && qSub) setSub((cur) => (cur[tab] === qSub ? cur : { ...cur, [tab]: qSub })); }, [qSub, tab]);
   // Variations raised on site come into the register (so the forecast and the Variations tile count them).
   const qcJob = useQueryClient();
@@ -78,9 +78,9 @@ export default function FinJob() {
       <Stack.Screen options={{ title }} />
       {isLoading || !fc || !data ? <Muted>Loading…</Muted> : tab === 'overview' ? <Overview askFinancials={qSetup === '1'} id={id} fc={fc} settings={data.settings} invs={data.book.invs.filter((i) => i.site_id === id)} apps={data.book.apps.filter((a) => a.site_id === id)} book={data.book as unknown as Row} />
         : tab === 'sales' ? <>{subTabs('sales', invoiceOnly ? [['invoices', 'Invoices']] : [['apps', 'Applications & Certificates'], ['invoices', 'Invoices'], ['retention', 'Retention']])}{sub.sales === 'retention' && !fc.isInvoiceJob && <RetentionPanel id={id} fc={fc} settings={data.settings} invs={data.book.invs.filter((i) => i.site_id === id)} apps={data.book.apps.filter((a) => a.site_id === id)} />}<SalesLists key={`${sub.sales}${qF || ''}`} tab={sub.sales as 'invoices'} siteId={id} f={qF || undefined} /></>
-        : tab === 'purchases' ? <>{subTabs('purchases', [['orders', 'Purchase orders'], ['invoices', 'Purchase invoices'], ['plant', 'Plant hire'], ['quotes', 'Purchase Quotes']])}{sub.purchases === 'quotes' ? <PurchaseQuotes siteId={id} /> : <PurchasesLists key={sub.purchases} tab={sub.purchases as 'orders'} siteId={id} />}</>
+        : tab === 'purchases' ? <>{subTabs('purchases', [['invoices', 'Purchase Invoices'], ['orders', 'Purchase Orders'], ['quotes', 'Purchase Quotes'], ['plant', 'Plant Hire'], ['all', 'All']])}{sub.purchases === 'quotes' ? <PurchaseQuotes siteId={id} /> : <PurchasesLists key={sub.purchases} tab={sub.purchases as 'orders'} siteId={id} />}</>
         : tab === 'docs' ? <FinDocs site={s as Record<string, unknown> | undefined} />
-        : tab === 'subs' ? <>{subTabs('subs', [['orders', 'Subcontractor POs'], ['apps', 'Applications'], ['opinv', 'Operative invoices'], ['wages', 'Wages to book']])}<SubsLists key={sub.subs} tab={sub.subs as 'orders'} siteId={id} /></>
+        : tab === 'subs' ? <>{subTabs('subs', [['orders', 'Subcontractor POs'], ['apps', 'Applications'], ['opinv', 'Operative Invoices'], ['wages', 'Wages To Book']])}<SubsLists key={sub.subs} tab={sub.subs as 'orders'} siteId={id} /></>
         : <Setup id={id} site={s} jf={fc.jf} cpos={data.book.cpos.filter((p) => p.site_id === id)} settings={data.settings} />}
     </ScrollView>
   );
@@ -94,13 +94,24 @@ function Overview({ id, fc, settings, invs, apps, book, askFinancials }: { id: s
   const [finOpen, setFinOpen] = useState(!!askFinancials);
   const needsFin = !fc.jf.setup_checked_at && !invs.length && !apps.length;
   const { data: ovPick = {} } = useQuery({ queryKey: ['finOvPick'], queryFn: () => plainGet<Record<string, string>>('ophub.finOv2', {}) });
+  // ⋯ Measure margin against (921 finMarginMenuHtml), kept on this device and shared with the job home's money strip.
+  const { data: mBasis = 'auto' } = useQuery({ queryKey: ['finMarginBasis'], queryFn: () => plainGet<MarginBasis>('ophub.finMarginBasis', 'auto') });
+  const qcMb = useQueryClient();
+  const thm = useTheme();
   const { data: ovDws = [] } = useQuery({ queryKey: ['finOvDws', id], queryFn: async () => ((await fdb.from('fin_dayworks').select('status,value').eq('site_id', id)).data as Row[] | null) ?? [] });
   // Each half is worked out from what the latest certificate holds (903), not what's still held.
   const heldCert = retentionHeld(apps);
   const { data: site } = useSite(id);
   const valued = fc.sales || 0;
   const pv = fc.ffa ? Math.max(0, Math.min(100, Math.round((valued / fc.ffa) * 100))) : 0;
-  const mPct = fc.budgetTotal != null && fc.forecastMarginPct != null ? fc.forecastMarginPct : fc.sales ? fc.profitToDatePct : null;
+  const mOn = marginOn(fc, mBasis);
+  const mPct = fc.budgetTotal != null && fc.forecastMarginPct != null ? fc.forecastMarginPct : mOn.value ? ((mOn.value - fc.costToDate) / mOn.value) * 100 : null;
+  const pickBasis = async () => {
+    const opts: [MarginBasis, string][] = [['auto', 'Latest (certified, else applied)'], ['applied', 'Applied'], ['certified', 'Certified'], ['invoiced', 'Invoiced']];
+    const k = (await chooseAction('Measure margin against', opts.map(([key, label]) => ({ key, label: mBasis === key ? `✓ ${label}` : label })))) as MarginBasis | null;
+    if (!k) return;
+    await plainSet('ophub.finMarginBasis', k); qcMb.setQueryData(['finMarginBasis'], k);
+  };
   const live = invs.filter((i) => i.status !== 'void'), od = live.filter((i) => invOverdue(i));
   const odV = od.reduce((tt, i) => tt + invOutstandingNet(i), 0);
   const inv = live.filter((i) => i.status !== 'draft').reduce((tt, i) => tt + Number(i.net || 0), 0);
@@ -146,15 +157,18 @@ function Overview({ id, fc, settings, invs, apps, book, askFinancials }: { id: s
       {finOpen && <Setup formOnly id={id} site={site as Row | undefined} jf={fc.jf} cpos={((book.cpos as Row[]) || []).filter((p) => p.site_id === id)} settings={settings} onDone={() => setFinOpen(false)} />}
       <Pressable onPress={() => router.setParams({ tab: 'setup' })}>
         <Card>
-          <Text style={{ fontSize: 10.5, fontWeight: '600', letterSpacing: 0.6, color: '#6b7280', textTransform: 'uppercase' }}>Forecasted final account</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Text style={{ flex: 1, fontSize: 10.5, fontWeight: '600', letterSpacing: 0.6, color: '#6b7280', textTransform: 'uppercase' }}>Forecasted final account</Text>
+            <Pressable onPress={() => void pickBasis()} hitSlop={8} accessibilityRole="button" accessibilityLabel="Measure margin against" style={{ backgroundColor: '#EEF0F2', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 1 }}><Text style={{ fontSize: 14, fontWeight: '700', color: base.ink }}>⋯</Text></Pressable>
+          </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
             <Text style={[{ fontWeight: '600' as const }, { flex: 1, fontSize: 30, color: '#111827' }]}>{money(fc.ffa, 0)}</Text>
             {mPct == null
               ? <Pressable onPress={() => router.push(`/fin/job/${id}/budget` as never)} style={{ backgroundColor: '#EEF0F2', borderRadius: 999, paddingVertical: 5, paddingHorizontal: 10 }}><Text style={{ fontSize: 11.5, fontWeight: '500', color: base.ink }}>Set a budget</Text></Pressable>
-              : <Text style={{ fontSize: 11.5, fontWeight: '500', color: mPct < 0 ? '#c81e1e' : '#15803d', backgroundColor: mPct < 0 ? '#fff5f4' : '#f1fbf5', borderRadius: 999, paddingVertical: 5, paddingHorizontal: 10, overflow: 'hidden' }}>{pctTxt(mPct)} {fc.budgetTotal != null ? 'margin' : 'margin to date'}</Text>}
+              : <Text style={{ fontSize: 11.5, fontWeight: '500', color: mPct < 0 ? '#c81e1e' : '#15803d', backgroundColor: mPct < 0 ? '#fff5f4' : '#f1fbf5', borderRadius: 999, paddingVertical: 5, paddingHorizontal: 10, overflow: 'hidden' }}>{pctTxt(mPct)} {fc.budgetTotal != null ? 'margin' : `margin on ${mOn.label}`}</Text>}
           </View>
-          <Text style={{ fontSize: 12.5, color: '#6b7280', marginTop: 2 }}>Contract {money(fc.contract, 0)} + {money(fc.vAgreed, 0)} agreed variations{fc.vPending ? ` + ${money(fc.vPending, 0)} submitted` : ''}{fc.budgetTotal != null ? ` · forecast profit ${money(fc.forecastMargin, 0)}` : ''}</Text>
-          <View style={{ height: 6, borderRadius: 3, backgroundColor: '#EEF0F2', marginTop: 14, overflow: 'hidden' }}><View style={{ width: `${pv}%`, height: '100%', backgroundColor: '#15803d' }} /></View>
+          <Text style={{ fontSize: 12.5, color: '#6b7280', marginTop: 2 }}>Contract {money(fc.contract, 0)} + {money(fc.vAgreed, 0)} agreed variations{fc.vPending ? ` + ${money(fc.vPending, 0)} submitted` : ''}{fc.budgetTotal != null ? ` · forecast profit ${money(fc.forecastMargin, 0)}${fc.ohpPct ? ` (after ${fc.ohpPct}% overheads)` : ''}` : ''}</Text>
+          <View style={{ height: 6, borderRadius: 3, backgroundColor: '#EEF0F2', marginTop: 14, overflow: 'hidden' }}><View style={{ width: `${pv}%`, height: '100%', backgroundColor: thm.brand1 }} /></View>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 }}>
             <Text style={{ fontSize: 11.5, color: '#6b7280' }}>{money(valued, 0)} {fc.isInvoiceJob ? 'invoiced' : 'valued'} ({pv}%)</Text>
             <Text style={{ fontSize: 11.5, color: '#6b7280' }}>{fc.ffa ? `${money(Math.max(0, fc.ffa - valued), 0)} to go` : ''}</Text>

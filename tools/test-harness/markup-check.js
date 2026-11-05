@@ -1,4 +1,4 @@
-// Report with a drawing: + Add another item, tick Add to drawing, mark up (place the number and a cross), save, and check what was saved.
+// Report with a drawing: + Add Another Item, tick Add to drawing, mark up (place the number and a cross), save, and check what was saved.
 const {chromium, makeContext, S1} = require('./harness');
 const seed = require('./fresh/seed');
 (async()=>{
@@ -14,7 +14,7 @@ const seed = require('./fresh/seed');
   await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
   await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
   await page.goto(BASE+'/sites/'+S1+'/snagging/reports/fill/rs1'); await page.waitForTimeout(6000);
-  await page.getByText('+ Add another item', {exact:true}).click(); await page.waitForTimeout(600);
+  await page.getByText('+ Add Another Item', {exact:true}).click(); await page.waitForTimeout(600);
   await page.getByText('📍 Add to drawing', {exact:true}).first().click(); await page.waitForTimeout(600);
   const t1 = (await page.evaluate(()=>document.body.innerText)).replace(/\s+/g,' ');
   console.log('item 2 added:', t1.includes('Item 2'), '| ticked:', t1.includes('1 item ticked so far'));

@@ -9,7 +9,7 @@ module.exports = async ({as, step, state}) => {
     await step('Finance Controller: Projects is shut', async () => { await a.go('/sites', 5000); await a.page.waitForTimeout(1500); return {ok: url().startsWith('/fin'), note: url()}; });
     await step('Finance Controller: a job page is shut', async () => { await a.go(`/sites/${state.regular}/materials`, 5000); await a.page.waitForTimeout(1500); return {ok: url().startsWith('/fin'), note: url()}; });
     await step('Finance Controller: Admin is shut', async () => { await a.go('/pm/admin', 5000); await a.page.waitForTimeout(1500); return {ok: url().startsWith('/fin'), note: url()}; });
-    await step('Finance Controller: Finance works, wages tab shows', async () => { await a.go('/fin/subs?tab=wages', 5000); await a.shot('fc2'); return {ok: /Wages to book/.test(await a.text()), note: url()}; });
+    await step('Finance Controller: Finance works, wages tab shows', async () => { await a.go('/fin/subs?tab=wages', 5000); await a.shot('fc2'); return {ok: /Wages to book/i.test(await a.text()), note: url()}; });
     return;
   }
   const [J] = await a.get(`sites?select=id,job_number,name,responsible_pm_id&name=like.ZZ%20JOB%20Fin*&limit=1`);

@@ -58,7 +58,7 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
     await page.screenshot({path: out('phone-sales-invoices')});
     await page.goto(B + '/fin/sales?tab=apps'); await page.waitForTimeout(3000);
     check(await page.locator('input[placeholder="Search applications"]').count() > 0, 'phone: Sales applications search');
-    for (const [route, label] of [['/fin/purchases?tab=plant', 'Plant hire'], ['/fin/yard', 'Yard stock']]) {
+    for (const [route, label] of [['/fin/purchases?tab=plant', 'Plant Hire'], ['/fin/yard', 'Yard']]) {
       await page.goto(B + route); await page.waitForTimeout(3500);
       const box = await page.getByText(label, {exact: true}).last().boundingBox();
       check(!!box && box.x >= 0 && box.x + box.width <= 390, `phone: ${label} tab in view (x=${box && Math.round(box.x)})`);

@@ -13,6 +13,7 @@ import { FinForm } from '@/components/FinForm';
 import { AllocRow } from '@/components/FinSplit';
 import { FinFilterBar, ThinExportBar, type FilterSel } from '@/components/FinFilterBar';
 import { FinChip, FinRow } from '@/components/FinNav';
+import { Cell, FinTable } from '@/components/FinTable';
 import { confirmAsk, useToast } from '@/components/toast';
 import { Button, Empty, Muted } from '@/components/ui';
 import { useBook } from '@/data/finBook';
@@ -20,15 +21,16 @@ import { fdb } from '@/data/finance';
 import { useAuth } from '@/lib/auth';
 import { COST_CATS, forecast } from '@/lib/rules/finBook';
 import { fdate, money, num, round2, today } from '@/lib/rules/finance';
-import { page, space } from '@/theme/theme';
+import { page, space, useDesk } from '@/theme/theme';
 import { mustHit } from '@/lib/mustHit';
 
 export default function FinCosts() {
-  const { id, sub, open } = useLocalSearchParams<{ id: string; sub?: string; open?: string }>();
+  const { id, sub, open, type: type0 } = useLocalSearchParams<{ id: string; sub?: string; open?: string; type?: string }>();
   const { me, org } = useAuth();
   const { data } = useBook(me?.org_id, id);
+  const desk = useDesk(); // laptop: the current app's costs table (910; cmp-fin 5 Nov 2026)
   // Filter by type, as many as you like (Andy, 2 Nov 2026). None ticked shows every cost except what's only ordered.
-  const [sel, setSel] = useState<FilterSel>({ type: [] });
+  const [sel, setSel] = useState<FilterSel>({ type: type0 ? [String(type0)] : [] }); // ?type=: opened from a heading's Spent on the Budget page
   // 910: search, a date range and sorting, then Excel / PDF of what's shown.
   const [q, setQ] = useState('');
   const [from, setFrom] = useState('');
@@ -81,7 +83,19 @@ export default function FinCosts() {
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 8 }}>
         <Muted>{howMany(list.length)} · {money(shownTotal)}{waiting ? ` · ${money(waiting)} waiting approval` : ''}</Muted>
       </View>
-      {list.length ? list.map((l) => <FinRow key={l.key} title={l.desc} sub={[l.date ? fdate(l.date) : '', COST_CATS[l.cat] || (l.cat === 'committed' ? `Ordered (${COST_CATS[l.ccat || 'materials']})` : l.cat), l.who, l.ref, l.status].filter(Boolean).join(' · ')} right={money(l.net)} onPress={l.go ? () => router.push(l.go as never) : l.key.startsWith('jc:') ? () => openCost(l.key) : undefined} />) : <Empty>No costs yet.</Empty>}
+      {desk && list.length ? (
+        <FinTable rows={list} keyOf={(l) => l.key} onRow={(l) => { if (l.go) router.push(l.go as never); else if (l.key.startsWith('jc:')) openCost(l.key); }}
+          cols={[
+            { k: 'd', l: 'Date', sort: (l) => String(l.date || ''), render: (l) => <Cell>{l.date ? fdate(l.date) : '—'}</Cell> },
+            { k: 't', l: 'Type', render: (l) => <Cell>{COST_CATS[l.cat] || (l.cat === 'committed' ? `Ordered (${COST_CATS[l.ccat || 'materials']})` : l.cat)}</Cell> },
+            { k: 'ds', l: 'Description', flex: 2, min: 200, render: (l) => <Cell bold>{l.desc}</Cell> },
+            { k: 'w', l: 'Supplier / Person', flex: 1.3, render: (l) => <Cell>{l.who || '—'}</Cell> },
+            { k: 'r', l: 'Ref', render: (l) => <Cell>{l.ref || '—'}</Cell> },
+            { k: 's', l: 'Status', render: (l) => <Cell>{l.status || '—'}</Cell> },
+            { k: 'n', l: 'Net £', sort: (l) => Number(l.net || 0), total: (rows) => money(rows.reduce((t, l) => t + Number(l.net || 0), 0)), render: (l) => <Cell>{money(l.net)}</Cell> },
+          ]}
+          footLabel={(rows) => howMany(rows.length)} />
+      ) : list.length ? list.map((l) => <FinRow key={l.key} title={l.desc} sub={[l.date ? fdate(l.date) : '', COST_CATS[l.cat] || (l.cat === 'committed' ? `Ordered (${COST_CATS[l.ccat || 'materials']})` : l.cat), l.who, l.ref, l.status].filter(Boolean).join(' · ')} right={money(l.net)} onPress={l.go ? () => router.push(l.go as never) : l.key.startsWith('jc:') ? () => openCost(l.key) : undefined} />) : <Empty>No costs yet.</Empty>}
       {edit && (
         <FinForm title={cur ? 'Cost' : 'Add a cost'} note="For costs without a purchase invoice in OpHUB — skips, fuel, travel, accommodation, site set-up. (Company overheads are added automatically — Finance › Settings › Company overheads.)"
           initial={cur ? { ...cur } : { category: types.length === 1 && COST_CATS[types[0]] && types[0] !== 'labour' ? types[0] : 'overheads', cost_date: today() }} onClose={() => setEdit(null)}

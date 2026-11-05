@@ -19,8 +19,9 @@ export const FIN_SECTIONS = [
 export const FIN_SUBS: Record<string, [string, string][]> = {
   sales: [['apps', 'Applications & Certificates'], ['invoices', 'Invoices'], ['retention', 'Retention']],
   // The current app's order: invoices first, then orders, statements, yard, plant hire, prices (9219z, 9219l, 9219m; cmp-fin 5 Nov 2026).
-  purchases: [['invoices', 'Purchase invoices'], ['orders', 'Purchase orders'], ['statements', 'Statements'], ['yard', 'Yard'], ['plant', 'Plant hire'], ['suppliers', 'Suppliers'], ['prices', 'Price lists']],
-  subs: [['opinv', 'Operative invoices'], ['wages', 'Wages to book'], ['payrun', 'Pay run'], ['orders', 'Subcontractor POs'], ['apps', 'Applications & Certificates'], ['cis', 'CIS'], ['rates', 'People & rates']],
+  purchases: [['invoices', 'Purchase Invoices'], ['orders', 'Purchase Orders'], ['statements', 'Statements'], ['yard', 'Yard'], ['plant', 'Plant Hire'], ['suppliers', 'Suppliers'], ['prices', 'Price Lists']],
+  // Every word capitalised, as the current app (9219x) and Andy's rule (cmp-fin 5 Nov 2026).
+  subs: [['opinv', 'Operative Invoices'], ['wages', 'Wages To Book'], ['payrun', 'Pay Run'], ['orders', 'Subcontractor POs'], ['apps', 'Applications & Certificates'], ['cis', 'CIS'], ['rates', 'People & Rates']],
   settings: [['general', 'Settings'], ['codes', 'Cost Codes'], ['templates', 'Templates'], ['team', 'Team']],
   directory: [['client', 'Clients'], ['supplier', 'Suppliers'], ['labour', 'Labour (CIS)']],
 };
@@ -79,7 +80,7 @@ export function FinJobTabs({ id, active, job, name, onOverview }: { id: string; 
   const invoiceJob = billing === 'invoice';
   // Variations sit inside the Bill of Quantities tab, unless an invoice job has no Bill.
   const current = active === 'variations' && !invoiceJob ? 'boq' : active;
-  const tabs: [string, string][] = [['overview', 'Overview'], ['sales', 'Sales'], ['purchases', 'Purchases'], ['subs', 'Subcontractors & Labour'], ...(invoiceJob ? [['variations', 'Variations'] as [string, string]] : [['boq', 'Bill of Quantities'] as [string, string]]), ['docs', 'Documents'], ['setup', 'Project Admin']];
+  const tabs: [string, string][] = [['overview', 'Overview'], ['sales', 'Sales'], ['purchases', 'Purchases'], ['subs', 'Subcontractors & Labour'], ...(invoiceJob ? [['variations', 'Variations'] as [string, string]] : [['boq', 'Bill Of Quantities'] as [string, string]]), ['docs', 'Documents'], ['setup', 'Project Admin']];
   // Swaps the page rather than stacking another on top: a Bill left open underneath would keep saving over this one.
   const go = (k: string) => { if (k === 'boq' || k === 'variations') router.replace(`/fin/job/${id}/${k}` as never); else if (onOverview) router.setParams({ tab: k }); else router.replace(`/fin/job/${id}?tab=${k}` as never); };
   return (
@@ -160,7 +161,7 @@ export function FinPage({ title, section, sub, onSub, badges, children, wide, to
           {section === 'overview' && <View style={{ backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 12, marginBottom: 10 }}><Text style={{ color: '#111827', fontSize: 12 }}>🔒 Finance trial — nothing is sent from Finance (no emails, no Xero, no pushes to PMs) while it&apos;s being tested.</Text></View>}
           {!!top && <FinMode.Provider value>{top}</FinMode.Provider>}
           {subs.length > 1 && onSub && (
-            <KeepInView on={sub} items={subs} render={(k, l) => <Pressable onPress={() => onSub(k)} style={{ paddingHorizontal: 10, paddingVertical: 6, borderBottomWidth: 2, borderColor: k === sub ? base.ink : 'transparent' }}><Text style={{ fontWeight: k === sub ? '800' : '600', color: k === sub ? base.ink : base.slate }}>{l}{badges?.[k] ? ` · ${badges[k]}` : ''}</Text></Pressable>} />
+            <KeepInView on={sub} items={subs} render={(k, l) => <Pressable onPress={() => onSub(k)} style={{ paddingHorizontal: 10, paddingVertical: 6, borderBottomWidth: 2, borderColor: k === sub ? base.ink : 'transparent' }}><View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}><Text style={{ fontWeight: k === sub ? '800' : '600', color: k === sub ? base.ink : base.slate }}>{l}</Text>{badges?.[k] ? <Text accessibilityLabel={`${badges[k]} waiting`} style={{ fontSize: 10.5, fontWeight: '700', color: '#B45309', backgroundColor: '#FDF1E0', borderRadius: 9, minWidth: 18, textAlign: 'center', paddingHorizontal: 5, overflow: 'hidden' }}>{badges[k]}</Text> : null}</View></Pressable>} />
           )}
           <FinMode.Provider value>{children}</FinMode.Provider>
         </>

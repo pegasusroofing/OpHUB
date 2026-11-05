@@ -1,0 +1,15 @@
+C:\Users\AndyCramp\OneDrive - RTB Roofing Ltd\RTB Roofing Ltd\Andy's Documents\Operative Hub App\GitHub\OpHUB\tools\test-harness\node_modules\playwright-core\lib\coreBundle.js:62247
+  return payloads.reduce((size, item) => size + (item.buffer ? item.buffer.byteLength : 0), 0) >= fileUploadSizeLimit2;
+                                                      ^
+
+TypeError: Cannot read properties of undefined (reading 'buffer')
+    at C:\Users\AndyCramp\OneDrive - RTB Roofing Ltd\RTB Roofing Ltd\Andy's Documents\Operative Hub App\GitHub\OpHUB\tools\test-harness\node_modules\playwright-core\lib\coreBundle.js:62247:55
+    at Array.reduce (<anonymous>)
+    at filePayloadExceedsSizeLimit (C:\Users\AndyCramp\OneDrive - RTB Roofing Ltd\RTB Roofing Ltd\Andy's Documents\Operative Hub App\GitHub\OpHUB\tools\test-harness\node_modules\playwright-core\lib\coreBundle.js:62247:19)
+    at convertInputFiles (C:\Users\AndyCramp\OneDrive - RTB Roofing Ltd\RTB Roofing Ltd\Andy's Documents\Operative Hub App\GitHub\OpHUB\tools\test-harness\node_modules\playwright-core\lib\coreBundle.js:62300:7)
+    at _ElementHandle.setInputFiles (C:\Users\AndyCramp\OneDrive - RTB Roofing Ltd\RTB Roofing Ltd\Andy's Documents\Operative Hub App\GitHub\OpHUB\tools\test-harness\node_modules\playwright-core\lib\coreBundle.js:62420:33)
+    at async FileChooser2.setFiles (C:\Users\AndyCramp\OneDrive - RTB Roofing Ltd\RTB Roofing Ltd\Andy's Documents\Operative Hub App\GitHub\OpHUB\tools\test-harness\node_modules\playwright-core\lib\coreBundle.js:62513:16)
+    at async C:\Users\AndyCramp\OneDrive - RTB Roofing Ltd\RTB Roofing Ltd\Andy's Documents\Operative Hub App\GitHub\OpHUB\tools\test-harness\stmt-check.js:34:3
+
+Node.js v24.19.0
+exit 1

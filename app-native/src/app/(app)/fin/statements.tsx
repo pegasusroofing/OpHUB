@@ -11,7 +11,7 @@ import { Text, TextInput, View } from 'react-native';
 import { FinForm } from '@/components/FinForm';
 import { FinPage, FinRow, FinStat } from '@/components/FinNav';
 import { Cell, FinTable } from '@/components/FinTable';
-import { PurchasesStats } from '@/components/FinPurchases';
+import { PurchasesStats, usePurchaseBadges } from '@/components/FinPurchases';
 import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
@@ -74,13 +74,14 @@ function List() {
   const toast = useToast();
   const qc = useQueryClient();
   const [q, setQ] = useState('');
+  const badges = usePurchaseBadges();
   const [busy, setBusy] = useState(false);
   const [nw, setNw] = useState<NewStmt | null>(null);
   const desk = useDesk(); // laptop: the current app's table and a small Upload button on the right (9219l; cmp-fin 5 Nov 2026)
   const { data = [], isLoading } = useQuery({ queryKey: ['finStmts', me?.org_id], enabled: !!me, queryFn: async () => (await selectAll<Row>('fin_statements', '*', (x) => x.eq('org_id', me?.org_id as string))).sort((a, b) => String(b.statement_date || b.created_at).localeCompare(String(a.statement_date || a.created_at))) });
   const list = data.filter((s) => !q.trim() || String(s.supplier_name).toLowerCase().includes(q.trim().toLowerCase()));
   return (
-    <FinPage title="Statements" section="purchases" sub="statements" top={<PurchasesStats />} onSub={(k) => { if (k !== 'statements') router.replace((k === 'yard' ? '/fin/yard' : `/fin/purchases?tab=${k}`) as never); }}>
+    <FinPage title="Statements" section="purchases" badges={badges} sub="statements" top={<PurchasesStats />} onSub={(k) => { if (k !== 'statements') router.replace((k === 'yard' ? '/fin/yard' : `/fin/purchases?tab=${k}`) as never); }}>
       <Muted style={{ marginBottom: 8 }}>Supplier statements matched to the purchase invoices you hold — by invoice number, or amount and date. Upload a statement (PDF, Excel or CSV) and its lines are read and matched. Nothing leaves OpHUB.</Muted>
       <View style={desk ? { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 8 } : undefined}><Button busy={busy} title="⬆ Upload a statement" onPress={async () => {
         const r = await DocumentPicker.getDocumentAsync({ type: ['application/pdf', 'text/csv', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', '*/*'], copyToCacheDirectory: true });

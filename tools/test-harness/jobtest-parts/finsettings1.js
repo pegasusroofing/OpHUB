@@ -44,11 +44,11 @@ module.exports = async ({as, step}) => {
     await a.go('/fin/reports?id=' + (process.env.REP || 'wip'), 7000); await a.page.waitForTimeout(3000); await a.shot('report');
     return {ok: true, note: n + ' matches; ' + (await first.count()) + ' rows'};
   });
-  await step('Statements and People & rates keep their tabs', async () => {
+  await step('Statements and People & Rates keep their tabs', async () => {
     await a.go('/fin/purchases', 5000); await a.page.waitForTimeout(1500); await tap('Statements'); await a.shot('st');
     const s = await a.page.getByText('Purchase orders', {exact: true}).locator('visible=true').count();
-    await a.go('/fin/subs', 5000); await a.page.waitForTimeout(1500); await tap('People & rates'); await a.shot('rates');
-    const p = await a.page.getByText('Pay run', {exact: true}).locator('visible=true').count();
+    await a.go('/fin/subs', 5000); await a.page.waitForTimeout(1500); await tap('People & Rates'); await a.shot('rates');
+    const p = await a.page.getByText('Pay Run', {exact: true}).locator('visible=true').count();
     return {ok: s > 0 && p > 0, note: 'statements ' + s + ', rates ' + p};
   });
 };

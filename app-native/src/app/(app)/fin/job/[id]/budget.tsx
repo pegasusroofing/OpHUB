@@ -2,9 +2,9 @@
 // optional "cost to complete" per heading; actual, ordered and forecast final cost. "Set budgets from a
 // target margin" (9219zm): the money left for costs after the margin and company overheads, split across the headings.
 import { useQueryClient } from '@tanstack/react-query';
-import { Stack, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
-import { ScrollView, Text, TextInput, View } from 'react-native';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { useState, type ReactNode } from 'react';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Muted, SectionTitle } from '@/components/ui';
@@ -13,7 +13,7 @@ import { useBook } from '@/data/finBook';
 import { useAuth } from '@/lib/auth';
 import { COST_CATS, forecast, pctTxt } from '@/lib/rules/finBook';
 import { money, num, round2 } from '@/lib/rules/finance';
-import { base, page, radius, space } from '@/theme/theme';
+import { base, page, radius, space, useDesk } from '@/theme/theme';
 
 // The usual split of the cost budget (9219zm FIN_BUD_SPLIT_DEF).
 const SPLIT: Record<string, number> = { materials: 45, labour: 30, plant: 5, subcontract: 10, overheads: 7, other: 3 };
@@ -25,6 +25,7 @@ export default function FinBudget() {
   const toast = useToast();
   const qc = useQueryClient();
   const { data } = useBook(me?.org_id, id);
+  const desk = useDesk(); // laptop: the current app's Cost By Heading table and spent / ordered bar (911; cmp-fin 5 Nov 2026)
   const [v, setV] = useState<Record<string, { budget: string; tc: string }> | null>(null);
   const [busy, setBusy] = useState(false);
   const [tgtOpen, setTgtOpen] = useState(false);
@@ -66,9 +67,15 @@ export default function FinBudget() {
             <View key={l} style={{ flex: 1 }}><Muted style={{ fontSize: 11.5, fontWeight: '500' }}>{l}</Muted><Text style={{ fontSize: 17, fontWeight: '600', color: base.ink }}>{x}</Text></View>
           ))}
         </View>
+        {(() => { const whole = Math.max(budgetNow || 0, finalCost, fc.costToDate + fc.committedTotal) || 1; return (
+          <View style={{ flexDirection: 'row', height: 8, borderRadius: 4, overflow: 'hidden', backgroundColor: '#EEF0F2', marginTop: 10 }}>
+            <View style={{ width: `${Math.min(100, (fc.costToDate / whole) * 100)}%`, backgroundColor: '#14161C' }} />
+            <View style={{ width: `${Math.min(100, (fc.committedTotal / whole) * 100)}%`, backgroundColor: '#9CA3AF' }} />
+          </View>
+        ); })()}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 14, marginTop: 8 }}>
-          <Muted>Spent {money(fc.costToDate, 0)}</Muted>
-          <Muted>Ordered {money(fc.committedTotal, 0)}</Muted>
+          <Muted>● Spent {money(fc.costToDate, 0)}</Muted>
+          <Muted style={{ color: '#6B7280' }}>● Ordered {money(fc.committedTotal, 0)}</Muted>
           {budgetNow !== null && <Text style={{ marginLeft: 'auto', fontSize: 12, fontWeight: '500', color: base.ink }}>Left {money(Math.max(0, round2(budgetNow - fc.costToDate - fc.committedTotal)), 0)}</Text>}
         </View>
         <Text style={{ marginTop: 10, fontSize: 13, fontWeight: budgetNow === null ? '400' : '600', borderRadius: 10, padding: 8, overflow: 'hidden', backgroundColor: budgetNow === null ? '#F6F7F9' : over > 0.5 ? '#FDEEEE' : '#EAF7EF', color: budgetNow === null ? '#4B5563' : over > 0.5 ? '#C81E1E' : '#1E7A3C' }}>
@@ -109,7 +116,44 @@ export default function FinBudget() {
           );
         })()}
       </Card>
-      {fc.cats.map((k) => {
+      {desk ? (
+        <Card>
+          <Text style={{ fontSize: 16, fontWeight: '600', color: base.ink }}>Cost By Heading</Text>
+          <Muted style={{ marginBottom: 10 }}>Set a budget for each heading. Cost to complete is what you expect still to spend — leave it blank and it&apos;s worked out as budget less spent and ordered.</Muted>
+          {(() => {
+            const W = [1.4, 1.1, 0.9, 0.9, 1.1, 1, 1, 0.8];
+            const head = ['Heading', 'Budget £', 'Spent', 'Ordered', 'To Complete £', 'Forecast Final', 'Over / Under', 'Used'];
+            const C = (i: number, children?: ReactNode, left?: boolean) => <View key={i} style={{ flex: W[i], paddingHorizontal: 4, alignItems: left ? 'flex-start' : 'flex-end', justifyContent: 'center' }}>{children}</View>;
+            const T = (children: ReactNode, bold?: boolean, tone?: string) => <Text style={{ fontSize: 13, fontWeight: bold ? '600' : '400', color: tone || base.ink }}>{children}</Text>;
+            const totTc = round2(lines.reduce((t, l) => t + l.tc, 0));
+            return (
+              <View>
+                <View style={{ flexDirection: 'row', paddingVertical: 8, backgroundColor: '#F6F7F9', borderRadius: 6 }}>{head.map((h, i) => C(i, <Text style={{ fontSize: 11, fontWeight: '600', letterSpacing: 0.4, color: base.slate, textTransform: 'uppercase' }}>{h}</Text>, i === 0))}</View>
+                {fc.cats.map((k) => {
+                  const { budget: b, final } = line(k), diff = b !== null ? round2(final - b) : null;
+                  const used = b ? Math.min(100, ((fc.actual[k] + fc.committed[k]) / b) * 100) : 0;
+                  return (
+                    <View key={k} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#F0F1F4' }}>
+                      {C(0, T(COST_CATS[k]), true)}
+                      {C(1, <TextInput value={vals[k].budget} onChangeText={(x) => set(k, 'budget', x)} keyboardType="decimal-pad" placeholder="£0.00" accessibilityLabel={`${COST_CATS[k]} budget`} style={[box, { width: '100%', textAlign: 'right' }]} />)}
+                      {C(2, <Pressable onPress={() => router.push(`/fin/job/${id}/costs?type=${k}` as never)} accessibilityRole="link"><Text style={{ fontSize: 13, color: base.blue, textDecorationLine: 'underline' }}>{money(fc.actual[k])}</Text></Pressable>)}
+                      {C(3, T(money(fc.committed[k])))}
+                      {C(4, <TextInput value={vals[k].tc} onChangeText={(x) => set(k, 'tc', x)} keyboardType="decimal-pad" placeholder={money(fc.toComplete[k] || 0)} accessibilityLabel={`${COST_CATS[k]} to complete`} style={[box, { width: '100%', textAlign: 'right' }]} />)}
+                      {C(5, T(money(final)))}
+                      {C(6, diff === null ? T(<>—</>, false, base.slate) : T(<>{diff > 0.5 ? 'over' : 'under'} {money(Math.abs(diff))}</>, false, diff > 0.5 ? base.red : '#1E7A43'))}
+                      {C(7, <View style={{ width: '100%', height: 6, borderRadius: 3, backgroundColor: '#EEF0F2', overflow: 'hidden' }}><View style={{ width: `${used}%`, height: 6, backgroundColor: diff !== null && diff > 0.5 ? base.red : '#14161C' }} /></View>)}
+                    </View>
+                  );
+                })}
+                <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderTopWidth: 1, borderTopColor: base.line, backgroundColor: '#F6F7F9', borderRadius: 6 }}>
+                  {C(0, T(<>Total</>, true), true)}{C(1, T(budgetNow !== null ? money(budgetNow) : '—', true))}{C(2, T(money(fc.costToDate), true))}{C(3, T(money(fc.committedTotal), true))}
+                  {C(4, T(money(totTc), true))}{C(5, T(money(finalCost), true))}{C(6, budgetNow !== null ? T(<>{over > 0.5 ? 'over' : 'under'} {money(Math.abs(over))}</>, true, over > 0.5 ? base.red : '#1E7A43') : T("—"))}{C(7)}
+                </View>
+              </View>
+            );
+          })()}
+        </Card>
+      ) : fc.cats.map((k) => {
         const { budget: b, tc, final } = line(k), diff = b !== null ? round2(final - b) : null;
         return (
           <Card key={k}>
@@ -122,12 +166,12 @@ export default function FinBudget() {
           </Card>
         );
       })}
-      <Card style={{ gap: 4 }}>
+      {!desk && <Card style={{ gap: 4 }}>
         <Text style={{ fontWeight: '600', color: base.ink }}>Total</Text>
         {([['Budget', budgetNow !== null ? money(budgetNow) : '—'], ['Spent', money(fc.costToDate)], ['Ordered', money(fc.committedTotal)], ['To complete', money(round2(lines.reduce((t, l) => t + l.tc, 0)))], ['Forecast final', money(finalCost)], ...(budgetNow !== null ? [[over > 0.5 ? 'Over' : 'Under', money(Math.abs(over))]] : [])] as string[][]).map(([l, x]) => (
           <View key={l} style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Muted>{l}</Muted><Text style={{ color: base.ink, fontWeight: '500' }}>{x}</Text></View>
         ))}
-      </Card>
+      </Card>}
       <SectionTitle>Value</SectionTitle>
       <Card style={{ gap: 4 }}>
         {([['Contract value', money(fc.contract)], ['Variations agreed', money(fc.vAgreed)], ['Variations priced or submitted (not agreed)', money(fc.vPending)], ...(fc.vInstructed ? [['Instructed, not priced yet (estimate, not included)', money(fc.vInstructed)]] : []), ['Forecast final account (incl. submitted variations)', money(fc.ffa)], ...(fc.ohpPct ? [[`Company overheads (OHP) ${fc.ohpPct}% of the final account`, `−${money(fc.ohpForecast || 0)}`]] : []), ['Valuation to date (last application)', money(fc.valuation)], ['Invoiced', money(fc.invoiced)]] as string[][]).map(([l, x]) => (

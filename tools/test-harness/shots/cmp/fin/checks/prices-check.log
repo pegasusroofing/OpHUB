@@ -1,0 +1,9 @@
+PASS 1300: no separate Price Book tab
+PASS 1300: Price Lists opens on the Price Book tab
+PASS 1300: second tab shows the Price lists
+PASS 1300: no errors 
+PASS 390: no separate Price Book tab
+PASS 390: Price Lists opens on the Price Book tab
+PASS 390: second tab shows the Price lists
+PASS 390: no errors 
+exit 0

@@ -76,7 +76,8 @@ export default function OneDriveAdmin() {
           <Card key={s.id} style={{ padding: 10 }}>
             <Pressable onPress={() => setOpen(open === s.id ? null : s.id)} style={{ flexDirection: 'row', alignItems: 'center' }}>
               <Text style={{ flex: 1, fontWeight: '700', color: base.ink }}>{s.name}</Text>
-              <Muted>{n ? `${n} linked` : 'Not linked'} {open === s.id ? '▾' : '▸'}</Muted>
+              {/* "0/2 linked" as the current app (260): inductions only count on Main Contractor jobs. */}
+              <Muted>{n}/{links.filter(([t]) => t !== 'siteinductions' || mc).length} linked {open === s.id ? '▾' : '▸'}</Muted>
             </Pressable>
             {open === s.id && !!s.onedrive_folder_id && <Button small kind="ghost" busy={syncing === s.id} title="🔄 Sync now" onPress={async () => { setSyncing(s.id); toast(await syncSiteFolder(me, s as never, () => undefined)); setSyncing(''); refresh(); }} />}
             {open === s.id && links.filter(([t]) => t !== 'siteinductions' || mc).map(([t, label, fid, fname]) => (

@@ -13,7 +13,7 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { FinFilterBar, type FilterPart, type FilterSel } from '@/components/FinFilterBar';
 import { FinChip, FinRow, FinStat } from '@/components/FinNav';
-import { Cell, FinTable, FootText } from '@/components/FinTable';
+import { Cell, FinChoicePop, FinTable, FootPick } from '@/components/FinTable';
 import { pickJob } from '@/components/FinSales';
 import { chooseAction, confirmAsk, useToast } from '@/components/toast';
 import { Button, Empty, Muted } from '@/components/ui';
@@ -93,7 +93,7 @@ export function usePurchases(orgId: string | null | undefined, siteId?: string) 
   });
 }
 
-export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoices' | 'plant' | 'suppliers'; siteId?: string; f?: string }) {
+export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoices' | 'plant' | 'suppliers' | 'all'; siteId?: string; f?: string }) {
   const { me } = useAuth();
   const { data: sites = [] } = useSites();
   const { data } = usePurchases(me?.org_id, siteId);
@@ -103,6 +103,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
   const [sort, setSort] = useState('new');
   const [val, setVal] = useState('');
   const [q, setQ] = useState('');
+  const [monAt, setMonAt] = useState<{ x: number; y: number } | null>(null); // the laptop's "All months" picker on the totals bar
   const { data: grn = {} } = useQuery({
     queryKey: ['finPoGrn', me?.org_id], enabled: !!me && tab === 'invoices',
     queryFn: async () => {
@@ -165,6 +166,14 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
     ...(siteId ? [] : [{ key: 'job', label: 'Project', items: jobIds.map((id) => ({ v: id, l: jobTag(site(id)) })) }]),
     { key: 'mon', label: 'Month', items: monthsIn([...data.pos, ...data.pinvs, ...data.hires], mOf).map((m) => ({ v: m, l: monthLabel(m) })) },
   ];
+  // Laptop: the current app's "All months" picker on the totals bar (9219b; cmp-fin 5 Nov 2026).
+  const allMonths = monthsIn([...data.pos, ...data.pinvs, ...data.hires], mOf);
+  const monthPick = siteId ? undefined : (
+    <>
+      <FootPick label={sel.mon[0] ? monthLabel(sel.mon[0]) : 'All months'} onPress={(x, y) => setMonAt({ x, y })} />
+      <FinChoicePop at={monAt} value={sel.mon[0] || ''} options={[['', 'All months'], ...allMonths.map((m) => [m, monthLabel(m)] as [string, string])]} onPick={(m) => setFilt({ ...sel, mon: m ? [m] : [] })} onClose={() => setMonAt(null)} />
+    </>
+  );
   const bar = (ph: string, parts: FilterPart[] = [], cur?: FilterSel) => desk ? (() => {
     const show = parts.find((p) => p.single);
     // Lists drawn as cards have no headings to search by, so they keep a slim search box.
@@ -208,12 +217,12 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
               { k: 'sup', l: 'Supplier', flex: 1.3, min: 130, render: (p: Row) => <Cell>{p.supplier_name || '—'}</Cell> },
               ...(siteId ? [] : [{ k: 'p', l: 'Project', flex: 1.6, min: 160, render: (p: Row) => <Cell>{jobTag(site(p.site_id))}</Cell> }]),
               { k: 'd', l: 'Date', sort: (p: Row) => String(p.issue_date || p.created_at || ''), render: (p: Row) => <Cell>{fdate(String(p.issue_date || p.created_at || '').slice(0, 10))}</Cell> },
-              { k: 'v', l: 'Value', render: (p: Row) => <Cell>{p.value != null ? money(p.value) : '—'}</Cell> },
-              { k: 'i', l: 'Invoiced', render: (p: Row) => <Cell>{money(poInvoiced(p, live))}</Cell> },
-              { k: 'l', l: 'Left To Invoice', render: (p: Row) => <Cell>{p.value != null ? money(Math.max(0, round2(Number(p.value) - poInvoiced(p, live)))) : '—'}</Cell> },
+              { k: 'v', l: 'Value', total: (l: Row[]) => money(l.reduce((t, p) => t + Number(p.value || 0), 0)), render: (p: Row) => <Cell>{p.value != null ? money(p.value) : '—'}</Cell> },
+              { k: 'i', l: 'Invoiced', total: (l: Row[]) => money(l.reduce((t, p) => t + poInvoiced(p, live), 0)), render: (p: Row) => <Cell>{money(poInvoiced(p, live))}</Cell> },
+              { k: 'l', l: 'Left To Invoice', total: (l: Row[]) => money(l.reduce((t, p) => t + (p.value != null ? Math.max(0, round2(Number(p.value) - poInvoiced(p, live))) : 0), 0)), render: (p: Row) => <Cell>{p.value != null ? money(Math.max(0, round2(Number(p.value) - poInvoiced(p, live)))) : '—'}</Cell> },
               { k: 's', l: 'Status', noSort: true, choices: ['Open', 'Invoiced', 'Cancelled', 'Draft'], render: (p: Row) => <Text style={{ fontSize: 10.5, fontWeight: '600', color: p.status === 'open' ? '#1d4ed8' : '#6b7280', backgroundColor: p.status === 'open' ? '#EEF3FD' : '#EEF0F2', borderRadius: 999, paddingVertical: 3, paddingHorizontal: 9, overflow: 'hidden' }}>● {PO_STATUS[p.status] || p.status}</Text> },
             ]}
-            foot={(list) => <><FootText bold>{list.length} shown</FootText><FootText>Value {money(list.reduce((t, p) => t + Number(p.value || 0), 0))}</FootText><FootText>Invoiced {money(list.reduce((t, p) => t + poInvoiced(p, live), 0))}</FootText></>} />
+            footLabel={(list) => `${list.length} shown`} footRight={monthPick} />
         ) : list.length ? list.map((p) => { const inv = poInvoiced(p, live), left = p.value != null ? Math.max(0, round2(Number(p.value) - inv)) : null; return (
           <FinRow compact key={p.id} left={p.number} title={p.supplier_name || '—'} sub={[siteId ? '' : jobTag(site(p.site_id)), fdate(String(p.issue_date || p.created_at || '').slice(0, 10)), PO_STATUS[p.status] || p.status, `invoiced ${money(inv)}`, left != null && p.status === 'open' ? `${money(left)} left` : ''].filter(Boolean).join(' · ')} right={p.value != null ? money(p.value) : 'No value'} onPress={() => router.push(`/fin/po/${p.id}` as never)} />
         ); }) : <Empty>No purchase orders here.</Empty>}
@@ -294,14 +303,14 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
                     { k: 'no', l: 'Invoice No.', min: 76, render: (i: Row) => <Cell>{i.invoice_no || '—'}</Cell> },
                     ...(siteId ? [] : [{ k: 'p', l: 'Project', flex: 1.5, min: 120, render: (i: Row) => <Cell>{jobTag(site(i.site_id))}</Cell> }]),
                     { k: 'd', l: 'Date', min: 72, sort: (i: Row) => String(i.invoice_date || ''), render: (i: Row) => <Cell>{fdate(i.invoice_date)}</Cell> },
-                    { k: 'n', l: 'Net', min: 72, render: (i: Row) => <Cell>{money(i.net)}</Cell> },
-                    { k: 'v', l: 'VAT', min: 64, render: (i: Row) => <Cell>{money(i.vat)}</Cell> },
-                    { k: 't', l: 'Gross', min: 72, render: (i: Row) => <Cell bold>{money(i.total)}</Cell> },
+                    { k: 'n', l: 'Net', min: 72, total: (l: Row[]) => money(l.reduce((t, i) => t + Number(i.net || 0), 0)), render: (i: Row) => <Cell>{money(i.net)}</Cell> },
+                    { k: 'v', l: 'VAT', min: 64, total: (l: Row[]) => money(l.reduce((t, i) => t + Number(i.vat || 0), 0)), render: (i: Row) => <Cell>{money(i.vat)}</Cell> },
+                    { k: 't', l: 'Gross', min: 72, total: (l: Row[]) => money(l.reduce((t, i) => t + Number(i.total || 0), 0)), render: (i: Row) => <Cell bold>{money(i.total)}</Cell> },
                     { k: 'po', l: 'PO', min: 70, render: (i: Row) => <Cell>{posBy[i.po_id] ? posBy[i.po_id].number : 'No PO'}</Cell> },
                     { k: 'ch', l: 'Checks', flex: 1.2, min: 92, render: (i: Row) => <View style={{ alignItems: 'center', gap: 2 }}>{checks(i).map(([t, c]) => <Text key={t} style={{ fontSize: 10.5, fontWeight: '500', color: c, textAlign: 'center' }}>{t}</Text>)}</View> },
                     { k: 's', l: 'Status', min: 72, noSort: true, choices: ['To approve', 'Approved', 'Query', 'Rejected', 'Paid'], render: (i: Row) => <Cell tone={i.status === 'query' ? '#C0392B' : undefined}>{i.paid_on ? 'Paid' : PI_STATUS[i.status] || i.status}</Cell> },
                   ]}
-                  foot={(list) => <><FootText bold>{list.length} shown</FootText><FootText>Net {money(list.reduce((t, i) => t + Number(i.net || 0), 0))}</FootText><FootText>VAT {money(list.reduce((t, i) => t + Number(i.vat || 0), 0))}</FootText><FootText>Gross {money(list.reduce((t, i) => t + Number(i.total || 0), 0))}</FootText></>} /></>
+                  footLabel={(list) => `${list.length} shown`} footRight={monthPick} /></>
               );
               return list.length ? (
                 <>
@@ -313,6 +322,33 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
             })()}
           </>
         )}
+      </View>
+    );
+  }
+  // A project's "All" tab (9219y): every purchase invoice, order and plant hire on the job, newest first, with the total spend.
+  if (tab === 'all') {
+    type Any = { id: string; kind: string; ref: string; who: string; date: string; net: number; status: string; go: string };
+    const all: Any[] = [
+      ...live.map((i) => ({ id: `pi${i.id}`, kind: 'Purchase invoice', ref: i.invoice_no || '—', who: i.supplier_name || 'Supplier', date: String(i.invoice_date || ''), net: Number(i.net || 0), status: i.paid_on ? 'Paid' : PI_STATUS[i.status] || i.status, go: `/fin/pinv/${i.id}` })),
+      ...data.pos.map((p) => ({ id: `po${p.id}`, kind: 'Purchase order', ref: p.number || '—', who: p.supplier_name || '—', date: String(p.issue_date || p.created_at || '').slice(0, 10), net: Number(p.value || 0), status: PO_STATUS[p.status] || p.status, go: `/fin/po/${p.id}` })),
+      ...data.hires.map((h) => ({ id: `ph${h.id}`, kind: 'Plant hire', ref: h.item || '—', who: h.supplier_name || '—', date: String(h.on_hire || ''), net: plantCost(h as never).cost, status: h.off_hire ? 'Off hire' : 'On hire', go: `/fin/plant/${h.id}` })),
+    ].filter((x) => hit(x.kind, x.ref, x.who)).sort((a, b) => b.date.localeCompare(a.date));
+    const spend = round2(live.reduce((t, i) => t + Number(i.net || 0), 0));
+    return (
+      <View>
+        <Muted style={{ marginBottom: 10 }}>Total spend (purchase invoices, net): {money(spend)}.</Muted>
+        {desk && all.length ? (
+          <FinTable rows={all} keyOf={(x) => x.id} onRow={(x) => router.push(x.go as never)}
+            cols={[
+              { k: 'k', l: 'Type', choices: ['Purchase invoice', 'Purchase order', 'Plant hire'], render: (x: Any) => <Cell>{x.kind}</Cell> },
+              { k: 'r', l: 'Ref', render: (x: Any) => <Cell bold>{x.ref}</Cell> },
+              { k: 'w', l: 'Supplier', flex: 1.3, render: (x: Any) => <Cell>{x.who}</Cell> },
+              { k: 'd', l: 'Date', sort: (x: Any) => x.date, render: (x: Any) => <Cell>{x.date ? fdate(x.date) : '—'}</Cell> },
+              { k: 'n', l: 'Net', sort: (x: Any) => x.net, total: (l: Any[]) => money(l.reduce((t, x) => t + x.net, 0)), render: (x: Any) => <Cell>{money(x.net)}</Cell> },
+              { k: 's', l: 'Status', render: (x: Any) => <Cell>{x.status}</Cell> },
+            ]}
+            footLabel={(l) => `${l.length} shown`} />
+        ) : all.length ? all.map((x) => <FinRow compact key={x.id} title={`${x.kind} · ${x.ref}`} sub={[x.who, x.date ? fdate(x.date) : '', x.status].filter(Boolean).join(' · ')} right={money(x.net)} onPress={() => router.push(x.go as never)} />) : <Empty>Nothing bought for this project yet.</Empty>}
       </View>
     );
   }
@@ -331,10 +367,10 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
               ...(siteId ? [] : [{ k: 'p', l: 'Project', render: (h: Row) => <Cell>{jobTag(site(h.site_id))}</Cell> }]),
               { k: 'on', l: 'On Hire', sort: (h: Row) => String(h.on_hire || ''), render: (h: Row) => <Cell>{h.on_hire ? fdate(h.on_hire) : '—'}</Cell> },
               { k: 'off', l: 'Off Hire', sort: (h: Row) => String(h.off_hire || ''), render: (h: Row) => <Cell>{h.off_hire ? fdate(h.off_hire) : '—'}</Cell> },
-              { k: 'c', l: 'Cost To Date', sort: (h: Row) => plantCost(h as never).cost, render: (h: Row) => <Cell>{money(plantCost(h as never).cost)}</Cell> },
+              { k: 'c', l: 'Cost To Date', total: (l: Row[]) => money(l.reduce((t, h) => t + plantCost(h as never).cost, 0)), sort: (h: Row) => plantCost(h as never).cost, render: (h: Row) => <Cell>{money(plantCost(h as never).cost)}</Cell> },
               { k: 'st', l: 'Status', noSort: true, render: (h: Row) => { const c = plantCost(h as never), long = !h.off_hire && c.days > 28; return <Cell tone={h.off_hire ? undefined : long ? '#C0392B' : '#1E7A43'}>{h.off_hire ? 'Off hire' : `On hire ${c.weeks} wk`}</Cell>; } },
             ]}
-            foot={(left) => <><FootText bold>{left.length} shown</FootText><FootText>Cost to date {money(left.reduce((t, h) => t + plantCost(h as never).cost, 0))}</FootText></>} />
+            footLabel={(left) => `${left.length} shown`} />
         ) : list.length ? list.map((h) => { const c = plantCost(h as never), long = !h.off_hire && c.days > 28; return (
           <FinRow compact key={h.id} title={h.item} sub={[h.supplier_name, siteId ? '' : jobTag(site(h.site_id)), `on ${fdate(h.on_hire)}`, h.off_hire ? `off ${fdate(h.off_hire)}` : `on hire ${c.weeks} wk${long ? ' — over 4 weeks' : ''}`].filter(Boolean).join(' · ')} right={money(c.cost)} tone={long ? '#D98A00' : undefined} onPress={() => router.push(`/fin/plant/${h.id}` as never)} />
         ); }) : <Empty>No plant hire.</Empty>}
@@ -355,6 +391,12 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
   );
 }
 
+/** Sub-tab counts: purchase invoices waiting for a project or to be approved (9219b needJob + toApprove). */
+export function usePurchaseBadges(): Record<string, number> | undefined {
+  const { me } = useAuth();
+  const { data } = usePurchases(me?.org_id);
+  return data ? { invoices: data.inbox.filter((i) => i.stage !== 'with_pm').length + data.pinvs.filter((i) => ['to_approve', 'query'].includes(i.status)).length } : undefined;
+}
 export function PurchasesStats() {
   const { me } = useAuth();
   const { data } = usePurchases(me?.org_id);

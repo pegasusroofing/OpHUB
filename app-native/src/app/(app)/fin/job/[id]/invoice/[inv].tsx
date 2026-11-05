@@ -280,7 +280,8 @@ function Issued({ inv, pays, site }: { inv: Row; pays: Row[]; site: Row | undefi
       <Card>
         {(inv.lines || []).map((l: Row, i: number) => <FinRow key={i} title={l.description || ''} sub={t.mixed ? INV_VAT[lineVat(l, inv.vat_treatment, inv.vat_rate)].l : undefined} right={money(l.amount)} tone={minusTone(l.amount)} />)}
         <FinRow title="Net" right={money(t.net)} /><FinRow title="VAT" right={money(t.vat)} /><FinRow title="Total" right={money(t.total)} />
-        {t.vatDue ? <Muted>Reverse charge VAT {money(t.vatDue)} — paid by the client to HMRC.</Muted> : null}
+        {/* The current app's yellow reverse-charge box (901). */}
+        {t.vatDue ? <View style={{ marginTop: 8, backgroundColor: '#FFFAF0', borderWidth: 1, borderColor: '#F8E7C2', borderRadius: 10, padding: 10, gap: 4 }}><View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Muted>Reverse Charge VAT · client pays HMRC</Muted><Text style={{ fontWeight: '600', color: base.ink }}>{money(t.vatDue)}</Text></View><Muted style={{ fontSize: 12 }}>Domestic reverse charge on {money(t.net)} — not added to the total; printed on the invoice and sent to Xero.</Muted></View> : null}
       </Card>
       {mailing && (
         <FinEmailPopup kind="invoice" title={`Email Invoice ${inv.number || ''}`} to={inv.bill_email || site?.client_email || ''}

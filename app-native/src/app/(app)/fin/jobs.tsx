@@ -71,6 +71,13 @@ export default function FinJobs() {
   if (range && !desk) shown = shown.filter((s) => { const d = startOf(s); return !!d && d >= range[0] && d <= range[1]; });
   if (vt && !desk) shown = shown.filter((s) => vt(Number(data?.jfBy[s.id]?.contract_value || 0)));
   shown = shown.slice().sort((a, b) => nm(a).localeCompare(nm(b), 'en-GB', { sensitivity: 'base' }));
+  // Start › Choose dates…: ask for the dates, then filter (the drop-down on the Start heading).
+  const pickStart = async (k: string, v: string) => {
+    if (k !== 'start' || v !== 'custom') return true;
+    const from = await askDate('Start dates from'); if (from === null) return false;
+    const to = await askDate('Start dates to', { min: from || undefined }); if (to === null) return false;
+    setCustom({ from: from || undefined, to: to || undefined }); return true;
+  };
   const pms = Array.from(new Set(sites.map((s) => s.responsible_pm_id).filter(Boolean))) as string[];
   // A running tally of whatever the filters leave showing (Andy, 2 Nov 2026).
   const valueOf = (list: typeof shown) => list.reduce((t, s) => t + Number(data?.jfBy[s.id]?.contract_value || 0), 0);
@@ -93,16 +100,21 @@ export default function FinJobs() {
         ]}
         more={<TextInput value={val} onChangeText={setVal} placeholder="Value e.g. >50k, 25k-100k" style={[box, { fontSize: 16 }, val && !vt ? { borderColor: '#C0392B' } : null]} />} />}
       {!data ? <Muted>Loading…</Muted> : desk && shown.length ? (
-        <FinTable rows={shown} keyOf={(s) => s.id} onRow={(s) => router.push(`/fin/job/${s.id}` as never)} defaultSort={{ k: 'name', dir: 'asc' }} startFilter={{ st: ['Live'] }}
+        <FinTable colsKey="jobs" onPick={pickStart} rows={shown} keyOf={(s) => s.id} onRow={(s) => router.push(`/fin/job/${s.id}` as never)} defaultSort={{ k: 'name', dir: 'asc' }} startFilter={{ st: ['Live'] }}
           cols={[
-            { k: 'no', l: 'Job No', min: 90, flex: 0.8, sort: (s) => s.job_number || '', render: (s) => <Text style={{ fontSize: 11, fontWeight: '600', color: t.brand1, borderWidth: 1.5, borderColor: t.brand1, borderRadius: 8, paddingVertical: 4, paddingHorizontal: 10, overflow: 'hidden' }}>{s.job_number || '—'}</Text> },
-            { k: 'name', l: 'Project', flex: 2.7, min: 230, render: (s) => <Cell bold>{s.name}</Cell> },
+            { k: 'no', l: 'Job No', lock: true, min: 90, flex: 0.8, sort: (s) => s.job_number || '', render: (s) => <Text style={{ fontSize: 11, fontWeight: '600', color: t.brand1, borderWidth: 1.5, borderColor: t.brand1, borderRadius: 8, paddingVertical: 4, paddingHorizontal: 10, overflow: 'hidden' }}>{s.job_number || '—'}</Text> },
+            { k: 'name', l: 'Project', lock: true, flex: 2.7, min: 230, render: (s) => <Cell bold>{s.name}</Cell> },
             { k: 'cli', l: 'Client', flex: 1.5, min: 150, render: (s) => <Cell bold>{cliOf(s) || '—'}</Cell> },
             { k: 'po', l: 'Client PO', render: (s) => { const po = (data.posBy[s.id] || []).join(', '); return po ? <Cell>{po}</Cell> : <Cell tone="#D97706">No PO</Cell>; } },
             { k: 'pm', l: 'PM', flex: 0.5, min: 56, render: (s) => <Cell>{pmName(s.responsible_pm_id) || '—'}</Cell> },
             { k: 'st', l: 'Status', flex: 0.6, min: 88, noSort: true, choices: ['Live', 'Upcoming', 'Closed'], render: (s) => { const k = finStatus(s); const c = k === 'live' ? ['#E7F6EC', '#1E7A43'] : k === 'upcoming' ? ['#FDF1E6', '#B35A00'] : ['#EEF0F2', '#6b7280']; return <Text numberOfLines={1} style={{ fontSize: 10.5, fontWeight: '600', color: c[1], backgroundColor: c[0], borderRadius: 999, paddingVertical: 3, paddingHorizontal: 7, overflow: 'hidden' }}>{k[0].toUpperCase() + k.slice(1)}</Text>; } },
-            { k: 'start', l: 'Start', sort: (s) => String(s.start_date || (s as { created_at?: string }).created_at || '').slice(0, 10), render: (s) => { const d = s.start_date || (s as { created_at?: string }).created_at; return <Cell>{d ? new Date(String(d).slice(0, 10) + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</Cell>; } },
-            { k: 'v', l: 'Value', sort: (s) => Number(data.jfBy[s.id]?.contract_value || 0) || null, render: (s) => { const v = Number(data.jfBy[s.id]?.contract_value || 0), m = data.m[s.id]; return <Cell tone={m?.overdue ? '#C0392B' : undefined}>{v ? money(v, 0) : '—'}</Cell>; } },
+            { k: 'start', l: 'Start', pick: DATE_RANGES.map(([k, l]) => ({ v: k, l: k === 'custom' && (custom.from || custom.to) ? `${custom.from ? fdate(custom.from) : '…'} – ${custom.to ? fdate(custom.to) : '…'}` : l, test: k ? (s: SiteX) => { const r = dateRange(k, today(), custom), d = startOf(s); return !r || (!!d && d >= r[0] && d <= r[1]); } : undefined })), sort: (s) => String(s.start_date || (s as { created_at?: string }).created_at || '').slice(0, 10), render: (s) => { const d = s.start_date || (s as { created_at?: string }).created_at; return <Cell>{d ? new Date(String(d).slice(0, 10) + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</Cell>; } },
+            { k: 'pc', l: 'Postcode', off: true, render: (s) => <Cell>{s.postcode || '—'}</Cell> },
+            { k: 'v', l: 'Value', ph: 'e.g. >50k', match: (s, qv) => { const tv = valueTest(qv); return !tv || tv(Number(data.jfBy[s.id]?.contract_value || 0)); }, sort: (s) => Number(data.jfBy[s.id]?.contract_value || 0) || null, render: (s) => { const v = Number(data.jfBy[s.id]?.contract_value || 0), m = data.m[s.id]; return <Cell tone={m?.overdue ? '#C0392B' : undefined}>{v ? money(v, 0) : '—'}</Cell>; } },
+            // Off until ticked in ⚙ Columns, as the current app (9219f FIN_JOB_COLS).
+            { k: 'inv', l: 'Invoiced', off: true, sort: (s) => data.m[s.id]?.inv || 0, render: (s) => <Cell>{data.m[s.id]?.inv ? money(data.m[s.id].inv, 0) : '—'}</Cell> },
+            { k: 'owed', l: 'Owed', off: true, sort: (s) => data.m[s.id]?.owed || 0, render: (s) => <Cell>{data.m[s.id]?.owed ? money(data.m[s.id].owed, 0) : '—'}</Cell> },
+            { k: 'od', l: 'Overdue', off: true, sort: (s) => data.m[s.id]?.overdue || 0, render: (s) => <Cell tone={data.m[s.id]?.overdue ? '#C0392B' : undefined}>{data.m[s.id]?.overdue ? money(data.m[s.id].overdue, 0) : '—'}</Cell> },
           ]}
           tally foot={(left) => <><FootText>{tallyText(left)}</FootText><FootText bold>Value of works {money(valueOf(left), 0)}</FootText></>} />
       ) : shown.length ? shown.map((s) => {

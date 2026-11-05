@@ -12,7 +12,7 @@ import { useAuth } from '@/lib/auth';
 import { isFinanceUser, isFullManager, isManager } from '@/lib/roles';
 import { supabase } from '@/lib/supabase';
 import { ROLE_LABEL, roleActionsFor, shownRole } from '@/lib/rules/users';
-import { base, page, radius, space } from '@/theme/theme';
+import { base, page, radius, space, useTheme } from '@/theme/theme';
 
 const GROUPS: { title: string; match: (p: TeamMember) => boolean; empty: string }[] = [
   { title: 'Company Admins', match: (p) => p.role === 'admin', empty: 'No other admins yet.' },
@@ -30,6 +30,10 @@ export default function Users() {
   const toast = useToast();
   const qc = useQueryClient();
   const { data: team = [], isLoading } = useTeam(me?.org_id);
+  const th = useTheme();
+  // Initials coloured by role, as the current app (260): admins the company's second colour, PMs and drivers the main colour, the rest grey.
+  const swatch = (role: string) => (role === 'admin' ? th.brand2 || base.ink : role === 'pm' || role === 'driver' ? th.brand1 : role === 'site_manager' ? '#6B6F78' : '#4B4F58');
+  const swatchText = (role: string) => (role === 'pm' || role === 'driver' ? th.brand1Text : '#fff');
   if (!me) return null;
   if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['team'] }); void qc.invalidateQueries({ queryKey: ['people'] }); };
@@ -97,8 +101,8 @@ Pass it on securely — it won’t be shown again.`, 'Password reset');
             {g.title === 'Estimators' && <Muted style={{ marginBottom: 6 }}>Same access as a Project Manager, but they get no notifications or automatic emails.</Muted>}
             {list.length ? list.map((p) => (
               <Pressable key={p.id} onPress={() => void act(p)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderWidth: 1, borderColor: base.cardLine, borderRadius: radius.row, marginBottom: 6, backgroundColor: base.card }}>
-                <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: base.ink, alignItems: 'center', justifyContent: 'center' }}>
-                  <Text style={{ color: '#fff', fontWeight: '800' }}>{(p.name || '?').split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase()}</Text>
+                <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: swatch(p.role), alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ color: swatchText(p.role), fontWeight: '800' }}>{(p.name || '?').split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase()}</Text>
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={{ fontWeight: '700', color: base.ink }}>{p.name}{p.id === me.id ? ' (you)' : ''}</Text>

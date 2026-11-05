@@ -216,7 +216,16 @@ export default function FinDirectory() {
         <View style={{ flexDirection: 'row', marginBottom: 10 }}><Muted style={{ flex: 1 }}>The ID is the Xero account code each cost goes to. The type decides which column it adds up in on job costs and reports.</Muted><Button title="+ Add cost code" onPress={() => setEdit({ category: 'materials', grp: list[0]?.grp || '' })} /></View>
         <TextInput value={q} onChangeText={setQ} placeholder="Search cost codes" style={box} />
         {Object.keys(groups).sort().map((g) => (
-          <View key={g}><SectionTitle>{g} · {groups[g].length}</SectionTitle>{groups[g].map((c) => <FinRow key={c.id} left={c.code || '—'} title={`${c.name}${c.active === false ? ' (hidden)' : ''}`} sub={[c.description, COST_CATS[c.category]].filter(Boolean).join(' · ')} onPress={() => setEdit(c)} />)}</View>
+          <View key={g}><SectionTitle>{g} · {groups[g].length} Cost Code{groups[g].length === 1 ? '' : 's'}</SectionTitle>{desk ? (
+            // A laptop gets the current app's table: Name, ID, Description, Type (9219j; cmp-fin 5 Nov 2026).
+            <FinTable rows={groups[g]} keyOf={(c) => c.id} onRow={(c) => setEdit(c)}
+              cols={[
+                { k: 'n', l: 'Name', flex: 1.4, render: (c: Row) => <Cell bold>{c.name}{c.active === false ? ' (hidden)' : ''}</Cell> },
+                { k: 'id', l: 'ID', render: (c: Row) => <Cell>{c.code || '—'}</Cell> },
+                { k: 'd', l: 'Description', flex: 2, render: (c: Row) => <Cell>{c.description || '—'}</Cell> },
+                { k: 't', l: 'Type', render: (c: Row) => <Cell>{COST_CATS[c.category] || '—'}</Cell> },
+              ]} />
+          ) : groups[g].map((c) => <FinRow key={c.id} left={c.code || '—'} title={`${c.name}${c.active === false ? ' (hidden)' : ''}`} sub={[c.description, COST_CATS[c.category]].filter(Boolean).join(' · ')} onPress={() => setEdit(c)} />)}</View>
         ))}
         {!isLoading && !list.length && <Empty>No cost codes yet.</Empty>}
         {edit && (

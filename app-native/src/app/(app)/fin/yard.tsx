@@ -5,14 +5,15 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { TextInput, View } from 'react-native';
+import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { FinFilterBar, type FilterSel } from '@/components/FinFilterBar';
 import { FinPage, FinRow, FinStat } from '@/components/FinNav';
+import { Cell, FinTable } from '@/components/FinTable';
 import { YardLeftovers } from '@/components/YardLeftovers';
 import { PlantRegister } from '@/components/PlantRegister';
 import { YardSubTabs } from '@/components/YardSubTabs';
-import { PurchasesStats } from '@/components/FinPurchases';
+import { PurchasesStats, usePurchaseBadges } from '@/components/FinPurchases';
 import { FinForm, type Field } from '@/components/FinForm';
 import { confirmAsk, useToast } from '@/components/toast';
 import { Button, Empty, Muted, SectionTitle } from '@/components/ui';
@@ -21,7 +22,7 @@ import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { fdate, money, rateMoney, round2, round3 } from '@/lib/rules/finance';
 import { yardLow, yardNum, yardQty, type YardItem } from '@/lib/rules/materials';
-import { base, radius } from '@/theme/theme';
+import { base, radius, useDesk } from '@/theme/theme';
 
 type Row = Record<string, any>;
 type Item = YardItem & { notes?: string | null };
@@ -44,6 +45,7 @@ function useYardBook(orgId: string | null | undefined) {
 
 export default function FinYard() {
   const { id, sub } = useLocalSearchParams<{ id?: string; sub?: string }>();
+  const badges = usePurchaseBadges();
   const { me } = useAuth();
   const qc = useQueryClient();
   const toast = useToast();
@@ -142,7 +144,7 @@ export default function FinYard() {
     );
   }
   return (
-    <FinPage title="Purchases" section="purchases" sub="yard" top={<PurchasesStats />} onSub={(k) => (k === 'yard' ? undefined : k === 'statements' ? router.replace('/fin/statements' as never) : router.replace(`/fin/purchases?tab=${k}` as never))}>
+    <FinPage title="Purchases" section="purchases" badges={badges} sub="yard" top={<PurchasesStats />} onSub={(k) => (k === 'yard' ? undefined : k === 'statements' ? router.replace('/fin/statements' as never) : router.replace(`/fin/purchases?tab=${k}` as never))}>
       <YardSubTabs on={sub === 'plant' ? 'plant' : 'stock'} />
       {sub === 'plant' ? <PlantRegister /> : <><YardLeftovers />
       <YardList items={items} rateBy={rateBy} loading={isLoading} onNew={() => setEdit('new')} onMove={openMove} /></>}
@@ -154,6 +156,7 @@ export default function FinYard() {
 function YardList({ items, rateBy, loading, onNew, onMove }: { items: Item[]; rateBy: Record<string, number>; loading: boolean; onNew: () => void; onMove: (k: Kind, id?: string) => void }) {
   const [sel, setSel] = useState<FilterSel>({ show: ['all'], cat: [] });
   const [sort, setSort] = useState('as');
+  const desk = useDesk(); // laptop: the current app's yard table with an Issue button on each row (9219m; cmp-fin 5 Nov 2026)
   const f = (sel.show[0] || 'all') as 'all' | 'low' | 'off';
   const setF = (k: 'all' | 'low' | 'off') => setSel({ ...sel, show: [k] });
   const [q, setQ] = useState('');
@@ -180,11 +183,24 @@ function YardList({ items, rateBy, loading, onNew, onMove }: { items: Item[]; ra
           { key: 'show', label: 'Show', single: true, items: ([['all', 'In use'], ['low', 'Low stock'], ['off', 'Not stocked']] as const).map(([v, l]) => ({ v, l, n: items.filter(F[v]).length })) },
           { key: 'cat', label: 'Category', items: cats.map((c) => ({ v: c, l: c })) },
         ]} />
-      {loading ? <Muted>Loading…</Muted> : list.length ? list.map((s) => (
+      {loading ? <Muted>Loading…</Muted> : desk && list.length ? (
+        <FinTable rows={list} keyOf={(s) => s.id} onRow={(s) => router.setParams({ id: s.id })}
+          cols={[
+            { k: 'i', l: 'Item', flex: 1.6, min: 160, render: (s: Item) => <Cell bold>{s.item}</Cell> },
+            { k: 'c', l: 'Category', render: (s: Item) => <Cell>{s.category || '—'}</Cell> },
+            { k: 'loc', l: 'Location', render: (s: Item) => <Cell>{s.location || '—'}</Cell> },
+            { k: 'q', l: 'In Yard', sort: (s: Item) => Number(s.qty || 0), render: (s: Item) => <Cell bold tone={yardLow(s) ? '#C0392B' : undefined}>{yardQty(s.qty)} {s.unit || ''}{yardLow(s) ? ' · LOW' : ''}</Cell> },
+            { k: 'm', l: 'Min', render: (s: Item) => <Cell>{s.min_qty != null ? yardQty(s.min_qty) : '—'}</Cell> },
+            { k: 'r', l: 'Rate', render: (s: Item) => (rateBy[s.id] != null ? <Cell>{money(rateBy[s.id])}{s.unit ? ` / ${s.unit}` : ''}</Cell> : <Text style={{ fontSize: 11, fontWeight: '600', color: '#92400E', backgroundColor: '#FEF3C7', borderRadius: 999, paddingVertical: 2, paddingHorizontal: 8, overflow: 'hidden' }}>● No rate</Text>) },
+            { k: 'v', l: 'Value', sort: (s: Item) => val(s), total: (rows: Item[]) => money(rows.reduce((x, s) => x + val(s), 0)), render: (s: Item) => <Cell>{val(s) ? money(val(s)) : '—'}</Cell> },
+            { k: 'go', l: '', noSort: true, min: 70, flex: 0.6, render: (s: Item) => s.active === false ? null : <Pressable onPress={() => onMove('issue', s.id)} accessibilityRole="button" accessibilityLabel={`Issue ${s.item}`} style={{ borderWidth: 1, borderColor: base.line, borderRadius: 7, paddingVertical: 5, paddingHorizontal: 12, backgroundColor: '#fff' }}><Text style={{ fontSize: 12.5, fontWeight: '600', color: base.ink }}>Issue</Text></Pressable> },
+          ]}
+          footLabel={(rows) => `${rows.length} shown`} />
+      ) : list.length ? list.map((s) => (
         <FinRow compact key={s.id} title={s.item} sub={[`${yardQty(s.qty)} ${s.unit || ''} in yard${yardLow(s) ? ' · LOW' : ''}`, s.min_qty != null ? `min ${yardQty(s.min_qty)}` : '', s.category || '', s.location || '', rateBy[s.id] != null ? `${money(rateBy[s.id])}${s.unit ? ` / ${s.unit}` : ''}` : 'No rate'].filter(Boolean).join(' · ')}
           right={val(s) ? money(val(s)) : '—'} tone={yardLow(s) ? '#C0392B' : undefined} onPress={() => router.setParams({ id: s.id })} />
       )) : <Empty>{f === 'low' ? 'Nothing is below its minimum level.' : 'No yard stock yet — add the first item.'}</Empty>}
-      {list.length > 0 && <Muted style={{ marginTop: 4 }}>{list.length} item{list.length === 1 ? '' : 's'} · {money(list.reduce((x, s) => x + val(s), 0))}</Muted>}
+      {list.length > 0 && <Muted style={{ marginTop: 4 }}>{desk ? `Stock value ${money(total)} (items with a rate).` : `${list.length} item${list.length === 1 ? '' : 's'} · ${money(list.reduce((x, s) => x + val(s), 0))}`}</Muted>}
     </>
   );
 }

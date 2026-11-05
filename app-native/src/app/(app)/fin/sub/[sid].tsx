@@ -63,7 +63,7 @@ export default function FinSubcontract() {
   const lastCert = apps.filter((a) => a.certified_gross != null).pop();
   const openApp = app && !appEdit ? apps.find((a) => a.id === app) : null;
   const cur = appEdit && appEdit !== 'new' ? appEdit : openApp || null;
-  const showApp = !!appEdit || !!openApp;
+  const showApp = !!appEdit || !!openApp || (app === 'new' && sc?.status !== 'complete'); // ?app=new: + Record an application from the Subcontractors list
   const ctx = (a: Row | null) => {
     const before = apps.filter((x) => x.number < (a ? a.number : 1e9)), certs = before.filter((x) => x.certified_gross != null), pc = certs[certs.length - 1];
     return { prevNet: round2(certs.reduce((t, x) => t + Number(x.net_due || 0), 0)), prevM: pc ? Number(pc.materials_part || 0) : 0, prevContra: pc ? Number(pc.contra || 0) : 0, prevApplied: before.length ? Number(before[before.length - 1].applied_gross || 0) : 0 };
@@ -152,7 +152,7 @@ export default function FinSubcontract() {
             refresh(); router.replace(`/fin/sub/${r.id}` as never); return null;
           }} />
       )}
-      {showApp && sc && <AppForm sc={sc} a={cur} ctx={ctx(cur)} nextNo={(apps[apps.length - 1]?.number || 0) + 1} onClose={() => { setAppEdit(null); if (openApp) router.setParams({ app: '' }); }} onSaved={refresh} onPaid={markPaid} />}
+      {showApp && sc && <AppForm sc={sc} a={cur} ctx={ctx(cur)} nextNo={(apps[apps.length - 1]?.number || 0) + 1} onClose={() => { setAppEdit(null); if (openApp || app === 'new') router.setParams({ app: '' }); }} onSaved={refresh} onPaid={markPaid} />}
     </ScrollView>
   );
 }

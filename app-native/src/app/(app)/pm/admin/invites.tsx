@@ -77,7 +77,7 @@ export default function Invites() {
               <Text style={{ color: base.ink }}>▼ Invite as: {ROLES.find((r) => r.key === role)?.label}</Text>
             </Pressable>
             <Button kind="ghost" busy={busy === 'one'} title="Generate One-Time Invite Link" onPress={async () => { setBusy('one'); const id = await createInvite(me, role); setBusy(null); if (id) { setNewId(id); toast('Invite link created'); refresh(); } else toast('Could not create — try again.'); }} />
-            <Muted style={{ marginTop: 8 }}>A Client invite gives read-only access once a PM assigns them to a site — they can view and export, but never sign or edit anything.</Muted>
+            <Muted style={{ marginTop: 8 }}>A Client invite gives read-only access (RAMS, COSHH, Toolbox Talks, Schedule of Works, completed inspections, snagging and the operative dashboard) once a PM assigns them to a site — they can view and export, but never sign or edit anything. An Operative can be promoted to Project Manager in Users once they&apos;ve joined.</Muted>
           </>
         )}
         {!!data?.pending.length && (

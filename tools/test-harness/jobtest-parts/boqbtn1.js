@@ -8,7 +8,7 @@ module.exports = async ({as, step}) => {
   await step('With lines: header, buttons, footer', async () => {
     await a.go('/fin/job/' + J.id + '/boq', 7000); await a.page.waitForTimeout(3000); await a.shot('boq');
     const foot = await a.page.getByLabel('Budget cost footer').boundingBox();
-    const h = await q('Bill of Quantities').count(), io = await q('Import / Export').count(), add = await q('+ Add Works').count();
+    const h = await q('Bill Of Quantities').count(), io = await q('Import / Export').count(), add = await q('+ Add Works').count();
     return {ok: !!foot && foot.y > 700 && h >= 2 && io === 1 && add === 2, note: 'footer at ' + Math.round(foot.y) + ', add ' + add + ', io ' + io};
   });
   await step('Typing m2 gives m²', async () => {

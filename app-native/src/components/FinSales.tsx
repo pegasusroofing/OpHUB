@@ -2,7 +2,7 @@
 // retention — for the whole company or one project (siteId).
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { askDate } from '@/components/DateField';
+import { askDate, DateBox } from '@/components/DateField';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Text, TextInput, View } from 'react-native';
@@ -10,7 +10,7 @@ import { Text, TextInput, View } from 'react-native';
 import { FinFilterBar, type FilterSel } from '@/components/FinFilterBar';
 import { FinRow, FinStat } from '@/components/FinNav';
 import { useFinRowMenu } from '@/components/FinRowMenu';
-import { Cell, FinTable, FootText } from '@/components/FinTable';
+import { Cell, FinChoicePop, FinTable, FootPick } from '@/components/FinTable';
 import { chooseAction, confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, Toggle } from '@/components/ui';
 import { raiseInvoiceFromCert } from '@/data/finApp';
@@ -54,10 +54,19 @@ export async function pickJob(title: string, sites: { id: string; name: string; 
   return chooseAction(`${title} — which project?`, sites.slice().sort(byJobNoDesc).map((s) => ({ key: s.id, label: jobTag(s) })));
 }
 
+/** A retention release date as the calendar date box (every date is a calendar); "(claimed)" once applied for or invoiced (9219zh). */
+function RetDateBox({ d, claimed, label, onPick }: { d?: string | null; claimed: boolean; label: string; onPick: (iso: string) => void }) {
+  return (
+    <View style={{ alignSelf: 'stretch', alignItems: 'center', gap: 2 }}>
+      <DateBox value={d || null} title={label} clearable={false} onChange={(iso) => { if (iso) onPick(iso); }} style={{ alignSelf: 'stretch', paddingVertical: 6, paddingHorizontal: 8 }} />
+      {claimed ? <Text style={{ fontSize: 11, color: base.slate }}>(claimed)</Text> : null}
+    </View>
+  );
+}
 export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 'retention'; siteId?: string; f?: string }) {
   const qcRet = useQueryClient();
-  const setRetDate = async (sid: string, n: 1 | 2, jf: JobFin) => {
-    const v = await askDate(n === 1 ? 'Practical completion date' : 'Final retention release date'); if (!v) return;
+  const setRetDate = async (sid: string, n: 1 | 2, jf: JobFin, picked?: string) => {
+    const v = picked || (await askDate(n === 1 ? 'Practical completion date' : 'Final retention release date')); if (!v) return;
     const patch: Record<string, unknown> = n === 1 ? { pc_date: v } : { final_release_date: v };
     const pc = (jf as { pc_date?: string | null }).pc_date;
     // Keep the project's defects period in step, so Project Admin shows the same final date.
@@ -77,6 +86,15 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
   const [sort, setSort] = useState('new');
   const rowMenu = useFinRowMenu(data?.invs);
   const [voidOpen, setVoidOpen] = useState(false); // voided invoices sit in a closed drop-down (9219zn)
+  // Laptop: the current app's "All months" picker on the totals bar (9219 sales tables; cmp-fin 5 Nov 2026).
+  const [deskMon, setDeskMon] = useState('');
+  const [monAt, setMonAt] = useState<{ x: number; y: number } | null>(null);
+  const monthPick = (months: string[]) => (
+    <>
+      <FootPick label={deskMon ? monthLabel(deskMon) : 'All months'} onPress={(x, y) => setMonAt({ x, y })} />
+      <FinChoicePop at={monAt} value={deskMon} options={[['', 'All months'], ...months.map((m) => [m, monthLabel(m)] as [string, string])]} onPick={setDeskMon} onClose={() => setMonAt(null)} />
+    </>
+  );
   const desk = useDesk();
   // On a laptop the table's own headings sort and filter, so the Filter / Sort bar is for phones only (Andy, 3 Nov 2026).
   const bare = desk;
@@ -107,7 +125,7 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
   if (tab === 'apps') {
     const F: Record<string, (a: App) => boolean> = { open: (a) => ['draft', 'submitted'].includes(stage(a)), certified: (a) => stage(a) === 'certified', invoiced: (a) => stage(a) === 'invoiced', all: (a) => stage(a) !== 'void' };
     const first = ['open', 'certified', 'invoiced'].find((k) => data.apps.filter(F[k]).length);
-    const sel = bare ? { status: [], mon: [], job: [] } : sel0 || { status: first ? [first] : [], mon: [], job: [] };
+    const sel = bare ? { status: [], mon: deskMon ? [deskMon] : [], job: [] } : sel0 || { status: first ? [first] : [], mon: [], job: [] };
     const aMonth = (a: App) => monthOf(a.valuation_date);
     const sorter: Record<string, (x: App, y: App) => number> = { new: (x, y) => String(y.valuation_date || '').localeCompare(String(x.valuation_date || '')), old: (x, y) => String(x.valuation_date || '').localeCompare(String(y.valuation_date || '')), big: (x, y) => Number(y.cert_net ?? y.net_due ?? 0) - Number(x.cert_net ?? x.net_due ?? 0), job: (x, y) => jobTag(site(x.site_id)).localeCompare(jobTag(site(y.site_id))) };
     const list = data.apps.filter(F.all).filter((a) => !sel.status.length || sel.status.some((k) => F[k](a))).filter((a) => !sel.mon.length || sel.mon.includes(aMonth(a))).filter((a) => !sel.job.length || sel.job.includes(a.site_id)).filter((a) => !ql || `${a.number} ${jobTag(site(a.site_id))} ${site(a.site_id)?.client_name || ''}`.toLowerCase().includes(ql)).slice().sort(sorter[sort]);
@@ -130,12 +148,12 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
               ...(siteId ? [] : [{ k: 'p', l: 'Project', flex: 1.8, min: 180, render: (a: App) => <Cell bold>{jobTag(site(a.site_id))}</Cell> }]),
               { k: 'n', l: 'Application', render: (a: App) => <Cell>{a.cert_net != null || a.invoice_id ? 'Certificate' : 'Application'} {a.number}</Cell> },
               { k: 'd', l: 'Date', render: (a: App) => <Cell>{fdate(a.valuation_date)}</Cell> },
-              { k: 'ap', l: 'Applied (Net)', render: (a: App) => <Cell>{money(a.net_due)}</Cell> },
-              { k: 'ce', l: 'Certified (Net)', render: (a: App) => { const short = a.cert_net != null ? round2(Number(a.cert_net) - Number(a.net_due || 0)) : 0; return <View style={{ alignItems: 'center' }}><Cell>{a.cert_net != null ? money(a.cert_net) : '—'}</Cell>{short < -0.009 ? <Text style={{ fontSize: 11, color: '#C0392B' }}>{money(-short)} short</Text> : null}</View>; } },
+              { k: 'ap', l: 'Applied (Net)', total: (l: App[]) => money(l.reduce((t, a) => t + Number(a.net_due || 0), 0)), render: (a: App) => <Cell>{money(a.net_due)}</Cell> },
+              { k: 'ce', l: 'Certified (Net)', total: (l: App[]) => money(l.reduce((t, a) => t + Number(a.cert_net || 0), 0)), render: (a: App) => { const short = a.cert_net != null ? round2(Number(a.cert_net) - Number(a.net_due || 0)) : 0; return <View style={{ alignItems: 'center' }}><Cell>{a.cert_net != null ? money(a.cert_net) : '—'}</Cell>{short < -0.009 ? <Text style={{ fontSize: 11, color: '#C0392B' }}>{money(-short)} short</Text> : null}</View>; } },
               { k: 'st', l: 'Stage', noSort: true, choices: ['Draft', 'Waiting for certificate', 'Certified', 'Invoiced', 'Pay less notice'], render: (a: App) => { const s = appStage(a); return <Text style={{ fontSize: 10.5, fontWeight: '600', color: s.c, backgroundColor: `${s.c}1A`, borderRadius: 999, paddingVertical: 3, paddingHorizontal: 9, overflow: 'hidden', textAlign: 'center' }}>● {s.l}</Text>; } },
               { k: 'inv', l: 'Invoice', render: (a: App) => { const inv = data.invs.find((i) => i.id === a.invoice_id); return inv ? <Text accessibilityRole="link" onPress={() => router.push(`/fin/job/${a.site_id}/invoice/${inv.id}` as never)} style={{ fontSize: 12.5, fontWeight: '500', color: base.blue }}>{inv.number || 'Draft'}</Text> : appStage(a).k === 'certified' ? <Text accessibilityRole="button" onPress={() => void raise(a)} style={{ fontSize: 12.5, fontWeight: '500', color: base.blue, textAlign: 'center' }}>Raise Invoice</Text> : <Cell>—</Cell>; } },
             ]}
-            foot={(list) => <><FootText bold>{list.length} application{list.length === 1 ? '' : 's'}</FootText><FootText>Applied {money(list.reduce((t, a) => t + Number(a.net_due || 0), 0))}</FootText><FootText>Certified {money(list.reduce((t, a) => t + Number(a.cert_net || 0), 0))}</FootText></>} />
+            footLabel={(list) => `${list.length} application${list.length === 1 ? '' : 's'}`} footRight={siteId ? undefined : monthPick(months)} />
         ) : list.length ? list.map((a) => { const s = appStage(a); return (
           <FinRow compact key={a.id} left={`App ${a.number}`} title={siteId ? fdate(a.valuation_date) : jobTag(site(a.site_id))} sub={[siteId ? '' : fdate(a.valuation_date), s.l, a.cert_net != null ? `certified ${money(a.cert_net)}` : ''].filter(Boolean).join(' · ')} right={money(a.cert_net ?? a.net_due)} tone={s.c} onMenu={() => void rowMenu.appMenu(a, s.k)} onPress={() => router.push(`/fin/job/${a.site_id}/application/${a.id}` as never)} />
         ); }) : <Empty>Nothing here.</Empty>}
@@ -146,7 +164,7 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
   if (tab === 'invoices') {
     const F: Record<string, (i: Inv) => boolean> = { outstanding: (i) => invOutstanding(i) > 0, overdue: (i) => invOverdue(i), draft: (i) => i.status === 'draft', paid: (i) => i.status === 'paid', all: () => true };
     const iMonth = (i: Inv) => monthOf(i.issue_date || i.created_at);
-    const sel = bare ? { status: [], mon: [], job: [] } : sel0 || { status: ['outstanding'], mon: [], job: [] };
+    const sel = bare ? { status: [], mon: deskMon ? [deskMon] : [], job: [] } : sel0 || { status: ['outstanding'], mon: [], job: [] };
     const sorter: Record<string, (x: Inv, y: Inv) => number> = { new: () => 0, old: (x, y) => String(x.created_at || '').localeCompare(String(y.created_at || '')), big: (x, y) => Number(y.total || 0) - Number(x.total || 0), client: (x, y) => billTo(x).localeCompare(billTo(y)) };
     const list = live.filter((i) => !sel.status.length || sel.status.some((k) => (F[k] || F.outstanding)(i))).filter((i) => !sel.mon.length || sel.mon.includes(iMonth(i))).filter((i) => !sel.job.length || sel.job.includes(i.site_id)).filter((i) => !ql || `${i.number || ''} ${billTo(i)} ${i.bill_address || ''} ${jobTag(site(i.site_id))}`.toLowerCase().includes(ql)).slice().sort(sorter[sort]);
     const months = monthsIn(live, iMonth);
@@ -170,12 +188,12 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
               ...(siteId ? [] : [{ k: 'p', l: 'Project', flex: 1.6, min: 150, render: (i: Inv) => <Cell>{jobTag(site(i.site_id))}</Cell> }]),
               { k: 'd', l: 'Date', min: 76, render: (i: Inv) => <Cell>{i.status === 'draft' ? 'Not issued' : i.issue_date ? fdate(i.issue_date) : '—'}</Cell> },
               { k: 'du', l: 'Due', min: 76, render: (i: Inv) => <Cell tone={invOverdue(i) ? '#C0392B' : undefined}>{i.status === 'draft' || !i.due_date ? '—' : fdate(i.due_date)}</Cell> },
-              { k: 'n', l: 'Net', min: 76, render: (i: Inv) => <Cell>{money(i.net)}</Cell> },
-              { k: 'v', l: 'VAT', min: 70, render: (i: Inv) => <View style={{ alignItems: 'center' }}><Cell>{money(i.vat)}</Cell>{Number(i.rc_vat || 0) ? <Text style={{ fontSize: 11, color: base.slate }}>RC {money(i.rc_vat)}</Text> : null}</View> },
-              { k: 't', l: 'Gross', min: 80, render: (i: Inv) => { const o = invOutstanding(i); return <View style={{ alignItems: 'center' }}><Cell bold>{money(i.total)}</Cell>{o > 0 && o < Number(i.total) ? <Text style={{ fontSize: 11, color: base.slate }}>{money(o)} owed</Text> : null}</View>; } },
-              { k: 's', l: 'Status', min: 76, noSort: true, choices: ['Draft', 'Issued', 'Sent', 'Part paid', 'Paid', 'Overdue'], render: (i: Inv) => <View style={{ alignItems: 'center' }}><Cell tone={invOverdue(i) ? '#C0392B' : undefined}>{invOverdue(i) ? 'Overdue' : INV_STATUS[i.status] || i.status}</Cell>{xeroTag(i) ? <Text style={{ fontSize: 10.5, color: base.slate }}>{xeroTag(i)}</Text> : null}</View> },
+              { k: 'n', l: 'Net', min: 76, total: (l: Inv[]) => money(l.reduce((t, i) => t + Number(i.net || 0), 0)), render: (i: Inv) => <Cell>{money(i.net)}</Cell> },
+              { k: 'v', l: 'VAT', min: 70, total: (l: Inv[]) => money(l.reduce((t, i) => t + Number(i.vat || 0), 0)), render: (i: Inv) => <View style={{ alignItems: 'center' }}><Cell>{money(i.vat)}</Cell>{Number(i.rc_vat || 0) ? <Text style={{ fontSize: 11, color: base.slate }}>RC {money(i.rc_vat)}</Text> : null}</View> },
+              { k: 't', l: 'Gross', min: 80, total: (l: Inv[]) => money(l.reduce((t, i) => t + Number(i.total || 0), 0)), render: (i: Inv) => { const o = invOutstanding(i); return <View style={{ alignItems: 'center' }}><Cell bold>{money(i.total)}</Cell>{o > 0 && o < Number(i.total) ? <Text style={{ fontSize: 11, color: base.slate }}>{money(o)} owed</Text> : null}</View>; } },
+              { k: 's', l: 'Status', min: 76, noSort: true, choices: ['Draft', 'Issued', 'Sent', 'Part paid', 'Paid', 'Overdue'], render: (i: Inv) => <View style={{ alignItems: 'center' }}>{(() => { const c = invOverdue(i) ? '#C0392B' : i.status === 'paid' ? '#1E7A43' : i.status === 'draft' ? '#6b7280' : i.status === 'part_paid' ? '#B35A00' : '#1d4ed8'; return <Text style={{ fontSize: 10.5, fontWeight: '600', color: c, backgroundColor: `${c}1A`, borderRadius: 999, paddingVertical: 3, paddingHorizontal: 8, overflow: 'hidden' }}>● {invOverdue(i) ? 'Overdue' : INV_STATUS[i.status] || i.status}</Text>; })()}{xeroTag(i) ? <Text style={{ fontSize: 10.5, color: base.slate }}>{xeroTag(i)}</Text> : null}</View> },
             ]}
-            foot={(list) => <><FootText bold>{list.length} invoice{list.length === 1 ? '' : 's'}</FootText><FootText>Net {money(list.reduce((t, i) => t + Number(i.net || 0), 0))}</FootText><FootText>VAT {money(list.reduce((t, i) => t + Number(i.vat || 0), 0))}</FootText><FootText>Gross {money(list.reduce((t, i) => t + Number(i.total || 0), 0))}</FootText><FootText>Owed {money(list.reduce((t, i) => t + invOutstandingNet(i), 0))}</FootText></>} />
+            footLabel={(list) => `${list.length} invoice${list.length === 1 ? '' : 's'} · Owed ${money(list.reduce((t, i) => t + invOutstandingNet(i), 0))}`} footRight={siteId ? undefined : monthPick(months)} />
         ) : list.length ? list.map((i) => {
           const od = invOverdue(i), o = invOutstanding(i);
           return <FinRow compact key={i.id} left={i.number || 'Draft'} title={siteId ? (billTo(i) || '—') : jobTag(site(i.site_id))} sub={[siteId ? '' : billTo(i), i.issue_date ? fdate(i.issue_date) : '', INV_STATUS[i.status] || i.status, o ? `${money(o)} owed${od ? ' — overdue' : ''}` : ''].filter(Boolean).join(' · ')} right={money(i.total)} tone={od ? '#C0392B' : undefined} onMenu={() => void rowMenu.invMenu(i)} onPress={() => router.push(`/fin/job/${i.site_id}/invoice/${i.id}` as never)} />;
@@ -203,19 +221,25 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
   const total = round2(rows.reduce((t, x) => t + x.held, 0));
   return (
     <View>
-      <Muted style={{ marginBottom: 10 }}>Money your clients are holding back until the work is signed off: {money(total)} across {rows.length} job{rows.length === 1 ? '' : 's'}. Half usually comes back at practical completion and half at the end of the defects period — set the dates on each project.</Muted>
+      <Muted style={{ marginBottom: 10 }}>Money your clients are holding back until the work is signed off: {money(total)} across {rows.length} job{rows.length === 1 ? '' : 's'}. Half usually comes back at practical completion and half at the end of the defects period — set the dates here (they save to the project) to get reminders.</Muted>
       {desk && rows.length ? (
         <FinTable rows={rows} keyOf={(x) => x.s.id} onRow={(x) => router.push(`/fin/job/${x.s.id}?tab=setup` as never)}
           cols={[
             { k: 'p', l: 'Project', flex: 1.8, min: 180, render: (x) => <Cell bold>{jobTag(x.s)}</Cell> },
             { k: 'c', l: 'Client', flex: 1.4, min: 140, render: (x) => <Cell>{x.s.client_name || '—'}</Cell> },
-            { k: 'f', l: '1st Release', render: (x) => { const d = retentionDates(x.jf, st || {}); return <Cell><Text style={{ color: base.blue }} onPress={() => void setRetDate(x.s.id, 1, x.jf)}>{d.first ? fdate(d.first) : 'Not set'}</Text>{x.jf.ret1_invoice_id || x.jf.ret1_app_id ? ' (claimed)' : ''}</Cell>; } },
-            { k: 's', l: 'Final Release', render: (x) => { const d = retentionDates(x.jf, st || {}); return <Cell><Text style={{ color: base.blue }} onPress={() => void setRetDate(x.s.id, 2, x.jf)}>{d.second ? fdate(d.second) : 'Not set'}</Text>{x.jf.ret2_invoice_id || x.jf.ret2_app_id ? ' (claimed)' : ''}</Cell>; } },
-            { k: 'h', l: 'Held', render: (x) => <Cell bold>{money(x.held)}</Cell> },
+            { k: 'f', l: '1st Retention Release', render: (x) => { const d = retentionDates(x.jf, st || {}); return <RetDateBox d={d.first} claimed={!!(x.jf.ret1_invoice_id || x.jf.ret1_app_id)} label="Practical completion date" onPick={(v) => void setRetDate(x.s.id, 1, x.jf, v)} />; } },
+            { k: 's', l: 'Final Retention Release', render: (x) => { const d = retentionDates(x.jf, st || {}); return <RetDateBox d={d.second} claimed={!!(x.jf.ret2_invoice_id || x.jf.ret2_app_id)} label="Final retention release date" onPick={(v) => void setRetDate(x.s.id, 2, x.jf, v)} />; } },
+            { k: 'h', l: 'Still Held', total: (l) => money(round2(l.reduce((t, x) => t + x.held, 0))), render: (x) => <Cell bold>{money(x.held)}</Cell> },
           ]}
-          foot={(left) => <><FootText bold>{left.length} job{left.length === 1 ? '' : 's'}</FootText><FootText>{money(round2(left.reduce((t, x) => t + x.held, 0)))} still held</FootText></>} />
+          footLabel={(left) => `${left.length} job${left.length === 1 ? '' : 's'}`} />
       ) : rows.length ? rows.map((x) => { const d = retentionDates(x.jf, st || {}); return (
-        <FinRow key={x.s.id} title={jobTag(x.s)} sub={[x.s.client_name, `1st release ${d.first ? fdate(d.first) : 'not set'}${x.jf.ret1_invoice_id || x.jf.ret1_app_id ? ' (claimed)' : ''}`, `final ${d.second ? fdate(d.second) : 'not set'}${x.jf.ret2_invoice_id || x.jf.ret2_app_id ? ' (claimed)' : ''}`].filter(Boolean).join(' · ')} right={money(x.held)} onPress={() => router.push(`/fin/job/${x.s.id}?tab=setup` as never)} />
+        <View key={x.s.id}>
+          <FinRow title={jobTag(x.s)} sub={x.s.client_name || undefined} right={money(x.held)} onPress={() => router.push(`/fin/job/${x.s.id}?tab=setup` as never)} />
+          <View style={{ flexDirection: 'row', gap: 8, marginTop: -2, marginBottom: 8, paddingHorizontal: 4 }}>
+            <View style={{ flex: 1 }}><Muted style={{ fontSize: 11 }}>1st release</Muted><RetDateBox d={d.first} claimed={!!(x.jf.ret1_invoice_id || x.jf.ret1_app_id)} label="Practical completion date" onPick={(v) => void setRetDate(x.s.id, 1, x.jf, v)} /></View>
+            <View style={{ flex: 1 }}><Muted style={{ fontSize: 11 }}>Final release</Muted><RetDateBox d={d.second} claimed={!!(x.jf.ret2_invoice_id || x.jf.ret2_app_id)} label="Final retention release date" onPick={(v) => void setRetDate(x.s.id, 2, x.jf, v)} /></View>
+          </View>
+        </View>
       ); }) : <Empty>No retention held.</Empty>}
       {!desk && rows.length > 0 && <Card><Text style={{ fontWeight: '600', color: base.ink }}>{rows.length} job{rows.length === 1 ? '' : 's'} · {money(total)} still held</Text></Card>}
     </View>
@@ -223,6 +247,12 @@ export function SalesLists({ tab, siteId, f: f0 }: { tab: 'apps' | 'invoices' | 
 }
 
 /** Sales headline figures, each with its own date range (9219h): applied value, invoiced value, overdue, applied but not certified. */
+/** Sub-tab counts: certificates still to invoice (9219 toInvoice). */
+export function useSalesBadges(): Record<string, number> | undefined {
+  const { me } = useAuth();
+  const { data } = useSales(me?.org_id);
+  return data ? { apps: data.apps.filter((a) => appStage(a).k === 'certified').length } : undefined;
+}
 export function SalesStats() {
   const { me } = useAuth();
   const { data } = useSales(me?.org_id);

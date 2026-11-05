@@ -213,7 +213,8 @@ export default function RamsLibrary() {
       <Stack.Screen options={{ title: 'RAMS Library' }} />
       <Muted style={{ marginBottom: 10 }}>The hazards, safe systems of work and templates your team picks from in the RAMS Builder. Changing the library doesn&apos;t change RAMS already written for a job.</Muted>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
-        {([['hazard', 'Hazards'], ['section', 'Safe Systems of Work & Method Statements'], ['template', 'Templates'], ['company', 'Company Details']] as [Tab, string][]).map(([k, l]) => chip(tab === k, l, () => { setTab(k); setEditId(null); }))}
+        {/* Each tab shows how many it holds, as the current app (588; cmp-fin 5 Nov 2026). */}
+        {([['hazard', 'Hazards'], ['section', 'Safe Systems Of Work & Method Statements'], ['template', 'Templates'], ['company', 'Company Details']] as [Tab, string][]).map(([k, l]) => { const n = k === 'company' ? 0 : lib.filter((i) => i.kind === k).length; return chip(tab === k, n ? `${l} ${n}` : l, () => { setTab(k); setEditId(null); }); })}
       </View>
       {tab === 'company' ? <CompanyDetails me={me} orgName={org?.name || ''} /> : (
         <>

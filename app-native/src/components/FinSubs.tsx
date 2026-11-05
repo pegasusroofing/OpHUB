@@ -12,8 +12,9 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { FinFilterBar } from '@/components/FinFilterBar';
 import { FinChip, FinRow, FinStat } from '@/components/FinNav';
+import { Cell, FinTable } from '@/components/FinTable';
 import { pickJob } from '@/components/FinSales';
-import { confirmAsk, useToast } from '@/components/toast';
+import { chooseAction, confirmAsk, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted, SectionTitle } from '@/components/ui';
 import { fdb, selectAll, useFinSettings } from '@/data/finance';
 import { useSites } from '@/data/sites';
@@ -141,7 +142,20 @@ export function SubsLists({ tab, siteId, f }: { tab: 'opinv' | 'wages' | 'payrun
         <View style={desk ? { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10 } : { marginBottom: 10 }}><Button title="+ Subcontractor PO" onPress={async () => { const sid = siteId || (await pickJob('New subcontractor PO', sites.filter((s) => s.status !== 'closed'))); if (sid) router.push(`/fin/sub/new?site=${sid}` as never); }} /></View>
         <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search subcontractor or project' }} sel={sel} onChange={setSel} onClear={() => setSel({ show: [] })} sorts={[['new', 'Newest first'], ['old', 'Oldest first'], ['big', 'Biggest first'], ['name', 'Name A to Z']]} sort={sort} onSort={setSort}
           parts={[{ key: 'show', label: 'Show', items: [['active', 'Active'], ['complete', 'Complete']].map(([v, l]) => ({ v, l, n: data.scs.filter(F[v]).length })) }]} />
-        {list.length ? list.map((sc) => <FinRow compact key={sc.id} left={sc.number} title={sc.name} sub={[siteId ? '' : jobTag(site(sc.site_id)), sc.description, `certified ${money(lastCert(sc.id)?.certified_gross || 0)}`, sc.status === 'complete' ? 'Complete' : 'Active'].filter(Boolean).join(' · ')} right={sc.order_value != null ? money(sc.order_value) : '—'} onPress={() => router.push(`/fin/sub/${sc.id}` as never)} />)
+        {/* A laptop gets the current app's table with totals under Order Value and Certified (912; cmp-fin 5 Nov 2026). */}
+        {desk && list.length ? (
+          <FinTable rows={list} keyOf={(sc) => sc.id} onRow={(sc) => router.push(`/fin/sub/${sc.id}` as never)}
+            cols={[
+              { k: 'no', l: 'Order', render: (sc: Row) => <Cell bold>{sc.number}</Cell> },
+              { k: 'n', l: 'Subcontractor', flex: 1.3, render: (sc: Row) => <Cell>{sc.name || '—'}</Cell> },
+              ...(siteId ? [] : [{ k: 'p', l: 'Project', flex: 1.5, min: 150, render: (sc: Row) => <Cell>{jobTag(site(sc.site_id))}</Cell> }]),
+              { k: 'w', l: 'Work', flex: 1.3, render: (sc: Row) => <Cell>{sc.description || '—'}</Cell> },
+              { k: 'v', l: 'Order Value', sort: (sc: Row) => num(sc, 'order_value'), total: (l: Row[]) => money(l.reduce((t, sc) => t + num(sc, 'order_value'), 0)), render: (sc: Row) => <Cell>{sc.order_value != null ? money(sc.order_value) : '—'}</Cell> },
+              { k: 'c', l: 'Certified', sort: (sc: Row) => Number(lastCert(sc.id)?.certified_gross || 0), total: (l: Row[]) => money(l.reduce((t, sc) => t + Number(lastCert(sc.id)?.certified_gross || 0), 0)), render: (sc: Row) => <Cell>{money(lastCert(sc.id)?.certified_gross || 0)}</Cell> },
+              { k: 's', l: 'Status', noSort: true, choices: ['Active', 'Complete'], render: (sc: Row) => <Cell tone={sc.status === 'complete' ? base.slate : '#1E7A43'}>{sc.status === 'complete' ? 'Complete' : 'Active'}</Cell> },
+            ]}
+            footLabel={(l) => `${l.length} shown`} />
+        ) : list.length ? list.map((sc) => <FinRow compact key={sc.id} left={sc.number} title={sc.name} sub={[siteId ? '' : jobTag(site(sc.site_id)), sc.description, `certified ${money(lastCert(sc.id)?.certified_gross || 0)}`, sc.status === 'complete' ? 'Complete' : 'Active'].filter(Boolean).join(' · ')} right={sc.order_value != null ? money(sc.order_value) : '—'} onPress={() => router.push(`/fin/sub/${sc.id}` as never)} />)
           : <Empty>No subcontract orders here.</Empty>}
       </View>
     );
@@ -153,6 +167,13 @@ export function SubsLists({ tab, siteId, f }: { tab: 'opinv' | 'wages' | 'payrun
     return (
       <View>
         <Muted style={{ marginBottom: 10 }}>A subcontractor applies → you certify it and send the payment or pay-less notice before the final date → mark it paid.</Muted>
+        {/* + Record an application, as the current app (912): pick the order, then its application form opens. */}
+        <View style={desk ? { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10 } : { marginBottom: 10 }}><Button title="+ Record an application" onPress={async () => {
+          const open = data.scs.filter((s) => s.status !== 'complete');
+          if (!open.length) { toast('No active subcontractor orders — add a Subcontractor PO first.'); return; }
+          const k = await chooseAction('Record an application for', open.map((s) => ({ key: s.id, label: `${s.number || ''} ${s.name || ''}${siteId ? '' : ` · ${jobTag(site(s.site_id))}`}`.trim() })));
+          if (k) router.push(`/fin/sub/${k}?app=new` as never);
+        }} /></View>
         <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search subcontractor or project' }} sel={sel} onChange={setSel} onClear={() => setSel({ show: [] })} sorts={[['new', 'Newest first'], ['old', 'Oldest first'], ['big', 'Biggest first']]} sort={sort} onSort={setSort}
           parts={[{ key: 'show', label: 'Show', items: [['open', 'To certify'], ['certified', 'Certified, to pay'], ['paid', 'Paid']].map(([v, l]) => ({ v, l, n: data.sapps.filter(F[v]).length })) }]} />
         {list.length ? list.map((a) => { const sc = scBy[a.subcontract_id] || {}, late = a.status !== 'paid' && a.final_date && a.final_date < today(); return (
@@ -209,6 +230,12 @@ function WagesTab({ me, siteId }: { me: Profile; siteId?: string }) {
   );
 }
 
+/** Sub-tab counts: applications to certify and operative invoices not approved yet (9219c toCert, opDraft). */
+export function useSubsBadges(): Record<string, number> | undefined {
+  const { me } = useAuth();
+  const { data } = useSubsData(me?.org_id);
+  return data ? { apps: data.sapps.filter((a) => a.status === 'received').length, opinv: data.ops.filter((p) => ['draft', 'submitted'].includes(String(p.status))).length } : undefined;
+}
 export function SubsStats() {
   const { me } = useAuth();
   const { data: st } = useFinSettings(me?.org_id);

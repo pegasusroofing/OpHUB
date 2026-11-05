@@ -1,0 +1,17 @@
+ok   Sales cards show their dates
+ok   Date menu lists the ranges
+ok   Choosing All time changes the card
+ok   Choice is remembered
+ok   Tap Overdue goes to overdue invoices — tab=invoices&f=overdue
+ok   Tap Applied, Not Certified goes to in-progress applications
+Error: UNKNOWN: unknown error, open 'C:\Users\AndyCramp\OneDrive - RTB Roofing Ltd\RTB Roofing Ltd\Andy's Documents\Operative Hub App\GitHub\OpHUB\tools\test-harness\shots\finmenus-rows.png'
+    at async open (node:internal/fs/promises:697:25)
+    at async Object.writeFile (node:internal/fs/promises:1317:14)
+    at async _Page.screenshot (C:\Users\AndyCramp\OneDrive - RTB Roofing Ltd\RTB Roofing Ltd\Andy's Documents\Operative Hub App\GitHub\OpHUB\tools\test-harness\node_modules\playwright-core\lib\coreBundle.js:63324:11)
+    at async C:\Users\AndyCramp\OneDrive - RTB Roofing Ltd\RTB Roofing Ltd\Andy's Documents\Operative Hub App\GitHub\OpHUB\tools\test-harness\finmenus-check.js:43:3 {
+  errno: -4094,
+  code: 'UNKNOWN',
+  syscall: 'open',
+  path: "C:\\Users\\AndyCramp\\OneDrive - RTB Roofing Ltd\\RTB Roofing Ltd\\Andy's Documents\\Operative Hub App\\GitHub\\OpHUB\\tools\\test-harness\\shots\\finmenus-rows.png"
+}
+exit 2
