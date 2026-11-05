@@ -2,7 +2,11 @@
 -- OpHUB security fixes (written 5 Nov 2026 from the overnight security review).
 -- PART A WAS RUN ON 5 Nov 2026 (Andy said go ahead), as migration security_fixes_5nov_part_a. Checked: all
 -- three rules in place, Xero token tables closed, and an operative can no longer approve their own plant
--- (tested on Sandbox, rolled back). Part B has NOT been run.
+-- (tested on Sandbox, rolled back).
+-- PART B WAS RUN ON 5 Nov 2026 too (Andy said yes), as migration security_fixes_5nov_part_b, with one change to B2:
+-- instead of leaving no read rule on org-logos, signed-in people can read their OWN company's logo folder
+-- ("read own org logo"), because replacing a logo needs that. Checked: RTB's logo web link still loads, the
+-- webapp bucket is private, the broken price rule is gone, no open invite lasts beyond 90 days.
 -- How to run: Supabase > SQL Editor > New query, paste this whole file, press Run.
 -- Part A runs as one block: if any line fails, nothing changes. Safe to run twice.
 -- Part B (at the bottom) is commented out on purpose: each item needs your go-ahead first.
