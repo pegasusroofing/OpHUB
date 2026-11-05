@@ -1,4 +1,5 @@
-// sow-check.js: copies a site's Schedule of Works into the project's Bill of Quantities against the fake Supabase.
+// sow-check.js: the Bill of Quantities does NOT copy in the site's Schedule of Works tasks any more (removed 2 Nov; Andy
+// said leave it out, 5 Nov 2026). Checks the Import / Export menu doesn't offer it and the page opens cleanly.
 // Opens the new app's Finance pages against the fake Supabase and reports page errors and the first words on each page.
 // A route written as /path>>Button text also clicks that button and reports the file it downloads.
 const {chromium, makeContext, S1} = require('./harness');
@@ -34,13 +35,15 @@ const seed = require('./fresh/seed');
   page.on('dialog', d => d.accept());
   await page.goto(BASE+'/fin/job/'+S1+'/boq'); await page.waitForTimeout(6000);
   const before = (db.schedule_tasks||[]).filter(t=>t.site_id===S1).length;
-  // Import / Export menu › Copy in tasks from the site schedule.
-  await page.getByText('Import / Export', {exact:true}).first().click(); await page.waitForTimeout(500);
-  await page.getByText('Copy in tasks from the site schedule', {exact:true}).click(); await page.waitForTimeout(1500);
+  // Import / Export menu: no 'Copy in tasks from the site schedule' (Andy, 5 Nov 2026).
+  await page.getByText('Import / Export', {exact:true}).first().click(); await page.waitForTimeout(800);
+  const offered = await page.getByText(/Copy in tasks from the site schedule/i).count();
+  console.log((offered ? 'FAIL' : 'PASS') + ' copy-in is not offered'); if(offered) process.exitCode = 1;
+  await page.keyboard.press('Escape');
   const t = (await page.evaluate(()=>document.body.innerText)).replace(/\s+/g,' ');
   const vals = await page.evaluate(()=>Array.from(document.querySelectorAll('input,textarea')).map(e=>e.value).filter(Boolean));
   console.log('copied:', vals.filter(v=>/Strip|gutters|Rear/.test(v)).join(' | '));
   console.log('site tasks:', before, '| page:', (t.match(/Total £[\d,.]+/)||[''])[0], '| inputs:', (await page.locator('input,textarea').count()));
   console.log('errors:', errs.join(' / ').slice(0,400) || 'none');
-  await browser.close(); process.exit(0);
+  await browser.close(); process.exit(process.exitCode || 0);
 })();
