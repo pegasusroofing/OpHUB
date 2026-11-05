@@ -78,10 +78,8 @@ export function PmHome() {
         <Text style={[heading(800), { color: t.brand1Text, fontSize: 20, letterSpacing: -0.2 }]}>Live projects</Text>
         <Text style={{ color: t.brand1Text, opacity: 0.92, marginTop: 4, fontSize: 13, fontWeight: '500' }}>{live.length} live{upcoming.length ? ` · ${upcoming.length} upcoming` : ''}</Text>
       </Pressable>
-      {/* Laptop: tiles on the left, the sites map on the right as tall as the tiles (Andy, 5 Nov 2026). Phone: tiles only. */}
-      <View style={desk && !!sites?.length ? { flexDirection: 'row', gap: 12, alignItems: 'stretch' } : undefined}>
-      <View style={desk && !!sites?.length ? { flex: 1.1 } : undefined}>
-      <TileGrid cols={desk ? (sites?.length ? 2 : 4) : 2}>
+      {!!sites?.length && <SitesMapCard sites={sites} />}
+      <TileGrid cols={desk ? 4 : 2}>
         {isFinanceUser(me, org) && <Tile ic="pound" tint={TINTS.green[0]} fg={TINTS.green[1]} title="OpHUB Finance" sub="Money in & out" onPress={go('/fin')} />}
         <Tile ic="reports" tint={TINTS.orange[0]} fg={TINTS.orange[1]} title="Quotes" sub="Tender tracker" onPress={go('/pm/quotes')} />
         <Tile ic="chart" tint={TINTS.teal[0]} fg={TINTS.teal[1]} title="Dashboard" sub="Company & operatives" onPress={go('/pm/dashboard')} />
@@ -92,9 +90,6 @@ export function PmHome() {
         <Tile ic="users" tint={TINTS.purple[0]} fg={TINTS.purple[1]} title="HR" sub="Holidays, policies & handbook" onPress={go('/pm/hr')} />
         <Tile ic="gear" tint={TINTS.grey[0]} fg={TINTS.grey[1]} title="Admin" sub="Team, libraries, settings" onPress={go('/pm/admin')} />
       </TileGrid>
-      </View>
-      {desk && !!sites?.length && <View style={{ flex: 1 }}><SitesMapCard sites={sites} fill /></View>}
-      </View>
       {mine.length > 0 && (
         <>
           <SectionTitle>Pick up where you left off</SectionTitle>

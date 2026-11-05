@@ -38,11 +38,13 @@ export function DeskNav() {
         ...(isFullManager(me) ? [{ k: 'onsite', ic: 'users', lbl: 'On Site Now', go: '/onsite' }] : []),
         ...(isManager(me) ? [{ k: 'pm/sitemap', ic: 'pin', lbl: 'Sites Map', go: '/pm/sitemap' }] : []),
         ...(isFullManager(me) ? [{ k: 'pm/reports', ic: 'reports', lbl: 'Reports & Surveys', go: '/pm/reports' }] : []),
-        // The yard and the plant register, company-wide (Andy, 4 Nov 2026).
-        ...(isManager(me) ? [{ k: 'pm/yard', ic: 'tools', lbl: 'Yard & Plant', go: '/pm/yard' }] : []),
       ] },
       ...(isFullManager(me) ? [{ k: 'pm/quotes', ic: 'reports', lbl: 'Quotes', go: '/pm/quotes' }] : []),
-      { k: 'pm/deliveries', ic: 'truck', lbl: 'Deliveries', go: '/pm/deliveries' },
+      // Deliveries opens out like Projects: the delivery schedule, and the yard and plant register (Andy, 5 Nov 2026; it was under Projects).
+      { k: 'pm/deliveries', ic: 'truck', lbl: 'Deliveries', go: '/pm/deliveries', kids: [
+        { k: 'pm/deliveries', ic: 'truck', lbl: 'Delivery Schedule', go: '/pm/deliveries' },
+        ...(isManager(me) ? [{ k: 'pm/yard', ic: 'tools', lbl: 'Yard & Plant', go: '/pm/yard' }] : []),
+      ] },
       { k: 'pm/calendar', ic: 'calendar', lbl: 'Calendar', go: '/pm/calendar' },
       { k: 'pm/hub', ic: 'bell', lbl: 'Hub', go: '/pm/hub', badge: hubN },
       { k: 'pm/dashboard', ic: 'chart', lbl: 'Dashboard', go: '/pm/dashboard', kids: [
