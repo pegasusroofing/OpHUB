@@ -153,7 +153,7 @@ export function FinTable<T>({ cols: allCols, rows, keyOf, onRow, foot, onMenu, d
           {/* Totals under their own columns (9219x): the label in the first column without a total, then each total. */}
           {hasTotals && (
             <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10, backgroundColor: t.brand1, borderRadius: 10, paddingVertical: 9, paddingHorizontal: 8 }}>
-              {cols.map((c, i) => <View key={c.k} style={cell(c)}>{c.total ? <FootText bold>{c.total(shown)}</FootText> : i === cols.findIndex((x) => !x.total) && footLabel ? <FootText bold>{footLabel(shown)}</FootText> : null}</View>)}
+              {cols.map((c, i) => <View key={c.k} style={cell(c)}>{c.total ? <FootText bold>{c.total(shown)}</FootText> : i === cols.findIndex((x) => !x.total && x.k !== 'tick') && footLabel ? <FootText bold>{footLabel(shown)}</FootText> : null}</View>)}
               {onMenu ? <View style={{ width: 32 }} /> : null}
             </View>
           )}

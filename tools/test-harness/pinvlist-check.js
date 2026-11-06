@@ -29,7 +29,8 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   check(await page.getByText(/^Select All/).count() === 0, 'no Select All before anything is ticked');
   await page.getByRole('tab', {name: /^Approved/}).click(); await page.waitForTimeout(800);
   check(await page.getByText('J-1', {exact: true}).count() === 1 && await page.getByText('J-2', {exact: true}).count() === 1 && await page.getByText(/^Paid/).count() >= 1, 'Approved has J-1 (status Paid, on its statement) and J-2');
-  check(await page.getByLabel('Posted to Xero').count() === 1 && await page.getByText('Xero', {exact: true}).count() === 1, 'the one in Xero has the small Xero mark by its status; no Xero column');
+  check(await page.getByLabel('Posted to Xero').count() === 1 && await page.getByText('xero', {exact: true}).count() === 1, 'the one in Xero has the small Xero mark by its status; no Xero column');
+  check(await page.getByText('Export To Excel', {exact: true}).count() === 1 && await page.getByText('Export To PDF', {exact: true}).count() === 1, 'Export To Excel and Export To PDF under the list');
   await page.screenshot({path: 'shots/job/pinvlist-approved-1300.png'});
   await page.getByRole('checkbox').first().click(); await page.waitForTimeout(500);
   for (const b of ['Change VAT', 'Change Cost Type']) check(await page.getByText(b, {exact: true}).count() === 1, `bulk bar has ${b}`);
