@@ -15,6 +15,7 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 import { pickJob } from '@/components/FinSales';
 import { chooseAction } from '@/components/toast';
 import { TypePick, type PickOpt } from '@/components/TypePick';
+import { NumText } from '@/components/NumText';
 import { Card } from '@/components/ui';
 import { DEFAULT_UNITS, UnitField } from '@/components/UnitField';
 import { fdb } from '@/data/finance';
@@ -99,11 +100,11 @@ export function InvoiceLines({ lines: lines0, checks, sites, read, onChange, rea
         onChange={(v) => { if (v === '__split') { set(k, { alloc: [{ site_id: l.site_id || defaultSite || '', pct: 50 }, { site_id: '', pct: 50 }] }); setSplitAt(k); } else set(k, { site_id: v, how: undefined }); }} />);
   const cost = (k: number, l: Line) => (readOnly ? ro(shortOf(codeOpts, codeVal(l))) : <TypePick label={`Line ${k + 1} cost code`} value={codeVal(l)} options={codeOpts} listWidth={280} style={[box, mid]} onChange={(v) => set(k, codePatch(v))} />);
   const vat = (k: number, l: Line) => (readOnly ? ro(vatLabel(l)) : <TypePick label={`Line ${k + 1} VAT`} value={vatOf(l)} options={vatOpts} listWidth={200} style={[box, mid]} onChange={(v) => set(k, { vat_rate: v === 'rc' ? 'rc' : Number(v) })} />);
-  const field = (k: number, label: string, v: unknown, onT: (t: string) => void, ph: string) => <TextInput editable={!readOnly} accessibilityLabel={`Line ${k + 1} ${label}`} keyboardType="decimal-pad" placeholder={ph} value={v == null ? '' : String(v)} onChangeText={onT} style={[box, mid, readOnly && grey]} />;
+  const field = (k: number, label: string, v: unknown, onT: (t: string) => void, ph: string) => <NumText editable={!readOnly} accessibilityLabel={`Line ${k + 1} ${label}`} keyboardType="decimal-pad" placeholder={ph} value={v == null ? '' : String(v)} onChangeText={onT} style={[box, mid, readOnly && grey]} />;
   const qty = (k: number, l: Line) => field(k, 'quantity', l.qty, (t) => edit(k, l, { qty: num(t) }), 'Qty');
   const unit = (k: number, l: Line) => (readOnly ? ro(l.unit || '') : <UnitField value={l.unit || ''} onChangeText={(t) => set(k, { unit: t })} units={DEFAULT_UNITS} style={[box, mid, { width: '100%' }]} />);
   const disc = (k: number, l: Line) => field(k, 'discount', l.disc || l.disc === 0 ? l.disc : '', (t) => edit(k, l, { disc: num(t) ?? 0 }), '0');
-  const rate = (k: number, l: Line) => <TextInput editable={!readOnly} accessibilityLabel={`Line ${k + 1} unit price`} keyboardType="decimal-pad" placeholder="0.000" value={l.unit_price == null ? '' : String(l.unit_price)} onChangeText={(t) => edit(k, l, { unit_price: num(t) })} style={[box, mid, readOnly && grey]} />;
+  const rate = (k: number, l: Line) => <NumText editable={!readOnly} accessibilityLabel={`Line ${k + 1} unit price`} keyboardType="decimal-pad" placeholder="0.000" value={l.unit_price == null ? '' : String(l.unit_price)} onChangeText={(t) => edit(k, l, { unit_price: num(t) })} style={[box, mid, readOnly && grey]} />;
   const total = (l: Line) => <View style={{ height: 32, justifyContent: 'center' }}><Text style={{ fontWeight: '600', color: base.ink, textAlign: 'center', fontSize: 13.5 }}>{money(lineValue(l))}</Text></View>;
   const drop = (k: number) => (readOnly ? null : <Pressable accessibilityRole="button" accessibilityLabel={`Remove line ${k + 1}`} hitSlop={6} onPress={() => { onChange(lines.filter((_, j) => j !== k)); setSplitAt(null); }} style={{ width: 20, height: 32, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#9ca3af', fontSize: 15 }}>✕</Text></Pressable>);
   const note = (k: number) => { const c = cheque(checks[k]); return c ? <Text style={{ color: c.col, fontSize: 11.5, fontWeight: '500', marginTop: 4 }}>{c.t}</Text> : null; };
@@ -116,12 +117,12 @@ export function InvoiceLines({ lines: lines0, checks, sites, read, onChange, rea
   const fcell = (f: number, child: ReactNode, z = 0) => <View style={[{ flex: f, minWidth: 0 }, z ? { zIndex: z } : null]}>{child}</View>;
   const figHead = (
     <View style={{ flexDirection: 'row', gap: 6, marginTop: 8, marginBottom: 3 }}>
-      {!phone && !noJob && fcell(FIG.job, H('Job'))}{!phone && fcell(FIG.code, H(costHeading))}{fcell(FIG.qty, H('Qty'))}{fcell(FIG.unit, H('Unit'))}{fcell(FIG.rate, H('£ Each'))}{fcell(FIG.disc, H('Disc %'))}{fcell(FIG.vat, H('VAT'))}{fcell(FIG.total, H('Total'))}{!readOnly && <View style={{ width: 20 }} />}
+      {!phone && !noJob && fcell(FIG.job, H('Job'))}{!phone && fcell(FIG.code, H(costHeading))}{fcell(FIG.qty, H('Qty'))}{fcell(FIG.unit, H('Unit'))}{fcell(FIG.rate, H('£ Each'))}{fcell(FIG.disc, H('Disc %'))}{fcell(FIG.vat, H('VAT'))}{fcell(FIG.total, H('Total'))}
     </View>
   );
   const figures = (k: number, l: Line) => (
     <View style={{ flexDirection: 'row', gap: 6 }}>
-      {!phone && showJob && fcell(FIG.job, job(k, l), 5)}{!phone && fcell(FIG.code, cost(k, l), 4)}{fcell(FIG.qty, qty(k, l))}{fcell(FIG.unit, unit(k, l), 3)}{fcell(FIG.rate, rate(k, l))}{fcell(FIG.disc, disc(k, l))}{fcell(FIG.vat, vat(k, l), 2)}{fcell(FIG.total, total(l))}{!readOnly && <View style={{ width: 20 }} />}
+      {!phone && showJob && fcell(FIG.job, job(k, l), 5)}{!phone && fcell(FIG.code, cost(k, l), 4)}{fcell(FIG.qty, qty(k, l))}{fcell(FIG.unit, unit(k, l), 3)}{fcell(FIG.rate, rate(k, l))}{fcell(FIG.disc, disc(k, l))}{fcell(FIG.vat, vat(k, l), 2)}{fcell(FIG.total, total(l))}
     </View>
   );
 
@@ -135,7 +136,7 @@ export function InvoiceLines({ lines: lines0, checks, sites, read, onChange, rea
         {a.map((x, j) => (
           <View key={j} style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
             {fcell(3, pick(`Split row ${j + 1} project`, x.site_id ? jobTag(site(x.site_id) as never) : 'Choose Project ▾', !x.site_id, () => void chooseJob((s) => setA(a.map((y, i) => (i === j ? { ...y, site_id: s } : y))), 'Which project?')))}
-            {fcell(0.8, <TextInput editable={!readOnly} accessibilityLabel={`Split row ${j + 1} percent`} keyboardType="decimal-pad" value={String(x.pct ?? '')} onChangeText={(t) => setA(a.map((y, i) => (i === j ? { ...y, pct: num(t) ?? 0 } : y)))} style={[box, { textAlign: 'right' }]} />)}
+            {fcell(0.8, <NumText editable={!readOnly} accessibilityLabel={`Split row ${j + 1} percent`} keyboardType="decimal-pad" value={String(x.pct ?? '')} onChangeText={(t) => setA(a.map((y, i) => (i === j ? { ...y, pct: num(t) ?? 0 } : y)))} style={[box, { textAlign: 'right' }]} />)}
             <Text style={{ color: '#6b7280' }}>%</Text>
             {fcell(0.9, <Text style={{ textAlign: 'right', color: '#111827' }}>{money(round2((amt * Number(x.pct || 0)) / 100))}</Text>)}
             {!readOnly && <Pressable accessibilityLabel={`Remove split row ${j + 1}`} onPress={() => setA(a.filter((_, i) => i !== j))}><Text style={{ color: '#9ca3af' }}>✕</Text></Pressable>}
@@ -186,8 +187,8 @@ export function InvoiceLines({ lines: lines0, checks, sites, read, onChange, rea
               <>
                 <Text style={[head, { marginBottom: 3 }]}>Description</Text>
                 <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>{cell('flex', desc(k, l))}{drop(k)}</View>
-                <View style={{ flexDirection: 'row', gap: 6, marginTop: 8 }}>{showJob && fcell(1, H('Job'))}{fcell(1, H(costHeading))}{!readOnly && <View style={{ width: 20 }} />}</View>
-                <View style={{ flexDirection: 'row', gap: 6, marginTop: 3, zIndex: 5 }}>{showJob && cell('flex', job(k, l), 4)}{cell('flex', cost(k, l), 3)}{!readOnly && <View style={{ width: 20 }} />}</View>
+                <View style={{ flexDirection: 'row', gap: 6, marginTop: 8 }}>{showJob && fcell(1, H('Job'))}{fcell(1, H(costHeading))}</View>
+                <View style={{ flexDirection: 'row', gap: 6, marginTop: 3, zIndex: 5 }}>{showJob && cell('flex', job(k, l), 4)}{cell('flex', cost(k, l), 3)}</View>
                 {figHead}
                 <View style={{ zIndex: 4 }}>{figures(k, l)}</View>
               </>

@@ -31,7 +31,7 @@ export async function saveLinesOnInvoice(pi: Row, lines: RLine[], flags: string[
   const withLines = { ...pi, lines: stored };
   // Split lines (by %) count against each of their projects (Andy, 5 Nov 2026); the lines are kept exactly as entered.
   const patch = codePatch({ ...withLines, lines: [] }, codedParts(stored));
-  await fdb.from('purchase_invoices').update({ ...('patch' in patch ? patch.patch : {}), lines: stored, ...(flags.length ? { match_notes: flags.join('\n') } : {}) } as never).eq('id', pi.id);
+  await fdb.from('purchase_invoices').update({ ...('patch' in patch ? patch.patch : {}), lines: stored, match_notes: flags.length ? flags.join('\n') : null } as never).eq('id', pi.id);
 }
 
 const asItem = (r: Read, code: ReturnType<typeof codeLines>) => ({ ...r, invoice_no: r.doc_number, date: r.doc_date, lines: code.lines });

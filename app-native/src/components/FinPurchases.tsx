@@ -70,12 +70,6 @@ function InboxRow({ it, pm, why, job, onJob, onPm }: { it: Row; pm: boolean; why
         <Text style={{ fontSize: 12, color: '#6b7280' }}>{ago}</Text>
         <Text style={{ fontSize: 14, color: '#9ca3af' }}>›</Text>
       </View>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
-        {chip('Total', ex.total != null ? money(ex.total) : '—')}
-        {chip('VAT', ex.vat != null ? money(ex.vat) : '—')}
-        {chip('', job || 'Select Project ▾', onJob, !job)}
-        {chip('', pm ? 'With A PM ▾' : 'Assign To PM ▾', onPm)}
-      </View>
       {Array.isArray(ex.lines) && ex.lines.length > 0 && (
         <View style={{ marginTop: 8, borderTopWidth: 1, borderTopColor: '#f0f1f3', paddingTop: 6, gap: 2 }}>
           {(ex.lines as Row[]).slice(0, 4).map((l, k) => (
@@ -89,6 +83,13 @@ function InboxRow({ it, pm, why, job, onJob, onPm }: { it: Row; pm: boolean; why
         </View>
       )}
       {!!meta && <Text numberOfLines={2} style={{ fontSize: 12.5, color: '#6b7280', marginTop: 8 }}>{meta}</Text>}
+      {/* Total, VAT, the job and the PM at the bottom of the box (Andy, 7 Nov 2026). */}
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+        {chip('Total', ex.total != null ? money(ex.total) : '—')}
+        {chip('VAT', ex.vat != null ? money(ex.vat) : '—')}
+        {chip('', job || 'Select Project ▾', onJob, !job)}
+        {chip('', pm ? 'With A PM ▾' : 'Assign To PM ▾', onPm)}
+      </View>
     </Pressable>
   );
 }
@@ -138,8 +139,8 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
   const [info, setInfo] = useState<{ x: number; y: number; title: string; lines: string[] } | null>(null); // the bubble by a PO's ✓ / ✕
   const [pmF, setPmF] = useState(''); // With A PM: just one PM's (Andy, 6 Nov 2026)
   const { data: asked } = useQuery({ queryKey: ['finPiAskedAll', me?.org_id], enabled: !!me && tab === 'invoices', queryFn: async () => {
-    const m = ((await fdb.from('messages').select('related_id,recipient_id,created_at').eq('kind', 'pi_query').order('created_at', { ascending: true }).limit(2000)).data as Row[] | null) ?? [];
-    const by: Record<string, string> = {}; m.forEach((x) => { if (x.related_id) by[x.related_id] = x.recipient_id; }); return by;
+    const m = ((await fdb.from('messages').select('related_id,recipient_id,created_at').eq('kind', 'pi_query').order('created_at', { ascending: false }).limit(2000)).data as Row[] | null) ?? [];
+    const by: Record<string, string> = {}; m.forEach((x) => { if (x.related_id && !by[x.related_id]) by[x.related_id] = x.recipient_id; }); return by;
   } });
   const { data: pmPeople = [] } = useQuery({ queryKey: ['finPmPeople', me?.org_id], enabled: !!me && tab === 'invoices', queryFn: async () => ((await fdb.from('profiles').select('id,name,role').eq('org_id', me?.org_id as string).in('role', ['pm', 'admin']).order('name')).data as Row[] | null) ?? [] }); // the laptop's "All months" picker on the totals bar
   const { data: grn = {} } = useQuery({
@@ -289,7 +290,8 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
     const needJob = data.inbox.filter((i) => i.stage !== 'with_pm'), withPm = data.inbox.filter((i) => i.stage === 'with_pm');
     // The tabs follow the steps on each invoice (Andy, 6 Nov 2026): Received (no job yet), With A PM (to allocate, or
     // queried), Needs Checking, Approved (paid ones stay here: their status changes to Paid once on a statement).
-    const F: Record<string, (i: Row) => boolean> = { pm: (i) => i.status === 'query', approve: (i) => i.status === 'to_approve', unpaid: (i) => i.status === 'approved', all: () => true };
+    const withSomeone = (i: Row) => i.status === 'query' && (!!askedOf[i.id] || (Array.isArray(i.query_thread) && i.query_thread.length > 0) || /^Queried with the supplier/.test(String(i.query_note || '')));
+    const F: Record<string, (i: Row) => boolean> = { pm: withSomeone, approve: (i) => i.status === 'to_approve' || (i.status === 'query' && !withSomeone(i)), unpaid: (i) => i.status === 'approved', all: () => true };
     const cnt: Record<string, number> = { job: needJob.length, pm: withPm.length + data.pinvs.filter(F.pm).length, approve: data.pinvs.filter(F.approve).length, unpaid: data.pinvs.filter(F.unpaid).length };
     const cur = (sel.status[0] === 'paid' ? 'unpaid' : sel.status[0]) || ['job', 'approve', 'pm', 'unpaid'].find((k) => cnt[k]) || 'all';
     const chips: [string, string, number][] = [['job', 'Received', cnt.job], ['pm', 'With A PM', cnt.pm], ['approve', 'Needs Checking', cnt.approve], ['unpaid', 'Approved', cnt.unpaid], ['all', 'All', data.pinvs.length]];
@@ -359,7 +361,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
                       ...(!unread(it) ? [{ key: 'ok', label: 'Approve', run: () => { setPendingAct(it.id, 'approve'); router.push(`/fin/inbox/${it.id}` as never); } }] : []),
                       { key: 'edit', label: unread(it) ? 'Fill In' : 'Edit', run: () => router.push(`/fin/inbox/${it.id}` as never) },
                       { key: 'pm', label: cur === 'pm' ? 'Change PM' : 'Send To PM', run: () => assignPm(it) },
-                      ...(cur === 'pm' ? [{ key: 'sup', label: 'Query Supplier', run: () => { setPendingAct(it.id, 'supplier'); router.push(`/fin/inbox/${it.id}` as never); } }] : []),
+                      ...(cur === 'pm' && it.site_id ? [{ key: 'sup', label: 'Query Supplier', run: () => { setPendingAct(it.id, 'supplier'); router.push(`/fin/inbox/${it.id}` as never); } }] : []),
                       { key: 'not', label: 'Delete', run: () => notInvoice(it) },
                     ]} /> },
                   ]}
@@ -456,12 +458,12 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
                     ...(cur === 'unpaid' ? [] : [{ k: 'po', l: 'PO', min: 96, sort: (i: Row) => posBy[i.po_id]?.number || '', render: (i: Row) => poCell(i) }]),
                     { k: 's', l: 'Status', min: 84, noSort: true, choices: ['Needs Checking', 'Query', 'Approved', 'Paid', 'Rejected'], render: (i: Row) => <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5 }}><Cell tone={piTone(i)}>{piWord(i)}</Cell>{!!i.xero_id && <View accessibilityLabel="Posted to Xero" style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: '#13B5EA', alignItems: 'center', justifyContent: 'center' }}><Text style={{ fontSize: 7, fontWeight: '700', color: '#fff', letterSpacing: 0.1 }}>xero</Text></View>}</View> },
                     { k: 'a', l: 'Actions', min: 108, noSort: true, render: (i: Row) => <ActionsCell items={[
-                                            ...(['to_approve', 'query', 'rejected'].includes(i.status) && me ? [{ key: 'ok', label: 'Approve', run: async () => { const r = await setPinvStatus(me, i.id, 'approved'); toast(r.ok ? 'Approved' : 'Couldn’t approve — try again.', { confirm: r.ok }); refresh(); } }] : []),
+                                            ...(['to_approve', 'query', 'rejected'].includes(i.status) && me ? [{ key: 'ok', label: 'Approve', run: async () => { if (!(await confirmAsk(`Approve ${i.supplier_name || ''} ${i.invoice_no || ''} (${money(i.total)})?`, 'Approve'))) return; const r = await setPinvStatus(me, i.id, 'approved'); toast(r.ok ? 'Approved' : 'Couldn’t approve — try again.', { confirm: r.ok }); refresh(); } }] : []),
                       ...(i.status !== 'approved' && !isPaid(i) ? [{ key: 'pm', label: 'Send To PM', run: () => queryPm(i) }] : []),
                       ...(cur === 'pm' ? [{ key: 'sup', label: 'Query Supplier', run: () => { setPendingAct(i.id, 'supplier'); router.push(`/fin/pinv/${i.id}` as never); } }] : []),
                       { key: 'edit', label: 'Edit', run: () => router.push(`/fin/pinv/${i.id}?edit=1` as never) },
                       ...(i.status === 'approved' && !isPaid(i) ? [{ key: 'paid', label: 'Mark Paid', run: async () => { if (await setPinvPaid(i.id, today())) { toast('Marked paid', { confirm: true }); refresh(); } } }] : []),
-                      ...(i.status !== 'rejected' && !isPaid(i) && me ? [{ key: 'rej', label: 'Reject', run: async () => { if (await confirmAsk('Reject this purchase invoice?', 'Reject')) { await setPinvStatus(me, i.id, 'rejected'); refresh(); } } }] : []),
+                      ...(i.status !== 'rejected' && !isPaid(i) && me ? [{ key: 'rej', label: 'Reject', run: async () => { const inX = !!i.xero_id; if (!(await confirmAsk(`Reject this purchase invoice?${inX ? '\n\nIt’s already in Xero. Rejecting it here won’t change Xero — change it in Xero too.' : ''}`, 'Reject'))) return; const r = await setPinvStatus(me, i.id, 'rejected'); toast(r.ok ? 'Rejected' : 'Couldn’t reject it — try again.', { confirm: r.ok }); refresh(); } }] : []),
                     ]} /> },
                   ]}
                   footLabel={(list) => `${list.length} shown`} footRight={monthPick} />{bulkBar}

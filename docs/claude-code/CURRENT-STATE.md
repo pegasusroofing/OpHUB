@@ -38,6 +38,15 @@
   4. Andy pastes SQL file 4 into Supabase › SQL Editor.
 
   If the native app is close, it's fine to wait and do this at switch-over instead.
+- **SQL file 15:** run 5 Nov (purchase invoices approve themselves).
+- **SQL file 16 (`sql/16 - Supplier query email templates (6 Nov).sql`): NOT run.** Lets a company save its own wording for Query With Supplier emails (the standard wording works without it).
+- **SQL file 17 (`sql/17 - Security tightening from the overnight review (6 Nov).sql`): NOT run.** Six sections, A–F, each run on its own. Andy decides. See `REVIEW-2026-11-07.md`.
+  - A: emailed invoices stop approving themselves. This changes the 5 Nov rule.
+  - B: fixes `fin_raise_po`.
+  - C: no faked system notices.
+  - D: rows stay in the company.
+  - E: the approver is stamped by the database.
+  - F: three look-ups need a sign-in. This one is a REVOKE.
 
 ## Server functions
 - `send-finance-email` v5 (subject, text, extra attachments, signature with company number, VAT, email and logo).
@@ -45,6 +54,13 @@
 - The `xero` and `finance-inbox` repo copies match live.
 - When redeploying, keep each function's `verify_jwt` setting as it is live.
 - `finance-report-run` (verify_jwt off): the repo copy of `book.ts` is one line ahead of live (6 Nov 2026: draft POs, `purchase_orders.is_draft`, are not counted as ordered). Redeploy it with the next server deploy; until then the scheduled reports count a draft PO as ordered.
+- **Recommended at the next server deploy (overnight review, 7 Nov):** server-side Finance trial guards.
+  - `xero` and `send-finance-email` don't check the trial themselves. Only the apps do.
+  - Copy finance-inbox's `FIN_TRIAL` / `FIN_SANDBOX_ORGS` check into both:
+    - `xero`: refuse `push_*` and `create_contact` unless the company is Sandbox;
+    - `send-finance-email`: refuse after the caller lookup.
+  - Remove the guards when the trial ends.
+  - Also: `finance-ai-read` has `*` CORS (it still needs a sign-in) and no daily limit; finance-inbox's comment "never auto-approved" is out of date until SQL 17 section A is run.
 - `send-hs-email` v2 (3 Nov, verify_jwt on): H&S documents and signature sheets from the new app.
 - `rams-ai-draft` v3 (4 Nov, verify_jwt on): the AI RAMS writer.
   - Company admins only, because each draft is a paid AI call (Andy, 4 Nov).

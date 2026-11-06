@@ -17,14 +17,7 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
       check(await page.getByText('Today', {exact: true}).count() >= 1, `${n}: the Today panel`);
       check(await page.getByText('Live projects', {exact: true}).count() >= 2, `${n}: the red Live projects card (phone and laptop)`);
       check(await page.getByRole('button', {name: 'Projects', exact: true}).count() === 0, `${n}: no separate Projects tile`);
-      if (W < 500) {
-        // The Today bar drifts sideways on its own, and stops when touched.
-        const bar = page.locator('[data-testid="today-bar"]'); const left = () => bar.evaluate((e) => e.scrollLeft);
-        const x1 = await left(); await page.waitForTimeout(1500); const x2 = await left();
-        check(x2 > x1 + 10, `${n}: the Today bar scrolls on its own (${Math.round(x1)} → ${Math.round(x2)})`);
-        await bar.evaluate((e) => { const t = new Touch({identifier: 1, target: e, clientX: 60, clientY: e.getBoundingClientRect().y + 20}); const ev = (k) => new TouchEvent(k, {touches: k === 'touchend' ? [] : [t], targetTouches: k === 'touchend' ? [] : [t], changedTouches: [t], bubbles: true}); e.dispatchEvent(ev('touchstart')); e.dispatchEvent(ev('touchend')); }); const x3 = await left(); await page.waitForTimeout(1500); const x4 = await left();
-        check(Math.abs(x4 - x3) < 2, `${n}: and stops when touched (${Math.round(x3)} → ${Math.round(x4)})`);
-      }
+      if (W < 500) check(await page.locator('[data-testid="today-bar"]').count() === 1, `${n}: the Today bar is there to swipe (it doesn’t move by itself since 7 Nov)`);
     }
     await page.screenshot({path: `shots/job/opt1-${n}.png`});
     await ctx.close();

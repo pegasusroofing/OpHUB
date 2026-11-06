@@ -63,7 +63,7 @@ function ViewPinv({ id, startEdit }: { id: string; startEdit?: boolean }) {
         {(() => {
           // 9219zr: the conversation with the job's PM about a queried invoice, with a reply box while it's a query.
           const thread = (Array.isArray(i.query_thread) ? i.query_thread : []).filter((x: Row) => x && x.text) as Row[];
-          if (i.status !== 'query' && !thread.length) return null;
+          if (!thread.length && !(i.status === 'query' && askedPm)) return null;
           const pm = askedPm || sites.find((x) => x.id === i.site_id)?.responsible_pm_id;
           return (
             <Card>

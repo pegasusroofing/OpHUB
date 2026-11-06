@@ -9,10 +9,11 @@ import * as DocumentPicker from 'expo-document-picker';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, Stack } from 'expo-router';
 import { useState, type ReactNode } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Platform, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native';
 
 import { DateBox } from '@/components/DateField';
 import { DocSplit } from '@/components/DocSplit';
+import { viewDoc } from '@/components/DocViewer';
 import { blankLine, InvoiceLines } from '@/components/InvoiceLines';
 import { pickJob } from '@/components/FinSales';
 import { PinvStages } from '@/components/PinvStages';
@@ -52,9 +53,11 @@ export function PinvEditor({ inbox, siteId: site0, poId: po0, start, pi, below, 
   const toast = useToast();
   const qc = useQueryClient();
   const desk = useDesk();
+  // The PDF sits beside the form on a wide laptop screen (DocSplit); otherwise a button opens it (Andy, 7 Nov 2026).
+  const { width: winW } = useWindowDimensions();
+  const splitOn = Platform.OS === 'web' && winW >= 1100;
   const { data: sites = [] } = useSites();
   const ex = (inbox?.extracted || {}) as Row;
-  const piLines = ((pi?.lines || []) as RLine[]).filter((l) => l && (l.kind || 'item') !== 'total');
   // In Xero or paid: shown as it is, not changed here.
   const locked = !!pi && (!!pi.xero_id || !!pi.paid_on);
   // A saved invoice opens locked; Edit at the bottom opens it for changes (Andy, 6 Nov 2026).
@@ -77,7 +80,9 @@ export function PinvEditor({ inbox, siteId: site0, poId: po0, start, pi, below, 
   const [noteShut, setNoteShut] = useState(false); // the note at the top closes with its ✕ (Andy, 6 Nov 2026)
   const shut = <Pressable accessibilityRole="button" accessibilityLabel="Close the note" hitSlop={8} onPress={() => setNoteShut(true)} style={{ position: 'absolute', top: 8, right: 10 }}><Text style={{ fontSize: 16, color: base.slate }}>✕</Text></Pressable>;
   // Lines as read, or one line for the amount read (an unread invoice: one blank line to fill in).
-  const [lines, setLines] = useState<RLine[]>(() => (pi ? (piLines.length ? piLines : [{ ...blankLine(pi.site_id), description: pi.description || 'Invoice total', unit_price: Number(pi.net || 0), amount: Number(pi.net || 0), cost_code: pi.cost_code || 'materials', vat_rate: Number(pi.net) ? Math.round((Number(pi.vat || 0) / Number(pi.net)) * 100) : 20 }])
+  // A saved invoice's lines, or one line for its total when it was saved without lines.
+  const savedLines = (p: Row): RLine[] => { const pl = ((p.lines || []) as RLine[]).filter((l) => l && (l.kind || 'item') !== 'total'); return pl.length ? pl : [{ ...blankLine(p.site_id), description: p.description || 'Invoice total', unit_price: Number(p.net || 0), amount: Number(p.net || 0), cost_code: p.cost_code || 'materials', vat_rate: Number(p.net) ? Math.round((Number(p.vat || 0) / Number(p.net)) * 100) : 20 }]; };
+  const [lines, setLines] = useState<RLine[]>(() => (pi ? savedLines(pi)
     // The job chosen on the list goes on every line that hasn't one (Andy, 6 Nov 2026).
     : Array.isArray(ex.lines) && ex.lines.length ? (ex.lines as RLine[]).map((l) => (l.site_id || l.alloc?.length || !inbox?.site_id ? l : { ...l, site_id: inbox.site_id }))
     : ex.net != null ? [{ ...blankLine(site0 || inbox?.site_id), description: 'Invoice total', unit_price: Number(ex.net), amount: Number(ex.net) }]
@@ -102,7 +107,7 @@ export function PinvEditor({ inbox, siteId: site0, poId: po0, start, pi, below, 
   const unedit = () => {
     if (!pi) return;
     setSupplier(pi.supplier_name || ''); setNo(pi.invoice_no || ''); setDate(pi.invoice_date || today()); setDue(pi.due_date || ''); setSiteId(pi.site_id || null); setPoId(pi.po_id || ''); setReceipt(pi.kind === 'receipt'); setFile(null);
-    setLines(piLines.length ? piLines : lines.slice(0, 1)); setEditing(false);
+    setLines(savedLines(pi)); setEditing(false);
   };
   const refresh = () => ['finInbox', 'finPurchases', 'finOverview', 'finBook', 'finPo', 'finPinv'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] }));
 
@@ -189,8 +194,9 @@ export function PinvEditor({ inbox, siteId: site0, poId: po0, start, pi, below, 
     if (how === 'supplier') {
       setBusy(true);
       try {
-        const r = pi && !editing ? { id: pi.id as string } : await persist(); if (!r) return;
-        const row = (await fdb.from('purchase_invoices').select('*').eq('id', r.id).maybeSingle()).data as Row | null; if (!row) return;
+        const r = pi && !editing ? { id: pi.id as string, fresh: false } : await persist(); if (!r) return;
+        let row = (await fdb.from('purchase_invoices').select('*').eq('id', r.id).maybeSingle()).data as Row | null; if (!row) return;
+        if (r.fresh && row.status === 'approved' && row.auto_approved) { await fdb.from('purchase_invoices').update({ status: 'to_approve', approved_at: null, auto_approved: null } as never).eq('id', r.id); row = { ...row, status: 'to_approve', auto_approved: null }; }
         if (!row.file_path) { toast('Attach the invoice first, so it can go back to the supplier with the email.'); if (!pi) router.replace(`/fin/pinv/${r.id}` as never); return; }
         // Back to where it came from: the address it was emailed from, else the supplier's email in the Directory.
         const from = inbox?.from_email || (((await fdb.from('fin_inbox').select('from_email').eq('purchase_invoice_id', r.id).limit(1)).data as Row[] | null)?.[0]?.from_email as string | undefined);
@@ -243,7 +249,7 @@ export function PinvEditor({ inbox, siteId: site0, poId: po0, start, pi, below, 
     } finally { setBusy(false); }
   };
 
-  if (wantQuery && (pi || inbox)) { const w = wantQuery; setWantQuery(''); clearPendingAct(pi?.id || inbox?.id); queueMicrotask(() => void act(w)); }
+  if (wantQuery && (pi || inbox) && ctx && (!poId || poFull)) { const w = wantQuery; setWantQuery(''); clearPendingAct(pi?.id || inbox?.id); queueMicrotask(() => void act(w)); }
 
   const field = (label: string, child: React.ReactNode, w: number | string = 180) => <View style={{ flexGrow: 1, flexBasis: w as number, minWidth: 140 }}><Text style={lab}>{label}</Text>{child}</View>;
   const choice = (label: string, v: string, onPress: () => void, warn = false) => <Pressable disabled={shut2} accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={[fieldBox, warn && !shut2 && { borderColor: '#f8e7c2', backgroundColor: '#fffaf0' }, shut2 && { backgroundColor: '#F6F7F9' }]}><Text numberOfLines={1} style={{ color: warn && !shut2 ? '#b45309' : base.ink, fontSize: 14 }}>{v}{shut2 ? '' : ' ▾'}</Text></Pressable>;
@@ -257,6 +263,7 @@ export function PinvEditor({ inbox, siteId: site0, poId: po0, start, pi, below, 
       : pi.paid_on ? { step: 6, next: `Paid ${fdate(pi.paid_on)}.` }
       : pi.status === 'approved' ? { step: 5, next: `${pi.auto_approved ? 'Approved by itself (nothing looked wrong). ' : ''}Next: paid when it’s ticked off on the supplier’s statement, or Mark Paid Today.${pi.xero_id ? ' In Xero.' : ''}` }
       : pi.status === 'query' && /^Queried with the supplier/.test(String(pi.query_note || '')) ? { step: 2, label2: 'With Supplier', next: `Waiting on ${pi.supplier_name || 'the supplier'}: ${String(pi.query_note).replace(/^Queried with the supplier/, 'emailed')}. Approve it once it’s sorted.` }
+      : pi.status === 'query' && !askedPm && !(Array.isArray(pi.query_thread) && pi.query_thread.length) ? { step: 3, next: `Needs checking${pi.query_note ? `: ${pi.query_note}` : ''}. Approve it, or Query To PM if something’s not right.` }
       : pi.status === 'query' ? { step: 2, label2: askedPm ? `With ${first(askedPm)}` : 'With A PM', next: `Waiting on ${askedPm ? nameOf(people, askedPm) : 'the PM'}${pi.query_note ? `: “${pi.query_note}”` : ''}. Their reply shows below.` }
       : { step: 3, next: 'Next: check it, then Approve Invoice, or Query To PM if something’s not right.' }
     : inbox ? inbox.stage === 'with_pm' ? { step: 2, label2: `With ${first(inbox.assigned_pm)}`, next: `With ${nameOf(people, inbox.assigned_pm) || 'a PM'} to choose the job.` }
@@ -267,6 +274,7 @@ export function PinvEditor({ inbox, siteId: site0, poId: po0, start, pi, below, 
     <DocSplit name={docName} load={load} reloadKey={docPath || file?.uri || ''}>
       <ScrollView contentContainerStyle={page(1000)} keyboardShouldPersistTaps="handled">
         <Stack.Screen options={{ title: pi || inbox ? supplier || 'Purchase invoice' : 'New Purchase Invoice' }} />
+        {!splitOn && !!load && <View style={{ alignSelf: 'flex-start', marginBottom: 8 }}><Button small kind="ghost" title={`📄 View ${docName}`} onPress={async () => { const u = await load(); if (u) viewDoc(u, docName); else toast('Could not open the invoice.'); }} /></View>}
         <PinvStages {...stage} />
         {locked && <Muted style={{ marginBottom: 8 }}>{pi?.xero_id ? 'In Xero, so change it in Xero.' : 'Paid, so it stays as it is.'}</Muted>}
         {inbox && unread && !noteShut && (
@@ -333,8 +341,8 @@ export function PinvEditor({ inbox, siteId: site0, poId: po0, start, pi, below, 
           {!inbox && !pi && <Button small kind="ghost" title="Cancel" onPress={() => router.back()} />}
           {!inbox && !pi && <Button small kind="ghost" busy={busy} title="Save & Add Another" onPress={() => void act('another')} />}
           {!!pi && !locked && (editing ? <Button small kind="ghost" title="Cancel Edit" onPress={unedit} /> : <Button small kind="ghost" title="✏️ Edit" onPress={() => setEditing(true)} />)}
-          {!locked && pi?.status !== 'approved' && pi?.status !== 'query' && <Button small kind="ghost" busy={busy} title={editing ? 'Save & Query To PM' : 'Query To PM'} onPress={() => void act('query')} />}
-          {!locked && <Button small kind="ghost" busy={busy} title={editing ? 'Save & Query Supplier' : 'Query With Supplier'} onPress={() => void act('supplier')} />}
+          {!locked && pi?.status !== 'approved' && !(pi?.status === 'query' && askedPm) && <Button small kind="ghost" busy={busy} title="Query To PM" onPress={() => void act('query')} />}
+          {!locked && <Button small kind="ghost" busy={busy} title="Query Supplier" onPress={() => void act('supplier')} />}
           {!locked && editing && <Button small kind={!pi && !inbox ? 'primary' : 'ghost'} busy={busy} title={pi?.status === 'approved' ? 'Save Changes' : 'Save'} onPress={() => void act('save')} />}
           {!locked && (pi || inbox) && pi?.status !== 'approved' && <Button small busy={busy} title="Approve Invoice" onPress={() => void act('approve')} />}
         </View>

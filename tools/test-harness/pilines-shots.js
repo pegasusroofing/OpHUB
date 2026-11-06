@@ -21,6 +21,12 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   await page.getByText('+ Add A Line', {exact: true}).click(); await page.waitForTimeout(300);
   await page.getByLabel('Line 2 description').fill('Type 3 trim'); await page.getByLabel('Line 2 quantity').fill('40'); await page.getByLabel('Line 2 unit price').fill('7.71');
   await page.getByLabel('Line 2 cost code').click(); await page.waitForTimeout(300); await page.getByText('P200 – Plant hire').last().click(); await page.waitForTimeout(300);
+  // Typed key by key (overnight review, 7 Nov 2026): 12.50 stays 12.50, and Tab past an empty job box picks nothing.
+  await page.getByLabel('Line 2 unit price').fill(''); await page.getByLabel('Line 2 unit price').click(); await page.keyboard.type('12.50', {delay: 40}); await page.waitForTimeout(300);
+  check(await page.getByLabel('Line 2 unit price').inputValue() === '12.50', 'a price typed key by key stays 12.50 (' + await page.getByLabel('Line 2 unit price').inputValue() + ')');
+  check(await page.getByText('£500.00').count() >= 1, 'and the line comes to £500.00 (40 × £12.50)');
+  await page.getByLabel('Line 2 job').click(); await page.keyboard.press('Tab'); await page.waitForTimeout(300);
+  check(await page.getByLabel('Line 2 job').inputValue() === '', 'Tab past an empty job box picks nothing');
   const y = async (l) => Math.round((await page.getByLabel(l).boundingBox()).y);
   check(Math.abs(await y('Line 1 job') - await y('Line 1 VAT')) < 3, 'beside the PDF: the description, then job, code and figures on one row');
   check(await page.getByText('Description', {exact: true}).count() >= 2, 'beside the PDF each line has its own Description heading');

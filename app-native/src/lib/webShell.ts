@@ -20,7 +20,8 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
     html, body { background-color: #FFFFFF; }
     body { position: fixed; inset: 0; }
     #root { width: 100%; height: 100%; height: 100dvh; overflow: hidden; }
-    @media (pointer: coarse), (max-width: 1099px) { input, textarea, select { font-size: 16px !important; } }
+    /* Boxes a touch smaller on a phone (Andy, 7 Nov 2026: 0.9x); maximum-scale=1 above stops Safari zooming into them. */
+    @media (pointer: coarse), (max-width: 1099px) { input, textarea, select { font-size: 14.4px !important; } }
   `;
   document.head.appendChild(style);
 }

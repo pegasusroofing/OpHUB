@@ -17,6 +17,7 @@ import { SuggestField } from '@/components/SuggestField';
 import { useToast } from '@/components/toast';
 import { pickJob } from '@/components/FinSales';
 import { TypePick, type PickOpt } from '@/components/TypePick';
+import { NumText } from '@/components/NumText';
 import { PdfPages } from '@/components/DocViewer';
 import { FinEmailPopup } from '@/components/FinEmailPopup';
 import { emailPo, filePoPdf } from '@/data/finPurchase';
@@ -345,7 +346,7 @@ export function FinNewPo({ site: site0, itemIds = [], toTop }: { site?: Site | n
         {rows.map((x, j) => (
           <View key={j} style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
             <View style={{ flex: 1, minWidth: 0 }}><TypePick label={`${what} row ${j + 1} project`} value={x.site_id} options={jobOpts} onChange={(v) => onRows(rows.map((y, i) => (i === j ? { ...y, site_id: v } : y)))} placeholder="Choose the project" listWidth={320} align="left" style={[box, { paddingVertical: 5, fontSize: 13.5 }]} /></View>
-            <TextInput accessibilityLabel={`${what} row ${j + 1} percent`} keyboardType="decimal-pad" value={String(x.pct ?? '')} onChangeText={(t) => onRows(rows.map((y, i) => (i === j ? { ...y, pct: Number(t.replace(/[^0-9.]/g, '')) || 0 } : y)))} style={[box, cell, { width: 70 }]} />
+            <NumText accessibilityLabel={`${what} row ${j + 1} percent`} keyboardType="decimal-pad" value={String(x.pct ?? '')} onChangeText={(t) => onRows(rows.map((y, i) => (i === j ? { ...y, pct: Number(t.replace(/[^0-9.]/g, '')) || 0 } : y)))} style={[box, cell, { width: 70 }]} />
             <Text style={{ color: base.slate }}>%</Text>
             <Text style={{ width: 92, textAlign: 'center', color: base.ink }}>{money(r2((amount * Number(x.pct || 0)) / 100))}</Text>
             <Pressable accessibilityLabel={`Remove ${what} row ${j + 1}`} onPress={() => { const n = rows.filter((_, i) => i !== j); onRows(n.length ? n : null); }} style={{ width: 20, alignItems: 'center' }}><Text style={{ color: base.slate }}>✕</Text></Pressable>
