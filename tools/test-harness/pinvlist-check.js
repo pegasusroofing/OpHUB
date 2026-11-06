@@ -1,4 +1,5 @@
-// Purchase invoices (Andy, 5 Nov 2026): tabs Unallocated / With A PM / Needs Checking / To Pay / All Filed (no Paid tab);
+// Purchase invoices (Andy, 5 Nov 2026; 6 Nov: tabs Received / With A PM / Needs Checking / Approved / All, paid ones
+// stay under Approved with their status Paid);
 // Status says Paid (Statement) when the invoice is on a reconciled supplier statement; no Select All until one is
 // ticked, then a bulk edit bar under the list (Approve, Change VAT, Change Cost Type, Mark Paid). Fake database only.
 // node pinvlist-check.js
@@ -20,20 +21,20 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   await page.getByText('Sign In', {exact: true}).click(); await page.waitForTimeout(5000);
   await page.goto('http://localhost:8081/fin/purchases?tab=invoices'); await page.waitForTimeout(5000);
   const tabs = (await page.getByRole('tab').allInnerTexts()).map((t) => t.replace(/\s+/g, ' '));
-  check(tabs.some((t) => /^Needs Checking/.test(t)) && tabs.some((t) => /^To Pay/.test(t)) && !tabs.some((t) => /^Paid/.test(t)), 'tabs: ' + tabs.slice(-5).join(' · '));
-  await page.getByRole('tab', {name: /All Filed/}).click(); await page.waitForTimeout(800);
+  check(['Received', 'With A PM', 'Needs Checking', 'Approved'].every((n) => tabs.some((t) => t.startsWith(n))), 'tabs: ' + tabs.slice(-6).join(' · '));
+  await page.getByRole('tab', {name: /^All/}).click(); await page.waitForTimeout(800);
   check(await page.getByText('Paid (Statement)').count() === 1, 'J-1 shows Paid (Statement)');
   check(await page.getByText('Approved (Auto)').count() === 1, 'J-2 shows Approved (Auto)');
   check(await page.getByText(/^Select All/).count() === 0, 'no Select All before anything is ticked');
-  await page.getByRole('tab', {name: /To Pay/}).click(); await page.waitForTimeout(800);
-  check(await page.getByText('J-1', {exact: true}).count() === 0 && await page.getByText('J-2', {exact: true}).count() === 1, 'To Pay has J-2 only (J-1 is paid by its statement)');
+  await page.getByRole('tab', {name: /^Approved/}).click(); await page.waitForTimeout(800);
+  check(await page.getByText('J-1', {exact: true}).count() === 1 && await page.getByText('J-2', {exact: true}).count() === 1 && await page.getByText(/^Paid/).count() >= 1, 'Approved has J-1 (status Paid, on its statement) and J-2');
   await page.getByRole('checkbox').first().click(); await page.waitForTimeout(500);
   for (const b of ['Change VAT', 'Change Cost Type']) check(await page.getByText(b, {exact: true}).count() === 1, `bulk bar has ${b}`);
   check(await page.getByText(/^Mark 1 Paid$/).count() === 1, 'bulk bar has Mark 1 Paid');
   await page.getByText('Change Cost Type', {exact: true}).click(); await page.waitForTimeout(600);
   await page.getByText('Plant', {exact: true}).last().click(); await page.waitForTimeout(1500);
   check(db.purchase_invoices.find((i) => i.id === 'piB').cost_code === 'plant', 'cost type changed in bulk');
-  await page.getByRole('tab', {name: /All Filed/}).click(); await page.waitForTimeout(600);
+  await page.getByRole('tab', {name: /^All/}).click(); await page.waitForTimeout(600);
   await page.getByRole('checkbox').first().click(); await page.waitForTimeout(500);
   await page.screenshot({path: 'shots/job/pinvlist-1300.png'});
   check(!errs.length, `no errors ${errs.slice(0, 2).join(' | ')}`);

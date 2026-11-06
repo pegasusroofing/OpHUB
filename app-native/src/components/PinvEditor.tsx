@@ -15,15 +15,15 @@ import { DateBox } from '@/components/DateField';
 import { DocSplit } from '@/components/DocSplit';
 import { blankLine, InvoiceLines } from '@/components/InvoiceLines';
 import { pickJob } from '@/components/FinSales';
+import { PinvStages } from '@/components/PinvStages';
 import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Card, Check, Muted } from '@/components/ui';
 import { fdb } from '@/data/finance';
 import { addPinv, duplicateOf, piLabel, setPinvStatus, tellPmOfPi } from '@/data/finPurchase';
-import { openDocLink } from '@/data/hs';
+import { nameOf, openDocLink, usePeople } from '@/data/hs';
 import { checkAll, loadReadContext, readOne, saveLinesOnInvoice } from '@/data/invoiceRead';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
-import { PI_STATUS } from '@/lib/rules/finBook';
 import { addDays, finBlocked, fdate, jobTag, money, round2, today } from '@/lib/rules/finance';
 import { allocProblem, codedParts, linesNet, linesVat, type RLine } from '@/lib/rules/invoiceRead';
 import { checkAgainstPo } from '@/lib/rules/poMatch';
@@ -78,6 +78,9 @@ export function PinvEditor({ inbox, siteId: site0, poId: po0, start, pi, below, 
     : ex.net != null ? [{ ...blankLine(site0 || inbox?.site_id), description: 'Invoice total', unit_price: Number(ex.net), amount: Number(ex.net) }]
     : start?.amount ? [{ ...blankLine(site0), description: 'Invoice total', unit_price: round2(start.amount / 1.2), amount: round2(start.amount / 1.2) }] : [blankLine(site0 || inbox?.site_id)]));
   const { data: sups = [] } = useQuery({ queryKey: ['finSupNames', me?.org_id], enabled: !!me?.org_id, queryFn: async () => (((await fdb.from('fin_suppliers').select('name').eq('org_id', me?.org_id as string).order('name')).data as Row[] | null) ?? []).map((x) => String(x.name || '')).filter(Boolean) });
+  const { data: people } = usePeople();
+  // Who a queried invoice is waiting on: the PM the last query went to.
+  const { data: askedPm } = useQuery({ queryKey: ['finPiAsked', pi?.id, pi?.status], enabled: pi?.status === 'query', queryFn: async () => ((await fdb.from('messages').select('recipient_id').eq('related_id', pi?.id as string).eq('kind', 'pi_query').order('created_at', { ascending: false }).limit(1)).data as Row[] | null)?.[0]?.recipient_id as string | undefined ?? null });
   const { data: ctx } = useQuery({ queryKey: ['finReadCtx', me?.org_id], enabled: !!me?.org_id, queryFn: () => loadReadContext(me?.org_id as string) });
   const { data: pos = [] } = useQuery({ queryKey: ['finInboxPos', siteId], enabled: !!siteId, queryFn: async () => ((await fdb.from('purchase_orders').select('id,number,supplier_name,value,status').eq('site_id', siteId as string).neq('status', 'cancelled').order('created_at', { ascending: false })).data as Row[] | null) ?? [] });
   // The PO's lines, to check the invoice against line by line (Andy, 6 Nov 2026).
@@ -225,20 +228,24 @@ export function PinvEditor({ inbox, siteId: site0, poId: po0, start, pi, below, 
   const docPath: string | null = file ? null : pi?.file_path || inbox?.file_path || null;
   const docName = file?.name || (pi ? pi.file_name || 'Invoice' : inbox ? inbox.file_name || 'Invoice' : 'Invoice');
   const load = docPath ? () => openDocLink('finance-docs', docPath) : file ? async () => file.uri : null;
-  const stWord = pi ? (pi.paid_on ? 'Paid' : pi.status === 'to_approve' ? 'Needs Checking' : pi.status === 'approved' && pi.auto_approved ? 'Approved (Auto)' : PI_STATUS[pi.status] || pi.status) : '';
-  const stCol = pi?.paid_on || pi?.status === 'approved' ? '#1E7A43' : pi?.status === 'query' || pi?.status === 'rejected' ? '#C0392B' : '#B35A00';
+  // Where it's up to (Andy, 6 Nov 2026): the step it's at and what happens next.
+  const first = (id?: string | null) => (nameOf(people, id) || '').split(' ')[0] || 'the PM';
+  const stage: { step: number; label2?: string; next: string; rejected?: boolean } = pi
+    ? pi.status === 'rejected' ? { step: 1, next: 'Rejected: it won’t be paid or posted.', rejected: true }
+      : pi.paid_on ? { step: 6, next: `Paid ${fdate(pi.paid_on)}.` }
+      : pi.status === 'approved' ? { step: 5, next: `${pi.auto_approved ? 'Approved by itself (nothing looked wrong). ' : ''}Next: paid when it’s ticked off on the supplier’s statement, or Mark Paid Today.${pi.xero_id ? ' In Xero.' : ''}` }
+      : pi.status === 'query' ? { step: 2, label2: askedPm ? `With ${first(askedPm)}` : 'With A PM', next: `Waiting on ${askedPm ? nameOf(people, askedPm) : 'the PM'}${pi.query_note ? `: “${pi.query_note}”` : ''}. Their reply shows below.` }
+      : { step: 3, next: 'Next: check it, then Approve Invoice, or Query To PM if something’s not right.' }
+    : inbox ? inbox.stage === 'with_pm' ? { step: 2, label2: `With ${first(inbox.assigned_pm)}`, next: `With ${nameOf(people, inbox.assigned_pm) || 'a PM'} to choose the job.` }
+      : { step: 1, next: 'Next: choose the job and Save, or Save & Query To PM to send it to a PM.' }
+    : { step: 1, next: 'Fill it in and Save: it’s approved straight away as you’ve typed it in.' };
 
   return (
     <DocSplit name={docName} load={load} reloadKey={docPath || file?.uri || ''}>
       <ScrollView contentContainerStyle={page(1000)} keyboardShouldPersistTaps="handled">
         <Stack.Screen options={{ title: pi || inbox ? supplier || 'Purchase invoice' : 'New Purchase Invoice' }} />
-        {!!pi && (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
-            <Text style={{ fontSize: 12.5, fontWeight: '700', color: stCol, backgroundColor: '#fff', borderWidth: 1, borderColor: stCol, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 3, overflow: 'hidden' }}>{stWord}</Text>
-            {pi.status === 'query' && !!pi.query_note && <Text style={{ flex: 1, color: '#8E2B20', fontSize: 13 }}>⚠ {pi.query_note}</Text>}
-            {locked && <Muted style={{ flex: 1 }}>{pi.xero_id ? 'In Xero, so change it in Xero.' : 'Paid, so it stays as it is.'}</Muted>}
-          </View>
-        )}
+        <PinvStages {...stage} />
+        {locked && <Muted style={{ marginBottom: 8 }}>{pi?.xero_id ? 'In Xero, so change it in Xero.' : 'Paid, so it stays as it is.'}</Muted>}
         {inbox && unread && !noteShut && (
           <View style={{ backgroundColor: '#FDF1E0', borderRadius: 10, padding: 12, paddingRight: 36, marginBottom: 10 }}>
             {shut}

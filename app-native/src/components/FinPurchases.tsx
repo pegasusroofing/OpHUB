@@ -252,11 +252,12 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
   if (tab === 'invoices') {
     // Not read yet (uploaded or emailed, and while Finance is on trial nothing is read) count as unallocated too, to file by hand.
     const needJob = data.inbox.filter((i) => i.stage !== 'with_pm'), withPm = data.inbox.filter((i) => i.stage === 'with_pm');
-    const toApprove = data.pinvs.filter((i) => ['to_approve', 'query'].includes(i.status)), unpaid = data.pinvs.filter((i) => i.status === 'approved' && !isPaid(i));
-    const F: Record<string, (i: Row) => boolean> = { approve: (i) => ['to_approve', 'query'].includes(i.status), unpaid: (i) => i.status === 'approved' && !isPaid(i), all: () => true };
-    const cnt: Record<string, number> = { job: needJob.length, pm: withPm.length, approve: toApprove.length, unpaid: unpaid.length };
-    const cur = (sel.status[0] === 'paid' ? 'all' : sel.status[0]) || ['job', 'approve', 'pm', 'unpaid'].find((k) => cnt[k]) || 'all';
-    const chips: [string, string, number][] = [['job', 'Unallocated', needJob.length], ['pm', 'With A PM', withPm.length], ['approve', 'Needs Checking', toApprove.length], ['unpaid', 'To Pay', unpaid.length], ['all', 'All Filed', data.pinvs.length]];
+    // The tabs follow the steps on each invoice (Andy, 6 Nov 2026): Received (no job yet), With A PM (to allocate, or
+    // queried), Needs Checking, Approved (paid ones stay here: their status changes to Paid once on a statement).
+    const F: Record<string, (i: Row) => boolean> = { pm: (i) => i.status === 'query', approve: (i) => i.status === 'to_approve', unpaid: (i) => i.status === 'approved', all: () => true };
+    const cnt: Record<string, number> = { job: needJob.length, pm: withPm.length + data.pinvs.filter(F.pm).length, approve: data.pinvs.filter(F.approve).length, unpaid: data.pinvs.filter(F.unpaid).length };
+    const cur = (sel.status[0] === 'paid' ? 'unpaid' : sel.status[0]) || ['job', 'approve', 'pm', 'unpaid'].find((k) => cnt[k]) || 'all';
+    const chips: [string, string, number][] = [['job', 'Received', cnt.job], ['pm', 'With A PM', cnt.pm], ['approve', 'Needs Checking', cnt.approve], ['unpaid', 'Approved', cnt.unpaid], ['all', 'All', data.pinvs.length]];
     const posBy: Record<string, Row> = {}; data.pos.forEach((p) => { posBy[p.id] = p; });
     const checks = (i: Row): [string, string][] => {
       const po = posBy[i.po_id], out: [string, string][] = [];
@@ -269,7 +270,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
     };
     return (
       <View>
-        <Muted style={{ marginBottom: 10, fontSize: 12.5 }}>Invoices are filed to their job when it’s clear which one; anything unclear waits in Unallocated.</Muted>
+        <Muted style={{ marginBottom: 10, fontSize: 12.5 }}>Each invoice goes Received → With A PM (if needed) → Needs Checking → Approved, then shows Paid once it’s on a statement. Ones typed in by hand go straight to Approved.</Muted>
         <View style={{ flexDirection: desk ? 'row' : 'column-reverse', alignItems: desk ? 'flex-start' : 'stretch', gap: desk ? 12 : 0 }}>
           <View style={{ flex: desk ? 1 : undefined, minWidth: 0 }}>{bar(cur === 'job' || cur === 'pm' ? 'Search supplier, email or invoice no.' : 'Search supplier, invoice no. or project', [{ key: 'status', label: 'Show', single: true, items: chips.map(([v, l, n]) => ({ v, l, n })) }], { ...sel, status: [cur] })}</View>
           <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
@@ -277,7 +278,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
             <View style={{ flex: desk ? undefined : 1 }}><Button small={desk} grow={!desk} title="Add Manually" onPress={() => router.push((siteId ? `/fin/pinv/new?site=${siteId}` : '/fin/pinv/new') as never)} /></View>
           </View>
         </View>
-        {cur === 'job' || cur === 'pm' ? (
+        {cur === 'job' || (cur === 'pm' && withPm.length > 0) ? (
           <>
             {(cur === 'job' ? needJob : withPm).filter((it) => (!sel.sup.length || sel.sup.includes(supKey(it.extracted?.supplier))) && (!sel.job.length || sel.job.includes(it.site_id)) && hit(it.extracted?.supplier, it.from_email, it.extracted?.invoice_no, it.subject)).map((it) => {
               const last = (it.comments || []).slice(-1)[0];
@@ -285,7 +286,8 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
             })}
             {!(cur === 'job' ? needJob : withPm).length && <Empty>{cur === 'job' ? 'Nothing waiting to be allocated.' : 'Nothing with a PM.'}</Empty>}
           </>
-        ) : (
+        ) : null}
+        {cur !== 'job' && (cur !== 'pm' || data.pinvs.some(F.pm) || !withPm.length) && (
           <>
             {(() => {
               const list = sortBy(data.pinvs.filter(F[cur]).filter(fOK).filter((i) => hit(i.supplier_name, i.invoice_no, jobTag(site(i.site_id)), posBy[i.po_id]?.number)), 'invoice_date', 'total');

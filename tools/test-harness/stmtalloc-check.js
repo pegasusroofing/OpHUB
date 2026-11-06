@@ -33,7 +33,7 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   await page.getByText('Add Missing Invoice').click(); await page.waitForTimeout(3000);
   check(await page.getByLabel('Invoice number').inputValue() === 'J-3', 'Add Missing Invoice opens the invoice screen with J-3 filled in');
   await page.goto('http://localhost:8081/fin/purchases?tab=invoices'); await page.waitForTimeout(4000);
-  await page.getByRole('tab', {name: /All Filed/}).click(); await page.waitForTimeout(800);
+  await page.getByRole('tab', {name: /^All/}).click(); await page.waitForTimeout(800);
   check(await page.getByText('Paid (Statement)').count() === 2, 'both allocated invoices show Paid (Statement)');
   check(!errs.length, `no errors ${errs.slice(0, 2).join(' | ')}`);
   await browser.close();
