@@ -28,6 +28,7 @@ import { supabase } from '@/lib/supabase';
 import { piLabel, setPinvPaid, setPinvStatus, tellPmOfPi } from '@/data/finPurchase';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
+import { setPendingAct } from '@/lib/pendingAct';
 import { COST_CATS, PI_STATUS, poInvoiced } from '@/lib/rules/finBook';
 import { fdate, FIN_TRIAL_MSG, finBlocked, jobTag, money, plantCost, round2, today, vatList } from '@/lib/rules/finance';
 import { monthLabel, monthOf, monthsIn, valueTest } from '@/lib/rules/finFilters';
@@ -41,7 +42,7 @@ const plainReason = (r: unknown) => { const t = String(r || ''); return /^couldn
  *  Tab / Enter, or click); a click in it doesn't open the row. */
 function ActionsCell({ items }: { items: { key: string; label: string; run: () => void | Promise<void> }[] }) {
   return (
-    <View onStartShouldSetResponder={() => true} onResponderTerminationRequest={() => false} {...({ onClick: (e: { stopPropagation: () => void }) => e.stopPropagation() } as object)} style={{ width: 112, alignSelf: 'center' }}>
+    <View onStartShouldSetResponder={() => true} onResponderTerminationRequest={() => false} {...({ onClick: (e: { stopPropagation: () => void }) => e.stopPropagation() } as object)} style={{ width: 100, alignSelf: 'center' }}>
       <TypePick label="Actions" value="" placeholder="Actions" options={items.map((x) => ({ v: x.key, label: x.label }))} listWidth={190}
         onChange={(v) => { const it = items.find((x) => x.key === v); if (it) void it.run(); }}
         style={{ borderWidth: 1, borderColor: '#e5e7eb', backgroundColor: '#fff', borderRadius: 7, paddingHorizontal: 8, paddingVertical: 5, fontSize: 13, color: base.ink }} />
@@ -354,11 +355,11 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
                     { k: 'w', l: 'Status', flex: 1.1, min: 120, text: (it: Row) => whyOf(it), choices: Array.from(new Set(items.map(whyOf))), render: (it: Row) => (cur !== 'pm' && !it.site_id && !unread(it)
                       ? <View onStartShouldSetResponder={() => true} onResponderTerminationRequest={() => false} {...({ onClick: (e: { stopPropagation: () => void }) => e.stopPropagation() } as object)} style={{ width: 150, alignSelf: 'center' }}><TypePick label={`Choose the job for ${it.extracted?.invoice_no || 'this invoice'}`} value="" placeholder="Needs a job" options={jobPickOpts} listWidth={300} onChange={(v) => void setJob(it, v)} style={{ borderWidth: 1, borderColor: '#f8e7c2', backgroundColor: '#fffaf0', borderRadius: 7, paddingHorizontal: 8, paddingVertical: 5, fontSize: 13, color: '#B35A00' }} /></View>
                       : <Text numberOfLines={1} style={{ fontSize: 13, color: '#B35A00', textAlign: 'center' }}>{whyOf(it)}</Text>) },
-                    { k: 'a', l: 'Actions', min: 124, noSort: true, render: (it: Row) => <ActionsCell items={[
-                      ...(!unread(it) ? [{ key: 'ok', label: 'Approve', run: () => router.push(`/fin/inbox/${it.id}?q=approve` as never) }] : []),
+                    { k: 'a', l: 'Actions', min: 108, noSort: true, render: (it: Row) => <ActionsCell items={[
+                      ...(!unread(it) ? [{ key: 'ok', label: 'Approve', run: () => { setPendingAct(it.id, 'approve'); router.push(`/fin/inbox/${it.id}` as never); } }] : []),
                       { key: 'edit', label: unread(it) ? 'Fill In' : 'Edit', run: () => router.push(`/fin/inbox/${it.id}` as never) },
                       { key: 'pm', label: cur === 'pm' ? 'Change PM' : 'Send To PM', run: () => assignPm(it) },
-                      ...(cur === 'pm' ? [{ key: 'sup', label: 'Query Supplier', run: () => router.push(`/fin/inbox/${it.id}?q=supplier` as never) }] : []),
+                      ...(cur === 'pm' ? [{ key: 'sup', label: 'Query Supplier', run: () => { setPendingAct(it.id, 'supplier'); router.push(`/fin/inbox/${it.id}` as never); } }] : []),
                       { key: 'not', label: 'Delete', run: () => notInvoice(it) },
                     ]} /> },
                   ]}
@@ -454,10 +455,10 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
                     { k: 't', l: 'Gross', min: 72, total: (l: Row[]) => money(l.reduce((t, i) => t + Number(i.total || 0), 0)), render: (i: Row) => <Cell bold>{money(i.total)}</Cell> },
                     ...(cur === 'unpaid' ? [] : [{ k: 'po', l: 'PO', min: 96, sort: (i: Row) => posBy[i.po_id]?.number || '', render: (i: Row) => poCell(i) }]),
                     { k: 's', l: 'Status', min: 84, noSort: true, choices: ['Needs Checking', 'Query', 'Approved', 'Paid', 'Rejected'], render: (i: Row) => <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5 }}><Cell tone={piTone(i)}>{piWord(i)}</Cell>{!!i.xero_id && <View accessibilityLabel="Posted to Xero" style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: '#13B5EA', alignItems: 'center', justifyContent: 'center' }}><Text style={{ fontSize: 7, fontWeight: '700', color: '#fff', letterSpacing: 0.1 }}>xero</Text></View>}</View> },
-                    { k: 'a', l: 'Actions', min: 124, noSort: true, render: (i: Row) => <ActionsCell items={[
+                    { k: 'a', l: 'Actions', min: 108, noSort: true, render: (i: Row) => <ActionsCell items={[
                                             ...(['to_approve', 'query', 'rejected'].includes(i.status) && me ? [{ key: 'ok', label: 'Approve', run: async () => { const r = await setPinvStatus(me, i.id, 'approved'); toast(r.ok ? 'Approved' : 'Couldn’t approve — try again.', { confirm: r.ok }); refresh(); } }] : []),
                       ...(i.status !== 'approved' && !isPaid(i) ? [{ key: 'pm', label: 'Send To PM', run: () => queryPm(i) }] : []),
-                      ...(cur === 'pm' ? [{ key: 'sup', label: 'Query Supplier', run: () => router.push(`/fin/pinv/${i.id}?q=supplier` as never) }] : []),
+                      ...(cur === 'pm' ? [{ key: 'sup', label: 'Query Supplier', run: () => { setPendingAct(i.id, 'supplier'); router.push(`/fin/pinv/${i.id}` as never); } }] : []),
                       { key: 'edit', label: 'Edit', run: () => router.push(`/fin/pinv/${i.id}?edit=1` as never) },
                       ...(i.status === 'approved' && !isPaid(i) ? [{ key: 'paid', label: 'Mark Paid', run: async () => { if (await setPinvPaid(i.id, today())) { toast('Marked paid', { confirm: true }); refresh(); } } }] : []),
                       ...(i.status !== 'rejected' && !isPaid(i) && me ? [{ key: 'rej', label: 'Reject', run: async () => { if (await confirmAsk('Reject this purchase invoice?', 'Reject')) { await setPinvStatus(me, i.id, 'rejected'); refresh(); } } }] : []),

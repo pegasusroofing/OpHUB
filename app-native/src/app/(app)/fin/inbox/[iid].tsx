@@ -33,7 +33,7 @@ const rpc = supabase.rpc.bind(supabase) as unknown as (n: string, a: object) => 
 const WHY: Record<string, string> = { bad_site: 'that project isn’t one of yours', bad_po: 'that PO wasn’t found', bad_amount: 'check the amounts', not_allowed: 'you need Finance access to file invoices' };
 
 export default function FinInboxItem() {
-  const { iid, q } = useLocalSearchParams<{ iid: string; q?: string }>();
+  const { iid } = useLocalSearchParams<{ iid: string }>();
   const { me } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
@@ -70,7 +70,7 @@ export default function FinInboxItem() {
     toast(`Supplier set to ${name}`); void qc.invalidateQueries({ queryKey: ['finInbox', iid] });
   };
   // Not filed yet: the line-by-line purchase invoice screen (Andy, 5 Nov 2026), filled in from what was read.
-  if (!filed) return <PinvEditor key={`${it.id}${it.extracted?.lines ? 'r' : ''}${it.supplier_override || ''}${it.site_id || ''}`} inbox={it} startQuery={q === 'supplier'} startApprove={q === 'approve'} />;
+  if (!filed) return <PinvEditor key={`${it.id}${it.extracted?.lines ? 'r' : ''}${it.supplier_override || ''}${it.site_id || ''}`} inbox={it} />;
   return (
     <DocSplit name={it.file_name || 'Invoice'} load={it.file_path ? () => openDocLink('finance-docs', it.file_path) : null}>
     <ScrollView contentContainerStyle={page(800)}>

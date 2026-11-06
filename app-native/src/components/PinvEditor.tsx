@@ -25,6 +25,7 @@ import { nameOf, openDocLink, usePeople } from '@/data/hs';
 import { checkAll, loadReadContext, readOne, saveLinesOnInvoice } from '@/data/invoiceRead';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
+import { clearPendingAct, peekPendingAct } from '@/lib/pendingAct';
 import { addDays, finBlocked, fdate, jobTag, money, round2, today } from '@/lib/rules/finance';
 import { allocProblem, codedParts, linesNet, linesVat, type RLine } from '@/lib/rules/invoiceRead';
 import { checkAgainstPo } from '@/lib/rules/poMatch';
@@ -46,7 +47,7 @@ const mainSiteOf = (lines: RLine[], fallback: string | null) => {
 
 /** start: from a statement's Add Missing Invoice — the supplier, number, gross amount and date already known.
  *  pi: a saved invoice, opened to check, change, query or approve; below: its conversation, Xero and paid rows. */
-export function PinvEditor({ inbox, siteId: site0, poId: po0, start, pi, below, buttons, startEdit, startQuery, startApprove }: { inbox?: Row | null; siteId?: string; poId?: string; start?: { supplier?: string; no?: string; amount?: number; date?: string }; pi?: Row | null; below?: ReactNode; buttons?: ReactNode; startEdit?: boolean; startQuery?: boolean; startApprove?: boolean }) {
+export function PinvEditor({ inbox, siteId: site0, poId: po0, start, pi, below, buttons, startEdit }: { inbox?: Row | null; siteId?: string; poId?: string; start?: { supplier?: string; no?: string; amount?: number; date?: string }; pi?: Row | null; below?: ReactNode; buttons?: ReactNode; startEdit?: boolean }) {
   const { me } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
@@ -90,7 +91,7 @@ export function PinvEditor({ inbox, siteId: site0, poId: po0, start, pi, below, 
   // The PO's lines, to check the invoice against line by line (Andy, 6 Nov 2026).
   const { data: poFull } = useQuery({ queryKey: ['finPoItems', poId], enabled: !!poId, queryFn: async () => ((await fdb.from('purchase_orders').select('id,number,items,value').eq('id', poId).maybeSingle()).data as Row | null) });
   // From the list's Query Supplier: the email pop-up opens once the screen is ready.
-  const [wantQuery, setWantQuery] = useState<'supplier' | 'approve' | ''>(startQuery ? 'supplier' : startApprove ? 'approve' : '');
+  const [wantQuery, setWantQuery] = useState<'supplier' | 'approve' | ''>(() => peekPendingAct(pi?.id || inbox?.id));
   if (!me) return null;
   const checks = ctx ? checkAll(lines, supplier, ctx) : [];
   const vsPo = poId && poFull ? checkAgainstPo(lines, (poFull.items || []) as never, poFull.number || 'the PO') : null;
@@ -242,7 +243,7 @@ export function PinvEditor({ inbox, siteId: site0, poId: po0, start, pi, below, 
     } finally { setBusy(false); }
   };
 
-  if (wantQuery && (pi || inbox)) { const w = wantQuery; setWantQuery(''); queueMicrotask(() => void act(w)); }
+  if (wantQuery && (pi || inbox)) { const w = wantQuery; setWantQuery(''); clearPendingAct(pi?.id || inbox?.id); queueMicrotask(() => void act(w)); }
 
   const field = (label: string, child: React.ReactNode, w: number | string = 180) => <View style={{ flexGrow: 1, flexBasis: w as number, minWidth: 140 }}><Text style={lab}>{label}</Text>{child}</View>;
   const choice = (label: string, v: string, onPress: () => void, warn = false) => <Pressable disabled={shut2} accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={[fieldBox, warn && !shut2 && { borderColor: '#f8e7c2', backgroundColor: '#fffaf0' }, shut2 && { backgroundColor: '#F6F7F9' }]}><Text numberOfLines={1} style={{ color: warn && !shut2 ? '#b45309' : base.ink, fontSize: 14 }}>{v}{shut2 ? '' : ' ▾'}</Text></Pressable>;

@@ -1,8 +1,8 @@
 // PM / admin home (185 renderPmHome), option 1 (Andy, 6 Nov 2026): the date and greeting, four plain numbers (live
 // projects, on site now, to do, notifications), the sites map with a Today panel beside it, then plain tiles
 // (2 across on a phone, 4 on a laptop), "Pick up where you left off", and name / role / Sign out.
-import { router } from 'expo-router';
-import { useEffect, useRef, useState, type ComponentRef } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useRef, useState, type ComponentRef } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { HomePrompts } from '@/components/HomePrompts';
@@ -166,8 +166,9 @@ function TodayBar({ rows, go }: { rows: TodayRow[]; go: (p: string) => () => voi
   const x = useRef(0), hold = useRef(0);
   const [viewW, setViewW] = useState(0), [oneW, setOneW] = useState(0);
   const loop = viewW > 0 && oneW > viewW + 4;
-  useEffect(() => {
-    if (!loop) return;
+  // Only while Home is the screen in view (no scrolling, and no battery used, behind another screen).
+  useFocusEffect(useCallback(() => {
+    if (!loop) return undefined;
     const id = setInterval(() => {
       if (Date.now() < hold.current) return;
       x.current += 0.6;
@@ -175,7 +176,7 @@ function TodayBar({ rows, go }: { rows: TodayRow[]; go: (p: string) => () => voi
       ref.current?.scrollTo({ x: x.current, animated: false });
     }, 25);
     return () => clearInterval(id);
-  }, [loop, oneW]);
+  }, [loop, oneW]));
   const pause = () => { hold.current = Date.now() + 4000; };
   const set = (p: string) => (
     <View key={p} style={{ flexDirection: 'row', gap: 8, paddingRight: 8 }} onLayout={p === 'a' ? (e) => setOneW(e.nativeEvent.layout.width) : undefined}>

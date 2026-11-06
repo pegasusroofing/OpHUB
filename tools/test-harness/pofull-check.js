@@ -31,12 +31,15 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   check(po && po.items.length === 2 && po.items[0].rate === 86.45, 'raised with the two quote lines: ' + JSON.stringify(po && po.items.map((i) => [i.item, i.qty, i.rate])));
   check(po && po.delivery_to === 'job' && (po.offload || []).length === 2, 'delivery to the job address, offload saved: ' + JSON.stringify(po && [po.delivery_to, po.delivery_address, po.offload]));
   await page.waitForTimeout(1500);
-  check(await page.getByText('👁 View PO').count() === 1 && await page.getByText('✉ Send PO').count() === 1, 'the PO has View PO and Send PO');
-  await page.getByText('✉ Send PO').click(); await page.waitForTimeout(1500);
+  // Since 5 Nov Raise PO opens the email pop-up on the same screen (no separate page).
+  check(await page.getByText(/raised — email it?/).count() === 1, 'Raise PO opens the email pop-up');
   const to = await page.locator('input').evaluateAll((els) => els.map((e) => e.value).filter((v) => v.includes('@')));
   check(to.includes('orders@bauder.test'), 'Send PO opens with the supplier’s email: ' + to.join(', '));
   check(to.length >= 0 && (await page.locator('input').evaluateAll((els) => els.map((e) => e.value))).some((v) => /Purchase order J101-PO-001/.test(v)), 'with the PO template filled in');
   await page.screenshot({path:'shots/job/pofull-send-1400.png'});
+  // The PO's own page keeps View PO and Send PO.
+  await page.goto('http://localhost:8081/fin/po/' + po.id); await page.waitForTimeout(4000);
+  check(await page.getByText('👁 View PO').count() === 1 && await page.getByText('✉ Send PO').count() === 1, 'the PO page has View PO and Send PO');
   check(!errs.length, 'no errors ' + errs.slice(0, 2).join(' | '));
   await browser.close(); process.exit(0);
 })();
