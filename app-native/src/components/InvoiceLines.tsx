@@ -4,19 +4,30 @@
 // code or VAT on every line at once.
 // 5 Nov 2026 (Andy): a unit, a discount %, rates to 3 decimal places, add and remove lines, and any line split across
 // several projects by % (⇄), which must add up to 100%.
+// 6 Nov 2026 (Andy: "isn't nice to look at or simple to use"): laid out like the PO lines. Keyboard drop-downs for the
+// job, cost code, unit and VAT; cost codes show just the number unless Show Code Descriptions is ticked. Wide: one row
+// per line. Narrower (beside the PDF): the description on its own line, then Job, Code and the figures in one row
+// under one set of headings, everything centred.
+import { useQuery } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { pickJob } from '@/components/FinSales';
 import { chooseAction } from '@/components/toast';
+import { TypePick, type PickOpt } from '@/components/TypePick';
 import { Card } from '@/components/ui';
+import { DEFAULT_UNITS, UnitField } from '@/components/UnitField';
+import { fdb } from '@/data/finance';
+import { useAuth } from '@/lib/auth';
 import { COST_CATS } from '@/lib/rules/finBook';
 import { jobTag, money, rateMoney, round2 } from '@/lib/rules/finance';
 import { allocProblem, lineAmount, linesNet, linesVat, lineValue, type Alloc, type PriceCheck, type RLine, type RSite } from '@/lib/rules/invoiceRead';
-import { base } from '@/theme/theme';
+import { base, radius } from '@/theme/theme';
 
 type Line = RLine;
-const box = { borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 7, paddingHorizontal: 7, paddingVertical: 4, color: '#111827', backgroundColor: base.card, fontSize: 13, height: 30 } as const;
+const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, paddingHorizontal: 8, paddingVertical: 5, color: base.ink, backgroundColor: base.card, fontSize: 13.5, height: 32 } as const;
+const mid = { textAlign: 'center' as const };
+type Code = { id: string; code: string | null; name: string; category: string | null; active: boolean | null };
 const head = { fontSize: 10.5, fontWeight: '600' as const, letterSpacing: 0.4, textTransform: 'uppercase' as const, color: '#6b7280' };
 const COSTS = Object.entries(COST_CATS).filter(([c]) => c !== 'labour');
 const VATS: [string, string][] = [['20', '20%'], ['5', '5%'], ['0', '0%'], ['rc', 'Reverse charge']];
@@ -24,13 +35,11 @@ const vatOf = (l: Line) => (l.vat_rate == null ? '20' : String(l.vat_rate));
 const vatLabel = (l: Line) => (vatOf(l) === 'rc' ? 'RC' : `${vatOf(l)}%`);
 const when = (d?: string) => (d ? new Date(`${d}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' }) : '');
 const cheque = (c?: PriceCheck) => {
-  if (!c || c.state === 'none') return c?.charged != null ? { t: 'No quote or price list for this', col: base.slate } : null;
+  if (!c || c.state === 'none') return null;
   const src = `${c.from}${c.date ? `, ${when(c.date)}` : ''}`;
   if (c.state === 'ok') return { t: `Matches ${src}`, col: base.ok };
   return { t: `${c.state === 'over' ? 'Dearer' : 'Cheaper'} than ${src}: ${rateMoney(c.rate as number)}`, col: c.state === 'over' ? base.red : base.blue };
 };
-// Column widths on a wide card.
-const W = { desc: 2.4, job: 1.6, cost: 1.1, qty: 0.6, unit: 0.6, rate: 0.85, disc: 0.5, vat: 0.6, total: 0.85, x: 0.22 };
 /** A fresh line: the project given, materials, 20% VAT. */
 export const blankLine = (site?: string | null): RLine => ({ description: '', qty: 1, unit: 'each', unit_price: undefined, amount: 0, site_id: site || null, cost_code: 'materials', vat_rate: 20, disc: 0 });
 
@@ -39,9 +48,22 @@ export function InvoiceLines({ lines: lines0, checks, sites, read, onChange, rea
   defaultSite?: string | null; title?: string; costHeading?: string; noJob?: boolean;
 }) {
   const lines = lines0 as Line[];
+  const { me } = useAuth();
   const [cardW, setCardW] = useState(0);
   const [splitAt, setSplitAt] = useState<number | null>(null);
-  const wide = cardW >= 760;
+  const [fullCodes, setFullCodes] = useState(false);
+  // One row per line whenever it fits (beside the PDF too, with tighter columns); two rows only when narrow.
+  const wide = cardW >= 680, tight = cardW < 960, phone = cardW > 0 && cardW < 520;
+  // The company's cost codes (numbers); without any, the plain categories.
+  const { data: codes = [] } = useQuery({ queryKey: ['finCostCodes', me?.org_id], enabled: !!me, queryFn: async () => (((await fdb.from('fin_cost_codes').select('id,code,name,category,active').eq('org_id', me?.org_id as string)).data as Code[] | null) ?? []).filter((c) => c.active !== false && c.category !== 'labour').sort((a, b) => String(a.code || '').localeCompare(String(b.code || ''), 'en-GB', { numeric: true })) });
+  const codeFor = (cat?: string) => codes.find((c) => c.category === (cat || 'materials'))?.id ?? null;
+  const codeVal = (l: Line) => (codes.length ? `cc:${l.cost_code_id ?? codeFor(l.cost_code) ?? ''}` : l.cost_code || 'materials');
+  const codePatch = (v: string): Partial<Line> => { if (!v.startsWith('cc:')) return { cost_code_id: null, cost_code: v || 'materials' }; const c = codes.find((x) => x.id === v.slice(3)); return { cost_code_id: c?.id ?? null, cost_code: c?.category && COST_CATS[c.category] ? c.category : 'materials' }; };
+  const codeOpts: PickOpt[] = codes.length
+    ? codes.map((c) => { const full = `${c.code ? `${c.code} – ` : ''}${c.name}`; return { v: `cc:${c.id}`, label: full, short: fullCodes ? full : c.code || c.name }; })
+    : COSTS.map(([k, l]) => ({ v: k, label: l }));
+  const jobOpts: PickOpt[] = [...sites.map((x) => ({ v: x.id, label: jobTag(x as never), short: x.job_number || x.name || '' })), { v: '__split', label: '⇄ Split across projects by %' }];
+  const vatOpts: PickOpt[] = VATS.map(([v, l]) => ({ v, label: l, short: v === 'rc' ? 'RC' : `${v}%` }));
   const site = (id?: string | null) => sites.find((s) => s.id === id);
   const set = (k: number, patch: Partial<Line>) => onChange(lines.map((l, j) => (j === k ? { ...l, ...patch } : l)));
   const all = (patch: Partial<Line>) => onChange(lines.map((l) => ({ ...l, ...patch })));
@@ -54,40 +76,44 @@ export function InvoiceLines({ lines: lines0, checks, sites, read, onChange, rea
 
   const pick = (label: string, v: string, warn: boolean, onPress: () => void, blue?: boolean) => (
     <Pressable disabled={readOnly} accessibilityRole="button" accessibilityLabel={label} onPress={onPress}
-      style={[box, { justifyContent: 'center', borderColor: warn ? '#f8e7c2' : blue ? base.blue : '#e5e7eb', backgroundColor: warn ? '#fffaf0' : base.card }]}>
-      <Text numberOfLines={1} style={{ fontSize: 12.5, color: warn ? '#b45309' : blue ? base.blue : '#111827', fontWeight: '500' }}>{v}</Text>
+      style={[box, { justifyContent: 'center', borderColor: warn ? '#f8e7c2' : blue ? base.blue : base.line, backgroundColor: warn ? '#fffaf0' : base.card }]}>
+      <Text numberOfLines={1} style={{ fontSize: 13, textAlign: 'center', color: warn ? '#b45309' : blue ? base.blue : base.ink, fontWeight: '500' }}>{v}</Text>
     </Pressable>
   );
+  const ro = (t: string) => <View style={[box, { justifyContent: 'center', backgroundColor: '#F6F7F9' }]}><Text numberOfLines={1} style={{ fontSize: 13, textAlign: 'center', color: base.ink }}>{t}</Text></View>;
   const chooseJob = async (onPick: (id: string) => void, title2 = 'Which project is this line for?') => { const s = await pickJob(title2, sites as never); if (s) onPick(s); };
-  const chooseCost = async (cur: string | undefined, onPick: (c: string) => void) => { const k = await chooseAction('Cost code', COSTS.map(([c, l]) => ({ key: c, label: `${c === cur ? '✓ ' : ''}${l}` }))); if (k) onPick(k); };
   const chooseVat = async (cur: string, onPick: (v: number | 'rc') => void) => { const k = await chooseAction('VAT rate', VATS.map(([v, l]) => ({ key: v, label: `${v === cur ? '✓ ' : ''}${l}` }))); if (k) onPick(k === 'rc' ? 'rc' : Number(k)); };
+  const shortOf = (opts: PickOpt[], v: string) => { const o = opts.find((x) => x.v === v); return o ? o.short ?? o.label : ''; };
 
-  // The job cell: one project, or "Split 3 Ways" for a line shared across projects.
+  // The job cell: a keyboard drop-down of job numbers (and ⇄ Split), or "Split 3 Ways" for a line shared across projects.
   const job = (k: number, l: Line) => (l.alloc?.length
     ? pick(`Line ${k + 1} split`, `Split ${l.alloc.length} Ways${allocProblem(l) ? ' ⚠' : ''}`, !!allocProblem(l), () => setSplitAt(splitAt === k ? null : k), true)
-    : pick(`Line ${k + 1} job`, l.site_id ? `${jobTag(site(l.site_id) as never)}${l.how ? ` (from ${l.how})` : ''}` : 'Choose Job ▾', !l.site_id, () => void (async () => {
-      const a = await chooseAction(`Line ${k + 1}`, [{ key: 'one', label: 'Choose the project' }, { key: 'split', label: '⇄ Split across projects by %' }]);
-      if (a === 'one') void chooseJob((s) => set(k, { site_id: s, how: undefined }));
-      if (a === 'split') { set(k, { alloc: [{ site_id: l.site_id || defaultSite || '', pct: 50 }, { site_id: '', pct: 50 }] }); setSplitAt(k); }
-    })()));
-  const cost = (k: number, l: Line) => pick(`Line ${k + 1} cost code`, `${COST_CATS[l.cost_code || 'materials'] || 'Materials'} ▾`, false, () => void chooseCost(l.cost_code || 'materials', (c) => set(k, { cost_code: c })));
-  const vat = (k: number, l: Line) => pick(`Line ${k + 1} VAT`, `${vatLabel(l)} ▾`, false, () => void chooseVat(vatOf(l), (v) => set(k, { vat_rate: v })));
-  const field = (k: number, label: string, v: unknown, onT: (t: string) => void, ph: string, align: 'center' | 'right' = 'center', kb: 'decimal-pad' | 'default' = 'decimal-pad') => <TextInput editable={!readOnly} accessibilityLabel={`Line ${k + 1} ${label}`} keyboardType={kb} placeholder={ph} value={v == null ? '' : String(v)} onChangeText={onT} style={[box, { textAlign: align }]} />;
+    : readOnly ? ro(shortOf(jobOpts, l.site_id || '') || '—')
+      : <TypePick label={`Line ${k + 1} job`} value={l.site_id || ''} options={jobOpts} placeholder="Job" listWidth={300}
+        style={[box, mid, !l.site_id && { borderColor: '#f8e7c2', backgroundColor: '#fffaf0' }]}
+        onChange={(v) => { if (v === '__split') { set(k, { alloc: [{ site_id: l.site_id || defaultSite || '', pct: 50 }, { site_id: '', pct: 50 }] }); setSplitAt(k); } else set(k, { site_id: v, how: undefined }); }} />);
+  const cost = (k: number, l: Line) => (readOnly ? ro(shortOf(codeOpts, codeVal(l))) : <TypePick label={`Line ${k + 1} cost code`} value={codeVal(l)} options={codeOpts} listWidth={280} style={[box, mid]} onChange={(v) => set(k, codePatch(v))} />);
+  const vat = (k: number, l: Line) => (readOnly ? ro(vatLabel(l)) : <TypePick label={`Line ${k + 1} VAT`} value={vatOf(l)} options={vatOpts} listWidth={200} style={[box, mid]} onChange={(v) => set(k, { vat_rate: v === 'rc' ? 'rc' : Number(v) })} />);
+  const field = (k: number, label: string, v: unknown, onT: (t: string) => void, ph: string) => <TextInput editable={!readOnly} accessibilityLabel={`Line ${k + 1} ${label}`} keyboardType="decimal-pad" placeholder={ph} value={v == null ? '' : String(v)} onChangeText={onT} style={[box, mid]} />;
   const qty = (k: number, l: Line) => field(k, 'quantity', l.qty, (t) => edit(k, l, { qty: num(t) }), 'Qty');
-  const unit = (k: number, l: Line) => field(k, 'unit', l.unit, (t) => set(k, { unit: t }), 'each', 'center', 'default');
+  const unit = (k: number, l: Line) => (readOnly ? ro(l.unit || '') : <UnitField value={l.unit || ''} onChangeText={(t) => set(k, { unit: t })} units={DEFAULT_UNITS} style={[box, mid, { width: '100%' }]} />);
   const disc = (k: number, l: Line) => field(k, 'discount', l.disc || l.disc === 0 ? l.disc : '', (t) => edit(k, l, { disc: num(t) ?? 0 }), '0');
-  const rate = (k: number, l: Line) => (
-    <View style={[box, { flexDirection: 'row', alignItems: 'center', paddingVertical: 0 }]}>
-      <Text style={{ color: '#6b7280', fontSize: 13 }}>£</Text>
-      <TextInput editable={!readOnly} accessibilityLabel={`Line ${k + 1} unit price`} keyboardType="decimal-pad" placeholder="0.000" value={l.unit_price == null ? '' : String(l.unit_price)} onChangeText={(t) => edit(k, l, { unit_price: num(t) })} style={{ flex: 1, minWidth: 0, paddingLeft: 3, color: '#111827', fontSize: 13, textAlign: 'center', height: 28 }} />
+  const rate = (k: number, l: Line) => <TextInput editable={!readOnly} accessibilityLabel={`Line ${k + 1} unit price`} keyboardType="decimal-pad" placeholder="0.000" value={l.unit_price == null ? '' : String(l.unit_price)} onChangeText={(t) => edit(k, l, { unit_price: num(t) })} style={[box, mid]} />;
+  const total = (l: Line) => <View style={{ height: 32, justifyContent: 'center' }}><Text style={{ fontWeight: '600', color: base.ink, textAlign: 'center', fontSize: 13.5 }}>{money(lineValue(l))}</Text></View>;
+  const drop = (k: number) => (readOnly ? null : <Pressable accessibilityRole="button" accessibilityLabel={`Remove line ${k + 1}`} hitSlop={6} onPress={() => { onChange(lines.filter((_, j) => j !== k)); setSplitAt(null); }} style={{ width: 20, height: 32, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#9ca3af', fontSize: 15 }}>✕</Text></Pressable>);
+  const note = (k: number) => { const c = cheque(checks[k]); return c ? <Text style={{ color: c.col, fontSize: 11.5, fontWeight: '500', marginTop: 4 }}>{c.t}</Text> : null; };
+  const desc = (k: number, l: Line) => <TextInput editable={!readOnly} accessibilityLabel={`Line ${k + 1} description`} value={l.description ?? ''} onChangeText={(t) => set(k, { description: t })} placeholder="Description" style={box} />;
+  const cell = (w: number | 'flex', child: ReactNode, z = 0) => <View style={[w === 'flex' ? { flex: 1, minWidth: 120 } : { width: w }, z ? { zIndex: z } : null]}>{child}</View>;
+  const H = (t: string, align: 'left' | 'center' | 'right' = 'center') => <Text style={[head, { textAlign: align }]}>{t}</Text>;
+  // Column widths. Wide: one row. Narrower: the figures share the second row.
+  const CW = tight ? { job: 74, code: fullCodes ? 180 : 66, qty: 48, unit: 58, rate: 74, disc: 46, vat: 56, total: 76, x: 20 } : { job: 92, code: fullCodes ? 210 : 80, qty: 58, unit: 66, rate: 84, disc: 56, vat: 64, total: 84, x: 20 };
+  const FIG = phone ? { job: 0, code: 0, qty: 0.8, unit: 0.9, rate: 1.1, disc: 0.75, vat: 0.85, total: 1.25 } : { job: noJob ? 0 : 1.05, code: fullCodes ? 2.4 : 0.95, qty: 0.75, unit: 0.85, rate: 1.05, disc: 0.7, vat: 0.8, total: 1.15 };
+  const fcell = (f: number, child: ReactNode, z = 0) => <View style={[{ flex: f, minWidth: 0 }, z ? { zIndex: z } : null]}>{child}</View>;
+  const figures = (k: number, l: Line) => (
+    <View style={{ flexDirection: 'row', gap: 6, marginTop: 6 }}>
+      {!phone && showJob && fcell(FIG.job, job(k, l), 5)}{!phone && fcell(FIG.code, cost(k, l), 4)}{fcell(FIG.qty, qty(k, l))}{fcell(FIG.unit, unit(k, l), 3)}{fcell(FIG.rate, rate(k, l))}{fcell(FIG.disc, disc(k, l))}{fcell(FIG.vat, vat(k, l), 2)}{fcell(FIG.total, total(l))}{!readOnly && <View style={{ width: 20 }} />}
     </View>
   );
-  const total = (l: Line) => <Text style={{ fontWeight: '600', color: '#111827', textAlign: 'right', fontSize: 13 }}>{money(lineValue(l))}</Text>;
-  const drop = (k: number) => (readOnly ? null : <Pressable accessibilityRole="button" accessibilityLabel={`Remove line ${k + 1}`} hitSlop={6} onPress={() => { onChange(lines.filter((_, j) => j !== k)); setSplitAt(null); }} style={{ alignItems: 'center' }}><Text style={{ color: '#9ca3af', fontSize: 15 }}>✕</Text></Pressable>);
-  const note = (k: number) => { const c = cheque(checks[k]); return c ? <Text style={{ color: c.col, fontSize: 11.5, fontWeight: '500', marginTop: 3 }}>{c.t}</Text> : null; };
-  const desc = (k: number, l: Line) => <TextInput editable={!readOnly} accessibilityLabel={`Line ${k + 1} description`} value={l.description ?? ''} onChangeText={(t) => set(k, { description: t })} placeholder="Description" style={box} />;
-  const cell = (flex: number, child: ReactNode) => <View style={{ flex, minWidth: 0 }}>{child}</View>;
-  const labelled = (flex: number, label: string, child: ReactNode, align: 'center' | 'right' = 'center') => cell(flex, <><Text style={[head, { textAlign: align, marginBottom: 2 }]}>{label}</Text>{child}</>);
 
   // The split box under a line: a project and a % on each row, with the £ it comes to.
   const splitBox = (k: number, l: Line) => {
@@ -98,10 +124,10 @@ export function InvoiceLines({ lines: lines0, checks, sites, read, onChange, rea
         <Text style={head}>Split: {l.description || `Line ${k + 1}`} ({money(amt)})</Text>
         {a.map((x, j) => (
           <View key={j} style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
-            {cell(3, pick(`Split row ${j + 1} project`, x.site_id ? jobTag(site(x.site_id) as never) : 'Choose Project ▾', !x.site_id, () => void chooseJob((s) => setA(a.map((y, i) => (i === j ? { ...y, site_id: s } : y))), 'Which project?')))}
-            {cell(0.8, <TextInput editable={!readOnly} accessibilityLabel={`Split row ${j + 1} percent`} keyboardType="decimal-pad" value={String(x.pct ?? '')} onChangeText={(t) => setA(a.map((y, i) => (i === j ? { ...y, pct: num(t) ?? 0 } : y)))} style={[box, { textAlign: 'right' }]} />)}
+            {fcell(3, pick(`Split row ${j + 1} project`, x.site_id ? jobTag(site(x.site_id) as never) : 'Choose Project ▾', !x.site_id, () => void chooseJob((s) => setA(a.map((y, i) => (i === j ? { ...y, site_id: s } : y))), 'Which project?')))}
+            {fcell(0.8, <TextInput editable={!readOnly} accessibilityLabel={`Split row ${j + 1} percent`} keyboardType="decimal-pad" value={String(x.pct ?? '')} onChangeText={(t) => setA(a.map((y, i) => (i === j ? { ...y, pct: num(t) ?? 0 } : y)))} style={[box, { textAlign: 'right' }]} />)}
             <Text style={{ color: '#6b7280' }}>%</Text>
-            {cell(0.9, <Text style={{ textAlign: 'right', color: '#111827' }}>{money(round2((amt * Number(x.pct || 0)) / 100))}</Text>)}
+            {fcell(0.9, <Text style={{ textAlign: 'right', color: '#111827' }}>{money(round2((amt * Number(x.pct || 0)) / 100))}</Text>)}
             {!readOnly && <Pressable accessibilityLabel={`Remove split row ${j + 1}`} onPress={() => setA(a.filter((_, i) => i !== j))}><Text style={{ color: '#9ca3af' }}>✕</Text></Pressable>}
           </View>
         ))}
@@ -118,7 +144,7 @@ export function InvoiceLines({ lines: lines0, checks, sites, read, onChange, rea
   const bulk = async () => {
     const k = await chooseAction('Bulk edit — every line', [...(noJob ? [] : [{ key: 'job', label: 'Set the job on every line' }]), { key: 'cost', label: 'Set the cost code on every line' }, { key: 'vat', label: 'Set the VAT rate on every line' }, { key: 'disc', label: 'Set the discount on every line' }]);
     if (k === 'job') void chooseJob((s) => all({ site_id: s, how: undefined, alloc: undefined }), 'Which project are they all for?');
-    else if (k === 'cost') void chooseCost(undefined, (c) => all({ cost_code: c }));
+    else if (k === 'cost') { const c = await chooseAction('Cost code on every line', codeOpts.map((o) => ({ key: o.v, label: o.label }))); if (c) all(codePatch(c)); }
     else if (k === 'vat') void chooseVat('', (v) => all({ vat_rate: v }));
     else if (k === 'disc') { const d = await chooseAction('Discount on every line', ['0', '2.5', '5', '10', '15', '20', '25', '30'].map((x) => ({ key: x, label: `${x}%` }))); if (d != null) onChange(lines.map((l) => ({ ...l, disc: Number(d), ...(l.qty != null && l.unit_price != null ? { amount: lineAmount(l.qty, l.unit_price, Number(d)) } : {}) }))); }
   };
@@ -127,33 +153,41 @@ export function InvoiceLines({ lines: lines0, checks, sites, read, onChange, rea
   return (
     <Card style={{ paddingVertical: 12 }}>
       <View onLayout={(e) => setCardW(e.nativeEvent.layout.width)}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-          <Text style={{ flex: 1, fontSize: 14.5, fontWeight: '600', color: '#111827' }}>{title} ({lines.length})</Text>
-          {!readOnly && lines.length > 0 && <Pressable onPress={() => void bulk()} accessibilityRole="button" style={{ borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 7, paddingHorizontal: 10, height: 28, justifyContent: 'center' }}><Text style={{ fontSize: 12.5, fontWeight: '500', color: '#111827' }}>Bulk Edit ▾</Text></Pressable>}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+          <Text style={{ flex: 1, fontSize: 14.5, fontWeight: '600', color: base.ink }}>{title} ({lines.length})</Text>
+          {codes.length > 0 && <Pressable onPress={() => setFullCodes(!fullCodes)}><Text style={{ color: base.blue, fontSize: 12.5 }}>{fullCodes ? 'Codes Only' : 'Show Code Descriptions'}</Text></Pressable>}
+          {!readOnly && lines.length > 0 && <Pressable onPress={() => void bulk()} accessibilityRole="button" style={{ borderWidth: 1, borderColor: base.line, borderRadius: 7, paddingHorizontal: 10, height: 28, justifyContent: 'center' }}><Text style={{ fontSize: 12.5, fontWeight: '500', color: base.ink }}>Bulk Edit ▾</Text></Pressable>}
         </View>
-        {wide && (
-          <View style={{ flexDirection: 'row', gap: 6, paddingBottom: 5, borderBottomWidth: 1, borderBottomColor: '#e5e7eb' }}>
-            {cell(W.desc, <Text style={head}>Description</Text>)}{showJob && cell(W.job, <Text style={head}>Job</Text>)}{cell(W.cost, <Text style={head}>{costHeading}</Text>)}
-            {cell(W.qty, <Text style={[head, { textAlign: 'center' }]}>Qty</Text>)}{cell(W.unit, <Text style={[head, { textAlign: 'center' }]}>Unit</Text>)}{cell(W.rate, <Text style={[head, { textAlign: 'center' }]}>£ Each</Text>)}
-            {cell(W.disc, <Text style={[head, { textAlign: 'center' }]}>Disc %</Text>)}{cell(W.vat, <Text style={[head, { textAlign: 'center' }]}>VAT</Text>)}{cell(W.total, <Text style={[head, { textAlign: 'right' }]}>Total</Text>)}{!readOnly && cell(W.x, null)}
-          </View>
-        )}
+        {/* Headings once at the top. */}
+        <View style={{ paddingBottom: 5, borderBottomWidth: 1, borderBottomColor: base.line }}>
+          {wide ? (
+            <View style={{ flexDirection: 'row', gap: 6 }}>
+              {cell('flex', H('Description', 'left'))}{showJob && cell(CW.job, H('Job'))}{cell(CW.code, H(costHeading))}{cell(CW.qty, H('Qty'))}{cell(CW.unit, H('Unit'))}{cell(CW.rate, H('£ Each'))}{cell(CW.disc, H('Disc %'))}{cell(CW.vat, H('VAT'))}{cell(CW.total, H('Total'))}{!readOnly && cell(CW.x, null)}
+            </View>
+          ) : (
+            <>
+              <View style={{ flexDirection: 'row', gap: 6 }}>
+                {!phone && showJob && fcell(FIG.job, H('Job'))}{!phone && fcell(FIG.code, H(costHeading))}{fcell(FIG.qty, H('Qty'))}{fcell(FIG.unit, H('Unit'))}{fcell(FIG.rate, H('£ Each'))}{fcell(FIG.disc, H('Disc %'))}{fcell(FIG.vat, H('VAT'))}{fcell(FIG.total, H('Total'))}{!readOnly && <View style={{ width: 20 }} />}
+              </View>
+            </>
+          )}
+        </View>
         {lines.map((l, k) => (
-          <View key={k} style={{ borderBottomWidth: 1, borderBottomColor: '#f0f1f3', paddingVertical: 6 }}>
+          <View key={k} style={{ borderBottomWidth: 1, borderBottomColor: '#eef0f3', paddingVertical: 8, zIndex: lines.length - k }}>
             {wide ? (
               <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
-                {cell(W.desc, desc(k, l))}{showJob && cell(W.job, job(k, l))}{cell(W.cost, cost(k, l))}{cell(W.qty, qty(k, l))}{cell(W.unit, unit(k, l))}{cell(W.rate, rate(k, l))}{cell(W.disc, disc(k, l))}{cell(W.vat, vat(k, l))}{cell(W.total, total(l))}{!readOnly && cell(W.x, drop(k))}
+                {cell('flex', desc(k, l))}{showJob && cell(CW.job, job(k, l), 4)}{cell(CW.code, cost(k, l), 3)}{cell(CW.qty, qty(k, l))}{cell(CW.unit, unit(k, l), 2)}{cell(CW.rate, rate(k, l))}{cell(CW.disc, disc(k, l))}{cell(CW.vat, vat(k, l), 1)}{cell(CW.total, total(l))}{drop(k)}
               </View>
+            ) : phone ? (
+              <>
+                <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>{cell('flex', desc(k, l))}{drop(k)}</View>
+                <View style={{ flexDirection: 'row', gap: 6, marginTop: 6, zIndex: 5 }}>{showJob && cell('flex', job(k, l), 4)}{cell('flex', cost(k, l), 3)}{!readOnly && <View style={{ width: 20 }} />}</View>
+                {figures(k, l)}
+              </>
             ) : (
               <>
-                <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>{cell(1, desc(k, l))}{drop(k)}</View>
-                <View style={{ flexDirection: 'row', gap: 6, marginTop: 5 }}>{showJob && cell(1.4, job(k, l))}{cell(1, cost(k, l))}</View>
-                <View style={{ flexDirection: 'row', gap: 6, alignItems: 'flex-end', marginTop: 5 }}>
-                  {labelled(0.75, 'Qty', qty(k, l))}{labelled(0.7, 'Unit', unit(k, l))}{labelled(1.05, '£ Each', rate(k, l))}{labelled(0.65, 'Disc %', disc(k, l))}
-                </View>
-                <View style={{ flexDirection: 'row', gap: 6, alignItems: 'flex-end', marginTop: 5 }}>
-                  {labelled(0.9, 'VAT', vat(k, l))}{labelled(1.1, 'Total', <View style={{ height: 30, justifyContent: 'center' }}>{total(l)}</View>, 'right')}
-                </View>
+                <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>{cell('flex', desc(k, l))}{drop(k)}</View>
+                <View style={{ zIndex: 5 }}>{figures(k, l)}</View>
               </>
             )}
             {splitAt === k && !!l.alloc && splitBox(k, l)}
@@ -161,7 +195,7 @@ export function InvoiceLines({ lines: lines0, checks, sites, read, onChange, rea
           </View>
         ))}
         {!readOnly && (
-          <Pressable accessibilityRole="button" onPress={() => onChange([...lines, blankLine(defaultSite)])} style={{ alignSelf: 'flex-start', marginTop: 8, borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 7, paddingHorizontal: 10, height: 30, justifyContent: 'center', backgroundColor: '#fff' }}>
+          <Pressable accessibilityRole="button" onPress={() => onChange([...lines, blankLine(defaultSite)])} style={{ alignSelf: 'flex-start', marginTop: 10, borderWidth: 1, borderColor: base.line, borderRadius: 7, paddingHorizontal: 10, height: 30, justifyContent: 'center', backgroundColor: '#fff' }}>
             <Text style={{ fontSize: 12.5, fontWeight: '600', color: '#111827' }}>+ Add A Line</Text>
           </Pressable>
         )}

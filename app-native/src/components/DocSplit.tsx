@@ -1,5 +1,6 @@
 // The document beside the page on the office laptop (Andy, 3 Nov 2026): a purchase invoice or PO with its PDF
-// open on the right at half screen, Full to read it across the whole page, ✕ to close (a slim tab brings it back).
+// open on the right at half screen, Full to read it across the whole page, ✕ or the › strip down its left edge to
+// close (a slim DOCUMENT tab brings it back, and the page widens so the lines fit on one row).
 // Phones and narrow windows show the page only; the page's own button opens the document as before.
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Image, Platform, Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
@@ -39,12 +40,16 @@ export function DocSplit({ load, name, children, reloadKey }: { load: (() => Pro
     <View style={{ flex: 1, flexDirection: 'row' }}>
       <View style={[{ flex: 1, minWidth: 0 }, mode === 'full' && { display: 'none' }]}>{children}</View>
       {mode === 'off' ? (
-        <Pressable onPress={() => setMode('half')} accessibilityRole="button" accessibilityLabel="Show the document" style={{ width: 34, borderLeftWidth: 1, borderLeftColor: '#e5e7eb', backgroundColor: '#fff', alignItems: 'center', paddingTop: 16 }}>
-          <Text style={{ fontSize: 16 }}>📄</Text>
-          <Text style={{ fontSize: 12, color: '#6b7280', marginTop: 6 }}>‹</Text>
+        <Pressable onPress={() => setMode('half')} accessibilityRole="button" accessibilityLabel="Show the document" style={{ width: 36, borderLeftWidth: 1, borderLeftColor: '#e5e7eb', backgroundColor: '#fff', alignItems: 'center', paddingTop: 14, gap: 10 }}>
+          <Text style={{ fontSize: 16, color: '#6b7280' }}>‹</Text>
+          {'DOCUMENT'.split('').map((c, k) => <Text key={k} style={{ fontSize: 10.5, fontWeight: '600', color: '#6b7280', lineHeight: 12 }}>{c}</Text>)}
         </Pressable>
       ) : (
-        <View style={{ width: mode === 'full' ? '100%' : '46%', borderLeftWidth: 1, borderLeftColor: '#e5e7eb', backgroundColor: '#f3f4f6' }} onLayout={(e) => setPanelW(e.nativeEvent.layout.width)}>
+        <View style={{ width: mode === 'full' ? '100%' : '46%', flexDirection: 'row' }}>
+        <Pressable onPress={() => setMode('off')} accessibilityRole="button" accessibilityLabel="Close the document" style={{ width: 22, borderLeftWidth: 1, borderLeftColor: '#e5e7eb', backgroundColor: '#F6F7F9', alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ fontSize: 16, color: '#6b7280' }}>›</Text>
+        </Pressable>
+        <View style={{ flex: 1, minWidth: 0, borderLeftWidth: 1, borderLeftColor: '#e5e7eb', backgroundColor: '#f3f4f6' }} onLayout={(e) => setPanelW(e.nativeEvent.layout.width)}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e5e7eb' }}>
             <Text numberOfLines={1} style={{ flex: 1, fontSize: 13.5, fontWeight: '600', color: '#111827' }}>{name}</Text>
             {btn('−', false, () => setZoom((z) => Math.max(0.5, Math.round((z - 0.25) * 100) / 100)))}
@@ -58,6 +63,7 @@ export function DocSplit({ load, name, children, reloadKey }: { load: (() => Pro
           {url && photo ? <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 12 }} horizontal={zoom > 1}><Image source={{ uri: url }} resizeMode="contain" style={{ width: Math.max(100, (panelW - 24) * zoom), height: Math.max(200, (panelW - 24) * 1.4 * zoom) }} /></ScrollView>
             : url && panelW > 0 ? <PdfPages key={`${url}${mode}`} url={url} zoom={zoom} width={panelW - 32} light />
             : <Text style={{ color: '#6b7280', marginTop: 40, textAlign: 'center' }}>{failed ? 'Couldn’t open the document.' : 'Loading document…'}</Text>}
+        </View>
         </View>
       )}
     </View>

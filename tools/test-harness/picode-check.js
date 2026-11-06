@@ -14,7 +14,7 @@ const {chromium, makeContext, S1} = require('./harness');
   await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
   await page.goto(BASE+'/fin/pinv/pi1'); await page.waitForTimeout(5000);
   await page.getByText('Edit Lines', {exact:true}).click(); await page.waitForTimeout(500);
-  await page.getByLabel('Line 2 job').click(); await page.waitForTimeout(400); await page.getByText('Choose the project', {exact:true}).click(); await page.waitForTimeout(500);
+  await page.getByLabel('Line 2 job').click(); await page.waitForTimeout(500);
   await page.getByText(new RegExp(db.sites[1].name)).last().click(); await page.waitForTimeout(300);
   await page.getByLabel('Line 2 cost code').click(); await page.waitForTimeout(400); await page.getByText('Plant', {exact:true}).last().click(); await page.waitForTimeout(300);
   await page.screenshot({path:'shots/picode.png', fullPage:true});

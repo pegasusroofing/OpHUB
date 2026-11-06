@@ -60,6 +60,8 @@ export function PinvEditor({ inbox, siteId: site0, poId: po0, start }: { inbox?:
   const [busy, setBusy] = useState(false);
   const [dupOk, setDupOk] = useState('');
   const [showWhy, setShowWhy] = useState(false);
+  const [noteShut, setNoteShut] = useState(false); // the note at the top closes with its ✕ (Andy, 6 Nov 2026)
+  const shut = <Pressable accessibilityRole="button" accessibilityLabel="Close the note" hitSlop={8} onPress={() => setNoteShut(true)} style={{ position: 'absolute', top: 8, right: 10 }}><Text style={{ fontSize: 16, color: base.slate }}>✕</Text></Pressable>;
   // Lines as read, or one line for the amount read (an unread invoice: one blank line to fill in).
   const [lines, setLines] = useState<RLine[]>(() => (Array.isArray(ex.lines) && ex.lines.length ? (ex.lines as RLine[])
     : ex.net != null ? [{ ...blankLine(site0 || inbox?.site_id), description: 'Invoice total', unit_price: Number(ex.net), amount: Number(ex.net) }]
@@ -85,7 +87,7 @@ export function PinvEditor({ inbox, siteId: site0, poId: po0, start }: { inbox?:
     if (name) setSupplier(name);
   };
   const chooseSite = async () => { const s = await pickJob('Which project is it for?', sites.filter((x) => x.status !== 'closed')); if (s) { setSiteId(s); setPoId(''); setLines(lines.map((l) => (l.site_id || l.alloc ? l : { ...l, site_id: s }))); } };
-  const choosePo = async () => { const k = await chooseAction('Our PO', [{ key: '-', label: 'No PO' }, ...pos.map((p) => ({ key: p.id, label: `${p.number} · ${p.supplier_name || ''}${p.value != null ? ` · ${money(p.value)}` : ''}` }))]); if (k) setPoId(k === '-' ? '' : k); };
+  const choosePo = async () => { const k = await chooseAction('Allocate To PO', [{ key: '-', label: 'No PO' }, ...pos.map((p) => ({ key: p.id, label: `${p.number} · ${p.supplier_name || ''}${p.value != null ? ` · ${money(p.value)}` : ''}` }))]); if (k) setPoId(k === '-' ? '' : k); };
   const attach = async () => { const r = await DocumentPicker.getDocumentAsync({ type: ['application/pdf', 'image/*'], copyToCacheDirectory: true }); if (!r.canceled && r.assets[0]) setFile({ uri: r.assets[0].uri, name: r.assets[0].name, mimeType: r.assets[0].mimeType }); };
 
   // Everything that has to be right before it's saved; null when it's fine.
@@ -148,14 +150,15 @@ export function PinvEditor({ inbox, siteId: site0, poId: po0, start }: { inbox?:
     <DocSplit name={docName} load={load} reloadKey={inbox?.file_path || file?.uri || ''}>
       <ScrollView contentContainerStyle={page(1000)} keyboardShouldPersistTaps="handled">
         <Stack.Screen options={{ title: inbox ? supplier || 'Purchase invoice' : 'New Purchase Invoice' }} />
-        {inbox && unread && (
-          <View style={{ backgroundColor: '#FDF1E0', borderRadius: 10, padding: 12, marginBottom: 10 }}>
+        {inbox && unread && !noteShut && (
+          <View style={{ backgroundColor: '#FDF1E0', borderRadius: 10, padding: 12, paddingRight: 36, marginBottom: 10 }}>
+            {shut}
             <Text style={{ color: '#B35A00' }}>Couldn’t read this one automatically, so fill it in below. The file stays attached and nothing is lost.</Text>
             {!!inbox.query_reason && <Pressable onPress={() => setShowWhy(!showWhy)}><Text style={{ color: '#B35A00', fontSize: 12, marginTop: 4, textDecorationLine: 'underline' }}>{showWhy ? inbox.query_reason : 'Why?'}</Text></Pressable>}
             {!!inbox.file_path && <View style={{ alignSelf: 'flex-start', marginTop: 8 }}><Button small kind="ghost" busy={busy} title="🤖 Try Reading It Again" onPress={async () => { setBusy(true); const e = await readOne(me, inbox); setBusy(false); if (e) toast(e); void qc.invalidateQueries({ queryKey: ['finInbox', inbox.id] }); }} /></View>}
           </View>
         )}
-        {inbox && !unread && <View style={{ backgroundColor: '#E7F6EC', borderRadius: 10, padding: 12, marginBottom: 10 }}><Text style={{ color: '#1E7A43' }}>✓ Read automatically: {lines.length} line{lines.length === 1 ? '' : 's'}. Check it and press File It.</Text></View>}
+        {inbox && !unread && !noteShut && <View style={{ backgroundColor: '#E7F6EC', borderRadius: 10, padding: 12, paddingRight: 36, marginBottom: 10 }}>{shut}<Text style={{ color: '#1E7A43' }}>✓ Read automatically: {lines.length} line{lines.length === 1 ? '' : 's'}. Check it and press File It.</Text></View>}
         {!inbox && !file && (
           <Pressable accessibilityRole="button" onPress={() => void attach()} style={{ borderWidth: 2, borderStyle: 'dashed', borderColor: '#c3c8d0', borderRadius: 10, padding: 16, alignItems: 'center', marginBottom: 10, backgroundColor: '#fff' }}>
             <Text style={{ fontSize: 22 }}>📄</Text>
@@ -169,11 +172,11 @@ export function PinvEditor({ inbox, siteId: site0, poId: po0, start }: { inbox?:
             {field('Supplier', choice('Supplier', supplier || 'Choose the supplier', () => void chooseSupplier(), !supplier), 220)}
             {!receipt && field('Invoice No.', <TextInput accessibilityLabel="Invoice number" value={no} onChangeText={setNo} placeholder="e.g. SI-882310" style={[fieldBox, { color: base.ink, fontSize: 14 }]} />, 150)}
             {field(receipt ? 'Date' : 'Invoice Date', <DateBox value={date} onChange={setDate} title="Invoice date" clearable={false} />, 150)}
-            {field('Due Date', <DateBox value={due} onChange={setDue} title="Due date" placeholder={date ? `${fdate(addDays(date, 30))} (30 days)` : 'Choose'} />, 150)}
           </View>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 10 }}>
-            {field('Project (for new lines)', choice('Project', siteId ? jobTag(site(siteId)) : 'Choose the project', () => void chooseSite(), !siteId), 300)}
-            {field('Our PO', choice('Our PO', poId ? pos.find((p) => p.id === poId)?.number || 'PO' : 'No PO', () => { if (!siteId) { toast('Choose the project first.'); return; } void choosePo(); }), 180)}
+            {field('Due Date', <DateBox value={due} onChange={setDue} title="Due date" placeholder={date ? fdate(addDays(date, 30)) : 'Choose'} />, 140)}
+            {field('Project (for new lines)', choice('Project', siteId ? jobTag(site(siteId)) : 'Choose the project', () => void chooseSite(), !siteId), 190)}
+            {field('Allocate To PO', choice('Allocate To PO', poId ? pos.find((p) => p.id === poId)?.number || 'PO' : 'No PO', () => { if (!siteId) { toast('Choose the project first.'); return; } void choosePo(); }), 140)}
           </View>
           {!inbox && <View style={{ marginTop: 8 }}><Check label="This is a receipt (no invoice number)" value={receipt} onChange={setReceipt} /></View>}
         </Card>

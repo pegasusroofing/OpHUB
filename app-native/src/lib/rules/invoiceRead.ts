@@ -4,7 +4,7 @@ export type RSite = { id: string; job_number?: string | null; name?: string | nu
 export type RPo = { id: string; number?: string | null; site_id?: string | null };
 /** One line. disc: discount %. alloc: the line split across projects by % (Andy, 5 Nov 2026). vat_rate: 20, 5, 0 or 'rc'. */
 export type Alloc = { site_id: string; pct: number };
-export type RLine = { code?: string; description?: string; qty?: number; unit?: string; unit_price?: number; amount?: number; kind?: string; site_reference?: string; site_id?: string | null; how?: string; cost_code?: string; disc?: number; alloc?: Alloc[]; vat_rate?: number | 'rc'; from_quote?: string };
+export type RLine = { code?: string; description?: string; qty?: number; unit?: string; unit_price?: number; amount?: number; kind?: string; site_reference?: string; site_id?: string | null; how?: string; cost_code?: string; cost_code_id?: string | null; disc?: number; alloc?: Alloc[]; vat_rate?: number | 'rc'; from_quote?: string };
 export type Read = { doc_type?: string; supplier?: string; doc_number?: string; doc_date?: string; due_date?: string; po_number?: string; site_reference?: string; net?: number; vat?: number; total?: number; lines?: RLine[] };
 export type Quote = { id: string; site_id?: string | null; supplier_name?: string | null; quote_no?: string | null; quote_date?: string | null; created_at?: string | null };
 export type QuoteItem = { quote_id: string; code?: string | null; description?: string | null; rate?: number | string | null; active?: boolean | null };

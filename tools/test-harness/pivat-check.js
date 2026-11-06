@@ -16,7 +16,7 @@ const {chromium, makeContext, S1} = require('./harness');
   await page.goto('http://localhost:8081/fin/pinv/new?site='+S1); await page.waitForTimeout(5000);
   await page.getByLabel('Supplier', {exact:true}).last().click(); await page.waitForTimeout(400); await page.getByText('SIG', {exact:true}).last().click();
   await page.getByLabel('Invoice number').fill('INV-1');
-  await page.getByLabel('Our PO', {exact:true}).last().click(); await page.waitForTimeout(400); await page.getByText(/J101-PO-004/).last().click(); await page.waitForTimeout(300);
+  await page.getByLabel('Allocate To PO', {exact:true}).last().click(); await page.waitForTimeout(400); await page.getByText(/J101-PO-004/).last().click(); await page.waitForTimeout(300);
   await page.getByLabel('Line 1 description').fill('Materials'); await page.getByLabel('Line 1 unit price').fill('100');
   await page.getByText('Save', {exact:true}).last().click(); await page.waitForTimeout(3000);
   const p = db.purchase_invoices[0];

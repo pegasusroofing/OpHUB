@@ -18,7 +18,7 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   await page.goto('http://localhost:8081/fin/pinv/new?site=' + S1); await page.waitForTimeout(5000);
   await page.getByLabel('Supplier', {exact: true}).last().click(); await page.waitForTimeout(400); await page.getByText('Bauder', {exact: true}).last().click();
   await page.getByLabel('Invoice number').fill('B-500');
-  await page.getByLabel('Our PO', {exact: true}).last().click(); await page.waitForTimeout(400); await page.getByText(/J101-PO-014/).last().click(); await page.waitForTimeout(500);
+  await page.getByLabel('Allocate To PO', {exact: true}).last().click(); await page.waitForTimeout(400); await page.getByText(/J101-PO-014/).last().click(); await page.waitForTimeout(500);
   await page.getByLabel('Line 1 description').fill('Bauder K4E capsheet 7.5m'); await page.getByLabel('Line 1 quantity').fill('24'); await page.getByLabel('Line 1 unit price').fill('80');
   await page.getByText('+ Add A Line', {exact: true}).click(); await page.waitForTimeout(300);
   await page.getByLabel('Line 2 description').fill('Type 3 trim GRP'); await page.getByLabel('Line 2 quantity').fill('40'); await page.getByLabel('Line 2 unit price').fill('7.71');
