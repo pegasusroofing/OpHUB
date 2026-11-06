@@ -44,16 +44,16 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
     check(Number(pi.net) === 2175.72, `net £${pi.net} (1,867.32 + 308.40)`);
     check(Array.isArray(pi.split) && pi.split.length === 2, 'the cost is split across the two projects: ' + JSON.stringify((pi.split || []).map((x) => [x.site_id.slice(0, 4), x.pct])));
   }
-  // 6 Nov 2026: it stays on the invoice, locked, with Edit, Query To PM and Approve Invoice on one row.
+  // 6 Nov 2026: typed in by hand, Save approves it; it stays on the invoice, locked, with Edit on the one row of buttons.
+  check(pi && pi.status === 'approved', 'typed in by hand, Save approves it (' + (pi && pi.status) + ')');
   check(pi && new URL(page.url()).pathname === '/fin/pinv/' + pi.id, 'after saving it stays on the invoice (' + new URL(page.url()).pathname + ')');
   check(!(await page.getByLabel('Line 1 description').isEditable()), 'saved, the boxes are locked');
-  const ys = []; for (const t of ['✏️ Edit', 'Query To PM', 'Approve Invoice']) { const b = await page.getByText(t, {exact: true}).last().boundingBox(); ys.push(b ? Math.round(b.y) : -1); }
-  check(ys.every((v) => v > 0 && Math.abs(v - ys[0]) < 3), 'Edit, Query To PM and Approve Invoice on one row ' + ys.join(','));
+  const ys = []; for (const t of ['Mark Paid Today', 'Reject', '✏️ Edit']) { const b = await page.getByText(t, {exact: true}).last().boundingBox(); ys.push(b ? Math.round(b.y) : -1); }
+  check(ys.every((v) => v > 0 && Math.abs(v - ys[0]) < 3), 'Mark Paid Today, Reject and Edit on one row ' + ys.join(','));
   await page.screenshot({path: 'shots/job/pinvsaved-1300.png', fullPage: true});
   await page.getByText('✏️ Edit', {exact: true}).click(); await page.waitForTimeout(300);
   check(await page.getByLabel('Line 1 description').isEditable(), 'Edit opens it for changes');
-  await page.getByText('Approve Invoice', {exact: true}).click(); await page.waitForTimeout(2500);
-  check(db.purchase_invoices.find((i) => i.invoice_no === 'J-77').status === 'approved', 'Approve Invoice approves it');
+  await page.getByText('Save Changes', {exact: true}).click(); await page.waitForTimeout(2500);
   check(!(await page.getByLabel('Line 1 description').isEditable()), 'and locks it again');
   await page.goto('http://localhost:8081/fin/inbox/ib9'); await page.waitForTimeout(4000);
   check(await page.getByText(/Couldn’t read this one automatically/).count() === 1, 'an unread invoice shows the plain note');

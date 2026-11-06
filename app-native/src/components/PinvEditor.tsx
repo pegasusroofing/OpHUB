@@ -161,34 +161,61 @@ export function PinvEditor({ inbox, siteId: site0, poId: po0, start, pi, below, 
     return { id: (d.pi as Row).id, fresh: true, flags };
   };
 
-  /** The buttons (Andy, 6 Nov 2026): save, save and ask the job's PM, or approve (only approving posts to Xero). */
+  /** Which PM (Andy, 6 Nov 2026): the job's PM first, then the other PMs, then admins. */
+  const pickPm = async (forSite: string | null): Promise<{ id: string; name: string } | null> => {
+    const ppl = ((await fdb.from('profiles').select('id,name,role,finance_only').eq('org_id', me.org_id as string).in('role', ['pm', 'admin'])).data as { id: string; name: string; role: string; finance_only?: boolean }[] | null ?? []).filter((x) => !x.finance_only);
+    const jobPm = forSite ? (site(forSite) as Row | undefined)?.responsible_pm_id : null;
+    const order = (x: { id: string; role: string }) => (x.id === jobPm ? 0 : x.role === 'pm' ? 1 : 2);
+    const list = ppl.slice().sort((a, b) => order(a) - order(b) || String(a.name).localeCompare(String(b.name)));
+    if (!list.length) { toast('There are no PMs or admins to send it to.'); return null; }
+    const k = await chooseAction('Send it to which PM?', list.map((x) => ({ key: x.id, label: `${x.name}${x.id === jobPm ? ' (this job’s PM)' : x.role === 'admin' ? ' (admin)' : ''}` })));
+    return k ? list.find((x) => x.id === k) ?? null : null;
+  };
+
+  /** The buttons (Andy, 6 Nov 2026). Typed in by hand: Save approves it (and posts it to Xero), as a person has already
+   *  checked it. From the inbox or a saved one: Save keeps it in Needs Checking, Approve Invoice approves and posts.
+   *  Save & Query To PM saves it, asks the chosen PM and goes back to the list. */
   const act = async (how: 'save' | 'another' | 'query' | 'approve') => {
-    let note = '';
-    if (how === 'query') { const n = await promptText('What does the PM need to check?', ''); if (n === null) return; note = n.trim() || 'Please check this invoice'; }
-    if (how === 'approve' && dearer + (vsPo?.flags.length || 0) > 0 && !(await confirmAsk('This invoice has warnings (dearer than the quote, price list or PO). Approve it anyway?', 'Approve'))) return;
+    const manual = !pi && !inbox;
+    let approveNow = how === 'approve' || (manual && (how === 'save' || how === 'another'));
+    // Not ready to save (no project yet) from the inbox: the PM gets it to allocate instead.
+    if (how === 'query' && inbox && problem()) {
+      const pm = await pickPm(siteId); if (!pm) return;
+      if (finBlocked('wage-push', undefined, me.org_id)) { toast('Finance is on trial, so it isn’t sent to PMs yet.'); return; }
+      const ok = await fdb.from('fin_inbox').update({ stage: 'with_pm', assigned_pm: pm.id, assigned_at: new Date().toISOString() } as never).eq('id', inbox.id).select('id');
+      if (!ok.data?.length) { toast('Not sent. Try again.'); return; }
+      toast(`Sent to ${pm.name} to allocate`, { confirm: true }); refresh(); router.back(); return;
+    }
+    let note = '', pm: { id: string; name: string } | null = null;
+    if (how === 'query') {
+      pm = await pickPm(mainSiteOf(lines, siteId)); if (!pm) return;
+      const n = await promptText(`What does ${pm.name} need to check?`, ''); if (n === null) return; note = n.trim() || 'Please check this invoice';
+    }
+    // Warnings (dearer than the quote, price list or PO): approve anyway, or leave it in Needs Checking.
+    if (approveNow && dearer + (vsPo?.flags.length || 0) > 0 && !(await confirmAsk('This invoice has warnings (dearer than the quote, price list or PO). Approve it anyway?', 'Approve Anyway', how === 'approve' ? 'No' : 'Leave In Needs Checking'))) { if (how === 'approve') return; approveNow = false; }
     setBusy(true);
     try {
       // Not being edited: nothing to save first, just query or approve it as it is.
       const r = pi && !editing ? { id: pi.id as string, fresh: false, flags: [] as string[] } : await persist(); if (!r) return;
-      // A new invoice can approve itself on the way in (the company's rule); here a person decides, so Save keeps it waiting.
-      if (r.fresh && how !== 'approve') {
+      // A new invoice can approve itself on the way in (the company's rule); from the inbox a person decides, so Save keeps it waiting.
+      if (r.fresh && !approveNow) {
         const row = (await fdb.from('purchase_invoices').select('status,auto_approved').eq('id', r.id).maybeSingle()).data as Row | null;
         if (row?.status === 'approved' && row.auto_approved) await fdb.from('purchase_invoices').update({ status: 'to_approve', approved_at: null, auto_approved: null } as never).eq('id', r.id);
       }
-      if (how === 'query') {
+      if (how === 'query' && pm) {
         const q = await setPinvStatus(me, r.id, 'query', note);
-        if (!q.ok) { toast('Saved, but it couldn’t be marked as a query — try again.'); }
-        else {
-          const t = await tellPmOfPi(me, { id: r.id, site_id: mainSiteOf(lines, siteId), supplier_name: supplier, invoice_no: no }, `Query on ${piLabel({ supplier_name: supplier, invoice_no: no })}: ${note}`);
-          toast(t.sent ? 'Saved and sent to the job’s PM to check' : t.why === 'nopm' ? 'Saved as a query. This project has no PM set, so nobody was asked.' : 'Saved as a query', { confirm: true });
-        }
-      } else if (how === 'approve') {
+        if (!q.ok) { toast('Saved, but it couldn’t be marked as a query — try again.'); return; }
+        const t = await tellPmOfPi(me, { id: r.id, site_id: mainSiteOf(lines, siteId), supplier_name: supplier, invoice_no: no }, `Query on ${piLabel({ supplier_name: supplier, invoice_no: no })}: ${note}`, pm.id);
+        toast(t.sent ? `Saved and sent to ${pm.name} to check` : t.why === 'me' ? 'Saved as a query (you chose yourself, so no message was sent)' : 'Saved as a query', { confirm: true });
+        refresh(); router.back(); return;
+      }
+      if (approveNow) {
         const a = await setPinvStatus(me, r.id, 'approved');
-        toast(!a.ok ? 'Saved, but it couldn’t be approved — try again.' : finBlocked('xero', 'push_bill', me.org_id) ? 'Approved. Not posted to Xero while Finance is on trial.' : a.xero ? `Approved — Xero: ${a.xero}` : 'Approved and posted to Xero', { confirm: true });
-      } else toast(r.flags.length ? `Saved — needs checking: ${r.flags[0]}` : 'Saved — waiting in Needs Checking', { confirm: true });
+        toast(!a.ok ? 'Saved, but it couldn’t be approved — try again.' : finBlocked('xero', 'push_bill', me.org_id) ? 'Saved and approved. Not posted to Xero while Finance is on trial.' : a.xero ? `Saved and approved — Xero: ${a.xero}` : 'Saved, approved and posted to Xero', { confirm: true });
+      } else toast(r.flags.length ? `Saved — needs checking: ${r.flags[0]}` : pi?.status === 'approved' ? 'Saved' : 'Saved — waiting in Needs Checking', { confirm: true });
       refresh();
       if (how === 'another') { setNo(''); setLines([blankLine(siteId)]); setFile(null); setDupOk(''); return; }
-      // Stay on the invoice: a new one opens as its saved self on this same screen.
+      // Stay on the invoice: a new one opens as its saved self on this same screen, locked.
       if (!pi) router.replace(`/fin/pinv/${r.id}` as never); else setEditing(false);
     } finally { setBusy(false); }
   };
@@ -261,7 +288,7 @@ export function PinvEditor({ inbox, siteId: site0, poId: po0, start, pi, below, 
             {readTot != null && Math.abs(readTot - total) >= 0.5 && <Text style={{ color: '#B35A00' }}>⚠ The lines come to {money(total)} but the invoice says {money(readTot)}.</Text>}
           </Card>
         )}
-        {!shut2 && <Muted style={{ marginBottom: 10 }}>{desk ? 'Save keeps it in Needs Checking. Save & Query To PM asks the job’s PM to check it. Approve Invoice approves it and posts it to Xero (not while Finance is on trial).' : 'Only Approve Invoice posts it to Xero.'}</Muted>}
+        {!shut2 && <Muted style={{ marginBottom: 10 }}>{!pi && !inbox ? 'Save approves it and posts it to Xero (not while Finance is on trial): you’ve typed it in, so it doesn’t wait in Needs Checking.' : 'Save keeps it in Needs Checking. Approve Invoice approves it and posts it to Xero (not while Finance is on trial).'}{desk ? ' Save & Query To PM asks a PM to check it.' : ''}</Muted>}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end', alignItems: 'center' }}>
           {!editing && buttons}
           {inbox && (
@@ -271,20 +298,14 @@ export function PinvEditor({ inbox, siteId: site0, poId: po0, start, pi, below, 
                 if (!(await fdb.from('fin_inbox').update({ status: 'ignored', stage: 'ignored' } as never).eq('id', inbox.id).select('id')).data?.length) { toast('Could not save — try again.'); return; }
                 refresh(); router.back();
               }} />
-              {!finBlocked('wage-push', undefined, me.org_id) && <Button kind="ghost" title="Send To A PM To Allocate" onPress={async () => {
-                const pms = ((await fdb.from('profiles').select('id,name,role,finance_only').eq('org_id', me.org_id as string).in('role', ['pm', 'admin'])).data as { id: string; name: string; finance_only?: boolean }[] | null ?? []).filter((x) => !x.finance_only);
-                const k = await chooseAction('Which PM?', pms.map((x) => ({ key: x.id, label: x.name }))); if (!k) return;
-                const ok = await fdb.from('fin_inbox').update({ stage: 'with_pm', assigned_pm: k, assigned_at: new Date().toISOString() } as never).eq('id', inbox.id).select('id');
-                toast(ok.data?.length ? `Sent to ${pms.find((x) => x.id === k)?.name}` : 'Not sent. Try again.'); refresh();
-              }} />}
             </>
           )}
           {!inbox && !pi && <Button kind="ghost" title="Cancel" onPress={() => router.back()} />}
           {!inbox && !pi && <Button kind="ghost" busy={busy} title="Save & Add Another" onPress={() => void act('another')} />}
           {!!pi && !locked && (editing ? <Button kind="ghost" title="Cancel Edit" onPress={unedit} /> : <Button kind="ghost" title="✏️ Edit" onPress={() => setEditing(true)} />)}
-          {!locked && editing && <Button kind="ghost" busy={busy} title={pi?.status === 'approved' ? 'Save Changes' : 'Save'} onPress={() => void act('save')} />}
           {!locked && pi?.status !== 'approved' && pi?.status !== 'query' && <Button kind="ghost" busy={busy} title={editing ? 'Save & Query To PM' : 'Query To PM'} onPress={() => void act('query')} />}
-          {!locked && pi?.status !== 'approved' && <Button busy={busy} title="Approve Invoice" onPress={() => void act('approve')} />}
+          {!locked && editing && <Button kind={!pi && !inbox ? 'primary' : 'ghost'} busy={busy} title={pi?.status === 'approved' ? 'Save Changes' : 'Save'} onPress={() => void act('save')} />}
+          {!locked && (pi || inbox) && pi?.status !== 'approved' && <Button busy={busy} title="Approve Invoice" onPress={() => void act('approve')} />}
         </View>
         {below}
       </ScrollView>

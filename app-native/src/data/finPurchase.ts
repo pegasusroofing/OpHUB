@@ -56,8 +56,9 @@ export async function setPinvStatus(me: Profile, id: string, status: string, not
   return { ok: true, xero: x.error };
 }
 /** 9219zr mplTellPm: a message to the job's responsible PM about a supplier invoice (kind pi_query, opens their reply page). */
-export async function tellPmOfPi(me: Profile, pi: Row, body: string): Promise<{ sent: boolean; pm?: string; why?: 'nopm' | 'me' }> {
-  const pm = ((await fdb.from('sites').select('responsible_pm_id').eq('id', pi.site_id).maybeSingle()).data as Row | null)?.responsible_pm_id as string | undefined;
+export async function tellPmOfPi(me: Profile, pi: Row, body: string, pmId?: string): Promise<{ sent: boolean; pm?: string; why?: 'nopm' | 'me' }> {
+  // pmId: the PM picked on the invoice screen (6 Nov 2026); otherwise the job's PM.
+  const pm = pmId || (((await fdb.from('sites').select('responsible_pm_id').eq('id', pi.site_id).maybeSingle()).data as Row | null)?.responsible_pm_id as string | undefined);
   if (!pm) return { sent: false, why: 'nopm' };
   if (pm === me.id) return { sent: false, why: 'me' };
   const r = await fdb.from('messages').insert({ org_id: me.org_id, site_id: pi.site_id, sender_id: me.id, audience: 'single', recipient_id: pm, kind: 'pi_query', body: body.slice(0, 1000), related_id: pi.id } as never);

@@ -31,7 +31,9 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   check(await page.getByText(/Not on J101-PO-014/).count() === 1, 'line 3 not on the PO');
   await page.getByText('Against J101-PO-014').scrollIntoViewIfNeeded(); await page.waitForTimeout(300);
   await page.screenshot({path: 'shots/job/povs-1300.png'});
-  await page.getByText('Save', {exact: true}).last().click(); await page.waitForTimeout(3000);
+  await page.getByText('Save', {exact: true}).last().click(); await page.waitForTimeout(800);
+  // Typed in by hand, Save would approve it; with warnings it asks first (6 Nov 2026).
+  await page.getByText('Leave In Needs Checking', {exact: true}).click(); await page.waitForTimeout(3000);
   const p = db.purchase_invoices[0];
   check(p && p.status === 'query' && /isn’t on J101-PO-014|says £77\.805/.test(p.query_note || ''), 'saved as a query with the reasons: ' + (p && [p.status, p.query_note]));
   check(!errs.length, 'no errors ' + errs.slice(0, 2).join(' | '));
