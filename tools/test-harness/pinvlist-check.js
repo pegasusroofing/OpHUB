@@ -13,6 +13,7 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   const O = db.organizations[0].id, S1 = '11111111-1111-1111-1111-111111111111';
   db.purchase_invoices.push({id: 'piA', org_id: O, site_id: S1, supplier_name: 'Jewson', invoice_no: 'J-1', invoice_date: '2026-10-20', net: 100, vat: 20, total: 120, status: 'approved', cost_code: 'materials'});
   db.purchase_invoices.push({id: 'piB', org_id: O, site_id: S1, supplier_name: 'Jewson', invoice_no: 'J-2', invoice_date: '2026-10-21', net: 200, vat: 40, total: 240, status: 'approved', auto_approved: true, cost_code: 'materials'});
+  db.purchase_invoices.push({id: 'piC', org_id: O, site_id: S1, supplier_name: 'SIG', invoice_no: 'SIG-77', invoice_date: '2026-10-19', net: 50, vat: 10, total: 60, status: 'approved', cost_code: 'materials', xero_id: 'XB-1'});
   db.fin_statements = db.fin_statements || [];
   db.fin_statements.push({id: 'st1', org_id: O, supplier_name: 'Jewson', statement_date: '2026-10-31', status: 'reconciled', lines: [{id: 'l1', ref: 'J-1', type: 'invoice', amount: 120, match: 'piA', how: 'auto'}]});
   const page = await ctx.newPage(); page.on('pageerror', (e) => errs.push(e.message));
@@ -28,7 +29,7 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   check(await page.getByText(/^Select All/).count() === 0, 'no Select All before anything is ticked');
   await page.getByRole('tab', {name: /^Approved/}).click(); await page.waitForTimeout(800);
   check(await page.getByText('J-1', {exact: true}).count() === 1 && await page.getByText('J-2', {exact: true}).count() === 1 && await page.getByText(/^Paid/).count() >= 1, 'Approved has J-1 (status Paid, on its statement) and J-2');
-  check(await page.getByText('Xero', {exact: true}).count() >= 1 && await page.getByText(/^Not Posted/).count() >= 1, 'Approved shows a Xero column (Not Posted while on trial)');
+  check(await page.getByLabel('Posted to Xero').count() === 1 && await page.getByText('Xero', {exact: true}).count() === 1, 'the one in Xero has the small Xero mark by its status; no Xero column');
   await page.screenshot({path: 'shots/job/pinvlist-approved-1300.png'});
   await page.getByRole('checkbox').first().click(); await page.waitForTimeout(500);
   for (const b of ['Change VAT', 'Change Cost Type']) check(await page.getByText(b, {exact: true}).count() === 1, `bulk bar has ${b}`);
