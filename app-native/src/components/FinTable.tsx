@@ -8,6 +8,7 @@
 import { isValidElement, useEffect, useState, type ReactNode } from 'react';
 import { Modal, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native';
 
+import { DateBox } from '@/components/DateField';
 import { plainGet, plainSet } from '@/lib/kv';
 import { type FinSort, nextSort, sortRows } from '@/lib/rules/finTable';
 import { base, useTheme } from '@/theme/theme';
@@ -16,11 +17,36 @@ import { base, useTheme } from '@/theme/theme';
 // match: the typed filter's own test (e.g. ">50k" on a money column); ph: its placeholder.
 // pick: a one-choice drop-down filter, each choice with its own test (e.g. date ranges); the first is "any".
 // total: what the totals bar shows under this column. off: hidden until ticked in ⚙ Columns; lock: can't be hidden.
+// date: the row's date (yyyy-mm-dd) for the date filter. A date column (its heading says Date, Due, Hire…, and it sorts by
+// yyyy-mm-dd) gets it by itself (Andy, 6 Nov 2026: filter a date by an exact day, between two, before, after, this month…).
 export type FinPick<T> = { v: string; l: string; test?: (r: T) => boolean };
 export type FinCol<T> = {
   k: string; l: string; flex?: number; min?: number; render: (r: T) => ReactNode; sort?: (r: T) => string | number | null | undefined; choices?: string[]; noSort?: boolean;
   match?: (r: T, q: string) => boolean; ph?: string; pick?: FinPick<T>[]; total?: (shown: T[]) => ReactNode; off?: boolean; lock?: boolean;
+  date?: (r: T) => string | null | undefined;
 };
+/** A date filter: an exact day, between two, before / after one, or this / last month, this year. */
+export type DateF = { mode: '' | 'on' | 'between' | 'before' | 'after' | 'month' | 'lastmonth' | 'year'; a?: string; b?: string };
+const DATE_MODES: [DateF['mode'], string][] = [['', 'Any Date'], ['on', 'Exact Date'], ['between', 'Between'], ['before', 'Before'], ['after', 'After'], ['month', 'This Month'], ['lastmonth', 'Last Month'], ['year', 'This Year']];
+const isoDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+/** The days a date filter covers, [from, to] (either can be open). */
+export function dateSpan(f: DateF, now = new Date()): [string, string] | null {
+  const y = now.getFullYear(), m = now.getMonth();
+  switch (f.mode) {
+    case 'on': return f.a ? [f.a, f.a] : null;
+    case 'between': return f.a || f.b ? [f.a || '', f.b || ''] : null;
+    case 'before': return f.a ? ['', isoDay(new Date(new Date(`${f.a}T12:00:00`).getTime() - 864e5))] : null;
+    case 'after': return f.a ? [isoDay(new Date(new Date(`${f.a}T12:00:00`).getTime() + 864e5)), ''] : null;
+    case 'month': return [isoDay(new Date(y, m, 1)), isoDay(new Date(y, m + 1, 0))];
+    case 'lastmonth': return [isoDay(new Date(y, m - 1, 1)), isoDay(new Date(y, m, 0))];
+    case 'year': return [`${y}-01-01`, `${y}-12-31`];
+    default: return null;
+  }
+}
+const short = (iso?: string) => (iso ? new Date(`${iso}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' }) : '…');
+const dateWord = (f: DateF | undefined) => (!f || !f.mode ? '' : f.mode === 'on' ? short(f.a) : f.mode === 'between' ? `${short(f.a)} – ${short(f.b)}` : f.mode === 'before' ? `Before ${short(f.a)}` : f.mode === 'after' ? `After ${short(f.a)}` : DATE_MODES.find((x) => x[0] === f.mode)?.[1] || '');
+const ISO = /^\d{4}-\d{2}-\d{2}/;
+const DATE_HEAD = /\b(date|due|hire|issued|received|paid|start|sent|raised|valuation|expir)/i;
 export type { FinSort };
 
 /** A ticked choice matches a cell that starts with it (after any dot or symbol), so 'Paid' isn't 'Part paid'. */
@@ -60,12 +86,23 @@ export function FinTable<T>({ cols: allCols, rows, keyOf, onRow, foot, onMenu, d
     setChosen(next); if (colsKey) void plainSet(`ophub.finCols.${colsKey}`, next);
   };
   const isPick = (c: FinCol<T>) => !!c.pick?.length;
-  const on = cols.filter((c) => !c.choices && !isPick(c) && q[c.k]?.trim()).map((c) => ({ c, raw: q[c.k].trim(), q: q[c.k].trim().toLowerCase() }));
+  // A column's date, if it's a date column: its own, or worked out from a dated heading that sorts by yyyy-mm-dd.
+  const dateOf = (c: FinCol<T>): ((r: T) => string) | null => {
+    if (c.date) return (r) => String(c.date!(r) || '').slice(0, 10);
+    if (isPick(c) || c.choices || !c.sort || !DATE_HEAD.test(c.l)) return null;
+    const vals = rows.map((r) => String(c.sort!(r) ?? ''));
+    return vals.some((v) => ISO.test(v)) && vals.every((v) => !v || v === '—' || ISO.test(v)) ? (r) => { const v = String(c.sort!(r) ?? ''); return ISO.test(v) ? v.slice(0, 10) : ''; } : null;
+  };
+  const [dates, setDates] = useState<Record<string, DateF>>({});
+  const [draft, setDraft] = useState<DateF>({ mode: '' });
+  const onDates = cols.map((c) => ({ c, get: dateOf(c), span: dates[c.k] ? dateSpan(dates[c.k]) : null })).filter((x) => x.get && x.span) as { c: FinCol<T>; get: (r: T) => string; span: [string, string] }[];
+  const dateHit = (x: { get: (r: T) => string; span: [string, string] }, r: T) => { const d = x.get(r); return !!d && (!x.span[0] || d >= x.span[0]) && (!x.span[1] || d <= x.span[1]); };
+  const on = cols.filter((c) => !c.choices && !isPick(c) && !dateOf(c) && q[c.k]?.trim()).map((c) => ({ c, raw: q[c.k].trim(), q: q[c.k].trim().toLowerCase() }));
   const onPicks = cols.filter((c) => c.choices && picks[c.k]?.length).map((c) => ({ c, want: picks[c.k].map((x) => x.toLowerCase()) }));
   const onOne = cols.filter((c) => isPick(c) && picks[c.k]?.[0]).map((c) => c.pick!.find((p) => p.v === picks[c.k][0])).filter((p): p is FinPick<T> => !!p?.test);
   const cellText = (c: FinCol<T>, r: T) => nodeText(c.render(r)).toLowerCase().replace(/\s+/g, ' ');
   const typedHit = (f: { c: FinCol<T>; raw: string; q: string }, r: T) => (f.c.match ? f.c.match(r, f.raw) : cellText(f.c, r).includes(f.q));
-  const filtered = on.length || onPicks.length || onOne.length ? rows.filter((r) => on.every((f) => typedHit(f, r)) && onPicks.every((f) => f.want.some((w) => choiceHit(cellText(f.c, r), w))) && onOne.every((p) => p.test!(r))) : rows;
+  const filtered = on.length || onPicks.length || onOne.length || onDates.length ? rows.filter((r) => on.every((f) => typedHit(f, r)) && onPicks.every((f) => f.want.some((w) => choiceHit(cellText(f.c, r), w))) && onOne.every((p) => p.test!(r)) && onDates.every((x) => dateHit(x, r))) : rows;
   const tick = (k: string, v: string) => { const cur = picks[k] || []; setPicks({ ...picks, [k]: cur.includes(v) ? cur.filter((x) => x !== v) : [...cur, v] }); };
   const choose = async (k: string, v: string) => { setOpen(''); if (onPick && (await onPick(k, v)) === false) return; setPicks({ ...picks, [k]: v ? [v] : [] }); };
   const pickLabel = (c: FinCol<T>) => {
@@ -73,6 +110,7 @@ export function FinTable<T>({ cols: allCols, rows, keyOf, onRow, foot, onMenu, d
     const p = picks[c.k] || []; return p.length === 0 ? `${c.l}: any` : p.length === 1 ? p[0] : p.join(', ');
   };
   const openCol = open === '__cols' ? null : cols.find((c) => c.k === open && (c.choices || isPick(c)));
+  const openDate = open.startsWith('date:') ? cols.find((c) => `date:${c.k}` === open) : null;
   const shown = sortRows(filtered, cols, sort || defaultSort || null, (c, r) => nodeText((c as FinCol<T>).render(r)));
   const footer = typeof foot === 'function' ? foot(shown) : foot;
   const hasTotals = cols.some((c) => c.total);
@@ -99,13 +137,42 @@ export function FinTable<T>({ cols: allCols, rows, keyOf, onRow, foot, onMenu, d
           </View>
           {(!!foot || hasTotals) && (
             <View style={{ flexDirection: 'row', paddingBottom: 8, paddingHorizontal: 8 }}>
-              {cols.map((c) => <View key={c.k} style={cell(c)}>{!!c.l && (c.choices || isPick(c)) ? (
+              {cols.map((c) => <View key={c.k} style={cell(c)}>{!!c.l && dateOf(c) ? (
+                <Pressable onPress={(e) => { setAt({ x: e.nativeEvent.pageX, y: e.nativeEvent.pageY }); setDraft(dates[c.k] || { mode: 'on' }); setOpen(open === `date:${c.k}` ? '' : `date:${c.k}`); }} accessibilityRole="button" accessibilityLabel={`Filter ${c.l}`} style={[filterBox, { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, borderColor: dates[c.k]?.mode ? t.brand1 : '#e5e7eb' }]}>
+                  <Text numberOfLines={1} style={{ flexShrink: 1, fontSize: 11.5, fontWeight: dates[c.k]?.mode ? '500' : '400', color: dates[c.k]?.mode ? base.ink : base.slateLight }}>{dateWord(dates[c.k]) || c.l}</Text><Text style={{ fontSize: 9, color: base.slate }}>▼</Text>
+                </Pressable>
+              ) : !!c.l && (c.choices || isPick(c)) ? (
                 <Pressable onPress={(e) => { setAt({ x: e.nativeEvent.pageX, y: e.nativeEvent.pageY }); setOpen(open === c.k ? '' : c.k); }} accessibilityRole="button" accessibilityLabel={`Filter ${c.l}`} style={[filterBox, { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, borderColor: picks[c.k]?.length ? t.brand1 : '#e5e7eb' }]}>
                   <Text numberOfLines={1} style={{ flexShrink: 1, fontSize: 11.5, fontWeight: picks[c.k]?.length ? '500' : '400', color: base.ink }}>{pickLabel(c)}</Text><Text style={{ fontSize: 9, color: base.slate }}>{open === c.k ? '▲' : '▼'}</Text>
                 </Pressable>
               ) : !!c.l && <TextInput value={q[c.k] || ''} onChangeText={(v) => setQ({ ...q, [c.k]: v })} placeholder={c.ph || c.l} accessibilityLabel={`Filter ${c.l}`} placeholderTextColor={base.slateLight} style={[filterBox, { fontSize: 11.5, textAlign: 'center', color: base.ink, borderColor: c.match && q[c.k]?.trim() && !rows.some((r) => c.match!(r, q[c.k].trim())) ? '#C0392B' : '#e5e7eb' }]} />}</View>)}
               {onMenu ? <View style={{ width: 32 }} /> : null}
             </View>
+          )}
+          {!!openDate && (
+            <Modal transparent visible animationType="none" onRequestClose={() => setOpen('')}>
+              <Pressable accessibilityLabel="Close" onPress={() => setOpen('')} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+              <View style={[popAt(250), { padding: 10, gap: 6, overflow: 'visible' }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Text style={{ flex: 1, fontSize: 12.5, fontWeight: '600', color: base.ink }}>{openDate.l}</Text>
+                  <Pressable onPress={() => setOpen('')} accessibilityLabel="Close" hitSlop={8}><Text style={{ fontSize: 14, color: base.slate }}>✕</Text></Pressable>
+                </View>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5 }}>
+                  {DATE_MODES.filter(([m]) => m).map(([m, l]) => (
+                    <Pressable key={m} accessibilityRole="radio" accessibilityState={{ checked: draft.mode === m }} accessibilityLabel={l} onPress={() => setDraft({ ...draft, mode: m })}
+                      style={{ paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: draft.mode === m ? t.brand1 : '#e5e7eb', backgroundColor: draft.mode === m ? '#fff' : '#F6F7F9' }}>
+                      <Text style={{ fontSize: 12, color: base.ink, fontWeight: draft.mode === m ? '600' : '400' }}>{l}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+                {['on', 'between', 'before', 'after'].includes(draft.mode) && <DateBox compact title={draft.mode === 'between' ? 'From' : 'Date'} placeholder={draft.mode === 'between' ? 'From' : 'Choose the date'} value={draft.a || null} onChange={(v) => setDraft({ ...draft, a: v })} />}
+                {draft.mode === 'between' && <DateBox compact title="To" placeholder="To" value={draft.b || null} onChange={(v) => setDraft({ ...draft, b: v })} />}
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 2 }}>
+                  <Pressable onPress={() => { const n = { ...dates }; delete n[openDate.k]; setDates(n); setOpen(''); }}><Text style={{ fontSize: 12.5, color: base.slate }}>Clear</Text></Pressable>
+                  <Pressable onPress={() => { setDates({ ...dates, [openDate.k]: draft }); setOpen(''); }}><Text style={{ fontSize: 12.5, fontWeight: '600', color: t.brand1 }}>Apply</Text></Pressable>
+                </View>
+              </View>
+            </Modal>
           )}
           {(openCol || open === '__cols') && (
             <Modal transparent visible animationType="none" onRequestClose={() => setOpen('')}>
