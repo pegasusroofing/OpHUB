@@ -15,8 +15,8 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
     await page.goto('http://localhost:8081' + u); await page.waitForTimeout(6000);
     if (u === '/home') {
       check(await page.getByText('Today', {exact: true}).count() >= 1, `${n}: the Today panel`);
-      check(W < 500 ? await page.getByText('Live projects', {exact: true}).count() >= 2 : await page.getByText('Live projects', {exact: true}).count() === 0, `${n}: the Live projects card on a phone only`);
-      check(W < 500 || await page.getByRole('button', {name: 'Projects'}).count() >= 1, `${n}: a Projects tile on a laptop`);
+      check(await page.getByText('Live projects', {exact: true}).count() >= 2, `${n}: the red Live projects card (phone and laptop)`);
+      check(await page.getByRole('button', {name: 'Projects', exact: true}).count() === 0, `${n}: no separate Projects tile`);
       if (W < 500) {
         // The Today bar drifts sideways on its own, and stops when touched.
         const bar = page.locator('[data-testid="today-bar"]'); const left = () => bar.evaluate((e) => e.scrollLeft);

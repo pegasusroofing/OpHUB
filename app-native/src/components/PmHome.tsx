@@ -91,11 +91,21 @@ export function PmHome() {
         </Pressable>
       )}
       <View style={{ flexDirection: 'row', gap: 10, marginBottom: space.m }}>
-        <Stat n={live.length} label={desk && upcoming.length ? `Live projects · ${upcoming.length} upcoming` : 'Live projects'} onPress={go('/sites')} />
+        <Stat n={live.length} label="Live projects" onPress={go('/sites')} />
         <Stat n={onSite.length} label="On site now" onPress={go('/onsite')} />
         <Stat n={todos.length} label="To do" onPress={go('/pm/todos')} />
         <Stat n={hubN} label="Notifications" hot={hubN > 0} onPress={go('/pm/hub')} />
       </View>
+      {/* The red Live projects card below the four numbers, phone and laptop, as before (Andy, 6 Nov 2026). */}
+      <Pressable onPress={go('/sites')} accessibilityRole="button"
+        style={({ pressed }) => [{ backgroundColor: t.brand1, borderRadius: 22, paddingVertical: 18, paddingHorizontal: 20, marginBottom: space.m }, pressed && { opacity: 0.9 }]}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+          <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' }}><OphIcon name="projects" size={22} color={t.brand1Text} /></View>
+          <OphIcon name="chevron" size={22} color={t.brand1Text} stroke={2.4} />
+        </View>
+        <Text style={[heading(800), { color: t.brand1Text, fontSize: 20, letterSpacing: -0.2 }]}>Live projects</Text>
+        <Text style={{ color: t.brand1Text, opacity: 0.92, marginTop: 4, fontSize: 13, fontWeight: '500' }}>{live.length} live{upcoming.length ? ` · ${upcoming.length} upcoming` : ''}</Text>
+      </Pressable>
       {/* Option 1 (Andy, 6 Nov 2026): the map with a Today panel beside it on a laptop; on a phone, Today then the map. */}
       {desk ? (
         <View style={{ flexDirection: 'row', gap: 12, alignItems: 'stretch', marginBottom: space.m }}>
@@ -104,23 +114,12 @@ export function PmHome() {
         </View>
       ) : (
         <>
-          {/* Phone: the Live projects card below the four numbers, as before (Andy, 6 Nov 2026). */}
-          <Pressable onPress={go('/sites')} accessibilityRole="button"
-            style={({ pressed }) => [{ backgroundColor: t.brand1, borderRadius: 22, paddingVertical: 18, paddingHorizontal: 20, marginBottom: space.m }, pressed && { opacity: 0.9 }]}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-              <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' }}><OphIcon name="projects" size={22} color={t.brand1Text} /></View>
-              <OphIcon name="chevron" size={22} color={t.brand1Text} stroke={2.4} />
-            </View>
-            <Text style={[heading(800), { color: t.brand1Text, fontSize: 20, letterSpacing: -0.2 }]}>Live projects</Text>
-            <Text style={{ color: t.brand1Text, opacity: 0.92, marginTop: 4, fontSize: 13, fontWeight: '500' }}>{live.length} live{upcoming.length ? ` · ${upcoming.length} upcoming` : ''}</Text>
-          </Pressable>
           {todayBar}
           {!!sites?.length && <SitesMapCard sites={sites} />}
         </>
       )}
       {/* Yard & Plant is under Deliveries now, not a tile (Andy, 5 Nov 2026). */}
       <TileGrid cols={desk ? 4 : 2}>
-        {desk && <Tile plain ic="projects" tint="" title="Projects" sub={`${live.length} live${upcoming.length ? ` · ${upcoming.length} upcoming` : ''}`} onPress={go('/sites')} />}
         {isFinanceUser(me, org) && <Tile plain ic="pound" tint="" title="OpHUB Finance" sub="Money in & out" onPress={go('/fin')} />}
         <Tile plain ic="reports" tint="" title="Quotes" sub="Tender tracker" onPress={go('/pm/quotes')} />
         <Tile plain ic="chart" tint="" title="Dashboard" sub="Company & operatives" onPress={go('/pm/dashboard')} />
