@@ -28,6 +28,9 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   await page.getByLabel('Actions', {exact: true}).first().click(); await page.waitForTimeout(400);
   check(await page.getByText('Send To PM', {exact: true}).count() === 1 && await page.getByText('Edit', {exact: true}).count() === 1 && new URL(page.url()).pathname === '/fin/purchases', 'it lists Edit, Send To PM and the rest, and stays on the list');
   await page.keyboard.press('Escape'); await page.mouse.click(5, 5); await page.waitForTimeout(300);
+  await page.getByLabel('Filter Status', {exact: true}).click(); await page.waitForTimeout(300); await page.getByLabel('Unable to read', {exact: true}).click(); await page.getByText('Done', {exact: true}).last().click(); await page.waitForTimeout(400);
+  check(await page.getByText('Unable to read', {exact: true}).count() >= 1 && await page.getByLabel(/^Choose the job for/).count() === 0, 'the Status filter shows just Unable to read');
+  await page.getByLabel('Filter Status', {exact: true}).click(); await page.waitForTimeout(300); await page.getByLabel('Unable to read', {exact: true}).click(); await page.getByText('Done', {exact: true}).last().click(); await page.waitForTimeout(400);
   await page.screenshot({path: 'shots/job/recv-1300.png'}); const jp = page.getByLabel(/^Choose the job for/).first(); console.log('job box', JSON.stringify(await jp.boundingBox())); await jp.click(); await jp.fill('J1'); await page.waitForTimeout(400); await page.keyboard.press('Tab'); await page.waitForTimeout(1200);
   check(db.fin_inbox.some((i) => i.site_id && i.status === 'new'), 'typing the job number and Tab sets the job right there');
   // Opening it: that job is on every line (6 Nov 2026).

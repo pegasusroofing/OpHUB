@@ -18,16 +18,17 @@ import { base, useTheme } from '@/theme/theme';
 // pick: a one-choice drop-down filter, each choice with its own test (e.g. date ranges); the first is "any".
 // total: what the totals bar shows under this column. off: hidden until ticked in ⚙ Columns; lock: can't be hidden.
 // date: the row's date (yyyy-mm-dd) for the date filter. A date column (its heading says Date, Due, Hire…, and it sorts by
-// yyyy-mm-dd) gets it by itself (Andy, 6 Nov 2026: filter a date by an exact day, between two, before, after, this month…).
+// yyyy-mm-dd) gets it by itself (Andy, 6 Nov 2026: filter a date by an exact day or a range).
+// text: the words the filters match on, when the cell itself is a box or a drop-down.
 export type FinPick<T> = { v: string; l: string; test?: (r: T) => boolean };
 export type FinCol<T> = {
   k: string; l: string; flex?: number; min?: number; render: (r: T) => ReactNode; sort?: (r: T) => string | number | null | undefined; choices?: string[]; noSort?: boolean;
   match?: (r: T, q: string) => boolean; ph?: string; pick?: FinPick<T>[]; total?: (shown: T[]) => ReactNode; off?: boolean; lock?: boolean;
-  date?: (r: T) => string | null | undefined;
+  date?: (r: T) => string | null | undefined; text?: (r: T) => string;
 };
 /** A date filter: an exact day, between two, before / after one, or this / last month, this year. */
 export type DateF = { mode: '' | 'on' | 'between' | 'before' | 'after' | 'month' | 'lastmonth' | 'year'; a?: string; b?: string };
-const DATE_MODES: [DateF['mode'], string][] = [['', 'Any Date'], ['on', 'Exact Date'], ['between', 'Between'], ['before', 'Before'], ['after', 'After'], ['month', 'This Month'], ['lastmonth', 'Last Month'], ['year', 'This Year']];
+const DATE_MODES: [DateF['mode'], string][] = [['', 'Any Date'], ['on', 'Exact Date'], ['between', 'Range']];
 const isoDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 /** The days a date filter covers, [from, to] (either can be open). */
 export function dateSpan(f: DateF, now = new Date()): [string, string] | null {
@@ -44,7 +45,7 @@ export function dateSpan(f: DateF, now = new Date()): [string, string] | null {
   }
 }
 const short = (iso?: string) => (iso ? new Date(`${iso}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' }) : '…');
-const dateWord = (f: DateF | undefined) => (!f || !f.mode ? '' : f.mode === 'on' ? short(f.a) : f.mode === 'between' ? `${short(f.a)} – ${short(f.b)}` : f.mode === 'before' ? `Before ${short(f.a)}` : f.mode === 'after' ? `After ${short(f.a)}` : DATE_MODES.find((x) => x[0] === f.mode)?.[1] || '');
+const dateWord = (f: DateF | undefined) => (!f || !f.mode ? '' : f.mode === 'on' ? short(f.a) : f.mode === 'between' ? (f.a && !f.b ? `From ${short(f.a)}` : !f.a && f.b ? `To ${short(f.b)}` : `${short(f.a)} – ${short(f.b)}`) : f.mode === 'before' ? `Before ${short(f.a)}` : f.mode === 'after' ? `After ${short(f.a)}` : DATE_MODES.find((x) => x[0] === f.mode)?.[1] || '');
 const ISO = /^\d{4}-\d{2}-\d{2}/;
 const DATE_HEAD = /\b(date|due|hire|issued|received|paid|start|sent|raised|valuation|expir)/i;
 export type { FinSort };
@@ -100,7 +101,7 @@ export function FinTable<T>({ cols: allCols, rows, keyOf, onRow, foot, onMenu, d
   const on = cols.filter((c) => !c.choices && !isPick(c) && !dateOf(c) && q[c.k]?.trim()).map((c) => ({ c, raw: q[c.k].trim(), q: q[c.k].trim().toLowerCase() }));
   const onPicks = cols.filter((c) => c.choices && picks[c.k]?.length).map((c) => ({ c, want: picks[c.k].map((x) => x.toLowerCase()) }));
   const onOne = cols.filter((c) => isPick(c) && picks[c.k]?.[0]).map((c) => c.pick!.find((p) => p.v === picks[c.k][0])).filter((p): p is FinPick<T> => !!p?.test);
-  const cellText = (c: FinCol<T>, r: T) => nodeText(c.render(r)).toLowerCase().replace(/\s+/g, ' ');
+  const cellText = (c: FinCol<T>, r: T) => (c.text ? c.text(r) : nodeText(c.render(r))).toLowerCase().replace(/\s+/g, ' ');
   const typedHit = (f: { c: FinCol<T>; raw: string; q: string }, r: T) => (f.c.match ? f.c.match(r, f.raw) : cellText(f.c, r).includes(f.q));
   const filtered = on.length || onPicks.length || onOne.length || onDates.length ? rows.filter((r) => on.every((f) => typedHit(f, r)) && onPicks.every((f) => f.want.some((w) => choiceHit(cellText(f.c, r), w))) && onOne.every((p) => p.test!(r)) && onDates.every((x) => dateHit(x, r))) : rows;
   const tick = (k: string, v: string) => { const cur = picks[k] || []; setPicks({ ...picks, [k]: cur.includes(v) ? cur.filter((x) => x !== v) : [...cur, v] }); };
