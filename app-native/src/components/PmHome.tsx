@@ -2,7 +2,7 @@
 // projects, on site now, to do, notifications), the sites map with a Today panel beside it, then plain tiles
 // (2 across on a phone, 4 on a laptop), "Pick up where you left off", and name / role / Sign out.
 import { router } from 'expo-router';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { HomePrompts } from '@/components/HomePrompts';
 import { HowTo } from '@/components/HowTo';
@@ -70,6 +70,24 @@ export function PmHome() {
     </Card>
   );
 
+  // Phone: Today as a sideways scrolling bar, not a card (Andy, 6 Nov 2026).
+  const todayBar = (
+    <View style={{ marginBottom: space.m }}>
+      <Text style={{ fontWeight: '600', color: base.ink, fontSize: 13, marginBottom: 6 }}>Today</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 4 }}>
+        {todayRows.map((r, k) => (
+          <Pressable key={k} onPress={go(r.go)} accessibilityRole="button" style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: 10, width: 210, backgroundColor: '#fff', borderWidth: 1, borderColor: '#ECEEF2', borderRadius: 12, paddingVertical: 9, paddingHorizontal: 12 }, pressed && { opacity: 0.85 }]}>
+            <OphIcon name={r.ic} size={17} color={base.ink} />
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text numberOfLines={1} style={{ fontWeight: '600', color: base.ink, fontSize: 13 }}>{r.t}</Text>
+              {!!r.sub && <Text numberOfLines={1} style={{ fontSize: 11.5, color: base.slate }}>{r.sub}</Text>}
+            </View>
+          </Pressable>
+        ))}
+      </ScrollView>
+    </View>
+  );
+
   return (
     <Screen>
       <Text style={{ fontSize: 12.5, color: base.slate, fontWeight: '600' }}>{new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}</Text>
@@ -111,7 +129,7 @@ export function PmHome() {
             <Text style={[heading(800), { color: t.brand1Text, fontSize: 20, letterSpacing: -0.2 }]}>Live projects</Text>
             <Text style={{ color: t.brand1Text, opacity: 0.92, marginTop: 4, fontSize: 13, fontWeight: '500' }}>{live.length} live{upcoming.length ? ` · ${upcoming.length} upcoming` : ''}</Text>
           </Pressable>
-          {todayCard}
+          {todayBar}
           {!!sites?.length && <SitesMapCard sites={sites} />}
         </>
       )}
