@@ -17,8 +17,10 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
   await page.getByText('Sign In', {exact: true}).click(); await page.waitForTimeout(5000);
   await page.goto('http://localhost:8081/fin/purchases?tab=invoices'); await page.waitForTimeout(4000);
-  await page.getByText('Add Manually', {exact: true}).click(); await page.waitForTimeout(3000);
-  check(new URL(page.url()).pathname === '/fin/pinv/new', 'Add Manually opens the new invoice screen straight away (' + new URL(page.url()).pathname + ')');
+  // 7 Nov 2026: one Add Invoices page; typing one in without a file is the link at its foot.
+  await page.getByText('Add Invoices', {exact: true}).click(); await page.waitForTimeout(2500);
+  await page.getByText('No file? Type an invoice in without one').click(); await page.waitForTimeout(3000);
+  check(new URL(page.url()).pathname === '/fin/pinv/new', 'No file? Type one in opens the new invoice screen (' + new URL(page.url()).pathname + ')');
   check(await page.getByText('Attach The Invoice').count() === 1, 'it offers to attach the PDF, photo or scan');
   await page.getByLabel('Supplier', {exact: true}).last().click(); await page.waitForTimeout(500); await page.getByText('Jewson', {exact: true}).last().click(); await page.waitForTimeout(300);
   await page.getByLabel('Invoice number').fill('J-77');

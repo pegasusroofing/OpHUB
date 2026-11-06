@@ -22,9 +22,7 @@ import { SubRight } from '@/components/FinSlot';
 import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Empty, Muted } from '@/components/ui';
 import { askDate } from '@/components/DateField';
-import * as DocumentPicker from 'expo-document-picker';
 import { fdb, selectAll, useFinSettings } from '@/data/finance';
-import { supabase } from '@/lib/supabase';
 import { piLabel, setPinvPaid, setPinvStatus, tellPmOfPi } from '@/data/finPurchase';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
@@ -163,7 +161,6 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
   const { data: fset } = useFinSettings(me?.org_id);
   const toast = useToast();
   const qc = useQueryClient();
-  const [upBusy, setUpBusy] = useState(false);
   // Anything new goes through the reader when this list opens, and after an upload.
   const runReader = async () => {
     if (!me) return;
@@ -172,23 +169,6 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
   };
   useEffect(() => { if (tab === 'invoices') void runReader(); }, [tab, me?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   // Add invoices by hand (9219b finInboxUpload): each PDF / photo goes into the inbox to be read or filed.
-  const uploadInvoices = async () => {
-    if (!me) return;
-    const r = await DocumentPicker.getDocumentAsync({ type: ['application/pdf', 'image/*'], multiple: true, copyToCacheDirectory: true }); if (r.canceled) return;
-    setUpBusy(true); let n = 0;
-    try {
-      for (const f of r.assets) {
-        if ((f.size || 0) > 20 * 1024 * 1024) { toast(`${f.name} is over 20 MB — skipped.`); continue; }
-        const rid = globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}`;
-        const up = await supabase.storage.from('finance-docs').upload(`${me.org_id}/inbox/${rid}-${(f.name || 'invoice').replace(/[^a-z0-9.-]+/gi, '_').slice(-80)}`, await (await fetch(f.uri)).arrayBuffer(), { contentType: f.mimeType || 'application/octet-stream' });
-        if (up.error) continue;
-        const ins = await fdb.from('fin_inbox').insert({ org_id: me.org_id, source: 'upload', status: 'new', received_at: new Date().toISOString(), file_path: up.data.path, file_name: f.name, content_type: f.mimeType || null, created_by: me.id } as never);
-        if (!ins.error) n++;
-      }
-    } finally { setUpBusy(false); }
-    toast(`${n} invoice${n === 1 ? '' : 's'} added`); setFilt({ ...sel, status: ['job'] }); void qc.invalidateQueries({ queryKey: ['finPurchases'] });
-    void runReader();
-  };
   if (!data) return <Muted>Loading…</Muted>;
   const site = (id: string) => sites.find((s) => s.id === id);
   const live = data.pinvs.filter((i) => i.status !== 'rejected');
@@ -320,8 +300,8 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
         <View style={{ flexDirection: desk ? 'row' : 'column-reverse', alignItems: desk ? 'flex-start' : 'stretch', gap: desk ? 12 : 0 }}>
           <View style={{ flex: desk ? 1 : undefined, minWidth: 0 }}>{bar(cur === 'job' || cur === 'pm' ? 'Search supplier, email or invoice no.' : 'Search supplier, invoice no. or project', [{ key: 'status', label: 'Show', single: true, items: chips.map(([v, l, n]) => ({ v, l, n })) }], { ...sel, status: [cur] })}</View>
           <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
-            <View style={{ flex: desk ? undefined : 1 }}><Button small={desk} grow={!desk} kind="ghost" busy={upBusy} title="Add Invoices" onPress={() => void uploadInvoices()} /></View>
-            <View style={{ flex: desk ? undefined : 1 }}><Button small={desk} grow={!desk} title="Add Manually" onPress={() => router.push((siteId ? `/fin/pinv/new?site=${siteId}` : '/fin/pinv/new') as never)} /></View>
+            {/* One Add Invoices page: upload one or many, or type one in (Andy, 7 Nov 2026). */}
+            <View style={{ flex: desk ? undefined : 1 }}><Button small={desk} grow={!desk} title="Add Invoices" onPress={() => router.push((siteId ? `/fin/pinv/add?site=${siteId}` : '/fin/pinv/add') as never)} /></View>
           </View>
         </View>
         {cur === 'pm' && (
