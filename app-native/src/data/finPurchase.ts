@@ -66,12 +66,12 @@ export async function tellPmOfPi(me: Profile, pi: Row, body: string, pmId?: stri
 }
 export const piLabel = (pi: Row) => `${pi.supplier_name || 'supplier'} invoice${pi.invoice_no ? ` ${pi.invoice_no}` : ''}`;
 /** Finance's reply in the conversation with the PM (9219zr mplPiThreadSend): added to query_thread and the PM told. */
-export async function addPiThreadReply(me: Profile, id: string, text: string): Promise<{ ok: boolean; sent?: boolean; pm?: string }> {
+export async function addPiThreadReply(me: Profile, id: string, text: string, pmId?: string): Promise<{ ok: boolean; sent?: boolean; pm?: string }> {
   const pi = (await fdb.from('purchase_invoices').select('id,site_id,supplier_name,invoice_no,query_thread').eq('id', id).maybeSingle()).data as Row | null;
   if (!pi) return { ok: false };
   const thread = [...(Array.isArray(pi.query_thread) ? pi.query_thread : []), { by: me.id, name: me.name || '', at: new Date().toISOString(), text: text.slice(0, 2000) }];
   if (!(await fdb.from('purchase_invoices').update({ query_thread: thread } as never).eq('id', id).select('id')).data?.length) return { ok: false };
-  const t = await tellPmOfPi(me, pi, `Reply on ${piLabel(pi)}: ${text.slice(0, 300)}`);
+  const t = await tellPmOfPi(me, pi, `Reply on ${piLabel(pi)}: ${text.slice(0, 300)}`, pmId);
   return { ok: true, sent: t.sent, pm: t.pm };
 }
 /** A PO whose value is fully covered by approved invoices is closed as Invoiced; reopened when it no longer is (9219b finPoMaybeClose). */
@@ -195,5 +195,19 @@ export async function emailPo(me: Profile, po: Record<string, any>, bytes: Uint8
   const r = await finInvoke(me, 'send-finance-email', { kind: 'po', site_id: po.site_id, storage_path: path, filename: `PO ${String(po.number).replace(/[^a-z0-9-]+/gi, '_')}.pdf`, recipients: o.to, cc: o.cc, reference: po.number || '', amount: money(po.total ?? po.value), subject: o.subject, body_text: o.body, logos: o.logos, hide_logo: o.hideLogo });
   if (r.error) return r.error;
   await fdb.from('purchase_orders').update({ sent_at: new Date().toISOString(), sent_to: o.to.join(', ') } as never).eq('id', po.id);
+  return null;
+}
+
+/** Query With Supplier (Andy, 6 Nov 2026): emails the invoice back to the supplier with the query, marks it as a query
+ *  and notes it in the invoice's conversation. Gives the problem, or null. Not while Finance is on trial. */
+export async function emailPiQuery(me: Profile, pi: Row, o: { to: string[]; cc: string[]; subject: string; body: string; logos: string[]; hideLogo: boolean }): Promise<string | null> {
+  if (finBlocked('send-finance-email', undefined, me.org_id)) return FIN_TRIAL_MSG;
+  if (!pi.file_path) return 'Attach the invoice first: Edit, then Attach The Invoice.';
+  // The finance email's "invoice" kind: the email's heading reads "Invoice {number}", the message is the query as written.
+  const r = await finInvoke(me, 'send-finance-email', { kind: 'invoice', site_id: pi.site_id, storage_path: pi.file_path, filename: pi.file_name || `Invoice ${pi.invoice_no || ''}.pdf`, recipients: o.to, cc: o.cc, reference: pi.invoice_no || '', amount: money(pi.total), subject: o.subject, body_text: o.body, logos: o.logos, hide_logo: o.hideLogo });
+  if (r.error) return r.error;
+  const cur = (await fdb.from('purchase_invoices').select('query_thread').eq('id', pi.id).maybeSingle()).data as Row | null;
+  const thread = [...(Array.isArray(cur?.query_thread) ? cur.query_thread : []), { by: me.id, name: me.name || '', at: new Date().toISOString(), text: `Emailed ${o.to.join(', ')}: ${o.subject}`.slice(0, 2000) }];
+  await fdb.from('purchase_invoices').update({ status: 'query', query_note: `Queried with the supplier (${o.to[0]})`, query_thread: thread } as never).eq('id', pi.id);
   return null;
 }

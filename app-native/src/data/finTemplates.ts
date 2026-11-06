@@ -7,10 +7,10 @@ import { useQuery } from '@tanstack/react-query';
 import { fdb } from '@/data/finance';
 import { supabase } from '@/lib/supabase';
 
-export type TplKind = 'application' | 'invoice' | 'certificate' | 'credit' | 'po' | 'signatures' | 'hsdocs';
+export type TplKind = 'application' | 'invoice' | 'certificate' | 'credit' | 'po' | 'signatures' | 'hsdocs' | 'pi_query';
 export type Tpl = { id: string; kind: TplKind; name: string; subject: string | null; body: string | null; is_default: boolean; show_logo: boolean; logos: string[] };
 
-export const TPL_KINDS: [TplKind, string][] = [['application', 'Application for payment'], ['invoice', 'Invoice'], ['certificate', 'Payment certificate'], ['credit', 'Credit note'], ['po', 'Purchase order'], ['signatures', 'Outstanding signatures (H&S)'], ['hsdocs', 'RAMS / COSHH documents (H&S)']];
+export const TPL_KINDS: [TplKind, string][] = [['application', 'Application for payment'], ['invoice', 'Invoice'], ['certificate', 'Payment certificate'], ['credit', 'Credit note'], ['po', 'Purchase order'], ['pi_query', 'Query on a supplier’s invoice'], ['signatures', 'Outstanding signatures (H&S)'], ['hsdocs', 'RAMS / COSHH documents (H&S)']];
 export const TPL_FIELDS = '{client} {project} {job_no} {number} {amount} {due} {client_po} {company} {my_name}';
 
 /** OpHUB's own wording, used until a company saves its own. */
@@ -21,6 +21,8 @@ export const TPL_STANDARD: Record<TplKind, { subject: string; body: string }> = 
   credit: { subject: 'Credit note {number} — {project}', body: 'Hello,\n\nPlease find attached credit note {number} for {project}.\n\nKind regards,' },
   signatures: { subject: 'Outstanding {number} signatures — {project}', body: 'Hello,\n\nPlease find attached the list of who is still to sign the {number} documents for {project}.\n\nKind regards,' },
   hsdocs: { subject: '{number} — {project}', body: 'Hello,\n\nPlease find attached the signed {number} for {project}.\n\nKind regards,' },
+  // Sent back to a supplier about their invoice (Andy, 6 Nov 2026).
+  pi_query: { subject: 'Query on your invoice {number} — {project}', body: 'Hello,\n\nWe have a query on your invoice {number} for {project} ({amount}), attached:\n\n\n\nPlease send us a corrected invoice or a credit note, or let us know.\n\nKind regards,' },
   po: { subject: 'Purchase order {number} — {project}', body: 'Hello,\n\nPlease find attached our purchase order {number} for {project}. Please quote the PO number on your delivery note and invoice.\n\nKind regards,' },
 };
 
@@ -41,7 +43,7 @@ export async function saveTemplate(orgId: string, t: Partial<Tpl> & { kind: TplK
   const row = { org_id: orgId, kind: t.kind, name: String(t.name || '').trim() || 'Template', subject: t.subject || null, body: t.body || null, is_default: !!t.is_default, show_logo: t.show_logo !== false, logos: t.logos || [], updated_at: new Date().toISOString() };
   const r = t.id ? await fdb.from('fin_email_templates').update(row as never).eq('id', t.id).select('id') : await fdb.from('fin_email_templates').insert(row as never).select('id');
   const id = (r.data as { id: string }[] | null)?.[0]?.id;
-  if (r.error || !id) return 'Could not save — try again.';
+  if (r.error || !id) return t.kind === 'pi_query' && /check/i.test(r.error?.message || '') ? 'Supplier query templates need switching on first: run SQL 16 in Supabase.' : 'Could not save — try again.';
   if (row.is_default) await fdb.from('fin_email_templates').update({ is_default: false } as never).eq('org_id', orgId).eq('kind', t.kind).neq('id', id);
   return null;
 }

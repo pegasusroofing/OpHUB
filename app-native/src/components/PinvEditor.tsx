@@ -19,7 +19,8 @@ import { PinvStages } from '@/components/PinvStages';
 import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Card, Check, Muted } from '@/components/ui';
 import { fdb } from '@/data/finance';
-import { addPinv, duplicateOf, piLabel, setPinvStatus, tellPmOfPi } from '@/data/finPurchase';
+import { FinEmailPopup } from '@/components/FinEmailPopup';
+import { addPinv, duplicateOf, emailPiQuery, piLabel, setPinvStatus, tellPmOfPi } from '@/data/finPurchase';
 import { nameOf, openDocLink, usePeople } from '@/data/hs';
 import { checkAll, loadReadContext, readOne, saveLinesOnInvoice } from '@/data/invoiceRead';
 import { useSites } from '@/data/sites';
@@ -57,6 +58,8 @@ export function PinvEditor({ inbox, siteId: site0, poId: po0, start, pi, below, 
   const locked = !!pi && (!!pi.xero_id || !!pi.paid_on);
   // A saved invoice opens locked; Edit at the bottom opens it for changes (Andy, 6 Nov 2026).
   const [editing, setEditing] = useState(!pi);
+  // Query With Supplier: the saved invoice and who it goes to, while the email pop-up is open.
+  const [mail, setMail] = useState<{ row: Row; to: string } | null>(null);
   const shut2 = !editing || locked;
   const unread = !!inbox && !(Array.isArray(ex.lines) && ex.lines.length);
   const [supplier, setSupplier] = useState<string>(pi ? pi.supplier_name || '' : inbox ? inbox.supplier_override || ex.supplier || '' : start?.supplier || '');
@@ -178,7 +181,20 @@ export function PinvEditor({ inbox, siteId: site0, poId: po0, start, pi, below, 
   /** The buttons (Andy, 6 Nov 2026). Typed in by hand: Save approves it (and posts it to Xero), as a person has already
    *  checked it. From the inbox or a saved one: Save keeps it in Needs Checking, Approve Invoice approves and posts.
    *  Save & Query To PM saves it, asks the chosen PM and goes back to the list. */
-  const act = async (how: 'save' | 'another' | 'query' | 'approve') => {
+  const act = async (how: 'save' | 'another' | 'query' | 'approve' | 'supplier') => {
+    if (how === 'supplier') {
+      setBusy(true);
+      try {
+        const r = pi && !editing ? { id: pi.id as string } : await persist(); if (!r) return;
+        const row = (await fdb.from('purchase_invoices').select('*').eq('id', r.id).maybeSingle()).data as Row | null; if (!row) return;
+        if (!row.file_path) { toast('Attach the invoice first, so it can go back to the supplier with the email.'); if (!pi) router.replace(`/fin/pinv/${r.id}` as never); return; }
+        // Back to where it came from: the address it was emailed from, else the supplier's email in the Directory.
+        const from = inbox?.from_email || (((await fdb.from('fin_inbox').select('from_email').eq('purchase_invoice_id', r.id).limit(1)).data as Row[] | null)?.[0]?.from_email as string | undefined);
+        const dir = from ? '' : ((((await fdb.from('suppliers').select('name,email').eq('org_id', me.org_id as string)).data as Row[] | null) ?? []).find((x) => String(x.name || '').trim().toLowerCase() === supplier.trim().toLowerCase())?.email as string | undefined) || '';
+        setMail({ row, to: from || dir });
+      } finally { setBusy(false); }
+      return;
+    }
     const manual = !pi && !inbox;
     let approveNow = how === 'approve' || (manual && (how === 'save' || how === 'another'));
     // Not ready to save (no project yet) from the inbox: the PM gets it to allocate instead.
@@ -234,6 +250,7 @@ export function PinvEditor({ inbox, siteId: site0, poId: po0, start, pi, below, 
     ? pi.status === 'rejected' ? { step: 1, next: 'Rejected: it won’t be paid or posted.', rejected: true }
       : pi.paid_on ? { step: 6, next: `Paid ${fdate(pi.paid_on)}.` }
       : pi.status === 'approved' ? { step: 5, next: `${pi.auto_approved ? 'Approved by itself (nothing looked wrong). ' : ''}Next: paid when it’s ticked off on the supplier’s statement, or Mark Paid Today.${pi.xero_id ? ' In Xero.' : ''}` }
+      : pi.status === 'query' && /^Queried with the supplier/.test(String(pi.query_note || '')) ? { step: 2, label2: 'With Supplier', next: `Waiting on ${pi.supplier_name || 'the supplier'}: ${String(pi.query_note).replace(/^Queried with the supplier/, 'emailed')}. Approve it once it’s sorted.` }
       : pi.status === 'query' ? { step: 2, label2: askedPm ? `With ${first(askedPm)}` : 'With A PM', next: `Waiting on ${askedPm ? nameOf(people, askedPm) : 'the PM'}${pi.query_note ? `: “${pi.query_note}”` : ''}. Their reply shows below.` }
       : { step: 3, next: 'Next: check it, then Approve Invoice, or Query To PM if something’s not right.' }
     : inbox ? inbox.stage === 'with_pm' ? { step: 2, label2: `With ${first(inbox.assigned_pm)}`, next: `With ${nameOf(people, inbox.assigned_pm) || 'a PM'} to choose the job.` }
@@ -311,10 +328,17 @@ export function PinvEditor({ inbox, siteId: site0, poId: po0, start, pi, below, 
           {!inbox && !pi && <Button kind="ghost" busy={busy} title="Save & Add Another" onPress={() => void act('another')} />}
           {!!pi && !locked && (editing ? <Button kind="ghost" title="Cancel Edit" onPress={unedit} /> : <Button kind="ghost" title="✏️ Edit" onPress={() => setEditing(true)} />)}
           {!locked && pi?.status !== 'approved' && pi?.status !== 'query' && <Button kind="ghost" busy={busy} title={editing ? 'Save & Query To PM' : 'Query To PM'} onPress={() => void act('query')} />}
+          {!locked && (!!pi || !!inbox) && <Button kind="ghost" busy={busy} title="Query With Supplier" onPress={() => void act('supplier')} />}
           {!locked && editing && <Button kind={!pi && !inbox ? 'primary' : 'ghost'} busy={busy} title={pi?.status === 'approved' ? 'Save Changes' : 'Save'} onPress={() => void act('save')} />}
           {!locked && (pi || inbox) && pi?.status !== 'approved' && <Button busy={busy} title="Approve Invoice" onPress={() => void act('approve')} />}
         </View>
         {below}
+        {!!mail && (
+          <FinEmailPopup kind="pi_query" title={`Query ${mail.row.supplier_name || 'the supplier'}'s invoice ${mail.row.invoice_no || ''}`} to={mail.to} note="Their invoice goes back with it. Write the query in the message."
+            vars={{ number: String(mail.row.invoice_no || ''), project: site(mail.row.site_id)?.name || '', job_no: site(mail.row.site_id)?.job_number || '', supplier: mail.row.supplier_name || '', amount: money(mail.row.total) }}
+            onSend={async (o) => { const e = await emailPiQuery(me, mail.row, o); if (e) return e; toast(`Query emailed to ${o.to.join(', ')}`, { confirm: true }); refresh(); return null; }}
+            onClose={() => { const id = mail.row.id; setMail(null); if (!pi) router.replace(`/fin/pinv/${id}` as never); else setEditing(false); }} />
+        )}
       </ScrollView>
     </DocSplit>
   );

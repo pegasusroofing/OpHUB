@@ -13,7 +13,8 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { FinFilterBar, type FilterPart, type FilterSel } from '@/components/FinFilterBar';
 import { FinRow, FinStat, FinTabs } from '@/components/FinNav';
-import { Cell, FinChoicePop, FinTable, FootPick } from '@/components/FinTable';
+import { Cell, FinChoicePop, FinInfoPop, FinTable, FootPick } from '@/components/FinTable';
+import { SelectBox } from '@/components/SelectBox';
 import { pickJob } from '@/components/FinSales';
 import { SubRight } from '@/components/FinSlot';
 import { chooseAction, confirmAsk, useToast } from '@/components/toast';
@@ -119,7 +120,14 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
   const [sort, setSort] = useState('new');
   const [val, setVal] = useState('');
   const [q, setQ] = useState('');
-  const [monAt, setMonAt] = useState<{ x: number; y: number } | null>(null); // the laptop's "All months" picker on the totals bar
+  const [monAt, setMonAt] = useState<{ x: number; y: number } | null>(null);
+  const [info, setInfo] = useState<{ x: number; y: number; title: string; lines: string[] } | null>(null); // the bubble by a PO's ✓ / ✕
+  const [pmF, setPmF] = useState(''); // With A PM: just one PM's (Andy, 6 Nov 2026)
+  const { data: asked } = useQuery({ queryKey: ['finPiAskedAll', me?.org_id], enabled: !!me && tab === 'invoices', queryFn: async () => {
+    const m = ((await fdb.from('messages').select('related_id,recipient_id,created_at').eq('kind', 'pi_query').order('created_at', { ascending: true }).limit(2000)).data as Row[] | null) ?? [];
+    const by: Record<string, string> = {}; m.forEach((x) => { if (x.related_id) by[x.related_id] = x.recipient_id; }); return by;
+  } });
+  const { data: pmPeople = [] } = useQuery({ queryKey: ['finPmPeople', me?.org_id], enabled: !!me && tab === 'invoices', queryFn: async () => ((await fdb.from('profiles').select('id,name,role').eq('org_id', me?.org_id as string).in('role', ['pm', 'admin']).order('name')).data as Row[] | null) ?? [] }); // the laptop's "All months" picker on the totals bar
   const { data: grn = {} } = useQuery({
     queryKey: ['finPoGrn', me?.org_id], enabled: !!me && tab === 'invoices',
     queryFn: async () => {
@@ -250,6 +258,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
     );
   }
   if (tab === 'invoices') {
+    const askedOf = asked ?? {};
     // Not read yet (uploaded or emailed, and while Finance is on trial nothing is read) count as unallocated too, to file by hand.
     const needJob = data.inbox.filter((i) => i.stage !== 'with_pm'), withPm = data.inbox.filter((i) => i.stage === 'with_pm');
     // The tabs follow the steps on each invoice (Andy, 6 Nov 2026): Received (no job yet), With A PM (to allocate, or
@@ -259,14 +268,23 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
     const cur = (sel.status[0] === 'paid' ? 'unpaid' : sel.status[0]) || ['job', 'approve', 'pm', 'unpaid'].find((k) => cnt[k]) || 'all';
     const chips: [string, string, number][] = [['job', 'Received', cnt.job], ['pm', 'With A PM', cnt.pm], ['approve', 'Needs Checking', cnt.approve], ['unpaid', 'Approved', cnt.unpaid], ['all', 'All', data.pinvs.length]];
     const posBy: Record<string, Row> = {}; data.pos.forEach((p) => { posBy[p.id] = p; });
-    const checks = (i: Row): [string, string][] => {
-      const po = posBy[i.po_id], out: [string, string][] = [];
-      if (!po) out.push(['No PO', base.slate]);
-      else if (i.match_notes) out.push(['Differs from PO', '#D97706']);
-      else out.push(i.lines?.length ? ['Matches PO', '#1E7A3C'] : ['PO linked', '#2F6FB3']);
-      if (po) { const g = grn[po.id]; if (g === 'all') out.push(['Received', '#1E7A3C']); else if (g === 'some') out.push(['Part received', '#D97706']); else if (g === 'none') out.push(['Not received', '#D97706']); else if (g === 'problem') out.push(['Delivery problem', '#C0392B']); }
-      if (Array.isArray(i.split) && i.split.length > 1) out.push([`Split ${i.split.length} ways`, '#2F6FB3']);
-      return out;
+    // The PO with a ✓ (matches, received) or ✕ (differs, not received, a delivery problem); tap for why (Andy, 6 Nov 2026).
+    const poCell = (i: Row) => {
+      const po = posBy[i.po_id];
+      if (!po) return <Cell>No PO</Cell>;
+      const g = grn[po.id], bad = !!i.match_notes || g === 'none' || g === 'some' || g === 'problem';
+      const why = [
+        i.match_notes ? String(i.match_notes) : i.lines?.length ? `Every line matches ${po.number}.` : `Linked to ${po.number}.`,
+        g === 'all' ? 'Everything on it has been received.' : g === 'some' ? 'Only part of it has been marked received.' : g === 'none' ? 'Nothing on it has been marked received yet.' : g === 'problem' ? 'A delivery on it was marked with a problem.' : '',
+        Array.isArray(i.split) && i.split.length > 1 ? `Split across ${i.split.length} projects.` : '',
+      ].filter(Boolean);
+      return (
+        <Pressable accessibilityRole="button" accessibilityLabel={`${po.number} ${bad ? 'doesn’t match' : 'matches'}`} onPress={(e) => { const n = e.nativeEvent as unknown as { pageX: number; pageY: number }; setInfo({ x: n.pageX, y: n.pageY, title: `${po.number}: ${bad ? 'check this' : 'all good'}`, lines: why }); }}
+          style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+          <Text style={{ fontSize: 13, color: base.ink }}>{po.number}</Text>
+          <Text style={{ fontSize: 13, fontWeight: '700', color: bad ? '#C0392B' : '#1E7A3C' }}>{bad ? '✕' : '✓'}</Text>
+        </Pressable>
+      );
     };
     return (
       <View>
@@ -278,9 +296,15 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
             <View style={{ flex: desk ? undefined : 1 }}><Button small={desk} grow={!desk} title="Add Manually" onPress={() => router.push((siteId ? `/fin/pinv/new?site=${siteId}` : '/fin/pinv/new') as never)} /></View>
           </View>
         </View>
+        {cur === 'pm' && (
+          <View style={{ width: 220, marginBottom: 8 }}>
+            <SelectBox compact title="Which PM?" value={pmF} options={[['', 'PM: All'], ...pmPeople.map((p) => [p.id, p.name] as [string, string])]} onChange={setPmF} style={{ marginBottom: 0 }} />
+          </View>
+        )}
+        <FinInfoPop at={info} title={info?.title || ''} lines={info?.lines || []} onClose={() => setInfo(null)} />
         {cur === 'job' || (cur === 'pm' && withPm.length > 0) ? (
           <>
-            {(cur === 'job' ? needJob : withPm).filter((it) => (!sel.sup.length || sel.sup.includes(supKey(it.extracted?.supplier))) && (!sel.job.length || sel.job.includes(it.site_id)) && hit(it.extracted?.supplier, it.from_email, it.extracted?.invoice_no, it.subject)).map((it) => {
+            {(cur === 'job' ? needJob : withPm).filter((it) => (!sel.sup.length || sel.sup.includes(supKey(it.extracted?.supplier))) && (!sel.job.length || sel.job.includes(it.site_id)) && (cur !== 'pm' || !pmF || it.assigned_pm === pmF) && hit(it.extracted?.supplier, it.from_email, it.extracted?.invoice_no, it.subject)).map((it) => {
               const last = (it.comments || []).slice(-1)[0];
               return <InboxRow key={it.id} it={it} pm={cur === 'pm'} why={cur === 'job' ? (!it.extracted ? 'Not read yet — open it to file by hand' : it.stage === 'pm_replied' && last ? `PM replied — ${last.name}: ${last.text}` : plainReason(it.query_reason)) : 'Sent to a PM'} job={it.site_id ? jobTag(site(it.site_id)) : ''} onPm={() => void assignPm(it)} onJob={async () => { const sid = await pickJob('Which project is it for?', sites.filter((x) => x.status !== 'closed')); if (!sid) return; const r = await fdb.from('fin_inbox').update({ site_id: sid } as never).eq('id', it.id).select('id'); if (!r.data?.length) { toast('Could not save — try again.'); return; } void qc.invalidateQueries({ queryKey: ['finPurchases'] }); }} />;
             })}
@@ -290,7 +314,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
         {cur !== 'job' && (cur !== 'pm' || data.pinvs.some(F.pm) || !withPm.length) && (
           <>
             {(() => {
-              const list = sortBy(data.pinvs.filter(F[cur]).filter(fOK).filter((i) => hit(i.supplier_name, i.invoice_no, jobTag(site(i.site_id)), posBy[i.po_id]?.number)), 'invoice_date', 'total');
+              const list = sortBy(data.pinvs.filter(F[cur]).filter(fOK).filter((i) => cur !== 'pm' || !pmF || askedOf[i.id] === pmF).filter((i) => hit(i.supplier_name, i.invoice_no, jobTag(site(i.site_id)), posBy[i.po_id]?.number)), 'invoice_date', 'total');
               const bulk = true, picked = list.filter((i) => picks.has(i.id));
               const tick = (i: Row) => <Pressable hitSlop={8} accessibilityRole="checkbox" accessibilityState={{ checked: picks.has(i.id) }} onPress={() => setSel((x) => { const n = new Set(x); if (n.has(i.id)) n.delete(i.id); else n.add(i.id); return n; })} style={{ width: 16, height: 16, borderRadius: 4, borderWidth: 1.5, borderColor: picks.has(i.id) ? base.blue : '#c3c8d0', backgroundColor: picks.has(i.id) ? base.blue : '#fff', alignItems: 'center', justifyContent: 'center', alignSelf: 'center' }}>{picks.has(i.id) && <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700', lineHeight: 13 }}>✓</Text>}</Pressable>;
               const refresh = () => { setSel(new Set()); ['finPurchases', 'finBook', 'finOverview', 'finPo'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] })); };
@@ -352,8 +376,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
                     { k: 'n', l: 'Net', min: 72, total: (l: Row[]) => money(l.reduce((t, i) => t + Number(i.net || 0), 0)), render: (i: Row) => <Cell>{money(i.net)}</Cell> },
                     { k: 'v', l: 'VAT', min: 64, total: (l: Row[]) => money(l.reduce((t, i) => t + Number(i.vat || 0), 0)), render: (i: Row) => <Cell>{money(i.vat)}</Cell> },
                     { k: 't', l: 'Gross', min: 72, total: (l: Row[]) => money(l.reduce((t, i) => t + Number(i.total || 0), 0)), render: (i: Row) => <Cell bold>{money(i.total)}</Cell> },
-                    { k: 'po', l: 'PO', min: 70, render: (i: Row) => <Cell>{posBy[i.po_id] ? posBy[i.po_id].number : 'No PO'}</Cell> },
-                    { k: 'ch', l: 'Checks', flex: 1.2, min: 92, render: (i: Row) => <View style={{ alignItems: 'center', gap: 2 }}>{checks(i).map(([t, c]) => <Text key={t} style={{ fontSize: 10.5, fontWeight: '500', color: c, textAlign: 'center' }}>{t}</Text>)}</View> },
+                    { k: 'po', l: 'PO', min: 96, sort: (i: Row) => posBy[i.po_id]?.number || '', render: (i: Row) => poCell(i) },
                     { k: 's', l: 'Status', min: 84, noSort: true, choices: ['Needs Checking', 'Query', 'Approved', 'Paid', 'Rejected'], render: (i: Row) => <Cell tone={piTone(i)}>{piWord(i)}</Cell> },
                   ]}
                   footLabel={(list) => `${list.length} shown`} footRight={monthPick} />{bulkBar}</>
@@ -457,7 +480,7 @@ export function PurchasesStats() {
   const to = (tab: string, f: string) => () => router.setParams({ tab, f });
   return (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 10 }}>
-      <FinStat tone="blue" v={String(needJob)} label={`Unallocated Invoices · ${pJ.label}`} onPress={to('invoices', 'job')} onMenu={() => void pick('p_job', 'all')} /><FinStat tone="green" v={money(unpaid, 0)} label={`To Pay Suppliers (Incl. VAT) · ${pU.label}`} onPress={to('invoices', 'unpaid')} onMenu={() => void pick('p_pay', 'all')} />
+      <FinStat tone="blue" v={String(needJob)} label={`Received, No Job Yet · ${pJ.label}`} onPress={to('invoices', 'job')} onMenu={() => void pick('p_job', 'all')} /><FinStat tone="green" v={money(unpaid, 0)} label={`To Pay Suppliers (Incl. VAT) · ${pU.label}`} onPress={to('invoices', 'unpaid')} onMenu={() => void pick('p_pay', 'all')} />
       <FinStat tone="red" v={String(toApprove)} label={`Needs Checking · ${pA.label}`} onPress={to('invoices', 'approve')} onMenu={() => void pick('p_appr', 'all')} /><FinStat tone="amber" v={money(ordered, 0)} label={`Ordered, Not Invoiced · ${pC.label}`} onPress={to('orders', 'open')} onMenu={() => void pick('p_ord', 'all')} />
     </View>
   );

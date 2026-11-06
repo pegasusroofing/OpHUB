@@ -28,7 +28,7 @@ const logSince = (n) => fs.readFileSync(real.LOG, 'utf8').split('\n').filter(Boo
     ['Schedule: In Progress on the task', `/sites/${T}/schedule`, ['In Progress']],
     ['Schedule: section menu', `/sites/${T}/schedule`, ['⋮']],
     ['HAVS: Save and close confirmed', `/sites/${T}/hs/havs`, ['SAVE & CLOSE FOR THE WEEK', 'Save & Close']],
-    ...['Unallocated Invoices', 'To Pay Suppliers', 'To Approve'].map((b) => [`Purchases: change dates, ${b}`, '/fin/purchases', [`Change dates: ${b}`]]),
+    ...['Received, No Job Yet', 'To Pay Suppliers', 'To Approve'].map((b) => [`Purchases: change dates, ${b}`, '/fin/purchases', [`Change dates: ${b}`]]),
     ['Sales: change dates, Overdue', '/fin/sales', ['Change dates: Overdue']],
     ...['Final Account', 'Day Works', 'Prelims'].map((b) => [`Job: ${b} options`, `/fin/job/${J}`, [`${b} options`]]),
     ['Company library: edit', '/pm/admin/companylibrary', ['✏️']],

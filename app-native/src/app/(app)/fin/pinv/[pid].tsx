@@ -41,6 +41,7 @@ function ViewPinv({ id }: { id: string }) {
   const { data: people } = usePeople();
   const [reply, setReply] = useState('');
   const [sending, setSending] = useState(false);
+  const { data: askedPm } = useQuery({ queryKey: ['finPiAsked', id, data?.i?.status], enabled: !!data?.i, queryFn: async () => ((await fdb.from('messages').select('recipient_id').eq('related_id', id).eq('kind', 'pi_query').order('created_at', { ascending: false }).limit(1)).data as Row[] | null)?.[0]?.recipient_id as string | undefined ?? null });
   if (!me) return null;
   if (isLoading) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   const i = data?.i; if (!i) return <Muted style={{ padding: space.l }}>Purchase invoice not found.</Muted>;
@@ -63,7 +64,7 @@ function ViewPinv({ id }: { id: string }) {
           // 9219zr: the conversation with the job's PM about a queried invoice, with a reply box while it's a query.
           const thread = (Array.isArray(i.query_thread) ? i.query_thread : []).filter((x: Row) => x && x.text) as Row[];
           if (i.status !== 'query' && !thread.length) return null;
-          const pm = sites.find((x) => x.id === i.site_id)?.responsible_pm_id;
+          const pm = askedPm || sites.find((x) => x.id === i.site_id)?.responsible_pm_id;
           return (
             <Card>
               <SectionTitle>Conversation With The PM{pm ? ` (${nameOf(people, pm)})` : ''}</SectionTitle>
@@ -78,7 +79,7 @@ function ViewPinv({ id }: { id: string }) {
                   <TextInput value={reply} onChangeText={setReply} placeholder="Reply to the PM…" style={{ flex: 1, borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 10, color: base.ink, backgroundColor: base.card }} />
                   <Button busy={sending} title="Send" onPress={async () => {
                     if (!reply.trim()) { toast('Write a reply first.'); return; }
-                    setSending(true); const r = await addPiThreadReply(me, i.id, reply.trim()); setSending(false);
+                    setSending(true); const r = await addPiThreadReply(me, i.id, reply.trim(), askedPm || undefined); setSending(false);
                     if (!r.ok) { toast('Couldn’t save the reply — try again.'); return; }
                     toast(r.sent ? `Reply sent to ${nameOf(people, r.pm as string)}` : 'Reply saved'); setReply(''); refresh();
                   }} />

@@ -208,3 +208,20 @@ export function FinChoicePop({ at, options, value, onPick, onClose }: { at: { x:
     </Modal>
   );
 }
+
+/** A small bubble near the tap that explains something (Andy, 6 Nov 2026: the ✓ / ✕ by a PO), with an ✕ to close. */
+export function FinInfoPop({ at, title, lines, onClose }: { at: { x: number; y: number } | null; title: string; lines: string[]; onClose: () => void }) {
+  const win = useWindowDimensions();
+  if (!at) return null;
+  const w = 280;
+  return (
+    <Modal transparent visible animationType="none" onRequestClose={onClose}>
+      <Pressable accessibilityLabel="Close" onPress={onClose} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+      <View style={{ position: 'absolute', left: Math.max(8, Math.min(at.x - w / 2, win.width - w - 20)), top: Math.min(at.y + 12, win.height - 200), width: w, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10, padding: 12, paddingRight: 30, shadowColor: '#101828', shadowOpacity: 0.18, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 6 }}>
+        <Pressable onPress={onClose} accessibilityLabel="Close" style={{ position: 'absolute', right: 6, top: 6, zIndex: 2, padding: 4 }}><Text style={{ fontSize: 14, color: base.slate }}>✕</Text></Pressable>
+        <Text style={{ fontWeight: '600', color: base.ink, fontSize: 13.5, marginBottom: 4 }}>{title}</Text>
+        {lines.map((l, k) => <Text key={k} style={{ fontSize: 12.5, color: base.slate, lineHeight: 18 }}>{l}</Text>)}
+      </View>
+    </Modal>
+  );
+}
