@@ -44,6 +44,7 @@
 - 30 send and notify functions hardened. Repo copies are in `supabase/functions/`.
 - The `xero` and `finance-inbox` repo copies match live.
 - When redeploying, keep each function's `verify_jwt` setting as it is live.
+- `finance-report-run` (verify_jwt off): the repo copy of `book.ts` is one line ahead of live (6 Nov 2026: draft POs, `purchase_orders.is_draft`, are not counted as ordered). Redeploy it with the next server deploy; until then the scheduled reports count a draft PO as ordered.
 - `send-hs-email` v2 (3 Nov, verify_jwt on): H&S documents and signature sheets from the new app.
 - `rams-ai-draft` v3 (4 Nov, verify_jwt on): the AI RAMS writer.
   - Company admins only, because each draft is a paid AI call (Andy, 4 Nov).
