@@ -313,24 +313,24 @@ export function PinvEditor({ inbox, siteId: site0, poId: po0, start, pi, below, 
           </Card>
         )}
         {!shut2 && <Muted style={{ marginBottom: 10 }}>{!pi && !inbox ? 'Save approves it and posts it to Xero (not while Finance is on trial): you’ve typed it in, so it doesn’t wait in Needs Checking.' : 'Save keeps it in Needs Checking. Approve Invoice approves it and posts it to Xero (not while Finance is on trial).'}{desk ? ' Save & Query To PM asks a PM to check it.' : ''}</Muted>}
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end', alignItems: 'center' }}>
+        <View style={{ flexDirection: 'row', flexWrap: desk ? 'nowrap' : 'wrap', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
           {!editing && buttons}
           {inbox && (
             <>
-              <Button kind="ghost" title="Not An Invoice" onPress={async () => {
+              <Button small kind="ghost" title="Not An Invoice" onPress={async () => {
                 if (!(await confirmAsk('Ignore this? It isn’t an invoice, so it comes off the list.', 'Ignore'))) return;
                 if (!(await fdb.from('fin_inbox').update({ status: 'ignored', stage: 'ignored' } as never).eq('id', inbox.id).select('id')).data?.length) { toast('Could not save — try again.'); return; }
                 refresh(); router.back();
               }} />
             </>
           )}
-          {!inbox && !pi && <Button kind="ghost" title="Cancel" onPress={() => router.back()} />}
-          {!inbox && !pi && <Button kind="ghost" busy={busy} title="Save & Add Another" onPress={() => void act('another')} />}
-          {!!pi && !locked && (editing ? <Button kind="ghost" title="Cancel Edit" onPress={unedit} /> : <Button kind="ghost" title="✏️ Edit" onPress={() => setEditing(true)} />)}
-          {!locked && pi?.status !== 'approved' && pi?.status !== 'query' && <Button kind="ghost" busy={busy} title={editing ? 'Save & Query To PM' : 'Query To PM'} onPress={() => void act('query')} />}
-          {!locked && (!!pi || !!inbox) && <Button kind="ghost" busy={busy} title="Query With Supplier" onPress={() => void act('supplier')} />}
-          {!locked && editing && <Button kind={!pi && !inbox ? 'primary' : 'ghost'} busy={busy} title={pi?.status === 'approved' ? 'Save Changes' : 'Save'} onPress={() => void act('save')} />}
-          {!locked && (pi || inbox) && pi?.status !== 'approved' && <Button busy={busy} title="Approve Invoice" onPress={() => void act('approve')} />}
+          {!inbox && !pi && <Button small kind="ghost" title="Cancel" onPress={() => router.back()} />}
+          {!inbox && !pi && <Button small kind="ghost" busy={busy} title="Save & Add Another" onPress={() => void act('another')} />}
+          {!!pi && !locked && (editing ? <Button small kind="ghost" title="Cancel Edit" onPress={unedit} /> : <Button small kind="ghost" title="✏️ Edit" onPress={() => setEditing(true)} />)}
+          {!locked && pi?.status !== 'approved' && pi?.status !== 'query' && <Button small kind="ghost" busy={busy} title={editing ? 'Save & Query To PM' : 'Query To PM'} onPress={() => void act('query')} />}
+          {!locked && <Button small kind="ghost" busy={busy} title={editing ? 'Save & Query Supplier' : 'Query With Supplier'} onPress={() => void act('supplier')} />}
+          {!locked && editing && <Button small kind={!pi && !inbox ? 'primary' : 'ghost'} busy={busy} title={pi?.status === 'approved' ? 'Save Changes' : 'Save'} onPress={() => void act('save')} />}
+          {!locked && (pi || inbox) && pi?.status !== 'approved' && <Button small busy={busy} title="Approve Invoice" onPress={() => void act('approve')} />}
         </View>
         {below}
         {!!mail && (

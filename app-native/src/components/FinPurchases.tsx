@@ -52,7 +52,7 @@ function InboxRow({ it, pm, why, job, onJob, onPm }: { it: Row; pm: boolean; why
     <Pressable onPress={() => router.push(`/fin/inbox/${it.id}` as never)} style={({ pressed }) => ({ backgroundColor: pressed ? '#f9fafb' : base.card, borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 11, marginBottom: 8 })}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
         <Text numberOfLines={1} style={{ flex: 1, fontSize: 15, fontWeight: '600', color: '#111827' }}>{ex.invoice_no || it.file_name || 'Purchase invoice'}</Text>
-        <Text style={{ fontSize: 11.5, fontWeight: '600', color: pm ? '#1d4ed8' : '#b45309', backgroundColor: pm ? '#f3f7ff' : '#fffaf0', borderRadius: 12, paddingHorizontal: 9, paddingVertical: 3, overflow: 'hidden' }}>{pm ? 'With A PM' : 'Unallocated'}</Text>
+        <Text style={{ fontSize: 11.5, fontWeight: '600', color: pm ? '#1d4ed8' : '#b45309', backgroundColor: pm ? '#f3f7ff' : '#fffaf0', borderRadius: 12, paddingHorizontal: 9, paddingVertical: 3, overflow: 'hidden' }}>{pm ? 'With A PM' : 'Received'}</Text>
         <Text style={{ fontSize: 12, color: '#6b7280' }}>{ago}</Text>
         <Text style={{ fontSize: 14, color: '#9ca3af' }}>›</Text>
       </View>
@@ -87,7 +87,7 @@ export function usePurchases(orgId: string | null | undefined, siteId?: string) 
       const f = (q: Parameters<Parameters<typeof selectAll>[2]>[0]) => (siteId ? q.eq('site_id', siteId) : q.eq('org_id', orgId as string));
       const [pinvs, pos, inbox, hires, suppliers, stmts] = await Promise.all([
         selectAll<Row>('purchase_invoices', '*', f), selectAll<Row>('purchase_orders', '*', f),
-        selectAll<Row>('fin_inbox', 'id,site_id,received_at,from_email,subject,extracted,stage,query_reason,comments,status,purchase_invoice_id,file_name', (q) => f(q).or('status.eq.new,and(status.eq.filed,purchase_invoice_id.is.null)')),
+        selectAll<Row>('fin_inbox', 'id,site_id,received_at,from_email,subject,extracted,stage,query_reason,comments,status,purchase_invoice_id,file_name,assigned_pm,supplier_override', (q) => f(q).or('status.eq.new,and(status.eq.filed,purchase_invoice_id.is.null)')),
         selectAll<Row>('fin_plant_hires', '*', f), selectAll<Row>('suppliers', 'id,name,email', (q) => q.eq('org_id', orgId as string)),
         selectAll<Row>('fin_statements', 'id,status,statement_date,reconciled_at,lines', (q) => q.eq('org_id', orgId as string)),
       ]);
@@ -304,10 +304,38 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
         <FinInfoPop at={info} title={info?.title || ''} lines={info?.lines || []} onClose={() => setInfo(null)} />
         {cur === 'job' || (cur === 'pm' && withPm.length > 0) ? (
           <>
-            {(cur === 'job' ? needJob : withPm).filter((it) => (!sel.sup.length || sel.sup.includes(supKey(it.extracted?.supplier))) && (!sel.job.length || sel.job.includes(it.site_id)) && (cur !== 'pm' || !pmF || it.assigned_pm === pmF) && hit(it.extracted?.supplier, it.from_email, it.extracted?.invoice_no, it.subject)).map((it) => {
+            {(() => {
+              const items = (cur === 'job' ? needJob : withPm).filter((it) => (!sel.sup.length || sel.sup.includes(supKey(it.extracted?.supplier))) && (!sel.job.length || sel.job.includes(it.site_id)) && (cur !== 'pm' || !pmF || it.assigned_pm === pmF) && hit(it.extracted?.supplier, it.from_email, it.extracted?.invoice_no, it.subject));
+              const unread = (it: Row) => !it.extracted || !(Array.isArray(it.extracted.lines) && it.extracted.lines.length) && it.extracted.total == null;
+              // Why it's waiting, in a few words.
+              const whyOf = (it: Row) => {
+                if (cur === 'pm') return `With ${pmPeople.find((p) => p.id === it.assigned_pm)?.name || 'a PM'} to choose the job`;
+                const last = (it.comments || []).slice(-1)[0];
+                if (unread(it)) return 'Couldn’t read it';
+                if (it.stage === 'pm_replied' && last) return `PM replied: ${last.text}`;
+                const r = String(it.query_reason || '');
+                return /po/i.test(r) && /not found|isn.t|unknown/i.test(r) ? r : !it.site_id ? 'Which job? Not on the invoice' : plainReason(r) || 'Check it and save';
+              };
+              const chooseJob = async (it: Row) => { const sid = await pickJob('Which project is it for?', sites.filter((x) => x.status !== 'closed')); if (!sid) return; const r = await fdb.from('fin_inbox').update({ site_id: sid } as never).eq('id', it.id).select('id'); if (!r.data?.length) { toast('Could not save — try again.'); return; } void qc.invalidateQueries({ queryKey: ['finPurchases'] }); router.push(`/fin/inbox/${it.id}` as never); };
+              const notInvoice = async (it: Row) => { if (!(await confirmAsk('Not an invoice? It comes off this list (a statement, a remittance or an advert, say). Nothing is deleted.', 'Not An Invoice'))) return; if (!(await fdb.from('fin_inbox').update({ status: 'ignored', stage: 'ignored' } as never).eq('id', it.id).select('id')).data?.length) { toast('Could not save — try again.'); return; } void qc.invalidateQueries({ queryKey: ['finPurchases'] }); };
+              const sm = (title: string, onPress: () => void, primary?: boolean) => <Button key={title} small kind={primary ? 'primary' : 'ghost'} title={title} onPress={onPress} />;
+              if (desk && items.length) return (
+                <FinTable rows={items} keyOf={(it) => it.id} onRow={(it) => router.push(`/fin/inbox/${it.id}` as never)}
+                  cols={[
+                    { k: 'sup', l: 'Supplier', flex: 1.5, min: 150, sort: (it: Row) => String(it.supplier_override || it.extracted?.supplier || it.from_email || ''), render: (it: Row) => { const n = Array.isArray(it.extracted?.lines) ? it.extracted.lines.length : 0; return <View><Text numberOfLines={1} style={{ fontSize: 13, fontWeight: '600', color: base.ink }}>{it.supplier_override || it.extracted?.supplier || it.from_email || it.file_name || 'Unknown'}</Text><Text style={{ fontSize: 11.5, color: base.slate }}>{[n ? `${n} line${n === 1 ? '' : 's'}` : '', ageOf(it.received_at)].filter(Boolean).join(' · ')}</Text></View>; } },
+                    { k: 'no', l: 'Invoice No.', render: (it: Row) => <Cell>{it.extracted?.invoice_no || '—'}</Cell> },
+                    { k: 'd', l: 'Date', sort: (it: Row) => String(it.extracted?.date || it.received_at || ''), render: (it: Row) => <Cell>{it.extracted?.date ? fdate(it.extracted.date) : '—'}</Cell> },
+                    { k: 'g', l: 'Gross', sort: (it: Row) => Number(it.extracted?.total || 0), total: (l: Row[]) => money(l.reduce((t, it) => t + Number(it.extracted?.total || 0), 0)), render: (it: Row) => <Cell>{it.extracted?.total != null ? money(it.extracted.total) : '—'}</Cell> },
+                    { k: 'w', l: 'Why It’s Waiting', flex: 1.6, min: 170, noSort: true, render: (it: Row) => <Text numberOfLines={1} style={{ fontSize: 12, color: '#B35A00', backgroundColor: '#FFF6E5', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2, overflow: 'hidden', alignSelf: 'center', maxWidth: '100%' }}>{whyOf(it)}</Text> },
+                    { k: 'n', l: 'Next', flex: 1.7, min: 200, noSort: true, render: (it: Row) => <View style={{ flexDirection: 'row', gap: 6, justifyContent: 'center' }}>{cur === 'pm' ? [sm('Open', () => router.push(`/fin/inbox/${it.id}` as never), true), sm('Change PM', () => void assignPm(it))] : unread(it) ? [sm('Fill It In', () => router.push(`/fin/inbox/${it.id}` as never), true), sm('Not An Invoice', () => void notInvoice(it))] : [sm(it.site_id ? 'Check & Save' : 'Choose Job', () => (it.site_id ? router.push(`/fin/inbox/${it.id}` as never) : void chooseJob(it)), true), sm('Send To PM', () => void assignPm(it))]}</View> },
+                  ]}
+                  footLabel={(l) => `${l.length} waiting`} />
+              );
+              return items.map((it) => {
               const last = (it.comments || []).slice(-1)[0];
               return <InboxRow key={it.id} it={it} pm={cur === 'pm'} why={cur === 'job' ? (!it.extracted ? 'Not read yet — open it to file by hand' : it.stage === 'pm_replied' && last ? `PM replied — ${last.name}: ${last.text}` : plainReason(it.query_reason)) : 'Sent to a PM'} job={it.site_id ? jobTag(site(it.site_id)) : ''} onPm={() => void assignPm(it)} onJob={async () => { const sid = await pickJob('Which project is it for?', sites.filter((x) => x.status !== 'closed')); if (!sid) return; const r = await fdb.from('fin_inbox').update({ site_id: sid } as never).eq('id', it.id).select('id'); if (!r.data?.length) { toast('Could not save — try again.'); return; } void qc.invalidateQueries({ queryKey: ['finPurchases'] }); }} />;
-            })}
+              });
+            })()}
             {!(cur === 'job' ? needJob : withPm).length && <Empty>{cur === 'job' ? 'Nothing waiting to be allocated.' : 'Nothing with a PM.'}</Empty>}
           </>
         ) : null}

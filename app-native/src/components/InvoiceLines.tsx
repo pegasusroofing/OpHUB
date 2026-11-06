@@ -208,7 +208,7 @@ export function InvoiceLines({ lines: lines0, checks, sites, read, onChange, rea
             <Text style={{ fontSize: 12.5, fontWeight: '600', color: '#111827' }}>+ Add A Line</Text>
           </Pressable>
         )}
-        <View style={{ paddingTop: 10, gap: 7, paddingLeft: 9, paddingRight: readOnly ? 10 : 36, alignSelf: wide ? 'flex-end' : 'stretch', minWidth: wide ? 300 : undefined }}>
+        <View style={{ paddingTop: 10, gap: 7, paddingLeft: 9, paddingRight: readOnly ? 10 : 36, alignSelf: 'flex-end', width: phone ? '100%' : 300 }}>
           {(read && (read.net != null || read.vat != null || read.total != null)
             ? [['Lines add up to', money(sum), off ? base.red : '#111827', '600'], ['Net on the invoice', read.net == null ? 'Not read' : money(Number(read.net)), '#111827', '400'], ['VAT on the lines', money(vatSum), vatOff ? base.red : '#111827', '400'], ['VAT on the invoice', read.vat == null ? 'Not read' : money(Number(read.vat)), '#111827', '400'], ['Total', read.total == null ? money(round2(sum + vatSum)) : money(Number(read.total)), '#111827', '600']]
             : [['Net', money(sum), '#111827', '400'], ['VAT', money(vatSum), '#111827', '400'], ['Total', money(round2(sum + vatSum)), '#111827', '700']]

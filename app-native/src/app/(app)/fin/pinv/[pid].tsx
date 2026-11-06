@@ -98,8 +98,8 @@ function ViewPinv({ id }: { id: string }) {
   );
   const buttons = (
     <>
-      {i.status === 'approved' && <Button kind="ghost" title={i.paid_on ? 'Remove Paid Date' : 'Mark Paid Today'} onPress={async () => { if (await setPinvPaid(id, i.paid_on ? null : today())) { toast(i.paid_on ? 'Paid date removed' : 'Marked paid', { confirm: true }); refresh(); } }} />}
-      {i.status !== 'rejected' && !i.paid_on && <Button kind="ghost" title="Reject" onPress={async () => { if (await confirmAsk('Reject this purchase invoice?', 'Reject')) void status('rejected', 'Reject this purchase invoice'); }} />}
+      {i.status === 'approved' && <Button small kind="ghost" title={i.paid_on ? 'Remove Paid Date' : 'Mark Paid Today'} onPress={async () => { if (await setPinvPaid(id, i.paid_on ? null : today())) { toast(i.paid_on ? 'Paid date removed' : 'Marked paid', { confirm: true }); refresh(); } }} />}
+      {i.status !== 'rejected' && !i.paid_on && <Button small kind="ghost" title="Reject" onPress={async () => { if (await confirmAsk('Reject this purchase invoice?', 'Reject')) void status('rejected', 'Reject this purchase invoice'); }} />}
     </>
   );
   return <PinvEditor key={i.id} pi={i} below={under} buttons={buttons} />;
