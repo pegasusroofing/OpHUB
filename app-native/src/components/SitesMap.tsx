@@ -100,7 +100,7 @@ export function SitesMapCard({ sites, fill }: { sites: Site[]; fill?: boolean })
   const [count, setCount] = useState('');
   if (!desk) return null;
   return (
-    <View style={{ backgroundColor: '#fff', borderWidth: 1, borderColor: '#ECEEF2', borderRadius: 18, padding: 12, marginBottom: 12, ...(fill ? { flex: 1, marginBottom: 5, marginTop: 5 } : {}) }}>
+    <View style={{ backgroundColor: '#fff', borderWidth: 1, borderColor: '#ECEEF2', borderRadius: 18, padding: 12, marginBottom: 12, ...(fill ? { flex: 1, marginBottom: 0, marginTop: 0, borderRadius: 12 } : {}) }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 4, paddingTop: 2, paddingBottom: 10 }}>
         <Text style={[heading(700), { fontSize: 14, color: base.ink }]}>Sites map</Text>
         <Text style={{ fontSize: 11, color: base.slateLight, fontStyle: 'italic' }}>{count}</Text>

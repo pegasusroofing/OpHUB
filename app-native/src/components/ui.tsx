@@ -232,8 +232,43 @@ export const TINTS = {
 } as const;
 
 // Home tile: coloured icon square (a line icon via ic, else the emoji) + title + subtitle.
-export function Tile({ icon, ic, tint, fg, title, sub, onPress, badge, onMenu, dim }: { icon?: string; ic?: string; tint: string; fg?: string; title: string; sub: string; onPress: () => void; badge?: number | string; onMenu?: () => void; dim?: boolean }) {
+/** plain (Andy, 6 Nov 2026: home option 1, a bit bigger): a white tile, the line icon in a grey-edged square, the name and a
+ *  line under it, a red count on the right. No coloured squares. */
+export function Tile({ icon, ic, tint, fg, title, sub, onPress, badge, onMenu, dim, plain }: { icon?: string; ic?: string; tint: string; fg?: string; title: string; sub: string; onPress: () => void; badge?: number | string; onMenu?: () => void; dim?: boolean; plain?: boolean }) {
   const cols = useContext(GridCtx);
+  // Two across (a phone): the icon above the words, so the names fit; four across: the icon beside them.
+  if (plain && cols > 0 && cols <= 2) return (
+    <View style={{ width: `${100 / cols}%`, padding: 5 }}>
+      <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={title}
+        style={(st) => [{ backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 12, padding: 14, minHeight: 112, justifyContent: 'space-between', gap: 10 }, st.pressed && { opacity: 0.75 }]}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <View style={{ width: 42, height: 42, borderRadius: 11, borderWidth: 1, borderColor: base.cardLine, alignItems: 'center', justifyContent: 'center' }}>
+            {ic ? <OphIcon name={ic} size={21} color={base.ink} /> : <Text style={{ fontSize: 19 }}>{icon}</Text>}
+          </View>
+          {!!badge && <View style={{ minWidth: 22, height: 22, borderRadius: 11, paddingHorizontal: 6, backgroundColor: base.red, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>{badge}</Text></View>}
+        </View>
+        <View>
+          <Text style={{ fontSize: 15, fontWeight: '600', color: '#111827' }} numberOfLines={1}>{title}</Text>
+          {!!sub && <Text style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }} numberOfLines={1}>{sub}</Text>}
+        </View>
+      </Pressable>
+    </View>
+  );
+  if (plain && cols > 0) return (
+    <View style={{ width: `${100 / cols}%`, padding: 5 }}>
+      <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={title}
+        style={(st) => [{ backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 12, paddingVertical: 18, paddingHorizontal: 16, minHeight: 96, flexDirection: 'row', alignItems: 'center', gap: 14 }, (st as { hovered?: boolean }).hovered && { borderColor: '#C9CED6' }, st.pressed && { opacity: 0.75 }]}>
+        <View style={{ width: 46, height: 46, borderRadius: 12, borderWidth: 1, borderColor: base.cardLine, alignItems: 'center', justifyContent: 'center' }}>
+          {ic ? <OphIcon name={ic} size={22} color={base.ink} /> : <Text style={{ fontSize: 20 }}>{icon}</Text>}
+        </View>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={{ fontSize: 15.5, fontWeight: '600', color: '#111827' }} numberOfLines={1}>{title}</Text>
+          {!!sub && <Text style={{ fontSize: 12.5, color: '#6b7280', marginTop: 2 }} numberOfLines={1}>{sub}</Text>}
+        </View>
+        {!!badge && <View style={{ minWidth: 22, height: 22, borderRadius: 11, paddingHorizontal: 6, backgroundColor: base.red, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>{badge}</Text></View>}
+      </Pressable>
+    </View>
+  );
   if (cols === -1) return (
     <Pressable onPress={onPress} accessibilityRole="button"
       style={({ pressed }) => [s.jbox, dim && { backgroundColor: '#F3F3F1' }, pressed && { opacity: 0.7 }]}>

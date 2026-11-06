@@ -1,0 +1,26 @@
+// Home and left menu, option 1 (Andy, 6 Nov 2026): charcoal menu, plain counts, map beside a Today panel, bigger plain
+// tiles. Screenshots: laptop home, phone home, and a Finance page with the menu. Fake database only.
+// node homeopt1-shots.js
+const {chromium, makeContext} = require('./harness');
+const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (!ok) process.exitCode = 1; };
+(async () => {
+  const browser = await chromium.launch(); const errs = [];
+  for (const [W, H, u, n] of [[1300, 900, '/home', 'home-1300'], [390, 844, '/home', 'home-390'], [1300, 900, '/fin', 'fin-1300']]) {
+    const {ctx, db} = await makeContext(browser, 'admin', [], {viewport: {width: W, height: H}});
+    require('./seeds/world')(db); const me = db.profiles.find((p) => p.id === 'me'); me.role = 'admin'; me.howto_dismissed = ['*']; me.finance_enabled = true;
+    const page = await ctx.newPage(); page.on('pageerror', (e) => errs.push(e.message));
+    await page.goto('http://localhost:8081/login'); await page.waitForTimeout(4000);
+    await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
+    await page.getByText('Sign In', {exact: true}).click(); await page.waitForTimeout(5000);
+    await page.goto('http://localhost:8081' + u); await page.waitForTimeout(6000);
+    if (u === '/home') {
+      check(await page.getByText('Today', {exact: true}).count() >= 1, `${n}: the Today panel`);
+      check(await page.getByText('Live projects', {exact: true}).count() === 0 || W < 500, `${n}: no red Live projects banner`);
+      check(await page.getByRole('button', {name: 'Projects'}).count() >= 1, `${n}: a Projects tile`);
+    }
+    await page.screenshot({path: `shots/job/opt1-${n}.png`});
+    await ctx.close();
+  }
+  check(!errs.length, 'no errors ' + errs.slice(0, 2).join(' | '));
+  await browser.close();
+})();

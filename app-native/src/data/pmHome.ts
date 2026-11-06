@@ -70,3 +70,16 @@ export function usePmReports() {
     }),
   });
 }
+
+export type TodayEvent = { id: string; site_id: string; title: string; event_date: string };
+/** Today's calendar entries across the projects I can see (deliveries put themselves on the calendar too). Home's Today panel. */
+export function useTodayEvents() {
+  const { me } = useAuth();
+  const d = new Date(), iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return useQuery({
+    queryKey: ['todayEvents', me?.id, iso],
+    enabled: !!me,
+    staleTime: 60000,
+    queryFn: async () => (orThrow(await db.from('site_calendar_events').select('id,site_id,title,event_date').eq('event_date', iso).order('created_at').limit(12)) as TodayEvent[]) ?? [],
+  });
+}

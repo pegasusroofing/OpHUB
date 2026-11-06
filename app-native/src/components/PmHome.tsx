@@ -1,7 +1,6 @@
-// PM / admin home (185 renderPmHome): the date and greeting, four numbers (live
-// jobs, on site now, to do, notifications), the Live projects card, then the
-// tiles as a grid (2 across on a phone, 4 on a computer) with line icons in
-// tinted squares, "Pick up where you left off", and name / role / Sign out.
+// PM / admin home (185 renderPmHome), option 1 (Andy, 6 Nov 2026): the date and greeting, four plain numbers (live
+// projects, on site now, to do, notifications), the sites map with a Today panel beside it, then plain tiles
+// (2 across on a phone, 4 on a laptop), "Pick up where you left off", and name / role / Sign out.
 import { router } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 
@@ -10,21 +9,20 @@ import { HowTo } from '@/components/HowTo';
 import { OphIcon } from '@/components/OphIcon';
 import { SearchButton } from '@/components/SearchButton';
 import { SitesMapCard } from '@/components/SitesMap';
-import { Muted, Screen, SectionTitle, Stat, Tile, TileGrid, TINTS } from '@/components/ui';
+import { Card, Muted, Screen, SectionTitle, Stat, Tile, TileGrid, TINTS } from '@/components/ui';
 import { useHub } from '@/data/hub';
 import { useDeliveryRequests } from '@/data/deliveries';
-import { useOnSiteNow, usePmReports, usePmTodos } from '@/data/pmHome';
+import { useOnSiteNow, usePmReports, usePmTodos, useTodayEvents } from '@/data/pmHome';
 import { useSites } from '@/data/sites';
 import { useToBook } from '@/data/toBook';
 import { useAuth } from '@/lib/auth';
 import { heading } from '@/lib/fonts';
 import { greeting, siteStatusKey } from '@/lib/rules/checkin';
 import { isFinanceUser, roleLabel } from '@/lib/roles';
-import { base, space, useDesk, useTheme } from '@/theme/theme';
+import { base, space, useDesk } from '@/theme/theme';
 
 export function PmHome() {
   const { me, org, signOut } = useAuth();
-  const t = useTheme();
   const desk = useDesk();
   const { data: sites } = useSites();
   const { data: onSite = [] } = useOnSiteNow(sites);
@@ -45,6 +43,31 @@ export function PmHome() {
   const first = (me?.name || '').trim().split(/\s+/)[0] || '';
   const where = (r: (typeof reports)[number]) => (r.site_id ? (sites ?? []).find((s) => s.id === r.site_id)?.name || 'Project' : r.general_label || 'General survey');
   const go = (p: string) => () => router.push(p as never);
+  const { data: today = [] } = useTodayEvents();
+  const siteName = (id: string) => (sites ?? []).find((x) => x.id === id)?.name || 'Project';
+  const onSiteJobs = new Set(onSite.map((o) => o.site_id)).size;
+  // Today (Andy, 6 Nov 2026: option 1): key dates and deliveries from the project calendars, who's on site, reports in progress.
+  const todayRows: { ic: string; t: string; sub: string; go: string }[] = [
+    ...today.slice(0, 4).map((e) => ({ ic: /deliver|collect|\bPO\b/i.test(e.title) ? 'truck' : 'calendar', t: e.title, sub: siteName(e.site_id), go: `/sites/${e.site_id}/calendar` })),
+    { ic: 'users', t: onSite.length ? `${onSite.length} on site` : 'Nobody on site yet', sub: onSite.length ? `across ${onSiteJobs} project${onSiteJobs === 1 ? '' : 's'}` : 'Signed in today', go: '/onsite' },
+    ...(dlvN ? [{ ic: 'truck', t: `${dlvN} deliver${dlvN === 1 ? 'y' : 'ies'} to schedule`, sub: 'Delivery schedule', go: '/pm/deliveries' }] : []),
+    ...(open.length ? [{ ic: 'reports', t: `${open.length} report${open.length === 1 ? '' : 's'} in progress`, sub: open[0] ? `${open[0].template_name || 'Report'} · ${where(open[0])}` : '', go: '/pm/reports' }] : []),
+  ];
+  const todayCard = (
+    <Card style={{ paddingHorizontal: 0, paddingVertical: 10, marginBottom: desk ? 0 : space.m, ...(desk ? { flex: 1, minWidth: 0 } : {}) }}>
+      <Text style={{ fontWeight: '600', color: base.ink, fontSize: 14, paddingHorizontal: 14, paddingBottom: 6 }}>Today</Text>
+      {todayRows.map((r, k) => (
+        <Pressable key={k} onPress={go(r.go)} style={(st) => [{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, paddingHorizontal: 14, borderTopWidth: 1, borderTopColor: '#f0f1f3' }, (st as { hovered?: boolean }).hovered && { backgroundColor: '#F7F8FA' }]}>
+          <OphIcon name={r.ic} size={18} color={base.ink} />
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text numberOfLines={1} style={{ fontWeight: '600', color: base.ink, fontSize: 13.5 }}>{r.t}</Text>
+            {!!r.sub && <Text numberOfLines={1} style={{ fontSize: 12, color: base.slate }}>{r.sub}</Text>}
+          </View>
+        </Pressable>
+      ))}
+      {!today.length && <Text style={{ fontSize: 12, color: base.slateLight, paddingHorizontal: 14, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#f0f1f3' }}>No key dates or deliveries on the calendars today.</Text>}
+    </Card>
+  );
 
   return (
     <Screen>
@@ -64,31 +87,34 @@ export function PmHome() {
         </Pressable>
       )}
       <View style={{ flexDirection: 'row', gap: 10, marginBottom: space.m }}>
-        <Stat n={live.length} label="Live jobs" onPress={go('/sites')} />
+        <Stat n={live.length} label={desk && upcoming.length ? `Live projects · ${upcoming.length} upcoming` : 'Live projects'} onPress={go('/sites')} />
         <Stat n={onSite.length} label="On site now" onPress={go('/onsite')} />
         <Stat n={todos.length} label="To do" onPress={go('/pm/todos')} />
         <Stat n={hubN} label="Notifications" hot={hubN > 0} onPress={go('/pm/hub')} />
       </View>
-      <Pressable onPress={go('/sites')} accessibilityRole="button"
-        style={({ pressed }) => [{ backgroundColor: t.brand1, borderRadius: 22, paddingVertical: 18, paddingHorizontal: 20, marginBottom: space.m }, pressed && { opacity: 0.9 }]}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-          <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' }}><OphIcon name="projects" size={22} color={t.brand1Text} /></View>
-          <OphIcon name="chevron" size={22} color={t.brand1Text} stroke={2.4} />
+      {/* Option 1 (Andy, 6 Nov 2026): the map with a Today panel beside it on a laptop; on a phone, Today then the map. */}
+      {desk ? (
+        <View style={{ flexDirection: 'row', gap: 12, alignItems: 'stretch', marginBottom: space.m }}>
+          {!!sites?.length && <View style={{ flex: 2, minWidth: 0 }}><SitesMapCard sites={sites} fill /></View>}
+          {todayCard}
         </View>
-        <Text style={[heading(800), { color: t.brand1Text, fontSize: 20, letterSpacing: -0.2 }]}>Live projects</Text>
-        <Text style={{ color: t.brand1Text, opacity: 0.92, marginTop: 4, fontSize: 13, fontWeight: '500' }}>{live.length} live{upcoming.length ? ` · ${upcoming.length} upcoming` : ''}</Text>
-      </Pressable>
-      {!!sites?.length && <SitesMapCard sites={sites} />}
+      ) : (
+        <>
+          {todayCard}
+          {!!sites?.length && <SitesMapCard sites={sites} />}
+        </>
+      )}
       {/* Yard & Plant is under Deliveries now, not a tile (Andy, 5 Nov 2026). */}
       <TileGrid cols={desk ? 4 : 2}>
-        {isFinanceUser(me, org) && <Tile ic="pound" tint={TINTS.green[0]} fg={TINTS.green[1]} title="OpHUB Finance" sub="Money in & out" onPress={go('/fin')} />}
-        <Tile ic="reports" tint={TINTS.orange[0]} fg={TINTS.orange[1]} title="Quotes" sub="Tender tracker" onPress={go('/pm/quotes')} />
-        <Tile ic="chart" tint={TINTS.teal[0]} fg={TINTS.teal[1]} title="Dashboard" sub="Company & operatives" onPress={go('/pm/dashboard')} />
-        <Tile ic="calendar" tint={TINTS.green[0]} fg={TINTS.green[1]} title="Calendar" sub="All projects" onPress={go('/pm/calendar')} />
-        <Tile ic="truck" tint={TINTS.purple[0]} fg={TINTS.purple[1]} title="Deliveries" sub={dlvN ? `${dlvN} to schedule` : 'Delivery schedule'} badge={dlvN || undefined} onPress={go('/pm/deliveries')} />
-        <Tile ic="reports" tint={TINTS.blue[0]} fg={TINTS.blue[1]} title="Reports & Surveys" sub={open.length ? `${open.length} in progress` : 'All projects'} onPress={go('/pm/reports')} />
-        <Tile ic="users" tint={TINTS.purple[0]} fg={TINTS.purple[1]} title="HR" sub="Holidays, policies & handbook" onPress={go('/pm/hr')} />
-        <Tile ic="gear" tint={TINTS.grey[0]} fg={TINTS.grey[1]} title="Admin" sub="Team, libraries, settings" onPress={go('/pm/admin')} />
+        <Tile plain ic="projects" tint="" title="Projects" sub={`${live.length} live${upcoming.length ? ` · ${upcoming.length} upcoming` : ''}`} onPress={go('/sites')} />
+        {isFinanceUser(me, org) && <Tile plain ic="pound" tint="" title="OpHUB Finance" sub="Money in & out" onPress={go('/fin')} />}
+        <Tile plain ic="reports" tint="" title="Quotes" sub="Tender tracker" onPress={go('/pm/quotes')} />
+        <Tile plain ic="chart" tint="" title="Dashboard" sub="Company & operatives" onPress={go('/pm/dashboard')} />
+        <Tile plain ic="calendar" tint="" title="Calendar" sub="All projects" onPress={go('/pm/calendar')} />
+        <Tile plain ic="truck" tint="" title="Deliveries" sub={dlvN ? `${dlvN} to schedule` : 'Delivery schedule'} badge={dlvN || undefined} onPress={go('/pm/deliveries')} />
+        <Tile plain ic="reports" tint="" title="Reports & Surveys" sub={open.length ? `${open.length} in progress` : 'All projects'} onPress={go('/pm/reports')} />
+        <Tile plain ic="users" tint="" title="HR" sub="Holidays, policies & handbook" onPress={go('/pm/hr')} />
+        {!desk && <Tile plain ic="gear" tint="" title="Admin" sub="Team, libraries, settings" onPress={go('/pm/admin')} />}
       </TileGrid>
       {mine.length > 0 && (
         <>

@@ -17,6 +17,8 @@ import { base, useTheme } from '@/theme/theme';
 
 type Item = { k: string; ic: string; lbl: string; go: string; badge?: number; kids?: Item[] };
 
+/** The menu's colours: charcoal, light grey text, the page you're on in white with a red edge (Andy, 6 Nov 2026). */
+const NAV = { bg: '#16181D', text: '#C9CDD3', dim: '#8A9099', on: '#2A2D35', hover: '#20232A', line: '#2A2D35', search: '#23262D', avatar: '#3A3E47' };
 export function DeskNav() {
   const { me, org, signOut } = useAuth();
   const t = useTheme();
@@ -66,12 +68,13 @@ export function DeskNav() {
   const siteId = (path.match(/^\/sites\/([0-9a-f-]{36})/) || [])[1];
   const site = siteId ? sites?.find((s) => s.id === siteId) : undefined;
   const isOn = (k: string) => (k === 'home' ? seg === 'home' || seg === '' : k === 'sites' ? seg === 'sites' || seg.startsWith('sites/') : seg === k || seg.startsWith(`${k}/`));
+  // Charcoal menu (Andy, 6 Nov 2026: option 1): light text, the page you're on in white with a red edge.
   const row = (i: Item, on: boolean, small = false) => (
     <Pressable key={i.k + i.go} onPress={() => router.navigate(i.go as never)} accessibilityRole="link"
       style={(st) => [{ flexDirection: 'row', alignItems: 'center', gap: 11, paddingVertical: small ? 7 : 9, paddingHorizontal: small ? 10 : 12, borderRadius: 10, flex: 1 },
-        on ? { backgroundColor: `${t.brand1}1A` } : (st as { hovered?: boolean }).hovered ? { backgroundColor: '#F1F3F6' } : null]}>
-      <OphIcon name={i.ic} size={small ? 15 : 18} color={on ? t.brand1 : '#7A7E87'} />
-      <Text numberOfLines={1} style={{ flex: 1, fontSize: small ? 13 : 13.5, fontWeight: on ? '800' : '600', color: on ? t.brand1 : '#3A3D44' }}>{i.lbl}</Text>
+        on ? { backgroundColor: NAV.on, borderLeftWidth: 3, borderLeftColor: t.brand1, paddingLeft: (small ? 10 : 12) - 3 } : (st as { hovered?: boolean }).hovered ? { backgroundColor: NAV.hover } : null]}>
+      <OphIcon name={i.ic} size={small ? 15 : 18} color={on ? '#fff' : NAV.dim} />
+      <Text numberOfLines={1} style={{ flex: 1, fontSize: small ? 13 : 13.5, fontWeight: on ? '600' : '500', color: on ? '#fff' : NAV.text }}>{i.lbl}</Text>
       {!!i.badge && <View style={{ minWidth: 18, height: 18, paddingHorizontal: 5, borderRadius: 9, backgroundColor: t.brand1, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff', fontSize: 10.5, fontWeight: '600' }}>{i.badge}</Text></View>}
     </Pressable>
   );
@@ -85,10 +88,10 @@ export function DeskNav() {
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
           {row(i, isOn(i.k) && !kidOn)}
           <Pressable onPress={() => setOpen({ ...open, [i.k]: !shown })} accessibilityLabel={`Show ${i.lbl} pages`} style={{ width: 30, height: 30, borderRadius: 8, alignItems: 'center', justifyContent: 'center', transform: [{ rotate: shown ? '90deg' : '0deg' }] }}>
-            <OphIcon name="chevron" size={16} color="#7A7E87" />
+            <OphIcon name="chevron" size={16} color={NAV.dim} />
           </Pressable>
         </View>
-        {shown && <View style={{ marginLeft: 18, marginTop: 2, marginBottom: 4, paddingLeft: 8, borderLeftWidth: 1.5, borderLeftColor: '#ECEEF2' }}>{kids.map((c) => <View key={c.k + c.go} style={{ flexDirection: 'row' }}>{row(c, isOn(c.k))}</View>)}</View>}
+        {shown && <View style={{ marginLeft: 18, marginTop: 2, marginBottom: 4, paddingLeft: 8, borderLeftWidth: 1.5, borderLeftColor: NAV.line }}>{kids.map((c) => <View key={c.k + c.go} style={{ flexDirection: 'row' }}>{row(c, isOn(c.k))}</View>)}</View>}
       </View>
     );
   };
@@ -104,37 +107,38 @@ export function DeskNav() {
   ] : [];
   const subPart = siteId ? (path.split('/')[3] || '') : null;
   return (
-    <View style={{ width: 248, backgroundColor: '#fff', borderRightWidth: 1, borderRightColor: '#E5E8ED', paddingTop: 18, paddingHorizontal: 12, paddingBottom: 14 }}>
+    <View style={{ width: 248, backgroundColor: NAV.bg, paddingTop: 18, paddingHorizontal: 12, paddingBottom: 14 }}>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1 }}>
         <Pressable onPress={() => router.navigate('/home' as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 8, paddingTop: 4, paddingBottom: 16 }}>
           <View style={{ width: 40, height: 40, borderRadius: 10, borderWidth: 1, borderColor: '#EEE', overflow: 'hidden', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' }}>
             {org?.logo_path ? <StorageImage bucket="org-logos" path={org.logo_path} style={{ width: 38, height: 38, resizeMode: 'contain' }} /> : <Image source={require('@/../assets/images/icon.png')} style={{ width: 38, height: 38 }} />}
           </View>
           <View style={{ flex: 1, minWidth: 0 }}>
-            <Text numberOfLines={2} style={[brand(800), { fontSize: 14, color: t.brand1, lineHeight: 17 }]}>{org?.name || 'OpHUB'}</Text>
-            <Text style={{ fontSize: 11, fontWeight: '600', color: base.slate, letterSpacing: 0.9 }}>OPHUB</Text>
+            <Text numberOfLines={2} style={[brand(700), { fontSize: 14, color: '#fff', lineHeight: 17 }]}>{org?.name || 'OpHUB'}</Text>
+            <Text style={{ fontSize: 11, fontWeight: '600', color: NAV.dim, letterSpacing: 0.9 }}>OPHUB</Text>
           </View>
         </Pressable>
         {kind !== 'finance' && kind !== 'superadmin' && (
-          <Pressable onPress={() => router.push('/search' as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8, marginBottom: 4, paddingVertical: 8, paddingHorizontal: 12, borderWidth: 1, borderColor: '#ECEEF2', borderRadius: 12, backgroundColor: '#F7F8FA' }}>
-            <OphIcon name="search" size={16} color={t.brand1} />
-            <Text style={{ flex: 1, fontSize: 13, fontWeight: '600', color: '#6B7080' }}>Search</Text>
-            <Text style={{ fontSize: 10.5, fontWeight: '600', color: '#8A90A0', borderWidth: 1, borderColor: '#E3E6EB', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 1, backgroundColor: '#fff' }}>Ctrl K</Text>
+          <Pressable onPress={() => router.push('/search' as never)} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8, marginBottom: 4, paddingVertical: 9, paddingHorizontal: 12, borderRadius: 10, backgroundColor: NAV.search }}>
+            <OphIcon name="search" size={16} color={NAV.dim} />
+            <Text style={{ flex: 1, fontSize: 13, fontWeight: '500', color: NAV.dim }}>Search</Text>
+            <Text style={{ fontSize: 10.5, fontWeight: '600', color: NAV.dim, borderWidth: 1, borderColor: NAV.line, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 1 }}>Ctrl K</Text>
           </Pressable>
         )}
         <View style={{ gap: 2, marginTop: 4 }}>{items.map(group)}</View>
         {sub.length > 0 && (
           <>
-            <Text style={{ marginTop: 18, marginHorizontal: 12, marginBottom: 4, fontSize: 10.5, fontWeight: '600', letterSpacing: 1, color: '#9A9DA4' }}>THIS PROJECT</Text>
-            <Text numberOfLines={1} style={{ marginHorizontal: 12, marginBottom: 6, fontWeight: '600', fontSize: 13, color: base.ink }}>{site?.name || 'Project'}</Text>
+            <Text style={{ marginTop: 18, marginHorizontal: 12, marginBottom: 4, fontSize: 10.5, fontWeight: '600', letterSpacing: 1, color: NAV.dim }}>THIS PROJECT</Text>
+            <Text numberOfLines={1} style={{ marginHorizontal: 12, marginBottom: 6, fontWeight: '600', fontSize: 13, color: '#fff' }}>{site?.name || 'Project'}</Text>
             {sub.map((i) => <View key={i.go} style={{ flexDirection: 'row' }}>{row(i, subPart === i.k || (i.k === 'fin' && path.startsWith('/fin/job/')))}</View>)}
           </>
         )}
         <View style={{ flex: 1 }} />
-        <View style={{ marginTop: 14, paddingTop: 14, paddingHorizontal: 12, borderTopWidth: 1, borderTopColor: '#EEE', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <View style={{ marginTop: 14, paddingTop: 14, paddingHorizontal: 8, borderTopWidth: 1, borderTopColor: NAV.line, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: NAV.avatar, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff', fontSize: 11.5, fontWeight: '600' }}>{(me.name || '?').split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase()}</Text></View>
           <View style={{ flex: 1, minWidth: 0 }}>
-            <Text numberOfLines={1} style={{ fontSize: 12.5, fontWeight: '600', color: base.ink }}>{me.name}</Text>
-            <Text numberOfLines={1} style={{ fontSize: 11, fontWeight: '600', color: base.slate }}>{roleLabel(me)}</Text>
+            <Text numberOfLines={1} style={{ fontSize: 12.5, fontWeight: '600', color: '#fff' }}>{me.name}</Text>
+            <Text numberOfLines={1} style={{ fontSize: 11, fontWeight: '500', color: NAV.dim }}>{roleLabel(me)}</Text>
           </View>
           <Pressable onPress={() => void signOut()}><Text style={{ fontSize: 12, fontWeight: '600', color: base.warn }}>Sign out</Text></Pressable>
         </View>
