@@ -23,6 +23,7 @@ import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { addDays, finBlocked, fdate, jobTag, money, round2, today } from '@/lib/rules/finance';
 import { allocProblem, codedParts, linesNet, linesVat, type RLine } from '@/lib/rules/invoiceRead';
+import { checkAgainstPo } from '@/lib/rules/poMatch';
 import { supabase } from '@/lib/supabase';
 import { base, page, radius, useDesk } from '@/theme/theme';
 
@@ -66,8 +67,11 @@ export function PinvEditor({ inbox, siteId: site0, poId: po0, start }: { inbox?:
   const { data: sups = [] } = useQuery({ queryKey: ['finSupNames', me?.org_id], enabled: !!me?.org_id, queryFn: async () => (((await fdb.from('fin_suppliers').select('name').eq('org_id', me?.org_id as string).order('name')).data as Row[] | null) ?? []).map((x) => String(x.name || '')).filter(Boolean) });
   const { data: ctx } = useQuery({ queryKey: ['finReadCtx', me?.org_id], enabled: !!me?.org_id, queryFn: () => loadReadContext(me?.org_id as string) });
   const { data: pos = [] } = useQuery({ queryKey: ['finInboxPos', siteId], enabled: !!siteId, queryFn: async () => ((await fdb.from('purchase_orders').select('id,number,supplier_name,value,status').eq('site_id', siteId as string).neq('status', 'cancelled').order('created_at', { ascending: false })).data as Row[] | null) ?? [] });
+  // The PO's lines, to check the invoice against line by line (Andy, 6 Nov 2026).
+  const { data: poFull } = useQuery({ queryKey: ['finPoItems', poId], enabled: !!poId, queryFn: async () => ((await fdb.from('purchase_orders').select('id,number,items,value').eq('id', poId).maybeSingle()).data as Row | null) });
   if (!me) return null;
   const checks = ctx ? checkAll(lines, supplier, ctx) : [];
+  const vsPo = poId && poFull ? checkAgainstPo(lines, (poFull.items || []) as never, poFull.number || 'the PO') : null;
   const net = linesNet(lines), vat = linesVat(lines), total = round2(net + vat);
   const dearer = checks.filter((c) => c.state === 'over').length;
   const readTot = ex.total != null ? Number(ex.total) : null;
@@ -101,6 +105,7 @@ export function PinvEditor({ inbox, siteId: site0, poId: po0, start }: { inbox?:
     const main = mainSiteOf(lines, siteId); if (!main) { toast('Choose the project.'); return; }
     const flags: string[] = [];
     if (dearer) flags.push(`${dearer} line${dearer === 1 ? ' is' : 's are'} dearer than the quote or price list`);
+    if (vsPo) flags.push(...vsPo.flags); // dearer than the PO, more than ordered, or not on it → Needs Checking
     if (readTot != null && Math.abs(readTot - total) >= 0.5) flags.push(`the lines come to ${money(total)} but the invoice says ${money(readTot)}`);
     setBusy(true);
     try {
@@ -172,7 +177,19 @@ export function PinvEditor({ inbox, siteId: site0, poId: po0, start }: { inbox?:
           </View>
           {!inbox && <View style={{ marginTop: 8 }}><Check label="This is a receipt (no invoice number)" value={receipt} onChange={setReceipt} /></View>}
         </Card>
-        <InvoiceLines lines={lines} checks={checks} sites={sites as never} read={inbox && !unread ? { net: ex.net, vat: ex.vat, total: ex.total } : null} onChange={setLines} defaultSite={siteId} />
+        <InvoiceLines lines={lines} checks={vsPo ? [] : checks} sites={sites as never} read={inbox && !unread ? { net: ex.net, vat: ex.vat, total: ex.total } : null} onChange={setLines} defaultSite={siteId} />
+        {!!vsPo && vsPo.perLine.some((c) => c.state !== 'none') && (
+          <Card>
+            <Text style={{ fontWeight: '600', color: base.ink, marginBottom: 6 }}>Against {poFull?.number || 'the PO'}</Text>
+            {lines.map((l, k) => { const c = vsPo.perLine[k]; if (!c || c.state === 'none') return null; const col = c.state === 'ok' ? '#1E7A43' : c.state === 'cheaper' ? '#2457C5' : '#B35A00'; return (
+              <View key={k} style={{ flexDirection: 'row', gap: 10, paddingVertical: 4, borderTopWidth: k ? 1 : 0, borderTopColor: '#f0f1f3' }}>
+                <Text style={{ flex: 1, color: base.ink }} numberOfLines={1}>{l.description || `Line ${k + 1}`}</Text>
+                <Text style={{ color: col, fontWeight: '500' }}>{c.state === 'ok' ? '✓ ' : c.state === 'cheaper' ? '' : '⚠ '}{c.text}</Text>
+              </View>
+            ); })}
+            <Muted style={{ marginTop: 6 }}>{vsPo.flags.length ? 'Lines dearer than the PO, more than ordered or not on it send the invoice to Needs Checking.' : 'Every line matches the PO.'}</Muted>
+          </Card>
+        )}
         {(dearer > 0 || (readTot != null && Math.abs(readTot - total) >= 0.5)) && (
           <Card style={{ backgroundColor: '#FFF8EC' }}>
             {dearer > 0 && <Text style={{ color: '#B35A00' }}>⚠ {dearer} line{dearer === 1 ? ' is' : 's are'} dearer than the quote or price list, so this will wait in Needs Checking.</Text>}

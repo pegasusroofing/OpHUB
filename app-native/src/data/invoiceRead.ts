@@ -4,6 +4,7 @@
 import { fdb, finInvoke } from '@/data/finance';
 import { codedParts, codeLines, decide, priceCheck, type PriceCheck, type Quote, type QuoteItem, type Read, type RLine, type RPo, type RSite } from '@/lib/rules/invoiceRead';
 import { codePatch } from '@/lib/rules/piCode';
+import { checkAgainstPo } from '@/lib/rules/poMatch';
 import { round2, today } from '@/lib/rules/finance';
 import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/lib/types';
@@ -38,6 +39,8 @@ const asItem = (r: Read, code: ReturnType<typeof codeLines>) => ({ ...r, invoice
 async function fileRead(item: Row, r: Read, lines: RLine[], poId: string | null, mainSite: string, flags: string[]): Promise<boolean> {
   const no = String(r.doc_number ?? '').trim(), sup = String(r.supplier).trim();
   const all = [...flags];
+  // Line by line against the PO it quotes (Andy, 6 Nov 2026): dearer, more than ordered or not on it → a query.
+  if (poId) { const po = (await fdb.from('purchase_orders').select('number,items').eq('id', poId).maybeSingle()).data as Row | null; if (po) all.push(...checkAgainstPo(lines, (po.items || []) as never, po.number || 'the PO').flags); }
   if (no) { const dup = ((await fdb.from('purchase_invoices').select('supplier_name').eq('invoice_no', no)).data as Row[] | null) ?? []; if (dup.some((d) => String(d.supplier_name ?? '').trim().toLowerCase() === sup.toLowerCase())) all.unshift('Possible duplicate: this supplier’s invoice number is already on the system'); }
   const f = await rpc('fin_inbox_file', { p_id: item.id, p_pi: { site_id: mainSite, po_id: poId, supplier_name: sup, invoice_no: no || null, invoice_date: r.doc_date || today(), net: round2(Number(r.net)), vat: round2(Number(r.vat ?? 0)), total: round2(Number(r.total)), status: all.length ? 'query' : 'to_approve', query_note: all[0] ?? null } });
   const d = f.data as Row | null;
