@@ -15,15 +15,16 @@ import { FinFilterBar, type FilterPart, type FilterSel } from '@/components/FinF
 import { FinRow, FinStat, FinTabs } from '@/components/FinNav';
 import { Cell, FinChoicePop, FinInfoPop, FinTable, FootPick } from '@/components/FinTable';
 import { SelectBox } from '@/components/SelectBox';
+import { TypePick } from '@/components/TypePick';
 import { pickJob } from '@/components/FinSales';
 import { SubRight } from '@/components/FinSlot';
-import { chooseAction, confirmAsk, useToast } from '@/components/toast';
+import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Empty, Muted } from '@/components/ui';
 import { askDate } from '@/components/DateField';
 import * as DocumentPicker from 'expo-document-picker';
 import { fdb, selectAll, useFinSettings } from '@/data/finance';
 import { supabase } from '@/lib/supabase';
-import { setPinvPaid, setPinvStatus } from '@/data/finPurchase';
+import { piLabel, setPinvPaid, setPinvStatus, tellPmOfPi } from '@/data/finPurchase';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { COST_CATS, PI_STATUS, poInvoiced } from '@/lib/rules/finBook';
@@ -35,6 +36,17 @@ type Row = Record<string, any>;
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 9, color: base.ink, backgroundColor: base.card };
 /** Why an invoice is waiting, in plain words: the reader's own error messages aren't for the office. */
 const plainReason = (r: unknown) => { const t = String(r || ''); return /^couldn.t read it/i.test(t) ? 'Couldn’t be read — open it to file by hand' : t; };
+/** The actions at the end of a row (Andy, 6 Nov 2026): the same keyboard drop-down as the Status column (type, arrows,
+ *  Tab / Enter, or click); a click in it doesn't open the row. */
+function ActionsCell({ items }: { items: { key: string; label: string; run: () => void | Promise<void> }[] }) {
+  return (
+    <View onStartShouldSetResponder={() => true} onResponderTerminationRequest={() => false} {...({ onClick: (e: { stopPropagation: () => void }) => e.stopPropagation() } as object)} style={{ width: 112, alignSelf: 'center' }}>
+      <TypePick label="Actions" value="" placeholder="Actions" options={items.map((x) => ({ v: x.key, label: x.label }))} listWidth={190}
+        onChange={(v) => { const it = items.find((x) => x.key === v); if (it) void it.run(); }}
+        style={{ borderWidth: 1, borderColor: '#e5e7eb', backgroundColor: '#fff', borderRadius: 7, paddingHorizontal: 8, paddingVertical: 5, fontSize: 13, color: base.ink }} />
+    </View>
+  );
+}
 /** How long ago, in short: Just now, 5h ago, 3d ago. */
 function ageOf(ts: string) { const h = Math.max(0, Math.round((Date.now() - new Date(ts).getTime()) / 36e5)); return h < 1 ? 'Just now' : h < 24 ? `${h}h ago` : `${Math.round(h / 24)}d ago`; }
 /** An invoice waiting to be filed (Andy, 3 Nov 2026): its number, status and age; Total, VAT and the project as chips
@@ -308,26 +320,34 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
               const items = (cur === 'job' ? needJob : withPm).filter((it) => (!sel.sup.length || sel.sup.includes(supKey(it.extracted?.supplier))) && (!sel.job.length || sel.job.includes(it.site_id)) && (cur !== 'pm' || !pmF || it.assigned_pm === pmF) && hit(it.extracted?.supplier, it.from_email, it.extracted?.invoice_no, it.subject));
               const unread = (it: Row) => !it.extracted || !(Array.isArray(it.extracted.lines) && it.extracted.lines.length) && it.extracted.total == null;
               // Why it's waiting, in a few words.
+              // Choose the job right here on the list (Andy, 6 Nov 2026), with the keyboard drop-down; it then says Check and save.
+              const jobPickOpts = sites.filter((x) => x.status !== 'closed').slice().sort((x, y) => String(y.job_number || '').localeCompare(String(x.job_number || ''), 'en-GB', { numeric: true })).map((x) => ({ v: x.id, label: jobTag(x), short: x.job_number || x.name || '' }));
+              const setJob = async (it: Row, sid: string) => { const r = await fdb.from('fin_inbox').update({ site_id: sid } as never).eq('id', it.id).select('id'); if (!r.data?.length) { toast('Could not save — try again.'); return; } toast(`Job set: ${jobTag(site(sid))}`, { confirm: true }); void qc.invalidateQueries({ queryKey: ['finPurchases'] }); void qc.invalidateQueries({ queryKey: ['finInbox'] }); };
+              const notInvoice = async (it: Row) => { if (!(await confirmAsk('Delete this? Use it for emails that aren’t a supplier’s invoice: a statement, a remittance, an advert or a duplicate. It comes off the list; the email is still kept in the background in case it’s ever needed.', 'Delete'))) return; if (!(await fdb.from('fin_inbox').update({ status: 'ignored', stage: 'ignored' } as never).eq('id', it.id).select('id')).data?.length) { toast('Could not save — try again.'); return; } void qc.invalidateQueries({ queryKey: ['finPurchases'] }); };
               const whyOf = (it: Row) => {
-                if (cur === 'pm') return `With ${pmPeople.find((p) => p.id === it.assigned_pm)?.name || 'a PM'} to choose the job`;
-                const last = (it.comments || []).slice(-1)[0];
-                if (unread(it)) return 'Couldn’t read it';
-                if (it.stage === 'pm_replied' && last) return `PM replied: ${last.text}`;
+                if (cur === 'pm') return `With ${(pmPeople.find((p) => p.id === it.assigned_pm)?.name || 'a PM').split(' ')[0]}`;
+                if (unread(it)) return 'Unable to read';
+                if (it.stage === 'pm_replied') return 'PM replied';
                 const r = String(it.query_reason || '');
-                return /po/i.test(r) && /not found|isn.t|unknown/i.test(r) ? r : !it.site_id ? 'Which job? Not on the invoice' : plainReason(r) || 'Check it and save';
+                return /po/i.test(r) && /not found|isn.t|unknown/i.test(r) ? 'PO not found' : !it.site_id ? 'Needs a job' : 'Check and save';
               };
-              const chooseJob = async (it: Row) => { const sid = await pickJob('Which project is it for?', sites.filter((x) => x.status !== 'closed')); if (!sid) return; const r = await fdb.from('fin_inbox').update({ site_id: sid } as never).eq('id', it.id).select('id'); if (!r.data?.length) { toast('Could not save — try again.'); return; } void qc.invalidateQueries({ queryKey: ['finPurchases'] }); router.push(`/fin/inbox/${it.id}` as never); };
-              const notInvoice = async (it: Row) => { if (!(await confirmAsk('Not an invoice? It comes off this list (a statement, a remittance or an advert, say). Nothing is deleted.', 'Not An Invoice'))) return; if (!(await fdb.from('fin_inbox').update({ status: 'ignored', stage: 'ignored' } as never).eq('id', it.id).select('id')).data?.length) { toast('Could not save — try again.'); return; } void qc.invalidateQueries({ queryKey: ['finPurchases'] }); };
-              const sm = (title: string, onPress: () => void, primary?: boolean) => <Button key={title} small kind={primary ? 'primary' : 'ghost'} title={title} onPress={onPress} />;
               if (desk && items.length) return (
                 <FinTable rows={items} keyOf={(it) => it.id} onRow={(it) => router.push(`/fin/inbox/${it.id}` as never)}
                   cols={[
-                    { k: 'sup', l: 'Supplier', flex: 1.5, min: 150, sort: (it: Row) => String(it.supplier_override || it.extracted?.supplier || it.from_email || ''), render: (it: Row) => { const n = Array.isArray(it.extracted?.lines) ? it.extracted.lines.length : 0; return <View style={{ alignItems: 'center', justifyContent: 'center' }}><Text numberOfLines={1} style={{ fontSize: 13, fontWeight: '600', color: base.ink, textAlign: 'center' }}>{it.supplier_override || it.extracted?.supplier || it.from_email || it.file_name || 'Unknown'}</Text><Text style={{ fontSize: 11.5, color: base.slate, textAlign: 'center' }}>{[n ? `${n} line${n === 1 ? '' : 's'}` : '', ageOf(it.received_at)].filter(Boolean).join(' · ')}</Text></View>; } },
+                    { k: 'sup', l: 'Supplier', flex: 1.5, min: 150, sort: (it: Row) => String(it.supplier_override || it.extracted?.supplier || it.from_email || ''), render: (it: Row) => <Cell>{it.supplier_override || it.extracted?.supplier || it.from_email || it.file_name || 'Unknown'}</Cell> },
                     { k: 'no', l: 'Invoice No.', render: (it: Row) => <Cell>{it.extracted?.invoice_no || '—'}</Cell> },
                     { k: 'd', l: 'Date', sort: (it: Row) => String(it.extracted?.date || it.received_at || ''), render: (it: Row) => <Cell>{it.extracted?.date ? fdate(it.extracted.date) : '—'}</Cell> },
                     { k: 'g', l: 'Gross', sort: (it: Row) => Number(it.extracted?.total || 0), total: (l: Row[]) => money(l.reduce((t, it) => t + Number(it.extracted?.total || 0), 0)), render: (it: Row) => <Cell>{it.extracted?.total != null ? money(it.extracted.total) : '—'}</Cell> },
-                    { k: 'w', l: 'Why It’s Waiting', flex: 1.6, min: 170, noSort: true, render: (it: Row) => <Text numberOfLines={1} style={{ fontSize: 12, color: '#B35A00', backgroundColor: '#FFF6E5', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2, overflow: 'hidden', alignSelf: 'center', maxWidth: '100%' }}>{whyOf(it)}</Text> },
-                    { k: 'n', l: 'Next', flex: 1.7, min: 200, noSort: true, render: (it: Row) => <View style={{ flexDirection: 'row', gap: 6, justifyContent: 'center', alignItems: 'center' }}>{cur === 'pm' ? [sm('Open', () => router.push(`/fin/inbox/${it.id}` as never), true), sm('Change PM', () => void assignPm(it))] : unread(it) ? [sm('Fill It In', () => router.push(`/fin/inbox/${it.id}` as never), true), sm('Not An Invoice', () => void notInvoice(it))] : [sm(it.site_id ? 'Check & Save' : 'Choose Job', () => (it.site_id ? router.push(`/fin/inbox/${it.id}` as never) : void chooseJob(it)), true), sm('Send To PM', () => void assignPm(it))]}</View> },
+                    { k: 'w', l: 'Status', flex: 1.1, min: 120, render: (it: Row) => (cur !== 'pm' && !it.site_id && !unread(it)
+                      ? <View onStartShouldSetResponder={() => true} onResponderTerminationRequest={() => false} {...({ onClick: (e: { stopPropagation: () => void }) => e.stopPropagation() } as object)} style={{ width: 150, alignSelf: 'center' }}><TypePick label={`Choose the job for ${it.extracted?.invoice_no || 'this invoice'}`} value="" placeholder="Needs a job" options={jobPickOpts} listWidth={300} onChange={(v) => void setJob(it, v)} style={{ borderWidth: 1, borderColor: '#f8e7c2', backgroundColor: '#fffaf0', borderRadius: 7, paddingHorizontal: 8, paddingVertical: 5, fontSize: 13, color: '#B35A00' }} /></View>
+                      : <Text numberOfLines={1} style={{ fontSize: 13, color: '#B35A00', textAlign: 'center' }}>{whyOf(it)}</Text>) },
+                    { k: 'a', l: 'Actions', min: 124, noSort: true, render: (it: Row) => <ActionsCell items={[
+                      ...(!unread(it) ? [{ key: 'ok', label: 'Approve', run: () => router.push(`/fin/inbox/${it.id}?q=approve` as never) }] : []),
+                      { key: 'edit', label: unread(it) ? 'Fill In' : 'Edit', run: () => router.push(`/fin/inbox/${it.id}` as never) },
+                      { key: 'pm', label: cur === 'pm' ? 'Change PM' : 'Send To PM', run: () => assignPm(it) },
+                      ...(cur === 'pm' ? [{ key: 'sup', label: 'Query Supplier', run: () => router.push(`/fin/inbox/${it.id}?q=supplier` as never) }] : []),
+                      { key: 'not', label: 'Delete', run: () => notInvoice(it) },
+                    ]} /> },
                   ]}
                   footLabel={(l) => `${l.length} waiting`} />
               );
@@ -346,6 +366,19 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
               const bulk = true, picked = list.filter((i) => picks.has(i.id));
               const tick = (i: Row) => <Pressable hitSlop={8} accessibilityRole="checkbox" accessibilityState={{ checked: picks.has(i.id) }} onPress={() => setSel((x) => { const n = new Set(x); if (n.has(i.id)) n.delete(i.id); else n.add(i.id); return n; })} style={{ width: 16, height: 16, borderRadius: 4, borderWidth: 1.5, borderColor: picks.has(i.id) ? base.blue : '#c3c8d0', backgroundColor: picks.has(i.id) ? base.blue : '#fff', alignItems: 'center', justifyContent: 'center', alignSelf: 'center' }}>{picks.has(i.id) && <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700', lineHeight: 13 }}>✓</Text>}</Pressable>;
               const refresh = () => { setSel(new Set()); ['finPurchases', 'finBook', 'finOverview', 'finPo'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] })); };
+              const queryPm = async (i: Row) => {
+                if (!me) return;
+                const jobPm = (site(i.site_id) as Row | undefined)?.responsible_pm_id;
+                const order = (x: Row) => (x.id === jobPm ? 0 : x.role === 'pm' ? 1 : 2);
+                const list = pmPeople.slice().sort((a, b) => order(a) - order(b) || String(a.name).localeCompare(String(b.name)));
+                const k = await chooseAction('Send it to which PM?', list.map((x) => ({ key: x.id, label: `${x.name}${x.id === jobPm ? ' (this job’s PM)' : x.role === 'admin' ? ' (admin)' : ''}` }))); if (!k) return;
+                const pm = list.find((x) => x.id === k);
+                const n = await promptText(`What does ${pm?.name || 'the PM'} need to check?`, ''); if (n === null) return;
+                const note = n.trim() || 'Please check this invoice';
+                if (!(await setPinvStatus(me, i.id, 'query', note)).ok) { toast('Couldn’t mark it as a query — try again.'); return; }
+                const t = await tellPmOfPi(me, i, `Query on ${piLabel(i)}: ${note}`, k);
+                toast(t.sent ? `Sent to ${pm?.name} to check` : 'Marked as a query', { confirm: true }); refresh();
+              };
               const approveAll = async () => {
                 const rows = picked.filter((i) => ['to_approve', 'query'].includes(i.status)); if (!rows.length || !me) { toast('None of those are waiting for approval.'); return; }
                 const qn = rows.filter((i) => i.status === 'query').length;
@@ -404,8 +437,17 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
                     { k: 'n', l: 'Net', min: 72, total: (l: Row[]) => money(l.reduce((t, i) => t + Number(i.net || 0), 0)), render: (i: Row) => <Cell>{money(i.net)}</Cell> },
                     { k: 'v', l: 'VAT', min: 64, total: (l: Row[]) => money(l.reduce((t, i) => t + Number(i.vat || 0), 0)), render: (i: Row) => <Cell>{money(i.vat)}</Cell> },
                     { k: 't', l: 'Gross', min: 72, total: (l: Row[]) => money(l.reduce((t, i) => t + Number(i.total || 0), 0)), render: (i: Row) => <Cell bold>{money(i.total)}</Cell> },
-                    { k: 'po', l: 'PO', min: 96, sort: (i: Row) => posBy[i.po_id]?.number || '', render: (i: Row) => poCell(i) },
+                    ...(cur === 'unpaid' ? [] : [{ k: 'po', l: 'PO', min: 96, sort: (i: Row) => posBy[i.po_id]?.number || '', render: (i: Row) => poCell(i) }]),
                     { k: 's', l: 'Status', min: 84, noSort: true, choices: ['Needs Checking', 'Query', 'Approved', 'Paid', 'Rejected'], render: (i: Row) => <Cell tone={piTone(i)}>{piWord(i)}</Cell> },
+                    ...(cur === 'unpaid' ? [{ k: 'x', l: 'Xero', min: 96, sort: (i: Row) => (i.xero_id ? 1 : 0), render: (i: Row) => <Cell tone={i.xero_id ? '#1E7A43' : base.slate}>{i.xero_id ? 'Posted' : finBlocked('xero', 'push_bill', me?.org_id) ? 'Not Posted (Trial)' : 'Not Posted'}</Cell> }] : []),
+                    { k: 'a', l: 'Actions', min: 124, noSort: true, render: (i: Row) => <ActionsCell items={[
+                                            ...(['to_approve', 'query', 'rejected'].includes(i.status) && me ? [{ key: 'ok', label: 'Approve', run: async () => { const r = await setPinvStatus(me, i.id, 'approved'); toast(r.ok ? 'Approved' : 'Couldn’t approve — try again.', { confirm: r.ok }); refresh(); } }] : []),
+                      ...(i.status !== 'approved' && !isPaid(i) ? [{ key: 'pm', label: 'Send To PM', run: () => queryPm(i) }] : []),
+                      ...(cur === 'pm' ? [{ key: 'sup', label: 'Query Supplier', run: () => router.push(`/fin/pinv/${i.id}?q=supplier` as never) }] : []),
+                      { key: 'edit', label: 'Edit', run: () => router.push(`/fin/pinv/${i.id}?edit=1` as never) },
+                      ...(i.status === 'approved' && !isPaid(i) ? [{ key: 'paid', label: 'Mark Paid', run: async () => { if (await setPinvPaid(i.id, today())) { toast('Marked paid', { confirm: true }); refresh(); } } }] : []),
+                      ...(i.status !== 'rejected' && !isPaid(i) && me ? [{ key: 'rej', label: 'Reject', run: async () => { if (await confirmAsk('Reject this purchase invoice?', 'Reject')) { await setPinvStatus(me, i.id, 'rejected'); refresh(); } } }] : []),
+                    ]} /> },
                   ]}
                   footLabel={(list) => `${list.length} shown`} footRight={monthPick} />{bulkBar}</>
               );

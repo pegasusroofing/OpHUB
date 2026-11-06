@@ -101,8 +101,8 @@ export function PdfPages({ url, zoom, width: w0, light }: { url: string; zoom: n
   const host = useRef<HTMLElement | null>(null);
   const [state, setState] = useState<'loading' | 'ok' | 'bad'>('loading');
   const [fit, setFit] = useState(800);
-  // Zoom with the mouse while it is over the document (Andy, 5 Nov 2026): Ctrl + wheel, or pinch on a trackpad,
-  // zooms the PDF instead of the whole page. A plain wheel still scrolls.
+  // Zoom while the mouse is over the document (Andy, 5 and 6 Nov 2026): the wheel scrolls; the + and − keys (the number
+  // pad's too) zoom in and out, 0 goes back to normal; Ctrl + wheel or a touchpad pinch zooms as well.
   const wrap = useRef<HTMLElement | null>(null);
   // Kept per document, so a new one opens at its normal size.
   const [wzs, setWzs] = useState<{ u: string; z: number }>({ u: url, z: 1 });
@@ -119,7 +119,20 @@ export function PdfPages({ url, zoom, width: w0, light }: { url: string; zoom: n
       setWzs((w) => ({ u, z: Math.max(0.5, Math.min(6, (w.u === u ? w.z : 1) * Math.exp(-e.deltaY * 0.0025))) }));
     };
     el.addEventListener('wheel', onWheel, { passive: false });
-    return () => el.removeEventListener('wheel', onWheel);
+    let over = false;
+    const enter = () => { over = true; }, leave = () => { over = false; };
+    const onKey = (e: KeyboardEvent) => {
+      if (!over || e.ctrlKey || e.metaKey || e.altKey) return;
+      const a = document.activeElement as HTMLElement | null;
+      if (a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.isContentEditable)) return; // typing in a box
+      const k = e.key, inK = k === '+' || k === '=' || e.code === 'NumpadAdd', outK = k === '-' || k === '_' || e.code === 'NumpadSubtract', reset = k === '0' || e.code === 'Numpad0';
+      if (!inK && !outK && !reset) return;
+      e.preventDefault();
+      const u = urlNow.current;
+      setWzs((w) => ({ u, z: reset ? 1 : Math.max(0.5, Math.min(6, (w.u === u ? w.z : 1) * (inK ? 1.2 : 1 / 1.2))) }));
+    };
+    el.addEventListener('mouseenter', enter); el.addEventListener('mouseleave', leave); window.addEventListener('keydown', onKey);
+    return () => { el.removeEventListener('wheel', onWheel); el.removeEventListener('mouseenter', enter); el.removeEventListener('mouseleave', leave); window.removeEventListener('keydown', onKey); };
   }, []);
   useEffect(() => {
     let alive = true;

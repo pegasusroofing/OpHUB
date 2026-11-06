@@ -46,7 +46,7 @@ const mainSiteOf = (lines: RLine[], fallback: string | null) => {
 
 /** start: from a statement's Add Missing Invoice — the supplier, number, gross amount and date already known.
  *  pi: a saved invoice, opened to check, change, query or approve; below: its conversation, Xero and paid rows. */
-export function PinvEditor({ inbox, siteId: site0, poId: po0, start, pi, below, buttons }: { inbox?: Row | null; siteId?: string; poId?: string; start?: { supplier?: string; no?: string; amount?: number; date?: string }; pi?: Row | null; below?: ReactNode; buttons?: ReactNode }) {
+export function PinvEditor({ inbox, siteId: site0, poId: po0, start, pi, below, buttons, startEdit, startQuery, startApprove }: { inbox?: Row | null; siteId?: string; poId?: string; start?: { supplier?: string; no?: string; amount?: number; date?: string }; pi?: Row | null; below?: ReactNode; buttons?: ReactNode; startEdit?: boolean; startQuery?: boolean; startApprove?: boolean }) {
   const { me } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
@@ -57,7 +57,7 @@ export function PinvEditor({ inbox, siteId: site0, poId: po0, start, pi, below, 
   // In Xero or paid: shown as it is, not changed here.
   const locked = !!pi && (!!pi.xero_id || !!pi.paid_on);
   // A saved invoice opens locked; Edit at the bottom opens it for changes (Andy, 6 Nov 2026).
-  const [editing, setEditing] = useState(!pi);
+  const [editing, setEditing] = useState(!pi || !!startEdit);
   // Query With Supplier: the saved invoice and who it goes to, while the email pop-up is open.
   const [mail, setMail] = useState<{ row: Row; to: string } | null>(null);
   const shut2 = !editing || locked;
@@ -77,7 +77,8 @@ export function PinvEditor({ inbox, siteId: site0, poId: po0, start, pi, below, 
   const shut = <Pressable accessibilityRole="button" accessibilityLabel="Close the note" hitSlop={8} onPress={() => setNoteShut(true)} style={{ position: 'absolute', top: 8, right: 10 }}><Text style={{ fontSize: 16, color: base.slate }}>✕</Text></Pressable>;
   // Lines as read, or one line for the amount read (an unread invoice: one blank line to fill in).
   const [lines, setLines] = useState<RLine[]>(() => (pi ? (piLines.length ? piLines : [{ ...blankLine(pi.site_id), description: pi.description || 'Invoice total', unit_price: Number(pi.net || 0), amount: Number(pi.net || 0), cost_code: pi.cost_code || 'materials', vat_rate: Number(pi.net) ? Math.round((Number(pi.vat || 0) / Number(pi.net)) * 100) : 20 }])
-    : Array.isArray(ex.lines) && ex.lines.length ? (ex.lines as RLine[])
+    // The job chosen on the list goes on every line that hasn't one (Andy, 6 Nov 2026).
+    : Array.isArray(ex.lines) && ex.lines.length ? (ex.lines as RLine[]).map((l) => (l.site_id || l.alloc?.length || !inbox?.site_id ? l : { ...l, site_id: inbox.site_id }))
     : ex.net != null ? [{ ...blankLine(site0 || inbox?.site_id), description: 'Invoice total', unit_price: Number(ex.net), amount: Number(ex.net) }]
     : start?.amount ? [{ ...blankLine(site0), description: 'Invoice total', unit_price: round2(start.amount / 1.2), amount: round2(start.amount / 1.2) }] : [blankLine(site0 || inbox?.site_id)]));
   const { data: sups = [] } = useQuery({ queryKey: ['finSupNames', me?.org_id], enabled: !!me?.org_id, queryFn: async () => (((await fdb.from('fin_suppliers').select('name').eq('org_id', me?.org_id as string).order('name')).data as Row[] | null) ?? []).map((x) => String(x.name || '')).filter(Boolean) });
@@ -88,6 +89,8 @@ export function PinvEditor({ inbox, siteId: site0, poId: po0, start, pi, below, 
   const { data: pos = [] } = useQuery({ queryKey: ['finInboxPos', siteId], enabled: !!siteId, queryFn: async () => ((await fdb.from('purchase_orders').select('id,number,supplier_name,value,status').eq('site_id', siteId as string).neq('status', 'cancelled').order('created_at', { ascending: false })).data as Row[] | null) ?? [] });
   // The PO's lines, to check the invoice against line by line (Andy, 6 Nov 2026).
   const { data: poFull } = useQuery({ queryKey: ['finPoItems', poId], enabled: !!poId, queryFn: async () => ((await fdb.from('purchase_orders').select('id,number,items,value').eq('id', poId).maybeSingle()).data as Row | null) });
+  // From the list's Query Supplier: the email pop-up opens once the screen is ready.
+  const [wantQuery, setWantQuery] = useState<'supplier' | 'approve' | ''>(startQuery ? 'supplier' : startApprove ? 'approve' : '');
   if (!me) return null;
   const checks = ctx ? checkAll(lines, supplier, ctx) : [];
   const vsPo = poId && poFull ? checkAgainstPo(lines, (poFull.items || []) as never, poFull.number || 'the PO') : null;
@@ -239,6 +242,8 @@ export function PinvEditor({ inbox, siteId: site0, poId: po0, start, pi, below, 
     } finally { setBusy(false); }
   };
 
+  if (wantQuery && (pi || inbox)) { const w = wantQuery; setWantQuery(''); queueMicrotask(() => void act(w)); }
+
   const field = (label: string, child: React.ReactNode, w: number | string = 180) => <View style={{ flexGrow: 1, flexBasis: w as number, minWidth: 140 }}><Text style={lab}>{label}</Text>{child}</View>;
   const choice = (label: string, v: string, onPress: () => void, warn = false) => <Pressable disabled={shut2} accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={[fieldBox, warn && !shut2 && { borderColor: '#f8e7c2', backgroundColor: '#fffaf0' }, shut2 && { backgroundColor: '#F6F7F9' }]}><Text numberOfLines={1} style={{ color: warn && !shut2 ? '#b45309' : base.ink, fontSize: 14 }}>{v}{shut2 ? '' : ' ▾'}</Text></Pressable>;
   const docPath: string | null = file ? null : pi?.file_path || inbox?.file_path || null;
@@ -266,7 +271,7 @@ export function PinvEditor({ inbox, siteId: site0, poId: po0, start, pi, below, 
         {inbox && unread && !noteShut && (
           <View style={{ backgroundColor: '#FDF1E0', borderRadius: 10, padding: 12, paddingRight: 36, marginBottom: 10 }}>
             {shut}
-            <Text style={{ color: '#B35A00' }}>Couldn’t read this one automatically, so fill it in below. The file stays attached and nothing is lost.</Text>
+            <Text style={{ color: '#B35A00' }}>Unable to read this one automatically, so fill it in below. The file stays attached and nothing is lost.</Text>
             {!!inbox.query_reason && <Pressable onPress={() => setShowWhy(!showWhy)}><Text style={{ color: '#B35A00', fontSize: 12, marginTop: 4, textDecorationLine: 'underline' }}>{showWhy ? inbox.query_reason : 'Why?'}</Text></Pressable>}
             {!!inbox.file_path && <View style={{ alignSelf: 'flex-start', marginTop: 8 }}><Button small kind="ghost" busy={busy} title="🤖 Try Reading It Again" onPress={async () => { setBusy(true); const e = await readOne(me, inbox); setBusy(false); if (e) toast(e); void qc.invalidateQueries({ queryKey: ['finInbox', inbox.id] }); }} /></View>}
           </View>
@@ -317,8 +322,8 @@ export function PinvEditor({ inbox, siteId: site0, poId: po0, start, pi, below, 
           {!editing && buttons}
           {inbox && (
             <>
-              <Button small kind="ghost" title="Not An Invoice" onPress={async () => {
-                if (!(await confirmAsk('Ignore this? It isn’t an invoice, so it comes off the list.', 'Ignore'))) return;
+              <Button small kind="ghost" title="Delete" onPress={async () => {
+                if (!(await confirmAsk('Delete this? Use it for emails that aren’t a supplier’s invoice: a statement, a remittance, an advert or a duplicate. It comes off the list; the email is still kept in the background in case it’s ever needed.', 'Delete'))) return;
                 if (!(await fdb.from('fin_inbox').update({ status: 'ignored', stage: 'ignored' } as never).eq('id', inbox.id).select('id')).data?.length) { toast('Could not save — try again.'); return; }
                 refresh(); router.back();
               }} />

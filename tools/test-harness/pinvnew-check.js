@@ -56,7 +56,7 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   await page.getByText('Save Changes', {exact: true}).click(); await page.waitForTimeout(2500);
   check(!(await page.getByLabel('Line 1 description').isEditable()), 'and locks it again');
   await page.goto('http://localhost:8081/fin/inbox/ib9'); await page.waitForTimeout(4000);
-  check(await page.getByText(/Couldn’t read this one automatically/).count() === 1, 'an unread invoice shows the plain note');
+  check(await page.getByText(/Unable to read this one automatically/).count() === 1, 'an unread invoice shows the plain note');
   check(await page.getByText(/API|Reader error/).count() === 0, 'the raw error is hidden until Why? is tapped');
   check(await page.getByLabel('Line 1 description').count() === 1, 'and the same line-by-line form');
   await page.screenshot({path: 'shots/job/pinvinbox-1300.png'});

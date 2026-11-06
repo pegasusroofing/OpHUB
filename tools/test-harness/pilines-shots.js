@@ -42,7 +42,7 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   check(await page.getByLabel('Allocate To PO').count() >= 1, 'Allocate To PO');
   await page.screenshot({path: 'shots/job/pilines-pdf-1500.png'});
   await page.getByLabel('Close the note').click(); await page.waitForTimeout(300);
-  check(await page.getByText(/Couldn’t read this one automatically/).count() === 0, 'the note closes with its ✕');
+  check(await page.getByText(/Unable to read this one automatically/).count() === 0, 'the note closes with its ✕');
   await page.getByLabel('Close the document').click(); await page.waitForTimeout(800);
   check(await page.getByLabel('Show the document').count() === 1, 'the › strip folds the PDF away (a DOCUMENT tab brings it back)');
   await page.getByText('Show Code Descriptions').click(); await page.waitForTimeout(300);

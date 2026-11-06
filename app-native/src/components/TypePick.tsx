@@ -69,6 +69,7 @@ export function TypePick({ value, options, onChange, style, label, placeholder, 
           else if (k === 'Tab') setOpen(false);
           else if (k === 'Escape') { setOpen(false); setTyped(null); }
         }} />
+      <View pointerEvents="none" style={{ position: 'absolute', right: 7, top: 0, bottom: 0, justifyContent: 'center' }}><Text style={{ fontSize: 10, color: base.slate }}>▾</Text></View>
       {open && list.length > 0 && (web ? (at ? <Portal>{drop}</Portal> : null) : drop)}
     </View>
   );

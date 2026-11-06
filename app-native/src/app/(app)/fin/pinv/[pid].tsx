@@ -26,13 +26,13 @@ const XERO_Q = 'This is already in Xero. Changing it here wonâ€™t change Xero â€
 
 type Row = Record<string, any>;
 export default function FinPinv() {
-  const { pid, site, po, receipt, sup, no, amt, date } = useLocalSearchParams<{ pid: string; site?: string; po?: string; receipt?: string; sup?: string; no?: string; amt?: string; date?: string }>();
+  const { pid, site, po, receipt, sup, no, amt, date, edit, q } = useLocalSearchParams<{ pid: string; site?: string; po?: string; receipt?: string; sup?: string; no?: string; amt?: string; date?: string; edit?: string; q?: string }>();
   // Add Manually opens the line-by-line screen (Andy, 5 Nov 2026); the project is chosen on it.
   if (pid === 'new') return <PinvEditor key={`${site || ''}${po || ''}${receipt || ''}${no || ''}`} siteId={site || undefined} poId={po || undefined} start={sup || no ? { supplier: sup, no, amount: amt ? Number(amt) : undefined, date } : undefined} />;
-  return <ViewPinv id={pid} />;
+  return <ViewPinv id={pid} startEdit={edit === '1'} startQuery={q === 'supplier'} />;
 }
 
-function ViewPinv({ id }: { id: string }) {
+function ViewPinv({ id, startEdit, startQuery }: { id: string; startEdit?: boolean; startQuery?: boolean }) {
   const { me } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
@@ -102,7 +102,7 @@ function ViewPinv({ id }: { id: string }) {
       {i.status !== 'rejected' && !i.paid_on && <Button small kind="ghost" title="Reject" onPress={async () => { if (await confirmAsk('Reject this purchase invoice?', 'Reject')) void status('rejected', 'Reject this purchase invoice'); }} />}
     </>
   );
-  return <PinvEditor key={i.id} pi={i} below={under} buttons={buttons} />;
+  return <PinvEditor key={i.id} pi={i} below={under} buttons={buttons} startEdit={startEdit} startQuery={startQuery} />;
 }
 
 // Code each line to a project and cost type (9219g): one invoice can cover several jobs.

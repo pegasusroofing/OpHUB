@@ -21,12 +21,22 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   const t = page.getByRole('tab', {name: /^Received/}); if (await t.count()) { await t.first().click(); await page.waitForTimeout(800); }
   check(await page.getByText('ZZ Reader Roofing Ltd', {exact: true}).count() === 1 && await page.getByText('zza-lost.png').count() === 0, 'the supplier leads, not the file name');
   check(await page.getByText('RR-1182', {exact: true}).count() === 1, 'the invoice number shows');
-  check(await page.getByText('Which job? Not on the invoice').count() >= 1 && await page.getByText('Couldn’t read it', {exact: true}).count() === 1, 'why each is waiting, in a few words');
-  check(await page.getByText('Choose Job', {exact: true}).count() >= 1 && await page.getByText('Fill It In', {exact: true}).count() === 1, 'the next step: Choose Job, or Fill It In');
+  // Option A (6 Nov 2026): a plain status word, an Actions drop-down, nothing else.
+  // Option A (6 Nov 2026): a plain status, then a few plain action words; Needs a job is the keyboard drop-down.
+  check(await page.getByLabel(/^Choose the job for/).count() >= 1 && await page.getByText('Unable to read', {exact: true}).count() === 1, 'a plain status: the job drop-down, or Unable to read');
+  check(await page.getByLabel('Actions', {exact: true}).count() >= 2, 'an Actions drop-down like the Status one on each row');
+  await page.getByLabel('Actions', {exact: true}).first().click(); await page.waitForTimeout(400);
+  check(await page.getByText('Send To PM', {exact: true}).count() === 1 && await page.getByText('Edit', {exact: true}).count() === 1 && new URL(page.url()).pathname === '/fin/purchases', 'it lists Edit, Send To PM and the rest, and stays on the list');
+  await page.keyboard.press('Escape'); await page.mouse.click(5, 5); await page.waitForTimeout(300);
+  await page.screenshot({path: 'shots/job/recv-1300.png'}); const jp = page.getByLabel(/^Choose the job for/).first(); console.log('job box', JSON.stringify(await jp.boundingBox())); await jp.click(); await jp.fill('J1'); await page.waitForTimeout(400); await page.keyboard.press('Tab'); await page.waitForTimeout(1200);
+  check(db.fin_inbox.some((i) => i.site_id && i.status === 'new'), 'typing the job number and Tab sets the job right there');
+  // Opening it: that job is on every line (6 Nov 2026).
+  const withJob = db.fin_inbox.find((i) => i.site_id && i.status === 'new' && i.extracted && i.extracted.lines);
+  if (withJob) { await page.goto('http://localhost:8081/fin/inbox/' + withJob.id); await page.waitForTimeout(4500); check(await page.getByLabel('Line 1 job').inputValue() !== '', 'opened, the chosen job is on the lines (' + await page.getByLabel('Line 1 job').inputValue() + ')'); await page.goto('http://localhost:8081/fin/purchases?tab=invoices'); await page.waitForTimeout(4000); }
   await page.screenshot({path: 'shots/job/recv-1300.png'});
   // The invoice screen beside its PDF: every button on one row.
   await page.goto('http://localhost:8081/fin/inbox/r1'); await page.waitForTimeout(5000);
-  const ys = []; for (const n of ['Not An Invoice', 'Save & Query To PM', 'Save & Query Supplier', 'Save', 'Approve Invoice']) { const b = await page.getByText(n, {exact: true}).last().boundingBox(); ys.push(b ? Math.round(b.y) : -1); }
+  const ys = []; for (const n of ['Delete', 'Save & Query To PM', 'Save & Query Supplier', 'Save', 'Approve Invoice']) { const b = await page.getByText(n, {exact: true}).last().boundingBox(); ys.push(b ? Math.round(b.y) : -1); }
   check(ys.every((v) => v > 0 && Math.abs(v - ys[0]) < 3), 'the invoice buttons are on one row ' + ys.join(','));
   await page.screenshot({path: 'shots/job/recv-invoice-1300.png'});
   check(!errs.length, `no errors ${errs.slice(0, 2).join(' | ')}`);
