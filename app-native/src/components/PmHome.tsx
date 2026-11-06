@@ -2,6 +2,7 @@
 // projects, on site now, to do, notifications), the sites map with a Today panel beside it, then plain tiles
 // (2 across on a phone, 4 on a laptop), "Pick up where you left off", and name / role / Sign out.
 import { router } from 'expo-router';
+import { useEffect, useRef, useState, type ComponentRef } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { HomePrompts } from '@/components/HomePrompts';
@@ -70,23 +71,7 @@ export function PmHome() {
     </Card>
   );
 
-  // Phone: Today as a sideways scrolling bar, not a card (Andy, 6 Nov 2026).
-  const todayBar = (
-    <View style={{ marginBottom: space.m }}>
-      <Text style={{ fontWeight: '600', color: base.ink, fontSize: 13, marginBottom: 6 }}>Today</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 4 }}>
-        {todayRows.map((r, k) => (
-          <Pressable key={k} onPress={go(r.go)} accessibilityRole="button" style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: 10, width: 210, backgroundColor: '#fff', borderWidth: 1, borderColor: '#ECEEF2', borderRadius: 12, paddingVertical: 9, paddingHorizontal: 12 }, pressed && { opacity: 0.85 }]}>
-            <OphIcon name={r.ic} size={17} color={base.ink} />
-            <View style={{ flex: 1, minWidth: 0 }}>
-              <Text numberOfLines={1} style={{ fontWeight: '600', color: base.ink, fontSize: 13 }}>{r.t}</Text>
-              {!!r.sub && <Text numberOfLines={1} style={{ fontSize: 11.5, color: base.slate }}>{r.sub}</Text>}
-            </View>
-          </Pressable>
-        ))}
-      </ScrollView>
-    </View>
-  );
+  const todayBar = <TodayBar rows={todayRows} go={go} />;
 
   return (
     <Screen>
@@ -170,5 +155,57 @@ export function PmHome() {
         <Text style={{ color: base.warn, textDecorationLine: 'underline', fontSize: 11, fontStyle: 'italic' }}>Sign out</Text>
       </Pressable>
     </Screen>
+  );
+}
+
+type TodayRow = { ic: string; t: string; sub: string; go: string };
+
+/** Phone: Today as a bar that drifts sideways on its own, round and round (Andy, 6 Nov 2026). Touch or drag it
+ * and it stops for a few seconds; it only moves when there is more than fits on the screen. */
+function TodayBar({ rows, go }: { rows: TodayRow[]; go: (p: string) => () => void }) {
+  const ref = useRef<ComponentRef<typeof ScrollView>>(null);
+  const x = useRef(0), hold = useRef(0);
+  const [viewW, setViewW] = useState(0), [oneW, setOneW] = useState(0);
+  const loop = viewW > 0 && oneW > viewW + 4;
+  useEffect(() => {
+    if (!loop) return;
+    const id = setInterval(() => {
+      if (Date.now() < hold.current) return;
+      x.current += 0.6;
+      if (x.current >= oneW) x.current -= oneW;
+      ref.current?.scrollTo({ x: x.current, animated: false });
+    }, 25);
+    return () => clearInterval(id);
+  }, [loop, oneW]);
+  const pause = () => { hold.current = Date.now() + 4000; };
+  const set = (p: string) => (
+    <View key={p} style={{ flexDirection: 'row', gap: 8, paddingRight: 8 }} onLayout={p === 'a' ? (e) => setOneW(e.nativeEvent.layout.width) : undefined}>
+      {rows.map((r, k) => (
+        <Pressable key={p + k} onPress={go(r.go)} onPressIn={pause} accessibilityRole="button" style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: 10, width: 210, backgroundColor: '#fff', borderWidth: 1, borderColor: '#ECEEF2', borderRadius: 12, paddingVertical: 9, paddingHorizontal: 12 }, pressed && { opacity: 0.85 }]}>
+          <OphIcon name={r.ic} size={17} color={base.ink} />
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text numberOfLines={1} style={{ fontWeight: '600', color: base.ink, fontSize: 13 }}>{r.t}</Text>
+            {!!r.sub && <Text numberOfLines={1} style={{ fontSize: 11.5, color: base.slate }}>{r.sub}</Text>}
+          </View>
+        </Pressable>
+      ))}
+    </View>
+  );
+  return (
+    <View style={{ marginBottom: space.m }}>
+      <Text style={{ fontWeight: '600', color: base.ink, fontSize: 13, marginBottom: 6 }}>Today</Text>
+      <ScrollView ref={ref} horizontal testID="today-bar" showsHorizontalScrollIndicator={false} scrollEventThrottle={16}
+        onLayout={(e) => setViewW(e.nativeEvent.layout.width)} onTouchStart={pause} onScrollBeginDrag={pause}
+        onScroll={(e) => {
+          if (Date.now() >= hold.current) return;
+          // Dragged by hand: carry on from where it was left (and keep inside the first copy so the loop is seamless).
+          let nx = e.nativeEvent.contentOffset.x;
+          if (loop && nx >= oneW) { nx -= oneW; ref.current?.scrollTo({ x: nx, animated: false }); }
+          x.current = nx; pause();
+        }}>
+        {set('a')}
+        {loop && set('b')}
+      </ScrollView>
+    </View>
   );
 }
