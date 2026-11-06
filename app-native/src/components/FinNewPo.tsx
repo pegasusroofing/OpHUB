@@ -8,7 +8,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as DocumentPicker from 'expo-document-picker';
 import { router } from 'expo-router';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ComponentRef, type ReactNode } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { DateBox, todayIso } from '@/components/DateField';
@@ -104,6 +104,10 @@ export function FinNewPo({ site: site0, itemIds = [], toTop }: { site?: Site | n
   const [showShop, setShowShop] = useState(true); // the project quote panel; ✕ closes it and the PO goes full width
   const [upBusy, setUpBusy] = useState('');
   const [fullCodes, setFullCodes] = useState(false); // cost codes: just the number unless asked
+  // + Add Line puts the cursor in the new line's description (Andy, 6 Nov 2026).
+  const descRefs = useRef<(ComponentRef<typeof TextInput> | null)[]>([]);
+  const [focusAt, setFocusAt] = useState<number | null>(null);
+  useEffect(() => { if (focusAt == null || !descRefs.current[focusAt]) return; descRefs.current[focusAt]?.focus(); setFocusAt(null); }, [focusAt, lines.length]);
   const [saved, setSaved] = useState<{ id: string; number: string } | null>(null); // after Save Draft / Raise PO
   const [statusNow, setStatusNow] = useState<'draft' | 'open' | ''>('');
   const [panel, setPanel] = useState<'quote' | 'pdf'>('quote'); // the right-hand panel: the project quote, or the PO PDF
@@ -304,7 +308,7 @@ export function FinNewPo({ site: site0, itemIds = [], toTop }: { site?: Site | n
       : <TypePick label={`Line ${i + 1} job`} value={l.site_id} options={lineJobOpts} onChange={(v) => { if (v === '__split') { set(i, { alloc: [{ site_id: l.site_id || site.id, pct: 50 }, { site_id: '', pct: 50 }] }); setOpenSplit(i); } else setJob(i, v); }} placeholder="Job" listWidth={300} style={[box, cell]} />}</View>;
     const onMain = !split?.length && !l.alloc?.length && (l.site_id || site.id) === site.id;
     const plot = !hasPlots ? null : <View style={{ width: desk ? W.plot : 110 }}>{onMain ? <TypePick label={`Line ${i + 1} plot`} value={l.sub || ''} options={plotOpts} onChange={(v) => set(i, { sub: v || undefined })} listWidth={240} style={[box, cell]} /> : <View style={[box, { paddingVertical: 6, backgroundColor: '#F6F7F9' }]}><Text style={{ textAlign: 'center', color: base.slate, fontSize: 13 }}>—</Text></View>}</View>;
-    const desc = <TextInput accessibilityLabel={`Line ${i + 1} description`} value={l.description} onChangeText={(v) => set(i, { description: v })} placeholder="Description" style={[box, { flex: 1, minWidth: 0, paddingVertical: 5, fontSize: 13.5, textAlign: 'left' }]} />;
+    const desc = <TextInput ref={(r) => { descRefs.current[i] = r; }} accessibilityLabel={`Line ${i + 1} description`} value={l.description} onChangeText={(v) => set(i, { description: v })} placeholder="Description" style={[box, { flex: 1, minWidth: 0, paddingVertical: 5, fontSize: 13.5, textAlign: 'left' }]} />;
     const nums = (
       <>
         <TextInput accessibilityLabel="Qty" value={l.qty} onChangeText={(v) => set(i, { qty: v.replace(/[^0-9.]/g, '') })} placeholder="Qty" keyboardType="decimal-pad" style={[box, cell, { width: W.qty }]} />
@@ -411,7 +415,7 @@ export function FinNewPo({ site: site0, itemIds = [], toTop }: { site?: Site | n
         )}
         {lines.map(lineRow)}
         <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginTop: 4 }}>
-          <Button small kind="ghost" title="+ Add Line" onPress={() => setLines((ls) => [...ls, blank(ls[ls.length - 1]?.vat || vat0, site.id || ls[ls.length - 1]?.site_id || '')])} />
+          <Button small kind="ghost" title="+ Add Line" onPress={() => { setLines((ls) => [...ls, blank(ls[ls.length - 1]?.vat || vat0, site.id || ls[ls.length - 1]?.site_id || '')]); setFocusAt(lines.length); }} />
           <View style={{ marginLeft: 'auto', alignItems: 'flex-end', gap: 2 }}>
             <Text style={{ color: base.slate }}>Subtotal {money(net)}</Text>
             {tots.byVat.map((b) => <Text key={b.code} style={{ color: base.slate }}>{b.name} on {money(b.net)}: {money(b.vat)}</Text>)}

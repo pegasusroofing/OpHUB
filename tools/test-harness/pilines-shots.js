@@ -23,6 +23,21 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   await page.getByLabel('Line 2 cost code').click(); await page.waitForTimeout(300); await page.getByText('P200 – Plant hire').last().click(); await page.waitForTimeout(300);
   const y = async (l) => Math.round((await page.getByLabel(l).boundingBox()).y);
   check(Math.abs(await y('Line 1 job') - await y('Line 1 VAT')) < 3, 'beside the PDF: the description, then job, code and figures on one row');
+  check(await page.getByText('Description', {exact: true}).count() >= 2, 'beside the PDF each line has its own Description heading');
+  const x = async (l) => Math.round((await page.getByLabel(l, {exact: true}).last().boundingBox()).x);
+  check(await x('Project') < await x('Allocate To PO') && await x('Allocate To PO') < await x('Due date'), 'Project, then Allocate To PO, then Due Date on the right');
+  // The drop-down list floats over the page: its top item is what's under the pointer.
+  await page.getByLabel('Line 1 cost code').click(); await page.waitForTimeout(400);
+  const it = page.getByText('P200 – Plant hire').last(); const b = await it.boundingBox();
+  const hit = await page.evaluate(([px, py]) => document.elementFromPoint(px, py)?.textContent || '', [b.x + 20, b.y + b.height / 2]);
+  check(hit.includes('P200'), 'the cost code list sits on top of the page (' + hit.slice(0, 30) + ')');
+  await page.screenshot({path: 'shots/job/pilines-drop-1500.png'});
+  await page.keyboard.press('Escape'); await page.getByLabel('Line 2 description').click();
+  // Tab to + Add A Line and press Enter: the cursor lands in the new line's description.
+  await page.getByRole('button', {name: '+ Add A Line'}).focus(); await page.keyboard.press('Enter'); await page.waitForTimeout(500);
+  check(await page.evaluate(() => document.activeElement?.getAttribute('aria-label')) === 'Line 3 description', 'Enter on + Add A Line goes to the new line’s description');
+  await page.keyboard.type('Ridge tiles'); check(await page.getByLabel('Line 3 description').inputValue() === 'Ridge tiles', 'and you can keep typing');
+  await page.getByLabel('Remove line 3').click(); await page.waitForTimeout(300);
   check(await page.getByLabel('Line 2 cost code').inputValue() === 'P200', 'the cost code shows just the number');
   check(await page.getByLabel('Allocate To PO').count() >= 1, 'Allocate To PO');
   await page.screenshot({path: 'shots/job/pilines-pdf-1500.png'});

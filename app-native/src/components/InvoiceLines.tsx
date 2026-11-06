@@ -6,10 +6,10 @@
 // several projects by % (⇄), which must add up to 100%.
 // 6 Nov 2026 (Andy: "isn't nice to look at or simple to use"): laid out like the PO lines. Keyboard drop-downs for the
 // job, cost code, unit and VAT; cost codes show just the number unless Show Code Descriptions is ticked. Wide: one row
-// per line. Narrower (beside the PDF): the description on its own line, then Job, Code and the figures in one row
-// under one set of headings, everything centred.
+// per line. Narrower (beside the PDF): each line has Description over its description, then the headings and Job,
+// Code and the figures in one row under them, everything centred.
 import { useQuery } from '@tanstack/react-query';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ComponentRef, type ReactNode } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { pickJob } from '@/components/FinSales';
@@ -52,6 +52,10 @@ export function InvoiceLines({ lines: lines0, checks, sites, read, onChange, rea
   const [cardW, setCardW] = useState(0);
   const [splitAt, setSplitAt] = useState<number | null>(null);
   const [fullCodes, setFullCodes] = useState(false);
+  // + Add A Line (a click, or Tab to it and Enter) puts the cursor in the new line's description (Andy, 6 Nov 2026).
+  const descRefs = useRef<(ComponentRef<typeof TextInput> | null)[]>([]);
+  const [focusAt, setFocusAt] = useState<number | null>(null);
+  useEffect(() => { if (focusAt == null || !descRefs.current[focusAt]) return; descRefs.current[focusAt]?.focus(); setFocusAt(null); }, [focusAt, lines0.length]);
   // One row per line whenever it fits (beside the PDF too, with tighter columns); two rows only when narrow.
   const wide = cardW >= 680, tight = cardW < 960, phone = cardW > 0 && cardW < 520;
   // The company's cost codes (numbers); without any, the plain categories.
@@ -102,15 +106,20 @@ export function InvoiceLines({ lines: lines0, checks, sites, read, onChange, rea
   const total = (l: Line) => <View style={{ height: 32, justifyContent: 'center' }}><Text style={{ fontWeight: '600', color: base.ink, textAlign: 'center', fontSize: 13.5 }}>{money(lineValue(l))}</Text></View>;
   const drop = (k: number) => (readOnly ? null : <Pressable accessibilityRole="button" accessibilityLabel={`Remove line ${k + 1}`} hitSlop={6} onPress={() => { onChange(lines.filter((_, j) => j !== k)); setSplitAt(null); }} style={{ width: 20, height: 32, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#9ca3af', fontSize: 15 }}>✕</Text></Pressable>);
   const note = (k: number) => { const c = cheque(checks[k]); return c ? <Text style={{ color: c.col, fontSize: 11.5, fontWeight: '500', marginTop: 4 }}>{c.t}</Text> : null; };
-  const desc = (k: number, l: Line) => <TextInput editable={!readOnly} accessibilityLabel={`Line ${k + 1} description`} value={l.description ?? ''} onChangeText={(t) => set(k, { description: t })} placeholder="Description" style={box} />;
+  const desc = (k: number, l: Line) => <TextInput ref={(r) => { descRefs.current[k] = r; }} editable={!readOnly} accessibilityLabel={`Line ${k + 1} description`} value={l.description ?? ''} onChangeText={(t) => set(k, { description: t })} placeholder="Description" style={box} />;
   const cell = (w: number | 'flex', child: ReactNode, z = 0) => <View style={[w === 'flex' ? { flex: 1, minWidth: 120 } : { width: w }, z ? { zIndex: z } : null]}>{child}</View>;
   const H = (t: string, align: 'left' | 'center' | 'right' = 'center') => <Text style={[head, { textAlign: align }]}>{t}</Text>;
   // Column widths. Wide: one row. Narrower: the figures share the second row.
   const CW = tight ? { job: 74, code: fullCodes ? 180 : 66, qty: 48, unit: 58, rate: 74, disc: 46, vat: 56, total: 76, x: 20 } : { job: 92, code: fullCodes ? 210 : 80, qty: 58, unit: 66, rate: 84, disc: 56, vat: 64, total: 84, x: 20 };
   const FIG = phone ? { job: 0, code: 0, qty: 0.8, unit: 0.9, rate: 1.1, disc: 0.75, vat: 0.85, total: 1.25 } : { job: noJob ? 0 : 1.05, code: fullCodes ? 2.4 : 0.95, qty: 0.75, unit: 0.85, rate: 1.05, disc: 0.7, vat: 0.8, total: 1.15 };
   const fcell = (f: number, child: ReactNode, z = 0) => <View style={[{ flex: f, minWidth: 0 }, z ? { zIndex: z } : null]}>{child}</View>;
+  const figHead = (
+    <View style={{ flexDirection: 'row', gap: 6, marginTop: 8, marginBottom: 3 }}>
+      {!phone && !noJob && fcell(FIG.job, H('Job'))}{!phone && fcell(FIG.code, H(costHeading))}{fcell(FIG.qty, H('Qty'))}{fcell(FIG.unit, H('Unit'))}{fcell(FIG.rate, H('£ Each'))}{fcell(FIG.disc, H('Disc %'))}{fcell(FIG.vat, H('VAT'))}{fcell(FIG.total, H('Total'))}{!readOnly && <View style={{ width: 20 }} />}
+    </View>
+  );
   const figures = (k: number, l: Line) => (
-    <View style={{ flexDirection: 'row', gap: 6, marginTop: 6 }}>
+    <View style={{ flexDirection: 'row', gap: 6 }}>
       {!phone && showJob && fcell(FIG.job, job(k, l), 5)}{!phone && fcell(FIG.code, cost(k, l), 4)}{fcell(FIG.qty, qty(k, l))}{fcell(FIG.unit, unit(k, l), 3)}{fcell(FIG.rate, rate(k, l))}{fcell(FIG.disc, disc(k, l))}{fcell(FIG.vat, vat(k, l), 2)}{fcell(FIG.total, total(l))}{!readOnly && <View style={{ width: 20 }} />}
     </View>
   );
@@ -158,18 +167,12 @@ export function InvoiceLines({ lines: lines0, checks, sites, read, onChange, rea
           {codes.length > 0 && <Pressable onPress={() => setFullCodes(!fullCodes)}><Text style={{ color: base.blue, fontSize: 12.5 }}>{fullCodes ? 'Codes Only' : 'Show Code Descriptions'}</Text></Pressable>}
           {!readOnly && lines.length > 0 && <Pressable onPress={() => void bulk()} accessibilityRole="button" style={{ borderWidth: 1, borderColor: base.line, borderRadius: 7, paddingHorizontal: 10, height: 28, justifyContent: 'center' }}><Text style={{ fontSize: 12.5, fontWeight: '500', color: base.ink }}>Bulk Edit ▾</Text></Pressable>}
         </View>
-        {/* Headings once at the top. */}
-        <View style={{ paddingBottom: 5, borderBottomWidth: 1, borderBottomColor: base.line }}>
-          {wide ? (
+        {/* Wide: the headings once at the top. Narrower: each line has its own (Andy, 6 Nov 2026). */}
+        <View style={wide ? { paddingBottom: 5, borderBottomWidth: 1, borderBottomColor: base.line } : { borderBottomWidth: 1, borderBottomColor: base.line }}>
+          {wide && (
             <View style={{ flexDirection: 'row', gap: 6 }}>
               {cell('flex', H('Description', 'left'))}{showJob && cell(CW.job, H('Job'))}{cell(CW.code, H(costHeading))}{cell(CW.qty, H('Qty'))}{cell(CW.unit, H('Unit'))}{cell(CW.rate, H('£ Each'))}{cell(CW.disc, H('Disc %'))}{cell(CW.vat, H('VAT'))}{cell(CW.total, H('Total'))}{!readOnly && cell(CW.x, null)}
             </View>
-          ) : (
-            <>
-              <View style={{ flexDirection: 'row', gap: 6 }}>
-                {!phone && showJob && fcell(FIG.job, H('Job'))}{!phone && fcell(FIG.code, H(costHeading))}{fcell(FIG.qty, H('Qty'))}{fcell(FIG.unit, H('Unit'))}{fcell(FIG.rate, H('£ Each'))}{fcell(FIG.disc, H('Disc %'))}{fcell(FIG.vat, H('VAT'))}{fcell(FIG.total, H('Total'))}{!readOnly && <View style={{ width: 20 }} />}
-              </View>
-            </>
           )}
         </View>
         {lines.map((l, k) => (
@@ -180,13 +183,18 @@ export function InvoiceLines({ lines: lines0, checks, sites, read, onChange, rea
               </View>
             ) : phone ? (
               <>
+                <Text style={[head, { marginBottom: 3 }]}>Description</Text>
                 <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>{cell('flex', desc(k, l))}{drop(k)}</View>
-                <View style={{ flexDirection: 'row', gap: 6, marginTop: 6, zIndex: 5 }}>{showJob && cell('flex', job(k, l), 4)}{cell('flex', cost(k, l), 3)}{!readOnly && <View style={{ width: 20 }} />}</View>
-                {figures(k, l)}
+                <View style={{ flexDirection: 'row', gap: 6, marginTop: 8 }}>{showJob && fcell(1, H('Job'))}{fcell(1, H(costHeading))}{!readOnly && <View style={{ width: 20 }} />}</View>
+                <View style={{ flexDirection: 'row', gap: 6, marginTop: 3, zIndex: 5 }}>{showJob && cell('flex', job(k, l), 4)}{cell('flex', cost(k, l), 3)}{!readOnly && <View style={{ width: 20 }} />}</View>
+                {figHead}
+                <View style={{ zIndex: 4 }}>{figures(k, l)}</View>
               </>
             ) : (
               <>
+                <Text style={[head, { marginBottom: 3 }]}>Description</Text>
                 <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>{cell('flex', desc(k, l))}{drop(k)}</View>
+                {figHead}
                 <View style={{ zIndex: 5 }}>{figures(k, l)}</View>
               </>
             )}
@@ -195,7 +203,7 @@ export function InvoiceLines({ lines: lines0, checks, sites, read, onChange, rea
           </View>
         ))}
         {!readOnly && (
-          <Pressable accessibilityRole="button" onPress={() => onChange([...lines, blankLine(defaultSite)])} style={{ alignSelf: 'flex-start', marginTop: 10, borderWidth: 1, borderColor: base.line, borderRadius: 7, paddingHorizontal: 10, height: 30, justifyContent: 'center', backgroundColor: '#fff' }}>
+          <Pressable accessibilityRole="button" onPress={() => { onChange([...lines, blankLine(defaultSite)]); setFocusAt(lines.length); }} style={{ alignSelf: 'flex-start', marginTop: 10, borderWidth: 1, borderColor: base.line, borderRadius: 7, paddingHorizontal: 10, height: 30, justifyContent: 'center', backgroundColor: '#fff' }}>
             <Text style={{ fontSize: 12.5, fontWeight: '600', color: '#111827' }}>+ Add A Line</Text>
           </Pressable>
         )}

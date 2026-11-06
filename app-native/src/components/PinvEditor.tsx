@@ -174,9 +174,9 @@ export function PinvEditor({ inbox, siteId: site0, poId: po0, start }: { inbox?:
             {field(receipt ? 'Date' : 'Invoice Date', <DateBox value={date} onChange={setDate} title="Invoice date" clearable={false} />, 150)}
           </View>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 10 }}>
-            {field('Due Date', <DateBox value={due} onChange={setDue} title="Due date" placeholder={date ? fdate(addDays(date, 30)) : 'Choose'} />, 140)}
             {field('Project (for new lines)', choice('Project', siteId ? jobTag(site(siteId)) : 'Choose the project', () => void chooseSite(), !siteId), 190)}
             {field('Allocate To PO', choice('Allocate To PO', poId ? pos.find((p) => p.id === poId)?.number || 'PO' : 'No PO', () => { if (!siteId) { toast('Choose the project first.'); return; } void choosePo(); }), 140)}
+            {field('Due Date', <DateBox value={due} onChange={setDue} title="Due date" placeholder={date ? fdate(addDays(date, 30)) : 'Choose'} />, 140)}
           </View>
           {!inbox && <View style={{ marginTop: 8 }}><Check label="This is a receipt (no invoice number)" value={receipt} onChange={setReceipt} /></View>}
         </Card>
