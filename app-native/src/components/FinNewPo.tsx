@@ -7,20 +7,20 @@
 // ("310 – Materials") when it has any, otherwise the cost types.
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as DocumentPicker from 'expo-document-picker';
-import { router } from 'expo-router';
+import { router, Stack } from 'expo-router';
 import { useEffect, useRef, useState, type ComponentRef, type ReactNode } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { DateBox, todayIso } from '@/components/DateField';
 import { SelectBox } from '@/components/SelectBox';
 import { SuggestField } from '@/components/SuggestField';
-import { useToast } from '@/components/toast';
+import { confirmAsk, useToast } from '@/components/toast';
 import { pickJob } from '@/components/FinSales';
 import { TypePick, type PickOpt } from '@/components/TypePick';
 import { NumText } from '@/components/NumText';
 import { PdfPages } from '@/components/DocViewer';
 import { FinEmailPopup } from '@/components/FinEmailPopup';
-import { emailPo, filePoPdf } from '@/data/finPurchase';
+import { emailPo, filePoPdf, setPoStatusWithRequests } from '@/data/finPurchase';
 import { buildPoPdf } from '@/lib/finPoPdf';
 import { deliverPdf } from '@/lib/pdf';
 import { DEFAULT_UNITS, UnitField } from '@/components/UnitField';
@@ -41,6 +41,7 @@ const OFFLOAD = ['Hiab / Crane Offload', 'Forklift On Site', 'Hand Unload', 'Tai
 const TIMES: [string, string][] = [['', 'Any Time'], ['First Thing (Before 9)', 'First Thing (Before 9)'], ['AM (8–12)', 'AM (8–12)'], ['PM (12–5)', 'PM (12–5)'], ['Timed — See Notes', 'Timed — See Notes']];
 type QItem = { id: string; quote_id: string; code: string | null; description: string | null; unit: string | null; rate: number | null; supplier_name: string | null };
 type Line = { alloc?: Alloc[]; sub?: string; // sub: the plot on the main project (Andy, 5 Nov 2026)
+  keep?: Record<string, unknown>; // a saved line's other details (e.g. the site request it came from), kept as they are
   site_id: string; description: string; qty: string; unit: string; rate: string; disc: string; cost_code: string; cost_code_id: string | null; vat: string };
 type Code = { id: string; code: string | null; name: string; category: string | null; active: boolean | null };
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, paddingHorizontal: 8, paddingVertical: 7, color: base.ink, backgroundColor: base.card };
@@ -50,8 +51,9 @@ const th = { fontSize: 11, fontWeight: '600' as const, color: base.slate };
 const cell = { paddingVertical: 5, fontSize: 13.5, textAlign: 'center' as const };
 
 /** site: the project when opened from one; otherwise it's chosen on the form (Andy, 5 Nov 2026: no job picker first). */
-/** toTop: scrolls the page to the top (View PO shows the PO there; Andy, 5 Nov 2026). */
-export function FinNewPo({ site: site0, itemIds = [], toTop }: { site?: Site | null; itemIds?: string[]; toTop?: () => void }) {
+/** toTop: scrolls the page to the top (View PO shows the PO there; Andy, 5 Nov 2026).
+ *  po: a saved PO, opened here to change, view, email or delete (Andy, 7 Nov 2026: no separate PO page). */
+export function FinNewPo({ site: site0, itemIds = [], toTop, po }: { site?: Site | null; itemIds?: string[]; toTop?: () => void; po?: Record<string, any> | null }) {
   const { me, org } = useAuth();
   const toast = useToast();
   const desk = useDesk();
@@ -68,16 +70,22 @@ export function FinNewPo({ site: site0, itemIds = [], toTop }: { site?: Site | n
   const vats = vatList(setup?.st as never).filter((v) => v.active);
   const vat0 = String((setup?.st as { po_vat_default?: string } | undefined)?.po_vat_default || '20');
   const blank = (v = vat0, sid = site.id): Line => ({ site_id: sid, description: '', qty: '1', unit: '', rate: '', disc: '', cost_code: 'materials', cost_code_id: null, vat: v });
-  const [lines, setLines] = useState<Line[]>([blank()]);
-  const [supText, setSupText] = useState('');
-  const [supId, setSupId] = useState<string | null>(null);
+  // A saved PO's lines back into the form: rate before discount, the discount, the job, a split, the plot, the cost code.
+  const fromItems = (items: Record<string, any>[]): Line[] => items.map((it) => {
+    const { item, qty, unit, rate, list_rate, discount_pct, cost_code, cost_code_id, site_id, alloc, sub_job_id, vat_rate, amount: _a, vat: _v, ...rest } = it; void _a; void _v;
+    return { description: String(item || ''), qty: qty != null ? String(qty) : '', unit: unit || '', rate: list_rate != null ? String(list_rate) : rate != null ? String(rate) : '', disc: discount_pct ? String(discount_pct) : '', cost_code: cost_code || 'materials', cost_code_id: cost_code_id ?? null, site_id: site_id || po?.site_id || '', ...(Array.isArray(alloc) && alloc.length > 1 ? { alloc } : {}), ...(sub_job_id ? { sub: sub_job_id } : {}), vat: vat_rate != null ? String(vat_rate) : vat0, ...(Object.keys(rest).length ? { keep: rest } : {}) };
+  });
+  const [lines, setLines] = useState<Line[]>(() => (po && Array.isArray(po.items) && po.items.length ? fromItems(po.items) : [blank()]));
+  const [supText, setSupText] = useState(po ? String(po.supplier_name || '') : '');
+  const [supId, setSupId] = useState<string | null>(po ? po.supplier_id || null : null);
   const [newEmail, setNewEmail] = useState('');
-  const [delivery, setDelivery] = useState<'delivery' | 'collection'>('delivery');
-  const [req, setReq] = useState('');
-  const [ref, setRef] = useState('');
-  const [note, setNote] = useState('');
-  const [contact, setContact] = useState('');
-  const [contactPh, setContactPh] = useState('');
+  const [delivery, setDelivery] = useState<'delivery' | 'collection'>(po ? po.fulfilment === 'collection' ? 'collection' : 'delivery' : 'delivery');
+  const [req, setReq] = useState(po ? String(po.required_by || '') : '');
+  const [ref, setRef] = useState(po ? String(po.reference || '') : '');
+  // The saved note starts with "Site contact: …" (added when saving); that part is the contact boxes, not the note.
+  const [note, setNote] = useState(po ? String(po.note || '').replace(/^Site contact: [^\n]*\n?/, '') : '');
+  const [contact, setContact] = useState(po ? String(po.site_contact || '') : '');
+  const [contactPh, setContactPh] = useState(po ? String(po.site_contact_phone || '') : '');
   const { data: team } = useQuery({ queryKey: ['finPoTeam', site.id], enabled: !!site.id, queryFn: async () => {
     const a = ((await fdb.from('site_assignments').select('user_id').eq('site_id', site.id)).data as { user_id: string }[] | null) ?? [];
     const ids = [...a.map((x) => x.user_id), (site as { responsible_pm_id?: string | null }).responsible_pm_id].filter(Boolean) as string[];
@@ -88,10 +96,10 @@ export function FinNewPo({ site: site0, itemIds = [], toTop }: { site?: Site | n
   const applySupVat = (id: string, name: string) => { const v = finSups?.find((x) => x.supplier_id === id || x.name.trim().toLowerCase() === name.trim().toLowerCase())?.purchase_vat; if (v && vats.some((x) => x.code === v)) setLines((ls) => ls.map((l) => ({ ...l, vat: v }))); };
   const [busy, setBusy] = useState(false);
   // Delivery (Andy, 5 Nov 2026): the job address by default, or the office, or typed; a time; what's needed to offload.
-  const [deliverTo, setDeliverTo] = useState<'job' | 'office' | 'other'>('job');
-  const [addrTyped, setAddrTyped] = useState('');
-  const [delTime, setDelTime] = useState('');
-  const [offload, setOffload] = useState<string[]>([]);
+  const [deliverTo, setDeliverTo] = useState<'job' | 'office' | 'other'>(po ? po.delivery_to === 'office' || po.delivery_to === 'other' ? po.delivery_to : 'job' : 'job');
+  const [addrTyped, setAddrTyped] = useState(po ? po.delivery_to === 'other' ? String(po.delivery_address || '') : '' : '');
+  const [delTime, setDelTime] = useState(po ? String(po.delivery_time || '') : '');
+  const [offload, setOffload] = useState<string[]>(po ? Array.isArray(po.offload) ? po.offload : [] : []);
   const jobAddr = [(site as Record<string, any>).address, (site as Record<string, any>).postcode].filter(Boolean).join(', ');
   const officeAddr = String((setup?.st as Record<string, any> | undefined)?.company_address || '').replace(/\s*\n\s*/g, ', ');
   // The project's quotes and the price lists, as a shopping list: tick what you want and add it (Andy, 5 Nov 2026).
@@ -102,19 +110,29 @@ export function FinNewPo({ site: site0, itemIds = [], toTop }: { site?: Site | n
     return { list: mine, items };
   } });
   const [qPick, setQPick] = useState('');
-  const [showShop, setShowShop] = useState(true); // the project quote panel; ✕ closes it and the PO goes full width
+  const [showShop, setShowShop] = useState(desk && !po); // the project quote panel; ✕ closes it and the PO goes full width. Closed on a phone, and on a saved PO.
   const [upBusy, setUpBusy] = useState('');
   const [fullCodes, setFullCodes] = useState(false); // cost codes: just the number unless asked
   // + Add Line puts the cursor in the new line's description (Andy, 6 Nov 2026).
   const descRefs = useRef<(ComponentRef<typeof TextInput> | null)[]>([]);
   const [focusAt, setFocusAt] = useState<number | null>(null);
   useEffect(() => { if (focusAt == null || !descRefs.current[focusAt]) return; descRefs.current[focusAt]?.focus(); setFocusAt(null); }, [focusAt, lines.length]);
-  const [saved, setSaved] = useState<{ id: string; number: string } | null>(null); // after Save Draft / Raise PO
-  const [statusNow, setStatusNow] = useState<'draft' | 'open' | ''>('');
+  const [saved, setSaved] = useState<{ id: string; number: string } | null>(po ? { id: po.id, number: po.number } : null); // after Save Draft / Raise PO
+  const [statusNow, setStatusNow] = useState<'draft' | 'open' | ''>(po ? (po.is_draft ? 'draft' : 'open') : '');
+  // A cancelled or fully invoiced PO is shown, not changed (Reopen it below to change it).
+  const fixed = !!po && (po.status === 'cancelled' || po.status === 'invoiced');
   const [panel, setPanel] = useState<'quote' | 'pdf'>('quote'); // the right-hand panel: the project quote, or the PO PDF
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-  const [toCal, setToCal] = useState(true); // put the delivery / collection date on the project calendar
-  const [toFolder, setToFolder] = useState(true); // file the PO PDF in the project's PO folder (Materials › Finance POs)
+  // Add the date to the project calendar / file the PDF in the project's PO folder: unticked to start; ticking asks, then it
+  // can't be unticked (Andy, 7 Nov 2026). A saved PO starts ticked for whichever is already done.
+  const [toCal, setToCal] = useState(false);
+  const [toFolder, setToFolder] = useState(false);
+  const { data: linked } = useQuery({ queryKey: ['finPoLinked', po?.id], enabled: !!po?.id, queryFn: async () => ({
+    cal: (((await fdb.from('site_calendar_events').select('id').eq('site_id', po?.site_id as string).like('title', `PO ${po?.number} %`).limit(1)).data as unknown[] | null) ?? []).length > 0,
+    folder: (((await fdb.from('material_order_files').select('id').eq('site_id', po?.site_id as string).ilike('file_name', `%${po?.number}%`).limit(1)).data as unknown[] | null) ?? []).length > 0,
+  }) });
+  if (linked && linked.cal && !toCal) setToCal(true);
+  if (linked && linked.folder && !toFolder) setToFolder(true);
   const [viewedKey, setViewedKey] = useState(''); // what the PDF on screen was made from
   const [pdfW, setPdfW] = useState(0); // the panel's width, so the PDF fits it
   const [mailRow, setMailRow] = useState<{ row: Record<string, any>; to: string } | null>(null);
@@ -152,7 +170,7 @@ export function FinNewPo({ site: site0, itemIds = [], toTop }: { site?: Site | n
     if (status === 'open' && deliverTo === 'other' && delivery === 'delivery' && !addrTyped.trim()) return no('Type the delivery address.');
     const items = lines.filter((l) => l.description.trim()).map((l) => {
       const d = dsc(l), r = num(l.rate);
-      return { item: l.description.trim(), qty: num(l.qty), unit: l.unit.trim() || null, rate: r === null || isNaN(r) ? null : r4(r * (1 - d / 100)), ...(d ? { list_rate: r, discount_pct: d } : {}), amount: amt(l), cost_code: l.cost_code || 'materials', ...(codes.length && (l.cost_code_id ?? codeFor(l.cost_code)) ? { cost_code_id: l.cost_code_id ?? codeFor(l.cost_code) } : {}), site_id: mainSite([{ ...l, site_id: l.site_id || site.id }], split, site.id), ...(allocOf({ ...l, site_id: l.site_id || site.id }, split).length > 1 ? { alloc: allocOf({ ...l, site_id: l.site_id || site.id }, split) } : {}), vat_rate: l.vat, vat: lineVat(l, pv), ...(l.sub && !split?.length && !l.alloc?.length && (l.site_id || site.id) === site.id ? { sub_job_id: l.sub } : {}) };
+      return { ...(l.keep || {}), item: l.description.trim(), qty: num(l.qty), unit: l.unit.trim() || null, rate: r === null || isNaN(r) ? null : r4(r * (1 - d / 100)), ...(d ? { list_rate: r, discount_pct: d } : {}), amount: amt(l), cost_code: l.cost_code || 'materials', ...(codes.length && (l.cost_code_id ?? codeFor(l.cost_code)) ? { cost_code_id: l.cost_code_id ?? codeFor(l.cost_code) } : {}), site_id: mainSite([{ ...l, site_id: l.site_id || site.id }], split, site.id), ...(allocOf({ ...l, site_id: l.site_id || site.id }, split).length > 1 ? { alloc: allocOf({ ...l, site_id: l.site_id || site.id }, split) } : {}), vat_rate: l.vat, vat: lineVat(l, pv), ...(l.sub && !split?.length && !l.alloc?.length && (l.site_id || site.id) === site.id ? { sub_job_id: l.sub } : {}) };
     });
     if (!items.length) return no('Add at least one item.');
     setBusy(true);
@@ -180,7 +198,7 @@ export function FinNewPo({ site: site0, itemIds = [], toTop }: { site?: Site | n
       // The plot list is this job's plots: it only applies if the PO stayed on this job.
       const onSite = items.filter((x) => x.site_id === poSite), plots = new Set(onSite.map((x) => (x as { sub_job_id?: string }).sub_job_id || ''));
       const plot = poSite === site.id && plots.size === 1 ? [...plots][0] : '';
-      const patch = { status: 'open', is_draft: status === 'draft', supplier_id: id, supplier_name: name, items, value: net, required_by: req || null, fulfilment: delivery, note: noteText, vat, total: r2(net + vat), delivery_to: delivery === 'delivery' ? deliverTo : null, delivery_address: delivery === 'delivery' ? (deliverTo === 'office' ? officeAddr : deliverTo === 'other' ? addrTyped.trim() : jobAddr) || null : null, delivery_time: delTime || null, offload: offload.length ? offload : null, reference: ref.trim() || null, issue_date: todayIso(), site_contact: contact.trim() || null, site_contact_phone: contactPh.trim() || null, sub_job_id: plot || null, ...(poSplit ? { split: poSplit, split_sites: sids.filter((x) => x !== poSite) } : { split: null, split_sites: null }) };
+      const patch = { status: 'open', is_draft: status === 'draft', supplier_id: id, supplier_name: name, items, value: net, required_by: req || null, fulfilment: delivery, note: noteText, vat, total: r2(net + vat), delivery_to: delivery === 'delivery' ? deliverTo : null, delivery_address: delivery === 'delivery' ? (deliverTo === 'office' ? officeAddr : deliverTo === 'other' ? addrTyped.trim() : jobAddr) || null : null, delivery_time: delTime || null, offload: offload.length ? offload : null, reference: ref.trim() || null, issue_date: po?.issue_date || todayIso(), site_contact: contact.trim() || null, site_contact_phone: contactPh.trim() || null, sub_job_id: plot || null, ...(poSplit ? { split: poSplit, split_sites: sids.filter((x) => x !== poSite) } : { split: null, split_sites: null }) };
       const up = await fdb.from('purchase_orders').update(patch as never).eq('id', d.id).select('*');
       const row = ((up.data as Record<string, any>[] | null) ?? [])[0];
       if (!row) return no('Could not save the PO — try again.');
@@ -208,6 +226,34 @@ export function FinNewPo({ site: site0, itemIds = [], toTop }: { site?: Site | n
       const have = ((await fdb.from('site_calendar_events').select('id').eq('site_id', row.site_id).eq('event_date', row.required_by).eq('title', title)).data as unknown[] | null) ?? [];
       if (!have.length) await fdb.from('site_calendar_events').insert({ site_id: row.site_id, org_id: me.org_id, title, event_date: row.required_by, is_private: false, created_by: me.id, reminder_sent: false, reminder_recipient_ids: [] } as never);
     }
+  };
+  // Ticking: a question first, then it's done (straight away if the PO is raised, or when it's raised) and stays ticked.
+  const tick = async (what: 'cal' | 'folder') => {
+    if (fixed || (what === 'cal' ? toCal : toFolder)) return;
+    const q = what === 'cal' ? 'Add this PO’s delivery / collection date to the project calendar? Once ticked it can’t be unticked.' : 'File this PO’s PDF in the project’s PO folder? Once ticked it can’t be unticked.';
+    if (!(await confirmAsk(q, 'Yes, Tick It'))) return;
+    if (what === 'cal') setToCal(true); else setToFolder(true);
+    if (saved && statusNow === 'open') {
+      const row = (await fdb.from('purchase_orders').select('*').eq('id', saved.id).maybeSingle()).data as Record<string, any> | null;
+      if (row) {
+        if (what === 'folder') { try { await filePoPdf(me, row, await pdfOf(row)); toast('Filed in the project’s PO folder', { confirm: true }); } catch { toast('Couldn’t file it — try again.'); } }
+        else if (row.required_by && row.site_id) {
+          const title = `PO ${row.number} ${row.fulfilment === 'collection' ? 'collection' : 'delivery'} — ${row.supplier_name || 'supplier'}`;
+          const have = ((await fdb.from('site_calendar_events').select('id').eq('site_id', row.site_id).eq('event_date', row.required_by).eq('title', title)).data as unknown[] | null) ?? [];
+          if (!have.length) await fdb.from('site_calendar_events').insert({ site_id: row.site_id, org_id: me.org_id, title, event_date: row.required_by, is_private: false, created_by: me.id, reminder_sent: false, reminder_recipient_ids: [] } as never);
+          toast('On the project calendar', { confirm: true });
+        } else toast('It goes on the calendar once the PO has a delivery / collection date and is saved.');
+      }
+    }
+  };
+  // Delete: the PO is cancelled and comes off the lists (kept in the background, never wiped); its site requests too.
+  const deletePo = async () => {
+    if (!saved) return;
+    if (!(await confirmAsk(`Delete PO ${saved.number}? It comes off your lists, and any site requests on it are marked cancelled.${statusNow === 'open' ? ' If you’ve sent it, tell the supplier.' : ''}`, 'Delete'))) return;
+    const n = await setPoStatusWithRequests(me, saved.id, 'cancelled');
+    if (n === null) { toast('Couldn’t delete it — try again.'); return; }
+    void qc.invalidateQueries({ queryKey: ['finPurchases'] }); void qc.invalidateQueries({ queryKey: ['finPo'] });
+    toast(`PO ${saved.number} deleted`, { confirm: true }); router.back();
   };
   const saveDraft = async () => { const row = await persist('draft'); if (row) toast(`Saved as a draft — ${row.number}`, { confirm: true }); };
   const raise = async () => {
@@ -287,6 +333,17 @@ export function FinNewPo({ site: site0, itemIds = [], toTop }: { site?: Site | n
       </Pressable>
       <View style={{ flex: 1, minWidth: 0 }}>{shop}</View>
     </View>
+  ) : !desk ? (
+    pdfPanel || (
+      <View style={{ marginBottom: 10 }}>
+        <Pressable accessibilityRole="button" accessibilityLabel={showShop ? 'Close the project quote' : 'Open the project quote'} onPress={() => setShowShop(!showShop)}
+          style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: base.card, borderWidth: 1, borderColor: '#ECEEF2', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, marginBottom: showShop ? 6 : 0 }}>
+          <Text style={{ flex: 1, fontWeight: '600', color: base.ink }}>From The Project Quote{qList.length ? ` (${qList.length})` : ''}</Text>
+          <Text style={{ color: base.slate, fontSize: 13 }}>{showShop ? '▴' : '▾'}</Text>
+        </Pressable>
+        {showShop && shop}
+      </View>
+    )
   ) : shop;
 
   // Keyboard drop-downs (TypePick): job number, cost code (number only unless Show Descriptions), VAT, and the Unit box.
@@ -301,8 +358,11 @@ export function FinNewPo({ site: site0, itemIds = [], toTop }: { site?: Site | n
   const ctr = { textAlign: 'center' as const };
   const headCell = (t: string, w: number | null, left = false) => <Text key={t || 'x'} style={[th, w ? { width: w } : { flex: 1, minWidth: 0 }, left ? null : ctr]}>{t}</Text>;
   const setJob = (i: number, v: string) => { set(i, { site_id: v }); if (!siteId) setSiteId(v); };
+  // A light grey £ / % inside the box, not taking any room (Andy, 7 Nov 2026).
+  const hint = (t: string, right?: boolean) => <Text pointerEvents="none" style={{ position: 'absolute', [right ? 'right' : 'left']: 7, top: 0, bottom: 0, textAlignVertical: 'center', lineHeight: 32, fontSize: 12, color: '#B8BDC5' }}>{t}</Text>;
   const lineRow = (l: Line, i: number) => {
-    const del = lines.length > 1 ? <Pressable accessibilityLabel="Remove line" hitSlop={8} onPress={() => setLines((ls) => ls.filter((_, j) => j !== i))} style={{ width: W.x, alignItems: 'center' }}><Text style={{ color: base.slate, fontSize: 15 }}>✕</Text></Pressable> : <View style={{ width: W.x }} />;
+    const fromRequest = !!(l.keep as { material_id?: string } | undefined)?.material_id; // a site request's line: taken off with Remove Lines below
+    const del = lines.length > 1 && !fromRequest ? <Pressable accessibilityLabel="Remove line" hitSlop={8} onPress={() => setLines((ls) => ls.filter((_, j) => j !== i))} style={{ width: W.x, alignItems: 'center' }}><Text style={{ color: base.slate, fontSize: 15 }}>✕</Text></Pressable> : desk ? <View style={{ width: W.x }} /> : null;
     const job = <View style={{ width: desk ? W.job : 110 }}>{l.alloc?.length
       ? <Pressable accessibilityRole="button" accessibilityLabel={`Line ${i + 1} split`} onPress={() => setOpenSplit(openSplit === i ? null : i)} style={[box, { paddingVertical: 6, borderColor: splitProblem(l.alloc) ? '#f8e7c2' : base.blue }]}><Text style={{ textAlign: 'center', color: splitProblem(l.alloc) ? '#b45309' : base.blue, fontSize: 13 }}>Split {l.alloc.length}</Text></Pressable>
       : split?.length ? <View style={[box, { paddingVertical: 6, backgroundColor: '#F6F7F9' }]}><Text style={{ textAlign: 'center', color: base.slate, fontSize: 13 }}>Split</Text></View>
@@ -310,16 +370,24 @@ export function FinNewPo({ site: site0, itemIds = [], toTop }: { site?: Site | n
     const onMain = !split?.length && !l.alloc?.length && (l.site_id || site.id) === site.id;
     const plot = !hasPlots ? null : <View style={{ width: desk ? W.plot : 110 }}>{onMain ? <TypePick label={`Line ${i + 1} plot`} value={l.sub || ''} options={plotOpts} onChange={(v) => set(i, { sub: v || undefined })} listWidth={240} style={[box, cell]} /> : <View style={[box, { paddingVertical: 6, backgroundColor: '#F6F7F9' }]}><Text style={{ textAlign: 'center', color: base.slate, fontSize: 13 }}>—</Text></View>}</View>;
     const desc = <TextInput ref={(r) => { descRefs.current[i] = r; }} accessibilityLabel={`Line ${i + 1} description`} value={l.description} onChangeText={(v) => set(i, { description: v })} placeholder="Description" style={[box, { flex: 1, minWidth: 0, paddingVertical: 5, fontSize: 13.5, textAlign: 'left' }]} />;
+    // Each box sized by its holder (a fixed width on a laptop, a share of the row on a phone).
+    const qtyB = <TextInput accessibilityLabel="Qty" value={l.qty} onChangeText={(v) => set(i, { qty: v.replace(/[^0-9.]/g, '') })} placeholder="Qty" keyboardType="decimal-pad" style={[box, cell, { width: '100%' }]} />;
+    const unitB = <UnitField value={l.unit} onChangeText={(v) => set(i, { unit: v })} units={DEFAULT_UNITS} style={[box, cell, { width: '100%' }]} />;
+    const rateB = <View><TextInput accessibilityLabel="Rate" value={l.rate} onChangeText={(v) => set(i, { rate: v.replace(/[^0-9.]/g, '') })} placeholder="0.000" keyboardType="decimal-pad" style={[box, cell, { width: '100%' }]} />{hint('£')}</View>;
+    const discB = <View><TextInput accessibilityLabel="Discount %" value={l.disc} onChangeText={(v) => set(i, { disc: v.replace(/[^0-9.]/g, '') })} placeholder="0" keyboardType="decimal-pad" style={[box, cell, { width: '100%' }]} />{hint('%', true)}</View>;
+    const codeB = <TypePick label={`Line ${i + 1} cost code`} value={codeVal(l)} options={codeOptsK} onChange={(v) => setCode(i, v)} listWidth={280} style={[box, cell]} />;
+    const vatB = <TypePick label={`Line ${i + 1} VAT`} value={l.vat} options={vatOpts} onChange={(v) => set(i, { vat: v })} listWidth={220} style={[box, cell]} />;
     const nums = (
       <>
-        <TextInput accessibilityLabel="Qty" value={l.qty} onChangeText={(v) => set(i, { qty: v.replace(/[^0-9.]/g, '') })} placeholder="Qty" keyboardType="decimal-pad" style={[box, cell, { width: W.qty }]} />
-        <View style={{ width: W.unit }}><UnitField value={l.unit} onChangeText={(v) => set(i, { unit: v })} units={DEFAULT_UNITS} style={[box, cell, { width: W.unit }]} /></View>
-        <TextInput accessibilityLabel="Rate" value={l.rate} onChangeText={(v) => set(i, { rate: v.replace(/[^0-9.]/g, '') })} placeholder="0.000" keyboardType="decimal-pad" style={[box, cell, { width: W.rate }]} />
-        <TextInput accessibilityLabel="Discount %" value={l.disc} onChangeText={(v) => set(i, { disc: v.replace(/[^0-9.]/g, '') })} placeholder="0" keyboardType="decimal-pad" style={[box, cell, { width: W.disc }]} />
-        <View style={{ width: W.code }}><TypePick label={`Line ${i + 1} cost code`} value={codeVal(l)} options={codeOptsK} onChange={(v) => setCode(i, v)} listWidth={280} style={[box, cell]} /></View>
-        <View style={{ width: W.vat }}><TypePick label={`Line ${i + 1} VAT`} value={l.vat} options={vatOpts} onChange={(v) => set(i, { vat: v })} listWidth={220} style={[box, cell]} /></View>
+        <View style={{ width: W.qty }}>{qtyB}</View>
+        <View style={{ width: W.unit }}>{unitB}</View>
+        <View style={{ width: W.rate }}>{rateB}</View>
+        <View style={{ width: W.disc }}>{discB}</View>
+        <View style={{ width: W.code }}>{codeB}</View>
+        <View style={{ width: W.vat }}>{vatB}</View>
       </>
     );
+    const ph = (flex: number, head: string, child: ReactNode, z = 0) => <View style={{ flex, minWidth: 0, zIndex: z }}><Text style={[th, ctr, { marginBottom: 3 }]}>{head}</Text>{child}</View>;
     return desk ? (
       <View key={i} style={{ zIndex: lines.length - i }}>
       <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center', marginBottom: 6 }}>
@@ -330,9 +398,15 @@ export function FinNewPo({ site: site0, itemIds = [], toTop }: { site?: Site | n
       {openSplit === i && !!l.alloc?.length && splitRows(l.alloc, amt(l), (a) => { set(i, a ? { alloc: a } : { alloc: undefined, site_id: l.alloc?.[0]?.site_id || l.site_id }); if (!a) setOpenSplit(null); }, `Line ${i + 1} split across jobs`)}
       </View>
     ) : (
-      <View key={i} style={{ borderTopWidth: i ? 1 : 0, borderTopColor: base.line, paddingTop: i ? 8 : 0, marginBottom: 8, zIndex: lines.length - i }}>
-        <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>{job}{plot}{desc}{del}</View>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6, alignItems: 'center' }}>{nums}<Text style={{ marginLeft: 'auto', fontWeight: '600', color: base.ink }}>{money(amt(l))}</Text></View>
+      <View key={i} style={{ borderTopWidth: i ? 1 : 0, borderTopColor: base.line, paddingTop: i ? 10 : 0, marginBottom: 10, zIndex: lines.length - i }}>
+        <Text style={[th, { marginBottom: 3 }]}>Description</Text>
+        <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>{desc}{del}</View>
+        <View style={{ flexDirection: 'row', gap: 6, marginTop: 8 }}>
+          {ph(1.3, 'Job', job.props.children, 4)}{hasPlots && ph(1.2, 'Plot', plot?.props.children, 3)}{ph(0.9, 'Qty', qtyB)}{ph(1, 'Unit', unitB, 2)}{ph(1.2, '£ Each', rateB)}{ph(0.9, 'Disc %', discB)}
+        </View>
+        <View style={{ flexDirection: 'row', gap: 6, marginTop: 8, alignItems: 'flex-end' }}>
+          {ph(1.3, 'Cost Code', codeB, 2)}{ph(1, 'VAT', vatB, 1)}{ph(1.3, 'Total', <View style={{ height: 32, justifyContent: 'center' }}><Text style={{ textAlign: 'center', fontWeight: '600', color: base.ink }}>{money(amt(l))}</Text></View>)}
+        </View>
         {openSplit === i && !!l.alloc?.length && splitRows(l.alloc, amt(l), (a) => { set(i, a ? { alloc: a } : { alloc: undefined, site_id: l.alloc?.[0]?.site_id || l.site_id }); if (!a) setOpenSplit(null); }, `Line ${i + 1} split across jobs`)}
       </View>
     );
@@ -366,14 +440,15 @@ export function FinNewPo({ site: site0, itemIds = [], toTop }: { site?: Site | n
 
   return (
     <View>
+      {!!saved && <Stack.Screen options={{ title: saved.number }} />}
+      {fixed && <Text style={{ color: base.slate, marginBottom: 8, textAlign: 'center' }}>This PO is {po?.status === 'cancelled' ? 'deleted (cancelled)' : 'fully invoiced'}. Reopen it below to change it.</Text>}
       {/* Who and when on the left, the project quote on the right; then the lines full width; then how, below (Andy, 5 Nov 2026). */}
       <View style={desk ? { flexDirection: 'row', gap: 12, alignItems: 'stretch', marginBottom: 12 } : undefined}>
         <Card style={desk ? { flex: 1, minWidth: 0, marginBottom: 0 } : undefined}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <View style={{ flex: 1 }}><SectionTitle>New Purchase Order</SectionTitle></View>
-            {!showShop && !desk && <Pressable onPress={() => setShowShop(true)}><Text style={{ color: base.blue, fontSize: 13 }}>Show Project Quote</Text></Pressable>}
+            <View style={{ flex: 1 }}><SectionTitle>{saved ? `Purchase Order ${saved.number}${statusNow === 'draft' ? ' (Draft)' : ''}` : 'New Purchase Order'}</SectionTitle></View>
           </View>
-          <SuggestField label="Supplier" value={supText} onChangeText={(t) => { setSupText(t); setSupId(null); }} placeholder="Type to find a supplier, or a new name" showAllOnFocus max={12}
+          <SuggestField label="Supplier" value={supText} onChangeText={(t) => { setSupText(t); setSupId(null); }} placeholder="Type to find a supplier, or a new name" showAllOnFocus={desk} max={12}
             items={(setup?.sups || []).map((s) => ({ key: s.id, label: s.name, sub: s.email || '' }))} onPick={(s) => { setSupId(s.key); setSupText(s.label); applySupVat(s.key, s.label); }} />
           {isNew && <><Muted style={{ marginTop: -6, marginBottom: 6 }}>New supplier — added to your suppliers when the PO is raised.</Muted><TextInput value={newEmail} onChangeText={setNewEmail} placeholder="Supplier's orders email (optional)" autoCapitalize="none" keyboardType="email-address" style={[box, { marginBottom: 8 }]} /></>}
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
@@ -402,12 +477,11 @@ export function FinNewPo({ site: site0, itemIds = [], toTop }: { site?: Site | n
         </Card>
         {side}
       </View>
-      {!desk && showShop && <Pressable onPress={() => setShowShop(false)} style={{ marginBottom: 8 }}><Text style={{ color: base.blue, fontSize: 13 }}>Hide The Project Quote</Text></Pressable>}
       <Card style={{ zIndex: 5 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6, gap: 8 }}>
-          <View style={{ flex: 1 }}><SectionTitle>Lines</SectionTitle></View>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', marginBottom: 6, gap: 8 }}>
+          <View style={{ flexGrow: 1, minWidth: 90 }}><SectionTitle>Lines</SectionTitle></View>
           {codes.length > 0 && <Pressable onPress={() => setFullCodes(!fullCodes)}><Text style={{ color: base.blue, fontSize: 12.5 }}>{fullCodes ? 'Codes Only' : 'Show Code Descriptions'}</Text></Pressable>}
-          <View style={{ width: 200 }}><SelectBox value={lines[0]?.vat || vat0} title="VAT for all lines" options={vats.map((v) => [v.code, v.name] as [string, string])} onChange={(k) => setLines((ls) => ls.map((l) => ({ ...l, vat: k })))} style={{ marginBottom: 0 }} /></View>
+          <View style={{ width: desk ? 200 : '100%' }}><SelectBox value={lines[0]?.vat || vat0} title="VAT for all lines" options={vats.map((v) => [v.code, v.name] as [string, string])} onChange={(k) => setLines((ls) => ls.map((l) => ({ ...l, vat: k })))} style={{ marginBottom: 0 }} /></View>
         </View>
         {desk && (
           <View style={{ flexDirection: 'row', gap: 6, paddingBottom: 4, borderBottomWidth: 1, borderBottomColor: base.line, marginBottom: 6 }}>
@@ -428,7 +502,7 @@ export function FinNewPo({ site: site0, itemIds = [], toTop }: { site?: Site | n
       <Card>
         <SectionTitle>{delivery === 'collection' ? 'Collection' : 'Delivery'}</SectionTitle>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-          {field('Site Contact', <SuggestField label="" value={contact} onChangeText={setContact} placeholder="Start typing a name" showAllOnFocus max={12} items={(team || []).map((p) => ({ key: p.id, label: p.name, sub: p.phone || '' }))} onPick={(s) => { setContact(s.label); const ph = team?.find((p) => p.id === s.key)?.phone; if (ph) setContactPh(ph); }} />)}
+          {field('Site Contact', <SuggestField label="" value={contact} onChangeText={setContact} placeholder="Start typing a name" showAllOnFocus={desk} max={12} items={(team || []).map((p) => ({ key: p.id, label: p.name, sub: p.phone || '' }))} onPick={(s) => { setContact(s.label); const ph = team?.find((p) => p.id === s.key)?.phone; if (ph) setContactPh(ph); }} />)}
           {field('Contact Number', <TextInput accessibilityLabel="Contact number" value={contactPh} onChangeText={setContactPh} keyboardType="phone-pad" placeholder="Contact number" style={box} />)}
         </View>
         {delivery === 'delivery' && (
@@ -451,15 +525,17 @@ export function FinNewPo({ site: site0, itemIds = [], toTop }: { site?: Site | n
         {field('Notes For The Supplier', <TextInput value={note} onChangeText={setNote} placeholder="e.g. narrow access, max 7.5t" multiline style={[box, { minHeight: 52 }]} />, 'own')}
       </Card>
       {!!saved && <Text style={{ color: statusNow === 'open' ? '#1E7A43' : base.slate, marginBottom: 8 }}>{statusNow === 'open' ? `✓ PO ${saved.number} raised.` : `Draft ${saved.number} saved — not raised yet.`} Changes here save to the same PO.</Text>}
-      <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-        {/* Bottom left: what happens to the PO on the project when it's raised (Andy, 5 Nov 2026). */}
-        <View style={{ marginRight: 'auto', flexDirection: 'row', gap: 14, flexWrap: 'wrap' }}>
-          <Check label="Add To Project Calendar" value={toCal} onChange={setToCal} />
-          <Check label="File In Project PO Folder" value={toFolder} onChange={setToFolder} />
-        </View>
-        <Button small kind="ghost" title="Cancel" onPress={() => router.back()} />
+      {/* What happens to the PO on the project (Andy, 5 / 7 Nov 2026): unticked to start; ticking asks, then it stays ticked. */}
+      <View style={{ flexDirection: 'row', gap: 14, flexWrap: 'wrap', justifyContent: 'center', marginBottom: 8 }}>
+        <Check label={`Add To Project Calendar${toCal ? ' (Done)' : ''}`} value={toCal} onChange={() => void tick('cal')} />
+        <Check label={`File In Project PO Folder${toFolder ? ' (Done)' : ''}`} value={toFolder} onChange={() => void tick('folder')} />
+      </View>
+      <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
+        <Button small kind="ghost" title="‹ Back" onPress={() => router.back()} />
+        {!!saved && !fixed && <Button small kind="ghost" title="Delete" onPress={() => void deletePo()} />}
         <Button small kind="ghost" title={pdfUrl && viewedKey !== nowKey ? '↻ Update & View' : '👁 View PO'} onPress={() => void viewPo()} />
-        {statusNow === 'open' ? (
+        {fixed && <Button small kind="ghost" title="⬇ Export PDF" onPress={() => void exportPdf(po as Record<string, any>)} />}
+        {fixed ? null : statusNow === 'open' ? (
           <>
             <Button small kind="ghost" busy={busy} title="Save Changes" onPress={async () => { const row = await persist('open'); if (row) { void linkToProject(row); toast('Saved', { confirm: true }); } }} />
             <Button small kind="ghost" title="⬇ Export PDF" onPress={async () => { const row = await persist('open'); if (row) void exportPdf(row); }} />
@@ -474,7 +550,7 @@ export function FinNewPo({ site: site0, itemIds = [], toTop }: { site?: Site | n
       </View>
       {mailRow && (
         <FinEmailPopup kind="po" title={`PO ${mailRow.row.number} raised — email it?`} to={mailRow.to} note="The PO PDF goes with it."
-          extra={<View style={{ marginTop: 8 }}><Check label="Add the delivery date to the project calendar" value={toCal} onChange={(v) => { setToCal(v); if (v) void linkToProject(mailRow.row); }} /><Check label="File the PO in the project’s PO folder" value={toFolder} onChange={(v) => { setToFolder(v); if (v) void linkToProject(mailRow.row); }} /></View>}
+          extra={<View style={{ marginTop: 8 }}><Check label={`Add the delivery date to the project calendar${toCal ? ' (Done)' : ''}`} value={toCal} onChange={() => void tick('cal')} /><Check label={`File the PO in the project’s PO folder${toFolder ? ' (Done)' : ''}`} value={toFolder} onChange={() => void tick('folder')} /></View>}
           more={[{ title: '⬇ Export PDF', onPress: async () => { await exportPdf(mailRow.row); setMailRow(null); } }, { title: 'Save Only (Don’t Send)', onPress: () => { toast(`PO ${mailRow.row.number} saved`, { confirm: true }); setMailRow(null); } }]}
           vars={{ number: String(mailRow.row.number || ''), project: allSites.find((x) => x.id === mailRow.row.site_id)?.name || '', job_no: allSites.find((x) => x.id === mailRow.row.site_id)?.job_number || '', supplier: mailRow.row.supplier_name || '', amount: money(mailRow.row.total ?? mailRow.row.value), required_by: mailRow.row.required_by ? mailRow.row.required_by.split('-').reverse().join('/') : '' }}
           onSend={async (o) => { const e = await emailPo(me, mailRow.row, await pdfOf(mailRow.row), o); if (e) return e; toast(`PO emailed to ${o.to.join(', ')}`); return null; }}

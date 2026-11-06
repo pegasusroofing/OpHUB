@@ -39,7 +39,7 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   await page.screenshot({path:'shots/job/pofull-send-1400.png'});
   // The PO's own page keeps View PO and Send PO.
   await page.goto('http://localhost:8081/fin/po/' + po.id); await page.waitForTimeout(4000);
-  check(await page.getByText('👁 View PO').count() === 1 && await page.getByText('✉ Send PO').count() === 1, 'the PO page has View PO and Send PO');
+  check(await page.getByText('👁 View PO').count() === 1 && await page.getByText('✉ Email PO').count() === 1 && await page.getByLabel('Line 1 description').inputValue() === 'K4E capsheet 7.5m', 'the saved PO opens on the same PO screen (lines filled in, View PO, Email PO)');
   check(!errs.length, 'no errors ' + errs.slice(0, 2).join(' | '));
   await browser.close(); process.exit(0);
 })();

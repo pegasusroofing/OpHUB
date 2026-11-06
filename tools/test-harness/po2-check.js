@@ -44,7 +44,7 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   check(po && Array.isArray(po.split) && po.split.length === 2 && Math.round(po.split.reduce((t, x) => t + x.pct, 0) * 10000) / 10000 === 100, 'split across 2 projects, 100%: ' + JSON.stringify(po && po.split));
   await page.getByText('👁 View PO', {exact:true}).click(); await page.waitForTimeout(3000);
   check(await page.locator('canvas').count() >= 1, 'View PO shows the PDF in the right-hand panel');
-  await page.getByText('New Purchase Order', {exact:true}).last().scrollIntoViewIfNeeded(); await page.waitForTimeout(800);
+  await page.getByText(/^Purchase Order J101-PO/).last().scrollIntoViewIfNeeded(); await page.waitForTimeout(800);
   await page.screenshot({path:'shots/job/po3-top-1400.png', clip: {x: 280, y: 100, width: 1120, height: 420}});
   await page.screenshot({path:'shots/job/po2-view-1400.png'});
   // a change after viewing: the button says Update & View; pressing it shows the new PO and goes back to View PO
