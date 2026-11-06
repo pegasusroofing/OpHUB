@@ -19,10 +19,9 @@ const PCS = ['EC1A 1BB', 'SW1A 1AA', 'E14 5AB', 'N1 9GU', 'CM1 1HT', 'M1 1AE', '
     await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
     await page.getByText('Sign In', {exact: true}).click(); await page.waitForTimeout(5000);
     await page.goto(B + '/home'); await page.waitForTimeout(10000);
-    const tile = await page.getByRole('button', {name: /Deliveries/}).first().boundingBox();
+    const boxes = []; for (const b of await page.getByRole('button', {name: /^(Calendar|Deliveries|HR|Admin)$/}).all()) { const bb = await b.boundingBox(); if (bb && bb.width) boxes.push(bb); }
     const card = await page.getByText('Daily report', {exact: true}).first().locator('xpath=ancestor::*[@tabindex][1]').boundingBox();
-    const tiles = await page.getByRole('button', {name: /Admin/}).first().boundingBox();
-    const L = Math.min(tile.x, tiles.x), R = Math.max(tile.x + tile.width, tiles.x + tiles.width);
+    const L = Math.min(...boxes.map((b) => b.x)), R = Math.max(...boxes.map((b) => b.x + b.width));
     check(card && Math.abs(card.x - L) < 1.5 && Math.abs(card.x + card.width - R) < 1.5, `${W}: card edges ${card && Math.round(card.x)}–${card && Math.round(card.x + card.width)} match the tiles ${Math.round(L)}–${Math.round(R)}`);
     const canvas = page.locator('canvas').first(); if (await canvas.count()) { await canvas.scrollIntoViewIfNeeded(); await page.waitForTimeout(5000); }
     console.log(W, 'pins', await page.locator('.smpin').evaluateAll((els) => els.map((e) => e.title + ' ' + Math.round(e.getBoundingClientRect().x) + ',' + Math.round(e.getBoundingClientRect().y)).join(' | ')));

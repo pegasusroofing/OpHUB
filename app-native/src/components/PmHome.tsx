@@ -19,10 +19,11 @@ import { useAuth } from '@/lib/auth';
 import { heading } from '@/lib/fonts';
 import { greeting, siteStatusKey } from '@/lib/rules/checkin';
 import { isFinanceUser, roleLabel } from '@/lib/roles';
-import { base, space, useDesk } from '@/theme/theme';
+import { base, space, useDesk, useTheme } from '@/theme/theme';
 
 export function PmHome() {
   const { me, org, signOut } = useAuth();
+  const t = useTheme();
   const desk = useDesk();
   const { data: sites } = useSites();
   const { data: onSite = [] } = useOnSiteNow(sites);
@@ -100,13 +101,23 @@ export function PmHome() {
         </View>
       ) : (
         <>
+          {/* Phone: the Live projects card below the four numbers, as before (Andy, 6 Nov 2026). */}
+          <Pressable onPress={go('/sites')} accessibilityRole="button"
+            style={({ pressed }) => [{ backgroundColor: t.brand1, borderRadius: 22, paddingVertical: 18, paddingHorizontal: 20, marginBottom: space.m }, pressed && { opacity: 0.9 }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+              <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' }}><OphIcon name="projects" size={22} color={t.brand1Text} /></View>
+              <OphIcon name="chevron" size={22} color={t.brand1Text} stroke={2.4} />
+            </View>
+            <Text style={[heading(800), { color: t.brand1Text, fontSize: 20, letterSpacing: -0.2 }]}>Live projects</Text>
+            <Text style={{ color: t.brand1Text, opacity: 0.92, marginTop: 4, fontSize: 13, fontWeight: '500' }}>{live.length} live{upcoming.length ? ` · ${upcoming.length} upcoming` : ''}</Text>
+          </Pressable>
           {todayCard}
           {!!sites?.length && <SitesMapCard sites={sites} />}
         </>
       )}
       {/* Yard & Plant is under Deliveries now, not a tile (Andy, 5 Nov 2026). */}
       <TileGrid cols={desk ? 4 : 2}>
-        <Tile plain ic="projects" tint="" title="Projects" sub={`${live.length} live${upcoming.length ? ` · ${upcoming.length} upcoming` : ''}`} onPress={go('/sites')} />
+        {desk && <Tile plain ic="projects" tint="" title="Projects" sub={`${live.length} live${upcoming.length ? ` · ${upcoming.length} upcoming` : ''}`} onPress={go('/sites')} />}
         {isFinanceUser(me, org) && <Tile plain ic="pound" tint="" title="OpHUB Finance" sub="Money in & out" onPress={go('/fin')} />}
         <Tile plain ic="reports" tint="" title="Quotes" sub="Tender tracker" onPress={go('/pm/quotes')} />
         <Tile plain ic="chart" tint="" title="Dashboard" sub="Company & operatives" onPress={go('/pm/dashboard')} />

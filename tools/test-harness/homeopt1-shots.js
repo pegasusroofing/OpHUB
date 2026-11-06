@@ -15,8 +15,8 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
     await page.goto('http://localhost:8081' + u); await page.waitForTimeout(6000);
     if (u === '/home') {
       check(await page.getByText('Today', {exact: true}).count() >= 1, `${n}: the Today panel`);
-      check(await page.getByText('Live projects', {exact: true}).count() === 0 || W < 500, `${n}: no red Live projects banner`);
-      check(await page.getByRole('button', {name: 'Projects'}).count() >= 1, `${n}: a Projects tile`);
+      check(W < 500 ? await page.getByText('Live projects', {exact: true}).count() >= 2 : await page.getByText('Live projects', {exact: true}).count() === 0, `${n}: the Live projects card on a phone only`);
+      check(W < 500 || await page.getByRole('button', {name: 'Projects'}).count() >= 1, `${n}: a Projects tile on a laptop`);
     }
     await page.screenshot({path: `shots/job/opt1-${n}.png`});
     await ctx.close();
