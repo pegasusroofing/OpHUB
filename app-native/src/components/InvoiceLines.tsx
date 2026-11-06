@@ -27,6 +27,7 @@ import { base, radius } from '@/theme/theme';
 type Line = RLine;
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, paddingHorizontal: 8, paddingVertical: 5, color: base.ink, backgroundColor: base.card, fontSize: 13.5, height: 32 } as const;
 const mid = { textAlign: 'center' as const };
+const grey = { backgroundColor: '#F6F7F9' };
 type Code = { id: string; code: string | null; name: string; category: string | null; active: boolean | null };
 const head = { fontSize: 10.5, fontWeight: '600' as const, letterSpacing: 0.4, textTransform: 'uppercase' as const, color: '#6b7280' };
 const COSTS = Object.entries(COST_CATS).filter(([c]) => c !== 'labour');
@@ -98,15 +99,15 @@ export function InvoiceLines({ lines: lines0, checks, sites, read, onChange, rea
         onChange={(v) => { if (v === '__split') { set(k, { alloc: [{ site_id: l.site_id || defaultSite || '', pct: 50 }, { site_id: '', pct: 50 }] }); setSplitAt(k); } else set(k, { site_id: v, how: undefined }); }} />);
   const cost = (k: number, l: Line) => (readOnly ? ro(shortOf(codeOpts, codeVal(l))) : <TypePick label={`Line ${k + 1} cost code`} value={codeVal(l)} options={codeOpts} listWidth={280} style={[box, mid]} onChange={(v) => set(k, codePatch(v))} />);
   const vat = (k: number, l: Line) => (readOnly ? ro(vatLabel(l)) : <TypePick label={`Line ${k + 1} VAT`} value={vatOf(l)} options={vatOpts} listWidth={200} style={[box, mid]} onChange={(v) => set(k, { vat_rate: v === 'rc' ? 'rc' : Number(v) })} />);
-  const field = (k: number, label: string, v: unknown, onT: (t: string) => void, ph: string) => <TextInput editable={!readOnly} accessibilityLabel={`Line ${k + 1} ${label}`} keyboardType="decimal-pad" placeholder={ph} value={v == null ? '' : String(v)} onChangeText={onT} style={[box, mid]} />;
+  const field = (k: number, label: string, v: unknown, onT: (t: string) => void, ph: string) => <TextInput editable={!readOnly} accessibilityLabel={`Line ${k + 1} ${label}`} keyboardType="decimal-pad" placeholder={ph} value={v == null ? '' : String(v)} onChangeText={onT} style={[box, mid, readOnly && grey]} />;
   const qty = (k: number, l: Line) => field(k, 'quantity', l.qty, (t) => edit(k, l, { qty: num(t) }), 'Qty');
   const unit = (k: number, l: Line) => (readOnly ? ro(l.unit || '') : <UnitField value={l.unit || ''} onChangeText={(t) => set(k, { unit: t })} units={DEFAULT_UNITS} style={[box, mid, { width: '100%' }]} />);
   const disc = (k: number, l: Line) => field(k, 'discount', l.disc || l.disc === 0 ? l.disc : '', (t) => edit(k, l, { disc: num(t) ?? 0 }), '0');
-  const rate = (k: number, l: Line) => <TextInput editable={!readOnly} accessibilityLabel={`Line ${k + 1} unit price`} keyboardType="decimal-pad" placeholder="0.000" value={l.unit_price == null ? '' : String(l.unit_price)} onChangeText={(t) => edit(k, l, { unit_price: num(t) })} style={[box, mid]} />;
+  const rate = (k: number, l: Line) => <TextInput editable={!readOnly} accessibilityLabel={`Line ${k + 1} unit price`} keyboardType="decimal-pad" placeholder="0.000" value={l.unit_price == null ? '' : String(l.unit_price)} onChangeText={(t) => edit(k, l, { unit_price: num(t) })} style={[box, mid, readOnly && grey]} />;
   const total = (l: Line) => <View style={{ height: 32, justifyContent: 'center' }}><Text style={{ fontWeight: '600', color: base.ink, textAlign: 'center', fontSize: 13.5 }}>{money(lineValue(l))}</Text></View>;
   const drop = (k: number) => (readOnly ? null : <Pressable accessibilityRole="button" accessibilityLabel={`Remove line ${k + 1}`} hitSlop={6} onPress={() => { onChange(lines.filter((_, j) => j !== k)); setSplitAt(null); }} style={{ width: 20, height: 32, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#9ca3af', fontSize: 15 }}>✕</Text></Pressable>);
   const note = (k: number) => { const c = cheque(checks[k]); return c ? <Text style={{ color: c.col, fontSize: 11.5, fontWeight: '500', marginTop: 4 }}>{c.t}</Text> : null; };
-  const desc = (k: number, l: Line) => <TextInput ref={(r) => { descRefs.current[k] = r; }} editable={!readOnly} accessibilityLabel={`Line ${k + 1} description`} value={l.description ?? ''} onChangeText={(t) => set(k, { description: t })} placeholder="Description" style={box} />;
+  const desc = (k: number, l: Line) => <TextInput ref={(r) => { descRefs.current[k] = r; }} editable={!readOnly} accessibilityLabel={`Line ${k + 1} description`} value={l.description ?? ''} onChangeText={(t) => set(k, { description: t })} placeholder="Description" style={[box, readOnly && grey]} />;
   const cell = (w: number | 'flex', child: ReactNode, z = 0) => <View style={[w === 'flex' ? { flex: 1, minWidth: 120 } : { width: w }, z ? { zIndex: z } : null]}>{child}</View>;
   const H = (t: string, align: 'left' | 'center' | 'right' = 'center') => <Text style={[head, { textAlign: align }]}>{t}</Text>;
   // Column widths. Wide: one row. Narrower: the figures share the second row.
@@ -163,7 +164,7 @@ export function InvoiceLines({ lines: lines0, checks, sites, read, onChange, rea
     <Card style={{ paddingVertical: 12 }}>
       <View onLayout={(e) => setCardW(e.nativeEvent.layout.width)}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-          <Text style={{ flex: 1, fontSize: 14.5, fontWeight: '600', color: base.ink }}>{title} ({lines.length})</Text>
+          <Text style={{ flex: 1, fontSize: 14.5, fontWeight: '600', color: base.ink }}>{title} <Text style={{ fontSize: 9.5, fontWeight: '600', color: base.slate }}>({lines.length})</Text></Text>
           {codes.length > 0 && <Pressable onPress={() => setFullCodes(!fullCodes)}><Text style={{ color: base.blue, fontSize: 12.5 }}>{fullCodes ? 'Codes Only' : 'Show Code Descriptions'}</Text></Pressable>}
           {!readOnly && lines.length > 0 && <Pressable onPress={() => void bulk()} accessibilityRole="button" style={{ borderWidth: 1, borderColor: base.line, borderRadius: 7, paddingHorizontal: 10, height: 28, justifyContent: 'center' }}><Text style={{ fontSize: 12.5, fontWeight: '500', color: base.ink }}>Bulk Edit ▾</Text></Pressable>}
         </View>
@@ -207,12 +208,12 @@ export function InvoiceLines({ lines: lines0, checks, sites, read, onChange, rea
             <Text style={{ fontSize: 12.5, fontWeight: '600', color: '#111827' }}>+ Add A Line</Text>
           </Pressable>
         )}
-        <View style={{ paddingTop: 8, gap: 2, alignSelf: wide ? 'flex-end' : 'stretch', minWidth: wide ? 280 : undefined }}>
+        <View style={{ paddingTop: 10, gap: 7, paddingLeft: 9, paddingRight: readOnly ? 10 : 36, alignSelf: wide ? 'flex-end' : 'stretch', minWidth: wide ? 300 : undefined }}>
           {(read && (read.net != null || read.vat != null || read.total != null)
             ? [['Lines add up to', money(sum), off ? base.red : '#111827', '600'], ['Net on the invoice', read.net == null ? 'Not read' : money(Number(read.net)), '#111827', '400'], ['VAT on the lines', money(vatSum), vatOff ? base.red : '#111827', '400'], ['VAT on the invoice', read.vat == null ? 'Not read' : money(Number(read.vat)), '#111827', '400'], ['Total', read.total == null ? money(round2(sum + vatSum)) : money(Number(read.total)), '#111827', '600']]
             : [['Net', money(sum), '#111827', '400'], ['VAT', money(vatSum), '#111827', '400'], ['Total', money(round2(sum + vatSum)), '#111827', '700']]
           ).map(([lab, v, col, w]) => (
-            <View key={lab} style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 16 }}><Text style={{ fontSize: 12.5, color: '#6b7280' }}>{lab}</Text><Text style={{ fontSize: 13, fontWeight: w as '400', color: col }}>{v}</Text></View>
+            <View key={lab} style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 16 }}><Text style={{ fontSize: 14, color: lab === 'Total' ? base.ink : '#6b7280', fontWeight: lab === 'Total' ? '700' : '400' }}>{lab}</Text><Text style={{ fontSize: 14.5, fontWeight: w as '400', color: col }}>{v}</Text></View>
           ))}
         </View>
       </View>

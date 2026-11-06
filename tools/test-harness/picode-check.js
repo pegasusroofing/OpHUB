@@ -1,4 +1,4 @@
-// Purchase invoice (5 Nov 2026): Edit Lines, put line 2 on another project with another cost type, Save Lines → the
+// Purchase invoice (5 Nov 2026; 6 Nov: it opens ready to change): put line 2 on another project with another cost type, Save → the
 // cost is split across the two projects (this replaces the old Code each line box).
 const {chromium, makeContext, S1} = require('./harness');
 (async()=>{
@@ -13,12 +13,12 @@ const {chromium, makeContext, S1} = require('./harness');
   await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
   await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
   await page.goto(BASE+'/fin/pinv/pi1'); await page.waitForTimeout(5000);
-  await page.getByText('Edit Lines', {exact:true}).click(); await page.waitForTimeout(500);
+  await page.getByText('✏️ Edit', {exact:true}).click(); await page.waitForTimeout(400); // a saved invoice opens locked
   await page.getByLabel('Line 2 job').click(); await page.waitForTimeout(500);
   await page.getByText(new RegExp(db.sites[1].name)).last().click(); await page.waitForTimeout(300);
   await page.getByLabel('Line 2 cost code').click(); await page.waitForTimeout(400); await page.getByText('Plant', {exact:true}).last().click(); await page.waitForTimeout(300);
   await page.screenshot({path:'shots/picode.png', fullPage:true});
-  await page.getByText('Save Lines', {exact:true}).click(); await page.waitForTimeout(2500);
+  await page.getByText('Save', {exact:true}).last().click(); await page.waitForTimeout(2500);
   const p = db.purchase_invoices[0];
   const ok = Array.isArray(p.split) && p.split.length === 2 && p.split.some((x) => x.site_id === S2 && x.cost_code === 'plant');
   console.log((ok ? 'PASS' : 'FAIL') + ' split:', JSON.stringify(p.split), '| lines:', JSON.stringify(p.lines.map(l=>[l.site_id===S1?'S1':l.site_id===S2?'S2':l.site_id, l.cost_code])));

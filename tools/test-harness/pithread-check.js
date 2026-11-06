@@ -1,5 +1,6 @@
 // Finance queries a purchase invoice → the job's PM gets a message; the PM's reply shows under "Conversation With The PM";
 // Finance replies → added to the thread and the PM told. A rejected invoice can be approved again.
+// 6 Nov 2026: the invoice opens on the editing screen; Save & Query To PM asks the job's PM.
 const {chromium, makeContext, S1} = require('./harness');
 (async()=>{
   const browser = await chromium.launch(); const errs = [];
@@ -16,7 +17,7 @@ const {chromium, makeContext, S1} = require('./harness');
   await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
   await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
   await page.goto('http://localhost:8081/fin/pinv/pi1'); await page.waitForTimeout(6000);
-  await page.getByText('Query', {exact:true}).click(); await page.waitForTimeout(800);
+  await page.getByText('Query To PM', {exact:true}).click(); await page.waitForTimeout(800);
   await page.locator('input >> visible=true').last().fill('Price looks high'); await page.locator('text="OK" >> visible=true').last().click(); await page.waitForTimeout(3000);
   console.log('status', db.purchase_invoices[0].status, '| message to PM', JSON.stringify(db.messages.filter(m=>m.recipient_id==='pm9').map(m=>[m.kind, m.body])));
   db.purchase_invoices[0].query_thread = [{by:'pm9', name:'Pat PM', at:new Date().toISOString(), text:'Agreed with SIG, it is right'}];
@@ -25,7 +26,7 @@ const {chromium, makeContext, S1} = require('./harness');
   await page.getByPlaceholder('Reply to the PM…').fill('Thanks, approving'); await page.getByText('Send', {exact:true}).click(); await page.waitForTimeout(3000);
   console.log('thread', db.purchase_invoices[0].query_thread.length, '| messages to PM', db.messages.filter(m=>m.recipient_id==='pm9').length);
   await page.goto('http://localhost:8081/fin/pinv/pi2'); await page.waitForTimeout(5000);
-  console.log('rejected: approve button', await page.getByText('✓ Approve').count());
+  console.log('rejected: approve button', await page.getByText('Approve Invoice', {exact:true}).count());
   console.log('errors', errs.join(' / ').slice(0,300) || 'none');
   await browser.close(); process.exit(0);
 })();
