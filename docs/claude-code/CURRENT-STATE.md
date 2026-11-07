@@ -39,14 +39,15 @@
 
   If the native app is close, it's fine to wait and do this at switch-over instead.
 - **SQL file 15:** run 5 Nov (purchase invoices approve themselves).
-- **SQL file 16 (`sql/16 - Supplier query email templates (6 Nov).sql`): NOT run.** Lets a company save its own wording for Query With Supplier emails (the standard wording works without it).
-- **SQL file 17 (`sql/17 - Security tightening from the overnight review (6 Nov).sql`): NOT run.** Six sections, A–F, each run on its own. Andy decides. See `REVIEW-2026-11-07.md`.
-  - A: emailed invoices stop approving themselves. This changes the 5 Nov rule.
-  - B: fixes `fin_raise_po`.
-  - C: no faked system notices.
-  - D: rows stay in the company.
-  - E: the approver is stamped by the database.
-  - F: three look-ups need a sign-in. This one is a REVOKE.
+- **SQL file 16:** run 7 Nov (Andy asked). Companies can save their own Query With Supplier wording.
+- **SQL file 17:** run 7 Nov (Andy asked), sections A–F; checked on Sandbox.
+  - Emailed invoices (and ones a PM books) no longer approve themselves; typed-in ones still do.
+  - `fin_raise_po` is scoped to the job and company.
+  - No faked system notices.
+  - PO file records and moved calendar events stay in the company.
+  - The approver is stamped by the database.
+  - Three look-ups need a sign-in.
+  - The finance-inbox comment "never auto-approved" is true again.
 
 ## Server functions
 - `send-finance-email` v5 (subject, text, extra attachments, signature with company number, VAT, email and logo).

@@ -1,5 +1,8 @@
 -- ==========================================================================================
--- OpHUB: security tightening from the overnight review (6–7 Nov 2026). NOT RUN YET.
+-- OpHUB: security tightening from the overnight review (6–7 Nov 2026).
+-- RUN ON 7 Nov 2026 (Andy: "can you do the sql please"), all six sections, as migrations sec17a / sec17b / sec17cde.
+-- Checked on Sandbox (rolled back): an emailed invoice stays waiting, a typed-in one still approves itself, the approver is
+-- stamped as the person signed in, a calendar event edits normally but can't be moved to another company.
 -- How to run: Supabase > SQL Editor > New query, paste ONE section (A to F) at a time, press Run.
 -- Each section stands alone; run the ones you agree with. Nothing here deletes any data.
 -- Sections that change an existing rule are marked "CHANGES A RULE" (they need your OK by CLAUDE.md).

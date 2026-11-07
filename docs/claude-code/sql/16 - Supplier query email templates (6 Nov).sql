@@ -1,5 +1,6 @@
 -- ==========================================================================================
 -- OpHUB: let companies save their own wording for "Query With Supplier" emails (Andy, 6 Nov 2026).
+-- RUN ON 7 Nov 2026 (Andy asked), as migration supplier_query_templates_7nov.
 -- How to run: Supabase > SQL Editor > New query, paste this whole file, press Run.
 -- It widens the list of email template types to include 'pi_query' (a query on a supplier's
 -- invoice). Nothing is deleted; every existing template stays as it is. Safe to run twice.
