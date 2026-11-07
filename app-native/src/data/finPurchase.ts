@@ -4,8 +4,10 @@
 // during the Finance trial.
 import { fdb, finInvoke, xeroAutoOk } from '@/data/finance';
 import { FIN_TRIAL_MSG, finBlocked, money, round2, today } from '@/lib/rules/finance';
+import { b64 } from '@/lib/oneDriveSave';
 import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/lib/types';
+import { invokeAsUser } from '@/lib/userFunctions';
 
 type Row = Record<string, any>;
 export async function loadPinv(id: string) {
@@ -163,6 +165,25 @@ export async function removePoLines(me: Profile, id: string, idx: number[]): Pro
   return { removed: gone.length, cancelled: await cancelRequests(me, goneMats, po.number) };
 }
 
+/** How the last copy of each PO to OneDrive went (po id → 'pushed' / 'not_linked' / 'not_connected' / 'failed'), for the screen to say. */
+export const poOneDrive = new Map<string, string>();
+/** The PO's PDF into the job's linked OneDrive "Material PO's" folder (Andy, 7 Nov 2026). Same name as in OpHUB's PO folder, so the
+ *  OneDrive → OpHUB sync (sync-material-orders, which skips names it already has) doesn't bring it back in as a second copy. */
+export async function pushPoToOneDrive(me: Profile, po: Record<string, any>, bytes: Uint8Array, name: string): Promise<string> {
+  try {
+    const s = ((await fdb.from('sites').select('material_orders_folder_id,material_orders_drive_id').eq('id', po.site_id).maybeSingle()).data as Record<string, string | null> | null);
+    if (!s?.material_orders_folder_id) return 'not_linked';
+    const payload: Record<string, unknown> = { filename: name.replace(/[\\/]+/g, '-'), folder_id: s.material_orders_folder_id, drive_id: s.material_orders_drive_id || null };
+    if (bytes.length > 3 * 1024 * 1024) {
+      const up = await supabase.storage.from('mc-documents').upload(`onedrive-tmp/${me.org_id}/${po.id}-${Date.now()}.pdf`, bytes, { contentType: 'application/pdf' });
+      if (up.error) return 'failed';
+      payload.storage_path = up.data.path;
+    } else payload.content_base64 = b64(bytes);
+    const r = await invokeAsUser<{ ok?: boolean }>('onedrive-upload', payload);
+    return !r.error ? 'pushed' : r.error === 'not_connected' ? 'not_connected' : 'failed';
+  } catch { return 'failed'; }
+}
+
 /** A Finance PO's PDF kept on the PO (finance-docs, pdf_path) and filed in the job's Material PO's ›
  *  "Finance POs" folder, dated for the required-by day (909 finStorePoPdf + 9219zr mplFilePoPdf). Best-effort. */
 /** Stores the PO PDF in Finance (and the project's Finance POs folder); gives back where, for Send PO. */
@@ -183,6 +204,8 @@ export async function filePoPdf(me: Profile, po: Record<string, any>, bytes: Uin
     const ex = ((await fdb.from('material_order_files').select('id').eq('site_id', po.site_id).eq('item_id', itemId).limit(1)).data as { id: string }[] | null)?.[0];
     if (ex) await fdb.from('material_order_files').update(row as never).eq('id', ex.id);
     else await fdb.from('material_order_files').insert({ ...row, site_id: po.site_id, org_id: me.org_id, folder_id: folder?.id ?? null, item_id: itemId } as never);
+    // And into the job's OneDrive PO folder, when one is linked (Andy, 7 Nov 2026).
+    poOneDrive.set(String(po.id), await pushPoToOneDrive(me, po, bytes, row.name));
   } catch { /* filing is best-effort; the download still happens */ }
   return path;
 }

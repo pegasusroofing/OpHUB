@@ -52,6 +52,7 @@
   - Trigger `zz_expense_to_finance` on `expenses`: each receipt file sent in becomes a `fin_inbox` item (source `upload`, `extracted.receipt = true` plus expense_id, category, note, label, sent_by), assigned to `fin_settings.expenses_user`. One-off items were added for the receipts already sent in (8 RTB, 1 other).
   - The photo stays in `site-photos` at `expenses/<org>/…`. Both apps open `finance-docs` paths starting `expenses/` from `site-photos` (`openDocLink` in the new app, `publicUrl` in the old one).
   - New app: Received shows "Receipt For <name>"; the invoice screen opens as a receipt with a line ready (fuel → Prelims & site costs); Finance Settings › Purchase invoices › "Expense receipts go to".
+  - **POs to OneDrive (7 Nov, Andy asked):** whenever the new app files a PO's PDF in the project's PO folder (the "File In Project PO Folder" tick, Export PDF, Email PO), `pushPoToOneDrive` also copies it into the job's linked OneDrive "Material PO's" folder (`sites.material_orders_folder_id`) through the existing `onedrive-upload` function, under the same name as in OpHUB, so `sync-material-orders` skips it rather than bringing it back. No folder linked: OpHUB only. Not held back by the Finance trial (it's the company's own OneDrive). Can't be tried for real until OneDrive is reconnected. Old app unchanged.
   - Not used (kept, harmless): `expenses.fin_status / fin_cost_id / fin_booked_at / fin_booked_by`, `fin_book_expense`, `fin_skip_expense` (from a first try with a separate Expenses tab, dropped at Andy's request).
 
 ## Server functions

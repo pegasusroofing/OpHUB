@@ -6,7 +6,7 @@ import { packPut } from '@/data/jobPack';
 import { supabase } from '@/lib/supabase';
 import { invokeAsUser } from '@/lib/userFunctions';
 
-const b64 = (u: Uint8Array) => { let s = ''; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode(...u.subarray(i, i + 0x8000)); return btoa(s); };
+export const b64 = (u: Uint8Array) => { let s = ''; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode(...u.subarray(i, i + 0x8000)); return btoa(s); };
 /** null when saved; otherwise what went wrong, in plain words. */
 export async function saveToOneDrive(orgId: string | null | undefined, bytes: Uint8Array, filename: string, siteId: string | null): Promise<string | null> {
   try {

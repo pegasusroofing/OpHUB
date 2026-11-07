@@ -20,7 +20,7 @@ import { TypePick, type PickOpt } from '@/components/TypePick';
 import { NumText } from '@/components/NumText';
 import { PdfPages } from '@/components/DocViewer';
 import { FinEmailPopup } from '@/components/FinEmailPopup';
-import { emailPo, filePoPdf, setPoStatusWithRequests } from '@/data/finPurchase';
+import { emailPo, filePoPdf, poOneDrive, setPoStatusWithRequests } from '@/data/finPurchase';
 import { buildPoPdf } from '@/lib/finPoPdf';
 import { deliverPdf } from '@/lib/pdf';
 import { DEFAULT_UNITS, UnitField } from '@/components/UnitField';
@@ -230,13 +230,13 @@ export function FinNewPo({ site: site0, itemIds = [], toTop, po }: { site?: Site
   // Ticking: a question first, then it's done (straight away if the PO is raised, or when it's raised) and stays ticked.
   const tick = async (what: 'cal' | 'folder') => {
     if (fixed || (what === 'cal' ? toCal : toFolder)) return;
-    const q = what === 'cal' ? 'Add this PO’s delivery / collection date to the project calendar? Once ticked it can’t be unticked.' : 'File this PO’s PDF in the project’s PO folder? Once ticked it can’t be unticked.';
+    const q = what === 'cal' ? 'Add this PO’s delivery / collection date to the project calendar? Once ticked it can’t be unticked.' : 'File this PO’s PDF in the project’s PO folder (and the project’s OneDrive PO folder, if one is linked)? Once ticked it can’t be unticked.';
     if (!(await confirmAsk(q, 'Yes, Tick It'))) return;
     if (what === 'cal') setToCal(true); else setToFolder(true);
     if (saved && statusNow === 'open') {
       const row = (await fdb.from('purchase_orders').select('*').eq('id', saved.id).maybeSingle()).data as Record<string, any> | null;
       if (row) {
-        if (what === 'folder') { try { await filePoPdf(me, row, await pdfOf(row)); toast('Filed in the project’s PO folder', { confirm: true }); } catch { toast('Couldn’t file it — try again.'); } }
+        if (what === 'folder') { try { await filePoPdf(me, row, await pdfOf(row)); const od = poOneDrive.get(String(row.id)); toast(od === 'pushed' ? 'Filed in the project’s PO folder and its OneDrive folder' : od === 'not_connected' ? 'Filed in the project’s PO folder. OneDrive isn’t connected, so it isn’t in OneDrive.' : od === 'failed' ? 'Filed in the project’s PO folder, but it couldn’t be copied to OneDrive.' : 'Filed in the project’s PO folder (no OneDrive PO folder is linked to this project).', { confirm: true }); } catch { toast('Couldn’t file it — try again.'); } }
         else if (row.required_by && row.site_id) {
           const title = `PO ${row.number} ${row.fulfilment === 'collection' ? 'collection' : 'delivery'} — ${row.supplier_name || 'supplier'}`;
           const have = ((await fdb.from('site_calendar_events').select('id').eq('site_id', row.site_id).eq('event_date', row.required_by).eq('title', title)).data as unknown[] | null) ?? [];
