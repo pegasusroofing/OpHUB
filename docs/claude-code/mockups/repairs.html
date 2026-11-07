@@ -142,17 +142,29 @@
   </div>
 </div>
 
-<!-- 3. The contract's home in Projects -->
+<!-- 3. The contract's home in Projects: the normal home, with Repair Jobs as one more tile (Andy, 7 Nov 2026) -->
 <div id="home" class="phone">
-  <div class="label">3 — The Contract Home (Projects)<small>The normal project home (H&amp;S and the rest), plus the repair jobs by where they're at.</small></div>
+  <div class="label">3 — The Contract Home (Projects)<small>Looks like any project home. Repair Jobs is one more tile, with a count of jobs to book.</small></div>
   <div class="top"><span class="back">‹</span><span class="logo">OpHUB</span><span class="x">×</span><span class="co">RTB Roofing</span></div>
   <div class="body">
     <div class="crumbs"><span>Projects</span> › <b>Sovereign Repairs</b></div>
+    <div class="card" style="display:flex;align-items:center;gap:10px"><div style="flex:1"><b style="font-size:15px">Sovereign Repairs</b><div class="muted">Repair contract · Sovereign Housing</div></div><span class="tag">Live</span></div>
     <div class="tiles">
-      <div class="tile"><i>🦺</i>H&amp;S</div><div class="tile"><i>📅</i>Calendar</div><div class="tile"><i>💬</i>Messages</div>
-      <div class="tile"><i>🧱</i>Materials</div><div class="tile"><i>📁</i>Documents</div><div class="tile"><i>⚙</i>Settings</div>
+      <div class="tile" style="border:1.5px solid #1E2124;position:relative"><i>🔧</i>Repair Jobs<span style="position:absolute;top:6px;right:7px;background:#E3262B;color:#fff;font-size:10.5px;font-weight:700;border-radius:9px;min-width:18px;padding:1px 5px">12</span></div>
+      <div class="tile"><i>🦺</i>H&amp;S</div><div class="tile"><i>📅</i>Calendar</div>
+      <div class="tile"><i>💬</i>Messages</div><div class="tile"><i>🧱</i>Materials</div><div class="tile"><i>📐</i>Drawings</div>
+      <div class="tile"><i>✅</i>To Do</div><div class="tile"><i>👷</i>Team</div><div class="tile"><i>⚙</i>Settings</div>
     </div>
-    <div class="h">REPAIR JOBS</div>
+    <div class="muted" style="padding:2px 2px 8px">The red number: jobs waiting to be booked in. Operatives see only the jobs they're booked on.</div>
+  </div>
+</div>
+
+<!-- 3b. Repair Jobs, opened from the tile -->
+<div id="jobs" class="phone">
+  <div class="label">3b — Repair Jobs (Opened From The Tile)<small>Where every job is at, the + New Job button and the list. Tap a job for its hub.</small></div>
+  <div class="top"><span class="back">‹</span><span class="logo">OpHUB</span><span class="x">×</span><span class="co">RTB Roofing</span></div>
+  <div class="body">
+    <div class="crumbs"><span>Projects</span> › <span>Sovereign Repairs</span> › <b>Repair Jobs</b></div>
     <div class="jt">
       <div class="red"><b>12</b><small>To Book</small></div><div><b>5</b><small>Booked In</small></div>
       <div><b>4</b><small>Quote Needed</small></div><div><b>6</b><small>Awaiting Approval</small></div>
