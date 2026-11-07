@@ -443,6 +443,8 @@ export function FinNewPo({ site: site0, itemIds = [], toTop, po }: { site?: Site
       {!!saved && <Stack.Screen options={{ title: saved.number }} />}
       {fixed && <Text style={{ color: base.slate, marginBottom: 8, textAlign: 'center' }}>This PO is {po?.status === 'cancelled' ? 'deleted (cancelled)' : 'fully invoiced'}. Reopen it below to change it.</Text>}
       {/* Who and when on the left, the project quote on the right; then the lines full width; then how, below (Andy, 5 Nov 2026). */}
+      {/* A cancelled / fully invoiced PO: shown, not changed (overnight review, 7 Nov 2026). */}
+      <View pointerEvents={fixed ? 'none' : 'auto'} style={fixed ? { opacity: 0.8 } : undefined}>
       <View style={desk ? { flexDirection: 'row', gap: 12, alignItems: 'stretch', marginBottom: 12 } : undefined}>
         <Card style={desk ? { flex: 1, minWidth: 0, marginBottom: 0 } : undefined}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -524,6 +526,7 @@ export function FinNewPo({ site: site0, itemIds = [], toTop, po }: { site?: Site
         )}
         {field('Notes For The Supplier', <TextInput value={note} onChangeText={setNote} placeholder="e.g. narrow access, max 7.5t" multiline style={[box, { minHeight: 52 }]} />, 'own')}
       </Card>
+      </View>
       {!!saved && <Text style={{ color: statusNow === 'open' ? '#1E7A43' : base.slate, marginBottom: 8 }}>{statusNow === 'open' ? `✓ PO ${saved.number} raised.` : `Draft ${saved.number} saved — not raised yet.`} Changes here save to the same PO.</Text>}
       {/* What happens to the PO on the project (Andy, 5 / 7 Nov 2026): unticked to start; ticking asks, then it stays ticked. */}
       <View style={{ flexDirection: 'row', gap: 14, flexWrap: 'wrap', justifyContent: 'center', marginBottom: 8 }}>
