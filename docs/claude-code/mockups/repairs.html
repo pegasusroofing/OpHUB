@@ -1,0 +1,209 @@
+<!doctype html>
+<!-- Repair contracts rebuild (Andy, 7 Nov 2026): the job hub (Finance view; Projects sees the same without money), the
+     repair page broken into each stage of the works, and the contract's Projects home. Mock-ups with made-up jobs.
+     Pictures: repair-hub.png, repair-page.png, repair-home.png. -->
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Repair Mock-ups</title>
+<style>
+  :root { --ink:#1E2124; --slate:#5B6472; --line:#E1E5EA; --bg:#EEF0F2; --brand:#E3262B; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:#cfd3d8; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; color:var(--ink); padding:20px; display:flex; gap:24px; flex-wrap:wrap; align-items:flex-start; }
+  .phone { width:390px; background:var(--bg); padding-bottom:16px; }
+  .label { background:var(--ink); color:#fff; font-size:15px; font-weight:600; padding:10px 16px; }
+  .label small { display:block; font-weight:400; font-size:12.5px; color:#cfd3d8; margin-top:2px; }
+  .top { background:#fff; border-bottom:1px solid var(--line); height:52px; display:flex; align-items:center; gap:10px; padding:0 14px; }
+  .top .back { font-size:22px; } .top .logo { font-weight:800; font-size:19px; color:#2F6FD8; } .top .x { color:var(--slate); font-size:14px; } .top .co { font-weight:600; font-size:16px; color:var(--brand); }
+  .body { padding:0 16px; }
+  .crumbs { font-size:12.5px; color:var(--slate); padding:10px 0 8px; } .crumbs b { color:var(--ink); font-weight:500; } .crumbs span { color:var(--brand); }
+  .card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:12px 13px; margin-bottom:10px; }
+  .h { font-size:11.5px; font-weight:700; color:var(--slate); letter-spacing:.4px; margin-bottom:8px; }
+  .jobhead { display:flex; align-items:center; gap:8px; }
+  .jobhead b { font-size:16px; } .jobhead .no { font-size:12px; font-weight:700; border:1.5px solid var(--ink); border-radius:8px; padding:2px 8px; }
+  .muted { font-size:12px; color:var(--slate); }
+  .tag { display:inline-block; font-size:11px; font-weight:600; color:var(--ink); background:#F0F1F4; border-radius:6px; padding:2px 7px; margin-right:4px; }
+  .tag.hold { background:#FDF1E0; color:#B45309; }
+  /* progress bar, like purchase invoices */
+  .bar { display:flex; margin:4px 0 6px; }
+  .st { flex:1; display:flex; flex-direction:column; align-items:center; position:relative; }
+  .st .ln { position:absolute; top:11px; left:50%; width:100%; height:2px; background:#D9DCE1; }
+  .st.done .ln { background:var(--ink); }
+  .st:last-child .ln { display:none; }
+  .dot { width:24px; height:24px; border-radius:12px; border:1.5px solid #C9CDD3; background:#fff; z-index:1; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; color:var(--slate); }
+  .done .dot { background:var(--ink); border-color:var(--ink); color:#fff; }
+  .now .dot { border:2px solid var(--brand); color:var(--brand); }
+  .skip .dot { border-style:dashed; color:#C9CDD3; }
+  .st span { font-size:9.5px; font-weight:600; color:var(--slate); margin-top:4px; text-align:center; line-height:1.15; }
+  .now span { color:var(--ink); }
+  .next { font-size:12px; color:var(--ink); background:#F6F7F9; border-radius:8px; padding:7px 9px; margin-top:6px; }
+  .kv { display:flex; gap:10px; padding:7px 0; border-bottom:1px solid #EEF0F2; font-size:13px; }
+  .kv:last-child { border-bottom:0; }
+  .kv .k { width:112px; flex:none; color:var(--slate); } .kv .v { flex:1; font-weight:600; text-align:right; }
+  .dates { display:flex; gap:6px; }
+  .date { flex:1; background:#F6F7F9; border-radius:8px; padding:7px 8px; }
+  .date small { display:block; font-size:10.5px; color:var(--slate); font-weight:600; } .date b { font-size:12.5px; }
+  .pdf { display:flex; align-items:center; gap:10px; border:1px dashed #C9CDD3; border-radius:10px; padding:10px; }
+  .pdf .ic { width:34px; height:42px; border-radius:5px; background:#F0F1F4; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; color:var(--slate); }
+  .btn { display:inline-flex; align-items:center; justify-content:center; background:var(--brand); color:#fff; font-size:13px; font-weight:600; border-radius:10px; padding:9px 14px; }
+  .btn.ghost { background:#fff; color:var(--ink); border:1px solid var(--line); }
+  .row { display:flex; gap:8px; }
+  .note { font-size:12.5px; padding:7px 0; border-bottom:1px solid #EEF0F2; } .note:last-child { border-bottom:0; }
+  .note small { display:block; color:var(--slate); font-size:11px; margin-bottom:2px; }
+  .money { display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; }
+  .money div { background:#F6F7F9; border-radius:8px; padding:7px 8px; } .money small { display:block; font-size:10.5px; color:var(--slate); font-weight:600; } .money b { font-size:13px; }
+  /* repair page: stages of the works */
+  .stage { background:#fff; border:1px solid #e5e7eb; border-radius:12px; margin-bottom:8px; overflow:hidden; }
+  .stage .sh { display:flex; align-items:center; gap:10px; padding:10px 12px; }
+  .stage .sh .dot { flex:none; }
+  .stage .sh b { flex:1; font-size:13.5px; } .stage .sh em { font-style:normal; font-size:11.5px; color:var(--slate); }
+  .stage .sb { padding:0 12px 11px 46px; font-size:12.5px; color:var(--ink); }
+  .stage .sb .muted { margin-top:3px; }
+  .thumbs { display:flex; gap:5px; margin-top:6px; } .thumbs i { width:46px; height:46px; border-radius:6px; background:#D9DCE1; display:block; }
+  .stage.open { border:1.5px solid var(--ink); }
+  /* home */
+  .tiles { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-bottom:10px; }
+  .tile { background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:10px 6px; text-align:center; font-size:11.5px; font-weight:600; }
+  .tile i { display:block; font-style:normal; font-size:18px; margin-bottom:3px; }
+  .jt { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px; }
+  .jt div { background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:9px 10px; }
+  .jt b { display:block; font-size:19px; } .jt small { font-size:11.5px; color:var(--slate); font-weight:600; }
+  .jt .red b { color:var(--brand); }
+  .list .li { display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid #EEF0F2; }
+  .list .li:last-child { border-bottom:0; } .list .l { flex:1; min-width:0; } .list b { display:block; font-size:13px; } .list small { font-size:11.5px; color:var(--slate); }
+</style></head>
+<body>
+
+<!-- 1. The job hub (Finance view) -->
+<div id="hub" class="phone">
+  <div class="label">1 — The Job Hub<small>One page per repair. Finance sees this; Projects sees the same without the money box.</small></div>
+  <div class="top"><span class="back">‹</span><span class="logo">OpHUB</span><span class="x">×</span><span class="co">RTB Roofing</span></div>
+  <div class="body">
+    <div class="crumbs"><span>Finance</span> › <span>J140 Sovereign Repairs</span> › <b>WO-58213</b></div>
+    <div class="card">
+      <div class="jobhead"><span class="no">WO-58213</span><b>14 Elm Close, Banbury</b></div>
+      <div style="margin-top:6px"><span class="tag">Priority 2 — 7 Days</span><span class="tag">Scaffold 14 Nov</span></div>
+      <div class="bar" style="margin-top:12px">
+        <div class="st done"><div class="ln"></div><div class="dot">✓</div><span>To Book</span></div>
+        <div class="st done"><div class="ln"></div><div class="dot">✓</div><span>Booked In</span></div>
+        <div class="st done"><div class="ln"></div><div class="dot">✓</div><span>Attended</span></div>
+        <div class="st done"><div class="ln"></div><div class="dot">✓</div><span>Quote</span></div>
+        <div class="st now"><div class="ln"></div><div class="dot">5</div><span>Approved</span></div>
+        <div class="st"><div class="ln"></div><div class="dot">6</div><span>Done</span></div>
+        <div class="st"><div class="ln"></div><div class="dot">7</div><span>Invoiced</span></div>
+        <div class="st"><div class="ln"></div><div class="dot">8</div><span>Paid</span></div>
+      </div>
+      <div class="next">Next: book the works in. Waiting on scaffold (booked for 14 Nov).</div>
+    </div>
+    <div class="card">
+      <div class="h">WORKS ORDER</div>
+      <div class="pdf"><div class="ic">PDF</div><div style="flex:1"><b style="font-size:13px">WO-58213.pdf</b><div class="muted">Received 3 Nov · Read automatically</div></div><span class="btn ghost">View</span></div>
+    </div>
+    <div class="card">
+      <div class="kv"><span class="k">Address</span><span class="v">14 Elm Close, Banbury OX16 2QT</span></div>
+      <div class="kv"><span class="k">Call-Out</span><span class="v">Leak above bedroom ceiling after heavy rain</span></div>
+      <div class="kv"><span class="k">Tenant</span><span class="v">Mrs J. Patel · 07700 900123</span></div>
+      <div class="kv"><span class="k">Tenant No.</span><span class="v">T-44871</span></div>
+      <div class="dates" style="margin-top:8px">
+        <div class="date"><small>Booked For</small><b>4 Nov</b></div>
+        <div class="date"><small>Attended</small><b>4 Nov</b></div>
+        <div class="date"><small>Completed</small><b>—</b></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="h">MONEY (FINANCE ONLY)</div>
+      <div class="money"><div><small>Quoted</small><b>£1,240</b></div><div><small>Costs So Far</small><b>£310</b></div><div><small>Margin</small><b>—</b></div></div>
+    </div>
+    <div class="card">
+      <div class="h">NOTES <span class="tag" style="float:right">Client Can See</span></div>
+      <div class="note"><small>Andy · 4 Nov</small>Slipped tiles and cracked lead flashing at the chimney. Quote sent.</div>
+      <div class="note"><small>Sovereign (client) · 5 Nov</small>Approved, please book with tenant.</div>
+    </div>
+    <div class="row" style="justify-content:center"><span class="btn">Update ▾</span><span class="btn ghost">Repair Page ›</span></div>
+  </div>
+</div>
+
+<!-- 2. The repair page: each stage of the works -->
+<div id="page" class="phone">
+  <div class="label">2 — The Repair Page<small>The in-depth view: every stage of the works, opened up to update it.</small></div>
+  <div class="top"><span class="back">‹</span><span class="logo">OpHUB</span><span class="x">×</span><span class="co">RTB Roofing</span></div>
+  <div class="body">
+    <div class="crumbs"><span>Projects</span> › <span>Sovereign Repairs</span> › <span>WO-58213</span> › <b>Repair</b></div>
+    <div class="stage"><div class="sh"><div class="dot" style="background:#1E2124;border-color:#1E2124;color:#fff">✓</div><b>Booked In</b><em>4 Nov · Mike Site</em></div></div>
+    <div class="stage"><div class="sh"><div class="dot" style="background:#1E2124;border-color:#1E2124;color:#fff">✓</div><b>Attended</b><em>4 Nov</em></div>
+      <div class="sb">Slipped tiles, cracked lead at chimney. Needs scaffold.<div class="thumbs"><i></i><i></i><i></i></div></div></div>
+    <div class="stage"><div class="sh"><div class="dot" style="background:#1E2124;border-color:#1E2124;color:#fff">✓</div><b>Quote</b><em>£1,240 · sent 4 Nov</em></div></div>
+    <div class="stage open"><div class="sh"><div class="dot" style="border:2px solid #E3262B;color:#E3262B">5</div><b>Approved</b><em>5 Nov by Sovereign</em></div>
+      <div class="sb">
+        <div><b>Other Trades:</b> Scaffold booked 14 Nov (Acme Scaffolding)</div>
+        <div style="margin-top:4px"><b>Works Booked For:</b> not yet</div>
+        <div class="row" style="margin-top:8px"><span class="btn" style="padding:7px 12px">Book The Works</span><span class="btn ghost" style="padding:7px 12px">Put On Hold</span></div>
+      </div></div>
+    <div class="stage"><div class="sh"><div class="dot">6</div><b>Works Done</b><em>photos, signature</em></div></div>
+    <div class="muted" style="padding:4px 2px">Fixed on the first visit? Quote and Approved show as "Not Needed" and it goes straight to Works Done.</div>
+  </div>
+</div>
+
+<!-- 3. The contract's home in Projects -->
+<div id="home" class="phone">
+  <div class="label">3 — The Contract Home (Projects)<small>The normal project home (H&amp;S and the rest), plus the repair jobs by where they're at.</small></div>
+  <div class="top"><span class="back">‹</span><span class="logo">OpHUB</span><span class="x">×</span><span class="co">RTB Roofing</span></div>
+  <div class="body">
+    <div class="crumbs"><span>Projects</span> › <b>Sovereign Repairs</b></div>
+    <div class="tiles">
+      <div class="tile"><i>🦺</i>H&amp;S</div><div class="tile"><i>📅</i>Calendar</div><div class="tile"><i>💬</i>Messages</div>
+      <div class="tile"><i>🧱</i>Materials</div><div class="tile"><i>📁</i>Documents</div><div class="tile"><i>⚙</i>Settings</div>
+    </div>
+    <div class="h">REPAIR JOBS</div>
+    <div class="jt">
+      <div class="red"><b>12</b><small>To Book</small></div><div><b>5</b><small>Booked In</small></div>
+      <div><b>4</b><small>Quote Needed</small></div><div><b>6</b><small>Awaiting Approval</small></div>
+      <div><b>3</b><small>Approved — To Book</small></div><div><b>2</b><small>On Hold / Other Trades</small></div>
+    </div>
+    <div class="row" style="margin-bottom:10px"><span class="btn" style="flex:2">+ New Job (Read Works Order)</span><span class="btn ghost" style="flex:1">All Jobs</span></div>
+    <div class="card list">
+      <div class="li"><div class="l"><b>WO-58213 · 14 Elm Close</b><small>Approved · Scaffold 14 Nov</small></div><span>›</span></div>
+      <div class="li"><div class="l"><b>WO-58240 · 3 Mill Lane</b><small>Booked In · 9 Nov</small></div><span>›</span></div>
+      <div class="li"><div class="l"><b>WO-58251 · 27 Bridge St</b><small>To Book · received 6 Nov</small></div><span>›</span></div>
+      <div class="li"><div class="l"><b>WO-58199 · Flat 4, Oak House</b><small><span class="tag hold">On Hold</span>tenant away until 20 Nov</small></div><span>›</span></div>
+    </div>
+  </div>
+</div>
+<!-- 4. The contract in Finance: like plots -->
+<div id="fin" class="phone">
+  <div class="label">4 — The Contract In Finance<small>Like plots: costs go to the contract, then to the job. Each job shows where it's at and its money.</small></div>
+  <div class="top"><span class="back">‹</span><span class="logo">OpHUB</span><span class="x">×</span><span class="co">RTB Roofing</span></div>
+  <div class="body">
+    <div class="crumbs"><span>Finance</span> › <span>Projects</span> › <b>J140 Sovereign Repairs</b></div>
+    <div class="jt" style="grid-template-columns:1fr 1fr 1fr">
+      <div><b>£48,200</b><small>Quoted</small></div><div><b>£21,900</b><small>Costs</small></div><div><b>£9,850</b><small>Done, To Invoice</small></div>
+    </div>
+    <div class="row" style="margin-bottom:10px"><span class="btn" style="flex:2">Invoice Done Jobs (7)</span><span class="btn ghost" style="flex:1">+ New Job</span></div>
+    <div class="card" style="padding:0">
+      <div style="display:flex;gap:6px;padding:8px 10px;background:#F6F7F9;border-radius:12px 12px 0 0;font-size:11px;font-weight:600;color:#5B6472"><span style="width:64px">Job</span><span style="flex:1">Address · Stage</span><span style="width:56px;text-align:center">Quoted</span><span style="width:50px;text-align:center">Costs</span></div>
+      <div style="display:flex;gap:6px;padding:9px 10px;border-top:1px solid #EEF0F2;align-items:center;font-size:12.5px"><b style="width:64px;font-size:11.5px">WO-58213</b><span style="flex:1"><b style="display:block">14 Elm Close</b><small style="color:#5B6472">Approved · scaffold</small></span><b style="width:56px;text-align:center">£1,240</b><span style="width:50px;text-align:center">£310</span></div>
+      <div style="display:flex;gap:6px;padding:9px 10px;border-top:1px solid #EEF0F2;align-items:center;font-size:12.5px"><b style="width:64px;font-size:11.5px">WO-58177</b><span style="flex:1"><b style="display:block">9 Park Road</b><small style="color:#5B6472">Done 2 Nov</small></span><b style="width:56px;text-align:center">£460</b><span style="width:50px;text-align:center">£205</span></div>
+      <div style="display:flex;gap:6px;padding:9px 10px;border-top:1px solid #EEF0F2;align-items:center;font-size:12.5px"><b style="width:64px;font-size:11.5px">WO-58150</b><span style="flex:1"><b style="display:block">22 Hill View</b><small style="color:#5B6472">Invoiced · INV-1088</small></span><b style="width:56px;text-align:center">£2,100</b><span style="width:50px;text-align:center">£1,180</span></div>
+      <div style="display:flex;gap:6px;padding:9px 10px;border-top:1px solid #EEF0F2;align-items:center;font-size:12.5px"><b style="width:64px;font-size:11.5px">WO-58102</b><span style="flex:1"><b style="display:block">5 Church Walk</b><small style="color:#5B6472">Paid 31 Oct</small></span><b style="width:56px;text-align:center">£380</b><span style="width:50px;text-align:center">£150</span></div>
+    </div>
+    <div class="h" style="margin-top:4px">BOOKING A COST (A PO, PURCHASE INVOICE OR WAGES)</div>
+    <div class="card">
+      <div class="kv"><span class="k">Project</span><span class="v">J140 Sovereign Repairs ▾</span></div>
+      <div class="kv"><span class="k">Repair Job</span><span class="v">WO-58213 · 14 Elm Close ▾</span></div>
+      <div class="muted" style="margin-top:6px">Or split it across several jobs, as with plots. Left blank, it's a cost to the contract as a whole.</div>
+    </div>
+  </div>
+</div>
+
+<!-- 5. The workflow on one page -->
+<div id="flow" class="phone" style="width:390px">
+  <div class="label">5 — The Workflow<small>Start to paid. What moves it on, and who.</small></div>
+  <div class="body" style="padding-top:12px">
+    <div class="card"><b style="font-size:13.5px">1. Set Up The Contract</b><div class="muted">New Project › Project Type: Repair Contract. Client, rates and invoicing (one per job, or monthly).</div></div>
+    <div class="card"><b style="font-size:13.5px">2. New Job From The Works Order</b><div class="muted">Upload the PDF (or several at once): job no., address, call-out, tenant and priority are read in. Lands in <b>To Book</b>.</div></div>
+    <div class="card"><b style="font-size:13.5px">3. Book In → Attend</b><div class="muted">Set the booking date (<b>Booked In</b>, on the calendar and the operative's app). The operative attends, adds photos and notes (<b>Attended</b>).</div></div>
+    <div class="card" style="border:1.5px solid #1E2124"><b style="font-size:13.5px">4. Fixed First Time? Or Quote</b><div class="muted"><b>Fixed:</b> straight to Works Done.<br><b>Needs more:</b> price it (<b>Quote</b>), send it, client approves (<b>Approved</b>), book the works in, attend.<br>Scaffold / other trades and On Hold are flags on the job, not extra stages.</div></div>
+    <div class="card"><b style="font-size:13.5px">5. Works Done</b><div class="muted">Completion photos and signature. The PM checks it: it's ready to invoice.</div></div>
+    <div class="card"><b style="font-size:13.5px">6. Invoiced → Paid (Finance)</b><div class="muted">Raise from the job (or Invoice Done Jobs for the month): the price and details fill in. The job ticks Invoiced, then Paid when the money's in.</div></div>
+    <div class="card"><b style="font-size:13.5px">All The Way Through</b><div class="muted">Costs booked to the contract, then the job (like plots). Notes the client can see. Everything shows on the progress bar.</div></div>
+  </div>
+</div>
+</body></html>
