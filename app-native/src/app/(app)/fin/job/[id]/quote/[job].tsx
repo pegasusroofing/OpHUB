@@ -1,14 +1,17 @@
-// A repair job's quote (Andy, 7 Nov 2026: "really simple"): tap items from the contract's schedule of rates (less its
-// set discount), add your own lines, or just put in one figure. No VAT on the lines: the contract's VAT, from its
-// Finance set-up, is added once at the bottom. Save, or Save & Send To Client (the job is then Awaiting Approval).
+// A repair job's quote (Andy, 7 Nov 2026: "really simple"): find items in the contract's schedule of rates (NHF or the
+// client's own) by Category ▾, Item ▾ or free text, less its set discount; add your own lines, or just put in one
+// figure. No VAT on the lines: the contract's VAT, from its Finance set-up, is added once at the bottom. Save asks where
+// the quote stands (Not Sent Yet, Awaiting Approval, Client Approved, Client Rejected); Save & Send To Client makes it
+// Awaiting Approval.
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
-import { useToast } from '@/components/toast';
+import { RateFinder } from '@/components/RateFinder';
+import { chooseAction, useToast } from '@/components/toast';
 import { Button, Card, Muted } from '@/components/ui';
-import { saveRepairQuote, useContractQuoteSettings, useRepairRates } from '@/data/repairQuote';
+import { QUOTE_STATUS, quoteStatusOf, saveRepairQuote, useContractQuoteSettings, useRepairRates, type QuoteStatus } from '@/data/repairQuote';
 import { useRepairJob } from '@/data/repairs';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
@@ -33,7 +36,6 @@ export default function RepairQuote() {
   const { data: qs } = useContractQuoteSettings(id);
   const [lines, setLines] = useState<QuoteLine[] | null>(null);
   const [disc, setDisc] = useState<string | null>(null);
-  const [find, setFind] = useState('');
   const [busy, setBusy] = useState(false);
   const job = data?.job as Row | undefined;
   // Start from what's saved (or one blank line).
@@ -48,16 +50,19 @@ export default function RepairQuote() {
   const discount = disc != null ? num(disc) : job.quote_discount_pct != null ? Number(job.quote_discount_pct) : qs?.discount ?? 0;
   const t = quoteTotals(lines, discount, qs?.vat);
   const set = (i: number, p: Partial<QuoteLine>) => setLines(lines.map((l, k) => (k === i ? { ...l, ...p } : l)));
-  const q = find.trim().toLowerCase();
-  const matches = q ? rates.filter((r) => `${r.code || ''} ${r.description}`.toLowerCase().includes(q)).slice(0, 8) : [];
-  const save = async (send: boolean) => {
+  const now = quoteStatusOf(job);
+  const save = async (status: QuoteStatus) => {
     const clean = lines.filter((l) => l.description.trim() && Number(l.qty) > 0);
     if (!clean.length) { toast('Add at least one line, or one figure.'); return; }
-    setBusy(true); const ok = await saveRepairQuote(job, clean, discount, qs?.vat ?? null, send); setBusy(false);
+    setBusy(true); const ok = await saveRepairQuote(job, clean, discount, qs?.vat ?? null, status, me.id); setBusy(false);
     if (!ok) { toast('Could not save — try again.'); return; }
-    void qc.invalidateQueries({ queryKey: ['repairJob', jobId] }); void qc.invalidateQueries({ queryKey: ['repairJobs', id] });
-    toast(send ? 'Quote sent — awaiting the client’s approval' : 'Quote saved');
+    ['repairJob', 'repairJobs', 'repairPaid'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] }));
     router.back();
+  };
+  // Save: where does the quote stand? (Its status now is ticked.)
+  const saveAs = async () => {
+    const k = await chooseAction('Save As', QUOTE_STATUS.map(([key, label]) => ({ key, label: key === now ? `${label} ✓` : label })));
+    if (k) await save(k as QuoteStatus);
   };
 
   return (
@@ -68,23 +73,13 @@ export default function RepairQuote() {
         {!!(job.repair_description || job.survey_notes) && <Muted style={{ marginTop: 4 }}>Repair: {job.repair_description || job.survey_notes}</Muted>}
       </Card>
 
-      {/* Add from the schedule of rates. */}
+      {/* Add from the schedule of rates: Category ▾, Item ▾, or search. */}
       {rates.length > 0 ? (
         <Card>
-          <Text style={{ fontWeight: '700', color: base.ink, marginBottom: 6 }}>From The Schedule Of Rates</Text>
-          <TextInput value={find} onChangeText={setFind} placeholder="Search by code or description" accessibilityLabel="Search the schedule of rates" style={[box, { fontSize: 16 }]} />
-          {matches.map((r) => (
-            <Pressable key={r.id} accessibilityRole="button" accessibilityLabel={`Add ${r.code || ''} ${r.description}`} onPress={() => { setLines([...lines, rateLine(r)]); setFind(''); }}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#EEF0F2' }}>
-              <Text style={{ width: 64, fontSize: 12, fontWeight: '600', color: base.slate }}>{r.code || ''}</Text>
-              <Text style={{ flex: 1, fontSize: 13.5, color: base.ink }}>{r.description}</Text>
-              <Text style={{ fontSize: 13, fontWeight: '600', color: base.ink }}>{gbp(Number(r.rate))}{r.unit ? `/${r.unit}` : ''}</Text>
-              <Text style={{ fontSize: 18, color: base.slate }}>＋</Text>
-            </Pressable>
-          ))}
-          {!!q && !matches.length && <Muted style={{ marginTop: 6 }}>Nothing matches.</Muted>}
+          <Text style={{ fontWeight: '700', color: base.ink, marginBottom: 6 }}>From The Schedule Of Rates{qs?.ratesName ? ` — ${qs.ratesName}` : ''}</Text>
+          <RateFinder rates={rates} onPick={(r) => { setLines([...lines, rateLine(r)]); toast(`Added ${r.code || 'the item'}`); }} />
         </Card>
-      ) : <Muted style={{ marginBottom: 8 }}>No schedule of rates on this contract yet: add your own lines, or one figure. (Works Orders › Schedule Of Rates to set one up.)</Muted>}
+      ) : <Muted style={{ marginBottom: 8 }}>No schedule of rates on this contract yet: add your own lines, or one figure. (Upload one in Finance › Project Admin › Edit Project Financials › Contract Rates?)</Muted>}
 
       {/* The lines. */}
       <Card>
@@ -128,9 +123,10 @@ export default function RepairQuote() {
         {!!t.vatNote && <Muted style={{ marginTop: 6 }}>{t.vatNote}</Muted>}
       </Card>
 
+      <Muted style={{ textAlign: 'center', marginBottom: 6 }}>Now: {QUOTE_STATUS.find(([k]) => k === now)?.[1]}</Muted>
       <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 8 }}>
-        <Button kind="ghost" busy={busy} title="Save" onPress={() => void save(false)} />
-        <Button busy={busy} title="Save & Send To Client" onPress={() => void save(true)} />
+        <Button kind="ghost" busy={busy} title="Save ▾" onPress={() => void saveAs()} />
+        <Button busy={busy} title="Save & Send To Client" onPress={() => void save('awaiting')} />
       </View>
       <View style={{ alignItems: 'center', marginBottom: space.xl }}>
         <Button small kind="ghost" title="📄 Quote PDF" onPress={async () => { if (!(await exportRepairReport('quote', { ...job, quote_lines: lines, quote_discount_pct: discount, variation_cost: t.net } as never, site, org, '', qs?.vat).catch(() => false))) toast('Could not build the PDF.'); }} />

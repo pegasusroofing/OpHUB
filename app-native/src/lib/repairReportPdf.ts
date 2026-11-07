@@ -1,7 +1,7 @@
 // Repair job reports (340 buildRepairJobSurveyPdf / buildRepairJobCompletionPdf; Andy 7 Nov 2026): the Attendance
 // Report (the works required: fault, repair, whether it was done in the visit, the attendance photos), the Completed
 // Works Report, and the Quote. Brand header with the address, the job details, then the photos four to a page.
-import { appendMediaSummary, DEFAULT_BRAND1, deliverPdf, drawFit, exportFilename, hexToRgb, INK, PDFDocument, rgb, safe, siteLabel, SLATE, StandardFonts, storageImage, WHITE, wrap, type PDFPage } from '@/lib/pdf';
+import { appendMediaSummary, DEFAULT_BRAND1, drawFit, exportFilename, hexToRgb, INK, PDFDocument, rgb, safe, showPdf, siteLabel, SLATE, StandardFonts, storageImage, WHITE, wrap, type PDFPage } from '@/lib/pdf';
 import { quoteTotals, lineValue, type QuoteLine } from '@/lib/rules/repairQuote';
 import { REPAIR_ACCESS, type RepairJob } from '@/lib/rules/repairs';
 import { supabase } from '@/lib/supabase';
@@ -17,7 +17,8 @@ const FILE: Record<Kind, string> = { survey: 'Attendance Report', completion: 'C
 
 export async function exportRepairReport(kind: Kind, job: RepairJob, site: Site | null | undefined, org: Organization | null, surveyor: string, vat?: string | null): Promise<boolean> {
   const r = await buildRepairReport(kind, job, site, org, surveyor, vat);
-  return deliverPdf(r.bytes, r.filename);
+  // Opened to read (Andy, 7 Nov 2026: no OneDrive question here; the reports go to the job's folder by themselves).
+  return showPdf(r.bytes, r.filename);
 }
 /** The report itself (the attendance and completed works reports also go to the job's OneDrive folder when they change). */
 export async function buildRepairReport(kind: Kind, job0: RepairJob, site: Site | null | undefined, org: Organization | null, surveyor: string, vat?: string | null): Promise<{ bytes: Uint8Array; filename: string }> {
@@ -53,9 +54,9 @@ export async function buildRepairReport(kind: Kind, job0: RepairJob, site: Site 
   if (kind === 'survey') {
     bar('Attendance');
     field('Attended', job.survey_date ? `${ukd(job.survey_date)}${surveyor ? ` — ${surveyor}` : ''}` : 'Not attended yet');
-    field('Description Of Fault', job.fault_description || '(not recorded)');
-    field('Description Of Repair', job.repair_description || job.survey_notes || '(not recorded)');
-    field('Completed In The Visit', job.completed_in_visit === true ? 'Yes' : job.completed_in_visit === false ? 'No — needs a quote' : '—');
+    field('Description Of Fault Found', job.fault_description || '(not recorded)');
+    field('Description Of Repair Required', job.repair_description || job.survey_notes || '(not recorded)');
+    field('Completed Repair Whilst In Attendance', job.completed_in_visit === true ? 'Yes' : job.completed_in_visit === false ? 'No — needs a quote' : '—');
     if (job.access_requirement && job.access_requirement !== 'none') field('Access', `${REPAIR_ACCESS[job.access_requirement] || job.access_requirement}${job.access_notes ? ` — ${job.access_notes}` : ''}`);
   } else if (kind === 'completion') {
     bar('Completion');

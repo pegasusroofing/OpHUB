@@ -17,9 +17,11 @@ export type RJob = {
 };
 export type Stage = 'to_book' | 'booked' | 'attended' | 'quote_needed' | 'awaiting_approval' | 'approved' | 'works_booked' | 'done' | 'rejected';
 
+// Andy's wording (7 Nov 2026): To Schedule, Scheduled - Awaiting Attendance, Quotation Required, Awaiting Client
+// Approval, Approved - Requires Booking Date, On Hold / Other Trades, Completed Works.
 export const STAGE_LABEL: Record<Stage, string> = {
-  to_book: 'To Book', booked: 'Booked In', attended: 'Attended', quote_needed: 'Quote Needed', awaiting_approval: 'Awaiting Approval',
-  approved: 'Approved — To Book', works_booked: 'Approved — Booked In', done: 'Works Done', rejected: 'Rejected',
+  to_book: 'To Schedule', booked: 'Scheduled - Awaiting Attendance', attended: 'Attended', quote_needed: 'Quotation Required', awaiting_approval: 'Awaiting Client Approval',
+  approved: 'Approved - Requires Booking Date', works_booked: 'Repair Booked', done: 'Completed Works', rejected: 'Rejected',
 };
 /** The old app's status for a stage, written alongside so the old app (still live) shows the job sensibly. */
 export const OLD_STATUS: Record<Stage, string> = {
@@ -28,8 +30,10 @@ export const OLD_STATUS: Record<Stage, string> = {
 };
 /** Waiting on other trades: set on the job, or one of the old "approved, awaiting scaffold" jobs. */
 export const otherTradesOf = (j: RJob): string | null => j.other_trades || (j.job_status === 'Approved - Awaiting Scaffold' && !j.scaffold_erection_date ? 'Scaffold' : null);
-/** The progress bar's steps (Projects shows the first six; Finance adds Invoiced and Paid). */
-export const BAR = ['To Book', 'Booked In', 'Attended', 'Quote', 'Approved', 'Works Done', 'Invoiced', 'Paid'];
+/** The progress bar's steps (Projects shows the first seven; Finance adds Invoiced and Paid). Repair Booked: the
+ *  works visit's date, after approval (Andy, 7 Nov 2026). */
+export const BAR = ['To Schedule', 'Scheduled', 'Attended', 'Quote', 'Approved', 'Repair Booked', 'Completed', 'Invoiced', 'Paid'];
+export const BAR_PROJECTS = 7;
 
 export const attendedOf = (j: RJob) => j.survey_required === 'Y' || j.survey_required === 'NA';
 
@@ -50,27 +54,41 @@ export function repairStage(j: RJob): Stage {
   return 'to_book';
 }
 
-/** Where the job is on the bar (1–8), whether Quote and Approved were skipped, and the label for step 5. */
+/** Where the job is on the bar (1–9), and whether Quote, Approved and Repair Booked were skipped (done in the visit). */
 export function barState(j: RJob, inv?: { status?: string | null } | null): { step: number; skipQuote: boolean; rejected: boolean } {
   const s = repairStage(j);
   const skipQuote = s === 'done' && j.quote_approved == null && !j.variation_issued_at;
   const paid = inv?.status === 'paid', issued = !!inv && !['draft', 'void'].includes(String(inv.status || ''));
   const step = s === 'to_book' ? 1 : s === 'booked' ? 2 : s === 'attended' ? 3 : s === 'quote_needed' || s === 'awaiting_approval' ? 4
-    : s === 'approved' || s === 'works_booked' ? 5 : s === 'done' ? (paid ? 8 : issued || j.invoiced ? 7 : 6) : 4;
+    : s === 'approved' ? 5 : s === 'works_booked' ? 6 : s === 'done' ? (paid ? 9 : issued || j.invoiced ? 8 : 7) : 4;
   return { step, skipQuote, rejected: s === 'rejected' };
 }
 
+/** Other trades on a job (scaffold, electrician…), each with its booked date; the jobs from before had one text field. */
+export type Trade = { id: string; trade: string; date?: string | null; done?: boolean; done_at?: string | null };
+export function tradesOf(j: RJob & { trades?: unknown }): Trade[] {
+  if (Array.isArray(j.trades)) return j.trades as Trade[];
+  return j.other_trades ? [{ id: 'legacy', trade: j.other_trades, date: j.other_trades_date || null }] : [];
+}
+/** What the old fields hold for a list of trades: the ones still to do, and the soonest of their dates. */
+export function tradesSummary(list: Trade[]): { other_trades: string | null; other_trades_date: string | null } {
+  const open = list.filter((t) => !t.done && t.trade.trim());
+  const dates = open.map((t) => t.date).filter((d): d is string => !!d).sort();
+  return { other_trades: open.map((t) => t.trade.trim()).join(', ') || null, other_trades_date: dates[0] || null };
+}
+
 /** What happens next, in a line. */
-export function nextHint(j: RJob, mgr: boolean): string {
+/** fin: Finance (who prices quotes); in Projects a quote is "with Finance to price" (Andy, 7 Nov 2026: no money in Projects). */
+export function nextHint(j: RJob, mgr: boolean, fin = false): string {
   const s = repairStage(j);
   const hold = j.on_hold ? ` On hold${j.on_hold_reason ? `: ${j.on_hold_reason}` : ''}.` : '';
   const trades = otherTradesOf(j) ? ` Waiting on ${otherTradesOf(j)}${j.other_trades_date ? ` (${j.other_trades_date})` : ''}.` : '';
   const t: Record<Stage, string> = {
     to_book: mgr ? 'Next: book it in with the tenant and an operative.' : 'Waiting to be booked in.',
     booked: 'Next: attend, check in and go through the steps.',
-    attended: j.completed_in_visit ? 'Next: completion photos and the works completed.' : 'Next: was it completed in the visit? Yes, or it needs a quote.',
-    quote_needed: mgr ? 'Next: price it from the attendance report and send the quote.' : 'With the office to price.',
-    awaiting_approval: 'Waiting for the client to approve the quote.',
+    attended: j.completed_in_visit ? 'Next: completion photos and the works completed.' : 'Next: was the repair completed whilst in attendance? Yes, or it needs a quote.',
+    quote_needed: fin ? 'Next: price it from the attendance report and send the quote.' : mgr ? 'With Finance to price.' : 'With the office to price.',
+    awaiting_approval: 'Quote submitted. Waiting for the client to approve it.',
     approved: mgr ? 'Next: book the works in.' : 'Approved — waiting for a date.',
     works_booked: 'Next: attend and do the works.',
     done: j.closed ? 'Done and checked. Ready to invoice.' : mgr ? 'Done. Check it, then it’s ready to invoice.' : 'Done — thank you.',
@@ -105,15 +123,18 @@ export function byBooking<T extends RJob>(list: T[]): T[] {
   });
 }
 
-/** The managers' boxes on Works Orders. */
-export const BOXES: { k: string; l: string; test: (j: RJob) => boolean }[] = [
-  { k: 'to_book', l: 'To Book', test: (j) => repairStage(j) === 'to_book' && !j.on_hold },
-  { k: 'booked', l: 'Booked In', test: (j) => ['booked', 'works_booked'].includes(repairStage(j)) && !j.on_hold },
-  { k: 'quote_needed', l: 'Quote Needed', test: (j) => repairStage(j) === 'quote_needed' && !j.on_hold },
-  { k: 'awaiting_approval', l: 'Awaiting Approval', test: (j) => repairStage(j) === 'awaiting_approval' && !j.on_hold },
-  { k: 'approved', l: 'Approved — To Book', test: (j) => repairStage(j) === 'approved' && !j.on_hold && !otherTradesOf(j) },
+/** The boxes on Works Orders (Andy's wording, 7 Nov 2026). paid: the ids of jobs whose invoice is paid.
+ *  op: an operative sees these, Completed Works without "To Invoice"; mgr: managers only. */
+export type Box = { k: string; l: string; op?: string; mgrOnly?: boolean; test: (j: RJob, paid?: Set<string>) => boolean };
+export const BOXES: Box[] = [
+  { k: 'to_book', l: 'To Schedule', test: (j) => repairStage(j) === 'to_book' && !j.on_hold },
+  { k: 'booked', l: 'Scheduled - Awaiting Attendance', test: (j) => ['booked', 'works_booked'].includes(repairStage(j)) && !j.on_hold },
+  { k: 'quote_needed', l: 'Quotation Required', mgrOnly: true, test: (j) => repairStage(j) === 'quote_needed' && !j.on_hold },
+  { k: 'awaiting_approval', l: 'Awaiting Client Approval', test: (j) => repairStage(j) === 'awaiting_approval' && !j.on_hold },
+  { k: 'approved', l: 'Approved - Requires Booking Date', test: (j) => repairStage(j) === 'approved' && !j.on_hold && !otherTradesOf(j) },
   { k: 'waiting', l: 'On Hold / Other Trades', test: (j) => isOpen(j) && (!!j.on_hold || !!otherTradesOf(j)) },
-  { k: 'done', l: 'Works Done, To Invoice', test: (j) => repairStage(j) === 'done' && !j.invoiced && !j.invoice_id },
+  { k: 'done', l: 'Completed Works - To Invoice', op: 'Completed Works', test: (j) => repairStage(j) === 'done' && !j.invoiced && !j.invoice_id },
+  { k: 'paid', l: 'Completed Works - Paid', mgrOnly: true, test: (j, paid) => !!paid?.has(j.id) },
   { k: 'all', l: 'All Jobs', test: () => true },
 ];
 

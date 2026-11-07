@@ -7,7 +7,7 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
-import { FinForm } from '@/components/FinForm';
+import { FinForm, type Field } from '@/components/FinForm';
 import { FinRow, FinTabs } from '@/components/FinNav';
 import { OneDriveBrowser } from '@/components/OneDriveBrowser';
 import { PurchaseQuotes } from '@/components/FinPurchaseQuotes';
@@ -25,6 +25,7 @@ import { subKind } from '@/data/finSubJobs';
 import { importSiteVariations } from '@/data/finVar';
 import { openDocLink, usePeople } from '@/data/hs';
 import { useSite } from '@/data/sites';
+import { setContractRates } from '@/data/repairQuote';
 import { useAuth } from '@/lib/auth';
 import { siteStatusKey } from '@/lib/rules/checkin';
 import { plainGet, plainSet } from '@/lib/kv';
@@ -196,7 +197,7 @@ function Overview({ id, fc, settings, invs, apps, book, askFinancials }: { id: s
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
         {ghost('Full Summary', `/fin/job/${id}/summary`)}
         {/* A repair contract opens its Works Orders (each job's stage, quote and costs; invoicing) — Andy, 7 Nov 2026. */}
-        {!!subKind(site) && (subKind(site) === 'repair' ? ghost('Works Orders', `/fin/job/${id}/repairs`) : ghost('Costs by plot', `/fin/job/${id}/parts`))}
+        {!!subKind(site) && (subKind(site) === 'repair' ? ghost('Live Jobs', `/fin/job/${id}/repairs`) : ghost('Costs by plot', `/fin/job/${id}/parts`))}
         <View style={{ flex: 1 }} />
         {ghost('Monthly Report', `/fin/job/${id}/monthly`)}
       </View>
@@ -308,8 +309,14 @@ function Setup({ id, site, jf, cpos, settings, formOnly, onDone }: { id: string;
     ]);
     if (k === 'est') linkEst(); else if (k === 'site' || k === 'job') setEdit(k);
   };
-  // Invoice jobs have no applications or retention (9219zv).
-  const byInv = jf.billing_type === 'invoice';
+  // Invoice jobs have no applications or retention (9219zv). A repair contract is billed by invoice unless chosen otherwise.
+  const billType = jf.billing_type || (site?.repair_contract ? 'invoice' : '');
+  const byInv = billType === 'invoice';
+  // The client: Finance's bill-to, else the client set up on the project in Projects (matched to the Directory).
+  const projCli = String(site?.client_name || '').trim();
+  const projDir = projCli ? dirClients.find((c) => String(c.name || '').trim().toLowerCase() === projCli.toLowerCase()) : undefined;
+  const cliName = jf.billing_name || (projDir ? String(projDir.name) : projCli);
+  const cliEmail = jf.billing_email || (jf.billing_name ? '' : String(projDir?.email || site?.client_email || ''));
   // Delete from Finance (9219u finDeleteJob): not with anything financial booked to it — then close it instead.
   const delJob = async () => {
     if (!me || !site) return;
@@ -322,23 +329,27 @@ function Setup({ id, site, jf, cpos, settings, formOnly, onDone }: { id: string;
     if (await deleteSite(id)) { toast('Project deleted'); void qc.invalidateQueries({ queryKey: ['sites'] }); router.replace('/fin/jobs' as never); } else toast('Could not delete — try again.');
   };
   const jobForm = edit === 'job' && (
-        <FinForm title="Project Financials" extra={isFullManager(me) && !estLinked ? <View style={{ marginBottom: 8 }}><Button small kind="ghost" title="📁 Link Estimating Folder" onPress={() => { setEdit(null); onDone?.(); linkEst(); }} /></View> : undefined} initial={{ ...jf, job_number: site?.job_number || '', billing_type: jf.billing_type || '', ohp_pct: jf.ohp_pct ?? settings.ohp_pct ?? 0 }} onClose={() => { setEdit(null); onDone?.(); }}
-          fields={[
+        <FinForm title="Project Financials" extra={isFullManager(me) && !estLinked ? <View style={{ marginBottom: 8 }}><Button small kind="ghost" title="📁 Link Estimating Folder" onPress={() => { setEdit(null); onDone?.(); linkEst(); }} /></View> : undefined} initial={{ ...jf, job_number: site?.job_number || '', billing_type: billType, rates_q: (site as Row | undefined)?.repair_uses_rates ? 'yes' : 'no', rates_disc: (site as Row | undefined)?.repair_discount_pct != null ? String((site as Row).repair_discount_pct) : '', billing_name: cliName, billing_email: cliEmail, billing_address: jf.billing_address || (projDir && !jf.billing_name ? [projDir.address, projDir.postcode].filter(Boolean).join('\n') : ''), ohp_pct: jf.ohp_pct ?? settings.ohp_pct ?? 0 }} onClose={() => { setEdit(null); onDone?.(); }}
+          // Worked out from what's picked, so choosing Invoice hides retention and the dates at once.
+          fields={(cur) => { const inv = String(cur.billing_type || '') === 'invoice'; return [
             { k: 'job_number', label: 'Project Number', half: true }, { k: 'contract_value', label: 'Contract Value £ (Excl. VAT)', kind: 'money', half: true },
             { k: 'billing_type', label: 'Billed By', kind: 'choice', options: [['invoice', 'Invoice'], ['application', 'Application (With Retention)']], note: 'Invoice jobs have no applications or retention.' },
-            ...(byInv ? [] : [{ k: 'retention_pct', label: 'Retention %', kind: 'number' as const, half: true, ph: String(settings.default_retention_pct) }, { k: 'retention_limit_pct', label: 'Retention Limit %', kind: 'number' as const, half: true }]),
+            // A repair contract (Andy, 7 Nov 2026): Contract Rates? Yes → the discount off them; the schedule is uploaded next.
+            ...(site?.repair_contract ? [{ k: 'rates_q', label: 'Contract Rates?', kind: 'choice' as const, half: true, options: [['no', 'No'], ['yes', 'Yes']] as [string, string][] },
+              ...(String(cur.rates_q || '') === 'yes' ? [{ k: 'rates_disc', label: 'Discount Off The Rates %', kind: 'number' as const, half: true }] : [])] : []),
+            ...(inv ? [] : [{ k: 'retention_pct', label: 'Retention %', kind: 'number' as const, half: true, ph: String(settings.default_retention_pct) }, { k: 'retention_limit_pct', label: 'Retention Limit %', kind: 'number' as const, half: true }]),
             // An invoice job has payment due dates only: no final date and no application date (Andy, 7 Nov 2026).
-            ...(byInv ? [{ k: 'due_days', label: 'Payment Due (Days)', kind: 'number' as const, ph: String(settings.default_due_days) }]
+            ...(inv ? [{ k: 'due_days', label: 'Payment Due (Days)', kind: 'number' as const, ph: String(settings.default_due_days) }]
               : [{ k: 'due_days', label: 'Payment Due (Days)', kind: 'number' as const, half: true, ph: String(settings.default_due_days) }, { k: 'final_days', label: 'Final Date (Days)', kind: 'number' as const, half: true, ph: String(settings.default_final_days) }]),
             // VAT and company overheads on one line; overheads only for an admin or Finance Controller.
             { k: 'vat_treatment', label: 'VAT', kind: 'choice', half: canOhp, options: [['', 'Company Default'], ...Object.entries(FIN_VAT_LABEL)] as [string, string][] },
             ...(canOhp ? [{ k: 'ohp_pct', label: 'Company Overheads %', kind: 'number' as const, half: true }] : []),
-            ...(byInv ? [] : [{ k: 'app_reminder_day', label: 'Application Date (Day Of Month)', kind: 'day' as const, extra: { label: 'Set a differing day for some months', onPress: () => setDatesOver(true) } }]),
-            { k: 'billing_name', label: 'Client', kind: 'choice', options: [['', 'Not set'], ...dirClients.map((c) => [c.name, c.name] as [string, string]), ...(jf.billing_name && !dirClients.some((c) => c.name === jf.billing_name) ? [[jf.billing_name, `${jf.billing_name} (not in the Directory)`] as [string, string]] : [])], note: 'From the Directory — the billing address and accounts email follow the client’s Directory record.' }, { k: 'billing_address', label: 'Billing address', kind: 'multiline' }, { k: 'billing_email', label: 'Accounts email', kind: 'email' },
-            ...(byInv ? [] : [{ k: 'final_release_date', label: 'Final retention release (blank = end of defects period)', kind: 'date' as const, half: true }]),
+            ...(inv ? [] : [{ k: 'app_reminder_day', label: 'Application Date (Day Of Month)', kind: 'day' as const, extra: { label: 'Set a differing day for some months', onPress: () => setDatesOver(true) } }]),
+            { k: 'billing_name', label: 'Client', kind: 'choice', options: [['', 'Not set'], ...dirClients.map((c) => [c.name, c.name] as [string, string]), ...(cliName && !dirClients.some((c) => c.name === cliName) ? [[cliName, `${cliName} (not in the Directory)`] as [string, string]] : [])], note: 'From the Directory — the billing address and accounts email follow the client’s Directory record.' }, { k: 'billing_address', label: 'Billing address', kind: 'multiline' }, { k: 'billing_email', label: 'Accounts email', kind: 'email' },
+            ...(inv ? [] : [{ k: 'final_release_date', label: 'Final retention release (blank = end of defects period)', kind: 'date' as const, half: true }]),
             { k: 'qs_id', label: 'QS', kind: 'choice', half: true, options: [['', 'None yet'], ...(people ?? []).filter((p) => ['pm', 'admin', 'site_manager'].includes(p.role) || (p as { finance_enabled?: boolean }).finance_enabled).sort((a, b) => a.name.localeCompare(b.name)).map((p) => [p.id, p.name] as [string, string])] },
             { k: 'notes', label: 'Notes', kind: 'multiline' },
-          ]}
+          ] as Field[]; }}
           onSave={async (v) => {
             const n = (k: string) => { const x = num(v[k]); return x === null ? null : x; };
             const contract = n('contract_value'), ret = n('retention_pct'), retLim = n('retention_limit_pct'), appDay = n('app_reminder_day');
@@ -362,8 +373,16 @@ function Setup({ id, site, jf, cpos, settings, formOnly, onDone }: { id: string;
             if (contract !== null && contract !== Number(jf.contract_value)) patch.contract_value_source = 'manual';
             if (jf.original_value == null && contract && contract > 0) { patch.original_value = contract; patch.original_at = jf.original_at || new Date().toISOString(); }
             if (canOhp) { const o = n('ohp_pct'); patch.ohp_pct = o === null || isNaN(o) || o < 0 || o > 100 || o === Number(settings.ohp_pct ?? 0) ? null : o; }
+            const usesRates = !!site?.repair_contract && v.rates_q === 'yes', rd = n('rates_disc');
+            if (usesRates && rd !== null && (isNaN(rd) || rd < 0 || rd > 100)) return 'The discount must be between 0 and 100%.';
             const e = await saveJobFinance(me, id, patch);
             if (e) return e;
+            if (site?.repair_contract) {
+              await setContractRates(id, { uses: usesRates, ...(usesRates ? { pct: rd || null } : {}) });
+              void qc.invalidateQueries({ queryKey: ['repairQuoteSettings', id] });
+              // Yes, and no schedule uploaded yet: straight on to uploading it.
+              if (usesRates && !(site as Row).repair_rates_name) void (async () => { if (await confirmAsk('Upload the contract’s schedule of rates now? (The NHF Excel, or the client’s own.)', 'Upload Rates', 'Later')) router.push(`/fin/job/${id}/rates` as never); })();
+            }
             toast('Project financials saved'); refresh(); return null;
           }} />
   );
@@ -398,12 +417,13 @@ function Setup({ id, site, jf, cpos, settings, formOnly, onDone }: { id: string;
         {kv('Project Number', site?.job_number || '—')}
         {kv('Contract Value', jf.contract_value != null ? money(jf.contract_value) : 'Not Set')}
         {kv('Client PO', cpos.length ? cpos.slice().sort((a, b) => Number(!!b.is_primary) - Number(!!a.is_primary)).map((p) => p.po_number).join(', ') : 'None Yet — Tap To Add', () => void openPo())}
-        {kv('Billing', jf.billing_type === 'invoice' ? 'By Invoice' : jf.billing_type === 'application' ? 'By Application' : 'Not Chosen Yet')}
+        {kv('Billing', billType === 'invoice' ? 'By Invoice' : billType === 'application' ? 'By Application' : 'Not Chosen Yet')}
+        {!!site?.repair_contract && kv('Contract Rates', (site as Row).repair_uses_rates ? `Yes${(site as Row).repair_rates_name ? ` — ${(site as Row).repair_rates_name}` : ' — not uploaded yet'}${(site as Row).repair_discount_pct ? ` · ${(site as Row).repair_discount_pct}% off` : ''}` : 'No', () => router.push(`/fin/job/${id}/rates` as never))}
         {!byInv && kv('Retention', jf.retention_pct != null ? `${jf.retention_pct}%${jf.retention_limit_pct != null ? ` (limit ${jf.retention_limit_pct}%)` : ''}` : `${settings.default_retention_pct}% (company)`)}
         {kv('Payment Terms', byInv ? `Due in ${jf.due_days ?? settings.default_due_days} days` : `${jf.due_days ?? settings.default_due_days} days · final ${jf.final_days ?? settings.default_final_days} days`)}
         {kv('VAT', FIN_VAT_LABEL[jf.vat_treatment || settings.default_vat] || '—')}
         {!byInv && kv('Application Date', jf.app_reminder_day ? `${jf.app_reminder_day} of each month` : settings.app_reminder_day ? `${settings.app_reminder_day} (company)` : 'Not set')}
-        {kv('Client', [jf.billing_name, jf.billing_email].filter(Boolean).join(' · ') || '—')}
+        {kv('Client', [cliName, cliEmail].filter(Boolean).join(' · ') || '—')}
         {!byInv && kv('Final Retention Release', jf.final_release_date ? `${fdate(jf.final_release_date)} (set by hand)` : 'End of the defects period')}
         {kv('QS', jf.qs_id ? (people ?? []).find((p) => p.id === jf.qs_id)?.name || '—' : 'None Yet')}
         {canOhp && kv('Company Overheads', jf.ohp_pct != null ? `${jf.ohp_pct}%` : `${settings.ohp_pct ?? 0}% (company)`)}

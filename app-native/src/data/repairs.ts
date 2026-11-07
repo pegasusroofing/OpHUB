@@ -12,7 +12,7 @@ import type { Profile } from '@/lib/types';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 
-export type RepairPhoto = { id: string; category: string; storage_path: string; hires_path: string | null; deleted_at: string | null; created_at?: string };
+export type RepairPhoto = { id: string; category: string; storage_path: string; hires_path: string | null; deleted_at: string | null; created_at?: string; trade_id?: string | null };
 
 export function useRepairJobs(siteId: string | undefined) {
   return useQuery({
@@ -104,7 +104,7 @@ export async function hasRepairPhoto(jobId: string, category: string): Promise<b
 }
 
 const rid = () => (globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}${Math.random().toString(16).slice(2)}`);
-export async function addRepairPhotos(me: Profile, jobId: string, category: string, picked: Picked[]): Promise<number> {
+export async function addRepairPhotos(me: Profile, jobId: string, category: string, picked: Picked[], tradeId?: string): Promise<number> {
   let failed = 0;
   for (const p of picked) {
     try {
@@ -115,7 +115,7 @@ export async function addRepairPhotos(me: Profile, jobId: string, category: stri
       // Full-size copy kept too, so it's never only on OneDrive.
       let hires: string | null = null;
       try { const h = await supabase.storage.from('site-photos').upload(`${me.org_id}/repairjobs/${jobId}/${category}/full/${pid}.jpg`, await (await fetch(p.uri)).arrayBuffer(), { contentType: 'image/jpeg' }); hires = h.error ? null : h.data.path; } catch { hires = null; }
-      const r = await db.from('repair_job_photos').insert({ repair_job_id: jobId, category, storage_path: up.data.path, uploaded_by: me.id, ...(hires ? { hires_path: hires } : {}) } as never);
+      const r = await db.from('repair_job_photos').insert({ repair_job_id: jobId, category, storage_path: up.data.path, uploaded_by: me.id, ...(hires ? { hires_path: hires } : {}), ...(tradeId ? { trade_id: tradeId } : {}) } as never);
       if (r.error) failed++;
     } catch { failed++; }
   }

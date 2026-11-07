@@ -13,16 +13,29 @@ import { invokeAsUser } from '@/lib/userFunctions';
 type Row = Record<string, any>;
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from>; rpc: typeof supabase.rpc };
 // Just two photo folders in each job's folder (Andy, 7 Nov 2026): Survey Photos (attending) and Completion Photos.
-export const REPAIR_PHOTO_FOLDER: Record<string, string> = { survey: 'Survey Photos', access: 'Survey Photos', scaffold: 'Completion Photos', progress: 'Completion Photos', completion: 'Completion Photos' };
+// Other trades' completed-works photos go with the completion photos.
+export const REPAIR_PHOTO_FOLDER: Record<string, string> = { survey: 'Survey Photos', access: 'Survey Photos', scaffold: 'Completion Photos', progress: 'Completion Photos', completion: 'Completion Photos', trade: 'Completion Photos' };
 const seg = (s: string) => String(s || '').replace(/[\\/:*?"<>|]/g, '-').replace(/\s+/g, ' ').trim() || 'Job';
 /** The subfolder in the site's folder: the job number, or the address. */
 export const repairJobFolder = (job: Row) => seg(String(job.job_number || '').trim() || job.address || 'Job');
 const b64 = (u: Uint8Array) => { let s = ''; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode(...u.subarray(i, i + 0x8000)); return btoa(s); };
 
-async function target(job: Row): Promise<{ folder_id: string; drive_id?: string } | { site_id: string; prefix: string } | null> {
+/** Makes the job's own folder in the contract's OneDrive folder from the template (Survey Photos, Completion Photos)
+ *  and links the job to it (Andy, 7 Nov 2026). error 'no_site_folder': the contract has no OneDrive folder yet. */
+export async function makeRepairJobFolder(jobId: string): Promise<{ ok: boolean; error?: string }> {
+  const r = await invokeAsUser<{ ok?: boolean }>('onedrive-repair-folder', { repair_job_id: jobId });
+  return r.error ? { ok: false, error: r.error } : { ok: true };
+}
+const linkOf = async (id: string) => (await db.from('repair_jobs').select('site_id,job_number,address,onedrive_folder_id,onedrive_drive_id').eq('id', id).maybeSingle()).data as Row | null;
+async function target(job0: Row): Promise<{ folder_id: string; drive_id?: string } | { site_id: string; prefix: string } | null> {
+  // Read fresh: the job may have been linked to its folder since this copy was loaded.
+  const job = { ...job0, ...((await linkOf(job0.id)) || {}) };
   if (job.onedrive_folder_id) return { folder_id: job.onedrive_folder_id, drive_id: job.onedrive_drive_id || undefined };
   const s = (await db.from('sites').select('onedrive_folder_id').eq('id', job.site_id).maybeSingle()).data as Row | null;
-  return s?.onedrive_folder_id ? { site_id: job.site_id, prefix: `${repairJobFolder(job)}/` } : null;
+  if (!s?.onedrive_folder_id) return null;
+  // Not made yet (a job from before, or the folder couldn't be made when it was added): make it now.
+  if ((await makeRepairJobFolder(job.id)).ok) { const l = await linkOf(job.id); if (l?.onedrive_folder_id) return { folder_id: l.onedrive_folder_id, drive_id: l.onedrive_drive_id || undefined }; }
+  return { site_id: job.site_id, prefix: `${repairJobFolder(job)}/` };
 }
 async function put(t: NonNullable<Awaited<ReturnType<typeof target>>>, filename: string, bytes: Uint8Array): Promise<boolean> {
   const body = 'folder_id' in t ? { filename, content_base64: b64(bytes), folder_id: t.folder_id, drive_id: t.drive_id } : { filename: t.prefix + filename, content_base64: b64(bytes), site_id: t.site_id };

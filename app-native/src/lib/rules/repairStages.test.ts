@@ -27,10 +27,10 @@ test('new jobs: attended, fixed first time or needs a quote', () => {
   assert.equal(repairStage(j({ survey_required: 'Y', completed_in_visit: true })), 'attended');
   assert.equal(repairStage(j({ survey_required: 'Y', completed_in_visit: false })), 'quote_needed');
   const fixed = barState(j({ survey_required: 'Y', completed_in_visit: true, works_completed: true }));
-  assert.deepEqual([fixed.step, fixed.skipQuote], [6, true]);
-  assert.equal(barState(j({ works_completed: true, quote_approved: true }), { status: 'issued' }).step, 7);
-  assert.equal(barState(j({ works_completed: true }), { status: 'paid' }).step, 8);
-  assert.equal(barState(j({ works_completed: true }), { status: 'draft' }).step, 6);
+  assert.deepEqual([fixed.step, fixed.skipQuote], [7, true]);
+  assert.equal(barState(j({ works_completed: true, quote_approved: true }), { status: 'issued' }).step, 8);
+  assert.equal(barState(j({ works_completed: true }), { status: 'paid' }).step, 9);
+  assert.equal(barState(j({ works_completed: true }), { status: 'draft' }).step, 7);
 });
 
 test('an operative sees their jobs, soonest first; all of them when nobody is booked on any', () => {

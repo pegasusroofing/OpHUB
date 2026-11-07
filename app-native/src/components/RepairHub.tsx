@@ -1,7 +1,8 @@
 // The repair job hub (Andy, 7 Nov 2026; docs/claude-code/REPAIRS-PLAN.md). One page per job, two tabs:
 //  Job — the progress bar and what's next, the works order (with a viewer), address, call-out, tenant, the booked /
 //        attended / completed dates, the documents (quote, attendance report, completed works), notes everyone can add
-//        (the client too), and for Finance a Money box (quoted, costs, margin, the invoice).
+//        (the client too), and for Finance a Money box (quoted, costs, margin, the invoice). Projects shows no money:
+//        pricing the quote and the schedule of rates are Finance's (Andy, 7 Nov 2026).
 //  Repair — each stage of the works (booked in, attended, quote, approved, works done), opened up to update it.
 // Managers get Update ▾; a client sees the Job tab without the money or the updates. Every action writes the old
 // app's job_status too, as the old app is still live for repairs.
@@ -30,7 +31,7 @@ import { useAuth } from '@/lib/auth';
 import { exportRepairReport } from '@/lib/repairReportPdf';
 import { forecast } from '@/lib/rules/finBook';
 import { quoteTotals, type QuoteLine } from '@/lib/rules/repairQuote';
-import { BAR, barState, bookedFor, bookedTo, nextHint, otherTradesOf, repairStage, STAGE_LABEL, type RJob } from '@/lib/rules/repairStages';
+import { BAR, BAR_PROJECTS, barState, bookedFor, bookedTo, nextHint, otherTradesOf, repairStage, STAGE_LABEL, tradesOf, tradesSummary, type RJob, type Trade } from '@/lib/rules/repairStages';
 import type { RepairJob } from '@/lib/rules/repairs';
 import { isFinanceUser, isManager } from '@/lib/roles';
 import { base, page, space } from '@/theme/theme';
@@ -66,6 +67,8 @@ export function RepairHub({ siteId, jobId, money }: { siteId: string; jobId: str
   const [form, setForm] = useState<Form>(null);
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState('');
+  const [wNotes, setWNotes] = useState<string | null>(null);
+  const [tradeEdit, setTradeEdit] = useState<Partial<Trade> | null>(null);
   if (!me) return null;
   if (isLoading || !data) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   const job = job0 as (RepairJob & RJob & Row) | null;
@@ -84,6 +87,7 @@ export function RepairHub({ siteId, jobId, money }: { siteId: string; jobId: str
     repairReportsAfter({ ...job, ...patch }, { keys: Object.keys(patch) }).forEach((k) => scheduleRepairReport(k, job.id, org, surveyor));
     return true;
   };
+  const trades = tradesOf(job);
   const quote = Array.isArray(job.quote_lines) ? quoteTotals(job.quote_lines as QuoteLine[], Number(job.quote_discount_pct || 0), qs?.vat) : job.variation_cost != null ? quoteTotals([{ description: 'Quote', qty: 1, rate: Number(job.variation_cost) }], 0, qs?.vat) : null;
 
   // Costs on this job (booked to the contract, then this job, like plots).
@@ -92,14 +96,15 @@ export function RepairHub({ siteId, jobId, money }: { siteId: string; jobId: str
   const ordered = fc ? fc.lines.filter((l) => l.sub === job.id && l.cat === 'committed').reduce((t, l) => t + l.net, 0) : 0;
 
   const docs = [
-    ...(job.variation_issued_at || (mgr && quote) ? [{ k: 'quote', l: 'Quote' }] : []),
+    // The quote document: Finance, and the client once it's been sent; not the Projects team (no money in Projects).
+    ...((fin && quote) || (client && job.variation_issued_at) ? [{ k: 'quote', l: 'Quote' }] : []),
     ...(job.survey_required === 'Y' || job.survey_required === 'NA' ? [{ k: 'survey', l: 'Attendance Report' }] : []),
     ...(job.works_completed ? [{ k: 'completion', l: 'Completed Works' }] : []),
   ] as { k: 'quote' | 'survey' | 'completion'; l: string }[];
   const openDoc = async (k: 'quote' | 'survey' | 'completion') => { setBusy(k); const ok = await exportRepairReport(k, job, site, org, surveyor, qs?.vat).catch(() => false); setBusy(''); if (!ok) toast('Could not build the PDF.'); };
 
   const run = async (k: string) => {
-    if (k === 'quote') { router.push(`/sites/${siteId}/repairs/quote/${job.id}` as never); return; }
+    if (k === 'quote') { router.push(`/fin/job/${siteId}/quote/${job.id}` as never); return; }
     if (k === 'approve') { if (await confirmAsk('Has the client approved the quote?', 'Yes, Approved')) await save({ quote_approved: true, quote_approved_at: new Date().toISOString(), approved_by: me.id, self_authorized: false, job_status: 'Approved - To Do' }, 'Approved — book the works in'); return; }
     if (k === 'reject') { if (await confirmAsk('Has the client turned the quote down?', 'Yes, Rejected')) await save({ quote_approved: false, job_status: 'Rejected' }, 'Marked rejected'); return; }
     if (k === 'hold' && job.on_hold) { await save({ on_hold: false, on_hold_reason: null }, 'Off hold'); return; }
@@ -127,6 +132,7 @@ export function RepairHub({ siteId, jobId, money }: { siteId: string; jobId: str
       if (await deleteRepairJob(job)) { toast('Job deleted'); void qc.invalidateQueries({ queryKey: ['repairJobs'] }); router.back(); } else toast('Could not delete — try again.');
       return;
     }
+    if (k === 'trades') { setTradeEdit({}); return; }
     setForm(k as Form);
   };
   // What Update ▾ offers, by where the job is.
@@ -134,19 +140,19 @@ export function RepairHub({ siteId, jobId, money }: { siteId: string; jobId: str
     const o: { key: string; label: string }[] = [];
     if (st === 'to_book' || st === 'booked') o.push({ key: 'book', label: st === 'booked' ? 'Change The Booking' : 'Book In' });
     if (st === 'booked' || st === 'to_book') o.push({ key: 'attend', label: 'Record The Attendance' });
-    if (st === 'attended' || st === 'quote_needed' || st === 'awaiting_approval') o.push({ key: 'quote', label: st === 'awaiting_approval' ? 'Change The Quote' : 'Price It (Quote)' });
+    if (fin && (st === 'attended' || st === 'quote_needed' || st === 'awaiting_approval')) o.push({ key: 'quote', label: st === 'awaiting_approval' ? 'Change The Quote' : 'Price It (Quote)' });
     if (st === 'awaiting_approval') { o.push({ key: 'approve', label: 'Client Approved' }); o.push({ key: 'reject', label: 'Client Rejected' }); }
-    if (st === 'approved' || st === 'works_booked') o.push({ key: 'works', label: st === 'works_booked' ? 'Change The Works Booking' : 'Book The Works' });
-    if (st === 'attended' || st === 'approved' || st === 'works_booked') o.push({ key: 'done', label: 'Mark Works Done' });
+    if (st === 'approved' || st === 'works_booked') o.push({ key: 'works', label: st === 'works_booked' ? 'Change The Repair Booking' : 'Book The Repair' });
+    if (st === 'attended' || st === 'approved' || st === 'works_booked') o.push({ key: 'done', label: 'Mark Job As Complete' });
     if (st === 'done' && !job.closed) o.push({ key: 'check', label: 'Checked — Ready To Invoice' });
     if (st === 'done' && job.closed && !job.invoice_id) o.push({ key: 'reopen', label: 'Reopen (Not Checked)' });
-    if (st !== 'done' && st !== 'rejected') { o.push({ key: 'trades', label: otherTradesOf(job) ? 'Other Trades — Change' : 'Other Trades (e.g. Scaffold)' }); o.push({ key: 'hold', label: job.on_hold ? 'Take Off Hold' : 'Put On Hold' }); }
+    if (st !== 'done' && st !== 'rejected') { o.push({ key: 'trades', label: 'Add Other Trade (e.g. Scaffold)' }); o.push({ key: 'hold', label: job.on_hold ? 'Take Off Hold' : 'Put On Hold' }); }
     o.push({ key: 'details', label: 'Edit Job Details' }, { key: 'wo', label: job.work_order_path ? 'Replace The Works Order' : 'Upload The Works Order' }, { key: 'odlink', label: 'Link Its OneDrive Folder' }, { key: 'odsend', label: 'Send Everything To OneDrive' }, { key: 'delete', label: 'Delete The Job' });
     return o;
   };
 
   const ladder = (k: number, title: string, right: string, body?: ReactNode, action?: ReactNode) => {
-    const skipped = bar.skipQuote && (k === 4 || k === 5);
+    const skipped = bar.skipQuote && (k === 4 || k === 5 || k === 6);
     const done = !bar.rejected && bar.step > k && !skipped, now = !bar.rejected && bar.step === k;
     return (
       <View key={k} style={{ backgroundColor: base.card, borderWidth: now ? 1.5 : 1, borderColor: now ? base.ink : base.cardLine, borderRadius: 12, marginBottom: 8, overflow: 'hidden' }}>
@@ -169,25 +175,53 @@ export function RepairHub({ siteId, jobId, money }: { siteId: string; jobId: str
       {ladder(2, 'Booked In', job.survey_booking_date ? `${fmt(job.survey_booking_date)}${job.survey_booking_assigned_to ? ` · ${nameOf(people, job.survey_booking_assigned_to)}` : ''}` : 'Not booked yet', undefined, btn('book', job.survey_booking_date ? 'Change' : 'Book In', !!job.survey_booking_date))}
       {ladder(3, 'Attended', job.survey_date ? `${fmt(job.survey_date)}${surveyor ? ` · ${surveyor}` : ''}` : 'Not yet', (
         <>
-          {!!job.fault_description && <><Muted style={{ fontSize: 11.5 }}>Fault</Muted>{txt(job.fault_description)}</>}
-          {!!(job.repair_description || job.survey_notes) && <><Muted style={{ fontSize: 11.5, marginTop: 6 }}>Repair</Muted>{txt(job.repair_description || job.survey_notes)}</>}
-          {job.completed_in_visit != null && <Muted style={{ marginTop: 6 }}>Completed in the visit: {job.completed_in_visit ? 'Yes' : 'No — needs a quote'}</Muted>}
+          {!!job.fault_description && <><Muted style={{ fontSize: 11.5 }}>Description Of Fault Found</Muted>{txt(job.fault_description)}</>}
+          {!!(job.repair_description || job.survey_notes) && <><Muted style={{ fontSize: 11.5, marginTop: 6 }}>Description Of Repair Required</Muted>{txt(job.repair_description || job.survey_notes)}</>}
+          {job.completed_in_visit != null && <Muted style={{ marginTop: 6 }}>Completed repair whilst in attendance: {job.completed_in_visit ? 'Yes' : 'No — needs a quote'}</Muted>}
           <View style={{ marginTop: 6 }}><RepairPhotos jobId={job.id} photos={data.photos} cats={['survey', 'access']} onChanged={refresh} canAdd={mgr} addLabel="📷 Survey Photos" /></View>
+          {docs.some((d) => d.k === 'survey') && <View style={{ alignSelf: 'flex-start', marginTop: 8 }}><Button small kind="ghost" busy={busy === 'survey'} title="📄 Attendance Report" onPress={() => void openDoc('survey')} /></View>}
         </>
       ), btn('attend', job.survey_date ? 'Change' : 'Record The Attendance', !!job.survey_date))}
-      {ladder(4, 'Quote', quote ? `${gbp(quote.total)}${job.variation_issued_at ? ` · sent ${fmt(job.variation_issued_at)}` : ' · not sent'}` : 'Not priced', quote ? <Muted>Net {gbp(quote.net)}{quote.vatPct ? ` + VAT ${gbp(quote.vat)}` : ''}</Muted> : undefined, <>{btn('quote', quote ? 'Open The Quote' : 'Price It', !!quote)}</>)}
-      {ladder(5, 'Approved', job.quote_approved ? `${fmt(job.quote_approved_at)}${job.self_authorized ? ' · self-authorised' : ''}` : job.quote_approved === false ? 'Rejected' : 'Waiting', (
+      {fin ? ladder(4, 'Quote', quote ? `${gbp(quote.total)}${job.variation_issued_at ? ` · sent ${fmt(job.variation_issued_at)}` : ' · not sent'}` : 'Not priced', quote ? <Muted>Net {gbp(quote.net)}{quote.vatPct ? ` + VAT ${gbp(quote.vat)}` : ''}</Muted> : undefined, <>{btn('quote', quote ? 'Open The Quote' : 'Price It', !!quote)}</>)
+        : ladder(4, 'Quote', job.variation_issued_at ? `Quote Submitted ${fmt(job.variation_issued_at)}` : st === 'quote_needed' ? 'With Finance to price' : '—')}
+      {ladder(5, 'Approved', job.quote_approved ? `${fmt(job.quote_approved_at)}${job.self_authorized ? ' · self-authorised' : ''}` : job.quote_approved === false ? 'Rejected' : 'Waiting', undefined,
+        <>{st === 'awaiting_approval' && btn('approve', 'Client Approved', false)}{st === 'awaiting_approval' && btn('reject', 'Client Rejected')}</>)}
+      {/* Repair Booked (Andy, 7 Nov 2026): the repair's date, and any other trades with their booked dates and photos of their completed works. */}
+      {ladder(6, 'Repair Booked', job.works_booking_date ? `${fmt(job.works_booking_date)}${job.works_booking_assigned_to ? ` · ${nameOf(people, job.works_booking_assigned_to)}` : ''}` : job.quote_approved ? 'Not booked yet' : '—', (
         <>
-          {!!otherTradesOf(job) && <Muted>Other trades: {otherTradesOf(job)}{job.other_trades_date ? ` · ${fmt(job.other_trades_date)}` : ''}</Muted>}
-          {job.quote_approved && <Muted>Works booked: {job.works_booking_date ? `${fmt(job.works_booking_date)}${job.works_booking_assigned_to ? ` · ${nameOf(people, job.works_booking_assigned_to)}` : ''}` : 'not yet'}</Muted>}
+          <Text style={{ fontSize: 11.5, fontWeight: '700', color: base.slate, letterSpacing: 0.4, marginTop: 2 }}>OTHER TRADES</Text>
+          {trades.length ? trades.map((tr) => (
+            <View key={tr.id} style={{ paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#EEF0F2' }}>
+              <Pressable disabled={!mgr} accessibilityRole={mgr ? 'button' : undefined} accessibilityLabel={`${tr.trade}, change`} onPress={() => setTradeEdit(tr)} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={{ flex: 1, fontSize: 13.5, fontWeight: '600', color: base.ink }}>{tr.trade}{tr.done ? '  ✓ Done' : ''}</Text>
+                <Text style={{ fontSize: 12.5, color: mgr ? base.blue : base.slate }}>{tr.date ? `Booked ${fmt(tr.date)}` : 'No date yet'}{mgr ? ' ›' : ''}</Text>
+              </Pressable>
+              <View style={{ marginTop: 6 }}><RepairPhotos jobId={job.id} photos={data.photos} cats={['trade']} trade={tr.id} onChanged={refresh} canAdd={mgr} addLabel={`📷 ${tr.trade} Completed`} /></View>
+            </View>
+          )) : <Muted style={{ marginTop: 2 }}>None needed.</Muted>}
+          {mgr && <View style={{ alignSelf: 'flex-start', marginTop: 8 }}><Button small kind="ghost" title="+ Add Other Trade" onPress={() => setTradeEdit({})} /></View>}
         </>
-      ), <>{st === 'awaiting_approval' && btn('approve', 'Client Approved', false)}{st === 'awaiting_approval' && btn('reject', 'Client Rejected')}{(st === 'approved' || st === 'works_booked') && btn('works', st === 'works_booked' ? 'Change The Booking' : 'Book The Works', st === 'works_booked')}{(st === 'approved' || st === 'works_booked') && btn('trades', 'Other Trades')}</>)}
-      {ladder(6, 'Works Done', job.works_completed_date ? `${fmt(job.works_completed_date)}${job.closed ? ' · checked' : ''}` : 'Not yet', (
+      ), <>{(st === 'approved' || st === 'works_booked') && btn('works', st === 'works_booked' ? 'Change The Repair Booking' : 'Book The Repair', st === 'works_booked')}</>)}
+      {ladder(7, 'Works Done', job.works_completed_date ? `${fmt(job.works_completed_date)}${job.closed ? ' · checked' : ''}` : 'Not yet', (
         <>
-          {txt(job.works_notes)}
-          <View style={{ marginTop: 6 }}><RepairPhotos jobId={job.id} photos={data.photos} cats={['completion', 'progress', 'scaffold']} onChanged={refresh} canAdd={mgr} addLabel="📷 Completion Photos" /></View>
+          {/* Notes on the works, any time (not only when marking it complete). */}
+          {mgr ? (
+            <>
+              <TextInput value={wNotes ?? (job.works_notes || '')} onChangeText={setWNotes} placeholder="Notes On The Works" multiline accessibilityLabel="Works done notes"
+                style={{ minHeight: 56, borderWidth: 1, borderColor: base.line, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, fontSize: 14, color: base.ink, backgroundColor: base.card }} />
+              {wNotes != null && wNotes !== (job.works_notes || '') && <View style={{ alignSelf: 'flex-start', marginTop: 6 }}><Button small busy={busy === 'wn'} title="Save Notes" onPress={async () => { setBusy('wn'); const ok = await save({ works_notes: wNotes.trim() || null }); setBusy(''); if (ok) setWNotes(null); }} /></View>}
+            </>
+          ) : txt(job.works_notes)}
+          <View style={{ marginTop: 8 }}><RepairPhotos jobId={job.id} photos={data.photos} cats={['completion', 'progress', 'scaffold']} onChanged={refresh} canAdd={mgr} addLabel="📷 Completion Photos" /></View>
+          {/* The Completed Works report (a PDF), and the photos sent to OneDrive one by one (Completion Photos), the report in the job folder. */}
+          {job.works_completed && (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+              <Button small kind="ghost" busy={busy === 'completion'} title="📄 Completed Works Report" onPress={() => void openDoc('completion')} />
+              {mgr && <Button small kind="ghost" busy={busy === 'od'} title="☁ Send To OneDrive" onPress={() => void run('odsend')} />}
+            </View>
+          )}
         </>
-      ), <>{!job.works_completed && btn('done', 'Mark Works Done')}{job.works_completed && !job.closed && btn('check', 'Checked — Ready To Invoice', false)}</>)}
+      ), <>{!job.works_completed && btn('done', 'Mark Job As Complete')}{job.works_completed && !job.closed && btn('check', 'Checked — Ready To Invoice', false)}</>)}
     </View>
   );
 
@@ -206,7 +240,7 @@ export function RepairHub({ siteId, jobId, money }: { siteId: string; jobId: str
           {!!otherTradesOf(job) && <Text style={{ fontSize: 11.5, fontWeight: '600', color: base.ink, backgroundColor: '#F0F1F4', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2, overflow: 'hidden' }}>{otherTradesOf(job)}{job.other_trades_date ? ` ${fmt(job.other_trades_date)}` : ''}</Text>}
         </View>
       </Card>
-      <StageBar steps={fin ? BAR : BAR.slice(0, 6)} step={bar.step} skip={bar.skipQuote ? [4, 5] : []} rejected={bar.rejected} rejectedLabel="Rejected by the client" next={client ? undefined : nextHint(job, mgr)} />
+      <StageBar steps={fin ? BAR : BAR.slice(0, BAR_PROJECTS)} step={bar.step} skip={bar.skipQuote ? [4, 5, 6] : []} rejected={bar.rejected} rejectedLabel="Rejected by the client" next={client ? undefined : nextHint(job, mgr, fin)} />
       {!client && <FinTabs items={[['job', 'Job'], ['repair', 'Repair']]} value={tab} onChange={(k) => setTab(k as 'job' | 'repair')} />}
 
       {tab === 'repair' && !client ? repairTab : (
@@ -226,13 +260,13 @@ export function RepairHub({ siteId, jobId, money }: { siteId: string; jobId: str
             <KV k="Address" v={label} />
             <KV k="Call-Out" v={job.description || '—'} />
             <KV k="Tenant" v={[job.tenant_name, job.tenant_phone].filter(Boolean).join(' · ') || '—'} onPress={job.tenant_phone && !client ? () => void Linking.openURL(`tel:${String(job.tenant_phone).replace(/\s+/g, '')}`) : undefined} />
-            <KV k="Tenant No." v={job.tenant_no || '—'} />
             <View style={{ flexDirection: 'row', gap: 6, marginTop: 10 }}>
-              {[['Booked For', bookedFor(job) ? `${fmt(bookedFor(job))}${bookedTo(job) && !client ? ` · ${nameOf(people, bookedTo(job)).split(' ')[0]}` : ''}` : '—'], ['Attended', fmt(job.survey_date) || '—'], ['Completed', fmt(job.works_completed_date) || '—']].map(([l, v]) => (
-                <View key={l} style={{ flex: 1, backgroundColor: '#F6F7F9', borderRadius: 8, paddingVertical: 7, paddingHorizontal: 8 }}>
+              {([['Booked For', bookedFor(job) ? `${fmt(bookedFor(job))}${bookedTo(job) && !client ? ` · ${nameOf(people, bookedTo(job)).split(' ')[0]}` : ''}` : mgr ? 'Book In' : '—', mgr && st !== 'done' && st !== 'rejected' ? (job.quote_approved === true ? 'works' : 'book') : null], ['Attended', fmt(job.survey_date) || '—', null], ['Completed', fmt(job.works_completed_date) || '—', null]] as [string, string, Form][]).map(([l, v, f]) => (
+                <Pressable key={l} disabled={!f} onPress={() => setForm(f)} accessibilityRole={f ? 'button' : undefined} accessibilityLabel={f ? `${l}: ${v}. Change` : undefined}
+                  style={{ flex: 1, backgroundColor: '#F6F7F9', borderRadius: 8, paddingVertical: 7, paddingHorizontal: 8 }}>
                   <Text style={{ fontSize: 10.5, fontWeight: '600', color: base.slate }}>{l}</Text>
-                  <Text numberOfLines={2} style={{ fontSize: 12.5, fontWeight: '700', color: base.ink }}>{v}</Text>
-                </View>
+                  <Text numberOfLines={2} style={{ fontSize: 12.5, fontWeight: '700', color: f ? base.blue : base.ink }}>{v}{f ? ' ›' : ''}</Text>
+                </Pressable>
               ))}
             </View>
           </Card>
@@ -305,25 +339,32 @@ export function RepairHub({ siteId, jobId, money }: { siteId: string; jobId: str
             return (await save({ works_booking_date: d, works_booking_assigned_to: who, works_booking_event_id: ev })) ? null : 'Could not save.';
           }} />
       )}
-      {form === 'trades' && (
-        <FinForm title="Other Trades" note="E.g. scaffold. Leave it blank to clear it." initial={{ t: job.other_trades || '', d: job.other_trades_date || '' }} onClose={() => setForm(null)}
-          fields={[{ k: 't', label: 'Waiting On', ph: 'e.g. Scaffold' }, { k: 'd', label: 'Date', kind: 'date' }]}
-          onSave={async (v) => { const t = String(v.t || '').trim(); return (await save({ other_trades: t || null, other_trades_date: t ? String(v.d || '') || null : null })) ? null : 'Could not save.'; }} />
+      {tradeEdit && (
+        // Another trade on the job (scaffold, electrician…): its booked date, and done once their works are complete.
+        <FinForm title={tradeEdit.id ? tradeEdit.trade || 'Other Trade' : 'Add Other Trade'} initial={{ t: tradeEdit.trade || '', d: tradeEdit.date || '', done: tradeEdit.done ? 'yes' : 'no' }} onClose={() => setTradeEdit(null)}
+          fields={[{ k: 't', label: 'Trade', ph: 'E.g. Scaffold' }, { k: 'd', label: 'Booked For', kind: 'date', half: true }, { k: 'done', label: 'Their Works Complete?', kind: 'choice', half: true, options: [['no', 'No'], ['yes', 'Yes']] }]}
+          onSave={async (v) => {
+            const name = String(v.t || '').trim(); if (!name) return 'Say which trade.';
+            const item: Trade = { id: tradeEdit.id || `t${Date.now().toString(36)}`, trade: name, date: String(v.d || '') || null, done: v.done === 'yes', done_at: v.done === 'yes' ? tradeEdit.done_at || new Date().toISOString() : null };
+            const list = tradeEdit.id ? trades.map((x) => (x.id === tradeEdit.id ? item : x)) : [...trades, item];
+            return (await save({ trades: list, ...tradesSummary(list) })) ? null : 'Could not save.';
+          }}
+          onDelete={tradeEdit.id ? async () => { const list = trades.filter((x) => x.id !== tradeEdit.id); return (await save({ trades: list, ...tradesSummary(list) })) ? null : 'Could not save.'; } : undefined} />
       )}
       {form === 'hold' && (
         <FinForm title="Put On Hold" initial={{ r: '' }} onClose={() => setForm(null)} fields={[{ k: 'r', label: 'Why?', ph: 'e.g. Tenant away until 20 Nov' }]}
           onSave={async (v) => ((await save({ on_hold: true, on_hold_reason: String(v.r || '').trim() || null }, 'On hold')) ? null : 'Could not save.')} />
       )}
       {form === 'attend' && (
-        <FinForm title="Record The Attendance" initial={{ fault: job.fault_description || '', repair: job.repair_description || job.survey_notes || '', done: job.completed_in_visit == null ? '' : job.completed_in_visit ? 'yes' : 'no' }} onClose={() => setForm(null)}
-          fields={[{ k: 'fault', label: 'Description Of Fault', kind: 'multiline' }, { k: 'repair', label: 'Description Of Repair', kind: 'multiline' }, { k: 'done', label: 'Completed In The Visit?', kind: 'choice', options: [['', 'Not Answered'], ['yes', 'Yes'], ['no', 'No — Needs A Quote']] }]}
+        <FinForm title="Record The Attendance" initial={{ fault: job.fault_description || '', repair: job.repair_description || job.survey_notes || '', done: job.completed_in_visit === true ? 'yes' : 'no' }} onClose={() => setForm(null)}
+          fields={[{ k: 'fault', label: 'Description Of Fault Found', kind: 'multiline' }, { k: 'repair', label: 'Description Of Repair Required', kind: 'multiline' }, { k: 'done', label: 'Completed Repair Whilst In Attendance?', kind: 'choice', options: [['no', 'No — Needs A Quote'], ['yes', 'Yes']] }]}
           onSave={async (v) => {
             const dn = v.done === 'yes' ? true : v.done === 'no' ? false : null;
             return (await save({ fault_description: String(v.fault || '').trim() || null, repair_description: String(v.repair || '').trim() || null, completed_in_visit: dn, survey_required: 'Y', survey_date: job.survey_date || new Date().toISOString(), surveyed_by: job.surveyed_by || me.id, job_status: dn === false ? 'Surveyed - Awaiting Cost' : job.job_status })) ? null : 'Could not save.';
           }} />
       )}
       {form === 'done' && (
-        <FinForm title="Mark Works Done" initial={{ notes: job.works_notes || '' }} onClose={() => setForm(null)} fields={[{ k: 'notes', label: 'Description Of Works Completed', kind: 'multiline' }]}
+        <FinForm title="Mark Job As Complete" initial={{ notes: wNotes ?? job.works_notes ?? '' }} onClose={() => setForm(null)} fields={[{ k: 'notes', label: 'Description Of Works Completed', kind: 'multiline' }]}
           onSave={async (v) => {
             const n = String(v.notes || '').trim(); if (!n) return 'Describe the works completed.';
             const when = job.works_completed_date || new Date().toISOString();
@@ -332,12 +373,12 @@ export function RepairHub({ siteId, jobId, money }: { siteId: string; jobId: str
           }} />
       )}
       {form === 'details' && (
-        <FinForm title="Job Details" initial={{ job_number: job.job_number || '', address: job.address || '', description: job.description || '', tenant_name: job.tenant_name || '', tenant_phone: job.tenant_phone || '', tenant_no: job.tenant_no || '', priority: job.priority || '' }} onClose={() => setForm(null)}
-          fields={[{ k: 'job_number', label: 'Works Order Number', half: true }, { k: 'priority', label: 'Priority', half: true }, { k: 'address', label: 'Address (With The Postcode)' }, { k: 'description', label: 'Call-Out', kind: 'multiline' }, { k: 'tenant_name', label: 'Tenant', half: true }, { k: 'tenant_phone', label: 'Phone', half: true }, { k: 'tenant_no', label: 'Tenant No.' }]}
+        <FinForm title="Job Details" initial={{ job_number: job.job_number || '', address: job.address || '', description: job.description || '', tenant_name: job.tenant_name || '', tenant_phone: job.tenant_phone || '', priority: job.priority || '' }} onClose={() => setForm(null)}
+          fields={[{ k: 'job_number', label: 'Works Order Number', half: true }, { k: 'priority', label: 'Priority', half: true }, { k: 'address', label: 'Address (With The Postcode)' }, { k: 'description', label: 'Call-Out', kind: 'multiline' }, { k: 'tenant_name', label: 'Tenant', half: true }, { k: 'tenant_phone', label: 'Tenant Phone', half: true }]}
           onSave={async (v) => {
             const s = (k: string) => String(v[k] || '').trim() || null;
             const address = s('address'); if (!address) return 'Enter an address.';
-            const ok = await save({ job_number: s('job_number'), address, description: s('description'), tenant_name: s('tenant_name'), tenant_phone: s('tenant_phone'), tenant_no: s('tenant_no'), priority: s('priority') });
+            const ok = await save({ job_number: s('job_number'), address, description: s('description'), tenant_name: s('tenant_name'), tenant_phone: s('tenant_phone'), priority: s('priority') });
             if (ok && address !== job.address) void geocodeRepairJob(job.id, address);
             return ok ? null : 'Could not save.';
           }} />

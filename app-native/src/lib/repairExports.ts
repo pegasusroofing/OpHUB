@@ -14,16 +14,20 @@ const yn = (v: unknown) => (v ? 'Y' : 'N');
 const money = (v: unknown) => (v != null && v !== '' ? { v: Number(v), s: 'money' as const } : '');
 const sheet = (name: string, head: string[], rows: XCell[][], widths: number[]) => makeXlsx([{ name, widths, rows: [head.map((h) => ({ v: h, s: 'head' as const })), ...rows] }]);
 
-export function exportRepairTracker(siteName: string, jobs: RepairJob[]) {
+/** withMoney: the Variation Works (£) column, for Finance only — Projects shows no money (Andy, 7 Nov 2026). */
+export function exportRepairTracker(siteName: string, jobs: RepairJob[], withMoney = false) {
   const today = new Date().toISOString().slice(0, 10);
+  const MONEY_COL = 6;
   const head = ['Job Number', 'Address', 'Description of Call out', 'Survey Required (Y/N/NA)', 'Survey Date', 'Survey Notes / Quoted works', 'Variation Works (£)', 'Scaffolding Required (Y/N/Tower)', 'Scaff Requirements', 'Quote Approved (Y/N)', 'Scaffold Booking Date', 'Scaffold Erection Date', 'Repair Return Date', 'Works Completed (Y/N)', 'Closed (Y/N)', 'Invoiced (Y/N)', 'Status', 'Overdue'];
   const rows = jobs.slice().sort((a, b) => b.created_at.localeCompare(a.created_at)).map((j0) => {
     const j = j0 as RepairJob & Row;
     const scaff = j.access_requirement === 'tower' ? 'Tower' : j.access_requirement === 'scaffold' ? 'Y' : 'N';
     return [j.job_number || '', j.address || '', j.description || '', j.survey_required || '', dOnly(j.survey_date), j.survey_notes || '', money(j.variation_cost), scaff, j.access_notes || '', j.quote_approved == null ? '' : yn(j.quote_approved),
-      dOnly(j.scaffold_booking_date), dOnly(j.scaffold_erection_date), dOnly(j.repair_return_date), yn(j.works_completed), yn(j.closed), yn(j.invoiced), j.job_status || '', !j.closed && j.repair_return_date && j.repair_return_date < today ? 'Y' : ''];
+      dOnly(j.scaffold_booking_date), dOnly(j.scaffold_erection_date), dOnly(j.repair_return_date), yn(j.works_completed), yn(j.closed), yn(j.invoiced), j.job_status || '', !j.closed && j.repair_return_date && j.repair_return_date < today ? 'Y' : ''] as XCell[];
   });
-  return deliverXlsx(sheet('Repairs Tracker', head, rows, [12, 28, 30, 14, 12, 32, 14, 16, 26, 14, 16, 16, 14, 14, 12, 12, 18, 10]), exportFilename(siteName, 'Repair Tracker', 'xlsx'));
+  const widths = [12, 28, 30, 14, 12, 32, 14, 16, 26, 14, 16, 16, 14, 14, 12, 12, 18, 10];
+  const drop = <T,>(a: T[]) => (withMoney ? a : a.filter((_, i) => i !== MONEY_COL));
+  return deliverXlsx(sheet('Repairs Tracker', drop(head), rows.map(drop), drop(widths)), exportFilename(siteName, 'Repair Tracker', 'xlsx'));
 }
 
 function routeFile(siteName: string, category: string, stops: Row[], unlocated: Row[]) {

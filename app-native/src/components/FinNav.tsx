@@ -79,7 +79,13 @@ export function FinTabs({ items, value, onChange, right, amber, style, even }: {
   if (!right) return row;
   return <View style={[{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 }, style]}>{row}<View>{right}</View></View>;
 }
-const useJobBilling = (id: string) => useQuery({ queryKey: ['finJobBilling', id], queryFn: async () => ((await fdb.from('job_finance').select('billing_type').eq('site_id', id).maybeSingle()).data as { billing_type: string | null } | null)?.billing_type ?? null });
+// How the project is billed, and whether it's a repair contract (billed by invoice unless set; Works Orders, no BoQ).
+const useJobKind = (id: string) => useQuery({ queryKey: ['finJobBilling', id], queryFn: async () => {
+  const [jf, s] = await Promise.all([fdb.from('job_finance').select('billing_type').eq('site_id', id).maybeSingle(), fdb.from('sites').select('repair_contract').eq('id', id).maybeSingle()]);
+  const repair = !!(s.data as { repair_contract?: boolean | null } | null)?.repair_contract;
+  return { billing: (jf.data as { billing_type: string | null } | null)?.billing_type ?? (repair ? 'invoice' : null), repair };
+} });
+const useJobBilling = (id: string) => { const q = useJobKind(id); return { data: q.data?.billing ?? null }; };
 /** Inside the Bill of Quantities tab: the Bill, its Variations and the Plots (Andy, 2 Nov 2026). An invoice job has no Bill, so those two only. */
 export function BoqTabs({ id, on }: { id: string; on: 'boq' | 'variations' | 'plots' }) {
   const { data: billing } = useJobBilling(id);
@@ -95,13 +101,13 @@ export function FinJobTabs({ id, active, job, name, onOverview }: { id: string; 
   const { me, org } = useAuth();
   // Go To Project (Andy, 5 Nov 2026): straight to this job's page in Projects, for people who use Projects.
   const toProject = !isFinanceOnlyOrg(org) && !isFinanceController(me);
-  const { data: billing } = useJobBilling(id);
-  const invoiceJob = billing === 'invoice';
+  const { data: kind } = useJobKind(id);
+  const invoiceJob = kind?.billing === 'invoice', repair = !!kind?.repair;
   // Variations sit inside the Bill of Quantities tab, unless an invoice job has no Bill.
   const current = active === 'variations' && !invoiceJob ? 'boq' : active;
-  const tabs: [string, string][] = [['overview', 'Overview'], ['sales', 'Sales'], ['purchases', 'Purchases'], ['subs', 'Subcontractors & Labour'], ...(invoiceJob ? [['variations', 'Variations'] as [string, string]] : [['boq', 'Bill Of Quantities'] as [string, string]]), ['docs', 'Documents'], ['setup', 'Project Admin']];
+  const tabs: [string, string][] = [['overview', 'Overview'], ['sales', 'Sales'], ['purchases', 'Purchases'], ['subs', 'Subcontractors & Labour'], ...(repair ? [['repairs', 'Live Jobs'] as [string, string]] : invoiceJob ? [['variations', 'Variations'] as [string, string]] : [['boq', 'Bill Of Quantities'] as [string, string]]), ['docs', 'Documents'], ['setup', 'Project Admin']];
   // Swaps the page rather than stacking another on top: a Bill left open underneath would keep saving over this one.
-  const go = (k: string) => { if (k === 'boq' || k === 'variations') router.replace(`/fin/job/${id}/${k}` as never); else if (onOverview) router.setParams({ tab: k }); else router.replace(`/fin/job/${id}?tab=${k}` as never); };
+  const go = (k: string) => { if (k === 'boq' || k === 'variations' || k === 'repairs') router.replace(`/fin/job/${id}/${k}` as never); else if (onOverview) router.setParams({ tab: k }); else router.replace(`/fin/job/${id}?tab=${k}` as never); };
   return (
     <View>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10, padding: 8, marginTop: 6, marginBottom: 2 }}>
@@ -112,7 +118,7 @@ export function FinJobTabs({ id, active, job, name, onOverview }: { id: string; 
           </Pressable>
         )}
         <Pressable onPress={async () => {
-          const opts = [['inv', 'Invoice', `/fin/job/${id}/invoice/new`], ...(invoiceJob ? [] : [['app', 'Application', `/fin/job/${id}/application/new`]]), ['po', 'Purchase order', `/fin/po/new?site=${id}`], ['pinv', 'Purchase invoice', `/fin/pinv/new?site=${id}`], ['plant', 'Plant hire', `/fin/plant/new?site=${id}`], ['sub', 'Subcontractor order', `/fin/sub/new?site=${id}`]];
+          const opts = [...(repair ? [['job', 'Repair Job', `/fin/job/${id}/repairs`]] : []), ['inv', 'Invoice', `/fin/job/${id}/invoice/new`], ...(invoiceJob ? [] : [['app', 'Application', `/fin/job/${id}/application/new`]]), ['po', 'Purchase order', `/fin/po/new?site=${id}`], ['pinv', 'Purchase invoice', `/fin/pinv/new?site=${id}`], ['plant', 'Plant hire', `/fin/plant/new?site=${id}`], ['sub', 'Subcontractor order', `/fin/sub/new?site=${id}`]];
           const k = await chooseAction('New', opts.map(([key, label]) => ({ key, label })));
           const o = opts.find((x) => x[0] === k); if (o) router.push(o[2] as never);
         }} style={{ backgroundColor: t.brand1, borderRadius: 8, paddingVertical: 7, paddingHorizontal: 14, flexDirection: 'row', gap: 18 }}>

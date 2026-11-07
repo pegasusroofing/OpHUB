@@ -29,9 +29,9 @@ const FIN_PARENT: Record<string, [string, string]> = { po: ['Purchases', '/fin/p
 const FIN_SUB: Record<string, string> = { '': 'Overview', jobs: 'Projects', sales: 'Sales', purchases: 'Purchases', subs: 'Subcontractors & Labour', reports: 'Reports', settings: 'Settings', directory: 'Directory', statements: 'Statements', yard: 'Yard stock', inbox: 'Inbox', newjob: 'New project' };
 // A project's Finance tabs and the pages inside it, for the trail.
 const FIN_JOB_TABS: [string, string][] = [['overview', 'Overview'], ['sales', 'Sales'], ['purchases', 'Purchases'], ['subs', 'Subcontractors & Labour'], ['setup', 'Project Admin'], ['docs', 'Documents']];
-const FIN_JOB_PAGES: Record<string, string> = { boq: 'Bill of Quantities', budget: 'Budgets', costs: 'Costs', dayworks: 'Day Works', monthly: 'Monthly Report', parts: 'Parts', quotes: 'Project Quotes', summary: 'Full Summary', variations: 'Variations', invoice: 'Invoices', application: 'Applications' };
+const FIN_JOB_PAGES: Record<string, string> = { boq: 'Bill of Quantities', budget: 'Budgets', costs: 'Costs', dayworks: 'Day Works', monthly: 'Monthly Report', parts: 'Parts', quotes: 'Project Quotes', summary: 'Full Summary', variations: 'Variations', invoice: 'Invoices', application: 'Applications', repairs: 'Live Jobs', repair: 'Live Jobs', quote: 'Live Jobs', rates: 'Schedule Of Rates' };
 // Pages with no list of their own: the step back goes to the list on the project's tab (Andy, 3 Nov 2026).
-const FIN_JOB_UP: Record<string, string> = { application: '?tab=sales', invoice: '?tab=sales' };
+const FIN_JOB_UP: Record<string, string> = { application: '?tab=sales', invoice: '?tab=sales', repair: '/repairs', quote: '/repairs', rates: '/repairs' };
 // A job's sections, so a page further in can step back to its section from the trail.
 const SECTION: Record<string, string> = { schedule: 'Schedule Of Works', drawings: "Drawings, Spec's & Programme", materials: 'Materials', hs: 'Health & Safety', snagging: 'Snagging', checkin: 'Check In / Out', price: 'Price', repairs: 'Repairs', om: 'O&M Manual', mc: 'Main Contractor', handover: 'Handover', todos: 'To Do List' };
 // Tapping a job's address under the title copies it (or shares it on a phone) — 130 shell.
@@ -153,7 +153,7 @@ export function AppBar({ title, onBack, home, right, noHistory }: { title?: stri
           ))}
         </View>
       )}
-      {!!finJob && <View style={{ backgroundColor: base.paper, paddingHorizontal: desk ? 40 : 16 }}><FinJobTabs id={finJob} job={fJob?.job_number} name={fJob?.name} onOverview={!finRest.length} active={!finRest.length ? (typeof qTab === 'string' && qTab ? qTab : 'overview') : finRest[0] === 'boq' ? 'boq' : ['variations', 'dayworks', 'plots'].includes(finRest[0]) ? 'variations' : ['invoice', 'application'].includes(finRest[0]) ? 'sales' : finRest[0] === 'quotes' ? 'purchases' : 'overview'} /></View>}
+      {!!finJob && <View style={{ backgroundColor: base.paper, paddingHorizontal: desk ? 40 : 16 }}><FinJobTabs id={finJob} job={fJob?.job_number} name={fJob?.name} onOverview={!finRest.length} active={!finRest.length ? (typeof qTab === 'string' && qTab ? qTab : 'overview') : finRest[0] === 'boq' ? 'boq' : ['repairs', 'repair', 'quote', 'rates'].includes(finRest[0]) ? 'repairs' : ['variations', 'dayworks', 'plots'].includes(finRest[0]) ? 'variations' : ['invoice', 'application'].includes(finRest[0]) ? 'sales' : finRest[0] === 'quotes' ? 'purchases' : 'overview'} /></View>}
     </View>
   );
   return (

@@ -17,11 +17,16 @@ const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input
 
 /** onChange: when a field changes, return other fields to fill in (e.g. the approved value from the value issued). */
 export function FinForm({ title, fields, initial, onSave, onClose, onDelete, saveLabel = 'Save', note, extra, onChange }: {
-  title: string; fields: Field[]; initial?: Record<string, unknown>; saveLabel?: string; note?: string; extra?: ReactNode;
+  /** fields: a list, or worked out from what's typed so far (e.g. an invoice job hides retention as soon as you pick Invoice). */
+  title: string; fields: Field[] | ((v: V) => Field[]); initial?: Record<string, unknown>; saveLabel?: string; note?: string; extra?: ReactNode;
   onSave: (v: V) => Promise<string | null | void>; onClose: () => void; onDelete?: () => Promise<string | null | void>;
   onChange?: (k: string, next: V, before: V) => Partial<V> | void;
 }) {
-  const [v, setV] = useState<V>(() => { const o: V = {}; fields.forEach((f) => { const x = initial?.[f.k]; o[f.k] = f.kind === 'check' ? !!x : x == null ? '' : String(x); }); return o; });
+  const [v, setV] = useState<V>(() => {
+    const o: V = {};
+    // Fields that come and go start from initial too, so they keep their value when they appear.
+    if (typeof fields === 'function') Object.entries(initial || {}).forEach(([k, x]) => { if (x == null || ['string', 'number', 'boolean'].includes(typeof x)) o[k] = typeof x === 'boolean' ? x : x == null ? '' : String(x); });
+    (typeof fields === 'function' ? fields(o) : fields).forEach((f) => { const x = initial?.[f.k]; o[f.k] = f.kind === 'check' ? !!x : x == null ? '' : String(x); }); return o; });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [dayOpen, setDayOpen] = useState('');
@@ -65,7 +70,7 @@ export function FinForm({ title, fields, initial, onSave, onClose, onDelete, sav
           </View>
           <ScrollView style={{ flexGrow: 0 }} keyboardShouldPersistTaps="handled">
             {note ? <Muted style={{ marginBottom: 8 }}>{note}</Muted> : null}
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 8 }}>{fields.map(field)}</View>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 8 }}>{(typeof fields === 'function' ? fields(v) : fields).map(field)}</View>
             {extra}
           </ScrollView>
           {err ? <Text style={{ color: '#C0392B', fontWeight: '500', marginTop: 8 }}>{err}</Text> : null}

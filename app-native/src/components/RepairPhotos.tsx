@@ -11,7 +11,6 @@ import { addRepairPhotos, hideRepairPhoto, type RepairPhoto } from '@/data/repai
 import { useAuth } from '@/lib/auth';
 import { pickPhotos } from '@/lib/photos';
 import { isManager } from '@/lib/roles';
-import { base } from '@/theme/theme';
 
 function Photo({ p, onRemove }: { p: RepairPhoto; onRemove?: () => void }) {
   const big = useStorageUrl('site-photos', p.hires_path || p.storage_path);
@@ -23,14 +22,16 @@ function Photo({ p, onRemove }: { p: RepairPhoto; onRemove?: () => void }) {
   );
 }
 
-/** cats: the categories shown (the first is where new ones go). canAdd: false for a client. */
-export function RepairPhotos({ jobId, photos, cats, onChanged, canAdd = true, addLabel = '📷 Add Photos' }: { jobId: string; photos: RepairPhoto[]; cats: string[]; onChanged: () => void; canAdd?: boolean; addLabel?: string }) {
+/** cats: the categories shown (the first is where new ones go). canAdd: false for a client. trade: another trade's
+ *  completed-works photos (the id of the trade on the job); without it, those are left out. */
+export function RepairPhotos({ jobId, photos, cats, onChanged, canAdd = true, addLabel = '📷 Add Photos', trade }: { jobId: string; photos: RepairPhoto[]; cats: string[]; onChanged: () => void; canAdd?: boolean; addLabel?: string; trade?: string }) {
   const { me } = useAuth();
   const toast = useToast();
   const [busy, setBusy] = useState(false);
   if (!me) return null;
   const mgr = isManager(me);
-  const live = photos.filter((p) => !p.deleted_at && cats.includes(p.category)), gone = mgr ? photos.filter((p) => p.deleted_at && cats.includes(p.category)) : [];
+  const mine = (p: RepairPhoto) => cats.includes(p.category) && (trade ? p.trade_id === trade : !p.trade_id);
+  const live = photos.filter((p) => !p.deleted_at && mine(p)), gone = mgr ? photos.filter((p) => p.deleted_at && mine(p)) : [];
   return (
     <View>
       {live.length > 0 ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>{live.map((p) => <Photo key={p.id} p={p} onRemove={mgr ? async () => {
@@ -43,7 +44,7 @@ export function RepairPhotos({ jobId, photos, cats, onChanged, canAdd = true, ad
         const picked = await pickPhotos(src as 'camera' | 'library', true);
         if ('error' in picked) { showAlert(picked.error); return; }
         if (!picked.length) return;
-        setBusy(true); const failed = await addRepairPhotos(me, jobId, cats[0], picked); setBusy(false);
+        setBusy(true); const failed = await addRepairPhotos(me, jobId, cats[0], picked, trade); setBusy(false);
         if (failed) toast(`${failed} photo${failed === 1 ? '' : 's'} failed to upload — try again.`);
         onChanged();
       }} /></View>}

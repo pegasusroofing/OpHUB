@@ -1,6 +1,8 @@
 // An operative opening a repair job (Andy, 7 Nov 2026): check in by GPS (against the job's address), then the steps —
-// 1. Description Of Fault, 2. Description Of Repair, 3. Photos, 4. Completed In This Visit? Yes → 5. Completion Photos
-// and Description Of Works Completed; No → the attendance report goes to the office to price — then Check Out.
+// 1. Description Of Fault Found, 2. Description Of Repair Required, 3. Photos, 4. Completed Repair Whilst In Attendance?
+// (No — Needs A Quote unless they pick Yes) Yes → 5. Completion Photos and Description Of Works Completed; No → the
+// attendance report goes to the office (and OneDrive) to price — then Check Out. No quote figures here: just whether
+// the quote has been submitted (Andy, 7 Nov 2026).
 // Coming back for the works (quote approved): straight to the completion step.
 import { useQueryClient } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
@@ -13,6 +15,8 @@ import { showAlert, useToast } from '@/components/toast';
 import { Button, Card, Muted } from '@/components/ui';
 import { openDocLink } from '@/data/hs';
 import { repairCheck, useRepairCheck } from '@/data/repairCheckin';
+import { useSite } from '@/data/sites';
+import { exportRepairReport } from '@/lib/repairReportPdf';
 import { repairReportsAfter, scheduleRepairReport } from '@/data/repairOneDrive';
 import { hasRepairPhoto, notifyPmOfRepairNotes, patchRepairJob, syncRepairEvent, useRepairJob, useRepairJobs } from '@/data/repairs';
 import { useAuth } from '@/lib/auth';
@@ -33,6 +37,8 @@ export function RepairOperative({ siteId, jobId }: { siteId: string; jobId: stri
   const { data: chk, refetch: refetchChk } = useRepairCheck(siteId, jobId, me?.id);
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState('');
+  const [inVisit, setInVisit] = useState<'no' | 'yes'>('no');
+  const { data: site } = useSite(siteId);
   if (!me) return null;
   if (isLoading || !data) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   const job = data.job as (RepairJob & RJob & Row) | null;
@@ -75,6 +81,15 @@ export function RepairOperative({ siteId, jobId }: { siteId: string; jobId: stri
     if (await save({ works_completed: true, works_notes: n, works_completed_date: when, works_completed_event_id: ev, job_status: 'Awaiting Sign-off' }, 'Works done — remember to check out')) { setDraft({}); notifyPmOfRepairNotes(job.id, siteId, 'completion', n); }
   };
 
+  const fmt = (d?: string | null) => (d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '');
+  // The attendance report (fault found, repair required, photos): to look at here; it's in OneDrive too.
+  const report = async () => { setBusy('rep'); const ok = await exportRepairReport('survey', job, site, org, job.surveyed_by === me.id ? me.name : '').catch(() => false); setBusy(''); if (!ok) toast('Could not build the report.'); };
+  const pick = (k: 'no' | 'yes', label: string) => (
+    <Pressable key={k} role="radio" aria-checked={inVisit === k} onPress={() => setInVisit(k)}
+      style={{ flex: 1, alignItems: 'center', paddingVertical: 11, borderRadius: radius.input, borderWidth: 1, borderColor: inVisit === k ? base.ink : base.line, backgroundColor: inVisit === k ? base.ink : base.card }}>
+      <Text style={{ fontWeight: '600', color: inVisit === k ? '#fff' : base.ink }}>{label}</Text>
+    </Pressable>
+  );
   const step = (n: number | string, title: string, done: boolean, now: boolean, body: ReactNode) => (
     <View style={{ backgroundColor: base.card, borderWidth: now ? 1.5 : 1, borderColor: now ? base.ink : base.cardLine, borderRadius: 12, marginBottom: 8, padding: 12 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: body ? 8 : 0 }}>
@@ -106,7 +121,7 @@ export function RepairOperative({ siteId, jobId }: { siteId: string; jobId: stri
         {!!job.description && <Text style={{ fontSize: 13, color: base.ink, marginTop: 6 }}>{job.description}</Text>}
         {!!(job.tenant_name || job.tenant_phone) && (
           <Pressable disabled={!job.tenant_phone} onPress={() => void Linking.openURL(`tel:${String(job.tenant_phone).replace(/\s+/g, '')}`)}>
-            <Text style={{ fontSize: 13, color: job.tenant_phone ? base.blue : base.slate, marginTop: 4 }}>Tenant: {[job.tenant_name, job.tenant_phone].filter(Boolean).join(' · ')}{job.tenant_no ? ` · No. ${job.tenant_no}` : ''}</Text>
+            <Text style={{ fontSize: 13, color: job.tenant_phone ? base.blue : base.slate, marginTop: 4 }}>Tenant: {[job.tenant_name, job.tenant_phone].filter(Boolean).join(' · ')}</Text>
           </Pressable>
         )}
         {!!job.work_order_path && <Pressable onPress={async () => { const u = await openDocLink('site-photos', job.work_order_path as string); if (u) viewDoc(u, String(job.work_order_name || 'Works Order')); }}><Text style={{ fontWeight: '600', color: base.blue, marginTop: 6 }}>📄 View The Works Order</Text></Pressable>}
@@ -124,14 +139,19 @@ export function RepairOperative({ siteId, jobId }: { siteId: string; jobId: stri
         <>
           {!worksVisit && (
             <>
-              {step(1, 'Description Of Fault', !!job.fault_description && !changed('fault_description'), !job.fault_description, textStep('fault_description', 'What’s wrong, what you found'))}
-              {step(2, 'Description Of Repair', !!job.repair_description && !changed('repair_description'), !!job.fault_description && !job.repair_description, textStep('repair_description', 'What needs doing to fix it'))}
+              {step(1, 'Description Of Fault Found', !!job.fault_description && !changed('fault_description'), !job.fault_description, textStep('fault_description', 'What’s wrong, what you found'))}
+              {step(2, 'Description Of Repair Required', !!job.repair_description && !changed('repair_description'), !!job.fault_description && !job.repair_description, textStep('repair_description', 'What needs doing to fix it'))}
               {step(3, 'Photos', data.photos.some((p) => p.category === 'survey' && !p.deleted_at), false, <RepairPhotos jobId={job.id} photos={data.photos} cats={['survey']} onChanged={refresh} addLabel="📷 Add Photos" />)}
-              {step(4, 'Completed In This Visit?', answered, !answered, answered ? <Muted>{job.completed_in_visit ? 'Yes.' : 'No — sent to the office to price.'}</Muted> : (
-                <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <View style={{ flex: 1 }}><Button title="Yes" onPress={() => void answer(true)} /></View>
-                  <View style={{ flex: 1 }}><Button kind="ghost" title="No — Needs A Quote" onPress={() => void answer(false)} /></View>
-                </View>
+              {step(4, 'Completed Repair Whilst In Attendance?', answered, !answered, answered ? (
+                <>
+                  <Muted>{job.completed_in_visit ? 'Yes.' : job.variation_issued_at ? `No — Quote Submitted ${fmt(job.variation_issued_at)}.` : 'No — sent to the office to price.'}</Muted>
+                  <View style={{ alignSelf: 'flex-start', marginTop: 8 }}><Button small kind="ghost" busy={busy === 'rep'} title="📄 Attendance Report" onPress={() => void report()} /></View>
+                </>
+              ) : (
+                <>
+                  <View style={{ flexDirection: 'row', gap: 8 }}>{pick('no', 'No — Needs A Quote')}{pick('yes', 'Yes')}</View>
+                  <View style={{ alignSelf: 'center', marginTop: 10 }}><Button title="Save Attendance" onPress={() => void answer(inVisit === 'yes')} /></View>
+                </>
               ))}
             </>
           )}
@@ -139,7 +159,7 @@ export function RepairOperative({ siteId, jobId }: { siteId: string; jobId: stri
             <>
               <RepairPhotos jobId={job.id} photos={data.photos} cats={['completion']} onChanged={refresh} addLabel="📷 Completion Photos" />
               <View style={{ marginTop: 8 }}>{textStep('works_notes', 'Description of the works completed')}</View>
-              <View style={{ alignSelf: 'flex-start', marginTop: 8 }}><Button title="Mark Works Done" onPress={() => void worksDone()} /></View>
+              <View style={{ alignSelf: 'flex-start', marginTop: 8 }}><Button title="Mark Job As Complete" onPress={() => void worksDone()} /></View>
             </>
           ))}
           {step(worksVisit ? 2 : 6, 'Check Out', false, done || job.completed_in_visit === false, (
