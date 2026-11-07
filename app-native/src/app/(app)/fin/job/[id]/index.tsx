@@ -195,7 +195,8 @@ function Overview({ id, fc, settings, invs, apps, book, askFinancials }: { id: s
       </View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
         {ghost('Full Summary', `/fin/job/${id}/summary`)}
-        {!!subKind(site) && ghost(subKind(site) === 'repair' ? 'Costs by repair job' : 'Costs by plot', `/fin/job/${id}/parts`)}
+        {/* A repair contract opens its Works Orders (each job's stage, quote and costs; invoicing) — Andy, 7 Nov 2026. */}
+        {!!subKind(site) && (subKind(site) === 'repair' ? ghost('Works Orders', `/fin/job/${id}/repairs`) : ghost('Costs by plot', `/fin/job/${id}/parts`))}
         <View style={{ flex: 1 }} />
         {ghost('Monthly Report', `/fin/job/${id}/monthly`)}
       </View>

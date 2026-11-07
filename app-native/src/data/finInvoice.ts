@@ -71,6 +71,8 @@ export async function issue(me: Profile, org: Organization | null, id: string, s
   const inv = r.data as Row | null;
   if (!inv) return { inv: null, error: 'Could not issue — try again.', xero: null };
   await storePdf(me, org, inv, site);
+  // Repair jobs on this invoice are now Invoiced (Andy, 7 Nov 2026).
+  try { await fdb.from('repair_jobs').update({ invoiced: true } as never).eq('invoice_id', inv.id); } catch { /* the stage still shows from the invoice */ }
   // Posting to Xero — blocked by the Finance trial for RTB.
   const x = (await xeroAutoOk(me.org_id, 'fin_invoices', inv.id)) ? await finInvoke(me, 'xero', { action: 'push_invoice', id: inv.id }) : { error: null };
   return { inv, error: null, xero: x.error };
