@@ -12,7 +12,8 @@ import { invokeAsUser } from '@/lib/userFunctions';
 
 type Row = Record<string, any>;
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from>; rpc: typeof supabase.rpc };
-export const REPAIR_PHOTO_FOLDER: Record<string, string> = { survey: 'Survey Photos', access: 'Access Photos', scaffold: 'Scaffold Photos', progress: 'Progress Photos', completion: 'Completion Photos' };
+// Just two photo folders in each job's folder (Andy, 7 Nov 2026): Survey Photos (attending) and Completion Photos.
+export const REPAIR_PHOTO_FOLDER: Record<string, string> = { survey: 'Survey Photos', access: 'Survey Photos', scaffold: 'Completion Photos', progress: 'Completion Photos', completion: 'Completion Photos' };
 const seg = (s: string) => String(s || '').replace(/[\\/:*?"<>|]/g, '-').replace(/\s+/g, ' ').trim() || 'Job';
 /** The subfolder in the site's folder: the job number, or the address. */
 export const repairJobFolder = (job: Row) => seg(String(job.job_number || '').trim() || job.address || 'Job');
@@ -73,7 +74,8 @@ export async function pushWorkOrder(job: RepairJob & Row): Promise<void> {
   try {
     if (!job.work_order_path) return;
     const t = await target(job); if (!t) return;
-    await put(t, `Work Order/${seg(String(job.work_order_name || String(job.work_order_path).split('/').pop()))}`, await fetchBytes(job.work_order_path));
+    // In the job's folder itself, not a subfolder (Andy, 7 Nov 2026).
+    await put(t, seg(String(job.work_order_name || String(job.work_order_path).split('/').pop())), await fetchBytes(job.work_order_path));
   } catch { /* OneDrive copy is best-effort */ }
 }
 
@@ -101,7 +103,7 @@ export function scheduleRepairReport(kind: 'survey' | 'completion', jobId: strin
 export function repairReportsAfter(job: Row, changed: { keys?: string[]; photoCategory?: string }): ('survey' | 'completion')[] {
   const out: ('survey' | 'completion')[] = [];
   const k = changed.keys || [], cat = changed.photoCategory;
-  if (job.survey_required === 'Y' && (cat === 'survey' || cat === 'access' || k.some((x) => /^(survey|access)/.test(x)))) out.push('survey');
+  if (job.survey_required === 'Y' && (cat === 'survey' || cat === 'access' || k.some((x) => /^(survey|access|fault_description|repair_description|completed_in_visit)/.test(x)))) out.push('survey');
   if (job.works_completed && (cat === 'completion' || k.some((x) => /^(works_|completed|completion)/.test(x)))) out.push('completion');
   return out;
 }

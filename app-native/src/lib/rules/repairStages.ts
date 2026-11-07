@@ -11,6 +11,9 @@ export type RJob = {
   completed_in_visit?: boolean | null; works_booking_date?: string | null; works_booking_assigned_to?: string | null;
   on_hold?: boolean | null; on_hold_reason?: string | null; other_trades?: string | null; other_trades_date?: string | null;
   access_requirement?: string | null; scaffold_erection_date?: string | null; invoice_id?: string | null;
+  tenant_name?: string | null; tenant_phone?: string | null; tenant_no?: string | null; priority?: string | null;
+  fault_description?: string | null; repair_description?: string | null; quote_lines?: unknown; quote_discount_pct?: number | null;
+  geofence_lat?: number | null; geofence_lon?: number | null; geofence_radius_m?: number | null;
 };
 export type Stage = 'to_book' | 'booked' | 'attended' | 'quote_needed' | 'awaiting_approval' | 'approved' | 'works_booked' | 'done' | 'rejected';
 
