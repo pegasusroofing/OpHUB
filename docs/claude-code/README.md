@@ -23,3 +23,14 @@ Also useful:
 - **Tasks come in short messages, often with a screenshot.** Do the task, check it with a screenshot, then reply in two or three plain lines.
 - **Commits:** commit to the local repo. Tell him when to press **Push origin** in GitHub Desktop.
 - **Phone apps:** they only change when he rebuilds them in Android Studio or Xcode, so say when a rebuild is needed.
+
+## Helpers (set up 7 Nov 2026)
+Three helpers live in `.claude/agents/`. Claude Code picks them up when it starts.
+- **prepush-check:** before Andy presses Push origin.
+  - Runs the types, unit tests, the screen tests for what changed and the old app's build and copies.
+  - Checks Finance is still on trial and that no secrets are in the push.
+  - Answers "safe to push" or "don't push, because…". Cheap; use every time.
+- **bug-reviewer:** after a big batch of work. Traces every button in the changes through to what it saves and lists real bugs only. Costs more (about 200,000–350,000 tokens), so use it per batch, not per small change.
+- **andy-ui-checker:** before showing Andy a screen.
+  - Uses the changed screens on a laptop and a phone and checks them against his UI rules (SNAGS-2026-10-29.md, top).
+  - Returns screenshots and anything that breaks a rule.
