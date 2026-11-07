@@ -1,0 +1,110 @@
+<!doctype html>
+<!-- Three layout options for Finance › Projects on a phone (Andy, 7 Nov 2026: "I don't like this view/layout at all",
+     "propose 3 options"). Mock-ups only, drawn with the projects from his screenshot. Pictures: option-1/2/3.png. -->
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Projects Phone Options</title>
+<style>
+  :root { --ink:#1E2124; --slate:#5B6472; --line:#E1E5EA; --card:#fff; --bg:#EEF0F2; --brand:#3F7BD9; --bad:#C0392B; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:#cfd3d8; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; color:var(--ink); padding:20px; display:flex; gap:24px; flex-wrap:wrap; }
+  .phone { width:390px; height:844px; background:var(--bg); display:flex; flex-direction:column; overflow:hidden; position:relative; }
+  .label { background:var(--ink); color:#fff; font-size:15px; font-weight:600; padding:10px 16px; }
+  .label small { display:block; font-weight:400; font-size:12.5px; color:#cfd3d8; margin-top:2px; }
+  .top { background:#fff; border-bottom:1px solid var(--line); height:52px; display:flex; align-items:center; gap:10px; padding:0 14px; }
+  .top .back { font-size:22px; color:var(--ink); }
+  .top .logo { font-weight:800; font-size:19px; color:var(--brand); }
+  .top .x { color:var(--slate); font-size:14px; }
+  .top .co { font-weight:600; font-size:16px; color:var(--brand); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .body { flex:1; overflow:hidden; padding:0 16px; }
+  .crumbs { font-size:13px; color:var(--slate); padding:10px 0 2px; } .crumbs b { color:var(--ink); font-weight:500; } .crumbs span { color:var(--brand); }
+  .tabs { display:flex; border-bottom:1px solid #e5e7eb; position:relative; white-space:nowrap; overflow:hidden; margin-bottom:10px; }
+  .tabs div { padding:11px 13px; font-size:13px; font-weight:600; color:#6b7280; border-bottom:2px solid transparent; }
+  .tabs div.on { color:#111827; font-weight:700; border-bottom-color:var(--brand); }
+  .tabs .fade { position:absolute; right:0; top:0; bottom:0; width:34px; background:rgba(238,240,242,.94); color:var(--slate); font-size:18px; font-weight:600; display:flex; align-items:center; justify-content:flex-end; padding-right:6px; border:0; }
+  .search { background:#fff; border:1px solid var(--line); border-radius:12px; padding:9px 11px; font-size:15px; color:#9aa1ab; margin-bottom:8px; }
+  .bar { display:flex; gap:8px; margin-bottom:10px; }
+  .drop { flex:1; background:#fff; border:1px solid var(--ink); border-radius:12px; padding:8px 11px; font-size:13px; font-weight:500; display:flex; justify-content:space-between; align-items:center; }
+  .drop i { font-style:normal; font-size:11px; color:var(--slate); }
+  .btn { background:var(--brand); color:#fff; border-radius:10px; padding:8px 13px; font-size:13px; font-weight:600; white-space:nowrap; display:flex; align-items:center; }
+  .foot { background:#fff; border-top:1px solid var(--line); padding:10px 16px 26px; display:flex; justify-content:flex-end; align-items:center; gap:12px; }
+  .foot .n { font-size:12.5px; color:var(--slate); } .foot .v { font-size:14px; font-weight:600; }
+  .no { font-size:11px; font-weight:600; color:var(--brand); border:1.5px solid var(--brand); border-radius:8px; padding:2px 7px; white-space:nowrap; }
+  .bad { color:var(--bad); }
+
+  /* Option 1: cards with figures */
+  .c1 { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:11px 13px 10px; margin-bottom:8px; }
+  .c1 .h { display:flex; align-items:center; gap:8px; }
+  .c1 .t { flex:1; font-size:15px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .c1 .chev { color:var(--slate); font-size:18px; }
+  .c1 .m { font-size:12.5px; color:var(--slate); margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .c1 .f { display:flex; margin-top:9px; padding-top:8px; border-top:1px solid #eef0f2; }
+  .c1 .f div { flex:1; } .c1 .f small { display:block; font-size:11px; color:var(--slate); font-weight:500; } .c1 .f b { font-size:14.5px; font-weight:600; }
+
+  /* Option 2: compact table */
+  .tbl { background:#fff; border:1px solid #e5e7eb; border-radius:12px; overflow:hidden; }
+  .tr { display:flex; align-items:center; padding:8px 11px; border-top:1px solid #eef0f2; gap:8px; }
+  .tr.hd { border-top:0; background:#F6F7F9; padding:8px 11px; }
+  .tr.hd div { font-size:11.5px; font-weight:600; color:var(--slate); }
+  .tr .a { width:66px; flex:none; } .tr .b { flex:1; min-width:0; } .tr .c { width:72px; flex:none; text-align:right; } .tr .d { width:64px; flex:none; text-align:right; }
+  .tr .b b { display:block; font-size:13.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .tr .b small { display:block; font-size:11.5px; color:var(--slate); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .tr .jn { font-size:12px; font-weight:600; color:var(--brand); }
+  .tr .c, .tr .d { font-size:13px; font-weight:600; }
+  .tr .d small { display:block; font-size:10.5px; font-weight:600; }
+
+  /* Option 3: totals at the top, simple list */
+  .tiles { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px; }
+  .tile { background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:10px 12px; }
+  .tile b { display:block; font-size:19px; font-weight:600; } .tile small { font-size:12px; color:#6b7280; font-weight:500; }
+  .list { background:#fff; border:1px solid #e5e7eb; border-radius:12px; overflow:hidden; }
+  .li { display:flex; align-items:center; gap:10px; padding:10px 13px; border-top:1px solid #eef0f2; }
+  .li:first-child { border-top:0; }
+  .li .l { flex:1; min-width:0; } .li .l b { display:block; font-size:14.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .li .l small { display:block; font-size:12px; color:var(--slate); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .li .r { text-align:right; } .li .r b { display:block; font-size:14.5px; font-weight:600; } .li .r small { display:block; font-size:11.5px; color:var(--slate); margin-top:2px; }
+  .li .chev { color:var(--slate); font-size:18px; }
+</style></head>
+<body>
+<div id="o1" class="phone"></div>
+<div id="o2" class="phone"></div>
+<div id="o3" class="phone"></div>
+<script>
+// The projects from Andy's screenshot (Sandbox Roofing, Filter: Live).
+var P = [
+  ['SBX-127','123 Test Street','RTB Roofing','',0,0,0],
+  ['SBX-111','Andy House','Ashcroft Estates Ltd','',0,0,0],
+  ['SBX-107','Andy House','RTB Roofing','12345679',11000,2423,0],
+  ['SBX-126','ddf','RTB Roofing','123456',610,337,0],
+  ['SBX-106','Harbour Mill – Industrial Unit','Hollin Developments Ltd','',96400,40755,0],
+  ['SBX-103','Kestrel House – Office Refurb','Kestrel Facilities Management','',42750,21125,2375],
+  ['SBX-102','Oakfield Primary School – Re-roof','Ashcroft Estates Ltd','',186000,0,0],
+  ['SBX-108','Richardson court','Ashcroft Estates Ltd','12234',1000,0,0],
+  ['SBX-101','Riverside Apartments – Flat Roof','Northgate Build Ltd','',248500,0,0],
+  ['SBX-121','ZZ JOB Fin A','ZZ Fin Client','',10000,3990,0]
+];
+function gbp(n){ return n ? '£' + n.toLocaleString('en-GB') : '—'; }
+function shell(label, sub, inner, foot){
+  return '<div class="label">' + label + '<small>' + sub + '</small></div>'
+   + '<div class="top"><span class="back">‹</span><span class="logo">OpHUB</span><span class="x">×</span><span class="co">Sandbox Roofing</span></div>'
+   + '<div class="body"><div class="crumbs"><span>Finance</span> › <b>Projects</b></div>'
+   + '<div class="tabs"><div>Overview</div><div class="on">Projects</div><div>Sales</div><div>Purchases</div><div>Subcontractors</div><div class="fade">›</div></div>'
+   + '<div class="search">Search Projects</div>'
+   + '<div class="bar"><div class="drop">Filter: Live <i>▼</i></div><div class="btn">+ New Project</div></div>'
+   + inner + '</div>'
+   + (foot ? '<div class="foot"><span class="n">17 Projects</span><span class="v">Value Of Works £620,530</span></div>' : '');
+}
+document.getElementById('o1').innerHTML = shell('Option 1 — Cards With Figures', 'Each project a card. Value, Owed and Overdue in their own boxes.',
+  P.map(function(p){ return '<div class="c1"><div class="h"><span class="no">' + p[0] + '</span><span class="t">' + p[1] + '</span><span class="chev">›</span></div>'
+    + '<div class="m">' + p[2] + ' · ' + (p[3] ? 'PO ' + p[3] : 'No PO') + '</div>'
+    + '<div class="f"><div><small>Value</small><b>' + gbp(p[4]) + '</b></div><div><small>Owed</small><b>' + gbp(p[5]) + '</b></div><div><small>Overdue</small><b class="' + (p[6] ? 'bad' : '') + '">' + gbp(p[6]) + '</b></div></div></div>'; }).join(''), true);
+document.getElementById('o2').innerHTML = shell('Option 2 — Compact Table', 'Like the laptop grid, shrunk to a phone. More projects on one screen.',
+  '<div class="tbl"><div class="tr hd"><div class="a">Job No</div><div class="b">Project ▾</div><div class="c">Value</div><div class="d">Owed</div></div>'
+  + P.map(function(p){ return '<div class="tr"><div class="a jn">' + p[0] + '</div><div class="b"><b>' + p[1] + '</b><small>' + p[2] + '</small></div><div class="c">' + gbp(p[4]) + '</div>'
+    + '<div class="d' + (p[6] ? ' bad' : '') + '">' + gbp(p[5]) + (p[6] ? '<small>' + gbp(p[6]) + ' Overdue</small>' : '') + '</div></div>'; }).join('') + '</div>', true);
+document.getElementById('o3').innerHTML = shell('Option 3 — Totals At The Top', 'The totals first, then a plain list: name, job no. and client, value on the right.',
+  '<div class="tiles"><div class="tile"><b>17</b><small>Live Projects</small></div><div class="tile"><b>£620,530</b><small>Value Of Works</small></div>'
+  + '<div class="tile"><b>£68,630</b><small>Owed</small></div><div class="tile"><b class="bad">£2,375</b><small>Overdue</small></div></div>'
+  + '<div class="list">' + P.map(function(p){ return '<div class="li"><div class="l"><b>' + p[1] + '</b><small>' + p[0] + ' · ' + p[2] + '</small></div>'
+    + '<div class="r"><b>' + gbp(p[4]) + '</b><small class="' + (p[6] ? 'bad' : '') + '">' + (p[6] ? gbp(p[6]) + ' Overdue' : p[5] ? gbp(p[5]) + ' Owed' : '') + '</small></div><span class="chev">›</span></div>'; }).join('') + '</div>', false);
+</script>
+</body></html>
