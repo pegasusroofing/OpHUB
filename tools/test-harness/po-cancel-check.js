@@ -1,4 +1,5 @@
-// PO page: Remove a line (its request is cancelled), then Cancel PO (the rest cancelled), then Reopen (put back).
+// PO page: Remove a line (its request is cancelled), then Delete (the PO and the rest cancelled), then Reopen (put back).
+// 7 Nov 2026: the saved PO opens on the PO screen; Remove Site-Request Lines… / Remove Ticked Lines / Delete; Delete goes back.
 const {chromium, makeContext, S1} = require('./harness');
 const seed = require('./fresh/seed');
 (async()=>{
@@ -16,13 +17,14 @@ const seed = require('./fresh/seed');
   await page.goto('http://localhost:8081/fin/po/pox'); await page.waitForTimeout(5000);
 const okBtn = async (t)=>{ const b=page.locator('text="'+t+'" >> visible=true').last(); if(await b.count()) await b.click(); };
   const st = ()=>JSON.stringify(db.materials.filter(m=>['m1','m2','m3'].includes(m.id)).map(m=>m.status));
-  await page.getByText('Remove lines…').click(); await page.waitForTimeout(500);
-  await page.getByText('☐').nth(2).click(); await page.getByText('Remove ticked lines').click(); await page.waitForTimeout(800); await okBtn('Remove');
+  await page.getByText('Remove Site-Request Lines…').click(); await page.waitForTimeout(500);
+  await page.getByText('☐').nth(2).click(); await page.getByText('Remove Ticked Lines').click(); await page.waitForTimeout(800); await okBtn('Remove');
   await page.waitForTimeout(2500);
   const po = db.purchase_orders.find(p=>p.id==='pox'); console.log('after remove', st(), po.items.length, po.value, po.vat, po.total);
-  await page.getByText('Cancel PO', {exact:true}).click(); await page.waitForTimeout(800); await okBtn('Cancel PO');
+  await page.getByText('Delete', {exact:true}).first().click(); await page.waitForTimeout(800); await okBtn('Delete');
   await page.waitForTimeout(2500); // the web confirm is accepted by the dialog handler
   console.log('after cancel', st(), po.status, JSON.stringify(po.items.map(i=>i.was_status)));
+  await page.goto('http://localhost:8081/fin/po/pox'); await page.waitForTimeout(5000); // Delete goes back to the list
   await page.getByText('Reopen PO', {exact:true}).click(); await page.waitForTimeout(800); await okBtn('Reopen'); await okBtn('Reopen PO'); await page.waitForTimeout(2500);
   console.log('after reopen', st(), po.status);
   console.log('errors', errs.join(' | ')||'none'); await browser.close(); process.exit(0);
