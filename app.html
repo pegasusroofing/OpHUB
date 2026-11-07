@@ -3979,7 +3979,10 @@ function uploadBusyTrack(promiseFn, counts){
 function storagePathEnc(path){
   return String(path).split('/').map(seg=>encodeURIComponent(seg).replace(/[!'()*]/g, c=>'%'+c.charCodeAt(0).toString(16).toUpperCase())).join('/');
 }
-function publicUrl(bucket, path){ return path ? (SUPABASE_URL+'/storage/v1/object/public/'+bucket+'/'+storagePathEnc(path)) : null; }
+function publicUrl(bucket, path){
+  // Expense receipts reach Finance as inbox invoices, but the photo stays in site-photos (expenses/<org>/...) (7 Nov 2026).
+  if(bucket==='finance-docs' && String(path||'').indexOf('expenses/')===0) bucket='site-photos';
+  return path ? (SUPABASE_URL+'/storage/v1/object/public/'+bucket+'/'+storagePathEnc(path)) : null; }
 function blobToBase64(blob){
   return new Promise((resolve, reject)=>{
     const reader = new FileReader();

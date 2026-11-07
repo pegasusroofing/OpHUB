@@ -65,14 +65,16 @@ export function PinvEditor({ inbox, siteId: site0, poId: po0, start, pi, below, 
   // Query With Supplier: the saved invoice and who it goes to, while the email pop-up is open.
   const [mail, setMail] = useState<{ row: Row; to: string } | null>(null);
   const shut2 = !editing || locked;
-  const unread = !!inbox && !(Array.isArray(ex.lines) && ex.lines.length);
+  // An expense receipt sent in from a job (7 Nov 2026): typed in from the photo, not read.
+  const isRcpt = !!inbox && ex.receipt === true;
+  const unread = !!inbox && !isRcpt && !(Array.isArray(ex.lines) && ex.lines.length);
   const [supplier, setSupplier] = useState<string>(pi ? pi.supplier_name || '' : inbox ? inbox.supplier_override || ex.supplier || '' : start?.supplier || '');
   const [no, setNo] = useState<string>(pi ? pi.invoice_no || '' : ex.invoice_no || ex.doc_number || start?.no || '');
-  const [date, setDate] = useState<string>(pi ? pi.invoice_date || today() : ex.date || ex.doc_date || start?.date || today());
+  const [date, setDate] = useState<string>(pi ? pi.invoice_date || today() : ex.date || ex.doc_date || start?.date || (isRcpt && inbox?.received_at ? String(inbox.received_at).slice(0, 10) : today()));
   const [due, setDue] = useState<string>(pi ? pi.due_date || '' : ex.due_date || '');
   const [siteId, setSiteId] = useState<string | null>(pi?.site_id || site0 || inbox?.site_id || null);
   const [poId, setPoId] = useState<string>(pi ? pi.po_id || '' : po0 || inbox?.po_id || '');
-  const [receipt, setReceipt] = useState(pi?.kind === 'receipt');
+  const [receipt, setReceipt] = useState(pi?.kind === 'receipt' || isRcpt);
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [dupOk, setDupOk] = useState('');
@@ -85,6 +87,7 @@ export function PinvEditor({ inbox, siteId: site0, poId: po0, start, pi, below, 
   const [lines, setLines] = useState<RLine[]>(() => (pi ? savedLines(pi)
     // The job chosen on the list goes on every line that hasn't one (Andy, 6 Nov 2026).
     : Array.isArray(ex.lines) && ex.lines.length ? (ex.lines as RLine[]).map((l) => (l.site_id || l.alloc?.length || !inbox?.site_id ? l : { ...l, site_id: inbox.site_id }))
+    : isRcpt && !ex.lines ? [{ ...blankLine(site0 || inbox?.site_id), description: String(ex.note || (ex.category === 'fuel' ? `Fuel${ex.label ? ` — ${ex.label}` : ''}` : ex.label ? `Expenses — ${ex.label}` : 'Expenses')), cost_code: ex.category === 'fuel' ? 'overheads' : ex.category === 'other' ? 'other' : 'materials', ...(ex.net != null ? { unit_price: Number(ex.net), amount: Number(ex.net) } : {}) }]
     : ex.net != null ? [{ ...blankLine(site0 || inbox?.site_id), description: 'Invoice total', unit_price: Number(ex.net), amount: Number(ex.net) }]
     : start?.amount ? [{ ...blankLine(site0), description: 'Invoice total', unit_price: round2(start.amount / 1.2), amount: round2(start.amount / 1.2) }] : [blankLine(site0 || inbox?.site_id)]));
   const { data: sups = [] } = useQuery({ queryKey: ['finSupNames', me?.org_id], enabled: !!me?.org_id, queryFn: async () => (((await fdb.from('fin_suppliers').select('name').eq('org_id', me?.org_id as string).order('name')).data as Row[] | null) ?? []).map((x) => String(x.name || '')).filter(Boolean) });
@@ -172,7 +175,7 @@ export function PinvEditor({ inbox, siteId: site0, poId: po0, start, pi, below, 
     const d = r.data as Row | null;
     if (!d?.ok) { toast(d?.why === 'busy' ? 'Someone started saving this a moment ago. If it’s still here in 5 minutes, try again.' : d?.why === 'taken' ? 'This one has just been saved by someone else.' : `Couldn’t save it — ${WHY[d?.why] || 'please try again'}.`); return null; }
     await saveLinesOnInvoice(d.pi as Row, lines, flags);
-    await fdb.from('purchase_invoices').update({ due_date: due || addDays(date || today(), 30), description: lines[0]?.description || null } as never).eq('id', (d.pi as Row).id);
+    await fdb.from('purchase_invoices').update({ due_date: due || addDays(date || today(), 30), description: lines[0]?.description || null, ...(receipt ? { kind: 'receipt' } : {}) } as never).eq('id', (d.pi as Row).id);
     return { id: (d.pi as Row).id, fresh: true, flags };
   };
 
@@ -267,7 +270,7 @@ export function PinvEditor({ inbox, siteId: site0, poId: po0, start, pi, below, 
       : pi.status === 'query' ? { step: 2, label2: askedPm ? `With ${first(askedPm)}` : 'With A PM', next: `Waiting on ${askedPm ? nameOf(people, askedPm) : 'the PM'}${pi.query_note ? `: “${pi.query_note}”` : ''}. Their reply shows below.` }
       : { step: 3, next: 'Next: check it, then Approve Invoice, or Query To PM if something’s not right.' }
     : inbox ? inbox.stage === 'with_pm' ? { step: 2, label2: `With ${first(inbox.assigned_pm)}`, next: `With ${nameOf(people, inbox.assigned_pm) || 'a PM'} to choose the job.` }
-      : { step: 1, next: 'Next: choose the job and Save, or Save & Query To PM to send it to a PM.' }
+      : { step: 1, next: isRcpt ? 'Next: put in the amount, choose the job and Save.' : 'Next: choose the job and Save, or Save & Query To PM to send it to a PM.' }
     : { step: 1, next: 'Fill it in and Save: it’s approved straight away as you’ve typed it in.' };
 
   return (
@@ -285,7 +288,8 @@ export function PinvEditor({ inbox, siteId: site0, poId: po0, start, pi, below, 
             {!!inbox.file_path && <View style={{ alignSelf: 'flex-start', marginTop: 8 }}><Button small kind="ghost" busy={busy} title="🤖 Try Reading It Again" onPress={async () => { setBusy(true); const e = await readOne(me, inbox); setBusy(false); if (e) toast(e); void qc.invalidateQueries({ queryKey: ['finInbox', inbox.id] }); }} /></View>}
           </View>
         )}
-        {inbox && !unread && !noteShut && <View style={{ backgroundColor: '#E7F6EC', borderRadius: 10, padding: 12, paddingRight: 36, marginBottom: 10 }}>{shut}<Text style={{ color: '#1E7A43' }}>✓ Read automatically: {lines.length} line{lines.length === 1 ? '' : 's'}. Check it, then Save or Approve Invoice.</Text></View>}
+        {isRcpt && !noteShut && <View style={{ backgroundColor: '#F6F7F9', borderRadius: 10, padding: 12, paddingRight: 36, marginBottom: 10 }}>{shut}<Text style={{ color: base.ink }}>Expense receipt from {String(ex.sent_by || 'the team')}{ex.category === 'fuel' ? ' (fuel)' : ''}{ex.label ? `, for ${String(ex.label)}` : ''}. Put in the amount from the receipt, choose the job, then Save.</Text>{!!ex.note && <Muted style={{ marginTop: 4 }}>Their note: {String(ex.note)}</Muted>}</View>}
+        {inbox && !unread && !isRcpt && !noteShut && <View style={{ backgroundColor: '#E7F6EC', borderRadius: 10, padding: 12, paddingRight: 36, marginBottom: 10 }}>{shut}<Text style={{ color: '#1E7A43' }}>✓ Read automatically: {lines.length} line{lines.length === 1 ? '' : 's'}. Check it, then Save or Approve Invoice.</Text></View>}
         {!inbox && !file && !pi?.file_path && !shut2 && (
           <Pressable accessibilityRole="button" onPress={() => void attach()} style={{ borderWidth: 2, borderStyle: 'dashed', borderColor: '#c3c8d0', borderRadius: 10, padding: 16, alignItems: 'center', marginBottom: 10, backgroundColor: '#fff' }}>
             <Text style={{ fontSize: 22 }}>📄</Text>

@@ -89,6 +89,8 @@ export function useHsDocs(kind: DocKind, site: Site | undefined, companyId: stri
 export function docBucket(kind: DocKind | 'tbt') { return kind === 'tbt' ? 'rams-docs' : T[kind].bucket; }
 
 export async function openDocLink(bucket: string, path: string): Promise<string | null> {
+  // Expense receipts sent in from a job (7 Nov 2026) reach Finance as invoices but their photo stays in site-photos (expenses/<org>/…).
+  if (bucket === 'finance-docs' && /^expenses\//.test(path || '')) bucket = 'site-photos';
   const r = await supabase.storage.from(bucket).createSignedUrl(path, 600);
   return r.data?.signedUrl ?? null;
 }

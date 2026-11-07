@@ -89,6 +89,9 @@ export async function readOne(me: Profile, it: Row): Promise<string | null> {
   if (res.error || !res.data?.data) return res.error ?? 'Nothing came back from the reader.';
   const ctx = await loadReadContext(me.org_id);
   const r = res.data.data, code = codeLines(r, ctx.sites, ctx.pos), d = decide(r, code.lines, checkAll(code.lines, r.supplier, ctx));
-  const saved = await fdb.from('fin_inbox').update({ extracted: asItem(r, code), site_id: d.mainSite, po_id: code.poId, stage: 'query', query_reason: d.why } as never).eq('id', it.id).select('id');
+  // An expense receipt keeps who sent it and why (7 Nov 2026).
+  const was = (it.extracted || {}) as Row;
+  const keep = was.receipt ? { receipt: true, expense_id: was.expense_id, category: was.category, note: was.note, label: was.label, sent_by: was.sent_by } : {};
+  const saved = await fdb.from('fin_inbox').update({ extracted: { ...asItem(r, code), ...keep }, site_id: d.mainSite || it.site_id || null, po_id: code.poId, stage: 'query', query_reason: d.why } as never).eq('id', it.id).select('id');
   return saved.data?.length ? null : 'Could not save what was read.';
 }

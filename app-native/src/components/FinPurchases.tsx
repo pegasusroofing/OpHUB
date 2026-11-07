@@ -3,6 +3,7 @@
 // plant hire and suppliers — for the company or one project (siteId).
 // Inbox items are NOT read or filed automatically here while the Finance
 // trial is on (no inbox processing).
+import { nameOf, usePeople } from '@/data/hs';
 import { readNewInvoices } from '@/data/invoiceRead';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
@@ -140,6 +141,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
     const m = ((await fdb.from('messages').select('related_id,recipient_id,created_at').eq('kind', 'pi_query').order('created_at', { ascending: false }).limit(2000)).data as Row[] | null) ?? [];
     const by: Record<string, string> = {}; m.forEach((x) => { if (x.related_id && !by[x.related_id]) by[x.related_id] = x.recipient_id; }); return by;
   } });
+  const { data: everyone } = usePeople(); // who an expense receipt is for (7 Nov 2026)
   const { data: pmPeople = [] } = useQuery({ queryKey: ['finPmPeople', me?.org_id], enabled: !!me && tab === 'invoices', queryFn: async () => ((await fdb.from('profiles').select('id,name,role').eq('org_id', me?.org_id as string).in('role', ['pm', 'admin']).order('name')).data as Row[] | null) ?? [] }); // the laptop's "All months" picker on the totals bar
   const { data: grn = {} } = useQuery({
     queryKey: ['finPoGrn', me?.org_id], enabled: !!me && tab === 'invoices',
@@ -314,7 +316,9 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
           <>
             {(() => {
               const items = (cur === 'job' ? needJob : withPm).filter((it) => (!sel.sup.length || sel.sup.includes(supKey(it.extracted?.supplier))) && (!sel.job.length || sel.job.includes(it.site_id)) && (cur !== 'pm' || !pmF || it.assigned_pm === pmF) && hit(it.extracted?.supplier, it.from_email, it.extracted?.invoice_no, it.subject));
-              const unread = (it: Row) => !it.extracted || !(Array.isArray(it.extracted.lines) && it.extracted.lines.length) && it.extracted.total == null;
+              // Expense receipts sent in from a job (7 Nov 2026) are typed in from the photo, so they aren't "unable to read".
+              const rcpt = (it: Row) => it.extracted?.receipt === true && !(Array.isArray(it.extracted.lines) && it.extracted.lines.length);
+              const unread = (it: Row) => !rcpt(it) && (!it.extracted || !(Array.isArray(it.extracted.lines) && it.extracted.lines.length) && it.extracted.total == null);
               // Why it's waiting, in a few words.
               // Choose the job right here on the list (Andy, 6 Nov 2026), with the keyboard drop-down; it then says Check and save.
               const jobPickOpts = sites.filter((x) => x.status !== 'closed').slice().sort((x, y) => String(y.job_number || '').localeCompare(String(x.job_number || ''), 'en-GB', { numeric: true })).map((x) => ({ v: x.id, label: jobTag(x), short: x.job_number || x.name || '' }));
@@ -322,6 +326,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
               const notInvoice = async (it: Row) => { if (!(await confirmAsk('Delete this? Use it for emails that aren’t a supplier’s invoice: a statement, a remittance, an advert or a duplicate. It comes off the list; the email is still kept in the background in case it’s ever needed.', 'Delete'))) return; if (!(await fdb.from('fin_inbox').update({ status: 'ignored', stage: 'ignored' } as never).eq('id', it.id).select('id')).data?.length) { toast('Could not save — try again.'); return; } void qc.invalidateQueries({ queryKey: ['finPurchases'] }); };
               const whyOf = (it: Row) => {
                 if (cur === 'pm') return `With ${(pmPeople.find((p) => p.id === it.assigned_pm)?.name || 'a PM').split(' ')[0]}`;
+                if (rcpt(it)) { const who = it.assigned_pm ? nameOf(everyone, it.assigned_pm).split(' ')[0] : ''; return who ? `Receipt For ${who}` : 'Receipt'; }
                 if (unread(it)) return 'Unable to read';
                 if (it.stage === 'pm_replied') return 'PM replied';
                 const r = String(it.query_reason || '');
@@ -332,14 +337,14 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
                   cols={[
                     { k: 'sup', l: 'Supplier', flex: 1.5, min: 150, sort: (it: Row) => String(it.supplier_override || it.extracted?.supplier || it.from_email || ''), render: (it: Row) => <Cell>{it.supplier_override || it.extracted?.supplier || it.from_email || it.file_name || 'Unknown'}</Cell> },
                     { k: 'no', l: 'Invoice No.', render: (it: Row) => <Cell>{it.extracted?.invoice_no || '—'}</Cell> },
-                    { k: 'd', l: 'Date', sort: (it: Row) => String(it.extracted?.date || it.received_at || ''), render: (it: Row) => <Cell>{it.extracted?.date ? fdate(it.extracted.date) : '—'}</Cell> },
+                    { k: 'd', l: 'Date', sort: (it: Row) => String(it.extracted?.date || it.received_at || ''), render: (it: Row) => <Cell>{it.extracted?.date ? fdate(it.extracted.date) : rcpt(it) && it.received_at ? fdate(it.received_at) : '—'}</Cell> },
                     { k: 'g', l: 'Gross', sort: (it: Row) => Number(it.extracted?.total || 0), total: (l: Row[]) => money(l.reduce((t, it) => t + Number(it.extracted?.total || 0), 0)), render: (it: Row) => <Cell>{it.extracted?.total != null ? money(it.extracted.total) : '—'}</Cell> },
-                    { k: 'w', l: 'Status', flex: 1.1, min: 120, text: (it: Row) => whyOf(it), choices: Array.from(new Set(items.map(whyOf))), render: (it: Row) => (cur !== 'pm' && !it.site_id && !unread(it)
+                    { k: 'w', l: 'Status', flex: 1.1, min: 120, text: (it: Row) => whyOf(it), choices: Array.from(new Set(items.map(whyOf))), render: (it: Row) => (cur !== 'pm' && !it.site_id && !unread(it) && !rcpt(it)
                       ? <View onStartShouldSetResponder={() => true} onResponderTerminationRequest={() => false} {...({ onClick: (e: { stopPropagation: () => void }) => e.stopPropagation() } as object)} style={{ width: 150, alignSelf: 'center' }}><TypePick label={`Choose the job for ${it.extracted?.invoice_no || 'this invoice'}`} value="" placeholder="Needs a job" options={jobPickOpts} listWidth={300} onChange={(v) => void setJob(it, v)} style={{ borderWidth: 1, borderColor: '#f8e7c2', backgroundColor: '#fffaf0', borderRadius: 7, paddingHorizontal: 8, paddingVertical: 5, fontSize: 13, color: '#B35A00' }} /></View>
                       : <Text numberOfLines={1} style={{ fontSize: 13, color: '#B35A00', textAlign: 'center' }}>{whyOf(it)}</Text>) },
                     { k: 'a', l: 'Actions', min: 108, noSort: true, render: (it: Row) => <ActionsCell items={[
-                      ...(!unread(it) ? [{ key: 'ok', label: 'Approve', run: () => { setPendingAct(it.id, 'approve'); router.push(`/fin/inbox/${it.id}` as never); } }] : []),
-                      { key: 'edit', label: unread(it) ? 'Fill In' : 'Edit', run: () => router.push(`/fin/inbox/${it.id}` as never) },
+                      ...(!unread(it) && !rcpt(it) ? [{ key: 'ok', label: 'Approve', run: () => { setPendingAct(it.id, 'approve'); router.push(`/fin/inbox/${it.id}` as never); } }] : []),
+                      { key: 'edit', label: unread(it) || rcpt(it) ? 'Fill In' : 'Edit', run: () => router.push(`/fin/inbox/${it.id}` as never) },
                       { key: 'pm', label: cur === 'pm' ? 'Change PM' : 'Send To PM', run: () => assignPm(it) },
                       ...(cur === 'pm' && it.site_id ? [{ key: 'sup', label: 'Query Supplier', run: () => { setPendingAct(it.id, 'supplier'); router.push(`/fin/inbox/${it.id}` as never); } }] : []),
                       { key: 'not', label: 'Delete', run: () => notInvoice(it) },
@@ -347,7 +352,7 @@ export function PurchasesLists({ tab, siteId, f: f0 }: { tab: 'orders' | 'invoic
                   ]}
                   footLabel={(l) => `${l.length} waiting`} />
                 {exportBar(cur === 'pm' ? 'Purchase invoices with a PM' : 'Purchase invoices received', [{ l: 'Supplier', w: 160 }, { l: 'Invoice no.', w: 80 }, { l: 'Date', w: 70 }, { l: 'Gross £', w: 75, money: true }, { l: 'Status', w: 120 }],
-                  items.map((it) => [it.supplier_override || it.extracted?.supplier || it.from_email || it.file_name || '', it.extracted?.invoice_no || '', it.extracted?.date ? fdate(it.extracted.date) : '', it.extracted?.total != null ? round2(Number(it.extracted.total)) : '', whyOf(it)]))}
+                  items.map((it) => [it.supplier_override || it.extracted?.supplier || it.from_email || it.file_name || '', it.extracted?.invoice_no || '', it.extracted?.date ? fdate(it.extracted.date) : rcpt(it) && it.received_at ? fdate(it.received_at) : '', it.extracted?.total != null ? round2(Number(it.extracted.total)) : '', whyOf(it)]))}
               </>);
               return items.map((it) => {
               const last = (it.comments || []).slice(-1)[0];

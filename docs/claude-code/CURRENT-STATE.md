@@ -48,6 +48,11 @@
   - The approver is stamped by the database.
   - Three look-ups need a sign-in.
   - The finance-inbox comment "never auto-approved" is true again.
+- **Expense receipts go to Finance (7 Nov, Andy asked; additive migration `expense_receipts_into_finance_7nov`):**
+  - Trigger `zz_expense_to_finance` on `expenses`: each receipt file sent in becomes a `fin_inbox` item (source `upload`, `extracted.receipt = true` plus expense_id, category, note, label, sent_by), assigned to `fin_settings.expenses_user`. One-off items were added for the receipts already sent in (8 RTB, 1 other).
+  - The photo stays in `site-photos` at `expenses/<org>/…`. Both apps open `finance-docs` paths starting `expenses/` from `site-photos` (`openDocLink` in the new app, `publicUrl` in the old one).
+  - New app: Received shows "Receipt For <name>"; the invoice screen opens as a receipt with a line ready (fuel → Prelims & site costs); Finance Settings › Purchase invoices › "Expense receipts go to".
+  - Not used (kept, harmless): `expenses.fin_status / fin_cost_id / fin_booked_at / fin_booked_by`, `fin_book_expense`, `fin_skip_expense` (from a first try with a separate Expenses tab, dropped at Andy's request).
 
 ## Server functions
 - `send-finance-email` v5 (subject, text, extra attachments, signature with company number, VAT, email and logo).
