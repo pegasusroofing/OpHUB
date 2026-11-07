@@ -45,9 +45,37 @@ export async function setRepairHiddenTiles(orgId: string, keys: string[]): Promi
   return !!(await db.from('organizations').update({ repair_hidden_tiles: keys } as never).eq('id', orgId).select('id')).data?.length;
 }
 
-export async function addRepairJob(me: Profile, siteId: string, f: { address: string; job_number: string; description: string }): Promise<string | null> {
-  const r = await db.from('repair_jobs').insert({ site_id: siteId, org_id: me.org_id, address: f.address, job_number: f.job_number || null, description: f.description || null, survey_required: 'N', job_status: 'To Survey', created_by: me.id } as never).select('id').single();
-  return r.error || !r.data ? null : (r.data as { id: string }).id;
+export type NewRepair = { address: string; job_number: string; description: string; tenant_name?: string; tenant_phone?: string; tenant_no?: string; priority?: string };
+export async function addRepairJob(me: Profile, siteId: string, f: NewRepair): Promise<string | null> {
+  const t = (v?: string) => (v || '').trim() || null;
+  const r = await db.from('repair_jobs').insert({ site_id: siteId, org_id: me.org_id, address: f.address, job_number: f.job_number || null, description: f.description || null, tenant_name: t(f.tenant_name), tenant_phone: t(f.tenant_phone), tenant_no: t(f.tenant_no), priority: t(f.priority), survey_required: 'N', job_status: 'To Survey', created_by: me.id } as never).select('id').single();
+  const id = r.error || !r.data ? null : (r.data as { id: string }).id;
+  if (id) void geocodeRepairJob(id, f.address);
+  return id;
+}
+/** A UK postcode in an address, or null. */
+export const postcodeIn = (addr?: string | null) => (String(addr || '').toUpperCase().match(/\b([A-Z]{1,2}\d[A-Z\d]?)\s*(\d[A-Z]{2})\b/) || []).slice(1, 3).join(' ') || null;
+/** Where the job is (from its postcode, with the free UK postcodes.io service, as the Sites Map does), for the check-in. Best-effort. */
+export async function geocodeRepairJob(id: string, address?: string | null): Promise<{ lat: number; lon: number } | null> {
+  const pc = postcodeIn(address); if (!pc) return null;
+  try {
+    const r = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(pc)}`);
+    const j = (await r.json()) as { result?: { latitude?: number; longitude?: number } };
+    const lat = j.result?.latitude, lon = j.result?.longitude;
+    if (lat == null || lon == null) return null;
+    // A postcode covers a few streets, so a wider circle than a site's.
+    await patchRepairJob(id, { geofence_lat: lat, geofence_lon: lon, geofence_radius_m: 300 });
+    return { lat, lon };
+  } catch { return null; }
+}
+
+/** Notes on a job (everyone on the contract, the client too, can read and add them). */
+export type RepairNote = { id: string; author_id: string; author_name: string | null; body: string; created_at: string };
+export function useRepairNotes(jobId: string | undefined) {
+  return useQuery({ queryKey: ['repairNotes', jobId], enabled: !!jobId, queryFn: async () => ((await db.from('repair_job_notes').select('id,author_id,author_name,body,created_at').eq('repair_job_id', jobId as string).order('created_at')).data as RepairNote[] | null) ?? [] });
+}
+export async function addRepairNote(me: Profile, jobId: string, body: string): Promise<boolean> {
+  return !(await db.from('repair_job_notes').insert({ repair_job_id: jobId, author_id: me.id, author_name: me.name, body: body.trim().slice(0, 4000) } as never)).error;
 }
 export async function patchRepairJob(id: string, patch: Partial<RepairJob> & Record<string, unknown>): Promise<boolean> {
   return !!(await db.from('repair_jobs').update(patch as never).eq('id', id).select('id')).data?.length;

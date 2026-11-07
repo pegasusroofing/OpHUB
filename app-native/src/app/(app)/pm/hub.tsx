@@ -42,6 +42,7 @@ export default function Hub() {
   const [pm, setPm] = useState('');
   const [site, setSite] = useState('');
   const [due, setDue] = useState<string>('all');
+  const [finPick, setFinPick] = useState<string | null>(null); // the Finance tile opened
   const hub = useHubAll(me, org, sites, pm);
   // Coming back from dealing with something: look again, so it has dropped off.
   const first = useRef(true);
@@ -65,6 +66,60 @@ export default function Hub() {
     if (it.area === 'chat') { setTab('chat'); return; }
     router.push(it.route as never);
   };
+  // One line in a list. showType: the small line above saying what it is (left off under a heading that says it).
+  const row = (it: HubItem, i: number, showType: boolean) => (
+    <Pressable key={it.key} accessibilityRole="button" accessibilityLabel={`${it.typeLbl}: ${it.label}`} onPress={() => void open(it)}
+      style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, paddingHorizontal: 12, borderTopWidth: i ? 1 : 0, borderTopColor: '#EEF0F2' }}>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        {showType && <Text numberOfLines={1} style={{ fontSize: 11, fontWeight: '600', color: base.slate }}>{tab === 'all' ? `${AREA[it.area]} · ${it.typeLbl}` : it.typeLbl}</Text>}
+        <Text numberOfLines={2} style={{ fontSize: 13.5, fontWeight: '600', color: base.ink, marginTop: showType ? 1 : 0 }}>{it.label}</Text>
+        <Text numberOfLines={1} style={{ fontSize: 11.5, color: base.slate, marginTop: 2 }}>{it.siteName}{it.due ? ` · Due ${fmt(it.due)}` : it.at ? ` · ${fmt(it.at)}` : ''}</Text>
+      </View>
+      {it.amount != null && <Text style={{ fontSize: 13, fontWeight: '600', color: base.ink }}>{money(it.amount)}</Text>}
+      <Text style={{ fontSize: 18, color: base.slate }}>›</Text>
+    </Pressable>
+  );
+  const listBox = (items: HubItem[], showType: boolean) => <View style={{ backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 12, overflow: 'hidden', marginBottom: 10 }}>{items.map((it, i) => row(it, i, showType))}</View>;
+  // Groups in the order they first come (the list is soonest-due first). Finance to-dos are a tile each.
+  const groups = (items: HubItem[], each?: (it: HubItem) => boolean) => {
+    const out: { k: string; l: string; items: HubItem[] }[] = [];
+    items.forEach((it) => { const k = each?.(it) ? it.key : it.typeLbl; let g = out.find((x) => x.k === k); if (!g) { g = { k, l: it.typeLbl, items: [] }; out.push(g); } g.items.push(it); });
+    return out;
+  };
+  // Finance: a tile per kind, with how many and what they come to (a Finance to-do already says how many).
+  const finTiles = () => {
+    const gs = groups(shown, (it) => it.type === 'fin_todo');
+    const pickedG = gs.find((g) => g.k === finPick);
+    return (
+      <>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+          {gs.map((g) => {
+            const todo = g.items[0].type === 'fin_todo';
+            const n = todo ? Number(/\((\d+)\)$/.exec(g.items[0].label)?.[1] || 1) : g.items.length;
+            const title = todo ? g.items[0].label.replace(/\s*\(\d+\)$/, '').replace(/\b[a-z]/g, (c) => c.toUpperCase()) : g.l;
+            const sum = g.items.reduce((t2, it) => t2 + (it.amount || 0), 0);
+            const on = finPick === g.k;
+            return (
+              <Pressable key={g.k} accessibilityRole="button" accessibilityLabel={`${title}, ${n}`} onPress={() => { if (g.items.length === 1) void open(g.items[0]); else setFinPick(on ? null : g.k); }}
+                style={{ flexGrow: 1, flexBasis: '45%', backgroundColor: base.card, borderWidth: on ? 2 : 1, borderColor: on ? base.ink : base.cardLine, borderRadius: 10, paddingVertical: 12, paddingHorizontal: 12, minHeight: 92 }}>
+                <Text style={{ fontSize: 22, fontWeight: '700', color: base.ink }}>{n}</Text>
+                <Text numberOfLines={2} style={{ fontSize: 12.5, fontWeight: '600', color: base.ink, marginTop: 2 }}>{title}</Text>
+                <Text numberOfLines={1} style={{ fontSize: 11.5, color: base.slate, marginTop: 2 }}>{todo ? g.items[0].siteName : sum ? money(sum) : g.items.length === 1 ? g.items[0].siteName : 'Tap to see them'}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        {!!pickedG && listBox(pickedG.items, false)}
+      </>
+    );
+  };
+  // Projects: line by line, under a heading for each kind of task.
+  const projGroups = () => groups(shown).map((g) => (
+    <View key={g.k}>
+      <Text style={{ fontSize: 11.5, fontWeight: '700', color: base.slate, letterSpacing: 0.4, marginTop: 4, marginBottom: 6 }}>{g.l.toUpperCase()} ({g.items.length})</Text>
+      {listBox(g.items, false)}
+    </View>
+  ));
   const drop = (label: string, value: string, onPress: () => void) => (
     <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 4, paddingHorizontal: 10, paddingVertical: 8, borderWidth: 1, borderColor: base.line, borderRadius: radius.input, backgroundColor: base.card }}>
       <Text numberOfLines={1} style={{ flexShrink: 1, fontSize: 12.5, fontWeight: '500', color: base.ink }}>{label}: {value}</Text>
@@ -112,21 +167,9 @@ export default function Hub() {
               if (k !== null) { setPm(k); setSite(''); }
             })}
           </View>
+          {/* Finance as tiles; Projects grouped by task; Everything one list (Andy, 7 Nov 2026). */}
           {hub.isLoading ? <Muted>Loading…</Muted> : shown.length ? (
-            <View style={{ backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 12, overflow: 'hidden' }}>
-              {shown.map((it, i) => (
-                <Pressable key={it.key} accessibilityRole="button" accessibilityLabel={`${it.typeLbl}: ${it.label}`} onPress={() => void open(it)}
-                  style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, paddingHorizontal: 12, borderTopWidth: i ? 1 : 0, borderTopColor: '#EEF0F2' }}>
-                  <View style={{ flex: 1, minWidth: 0 }}>
-                    <Text numberOfLines={1} style={{ fontSize: 11, fontWeight: '600', color: base.slate }}>{tab === 'all' ? `${AREA[it.area]} · ${it.typeLbl}` : it.typeLbl}</Text>
-                    <Text numberOfLines={2} style={{ fontSize: 13.5, fontWeight: '600', color: base.ink, marginTop: 1 }}>{it.label}</Text>
-                    <Text numberOfLines={1} style={{ fontSize: 11.5, color: base.slate, marginTop: 2 }}>{it.siteName}{it.due ? ` · Due ${fmt(it.due)}` : it.at ? ` · ${fmt(it.at)}` : ''}</Text>
-                  </View>
-                  {it.amount != null && <Text style={{ fontSize: 13, fontWeight: '600', color: base.ink }}>{money(it.amount)}</Text>}
-                  <Text style={{ fontSize: 18, color: base.slate }}>›</Text>
-                </Pressable>
-              ))}
-            </View>
+            tab === 'finance' ? finTiles() : tab === 'projects' ? projGroups() : listBox(shown, true)
           ) : <Empty>{tab === 'finance' ? 'Nothing from Finance waiting for you.' : 'Nothing waiting for you here.'}</Empty>}
         </ScrollView>
       )}

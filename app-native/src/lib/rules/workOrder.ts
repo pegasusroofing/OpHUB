@@ -21,13 +21,18 @@ export function workOrderField(rows: string[], label: string): string | null {
   }
   return parts.filter(Boolean).join(' ').replace(/\s+/g, ' ').trim() || null;
 }
-export function parseWorkOrder(rows: string[]): { jobNumber?: string; address?: string; description?: string } {
-  const out: { jobNumber?: string; address?: string; description?: string } = {};
+export function parseWorkOrder(rows: string[]): { jobNumber?: string; address?: string; description?: string; tenant?: string; tenantPhone?: string } {
+  const out: { jobNumber?: string; address?: string; description?: string; tenant?: string; tenantPhone?: string } = {};
   const num = rows.join(' ').replace(/\s+/g, ' ').match(/Work Order:\s*(\S+)/);
   if (num) out.jobNumber = num[1].trim();
   const addr = workOrderField(rows, 'Property:');
   if (addr) out.address = addr.split(/\s+/).map((w) => (/\d/.test(w) ? w : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())).join(' ');
   const desc = workOrderField(rows, 'Repair Description:');
   if (desc) out.description = desc;
+  // The resident (tenant) and their phone, for the job hub (Andy, 7 Nov 2026).
+  const who = workOrderField(rows, 'Resident:');
+  if (who) out.tenant = who;
+  const tel = workOrderField(rows, 'Resident Phone:');
+  if (tel) out.tenantPhone = tel;
   return out;
 }

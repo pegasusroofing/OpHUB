@@ -19,6 +19,8 @@ import { useSiteHome } from '@/data/siteHome';
 import { useToast } from '@/components/toast';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSite } from '@/data/sites';
+import { useRepairJobs } from '@/data/repairs';
+import { BOXES, operativeJobs } from '@/lib/rules/repairStages';
 import { useAuth } from '@/lib/auth';
 import { heading, mono } from '@/lib/fonts';
 import { siteStatusKey } from '@/lib/rules/checkin';
@@ -72,7 +74,9 @@ export default function SiteHome() {
   const desk = useDesk();
   const { data: site, isLoading } = useSite(id);
   const { data: h, refetch } = useSiteHome(site);
-  useFocusEffect(useCallback(() => { void refetch(); }, [refetch]));
+  // A repair contract's Works Orders count (Andy, 7 Nov 2026): managers, jobs to book; operatives, their jobs.
+  const { data: rjobs = [], refetch: refetchJobs } = useRepairJobs(site?.repair_contract ? site.id : undefined);
+  useFocusEffect(useCallback(() => { void refetch(); void refetchJobs(); }, [refetch, refetchJobs]));
   if (!site || !me) return <Muted style={{ padding: space.l }}>{isLoading ? 'Loading…' : 'Project not found.'}</Muted>;
   const mgr = isManager(me);
   const client = me.role === 'client';
@@ -96,10 +100,10 @@ export default function SiteHome() {
       <ScrollView contentContainerStyle={page(720)}>
         {header}
         <HowTo k="site_home" />
+        {/* Four tiles (Andy, 7 Nov 2026): Works Orders, Health & Safety, Calendar, To Do List. */}
         <JobTiles cols={cols} tiles={[
-          { key: 'jobs', ic: 'wrench', bg: TINTS.red[0], fg: TINTS.red[1], title: 'Live Jobs', sub: 'Repair jobs on this contract', onPress: go('repairs') },
+          { key: 'jobs', ic: 'wrench', bg: TINTS.red[0], fg: TINTS.red[1], title: 'Works Orders', sub: mgr ? 'Repair jobs on this contract' : 'Your repair jobs', badge: mgr ? rjobs.filter(BOXES[0].test).length : operativeJobs(rjobs, me.id, false).mine, onPress: go('repairs') },
           { key: 'hs', ic: 'shield', bg: '#E7E9EE', fg: base.ink, title: 'Health & Safety', sub: 'RAMS · COSHH · TBT', onPress: go('hs') },
-          { key: 'mat', ic: 'box', bg: base.okBg, fg: base.ok, title: 'Materials', sub: 'Orders', onPress: go('materials') },
           { key: 'cal', ic: 'calendar', bg: '#E4EEFB', fg: TINTS.blue[1], title: 'Calendar', sub: 'Key dates', onPress: go('calendar') },
           { key: 'todo', ic: 'check', bg: '#EFEAFB', fg: '#5B3FA6', title: 'To Do List', sub: 'Tasks', onPress: go('todos') },
         ]} />

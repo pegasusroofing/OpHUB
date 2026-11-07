@@ -52,10 +52,17 @@ const ago = (mins) => new Date(Date.now() - mins * 60000).toISOString();
 
   await page.getByRole('tab', {name: /^Finance/}).click(); await page.waitForTimeout(800);
   t = await body();
-  check(/Jewson — Inv 88412/.test(t) && /£1,240\.50/.test(t), 'Finance: the purchase invoice sent to me to book, with its amount');
+  check(/Purchase Invoice To Book/.test(t) && /£1,240\.50/.test(t), 'Finance tile: the purchase invoice sent to me to book, with its amount');
   check(/Wages To Book/.test(t) && /£640\.00/.test(t), 'Finance: wages to book on my job');
-  check(/Invoice Query/.test(t) && /Is this delivery yours/.test(t), 'Finance: the invoice query');
-  check(/Finance To Do/.test(t) && /Purchase invoices to approve/.test(t), 'Finance: Finance’s own to-do list, for a Finance user');
+  check(/Invoice Query/.test(t), 'Finance tile: the invoice query');
+  check(/Purchase Invoices To Approve/.test(t) && /Overdue Invoices/.test(t), 'Finance tiles: Finance’s own to-do list, for a Finance user (capitalised)');
+  await page.screenshot({path: 'shots/hub-finance.png'});
+  // Projects: line by line under a heading for each kind of task.
+  await page.getByRole('tab', {name: /^Projects/}).click(); await page.waitForTimeout(600);
+  const pt = await body();
+  check(/TOOLBOX TALK \(\d+\)/.test(pt) && /MESSAGE \(\d+\)/.test(pt), 'Projects grouped by task, with headings');
+  await page.screenshot({path: 'shots/hub-projects.png'});
+  await page.getByRole('tab', {name: /^Finance/}).click(); await page.waitForTimeout(600);
   check(!/Can you call the client/.test(t), 'Finance shows Finance only');
   await page.screenshot({path: 'shots/hub-finance.png'});
 
