@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { mustHit } from '@/lib/mustHit';
 
 import { compressOne, type Picked } from '@/lib/photos';
+import { dueFromPriority } from '@/lib/rules/repairDue';
 import type { RepairJob } from '@/lib/rules/repairs';
 import { supabase } from '@/lib/supabase';
 import { pushWorkOrder, syncRepairPhotos } from '@/data/repairOneDrive';
@@ -48,7 +49,9 @@ export async function setRepairHiddenTiles(orgId: string, keys: string[]): Promi
 export type NewRepair = { address: string; job_number: string; description: string; tenant_name?: string; tenant_phone?: string; tenant_no?: string; priority?: string };
 export async function addRepairJob(me: Profile, siteId: string, f: NewRepair): Promise<string | null> {
   const t = (v?: string) => (v || '').trim() || null;
-  const r = await db.from('repair_jobs').insert({ site_id: siteId, org_id: me.org_id, address: f.address, job_number: f.job_number || null, description: f.description || null, tenant_name: t(f.tenant_name), tenant_phone: t(f.tenant_phone), tenant_no: t(f.tenant_no), priority: t(f.priority), survey_required: 'N', job_status: 'To Survey', created_by: me.id } as never).select('id').single();
+  // Due from its priority (e.g. Emergency 24 hours, 7 Days, Routine 28 days); changed by hand on the job if need be.
+  const due = dueFromPriority(f.priority, new Date());
+  const r = await db.from('repair_jobs').insert({ site_id: siteId, org_id: me.org_id, address: f.address, job_number: f.job_number || null, description: f.description || null, tenant_name: t(f.tenant_name), tenant_phone: t(f.tenant_phone), tenant_no: t(f.tenant_no), priority: t(f.priority), ...(due ? { due_at: due.toISOString() } : {}), survey_required: 'N', job_status: 'To Survey', created_by: me.id } as never).select('id').single();
   const id = r.error || !r.data ? null : (r.data as { id: string }).id;
   if (id) void geocodeRepairJob(id, f.address);
   return id;
@@ -76,6 +79,21 @@ export function useRepairNotes(jobId: string | undefined) {
 }
 export async function addRepairNote(me: Profile, jobId: string, body: string): Promise<boolean> {
   return !(await db.from('repair_job_notes').insert({ repair_job_id: jobId, author_id: me.id, author_name: me.name, body: body.trim().slice(0, 4000) } as never)).error;
+}
+/** A no access visit (Andy, 7 Nov 2026): nobody in, a card left. It's added to the job's list (and a note), the booking
+ *  comes off (and off the calendar) so the job goes back to be booked again: To Schedule, or Approved - Requires
+ *  Booking Date for a works visit. The old app's status is kept in step. */
+export async function recordNoAccess(me: Profile, job: RepairJob & Record<string, any>, note: string): Promise<boolean> {
+  const works = job.quote_approved === true;
+  const list = [...(Array.isArray(job.no_access) ? job.no_access : []), { at: new Date().toISOString(), by: me.id, by_name: me.name, note: note.trim() || null, visit: works ? 'works' : 'attend', booked_for: works ? job.works_booking_date : job.survey_booking_date }];
+  const evId = works ? job.works_booking_event_id : job.survey_booking_event_id;
+  if (evId) await syncRepairEvent(me, job.site_id, evId, null, '');
+  const patch: Record<string, unknown> = works
+    ? { no_access: list, works_booking_date: null, works_booking_assigned_to: null, works_booking_event_id: null, job_status: 'Approved - To Do' }
+    : { no_access: list, survey_booking_date: null, survey_booking_assigned_to: null, survey_booking_event_id: null, job_status: 'To Survey' };
+  if (!(await patchRepairJob(job.id, patch))) return false;
+  await addRepairNote(me, job.id, `No access${note.trim() ? `: ${note.trim()}` : ''}. Card left; back to be booked again.`);
+  return true;
 }
 export async function patchRepairJob(id: string, patch: Partial<RepairJob> & Record<string, unknown>): Promise<boolean> {
   return !!(await db.from('repair_jobs').update(patch as never).eq('id', id).select('id')).data?.length;

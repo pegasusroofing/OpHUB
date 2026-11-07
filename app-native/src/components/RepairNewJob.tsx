@@ -9,11 +9,12 @@ import { useState } from 'react';
 import { TextInput, View } from 'react-native';
 
 import { confirmAsk, useToast } from '@/components/toast';
-import { Button, Card, SectionTitle } from '@/components/ui';
+import { Button, Card, Muted, SectionTitle } from '@/components/ui';
 import { makeRepairJobFolder } from '@/data/repairOneDrive';
 import { addRepairJob, uploadWorkOrder } from '@/data/repairs';
 import { useAuth } from '@/lib/auth';
 import { pdfLines } from '@/lib/pdfjs';
+import { dueFromPriority } from '@/lib/rules/repairDue';
 import { parseWorkOrder } from '@/lib/rules/workOrder';
 import type { RepairJob } from '@/lib/rules/repairs';
 import { base, radius } from '@/theme/theme';
@@ -84,6 +85,7 @@ export function RepairNewJob({ siteId, onAdded, onCancel }: { siteId: string; on
         <TextInput value={f.job_number} onChangeText={set('job_number')} placeholder="Works Order Number" accessibilityLabel="Works Order Number" style={[box, { flex: 1 }]} />
         <TextInput value={f.priority} onChangeText={set('priority')} placeholder="Priority (E.g. 7 Days)" accessibilityLabel="Priority" style={[box, { flex: 1 }]} />
       </View>
+      {!!dueFromPriority(f.priority, new Date()) && <Muted style={{ marginTop: -4, marginBottom: 8 }}>Due {dueFromPriority(f.priority, new Date())?.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })} (from the priority)</Muted>}
       <TextInput value={f.address} onChangeText={set('address')} placeholder="Address (With The Postcode, For The Check-In)" accessibilityLabel="Address" style={box} />
       <TextInput value={f.description} onChangeText={set('description')} placeholder="Call-Out (What’s Wrong)" accessibilityLabel="Call-Out" multiline style={[box, { minHeight: 56 }]} />
       <View style={row}>

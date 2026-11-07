@@ -25,19 +25,20 @@ import { nameOf, openDocLink, usePeople } from '@/data/hs';
 import { raiseRepairInvoice } from '@/data/repairInvoice';
 import { repairReportsAfter, scheduleRepairReport, syncRepairPhotos } from '@/data/repairOneDrive';
 import { useContractQuoteSettings } from '@/data/repairQuote';
-import { addRepairNote, deleteRepairJob, geocodeRepairJob, patchRepairJob, syncRepairEvent, uploadWorkOrder, useRepairJob, useRepairNotes } from '@/data/repairs';
+import { addRepairNote, deleteRepairJob, geocodeRepairJob, patchRepairJob, recordNoAccess, syncRepairEvent, uploadWorkOrder, useRepairJob, useRepairNotes } from '@/data/repairs';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { exportRepairReport } from '@/lib/repairReportPdf';
 import { forecast } from '@/lib/rules/finBook';
 import { quoteTotals, type QuoteLine } from '@/lib/rules/repairQuote';
-import { BAR, BAR_PROJECTS, barState, bookedFor, bookedTo, nextHint, otherTradesOf, repairStage, STAGE_LABEL, tradesOf, tradesSummary, type RJob, type Trade } from '@/lib/rules/repairStages';
+import { dueFromPriority, dueLabel, dueOf, isOverdue } from '@/lib/rules/repairDue';
+import { BAR, BAR_PROJECTS, barState, bookedFor, bookedTo, isOpen, nextHint, noAccessOf, otherTradesOf, repairStage, STAGE_LABEL, tradesOf, tradesSummary, type RJob, type Trade } from '@/lib/rules/repairStages';
 import type { RepairJob } from '@/lib/rules/repairs';
 import { isFinanceUser, isManager } from '@/lib/roles';
 import { base, page, space } from '@/theme/theme';
 
 type Row = Record<string, any>;
-type Form = 'book' | 'works' | 'trades' | 'hold' | 'details' | 'attend' | 'done' | null;
+type Form = 'book' | 'works' | 'trades' | 'hold' | 'details' | 'attend' | 'done' | 'noaccess' | null;
 const gbp = (n: number) => `£${n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const fmt = (d: string | null | undefined) => (d ? new Date(d.length === 10 ? `${d}T00:00:00` : d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '');
 
@@ -88,6 +89,8 @@ export function RepairHub({ siteId, jobId, money }: { siteId: string; jobId: str
     return true;
   };
   const trades = tradesOf(job);
+  const noAccess = noAccessOf(job);
+  const due = dueLabel(job), late = isOverdue(job);
   const quote = Array.isArray(job.quote_lines) ? quoteTotals(job.quote_lines as QuoteLine[], Number(job.quote_discount_pct || 0), qs?.vat) : job.variation_cost != null ? quoteTotals([{ description: 'Quote', qty: 1, rate: Number(job.variation_cost) }], 0, qs?.vat) : null;
 
   // Costs on this job (booked to the contract, then this job, like plots).
@@ -140,6 +143,7 @@ export function RepairHub({ siteId, jobId, money }: { siteId: string; jobId: str
     const o: { key: string; label: string }[] = [];
     if (st === 'to_book' || st === 'booked') o.push({ key: 'book', label: st === 'booked' ? 'Change The Booking' : 'Book In' });
     if (st === 'booked' || st === 'to_book') o.push({ key: 'attend', label: 'Record The Attendance' });
+    if (st === 'booked' || st === 'works_booked') o.push({ key: 'noaccess', label: 'Record No Access' });
     if (fin && (st === 'attended' || st === 'quote_needed' || st === 'awaiting_approval')) o.push({ key: 'quote', label: st === 'awaiting_approval' ? 'Change The Quote' : 'Price It (Quote)' });
     if (st === 'awaiting_approval') { o.push({ key: 'approve', label: 'Client Approved' }); o.push({ key: 'reject', label: 'Client Rejected' }); }
     if (st === 'approved' || st === 'works_booked') o.push({ key: 'works', label: st === 'works_booked' ? 'Change The Repair Booking' : 'Book The Repair' });
@@ -172,7 +176,13 @@ export function RepairHub({ siteId, jobId, money }: { siteId: string; jobId: str
 
   const repairTab = (
     <View>
-      {ladder(2, 'Booked In', job.survey_booking_date ? `${fmt(job.survey_booking_date)}${job.survey_booking_assigned_to ? ` · ${nameOf(people, job.survey_booking_assigned_to)}` : ''}` : 'Not booked yet', undefined, btn('book', job.survey_booking_date ? 'Change' : 'Book In', !!job.survey_booking_date))}
+      {ladder(2, 'Booked In', job.survey_booking_date ? `${fmt(job.survey_booking_date)}${job.survey_booking_assigned_to ? ` · ${nameOf(people, job.survey_booking_assigned_to)}` : ''}` : 'Not booked yet', noAccess.length || data.photos.some((p) => p.category === 'noaccess') ? (
+        <>
+          <Text style={{ fontSize: 11.5, fontWeight: '700', color: base.slate, letterSpacing: 0.4 }}>NO ACCESS VISITS ({noAccess.length})</Text>
+          {noAccess.map((v, i) => <Text key={i} style={{ fontSize: 13, color: base.ink, marginTop: 3 }}>{fmt(v.at)}{v.by_name ? ` · ${v.by_name}` : ''}{v.visit === 'works' ? ' · works visit' : ''}{v.note ? ` — ${v.note}` : ''}</Text>)}
+          <View style={{ marginTop: 6 }}><RepairPhotos jobId={job.id} photos={data.photos} cats={['noaccess']} onChanged={refresh} canAdd={mgr} addLabel="📷 Card Left" /></View>
+        </>
+      ) : undefined, <>{btn('book', job.survey_booking_date ? 'Change' : 'Book In', !!job.survey_booking_date)}{(st === 'booked' || st === 'works_booked') && btn('noaccess', 'Record No Access')}</>)}
       {ladder(3, 'Attended', job.survey_date ? `${fmt(job.survey_date)}${surveyor ? ` · ${surveyor}` : ''}` : 'Not yet', (
         <>
           {!!job.fault_description && <><Muted style={{ fontSize: 11.5 }}>Description Of Fault Found</Muted>{txt(job.fault_description)}</>}
@@ -184,7 +194,7 @@ export function RepairHub({ siteId, jobId, money }: { siteId: string; jobId: str
       ), btn('attend', job.survey_date ? 'Change' : 'Record The Attendance', !!job.survey_date))}
       {fin ? ladder(4, 'Quote', quote ? `${gbp(quote.total)}${job.variation_issued_at ? ` · sent ${fmt(job.variation_issued_at)}` : ' · not sent'}` : 'Not priced', quote ? <Muted>Net {gbp(quote.net)}{quote.vatPct ? ` + VAT ${gbp(quote.vat)}` : ''}</Muted> : undefined, <>{btn('quote', quote ? 'Open The Quote' : 'Price It', !!quote)}</>)
         : ladder(4, 'Quote', job.variation_issued_at ? `Quote Submitted ${fmt(job.variation_issued_at)}` : st === 'quote_needed' ? 'With Finance to price' : '—')}
-      {ladder(5, 'Approved', job.quote_approved ? `${fmt(job.quote_approved_at)}${job.self_authorized ? ' · self-authorised' : ''}` : job.quote_approved === false ? 'Rejected' : 'Waiting', undefined,
+      {ladder(5, 'Approved', job.quote_approved ? `${fmt(job.quote_approved_at)}${job.self_authorized ? ' · self-authorised' : ''}` : job.quote_approved === false ? 'Rejected' : 'Waiting', job.quote_decided_online_at ? <Muted>{job.quote_approved ? 'Approved' : 'Turned down'} online by the client{job.quote_decision_note ? ` — ${job.quote_decision_note}` : ''}</Muted> : undefined,
         <>{st === 'awaiting_approval' && btn('approve', 'Client Approved', false)}{st === 'awaiting_approval' && btn('reject', 'Client Rejected')}</>)}
       {/* Repair Booked (Andy, 7 Nov 2026): the repair's date, and any other trades with their booked dates and photos of their completed works. */}
       {ladder(6, 'Repair Booked', job.works_booking_date ? `${fmt(job.works_booking_date)}${job.works_booking_assigned_to ? ` · ${nameOf(people, job.works_booking_assigned_to)}` : ''}` : job.quote_approved ? 'Not booked yet' : '—', (
@@ -236,6 +246,8 @@ export function RepairHub({ siteId, jobId, money }: { siteId: string; jobId: str
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
           <Text style={{ fontSize: 11.5, fontWeight: '600', color: base.ink, backgroundColor: '#F0F1F4', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2, overflow: 'hidden' }}>{STAGE_LABEL[st]}</Text>
           {!!job.priority && <Text style={{ fontSize: 11.5, fontWeight: '600', color: base.ink, backgroundColor: '#F0F1F4', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2, overflow: 'hidden' }}>{job.priority}</Text>}
+          {!!due && isOpen(job) && <Text style={{ fontSize: 11.5, fontWeight: '600', color: late ? '#fff' : base.ink, backgroundColor: late ? base.ink : '#F0F1F4', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2, overflow: 'hidden' }}>{due}</Text>}
+          {noAccess.length > 0 && <Text style={{ fontSize: 11.5, fontWeight: '600', color: base.ink, backgroundColor: '#F0F1F4', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2, overflow: 'hidden' }}>No Access ×{noAccess.length}</Text>}
           {job.on_hold && <Text style={{ fontSize: 11.5, fontWeight: '600', color: '#B45309', backgroundColor: '#FDF1E0', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2, overflow: 'hidden' }}>On Hold</Text>}
           {!!otherTradesOf(job) && <Text style={{ fontSize: 11.5, fontWeight: '600', color: base.ink, backgroundColor: '#F0F1F4', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2, overflow: 'hidden' }}>{otherTradesOf(job)}{job.other_trades_date ? ` ${fmt(job.other_trades_date)}` : ''}</Text>}
         </View>
@@ -259,6 +271,7 @@ export function RepairHub({ siteId, jobId, money }: { siteId: string; jobId: str
           <Card>
             <KV k="Address" v={label} />
             <KV k="Call-Out" v={job.description || '—'} />
+            {(!!job.priority || !!dueOf(job)) && <KV k="Priority" v={[job.priority, dueOf(job) ? `${isOpen(job) ? dueLabel(job) : `Due ${fmt(dueOf(job)?.toISOString())}`}` : ''].filter(Boolean).join(' · ')} onPress={mgr && !client ? () => setForm('details') : undefined} />}
             <KV k="Tenant" v={[job.tenant_name, job.tenant_phone].filter(Boolean).join(' · ') || '—'} onPress={job.tenant_phone && !client ? () => void Linking.openURL(`tel:${String(job.tenant_phone).replace(/\s+/g, '')}`) : undefined} />
             <View style={{ flexDirection: 'row', gap: 6, marginTop: 10 }}>
               {([['Booked For', bookedFor(job) ? `${fmt(bookedFor(job))}${bookedTo(job) && !client ? ` · ${nameOf(people, bookedTo(job)).split(' ')[0]}` : ''}` : mgr ? 'Book In' : '—', mgr && st !== 'done' && st !== 'rejected' ? (job.quote_approved === true ? 'works' : 'book') : null], ['Attended', fmt(job.survey_date) || '—', null], ['Completed', fmt(job.works_completed_date) || '—', null]] as [string, string, Form][]).map(([l, v, f]) => (
@@ -339,6 +352,11 @@ export function RepairHub({ siteId, jobId, money }: { siteId: string; jobId: str
             return (await save({ works_booking_date: d, works_booking_assigned_to: who, works_booking_event_id: ev })) ? null : 'Could not save.';
           }} />
       )}
+      {form === 'noaccess' && (
+        <FinForm title="No Access" saveLabel="Record No Access" onClose={() => setForm(null)} note="Nobody in. The booking comes off (and the calendar) and the job goes back to be booked again. Add a photo of the card left on the Repair page."
+          initial={{ note: '' }} fields={[{ k: 'note', label: 'What Happened', kind: 'multiline', ph: 'E.g. No answer, card left' }]}
+          onSave={async (v) => { if (!(await recordNoAccess(me, job, String(v.note || '')))) return 'Could not save — try again.'; refresh(); return null; }} />
+      )}
       {tradeEdit && (
         // Another trade on the job (scaffold, electrician…): its booked date, and done once their works are complete.
         <FinForm title={tradeEdit.id ? tradeEdit.trade || 'Other Trade' : 'Add Other Trade'} initial={{ t: tradeEdit.trade || '', d: tradeEdit.date || '', done: tradeEdit.done ? 'yes' : 'no' }} onClose={() => setTradeEdit(null)}
@@ -373,12 +391,16 @@ export function RepairHub({ siteId, jobId, money }: { siteId: string; jobId: str
           }} />
       )}
       {form === 'details' && (
-        <FinForm title="Job Details" initial={{ job_number: job.job_number || '', address: job.address || '', description: job.description || '', tenant_name: job.tenant_name || '', tenant_phone: job.tenant_phone || '', priority: job.priority || '' }} onClose={() => setForm(null)}
-          fields={[{ k: 'job_number', label: 'Works Order Number', half: true }, { k: 'priority', label: 'Priority', half: true }, { k: 'address', label: 'Address (With The Postcode)' }, { k: 'description', label: 'Call-Out', kind: 'multiline' }, { k: 'tenant_name', label: 'Tenant', half: true }, { k: 'tenant_phone', label: 'Tenant Phone', half: true }]}
+        <FinForm title="Job Details" initial={{ job_number: job.job_number || '', address: job.address || '', description: job.description || '', tenant_name: job.tenant_name || '', tenant_phone: job.tenant_phone || '', priority: job.priority || '', due: dueOf(job) ? (dueOf(job) as Date).toISOString().slice(0, 10) : '' }} onClose={() => setForm(null)}
+          note="Due: from the priority (e.g. Emergency 24 hours, 7 Days, Routine 28 days), or set a date."
+          fields={[{ k: 'job_number', label: 'Works Order Number', half: true }, { k: 'priority', label: 'Priority', half: true, ph: 'E.g. 7 Days' }, { k: 'due', label: 'Due', kind: 'date', half: true }, { k: 'address', label: 'Address (With The Postcode)' }, { k: 'description', label: 'Call-Out', kind: 'multiline' }, { k: 'tenant_name', label: 'Tenant', half: true }, { k: 'tenant_phone', label: 'Tenant Phone', half: true }]}
           onSave={async (v) => {
             const s = (k: string) => String(v[k] || '').trim() || null;
             const address = s('address'); if (!address) return 'Enter an address.';
-            const ok = await save({ job_number: s('job_number'), address, description: s('description'), tenant_name: s('tenant_name'), tenant_phone: s('tenant_phone'), priority: s('priority') });
+            // The due date: as typed if it was changed, else from the priority if that was changed.
+            const was = dueOf(job) ? (dueOf(job) as Date).toISOString().slice(0, 10) : '', d = String(v.due || '');
+            const dueAt = d && d !== was ? new Date(`${d}T17:00:00`).toISOString() : s('priority') !== (job.priority || null) ? dueFromPriority(s('priority'), job.created_at)?.toISOString() ?? null : undefined;
+            const ok = await save({ job_number: s('job_number'), address, description: s('description'), tenant_name: s('tenant_name'), tenant_phone: s('tenant_phone'), priority: s('priority'), ...(dueAt !== undefined ? { due_at: dueAt } : {}) });
             if (ok && address !== job.address) void geocodeRepairJob(job.id, address);
             return ok ? null : 'Could not save.';
           }} />

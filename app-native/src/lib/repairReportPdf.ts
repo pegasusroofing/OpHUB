@@ -83,7 +83,8 @@ export async function buildRepairReport(kind: Kind, job0: RepairJob, site: Site 
     });
     y -= 6;
     const tot = (label: string, v: string, b = false) => { ensure(16); const f = b ? bold : reg; page.drawText(label, { x: cols[3] - 80, y: y - 10, size: 10.5, font: f, color: INK }); page.drawText(v, { x: cols[4] - f.widthOfTextAtSize(v, 10.5), y: y - 10, size: 10.5, font: f, color: INK }); y -= 16; };
-    if (t.discount) { tot('Schedule of rates', gbp(t.sorGross)); tot(`Less ${disc}% discount`, `-${gbp(t.discount)}`); }
+    // A minus discount is an uplift on the rates (e.g. NHF + 10%).
+    if (t.discount) { tot('Schedule of rates', gbp(t.sorGross)); tot(disc < 0 ? `Plus ${-disc}% uplift` : `Less ${disc}% discount`, disc < 0 ? `+${gbp(-t.discount)}` : `-${gbp(t.discount)}`); }
     tot('Net', gbp(t.net), true);
     tot(t.vatPct ? `VAT ${t.vatPct}%` : 'VAT', t.vatPct ? gbp(t.vat) : '—');
     tot('Total', gbp(t.total), true);

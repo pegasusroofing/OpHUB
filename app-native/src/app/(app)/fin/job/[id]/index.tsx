@@ -329,14 +329,18 @@ function Setup({ id, site, jf, cpos, settings, formOnly, onDone }: { id: string;
     if (await deleteSite(id)) { toast('Project deleted'); void qc.invalidateQueries({ queryKey: ['sites'] }); router.replace('/fin/jobs' as never); } else toast('Could not delete — try again.');
   };
   const jobForm = edit === 'job' && (
-        <FinForm title="Project Financials" extra={isFullManager(me) && !estLinked ? <View style={{ marginBottom: 8 }}><Button small kind="ghost" title="📁 Link Estimating Folder" onPress={() => { setEdit(null); onDone?.(); linkEst(); }} /></View> : undefined} initial={{ ...jf, job_number: site?.job_number || '', billing_type: billType, rates_q: (site as Row | undefined)?.repair_uses_rates ? 'yes' : 'no', rates_disc: (site as Row | undefined)?.repair_discount_pct != null ? String((site as Row).repair_discount_pct) : '', billing_name: cliName, billing_email: cliEmail, billing_address: jf.billing_address || (projDir && !jf.billing_name ? [projDir.address, projDir.postcode].filter(Boolean).join('\n') : ''), ohp_pct: jf.ohp_pct ?? settings.ohp_pct ?? 0 }} onClose={() => { setEdit(null); onDone?.(); }}
+        <FinForm title="Project Financials" extra={isFullManager(me) && !estLinked ? <View style={{ marginBottom: 8 }}><Button small kind="ghost" title="📁 Link Estimating Folder" onPress={() => { setEdit(null); onDone?.(); linkEst(); }} /></View> : undefined} initial={{ ...jf, job_number: site?.job_number || '', billing_type: billType, rates_q: (site as Row | undefined)?.repair_uses_rates ? 'yes' : 'no', rates_sign: Number((site as Row | undefined)?.repair_discount_pct || 0) < 0 ? 'plus' : 'less', rates_disc: (site as Row | undefined)?.repair_discount_pct != null ? String(Math.abs(Number((site as Row).repair_discount_pct))) : '', online: (site as Row | undefined)?.repair_online_approval ? 'yes' : 'no', na_charge: (site as Row | undefined)?.repair_no_access_charge != null ? String((site as Row).repair_no_access_charge) : '', billing_name: cliName, billing_email: cliEmail, billing_address: jf.billing_address || (projDir && !jf.billing_name ? [projDir.address, projDir.postcode].filter(Boolean).join('\n') : ''), ohp_pct: jf.ohp_pct ?? settings.ohp_pct ?? 0 }} onClose={() => { setEdit(null); onDone?.(); }}
           // Worked out from what's picked, so choosing Invoice hides retention and the dates at once.
           fields={(cur) => { const inv = String(cur.billing_type || '') === 'invoice'; return [
             { k: 'job_number', label: 'Project Number', half: true }, { k: 'contract_value', label: 'Contract Value £ (Excl. VAT)', kind: 'money', half: true },
             { k: 'billing_type', label: 'Billed By', kind: 'choice', options: [['invoice', 'Invoice'], ['application', 'Application (With Retention)']], note: 'Invoice jobs have no applications or retention.' },
             // A repair contract (Andy, 7 Nov 2026): Contract Rates? Yes → the discount off them; the schedule is uploaded next.
-            ...(site?.repair_contract ? [{ k: 'rates_q', label: 'Contract Rates?', kind: 'choice' as const, half: true, options: [['no', 'No'], ['yes', 'Yes']] as [string, string][] },
-              ...(String(cur.rates_q || '') === 'yes' ? [{ k: 'rates_disc', label: 'Discount Off The Rates %', kind: 'number' as const, half: true }] : [])] : []),
+            // Rates Adjustment: less (a discount) or plus (an uplift, e.g. NHF + 10%). Client Approves Quotes Online: the quote
+            // email has Approve / Reject buttons. No Access Charge: added to the invoice for each no access visit.
+            ...(site?.repair_contract ? [{ k: 'rates_q', label: 'Contract Rates?', kind: 'choice' as const, options: [['no', 'No'], ['yes', 'Yes']] as [string, string][] },
+              ...(String(cur.rates_q || '') === 'yes' ? [{ k: 'rates_sign', label: 'Less Or Plus', kind: 'choice' as const, half: true, options: [['less', 'Less (Discount)'], ['plus', 'Plus (Uplift)']] as [string, string][] }, { k: 'rates_disc', label: 'Rates Adjustment %', kind: 'number' as const, half: true }] : []),
+              { k: 'online', label: 'Client Approves Quotes Online?', kind: 'choice' as const, half: true, options: [['no', 'No'], ['yes', 'Yes']] as [string, string][] },
+              { k: 'na_charge', label: 'No Access Charge £', kind: 'money' as const, half: true }] : []),
             ...(inv ? [] : [{ k: 'retention_pct', label: 'Retention %', kind: 'number' as const, half: true, ph: String(settings.default_retention_pct) }, { k: 'retention_limit_pct', label: 'Retention Limit %', kind: 'number' as const, half: true }]),
             // An invoice job has payment due dates only: no final date and no application date (Andy, 7 Nov 2026).
             ...(inv ? [{ k: 'due_days', label: 'Payment Due (Days)', kind: 'number' as const, ph: String(settings.default_due_days) }]
@@ -373,12 +377,13 @@ function Setup({ id, site, jf, cpos, settings, formOnly, onDone }: { id: string;
             if (contract !== null && contract !== Number(jf.contract_value)) patch.contract_value_source = 'manual';
             if (jf.original_value == null && contract && contract > 0) { patch.original_value = contract; patch.original_at = jf.original_at || new Date().toISOString(); }
             if (canOhp) { const o = n('ohp_pct'); patch.ohp_pct = o === null || isNaN(o) || o < 0 || o > 100 || o === Number(settings.ohp_pct ?? 0) ? null : o; }
-            const usesRates = !!site?.repair_contract && v.rates_q === 'yes', rd = n('rates_disc');
-            if (usesRates && rd !== null && (isNaN(rd) || rd < 0 || rd > 100)) return 'The discount must be between 0 and 100%.';
+            const usesRates = !!site?.repair_contract && v.rates_q === 'yes', rd = n('rates_disc'), na = n('na_charge');
+            if (usesRates && rd !== null && (isNaN(rd) || rd < 0 || rd > 100)) return 'The rates adjustment must be between 0 and 100%.';
+            if (na !== null && (isNaN(na) || na < 0)) return 'Enter the no access charge as a number.';
             const e = await saveJobFinance(me, id, patch);
             if (e) return e;
             if (site?.repair_contract) {
-              await setContractRates(id, { uses: usesRates, ...(usesRates ? { pct: rd || null } : {}) });
+              await setContractRates(id, { uses: usesRates, ...(usesRates ? { pct: rd ? (v.rates_sign === 'plus' ? -rd : rd) : null } : {}), online: v.online === 'yes', noAccess: na });
               void qc.invalidateQueries({ queryKey: ['repairQuoteSettings', id] });
               // Yes, and no schedule uploaded yet: straight on to uploading it.
               if (usesRates && !(site as Row).repair_rates_name) void (async () => { if (await confirmAsk('Upload the contract’s schedule of rates now? (The NHF Excel, or the client’s own.)', 'Upload Rates', 'Later')) router.push(`/fin/job/${id}/rates` as never); })();
@@ -418,7 +423,9 @@ function Setup({ id, site, jf, cpos, settings, formOnly, onDone }: { id: string;
         {kv('Contract Value', jf.contract_value != null ? money(jf.contract_value) : 'Not Set')}
         {kv('Client PO', cpos.length ? cpos.slice().sort((a, b) => Number(!!b.is_primary) - Number(!!a.is_primary)).map((p) => p.po_number).join(', ') : 'None Yet — Tap To Add', () => void openPo())}
         {kv('Billing', billType === 'invoice' ? 'By Invoice' : billType === 'application' ? 'By Application' : 'Not Chosen Yet')}
-        {!!site?.repair_contract && kv('Contract Rates', (site as Row).repair_uses_rates ? `Yes${(site as Row).repair_rates_name ? ` — ${(site as Row).repair_rates_name}` : ' — not uploaded yet'}${(site as Row).repair_discount_pct ? ` · ${(site as Row).repair_discount_pct}% off` : ''}` : 'No', () => router.push(`/fin/job/${id}/rates` as never))}
+        {!!site?.repair_contract && kv('Contract Rates', (site as Row).repair_uses_rates ? `Yes${(site as Row).repair_rates_name ? ` — ${(site as Row).repair_rates_name}` : ' — not uploaded yet'}${Number((site as Row).repair_discount_pct || 0) > 0 ? ` · less ${(site as Row).repair_discount_pct}%` : Number((site as Row).repair_discount_pct || 0) < 0 ? ` · plus ${-Number((site as Row).repair_discount_pct)}%` : ''}` : 'No', () => router.push(`/fin/job/${id}/rates` as never))}
+        {!!site?.repair_contract && kv('Online Approval', (site as Row).repair_online_approval ? 'Yes — Clients Approve Quotes Online' : 'No')}
+        {!!site?.repair_contract && kv('No Access Charge', (site as Row).repair_no_access_charge != null ? money((site as Row).repair_no_access_charge) : 'None')}
         {!byInv && kv('Retention', jf.retention_pct != null ? `${jf.retention_pct}%${jf.retention_limit_pct != null ? ` (limit ${jf.retention_limit_pct}%)` : ''}` : `${settings.default_retention_pct}% (company)`)}
         {kv('Payment Terms', byInv ? `Due in ${jf.due_days ?? settings.default_due_days} days` : `${jf.due_days ?? settings.default_due_days} days · final ${jf.final_days ?? settings.default_final_days} days`)}
         {kv('VAT', FIN_VAT_LABEL[jf.vat_treatment || settings.default_vat] || '—')}

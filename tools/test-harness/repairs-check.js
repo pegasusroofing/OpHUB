@@ -6,7 +6,8 @@
 // in, the steps (completed whilst in attendance? defaults to No → to price; a works visit → Mark Job As Complete),
 // check out; Finance — Live Jobs (the same screen), tick done jobs onto one invoice, Project Financials for a repair
 // contract (billed by invoice, the Projects client, Contract Rates?); client — the hub without money or updates, with
-// the documents. node repairs-check.js
+// the documents. Then (7 Nov, later): due dates from the priority (Overdue box), Record No Access, the operative's No
+// Access, Save & Send To Client's pop-up, the client's approval link, Less / Plus on the rates. node repairs-check.js
 const {chromium, makeContext, S1} = require('./harness');
 const seed = require('./fresh/seed');
 const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (!ok) process.exitCode = 1; };
@@ -14,11 +15,11 @@ const day = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return d.
 const setup = (db, opId) => {
   seed(db); db.profiles[0].howto_dismissed = ['*'];
   const O = db.organizations[0].id, s = db.sites.find((x) => x.id === S1);
-  s.repair_contract = true; s.repair_discount_pct = 10; s.name = 'Sovereign Repairs'; s.client_name = 'Sovereign Housing';
+  s.repair_contract = true; s.repair_discount_pct = 10; s.name = 'Sovereign Repairs'; s.client_name = 'Sovereign Housing'; s.repair_online_approval = true; s.client_email = 'repairs@sovereign.example';
   // Set up in Projects: no billing type or bill-to in Finance yet (the client comes from the project).
   Object.assign(db.job_finance.find((x) => x.site_id === S1) || {}, {billing_type: null, billing_name: null, billing_email: null});
   db.repair_jobs = [
-    {id: 'j1', org_id: O, site_id: S1, job_number: 'WO-1001', address: 'Flat 4, Oak House', description: 'Gutter overflowing', job_status: 'To Survey', survey_required: 'N', created_at: '2026-11-06T09:00:00Z'},
+    {id: 'j1', org_id: O, site_id: S1, job_number: 'WO-1001', address: 'Flat 4, Oak House', description: 'Gutter overflowing', priority: 'Emergency', job_status: 'To Survey', survey_required: 'N', created_at: '2026-11-06T09:00:00Z'},
     {id: 'j2', org_id: O, site_id: S1, job_number: 'WO-1002', address: '3 Mill Lane', description: 'Leak to porch roof', tenant_name: 'Mr K Hughes', tenant_phone: '07700 900456', job_status: 'To Survey', survey_required: 'N', survey_booking_date: day(0), survey_booking_assigned_to: opId, created_at: '2026-11-05T09:00:00Z'},
     {id: 'j3', org_id: O, site_id: S1, job_number: 'WO-1003', address: '14 Elm Close', description: 'Leak above bedroom', job_status: 'Surveyed - Awaiting Cost', survey_required: 'Y', survey_date: '2026-11-04T10:00:00Z', completed_in_visit: false, fault_description: 'Slipped tiles at the chimney', repair_description: 'Refix 4 tiles, new lead flashing', created_at: '2026-11-03T09:00:00Z'},
     {id: 'j4', org_id: O, site_id: S1, job_number: 'WO-1004', address: '9 Park Road', description: 'Ridge tile loose', job_status: 'Closed', survey_required: 'Y', survey_date: '2026-11-01T10:00:00Z', completed_in_visit: true, works_completed: true, works_completed_date: '2026-11-01T14:00:00Z', closed: true, variation_cost: 460, created_at: '2026-10-30T09:00:00Z'},
@@ -40,7 +41,7 @@ const stubs = async (ctx) => {
   await ctx.route('**/api.postcodes.io/**', (r) => r.abort());
 };
 const fns = [];
-global.__fn = (name, b) => { fns.push([name, b]); return name === 'onedrive-repair-folder' ? {error: 'no_site_folder'} : {ok: true}; };
+global.__fn = (name, b) => { fns.push([name, b]); return name === 'onedrive-repair-folder' ? {error: 'no_site_folder'} : name === 'send-repair-quote' && b.action === 'link' ? {ok: true, link: 'https://operativehub.co.uk/quote.html?t=11111111-1111-4111-8111-111111111111'} : {ok: true}; };
 (async () => {
   const browser = await chromium.launch(); const errs = [];
 
@@ -55,6 +56,12 @@ global.__fn = (name, b) => { fns.push([name, b]); return name === 'onedrive-repa
   await page.goto(`http://localhost:8081/sites/${S1}/repairs`); await page.waitForTimeout(5000);
   t = await page.locator('body').innerText();
   check(/To Schedule/.test(t) && /Scheduled - Awaiting Attendance/.test(t) && /Quotation Required/.test(t) && /Awaiting Client Approval/.test(t) && /Approved - Requires Booking Date/.test(t) && /On Hold \/ Other Trades/.test(t) && /Completed Works - To Invoice/.test(t) && /Completed Works - Paid/.test(t) && /All Jobs/.test(t), 'Works Orders: the boxes in Andy’s words, All Jobs a box too');
+  check(await page.getByLabel(/^Overdue, 1$/).count() === 1, 'Overdue box: the Emergency job past its 24 hours');
+  await page.getByLabel(/^Overdue, /).click(); await page.waitForTimeout(500);
+  t = await page.locator('body').innerText();
+  check(/WO-1001/.test(t) && /Overdue \d+ (Hr|Day)/.test(t), 'Overdue: lists WO-1001 with how late it is');
+  await page.getByLabel(/^Overdue, /).click(); await page.waitForTimeout(400);
+  t = await page.locator('body').innerText();
   check(!/WO-1001/.test(t) && /Tap a box to see its jobs/.test(t), 'no box open: no list until one is tapped');
   const plusBox = await page.getByRole('button', {name: '+ New Job (Read Works Order)'}).boundingBox(), firstTile = await page.getByLabel(/^To Schedule, /).boundingBox();
   check(!!plusBox && !!firstTile && plusBox.y < firstTile.y && plusBox.width > 300, '+ New Job: full width, above the boxes');
@@ -65,6 +72,9 @@ global.__fn = (name, b) => { fns.push([name, b]); return name === 'onedrive-repa
   const close = page.getByLabel('Close', {exact: true});
   if (await close.count()) { await close.first().click(); await page.waitForTimeout(400); check(!/Nobody is assigned/.test(await page.locator('body').innerText()), 'the assign-operatives banner closes with ✕'); }
   await page.getByText('+ New Job (Read Works Order)', {exact: true}).click(); await page.waitForTimeout(500);
+  await page.getByLabel('Priority', {exact: true}).fill('7 Days'); await page.waitForTimeout(300);
+  check(/Due .* \(from the priority\)/.test(await page.locator('body').innerText()), '+ New Job: the due date from the priority');
+  await page.getByLabel('Priority', {exact: true}).fill('');
   check(await page.getByPlaceholder('Tenant', {exact: true}).count() === 1 && await page.getByPlaceholder('Tenant Phone').count() === 1 && await page.getByPlaceholder('Tenant No.').count() === 0, '+ New Job: one tenant (name and phone), no Tenant No.');
   await page.screenshot({path: 'shots/repair-worksorders.png'});
   await page.getByLabel('Address', {exact: true}).fill('22 New Street, OX16 1AA'); await page.getByLabel('Works Order Number').fill('WO-1006');
@@ -114,8 +124,22 @@ global.__fn = (name, b) => { fns.push([name, b]); return name === 'onedrive-repa
   await page.locator('text="Not Sent Yet ✓" >> visible=true').last().click(); await page.waitForTimeout(2500);
   check(!A.db.repair_jobs.find((j) => j.id === 'j3').variation_issued_at && (A.db.repair_jobs.find((j) => j.id === 'j3').quote_lines || []).length === 2, 'Save › Not Sent Yet: the lines saved, not sent');
   await page.goto(`http://localhost:8081/fin/job/${S1}/quote/j3`); await page.waitForTimeout(5000);
+  check(/Less/.test(await page.locator('body').innerText()), 'quote: Less (discount) on the rates');
+  await page.getByLabel('Less or plus').click(); await page.waitForTimeout(400); await page.locator('text="Plus (Uplift)" >> visible=true').last().click(); await page.waitForTimeout(400);
+  t = await page.locator('body').innerText();
+  // 4 × £45 = £180 plus 10% = £198; + £120 = £318
+  check(/Plus 10% on £180\.00/.test(t) && /£318\.00/.test(t), 'quote: Plus 10% puts an uplift on the rates (£318 net)');
+  await page.getByLabel('Less or plus').click(); await page.waitForTimeout(400); await page.locator('text="Less (Discount)" >> visible=true').last().click(); await page.waitForTimeout(400);
+  await page.getByText('🔗 Copy Approval Link', {exact: true}).click(); await page.waitForTimeout(1500);
+  check(fns.some(([n, b]) => n === 'send-repair-quote' && b.action === 'link' && b.repair_job_id === 'j3') && /quote\.html\?t=|Approval link copied/.test(await page.locator('body').innerText()), 'Copy Approval Link: the client’s link (online approval on)');
+  const okBtn = page.locator('text="OK" >> visible=true'); if (await okBtn.count()) await okBtn.last().click();
   await page.screenshot({path: 'shots/repair-quote.png', fullPage: true});
-  await page.getByText('Save & Send To Client', {exact: true}).click(); await page.waitForTimeout(3000);
+  await page.getByText('Save & Send To Client', {exact: true}).click(); await page.waitForTimeout(800);
+  t = await page.locator('body').innerText();
+  check(/Send Quote To Client/.test(t) && /Approve Or Reject Online/.test(t) && (await page.getByLabel('To', {exact: true}).inputValue()) === 'repairs@sovereign.example', 'Save & Send: the send pop-up, to the client’s email, with the online approval button');
+  await page.getByText('Send', {exact: true}).last().click(); await page.waitForTimeout(4000);
+  check(/Finance is in trial/.test(await page.locator('body').innerText()), 'Finance trial: saved as Awaiting Approval, the email held back');
+  const ok2 = page.locator('text="OK" >> visible=true'); if (await ok2.count()) await ok2.last().click();
   j3 = A.db.repair_jobs.find((j) => j.id === 'j3');
   check(Number(j3.variation_cost) === 282 && !!j3.variation_issued_at && j3.job_status === 'Surveyed - Variation Issued' && Array.isArray(j3.quote_lines) && j3.quote_lines.length === 2, 'Save & Send: net £282 saved, Awaiting Approval (old status kept in step)');
   await page.goto(`http://localhost:8081/sites/${S1}/repairs/job/j3`); await page.waitForTimeout(5000);
@@ -128,6 +152,14 @@ global.__fn = (name, b) => { fns.push([name, b]); return name === 'onedrive-repa
   check(j3.quote_approved === true && j3.job_status === 'Approved - To Do', 'Client Approved: approved, the repair to book');
   await page.getByLabel('Add a note').fill('Tenant prefers mornings'); await page.getByText('Add', {exact: true}).click(); await page.waitForTimeout(1500);
   check(A.db.repair_job_notes.some((n) => n.repair_job_id === 'j3' && /mornings/.test(n.body)), 'a note is added');
+  // No access on a booked job: back to be booked again.
+  await page.goto(`http://localhost:8081/sites/${S1}/repairs/job/j2`); await page.waitForTimeout(5000);
+  await page.getByText('Update ▾', {exact: true}).click(); await page.waitForTimeout(600);
+  await page.locator('text="Record No Access" >> visible=true').last().click(); await page.waitForTimeout(600);
+  await page.getByLabel('What Happened').fill('No answer, card left'); await page.getByText('Record No Access', {exact: true}).last().click(); await page.waitForTimeout(2500);
+  const j2m = A.db.repair_jobs.find((j) => j.id === 'j2');
+  check(Array.isArray(j2m.no_access) && j2m.no_access.length === 1 && !j2m.survey_booking_date && j2m.job_status === 'To Survey', 'Record No Access: noted, the booking off, back To Schedule');
+  check(/No Access ×1/.test(await page.locator('body').innerText()), 'the hub shows No Access ×1');
 
   // ---------- Operative ----------
   const B = await makeContext(browser, 'operative', [], {shot: true}); setup(B.db, 'me'); await stubs(B.ctx);
@@ -146,6 +178,9 @@ global.__fn = (name, b) => { fns.push([name, b]); return name === 'onedrive-repa
   check(B.db.checkins.some((c) => c.repair_job_id === 'j2' && c.type === 'in'), 'checked in to the job (with the job on the row)');
   t = await op.locator('body').innerText();
   check(/Description Of Fault Found/.test(t) && /Description Of Repair Required/.test(t) && /Completed Repair Whilst In Attendance\?/.test(t), 'operative steps: the new wording');
+  await op.getByText('No Access?', {exact: true}).click(); await op.waitForTimeout(500);
+  check(/Photo Of The Card Left/.test(await op.locator('body').innerText()), 'operative: No Access? asks for a photo of the card left');
+  await op.getByText('Cancel', {exact: true}).last().click(); await op.waitForTimeout(400);
   await op.getByLabel('What’s wrong, what you found').fill('Split joint in the porch felt'); await op.getByText('Save', {exact: true}).first().click(); await op.waitForTimeout(1200);
   await op.getByLabel('What needs doing to fix it').fill('Cut out and patch, new flashing'); await op.getByText('Save', {exact: true}).first().click(); await op.waitForTimeout(1200);
   check(await op.getByRole('radio', {name: 'No — Needs A Quote', checked: true}).count() === 1, 'completed whilst in attendance: No — Needs A Quote is picked to start with');
@@ -189,7 +224,8 @@ global.__fn = (name, b) => { fns.push([name, b]); return name === 'onedrive-repa
   t = await page.locator('body').innerText();
   check(/Contract Rates\?/.test(t) && !/Retention %/.test(t) && !/Final Date/.test(t) && !/Application Date/.test(t), 'the pop-up: Contract Rates?, no retention or final / application dates for an invoice job');
   await page.getByLabel('Contract Rates?').click(); await page.waitForTimeout(400); await page.locator('text="Yes" >> visible=true').last().click(); await page.waitForTimeout(400);
-  check(await page.getByLabel('Discount Off The Rates %').count() === 1, 'Contract Rates? Yes: asks the discount');
+  check(await page.getByLabel('Less Or Plus').count() === 1 && await page.getByLabel('Rates Adjustment %').count() === 1, 'Contract Rates? Yes: Less or Plus, and the %');
+  check(await page.getByLabel('Client Approves Quotes Online?').count() === 1 && await page.getByLabel('No Access Charge £').count() === 1, 'the online approval switch and the no access charge');
   await page.getByLabel('Billed By').click(); await page.waitForTimeout(400); await page.locator('text="Application (With Retention)" >> visible=true').last().click(); await page.waitForTimeout(400);
   check(/Retention %/.test(await page.locator('body').innerText()), 'switching to Application brings retention back at once');
   await page.screenshot({path: 'shots/repair-fin-setup.png', fullPage: true});

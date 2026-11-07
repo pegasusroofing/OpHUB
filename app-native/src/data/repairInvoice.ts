@@ -18,7 +18,12 @@ export async function raiseRepairInvoice(me: Profile, site: Row, jobs: Row[]): P
   if (!id) return null;
   const draft = (await fdb.from('fin_invoices').select('lines').eq('id', id).maybeSingle()).data as Row | null;
   const vat = ((draft?.lines as Row[] | null) || [])[0]?.vat; // the client's VAT code, if the Directory has one
-  const lines = jobs.map((j) => ({ description: repairLineText(j), amount: j.variation_cost != null ? Number(j.variation_cost) : null, ...(vat ? { vat } : {}) }));
+  // Each job's line, then any no access visits at the contract's no access charge (Finance › Project Admin).
+  const charge = Number(site.repair_no_access_charge || 0);
+  const lines = jobs.flatMap((j) => [
+    { description: repairLineText(j), amount: j.variation_cost != null ? Number(j.variation_cost) : null, ...(vat ? { vat } : {}) },
+    ...(charge > 0 ? (Array.isArray(j.no_access) ? (j.no_access as Row[]) : []).map((v) => ({ description: `${j.job_number ? `${j.job_number} — ` : ''}${j.address || 'Repair'}: no access visit ${new Date(String(v.at)).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`.slice(0, 500), amount: charge, ...(vat ? { vat } : {}) })) : []),
+  ]);
   await fdb.from('fin_invoices').update({ lines, ...(jobs.length === 1 ? { sub_job_id: jobs[0].id } : {}) } as never).eq('id', id);
   await db.from('repair_jobs').update({ invoice_id: id } as never).in('id', jobs.map((j) => j.id));
   return id;

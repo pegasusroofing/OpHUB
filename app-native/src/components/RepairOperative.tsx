@@ -2,7 +2,8 @@
 // 1. Description Of Fault Found, 2. Description Of Repair Required, 3. Photos, 4. Completed Repair Whilst In Attendance?
 // (No — Needs A Quote unless they pick Yes) Yes → 5. Completion Photos and Description Of Works Completed; No → the
 // attendance report goes to the office (and OneDrive) to price — then Check Out. No quote figures here: just whether
-// the quote has been submitted (Andy, 7 Nov 2026).
+// the quote has been submitted (Andy, 7 Nov 2026). No Access: nobody in — a photo of the card left and a line on what
+// happened; the job goes back to the office to book again — then Check Out.
 // Coming back for the works (quote approved): straight to the completion step.
 import { useQueryClient } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
@@ -18,7 +19,7 @@ import { repairCheck, useRepairCheck } from '@/data/repairCheckin';
 import { useSite } from '@/data/sites';
 import { exportRepairReport } from '@/lib/repairReportPdf';
 import { repairReportsAfter, scheduleRepairReport } from '@/data/repairOneDrive';
-import { hasRepairPhoto, notifyPmOfRepairNotes, patchRepairJob, syncRepairEvent, useRepairJob, useRepairJobs } from '@/data/repairs';
+import { hasRepairPhoto, notifyPmOfRepairNotes, patchRepairJob, recordNoAccess, syncRepairEvent, useRepairJob, useRepairJobs } from '@/data/repairs';
 import { useAuth } from '@/lib/auth';
 import { repairStage, type RJob } from '@/lib/rules/repairStages';
 import type { RepairJob } from '@/lib/rules/repairs';
@@ -38,6 +39,8 @@ export function RepairOperative({ siteId, jobId }: { siteId: string; jobId: stri
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState('');
   const [inVisit, setInVisit] = useState<'no' | 'yes'>('no');
+  const [na, setNa] = useState<'' | 'open' | 'done'>('');
+  const [naNote, setNaNote] = useState('');
   const { data: site } = useSite(siteId);
   if (!me) return null;
   if (isLoading || !data) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
@@ -81,6 +84,13 @@ export function RepairOperative({ siteId, jobId }: { siteId: string; jobId: stri
     if (await save({ works_completed: true, works_notes: n, works_completed_date: when, works_completed_event_id: ev, job_status: 'Awaiting Sign-off' }, 'Works done — remember to check out')) { setDraft({}); notifyPmOfRepairNotes(job.id, siteId, 'completion', n); }
   };
 
+  const saveNoAccess = async () => {
+    if (!(await hasRepairPhoto(job.id, 'noaccess'))) { toast('Add a photo of the card you left first.'); return; }
+    setBusy('na'); const ok = await recordNoAccess(me, job, naNote || 'No answer, card left'); setBusy('');
+    if (!ok) { toast('Could not save — try again.'); return; }
+    setNa('done'); refresh();
+    notifyPmOfRepairNotes(job.id, siteId, 'survey', `No access${naNote ? `: ${naNote}` : ''}. Card left; to be booked again.`);
+  };
   const fmt = (d?: string | null) => (d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '');
   // The attendance report (fault found, repair required, photos): to look at here; it's in OneDrive too.
   const report = async () => { setBusy('rep'); const ok = await exportRepairReport('survey', job, site, org, job.surveyed_by === me.id ? me.name : '').catch(() => false); setBusy(''); if (!ok) toast('Could not build the report.'); };
@@ -135,7 +145,27 @@ export function RepairOperative({ siteId, jobId }: { siteId: string; jobId: stri
         {!inNow && <View style={{ marginTop: 10 }}><Button busy={busy === 'in'} title="Check In" onPress={() => void check('in')} /></View>}
       </View>
 
-      {!inNow ? <Muted style={{ textAlign: 'center', marginBottom: 10 }}>The steps open once you’ve checked in.</Muted> : (
+      {/* No access: nobody in (Andy, 7 Nov 2026). */}
+      {inNow && na === 'done' ? (
+        <View style={{ backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 12, padding: 14, marginBottom: 10, alignItems: 'center' }}>
+          <Text style={{ fontSize: 15, fontWeight: '700', color: base.ink }}>No Access Recorded</Text>
+          <Muted style={{ textAlign: 'center', marginTop: 2 }}>The office will book it in again. Please check out.</Muted>
+          <View style={{ marginTop: 10 }}><Button kind="ghost" busy={busy === 'out'} title="Check Out" onPress={() => void check('out')} /></View>
+        </View>
+      ) : inNow && na === 'open' ? (
+        <View style={{ backgroundColor: base.card, borderWidth: 1.5, borderColor: base.ink, borderRadius: 12, padding: 12, marginBottom: 10 }}>
+          <Text style={{ fontSize: 14.5, fontWeight: '700', color: base.ink, marginBottom: 6 }}>No Access</Text>
+          <Muted style={{ marginBottom: 8 }}>Nobody in? Leave a card, take a photo of it, and say what happened.</Muted>
+          <RepairPhotos jobId={job.id} photos={data.photos} cats={['noaccess']} onChanged={refresh} addLabel="📷 Photo Of The Card Left" />
+          <TextInput value={naNote} onChangeText={setNaNote} placeholder="What happened (e.g. no answer, card left)" multiline accessibilityLabel="What happened" style={[box, { marginTop: 8 }]} />
+          <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8, marginTop: 10 }}>
+            <Button busy={busy === 'na'} title="Save No Access" onPress={() => void saveNoAccess()} />
+            <Button kind="ghost" title="Cancel" onPress={() => setNa('')} />
+          </View>
+        </View>
+      ) : inNow && !done && <View style={{ alignItems: 'center', marginBottom: 10 }}><Button small kind="ghost" title="No Access?" onPress={() => setNa('open')} /></View>}
+
+      {!inNow ? <Muted style={{ textAlign: 'center', marginBottom: 10 }}>The steps open once you’ve checked in.</Muted> : na ? null : (
         <>
           {!worksVisit && (
             <>

@@ -60,10 +60,10 @@ export default function RepairRates() {
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <View style={{ flex: 1 }}>
             <Text style={{ fontWeight: '700', color: base.ink }}>{qs?.ratesName || 'Contract Rates'}</Text>
-            <Muted style={{ fontSize: 12 }}>{rates.length} rate{rates.length === 1 ? '' : 's'}{cats.length ? ` · ${cats.join(', ')}` : ''}. The discount comes off every rate on a quote (not lines typed in).</Muted>
+            <Muted style={{ fontSize: 12 }}>{rates.length} rate{rates.length === 1 ? '' : 's'}{cats.length ? ` · ${cats.join(', ')}` : ''}. The adjustment (less a discount, or plus an uplift) applies to every rate on a quote, not lines typed in.</Muted>
           </View>
           <Pressable accessibilityRole="button" accessibilityLabel="Change the contract discount" onPress={() => setEdit({ id: '__disc' })} style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, paddingHorizontal: 14, paddingVertical: 8, backgroundColor: base.card }}>
-            <Text style={{ fontWeight: '700', color: base.ink }}>{qs?.discount ?? 0}% ▾</Text>
+            <Text style={{ fontWeight: '700', color: base.ink }}>{(qs?.discount ?? 0) < 0 ? `Plus ${-(qs?.discount ?? 0)}%` : `Less ${qs?.discount ?? 0}%`} ▾</Text>
           </Pressable>
         </View>
       </Card>
@@ -75,9 +75,9 @@ export default function RepairRates() {
         <Card><RateFinder rates={rates} always action="›" limit={60} onPick={(r) => setEdit(r)} /></Card>
       ) : <Muted>No rates yet. Upload the NHF schedule (or the client’s own) as an Excel file: every sheet is read, with its headings. Or add them one at a time.</Muted>}
       {edit?.id === '__disc' ? (
-        <FinForm title="Contract Discount" initial={{ pct: String(qs?.discount ?? 0) }} onClose={() => setEdit(null)}
-          fields={[{ k: 'pct', label: 'Discount Off The Rates %', kind: 'number' }]}
-          onSave={async (v) => { const n = Number(v.pct || 0); if (isNaN(n) || n < 0 || n > 100) return 'Between 0 and 100%.'; if (!(await setContractRates(id, { pct: n || null }))) return 'Could not save — try again.'; refresh(); return null; }} />
+        <FinForm title="Rates Adjustment" initial={{ sign: (qs?.discount ?? 0) < 0 ? 'plus' : 'less', pct: String(Math.abs(qs?.discount ?? 0)) }} onClose={() => setEdit(null)}
+          fields={[{ k: 'sign', label: 'Less Or Plus', kind: 'choice', half: true, options: [['less', 'Less (Discount)'], ['plus', 'Plus (Uplift)']] }, { k: 'pct', label: 'Rates Adjustment %', kind: 'number', half: true }]}
+          onSave={async (v) => { const n = Number(v.pct || 0); if (isNaN(n) || n < 0 || n > 100) return 'Between 0 and 100%.'; if (!(await setContractRates(id, { pct: n ? (v.sign === 'plus' ? -n : n) : null }))) return 'Could not save — try again.'; refresh(); return null; }} />
       ) : edit && (
         <FinForm title={edit.id ? 'Rate' : 'Add Rate'} initial={{ code: edit.code || '', description: edit.description || '', unit: edit.unit || '', rate: edit.rate != null ? String(edit.rate) : '' }} onClose={() => setEdit(null)}
           note={edit.category ? `${edit.category}${edit.section ? ` › ${edit.section}` : ''}` : undefined}

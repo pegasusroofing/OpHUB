@@ -28,7 +28,8 @@ import { plainGet, plainSet } from '@/lib/kv';
 import { siteStatusKey } from '@/lib/rules/checkin';
 import { supabase } from '@/lib/supabase';
 import { exportRepairTracker } from '@/lib/repairExports';
-import { BOXES, bookedFor, bookedTo, dayHeading, operativeJobs, otherTradesOf, repairStage, STAGE_LABEL, type Box, type RJob } from '@/lib/rules/repairStages';
+import { dueLabel, isOverdue } from '@/lib/rules/repairDue';
+import { BOXES, bookedFor, bookedTo, dayHeading, isOpen, noAccessOf, operativeJobs, otherTradesOf, repairStage, STAGE_LABEL, type Box, type RJob } from '@/lib/rules/repairStages';
 import type { RepairJob } from '@/lib/rules/repairs';
 import { isManager } from '@/lib/roles';
 import { base, page, radius, space, useTheme } from '@/theme/theme';
@@ -101,6 +102,9 @@ export function WorksOrders({ siteId: id, finance = false }: { siteId: string; f
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text numberOfLines={1} style={{ fontSize: 13.5, fontWeight: '600', color: base.ink }}>{j.job_number ? `${j.job_number} · ` : ''}{j.address || 'Repair job'}</Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: 2 }}>
+            {/* Due (from the priority) and no access visits (Andy, 7 Nov 2026). */}
+            {isOpen(j) && !!dueLabel(j) && <Text style={{ fontSize: 11, fontWeight: '600', color: isOverdue(j) ? '#fff' : base.ink, backgroundColor: isOverdue(j) ? base.ink : '#F0F1F4', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 1, overflow: 'hidden' }}>{dueLabel(j)}</Text>}
+            {noAccessOf(j).length > 0 && <Text style={{ fontSize: 11, fontWeight: '600', color: base.ink, backgroundColor: '#F0F1F4', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 1, overflow: 'hidden' }}>No Access ×{noAccessOf(j).length}</Text>}
             {j.on_hold && <Text style={{ fontSize: 11, fontWeight: '600', color: '#B45309', backgroundColor: '#FDF1E0', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 1, overflow: 'hidden' }}>On Hold</Text>}
             {!!trades && <Text style={{ fontSize: 11, fontWeight: '600', color: base.ink, backgroundColor: '#F0F1F4', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 1, overflow: 'hidden' }}>{trades}{j.other_trades_date ? ` ${shortDate(j.other_trades_date)}` : ''}</Text>}
             <Text numberOfLines={1} style={{ flexShrink: 1, fontSize: 11.5, color: base.slate }}>{STAGE_LABEL[st]}{when ? ` · ${shortDate(when)}` : ''}{who && mgr ? ` · ${nameOf(people, who)}` : ''}{!when && j.description ? ` · ${j.description}` : ''}</Text>

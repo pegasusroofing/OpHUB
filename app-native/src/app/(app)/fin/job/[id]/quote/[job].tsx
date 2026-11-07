@@ -3,19 +3,22 @@
 // figure. No VAT on the lines: the contract's VAT, from its Finance set-up, is added once at the bottom. Save asks where
 // the quote stands (Not Sent Yet, Awaiting Approval, Client Approved, Client Rejected); Save & Send To Client makes it
 // Awaiting Approval.
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Platform, Pressable, ScrollView, Share, Text, TextInput, View } from 'react-native';
 
+import { FinForm } from '@/components/FinForm';
 import { RateFinder } from '@/components/RateFinder';
-import { chooseAction, useToast } from '@/components/toast';
+import { chooseAction, showAlert, useToast } from '@/components/toast';
 import { Button, Card, Muted } from '@/components/ui';
-import { QUOTE_STATUS, quoteStatusOf, saveRepairQuote, useContractQuoteSettings, useRepairRates, type QuoteStatus } from '@/data/repairQuote';
+import { fdb } from '@/data/finance';
+import { emailRepairQuote, QUOTE_STATUS, quoteStatusOf, repairApprovalLink, saveRepairQuote, useContractQuoteSettings, useRepairRates, type QuoteStatus } from '@/data/repairQuote';
 import { useRepairJob } from '@/data/repairs';
 import { useSite } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
-import { exportRepairReport } from '@/lib/repairReportPdf';
+import { buildRepairReport, exportRepairReport } from '@/lib/repairReportPdf';
+import { FIN_TRIAL_MSG } from '@/lib/rules/finance';
 import { lineValue, quoteTotals, rateLine, type QuoteLine } from '@/lib/rules/repairQuote';
 import { isManager } from '@/lib/roles';
 import { base, page, radius, space } from '@/theme/theme';
@@ -37,7 +40,10 @@ export default function RepairQuote() {
   const [lines, setLines] = useState<QuoteLine[] | null>(null);
   const [disc, setDisc] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [sending, setSending] = useState(false);
   const job = data?.job as Row | undefined;
+  // Who the quote goes to: Finance's bill-to email for the contract, else the client's email on the project.
+  const { data: billEmail } = useQuery({ queryKey: ['repairQuoteTo', id], enabled: !!id, queryFn: async () => ((await fdb.from('job_finance').select('billing_email').eq('site_id', id).maybeSingle()).data as { billing_email?: string | null } | null)?.billing_email || null });
   // Start from what's saved (or one blank line).
   useEffect(() => {
     if (!job || lines) return;
@@ -64,6 +70,26 @@ export default function RepairQuote() {
     const k = await chooseAction('Save As', QUOTE_STATUS.map(([key, label]) => ({ key, label: key === now ? `${label} ✓` : label })));
     if (k) await save(k as QuoteStatus);
   };
+  // Save & Send To Client: Awaiting Approval, and the quote emailed (with Approve Or Reject Online when it's switched on).
+  const clean = () => lines.filter((l) => l.description.trim() && Number(l.qty) > 0);
+  const sendIt = async (to: string[], words: string): Promise<string | null> => {
+    const cl = clean(); if (!cl.length) return 'Add at least one line, or one figure.';
+    if (!(await saveRepairQuote(job, cl, discount, qs?.vat ?? null, 'awaiting', me.id))) return 'Could not save — try again.';
+    ['repairJob', 'repairJobs'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] }));
+    const pdf = await buildRepairReport('quote', { ...job, quote_lines: cl, quote_discount_pct: discount, variation_cost: t.net } as never, site, org, '', qs?.vat);
+    const err = await emailRepairQuote(me, pdf, job, to, words);
+    if (err === FIN_TRIAL_MSG) { showAlert('Saved as Awaiting Approval. The email wasn’t sent: Finance is in trial.'); router.back(); return null; }
+    if (err) return `Saved as Awaiting Approval, but the email didn’t go: ${err}`;
+    router.back(); return null;
+  };
+  // The approval link to send yourself (any email you like); nothing is emailed.
+  const copyLink = async () => {
+    setBusy(true); const r = await repairApprovalLink(me, job.id); setBusy(false);
+    if (!r.link) { toast(r.error || 'Could not make the link — try again.'); return; }
+    if (Platform.OS === 'web') { try { await globalThis.navigator.clipboard.writeText(r.link); toast('Approval link copied'); return; } catch { showAlert(r.link); return; } }
+    await Share.share({ message: r.link });
+  };
+  const sign = discount < 0 ? 'plus' : 'less';
 
   return (
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
@@ -111,12 +137,16 @@ export default function RepairQuote() {
       <Card>
         {t.sorGross > 0 && (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-            <Text style={{ flex: 1, color: base.slate }}>Schedule Of Rates Discount</Text>
-            <TextInput value={disc ?? String(discount)} onChangeText={setDisc} keyboardType="decimal-pad" accessibilityLabel="Discount percent" style={[box, { width: 64, textAlign: 'center' }]} />
+            <Text style={{ flex: 1, color: base.slate }}>Schedule Of Rates</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel="Less or plus" onPress={async () => { const k = await chooseAction('Rates Adjustment', [{ key: 'less', label: 'Less (Discount)' }, { key: 'plus', label: 'Plus (Uplift)' }]); if (k && k !== sign) setDisc(String(-discount)); }} style={[box, { flexDirection: 'row', gap: 6 }]}>
+              <Text style={{ color: base.ink, fontWeight: '600' }}>{sign === 'plus' ? 'Plus' : 'Less'}</Text><Text style={{ color: base.slate, fontSize: 11 }}>▾</Text>
+            </Pressable>
+            <TextInput value={String(Math.abs(disc != null ? num(disc) : discount))} onChangeText={(v) => setDisc(String((sign === 'plus' ? -1 : 1) * num(v)))} keyboardType="decimal-pad" accessibilityLabel="Discount percent" style={[box, { width: 64, textAlign: 'center' }]} />
             <Text style={{ color: base.slate }}>%</Text>
           </View>
         )}
         {t.discount > 0 && <View style={{ flexDirection: 'row' }}><Text style={{ flex: 1, color: base.slate }}>Less {discount}% off {gbp(t.sorGross)}</Text><Text style={{ color: base.ink }}>-{gbp(t.discount)}</Text></View>}
+        {t.discount < 0 && <View style={{ flexDirection: 'row' }}><Text style={{ flex: 1, color: base.slate }}>Plus {-discount}% on {gbp(t.sorGross)}</Text><Text style={{ color: base.ink }}>+{gbp(-t.discount)}</Text></View>}
         <View style={{ flexDirection: 'row', marginTop: 4 }}><Text style={{ flex: 1, fontWeight: '600', color: base.ink }}>Net</Text><Text style={{ fontWeight: '700', color: base.ink }}>{gbp(t.net)}</Text></View>
         <View style={{ flexDirection: 'row', marginTop: 4 }}><Text style={{ flex: 1, color: base.slate }}>{t.vatPct ? `VAT ${t.vatPct}%` : 'VAT'} (From The Project)</Text><Text style={{ color: base.ink }}>{t.vatPct ? gbp(t.vat) : '—'}</Text></View>
         <View style={{ flexDirection: 'row', marginTop: 4 }}><Text style={{ flex: 1, fontWeight: '700', color: base.ink }}>Total</Text><Text accessibilityLabel="Quote total" style={{ fontWeight: '700', fontSize: 16, color: base.ink }}>{gbp(t.total)}</Text></View>
@@ -126,8 +156,22 @@ export default function RepairQuote() {
       <Muted style={{ textAlign: 'center', marginBottom: 6 }}>Now: {QUOTE_STATUS.find(([k]) => k === now)?.[1]}</Muted>
       <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 8 }}>
         <Button kind="ghost" busy={busy} title="Save ▾" onPress={() => void saveAs()} />
-        <Button busy={busy} title="Save & Send To Client" onPress={() => void save('awaiting')} />
+        <Button busy={busy} title="Save & Send To Client" onPress={() => setSending(true)} />
       </View>
+      {/* Decided online by the client (Andy, 7 Nov 2026). */}
+      {!!job.quote_decided_online_at && <Muted style={{ textAlign: 'center', marginBottom: 6 }}>{job.quote_approved ? 'Approved' : 'Turned down'} online {new Date(job.quote_decided_online_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}{job.quote_decision_note ? ` — ${job.quote_decision_note}` : ''}</Muted>}
+      {qs?.onlineApproval && <View style={{ alignItems: 'center', marginBottom: 6 }}><Button small kind="ghost" busy={busy} title="🔗 Copy Approval Link" onPress={() => void copyLink()} /></View>}
+      {sending && (
+        <FinForm title="Send Quote To Client" saveLabel="Send" onClose={() => setSending(false)}
+          note={qs?.onlineApproval ? 'The email has an Approve Or Reject Online button.' : 'Client Approves Quotes Online is off for this contract (Project Admin).'}
+          initial={{ to: billEmail || (site as Row | undefined)?.client_email || '', words: `Hello,\n\nPlease find attached our quote for ${[job.job_number, job.address].filter(Boolean).join(' — ')}.${qs?.onlineApproval ? ' You can approve or reject it online with the button below.' : ''}\n\nKind regards,` }}
+          fields={[{ k: 'to', label: 'To', kind: 'email' }, { k: 'words', label: 'Message', kind: 'multiline' }]}
+          onSave={async (v) => {
+            const to = String(v.to || '').split(/[;,\s]+/).map((x) => x.trim()).filter(Boolean);
+            if (!to.length || to.some((x) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x))) return 'Enter the client’s email address.';
+            return sendIt(to, String(v.words || ''));
+          }} />
+      )}
       <View style={{ alignItems: 'center', marginBottom: space.xl }}>
         <Button small kind="ghost" title="📄 Quote PDF" onPress={async () => { if (!(await exportRepairReport('quote', { ...job, quote_lines: lines, quote_discount_pct: discount, variation_cost: t.net } as never, site, org, '', qs?.vat).catch(() => false))) toast('Could not build the PDF.'); }} />
       </View>

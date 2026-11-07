@@ -14,7 +14,7 @@ type Row = Record<string, any>;
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from>; rpc: typeof supabase.rpc };
 // Just two photo folders in each job's folder (Andy, 7 Nov 2026): Survey Photos (attending) and Completion Photos.
 // Other trades' completed-works photos go with the completion photos.
-export const REPAIR_PHOTO_FOLDER: Record<string, string> = { survey: 'Survey Photos', access: 'Survey Photos', scaffold: 'Completion Photos', progress: 'Completion Photos', completion: 'Completion Photos', trade: 'Completion Photos' };
+export const REPAIR_PHOTO_FOLDER: Record<string, string> = { survey: 'Survey Photos', access: 'Survey Photos', scaffold: 'Completion Photos', progress: 'Completion Photos', completion: 'Completion Photos', trade: 'Completion Photos', noaccess: 'Survey Photos' };
 const seg = (s: string) => String(s || '').replace(/[\\/:*?"<>|]/g, '-').replace(/\s+/g, ' ').trim() || 'Job';
 /** The subfolder in the site's folder: the job number, or the address. */
 export const repairJobFolder = (job: Row) => seg(String(job.job_number || '').trim() || job.address || 'Job');

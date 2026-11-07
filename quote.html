@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Your Quote — OpHUB</title>
+<link rel="icon" href="assets/ophub-logo.png?v=2">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+<!-- A repair job's quote for the client to approve or reject online (Andy, 7 Nov 2026). Opened from the quote email's
+     Approve Or Reject Online button; answered by the repair-quote-decision server function. Looking at the page changes
+     nothing; only pressing Approve or Reject does. Plain script on purpose (old phones): no lookbehind, no modules. -->
+<style>
+  :root{--brand1:#4E8FD1;--brand-deep:#2F6FB3;--ink:#0B0E14;--paper:#F7F8FA;--card:#fff;--line:#E3E7EE;--slate:#566072;--mute:#8A93A3;--ok:#1F9D62;}
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Manrope',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased;}
+  .top{background:var(--ink);color:#fff;padding:16px 20px;display:flex;align-items:center;gap:12px;}
+  .top img{height:38px;max-width:150px;object-fit:contain;background:#fff;border-radius:8px;padding:3px;}
+  .top b{font-size:16px;display:block;line-height:1.25;}
+  .top small{color:rgba(255,255,255,.65);font-size:13px;}
+  .wrap{max-width:760px;margin:0 auto;padding:20px 16px 60px;}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px;margin-bottom:16px;box-shadow:0 12px 32px -20px rgba(11,14,20,.2);}
+  h1{font-size:24px;margin:0 0 6px;letter-spacing:-.02em;line-height:1.15;}
+  p{margin:0;} .sub{color:var(--slate);font-size:15px;}
+  table{width:100%;border-collapse:collapse;margin-top:6px;}
+  th{text-align:left;font-size:11.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--slate);padding:8px 6px;border-bottom:1.5px solid var(--line);}
+  td{padding:10px 6px;border-bottom:1px solid var(--line);font-size:15px;vertical-align:top;}
+  td.n,th.n{text-align:right;white-space:nowrap;}
+  .code{color:var(--mute);font-size:12.5px;font-weight:700;}
+  .tot td{border:0;padding:5px 6px;} .tot .big td{font-weight:800;font-size:17px;}
+  label{display:block;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--slate);margin:16px 0 7px;}
+  input[type=text],textarea{width:100%;padding:13px 14px;border:1.5px solid var(--line);border-radius:12px;font-size:16px;font-family:inherit;}
+  textarea{min-height:80px;resize:vertical;}
+  .btns{display:flex;gap:10px;margin-top:18px;}
+  .btn{flex:1;padding:15px;border-radius:12px;border:0;background:var(--brand1);color:#fff;font-family:inherit;font-weight:800;font-size:16px;cursor:pointer;}
+  .btn.ghost{background:#fff;color:var(--ink);border:1.5px solid var(--line);}
+  .btn:disabled{background:#D9DEE6;color:#8A93A3;cursor:default;border-color:#D9DEE6;}
+  .err{font-size:14.5px;color:#8A5A0B;background:#FBF0D9;border-radius:10px;padding:11px 14px;margin-top:14px;}
+  .done{text-align:center;padding:26px 10px;}
+  .tick{width:60px;height:60px;border-radius:50%;background:#E3F5EC;color:var(--ok);font-size:28px;font-weight:900;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;}
+  .tick.no{background:#F3F4F6;color:var(--slate);}
+  .foot{text-align:center;color:var(--mute);font-size:12.5px;margin-top:8px;}
+</style>
+</head>
+<body>
+<div class="top"><img id="logo" alt="" style="display:none;"><div><b id="company">OpHUB</b><small id="siteLine"></small></div></div>
+<div class="wrap">
+  <div id="main"><div class="card"><p class="sub">Loading your quote…</p></div></div>
+  <p class="foot">Secure quote approval by OpHUB · operativehub.co.uk</p>
+</div>
+<script>
+(function(){
+  var SUPABASE_URL = 'https://dtrfupmcazoioubhwdml.supabase.co';
+  // The public (anon) key, as on sign.html: it can only call this page's server function.
+  var KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR0cmZ1cG1jYXpvaW91Ymh3ZG1sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4ODI2MTEsImV4cCI6MjEwMjQ1ODYxMX0.RpPi02zvyPCrw9CxfkK0hNvmEEnILlXQ5qoMwxYsSKc';
+  var t = (new URLSearchParams(window.location.search).get('t') || '').trim();
+  var main = document.getElementById('main');
+  function esc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  function gbp(n){ return '£' + Number(n || 0).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  function when(d){ return d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : ''; }
+  function call(payload){
+    return fetch(SUPABASE_URL + '/functions/v1/repair-quote-decision', { method: 'POST', headers: { 'apikey': KEY, 'Authorization': 'Bearer ' + KEY, 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+      .then(function(r){ return r.json().catch(function(){ return { error: 'Something went wrong — please try again.' }; }); })
+      .catch(function(){ return { error: 'Couldn’t reach us — check your connection and try again.' }; });
+  }
+  function message(html){ main.innerHTML = '<div class="card">' + html + '</div>'; }
+  function finished(status, decidedAt){
+    var ok = status === 'approved';
+    message('<div class="done"><div class="tick' + (ok ? '' : ' no') + '">' + (ok ? '✓' : '✕') + '</div><h1>' + (ok ? 'Quote Approved' : 'Quote Turned Down') + '</h1><p class="sub">' + (ok ? 'Thank you — we’ll be in touch to book the works in.' : 'Thank you for letting us know.') + (decidedAt ? '<br>' + esc(when(decidedAt)) : '') + '</p></div>');
+  }
+  if (!t) { message('<p class="sub">This link isn’t complete. Please use the button in the email.</p>'); return; }
+  call({ t: t, action: 'view' }).then(function(q){
+    if (q.error) { message('<p class="sub">' + esc(q.error) + '</p>'); return; }
+    document.getElementById('company').textContent = q.company || 'OpHUB';
+    document.getElementById('siteLine').textContent = q.contract || '';
+    if (q.logo) { var img = document.getElementById('logo'); img.src = q.logo; img.style.display = 'block'; }
+    if (q.brand && /^#[0-9a-fA-F]{6}$/.test(q.brand)) document.documentElement.style.setProperty('--brand1', q.brand);
+    var head = '<h1>Quote' + (q.job.number ? ' ' + esc(q.job.number) : '') + '</h1><p class="sub">' + esc(q.job.address) + (q.job.description ? '<br>' + esc(q.job.description) : '') + '</p>';
+    var rows = (q.lines || []).map(function(l){
+      return '<tr><td>' + (l.code ? '<span class="code">' + esc(l.code) + '</span><br>' : '') + esc(l.description) + '</td><td class="n">' + esc(l.qty) + (l.unit ? ' ' + esc(l.unit) : '') + '</td><td class="n">' + gbp(l.value) + '</td></tr>';
+    }).join('');
+    var tot = '<table class="tot"><tr><td>Net</td><td class="n">' + gbp(q.net) + '</td></tr><tr><td>' + (q.vatPct ? 'VAT ' + q.vatPct + '%' : 'VAT') + '</td><td class="n">' + (q.vatPct ? gbp(q.vat) : '—') + '</td></tr><tr class="big"><td>Total</td><td class="n">' + gbp(q.total) + '</td></tr></table>' + (q.vatNote ? '<p class="sub" style="font-size:13px;margin-top:6px;">' + esc(q.vatNote) + '</p>' : '');
+    var quote = '<div class="card">' + head + '<table><tr><th>Item</th><th class="n">Qty</th><th class="n">Amount</th></tr>' + rows + '</table>' + tot + '</div>';
+    if (q.status === 'approved' || q.status === 'rejected') { main.innerHTML = quote + '<div class="card"><p class="sub">' + (q.status === 'approved' ? 'This quote has been approved' : 'This quote was turned down') + (q.decidedAt ? ' on ' + esc(when(q.decidedAt)) : '') + '. Thank you.</p></div>'; return; }
+    if (q.status !== 'awaiting') { main.innerHTML = quote + '<div class="card"><p class="sub">This quote hasn’t been sent for approval yet.</p></div>'; return; }
+    main.innerHTML = quote + '<div class="card"><label for="nm">Your Name</label><input type="text" id="nm" autocomplete="name"><label for="nt">Any Comments (Optional)</label><textarea id="nt"></textarea><div class="btns"><button class="btn" id="yes">Approve Quote</button><button class="btn ghost" id="no">Reject Quote</button></div><div id="msg"></div></div>';
+    function decide(action){
+      var name = document.getElementById('nm').value.trim(), note = document.getElementById('nt').value.trim();
+      var msg = document.getElementById('msg');
+      if (!name) { msg.innerHTML = '<div class="err">Please put your name.</div>'; return; }
+      if (!window.confirm(action === 'approve' ? 'Approve this quote?' : 'Turn this quote down?')) return;
+      var yes = document.getElementById('yes'), no = document.getElementById('no'); yes.disabled = true; no.disabled = true;
+      call({ t: t, action: action, name: name, note: note }).then(function(r){
+        if (r.ok) { finished(r.status, new Date().toISOString()); return; }
+        if (r.status === 'approved' || r.status === 'rejected') { finished(r.status); return; }
+        yes.disabled = false; no.disabled = false; msg.innerHTML = '<div class="err">' + esc(r.error || 'Something went wrong — please try again.') + '</div>';
+      });
+    }
+    document.getElementById('yes').onclick = function(){ decide('approve'); };
+    document.getElementById('no').onclick = function(){ decide('reject'); };
+  });
+})();
+</script>
+</body>
+</html>

@@ -24,3 +24,17 @@ as $$
 $$;
 revoke all on function public.repair_jobs_paid(uuid) from public, anon;
 grant execute on function public.repair_jobs_paid(uuid) to authenticated;
+
+-- Applied 7 Nov 2026 (migration repairs_noaccess_due_online_7nov), additive.
+alter table public.repair_jobs add column if not exists due_at timestamptz;
+alter table public.repair_jobs add column if not exists no_access jsonb;
+alter table public.repair_jobs add column if not exists quote_token uuid;
+create unique index if not exists repair_jobs_quote_token_key on public.repair_jobs (quote_token) where quote_token is not null;
+alter table public.sites add column if not exists repair_online_approval boolean;
+alter table public.sites add column if not exists repair_no_access_charge numeric;
+
+-- Applied 7 Nov 2026 (migration repairs_quote_online_7nov), additive.
+alter table public.repair_jobs add column if not exists quote_sent_by uuid references public.profiles(id) on delete set null;
+alter table public.repair_jobs add column if not exists quote_sent_to text;
+alter table public.repair_jobs add column if not exists quote_decision_note text;
+alter table public.repair_jobs add column if not exists quote_decided_online_at timestamptz;

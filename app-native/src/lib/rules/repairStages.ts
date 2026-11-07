@@ -3,6 +3,8 @@
 // Trades (scaffold…) are flags, not stages. The stage is worked out from the job's fields, so the jobs made before
 // (with the old job_status) land in the right place without anything being rewritten. Pure functions only.
 
+import { isOverdue } from './repairDue.ts';
+
 export type RJob = {
   id: string; job_number?: string | null; address?: string | null; description?: string | null; created_at?: string | null;
   job_status?: string | null; closed?: boolean | null; invoiced?: boolean | null; works_completed?: boolean | null; works_completed_date?: string | null;
@@ -14,6 +16,7 @@ export type RJob = {
   tenant_name?: string | null; tenant_phone?: string | null; tenant_no?: string | null; priority?: string | null;
   fault_description?: string | null; repair_description?: string | null; quote_lines?: unknown; quote_discount_pct?: number | null;
   geofence_lat?: number | null; geofence_lon?: number | null; geofence_radius_m?: number | null;
+  due_at?: string | null; no_access?: unknown;
 };
 export type Stage = 'to_book' | 'booked' | 'attended' | 'quote_needed' | 'awaiting_approval' | 'approved' | 'works_booked' | 'done' | 'rejected';
 
@@ -63,6 +66,10 @@ export function barState(j: RJob, inv?: { status?: string | null } | null): { st
     : s === 'approved' ? 5 : s === 'works_booked' ? 6 : s === 'done' ? (paid ? 9 : issued || j.invoiced ? 8 : 7) : 4;
   return { step, skipQuote, rejected: s === 'rejected' };
 }
+
+/** No access visits (Andy, 7 Nov 2026): nobody in, a card left (with a photo of it); the job goes back to be booked. */
+export type NoAccess = { at: string; by?: string | null; by_name?: string | null; note?: string | null; visit?: 'attend' | 'works' };
+export const noAccessOf = (j: RJob): NoAccess[] => (Array.isArray(j.no_access) ? (j.no_access as NoAccess[]) : []);
 
 /** Other trades on a job (scaffold, electrician…), each with its booked date; the jobs from before had one text field. */
 export type Trade = { id: string; trade: string; date?: string | null; done?: boolean; done_at?: string | null };
@@ -127,6 +134,8 @@ export function byBooking<T extends RJob>(list: T[]): T[] {
  *  op: an operative sees these, Completed Works without "To Invoice"; mgr: managers only. */
 export type Box = { k: string; l: string; op?: string; mgrOnly?: boolean; test: (j: RJob, paid?: Set<string>) => boolean };
 export const BOXES: Box[] = [
+  // Past the due date from its priority (Andy, 7 Nov 2026).
+  { k: 'overdue', l: 'Overdue', test: (j) => isOpen(j) && isOverdue(j) },
   { k: 'to_book', l: 'To Schedule', test: (j) => repairStage(j) === 'to_book' && !j.on_hold },
   { k: 'booked', l: 'Scheduled - Awaiting Attendance', test: (j) => ['booked', 'works_booked'].includes(repairStage(j)) && !j.on_hold },
   { k: 'quote_needed', l: 'Quotation Required', mgrOnly: true, test: (j) => repairStage(j) === 'quote_needed' && !j.on_hold },

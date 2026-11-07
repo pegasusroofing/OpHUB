@@ -4,7 +4,10 @@
 // The quote's net total stays in repair_jobs.variation_cost, as the old app reads it.
 import { useQuery } from '@tanstack/react-query';
 
+import { finInvoke } from '@/data/finance';
 import { patchRepairJob } from '@/data/repairs';
+import { finBlocked, FIN_TRIAL_MSG } from '@/lib/rules/finance';
+import type { Profile } from '@/lib/types';
 import { quoteTotals, type QuoteLine, type Rate } from '@/lib/rules/repairQuote';
 import { supabase } from '@/lib/supabase';
 
@@ -19,9 +22,10 @@ export function useContractQuoteSettings(siteId: string | undefined) {
   return useQuery({
     queryKey: ['repairQuoteSettings', siteId], enabled: !!siteId,
     queryFn: async () => {
-      const [s, v] = await Promise.all([db.from('sites').select('repair_discount_pct,repair_uses_rates,repair_rates_name').eq('id', siteId as string).maybeSingle(), db.rpc('repair_contract_vat', { p_site: siteId })]);
+      const [s, v] = await Promise.all([db.from('sites').select('repair_discount_pct,repair_uses_rates,repair_rates_name,repair_online_approval,repair_no_access_charge').eq('id', siteId as string).maybeSingle(), db.rpc('repair_contract_vat', { p_site: siteId })]);
       const row = (s.data as Row | null) || {};
-      return { discount: Number(row.repair_discount_pct || 0), vat: (typeof v.data === 'string' ? v.data : null) as string | null, usesRates: row.repair_uses_rates as boolean | null | undefined, ratesName: (row.repair_rates_name as string | null) || null };
+      // discount: off the rates (a minus figure is an uplift, e.g. NHF + 10%).
+      return { discount: Number(row.repair_discount_pct || 0), vat: (typeof v.data === 'string' ? v.data : null) as string | null, usesRates: row.repair_uses_rates as boolean | null | undefined, ratesName: (row.repair_rates_name as string | null) || null, onlineApproval: !!row.repair_online_approval, noAccessCharge: row.repair_no_access_charge != null ? Number(row.repair_no_access_charge) : null };
     },
   });
 }
@@ -29,11 +33,13 @@ export async function setContractDiscount(siteId: string, pct: number | null): P
   return !!(await db.from('sites').update({ repair_discount_pct: pct } as never).eq('id', siteId).select('id')).data?.length;
 }
 /** Finance set-up's "Contract Rates?" (Yes: a schedule of rates with a discount off it). */
-export async function setContractRates(siteId: string, p: { uses?: boolean; pct?: number | null; name?: string | null }): Promise<boolean> {
+export async function setContractRates(siteId: string, p: { uses?: boolean; pct?: number | null; name?: string | null; online?: boolean; noAccess?: number | null }): Promise<boolean> {
   const patch: Row = {};
   if (p.uses !== undefined) patch.repair_uses_rates = p.uses;
   if (p.pct !== undefined) patch.repair_discount_pct = p.pct;
   if (p.name !== undefined) patch.repair_rates_name = p.name;
+  if (p.online !== undefined) patch.repair_online_approval = p.online;
+  if (p.noAccess !== undefined) patch.repair_no_access_charge = p.noAccess;
   return !!(await db.from('sites').update(patch as never).eq('id', siteId).select('id')).data?.length;
 }
 export async function saveRate(siteId: string, r: { id?: string; code: string | null; description: string; unit: string | null; rate: number }): Promise<boolean> {
@@ -58,6 +64,22 @@ export async function importRates(siteId: string, rows: NewRate[], existing: Rat
     if (!(await db.from('repair_rates').insert(chunk as never)).error) added += chunk.length; else failed += chunk.length;
   }
   return { added, skipped: rows.length - fresh.length, failed };
+}
+
+/** Emails the quote to the client (Andy, 7 Nov 2026): the quote PDF, and an Approve Or Reject Online button when the
+ *  contract has Client Approves Quotes Online on (send-repair-quote). Held back during the Finance trial (Sandbox Roofing
+ *  sends). Gives the problem, or null when sent. */
+export async function emailRepairQuote(me: Profile, pdf: { bytes: Uint8Array; filename: string }, job: Row, to: string[], bodyText: string): Promise<string | null> {
+  if (finBlocked('send-repair-quote', undefined, me.org_id)) return FIN_TRIAL_MSG;
+  const up = await supabase.storage.from('finance-docs').upload(`${me.org_id}/${job.site_id}/repair-quotes/${String(job.job_number || job.id).replace(/[^a-z0-9-]+/gi, '_')}-${Date.now()}.pdf`, pdf.bytes, { contentType: 'application/pdf' });
+  if (up.error) return 'Could not save the PDF to send — try again.';
+  const r = await finInvoke(me, 'send-repair-quote', { repair_job_id: job.id, storage_path: up.data.path, filename: pdf.filename, recipients: to, body_text: bodyText });
+  return r.error;
+}
+/** The client's approval link for the job's quote (made once, kept), to send yourself; nothing is emailed. */
+export async function repairApprovalLink(me: Profile, jobId: string): Promise<{ link: string | null; error: string | null }> {
+  const r = await finInvoke<{ link?: string }>(me, 'send-repair-quote', { action: 'link', repair_job_id: jobId });
+  return { link: r.data?.link || null, error: r.error };
 }
 
 /** Where a quote stands when it's saved (Andy, 7 Nov 2026). */
