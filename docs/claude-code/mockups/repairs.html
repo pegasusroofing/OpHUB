@@ -142,29 +142,74 @@
   </div>
 </div>
 
-<!-- 3. The contract's home in Projects: the normal home, with Repair Jobs as one more tile (Andy, 7 Nov 2026) -->
+<!-- 3. The contract's home in Projects: four tiles (Andy, 7 Nov 2026) -->
 <div id="home" class="phone">
-  <div class="label">3 — The Contract Home (Projects)<small>Looks like any project home. Repair Jobs is one more tile, with a count of jobs to book.</small></div>
+  <div class="label">3 — The Contract Home (Projects)<small>Just four tiles: Works Orders, Health &amp; Safety, Calendar, To Do List.</small></div>
   <div class="top"><span class="back">‹</span><span class="logo">OpHUB</span><span class="x">×</span><span class="co">RTB Roofing</span></div>
   <div class="body">
     <div class="crumbs"><span>Projects</span> › <b>Sovereign Repairs</b></div>
     <div class="card" style="display:flex;align-items:center;gap:10px"><div style="flex:1"><b style="font-size:15px">Sovereign Repairs</b><div class="muted">Repair contract · Sovereign Housing</div></div><span class="tag">Live</span></div>
-    <div class="tiles">
-      <div class="tile" style="border:1.5px solid #1E2124;position:relative"><i>🔧</i>Repair Jobs<span style="position:absolute;top:6px;right:7px;background:#E3262B;color:#fff;font-size:10.5px;font-weight:700;border-radius:9px;min-width:18px;padding:1px 5px">12</span></div>
-      <div class="tile"><i>🦺</i>H&amp;S</div><div class="tile"><i>📅</i>Calendar</div>
-      <div class="tile"><i>💬</i>Messages</div><div class="tile"><i>🧱</i>Materials</div><div class="tile"><i>📐</i>Drawings</div>
-      <div class="tile"><i>✅</i>To Do</div><div class="tile"><i>👷</i>Team</div><div class="tile"><i>⚙</i>Settings</div>
+    <div class="tiles" style="grid-template-columns:1fr 1fr">
+      <div class="tile" style="padding:18px 6px;font-size:13px;position:relative"><i style="font-size:24px">📋</i>Works Orders<span style="position:absolute;top:8px;right:9px;background:#E3262B;color:#fff;font-size:10.5px;font-weight:700;border-radius:9px;min-width:18px;padding:1px 5px">3</span></div>
+      <div class="tile" style="padding:18px 6px;font-size:13px"><i style="font-size:24px">🦺</i>Health &amp; Safety</div>
+      <div class="tile" style="padding:18px 6px;font-size:13px"><i style="font-size:24px">📅</i>Calendar</div>
+      <div class="tile" style="padding:18px 6px;font-size:13px"><i style="font-size:24px">✅</i>To Do List</div>
     </div>
-    <div class="muted" style="padding:2px 2px 8px">The red number: jobs waiting to be booked in. Operatives see only the jobs they're booked on.</div>
+    <div class="muted" style="padding:2px 2px 8px">The red number: your jobs booked in. Managers see the jobs waiting to be booked.</div>
+  </div>
+</div>
+
+<!-- 3c. Works Orders as an operative sees it -->
+<div id="ops" class="phone">
+  <div class="label">3c — Works Orders (Operative)<small>Your jobs, soonest booking first, with Show All. Nobody booked on any yet? Everyone sees them all.</small></div>
+  <div class="top"><span class="back">‹</span><span class="logo">OpHUB</span><span class="x">×</span><span class="co">RTB Roofing</span></div>
+  <div class="body">
+    <div class="crumbs"><span>Projects</span> › <span>Sovereign Repairs</span> › <b>Works Orders</b></div>
+    <div class="row" style="margin-bottom:10px"><span class="btn" style="flex:1;background:#1E2124">My Jobs (3)</span><span class="btn ghost" style="flex:1">Show All (32)</span></div>
+    <div class="h">TODAY</div>
+    <div class="card list" style="padding:4px 12px">
+      <div class="li"><div class="l"><b>WO-58240 · 3 Mill Lane</b><small>Booked 08:00 · Leak to porch roof</small></div><span>›</span></div>
+      <div class="li"><div class="l"><b>WO-58213 · 14 Elm Close</b><small>Booked 13:00 · Works (quote approved)</small></div><span>›</span></div>
+    </div>
+    <div class="h">TUESDAY 11 NOV</div>
+    <div class="card list" style="padding:4px 12px">
+      <div class="li"><div class="l"><b>WO-58262 · 8 Station Rd</b><small>Booked 09:30 · Missing ridge tiles</small></div><span>›</span></div>
+    </div>
+    <div class="muted" style="padding:2px">Tap a job: check in, then work through its steps.</div>
+  </div>
+</div>
+
+<!-- 3d. Opening a job: check in, then the operative's steps (Andy's list, 7 Nov 2026) -->
+<div id="checkin" class="phone">
+  <div class="label">3d — Check In, Then The Steps<small>Check in by GPS (as now), against the job's address. Then the operative's steps, one after another.</small></div>
+  <div class="top"><span class="back">‹</span><span class="logo">OpHUB</span><span class="x">×</span><span class="co">RTB Roofing</span></div>
+  <div class="body">
+    <div class="crumbs"><span>Works Orders</span> › <b>WO-58240</b></div>
+    <div class="card">
+      <div class="jobhead"><span class="no">WO-58240</span><b>3 Mill Lane, Banbury</b></div>
+      <div class="muted" style="margin-top:4px">Leak to porch roof · Tenant Mr K. Hughes · 07700 900456</div>
+      <div style="margin-top:8px;font-size:12.5px;color:#1E7A43;font-weight:600">📍 Checked in 08:04 · within 40 m</div>
+    </div>
+    <div class="stage" style="border:1.5px solid #1E2124"><div class="sh"><div class="dot" style="background:#1E2124;border-color:#1E2124;color:#fff">✓</div><b>1. Description Of Fault</b></div>
+      <div class="sb">Water coming in at the porch flat roof, joint split by the wall.</div></div>
+    <div class="stage" style="border:1.5px solid #1E2124"><div class="sh"><div class="dot" style="background:#1E2124;border-color:#1E2124;color:#fff">✓</div><b>2. Description Of Repair</b></div>
+      <div class="sb">Cut out and patch the felt, new lead flashing to the wall.</div></div>
+    <div class="stage" style="border:1.5px solid #1E2124"><div class="sh"><div class="dot" style="background:#1E2124;border-color:#1E2124;color:#fff">✓</div><b>3. Photos</b><em>4 → Survey Photos</em></div>
+      <div class="sb"><div class="thumbs" style="margin-top:0"><i></i><i></i><i></i><i></i></div></div></div>
+    <div class="stage open"><div class="sh"><div class="dot" style="border:2px solid #E3262B;color:#E3262B">4</div><b>Completed In This Visit?</b></div>
+      <div class="sb"><div class="row"><span class="btn" style="flex:1;padding:9px">Yes</span><span class="btn ghost" style="flex:1;padding:9px">No — Needs A Quote</span></div>
+      <div class="muted" style="margin-top:6px">No: the attendance report (fault, repair, photos) goes to the office to price, and to OneDrive.</div></div></div>
+    <div class="stage"><div class="sh"><div class="dot">5</div><b>Completion Photos And Works Completed</b><em>→ Completion Photos</em></div></div>
+    <div class="stage"><div class="sh"><div class="dot">6</div><b>Check Out</b><em>GPS</em></div></div>
   </div>
 </div>
 
 <!-- 3b. Repair Jobs, opened from the tile -->
 <div id="jobs" class="phone">
-  <div class="label">3b — Repair Jobs (Opened From The Tile)<small>Where every job is at, the + New Job button and the list. Tap a job for its hub.</small></div>
+  <div class="label">3b — Works Orders (Managers)<small>Where every job is at, the + New Job button and the list. Tap a job for its hub.</small></div>
   <div class="top"><span class="back">‹</span><span class="logo">OpHUB</span><span class="x">×</span><span class="co">RTB Roofing</span></div>
   <div class="body">
-    <div class="crumbs"><span>Projects</span> › <span>Sovereign Repairs</span> › <b>Repair Jobs</b></div>
+    <div class="crumbs"><span>Projects</span> › <span>Sovereign Repairs</span> › <b>Works Orders</b></div>
     <div class="jt">
       <div class="red"><b>12</b><small>To Book</small></div><div><b>5</b><small>Booked In</small></div>
       <div><b>4</b><small>Quote Needed</small></div><div><b>6</b><small>Awaiting Approval</small></div>

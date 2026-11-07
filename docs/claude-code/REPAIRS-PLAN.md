@@ -20,9 +20,16 @@ Invoiced · Paid in Finance. Fixed first time: Quote and Approved show "Not Need
 **Flags, not stages:** On Hold (with a reason) and Other Trades (e.g. scaffold, with dates). Each has a tile.
 
 ## Screens
-- **Projects home:** looks like any project home; **Repair Jobs** is one more tile (red count: jobs to book).
-- **Repair Jobs** (from the tile): stage boxes (To Book, Booked In, Quote Needed, Awaiting Approval,
+- **Projects home (Andy, 7 Nov):** just four tiles — **Works Orders**, **Health & Safety**, **Calendar**, **To Do List**.
+- **Works Orders, operative:** the jobs booked to them, soonest booking date at the top, with **Show All**. If
+  nobody has been booked on any jobs yet, everyone sees them all.
+- **Works Orders, managers:** stage boxes (To Book, Booked In, Quote Needed, Awaiting Approval,
   Approved — To Book, On Hold / Other Trades), + New Job (Read Works Order), All Jobs, the list.
+- **Opening a job (operative):** check in by GPS as now, against the job's own address. Then their steps:
+  1. Description Of Fault · 2. Description Of Repair · 3. Photos (→ Survey Photos) ·
+  4. Completed In This Visit? **Yes** → 5. Completion Photos (→ Completion Photos) and Description Of Works
+  Completed. **No — Needs A Quote** → the attendance report goes to the office to price (and to OneDrive) ·
+  6. Check Out (GPS).
 - **Job hub** (one per job): progress bar and what's next; the works order with a PDF viewer; address, call-out,
   tenant name, phone and tenant no.; booked / attended / completed dates; notes (the client can see these).
   Finance sees a Money box (quoted, costs, margin); Projects sees the same page without it.
