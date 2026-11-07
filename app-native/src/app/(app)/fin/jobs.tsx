@@ -1,14 +1,15 @@
 // Finance › Projects (914 renderFinJobs + 9219f grid): every project with its client, client PO, PM, value, invoiced,
 // owed and overdue. Click a heading to sort; nothing chosen means name A to Z. Clients are in the Directory, with their jobs
-// and what they owe. A laptop filters by column (Status starts on Live) and has no filter row; a phone has no columns, so it
-// keeps the search box and the Status, PM, Client and Start date filters.
+// and what they owe. A laptop filters by column (Status starts on Live) and has no filter row. A phone keeps the search box
+// and the Status, PM, Client and Start date filters, over a small table: Job No, Project (client underneath), Value and PM
+// (Andy, 7 Nov 2026: Option 2 of the three, without Owed; Job No, Value and PM centred, the project on the left).
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Text, TextInput, View } from 'react-native';
+import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { FinFilterBar, type FilterSel } from '@/components/FinFilterBar';
-import { FinPage, FinRow } from '@/components/FinNav';
+import { FinPage } from '@/components/FinNav';
 import { Cell, FinTable, FootText } from '@/components/FinTable';
 import { askDate } from '@/components/DateField';
 import { Button, Empty, Muted } from '@/components/ui';
@@ -81,11 +82,30 @@ export default function FinJobs() {
   const pms = Array.from(new Set(sites.map((s) => s.responsible_pm_id).filter(Boolean))) as string[];
   // A running tally of whatever the filters leave showing (Andy, 2 Nov 2026).
   const valueOf = (list: typeof shown) => list.reduce((t, s) => t + Number(data?.jfBy[s.id]?.contract_value || 0), 0);
-  const tallyText = (list: typeof shown) => `${list.length} project${list.length === 1 ? '' : 's'}`;
-  // + New Project sits at the end of the Finance tab row (Andy, 5 Nov 2026).
+  const tallyText = (list: typeof shown) => `${list.length} Project${list.length === 1 ? '' : 's'}`;
+  // The phone table sorts by tapping a heading: Project A to Z to start with; Value starts biggest first.
+  const [psort, setPsort] = useState<{ k: 'no' | 'name' | 'v' | 'pm'; dir: 'asc' | 'desc' }>({ k: 'name', dir: 'asc' });
+  const valOf = (s: SiteX) => Number(data?.jfBy[s.id]?.contract_value || 0);
+  const byName = (a: SiteX, b: SiteX) => nm(a).localeCompare(nm(b), 'en-GB', { sensitivity: 'base' });
+  const phoneRows = desk ? shown : shown.slice().sort((a, b) => {
+    const d = psort.dir === 'asc' ? 1 : -1;
+    if (psort.k === 'v') return d * (valOf(a) - valOf(b)) || byName(a, b);
+    if (psort.k === 'no') return d * String(a.job_number || '').localeCompare(String(b.job_number || ''), 'en-GB', { numeric: true });
+    if (psort.k === 'pm') return d * pmName(a.responsible_pm_id).localeCompare(pmName(b.responsible_pm_id), 'en-GB') || byName(a, b);
+    return d * byName(a, b);
+  });
+  const W = { no: 58, v: 74, pm: 66 };
+  const head = (k: typeof psort.k, l: string, w?: number) => (
+    <Pressable key={k} accessibilityRole="button" accessibilityLabel={`Sort by ${l}`} onPress={() => setPsort((p) => (p.k === k ? { k, dir: p.dir === 'asc' ? 'desc' : 'asc' } : { k, dir: k === 'v' ? 'desc' : 'asc' }))}
+      style={w ? { width: w, alignItems: 'center' } : { flex: 1, minWidth: 0 }}>
+      <Text numberOfLines={1} style={{ fontSize: 11.5, fontWeight: '600', color: psort.k === k ? t.brand1 : base.slate }}>{l}{psort.k === k ? (psort.dir === 'asc' ? ' ▲' : ' ▼') : ''}</Text>
+    </Pressable>
+  );
+  const newBtn = me && isFullManager(me) ? <Button small title="+ New Project" onPress={() => router.push('/fin/newjob' as never)} /> : undefined;
+  // + New Project sits at the end of the Finance tab row on a laptop (Andy, 5 Nov 2026); on a phone it's beside Filter, so the tabs get the whole width.
   return (
-    <FinPage title="Projects" section="jobs" subRight={me && isFullManager(me) ? <Button small title="+ New Project" onPress={() => router.push('/fin/newjob' as never)} /> : undefined} foot={!desk && data && shown.length ? <View accessibilityLabel="Value of works" style={{ flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 12, backgroundColor: base.card, borderTopWidth: 1, borderTopColor: base.line, paddingHorizontal: 16, paddingVertical: 9 }}><Text style={{ fontSize: 12.5, color: base.slate }}>{tallyText(shown)}</Text><Text style={{ fontSize: 14, fontWeight: '600', color: base.ink }}>Value of works {money(valueOf(shown), 0)}</Text></View> : undefined}>
-      {!desk && <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search project no., name, client or PO' }} sel={sel} moreOn={!!val}
+    <FinPage title="Projects" section="jobs" subRight={desk ? newBtn : undefined} foot={!desk && data && shown.length ? <View accessibilityLabel="Value of works" style={{ flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 12, backgroundColor: base.card, borderTopWidth: 1, borderTopColor: base.line, paddingHorizontal: 16, paddingVertical: 9 }}><Text style={{ fontSize: 12.5, color: base.slate }}>{tallyText(shown)}</Text><Text style={{ fontSize: 14, fontWeight: '600', color: base.ink }}>Value Of Works {money(valueOf(shown), 0)}</Text></View> : undefined}>
+      {!desk && <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search Projects' }} sel={sel} moreOn={!!val} beside={newBtn}
         onClear={() => { setSel({ status: [], pm: [], client: [], start: [] }); setVal(''); }}
         onChange={async (next) => {
           if (next.start[0] === 'custom' && dr !== 'custom') { const from = await askDate('Start dates from'); if (from === null) return; const to = await askDate('Start dates to', { min: from || undefined }); if (to === null) return; setCustom({ from: from || undefined, to: to || undefined }); }
@@ -115,13 +135,30 @@ export default function FinJobs() {
             { k: 'owed', l: 'Owed', off: true, sort: (s) => data.m[s.id]?.owed || 0, render: (s) => <Cell>{data.m[s.id]?.owed ? money(data.m[s.id].owed, 0) : '—'}</Cell> },
             { k: 'od', l: 'Overdue', off: true, sort: (s) => data.m[s.id]?.overdue || 0, render: (s) => <Cell tone={data.m[s.id]?.overdue ? '#C0392B' : undefined}>{data.m[s.id]?.overdue ? money(data.m[s.id].overdue, 0) : '—'}</Cell> },
           ]}
-          tally foot={(left) => <><FootText>{tallyText(left)}</FootText><FootText bold>Value of works {money(valueOf(left), 0)}</FootText></>} />
-      ) : shown.length ? shown.map((s) => {
-        const m = data.m[s.id], v = Number(data.jfBy[s.id]?.contract_value || 0), po = (data.posBy[s.id] || []).join(', ');
-        return <FinRow compact key={s.id} left={s.job_number || 'No no.'} title={s.name} onPress={() => router.push(`/fin/job/${s.id}` as never)}
-          sub={[cliOf(s) || 'No client', po ? `PO ${po}` : 'No PO', pmName(s.responsible_pm_id), m?.owed ? `owed ${money(m.owed, 0)}` : '', m?.overdue ? `${money(m.overdue, 0)} overdue` : ''].filter(Boolean).join(' · ')}
-          right={v ? money(v, 0) : 'No value'} tone={m?.overdue ? '#C0392B' : undefined} />;
-      }) : <Empty>No projects here.</Empty>}
+          tally foot={(left) => <><FootText>{tallyText(left)}</FootText><FootText bold>Value Of Works {money(valueOf(left), 0)}</FootText></>} />
+      ) : shown.length ? (
+        <View accessibilityLabel="Projects table" style={{ backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 12, overflow: 'hidden' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 9, paddingHorizontal: 8, backgroundColor: '#F6F7F9' }}>
+            {head('no', 'Job No', W.no)}{head('name', 'Project')}{head('v', 'Value', W.v)}{head('pm', 'PM', W.pm)}
+          </View>
+          {phoneRows.map((s) => {
+            const v = valOf(s), pm = pmName(s.responsible_pm_id);
+            return (
+              <Pressable key={s.id} accessibilityRole="button" accessibilityLabel={`${s.job_number || ''} ${s.name}`.trim()} onPress={() => router.push(`/fin/job/${s.id}` as never)}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 9, paddingHorizontal: 8, borderTopWidth: 1, borderTopColor: '#EEF0F2' }}>
+                <Text numberOfLines={1} style={{ width: W.no, textAlign: 'center', fontSize: 12, fontWeight: '600', color: base.ink }}>{s.job_number || '—'}</Text>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text numberOfLines={2} style={{ fontSize: 13.5, fontWeight: '600', color: base.ink }}>{s.name}</Text>
+                  <Text numberOfLines={1} style={{ fontSize: 11.5, color: base.slate, marginTop: 1 }}>{cliOf(s) || 'No Client'}</Text>
+                </View>
+                {/* Red when money on the job is overdue, as on the laptop. */}
+                <Text numberOfLines={1} style={{ width: W.v, textAlign: 'center', fontSize: 13, fontWeight: '600', color: data.m[s.id]?.overdue ? '#C0392B' : base.ink }}>{v ? money(v, 0) : '—'}</Text>
+                <Text numberOfLines={2} style={{ width: W.pm, textAlign: 'center', fontSize: 12, color: pm ? base.ink : base.slate }}>{pm || '—'}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : <Empty>No projects here.</Empty>}
     </FinPage>
   );
 }

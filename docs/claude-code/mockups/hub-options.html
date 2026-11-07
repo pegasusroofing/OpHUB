@@ -1,0 +1,146 @@
+<!doctype html>
+<!-- The HUB with Finance, Projects and a Company Chat (Andy, 7 Nov 2026): three layouts, plus the chat itself.
+     Mock-ups only, with made-up rows. Pictures: hub-1/2/3.png and hub-chat.png. -->
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HUB Options</title>
+<style>
+  :root { --ink:#1E2124; --slate:#5B6472; --line:#E1E5EA; --bg:#EEF0F2; --brand:#E3262B; --bad:#C0392B; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:#cfd3d8; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; color:var(--ink); padding:20px; display:flex; gap:24px; flex-wrap:wrap; }
+  .phone { width:390px; height:844px; background:var(--bg); display:flex; flex-direction:column; overflow:hidden; }
+  .label { background:var(--ink); color:#fff; font-size:15px; font-weight:600; padding:10px 16px; }
+  .label small { display:block; font-weight:400; font-size:12.5px; color:#cfd3d8; margin-top:2px; }
+  .top { background:#fff; border-bottom:1px solid var(--line); height:52px; display:flex; align-items:center; gap:10px; padding:0 14px; }
+  .top .back { font-size:22px; } .top .logo { font-weight:800; font-size:19px; color:#2F6FD8; } .top .x { color:var(--slate); font-size:14px; }
+  .top .co { font-weight:600; font-size:16px; color:var(--brand); }
+  .body { flex:1; overflow:hidden; padding:0 16px; display:flex; flex-direction:column; }
+  .crumbs { font-size:13px; color:var(--slate); padding:10px 0 2px; } .crumbs b { color:var(--ink); font-weight:500; }
+  .tabs { display:flex; border-bottom:1px solid #e5e7eb; white-space:nowrap; overflow:hidden; margin-bottom:10px; }
+  .tabs div { padding:11px 11px; font-size:13px; font-weight:600; color:#6b7280; border-bottom:2px solid transparent; display:flex; align-items:center; gap:5px; }
+  .tabs div.on { color:#111827; font-weight:700; border-bottom-color:var(--brand); }
+  .n { font-size:10.5px; font-weight:700; color:#6b7280; background:#E1E4E8; border-radius:9px; min-width:18px; text-align:center; padding:1px 5px; }
+  .on .n { color:#111827; }
+  .bar { display:flex; gap:8px; margin-bottom:10px; }
+  .drop { flex:1; background:#fff; border:1px solid var(--line); border-radius:12px; padding:8px 10px; font-size:12.5px; font-weight:500; display:flex; justify-content:space-between; align-items:center; white-space:nowrap; }
+  .drop i { font-style:normal; font-size:10px; color:var(--slate); margin-left:6px; }
+  .list { background:#fff; border:1px solid #e5e7eb; border-radius:12px; overflow:hidden; }
+  .row { display:flex; align-items:center; gap:10px; padding:10px 12px; border-top:1px solid #eef0f2; }
+  .row:first-child { border-top:0; }
+  .row .l { flex:1; min-width:0; }
+  .row .tag { font-size:10.5px; font-weight:600; color:var(--slate); text-transform:none; }
+  .row b { display:block; font-size:13.5px; font-weight:600; margin-top:1px; }
+  .row small { display:block; font-size:11.5px; color:var(--slate); margin-top:2px; }
+  .row .r { text-align:right; font-size:13px; font-weight:600; white-space:nowrap; }
+  .row .r small { font-weight:500; }
+  .chev { color:var(--slate); font-size:18px; }
+  .dot { width:8px; height:8px; border-radius:4px; background:var(--brand); flex:none; }
+  .sec { font-size:11.5px; font-weight:600; color:var(--slate); margin:12px 2px 6px; }
+  .tiles { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px; }
+  .tile { background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:10px 12px; }
+  .tile.on { border:2px solid var(--ink); padding:9px 11px; }
+  .tile b { display:block; font-size:21px; font-weight:600; } .tile small { font-size:12px; color:#6b7280; font-weight:500; }
+  .conv { display:flex; align-items:center; gap:12px; padding:12px; border-top:1px solid #eef0f2; }
+  .conv:first-child { border-top:0; }
+  .av { width:42px; height:42px; border-radius:21px; background:#EEF0F2; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; color:var(--ink); flex:none; }
+  .conv .l { flex:1; min-width:0; } .conv b { font-size:14.5px; font-weight:600; }
+  .conv small { display:block; font-size:12.5px; color:var(--slate); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .conv .r { text-align:right; } .conv .r small { font-size:11px; } .conv .r .n { display:inline-block; margin-top:4px; color:#fff; background:var(--brand); }
+  /* chat */
+  .chat { flex:1; display:flex; flex-direction:column; gap:10px; overflow:hidden; padding-bottom:8px; }
+  .msg { display:flex; gap:8px; align-items:flex-end; }
+  .msg .av { width:30px; height:30px; font-size:11px; background:#fff; border:1px solid #e5e7eb; }
+  .bub { background:#fff; border:1px solid #e5e7eb; border-radius:14px; padding:8px 11px; max-width:270px; }
+  .bub .who { font-size:11.5px; font-weight:600; color:var(--slate); margin-bottom:2px; }
+  .bub p { font-size:13.5px; line-height:1.35; }
+  .bub .at { font-weight:700; color:var(--ink); }
+  .bub .t { font-size:10.5px; color:var(--slate); margin-top:3px; text-align:right; }
+  .msg.me { justify-content:flex-end; } .msg.me .bub { background:#1E2124; border-color:#1E2124; } .msg.me .bub p, .msg.me .bub .at { color:#fff; } .msg.me .bub .t { color:#c9cdd2; }
+  .day { text-align:center; font-size:11px; color:var(--slate); font-weight:600; }
+  .pop { background:#fff; border:1px solid var(--line); border-radius:12px; box-shadow:0 6px 18px rgba(0,0,0,.12); margin:0 0 6px; overflow:hidden; }
+  .pop div { padding:9px 12px; font-size:13.5px; border-top:1px solid #eef0f2; display:flex; gap:8px; align-items:center; } .pop div:first-child { border-top:0; background:#F6F7F9; }
+  .pop .x { margin-left:auto; color:var(--slate); }
+  .send { display:flex; gap:8px; padding:8px 16px 24px; background:#fff; border-top:1px solid var(--line); }
+  .send .in { flex:1; border:1px solid var(--line); border-radius:20px; padding:9px 14px; font-size:14px; }
+  .send .go { background:var(--brand); color:#fff; border-radius:20px; padding:9px 16px; font-size:13.5px; font-weight:600; }
+</style></head>
+<body>
+<!-- 1: tabs along the top -->
+<div id="h1" class="phone">
+  <div class="label">Option 1 — Tabs Along The Top<small>Like the Finance tabs. Everything, Projects, Finance and Company Chat, each with a count.</small></div>
+  <div class="top"><span class="back">‹</span><span class="logo">OpHUB</span><span class="x">×</span><span class="co">RTB Roofing</span></div>
+  <div class="body">
+    <div class="crumbs"><b>HUB</b></div>
+    <div class="tabs"><div class="on">Everything <span class="n">14</span></div><div>Projects <span class="n">9</span></div><div>Finance <span class="n">3</span></div><div>Company Chat <span class="n">2</span></div></div>
+    <div class="bar"><div class="drop">Site: All <i>▼</i></div><div class="drop">Due: Any <i>▼</i></div><div class="drop">Viewing: Me <i>▼</i></div></div>
+    <div class="list">
+      <div class="row"><div class="l"><span class="tag">Finance · Purchase Invoice To Check</span><b>Jewson — Inv 88412</b><small>Studley Rd · Sent by Fiona · Today</small></div><div class="r">£1,240.50</div><span class="chev">›</span></div>
+      <div class="row"><div class="l"><span class="tag">Finance · Invoice Query</span><b>“Is this delivery yours?”</b><small>SIG — Inv 5521 · Cleveland Primary · Today</small></div><div class="r">£312.00</div><span class="chev">›</span></div>
+      <div class="row"><div class="l"><span class="tag">Projects · Task</span><b>Order scaffold for phase 2</b><small>Kestrel House · Due 10 Nov</small></div><span class="chev">›</span></div>
+      <div class="row"><div class="l"><span class="tag">Finance · Wages To Book</span><b>Ollie Roofer — w/c 3 Nov</b><small>Cleveland Primary · Put against a price</small></div><div class="r">£640.00</div><span class="chev">›</span></div>
+      <div class="row"><div class="l"><span class="tag">Projects · RAMS</span><b>RAMS not signed by operatives (3)</b><small>Cleveland Primary</small></div><span class="chev">›</span></div>
+      <div class="row"><div class="l"><span class="tag">Projects · Toolbox Talk</span><b>Toolbox Talk due for this month</b><small>Studley Rd · Due 30 Nov</small></div><span class="chev">›</span></div>
+      <div class="row"><div class="l"><span class="tag">Projects · Snag</span><b>Open snag</b><small>Harbour Mill</small></div><span class="chev">›</span></div>
+      <div class="row"><div class="l"><span class="tag">Projects · Photos</span><b>4 new photos on the Schedule of Works</b><small>Oakfield Primary · Yesterday</small></div><span class="chev">›</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- 2: count tiles -->
+<div id="h2" class="phone">
+  <div class="label">Option 2 — Count Tiles<small>Four boxes with the counts; tap one to see its list underneath.</small></div>
+  <div class="top"><span class="back">‹</span><span class="logo">OpHUB</span><span class="x">×</span><span class="co">RTB Roofing</span></div>
+  <div class="body">
+    <div class="crumbs"><b>HUB</b></div>
+    <div class="tiles" style="margin-top:8px">
+      <div class="tile"><b>9</b><small>Projects</small></div>
+      <div class="tile on"><b>3</b><small>Finance</small></div>
+      <div class="tile"><b>2</b><small>Company Chat — New</small></div>
+      <div class="tile"><b style="color:var(--bad)">1</b><small>Overdue</small></div>
+    </div>
+    <div class="bar"><div class="drop">Site: All <i>▼</i></div><div class="drop">Viewing: Me <i>▼</i></div></div>
+    <div class="sec">Finance — 3 Waiting For You</div>
+    <div class="list">
+      <div class="row"><div class="l"><span class="tag">Purchase Invoice To Check</span><b>Jewson — Inv 88412</b><small>Studley Rd · Sent by Fiona · Today</small></div><div class="r">£1,240.50</div><span class="chev">›</span></div>
+      <div class="row"><div class="l"><span class="tag">Invoice Query</span><b>“Is this delivery yours?”</b><small>SIG — Inv 5521 · Cleveland Primary · Today</small></div><div class="r">£312.00</div><span class="chev">›</span></div>
+      <div class="row"><div class="l"><span class="tag">Wages To Book</span><b>Ollie Roofer — w/c 3 Nov</b><small>Cleveland Primary · Put against a price</small></div><div class="r">£640.00</div><span class="chev">›</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- 3: like WhatsApp -->
+<div id="h3" class="phone">
+  <div class="label">Option 3 — Like WhatsApp<small>A list of streams, newest first, with the latest line and a count. Tap one to open it.</small></div>
+  <div class="top"><span class="back">‹</span><span class="logo">OpHUB</span><span class="x">×</span><span class="co">RTB Roofing</span></div>
+  <div class="body">
+    <div class="crumbs"><b>HUB</b></div>
+    <div class="bar" style="margin-top:8px"><div class="drop">Viewing: Me <i>▼</i></div></div>
+    <div class="list">
+      <div class="conv"><div class="av">CC</div><div class="l"><b>Company Chat</b><small>Fiona: @Andy the Bellway valuation is due Friday</small></div><div class="r"><small>10:42</small><br><span class="n">2</span></div></div>
+      <div class="conv"><div class="av">£</div><div class="l"><b>Finance</b><small>Purchase invoice to check — Jewson £1,240.50</small></div><div class="r"><small>09:15</small><br><span class="n">3</span></div></div>
+      <div class="conv"><div class="av">P</div><div class="l"><b>Projects</b><small>Task due 10 Nov — Order scaffold for phase 2</small></div><div class="r"><small>08:30</small><br><span class="n">9</span></div></div>
+      <div class="conv"><div class="av">CP</div><div class="l"><b>Cleveland Primary</b><small>Mike: Scaffold down on the north side</small></div><div class="r"><small>Yesterday</small></div></div>
+      <div class="conv"><div class="av">SR</div><div class="l"><b>Studley Rd</b><small>Toolbox Talk due for this month</small></div><div class="r"><small>Mon</small></div></div>
+      <div class="conv"><div class="av">HM</div><div class="l"><b>Harbour Mill</b><small>Open snag — flashing at gable end</small></div><div class="r"><small>Mon</small></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- the chat (the same in all three) -->
+<div id="hc" class="phone">
+  <div class="label">Company Chat (The Same In All Three)<small>The whole company. Type @ to tag someone: they get a notification.</small></div>
+  <div class="top"><span class="back">‹</span><span class="logo">OpHUB</span><span class="x">×</span><span class="co">RTB Roofing</span></div>
+  <div class="body">
+    <div class="crumbs"><span>HUB</span> › <b>Company Chat</b></div>
+    <div class="chat" style="margin-top:10px">
+      <div class="day">Yesterday</div>
+      <div class="msg"><div class="av">MS</div><div class="bub"><div class="who">Mike Site</div><p>Scaffold down at Cleveland Primary, north side clear.</p><div class="t">16:05</div></div></div>
+      <div class="msg me"><div class="bub"><p>Nice one. <span class="at">@Fiona Books</span> can you chase the Bellway PO?</p><div class="t">16:20</div></div></div>
+      <div class="day">Today</div>
+      <div class="msg"><div class="av">FB</div><div class="bub"><div class="who">Fiona Books</div><p><span class="at">@Andy Cramp</span> PO came in, it's on the job. Bellway valuation is due Friday.</p><div class="t">10:42</div></div></div>
+      <div class="msg"><div class="av">PP</div><div class="bub"><div class="who">Paula PM</div><p>I'll get the measures over by Thursday.</p><div class="t">10:51</div></div></div>
+    </div>
+    <div class="pop"><div><b>Tag Someone</b><span class="x">✕</span></div><div>Mike Site</div><div>Mick Fixer</div></div>
+  </div>
+  <div class="send"><div class="in">Thanks <b>@Mi</b></div><div class="go">Send</div></div>
+</div>
+</body></html>

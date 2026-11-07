@@ -10,11 +10,13 @@ export type FilterItem = { v: string; l: string; n?: number };
 export type FilterPart = { key: string; label: string; items: FilterItem[]; single?: boolean };
 export type FilterSel = Record<string, string[]>;
 
-export function FinFilterBar({ search, parts, sel, onChange, onClear, sorts, sort, onSort, more, moreOn }: {
+export function FinFilterBar({ search, parts, sel, onChange, onClear, sorts, sort, onSort, more, moreOn, beside }: {
   search?: { value: string; onChange: (t: string) => void; placeholder: string };
   parts: FilterPart[]; sel: FilterSel; onChange: (next: FilterSel) => void; onClear: () => void;
   sorts?: [string, string][]; sort?: string; onSort?: (k: string) => void;
   more?: ReactNode; moreOn?: boolean;
+  /** A button on the Filter row, after the drop-downs (+ New Project on a phone, Andy 7 Nov 2026). */
+  beside?: ReactNode;
 }) {
   const [menu, setMenu] = useState<'' | 'filter' | 'sort'>('');
   const [part, setPart] = useState('');
@@ -45,6 +47,7 @@ export function FinFilterBar({ search, parts, sel, onChange, onClear, sorts, sor
       <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
         {drop('filter', label, count > 0)}
         {!!sorts?.length && drop('sort', sorts.find(([k]) => k === sort)?.[1] || 'Sort', false)}
+        {beside}
       </View>
       {menu === 'sort' && <View style={panel}>{(sorts || []).map(([k, l]) => option(l, sort === k, () => { onSort?.(k); setMenu(''); }, false))}</View>}
       {menu === 'filter' && (
