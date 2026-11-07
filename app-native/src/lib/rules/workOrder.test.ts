@@ -12,6 +12,8 @@ test('work order: number, address over two lines, description stopping at the ne
     'CHELMSFORD CM3 8DQ',
     'Resident: Mrs Smith Tel: 01245 000000',
   ];
-  assert.deepEqual(parseWorkOrder(rows), { jobNumber: 'WO-12345', address: '14 High Street Chelmsford CM3 8DQ', description: 'Leak above bedroom window, check flashing' });
+  // The resident (tenant) is read too (Andy, 7 Nov 2026), stopping at the next label (Tel:).
+  assert.deepEqual(parseWorkOrder(rows), { jobNumber: 'WO-12345', address: '14 High Street Chelmsford CM3 8DQ', description: 'Leak above bedroom window, check flashing', tenant: 'Mrs Smith' });
+  assert.deepEqual(parseWorkOrder([...rows.slice(0, 4), 'Resident: Mr K Hughes', 'Resident Phone: 07700 900456']).tenantPhone, '07700 900456');
   assert.deepEqual(parseWorkOrder(['nothing useful']), {});
 });
