@@ -21,7 +21,7 @@ const {chromium, makeContext, S1} = require('./harness');
   console.log('team shows people:', (await page.evaluate(()=>document.body.innerText)).includes('Finance on'));
   await page.goto(BASE+'/fin/job/'+S1); await page.waitForTimeout(4000);
   await page.getByText('Project Admin', {exact:true}).first().click(); await page.waitForTimeout(1200);
-  await page.getByText(/Project — name, client/).click(); await page.waitForTimeout(800);
+  await page.getByText('Edit ▾', {exact:true}).click(); await page.waitForTimeout(700); await page.locator('text="Edit Project" >> visible=true').last().click(); // (7 Nov 2026: one Edit ▾ button) await page.waitForTimeout(800);
   await page.locator('input').first().fill('Studley Road Re-roof'); await page.getByText('Save', {exact:true}).last().click(); await page.waitForTimeout(2000);
   console.log('site name now:', db.sites.find(s=>s.id===S1).name);
   await ctx.close();

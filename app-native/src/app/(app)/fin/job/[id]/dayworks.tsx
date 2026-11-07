@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as DocumentPicker from 'expo-document-picker';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { FinForm } from '@/components/FinForm';
 import { FinRow, FinStat, FinTabs, VarDayChips, BoqTabs } from '@/components/FinNav';
@@ -16,7 +16,7 @@ import { openDocLink } from '@/data/hs';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { fdate, money, num, round2, today } from '@/lib/rules/finance';
-import { page, space } from '@/theme/theme';
+import { base, page, useDesk } from '@/theme/theme';
 
 type Row = Record<string, any>;
 const ST: Record<string, [string, string]> = { issued: ['Issued', '#D98A00'], approved: ['Approved', '#1E7A3C'], rejected: ['Rejected', '#C0392B'] };
@@ -25,6 +25,7 @@ export default function FinDayworks() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { me } = useAuth();
   const toast = useToast();
+  const desk = useDesk();
   const qc = useQueryClient();
   const [f, setF] = useState('all');
   const [edit, setEdit] = useState<Row | null>(null);
@@ -32,36 +33,42 @@ export default function FinDayworks() {
   const { data = [], isLoading } = useQuery({ queryKey: ['finDw', id], queryFn: async () => ((await fdb.from('fin_dayworks').select('*').eq('site_id', id).order('seq')).data as Row[] | null) ?? [] });
   if (!me) return null;
   const list = data.filter((d) => f === 'all' || d.status === f);
+  const small = (label: string, onPress: () => void, color = base.blue) => (
+    <Pressable onPress={onPress} style={{ paddingVertical: 3, paddingHorizontal: 9, borderRadius: 7, borderWidth: 1, borderColor: base.cardLine }}><Text style={{ fontSize: 12, fontWeight: '500', color }}>{label}</Text></Pressable>
+  );
   const sum = (s: string) => round2(data.filter((d) => d.status === s).reduce((t, d) => t + Number(d.value || 0), 0));
   return (
     <ScrollView contentContainerStyle={page(900)}>
       <Stack.Screen options={{ title: 'Day works' }} />
       <BoqTabs id={id} on="variations" />
-      <VarDayChips id={id} on="dayworks" />
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}><FinStat v={money(sum('approved'), 0)} label="Approved" /><FinStat v={money(sum('issued'), 0)} label="Issued, waiting" /><FinStat v={money(sum('rejected'), 0)} label="Rejected" /></View>
-      <FinTabs items={[['all', 'All'], ['issued', 'Issued'], ['approved', 'Approved'], ['rejected', 'Rejected']].map(([k, l]) => [k, l, data.filter((d) => k === 'all' || d.status === k).length] as [string, string, number])} value={f} onChange={setF}
-        right={<Button title="+ Day Work" onPress={() => setEdit({ status: 'issued', work_date: today() })} />} />
+      <VarDayChips id={id} on="dayworks" right={<Button small title="+ Day Work" onPress={() => setEdit({ status: 'issued', work_date: today() })} />} />
+      {/* Phone: Approved across the top, Issued and Rejected side by side below. Laptop: three even tiles on one row (Andy, 7 Nov 2026). */}
+      <View style={{ flexDirection: desk ? 'row' : 'column', gap: 8, marginBottom: 10 }}>
+        <View style={{ flexDirection: 'row', flex: desk ? 1 : undefined }}><FinStat v={money(sum('approved'), 0)} label="Approved" /></View>
+        <View style={{ flexDirection: 'row', gap: 8, flex: desk ? 2 : undefined }}><FinStat basis={0} v={money(sum('issued'), 0)} label="Issued, Waiting For Approval" /><FinStat basis={0} v={money(sum('rejected'), 0)} label="Rejected" /></View>
+      </View>
+      <FinTabs items={[['all', 'All'], ['issued', 'Issued'], ['approved', 'Approved'], ['rejected', 'Rejected']].map(([k, l]) => [k, l, data.filter((d) => k === 'all' || d.status === k).length] as [string, string, number])} value={f} onChange={setF} even />
       {isLoading ? <Muted>Loading…</Muted> : list.length ? list.map((d) => (
-        <View key={d.id}>
-          <FinRow left={d.number} title={d.title} sub={[ST[d.status]?.[0], d.work_date ? fdate(d.work_date) : '', d.ref ? `sheet ${d.ref}` : '', d.cost_estimate != null ? `cost ${money(d.cost_estimate)}` : ''].filter(Boolean).join(' · ')} right={money(d.value)} tone={ST[d.status]?.[1]} onPress={() => setEdit(d)} />
-          {/* 9219s finDwSet: quick Approve (asks the value) / Reject, like variations */}
+        // Tidy rows, as Variations (Andy, 7 Nov 2026): number and title, the status and its date, the amount.
+        <FinRow compact key={d.id} left={d.number} title={d.title} sub={[ST[d.status]?.[0], d.status === 'approved' && d.approved_on ? fdate(d.approved_on) : d.work_date ? fdate(d.work_date) : ''].filter(Boolean).join(' · ')} right={money(d.value)} onPress={() => setEdit(d)}>
+          {/* 9219s finDwSet: quick Approve (asks the value, the issued value to start with) / Reject, like variations */}
           {d.status === 'issued' && (
-            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
-              <Button small title="Approve" onPress={async () => {
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: 5 }}>
+              {small('Approve', async () => {
                 const v = await promptText(`Approve ${d.number} — approved value (£)`, d.value != null ? String(d.value) : ''); if (v === null) return;
                 const n = num(v); if (n === null || isNaN(n)) { toast('Enter the approved value.'); return; }
                 if (!(await fdb.from('fin_dayworks').update({ status: 'approved', value: round2(n), approved_on: today(), updated_at: new Date().toISOString() } as never).eq('id', d.id).select('id')).data?.length) { toast('Could not save — try again.'); return; }
                 toast('Approved — it goes onto the next application'); void qc.invalidateQueries({ queryKey: ['finDw'] });
-              }} />
-              <Button small kind="ghost" title="Reject" onPress={async () => {
+              }, '#1E7A3C')}
+              {small('Reject', async () => {
                 if (!(await fdb.from('fin_dayworks').update({ status: 'rejected', updated_at: new Date().toISOString() } as never).eq('id', d.id).select('id')).data?.length) { toast('Could not save — try again.'); return; }
                 toast('Day work rejected'); void qc.invalidateQueries({ queryKey: ['finDw'] });
-              }} />
+              }, '#C0392B')}
             </View>
           )}
-        </View>
+        </FinRow>
       )) : <Empty>No day works yet.</Empty>}
-      <Muted style={{ marginTop: 8 }}>Approved day works go onto the next application for payment.</Muted>
+      <Muted style={{ marginTop: 8, fontSize: 11.5 }}>Approved day works go onto the next application for payment.</Muted>
       {edit && (
         <FinForm title={edit.id ? `${edit.number} · day work` : 'New day work'} initial={edit} onClose={() => { setEdit(null); setSheet(null); }}
           extra={(
@@ -70,7 +77,7 @@ export default function FinDayworks() {
               <Button small kind="ghost" title={sheet ? `📎 ${sheet.name}` : '📎 Signed day work sheet'} onPress={async () => { const r = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true }); if (!r.canceled && r.assets[0]) setSheet({ uri: r.assets[0].uri, name: r.assets[0].name, mimeType: r.assets[0].mimeType }); }} />
             </View>
           )}
-          fields={[{ k: 'title', label: 'Title', ph: 'e.g. Clear debris from gutters (2 men, 1 day)' }, { k: 'description', label: 'Description', kind: 'multiline' }, { k: 'work_date', label: 'Date of the work', kind: 'date', half: true }, { k: 'ref', label: 'Day work sheet ref', half: true }, { k: 'value', label: 'Value £', kind: 'money', half: true }, { k: 'cost_estimate', label: 'Our cost £', kind: 'money', half: true }, { k: 'status', label: 'Status', kind: 'choice', options: [['issued', 'Issued'], ['approved', 'Approved'], ['rejected', 'Rejected']] }, { k: 'notes', label: 'Notes', kind: 'multiline' }]}
+          fields={[{ k: 'title', label: 'Title', ph: 'e.g. Clear debris from gutters (2 men, 1 day)' }, { k: 'description', label: 'Description', kind: 'multiline' }, { k: 'work_date', label: 'Date of the work', kind: 'date', half: true }, { k: 'ref', label: 'Day work sheet ref', half: true }, { k: 'value', label: edit.status === 'approved' ? 'Approved Value £' : 'Value Issued To Client £', kind: 'money', half: true }, { k: 'cost_estimate', label: 'Our cost £', kind: 'money', half: true }, { k: 'status', label: 'Status', kind: 'choice', options: [['issued', 'Issued'], ['approved', 'Approved'], ['rejected', 'Rejected']] }, { k: 'notes', label: 'Notes', kind: 'multiline' }]}
           onSave={async (v) => {
             const title = String(v.title || '').trim(); if (!title) return 'Give it a title.';
             const n = (k: string) => { const x = num(v[k]); return x === null || isNaN(x) ? null : round2(x); };

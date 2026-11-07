@@ -15,7 +15,7 @@ export function FinFilterBar({ search, parts, sel, onChange, onClear, sorts, sor
   parts: FilterPart[]; sel: FilterSel; onChange: (next: FilterSel) => void; onClear: () => void;
   sorts?: [string, string][]; sort?: string; onSort?: (k: string) => void;
   more?: ReactNode; moreOn?: boolean;
-  /** A button on the Filter row, after the drop-downs (+ New Project on a phone, Andy 7 Nov 2026). */
+  /** A button on the Filter row: the left two-thirds, Filter the right third, the same height (+ New Project on a phone, Andy 7 Nov 2026). */
   beside?: ReactNode;
 }) {
   const [menu, setMenu] = useState<'' | 'filter' | 'sort'>('');
@@ -25,7 +25,7 @@ export function FinFilterBar({ search, parts, sel, onChange, onClear, sorts, sor
   const count = ticked.length + (moreOn ? 1 : 0);
   const label = count === 0 ? 'Filter: everything' : count === 1 && ticked[0] ? `Filter: ${ticked[0]}` : `Filter (${count})`;
   const drop = (key: 'filter' | 'sort', text: string, on: boolean) => (
-    <Pressable accessibilityRole="button" accessibilityLabel={key === 'filter' ? 'Filter' : 'Sort'} onPress={() => setMenu(menu === key ? '' : key)} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 6, paddingHorizontal: 10, paddingVertical: 8, borderRadius: radius.input, borderWidth: 1, borderColor: on || menu === key ? base.ink : base.line, backgroundColor: base.card }}>
+    <Pressable accessibilityRole="button" accessibilityLabel={key === 'filter' ? 'Filter' : 'Sort'} onPress={() => setMenu(menu === key ? '' : key)} style={{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 6, paddingHorizontal: 10, paddingVertical: 8, borderRadius: radius.input, borderWidth: 1, borderColor: on || menu === key ? base.ink : base.line, backgroundColor: base.card }}>
       <Text numberOfLines={1} style={{ flexShrink: 1, fontSize: 12.5, fontWeight: '500', color: base.ink }}>{text}</Text>
       <Text style={{ fontSize: 11, color: base.slate }}>{menu === key ? '▲' : '▼'}</Text>
     </Pressable>
@@ -45,9 +45,10 @@ export function FinFilterBar({ search, parts, sel, onChange, onClear, sorts, sor
     <View>
       {search && <TextInput value={search.value} onChangeText={search.onChange} placeholder={search.placeholder} style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, paddingHorizontal: 10, paddingVertical: 8, backgroundColor: base.card, color: base.ink, marginBottom: 10, fontSize: 16 }} />}
       <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
-        {drop('filter', label, count > 0)}
+        {/* Both in plain boxes, so the split is exactly two-thirds / one-third (padding would otherwise count). */}
+        {beside ? <View style={{ flex: 2, minWidth: 0 }}>{beside}</View> : null}
+        {beside ? <View style={{ flex: 1, minWidth: 0, flexDirection: 'row' }}>{drop('filter', label, count > 0)}</View> : drop('filter', label, count > 0)}
         {!!sorts?.length && drop('sort', sorts.find(([k]) => k === sort)?.[1] || 'Sort', false)}
-        {beside}
       </View>
       {menu === 'sort' && <View style={panel}>{(sorts || []).map(([k, l]) => option(l, sort === k, () => { onSort?.(k); setMenu(''); }, false))}</View>}
       {menu === 'filter' && (

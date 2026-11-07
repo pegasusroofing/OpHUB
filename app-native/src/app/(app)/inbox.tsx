@@ -1,4 +1,4 @@
-// Operative "Messages & tasks": two tabs, "To sign / do" and "Messages".
+// Operative "Messages & tasks": tabs "To sign / do", "Messages" and the Company Chat (the whole company, 7 Nov 2026).
 // Ported from renderOpInbox (185), renderOutstandingTasks (190, operative view)
 // and renderMyMessages (830). Opening the Messages tab marks them read.
 import { useQueryClient } from '@tanstack/react-query';
@@ -6,7 +6,9 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 
+import { CompanyChat } from '@/components/CompanyChat';
 import { Card, Empty, Muted, SectionTitle } from '@/components/ui';
+import { useChatUnread } from '@/data/companyChat';
 import { nameOf, usePeople } from '@/data/hs';
 import { useHub } from '@/data/hub';
 import { markMessagesRead, outstandingCount, useMyMessages, useOutstanding, type OutstandingRow } from '@/data/inbox';
@@ -16,7 +18,7 @@ import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { base, page, useTheme } from '@/theme/theme';
 
-type Tab = 'todo' | 'msgs';
+type Tab = 'todo' | 'msgs' | 'chat';
 const TYPES = [{ k: 'all', l: 'All' }, { k: 'rams', l: 'RAMS' }, { k: 'coshh', l: 'COSHH' }, { k: 'tbt', l: 'TBT' }] as const;
 
 export default function Inbox() {
@@ -60,17 +62,23 @@ export default function Inbox() {
   const siteName = (id: string | null) => (id ? sites?.find((s) => s.id === id)?.name || 'a site' : 'All sites');
   const rows = (out.data ?? []).map((r) => ({ ...r, items: type === 'all' ? r.items : r.items.filter((i) => i.type === type) })).filter((r) => r.items.length);
   const unreadN = msgs.data?.unread.length ?? 0;
+  const chatN = useChatUnread(me).data ?? 0;
 
-  return (
-    <ScrollView contentContainerStyle={page(720)}
-      refreshControl={<RefreshControl refreshing={out.isRefetching || msgs.isRefetching} onRefresh={() => { void out.refetch(); void msgs.refetch(); }} />}>
-      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
-        {([['todo', `To sign / do${todoN ? ` (${todoN})` : ''}`], ['msgs', `Messages${unreadN && current !== 'msgs' ? ` (${unreadN} new)` : ''}`]] as const).map(([k, label]) => (
+  const pills = (
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+        {([['todo', `To sign / do${todoN ? ` (${todoN})` : ''}`], ['msgs', `Messages${unreadN && current !== 'msgs' ? ` (${unreadN} new)` : ''}`], ['chat', `Company Chat${chatN && current !== 'chat' ? ` (${chatN} new)` : ''}`]] as const).map(([k, label]) => (
           <Pressable key={k} onPress={() => setTab(k)} style={{ height: 34, justifyContent: 'center', paddingHorizontal: 13, borderRadius: 999, borderWidth: 1, borderColor: current === k ? base.ink : base.line, backgroundColor: current === k ? base.ink : base.card }}>
             <Text style={{ fontSize: 12.5, fontWeight: '600', color: current === k ? '#fff' : base.ink }}>{label}</Text>
           </Pressable>
         ))}
       </View>
+  );
+  if (current === 'chat') return <View style={[page(720), { flex: 1, paddingBottom: 10 }]}>{pills}<CompanyChat /></View>;
+
+  return (
+    <ScrollView contentContainerStyle={page(720)}
+      refreshControl={<RefreshControl refreshing={out.isRefetching || msgs.isRefetching} onRefresh={() => { void out.refetch(); void msgs.refetch(); }} />}>
+      {pills}
 
       {current === 'todo' ? (
         <>

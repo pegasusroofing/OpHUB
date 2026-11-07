@@ -102,10 +102,17 @@ export default function FinJobs() {
     </Pressable>
   );
   const newBtn = me && isFullManager(me) ? <Button small title="+ New Project" onPress={() => router.push('/fin/newjob' as never)} /> : undefined;
-  // + New Project sits at the end of the Finance tab row on a laptop (Andy, 5 Nov 2026); on a phone it's beside Filter, so the tabs get the whole width.
+  // + New Project sits at the end of the Finance tab row on a laptop (Andy, 5 Nov 2026). On a phone it's the left two-thirds
+  // of the Filter row, Filter the right third, the same height (Andy, 7 Nov 2026), so the tabs get the whole width.
+  const newBtnPhone = me && isFullManager(me) ? (
+    <Pressable accessibilityRole="button" onPress={() => router.push('/fin/newjob' as never)} style={{ flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: radius.input, backgroundColor: t.brand1, paddingHorizontal: 10 }}>
+      <Text style={{ color: t.brand1Text, fontSize: 13, fontWeight: '600' }}>+ New Project</Text>
+    </Pressable>
+  ) : undefined;
+  // The phone's bottom bar: the count on the left, the value of works on the right, small and grey (Andy, 7 Nov 2026).
   return (
-    <FinPage title="Projects" section="jobs" subRight={desk ? newBtn : undefined} foot={!desk && data && shown.length ? <View accessibilityLabel="Value of works" style={{ flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 12, backgroundColor: base.card, borderTopWidth: 1, borderTopColor: base.line, paddingHorizontal: 16, paddingVertical: 9 }}><Text style={{ fontSize: 12.5, color: base.slate }}>{tallyText(shown)}</Text><Text style={{ fontSize: 14, fontWeight: '600', color: base.ink }}>Value Of Works {money(valueOf(shown), 0)}</Text></View> : undefined}>
-      {!desk && <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search Projects' }} sel={sel} moreOn={!!val} beside={newBtn}
+    <FinPage title="Projects" section="jobs" subRight={desk ? newBtn : undefined} foot={!desk && data && shown.length ? <View accessibilityLabel="Value of works" style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12, backgroundColor: base.card, borderTopWidth: 1, borderTopColor: base.line, paddingHorizontal: 16, paddingVertical: 8 }}><Text style={{ fontSize: 11.5, color: base.slate }}>{tallyText(shown)}</Text><Text style={{ fontSize: 11.5, fontWeight: '500', color: base.slate }}>Value Of Works {money(valueOf(shown), 0)}</Text></View> : undefined}>
+      {!desk && <FinFilterBar search={{ value: q, onChange: setQ, placeholder: 'Search Projects' }} sel={sel} moreOn={!!val} beside={newBtnPhone}
         onClear={() => { setSel({ status: [], pm: [], client: [], start: [] }); setVal(''); }}
         onChange={async (next) => {
           if (next.start[0] === 'custom' && dr !== 'custom') { const from = await askDate('Start dates from'); if (from === null) return; const to = await askDate('Start dates to', { min: from || undefined }); if (to === null) return; setCustom({ from: from || undefined, to: to || undefined }); }

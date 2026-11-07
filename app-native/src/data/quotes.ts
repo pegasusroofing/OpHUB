@@ -172,6 +172,8 @@ export async function linkEstimatingFolder(siteId: string, f: { id: string; name
   }
   const r = await invokeAsUser<{ ok?: boolean; how?: string; quote?: string | null }>('quote-tracker', { action: 'link_folder', site_id: siteId, folder_id: f.id, drive_id: f.driveId || null });
   if (r.error || !r.data?.ok) return { error: r.error || 'Could not move the folder.', note: '' };
+  // Linked: the job remembers it, so Project Admin stops offering Link Estimating Folder (Andy, 7 Nov 2026).
+  try { await db.from('sites').update({ estimating_linked_at: new Date().toISOString() } as never).eq('id', siteId); } catch { /* the link itself worked */ }
   const bits = [r.data.how === 'copied' ? `"${f.name}" was copied into the job (the original stays in Estimating)` : `"${f.name}" moved into the job's Estimating folder`];
   if (r.data.quote) bits.push(`the quote "${r.data.quote}" is marked won`);
   return { note: bits.join(', and ') };

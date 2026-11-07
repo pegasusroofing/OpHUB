@@ -3,17 +3,29 @@
 // COSHH not signed by operatives (once work has started), open to-dos, new
 // Schedule of Works photos, and unread manager messages. Defaults to the jobs you
 // run (or are assigned to); can switch to all PMs or one colleague.
+// 7 Nov 2026 (Andy): it also pulls in Finance — purchase invoices and expense receipts sent to you to book, wages
+// waiting on your jobs' prices, invoice queries and PM replies, and (for Finance users) Finance's own to-do list —
+// and "tagged you" messages from the Company Chat. Each item is Projects, Finance or Chat (the HUB's tabs), and
+// each one drops off by itself once it's dealt with (booked, replied to, signed, read…).
 import { useQuery } from '@tanstack/react-query';
 
+import { isChatTag, useChatUnread } from '@/data/companyChat';
+import { useFinOverview } from '@/data/finance';
 import { msgDest, SPECIAL_LABEL } from '@/data/siteMessages';
+import { isFinanceUser, isManager } from '@/lib/roles';
 import { siteStatusKey } from '@/lib/rules/checkin';
 import { currentCycleSigs } from '@/lib/rules/hs';
 import { supabase } from '@/lib/supabase';
-import type { Profile, Site } from '@/lib/types';
+import type { Organization, Profile, Site } from '@/lib/types';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 
-export type HubItem = { key: string; type: 'tbt' | 'snag' | 'rams' | 'coshh' | 'task' | 'sowphoto' | 'message'; typeLbl: string; label: string; siteId: string | null; siteName: string; due: Date | null; at: Date | null; route: string };
+export type HubArea = 'projects' | 'finance' | 'chat';
+/** markRead: a message that counts as dealt with once it's opened (so tapping it in the HUB marks it read). */
+export type HubItem = { key: string; type: 'tbt' | 'snag' | 'rams' | 'coshh' | 'task' | 'sowphoto' | 'message' | 'fin_book' | 'fin_rcpt' | 'fin_wage' | 'fin_query' | 'fin_reply' | 'fin_todo' | 'chat_tag'; area: HubArea; typeLbl: string; label: string; siteId: string | null; siteName: string; due: Date | null; at: Date | null; route: string; amount?: number | null; markRead?: string };
+/** Where the Company Chat is: the HUB for managers, Inbox for everyone else. */
+export const chatRoute = (me: Profile | null) => (isManager(me) ? '/pm/hub?tab=chat' : '/inbox?tab=chat');
+type Row = Record<string, any>;
 
 const rows = <T,>(r: { data: unknown }) => ((r.data as T[] | null) ?? []);
 
@@ -40,9 +52,35 @@ export function useHub(me: Profile | null, allSites: Site[] | undefined, pmId: s
         const read = dm.length ? new Set(rows<{ message_id: string }>(await db.from('message_reads').select('message_id').eq('user_id', p.id).in('message_id', dm.map((m) => m.id))).map((r) => r.message_id)) : new Set<string>();
         dm.filter((m) => !read.has(m.id)).forEach((m) => {
           const s = m.site_id ? (allSites ?? []).find((x) => x.id === m.site_id) : null;
-          const lbl = SPECIAL_LABEL[m.kind];
-          direct.push({ key: `dm-${m.id}`, type: 'message', typeLbl: lbl || 'Message', label: String(m.body || lbl || 'New message').slice(0, 120), siteId: m.site_id, siteName: s ? s.name : lbl ? 'Finance' : 'All sites', due: null, at: new Date(m.created_at), route: msgDest(m, p) || (s ? `/sites/${s.id}/messages` : '/inbox') });
+          const at = new Date(m.created_at);
+          // Tagged in the Company Chat: cleared by opening the chat.
+          if (isChatTag(m.body)) { direct.push({ key: `dm-${m.id}`, type: 'chat_tag', area: 'chat', typeLbl: 'Tagged You', label: String(m.body).slice(0, 160), siteId: null, siteName: 'Company Chat', due: null, at, route: chatRoute(p) }); return; }
+          const lbl = SPECIAL_LABEL[m.kind]?.replace(/\b\w/g, (c) => c.toUpperCase()); // Invoice Query, Delivery Problem
+          const fin = m.kind === 'pi_query' || m.kind === 'pi_query_reply';
+          // An invoice query stays until you reply on its page (or the office sorts it); everything else once it's opened.
+          direct.push({ key: `dm-${m.id}`, type: m.kind === 'pi_query' ? 'fin_query' : m.kind === 'pi_query_reply' ? 'fin_reply' : 'message', area: fin ? 'finance' : 'projects', typeLbl: m.kind === 'pi_query_reply' ? 'PM Reply' : lbl || 'Message', label: String(m.body || lbl || 'New message').slice(0, 120), siteId: m.site_id, siteName: s ? s.name : fin ? 'Finance' : 'All sites', due: null, at, route: msgDest(m, p) || (s ? `/sites/${s.id}/messages` : '/inbox'), markRead: m.kind === 'pi_query' ? undefined : m.id });
         });
+        // Finance: invoices and receipts sent to you to book (gone once booked or sent back), and wages waiting to go
+        // against a price on your jobs (gone once booked). Admins see every job's wages, as on To Book.
+        if (isManager(p)) {
+        const [inb, wp] = await Promise.all([
+          db.from('fin_inbox').select('id,site_id,file_name,extracted,assigned_at,received_at').eq('assigned_pm', p.id).eq('status', 'new').order('assigned_at'),
+          db.from('wage_pushes').select('id,site_id,amount,week_start').eq('status', 'pending'),
+        ]);
+        rows<Row>(inb).forEach((it) => {
+          const ex = (it.extracted || {}) as Row, rc = ex.receipt === true;
+          const s = it.site_id ? (allSites ?? []).find((x) => x.id === it.site_id) : null;
+          const what = rc ? `Receipt from ${ex.sent_by || 'the team'}${ex.label ? ` — ${ex.label}` : ''}` : `${ex.supplier || it.file_name || 'Supplier invoice'}${ex.invoice_no ? ` — Inv ${ex.invoice_no}` : ''}`;
+          direct.push({ key: `fi-${it.id}`, type: rc ? 'fin_rcpt' : 'fin_book', area: 'finance', typeLbl: rc ? 'Expense Receipt To Book' : 'Purchase Invoice To Book', label: what, siteId: s?.id ?? null, siteName: s ? s.name : rc ? 'Job not chosen yet' : 'Choose the job', due: null, at: new Date(it.assigned_at || it.received_at || Date.now()), route: rc ? `/fin/inbox/${it.id}` : '/pm/tobook', amount: ex.total != null && ex.total !== '' ? Number(ex.total) : null });
+        });
+        const wageSites = (allSites ?? []).filter((s) => pmId === 'all' || p.role === 'admin' || (s as Site & { responsible_pm_id?: string | null }).responsible_pm_id === p.id);
+        const wBy: Record<string, Row[]> = {};
+        rows<Row>(wp).forEach((w) => { if (wageSites.some((s) => s.id === w.site_id)) (wBy[w.site_id] ||= []).push(w); });
+        Object.entries(wBy).forEach(([sid, ws]) => {
+          const s = wageSites.find((x) => x.id === sid);
+          direct.push({ key: `fw-${sid}`, type: 'fin_wage', area: 'finance', typeLbl: 'Wages To Book', label: `${ws.length} week${ws.length === 1 ? '' : 's'} of wages to put against a price`, siteId: sid, siteName: s?.name || 'Job', due: null, at: null, route: `/sites/${sid}/price`, amount: ws.reduce((t, w) => t + Number(w.amount || 0), 0) });
+        });
+        }
       }
       if (!ids.length) return { items: direct, sites };
       const rpc = supabase.rpc.bind(supabase) as unknown as (n: string, a: object) => Promise<{ data: unknown; error: unknown }>;
@@ -92,30 +130,45 @@ export function useHub(me: Profile | null, allSites: Site[] | undefined, pmId: s
         const t = talkList.filter((x) => x.site_id === s.id);
         const issued = t.some((x) => (x.status === 'live' || x.status === 'completed') && new Date(x.created_at) >= monthStart);
         const ever = t.some((x) => x.status === 'completed');
-        if (siteStatusKey(s) === 'live' && (!issued || !ever)) items.push({ key: `tbt-${s.id}`, type: 'tbt', typeLbl: 'Toolbox Talk', label: ever ? 'Toolbox Talk due for this month' : 'Toolbox Talk — none ever completed at this site', siteId: s.id, siteName: s.name, due: dueTbt, at: null, route: `/sites/${s.id}/hs/tbt` });
-        rows<{ id: string; site_id: string }>(snags).filter((x) => x.site_id === s.id).forEach((x) => items.push({ key: `snag-${x.id}`, type: 'snag', typeLbl: 'Snag', label: 'Open snag', siteId: s.id, siteName: s.name, due: null, at: null, route: `/sites/${s.id}/snagging/list` }));
+        if (siteStatusKey(s) === 'live' && (!issued || !ever)) items.push({ key: `tbt-${s.id}`, type: 'tbt', area: 'projects', typeLbl: 'Toolbox Talk', label: ever ? 'Toolbox Talk due for this month' : 'Toolbox Talk — none ever completed at this site', siteId: s.id, siteName: s.name, due: dueTbt, at: null, route: `/sites/${s.id}/hs/tbt` });
+        rows<{ id: string; site_id: string }>(snags).filter((x) => x.site_id === s.id).forEach((x) => items.push({ key: `snag-${x.id}`, type: 'snag', area: 'projects', typeLbl: 'Snag', label: 'Open snag', siteId: s.id, siteName: s.name, due: null, at: null, route: `/sites/${s.id}/snagging/list` }));
         if (started.has(s.id)) {
           const r = missing(s.id, ramsD, rsCur as never, 'rams_id');
-          if (r) items.push({ key: `rams-${s.id}`, type: 'rams', typeLbl: 'RAMS', label: `RAMS not signed by operatives (${r})`, siteId: s.id, siteName: s.name, due: null, at: null, route: `/sites/${s.id}/hs/rams` });
+          if (r) items.push({ key: `rams-${s.id}`, type: 'rams', area: 'projects', typeLbl: 'RAMS', label: `RAMS not signed by operatives (${r})`, siteId: s.id, siteName: s.name, due: null, at: null, route: `/sites/${s.id}/hs/rams` });
           const c = missing(s.id, coshhD, csCur as never, 'coshh_id');
-          if (c) items.push({ key: `coshh-${s.id}`, type: 'coshh', typeLbl: 'COSHH', label: `COSHH not signed by operatives (${c})`, siteId: s.id, siteName: s.name, due: null, at: null, route: `/sites/${s.id}/hs/coshh` });
+          if (c) items.push({ key: `coshh-${s.id}`, type: 'coshh', area: 'projects', typeLbl: 'COSHH', label: `COSHH not signed by operatives (${c})`, siteId: s.id, siteName: s.name, due: null, at: null, route: `/sites/${s.id}/hs/coshh` });
         }
       }
       rows<{ id: string; site_id: string; text: string; date_required_by: string | null }>(todos).forEach((t) => {
         const s = sites.find((x) => x.id === t.site_id);
-        if (s) items.push({ key: `task-${t.id}`, type: 'task', typeLbl: 'Task', label: t.text, siteId: s.id, siteName: s.name, due: t.date_required_by ? new Date(`${t.date_required_by}T00:00:00`) : null, at: null, route: `/sites/${s.id}/todos` });
+        if (s) items.push({ key: `task-${t.id}`, type: 'task', area: 'projects', typeLbl: 'Task', label: t.text, siteId: s.id, siteName: s.name, due: t.date_required_by ? new Date(`${t.date_required_by}T00:00:00`) : null, at: null, route: `/sites/${s.id}/todos` });
       });
       (Array.isArray(alerts.data) ? (alerts.data as { site_id: string; photos: number; latest: string }[]) : []).forEach((a) => {
         const s = sites.find((x) => x.id === a.site_id);
-        if (s) items.push({ key: `sow-${s.id}`, type: 'sowphoto', typeLbl: 'SOW photos', label: `${a.photos} new photo${a.photos === 1 ? '' : 's'} on the Schedule of Works`, siteId: s.id, siteName: s.name, due: null, at: new Date(a.latest), route: `/sites/${s.id}/schedule` });
+        if (s) items.push({ key: `sow-${s.id}`, type: 'sowphoto', area: 'projects', typeLbl: 'SOW photos', label: `${a.photos} new photo${a.photos === 1 ? '' : 's'} on the Schedule of Works`, siteId: s.id, siteName: s.name, due: null, at: new Date(a.latest), route: `/sites/${s.id}/schedule` });
       });
       msgList.filter((m) => !readIds.has(m.id)).forEach((m) => {
         const s = m.site_id ? sites.find((x) => x.id === m.site_id) : null;
-        items.push({ key: `msg-${m.id}`, type: 'message', typeLbl: 'Message', label: s ? 'New message' : 'New message (all sites)', siteId: m.site_id, siteName: s ? s.name : 'All sites', due: null, at: new Date(m.created_at), route: s ? `/sites/${s.id}/messages` : '/inbox' });
+        items.push({ key: `msg-${m.id}`, type: 'message', area: 'projects', typeLbl: 'Message', label: s ? 'New message' : 'New message (all sites)', siteId: m.site_id, siteName: s ? s.name : 'All sites', due: null, at: new Date(m.created_at), route: s ? `/sites/${s.id}/messages` : '/inbox', markRead: m.id });
       });
       items.push(...direct);
       items.sort((a, b) => (a.due && b.due ? +a.due - +b.due : a.due ? -1 : b.due ? 1 : a.at && b.at ? +b.at - +a.at : a.at ? -1 : b.at ? 1 : 0));
       return { items, sites };
     },
   });
+}
+
+/** The whole HUB: the list above, plus Finance's to-do list for Finance users (looking at their own HUB), and the
+ *  Company Chat's unread count. Used by the HUB page and the menu's red count. */
+export function useHubAll(me: Profile | null, org: Organization | null, allSites: Site[] | undefined, pmId: string) {
+  const hub = useHub(me, allSites, pmId);
+  const own = pmId === '' || pmId === 'all' || pmId === me?.id;
+  const fin = useFinOverview(own && isFinanceUser(me, org) ? me : null, allSites);
+  const chat = useChatUnread(me);
+  const todos: HubItem[] = (fin.data?.todo ?? []).map((t) => ({ key: `ft-${t.t}`, type: 'fin_todo', area: 'finance', typeLbl: 'Finance To Do', label: `${t.t} (${t.n})`, siteId: null, siteName: t.s, due: null, at: null, route: t.go }));
+  const items = [...(hub.data?.items ?? []), ...todos];
+  return {
+    items, sites: hub.data?.sites ?? [], chatUnread: chat.data ?? 0, isLoading: hub.isLoading, isRefetching: hub.isRefetching,
+    refetch: () => { void hub.refetch(); if (fin.data) void fin.refetch(); void chat.refetch(); },
+  };
 }

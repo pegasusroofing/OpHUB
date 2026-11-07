@@ -15,22 +15,24 @@ const dayAsDate = (d: number) => { const t = new Date(), last = new Date(t.getFu
 type V = Record<string, string | boolean>;
 const box = { borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 9, color: base.ink, backgroundColor: base.card };
 
-export function FinForm({ title, fields, initial, onSave, onClose, onDelete, saveLabel = 'Save', note, extra }: {
+/** onChange: when a field changes, return other fields to fill in (e.g. the approved value from the value issued). */
+export function FinForm({ title, fields, initial, onSave, onClose, onDelete, saveLabel = 'Save', note, extra, onChange }: {
   title: string; fields: Field[]; initial?: Record<string, unknown>; saveLabel?: string; note?: string; extra?: ReactNode;
   onSave: (v: V) => Promise<string | null | void>; onClose: () => void; onDelete?: () => Promise<string | null | void>;
+  onChange?: (k: string, next: V, before: V) => Partial<V> | void;
 }) {
   const [v, setV] = useState<V>(() => { const o: V = {}; fields.forEach((f) => { const x = initial?.[f.k]; o[f.k] = f.kind === 'check' ? !!x : x == null ? '' : String(x); }); return o; });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [dayOpen, setDayOpen] = useState('');
-  const set = (k: string, x: string | boolean) => setV((o) => ({ ...o, [k]: x }));
+  const set = (k: string, x: string | boolean) => setV((o) => { const n = { ...o, [k]: x }; const more = onChange?.(k, n, o); return more ? { ...n, ...more } as V : n; });
   const field = (f: Field) => {
     if (f.kind === 'check') return <Check key={f.k} label={f.label} value={!!v[f.k]} onChange={(x) => set(f.k, x)} />;
     return (
       <View key={f.k} style={{ flexBasis: f.half ? '47%' : '100%', flexGrow: 1, marginBottom: 8 }}>
         <Muted style={{ fontWeight: '500' }}>{f.label}</Muted>
         {f.kind === 'choice' ? (
-          <Pressable onPress={async () => { const k = await chooseAction(f.label, (f.options || []).map(([key, label]) => ({ key, label }))); if (k !== null && k !== undefined) set(f.k, k); }} style={box}>
+          <Pressable accessibilityRole="button" accessibilityLabel={f.label} onPress={async () => { const k = await chooseAction(f.label, (f.options || []).map(([key, label]) => ({ key, label }))); if (k !== null && k !== undefined) set(f.k, k); }} style={box}>
             <Text style={{ color: base.ink }}>{(f.options || []).find(([k]) => k === v[f.k])?.[1] || f.ph || 'Choose…'} ▾</Text>
           </Pressable>
         ) : f.kind === 'day' ? (
@@ -44,7 +46,7 @@ export function FinForm({ title, fields, initial, onSave, onClose, onDelete, sav
         ) : f.kind === 'date' ? (
           <DateBox value={String(v[f.k] ?? '')} onChange={(x) => set(f.k, x)} title={f.label} placeholder={f.ph || 'Choose a date'} style={{ paddingVertical: 8 }} />
         ) : (
-          <TextInput value={String(v[f.k] ?? '')} onChangeText={(x) => set(f.k, x)} placeholder={f.ph || (f.kind === 'money' ? '£0.00' : '')} multiline={f.kind === 'multiline'}
+          <TextInput accessibilityLabel={f.label} value={String(v[f.k] ?? '')} onChangeText={(x) => set(f.k, x)} placeholder={f.ph || (f.kind === 'money' ? '£0.00' : '')} multiline={f.kind === 'multiline'}
             keyboardType={f.kind === 'money' ? 'decimal-pad' : f.kind === 'number' ? 'decimal-pad' : f.kind === 'email' ? 'email-address' : 'default'} autoCapitalize={f.kind === 'email' ? 'none' : 'sentences'}
             style={[box, f.kind === 'multiline' ? { minHeight: 80 } : null]} />
         )}

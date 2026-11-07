@@ -30,6 +30,13 @@ const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (
   const nb = await page.getByText('+ New Project', {exact: true}).boundingBox();
   const fb = await page.getByRole('button', {name: 'Filter', exact: true}).boundingBox();
   check(nb && fb && Math.abs((nb.y + nb.height / 2) - (fb.y + fb.height / 2)) < 4, '+ New Project is on the Filter row');
+  // 7 Nov: + New Project the left two-thirds, Filter the right third, the same height.
+  const nbb = await page.getByRole('button', {name: '+ New Project', exact: true}).boundingBox(); const nbtn = nbb && {x: nbb.x, w: nbb.width, h: nbb.height};
+  check(nbtn && fb && nbtn.x < fb.x && Math.abs(nbtn.w / fb.width - 2) < 0.15, '+ New Project is on the left, twice as wide as Filter (' + (nbtn && Math.round(nbtn.w)) + ' / ' + Math.round(fb.width) + ')');
+  check(nbtn && fb && Math.abs(nbtn.h - fb.height) < 1, 'and the same height (' + (nbtn && Math.round(nbtn.h)) + ' / ' + Math.round(fb.height) + ')');
+  const foot = await page.evaluate(() => { const f = document.querySelector('[aria-label="Value of works"]'); const [a, b] = f ? [...f.children] : []; const s = (e) => e && {x: e.getBoundingClientRect().x, size: getComputedStyle(e).fontSize, col: getComputedStyle(e).color}; return {w: f && f.getBoundingClientRect().width, a: s(a), b: s(b)}; });
+  check(foot.a && foot.b && foot.a.x < 40 && foot.b.x > foot.w / 2, 'bottom bar: the count on the left, the value of works on the right');
+  check(foot.b && foot.b.size === '11.5px' && foot.b.col === 'rgb(91, 100, 114)', 'and small and grey (' + (foot.b && foot.b.size + ' ' + foot.b.col) + ')');
   const tabs = await page.getByText('Purchases', {exact: true}).first().boundingBox();
   check(tabs && tabs.x + tabs.width < 390, 'the Purchases tab is on the screen');
 

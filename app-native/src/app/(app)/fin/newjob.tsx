@@ -2,7 +2,7 @@
 // (or the next automatic one), status, how you get paid, contract value, the
 // client PO (number + files), the client from the Directory (a new name is
 // added), address and start date; PM and job type for companies with
-// Projects. Lands on the job's Finance page. During the Finance trial this is
+// Projects (no PM to start with: "–"; a new project is Upcoming or Live, never Closed — Andy 7 Nov 2026). Lands on the job's Finance page. During the Finance trial this is
 // only for Finance-only companies and the sandbox (9219e) — RTB sets new jobs
 // up in Projects.
 import { setupNewJobPack } from '@/data/jobPack';
@@ -40,7 +40,7 @@ export default function FinNewJob() {
   const { data: clients } = useQuery({ queryKey: ['finClientsAll', me?.org_id], enabled: !!me && !blocked, queryFn: async () => ((await fdb.from('fin_clients').select('*').eq('org_id', me?.org_id as string).order('name')).data as Row[] | null) ?? [] });
   const { data: team } = useTeam(!blocked && !finOnly ? me?.org_id : null);
   const pms = (team ?? []).filter((p) => p.role === 'pm' || p.role === 'admin');
-  const [v, setV] = useState<Record<string, string>>({ status: 'live', kind: 'single', pm: me?.id || '' });
+  const [v, setV] = useState<Record<string, string>>({ status: 'live', kind: 'single', pm: '' }); // no PM chosen to start with (Andy, 7 Nov 2026)
   const [files, setFiles] = useState<{ uri: string; name: string; mime: string; size: number }[]>([]);
   const [busy, setBusy] = useState(false);
   const set = (k: string) => (x: string) => setV((o) => ({ ...o, [k]: x }));
@@ -111,8 +111,8 @@ export default function FinNewJob() {
         <Field label="Site address" value={v.addr || ''} onChangeText={set('addr')} multiline />
         <Field label="Postcode" value={v.pc || ''} onChangeText={set('pc')} autoCapitalize="characters" />
         <View style={{ flexDirection: 'row', gap: 8 }}>
-          <View style={{ flex: 1 }}><SelectBox label="Status" title="Status" value={v.status || 'live'} options={[['upcoming', 'Upcoming'], ['live', 'Live'], ['closed', 'Closed']]} onChange={set('status')} /></View>
-          {!finOnly && <View style={{ flex: 1 }}><SelectBox label="Project manager" title="Project manager" value={v.pm || ''} options={pms.map((p) => [p.id, p.name] as [string, string])} onChange={set('pm')} /></View>}
+          <View style={{ flex: 1 }}><SelectBox label="Status" title="Status" value={v.status || 'live'} options={[['upcoming', 'Upcoming'], ['live', 'Live']]} onChange={set('status')} /></View>
+          {!finOnly && <View style={{ flex: 1 }}><SelectBox label="Project manager" title="Project manager" value={v.pm || ''} options={[['', '–'], ...pms.map((p) => [p.id, p.name] as [string, string])]} onChange={set('pm')} /></View>}
         </View>
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <View style={{ flex: 1 }}><SelectBox label="Payment Procedure *" title="Payment Procedure" value={v.bt || ''} options={[['invoice', 'Invoice'], ['application', 'Application for payment']]} onChange={set('bt')} /></View>

@@ -22,7 +22,7 @@ import { useAuth } from '@/lib/auth';
 import { exportTableExcel, exportTablePdf, type Table } from '@/lib/tableExport';
 import { isFinanceOnlyOrg } from '@/lib/roles';
 import { fdate, money, num, round2, today } from '@/lib/rules/finance';
-import { base, page, space } from '@/theme/theme';
+import { base, page, space, useDesk } from '@/theme/theme';
 
 type Row = Record<string, any>;
 const ST: Record<string, [string, string]> = { instructed: ['Instructed', '#7A7F87'], priced: ['Priced', '#2F6FB3'], submitted: ['Issued', '#D98A00'], agreed: ['Approved', '#1E7A3C'], rejected: ['Rejected', '#C0392B'] };
@@ -32,6 +32,7 @@ export default function FinVariations() {
   const { me, org } = useAuth();
   const { data: sites = [] } = useSites();
   const toast = useToast();
+  const desk = useDesk();
   const qc = useQueryClient();
   const { data } = useBook(me?.org_id, id);
   const [f, setF] = useState('all');
@@ -89,16 +90,19 @@ export default function FinVariations() {
     <ScrollView style={{ flex: 1 }} contentContainerStyle={page(900)}>
       <Stack.Screen options={{ title: 'Variations' }} />
       <BoqTabs id={id} on="variations" />
-      <VarDayChips id={id} on="variations" />
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
-        <FinStat v={money(sum('agreed_value', (v) => v.status === 'agreed'), 0)} label="Approved" />
-        <FinStat v={money(sum('quoted', (v) => ['priced', 'submitted'].includes(v.status)), 0)} label="Issued, waiting for approval" />
-        <FinStat v={money(sum('quoted', (v) => v.status === 'rejected'), 0)} label="Rejected" />
+      <VarDayChips id={id} on="variations" right={<Button small title="+ Variation" onPress={() => setEdit('new')} />} />
+      {/* Phone: Approved across the top, Issued and Rejected side by side below. Laptop: three even tiles on one row (Andy, 7 Nov 2026). */}
+      <View style={{ flexDirection: desk ? 'row' : 'column', gap: 8, marginBottom: 10 }}>
+        <View style={{ flexDirection: 'row', flex: desk ? 1 : undefined }}><FinStat v={money(sum('agreed_value', (v) => v.status === 'agreed'), 0)} label="Approved" /></View>
+        <View style={{ flexDirection: 'row', gap: 8, flex: desk ? 2 : undefined }}>
+          <FinStat basis={0} v={money(sum('quoted', (v) => ['priced', 'submitted'].includes(v.status)), 0)} label="Issued, Waiting For Approval" />
+          <FinStat basis={0} v={money(sum('quoted', (v) => v.status === 'rejected'), 0)} label="Rejected" />
+        </View>
       </View>
-      <Muted style={{ marginBottom: 10 }}>{`Only approved variations go onto applications, at their approved value.${finOnly ? '' : ' Variations raised on site (Projects › Variations) come in here on their own.'}`}</Muted>
-      <FinTabs items={[['all', 'All'], ['submitted', 'Issued'], ['agreed', 'Approved'], ['rejected', 'Rejected']].map(([k, l]) => [k, l, vars.filter((v) => k === 'all' || g(v) === k).length] as [string, string, number])} value={f} onChange={setF}
-        right={<Button title="+ Variation" onPress={() => setEdit('new')} />} />
-      {list.length ? list.map((v) => <FinRow key={v.id} left={v.number} title={v.title} sub={[ST[v.status]?.[0] || v.status, v.instructed_by ? `by ${v.instructed_by}` : '', v.submitted_on ? `issued ${fdate(v.submitted_on)}` : '', v.agreed_on && v.status === 'agreed' ? `approved ${fdate(v.agreed_on)}` : '', v.cost_estimate != null ? `cost ${money(v.cost_estimate)}` : ''].filter(Boolean).join(' · ')} right={money(v.status === 'agreed' ? v.agreed_value ?? v.quoted : v.quoted)} tone={ST[v.status]?.[1]} onPress={() => setEdit(v)}>
+      <Muted style={{ marginBottom: 10, fontSize: 11.5 }}>{`Only approved variations go onto applications, at their approved value.${finOnly ? '' : ' Variations raised on site (Projects › Variations) come in here on their own.'}`}</Muted>
+      <FinTabs items={[['all', 'All'], ['submitted', 'Issued'], ['agreed', 'Approved'], ['rejected', 'Rejected']].map(([k, l]) => [k, l, vars.filter((v) => k === 'all' || g(v) === k).length] as [string, string, number])} value={f} onChange={setF} even />
+      {/* Tidier rows (Andy, 7 Nov 2026): number and title, the status and its date, the amount. The rest is in the variation. */}
+      {list.length ? list.map((v) => <FinRow compact key={v.id} left={v.number} title={v.title} sub={[ST[v.status]?.[0] || v.status, v.status === 'agreed' && v.agreed_on ? fdate(v.agreed_on) : v.submitted_on ? fdate(v.submitted_on) : ''].filter(Boolean).join(' · ')} right={money(v.status === 'agreed' ? v.agreed_value ?? v.quoted : v.quoted)} onPress={() => setEdit(v)}>
           {(v.variation_id || g(v) === 'submitted' || !finOnly) && (
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: 5 }}>
               {!!v.variation_id && <Text style={{ fontSize: 11, fontWeight: '500', color: '#7A7F87', backgroundColor: '#F0F1F4', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6 }}>Site</Text>}
@@ -110,7 +114,14 @@ export default function FinVariations() {
         </FinRow>)
         : <Empty>No variations yet.</Empty>}
       {edit && (
-        <FinForm title={cur ? `Variation ${cur.number}` : 'New variation'} initial={cur ? { ...cur, status: g(cur) } : { status: 'submitted' }} onClose={() => { setEdit(null); setVfile(null); }}
+        <FinForm title={cur ? `Variation ${cur.number}` : 'New variation'} initial={cur ? { ...cur, status: g(cur), agreed_value: cur.agreed_value ?? (g(cur) === 'agreed' ? cur.quoted : null) } : { status: 'submitted' }} onClose={() => { setEdit(null); setVfile(null); }}
+          // Approved: the approved value comes from the value issued to the client (and follows it until you change it), and today's date.
+          onChange={(k, nx, was) => {
+            if (nx.status !== 'agreed') return;
+            const blank = !String(was.agreed_value ?? '').trim();
+            if (k === 'status' && blank) return { agreed_value: nx.quoted, ...(String(nx.agreed_on ?? '').trim() ? {} : { agreed_on: today() }) };
+            if (k === 'quoted' && (blank || String(was.agreed_value) === String(was.quoted))) return { agreed_value: nx.quoted };
+          }}
           extra={(
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 8 }}>
               {!!cur?.file_path && <Pressable onPress={async () => { const u = await openDocLink('finance-docs', cur.file_path); if (u) viewDoc(u); }}><Text style={{ color: base.blue, fontWeight: '500' }}>📄 {cur.file_name || 'Instruction / quote document'}</Text></Pressable>}

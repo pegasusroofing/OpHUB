@@ -52,20 +52,25 @@ export function FinTabRow({ children, style }: { children: ReactNode; style?: ob
 }
 /** One underlined tab, as the top Finance row: bold with a line in the company colour when on, grey when not.
  *  A count sits beside the name: grey, or amber for things waiting (Andy, 5 Nov 2026). */
-function TabItem({ on, label, n, amber, onPress }: { on: boolean; label: string; n?: number; amber?: boolean; onPress: () => void }) {
+function TabItem({ on, label, n, amber, onPress, fill }: { on: boolean; label: string; n?: number; amber?: boolean; onPress: () => void; fill?: boolean }) {
   const t = useTheme();
   return (
-    <Pressable onPress={onPress} accessibilityRole="tab" accessibilityState={{ selected: on }} style={{ paddingVertical: 10, paddingHorizontal: 14, borderBottomWidth: 2, borderBottomColor: on ? t.brand1 : 'transparent' }}>
+    <Pressable onPress={onPress} accessibilityRole="tab" accessibilityState={{ selected: on }} style={[{ paddingVertical: 10, paddingHorizontal: fill ? 4 : 14, borderBottomWidth: 2, borderBottomColor: on ? t.brand1 : 'transparent' }, fill ? { flex: 1, minWidth: 0, alignItems: 'center' } : null]}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-        <Text style={{ fontSize: 13, fontWeight: on ? '700' : '600', color: on ? '#111827' : '#6b7280' }}>{label}</Text>
+        <Text numberOfLines={1} style={{ flexShrink: 1, fontSize: 13, fontWeight: on ? '700' : '600', color: on ? '#111827' : '#6b7280' }}>{label}</Text>
         {n ? <Text accessibilityLabel={amber ? `${n} waiting` : undefined} style={{ fontSize: 10.5, fontWeight: '700', color: amber ? '#B45309' : on ? '#111827' : '#6b7280', backgroundColor: amber ? '#FDF1E0' : '#EEF0F3', borderRadius: 9, minWidth: 18, textAlign: 'center', paddingHorizontal: 5, overflow: 'hidden' }}>{n}</Text> : null}
       </View>
     </Pressable>
   );
 }
 /** A row of underlined tabs for Finance (Andy, 5 Nov 2026: "change all the tabs through finance to that").
- *  items: [key, label, count?]. right: a button that sits at the end of the row. */
-export function FinTabs({ items, value, onChange, right, amber, style }: { items: [string, string, number?][]; value: string; onChange: (k: string) => void; right?: ReactNode; amber?: boolean; style?: object }) {
+ *  items: [key, label, count?]. right: a button that sits at the end of the row. even: spread across the page (Andy, 7 Nov 2026). */
+export function FinTabs({ items, value, onChange, right, amber, style, even }: { items: [string, string, number?][]; value: string; onChange: (k: string) => void; right?: ReactNode; amber?: boolean; style?: object; even?: boolean }) {
+  if (even && !right) return (
+    <View style={[{ flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#e5e7eb', marginBottom: 10 }, style]}>
+      {items.map(([k, l, n]) => <TabItem key={k} fill on={value === k} label={l} n={n} amber={amber} onPress={() => onChange(k)} />)}
+    </View>
+  );
   const row = (
     <FinTabRow style={right ? { flex: 1, minWidth: 0, marginBottom: 0 } : style}>
       {items.map(([k, l, n]) => <TabItem key={k} on={value === k} label={l} n={n} amber={amber} onPress={() => onChange(k)} />)}
@@ -80,9 +85,9 @@ export function BoqTabs({ id, on }: { id: string; on: 'boq' | 'variations' | 'pl
   const { data: billing } = useJobBilling(id);
   return <FinTabs items={([['boq', 'BoQ'], ['variations', 'Variations'], ['plots', 'Plots']] as [string, string][]).filter(([k]) => k !== 'boq' || billing !== 'invoice')} value={on} onChange={(k) => { if (on !== k) router.replace(`/fin/job/${id}/${k}` as never); }} />;
 }
-/** Variations and Day Works share the Variations tab. */
-export function VarDayChips({ id, on }: { id: string; on: 'variations' | 'dayworks' }) {
-  return <FinTabs items={[['variations', 'Variations'], ['dayworks', 'Day Works']]} value={on} onChange={(k) => { if (on !== k) router.replace(`/fin/job/${id}/${k}` as never); }} />;
+/** Variations and Day Works share the Variations tab. right: the + button, at the end of this row (Andy, 7 Nov 2026). */
+export function VarDayChips({ id, on, right }: { id: string; on: 'variations' | 'dayworks'; right?: ReactNode }) {
+  return <FinTabs items={[['variations', 'Variations'], ['dayworks', 'Day Works']]} value={on} right={right} onChange={(k) => { if (on !== k) router.replace(`/fin/job/${id}/${k}` as never); }} />;
 }
 /** The white row with the job and + New, then a project's tabs: on every page inside a project (Andy, 2 Nov 2026). */
 export function FinJobTabs({ id, active, job, name, onOverview }: { id: string; active: string; job?: string | null; name?: string | null; onOverview: boolean }) {
@@ -143,7 +148,7 @@ export function FinSeg({ items, value, onChange }: { items: [string, string, num
 
 /** A sideways row of tabs that keeps the one you're on in view. Plant hire, Yard stock and the rest sat off the
  *  right of a phone, and the row jumped back to the start each time one opened (Andy, 4 Nov 2026). */
-function KeepInView({ on, items, render }: { on?: string; items: [string, string][]; render: (k: string, l: string) => ReactNode }) {
+export function KeepInView({ on, items, render }: { on?: string; items: [string, string][]; render: (k: string, l: string) => ReactNode }) {
   const sv = useRef<ComponentRef<typeof ScrollView>>(null);
   const xs = useRef<Record<string, { x: number; w: number }>>({});
   const [vw, setVw] = useState(0);

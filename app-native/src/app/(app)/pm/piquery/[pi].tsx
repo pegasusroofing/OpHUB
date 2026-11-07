@@ -1,21 +1,29 @@
 // Invoice query (9219zr openPiQuery): a supplier invoice the office has put on query, sent to the job's
 // PM — the invoice details, the conversation, and a reply. Works without Finance access
-// (fin_pi_query_view / fin_pi_query_reply).
-import { useQuery } from '@tanstack/react-query';
+// (fin_pi_query_view / fin_pi_query_reply). In the HUB it stays until you've replied, or the office has sorted it
+// (7 Nov 2026): then its message counts as read and it drops off.
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ScrollView, Text, TextInput, View } from 'react-native';
 
 import { FinRow } from '@/components/FinNav';
 import { useToast } from '@/components/toast';
 import { Button, Card, Muted, SectionTitle } from '@/components/ui';
+import { markMessagesRead } from '@/data/inbox';
 import { useAuth } from '@/lib/auth';
 import { fdate, money } from '@/lib/rules/finance';
 import { supabase } from '@/lib/supabase';
 import { base, page, radius, space } from '@/theme/theme';
 
 type Row = Record<string, any>;
-const rpc = supabase.rpc as unknown as (fn: string, args: object) => Promise<{ data: unknown; error: { message?: string; code?: string } | null }>;
+// Bound to supabase: called loose, it lost its "this" and the page sat on Loading for ever (found 7 Nov 2026).
+const rpc = supabase.rpc.bind(supabase) as unknown as (fn: string, args: object) => Promise<{ data: unknown; error: { message?: string; code?: string } | null }>;
+/** The office's query messages to me about this invoice count as read: it leaves the HUB. */
+async function clearFromHub(meId: string, pi: string) {
+  const r = await supabase.from('messages').select('id').eq('audience', 'single').eq('recipient_id', meId).eq('kind', 'pi_query').eq('related_id', pi);
+  await markMessagesRead(meId, ((r.data as { id: string }[] | null) ?? []).map((m) => m.id));
+}
 const when = (t: string) => (t ? new Date(t).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '');
 
 export default function PiQuery() {
@@ -24,10 +32,16 @@ export default function PiQuery() {
   const toast = useToast();
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
+  const qc = useQueryClient();
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['piQuery', pi], enabled: !!pi, gcTime: 0,
     queryFn: async () => { const r = await rpc('fin_pi_query_view', { p_pi: pi }); if (r.error) return { error: r.error.code === 'PGRST202' ? 'Invoice queries aren’t switched on yet — ask the office.' : `Couldn’t open the query — ${String(r.error.message || '').slice(0, 120)}` }; const d = Array.isArray(r.data) ? r.data[0] : r.data; return d && typeof d === 'object' ? { d: d as Row } : { error: 'This invoice query couldn’t be found — it may have been sorted already.' }; },
   });
+  // Already replied (you wrote last) or sorted by the office: off the HUB.
+  const d0 = data && !('error' in data) ? data.d : null;
+  const lastBy = d0 && Array.isArray(d0.query_thread) && d0.query_thread.length ? (d0.query_thread[d0.query_thread.length - 1] as Row)?.by : null;
+  const done = !!d0 && (d0.status !== 'query' || lastBy === me?.id);
+  useEffect(() => { if (done && me && pi) void clearFromHub(me.id, pi).then(() => qc.invalidateQueries({ queryKey: ['hub'] })); }, [done, me, pi, qc]);
   if (!me) return null;
   if (isLoading || !data) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   if ('error' in data) return <Muted style={{ padding: space.l }}>{data.error}</Muted>;

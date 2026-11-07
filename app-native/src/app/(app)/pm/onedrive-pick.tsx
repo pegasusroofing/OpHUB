@@ -48,7 +48,7 @@ export default function OneDrivePick() {
         if (!(await confirmAsk(`Move "${f.name}" into this job's Contract & Commercial › Estimating folder?`, 'Yes, Move It'))) return;
         const r = await linkEstimatingFolder(id, f);
         if (r.error) { showAlert(r.error); return; }
-        ['quotes', 'quote', 'odFolders'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] }));
+        ['quotes', 'quote', 'odFolders', 'sites', 'site', 'estLinked'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] }));
         toast(r.note ? `${r.note.charAt(0).toUpperCase()}${r.note.slice(1)}` : DONE.estimating); router.back();
         return;
       }

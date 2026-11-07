@@ -8,7 +8,7 @@ import { Image, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { OphIcon } from '@/components/OphIcon';
 import { StorageImage } from '@/components/StorageImage';
-import { useHub } from '@/data/hub';
+import { useHubAll } from '@/data/hub';
 import { useSites } from '@/data/sites';
 import { useAuth } from '@/lib/auth';
 import { brand } from '@/lib/fonts';
@@ -25,12 +25,12 @@ export function DeskNav() {
   const path = usePathname();
   const { data: sites } = useSites();
   const mgr = isManager(me);
-  const { data: hub } = useHub(me, sites, '');
+  const hub = useHubAll(me, org, sites, ''); // Projects, Finance and the Company Chat (7 Nov 2026)
   const [open, setOpen] = useState<Record<string, boolean>>({});
   if (!me) return null;
   const kind = homeKind(me, org);
   // Managers: the HUB feed count, as the current app (130 computeMyOutstandingCount).
-  const hubN = hub?.items.length ?? 0;
+  const hubN = hub.items.length + hub.chatUnread;
   const items: Item[] = kind === 'finance' ? [{ k: 'fin', ic: 'pound', lbl: 'OpHUB Finance', go: '/fin' }, { k: 'account', ic: 'gear', lbl: 'Settings', go: '/account' }]
     : kind === 'superadmin' ? [{ k: 'home', ic: 'building', lbl: 'Platform Admin', go: '/home' }]
     : me.role === 'driver' ? [{ k: 'home', ic: 'home', lbl: 'Home', go: '/home' }, { k: 'driver/schedule', ic: 'truck', lbl: 'My schedule', go: '/driver/schedule' }, { k: 'account', ic: 'gear', lbl: 'Settings', go: '/account' }]

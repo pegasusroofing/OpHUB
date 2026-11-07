@@ -30,7 +30,7 @@ import { siteStatusKey } from '@/lib/rules/checkin';
 import { plainGet, plainSet } from '@/lib/kv';
 import { forecast, marginOn, pctTxt, type MarginBasis } from '@/lib/rules/finBook';
 import { appDueThisMonth, plantCost, today, appDateFor, FIN_VAT_LABEL, fdate, invOutstanding, invOutstandingNet, invOverdue, money, num, retentionAlerts, retentionDates, retentionHeld, retHalfAmt, type FinApp, type FinInv } from '@/lib/rules/finance';
-import { isFinanceOnlyOrg, isFinanceUser, isFullManager } from '@/lib/roles';
+import { isFinanceController, isFinanceOnlyOrg, isFinanceUser, isFullManager } from '@/lib/roles';
 import { base, page, space, useTheme } from '@/theme/theme';
 
 type Row = Record<string, any>;
@@ -272,9 +272,41 @@ function Setup({ id, site, jf, cpos, settings, formOnly, onDone }: { id: string;
   const { data: dirClients = [] } = useQuery({ queryKey: ['finDirClients', me?.org_id], enabled: !!me, queryFn: async () => ((await fdb.from('fin_clients').select('id,name,email,address,postcode').eq('org_id', me?.org_id as string).order('name')).data as Row[] | null) ?? [] });
   const [po, setPo] = useState<Row | null>(null);
   const [file, setFile] = useState<{ uri: string; name: string; mimeType?: string | null } | null>(null);
+  // Once the job's estimating folder is linked, Link Estimating Folder goes (Andy, 7 Nov 2026).
+  const { data: estLinked } = useQuery({ queryKey: ['estLinked', id], enabled: !!me, queryFn: async () => {
+    if (((await fdb.from('sites').select('estimating_linked_at').eq('id', id).maybeSingle()).data as Row | null)?.estimating_linked_at) return true;
+    return !!(((await fdb.from('quotes').select('id').eq('site_id', id).limit(1)).data as Row[] | null) ?? []).length;
+  } });
   if (!me) return null;
+  // Company overheads: only an admin or a Finance Controller sees or changes them here (Andy, 7 Nov 2026).
+  const canOhp = me.role === 'admin' || isFinanceController(me);
+  const linkEst = () => router.push({ pathname: '/pm/onedrive-pick', params: { target: 'estimating', id } } as never);
   const refresh = () => { ['finBook', 'finJobs', 'finOverview', 'sites'].forEach((k) => void qc.invalidateQueries({ queryKey: [k] })); };
-  const kv = (l: string, v: string) => <FinRow key={l} title={l} right={v} />;
+  const kv = (l: string, v: string, onPress?: () => void) => (
+    <Pressable key={l} disabled={!onPress} onPress={onPress} accessibilityRole={onPress ? 'button' : undefined} accessibilityLabel={onPress ? `${l}: ${v}` : undefined}
+      style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: '#EEF0F2' }}>
+      <Text style={{ width: 128, flexShrink: 0, fontSize: 13.5, fontWeight: '500', color: base.slate }}>{l}</Text>
+      <Text style={{ flex: 1, minWidth: 0, textAlign: 'right', fontSize: 13.5, fontWeight: '600', color: base.ink }}>{v}{onPress ? '  ›' : ''}</Text>
+    </Pressable>
+  );
+  // Client PO row: open the PO (or choose one, or add one).
+  const openPo = async () => {
+    if (!cpos.length) { setPo(null); setFile(null); setEdit('po'); return; }
+    const k = await chooseAction('Client PO', [...cpos.map((p) => ({ key: String(p.id), label: `PO ${p.po_number}${p.is_primary ? ' (Main)' : ''}` })), { key: '+', label: '+ Add Client PO' }]);
+    if (!k) return;
+    setFile(null);
+    if (k === '+') { setPo(null); setEdit('po'); return; }
+    setPo(cpos.find((p) => String(p.id) === k) || null); setEdit('po');
+  };
+  // One Edit button: the project, its financials, or linking the estimating folder (Andy, 7 Nov 2026).
+  const editMenu = async () => {
+    const k = await chooseAction('Edit', [
+      ...(isFullManager(me) ? [{ key: 'site', label: 'Edit Project' }] : []),
+      { key: 'job', label: 'Edit Project Financials' },
+      ...(isFullManager(me) && !estLinked ? [{ key: 'est', label: 'Link Estimating Folder' }] : []),
+    ]);
+    if (k === 'est') linkEst(); else if (k === 'site' || k === 'job') setEdit(k);
+  };
   // Invoice jobs have no applications or retention (9219zv).
   const byInv = jf.billing_type === 'invoice';
   // Delete from Finance (9219u finDeleteJob): not with anything financial booked to it — then close it instead.
@@ -289,16 +321,19 @@ function Setup({ id, site, jf, cpos, settings, formOnly, onDone }: { id: string;
     if (await deleteSite(id)) { toast('Project deleted'); void qc.invalidateQueries({ queryKey: ['sites'] }); router.replace('/fin/jobs' as never); } else toast('Could not delete — try again.');
   };
   const jobForm = edit === 'job' && (
-        <FinForm title="Project Financials" extra={isFullManager(me) ? <View style={{ marginBottom: 8 }}><Button small kind="ghost" title="📁 Link Estimating Folder" onPress={() => { setEdit(null); onDone?.(); router.push({ pathname: '/pm/onedrive-pick', params: { target: 'estimating', id } } as never); }} /></View> : undefined} initial={{ ...jf, job_number: site?.job_number || '', billing_type: jf.billing_type || '', ohp_pct: jf.ohp_pct ?? settings.ohp_pct ?? 0 }} onClose={() => { setEdit(null); onDone?.(); }}
+        <FinForm title="Project Financials" extra={isFullManager(me) && !estLinked ? <View style={{ marginBottom: 8 }}><Button small kind="ghost" title="📁 Link Estimating Folder" onPress={() => { setEdit(null); onDone?.(); linkEst(); }} /></View> : undefined} initial={{ ...jf, job_number: site?.job_number || '', billing_type: jf.billing_type || '', ohp_pct: jf.ohp_pct ?? settings.ohp_pct ?? 0 }} onClose={() => { setEdit(null); onDone?.(); }}
           fields={[
-            { k: 'job_number', label: 'Project number', half: true }, { k: 'contract_value', label: 'Contract value £ (excl. VAT)', kind: 'money', half: true },
-            { k: 'billing_type', label: 'Billed by', kind: 'choice', options: [['invoice', 'Invoice'], ['application', 'Application (with retention)']], note: 'Invoice jobs have no applications or retention.' },
-            ...(byInv ? [] : [{ k: 'retention_pct', label: 'Retention %', kind: 'number' as const, half: true, ph: String(settings.default_retention_pct) }, { k: 'retention_limit_pct', label: 'Retention limit %', kind: 'number' as const, half: true }]),
-            { k: 'due_days', label: 'Payment due (days)', kind: 'number', half: true, ph: String(settings.default_due_days) }, { k: 'final_days', label: 'Final date (days)', kind: 'number', half: true, ph: String(settings.default_final_days) },
-            { k: 'vat_treatment', label: 'VAT', kind: 'choice', options: [['', 'Company default'], ...Object.entries(FIN_VAT_LABEL)] as [string, string][] },
-            { k: 'app_reminder_day', label: 'Application date (day of month)', kind: 'day', half: true, extra: { label: 'Set a differing day for some months', onPress: () => setDatesOver(true) } }, { k: 'ohp_pct', label: 'Company overheads %', kind: 'number', half: true, note: me.role === 'admin' ? undefined : 'Only a company admin can change this.' },
+            { k: 'job_number', label: 'Project Number', half: true }, { k: 'contract_value', label: 'Contract Value £ (Excl. VAT)', kind: 'money', half: true },
+            { k: 'billing_type', label: 'Billed By', kind: 'choice', options: [['invoice', 'Invoice'], ['application', 'Application (With Retention)']], note: 'Invoice jobs have no applications or retention.' },
+            ...(byInv ? [] : [{ k: 'retention_pct', label: 'Retention %', kind: 'number' as const, half: true, ph: String(settings.default_retention_pct) }, { k: 'retention_limit_pct', label: 'Retention Limit %', kind: 'number' as const, half: true }]),
+            // An invoice job has payment due dates only: no final date and no application date (Andy, 7 Nov 2026).
+            ...(byInv ? [{ k: 'due_days', label: 'Payment Due (Days)', kind: 'number' as const, ph: String(settings.default_due_days) }]
+              : [{ k: 'due_days', label: 'Payment Due (Days)', kind: 'number' as const, half: true, ph: String(settings.default_due_days) }, { k: 'final_days', label: 'Final Date (Days)', kind: 'number' as const, half: true, ph: String(settings.default_final_days) }]),
+            // VAT and company overheads on one line; overheads only for an admin or Finance Controller.
+            { k: 'vat_treatment', label: 'VAT', kind: 'choice', half: canOhp, options: [['', 'Company Default'], ...Object.entries(FIN_VAT_LABEL)] as [string, string][] },
+            ...(canOhp ? [{ k: 'ohp_pct', label: 'Company Overheads %', kind: 'number' as const, half: true }] : []),
+            ...(byInv ? [] : [{ k: 'app_reminder_day', label: 'Application Date (Day Of Month)', kind: 'day' as const, extra: { label: 'Set a differing day for some months', onPress: () => setDatesOver(true) } }]),
             { k: 'billing_name', label: 'Client', kind: 'choice', options: [['', 'Not set'], ...dirClients.map((c) => [c.name, c.name] as [string, string]), ...(jf.billing_name && !dirClients.some((c) => c.name === jf.billing_name) ? [[jf.billing_name, `${jf.billing_name} (not in the Directory)`] as [string, string]] : [])], note: 'From the Directory — the billing address and accounts email follow the client’s Directory record.' }, { k: 'billing_address', label: 'Billing address', kind: 'multiline' }, { k: 'billing_email', label: 'Accounts email', kind: 'email' },
-            { k: 'pc_date', label: 'Practical completion date', kind: 'date', half: true }, { k: 'defects_months', label: 'Defects period (months)', kind: 'number', half: true },
             ...(byInv ? [] : [{ k: 'final_release_date', label: 'Final retention release (blank = end of defects period)', kind: 'date' as const, half: true }]),
             { k: 'qs_id', label: 'QS', kind: 'choice', half: true, options: [['', 'None yet'], ...(people ?? []).filter((p) => ['pm', 'admin', 'site_manager'].includes(p.role) || (p as { finance_enabled?: boolean }).finance_enabled).sort((a, b) => a.name.localeCompare(b.name)).map((p) => [p.id, p.name] as [string, string])] },
             { k: 'notes', label: 'Notes', kind: 'multiline' },
@@ -320,12 +355,12 @@ function Setup({ id, site, jf, cpos, settings, formOnly, onDone }: { id: string;
             const patch: Row = {
               contract_value: contract, retention_pct: ret, retention_limit_pct: retLim, due_days: n('due_days'), final_days: n('final_days'), app_reminder_day: appDay,
               vat_treatment: v.vat_treatment || null, billing_type: v.billing_type || null, billing_name: String(v.billing_name).trim() || null, billing_address: String(v.billing_address).trim() || null, billing_email: email || null,
-              pc_date: String(v.pc_date).trim() || null, defects_months: n('defects_months'), notes: String(v.notes).trim() || null,
+              notes: String(v.notes).trim() || null,
               final_release_date: String(v.final_release_date ?? '').trim() || null, qs_id: String(v.qs_id ?? '') || null,
             };
             if (contract !== null && contract !== Number(jf.contract_value)) patch.contract_value_source = 'manual';
             if (jf.original_value == null && contract && contract > 0) { patch.original_value = contract; patch.original_at = jf.original_at || new Date().toISOString(); }
-            if (me.role === 'admin') { const o = n('ohp_pct'); patch.ohp_pct = o === null || isNaN(o) || o < 0 || o > 100 || o === Number(settings.ohp_pct ?? 0) ? null : o; }
+            if (canOhp) { const o = n('ohp_pct'); patch.ohp_pct = o === null || isNaN(o) || o < 0 || o > 100 || o === Number(settings.ohp_pct ?? 0) ? null : o; }
             const e = await saveJobFinance(me, id, patch);
             if (e) return e;
             toast('Project financials saved'); refresh(); return null;
@@ -359,27 +394,21 @@ function Setup({ id, site, jf, cpos, settings, formOnly, onDone }: { id: string;
     <View>
       <SectionTitle>Project details</SectionTitle>
       <Card>
-        {kv('Project number', site?.job_number || '—')}
-        {kv('Contract value', jf.contract_value != null ? money(jf.contract_value) : 'Not set')}
-        {kv('Billing', jf.billing_type === 'invoice' ? 'By invoice' : jf.billing_type === 'application' ? 'By application' : 'Not chosen yet')}
+        {kv('Project Number', site?.job_number || '—')}
+        {kv('Contract Value', jf.contract_value != null ? money(jf.contract_value) : 'Not Set')}
+        {kv('Client PO', cpos.length ? cpos.slice().sort((a, b) => Number(!!b.is_primary) - Number(!!a.is_primary)).map((p) => p.po_number).join(', ') : 'None Yet — Tap To Add', () => void openPo())}
+        {kv('Billing', jf.billing_type === 'invoice' ? 'By Invoice' : jf.billing_type === 'application' ? 'By Application' : 'Not Chosen Yet')}
         {!byInv && kv('Retention', jf.retention_pct != null ? `${jf.retention_pct}%${jf.retention_limit_pct != null ? ` (limit ${jf.retention_limit_pct}%)` : ''}` : `${settings.default_retention_pct}% (company)`)}
-        {kv('Payment terms', `${jf.due_days ?? settings.default_due_days} days · final ${jf.final_days ?? settings.default_final_days} days`)}
+        {kv('Payment Terms', byInv ? `Due in ${jf.due_days ?? settings.default_due_days} days` : `${jf.due_days ?? settings.default_due_days} days · final ${jf.final_days ?? settings.default_final_days} days`)}
         {kv('VAT', FIN_VAT_LABEL[jf.vat_treatment || settings.default_vat] || '—')}
-        {!byInv && kv('Application date', jf.app_reminder_day ? `${jf.app_reminder_day} of each month` : settings.app_reminder_day ? `${settings.app_reminder_day} (company)` : 'Not set')}
+        {!byInv && kv('Application Date', jf.app_reminder_day ? `${jf.app_reminder_day} of each month` : settings.app_reminder_day ? `${settings.app_reminder_day} (company)` : 'Not set')}
         {kv('Client', [jf.billing_name, jf.billing_email].filter(Boolean).join(' · ') || '—')}
-        {kv('Practical completion', jf.pc_date ? fdate(jf.pc_date) : '—')}
-        {kv('Defects period', `${jf.defects_months ?? settings.default_defects_months ?? 12} months`)}
-        {!byInv && kv('Final retention release', jf.final_release_date ? `${fdate(jf.final_release_date)} (set by hand)` : 'End of the defects period')}
-        {kv('QS', jf.qs_id ? (people ?? []).find((p) => p.id === jf.qs_id)?.name || '—' : 'None yet')}
-        {kv('Company overheads', jf.ohp_pct != null ? `${jf.ohp_pct}%` : `${settings.ohp_pct ?? 0}% (company)`)}
-        <View style={{ marginTop: 8, gap: 8 }}>{isFullManager(me) && <Button kind="ghost" title="✎ Project — name, client, address, status" onPress={() => setEdit('site')} />}<Button title="Edit Project Financials" onPress={() => setEdit('job')} />{isFullManager(me) && <Button kind="ghost" title="📁 Link Estimating Folder" onPress={() => router.push({ pathname: '/pm/onedrive-pick', params: { target: 'estimating', id } } as never)} />}{!byInv && <Button kind="ghost" title="📅 Monthly application dates" onPress={() => setEdit('dates')} />}</View>
+        {!byInv && kv('Final Retention Release', jf.final_release_date ? `${fdate(jf.final_release_date)} (set by hand)` : 'End of the defects period')}
+        {kv('QS', jf.qs_id ? (people ?? []).find((p) => p.id === jf.qs_id)?.name || '—' : 'None Yet')}
+        {canOhp && kv('Company Overheads', jf.ohp_pct != null ? `${jf.ohp_pct}%` : `${settings.ohp_pct ?? 0}% (company)`)}
+        <View style={{ marginTop: 12, flexDirection: 'row', justifyContent: 'center' }}><Button title="Edit ▾" onPress={() => void editMenu()} /></View>
       </Card>
       {isFullManager(me) && <View style={{ marginBottom: 8 }}><Button kind="danger" title="🗑 Delete this project" onPress={() => void delJob()} /></View>}
-      <SectionTitle>Client POs</SectionTitle>
-      {cpos.length ? cpos.map((p) => (
-        <FinRow key={p.id} title={`PO ${p.po_number}${p.is_primary ? ' (main)' : ''}`} sub={[p.po_date ? fdate(p.po_date) : '', p.description, Array.isArray(p.files) && p.files.length ? `${p.files.length} file${p.files.length === 1 ? '' : 's'}` : p.file_name ? '1 file' : ''].filter(Boolean).join(' · ')} onPress={() => { setPo(p); setFile(null); setEdit('po'); }} />
-      )) : <Muted style={{ marginBottom: 8 }}>No client PO yet.</Muted>}
-      <Button kind="ghost" title="+ Client PO" onPress={() => { setPo(null); setFile(null); setEdit('po'); }} />
       {edit === 'site' && site && (
         <FinForm title="Project" note="The same details as on the project itself — change them here or there and both update." initial={{ name: site.name || '', status: site.status === 'closed' ? 'closed' : site.status === 'upcoming' ? 'upcoming' : 'live', start_date: site.start_date || '', client_name: site.client_name || '', address: site.address || '', postcode: site.postcode || '', pm: (site as { responsible_pm_id?: string | null }).responsible_pm_id || '' }} onClose={() => setEdit(null)}
           fields={[{ k: 'name', label: 'Project name' }, { k: 'status', label: 'Status', kind: 'choice', options: [['upcoming', 'Upcoming'], ['live', 'Live'], ['closed', 'Closed']], half: true }, { k: 'start_date', label: 'Start date', kind: 'date', half: true }, ...(!people?.length ? [] : [{ k: 'pm', label: 'Project manager', kind: 'choice' as const, options: [['', 'None yet'], ...(people ?? []).filter((x) => ['pm', 'admin'].includes(x.role) && !(x as { finance_only?: boolean }).finance_only).sort((a, b) => a.name.localeCompare(b.name)).map((x) => [x.id, x.name])] as [string, string][] }]), { k: 'client_name', label: 'Client' }, { k: 'address', label: 'Site address' }, { k: 'postcode', label: 'Postcode', half: true }]}

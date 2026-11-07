@@ -10,7 +10,7 @@ import { OphIcon } from '@/components/OphIcon';
 import { SearchButton } from '@/components/SearchButton';
 import { SitesMapCard } from '@/components/SitesMap';
 import { Card, Muted, Screen, SectionTitle, Stat, Tile, TileGrid, TINTS } from '@/components/ui';
-import { useHub } from '@/data/hub';
+import { useHubAll } from '@/data/hub';
 import { useDeliveryRequests } from '@/data/deliveries';
 import { useOnSiteNow, usePmReports, usePmTodos, useTodayEvents } from '@/data/pmHome';
 import { useSites } from '@/data/sites';
@@ -29,10 +29,10 @@ export function PmHome() {
   const { data: onSite = [] } = useOnSiteNow(sites);
   const { data: todos = [] } = usePmTodos(sites);
   const { data: reports = [] } = usePmReports();
-  const { data: hub } = useHub(me, sites, '');
+  const hub = useHubAll(me, org, sites, ''); // Projects, Finance and the Company Chat (7 Nov 2026)
   const { data: dlvReqs } = useDeliveryRequests(me?.org_id);
   // Managers: the HUB feed count, as the current app (130 computeMyOutstandingCount).
-  const hubN = hub?.items.length ?? 0;
+  const hubN = hub.items.length + hub.chatUnread;
   const dlvN = dlvReqs?.length ?? 0;
   // Things the office has sent you to book (9219b pmToBookCounts).
   const { data: toBook } = useToBook(sites);
