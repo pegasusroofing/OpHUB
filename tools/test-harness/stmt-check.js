@@ -1,43 +1,62 @@
-// stmt-check.js: uploads a supplier statement (STMT=path to PDF / xlsx / csv) on Finance › Statements against the fake Supabase and prints the lines read and matched.
-// Opens the new app's Finance pages against the fake Supabase and reports page errors and the first words on each page.
-// A route written as /path>>Button text also clicks that button and reports the file it downloads.
-const {chromium, makeContext, S1} = require('./harness');
+// Finance › Purchases › Statements (Andy, 7 Nov 2026, laptop): the same table as everywhere, filtering in the row under
+// the headings (no separate search box); a Gross After Statement Date column (the supplier's invoices dated after it);
+// uploading reads the statement date and the total due, and the button says Upload Statement; once reconciled it says so
+// plainly and Add A Line, Match Again and the ticks go. Fake database. node stmt-check.js
+const path = require('path');
+const {chromium, makeContext} = require('./harness');
 const seed = require('./fresh/seed');
-(async()=>{
-  const BASE = 'http://localhost:8081';
+const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (!ok) process.exitCode = 1; };
+(async () => {
   const browser = await chromium.launch(); const errs = [];
-  const {ctx, db} = await makeContext(browser, 'admin', [], {viewport:{width:1300, height:900}});
-  seed(db); try{ require('./seeds/ex1')(db); }catch(e){}
-  if(process.env.EXTRA){ const d = new Date().toISOString().slice(0,10), org = db.profiles[0].org_id, uid = db.profiles[0].id;
-    db.delivery_tasks = [{id:'dt1', org_id:org, site_id:S1, scheduled_date:d, time_slot:'first', description:'Slates x 2 pallets', status:'scheduled', high_priority:true}];
-    db.ppe_issuances = [{id:'pp1', org_id:org, user_id:uid, site_id:S1, items:['Gloves','Hard Hat'], status:'signed', issued_at:new Date().toISOString(), issued_by:uid}];
-    db.fin_sub_apps = [{id:'sa1', org_id:org, site_id:S1, subcontract_id:'sc1', number:1, app_date:d, final_date:d, applied_gross:5000, certified_gross:4500, retention:225, contra:0, previous:0, net_due:4275, cis_deduction:855, pay_amount:3420, payless:true, payless_reason:'Snagging not finished on plots 3-4', status:'certified'}];
-    db.todos = [{id:'td1', org_id:org, site_id:S1, text:'Chase scaffold handover cert', done:false, assigned_to:uid, date_required_by:d, created_at:new Date().toISOString()}];
-    db.handover_om_manuals = [{id:'om1', site_id:S1, org_id:org, name:'O&M Manual', data:null, created_at:new Date().toISOString()}];
-    db.price_rate_items = [{id:'ri1', org_id:org, category:'Pitched Roofing', name:'Strip and re-slate', unit:'m2', is_dropdown:false, rate:12.5, active:true, sort_order:1},{id:'ri2', org_id:org, category:'Roofline', name:'Valleys', unit:'lm', is_dropdown:true, rate:null, active:true, sort_order:2}];
-    db.price_rate_options = [{id:'ro1', rate_item_id:'ri2', label:'Lead', rate:40, sort_order:1},{id:'ro2', rate_item_id:'ri2', label:'None', rate:0, sort_order:2}];
-    db.pricing_elements = [{id:'el1', site_id:S1, name:'Flat Roofing', price_total:5000, sort_order:0, created_at:new Date().toISOString()},{id:'el2', site_id:S1, name:'Main roof', price_total:1325, sort_order:1, created_at:new Date().toISOString()}];
-    db.price_weeks = [{element_id:'el1', site_id:S1, week_number:1, amount:900}];
-    db.price_week_operative_entries = [{id:'pe1', site_id:S1, element_id:'el1', week_number:1, operative_id:null, kind:'cost', label:'Plant hire', amount:900}];
-    db.price_builder_sheets = [{id:'ps1', org_id:org, site_id:S1, title:'Draft roof', status:'draft', assigned_user_ids:[], created_at:new Date().toISOString()},{id:'ps2', org_id:org, site_id:S1, title:'Main roof', status:'issued', total:1325, pricing_element_id:'el2', assigned_user_ids:[], issued_at:new Date().toISOString(), created_at:new Date().toISOString()}];
-    db.price_builder_sheet_items = [{id:'si1', sheet_id:'ps2', rate_item_id:'ri1', category:'Pitched Roofing', name:'Strip and re-slate', unit:'m2', rate:12.5, quantity:50, option_id:null, option_label:null, is_manual_rate:false, line_total:625, sort_order:0},{id:'si2', sheet_id:'ps2', rate_item_id:'ri2', category:'Roofline', name:'Valleys', unit:'lm', rate:40, quantity:17.5, option_id:'ro1', option_label:'Lead', is_manual_rate:false, line_total:700, sort_order:1}];
-    db.price_builder_sheet_item_weeks = [];
-    db.repair_jobs = [{id:'rj1', site_id:S1, org_id:org, job_number:'R1', address:'1 High St', description:'Leak', created_at:new Date().toISOString(), job_status:'Approved - To Do', quote_approved:true, quote_approved_at:new Date().toISOString(), closed:false, works_completed:false}]; }
-  db.profiles[0].finance_enabled = true; db.profiles[0].howto_dismissed = ['*'];
-  const page = await ctx.newPage(); page.on('pageerror', e=>errs.push(e.message));
-  await page.goto(BASE+'/login'); await page.waitForTimeout(5000);
+  const {ctx, db} = await makeContext(browser, 'admin', [], {viewport: {width: 1300, height: 900}});
+  seed(db); db.profiles[0].finance_enabled = true; db.profiles[0].howto_dismissed = ['*'];
+  const O = db.organizations[0].id;
+  db.purchase_invoices = [
+    {id: 'p1', org_id: O, supplier_name: 'Jewson', invoice_no: 'INV-1', invoice_date: '2026-10-05', total: 120, net: 100, status: 'approved'},
+    {id: 'p2', org_id: O, supplier_name: 'Jewson', invoice_no: 'INV-2', invoice_date: '2026-11-03', total: 240, net: 200, status: 'approved'},
+    {id: 'p3', org_id: O, supplier_name: 'Jewson Ltd', invoice_no: 'INV-3', invoice_date: '2026-11-05', total: 60, net: 50, status: 'to_approve'},
+    {id: 'p4', org_id: O, supplier_name: 'SIG Trading Ltd', invoice_no: 'INV-501', invoice_date: '2026-10-01', total: 120, net: 100, status: 'approved'},
+  ];
+  db.fin_statements = [
+    {id: 'st1', org_id: O, supplier_name: 'Jewson', statement_date: '2026-10-31', closing_balance: 120, status: 'open', lines: [{id: 'l1', ref: 'INV-1', amount: 120, date: '2026-10-05', type: 'invoice', match: 'p1', how: 'auto'}], created_at: '2026-11-01T09:00:00Z'},
+    {id: 'st2', org_id: O, supplier_name: 'SIG Trading Ltd', statement_date: '2026-09-30', closing_balance: 0, status: 'reconciled', reconciled_at: '2026-10-02T10:00:00Z', reconciled_by: 'me', lines: [{id: 'l2', ref: 'INV-400', amount: 50, date: '2026-09-10', type: 'invoice', match: null}], created_at: '2026-10-01T09:00:00Z'},
+  ];
+  const page = await ctx.newPage(); page.on('pageerror', (e) => errs.push(e.message));
+  await page.goto('http://localhost:8081/login'); await page.waitForTimeout(4000);
   await page.fill('input[placeholder="you@yourcompany.co.uk"]', 'a@x.co'); await page.fill('input[type="password"]', 'pw123456');
-  await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
-  // Upload a supplier statement (STMT env = path) and match it
-  await page.goto(BASE+'/fin/statements'); await page.waitForTimeout(6000);
-  const [fc] = await Promise.all([page.waitForEvent('filechooser', {timeout:15000}), page.getByText('⬆ Upload Statement', {exact:true}).click()]);
-  await fc.setFiles(process.env.STMT); await page.waitForTimeout(6000);
-  await page.getByPlaceholder('Start typing…').fill('SIG Roofing');
-  await page.getByText('Match the invoices', {exact:true}).click(); await page.waitForTimeout(5000);
-  const st = (db.fin_statements||[]).slice(-1)[0];
-  console.log('statement:', st && JSON.stringify({supplier: st.supplier_name, date: st.statement_date, file: !!st.file_path, lines: st.lines.map(l=>[l.date, l.ref, l.type, l.amount, l.match||null])}));
-  const t = (await page.evaluate(()=>document.body.innerText)).replace(/\s+/g,' ');
-  console.log('page:', (t.match(/SIG Roofing.{0,200}/)||[''])[0]);
-  console.log('errors:', errs.join(' / ').slice(0,400) || 'none');
-  await browser.close(); process.exit(0);
+  await page.getByText('Sign In', {exact: true}).click(); await page.waitForTimeout(5000);
+
+  await page.goto('http://localhost:8081/fin/statements'); await page.waitForTimeout(5000);
+  let t = await page.locator('body').innerText();
+  check(!(await page.getByPlaceholder('Search supplier').count()), 'no separate search box on a laptop');
+  check(/GROSS AFTER STATEMENT DATE/i.test(t), 'a Gross After Statement Date column');
+  check(/£300\.00/.test(t), 'Jewson: £300.00 of invoices dated after 31 Oct (INV-2 £240 + INV-3 £60)');
+  check(/TOTAL DUE/i.test(t), 'the balance column says Total Due');
+  await page.screenshot({path: 'shots/stmt-list.png'});
+
+  // Upload a statement: the date and the total due are read; the button says Upload Statement.
+  const fc = page.waitForEvent('filechooser'); await page.getByText('⬆ Upload Statement', {exact: true}).click();
+  await (await fc).setFiles(path.join(__dirname, 'seeds', 'statement-sig.csv')); await page.waitForTimeout(4000);
+  t = await page.locator('body').innerText();
+  check(/New Statement/.test(t) && (await page.getByText('Upload Statement', {exact: true}).count()) > 0, 'the pop-up’s button says Upload Statement');
+  check(/31 Oct 2026/.test(t), 'the statement date is read (31 Oct 2026)');
+  check(await page.getByLabel('Total Due £').inputValue() === '200.5', 'the total due is read (' + await page.getByLabel('Total Due £').inputValue() + ')');
+  await page.screenshot({path: 'shots/stmt-new.png'});
+  await page.getByText('Upload Statement', {exact: true}).last().click(); await page.waitForTimeout(4000);
+  const made = db.fin_statements.find((s) => s.id !== 'st1' && s.id !== 'st2');
+  check(!!made && made.statement_date === '2026-10-31' && Number(made.closing_balance) === 200.5, 'saved with the date and total due');
+  check(/[?&]id=/.test(page.url()), 'Upload Statement goes on to the statement, as before');
+
+  // Reconciled: said plainly; nothing to change until it's reopened.
+  await page.goto('http://localhost:8081/fin/statements?id=st2'); await page.waitForTimeout(5000);
+  t = await page.locator('body').innerText();
+  check(/Reconciled/.test(t) && /Reopen it to change anything/.test(t), 'a reconciled statement says so plainly');
+  check(!/\+ Add A Line/.test(t) && !/Match Again/.test(t) && !/Mark Reconciled/.test(t), 'no Add A Line, Match Again or Mark Reconciled');
+  check(!(await page.getByRole('checkbox', {name: /^Tick /}).count()), 'no tick boxes on the lines');
+  await page.screenshot({path: 'shots/stmt-reconciled.png'});
+  await page.goto('http://localhost:8081/fin/statements?id=st1'); await page.waitForTimeout(5000);
+  t = await page.locator('body').innerText();
+  check(/\+ Add A Line/.test(t) && /Mark Reconciled/.test(t), 'an open one still has its buttons');
+  check(!errs.length, `no errors ${errs.slice(0, 2).join(' | ')}`);
+  await browser.close();
 })();

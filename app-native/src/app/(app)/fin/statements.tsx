@@ -19,13 +19,14 @@ import { DocSplit } from '@/components/DocSplit';
 import { SubRight } from '@/components/FinSlot';
 import { useSites } from '@/data/sites';
 import { fdb, selectAll } from '@/data/finance';
-import { openDocLink } from '@/data/hs';
+import { nameOf, openDocLink, usePeople } from '@/data/hs';
 import { useAuth } from '@/lib/auth';
 import { pdfPageTexts } from '@/lib/pdfjs';
-import { guessSupplier, parseStmtText, stmtAmt, stmtBalance, stmtDate, stmtFromRows } from '@/lib/rules/finStatementRead';
+import { guessSupplier, parseStmtText, stmtAmt, stmtBalance, stmtDate, stmtDateFromText, stmtFromRows } from '@/lib/rules/finStatementRead';
+import { DATE_RANGES, dateRange } from '@/lib/rules/finFilters';
 import { csvRows, readXlsx } from '@/lib/rules/xlsxRead';
 import { supabase } from '@/lib/supabase';
-import { fdate, money, num, round2 } from '@/lib/rules/finance';
+import { fdate, money, num, round2, today } from '@/lib/rules/finance';
 import { autoMatch, lineState, sameSupplier, STMT_TYPES, supKey, type Cand, type SLine } from '@/lib/rules/finStatements';
 import { base, radius, useDesk } from '@/theme/theme';
 
@@ -69,7 +70,8 @@ async function readStatement(orgId: string, file: NewStmt['file']): Promise<NewS
   const names = Array.from(new Set([...fin.map((f) => f.name), ...mat.map((m) => m.name), ...pis.map((p) => p.supplier_name)].filter(Boolean).map((s) => String(s).trim()))).sort((a, b) => a.localeCompare(b));
   const dates = lines.map((l) => l.date).filter(Boolean).sort() as string[];
   const rid = () => (globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}${Math.random().toString(16).slice(2)}`);
-  return { file, lines: lines.map((l) => ({ ...l, id: rid() })), guess: guessSupplier(text, names), date: dates[dates.length - 1] || new Date().toISOString().slice(0, 10), balance: stmtBalance(text), names, mat };
+  // The statement date from its label first (Andy, 7 Nov 2026), then the newest line's date.
+  return { file, lines: lines.map((l) => ({ ...l, id: rid() })), guess: guessSupplier(text, names), date: stmtDateFromText(text) || dates[dates.length - 1] || new Date().toISOString().slice(0, 10), balance: stmtBalance(text), names, mat };
 }
 
 function List() {
@@ -82,7 +84,11 @@ function List() {
   const [nw, setNw] = useState<NewStmt | null>(null);
   const desk = useDesk(); // laptop: the current app's table and a small Upload button on the right (9219l; cmp-fin 5 Nov 2026)
   const { data = [], isLoading } = useQuery({ queryKey: ['finStmts', me?.org_id], enabled: !!me, queryFn: async () => (await selectAll<Row>('fin_statements', '*', (x) => x.eq('org_id', me?.org_id as string))).sort((a, b) => String(b.statement_date || b.created_at).localeCompare(String(a.statement_date || a.created_at))) });
-  const list = data.filter((s) => !q.trim() || String(s.supplier_name).toLowerCase().includes(q.trim().toLowerCase()));
+  // The supplier's invoices dated after each statement's date, gross (Andy, 7 Nov 2026): what's come in since.
+  const { data: pis = [] } = useQuery({ queryKey: ['finStmtPis', me?.org_id], enabled: !!me, queryFn: () => selectAll<Row>('purchase_invoices', 'supplier_name,invoice_date,total,status', (x) => x.eq('org_id', me?.org_id as string).neq('status', 'rejected')) });
+  const grossAfter = (s: Row) => (s.statement_date ? round2(pis.filter((p) => p.invoice_date && p.invoice_date > s.statement_date && sameSupplier(p.supplier_name, s.supplier_name)).reduce((t, p) => t + Number(p.total || 0), 0)) : null);
+  // A phone keeps its search box; a laptop filters in the table's own row under the headings.
+  const list = data.filter((s) => desk || !q.trim() || String(s.supplier_name).toLowerCase().includes(q.trim().toLowerCase()));
   return (
     <FinPage title="Statements" section="purchases" badges={badges} sub="statements" top={<PurchasesStats />} onSub={(k) => { if (k !== 'statements') router.replace((k === 'yard' ? '/fin/yard' : `/fin/purchases?tab=${k}`) as never); }}>
       <Muted style={{ marginBottom: 8 }}>Supplier statements matched to the purchase invoices you hold — by invoice number, or amount and date. Upload a statement (PDF, Excel or CSV) and its lines are read and matched. Nothing leaves OpHUB.</Muted>
@@ -96,10 +102,10 @@ function List() {
         try { setNw(await readStatement(me?.org_id as string, { uri: a.uri, name: a.name || 'statement', mimeType: a.mimeType, size: a.size })); } finally { setBusy(false); }
       }} /></SubRight>
       {nw && me && (
-        <FinForm title="New statement" saveLabel="Match the invoices" onClose={() => setNw(null)}
-          note={`${nw.file.name} · ${nw.lines.length ? `${nw.lines.length} line${nw.lines.length === 1 ? '' : 's'} read` : 'no lines could be read — you can add them by hand'}.${nw.names.length ? ` Known suppliers include: ${nw.names.slice(0, 6).join(', ')}${nw.names.length > 6 ? '…' : ''}` : ''}`}
+        <FinForm title="New Statement" saveLabel="Upload Statement" onClose={() => setNw(null)}
+          note={`${nw.file.name} · ${nw.lines.length ? `${nw.lines.length} line${nw.lines.length === 1 ? '' : 's'} read` : 'no lines could be read — you can add them by hand'}.${nw.balance == null ? ' The total due couldn’t be read — type it in.' : ''}${nw.names.length ? ` Known suppliers include: ${nw.names.slice(0, 6).join(', ')}${nw.names.length > 6 ? '…' : ''}` : ''}`}
           initial={{ supplier: nw.guess, date: nw.date, balance: nw.balance ?? '' }}
-          fields={[{ k: 'supplier', label: 'Supplier *', ph: 'Start typing…' }, { k: 'date', label: 'Statement date', kind: 'date', half: true }, { k: 'balance', label: 'Balance on statement £', kind: 'money', half: true }]}
+          fields={[{ k: 'supplier', label: 'Supplier *', ph: 'Start typing…' }, { k: 'date', label: 'Statement Date', kind: 'date', half: true }, { k: 'balance', label: 'Total Due £', kind: 'money', half: true }]}
           onSave={async (v) => {
             const sup = String(v.supplier || '').trim(); if (!sup) return 'Enter the supplier.';
             let cands: Cand[]; try { cands = await loadCands(me.org_id as string, sup); } catch { return 'Could not load the invoices — try again.'; }
@@ -116,18 +122,19 @@ function List() {
             return null;
           }} />
       )}
-      {<TextInput value={q} onChangeText={setQ} placeholder="Search supplier" style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 9, color: base.ink, backgroundColor: base.card, marginBottom: 10 }} />}
+      {!desk && <TextInput value={q} onChangeText={setQ} placeholder="Search supplier" style={{ borderWidth: 1, borderColor: base.line, borderRadius: radius.input, padding: 9, color: base.ink, backgroundColor: base.card, marginBottom: 10 }} />}
       {isLoading ? <Muted>Loading…</Muted> : desk && list.length ? (() => {
         const st = (s: Row) => { const ls = ((s.lines || []) as SLine[]).filter((l) => !l.ignore && l.type !== 'payment'); return { n: ls.length, miss: ls.filter((l) => !l.match).length }; };
         return (
           <FinTable rows={list} keyOf={(s) => s.id} onRow={(s) => router.setParams({ id: s.id })}
             cols={[
               { k: 'sup', l: 'Supplier', render: (s: Row) => <Cell bold>{s.supplier_name}</Cell> },
-              { k: 'd', l: 'Statement Date', sort: (s: Row) => String(s.statement_date || ''), render: (s: Row) => <Cell>{s.statement_date ? fdate(s.statement_date) : '—'}</Cell> },
+              { k: 'd', l: 'Statement Date', pick: DATE_RANGES.filter(([k]) => k !== 'custom').map(([k, l]) => ({ v: k, l, test: k ? (s: Row) => { const r = dateRange(k, today()); const d = String(s.statement_date || ''); return !r || (!!d && d >= r[0] && d <= r[1]); } : undefined })), sort: (s: Row) => String(s.statement_date || ''), render: (s: Row) => <Cell>{s.statement_date ? fdate(s.statement_date) : '—'}</Cell> },
               { k: 'l', l: 'Lines', sort: (s: Row) => st(s).n, render: (s: Row) => <Cell>{st(s).n}</Cell> },
               { k: 'm', l: 'Matched', sort: (s: Row) => st(s).n - st(s).miss, render: (s: Row) => <Cell>{st(s).n - st(s).miss}</Cell> },
               { k: 'x', l: 'Not In OpHUB', sort: (s: Row) => st(s).miss, render: (s: Row) => <Cell tone={st(s).miss ? '#C0392B' : undefined}>{st(s).miss}</Cell> },
-              { k: 'b', l: 'Balance', sort: (s: Row) => Number(s.closing_balance ?? 0), render: (s: Row) => <Cell>{s.closing_balance != null ? money(s.closing_balance) : '—'}</Cell> },
+              { k: 'b', l: 'Total Due', sort: (s: Row) => Number(s.closing_balance ?? 0), render: (s: Row) => <Cell>{s.closing_balance != null ? money(s.closing_balance) : '—'}</Cell> },
+              { k: 'ga', l: 'Gross After Statement Date', min: 130, sort: (s: Row) => grossAfter(s) ?? -1, render: (s: Row) => { const g = grossAfter(s); return <Cell>{g == null ? '—' : money(g)}</Cell>; } },
               { k: 's', l: 'Status', noSort: true, choices: ['To check', 'Reconciled'], render: (s: Row) => <Cell tone={s.status === 'reconciled' ? '#1E7A43' : '#B35A00'}>{s.status === 'reconciled' ? 'Reconciled' : 'To check'}</Cell> },
             ]} />
         );
@@ -150,6 +157,7 @@ function Statement({ id }: { id: string }) {
   } });
   const [ticks, setTicks] = useState<Set<string>>(new Set());
   const { data: sites = [] } = useSites();
+  const { data: people } = usePeople();
   if (!me) return null;
   if (isLoading) return <FinPage title="Statement" section="purchases"><Muted>Loading…</Muted></FinPage>;
   if (!data) return <FinPage title="Statement" section="purchases"><Muted>Statement not found.</Muted></FinPage>;
@@ -158,6 +166,7 @@ function Statement({ id }: { id: string }) {
   const save = async (patch: Row) => { if (!(await fdb.from('fin_statements').update({ ...patch, updated_at: new Date().toISOString() } as never).eq('id', id).select('id')).data?.length) { toast('Could not save — try again.'); return false; } void qc.invalidateQueries({ queryKey: ['finStmt'] }); void qc.invalidateQueries({ queryKey: ['finStmts'] }); return true; };
   const setLine = (lid: string, p: Partial<SLine>) => save({ lines: lines.map((l) => (l.id === lid ? { ...l, ...p } : l)) });
   const used = new Set(lines.map((l) => l.match).filter(Boolean));
+  const done = s.status === 'reconciled';
   const notOnStmt = cands.filter((c) => !used.has(c.id) && c.status !== 'paid' && (!s.statement_date || !c.date || c.date <= s.statement_date));
   // The lines (not ignored) add up to — checked against the balance on the statement (9219l).
   const tot = round2(lines.filter((l) => !l.ignore).reduce((t, l) => t + Number(l.amount || 0), 0));
@@ -212,18 +221,28 @@ function Statement({ id }: { id: string }) {
         <FinStat v={money(tot)} label={s.closing_balance != null && Math.abs(off) >= 0.01 ? `Lines add up to (${off > 0 ? '+' : '−'}${money(Math.abs(off))} vs balance)` : 'Lines add up to'} hot={s.closing_balance != null && Math.abs(off) >= 0.01} />
         <FinStat v={String(counts.ok || 0)} label="Matched" /><FinStat v={String(counts.missing || 0)} label="Not in OpHUB" hot={!!counts.missing} />
       </View>
+      {/* Reconciled (Andy, 7 Nov 2026): said plainly at the top, and nothing to change until it's reopened. */}
+      {done && (
+        <View accessibilityLabel="Reconciled" style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#E7F6EC', borderWidth: 1, borderColor: '#BFE3CB', borderRadius: 10, paddingVertical: 12, paddingHorizontal: 14, marginBottom: 10 }}>
+          <Text style={{ fontSize: 22, color: '#1E7A43' }}>✓</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 15, fontWeight: '700', color: '#1E7A43' }}>Reconciled</Text>
+            <Text style={{ fontSize: 12.5, color: '#1E7A43' }}>{s.reconciled_at ? fdate(String(s.reconciled_at).slice(0, 10)) : ''}{s.reconciled_by ? ` by ${nameOf(people, s.reconciled_by)}` : ''}. Reopen it to change anything.</Text>
+          </View>
+          <Button small kind="ghost" title="Reopen" onPress={async () => { if (await confirmAsk('Reopen this statement to change it?', 'Reopen')) { if (await save({ status: 'open', reconciled_at: null, reconciled_by: null })) toast('Reopened'); } }} />
+        </View>
+      )}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
-        <Button kind="ghost" title="+ Add A Line" onPress={() => void addLine()} />
-        <Button kind="ghost" title="Match Again" onPress={async () => { if (await save({ lines: autoMatch(lines, cands) })) toast('Matched again'); }} />
+        {!done && <Button kind="ghost" title="+ Add A Line" onPress={() => void addLine()} />}
+        {!done && <Button kind="ghost" title="Match Again" onPress={async () => { if (await save({ lines: autoMatch(lines, cands) })) toast('Matched again'); }} />}
         {s.file_path && <Button kind="ghost" title="📄 Open The Statement" onPress={async () => { const u = await openDocLink('finance-docs', s.file_path); if (u) viewDoc(u); }} />}
-        {s.status === 'reconciled' ? <Button kind="ghost" title="Reopen" onPress={async () => { if (await save({ status: 'open', reconciled_at: null, reconciled_by: null })) toast('Reopened'); }} />
-          : <Button title="Mark Reconciled" onPress={async () => { const miss = counts.missing || 0; if (miss && !(await confirmAsk(`${miss} line${miss === 1 ? ' isn’t' : 's aren’t'} matched to an invoice. Mark the statement reconciled anyway?`, 'Mark reconciled'))) return; if (await save({ status: 'reconciled', reconciled_at: new Date().toISOString(), reconciled_by: me.id })) toast('Statement reconciled'); }} />}
+        {!done && <Button title="Mark Reconciled" onPress={async () => { const miss = counts.missing || 0; if (miss && !(await confirmAsk(`${miss} line${miss === 1 ? ' isn’t' : 's aren’t'} matched to an invoice. Mark the statement reconciled anyway?`, 'Mark reconciled'))) return; if (await save({ status: 'reconciled', reconciled_at: new Date().toISOString(), reconciled_by: me.id })) toast('Statement reconciled'); }} />}
       </View>
       <SectionTitle>Lines</SectionTitle>
       {lines.length > 0 && (
-        <FinTable rows={lines} keyOf={(l) => l.id} onRow={(l) => void pickLine(l)}
+        <FinTable rows={lines} keyOf={(l) => l.id} onRow={done ? undefined : (l) => void pickLine(l)}
           cols={[
-            { k: 'tick', l: '', flex: 0.2, min: 28, noSort: true, render: (l: SLine) => tick(l) },
+            ...(done ? [] : [{ k: 'tick', l: '', flex: 0.2, min: 28, noSort: true, render: (l: SLine) => tick(l) }]),
             { k: 'd', l: 'Date', min: 70, sort: (l: SLine) => String(l.date || ''), render: (l: SLine) => <Cell>{l.date ? fdate(l.date) : '—'}</Cell> },
             { k: 'r', l: 'Their Ref', min: 80, render: (l: SLine) => <Cell bold>{l.ref || '—'}</Cell> },
             { k: 't', l: 'Type', min: 64, noSort: true, render: (l: SLine) => <Cell>{STMT_TYPES[l.type] || l.type}</Cell> },
@@ -234,7 +253,7 @@ function Statement({ id }: { id: string }) {
           ]}
           footLabel={(ls) => `${ls.length} lines`} />
       )}
-      {picked.length > 0 && (
+      {!done && picked.length > 0 && (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 10, padding: 10, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10 }}>
           <Text style={{ fontWeight: '600', color: base.ink, fontSize: 13 }}>{picked.length} Selected · {money(picked.reduce((t, l) => t + Number(l.amount || 0), 0))}</Text>
           {picked.filter(canAlloc).length < lines.filter(canAlloc).length && <Pressable onPress={() => setTicks(new Set(lines.filter(canAlloc).map((l) => l.id)))}><Text style={{ color: base.blue, fontWeight: '500', fontSize: 13 }}>Select All Matching ({lines.filter(canAlloc).length})</Text></Pressable>}
@@ -252,17 +271,17 @@ function Statement({ id }: { id: string }) {
           {notOnStmt.map((c) => (
             <View key={c.id}>
               <FinRow title={`${c.invoice_no || 'No number'}${c.kind === 'inbox' ? ' (unallocated)' : ''}`} sub={`${fdate(c.date)} · ${c.status}`} right={money(c.total)} onPress={c.kind === 'pi' ? () => router.push(`/fin/pinv/${c.id}` as never) : () => router.push(`/fin/inbox/${c.id.slice(3)}` as never)} />
-              <Text style={{ color: base.blue, marginBottom: 6 }} onPress={async () => {
+              {!done && <Text style={{ color: base.blue, marginBottom: 6 }} onPress={async () => {
                 const free = lines.filter((l) => !l.match && !l.ignore && l.type !== 'payment');
                 if (!free.length) { toast('Every line is already matched.'); return; }
                 const k = await chooseAction('Match to a line', free.map((l) => ({ key: l.id, label: `${l.ref || 'Line'} · ${money(l.amount)}` })));
                 if (k) void setLine(k, { match: c.id, how: 'manual', ignore: false });
-              }}>Match to a line ▾</Text>
+              }}>Match to a line ▾</Text>}
             </View>
           ))}
         </Card>
       )}
-      <Text style={{ color: base.slate, marginTop: 6 }}>Tick the lines that match, then Allocate & Mark Paid: those invoices show as Paid (Statement). Tap a line to change its match, ignore it or take it off allocated.</Text>
+      {!done && <Text style={{ color: base.slate, marginTop: 6 }}>Tick the lines that match, then Allocate & Mark Paid: those invoices show as Paid (Statement). Tap a line to change its match, ignore it or take it off allocated.</Text>}
     </FinPage>
     </DocSplit>
   );

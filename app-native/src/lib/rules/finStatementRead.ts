@@ -73,9 +73,43 @@ export function stmtFromRows(rows: (string | number)[][]): Read[] {
   return out;
 }
 /** The balance printed on the statement, if there is one. */
+// The total due on a statement (Andy, 7 Nov 2026: "it didn't read the total due"): the strongest label wins, the figure
+// can be on the label's line or the next two (PDF tables often put it underneath), and the last one on the page counts.
+const AMT_RX = /(-?£?\s?(?:\d{1,3}(?:,\d{3})+|\d+)\.\d{2}(?:\s?CR)?)/i;
+const DUE_LABELS: RegExp[] = [
+  /(?:total|balance|amount)\s*(?:now\s*)?(?:due|outstanding|owing|payable)|please\s*pay|amount\s*to\s*pay|total\s*outstanding|outstanding\s*balance/i,
+  /closing\s*balance|account\s*balance|balance\s*(?:carried\s*forward|c\/f)|total\s*balance/i,
+  /^\s*(?:total|balance)\b/i,
+];
 export function stmtBalance(text: string): number | null {
-  const m = text.match(/(?:balance\s*(?:due|outstanding|now due|carried forward|c\/f)|amount\s*(?:now\s*)?due|total\s*due|closing balance)[^\d£-]{0,20}(-?£?\s?(?:\d{1,3}(?:,\d{3})+|\d+)\.\d{2}(?:\s?CR)?)/i);
-  return m ? stmtAmt(m[1]) : null;
+  const rows = text.split('\n');
+  for (const label of DUE_LABELS) {
+    let found: number | null = null;
+    rows.forEach((row, i) => {
+      const m = label.exec(row);
+      if (!m) return;
+      const after = row.slice(m.index + m[0].length);
+      const here = AMT_RX.exec(after) || (i + 1 < rows.length ? AMT_RX.exec(rows[i + 1]) : null) || (i + 2 < rows.length ? AMT_RX.exec(rows[i + 2]) : null);
+      if (here) { const n = stmtAmt(here[1]); if (n !== null) found = n; }
+    });
+    if (found !== null) return found;
+  }
+  return null;
+}
+/** The statement date (Andy, 7 Nov 2026): a "Statement Date" / "Date Of Statement" / "As At" label first, then a plain
+ *  "Date:" near the top; on the same line or the next. Null if there's none (then the newest line's date is used). */
+export function stmtDateFromText(text: string): string | null {
+  const rows = text.split('\n');
+  const look = (rx: RegExp, upto = rows.length): string | null => {
+    for (let i = 0; i < Math.min(rows.length, upto); i++) {
+      const m = rx.exec(rows[i]);
+      if (!m) continue;
+      const d = stmtDate(rows[i].slice(m.index + m[0].length)) || (i + 1 < rows.length ? stmtDate(rows[i + 1]) : null);
+      if (d) return d;
+    }
+    return null;
+  };
+  return look(/statement\s*date|date\s*of\s*statement|statement\s*as\s*(?:at|of)|as\s*at\b/i) || look(/^\s*date\s*:?/i, 25);
 }
 /** The longest known supplier name that appears in the statement. */
 export const guessSupplier = (text: string, names: string[]) => { const low = text.toLowerCase(); return names.filter((n) => n.length > 2 && low.includes(n.toLowerCase())).sort((a, b) => b.length - a.length)[0] || ''; };
