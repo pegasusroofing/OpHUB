@@ -102,10 +102,11 @@ export default function SiteHome() {
         <HowTo k="site_home" />
         {/* Four tiles (Andy, 7 Nov 2026): Works Orders, Health & Safety, Calendar, To Do List. */}
         <JobTiles cols={cols} tiles={[
-          { key: 'jobs', ic: 'wrench', bg: TINTS.red[0], fg: TINTS.red[1], title: 'Works Orders', sub: mgr ? 'Repair jobs on this contract' : 'Your repair jobs', badge: mgr ? rjobs.filter(BOXES[0].test).length : operativeJobs(rjobs, me.id, false).mine, onPress: go('repairs') },
+          { key: 'jobs', ic: 'wrench', bg: TINTS.red[0], fg: TINTS.red[1], title: 'Works Orders', sub: mgr || client ? 'Repair jobs on this contract' : 'Your repair jobs', badge: client ? undefined : mgr ? rjobs.filter(BOXES[0].test).length : operativeJobs(rjobs, me.id, false).mine, onPress: go('repairs') },
           { key: 'hs', ic: 'shield', bg: '#E7E9EE', fg: base.ink, title: 'Health & Safety', sub: 'RAMS · COSHH · TBT', onPress: go('hs') },
-          { key: 'cal', ic: 'calendar', bg: '#E4EEFB', fg: TINTS.blue[1], title: 'Calendar', sub: 'Key dates', onPress: go('calendar') },
-          { key: 'todo', ic: 'check', bg: '#EFEAFB', fg: '#5B3FA6', title: 'To Do List', sub: 'Tasks', onPress: go('todos') },
+          // A client: Works Orders and Health & Safety only (their pages).
+          ...(client ? [] : [{ key: 'cal', ic: 'calendar', bg: '#E4EEFB', fg: TINTS.blue[1], title: 'Calendar', sub: 'Key dates', onPress: go('calendar') },
+          { key: 'todo', ic: 'check', bg: '#EFEAFB', fg: '#5B3FA6', title: 'To Do List', sub: 'Tasks', onPress: go('todos') }]),
         ]} />
         {footer}
       </ScrollView>

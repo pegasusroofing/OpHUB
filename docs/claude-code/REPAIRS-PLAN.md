@@ -1,6 +1,6 @@
 # Repair contracts rebuild: the plan (Andy, 7 Nov 2026)
 
-Pictures: `docs/claude-code/mockups/repair-*.png` (drawn from `repairs.html`). Nothing is built yet.
+Pictures: `docs/claude-code/mockups/repair-*.png` (drawn from `repairs.html`). **Built 7 Nov 2026** in the new app (see CURRENT-STATE.md); the quote stage (schedule of rates with the contract discount, own lines or one figure, the contract's VAT once at the bottom) and the client view (hub, quote, attendance report, completed works) were added to the plan while building.
 Research behind it (Joblogic, BigChange, Simpro): about five or six steps, moved on by what people do, invoice
 raised from the job (one per job or a monthly batch). Ours had 9 stages and no link to Finance.
 

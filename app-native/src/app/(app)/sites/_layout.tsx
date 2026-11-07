@@ -19,7 +19,8 @@ import { base } from '@/theme/theme';
 // clients only get the job home, Schedule of Works, H&S and Snagging; non-managers can't open a closed
 // job; an operative allocated to a subcontractor company only gets the Main Contractor pages (site
 // documents, permits, their company's folder) — the rest of the job goes to their company's folder.
-const CLIENT_PAGES = ['schedule', 'hs', 'snagging'];
+// A repair contract's client sees Works Orders and each job's hub (Andy, 7 Nov 2026), nothing else in repairs.
+const CLIENT_PAGES = ['schedule', 'hs', 'snagging', 'repairs'];
 // An H&S screen hidden from your role (the H&S tile's who-can-see setting) doesn't open by link either.
 const HS_KEY: Record<string, string> = { rams: 'hs_rams', coshh: 'hs_coshh', tbt: 'hs_tbt', briefings: 'hs_briefings', havspuwer: 'hs_havspuwer', havs: 'hs_havs', puwer: 'hs_havspuwer', mytools: 'hs_havspuwer', loler: 'hs_loler', incidents: 'hs_incidents' };
 function useJobGuard(): { to: string; why?: string } | null {
@@ -51,6 +52,7 @@ function useJobGuard(): { to: string; why?: string } | null {
   if (!isManager(me) && site && siteStatusKey(site) === 'closed') return { to: '/sites', why: 'This job is closed.' };
   if (me.role === 'client' && page && page !== 'index' && !CLIENT_PAGES.includes(page)) return { to: `/sites/${id}` };
   const sub = seg[at + 2] || '';
+  if (me.role === 'client' && page === 'repairs' && sub && !['index', 'job'].includes(sub)) return { to: `/sites/${id}/repairs` };
   // 890 snagging: a client only gets the snag list (no variations, reports or templates by link).
   if (me.role === 'client' && page === 'snagging' && sub && sub !== 'index' && sub !== 'list') return { to: `/sites/${id}/snagging/list` };
   // 890: a client's H&S is RAMS, COSHH, TBT and Completed Inspections, nothing else by link.

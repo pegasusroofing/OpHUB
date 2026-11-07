@@ -16,7 +16,9 @@ const seed = require('./fresh/seed');
   await page.getByText('Sign In', {exact:true}).click(); await page.waitForTimeout(5000);
   await page.goto(BASE+'/sites/'+S1+'/repairs/job/rj1'); await page.waitForTimeout(6000);
   console.log('on open:', JSON.stringify(calls)); calls.length = 0;
-  await page.getByText('☁️ Send everything on this job to OneDrive', {exact:true}).click(); await page.waitForTimeout(9000);
+  // 7 Nov 2026: in the new job hub it's Update ▾ › Send Everything To OneDrive.
+  await page.getByText('Update ▾', {exact:true}).click(); await page.waitForTimeout(600);
+  await page.locator('text="Send Everything To OneDrive" >> visible=true').last().click(); await page.waitForTimeout(9000);
   console.log('send everything:', JSON.stringify(calls));
   console.log('errors', errs.join(' | ')||'none'); await browser.close(); process.exit(0);
 })();

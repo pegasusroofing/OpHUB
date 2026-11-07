@@ -108,6 +108,17 @@ export default function WorksOrders() {
   };
   const list = (items: (RJob & RepairJob)[]) => <View style={{ backgroundColor: base.card, borderWidth: 1, borderColor: base.cardLine, borderRadius: 12, overflow: 'hidden', marginBottom: 10 }}>{items.map(row)}</View>;
 
+  if (me.role === 'client') {
+    // The client: every job and where it's at; tap one for its hub (details, notes, the quote and reports).
+    const everything = all.slice().sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+    return (
+      <ScrollView contentContainerStyle={page(720)}>
+        <Stack.Screen options={{ title: 'Works Orders' }} />
+        <Muted style={{ marginBottom: 10 }}>Every job on this contract and where it’s at. Tap one for its details, notes and documents.</Muted>
+        {everything.length ? list(everything) : <Muted>No jobs yet.</Muted>}
+      </ScrollView>
+    );
+  }
   if (!mgr) {
     // Operatives: their jobs, soonest first, by day.
     const r = operativeJobs(all, me.id, showAll);

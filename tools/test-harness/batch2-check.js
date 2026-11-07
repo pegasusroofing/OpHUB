@@ -19,7 +19,8 @@ const {chromium, makeContext, S1} = require('./harness');
   await page.goto('http://localhost:8081/sites/'+S1+'/hs/loler/view/rs1'); await page.waitForTimeout(5000);
   console.log('non-LOLER refused', await page.getByText('Inspection not found.').count());
   await page.goto('http://localhost:8081/sites/'+S1+'/repairs/job/rj1'); await page.waitForTimeout(5000);
-  console.log('signed off line', (await page.evaluate(()=>document.body.innerText)).match(/Signed off[^\n]*/)?.[0] || 'none');
+  // 7 Nov 2026: the new job hub shows where it's at as a stage (e.g. Works Done), "checked" once signed off.
+  console.log('stage line', (await page.evaluate(()=>document.body.innerText)).match(/(Works Done|Approved — To Book|Quote Needed|Awaiting Approval|Booked In|To Book|Attended)[^\n]*/)?.[0] || 'none');
   console.log('errors', errs.join(' / ').slice(0,300) || 'none');
   await browser.close(); process.exit(0);
 })();
