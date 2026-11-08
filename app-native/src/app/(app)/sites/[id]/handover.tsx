@@ -1,6 +1,7 @@
 // Handover (857, managers): O&M manuals on this job, the products' data sheets
 // and the guarantees (provider, reference, expiry, maintenance to keep it valid).
-// Tap a manual to edit and export it; start a new one built from the job.
+// Tap a manual to edit and export it; start a new one built from the job. With a OneDrive folder on the job, its guarantees
+// and data sheets are found there (Andy, 8 Nov 2026) — before a new manual is built, and with Find In OneDrive.
 import * as DocumentPicker from 'expo-document-picker';
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
@@ -10,6 +11,7 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { chooseAction, confirmAsk, promptText, useToast } from '@/components/toast';
 import { Button, Card, Empty, Muted } from '@/components/ui';
 import { viewDoc } from '@/components/DocViewer';
+import { OneDriveFindPopup, siteHasOneDrive } from '@/components/HoOneDriveFind';
 import { DateBox } from '@/components/DateField';
 import { addBlankGuarantee, attachToDoc, deleteHoDoc, renameManual, setHoField, uploadHoDocs, useHandover, type HoDoc } from '@/data/handover';
 import { nameOf, openDocLink, usePeople } from '@/data/hs';
@@ -42,6 +44,7 @@ export default function Handover() {
   const { data: people } = usePeople();
   const [tab, setTab] = useState<'manual' | 'sheets' | 'guar'>('manual');
   const [busy, setBusy] = useState('');
+  const [finding, setFinding] = useState<'' | 'find' | 'new'>('');
   if (!me || !site) return <Muted style={{ padding: space.l }}>Loading…</Muted>;
   if (!isManager(me)) return <Muted style={{ padding: space.l }}>Managers only.</Muted>;
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['handover', id] }); };
@@ -58,6 +61,13 @@ export default function Handover() {
     const n = await uploadHoDocs(me, site, files, kind, (i) => setBusy(`Uploading ${i} of ${files.length}…`));
     setBusy(''); toast(`${n} added`); refresh();
   };
+  const makeManual = async () => {
+    setBusy('Building the manual from the job…');
+    const mid = await newManual(me, org, site, `O&M Manual${data?.manuals.length ? ` ${data.manuals.length + 1}` : ''}`); setBusy('');
+    if (!mid) { toast('Could not create the manual — try again.'); return; }
+    refresh(); router.push(`/sites/${site.id}/om/${mid}` as never);
+  };
+  const findBtn = siteHasOneDrive(site) && <View style={{ flex: 1 }}><Button kind="ghost" title="🔍 Find In OneDrive" onPress={() => setFinding('find')} /></View>;
   const chip = (k: typeof tab, l: string, n?: number) => (
     <Pressable onPress={() => setTab(k)} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: tab === k ? live.brand1 : base.line, backgroundColor: tab === k ? live.brand1 : base.card }}>
       <Text style={{ fontWeight: '500', color: tab === k ? live.brand1Text : base.ink }}>{l}{n != null ? ` (${n})` : ''}</Text>
@@ -68,11 +78,11 @@ export default function Handover() {
   return (
     <ScrollView contentContainerStyle={page(720)} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'Handover' }} />
-      <View style={{ flexDirection: 'row', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>{chip('manual', 'O&M manuals')}{chip('sheets', 'Data sheets', sheets.length)}{chip('guar', 'Guarantees', guars.length)}</View>
+      <View style={{ flexDirection: 'row', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>{chip('manual', 'O&M Manuals')}{chip('sheets', 'Data Sheets', sheets.length)}{chip('guar', 'Guarantees', guars.length)}</View>
       {!!busy && <Muted style={{ marginBottom: 8 }}>{busy}</Muted>}
       {isLoading ? <Muted>Loading…</Muted> : tab === 'manual' ? (
         <>
-          <Muted style={{ marginBottom: 12 }}>Operation &amp; Maintenance manuals for this job.</Muted>
+
           {data?.manuals.length ? data.manuals.map((m) => (
             <Pressable key={m.id} onPress={() => router.push(`/sites/${site.id}/om/${m.id}` as never)}><Card style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <Text style={{ fontSize: 24 }}>📘</Text>
@@ -80,27 +90,22 @@ export default function Handover() {
                 <Text style={{ fontWeight: '600', color: base.ink }}>{m.name || 'O&M Manual'}</Text>
                 <Muted>Updated {when(m.updated_at || m.created_at)}{m.updated_by ? ` by ${nameOf(people, m.updated_by)}` : ''}</Muted>
               </View>
-              <Pressable onPress={async () => { const n = await promptText('Rename this O&M manual', m.name || 'O&M Manual'); if (!n || !n.trim()) return; toast((await renameManual(me, m.id, n.trim())) ? 'Renamed' : 'Could not save — try again.'); refresh(); }}><Text style={{ color: base.blue }}>Rename</Text></Pressable>
-              <Pressable hitSlop={8} onPress={async () => {
-                const k = await chooseAction(m.name || 'O&M Manual', [{ key: 'dup', label: '⧉ Duplicate' }, { key: 'del', label: '🗑 Delete' }]);
+              <Pressable hitSlop={8} accessibilityLabel={`${m.name || 'O&M Manual'} options`} onPress={async () => {
+                const k = await chooseAction(m.name || 'O&M Manual', [{ key: 'ren', label: '✎ Rename' }, { key: 'dup', label: '⧉ Duplicate' }, { key: 'del', label: '🗑 Delete', danger: true }]);
+                if (k === 'ren') { const n = await promptText('Rename This O&M Manual', m.name || 'O&M Manual'); if (!n || !n.trim()) return; if (!(await renameManual(me, m.id, n.trim()))) toast('Could not save — try again.'); refresh(); }
                 if (k === 'dup') { toast((await duplicateManual(me, m.id)) ? 'Copied' : 'Could not copy — try again.'); refresh(); }
                 if (k === 'del' && (await confirmAsk(`Delete "${m.name || 'O&M Manual'}"? This can't be undone.`, 'Yes — delete'))) { toast((await deleteManual(m.id)) ? 'Deleted' : 'Could not delete — try again.'); refresh(); }
               }}><Text style={{ fontSize: 18, color: base.slate, paddingHorizontal: 4 }}>⋮</Text></Pressable>
             </Card></Pressable>
           )) : <Empty>No O&amp;M manuals yet.</Empty>}
-          <Button title="+ New O&M manual" onPress={async () => {
-            const n = await promptText('Name for the new O&M manual', `O&M Manual${data?.manuals.length ? ` ${data.manuals.length + 1}` : ''}`); if (n === null) return;
-            setBusy('Building from the job…'); const mid = await newManual(me, org, site, n); setBusy('');
-            if (!mid) { toast('Could not create the manual — try again.'); return; }
-            refresh(); router.push(`/sites/${site.id}/om/${mid}` as never);
-          }} />
-          <Muted style={{ marginTop: 8 }}>A new manual is built from the job — Schedule of Works, data sheets, COSHH, guarantees, drawings and photos. The data sheets and guarantees you add here feed straight into it.</Muted>
+          <View style={{ alignItems: 'center' }}><Button busy={!!busy} title="+ New O&M Manual" onPress={() => { if (siteHasOneDrive(site)) setFinding('new'); else void makeManual(); }} /></View>
+          <Muted style={{ marginTop: 8, textAlign: 'center' }}>Built from the job: {org && (org as { has_finance?: boolean }).has_finance ? 'the Bill of Quantities (or the Schedule of Works), ' : 'the Schedule of Works, '}data sheets, guarantees, COSHH, drawings and photos.{siteHasOneDrive(site) ? ' The job’s OneDrive folder is searched for guarantees and data sheets first.' : ''}</Muted>
         </>
       ) : tab === 'sheets' ? (
         <>
           <Card>
             <Muted style={{ marginBottom: 8 }}>Technical data sheets, declarations of performance and specs for the products used. They&apos;re listed in the manual&apos;s Materials Log and attached to the back of the PDF.</Muted>
-            <Button title="📄 Upload data sheets (several at once)" onPress={() => void upload('datasheet')} />
+            <View style={{ flexDirection: 'row', gap: 8 }}><View style={{ flex: 1 }}><Button title="📄 Upload Data Sheets" onPress={() => void upload('datasheet')} /></View>{findBtn}</View>
           </Card>
           {sheets.length ? sheets.map((x) => (
             <Card key={x.id}>
@@ -118,8 +123,9 @@ export default function Handover() {
           <Card>
             <Muted style={{ marginBottom: 8 }}>Manufacturer guarantees and your own workmanship warranty. They fill the manual&apos;s Guarantees table and the certificates are attached to the PDF.</Muted>
             <View style={{ flexDirection: 'row', gap: 8 }}>
-              <View style={{ flex: 1 }}><Button title="📄 Upload certificates" onPress={() => void upload('guarantee')} /></View>
-              <View style={{ flex: 1 }}><Button kind="ghost" title="+ Add without a file" onPress={async () => { if (await addBlankGuarantee(me, site)) refresh(); else toast('Could not save — try again.'); }} /></View>
+              <View style={{ flex: 1 }}><Button title="📄 Upload Certificates" onPress={() => void upload('guarantee')} /></View>
+              {findBtn}
+              <View style={{ flex: 1 }}><Button kind="ghost" title="+ Add Without A File" onPress={async () => { if (await addBlankGuarantee(me, site)) refresh(); else toast('Could not save — try again.'); }} /></View>
             </View>
           </Card>
           {guars.length ? guars.map((x) => (
@@ -141,6 +147,9 @@ export default function Handover() {
           )) : <Empty>No guarantees yet.</Empty>}
         </>
       )}
+      {!!finding && <OneDriveFindPopup me={me} site={site} have={docs.map((x) => x.name)} silentIfNone={finding === 'new'}
+        title={finding === 'new' ? 'Found In The Job’s OneDrive Folder' : 'Find In OneDrive'} skipLabel={finding === 'new' ? 'Skip' : 'Cancel'}
+        onDone={(n) => { const was = finding; setFinding(''); if (n) { refresh(); toast(`${n} added from OneDrive`, { confirm: true }); } if (was === 'new') void makeManual(); }} />}
     </ScrollView>
   );
 }

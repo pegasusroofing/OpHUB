@@ -2,8 +2,10 @@
 // attach a certificate, delete) and its list of O&M manuals (rename).
 import { useQuery } from '@tanstack/react-query';
 
+import { hoKindOf, hoSameName, hoSkipFolder, type HoKind } from '@/lib/rules/handoverFind';
 import { supabase } from '@/lib/supabase';
 import type { Profile, Site } from '@/lib/types';
+import { invokeAsUser } from '@/lib/userFunctions';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 
@@ -45,6 +47,57 @@ export async function uploadHoDocs(me: Profile, site: Site, files: { uri: string
     if (!r.error) made++;
   }
   return made;
+}
+/* ---------- the job's OneDrive folder (Andy, 8 Nov 2026) ---------- */
+export type HoFound = { id: string; name: string; driveId: string | null; where: string; kind: HoKind; size: number };
+type OdLevel = { folders?: { id: string; name: string; driveId?: string | null }[]; files?: { id: string; name: string; driveId?: string | null; size?: number }[]; error?: string };
+/** Guarantees and data sheets in the job's OneDrive folder and the folders under it (4 deep, photo folders skipped), leaving
+ *  out ones already in the handover. null + reason when the job has no folder or OneDrive can't be read. */
+export async function findInOneDrive(site: Site, have: string[]): Promise<{ found: HoFound[] } | { error: string }> {
+  const s = site as Site & { onedrive_folder_id?: string | null; onedrive_drive_id?: string | null; onedrive_folder_name?: string | null };
+  if (!s.onedrive_folder_id) return { error: 'This job has no OneDrive folder linked yet.' };
+  const found: HoFound[] = [];
+  let level: { id: string; driveId: string | null; path: string }[] = [{ id: s.onedrive_folder_id, driveId: s.onedrive_drive_id || null, path: s.onedrive_folder_name || 'Job folder' }];
+  let opened = 0, firstError = '';
+  for (let depth = 0; depth < 4 && level.length && opened < 80; depth++) {
+    const next: typeof level = [];
+    for (let i = 0; i < level.length && opened < 80; i += 5) {
+      const batch = level.slice(i, i + 5); opened += batch.length;
+      const res = await Promise.all(batch.map((f) => invokeAsUser<OdLevel>('onedrive-list-folders', { includeFiles: true, parent_id: f.id, ...(f.driveId ? { drive_id: f.driveId } : {}) })));
+      res.forEach((r, j) => {
+        const at = batch[j];
+        if (r.error || r.data?.error) { if (!firstError) firstError = r.data?.error || r.error || 'Could not read OneDrive.'; return; }
+        (r.data?.files || []).forEach((f) => {
+          const kind = hoKindOf(f.name, at.path);
+          if (kind && !have.some((h) => hoSameName(h, f.name)) && !found.some((x) => x.id === f.id)) found.push({ id: f.id, name: f.name, driveId: f.driveId || at.driveId, where: at.path, kind, size: f.size || 0 });
+        });
+        (r.data?.folders || []).filter((f) => !hoSkipFolder(f.name)).forEach((f) => next.push({ id: f.id, driveId: f.driveId || at.driveId, path: `${at.path}/${f.name}` }));
+      });
+    }
+    level = next;
+  }
+  if (!found.length && firstError && opened <= 1) return { error: firstError };
+  return { found };
+}
+/** Copies the ticked OneDrive files into the handover, as data sheets or guarantees. */
+export async function importHoFromOneDrive(me: Profile, site: Site, files: HoFound[], onStep?: (i: number) => void): Promise<{ added: number; failed: number }> {
+  let added = 0, failed = 0;
+  for (let i = 0; i < files.length; i++) {
+    const f = files[i]; onStep?.(i + 1);
+    try {
+      const d = await invokeAsUser<{ content_base64?: string; error?: string }>('onedrive-download-file', { item_id: f.id, drive_id: f.driveId || null, name: f.name });
+      if (d.error || !d.data?.content_base64) { failed++; continue; }
+      const bin = atob(d.data.content_base64), bytes = new Uint8Array(bin.length);
+      for (let j = 0; j < bin.length; j++) bytes[j] = bin.charCodeAt(j);
+      const path = `${site.org_id || me.org_id}/handover/${site.id}/${rid()}-${f.name.replace(/[^a-z0-9.-]+/gi, '_')}`;
+      const up = await supabase.storage.from('mc-documents').upload(path, bytes, { contentType: /\.png$/i.test(f.name) ? 'image/png' : /\.jpe?g$/i.test(f.name) ? 'image/jpeg' : 'application/pdf' });
+      if (up.error) { failed++; continue; }
+      const g = (f.name.match(PROVIDERS) || [])[1] || '';
+      const r = await db.from('handover_docs').insert({ org_id: site.org_id || me.org_id, site_id: site.id, kind: f.kind, name: f.name, storage_path: up.data.path, provider: g ? g.charAt(0).toUpperCase() + g.slice(1).toLowerCase() : null, uploaded_by: me.id } as never);
+      if (r.error) failed++; else added++;
+    } catch { failed++; }
+  }
+  return { added, failed };
 }
 export async function addBlankGuarantee(me: Profile, site: Site): Promise<boolean> {
   return !(await db.from('handover_docs').insert({ org_id: site.org_id || me.org_id, site_id: site.id, kind: 'guarantee', name: 'Roofing system guarantee', uploaded_by: me.id } as never)).error;

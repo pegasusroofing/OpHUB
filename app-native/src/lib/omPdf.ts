@@ -4,7 +4,8 @@
 // Appendices list and the attached documents (data sheets, guarantees, COSHH,
 // drawings, chosen files, Schedule of Works, reports). Page numbers on the
 // manual's own pages only.
-import { collectAttachments } from '@/data/omManual';
+import { collectAttachments, loadBoqWorks } from '@/data/omManual';
+import { exportTablePdf } from '@/lib/tableExport';
 import { buildReportPdf, type PdfSub } from '@/lib/reportPdf';
 import { embedImage, fetchBytes, fetchScaled, hexToRgb, PDFDocument, rgb, safe, StandardFonts, type PDFImage, type PDFPage } from '@/lib/pdf';
 import { publicUrl } from '@/lib/privateFiles';
@@ -131,7 +132,19 @@ export async function buildOmPdf(d: OmData, site: Site, org: Organization | null
       let placed = false;
       try {
         let src: PDFDocument | null = null;
-        if (a.gen?.kind === 'sow-app') { const r = await buildSowPdf(site, org, 'all', null); if (typeof r !== 'string') src = await PDFDocument.load(r.bytes, { ignoreEncryption: true }); }
+        if (a.gen?.kind === 'sow-app') { const r = await buildSowPdf(site, org, a.gen.doneOnly ? 'done' : 'all', null, undefined, a.gen.sections); if (typeof r !== 'string') src = await PDFDocument.load(r.bytes, { ignoreEncryption: true }); }
+        else if (a.gen?.kind === 'boq') {
+          // The Bill of Quantities as the record of the works (Andy, 8 Nov 2026): headings, refs, descriptions and quantities — no prices.
+          const boq = await loadBoqWorks(site.id);
+          if (boq.some((r) => (!r.kind || r.kind === 'item') && String(r.description || '').trim())) {
+            const rows = boq.filter((r) => ['section', 'subsection', 'item', null, ''].includes(r.kind as never) && String(r.description || '').trim());
+            let bytes: Uint8Array | null = null;
+            await exportTablePdf({ title: 'Bill Of Quantities — Works Completed', site: site.name || '', sub: site.name || '', cols: [{ l: 'Ref', w: 60 }, { l: 'Description', w: 330 }, { l: 'Qty', num: true, w: 60 }, { l: 'Unit', w: 50 }],
+              rows: rows.map((r) => (r.kind === 'section' || r.kind === 'subsection' ? ['', String(r.description || ''), null, ''] : [r.ref || '', String(r.description || ''), r.qty != null && Number(r.qty) ? Number(r.qty) : null, r.unit || ''])),
+              boldRows: rows.map((r, i) => (r.kind === 'section' || r.kind === 'subsection' ? i : -1)).filter((i) => i >= 0) }, org, async (b) => { bytes = b; return true; });
+            if (bytes) src = await PDFDocument.load(bytes, { ignoreEncryption: true });
+          }
+        }
         else if (a.gen?.kind === 'report' && a.gen.reportId) {
           const sub = (await supabase.from('report_submissions').select('*').eq('id', a.gen.reportId).maybeSingle()).data as unknown as PdfSub | null;
           const r = sub ? await buildReportPdf(sub, site, org, nameOf) : null; if (r?.bytes.length) src = await PDFDocument.load(r.bytes, { ignoreEncryption: true });
@@ -141,7 +154,7 @@ export async function buildOmPdf(d: OmData, site: Site, org: Organization | null
         } else if (a.path) { const b = await fetchBytes(publicUrl(a.bucket || '', a.path)); if (b) src = await PDFDocument.load(b, { ignoreEncryption: true }); }
         if (src) { (await pdf.copyPages(src, src.getPageIndices())).forEach((pg) => pdf.addPage(pg)); placed = true; }
       } catch { /* listed below */ }
-      if (!placed) notAttached.push(a.name + (a.gen?.kind === 'sow-app' ? ' (no tasks on this job yet)' : ''));
+      if (!placed) notAttached.push(a.name + (a.gen?.kind === 'sow-app' ? ' (no tasks in those sections yet)' : a.gen?.kind === 'boq' ? ' (no Bill of Quantities on this job yet)' : ''));
     }
   }
   // page numbers on the manual's own pages (not the first two, not attached documents)

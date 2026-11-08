@@ -4,13 +4,28 @@
 import { loadSettings } from '@/data/ramsBuilder';
 import { fullSiteAddress } from '@/lib/rules/checkin';
 import { localISODate } from '@/lib/rules/driver';
-import { buildDefaultOm, normalizeOm, syncOmCoshh, syncOmDocs, type OmData, type OmPhoto } from '@/lib/rules/omManual';
+import { boqScope, buildDefaultOm, normalizeOm, sowScope, syncOmCoshh, syncOmDocs, type BoqWork, type OmData, type OmPhoto } from '@/lib/rules/omManual';
 import { supabase } from '@/lib/supabase';
 import type { Organization, Profile, Site } from '@/lib/types';
 
 const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> };
 type Row = Record<string, any>;
 const rows = <T = Row>(r: { data: unknown }) => ((r.data as T[] | null) ?? []);
+
+/** The job's Bill of Quantities as a list of works, no money (site_boq_works; PMs can read it without Finance). */
+export async function loadBoqWorks(siteId: string): Promise<BoqWork[]> {
+  const r = await supabase.rpc('site_boq_works' as never, { p_site: siteId } as never);
+  return ((r.data as BoqWork[] | null) ?? []);
+}
+/** The Scope of Works wording, from the Bill of Quantities or from the Schedule of Works (the O&M's "Fill From" links). */
+export async function scopeFrom(siteId: string, from: 'boq' | 'sow'): Promise<string> {
+  if (from === 'boq') return boqScope(await loadBoqWorks(siteId));
+  const [secs, tasks] = await Promise.all([
+    db.from('schedule_sections').select('id,name').eq('site_id', siteId).order('position'),
+    db.from('schedule_tasks').select('id,name,status,section_id').eq('site_id', siteId).order('position'),
+  ]);
+  return sowScope({ schedSections: rows(secs) as never, tasks: rows(tasks) as never });
+}
 
 export async function jobPhotos(siteId: string): Promise<(OmPhoto & { thumb: string })[]> {
   const tasks = rows<{ id: string; name: string }>(await db.from('schedule_tasks').select('id,name').eq('site_id', siteId));
@@ -31,11 +46,13 @@ async function buildFromJob(me: Profile, org: Organization | null, site: Site): 
     loadSettings(org as never),
     site.responsible_pm_id ? db.from('profiles').select('name,email,phone').eq('id', site.responsible_pm_id).maybeSingle() : Promise.resolve({ data: null }),
   ]);
+  // With Finance, the Bill of Quantities is the record of the work done (Andy, 8 Nov 2026).
+  const boq = (org as (Organization & { has_finance?: boolean }) | null)?.has_finance ? await loadBoqWorks(site.id).catch(() => []) : [];
   const pm = (pmRow.data as { name: string; email: string | null; phone: string | null } | null) ?? { name: me.name, email: me.email ?? null, phone: me.phone ?? null };
   return buildDefaultOm({
     site, address: fullSiteAddress(site) || '', company: org?.name || 'Our company', today: localISODate(new Date()),
     settings: st, pm, myEmail: me.email || '',
-    schedSections: rows(secs) as never, tasks: rows(tasks) as never, docs: rows(docs) as never, coshh: rows(coshh) as never, drawings: rows(drawings) as never, photos,
+    schedSections: rows(secs) as never, tasks: rows(tasks) as never, boq, docs: rows(docs) as never, coshh: rows(coshh) as never, drawings: rows(drawings) as never, photos,
   });
 }
 
@@ -74,7 +91,7 @@ export async function deleteManual(id: string): Promise<boolean> {
   return !!(await db.from('handover_om_manuals').delete().eq('id', id).select('id')).data?.length;
 }
 
-export type OmAttach = { bucket?: string; path?: string; name: string; gen?: { kind: string; reportId?: string } };
+export type OmAttach = { bucket?: string; path?: string; name: string; gen?: { kind: string; reportId?: string; sections?: string[]; doneOnly?: boolean } };
 const coshhName = (n: unknown) => String(n || '').replace(/\.pdf$/i, '').replace(/^COSHH\s*(Assessment)?\s*[—–-]\s*/i, '').replace(/^Data sheet\s*[—–-]\s*/i, '').trim().toLowerCase();
 /** What goes in the back of the PDF, in order: appendix, guarantees, drawings, data sheets & COSHH (857 hoCollectAttachments). */
 export async function collectAttachments(siteId: string, d: OmData): Promise<OmAttach[]> {
@@ -87,7 +104,7 @@ export async function collectAttachments(siteId: string, d: OmData): Promise<OmA
     G[g].push(a);
   };
   const groupOf = (s: OmData['sections'][number]) => (s.type === 'materials' ? 'coshh' : /guarantee|warrant/i.test(s.title || '') ? 'guar' : /drawing|specification/i.test(s.title || '') ? 'draw' : 'app') as keyof typeof G;
-  (d.appendix || []).forEach((e) => { if (e.kind === 'file') add('app', { bucket: e.bucket, path: e.path, name: e.label }); else G.app.push({ gen: { kind: e.kind, reportId: e.reportId }, name: e.label }); });
+  (d.appendix || []).forEach((e) => { if (e.kind === 'file') add('app', { bucket: e.bucket, path: e.path, name: e.label }); else G.app.push({ gen: { kind: e.kind, reportId: e.reportId, sections: e.sections, doneOnly: e.doneOnly }, name: e.label }); });
   d.sections.forEach((s) => { const g = groupOf(s); (s.links || []).forEach((ls) => (ls || []).forEach((l) => {
     if (l.docId) { const x = docs.find((y) => y.id === l.docId); if (x?.storage_path) add(x.kind === 'datasheet' ? 'coshh' : x.kind === 'guarantee' ? 'guar' : g, { bucket: 'mc-documents', path: x.storage_path, name: x.name }); }
     else if (l.path) add(g, { bucket: l.bucket, path: l.path, name: l.name || 'Document' });

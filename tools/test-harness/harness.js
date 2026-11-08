@@ -75,7 +75,7 @@ async function makeContext(browser, role, log, opts){
     if(p.startsWith('/storage/v1/object/public/') && global.__privateBuckets && global.__privateBuckets.includes(p.split('/')[5])){ if(global.__publicHits) global.__publicHits.push(p); return route.fulfill({status:400, contentType:'application/json', body:'{"error":"not found"}'}); }
     if(p.startsWith('/storage/')){ if(m==='GET') return route.fulfill({status:200, contentType:'image/png', body:PNG}); return json({Key:'x'}); }
     if(p.startsWith('/functions/v1/')){ if(global.__fn){ let b={}; try{ b=JSON.parse(req.postData()||'{}'); }catch(e){} const r=global.__fn(p.slice(14), b); if(r) return json(r); } return json({ok:true}); }
-    if(p.startsWith('/rest/v1/rpc/')) return json((p.endsWith('check_device_lock_v2')||p.endsWith('check_and_lock_device'))?{ok:true}:[]);
+    if(p.startsWith('/rest/v1/rpc/')){ if(global.__rpc){ let b={}; try{ b=JSON.parse(req.postData()||'{}'); }catch(e){} const r=global.__rpc(p.slice(13), b); if(r!==undefined) return json(r); } return json((p.endsWith('check_device_lock_v2')||p.endsWith('check_and_lock_device'))?{ok:true}:[]); }
     if(p.startsWith('/rest/v1/')){
       const table = p.slice(9); const sp = u.searchParams;
       // .single() / .maybeSingle() ask for one object (Accept: vnd.pgrst.object): give the first row, or 406 when there is none.

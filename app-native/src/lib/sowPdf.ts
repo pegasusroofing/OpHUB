@@ -34,8 +34,10 @@ export function sowPeriod(key: string, fromIso?: string, toIso?: string): SowPer
   return null;
 }
 
-export async function buildSowPdf(site: Site, org: Organization | null, tab: SowTab, period: SowPeriod, onStatus?: (m: string) => void): Promise<{ bytes: Uint8Array; filename: string } | string> {
-  const all = ((await db.from('schedule_tasks').select('*').eq('site_id', site.id).order('position', { ascending: true, nullsFirst: false }).order('created_at')).data as Task[] | null) ?? [];
+/** onlySections: just these Schedule of Works sections ('' = tasks with no section), e.g. the ones ticked for an O&M manual. */
+export async function buildSowPdf(site: Site, org: Organization | null, tab: SowTab, period: SowPeriod, onStatus?: (m: string) => void, onlySections?: string[] | null): Promise<{ bytes: Uint8Array; filename: string } | string> {
+  let all = ((await db.from('schedule_tasks').select('*').eq('site_id', site.id).order('position', { ascending: true, nullsFirst: false }).order('created_at')).data as Task[] | null) ?? [];
+  if (onlySections?.length) all = all.filter((t) => onlySections.includes((t as { section_id?: string | null }).section_id || ''));
   if (!all.length) return 'No tasks to export yet.';
   let tasks = tab === 'all' ? all : tab === 'done' ? all.filter((t) => t.status === 'done') : all.filter((t) => t.status === 'todo' || t.status === 'progress');
   if (!tasks.length) return `No tasks match the current filter ("${TAB_LABEL[tab]}") to export.`;

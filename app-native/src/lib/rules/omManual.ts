@@ -95,7 +95,36 @@ export type OmSection = {
   id: string; type: 'text' | 'table' | 'materials' | 'maint' | 'photos'; title: string; key?: string;
   body?: string; columns?: string[]; rows?: string[][]; links?: OmLink[][]; items?: OmMaintItem[]; photos?: OmPhoto[];
 };
-export type OmAppendix = { kind: 'file' | 'sow-app' | 'report'; label: string; bucket?: string; path?: string; reportId?: string };
+// sow-app: the Schedule of Works photo report, for the sections ticked (none = all), completed works only if doneOnly.
+// boq: the Bill of Quantities as a list of works, no prices (Andy, 8 Nov 2026).
+export type OmAppendix = { kind: 'file' | 'sow-app' | 'report' | 'boq'; label: string; bucket?: string; path?: string; reportId?: string; sections?: string[]; doneOnly?: boolean };
+/** A Bill of Quantities line without money (the site_boq_works function). */
+export type BoqWork = { id: string; position: number | null; kind: string | null; ref: string | null; section: string | null; description: string | null; qty: number | null; unit: string | null };
+export const boqHasWorks = (b: BoqWork[] | null | undefined) => !!b?.some((r) => (!r.kind || r.kind === 'item') && String(r.description || '').trim());
+const qtyTxt = (q: number | null, u: string | null) => (q != null && Number(q) ? ` (${Number(q).toLocaleString('en-GB', { maximumFractionDigits: 2 })}${u ? ` ${u}` : ''})` : '');
+/** The Scope of Works Completed from the Bill of Quantities (Andy, 8 Nov 2026: with Finance, the BoQ is the record of the work
+ *  done) — under each heading, its items with their quantities. Never prices. */
+export function boqScope(items: BoqWork[]): string {
+  const letters = 'abcdefghijklmnopqrstuvwxyz';
+  let out = '', head: string | null = null, top: string | null = null, rowHead: string | null = null, list: string[] = [];
+  const flush = () => {
+    if (!list.length) return;
+    out += `${head ? `The following works were carried out to ${head}:` : out ? 'Other works:' : 'The following works were carried out:'}\n${list.map((t, i) => `${letters[i % 26]}.  ${t}`).join('\n')}\n\n`;
+    list = [];
+  };
+  items.slice().sort((a, b) => Number(a.position ?? 0) - Number(b.position ?? 0)).forEach((r) => {
+    const d = String(r.description || '').trim();
+    if (r.kind === 'section') { top = d || null; rowHead = top; return; }
+    if (r.kind === 'subsection') { rowHead = top && d ? `${top} — ${d}` : d || top; return; }
+    if (r.kind && r.kind !== 'item') return;
+    if (!d) return;
+    const h = rowHead ?? (String(r.section || '').trim() || null);
+    if (h !== head) { flush(); head = h; }
+    list.push(d + qtyTxt(r.qty, r.unit));
+  });
+  flush();
+  return out.trim();
+}
 export type OmCover = { title?: string; project?: string; address?: string; header?: string; volume?: string; subtitle?: string; revision?: string; date?: string; coverPhoto?: { bucket: string; path: string } | null };
 export type OmData = { cover: OmCover; attach: Record<string, boolean>; appendix: OmAppendix[]; sections: OmSection[]; synced?: Record<string, 1>; syncInit?: 1; syncedCoshh?: Record<string, 1> };
 
@@ -152,12 +181,12 @@ export type OmJob = {
   site: { name?: string | null; client_name?: string | null; job_number?: string | null }; address: string; company: string; today: string;
   settings: { address?: string | null; phone?: string | null }; pm: { name?: string | null; email?: string | null; phone?: string | null } | null; myEmail: string;
   schedSections: { id: string; name: string }[]; tasks: { id: string; name: string; status: string | null; section_id: string | null }[];
+  boq?: BoqWork[];
   docs: { id: string; kind: string; name: string; provider: string | null; ref: string | null; expiry_date: string | null; maintenance: string | null }[];
   coshh: { name: string; storage_path: string | null }[]; drawings: { name: string; uploaded_at: string | null; status: string | null }[]; photos: OmPhoto[];
 };
-/** A new manual built from what's on the job (857 hoBuildDefault). */
-export function buildDefaultOm(j: OmJob): OmData {
-  const { site, company } = j;
+/** The Scope of Works from the Schedule of Works: completed tasks (else all), under their sections. */
+export function sowScope(j: Pick<OmJob, 'schedSections' | 'tasks'>): string {
   const done = j.tasks.filter((t) => t.status === 'done' || t.status === 'completed' || t.status === 'complete');
   const useTasks = done.length ? done : j.tasks;
   const bySec: Record<string, typeof useTasks> = {};
@@ -166,6 +195,14 @@ export function buildDefaultOm(j: OmJob): OmData {
   let scope = '';
   j.schedSections.forEach((sec) => { const ts = bySec[sec.id]; if (!ts?.length) return; scope += `The following works were carried out to ${sec.name}:\n${ts.map((t, i) => `${letters[i % 26]}.  ${t.name}`).join('\n')}\n\n`; });
   if (bySec['']) scope += (scope ? 'Other works:\n' : '') + bySec[''].map((t, i) => `${letters[i % 26]}.  ${t.name}`).join('\n');
+  return scope.trim();
+}
+/** A new manual built from what's on the job (857 hoBuildDefault). */
+export function buildDefaultOm(j: OmJob): OmData {
+  const { site, company } = j;
+  let scope = sowScope(j);
+  // A company with Finance and a Bill of Quantities on the job: the scope comes from the BoQ instead (Andy, 8 Nov 2026).
+  if (boqHasWorks(j.boq)) scope = boqScope(j.boq as BoqWork[]);
   const sheets = j.docs.filter((d) => d.kind === 'datasheet'), guars = j.docs.filter((d) => d.kind === 'guarantee');
   const matRows: string[][] = [], matLinks: OmLink[][] = []; let n = 1;
   sheets.forEach((d) => { matRows.push([String(n++), '', d.name.replace(/\.pdf$/i, ''), d.provider || '']); matLinks.push([{ docId: d.id, name: d.name }]); });
